@@ -56,15 +56,15 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 {
 	std::string encoding = cell->attributes.count(ID::fsm_encoding) ? cell->attributes.at(ID::fsm_encoding).decode_string() : "auto";
 
-	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name.c_str(), module->name.c_str(), encoding.c_str());
+	log("Recoding FSM `%s' from module `%s' using `%s' encoding:\n", cell->name, module->name, encoding);
 
 	if (encoding != "none" && encoding != "user" && encoding != "one-hot" && encoding != "binary" && encoding != "auto") {
-		log("  unknown encoding `%s': using auto instead.\n", encoding.c_str());
+		log("  unknown encoding `%s': using auto instead.\n", encoding);
 		encoding = "auto";
 	}
 
 	if (encoding == "none" || encoding == "user") {
-		log("  nothing to do for encoding `%s'.\n", encoding.c_str());
+		log("  nothing to do for encoding `%s'.\n", encoding);
 		return;
 	}
 
@@ -79,7 +79,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 			encoding = default_encoding;
 		else
 			encoding = GetSize(fsm_data.state_table) < 32 ? "one-hot" : "binary";
-		log("  mapping auto encoding to `%s` for this FSM.\n", encoding.c_str());
+		log("  mapping auto encoding to `%s` for this FSM.\n", encoding);
 	}
 
 	if (encoding == "one-hot") {
@@ -93,7 +93,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		}
 		fsm_data.state_bits = new_num_state_bits;
 	} else
-		log_error("FSM encoding `%s' is not supported!\n", encoding.c_str());
+		log_error("FSM encoding `%s' is not supported!\n", encoding);
 
 	if (encfile)
 		fprintf(encfile, ".fsm %s %s\n", log_id(module), RTLIL::unescape_id(cell->parameters[ID::NAME].decode_string()).c_str());
@@ -106,14 +106,14 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 
 		if (encoding == "one-hot") {
 			new_code = RTLIL::Const(RTLIL::State::Sa, fsm_data.state_bits);
-			new_code.bits()[state_idx] = RTLIL::State::S1;
+			new_code.set(state_idx, RTLIL::State::S1);
 		} else
 		if (encoding == "binary") {
 			new_code = RTLIL::Const(state_idx, fsm_data.state_bits);
 		} else
 			log_abort();
 
-		log("  %s -> %s\n", fsm_data.state_table[i].as_string().c_str(), new_code.as_string().c_str());
+		log("  %s -> %s\n", fsm_data.state_table[i].as_string(), new_code.as_string());
 		if (encfile)
 			fprintf(encfile, ".map %s %s\n", fsm_data.state_table[i].as_string().c_str(), new_code.as_string().c_str());
 		fsm_data.state_table[i] = new_code;
@@ -165,13 +165,13 @@ struct FsmRecodePass : public Pass {
 			if (arg == "-fm_set_fsm_file" && argidx+1 < args.size() && fm_set_fsm_file == NULL) {
 				fm_set_fsm_file = fopen(args[++argidx].c_str(), "w");
 				if (fm_set_fsm_file == NULL)
-					log_error("Can't open fm_set_fsm_file `%s' for writing: %s\n", args[argidx].c_str(), strerror(errno));
+					log_error("Can't open fm_set_fsm_file `%s' for writing: %s\n", args[argidx], strerror(errno));
 				continue;
 			}
 			if (arg == "-encfile" && argidx+1 < args.size() && encfile == NULL) {
 				encfile = fopen(args[++argidx].c_str(), "w");
 				if (encfile == NULL)
-					log_error("Can't open encfile `%s' for writing: %s\n", args[argidx].c_str(), strerror(errno));
+					log_error("Can't open encfile `%s' for writing: %s\n", args[argidx], strerror(errno));
 				continue;
 			}
 			if (arg == "-encoding" && argidx+1 < args.size() && default_encoding.empty()) {

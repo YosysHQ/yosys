@@ -1109,6 +1109,13 @@ parameter IDLE    =  4'd0,
 		  RD_S2   =  4'd12;
 endmodule
 
+module DCS (...);
+input CLK0, CLK1, CLK2, CLK3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+  parameter DCS_MODE = "RISING";  
+endmodule
+
 module DQCE (...);
 input CLKIN;
 input CE;

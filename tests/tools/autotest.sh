@@ -26,7 +26,7 @@ xfirrtl="../xfirrtl"
 abcprog="$toolsdir/../../yosys-abc"
 
 if [ ! -f "$toolsdir/cmp_tbdata" -o "$toolsdir/cmp_tbdata.c" -nt "$toolsdir/cmp_tbdata" ]; then
-	( set -ex; ${CC:-gcc} -Wall -o "$toolsdir/cmp_tbdata" "$toolsdir/cmp_tbdata.c"; ) || exit 1
+	( set -ex; ${CXX:-g++} -Wall -o "$toolsdir/cmp_tbdata" "$toolsdir/cmp_tbdata.c"; ) || exit 1
 fi
 
 while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do

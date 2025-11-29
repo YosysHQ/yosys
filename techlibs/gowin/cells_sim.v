@@ -1959,14 +1959,6 @@ parameter REGULATOR_EN = 1'b0;
 endmodule
 
 (* blackbox *)
-module DCS (CLK0, CLK1, CLK2, CLK3, CLKSEL, SELFORCE, CLKOUT);
-input CLK0, CLK1, CLK2, CLK3, SELFORCE;
-input [3:0] CLKSEL;
-output CLKOUT;
-parameter DCS_MODE = "RISING";
-endmodule
-
-(* blackbox *)
 module EMCU (
   input          FCLK,
   input          PORESETN,

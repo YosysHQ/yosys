@@ -42,7 +42,7 @@ struct ConnwrappersWorker
 		decl_celltypes.insert(key.first);
 
 		if (decls.count(key))
-			log_cmd_error("Duplicate port decl: %s %s\n", celltype.c_str(), portname.c_str());
+			log_cmd_error("Duplicate port decl: %s %s\n", celltype, portname);
 
 		portdecl_t decl;
 		decl.widthparam = RTLIL::escape_id(widthparam);
@@ -57,7 +57,7 @@ struct ConnwrappersWorker
 		decl_celltypes.insert(key.first);
 
 		if (decls.count(key))
-			log_cmd_error("Duplicate port decl: %s %s\n", celltype.c_str(), portname.c_str());
+			log_cmd_error("Duplicate port decl: %s %s\n", celltype, portname);
 
 		portdecl_t decl;
 		decl.widthparam = RTLIL::escape_id(widthparam);

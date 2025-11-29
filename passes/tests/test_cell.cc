@@ -71,6 +71,29 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		cell->setPort(ID::Y, wire);
 	}
 
+	if (cell_type.in(ID($_MUX_), ID($_NMUX_)))
+	{
+		wire = module->addWire(ID::A);
+		wire->width = 1;
+		wire->port_input = true;
+		cell->setPort(ID::A, wire);
+
+		wire = module->addWire(ID::B);
+		wire->width = 1;
+		wire->port_input = true;
+		cell->setPort(ID::B, wire);
+
+		wire = module->addWire(ID::S);
+		wire->width = 1;
+		wire->port_input = true;
+		cell->setPort(ID::S, wire);
+
+		wire = module->addWire(ID::Y);
+		wire->width = 1;
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+	}
+
 	if (cell_type == ID($bmux))
 	{
 		int width = 1 + xorshift32(8 * bloat_factor);
@@ -167,7 +190,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		cell->setPort(ID::CO, wire);
 	}
 
-	if (cell_type == ID($macc))
+	if (cell_type == ID($macc_v2))
 	{
 		Macc macc;
 		int width = 1 + xorshift32(8 * bloat_factor);
@@ -201,6 +224,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 			this_term.do_subtract = xorshift32(2) == 1;
 			macc.terms.push_back(this_term);
 		}
+
 		// Macc::to_cell sets the input ports
 		macc.to_cell(cell);
 
@@ -208,12 +232,6 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
-
-		// override the B input (macc helpers always sets an empty vector)
-		wire = module->addWire(ID::B);
-		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
-		wire->port_input = true;
-		cell->setPort(ID::B, wire);
 	}
 
 	if (cell_type == ID($lut))
@@ -273,19 +291,44 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 
 	if (cell_type_flags.find('A') != std::string::npos) {
 		wire = module->addWire(ID::A);
-		wire->width = 1 + xorshift32(8 * bloat_factor);
+		if (cell_type_flags.find('b') != std::string::npos)
+			wire->width = 1;
+		else
+			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
 		cell->setPort(ID::A, wire);
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
 		wire = module->addWire(ID::B);
-		if (cell_type_flags.find('h') != std::string::npos)
+		if (cell_type_flags.find('b') != std::string::npos)
+			wire->width = 1;
+		else if (cell_type_flags.find('h') != std::string::npos)
 			wire->width = 1 + xorshift32(6 * bloat_factor);
 		else
 			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
 		cell->setPort(ID::B, wire);
+	}
+
+	if (cell_type_flags.find('C') != std::string::npos) {
+		wire = module->addWire(ID::C);
+		if (cell_type_flags.find('b') != std::string::npos)
+			wire->width = 1;
+		else
+			wire->width = 1 + xorshift32(8 * bloat_factor);
+		wire->port_input = true;
+		cell->setPort(ID::C, wire);
+	}
+
+	if (cell_type_flags.find('D') != std::string::npos) {
+		wire = module->addWire(ID::D);
+		if (cell_type_flags.find('b') != std::string::npos)
+			wire->width = 1;
+		else
+			wire->width = 1 + xorshift32(8 * bloat_factor);
+		wire->port_input = true;
+		cell->setPort(ID::D, wire);
 	}
 
 	if (cell_type_flags.find('S') != std::string::npos && xorshift32(2)) {
@@ -304,7 +347,10 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 
 	if (cell_type_flags.find('Y') != std::string::npos) {
 		wire = module->addWire(ID::Y);
-		wire->width = 1 + xorshift32(8 * bloat_factor);
+		if (cell_type_flags.find('b') != std::string::npos)
+			wire->width = 1;
+		else
+			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
 	}
@@ -343,6 +389,58 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire->width = GetSize(cell->getPort(ID::Y));
 		wire->port_output = true;
 		cell->setPort(ID::CO, wire);
+	}
+
+	if (cell_type == ID($slice))
+	{
+		int a_size = GetSize(cell->getPort(ID::A));
+		int y_size = 1;
+		if (a_size > 1)
+			y_size += (xorshift32(8 * bloat_factor) % (a_size - 1));
+		wire = module->addWire(ID::Y);
+		wire->width = y_size;
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+		if (a_size > y_size)
+			cell->setParam(ID::OFFSET, (xorshift32(8 * bloat_factor) % (a_size - y_size)));
+		else
+			cell->setParam(ID::OFFSET, 0);
+	}
+
+	if (cell_type == ID($concat))
+	{
+		wire = module->addWire(ID::Y);
+		wire->width = GetSize(cell->getPort(ID::A)) + GetSize(cell->getPort(ID::B));
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+	}
+
+	if (cell_type == ID($buf))
+	{
+		wire = module->addWire(ID::Y);
+		wire->width = GetSize(cell->getPort(ID::A));
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+	}
+
+	if (cell_type.in(ID($bwmux), ID($bweqx)))
+	{
+		int a_size = GetSize(cell->getPort(ID::A));
+		wire = module->addWire(ID::B);
+		wire->width = a_size;
+		wire->port_input = true;
+		cell->setPort(ID::B, wire);
+		if (cell_type == ID($bwmux))
+		{
+			wire = module->addWire(ID::S);
+			wire->width = a_size;
+			wire->port_input = true;
+			cell->setPort(ID::S, wire);
+		}
+		wire = module->addWire(ID::Y);
+		wire->width = a_size;
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
 	}
 
 	if (constmode)
@@ -493,7 +591,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 	if (vlog_file.is_open())
 	{
-		vlog_file << stringf("\nmodule %s;\n", uut_name.c_str());
+		vlog_file << stringf("\nmodule %s;\n", uut_name);
 
 		for (auto port : gold_mod->ports) {
 			RTLIL::Wire *wire = gold_mod->wire(port);
@@ -503,13 +601,13 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 				vlog_file << stringf("  wire [%d:0] %s_expr, %s_noexpr;\n", GetSize(wire)-1, log_id(wire), log_id(wire));
 		}
 
-		vlog_file << stringf("  %s_expr uut_expr(", uut_name.c_str());
+		vlog_file << stringf("  %s_expr uut_expr(", uut_name);
 		for (int i = 0; i < GetSize(gold_mod->ports); i++)
 			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
 		vlog_file << stringf(");\n");
 
-		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name.c_str());
+		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name);
 		for (int i = 0; i < GetSize(gold_mod->ports); i++)
 			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
@@ -517,12 +615,12 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 		vlog_file << stringf("  task run;\n");
 		vlog_file << stringf("    begin\n");
-		vlog_file << stringf("      $display(\"%s\");\n", uut_name.c_str());
+		vlog_file << stringf("      $display(\"%s\");\n", uut_name);
 	}
 
 	for (int i = 0; i < 64; i++)
 	{
-		log(verbose ? "\n" : ".");
+		log("%s", verbose ? "\n" : ".");
 		gold_ce.clear();
 		gate_ce.clear();
 
@@ -543,15 +641,16 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			if (!gold_wire->port_input)
 				continue;
 
-			RTLIL::Const in_value;
+			RTLIL::Const::Builder in_value_builder(GetSize(gold_wire));
 			for (int i = 0; i < GetSize(gold_wire); i++)
-				in_value.bits().push_back(xorshift32(2) ? State::S1 : State::S0);
+				in_value_builder.push_back(xorshift32(2) ? State::S1 : State::S0);
+			RTLIL::Const in_value = in_value_builder.build();
 
 			if (xorshift32(4) == 0) {
 				int inv_chance = 1 + xorshift32(8);
 				for (int i = 0; i < GetSize(gold_wire); i++)
 					if (xorshift32(inv_chance) == 0)
-						in_value.bits()[i] = RTLIL::Sx;
+						in_value.set(i, RTLIL::Sx);
 			}
 
 			if (verbose)
@@ -564,7 +663,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			gate_ce.set(gate_wire, in_value);
 
 			if (vlog_file.is_open() && GetSize(in_value) > 0) {
-				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string().c_str());
+				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string());
 				if (!vlog_pattern_info.empty())
 					vlog_pattern_info += " ";
 				vlog_pattern_info += stringf("%s=%s", log_id(gold_wire), log_signal(in_value));
@@ -618,13 +717,13 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			if (vlog_file.is_open()) {
 				vlog_file << stringf("      $display(\"[%s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
 						vlog_pattern_info.c_str(), log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
-				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str());
-				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str());
+				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string());
+				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string());
 			}
 		}
 
 		if (verbose)
-			log("EVAL:  %s\n", out_val.as_string().c_str());
+			log("EVAL:  %s\n", out_val.as_string());
 
 		if (!nosat)
 		{
@@ -705,7 +804,9 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 }
 
 struct TestCellPass : public Pass {
-	TestCellPass() : Pass("test_cell", "automatically test the implementation of a cell type") { }
+	TestCellPass() : Pass("test_cell", "automatically test the implementation of a cell type") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -857,7 +958,7 @@ struct TestCellPass : public Pass {
 			if (args[argidx] == "-vlog" && argidx+1 < GetSize(args)) {
 				vlog_file.open(args[++argidx], std::ios_base::trunc);
 				if (!vlog_file.is_open())
-					log_cmd_error("Failed to open output file `%s'.\n", args[argidx].c_str());
+					log_cmd_error("Failed to open output file `%s'.\n", args[argidx]);
 				continue;
 			}
 			if (args[argidx] == "-bloat" && argidx+1 < GetSize(args)) {
@@ -882,6 +983,9 @@ struct TestCellPass : public Pass {
 		cell_types[ID($not)] = "ASY";
 		cell_types[ID($pos)] = "ASY";
 		cell_types[ID($neg)] = "ASY";
+		// $buf is unsupported with techmap -assert
+		if (techmap_cmd.compare("techmap -assert") != 0)
+			cell_types[ID($buf)] = "A";
 
 		cell_types[ID($and)]  = "ABSY";
 		cell_types[ID($or)]   = "ABSY";
@@ -905,8 +1009,14 @@ struct TestCellPass : public Pass {
 		cell_types[ID($le)]  = "ABSY";
 		cell_types[ID($eq)]  = "ABSY";
 		cell_types[ID($ne)]  = "ABSY";
-		// cell_types[ID($eqx)] = "ABSY";
-		// cell_types[ID($nex)] = "ABSY";
+		// $eqx, $nex, and $bweqx don't work in sat, and are unsupported with
+		// 'techmap -assert'
+		if (nosat && techmap_cmd.compare("techmap -assert") != 0)
+		{
+			cell_types[ID($eqx)] = "ABSY";
+			cell_types[ID($nex)] = "ABSY";
+			cell_types[ID($bweqx)] = "A";
+		}
 		cell_types[ID($ge)]  = "ABSY";
 		cell_types[ID($gt)]  = "ABSY";
 
@@ -917,7 +1027,10 @@ struct TestCellPass : public Pass {
 		cell_types[ID($mod)] = "ABSY";
 		cell_types[ID($divfloor)] = "ABSY";
 		cell_types[ID($modfloor)] = "ABSY";
-		// cell_types[ID($pow)] = "ABsY";
+		// $pow doesnt work in sat, not supported with 'techmap -assert', and only
+		// only partially supported with '-simlib'
+		if (nosat && techmap_cmd.compare("aigmap") == 0)
+			cell_types[ID($pow)] = "ABsY";
 
 		cell_types[ID($logic_not)] = "ASY";
 		cell_types[ID($logic_and)] = "ABSY";
@@ -926,24 +1039,47 @@ struct TestCellPass : public Pass {
 		cell_types[ID($mux)] = "*";
 		cell_types[ID($bmux)] = "*";
 		cell_types[ID($demux)] = "*";
-		if (edges) {
+		// $pmux doesn't work in sat, and is not supported with 'techmap -assert' or
+		// '-simlib'
+		if (nosat && techmap_cmd.compare("aigmap") == 0)
 			cell_types[ID($pmux)] = "*";
-		}
+		cell_types[ID($bwmux)] = "A";
 
-		// cell_types[ID($slice)] = "A";
-		// cell_types[ID($concat)] = "A";
+		cell_types[ID($slice)] = "A";
+		cell_types[ID($concat)] = "AB";
 
 		cell_types[ID($lut)] = "*";
 		cell_types[ID($sop)] = "*";
 		cell_types[ID($alu)] = "ABSY";
 		cell_types[ID($lcu)] = "*";
-		cell_types[ID($macc)] = "*";
+		cell_types[ID($macc_v2)] = "*";
 		cell_types[ID($fa)] = "*";
+
+		cell_types[ID($_BUF_)] = "AYb";
+		cell_types[ID($_NOT_)] = "AYb";
+		cell_types[ID($_AND_)] = "ABYb";
+		cell_types[ID($_NAND_)] = "ABYb";
+		cell_types[ID($_OR_)] = "ABYb";
+		cell_types[ID($_NOR_)] = "ABYb";
+		cell_types[ID($_XOR_)] = "ABYb";
+		cell_types[ID($_XNOR_)] = "ABYb";
+		cell_types[ID($_ANDNOT_)] = "ABYb";
+		cell_types[ID($_ORNOT_)] = "ABYb";
+		cell_types[ID($_MUX_)] = "*";
+		cell_types[ID($_NMUX_)] = "*";
+		// wide $_MUX_ cells are not yet implemented
+		// cell_types[ID($_MUX4_)] = "*";
+		// cell_types[ID($_MUX8_)] = "*";
+		// cell_types[ID($_MUX16_)] = "*";
+		cell_types[ID($_AOI3_)] = "ABCYb";
+		cell_types[ID($_OAI3_)] = "ABCYb";
+		cell_types[ID($_AOI4_)] = "ABCDYb";
+		cell_types[ID($_OAI4_)] = "ABCDYb";
 
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx].rfind("-", 0) == 0)
-				log_cmd_error("Unexpected option: %s\n", args[argidx].c_str());
+				log_cmd_error("Unexpected option: %s\n", args[argidx]);
 
 			if (args[argidx] == "all") {
 				for (auto &it : cell_types)
@@ -1007,12 +1143,12 @@ struct TestCellPass : public Pass {
 				else
 					uut = create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
 				if (!write_prefix.empty()) {
-					Pass::call(design, stringf("write_rtlil %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
+					Pass::call(design, stringf("write_rtlil %s_%s_%05d.il", write_prefix, cell_type.c_str()+1, i));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
 				} else {
-					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..", techmap_cmd.c_str()));
+					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..", techmap_cmd));
 					if (!noopt)
 						Pass::call(design, "opt -fast gate");
 					if (!nosat)
@@ -1022,11 +1158,11 @@ struct TestCellPass : public Pass {
 					Pass::call(design, "dump gold");
 					if (!nosat)
 						Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
-					std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1).c_str(), i);
+					std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1), i);
 					if (vlog_file.is_open()) {
-						Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name.c_str(), uut_name.c_str()));
+						Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name, uut_name));
 						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
-						Pass::call(design, stringf("copy gold %s_noexpr; select %s_noexpr", uut_name.c_str(), uut_name.c_str()));
+						Pass::call(design, stringf("copy gold %s_noexpr; select %s_noexpr", uut_name, uut_name));
 						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected -noexpr");
 						uut_names.push_back(uut_name);
 					}
@@ -1049,14 +1185,14 @@ struct TestCellPass : public Pass {
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {
-								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type, num_cells, num_cells_estimate);
 							} else {
 								failed++;
 								if (worst_abs < num_cells - num_cells_estimate) {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", cell_type, num_cells, num_cells_estimate);
 							}
 						}
 					}
@@ -1073,7 +1209,7 @@ struct TestCellPass : public Pass {
 		if (vlog_file.is_open()) {
 			vlog_file << "\nmodule testbench;\n";
 			for (auto &uut : uut_names)
-				vlog_file << stringf("  %s %s ();\n", uut.c_str(), uut.c_str());
+				vlog_file << stringf("  %s %s ();\n", uut, uut);
 			vlog_file << "  initial begin\n";
 			for (auto &uut : uut_names)
 				vlog_file << "    " << uut << ".run;\n";

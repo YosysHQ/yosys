@@ -119,7 +119,7 @@ void SExprWriter::print(SExpr const &sexpr, bool close, bool indent_rest) {
             _pending_nl = true;
         }
     }else
-        log_error("shouldn't happen: SExpr '%s' is neither an atom nor a list", sexpr.to_string().c_str());
+        log_error("shouldn't happen: SExpr '%s' is neither an atom nor a list", sexpr.to_string());
 }
 
 void SExprWriter::close(size_t n) {

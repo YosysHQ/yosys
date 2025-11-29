@@ -36,7 +36,7 @@ The main characteristics are:
    all compilers, standard libraries and architectures.
 
 In addition to ``dict<K, T>`` and ``pool<T>`` there is also an ``idict<K>`` that
-creates a bijective map from ``K`` to the integers. For example:
+creates a bijective map from ``K`` to incrementing integers. For example:
 
 ::
 
@@ -45,9 +45,9 @@ creates a bijective map from ``K`` to the integers. For example:
    log("%d\n", si("world"));      // will print 43
    log("%d\n", si.at("world"));   // will print 43
    log("%d\n", si.at("dummy"));   // will throw exception
-   log("%s\n", si[42].c_str()));  // will print hello
-   log("%s\n", si[43].c_str()));  // will print world
-   log("%s\n", si[44].c_str()));  // will throw exception
+   log("%s\n", si[42]));  // will print hello
+   log("%s\n", si[43]));  // will print world
+   log("%s\n", si[44]));  // will throw exception
 
 It is not possible to remove elements from an idict.
 
@@ -138,7 +138,7 @@ Previously, the interface to implement hashing on custom types was just
 independently and then ad-hoc combined with the hash function with some xorshift
 operations thrown in to mix bits together somewhat. A plugin can stay compatible
 with both versions prior and after the break by implementing both interfaces
-based on the existance and value of `YS_HASHING_VERSION`.
+based on the existance and value of ``YS_HASHING_VERSION``.
 
 .. code-block:: cpp
    :caption: Example hash compatibility wrapper

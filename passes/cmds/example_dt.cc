@@ -21,15 +21,17 @@ struct ExampleWorker
 
 struct ExampleDtPass : public Pass
 {
-	ExampleDtPass() : Pass("example_dt", "drivertools example") {}
+	ExampleDtPass() : Pass("example_dt", "drivertools example") {
+		internal();
+	}
 
-    void help() override
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("TODO: add help message\n");
 		log("\n");
-    }
+	}
 
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -75,7 +77,7 @@ struct ExampleDtPass : public Pass
 			auto enqueue = [&](DriveSpec const &spec) {
 				int index = queue(spec);
 				if (index == GetSize(graph_nodes))
-					graph_nodes.emplace_back(compute_graph.add(ID($pending), index).index());
+					graph_nodes.emplace_back(compute_graph.add(ID($pending).id_string(), index).index());
 				//if (index >= GetSize(graph_nodes))
 				return compute_graph[graph_nodes[index]];
 			};

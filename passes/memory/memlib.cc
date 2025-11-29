@@ -134,7 +134,7 @@ struct Parser {
 		rewrite_filename(filename);
 		infile.open(filename);
 		if (infile.fail()) {
-			log_error("failed to open %s\n", filename.c_str());
+			log_error("failed to open %s\n", filename);
 		}
 		parse();
 		infile.close();
@@ -181,14 +181,14 @@ struct Parser {
 	void eat_token(std::string expected) {
 		std::string token = get_token();
 		if (token != expected) {
-			log_error("%s:%d: expected `%s`, got `%s`.\n", filename.c_str(), line_number, expected.c_str(), token.c_str());
+			log_error("%s:%d: expected `%s`, got `%s`.\n", filename, line_number, expected, token);
 		}
 	}
 
 	IdString get_id() {
 		std::string token = get_token();
 		if (token.empty() || (token[0] != '$' && token[0] != '\\')) {
-			log_error("%s:%d: expected id string, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: expected id string, got `%s`.\n", filename, line_number, token);
 		}
 		return IdString(token);
 	}
@@ -203,14 +203,14 @@ struct Parser {
 			if (!isalnum(c) && c != '_')
 				valid = false;
 		if (!valid)
-			log_error("%s:%d: expected name, got `%s`.\n", filename.c_str(), line_number, res.c_str());
+			log_error("%s:%d: expected name, got `%s`.\n", filename, line_number, res);
 		return res;
 	}
 
 	std::string get_string() {
 		std::string token = get_token();
 		if (token.size() < 2 || token[0] != '"' || token[token.size()-1] != '"') {
-			log_error("%s:%d: expected string, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: expected string, got `%s`.\n", filename, line_number, token);
 		}
 		return token.substr(1, token.size()-2);
 	}
@@ -225,7 +225,7 @@ struct Parser {
 		char *endptr;
 		long res = strtol(token.c_str(), &endptr, 0);
 		if (token.empty() || *endptr || res > INT_MAX) {
-			log_error("%s:%d: expected int, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: expected int, got `%s`.\n", filename, line_number, token);
 		}
 		return res;
 	}
@@ -235,7 +235,7 @@ struct Parser {
 		char *endptr;
 		double res = strtod(token.c_str(), &endptr);
 		if (token.empty() || *endptr) {
-			log_error("%s:%d: expected float, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: expected float, got `%s`.\n", filename, line_number, token);
 		}
 		return res;
 	}
@@ -248,7 +248,7 @@ struct Parser {
 	void get_semi() {
 		std::string token = get_token();
 		if (token != ";") {
-			log_error("%s:%d: expected `;`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: expected `;`, got `%s`.\n", filename, line_number, token);
 		}
 	}
 
@@ -387,7 +387,7 @@ struct Parser {
 			exit_portoption();
 		} else if (token == "clock") {
 			if (port.kind == PortKind::Ar) {
-				log_error("%s:%d: `clock` not allowed in async read port.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `clock` not allowed in async read port.\n", filename, line_number);
 			}
 			ClockDef def;
 			token = get_token();
@@ -398,7 +398,7 @@ struct Parser {
 			} else if (token == "negedge") {
 				def.kind = ClkPolKind::Negedge;
 			} else {
-				log_error("%s:%d: expected `posedge`, `negedge`, or `anyedge`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `posedge`, `negedge`, or `anyedge`, got `%s`.\n", filename, line_number, token);
 			}
 			if (peek_string()) {
 				def.name = get_string();
@@ -407,13 +407,13 @@ struct Parser {
 			add_cap(port.clock, def);
 		} else if (token == "clken") {
 			if (port.kind == PortKind::Ar) {
-				log_error("%s:%d: `clken` not allowed in async read port.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `clken` not allowed in async read port.\n", filename, line_number);
 			}
 			get_semi();
 			add_cap(port.clken, {});
 		} else if (token == "wrbe_separate") {
 			if (port.kind == PortKind::Ar || port.kind == PortKind::Sr) {
-				log_error("%s:%d: `wrbe_separate` not allowed in read port.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `wrbe_separate` not allowed in read port.\n", filename, line_number);
 			}
 			get_semi();
 			add_cap(port.wrbe_separate, {});
@@ -424,14 +424,14 @@ struct Parser {
 			if (token == "tied") {
 				get_token();
 				if (!is_rw)
-					log_error("%s:%d: `tied` only makes sense for read+write ports.\n", filename.c_str(), line_number);
+					log_error("%s:%d: `tied` only makes sense for read+write ports.\n", filename, line_number);
 				while (peek_int())
 					def.wr_widths.push_back(get_int());
 				def.tied = true;
 			} else if (token == "mix") {
 				get_token();
 				if (!is_rw)
-					log_error("%s:%d: `mix` only makes sense for read+write ports.\n", filename.c_str(), line_number);
+					log_error("%s:%d: `mix` only makes sense for read+write ports.\n", filename, line_number);
 				while (peek_int())
 					def.wr_widths.push_back(get_int());
 				def.rd_widths = def.wr_widths;
@@ -439,7 +439,7 @@ struct Parser {
 			} else if (token == "rd") {
 				get_token();
 				if (!is_rw)
-					log_error("%s:%d: `rd` only makes sense for read+write ports.\n", filename.c_str(), line_number);
+					log_error("%s:%d: `rd` only makes sense for read+write ports.\n", filename, line_number);
 				do {
 					def.rd_widths.push_back(get_int());
 				} while (peek_int());
@@ -451,7 +451,7 @@ struct Parser {
 			} else if (token == "wr") {
 				get_token();
 				if (!is_rw)
-					log_error("%s:%d: `wr` only makes sense for read+write ports.\n", filename.c_str(), line_number);
+					log_error("%s:%d: `wr` only makes sense for read+write ports.\n", filename, line_number);
 				do {
 					def.wr_widths.push_back(get_int());
 				} while (peek_int());
@@ -470,12 +470,12 @@ struct Parser {
 			add_cap(port.width, def);
 		} else if (token == "rden") {
 			if (port.kind != PortKind::Sr && port.kind != PortKind::Srsw)
-				log_error("%s:%d: `rden` only allowed on sync read ports.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `rden` only allowed on sync read ports.\n", filename, line_number);
 			get_semi();
 			add_cap(port.rden, {});
 		} else if (token == "rdwr") {
 			if (port.kind != PortKind::Srsw)
-				log_error("%s:%d: `rdwr` only allowed on sync read+write ports.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `rdwr` only allowed on sync read+write ports.\n", filename, line_number);
 			RdWrKind kind;
 			token = get_token();
 			if (token == "undefined") {
@@ -489,13 +489,13 @@ struct Parser {
 			} else if (token == "new_only") {
 				kind = RdWrKind::NewOnly;
 			} else {
-				log_error("%s:%d: expected `undefined`, `new`, `old`, `new_only`, or `no_change`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `undefined`, `new`, `old`, `new_only`, or `no_change`, got `%s`.\n", filename, line_number, token);
 			}
 			get_semi();
 			add_cap(port.rdwr, kind);
 		} else if (token == "rdinit") {
 			if (port.kind != PortKind::Sr && port.kind != PortKind::Srsw)
-				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename, line_number, token);
 			ResetValKind kind;
 			token = get_token();
 			if (token == "none") {
@@ -507,13 +507,13 @@ struct Parser {
 			} else if (token == "no_undef") {
 				kind = ResetValKind::NoUndef;
 			} else {
-				log_error("%s:%d: expected `none`, `zero`, `any`, or `no_undef`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `none`, `zero`, `any`, or `no_undef`, got `%s`.\n", filename, line_number, token);
 			}
 			get_semi();
 			add_cap(port.rdinit, kind);
 		} else if (token == "rdarst") {
 			if (port.kind != PortKind::Sr && port.kind != PortKind::Srsw)
-				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename, line_number, token);
 			ResetValKind kind;
 			token = get_token();
 			if (token == "none") {
@@ -527,13 +527,13 @@ struct Parser {
 			} else if (token == "init") {
 				kind = ResetValKind::Init;
 			} else {
-				log_error("%s:%d: expected `none`, `zero`, `any`, `no_undef`, or `init`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `none`, `zero`, `any`, `no_undef`, or `init`, got `%s`.\n", filename, line_number, token);
 			}
 			get_semi();
 			add_cap(port.rdarst, kind);
 		} else if (token == "rdsrst") {
 			if (port.kind != PortKind::Sr && port.kind != PortKind::Srsw)
-				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename, line_number, token);
 			SrstDef def;
 			token = get_token();
 			if (token == "none") {
@@ -547,7 +547,7 @@ struct Parser {
 			} else if (token == "init") {
 				def.val = ResetValKind::Init;
 			} else {
-				log_error("%s:%d: expected `none`, `zero`, `any`, `no_undef`, or `init`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `none`, `zero`, `any`, `no_undef`, or `init`, got `%s`.\n", filename, line_number, token);
 			}
 			if (def.val == ResetValKind::None) {
 				def.kind = SrstKind::None;
@@ -560,7 +560,7 @@ struct Parser {
 				} else if (token == "gated_rden") {
 					def.kind = SrstKind::GatedRdEn;
 				} else {
-					log_error("%s:%d: expected `ungated`, `gated_clken` or `gated_rden`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+					log_error("%s:%d: expected `ungated`, `gated_clken` or `gated_rden`, got `%s`.\n", filename, line_number, token);
 				}
 			}
 			def.block_wr = false;
@@ -572,14 +572,14 @@ struct Parser {
 			add_cap(port.rdsrst, def);
 		} else if (token == "wrprio") {
 			if (port.kind == PortKind::Ar || port.kind == PortKind::Sr)
-				log_error("%s:%d: `wrprio` only allowed on write ports.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `wrprio` only allowed on write ports.\n", filename, line_number);
 			do {
 				add_cap(port.wrprio, get_string());
 			} while (peek_string());
 			get_semi();
 		} else if (token == "wrtrans") {
 			if (port.kind == PortKind::Ar || port.kind == PortKind::Sr)
-				log_error("%s:%d: `wrtrans` only allowed on write ports.\n", filename.c_str(), line_number);
+				log_error("%s:%d: `wrtrans` only allowed on write ports.\n", filename, line_number);
 			token = peek_token();
 			RawWrTransDef def;
 			if (token == "all") {
@@ -595,7 +595,7 @@ struct Parser {
 			} else if (token == "old") {
 				def.kind = WrTransKind::Old;
 			} else {
-				log_error("%s:%d: expected `new` or `old`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `new` or `old`, got `%s`.\n", filename, line_number, token);
 			}
 			get_semi();
 			add_cap(port.wrtrans, def);
@@ -609,9 +609,9 @@ struct Parser {
 			get_semi();
 			add_cap(port.optional_rw, {});
 		} else if (token == "") {
-			log_error("%s:%d: unexpected EOF while parsing port item.\n", filename.c_str(), line_number);
+			log_error("%s:%d: unexpected EOF while parsing port item.\n", filename, line_number);
 		} else {
-			log_error("%s:%d: unknown port-level item `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: unknown port-level item `%s`.\n", filename, line_number, token);
 		}
 	}
 
@@ -646,14 +646,14 @@ struct Parser {
 		} else if (token == "abits") {
 			int val = get_int();
 			if (val < 0)
-				log_error("%s:%d: abits %d nagative.\n", filename.c_str(), line_number, val);
+				log_error("%s:%d: abits %d nagative.\n", filename, line_number, val);
 			get_semi();
 			add_cap(ram.abits, val);
 		} else if (token == "width") {
 			WidthsDef def;
 			int w = get_int();
 			if (w <= 0)
-				log_error("%s:%d: width %d not positive.\n", filename.c_str(), line_number, w);
+				log_error("%s:%d: width %d not positive.\n", filename, line_number, w);
 			def.widths.push_back(w);
 			def.mode = WidthMode::Single;
 			get_semi();
@@ -664,9 +664,9 @@ struct Parser {
 			do {
 				int w = get_int();
 				if (w <= 0)
-					log_error("%s:%d: width %d not positive.\n", filename.c_str(), line_number, w);
+					log_error("%s:%d: width %d not positive.\n", filename, line_number, w);
 				if (w < last * 2)
-					log_error("%s:%d: width %d smaller than %d required for progression.\n", filename.c_str(), line_number, w, last * 2);
+					log_error("%s:%d: width %d smaller than %d required for progression.\n", filename, line_number, w, last * 2);
 				last = w;
 				def.widths.push_back(w);
 			} while(peek_int());
@@ -676,7 +676,7 @@ struct Parser {
 			} else if (token == "per_port") {
 				def.mode = WidthMode::PerPort;
 			} else {
-				log_error("%s:%d: expected `global`, or `per_port`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `global`, or `per_port`, got `%s`.\n", filename, line_number, token);
 			}
 			get_semi();
 			add_cap(ram.widths, def);
@@ -702,7 +702,7 @@ struct Parser {
 		} else if (token == "byte") {
 			int val = get_int();
 			if (val <= 0)
-				log_error("%s:%d: byte width %d not positive.\n", filename.c_str(), line_number, val);
+				log_error("%s:%d: byte width %d not positive.\n", filename, line_number, val);
 			add_cap(ram.byte, val);
 			get_semi();
 		} else if (token == "init") {
@@ -717,7 +717,7 @@ struct Parser {
 			} else if (token == "none") {
 				kind = MemoryInitKind::None;
 			} else {
-				log_error("%s:%d: expected `zero`, `any`, `none`, or `no_undef`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `zero`, `any`, `none`, or `no_undef`, got `%s`.\n", filename, line_number, token);
 			}
 			get_semi();
 			add_cap(ram.init, kind);
@@ -743,7 +743,7 @@ struct Parser {
 			} else if (token == "srsw") {
 				port.kind = PortKind::Srsw;
 			} else {
-				log_error("%s:%d: expected `ar`, `sr`, `sw`, `arsw`, or `srsw`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `ar`, `sr`, `sw`, `arsw`, or `srsw`, got `%s`.\n", filename, line_number, token);
 			}
 			do {
 				port.names.push_back(get_string());
@@ -752,9 +752,9 @@ struct Parser {
 			if (active)
 				add_cap(ram.ports, port);
 		} else if (token == "") {
-			log_error("%s:%d: unexpected EOF while parsing ram item.\n", filename.c_str(), line_number);
+			log_error("%s:%d: unexpected EOF while parsing ram item.\n", filename, line_number);
 		} else {
-			log_error("%s:%d: unknown ram-level item `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: unknown ram-level item `%s`.\n", filename, line_number, token);
 		}
 	}
 
@@ -787,7 +787,7 @@ struct Parser {
 			} else if (token == "huge") {
 				ram.kind = RamKind::Huge;
 			} else {
-				log_error("%s:%d: expected `distributed`, `block`, or `huge`, got `%s`.\n", filename.c_str(), line_number, token.c_str());
+				log_error("%s:%d: expected `distributed`, `block`, or `huge`, got `%s`.\n", filename, line_number, token);
 			}
 			ram.id = get_id();
 			parse_ram_block();
@@ -795,9 +795,9 @@ struct Parser {
 				compile_ram(orig_line);
 			}
 		} else if (token == "") {
-			log_error("%s:%d: unexpected EOF while parsing top item.\n", filename.c_str(), line_number);
+			log_error("%s:%d: unexpected EOF while parsing top item.\n", filename, line_number);
 		} else {
-			log_error("%s:%d: unknown top-level item `%s`.\n", filename.c_str(), line_number, token.c_str());
+			log_error("%s:%d: unknown top-level item `%s`.\n", filename, line_number, token);
 		}
 	}
 
@@ -816,7 +816,7 @@ struct Parser {
 			if (!opts_ok(cap.portopts, portopts))
 				continue;
 			if (res)
-				log_error("%s:%d: duplicate %s cap.\n", filename.c_str(), line_number, name);
+				log_error("%s:%d: duplicate %s cap.\n", filename, line_number, name);
 			res = &cap.val;
 		}
 		return res;
@@ -855,10 +855,12 @@ struct Parser {
 			PortVariant var;
 			var.options = portopts;
 			var.kind = pdef.kind;
-			if (pdef.kind != PortKind::Ar) {
+			if (pdef.kind == PortKind::Ar) {
+				var.clk_en = false;
+			} else {
 				const ClockDef *cdef = find_single_cap(pdef.clock, cram.options, portopts, "clock");
 				if (!cdef)
-					log_error("%s:%d: missing clock capability.\n", filename.c_str(), orig_line);
+					log_error("%s:%d: missing clock capability.\n", filename, orig_line);
 				var.clk_pol = cdef->kind;
 				if (cdef->name.empty()) {
 					var.clk_shared = -1;
@@ -874,16 +876,16 @@ struct Parser {
 					} else {
 						var.clk_shared = it->second;
 						if (cram.shared_clocks[var.clk_shared].anyedge != anyedge) {
-							log_error("%s:%d: named clock \"%s\" used with both posedge/negedge and anyedge clocks.\n", filename.c_str(), orig_line, cdef->name.c_str());
+							log_error("%s:%d: named clock \"%s\" used with both posedge/negedge and anyedge clocks.\n", filename, orig_line, cdef->name);
 						}
 					}
 				}
-				var.clk_en = find_single_cap(pdef.clken, cram.options, portopts, "clken");
+				var.clk_en = find_single_cap(pdef.clken, cram.options, portopts, "clken") != nullptr;
 			}
 			const PortWidthDef *wdef = find_single_cap(pdef.width, cram.options, portopts, "width");
 			if (wdef) {
 				if (cram.width_mode != WidthMode::PerPort)
-					log_error("%s:%d: per-port width doesn't make sense for tied dbits.\n", filename.c_str(), orig_line);
+					log_error("%s:%d: per-port width doesn't make sense for tied dbits.\n", filename, orig_line);
 				compile_widths(var, cram.dbits, *wdef);
 			} else {
 				var.width_tied = true;
@@ -906,9 +908,9 @@ struct Parser {
 					var.rdsrstmode = srv->kind;
 					var.rdsrst_block_wr = srv->block_wr;
 					if (srv->kind == SrstKind::GatedClkEn && !var.clk_en)
-						log_error("%s:%d: `gated_clken` used without `clken`.\n", filename.c_str(), orig_line);
+						log_error("%s:%d: `gated_clken` used without `clken`.\n", filename, orig_line);
 					if (srv->kind == SrstKind::GatedRdEn && !var.rd_en)
-						log_error("%s:%d: `gated_rden` used without `rden`.\n", filename.c_str(), orig_line);
+						log_error("%s:%d: `gated_rden` used without `rden`.\n", filename, orig_line);
 				} else {
 					var.rdsrstval = ResetValKind::None;
 					var.rdsrstmode = SrstKind::None;
@@ -916,13 +918,13 @@ struct Parser {
 				}
 				if (var.rdarstval == ResetValKind::Init || var.rdsrstval == ResetValKind::Init) {
 					if (var.rdinitval != ResetValKind::Any && var.rdinitval != ResetValKind::NoUndef) {
-						log_error("%s:%d: reset value `init` has to be paired with `any` or `no_undef` initial value.\n", filename.c_str(), orig_line);
+						log_error("%s:%d: reset value `init` has to be paired with `any` or `no_undef` initial value.\n", filename, orig_line);
 					}
 				}
 			}
 			var.wrbe_separate = find_single_cap(pdef.wrbe_separate, cram.options, portopts, "wrbe_separate");
 			if (var.wrbe_separate && cram.byte == 0) {
-				log_error("%s:%d: `wrbe_separate` used without `byte`.\n", filename.c_str(), orig_line);
+				log_error("%s:%d: `wrbe_separate` used without `byte`.\n", filename, orig_line);
 			}
 			for (auto &def: pdef.wrprio) {
 				if (!opts_ok(def.opts, cram.options))
@@ -946,18 +948,18 @@ struct Parser {
 			grp.variants.push_back(var);
 		}
 		if (grp.variants.empty()) {
-			log_error("%s:%d: all port option combinations are forbidden.\n", filename.c_str(), orig_line);
+			log_error("%s:%d: all port option combinations are forbidden.\n", filename, orig_line);
 		}
 		cram.port_groups.push_back(grp);
 	}
 
 	void compile_ram(int orig_line) {
 		if (ram.abits.empty())
-			log_error("%s:%d: `dims` capability should be specified.\n", filename.c_str(), orig_line);
+			log_error("%s:%d: `dims` capability should be specified.\n", filename, orig_line);
 		if (ram.widths.empty())
-			log_error("%s:%d: `widths` capability should be specified.\n", filename.c_str(), orig_line);
+			log_error("%s:%d: `widths` capability should be specified.\n", filename, orig_line);
 		if (ram.ports.empty())
-			log_error("%s:%d: at least one port group should be specified.\n", filename.c_str(), orig_line);
+			log_error("%s:%d: at least one port group should be specified.\n", filename, orig_line);
 		for (auto opts: make_opt_combinations(ram.opts)) {
 			bool forbidden = false;
 			for (auto &fdef: ram.forbid) {
@@ -1001,7 +1003,7 @@ struct Parser {
 			const int *byte = find_single_cap(ram.byte, opts, Options(), "byte");
 			cram.byte = byte ? *byte : 0;
 			if (GetSize(cram.dbits) - 1 > cram.abits)
-				log_error("%s:%d: abits %d too small for dbits progression.\n", filename.c_str(), line_number, cram.abits);
+				log_error("%s:%d: abits %d too small for dbits progression.\n", filename, line_number, cram.abits);
 			validate_byte(widths->widths, cram.byte);
 			const MemoryInitKind *ik = find_single_cap(ram.init, opts, Options(), "init");
 			cram.init = ik ? *ik : MemoryInitKind::None;
@@ -1035,18 +1037,18 @@ struct Parser {
 		if (widths[0] % byte == 0) {
 			for (int j = 1; j < GetSize(widths); j++)
 				if (widths[j] % byte != 0)
-					log_error("%s:%d: width progression past byte width %d is not divisible.\n", filename.c_str(), line_number, byte);
+					log_error("%s:%d: width progression past byte width %d is not divisible.\n", filename, line_number, byte);
 			return;
 		}
 		for (int i = 0; i < GetSize(widths); i++) {
 			if (widths[i] == byte) {
 				for (int j = i + 1; j < GetSize(widths); j++)
 					if (widths[j] % byte != 0)
-						log_error("%s:%d: width progression past byte width %d is not divisible.\n", filename.c_str(), line_number, byte);
+						log_error("%s:%d: width progression past byte width %d is not divisible.\n", filename, line_number, byte);
 				return;
 			}
 		}
-		log_error("%s:%d: byte width %d invalid for dbits.\n", filename.c_str(), line_number, byte);
+		log_error("%s:%d: byte width %d invalid for dbits.\n", filename, line_number, byte);
 	}
 
 	void compile_widths(PortVariant &var, const std::vector<int> &widths, const PortWidthDef &width) {
@@ -1071,13 +1073,13 @@ struct Parser {
 			if (dbits[i] == widths[0]) {
 				for (int j = 0; j < GetSize(widths); j++) {
 					if (i+j >= GetSize(dbits) || dbits[i+j] != widths[j]) {
-						log_error("%s:%d: port width %d doesn't match dbits progression.\n", filename.c_str(), line_number, widths[j]);
+						log_error("%s:%d: port width %d doesn't match dbits progression.\n", filename, line_number, widths[j]);
 					}
 				}
 				return {i, i + GetSize(widths) - 1};
 			}
 		}
-		log_error("%s:%d: port width %d invalid for dbits.\n", filename.c_str(), line_number, widths[0]);
+		log_error("%s:%d: port width %d invalid for dbits.\n", filename, line_number, widths[0]);
 	}
 
 	void parse() {
@@ -1095,7 +1097,7 @@ Library MemLibrary::parse_library(const std::vector<std::string> &filenames, con
 		Parser(file, res, defines, defines_unused);
 	}
 	for (auto def: defines_unused) {
-		log_warning("define %s not used in the library.\n", def.c_str());
+		log_warning("define %s not used in the library.\n", def);
 	}
 	return res;
 }

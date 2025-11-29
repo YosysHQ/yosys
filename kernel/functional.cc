@@ -395,7 +395,7 @@ public:
 					Node y = neg_if(y_flipped, sign(b));
 					return factory.extend(y, y_width, true);
 				} else
-					log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
+					log_error("unhandled cell in CellSimplifier %s\n", cellType);
 			} else {
 				if(cellType.in(ID($mod), ID($modfloor)))
 					return factory.extend(factory.unsigned_mod(a, b), y_width, false);
@@ -458,9 +458,9 @@ public:
 				return factory.value(state);
 			}
 		} else if(cellType == ID($check)) {
-			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", cellName.c_str());
+			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", cellName);
 		} else {
-			log_error("`%s' cells are not supported by the functional backend\n", cellType.c_str());
+			log_error("`%s' cells are not supported by the functional backend\n", cellType);
 		}
 	}
 };
@@ -518,10 +518,13 @@ public:
 			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($check)))
 				queue.emplace_back(cell);
 		}
-		for (auto wire : module->wires()) {
-			if (wire->port_input)
+		// we are relying here on unsorted pools iterating last-in-first-out
+		for (auto riter = module->ports.rbegin(); riter != module->ports.rend(); ++riter) {
+			auto *wire = module->wire(*riter);
+			if (wire && wire->port_input) {
 				factory.add_input(wire->name, ID($input), Sort(wire->width));
-			if (wire->port_output) {
+			}
+			if (wire && wire->port_output) {
 				auto &output = factory.add_output(wire->name, ID($output), Sort(wire->width));
 				output.set_value(enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width))));
 			}
@@ -602,7 +605,7 @@ private:
 			}
 			Node node = handle_memory(mem);
 			factory.update_pending(cell_outputs.at({cell, ID(RD_DATA)}), node);
-		} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+		} else if (cell->is_builtin_ff()) {
 			FfData ff(&ff_initvals, cell);
 			if (!ff.has_gclk)
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
@@ -635,7 +638,7 @@ private:
 			}
 		}
 	}
-	void undriven(const char *name) {
+	void undriven(const std::string& name) {
 		log_error("The design contains an undriven signal %s. This is not supported by the functional backend. "
 			"Call setundef with appropriate options to avoid this error.\n", name);
 	}
@@ -643,7 +646,7 @@ private:
 	void check_undriven(DriveSpec const& spec, std::string const& name) {
 		for(auto const &chunk : spec.chunks())
 			if(chunk.is_none())
-				undriven(name.c_str());
+				undriven(name);
 	}
 public:
 	void process_queue()
@@ -741,7 +744,7 @@ void IR::topological_sort() {
             log_warning("Combinational loop:\n");
             for (int *i = begin; i != end; ++i) {
 				Node node(_graph[*i]);
-                log("- %s = %s\n", RTLIL::unescape_id(node.name()).c_str(), node.to_string().c_str());
+                log("- %s = %s\n", RTLIL::unescape_id(node.name()), node.to_string());
 			}
             log("\n");
             scc = true;
@@ -833,7 +836,7 @@ void Writer::print_impl(const char *fmt, vector<std::function<void()>> &fns)
 				else
 					p = pe;
 				if(index >= fns.size())
-					log_error("invalid format string: index %zu out of bounds (%zu): \"%s\"\n", index, fns.size(), quote_fmt(fmt).c_str());
+					log_error("invalid format string: index %zu out of bounds (%zu): \"%s\"\n", index, fns.size(), quote_fmt(fmt));
 				fns[index]();
 				next_index = index + 1;
 			}
@@ -841,7 +844,7 @@ void Writer::print_impl(const char *fmt, vector<std::function<void()>> &fns)
 		case '}':
 			p++;
 			if(*p != '}')
-				log_error("invalid format string: unescaped }: \"%s\"\n", quote_fmt(fmt).c_str());
+				log_error("invalid format string: unescaped }: \"%s\"\n", quote_fmt(fmt));
 			*os << '}';
 			break;
 		default:

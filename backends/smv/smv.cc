@@ -59,7 +59,7 @@ struct SmvWorker
 	{
 		if (!idcache.count(id))
 		{
-			string name = stringf("_%s", id.c_str());
+			string name = stringf("_%s", id);
 
 			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);
@@ -163,15 +163,15 @@ struct SmvWorker
 		if (width >= 0) {
 			if (is_signed) {
 				if (GetSize(sig) > width)
-					s = stringf("signed(resize(%s, %d))", s.c_str(), width);
+					s = stringf("signed(resize(%s, %d))", s, width);
 				else
-					s = stringf("resize(signed(%s), %d)", s.c_str(), width);
+					s = stringf("resize(signed(%s), %d)", s, width);
 			} else
-				s = stringf("resize(%s, %d)", s.c_str(), width);
+				s = stringf("resize(%s, %d)", s, width);
 		} else if (is_signed)
-			s = stringf("signed(%s)", s.c_str());
+			s = stringf("signed(%s)", s);
 		else if (count_chunks > 1)
-			s = stringf("(%s)", s.c_str());
+			s = stringf("(%s)", s);
 
 		strbuf.push_back(s);
 		return strbuf.back().c_str();
@@ -262,7 +262,7 @@ struct SmvWorker
 				if (cell->type == ID($sshr) && signed_a)
 				{
 					expr_a = rvalue_s(sig_a, width);
-					expr = stringf("resize(unsigned(%s %s %s), %d)", expr_a.c_str(), op.c_str(), rvalue(sig_b.extract(0, shift_b_width)), width_y);
+					expr = stringf("resize(unsigned(%s %s %s), %d)", expr_a, op, rvalue(sig_b.extract(0, shift_b_width)), width_y);
 					if (shift_b_width < GetSize(sig_b))
 						expr = stringf("%s != 0ud%d_0 ? (bool(%s) ? !0ud%d_0 : 0ud%d_0) : %s",
 								rvalue(sig_b.extract(shift_b_width, GetSize(sig_b) - shift_b_width)), GetSize(sig_b) - shift_b_width,
@@ -278,8 +278,8 @@ struct SmvWorker
 //					f << stringf("    %s : unsigned word[%d]; -- neg(%s)\n", b_shl, GetSize(sig_b), log_signal(sig_b));
 					definitions.push_back(stringf("%s := unsigned(-%s);", b_shl, rvalue_s(sig_b)));
 
-					string expr_shl = stringf("resize(%s << %s[%d:0], %d)", expr_a.c_str(), b_shl, shift_b_width-1, width_y);
-					string expr_shr = stringf("resize(%s >> %s[%d:0], %d)", expr_a.c_str(), b_shr, shift_b_width-1, width_y);
+					string expr_shl = stringf("resize(%s << %s[%d:0], %d)", expr_a, b_shl, shift_b_width-1, width_y);
+					string expr_shr = stringf("resize(%s >> %s[%d:0], %d)", expr_a, b_shr, shift_b_width-1, width_y);
 
 					if (shift_b_width < GetSize(sig_b)) {
 						expr_shl = stringf("%s[%d:%d] != 0ud%d_0 ? 0ud%d_0 : %s", b_shl, GetSize(sig_b)-1, shift_b_width,
@@ -288,7 +288,7 @@ struct SmvWorker
 								GetSize(sig_b)-shift_b_width, width_y, expr_shr.c_str());
 					}
 
-					expr = stringf("bool(%s) ? %s : %s", rvalue(sig_b[GetSize(sig_b)-1]), expr_shl.c_str(), expr_shr.c_str());
+					expr = stringf("bool(%s) ? %s : %s", rvalue(sig_b[GetSize(sig_b)-1]), expr_shl, expr_shr);
 				}
 				else
 				{
@@ -297,13 +297,13 @@ struct SmvWorker
 					else
 						expr_a = stringf("resize(unsigned(%s), %d)", rvalue_s(sig_a, width_ay), width);
 
-					expr = stringf("resize(%s %s %s[%d:0], %d)", expr_a.c_str(), op.c_str(), rvalue_u(sig_b), shift_b_width-1, width_y);
+					expr = stringf("resize(%s %s %s[%d:0], %d)", expr_a, op, rvalue_u(sig_b), shift_b_width-1, width_y);
 					if (shift_b_width < GetSize(sig_b))
 						expr = stringf("%s[%d:%d] != 0ud%d_0 ? 0ud%d_0 : %s", rvalue_u(sig_b), GetSize(sig_b)-1, shift_b_width,
 								GetSize(sig_b)-shift_b_width, width_y, expr.c_str());
 				}
 
-				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr.c_str()));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr));
 
 				continue;
 			}
@@ -426,7 +426,7 @@ struct SmvWorker
 				if (cell->type == ID($reduce_or))   expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 				if (cell->type == ID($reduce_bool)) expr = stringf("%s != 0ub%d_0", expr_a, width_a);
 
-				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr, width_y));
 				continue;
 			}
 
@@ -445,7 +445,7 @@ struct SmvWorker
 				if (cell->type == ID($reduce_xnor))
 					expr = "!(" + expr + ")";
 
-				definitions.push_back(stringf("%s := resize(%s, %d);", expr_y, expr.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(%s, %d);", expr_y, expr, width_y));
 				continue;
 			}
 
@@ -463,7 +463,7 @@ struct SmvWorker
 				if (cell->type == ID($logic_and)) expr = expr_a + " & " + expr_b;
 				if (cell->type == ID($logic_or))  expr = expr_a + " | " + expr_b;
 
-				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr, width_y));
 				continue;
 			}
 
@@ -475,7 +475,7 @@ struct SmvWorker
 				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort(ID::A)), width_a);
 				const char *expr_y = lvalue(cell->getPort(ID::Y));
 
-				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a.c_str(), width_y));
+				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a, width_y));
 				continue;
 			}
 
@@ -491,7 +491,7 @@ struct SmvWorker
 					expr += stringf("bool(%s) ? %s : ", rvalue(sig_s[i]), rvalue(sig_b.extract(i*width, width)));
 				expr += rvalue(sig_a);
 
-				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr.c_str()));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr));
 				continue;
 			}
 
@@ -505,7 +505,7 @@ struct SmvWorker
 			if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 			{
 				string op = cell->type == ID($_NOT_) ? "!" : "";
-				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(ID::Y)), op.c_str(), rvalue(cell->getPort(ID::A))));
+				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(ID::Y)), op, rvalue(cell->getPort(ID::A))));
 				continue;
 			}
 
@@ -650,7 +650,7 @@ struct SmvWorker
 					for (int k = GetSize(sig)-1; k >= 0; k--)
 						bits += sig[k] == State::S1 ? '1' : '0';
 
-					expr = stringf("0ub%d_%s", GetSize(bits), bits.c_str()) + expr;
+					expr = stringf("0ub%d_%s", GetSize(bits), bits) + expr;
 				}
 				else if (sigmap(SigBit(wire, i)) == SigBit(wire, i))
 				{
@@ -683,36 +683,36 @@ struct SmvWorker
 				}
 			}
 
-			definitions.push_back(stringf("%s := %s;", cid(wire->name), expr.c_str()));
+			definitions.push_back(stringf("%s := %s;", cid(wire->name), expr));
 		}
 
 		if (!inputvars.empty()) {
 			f << stringf("  IVAR\n");
 			for (const string &line : inputvars)
-				f << stringf("    %s\n", line.c_str());
+				f << stringf("    %s\n", line);
 		}
 
 		if (!vars.empty()) {
 			f << stringf("  VAR\n");
 			for (const string &line : vars)
-				f << stringf("    %s\n", line.c_str());
+				f << stringf("    %s\n", line);
 		}
 
 		if (!definitions.empty()) {
 			f << stringf("  DEFINE\n");
 			for (const string &line : definitions)
-				f << stringf("    %s\n", line.c_str());
+				f << stringf("    %s\n", line);
 		}
 
 		if (!assignments.empty()) {
 			f << stringf("  ASSIGN\n");
 			for (const string &line : assignments)
-				f << stringf("    %s\n", line.c_str());
+				f << stringf("    %s\n", line);
 		}
 
 		if (!invarspecs.empty()) {
 			for (const string &line : invarspecs)
-				f << stringf("  INVARSPEC %s\n", line.c_str());
+				f << stringf("  INVARSPEC %s\n", line);
 		}
 	}
 };
@@ -756,7 +756,7 @@ struct SmvBackend : public Backend {
 			if (args[argidx] == "-tpl" && argidx+1 < args.size()) {
 				template_f.open(args[++argidx]);
 				if (template_f.fail())
-					log_error("Can't open template file `%s'.\n", args[argidx].c_str());
+					log_error("Can't open template file `%s'.\n", args[argidx]);
 				continue;
 			}
 			if (args[argidx] == "-verbose") {
@@ -795,7 +795,7 @@ struct SmvBackend : public Backend {
 						modules.erase(module);
 
 						if (module == nullptr)
-							log_error("Module '%s' not found.\n", stmt[1].c_str());
+							log_error("Module '%s' not found.\n", stmt[1]);
 
 						*f << stringf("-- SMV description generated by %s\n", yosys_maybe_version());
 

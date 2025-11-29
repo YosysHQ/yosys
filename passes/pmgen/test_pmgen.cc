@@ -117,7 +117,9 @@ void opt_eqpmux(test_pmgen_pm &pm)
 }
 
 struct TestPmgenPass : public Pass {
-	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") { }
+	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -236,7 +238,7 @@ struct TestPmgenPass : public Pass {
 		if (pattern == "xilinx_srl.variable")
 			return GENERATE_PATTERN(xilinx_srl_pm, variable);
 
-		log_cmd_error("Unknown pattern: %s\n", pattern.c_str());
+		log_cmd_error("Unknown pattern: %s\n", pattern);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

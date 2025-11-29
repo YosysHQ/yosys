@@ -1,0 +1,32 @@
+read_verilog <<EOT
+module test_module (
+  a,
+  b,
+  x,
+  y
+);
+  input [0:0] a;
+  output [0:0] b;
+  input [1:0] x;
+  output [1:0] y;
+  assign b = a;
+  assign y = x;
+endmodule
+EOT
+proc
+
+splitnets -ports -format __:
+
+select -assert-count 0 w:a;
+select -assert-count 1 w:a_0_;
+select -assert-count 0 w:a_1_;
+select -assert-count 0 w:b;
+select -assert-count 1 w:b_0_;
+select -assert-count 0 w:b_1_;
+
+select -assert-count 0 w:x;
+select -assert-count 1 w:x_0_;
+select -assert-count 1 w:x_1_;
+select -assert-count 0 w:y;
+select -assert-count 1 w:y_0_;
+select -assert-count 1 w:y_1_;

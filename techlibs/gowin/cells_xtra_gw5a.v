@@ -80,19 +80,8 @@ endmodule
 module MIPI_OBUF_A (...);
 output O, OB;
 input  I, IB, IL, MODESEL;
-endmodule
-
-module IBUF_R (...);
-input  I;
-input RTEN;
-output O;
-endmodule
-
-module IOBUF_R (...);
-input I,OEN;
-input RTEN;
-output O;
-inout IO;
+inout IO, IOB;
+input OEN, OENB;
 endmodule
 
 module ELVDS_IOBUF_R (...);
@@ -111,6 +100,21 @@ endmodule
 module TLVDS_IBUF_ADC (...);
 input I, IB;
 input ADCEN;
+endmodule
+
+module MIPI_CPHY_IBUF (...);
+output OH0, OL0, OB0, OH1, OL1, OB1, OH2, OL2, OB2;
+inout IO0, IOB0, IO1, IOB1, IO2, IOB2;
+input  I0, IB0, I1, IB1, I2, IB2;
+input OEN, OENB;
+input HSEN;
+endmodule
+
+module MIPI_CPHY_OBUF (...);
+output O0, OB0, O1, OB1, O2, OB2;
+input  I0, IB0, IL0, I1, IB1, IL1, I2, IB2, IL2;
+inout IO0, IOB0, IO1, IOB1, IO2, IOB2;
+input OEN, OENB, MODESEL, VCOME;
 endmodule
 
 module SDPB (...);
@@ -598,8 +602,8 @@ endmodule
 
 
 module SDP36KE (...);
-parameter ECC_WRITE_EN="FALSE"; 
-parameter ECC_READ_EN="FALSE"; 
+parameter ECC_WRITE_EN="TRUE"; 
+parameter ECC_READ_EN="TRUE"; 
 parameter READ_MODE = 1'b0; 
 parameter BLK_SEL_A = 3'b000;
 parameter BLK_SEL_B = 3'b000;
@@ -763,6 +767,14 @@ output DECCO, SECCO;
 output [7:0] ECCP;
 endmodule
 
+
+module SDP136K (...);
+input CLKA, CLKB;
+input WE, RE;
+input [10:0] ADA, ADB;
+input [67:0] DI;
+output [67:0] DO;
+endmodule
 
 module MULTADDALU12X12 (...);
 parameter A0REG_CLK = "BYPASS"; 
@@ -980,6 +992,24 @@ input  PSEL;
 input  PADDSUB;
 endmodule
 
+module MULTACC (...);
+output  [23:0] DATAO, CASO;
+input CE, CLK;
+input [5:0] COFFIN0, COFFIN1, COFFIN2;
+input [9:0] DATAIN0, DATAIN1;
+input [9:0] DATAIN2;
+input RSTN;
+input [23:0] CASI;
+parameter COFFIN_WIDTH = 4; 
+parameter DATAIN_WIDTH = 8; 
+parameter IREG = 1'b0; 
+parameter OREG = 1'b0; 
+parameter PREG = 1'b0; 
+parameter ACC_EN = "FALSE";  
+parameter CASI_EN = "FALSE"; 
+parameter CASO_EN = "FALSE"; 
+endmodule
+
 module IDDR_MEM (...);
 input D, ICLK, PCLK;
 input [2:0] WADDR;
@@ -1048,6 +1078,12 @@ output  Q0,  Q1;
 endmodule
 
 
+module OSER14 (...);
+input D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13;
+input PCLK, FCLK, RESET;
+output  Q;
+endmodule
+
 module IODELAY (...);
 parameter C_STATIC_DLY = 0; 
 parameter DYN_DLY_EN = "FALSE";
@@ -1066,19 +1102,52 @@ output [31:0] Q;
 input D;
 input PCLK, FCLKP, FCLKN, FCLKQP, FCLKQN;
 input RESET;
-output DF;
-input  SDTAP;
-input  VALUE;
-input  [7:0] DLYSTEP;
-parameter C_STATIC_DLY = 0; 
-parameter DYN_DLY_EN = "FALSE";
-parameter ADAPT_EN = "FALSE";
+output DF0, DF1;
+input  SDTAP0, SDTAP1;
+input  VALUE0,VALUE1;
+input  [7:0] DLYSTEP0,DLYSTEP1;
+parameter C_STATIC_DLY_0 = 0; 
+parameter DYN_DLY_EN_0 = "FALSE";
+parameter ADAPT_EN_0 = "FALSE";
+parameter C_STATIC_DLY_1 = 0; 
+parameter DYN_DLY_EN_1 = "FALSE";
+parameter ADAPT_EN_1 = "FALSE";
+endmodule
+
+module OSIDES64 (...);
+output [63:0] Q;
+input D;
+input PCLK, FCLKP, FCLKN, FCLKQP, FCLKQN;
+input RESET;
+output DF0, DF1, DF2, DF3;
+input  SDTAP0, SDTAP1, SDTAP2, SDTAP3;
+input  VALUE0, VALUE1, VALUE2, VALUE3;
+input  [7:0] DLYSTEP0, DLYSTEP1, DLYSTEP2, DLYSTEP3;
+parameter C_STATIC_DLY_0 = 0; 
+parameter DYN_DLY_EN_0 = "FALSE";
+parameter ADAPT_EN_0 = "FALSE";
+parameter C_STATIC_DLY_1 = 0; 
+parameter DYN_DLY_EN_1 = "FALSE";
+parameter ADAPT_EN_1 = "FALSE";
+parameter C_STATIC_DLY_2 = 0; 
+parameter DYN_DLY_EN_2 = "FALSE";
+parameter ADAPT_EN_2 = "FALSE";
+parameter C_STATIC_DLY_3 = 0; 
+parameter DYN_DLY_EN_3 = "FALSE";
+parameter ADAPT_EN_3 = "FALSE";
 endmodule
 
 module DCE (...);
 input CLKIN;
 input CE;
 output CLKOUT;
+endmodule
+
+module DCS (...);
+input CLKIN0, CLKIN1, CLKIN2, CLKIN3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+parameter DCS_MODE = "RISING";  
 endmodule
 
 module DDRDLL (...);
@@ -1130,6 +1199,17 @@ module OSCA (...);
 parameter  FREQ_DIV = 100; 
 output OSCOUT;
 input OSCEN;
+endmodule
+
+module OSCB (...);
+parameter FREQ_MODE = "25"; 
+parameter FREQ_DIV = 10; 
+parameter DYN_TRIM_EN = "FALSE"; 
+output OSCOUT;
+output OSCREF;
+input OSCEN, FMODE;
+input [7:0] RTRIM;
+input [5:0] RTCTRIM; 
 endmodule
 
 module PLL (...);
@@ -1571,8 +1651,8 @@ input ADWSEL;
 endmodule
 
 module OTP (...);
-parameter MODE = 1'b0; 
-input READ, SHIFT;
+parameter MODE = 2'b01; 
+input CLK, READ, SHIFT;
 output DOUT;
 endmodule
 
@@ -1615,13 +1695,37 @@ input ERR0INJECT,ERR1INJECT;
 input [6:0] ERRINJ0LOC,ERRINJ1LOC;
 endmodule
 
-module ADCLRC (...);
+module CMSERB (...);
+output RUNNING;
+output CRCERR;
+output CRCDONE;
+output ECCCORR;
+output ECCUNCORR; 
+output [12:0] ERRLOC;
+output ECCDEC;
+output DSRRD;
+output DSRWR; 
+output ASRRESET;
+output ASRINC;
+output REFCLK;
+input CLK;
+input [2:0] SEREN;
+input ERR0INJECT,ERR1INJECT;
+input [6:0] ERRINJ0LOC,ERRINJ1LOC;
 endmodule
 
-module ADCULC (...);
+module SAMBA (...);
+parameter MODE = 2'b00; 
+input SPIAD;
+input LOAD;
 endmodule
 
-module ADC (...);
+module LICD (...);
+    parameter   STAGE_NUM = 2'b00;        
+    parameter   ENCDEC_NUM = 2'b00;       
+    parameter   CODE_WIDTH = 2'b00;       
+    parameter   INTERLEAVE_EN = 3'b000;   
+    parameter   INTERLEAVE_MODE = 3'b000;  
 endmodule
 
 module MIPI_DPHY (...);
@@ -1632,6 +1736,7 @@ input  D0LN_HSRX_DREN, D1LN_HSRX_DREN,  D2LN_HSRX_DREN,  D3LN_HSRX_DREN;
 output  DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N,  DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P, DI_LPRXCK_N, DI_LPRXCK_P;
 inout  CK_N, CK_P, D0_N, D0_P, D1_N, D1_P, D2_N, D2_P, D3_N, D3_P;
 input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK,
+     LPTXEN_LN0, LPTXEN_LN1, LPTXEN_LN2, LPTXEN_LN3, LPTXEN_LNCK;
 input PWRON_RX, PWRON_TX, RESET, RX_CLK_1X, TX_CLK_1X;
 input TXDPEN_LN0, TXDPEN_LN1, TXDPEN_LN2, TXDPEN_LN3, TXDPEN_LNCK, TXHCLK_EN;
 input [15:0]  CKLN_HSTXD,D0LN_HSTXD,D1LN_HSTXD,D2LN_HSTXD,D3LN_HSTXD;
@@ -1639,6 +1744,8 @@ input HSTXD_VLD;
 input CK0, CK90, CK180, CK270;
 input DO_LPTX0_N, DO_LPTX1_N, DO_LPTX2_N, DO_LPTX3_N, DO_LPTXCK_N, DO_LPTX0_P, DO_LPTX1_P, DO_LPTX2_P, DO_LPTX3_P, DO_LPTXCK_P;
 input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK, 
+     HSRX_ODTEN_D0, HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3, LPRX_EN_CK,
+     LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3; 
 input RX_DRST_N, TX_DRST_N, WALIGN_DVLD;
 output [7:0] MRDATA;
 input MA_INC, MCLK;
@@ -1714,7 +1821,7 @@ parameter        RX_RD_START_DEPTH              = 5'b00001;
 parameter        RX_SYNC_MODE                   = 1'b0 ; 
 parameter        RX_WORD_ALIGN_BYPASS           = 1'b0 ; 
 parameter        RX_WORD_ALIGN_DATA_VLD_SRC_SEL = 1'b0 ; 
-parameter        RX_WORD_LITTLE_ENDIAN          = 1'b0 ; 
+parameter        RX_WORD_LITTLE_ENDIAN          = 1'b1 ; 
 parameter        TX_BYPASS_MODE                 = 1'b0 ; 
 parameter        TX_BYTECLK_SYNC_MODE           = 1'b0 ; 
 parameter        TX_OCLK_USE_CIBCLK             = 1'b0 ; 
@@ -1917,13 +2024,457 @@ parameter        TEST_P_IMP_LN3                 = 1'b0 ;
 parameter        TEST_P_IMP_LNCK                = 1'b0 ;   
 endmodule
 
+module MIPI_DPHYA (...);
+output RX_CLK_O, TX_CLK_O;
+output [15:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD, D3LN_HSRXD;
+output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
+input  D0LN_HSRX_DREN, D1LN_HSRX_DREN,  D2LN_HSRX_DREN,  D3LN_HSRX_DREN;
+output  DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N,  DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P, DI_LPRXCK_N, DI_LPRXCK_P;
+inout  CK_N, CK_P, D0_N, D0_P, D1_N, D1_P, D2_N, D2_P, D3_N, D3_P;
+input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK,
+     LPTXEN_LN0, LPTXEN_LN1, LPTXEN_LN2, LPTXEN_LN3, LPTXEN_LNCK;
+input PWRON_RX, PWRON_TX, RESET, RX_CLK_1X, TX_CLK_1X;
+input TXDPEN_LN0, TXDPEN_LN1, TXDPEN_LN2, TXDPEN_LN3, TXDPEN_LNCK, TXHCLK_EN;
+input [15:0]  CKLN_HSTXD,D0LN_HSTXD,D1LN_HSTXD,D2LN_HSTXD,D3LN_HSTXD;
+input HSTXD_VLD;
+input CK0, CK90, CK180, CK270;
+input DO_LPTX0_N, DO_LPTX1_N, DO_LPTX2_N, DO_LPTX3_N, DO_LPTXCK_N, DO_LPTX0_P, DO_LPTX1_P, DO_LPTX2_P, DO_LPTX3_P, DO_LPTXCK_P;
+input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK, 
+     HSRX_ODTEN_D0, HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3, LPRX_EN_CK,
+     LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3; 
+input RX_DRST_N, TX_DRST_N, WALIGN_DVLD;
+output [7:0] MRDATA;
+input MA_INC, MCLK;
+input [1:0] MOPCODE;
+input [7:0] MWDATA;
+input SPLL_CKN, SPLL_CKP;
+output  ALPEDO_LANE0, ALPEDO_LANE1, ALPEDO_LANE2, ALPEDO_LANE3, ALPEDO_LANECK;
+output D1LN_DESKEW_DONE,D2LN_DESKEW_DONE,D3LN_DESKEW_DONE,D0LN_DESKEW_DONE;
+output D1LN_DESKEW_ERROR, D2LN_DESKEW_ERROR, D3LN_DESKEW_ERROR, D0LN_DESKEW_ERROR;
+input D0LN_DESKEW_REQ, D1LN_DESKEW_REQ, D2LN_DESKEW_REQ, D3LN_DESKEW_REQ;
+input HSRX_DLYDIR_LANE0, HSRX_DLYDIR_LANE1, HSRX_DLYDIR_LANE2, HSRX_DLYDIR_LANE3, HSRX_DLYDIR_LANECK;
+input HSRX_DLYLDN_LANE0, HSRX_DLYLDN_LANE1, HSRX_DLYLDN_LANE2, HSRX_DLYLDN_LANE3, HSRX_DLYLDN_LANECK;
+input HSRX_DLYMV_LANE0, HSRX_DLYMV_LANE1,  HSRX_DLYMV_LANE2, HSRX_DLYMV_LANE3, HSRX_DLYMV_LANECK;
+input  ALP_EDEN_LANE0, ALP_EDEN_LANE1, ALP_EDEN_LANE2, ALP_EDEN_LANE3, ALP_EDEN_LANECK, ALPEN_LN0, ALPEN_LN1, ALPEN_LN2, ALPEN_LN3, ALPEN_LNCK;
+parameter        TX_PLLCLK = "NONE"; 
+parameter        RX_ALIGN_BYTE                  = 8'b10111000 ; 
+parameter        RX_HS_8BIT_MODE                = 1'b0 ; 
+parameter        RX_LANE_ALIGN_EN               = 1'b0 ; 
+parameter        TX_HS_8BIT_MODE                = 1'b0 ; 
+parameter        HSREG_EN_LN0                   = 1'b0;  
+parameter        HSREG_EN_LN1                   = 1'b0;  
+parameter        HSREG_EN_LN2                   = 1'b0;  
+parameter        HSREG_EN_LN3                   = 1'b0;  
+parameter        HSREG_EN_LNCK                  = 1'b0;  
+parameter        LANE_DIV_SEL                   = 2'b00;  
+parameter        HSRX_EN                        = 1'b1 ;  
+parameter        HSRX_LANESEL                   = 4'b1111 ;   
+parameter        HSRX_LANESEL_CK                = 1'b1 ;   
+parameter        HSTX_EN_LN0                    = 1'b0 ;   
+parameter        HSTX_EN_LN1                    = 1'b0 ;   
+parameter        HSTX_EN_LN2                    = 1'b0 ;   
+parameter        HSTX_EN_LN3                    = 1'b0 ;   
+parameter        HSTX_EN_LNCK                   = 1'b0 ;   
+parameter        LPTX_EN_LN0                    = 1'b1 ;   
+parameter        LPTX_EN_LN1                    = 1'b1 ;   
+parameter        LPTX_EN_LN2                    = 1'b1 ;   
+parameter        LPTX_EN_LN3                    = 1'b1 ;   
+parameter        LPTX_EN_LNCK                   = 1'b1 ;   
+parameter        TXDP_EN_LN0                    = 1'b0 ;  
+parameter        TXDP_EN_LN1                    = 1'b0 ;   
+parameter        TXDP_EN_LN2                    = 1'b0 ;   
+parameter        TXDP_EN_LN3                    = 1'b0 ;   
+parameter        TXDP_EN_LNCK                   = 1'b0 ;
+parameter        SPLL_DIV_SEL                   = 2'b00;
+parameter        DPHY_CK_SEL                    = 2'b01;
+parameter        CKLN_DELAY_EN                  = 1'b0;  
+parameter        CKLN_DELAY_OVR_VAL             = 7'b0000000; 
+parameter        D0LN_DELAY_EN                  = 1'b0;  
+parameter        D0LN_DELAY_OVR_VAL             = 7'b0000000; 
+parameter        D0LN_DESKEW_BYPASS             = 1'b0;  
+parameter        D1LN_DELAY_EN                  = 1'b0;  
+parameter        D1LN_DELAY_OVR_VAL             = 7'b0000000; 
+parameter        D1LN_DESKEW_BYPASS             = 1'b0;  
+parameter        D2LN_DELAY_EN                  = 1'b0;  
+parameter        D2LN_DELAY_OVR_VAL             = 7'b0000000; 
+parameter        D2LN_DESKEW_BYPASS             = 1'b0;  
+parameter        D3LN_DELAY_EN                  = 1'b0;  
+parameter        D3LN_DELAY_OVR_VAL             = 7'b0000000; 
+parameter        D3LN_DESKEW_BYPASS             = 1'b0;  
+parameter        DESKEW_EN_LOW_DELAY            = 1'b0;  
+parameter        DESKEW_EN_ONE_EDGE             = 1'b0;  
+parameter        DESKEW_FAST_LOOP_TIME          = 4'b0000;  
+parameter        DESKEW_FAST_MODE               = 1'b0;  
+parameter        DESKEW_HALF_OPENING            = 6'b010110; 
+parameter        DESKEW_LSB_MODE                = 2'b00;  
+parameter        DESKEW_M                       = 3'b011;  
+parameter        DESKEW_M_TH                    = 13'b0000110100110; 
+parameter        DESKEW_MAX_SETTING           = 7'b0100001; 
+parameter        DESKEW_ONE_CLK_EDGE_EN       = 1'b0 ; 
+parameter        DESKEW_RST_BYPASS              = 1'b0 ; 
+parameter        RX_BYTE_LITTLE_ENDIAN          = 1'b1 ; 
+parameter        RX_CLK_1X_SYNC_SEL             = 1'b0 ; 
+parameter        RX_INVERT                      = 1'b0 ; 
+parameter        RX_ONE_BYTE0_MATCH             = 1'b0 ; 
+parameter        RX_RD_START_DEPTH              = 5'b00001; 
+parameter        RX_SYNC_MODE                   = 1'b0 ; 
+parameter        RX_WORD_ALIGN_BYPASS           = 1'b0 ; 
+parameter        RX_WORD_ALIGN_DATA_VLD_SRC_SEL = 1'b0 ; 
+parameter        RX_WORD_LITTLE_ENDIAN          = 1'b1 ; 
+parameter        TX_BYPASS_MODE                 = 1'b0 ; 
+parameter        TX_BYTECLK_SYNC_MODE           = 1'b0 ; 
+parameter        TX_OCLK_USE_CIBCLK             = 1'b0 ; 
+parameter        TX_RD_START_DEPTH              = 5'b00001; 
+parameter        TX_SYNC_MODE                   = 1'b0 ; 
+parameter        TX_WORD_LITTLE_ENDIAN          = 1'b1 ; 
+parameter        EQ_CS_LANE0                    = 3'b100;  
+parameter        EQ_CS_LANE1                    = 3'b100;  
+parameter        EQ_CS_LANE2                    = 3'b100;  
+parameter        EQ_CS_LANE3                    = 3'b100;  
+parameter        EQ_CS_LANECK                   = 3'b100;  
+parameter        EQ_RS_LANE0                    = 3'b100;  
+parameter        EQ_RS_LANE1                    = 3'b100;  
+parameter        EQ_RS_LANE2                    = 3'b100;  
+parameter        EQ_RS_LANE3                    = 3'b100;  
+parameter        EQ_RS_LANECK                   = 3'b100;  
+parameter        HSCLK_LANE_LN0                 = 1'b0;  
+parameter        HSCLK_LANE_LN1                 = 1'b0;  
+parameter        HSCLK_LANE_LN2                 = 1'b0;  
+parameter        HSCLK_LANE_LN3                 = 1'b0;  
+parameter        HSCLK_LANE_LNCK                = 1'b1;  
+parameter        ALP_ED_EN_LANE0                = 1'b1 ; 
+parameter        ALP_ED_EN_LANE1                = 1'b1 ;  
+parameter        ALP_ED_EN_LANE2                = 1'b1 ;  
+parameter        ALP_ED_EN_LANE3                = 1'b1 ;  
+parameter        ALP_ED_EN_LANECK               = 1'b1 ; 
+parameter        ALP_ED_TST_LANE0               = 1'b0 ;  
+parameter        ALP_ED_TST_LANE1               = 1'b0 ;  
+parameter        ALP_ED_TST_LANE2               = 1'b0 ;  
+parameter        ALP_ED_TST_LANE3               = 1'b0 ;  
+parameter        ALP_ED_TST_LANECK              = 1'b0 ;  
+parameter        ALP_EN_LN0                     = 1'b0 ; 
+parameter        ALP_EN_LN1                     = 1'b0 ;  
+parameter        ALP_EN_LN2                     = 1'b0 ;  
+parameter        ALP_EN_LN3                     = 1'b0 ; 
+parameter        ALP_EN_LNCK                    = 1'b0 ; 
+parameter        ALP_HYS_EN_LANE0               = 1'b1 ;  
+parameter        ALP_HYS_EN_LANE1               = 1'b1 ;  
+parameter        ALP_HYS_EN_LANE2               = 1'b1 ;  
+parameter        ALP_HYS_EN_LANE3               = 1'b1 ;  
+parameter        ALP_HYS_EN_LANECK              = 1'b1 ;  
+parameter        ALP_TH_LANE0                   = 4'b1000 ;   
+parameter        ALP_TH_LANE1                   = 4'b1000 ;   
+parameter        ALP_TH_LANE2                   = 4'b1000 ;   
+parameter        ALP_TH_LANE3                   = 4'b1000 ;   
+parameter        ALP_TH_LANECK                  = 4'b1000 ;   
+parameter        ANA_BYTECLK_PH                 = 2'b00 ;  
+parameter        BIT_REVERSE_LN0                = 1'b0 ;  
+parameter        BIT_REVERSE_LN1                = 1'b0 ;  
+parameter        BIT_REVERSE_LN2                = 1'b0 ;  
+parameter        BIT_REVERSE_LN3                = 1'b0 ;  
+parameter        BIT_REVERSE_LNCK               = 1'b0 ;  
+parameter        BYPASS_TXHCLKEN                = 1'b1 ;  
+parameter        BYPASS_TXHCLKEN_SYNC           = 1'b0 ;  
+parameter        BYTE_CLK_POLAR                 = 1'b0 ;  
+parameter        BYTE_REVERSE_LN0               = 1'b0 ;  
+parameter        BYTE_REVERSE_LN1               = 1'b0 ;  
+parameter        BYTE_REVERSE_LN2               = 1'b0 ;  
+parameter        BYTE_REVERSE_LN3               = 1'b0 ;  
+parameter        BYTE_REVERSE_LNCK              = 1'b0 ;  
+parameter        EN_CLKB1X                      = 1'b1 ;  
+parameter        EQ_PBIAS_LANE0                 = 4'b1000 ;   
+parameter        EQ_PBIAS_LANE1                 = 4'b1000 ;   
+parameter        EQ_PBIAS_LANE2                 = 4'b1000 ;   
+parameter        EQ_PBIAS_LANE3                 = 4'b1000 ;   
+parameter        EQ_PBIAS_LANECK                = 4'b1000 ;   
+parameter        EQ_ZLD_LANE0                   = 4'b1000 ;   
+parameter        EQ_ZLD_LANE1                   = 4'b1000 ;   
+parameter        EQ_ZLD_LANE2                   = 4'b1000 ;   
+parameter        EQ_ZLD_LANE3                   = 4'b1000 ;   
+parameter        EQ_ZLD_LANECK                  = 4'b1000 ;   
+parameter        HIGH_BW_LANE0                  = 1'b1 ;   
+parameter        HIGH_BW_LANE1                  = 1'b1 ;   
+parameter        HIGH_BW_LANE2                  = 1'b1 ;   
+parameter        HIGH_BW_LANE3                  = 1'b1 ;   
+parameter        HIGH_BW_LANECK                 = 1'b1 ;   
+parameter        HSREG_VREF_CTL                 = 3'b100 ;   
+parameter        HSREG_VREF_EN                  = 1'b1 ;  
+parameter        HSRX_DLY_CTL_CK                = 7'b0000000 ;   
+parameter        HSRX_DLY_CTL_LANE0             = 7'b0000000 ;   
+parameter        HSRX_DLY_CTL_LANE1             = 7'b0000000 ;   
+parameter        HSRX_DLY_CTL_LANE2             = 7'b0000000 ;   
+parameter        HSRX_DLY_CTL_LANE3             = 7'b0000000 ;   
+parameter        HSRX_DLY_SEL_LANE0             = 1'b0 ;  
+parameter        HSRX_DLY_SEL_LANE1             = 1'b0 ;   
+parameter        HSRX_DLY_SEL_LANE2             = 1'b0 ;   
+parameter        HSRX_DLY_SEL_LANE3             = 1'b0 ;   
+parameter        HSRX_DLY_SEL_LANECK            = 1'b0 ;   
+parameter        HSRX_DUTY_LANE0                = 4'b1000 ;  
+parameter        HSRX_DUTY_LANE1                = 4'b1000 ;  
+parameter        HSRX_DUTY_LANE2                = 4'b1000 ;  
+parameter        HSRX_DUTY_LANE3                = 4'b1000 ;  
+parameter        HSRX_DUTY_LANECK               = 4'b1000 ;  
+parameter        HSRX_EQ_EN_LANE0               = 1'b1 ;  
+parameter        HSRX_EQ_EN_LANE1               = 1'b1 ;  
+parameter        HSRX_EQ_EN_LANE2               = 1'b1 ;  
+parameter        HSRX_EQ_EN_LANE3               = 1'b1 ;  
+parameter        HSRX_EQ_EN_LANECK              = 1'b1 ;  
+parameter        HSRX_IBIAS                     = 4'b0011 ;   
+parameter        HSRX_IBIAS_TEST_EN             = 1'b0 ;   
+parameter        HSRX_IMARG_EN                  = 1'b0 ;   
+parameter        HSRX_ODT_EN                    = 1'b1 ;   
+parameter        HSRX_ODT_TST                   = 4'b0000 ;   
+parameter        HSRX_ODT_TST_CK                = 1'b0 ;   
+parameter        HSRX_SEL                       = 4'b0000 ;   
+parameter        HSRX_STOP_EN                   = 1'b0 ; 
+parameter        HSRX_TST                       = 4'b0000 ;   
+parameter        HSRX_TST_CK                    = 1'b0 ;   
+parameter        HSRX_WAIT4EDGE                 = 1'b1 ;   
+parameter        HYST_NCTL                      = 2'b01 ;  
+parameter        HYST_PCTL                      = 2'b01 ;  
+parameter        IBIAS_TEST_EN                  = 1'b0 ;   
+parameter        LB_CH_SEL                      = 1'b0 ;   
+parameter        LB_EN_LN0                      = 1'b0 ;   
+parameter        LB_EN_LN1                      = 1'b0 ;   
+parameter        LB_EN_LN2                      = 1'b0 ;   
+parameter        LB_EN_LN3                      = 1'b0 ;   
+parameter        LB_EN_LNCK                     = 1'b0 ;   
+parameter        LB_POLAR_LN0                   = 1'b0 ;   
+parameter        LB_POLAR_LN1                   = 1'b0 ;   
+parameter        LB_POLAR_LN2                   = 1'b0 ;   
+parameter        LB_POLAR_LN3                   = 1'b0 ;   
+parameter        LB_POLAR_LNCK                  = 1'b0 ;   
+parameter        LOW_LPRX_VTH                   = 1'b0 ;   
+parameter        LPBK_DATA2TO1                  = 4'b0000;  
+parameter        LPBK_DATA2TO1_CK               = 1'b0 ;   
+parameter        LPBK_EN                        = 1'b0 ;   
+parameter        LPBK_SEL                       = 4'b0000;  
+parameter        LPBKTST_EN                     = 4'b0000;  
+parameter        LPBKTST_EN_CK                  = 1'b0 ;   
+parameter        LPRX_EN                        = 1'b1 ;   
+parameter        LPRX_TST                       = 4'b0000;  
+parameter        LPRX_TST_CK                    = 1'b0 ;   
+parameter        LPTX_DAT_POLAR_LN0             = 1'b0 ;   
+parameter        LPTX_DAT_POLAR_LN1             = 1'b0 ;   
+parameter        LPTX_DAT_POLAR_LN2             = 1'b0 ;   
+parameter        LPTX_DAT_POLAR_LN3             = 1'b0 ;   
+parameter        LPTX_DAT_POLAR_LNCK            = 1'b0 ;   
+parameter        LPTX_NIMP_LN0                  = 3'b100 ; 
+parameter        LPTX_NIMP_LN1                  = 3'b100 ; 
+parameter        LPTX_NIMP_LN2                  = 3'b100 ; 
+parameter        LPTX_NIMP_LN3                  = 3'b100 ; 
+parameter        LPTX_NIMP_LNCK                 = 3'b100 ; 
+parameter        LPTX_PIMP_LN0                  = 3'b100 ; 
+parameter        LPTX_PIMP_LN1                  = 3'b100 ; 
+parameter        LPTX_PIMP_LN2                  = 3'b100 ; 
+parameter        LPTX_PIMP_LN3                  = 3'b100 ; 
+parameter        LPTX_PIMP_LNCK                 = 3'b100 ; 
+parameter        MIPI_PMA_DIS_N                 = 1'b1 ;   
+parameter        PGA_BIAS_LANE0                 = 4'b1000 ;   
+parameter        PGA_BIAS_LANE1                 = 4'b1000 ;   
+parameter        PGA_BIAS_LANE2                 = 4'b1000 ;   
+parameter        PGA_BIAS_LANE3                 = 4'b1000 ;   
+parameter        PGA_BIAS_LANECK                = 4'b1000 ;   
+parameter        PGA_GAIN_LANE0                 = 4'b1000 ;   
+parameter        PGA_GAIN_LANE1                 = 4'b1000 ;   
+parameter        PGA_GAIN_LANE2                 = 4'b1000 ;   
+parameter        PGA_GAIN_LANE3                 = 4'b1000 ;   
+parameter        PGA_GAIN_LANECK                = 4'b1000 ;   
+parameter        RX_ODT_TRIM_LANE0              = 4'b1000 ;   
+parameter        RX_ODT_TRIM_LANE1              = 4'b1000 ;   
+parameter        RX_ODT_TRIM_LANE2              = 4'b1000 ;   
+parameter        RX_ODT_TRIM_LANE3              = 4'b1000 ;   
+parameter        RX_ODT_TRIM_LANECK             = 4'b1000 ;   
+parameter        SLEWN_CTL_LN0                  = 4'b1111 ;  
+parameter        SLEWN_CTL_LN1                  = 4'b1111 ;   
+parameter        SLEWN_CTL_LN2                  = 4'b1111 ;   
+parameter        SLEWN_CTL_LN3                  = 4'b1111 ;   
+parameter        SLEWN_CTL_LNCK                 = 4'b1111 ;   
+parameter        SLEWP_CTL_LN0                  = 4'b1111 ;   
+parameter        SLEWP_CTL_LN1                  = 4'b1111 ;   
+parameter        SLEWP_CTL_LN2                  = 4'b1111 ;   
+parameter        SLEWP_CTL_LN3                  = 4'b1111 ;   
+parameter        SLEWP_CTL_LNCK                 = 4'b1111 ;   
+parameter        STP_UNIT                       = 2'b01 ;  
+parameter        TERMN_CTL_LN0                  = 4'b1000 ;   
+parameter        TERMN_CTL_LN1                  = 4'b1000 ;   
+parameter        TERMN_CTL_LN2                  = 4'b1000 ;   
+parameter        TERMN_CTL_LN3                  = 4'b1000 ;   
+parameter        TERMN_CTL_LNCK                 = 4'b1000 ;   
+parameter        TERMP_CTL_LN0                  = 4'b1000 ;   
+parameter        TERMP_CTL_LN1                  = 4'b1000 ;   
+parameter        TERMP_CTL_LN2                  = 4'b1000 ;   
+parameter        TERMP_CTL_LN3                  = 4'b1000 ;   
+parameter        TERMP_CTL_LNCK                 = 4'b1000 ;   
+parameter        TEST_EN_LN0                    = 1'b0 ;   
+parameter        TEST_EN_LN1                    = 1'b0 ;   
+parameter        TEST_EN_LN2                    = 1'b0 ;   
+parameter        TEST_EN_LN3                    = 1'b0 ;   
+parameter        TEST_EN_LNCK                   = 1'b0 ;   
+parameter        TEST_N_IMP_LN0                 = 1'b0 ;   
+parameter        TEST_N_IMP_LN1                 = 1'b0 ;   
+parameter        TEST_N_IMP_LN2                 = 1'b0 ;   
+parameter        TEST_N_IMP_LN3                 = 1'b0 ;   
+parameter        TEST_N_IMP_LNCK                = 1'b0 ;   
+parameter        TEST_P_IMP_LN0                 = 1'b0 ;   
+parameter        TEST_P_IMP_LN1                 = 1'b0 ;   
+parameter        TEST_P_IMP_LN2                 = 1'b0 ;   
+parameter        TEST_P_IMP_LN3                 = 1'b0 ;   
+parameter        TEST_P_IMP_LNCK                = 1'b0 ;   
+endmodule
+
+module MIPI_CPHY (...);
+output [41:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD;
+output D0LN_HSRXD_VLD, D1LN_HSRXD_VLD, D2LN_HSRXD_VLD;
+output [1:0] D0LN_HSRX_DEMAP_INVLD, D1LN_HSRX_DEMAP_INVLD, D2LN_HSRX_DEMAP_INVLD;
+output D0LN_HSRX_FIFO_RDE_ERR, D0LN_HSRX_FIFO_WRF_ERR, D1LN_HSRX_FIFO_RDE_ERR, D1LN_HSRX_FIFO_WRF_ERR, D2LN_HSRX_FIFO_RDE_ERR, D2LN_HSRX_FIFO_WRF_ERR;
+output [1:0] D0LN_HSRX_WA, D1LN_HSRX_WA, D2LN_HSRX_WA;
+output D0LN_RX_CLK_1X_O, D1LN_RX_CLK_1X_O, D2LN_RX_CLK_1X_O;   
+output HSTX_FIFO_AE, HSTX_FIFO_AF;
+output HSTX_FIFO_RDE_ERR, HSTX_FIFO_WRF_ERR;
+output RX_CLK_MUXED;
+output TX_CLK_1X_O;
+output DI_LPRX0_A, DI_LPRX0_B, DI_LPRX0_C, DI_LPRX1_A, DI_LPRX1_B, DI_LPRX1_C, DI_LPRX2_A, DI_LPRX2_B, DI_LPRX2_C;
+output [7:0] MDRP_RDATA; 
+inout  D0A, D0B, D0C, D1A, D1B, D1C, D2A, D2B, D2C;
+input  D0LN_HSRX_EN, D0LN_HSTX_EN, D1LN_HSRX_EN, D1LN_HSTX_EN, D2LN_HSRX_EN, D2LN_HSTX_EN;
+input  [41:0] D0LN_HSTX_DATA,D1LN_HSTX_DATA, D2LN_HSTX_DATA;
+input  D0LN_HSTX_DATA_VLD, D1LN_HSTX_DATA_VLD, D2LN_HSTX_DATA_VLD;
+input  [1:0] D0LN_HSTX_MAP_DIS, D1LN_HSTX_MAP_DIS, D2LN_HSTX_MAP_DIS;
+input  D0LN_RX_CLK_1X_I,D1LN_RX_CLK_1X_I, D2LN_RX_CLK_1X_I;
+input  D0LN_RX_DRST_N, D0LN_TX_DRST_N, D1LN_RX_DRST_N, D1LN_TX_DRST_N, D2LN_RX_DRST_N, D2LN_TX_DRST_N;
+input  HSTX_ENLN0, HSTX_ENLN1, HSTX_ENLN2, LPTX_ENLN0, LPTX_ENLN1, LPTX_ENLN2;
+input  [7:0] MDRP_A_D_I;
+input  MDRP_A_INC_I;
+input  MDRP_CLK_I;
+input  [1:0] MDRP_OPCODE_I;
+input  PWRON_RX_LN0, PWRON_RX_LN1, PWRON_RX_LN2, PWRON_TX;
+input  ARST_RXLN0, ARST_RXLN1, ARST_RXLN2; 
+input  ARSTN_TX;
+input  RX_CLK_EN_LN0, RX_CLK_EN_LN1, RX_CLK_EN_LN2; 
+input  TX_CLK_1X_I;
+input  TXDP_ENLN0, TXDP_ENLN1, TXDP_ENLN2; 
+input  TXHCLK_EN; 
+input  DO_LPTX_A_LN0, DO_LPTX_A_LN1, DO_LPTX_A_LN2, DO_LPTX_B_LN0, DO_LPTX_B_LN1, DO_LPTX_B_LN2, DO_LPTX_C_LN0, DO_LPTX_C_LN1, DO_LPTX_C_LN2;
+input  GPLL_CK0,GPLL_CK90, GPLL_CK180, GPLL_CK270;
+input  HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2; 
+input  HSRX_ODT_EN_D0, HSRX_ODT_EN_D1, HSRX_ODT_EN_D2;
+input  LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2; 
+input  SPLL0_CKN, SPLL0_CKP, SPLL1_CKN, SPLL1_CKP;
+parameter TX_PLLCLK = "NONE"; 
+parameter D0LN_HS_TX_EN = 1'b1; 
+parameter D1LN_HS_TX_EN = 1'b1;
+parameter D2LN_HS_TX_EN = 1'b1;
+parameter D0LN_HS_RX_EN = 1'b1; 
+parameter D1LN_HS_RX_EN = 1'b1;
+parameter D2LN_HS_RX_EN = 1'b1;
+parameter TX_HS_21BIT_MODE = 1'b0; 
+parameter RX_OUTCLK_SEL = 2'b00; 
+parameter TX_W_LENDIAN = 1'b1; 
+parameter CLK_SEL = 2'b00; 
+parameter LNDIV_RATIO = 4'b0000; 
+parameter LNDIV_EN = 1'b0; 
+parameter D0LN_TX_REASGN_A = 2'b00; 
+parameter D0LN_TX_REASGN_B = 2'b01; 
+parameter D0LN_TX_REASGN_C = 2'b10; 
+parameter D0LN_RX_HS_21BIT_MODE = 1'b0; 
+parameter D0LN_RX_WA_SYNC_PAT0_EN = 1'b1;  
+parameter D0LN_RX_WA_SYNC_PAT0_H = 7'b1001001;  
+parameter D0LN_RX_WA_SYNC_PAT0_L = 8'b00100100;  
+parameter D0LN_RX_WA_SYNC_PAT1_EN = 1'b1;  
+parameter D0LN_RX_WA_SYNC_PAT1_H = 7'b0101001;  
+parameter D0LN_RX_WA_SYNC_PAT1_L = 8'b00100100;  
+parameter D0LN_RX_WA_SYNC_PAT2_EN = 1'b1;  
+parameter D0LN_RX_WA_SYNC_PAT2_H = 7'b0011001;  
+parameter D0LN_RX_WA_SYNC_PAT2_L = 8'b00100100;  
+parameter D0LN_RX_WA_SYNC_PAT3_EN = 1'b0;  
+parameter D0LN_RX_WA_SYNC_PAT3_H = 7'b0001001;  
+parameter D0LN_RX_WA_SYNC_PAT3_L = 8'b00100100;  
+parameter D0LN_RX_W_LENDIAN = 1'b1;  
+parameter D0LN_RX_REASGN_A = 2'b00; 
+parameter D0LN_RX_REASGN_B = 2'b01; 
+parameter D0LN_RX_REASGN_C = 2'b10; 
+parameter HSRX_LNSEL = 3'b111; 
+parameter EQ_RS_LN0 = 3'b001; 
+parameter EQ_CS_LN0 = 3'b101; 
+parameter PGA_GAIN_LN0 = 4'b0110; 
+parameter PGA_BIAS_LN0 = 4'b1000; 
+parameter EQ_PBIAS_LN0 = 4'b0100; 
+parameter EQ_ZLD_LN0 = 4'b1000; 
+parameter D1LN_TX_REASGN_A = 2'b00; 
+parameter D1LN_TX_REASGN_B = 2'b01; 
+parameter D1LN_TX_REASGN_C = 2'b10; 
+parameter D1LN_RX_HS_21BIT_MODE = 1'b0; 
+parameter D1LN_RX_WA_SYNC_PAT0_EN = 1'b1;  
+parameter D1LN_RX_WA_SYNC_PAT0_H = 7'b1001001;  
+parameter D1LN_RX_WA_SYNC_PAT0_L = 8'b00100100;  
+parameter D1LN_RX_WA_SYNC_PAT1_EN = 1'b1;  
+parameter D1LN_RX_WA_SYNC_PAT1_H = 7'b0101001;  
+parameter D1LN_RX_WA_SYNC_PAT1_L = 8'b00100100;  
+parameter D1LN_RX_WA_SYNC_PAT2_EN = 1'b1;  
+parameter D1LN_RX_WA_SYNC_PAT2_H = 7'b0011001;  
+parameter D1LN_RX_WA_SYNC_PAT2_L = 8'b00100100;  
+parameter D1LN_RX_WA_SYNC_PAT3_EN = 1'b0;  
+parameter D1LN_RX_WA_SYNC_PAT3_H = 7'b0001001;  
+parameter D1LN_RX_WA_SYNC_PAT3_L = 8'b00100100;  
+parameter D1LN_RX_W_LENDIAN = 1'b1;  
+parameter D1LN_RX_REASGN_A = 2'b00; 
+parameter D1LN_RX_REASGN_B = 2'b01; 
+parameter D1LN_RX_REASGN_C = 2'b10; 
+parameter EQ_RS_LN1 = 3'b001; 
+parameter EQ_CS_LN1 = 3'b101; 
+parameter PGA_GAIN_LN1 = 4'b0110; 
+parameter PGA_BIAS_LN1 = 4'b1000; 
+parameter EQ_PBIAS_LN1 = 4'b0100; 
+parameter EQ_ZLD_LN1 = 4'b1000; 
+parameter D2LN_TX_REASGN_A = 2'b00; 
+parameter D2LN_TX_REASGN_B = 2'b01; 
+parameter D2LN_TX_REASGN_C = 2'b10; 
+parameter D2LN_RX_HS_21BIT_MODE = 1'b0; 
+parameter D2LN_RX_WA_SYNC_PAT0_EN = 1'b1;  
+parameter D2LN_RX_WA_SYNC_PAT0_H = 7'b1001001;  
+parameter D2LN_RX_WA_SYNC_PAT0_L = 8'b00100100;  
+parameter D2LN_RX_WA_SYNC_PAT1_EN = 1'b1;  
+parameter D2LN_RX_WA_SYNC_PAT1_H = 7'b0101001;  
+parameter D2LN_RX_WA_SYNC_PAT1_L = 8'b00100100;  
+parameter D2LN_RX_WA_SYNC_PAT2_EN = 1'b1;  
+parameter D2LN_RX_WA_SYNC_PAT2_H = 7'b0011001;  
+parameter D2LN_RX_WA_SYNC_PAT2_L = 8'b00100100;  
+parameter D2LN_RX_WA_SYNC_PAT3_EN = 1'b0;  
+parameter D2LN_RX_WA_SYNC_PAT3_H = 7'b0001001;  
+parameter D2LN_RX_WA_SYNC_PAT3_L = 8'b00100100;  
+parameter D2LN_RX_W_LENDIAN = 1'b1;  
+parameter D2LN_RX_REASGN_A = 2'b00; 
+parameter D2LN_RX_REASGN_B = 2'b01; 
+parameter D2LN_RX_REASGN_C = 2'b10; 
+parameter EQ_RS_LN2 = 3'b001; 
+parameter EQ_CS_LN2 = 3'b101; 
+parameter PGA_GAIN_LN2 = 4'b0110; 
+parameter PGA_BIAS_LN2 = 4'b1000; 
+parameter EQ_PBIAS_LN2 = 4'b0100; 
+parameter EQ_ZLD_LN2 = 4'b1000; 
+endmodule
+
 module GTR12_QUAD (...);
+    parameter POSITION = "Q0";
 endmodule
 
 module GTR12_UPAR (...);
 endmodule
 
 module GTR12_PMAC (...);
+endmodule
+
+module GTR12_QUADA (...);
+endmodule
+
+module GTR12_UPARA (...);
+endmodule
+
+module GTR12_PMACA (...);
+endmodule
+
+module GTR12_QUADB (...);
 endmodule
 
 module DQS (...);
@@ -1940,5 +2491,267 @@ parameter FIFO_MODE_SEL = 1'b0;
 parameter RD_PNTR = 3'b000; 
 parameter DQS_MODE = "X1"; 
 parameter HWL = "false";   
+endmodule
+
+// Added form adc.v
+
+/********ADC***********/
+//ADC for LRC,GW5AT-138K
+module ADCLRC (
+//Voltage signal source, /mV
+  input  ADCINBK2A,       //input from bank2 IO, adc_in_b is the reference
+  input  ADCINBK2B,       //input from bank2 IO, adc_in_b is the reference
+  input  ADCINBK3A,       //input from bank3 IO, adc_in_b is the reference
+  input  ADCINBK3B,       //input from bank3 IO, adc_in_b is the reference
+  input  ADCINBK4A,       //input from bank4 IO, adc_in_b is the reference
+  input  ADCINBK4B,       //input from bank4 IO, adc_in_b is the reference
+  input  ADCINBK5A,       //input from bank5 IO, adc_in_b is the reference
+  input  ADCINBK5B,       //input from bank5 IO, adc_in_b is the reference
+
+//control signal
+  input  [2:0] VSENCTL,    //Input source selection (ciu), from 0 to 7: adcv, adct, vdd09_0, vdd09_1, vdd18_0, vdd18_1, vdd33_0, vdd33_1
+
+  input [9:0] FSCAL_VALUE,   // temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  input [11:0] OFFSET_VALUE, //signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+  input  ADCEN,         //Enable signal, active high
+  input  CLK,           //clk input，1/2 shared
+  input  DRSTN,         //0/1 shared, Digital part reset signal, active low
+  input  ADCREQI,       //Measurement request signal, valid rising edge, asynchronous signal
+
+  //output
+  output ADCRDY,          //The measurement completion signal, active high
+  output [13:0] ADCVALUE //The measurement result output, signed number. In voltage mode,/2048 is the actual measured value; In temperature mode,/4 is the actual measured value
+
+);
+
+  parameter DYN_BKEN = "FALSE";//"FALSE","TRUE"."TRUE",BUF_BK2_EN[0]&BUF_BK3_EN[0]=1
+//Input source selection，1/2 shared
+  parameter BUF_SERDES_Q1_EN = 3'b000;    //[1:0] does not support "11"
+  parameter BUF_BK2_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK3_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK4_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK5_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK10_EN      = 5'b00000;  //[3:1] Only one bit can be 1 at the same time
+  parameter BUF_BK11_EN      = 5'b00000;  //[3:1] Only one bit can be 1 at the same time
+//Analog terminal option
+  parameter CLK_SEL          = 1'b0;      //Clock source selection. 0,PIOCLK_SEL，1,ciu_clk
+  parameter PIOCLK_SEL       = 1'b0;      //Clock source selection. 1/2 shared，0,mck_adc_clk_osc，1,io_clk
+  parameter VSEN_CTL         = 3'b000;    //Input source selection
+  parameter VSEN_CTL_SEL     = 1'b0;      //vsen_ctl source selection，0,VSEN_CTL，1,ciu_vsen_ctl
+  parameter ADC_MODE      = 1'b0;      //Mode selection
+  parameter DIV_CTL       = 2'd0;      //clock division，0:/1，1:/2，2:/4，3:/8，Clock after frequency division, 500kHz~8MHz
+
+  //Digital terminal options
+  parameter SAMPLE_CNT_SEL   = 3'd4;      //total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter RATE_CHANGE_CTRL = 3'd4;      //Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+
+
+endmodule
+
+//ADCULC,GW5AT-138K
+module ADCULC (
+
+  //Voltage signal source, /mV
+  input  ADCINBK6A,       //input from bank6 IO, adc_in_b is the reference
+  input  ADCINBK6B,       //input from bank6 IO, adc_in_b is the reference
+  input  ADCINBK7A,       //input from bank7 IO, adc_in_b is the reference
+  input  ADCINBK7B,       //input from bank7 IO, adc_in_b is the reference
+
+  //control signal
+  input  [2:0] VSENCTL,    //Input source selection(cib)，0~7: vtest, vdd09_0, vdd09_1, vdd09_2, vdd18_0, vdd18_1, reserved, vdd33
+
+  input [9:0] FSCAL_VALUE,   // temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  input [11:0] OFFSET_VALUE, //signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+  input  ADCEN,         //Enable signal, active high
+  input  CLK,           //clk input
+  input  DRSTN,         //0/1 shared, Digital part reset signal, active low
+  input   ADCREQI,      //Measurement request signal, valid rising edge, asynchronous signal
+  output  ADCRDY,       //The measurement completion signal, active high
+  output  [13:0] ADCVALUE //The measurement result output, signed number. In voltage mode,/2048 is the actual measured value; In temperature mode,/4 is the actual measured value
+
+);
+  parameter DYN_BKEN = "FALSE";//"FALSE","TRUE"."TRUE",BUF_BK6_EN[0]&BUF_BK7_EN[0]=1
+
+//Input source selection
+  parameter BUF_VCC_EN       = 1'b0;      //ulc
+  parameter BUF_VCCM_EN      = 1'b0;      //ulc
+  parameter BUF_MIPI_M0_EN   = 3'b000;    //ulc,[1:0] Only one bit can be 1 at the same time
+  parameter BUF_MIPI_M1_EN   = 3'b000;    //ulc,[1:0] Only one bit can be 1 at the same time
+  parameter BUF_SERDES_Q0_EN = 3'b000;    //ulc,[1:0] Only one bit can be 1 at the same time
+  parameter BUF_BK6_EN       = 6'b000000; //bk6,[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK7_EN       = 6'b000000; //bk7,[3:0] Only one bit can be 1 at the same time
+//Analog terminal option
+  parameter CLK_SEL          = 1'b0;      //Clock source selection. 0,PIOCLK_SEL，1,ciu_clk
+  parameter PIOCLK_SEL       = 1'b0;      //Clock source selection. 1/2 shared，0,mck_adc_clk_osc，1,io_clk
+  parameter VSEN_CTL         = 3'b000;    //Input source selection
+  parameter VSEN_CTL_SEL     = 1'b0;      //vsen_ctl source selection，0,VSEN_CTL，1,ciu_vsen_ctl
+  parameter ADC_MODE      = 1'b0;      //Mode selection
+  parameter DIV_CTL          = 2'd0;      //clock division，0:/1，1:/2，2:/4，3:/8，Clock after frequency division, 500kHz~8MHz
+
+//Digital terminal options
+  parameter SAMPLE_CNT_SEL   = 3'd4;      //total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter RATE_CHANGE_CTRL = 3'd4;      //Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+
+endmodule
+
+
+//ADC,GW5A-25
+module ADC (
+
+  //control signal
+  input  CLK,               //clk input
+  input  [2:0] VSENCTL,     //Input source selection (ciu), from 0 to 7: glo_left,glo_right,loc_left,vtest,vcc_rt,vccc_rt,vccm_rt,vccx_buf
+  input  ADCMODE,           //Mode selection,0:temperature mode，1:voltage mode
+  input  DRSTN,             //Digital part reset signal, active low
+  input  ADCREQI,           //Measurement request signal, valid rising edge, asynchronous signal
+  output ADCRDY,          //The measurement completion signal, active high
+  output [13:0] ADCVALUE, //The measurement result output, signed number. In voltage mode,/2048 is the actual measured value; In temperature mode,/4 is the actual measured value
+  //mdrp
+  input  MDRP_CLK,              //mdrp clock
+  input  [7:0] MDRP_WDATA,      //mdrp write data
+  input  MDRP_A_INC,            //mdrp self-increased address
+  input  [1:0] MDRP_OPCODE,     //mdrp opcode
+  output [7:0] MDRP_RDATA,       //mdrp read data
+  input  ADCEN              //Enable signal, active high
+
+);
+
+  //Analog terminal option
+  parameter CLK_SEL         = 1'b0;      //时钟源选择，0:osc(2.5MHz)，1:CLK
+  parameter DIV_CTL         = 2'd0;      //clock division，0:/1，1:/2，2:/4，3:/8，Clock after frequency division, 500kHz~8MHz
+
+  //Input source selection
+  parameter BUF_EN          = 12'b000000000000; //
+  parameter BUF_BK0_VREF_EN = 1'b0;  //
+  parameter BUF_BK1_VREF_EN = 1'b0;  //
+  parameter BUF_BK2_VREF_EN = 1'b0;  //
+  parameter BUF_BK3_VREF_EN = 1'b0;  //
+  parameter BUF_BK4_VREF_EN = 1'b0;  //
+  parameter BUF_BK5_VREF_EN = 1'b0;  //
+  parameter BUF_BK6_VREF_EN = 1'b0;  //
+  parameter BUF_BK7_VREF_EN = 1'b0;  //
+
+  //Digital terminal options
+  parameter CSR_ADC_MODE      = 1'b1;       // Mode selection
+  parameter CSR_VSEN_CTRL        = 3'd0;       // signal source:vccx/vccio_*/vcc_reg -> 7, signal source:vcc_ext -> 4, others -> 0
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       // total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       // Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+  parameter CSR_FSCAL            = 10'd730;    // Parameter 1: temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+
+endmodule
+
+
+//ADC_SAR,integrated saradc and adc functions.
+module ADC_SAR (
+//`ifdef ADC
+  input  ADCMODE,          //Mode selection
+  input  [2:0] VSENCTL,    //Input source selection
+  input  CLK,              //clk input
+  //Digital
+  output ADCENO,           //Enable signal, active high
+  input  DRSTN,            //Digital part reset signal, active low
+  input  ADCREQI,          //Measurement request signal
+  output ADCRDY,           //The measurement completion signal, active high
+  output [13:0] ADCVALUE,  //The measurement result output
+  input  MDRP_CLK,         //mdrp clock
+  input  [7:0] MDRP_WDATA, //mdrp write data
+  input  MDRP_A_INC,       //mdrp self-increased address
+  input  [1:0] MDRP_OPCODE,//mdrp opcode
+  output [7:0] MDRP_RDATA, //mdrp read data
+  //Analog
+  output ADC1BIT,          //Analog data output
+  output ADCCLKO,          //Analog clock output
+  input  ADCENI,           //fabric adc enable input
+//`endif
+// SAR
+//`ifdef SARADC
+  output [12:0] ADCBIT,    //Measurement result output
+  output CLKO,             //output clk
+  output EOC,              //The measurement completion signal
+  input  CLKI,             //fabric input clk
+  input  [6:0] CHEN,       //channel select
+  input  RSTN,             //resetn,active low
+  input  SOC              //Measurement request signal
+//`endif
+);
+
+  parameter BUF_EN = 29'b0;    // signal source selecor switch
+// Δ-Σ
+//`ifdef ADC
+  parameter CLK_SEL        = 1'b1;     // clk source select
+  parameter DIV_CTL        = 2'd0;     // clock division.0:/1,1:/2,2:/4,3:/8
+  parameter ADC_EN_SEL     = 1'b0;     // adc_en source select
+  parameter PHASE_SEL      = 1'b0;     // adc internal data phase select
+
+  //Digital terminal options
+  parameter CSR_ADC_MODE         = 1'b1;          // Mode selection
+  parameter CSR_VSEN_CTRL        = 3'd0;       // signal source:vccx/vccio_*/vcc_reg -> 7, signal source:vcc_ext -> 4, others -> 0
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       // total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       // Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+  parameter CSR_FSCAL            = 10'd730;    // Parameter 1: temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+//`endif
+// SAR
+//`ifdef SARADC
+  parameter ADC_CLK_DIV        = 2'b00;     // clock division.00:/1,01:/2,10:/4,11:/8
+  parameter ADC_CLKDIV_EN      = 1'b0;     // clock division enable
+  parameter CLK_SRC_SEL        = 1'b1;     // source clock sel
+  parameter VREF_BUF_EN        = 1'b1;     // BGR vref buffer enable
+  parameter COUNT_LEN          = 5'b10100; // ADC counter length
+  parameter DAC_SAMPLE_END     = 5'b10010; // DAC sample end point
+  parameter DAC_SAMPLE_START   = 5'b01101; // DAC sample start point
+  parameter SH_SAMPLE_END      = 5'b01011; // SH sample start point
+  parameter SH_SAMPLE_START    = 5'b00001; // SH sample end point
+  parameter AUTO_CHOP_EN       = 1'b0;     // auto chop
+  parameter CHOP_CLK_DIV       = 4'b0;     // chop clock divider
+
+//`endif
+
+endmodule
+
+
+//ADCA,15k
+module ADCA (
+// analog
+  input  ADCMODE,          //Mode selection
+  input  [2:0] VSENCTL,    //Input source selection 0-7: vglo_left, vglo_right, vcc2, vccc3, vccb4, vcc5, vccm6, vccc7
+  input  CLK,              //clk input
+  input  ADCENI,           //fabric adc enable input
+  input  PWRON_DYN,        //power enable. 1:on 0:off
+  // digital
+  input  DRSTN,            //Digital part reset signal, active low
+  input  ADCREQI,          //Measurement request signal
+  output ADCRDY,           //The measurement completion signal, active high
+  output [13:0] ADCVALUE,  //The measurement result output
+  input  MDRP_CLK,         //mdrp clock
+  input  [7:0] MDRP_WDATA, //mdrp write data
+  input  MDRP_A_INC,       //mdrp self-increased address
+  input  [1:0] MDRP_OPCODE,//mdrp opcode
+  output [7:0] MDRP_RDATA  //mdrp read data
+);
+
+  parameter BUF_EN = 20'b0;    // signal source selecor switch //[8:0] one-hot; [19:15] one-hot. BUF_EN[6] must be 0
+  parameter CLK_SEL        = 1'b1;     // clk source select
+  parameter DIV_CTL        = 2'd0;     // clock division
+  parameter ADC_EN_SEL     = 1'b0;     // adc_en source select
+  parameter PHASE_SEL      = 1'b0;     // adc internal data phase select
+
+  parameter PWRON_SEL      = 1'b0;     // power enbale source select. 0:PWRON 1:PWRON_DYN
+  parameter PWRON          = 1'b1;     // as PWRON_DYN
+  parameter LDO_MODE       = 1'b0;     // LDO mode 0:on(2.5/3.3V) 1:off(1.8V)
+
+  //Digital terminal options
+  parameter CSR_ADC_MODE         = 1'b1;       // Mode selection
+  parameter CSR_VSEN_CTRL        = 3'd0;       // signal source:vccx/vccio_*/vcc_reg -> 7, signal source:vcc_ext -> 4, others -> 0
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       // total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       // Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+  parameter CSR_FSCAL            = 10'd730;    // Parameter 1: temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
 endmodule
 

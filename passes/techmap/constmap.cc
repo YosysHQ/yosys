@@ -82,7 +82,7 @@ struct ConstmapPass : public Pass {
 				}
 			}
 			if (!has_port)
-				log_cmd_error("Cell type '%s' does not have port '%s'.\n", celltype.c_str(), cell_portname.c_str());
+				log_cmd_error("Cell type '%s' does not have port '%s'.\n", celltype, cell_portname);
 
 			bool has_param = false;
 			for (auto &p : existing->avail_parameters){
@@ -91,7 +91,7 @@ struct ConstmapPass : public Pass {
 			}
 
 			if (!has_param)
-				log_cmd_error("Cell type '%s' does not have parameter '%s'.\n", celltype.c_str(), cell_paramname.c_str());
+				log_cmd_error("Cell type '%s' does not have parameter '%s'.\n", celltype, cell_paramname);
 		}
 
 

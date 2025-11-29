@@ -1,0 +1,6 @@
+logger -expect prefix-error "<<EOT:2: ERROR: syntax error, unexpected invalid token, expecting TOK_BASED_CONSTVAL" 1
+read_verilog <<EOT
+module test (y);
+    output signed [2:0] y = 1'bg;
+endmodule
+EOT

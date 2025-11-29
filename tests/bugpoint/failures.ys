@@ -1,0 +1,29 @@
+write_file fail.temp << EOF
+logger -expect error "Missing -script or -command option." 1
+bugpoint -suffix fail -yosys ../../yosys
+EOF
+exec -expect-return 0 -- ../../yosys -qq mods.il -s fail.temp
+
+write_file fail.temp << EOF
+logger -expect error "do not crash on this design" 1
+bugpoint -suffix fail -yosys ../../yosys -command "dump"
+EOF
+exec -expect-return 0 -- ../../yosys -qq mods.il -s fail.temp
+
+write_file fail.temp << EOF
+logger -expect error "returned value 3 instead of expected 7" 1
+bugpoint -suffix fail -yosys ../../yosys -command raise_error -expect-return 7
+EOF
+exec -expect-return 0 -- ../../yosys -qq mods.il -s fail.temp
+
+write_file fail.temp << EOF
+logger -expect error "not found in the log file!" 1
+bugpoint -suffix fail -yosys ../../yosys -command raise_error -grep "nope"
+EOF
+exec -expect-return 0 -- ../../yosys -qq mods.il -s fail.temp
+
+write_file fail.temp << EOF
+logger -expect error "not found in stderr log!" 1
+bugpoint -suffix fail -yosys ../../yosys -command raise_error -err-grep "nope"
+EOF
+exec -expect-return 0 -- ../../yosys -qq mods.il -s fail.temp

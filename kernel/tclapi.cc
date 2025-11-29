@@ -87,9 +87,9 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 				tcl_command_name = "renames";
 			Tcl_CmdInfo info;
 			if (Tcl_GetCommandInfo(interp, tcl_command_name.c_str(), &info) != 0) {
-				log("[TCL: yosys -import] Command name collision: found pre-existing command `%s' -> skip.\n", it.first.c_str());
+				log("[TCL: yosys -import] Command name collision: found pre-existing command `%s' -> skip.\n", it.first);
 			} else {
-				std::string tcl_script = stringf("proc %s args { yosys %s {*}$args }", tcl_command_name.c_str(), it.first.c_str());
+				std::string tcl_script = stringf("proc %s args { yosys %s {*}$args }", tcl_command_name, it.first);
 				Tcl_Eval(interp, tcl_script.c_str());
 			}
 		}
@@ -137,7 +137,7 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		if (err.empty()) {
 			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
 		} else
-			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
+			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err);
 	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
 	}
@@ -214,18 +214,19 @@ bool mp_int_to_const(mp_int *a, Const &b, bool is_signed)
 	buf.resize(mp_unsigned_bin_size(a));
 	mp_to_unsigned_bin(a, buf.data());
 
-	b.bits().reserve(mp_count_bits(a) + is_signed);
+	Const::Builder b_bits(mp_count_bits(a) + is_signed);
 	for (int i = 0; i < mp_count_bits(a);) {
 		for (int j = 0; j < 8 && i < mp_count_bits(a); j++, i++) {
 			bool bv = ((buf.back() & (1 << j)) != 0) ^ negative;
-			b.bits().push_back(bv ? RTLIL::S1 : RTLIL::S0);
+			b_bits.push_back(bv ? RTLIL::S1 : RTLIL::S0);
 		}
 		buf.pop_back();
 	}
 
 	if (is_signed) {
-		b.bits().push_back(negative ? RTLIL::S1 : RTLIL::S0);
+		b_bits.push_back(negative ? RTLIL::S1 : RTLIL::S0);
 	}
+	b = b_bits.build();
 
 	return true;
 }
@@ -532,7 +533,7 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	return TCL_OK;
 }
 
-int yosys_tcl_iterp_init(Tcl_Interp *interp)
+int yosys_tcl_interp_init(Tcl_Interp *interp)
 {
 	if (Tcl_Init(interp)!=TCL_OK)
 		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));

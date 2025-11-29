@@ -1,0 +1,57 @@
+read_verilog -sv << EOF
+module top (input A, B, C, D, E, F, output reg W, X, Y, Z);
+	always @* begin
+		W = F;
+		(* full_case *)
+		case (C)
+			A: W = D;
+			B: W = E;
+		endcase
+	end
+
+	always @* begin
+		X = F;
+		case (C)
+			A: X = D;
+			B: X = E;
+		endcase
+	end
+
+	always @* begin
+		Y = F;
+		(* full_case, parallel_case *)
+		case (C)
+			A: Y = D;
+			B: Y = E;
+		endcase
+	end
+
+	always @* begin
+		Z = F;
+		(* parallel_case *)
+		case (C)
+			A: Z = D;
+			B: Z = E;
+		endcase
+	end
+endmodule
+EOF
+prep
+# For the ones which use full_case, the F signal shouldn't be included in
+# the input cone of W and Y.
+select -set full o:W o:Y %u %ci*
+select -assert-none i:F @full %i
+select -assert-count 1 o:X %ci* i:F %i
+select -assert-count 1 o:Z %ci* i:F %i
+
+# And for parallel_case there should be 1 $pmux compared to the 2 $mux
+# cells without.
+select -assert-none o:W %ci* t:$pmux %i
+select -assert-none o:X %ci* t:$pmux %i
+select -assert-count 1 o:Y %ci* t:$pmux %i
+select -assert-count 1 o:Z %ci* t:$pmux %i
+
+select -assert-count 2 o:W %ci* t:$mux %i
+select -assert-count 2 o:X %ci* t:$mux %i
+select -assert-none o:Y %ci* t:$mux %i
+select -assert-none o:Z %ci* t:$mux %i

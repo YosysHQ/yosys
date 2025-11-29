@@ -169,13 +169,16 @@ struct FsmOpt
 
 				for (auto tr : fsm_data.transition_table)
 				{
-					RTLIL::State &si = tr.ctrl_in.bits()[i];
-					RTLIL::State &sj = tr.ctrl_in.bits()[j];
+					RTLIL::State si = tr.ctrl_in[i];
+					RTLIL::State sj = tr.ctrl_in[j];
 
-					if (si > RTLIL::State::S1)
+					if (si > RTLIL::State::S1) {
 						si = sj;
-					else if (sj > RTLIL::State::S1)
+						tr.ctrl_in.set(i, si);
+					} else if (sj > RTLIL::State::S1) {
 						sj = si;
+						tr.ctrl_in.set(j, sj);
+					}
 
 					if (si == sj) {
 						RTLIL::SigSpec tmp(tr.ctrl_in);
@@ -207,8 +210,8 @@ struct FsmOpt
 
 				for (auto tr : fsm_data.transition_table)
 				{
-					RTLIL::State &si = tr.ctrl_in.bits()[i];
-					RTLIL::State &sj = tr.ctrl_out.bits()[j];
+					RTLIL::State si = tr.ctrl_in[i];
+					RTLIL::State sj = tr.ctrl_out[j];
 
 					if (si > RTLIL::State::S1 || si == sj) {
 						RTLIL::SigSpec tmp(tr.ctrl_in);
@@ -240,14 +243,14 @@ struct FsmOpt
 			RTLIL::Const other_pattern = pattern;
 
 			if (pattern[bit] == RTLIL::State::S1)
-				other_pattern.bits()[bit] = RTLIL::State::S0;
+				other_pattern.set(bit, RTLIL::State::S0);
 			else
-				other_pattern.bits()[bit] = RTLIL::State::S1;
+				other_pattern.set(bit, RTLIL::State::S1);
 
 			if (set.count(other_pattern) > 0) {
 				log("  Merging pattern %s and %s from group (%d %d %s).\n", log_signal(pattern), log_signal(other_pattern),
 						tr.state_in, tr.state_out, log_signal(tr.ctrl_out));
-				other_pattern.bits()[bit] = RTLIL::State::Sa;
+				other_pattern.set(bit, RTLIL::State::Sa);
 				new_set.insert(other_pattern);
 				did_something = true;
 				continue;
@@ -293,7 +296,7 @@ struct FsmOpt
 
 	FsmOpt(RTLIL::Cell *cell, RTLIL::Module *module)
 	{
-		log("Optimizing FSM `%s' from module `%s'.\n", cell->name.c_str(), module->name.c_str());
+		log("Optimizing FSM `%s' from module `%s'.\n", cell->name, module->name);
 
 		fsm_data.copy_from_cell(cell);
 		this->cell = cell;

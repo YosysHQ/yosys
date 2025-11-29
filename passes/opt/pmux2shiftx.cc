@@ -321,11 +321,12 @@ struct Pmux2ShiftxPass : public Pass {
 
 					bits.sort();
 					pair<SigSpec, Const> entry;
-
+					RTLIL::Const::Builder entry_bits_builder(GetSize(bits));
 					for (auto it : bits) {
 						entry.first.append(it.first);
-						entry.second.bits().push_back(it.second);
+						entry_bits_builder.push_back(it.second);
 					}
+					entry.second = entry_bits_builder.build();
 
 					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
 					goto next_cell;
@@ -342,11 +343,12 @@ struct Pmux2ShiftxPass : public Pass {
 
 					bits.sort();
 					pair<SigSpec, Const> entry;
-
+					RTLIL::Const::Builder entry_bits_builder(GetSize(bits));
 					for (auto it : bits) {
 						entry.first.append(it.first);
-						entry.second.bits().push_back(it.second);
+						entry_bits_builder.push_back(it.second);
 					}
+					entry.second = entry_bits_builder.build();
 
 					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
 					goto next_cell;
@@ -591,7 +593,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 							used_src_columns[best_src_col] = true;
 							perm_new_from_old[dst_col] = best_src_col;
-							perm_xormask.bits()[dst_col] = best_inv ? State::S1 : State::S0;
+							perm_xormask.set(dst_col, best_inv ? State::S1 : State::S0);
 						}
 					}
 
@@ -614,7 +616,7 @@ struct Pmux2ShiftxPass : public Pass {
 						Const new_c(State::S0, GetSize(old_c));
 
 						for (int i = 0; i < GetSize(old_c); i++)
-							new_c.bits()[i] = old_c[perm_new_from_old[i]];
+							new_c.set(i, old_c[perm_new_from_old[i]]);
 
 						Const new_c_before_xor = new_c;
 						new_c = const_xor(new_c, perm_xormask, false, false, GetSize(new_c));
@@ -687,7 +689,7 @@ struct Pmux2ShiftxPass : public Pass {
 					if (!full_case) {
 						Const enable_mask(State::S0, max_choice+1);
 						for (auto &it : perm_choices)
-							enable_mask.bits()[it.first.as_int()] = State::S1;
+							enable_mask.set(it.first.as_int(), State::S1);
 						en = module->addWire(NEW_ID);
 						module->addShift(NEW_ID, enable_mask, cmp, en, false, src);
 					}

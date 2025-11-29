@@ -47,7 +47,7 @@ struct ContextData {
 	std::string unused_outputs;
 };
 
-std::optional<std::string> format(std::string fmt, const dict<IdString, Const> &parameters,
+std::optional<std::string> format_with_params(std::string fmt, const dict<IdString, Const> &parameters,
 								  const ContextData &context)
 {
 	std::stringstream result;
@@ -59,7 +59,7 @@ std::optional<std::string> format(std::string fmt, const dict<IdString, Const> &
 			auto beg = it;
 			while (it != fmt.end() && *it != '}') it++;
 			if (it == fmt.end()) {
-				log("Unclosed curly brackets in format string '%s'\n", fmt.c_str());
+				log("Unclosed curly brackets in format string '%s'\n", fmt);
 				return {};
 			}
 
@@ -70,7 +70,7 @@ std::optional<std::string> format(std::string fmt, const dict<IdString, Const> &
 			} else {
 				auto id = RTLIL::escape_id(std::string(beg, it));
 				if (!parameters.count(id)) {
-					log("Parameter %s referenced in format string '%s' not found\n", log_id(id), fmt.c_str());
+					log("Parameter %s referenced in format string '%s' not found\n", log_id(id), fmt);
 					return {};
 				}
 
@@ -97,9 +97,9 @@ struct Chunk {
 		if (len == cell->getPort(port).size())
 			return port;
 		else if (len == 1)
-			return stringf("%s[%d]", port.c_str(), base);
+			return stringf("%s[%d]", port, base);
 		else
-			return stringf("%s[%d:%d]", port.c_str(), base + len - 1, base);
+			return stringf("%s[%d:%d]", port, base + len - 1, base);
 	}
 
 	SigSpec sample(Cell *cell)
@@ -230,7 +230,7 @@ struct WrapcellPass : Pass {
 						context.unused_outputs += "_" + RTLIL::unescape_id(chunk.format(cell));
 				}
 
-				std::optional<std::string> unescaped_name = format(name_fmt, cell->parameters, context);
+				std::optional<std::string> unescaped_name = format_with_params(name_fmt, cell->parameters, context);
 				if (!unescaped_name)
 					log_error("Formatting error when processing cell '%s' in module '%s'\n",
 							  log_id(cell), log_id(module));
@@ -270,7 +270,7 @@ struct WrapcellPass : Pass {
 					if (rule.value_fmt.empty()) {
 						subm->set_bool_attribute(rule.name);
 					} else {
-						std::optional<std::string> value = format(rule.value_fmt, cell->parameters, context);
+						std::optional<std::string> value = format_with_params(rule.value_fmt, cell->parameters, context);
 
 						if (!value)
 							log_error("Formatting error when processing cell '%s' in module '%s'\n",

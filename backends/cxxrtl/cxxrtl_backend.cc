@@ -637,20 +637,6 @@ std::string escape_cxx_string(const std::string &input)
 	return output;
 }
 
-std::string basename(const std::string &filepath)
-{
-#ifdef _WIN32
-	const std::string dir_seps = "\\/";
-#else
-	const std::string dir_seps = "/";
-#endif
-	size_t sep_pos = filepath.find_last_of(dir_seps);
-	if (sep_pos != std::string::npos)
-		return filepath.substr(sep_pos + 1);
-	else
-		return filepath;
-}
-
 template<class T>
 std::string get_hdl_name(T *object)
 {
@@ -1533,7 +1519,7 @@ struct CxxrtlWorker {
 			}
 		// Internal cells
 		} else if (is_internal_cell(cell->type)) {
-			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
+			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type);
 		// User cells
 		} else if (for_debug) {
 			// Outlines are called on demand when computing the value of a debug item. Nothing to do here.
@@ -1668,26 +1654,29 @@ struct CxxrtlWorker {
 						f << signal_temp << " == ";
 						dump_sigspec(compare, /*is_lhs=*/false, for_debug);
 					} else if (compare.is_fully_const()) {
-						RTLIL::Const compare_mask, compare_value;
+						RTLIL::Const::Builder compare_mask_builder(compare.size());
+						RTLIL::Const::Builder compare_value_builder(compare.size());
 						for (auto bit : compare.as_const()) {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits().push_back(RTLIL::S1);
-									compare_value.bits().push_back(bit);
+									compare_mask_builder.push_back(RTLIL::S1);
+									compare_value_builder.push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits().push_back(RTLIL::S0);
-									compare_value.bits().push_back(RTLIL::S0);
+									compare_mask_builder.push_back(RTLIL::S0);
+									compare_value_builder.push_back(RTLIL::S0);
 									break;
 
 								default:
 									log_assert(false);
 							}
 						}
+						RTLIL::Const compare_mask = compare_mask_builder.build();
+						RTLIL::Const compare_value = compare_value_builder.build();
 						f << "and_uu<" << compare.size() << ">(" << signal_temp << ", ";
 						dump_const(compare_mask);
 						f << ") == ";
@@ -2429,14 +2418,15 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires()) {
 					const auto &debug_wire_type = debug_wire_types[wire];
-					if (!wire->name.isPublic())
-						continue;
 					count_public_wires++;
 					switch (debug_wire_type.type) {
 						case WireType::BUFFERED:
 						case WireType::MEMBER: {
 							// Member wire
 							std::vector<std::string> flags;
+
+							if (!wire->name.isPublic())
+								flags.push_back("GENERATED");
 
 							if (wire->port_input && wire->port_output)
 								flags.push_back("INOUT");
@@ -2854,7 +2844,7 @@ struct CxxrtlWorker {
 		}
 
 		if (split_intf)
-			f << "#include \"" << basename(intf_filename) << "\"\n";
+			f << "#include \"" << name_from_file_path(intf_filename) << "\"\n";
 		else
 			f << "#include <cxxrtl/cxxrtl.h>\n";
 		f << "\n";
@@ -3041,7 +3031,7 @@ struct CxxrtlWorker {
 								if (init == RTLIL::Const()) {
 									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
 								}
-								init.bits()[bit.offset] = port.init_value[i];
+								init.set(bit.offset, port.init_value[i]);
 							}
 						}
 					}
@@ -3477,8 +3467,8 @@ struct CxxrtlWorker {
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 6;
-	static const int DEFAULT_DEBUG_LEVEL = 4;
+	static constexpr int DEFAULT_OPT_LEVEL = 6;
+	static constexpr int DEFAULT_DEBUG_LEVEL = 4;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() override
@@ -3799,7 +3789,7 @@ struct CxxrtlBackend : public Backend {
 			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
 				worker.print_output = args[++argidx];
 				if (!(worker.print_output == "std::cout" || worker.print_output == "std::cerr")) {
-					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output.c_str());
+					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output);
 					worker.print_output = "std::cout";
 				}
 				continue;

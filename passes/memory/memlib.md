@@ -148,7 +148,7 @@ The rules for this property are as follows:
 
 - for every available width, the width needs to be a multiple of the byte size,
   or the byte size needs to be larger than the width
-- if the byte size is larger than the width, the byte enable signel is assumed
+- if the byte size is larger than the width, the byte enable signal is assumed
   to be one bit wide and cover the whole port
 - otherwise, the byte enable signal has one bit for every `byte` bits of the
   data port
@@ -176,7 +176,7 @@ Eg. for the following properties:
 The cost of a given cell will be assumed to be `(8 - 7) + 7 * (used_bits / 14)`.
 
 If `widthscale` is used, The pass will attach a `BITS_USED` parameter to mapped
-calls, with a bitmask of which data bits of the memory are actually in use.
+cells, with a bitmask of which data bits of the memory are actually in use.
 The parameter width will be the widest width in the `widths` property, and
 the bit correspondence is defined accordingly.
 
@@ -193,7 +193,7 @@ one of the following values:
 - `zero`: the memory contents are zero, memories can be mapped to this cell iff
   their initialization value is entirely zero or undef
 - `any`: the memory contents can be arbitrarily selected, and the initialization
-  will be passes as the `INIT` parameter to the mapped cell
+  will be passed as the `INIT` parameter to the mapped cell
 - `no_undef`: like `any`, but only 0 and 1 bit values are supported (the pass will
   convert any x bits to 0)
 
@@ -234,7 +234,7 @@ Ports come in 5 kinds:
 - `ar`: asynchronous read port
 - `sr`: synchronous read port
 - `sw`: synchronous write port
-- `arsw`: simultanous synchronous write + asynchronous read with common address (commonly found in LUT RAMs)
+- `arsw`: simultaneous synchronous write + asynchronous read with common address (commonly found in LUT RAMs)
 - `srsw`: synchronous write + synchronous read with common address
 
 The port properties available are:
@@ -419,7 +419,7 @@ If not provided, `none` is assumed for all three properties.
 
 The `wrprio` property is only allowed on write ports and defines a priority relationship
 between port — when `wrprio "B";` is used in definition of port `"A"`, and both ports
-simultanously write to the same memory cell, the value written by port `"A"` will have
+simultaneously write to the same memory cell, the value written by port `"A"` will have
 precedence.
 
 This property is optional, and can be used multiple times as necessary.  If no relationship
@@ -493,7 +493,7 @@ will disallow combining the RAM option `ABC = 2` with port option `DEF = "GHI"`.
 
 ## Ifdefs
 
-To allow reusing a library for multiple FPGA families with slighly differing
+To allow reusing a library for multiple FPGA families with slightly differing
 capabilities, `ifdef` (and `ifndef`) blocks are provided:
 
     ifdef IS_FANCY_FPGA_WITH_CONFIGURABLE_ASYNC_RESET {

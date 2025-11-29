@@ -24,6 +24,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -84,7 +85,7 @@ struct FutureWorker {
 		if (found_driver->second.size() > 1)
 			log_error("Found multiple drivers for future_ff target signal %s\n", log_signal(bit));
 		auto driver = *found_driver->second.begin();
-		if (!RTLIL::builtin_ff_cell_types().count(driver.cell->type) && driver.cell->type != ID($anyinit))
+		if (!driver.cell->is_builtin_ff() && driver.cell->type != ID($anyinit))
 			log_error("Driver for future_ff target signal %s has non-FF cell type %s\n", log_signal(bit), log_id(driver.cell->type));
 
 		FfData ff(&initvals, driver.cell);
@@ -110,6 +111,11 @@ struct FutureWorker {
 
 struct FuturePass : public Pass {
 	FuturePass() : Pass("future", "resolve future sampled value functions") {}
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

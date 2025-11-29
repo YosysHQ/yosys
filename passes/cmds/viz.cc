@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 #ifndef _WIN32
 #  include <dirent.h>
@@ -817,6 +818,11 @@ struct VizWorker
 
 struct VizPass : public Pass {
 	VizPass() : Pass("viz", "visualize data flow graph") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -976,19 +982,19 @@ struct VizPass : public Pass {
 		if (modlist.empty())
 			log_cmd_error("Nothing there to show.\n");
 
-		std::string dot_file = stringf("%s.dot", prefix.c_str());
-		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());
+		std::string dot_file = stringf("%s.dot", prefix);
+		std::string out_file = stringf("%s.%s", prefix, format.empty() ? "svg" : format);
 
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
 
-		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		log("Writing dot description to `%s'.\n", dot_file);
 		FILE *f = nullptr;
 		auto open_dot_file = [&]() {
 			if (f != nullptr) return;
 			f = fopen(dot_file.c_str(), "w");
 			if (f == nullptr)
-				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
 		};
 		for (auto module : modlist) {
 			VizWorker worker(module, config);
@@ -1020,9 +1026,9 @@ struct VizPass : public Pass {
 			#else
 				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
 			#endif
-			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			#if !defined(YOSYS_DISABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
@@ -1037,21 +1043,21 @@ struct VizPass : public Pass {
 				// system()/cmd.exe does not understand single quotes nor
 				// background tasks on Windows. So we have to pause yosys
 				// until the viewer exits.
-				std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+				std::string cmd = stringf("%s \"%s\"", viewer_exe, out_file);
 			#else
-				std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+				std::string cmd = stringf("%s '%s' %s", viewer_exe, out_file, background);
 			#endif
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
 			#ifdef __APPLE__
-			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file, dot_file, background);
 			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file, dot_file, dot_file, dot_file, background);
 			#endif
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}

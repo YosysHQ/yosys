@@ -47,6 +47,13 @@
 		log("\n");
 		log("Displays the current cache settings and cached paths.\n");
 		log("\n");
+		log("    libcache {-verbose|-quiet}\n");
+		log("\n");
+		log("Controls cache use logging.\n");
+		log("\n");
+		log("    -verbose   Enable printing info when cache is used\n");
+		log("    -quiet     Disable printing info when cache is used (default)\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *) override
 	{
@@ -55,6 +62,8 @@
 		bool purge = false;
 		bool all = false;
 		bool list = false;
+		bool verbose = false;
+		bool quiet = false;
 		std::vector<std::string> paths;
 
 		size_t argidx;
@@ -79,16 +88,22 @@
 				list = true;
 				continue;
 			}
-			std::string fname = args[argidx];
-			rewrite_filename(fname);
-			paths.push_back(fname);
+			if (args[argidx] == "-verbose") {
+				verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-quiet") {
+				quiet = true;
+				continue;
+			}
+			append_globbed(paths, args[argidx]);
 			break;
 		}
-		int modes = enable + disable + purge + list;
+		int modes = enable + disable + purge + list + verbose + quiet;
 		if (modes == 0)
-			log_cmd_error("At least one of -enable, -disable, -purge or -list is required.\n");
+			log_cmd_error("At least one of -enable, -disable, -purge, -list,\n-verbose, or -quiet is required.\n");
 		if (modes > 1)
-			log_cmd_error("Only one of -enable, -disable, -purge or -list may be present.\n");
+			log_cmd_error("Only one of -enable, -disable, -purge, -list,\n-verbose, or -quiet may be present.\n");
 
 		if (all && !paths.empty())
 			log_cmd_error("The -all option cannot be combined with a list of paths.\n");
@@ -100,9 +115,9 @@
 		if (list) {
 			log("Caching is %s by default.\n", LibertyAstCache::instance.cache_by_default ? "enabled" : "disabled");
 			for (auto const &entry : LibertyAstCache::instance.cache_path)
-				log("Caching is %s for `%s'.\n", entry.second ? "enabled" : "disabled", entry.first.c_str());
+				log("Caching is %s for `%s'.\n", entry.second ? "enabled" : "disabled", entry.first);
 			for (auto const &entry : LibertyAstCache::instance.cached)
-				log("Data for `%s' is currently cached.\n", entry.first.c_str());
+				log("Data for `%s' is currently cached.\n", entry.first);
 		} else if (enable || disable) {
 			if (all) {
 				LibertyAstCache::instance.cache_by_default = enable;
@@ -121,6 +136,10 @@
 					LibertyAstCache::instance.cache_path.erase(path);
 				}
 			}
+		} else if (verbose) {
+			LibertyAstCache::instance.verbose = true;
+		} else if (quiet) {
+			LibertyAstCache::instance.verbose = false;
 		} else {
 			log_assert(false);
 		}

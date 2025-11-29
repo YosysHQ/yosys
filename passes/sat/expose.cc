@@ -17,11 +17,10 @@
  *
  */
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -217,6 +216,11 @@ RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width
 
 struct ExposePass : public Pass {
 	ExposePass() : Pass("expose", "convert internal signals to module ports") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/cmds");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

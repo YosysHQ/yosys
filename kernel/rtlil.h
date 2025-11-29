@@ -23,6 +23,9 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#include <string_view>
+#include <unordered_map>
+
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL
@@ -50,10 +53,11 @@ namespace RTLIL
 	// Semantic metadata - how can this constant be interpreted?
 	// Values may be generally non-exclusive
 	enum ConstFlags : unsigned char {
-		CONST_FLAG_NONE   = 0,
-		CONST_FLAG_STRING = 1,
-		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // only used for parameters
+		CONST_FLAG_NONE    = 0,
+		CONST_FLAG_STRING  = 1,
+		CONST_FLAG_SIGNED  = 2,  // only used for parameters
+		CONST_FLAG_REAL    = 4,  // only used for parameters
+		CONST_FLAG_UNSIZED = 8,  // only used for parameters
 	};
 
 	enum SelectPartials : unsigned char {
@@ -80,6 +84,21 @@ namespace RTLIL
 		SB_EXCL_BB_CMDERR = 15 // call log_cmd_error on black boxed module
 	};
 
+	enum class StaticId : short {
+		STATIC_ID_BEGIN = 0,
+#define X(N) N,
+#include "kernel/constids.inc"
+#undef X
+		STATIC_ID_END,
+	};
+
+	enum PortDir : unsigned char  {
+		PD_UNKNOWN = 0,
+		PD_INPUT = 1,
+		PD_OUTPUT = 2,
+		PD_INOUT = 3
+	};
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -102,16 +121,30 @@ namespace RTLIL
 	struct Process;
 	struct Binding;
 	struct IdString;
+	struct OwningIdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 };
 
 struct RTLIL::IdString
 {
-	#undef YOSYS_XTRACE_GET_PUT
-	#undef YOSYS_SORT_ID_FREE_LIST
-	#undef YOSYS_USE_STICKY_IDS
-	#undef YOSYS_NO_IDS_REFCNT
+	struct Storage {
+		char *buf;
+		int size;
+
+		std::string_view str_view() const { return {buf, static_cast<size_t>(size)}; }
+	};
+	struct AutoidxStorage {
+		// Append the negated (i.e. positive) ID to this string to get
+		// the real string. The prefix strings must live forever.
+		const std::string *prefix;
+		// Cache of the full string, or nullptr if not cached yet.
+		std::atomic<char *> full_str;
+
+		AutoidxStorage(const std::string *prefix) : prefix(prefix), full_str(nullptr) {}
+		AutoidxStorage(AutoidxStorage&& other) : prefix(other.prefix), full_str(other.full_str.exchange(nullptr, std::memory_order_relaxed)) {}
+		~AutoidxStorage() { delete[] full_str.load(std::memory_order_acquire); }
+	};
 
 	// the global id string cache
 
@@ -121,188 +154,82 @@ struct RTLIL::IdString
 		~destruct_guard_t() { destruct_guard_ok = false; }
 	} destruct_guard;
 
-	static std::vector<char*> global_id_storage_;
-	static dict<char*, int> global_id_index_;
-#ifndef YOSYS_NO_IDS_REFCNT
-	static std::vector<int> global_refcount_storage_;
+	// String storage for non-autoidx IDs
+	static std::vector<Storage> global_id_storage_;
+	// Lookup table for non-autoidx IDs
+	static std::unordered_map<std::string_view, int> global_id_index_;
+	// Storage for autoidx IDs, which have negative indices, i.e. all entries in this
+	// map have negative keys.
+	static std::unordered_map<int, AutoidxStorage> global_autoidx_id_storage_;
+	// All (index, refcount) pairs in this map have refcount > 0.
+	static std::unordered_map<int, int> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
-#endif
 
-#ifdef YOSYS_USE_STICKY_IDS
-	static int last_created_idx_ptr_;
-	static int last_created_idx_[8];
-#endif
+	static int refcount(int idx) {
+		auto it = global_refcount_storage_.find(idx);
+		if (it == global_refcount_storage_.end())
+			return 0;
+		return it->second;
+	}
 
 	static inline void xtrace_db_dump()
 	{
 	#ifdef YOSYS_XTRACE_GET_PUT
 		for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
 		{
-			if (global_id_storage_.at(idx) == nullptr)
+			if (global_id_storage_.at(idx).buf == nullptr)
 				log("#X# DB-DUMP index %d: FREE\n", idx);
 			else
-				log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, global_id_storage_.at(idx).buf, refcount(idx));
 		}
 	#endif
 	}
 
 	static inline void checkpoint()
 	{
-	#ifdef YOSYS_USE_STICKY_IDS
-		last_created_idx_ptr_ = 0;
-		for (int i = 0; i < 8; i++) {
-			if (last_created_idx_[i])
-				put_reference(last_created_idx_[i]);
-			last_created_idx_[i] = 0;
-		}
-	#endif
 	#ifdef YOSYS_SORT_ID_FREE_LIST
 		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
 	#endif
 	}
 
-	static inline int get_reference(int idx)
-	{
-		if (idx) {
-	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_[idx]++;
-	#endif
-	#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace)
-				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-	#endif
-		}
-		return idx;
-	}
-
-	static int get_reference(const char *p)
+	static int insert(std::string_view p)
 	{
 		log_assert(destruct_guard_ok);
+		log_assert(!Multithreading::active());
 
-		if (!p[0])
-			return 0;
-
-		auto it = global_id_index_.find((char*)p);
+		auto it = global_id_index_.find(p);
 		if (it != global_id_index_.end()) {
-	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_.at(it->second)++;
-	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(it->second).buf, it->second, refcount(it->second));
 	#endif
 			return it->second;
 		}
-
-		log_assert(p[0] == '$' || p[0] == '\\');
-		log_assert(p[1] != 0);
-		for (const char *c = p; *c; c++)
-			if ((unsigned)*c <= (unsigned)' ')
-				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
-
-	#ifndef YOSYS_NO_IDS_REFCNT
-		if (global_free_idx_list_.empty()) {
-			if (global_id_storage_.empty()) {
-				global_refcount_storage_.push_back(0);
-				global_id_storage_.push_back((char*)"");
-				global_id_index_[global_id_storage_.back()] = 0;
-			}
-			log_assert(global_id_storage_.size() < 0x40000000);
-			global_free_idx_list_.push_back(global_id_storage_.size());
-			global_id_storage_.push_back(nullptr);
-			global_refcount_storage_.push_back(0);
-		}
-
-		int idx = global_free_idx_list_.back();
-		global_free_idx_list_.pop_back();
-		global_id_storage_.at(idx) = strdup(p);
-		global_id_index_[global_id_storage_.at(idx)] = idx;
-		global_refcount_storage_.at(idx)++;
-	#else
-		if (global_id_storage_.empty()) {
-			global_id_storage_.push_back((char*)"");
-			global_id_index_[global_id_storage_.back()] = 0;
-		}
-		int idx = global_id_storage_.size();
-		global_id_storage_.push_back(strdup(p));
-		global_id_index_[global_id_storage_.back()] = idx;
-	#endif
-
-		if (yosys_xtrace) {
-			log("#X# New IdString '%s' with index %d.\n", p, idx);
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace)
-			log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-	#endif
-
-	#ifdef YOSYS_USE_STICKY_IDS
-		// Avoid Create->Delete->Create pattern
-		if (last_created_idx_[last_created_idx_ptr_])
-			put_reference(last_created_idx_[last_created_idx_ptr_]);
-		last_created_idx_[last_created_idx_ptr_] = idx;
-		get_reference(last_created_idx_[last_created_idx_ptr_]);
-		last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
-	#endif
-
-		return idx;
+		return really_insert(p, it);
 	}
 
-#ifndef YOSYS_NO_IDS_REFCNT
-	static inline void put_reference(int idx)
-	{
-		// put_reference() may be called from destructors after the destructor of
-		// global_refcount_storage_ has been run. in this case we simply do nothing.
-		if (!destruct_guard_ok || !idx)
-			return;
-
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace) {
-			log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		}
-	#endif
-
-		int &refcount = global_refcount_storage_[idx];
-
-		if (--refcount > 0)
-			return;
-
-		log_assert(refcount == 0);
-		free_reference(idx);
+	// Inserts an ID with string `prefix + autoidx', incrementing autoidx.
+	// `prefix` must start with '$auto$', end with '$', and live forever.
+	static IdString new_autoidx_with_prefix(const std::string *prefix) {
+		log_assert(!Multithreading::active());
+		int index = -(autoidx++);
+		global_autoidx_id_storage_.insert({index, prefix});
+		return from_index(index);
 	}
-	static inline void free_reference(int idx)
-	{
-		if (yosys_xtrace) {
-			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-
-		global_id_index_.erase(global_id_storage_.at(idx));
-		free(global_id_storage_.at(idx));
-		global_id_storage_.at(idx) = nullptr;
-		global_free_idx_list_.push_back(idx);
-	}
-#else
-	static inline void put_reference(int) { }
-#endif
 
 	// the actual IdString object is just is a single int
 
 	int index_;
 
-	inline IdString() : index_(0) { }
-	inline IdString(const char *str) : index_(get_reference(str)) { }
-	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+	constexpr inline IdString() : index_(0) { }
+	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
+	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
 	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-	inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
-	inline ~IdString() { put_reference(index_); }
+	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
+	inline IdString(std::string_view str) : index_(insert(str)) { }
+	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
 
-	inline void operator=(const IdString &rhs) {
-		put_reference(index_);
-		index_ = get_reference(rhs.index_);
-	}
+	IdString &operator=(const IdString &rhs) = default;
 
 	inline void operator=(const char *rhs) {
 		IdString id(rhs);
@@ -314,12 +241,162 @@ struct RTLIL::IdString
 		*this = id;
 	}
 
+	constexpr inline const IdString &id_string() const { return *this; }
+
 	inline const char *c_str() const {
-		return global_id_storage_.at(index_);
+		if (index_ >= 0)
+			return global_id_storage_.at(index_).buf;
+
+		AutoidxStorage &s = global_autoidx_id_storage_.at(index_);
+		char *full_str = s.full_str.load(std::memory_order_acquire);
+		if (full_str != nullptr)
+			return full_str;
+		const std::string &prefix = *s.prefix;
+		std::string suffix = std::to_string(-index_);
+		char *c = new char[prefix.size() + suffix.size() + 1];
+		memcpy(c, prefix.data(), prefix.size());
+		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
+		if (s.full_str.compare_exchange_strong(full_str, c, std::memory_order_acq_rel))
+			return c;
+		delete[] c;
+		return full_str;
 	}
 
 	inline std::string str() const {
-		return std::string(global_id_storage_.at(index_));
+		std::string result;
+		append_to(&result);
+		return result;
+	}
+
+	inline void append_to(std::string *out) const {
+		if (index_ >= 0) {
+			*out += global_id_storage_.at(index_).str_view();
+			return;
+		}
+		*out += *global_autoidx_id_storage_.at(index_).prefix;
+		*out += std::to_string(-index_);
+	}
+
+	class Substrings {
+		std::string_view first_;
+		int suffix_number;
+		char buf[10];
+	public:
+		Substrings(const Storage &storage) : first_(storage.str_view()), suffix_number(-1) {}
+		// suffix_number must be non-negative
+		Substrings(const std::string *prefix, int suffix_number)
+				: first_(*prefix), suffix_number(suffix_number) {}
+		std::string_view first() { return first_; }
+		std::optional<std::string_view> next() {
+			if (suffix_number < 0)
+				return std::nullopt;
+                       int i = sizeof(buf);
+			do {
+				--i;
+                               buf[i] = (suffix_number % 10) + '0';
+                               suffix_number /= 10;
+			} while (suffix_number > 0);
+			suffix_number = -1;
+			return std::string_view(buf + i, sizeof(buf) - i);
+		}
+	};
+
+	class const_iterator {
+		const std::string *prefix;
+		std::string suffix;
+		const char *c_str;
+		int c_str_len;
+		// When this is INT_MAX it's the generic "end" value.
+		int index;
+
+	public:
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = char;
+		using difference_type = std::ptrdiff_t;
+		using pointer = const char*;
+		using reference = const char&;
+
+		const_iterator(const Storage &storage) : prefix(nullptr), c_str(storage.buf), c_str_len(storage.size), index(0) {}
+		const_iterator(const std::string *prefix, int number) :
+				prefix(prefix), suffix(std::to_string(number)), c_str(nullptr), c_str_len(0), index(0) {}
+		// Construct end-marker
+		const_iterator() : prefix(nullptr), c_str(nullptr), c_str_len(0), index(INT_MAX) {}
+
+		int size() const {
+			if (c_str != nullptr)
+				return c_str_len;
+			return GetSize(*prefix) + GetSize(suffix);
+		}
+
+		char operator*() const {
+			if (c_str != nullptr)
+				return c_str[index];
+			int prefix_size = GetSize(*prefix);
+			if (index < prefix_size)
+				return prefix->at(index);
+			return suffix[index - prefix_size];
+		}
+
+		const_iterator& operator++() { ++index; return *this; }
+		const_iterator operator++(int) { const_iterator result(*this); ++index; return result; }
+		const_iterator& operator+=(int i) { index += i; return *this; }
+
+		const_iterator operator+(int add) {
+			const_iterator result = *this;
+			result += add;
+			return result;
+		}
+
+		bool operator==(const const_iterator& other) const {
+			return index == other.index || (other.index == INT_MAX && index == size())
+				|| (index == INT_MAX && other.index == other.size());
+		}
+		bool operator!=(const const_iterator& other) const {
+			return !(*this == other);
+		}
+	};
+	const_iterator begin() const {
+		if (index_ >= 0) {
+			return const_iterator(global_id_storage_.at(index_));
+		}
+		return const_iterator(global_autoidx_id_storage_.at(index_).prefix, -index_);
+	}
+	const_iterator end() const {
+		return const_iterator();
+	}
+
+	Substrings substrings() const {
+		if (index_ >= 0) {
+			return Substrings(global_id_storage_.at(index_));
+		}
+		return Substrings(global_autoidx_id_storage_.at(index_).prefix, -index_);
+	}
+
+	inline bool lt_by_name(const IdString &rhs) const {
+		Substrings lhs_it = substrings();
+		Substrings rhs_it = rhs.substrings();
+		std::string_view lhs_substr = lhs_it.first();
+		std::string_view rhs_substr = rhs_it.first();
+		while (true) {
+			int min = std::min(GetSize(lhs_substr), GetSize(rhs_substr));
+			int diff = memcmp(lhs_substr.data(), rhs_substr.data(), min);
+			if (diff != 0)
+				return diff < 0;
+			lhs_substr = lhs_substr.substr(min);
+			rhs_substr = rhs_substr.substr(min);
+			if (rhs_substr.empty()) {
+				if (std::optional<std::string_view> s = rhs_it.next())
+					rhs_substr = *s;
+				else
+					return false;
+			}
+			if (lhs_substr.empty()) {
+				if (std::optional<std::string_view> s = lhs_it.next())
+					lhs_substr = *s;
+				else
+					return true;
+			}
+		}
 	}
 
 	inline bool operator<(const IdString &rhs) const {
@@ -338,49 +415,88 @@ struct RTLIL::IdString
 	bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
 
 	char operator[](size_t i) const {
-					const char *p = c_str();
+		if (index_ >= 0) {
+			const Storage &storage = global_id_storage_.at(index_);
 #ifndef NDEBUG
-		for (; i != 0; i--, p++)
-			log_assert(*p != 0);
-		return *p;
-#else
-		return *(p + i);
+			log_assert(static_cast<int>(i) < storage.size);
 #endif
+			return *(storage.buf + i);
+		}
+		const std::string &id_start = *global_autoidx_id_storage_.at(index_).prefix;
+		if (i < id_start.size())
+			return id_start[i];
+		i -= id_start.size();
+		std::string suffix = std::to_string(-index_);
+#ifndef NDEBUG
+		// Allow indexing to access the trailing null.
+		log_assert(i <= suffix.size());
+#endif
+		return suffix[i];
 	}
 
 	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-		if (len == std::string::npos || len >= strlen(c_str() + pos))
-			return std::string(c_str() + pos);
-		else
-			return std::string(c_str() + pos, len);
+		std::string result;
+		const_iterator it = begin() + pos;
+		const_iterator end_it = end();
+		if (len != std::string::npos && len < it.size() - pos) {
+			end_it = it + len;
+		}
+		std::copy(it, end_it, std::back_inserter(result));
+		return result;
 	}
 
 	int compare(size_t pos, size_t len, const char* s) const {
-		return strncmp(c_str()+pos, s, len);
+		const_iterator it = begin() + pos;
+		const_iterator end_it = end();
+		while (len > 0 && *s != 0 && it != end_it) {
+			int diff = *it - *s;
+			if (diff != 0)
+				return diff;
+			++it;
+			++s;
+			--len;
+		}
+		return 0;
 	}
 
-	bool begins_with(const char* prefix) const {
-		size_t len = strlen(prefix);
-		if (size() < len) return false;
-		return compare(0, len, prefix) == 0;
+	bool begins_with(std::string_view prefix) const {
+		Substrings it = substrings();
+		std::string_view substr = it.first();
+		while (true) {
+			int min = std::min(GetSize(substr), GetSize(prefix));
+			if (memcmp(substr.data(), prefix.data(), min) != 0)
+				return false;
+			prefix = prefix.substr(min);
+			if (prefix.empty())
+				return true;
+			substr = substr.substr(min);
+			if (substr.empty()) {
+				if (std::optional<std::string_view> s = it.next())
+					substr = *s;
+				else
+					return false;
+			}
+		}
 	}
 
-	bool ends_with(const char* suffix) const {
-		size_t len = strlen(suffix);
-		if (size() < len) return false;
-		return compare(size()-len, len, suffix) == 0;
+	bool ends_with(std::string_view suffix) const {
+		size_t sz = size();
+		if (sz < suffix.size()) return false;
+		return compare(sz - suffix.size(), suffix.size(), suffix.data()) == 0;
 	}
 
-	bool contains(const char* str) const {
-		return strstr(c_str(), str);
+	bool contains(std::string_view s) const {
+		if (index_ >= 0)
+			return global_id_storage_.at(index_).str_view().find(s) != std::string::npos;
+		return str().find(s) != std::string::npos;
 	}
 
 	size_t size() const {
-		return strlen(c_str());
+		return begin().size();
 	}
 
 	bool empty() const {
-		return c_str()[0] == 0;
+		return index_ == 0;
 	}
 
 	void clear() {
@@ -408,7 +524,7 @@ struct RTLIL::IdString
 	// often one needs to check if a given IdString is part of a list (for example a list
 	// of cell types). the following functions helps with that.
 	template<typename... Args>
-	bool in(Args... args) const {
+	bool in(const Args &... args) const {
 		return (... || in(args));
 	}
 
@@ -419,6 +535,112 @@ struct RTLIL::IdString
 	inline bool in(const pool<IdString> &&rhs) const;
 
 	bool isPublic() const { return begins_with("\\"); }
+
+private:
+	static void prepopulate();
+	static int really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it);
+
+protected:
+	static IdString from_index(int index) {
+		IdString result;
+		result.index_ = index;
+		return result;
+	}
+
+public:
+	static void ensure_prepopulated() {
+		if (global_id_index_.empty())
+			prepopulate();
+	}
+};
+
+struct RTLIL::OwningIdString : public RTLIL::IdString {
+	inline OwningIdString() { }
+	inline OwningIdString(const OwningIdString &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(const char *str) : IdString(str) { get_reference(); }
+	inline OwningIdString(const IdString &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(IdString &&str) : IdString(str) {	get_reference(); }
+	inline OwningIdString(const std::string &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(std::string_view str) : IdString(str) { get_reference(); }
+	inline OwningIdString(StaticId id) : IdString(id) {}
+	inline ~OwningIdString() {
+		put_reference();
+	}
+
+	inline OwningIdString &operator=(const OwningIdString &rhs) {
+		put_reference();
+		index_ = rhs.index_;
+		get_reference();
+		return *this;
+	}
+	inline OwningIdString &operator=(const IdString &rhs) {
+		put_reference();
+		index_ = rhs.index_;
+		get_reference();
+		return *this;
+	}
+	inline OwningIdString &operator=(OwningIdString &&rhs) {
+		std::swap(index_, rhs.index_);
+		return *this;
+	}
+
+	// Collect all non-owning references.
+	static void collect_garbage();
+	static int64_t garbage_collection_ns() { return gc_ns; }
+	static int garbage_collection_count() { return gc_count; }
+
+	// Used by the ID() macro to create an IdString with no destructor whose string will
+	// never be released. If ID() creates a closure-static `OwningIdString` then
+	// initialization of the static registers its destructor to run at exit, which is
+	// wasteful.
+	static IdString immortal(const char* str) {
+		IdString result(str);
+		get_reference(result.index_);
+		return result;
+	}
+private:
+	static int64_t gc_ns;
+	static int gc_count;
+
+	void get_reference()
+	{
+		get_reference(index_);
+	}
+	static void get_reference(int idx)
+	{
+		log_assert(!Multithreading::active());
+
+		if (idx < static_cast<short>(StaticId::STATIC_ID_END))
+			return;
+		auto it = global_refcount_storage_.find(idx);
+		if (it == global_refcount_storage_.end())
+			global_refcount_storage_.insert(it, {idx, 1});
+		else
+			++it->second;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
+			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", from_index(idx), idx, refcount(idx));
+	#endif
+	}
+
+	void put_reference()
+	{
+		log_assert(!Multithreading::active());
+
+		// put_reference() may be called from destructors after the destructor of
+		// global_refcount_storage_ has been run. in this case we simply do nothing.
+		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
+			return;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace)
+			log("#X# PUT '%s' (index %d, refcount %u)\n", from_index(index_), index_, refcount(index_));
+	#endif
+		auto it = global_refcount_storage_.find(index_);
+		log_assert(it != global_refcount_storage_.end() && it->second >= 1);
+		if (--it->second == 0) {
+			global_refcount_storage_.erase(it);
+		}
+	}
 };
 
 namespace hashlib {
@@ -427,10 +649,10 @@ namespace hashlib {
 		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString id) {
+		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString &id) {
 			return id.hash_top();
 		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString id, Hasher h) {
+		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString &id, Hasher h) {
 			return id.hash_into(h);
 		}
 	};
@@ -448,10 +670,73 @@ inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.c
 
 namespace RTLIL {
 	namespace ID {
-#define X(_id) extern IdString _id;
+#define X(_id) constexpr IdString _id(StaticId::_id);
 #include "kernel/constids.inc"
 #undef X
-	};
+	}
+}
+
+struct IdTableEntry {
+	const std::string_view name;
+	const RTLIL::IdString static_id;
+};
+
+constexpr IdTableEntry IdTable[] = {
+#define X(_id) {#_id, ID::_id},
+#include "kernel/constids.inc"
+#undef X
+};
+
+constexpr int lookup_well_known_id(std::string_view name)
+{
+	int low = 0;
+	int high = sizeof(IdTable) / sizeof(IdTable[0]);
+	while (high - low >= 2) {
+		int mid = (low + high) / 2;
+		if (name < IdTable[mid].name)
+			high = mid;
+		else
+			low = mid;
+	}
+	if (IdTable[low].name == name)
+		return low;
+	return -1;
+}
+
+// Create a statically allocated IdString object, using for example ID::A or ID($add).
+//
+// Recipe for Converting old code that is using conversion of strings like ID::A and
+// "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
+// example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
+//
+//  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
+//
+typedef RTLIL::IdString IDMacroHelperFunc();
+
+template <int IdTableIndex> struct IDMacroHelper {
+	static constexpr RTLIL::IdString eval(IDMacroHelperFunc) {
+		return IdTable[IdTableIndex].static_id;
+	}
+};
+template <> struct IDMacroHelper<-1> {
+	static constexpr RTLIL::IdString eval(IDMacroHelperFunc func) {
+		return func();
+	}
+};
+
+#undef ID
+#define ID(_id) \
+		YOSYS_NAMESPACE_PREFIX IDMacroHelper< \
+				YOSYS_NAMESPACE_PREFIX lookup_well_known_id(#_id) \
+		>::eval([]() \
+		-> YOSYS_NAMESPACE_PREFIX RTLIL::IdString { \
+			const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
+			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id = \
+				YOSYS_NAMESPACE_PREFIX RTLIL::OwningIdString::immortal(q); \
+			return id; \
+        })
+
+namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
 	const pool<IdString> &builtin_ff_cell_types();
@@ -490,13 +775,13 @@ namespace RTLIL {
 
 	template <typename T> struct sort_by_name_str {
 		bool operator()(T *a, T *b) const {
-			return strcmp(a->name.c_str(), b->name.c_str()) < 0;
+			return a->name.lt_by_name(b->name);
 		}
 	};
 
 	struct sort_by_id_str {
 		bool operator()(const RTLIL::IdString &a, const RTLIL::IdString &b) const {
-			return strcmp(a.c_str(), b.c_str()) < 0;
+			return a.lt_by_name(b);
 		}
 	};
 
@@ -720,40 +1005,82 @@ private:
 	using bitvectype = std::vector<RTLIL::State>;
 	enum class backing_tag: bool { bits, string };
 	// Do not access the union or tag even in Const methods unless necessary
-	mutable backing_tag tag;
+	backing_tag tag;
 	union {
-		mutable bitvectype bits_;
-		mutable std::string str_;
+		bitvectype bits_;
+		std::string str_;
 	};
 
 	// Use these private utilities instead
 	bool is_bits() const { return tag == backing_tag::bits; }
 	bool is_str() const { return tag == backing_tag::string; }
 
-	bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
-	std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
+	bitvectype* get_if_bits() { return is_bits() ? &bits_ : NULL; }
+	std::string* get_if_str() { return is_str() ? &str_ : NULL; }
+	const bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
+	const std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
 
-	bitvectype& get_bits() const;
-	std::string& get_str() const;
+	bitvectype& get_bits();
+	std::string& get_str();
+	const bitvectype& get_bits() const;
+	const std::string& get_str() const;
+	std::vector<RTLIL::State>& bits_internal();
+	void bitvectorize_internal();
+
 public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
-	Const(const std::string &str);
-	Const(long long val, int width = 32);
+	Const(std::string str);
+	Const(long long val); // default width is 32
+	Const(long long val, int width);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(bits) {}
+	Const(std::vector<RTLIL::State> bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::move(bits)) {}
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &other);
 	Const(RTLIL::Const &&other);
 	RTLIL::Const &operator =(const RTLIL::Const &other);
 	~Const();
 
+	struct Builder
+	{
+		Builder() {}
+		Builder(int expected_width) { bits.reserve(expected_width); }
+		void push_back(RTLIL::State b) { bits.push_back(b); }
+		int size() const { return static_cast<int>(bits.size()); }
+		Const build() { return Const(std::move(bits)); }
+	private:
+		std::vector<RTLIL::State> bits;
+	};
+
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
-	std::vector<RTLIL::State>& bits();
+	[[deprecated("Don't use direct access to the internal std::vector<State>, that's an implementation detail.")]]
+	std::vector<RTLIL::State>& bits() { return bits_internal(); }
+	[[deprecated("Don't call bitvectorize() directly, it's an implementation detail.")]]
+	void bitvectorize() const { const_cast<Const*>(this)->bitvectorize_internal(); }
+
 	bool as_bool() const;
+
+	// Convert the constant value to a C++ int.
+	// NOTE: If the constant is too wide to fit in int (32 bits) this will
+	// truncate any higher bits, potentially over/underflowing. Consider using
+	// try_as_int, as_int_saturating, or guarding behind convertible_to_int
+	// instead.
 	int as_int(bool is_signed = false) const;
+
+	// Returns true iff the constant can be converted to an int without
+	// over/underflow.
+	bool convertible_to_int(bool is_signed = false) const;
+
+	// Returns the constant's value as an int if it can be represented without
+	// over/underflow, or std::nullopt otherwise.
+	std::optional<int> try_as_int(bool is_signed = false) const;
+
+	// Returns the constant's value as an int if it can be represented without
+	// over/underflow, otherwise the max/min value for int depending on the sign.
+	int as_int_saturating(bool is_signed = false) const;
+
 	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
@@ -761,37 +1088,42 @@ public:
 	std::string decode_string() const;
 	int size() const;
 	bool empty() const;
-	void bitvectorize() const;
 
 	void append(const RTLIL::Const &other);
+	void set(int i, RTLIL::State state) {
+		bits_internal()[i] = state;
+	}
+	void resize(int size, RTLIL::State fill) {
+		bits_internal().resize(size, fill);
+	}
 
 	class const_iterator {
 	private:
-		const Const& parent;
+		const Const* parent;
 		size_t idx;
 
 	public:
-		using iterator_category = std::input_iterator_tag;
+		using iterator_category = std::bidirectional_iterator_tag;
 		using value_type = State;
 		using difference_type = std::ptrdiff_t;
 		using pointer = const State*;
 		using reference = const State&;
 
-		const_iterator(const Const& c, size_t i) : parent(c), idx(i) {}
+		const_iterator(const Const& c, size_t i) : parent(&c), idx(i) {}
 
 		State operator*() const;
 
 		const_iterator& operator++() { ++idx; return *this; }
 		const_iterator& operator--() { --idx; return *this; }
-		const_iterator& operator++(int) { ++idx; return *this; }
-		const_iterator& operator--(int) { --idx; return *this; }
+		const_iterator operator++(int) { const_iterator result(*this); ++idx; return result; }
+		const_iterator operator--(int) { const_iterator result(*this); --idx; return result; }
 		const_iterator& operator+=(int i) { idx += i; return *this; }
 
 		const_iterator operator+(int add) {
-			return const_iterator(parent, idx + add);
+			return const_iterator(*parent, idx + add);
 		}
 		const_iterator operator-(int sub) {
-			return const_iterator(parent, idx - sub);
+			return const_iterator(*parent, idx - sub);
 		}
 		int operator-(const const_iterator& other) {
 			return idx - other.idx;
@@ -806,11 +1138,68 @@ public:
 		}
 	};
 
+	class iterator {
+	private:
+		Const* parent;
+		size_t idx;
+
+	public:
+		class proxy {
+		private:
+			Const* parent;
+			size_t idx;
+		public:
+			proxy(Const* parent, size_t idx) : parent(parent), idx(idx) {}
+			operator State() const { return (*parent)[idx]; }
+			proxy& operator=(State s) { parent->set(idx, s); return *this; }
+			proxy& operator=(const proxy& other) { parent->set(idx, (*other.parent)[other.idx]); return *this; }
+		};
+
+		using iterator_category = std::bidirectional_iterator_tag;
+		using value_type = State;
+		using difference_type = std::ptrdiff_t;
+		using pointer = proxy*;
+		using reference = proxy;
+
+		iterator(Const& c, size_t i) : parent(&c), idx(i) {}
+
+		proxy operator*() const { return proxy(parent, idx); }
+		iterator& operator++() { ++idx; return *this; }
+		iterator& operator--() { --idx; return *this; }
+		iterator operator++(int) { iterator result(*this); ++idx; return result; }
+		iterator operator--(int) { iterator result(*this); --idx; return result; }
+		iterator& operator+=(int i) { idx += i; return *this; }
+
+		iterator operator+(int add) {
+			return iterator(*parent, idx + add);
+		}
+		iterator operator-(int sub) {
+			return iterator(*parent, idx - sub);
+		}
+		int operator-(const iterator& other) {
+			return idx - other.idx;
+		}
+
+		bool operator==(const iterator& other) const {
+			return idx == other.idx;
+		}
+
+		bool operator!=(const iterator& other) const {
+			return !(*this == other);
+		}
+	};
+
 	const_iterator begin() const {
 		return const_iterator(*this, 0);
 	}
 	const_iterator end() const {
 		return const_iterator(*this, size());
+	}
+	iterator begin() {
+		return iterator(*this, 0);
+	}
+	iterator end() {
+		return iterator(*this, size());
 	}
 	State back() const {
 		return *(end() - 1);
@@ -843,20 +1232,14 @@ public:
 	std::optional<int> as_int_compress(bool is_signed) const;
 
 	void extu(int width) {
-		bits().resize(width, RTLIL::State::S0);
+		resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bitvectype& bv = bits();
-		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
+		resize(width, empty() ? RTLIL::State::Sx : back());
 	}
 
-	[[nodiscard]] Hasher hash_into(Hasher h) const {
-		h.eat(size());
-		for (auto b : *this)
-			h.eat(b);
-		return h;
-	}
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 struct RTLIL::AttrObject
@@ -911,7 +1294,8 @@ struct RTLIL::SigChunk
 	SigChunk(RTLIL::Wire *wire) : wire(wire), width(GetSize(wire)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire, int offset, int width = 1) : wire(wire), width(width), offset(offset) {}
 	SigChunk(const std::string &str) : SigChunk(RTLIL::Const(str)) {}
-	SigChunk(int val, int width = 32) : SigChunk(RTLIL::Const(val, width)) {}
+	SigChunk(int val) /*default width 32*/ : SigChunk(RTLIL::Const(val)) {}
+	SigChunk(int val, int width) : SigChunk(RTLIL::Const(val, width)) {}
 	SigChunk(RTLIL::State bit, int width = 1) : SigChunk(RTLIL::Const(bit, width)) {}
 	SigChunk(const RTLIL::SigBit &bit);
 
@@ -994,9 +1378,10 @@ struct RTLIL::SigSpecConstIterator
 	typedef RTLIL::SigBit& reference;
 
 	const RTLIL::SigSpec *sig_p;
+	RTLIL::SigBit bit;
 	int index;
 
-	inline const RTLIL::SigBit &operator*() const;
+	inline const RTLIL::SigBit &operator*();
 	inline bool operator!=(const RTLIL::SigSpecConstIterator &other) const { return index != other.index; }
 	inline bool operator==(const RTLIL::SigSpecIterator &other) const { return index == other.index; }
 	inline void operator++() { index++; }
@@ -1005,32 +1390,84 @@ struct RTLIL::SigSpecConstIterator
 struct RTLIL::SigSpec
 {
 private:
-	int width_;
-	Hasher::hash_t hash_;
-	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
-	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	enum Representation : char {
+		CHUNK,
+		BITS,
+	};
+	// An AtomicHash is either clear or a nonzero integer.
+	struct AtomicHash {
+		// Create an initially clear value.
+		AtomicHash() : atomic_(0) {}
+		AtomicHash(const AtomicHash &rhs) : atomic_(rhs.load()) {}
+		AtomicHash &operator=(const AtomicHash &rhs) { store(rhs.load()); return *this; }
+		// Read the hash. Returns nullopt if the hash is clear.
+		std::optional<Hasher::hash_t> read() const {
+			Hasher::hash_t value = load();
+			if (value == 0)
+				return std::nullopt;
+			return value;
+		}
+		// Set the hash. If the value is already set, then the new value must
+		// equal the current value.
+		void set(Hasher::hash_t value) const {
+			log_assert(value != 0);
+			Hasher::hash_t old = const_cast<std::atomic<Hasher::hash_t>&>(atomic_)
+					.exchange(value, std::memory_order_relaxed);
+			log_assert(old == 0 || old == value);
+		}
+		void clear() { store(0); }
+	private:
+		int load() const { return atomic_.load(std::memory_order_relaxed); }
+		void store(Hasher::hash_t value) const {
+			const_cast<std::atomic<Hasher::hash_t>&>(atomic_).store(value, std::memory_order_relaxed);
+		}
 
-	void pack() const;
-	void unpack() const;
-	void updhash() const;
+		std::atomic<Hasher::hash_t> atomic_;
+	};
 
-	inline bool packed() const {
-		return bits_.empty();
+	Representation rep_;
+	AtomicHash hash_;
+	union {
+		RTLIL::SigChunk chunk_;
+		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	};
+
+	void init_empty_bits() {
+		rep_ = BITS;
+		new (&bits_) std::vector<RTLIL::SigBit>;
 	}
 
-	inline void inline_unpack() const {
-		if (!chunks_.empty())
+	void unpack();
+	inline void inline_unpack() {
+		if (rep_ == CHUNK)
 			unpack();
 	}
+	void try_repack();
 
-	// Only used by Module::remove(const pool<Wire*> &wires)
-	// but cannot be more specific as it isn't yet declared
-	friend struct RTLIL::Module;
+	Hasher::hash_t updhash() const;
+	void destroy() {
+		if (rep_ == CHUNK)
+			chunk_.~SigChunk();
+		else
+			bits_.~vector();
+	}
+	friend struct Chunks;
 
 public:
-	SigSpec() : width_(0), hash_(0) {}
+	SigSpec() { init_empty_bits(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-
+	SigSpec(const SigSpec &value) : rep_(value.rep_), hash_(value.hash_) {
+		if (value.rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(value.chunk_);
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(value.bits_);
+	}
+	SigSpec(SigSpec &&value) : rep_(value.rep_), hash_(value.hash_) {
+		if (value.rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(std::move(value.chunk_));
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(std::move(value.bits_));
+	}
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(RTLIL::Const &&value);
 	SigSpec(const RTLIL::SigChunk &chunk);
@@ -1046,21 +1483,138 @@ public:
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
+	~SigSpec() {
+		destroy();
+	}
 
-	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
-	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
+	SigSpec &operator=(const SigSpec &rhs) {
+		destroy();
+		rep_ = rhs.rep_;
+		hash_ = rhs.hash_;
+		if (rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(rhs.chunk_);
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(rhs.bits_);
+		return *this;
+	}
+	SigSpec &operator=(SigSpec &&rhs) {
+		destroy();
+		rep_ = rhs.rep_;
+		hash_ = rhs.hash_;
+		if (rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(std::move(rhs.chunk_));
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(std::move(rhs.bits_));
+		return *this;
+	}
 
-	inline int size() const { return width_; }
-	inline bool empty() const { return width_ == 0; }
+	// SigSpec::Chunks holds one reconstructed chunk at a time
+	// to provide the SigSpec::chunks() read-only chunks view
+	// since vector<SigChunk> SigSpec::chunks_ has been removed
+	struct Chunks {
+		Chunks(const SigSpec &spec) : spec(spec) {}
+		struct const_iterator {
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = const SigChunk &;
+			using difference_type = std::ptrdiff_t;
+			using pointer = const SigChunk *;
+			using reference = const SigChunk &;
 
-	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
-	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
+			const SigSpec &spec;
+			int bit_index;
+			SigChunk chunk;
+
+			const_iterator(const SigSpec &spec) : spec(spec) {
+				bit_index = 0;
+				if (spec.rep_ == BITS)
+					next_chunk_bits();
+			}
+			enum End { END };
+			const_iterator(const SigSpec &spec, End) : spec(spec) {
+				bit_index = spec.size();
+			}
+			void next_chunk_bits();
+
+			const SigChunk &operator*() {
+				if (spec.rep_ == CHUNK)
+					return spec.chunk_;
+				return chunk;
+			};
+			const SigChunk *operator->() { return &**this; }
+			const_iterator &operator++() {
+				bit_index += (**this).width;
+				if (spec.rep_ == BITS)
+					next_chunk_bits();
+				return *this;
+			}
+			bool operator==(const const_iterator &rhs) const { return bit_index == rhs.bit_index; }
+			bool operator!=(const const_iterator &rhs) const { return !(*this == rhs); }
+		};
+		const_iterator begin() const { return const_iterator(spec); }
+		const_iterator end() const {
+			const_iterator it(spec, const_iterator::END);
+			return it;
+		}
+		// Later we should deprecate these and remove their in-tree calls,
+		// so we can eventually remove chunk_vector.
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rbegin() {
+			ensure_chunk_vector();
+			return chunk_vector.rbegin();
+		}
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rend() {
+			ensure_chunk_vector();
+			return chunk_vector.rend();
+		}
+		int size() {
+			ensure_chunk_vector();
+			return chunk_vector.size();
+		}
+		int size() const {
+			return std::distance(begin(), end());
+		}
+		const SigChunk &at(int index) {
+			ensure_chunk_vector();
+			return chunk_vector.at(index);
+		}
+		operator const std::vector<RTLIL::SigChunk>&() {
+			ensure_chunk_vector();
+			return chunk_vector;
+		}
+	private:
+		void ensure_chunk_vector() {
+			if (spec.size() > 0 && chunk_vector.empty()) {
+				for (const RTLIL::SigChunk &c : *this)
+					chunk_vector.push_back(c);
+			}
+		}
+		const SigSpec &spec;
+		std::vector<RTLIL::SigChunk> chunk_vector;
+	};
+	friend struct Chunks::const_iterator;
+
+	inline Chunks chunks() const { return {*this}; }
+	inline const SigSpec &bits() const { return *this; }
+
+	inline int size() const { return rep_ == CHUNK ? chunk_.width : GetSize(bits_); }
+	inline bool empty() const { return size() == 0; };
+
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_.clear(); return bits_.at(index); }
+	inline RTLIL::SigBit operator[](int index) const {
+		if (rep_ == CHUNK) {
+			if (index < 0 || index >= chunk_.width)
+				throw std::out_of_range("SigSpec::operator[]");
+			if (chunk_.wire)
+				return RTLIL::SigBit(chunk_.wire, chunk_.offset + index);
+			return RTLIL::SigBit(chunk_.data[index]);
+		}
+		return bits_.at(index);
+	}
 
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
+	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = size(); return it; }
 
 	inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = width_; return it; }
+	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = size(); return it; }
 
 	void sort();
 	void sort_and_unify();
@@ -1092,10 +1646,14 @@ public:
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
-	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
+	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, size() - offset); }
 
-	RTLIL::SigBit lsb() const { log_assert(width_); return (*this)[0]; };
-	RTLIL::SigBit msb() const { log_assert(width_); return (*this)[width_ - 1]; };
+	void rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewrite);
+
+	RTLIL::SigBit lsb() const { log_assert(size()); return (*this)[0]; };
+	RTLIL::SigBit msb() const { log_assert(size()); return (*this)[size() - 1]; };
+	RTLIL::SigBit front() const { return (*this)[0]; }
+	RTLIL::SigBit back() const { return (*this)[size() - 1]; }
 
 	void append(const RTLIL::SigSpec &signal);
 	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }
@@ -1118,7 +1676,9 @@ public:
 
 	bool is_wire() const;
 	bool is_chunk() const;
-	inline bool is_bit() const { return width_ == 1; }
+	inline bool is_bit() const { return size() == 1; }
+
+	bool known_driver() const;
 
 	bool is_fully_const() const;
 	bool is_fully_zero() const;
@@ -1126,12 +1686,36 @@ public:
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 	bool has_const() const;
+	bool has_const(State state) const;
 	bool has_marked_bits() const;
 	bool is_onehot(int *pos = nullptr) const;
 
 	bool as_bool() const;
+
+	// Convert the SigSpec to a C++ int, assuming all bits are constant.
+	// NOTE: If the value is too wide to fit in int (32 bits) this will
+	// truncate any higher bits, potentially over/underflowing. Consider using
+	// try_as_int, as_int_saturating, or guarding behind convertible_to_int
+	// instead.
 	int as_int(bool is_signed = false) const;
+
+	// Returns true iff the SigSpec is constant and can be converted to an int
+	// without over/underflow.
+	bool convertible_to_int(bool is_signed = false) const;
+
+	// Returns the SigSpec's value as an int if it is a constant and can be
+	// represented without over/underflow, or std::nullopt otherwise.
+	std::optional<int> try_as_int(bool is_signed = false) const;
+
+	// Returns an all constant SigSpec's value as an int if it can be represented
+	// without over/underflow, otherwise the max/min value for int depending on
+	// the sign.
+	int as_int_saturating(bool is_signed = false) const;
+
 	std::string as_string() const;
+	// Returns std::nullopt if there are any non-constant bits. Returns an empty
+	// Const if this has zero width.
+	std::optional<RTLIL::Const> try_as_const() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
 	RTLIL::SigChunk as_chunk() const;
@@ -1149,11 +1733,21 @@ public:
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
-	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
-	operator std::vector<RTLIL::SigBit>() const { return bits(); }
-	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
+	operator std::vector<RTLIL::SigChunk>() const;
+	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
+	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < size() ? (*this)[offset] : defval; }
+	RTLIL::SigBit& at(int offset) { return (*this)[offset]; }
+	RTLIL::SigBit at(int offset) const { return (*this)[offset]; }
 
-	[[nodiscard]] Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		Hasher::hash_t val;
+		if (std::optional<Hasher::hash_t> current = hash_.read())
+			val = *current;
+		else
+			val = updhash();
+		h.eat(val);
+		return h;
+	}
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -1292,7 +1886,7 @@ struct RTLIL::Design
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 	std::vector<RTLIL::Binding*> bindings_;
 
-	std::vector<AST::AstNode*> verilog_packages, verilog_globals;
+	std::vector<std::unique_ptr<AST::AstNode>> verilog_packages, verilog_globals;
 	std::unique_ptr<define_map_t> verilog_defines;
 
 	std::vector<RTLIL::Selection> selection_stack;
@@ -1329,6 +1923,7 @@ struct RTLIL::Design
 	std::string scratchpad_get_string(const std::string &varname, const std::string &default_value = std::string()) const;
 
 	void sort();
+	void sort_modules();
 	void check();
 	void optimize();
 
@@ -1438,9 +2033,7 @@ struct RTLIL::Design
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
-#ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
-#endif
 };
 
 struct RTLIL::Module : public RTLIL::NamedObject
@@ -1496,7 +2089,11 @@ public:
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
 
-	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	pool<RTLIL::Cell *> buf_norm_cell_queue;
+	pool<pair<RTLIL::Cell *, RTLIL::IdString>> buf_norm_cell_port_queue;
+	pool<RTLIL::Wire *> buf_norm_wire_queue;
+	pool<RTLIL::Cell *> pending_deleted_cells;
+	dict<RTLIL::Wire *, pool<RTLIL::Cell *>> buf_norm_connect_index;
 	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
@@ -1567,6 +2164,7 @@ public:
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
+	RTLIL::Memory *addMemory(RTLIL::IdString name);
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
 
 	RTLIL::Process *addProcess(RTLIL::IdString name);
@@ -1794,7 +2392,7 @@ public:
 	RTLIL::SigSpec OriginalTag     (RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src = "");
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif
 };
@@ -1829,6 +2427,8 @@ public:
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
 
+	bool known_driver() const { return driverCell_ != nullptr; }
+
 	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
 	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
 
@@ -1845,7 +2445,7 @@ public:
 		return zero_index + start_offset;
 	}
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
 };
@@ -1862,7 +2462,7 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	Memory();
 
 	int width, start_offset, size;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
 #endif
@@ -1900,6 +2500,7 @@ public:
 	bool known() const;
 	bool input(const RTLIL::IdString &portname) const;
 	bool output(const RTLIL::IdString &portname) const;
+	PortDir port_dir(const RTLIL::IdString &portname) const;
 
 	// access cell parameters
 	bool hasParam(const RTLIL::IdString &paramname) const;
@@ -1919,12 +2520,13 @@ public:
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
 #endif
 
 	bool has_memid() const;
 	bool is_mem_cell() const;
+	bool is_builtin_ff() const;
 };
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject
@@ -2048,13 +2650,15 @@ inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
 	return (*sig_p)[index];
 }
 
-inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
-	return (*sig_p)[index];
+inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() {
+	bit = (*sig_p)[index];
+	return bit;
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	log_assert(sig.size() == 1 && sig.chunks().size() == 1);
-	*this = SigBit(sig.chunks().front());
+	log_assert(sig.size() == 1);
+	auto it = sig.chunks().begin();
+	*this = SigBit(*it);
 }
 
 template<typename T>

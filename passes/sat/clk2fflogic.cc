@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -33,6 +34,11 @@ struct SampledSig {
 
 struct Clk2fflogicPass : public Pass {
 	Clk2fflogicPass() : Pass("clk2fflogic", "convert clocked FFs to generic $ff cells") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -66,7 +72,7 @@ struct Clk2fflogicPass : public Pass {
 		}
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = RTLIL::Const(State::S0, GetSize(sig));
 		if (is_fine)
 			module->addFfGate(NEW_ID, sig, sampled_sig);
@@ -78,7 +84,7 @@ struct Clk2fflogicPass : public Pass {
 	SigSpec sample_control_edge(Module *module, SigSpec sig, bool polarity, bool is_fine) {
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = RTLIL::Const(polarity ? State::S1 : State::S0, GetSize(sig));
 		if (is_fine)
 			module->addFfGate(NEW_ID, sig, sampled_sig);
@@ -92,7 +98,7 @@ struct Clk2fflogicPass : public Pass {
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
 
 
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = init;
 
 		Cell *cell;
@@ -269,7 +275,7 @@ struct Clk2fflogicPass : public Pass {
 					continue;
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

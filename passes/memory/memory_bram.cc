@@ -369,7 +369,7 @@ struct rules_t
 		attr_icase = false;
 
 		if (infile.fail())
-			log_error("Can't open rules file `%s'.\n", filename.c_str());
+			log_error("Can't open rules file `%s'.\n", filename);
 
 		while (next_line())
 		{
@@ -848,9 +848,9 @@ grow_read_ports:;
 		for (int i = 0; i < mem.width; i++)
 			if (shuffle_map[i] != -1) {
 				module->connect(port.data[shuffle_map[i]], new_data[i]);
-				new_init_value.bits()[i] = port.init_value[shuffle_map[i]];
-				new_arst_value.bits()[i] = port.arst_value[shuffle_map[i]];
-				new_srst_value.bits()[i] = port.srst_value[shuffle_map[i]];
+				new_init_value.set(i, port.init_value[shuffle_map[i]]);
+				new_arst_value.set(i, port.arst_value[shuffle_map[i]]);
+				new_srst_value.set(i, port.srst_value[shuffle_map[i]]);
 			}
 		port.data = new_data;
 		port.init_value = new_init_value;
@@ -873,7 +873,7 @@ grow_read_ports:;
 		for (int grid_a = 0; grid_a < acells; grid_a++)
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
-			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid.c_str(), grid_d, grid_a, dupidx)), bram.name);
+			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid, grid_d, grid_a, dupidx)), bram.name);
 			log("      Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
 
 			for (auto &vp : variant_params)
@@ -887,9 +887,9 @@ grow_read_ports:;
 				for (int i = 0; i < init_size; i++)
 					for (int j = 0; j < bram.dbits; j++)
 						if (init_offset+i < GetSize(initdata) && init_offset+i >= 0)
-							initparam.bits()[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
+							initparam.set(i*bram.dbits+j, initdata[init_offset+i][init_shift+j]);
 						else
-							initparam.bits()[i*bram.dbits+j] = State::Sx;
+							initparam.set(i*bram.dbits+j, State::Sx);
 				c->setParam(ID::INIT, initparam);
 			}
 
@@ -1020,7 +1020,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 
 	log("  Properties:");
 	for (auto &it : match_properties)
-		log(" %s=%d", it.first.c_str(), it.second);
+		log(" %s=%d", it.first, it.second);
 	log("\n");
 
 	pool<pair<IdString, int>> failed_brams;

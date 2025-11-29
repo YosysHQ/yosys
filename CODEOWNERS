@@ -20,6 +20,7 @@ passes/opt/opt_lut.cc          @whitequark
 passes/techmap/abc9*.cc        @eddiehung @Ravenslofty
 backends/aiger/xaiger.cc       @eddiehung
 docs/                          @KrystalDelusion
+docs/source/using_yosys/synthesis/abc.rst @KrystalDelusion @Ravenslofty
 .github/workflows/*.yml        @mmicko
 
 ## External Contributors
@@ -29,15 +30,16 @@ docs/                          @KrystalDelusion
 # These still override previous lines, so be careful not to
 # accidentally disable any of the above rules.
 
-frontends/verilog/             @zachjs
-frontends/ast/                 @zachjs
+frontends/verilog/             @widlarizer
+frontends/ast/                 @widlarizer
 
 techlibs/intel_alm/            @Ravenslofty
 techlibs/gowin/                @pepijndevos
 techlibs/gatemate/             @pu-cc
 
 # pyosys
-misc/*.py                      @btut
+pyosys/*                       @donn
+setup.py                       @donn
 
 backends/firrtl                @ucbjrl @azidar
 

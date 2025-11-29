@@ -156,7 +156,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 
 static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 {
-	log("Mapping FSM `%s' from module `%s'.\n", fsm_cell->name.c_str(), module->name.c_str());
+	log("Mapping FSM `%s' from module `%s'.\n", fsm_cell->name, module->name);
 
 	FsmData fsm_data;
 	fsm_data.copy_from_cell(fsm_cell);
@@ -176,7 +176,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		state_dff->type = ID($adff);
 		state_dff->parameters[ID::ARST_POLARITY] = fsm_cell->parameters[ID::ARST_POLARITY];
 		state_dff->parameters[ID::ARST_VALUE] = fsm_data.state_table[fsm_data.reset_state];
-		for (auto &bit : state_dff->parameters[ID::ARST_VALUE].bits())
+		for (auto bit : state_dff->parameters[ID::ARST_VALUE])
 			if (bit != RTLIL::State::S1)
 				bit = RTLIL::State::S0;
 		state_dff->setPort(ID::ARST, fsm_cell->getPort(ID::ARST));

@@ -40,34 +40,51 @@ struct AlumaccWorker
 	{
 		std::vector<RTLIL::Cell*> cells;
 		RTLIL::SigSpec a, b, c, y;
-		std::vector<tuple<bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
+		std::vector<tuple<bool, bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
 		bool is_signed, invert_b;
 
 		RTLIL::Cell *alu_cell;
-		RTLIL::SigSpec cached_lt, cached_gt, cached_eq, cached_ne;
+		RTLIL::SigSpec cached_lt, cached_slt, cached_gt, cached_sgt, cached_eq, cached_ne;
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
-		RTLIL::SigSpec get_lt() {
-			if (GetSize(cached_lt) == 0) {
-				if (is_signed) {
+		RTLIL::SigSpec get_lt(bool is_signed) {
+			if (is_signed) {
+				if (GetSize(cached_slt) == 0) {
 					get_of();
 					get_sf();
-					cached_lt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
 				}
-				else
+
+				return cached_slt;
+			} else {
+				if (GetSize(cached_lt) == 0) {
 					cached_lt = get_cf();
+				}
+
+				return cached_lt;
 			}
-			return cached_lt;
 		}
 
-		RTLIL::SigSpec get_gt() {
-			if (GetSize(cached_gt) == 0) {
-				get_lt();
-				get_eq();
-				SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-				cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+		RTLIL::SigSpec get_gt(bool is_signed) {
+			if (is_signed) {
+				if (GetSize(cached_sgt) == 0) {
+					get_lt(is_signed);
+					get_eq();
+					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
+					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+				}
+
+				return cached_sgt;
+			} else {
+				if (GetSize(cached_gt) == 0) {
+					get_lt(is_signed);
+					get_eq();
+					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
+					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+				}
+
+				return cached_gt;
 			}
-			return cached_gt;
 		}
 
 		RTLIL::SigSpec get_eq() {
@@ -408,7 +425,7 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+				if (node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
@@ -438,7 +455,7 @@ struct AlumaccWorker
 			}
 
 			n->cells.push_back(cell);
-			n->cmp.push_back(std::make_tuple(cmp_less, !cmp_less, cmp_equal, false, Y));
+			n->cmp.push_back(std::make_tuple(cmp_less, !cmp_less, cmp_equal, false, is_signed, Y));
 		}
 
 		for (auto cell : eq_cells)
@@ -453,7 +470,7 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+				if (node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
@@ -469,7 +486,7 @@ struct AlumaccWorker
 			if (n != nullptr) {
 				log("  creating $alu model for %s (%s): merged with %s.\n", log_id(cell), log_id(cell->type), log_id(n->cells.front()));
 				n->cells.push_back(cell);
-				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, Y));
+				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, false, Y));
 			}
 		}
 	}
@@ -518,11 +535,12 @@ struct AlumaccWorker
 				bool cmp_gt = std::get<1>(it);
 				bool cmp_eq = std::get<2>(it);
 				bool cmp_ne = std::get<3>(it);
-				RTLIL::SigSpec cmp_y = std::get<4>(it);
+				bool is_signed = std::get<4>(it);
+				RTLIL::SigSpec cmp_y = std::get<5>(it);
 
 				RTLIL::SigSpec sig;
-				if (cmp_lt) sig.append(n->get_lt());
-				if (cmp_gt) sig.append(n->get_gt());
+				if (cmp_lt) sig.append(n->get_lt(is_signed));
+				if (cmp_gt) sig.append(n->get_gt(is_signed));
 				if (cmp_eq) sig.append(n->get_eq());
 				if (cmp_ne) sig.append(n->get_ne());
 

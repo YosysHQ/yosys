@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -91,7 +92,7 @@ struct InitValWorker
 		ModWalker::PortBit portbit = *portbits.begin();
 		RTLIL::Cell *cell = portbit.cell;
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type))
+		if (cell->is_builtin_ff())
 		{
 			FfData ff(&initvals, cell);
 
@@ -223,7 +224,7 @@ struct InitValWorker
 
 		for (auto portbit : portbits) {
 			RTLIL::Cell *cell = portbit.cell;
-			if (!cell->type.in(ID($mux), ID($and), ID($or), ID($mem_v2)) && !RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (!cell->type.in(ID($mux), ID($and), ID($or), ID($mem_v2)) && !cell->is_builtin_ff()) {
 				return true;
 			}
 		}
@@ -231,7 +232,7 @@ struct InitValWorker
 		for (auto portbit : portbits)
 		{
 			RTLIL::Cell *cell = portbit.cell;
-			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (cell->is_builtin_ff())
 			{
 				FfData ff(&initvals, cell);
 				if (ff.has_aload || ff.has_sr || ff.has_arst || ff.has_gclk || !ff.has_clk)
@@ -486,6 +487,11 @@ void HierarchyWorker::propagate()
 
 struct FormalFfPass : public Pass {
 	FormalFfPass() : Pass("formalff", "prepare FFs for formal") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -635,7 +641,7 @@ struct FormalFfPass : public Pass {
 				pool<SigBit> input_bits;
 				pool<pair<SigBit, bool>> input_clk_bits;
 				for (auto cell : module->selected_cells()) {
-					if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+					if (cell->is_builtin_ff()) {
 						FfData ff(&initvals, cell);
 						if (!ff.has_clk)
 							continue;
@@ -737,7 +743,7 @@ struct FormalFfPass : public Pass {
 
 						auto gate_driver = *found->second.begin();
 
-						if (!RTLIL::builtin_ff_cell_types().count(gate_driver.cell->type)) {
+						if (!gate_driver.cell->is_builtin_ff()) {
 							log_debug("non FF driver for gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
 								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
 							continue;
@@ -778,7 +784,7 @@ struct FormalFfPass : public Pass {
 							log_debug("rewriting cell %s.%s (%s)\n", log_id(module), log_id(clocked_cell),
 								  log_id(clocked_cell->type));
 
-							if (RTLIL::builtin_ff_cell_types().count(clocked_cell->type)) {
+							if (clocked_cell->is_builtin_ff()) {
 
 								FfData ff(&initvals, clocked_cell);
 								log_assert(ff.has_clk);
@@ -830,7 +836,7 @@ struct FormalFfPass : public Pass {
 
 				for (auto cell : module->selected_cells())
 				{
-					if (RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (cell->is_builtin_ff())
 					{
 						FfData ff(&worker.initvals, cell);
 						if (ff.has_aload || ff.has_sr || ff.has_arst || ff.val_init.is_fully_def())
@@ -845,7 +851,7 @@ struct FormalFfPass : public Pass {
 						auto before = ff.val_init;
 						for (int i = 0; i < ff.width; i++)
 							if (ff.val_init[i] == State::Sx && !worker.is_initval_used(ff.sig_q[i]))
-								ff.val_init.bits()[i] = State::S0;
+								ff.val_init.set(i, State::S0);
 
 						if (ff.val_init != before) {
 							log("Setting unused undefined initial value of %s.%s (%s) from %s to %s\n",
@@ -877,7 +883,7 @@ struct FormalFfPass : public Pass {
 					continue;
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

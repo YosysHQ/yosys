@@ -36,9 +36,9 @@ static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 static void logmap(IdString dff)
 {
 	if (cell_mappings.count(dff) == 0) {
-		log("    unmapped dff cell: %s\n", dff.c_str());
+		log("    unmapped dff cell: %s\n", dff);
 	} else {
-		log("    %s %s (", cell_mappings[dff].cell_name.c_str(), dff.substr(1).c_str());
+		log("    %s %s (", cell_mappings[dff].cell_name, dff.substr(1));
 		bool first = true;
 		for (auto &port : cell_mappings[dff].ports) {
 			char arg[3] = { port.second, 0, 0 };
@@ -46,7 +46,7 @@ static void logmap(IdString dff)
 				arg[1] = arg[0] - ('a' - 'A'), arg[0] = '~';
 			else
 				arg[1] = arg[0], arg[0] = ' ';
-			log("%s.%s(%s)", first ? "" : ", ", port.first.c_str(), arg);
+			log("%s.%s(%s)", first ? "" : ", ", port.first, arg);
 			first = false;
 		}
 		log(");\n");
@@ -92,7 +92,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	auto expr = attr->value;
 	auto cell_name = cell->args[0];
 
-	for (size_t pos = expr.find_first_of("\" \t"); pos != std::string::npos; pos = expr.find_first_of("\" \t"))
+	for (size_t pos = expr.find_first_of("\"\t"); pos != std::string::npos; pos = expr.find_first_of("\"\t"))
 		expr.erase(pos, 1);
 
 	// if this isn't an enable flop, the next_state variable is usually just the input pin name.
@@ -117,16 +117,17 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	// the next_state variable isn't just a pin name; perhaps this is an enable?
 	auto helper = LibertyExpression::Lexer(expr);
 	auto tree = LibertyExpression::parse(helper);
+	// log_debug("liberty expression:\n%s\n", tree.str());
 
 	if (tree.kind == LibertyExpression::Kind::EMPTY) {
 		if (!warned_cells.count(cell_name)) {
-			log_debug("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr.c_str(), cell_name.c_str());
+			log_debug("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr, cell_name);
 			warned_cells.insert(cell_name);
 		}
 		return false;
 	}
 
-	auto pin_names = pool<std::string>{};
+	auto pin_names = std::unordered_set<std::string>{};
 	tree.get_pin_names(pin_names);
 
 	// from the `ff` block, we know the flop output signal name for loopback.
@@ -134,12 +135,12 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	if (ff == nullptr || ff->args.size() != 2)
 		return false;
 	auto ff_output = ff->args.at(0);
-	
+
 	// This test is redundant with the one in enable_pin, but we're in a
 	// position that gives better diagnostics here.
 	if (!pin_names.count(ff_output)) {
 		if (!warned_cells.count(cell_name)) {
-			log_debug("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr.c_str(), cell_name.c_str(), ff_output.c_str());
+			log_debug("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr, cell_name, ff_output);
 			warned_cells.insert(cell_name);
 		}
 		return false;
@@ -155,7 +156,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 		auto pins = std::vector<std::string>(pin_names.begin(), pin_names.end());
 		int lut = 0;
 		for (int n = 0; n < 8; n++) {
-			auto values = dict<std::string, bool>{};
+			auto values = std::unordered_map<std::string, bool>{};
 			values.insert(std::make_pair(pins[0], (n & 1) == 1));
 			values.insert(std::make_pair(pins[1], (n & 2) == 2));
 			values.insert(std::make_pair(ff_output, (n & 4) == 4));
@@ -165,30 +166,30 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 		// the ff output Q is in a known bit location, so we now just have to compare the LUT mask to known values to find the enable pin and polarity.
 		if (lut == 0xD8) {
 			data_name = pins[1];
-			enable_name = pins[0];	
+			enable_name = pins[0];
 			return true;
 		}
 		if (lut == 0xB8) {
 			data_name = pins[0];
-			enable_name = pins[1];	
+			enable_name = pins[1];
 			return true;
 		}
 		enable_not_inverted = false;
 		if (lut == 0xE4) {
 			data_name = pins[1];
-			enable_name = pins[0];	
+			enable_name = pins[0];
 			return true;
 		}
 		if (lut == 0xE2) {
 			data_name = pins[0];
-			enable_name = pins[1];	
+			enable_name = pins[1];
 			return true;
 		}
 		// this does not match an enable flop.
 	}
 
 	if (!warned_cells.count(cell_name)) {
-		log_debug("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr.c_str(), cell_name.c_str());
+		log_debug("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr, cell_name);
 		warned_cells.insert(cell_name);
 	}
 	return false;
@@ -224,10 +225,10 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
        For now, we'll simply produce a warning to let the user know something is up.
 	*/
 	if (pin_name.find_first_of("^*|&") == std::string::npos) {
-		log_debug("Malformed liberty file - cannot find pin '%s' in cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
+		log_debug("Malformed liberty file - cannot find pin '%s' in cell '%s' - skipping.\n", pin_name, cell->args[0]);
 	}
 	else {
-		log_debug("Found unsupported expression '%s' in pin attribute of cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
+		log_debug("Found unsupported expression '%s' in pin attribute of cell '%s' - skipping.\n", pin_name, cell->args[0]);
 	}
 
 	return false;
@@ -270,6 +271,13 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 			continue;
 		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
 			continue;
+
+		if (has_reset && !cell_next_pol) {
+			// next_state is negated
+			// we later propagate this inversion to the output,
+			// which requires the negation of the reset value
+			rstval = !rstval;
+		}
 		if (has_reset && rstval == false) {
 			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
@@ -392,9 +400,21 @@ static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_ty
 			continue;
 		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol))
 			continue;
-		if (!parse_pin(cell, ff->find("preset"), cell_set_pin, cell_set_pol) || cell_set_pol != setpol)
+
+		if (!parse_pin(cell, ff->find("preset"), cell_set_pin, cell_set_pol))
 			continue;
-		if (!parse_pin(cell, ff->find("clear"), cell_clr_pin, cell_clr_pol) || cell_clr_pol != clrpol)
+		if (!parse_pin(cell, ff->find("clear"), cell_clr_pin, cell_clr_pol))
+			continue;
+		if (!cell_next_pol) {
+			// next_state is negated
+			// we later propagate this inversion to the output,
+			// which requires the swap of set and reset
+			std::swap(cell_set_pin, cell_clr_pin);
+			std::swap(cell_set_pol, cell_clr_pol);
+		}
+		if (cell_set_pol != setpol)
+			continue;
+		if (cell_clr_pol != clrpol)
 			continue;
 
 		std::map<std::string, char> this_cell_ports;
@@ -432,12 +452,14 @@ static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_ty
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
 					value.erase(pos, 1);
 				if (value == ff->args[0]) {
+					// next_state negation propagated to output
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
 					if (cell_next_pol)
 						found_noninv_output = true;
 					found_output = true;
 				} else
 				if (value == ff->args[1]) {
+					// next_state negation propagated to output
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
 					if (!cell_next_pol)
 						found_noninv_output = true;
@@ -473,7 +495,7 @@ static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_ty
 
 static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 {
-	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
+	log("Mapping DFF cells in module `%s':\n", module->name);
 
 	dict<SigBit, pool<Cell*>> notmap;
 	SigMap sigmap(module);
@@ -538,11 +560,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			new_cell->setPort("\\" + port.first, sig);
 		}
 
-		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;
+		stats[stringf("%s cells to %s cells", cell_type, new_cell->type)]++;
 	}
 
 	for (auto &stat: stats)
-		log(stat.first.c_str(), stat.second);
+		log("  mapped %d %s.\n", stat.second, stat.first);
 }
 
 struct DfflibmapPass : public Pass {
@@ -594,9 +616,7 @@ struct DfflibmapPass : public Pass {
 		{
 			std::string arg = args[argidx];
 			if (arg == "-liberty" && argidx+1 < args.size()) {
-				std::string liberty_file = args[++argidx];
-				rewrite_filename(liberty_file);
-				liberty_files.push_back(liberty_file);
+				append_globbed(liberty_files, args[++argidx]);
 				continue;
 			}
 			if (arg == "-prepare") {
@@ -672,10 +692,10 @@ struct DfflibmapPass : public Pass {
 		if (!map_only_mode) {
 			std::string dfflegalize_cmd = "dfflegalize";
 			for (auto it : cell_mappings)
-				dfflegalize_cmd += stringf(" -cell %s 01", it.first.c_str());
+				dfflegalize_cmd += stringf(" -cell %s 01", it.first);
 			dfflegalize_cmd += " t:$_DFF* t:$_SDFF*";
 			if (info_mode) {
-				log("dfflegalize command line: %s\n", dfflegalize_cmd.c_str());
+				log("dfflegalize command line: %s\n", dfflegalize_cmd);
 			} else {
 				Pass::call(design, dfflegalize_cmd);
 			}

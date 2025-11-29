@@ -165,13 +165,13 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				load_name = args[++argidx];
 				if (saved_designs.count(load_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", load_name.c_str());
+					log_cmd_error("No saved design '%s' found!\n", load_name);
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-copy-from" && argidx+1 < args.size()) {
 				got_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
-					log_cmd_error("No saved design '%s' found!\n", args[argidx].c_str());
+					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
 				copy_from_design = saved_designs.at(args[argidx]);
 				copy_to_design = design;
 				continue;
@@ -188,7 +188,7 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				import_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
-					log_cmd_error("No saved design '%s' found!\n", args[argidx].c_str());
+					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
 				copy_from_design = saved_designs.at(args[argidx]);
 				copy_to_design = design;
 				as_name = args[argidx];
@@ -202,7 +202,7 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				delete_name = args[++argidx];
 				if (saved_designs.count(delete_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", delete_name.c_str());
+					log_cmd_error("No saved design '%s' found!\n", delete_name);
 				continue;
 			}
 			break;
@@ -368,14 +368,8 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto node : design->verilog_packages)
-				delete node;
 			design->verilog_packages.clear();
-
-			for (auto node : design->verilog_globals)
-				delete node;
 			design->verilog_globals.clear();
-
 			design->verilog_defines->clear();
 		}
 

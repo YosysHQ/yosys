@@ -142,7 +142,7 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib +/efinix/cells_sim.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -225,13 +225,13 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthEfinixPass;

@@ -20,6 +20,7 @@
 #ifndef DRIVERTOOLS_H
 #define DRIVERTOOLS_H
 
+#include <string>
 #include <type_traits>
 
 #include "kernel/rtlil.h"
@@ -39,11 +40,11 @@ struct DriveChunk;
 
 struct DriveSpec;
 
-const char *log_signal(DriveChunkWire const &chunk);
-const char *log_signal(DriveChunkPort const &chunk);
-const char *log_signal(DriveChunkMarker const &chunk);
-const char *log_signal(DriveChunk const &chunk);
-const char *log_signal(DriveSpec const &chunk);
+std::string log_signal(DriveChunkWire const &chunk);
+std::string log_signal(DriveChunkPort const &chunk);
+std::string log_signal(DriveChunkMarker const &chunk);
+std::string log_signal(DriveChunk const &chunk);
+std::string log_signal(DriveSpec const &chunk);
 
 enum class DriveType : unsigned char
 {

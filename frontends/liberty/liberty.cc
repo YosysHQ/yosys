@@ -47,7 +47,7 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
 	if (!module->wires_.count(id))
-		log_error("Can't resolve wire name %s.\n", RTLIL::unescape_id(id).c_str());
+		log_error("Can't resolve wire name %s.\n", RTLIL::unescape_id(id));
 
 	expr += id_len;
 	return module->wires_.at(id);
@@ -537,7 +537,7 @@ struct LibertyFrontend : public Frontend {
 		if (flag_wb && flag_lib)
 			log_error("-wb and -lib cannot be specified together!\n");
 
-		log_header(design, "Executing Liberty frontend: %s\n", filename.c_str());
+		log_header(design, "Executing Liberty frontend: %s\n", filename);
 
 		LibertyParser parser(*f, filename);
 		int cell_count = 0;
@@ -550,7 +550,7 @@ struct LibertyFrontend : public Frontend {
 			if (cell->id != "cell" || cell->args.size() != 1)
 				continue;
 
-			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());
+			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name));
 
 			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
 			parse_type_map(type_map, cell);
@@ -582,9 +582,9 @@ struct LibertyFrontend : public Frontend {
 					{
 						if (!flag_ignore_miss_dir)
 						{
-							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0), log_id(module->name));
 						} else {
-							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", log_id(module->name), node->args.at(0).c_str());
+							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", log_id(module->name), node->args.at(0));
 							delete module;
 							goto skip_cell;
 						}
@@ -596,7 +596,7 @@ struct LibertyFrontend : public Frontend {
 				if (node->id == "bus" && node->args.size() == 1)
 				{
 					if (flag_ignore_buses) {
-						log("Ignoring cell %s with a bus interface %s.\n", log_id(module->name), node->args.at(0).c_str());
+						log("Ignoring cell %s with a bus interface %s.\n", log_id(module->name), node->args.at(0));
 						delete module;
 						goto skip_cell;
 					}
@@ -613,7 +613,7 @@ struct LibertyFrontend : public Frontend {
 					}
 
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
-						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0), log_id(module->name));
 
 					simple_comb_cell = false;
 

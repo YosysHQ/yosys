@@ -1,0 +1,78 @@
+name: Check clang sanitizers
+
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  # ignore PRs due to time needed
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # don't run on documentation changes
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+
+  run_san:
+    name: Build and run tests
+    runs-on: ${{ matrix.os }}
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+      ASAN_OPTIONS: halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        sanitizer: ['undefined,address']
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-build-deps: true
+          get-test-deps: true
+          get-iverilog: true
+
+      - name: Build
+        shell: bash
+        run: |
+          make config-$CC
+          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
+          make -j$procs
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j$procs test TARGETS= EXTRA_TARGETS=
+
+      - name: Report errors
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          find tests/**/*.err -print -exec cat {} \;
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          make -j$procs unit-test ENABLE_LIBYOSYS=1

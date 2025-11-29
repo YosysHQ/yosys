@@ -45,10 +45,10 @@ struct CopyPass : public Pass {
 		std::string trg_name = RTLIL::escape_id(args[2]);
 
 		if (design->module(src_name) == nullptr)
-			log_cmd_error("Can't find source module %s.\n", src_name.c_str());
+			log_cmd_error("Can't find source module %s.\n", src_name);
 
 		if (design->module(trg_name) != nullptr)
-			log_cmd_error("Target module name %s already exists.\n", trg_name.c_str());
+			log_cmd_error("Target module name %s already exists.\n", trg_name);
 
 		RTLIL::Module *new_mod = design->module(src_name)->clone();
 		new_mod->name = trg_name;

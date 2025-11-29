@@ -33,9 +33,9 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 	std::string filename_trim = file_base_name(filename);
 	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
 		filename_trim.erase(filename_trim.size()-4);
-		tmp_file = stringf("%s/converted_%s.fst", get_base_tmpdir().c_str(), filename_trim.c_str());
-		std::string cmd = stringf("vcd2fst %s %s", filename.c_str(), tmp_file.c_str());
-		log("Exec: %s\n", cmd.c_str());
+		tmp_file = stringf("%s/converted_%s.fst", get_base_tmpdir(), filename_trim);
+		std::string cmd = stringf("vcd2fst %s %s", filename, tmp_file);
+		log("Exec: %s\n", cmd);
 		if (run_command(cmd) != 0)
 			log_cmd_error("Shell command failed!\n");
 		filename = tmp_file;
@@ -44,7 +44,7 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
-		log_error("Error opening '%s' as FST file\n", filename.c_str());
+		log_error("Error opening '%s' as FST file\n", filename);
 	int scale = (int)fstReaderGetTimescale(ctx);	
 	timescale = pow(10.0, scale);
 	timescale_str = "";
@@ -162,7 +162,7 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 16);
 					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_debug("Error parsing memory address in : %s\n", clean_name);
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
 					}
@@ -176,7 +176,7 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 10);
 					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_debug("Error parsing memory address in : %s\n", clean_name);
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
 					}

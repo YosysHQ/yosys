@@ -82,7 +82,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	SigSpec CD = st.sigCD;
 	if (CD.empty())
-		CD = RTLIL::Const(0, 32);
+		CD = RTLIL::Const(0);
 	else
 		log_assert(GetSize(CD) == 32);
 

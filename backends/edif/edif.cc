@@ -30,9 +30,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true).c_str()
-#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br).c_str()
-#define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()
+#define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true)
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br)
+#define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false)
 
 struct EdifNames
 {
@@ -48,8 +48,8 @@ struct EdifNames
 		if (define) {
 			std::string new_id = operator()(id, false);
 			if (port_rename)
-				return stringf("(rename %s \"%s%c%d:%d%c\")", new_id.c_str(), id.c_str(), delim_left, range_left, range_right, delim_right);
-			return new_id != id ? stringf("(rename %s \"%s\")", new_id.c_str(), id.c_str()) : id;
+				return stringf("(rename %s \"%s%c%d:%d%c\")", new_id, id, delim_left, range_left, range_right, delim_right);
+			return new_id != id ? stringf("(rename %s \"%s\")", new_id, id) : id;
 		}
 
 		if (name_map.count(id) > 0)
@@ -334,7 +334,7 @@ struct EdifBackend : public Backend {
 
 		auto add_prop = [&](IdString name, Const val) {
 			if ((val.flags & RTLIL::CONST_FLAG_STRING) != 0)
-				*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string().c_str());
+				*f << stringf("\n            (property %s (string \"%s\"))", EDIF_DEF(name), val.decode_string());
 			else if (val.size() <= 32 && RTLIL::SigSpec(val).is_fully_def())
 				*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
 			else {
@@ -348,7 +348,7 @@ struct EdifBackend : public Backend {
 					char digit_str[2] = { "0123456789abcdef"[digit_value], 0 };
 					hex_string = std::string(digit_str) + hex_string;
 				}
-				*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val), hex_string.c_str());
+				*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val), hex_string);
 			}
 		};
 		for (auto module : sorted_modules)
@@ -513,13 +513,13 @@ struct EdifBackend : public Backend {
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
 					if (sig == RTLIL::State::Sx) {
 						for (auto &ref : it.second)
-							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first.c_str());
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first);
 						sig = RTLIL::State::S0;
 					} else if (sig == RTLIL::State::Sz) {
 						continue;
 					} else {
 						for (auto &ref : it.second)
-							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.first.c_str());
+							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.first);
 						log_abort();
 					}
 				}
@@ -536,7 +536,7 @@ struct EdifBackend : public Backend {
 				}
 				*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
-					*f << stringf("              %s\n", ref.first.c_str());
+					*f << stringf("              %s\n", ref.first);
 				if (sig.wire == NULL) {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
@@ -577,7 +577,7 @@ struct EdifBackend : public Backend {
 						auto &refs = net_join_db.at(mapped_sig);
 						for (auto &ref : refs)
 							if (ref.second)
-								*f << stringf("              %s\n", ref.first.c_str());
+								*f << stringf("              %s\n", ref.first);
 						*f << stringf("            )");
 
 						if (attr_properties && raw_sig.wire != NULL)

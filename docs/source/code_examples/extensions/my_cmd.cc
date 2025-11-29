@@ -10,7 +10,7 @@ struct MyPass : public Pass {
     {
         log("Arguments to my_cmd:\n");
         for (auto &arg : args)
-            log("  %s\n", arg.c_str());
+            log("  %s\n", arg);
 
         log("Modules in current design:\n");
         for (auto mod : design->modules())

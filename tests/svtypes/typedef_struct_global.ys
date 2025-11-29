@@ -1,0 +1,13 @@
+read_verilog -sv << EOF
+typedef struct packed {
+	logic y;
+	logic x;
+} Vec_2_B;
+
+module top;
+
+	Vec_2_B two_dee;
+	wire foo = two_dee.x;
+
+endmodule
+EOF

@@ -26,7 +26,7 @@ of the comment is a semicolon ``;`` or a new line.
 .. code-block::
    :caption: Using the ``-p`` option
 
-   $ yosys -p "read_verilog fifo.v; :this is a comment; prep"
+   $ yosys -p 'read_verilog fifo.v; :this is a comment; prep'
 
 .. warning::
 
@@ -41,6 +41,13 @@ will be passed to the shell.  If an error code is returned from the shell it
 will be raised by Yosys.  `exec` provides a much more flexible way of executing
 commands, allowing the output to be logged and more control over when to
 generate errors.
+
+.. warning::
+
+   Take care when using the ``yosys -p`` option.  Some shells such as bash will
+   perform substitution options inside of a double quoted string, such as ``!``
+   for history substitution and ``$`` for variable substitution; single quotes
+   should be used instead to pass the string to Yosys without substitution.
 
 The synthesis starter script
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -122,7 +129,7 @@ module.
 
 Detailed documentation of the select framework can be found under
 :doc:`/using_yosys/more_scripting/selections` or in the command reference at
-:doc:`/cmd/select`.
+:cmd:title:`select`.
 
 .. _show_intro:
 
@@ -219,7 +226,7 @@ those used in options, must be a single expression instead.
 .. _GraphViz color docs: https://graphviz.org/doc/info/colors
 
 For all of the options available to `show`, check the command reference at
-:doc:`/cmd/show`.
+:cmd:title:`show`.
 
 .. seealso:: :ref:`interactive_show` on the
    :doc:`/using_yosys/more_scripting/interactive_investigation` page.

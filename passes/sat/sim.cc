@@ -60,10 +60,10 @@ static double stringToTime(std::string str)
 	long value = strtol(str.c_str(), &endptr, 10);
 
 	if (g_units.find(endptr)==g_units.end())
-		log_error("Cannot parse '%s', bad unit '%s'\n", str.c_str(), endptr);
+		log_error("Cannot parse '%s', bad unit '%s'\n", str, endptr);
 
 	if (value < 0)
-		log_error("Time value '%s' must be positive\n", str.c_str());
+		log_error("Time value '%s' must be positive\n", str);
 
 	return value * pow(10.0, g_units.at(endptr));
 }
@@ -127,16 +127,11 @@ struct SimShared
 	bool initstate = true;
 };
 
-void zinit(State &v)
-{
-	if (v != State::S1)
-		v = State::S0;
-}
-
 void zinit(Const &v)
 {
-	for (auto &bit : v.bits())
-		zinit(bit);
+	for (auto bit : v)
+		if (bit != State::S1)
+			bit = State::S0;
 }
 
 struct SimInstance
@@ -261,7 +256,7 @@ struct SimInstance
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0 && wire->name.isPublic())
-					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
 				fst_handles[wire] = id;
 			}
 
@@ -313,7 +308,7 @@ struct SimInstance
 					}
 			}
 
-			if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+			if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 				FfData ff_data(nullptr, cell);
 				ff_state_t ff;
 				ff.past_d = Const(State::Sx, ff_data.width);
@@ -419,18 +414,19 @@ struct SimInstance
 
 	Const get_state(SigSpec sig)
 	{
-		Const value;
+		Const::Builder builder(GetSize(sig));
 
 		for (auto bit : sigmap(sig))
 			if (bit.wire == nullptr)
-				value.bits().push_back(bit.data);
+				builder.push_back(bit.data);
 			else if (state_nets.count(bit))
-				value.bits().push_back(state_nets.at(bit));
+				builder.push_back(state_nets.at(bit));
 			else
-				value.bits().push_back(State::Sz);
+				builder.push_back(State::Sz);
 
+		Const value = builder.build();
 		if (shared->debug)
-			log("[%s] get %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
+			log("[%s] get %s: %s\n", hiername(), log_signal(sig), log_signal(value));
 		return value;
 	}
 
@@ -449,7 +445,7 @@ struct SimInstance
 			}
 
 		if (shared->debug)
-			log("[%s] set %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
+			log("[%s] set %s: %s\n", hiername(), log_signal(sig), log_signal(value));
 		return did_something;
 	}
 
@@ -488,7 +484,7 @@ struct SimInstance
 		for (int i = 0; i < GetSize(data); i++)
 			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data[i] != State::Sa)
 				if (state.data[i+offset] != data[i])
-					dirty = true, state.data.bits()[i+offset] = data[i];
+					dirty = true, state.data.set(i+offset, data[i]);
 
 		if (dirty)
 			dirty_memories.insert(memid);
@@ -500,7 +496,7 @@ struct SimInstance
 		if (offset >= state.mem->size * state.mem->width)
 			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
 		if (state.data[offset] != data) {
-			state.data.bits()[offset] = data;
+			state.data.set(offset, data);
 			dirty_memories.insert(memid);
 		}
 	}
@@ -551,7 +547,7 @@ struct SimInstance
 			if (has_y) sig_y = cell->getPort(ID::Y);
 
 			if (shared->debug)
-				log("[%s] eval %s (%s)\n", hiername().c_str(), log_id(cell), log_id(cell->type));
+				log("[%s] eval %s (%s)\n", hiername(), log_id(cell), log_id(cell->type));
 
 			// Simple (A -> Y) and (A,B -> Y) cells
 			if (has_a && !has_c && !has_d && !has_s && has_y) {
@@ -717,10 +713,10 @@ struct SimInstance
 
 				for(int i=0;i<ff.past_d.size();i++) {
 					if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
-						current_q.bits()[i] = State::S0;
+						current_q.set(i, State::S0);
 					}
 					else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
-						current_q.bits()[i] = State::S1;
+						current_q.set(i, State::S1);
 					}
 				}
 			}
@@ -770,7 +766,7 @@ struct SimInstance
 					if (index >= 0 && index < mem.size)
 						for (int i = 0; i < (mem.width << port.wide_log2); i++)
 							if (enable[i] == State::S1 && mdb.data.at(index*mem.width+i) != data[i]) {
-								mdb.data.bits().at(index*mem.width+i) = data[i];
+								mdb.data.set(index*mem.width+i, data[i]);
 								dirty_memories.insert(mem.memid);
 								did_something = true;
 							}
@@ -793,14 +789,14 @@ struct SimInstance
 	static void log_source(RTLIL::AttrObject *src)
 	{
 		for (auto src : src->get_strpool_attribute(ID::src))
-			log("    %s\n", src.c_str());
+			log("    %s\n", src);
 	}
 
 	void log_cell_w_hierarchy(std::string opening_verbiage, RTLIL::Cell *cell)
 	{
 		log_assert(cell->module == module);
 		bool has_src = cell->has_attribute(ID::src);
-		log("%s %s%s\n", opening_verbiage.c_str(),
+		log("%s %s%s\n", opening_verbiage,
 			log_id(cell), has_src ? " at" : "");
 		log_source(cell);
 
@@ -894,7 +890,7 @@ struct SimInstance
 					}
 
 					std::string rendered = print.fmt.render();
-					log("%s", rendered.c_str());
+					log("%s", rendered);
 					shared->display_output.emplace_back(shared->step, this, cell, rendered);
 				}
 			}
@@ -921,17 +917,17 @@ struct SimInstance
 				}
 
 				if (cell->type == ID($cover) && en == State::S1 && a == State::S1)
-					log("Cover %s.%s (%s) reached.\n", hiername().c_str(), log_id(cell), label.c_str());
+					log("Cover %s.%s (%s) reached.\n", hiername(), log_id(cell), label);
 
 				if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
-					log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+					log("Assumption %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
 
 				if (cell->type == ID($assert) && en == State::S1 && a != State::S1) {
 					log_cell_w_hierarchy("Failed assertion", cell);
 					if (shared->serious_asserts)
-						log_error("Assertion %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+						log_error("Assertion %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
 					else
-						log_warning("Assertion %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+						log_warning("Assertion %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
 				}
 			}
 		}
@@ -952,7 +948,7 @@ struct SimInstance
 	{
 		if (!ff_database.empty() || !mem_database.empty()) {
 			if (wbmods.count(module))
-				log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'uniquify'.)\n", hiername().c_str(), log_id(module));
+				log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'uniquify'.)\n", hiername(), log_id(module));
 			wbmods.insert(module);
 		}
 
@@ -971,7 +967,7 @@ struct SimInstance
 				if (w->attributes.count(ID::init) == 0)
 					w->attributes[ID::init] = Const(State::Sx, GetSize(w));
 
-				w->attributes[ID::init].bits()[sig_q[i].offset] = initval[i];
+				w->attributes[ID::init].set(sig_q[i].offset, initval[i]);
 			}
 		}
 
@@ -1021,7 +1017,7 @@ struct SimInstance
 		dict<Wire*,bool> registers;
 		for (auto cell : module->cells())
 		{
-			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (cell->is_builtin_ff()) {
 				FfData ff_data(nullptr, cell);
 				SigSpec q = sigmap(ff_data.sig_q);
 				if (q.is_wire() && signal_database.count(q.as_wire()) != 0) {
@@ -1192,7 +1188,7 @@ struct SimInstance
 						}
 					}
 					if (!found)
-						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(sig_y.as_wire()->name)).c_str());
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(sig_y.as_wire()->name)));
 				}
 			}
 		}
@@ -1248,7 +1244,7 @@ struct SimInstance
 			Const fst_val = Const::from_string(shared->fst->valueOf(item.second));
 			Const sim_val = get_state(item.first);
 			if (sim_val.size()!=fst_val.size()) {
-				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope.c_str(), log_id(item.first));
+				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope, log_id(item.first));
 				continue;
 			}
 			if (shared->sim_mode == SimulationMode::sim) {
@@ -1256,7 +1252,7 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope.c_str(), log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
@@ -1264,14 +1260,14 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
 				for(int i=0;i<sim_val.size();i++) {
 					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope.c_str(), log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
 				}
 			} else {
 				if (fst_val!=sim_val) {
-					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope.c_str(), log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 					retVal = true;
 				}
 			}
@@ -1396,7 +1392,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void run(Module *topmod, int numcycles)
+	void run(Module *topmod, int cycle_width, int numcycles)
 	{
 		log_assert(top == nullptr);
 		top = new SimInstance(this, scope, topmod);
@@ -1422,20 +1418,20 @@ struct SimWorker : SimShared
 		for (int cycle = 0; cycle < numcycles; cycle++)
 		{
 			if (debug)
-				log("\n===== %d =====\n", 10*cycle + 5);
+				log("\n===== %d =====\n", int(cycle_width*cycle + cycle_width/2));
 			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+1);
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
 
 			update(true);
-			register_output_step(10*cycle + 5);
+			register_output_step(cycle_width*cycle + cycle_width/2);
 
 			if (cycle == 0)
 				top->set_initstate_outputs(State::S0);
 
 			if (debug)
-				log("\n===== %d =====\n", 10*cycle + 10);
+				log("\n===== %d =====\n", int(cycle_width*cycle + cycle_width));
 			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+2);
 
@@ -1448,10 +1444,10 @@ struct SimWorker : SimShared
 			}
 
 			update(true);
-			register_output_step(10*cycle + 10);
+			register_output_step(cycle_width*cycle + cycle_width);
 		}
 
-		register_output_step(10*numcycles + 2);
+		register_output_step(cycle_width*numcycles + 2);
 
 		write_output_files();
 	}
@@ -1478,7 +1474,7 @@ struct SimWorker : SimShared
 				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
 			fst_clock.push_back(id);
 		}
 		for (auto portname : clockn)
@@ -1490,7 +1486,7 @@ struct SimWorker : SimShared
 				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
 			fst_clock.push_back(id);
 		}
 
@@ -1500,7 +1496,7 @@ struct SimWorker : SimShared
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0)
-					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
 				top->fst_inputs[wire] = id;
 			}
 		}
@@ -1586,7 +1582,7 @@ struct SimWorker : SimShared
 		return atoi(name.substr(pos+1).c_str());
 	}
 
-	void run_cosim_aiger_witness(Module *topmod)
+	void run_cosim_aiger_witness(Module *topmod, int cycle_width)
 	{
 		log_assert(top == nullptr);
 		if (!multiclock && (clock.size()+clockn.size())==0)
@@ -1611,7 +1607,7 @@ struct SimWorker : SimShared
 				escaped_s = RTLIL::escape_id(cell_name(symbol));
 				Cell *c = topmod->cell(escaped_s);
 				if (!c)
-					log_warning("Wire/cell %s not present in module %s\n",symbol.c_str(),log_id(topmod));
+					log_warning("Wire/cell %s not present in module %s\n",symbol,log_id(topmod));
 
 				if (c->is_mem_cell()) {
 					std::string memid = c->parameters.at(ID::MEMID).decode_string();
@@ -1623,9 +1619,9 @@ struct SimWorker : SimShared
 					else if (type == "latch")
 						mem_latches[variable] = { memid, offset };
 					else
-						log_error("Map file addressing cell %s as type %s\n", symbol.c_str(), type.c_str());
+						log_error("Map file addressing cell %s as type %s\n", symbol, type);
 				} else {
-					log_error("Cell %s in map file is not memory cell\n", symbol.c_str());
+					log_error("Cell %s in map file is not memory cell\n", symbol);
 				}
 			} else {
 				if (index < w->start_offset || index > w->start_offset + w->width)
@@ -1645,7 +1641,7 @@ struct SimWorker : SimShared
 		std::ifstream f;
 		f.open(sim_filename.c_str());
 		if (f.fail() || GetSize(sim_filename) == 0)
-			log_error("Can not open file `%s`\n", sim_filename.c_str());
+			log_error("Can not open file `%s`\n", sim_filename);
 
 		int state = 0;
 		std::string status;
@@ -1695,18 +1691,18 @@ struct SimWorker : SimShared
 						set_inports(clockn, State::S1);
 					}
 					update(true);
-					register_output_step(10*cycle);
+					register_output_step(cycle_width*cycle);
 					if (!multiclock && cycle) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 						update(true);
-						register_output_step(10*cycle + 5);
+						register_output_step(cycle_width*cycle + cycle_width/2);
 					}
 					cycle++;
 					break;
 			}
 		}
-		register_output_step(10*cycle);
+		register_output_step(cycle_width*cycle);
 		write_output_files();
 	}
 
@@ -1729,12 +1725,12 @@ struct SimWorker : SimShared
 		if (pos==std::string::npos) {
 			pos = name.find_first_of("#");
 			if (pos==std::string::npos)
-				log_error("Line does not contain proper signal name `%s`\n", name.c_str());
+				log_error("Line does not contain proper signal name `%s`\n", name);
 		}
 		return name.substr(0, pos);
 	}
 
-	void run_cosim_btor2_witness(Module *topmod)
+	void run_cosim_btor2_witness(Module *topmod, int cycle_width)
 	{
 		log_assert(top == nullptr);
 		if (!multiclock && (clock.size()+clockn.size())==0)
@@ -1744,7 +1740,7 @@ struct SimWorker : SimShared
 		std::ifstream f;
 		f.open(sim_filename.c_str());
 		if (f.fail() || GetSize(sim_filename) == 0)
-			log_error("Can not open file `%s`\n", sim_filename.c_str());
+			log_error("Can not open file `%s`\n", sim_filename);
 
 		int state = 0;
 		int cycle = 0;
@@ -1772,12 +1768,12 @@ struct SimWorker : SimShared
 					set_inports(clock, State::S1);
 					set_inports(clockn, State::S0);
 					update(true);
-					register_output_step(10*cycle+0);
+					register_output_step(cycle_width*cycle + 0);
 					if (!multiclock) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 						update(true);
-						register_output_step(10*cycle+5);
+						register_output_step(cycle_width*cycle + cycle_width/2);
 					}
 					cycle++;
 					prev_cycle = curr_cycle;
@@ -1836,7 +1832,7 @@ struct SimWorker : SimShared
 					break;
 			}
 		}
-		register_output_step(10*cycle);
+		register_output_step(cycle_width*cycle);
 		write_output_files();
 	}
 
@@ -1874,16 +1870,16 @@ struct SimWorker : SimShared
 			if (item.wire != nullptr) {
 				if (paths.count(path)) {
 					if (debug)
-						log("witness hierarchy: found wire %s\n", path.str().c_str());
+						log("witness hierarchy: found wire %s\n", path.str());
 					bool inserted = hierarchy.paths.emplace(path, {instance, item.wire, {}, INT_MIN}).second;
 					if (!inserted)
-						log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
+						log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str());
 				}
 			} else if (item.mem) {
 				auto it = mem_paths.find(path);
 				if (it != mem_paths.end()) {
 					if (debug)
-						log("witness hierarchy: found mem %s\n", path.str().c_str());
+						log("witness hierarchy: found mem %s\n", path.str());
 					IdPath word_path = path;
 					word_path.emplace_back();
 					for (auto addr_part : it->second) {
@@ -1894,7 +1890,7 @@ struct SimWorker : SimShared
 							continue;
 						bool inserted = hierarchy.paths.emplace(word_path, {instance, nullptr, item.mem->memid, addr}).second;
 						if (!inserted)
-							log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
+							log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str());
 					}
 				}
 			}
@@ -1903,7 +1899,7 @@ struct SimWorker : SimShared
 
 		for (auto &path : paths)
 			if (!hierarchy.paths.count(path))
-				log_warning("Yosys witness path `%s` was not found in this design, ignoring\n", path.str().c_str());
+				log_warning("Yosys witness path `%s` was not found in this design, ignoring\n", path.str());
 
 		dict<IdPath, dict<int, bool>> clock_inputs;
 
@@ -1926,7 +1922,7 @@ struct SimWorker : SimShared
 
 					for (int t = 0; t < GetSize(yw.steps); t++) {
 						if (yw.get_bits(t, clock_bits_offset, 1) != expected)
-							log_warning("Yosys witness trace has an unexpected value for the clock input `%s` in step %d.\n", signal.path.str().c_str(), t);
+							log_warning("Yosys witness trace has an unexpected value for the clock input `%s` in step %d.\n", signal.path.str(), t);
 					}
 				}
 			}
@@ -1951,7 +1947,7 @@ struct SimWorker : SimShared
 			Const value = yw.get_bits(t, signal.bits_offset, signal.width);
 
 			if (debug)
-				log("yw: set %s to %s\n", signal.path.str().c_str(), log_const(value));
+				log("yw: set %s to %s\n", signal.path.str(), log_const(value));
 
 			if (found_path.wire != nullptr) {
 				found_path.instance->set_state_parent_drivers(
@@ -1987,7 +1983,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void run_cosim_yw_witness(Module *topmod, int append)
+	void run_cosim_yw_witness(Module *topmod, int cycle_width, int append)
 	{
 		if (!clock.empty())
 			log_cmd_error("The -clock option is not required nor supported when reading a Yosys witness file.\n");
@@ -2004,7 +2000,7 @@ struct SimWorker : SimShared
 		YwHierarchy hierarchy = prepare_yw_hierarchy(yw);
 
 		if (yw.steps.empty()) {
-			log_warning("Yosys witness file `%s` contains no time steps\n", yw.filename.c_str());
+			log_warning("Yosys witness file `%s` contains no time steps\n", yw.filename);
 		} else {
 			top->set_initstate_outputs(initstate ? State::S1 : State::S0);
 			set_yw_state(yw, hierarchy, 0);
@@ -2017,7 +2013,7 @@ struct SimWorker : SimShared
 					log("Simulating non-active clock edge.\n");
 				set_yw_clocks(yw, hierarchy, false);
 				update(false);
-				register_output_step(5);
+				register_output_step(cycle_width/2);
 			}
 			top->set_initstate_outputs(State::S0);
 		}
@@ -2030,18 +2026,18 @@ struct SimWorker : SimShared
 				set_yw_state(yw, hierarchy, cycle);
 			set_yw_clocks(yw, hierarchy, true);
 			update(true);
-			register_output_step(10 * cycle);
+			register_output_step(cycle_width*cycle);
 
 			if (!yw.clocks.empty()) {
 				if (debug)
 					log("Simulating non-active clock edge.\n");
 				set_yw_clocks(yw, hierarchy, false);
 				update(false);
-				register_output_step(5 + 10 * cycle);
+				register_output_step(cycle_width*cycle + cycle_width/2);
 			}
 		}
 
-		register_output_step(10 * (GetSize(yw.steps) + append));
+		register_output_step(cycle_width * (GetSize(yw.steps) + append));
 		write_output_files();
 	}
 
@@ -2052,7 +2048,7 @@ struct SimWorker : SimShared
 
 		PrettyJson json;
 		if (!json.write_to_file(summary_filename))
-			log_error("Can't open file `%s' for writing: %s\n", summary_filename.c_str(), strerror(errno));
+			log_error("Can't open file `%s' for writing: %s\n", summary_filename, strerror(errno));
 
 		json.begin_object();
 		json.entry("version", "Yosys sim summary");
@@ -2095,12 +2091,12 @@ struct SimWorker : SimShared
 		std::stringstream f;
 
 		if (wire->width==1)
-			f << stringf("%s", RTLIL::unescape_id(wire->name).c_str());
+			f << stringf("%s", RTLIL::unescape_id(wire->name));
 		else
 			if (wire->upto)
-				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, RTLIL::unescape_id(wire->name).c_str());
+				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, RTLIL::unescape_id(wire->name));
 			else
-				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, RTLIL::unescape_id(wire->name).c_str());
+				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, RTLIL::unescape_id(wire->name));
 		return f.str();
 	}
 
@@ -2108,7 +2104,7 @@ struct SimWorker : SimShared
 	{
 		std::stringstream f;
 		for(auto item=signals.begin();item!=signals.end();item++)
-			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name).c_str());
+			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name));
 		return f.str();
 	}
 
@@ -2134,7 +2130,7 @@ struct SimWorker : SimShared
 				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
 			fst_clock.push_back(id);
 			clocks[w] = id;
 		}
@@ -2147,7 +2143,7 @@ struct SimWorker : SimShared
 				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
 			fst_clock.push_back(id);
 			clocks[w] = id;
 		}
@@ -2159,7 +2155,7 @@ struct SimWorker : SimShared
 		for (auto wire : topmod->wires()) {
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 			if (id==0 && (wire->port_input || wire->port_output))
-				log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+				log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
 			if (wire->port_input)
 				if (clocks.find(wire)==clocks.end())
 					inputs[wire] = id;
@@ -2207,7 +2203,7 @@ struct SimWorker : SimShared
 
 		std::stringstream f;
 		f << stringf("`timescale 1%s/1%s\n", fst->getTimescaleString(),fst->getTimescaleString());
-		f << stringf("module %s();\n",tb_filename.c_str());
+		f << stringf("module %s();\n",tb_filename);
 		int clk_len = 0;
 		int inputs_len = 0;
 		int outputs_len = 0;
@@ -2225,38 +2221,38 @@ struct SimWorker : SimShared
 		}
 		int data_len = clk_len + inputs_len + outputs_len + 32;
 		f << "\n";
-		f << stringf("\t%s uut(",RTLIL::unescape_id(topmod->name).c_str());
+		f << stringf("\t%s uut(",RTLIL::unescape_id(topmod->name));
 		for(auto item=clocks.begin();item!=clocks.end();item++)
-			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name).c_str(), RTLIL::unescape_id(item->first->name).c_str());
+			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name), RTLIL::unescape_id(item->first->name));
 		for(auto &item : inputs)
-			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name).c_str(), RTLIL::unescape_id(item.first->name).c_str());
+			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name), RTLIL::unescape_id(item.first->name));
 		for(auto &item : outputs)
-			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name).c_str(), RTLIL::unescape_id(item.first->name).c_str());
+			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name), RTLIL::unescape_id(item.first->name));
 		f << ");\n";
 		f << "\n";
 		f << "\tinteger i;\n";
 		uint64_t prev_time = startCount;
-		log("Writing data to `%s`\n", (tb_filename+".txt").c_str());
+		log("Writing data to `%s`\n", (tb_filename+".txt"));
 		std::ofstream data_file(tb_filename+".txt");
 		std::stringstream initstate;
 		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
 		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
 			for(auto &item : clocks)
-				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				data_file << stringf("%s",fst->valueOf(item.second));
 			for(auto &item : inputs)
-				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				data_file << stringf("%s",fst->valueOf(item.second));
 			for(auto &item : outputs)
-				data_file << stringf("%s",fst->valueOf(item.second).c_str());
-			data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
+				data_file << stringf("%s",fst->valueOf(item.second));
+			data_file << stringf("%s\n",Const(time-prev_time).as_string());
 
 			if (time==startCount) {
 				// initial state
 				for(auto var : fst->getVars()) {
 					if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
 						if (var.scope == scope) {
-							initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+							initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name, var.width, fst->valueOf(var.id));
 						} else if (var.scope.find(scope+".")==0) {
-							initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+							initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1), var.name, var.width, fst->valueOf(var.id));
 						}
 					}
 				}
@@ -2267,22 +2263,22 @@ struct SimWorker : SimShared
 
 		f << stringf("\treg [0:%d] data [0:%d];\n", data_len-1, cycle-1);
 		f << "\tinitial begin;\n";
-		f << stringf("\t\t$dumpfile(\"%s\");\n",tb_filename.c_str());
-		f << stringf("\t\t$dumpvars(0,%s);\n",tb_filename.c_str());
+		f << stringf("\t\t$dumpfile(\"%s\");\n",tb_filename);
+		f << stringf("\t\t$dumpvars(0,%s);\n",tb_filename);
 		f << initstate.str();
-		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename.c_str());
+		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename);
 
 		f << stringf("\t\t#(data[0][%d:%d]);\n", data_len-32, data_len-1);	
-		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks).c_str(), 0, clk_len-1);		
-		f << stringf("\t\t{%s } <= data[0][%d:%d];\n", signal_list(inputs).c_str(), clk_len, clk_len+inputs_len-1);
+		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks), 0, clk_len-1);		
+		f << stringf("\t\t{%s } <= data[0][%d:%d];\n", signal_list(inputs), clk_len, clk_len+inputs_len-1);
 
 		f << stringf("\t\tfor (i = 1; i < %d; i++) begin\n",cycle);
 
 		f << stringf("\t\t\t#(data[i][%d:%d]);\n", data_len-32, data_len-1);	
-		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks).c_str(), 0, clk_len-1);		
-		f << stringf("\t\t\t{%s } <= data[i][%d:%d];\n", signal_list(inputs).c_str(), clk_len, clk_len+inputs_len-1);
+		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks), 0, clk_len-1);		
+		f << stringf("\t\t\t{%s } <= data[i][%d:%d];\n", signal_list(inputs), clk_len, clk_len+inputs_len-1);
 		
-		f << stringf("\t\t\tif ({%s } != data[i-1][%d:%d]) begin\n", signal_list(outputs).c_str(), clk_len+inputs_len, clk_len+inputs_len+outputs_len-1);
+		f << stringf("\t\t\tif ({%s } != data[i-1][%d:%d]) begin\n", signal_list(outputs), clk_len+inputs_len, clk_len+inputs_len+outputs_len-1);
 		f << "\t\t\t\t$error(\"Signal difference detected\\n\");\n";
 		f << "\t\t\tend\n";
 		
@@ -2292,7 +2288,7 @@ struct SimWorker : SimShared
 		f << "\tend\n";
 		f << "endmodule\n";
 
-		log("Writing testbench to `%s`\n", (tb_filename+".v").c_str());
+		log("Writing testbench to `%s`\n", (tb_filename+".v"));
 		std::ofstream tb_file(tb_filename+".v");
 		tb_file << f.str();
 
@@ -2337,7 +2333,7 @@ struct VCDWriter : public OutputWriter
 		}
 
 		if (!worker->timescale.empty())
-			vcdfile << stringf("$timescale %s $end\n", worker->timescale.c_str());
+			vcdfile << stringf("$timescale %s $end\n", worker->timescale);
 
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
@@ -2349,7 +2345,7 @@ struct VCDWriter : public OutputWriter
 				// this is consistent with the range gtkwave makes up if it doesn't find a
 				// range
 				std::string full_name = form_vcd_name(name, size, w);
-				vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", full_name.c_str());
+				vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", full_name);
 			}
 		);
 
@@ -2634,6 +2630,9 @@ struct SimPass : public Pass {
 		log("            File formats supported: FST, VCD, AIW, WIT and .yw\n");
 		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
+		log("    -width <integer>\n");
+		log("        cycle width in generated simulation output (must be divisible by 2).\n");
+		log("\n");
 		log("    -append <integer>\n");
 		log("        number of extra clock cycles to simulate for a Yosys witness input\n");
 		log("\n");
@@ -2693,6 +2692,7 @@ struct SimPass : public Pass {
 	{
 		SimWorker worker;
 		int numcycles = 20;
+		int cycle_width = 10;
 		int append = 0;
 		bool start_set = false, stop_set = false, at_set = false;
 
@@ -2783,6 +2783,12 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-append" && argidx+1 < args.size()) {
 				append = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-width" && argidx+1 < args.size()) {
+				cycle_width = atoi(args[++argidx].c_str());
+				if (cycle_width <= 0 || (cycle_width % 2))
+					log_cmd_error("Cycle width must be positive even number.\n");
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -2876,7 +2882,7 @@ struct SimPass : public Pass {
 		}
 
 		if (worker.sim_filename.empty())
-			worker.run(top_mod, numcycles);
+			worker.run(top_mod, cycle_width, numcycles);
 		else {
 			std::string filename_trim = file_base_name(worker.sim_filename);
 			if (filename_trim.size() > 4 && ((filename_trim.compare(filename_trim.size()-4, std::string::npos, ".fst") == 0) ||
@@ -2885,13 +2891,13 @@ struct SimPass : public Pass {
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".aiw") == 0) {
 				if (worker.map_filename.empty())
 					log_cmd_error("For AIGER witness file map parameter is mandatory.\n");
-				worker.run_cosim_aiger_witness(top_mod);
+				worker.run_cosim_aiger_witness(top_mod, cycle_width);
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".wit") == 0) {
-				worker.run_cosim_btor2_witness(top_mod);
+				worker.run_cosim_btor2_witness(top_mod, cycle_width);
 			} else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".yw") == 0) {
-				worker.run_cosim_yw_witness(top_mod, append);
+				worker.run_cosim_yw_witness(top_mod, cycle_width, append);
 			} else {
-				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename.c_str());
+				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename);
 			}
 		}
 

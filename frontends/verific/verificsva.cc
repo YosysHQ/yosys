@@ -124,6 +124,7 @@ struct SvaFsm
 {
 	Module *module;
 	VerificClocking clocking;
+	std::function<void (std::string)> parser_error;
 
 	SigBit trigger_sig = State::S1, disable_sig;
 	SigBit throughout_sig = State::S1;
@@ -148,6 +149,7 @@ struct SvaFsm
 		module = clking.module;
 		clocking = clking;
 		trigger_sig = trig;
+		parser_error = [](std::string msg){ log_error("%s", msg); };
 
 		startNode = createNode();
 		acceptNode = createNode();
@@ -475,18 +477,18 @@ struct SvaFsm
 				dump();
 				log("      ctrl signal: %s\n", log_signal(dnode.ctrl));
 			}
-			log_error("SVA DFSM state ctrl signal has %d (>%d) bits. Stopping to prevent exponential design size explosion.\n",
-					GetSize(dnode.ctrl), verific_sva_fsm_limit);
+			parser_error(stringf("SVA DFSM state ctrl signal has %d (>%d) bits. Stopping to prevent exponential design size explosion.\n",
+					GetSize(dnode.ctrl), verific_sva_fsm_limit));
 		}
 
-		for (int i = 0; i < (1 << GetSize(dnode.ctrl)); i++)
+		for (unsigned long long i = 0; i < (1ull << GetSize(dnode.ctrl)); i++)
 		{
 			Const ctrl_val(i, GetSize(dnode.ctrl));
 			pool<SigBit> ctrl_bits;
 
-			for (int i = 0; i < GetSize(dnode.ctrl); i++)
-				if (ctrl_val[i] == State::S1)
-					ctrl_bits.insert(dnode.ctrl[i]);
+			for (int j = 0; j < GetSize(dnode.ctrl); j++)
+				if (ctrl_val[j] == State::S1)
+					ctrl_bits.insert(dnode.ctrl[j]);
 
 			vector<int> new_state;
 			bool accept = false, cond = false;
@@ -575,7 +577,7 @@ struct SvaFsm
 
 				if (delta_pos >= 0 && i_within_j && j_within_i) {
 					did_something = true;
-					values[i].bits()[delta_pos] = State::Sa;
+					values[i].set(delta_pos, State::Sa);
 					values[j] = values.back();
 					values.pop_back();
 					goto next_pair;
@@ -1023,20 +1025,20 @@ struct VerificSvaImporter
 
 	[[noreturn]] void parser_error(std::string errmsg)
 	{
-		if (!importer->mode_keep)
-			log_error("%s", errmsg.c_str());
-		log_warning("%s", errmsg.c_str());
+		if (!importer->mode_keep && !importer->mode_sva_continue)
+			log_error("%s", errmsg);
+		log_warning("%s", errmsg);
 		throw ParserErrorException();
 	}
 
 	[[noreturn]] void parser_error(std::string errmsg, linefile_type loc)
 	{
-		parser_error(stringf("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc)));
+		parser_error(stringf("%s at %s:%d.\n", errmsg, LineFile::GetFileName(loc), LineFile::GetLineNo(loc)));
 	}
 
 	[[noreturn]] void parser_error(std::string errmsg, Instance *inst)
 	{
-		parser_error(stringf("%s at %s (%s)", errmsg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+		parser_error(stringf("%s at %s (%s)", errmsg, inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
 	[[noreturn]] void parser_error(Instance *inst)
@@ -1260,6 +1262,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_FIRST_MATCH)
 		{
 			SvaFsm match_fsm(clocking);
+			match_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			match_fsm.createLink(parse_sequence(match_fsm, match_fsm.createStartNode(), inst->GetInput()), match_fsm.acceptNode);
 
 			int node = fsm.createNode();
@@ -1426,12 +1429,15 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_SEQ_AND || inst->Type() == PRIM_SVA_AND)
 		{
 			SvaFsm fsm1(clocking);
+			fsm1.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			fsm1.createLink(parse_sequence(fsm1, fsm1.createStartNode(), inst->GetInput1()), fsm1.acceptNode);
 
 			SvaFsm fsm2(clocking);
+			fsm2.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			fsm2.createLink(parse_sequence(fsm2, fsm2.createStartNode(), inst->GetInput2()), fsm2.acceptNode);
 
 			SvaFsm combined_fsm(clocking);
+			combined_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			fsm1.getDFsm(combined_fsm, combined_fsm.createStartNode(), -1, combined_fsm.acceptNode);
 			fsm2.getDFsm(combined_fsm, combined_fsm.createStartNode(), -1, combined_fsm.acceptNode);
 
@@ -1456,6 +1462,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_INTERSECT || inst->Type() == PRIM_SVA_WITHIN)
 		{
 			SvaFsm intersect_fsm(clocking);
+			intersect_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 
 			if (inst->Type() == PRIM_SVA_INTERSECT)
 			{
@@ -1562,6 +1569,7 @@ struct VerificSvaImporter
 			int node;
 
 			SvaFsm antecedent_fsm(clocking, trig);
+			antecedent_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
 				int next_node = antecedent_fsm.createNode();
@@ -1613,15 +1621,19 @@ struct VerificSvaImporter
 		}
 		else
 		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
-				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION ||
+				(mode_cover && (
+					inst->Type() == PRIM_SVA_OVERLAPPED_FOLLOWED_BY ||
+					inst->Type() == PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY)))
 		{
 			Net *antecedent_net = inst->GetInput1();
 			Net *consequent_net = inst->GetInput2();
 			int node;
 
 			SvaFsm antecedent_fsm(clocking, trig);
+			antecedent_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
-			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
+			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION || inst->Type() == PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY) {
 				int next_node = antecedent_fsm.createNode();
 				antecedent_fsm.createEdge(node, next_node);
 				node = next_node;
@@ -1674,6 +1686,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm consequent_fsm(clocking, antecedent_match);
+			consequent_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			node = parse_sequence(consequent_fsm, consequent_fsm.createStartNode(), consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
@@ -1693,6 +1706,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm fsm(clocking, trig);
+			fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			int node = parse_sequence(fsm, fsm.createStartNode(), net);
 			fsm.createLink(node, fsm.acceptNode);
 
@@ -1707,30 +1721,34 @@ struct VerificSvaImporter
 
 	void import()
 	{
-		try
-		{
-			module = importer->module;
-			netlist = root->Owner();
+		module = importer->module;
+		netlist = root->Owner();
 
-			if (verific_verbose)
-				log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
-						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
+		int initial_cell_count = GetSize(module->cells_);
+		int initial_wire_count = GetSize(module->wires_);
+		int initial_connection_count = GetSize(module->connections_);
 
-			bool is_user_declared = root->IsUserDeclared();
+		if (verific_verbose)
+			log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
+					LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
 
-			// FIXME
-			if (!is_user_declared) {
-				const char *name = root->Name();
-				for (int i = 0; name[i]; i++) {
-					if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
-						is_user_declared = true;
-						break;
-					}
+		bool is_user_declared = root->IsUserDeclared();
+
+		// FIXME
+		if (!is_user_declared) {
+			const char *name = root->Name();
+			for (int i = 0; name[i]; i++) {
+				if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
+					is_user_declared = true;
+					break;
 				}
 			}
+		}
 
-			RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
+		RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
+		try
+		{
 			// parse SVA sequence into trigger signal
 
 			clocking = VerificClocking(importer, root->GetInput(), true);
@@ -1833,6 +1851,36 @@ struct VerificSvaImporter
 		}
 		catch (ParserErrorException)
 		{
+			if (importer->mode_sva_continue) {
+
+				std::vector<Cell *> remove_cells;
+				pool<Wire *> remove_wires;
+
+				for (int i = 0, end = GetSize(module->cells_) - initial_cell_count; i != end; ++i)
+					remove_cells.push_back(module->cells_.element(i)->second);
+
+				for (int i = 0, end = GetSize(module->wires_) - initial_wire_count; i != end; ++i)
+					remove_wires.emplace(module->wires_.element(i)->second);
+
+				for (auto cell : remove_cells)
+					module->remove(cell);
+				module->remove(remove_wires);
+
+				module->connections_.resize(initial_connection_count);
+
+				RTLIL::Cell *c = nullptr;
+
+				if (mode_assert) c = module->addAssert(root_name, State::Sx, State::Sx);
+				if (mode_assume) c = module->addAssume(root_name, State::Sx, State::Sx);
+				if (mode_cover) c = module->addCover(root_name, State::Sx, State::Sx);
+
+				if (c) {
+					importer->import_attributes(c->attributes, root);
+					c->set_bool_attribute(ID(unsupported_sva));
+				}
+
+				importer->num_sva_continue++;
+			}
 		}
 	}
 };

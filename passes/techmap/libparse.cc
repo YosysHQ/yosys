@@ -25,9 +25,22 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
-#ifndef FILTERLIB
+#ifdef FILTERLIB
+#undef log_assert
+void log_assert(bool cond) {
+	if (!cond)
+		fprintf(stderr, "Unspecified assertion failed\n");
+}
+void warn(std::string str) {
+	std::cerr << str;
+}
+#else
 #include "kernel/log.h"
+void warn(std::string str) {
+	Yosys::log_formatted_warning("", str);
+}
 #endif
 
 using namespace Yosys;
@@ -41,7 +54,8 @@ std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string 
 	auto it = cached.find(fname);
 	if (it == cached.end())
 		return nullptr;
-	log("Using cached data for liberty file `%s'\n", fname.c_str());
+	if (verbose)
+		log("Using cached data for liberty file `%s'\n", fname);
 	return it->second;
 }
 
@@ -51,7 +65,8 @@ void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr
 	bool should_cache = it == cache_path.end() ? cache_by_default : it->second;
 	if (!should_cache)
 		return;
-	log("Caching data for liberty file `%s'\n", fname.c_str());
+	if (verbose)
+		log("Caching data for liberty file `%s'\n", fname);
 	cached.emplace(fname, ast);
 }
 
@@ -108,7 +123,9 @@ int LibertyInputStream::peek_cold(size_t offset)
 		if (!extend_buffer_at_least(offset + 1))
 			return EOF;
 	}
-
+#ifdef log_assert
+	log_assert(buf_pos + offset < buffer.size());
+#endif
 	return buffer[buf_pos + offset];
 }
 
@@ -160,7 +177,15 @@ void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string i
 		fprintf(f, " ;\n");
 }
 
-#ifndef FILTERLIB
+// binary operators excluding ' '
+bool LibertyExpression::char_is_nice_binop(char c) {
+	return c == '*' || c == '&' || c == '^' || c == '+' || c == '|';
+}
+
+bool LibertyExpression::is_binop() {
+	return kind == AND || kind == OR || kind == XOR;
+}
+
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	if (s.empty())
@@ -169,7 +194,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	char c = s.peek();
 	auto lhs = LibertyExpression{};
 
-	while (isspace(c)) {
+	while (isspace(c) || c == '"') {
 		if (s.empty())
 			return lhs;
 		s.next();
@@ -183,7 +208,9 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		s.next();
 		lhs = parse(s);
 		if (s.peek() != ')') {
-			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr().c_str());
+			std::stringstream ss;
+			ss << "expected ')' instead of " << s.peek() << " while parsing Liberty expression '" << s.full_expr() << "'\n";
+			warn(ss.str());
 			return lhs;
 		}
 		s.next();
@@ -192,22 +219,16 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		lhs.kind = Kind::NOT;
 		lhs.children.push_back(parse(s, 7));
 	} else {
-		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr().c_str());
+		std::stringstream ss;
+		ss << "unrecognised character " << c << " while parsing Liberty expression " << s.full_expr() << "\n";
+		warn(ss.str());
 		return lhs;
 	}
-
 	while (true) {
 		if (s.empty())
 			break;
-		
-		c = s.peek();
 
-		while (isspace(c)) {
-			if (s.empty())
-				return lhs;
-			s.next();
-			c = s.peek();
-		}
+		c = s.peek();
 
 		if (c == '\'') { // postfix NOT
 			if (min_prio > 7)
@@ -233,13 +254,32 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 			lhs = std::move(n);
 
 			continue;
-		} else if (c == '&' || c == '*') { // infix AND
-			// technically space should be considered infix AND. it seems rare in practice.
+		} else if (c == '&' || c == '*' || isspace(c)) { // infix AND
 			if (min_prio > 3)
 				break;
-			s.next();
+
+			if (isspace(c)) {
+				// Rewind past this space and any further spaces
+				while (isspace(c)) {
+					if (s.empty())
+						return lhs;
+					s.next();
+					c = s.peek();
+				}
+				if (char_is_nice_binop(c) || c == ')' || c == '\'' || c == '\"') {
+					// We found a real binop, so this space wasn't an AND
+					// and we just discard it as meaningless whitespace
+					// Tail operators also imply this isn't an AND
+					continue;
+				}
+			} else {
+				// Rewind past this op
+				s.next();
+			}
 
 			auto rhs = parse(s, 4);
+			if (rhs.kind == EMPTY)
+				continue;
 			auto n = LibertyExpression{};
 			n.kind = Kind::AND;
 			n.children.push_back(lhs);
@@ -267,7 +307,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	return lhs;
 }
 
-void LibertyExpression::get_pin_names(pool<std::string>& names) {
+void LibertyExpression::get_pin_names(std::unordered_set<std::string>& names) {
 	if (kind == Kind::PIN) {
 		names.insert(name);
 	} else {
@@ -276,7 +316,7 @@ void LibertyExpression::get_pin_names(pool<std::string>& names) {
 	}
 }
 
-bool LibertyExpression::eval(dict<std::string, bool>& values) {
+bool LibertyExpression::eval(std::unordered_map<std::string, bool>& values) {
 	bool result = false;
 	switch (kind) {
 	case Kind::AND:
@@ -304,9 +344,87 @@ bool LibertyExpression::eval(dict<std::string, bool>& values) {
 	}
 	return false;
 }
-#endif
 
-int LibertyParser::lexer(std::string &str)
+std::string LibertyExpression::sexpr_str(int indent)
+{
+	std::string prefix;
+	switch (kind) {
+		case AND:
+			prefix += "(and ";
+			break;
+		case OR:
+			prefix += "(or ";
+			break;
+		case NOT:
+			prefix += "(not ";
+			break;
+		case XOR:
+			prefix += "(xor ";
+			break;
+		case PIN:
+			prefix += "(pin \"" + name + "\"";
+			break;
+		case EMPTY:
+			prefix += "(";
+			break;
+		default:
+			log_assert(false);
+	}
+	size_t add_indent = prefix.length();
+	bool first = true;
+	for (auto child : children) {
+		if (!first) {
+			prefix += "\n" + std::string(indent + add_indent, ' ');
+		}
+		prefix += child.sexpr_str(indent + add_indent);
+		first = false;
+	}
+	prefix += ")";
+	return prefix;
+}
+
+std::string LibertyExpression::vlog_str()
+{
+	std::string prefix;
+	if (kind != PIN)
+		prefix += "(";
+	if (is_binop()) {
+		log_assert(children.size() == 2);
+		prefix += children[0].vlog_str();
+		switch (kind) {
+			case AND:
+				prefix += "&";
+				break;
+			case OR:
+				prefix += "|";
+				break;
+			case XOR:
+				prefix += "^";
+				break;
+			default:
+				log_assert(false);
+		}
+		prefix += children[1].vlog_str();
+	} else {
+		switch (kind) {
+			case NOT:
+				log_assert(children.size() == 1);
+				prefix += "~";
+				prefix += children[0].vlog_str();
+				break;
+			case PIN:
+				prefix += name;
+				break;
+			default:
+				log_assert(false);
+			}
+	}
+	if (kind != PIN)
+		prefix += ")";
+	return prefix;
+}
+
+int LibertyParser::lexer_inner(std::string &str)
 {
 	int c;
 
@@ -332,11 +450,9 @@ int LibertyParser::lexer(std::string &str)
 
 		if (str == "+" || str == "-") {
 			/* Single operator is not an identifier */
-			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
 			return str[0];
 		}
 		else {
-			// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
 			return 'v';
 		}
 	}
@@ -348,20 +464,19 @@ int LibertyParser::lexer(std::string &str)
 		while (true) {
 			c = f.peek(i);
 			line += (c == '\n');
-			if (c != '"')
+			if (c != '"' && c != EOF)
 				i += 1;
 			else
 				break;
 		}
 		str.clear();
-#ifdef FILTERLIB
-		f.unget();
-		str.append(f.buffered_data(), f.buffered_data() + i + 2);
-		f.consume(i + 2);
-#else
 		str.append(f.buffered_data(), f.buffered_data() + i);
-		f.consume(i + 1);
+		// Usage in filterlib is expected to retain quotes
+		// but yosys expects to get unquoted
+#ifdef FILTERLIB
+		str = "\"" + str + "\"";
 #endif
+		f.consume(i + 1);
 		return 'v';
 	}
 
@@ -384,13 +499,12 @@ int LibertyParser::lexer(std::string &str)
 			return lexer(str);
 		}
 		f.unget();
-		// fprintf(stderr, "LEX: char >>/<<\n");
 		return '/';             // a single '/' charater.
 	}
 
 	// check for a backslash
 	if (c == '\\') {
-		c = f.get();		
+		c = f.get();
 		if (c == '\r')
 			c = f.get();
 		if (c == '\n') {
@@ -409,12 +523,20 @@ int LibertyParser::lexer(std::string &str)
 
 	// anything else, such as ';' will get passed
 	// through as literal items.
-
-	// if (c >= 32 && c < 255)
-	// 	fprintf(stderr, "LEX: char >>%c<<\n", c);
-	// else
-	// 	fprintf(stderr, "LEX: char %d\n", c);
 	return c;
+}
+
+int LibertyParser::lexer(std::string &str)
+{
+	int ret = lexer_inner(str);
+	// if (ret >= 32 && ret < 255) {
+	// 	fprintf(stdout, "LEX: ret >>%c<<\n", ret);
+	// } else if (ret == 'v') {
+	// 	fprintf(stdout, "LEX: ret v str %s\n", str.c_str());
+	// } else {
+	// 	fprintf(stdout, "LEX: ret %d\n", ret);
+	// }
+	return ret;
 }
 
 void LibertyParser::report_unexpected_token(int tok)
@@ -487,6 +609,25 @@ void LibertyParser::parse_vector_range(int tok)
 	}
 }
 
+// Consume into out_str any string-ish tokens, seperated with spaces
+// to cope with abuse of the underdefined spec by real world PDKs
+// enabled by proprietary implementations.
+// Sorry.
+int LibertyParser::consume_wrecked_str(int tok, std::string& out_str) {
+	std::string str = "";
+	while (tok != ';' && tok != EOF && tok != 'n') {
+		out_str += " ";
+		if (tok == 'v')
+			out_str += str;
+		else
+			out_str += tok;
+		tok = lexer(str);
+	}
+	if (tok == EOF)
+		error("wrecked string EOF");
+	return tok;
+}
+
 LibertyAst *LibertyParser::parse(bool top_level)
 {
 	std::string str;
@@ -533,7 +674,14 @@ LibertyAst *LibertyParser::parse(bool top_level)
 				if (tok == '[') {
 					parse_vector_range(tok);
 					tok = lexer(str);
+				} else {
+					// Hack for when an expression string is unquoted
+					tok = consume_wrecked_str(tok, ast->value);
 				}
+			} else if (tok == '(') {
+				// Hack for when an expression string is unquoted and starts with
+				// parentheses
+				tok = consume_wrecked_str(tok, ast->value);
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
@@ -543,7 +691,7 @@ LibertyAst *LibertyParser::parse(bool top_level)
 				ast->value += str;
 				tok = lexer(str);
 			}
-			
+
 			// In a liberty file, all key : value pairs should end in ';'
 			// However, there are some liberty files in the wild that
 			// just have a newline. We'll be kind and accept a newline
@@ -563,11 +711,11 @@ LibertyAst *LibertyParser::parse(bool top_level)
 					continue;
 				if (tok == ')')
 					break;
-				
+
 				if (tok == '[')
 				{
 					parse_vector_range(tok);
-					continue;           
+					continue;
 				}
 				if (tok == 'n')
 					continue;
@@ -613,17 +761,20 @@ void LibertyParser::error(const std::string &str) const
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";
 	ss << "  " << str << "\n";
-	log_error("%s", ss.str().c_str());
+	log_error("%s", ss.str());
 }
 
 #else
 
+YS_ATTRIBUTE(weak)
 void LibertyParser::error() const
 {
 	fprintf(stderr, "Syntax error in liberty file on line %d.\n", line);
 	exit(1);
 }
 
+
+YS_ATTRIBUTE(weak)
 void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
@@ -666,42 +817,13 @@ const LibertyAst *find_non_null(const LibertyAst *node, const char *name)
 
 std::string func2vl(std::string str)
 {
-	for (size_t pos = str.find_first_of("\" \t"); pos != std::string::npos; pos = str.find_first_of("\" \t")) {
-		char c_left = pos > 0 ? str[pos-1] : ' ';
-		char c_right = pos+1 < str.size() ? str[pos+1] : ' ';
-		if (std::string("\" \t*+").find(c_left) != std::string::npos)
-			str.erase(pos, 1);
-		else if (std::string("\" \t*+").find(c_right) != std::string::npos)
-			str.erase(pos, 1);
-		else
-			str[pos] = '*';
-	}
+	auto helper = LibertyExpression::Lexer(str);
+	return LibertyExpression::parse(helper).vlog_str();
+}
 
-	std::vector<size_t> group_start;
-	for (size_t pos = 0; pos < str.size(); pos++) {
-		if (str[pos] == '(')
-			group_start.push_back(pos);
-		if (str[pos] == ')' && group_start.size() > 0) {
-			if (pos+1 < str.size() && str[pos+1] == '\'') {
-				std::string group = str.substr(group_start.back(), pos-group_start.back()+1);
-				str[group_start.back()] = '~';
-				str.replace(group_start.back()+1, group.size(), group);
-				pos++;
-			}
-			group_start.pop_back();
-		}
-		if (str[pos] == '\'' && pos > 0) {
-			size_t start = str.find_last_of("()'*+^&| ", pos-1)+1;
-			std::string group = str.substr(start, pos-start);
-			str[start] = '~';
-			str.replace(start+1, group.size(), group);
-		}
-		if (str[pos] == '*')
-			str[pos] = '&';
-		if (str[pos] == '+')
-			str[pos] = '|';
-	}
-
+std::string vlog_identifier(std::string str)
+{
+	str.erase(std::remove(str.begin(), str.end(), '\"'), str.end());
 	return str;
 }
 
@@ -711,11 +833,13 @@ void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 	expr.clear();
 
 	if (ast != NULL) {
-		expr = func2vl(ast->value);
-		if (expr.size() > 0 && expr[0] == '~')
-			edge = "negedge " + expr.substr(1);
+		auto helper = LibertyExpression::Lexer(ast->value);
+		auto parsed = LibertyExpression::parse(helper);
+		expr = parsed.vlog_str();
+		if (parsed.kind == LibertyExpression::Kind::NOT)
+			edge = "negedge " + parsed.children[0].vlog_str();
 		else
-			edge = "posedge " + expr;
+			edge = "posedge " + parsed.vlog_str();
 	}
 }
 
@@ -745,13 +869,13 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		return;
 
 	CHECK_NV(ast->args.size(), == 1);
-	printf("module %s (", ast->args[0].c_str());
+	printf("module %s (", vlog_identifier(ast->args[0]).c_str());
 	bool first = true;
 	for (auto child : ast->children) {
 		if (child->id != "pin")
 			continue;
 		CHECK_NV(child->args.size(), == 1);
-		printf("%s%s", first ? "" : ", ", child->args[0].c_str());
+		printf("%s%s", first ? "" : ", ", vlog_identifier(child->args[0]).c_str());
 		first = false;
 	}
 	printf(");\n");
@@ -762,7 +886,7 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		printf("  reg ");
 		first = true;
 		for (auto arg : child->args) {
-			printf("%s%s", first ? "" : ", ", arg.c_str());
+			printf("%s%s", first ? "" : ", ", vlog_identifier(arg).c_str());
 			first = false;
 		}
 		printf(";\n");
@@ -774,9 +898,10 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		CHECK_NV(child->args.size(), == 1);
 		const LibertyAst *dir = find_non_null(child, "direction");
 		const LibertyAst *func = child->find("function");
-		printf("  %s %s;\n", dir->value.c_str(), child->args[0].c_str());
+		std::string var = vlog_identifier(child->args[0]);
+		printf("  %s %s;\n", dir->value.c_str(), var.c_str());
 		if (func != NULL)
-			printf("  assign %s = %s; // %s\n", child->args[0].c_str(), func2vl(func->value).c_str(), func->value.c_str());
+			printf("  assign %s = %s; // %s\n", var.c_str(), func2vl(func->value).c_str(), func->value.c_str());
 	}
 
 	for (auto child : ast->children)
@@ -784,8 +909,8 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		if (child->id != "ff" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = child->args[0];
-		std::string iqn_var = child->args[1];
+		std::string iq_var = vlog_identifier(child->args[0]);
+		std::string iqn_var = vlog_identifier(child->args[1]);
 
 		std::string clock_edge, clock_expr;
 		event2vl(child->find("clocked_on"), clock_edge, clock_expr);
@@ -848,8 +973,8 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		if (child->id != "latch" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = child->args[0];
-		std::string iqn_var = child->args[1];
+		std::string iq_var = vlog_identifier(child->args[0]);
+		std::string iqn_var = vlog_identifier(child->args[1]);
 
 		std::string enable_edge, enable_expr;
 		event2vl(child->find("enable"), enable_edge, enable_expr);

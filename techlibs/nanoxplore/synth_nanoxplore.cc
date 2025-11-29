@@ -218,7 +218,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		} else if (family == "large") {
 			postfix = "_l";
 		} else 
-			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -244,7 +244,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim" + postfix + ".v +/nanoxplore/cells_bb.v +/nanoxplore/cells_bb" + postfix + ".v");
 			run("techmap -map +/nanoxplore/cells_wrap.v");
 			run("techmap -map +/nanoxplore/cells_wrap" + postfix + ".v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (check_label("coarse"))
@@ -335,9 +335,9 @@ struct SynthNanoXplorePass : public ScriptPass
 				std::string abc9_opts = " -maxlut 4";
 				std::string k = "synth_nanoxplore.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))
-					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
 				else
-					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
 				run("abc9" + abc9_opts);
 			} else {
 				std::string abc_args = " -dress";
@@ -362,7 +362,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthNanoXplorePass;

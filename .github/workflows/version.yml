@@ -7,6 +7,7 @@ on:
 
 jobs:
   bump-version:
+    if: github.repository == 'YosysHQ/Yosys'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,11 +19,8 @@ jobs:
       - name: Take last commit
         id: log
         run: echo "message=$(git log --no-merges -1 --oneline)" >> $GITHUB_OUTPUT
-      - name: Take repository
-        id: repo
-        run: echo "message=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
       - name: Bump version
-        if: "!contains(steps.log.outputs.message, 'Bump version') && contains(steps.repo.outputs.message, 'YosysHQ/yosys')"
+        if: ${{ !contains(steps.log.outputs.message, 'Bump version') }}
         run: |
           make bumpversion
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -30,7 +28,7 @@ jobs:
           git add Makefile
           git commit -m "Bump version"
       - name: Push changes # push the output folder to your repo
-        if: "!contains(steps.log.outputs.message, 'Bump version') && contains(steps.repo.outputs.message, 'YosysHQ/yosys')"
+        if: ${{ !contains(steps.log.outputs.message, 'Bump version') }}
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

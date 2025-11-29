@@ -1,0 +1,11 @@
+logger -expect error "unique keyword cannot be used for 'else if' branch" 1
+read_verilog -sv <<EOF
+module top( input[2:0] a );
+always_comb begin
+    // invalid example from 1800-2012 12.4.2
+    unique if ((a==0) || (a==1)) $display("0 or 1");
+    else unique if (a == 2) $display("2");
+    else if (a == 4) $display("4");
+end
+endmodule
+EOF

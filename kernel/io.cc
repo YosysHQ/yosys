@@ -2,6 +2,7 @@
 #include "kernel/log.h"
 #include <iostream>
 #include <string>
+#include <filesystem>
 
 #if !defined(WIN32)
 #include <dirent.h>
@@ -307,7 +308,7 @@ bool is_absolute_path(std::string filename)
 void remove_directory(std::string dirname)
 {
 #ifdef _WIN32
-	run_command(stringf("rmdir /s /q \"%s\"", dirname.c_str()));
+	run_command(stringf("rmdir /s /q \"%s\"", dirname));
 #else
 	struct stat stbuf;
 	struct dirent **namelist;
@@ -315,7 +316,7 @@ void remove_directory(std::string dirname)
 	log_assert(n >= 0);
 	for (int i = 0; i < n; i++) {
 		if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
-			std::string buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
+			std::string buffer = stringf("%s/%s", dirname, namelist[i]->d_name);
 			if (!stat(buffer.c_str(), &stbuf) && S_ISREG(stbuf.st_mode)) {
 				remove(buffer.c_str());
 			} else
@@ -382,6 +383,239 @@ std::string escape_filename_spaces(const std::string& filename)
 			out.push_back(c);
 	}
 	return out;
+}
+
+void append_globbed(std::vector<std::string>& paths, std::string pattern)
+{
+	rewrite_filename(pattern);
+	std::vector<std::string> globbed = glob_filename(pattern);
+	copy(globbed.begin(), globbed.end(), back_inserter(paths));
+}
+
+std::string name_from_file_path(std::string path) {
+	return std::filesystem::path(path).filename().string();
+}
+
+// Includes OS_PATH_SEP at the end if present
+std::string parent_from_file_path(std::string path) {
+	auto parent = std::filesystem::path(path).parent_path();
+	if (parent.empty()) {
+		return "";
+	}
+	// Add trailing separator to match original behavior
+	std::string result = parent.string();
+	if (!result.empty() && result.back() != std::filesystem::path::preferred_separator) {
+		result += std::filesystem::path::preferred_separator;
+	}
+	return result;
+}
+
+void format_emit_unescaped(std::string &result, std::string_view fmt)
+{
+	result.reserve(result.size() + fmt.size());
+	for (size_t i = 0; i < fmt.size(); ++i) {
+		char ch = fmt[i];
+		result.push_back(ch);
+		if (ch == '%' && i + 1 < fmt.size() && fmt[i + 1] == '%') {
+			++i;
+		}
+	}
+}
+
+std::string unescape_format_string(std::string_view fmt)
+{
+	std::string result;
+	format_emit_unescaped(result, fmt);
+	return result;
+}
+
+static std::string string_view_stringf(std::string_view spec, ...)
+{
+	va_list ap;
+	va_start(ap, spec);
+	std::string result = vstringf(std::string(spec).c_str(), ap);
+	va_end(ap);
+	return result;
+}
+
+static int spec_parameter_size(std::string_view spec)
+{
+	// Every valid spec starts with '%' which means the code below
+	// won't look before the spec start.
+	switch (spec[spec.size() - 1]) {
+	case 'd':
+	case 'i':
+	case 'o':
+	case 'u':
+	case 'x':
+	case 'X':
+		switch (spec[spec.size() - 2]) {
+		case 'h':
+			if (spec[spec.size() - 3] == 'h')
+				return sizeof(char);
+			return sizeof(short);
+		case 'l':
+			if (spec[spec.size() - 3] == 'l')
+				return sizeof(long long);
+			return sizeof(long);
+		case 'L':
+		case 'q':
+			return sizeof(long long);
+		case 'j':
+			return sizeof(intmax_t);
+		case 'z':
+		case 'Z':
+			return sizeof(size_t);
+		case 't':
+			return sizeof(ptrdiff_t);
+		}
+		return sizeof(int);
+	case 'e':
+	case 'E':
+	case 'f':
+	case 'F':
+	case 'g':
+	case 'G':
+	case 'a':
+	case 'A':
+		if (spec[spec.size() - 2] == 'L')
+			return sizeof(long double);
+		if (spec[spec.size() - 2] == 'l' && spec[spec.size() - 3] == 'l')
+			return sizeof(long double);
+		return sizeof(double);
+	case 'c':
+		if (spec[spec.size() - 2] == 'l') {
+			return sizeof(wchar_t);
+		}
+		return sizeof(unsigned char);
+	case 'C':
+		return sizeof(wchar_t);
+	case 's':
+	case 'p':
+	case 'S':
+	case 'n':
+		return sizeof(void *);
+	case 'm':
+		return sizeof(int);
+	default:
+		return -1;
+	}
+}
+
+template <typename Arg>
+static void format_emit_stringf(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, Arg arg)
+{
+	// Delegate nontrivial formats to the C library.
+	switch (num_dynamic_ints) {
+	case DynamicIntCount::NONE:
+		result += string_view_stringf(spec, arg);
+		return;
+	case DynamicIntCount::ONE:
+		result += string_view_stringf(spec, dynamic_ints[0], arg);
+		return;
+	case DynamicIntCount::TWO:
+		result += string_view_stringf(spec, dynamic_ints[0], dynamic_ints[1], arg);
+		return;
+	}
+	YOSYS_ABORT("Internal error");
+}
+
+void format_emit_long_long(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, long long arg)
+{
+	if (spec == "%d") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		result += std::to_string(static_cast<int>(arg));
+		return;
+	}
+	if (spec_parameter_size(spec) <= 4) {
+		// On some platforms (Wasm) we must ensure that the arg is properly aligned
+		// after the dynamic `int` parameters.
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, (int)arg);
+	} else {
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+	}
+}
+
+void format_emit_unsigned_long_long(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, unsigned long long arg)
+{
+	if (spec == "%u") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		result += std::to_string(static_cast<unsigned int>(arg));
+		return;
+	}
+	if (spec == "%c") {
+		result += static_cast<char>(arg);
+		return;
+	}
+	if (spec_parameter_size(spec) <= 4) {
+                // On some platforms (Wasm) we must ensure that the arg is properly aligned
+                // after the dynamic `int` parameters.
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, (unsigned int)arg);
+	} else {
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+	}
+}
+
+void format_emit_double(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, double arg)
+{
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+}
+
+void format_emit_char_ptr(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, const char *arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		result += arg;
+		return;
+	}
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+}
+
+void format_emit_string(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, const std::string &arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		result += arg;
+		return;
+	}
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg.c_str());
+}
+
+void format_emit_string_view(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, std::string_view arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		// We can output the string without creating a temporary copy.
+		result += arg;
+		return;
+	}
+	// Delegate nontrivial formats to the C library. We need to construct
+	// a temporary string to ensure null termination.
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, std::string(arg).c_str());
+}
+
+void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, const IdString &arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		arg.append_to(&result);
+		return;
+	}
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg.c_str());
+}
+
+void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, const void *arg)
+{
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
 }
 
 YOSYS_NAMESPACE_END

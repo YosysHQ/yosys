@@ -39,7 +39,7 @@ struct setunset_t
 		} else {
 			RTLIL::SigSpec sig_value;
 			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
-				log_cmd_error("Can't decode value '%s'!\n", set_value.c_str());
+				log_cmd_error("Can't decode value '%s'!\n", set_value);
 			value = sig_value.as_const();
 		}
 	}

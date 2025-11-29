@@ -234,7 +234,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		if (family == "polarfire") {
 			lut_size = 4;
 		} else {
-			log_cmd_error("Invalid Microchip -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid Microchip -family setting: '%s'.\n", family);
 		}
 
 		if (!design->full_selection())
@@ -262,7 +262,7 @@ struct SynthMicrochipPass : public ScriptPass {
 			read_args += " -lib -specify +/microchip/cells_sim.v";
 			run("read_verilog" + read_args);
 
-			run(stringf("hierarchy -check %s", top_opt.c_str()));
+			run(stringf("hierarchy -check %s", top_opt));
 		}
 
 		if (check_label("prepare")) {
@@ -534,18 +534,18 @@ struct SynthMicrochipPass : public ScriptPass {
 
 		if (check_label("edif")) {
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif -pvector bra %s", edif_file.c_str()));
+				run(stringf("write_edif -pvector bra %s", edif_file));
 		}
 
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
-				run(stringf("write_blif %s", blif_file.c_str()));
+				run(stringf("write_blif %s", blif_file));
 		}
 
 		if (check_label("vlog"))
 		{
 			if (!vlog_file.empty() || help_mode)
-				run(stringf("write_verilog %s", help_mode ? "<file-name>" : vlog_file.c_str()));
+				run(stringf("write_verilog %s", help_mode ? "<file-name>" : vlog_file));
 		}
 	}
 } SynthMicrochipPass;

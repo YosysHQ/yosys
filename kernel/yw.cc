@@ -108,38 +108,38 @@ ReadWitness::ReadWitness(const std::string &filename) :
 {
 	std::ifstream f(filename.c_str());
 	if (f.fail() || GetSize(filename) == 0)
-		log_error("Cannot open file `%s`\n", filename.c_str());
+		log_error("Cannot open file `%s`\n", filename);
 	std::stringstream buf;
 	buf << f.rdbuf();
 	std::string err;
 	json11::Json json = json11::Json::parse(buf.str(), err);
 	if (!err.empty())
-		log_error("Failed to parse `%s`: %s\n", filename.c_str(), err.c_str());
+		log_error("Failed to parse `%s`: %s\n", filename, err);
 
 	std::string format = json["format"].string_value();
 
 	if (format.empty())
-		log_error("Failed to parse `%s`: Unknown format\n", filename.c_str());
+		log_error("Failed to parse `%s`: Unknown format\n", filename);
 	if (format != "Yosys Witness Trace")
-		log_error("Failed to parse `%s`: Unsupported format `%s`\n", filename.c_str(), format.c_str());
+		log_error("Failed to parse `%s`: Unsupported format `%s`\n", filename, format);
 
 	for (auto &clock_json : json["clocks"].array_items()) {
 		Clock clock;
 		clock.path = get_path(clock_json["path"]);
 		if (clock.path.empty())
-			log_error("Failed to parse `%s`: Missing path for clock `%s`\n", filename.c_str(), clock_json.dump().c_str());
+			log_error("Failed to parse `%s`: Missing path for clock `%s`\n", filename, clock_json.dump());
 		auto edge_str = clock_json["edge"];
 		if (edge_str.string_value() == "posedge")
 			clock.is_posedge = true;
 		else if (edge_str.string_value() == "negedge")
 			clock.is_negedge = true;
 		else
-			log_error("Failed to parse `%s`: Unknown edge type for clock `%s`\n", filename.c_str(), clock_json.dump().c_str());
+			log_error("Failed to parse `%s`: Unknown edge type for clock `%s`\n", filename, clock_json.dump());
 		if (!clock_json["offset"].is_number())
-			log_error("Failed to parse `%s`: Unknown offset for clock `%s`\n", filename.c_str(), clock_json.dump().c_str());
+			log_error("Failed to parse `%s`: Unknown offset for clock `%s`\n", filename, clock_json.dump());
 		clock.offset = clock_json["offset"].int_value();
 		if (clock.offset < 0)
-			log_error("Failed to parse `%s`: Invalid offset for clock `%s`\n", filename.c_str(), clock_json.dump().c_str());
+			log_error("Failed to parse `%s`: Invalid offset for clock `%s`\n", filename, clock_json.dump());
 		clocks.push_back(clock);
 	}
 
@@ -149,18 +149,18 @@ ReadWitness::ReadWitness(const std::string &filename) :
 		signal.bits_offset = bits_offset;
 		signal.path = get_path(signal_json["path"]);
 		if (signal.path.empty())
-			log_error("Failed to parse `%s`: Missing path for signal `%s`\n", filename.c_str(), signal_json.dump().c_str());
+			log_error("Failed to parse `%s`: Missing path for signal `%s`\n", filename, signal_json.dump());
 		if (!signal_json["width"].is_number())
-			log_error("Failed to parse `%s`: Unknown width for signal `%s`\n", filename.c_str(), signal_json.dump().c_str());
+			log_error("Failed to parse `%s`: Unknown width for signal `%s`\n", filename, signal_json.dump());
 		signal.width = signal_json["width"].int_value();
 		if (signal.width < 0)
-			log_error("Failed to parse `%s`: Invalid width for signal `%s`\n", filename.c_str(), signal_json.dump().c_str());
+			log_error("Failed to parse `%s`: Invalid width for signal `%s`\n", filename, signal_json.dump());
 		bits_offset += signal.width;
 		if (!signal_json["offset"].is_number())
-			log_error("Failed to parse `%s`: Unknown offset for signal `%s`\n", filename.c_str(), signal_json.dump().c_str());
+			log_error("Failed to parse `%s`: Unknown offset for signal `%s`\n", filename, signal_json.dump());
 		signal.offset = signal_json["offset"].int_value();
 		if (signal.offset < 0)
-			log_error("Failed to parse `%s`: Invalid offset for signal `%s`\n", filename.c_str(), signal_json.dump().c_str());
+			log_error("Failed to parse `%s`: Invalid offset for signal `%s`\n", filename, signal_json.dump());
 		signal.init_only = signal_json["init_only"].bool_value();
 		signals.push_back(signal);
 	}
@@ -168,11 +168,11 @@ ReadWitness::ReadWitness(const std::string &filename) :
 	for (auto &step_json : json["steps"].array_items()) {
 		Step step;
 		if (!step_json["bits"].is_string())
-			log_error("Failed to parse `%s`: Expected string as bits value for step %d\n", filename.c_str(), GetSize(steps));
+			log_error("Failed to parse `%s`: Expected string as bits value for step %d\n", filename, GetSize(steps));
 		step.bits = step_json["bits"].string_value();
 		for (char c : step.bits) {
 			if (c != '0' && c != '1' && c != 'x' && c != '?')
-				log_error("Failed to parse `%s`: Invalid bit '%c' value for step %d\n", filename.c_str(), c, GetSize(steps));
+				log_error("Failed to parse `%s`: Invalid bit '%c' value for step %d\n", filename, c, GetSize(steps));
 		}
 		steps.push_back(step);
 	}
@@ -185,7 +185,6 @@ RTLIL::Const ReadWitness::get_bits(int t, int bits_offset, int width) const
 	const std::string &bits = steps[t].bits;
 
 	RTLIL::Const result(State::Sa, width);
-	result.bits().reserve(width);
 
 	int read_begin = GetSize(bits) - 1 - bits_offset;
 	int read_end = max(-1, read_begin - width);
@@ -200,7 +199,7 @@ RTLIL::Const ReadWitness::get_bits(int t, int bits_offset, int width) const
 			default:
 				log_abort();
 		}
-		result.bits()[j] = bit;
+		result.set(j, bit);
 	}
 
 	return result;

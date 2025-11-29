@@ -25,6 +25,7 @@
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <algorithm>
 #include <set>
 #include <unordered_map>
 #include <array>
@@ -32,6 +33,9 @@
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+template <typename T, typename U>
+inline Hasher hash_pair(const T &t, const U &u) { return hash_ops<std::pair<T, U>>::hash(t, u); }
 
 struct OptMergeWorker
 {
@@ -44,20 +48,16 @@ struct OptMergeWorker
 	CellTypes ct;
 	int total_count;
 
-	static vector<pair<SigBit, SigSpec>> sorted_pmux_in(const dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	static Hasher hash_pmux_in(const SigSpec& sig_s, const SigSpec& sig_b, Hasher h)
 	{
-		SigSpec sig_s = conn.at(ID::S);
-		SigSpec sig_b = conn.at(ID::B);
-
 		int s_width = GetSize(sig_s);
 		int width = GetSize(sig_b) / s_width;
 
-		vector<pair<SigBit, SigSpec>> sb_pairs;
+		hashlib::commutative_hash comm;
 		for (int i = 0; i < s_width; i++)
-			sb_pairs.push_back(pair<SigBit, SigSpec>(sig_s[i], sig_b.extract(i*width, width)));
+			comm.eat(hash_pair(sig_s[i], sig_b.extract(i*width, width)));
 
-		std::sort(sb_pairs.begin(), sb_pairs.end());
-		return sb_pairs;
+		return comm.hash_into(h);
 	}
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
@@ -89,12 +89,10 @@ struct OptMergeWorker
 		// (builtin || stdcell) && (unary || binary) && symmetrical
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
-			std::array<RTLIL::SigSpec, 2> inputs = {
-				assign_map(cell->getPort(ID::A)),
-				assign_map(cell->getPort(ID::B))
-			};
-			std::sort(inputs.begin(), inputs.end());
-			h = hash_ops<std::array<RTLIL::SigSpec, 2>>::hash_into(inputs, h);
+			hashlib::commutative_hash comm;
+			comm.eat(assign_map(cell->getPort(ID::A)));
+			comm.eat(assign_map(cell->getPort(ID::B)));
+			h = comm.hash_into(h);
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
 			a.sort();
@@ -104,44 +102,31 @@ struct OptMergeWorker
 			a.sort_and_unify();
 			h = a.hash_into(h);
 		} else if (cell->type == ID($pmux)) {
-			dict<RTLIL::IdString, RTLIL::SigSpec> conn = cell->connections();
-			assign_map.apply(conn.at(ID::A));
-			assign_map.apply(conn.at(ID::B));
-			assign_map.apply(conn.at(ID::S));
-			for (const auto& [s_bit, b_chunk] : sorted_pmux_in(conn)) {
-				h = s_bit.hash_into(h);
-				h = b_chunk.hash_into(h);
-			}
+			SigSpec sig_s = assign_map(cell->getPort(ID::S));
+			SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			h = hash_pmux_in(sig_s, sig_b, h);
 			h = assign_map(cell->getPort(ID::A)).hash_into(h);
 		} else {
-			std::vector<std::pair<IdString, SigSpec>> conns;
-			for (const auto& conn : cell->connections()) {
-				conns.push_back(conn);
+			hashlib::commutative_hash comm;
+			for (const auto& [port, sig] : cell->connections()) {
+				if (cell->output(port))
+					continue;
+				comm.eat(hash_pair(port, assign_map(sig)));
 			}
-			std::sort(conns.begin(), conns.end());
-			for (const auto& [port, sig] : conns) {
-				if (!cell->output(port)) {
-					h = port.hash_into(h);
-					h = assign_map(sig).hash_into(h);
-				}
-			}
-
-			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			h = comm.hash_into(h);
+			if (cell->is_builtin_ff())
 				h = initvals(cell->getPort(ID::Q)).hash_into(h);
-
 		}
 		return h;
 	}
 
 	static Hasher hash_cell_parameters(const RTLIL::Cell *cell, Hasher h)
 	{
-		using Paramvec = std::vector<std::pair<IdString, Const>>;
-		Paramvec params;
+		hashlib::commutative_hash comm;
 		for (const auto& param : cell->parameters) {
-			params.push_back(param);
+			comm.eat(param);
 		}
-		std::sort(params.begin(), params.end());
-		return hash_ops<Paramvec>::hash_into(params, h);
+		return comm.hash_into(h);
 	}
 
 	Hasher hash_cell_function(const RTLIL::Cell *cell, Hasher h) const
@@ -172,7 +157,7 @@ struct OptMergeWorker
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell1->type)) {
+				if (it.first == ID::Q && cell1->is_builtin_ff()) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					conn1[it.first] = initvals(it.second);
@@ -189,24 +174,20 @@ struct OptMergeWorker
 			}
 		}
 
-		if (cell1->type == ID($and) || cell1->type == ID($or) || cell1->type == ID($xor) || cell1->type == ID($xnor) || cell1->type == ID($add) || cell1->type == ID($mul) ||
-				cell1->type == ID($logic_and) || cell1->type == ID($logic_or) || cell1->type == ID($_AND_) || cell1->type == ID($_OR_) || cell1->type == ID($_XOR_)) {
+		if (cell1->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
+				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
 			if (conn1.at(ID::A) < conn1.at(ID::B)) {
-				RTLIL::SigSpec tmp = conn1[ID::A];
-				conn1[ID::A] = conn1[ID::B];
-				conn1[ID::B] = tmp;
+				std::swap(conn1[ID::A], conn1[ID::B]);
 			}
 			if (conn2.at(ID::A) < conn2.at(ID::B)) {
-				RTLIL::SigSpec tmp = conn2[ID::A];
-				conn2[ID::A] = conn2[ID::B];
-				conn2[ID::B] = tmp;
+				std::swap(conn2[ID::A], conn2[ID::B]);
 			}
 		} else
-		if (cell1->type == ID($reduce_xor) || cell1->type == ID($reduce_xnor)) {
+		if (cell1->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			conn1[ID::A].sort();
 			conn2[ID::A].sort();
 		} else
-		if (cell1->type == ID($reduce_and) || cell1->type == ID($reduce_or) || cell1->type == ID($reduce_bool)) {
+		if (cell1->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
 			conn1[ID::A].sort_and_unify();
 			conn2[ID::A].sort_and_unify();
 		} else
@@ -220,14 +201,14 @@ struct OptMergeWorker
 
 	bool has_dont_care_initval(const RTLIL::Cell *cell)
 	{
-		if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+		if (!cell->is_builtin_ff())
 			return false;
 
 		return !initvals(cell->getPort(ID::Q)).is_fully_def();
 	}
 
 	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
-		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
+		design(design), module(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
 		ct.setup_internals();
@@ -247,7 +228,7 @@ struct OptMergeWorker
 		ct.cell_types.erase(ID($allseq));
 		ct.cell_types.erase(ID($allconst));
 
-		log("Finding identical cells in module `%s'.\n", module->name.c_str());
+		log("Finding identical cells in module `%s'.\n", module->name);
 		assign_map.set(module);
 
 		initvals.set(&assign_map, module);
@@ -268,10 +249,15 @@ struct OptMergeWorker
 					// mem can have an excessively large parameter holding the init data
 					continue;
 				}
+				if (cell->type == ID($scopeinfo))
+					continue;
 				if (mode_keepdc && has_dont_care_initval(cell))
 					continue;
-				if (ct.cell_known(cell->type) || (mode_share_all && cell->known()))
-					cells.push_back(cell);
+				if (!cell->known())
+					continue;
+				if (!mode_share_all && !ct.cell_known(cell->type))
+					continue;
+				cells.push_back(cell);
 			}
 
 			did_something = false;
@@ -300,12 +286,6 @@ struct OptMergeWorker
 
 			for (auto cell : cells)
 			{
-				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
-					continue;
-
-				if (cell->type == ID($scopeinfo))
-					continue;
-
 				auto [cell_in_map, inserted] = known_cells.insert(cell);
 				if (!inserted) {
 					// We've failed to insert since we already have an equivalent cell
@@ -319,11 +299,11 @@ struct OptMergeWorker
 					}
 
 					did_something = true;
-					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), other_cell->name.c_str());
+					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name, other_cell->name);
 					for (auto &it : cell->connections()) {
 						if (cell->output(it.first)) {
 							RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
-							log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
+							log_debug("    Redirecting output %s: %s = %s\n", it.first,
 									log_signal(it.second), log_signal(other_sig));
 							Const init = initvals(other_sig);
 							initvals.remove_init(it.second);
@@ -333,7 +313,7 @@ struct OptMergeWorker
 							initvals.set_init(other_sig, init);
 						}
 					}
-					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
 					module->remove(cell);
 					total_count++;
 				}

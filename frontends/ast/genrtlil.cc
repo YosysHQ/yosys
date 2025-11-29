@@ -45,7 +45,7 @@ using namespace AST_INTERNAL;
 // helper function for creating RTLIL code for unary operations
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
-	IdString name = stringf("%s$%s:%d$%d", type.c_str(), RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("%s$%s:%d$%d", type, RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -56,7 +56,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width
 	if (gen_attributes)
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				that->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 			cell->attributes[attr.first] = attr.second->asAttrConst();
 		}
 
@@ -77,7 +77,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 		return;
 	}
 
-	IdString name = stringf("$extend$%s:%d$%d", RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("$extend$%s:%d$%d", RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
 	set_src_attr(cell, that);
 
@@ -85,10 +85,10 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
-	if (that != NULL)
+	if (that != nullptr)
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				that->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 			cell->attributes[attr.first] = attr.second->asAttrConst();
 		}
 
@@ -104,7 +104,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 // helper function for creating RTLIL code for binary operations
 static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	IdString name = stringf("%s$%s:%d$%d", type.c_str(), RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("%s$%s:%d$%d", type, RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -114,7 +114,7 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
-			that->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+			that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 		cell->attributes[attr.first] = attr.second->asAttrConst();
 	}
 
@@ -138,7 +138,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	log_assert(cond.size() == 1);
 
 	std::stringstream sstr;
-	sstr << "$ternary$" << RTLIL::encode_filename(that->filename) << ":" << that->location.first_line << "$" << (autoidx++);
+	sstr << "$ternary$" << RTLIL::encode_filename(*that->location.begin.filename) << ":" << that->location.begin.line << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
 	set_src_attr(cell, that);
@@ -149,7 +149,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
-			that->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+			that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 		cell->attributes[attr.first] = attr.second->asAttrConst();
 	}
 
@@ -195,22 +195,22 @@ struct AST_INTERNAL::LookaheadRewriter
 		if (node->lookahead) {
 			log_assert(node->type == AST_IDENTIFIER);
 			if (!lookaheadids.count(node->str)) {
-				AstNode *wire = new AstNode(AST_WIRE);
-				for (auto c : node->id2ast->children)
+				auto wire = std::make_unique<AstNode>(node->location, AST_WIRE);
+				for (auto& c : node->id2ast->children)
 					wire->children.push_back(c->clone());
 				wire->fixup_hierarchy_flags();
-				wire->str = stringf("$lookahead%s$%d", node->str.c_str(), autoidx++);
-				wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+				wire->str = stringf("$lookahead%s$%d", node->str, autoidx++);
+				wire->set_attribute(ID::nosync, AstNode::mkconst_int(node->location, 1, false));
 				wire->is_logic = true;
 				while (wire->simplify(true, 1, -1, false)) { }
-				current_ast_mod->children.push_back(wire);
-				lookaheadids[node->str] = make_pair(node->id2ast, wire);
+				lookaheadids[node->str] = make_pair(node->id2ast, wire.get());
 				wire->genRTLIL();
+				current_ast_mod->children.push_back(std::move(wire));
 			}
 		}
 
-		for (auto child : node->children)
-			collect_lookaheadids(child);
+		for (auto& child : node->children)
+			collect_lookaheadids(child.get());
 	}
 
 	bool has_lookaheadids(AstNode *node)
@@ -218,8 +218,8 @@ struct AST_INTERNAL::LookaheadRewriter
 		if (node->type == AST_IDENTIFIER && lookaheadids.count(node->str) != 0)
 			return true;
 
-		for (auto child : node->children)
-			if (has_lookaheadids(child))
+		for (auto& child : node->children)
+			if (has_lookaheadids(child.get()))
 				return true;
 
 		return false;
@@ -230,8 +230,8 @@ struct AST_INTERNAL::LookaheadRewriter
 		if (node->type == AST_IDENTIFIER && lookaheadids.count(node->str) == 0)
 			return true;
 
-		for (auto child : node->children)
-			if (has_nonlookaheadids(child))
+		for (auto& child : node->children)
+			if (has_nonlookaheadids(child.get()))
 				return true;
 
 		return false;
@@ -241,16 +241,16 @@ struct AST_INTERNAL::LookaheadRewriter
 	{
 		if (node->type == AST_ASSIGN_LE)
 		{
-			if (has_lookaheadids(node->children[0]))
+			if (has_lookaheadids(node->children[0].get()))
 			{
-				if (has_nonlookaheadids(node->children[0]))
+				if (has_nonlookaheadids(node->children[0].get()))
 					log_error("incompatible mix of lookahead and non-lookahead IDs in LHS expression.\n");
 
-				rewrite_lookaheadids(node->children[0], true);
+				rewrite_lookaheadids(node->children[0].get(), true);
 				node->type = AST_ASSIGN_EQ;
 			}
 
-			rewrite_lookaheadids(node->children[1], lhs);
+			rewrite_lookaheadids(node->children[1].get(), lhs);
 			return;
 		}
 
@@ -261,21 +261,22 @@ struct AST_INTERNAL::LookaheadRewriter
 			lhs = false;
 		}
 
-		for (auto child : node->children)
-			rewrite_lookaheadids(child, lhs);
+		for (auto& child : node->children)
+			rewrite_lookaheadids(child.get(), lhs);
 	}
 
 	LookaheadRewriter(AstNode *top)
 	{
-		// top->dumpAst(NULL, "REWRITE-BEFORE> ");
-		// top->dumpVlog(NULL, "REWRITE-BEFORE> ");
+		// top->dumpAst(nullptr, "REWRITE-BEFORE> ");
+		// top->dumpVlog(nullptr, "REWRITE-BEFORE> ");
 
 		AstNode *block = nullptr;
+		auto loc = top->location;
 
-		for (auto c : top->children)
+		for (auto& c : top->children)
 			if (c->type == AST_BLOCK) {
 				log_assert(block == nullptr);
-				block = c;
+				block = c.get();
 			}
 		log_assert(block != nullptr);
 
@@ -284,25 +285,25 @@ struct AST_INTERNAL::LookaheadRewriter
 
 		for (auto it : lookaheadids)
 		{
-			AstNode *ref_orig = new AstNode(AST_IDENTIFIER);
+			auto ref_orig = std::make_unique<AstNode>(loc, AST_IDENTIFIER);
 			ref_orig->str = it.second.first->str;
 			ref_orig->id2ast = it.second.first;
 			ref_orig->was_checked = true;
 
-			AstNode *ref_temp = new AstNode(AST_IDENTIFIER);
+			auto ref_temp = std::make_unique<AstNode>(loc, AST_IDENTIFIER);
 			ref_temp->str = it.second.second->str;
 			ref_temp->id2ast = it.second.second;
 			ref_temp->was_checked = true;
 
-			AstNode *init_assign = new AstNode(AST_ASSIGN_EQ, ref_temp->clone(), ref_orig->clone());
-			AstNode *final_assign = new AstNode(AST_ASSIGN_LE, ref_orig, ref_temp);
+			auto init_assign = std::make_unique<AstNode>(loc, AST_ASSIGN_EQ, ref_temp->clone(), ref_orig->clone());
+			auto final_assign = std::make_unique<AstNode>(loc, AST_ASSIGN_LE, std::move(ref_orig), std::move(ref_temp));
 
-			block->children.insert(block->children.begin(), init_assign);
-			block->children.push_back(final_assign);
+			block->children.insert(block->children.begin(), std::move(init_assign));
+			block->children.push_back(std::move(final_assign));
 		}
 
-		// top->dumpAst(NULL, "REWRITE-AFTER> ");
-		// top->dumpVlog(NULL, "REWRITE-AFTER> ");
+		// top->dumpAst(nullptr, "REWRITE-AFTER> ");
+		// top->dumpVlog(nullptr, "REWRITE-AFTER> ");
 	}
 };
 
@@ -310,7 +311,7 @@ struct AST_INTERNAL::LookaheadRewriter
 struct AST_INTERNAL::ProcessGenerator
 {
 	// input and output structures
-	AstNode *always;
+	std::unique_ptr<AstNode> always;
 	RTLIL::SigSpec initSyncSignals;
 	RTLIL::Process *proc;
 	RTLIL::SigSpec outputSignals;
@@ -341,30 +342,30 @@ struct AST_INTERNAL::ProcessGenerator
 	// The most recently assigned $print or $check cell \PRIORITY.
 	int last_effect_priority;
 
-	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), last_effect_priority(0)
+	ProcessGenerator(std::unique_ptr<AstNode> a, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(std::move(a)), initSyncSignals(initSyncSignalsArg), last_effect_priority(0)
 	{
 		// rewrite lookahead references
-		LookaheadRewriter la_rewriter(always);
+		LookaheadRewriter la_rewriter(always.get());
 
 		// generate process and simple root case
-		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(always->filename).c_str(), always->location.first_line, autoidx++));
-		set_src_attr(proc, always);
+		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(*always->location.begin.filename), always->location.begin.line, autoidx++));
+		set_src_attr(proc, always.get());
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				always->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				always->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 			proc->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		current_case = &proc->root_case;
 
 		// create initial temporary signal for all output registers
 		RTLIL::SigSpec subst_lvalue_from, subst_lvalue_to;
-		collect_lvalues(subst_lvalue_from, always, true, true);
+		collect_lvalues(subst_lvalue_from, always.get(), true, true);
 		subst_lvalue_to = new_temp_signal(subst_lvalue_from);
 		subst_lvalue_map = subst_lvalue_from.to_sigbit_map(subst_lvalue_to);
 
 		bool found_global_syncs = false;
 		bool found_anyedge_syncs = false;
-		for (auto child : always->children)
+		for (auto& child : always->children)
 		{
 			if ((child->type == AST_POSEDGE || child->type == AST_NEGEDGE) && GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER &&
 					child->children.at(0)->id2ast && child->children.at(0)->id2ast->type == AST_WIRE && child->children.at(0)->id2ast->get_bool_attribute(ID::gclk)) {
@@ -381,14 +382,14 @@ struct AST_INTERNAL::ProcessGenerator
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
 				always->input_error("Found non-synthesizable event list!\n");
-			log("Note: Assuming pure combinatorial block at %s in\n", always->loc_string().c_str());
+			log("Note: Assuming pure combinatorial block at %s in\n", always->loc_string());
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
 		}
 
 		// create syncs for the process
 		bool found_clocked_sync = false;
-		for (auto child : always->children)
+		for (auto& child : always->children)
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE) {
 				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->id2ast &&
 						child->children.at(0)->id2ast->type == AST_WIRE && child->children.at(0)->id2ast->get_bool_attribute(ID::gclk))
@@ -420,9 +421,9 @@ struct AST_INTERNAL::ProcessGenerator
 		}
 
 		// process the AST
-		for (auto child : always->children)
+		for (auto& child : always->children)
 			if (child->type == AST_BLOCK)
-				processAst(child);
+				processAst(child.get());
 
 		for (auto sync: proc->syncs)
 			processMemWrites(sync);
@@ -472,7 +473,7 @@ struct AST_INTERNAL::ProcessGenerator
 		for (int i = 0; i < GetSize(chunks); i++)
 		{
 			RTLIL::SigChunk &chunk = chunks[i];
-			if (chunk.wire == NULL)
+			if (chunk.wire == nullptr)
 				continue;
 
 			std::string wire_name;
@@ -484,7 +485,7 @@ struct AST_INTERNAL::ProcessGenerator
 			} while (current_module->wires_.count(wire_name) > 0);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
-			set_src_attr(wire, always);
+			set_src_attr(wire, always.get());
 
 			chunk.wire = wire;
 			chunk.offset = 0;
@@ -499,10 +500,10 @@ struct AST_INTERNAL::ProcessGenerator
 		switch (ast->type)
 		{
 		case AST_CASE:
-			for (auto child : ast->children)
+			for (auto& child : ast->children)
 				if (child != ast->children[0]) {
 					log_assert(child->type == AST_COND || child->type == AST_CONDX || child->type == AST_CONDZ);
-					collect_lvalues(reg, child, type_eq, type_le, false);
+					collect_lvalues(reg, child.get(), type_eq, type_le, false);
 				}
 			break;
 
@@ -511,19 +512,19 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_CONDZ:
 		case AST_ALWAYS:
 		case AST_INITIAL:
-			for (auto child : ast->children)
+			for (auto& child : ast->children)
 				if (child->type == AST_BLOCK)
-					collect_lvalues(reg, child, type_eq, type_le, false);
+					collect_lvalues(reg, child.get(), type_eq, type_le, false);
 			break;
 
 		case AST_BLOCK:
-			for (auto child : ast->children) {
+			for (auto& child : ast->children) {
 				if (child->type == AST_ASSIGN_EQ && type_eq)
 					reg.append(child->children[0]->genRTLIL());
 				if (child->type == AST_ASSIGN_LE && type_le)
 					reg.append(child->children[0]->genRTLIL());
 				if (child->type == AST_CASE || child->type == AST_BLOCK)
-					collect_lvalues(reg, child, type_eq, type_le, false);
+					collect_lvalues(reg, child.get(), type_eq, type_le, false);
 			}
 			break;
 
@@ -583,8 +584,8 @@ struct AST_INTERNAL::ProcessGenerator
 		switch (ast->type)
 		{
 		case AST_BLOCK:
-			for (auto child : ast->children)
-				processAst(child);
+			for (auto& child : ast->children)
+				processAst(child.get());
 			break;
 
 		case AST_ASSIGN_EQ:
@@ -629,7 +630,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						ast->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+						ast->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 					sw->attributes[attr.first] = attr.second->asAttrConst();
 				}
 
@@ -641,9 +642,9 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec this_case_eq_rvalue = this_case_eq_lvalue;
 				this_case_eq_rvalue.replace(subst_rvalue_map.stdmap());
 
-				RTLIL::CaseRule *default_case = NULL;
-				RTLIL::CaseRule *last_generated_case = NULL;
-				for (auto child : ast->children)
+				RTLIL::CaseRule *default_case = nullptr;
+				RTLIL::CaseRule *last_generated_case = nullptr;
+				for (auto& child : ast->children)
 				{
 					if (child == ast->children[0])
 						continue;
@@ -657,14 +658,14 @@ struct AST_INTERNAL::ProcessGenerator
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
-					set_src_attr(current_case, child);
+					set_src_attr(current_case, child.get());
 					last_generated_case = current_case;
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
-					for (auto node : child->children) {
+					for (auto& node : child->children) {
 						if (node->type == AST_DEFAULT)
 							default_case = current_case;
 						else if (node->type == AST_BLOCK)
-							processAst(node);
+							processAst(node.get());
 						else
 							current_case->compare.push_back(node->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap()));
 					}
@@ -678,7 +679,7 @@ struct AST_INTERNAL::ProcessGenerator
 					subst_rvalue_map.restore();
 				}
 
-				if (last_generated_case != NULL && ast->get_bool_attribute(ID::full_case) && default_case == NULL) {
+				if (last_generated_case != nullptr && ast->get_bool_attribute(ID::full_case) && default_case == nullptr) {
 			#if 0
 					// this is a valid transformation, but as optimization it is premature.
 					// better: add a default case that assigns 'x' to everything, and let later
@@ -690,7 +691,7 @@ struct AST_INTERNAL::ProcessGenerator
 					sw->cases.push_back(default_case);
 			#endif
 				} else {
-					if (default_case == NULL) {
+					if (default_case == nullptr) {
 						default_case = new RTLIL::CaseRule;
 						addChunkActions(default_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
 					}
@@ -723,7 +724,7 @@ struct AST_INTERNAL::ProcessGenerator
 			if (ast->str == "$display" || ast->str == "$displayb" || ast->str == "$displayh" || ast->str == "$displayo" ||
 		  ast->str == "$write"   || ast->str == "$writeb"   || ast->str == "$writeh"   || ast->str == "$writeo") {
 				std::stringstream sstr;
-				sstr << ast->str << "$" << ast->filename << ":" << ast->location.first_line << "$" << (autoidx++);
+				sstr << ast->str << "$" << ast->location.begin.filename << ":" << ast->location.begin.line << "$" << (autoidx++);
 
 				Wire *en = current_module->addWire(sstr.str() + "_EN", 1);
 				set_src_attr(en, ast);
@@ -731,16 +732,17 @@ struct AST_INTERNAL::ProcessGenerator
 				current_case->actions.push_back(SigSig(en, true));
 
 				RTLIL::SigSpec triggers;
-				RTLIL::Const polarity;
+				RTLIL::Const::Builder polarity_builder;
 				for (auto sync : proc->syncs) {
 					if (sync->type == RTLIL::STp) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S1);
+						polarity_builder.push_back(RTLIL::S1);
 					} else if (sync->type == RTLIL::STn) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S0);
+						polarity_builder.push_back(RTLIL::S0);
 					}
 				}
+				RTLIL::Const polarity = polarity_builder.build();
 
 				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
 				set_src_attr(cell, ast);
@@ -760,14 +762,14 @@ struct AST_INTERNAL::ProcessGenerator
 					default_base = 16;
 
 				std::vector<VerilogFmtArg> args;
-				for (auto node : ast->children) {
+				for (auto& node : ast->children) {
 					int width;
 					bool is_signed;
 					node->detectSignWidth(width, is_signed, nullptr);
 
 					VerilogFmtArg arg = {};
-					arg.filename = node->filename;
-					arg.first_line = node->location.first_line;
+					arg.filename = *node->location.begin.filename;
+					arg.first_line = node->location.begin.line;
 					if (node->type == AST_CONSTANT && node->is_string) {
 						arg.type = VerilogFmtArg::STRING;
 						arg.str = node->bitsAsConst().decode_string();
@@ -793,7 +795,7 @@ struct AST_INTERNAL::ProcessGenerator
 					fmt.append_literal("\n");
 				fmt.emit_rtlil(cell);
 			} else if (!ast->str.empty()) {
-				log_file_error(ast->filename, ast->location.first_line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());
+				log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Found unsupported invocation of system task `%s'!\n", ast->str);
 			}
 			break;
 
@@ -813,7 +815,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				IdString cellname;
 				if (ast->str.empty())
-					cellname = stringf("$%s$%s:%d$%d", flavor.c_str(), RTLIL::encode_filename(ast->filename).c_str(), ast->location.first_line, autoidx++);
+					cellname = stringf("$%s$%s:%d$%d", flavor, RTLIL::encode_filename(*ast->location.begin.filename), ast->location.begin.line, autoidx++);
 				else
 					cellname = ast->str;
 				check_unique_id(current_module, cellname, ast, "procedural assertion");
@@ -828,22 +830,23 @@ struct AST_INTERNAL::ProcessGenerator
 				current_case->actions.push_back(SigSig(en, true));
 
 				RTLIL::SigSpec triggers;
-				RTLIL::Const polarity;
+				RTLIL::Const::Builder polarity_builder;
 				for (auto sync : proc->syncs) {
 					if (sync->type == RTLIL::STp) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S1);
+						polarity_builder.push_back(RTLIL::S1);
 					} else if (sync->type == RTLIL::STn) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S0);
+						polarity_builder.push_back(RTLIL::S0);
 					}
 				}
+				RTLIL::Const polarity = polarity_builder.build();
 
 				RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
 				set_src_attr(cell, ast);
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						log_file_error(ast->filename, ast->location.first_line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first);
 					cell->attributes[attr.first] = attr.second->asAttrConst();
 				}
 				cell->setParam(ID::FLAVOR, flavor);
@@ -866,8 +869,8 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		default:
-			// ast->dumpAst(NULL, "ast> ");
-			// current_ast_mod->dumpAst(NULL, "mod> ");
+			// ast->dumpAst(nullptr, "ast> ");
+			// current_ast_mod->dumpAst(nullptr, "mod> ");
 			log_abort();
 		}
 	}
@@ -876,14 +879,14 @@ struct AST_INTERNAL::ProcessGenerator
 	{
 		// Maps per-memid AST_MEMWR IDs to indices in the mem_write_actions array.
 		dict<std::pair<std::string, int>, int> port_map;
-		for (auto child : always->children)
+		for (auto& child : always->children)
 			if (child->type == AST_MEMWR)
 			{
 				std::string memid = child->str;
 				int portid = child->children[3]->asInt(false);
 				int cur_idx = GetSize(sync->mem_write_actions);
 				RTLIL::MemWriteAction action;
-				set_src_attr(&action, child);
+				set_src_attr(&action, child.get());
 				action.memid = memid;
 				action.address = child->children[0]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
 				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid]->width, true, &subst_rvalue_map.stdmap());
@@ -892,7 +895,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
 				for (int i = 0; i < portid; i++) {
 					int new_bit = port_map[std::make_pair(memid, i)];
-					priority_mask.bits()[new_bit] = orig_priority_mask[i];
+					priority_mask.set(new_bit, orig_priority_mask[i]);
 				}
 				action.priority_mask = priority_mask;
 				sync->mem_write_actions.push_back(action);
@@ -971,11 +974,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	bool sub_sign_hint = true;
 	int sub_width_hint = -1;
 	int this_width = 0;
-	AstNode *range = NULL;
-	AstNode *id_ast = NULL;
+	AstNode *range = nullptr;
+	AstNode *id_ast = nullptr;
 
 	bool local_found_real = false;
-	if (found_real == NULL)
+	if (found_real == nullptr)
 		found_real = &local_found_real;
 
 	switch (type)
@@ -1006,7 +1009,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			}
 		}
 		if (!id_ast)
-			input_error("Failed to resolve identifier %s for width detection!\n", str.c_str());
+			input_error("Failed to resolve identifier %s for width detection!\n", str);
 		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM || id_ast->type == AST_ENUM_ITEM) {
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
@@ -1016,53 +1019,50 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				if (id_ast->children[0]->type == AST_CONSTANT)
 					this_width = id_ast->children[0]->bits.size();
 				else
-					input_error("Failed to detect width for parameter %s!\n", str.c_str());
+					input_error("Failed to detect width for parameter %s!\n", str);
 			}
 			if (children.size() != 0)
-				range = children[0];
+				range = children[0].get();
 		} else if (id_ast->type == AST_WIRE || id_ast->type == AST_AUTOWIRE) {
 			if (!id_ast->range_valid) {
 				if (id_ast->type == AST_AUTOWIRE)
 					this_width = 1;
 				else {
-					// current_ast_mod->dumpAst(NULL, "mod> ");
+					// current_ast_mod->dumpAst(nullptr, "mod> ");
 					// log("---\n");
-					// id_ast->dumpAst(NULL, "decl> ");
-					// dumpAst(NULL, "ref> ");
-					input_error("Failed to detect width of signal access `%s'!\n", str.c_str());
+					// id_ast->dumpAst(nullptr, "decl> ");
+					// dumpAst(nullptr, "ref> ");
+					input_error("Failed to detect width of signal access `%s'!\n", str);
 				}
 			} else {
 				this_width = id_ast->range_left - id_ast->range_right + 1;
 				if (children.size() != 0)
-					range = children[0];
+					range = children[0].get();
 			}
 		} else if (id_ast->type == AST_GENVAR) {
 			this_width = 32;
 		} else if (id_ast->type == AST_MEMORY) {
 			if (!id_ast->children[0]->range_valid)
-				input_error("Failed to detect width of memory access `%s'!\n", str.c_str());
+				input_error("Failed to detect width of memory access `%s'!\n", str);
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
 			if (children.size() > 1)
-				range = children[1];
+				range = children[1].get();
 		} else if (id_ast->type == AST_STRUCT_ITEM || id_ast->type == AST_STRUCT || id_ast->type == AST_UNION) {
-			AstNode *tmp_range = make_index_range(id_ast);
+			auto tmp_range = make_index_range(id_ast);
 			this_width = tmp_range->range_left - tmp_range->range_right + 1;
-			delete tmp_range;
 		} else
-			input_error("Failed to detect width for identifier %s!\n", str.c_str());
+			input_error("Failed to detect width for identifier %s!\n", str);
 		if (range) {
 			if (range->children.size() == 1)
 				this_width = 1;
 			else if (!range->range_valid) {
-				AstNode *left_at_zero_ast = children[0]->children[0]->clone_at_zero();
-				AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
+				auto left_at_zero_ast = children[0]->children[0]->clone_at_zero();
+				auto right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
 				while (left_at_zero_ast->simplify(true, 1, -1, false)) { }
 				while (right_at_zero_ast->simplify(true, 1, -1, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
-					input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+					input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str);
 				this_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
-				delete left_at_zero_ast;
-				delete right_at_zero_ast;
 			} else
 				this_width = range->range_left - range->range_right + 1;
 			sign_hint = false;
@@ -1106,7 +1106,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_CONCAT:
-		for (auto child : children) {
+		for (auto& child : children) {
 			sub_width_hint = 0;
 			sub_sign_hint = true;
 			child->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
@@ -1135,7 +1135,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_BIT_OR:
 	case AST_BIT_XOR:
 	case AST_BIT_XNOR:
-		for (auto child : children)
+		for (auto& child : children)
 			child->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
@@ -1175,7 +1175,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_MUL:
 	case AST_DIV:
 	case AST_MOD:
-		for (auto child : children)
+		for (auto& child : children)
 			child->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
 
@@ -1195,7 +1195,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (!id2ast->is_signed)
 			sign_hint = false;
 		if (!id2ast->children[0]->range_valid)
-			input_error("Failed to detect width of memory access `%s'!\n", str.c_str());
+			input_error("Failed to detect width of memory access `%s'!\n", str);
 		this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
 		width_hint = max(width_hint, this_width);
 		break;
@@ -1216,12 +1216,13 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			width_hint = max(width_hint, sub_width_hint);
 			sign_hint &= sub_sign_hint;
 		};
-		visit_case_expr(children[0]);
+		visit_case_expr(children[0].get());
 		for (size_t i = 1; i < children.size(); i++) {
-			AstNode *child = children[i];
-			for (AstNode *v : child->children)
+			AstNode *child = children[i].get();
+			for (auto& v : child->children) {
 				if (v->type != AST_DEFAULT && v->type != AST_BLOCK)
-					visit_case_expr(v);
+					visit_case_expr(v.get());
+			}
 		}
 		break;
 	}
@@ -1240,7 +1241,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				while (children[0]->simplify(true, 1, -1, false) == true) { }
 				if (children[0]->type != AST_CONSTANT)
 					input_error("System function %s called with non-const argument!\n",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 				width_hint = max(width_hint, int(children[0]->asInt(true)));
 			}
 			break;
@@ -1267,11 +1268,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			// item expressions.
 			const AstNode *func = current_scope.at(str);
 			if (func->type != AST_FUNCTION)
-				input_error("Function call to %s resolved to something that isn't a function!\n", RTLIL::unescape_id(str).c_str());
+				input_error("Function call to %s resolved to something that isn't a function!\n", RTLIL::unescape_id(str));
 			const AstNode *wire = nullptr;
-			for (const AstNode *child : func->children)
+			for (const auto& child : func->children)
 				if (child->str == func->str) {
-					wire = child;
+					wire = child.get();
 					break;
 				}
 			log_assert(wire && wire->type == AST_WIRE);
@@ -1280,20 +1281,18 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (!wire->children.empty())
 			{
 				log_assert(wire->children.size() == 1);
-				const AstNode *range = wire->children.at(0);
+				const AstNode *range = wire->children.at(0).get();
 				log_assert(range->type == AST_RANGE && range->children.size() == 2);
-				AstNode *left = range->children.at(0)->clone();
-				AstNode *right = range->children.at(1)->clone();
+				auto left = range->children.at(0)->clone();
+				auto right = range->children.at(1)->clone();
 				left->set_in_param_flag(true);
 				right->set_in_param_flag(true);
 				while (left->simplify(true, 1, -1, false)) { }
 				while (right->simplify(true, 1, -1, false)) { }
 				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
 					input_error("Function %s has non-constant width!",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 				result_width = abs(int(left->asInt(true) - right->asInt(true)));
-				delete left;
-				delete right;
 			}
 			width_hint = max(width_hint, result_width);
 			break;
@@ -1305,7 +1304,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		AstNode *current_scope_ast = current_ast_mod == nullptr ? current_ast : current_ast_mod;
 		for (auto f : log_files)
 			current_scope_ast->dumpAst(f, "verilog-ast> ");
-		input_error("Don't know how to detect sign and width for %s node!\n", type2str(type).c_str());
+		input_error("Don't know how to detect sign and width for %s node!\n", type2str(type));
+
 	}
 
 	if (*found_real)
@@ -1342,8 +1342,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// be instantiated for this type of AST node.
 	IdString type_name;
 
-	current_filename = filename;
-
 	switch (type)
 	{
 	// simply ignore this nodes.
@@ -1361,6 +1359,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENIF:
 	case AST_GENCASE:
 	case AST_PACKAGE:
+	case AST_IMPORT:
 	case AST_ENUM:
 	case AST_MODPORT:
 	case AST_MODPORTMEMBER:
@@ -1409,7 +1408,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		if (flag_pwires)
 		{
 			if (GetSize(children) < 1 || children[0]->type != AST_CONSTANT)
-				input_error("Parameter `%s' with non-constant value!\n", str.c_str());
+				input_error("Parameter `%s' with non-constant value!\n", str);
 
 			RTLIL::Const val = children[0]->bitsAsConst();
 			RTLIL::IdString id = str;
@@ -1423,7 +1422,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					input_error("Attribute `%s' with non-constant value!\n", attr.first);
 				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
 		}
@@ -1432,10 +1431,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// create an RTLIL::Wire for an AST_WIRE node
 	case AST_WIRE: {
 			if (!range_valid)
-				input_error("Signal `%s' with non-constant width!\n", str.c_str());
+				input_error("Signal `%s' with non-constant width!\n", str);
 
 			if (!(range_left + 1 >= range_right))
-				input_error("Signal `%s' with invalid width range %d!\n", str.c_str(), range_left - range_right + 1);
+				input_error("Signal `%s' with invalid width range %d!\n", str, range_left - range_right + 1);
 
 			RTLIL::IdString id = str;
 			check_unique_id(current_module, id, this, "signal");
@@ -1446,11 +1445,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->port_input = is_input;
 			wire->port_output = is_output;
 			wire->upto = range_swapped;
+
 			wire->is_signed = is_signed;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					input_error("Attribute `%s' with non-constant value!\n", attr.first);
 				wire->attributes[attr.first] = attr.second->asAttrConst();
 			}
 
@@ -1466,7 +1466,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			log_assert(children[1]->type == AST_RANGE);
 
 			if (!children[0]->range_valid || !children[1]->range_valid)
-				input_error("Memory `%s' with non-constant width or size!\n", str.c_str());
+				input_error("Memory `%s' with non-constant width or size!\n", str);
 
 			RTLIL::Memory *memory = new RTLIL::Memory;
 			set_src_attr(memory, this);
@@ -1484,7 +1484,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					input_error("Attribute `%s' with non-constant value!\n", attr.first);
 				memory->attributes[attr.first] = attr.second->asAttrConst();
 			}
 		}
@@ -1507,7 +1507,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 
 			RTLIL::SigSpec sig = realAsConst(width_hint);
-			log_file_warning(filename, location.first_line, "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
+			log_file_warning(*location.begin.filename, location.begin.line, "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
 			return sig;
 		}
 
@@ -1516,11 +1516,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// shifter cell is created and the output signal of this cell is returned
 	case AST_IDENTIFIER:
 		{
-			RTLIL::Wire *wire = NULL;
+			RTLIL::Wire *wire = nullptr;
 			RTLIL::SigChunk chunk;
 			bool is_interface = false;
 
-			AST::AstNode *member_node = NULL;
+			AST::AstNode *member_node = nullptr;
 			int add_undef_bits_msb = 0;
 			int add_undef_bits_lsb = 0;
 
@@ -1539,13 +1539,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (dynamic_cast<RTLIL::Binding*>(current_module)) {
 					/* nothing to do here */
 				} else if (flag_autowire)
-					log_file_warning(filename, location.first_line, "Identifier `%s' is implicitly declared.\n", str.c_str());
+					log_file_warning(*location.begin.filename, location.begin.line, "Identifier `%s' is implicitly declared.\n", str);
 				else
-					input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
+					input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str);
 			}
 			else if (id2ast->type == AST_PARAMETER || id2ast->type == AST_LOCALPARAM || id2ast->type == AST_ENUM_ITEM) {
 				if (id2ast->children[0]->type != AST_CONSTANT)
-					input_error("Parameter %s does not evaluate to constant value!\n", str.c_str());
+					input_error("Parameter %s does not evaluate to constant value!\n", str);
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
@@ -1560,17 +1560,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				is_interface = true;
 			}
 			else {
-				input_error("Identifier `%s' doesn't map to any signal!\n", str.c_str());
+				input_error("Identifier `%s' doesn't map to any signal!\n", str);
 			}
 
 			if (id2ast->type == AST_MEMORY)
-				input_error("Identifier `%s' does map to an unexpanded memory!\n", str.c_str());
+				input_error("Identifier `%s' does map to an unexpanded memory!\n", str);
 
 			// If identifier is an interface, create a RTLIL::SigSpec with a dummy wire with a attribute called 'is_interface'
 			// This makes it possible for the hierarchy pass to see what are interface connections and then replace them
 			// with the individual signals:
 			if (is_interface) {
-				IdString dummy_wire_name = stringf("$dummywireforinterface%s", str.c_str());
+				IdString dummy_wire_name = stringf("$dummywireforinterface%s", str);
 				RTLIL::Wire *dummy_wire = current_module->wire(dummy_wire_name);
 				if (!dummy_wire) {
 					dummy_wire = current_module->addWire(dummy_wire_name);
@@ -1607,14 +1607,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 
 				if (!children[0]->range_valid) {
-					AstNode *left_at_zero_ast = children[0]->children[0]->clone_at_zero();
-					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
+					auto left_at_zero_ast = children[0]->children[0]->clone_at_zero();
+					auto right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
 					while (left_at_zero_ast->simplify(true, 1, -1, false)) { }
 					while (right_at_zero_ast->simplify(true, 1, -1, false)) { }
 					if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
-						input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+						input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str);
 					int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
-					AstNode *fake_ast = new AstNode(AST_NONE, clone(), children[0]->children.size() >= 2 ?
+					auto fake_ast = std::make_unique<AstNode>(children[0]->location, AST_NONE, clone(), children[0]->children.size() >= 2 ?
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
 					if (member_node)
@@ -1635,10 +1635,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					}
 					if (GetSize(shift_val) >= 32)
 						fake_ast->children[1]->is_signed = true;
-					RTLIL::SigSpec sig = binop2rtlil(fake_ast, ID($shiftx), width, fake_ast->children[0]->genRTLIL(), shift_val);
-					delete left_at_zero_ast;
-					delete right_at_zero_ast;
-					delete fake_ast;
+					RTLIL::SigSpec sig = binop2rtlil(fake_ast.get(), ID($shiftx), width, fake_ast->children[0]->genRTLIL(), shift_val);
 					return sig;
 				} else {
 					chunk.width = children[0]->range_left - children[0]->range_right + 1;
@@ -1647,10 +1644,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						chunk.offset = source_width - (chunk.offset + chunk.width);
 					if (chunk.offset > chunk_left || chunk.offset + chunk.width < chunk_right) {
 						if (chunk.width == 1)
-							log_file_warning(filename, location.first_line, "Range select out of bounds on signal `%s': Setting result bit to undef.\n",
+							log_file_warning(*location.begin.filename, location.begin.line, "Range select out of bounds on signal `%s': Setting result bit to undef.\n",
 									str.c_str());
 						else
-							log_file_warning(filename, location.first_line, "Range select [%d:%d] out of bounds on signal `%s': Setting all %d result bits to undef.\n",
+							log_file_warning(*location.begin.filename, location.begin.line, "Range select [%d:%d] out of bounds on signal `%s': Setting all %d result bits to undef.\n",
 									children[0]->range_left, children[0]->range_right, str.c_str(), chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
@@ -1664,10 +1661,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							chunk.offset += add_undef_bits_lsb;
 						}
 						if (add_undef_bits_lsb)
-							log_file_warning(filename, location.first_line, "Range [%d:%d] select out of bounds on signal `%s': Setting %d LSB bits to undef.\n",
+							log_file_warning(*location.begin.filename, location.begin.line, "Range [%d:%d] select out of bounds on signal `%s': Setting %d LSB bits to undef.\n",
 									children[0]->range_left, children[0]->range_right, str.c_str(), add_undef_bits_lsb);
 						if (add_undef_bits_msb)
-							log_file_warning(filename, location.first_line, "Range [%d:%d] select out of bounds on signal `%s': Setting %d MSB bits to undef.\n",
+							log_file_warning(*location.begin.filename, location.begin.line, "Range [%d:%d] select out of bounds on signal `%s': Setting %d MSB bits to undef.\n",
 									children[0]->range_left, children[0]->range_right, str.c_str(), add_undef_bits_msb);
 					}
 				}
@@ -1941,7 +1938,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMRD:
 		{
 			std::stringstream sstr;
-			sstr << "$memrd$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$memrd$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($memrd));
 			set_src_attr(cell, this);
@@ -1979,7 +1976,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMINIT:
 		{
 			std::stringstream sstr;
-			sstr << "$meminit$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$meminit$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 
 			SigSpec en_sig = children[2]->genRTLIL();
 
@@ -2024,7 +2021,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			IdString cellname;
 			if (str.empty())
-				cellname = stringf("$%s$%s:%d$%d", flavor.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+				cellname = stringf("$%s$%s:%d$%d", flavor, RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
 			else
 				cellname = str;
 			check_unique_id(current_module, cellname, this, "procedural assertion");
@@ -2037,7 +2034,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			set_src_attr(cell, this);
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					input_error("Attribute `%s' with non-constant value!\n", attr.first);
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
 			cell->setParam(ID(FLAVOR), flavor);
@@ -2067,7 +2064,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						new_left.append(left[i]);
 						new_right.append(right[i]);
 					}
-				log_file_warning(filename, location.first_line, "Ignoring assignment to constant bits:\n"
+				log_file_warning(*location.begin.filename, location.begin.line, "Ignoring assignment to constant bits:\n"
 						"    old assignment: %s = %s\n    new assignment: %s = %s.\n",
 						log_signal(left), log_signal(right),
 						log_signal(new_left), log_signal(new_right));
@@ -2091,7 +2088,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->set_bool_attribute(ID::module_not_derived);
 
 			for (auto it = children.begin(); it != children.end(); it++) {
-				AstNode *child = *it;
+				auto* child = it->get();
 				if (child->type == AST_CELLTYPE) {
 					cell->type = child->str;
 					if (flag_icells && cell->type.begins_with("\\$"))
@@ -2100,9 +2097,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 				if (child->type == AST_PARASET) {
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
-					const AstNode *value = child->children[0];
+					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
-						log_file_warning(filename, location.first_line, "Replacing floating point parameter %s.%s = %f with string.\n",
+						log_file_warning(*location.begin.filename, location.begin.line, "Replacing floating point parameter %s.%s = %f with string.\n",
 								log_id(cell), log_id(paraname), value->realvalue);
 					else if (value->type != AST_CONSTANT)
 						input_error("Parameter %s.%s with non-constant value!\n",
@@ -2113,7 +2110,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (child->type == AST_ARGUMENT) {
 					RTLIL::SigSpec sig;
 					if (child->children.size() > 0) {
-						AstNode *arg = child->children[0];
+						auto* arg = child->children[0].get();
 						int local_width_hint = -1;
 						bool local_sign_hint = false;
 						// don't inadvertently attempt to detect the width of interfaces
@@ -2153,7 +2150,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value.\n", attr.first.c_str());
+					input_error("Attribute `%s' with non-constant value.\n", attr.first);
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
 			if (cell->type == ID($specify2)) {
@@ -2185,33 +2182,30 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// use ProcessGenerator for always blocks
 	case AST_ALWAYS: {
-			AstNode *always = this->clone();
-			ProcessGenerator generator(always);
+			ProcessGenerator generator(this->clone());
 			ignoreThisSignalsInInitial.append(generator.outputSignals);
-			delete always;
 		} break;
 
 	case AST_INITIAL: {
-			AstNode *always = this->clone();
-			ProcessGenerator generator(always, ignoreThisSignalsInInitial);
-			delete always;
+			auto always = this->clone();
+			ProcessGenerator generator(this->clone(), ignoreThisSignalsInInitial);
 		} break;
 
 	case AST_TECALL: {
 			int sz = children.size();
 			if (str == "$info") {
 				if (sz > 0)
-					log_file_info(filename, location.first_line, "%s.\n", children[0]->str.c_str());
+					log_file_info(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str);
 				else
-					log_file_info(filename, location.first_line, "\n");
+					log_file_info(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$warning") {
 				if (sz > 0)
-					log_file_warning(filename, location.first_line, "%s.\n", children[0]->str.c_str());
+					log_file_warning(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str);
 				else
-					log_file_warning(filename, location.first_line, "\n");
+					log_file_warning(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$error") {
 				if (sz > 0)
-					input_error("%s.\n", children[0]->str.c_str());
+					input_error("%s.\n", children[0]->str);
 				else
 					input_error("\n");
 			} else if (str == "$fatal") {
@@ -2220,11 +2214,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				// dollar_finish(sz ? children[0] : 1);
 				// perhaps create & use log_file_fatal()
 				if (sz > 0)
-					input_error("FATAL: %s.\n", children[0]->str.c_str());
+					input_error("FATAL: %s.\n", children[0]->str);
 				else
 					input_error("FATAL.\n");
 			} else {
-				input_error("Unknown elaboration system task '%s'.\n", str.c_str());
+				input_error("Unknown elaboration system task '%s'.\n", str);
 			}
 		} break;
 
@@ -2243,17 +2237,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 				if (GetSize(children) > 1)
 					input_error("System function %s got %d arguments, expected 1 or 0.\n",
-							RTLIL::unescape_id(str).c_str(), GetSize(children));
+							RTLIL::unescape_id(str), GetSize(children));
 
 				if (GetSize(children) == 1) {
 					if (children[0]->type != AST_CONSTANT)
 						input_error("System function %s called with non-const argument!\n",
-								RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str));
 					width = children[0]->asInt(true);
 				}
 
 				if (width <= 0)
-					input_error("Failed to detect width of %s!\n", RTLIL::unescape_id(str).c_str());
+					input_error("Failed to detect width of %s!\n", RTLIL::unescape_id(str));
 
 				Cell *cell = current_module->addCell(myid, str.substr(1));
 				set_src_attr(cell, this);
@@ -2280,7 +2274,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	default:
 		for (auto f : log_files)
 			current_ast_mod->dumpAst(f, "verilog-ast> ");
-		input_error("Don't know how to generate RTLIL code for %s node!\n", type2str(type).c_str());
+		input_error("Don't know how to generate RTLIL code for %s node!\n", type2str(type));
 	}
 
 	return RTLIL::SigSpec();

@@ -73,7 +73,7 @@ contain bits that are not 0 or 1 (i.e. ``x`` or ``z``). Ordinary 32-bit
 constants are written using decimal numbers.
 
 Single-bit signals are shown as thin arrows pointing from the driver to the
-load. Signals that are multiple bits wide are shown as think arrows.
+load. Signals that are multiple bits wide are shown as thick arrows.
 
 Finally *processes* are shown in boxes with round corners. Processes are Yosys'
 internal representation of the decision-trees and synchronization events
@@ -311,8 +311,8 @@ cells, as the net-names are usually suppressed in the circuit diagram if they
 are auto-generated.  Note that the output is in the RTLIL representation,
 described in :doc:`/yosys_internals/formats/rtlil_rep`.
 
-Interactive Design Investigation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Design Investigation
+~~~~~~~~~~~~~~~~~~~~
 
 Yosys can also be used to investigate designs (or netlists created from other
 tools).
@@ -323,10 +323,10 @@ tools).
   design into an equivalent design that is easier to analyse.
 - Commands such as `eval` and `sat` can be used to investigate the behavior of
   the circuit.
-- :doc:`/cmd/show`.
-- :doc:`/cmd/dump`.
-- :doc:`/cmd/add` and :doc:`/cmd/delete` can be used to modify and reorganize a
-  design dynamically.
+- :cmd:title:`show`.
+- :cmd:title:`dump`.
+- :cmd:title:`add` and :cmd:title:`delete` can be used to modify and reorganize
+  a design dynamically.
   
 The code used is included in the Yosys code base under
 |code_examples/scrambler|_.
@@ -358,7 +358,7 @@ reorganizing a module in Yosys and checking the resulting circuit.
 .. figure:: /_images/code_examples/scrambler/scrambler_p02.*
     :class: width-helper invert-helper
 
-Analyzing the resulting circuit with :doc:`/cmd/eval`:
+Analyzing the resulting circuit with :cmd:title:`eval`:
 
 .. todo:: replace inline code
 

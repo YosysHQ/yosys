@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include <sys/types.h>
 
 #ifndef _WIN32
@@ -26,15 +27,18 @@
 #  include <io.h>
 #endif
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
-
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct CoverPass : public Pass {
-	CoverPass() : Pass("cover", "print code coverage counters") { }
+	CoverPass() : Pass("cover", "print code coverage counters") {
+		internal();
+	}
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -114,7 +118,7 @@ struct CoverPass : public Pass {
 				if (f == NULL) {
 					for (auto f : out_files)
 						fclose(f);
-					log_cmd_error("Can't create file %s%s.\n", args[argidx-1] == "-d" ? "in directory " : "", args[argidx].c_str());
+					log_cmd_error("Can't create file %s%s.\n", args[argidx-1] == "-d" ? "in directory " : "", args[argidx]);
 				}
 				out_files.push_back(f);
 				continue;
@@ -142,7 +146,7 @@ struct CoverPass : public Pass {
 			for (auto f : out_files)
 				fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
 			if (do_log)
-				log("%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
+				log("%-60s %10d %s\n", it.second.first, it.second.second, it.first);
 		}
 #else
 		for (auto f : out_files)

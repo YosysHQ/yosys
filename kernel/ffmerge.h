@@ -58,7 +58,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct FfMergeHelper
 {
-	const SigMap *sigmap;
+	const SigMapView *sigmap;
 	RTLIL::Module *module;
 	FfInitVals *initvals;
 

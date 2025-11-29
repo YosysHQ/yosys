@@ -26,6 +26,11 @@
 #include <vector>
 #include <set>
 
+/**
+ * This file is likely to change in the near future.
+ * Rely on it in your plugins at your own peril
+ */
+
 namespace Yosys
 {
 	struct LibertyAst
@@ -58,7 +63,7 @@ namespace Yosys
 			}
 
 			std::string pin() {
-				auto length = s.find_first_of("\t()'!^*& +|");
+				auto length = s.find_first_of("\t()'!^*& +|\"");
 				if (length == std::string::npos) {
 					// nothing found so use size of s
 					length = s.size();
@@ -86,8 +91,13 @@ namespace Yosys
 		LibertyExpression() : kind(Kind::EMPTY) {}
 
 		static LibertyExpression parse(Lexer &s, int min_prio = 0);
-		void get_pin_names(pool<std::string>& names);
-		bool eval(dict<std::string, bool>& values);
+		void get_pin_names(std::unordered_set<std::string>& names);
+		bool eval(std::unordered_map<std::string, bool>& values);
+		std::string sexpr_str(int indent = 0);
+		std::string vlog_str();
+	private:
+		static bool char_is_nice_binop(char c);
+		bool is_binop();
 	};
 
 	class LibertyInputStream {
@@ -140,6 +150,7 @@ namespace Yosys
 		dict<std::string, std::shared_ptr<const LibertyAst>> cached;
 
 		bool cache_by_default = false;
+		bool verbose = false;
 		dict<std::string, bool> cache_path;
 
 		std::shared_ptr<const LibertyAst> cached_ast(const std::string &fname);
@@ -161,10 +172,12 @@ namespace Yosys
 		   'n': newline
 		   anything else is a single character.
 		*/
+		int lexer_inner(std::string &str);
 		int lexer(std::string &str);
 
 		void report_unexpected_token(int tok);
 		void parse_vector_range(int tok);
+		int consume_wrecked_str(int tok, std::string& out_str);
 		LibertyAst *parse(bool top_level);
 		void error() const;
 		void error(const std::string &str) const;
@@ -195,7 +208,7 @@ namespace Yosys
 			}
 			ast = shared_ast.get();
 			if (!ast) {
-				log_error("No entries found in liberty file `%s'.\n", fname.c_str());
+				log_error("No entries found in liberty file `%s'.\n", fname);
 			}
 		}
 #endif

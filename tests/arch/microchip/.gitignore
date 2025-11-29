@@ -1,4 +1,2 @@
-*.log
-/run-test.mk
 *.vm
 

@@ -26,7 +26,7 @@ Some quick notes:
    decoder logic and registers.
 
 For more information about `memory`, such as disabling certain sub commands, see
-:doc:`/cmd/memory`.
+:doc:`/cmd/index_passes_memory`.
 
 Example
 -------

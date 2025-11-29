@@ -38,22 +38,22 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 	log_assert(is_formal_celltype(celltype));
 
 	if (wire == nullptr) {
-		log_error("Could not find wire with name \"%s\".\n", name.c_str());
+		log_error("Could not find wire with name \"%s\".\n", name);
 	}
 	else {
 		RTLIL::Cell *formal_cell = module->addCell(NEW_ID, "$" + celltype);
 		formal_cell->setPort(ID::A, wire);
 		if(enable_name == "") {
 			formal_cell->setPort(ID::EN, State::S1);
-			log("Added $%s cell for wire \"%s.%s\"\n", celltype.c_str(), module->name.str().c_str(), name.c_str());
+			log("Added $%s cell for wire \"%s.%s\"\n", celltype, module->name.str(), name);
 		}
 		else {
 			RTLIL::Wire *enable_wire = module->wire(escaped_enable_name);
 			if(enable_wire == nullptr)
-				log_error("Could not find enable wire with name \"%s\".\n", enable_name.c_str());
+				log_error("Could not find enable wire with name \"%s\".\n", enable_name);
 
 			formal_cell->setPort(ID::EN, enable_wire);
-			log("Added $%s cell for wire \"%s.%s\" enabled by wire \"%s.%s\".\n", celltype.c_str(), module->name.str().c_str(), name.c_str(), module->name.str().c_str(), enable_name.c_str());
+			log("Added $%s cell for wire \"%s.%s\" enabled by wire \"%s.%s\".\n", celltype, module->name.str(), name, module->name.str(), enable_name);
 		}
 	}
 }
@@ -77,9 +77,9 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			wire = nullptr;
 
 		if (wire == nullptr)
-			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name.c_str());
+			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name);
 
-		log("Module %s already has such an object.\n", module->name.c_str());
+		log("Module %s already has such an object.\n", module->name);
 	}
 	else
 	{
@@ -91,7 +91,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			module->fixup_ports();
 		}
 
-		log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
+		log("Added wire %s to module %s.\n", name, module->name);
 	}
 
 	if (!flag_global)
@@ -110,7 +110,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			continue;
 
 		cell->setPort(name, wire);
-		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), cell->name.c_str(), cell->type.c_str());
+		log("Added connection %s to cell %s.%s (%s).\n", name, module->name, cell->name, cell->type);
 	}
 }
 

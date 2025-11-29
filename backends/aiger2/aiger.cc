@@ -91,7 +91,7 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (cell->type.in(KNOWN_OPS) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3)))
+			if (cell->type.in(KNOWN_OPS) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
 				continue;
 
 			Module *submodule = m->design->module(cell->type);
@@ -105,6 +105,13 @@ struct Index {
 				if (allow_blackboxes) {
 					info.found_blackboxes.insert(cell);	
 				} else {
+					// Even if we don't allow blackboxes these might still be
+					// present outside of any traversed input cones, so we
+					// can't bail at this point. If they are hit by a traversal
+					// (which can only really happen with $tribuf not
+					// $connect), we can still detect this as an error later.
+					if (cell->type == ID($connect) || (cell->type == ID($tribuf) && cell->has_attribute(ID(aiger2_zbuf))))
+						continue;
 					if (!submodule || submodule->get_blackbox_attribute())
 						log_error("Unsupported cell type: %s (%s in %s)\n",
 								  log_id(cell->type), log_id(cell), log_id(m));
@@ -483,7 +490,8 @@ struct Index {
 		{
 			Design *design = index.design;
 			auto &minfo = leaf_minfo(index);
-			log_assert(minfo.suboffsets.count(cell));
+			if (!minfo.suboffsets.count(cell))
+				log_error("Reached unsupport cell %s (%s in %s)\n", log_id(cell->type), log_id(cell), log_id(cell->module));
 			Module *def = design->module(cell->type);
 			log_assert(def);
 			levels.push_back(Level(index.modules.at(def), cell));
@@ -566,7 +574,7 @@ struct Index {
 		}
 
 		Lit ret;
-		if (!bit.wire->port_input) {
+		if (!bit.wire->port_input || bit.wire->port_output) {
 			// an output of a cell
 			Cell *driver = bit.wire->driverCell();
 
@@ -618,7 +626,7 @@ struct Index {
 
 		if (!cursor) {
 			log_assert(bit.wire->module == top);
-			log_assert(bit.wire->port_input);
+			log_assert(bit.wire->port_input && !bit.wire->port_output);
 			return lits[top_minfo->windices[bit.wire] + bit.offset];
 		} else {
 			log_assert(bit.wire->module == cursor->leaf_module(*this));
@@ -723,7 +731,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		for (auto id : top->ports) {
 		Wire *w = top->wire(id);
 		log_assert(w);
-		if (w->port_input)
+		if (w->port_input && !w->port_output)
 		for (int i = 0; i < w->width; i++) {
 			pi_literal(SigBit(w, i)) = lit_counter;
 			inputs.push_back(SigBit(w, i));
@@ -828,7 +836,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 	{
 		log_assert(cursor.is_top()); // TOOD: fix analyzer to work with hierarchy
 
-		if (bit.wire->port_input)
+		if (bit.wire->port_input && !bit.wire->port_output)
 			return false;
 
 		Cell *driver = bit.wire->driverCell();
@@ -838,7 +846,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 		int max = 1;
 		for (auto wire : mod->wires())
-		if (wire->port_input)
+		if (wire->port_input && !wire->port_output)
 		for (int i = 0; i < wire->width; i++) {
 			int ilevel = visit(cursor, driver->getPort(wire->name)[i]);
 			max = std::max(max, ilevel + 1);
@@ -858,7 +866,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		for (auto id : top->ports) {
 			Wire *w = top->wire(id);
 			log_assert(w);
-			if (w->port_input)
+			if (w->port_input && !w->port_output)
 			for (int i = 0; i < w->width; i++)
 				pi_literal(SigBit(w, i)) = 0;
 		}
@@ -868,7 +876,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
-			if (box->output(conn.first))
+			if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
 			for (auto bit : conn.second)
 				pi_literal(bit, &cursor) = 0;
 		}
@@ -883,7 +891,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
-			if (box->input(conn.first))
+			if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
 			for (auto bit : conn.second)
 				(void) eval_po(bit);
 		}
@@ -903,6 +911,16 @@ struct XAigerWriter : AigerWriter {
 	typedef std::pair<SigBit, HierCursor> HierBit;
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
+
+    // * The aiger output port sequence is COs (inputs to modeled boxes),
+    //   inputs to opaque boxes, then module outputs. COs going first is
+    //   required by abc.
+    // * proper_pos_counter counts ports which follow after COs
+    // * The mapping file `pseudopo` and `po` statements use indexing relative
+    //   to the first port following COs.
+    // * If a module output is directly driven by an opaque box, the emission
+    //   of the po statement in the mapping file is skipped. This is done to
+    //   aid re-integration of the mapped result.
 	int proper_pos_counter = 0;
 
 	pool<SigBit> driven_by_opaque_box;
@@ -937,15 +955,10 @@ struct XAigerWriter : AigerWriter {
 		lit_counter += 2;
 	}
 
-	void append_box_ports(Cell *box, HierCursor &cursor, bool inputs)
+	void append_opaque_box_ports(Cell *box, HierCursor &cursor, bool inputs)
 	{
 		for (auto &conn : box->connections_) {
-			bool is_input = box->input(conn.first);
-			bool is_output = box->output(conn.first);
-
-			if (!(is_input || is_output) || (is_input && is_output))
-				log_error("Ambiguous port direction on %s/%s\n",
-						  log_id(box->type), log_id(conn.first));
+			bool is_input = box->port_dir(conn.first) == RTLIL::PD_INPUT;
 
 			if (is_input && inputs) {
 				int bitp = 0;
@@ -955,13 +968,14 @@ struct XAigerWriter : AigerWriter {
 						continue;
 					}
 
+					// Inputs to opaque boxes are proper POs as far as abc is concerned
 					if (map_file.is_open()) {
 						log_assert(cursor.is_top());
-						map_file << "pseudopo " << proper_pos_counter++ << " " << bitp
+						map_file << "pseudopo " << proper_pos_counter << " " << bitp
 							<< " " << box->name.c_str()
 							<< " " << conn.first.c_str() << "\n";
 					}
-
+					proper_pos_counter++;
 					pos.push_back(std::make_pair(bit, cursor));
 
 					if (mapping_prep)
@@ -969,10 +983,10 @@ struct XAigerWriter : AigerWriter {
 
 					bitp++;
 				}
-			} else if (is_output && !inputs) { 
+			} else if (!is_input && !inputs) {
 				for (auto &bit : conn.second) {
-					if (!bit.wire || bit.wire->port_input)
-						log_error("Bad connection");
+					if (!bit.wire || (bit.wire->port_input && !bit.wire->port_output))
+						log_error("Bad connection %s/%s ~ %s\n", log_id(box), log_id(conn.first), log_signal(conn.second));
 
 
 					ensure_pi(bit, cursor);
@@ -1011,8 +1025,8 @@ struct XAigerWriter : AigerWriter {
 			auto &minfo = cursor.leaf_minfo(*this);
 
 			for (auto box : minfo.found_blackboxes) {
-				log_debug(" - %s.%s (type %s): ", cursor.path().c_str(),
-						  RTLIL::unescape_id(box->name).c_str(),
+				log_debug(" - %s.%s (type %s): ", cursor.path(),
+						  RTLIL::unescape_id(box->name),
 						  log_id(box->type));
 
 				Module *box_module = design->module(box->type), *box_derived;
@@ -1038,7 +1052,7 @@ struct XAigerWriter : AigerWriter {
 		});
 
 		for (auto [cursor, box, def] : opaque_boxes)
-			append_box_ports(box, cursor, false);
+			append_opaque_box_ports(box, cursor, false);
 
 		holes_module = design->addModule(NEW_ID);
 		std::vector<RTLIL::Wire *> holes_pis;
@@ -1086,6 +1100,8 @@ struct XAigerWriter : AigerWriter {
 							bit = RTLIL::Sx;
 						}
 
+						// Nonopaque box inputs come first and are not part of
+						// the PO numbering used by the mapping file.
 						pos.push_back(std::make_pair(bit, cursor));
 					}
 					boxes_co_num += port->width;
@@ -1106,7 +1122,7 @@ struct XAigerWriter : AigerWriter {
 						holes_pi_idx++;
 					}
 					holes_wb->setPort(port_id, in_conn);
-				} else if (port->port_output && !port->port_input) {
+				} else if (port->port_output) {
 					// primary
 					for (int i = 0; i < port->width; i++) {
 						SigBit bit;
@@ -1138,7 +1154,7 @@ struct XAigerWriter : AigerWriter {
 		}
 
 		for (auto [cursor, box, def] : opaque_boxes)
-			append_box_ports(box, cursor, true);
+			append_opaque_box_ports(box, cursor, true);
 
 		write_be32(h_buffer, 1);
 		write_be32(h_buffer, pis.size());
@@ -1159,7 +1175,7 @@ struct XAigerWriter : AigerWriter {
 				log_assert(port);
 				if (port->port_input && !port->port_output) {
 					box_co_num += port->width;
-				} else if (port->port_output && !port->port_input) {
+				} else if (port->port_output) {
 					box_ci_num += port->width;
 				} else {
 					log_abort();
@@ -1182,7 +1198,7 @@ struct XAigerWriter : AigerWriter {
 		reset_counters();
 
 		for (auto w : top->wires())
-		if (w->port_input)
+		if (w->port_input && !w->port_output)
 		for (int i = 0; i < w->width; i++)
 			ensure_pi(SigBit(w, i));
 
@@ -1195,10 +1211,14 @@ struct XAigerWriter : AigerWriter {
 		for (auto w : top->wires())
 		if (w->port_output)
 		for (int i = 0; i < w->width; i++) {
+			// When a module output is directly driven by an opaque box, we
+			// don't emit it to the mapping file to aid re-integration, but we
+			// do emit a proper PO.
 			if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
-				map_file << "po " << proper_pos_counter++ << " " << i
+				map_file << "po " << proper_pos_counter << " " << i
 							<< " " << w->name.c_str() << "\n";
 			}
+			proper_pos_counter++;
 			pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
 		}
 
@@ -1446,7 +1466,7 @@ struct XAiger2Backend : Backend {
 		if (!map_filename.empty()) {
 			writer.map_file.open(map_filename);
 			if (!writer.map_file)
-				log_cmd_error("Failed to open '%s' for writing\n", map_filename.c_str());
+				log_cmd_error("Failed to open '%s' for writing\n", map_filename);
 		}
 
 		design->bufNormalize(true);

@@ -123,13 +123,13 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 			msg_type == VERIFIC_IGNORE ? "IGNORE" :
 			msg_type == VERIFIC_INFO ? "INFO" :
 			msg_type == VERIFIC_COMMENT ? "COMMENT" :
-			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN", message_id);
+			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN", message_id ? message_id : "");
 
 	string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
 	message += vstringf(msg, args);
 
 	if (log_verific_callback) {
-		string full_message = stringf("%s%s\n", message_prefix.c_str(), message.c_str());
+		string full_message = stringf("%s%s\n", message_prefix, message);
 #ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), 
 			linefile ? linefile->GetLeftLine() : 0, linefile ? linefile->GetLeftCol() : 0, 
@@ -141,9 +141,9 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 #endif
 	} else {
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
+			log_warning_noprefix("%s%s\n", message_prefix, message);
 		else
-			log("%s%s\n", message_prefix.c_str(), message.c_str());
+			log("%s%s\n", message_prefix, message);
 	}
 	if (verific_error_msg.empty() && (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR))
 		verific_error_msg = message;
@@ -164,6 +164,25 @@ string get_full_netlist_name(Netlist *nl)
 	}
 
 	return nl->CellBaseName();
+}
+
+std::string format_src_location(DesignObj *obj)
+{
+	if (obj == nullptr || !obj->Linefile())
+		return std::string();
+#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS
+	return stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
+#else
+	return stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
+#endif
+}
+
+std::string announce_src_location(DesignObj *obj)
+{
+	std::string loc = format_src_location(obj);
+	if (loc.empty())
+		return std::string();
+	return loc + ": ";
 }
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
@@ -200,8 +219,8 @@ YosysStreamCallBackHandler verific_read_cb;
 
 // ==================================================================
 
-VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
-		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
+VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_sva_continue, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
+		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva), mode_sva_continue(mode_sva_continue),
 		mode_names(mode_names), mode_verific(mode_verific), mode_autocover(mode_autocover),
 		mode_fullinit(mode_fullinit)
 {
@@ -232,7 +251,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
 	std::string s = stringf("$verific$%s", obj->Name());
 	if (obj->Linefile())
-		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())).c_str(), Verific::LineFile::GetLineNo(obj->Linefile()));
+		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())), Verific::LineFile::GetLineNo(obj->Linefile()));
 	s += stringf("$%d", autoidx++);
 	return s;
 }
@@ -250,7 +269,7 @@ static const RTLIL::Const extract_vhdl_bit(std::string &val, std::string &typ)
 {
 	if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
 		return  RTLIL::Const::from_string(val.substr(1,val.size()-2));
-	log_error("Error parsing VHDL %s.\n", typ.c_str());
+	log_error("Error parsing VHDL %s.\n", typ);
 }
 
 static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string &typ)
@@ -261,19 +280,19 @@ static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string 
 			c.flags |= RTLIL::CONST_FLAG_SIGNED;
 		return c;
 	}
-	log_error("Error parsing VHDL %s.\n", typ.c_str());
+	log_error("Error parsing VHDL %s.\n", typ);
 }
 
 static const RTLIL::Const extract_vhdl_integer(std::string &val)
 {
 	char *end;
-	return RTLIL::Const((int)std::strtol(val.c_str(), &end, 10), 32);
+	return RTLIL::Const((int)std::strtol(val.c_str(), &end, 10));
 }
 
 static const RTLIL::Const extract_vhdl_char(std::string &val)
 {
 	if (val.size()==3 && val[0]=='\"' && val.back()=='\"')
-		return RTLIL::Const((int)val[1], 32);
+		return RTLIL::Const((int)val[1]);
 	log_error("Error parsing VHDL character.\n");
 }
 
@@ -311,7 +330,7 @@ static const  RTLIL::Const extract_vhdl_const(const char *value, bool output_sig
 	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
 			((decimal = std::strtol(value, &end, 10)), !end[0])) {
 		is_signed = output_signed;
-		c = RTLIL::Const((int)decimal, 32);
+		c = RTLIL::Const((int)decimal);
 	} else if (val == "false") {
 		c = RTLIL::Const::from_string("0");
 	} else if (val == "true") {
@@ -344,7 +363,7 @@ static const  RTLIL::Const extract_verilog_const(const char *value, bool allow_s
 	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
 			((decimal = std::strtol(value, &end, 10)), !end[0])) {
 		is_signed = output_signed;
-		c = RTLIL::Const((int)decimal, 32);
+		c = RTLIL::Const((int)decimal);
 	} else if (allow_string) {
 		c = RTLIL::Const(val);
 	} else {
@@ -416,13 +435,8 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	MapIter mi;
 	Att *attr;
 
-#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
-#else
-	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
-#endif
+		attributes[ID::src] = format_src_location(obj);
 
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
@@ -472,7 +486,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			if (nl->IsFromVerilog()) {
 				auto const value = verific_const(type_name, v, nl, false);
 
-				attributes.emplace(stringf("\\enum_value_%s", value.as_string().c_str()), RTLIL::escape_id(k));
+				attributes.emplace(stringf("\\enum_value_%s", value.as_string()), RTLIL::escape_id(k));
 			}
 #ifdef VERIFIC_VHDL_SUPPORT
 			else if (nl->IsFromVhdl()) {
@@ -508,7 +522,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 					}
 				}
 				if (p == nullptr)
-					log_error("Expected TypeRange value '%s' to be of form \"<binary>\" or <binary>.\n", v);
+					log_error("%sExpected TypeRange value '%s' to be of form \"<binary>\" or <binary>.\n", announce_src_location(obj), v);
 			}
 #endif
 		}
@@ -988,7 +1002,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		else if (net_cin == net_a_msb)
 			cell = module->addSshr(inst_name, IN1, IN2, OUT, true);
 		else
-			log_error("Can't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", inst->Name());
+			log_error("%sCan't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", announce_src_location(inst), inst->Name());
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -1039,7 +1053,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		else if (net_cin->IsPwr())
 			cell = module->addLe(inst_name, IN1, IN2, net_map_at(inst->GetOutput()), SIGNED);
 		else
-			log_error("Can't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", inst->Name());
+			log_error("%sCan't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", announce_src_location(inst), inst->Name());
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -1469,7 +1483,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	if (design->has(module_name)) {
 		if (!nl->IsOperator() && !is_blackbox(nl))
-			log_cmd_error("Re-definition of module `%s'.\n", netlist_name.c_str());
+			log_cmd_error("Re-definition of module `%s'.\n", netlist_name);
 		return;
 	}
 
@@ -1557,9 +1571,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
 		wire->upto = portbus->IsUp();
 		import_attributes(wire->attributes, portbus, nl, portbus->Size());
+		if (portbus->Size() == 1)
+			wire->set_bool_attribute(ID::single_bit_vector);
 		SetIter si ;
 		Port *port ;
 		FOREACH_PORT_OF_PORTBUS(portbus, si, port) {
+			wire->port_id = nl->IndexOf(port) + 1;
 			import_attributes(wire->attributes, port->GetNet(), nl, portbus->Size());
 			break;
 		}
@@ -1623,7 +1640,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					bits_in_word = min<int>(bits_in_word, pr->GetInst()->Input2Size());
 					continue;
 				}
-				log_error("Verific RamNet %s is connected to unsupported instance type %s (%s).\n",
+				log_error("%sVerific RamNet %s is connected to unsupported instance type %s (%s).\n", announce_src_location(pr->GetInst()),
 						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
 			}
 
@@ -1647,7 +1664,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 						if (*ascii_initdata == 0)
 							break;
 						if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-							initval.bits()[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
+							initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
 							initval_valid = true;
 						}
 						ascii_initdata++;
@@ -1755,6 +1772,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				break;
 			}
 			import_attributes(wire->attributes, netbus, nl, netbus->Size());
+			if (netbus->Size() == 1)
+				wire->set_bool_attribute(ID::single_bit_vector);
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
 			bool initval_valid = false;
@@ -1769,9 +1788,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 					if (init_nets.count(net)) {
 						if (init_nets.at(net) == '0')
-							initval.bits().at(bitidx) = State::S0;
+							initval.set(bitidx, State::S0);
 						if (init_nets.at(net) == '1')
-							initval.bits().at(bitidx) = State::S1;
+							initval.set(bitidx, State::S1);
 						initval_valid = true;
 						init_nets.erase(net);
 					}
@@ -1844,13 +1863,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (bit.wire->attributes.count(ID::init))
 			initval = bit.wire->attributes.at(ID::init);
 
-		while (GetSize(initval) < GetSize(bit.wire))
-			initval.bits().push_back(State::Sx);
+		if (GetSize(initval) < GetSize(bit.wire))
+			initval.resize(GetSize(bit.wire), State::Sx);
 
 		if (it.second == '0')
-			initval.bits().at(bit.offset) = State::S0;
+			initval.set(bit.offset, State::S0);
 		if (it.second == '1')
-			initval.bits().at(bit.offset) = State::S1;
+			initval.set(bit.offset, State::S1);
 
 		bit.wire->attributes[ID::init] = initval;
 	}
@@ -1911,7 +1930,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetInput()->Name()), nullptr);
 			if (!memory)
-				log_error("Memory net '%s' missing, possibly no driver, use verific -flatten.\n", inst->GetInput()->Name());
+				log_error("%sMemory net '%s' missing, possibly no driver, use verific -flatten.\n", announce_src_location(inst), inst->GetInput()->Name());
 
 			int numchunks = int(inst->OutputSize()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
@@ -1922,7 +1941,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				RTLIL::SigSpec data = operatorOutput(inst).extract(i * memory->width, memory->width);
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
-						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), ID($memrd));
+						RTLIL::IdString(stringf("%s_%d", inst_name, i)), ID($memrd));
 				cell->parameters[ID::MEMID] = memory->name.str();
 				cell->parameters[ID::CLK_ENABLE] = false;
 				cell->parameters[ID::CLK_POLARITY] = true;
@@ -1942,7 +1961,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()), nullptr);
 			if (!memory)
-				log_error("Memory net '%s' missing, possibly no driver, use verific -flatten.\n", inst->GetInput()->Name());
+				log_error("%sMemory net '%s' missing, possibly no driver, use verific -flatten.\n", announce_src_location(inst), inst->GetInput()->Name());
 			int numchunks = int(inst->Input2Size()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
 
@@ -1952,7 +1971,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				RTLIL::SigSpec data = operatorInput2(inst).extract(i * memory->width, memory->width);
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
-						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), ID($memwr));
+						RTLIL::IdString(stringf("%s_%d", inst_name, i)), ID($memwr));
 				cell->parameters[ID::MEMID] = memory->name.str();
 				cell->parameters[ID::CLK_ENABLE] = false;
 				cell->parameters[ID::CLK_POLARITY] = true;
@@ -1977,7 +1996,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (import_netlist_instance_cells(inst, inst_name))
 				continue;
 			if (inst->IsOperator() && !verific_sva_prims.count(inst->Type()))
-				log_warning("Unsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", inst->View()->Owner()->Name());
+				log_warning("%sUnsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", announce_src_location(inst), inst->View()->Owner()->Name());
 		} else {
 			if (import_netlist_instance_gates(inst, inst_name))
 				continue;
@@ -2037,7 +2056,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			}
 
 			Const qx_init = Const(State::S1, width);
-			qx_init.bits().resize(2 * width, State::S0);
+			qx_init.resize(2 * width, State::S0);
 
 			clocking.addDff(new_verific_id(inst), sig_dx, sig_qx, qx_init);
 			module->addXnor(new_verific_id(inst), sig_dx, sig_qx, sig_ox);
@@ -2163,10 +2182,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (inst->IsPrimitive())
 		{
 			if (!mode_keep)
-				log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+				log_error("%sUnsupported Verific primitive %s of type %s\n", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
 
 			if (!verific_sva_prims.count(inst->Type()))
-				log_warning("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+				log_warning("%sUnsupported Verific primitive %s of type %s\n", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
 		}
 
 	import_verific_cells:
@@ -2302,7 +2321,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					continue;
 
 				if (non_ff_bits.count(SigBit(wire, i)))
-					initval.bits()[i] = State::Sx;
+					initval.set(i, State::Sx);
 			}
 
 			if (wire->port_input) {
@@ -2312,6 +2331,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				wire->attributes.erase(ID::init);
 		}
 	}
+
+	if (num_sva_continue) {
+		log_warning("Encountered %d items containing unsupported SVA!\n", num_sva_continue);
+		log_warning("Unsupported SVA imported as 'x and marked using the `unsupported_sva' attribute due to -sva-continue-on-err.\n");
+	}
+	num_sva_continue = 0;
 }
 
 // ==================================================================
@@ -2489,7 +2514,7 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 				if (c.wire && c.wire->attributes.count(ID::init)) {
 					Const val = c.wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(c); i++)
-						initval.bits()[offset+i] = val[c.offset+i];
+						initval.set(offset+i, val[c.offset+i]);
 				}
 				offset += GetSize(c);
 			}
@@ -2560,7 +2585,7 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 			if (c.wire && c.wire->attributes.count(ID::init)) {
 				Const val = c.wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(c); i++)
-					initval.bits()[offset+i] = val[c.offset+i];
+					initval.set(offset+i, val[c.offset+i]);
 			}
 			offset += GetSize(c);
 		}
@@ -2651,7 +2676,7 @@ struct VerificExtNets
 			cursor = ((Instance*)cursor->GetReferences()->GetLast())->Owner();
 		}
 
-		log_error("No common ancestor found between %s and %s.\n", get_full_netlist_name(A).c_str(), get_full_netlist_name(B).c_str());
+		log_error("No common ancestor found between %s and %s.\n", get_full_netlist_name(A), get_full_netlist_name(B));
 	}
 
 	void run(Netlist *nl)
@@ -2675,17 +2700,17 @@ struct VerificExtNets
 				continue;
 
 			if (verific_verbose)
-				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl).c_str(), inst->Name(), port->Name());
+				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl), inst->Name(), port->Name());
 
 			Netlist *ext_nl = net->Owner();
 
 			if (verific_verbose)
-				log(" external net owner: %s\n", get_full_netlist_name(ext_nl).c_str());
+				log(" external net owner: %s\n", get_full_netlist_name(ext_nl));
 
 			Netlist *ca_nl = find_common_ancestor(nl, ext_nl);
 
 			if (verific_verbose)
-				log(" common ancestor: %s\n", get_full_netlist_name(ca_nl).c_str());
+				log(" common ancestor: %s\n", get_full_netlist_name(ca_nl));
 
 			Net *ca_net = route_up(net, !port->IsOutput(), ca_nl);
 			Net *new_net = ca_net;
@@ -2974,6 +2999,9 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 	return top_mod_names;
 }
 
+static bool set_verific_global_flags = true;
+static bool already_imported = false;
+
 void verific_cleanup()
 {
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
@@ -2997,6 +3025,7 @@ void verific_cleanup()
 	Libset::Reset();
 	Message::Reset();
 	RuntimeFlags::DeleteAllFlags();
+	set_verific_global_flags = true;
 	LineFile::DeleteAllLineFiles();
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	verific_incdirs.clear();
@@ -3030,7 +3059,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	}
 
 	if (!verific_error_msg.empty())
-		log_error("%s\n", verific_error_msg.c_str());
+		log_error("%s\n", verific_error_msg);
 
 	for (auto nl : nl_todo)
 		nl.second->ChangePortBusStructures(1 /* hierarchical */);
@@ -3043,7 +3072,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		auto it = nl_todo.begin();
 		Netlist *nl = it->second;
 		if (nl_done.count(it->first) == 0) {
-			VerificImporter importer(false, false, false, false, false, false, false);
+			VerificImporter importer(false, false, false, false, false, false, false, false);
 			nl_done[it->first] = it->second;
 			importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->CellBaseName()));
 		}
@@ -3052,7 +3081,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 	verific_cleanup();
 	if (!verific_error_msg.empty())
-		log_error("%s\n", verific_error_msg.c_str());
+		log_error("%s\n", verific_error_msg);
 	return top;
 }
 
@@ -3280,6 +3309,11 @@ struct VerificPass : public Pass {
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
+		log("  -sva-continue-on-err\n");
+		log("    Turns unsupported SVA from an error into a warning. Properties are imported\n");
+		log("    with their trigger condition replaced with 'x and with an `unsupported_sva'\n");
+		log("    attribute to produce a later error in SBY if they remain in the design.\n");
+		log("\n");
 		log("  -L <int>\n");
 		log("    Maximum number of ctrl bits for SVA checker FSMs (default=16).\n");
 		log("\n");
@@ -3341,7 +3375,7 @@ struct VerificPass : public Pass {
 				char block[4096];
 				while (1) {
 					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
-						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
+						log_error("Unexpected end of file in here document '%s'!\n", filename);
 					buffer += block;
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
@@ -3428,7 +3462,6 @@ struct VerificPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		static bool set_verific_global_flags = true;
 
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
@@ -3461,11 +3494,13 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
+			RuntimeFlags::SetVar("veri_replace_const_exprs", 1);
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("vhdl_allow_any_ram_in_loop", 1);
+			RuntimeFlags::SetVar("vhdl_replace_const_exprs", 1);
 
 			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
@@ -3484,6 +3519,14 @@ struct VerificPass : public Pass {
 
 			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
+
+			// Downgrade warnings about things that are normal
+			// VERIFIC-WARNING [VERI-1209] foo.sv:98: expression size 7 truncated to fit in target size 6
+			Message::SetMessageType("VERI-1209", VERIFIC_INFO);
+			// VERIFIC-WARNING [VERI-1142] foo.sv:55: system task 'display' is ignored for synthesis
+			Message::SetMessageType("VERI-1142", VERIFIC_INFO);
+			// VERIFIC-WARNING [VERI-2418] foo.svh:503: parameter 'all_cfgs_gp' declared inside package 'bp_common_pkg' shall be treated as localparam
+			Message::SetMessageType("VERI-2418", VERIFIC_INFO);
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
@@ -3543,6 +3586,9 @@ struct VerificPass : public Pass {
 				} else if (Strings::compare(args[argidx].c_str(), "warnings")) {
 					Message::SetAllMessageType(VERIFIC_WARNING, new_type);
 				} else if (Strings::compare(args[argidx].c_str(), "infos")) {
+					Message::SetMessageType("VERI-1209", new_type);
+					Message::SetMessageType("VERI-1142", new_type);
+					Message::SetMessageType("VERI-2418", new_type);
 					Message::SetAllMessageType(VERIFIC_INFO, new_type);
 				} else if (Strings::compare(args[argidx].c_str(), "comments")) {
 					Message::SetAllMessageType(VERIFIC_COMMENT, new_type);
@@ -3804,7 +3850,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_87))
-					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3829,7 +3875,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_93))
-					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3854,7 +3900,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2K))
-					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3879,7 +3925,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2019))
-					log_cmd_error("Reading `%s' in VHDL_2019 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_2019 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3904,7 +3950,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2008))
-					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3918,7 +3964,7 @@ struct VerificPass : public Pass {
 			while (argidx < GetSize(args)) {
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!edif.Read(filename.c_str()))
-					log_cmd_error("Reading `%s' in EDIF mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in EDIF mode failed.\n", filename);
 			}
 			goto check_error;
 		}
@@ -3941,7 +3987,7 @@ struct VerificPass : public Pass {
 			while (argidx < GetSize(args)) {
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!synlib_file::Read(filename.c_str(), is_work_set ? work.c_str() : nullptr))
-					log_cmd_error("Reading `%s' in LIBERTY mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in LIBERTY mode failed.\n", filename);
 				SynlibLibrary *lib = synlib_file::GetLastLibraryAnalyzed();
 				if (lib && flag_lib) {
 					MapIter mi ;
@@ -4013,7 +4059,8 @@ struct VerificPass : public Pass {
 		{
 			std::map<std::string,Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
-			bool mode_nosva = false, mode_names = false, mode_verific = false;
+			bool mode_nosva = false, mode_sva_continue = false;
+			bool mode_names = false, mode_verific = false;
 			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false, mode_cells = false;
 			bool split_complex_ports = true;
@@ -4051,6 +4098,10 @@ struct VerificPass : public Pass {
 					mode_nosva = true;
 					continue;
 				}
+				if (args[argidx] == "-sva-continue-on-err") {
+					mode_sva_continue = true;
+					continue;
+				}
 				if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
 					verific_sva_fsm_limit = atoi(args[++argidx].c_str());
 					continue;
@@ -4078,7 +4129,7 @@ struct VerificPass : public Pass {
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
 											   1 /* force_overwrite */);
 					if (!new_insertion)
-						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
+						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key);
 					continue;
 				}
 				if (args[argidx] == "-V") {
@@ -4106,6 +4157,12 @@ struct VerificPass : public Pass {
 
 			if (argidx > GetSize(args) && args[argidx].compare(0, 1, "-") == 0)
 				cmd_error(args, argidx, "unknown option");
+
+			if ((unsigned long)verific_sva_fsm_limit >= sizeof(1ull)*8)
+				log_cmd_error("-L %d: limit too large; maximum allowed value is %zu.\n", verific_sva_fsm_limit, sizeof(1ull)*8-1);
+
+			if (already_imported)
+				log_warning("Note that all Verific flags were reset to defaults after last -import.\n");
 
 			std::set<std::string> top_mod_names;
 
@@ -4175,7 +4232,7 @@ struct VerificPass : public Pass {
 				auto it = nl_todo.begin();
 				Netlist *nl = it->second;
 				if (nl_done.count(it->first) == 0) {
-					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
+					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_sva_continue,
 							mode_names, mode_verific, mode_autocover, mode_fullinit);
 					nl_done[it->first] = it->second;
 					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->CellBaseName()));
@@ -4184,6 +4241,7 @@ struct VerificPass : public Pass {
 			}
 
 			verific_cleanup();
+			already_imported = true;
 			goto check_error;
 		}
 
@@ -4205,7 +4263,7 @@ struct VerificPass : public Pass {
 				}
 				lines.sort();
 				for (auto &line : lines)
-					log("verific -cfg %s\n", line.c_str());
+					log("verific -cfg %s\n", line);
 				goto check_error;
 			}
 
@@ -4264,7 +4322,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (!verific_error_msg.empty())
-			log_error("%s\n", verific_error_msg.c_str());
+			log_error("%s\n", verific_error_msg);
 
 	}
 #else /* YOSYS_ENABLE_VERIFIC */

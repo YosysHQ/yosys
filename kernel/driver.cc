@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/hashlib.h"
 #include "libs/sha1/sha1.h"
+#define CXXOPTS_VECTOR_DELIMITER '\0'
 #include "libs/cxxopts/include/cxxopts.hpp"
 #include <iostream>
 
@@ -34,6 +35,12 @@
 
 #ifdef YOSYS_ENABLE_TCL
 #  include <tcl.h>
+#endif
+
+#ifdef YOSYS_ENABLE_PYTHON
+#  include <Python.h>
+#  include <pybind11/pybind11.h>
+namespace py = pybind11;
 #endif
 
 #include <stdio.h>
@@ -90,9 +97,10 @@ int main(int argc, char **argv)
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
-#ifdef WITH_PYTHON
-	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
-	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#ifdef YOSYS_ENABLE_PYTHON
+	py::object sys = py::module_::import("sys");
+	sys.attr("path").attr("append")(proc_self_dirname());
+	sys.attr("path").attr("append")(proc_share_dirname());
 #endif
 
 	if (argc == 2)
@@ -180,7 +188,7 @@ extern char yosys_path[PATH_MAX];
 #endif
 #ifdef YOSYS_ENABLE_TCL
 namespace Yosys {
-	extern int yosys_tcl_iterp_init(Tcl_Interp *interp);
+	extern int yosys_tcl_interp_init(Tcl_Interp *interp);
 	extern void yosys_tcl_activate_repl();
 };
 #endif
@@ -225,10 +233,10 @@ int main(int argc, char **argv)
 			cxxopts::value<std::string>(),"<tcl_scriptfile>")
 		("C,tcl-interactive", "enters TCL interactive shell mode")
 #endif // YOSYS_ENABLE_TCL
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 		("y,py-scriptfile", "execute the Python <script>",
 			cxxopts::value<std::string>(), "<script>")
-#endif // WITH_PYTHON
+#endif // YOSYS_ENABLE_PYTHON
 		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
 			cxxopts::value<std::vector<std::string>>(), "<commands>")
 		("r,top", "elaborate the specified HDL <top> module",
@@ -514,9 +522,10 @@ int main(int argc, char **argv)
 #endif
 
 	yosys_setup();
-#ifdef WITH_PYTHON
-	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
-	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#ifdef YOSYS_ENABLE_PYTHON
+	py::object sys = py::module_::import("sys");
+	sys.attr("path").attr("append")(proc_self_dirname());
+	sys.attr("path").attr("append")(proc_share_dirname());
 #endif
 	log_error_atexit = yosys_atexit;
 
@@ -565,26 +574,23 @@ int main(int argc, char **argv)
 			log_error("Can't execute TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
 		} else if (scriptfile_python) {
-#ifdef WITH_PYTHON
-			PyObject *sys = PyImport_ImportModule("sys");
+#ifdef YOSYS_ENABLE_PYTHON
+			py::list new_argv;
 			int py_argc = special_args.size() + 1;
-			PyObject *new_argv = PyList_New(py_argc);
-			PyList_SetItem(new_argv, 0, PyUnicode_FromString(scriptfile.c_str()));
+			new_argv.append(scriptfile);
 			for (int i = 1; i < py_argc; ++i)
-				PyList_SetItem(new_argv, i, PyUnicode_FromString(special_args[i - 1].c_str()));
+				new_argv.append(special_args[i - 1]);
 
-			PyObject *old_argv = PyObject_GetAttrString(sys, "argv");
-			PyObject_SetAttrString(sys, "argv", new_argv);
-			Py_DECREF(old_argv);
+			py::setattr(sys, "argv", new_argv);
 
-			PyObject *py_path = PyUnicode_FromString(scriptfile.c_str());
-			PyObject_SetAttrString(sys, "_yosys_script_path", py_path);
-			Py_DECREF(py_path);
-			PyRun_SimpleString("import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(sys._yosys_script_path)))");
+			py::object Path = py::module_::import("pathlib").attr("Path");
+			py::object scriptfile_python_path = Path(scriptfile).attr("parent");
+
+			sys.attr("path").attr("insert")(0, py::str(scriptfile_python_path));
 
 			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
 			if (scriptfp == nullptr) {
-				log_error("Failed to open file '%s' for reading.\n", scriptfile.c_str());
+				log_error("Failed to open file '%s' for reading.\n", scriptfile);
 			}
 			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
 				log_flush();
@@ -604,7 +610,7 @@ int main(int argc, char **argv)
 	if (run_tcl_shell) {
 #ifdef YOSYS_ENABLE_TCL
 		yosys_tcl_activate_repl();
-		Tcl_Main(argc, argv, yosys_tcl_iterp_init);
+		Tcl_Main(argc, argv, yosys_tcl_interp_init);
 #else
 		log_error("Can't exectue TCL shell: this version of yosys is not built with TCL support enabled.\n");
 #endif
@@ -663,7 +669,7 @@ int main(int argc, char **argv)
 			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
 
 #ifdef _WIN32
-		log("End of script. Logfile hash: %s\n", hash.c_str());
+		log("End of script. Logfile hash: %s\n", hash);
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
@@ -689,7 +695,7 @@ int main(int argc, char **argv)
 		meminfo = stringf(", MEM: %.2f MB peak",
 				ru_buffer.ru_maxrss / (1024.0 * 1024.0));
 #endif
-		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash.c_str(),
+		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash,
 				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
@@ -700,9 +706,16 @@ int main(int argc, char **argv)
 
 		for (auto &it : pass_register)
 			if (it.second->call_counter) {
-				total_ns += it.second->runtime_ns + 1;
-				timedat.insert(make_tuple(it.second->runtime_ns + 1, it.second->call_counter, it.first));
+				auto pass_ns = it.second->runtime_ns + 1;
+				total_ns += pass_ns;
+				timedat.insert(make_tuple(pass_ns, it.second->call_counter, it.first));
 			}
+		{
+			auto gc_ns = RTLIL::OwningIdString::garbage_collection_ns() + 1;
+			total_ns += gc_ns;
+			timedat.insert(make_tuple(gc_ns,
+					RTLIL::OwningIdString::garbage_collection_count(), "id_gc"));
+		}
 
 		if (timing_details)
 		{
@@ -767,9 +780,9 @@ int main(int argc, char **argv)
 		f = fopen(filename.c_str(), "a+");
 
 		if (f == NULL)
-			log_error("Can't create coverage file `%s'.\n", filename.c_str());
+			log_error("Can't create coverage file `%s'.\n", filename);
 
-		log("<writing coverage file \"%s\">\n", filename.c_str());
+		log("<writing coverage file \"%s\">\n", filename);
 
 		for (auto &it : get_coverage_data())
 			fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());

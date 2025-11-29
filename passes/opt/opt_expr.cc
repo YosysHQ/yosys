@@ -83,7 +83,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			auto cursor = initbits.find(bit);
 			if (cursor != initbits.end()) {
 				revisit_initwires.insert(cursor->second.first);
-				val.bits()[i] = cursor->second.second;
+				val.set(i, cursor->second.second);
 			}
 		}
 
@@ -101,7 +101,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			Const initval = wire->attributes.at(ID::init);
 			for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++) {
 				if (SigBit(initval[i]) == sig[i])
-					initval.bits()[i] = State::Sx;
+					initval.set(i, State::Sx);
 			}
 			if (initval.is_fully_undef()) {
 				log_debug("Removing init attribute from %s/%s.\n", log_id(module), log_id(wire));
@@ -1307,7 +1307,12 @@ skip_fine_alu:
 		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && (keepdc ? assign_map(cell->getPort(ID::B)).is_fully_def() : assign_map(cell->getPort(ID::B)).is_fully_const()))
 		{
 			bool sign_ext = cell->type == ID($sshr) && cell->getParam(ID::A_SIGNED).as_bool();
-			int shift_bits = assign_map(cell->getPort(ID::B)).as_int(cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool());
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			const bool b_sign_ext = cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool();
+			// We saturate the value to prevent overflow, but note that this could
+			// cause incorrect opimization in the impractical case that A is 2^32 bits
+			// wide
+			int shift_bits = sig_b.as_int_saturating(b_sign_ext);
 
 			if (cell->type.in(ID($shl), ID($sshl)))
 				shift_bits *= -1;
@@ -2196,7 +2201,7 @@ skip_alu_split:
 						{
 							if (cmp_type == ID($lt)) cmp_name = "<";
 							if (cmp_type == ID($le)) cmp_name = "<=";
-							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name.c_str(), log_signal(const_sig));
+							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name, log_signal(const_sig));
 							replacement = "constant 1";
 							replace_sig[0] = State::S1;
 							replace = true;
@@ -2205,7 +2210,7 @@ skip_alu_split:
 						{
 							if (cmp_type == ID($gt)) cmp_name = ">";
 							if (cmp_type == ID($ge)) cmp_name = ">=";
-							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name.c_str(), log_signal(const_sig));
+							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name, log_signal(const_sig));
 							replacement = "constant 0";
 							replace_sig[0] = State::S0;
 							replace = true;

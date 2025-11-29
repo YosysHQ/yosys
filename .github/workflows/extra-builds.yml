@@ -1,6 +1,14 @@
 name: Test extra build flows
 
-on: [push, pull_request]
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  # test PRs
+  pull_request:
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
 
 jobs:
   pre_job:
@@ -11,11 +19,11 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
         with:
+          # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
           # cancel previous builds if a new commit is pushed
-          cancel_others: 'true'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: 'same_content_newer'
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
   vs-prep:
     name: Prepare Visual Studio build
@@ -27,19 +35,20 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
+      - run: sudo apt-get install libfl-dev
       - name: Build
         run: make vcxsrc YOSYS_VER=latest
       - uses: actions/upload-artifact@v4
         with:
           name: vcxsrc
           path: yosys-win32-vcxsrc-latest.zip
-  
+
   vs-build:
     name: Visual Studio build
-    runs-on: windows-2019
+    runs-on: windows-latest
     needs: [vs-prep, pre_job]
     if: needs.pre_job.outputs.should_skip != 'true'
-    steps:  
+    steps:
       - uses: actions/download-artifact@v4
         with:
           name: vcxsrc
@@ -50,7 +59,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
       - name: MSBuild
         working-directory: yosys-win32-vcxsrc-latest
-        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.17763.0
+        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.26100.0
 
   wasi-build:
     name: WASI build
@@ -64,13 +73,24 @@ jobs:
           persist-credentials: false
       - name: Build
         run: |
-          WASI_SDK=wasi-sdk-19.0
-          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
+          WASI_SDK=wasi-sdk-27.0-x86_64-linux
+          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz
           if ! [ -d ${WASI_SDK} ]; then curl -L ${WASI_SDK_URL} | tar xzf -; fi
+
+          FLEX_VER=2.6.4
+          FLEX=flex-${FLEX_VER}
+          FLEX_URL=https://github.com/westes/flex/releases/download/v${FLEX_VER}/${FLEX}.tar.gz
+          if ! [ -d ${FLEX} ]; then curl -L ${FLEX_URL} | tar xzf -; fi
+
+          mkdir -p flex-build
+          (cd flex-build &&
+            ../${FLEX}/configure --prefix=$(pwd)/../flex-prefix &&
+            make &&
+            make install)
 
           mkdir -p build
           cat > build/Makefile.conf <<END
-          export PATH := $(pwd)/${WASI_SDK}/bin:${PATH}
+          export PATH := $(pwd)/${WASI_SDK}/bin:$(pwd)/flex-prefix/bin:${PATH}
           WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
 
           CONFIG := wasi
@@ -80,6 +100,8 @@ jobs:
           ENABLE_READLINE := 0
           ENABLE_PLUGINS := 0
           ENABLE_ZLIB := 0
+
+          CXXFLAGS += -I$(pwd)/flex-prefix/include
           END
 
           make -C build -f ../Makefile CXX=clang -j$(nproc)
@@ -98,7 +120,7 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
-      - uses: cachix/install-nix-action@v26
+      - uses: cachix/install-nix-action@v31
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.18.1/install
+          install_url: https://releases.nixos.org/nix/nix-2.30.0/install
       - run: nix build .?submodules=1 -L

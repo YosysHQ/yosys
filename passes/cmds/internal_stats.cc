@@ -18,8 +18,6 @@
  */
 
 #include <iterator>
-#include <optional>
-#include <stdint.h>
 
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
@@ -71,7 +69,10 @@ std::optional<uint64_t> current_mem_bytes() {
 }
 
 struct InternalStatsPass : public Pass {
-	InternalStatsPass() : Pass("internal_stats", "print internal statistics") { }
+	InternalStatsPass() : Pass("internal_stats", "print internal statistics") {
+		experimental();
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -99,15 +100,15 @@ struct InternalStatsPass : public Pass {
 
 		if (json_mode) {
 			log("{\n");
-			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump().c_str());
+			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump());
 			std::stringstream invocation;
 			std::copy(args.begin(), args.end(), std::ostream_iterator<std::string>(invocation, " "));
-			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump().c_str());
+			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump());
 			if (auto mem = current_mem_bytes()) {
-				log("   \"memory_now\": %s,\n", std::to_string(*mem).c_str());
+				log("   \"memory_now\": %s,\n", std::to_string(*mem));
 			}
 			auto ast_bytes = AST::astnode_count() * (unsigned long long) sizeof(AST::AstNode);
-			log("   \"memory_ast\": %s,\n", std::to_string(ast_bytes).c_str());
+			log("   \"memory_ast\": %s,\n", std::to_string(ast_bytes));
 		}
 
 		// stats go here

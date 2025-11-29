@@ -38,8 +38,8 @@ struct Abc9Pass : public ScriptPass
 	Abc9Pass() : ScriptPass("abc9", "use ABC9 for technology mapping") { }
 	void on_register() override
 	{
-		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -v; &mfs";
-		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
+		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f -r; &ps; &if {C} {W} {D} {R} -v; &mfs";
+		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f -r; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
 		RTLIL::constpad["abc9.script.default.fast"] = "+&if {C} {W} {D} {R} -v";
 		// Based on ABC's &flow
 		RTLIL::constpad["abc9.script.flow"] = "+&scorr; &sweep;" \
@@ -106,7 +106,7 @@ struct Abc9Pass : public ScriptPass
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -119,12 +119,12 @@ struct Abc9Pass : public ScriptPass
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)));
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)));
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
@@ -332,8 +332,8 @@ struct Abc9Pass : public ScriptPass
 						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
 						for (auto module : active_design->selected_modules()) {
 							active_design->selected_active_module = module->name.str();
-							if (module->cell(stringf("%s_$abc9_flop", module->name.c_str())))
-								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
+							if (module->cell(stringf("%s_$abc9_flop", module->name)))
+								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name));
 						}
 						active_design->selected_active_module.clear();
 					}
@@ -418,10 +418,10 @@ struct Abc9Pass : public ScriptPass
 					tempdir_name = make_temp_dir(tempdir_name);
 
 					if (!lut_mode)
-						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
+						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name));
 					if (box_file.empty())
-						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
-					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name.c_str(), dff_mode ? "-dff" : "", tempdir_name.c_str()));
+						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name));
+					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name, dff_mode ? "-dff" : "", tempdir_name));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
@@ -433,15 +433,15 @@ struct Abc9Pass : public ScriptPass
 							num_outputs);
 					if (num_outputs) {
 						std::string abc9_exe_cmd;
-						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str());
+						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str(), tempdir_name);
 						if (!lut_mode)
-							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
+							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name);
 						if (box_file.empty())
-							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
+							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name);
 						else
-							abc9_exe_cmd += stringf(" -box %s", box_file.c_str());
+							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
-						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
+						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name, tempdir_name));
 						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
 					}
 					else

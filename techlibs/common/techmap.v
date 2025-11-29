@@ -283,9 +283,16 @@ module _90_alu (A, B, CI, BI, X, Y, CO);
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(X), .G(AA & BB), .CI(CI), .CO(CO));
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] P;
+	wire [Y_WIDTH-1:0] G;
+	wire [Y_WIDTH-1:0] Cnull;
+	assign Cnull = 1'b0;
 
-	assign X = AA ^ BB;
+	\$fa #(.WIDTH(Y_WIDTH)) fa (.A(AA), .B(BB), .C(Cnull), .X(G), .Y(P));
+	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(P), .G(G), .CI(CI), .CO(CO));
+
+	assign X = P;
 	assign Y = X ^ {CO, CI};
 endmodule
 
@@ -647,3 +654,28 @@ module _90_lut;
 endmodule
 `endif
 
+
+// --------------------------------------------------------
+// Bufnorm helpers
+// --------------------------------------------------------
+
+(* techmap_celltype = "$connect" *)
+module \$connect (A, B);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] A;
+inout [WIDTH-1:0] B;
+
+assign A = B; // RTLIL assignments are not inherently directed
+
+endmodule
+
+(* techmap_celltype = "$input_port" *)
+module \$input_port (Y);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] Y; // This cell is just a maker, so we leave Y undriven
+
+endmodule

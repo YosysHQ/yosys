@@ -1,0 +1,132 @@
+# https://github.com/YosysHQ/yosys/issues/5157
+read_verilog -sv <<EOT
+module stmt_if_task (
+    output logic [7:0] out_val_m6,
+    input logic [7:0] in_val_m6,
+    input bit condition_m6
+);
+    logic [7:0] var_m6;
+    task automatic update_conditional_m6(input bit cond, inout logic [7:0] val);
+        if (cond) begin
+            val++;
+        end else begin
+            --val;
+        end
+    endtask
+    always_comb begin
+        var_m6 = in_val_m6;
+        update_conditional_m6(condition_m6, var_m6);
+        out_val_m6 = var_m6;
+    end
+
+    wire [7:0] m6_inc = in_val_m6 + 1;
+    wire [7:0] m6_dec = in_val_m6 - 1;
+    always_comb assert(out_val_m6 == (condition_m6 ? m6_inc : m6_dec));
+endmodule
+EOT
+
+prep
+chformal -lower
+sat -prove-asserts -verify
+
+design -reset
+
+read_verilog -sv <<EOT
+module top (
+	output logic [7:0] out
+);
+	task automatic set_to_5(inout logic [7:0] val);
+		val = 5;
+	endtask
+
+	always_comb begin
+		out = 0;
+		set_to_5(out);
+	end
+
+	always_comb assert(out == 5);
+endmodule
+EOT
+
+prep
+chformal -lower
+sat -prove-asserts -verify
+
+design -reset
+
+read_verilog -sv <<EOT
+module top (
+	output logic [7:0] a,
+	output logic [7:0] b,
+	output logic [7:0] c
+);
+	task automatic modify(
+		input logic [7:0] t_in,
+		output logic [7:0] t_out,
+		inout logic [7:0] t_inout
+	);
+		assert(t_in == 5);
+		t_in = 6;
+		t_out = 7;
+		assert(t_inout == 8);
+		t_inout = 9;
+	endtask
+
+	always_comb begin
+		a = 5;
+		b = 4;
+		c = 8;
+
+		modify(a, b, c);
+
+		assert(a == 5);
+		assert(b == 7);
+		assert(c == 9);
+	end
+endmodule
+EOT
+
+prep
+chformal -lower
+sat -prove-asserts -verify
+
+design -reset
+
+read_verilog -sv <<EOT
+module top (
+	output logic [7:0] a,
+	output logic [7:0] b,
+	output logic [7:0] c
+);
+	function logic [7:0] modify(
+		input logic [7:0] t_in,
+		output logic [7:0] t_out,
+		inout logic [7:0] t_inout
+	);
+		assert(t_in == 5);
+		t_in = 6;
+		t_out = 7;
+		assert(t_inout == 8);
+		t_inout = 9;
+		modify = 10;
+	endfunction
+
+	logic [7:0] result;
+	always_comb begin
+		a = 5;
+		b = 4;
+		c = 8;
+
+		result = modify(a, b, c);
+
+		assert(a == 5);
+		assert(b == 7);
+		assert(c == 9);
+		assert(result == 10);
+	end
+endmodule
+EOT
+
+prep
+chformal -lower
+sat -prove-asserts -verify

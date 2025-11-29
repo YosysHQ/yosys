@@ -106,7 +106,7 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 	cell->setPort(ID::CLK, clk);
 	cell->setPort(ID::ALOAD, set);
 
-	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type.c_str(), cell->name.c_str(),
+	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type, cell->name,
 			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
 }
 
@@ -136,9 +136,9 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 		cell->setPort(ID::CLK, clk);
 
 	if (!clk.empty())
-		log("  created %s cell `%s' with %s edge clock", cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
+		log("  created %s cell `%s' with %s edge clock", cell->type, cell->name, clk_polarity ? "positive" : "negative");
 	else
-		log("  created %s cell `%s' with global clock", cell->type.c_str(), cell->name.c_str());
+		log("  created %s cell `%s' with global clock", cell->type, cell->name);
 	if (arst)
 		log(" and %s level reset", arst_polarity ? "positive" : "negative");
 	log(".\n");
@@ -306,13 +306,11 @@ struct ProcDffPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod)) {
-				ConstEval ce(mod);
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_dff(mod, proc_it.second, ce);
-			}
+		for (auto mod : design->all_selected_modules()) {
+			ConstEval ce(mod);
+			for (auto proc : mod->selected_processes())
+				proc_dff(mod, proc, ce);
+		}
 	}
 } ProcDffPass;
 

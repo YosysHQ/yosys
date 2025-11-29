@@ -55,7 +55,7 @@ library(test) {
   cell (dffe) {
     area : 6;
     ff("IQ", "IQN") {
-      next_state : "(D&EN) | (IQ&!EN)";
+      next_state : "(D EN) | (IQ !EN)";
       clocked_on : "!CLK";
     }
     pin(D) {

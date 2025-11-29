@@ -1,6 +1,14 @@
 name: Build and run tests
 
-on: [push, pull_request]
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  # test PRs
+  pull_request:
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
 
 jobs:
   pre_job:
@@ -11,11 +19,12 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
         with:
+          # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
           # cancel previous builds if a new commit is pushed
-          cancel_others: 'true'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: 'same_content_newer'
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
+
   pre_docs_job:
     runs-on: ubuntu-latest
     outputs:
@@ -24,15 +33,16 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
         with:
+          # don't run on readme changes
           paths_ignore: '["**/README.md"]'
           # cancel previous builds if a new commit is pushed
-          cancel_others: 'true'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: 'same_content_newer'
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
   build-yosys:
     name: Reusable build
     runs-on: ${{ matrix.os }}
+    # pre_job is a subset of pre_docs_job, so we can always build for pre_docs_job
     needs: pre_docs_job
     if: needs.pre_docs_job.outputs.should_skip != 'true'
     env:
@@ -50,6 +60,9 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-build-deps: true
 
       - name: Build
         shell: bash
@@ -57,8 +70,7 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-$CC
-          echo 'SANITIZER = undefined' >> Makefile.conf
-          make -f ../Makefile -j$procs ENABLE_LTO=1
+          make -f ../Makefile -j$procs
 
       - name: Log yosys-config output
         run: |
@@ -84,7 +96,6 @@ jobs:
     if: needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
-      UBSAN_OPTIONS: halt_on_error=1
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -97,41 +108,10 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
-
-      - name: Get iverilog
-        shell: bash
-        run: |
-          git clone https://github.com/steveicarus/iverilog.git
-          cd iverilog
-          echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
-
-      - name: Get vcd2fst
-        shell: bash
-        run: |
-          git clone https://github.com/mmicko/libwave.git
-          mkdir -p ${{ github.workspace }}/.local/
-          cd libwave
-          cmake . -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/.local
-          make -j$procs
-          make install
-
-      - name: Cache iverilog
-        id: cache-iverilog
-        uses: actions/cache@v4
         with:
-          path: .local/
-          key: ${{ matrix.os }}-${IVERILOG_GIT}
-
-      - name: Build iverilog
-        if: steps.cache-iverilog.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          mkdir -p ${{ github.workspace }}/.local/
-          cd iverilog
-          autoconf
-          CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
-          make -j$procs
-          make install
+          runs-on: ${{ matrix.os }}
+          get-test-deps: true
+          get-iverilog: true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -158,6 +138,45 @@ jobs:
         run: |
           find tests/**/*.err -print -exec cat {} \;
 
+  test-cells:
+    name: Run test_cell
+    runs-on: ${{ matrix.os }}
+    needs: [build-yosys, pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: test_cell
+        shell: bash
+        run: |
+          ./yosys -p 'test_cell -n 20 -s 1 all'
+          ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $pow $pmux'
+          ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $eqx $nex $bweqx'
+          ./yosys -p 'test_cell -n 20 -s 1 -aigmap $buf'
+
   test-docs:
     name: Run docs tests
     runs-on: ${{ matrix.os }}
@@ -177,6 +196,10 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-build-deps: true
+          get-docs-deps: true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -201,7 +224,7 @@ jobs:
     name: Try build docs
     runs-on: [self-hosted, linux, x64, fast]
     needs: [pre_docs_job]
-    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    if: ${{ needs.pre_docs_job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
     strategy:
       matrix:
         docs-target: [html, latexpdf]
@@ -221,6 +244,7 @@ jobs:
         run: |
           make config-clang
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
           make -j$procs
 
       - name: Install doc prereqs

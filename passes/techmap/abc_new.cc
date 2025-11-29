@@ -38,7 +38,8 @@ std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules
 				sort.edge(submodule, m);
 		}
 	}
-	log_assert(sort.sort());
+	bool is_sorted = sort.sort();
+	log_assert(is_sorted);
 	return sort.sorted;
 }
 
@@ -68,6 +69,7 @@ struct AbcNewPass : public ScriptPass {
 		log("    -constr <file>\n");
 		log("    -dont_use <cell_name>\n");
 		log("    -liberty <file>\n");
+		log("    -genlib <file>\n");
 		log("        these options are passed on to the 'abc9_exe' command which invokes\n");
 		log("        the ABC tool on individual modules of the design. please see\n");
 		log("        'help abc9_exe' for more details\n");
@@ -90,7 +92,7 @@ struct AbcNewPass : public ScriptPass {
 			if (args[argidx] == "-exe" || args[argidx] == "-script" ||
 					args[argidx] == "-D" ||
 					args[argidx] == "-constr" || args[argidx] == "-dont_use" ||
-					args[argidx] == "-liberty") {
+					args[argidx] == "-liberty" || args[argidx] == "-genlib") {
 				abc_exe_options += " " + args[argidx] + " " + args[argidx + 1];
 				argidx++;
 			} else if (args[argidx] == "-run" && argidx + 1 < args.size()) {
@@ -140,7 +142,11 @@ struct AbcNewPass : public ScriptPass {
 				selected_modules = order_modules(active_design,
 												 active_design->selected_whole_modules_warn());
 				active_design->push_empty_selection();
-			} else {
+			}
+
+			run("abc9_ops -replace_zbufs");
+
+			if (help_mode) {
 				selected_modules = {nullptr};
 				run("foreach module in selection");
 			}
@@ -167,12 +173,11 @@ struct AbcNewPass : public ScriptPass {
 						mod->get_string_attribute(ID(abc9_script)));
 				}
 
-				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir.c_str()));
-				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir.c_str(), tmpdir.c_str()));
-				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options.c_str(), tmpdir.c_str(), tmpdir.c_str()));
+				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir));
+				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
+				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options, tmpdir, tmpdir));
 				run(stringf("  read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
 							modname.c_str(), tmpdir.c_str(), tmpdir.c_str()));
-
 				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
 					if (script_save.empty())
 						active_design->scratchpad_unset("abc9.script");
@@ -192,6 +197,8 @@ struct AbcNewPass : public ScriptPass {
 					}
 				}
 			}
+
+			run("abc9_ops -restore_zbufs");
 
 			if (!help_mode) {
 				active_design->pop_selection();

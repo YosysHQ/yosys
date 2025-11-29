@@ -143,14 +143,14 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		return 1;
 
 	if (design_ && design_->module(cell->type) && cell->parameters.empty()) {
-		log_debug("%s is a module, recurse\n", cell->name.c_str());
+		log_debug("%s is a module, recurse\n", cell->name);
 		return get(design_->module(cell->type));
-	} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+	} else if (cell->is_builtin_ff()) {
 		log_assert(cell->hasPort(ID::Q) && "Weird flip flop");
-		log_debug("%s is ff\n", cell->name.c_str());
+		log_debug("%s is ff\n", cell->name);
 		return cell->getParam(ID::WIDTH).as_int();
 	} else if (cell->type.in(ID($mem), ID($mem_v2))) {
-		log_debug("%s is mem\n", cell->name.c_str());
+		log_debug("%s is mem\n", cell->name);
 		return cell->getParam(ID::WIDTH).as_int() * cell->getParam(ID::SIZE).as_int();
 	} else if (y_coef(cell->type)) {
 		// linear with Y_WIDTH or WIDTH
@@ -159,23 +159,23 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		int width = cell->getParam(param).as_int();
 		if (cell->type == ID($demux))
 			width <<= cell->getParam(ID::S_WIDTH).as_int();
-		log_debug("%s Y*coef %d * %d\n", cell->name.c_str(), width, y_coef(cell->type));
+		log_debug("%s Y*coef %d * %d\n", cell->name, width, y_coef(cell->type));
 		return width * y_coef(cell->type);
 	} else if (sum_coef(cell->type)) {
 		// linear with sum of port widths
 		unsigned int sum = port_width_sum(cell);
-		log_debug("%s sum*coef %d * %d\n", cell->name.c_str(), sum, sum_coef(cell->type));
+		log_debug("%s sum*coef %d * %d\n", cell->name, sum, sum_coef(cell->type));
 		return sum * sum_coef(cell->type);
 	} else if (max_inp_coef(cell->type)) {
 		// linear with largest input width
 		unsigned int max = max_inp_width(cell);
-		log_debug("%s max*coef %d * %d\n", cell->name.c_str(), max, max_inp_coef(cell->type));
+		log_debug("%s max*coef %d * %d\n", cell->name, max, max_inp_coef(cell->type));
 		return max * max_inp_coef(cell->type);
 	} else if (is_div_mod(cell->type) || cell->type == ID($mul)) {
 		// quadratic with sum of port widths
 		unsigned int sum = port_width_sum(cell);
 		unsigned int coef = cell->type == ID($mul) ? 3 : 5;
-		log_debug("%s coef*(sum**2) %d * %d\n", cell->name.c_str(), coef, sum * sum);
+		log_debug("%s coef*(sum**2) %d * %d\n", cell->name, coef, sum * sum);
 		return coef * sum * sum;
 	} else if (cell->type.in(ID($macc), ID($macc_v2))) {
 		// quadratic per term
@@ -196,15 +196,15 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 	} else if (cell->type == ID($lut)) {
 		int width = cell->getParam(ID::WIDTH).as_int();
 		unsigned int cost = 1U << (unsigned int)width;
-		log_debug("%s is 2**%d\n", cell->name.c_str(), width);
+		log_debug("%s is 2**%d\n", cell->name, width);
 		return cost;
 	} else if (cell->type == ID($sop)) {
 		int width = cell->getParam(ID::WIDTH).as_int();
 		int depth = cell->getParam(ID::DEPTH).as_int();
-		log_debug("%s is (2*%d + 1)*%d\n", cell->name.c_str(), width, depth);
+		log_debug("%s is (2*%d + 1)*%d\n", cell->name, width, depth);
 		return (2 * width + 1) * depth;
 	} else if (is_free(cell->type)) {
-		log_debug("%s is free\n", cell->name.c_str());
+		log_debug("%s is free\n", cell->name);
 		return 0;
 	}
 	// TODO: $fsm

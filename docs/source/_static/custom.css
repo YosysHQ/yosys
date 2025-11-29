@@ -18,3 +18,8 @@
 .literal-block-wrapper .code-block-caption .caption-number {
     padding-right: 0.5em
 }
+
+/* Don't double shrink text in a literal in an optionlist */
+kbd .option>.literal {
+    font-size: revert;
+}

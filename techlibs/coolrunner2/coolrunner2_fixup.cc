@@ -298,7 +298,7 @@ struct Coolrunner2FixupPass : public Pass {
 					if ((!sig_fed_by_xor[input] && !sig_fed_by_io[input]) ||
 						(sig_fed_by_io[input] && ibuf_out_to_packed_reg_cell[input] != cell))
 					{
-						log("Buffering input to \"%s\"\n", cell->name.c_str());
+						log("Buffering input to \"%s\"\n", cell->name);
 
 						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.c_str());
 
@@ -320,7 +320,7 @@ struct Coolrunner2FixupPass : public Pass {
 
 					if (!sig_fed_by_pterm[clock] && !sig_fed_by_bufg[clock])
 					{
-						log("Buffering clock to \"%s\"\n", cell->name.c_str());
+						log("Buffering clock to \"%s\"\n", cell->name);
 
 						auto pterm_to_ff_wire = makeptermbuffer(module, clock);
 
@@ -338,7 +338,7 @@ struct Coolrunner2FixupPass : public Pass {
 					{
 						if (!sig_fed_by_pterm[set] && !sig_fed_by_bufgsr[set])
 						{
-							log("Buffering set to \"%s\"\n", cell->name.c_str());
+							log("Buffering set to \"%s\"\n", cell->name);
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, set);
 
@@ -352,7 +352,7 @@ struct Coolrunner2FixupPass : public Pass {
 					{
 						if (!sig_fed_by_pterm[reset] && !sig_fed_by_bufgsr[reset])
 						{
-							log("Buffering reset to \"%s\"\n", cell->name.c_str());
+							log("Buffering reset to \"%s\"\n", cell->name);
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, reset);
 
@@ -369,7 +369,7 @@ struct Coolrunner2FixupPass : public Pass {
 						ce = sigmap(cell->getPort(ID(CE))[0]);
 						if (!sig_fed_by_pterm[ce])
 						{
-							log("Buffering clock enable to \"%s\"\n", cell->name.c_str());
+							log("Buffering clock enable to \"%s\"\n", cell->name);
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, ce);
 
@@ -389,7 +389,7 @@ struct Coolrunner2FixupPass : public Pass {
 					if ((!sig_fed_by_xor[input] && !sig_fed_by_ff[input]) ||
 						packed_reg_out[input])
 					{
-						log("Buffering input to \"%s\"\n", cell->name.c_str());
+						log("Buffering input to \"%s\"\n", cell->name);
 
 						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.c_str());
 
@@ -404,7 +404,7 @@ struct Coolrunner2FixupPass : public Pass {
 						oe = sigmap(cell->getPort(ID::E)[0]);
 						if (!sig_fed_by_pterm[oe] && !sig_fed_by_bufgts[oe])
 						{
-							log("Buffering output enable to \"%s\"\n", cell->name.c_str());
+							log("Buffering output enable to \"%s\"\n", cell->name);
 
 							auto pterm_to_oe_wire = makeptermbuffer(module, oe);
 

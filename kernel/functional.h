@@ -552,17 +552,17 @@ namespace Functional {
 		}
 		IRInput &add_input(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._inputs.emplace({name, kind}, IRInput(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("input `%s` was re-defined", name.c_str());
+			if (!inserted) log_error("input `%s` was re-defined", name);
 			return it->second;
 		}
 		IROutput &add_output(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._outputs.emplace({name, kind}, IROutput(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("output `%s` was re-defined", name.c_str());
+			if (!inserted) log_error("output `%s` was re-defined", name);
 			return it->second;
 		}
 		IRState &add_state(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._states.emplace({name, kind}, IRState(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("state `%s` was re-defined", name.c_str());
+			if (!inserted) log_error("state `%s` was re-defined", name);
 			return it->second;
 		}
 		Node value(IRInput const& input) {

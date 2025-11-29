@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
@@ -25,6 +26,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CutpointPass : public Pass {
 	CutpointPass() : Pass("cutpoint", "adds formal cut points to the design") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -103,13 +109,43 @@ struct CutpointPass : public Pass {
 			SigMap sigmap(module);
 			pool<SigBit> cutpoint_bits;
 
+			pool<SigBit> wire_drivers;
+			for (auto cell : module->cells())
+				for (auto &conn : cell->connections())
+					if (cell->output(conn.first) && !cell->input(conn.first))
+						for (auto bit : sigmap(conn.second))
+							if (bit.wire)
+								wire_drivers.insert(bit);
+			
+			for (auto wire : module->wires())
+				if (wire->port_input)
+					for (auto bit : sigmap(wire))
+						wire_drivers.insert(bit);
+
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($anyseq))
 					continue;
 				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
 				for (auto &conn : cell->connections()) {
-					if (cell->output(conn.first))
-						module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+					if (cell->output(conn.first)) {
+						bool do_cut = true;
+						if (cell->input(conn.first))
+							for (auto bit : sigmap(conn.second))
+								if (wire_drivers.count(bit)) {
+									log_debug("  Treating inout port '%s' as input.\n", id2cstr(conn.first));
+									do_cut = false;
+									break;
+								}
+
+						if (do_cut) {
+							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+							if (cell->input(conn.first)) {
+								log_debug("  Treating inout port '%s' as output.\n", id2cstr(conn.first));
+								for (auto bit : sigmap(conn.second))
+									wire_drivers.insert(bit);
+							}
+						}
+					}
 				}
 
 				RTLIL::Cell *scopeinfo = nullptr;
@@ -123,7 +159,7 @@ struct CutpointPass : public Pass {
 						if (attr.first == ID::hdlname)
 							scopeinfo->attributes.insert(attr);
 						else
-							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first)), attr.second);
 					}
 				}
 

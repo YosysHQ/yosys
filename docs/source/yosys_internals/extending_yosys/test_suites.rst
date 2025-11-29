@@ -1,7 +1,72 @@
 Testing Yosys
 =============
 
-.. TODO:: more about the included test suite and how to add tests
+.. todo:: adding tests (makefile-tests vs seed-tests)
+
+Running the included test suite
+-------------------------------
+
+The Yosys source comes with a test suite to avoid regressions and keep
+everything working as expected.  Tests can be run by calling ``make test`` from
+the root Yosys directory.
+
+Functional tests
+~~~~~~~~~~~~~~~~
+
+Testing functional backends (see
+:doc:`/yosys_internals/extending_yosys/functional_ir`) has a few requirements in
+addition to those listed in :ref:`getting_started/installation:Build
+prerequisites`:
+
+.. tab:: Ubuntu
+
+   .. code:: console
+
+      sudo apt-get install racket
+      raco pkg install rosette
+      pip install pytest-xdist pytest-xdist-gnumake
+
+.. tab:: macOS
+
+   .. code:: console
+
+      brew install racket
+      raco pkg install rosette
+      pip install pytest-xdist pytest-xdist-gnumake
+
+If you don't have one of the :ref:`getting_started/installation:CAD suite(s)`
+installed, you should also install Z3 `following their
+instructions <https://github.com/Z3Prover/z3>`_.
+
+Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
+``make test`` and the functional tests will be run as well.
+
+Unit tests
+~~~~~~~~~~
+
+Running the unit tests requires the following additional packages:
+
+.. tab:: Ubuntu
+
+   .. code:: console
+
+      sudo apt-get install libgtest-dev
+
+.. tab:: macOS
+
+   No additional requirements.
+
+Unit tests can be run with ``make unit-test``. 
+
+Docs tests
+~~~~~~~~~~
+
+There are some additional tests for checking examples included in the
+documentation, which can be run by calling ``make test`` from the
+:file:`yosys/docs` sub-directory (or ``make -C docs test`` from the root). This
+also includes checking some macro commands to ensure that descriptions of them
+are kept up to date, and is mostly intended for CI.
+
 
 Automatic testing
 -----------------

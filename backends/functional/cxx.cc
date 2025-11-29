@@ -268,7 +268,7 @@ struct FunctionalCxxBackend : public Backend
 		extra_args(f, filename, args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
-            log("Dumping module `%s'.\n", module->name.c_str());
+            log("Dumping module `%s'.\n", module->name);
 			printCxx(*f, filename, module);
 		}
 	}

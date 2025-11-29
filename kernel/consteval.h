@@ -115,7 +115,7 @@ struct ConstEval
 
 				for (int i = 0; i < GetSize(coval); i++) {
 					carry = (sig_g[i] == State::S1) || (sig_p[i] == RTLIL::S1 && carry);
-					coval.bits()[i] = carry ? State::S1 : State::S0;
+					coval.set(i, carry ? State::S1 : State::S0);
 				}
 
 				set(sig_co, coval);
@@ -249,7 +249,7 @@ struct ConstEval
 
 			for (int i = 0; i < GetSize(val_y); i++)
 				if (val_y[i] == RTLIL::Sx)
-					val_x.bits()[i] = RTLIL::Sx;
+					val_x.set(i, RTLIL::Sx);
 
 			set(sig_y, val_y);
 			set(sig_x, val_x);
@@ -349,7 +349,11 @@ struct ConstEval
 				return false;
 
 			bool eval_err = false;
-			RTLIL::Const eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_c.as_const(), sig_d.as_const(), &eval_err);
+			RTLIL::Const eval_ret;
+			if (sig_s.size() > 0 && eval(sig_s, undef, cell)) {
+				eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_s.as_const(), &eval_err);
+			} else
+				eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_c.as_const(), sig_d.as_const(), &eval_err);
 
 			if (eval_err)
 				return false;

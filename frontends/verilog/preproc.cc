@@ -34,6 +34,7 @@
 
 #include "preproc.h"
 #include "verilog_frontend.h"
+#include "frontends/verilog/verilog_parser.tab.hh"
 #include "kernel/log.h"
 #include <assert.h>
 #include <stack>
@@ -241,7 +242,7 @@ struct arg_map_t
 	void add_arg(const std::string &name, const char *default_value)
 	{
 		if (find(name)) {
-			log_error("Duplicate macro arguments with name `%s'.\n", name.c_str());
+			log_error("Duplicate macro arguments with name `%s'.\n", name);
 		}
 
 		name_to_pos[name] = args.size();
@@ -264,7 +265,7 @@ struct arg_map_t
 	// (something like macro_foobar_arg2). This doesn't include the leading backtick.
 	static std::string str_token(const std::string &macro_name, int pos)
 	{
-		return stringf("macro_%s_arg%d", macro_name.c_str(), pos);
+		return stringf("macro_%s_arg%d", macro_name, pos);
 	}
 
 	// Return definitions for the macro arguments (so that substituting in the macro body and
@@ -740,7 +741,7 @@ read_define(const std::string &filename,
 		defines_map.add(name, value, (state == 2) ? &args : nullptr);
 		global_defines_cache.add(name, value, (state == 2) ? &args : nullptr);
 	} else {
-		log_file_error(filename, 0, "Invalid name for macro definition: >>%s<<.\n", name.c_str());
+		log_file_error(filename, 0, "Invalid name for macro definition: >>%s<<.\n", name);
 	}
 }
 
@@ -749,7 +750,9 @@ frontend_verilog_preproc(std::istream                 &f,
                          std::string                   filename,
                          const define_map_t           &pre_defines,
                          define_map_t                 &global_defines_cache,
-                         const std::list<std::string> &include_dirs)
+                         const std::list<std::string> &include_dirs,
+                         ParseState                   &parse_state,
+                         ParseMode                    &parse_mode)
 {
 	define_map_t defines;
 	defines.merge(pre_defines);
@@ -786,14 +789,14 @@ frontend_verilog_preproc(std::istream                 &f,
 			else if (ifdef_pass_level > 0)
 				ifdef_pass_level--;
 			else
-				log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
+				log_error("Found %s outside of macro conditional branch!\n", tok);
 			continue;
 		}
 
 		if (tok == "`else") {
 			if (ifdef_fail_level == 0) {
 				if (ifdef_pass_level == 0)
-					log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
+					log_error("Found %s outside of macro conditional branch!\n", tok);
 				ifdef_pass_level--;
 				ifdef_fail_level = 1;
 				ifdef_already_satisfied = true;
@@ -810,7 +813,7 @@ frontend_verilog_preproc(std::istream                 &f,
 			std::string name = next_token(true);
 			if (ifdef_fail_level == 0) {
 				if (ifdef_pass_level == 0)
-					log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
+					log_error("Found %s outside of macro conditional branch!\n", tok);
 				ifdef_pass_level--;
 				ifdef_fail_level = 1;
 				ifdef_already_satisfied = true;
@@ -892,11 +895,7 @@ frontend_verilog_preproc(std::istream                 &f,
 				// if the include file was not found, it is not given with an absolute path, and the
 				// currently read file is given with a path, then try again relative to its directory
 				ff.clear();
-#ifdef _WIN32
-				fixed_fn = filename.substr(0, filename.find_last_of("/\\")+1) + fn;
-#else
-				fixed_fn = filename.substr(0, filename.rfind('/')+1) + fn;
-#endif
+				fixed_fn = parent_from_file_path(filename) + fn;
 				ff.open(fixed_fn);
 			}
 			if (ff.fail() && fn.size() > 0 && fn_relative) {
@@ -961,11 +960,11 @@ frontend_verilog_preproc(std::istream                 &f,
 		}
 
 		if (tok == "`resetall") {
-			default_nettype_wire = true;
+			parse_state.default_nettype_wire = true;
 			continue;
 		}
 
-		if (tok == "`undefineall" && sv_mode) {
+		if (tok == "`undefineall" && parse_mode.sv) {
 			defines.clear();
 			global_defines_cache.clear();
 			continue;

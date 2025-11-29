@@ -25,6 +25,9 @@ Web Site and Other Resources
 More information and documentation can be found on the Yosys web site:
 - https://yosyshq.net/yosys/
 
+If you have any Yosys-related questions, please post them on the Discourse group:
+- https://yosyshq.discourse.group
+
 Documentation from this repository is automatically built and available on Read
 the Docs:
 - https://yosyshq.readthedocs.io/projects/yosys
@@ -33,6 +36,9 @@ Users interested in formal verification might want to use the formal
 verification front-end for Yosys, SBY:
 - https://yosyshq.readthedocs.io/projects/sby/
 - https://github.com/YosysHQ/sby
+
+The Yosys blog has news and articles from users:
+- https://blog.yosyshq.com
 
 
 Installation
@@ -74,13 +80,13 @@ recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
 TCL, readline and libffi are optional (see ``ENABLE_*`` settings in Makefile).
 Xdot (graphviz) is used by the ``show`` command in yosys to display schematics.
 
-For example on Ubuntu Linux 16.04 LTS the following commands will install all
+For example on Ubuntu Linux 22.04 LTS the following commands will install all
 prerequisites for building yosys:
 
-	$ sudo apt-get install build-essential clang lld bison flex \
-		libreadline-dev gawk tcl-dev libffi-dev git \
-		graphviz xdot pkg-config python3 libboost-system-dev \
-		libboost-python-dev libboost-filesystem-dev zlib1g-dev
+	$ sudo apt-get install gawk git make python3 lld bison clang flex \
+		libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
+		graphviz xdot
+	$ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 The environment variable `CXX` can be used to control the C++ compiler used, or
 run one of the following to override it:
@@ -242,7 +248,7 @@ Note that there is no need to build the manual if you just want to read it.
 Simply visit https://yosys.readthedocs.io/en/latest/ instead.
 
 In addition to those packages listed above for building Yosys from source, the
-following are used for building the website: 
+following are used for building the website:
 
 	$ sudo apt install pdf2svg faketime
 
@@ -258,7 +264,7 @@ build process for the website.  Or, run the following:
 Or for MacOS, using homebrew:
 
   $ brew install basictex
-  $ sudo tlmgr update --self   
+  $ sudo tlmgr update --self
   $ sudo tlmgr install collection-latexextra latexmk tex-gyre
 
 The Python package, Sphinx, is needed along with those listed in
@@ -268,5 +274,13 @@ The Python package, Sphinx, is needed along with those listed in
 
 From the root of the repository, run `make docs`.  This will build/rebuild yosys
 as necessary before generating the website documentation from the yosys help
-commands.  To build for pdf instead of html, call 
+commands.  To build for pdf instead of html, call
 `make docs DOC_TARGET=latexpdf`.
+
+It is recommended to use the `ENABLE_HELP_SOURCE` make option for Yosys builds
+that will be used to build the documentation.  This option enables source
+location tracking for passes and improves the command reference through grouping
+related commands and allowing for the documentation to link to the corresponding
+source files.  Without this, a warning will be raised during the Sphinx build
+about `Found commands assigned to group unknown` and `make docs` is configured
+to fail on warnings by default.

@@ -59,10 +59,10 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setParam(ID::LUT, st.lut->getParam(ID(LUT_INIT)));
 
 	for (const auto &a : st.carry->attributes)
-		cell->attributes[stringf("\\SB_CARRY.%s", a.first.c_str())] = a.second;
+		cell->attributes[stringf("\\SB_CARRY.%s", a.first)] = a.second;
 	for (const auto &a : st.lut->attributes)
-		cell->attributes[stringf("\\SB_LUT4.%s", a.first.c_str())] = a.second;
-	cell->attributes[ID(SB_LUT4.name)] = Const(st.lut->name.str());
+		cell->attributes[stringf("\\SB_LUT4.%s", a.first)] = a.second;
+	cell->attributes[IdString{"\\SB_LUT4.name"}] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
 		cell->attributes[ID::keep] = true;
 
@@ -122,7 +122,7 @@ struct Ice40WrapCarryPass : public Pass {
 					carry->setPort(ID::CI, cell->getPort(ID::CI));
 					carry->setPort(ID::CO, cell->getPort(ID::CO));
 					module->swap_names(carry, cell);
-					auto lut_name = cell->attributes.at(ID(SB_LUT4.name), Const(NEW_ID.str())).decode_string();
+					auto lut_name = cell->attributes.at(IdString{"\\SB_LUT4.name"}, Const(NEW_ID.str())).decode_string();
 					auto lut = module->addCell(lut_name, ID($lut));
 					lut->setParam(ID::WIDTH, 4);
 					lut->setParam(ID::LUT, cell->getParam(ID::LUT));
@@ -138,7 +138,7 @@ struct Ice40WrapCarryPass : public Pass {
 							lut->attributes[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
 						else if (a.first == ID::src)
 							src = a.second;
-						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID::module_not_derived))
+						else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived))
 							continue;
 						else
 							log_abort();

@@ -41,7 +41,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 
 	if (module->count_id(name) != 0)
 	{
-		log("Module %s already has such an object %s.\n", module->name.c_str(), name.c_str());
+		log("Module %s already has such an object %s.\n", module->name, name);
 		name += "$";
 		return add_wire(module, name, width, flag_input, flag_output);
 	}
@@ -56,7 +56,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 			module->fixup_ports();
 		}
 
-		log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
+		log("Added wire %s to module %s.\n", name, module->name);
 	}
 
 	return wire;
@@ -243,7 +243,7 @@ struct SetundefPass : public Pass {
 			{
 				for (auto *cell : module->selected_cells()) {
 					for (auto &parameter : cell->parameters) {
-						for (auto &bit : parameter.second.bits()) {
+						for (auto bit : parameter.second) {
 							if (bit > RTLIL::State::S1)
 								bit = worker.next_bit();
 						}
@@ -319,7 +319,7 @@ struct SetundefPass : public Pass {
 							wire = add_wire(module, name, c.width, true, false);
 							module->connect(RTLIL::SigSig(c, wire));
 						}
-						log("Exposing undriven wire %s as input.\n", wire->name.c_str());
+						log("Exposing undriven wire %s as input.\n", wire->name);
 					}
 					module->fixup_ports();
 				}
@@ -364,7 +364,7 @@ struct SetundefPass : public Pass {
 
 				for (auto cell : module->cells())
 				{
-					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (!cell->is_builtin_ff())
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))
@@ -390,12 +390,12 @@ struct SetundefPass : public Pass {
 					for (auto wire : initwires)
 					{
 						Const &initval = wire->attributes[ID::init];
-						initval.bits().resize(GetSize(wire), State::Sx);
+						initval.resize(GetSize(wire), State::Sx);
 
 						for (int i = 0; i < GetSize(wire); i++) {
 							SigBit bit = sigmap(SigBit(wire, i));
 							if (initval[i] == State::Sx && ffbits.count(bit)) {
-								initval.bits()[i] = worker.next_bit();
+								initval.set(i, worker.next_bit());
 								ffbits.erase(bit);
 							}
 						}
@@ -421,7 +421,7 @@ struct SetundefPass : public Pass {
 								continue;
 
 							Const &initval = wire->attributes[ID::init];
-							initval.bits().resize(GetSize(wire), State::Sx);
+							initval.resize(GetSize(wire), State::Sx);
 
 							if (initval.is_fully_undef()) {
 								wire->attributes.erase(ID::init);

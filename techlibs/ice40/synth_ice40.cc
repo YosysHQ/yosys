@@ -265,7 +265,7 @@ struct SynthIce40Pass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
-			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
+			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt);
 
 		if (abc9 && retime)
 			log_cmd_error("-retime option not currently compatible with -abc9!\n");
@@ -302,7 +302,7 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 			run("proc");
 		}
 
@@ -419,10 +419,10 @@ struct SynthIce40Pass : public ScriptPass
 					std::string abc9_opts;
 					std::string k = "synth_ice40.abc9.W";
 					if (active_design && active_design->scratchpad.count(k))
-						abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+						abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
 					else {
-						k = stringf("synth_ice40.abc9.%s.W", device_opt.c_str());
-						abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
+						k = stringf("synth_ice40.abc9.%s.W", device_opt);
+						abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
 					}
 					if (dff)
 						abc9_opts += " -dff";
@@ -475,13 +475,13 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthIce40Pass;

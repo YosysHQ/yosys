@@ -16,18 +16,19 @@ import os
 import re
 import shlex
 import shutil
+from pathlib import Path
 from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
 
-__dir__ = os.path.dirname(os.path.abspath(__file__))
+import pybind11
+from pybind11.setup_helpers import build_ext
+
+__yosys_root__ = Path(__file__).parent
 
 yosys_version_rx = re.compile(r"YOSYS_VER\s*:=\s*([\w\-\+\.]+)")
 
-version = yosys_version_rx.search(
-    open(os.path.join(__dir__, "Makefile"), encoding="utf8").read()
-)[1].replace(
-    "+", "."
-)  # Convert to patch version
+with open(__yosys_root__ / "Makefile", encoding="utf8") as f:
+    # Extract and convert + to patch version
+    version = yosys_version_rx.search(f.read())[1].replace("+", ".")
 
 
 class libyosys_so_ext(Extension):
@@ -38,12 +39,19 @@ class libyosys_so_ext(Extension):
             "libyosys.so",
             [],
         )
+
+        # when iterating locally, you probably want to set this variable
+        # to avoid mass rebuilds bec of pybind11's include path changing
+        pybind_include = os.getenv("_FORCE_PYBIND_INCLUDE", pybind11.get_include())
+
         self.args = [
+            f"PYBIND11_INCLUDE={pybind_include}",
             "ENABLE_PYOSYS=1",
             # Would need to be installed separately by the user
             "ENABLE_TCL=0",
             "ENABLE_READLINE=0",
             "ENABLE_EDITLINE=0",
+            "PYOSYS_USE_UV=0", # + install requires takes its role when building wheels
             # Always compile and include ABC in wheel
             "ABCEXTERNAL=",
             # Show compile commands
@@ -51,39 +59,52 @@ class libyosys_so_ext(Extension):
         ]
 
     def custom_build(self, bext: build_ext):
+        make_flags_split = shlex.split(os.getenv("makeFlags", ""))
+        # abc linking takes a lot of memory, best get it out of the way first
+        bext.spawn(
+            [
+                "make",
+                f"-j{os.cpu_count() or 1}",
+                "yosys-abc",
+                *make_flags_split,
+                *self.args,
+            ]
+        )
+        # build libyosys and share with abc out of the way
         bext.spawn(
             [
                 "make",
                 f"-j{os.cpu_count() or 1}",
                 self.name,
-                "yosys-abc",
                 "share",
+                *make_flags_split,
+                *self.args,
             ]
-            + shlex.split(os.getenv("makeFlags", ""))
-            + self.args
         )
-        build_path = os.path.dirname(os.path.dirname(bext.get_ext_fullpath(self.name)))
-        pyosys_path = os.path.join(build_path, "pyosys")
+        ext_fullpath = Path(bext.get_ext_fullpath(self.name))
+        build_path = ext_fullpath.parents[1]
+        pyosys_path = build_path / "pyosys"
         os.makedirs(pyosys_path, exist_ok=True)
 
         # libyosys.so
-        target = os.path.join(pyosys_path, os.path.basename(self.name))
+        target = pyosys_path / self.name
         shutil.copy(self.name, target)
-        bext.spawn(["strip", "-S", target])
+        bext.spawn(["strip", "-S", str(target)])
 
         # yosys-abc
-        yosys_abc_target = os.path.join(pyosys_path, "yosys-abc")
+        yosys_abc_target = pyosys_path / "yosys-abc"
         shutil.copy("yosys-abc", yosys_abc_target)
-        bext.spawn(["strip", "-S", yosys_abc_target])
+        bext.spawn(["strip", "-S", str(yosys_abc_target)])
 
         # share directory
-        share_target = os.path.join(pyosys_path, "share")
+        share_target = pyosys_path / "share"
         try:
             shutil.rmtree(share_target)
         except FileNotFoundError:
             pass
 
         shutil.copytree("share", share_target)
+
 
 class custom_build_ext(build_ext):
     def build_extension(self, ext) -> None:
@@ -92,22 +113,23 @@ class custom_build_ext(build_ext):
         return ext.custom_build(self)
 
 
+with open(__yosys_root__ / "README.md", encoding="utf8") as f:
+    long_description = f.read()
+
 setup(
     name="pyosys",
     packages=["pyosys"],
     version=version,
     description="Python access to libyosys",
-    long_description=open(os.path.join(__dir__, "README.md")).read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    install_requires=["wheel", "setuptools"],
+    license="MIT",
     classifiers=[
-        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Intended Audience :: Developers",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
     ],
-    package_dir={"pyosys": "misc"},
     python_requires=">=3.8",
     ext_modules=[libyosys_so_ext()],
     cmdclass={

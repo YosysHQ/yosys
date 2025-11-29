@@ -24,6 +24,7 @@
 
 #include <time.h>
 
+#include <atomic>
 #include <regex>
 #define YS_REGEX_COMPILE(param) std::regex(param, \
 				std::regex_constants::nosubs | \
@@ -119,36 +120,91 @@ extern int log_make_debug;
 extern int log_force_debug;
 extern int log_debug_suppressed;
 
-void logv(const char *format, va_list ap);
-void logv_header(RTLIL::Design *design, const char *format, va_list ap);
-void logv_warning(const char *format, va_list ap);
-void logv_warning_noprefix(const char *format, va_list ap);
-[[noreturn]] void logv_error(const char *format, va_list ap);
+[[deprecated]]
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
-
-void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
-void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
-void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
-
-// Log with filename to report a problem in a source file.
-void log_file_warning(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
-void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
-
-void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-[[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-[[noreturn]] void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
-[[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
 #else
 static inline bool ys_debug(int = 0) { return false; }
 #endif
-static inline void log_debug(const char *format, ...) { if (ys_debug(1)) { va_list args; va_start(args, format); logv(format, args); va_end(args); } }
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
+
+void log_formatted_string(std::string_view format, std::string str);
+template <typename... Args>
+inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	if (log_make_debug && !ys_debug(1))
+		return;
+	log_formatted_string(fmt.format_string(), fmt.format(args...));
+}
+
+void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
+template <typename... Args>
+inline void log_header(RTLIL::Design *design, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_header(design, fmt.format_string(), fmt.format(args...));
+}
+
+void log_formatted_warning(std::string_view prefix, std::string str);
+template <typename... Args>
+inline void log_warning(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_warning("Warning: ", fmt.format(args...));
+}
+
+inline void log_formatted_warning_noprefix(std::string str)
+{
+	log_formatted_warning("", str);
+}
+template <typename... Args>
+inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_warning("", fmt.format(args...));
+}
+
+void log_experimental(const std::string &str);
+
+// Log with filename to report a problem in a source file.
+void log_formatted_file_warning(std::string_view filename, int lineno, std::string str);
+template <typename... Args>
+void log_file_warning(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_file_warning(filename, lineno, fmt.format(args...));
+}
+
+void log_formatted_file_info(std::string_view filename, int lineno, std::string str);
+template <typename... Args>
+void log_file_info(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	if (log_make_debug && !ys_debug(1))
+		return;
+	log_formatted_file_info(filename, lineno, fmt.format(args...));
+}
+
+[[noreturn]] void log_formatted_error(std::string str);
+template <typename... Args>
+[[noreturn]] void log_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_error(fmt.format(args...));
+}
+
+[[noreturn]] void log_formatted_file_error(std::string_view filename, int lineno, std::string str);
+template <typename... Args>
+[[noreturn]] void log_file_error(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_file_error(filename, lineno, fmt.format(args...));
+}
+
+[[noreturn]] void log_formatted_cmd_error(std::string str);
+template <typename... Args>
+[[noreturn]] void log_cmd_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_cmd_error(fmt.format(args...));
+}
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
@@ -201,13 +257,12 @@ struct LogExpectedItem
 };
 
 extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
+extern dict<std::string, LogExpectedItem> log_expect_prefix_log, log_expect_prefix_warning, log_expect_prefix_error;
 void log_check_expected();
 
-const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
-const char *log_const(const RTLIL::Const &value, bool autoint = true);
+std::string log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
+std::string log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(const RTLIL::IdString &id);
-const char *log_str(const char *str);
-const char *log_str(std::string const &str);
 
 template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
 	if (nullstr && obj == nullptr)
@@ -219,16 +274,20 @@ void log_module(RTLIL::Module *module, std::string indent = "");
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 void log_wire(RTLIL::Wire *wire, std::string indent = "");
 
+[[noreturn]]
+void log_assert_failure(const char *expr, const char *file, int line);
 #ifndef NDEBUG
 static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {
-	if (!cond) log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+	if (!cond) log_assert_failure(expr, file, line);
 }
 #  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else
 #  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
 #endif
 
-#define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
+[[noreturn]]
+void log_abort_internal(const char *file, int line);
+#define log_abort() YOSYS_NAMESPACE_PREFIX log_abort_internal(__FILE__, __LINE__)
 #define log_ping() YOSYS_NAMESPACE_PREFIX log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 
@@ -240,15 +299,16 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 
 #define cover(_id) do { \
     static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
-    __d.counter++; \
+    __d.counter.fetch_add(1, std::memory_order_relaxed); \
 } while (0)
 
 struct CoverData {
 	const char *file, *func, *id;
-	int line, counter;
-} YS_ATTRIBUTE(packed);
+	int line;
+	std::atomic<int> counter;
+};
 
-// this two symbols are created by the linker for the "yosys_cover_list" ELF section
+// this two symbols are created by the linker __start_yosys_cover_listfor the "yosys_cover_list" ELF section
 extern "C" struct CoverData __start_yosys_cover_list[];
 extern "C" struct CoverData __stop_yosys_cover_list[];
 
@@ -350,13 +410,27 @@ static inline void log_dump_val_worker(unsigned long int v) { log("%lu", v); }
 static inline void log_dump_val_worker(long long int v) { log("%lld", v); }
 static inline void log_dump_val_worker(unsigned long long int v) { log("%lld", v); }
 #endif
-static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
-static inline void log_dump_val_worker(unsigned char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
+static inline void log_dump_val_worker(char c)
+{
+	if (c >= 32 && c < 127) {
+		log("'%c'", c);
+	} else {
+		log("'\\x%02x'", c);
+	}
+}
+static inline void log_dump_val_worker(unsigned char c)
+{
+	if (c >= 32 && c < 127) {
+		log("'%c'", c);
+	} else {
+		log("'\\x%02x'", c);
+	}
+}
 static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
 static inline void log_dump_val_worker(double v) { log("%f", v); }
 static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
-static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
+static inline void log_dump_val_worker(std::string v) { log("%s", v); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
@@ -373,7 +447,7 @@ static inline void log_dump_val_worker(dict<K, T> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
-		log(first ? " " : ", ");
+		log("%s ", first ? "" : ",");
 		log_dump_val_worker(it.first);
 		log(": ");
 		log_dump_val_worker(it.second);
@@ -387,7 +461,7 @@ static inline void log_dump_val_worker(pool<K> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
-		log(first ? " " : ", ");
+		log("%s ", first ? "" : ",");
 		log_dump_val_worker(it);
 		first = false;
 	}
@@ -399,7 +473,7 @@ static inline void log_dump_val_worker(std::vector<K> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
-		log(first ? " " : ", ");
+		log("%s ", first ? "" : ",");
 		log_dump_val_worker(it);
 		first = false;
 	}

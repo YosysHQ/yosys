@@ -1,0 +1,23 @@
+read_verilog <<EOF
+module tag_2x4(
+  input        R0_clk,
+  input        W0_clk,
+  output       x,
+);
+  assign x = !W0_clk;
+endmodule
+
+module top(input clock, output x, output flag);
+  tag_2x4 tag_ext(
+    .R0_clk  (clock),
+    .W0_clk  (clock),
+    .x       (x)
+  );
+  assign flag = x ^ clock;
+endmodule
+EOF
+
+hierarchy -top top
+opt_hier
+flatten
+sat -verify -prove flag 1

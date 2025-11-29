@@ -157,6 +157,7 @@ splitnets -ports
 copy test gold
 flatten gold
 techmap submodule1
+opt_clean
 select test
 write_aiger2 -flatten aiger2_ops.aig
 select -clear
@@ -216,6 +217,7 @@ prep -top top
 techmap t:$add
 
 splitnets -ports top
+opt_clean
 write_aiger2 -flatten aiger2_flatten.aig
 flatten
 rename top gold

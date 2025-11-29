@@ -2,8 +2,100 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.53 .. Yosys 0.54-dev
+Yosys 0.59 .. Yosys 0.60-dev
 --------------------------
+
+Yosys 0.58 .. Yosys 0.59
+--------------------------
+ * Various
+    - Pyosys is rewritten using pybind11.
+    - alumacc: merge independent of sign.
+    - write_btor: Include $assert and $assume cells in -ywmap output.
+    - RTLIL parser rewritten for efficiency.
+    - Wildcards enabled for Liberty file consuming.
+    - timeest: Add top ports launching/sampling.
+
+ * New commands and options
+    - Added "-apply_derived_type" option to "box_derive" pass.
+    - Added "-publish_icells" option to "chtype" pass.
+    - Added "-width" option to "sim" pass.
+    - Added "sort" pass for sorting the design objects.
+    - Merged "synth_ecp5" and "synth_nexus" into "synth_lattice" pass.
+    - Added "-strict-gw5a-dffs" and "-setundef" options to "synth_gowin" pass.
+
+Yosys 0.57 .. Yosys 0.58
+--------------------------
+ * Various
+    - Run ABC passes in parallel.
+    - Extending support for buffer normalization.
+    - Overhaul of logging APIs.
+    - read_blif: Represent sequential elements with gate cells.
+    - Support multiple lib files in abc9_exe.
+
+ * New commands and options
+    - Added "-wireshape" option to "show" command to allow
+      control the shape of wire nodes.
+    - Added "-relativeshare" option to "read_verilog", "synth"
+      and "techmap" pass for synthesis reproducibility testing.
+    - "write_rtlil" pass no longer sorts design, added "-sort"
+      option to match old behavior
+    - Added "-sva-continue-on-err" to "verific" pass to allow
+      processing designs that includes unsupported SVA.
+
+Yosys 0.56 .. Yosys 0.57
+--------------------------
+ * New commands and options
+    - Added "-initstates" option to "abstract" pass.
+    - Added "-set-assumes" option to "equiv_induct"
+      and "equiv_simple" passes.
+    - Added "-always" option to "raise_error" pass.
+    - Added "-hierarchy" option to "stat" pass.
+    - Added "-noflatten" option to "synth_quicklogic" pass.
+
+ * Various
+    - smtbmc: Support skipping steps in cover mode.
+    - write_btor: support $buf.
+    - read_verilog: support package import.
+
+Yosys 0.55 .. Yosys 0.56
+--------------------------
+ * New commands and options
+    - Added "-unescape" option to "rename" pass.
+    - Added "-assert2cover" option to "chformal" pass.
+    - Added "linecoverage" pass to generate lcov report from selection.
+    - Added "opt_hier" pass to enable hierarchical optimization.
+    - Added "-hieropt" option to "synth" pass.
+    - Added "-expect-return", "-err-grep" and "-suffix" options
+      to "bugpoint" pass.
+    - Added "raise_error" dev pass.
+
+ * Various
+    - Added groups to command reference documentation.
+    - Added bugpoint guide to documentation.
+    - verific: correctly reset Verific flags after import.
+
+Yosys 0.54 .. Yosys 0.55
+--------------------------
+ * Various
+    - read_verilog: Implemented SystemVerilog unique/priority if.
+    - "attrmap" pass is able to alter memory attributes.
+    - verific: Support SVA followed-by operator in cover mode.
+
+Yosys 0.53 .. Yosys 0.54
+--------------------------
+ * New commands and options
+    - Added "-genlib" option to "abc_new" and "abc9_exe" passes.
+    - Added "-verbose" and "-quiet" options to "libcache" pass.
+    - Added "-no-sort" option to "write_aiger" pass.
+
+ * Various
+    - Added "muldiv_c" peepopt.
+    - Accept (and ignore) SystemVerilog unique/priority if.
+    - "read_verilog" copy inout ports in and out of functions/tasks.
+    - Enable single-bit vector wires in RTLIL.
+
+ * Xilinx support
+    - Single-port URAM mapping to support memories 2048 x 144b 
 
 Yosys 0.52 .. Yosys 0.53
 --------------------------
