@@ -720,7 +720,7 @@ dict<std::string, std::pair<std::string, int>> get_coverage_data()
 		if (coverage_data.count(p->id))
 			log_warning("found duplicate coverage id \"%s\".\n", p->id);
 		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-		coverage_data[p->id].second += p->counter;
+		coverage_data[p->id].second += p->counter.load(std::memory_order_relaxed);
 	}
 
 	for (auto &it : coverage_data)

@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
+#include "kernel/log.h"
 
 #include "libs/backward-cpp/backward.hpp"
 
@@ -82,7 +83,7 @@ extern "C" PyObject* PyInit_pyosys();
 
 YOSYS_NAMESPACE_BEGIN
 
-int autoidx = 1;
+Autoidx autoidx(1);
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
 const char* yosys_maybe_version() {
@@ -110,8 +111,29 @@ uint32_t Hasher::fudge = 0;
 std::string yosys_share_dirname;
 std::string yosys_abc_executable;
 
+bool Multithreading::active_ = false;
+
 void init_share_dirname();
 void init_abc_executable_name();
+
+Multithreading::Multithreading() {
+	log_assert(!active_);
+	active_ = true;
+}
+
+Multithreading::~Multithreading() {
+	log_assert(active_);
+	active_ = false;
+}
+
+void Autoidx::ensure_at_least(int v) {
+	value = std::max(value, v);
+}
+
+int Autoidx::operator++(int) {
+	log_assert(!Multithreading::active());
+	return value++;
+}
 
 void memhasher_on()
 {

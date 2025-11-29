@@ -40,12 +40,9 @@ bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<RTLIL::IdString::Storage> RTLIL::IdString::global_id_storage_;
 std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
-std::unordered_map<int, const std::string*> RTLIL::IdString::global_autoidx_id_prefix_storage_;
-std::unordered_map<int, char*> RTLIL::IdString::global_autoidx_id_storage_;
-#ifndef YOSYS_NO_IDS_REFCNT
+std::unordered_map<int, RTLIL::IdString::AutoidxStorage> RTLIL::IdString::global_autoidx_id_storage_;
 std::unordered_map<int, int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
-#endif
 
 static void populate(std::string_view name)
 {
@@ -97,16 +94,16 @@ int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::s
 		size_t autoidx_pos = p.find_last_of('$') + 1;
 		std::optional<int> p_autoidx = parse_autoidx(p.substr(autoidx_pos));
 		if (p_autoidx.has_value()) {
-			auto prefix_it = global_autoidx_id_prefix_storage_.find(-*p_autoidx);
-			if (prefix_it != global_autoidx_id_prefix_storage_.end() && p.substr(0, autoidx_pos) == *prefix_it->second)
+			auto autoidx_it = global_autoidx_id_storage_.find(-*p_autoidx);
+			if (autoidx_it != global_autoidx_id_storage_.end() &&
+					p.substr(0, autoidx_pos) == *autoidx_it->second.prefix)
 				return -*p_autoidx;
 			// Ensure NEW_ID/NEW_ID_SUFFIX will not create collisions with the ID
 			// we're about to create.
-			autoidx = std::max(autoidx, *p_autoidx + 1);
+			autoidx.ensure_at_least(*p_autoidx + 1);
 		}
 	}
 
-#ifndef YOSYS_NO_IDS_REFCNT
 	if (global_free_idx_list_.empty()) {
 		log_assert(global_id_storage_.size() < 0x40000000);
 		global_free_idx_list_.push_back(global_id_storage_.size());
@@ -115,10 +112,6 @@ int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::s
 
 	int idx = global_free_idx_list_.back();
 	global_free_idx_list_.pop_back();
-#else
-	int idx = global_id_storage_.size();
-	global_id_index_[global_id_storage_.back()] = idx;
-#endif
 	char* buf = static_cast<char*>(malloc(p.size() + 1));
 	memcpy(buf, p.data(), p.size());
 	buf[p.size()] = 0;
@@ -251,7 +244,6 @@ int RTLIL::OwningIdString::gc_count;
 void RTLIL::OwningIdString::collect_garbage()
 {
 	int64_t start = PerformanceTimer::query();
-#ifndef YOSYS_NO_IDS_REFCNT
 	IdStringCollector collector;
 	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
 		collector.trace(*design);
@@ -277,7 +269,7 @@ void RTLIL::OwningIdString::collect_garbage()
 		global_free_idx_list_.push_back(i);
 	}
 
-	for (auto it = global_autoidx_id_prefix_storage_.begin(); it != global_autoidx_id_prefix_storage_.end();) {
+	for (auto it = global_autoidx_id_storage_.begin(); it != global_autoidx_id_storage_.end();) {
 		if (collector.live.find(it->first) != collector.live.end()) {
 			++it;
 			continue;
@@ -286,14 +278,9 @@ void RTLIL::OwningIdString::collect_garbage()
 			++it;
 			continue;
 		}
-		auto str_it = global_autoidx_id_storage_.find(it->first);
-		if (str_it != global_autoidx_id_storage_.end()) {
-			delete[] str_it->second;
-			global_autoidx_id_storage_.erase(str_it);
-		}
-		it = global_autoidx_id_prefix_storage_.erase(it);
+		it = global_autoidx_id_storage_.erase(it);
 	}
-#endif
+
 	int64_t time_ns = PerformanceTimer::query() - start;
 	Pass::subtract_from_current_runtime_ns(time_ns);
 	gc_ns += time_ns;

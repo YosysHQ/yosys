@@ -26,6 +26,7 @@ ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_VERIFIC_UPF := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
+ENABLE_LIBYOSYS_STATIC := 0
 ENABLE_ZLIB := 1
 ENABLE_HELP_SOURCE := 0
 ENABLE_BACKTRACE := 1
@@ -177,7 +178,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.59+117
+YOSYS_VER := 0.59+134
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -358,6 +359,9 @@ endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
+ifeq ($(ENABLE_LIBYOSYS_STATIC),1)
+TARGETS += libyosys.a
+endif
 endif
 
 PY_WRAPPER_FILE = pyosys/wrappers
@@ -828,6 +832,9 @@ else
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 endif
 
+libyosys.a: $(filter-out kernel/driver.o,$(OBJS))
+	$(P) $(AR) rcs $@ $^
+
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
@@ -1080,7 +1087,7 @@ install-dev: $(PROGRAM_PREFIX)yosys-config share
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) cp $(filter-out libyosys.so libyosys.a,$(TARGETS)) $(DESTDIR)$(BINDIR)
 ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
 	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys; fi
 endif
@@ -1096,6 +1103,9 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so; fi
+ifeq ($(ENABLE_LIBYOSYS_STATIC),1)
+	$(INSTALL_SUDO) cp libyosys.a $(DESTDIR)$(LIBDIR)/
+endif
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 	$(INSTALL_SUDO) cp $(YOSYS_SRC)/pyosys/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
@@ -1118,6 +1128,9 @@ uninstall:
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
+ifeq ($(ENABLE_LIBYOSYS_STATIC),1)
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.a
+endif
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
@@ -1216,7 +1229,7 @@ clean-py:
 	rm -f $(PY_WRAPPER_FILE).inc.cc $(PY_WRAPPER_FILE).cc
 	rm -f $(PYTHON_OBJECTS)
 	rm -f *.whl
-	rm -f libyosys.so
+	rm -f libyosys.so libyosys.a
 	rm -rf kernel/*.pyh
 
 clean-abc:

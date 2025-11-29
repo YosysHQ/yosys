@@ -245,7 +245,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					if (undef_wire != nullptr)
 						module->rename(undef_wire, stringf("$undef$%d", ++blif_maxnum));
 
-					autoidx = std::max(autoidx, blif_maxnum+1);
+					autoidx.ensure_at_least(blif_maxnum+1);
 					blif_maxnum = 0;
 				}
 
