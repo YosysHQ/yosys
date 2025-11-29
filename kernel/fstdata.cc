@@ -19,8 +19,6 @@
 
 #include "kernel/fstdata.h"
 
-#include <stdlib.h>
-
 USING_YOSYS_NAMESPACE
 
 
