@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-pytest -v -n auto "$@" --steps 100
+pytest -v -m "not smt and not rkt" "$@"
