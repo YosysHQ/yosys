@@ -188,6 +188,7 @@ struct SmtrModule {
 	Functional::IR ir;
 	SmtrScope scope;
 	std::string name;
+	bool use_assoc_list_helpers;
 	std::optional<std::string> input_helper_name;
 	std::optional<std::string> output_helper_name;
 
@@ -196,7 +197,7 @@ struct SmtrModule {
 	SmtrStruct state_struct;
 
 	SmtrModule(Module *module, bool assoc_list_helpers)
-	    : ir(Functional::IR::from_module(module)), scope(), name(scope.unique_name(module->name)),
+	    : ir(Functional::IR::from_module(module)), scope(), name(scope.unique_name(module->name)), use_assoc_list_helpers(assoc_list_helpers),
 	      input_struct(scope.unique_name(module->name.str() + "_Inputs"), scope),
 	      output_struct(scope.unique_name(module->name.str() + "_Outputs"), scope),
 	      state_struct(scope.unique_name(module->name.str() + "_State"), scope)
@@ -265,6 +266,9 @@ struct SmtrModule {
 
 	void write_assoc_list_helpers(SExprWriter &w)
 	{
+		if (!output_helper_name || !input_helper_name)
+			log_error("if using keyword helpers, both input and output helper names are expected");
+
 		// Input struct keyword-based constructor.
 		w.push();
 		w.open(list("define"));
@@ -308,9 +312,7 @@ struct SmtrModule {
 		output_struct.write_definition(w);
 		state_struct.write_definition(w);
 
-		if (input_helper_name || output_helper_name) {
-			if (!output_helper_name || !input_helper_name)
-				log_error("if keyword helpers are enabled, both input and output helper names are expected");
+		if (use_assoc_list_helpers) {
 			write_assoc_list_helpers(w);
 		}
 
