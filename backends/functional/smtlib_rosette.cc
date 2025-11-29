@@ -308,8 +308,8 @@ struct SmtrModule {
 		output_struct.write_definition(w);
 		state_struct.write_definition(w);
 
-		if (input_helper_name) {
-			if (!output_helper_name)
+		if (input_helper_name || output_helper_name) {
+			if (!output_helper_name || !input_helper_name)
 				log_error("if keyword helpers are enabled, both input and output helper names are expected");
 			write_assoc_list_helpers(w);
 		}
