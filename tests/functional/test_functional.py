@@ -75,7 +75,7 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
 
 @pytest.mark.rkt
 @pytest.mark.parametrize("use_assoc_list_helpers", [True, False])
-def test_rkt(cell, parameters, tmp_path, num_steps, rnd):
+def test_rkt(cell, parameters, tmp_path, num_steps, rnd, use_assoc_list_helpers):
     import rkt_vcd
 
     rtlil_file = tmp_path / 'rtlil.il'
