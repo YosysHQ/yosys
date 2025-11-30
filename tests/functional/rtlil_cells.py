@@ -374,9 +374,8 @@ def generate_test_cases(per_cell, rnd):
         for (name, parameters) in cell.generate_tests(rnd):
             if not name in seen_names:
                 seen_names.add(name)
-                full_name = f'{cell.name}-{name}' if name != '' else cell.name
-                tests.append((full_name, cell, parameters))
-                names.append(full_name)
+                tests.append((cell, parameters))
+                names.append(f'{cell.name}-{name}' if name != '' else cell.name)
                 if per_cell is not None and len(seen_names) >= per_cell:
                     break
     return (names, tests)
