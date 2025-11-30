@@ -124,13 +124,8 @@ def simulate_rosette(
 
 
     cmd = ["racket", test_rkt_file_path]
-    try:
-        status = subprocess.run(cmd, capture_output=True, check=True)
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"Racket simulation failed with command: {cmd}\n"
-            f"Error: {e.stderr.decode()}"
-        ) from e
+    status = subprocess.run(cmd, capture_output=True)
+    assert status.returncode == 0, f"{cmd[0]} failed"
 
     for signal in outputs.keys():
         signals[signal] = []
@@ -154,12 +149,10 @@ def simulate_rosette(
         )
         for output, (value, width) in outputs_values_and_widths:
             assert isinstance(value, str), f"Bad value {value!r}"
-            assert value.startswith(("#b", "#x")), f"Non-binary value {value!r}"
-            assert (
-                int(width) == outputs[output]
-            ), f"Width mismatch for output {output!r} (got {width}, expected {outputs[output]})"
-            int_value = int(value[2:], 16 if value.startswith("#x") else 2)
-            binary_string = format(int_value, "0{}b".format(width))
+            assert value.startswith(('#b', '#x')), f"Non-binary value {value!r}"
+            assert int(width) == outputs[output], f"Width mismatch for output {output!r} (got {width}, expected {outputs[output]})"
+            int_value = int(value[2:], 16 if value.startswith('#x') else 2)
+            binary_string = format(int_value, '0{}b'.format(width))
             signals[output].append(binary_string)
 
     vcd_signals: SignalStepMap = {}
