@@ -849,7 +849,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		for (auto wire : mod->wires()) {
 			if (wire->port_input && !wire->port_output) {
 				SigSpec port = driver->getPort(wire->name);
-				for (int i = 0; i < wire->width; i++) {
+				for (int i = 0; i < std::min(wire->width, port.size()); i++) {
 					int ilevel = visit(cursor, port[i]);
 					max = std::max(max, ilevel + 1);
 				}
