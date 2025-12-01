@@ -185,37 +185,50 @@ struct AigMaker
 
 	int or_gate(int A, int B)
 	{
-		return nand_gate(not_gate(A), not_gate(B));
+		int not_a = not_gate(A);
+		int not_b = not_gate(B);
+		return nand_gate(not_a, not_b);
 	}
 
 	int nor_gate(int A, int B)
 	{
-		return and_gate(not_gate(A), not_gate(B));
+		int not_a = not_gate(A);
+		int not_b = not_gate(B);
+		return and_gate(not_a, not_b);
 	}
 
 	int xor_gate(int A, int B)
 	{
-		return nor_gate(and_gate(A, B), nor_gate(A, B));
+		int a_and_b = and_gate(A, B);
+		int a_nor_b = nor_gate(A, B);
+		return nor_gate(a_and_b, a_nor_b);
 	}
 
 	int xnor_gate(int A, int B)
 	{
-		return or_gate(and_gate(A, B), nor_gate(A, B));
+		int a_and_b = and_gate(A, B);
+		int a_nor_b = nor_gate(A, B);
+		return or_gate(a_and_b, a_nor_b);
 	}
 
 	int andnot_gate(int A, int B)
 	{
-		return and_gate(A, not_gate(B));
+		int not_b = not_gate(B);
+		return and_gate(A, not_b);
 	}
 
 	int ornot_gate(int A, int B)
 	{
-		return or_gate(A, not_gate(B));
+		int not_b = not_gate(B);
+		return or_gate(A, not_b);
 	}
 
 	int mux_gate(int A, int B, int S)
 	{
-		return or_gate(and_gate(A, not_gate(S)), and_gate(B, S));
+		int not_s = not_gate(S);
+		int a_active = and_gate(A, not_s);
+		int b_active = and_gate(B, S);
+		return or_gate(a_active, b_active);
 	}
 
 	vector<int> adder(const vector<int> &A, const vector<int> &B, int carry, vector<int> *X = nullptr, vector<int> *CO = nullptr)
