@@ -1,14 +1,6 @@
 Contributing to Yosys
 =====================
 
-.. note::
-
-   For information on making a pull request on github, refer to our
-   |CONTRIBUTING|_ file.
-
-.. |CONTRIBUTING| replace:: :file:`CONTRIBUTING.md`
-.. _CONTRIBUTING: https://github.com/YosysHQ/yosys/blob/main/CONTRIBUTING.md
-
 Coding Style
 ------------
 
@@ -47,11 +39,13 @@ Use range-based for loops whenever applicable.
 Reporting bugs
 --------------
 
-- use the `bug report template`_
+A good bug report includes the following information:
 
-.. _bug report template: https://github.com/YosysHQ/yosys/issues/new?template=bug_report.yml
 
-- short title briefly describing the issue, e.g.
+Title
+~~~~~
+
+briefly describe the issue, for example:
 
    techmap of wide mux with undefined inputs raises error during synth_xilinx
 
@@ -64,10 +58,18 @@ Reporting bugs
 Reproduction Steps
 ~~~~~~~~~~~~~~~~~~
 
-- ideally a code-block (starting and ending with triple backquotes) containing
-  the minimized design (Verilog or RTLIL), followed by a code-block containing
-  the minimized yosys script OR a command line call to yosys with
-  code-formatting (starting and ending with single backquotes)
+The reproduction steps should be a minimal, complete and verifiable
+example `MVCE`_.
+Providing an MVCE with your bug report drastically increases the likelihood that
+someone will be able to help resolve your issue.
+One way to minimize a design is to use the `bugpoint_` command.
+You can learn more in the `how-to guide for bugpoint_`.
+
+The reproduction steps are ideally a code-block (starting and ending with
+triple backquotes) containing
+the minimized design (Verilog or RTLIL), followed by a code-block containing
+the minimized yosys script OR a command line call to yosys with
+code-formatting (starting and ending with single backquotes).
 
 .. code-block:: markdown
 
@@ -86,9 +88,9 @@ Reproduction Steps
 
    `yosys -p ': minimum sequence of commands;' min.v`
 
-- alternatively can provide a single code-block which includes the minimized
-  design as a "here document" followed by the sequence of commands which
-  reproduce the error
+Alternatively, you can provide a single code-block which includes the minimized
+design as a "here document" followed by the sequence of commands which
+reproduce the error
 
   + see :doc:`/using_yosys/more_scripting/load_design` for more on heredocs.
 
@@ -101,7 +103,9 @@ Reproduction Steps
    # minimum sequence of commands
    ```
 
-- any environment variables or command line options should also be mentioned
+Don't forget to mention:
+
+- any important environment variables or command line options
 - if the problem occurs for a range of values/designs, what is that range
 - if you're using an external tool, such as ``valgrind``, to detect the issue,
   what version of that tool are you using and what options are you giving it
@@ -115,24 +119,31 @@ Reproduction Steps
    around Yosys such as OpenLane; you should instead minimize your input and
    reproduction steps to just the Yosys part.
 
-"Expected Behaviour"
-~~~~~~~~~~~~~~~~~~~~
+.. _MVCE: https://stackoverflow.com/help/minimal-reproducible-example
+.. _bugpoint: https://yosys.readthedocs.io/en/latest/cmd/bugpoint.html
+.. _how-to guide for bugpoint: https://yosys.readthedocs.io/en/latest/using_yosys/bugpoint.html
 
-- if you have a similar design/script that doesn't give the error, include it
-  here as a reference
-- if the bug is that an error *should* be raised but isn't, are there any other
-  commands with similar error messages
-
-
-"Actual Behaviour"
+Expected Behaviour
 ~~~~~~~~~~~~~~~~~~
 
-- any error messages go here
+Describe what you'd expect to happen when we follow the reproduction steps
+if the bug was fixed.
+
+If you have a similar design/script that doesn't give the error, include it
+here as a reference. If the bug is that an error *should* be raised but isn't,
+note if there are any other commands with similar error messages.
+
+
+Actual Behaviour
+~~~~~~~~~~~~~~~~
+
+Describe what you actually see when you follow the reproduction steps.
+
+This can include:
+- any error messages
 - any details relevant to the crash that were found with ``--trace`` or
   ``--debug`` flags
-- if you identified the point of failure in the source code, you could mention
-  it here, or as a comment below
-
+- the part of the source code that triggers the bug
   + if possible, use a permalink to the source on GitHub
   + you can browse the source repository for a certain commit with the failure
     and open the source file, select the relevant lines (click on the line
@@ -145,16 +156,19 @@ Reproduction Steps
     source specified, with a link to the source file at the given commit
 
 
-Additional details
+Additional Details
 ~~~~~~~~~~~~~~~~~~
 
-- once you have created the issue, any additional details can be added as a
-  comment on that issue
-- could include any additional context as to what you were doing when you first
-  encountered the bug
-- was this issue discovered through the use of a fuzzer
-- if you've minimized the script, consider including the `bugpoint` script you
-  used, or the original script, e.g.
+Anything else you think might be helpful or relevant when verifying or fixing
+the bug.
+
+Once you have created the issue, any additional details can be added as a
+comment on that issue. You can include any additional context as to what you
+were doing when you first encountered the bug.
+
+If this issue discovered through the use of a fuzzer, ALWAYS declare that.
+If you've minimized the script, consider including the `bugpoint` script you
+used, or the original script, for example:
 
 .. code-block:: markdown
 
@@ -171,8 +185,7 @@ Additional details
    Minimized from
    `yosys -p ': original sequence of commands to produce error;' design.v`
 
-- if you're able to, it may also help to share the original un-minimized design
-
-  + if the design is too big for a comment, consider turning it into a `Gist`_
+If possible, it may also help to share the original un-minimized design.
+If the design is too big for a comment, consider turning it into a `Gist`_
 
 .. _Gist: https://gist.github.com/
