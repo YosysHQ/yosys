@@ -231,17 +231,22 @@ struct AigMaker
 		return or_gate(a_active, b_active);
 	}
 
-	vector<int> adder(const vector<int> &A, const vector<int> &B, int carry, vector<int> *X = nullptr, vector<int> *CO = nullptr)
+	vector<int> adder(const vector<int> &A, const vector<int> &B, int carry_in, vector<int> *X = nullptr, vector<int> *CO = nullptr)
 	{
 		vector<int> Y(GetSize(A));
 		log_assert(GetSize(A) == GetSize(B));
 		for (int i = 0; i < GetSize(A); i++) {
-			Y[i] = xor_gate(xor_gate(A[i], B[i]), carry);
-			carry = or_gate(and_gate(A[i], B[i]), and_gate(or_gate(A[i], B[i]), carry));
+			int a_xor_b = xor_gate(A[i], B[i]);
+			int a_or_b = or_gate(A[i], B[i]);
+			int a_and_b = and_gate(A[i], B[i]);
+			Y[i] = xor_gate(a_xor_b, carry_in);
+			int tmp = and_gate(a_or_b, carry_in);
+			int carry_out = or_gate(a_and_b, tmp);
 			if (X != nullptr)
-				X->at(i) = xor_gate(A[i], B[i]);
+				X->at(i) = a_xor_b;
 			if (CO != nullptr)
-				CO->at(i) = carry;
+				CO->at(i) = carry_out;
+			carry_in = carry_out;
 		}
 		return Y;
 	}
