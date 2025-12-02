@@ -325,13 +325,13 @@ Aig::Aig(Cell *cell)
 			int A = mk.inport(ID::A, i);
 			int B = mk.inport(ID::B, i);
 			int Y = cell->type.in(ID($and), ID($_AND_))   ? mk.and_gate(A, B) :
-			        cell->type.in(ID($_NAND_))          ? mk.nand_gate(A, B) :
+			        cell->type.in(ID($_NAND_))            ? mk.nand_gate(A, B) :
 			        cell->type.in(ID($or), ID($_OR_))     ? mk.or_gate(A, B) :
-			        cell->type.in(ID($_NOR_))           ? mk.nor_gate(A, B) :
+			        cell->type.in(ID($_NOR_))             ? mk.nor_gate(A, B) :
 			        cell->type.in(ID($xor), ID($_XOR_))   ? mk.xor_gate(A, B) :
 			        cell->type.in(ID($xnor), ID($_XNOR_)) ? mk.xnor_gate(A, B) :
-			        cell->type.in(ID($_ANDNOT_))        ? mk.andnot_gate(A, B) :
-			        cell->type.in(ID($_ORNOT_))         ? mk.ornot_gate(A, B) : -1;
+			        cell->type.in(ID($_ANDNOT_))          ? mk.andnot_gate(A, B) :
+			        cell->type.in(ID($_ORNOT_))           ? mk.ornot_gate(A, B) : -1;
 			mk.outport(Y, ID::Y, i);
 		}
 		goto optimize;
