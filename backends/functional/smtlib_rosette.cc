@@ -266,8 +266,7 @@ struct SmtrModule {
 
 	void write_assoc_list_helpers(SExprWriter &w)
 	{
-		if (!output_helper_name || !input_helper_name)
-			log_error("if using keyword helpers, both input and output helper names are expected");
+		log_assert(output_helper_name && input_helper_name);
 
 		// Input struct keyword-based constructor.
 		w.push();
@@ -292,7 +291,7 @@ struct SmtrModule {
 			w.pop();
 		}
 		w.pop();
-		// Output struct keyword-based destructor.
+		// Output struct keyword-based destructuring
 		w.push();
 		w.open(list("define"));
 		const auto outputs_name = "outputs";
