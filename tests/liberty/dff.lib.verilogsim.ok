@@ -5,8 +5,9 @@ module dff (D, CLK, Q);
   output Q;
   assign Q = IQ; // IQ
   always @(posedge CLK) begin
-      // "(D)"
       IQ <= D;
+  end
+  always @(posedge CLK) begin
       IQN <= ~(D);
   end
 endmodule

@@ -41,6 +41,7 @@ module imux2 (A, B, S, Y);
 endmodule
 module dff (D, CLK, RESET, PRESET, Q, QN);
   reg IQ, IQN;
+  wire IQ_clear, IQ_preset;
   input D;
   input CLK;
   input RESET;
@@ -49,25 +50,30 @@ module dff (D, CLK, RESET, PRESET, Q, QN);
   assign Q = IQ; // "IQ"
   output QN;
   assign QN = IQN; // "IQN"
-  always @(posedge CLK, posedge RESET, posedge PRESET) begin
-    if ((RESET) && (PRESET)) begin
+  always @(posedge CLK, posedge IQ_clear, posedge IQ_preset) begin
+    if (IQ_clear) begin
       IQ <= 0;
-      IQN <= 0;
     end
-    else if (RESET) begin
-      IQ <= 0;
-      IQN <= 1;
-    end
-    else if (PRESET) begin
+    else if (IQ_preset) begin
       IQ <= 1;
-      IQN <= 0;
     end
     else begin
-      // "D"
       IQ <= D;
+    end
+  end
+  always @(posedge CLK, posedge IQ_clear, posedge IQ_preset) begin
+    if (IQ_preset) begin
+      IQN <= 0;
+    end
+    else if (IQ_clear) begin
+      IQN <= 1;
+    end
+    else begin
       IQN <= ~(D);
     end
   end
+  assign IQ_clear = RESET;
+  assign IQ_preset = PRESET;
 endmodule
 module latch (D, G, Q, QN);
   reg IQ, IQN;

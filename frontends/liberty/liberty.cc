@@ -40,14 +40,14 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 			expr[id_len] == '_' || expr[id_len] == '[' || expr[id_len] == ']') id_len++;
 
 	if (id_len == 0)
-		log_error("Expected identifier at `%s'.\n", expr);
+		log_error("Expected identifier at `%s' in %s.\n", expr, RTLIL::unescape_id(module->name));
 
 	if (id_len == 1 && (*expr == '0' || *expr == '1'))
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
 	if (!module->wires_.count(id))
-		log_error("Can't resolve wire name %s.\n", RTLIL::unescape_id(id));
+		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), RTLIL::unescape_id(module->name));
 
 	expr += id_len;
 	return module->wires_.at(id);
@@ -174,7 +174,7 @@ static RTLIL::SigSpec parse_func_expr(RTLIL::Module *module, const char *expr)
 #endif
 
 	if (stack.size() != 1 || stack.back().type != 3)
-		log_error("Parser error in function expr `%s'.\n", orig_expr);
+		log_error("Parser error in function expr `%s'in %s.\n", orig_expr, RTLIL::unescape_id(module->name));
 
 	return stack.back().sig;
 }
@@ -191,11 +191,23 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 	return cell->getPort(ID::Y);
 }
 
+static void create_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
+{
+	module->addWire(RTLIL::escape_id(node->args.at(0)));
+	module->addWire(RTLIL::escape_id(node->args.at(1)));
+}
+
+static std::pair<RTLIL::SigSpec, RTLIL::SigSpec> find_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
+{
+	auto* iq_wire = module->wire(RTLIL::escape_id(node->args.at(0)));
+	auto* iqn_wire = module->wire(RTLIL::escape_id(node->args.at(1)));
+	log_assert(iq_wire && iqn_wire);
+	return std::make_pair(iq_wire, iqn_wire);
+}
+
 static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 {
-	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
-	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
-
+	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec clk_sig, data_sig, clear_sig, preset_sig;
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
 
@@ -211,7 +223,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	}
 
 	if (clk_sig.size() == 0 || data_sig.size() == 0)
-		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", log_id(module->name));
+		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", RTLIL::unescape_id(module->name));
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
 	{
@@ -270,9 +282,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 
 static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool flag_ignore_miss_data_latch)
 {
-	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
-	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
-
+	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec enable_sig, data_sig, clear_sig, preset_sig;
 	bool enable_polarity = true, clear_polarity = true, preset_polarity = true;
 
@@ -289,9 +299,9 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 
 	if (enable_sig.size() == 0 || data_sig.size() == 0) {
 		if (!flag_ignore_miss_data_latch)
-			log_error("Latch cell %s has no data_in and/or enable attribute.\n", log_id(module->name));
+			log_error("Latch cell %s has no data_in and/or enable attribute.\n", RTLIL::unescape_id(module->name));
 		else
-			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", log_id(module->name));
+			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", RTLIL::unescape_id(module->name));
 
 		return false;
 	}
@@ -582,9 +592,9 @@ struct LibertyFrontend : public Frontend {
 					{
 						if (!flag_ignore_miss_dir)
 						{
-							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0), log_id(module->name));
+							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0), RTLIL::unescape_id(module->name));
 						} else {
-							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", log_id(module->name), node->args.at(0));
+							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", RTLIL::unescape_id(module->name), node->args.at(0));
 							delete module;
 							goto skip_cell;
 						}
@@ -596,13 +606,13 @@ struct LibertyFrontend : public Frontend {
 				if (node->id == "bus" && node->args.size() == 1)
 				{
 					if (flag_ignore_buses) {
-						log("Ignoring cell %s with a bus interface %s.\n", log_id(module->name), node->args.at(0));
+						log("Ignoring cell %s with a bus interface %s.\n", RTLIL::unescape_id(module->name), node->args.at(0));
 						delete module;
 						goto skip_cell;
 					}
 
 					if (!flag_lib)
-						log_error("Error in cell %s: bus interfaces are only supported in -lib mode.\n", log_id(cell_name));
+						log_error("Error in cell %s: bus interfaces are only supported in -lib mode.\n", RTLIL::unescape_id(cell_name));
 
 					const LibertyAst *dir = node->find("direction");
 
@@ -613,7 +623,7 @@ struct LibertyFrontend : public Frontend {
 					}
 
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
-						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0), log_id(module->name));
+						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0), RTLIL::unescape_id(module->name));
 
 					simple_comb_cell = false;
 
@@ -624,7 +634,7 @@ struct LibertyFrontend : public Frontend {
 
 					if (!bus_type_node || !type_map.count(bus_type_node->value))
 						log_error("Unknown or unsupported type for bus interface %s on cell %s.\n",
-								node->args.at(0).c_str(), log_id(cell_name));
+								node->args.at(0).c_str(), RTLIL::unescape_id(cell_name));
 
 					int bus_type_width = std::get<0>(type_map.at(bus_type_node->value));
 					int bus_type_offset = std::get<1>(type_map.at(bus_type_node->value));
@@ -646,6 +656,13 @@ struct LibertyFrontend : public Frontend {
 			{
 				// some liberty files do not put ff/latch at the beginning of a cell
 				// try to find "ff" or "latch" and create FF/latch _before_ processing all other nodes
+				// but first, in case of balloon retention cells, we need all ff/latch output wires
+				// defined before we add ff/latch cells
+				for (auto node : cell->children)
+				{
+					if ((node->id == "ff" && node->args.size() == 2) || (node->id == "latch" && node->args.size() == 2))
+						create_latch_ff_wires(module, node);
+				}
 				for (auto node : cell->children)
 				{
 					if (node->id == "ff" && node->args.size() == 2)
@@ -701,9 +718,9 @@ struct LibertyFrontend : public Frontend {
 						if (dir->value != "inout") { // allow inout with missing function, can be used for power pins
 							if (!flag_ignore_miss_func)
 							{
-								log_error("Missing function on output %s of cell %s.\n", log_id(wire->name), log_id(module->name));
+								log_error("Missing function on output %s of cell %s.\n", RTLIL::unescape_id(wire->name), RTLIL::unescape_id(module->name));
 							} else {
-								log("Ignoring cell %s with missing function on output %s.\n", log_id(module->name), log_id(wire->name));
+								log("Ignoring cell %s with missing function on output %s.\n", RTLIL::unescape_id(module->name), RTLIL::unescape_id(wire->name));
 								delete module;
 								goto skip_cell;
 							}
@@ -757,13 +774,13 @@ struct LibertyFrontend : public Frontend {
 			if (design->has(cell_name)) {
 				Module *existing_mod = design->module(cell_name);
 				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
-					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
+					log_error("Re-definition of cell/module %s!\n", RTLIL::unescape_id(cell_name));
 				} else if (flag_nooverwrite) {
-					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
+					log("Ignoring re-definition of module %s.\n", RTLIL::unescape_id(cell_name));
 					delete module;
 					goto skip_cell;
 				} else {
-					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", log_id(cell_name));
+					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", RTLIL::unescape_id(cell_name));
 					design->remove(existing_mod);
 				}
 			}

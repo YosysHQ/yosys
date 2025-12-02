@@ -1,0 +1,42 @@
+library(retention) {
+  cell("retention_cell") {
+    ff(Q1, QN1) {
+      clocked_on : "CK" ;
+      next_state : "(D * !SE + SI * SE)" ;
+      clear : "(((!B2B) * !Q2) + !RD)" ;
+      preset : "((!B2B) * Q2)" ;
+      clear_preset_var1 : "L" ;
+      clear_preset_var2 : "H" ;
+    }
+    latch(Q2, QN2) {
+      enable : "B1" ;
+      data_in : "Q1" ;
+    }
+    pin(B1) {
+      direction : input ;
+    }
+    pin(B2B) {
+      direction : input ;
+    }
+    pin(CK) {
+      clock : true ;
+      direction : input ;
+    }
+    pin(D) {
+      direction : input ;
+    }
+    pin(Q) {
+      direction : output ;
+      function : "Q1" ;
+    }
+    pin(RD) {
+      direction : input ;
+    }
+    pin(SE) {
+      direction : input ;
+    }
+    pin(SI) {
+      direction : input ;
+    }
+  }
+}
