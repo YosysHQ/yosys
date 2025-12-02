@@ -63,3 +63,4 @@ done
 rm -rf gate; mkdir gate
 ../../yosys --no-version -p "test_cell -aigmap -w gate/ -n 1 -s 1 all"
 diff --brief gold gate | tee aigmap.err
+rm aigmap.err
