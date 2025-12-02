@@ -41,16 +41,20 @@ don't have to. It can also be a useful way to solicit feedback on in-progress
 changes. See below to find the best way to [ask us
 questions](#asking-questions).
 
-In general, all changes to the code are done as a PR, with [Continuous
-Integration (CI)](https://github.com/YosysHQ/yosys/actions) tools that
-automatically run the full suite of tests compiling and running Yosys.  Please
-make use of this!  If you're adding a feature: add a test!  Not only does it
+### Continuous integration
+
+[Continuous Integration (CI)](https://github.com/YosysHQ/yosys/actions) tools
+automatically compile Yosys and run it with the full suite of tests.
+If you're a first time contributor, a maintainer has to trigger a run for you.
+We test on various platforms, compilers. Sanitizer builds are only tested
+on the main branch.
+
+<!-- If you're adding a feature: add a test!  Not only does it
 verify that your feature is working as expected, but it can also be a handy way
 for people to see how the feature is used.  If you're fixing a bug: add a test!
 If you can, do this first; it's okay if the test starts off failing - you
 already know there is a bug.  CI also helps to make sure that your changes still
-work under a range of compilers, settings, and targets.
-
+work under a range of compilers, settings, and targets. -->
 
 ### Labels
 
