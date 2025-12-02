@@ -203,7 +203,7 @@ OBJS = kernel/version_$(GIT_REV).o
 bumpversion:
 	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 03eb220.. | wc -l`/;" Makefile
 
-ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
+ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q) OPTFLAGS="-g -O3"
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
