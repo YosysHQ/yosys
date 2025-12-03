@@ -2,8 +2,19 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.59 .. Yosys 0.60-dev
+Yosys 0.60 .. Yosys 0.61-dev
 --------------------------
+
+Yosys 0.59 .. Yosys 0.60
+--------------------------
+ * Various
+    - read_verilog: suport unsized parameters.
+    - Added static library compile option.
+
+ * New commands and options
+    - Added "sdc" pass for reading SDC files.
+    - Added experimental "sdc_expand" and "opensta" for OpenSTA integration.
+    - Added "icell_liberty" pass for used internal cells.
 
 Yosys 0.58 .. Yosys 0.59
 --------------------------
