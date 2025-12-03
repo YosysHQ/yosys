@@ -1080,6 +1080,36 @@ struct HelpPass : public Pass {
 				log("\n");
 				return;
 			}
+			else if (args[1] == "-celltypes") {
+				log("\n");
+				for (auto &it : cell_help_messages.cell_help) {
+					SimHelper help_cell = it.second;
+					auto *ct = yosys_celltypes.get_cell(it.first);
+					char ct_flags[8] = "";
+					if (ct != nullptr && ct->is_internal) {
+						ct_flags[0] = ct->is_evaluable ? 'E' : '-';
+						ct_flags[1] = ct->is_combinatorial ? 'C' : '-';
+						ct_flags[2] = ct->is_synthesizable ? 'S' : '-';
+						ct_flags[3] = ct->is_builtin_ff ? 'M' : '-';
+						ct_flags[4] = ct->is_formal ? 'F' : '-';
+						ct_flags[5] = ct->is_metainfo ? 'I' : '-';
+						ct_flags[6] = ct->has_effects ? 'X' : '-';
+						ct_flags[7] = 0;
+					}
+					log("    %-15s %s\n", help_cell.name.c_str(), ct_flags);
+				}
+				log("\n");
+				log("Legend:\n");
+				log("    E = evaluable\n");
+				log("    C = combinatorial\n");
+				log("    S = synthesizable\n");
+				log("    M = builtin_ff\n");
+				log("    F = formal\n");
+				log("    I = metainfo\n");
+				log("    X = effects\n");
+				log("\n");
+				return;
+			}
 			else if (pass_register.count(args[1])) {
 				pass_register.at(args[1])->help();
 				log_warning_flags(pass_register.at(args[1]));
