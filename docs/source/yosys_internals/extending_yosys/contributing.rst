@@ -105,19 +105,21 @@ Actual Behaviour
 Describe what you actually see when you follow the reproduction steps.
 
 This can include:
-- any error messages
-- any details relevant to the crash that were found with ``--trace`` or
+
+* any error messages
+* any details relevant to the crash that were found with ``--trace`` or
   ``--debug`` flags
-- the part of the source code that triggers the bug
-  + if possible, use a permalink to the source on GitHub
-  + you can browse the source repository for a certain commit with the failure
+* the part of the source code that triggers the bug
+
+  * if possible, use a permalink to the source on GitHub
+  * you can browse the source repository for a certain commit with the failure
     and open the source file, select the relevant lines (click on the line
     number for the first relevant line, then while holding shift click on the
     line number for the last relevant line), click on the ``...`` that appears
     and select "Copy permalink"
-  + should look something like
+  * should look something like
     ``https://github.com/YosysHQ/yosys/blob/<commit_hash>/path/to/file#L139-L147``
-  + clicking on "Preview" should reveal a code block containing the lines of
+  * clicking on "Preview" should reveal a code block containing the lines of
     source specified, with a link to the source file at the given commit
 
 
@@ -184,43 +186,46 @@ New additions are expected to be a lot cleaner.
 
 Your change should contain exactly what it needs. This means:
 
-- nothing more than that - no dead code etc
-- nothing missing
+* nothing more than that - no dead code etc
+* nothing missing
 
 Here are some software engineering approaches that help:
 
-- Use abstraction to model the problem and hide details
-  - Maximize the usage of types (structs over loose variables),
+* Use abstraction to model the problem and hide details
+
+  * Maximize the usage of types (structs over loose variables),
     not necessarily in an object-oriented way
-  - Use functions, scopes, type aliases
-- In new passes, make sure the logic behind how and why it works is actually provided
+  * Use functions, scopes, type aliases
+
+* In new passes, make sure the logic behind how and why it works is actually provided
   in coherent comments, and that variable and type naming is consistent with the terms
   you use in the description.
-- The logic of the implementation should be described in mathematical
+* The logic of the implementation should be described in mathematical
   or algorithm theory terms. Why would a non-trivial loop be guaranteed to terminate?
   Is there some variant? Are you re-implementing a classic data structure from logic
   synthesis?
-- There's various ways of traversing the design with use-def indices (for getting
+* There's various ways of traversing the design with use-def indices (for getting
   drivers and driven signals) available in Yosys. They have advantages and sometimes
   disadvantages. Prefer not re-implementing these
-- Prefer references over pointers, and smart pointers over raw pointers
-- Aggressively deduplicate code. Within functions, within passes,
+* Prefer references over pointers, and smart pointers over raw pointers
+* Aggressively deduplicate code. Within functions, within passes,
   across passes, even against existing code
-- Refactor and document existing code if you touch it,
+* Refactor and document existing code if you touch it,
   but in separate commits from your functional changes
-- Prefer smaller commits organized by good chunks. Git has a lot of features
+* Prefer smaller commits organized by good chunks. Git has a lot of features
   like fixup commits, interactive rebase with autosquash
-- Prefer declaring things ``const``
-- Prefer range-based for loops over C-style
+* Prefer declaring things ``const``
+* Prefer range-based for loops over C-style
 
 Common mistakes
 ~~~~~~~~~~~~~~~
 
 .. - Pointer invalidation when erasing design objects on a module while iterating
 .. TODO figure out how it works again and describe it
-- Iterating over an entire design and checking if things are selected is more
-inefficient than using the ``selected_*`` methods
-- Remember to call ``fixup_ports`` at the end if you're modifying module interfaces
+
+* Iterating over an entire design and checking if things are selected is more
+  inefficient than using the ``selected_*`` methods
+* Remember to call ``fixup_ports`` at the end if you're modifying module interfaces
 
 Testing your change
 ~~~~~~~~~~~~~~~~~~~
@@ -244,7 +249,7 @@ See :doc:`/yosys_internals/extending_yosys/test_suites` for more information
 about how our test suite is structured.
 The basic test writing approach is checking
 for the presence of some kind of object or pattern with ``-assert-count`` in
-:doc:`docs/source/using_yosys/more_scripting/selections.rst`.
+:doc:`/using_yosys/more_scripting/selections`.
 
 It's often best to use equivalence checking with ``equiv_opt -assert``
 or similar to prove that the changes done to the design by a modified pass
