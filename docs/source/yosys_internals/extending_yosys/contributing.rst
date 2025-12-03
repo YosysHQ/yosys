@@ -1,41 +1,6 @@
 Contributing to Yosys
 =====================
 
-Coding Style
-------------
-
-Formatting of code
-~~~~~~~~~~~~~~~~~~
-
-- Yosys code is using tabs for indentation. Tabs are 8 characters.
-
-- A continuation of a statement in the following line is indented by two
-  additional tabs.
-
-- Lines are as long as you want them to be. A good rule of thumb is to break
-  lines at about column 150.
-
-- Opening braces can be put on the same or next line as the statement opening
-  the block (if, switch, for, while, do). Put the opening brace on its own line
-  for larger blocks, especially blocks that contains blank lines.
-
-- Otherwise stick to the `Linux Kernel Coding Style`_.
-
-.. _Linux Kernel Coding Style: https://www.kernel.org/doc/Documentation/process/coding-style.rst
-
-
-C++ Language
-~~~~~~~~~~~~
-
-Yosys is written in C++17.
-
-In general Yosys uses ``int`` instead of ``size_t``. To avoid compiler warnings
-for implicit type casts, always use ``GetSize(foobar)`` instead of
-``foobar.size()``. (``GetSize()`` is defined in :file:`kernel/yosys.h`)
-
-Use range-based for loops whenever applicable.
-
-
 Reporting bugs
 --------------
 
@@ -189,3 +154,135 @@ If possible, it may also help to share the original un-minimized design.
 If the design is too big for a comment, consider turning it into a `Gist`_
 
 .. _Gist: https://gist.github.com/
+
+Contributing code
+-----------------
+
+Code that matters
+~~~~~~~~~~~~~~~~~
+
+If you're adding complex functionality, or modifying core parts of yosys,
+we highly recommend discussing your motivation and approach
+ahead of time on the `Discourse forum`_.
+
+Before you build or fix something, search for existing `issues`_.
+
+.. _`Discourse forum`: https://yosyshq.discourse.group/
+.. _`issues`: https://github.com/YosysHQ/yosys/issues
+
+Making sense
+~~~~~~~~~~~~
+
+Given enough effort, the behavior of any code can be figured out to any
+desired extent. However, the author of the code is by far in the best
+position to make this as easy as possible.
+
+Yosys is a long-standing project and has accumulated a lot of C-style code
+that's not written to be read, just written to run. We improve this bit
+by bit when opportunities arise, but it is what it is.
+New additions are expected to be a lot cleaner.
+
+Your change should contain exactly what it needs. This means:
+
+- nothing more than that - no dead code etc
+- nothing missing
+
+Here are some software engineering approaches that help:
+
+- Use abstraction to model the problem and hide details
+  - Maximize the usage of types (structs over loose variables),
+    not necessarily in an object-oriented way
+  - Use functions, scopes, type aliases
+- In new passes, make sure the logic behind how and why it works is actually provided
+  in coherent comments, and that variable and type naming is consistent with the terms
+  you use in the description.
+- The logic of the implementation should be described in mathematical
+  or algorithm theory terms. Why would a non-trivial loop be guaranteed to terminate?
+  Is there some variant? Are you re-implementing a classic data structure from logic
+  synthesis?
+- There's various ways of traversing the design with use-def indices (for getting
+  drivers and driven signals) available in Yosys. They have advantages and sometimes
+  disadvantages. Prefer not re-implementing these
+- Prefer references over pointers, and smart pointers over raw pointers
+- Aggressively deduplicate code. Within functions, within passes,
+  across passes, even against existing code
+- Refactor and document existing code if you touch it,
+  but in separate commits from your functional changes
+- Prefer smaller commits organized by good chunks. Git has a lot of features
+  like fixup commits, interactive rebase with autosquash
+- Prefer declaring things ``const``
+- Prefer range-based for loops over C-style
+
+Common mistakes
+~~~~~~~~~~~~~~~
+
+.. - Pointer invalidation when erasing design objects on a module while iterating
+.. TODO figure out how it works again and describe it
+- Iterating over an entire design and checking if things are selected is more
+inefficient than using the ``selected_*`` methods
+- Remember to call ``fixup_ports`` at the end if you're modifying module interfaces
+
+Testing your change
+~~~~~~~~~~~~~~~~~~~
+
+Untested code can't be maintained. Inevitable codebase-wide changes
+are likely to break anything untested. Tests also help reviewers understand
+the purpose of the code change in practice.
+
+Your code needs to come with tests. If it's a feature, a test that covers
+representative examples of the added behavior. If it's a bug fix, it should
+reproduce the original isolated bug. But in some situations, adding a test
+isn't viable. If you can't provide a test, explain this decision.
+
+Prefer writing unit tests (:file:`tests/unit`) for isolated tests to
+the internals of more serious code changes, like those to the core of yosys,
+or more algorithmic ones.
+
+The rest of the test suite is mostly based on running Yosys on various Yosys
+and Tcl scripts that manually call Yosys commands.
+See :doc:`/yosys_internals/extending_yosys/test_suites` for more information
+about how our test suite is structured.
+The basic test writing approach is checking
+for the presence of some kind of object or pattern with ``-assert-count`` in
+:doc:`docs/source/using_yosys/more_scripting/selections.rst`.
+
+It's often best to use equivalence checking with ``equiv_opt -assert``
+or similar to prove that the changes done to the design by a modified pass
+preserve equivalence. But some code isn't meant to preserve equivalence.
+Sometimes proving equivalence takes an impractically long time for larger
+inputs.
+
+.. Changes to core parts of Yosys or passes that are included in synthesis flows
+.. can change runtime and memory usage - for the better or for worse. This strongly
+.. depends on the design involved. Such risky changes should then be benchmarked
+.. with various designs.
+
+.. TODO Emil benchmarking
+
+Coding style
+~~~~~~~~~~~~
+
+Yosys is written in C++17.
+
+In general Yosys uses ``int`` instead of ``size_t``. To avoid compiler warnings
+for implicit type casts, always use ``GetSize(foobar)`` instead of
+``foobar.size()``. (``GetSize()`` is defined in :file:`kernel/yosys.h`)
+
+For auto formatting code, a :file:`.clang-format` file is present top-level.
+Yosys code is using tabs for indentation. A continuation of a statement
+in the following line is indented by two additional tabs. Lines are
+as long as you want them to be. A good rule of thumb is to break lines
+at about column 150. Opening braces can be put on the same or next line
+as the statement opening the block (if, switch, for, while, do).
+Put the opening brace on its own line for larger blocks, especially
+blocks that contains blank lines. Remove trailing whitespace on sight.
+Remember to keep formatting-only commits separate from functional ones.
+Otherwise stick to the `Linux Kernel Coding Style`_.
+
+.. _Linux Kernel Coding Style: https://www.kernel.org/doc/Documentation/process/coding-style.rst
+
+
+.. Reviewing PRs
+.. -------------
+
+.. TODO Emil review process
