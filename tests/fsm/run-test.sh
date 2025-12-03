@@ -29,10 +29,9 @@ python3 generate.py -c $count $seed
 	for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do
 		idx=$( printf "%05d" $i )
 		echo "temp/uut_${idx}.log: temp/uut_${idx}.ys temp/uut_${idx}.v"
-		echo "	@echo -n '[$i]'"
 		echo "	@../../yosys -ql temp/uut_${idx}.out temp/uut_${idx}.ys"
 		echo "	@mv temp/uut_${idx}.out temp/uut_${idx}.log"
-		echo "	@grep -q 'SAT proof finished' temp/uut_${idx}.log && echo -n K || echo -n T"
+		echo "	@grep -q 'SAT proof finished' temp/uut_${idx}.log && echo K || echo T"
 		all_targets="$all_targets temp/uut_${idx}.log"
 	done
 	echo "$all_targets"

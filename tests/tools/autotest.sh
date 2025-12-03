@@ -129,7 +129,7 @@ do
 		status_prefix="Test: $bn "
 	else
 		status_prefix=""
-		echo -n "Test: $bn "
+		echo "Test: $bn "
 	fi
 
 	if [ "$ext" == sv ]; then

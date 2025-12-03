@@ -43,7 +43,7 @@ for dbits in $dbits_list; do
 	{
 		echo "bram1_$id/ok:"
 		echo "	@cd bram1_$id && bash run.sh"
-		echo "	@echo -n '[$id]'"
+		echo "	@echo '[$id]'"
 		echo "	@touch \$@"
 	} >> bram1.mk
 	all_list="$all_list bram1_$id/ok"

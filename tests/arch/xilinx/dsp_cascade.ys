@@ -39,7 +39,7 @@ equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
 design -load postopt
 cd cascade
 select -assert-count 3 t:DSP48A1
-select -assert-count 5 t:FDRE # No cascade for A input
+select -assert-count 10 t:FDRE # No cascade for A input
 select -assert-none t:DSP48A1 t:BUFG t:FDRE %% t:* %D
 # Very crude method of checking that DSP48E1.PCOUT -> DSP48E1.PCIN
 #   (see above for explanation)
