@@ -24,6 +24,7 @@
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
+#include "kernel/rtlil.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -845,11 +846,14 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			return false;
 
 		int max = 1;
-		for (auto wire : mod->wires())
-		if (wire->port_input && !wire->port_output)
-		for (int i = 0; i < wire->width; i++) {
-			int ilevel = visit(cursor, driver->getPort(wire->name)[i]);
-			max = std::max(max, ilevel + 1);
+		for (auto wire : mod->wires()) {
+			if (wire->port_input && !wire->port_output) {
+				SigSpec port = driver->getPort(wire->name);
+				for (int i = 0; i < std::min(wire->width, port.size()); i++) {
+					int ilevel = visit(cursor, port[i]);
+					max = std::max(max, ilevel + 1);
+				}
+			}
 		}
 		lits[idx] = max;
 
