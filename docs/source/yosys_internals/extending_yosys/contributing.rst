@@ -210,10 +210,6 @@ Here are some software engineering approaches that help:
 * Prefer references over pointers, and smart pointers over raw pointers
 * Aggressively deduplicate code. Within functions, within passes,
   across passes, even against existing code
-* Refactor and document existing code if you touch it,
-  but in separate commits from your functional changes
-* Prefer smaller commits organized by good chunks. Git has a lot of features
-  like fixup commits, interactive rebase with autosquash
 * Prefer declaring things ``const``
 * Prefer range-based for loops over C-style
 
@@ -281,11 +277,22 @@ at about column 150. Opening braces can be put on the same or next line
 as the statement opening the block (if, switch, for, while, do).
 Put the opening brace on its own line for larger blocks, especially
 blocks that contains blank lines. Remove trailing whitespace on sight.
-Remember to keep formatting-only commits separate from functional ones.
+
 Otherwise stick to the `Linux Kernel Coding Style`_.
 
 .. _Linux Kernel Coding Style: https://www.kernel.org/doc/Documentation/process/coding-style.rst
 
+Git style
+~~~~~~~~~
+
+We don't have a strict commit message style.
+
+Some style hints:
+
+* Refactor and document existing code if you touch it,
+  but in separate commits from your functional changes
+* Prefer smaller commits organized by good chunks. Git has a lot of features
+  like fixup commits, interactive rebase with autosquash
 
 .. Reviewing PRs
 .. -------------
