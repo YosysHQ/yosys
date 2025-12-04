@@ -13,5 +13,6 @@ of interest for developers looking to customise Yosys builds.
    functional_ir
    advanced_bugpoint
    contributing
+   documenting
    test_suites
 
