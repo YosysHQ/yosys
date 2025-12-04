@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source ../common-env.sh
 
 OPTIND=1
 seed=""    # default to no seed specified
