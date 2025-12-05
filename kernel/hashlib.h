@@ -1321,6 +1321,12 @@ public:
 		return i < 0 ? 0 : 1;
 	}
 
+	int lookup(const K &key) const
+	{
+		Hasher::hash_t hash = database.do_hash(key);
+		return database.do_lookup_no_rehash(key, hash);
+	}
+
 	void expect(const K &key, int i)
 	{
 		int j = (*this)(key);
