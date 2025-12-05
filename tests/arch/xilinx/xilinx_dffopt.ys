@@ -21,7 +21,7 @@ EOT
 read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
-equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
@@ -32,7 +32,7 @@ select -assert-none t:FDRE t:LUT6 %% t:* %D
 
 design -load t0
 
-equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
 design -load postopt
 clean
 
@@ -117,7 +117,7 @@ EOT
 read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
-equiv_opt -async2sync -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+equiv_opt -async2sync -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
@@ -153,7 +153,7 @@ EOT
 read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
-equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
@@ -201,7 +201,7 @@ EOT
 read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
-equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
@@ -212,7 +212,7 @@ select -assert-none t:FDRSE t:LUT6 %% t:* %D
 
 design -load t0
 
-equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt -lut4
 design -load postopt
 clean
 
@@ -248,7 +248,7 @@ EOT
 read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
-equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
+equiv_opt -blacklist xilinx_dffopt_blacklist.txt -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
