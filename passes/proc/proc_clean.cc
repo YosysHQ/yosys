@@ -133,7 +133,7 @@ YOSYS_NAMESPACE_BEGIN
 void proc_clean_case(RTLIL::CaseRule *cs, bool &did_something, int &count, int max_depth)
 {
 	for (size_t i = 0; i < cs->actions.size(); i++) {
-		if (cs->actions[i].first.size() == 0) {
+		if (cs->actions[i].lhs.size() == 0) {
 			did_something = true;
 			cs->actions.erase(cs->actions.begin() + (i--));
 		}
@@ -159,7 +159,7 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count, bool
 	bool did_something = true;
 	for (size_t i = 0; i < proc->syncs.size(); i++) {
 		for (size_t j = 0; j < proc->syncs[i]->actions.size(); j++)
-			if (proc->syncs[i]->actions[j].first.size() == 0)
+			if (proc->syncs[i]->actions[j].lhs.size() == 0)
 				proc->syncs[i]->actions.erase(proc->syncs[i]->actions.begin() + (j--));
 		if (proc->syncs[i]->actions.size() == 0 && proc->syncs[i]->mem_write_actions.size() == 0) {
 			delete proc->syncs[i];
