@@ -184,10 +184,14 @@ that's not written to be read, just written to run. We improve this bit
 by bit when opportunities arise, but it is what it is.
 New additions are expected to be a lot cleaner.
 
-Your change should contain exactly what it needs. This means:
+The purpose and behavior of the code changed should be described clearly.
+Your change should contain exactly what it needs to match that description.
+This means:
 
-* nothing more than that - no dead code etc
-* nothing missing
+* nothing more than that - no dead code, no undocumented features
+* nothing missing - if something is partially built, that's fine,
+  but you have to make that clear. For example, some passes
+  only support some types of cells
 
 Here are some software engineering approaches that help:
 
@@ -251,7 +255,8 @@ It's often best to use equivalence checking with ``equiv_opt -assert``
 or similar to prove that the changes done to the design by a modified pass
 preserve equivalence. But some code isn't meant to preserve equivalence.
 Sometimes proving equivalence takes an impractically long time for larger
-inputs.
+inputs. Also beware, the ``equiv_`` passes are a bit quirky and might even
+have incorrect results in unusual situations.
 
 .. Changes to core parts of Yosys or passes that are included in synthesis flows
 .. can change runtime and memory usage - for the better or for worse. This strongly
@@ -270,7 +275,8 @@ for implicit type casts, always use ``GetSize(foobar)`` instead of
 ``foobar.size()``. (``GetSize()`` is defined in :file:`kernel/yosys.h`)
 
 For auto formatting code, a :file:`.clang-format` file is present top-level.
-Yosys code is using tabs for indentation. A continuation of a statement
+Yosys code is using tabs for indentation. A tab is 8 characters wide,
+but prefer not relying on it. A continuation of a statement
 in the following line is indented by two additional tabs. Lines are
 as long as you want them to be. A good rule of thumb is to break lines
 at about column 150. Opening braces can be put on the same or next line
