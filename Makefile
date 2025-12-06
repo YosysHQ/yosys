@@ -24,7 +24,6 @@ ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_VERIFIC_UPF := 0
-ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_LIBYOSYS_STATIC := 0
 ENABLE_ZLIB := 1
@@ -178,7 +177,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.60+0
+YOSYS_VER := 0.60+8
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -265,9 +264,6 @@ ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
 CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
 LINKFLAGS += -g -fsanitize=$(SANITIZER)
-ifneq ($(findstring address,$(SANITIZER)),)
-ENABLE_COVER := 0
-endif
 ifneq ($(findstring memory,$(SANITIZER)),)
 CXXFLAGS += -fPIE -fsanitize-memory-track-origins
 LINKFLAGS += -fPIE -fsanitize-memory-track-origins
@@ -577,10 +573,6 @@ LIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_C
 else
 LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
-endif
-
-ifeq ($(ENABLE_COVER),1)
-CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
 
 ifeq ($(ENABLE_CCACHE),1)
