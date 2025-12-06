@@ -144,6 +144,8 @@ struct AbcConfig
 	bool markgroups = false;
 	pool<std::string> enabled_gates;
 	bool cmos_cost = false;
+	int max_threads = -1;    // -1 means auto (use number of modules)
+	int reserved_cores = 4;  // cores reserved for main thread and other work
 };
 
 struct AbcSigVal {
@@ -1990,6 +1992,16 @@ struct AbcPass : public Pass {
 		log("        preserve naming by an equivalence check between the original and\n");
 		log("        post-ABC netlists (experimental).\n");
 		log("\n");
+		log("    -max_threads <num>\n");
+		log("        maximum number of worker threads for parallel ABC runs. Default is -1,\n");
+		log("        which means auto (use number of modules). Set to 0 to disable parallel\n");
+		log("        execution and run everything on the main thread.\n");
+		log("\n");
+		log("    -reserved_cores <num>\n");
+		log("        number of CPU cores to reserve for the main thread and other work.\n");
+		log("        Default is 4. The actual number of worker threads used is:\n");
+		log("        min(hardware_threads - reserved_cores, max_threads)\n");
+		log("\n");
 		log("When no target cell library is specified the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
@@ -2051,6 +2063,8 @@ struct AbcPass : public Pass {
 		config.cleanup = !design->scratchpad_get_bool("abc.nocleanup", false);
 		config.show_tempdir = design->scratchpad_get_bool("abc.showtmp", false);
 		config.markgroups = design->scratchpad_get_bool("abc.markgroups", false);
+		config.max_threads = design->scratchpad_get_int("abc.max_threads", -1);
+		config.reserved_cores = design->scratchpad_get_int("abc.reserved_cores", 4);
 
 		if (config.cleanup)
 			config.global_tempdir_name = get_base_tmpdir() + "/";
@@ -2184,6 +2198,14 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-markgroups") {
 				config.markgroups = true;
+				continue;
+			}
+			if (arg == "-max_threads" && argidx+1 < args.size()) {
+				config.max_threads = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (arg == "-reserved_cores" && argidx+1 < args.size()) {
+				config.reserved_cores = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
@@ -2461,19 +2483,23 @@ struct AbcPass : public Pass {
 			}
 
 			// STAGE 2: Run ABC in parallel
-			// Reserve one core for our main thread, and don't create more worker threads
-			// than ABC runs.
+			// Reserve cores for main thread and other work, and don't create more worker
+			// threads than ABC runs (unless explicitly configured).
 			int num_modules = GetSize(design->selected_modules());
-			int max_threads = num_modules;
+			int max_threads = config.max_threads;
+			if (max_threads < 0) {
+				// Auto mode: use number of modules as max threads
+				max_threads = num_modules;
+			}
 			if (max_threads <= 1) {
 				// Just do everything on the main thread.
 				max_threads = 0;
 			}
 #ifdef YOSYS_LINK_ABC
-			// ABC does't support multithreaded calls so don't call it off the main thread.
+			// ABC doesn't support multithreaded calls so don't call it off the main thread.
 			max_threads = 0;
 #endif
-			int num_worker_threads = ThreadPool::pool_size(1, max_threads);
+			int num_worker_threads = ThreadPool::pool_size(config.reserved_cores, max_threads);
 			ConcurrentQueue<AbcModuleState*> work_queue(num_worker_threads);
 			ConcurrentQueue<AbcModuleState*> work_finished_queue;
 			ConcurrentStack<AbcProcess> process_pool;
