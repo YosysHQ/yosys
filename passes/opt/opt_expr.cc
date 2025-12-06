@@ -1485,7 +1485,6 @@ skip_identity:
 		}
 
 		if (consume_x && mux_bool && (cell->type == ID($_MUX_) || (cell->type == ID($mux) && cell->parameters[ID::WIDTH] == 1)) && cell->getPort(ID::A) == State::S1) {
-			cover_list("opt.opt_expr.mux_ornot", "$mux", "$_MUX_", cell->type.str());
 			log_debug("Replacing %s cell `%s' in module `%s' with or-gate and not-gate.\n", log_id(cell->type), log_id(cell), log_id(module));
 			cell->setPort(ID::A, module->Not(NEW_ID2_SUFFIX("not"), cell->getPort(ID::S), false, cell->get_src_attribute()));
 			cell->unsetPort(ID::S);
@@ -1525,7 +1524,6 @@ skip_identity:
 		}
 
 		if (consume_x && mux_bool && cell->type.in(ID($mux), ID($_MUX_)) && cell->getPort(ID::B) == State::S0) {
-			cover_list("opt.opt_expr.mux_andnot", "$mux", "$_MUX_", cell->type.str());
 			log_debug("Replacing %s cell `%s' in module `%s' with and-gate and not-gate.\n", log_id(cell->type), log_id(cell), log_id(module));
 			cell->setPort(ID::B, module->Not(NEW_ID2_SUFFIX("not"), cell->getPort(ID::S), false, cell->get_src_attribute()));
 			cell->unsetPort(ID::S);
