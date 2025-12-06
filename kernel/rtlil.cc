@@ -5560,8 +5560,6 @@ bool RTLIL::SigSpec::is_chunk() const
 
 bool RTLIL::SigSpec::is_mostly_const() const
 {
-	cover("kernel.rtlil.sigspec.is_mostly_const");
-
 	int constbits = 0;
 	for (auto &chunk : chunks())
 		if (chunk.width > 0 && chunk.wire == NULL)
