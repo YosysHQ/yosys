@@ -255,6 +255,7 @@ int main(int argc, char **argv)
 		("h,help", "print this help message. If given, print help for <command>.",
 			cxxopts::value<std::string>(), "[<command>]")
 		("V,version", "print version information and exit")
+		("git-hash", "print git commit hash and exit")
 		("infile", "input files", cxxopts::value<std::vector<std::string>>())
 	;
 	options.add_options("logging")
@@ -330,6 +331,10 @@ int main(int argc, char **argv)
 		if (result.count("no-version")) yosys_write_versions = false;
 		if (result.count("V")) {
 			std::cout << yosys_version_str << std::endl;
+			exit(0);
+		}
+		if (result.count("git-hash")) {
+			std::cout << yosys_git_hash_str << std::endl;
 			exit(0);
 		}
 		if (result.count("S")) {
