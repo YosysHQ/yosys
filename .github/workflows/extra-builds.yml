@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
       - run: sudo apt-get install libfl-dev
       - name: Build
-        run: make vcxsrc YOSYS_VER=latest
+        run: make vcxsrc YOSYS_COMPILER="Visual Studio" VCX_DIR_NAME=yosys-win32-vcxsrc-latest
       - uses: actions/upload-artifact@v4
         with:
           name: vcxsrc

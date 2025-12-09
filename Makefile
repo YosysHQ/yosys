@@ -794,8 +794,8 @@ endif
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 YOSYS_GIT_STR := $(GIT_REV)$(GIT_DIRTY)
-YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(notdir $(CXX)) $(shell \
-		$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))
+YOSYS_COMPILER := $(notdir $(CXX)) $(shell $(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS))
+YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(YOSYS_COMPILER))
 
 kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
@@ -1203,15 +1203,17 @@ qtcreator:
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.creator
 
-vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
-	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
+VCX_DIR_NAME := yosys-win32-vcxsrc-$(YOSYS_VER)
+vcxsrc: $(GENFILES) $(EXTRA_TARGETS) kernel/version_$(GIT_REV).cc
+	rm -rf $(VCX_DIR_NAME){,.zip}
+	cp -f kernel/version_$(GIT_REV).cc kernel/version.cc
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
 		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
 	echo "libs/fst/fst_win_unistd.h" >> srcfiles.txt
-	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
-	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
-	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
-	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
+	echo "kernel/version.cc" >> srcfiles.txt
+	bash misc/create_vcxsrc.sh $(VCX_DIR_NAME) $(YOSYS_VER)
+	zip $(VCX_DIR_NAME)/genfiles.zip $(GENFILES) kernel/version.cc
+	zip -r $(VCX_DIR_NAME).zip $(VCX_DIR_NAME)/
 	rm -f srcfiles.txt kernel/version.cc
 
 config-clean: clean
