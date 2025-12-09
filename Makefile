@@ -177,8 +177,10 @@ CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
 TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
 ifneq ($(findstring Format:,$(TARBALL_GIT_REV)),)
 GIT_REV := $(shell GIT_DIR=$(YOSYS_SRC)/.git git rev-parse --short=9 HEAD || echo UNKNOWN)
+GIT_DIRTY := $(shell GIT_DIR=$(YOSYS_SRC)/.git git diff --exit-code --quiet 2>/dev/null; if [ $$? -ne 0 ]; then echo "-dirty"; fi)
 else
 GIT_REV := $(TARBALL_GIT_REV)
+GIT_DIRTY := ""
 endif
 
 OBJS = kernel/version_$(GIT_REV).o
@@ -791,12 +793,13 @@ endif
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
-YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(GIT_REV), $(notdir $(CXX)) $(shell \
+YOSYS_GIT_STR := $(GIT_REV)$(GIT_DIRTY)
+YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(notdir $(CXX)) $(shell \
 		$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))
 
 kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
-	$(Q) mkdir -p kernel && echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"$(YOSYS_VER_STR)\"; }" > kernel/version_$(GIT_REV).cc
+	$(Q) mkdir -p kernel && echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"$(YOSYS_VER_STR)\"; const char *yosys_git_hash_str=\"$(YOSYS_GIT_STR)\"; }" > kernel/version_$(GIT_REV).cc
 
 ifeq ($(ENABLE_VERIFIC),1)
 CXXFLAGS_NOVERIFIC = $(foreach v,$(CXXFLAGS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
