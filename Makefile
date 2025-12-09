@@ -684,6 +684,8 @@ OBJS += libs/minisat/SimpSolver.o
 OBJS += libs/minisat/Solver.o
 OBJS += libs/minisat/System.o
 
+passes/cmds/symfpu.o: CXXFLAGS += -Ilibs
+
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += libs/fst/fstapi.o
 OBJS += libs/fst/fastlz.o
