@@ -660,17 +660,23 @@ struct AST_INTERNAL::ProcessGenerator
 					RTLIL::CaseRule *backup_case = current_case;
 					// here
 					current_case = new RTLIL::CaseRule;
-					set_src_attr(current_case, child.get());
+					current_case->compare_src = child->loc_string();
 					last_generated_case = current_case;
-					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, child.get());
+					std::optional<AstNode*> block;
 					for (auto& node : child->children) {
-						if (node->type == AST_DEFAULT)
+						if (node->type == AST_DEFAULT) {
 							default_case = current_case;
-						else if (node->type == AST_BLOCK)
-							processAst(node.get());
-						else
+						} else if (node->type == AST_BLOCK) {
+							log_assert(!block.has_value());
+							block = node.get();
+						} else {
 							current_case->compare.push_back(node->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap()));
+						}
 					}
+					log_assert(block.has_value());
+					set_src_attr(current_case, *block);
+					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, *block);
+					processAst(*block);
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
 					else

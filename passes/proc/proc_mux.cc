@@ -248,6 +248,8 @@ struct MuxGenCtx {
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
 				apply_attrs(eq_cell, cs);
+				if (cs->compare_src.size())
+					eq_cell->attributes[ID::src] = cs->compare_src;
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
@@ -274,6 +276,8 @@ struct MuxGenCtx {
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", ID($reduce_or));
 			apply_attrs(any_cell, cs);
+			if (cs->compare_src.size())
+				any_cell->attributes[ID::src] = cs->compare_src;
 
 			any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 			any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
