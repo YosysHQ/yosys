@@ -217,6 +217,7 @@ struct MuxGenCtx {
 		sstr << "$procmux$" << (autoidx++);
 
 		RTLIL::Wire *cmp_wire = mod->addWire(mod->design->twines.add(std::string{sstr.str() + "_CMP"}), 0);
+		cmp_wire->transfer_src_attribute(sw);
 
 		for (auto comp : *compare)
 		{
