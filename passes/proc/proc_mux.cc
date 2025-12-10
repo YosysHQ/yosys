@@ -508,10 +508,13 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 				result = mux_gen_ctx.gen_mux(value, result);
 			}
 		}
-		if (mux_gen_ctx.last_mux_cell && !case_sources.empty()) {
-			std::vector<TwineRef> refs(case_sources.begin(), case_sources.end());
-			RTLIL::Cell *cell = mux_gen_ctx.last_mux_cell;
-			cell->set_src_attribute(cell->module->design->twines.concat(std::span<const TwineRef>{refs}));
+		if (auto* mux = mux_gen_ctx.last_mux_cell) {
+			if (!case_sources.empty()) {
+				std::vector<TwineRef> refs(case_sources.begin(), case_sources.end());
+				mux->set_src_attribute(mux->module->design->twines.concat(std::span<const TwineRef>{refs}));
+			}
+			log_assert(mux->getPort(TW::Y).is_wire());
+			mux->getPort(TW::Y).as_wire()->transfer_src_attribute(mux);
 		}
 	}
 
