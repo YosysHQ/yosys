@@ -2103,6 +2103,7 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 	std::vector<RTLIL::SigSpec> compare;
 	std::vector<RTLIL::SyncAction> actions;
 	std::vector<RTLIL::SwitchRule*> switches;
+	Const compare_src;
 
 	~CaseRule();
 
