@@ -127,9 +127,9 @@ class ThreadPool
 public:
 	// Computes the number of worker threads to use.
 	// `reserved_cores` cores are set aside for other threads (e.g. work on the main thread).
-	// `max_threads` --- don't return more workers than this.
+	// `max_worker_threads` --- don't return more workers than this.
 	// The result may be 0.
-	static int pool_size(int reserved_cores, int max_threads);
+	static int pool_size(int reserved_cores, int max_worker_threads);
 
 	// Create a pool of threads running the given closure (parameterized by thread number).
 	// `pool_size` must be the result of a `pool_size()` call.
