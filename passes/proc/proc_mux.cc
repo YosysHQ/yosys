@@ -514,8 +514,10 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 				result = mux_gen_ctx.gen_mux(value, result);
 			}
 		}
-		if (mux_gen_ctx.last_mux_cell) {
-			mux_gen_ctx.last_mux_cell->set_strpool_attribute(ID::src, case_sources);
+		if (auto* mux = mux_gen_ctx.last_mux_cell) {
+			mux->set_strpool_attribute(ID::src, case_sources);
+			log_assert(mux->getPort(ID::Y).is_wire());
+			mux->getPort(ID::Y).as_wire()->transfer_src_attribute(mux);
 		}
 	}
 
