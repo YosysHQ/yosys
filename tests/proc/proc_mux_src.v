@@ -90,3 +90,25 @@ module tiny2(
 		endcase
 	end
 endmodule
+
+module ifelse(input clk,
+	input cond1,
+	input cond2,
+	output reg [1:0] out
+);
+
+	always @(posedge clk) begin
+		if (cond1) begin
+			out <= 0;
+		end else begin
+			if(cond2)
+				begin
+					out <= 1;
+				end
+			else
+				begin
+					out <= 2;
+				end
+		end
+	end
+endmodule

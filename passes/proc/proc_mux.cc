@@ -242,6 +242,8 @@ struct MuxGenCtx {
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(mod->design->twines.add(std::string{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}), ifxmode ? TW($eqx) : TW($eq));
 				apply_attrs(eq_cell, cs);
+				if (cs->compare_src != Twine::Null)
+					eq_cell->set_src_attribute(cs->compare_src);
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
@@ -268,6 +270,8 @@ struct MuxGenCtx {
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(mod->design->twines.add(std::string{sstr.str() + "_ANY"}), TW($reduce_or));
 			apply_attrs(any_cell, cs);
+			if (cs->compare_src != Twine::Null)
+				any_cell->set_src_attribute(cs->compare_src);
 
 			any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 			any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
