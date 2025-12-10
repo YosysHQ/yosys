@@ -61,14 +61,14 @@ struct CellHash
 // bucket k by iterating over all shards of the bucket.
 
 // The input to each thread in the "compute cell hashes" phase.
-struct ComputeCellHashes
+struct CellRange
 {
-	int cell_index_begin;
-	int cell_index_end;
+	int begin;
+	int end;
 };
 
 // The output from each thread in the "compute cell hashes" phase.
-struct ComputeCellHashesOut
+struct CellHashes
 {
 	// Entry i contains the hashes where hash_value % bucketed_cell_hashes.size() == i
 	std::vector<std::vector<CellHash>> bucketed_cell_hashes;
@@ -84,13 +84,14 @@ struct DuplicateCell
 };
 
 // The input to each thread in the "find duplicate cells" phase.
-struct FindDuplicateCells
+// Shards of buckets of cell hashes
+struct Shards
 {
 	std::vector<std::vector<std::vector<CellHash>>> &bucketed_cell_hashes;
 };
 
-// The oputut from each thread in the "find duplicate cells" phase.
-struct FindDuplicateCellsOut
+// The output from each thread in the "find duplicate cells" phase.
+struct FoundDuplicates
 {
 	std::vector<DuplicateCell> duplicates;
 };
@@ -271,10 +272,10 @@ struct OptMergeThreadWorker
 	{
 	}
 
-	ComputeCellHashesOut compute_cell_hashes(const ComputeCellHashes &in) const
+	CellHashes compute_cell_hashes(const CellRange &cell_range) const
 	{
 		std::vector<std::vector<CellHash>> bucketed_cell_hashes(workers);
-		for (int cell_index = in.cell_index_begin; cell_index < in.cell_index_end; ++cell_index) {
+		for (int cell_index = cell_range.begin; cell_index < cell_range.end; ++cell_index) {
 			const RTLIL::Cell *cell = module->cell_at(cell_index);
 			if (!module->selected(cell))
 				continue;
@@ -299,7 +300,7 @@ struct OptMergeThreadWorker
 		return {std::move(bucketed_cell_hashes)};
 	}
 
-	FindDuplicateCellsOut find_duplicate_cells(int index, const FindDuplicateCells &in) const
+	FoundDuplicates find_duplicate_cells(int index, const Shards &in) const
 	{
 		// We keep a set of known cells. They're hashed with our hash_cell_function
 		// and compared with our compare_cell_parameters_and_connections.
@@ -368,8 +369,10 @@ struct OptMergeWorker
 
 		// Use no more than one worker per thousand cells, rounded down, so
 		// we only start multithreading with at least 2000 cells.
+		// TODO configurable limit?
 		int num_worker_threads = ThreadPool::pool_size(0, module->cells_size()/1000);
 		int workers = std::max(1, num_worker_threads);
+
 		// The main thread doesn't do any work, so if there is only one worker thread,
 		// just run everything on the main thread instead.
 		// This avoids creating and waiting on a thread, which is pretty high overhead
@@ -378,16 +381,16 @@ struct OptMergeWorker
 			num_worker_threads = 0;
 		OptMergeThreadWorker thread_worker(module, initvals, assign_map, ct, workers, mode_share_all, mode_keepdc);
 
-		std::vector<ConcurrentQueue<ComputeCellHashes>> compute_cell_hashes(num_worker_threads);
-		std::vector<ConcurrentQueue<ComputeCellHashesOut>> compute_cell_hashes_out(num_worker_threads);
-		std::vector<ConcurrentQueue<FindDuplicateCells>> find_duplicate_cells(num_worker_threads);
-		std::vector<ConcurrentQueue<FindDuplicateCellsOut>> find_duplicate_cells_out(num_worker_threads);
+		std::vector<ConcurrentQueue<CellRange>> cell_ranges_queues(num_worker_threads);
+		std::vector<ConcurrentQueue<CellHashes>> cell_hashes_queues(num_worker_threads);
+		std::vector<ConcurrentQueue<Shards>> shards_queues(num_worker_threads);
+		std::vector<ConcurrentQueue<FoundDuplicates>> duplicates_queues(num_worker_threads);
 
 		ThreadPool thread_pool(num_worker_threads, [&](int i) {
-			while (std::optional<ComputeCellHashes> c = compute_cell_hashes[i].pop_front()) {
-				compute_cell_hashes_out[i].push_back(thread_worker.compute_cell_hashes(*c));
-				std::optional<FindDuplicateCells> f = find_duplicate_cells[i].pop_front();
-				find_duplicate_cells_out[i].push_back(thread_worker.find_duplicate_cells(i, *f));
+			while (std::optional<CellRange> c = cell_ranges_queues[i].pop_front()) {
+				cell_hashes_queues[i].push_back(thread_worker.compute_cell_hashes(*c));
+				std::optional<Shards> shards = shards_queues[i].pop_front();
+				duplicates_queues[i].push_back(thread_worker.find_duplicate_cells(i, *shards));
 			}
 		});
 
@@ -399,7 +402,7 @@ struct OptMergeWorker
 		{
 			int cells_size = module->cells_size();
 			log("Computing hashes of %d cells of `%s'.\n", cells_size, module->name);
-			std::vector<std::vector<std::vector<CellHash>>> bucketed_cell_hashes(workers);
+			std::vector<std::vector<std::vector<CellHash>>> sharded_bucketed_cell_hashes(workers);
 
 			int cell_index = 0;
 			int cells_size_mod_workers = cells_size % workers;
@@ -407,48 +410,48 @@ struct OptMergeWorker
 				Multithreading multithreading;
 				for (int i = 0; i < workers; ++i) {
 					int num_cells = cells_size/workers + ((i < cells_size_mod_workers) ? 1 : 0);
-					ComputeCellHashes c = { cell_index, cell_index + num_cells };
+					CellRange c = { cell_index, cell_index + num_cells };
 					cell_index += num_cells;
 					if (num_worker_threads > 0)
-						compute_cell_hashes[i].push_back(c);
+						cell_ranges_queues[i].push_back(c);
 					else
-						bucketed_cell_hashes[i] = std::move(thread_worker.compute_cell_hashes(c).bucketed_cell_hashes);
+						sharded_bucketed_cell_hashes[i] = std::move(thread_worker.compute_cell_hashes(c).bucketed_cell_hashes);
 				}
 				log_assert(cell_index == cells_size);
 				if (num_worker_threads > 0)
 					for (int i = 0; i < workers; ++i)
-						bucketed_cell_hashes[i] = std::move(compute_cell_hashes_out[i].pop_front()->bucketed_cell_hashes);
+						sharded_bucketed_cell_hashes[i] = std::move(cell_hashes_queues[i].pop_front()->bucketed_cell_hashes);
 			}
 
 			log("Finding duplicate cells in `%s'.\n", module->name);
-			std::vector<DuplicateCell> duplicates;
+			std::vector<DuplicateCell> merged_duplicates;
 			{
 				Multithreading multithreading;
 				for (int i = 0; i < workers; ++i) {
-					FindDuplicateCells f = { bucketed_cell_hashes };
+					Shards thread_shards = { sharded_bucketed_cell_hashes };
 					if (num_worker_threads > 0)
-						find_duplicate_cells[i].push_back(f);
+						shards_queues[i].push_back(thread_shards);
 					else {
-						std::vector<DuplicateCell> d = std::move(thread_worker.find_duplicate_cells(i, f).duplicates);
-						duplicates.insert(duplicates.end(), d.begin(), d.end());
+						std::vector<DuplicateCell> d = std::move(thread_worker.find_duplicate_cells(i, thread_shards).duplicates);
+						merged_duplicates.insert(merged_duplicates.end(), d.begin(), d.end());
 					}
 				}
 				if (num_worker_threads > 0)
 					for (int i = 0; i < workers; ++i) {
-						std::vector<DuplicateCell> d = std::move(find_duplicate_cells_out[i].pop_front()->duplicates);
-						duplicates.insert(duplicates.end(), d.begin(), d.end());
+						std::vector<DuplicateCell> d = std::move(duplicates_queues[i].pop_front()->duplicates);
+						merged_duplicates.insert(merged_duplicates.end(), d.begin(), d.end());
 					}
 			}
-			std::sort(duplicates.begin(), duplicates.end(), [](const DuplicateCell &lhs, const DuplicateCell &rhs) {
+			std::sort(merged_duplicates.begin(), merged_duplicates.end(), [](const DuplicateCell &lhs, const DuplicateCell &rhs) {
 				// Sort them by the order in which duplicates would have been detected in a single-threaded
-				// run. The cell at which the duplicate would have been detected is the later of the two
+				// run. The cell at which the duplicate would have been detected is the latter of the two
 				// cells involved.
 				return std::max(lhs.remove_cell, lhs.keep_cell) < std::max(rhs.remove_cell, rhs.keep_cell);
 			});
 
 			// Convert to cell pointers because removing cells will invalidate the indices.
 			std::vector<std::pair<RTLIL::Cell*, RTLIL::Cell*>> cell_ptrs;
-			for (DuplicateCell dup : duplicates)
+			for (DuplicateCell dup : merged_duplicates)
 				cell_ptrs.push_back({module->cell_at(dup.remove_cell), module->cell_at(dup.keep_cell)});
 
 			for (auto [remove_cell, keep_cell] : cell_ptrs)
@@ -475,13 +478,13 @@ struct OptMergeWorker
 				module->remove(remove_cell);
 				total_count++;
 			}
-			did_something = !duplicates.empty();
+			did_something = !merged_duplicates.empty();
 		}
 
-		for (ConcurrentQueue<ComputeCellHashes> &q : compute_cell_hashes)
+		for (ConcurrentQueue<CellRange> &q : cell_ranges_queues)
 			q.close();
 
-		for (ConcurrentQueue<FindDuplicateCells> &q : find_duplicate_cells)
+		for (ConcurrentQueue<Shards> &q : shards_queues)
 			q.close();
 
 		log_suppressed();
