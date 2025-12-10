@@ -483,7 +483,8 @@ Aig::Aig(Cell *cell)
 		int B = mk.inport(ID::B);
 		int C = mk.inport(ID::C);
 		int D = mk.inport(ID::D);
-		int Y = mk.nor_gate(mk.and_gate(A, B), mk.and_gate(C, D));
+		int a_and_b = mk.and_gate(A, B);
+		int Y = mk.nor_gate(a_and_b, mk.and_gate(C, D));
 		mk.outport(Y, ID::Y);
 		goto optimize;
 	}
@@ -494,7 +495,8 @@ Aig::Aig(Cell *cell)
 		int B = mk.inport(ID::B);
 		int C = mk.inport(ID::C);
 		int D = mk.inport(ID::D);
-		int Y = mk.nand_gate(mk.or_gate(A, B), mk.or_gate(C, D));
+		int a_or_b = mk.or_gate(A, B);
+		int Y = mk.nand_gate(a_or_b, mk.or_gate(C, D));
 		mk.outport(Y, ID::Y);
 		goto optimize;
 	}
