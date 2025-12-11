@@ -1,0 +1,4 @@
+read_rtlil stage_1_init.il
+prep -top dut
+sim -noinitstate -w -a -scope dut -r stage_1/engine_0/trace0.yw
+write_rtlil stage_2_init.il
