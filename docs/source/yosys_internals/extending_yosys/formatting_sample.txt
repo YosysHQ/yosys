@@ -1,0 +1,24 @@
+.. 1
+
+- `chformal`
+- :autoref:`chformal`
+- :cmd:ref:`chformal`
+
+.. 2
+
+- `help $add`
+- :autoref:`help $add`
+- :cell:ref:`help $add <$add>`
+
+.. 3
+
+- `-remove`
+- `chformal -remove`
+
+.. 4
+
+- :cmd:title:`chformal`
+- :cell:title:`$nex`
+- :cell:title:`$_NOT_`
+
+.. 5
