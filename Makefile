@@ -1052,7 +1052,9 @@ ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 ifeq ($(ENABLE_ABC),1)
-	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
+ifeq ($(ABCEXTERNAL),)
+	$(INSTALL_SUDO) cp $(PROGRAM_PREFIX)yosys-abc$(EXE) $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc$(EXE)
+endif
 endif
 endif
 endif
