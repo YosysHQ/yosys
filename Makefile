@@ -81,6 +81,10 @@ ifeq ($(ENABLE_PYOSYS),1)
 ENABLE_LIBYOSYS := 1
 endif
 
+ifeq ($(ENABLE_DEBUG),1)
+SANITIZER = undefined
+endif
+
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib/$(PROGRAM_PREFIX)yosys
 DATDIR := $(PREFIX)/share/$(PROGRAM_PREFIX)yosys
@@ -777,6 +781,7 @@ libyosys.a: $(filter-out kernel/driver.o,$(OBJS))
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
+	echo $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 %.pyh: %.h
