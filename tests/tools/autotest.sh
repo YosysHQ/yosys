@@ -162,9 +162,11 @@ do
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
+		touch ${bn}.iverilog
 		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.${refext} "${libs[@]}" \
 					"$toolsdir"/../../techlibs/common/simlib.v \
 					"$toolsdir"/../../techlibs/common/simcells.v
+		rm ${bn}.iverilog
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
 
 		test_count=0
