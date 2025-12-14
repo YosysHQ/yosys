@@ -170,12 +170,14 @@ do
 		test_count=0
 		test_passes() {
 			"$toolsdir"/../../yosys -b "verilog $backend_opts" -o ${bn}_syn${test_count}.v "$@"
+			touch ${bn}.iverilog
 			compile_and_run ${bn}_tb_syn${test_count} ${bn}_out_syn${test_count} \
 					${bn}_tb.v ${bn}_syn${test_count}.v "${libs[@]}" \
 					"$toolsdir"/../../techlibs/common/simlib.v \
 					"$toolsdir"/../../techlibs/common/simcells.v
 			if $genvcd; then mv testbench.vcd ${bn}_syn${test_count}.vcd; fi
 			"$toolsdir/cmp_tbdata" ${bn}_out_ref ${bn}_out_syn${test_count}
+			rm ${bn}.iverilog
 			test_count=$(( test_count + 1 ))
 		}
 
@@ -227,7 +229,9 @@ do
 	else
 		echo "${status_prefix}${did_firrtl}-> ERROR!"
 		if $warn_iverilog_git; then
-			echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
+			if [ -f ${bn}.out/${bn}.iverilog ]; then
+				echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
+			fi
 		fi
 		$keeprunning || exit 1
 	fi
