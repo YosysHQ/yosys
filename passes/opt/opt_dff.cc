@@ -55,6 +55,7 @@ struct OptDffWorker
 	FfInitVals initvals;
 	dict<SigBit, int> bitusers;       // Signal sink count
 	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
+	pool<SigBit> kept_bits;
 
 	std::vector<Cell *> dff_cells;
 
@@ -117,15 +118,26 @@ struct OptDffWorker
 		// - bit2mux: the mux cell and bit index that drives it, if any
 
 		for (auto wire : module->wires())
+		{
+			if (wire->get_bool_attribute(ID::keep))
+				for (auto bit : sigmap(wire))
+					kept_bits.insert(bit);
+
 			if (wire->port_output)
 				for (auto bit : sigmap(wire))
 					bitusers[bit]++;
+		}
 
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
 				RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-				for (int i = 0; i < GetSize(sig_y); i++)
-					bit2mux[sig_y[i]] = cell_int_t(cell, i);
+				for (int i = 0; i < GetSize(sig_y); i++) {
+					SigBit bit = sig_y[i];
+					// skip kept wires, remove once yosys has optimization barriers
+					if (kept_bits.count(bit))
+						continue;
+					bit2mux[bit] = cell_int_t(cell, i);
+				}
 			}
 
 			for (auto conn : cell->connections()) {
@@ -763,8 +775,14 @@ struct OptDffWorker
 				optimize_const_clk(ff, cell, changed);
 
 			// Feedback (D=Q) opt
-			if ((ff.has_clk || ff.has_gclk) && ff.sig_d == ff.sig_q)
-				optimize_d_equals_q(ff, cell, changed);
+			if ((ff.has_clk || ff.has_gclk) && ff.sig_d == ff.sig_q) {
+				// skip kept wires, remove once yosys has optimization barriers
+				bool d_has_kept_bit = false;
+				for (int i = 0; i < ff.width; i++)
+					if (kept_bits.count(ff.sig_d[i])) { d_has_kept_bit = true; break; }
+				if (!d_has_kept_bit)
+					optimize_d_equals_q(ff, cell, changed);
+			}
 
 			if (ff.has_aload && !ff.has_clk && ff.sig_ad == ff.sig_q) {
 				log("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",
