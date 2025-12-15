@@ -52,6 +52,7 @@ struct OptDffWorker
 	FfInitVals initvals;
 	dict<SigBit, int> bitusers;
 	dict<SigBit, cell_int_t> bit2mux;
+	pool<SigBit> kept_bits;
 
 	typedef std::map<RTLIL::SigBit, bool> pattern_t;
 	typedef std::set<pattern_t> patterns_t;
@@ -69,6 +70,10 @@ struct OptDffWorker
 
 		for (auto wire : module->wires())
 		{
+			if (wire->get_bool_attribute(ID::keep))
+				for (auto bit : sigmap(wire))
+					kept_bits.insert(bit);
+
 			if (wire->port_output)
 				for (auto bit : sigmap(wire))
 					bitusers[bit]++;
@@ -77,8 +82,13 @@ struct OptDffWorker
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
 				RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-				for (int i = 0; i < GetSize(sig_y); i++)
-					bit2mux[sig_y[i]] = cell_int_t(cell, i);
+				for (int i = 0; i < GetSize(sig_y); i++) {
+					SigBit bit = sig_y[i];
+					// skip optimization for wires marked as 'keep'
+					if (kept_bits.count(bit))
+						continue;
+					bit2mux[bit] = cell_int_t(cell, i);
+				}
 			}
 
 			for (auto conn : cell->connections()) {
