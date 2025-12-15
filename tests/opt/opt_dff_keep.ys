@@ -1,0 +1,105 @@
+read_verilog -icells <<EOT
+module top(input clk, en, sel, rst, input [3:0] data,
+           output reg [3:0] mux_q, output reg reset_q,
+           output reg and_q, or_q,
+           output reg inner_mux_q, inner_and_q, inner_or_q,
+           output pmux_q);
+  (* keep = 0 *) wire [3:0] mux_d = en ? data : mux_q;
+  (* keep *) wire [1:0] kept_mux_d = mux_d[2:1];
+  (* keep *) wire kept_reset_d = rst ? 1'b0 : data[0];
+  (* keep *) wire kept_and_d = and_q & sel;
+  (* keep *) wire kept_or_d = or_q | sel;
+  (* keep *) wire kept_inner_mux_d = sel ? data[0] : inner_mux_q;
+  (* keep *) wire kept_inner_and_d = inner_and_q & sel;
+  (* keep *) wire kept_inner_or_d = inner_or_q | sel;
+  (* keep *) wire kept_pmux_d;
+  \$pmux #(.WIDTH(1), .S_WIDTH(2)) mux
+    (.A(pmux_q), .B(data[1:0]), .S({sel, en}), .Y(kept_pmux_d));
+  \$adff #(.WIDTH(1), .CLK_POLARITY(1), .ARST_POLARITY(1), .ARST_VALUE(1'b0)) ff
+    (.CLK(clk), .ARST(rst), .D(kept_pmux_d), .Q(pmux_q));
+  initial begin
+    and_q = 1'b1;
+    or_q = 1'b0;
+    inner_and_q = 1'b1;
+    inner_or_q = 1'b0;
+  end
+  always @(posedge clk) begin
+    mux_q <= mux_d;
+    reset_q <= kept_reset_d;
+    and_q <= kept_and_d;
+    or_q <= kept_or_d;
+    inner_mux_q <= en ? kept_inner_mux_d : inner_mux_q;
+    inner_and_q <= en ? kept_inner_and_d : inner_and_q;
+    inner_or_q <= en ? kept_inner_or_d : inner_or_q;
+  end
+endmodule
+EOT
+proc
+design -save orig
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+opt_clean
+select -assert-count 4 t:$dff
+select -assert-count 1 t:$adff
+select -assert-count 4 t:$dffe
+select -assert-count 1 w:kept_mux_d %a %co1:+[D] t:$dff %i
+select -assert-count 1 w:kept_reset_d %a %co1:+[D] t:$dff %i
+select -assert-count 1 w:kept_and_d %a %co1:+[D] t:$dff %i
+select -assert-count 1 w:kept_or_d %a %co1:+[D] t:$dff %i
+select -assert-count 1 w:kept_pmux_d %a %co1:+[D] t:$adff %i
+select -assert-count 1 w:kept_inner_mux_d %a %co1:+[D] t:$dffe %i
+select -assert-count 1 w:kept_inner_and_d %a %co1:+[D] t:$dffe %i
+select -assert-count 1 w:kept_inner_or_d %a %co1:+[D] t:$dffe %i
+
+design -load orig
+simplemap
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+opt_clean
+select -assert-count 5 t:$_DFF_P_
+select -assert-count 1 t:$_DFF_PP0_
+select -assert-count 5 t:$_DFFE_PP_
+select -assert-count 2 w:kept_mux_d %a %co1:+[D] t:$_DFF_P_ %i
+select -assert-count 1 w:kept_reset_d %a %co1:+[D] t:$_DFF_P_ %i
+select -assert-count 1 w:kept_and_d %a %co1:+[D] t:$_DFF_P_ %i
+select -assert-count 1 w:kept_or_d %a %co1:+[D] t:$_DFF_P_ %i
+select -assert-count 1 w:kept_pmux_d %a %co1:+[D] t:$_DFF_PP0_ %i
+select -assert-count 1 w:kept_inner_mux_d %a %co1:+[D] t:$_DFFE_PP_ %i
+select -assert-count 1 w:kept_inner_and_d %a %co1:+[D] t:$_DFFE_PP_ %i
+select -assert-count 1 w:kept_inner_or_d %a %co1:+[D] t:$_DFFE_PP_ %i
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, data, output alias_q, kept_q, unkept_q,
+           output [1:0] mixed_q);
+  (* keep *) wire kept_alias;
+  assign alias_q = kept_alias;
+  (* keep *) wire kept_feedback = kept_q;
+  (* keep *) wire kept_mixed_feedback = mixed_q[0];
+  \$dff #(.WIDTH(1), .CLK_POLARITY(1)) alias_ff
+    (.CLK(clk), .D(alias_q), .Q(alias_q));
+  \$dff #(.WIDTH(1), .CLK_POLARITY(1)) kept_ff
+    (.CLK(clk), .D(kept_q), .Q(kept_q));
+  \$dff #(.WIDTH(1), .CLK_POLARITY(1)) unkept_ff
+    (.CLK(clk), .D(unkept_q), .Q(unkept_q));
+  \$dff #(.WIDTH(2), .CLK_POLARITY(1)) mixed_ff
+    (.CLK(clk), .D({data, mixed_q[0]}), .Q(mixed_q));
+endmodule
+EOT
+design -save orig
+opt_dff
+opt
+select -assert-count 3 t:$dff
+select -assert-count 1 t:$dff r:WIDTH=2 %i
+select -assert-count 1 w:kept_alias %a %co1:+[D] t:$dff %i
+select -assert-count 1 w:kept_feedback %a %co1:+[D] t:$dff %i
+select -assert-count 1 w:kept_mixed_feedback %a %co1:+[D] t:$dff %i
+
+design -load orig
+simplemap
+opt_dff
+opt
+select -assert-count 4 t:$_DFF_P_
+select -assert-count 1 w:kept_alias %a %co1:+[D] t:$_DFF_P_ %i
+select -assert-count 1 w:kept_feedback %a %co1:+[D] t:$_DFF_P_ %i
+select -assert-count 1 w:kept_mixed_feedback %a %co1:+[D] t:$_DFF_P_ %i
