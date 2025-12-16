@@ -252,8 +252,8 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 
 	char arg1[] = "-s";
 	char* argv[] = { strdup(abc_exe), arg1, nullptr };
-	if (0 != posix_spawn(&result.pid, abc_exe, &file_actions, nullptr, argv, environ)) {
-		logs.log_error("posix_spawn %s failed", abc_exe);
+	if (0 != posix_spawnp(&result.pid, abc_exe, &file_actions, nullptr, argv, environ)) {
+		logs.log_error("posix_spawnp %s failed", abc_exe);
 		return std::nullopt;
 	}
 	free(argv[0]);
