@@ -138,10 +138,10 @@ struct Ice40WrapCarryPass : public Pass {
 							lut->attributes[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
 						else if (a.first == ID::src)
 							src = a.second;
-						else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived))
+						else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived, ID::src))
 							continue;
 						else
-							continue;
+							log_abort();
 
 					if (!src.empty()) {
 						carry->attributes.insert(std::make_pair(ID::src, src));
