@@ -28,9 +28,25 @@ struct CellType
 {
 	RTLIL::IdString type;
 	pool<RTLIL::IdString> inputs, outputs;
-	bool is_evaluable;
-	bool is_combinatorial;
-	bool is_synthesizable;
+	// Cell is defined in celltypes.h, as opposed to design-specific
+	bool is_internal;
+	// Cell can be handled by CellTypes::eval()
+	bool is_evaluable = false;
+	// Cell has no state; outputs are determined solely by inputs
+	bool is_combinatorial = false;
+	// Cell is able to be synthesized
+	bool is_synthesizable = false;
+	// Cell is built-in memory logic, includes flip-flops and latches, but not complex
+	// cells like $mem
+	bool is_builtin_ff = false;
+	// Cell is non-synthesizable, but used for formal verification
+	bool is_formal = false;
+	// Cell is intended for internal Yosys use, containing informational metadata and
+	// shouldn't be automatically cleaned; currently only used for $scopeinfo
+	bool is_metainfo = false;
+	// Non-synthesizable cell with effects that mean it shouldn't be automatically
+	// cleaned, e.g. $print
+	bool has_effects = false;
 };
 
 struct CellTypes
@@ -58,10 +74,58 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
 	{
-		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
+		CellType ct = { type, inputs, outputs, false };
 		cell_types[ct.type] = ct;
+	}
+
+	// Setup internal cell type with no other default properties
+	void setup_internal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_combinatorial = false, bool is_evaluable = false,
+			bool is_synthesizable = false, bool is_builtin_ff = false, bool is_formal = false,
+			bool is_metainfo = false, bool has_effects = false)
+	{
+		CellType ct = {
+			type, inputs, outputs, true,
+			is_evaluable, is_combinatorial,
+			is_synthesizable, is_builtin_ff, is_formal,
+			is_metainfo, has_effects,
+		};
+		cell_types[ct.type] = ct;
+	}
+
+	// Setup combinatorial cell type which is synthesizable and evaluable (by default)
+	void setup_comb_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_evaluable = true)
+	{
+		setup_internal_type(type, inputs, outputs, true, is_evaluable, true);
+	}
+
+	// Setup builtin ff cell type which is synthesizable
+	void setup_ff_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
+	{
+		setup_internal_type(type, inputs, outputs, false, false, true, true);
+	}
+
+	// Setup formal cell type which may be combinatorial, and may have effects
+	void setup_formal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_combinatorial = false)
+	{
+		setup_internal_type(type, inputs, outputs, is_combinatorial, false, false, false, true);
+	}
+
+	// Setup cell type which has effects, and may be formal
+	void setup_effects_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_formal = false)
+	{
+		setup_internal_type(type, inputs, outputs, false, false, false, false, is_formal, false, true);
+	}
+
+	// Setup meta-info cell type
+	void setup_metainfo_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
+	{
+		setup_internal_type(type, inputs, outputs, false, false, false, false, false, true);
 	}
 
 	void setup_module(RTLIL::Module *module)
@@ -87,32 +151,44 @@ struct CellTypes
 	{
 		setup_internals_eval();
 
-		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, true);
+		// synthesizable
+		setup_comb_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, false);
 
-		setup_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($assume), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($live), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($fair), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($cover), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($initstate), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($anyconst), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($anyseq), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($allconst), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($allseq), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
-		setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
-		setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
-		setup_type(ID($get_tag), {ID::A}, {ID::Y});
-		setup_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, pool<RTLIL::IdString>());
-		setup_type(ID($original_tag), {ID::A}, {ID::Y});
-		setup_type(ID($future_ff), {ID::A}, {ID::Y});
-		setup_type(ID($scopeinfo), {}, {});
-		setup_type(ID($input_port), {}, {ID::Y});
-		setup_type(ID($connect), {ID::A, ID::B}, {});
+		// combinatorial formal
+		setup_formal_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
+		setup_formal_type(ID($assume), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
+		setup_formal_type(ID($live), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
+		setup_formal_type(ID($fair), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
+		setup_formal_type(ID($cover), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
+		setup_formal_type(ID($initstate), pool<RTLIL::IdString>(), {ID::Y}, true);
+		setup_formal_type(ID($anyconst), pool<RTLIL::IdString>(), {ID::Y}, true);
+		setup_formal_type(ID($anyseq), pool<RTLIL::IdString>(), {ID::Y}, true);
+		setup_formal_type(ID($allconst), pool<RTLIL::IdString>(), {ID::Y}, true);
+		setup_formal_type(ID($allseq), pool<RTLIL::IdString>(), {ID::Y}, true);
+		setup_formal_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, true);
+
+		// combinatorial non-synthesizable
+		setup_internal_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
+		setup_internal_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>(), true);
+		setup_internal_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
+
+		// non-combinatorial formal
+		setup_formal_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
+		setup_formal_type(ID($get_tag), {ID::A}, {ID::Y});
+		setup_formal_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, pool<RTLIL::IdString>());
+		setup_formal_type(ID($original_tag), {ID::A}, {ID::Y});
+		setup_formal_type(ID($future_ff), {ID::A}, {ID::Y});
+
+		// has effects
+		setup_effects_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
+		setup_effects_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>(), true);
+
+		// meta-info
+		setup_metainfo_type(ID($scopeinfo), {}, {});
+
+		// temporary helper cells
+		setup_internal_type(ID($input_port), {}, {ID::Y});
+		setup_internal_type(ID($connect), {ID::A, ID::B}, {});
 	}
 
 	void setup_internals_eval()
@@ -133,92 +209,92 @@ struct CellTypes
 		};
 
 		for (auto type : unary_ops)
-			setup_type(type, {ID::A}, {ID::Y}, true);
+			setup_comb_type(type, {ID::A}, {ID::Y});
 
 		for (auto type : binary_ops)
-			setup_type(type, {ID::A, ID::B}, {ID::Y}, true);
+			setup_comb_type(type, {ID::A, ID::B}, {ID::Y});
 
 		for (auto type : std::vector<RTLIL::IdString>({ID($mux), ID($pmux), ID($bwmux)}))
-			setup_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, true);
+			setup_comb_type(type, {ID::A, ID::B, ID::S}, {ID::Y});
 
 		for (auto type : std::vector<RTLIL::IdString>({ID($bmux), ID($demux)}))
-			setup_type(type, {ID::A, ID::S}, {ID::Y}, true);
+			setup_comb_type(type, {ID::A, ID::S}, {ID::Y});
 
-		setup_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO}, true);
-		setup_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO}, true);
-		setup_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y}, true);
-		setup_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y}, true);
+		setup_comb_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO});
+		setup_comb_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO});
+		setup_comb_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y});
+		setup_comb_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y});
 	}
 
 	void setup_internals_ff()
 	{
-		setup_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q});
-		setup_type(ID($ff), {ID::D}, {ID::Q});
-		setup_type(ID($dff), {ID::CLK, ID::D}, {ID::Q});
-		setup_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q});
-		setup_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q});
-		setup_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q});
-		setup_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($aldff), {ID::CLK, ID::ALOAD, ID::AD, ID::D}, {ID::Q});
-		setup_type(ID($aldffe), {ID::CLK, ID::ALOAD, ID::AD, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
-		setup_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
-		setup_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
-		setup_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
+		setup_ff_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q});
+		setup_ff_type(ID($ff), {ID::D}, {ID::Q});
+		setup_ff_type(ID($dff), {ID::CLK, ID::D}, {ID::Q});
+		setup_ff_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q});
+		setup_ff_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q});
+		setup_ff_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::EN}, {ID::Q});
+		setup_ff_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q});
+		setup_ff_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::EN}, {ID::Q});
+		setup_ff_type(ID($aldff), {ID::CLK, ID::ALOAD, ID::AD, ID::D}, {ID::Q});
+		setup_ff_type(ID($aldffe), {ID::CLK, ID::ALOAD, ID::AD, ID::D, ID::EN}, {ID::Q});
+		setup_ff_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
+		setup_ff_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
+		setup_ff_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
+		setup_ff_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
+		setup_ff_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
+		setup_ff_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
 	}
 
 	void setup_internals_anyinit()
 	{
-		setup_type(ID($anyinit), {ID::D}, {ID::Q});
+		setup_formal_type(ID($anyinit), {ID::D}, {ID::Q});
 	}
 
 	void setup_internals_mem()
 	{
 		setup_internals_ff();
 
-		setup_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA});
-		setup_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
-		setup_type(ID($memwr), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($memwr_v2), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($meminit), {ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
-		setup_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
+		setup_internal_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA});
+		setup_internal_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
+		setup_internal_type(ID($memwr), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($memwr_v2), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($meminit), {ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
+		setup_internal_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
 
-		setup_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT});
+		setup_internal_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT});
 	}
 
 	void setup_stdcells()
 	{
 		setup_stdcells_eval();
 
-		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, true);
+		setup_comb_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, false);
 	}
 
 	void setup_stdcells_eval()
 	{
-		setup_type(ID($_BUF_), {ID::A}, {ID::Y}, true);
-		setup_type(ID($_NOT_), {ID::A}, {ID::Y}, true);
-		setup_type(ID($_AND_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_NAND_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_OR_),  {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_NOR_),  {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_XOR_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_XNOR_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_ANDNOT_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_ORNOT_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_MUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true);
-		setup_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true);
-		setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, true);
-		setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, true);
-		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, true);
-		setup_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true);
-		setup_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true);
-		setup_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, true);
-		setup_type(ID($_OAI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, true);
+		setup_comb_type(ID($_BUF_), {ID::A}, {ID::Y});
+		setup_comb_type(ID($_NOT_), {ID::A}, {ID::Y});
+		setup_comb_type(ID($_AND_), {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_NAND_), {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_OR_),  {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_NOR_),  {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_XOR_), {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_XNOR_), {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_ANDNOT_), {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_ORNOT_), {ID::A, ID::B}, {ID::Y});
+		setup_comb_type(ID($_MUX_), {ID::A, ID::B, ID::S}, {ID::Y});
+		setup_comb_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y});
+		setup_comb_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y});
+		setup_comb_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y});
+		setup_comb_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y});
+		setup_comb_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y});
+		setup_comb_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y});
+		setup_comb_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y});
+		setup_comb_type(ID($_OAI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y});
 	}
 
 	void setup_stdcells_mem()
@@ -227,82 +303,91 @@ struct CellTypes
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-			setup_type(stringf("$_SR_%c%c_", c1, c2), {ID::S, ID::R}, {ID::Q});
+			setup_ff_type(stringf("$_SR_%c%c_", c1, c2), {ID::S, ID::R}, {ID::Q});
 
-		setup_type(ID($_FF_), {ID::D}, {ID::Q});
-
-		for (auto c1 : list_np)
-			setup_type(stringf("$_DFF_%c_", c1), {ID::C, ID::D}, {ID::Q});
+		setup_ff_type(ID($_FF_), {ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-			setup_type(stringf("$_DFFE_%c%c_", c1, c2), {ID::C, ID::D, ID::E}, {ID::Q});
+			setup_ff_type(stringf("$_DFF_%c_", c1), {ID::C, ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-		for (auto c3 : list_01)
-			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
+			setup_ff_type(stringf("$_DFFE_%c%c_", c1, c2), {ID::C, ID::D, ID::E}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-		for (auto c4 : list_np)
-			setup_type(stringf("$_DFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-			setup_type(stringf("$_ALDFF_%c%c_", c1, c2), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-			setup_type(stringf("$_ALDFFE_%c%c%c_", c1, c2, c3), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {ID::C, ID::S, ID::R, ID::D}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-		for (auto c4 : list_np)
-			setup_type(stringf("$_DFFSRE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_01)
-			setup_type(stringf("$_SDFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
+			setup_ff_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
 		for (auto c4 : list_np)
-			setup_type(stringf("$_SDFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+			setup_ff_type(stringf("$_DFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+			setup_ff_type(stringf("$_ALDFF_%c%c_", c1, c2), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_ff_type(stringf("$_ALDFFE_%c%c%c_", c1, c2, c3), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_ff_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {ID::C, ID::S, ID::R, ID::D}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+		for (auto c4 : list_np)
+			setup_ff_type(stringf("$_DFFSRE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_ff_type(stringf("$_SDFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
 		for (auto c4 : list_np)
-			setup_type(stringf("$_SDFFCE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-			setup_type(stringf("$_DLATCH_%c_", c1), {ID::E, ID::D}, {ID::Q});
+			setup_ff_type(stringf("$_SDFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-			setup_type(stringf("$_DLATCH_%c%c%c_", c1, c2, c3), {ID::E, ID::R, ID::D}, {ID::Q});
+		for (auto c4 : list_np)
+			setup_ff_type(stringf("$_SDFFCE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+			setup_ff_type(stringf("$_DLATCH_%c_", c1), {ID::E, ID::D}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_ff_type(stringf("$_DLATCH_%c%c%c_", c1, c2, c3), {ID::E, ID::R, ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_np)
-			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {ID::E, ID::S, ID::R, ID::D}, {ID::Q});
+			setup_ff_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {ID::E, ID::S, ID::R, ID::D}, {ID::Q});
 	}
 
 	void clear()
 	{
 		cell_types.clear();
+	}
+
+	const CellType* get_cell(const RTLIL::IdString &type) const
+	{
+		auto it = cell_types.find(type);
+		if (it == cell_types.end())
+			return nullptr;
+		else
+			return &(it->second);
 	}
 
 	bool cell_known(const RTLIL::IdString &type) const

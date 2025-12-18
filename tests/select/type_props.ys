@@ -1,0 +1,42 @@
+read_rtlil << EOF
+module \sm2
+
+  wire input 1 \clk
+  wire input 2 \rst
+  wire width 2 input 3 \a
+
+  wire width 2 \add_Y
+
+  attribute \init 2'00
+  wire width 2 output 4 \y
+
+  cell $add \add
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 2
+    parameter \Y_WIDTH 2
+    connect \A \y
+    connect \B \a
+    connect \Y \add_Y
+  end
+
+  cell $sdff \sdff
+    parameter \CLK_POLARITY 1
+    parameter \SRST_POLARITY 1
+    parameter \SRST_VALUE 2'00
+    parameter \WIDTH 2
+    connect \CLK \clk
+    connect \D \add_Y
+    connect \Q \y
+    connect \SRST \rst
+  end
+end
+
+EOF
+
+select -assert-count 1 y:evaluable
+select -assert-count 1 y:combinatorial
+select -assert-count 2 y:synthesizable
+select -assert-count 1 y:builtin_ff
+select -assert-count 0 y:formal
