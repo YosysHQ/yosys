@@ -1,0 +1,42 @@
+# Test lut2mux pass using a directly constructed $lut (avoids frontend/synth differences in test-verific)
+
+read_rtlil << EOT
+module \top
+  wire width 2 input 1 \a
+  wire width 1 output 2 \y
+  cell $lut \u_lut
+    parameter \WIDTH 2
+    parameter \LUT 4'0110
+    connect \A \a
+    connect \Y \y
+  end
+end
+EOT
+
+select -assert-count 1 t:$lut
+
+# default mode -> gate-level $_MUX_
+design -save gold
+lut2mux
+rename \top \gate
+select -assert-count 3 gate/t:$_MUX_
+select -assert-count 0 gate/t:$mux
+select -assert-count 0 gate/t:$lut
+
+# -word mode -> word-level $mux
+design -copy-from gold -as top \top
+select -none
+select top
+lut2mux -word
+select -clear
+rename \top \word
+select -assert-count 3 word/t:$mux
+select -assert-count 0 word/t:$_MUX_
+select -assert-count 0 gate/t:$lut
+
+# equivalence
+equiv_make \gate \word equiv
+hierarchy -top equiv
+equiv_simple
+equiv_induct
+equiv_status -assert
