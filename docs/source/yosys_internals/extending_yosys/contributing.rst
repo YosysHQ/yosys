@@ -31,6 +31,8 @@ Formatting of code
 
 .. _Linux Kernel Coding Style: https://www.kernel.org/doc/Documentation/process/coding-style.rst
 
+- Check out :doc:`documenting` for guidelines on providing help text for
+  commands and cells.
 
 C++ Language
 ~~~~~~~~~~~~
