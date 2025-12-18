@@ -1143,7 +1143,29 @@ struct TestCellPass : public Pass {
 				else
 					uut = create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
 				if (!write_prefix.empty()) {
-					Pass::call(design, stringf("write_rtlil %s_%s_%05d.il", write_prefix, cell_type.c_str()+1, i));
+					string writer = "write_rtlil";
+					string suffix = "il";
+					if (techmap_cmd.compare("aigmap") == 0) {
+						// try to convert to aiger
+						Pass::call(design, techmap_cmd);
+						bool is_unconverted = false;
+						for (auto *mod : design->selected_modules())
+							for (auto *cell : mod->selected_cells())
+								if (!cell->type.in(ID::$_NOT_, ID::$_AND_)) {
+									is_unconverted = true;
+									break;
+								}
+						if (is_unconverted) {
+							// skip unconverted cells
+							log_warning("Skipping %s\n", cell_type);
+							delete design;
+							break;
+						} else {
+							writer = "write_aiger -ascii";
+							suffix = "aag";
+						}
+					}
+					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, cell_type.c_str()+1, i, suffix));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
