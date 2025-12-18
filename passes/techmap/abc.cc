@@ -136,6 +136,7 @@ struct AbcConfig
 	bool fast_mode = false;
 	bool show_tempdir = false;
 	bool sop_mode = false;
+	bool word_mode = false;
 	bool abc_dress = false;
 	bool map_mux4 = false;
 	bool map_mux8 = false;
@@ -1490,32 +1491,51 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 				continue;
 			}
 			if (c->type == ID(NOT)) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), run_abc.config.word_mode ? ID($not) : ID($_NOT_));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::Y}) {
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				cell->fixup_parameters();
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				std::string cell_type;
+                if (c->type == ID(AND) && run_abc.config.word_mode)
+				        cell_type = "$and";
+                else if (c->type == ID(OR) && run_abc.config.word_mode)
+                        cell_type = "$or";
+                else if (c->type == ID(XOR) && run_abc.config.word_mode)
+                        cell_type = "$xor";
+                else
+                        cell_type = stringf("$_%s_", c->type.c_str()+1);
+
+                RTLIL::Cell *cell = module->addCell(remap_name(c->name), cell_type);
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::Y}) {
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				cell->fixup_parameters();
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type.in(ID(MUX), ID(NMUX))) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				std::string cell_type;
+                if (c->type == ID(MUX) && run_abc.config.word_mode)
+                        cell_type = "$mux";
+                else
+                        cell_type = stringf("$_%s_", c->type.c_str()+1);
+
+                RTLIL::Cell *cell = module->addCell(remap_name(c->name), cell_type);
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				cell->fixup_parameters();
 				design->select(module, cell);
 				continue;
 			}
@@ -1996,6 +2016,7 @@ struct AbcPass : public Pass {
 		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
 		config.sop_mode = design->scratchpad_get_bool("abc.sop", false);
+		config.word_mode = design->scratchpad_get_bool("abc.word", false);
 		config.map_mux4 = design->scratchpad_get_bool("abc.mux4", false);
 		config.map_mux8 = design->scratchpad_get_bool("abc.mux8", false);
 		config.map_mux16 = design->scratchpad_get_bool("abc.mux16", false);
@@ -2090,6 +2111,10 @@ struct AbcPass : public Pass {
 			if (arg == "-sop") {
 				config.sop_mode = true;
 				continue;
+			}
+			if (arg == "-word") {
+                config.word_mode = true;
+                continue;
 			}
 			if (arg == "-mux4") {
 				config.map_mux4 = true;
