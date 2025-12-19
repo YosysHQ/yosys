@@ -718,6 +718,8 @@ ifneq ($(SMALL),1)
 
 OBJS += libs/subcircuit/subcircuit.o
 
+include $(YOSYS_SRC)/kernel/unstable/Makefile.inc
+
 include $(YOSYS_SRC)/frontends/*/Makefile.inc
 include $(YOSYS_SRC)/passes/*/Makefile.inc
 include $(YOSYS_SRC)/backends/*/Makefile.inc
