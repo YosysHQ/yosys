@@ -80,6 +80,8 @@ yosys_core(kernel
 	threading.h
 	timinginfo.h
 	topo_scc.h
+	unstable/patch.cc
+	unstable/patch.h
 	utils.h
 	version.cc
 	yosys.cc

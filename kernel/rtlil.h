@@ -109,6 +109,7 @@ namespace RTLIL
 	struct Monitor;
 	struct Design;
 	struct Module;
+	struct Patch;
 	struct Wire;
 	struct Memory;
 	struct Cell;
@@ -2533,13 +2534,13 @@ struct RTLIL::Cell : public RTLIL::NamedObject
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
-protected:
+public:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
+	friend struct RTLIL::Patch;
 	Cell();
 	~Cell();
 
-public:
 	// do not simply copy cells
 	Cell(RTLIL::Cell &other) = delete;
 	void operator=(RTLIL::Cell &other) = delete;
