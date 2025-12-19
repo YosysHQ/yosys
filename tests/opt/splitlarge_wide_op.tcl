@@ -56,12 +56,13 @@ for {set i 0} {$i < 8} {incr i} {
 	log -header "[op_name $i]"
 	log -push
 	design -reset
-	read_verilog wide_op.v
+	read_verilog splitlarge_wide_op.v
 	hierarchy -top wide_op
 	chparam -set width 1024 -set op $i wide_op
 	yosys proc
 	simplemap
-	equiv_opt -post -assert splitlarge -max_width 128
+equiv_opt -assert splitlarge
+yosys splitlarge
 	yosys select -assert-none r:A_WIDTH>128
 	yosys select -assert-none r:B_WIDTH>128
 	yosys select -assert-count [predict_adder_count 1024 128 $i] r:A_WIDTH
