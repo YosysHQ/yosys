@@ -39,3 +39,5 @@ PEEPOPT_PATTERN += passes/opt/peepopt_formal_clockgateff.pmg
 passes/opt/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
 endif
+
+OBJS += passes/opt/splitlarge.o
