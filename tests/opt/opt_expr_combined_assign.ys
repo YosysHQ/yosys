@@ -5,7 +5,7 @@ initial begin
 	a |= i;
 	a |= j;
 end
-    assign o = a;
+	assign o = a;
 endmodule
 EOT
 proc
@@ -19,10 +19,10 @@ read_verilog -sv <<EOT
 module opt_expr_add_test(input [3:0] i, input [7:0] j, output [8:0] o);
 wire[8:0] a = 8'b0;
 initial begin
-        a += i;
-        a += j;
+	a += i;
+	a += j;
 end
-    assign o = a;
+	assign o = a;
 endmodule
 EOT
 proc
@@ -36,10 +36,10 @@ read_verilog -sv <<EOT
 module opt_expr_xor_test(input [3:0] i, input [7:0] j, output [8:0] o);
 wire[8:0] a = 8'b0;
 initial begin
-        a ^= i;
-        a ^= j;
+	a ^= i;
+	a ^= j;
 end
-    assign o = a;
+	assign o = a;
 endmodule
 EOT
 proc
@@ -53,10 +53,10 @@ read_verilog -sv <<EOT
 module opt_expr_sub_test(input [3:0] i, input [7:0] j, output [8:0] o);
 wire[8:0] a = 8'b0;
 initial begin
-        a -= i;
-        a -= j;
+	a -= i;
+	a -= j;
 end
-    assign o = a;
+	assign o = a;
 endmodule
 EOT
 proc
@@ -70,10 +70,10 @@ read_verilog -sv <<EOT
 module opt_expr_and_test(input [3:0] i, input [7:0] j, output [8:0] o);
 wire[8:0] a = 8'b11111111;
 initial begin
-        a &= i;
-        a &= j;
+	a &= i;
+	a &= j;
 end
-    assign o = a;
+	assign o = a;
 endmodule
 EOT
 proc
