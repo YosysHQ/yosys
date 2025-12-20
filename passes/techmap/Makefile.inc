@@ -29,6 +29,7 @@ OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_fa.o
 OBJS += passes/techmap/extract_counter.o
 OBJS += passes/techmap/extract_reduce.o
+OBJS += passes/techmap/breakreduce.o
 OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/dffinit.o
 OBJS += passes/techmap/pmuxtree.o
