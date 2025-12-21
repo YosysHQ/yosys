@@ -2531,18 +2531,20 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 
 struct RTLIL::Cell : public RTLIL::NamedObject
 {
+private:
+	struct ConstructToken { explicit ConstructToken() = default; };
+public:
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
-public:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
 	friend struct RTLIL::Patch;
-	Cell();
+	Cell(ConstructToken);
 	~Cell();
 
 	// do not simply copy cells
-	Cell(RTLIL::Cell &other) = delete;
+	Cell(ConstructToken, RTLIL::Cell &other);
 	void operator=(RTLIL::Cell &other) = delete;
 
 	RTLIL::Module *module;

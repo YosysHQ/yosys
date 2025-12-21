@@ -3141,7 +3141,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = new RTLIL::Cell(Cell::ConstructToken{});
 	cell->name = std::move(name);
 	cell->type = type;
 	add(cell);
@@ -4255,7 +4255,7 @@ std::string RTLIL::Process::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Cell::Cell() : module(nullptr)
+RTLIL::Cell::Cell(RTLIL::Cell::ConstructToken) : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
