@@ -27,7 +27,7 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
-static void transfer_attr (Cell* to, const Cell* from, const IdString& attr) {
+static void transfer_attr (Cell* to, const Cell* from, IdString attr) {
 	if (from->has_attribute(attr))
 		to->attributes[attr] = from->attributes.at(attr);
 }

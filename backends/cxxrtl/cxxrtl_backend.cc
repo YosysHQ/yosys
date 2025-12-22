@@ -756,7 +756,7 @@ struct CxxrtlWorker {
 	//  1b. Generated identifiers for internal names (beginning with `$`) start with `i_`.
 	//  2. An underscore is escaped with another underscore, i.e. `__`.
 	//  3. Any other non-alnum character is escaped with underscores around its lowercase hex code, e.g. `@` as `_40_`.
-	std::string mangle_name(const RTLIL::IdString &name)
+	std::string mangle_name(RTLIL::IdString name)
 	{
 		std::string mangled;
 		bool first = true;
@@ -786,7 +786,7 @@ struct CxxrtlWorker {
 		return mangled;
 	}
 
-	std::string mangle_module_name(const RTLIL::IdString &name, bool is_blackbox = false)
+	std::string mangle_module_name(RTLIL::IdString name, bool is_blackbox = false)
 	{
 		// Class namespace.
 		if (is_blackbox)
@@ -794,19 +794,19 @@ struct CxxrtlWorker {
 		return mangle_name(name);
 	}
 
-	std::string mangle_memory_name(const RTLIL::IdString &name)
+	std::string mangle_memory_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return "memory_" + mangle_name(name);
 	}
 
-	std::string mangle_cell_name(const RTLIL::IdString &name)
+	std::string mangle_cell_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return "cell_" + mangle_name(name);
 	}
 
-	std::string mangle_wire_name(const RTLIL::IdString &name)
+	std::string mangle_wire_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return mangle_name(name);

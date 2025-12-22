@@ -241,8 +241,6 @@ struct RTLIL::IdString
 		*this = id;
 	}
 
-	constexpr inline const IdString &id_string() const { return *this; }
-
 	inline const char *c_str() const {
 		if (index_ >= 0)
 			return global_id_storage_.at(index_).buf;
@@ -372,7 +370,7 @@ struct RTLIL::IdString
 		return Substrings(global_autoidx_id_storage_.at(index_).prefix, -index_);
 	}
 
-	inline bool lt_by_name(const IdString &rhs) const {
+	inline bool lt_by_name(IdString rhs) const {
 		Substrings lhs_it = substrings();
 		Substrings rhs_it = rhs.substrings();
 		std::string_view lhs_substr = lhs_it.first();
@@ -399,12 +397,12 @@ struct RTLIL::IdString
 		}
 	}
 
-	inline bool operator<(const IdString &rhs) const {
+	inline bool operator<(IdString rhs) const {
 		return index_ < rhs.index_;
 	}
 
-	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+	inline bool operator==(IdString rhs) const { return index_ == rhs.index_; }
+	inline bool operator!=(IdString rhs) const { return index_ != rhs.index_; }
 
 	// The methods below are just convenience functions for better compatibility with std::string.
 
@@ -528,7 +526,7 @@ struct RTLIL::IdString
 		return (... || in(args));
 	}
 
-	bool in(const IdString &rhs) const { return *this == rhs; }
+	bool in(IdString rhs) const { return *this == rhs; }
 	bool in(const char *rhs) const { return *this == rhs; }
 	bool in(const std::string &rhs) const { return *this == rhs; }
 	inline bool in(const pool<IdString> &rhs) const;
@@ -646,13 +644,13 @@ private:
 namespace hashlib {
 	template <>
 	struct hash_ops<RTLIL::IdString> {
-		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
+		static inline bool cmp(RTLIL::IdString a, RTLIL::IdString b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString &id) {
+		[[nodiscard]] static inline Hasher hash(RTLIL::IdString id) {
 			return id.hash_top();
 		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString &id, Hasher h) {
+		[[nodiscard]] static inline Hasher hash_into(RTLIL::IdString id, Hasher h) {
 			return id.hash_into(h);
 		}
 	};
@@ -759,11 +757,11 @@ namespace RTLIL {
 		return str.substr(1);
 	}
 
-	static inline std::string unescape_id(const RTLIL::IdString &str) {
+	static inline std::string unescape_id(RTLIL::IdString str) {
 		return unescape_id(str.str());
 	}
 
-	static inline const char *id2cstr(const RTLIL::IdString &str) {
+	static inline const char *id2cstr(RTLIL::IdString str) {
 		return log_id(str);
 	}
 
@@ -780,7 +778,7 @@ namespace RTLIL {
 	};
 
 	struct sort_by_id_str {
-		bool operator()(const RTLIL::IdString &a, const RTLIL::IdString &b) const {
+		bool operator()(RTLIL::IdString a, RTLIL::IdString b) const {
 			return a.lt_by_name(b);
 		}
 	};
@@ -1246,22 +1244,22 @@ struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
-	bool has_attribute(const RTLIL::IdString &id) const;
+	bool has_attribute(RTLIL::IdString id) const;
 
-	void set_bool_attribute(const RTLIL::IdString &id, bool value=true);
-	bool get_bool_attribute(const RTLIL::IdString &id) const;
+	void set_bool_attribute(RTLIL::IdString id, bool value=true);
+	bool get_bool_attribute(RTLIL::IdString id) const;
 
 	[[deprecated("Use Module::get_blackbox_attribute() instead.")]]
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
-	void set_string_attribute(const RTLIL::IdString& id, string value);
-	string get_string_attribute(const RTLIL::IdString &id) const;
+	void set_string_attribute(RTLIL::IdString  id, string value);
+	string get_string_attribute(RTLIL::IdString id) const;
 
-	void set_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data);
-	void add_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data);
-	pool<string> get_strpool_attribute(const RTLIL::IdString &id) const;
+	void set_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
+	void add_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
+	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
 	void set_src_attribute(const std::string &src) {
 		set_string_attribute(ID::src, src);
@@ -1273,8 +1271,8 @@ struct RTLIL::AttrObject
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
 
-	void set_intvec_attribute(const RTLIL::IdString& id, const vector<int> &data);
-	vector<int> get_intvec_attribute(const RTLIL::IdString &id) const;
+	void set_intvec_attribute(RTLIL::IdString  id, const vector<int> &data);
+	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 };
 
 struct RTLIL::NamedObject : public RTLIL::AttrObject
@@ -1781,18 +1779,18 @@ struct RTLIL::Selection
 
 	// checks if the given module exists in the current design and is a
 	// boxed module, warning the user if the current design is not set
-	bool boxed_module(const RTLIL::IdString &mod_name) const;
+	bool boxed_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given module is included in this selection
-	bool selected_module(const RTLIL::IdString &mod_name) const;
+	bool selected_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given module is wholly included in this selection,
 	// i.e. not partially selected
-	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+	bool selected_whole_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given member from the given module is included in this
 	// selection
-	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 
 	// optimizes this selection for the given design by:
 	// - removing non-existent modules and members, any boxed modules and
@@ -1862,7 +1860,7 @@ struct RTLIL::Monitor
 	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
-	virtual void notify_connect(RTLIL::Cell*, const RTLIL::IdString&, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
+	virtual void notify_connect(RTLIL::Cell*, RTLIL::IdString, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
 	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
 	virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 	virtual void notify_blackout(RTLIL::Module*) { }
@@ -1897,11 +1895,11 @@ struct RTLIL::Design
 	~Design();
 
 	RTLIL::ObjRange<RTLIL::Module*> modules();
-	RTLIL::Module *module(const RTLIL::IdString &name);
-	const RTLIL::Module *module(const RTLIL::IdString &name) const;
+	RTLIL::Module *module(RTLIL::IdString name);
+	const RTLIL::Module *module(RTLIL::IdString name) const;
 	RTLIL::Module *top_module() const;
 
-	bool has(const RTLIL::IdString &id) const {
+	bool has(RTLIL::IdString id) const {
 		return modules_.count(id) != 0;
 	}
 
@@ -1928,15 +1926,15 @@ struct RTLIL::Design
 	void optimize();
 
 	// checks if the given module is included in the current selection
-	bool selected_module(const RTLIL::IdString &mod_name) const;
+	bool selected_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given module is wholly included in the current
 	// selection, i.e. not partially selected
-	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+	bool selected_whole_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given member from the given module is included in the
 	// current selection
-	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 
 	// checks if the given module is included in the current selection
 	bool selected_module(RTLIL::Module *mod) const;
@@ -2068,7 +2066,7 @@ public:
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
-	virtual size_t count_id(const RTLIL::IdString& id);
+	virtual size_t count_id(RTLIL::IdString id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
 
@@ -2120,20 +2118,20 @@ public:
 		return design->selected_member(name, member->name);
 	}
 
-	RTLIL::Wire* wire(const RTLIL::IdString &id) {
+	RTLIL::Wire* wire(RTLIL::IdString id) {
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
 	}
-	RTLIL::Cell* cell(const RTLIL::IdString &id) {
+	RTLIL::Cell* cell(RTLIL::IdString id) {
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
 
-	const RTLIL::Wire* wire(const RTLIL::IdString &id) const{
+	const RTLIL::Wire* wire(RTLIL::IdString id) const{
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
 	}
-	const RTLIL::Cell* cell(const RTLIL::IdString &id) const {
+	const RTLIL::Cell* cell(RTLIL::IdString id) const {
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
@@ -2490,23 +2488,23 @@ public:
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
 	// access cell ports
-	bool hasPort(const RTLIL::IdString &portname) const;
-	void unsetPort(const RTLIL::IdString &portname);
-	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
-	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
+	bool hasPort(RTLIL::IdString portname) const;
+	void unsetPort(RTLIL::IdString portname);
+	void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
+	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
 	// information about cell ports
 	bool known() const;
-	bool input(const RTLIL::IdString &portname) const;
-	bool output(const RTLIL::IdString &portname) const;
-	PortDir port_dir(const RTLIL::IdString &portname) const;
+	bool input(RTLIL::IdString portname) const;
+	bool output(RTLIL::IdString portname) const;
+	PortDir port_dir(RTLIL::IdString portname) const;
 
 	// access cell parameters
-	bool hasParam(const RTLIL::IdString &paramname) const;
-	void unsetParam(const RTLIL::IdString &paramname);
-	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
-	const RTLIL::Const &getParam(const RTLIL::IdString &paramname) const;
+	bool hasParam(RTLIL::IdString paramname) const;
+	void unsetParam(RTLIL::IdString paramname);
+	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
+	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	void sort();
 	void check();
