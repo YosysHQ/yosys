@@ -844,6 +844,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
 				set_src_attr(cell, ast);
+				cell->set_bool_attribute(ID(keep));
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
 						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first);
