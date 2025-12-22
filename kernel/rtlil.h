@@ -241,8 +241,6 @@ struct RTLIL::IdString
 		*this = id;
 	}
 
-	constexpr inline IdString id_string() const { return *this; }
-
 	inline const char *c_str() const {
 		if (index_ >= 0)
 			return global_id_storage_.at(index_).buf;
