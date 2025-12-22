@@ -12,6 +12,7 @@ More scripting
    selections
    interactive_investigation
    model_checking
+   staged_formal_sim
    data_flow_tracking
 
 .. troubleshooting
