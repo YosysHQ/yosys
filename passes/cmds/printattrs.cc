@@ -45,7 +45,7 @@ struct PrintAttrsPass : public Pass {
 		return stringf("%*s", indent, "");
 	}
 
-	static void log_const(const RTLIL::IdString &s, const RTLIL::Const &x, const unsigned int indent) {
+	static void log_const(RTLIL::IdString s, const RTLIL::Const &x, const unsigned int indent) {
 		if (x.flags & RTLIL::CONST_FLAG_STRING)
 			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent), log_id(s), x.decode_string());
 		else if (x.flags == RTLIL::CONST_FLAG_NONE || x.flags == RTLIL::CONST_FLAG_SIGNED)

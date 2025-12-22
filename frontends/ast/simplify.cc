@@ -879,7 +879,7 @@ static void check_auto_nosync(AstNode *node)
 	}
 
 	// remove the attributes we've "consumed"
-	for (const RTLIL::IdString &str : attrs_to_drop) {
+	for (RTLIL::IdString str : attrs_to_drop) {
 		auto it = node->attributes.find(str);
 		node->attributes.erase(it);
 	}
