@@ -2454,18 +2454,20 @@ void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 
 struct RTLIL::Wire : public RTLIL::NamedObject
 {
+private:
+	struct ConstructToken { explicit ConstructToken() = default; };
+	friend struct RTLIL::Design;
+	friend struct RTLIL::Cell;
+	friend struct RTLIL::Module;
+	friend struct RTLIL::Patch;
+public:
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
-
-protected:
 	// use module->addWire() and module->remove() to create or destroy wires
-	friend struct RTLIL::Module;
 	friend struct RTLIL::SigNormIndex;
 	Wire();
 	~Wire();
 
-	friend struct RTLIL::Design;
-	friend struct RTLIL::Cell;
 	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 	RTLIL::Cell *driverCell_ = nullptr;
 	RTLIL::IdString driverPort_;
@@ -2527,13 +2529,13 @@ struct RTLIL::Cell : public RTLIL::NamedObject
 {
 private:
 	struct ConstructToken { explicit ConstructToken() = default; };
+	friend struct RTLIL::Module;
+	friend struct RTLIL::Patch;
 public:
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	// use module->addCell() and module->remove() to create or destroy cells
-	friend struct RTLIL::Module;
-	friend struct RTLIL::Patch;
 	Cell(ConstructToken);
 	~Cell();
 
