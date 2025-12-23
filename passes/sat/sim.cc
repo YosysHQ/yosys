@@ -549,31 +549,27 @@ struct SimInstance
 			if (shared->debug)
 				log("[%s] eval %s (%s)\n", hiername(), log_id(cell), log_id(cell->type));
 
-			// Simple (A -> Y) and (A,B -> Y) cells
-			if (has_a && !has_c && !has_d && !has_s && has_y) {
-				set_state(sig_y, CellTypes::eval(cell, get_state(sig_a), get_state(sig_b)));
-				return;
-			}
+			bool err = false;
+			RTLIL::Const eval_state;
+			if (has_a && !has_c && !has_d && !has_s && has_y)
+				// Simple (A -> Y) and (A,B -> Y) cells
+				eval_state = CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), &err);
+			else if (has_a && has_b && has_c && !has_d && !has_s && has_y)
+				// (A,B,C -> Y) cells
+				eval_state = CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), get_state(sig_c), &err);
+			else if (has_a && !has_b && !has_c && !has_d && has_s && has_y)
+				// (A,S -> Y) cells
+				eval_state = CellTypes::eval(cell, get_state(sig_a), get_state(sig_s), &err);
+			else if (has_a && has_b && !has_c && !has_d && has_s && has_y)
+				// (A,B,S -> Y) cells
+				eval_state = CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), get_state(sig_s), &err);
+			else
+				err = true;
 
-			// (A,B,C -> Y) cells
-			if (has_a && has_b && has_c && !has_d && !has_s && has_y) {
-				set_state(sig_y, CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), get_state(sig_c)));
-				return;
-			}
-
-			// (A,S -> Y) cells
-			if (has_a && !has_b && !has_c && !has_d && has_s && has_y) {
-				set_state(sig_y, CellTypes::eval(cell, get_state(sig_a), get_state(sig_s)));
-				return;
-			}
-
-			// (A,B,S -> Y) cells
-			if (has_a && has_b && !has_c && !has_d && has_s && has_y) {
-				set_state(sig_y, CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), get_state(sig_s)));
-				return;
-			}
-
-			log_warning("Unsupported evaluable cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			if (err)
+				log_warning("Unsupported evaluable cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			else
+				set_state(sig_y, eval_state);
 			return;
 		}
 
