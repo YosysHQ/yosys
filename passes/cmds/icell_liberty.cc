@@ -163,7 +163,6 @@ struct IcellLiberty : Pass {
 		log_header(d, "Executing ICELL_LIBERTY pass.\n");
 
 		size_t argidx;
-		IdString naming_attr;
 		std::string liberty_filename;
 		auto liberty_file = std::make_unique<std::ofstream>();
 
