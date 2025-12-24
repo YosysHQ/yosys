@@ -5,6 +5,7 @@ endif
 OBJS += passes/cmds/add.o
 OBJS += passes/cmds/delete.o
 OBJS += passes/cmds/design.o
+OBJS += passes/cmds/design_equal.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/viz.o

@@ -3039,6 +3039,13 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	}
 }
 
+void RTLIL::Module::remove(RTLIL::Memory *memory)
+{
+	log_assert(memories.count(memory->name) != 0);
+	memories.erase(memory->name);
+	delete memory;
+}
+
 void RTLIL::Module::remove(RTLIL::Process *process)
 {
 	log_assert(processes.count(process->name) != 0);
