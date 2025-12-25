@@ -602,7 +602,7 @@ void format_emit_string_view(std::string &result, std::string_view spec, int *dy
 }
 
 void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
-	DynamicIntCount num_dynamic_ints, const IdString &arg)
+	DynamicIntCount num_dynamic_ints, const RTLIL::IdString &arg)
 {
 	if (spec == "%s") {
 		// Format checking will have guaranteed num_dynamic_ints == 0.

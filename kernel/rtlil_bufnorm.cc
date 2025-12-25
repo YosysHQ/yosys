@@ -526,7 +526,7 @@ void RTLIL::Module::bufNormalize()
 	pending_deleted_cells.clear();
 }
 
-void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
+void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 {
 	RTLIL::SigSpec signal;
 	auto conn_it = connections_.find(portname);
@@ -586,7 +586,7 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 	}
 }
 
-void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
+void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
 	auto r = connections_.insert(portname);
 	auto conn_it = r.first;

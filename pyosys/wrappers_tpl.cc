@@ -113,7 +113,7 @@ namespace pyosys {
 
 		void notify_connect(
 			RTLIL::Cell *cell,
-			const RTLIL::IdString &port,
+			RTLIL::IdString port,
 			const RTLIL::SigSpec &old_sig,
 			const RTLIL::SigSpec &sig
 		) override {
@@ -238,7 +238,7 @@ namespace pyosys {
 				"notify_connect",
 				py::overload_cast<
 					RTLIL::Cell *,
-					const RTLIL::IdString &,
+					RTLIL::IdString,
 					const RTLIL::SigSpec &,
 					const RTLIL::SigSpec &
 				>(&RTLIL::Monitor::notify_connect)
