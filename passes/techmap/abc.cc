@@ -77,6 +77,10 @@ namespace abc {
 }
 #endif
 
+#ifndef __GLIBC__
+#define strerrorname_np(x) strerror(x)
+#endif
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
