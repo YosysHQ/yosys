@@ -39,6 +39,7 @@ OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/tribuf.o
 OBJS += passes/techmap/lut2mux.o
+OBJS += passes/techmap/lut2bmux.o
 OBJS += passes/techmap/nlutmap.o
 OBJS += passes/techmap/shregmap.o
 OBJS += passes/techmap/deminout.o
