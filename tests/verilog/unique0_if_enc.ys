@@ -1,0 +1,41 @@
+logger -expect log "SAT proof finished - no model found: SUCCESS" 1
+
+read_verilog -sv <<EOF
+// A somewhat contrived model of an encoder, relying on SystemVerilog's
+// strong "if" semantics to guarantee priority encoder behaviour.
+module encoder( input [ 2:0 ] x, output reg [ 1:0 ] y );
+    always_comb begin
+        y = 2'b00;
+
+        if( x[ 2 ] ) y = 2'b11;
+        else if( x[ 1 ] ) y = 2'b10;
+        else if( x[ 0 ] ) y = 2'b01;
+    end
+endmodule
+
+// Almost the same thing, but by using "unique0 if" we introduce
+// "don't care" states, essentially conveying permission to synthesise
+// a simple encoder instead.
+module dut( input [ 2:0 ] x, output reg [ 1:0 ] y );
+    always_comb begin
+        y = 2'b00;
+
+        unique0 if( x[ 2 ] ) y = 2'b11;
+        else if( x[ 1 ] ) y = 2'b10;
+        else if( x[ 0 ] ) y = 2'b01;
+    end
+endmodule
+
+// A simple test bench to detect mismatches between the two encoders.
+module compare_encoders( input [ 2:0 ] x, output ok );
+    wire [ 1:0 ] encout;
+    wire [ 1:0 ] dutout;
+    encoder e( x, encout );
+    dut d( x, dutout );
+    // The "unique0 if" above assumes $onehot0( x ).
+    assign ok = encout == dutout || !$onehot0( x );
+endmodule
+EOF
+
+synth -flatten -top compare_encoders
+sat -prove ok 1

@@ -415,7 +415,7 @@ struct BufnormPass : public Pass {
 				return mapped_bits.at(bit);
 			};
 
-			auto make_buffer_f = [&](const IdString &type, const SigSpec &src, const SigSpec &dst)
+			auto make_buffer_f = [&](IdString type, const SigSpec &src, const SigSpec &dst)
 			{
 				auto it = old_buffers.find(pair<IdString, SigSpec>(type, dst));
 

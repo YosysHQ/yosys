@@ -260,7 +260,7 @@ bool DriveChunkMultiple::try_append(DriveBitMultiple const &bit)
 		switch (single.type())
 		{
 			case DriveType::CONSTANT: {
-				single.constant().bits().push_back(constant);
+				single.constant().append(RTLIL::Const(constant));
 			} break;
 			case DriveType::WIRE: {
 				single.wire().width += 1;
@@ -295,8 +295,7 @@ bool DriveChunkMultiple::try_append(DriveChunkMultiple const &chunk)
 		switch (single.type())
 		{
 			case DriveType::CONSTANT: {
-				auto &bits = single.constant().bits();
-				bits.insert(bits.end(), constant.bits().begin(), constant.bits().end());
+				single.constant().append(constant);
 			} break;
 			case DriveType::WIRE: {
 				single.wire().width += width;
@@ -349,7 +348,7 @@ bool DriveChunk::try_append(DriveBit const &bit)
 			none_ += 1;
 			return true;
 		case DriveType::CONSTANT:
-			constant_.bits().push_back(bit.constant());
+			constant_.append(RTLIL::Const(bit.constant()));
 			return true;
 		case DriveType::WIRE:
 			return wire_.try_append(bit.wire());
@@ -375,7 +374,7 @@ bool DriveChunk::try_append(DriveChunk const &chunk)
 			none_ += chunk.none_;
 			return true;
 		case DriveType::CONSTANT:
-			constant_.bits().insert(constant_.bits().end(), chunk.constant_.begin(), chunk.constant_.end());
+			constant_.append(chunk.constant_);
 			return true;
 		case DriveType::WIRE:
 			return wire_.try_append(chunk.wire());
@@ -865,41 +864,41 @@ DriveSpec DriverMap::operator()(DriveSpec spec)
 	return result;
 }
 
-const char *log_signal(DriveChunkWire const &chunk)
+std::string log_signal(DriveChunkWire const &chunk)
 {
 	const char *id = log_id(chunk.wire->name);
 	if (chunk.is_whole())
 		return id;
 	if (chunk.width == 1)
-		return log_str(stringf("%s [%d]", id, chunk.offset));
-	return log_str(stringf("%s [%d:%d]", id, chunk.offset + chunk.width - 1, chunk.offset));
+		return stringf("%s [%d]", id, chunk.offset);
+	return stringf("%s [%d:%d]", id, chunk.offset + chunk.width - 1, chunk.offset);
 }
 
 
-const char *log_signal(DriveChunkPort const &chunk)
+std::string log_signal(DriveChunkPort const &chunk)
 {
 	const char *cell_id = log_id(chunk.cell->name);
 	const char *port_id = log_id(chunk.port);
 	if (chunk.is_whole())
-		return log_str(stringf("%s <%s>", cell_id, port_id));
+		return stringf("%s <%s>", cell_id, port_id);
 	if (chunk.width == 1)
-		return log_str(stringf("%s <%s> [%d]", cell_id, port_id, chunk.offset));
-	return log_str(stringf("%s <%s> [%d:%d]", cell_id, port_id, chunk.offset + chunk.width - 1, chunk.offset));
+		return stringf("%s <%s> [%d]", cell_id, port_id, chunk.offset);
+	return stringf("%s <%s> [%d:%d]", cell_id, port_id, chunk.offset + chunk.width - 1, chunk.offset);
 }
 
-const char *log_signal(DriveChunkMarker const &chunk)
+std::string log_signal(DriveChunkMarker const &chunk)
 {
 	if (chunk.width == 1)
-		return log_str(stringf("<marker %d> [%d]", chunk.marker, chunk.offset));
-	return log_str(stringf("<marker %d> [%d:%d]", chunk.marker, chunk.offset + chunk.width - 1, chunk.offset));
+		return stringf("<marker %d> [%d]", chunk.marker, chunk.offset);
+	return stringf("<marker %d> [%d:%d]", chunk.marker, chunk.offset + chunk.width - 1, chunk.offset);
 }
 
-const char *log_signal(DriveChunk const &chunk)
+std::string log_signal(DriveChunk const &chunk)
 {
 	switch (chunk.type())
 	{
 		case DriveType::NONE:
-			return log_str(stringf("<none x%d>", chunk.size()));
+			return stringf("<none x%d>", chunk.size());
 		case DriveType::CONSTANT:
 			return log_const(chunk.constant());
 		case DriveType::WIRE:
@@ -917,14 +916,14 @@ const char *log_signal(DriveChunk const &chunk)
 				str += log_signal(single);
 			}
 			str += ">";
-			return log_str(str);
+			return str;
 		}
 		default:
 			log_abort();
 	}
 }
 
-const char *log_signal(DriveSpec const &spec)
+std::string log_signal(DriveSpec const &spec)
 {
 	auto &chunks = spec.chunks();
 	if (chunks.empty())
@@ -943,7 +942,7 @@ const char *log_signal(DriveSpec const &spec)
 	}
 	str += " }";
 
-	return log_str(str);
+	return str;
 }
 
 YOSYS_NAMESPACE_END

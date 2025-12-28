@@ -847,7 +847,7 @@ struct ExtractCounterPass : public Pass {
 				else if (arg == "no")
 					settings.allow_arst = false;
 				else
-					log_error("Invalid -allow_arst value \"%s\"\n", arg.c_str());
+					log_error("Invalid -allow_arst value \"%s\"\n", arg);
 				continue;
 			}
 
@@ -861,7 +861,7 @@ struct ExtractCounterPass : public Pass {
 				else if (arg == "both")
 					settings.allowed_dirs = 2;
 				else
-					log_error("Invalid -dir value \"%s\"\n", arg.c_str());
+					log_error("Invalid -dir value \"%s\"\n", arg);
 				continue;
 			}
 		}
@@ -893,7 +893,7 @@ struct ExtractCounterPass : public Pass {
 
 			for(auto cpair : cells_to_rename)
 			{
-				//log("Renaming cell %s to %s\n", log_id(cpair.first->name), cpair.second.c_str());
+				//log("Renaming cell %s to %s\n", log_id(cpair.first->name), cpair.second);
 				module->rename(cpair.first, cpair.second);
 			}
 		}

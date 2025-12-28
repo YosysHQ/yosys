@@ -115,9 +115,9 @@ finally
 				Wire *cascade = module->addWire(NEW_ID, 48);
 
 				// zero port C and move wire to cascade
-				dsp_pcin->setPort(ID(C), Const(0, 48));
-				dsp_pcin->setPort(ID(CDIN), cascade);
-				dsp->setPort(ID(CDOUT), cascade);
+				dsp_pcin->setPort(\C, Const(0, 48));
+				dsp_pcin->setPort(\CDIN, cascade);
+				dsp->setPort(\CDOUT, cascade);
 
 				// Configure wire to cascade the dsps
 				add_siguser(cascade, dsp_pcin);

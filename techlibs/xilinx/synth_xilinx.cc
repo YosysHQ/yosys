@@ -310,13 +310,13 @@ struct SynthXilinxPass : public ScriptPass
 			lut_size = 4;
 			widelut_size = 6;
 		} else
-			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family);
 
 		if (widemux != 0 && lut_size != 6)
 			log_cmd_error("-widemux is not currently supported for LUT4-based architectures.\n");
 
 		if (lut_size != 6) {
-			log_warning("Shift register inference not yet supported for family %s.\n", family.c_str());
+			log_warning("Shift register inference not yet supported for family %s.\n", family);
 			nosrl = true;
 		}
 
@@ -350,7 +350,7 @@ struct SynthXilinxPass : public ScriptPass
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
 
-			run(stringf("hierarchy -check %s", top_opt.c_str()));
+			run(stringf("hierarchy -check %s", top_opt));
 		}
 
 		if (check_label("prepare")) {
@@ -649,10 +649,10 @@ struct SynthXilinxPass : public ScriptPass
 				std::string abc9_opts;
 				std::string k = "synth_xilinx.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))
-					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
 				else {
-					k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
-					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k, RTLIL::constpad.at("synth_xilinx.abc9.xc7.W")).c_str());
+					k = stringf("synth_xilinx.abc9.%s.W", family);
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k, RTLIL::constpad.at("synth_xilinx.abc9.xc7.W")));
 				}
 				if (nowidelut)
 					abc9_opts += stringf(" -maxlut %d", lut_size);
@@ -718,18 +718,18 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("edif")) {
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif -pvector bra %s", edif_file.c_str()));
+				run(stringf("write_edif -pvector bra %s", edif_file));
 		}
 
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
-				run(stringf("write_blif %s", blif_file.c_str()));
+				run(stringf("write_blif %s", blif_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthXilinxPass;

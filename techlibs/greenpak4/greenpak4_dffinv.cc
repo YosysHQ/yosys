@@ -36,9 +36,9 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 		Const initval = cell->getParam(ID::INIT);
 		if (GetSize(initval) >= 1) {
 			if (initval[0] == State::S0)
-				initval.bits()[0] = State::S1;
+				initval.set(0, State::S1);
 			else if (initval[0] == State::S1)
-				initval.bits()[0] = State::S0;
+				initval.set(0, State::S0);
 			cell->setParam(ID::INIT, initval);
 		}
 
@@ -47,9 +47,9 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 			Const srmode = cell->getParam(ID(SRMODE));
 			if (GetSize(srmode) >= 1) {
 				if (srmode[0] == State::S0)
-					srmode.bits()[0] = State::S1;
+					srmode.set(0, State::S1);
 				else if (srmode[0] == State::S1)
-					srmode.bits()[0] = State::S0;
+					srmode.set(0, State::S0);
 				cell->setParam(ID(SRMODE), srmode);
 			}
 		}

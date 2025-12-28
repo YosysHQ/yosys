@@ -178,7 +178,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str().c_str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
+			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
 			apply_attrs(eq_cell, sw, cs);
 
 			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -412,7 +412,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 
 void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 {
-	log("Creating decoders for process `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
+	log("Creating decoders for process `%s.%s'.\n", mod->name, proc->name);
 
 	SigSnippets sigsnip;
 	sigsnip.insert(&proc->root_case);
@@ -468,11 +468,9 @@ struct ProcMuxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod))
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_mux(mod, proc_it.second, ifxmode);
+		for (auto mod : design->all_selected_modules())
+			for (auto proc : mod->selected_processes())
+				proc_mux(mod, proc, ifxmode);
 	}
 } ProcMuxPass;
 

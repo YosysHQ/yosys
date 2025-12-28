@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source ../common-env.sh
 
 set -e
 
@@ -57,3 +58,13 @@ for y in *.ys; do
     echo "Running $y."
     ../../yosys -ql ${y%.*}.log $y
 done
+
+# compare aigmap with reference
+# make gold with: rm gold/*; yosys --no-version -p "test_cell -aigmap -w gold/ -n 1 -s 1 all"
+rm -rf gate; mkdir gate
+../../yosys --no-version -p "test_cell -aigmap -w gate/ -n 1 -s 1 all"
+(
+    set -o pipefail
+    diff --brief gold gate | tee aigmap.err
+)
+rm aigmap.err

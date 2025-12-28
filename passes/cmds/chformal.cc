@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -70,65 +71,67 @@ static bool is_triggered_check_cell(RTLIL::Cell * cell)
 }
 
 struct ChformalPass : public Pass {
-	ChformalPass() : Pass("chformal", "change formal constraints of the design") { }
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    chformal [types] [mode] [options] [selection]\n");
-		log("\n");
-		log("Make changes to the formal constraints of the design. The [types] options\n");
-		log("the type of constraint to operate on. If none of the following options are\n");
-		log("given, the command will operate on all constraint types:\n");
-		log("\n");
-		log("    -assert       $assert cells, representing assert(...) constraints\n");
-		log("    -assume       $assume cells, representing assume(...) constraints\n");
-		log("    -live         $live cells, representing assert(s_eventually ...)\n");
-		log("    -fair         $fair cells, representing assume(s_eventually ...)\n");
-		log("    -cover        $cover cells, representing cover() statements\n");
-		log("\n");
-		log("    Additionally chformal will operate on $check cells corresponding to the\n");
-		log("    selected constraint types.\n");
-		log("\n");
-		log("Exactly one of the following modes must be specified:\n");
-		log("\n");
-		log("    -remove\n");
-		log("        remove the cells and thus constraints from the design\n");
-		log("\n");
-		log("    -early\n");
-		log("        bypass FFs that only delay the activation of a constraint. When inputs\n");
-		log("        of the bypassed FFs do not remain stable between clock edges, this may\n");
-		log("        result in unexpected behavior.\n");
-		log("\n");
-		log("    -delay <N>\n");
-		log("        delay activation of the constraint by <N> clock cycles\n");
-		log("\n");
-		log("    -skip <N>\n");
-		log("        ignore activation of the constraint in the first <N> clock cycles\n");
-		log("\n");
-		log("    -coverenable\n");
-		log("        add cover statements for the enable signals of the constraints\n");
-		log("\n");
+	ChformalPass() : Pass("chformal", "change formal constraints of the design") {}
+
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+
+		auto content_root = help->get_root();
+
+		content_root->usage("chformal [types] [mode] [options] [selection]");
+		content_root->paragraph(
+			"Make changes to the formal constraints of the design. The [types] options "
+			"the type of constraint to operate on. If none of the following options are "
+			"given, the command will operate on all constraint types:"
+		);
+
+		content_root->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
+		content_root->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
+		content_root->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
+		content_root->option("-fair", "`$fair` cells, representing ``assume(s_eventually ...)``");
+		content_root->option("-cover", "`$cover` cells, representing ``cover()`` statements");
+		content_root->paragraph(
+			"Additionally chformal will operate on `$check` cells corresponding to the "
+			"selected constraint types."
+		);
+
+		content_root->paragraph("Exactly one of the following modes must be specified:");
+
+		content_root->option("-remove", "remove the cells and thus constraints from the design");
+		content_root->option("-early",
+			"bypass FFs that only delay the activation of a constraint. When inputs "
+			"of the bypassed FFs do not remain stable between clock edges, this may "
+			"result in unexpected behavior."
+		);
+		content_root->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
+		content_root->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
+		auto cover_option = content_root->open_option("-coverenable");
+		cover_option->paragraph(
+			"add cover statements for the enable signals of the constraints"
+		);
 #ifdef YOSYS_ENABLE_VERIFIC
-		log("        Note: For the Verific frontend it is currently not guaranteed that a\n");
-		log("        reachable SVA statement corresponds to an active enable signal.\n");
-		log("\n");
+		cover_option->paragraph(
+			"Note: For the Verific frontend it is currently not guaranteed that a "
+			"reachable SVA statement corresponds to an active enable signal."
+		);
 #endif
-		log("    -assert2assume\n");
-		log("    -assume2assert\n");
-		log("    -live2fair\n");
-		log("    -fair2live\n");
-		log("        change the roles of cells as indicated. these options can be combined\n");
-		log("\n");
-		log("    -lower\n");
-		log("        convert each $check cell into an $assert, $assume, $live, $fair or\n");
-		log("        $cover cell. If the $check cell contains a message, also produce a\n");
-		log("        $print cell.\n");
-		log("\n");
+		content_root->option("-assert2assume");
+		content_root->option("-assert2cover");
+		content_root->option("-assume2assert");
+		content_root->option("-live2fair");
+		content_root->option("-fair2live", "change the roles of cells as indicated. these options can be combined");
+		content_root->option("-lower",
+			"convert each $check cell into an $assert, $assume, $live, $fair or "
+			"$cover cell. If the $check cell contains a message, also produce a "
+			"$print cell."
+		);
+		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool assert2assume = false;
+		bool assert2cover = false;
 		bool assume2assert = false;
 		bool live2fair = false;
 		bool fair2live = false;
@@ -187,6 +190,11 @@ struct ChformalPass : public Pass {
 				mode = 'c';
 				continue;
 			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2cover") {
+				assert2cover = true;
+				mode = 'c';
+				continue;
+			}
 			if ((mode == 0 || mode == 'c') && args[argidx] == "-assume2assert") {
 				assume2assert = true;
 				mode = 'c';
@@ -216,6 +224,10 @@ struct ChformalPass : public Pass {
 			constr_types.insert(ID($live));
 			constr_types.insert(ID($fair));
 			constr_types.insert(ID($cover));
+		}
+
+		if (assert2assume && assert2cover) {
+			log_cmd_error("Cannot use both -assert2assume and -assert2cover.\n");
 		}
 
 		if (mode == 0)
@@ -381,6 +393,8 @@ struct ChformalPass : public Pass {
 					IdString flavor = formal_flavor(cell);
 					if (assert2assume && flavor == ID($assert))
 						set_formal_flavor(cell, ID($assume));
+					if (assert2cover && flavor == ID($assert))
+						set_formal_flavor(cell, ID($cover));
 					else if (assume2assert && flavor == ID($assume))
 						set_formal_flavor(cell, ID($assert));
 					else if (live2fair && flavor == ID($live))

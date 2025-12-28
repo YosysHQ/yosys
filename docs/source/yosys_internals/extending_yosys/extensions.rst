@@ -9,7 +9,7 @@ Writing extensions
 .. todo:: update to use :file:`/code_examples/extensions/test*.log`
 
 This chapter contains some bits and pieces of information about programming
-yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
+yosys extensions. Don't be afraid to ask questions on the YosysHQ Discourse.
 
 .. todo:: mention coding guide
 
@@ -237,7 +237,7 @@ Use ``log_cmd_error()`` to report a recoverable error:
 
 .. code:: C++
 
-    if (design->selection_stack.back().empty())
+    if (design->selection().empty())
         log_cmd_error("This command can't operator on an empty selection!\n");
 
 Use ``log_assert()`` and ``log_abort()`` instead of ``assert()`` and ``abort()``.

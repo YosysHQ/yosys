@@ -1,0 +1,38 @@
+read_verilog -specify boxes.v
+clean
+
+# wb = 4w1c, bb = 3w1c, top = 3w1c
+select =wb
+select -assert-count 5 %
+select -add =bb
+select -assert-count 9 %
+select -del =wb
+select -assert-count 4 %
+
+# unions
+select -assert-count 8 =bb * %u
+select -assert-count 8 * =bb %u
+select -assert-count 13 top =* %u
+select -assert-count 8 =bb top %u
+select -assert-count 8 top =bb %u
+
+# intersections
+select -assert-count 3 =w:* =bb %i
+select -assert-count 4 =* * %i
+select -assert-count 4 * =* %i
+
+# inverses
+select -assert-count 8 =wb %n
+select -assert-none top %n
+select -assert-none * %n
+select -assert-none =* %n
+select -assert-count 9 =top %n
+
+# differences
+select -assert-count 9 =* top %d
+select -assert-count 0 top =* %d
+select -assert-count 9 =* * %d
+select -assert-count 0 * =* %d
+
+# random
+select -assert-any =?b %R

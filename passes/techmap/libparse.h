@@ -26,6 +26,11 @@
 #include <vector>
 #include <set>
 
+/**
+ * This file is likely to change in the near future.
+ * Rely on it in your plugins at your own peril
+ */
+
 namespace Yosys
 {
 	struct LibertyAst
@@ -58,7 +63,7 @@ namespace Yosys
 			}
 
 			std::string pin() {
-				auto length = s.find_first_of("\t()'!^*& +|");
+				auto length = s.find_first_of("\t()'!^*& +|\"");
 				if (length == std::string::npos) {
 					// nothing found so use size of s
 					length = s.size();
@@ -86,16 +91,80 @@ namespace Yosys
 		LibertyExpression() : kind(Kind::EMPTY) {}
 
 		static LibertyExpression parse(Lexer &s, int min_prio = 0);
-		void get_pin_names(pool<std::string>& names);
-		bool eval(dict<std::string, bool>& values);
+		void get_pin_names(std::unordered_set<std::string>& names);
+		bool eval(std::unordered_map<std::string, bool>& values);
+		std::string sexpr_str(int indent = 0);
+		std::string vlog_str();
+	private:
+		static bool char_is_nice_binop(char c);
+		bool is_binop();
 	};
+
+	class LibertyInputStream {
+		std::istream &f;
+		std::vector<unsigned char> buffer;
+		size_t buf_pos = 0;
+		size_t buf_end = 0;
+		bool eof = false;
+
+		bool extend_buffer_once();
+		bool extend_buffer_at_least(size_t size = 1);
+
+		YS_COLD int get_cold();
+		YS_COLD int peek_cold(size_t offset);
+
+	public:
+		LibertyInputStream(std::istream &f) : f(f) {}
+
+		size_t buffered_size() { return buf_end - buf_pos; }
+		const unsigned char *buffered_data() { return buffer.data() + buf_pos; }
+
+		int get() {
+			if (buf_pos == buf_end)
+				return get_cold();
+			int c = buffer[buf_pos];
+			buf_pos += 1;
+			return c;
+		}
+
+		int peek(size_t offset = 0) {
+			if (buf_pos + offset >= buf_end)
+				return peek_cold(offset);
+			return buffer[buf_pos + offset];
+		}
+
+		void consume(size_t n = 1) {
+			buf_pos += n;
+		}
+
+		void unget() {
+			buf_pos -= 1;
+		}
+	};
+
+#ifndef FILTERLIB
+	class LibertyAstCache {
+		LibertyAstCache() {};
+		~LibertyAstCache() {};
+	public:
+		dict<std::string, std::shared_ptr<const LibertyAst>> cached;
+
+		bool cache_by_default = false;
+		bool verbose = false;
+		dict<std::string, bool> cache_path;
+
+		std::shared_ptr<const LibertyAst> cached_ast(const std::string &fname);
+		void parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast);
+		static LibertyAstCache instance;
+	};
+#endif
 
 	class LibertyMergedCells;
 	class LibertyParser
 	{
 		friend class LibertyMergedCells;
 	private:
-		std::istream &f;
+		LibertyInputStream f;
 		int line;
 
 		/* lexer return values:
@@ -103,22 +172,51 @@ namespace Yosys
 		   'n': newline
 		   anything else is a single character.
 		*/
+		int lexer_inner(std::string &str);
 		int lexer(std::string &str);
 
-		LibertyAst *parse();
+		void report_unexpected_token(int tok);
+		void parse_vector_range(int tok);
+		int consume_wrecked_str(int tok, std::string& out_str);
+		LibertyAst *parse(bool top_level);
 		void error() const;
 		void error(const std::string &str) const;
 
 	public:
-		const LibertyAst *ast;
+		std::shared_ptr<const LibertyAst> shared_ast;
+		const LibertyAst *ast = nullptr;
 
-		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
-		~LibertyParser() { if (ast) delete ast; }
+		LibertyParser(std::istream &f) : f(f), line(1) {
+			shared_ast.reset(parse(true));
+			ast = shared_ast.get();
+			if (!ast) {
+#ifdef FILTERLIB
+				fprintf(stderr, "No entries found in liberty file.\n");
+				exit(1);
+#else
+				log_error("No entries found in liberty file.\n");
+#endif
+			}
+		}
+
+#ifndef FILTERLIB
+		LibertyParser(std::istream &f, const std::string &fname) : f(f), line(1) {
+			shared_ast = LibertyAstCache::instance.cached_ast(fname);
+			if (!shared_ast) {
+				shared_ast.reset(parse(true));
+				LibertyAstCache::instance.parsed_ast(fname, shared_ast);
+			}
+			ast = shared_ast.get();
+			if (!ast) {
+				log_error("No entries found in liberty file `%s'.\n", fname);
+			}
+		}
+#endif
 	};
 
 	class LibertyMergedCells
 	{
-		std::vector<const LibertyAst *> asts;
+		std::vector<std::shared_ptr<const LibertyAst>> asts;
 
 	public:
 		std::vector<const LibertyAst *> cells;
@@ -126,21 +224,13 @@ namespace Yosys
 		{
 			if (parser.ast) {
 				const LibertyAst *ast = parser.ast;
-				asts.push_back(ast);
-				// The parser no longer owns its top level ast, but we do.
-				// sketchy zone
-				parser.ast = nullptr;
+				asts.push_back(parser.shared_ast);
 				if (ast->id != "library")
 					parser.error("Top level entity isn't \"library\".\n");
 				for (const LibertyAst *cell : ast->children)
 					if (cell->id == "cell" && cell->args.size() == 1)
 						cells.push_back(cell);
 			}
-		}
-		~LibertyMergedCells()
-		{
-			for (auto ast : asts)
-				delete ast;
 		}
 	};
 

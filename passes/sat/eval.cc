@@ -87,18 +87,18 @@ struct BruteForceEquivChecker
 	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2, bool ignore_x_mod1) :
 			mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
 	{
-		log("Checking for equivalence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
+		log("Checking for equivalence (brute-force): %s vs %s\n", mod1->name, mod2->name);
 		for (auto w : mod1->wires())
 		{
 			if (w->port_id == 0)
 				continue;
 
 			if (mod2->wire(w->name) == nullptr)
-				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", w->name.c_str());
+				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", w->name);
 
 			RTLIL::Wire *w2 = mod2->wire(w->name);
 			if (w->width != w2->width || w->port_input != w2->port_input || w->port_output != w2->port_output)
-				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", w->name.c_str());
+				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", w->name);
 
 			if (w->port_input) {
 				mod1_inputs.append(w);
@@ -256,15 +256,15 @@ struct VlogHammerReporter
 					for (int j = input_widths[i]-1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, j), bits.back());
 						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
-						recorded_set_vals.bits().push_back(bits.back());
+						recorded_set_vars.append(RTLIL::Const(bits.back()));
 						bits.pop_back();
 					}
 					if (module == modules.front()) {
 						RTLIL::SigSpec sig(wire);
 						if (!ce.eval(sig))
 							log_error("Can't read back value for port %s!\n", log_id(inputs[i]));
-						input_pattern_list += stringf(" %s", sig.as_const().as_string().c_str());
-						log("++PAT++ %d %s %s #\n", idx, log_id(inputs[i]), sig.as_const().as_string().c_str());
+						input_pattern_list += stringf(" %s", sig.as_const().as_string());
+						log("++PAT++ %d %s %s #\n", idx, log_id(inputs[i]), sig.as_const().as_string());
 					}
 				}
 
@@ -280,7 +280,7 @@ struct VlogHammerReporter
 					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 				}
 
-				log("++VAL++ %d %s %s #\n", idx, module_name.c_str(), sig.as_const().as_string().c_str());
+				log("++VAL++ %d %s %s #\n", idx, module_name, sig.as_const().as_string());
 
 				if (module_name == "rtl") {
 					rtl_sig = sig;
@@ -294,7 +294,7 @@ struct VlogHammerReporter
 							sig[i] = RTLIL::State::Sx;
 				}
 
-				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list.c_str(), sig.as_const().as_string().c_str(), module_name.c_str());
+				log("++RPT++ %d%s %s %s\n", idx, input_pattern_list, sig.as_const().as_string(), module_name);
 			}
 
 			log("++RPT++ ----\n");
@@ -307,8 +307,8 @@ struct VlogHammerReporter
 		for (auto name : split(module_list, ",")) {
 			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
 			if (design->module(esc_name) == nullptr)
-				log_error("Can't find module %s in current design!\n", name.c_str());
-			log("Using module %s (%s).\n", esc_name.c_str(), name.c_str());
+				log_error("Can't find module %s in current design!\n", name);
+			log("Using module %s (%s).\n", esc_name, name);
 			modules.push_back(design->module(esc_name));
 			module_names.push_back(name);
 		}
@@ -319,15 +319,15 @@ struct VlogHammerReporter
 			RTLIL::IdString esc_name = RTLIL::escape_id(name);
 			for (auto mod : modules) {
 				if (mod->wire(esc_name) == nullptr)
-					log_error("Can't find input %s in module %s!\n", name.c_str(), log_id(mod->name));
+					log_error("Can't find input %s in module %s!\n", name, log_id(mod->name));
 				RTLIL::Wire *port = mod->wire(esc_name);
 				if (!port->port_input || port->port_output)
-					log_error("Wire %s in module %s is not an input!\n", name.c_str(), log_id(mod->name));
+					log_error("Wire %s in module %s is not an input!\n", name, log_id(mod->name));
 				if (width >= 0 && width != port->width)
-					log_error("Port %s has different sizes in the different modules!\n", name.c_str());
+					log_error("Port %s has different sizes in the different modules!\n", name);
 				width = port->width;
 			}
-			log("Using input port %s with width %d.\n", esc_name.c_str(), width);
+			log("Using input port %s with width %d.\n", esc_name, width);
 			inputs.push_back(esc_name);
 			input_widths.push_back(width);
 			total_input_width += width;
@@ -341,18 +341,18 @@ struct VlogHammerReporter
 				pattern = pattern.substr(1);
 			}
 			if (!RTLIL::SigSpec::parse(sig, NULL, pattern) || !sig.is_fully_const())
-				log_error("Failed to parse pattern %s!\n", pattern.c_str());
+				log_error("Failed to parse pattern %s!\n", pattern);
 			if (sig.size() < total_input_width)
-				log_error("Pattern %s is to short!\n", pattern.c_str());
+				log_error("Pattern %s is to short!\n", pattern);
 			patterns.push_back(sig.as_const());
 			if (invert_pattern) {
-				for (auto &bit : patterns.back().bits())
+				for (auto bit : patterns.back())
 					if (bit == RTLIL::State::S0)
 						bit = RTLIL::State::S1;
 					else if (bit == RTLIL::State::S1)
 						bit = RTLIL::State::S0;
 			}
-			log("Using pattern %s.\n", patterns.back().as_string().c_str());
+			log("Using pattern %s.\n", patterns.back().as_string());
 		}
 	}
 };
@@ -415,9 +415,9 @@ struct EvalPass : public Pass {
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
 				if (design->module(mod1_name) == nullptr)
-					log_error("Can't find module `%s'!\n", mod1_name.c_str());
+					log_error("Can't find module `%s'!\n", mod1_name);
 				if (design->module(mod2_name) == nullptr)
-					log_error("Can't find module `%s'!\n", mod2_name.c_str());
+					log_error("Can't find module `%s'!\n", mod2_name);
 				BruteForceEquivChecker checker(design->module(mod1_name), design->module(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivalent!\n");
@@ -454,11 +454,11 @@ struct EvalPass : public Pass {
 		for (auto &it : sets) {
 			RTLIL::SigSpec lhs, rhs;
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, it.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.first.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.first);
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, it.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second);
 			if (!rhs.is_fully_const())
-				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second.c_str());
+				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second);
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
 						it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
@@ -476,7 +476,7 @@ struct EvalPass : public Pass {
 			for (auto &it : shows) {
 				RTLIL::SigSpec signal, value, undef;
 				if (!RTLIL::SigSpec::parse_sel(signal, design, module, it))
-					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
+					log_cmd_error("Failed to parse show expression `%s'.\n", it);
 				value = signal;
 				if (set_undef) {
 					while (!ce.eval(value, undef)) {
@@ -502,14 +502,14 @@ struct EvalPass : public Pass {
 			for (auto &it : shows) {
 				RTLIL::SigSpec sig;
 				if (!RTLIL::SigSpec::parse_sel(sig, design, module, it))
-					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
+					log_cmd_error("Failed to parse show expression `%s'.\n", it);
 				signal.append(sig);
 			}
 
 			for (auto &it : tables) {
 				RTLIL::SigSpec sig;
 				if (!RTLIL::SigSpec::parse_sel(sig, design, module, it))
-					log_cmd_error("Failed to parse table expression `%s'.\n", it.c_str());
+					log_cmd_error("Failed to parse table expression `%s'.\n", it);
 				tabsigs.append(sig);
 			}
 
@@ -574,7 +574,7 @@ struct EvalPass : public Pass {
 			for (auto &row : tab) {
 				for (size_t i = 0; i < row.size(); i++) {
 					int k = int(i) < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
-					log(" %s%*s", k == tab_sep_colidx ? "| " : "", tab_column_width[k], row[k].c_str());
+					log(" %s%*s", k == tab_sep_colidx ? "| " : "", tab_column_width[k], row[k]);
 				}
 				log("\n");
 				if (first) {

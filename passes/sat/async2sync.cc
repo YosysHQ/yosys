@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -27,6 +28,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Async2syncPass : public Pass {
 	Async2syncPass() : Pass("async2sync", "convert async FF inputs to sync circuits") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -123,7 +129,7 @@ struct Async2syncPass : public Pass {
 					continue;
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

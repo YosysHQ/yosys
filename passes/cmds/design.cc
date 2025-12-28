@@ -28,7 +28,7 @@ std::vector<RTLIL::Design*> pushed_designs;
 
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
-	~DesignPass() override {
+	void on_shutdown() override {
 		for (auto &it : saved_designs)
 			delete it.second;
 		saved_designs.clear();
@@ -165,13 +165,13 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				load_name = args[++argidx];
 				if (saved_designs.count(load_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", load_name.c_str());
+					log_cmd_error("No saved design '%s' found!\n", load_name);
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-copy-from" && argidx+1 < args.size()) {
 				got_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
-					log_cmd_error("No saved design '%s' found!\n", args[argidx].c_str());
+					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
 				copy_from_design = saved_designs.at(args[argidx]);
 				copy_to_design = design;
 				continue;
@@ -188,7 +188,7 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				import_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
-					log_cmd_error("No saved design '%s' found!\n", args[argidx].c_str());
+					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
 				copy_from_design = saved_designs.at(args[argidx]);
 				copy_to_design = design;
 				as_name = args[argidx];
@@ -202,7 +202,7 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				delete_name = args[++argidx];
 				if (saved_designs.count(delete_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", delete_name.c_str());
+					log_cmd_error("No saved design '%s' found!\n", delete_name);
 				continue;
 			}
 			break;
@@ -213,22 +213,15 @@ struct DesignPass : public Pass {
 			if (copy_from_design != design && argidx == args.size() && !import_mode)
 				cmd_error(args, argidx, "Missing selection.");
 
-			RTLIL::Selection sel;
 			if (argidx != args.size()) {
 				handle_extra_select_args(this, args, argidx, args.size(), copy_from_design);
-				sel = copy_from_design->selection_stack.back();
-				copy_from_design->selection_stack.pop_back();
 				argidx = args.size();
+			} else {
+				copy_from_design->push_complete_selection();
 			}
 
-			for (auto mod : copy_from_design->modules()) {
-				if (sel.selected_whole_module(mod->name)) {
-					copy_src_modules.push_back(mod);
-					continue;
-				}
-				if (sel.selected_module(mod->name))
-					log_cmd_error("Module %s is only partly selected.\n", log_id(mod->name));
-			}
+			for (auto mod : copy_from_design->selected_modules(RTLIL::SELECT_WHOLE_CMDERR, RTLIL::SB_ALL))
+				copy_src_modules.push_back(mod);
 
 			if (import_mode) {
 				std::vector<RTLIL::Module*> candidates;
@@ -246,6 +239,8 @@ struct DesignPass : public Pass {
 				if (GetSize(candidates) == 1)
 					copy_src_modules = std::move(candidates);
 			}
+
+			copy_from_design->pop_selection();
 		}
 
 		extra_args(args, argidx, design, false);
@@ -368,19 +363,13 @@ struct DesignPass : public Pass {
 			design->selection_vars.clear();
 			design->selected_active_module.clear();
 
-			design->selection_stack.push_back(RTLIL::Selection());
+			design->push_full_selection();
 		}
 
 		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto node : design->verilog_packages)
-				delete node;
 			design->verilog_packages.clear();
-
-			for (auto node : design->verilog_globals)
-				delete node;
 			design->verilog_globals.clear();
-
 			design->verilog_defines->clear();
 		}
 

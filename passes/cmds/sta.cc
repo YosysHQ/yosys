@@ -21,6 +21,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/timinginfo.h"
+#include "kernel/log_help.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -275,6 +276,11 @@ struct StaWorker
 
 struct StaPass : public Pass {
 	StaPass() : Pass("sta", "perform static timing analysis") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

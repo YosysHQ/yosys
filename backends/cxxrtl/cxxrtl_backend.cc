@@ -200,7 +200,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux));
+		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
@@ -616,7 +616,7 @@ std::string escape_c_string(const std::string &input)
 				output.push_back('\\');
 			output.push_back(c);
 		} else {
-			char l = c & 0x3, m = (c >> 3) & 0x3, h = (c >> 6) & 0x3;
+			char l = c & 0x7, m = (c >> 3) & 0x7, h = (c >> 6) & 0x3;
 			output.append("\\");
 			output.push_back('0' + h);
 			output.push_back('0' + m);
@@ -635,20 +635,6 @@ std::string escape_cxx_string(const std::string &input)
 		output.append(stringf(", %zu}", input.size()));
 	}
 	return output;
-}
-
-std::string basename(const std::string &filepath)
-{
-#ifdef _WIN32
-	const std::string dir_seps = "\\/";
-#else
-	const std::string dir_seps = "/";
-#endif
-	size_t sep_pos = filepath.find_last_of(dir_seps);
-	if (sep_pos != std::string::npos)
-		return filepath.substr(sep_pos + 1);
-	else
-		return filepath;
 }
 
 template<class T>
@@ -770,7 +756,7 @@ struct CxxrtlWorker {
 	//  1b. Generated identifiers for internal names (beginning with `$`) start with `i_`.
 	//  2. An underscore is escaped with another underscore, i.e. `__`.
 	//  3. Any other non-alnum character is escaped with underscores around its lowercase hex code, e.g. `@` as `_40_`.
-	std::string mangle_name(const RTLIL::IdString &name)
+	std::string mangle_name(RTLIL::IdString name)
 	{
 		std::string mangled;
 		bool first = true;
@@ -800,7 +786,7 @@ struct CxxrtlWorker {
 		return mangled;
 	}
 
-	std::string mangle_module_name(const RTLIL::IdString &name, bool is_blackbox = false)
+	std::string mangle_module_name(RTLIL::IdString name, bool is_blackbox = false)
 	{
 		// Class namespace.
 		if (is_blackbox)
@@ -808,19 +794,19 @@ struct CxxrtlWorker {
 		return mangle_name(name);
 	}
 
-	std::string mangle_memory_name(const RTLIL::IdString &name)
+	std::string mangle_memory_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return "memory_" + mangle_name(name);
 	}
 
-	std::string mangle_cell_name(const RTLIL::IdString &name)
+	std::string mangle_cell_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return "cell_" + mangle_name(name);
 	}
 
-	std::string mangle_wire_name(const RTLIL::IdString &name)
+	std::string mangle_wire_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return mangle_name(name);
@@ -1198,6 +1184,14 @@ struct CxxrtlWorker {
 			f << ">(";
 			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
 			f << ").val()";
+		// Bitwise muxes
+		} else if (cell->type == ID($bwmux)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			f << ".bwmux(";
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			f << ",";
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			f << ").val()";
 		// Demuxes
 		} else if (cell->type == ID($demux)) {
 			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
@@ -1525,7 +1519,7 @@ struct CxxrtlWorker {
 			}
 		// Internal cells
 		} else if (is_internal_cell(cell->type)) {
-			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
+			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type);
 		// User cells
 		} else if (for_debug) {
 			// Outlines are called on demand when computing the value of a debug item. Nothing to do here.
@@ -1660,26 +1654,29 @@ struct CxxrtlWorker {
 						f << signal_temp << " == ";
 						dump_sigspec(compare, /*is_lhs=*/false, for_debug);
 					} else if (compare.is_fully_const()) {
-						RTLIL::Const compare_mask, compare_value;
+						RTLIL::Const::Builder compare_mask_builder(compare.size());
+						RTLIL::Const::Builder compare_value_builder(compare.size());
 						for (auto bit : compare.as_const()) {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits().push_back(RTLIL::S1);
-									compare_value.bits().push_back(bit);
+									compare_mask_builder.push_back(RTLIL::S1);
+									compare_value_builder.push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits().push_back(RTLIL::S0);
-									compare_value.bits().push_back(RTLIL::S0);
+									compare_mask_builder.push_back(RTLIL::S0);
+									compare_value_builder.push_back(RTLIL::S0);
 									break;
 
 								default:
 									log_assert(false);
 							}
 						}
+						RTLIL::Const compare_mask = compare_mask_builder.build();
+						RTLIL::Const compare_value = compare_value_builder.build();
 						f << "and_uu<" << compare.size() << ">(" << signal_temp << ", ";
 						dump_const(compare_mask);
 						f << ") == ";
@@ -2402,7 +2399,12 @@ struct CxxrtlWorker {
 						auto cell_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Cell);
 						cell_attrs.erase(ID::module_not_derived);
 						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(cell)) << ", ";
-						f << escape_cxx_string(cell->get_string_attribute(ID(module))) << ", ";
+						if (module_attrs.count(ID(hdlname))) {
+							f << escape_cxx_string(module_attrs.at(ID(hdlname)).decode_string());
+						} else {
+							f << escape_cxx_string(cell->get_string_attribute(ID(module)));
+						}
+						f << ", ";
 						dump_serialized_metadata(module_attrs);
 						f << ", ";
 						dump_serialized_metadata(cell_attrs);
@@ -2416,14 +2418,15 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires()) {
 					const auto &debug_wire_type = debug_wire_types[wire];
-					if (!wire->name.isPublic())
-						continue;
 					count_public_wires++;
 					switch (debug_wire_type.type) {
 						case WireType::BUFFERED:
 						case WireType::MEMBER: {
 							// Member wire
 							std::vector<std::string> flags;
+
+							if (!wire->name.isPublic())
+								flags.push_back("GENERATED");
 
 							if (wire->port_input && wire->port_output)
 								flags.push_back("INOUT");
@@ -2841,7 +2844,7 @@ struct CxxrtlWorker {
 		}
 
 		if (split_intf)
-			f << "#include \"" << basename(intf_filename) << "\"\n";
+			f << "#include \"" << name_from_file_path(intf_filename) << "\"\n";
 		else
 			f << "#include <cxxrtl/cxxrtl.h>\n";
 		f << "\n";
@@ -3028,7 +3031,7 @@ struct CxxrtlWorker {
 								if (init == RTLIL::Const()) {
 									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
 								}
-								init.bits()[bit.offset] = port.init_value[i];
+								init.set(bit.offset, port.init_value[i]);
 							}
 						}
 					}
@@ -3464,8 +3467,8 @@ struct CxxrtlWorker {
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 6;
-	static const int DEFAULT_DEBUG_LEVEL = 4;
+	static constexpr int DEFAULT_OPT_LEVEL = 6;
+	static constexpr int DEFAULT_DEBUG_LEVEL = 4;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() override
@@ -3786,7 +3789,7 @@ struct CxxrtlBackend : public Backend {
 			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
 				worker.print_output = args[++argidx];
 				if (!(worker.print_output == "std::cout" || worker.print_output == "std::cerr")) {
-					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output.c_str());
+					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output);
 					worker.print_output = "std::cout";
 				}
 				continue;

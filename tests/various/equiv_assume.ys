@@ -1,0 +1,141 @@
+read_verilog -sv <<EOT
+module gold (input D, output Q);
+assign Q = '0;
+endmodule
+
+module gate (input D, output Q);
+assume property (D == '0);
+assign Q = D;
+endmodule
+EOT
+
+chformal -lower
+async2sync
+design -stash input
+
+# using $assert cells in sat verifies
+design -load input
+equiv_make -make_assert gold gate equiv
+prep -top equiv
+sat -set-assumes -prove-asserts -verify
+# this fails
+# sat -prove-asserts -verify
+
+# so should $equiv
+## in equiv_simple
+design -load input
+equiv_make gold gate equiv
+equiv_simple -set-assumes equiv
+equiv_status -assert equiv
+
+## and equiv_induct
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
+equiv_status -assert equiv
+
+# and it works through cells
+design -reset
+read_verilog -sv <<EOT
+module gold (input [1:0] D, output [1:0] Q);
+assign Q = !D;
+endmodule
+
+module gate (input [1:0] D, output [1:0] Q);
+assume property (D == 2'b11);
+wire [1:0] G = ~D;
+assign Q = G;
+endmodule
+EOT
+
+chformal -lower
+async2sync
+design -stash input2
+
+design -load input2
+equiv_make -make_assert gold gate equiv
+prep -top equiv
+sat -set-assumes -prove-asserts -verify
+
+design -load input2
+equiv_make gold gate equiv
+equiv_simple -set-assumes equiv
+equiv_status -assert equiv
+
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
+equiv_status -assert equiv
+
+# and registers
+design -reset
+read_verilog -sv <<EOT
+module gold (input clk, input [1:0] D, output [1:0] Q);
+assign Q = '0;
+endmodule
+
+module gate (input clk, input [1:0] D, output [1:0] Q);
+reg [1:0] Dreg;
+assume property (Dreg == 2'b11);
+always @(clk) begin
+    Dreg <= D;
+end
+assign Q = ~Dreg;
+endmodule
+EOT
+
+proc
+chformal -lower
+async2sync
+design -stash input3
+
+design -load input3
+equiv_make -make_assert gold gate equiv
+prep -top equiv
+sat -set-assumes -prove-asserts -verify
+
+design -load input3
+equiv_make gold gate equiv
+equiv_simple -set-assumes equiv
+equiv_status -assert equiv
+
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
+equiv_status -assert equiv
+
+# so long as the assumption doesn't end up after the equiv
+design -reset
+read_verilog -sv <<EOT
+module gold (input [1:0] D, output [1:0] Q);
+assign Q = !D;
+endmodule
+
+module gate (input [1:0] D, output [1:0] Q);
+assume property (G == 2'b00);
+wire [1:0] G = ~D;
+assign Q = G;
+endmodule
+EOT
+
+chformal -lower
+async2sync
+design -stash input4
+
+logger -expect log "model found: FAIL!" 1
+logger -expect log "Found a total of 2 unproven .equiv cells." 2
+
+design -load input4
+equiv_make -make_assert gold gate equiv
+prep -top equiv
+sat -set-assumes -prove-asserts
+
+design -load input4
+equiv_make gold gate equiv
+equiv_simple -set-assumes equiv
+equiv_status equiv
+
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
+equiv_status equiv

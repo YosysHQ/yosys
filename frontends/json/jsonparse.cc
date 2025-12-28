@@ -258,7 +258,7 @@ Const json_parse_attr_param_value(JsonNode *node)
 		}
 	} else
 	if (node->type == 'N') {
-		value = Const(node->data_number, 32);
+		value = Const(node->data_number);
 		if (node->data_number < 0)
 			value.flags |= RTLIL::CONST_FLAG_SIGNED;
 	} else
@@ -289,7 +289,7 @@ void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 
 void json_import(Design *design, string &modname, JsonNode *node)
 {
-	log("Importing module %s from JSON tree.\n", modname.c_str());
+	log("Importing module %s from JSON tree.\n", modname);
 
 	Module *module = new RTLIL::Module;
 	module->name = RTLIL::escape_id(modname.c_str());
@@ -367,7 +367,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				port_wire->port_input = true;
 				port_wire->port_output = true;
 			} else
-				log_error("JSON port node '%s' has invalid '%s' direction attribute.\n", log_id(port_name), port_direction_node->data_string.c_str());
+				log_error("JSON port node '%s' has invalid '%s' direction attribute.\n", log_id(port_name), port_direction_node->data_string);
 
 			port_wire->port_id = port_id;
 

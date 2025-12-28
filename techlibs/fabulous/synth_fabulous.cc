@@ -69,7 +69,7 @@ struct SynthPass : public ScriptPass
 		log("        use the specified Verilog file for extra primitives (can be specified multiple\n");
 		log("        times).\n");
 		log("\n");
-		log("    -extra-map <techamp.v>\n");
+		log("    -extra-map <techmap.v>\n");
 		log("        use the specified Verilog file for extra techmap rules (can be specified multiple\n");
 		log("        times).\n");
 		log("\n");
@@ -236,7 +236,7 @@ struct SynthPass : public ScriptPass
 			if (args[argidx] == "-carry") {
 				carry_mode = args[++argidx];
 				if (carry_mode != "none" && carry_mode != "ha")
-					log_cmd_error("Unsupported carry style: %s\n", carry_mode.c_str());
+					log_cmd_error("Unsupported carry style: %s\n", carry_mode);
 				continue;
 			}
 			if (args[argidx] == "-noflatten") {
@@ -278,7 +278,7 @@ struct SynthPass : public ScriptPass
 				else
 					run("hierarchy -check");
 			} else
-				run(stringf("hierarchy -check -top %s", top_module.c_str()));
+				run(stringf("hierarchy -check -top %s", top_module));
 			run("proc");
 		}
 
@@ -365,7 +365,7 @@ struct SynthPass : public ScriptPass
 			} else if (!extra_map.empty()) {
 				std::string map_str = "techmap";
 				for (auto map : extra_map)
-					map_str += stringf(" -map %s", map.c_str());
+					map_str += stringf(" -map %s", map);
 				run(map_str);
 			}
 			run("clean");
@@ -399,7 +399,7 @@ struct SynthPass : public ScriptPass
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthPass;

@@ -1,10 +1,11 @@
+# prefer output name
+design -reset
 read_rtlil <<EOT
-autoidx 2
 module \top
-  wire output 3 $y
+  wire output 3 \y
   wire input 1 \a
   wire input 2 \b
-  cell $and \b_$and_B
+  cell $and $name
     parameter \A_SIGNED 0
     parameter \A_WIDTH 1
     parameter \B_SIGNED 0
@@ -12,8 +13,193 @@ module \top
     parameter \Y_WIDTH 1
     connect \A \a
     connect \B \b
+    connect \Y \y
+  end
+end
+EOT
+logger -expect log "Rename cell .name in top to y_.and_Y" 1
+logger -expect log "Renamed 1 objects" 1
+debug autoname
+logger -check-expected
+
+# fallback to shortest name if output is private
+design -reset
+read_rtlil <<EOT
+autoidx 2
+module \top
+  wire output 3 $y
+  wire input 1 \ab
+  wire input 2 \abcd
+  cell $or $name
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \ab
+    connect \B \abcd
     connect \Y $y
   end
 end
 EOT
-autoname
+logger -expect log "Rename cell .name in top to ab_.or_A" 1
+logger -expect log "Renamed 1 objects" 1
+debug autoname
+logger -check-expected
+
+# prefer low fanout over low name length
+design -reset
+read_rtlil <<EOT
+module \top
+  wire output 1 $y
+  wire input 2 \a
+  wire input 3 \bcd
+  wire input 4 \c_has_a_long_name
+  cell $and $name
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \B \bcd
+    connect \Y $y
+  end
+
+  cell $or $name2
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \B \c_has_a_long_name
+    connect \Y $y
+  end
+end
+EOT
+logger -expect log "Rename cell .name in top to bcd_.and_B" 1
+logger -expect log "Rename cell .name2 in top to c_has_a_long_name_.or_B" 1
+logger -expect log "Renamed 2 objects" 1
+debug autoname
+logger -check-expected
+
+# names are unique
+design -reset
+read_rtlil <<EOT
+module \top
+  wire output 3 \y
+  wire input 1 \a
+  wire input 2 \b
+  cell $and $name
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \B \b
+    connect \Y \y
+  end
+
+  cell $and $name2
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \B \b
+    connect \Y \y
+  end
+end
+EOT
+logger -expect log "Rename cell .name in top to y_.and_Y" 1
+logger -expect log "Rename cell .name2 in top to y_.and_Y_1" 1
+logger -expect log "Renamed 2 objects" 1
+debug autoname
+logger -check-expected
+
+# wires get autonames too
+design -reset
+read_rtlil <<EOT
+module \top
+  wire output 1 $y
+  wire input 2 \a
+  wire input 3 \bcd
+  wire $c
+  wire $d
+  wire $e
+  cell $__unknown $name
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \B \bcd
+    connect \Y $c
+  end
+
+  cell $or \or
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \B \bcd
+    connect \Y $d
+  end
+
+  cell $or $name2
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A $c
+    connect \B $d
+    connect \Y $e
+  end
+
+  cell $and $name3
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A $c
+    connect \B $e
+    connect \Y $y
+  end
+end
+EOT
+design -save order_test
+
+# wires are named for being cell outputs
+logger -expect log "Rename wire .d in top to or_Y" 1
+logger -expect log "Rename cell .name2 in top to or_Y_.or_B" 1
+logger -expect log "Renamed 2 objects" 1
+debug autoname t:$or
+logger -check-expected
+
+# $name gets shortest name (otherwise bcd_$__unknown_B)
+logger -expect log "Rename cell .name in top to a_.__unknown_A" 1
+# another output wire
+logger -expect log "Rename wire .e in top to or_Y_.or_B_Y" 1
+logger -expect log "Renamed 4 objects" 1
+debug autoname
+logger -check-expected
+
+# don't rename prematurely (some objects should be named after $name2)
+design -load order_test
+
+# $c gets shortest name, since the cell driving it doesn't have known port
+# directions (otherwise a_$__unknown_A_Y)
+logger -expect log "Rename wire .c in top to or_Y_.or_B_A" 1
+# $name3 named for lowest fanout wire (otherwise a_$__unknown_A_Y_$and_A)
+logger -expect log "Rename cell .name3 in top to or_Y_.or_B_Y_.and_B" 1
+logger -expect log "Renamed 6 objects" 1
+debug autoname
+logger -check-expected

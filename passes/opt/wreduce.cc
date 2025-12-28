@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -219,10 +220,10 @@ struct WreduceWorker
 
 		// Narrow ARST_VALUE parameter to new size.
 		if (cell->parameters.count(ID::ARST_VALUE)) {
-			rst_value.bits().resize(GetSize(sig_q));
+			rst_value.resize(GetSize(sig_q), State::S0);
 			cell->setParam(ID::ARST_VALUE, rst_value);
 		} else if (cell->parameters.count(ID::SRST_VALUE)) {
-			rst_value.bits().resize(GetSize(sig_q));
+			rst_value.resize(GetSize(sig_q), State::S0);
 			cell->setParam(ID::SRST_VALUE, rst_value);
 		}
 

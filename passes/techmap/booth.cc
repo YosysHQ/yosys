@@ -201,7 +201,7 @@ struct BoothPassWorker {
 		log_assert(sig_a.size() == sig_y.size());
 
 		for (int i = 0; i < sig_a.size(); i++)
-			mod->addFa(stringf("%s[%d]", name.c_str(), i), sig_a[i], sig_b[i],
+			mod->addFa(stringf("%s[%d]", name, i), sig_a[i], sig_b[i],
 				   sig_c[i], sig_x[i], sig_y[i], src);
 	}
 
@@ -227,9 +227,9 @@ struct BoothPassWorker {
 					continue;
 				}
 
-				A = macc.ports[0].in_a;
-				B = macc.ports[0].in_b;
-				is_signed = macc.ports[0].is_signed;
+				A = macc.terms[0].in_a;
+				B = macc.terms[0].in_b;
+				is_signed = macc.terms[0].is_signed;
 				Y = cell->getPort(ID::Y);
 			} else {
 				continue;

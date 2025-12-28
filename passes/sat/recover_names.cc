@@ -23,6 +23,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/utils.h"
 #include "kernel/satgen.h"
+#include "kernel/log_help.h"
 
 #include <algorithm>
 #include <queue>
@@ -379,7 +380,7 @@ struct RecoverModuleWorker {
             if (root2buffered.count(gate_bit)) {
                 int buf_idx = 0;
                 for (auto buf_bit : root2buffered.at(gate_bit)) {
-                    std::string buf_name_str = stringf("%s_buf_%d", pair.second.bit.name.c_str(), ++buf_idx);
+                    std::string buf_name_str = stringf("%s_buf_%d", pair.second.bit.name, ++buf_idx);
                     if (buf_name_str[0] == '\\')
                         buf_name_str[0] = '$';
                     rename_map[buf_bit] = std::make_pair(
@@ -395,7 +396,7 @@ struct RecoverModuleWorker {
             bool must_invert_name = rule.second.first.inverted;
             while (must_invert_name ||
                     (mod->wire(new_name.name) && !unused_bits.count(SigBit(mod->wire(new_name.name), new_name.bit)))) {
-                std::string new_name_str = stringf("%s_%s_%d", rule.second.first.bit.name.c_str(),
+                std::string new_name_str = stringf("%s_%s_%d", rule.second.first.bit.name,
                     rule.second.first.inverted ? "inv" : "dup", ++dup_idx);
                 if (new_name_str[0] == '\\')
                     new_name_str[0] = '$';
@@ -690,6 +691,11 @@ struct RecoverNamesWorker {
 
 struct RecoverNamesPass : public Pass {
     RecoverNamesPass() : Pass("recover_names", "Execute a lossy mapping command and recover original netnames") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/opt");
+		return false;
+	}
     void help() override
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

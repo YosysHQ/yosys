@@ -173,7 +173,7 @@ struct CellmatchPass : Pass {
 				derive_luts = true;
 			} else if (args[argidx] == "-lib" && argidx + 1 < args.size()) {
 				if (!saved_designs.count(args[++argidx]))
-					log_cmd_error("No design '%s' found!\n", args[argidx].c_str());
+					log_cmd_error("No design '%s' found!\n", args[argidx]);
 				lib = saved_designs.at(args[argidx]);
 			} else {
 				break;

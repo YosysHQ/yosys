@@ -31,6 +31,14 @@
  *
  */
 
+// If using Verilator, define SIMLIB_VERILATOR_COMPAT
+`ifdef SIMLIB_VERILATOR_COMPAT
+ /* verilator lint_save */
+ /* verilator lint_off DEFOVERRIDE */
+ `define SIMLIB_NOCONNECT
+ /* verilator lint_restore */
+`endif
+
 // --------------------------------------------------------
 //* ver 2
 //* title Bit-wise inverter
@@ -2224,10 +2232,10 @@ module \$print (EN, TRG, ARGS);
 parameter PRIORITY = 0;
 
 parameter FORMAT = "";
-parameter ARGS_WIDTH = 0;
+parameter signed ARGS_WIDTH = 0;
 
 parameter TRG_ENABLE = 1;
-parameter TRG_WIDTH = 0;
+parameter signed TRG_WIDTH = 0;
 parameter TRG_POLARITY = 0;
 
 input EN;
@@ -3214,5 +3222,31 @@ endmodule
 module \$scopeinfo ();
 
 parameter TYPE = "";
+
+endmodule
+
+// --------------------------------------------------------
+//* group wire
+`ifndef SIMLIB_NOCONNECT
+
+module \$connect (A, B);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] A;
+inout [WIDTH-1:0] B;
+
+tran connect[WIDTH-1:0] (A, B);
+
+endmodule
+
+`endif
+// --------------------------------------------------------
+//* group wire
+module \$input_port (Y);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] Y;
 
 endmodule

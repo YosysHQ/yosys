@@ -199,8 +199,15 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 		}
 
 		SigSpec sig_y = sig_d, sig_undef;
-		if (!ignore_self_reset && ce.eval(sig_y, sig_undef))
-			is_self_resetting = true;
+		if (!ignore_self_reset) {
+			if (cellport.first->type == ID($adff)) {
+				SigSpec sig_arst = assign_map(cellport.first->getPort(ID::ARST));
+				if (ce.eval(sig_arst, sig_undef))
+					is_self_resetting = true;
+			}
+			else if (ce.eval(sig_y, sig_undef))
+				is_self_resetting = true;
+		}
 	}
 
 	if (has_fsm_encoding_attr)
@@ -225,7 +232,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 		if (!warnings.empty()) {
 			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", log_id(wire->module), log_id(wire));
 			for (auto w : warnings) warnmsg += "    " + w;
-			log_warning("%s", warnmsg.c_str());
+			log_warning("%s", warnmsg);
 		} else {
 			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire));
 		}

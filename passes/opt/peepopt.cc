@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -27,6 +28,14 @@ bool did_something;
 
 // scratchpad configurations for pmgen
 int shiftadd_max_ratio;
+
+// Helper function, removes LSB 0s
+SigSpec remove_bottom_padding(SigSpec sig)
+{
+	int i = 0;
+	for (; i < sig.size() - 1 && sig[i] == State::S0; i++);
+	return sig.extract(i, sig.size() - i);
+}
 
 #include "passes/opt/peepopt_pm.h"
 
@@ -43,6 +52,8 @@ struct PeepoptPass : public Pass {
 		log("This pass employs the following rules by default:\n");
 		log("\n");
 		log("   * muldiv - Replace (A*B)/B with A\n");
+		log("\n");
+		log("   * muldiv_c - Replace (A*B)/C with A*(B/C) when C is a const divisible by B.\n");
 		log("\n");
 		log("   * shiftmul - Replace A>>(B*C) with A'>>(B<<K) where C and K are constants\n");
 		log("                and A' is derived from A by appropriately inserting padding\n");
@@ -105,6 +116,7 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftmul_right();
 					pm.run_shiftmul_left();
 					pm.run_muldiv();
+					pm.run_muldiv_c();
 				}
 			}
 		}

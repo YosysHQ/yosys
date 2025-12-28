@@ -43,7 +43,20 @@ def write_vcd(filename: Path, signals: SignalStepMap, timescale='1 ns', date='to
                         if change_time == time:
                             f.write(f"{value} {signal_name}\n")
 
-def simulate_rosette(rkt_file_path: Path, vcd_path: Path, num_steps: int, rnd: Random):
+
+def simulate_rosette(
+    rkt_file_path: Path,
+    vcd_path: Path,
+    num_steps: int,
+    rnd: Random,
+    use_assoc_list_helpers: bool = False,
+):
+    """
+    Args:
+      - use_assoc_list_helpers: If True, will use the association list helpers
+        in the Racket file. The file should have been generated with the
+        -assoc-list-helpers flag in the yosys command.
+    """
     signals: dict[str, list[str]] = {}
     inputs: SignalWidthMap = {}
     outputs: SignalWidthMap = {}
@@ -83,12 +96,32 @@ def simulate_rosette(rkt_file_path: Path, vcd_path: Path, num_steps: int, rnd: R
         for step in range(num_steps):
             this_step = f"step_{step}"
             value_list: list[str] = []
-            for signal, width in inputs.items():
-                value = signals[signal][step]
-                value_list.append(f"(bv #b{value} {width})")
-            gold_Inputs = f"(gold_Inputs {' '.join(value_list)})"
+            if use_assoc_list_helpers:
+                # Generate inputs as a list of cons pairs making up the
+                # association list.
+                for signal, width in inputs.items():
+                    value = signals[signal][step]
+                    value_list.append(f'(cons "{signal}" (bv #b{value} {width}))')
+            else:
+                # Otherwise, we generate the inputs as a list of bitvectors.
+                for signal, width in inputs.items():
+                    value = signals[signal][step]
+                    value_list.append(f"(bv #b{value} {width})")
+            gold_Inputs = (
+                f"(gold_inputs_helper (list {' '.join(value_list)}))"
+                if use_assoc_list_helpers
+                else f"(gold_Inputs {' '.join(value_list)})"
+            )
             gold_State = f"(cdr step_{step-1})" if step else "gold_initial"
-            test_rkt_file.write(f"(define {this_step} (gold {gold_Inputs} {gold_State})) (car {this_step})\n")
+            get_value_expr = (
+                f"(gold_outputs_helper (car {this_step}))"
+                if use_assoc_list_helpers
+                else f"(car {this_step})"
+            )
+            test_rkt_file.write(
+                f"(define {this_step} (gold {gold_Inputs} {gold_State})) {get_value_expr}\n"
+            )
+
 
     cmd = ["racket", test_rkt_file_path]
     status = subprocess.run(cmd, capture_output=True)
@@ -98,9 +131,23 @@ def simulate_rosette(rkt_file_path: Path, vcd_path: Path, num_steps: int, rnd: R
         signals[signal] = []
 
     for line in status.stdout.decode().splitlines():
-        m = re.match(r'\(gold_Outputs( \(bv \S+ \d+\))+\)', line)
+        m = (
+            re.match(r"\(list( \(cons \"\S+\" \(bv \S+ \d+\)\))+\)", line)
+            if use_assoc_list_helpers
+            else re.match(r"\(gold_Outputs( \(bv \S+ \d+\))+\)", line)
+        )
         assert m, f"Incomplete output definition {line!r}"
-        for output, (value, width) in zip(outputs.keys(), re.findall(r'\(bv (\S+) (\d+)\)', line)):
+        outputs_values_and_widths = (
+            {
+                output: re.findall(
+                    r"\(cons \"" + output + r"\" \(bv (\S+) (\d+)\)\)", line
+                )[0]
+                for output in outputs.keys()
+            }.items()
+            if use_assoc_list_helpers
+            else zip(outputs.keys(), re.findall(r"\(bv (\S+) (\d+)\)", line))
+        )
+        for output, (value, width) in outputs_values_and_widths:
             assert isinstance(value, str), f"Bad value {value!r}"
             assert value.startswith(('#b', '#x')), f"Non-binary value {value!r}"
             assert int(width) == outputs[output], f"Width mismatch for output {output!r} (got {width}, expected {outputs[output]})"

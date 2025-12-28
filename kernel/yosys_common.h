@@ -20,6 +20,8 @@
 #ifndef YOSYS_COMMON_H
 #define YOSYS_COMMON_H
 
+#include <array>
+#include <atomic>
 #include <map>
 #include <set>
 #include <tuple>
@@ -51,10 +53,6 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <errno.h>
-
-#ifdef WITH_PYTHON
-#include <Python.h>
-#endif
 
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
@@ -128,6 +126,27 @@
 #  error "C++17 or later compatible compiler is required"
 #endif
 
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(gnu::cold)
+#  define YS_COLD [[gnu::cold]]
+#else
+#  define YS_COLD
+#endif
+
+#ifdef __cpp_consteval
+#define YOSYS_CONSTEVAL consteval
+#else
+// If we can't use consteval we can at least make it constexpr.
+#define YOSYS_CONSTEVAL constexpr
+#endif
+
+#define YOSYS_ABORT(s) YOSYS_NAMESPACE_PREFIX log_yosys_abort_message(__FILE__, __LINE__, __FUNCTION__, s)
+
+// This has to precede including "kernel/io.h"
+YOSYS_NAMESPACE_BEGIN
+[[noreturn]] void log_yosys_abort_message(std::string_view file, int line, std::string_view func, std::string_view message);
+YOSYS_NAMESPACE_END
+
+#include "kernel/io.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -189,13 +208,13 @@ namespace RTLIL {
 	struct Module;
 	struct Design;
 	struct Monitor;
-    struct Selection;
+	struct Selection;
 	struct SigChunk;
 	enum State : unsigned char;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
-    namespace ID {}
+	namespace ID {}
 }
 
 namespace AST {
@@ -245,104 +264,47 @@ inline void memhasher() { if (memhasher_active) memhasher_do(); }
 void yosys_banner();
 int ceil_log2(int x) YS_ATTRIBUTE(const);
 
-inline std::string vstringf(const char *fmt, va_list ap)
-{
-        // For the common case of strings shorter than 128, save a heap
-        // allocation by using a stack allocated buffer.
-        const int kBufSize = 128;
-        char buf[kBufSize];
-        buf[0] = '\0';
-        va_list apc;
-        va_copy(apc, ap);
-        int n = vsnprintf(buf, kBufSize, fmt, apc);
-        va_end(apc);
-        if (n < kBufSize)
-          return std::string(buf);
-
-        std::string string;
-        char *str = NULL;
-#if defined(_WIN32 )|| defined(__CYGWIN__)
-        int sz = 2 * kBufSize, rc;
-        while (1) {
-		va_copy(apc, ap);
-		str = (char*)realloc(str, sz);
-		rc = vsnprintf(str, sz, fmt, apc);
-		va_end(apc);
-		if (rc >= 0 && rc < sz)
-			break;
-		sz *= 2;
-	}
-	if (str != NULL) {
-		string = str;
-		free(str);
-	}
-	return string;
-#else
-        if (vasprintf(&str, fmt, ap) < 0)
-          str = NULL;
-        if (str != NULL) {
-          string = str;
-          free(str);
-        }
-	return string;
-#endif
-}
-
-std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-
-inline std::string stringf(const char *fmt, ...)
-{
-	std::string string;
-	va_list ap;
-
-	va_start(ap, fmt);
-	string = vstringf(fmt, ap);
-	va_end(ap);
-
-	return string;
-}
-
-int readsome(std::istream &f, char *s, int n);
-std::string next_token(std::string &text, const char *sep = " \t\r\n", bool long_strings = false);
-std::vector<std::string> split_tokens(const std::string &text, const char *sep = " \t\r\n");
-bool patmatch(const char *pattern, const char *string);
-#if !defined(YOSYS_DISABLE_SPAWN)
-int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
-#endif
-std::string get_base_tmpdir();
-std::string make_temp_file(std::string template_str = get_base_tmpdir() + "/yosys_XXXXXX");
-std::string make_temp_dir(std::string template_str = get_base_tmpdir() + "/yosys_XXXXXX");
-bool check_file_exists(std::string filename, bool is_exec = false);
-bool check_directory_exists(const std::string& dirname);
-bool is_absolute_path(std::string filename);
-void remove_directory(std::string dirname);
-bool create_directory(const std::string& dirname);
-std::string escape_filename_spaces(const std::string& filename);
-
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 inline int GetSize(RTLIL::Wire *wire);
 
-extern int autoidx;
-extern int yosys_xtrace;
+// When multiple threads are accessing RTLIL, one of these guard objects
+// must exist.
+struct Multithreading
+{
+	Multithreading();
+	~Multithreading();
+	// Returns true when multiple threads are accessing RTLIL.
+	// autoidx cannot be used during such times.
+	// IdStrings cannot be created during such times.
+	static bool active() { return active_; }
+private:
+	static bool active_;
+};
 
-RTLIL::IdString new_id(std::string file, int line, std::string func);
-RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix);
+struct Autoidx {
+	Autoidx(int value) : value(value) {}
+	operator int() const { return value; }
+	void ensure_at_least(int v);
+	int operator++(int);
+private:
+	int value;
+};
+
+extern Autoidx autoidx;
+extern int yosys_xtrace;
+extern bool yosys_write_versions;
+
+const std::string *create_id_prefix(std::string_view file, int line, std::string_view func);
+RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix);
 
 #define NEW_ID \
-	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
+	YOSYS_NAMESPACE_PREFIX RTLIL::IdString::new_autoidx_with_prefix([](std::string_view func) -> const std::string * { \
+		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
+		return prefix.get(); \
+	}(__FUNCTION__))
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
 
-// Create a statically allocated IdString object, using for example ID::A or ID($add).
-//
-// Recipe for Converting old code that is using conversion of strings like ID::A and
-// "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
-// example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
-//
-//  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
-//
-#define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
-        static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
 namespace ID = RTLIL::ID;
 
 

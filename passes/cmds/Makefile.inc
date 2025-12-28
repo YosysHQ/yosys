@@ -27,7 +27,6 @@ OBJS += passes/cmds/logcmd.o
 OBJS += passes/cmds/tee.o
 OBJS += passes/cmds/write_file.o
 OBJS += passes/cmds/connwrappers.o
-OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/trace.o
 OBJS += passes/cmds/plugin.o
 OBJS += passes/cmds/check.o
@@ -54,3 +53,10 @@ OBJS += passes/cmds/portarcs.o
 OBJS += passes/cmds/wrapcell.o
 OBJS += passes/cmds/setenv.o
 OBJS += passes/cmds/abstract.o
+OBJS += passes/cmds/test_select.o
+OBJS += passes/cmds/timeest.o
+OBJS += passes/cmds/linecoverage.o
+OBJS += passes/cmds/sort.o
+OBJS += passes/cmds/icell_liberty.o
+
+include $(YOSYS_SRC)/passes/cmds/sdc/Makefile.inc

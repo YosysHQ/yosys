@@ -22,11 +22,24 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
+typedef struct name_proposal {
+	string name;
+	unsigned int score;
+	name_proposal() : name(""), score(-1) { }
+	name_proposal(string name, unsigned int score) : name(name), score(score) { }
+	bool operator<(const name_proposal &other) const {
+		if (score != other.score)
+			return score < other.score;
+		else
+			return name.length() < other.name.length();
+	}
+} name_proposal;
+
+int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 {
-	dict<Cell*, pair<int, string>> proposed_cell_names;
-	dict<Wire*, pair<int, string>> proposed_wire_names;
-	int best_score = -1;
+	dict<Cell*, name_proposal> proposed_cell_names;
+	dict<Wire*, name_proposal> proposed_wire_names;
+	name_proposal best_name;
 
 	for (auto cell : module->selected_cells()) {
 		if (cell->name[0] == '$') {
@@ -36,14 +49,14 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] != '$') {
 						if (suffix.empty())
 							suffix = stringf("_%s_%s", log_id(cell->type), log_id(conn.first));
-						string new_name(bit.wire->name.str() + suffix);
-						int score = wire_score.at(bit.wire);
-						if (cell->output(conn.first)) score = 0;
-						score = 10000*score + new_name.size();
-						if (!proposed_cell_names.count(cell) || score < proposed_cell_names.at(cell).first) {
-							if (best_score < 0 || score < best_score)
-								best_score = score;
-							proposed_cell_names[cell] = make_pair(score, new_name);
+						name_proposal proposed_name(
+							bit.wire->name.str() + suffix,
+							cell->output(conn.first) ? 0 : wire_score.at(bit.wire)
+						);
+						if (!proposed_cell_names.count(cell) || proposed_name < proposed_cell_names.at(cell)) {
+							if (proposed_name < best_name)
+								best_name = proposed_name;
+							proposed_cell_names[cell] = proposed_name;
 						}
 					}
 			}
@@ -54,37 +67,44 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] == '$' && !bit.wire->port_id) {
 						if (suffix.empty())
 							suffix = stringf("_%s", log_id(conn.first));
-						string new_name(cell->name.str() + suffix);
-						int score = wire_score.at(bit.wire);
-						if (cell->output(conn.first)) score = 0;
-						score = 10000*score + new_name.size();
-						if (!proposed_wire_names.count(bit.wire) || score < proposed_wire_names.at(bit.wire).first) {
-							if (best_score < 0 || score < best_score)
-								best_score = score;
-							proposed_wire_names[bit.wire] = make_pair(score, new_name);
+						name_proposal proposed_name(
+							cell->name.str() + suffix,
+							cell->output(conn.first) ? 0 : wire_score.at(bit.wire)
+						);
+						if (!proposed_wire_names.count(bit.wire) || proposed_name < proposed_wire_names.at(bit.wire)) {
+							if (proposed_name < best_name)
+								best_name = proposed_name;
+							proposed_wire_names[bit.wire] = proposed_name;
 						}
 					}
 			}
 		}
 	}
 
+	int count = 0;
+	// compare against double best score for following comparisons so we don't
+	// pre-empt a future iteration
+	best_name.score *= 2;
+
 	for (auto &it : proposed_cell_names) {
-		if (best_score*2 < it.second.first)
+		if (best_name < it.second)
 			continue;
-		IdString n = module->uniquify(IdString(it.second.second));
+		IdString n = module->uniquify(IdString(it.second.name));
 		log_debug("Rename cell %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
 		module->rename(it.first, n);
+		count++;
 	}
 
 	for (auto &it : proposed_wire_names) {
-		if (best_score*2 < it.second.first)
+		if (best_name < it.second)
 			continue;
-		IdString n = module->uniquify(IdString(it.second.second));
+		IdString n = module->uniquify(IdString(it.second.name));
 		log_debug("Rename wire %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
 		module->rename(it.first, n);
+		count++;
 	}
 
-	return proposed_cell_names.size() + proposed_wire_names.size();
+	return count;
 }
 
 struct AutonamePass : public Pass {
@@ -110,12 +130,13 @@ struct AutonamePass : public Pass {
 			// }
 			break;
 		}
+		extra_args(args, argidx, design);
 
 		log_header(design, "Executing AUTONAME pass.\n");
 
 		for (auto module : design->selected_modules())
 		{
-			dict<Wire*, int> wire_score;
+			dict<Wire*, unsigned int> wire_score;
 			for (auto cell : module->selected_cells())
 			for (auto &conn : cell->connections())
 			for (auto bit : conn.second)

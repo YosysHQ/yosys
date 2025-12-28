@@ -48,7 +48,7 @@ module GP_COUNT14(input CLK, input wire RST, output reg OUT);
 
 	//Combinatorially output underflow flag whenever we wrap low
 	always @(*) begin
-		OUT <= (count == 14'h0);
+		OUT = (count == 14'h0);
 	end
 
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
@@ -133,10 +133,10 @@ module GP_COUNT14_ADV(input CLK, input RST, output reg OUT,
 	//Combinatorially output underflow flag whenever we wrap low
 	always @(*) begin
 		if(UP)
-			OUT <= (count == 14'h3fff);
+			OUT = (count == 14'h3fff);
 		else
-			OUT <= (count == 14'h0);
-		POUT <= count[7:0];
+			OUT = (count == 14'h0);
+		POUT = count[7:0];
 	end
 
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
@@ -272,10 +272,10 @@ module GP_COUNT8_ADV(input CLK, input RST, output reg OUT,
 	//Combinatorially output underflow flag whenever we wrap low
 	always @(*) begin
 		if(UP)
-			OUT <= (count == 8'hff);
+			OUT = (count == 8'hff);
 		else
-			OUT <= (count == 8'h0);
-		POUT <= count;
+			OUT = (count == 8'h0);
+		POUT = count;
 	end
 
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
@@ -413,8 +413,8 @@ module GP_COUNT8(
 
 	//Combinatorially output underflow flag whenever we wrap low
 	always @(*) begin
-		OUT <= (count == 8'h0);
-		POUT <= count;
+		OUT = (count == 8'h0);
+		POUT = count;
 	end
 
 	//POR or SYSRST reset value is COUNT_TO. Datasheet is unclear but conversations w/ Silego confirm.
@@ -488,23 +488,23 @@ module GP_DCMPMUX(input[1:0] SEL, input[7:0] IN0, input[7:0] IN1, input[7:0] IN2
 	always @(*) begin
 		case(SEL)
 			2'd00: begin
-				OUTA <= IN0;
-				OUTB <= IN3;
+				OUTA = IN0;
+				OUTB = IN3;
 			end
 
 			2'd01: begin
-				OUTA <= IN1;
-				OUTB <= IN2;
+				OUTA = IN1;
+				OUTB = IN2;
 			end
 
 			2'd02: begin
-				OUTA <= IN2;
-				OUTB <= IN1;
+				OUTA = IN2;
+				OUTB = IN1;
 			end
 
 			2'd03: begin
-				OUTA <= IN3;
-				OUTB <= IN0;
+				OUTA = IN3;
+				OUTB = IN0;
 			end
 
 		endcase
@@ -635,7 +635,7 @@ module GP_DLATCH(input D, input nCLK, output reg Q);
 	initial Q = INIT;
 	always @(*) begin
 		if(!nCLK)
-			Q <= D;
+			Q = D;
 	end
 endmodule
 
@@ -644,7 +644,7 @@ module GP_DLATCHI(input D, input nCLK, output reg nQ);
 	initial nQ = INIT;
 	always @(*) begin
 		if(!nCLK)
-			nQ <= ~D;
+			nQ = ~D;
 	end
 endmodule
 
@@ -653,9 +653,9 @@ module GP_DLATCHR(input D, input nCLK, input nRST, output reg Q);
 	initial Q = INIT;
 	always @(*) begin
 		if(!nRST)
-			Q <= 1'b0;
+			Q = 1'b0;
 		else if(!nCLK)
-			Q <= D;
+			Q = D;
 	end
 endmodule
 
@@ -664,9 +664,9 @@ module GP_DLATCHRI(input D, input nCLK, input nRST, output reg nQ);
 	initial nQ = INIT;
 	always @(*) begin
 		if(!nRST)
-			nQ <= 1'b1;
+			nQ = 1'b1;
 		else if(!nCLK)
-			nQ <= ~D;
+			nQ = ~D;
 	end
 endmodule
 
@@ -675,9 +675,9 @@ module GP_DLATCHS(input D, input nCLK, input nSET, output reg Q);
 	initial Q = INIT;
 	always @(*) begin
 		if(!nSET)
-			Q <= 1'b1;
+			Q = 1'b1;
 		else if(!nCLK)
-			Q <= D;
+			Q = D;
 	end
 endmodule
 
@@ -686,9 +686,9 @@ module GP_DLATCHSI(input D, input nCLK, input nSET, output reg nQ);
 	initial nQ = INIT;
 	always @(*) begin
 		if(!nSET)
-			nQ <= 1'b0;
+			nQ = 1'b0;
 		else if(!nCLK)
-			nQ <= ~D;
+			nQ = ~D;
 	end
 endmodule
 
@@ -698,9 +698,9 @@ module GP_DLATCHSR(input D, input nCLK, input nSR, output reg Q);
 	initial Q = INIT;
 	always @(*) begin
 		if(!nSR)
-			Q <= SRMODE;
+			Q = SRMODE;
 		else if(!nCLK)
-			Q <= D;
+			Q = D;
 	end
 endmodule
 
@@ -710,9 +710,9 @@ module GP_DLATCHSRI(input D, input nCLK, input nSR, output reg nQ);
 	initial nQ = INIT;
 	always @(*) begin
 		if(!nSR)
-			nQ <= ~SRMODE;
+			nQ = ~SRMODE;
 		else if(!nCLK)
-			nQ <= ~D;
+			nQ = ~D;
 	end
 endmodule
 

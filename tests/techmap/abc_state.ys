@@ -1,0 +1,26 @@
+read_verilog <<EOT
+module simple(I1, I2, O);
+	input wire I1;
+	input wire I2;
+	output wire O;
+
+	assign O = I1 | I2;
+endmodule
+EOT
+abc -g all
+
+design -reset
+read_verilog <<EOT
+module simple(I1, I2, O);
+	input wire I1;
+	input wire I2;
+	output wire O;
+
+	assign O = I1 | I2;
+endmodule
+EOT
+techmap
+abc -g AND
+
+select -assert-count 0 t:$_OR_
+select -assert-count 1 t:$_AND_

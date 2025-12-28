@@ -97,13 +97,13 @@ static const char *attr_prefix(ScopeinfoAttrs attrs)
 	}
 }
 
-bool scopeinfo_has_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, const RTLIL::IdString &id)
+bool scopeinfo_has_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, RTLIL::IdString id)
 {
 	log_assert(scopeinfo->type == ID($scopeinfo));
 	return scopeinfo->has_attribute(attr_prefix(attrs) + RTLIL::unescape_id(id));
 }
 
-RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, const RTLIL::IdString &id)
+RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, RTLIL::IdString id)
 {
 	log_assert(scopeinfo->type == ID($scopeinfo));
 	auto found = scopeinfo->attributes.find(attr_prefix(attrs) + RTLIL::unescape_id(id));

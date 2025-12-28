@@ -24,6 +24,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -301,7 +302,7 @@ struct XpropWorker
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if (cell->type != ID($anyinit))
@@ -827,9 +828,9 @@ struct XpropWorker
 			auto init_q_is_1 = init_q;
 			auto init_q_is_x = init_q;
 
-			for (auto &bit : init_q_is_1.bits())
+			for (auto bit : init_q_is_1)
 				bit = bit == State::S1 ? State::S1 : State::S0;
-			for (auto &bit : init_q_is_x.bits())
+			for (auto bit : init_q_is_x)
 				bit = bit == State::Sx ? State::S1 : State::S0;
 
 			initvals.remove_init(sig_q);
@@ -852,7 +853,7 @@ struct XpropWorker
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {
@@ -864,14 +865,14 @@ struct XpropWorker
 					auto init_q_is_x = init_q;
 
 					if (ff.is_anyinit) {
-						for (auto &bit : init_q_is_1.bits())
+						for (auto bit : init_q_is_1)
 							bit = State::Sx;
-						for (auto &bit : init_q_is_x.bits())
+						for (auto bit : init_q_is_x)
 							bit = State::S0;
 					} else {
-						for (auto &bit : init_q_is_1.bits())
+						for (auto bit : init_q_is_1)
 							bit = bit == State::S1 ? State::S1 : State::S0;
-						for (auto &bit : init_q_is_x.bits())
+						for (auto bit : init_q_is_x)
 							bit = bit == State::Sx ? State::S1 : State::S0;
 					}
 
@@ -977,8 +978,8 @@ struct XpropWorker
 				if (wire->port_input == wire->port_output) {
 					log_warning("Port %s not an input or an output port which is not supported by xprop\n", log_id(wire));
 				} else if ((options.split_inputs && !options.assume_def_inputs && wire->port_input) || (options.split_outputs && wire->port_output)) {
-					auto port_d = module->uniquify(stringf("%s_d", port.c_str()));
-					auto port_x = module->uniquify(stringf("%s_x", port.c_str()));
+					auto port_d = module->uniquify(stringf("%s_d", port));
+					auto port_x = module->uniquify(stringf("%s_x", port));
 
 					auto wire_d = module->addWire(port_d, GetSize(wire));
 					auto wire_x = module->addWire(port_x, GetSize(wire));
@@ -1030,8 +1031,8 @@ struct XpropWorker
 				continue;
 			int index_d = 0;
 			int index_x = 0;
-			auto name_d = module->uniquify(stringf("%s_d", wire->name.c_str()), index_d);
-			auto name_x = module->uniquify(stringf("%s_x", wire->name.c_str()), index_x);
+			auto name_d = module->uniquify(stringf("%s_d", wire->name), index_d);
+			auto name_x = module->uniquify(stringf("%s_x", wire->name), index_x);
 
 			auto hdlname = wire->get_hdlname_attribute();
 
@@ -1100,6 +1101,11 @@ struct XpropWorker
 
 struct XpropPass : public Pass {
 	XpropPass() : Pass("xprop", "formal x propagation") {}
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

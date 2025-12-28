@@ -22,12 +22,18 @@
 #include "kernel/celledges.h"
 #include "kernel/celltypes.h"
 #include "kernel/utils.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct CheckPass : public Pass {
 	CheckPass() : Pass("check", "check for obvious problems in the design") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -189,16 +195,23 @@ struct CheckPass : public Pass {
 					// in port widths are those for us to check.
 					if (!cell->type.in(
 							ID($add), ID($sub),
-							ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
+							ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+							ID($pmux), ID($bmux)))
 						return false;
 
 					int in_widths = 0, out_widths = 0;
 
-					for (auto &conn : cell->connections()) {
-						if (cell->input(conn.first))
-							in_widths += conn.second.size();
-						if (cell->output(conn.first))
-							out_widths += conn.second.size();
+					if (cell->type.in(ID($pmux), ID($bmux))) {
+						// We're skipping inputs A and B, since each of their bits contributes only one edge
+						in_widths = GetSize(cell->getPort(ID::S));
+						out_widths = GetSize(cell->getPort(ID::Y));
+					} else {
+						for (auto &conn : cell->connections()) {
+							if (cell->input(conn.first))
+								in_widths += conn.second.size();
+							if (cell->output(conn.first))
+								out_widths += conn.second.size();
+						}
 					}
 
 					const int threshold = 1024;
@@ -272,7 +285,7 @@ struct CheckPass : public Pass {
 				}
 
 				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)) \
-						|| RTLIL::builtin_ff_cell_types().count(cell->type)) {
+						|| cell->is_builtin_ff()) {
 					if (!edges_db.add_edges_from_cell(cell))
 						coarsened_cells.insert(cell);
 				}
@@ -309,8 +322,8 @@ struct CheckPass : public Pass {
 				if (wire_drivers.count(state)) {
 					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
 					for (auto str : wire_drivers[state])
-						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
+						message += stringf("    %s\n", str);
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -318,8 +331,8 @@ struct CheckPass : public Pass {
 				if (wire_drivers_count[it.first] > 1) {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
 					for (auto str : it.second)
-						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
+						message += stringf("    %s\n", str);
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -381,10 +394,10 @@ struct CheckPass : public Pass {
 					std::string driver_src;
 					if (driver->has_attribute(ID::src)) {
 						std::string src_attr = driver->get_src_attribute();
-						driver_src = stringf(" source: %s", src_attr.c_str());
+						driver_src = stringf(" source: %s", src_attr);
 					}
 
-					message += stringf("    cell %s (%s)%s\n", log_id(driver), log_id(driver->type), driver_src.c_str());
+					message += stringf("    cell %s (%s)%s\n", log_id(driver), log_id(driver->type), driver_src);
 
 					if (!coarsened_cells.count(driver)) {						
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);
@@ -398,14 +411,14 @@ struct CheckPass : public Pass {
 						std::string wire_src;
 						if (wire->has_attribute(ID::src)) {
 							std::string src_attr = wire->get_src_attribute();
-							wire_src = stringf(" source: %s", src_attr.c_str());
+							wire_src = stringf(" source: %s", src_attr);
 						}
-						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src.c_str());						
+						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);						
 					}
 
 					prev = bit;
 				}
-				log_warning("%s", message.c_str());
+				log_warning("%s", message);
 				counter++;
 			}
 
@@ -413,7 +426,7 @@ struct CheckPass : public Pass {
 			{
 				for (auto cell : module->cells())
 				{
-					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
+					if (cell->is_builtin_ff() == 0)
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))

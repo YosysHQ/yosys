@@ -1,10 +1,9 @@
-/*.log
-/*.out
-/*.err
-/run-test.mk
 /const_arst.v
 /const_sr.v
 /doubleslash.v
+/reset_auto_counter.v
 /roundtrip_proc_1.v
 /roundtrip_proc_2.v
 /assign_to_reg.v
+/subdir
+/temp_foo.v

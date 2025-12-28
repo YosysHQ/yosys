@@ -1,0 +1,15 @@
+read_verilog -sv <<EOT
+module smoke_initstate (
+	input resetn,
+    input clk,
+    input a
+);
+    always @(posedge clk) begin
+        assert property ($stable(a));
+        assert property ($changed(a));
+        assert property ($rose(a));
+        assert property ($fell(a));
+		assume(resetn == !$initstate);
+	end
+endmodule
+EOT

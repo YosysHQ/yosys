@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
@@ -25,6 +26,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FminitPass : public Pass {
 	FminitPass() : Pass("fminit", "set init values/sequences for formal") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -103,7 +109,7 @@ struct FminitPass : public Pass {
 		SigSpec clksig;
 		if (!clocksignal.empty()) {
 			if (!SigSpec::parse(clksig, module, clocksignal))
-				log_error("Error parsing expression '%s'.\n", clocksignal.c_str());
+				log_error("Error parsing expression '%s'.\n", clocksignal);
 		}
 
 		for (auto &it : setdata)
@@ -111,10 +117,10 @@ struct FminitPass : public Pass {
 			SigSpec lhs, rhs;
 
 			if (!SigSpec::parse(lhs, module, it.first))
-				log_error("Error parsing expression '%s'.\n", it.first.c_str());
+				log_error("Error parsing expression '%s'.\n", it.first);
 
 			if (!SigSpec::parse_rhs(lhs, rhs, module, it.second))
-				log_error("Error parsing expression '%s'.\n", it.second.c_str());
+				log_error("Error parsing expression '%s'.\n", it.second);
 
 			SigSpec final_lhs, final_rhs;
 
@@ -138,7 +144,7 @@ struct FminitPass : public Pass {
 			SigSpec lhs, rhs;
 
 			if (!SigSpec::parse(lhs, module, it.first))
-				log_error("Error parsing expression '%s'.\n", it.first.c_str());
+				log_error("Error parsing expression '%s'.\n", it.first);
 
 			for (int i = 0; i < GetSize(it.second); i++)
 			{
@@ -177,7 +183,7 @@ struct FminitPass : public Pass {
 				SigSpec final_lhs, final_rhs;
 
 				if (!SigSpec::parse_rhs(lhs, rhs, module, it.second[i]))
-					log_error("Error parsing expression '%s'.\n", it.second[i].c_str());
+					log_error("Error parsing expression '%s'.\n", it.second[i]);
 
 				for (int i = 0; i < GetSize(rhs); i++)
 					if (rhs[i] != State::Sz) {

@@ -140,7 +140,7 @@ struct FsmExpand
 	{
 		optimze_as_needed();
 
-		log("  merging %s cell %s.\n", cell->type.c_str(), cell->name.c_str());
+		log("  merging %s cell %s.\n", cell->type, cell->name);
 		merged_set.insert(cell);
 		already_optimized = false;
 
@@ -243,7 +243,7 @@ struct FsmExpand
 	void execute()
 	{
 		log("\n");
-		log("Expanding FSM `%s' from module `%s':\n", fsm_cell->name.c_str(), module->name.c_str());
+		log("Expanding FSM `%s' from module `%s':\n", fsm_cell->name, module->name);
 
 		already_optimized = false;
 		limit_transitions =  16 * fsm_cell->parameters[ID::TRANS_NUM].as_int();

@@ -1,5 +1,6 @@
 #include "kernel/yosys.h"
 #include "kernel/ff.h"
+#include "kernel/gzip.h"
 #include "libparse.h"
 #include <optional>
 
@@ -80,11 +81,11 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 		} else if (icg_kind == "latch_negedge" || starts_with("latch_negedge_")) {
 			clk_pol = false;
 		} else {
-			log("Ignoring ICG primitive %s of kind '%s'\n", cell_name.c_str(), icg_kind.c_str());
+			log("Ignoring ICG primitive %s of kind '%s'\n", cell_name, icg_kind);
 			continue;
 		}
 
-		log_debug("maybe valid icg: %s\n", cell_name.c_str());
+		log_debug("maybe valid icg: %s\n", cell_name);
 		ClockGateCell icg_interface;
 		icg_interface.name = RTLIL::escape_id(cell_name);
 
@@ -161,9 +162,9 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 			winning = cost < goal;
 
 			if (winning)
-				log_debug("%s beats %s\n", icg_interface.name.c_str(), icg_to_beat->name.c_str());
+				log_debug("%s beats %s\n", icg_interface.name, icg_to_beat->name);
 		} else {
-			log_debug("%s is the first of its polarity\n", icg_interface.name.c_str());
+			log_debug("%s is the first of its polarity\n", icg_interface.name);
 			winning = true;
 		}
 		if (winning) {
@@ -175,11 +176,11 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	std::optional<ClockGateCell> pos;
 	std::optional<ClockGateCell> neg;
 	if (best_pos) {
-		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name.c_str());
+		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name);
 		pos.emplace(*best_pos);
 	}
 	if (best_neg) {
-		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name.c_str());
+		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name);
 		neg.emplace(*best_neg);
 	}
 	return std::make_pair(pos, neg);
@@ -289,9 +290,7 @@ struct ClockgatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
-				std::string liberty_file = args[++argidx];
-				rewrite_filename(liberty_file);
-				liberty_files.push_back(liberty_file);
+				append_globbed(liberty_files, args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-dont_use" && argidx+1 < args.size()) {
@@ -308,13 +307,10 @@ struct ClockgatePass : public Pass {
 		if (!liberty_files.empty()) {
 			LibertyMergedCells merged;
 			for (auto path : liberty_files) {
-				std::ifstream f;
-				f.open(path.c_str());
-				if (f.fail())
-					log_cmd_error("Can't open liberty file `%s': %s\n", path.c_str(), strerror(errno));
-				LibertyParser p(f);
+				std::istream* f = uncompressed(path);
+				LibertyParser p(*f, path);
 				merged.merge(p);
-				f.close();
+				delete f;
 			}
 			std::tie(pos_icg_desc, neg_icg_desc) =
 				find_icgs(merged.cells, dont_use_cells);
@@ -333,9 +329,9 @@ struct ClockgatePass : public Pass {
 		dict<ClkNetInfo, GClkNetInfo> clk_nets;
 
 		int gated_flop_count = 0;
-		for (auto module : design->selected_whole_modules()) {
+		for (auto module : design->selected_unboxed_whole_modules()) {
 			for (auto cell : module->cells()) {
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(nullptr, cell);
@@ -397,7 +393,7 @@ struct ClockgatePass : public Pass {
 				if (!it->second.new_net)
 					continue;
 
-				log_debug("Fix up FF %s\n", cell->name.c_str());
+				log_debug("Fix up FF %s\n", cell->name);
 				// Now we start messing with the design
 				ff.has_ce = false;
 				// Construct the clock gate

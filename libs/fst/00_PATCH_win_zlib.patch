@@ -7,10 +7,10 @@
 -#include <zlib.h>
  #include <inttypes.h>
  #if defined(_MSC_VER)
-+    #include "libs/zlib/zlib.h"
-     #include "fst_win_unistd.h"
++#include "libs/zlib/zlib.h"
+ #include "fst_win_unistd.h"
  #else
-+    #include <zlib.h>
-     #include <unistd.h>
++#include <zlib.h>
+ #include <unistd.h>
  #endif
  #include <time.h>

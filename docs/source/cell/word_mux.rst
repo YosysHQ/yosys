@@ -24,8 +24,8 @@ are zero, the value from ``A`` input is sent to the output. If the :math:`n`\
 'th bit from ``S`` is set, the value :math:`n`\ 'th ``WIDTH`` bits wide slice of
 the ``B`` input is sent to the output. When more than one bit from ``S`` is set
 the output is undefined. Cells of this type are used to model "parallel cases"
-(defined by using the ``parallel_case`` attribute or detected by an
-optimization).
+(defined by using the ``parallel_case`` attribute, the ``unique`` or ``unique0``
+SystemVerilog keywords, or detected by an optimization).
 
 The `$tribuf` cell is used to implement tristate logic. Cells of this type have
 a ``WIDTH`` parameter and inputs ``A`` and ``EN`` and an output ``Y``. The ``A``

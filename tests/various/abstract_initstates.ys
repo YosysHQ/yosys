@@ -1,0 +1,30 @@
+read_verilog <<EOT
+
+module half_clock (CLK, Q, magic);
+	input CLK;
+	output reg Q = 0;
+	input magic;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+
+EOT
+proc
+design -save half_clock
+
+sat -set-init-undef -enable_undef -verify -seq 5 -set-at 1 Q 0
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 1 Q 0 -set-at 2 Q 0
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 2 Q 0 -set-at 3 Q 0
+abstract -state -initstates 1 */Q
+sat -set-init-undef -enable_undef -verify -seq 5 -set-at 1 Q 0 -set-at 2 Q 0
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 2 Q 0 -set-at 3 Q 0
+
+design -load half_clock
+
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 1 Q 0 -set-at 2 Q 0
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 2 Q 0 -set-at 3 Q 0
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 3 Q 0 -set-at 4 Q 0
+abstract -state -initstates 2 */Q
+sat -set-init-undef -enable_undef -verify -seq 5 -set-at 1 Q 0 -set-at 2 Q 0
+sat -set-init-undef -enable_undef -verify -seq 5 -set-at 1 Q 0 -set-at 2 Q 0 -set-at 3 Q 0
+sat -set-init-undef -enable_undef -falsify -seq 5 -set-at 3 Q 0 -set-at 4 Q 0

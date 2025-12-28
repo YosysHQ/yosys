@@ -105,7 +105,7 @@ struct MemContentsTest {
 				RTLIL::Const values;
 				for(addr_t addr = low; addr <= high; addr++) {
 					RTLIL::Const word(data_dist(rnd), data_width);
-					values.bits().insert(values.bits().end(), word.begin(), word.end());
+					values.append(word);
 				}
 				insert_concatenated(low, values);
 			}
@@ -116,7 +116,9 @@ struct MemContentsTest {
 
 struct FunctionalTestGeneric : public Pass
 {
-	FunctionalTestGeneric() : Pass("test_generic", "test the generic compute graph") {}
+	FunctionalTestGeneric() : Pass("test_generic", "test the generic compute graph") {
+		internal();
+	}
 
     void help() override
 	{
@@ -141,7 +143,7 @@ struct FunctionalTestGeneric : public Pass
 */
 
 		for (auto module : design->selected_modules()) {
-            log("Dumping module `%s'.\n", module->name.c_str());
+            log("Dumping module `%s'.\n", module->name);
 			auto fir = Functional::IR::from_module(module);
 			for(auto node : fir)
 				std::cout << RTLIL::unescape_id(node.name()) << " = " << node.to_string([](auto n) { return RTLIL::unescape_id(n.name()); }) << "\n";

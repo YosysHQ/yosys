@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
@@ -25,6 +26,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CutpointPass : public Pass {
 	CutpointPass() : Pass("cutpoint", "adds formal cut points to the design") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -34,13 +40,23 @@ struct CutpointPass : public Pass {
 		log("This command adds formal cut points to the design.\n");
 		log("\n");
 		log("    -undef\n");
-		log("        set cupoint nets to undef (x). the default behavior is to create a\n");
-		log("        $anyseq cell and drive the cutpoint net from that\n");
+		log("        set cutpoint nets to undef (x). the default behavior is to create\n");
+		log("        an $anyseq cell and drive the cutpoint net from that\n");
+		log("\n");
+		log("    -noscopeinfo\n");
+		log("        do not create '$scopeinfo' cells that preserve attributes of cells that\n");
+		log("        were removed by this pass\n");
+		log("\n");
+		log("    cutpoint -blackbox [options]\n");
+		log("\n");
+		log("Replace all instances of blackboxes in the design with a formal cut point.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		 bool flag_undef = false;
+		bool flag_undef = false;
+		bool flag_scopeinfo = true;
+		bool flag_blackbox = false;
 
 		log_header(design, "Executing CUTPOINT pass.\n");
 
@@ -51,13 +67,32 @@ struct CutpointPass : public Pass {
 				flag_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-noscopeinfo") {
+				flag_scopeinfo = false;
+				continue;
+			}
+			if (args[argidx] == "-blackbox") {
+				flag_blackbox = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
+		if (flag_blackbox) {
+			if (!design->full_selection())
+				log_cmd_error("This command only operates on fully selected designs!\n");
+			design->push_empty_selection();
+			auto &selection = design->selection();
+			for (auto module : design->modules())
+				for (auto cell : module->cells())
+					if (selection.boxed_module(cell->type))
+						selection.select(module, cell);
+		}
+
+		for (auto module : design->all_selected_modules())
 		{
-			if (design->selected_whole_module(module->name)) {
+			if (module->is_selected_whole()) {
 				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
 				module->new_connections(std::vector<RTLIL::SigSig>());
 				for (auto cell : vector<Cell*>(module->cells()))
@@ -74,15 +109,64 @@ struct CutpointPass : public Pass {
 			SigMap sigmap(module);
 			pool<SigBit> cutpoint_bits;
 
+			pool<SigBit> wire_drivers;
+			for (auto cell : module->cells())
+				for (auto &conn : cell->connections())
+					if (cell->output(conn.first) && !cell->input(conn.first))
+						for (auto bit : sigmap(conn.second))
+							if (bit.wire)
+								wire_drivers.insert(bit);
+			
+			for (auto wire : module->wires())
+				if (wire->port_input)
+					for (auto bit : sigmap(wire))
+						wire_drivers.insert(bit);
+
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($anyseq))
 					continue;
 				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
 				for (auto &conn : cell->connections()) {
-					if (cell->output(conn.first))
-						module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+					if (cell->output(conn.first)) {
+						bool do_cut = true;
+						if (cell->input(conn.first))
+							for (auto bit : sigmap(conn.second))
+								if (wire_drivers.count(bit)) {
+									log_debug("  Treating inout port '%s' as input.\n", id2cstr(conn.first));
+									do_cut = false;
+									break;
+								}
+
+						if (do_cut) {
+							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+							if (cell->input(conn.first)) {
+								log_debug("  Treating inout port '%s' as output.\n", id2cstr(conn.first));
+								for (auto bit : sigmap(conn.second))
+									wire_drivers.insert(bit);
+							}
+						}
+					}
 				}
+
+				RTLIL::Cell *scopeinfo = nullptr;
+				auto cell_name = cell->name;
+				if (flag_scopeinfo && cell_name.isPublic()) {
+					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
+					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
+
+					for (auto const &attr : cell->attributes)
+					{
+						if (attr.first == ID::hdlname)
+							scopeinfo->attributes.insert(attr);
+						else
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first)), attr.second);
+					}
+				}
+
 				module->remove(cell);
+
+				if (scopeinfo != nullptr)
+					module->rename(scopeinfo, cell_name);
 			}
 
 			for (auto wire : module->selected_wires()) {

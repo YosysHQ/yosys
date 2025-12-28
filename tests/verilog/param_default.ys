@@ -1,0 +1,24 @@
+logger -expect-no-warnings
+read_verilog << EOF
+module bar (
+	input portname
+);
+	parameter paramname = 7;
+endmodule
+ 
+module empty (
+);
+ 	bar #() barinstance ();
+endmodule
+
+module implicit (
+);
+ 	bar #(.paramname()) barinstance (.portname());
+endmodule
+
+module explicit (
+	input a
+);
+	bar #(.paramname(3)) barinstance (.portname(a));
+endmodule
+EOF

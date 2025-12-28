@@ -75,10 +75,11 @@ struct SplitnetsWorker
 
 		it = wire->attributes.find(ID::init);
 		if (it != wire->attributes.end()) {
-			Const old_init = it->second, new_init;
+			Const old_init = it->second;
+			RTLIL::Const::Builder new_init_bits_builder(width);
 			for (int i = offset; i < offset+width; i++)
-				new_init.bits().push_back(i < GetSize(old_init) ? old_init.at(i) : State::Sx);
-			new_wire->attributes.emplace(ID::init, new_init);
+				new_init_bits_builder.push_back(i < GetSize(old_init) ? old_init.at(i) : State::Sx);
+			new_wire->attributes.emplace(ID::init, new_init_bits_builder.build());
 		}
 
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
@@ -207,8 +208,12 @@ struct SplitnetsPass : public Pass {
 			else
 			{
 				for (auto wire : module->wires()) {
-					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
+					if (((wire->width > 1) || (wire->has_attribute(ID::single_bit_vector)))
+						&& (wire->port_id == 0 || flag_ports)
+						&& design->selected(module, wire)) {
+						wire->attributes.erase(ID::single_bit_vector);
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
+					}
 				}
 
 				for (auto &it : worker.splitmap)

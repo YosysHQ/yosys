@@ -203,7 +203,7 @@ struct SynthGateMatePass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib -specify +/gatemate/cells_sim.v +/gatemate/cells_bb.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (check_label("prepare"))
@@ -351,14 +351,14 @@ struct SynthGateMatePass : public ScriptPass
 		{
 			run("opt_clean -purge");
 			if (!vlog_file.empty() || help_mode) {
-				run(stringf("write_verilog -noattr %s", help_mode ? "<file-name>" : vlog_file.c_str()));
+				run(stringf("write_verilog -noattr %s", help_mode ? "<file-name>" : vlog_file));
 			}
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode) {
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 			}
 		}
 	}

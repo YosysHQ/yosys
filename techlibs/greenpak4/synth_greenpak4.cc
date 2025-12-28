@@ -123,7 +123,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (part != "SLG46140V" && part != "SLG46620V" && part != "SLG46621V")
-			log_cmd_error("Invalid part name: '%s'\n", part.c_str());
+			log_cmd_error("Invalid part name: '%s'\n", part);
 
 		log_header(design, "Executing SYNTH_GREENPAK4 pass.\n");
 		log_push();
@@ -138,7 +138,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib +/greenpak4/cells_sim.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -202,7 +202,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthGreenPAK4Pass;

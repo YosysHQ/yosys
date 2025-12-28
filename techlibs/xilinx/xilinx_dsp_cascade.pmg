@@ -90,9 +90,9 @@ finally
 			if (i % MAX_DSP_CASCADE > 0) {
 				if (P >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 48);
-					dsp_pcin->setPort(ID(C), Const(0, 48));
-					dsp_pcin->setPort(ID(PCIN), cascade);
-					dsp->setPort(ID(PCOUT), cascade);
+					dsp_pcin->setPort(\C, Const(0, 48));
+					dsp_pcin->setPort(\PCIN, cascade);
+					dsp->setPort(\PCOUT, cascade);
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
@@ -118,15 +118,15 @@ finally
 				}
 				if (AREG >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 30);
-					dsp_pcin->setPort(ID(A), Const(0, 30));
-					dsp_pcin->setPort(ID(ACIN), cascade);
-					dsp->setPort(ID(ACOUT), cascade);
+					dsp_pcin->setPort(\A, Const(0, 30));
+					dsp_pcin->setPort(\ACIN, cascade);
+					dsp->setPort(\ACOUT, cascade);
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
 					if (dsp->type.in(\DSP48E1))
-						dsp->setParam(ID(ACASCREG), AREG);
-					dsp_pcin->setParam(ID(A_INPUT), Const("CASCADE"));
+						dsp->setParam(\ACASCREG, AREG);
+					dsp_pcin->setParam(\A_INPUT, Const("CASCADE"));
 
 					log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
 				}
@@ -138,18 +138,18 @@ finally
 						//   BCOUT from an adjacent DSP48A1 slice. The tools then
 						//   translate BCOUT cascading to the dedicated BCIN input
 						//   and set the B_INPUT attribute for implementation."
-						dsp_pcin->setPort(ID(B), cascade);
+						dsp_pcin->setPort(\B, cascade);
 					}
 					else {
-						dsp_pcin->setPort(ID(B), Const(0, 18));
-						dsp_pcin->setPort(ID(BCIN), cascade);
+						dsp_pcin->setPort(\B, Const(0, 18));
+						dsp_pcin->setPort(\BCIN, cascade);
 					}
-					dsp->setPort(ID(BCOUT), cascade);
+					dsp->setPort(\BCOUT, cascade);
 					add_siguser(cascade, dsp_pcin);
 					add_siguser(cascade, dsp);
 
 					if (dsp->type.in(\DSP48E1)) {
-						dsp->setParam(ID(BCASCREG), BREG);
+						dsp->setParam(\BCASCREG, BREG);
 						// According to UG389 p13 [https://www.xilinx.com/support/documentation/user_guides/ug389.pdf]
 						// "The attribute is only used by place and route tools and
 						//   is not necessary for the users to set for synthesis. The
@@ -158,7 +158,7 @@ finally
 						//   BCOUT of another DSP48A1 slice, then the tools automatically
 						//   set the attribute to 'CASCADE', otherwise it is set to
 						//   'DIRECT'".
-						dsp_pcin->setParam(ID(B_INPUT), Const("CASCADE"));
+						dsp_pcin->setParam(\B_INPUT, Const("CASCADE"));
 					}
 
 					log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));

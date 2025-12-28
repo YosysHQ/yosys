@@ -21,6 +21,7 @@
 // do not depend on any other components of yosys (except stuff like log_*).
 
 #include "kernel/yosys.h"
+#include <iterator>
 
 #ifndef UTILS_H
 #define UTILS_H
@@ -261,6 +262,42 @@ struct arrow_proxy {
 	explicit arrow_proxy(T const & v) : v(v) {}
 	T* operator->() { return &v; }
 };
+
+inline int ceil_log2(int x)
+{
+#if defined(__GNUC__)
+        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+#else
+	if (x <= 0)
+		return 0;
+	for (int i = 0; i < 32; i++)
+		if (((x-1) >> i) == 0)
+			return i;
+	log_abort();
+#endif
+}
+
+template <typename T>
+auto reversed(T& container) {
+	struct reverse_view {
+		reverse_view(T& container) : container(container) {}
+		auto begin() const { return container.rbegin(); }
+		auto end() const { return container.rend(); }
+		T& container;
+	};
+	return reverse_view{container};
+}
+
+template <typename T>
+auto reversed(const T& container) {
+	struct reverse_view {
+		reverse_view(const T& container) : container(container) {}
+		auto begin() const { return container.rbegin(); }
+		auto end() const { return container.rend(); }
+		const T& container;
+	};
+	return reverse_view{container};
+}
 
 YOSYS_NAMESPACE_END
 

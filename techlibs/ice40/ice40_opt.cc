@@ -117,7 +117,7 @@ static void run_ice40_opts(Module *module)
 
 			if (GetSize(replacement_output)) {
 				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
-				auto it = cell->attributes.find(ID(SB_LUT4.name));
+				auto it = cell->attributes.find(IdString{"\\SB_LUT4.name"});
 				if (it != cell->attributes.end()) {
 					module->rename(cell, it->second.decode_string());
 					decltype(Cell::attributes) new_attr;
@@ -126,7 +126,7 @@ static void run_ice40_opts(Module *module)
 							new_attr[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
 						else if (a.first == ID::src)
 							new_attr.insert(std::make_pair(a.first, a.second));
-						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID::module_not_derived))
+						else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived))
 							continue;
 						else if (a.first.begins_with("\\SB_CARRY.\\"))
 							continue;

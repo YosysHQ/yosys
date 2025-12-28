@@ -1,0 +1,54 @@
+read_verilog -sv << EOF
+module top (input A, B, C, D, E, F, output reg W, X, Y, Z);
+	always_comb begin
+		W = F;
+		priority if (C == A)
+			W = D;
+		else if (C == B)
+			W = E;
+	end
+
+	always_comb begin
+		X = F;
+		if (C == A)
+			X = D;
+		else if (C == B)
+			X = E;
+	end
+
+	always_comb begin
+		Y = F;
+		unique if (C == A)
+			Y = D;
+		else if (C == B)
+			Y = E;
+	end
+
+	always_comb begin
+		Z = F;
+		unique0 if (C == A)
+			Z = D;
+		else if (C == B)
+			Z = E;
+	end
+endmodule
+EOF
+prep
+# For the ones which use priority/unique, the F signal shouldn't be included in
+# the input cone of W and Y.
+select -set full o:W o:Y %u %ci*
+select -assert-none i:F @full %i
+select -assert-count 1 o:X %ci* i:F %i
+select -assert-count 1 o:Z %ci* i:F %i
+
+# And for unique/unique0 there should be 1 $pmux compared to the 2 $mux
+# cells without.
+select -assert-none o:W %ci* t:$pmux %i
+select -assert-none o:X %ci* t:$pmux %i
+select -assert-count 1 o:Y %ci* t:$pmux %i
+select -assert-count 1 o:Z %ci* t:$pmux %i
+
+select -assert-count 2 o:W %ci* t:$mux %i
+select -assert-count 2 o:X %ci* t:$mux %i
+select -assert-none o:Y %ci* t:$mux %i
+select -assert-none o:Z %ci* t:$mux %i

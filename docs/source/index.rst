@@ -5,7 +5,7 @@ Yosys Open SYnthesis Suite
 Yosys is an open source framework for RTL synthesis.  To learn more about Yosys,
 see :doc:`/introduction`.  For a quick guide on how to get started using Yosys,
 check out :doc:`/getting_started/index`.  For the complete list of commands
-available, go to :ref:`commandindex`.
+available, go to :ref:`cmd_ref`.
 
 .. todo:: look into command ref improvements
 

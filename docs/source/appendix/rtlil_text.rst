@@ -63,6 +63,10 @@ significant bit first. Bits may be any of:
 -  ``m``: A marked bit (internal use only)
 -  ``-``: A don't care value
 
+When the bit representation has fewer bits than the width, it is padded to the width with
+the most significant explicit bit, or ``0`` if the most significant explicit bit is ``1``,
+or ``x`` if there are no explicit bits.
+
 An *integer* is simply a signed integer value in decimal format. **Warning:**
 Integer constants are limited to 32 bits. That is, they may only be in the range
 :math:`[-2147483648, 2147483648)`. Integers outside this range will result in an
@@ -133,6 +137,7 @@ wires, memories, cells, processes, and connections.
     <module>            ::= <attr-stmt>* <module-stmt> <module-body> <module-end-stmt>
     <module-stmt>       ::= module <id> <eol>
     <module-body>       ::= (<param-stmt> 
+                         |   <conn-stmt>
                          |   <wire> 
                          |   <memory> 
                          |   <cell> 
@@ -169,6 +174,11 @@ See :ref:`sec:rtlil_sigspec` for an overview of signal specifications.
                |  <wire-id>
                |  <sigspec> [ <integer> (:<integer>)? ] 
                |  { <sigspec>* }
+
+When a ``<wire-id>`` is specified, the wire must have been previously declared.
+
+When a signal slice is specified, the left-hand integer must be greather than or
+equal to the right-hand integer.
 
 Connections
 ^^^^^^^^^^^
@@ -268,7 +278,7 @@ may have zero or more attributes.
 .. code:: BNF
 
     <switch>            ::= <switch-stmt> <case>* <switch-end-stmt>
-    <switch-stmt>        := <attr-stmt>* switch <sigspec> <eol>
+    <switch-stmt>       ::= <attr-stmt>* switch <sigspec> <eol>
     <case>              ::= <attr-stmt>* <case-stmt> <case-body>
     <case-stmt>         ::= case <compare>? <eol>
     <compare>           ::= <sigspec> (, <sigspec>)*
@@ -295,3 +305,4 @@ be:
                      |  sync always <eol>
     <sync-type>     ::= low | high | posedge | negedge | edge
     <update-stmt>   ::= update <dest-sigspec> <src-sigspec> <eol>
+                     |  <attr-stmt>* memwr <id> <sigspec> <sigspec> <sigspec> <constant> <eol>

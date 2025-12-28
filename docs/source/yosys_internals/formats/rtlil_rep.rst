@@ -194,17 +194,18 @@ RTLIL::SigSpec
 
 A "signal" is everything that can be applied to a cell port. I.e.
 
--  | Any constant value of arbitrary bit-width
+-  | A bit from a wire (``RTLIL::SigBit``)
+   | 1em For example: ``mywire[24]``
+
+-  | A range of bits from a wire (wire variant of ``RTLIL::SigChunk``)
+   | 1em For example: ``mywire, mywire[15:8]``
+
+-  | Any constant value of arbitrary bit-width (``std::vector<RTLIL::State>>`` variant of ``RTLIL::SigChunk``)
    | 1em For example: ``1337, 16'b0000010100111001, 1'b1, 1'bx``
 
--  | All bits of a wire or a selection of bits from a wire
-   | 1em For example: ``mywire, mywire[24], mywire[15:8]``
-
--  | Concatenations of the above
-   | 1em For example: ``{16'd1337, mywire[15:8]}``
-
-The ``RTLIL::SigSpec`` data type is used to represent signals. The
-``RTLIL::Cell`` object contains one ``RTLIL::SigSpec`` for each cell port.
+The ``RTLIL::SigSpec`` data type is used to represent signals.
+It contains a single ``RTLIL::SigChunk`` or a vector of ``RTLIL::SigBit``.
+The ``RTLIL::Cell`` object contains one ``RTLIL::SigSpec`` for each cell port.
 
 In addition, connections between wires are represented using a pair of
 ``RTLIL::SigSpec`` objects. Such pairs are needed in different locations.

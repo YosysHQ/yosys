@@ -60,16 +60,17 @@ struct MemoryShareWorker
 	bool merge_rst_value(Mem &mem, Const &res, int wide_log2, const Const &src1, int sub1, const Const &src2, int sub2) {
 		res = Const(State::Sx, mem.width << wide_log2);
 		for (int i = 0; i < GetSize(src1); i++)
-			res.bits()[i + sub1 * mem.width] = src1[i];
+			res.set(i + sub1 * mem.width, src1[i]);
 		for (int i = 0; i < GetSize(src2); i++) {
 			if (src2[i] == State::Sx)
 				continue;
-			auto &dst = res.bits()[i + sub2 * mem.width];
+			int idx = i + sub2 * mem.width;
+			RTLIL::State dst = res[idx];
 			if (dst == src2[i])
 				continue;
 			if (dst != State::Sx)
 				return false;
-			dst = src2[i];
+			res.set(idx, src2[i]);
 		}
 		return true;
 	}
@@ -371,9 +372,9 @@ struct MemoryShareWorker
 				ports += std::to_string(idx);
 			}
 			if (!some_port.clk_enable) {
-				log("  Checking unclocked group, width %d: ports %s.\n", mem.width << some_port.wide_log2, ports.c_str());
+				log("  Checking unclocked group, width %d: ports %s.\n", mem.width << some_port.wide_log2, ports);
 			} else {
-				log("  Checking group clocked with %sedge %s, width %d: ports %s.\n", some_port.clk_polarity ? "pos" : "neg", log_signal(some_port.clk), mem.width << some_port.wide_log2, ports.c_str());
+				log("  Checking group clocked with %sedge %s, width %d: ports %s.\n", some_port.clk_polarity ? "pos" : "neg", log_signal(some_port.clk), mem.width << some_port.wide_log2, ports);
 			}
 
 			// Okay, time to actually run the SAT solver.

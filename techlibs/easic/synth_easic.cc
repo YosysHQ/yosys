@@ -129,14 +129,14 @@ struct SynthEasicPass : public ScriptPass
 
 	void script() override
 	{
-		string phys_clk_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_phys_clk_0v893ff125c.lib", etools_path.c_str());
-		string logic_lut_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_logic_lut_0v893ff125c.lib", etools_path.c_str());
+		string phys_clk_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_phys_clk_0v893ff125c.lib", etools_path);
+		string logic_lut_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_logic_lut_0v893ff125c.lib", etools_path);
 
 		if (check_label("begin"))
 		{
-			run(stringf("read_liberty -lib %s", help_mode ? "<etools_phys_clk_lib>" : phys_clk_lib.c_str()));
-			run(stringf("read_liberty -lib %s", help_mode ? "<etools_logic_lut_lib>" : logic_lut_lib.c_str()));
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("read_liberty -lib %s", help_mode ? "<etools_phys_clk_lib>" : phys_clk_lib));
+			run(stringf("read_liberty -lib %s", help_mode ? "<etools_logic_lut_lib>" : logic_lut_lib));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -165,8 +165,8 @@ struct SynthEasicPass : public ScriptPass
 
 		if (check_label("map"))
 		{
-			run(stringf("dfflibmap -liberty %s", help_mode ? "<etools_phys_clk_lib>" : phys_clk_lib.c_str()));
-			run(stringf("abc -liberty %s", help_mode ? "<etools_logic_lut_lib>" : logic_lut_lib.c_str()));
+			run(stringf("dfflibmap -liberty %s", help_mode ? "<etools_phys_clk_lib>" : phys_clk_lib));
+			run(stringf("abc -liberty %s", help_mode ? "<etools_logic_lut_lib>" : logic_lut_lib));
 			run("opt_clean");
 		}
 
@@ -181,7 +181,7 @@ struct SynthEasicPass : public ScriptPass
 		if (check_label("vlog"))
 		{
 			if (!vlog_file.empty() || help_mode)
-				run(stringf("write_verilog -noexpr -attr2comment %s", help_mode ? "<file-name>" : vlog_file.c_str()));
+				run(stringf("write_verilog -noexpr -attr2comment %s", help_mode ? "<file-name>" : vlog_file));
 		}
 	}
 } SynthEasicPass;

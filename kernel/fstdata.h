@@ -50,7 +50,7 @@ class FstData
 	std::vector<FstVar>& getVars() { return vars; };
 
 	void reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen);
-	void reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start_time, uint64_t end_time, CallbackFunction cb);
+	void reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start_time, uint64_t end_time, unsigned int end_cycle, CallbackFunction cb);
 
 	std::string valueOf(fstHandle signal);
 	fstHandle getHandle(std::string name);
@@ -73,6 +73,8 @@ private:
 	std::string timescale_str;
 	uint64_t start_time;
 	uint64_t end_time;
+	unsigned int last_cycle;
+	unsigned int curr_cycle;
 	CallbackFunction callback;
 	std::vector<fstHandle> clk_signals;
 	bool all_samples;

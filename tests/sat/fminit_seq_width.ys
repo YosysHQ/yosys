@@ -1,0 +1,17 @@
+read_verilog -sv -formal <<EOF
+module counter(input clk, input [2:0] rst, input [0:3] rst_val, output logic is_full);
+    logic [1:0] ctr;
+
+    always @(posedge clk)
+        if (rst)
+            ctr <= 0;
+        else
+            ctr <= ctr+1;
+
+    assign is_full = (ctr == 2'b11);
+endmodule
+EOF
+
+hierarchy -check -top counter
+prep -top counter
+fminit -seq rst 0,1,2'b11,2'sb11,rst_val

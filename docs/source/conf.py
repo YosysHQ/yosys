@@ -6,7 +6,7 @@ import os
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
 copyright ='2025 YosysHQ GmbH'
-yosys_ver = "0.51"
+yosys_ver = "0.60"
 
 # select HTML theme
 html_theme = 'furo-ys'
@@ -16,15 +16,17 @@ html_theme_options: dict[str] = {
     "source_branch": "main",
     "source_directory": "docs/source/",
 }
+html_context: dict[str] = {}
 
 # try to fix the readthedocs detection
-html_context: dict[str] = {
-    "READTHEDOCS": True,
-    "display_github": True,
-    "github_user": "YosysHQ",
-    "github_repo": "yosys",
-    "slug": "yosys",
-}
+if os.getenv("READTHEDOCS"):
+    html_context.update({
+        "READTHEDOCS": True,
+        "display_github": True,
+        "github_user": "YosysHQ",
+        "github_repo": "yosys",
+        "slug": "yosys",
+    })
 
 # override source_branch if not main
 git_slug = os.getenv("READTHEDOCS_VERSION_NAME")
@@ -41,10 +43,14 @@ html_static_path = ['_static', "_images"]
 # default to no highlight
 highlight_language = 'none'
 
-# default single quotes to attempt auto reference, or fallback to code
+# default single quotes to attempt auto reference, or fallback to yoscrypt
 default_role = 'autoref'
+rst_prolog = """
+.. role:: yoscrypt(code)
+   :language: yoscrypt
+"""
 
-extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
+extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex', 'sphinx_inline_tabs']
 
 if os.getenv("READTHEDOCS"):
     # Use rtds_action if we are building on read the docs and have a github token env var
@@ -62,7 +68,6 @@ if os.getenv("READTHEDOCS"):
 
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
-autosectionlabel_maxdepth = 1
 
 # include todos for previews
 extensions.append('sphinx.ext.todo')
@@ -93,6 +98,9 @@ bibtex_bibfiles = ['literature.bib']
 latex_elements = {
         'releasename': 'Version',
         'preamble': r'''
+\pdfinfoomitdate 1
+\pdfsuppressptexinfo 1
+\pdftrailerid{}
 \usepackage{lmodern}
 \usepackage{comment}
 
@@ -101,12 +109,14 @@ latex_elements = {
 
 # custom cmd-ref parsing/linking
 sys.path += [os.path.dirname(__file__) + "/../"]
-extensions.append('util.cmdref')
+extensions.append('util.custom_directives')
 
 # use autodocs
 extensions.append('sphinx.ext.autodoc')
-extensions.append('util.cellref')
+extensions.append('util.cell_documenter')
 cells_json = Path(__file__).parent / 'generated' / 'cells.json'
+extensions.append('util.cmd_documenter')
+cmds_json = Path(__file__).parent / 'generated' / 'cmds.json'
 
 from sphinx.application import Sphinx
 def setup(app: Sphinx) -> None:

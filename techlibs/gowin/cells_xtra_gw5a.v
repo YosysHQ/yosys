@@ -1,53 +1,6 @@
 // Created by cells_xtra.py
 
 
-module MUX2_MUX8 (...);
-input I0,I1;
-input S0;
-output O;
-endmodule
-
-
-module MUX2_MUX16 (...);
-input I0,I1;
-input S0;
-output O;
-endmodule
-
-
-module MUX2_MUX32 (...);
-input I0,I1;
-input S0;
-output O;
-endmodule
-
-
-module MUX4 (...);
-input I0, I1, I2, I3;
-input S0, S1;
-output O;
-endmodule
-
-
-module MUX8 (...);
-input I0, I1, I2, I3, I4, I5, I6, I7;
-input S0, S1, S2;
-output O;
-endmodule
-
-
-module MUX16 (...);
-input I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15;
-input S0, S1, S2, S3;
-output O;
-endmodule
-
-module MUX32 (...);
-input I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20, I21, I22, I23, I24, I25, I26, I27, I28, I29, I30, I31;
-input S0, S1, S2, S3, S4;
-output O;
-endmodule
-
 module LUT5 (...);
 parameter INIT = 32'h00000000;
 input I0, I1, I2, I3, I4;
@@ -73,20 +26,6 @@ module LUT8 (...);
 parameter INIT = 256'h0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
 input I0, I1, I2, I3, I4, I5, I6, I7;
 output F;
-endmodule
-
-
-module DLCE (...);
-input D, G, CLEAR, GE;
-output Q;
-parameter INIT = 1'b0;
-endmodule
-
-
-module DLPE (...);
-input D, G, PRESET, GE;
-output Q;
-parameter INIT = 1'b1;
 endmodule
 
 
@@ -1139,6 +1078,12 @@ output  Q0,  Q1;
 endmodule
 
 
+module OSER14 (...);
+input D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13;
+input PCLK, FCLK, RESET;
+output  Q;
+endmodule
+
 module IODELAY (...);
 parameter C_STATIC_DLY = 0; 
 parameter DYN_DLY_EN = "FALSE";
@@ -1196,6 +1141,13 @@ module DCE (...);
 input CLKIN;
 input CE;
 output CLKOUT;
+endmodule
+
+module DCS (...);
+input CLKIN0, CLKIN1, CLKIN2, CLKIN3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+parameter DCS_MODE = "RISING";  
 endmodule
 
 module DDRDLL (...);
@@ -1768,157 +1720,12 @@ input SPIAD;
 input LOAD;
 endmodule
 
-module ADCLRC (...);
-endmodule
-
-module ADCULC (...);
-endmodule
-
-module ADC (...);
-endmodule
-
-module MIPI_DPHY_RX (...);
-output D0LN_DESKEW_DONE,D1LN_DESKEW_DONE,D2LN_DESKEW_DONE,D3LN_DESKEW_DONE;
-output [15:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD, D3LN_HSRXD;
-output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
-output DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N, DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P;
-output DI_LPRXCK_N, DI_LPRXCK_P;
-output RX_CLK_O;          
-output DESKEW_ERROR;      
-inout  CK_N, CK_P, RX0_N, RX0_P, RX1_N, RX1_P, RX2_N, RX2_P, RX3_N, RX3_P;
-input BYTE_LENDIAN;       
-input [2:0] FIFO_RD_STD;  
-input HSRX_STOP;          
-input PWRON;              
-input RESET;              
-input D0LN_HSRX_DREN,  D1LN_HSRX_DREN, D2LN_HSRX_DREN, D3LN_HSRX_DREN;
-input DESKEW_BY,DESKEW_EN_OEDGE;
-input [5:0] DESKEW_HALF_OPENING;
-input [2:0] DESKEW_LNSEL; 
-input [1:0] DESKEW_LSB_MODE;
-input [2:0] DESKEW_M;
-input [12:0] DESKEW_MTH;   
-input [6:0] DESKEW_MSET;
-input DESKEW_OCLKEDG_EN;
-input [6:0] DESKEW_OWVAL;
-input DESKEW_REQ;         
-input DO_LPTX0_N, DO_LPTX0_P, DO_LPTX1_N, DO_LPTX1_P, DO_LPTX2_N, DO_LPTX2_P, DO_LPTX3_N, DO_LPTX3_P;
-input DO_LPTXCK_N, DO_LPTXCK_P;
-input DRST_N;             
-input [2:0] EQCS_LANE0,EQCS_LANE1,EQCS_LANE2,EQCS_LANE3,EQCS_CK;
-input [2:0] EQRS_LANE0,EQRS_LANE1,EQRS_LANE2,EQRS_LANE3,EQRS_CK;
-input HS_8BIT_MODE;       
-input HSRX_DLYDIR_LANE0, HSRX_DLYDIR_LANE1,HSRX_DLYDIR_LANE2,HSRX_DLYDIR_LANE3,HSRX_DLYDIR_CK;
-input HSRX_DLYLDN_LANE0, HSRX_DLYLDN_LANE1,HSRX_DLYLDN_LANE2,HSRX_DLYLDN_LANE3,HSRX_DLYLDN_CK;
-input HSRX_DLYMV_LANE0, HSRX_DLYMV_LANE1,HSRX_DLYMV_LANE2,HSRX_DLYMV_LANE3,HSRX_DLYMV_CK;
-input HSRX_EN_CK;         
-input HSRX_ODTEN_CK, HSRX_ODTEN_D0,  HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3;
-input LALIGN_EN;          
-input LPRX_EN_CK, LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3;
-input LPTX_EN_CK, LPTX_EN_D0, LPTX_EN_D1, LPTX_EN_D2, LPTX_EN_D3;
-input ONE_BYTE0_MATCH;    
-input RX_CLK_1X;          
-input RX_INVERT;          
-input WALIGN_BY;          
-input WALIGN_DVLD;
-input WORD_LENDIAN;       
-parameter ALIGN_BYTE = 8'b10111000;
-parameter EN_CLKB1X = 1'b1;
-parameter EQ_ADPSEL_LANE0 = 1'b0;
-parameter EQ_ADPSEL_LANE1 = 1'b0;
-parameter EQ_ADPSEL_LANE2 = 1'b0;
-parameter EQ_ADPSEL_LANE3 = 1'b0;
-parameter EQ_ADPSEL_CK = 1'b0;
-parameter EQ_CS_LANE0 = 3'b100;
-parameter EQ_CS_LANE1 = 3'b100;
-parameter EQ_CS_LANE2 = 3'b100;
-parameter EQ_CS_LANE3 = 3'b100;
-parameter EQ_CS_CK = 3'b100;
-parameter EQ_PBIAS_LANE0 = 4'b0100;
-parameter EQ_PBIAS_LANE1 = 4'b0100;
-parameter EQ_PBIAS_LANE2 = 4'b0100;
-parameter EQ_PBIAS_LANE3 = 4'b0100;
-parameter EQ_PBIAS_CK = 4'b0100;
-parameter EQ_RS_LANE0 = 3'b100;
-parameter EQ_RS_LANE1 = 3'b100;
-parameter EQ_RS_LANE2 = 3'b100;
-parameter EQ_RS_LANE3 = 3'b100;
-parameter EQ_RS_CK = 3'b100;
-parameter EQ_ZLD_LANE0 = 4'b1000;
-parameter EQ_ZLD_LANE1 = 4'b1000;
-parameter EQ_ZLD_LANE2 = 4'b1000;
-parameter EQ_ZLD_LANE3 = 4'b1000;
-parameter EQ_ZLD_CK = 4'b1000;
-parameter HIGH_BW_LANE0 = 1'b1;
-parameter HIGH_BW_LANE1 = 1'b1;
-parameter HIGH_BW_LANE2 = 1'b1;
-parameter HIGH_BW_LANE3 = 1'b1;
-parameter HIGH_BW_CK = 1'b1;
-parameter HSRX_DLYCTL_CK = 7'b0000000;
-parameter HSRX_DLYCTL_LANE0 = 7'b0000000;
-parameter HSRX_DLYCTL_LANE1 = 7'b0000000;
-parameter HSRX_DLYCTL_LANE2 = 7'b0000000;
-parameter HSRX_DLYCTL_LANE3 = 7'b0000000;
-parameter HSRX_DLY_SEL = 1'b0;
-parameter HSRX_DUTY_LANE0 = 4'b1000;
-parameter HSRX_DUTY_LANE1 = 4'b1000;
-parameter HSRX_DUTY_LANE2 = 4'b1000;
-parameter HSRX_DUTY_LANE3 = 4'b1000;
-parameter HSRX_DUTY_CK = 4'b1000;
-parameter HSRX_EN = 1'b1;
-parameter HSRX_EQ_EN_LANE0 = 1'b1;
-parameter HSRX_EQ_EN_LANE1 = 1'b1;
-parameter HSRX_EQ_EN_LANE2 = 1'b1;
-parameter HSRX_EQ_EN_LANE3 = 1'b1;
-parameter HSRX_EQ_EN_CK = 1'b1;
-parameter HSRX_IBIAS = 4'b0011;
-parameter HSRX_IMARG_EN = 1'b1;
-parameter MIPI_LANE0_EN = 1'b0;
-parameter MIPI_LANE1_EN = 1'b0;
-parameter MIPI_LANE2_EN = 1'b0;
-parameter MIPI_LANE3_EN = 1'b0;
-parameter MIPI_CK_EN = 1'b1;
-parameter HSRX_ODT_EN = 1'b1;
-parameter HSRX_ODT_TST = 4'b0000;
-parameter HSRX_ODT_TST_CK = 1'b0;
-parameter HSRX_STOP_EN = 1'b0;
-parameter HSRX_TST = 4'b0000;
-parameter HSRX_TST_CK = 1'b0;
-parameter HSRX_WAIT4EDGE = 1'b0;
-parameter HYST_NCTL = 2'b01;
-parameter HYST_PCTL = 2'b01;
-parameter LOW_LPRX_VTH = 1'b0;
-parameter LPRX_EN = 1'b1;
-parameter LPRX_TST = 4'b0000;
-parameter LPRX_TST_CK = 1'b0;
-parameter LPTX_EN = 1'b1;
-parameter LPTX_SW_LANE0 = 3'b100;
-parameter LPTX_SW_LANE1 = 3'b100;
-parameter LPTX_SW_LANE2 = 3'b100;
-parameter LPTX_SW_LANE3 = 3'b100;
-parameter LPTX_SW_CK = 3'b100;
-parameter LPTX_TST = 4'b0000;
-parameter LPTX_TST_CK = 1'b0;
-parameter MIPI_DIS_N = 1'b1;
-parameter PGA_BIAS_LANE0 =  4'b1000;
-parameter PGA_BIAS_LANE1 =  4'b1000;
-parameter PGA_BIAS_LANE2 =  4'b1000;
-parameter PGA_BIAS_LANE3 =  4'b1000;
-parameter PGA_BIAS_CK =  4'b1000;
-parameter PGA_GAIN_LANE0 =  4'b1000;
-parameter PGA_GAIN_LANE1 =  4'b1000;
-parameter PGA_GAIN_LANE2 =  4'b1000;
-parameter PGA_GAIN_LANE3 =  4'b1000;
-parameter PGA_GAIN_CK =  4'b1000;
-parameter RX_CLK1X_SYNC_SEL = 1'b0;
-parameter RX_ODT_TRIM_LANE0 = 4'b0111;
-parameter RX_ODT_TRIM_LANE1 = 4'b0111;
-parameter RX_ODT_TRIM_LANE2 = 4'b0111;
-parameter RX_ODT_TRIM_LANE3 = 4'b0111;
-parameter RX_ODT_TRIM_CK = 4'b0111;
-parameter STP_UNIT = 2'b00;
-parameter SYNC_CLK_SEL = 1'b1;
-parameter WALIGN_DVLD_SRC_SEL = 1'b0;
+module LICD (...);
+    parameter   STAGE_NUM = 2'b00;        
+    parameter   ENCDEC_NUM = 2'b00;       
+    parameter   CODE_WIDTH = 2'b00;       
+    parameter   INTERLEAVE_EN = 3'b000;   
+    parameter   INTERLEAVE_MODE = 3'b000;  
 endmodule
 
 module MIPI_DPHY (...);
@@ -1928,14 +1735,17 @@ output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
 input  D0LN_HSRX_DREN, D1LN_HSRX_DREN,  D2LN_HSRX_DREN,  D3LN_HSRX_DREN;
 output  DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N,  DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P, DI_LPRXCK_N, DI_LPRXCK_P;
 inout  CK_N, CK_P, D0_N, D0_P, D1_N, D1_P, D2_N, D2_P, D3_N, D3_P;
-input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK;
+input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK,
+     LPTXEN_LN0, LPTXEN_LN1, LPTXEN_LN2, LPTXEN_LN3, LPTXEN_LNCK;
 input PWRON_RX, PWRON_TX, RESET, RX_CLK_1X, TX_CLK_1X;
 input TXDPEN_LN0, TXDPEN_LN1, TXDPEN_LN2, TXDPEN_LN3, TXDPEN_LNCK, TXHCLK_EN;
 input [15:0]  CKLN_HSTXD,D0LN_HSTXD,D1LN_HSTXD,D2LN_HSTXD,D3LN_HSTXD;
 input HSTXD_VLD;
 input CK0, CK90, CK180, CK270;
 input DO_LPTX0_N, DO_LPTX1_N, DO_LPTX2_N, DO_LPTX3_N, DO_LPTXCK_N, DO_LPTX0_P, DO_LPTX1_P, DO_LPTX2_P, DO_LPTX3_P, DO_LPTXCK_P;
-input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK;
+input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK, 
+     HSRX_ODTEN_D0, HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3, LPRX_EN_CK,
+     LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3; 
 input RX_DRST_N, TX_DRST_N, WALIGN_DVLD;
 output [7:0] MRDATA;
 input MA_INC, MCLK;
@@ -2221,14 +2031,17 @@ output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
 input  D0LN_HSRX_DREN, D1LN_HSRX_DREN,  D2LN_HSRX_DREN,  D3LN_HSRX_DREN;
 output  DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N,  DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P, DI_LPRXCK_N, DI_LPRXCK_P;
 inout  CK_N, CK_P, D0_N, D0_P, D1_N, D1_P, D2_N, D2_P, D3_N, D3_P;
-input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK;
+input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK,
+     LPTXEN_LN0, LPTXEN_LN1, LPTXEN_LN2, LPTXEN_LN3, LPTXEN_LNCK;
 input PWRON_RX, PWRON_TX, RESET, RX_CLK_1X, TX_CLK_1X;
 input TXDPEN_LN0, TXDPEN_LN1, TXDPEN_LN2, TXDPEN_LN3, TXDPEN_LNCK, TXHCLK_EN;
 input [15:0]  CKLN_HSTXD,D0LN_HSTXD,D1LN_HSTXD,D2LN_HSTXD,D3LN_HSTXD;
 input HSTXD_VLD;
 input CK0, CK90, CK180, CK270;
 input DO_LPTX0_N, DO_LPTX1_N, DO_LPTX2_N, DO_LPTX3_N, DO_LPTXCK_N, DO_LPTX0_P, DO_LPTX1_P, DO_LPTX2_P, DO_LPTX3_P, DO_LPTXCK_P;
-input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK;
+input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK, 
+     HSRX_ODTEN_D0, HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3, LPRX_EN_CK,
+     LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3; 
 input RX_DRST_N, TX_DRST_N, WALIGN_DVLD;
 output [7:0] MRDATA;
 input MA_INC, MCLK;
@@ -2643,6 +2456,7 @@ parameter EQ_ZLD_LN2 = 4'b1000;
 endmodule
 
 module GTR12_QUAD (...);
+    parameter POSITION = "Q0";
 endmodule
 
 module GTR12_UPAR (...);
@@ -2678,3 +2492,266 @@ parameter RD_PNTR = 3'b000;
 parameter DQS_MODE = "X1"; 
 parameter HWL = "false";   
 endmodule
+
+// Added form adc.v
+
+/********ADC***********/
+//ADC for LRC,GW5AT-138K
+module ADCLRC (
+//Voltage signal source, /mV
+  input  ADCINBK2A,       //input from bank2 IO, adc_in_b is the reference
+  input  ADCINBK2B,       //input from bank2 IO, adc_in_b is the reference
+  input  ADCINBK3A,       //input from bank3 IO, adc_in_b is the reference
+  input  ADCINBK3B,       //input from bank3 IO, adc_in_b is the reference
+  input  ADCINBK4A,       //input from bank4 IO, adc_in_b is the reference
+  input  ADCINBK4B,       //input from bank4 IO, adc_in_b is the reference
+  input  ADCINBK5A,       //input from bank5 IO, adc_in_b is the reference
+  input  ADCINBK5B,       //input from bank5 IO, adc_in_b is the reference
+
+//control signal
+  input  [2:0] VSENCTL,    //Input source selection (ciu), from 0 to 7: adcv, adct, vdd09_0, vdd09_1, vdd18_0, vdd18_1, vdd33_0, vdd33_1
+
+  input [9:0] FSCAL_VALUE,   // temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  input [11:0] OFFSET_VALUE, //signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+  input  ADCEN,         //Enable signal, active high
+  input  CLK,           //clk input，1/2 shared
+  input  DRSTN,         //0/1 shared, Digital part reset signal, active low
+  input  ADCREQI,       //Measurement request signal, valid rising edge, asynchronous signal
+
+  //output
+  output ADCRDY,          //The measurement completion signal, active high
+  output [13:0] ADCVALUE //The measurement result output, signed number. In voltage mode,/2048 is the actual measured value; In temperature mode,/4 is the actual measured value
+
+);
+
+  parameter DYN_BKEN = "FALSE";//"FALSE","TRUE"."TRUE",BUF_BK2_EN[0]&BUF_BK3_EN[0]=1
+//Input source selection，1/2 shared
+  parameter BUF_SERDES_Q1_EN = 3'b000;    //[1:0] does not support "11"
+  parameter BUF_BK2_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK3_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK4_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK5_EN       = 6'b000000; //[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK10_EN      = 5'b00000;  //[3:1] Only one bit can be 1 at the same time
+  parameter BUF_BK11_EN      = 5'b00000;  //[3:1] Only one bit can be 1 at the same time
+//Analog terminal option
+  parameter CLK_SEL          = 1'b0;      //Clock source selection. 0,PIOCLK_SEL，1,ciu_clk
+  parameter PIOCLK_SEL       = 1'b0;      //Clock source selection. 1/2 shared，0,mck_adc_clk_osc，1,io_clk
+  parameter VSEN_CTL         = 3'b000;    //Input source selection
+  parameter VSEN_CTL_SEL     = 1'b0;      //vsen_ctl source selection，0,VSEN_CTL，1,ciu_vsen_ctl
+  parameter ADC_MODE      = 1'b0;      //Mode selection
+  parameter DIV_CTL       = 2'd0;      //clock division，0:/1，1:/2，2:/4，3:/8，Clock after frequency division, 500kHz~8MHz
+
+  //Digital terminal options
+  parameter SAMPLE_CNT_SEL   = 3'd4;      //total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter RATE_CHANGE_CTRL = 3'd4;      //Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+
+
+endmodule
+
+//ADCULC,GW5AT-138K
+module ADCULC (
+
+  //Voltage signal source, /mV
+  input  ADCINBK6A,       //input from bank6 IO, adc_in_b is the reference
+  input  ADCINBK6B,       //input from bank6 IO, adc_in_b is the reference
+  input  ADCINBK7A,       //input from bank7 IO, adc_in_b is the reference
+  input  ADCINBK7B,       //input from bank7 IO, adc_in_b is the reference
+
+  //control signal
+  input  [2:0] VSENCTL,    //Input source selection(cib)，0~7: vtest, vdd09_0, vdd09_1, vdd09_2, vdd18_0, vdd18_1, reserved, vdd33
+
+  input [9:0] FSCAL_VALUE,   // temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  input [11:0] OFFSET_VALUE, //signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+  input  ADCEN,         //Enable signal, active high
+  input  CLK,           //clk input
+  input  DRSTN,         //0/1 shared, Digital part reset signal, active low
+  input   ADCREQI,      //Measurement request signal, valid rising edge, asynchronous signal
+  output  ADCRDY,       //The measurement completion signal, active high
+  output  [13:0] ADCVALUE //The measurement result output, signed number. In voltage mode,/2048 is the actual measured value; In temperature mode,/4 is the actual measured value
+
+);
+  parameter DYN_BKEN = "FALSE";//"FALSE","TRUE"."TRUE",BUF_BK6_EN[0]&BUF_BK7_EN[0]=1
+
+//Input source selection
+  parameter BUF_VCC_EN       = 1'b0;      //ulc
+  parameter BUF_VCCM_EN      = 1'b0;      //ulc
+  parameter BUF_MIPI_M0_EN   = 3'b000;    //ulc,[1:0] Only one bit can be 1 at the same time
+  parameter BUF_MIPI_M1_EN   = 3'b000;    //ulc,[1:0] Only one bit can be 1 at the same time
+  parameter BUF_SERDES_Q0_EN = 3'b000;    //ulc,[1:0] Only one bit can be 1 at the same time
+  parameter BUF_BK6_EN       = 6'b000000; //bk6,[3:0] Only one bit can be 1 at the same time
+  parameter BUF_BK7_EN       = 6'b000000; //bk7,[3:0] Only one bit can be 1 at the same time
+//Analog terminal option
+  parameter CLK_SEL          = 1'b0;      //Clock source selection. 0,PIOCLK_SEL，1,ciu_clk
+  parameter PIOCLK_SEL       = 1'b0;      //Clock source selection. 1/2 shared，0,mck_adc_clk_osc，1,io_clk
+  parameter VSEN_CTL         = 3'b000;    //Input source selection
+  parameter VSEN_CTL_SEL     = 1'b0;      //vsen_ctl source selection，0,VSEN_CTL，1,ciu_vsen_ctl
+  parameter ADC_MODE      = 1'b0;      //Mode selection
+  parameter DIV_CTL          = 2'd0;      //clock division，0:/1，1:/2，2:/4，3:/8，Clock after frequency division, 500kHz~8MHz
+
+//Digital terminal options
+  parameter SAMPLE_CNT_SEL   = 3'd4;      //total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter RATE_CHANGE_CTRL = 3'd4;      //Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+
+endmodule
+
+
+//ADC,GW5A-25
+module ADC (
+
+  //control signal
+  input  CLK,               //clk input
+  input  [2:0] VSENCTL,     //Input source selection (ciu), from 0 to 7: glo_left,glo_right,loc_left,vtest,vcc_rt,vccc_rt,vccm_rt,vccx_buf
+  input  ADCMODE,           //Mode selection,0:temperature mode，1:voltage mode
+  input  DRSTN,             //Digital part reset signal, active low
+  input  ADCREQI,           //Measurement request signal, valid rising edge, asynchronous signal
+  output ADCRDY,          //The measurement completion signal, active high
+  output [13:0] ADCVALUE, //The measurement result output, signed number. In voltage mode,/2048 is the actual measured value; In temperature mode,/4 is the actual measured value
+  //mdrp
+  input  MDRP_CLK,              //mdrp clock
+  input  [7:0] MDRP_WDATA,      //mdrp write data
+  input  MDRP_A_INC,            //mdrp self-increased address
+  input  [1:0] MDRP_OPCODE,     //mdrp opcode
+  output [7:0] MDRP_RDATA,       //mdrp read data
+  input  ADCEN              //Enable signal, active high
+
+);
+
+  //Analog terminal option
+  parameter CLK_SEL         = 1'b0;      //时钟源选择，0:osc(2.5MHz)，1:CLK
+  parameter DIV_CTL         = 2'd0;      //clock division，0:/1，1:/2，2:/4，3:/8，Clock after frequency division, 500kHz~8MHz
+
+  //Input source selection
+  parameter BUF_EN          = 12'b000000000000; //
+  parameter BUF_BK0_VREF_EN = 1'b0;  //
+  parameter BUF_BK1_VREF_EN = 1'b0;  //
+  parameter BUF_BK2_VREF_EN = 1'b0;  //
+  parameter BUF_BK3_VREF_EN = 1'b0;  //
+  parameter BUF_BK4_VREF_EN = 1'b0;  //
+  parameter BUF_BK5_VREF_EN = 1'b0;  //
+  parameter BUF_BK6_VREF_EN = 1'b0;  //
+  parameter BUF_BK7_VREF_EN = 1'b0;  //
+
+  //Digital terminal options
+  parameter CSR_ADC_MODE      = 1'b1;       // Mode selection
+  parameter CSR_VSEN_CTRL        = 3'd0;       // signal source:vccx/vccio_*/vcc_reg -> 7, signal source:vcc_ext -> 4, others -> 0
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       // total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       // Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+  parameter CSR_FSCAL            = 10'd730;    // Parameter 1: temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+
+endmodule
+
+
+//ADC_SAR,integrated saradc and adc functions.
+module ADC_SAR (
+//`ifdef ADC
+  input  ADCMODE,          //Mode selection
+  input  [2:0] VSENCTL,    //Input source selection
+  input  CLK,              //clk input
+  //Digital
+  output ADCENO,           //Enable signal, active high
+  input  DRSTN,            //Digital part reset signal, active low
+  input  ADCREQI,          //Measurement request signal
+  output ADCRDY,           //The measurement completion signal, active high
+  output [13:0] ADCVALUE,  //The measurement result output
+  input  MDRP_CLK,         //mdrp clock
+  input  [7:0] MDRP_WDATA, //mdrp write data
+  input  MDRP_A_INC,       //mdrp self-increased address
+  input  [1:0] MDRP_OPCODE,//mdrp opcode
+  output [7:0] MDRP_RDATA, //mdrp read data
+  //Analog
+  output ADC1BIT,          //Analog data output
+  output ADCCLKO,          //Analog clock output
+  input  ADCENI,           //fabric adc enable input
+//`endif
+// SAR
+//`ifdef SARADC
+  output [12:0] ADCBIT,    //Measurement result output
+  output CLKO,             //output clk
+  output EOC,              //The measurement completion signal
+  input  CLKI,             //fabric input clk
+  input  [6:0] CHEN,       //channel select
+  input  RSTN,             //resetn,active low
+  input  SOC              //Measurement request signal
+//`endif
+);
+
+  parameter BUF_EN = 29'b0;    // signal source selecor switch
+// Δ-Σ
+//`ifdef ADC
+  parameter CLK_SEL        = 1'b1;     // clk source select
+  parameter DIV_CTL        = 2'd0;     // clock division.0:/1,1:/2,2:/4,3:/8
+  parameter ADC_EN_SEL     = 1'b0;     // adc_en source select
+  parameter PHASE_SEL      = 1'b0;     // adc internal data phase select
+
+  //Digital terminal options
+  parameter CSR_ADC_MODE         = 1'b1;          // Mode selection
+  parameter CSR_VSEN_CTRL        = 3'd0;       // signal source:vccx/vccio_*/vcc_reg -> 7, signal source:vcc_ext -> 4, others -> 0
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       // total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       // Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+  parameter CSR_FSCAL            = 10'd730;    // Parameter 1: temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+//`endif
+// SAR
+//`ifdef SARADC
+  parameter ADC_CLK_DIV        = 2'b00;     // clock division.00:/1,01:/2,10:/4,11:/8
+  parameter ADC_CLKDIV_EN      = 1'b0;     // clock division enable
+  parameter CLK_SRC_SEL        = 1'b1;     // source clock sel
+  parameter VREF_BUF_EN        = 1'b1;     // BGR vref buffer enable
+  parameter COUNT_LEN          = 5'b10100; // ADC counter length
+  parameter DAC_SAMPLE_END     = 5'b10010; // DAC sample end point
+  parameter DAC_SAMPLE_START   = 5'b01101; // DAC sample start point
+  parameter SH_SAMPLE_END      = 5'b01011; // SH sample start point
+  parameter SH_SAMPLE_START    = 5'b00001; // SH sample end point
+  parameter AUTO_CHOP_EN       = 1'b0;     // auto chop
+  parameter CHOP_CLK_DIV       = 4'b0;     // chop clock divider
+
+//`endif
+
+endmodule
+
+
+//ADCA,15k
+module ADCA (
+// analog
+  input  ADCMODE,          //Mode selection
+  input  [2:0] VSENCTL,    //Input source selection 0-7: vglo_left, vglo_right, vcc2, vccc3, vccb4, vcc5, vccm6, vccc7
+  input  CLK,              //clk input
+  input  ADCENI,           //fabric adc enable input
+  input  PWRON_DYN,        //power enable. 1:on 0:off
+  // digital
+  input  DRSTN,            //Digital part reset signal, active low
+  input  ADCREQI,          //Measurement request signal
+  output ADCRDY,           //The measurement completion signal, active high
+  output [13:0] ADCVALUE,  //The measurement result output
+  input  MDRP_CLK,         //mdrp clock
+  input  [7:0] MDRP_WDATA, //mdrp write data
+  input  MDRP_A_INC,       //mdrp self-increased address
+  input  [1:0] MDRP_OPCODE,//mdrp opcode
+  output [7:0] MDRP_RDATA  //mdrp read data
+);
+
+  parameter BUF_EN = 20'b0;    // signal source selecor switch //[8:0] one-hot; [19:15] one-hot. BUF_EN[6] must be 0
+  parameter CLK_SEL        = 1'b1;     // clk source select
+  parameter DIV_CTL        = 2'd0;     // clock division
+  parameter ADC_EN_SEL     = 1'b0;     // adc_en source select
+  parameter PHASE_SEL      = 1'b0;     // adc internal data phase select
+
+  parameter PWRON_SEL      = 1'b0;     // power enbale source select. 0:PWRON 1:PWRON_DYN
+  parameter PWRON          = 1'b1;     // as PWRON_DYN
+  parameter LDO_MODE       = 1'b0;     // LDO mode 0:on(2.5/3.3V) 1:off(1.8V)
+
+  //Digital terminal options
+  parameter CSR_ADC_MODE         = 1'b1;       // Mode selection
+  parameter CSR_VSEN_CTRL        = 3'd0;       // signal source:vccx/vccio_*/vcc_reg -> 7, signal source:vcc_ext -> 4, others -> 0
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       // total samples configuration, 0~4:64, 128, 256, 512, 1024 sampling points, and the other values are 2048 sampling points.The total number of samples shall be greater than 7 * sampling period, i.e.  SAMPLR_CNT_SEL >= RATE_CHANGE_CTRL-1
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       // Sampling period configuration, 0~4:4、8、16、32、64，other values are 128
+  parameter CSR_FSCAL            = 10'd730;    // Parameter 1: temperature mode 510~948, typical value 730; Voltage mode 452~840, typical value 653
+  parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
+
+endmodule
+

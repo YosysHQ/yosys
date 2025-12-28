@@ -284,7 +284,7 @@ end_of_header:
 			if ((c == 'i' && l1 > inputs.size()) || (c == 'l' && l1 > latches.size()) || (c == 'o' && l1 > outputs.size()))
 				log_error("Line %u has invalid symbol position!\n", line_count);
 
-			RTLIL::IdString escaped_s = stringf("\\%s", s.c_str());
+			RTLIL::IdString escaped_s = stringf("\\%s", s);
 			RTLIL::Wire* wire;
 			if (c == 'i') wire = inputs[l1];
 			else if (c == 'l') wire = latches[l1];
@@ -448,7 +448,7 @@ void AigerReader::parse_xaiger()
 					bool success = ce.eval(o);
 					log_assert(success);
 					log_assert(o.wire == nullptr);
-					lut_mask.bits()[gray] = o.data;
+					lut_mask.set(gray, o.data);
 				}
 				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
@@ -476,7 +476,7 @@ void AigerReader::parse_xaiger()
 		else if (c == 'n') {
 			parse_xaiger_literal(f);
 			f >> s;
-			log_debug("n: '%s'\n", s.c_str());
+			log_debug("n: '%s'\n", s);
 		}
 		else if (c == 'h') {
 			f.ignore(sizeof(uint32_t));
@@ -830,7 +830,7 @@ void AigerReader::post_process()
 					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else {
-					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
+					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
 					existing = module->wire(indexed_name);
 					if (!existing)
 						module->rename(wire, indexed_name);
@@ -877,7 +877,7 @@ void AigerReader::post_process()
 					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else {
-					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
+					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
 					existing = module->wire(indexed_name);
 					if (!existing)
 						module->rename(wire, indexed_name);
@@ -909,7 +909,7 @@ void AigerReader::post_process()
 					module->rename(cell, escaped_s);
 			}
 			else
-				log_error("Symbol type '%s' not recognised.\n", type.c_str());
+				log_error("Symbol type '%s' not recognised.\n", type);
 		}
 	}
 
@@ -922,7 +922,7 @@ void AigerReader::post_process()
 
 		RTLIL::Wire *wire = module->wire(name);
 		if (wire)
-			module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name.c_str(), 0)));
+			module->rename(wire, RTLIL::escape_id(stringf("%s[%d]", name, 0)));
 
 		// Do not make ports with a mix of input/output into
 		// wide ports
@@ -942,7 +942,7 @@ void AigerReader::post_process()
 		wire->port_output = port_output;
 
 		for (int i = min; i <= max; i++) {
-			RTLIL::IdString other_name = stringf("%s[%d]", name.c_str(), i);
+			RTLIL::IdString other_name = stringf("%s[%d]", name, i);
 			RTLIL::Wire *other_wire = module->wire(other_name);
 			if (other_wire) {
 				other_wire->port_input = false;
@@ -971,9 +971,9 @@ void AigerReader::post_process()
 		if (cell->type != ID($lut)) continue;
 		auto y_port = cell->getPort(ID::Y).as_bit();
 		if (y_port.wire->width == 1)
-			module->rename(cell, stringf("$lut%s", y_port.wire->name.c_str()));
+			module->rename(cell, stringf("$lut%s", y_port.wire->name));
 		else
-			module->rename(cell, stringf("$lut%s[%d]", y_port.wire->name.c_str(), y_port.offset));
+			module->rename(cell, stringf("$lut%s[%d]", y_port.wire->name, y_port.offset));
 	}
 }
 

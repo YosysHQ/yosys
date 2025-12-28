@@ -1,9 +1,8 @@
-/*.log
-/*.out
+/*.sel
 /write_gzip.v
 /write_gzip.v.gz
-/run-test.mk
 /plugin.so
+/plugin_search
 /plugin.so.dSYM
 /temp
 /smtlib2_module.smt2
