@@ -19,188 +19,105 @@
 // SILIMATE: Custom frontend using liberty2json
 #include "kernel/register.h"
 #include "kernel/log.h"
-#include "libs/json11/json11.hpp"
+
+#include "libs/nlohmann_json/json.hpp"
+#include <stdexcept>
 
 using namespace std::literals::string_literals;
 
 YOSYS_NAMESPACE_BEGIN
 
-using Json = json11:: Json;
+using nlohmann::json;
 
-// Helpers
-/// @brief Gets an attribute as a reference to a Json::object, or if the key is
-///        undefined, returns a default value. If the attribute exists but is
-///        not an object, log_error is called, exiting the program
-/// @param description A description of the container object to use in error messages
+/// @brief Gets an attribute as a double-width floating point number, or if the
+///        key is undefined, returns a default value. If the attribute exists
+///        but is a string, an attempt is made to parse a numeric value out of
+///        the string.
 /// @param o The container object
 /// @param key The key used to access the attribute in question
 /// @param default_ The fallback default value
-/// @return reference to either the array attribute if found or the default
-///         otherwise
-inline const Json::object &get_object_attr(std::string_view description, const Json::object &o, std::string key, const Json::object &default_) {
-	const Json::object *result = &default_;
-	auto it = o.find(key);
-	if (it != o.end()) {
-		if (it->second.type() == Json::Type::OBJECT) {
-			result = &it->second.object_items();
+/// @return the numeric attribute if found or the default otherwise
+/// @throws json::type_error if the attribute exists, but is not either a number
+///         or a string that can be parsed as a number.
+inline double get_or_parse_number(const json &o, std::string key, double default_) {
+	if (!o.count(key)) {
+		return default_;
+	}
+	auto number = o[key];
+	if (number.is_string()) {
+		double parsed;
+		auto raw = number.get<std::string>();
+		std::stringstream parse(raw);
+		parse >> parsed;
+		if (parse.fail()) {
+			throw std::invalid_argument(stringf("failed to parse number '%s' provided as a string", raw.c_str()));
 		} else {
-			log_error("%s attribute of %s is not a valid object\n", key, description);
+			return parsed;
 		}
 	}
-	return *result;
-}
-
-/// @brief Gets an attribute as a reference to a Json::array, or if the key is
-///        undefined, returns a default value. If the attribute exists but is
-///        not an object, log_error is called, exiting the program
-/// @param description A description of the container object to use in error messages
-/// @param o The container object
-/// @param key The key used to access the attribute in question
-/// @param default_ The fallback default value
-/// @return reference to either the array attribute if found or the default
-///         otherwise
-inline const Json::array &get_array_attr(std::string_view description, const Json::object &o, std::string key, const Json::array &default_) {
-	const Json::array *result = &default_;
-	auto it = o.find(key);
-	if (it != o.end()) {
-		if (it->second.type() == Json::Type::ARRAY) {
-			result = &it->second.array_items();
-		} else {
-			log_error("%s attribute of %s is not a valid array\n", key, description);
-		}
-	}
-	return *result;
-}
-
-/// @brief Gets an attribute as an string, or if the key is undefined,
-///        returns a default value. If the attribute exists but is not a string
-///        log_error is called, exiting the program
-/// @param description A description of the container object to use in error messages
-/// @param o The container object
-/// @param key The key used to access the attribute in question
-/// @param default_ The fallback default value
-/// @return the string attribute if found or the default otherwise
-inline std::string get_string_attr(std::string_view description, const Json::object &o, std::string key, std::string_view default_) {
-	std::string result{default_};
-	auto it = o.find(key);
-	if (it != o.end()) {
-		if (it->second.type() == Json::Type::STRING) {
-			result = it->second.string_value();
-		} else {
-			log_error("%s attribute of %s is not a valid string\n", key, description);
-		}
-	}
-	return result;
+	return number.get<double>();
 }
 
 /// @brief Gets an attribute as an boolean, or if the key is undefined,
 ///        returns a default value. If the attribute exists but is not a
 ///        boolean, it emulates the behavior of the Python programming language
 ///        as to "truthiness."
-/// @param description A description of the container object to use in error messages
 /// @param o The container object
 /// @param key The key used to access the attribute in question
 /// @param default_ The fallback default value
 /// @return the boolean attribute if found or the default otherwise
-inline bool get_bool_attr(std::string_view description, const Json::object &o, std::string key, bool default_) {
-	bool result = default_;
-	auto it = o.find(key);
-	if (it == o.end()) {
-		return result;
+inline bool value_as_boolean(const json &o, std::string key, bool default_) {
+	if (!o.count(key)) {
+		return default_;
 	}
-	switch (it->second.type()) {
-	case Json::Type::BOOL:
-		result = it->second.bool_value();
-		break;
-	case Json::Type::NUMBER:
-		result = bool(it->second.number_value());
-		break;
-	case Json::Type::STRING:
-		result = it->second.string_value().length() != 0;
-		break;
-	case Json::Type::ARRAY:
-		result = it->second.array_items().size() != 0;
-		break;
-	case Json::Type::OBJECT:
-		result = it->second.object_items().size() != 0;
-		break;
-	case Json::Type::NUL:
-		result = false;
-		break;
+	json boolean = o[key];
+
+	switch (boolean.type()) {
+	case json::value_t::boolean:
+		return boolean.get<bool>();
+	case json::value_t::number_integer:
+	case json::value_t::number_unsigned:
+	case json::value_t::number_float:
+		return bool(boolean.get<double>());
+	case json::value_t::string:
+		return bool(boolean.get<std::string>().length());
+	case json::value_t::array:
+	case json::value_t::object:
+	case json::value_t::binary:
+		return bool(boolean.size());
+	case json::value_t::null:
+	case json::value_t::discarded:
+		return false;
 	}
-	return result;
 }
 
-/// @brief Gets an attribute as a double-width floating point number, or if the
-///        key is undefined, returns a default value. If the attribute exists
-///        but is not a number; strings are attempted to be parsed first and
-///        calls log_error to exit the program on failure. All other types cause
-///        log_error to be called unconditionally
-/// @param description A description of the container object to use in error messages
-/// @param o The container object
-/// @param key The key used to access the attribute in question
-/// @param default_ The fallback default value
-/// @return the numeric attribute if found or the default otherwise
-inline double get_numeric_attr(std::string_view description, const Json::object &o, std::string key, double default_) {
-	double result = default_;
-	auto it = o.find(key);
-	if (it != o.end()) {
-		if (it->second.type() == Json::Type::STRING) {
-			std::stringstream parse(it->second.string_value());
-			parse >> result;
-			if (parse.fail()) {
-				log_error("%s attribute of %s is not a valid number\n", key, description);
-			}
-		} else if (it->second.type() == Json::Type::NUMBER) {
-			result = it->second.number_value();
-		} else {
-			log_error("%s attribute of %s is not a valid number\n", key, description);
-		}
+
+/// @brief Returns the first object of the .names array attribute of a given
+///        string.
+/// @param named_object The container in question
+/// @return The first name if both the .names array attribute and the name itself
+///         both exist, otherwise nullopt
+/// @throws json::type_error if the object exists and is not an array, or
+///         if the first element is not a string
+inline std::optional<std::string> single_name_of(const json &named_object) {
+	auto names = named_object.value<json::array_t>("names", {});
+	if (!names.size()) {
+		return std::nullopt;
 	}
-	return result;
+	return names[0].get<std::string>();
 }
 
 /// @brief Iterates over the .groups attribute of JSON objects.
 ///        If the attribute doesn't exist, it iterates over nothing.
-///        If the attribute exists but is not an array, log_error is called,
-///        terminating the program
-///        If any of the elements of the array are not objects, log_error is
-///        also called, terminating the program
-/// @param description A description of the container object to use in error messages
 /// @param o The container object
 /// @param executor The lambda to execute that takes a constant reference to the
 ///        JSON object representing the group.
-inline void for_each_group(std::string_view description, const Json::object &o, std::function<void(const Json::object &)> executor) {
-	Json::array empty_arr;
-	const Json::array &groups = get_array_attr(description, o, "groups", empty_arr);
-	for (const auto &group_j: groups) {
-		if (group_j.type() != Json::Type::OBJECT) {
-			log_error("Group in %s is not an object.\n", description);
-		}
-		auto group = group_j.object_items();
-		executor(group);
-	}
-}
-
-/// @brief Returns the first object of the .names array attribute of a given
-///        string. If either the array or the name fail validation (i.e. they
-///        exist but are not the correct type,) the program will call log_error
-///        and terminate
-/// @param description A description of the container to use in error messages
-/// @param named_object The container in question
-/// @return The first name if both the .names array attribute and the name itself
-///         both exist, otherwise nullopt
-inline std::optional<std::string> single_name_of(std::string_view description, const Json::object &named_object) {
-	Json::array empty_arr;
-	const Json::array &names = get_array_attr(description, named_object, "names", empty_arr);
-	if (names.size()) {
-		Json name_j = names[0];
-		if (name_j.type() != Json::Type::STRING) {
-			log_error("First entry in name array of %s is not a string\n", description);
-		}
-		return name_j.string_value();
-	} else {
-		return std::nullopt;
+/// @throws json::type_error if .groups exists but is not an array, and if any
+///         of .groups' elements are not objects.
+inline void for_each_group(const json &j, std::function<void(const json &)> executor) {
+	const auto groups = j.value<json::array_t>("groups", {});
+	for (const json &group: groups) {
+		executor(group.get<json::object_t>());
 	}
 }
 
@@ -212,45 +129,80 @@ struct TypeWidth {
 	int bit_width;
 
 	/// @brief Constructs a TypeWidth declaration object from its JSON equivalent
-	///        cell. May call log_error and terminate the program on typing errors
-	/// @param description A description of the container to use in error messages
+	///        cell.
 	/// @param type The type JSON object
 	/// @return newly constructed type-width object
-	static TypeWidth from_json_object(std::string_view description, const Json::object &type) {
-		std::string type_group_desc = std::string(description) + " type group";
-		bool downto = get_bool_attr(type_group_desc, type, "downto", false);
-		int bit_from = get_numeric_attr(type_group_desc, type, "bit_from", 0);
-		int bit_to = get_numeric_attr(type_group_desc, type, "bit_to", 0);
-		int bit_width = get_numeric_attr(type_group_desc, type, "bit_width", (bit_from - bit_to) + 1);
-		return TypeWidth { downto, bit_from, bit_to, bit_width};
+	/// @throws json::type_error if bit_from, bit_to, and bit_width exist and are
+	///         not integers
+	static TypeWidth from_json_object(const json &type) {
+		auto downto = value_as_boolean(type, "downto", false);
+		auto bit_from = type.value<int>("bit_from", 0);
+		auto bit_to = type.value<int>("bit_to", 0);
+		auto bit_width = type.value<int>("bit_width", (bit_from - bit_to) + 1);
+		return TypeWidth { downto, bit_from, bit_to, bit_width };
 	}
 
 	/// @brief Collects and constructs TypeWidth objects from a container, be it
 	///        either types declared in the top-level library or types local to a
-	///        cell. May call log_error and terminate the program on typing errors
-	/// @param description A description of the container to use in error messages
+	///        cell.
 	/// @param container The JSON object containing types
 	/// @return A mapping from the types' names to their newly constructed
 	///         TypeWidth objects.
-	static auto collect_types(std::string_view description, const Json::object &container) {
+	/// @throws json::type_error if any of the groups have a .type that is not an
+	///         object, or the object itself has .bit_from, .bit_to, and
+	///         .bit_width values that exist and are not integers
+	static auto collect_types(const json &container) {
 		dict<std::string, TypeWidth> result;
-		for_each_group(description, container, [&](const Json::object &g){
-			Json::object empty_obj;
+		for_each_group(container, [&](const json &g){
 			if (!g.count("type")) {
 				return;
 			}
-			auto &type = get_object_attr(description, g, "type", empty_obj);
-			auto type_group_desc = std::string(description) + " type group";
-			auto type_name = single_name_of(type_group_desc, type);
+			const auto type = g.value<json::object_t>("type", {});
+			auto type_name = single_name_of(type);
 			if (!type_name) {
 				log_warning("Nameless type encountered\n");
 				return;
 			}
-			result[*type_name] = TypeWidth::from_json_object(std::string(description) + " '" + *type_name + "'", type);
+			result[*type_name] = TypeWidth::from_json_object(type);
 		});
 		return result;
 	}
 };
+
+
+/// @brief For a bus or bundle object, attempts to get the direction from a
+///        top-level .direction attribute or a .direction attribute of any of
+///        the pins, falling back to "input" otherwise.
+/// @param bus_or_bundle The bus or bundle object in question
+/// @return A string representing the direction
+/// @throws json::type_error if:
+///         - the top-level .direction attribute exists and is not a string
+///  				- the top-level .direction attribute does not exist and:
+///           - any of the groups within the bus or bundle are not objects
+///           - any of the .pin attributes of said groups are not objects
+///           - any of the .direction attributes are not strings.
+static auto get_bus_bundle_direction(const json &bus_or_bundle) {
+	std::string direction = "";
+	if (bus_or_bundle.count("direction")) {
+		direction = bus_or_bundle["direction"].get<std::string>();
+	} else {
+		for_each_group(bus_or_bundle, [&](const json &sg) {
+			if (!sg.count("pin")) {
+				return;
+			}
+			const json pin = sg["pin"].get<json::object_t>();
+			if (!pin.count("direction")) {
+				return;
+			}
+			direction = pin["direction"].get<std::string>();
+		});
+	}
+	if (direction == "") {
+		log_warning("No direction found for bus or bundle. Assuming input...\n");
+		direction = "input";
+	}
+	return direction;
+}
 
 /// @brief Convenience method to add a port to an RTLIL\:\:Module from liberty
 ///        information. Will terminate program by calling log_error iff
@@ -306,47 +258,27 @@ struct L2JFrontend : public Frontend {
 	{
 		extra_args(f, filename, args, 1);
 
-		std::stringstream buffer;
-		buffer << f->rdbuf();
-		std::string err = "";
-		auto top_j = Json::parse(buffer.str(), err);
-		if (err.length()) {
-			log_error("Failed to parse liberty2json file: %s\n", err);
-		}
+		try {
+		auto top_j = json::parse(*f);
 
-		Json::object empty_obj;
-		Json::array empty_arr;
+		const json library = top_j["library"].get<json::object_t>();
 
-		if (top_j.type() == Json::Type::NUL) {
-			log_warning("top-level entry is null. nothing to import.\n");
-			return;
-		}
-		if (top_j.type() != Json::Type::OBJECT) {
-			log_error("top-level entry is not an object\n");
-		}
-
-		auto top = top_j.object_items();
-		if (top["library"].type() != Json::Type::OBJECT) {
-			log_error("top-level library attribute is not an object\n");
-		}
-		auto library = top["library"].object_items();
-
-		std::string leakage_power_unit = get_string_attr("top level library", library, "leakage_power_unit", "1pW");
+		std::string leakage_power_unit = library.value<std::string>("leakage_power_unit", "1pW");
 
 		// Group processing, part 1: record global bus type widths
-		TypeWidth default_type_width = TypeWidth {false, 0, 0, 1};
-		dict<std::string, TypeWidth> type_widths = TypeWidth::collect_types("top-level library", library);
+		dict<std::string, TypeWidth> type_widths = TypeWidth::collect_types(library);
 
 		// Group processing, part 2: create blackbox modules
 		pool<IdString> already_defined;
-		for_each_group("top-level library", library, [&](const Json::object &g) {
+		for_each_group(library, [&](const json &g) {
 			if (!g.count("cell")) {
 				return;
 			}
-			const Json::object &cell = get_object_attr("top-level group", g, "cell", empty_obj);
-			auto cell_name = single_name_of("cell", cell);
+			const json cell = g["cell"].get<json::object_t>();
+
+			auto cell_name = single_name_of(cell);
 			if (!cell_name) {
-				log_warning("Nameless cell encountered\n");
+				log_warning("Nameless cell encountered.\n");
 				return;
 			}
 
@@ -357,26 +289,24 @@ struct L2JFrontend : public Frontend {
 			}
 			already_defined.insert(module_name);
 
-			std::string cell_desc = "cell " + *cell_name;
-
-			dict<std::string, TypeWidth> local_type_widths = TypeWidth::collect_types(cell_desc, cell);
+			dict<std::string, TypeWidth> local_type_widths = TypeWidth::collect_types(cell);
 
 			// Memory and stdcell
 			bool is_memory = false, is_stdcell = true;
-			bool dont_touch = get_bool_attr(cell_desc, cell, "dont_touch", false);
-			bool dont_use = get_bool_attr(cell_desc, cell, "dont_use", false);
+			bool dont_touch = value_as_boolean(cell, "dont_touch", false);
+			bool dont_use = value_as_boolean(cell, "dont_use", false);
 			if (dont_touch || dont_use) {
 				is_stdcell = false;
 			}
-			for_each_group(cell_desc, cell, [&](const Json::object &g) {
+			for_each_group(cell, [&](const json &g) {
 				if (g.count("memory")) {
 					is_memory = true; is_stdcell = false;
 				}
 			});
 
 			// PPA Numbers (TODO: add dynamic power data)
-			double area = get_numeric_attr(cell_desc, cell, "area", 0.0);
-			double cell_leakage_power = get_numeric_attr(cell_desc, cell, "cell_leakage_power", 0.0);
+			auto area = get_or_parse_number(cell, "area", 0);
+			auto cell_leakage_power = get_or_parse_number(cell, "cell_leakage_power", 0);
 
 			log("  Creating liberty module %s\n", module_name.c_str());
 			auto current_module = design->addModule(module_name);
@@ -392,56 +322,23 @@ struct L2JFrontend : public Frontend {
 			current_module->set_string_attribute(ID(leakage_power_unit), leakage_power_unit);
 
 			if (cell.count("src")) {
-				auto src_attr = get_string_attr(cell_desc + " src attribute", cell, "src", "");
-				current_module->set_src_attribute(src_attr);
+				current_module->set_src_attribute(cell["src"].get<std::string>());
 			}
 
-			size_t group_idx = 0;
-			size_t pin_idx = 0;
-			size_t bus_idx = 0;
-			size_t bundle_idx = 0;
-			for_each_group(cell_desc, cell, [&](const Json::object &g) {
-				std::stringstream group_desc;
-				group_desc << cell_desc << " group " << group_idx++;
+			for_each_group(cell, [&](const json &g) {
 				if (g.count("pin")) {
-					std::stringstream pin_desc;
-					pin_desc << cell_desc << " pin " << pin_idx++;
-					auto &pin = get_object_attr(group_desc.str(), g, "pin", empty_obj);
-					std::string direction = get_string_attr(pin_desc.str(), pin, "direction", "input");
-					auto &pin_names = get_array_attr(pin_desc.str(), pin, "names", empty_arr);
+					const json pin = g["pin"].get<json::object_t>();
+					const auto direction = pin.value<std::string>("direction", "input");
+					const auto pin_names = pin.value<json::array_t>("names", {});
 					for (auto &pin_name: pin_names) {
-						if (!pin_name.is_string()) {
-							log_error("One of the names of %s is not a string.\n", pin_desc.str());
-						}
-						add_port(current_module, pin_name.string_value(), 1, direction);
+						add_port(current_module, pin_name.get<std::string>(), 1, direction);
 					}
 				} else if (g.count("bus")) {
-					std::stringstream bus_desc;
-					bus_desc << cell_desc << " bus " << bus_idx++;
-					auto &bus = get_object_attr(group_desc.str(), g, "bus", empty_obj);
+					const json bus = g["bus"].get<json::object_t>();
 
-					// Determine direction
-					std::string direction = "";
-					if (bus.count("direction")) {
-						direction = get_string_attr(bus_desc.str(), bus, "direction", "input");
-					} else {
-						for_each_group(bus_desc.str(), bus, [&](const Json::object &sg) {
-							if (!sg.count("pin")) {
-								return;
-							}
-							auto pin = get_object_attr(bus_desc.str() + " subgroup", sg, "pin", empty_obj);
-							if (!pin.count("direction")) {
-								return;
-							}
-							direction = get_string_attr(bus_desc.str() + " pin", pin, "direction", "input");
-						});
-					}
-					if (direction == "") {
-						log_warning("No direction found for %s. Assuming input.\n", bus_desc.str());
-						direction = "input";
-					}
+					auto direction = get_bus_bundle_direction(bus);
 
-					auto bus_type = get_string_attr(bus_desc.str(), bus, "bus_type", "");
+					auto bus_type = bus.value<std::string>("bus_type", "");
 					TypeWidth *bus_type_width = nullptr;
 					if (type_widths.count(bus_type)) {
 						bus_type_width = &type_widths[bus_type];
@@ -449,17 +346,13 @@ struct L2JFrontend : public Frontend {
 						bus_type_width = &local_type_widths[bus_type];
 					} else {
 						// bus_type_width = &default_type_width; // <-- possible alternate route
-						log_warning("No type '%s' found for bus %s - skipping\n", bus_type, bus_desc.str());
+						log_warning("No type '%s' found for bus - skipping\n", bus_type);
 						return;
 					}
-					auto &bus_names = get_array_attr(bus_desc.str(), bus, "names", empty_arr);
-					for (auto &bus_name: bus_names) {
-						if (!bus_name.is_string()) {
-							log_error("One of the names of %s is not a string.\n", bus_desc.str());
-						}
+					for (auto &bus_name: bus.value<json::array_t>("names", {})) {
 						add_port(
 							current_module,
-							bus_name.string_value(),
+							bus_name.get<std::string>(),
 							bus_type_width->bit_width,
 							direction,
 							!bus_type_width->downto,
@@ -467,42 +360,23 @@ struct L2JFrontend : public Frontend {
 						);
 					}
 				} else if (g.count("bundle")) {
-					std::stringstream bundle_desc;
-					bundle_desc << cell_desc << " bundle " << bundle_idx++;
-					auto &bundle = get_object_attr(group_desc.str(), g, "bundle", empty_obj);
+					const json bundle = g["bundle"].get<json::object_t>();
 
-					// Determine direction
-					std::string direction = "";
-					if (bundle.count("direction")) {
-						direction = get_string_attr(bundle_desc.str(), bundle, "direction", "input");
-					} else {
-						for_each_group(bundle_desc.str(), bundle, [&](const Json::object &sg) {
-							if (!sg.count("pin")) {
-								return;
-							}
-							auto pin = get_object_attr(bundle_desc.str() + " subgroup", sg, "pin", empty_obj);
-							if (!pin.count("direction")) {
-								return;
-							}
-							direction = get_string_attr(bundle_desc.str() + " pin", pin, "direction", "input");
-						});
-					}
-					if (direction == "") {
-						log_warning("No direction found for %s. Assuming input.\n", bundle_desc.str());
-						direction = "input";
-					}
+					auto direction = get_bus_bundle_direction(bundle);
 
-					// Add ports for each member
-					auto &members = get_array_attr(bundle_desc.str(), bundle, "members", empty_arr);
-					for (auto &pin_name: members) {
-						if (!pin_name.is_string()) {
-							log_error("One of the members of %s is not a string.\n", bundle_desc.str());
-						}
-						add_port(current_module, pin_name.string_value(), 1, direction);
+					for (auto &pin_name: bundle.value<json::array_t>("members", {})) {
+						add_port(current_module, pin_name.get<std::string>(), 1, direction);
 					}
 				}
 			});
 		});
+		} catch (json::parse_error &e) {
+			log_error("Failed to parse liberty json file: %s\n", e.what());
+		} catch (json::type_error &e) {
+			log_error("Failed to import liberty json file: %s\n", e.what());
+		} catch (std::invalid_argument &e) {
+			log_error("Failed to import liberty json file: %s\n", e.what());
+		}
 	}
 } L2JFrontend;
 
