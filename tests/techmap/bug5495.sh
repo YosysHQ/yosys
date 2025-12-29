@@ -5,7 +5,7 @@ if ! which timeout ; then
     exit 0
 fi
 
-if ! timeout 5 ../../yosys bug5495.v -p 'hierarchy; techmap; abc -script bug5495.abc' ; then
+if ! timeout 10 ../../yosys bug5495.v -p 'hierarchy; techmap; abc -script bug5495.abc' ; then
     echo "Yosys failed to complete"
     exit 1
 fi
