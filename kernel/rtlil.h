@@ -223,8 +223,8 @@ struct RTLIL::IdString
 
 	constexpr inline IdString() : index_(0) { }
 	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
-	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
-	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+	constexpr IdString(const IdString &str) = default;
+	IdString(IdString &&str) = default;
 	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
 	inline IdString(std::string_view str) : index_(insert(str)) { }
 	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
