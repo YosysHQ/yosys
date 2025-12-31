@@ -2,6 +2,7 @@
 #define PATCH_H
 
 #include "kernel/rtlil.h"
+#include "kernel/sigtools.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -16,17 +17,18 @@ protected:
 	void add(RTLIL::Process *process);
 
 public:
-	// RTLIL::Design *design;
+	Module *mod;
+	SigMap map;
 	vector<Wire> wires_;
 	vector<Cell> cells_;
 
-	vector<RTLIL::SigSig>   connections_;
+	vector<RTLIL::SigSig> connections_;
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	const std::vector<RTLIL::SigSig> &connections() const;
 
-	void patch(RTLIL::Module *mod);
+	void patch();
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
