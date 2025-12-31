@@ -60,5 +60,6 @@ OBJS += passes/cmds/timeest.o
 OBJS += passes/cmds/linecoverage.o
 OBJS += passes/cmds/sort.o
 OBJS += passes/cmds/icell_liberty.o
+OBJS += passes/cmds/test_patch.o
 
 include $(YOSYS_SRC)/passes/cmds/sdc/Makefile.inc
