@@ -4,6 +4,14 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+/** 
+  * Notes
+  *
+  * If we want GC, we need more indices
+  * namely user count (and users?). This should be optional
+  *
+  *
+*/
 using namespace RTLIL;
 Cell* Patch::addCell(IdString name, IdString type) {
     auto& cell = cells_.emplace_back(Cell::ConstructToken{});
@@ -22,7 +30,9 @@ void Patch::patch() {
                 for (auto chunk : sig.chunks()) {
                     log_assert(chunk.is_wire());
                     auto* wire = chunk.wire;
+                    // Unwire old driver
                     wire->driverCell_->setPort(wire->driverPort_, SigSpec());
+                    // Maintain bufnorm
                     wire->driverCell_ = new_cell;
                     wire->driverPort_ = port_name;
                 }
