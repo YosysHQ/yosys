@@ -6,7 +6,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct RTLIL::Patch
+struct RTLIL::Patch final : public CellAdderMixin<RTLIL::Patch>
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -34,6 +34,9 @@ public:
 
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
+
+	RTLIL::Cell* addDffsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src);
 };
 
 YOSYS_NAMESPACE_END
