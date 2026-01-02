@@ -3688,8 +3688,16 @@ struct VerificPass : public Pass {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-set_relaxed_checking") {
-				veri_file::SetRelaxedChecking(0);
+			if (args[argidx] == "-set_relaxed_file_ext_modes") {
+				veri_file::RemoveFileExt(".v");
+				veri_file::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".vh", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".sv", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".sv1", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
+				veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
 				continue;
 			}
 #endif
