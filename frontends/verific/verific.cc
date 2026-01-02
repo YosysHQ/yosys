@@ -3078,9 +3078,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		if (verific_opt) {
 			log("  Running Verific optimizations for %s.\n", it->first.c_str());
 
-			// log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
-			// nl->InferClockEnableMux();
-
 			log("    Running post-elaboration for %s.\n", it->first.c_str());
 			nl->PostElaborationProcess();
 
@@ -3706,16 +3703,13 @@ struct VerificPass : public Pass {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-optimization") {
+				verific_opt = true;
+				continue;
+			}
 #endif
 			break;
 		}
-
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		if (args[argidx] == "-optimization") {
-			verific_opt = true;
-			continue;
-		}
-	#endif
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
