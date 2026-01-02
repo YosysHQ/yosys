@@ -3688,6 +3688,10 @@ struct VerificPass : public Pass {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-set_relaxed_checking") {
+				VeriNode::SetRelaxedChecking(0);
+				continue;
+			}
 #endif
 			break;
 		}
