@@ -3689,7 +3689,7 @@ struct VerificPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-set_ignore_translate_off") {
-				veri_file::SetIgnoreTranslateOff(0);
+				veri_file::SetIgnoreTranslateOff(1);
 				continue;
 			}
 #endif
