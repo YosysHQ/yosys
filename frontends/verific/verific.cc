@@ -3688,15 +3688,16 @@ struct VerificPass : public Pass {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-set_relaxed_checking") {
-				VeriNode::SetRelaxedChecking(1);
-				continue;
-			}
 #endif
 			break;
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-set_relaxed_checking") {
+			VeriNode::SetRelaxedChecking(1);
+			continue;
+		}
+		
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
