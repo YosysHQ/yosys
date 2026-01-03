@@ -907,6 +907,68 @@ struct OptDffWorker
 			ff.emit();
 		return did_something;
 	}
+
+	bool run_related_load_data() {
+		ModWalker modwalker(module->design, module);
+		QuickConeSat qcsat(modwalker);
+
+		// Defer mutating cells by emiting new flip flops so that
+		// cell references in modwalker are not invalidated
+		std::vector<FfData> ffs_to_emit;
+
+		bool did_something = false;
+		for (auto cell : module->selected_cells()) {
+			if (!cell->is_builtin_ff())
+				continue;
+			FfData ff(&initvals, cell);
+
+			if (ff.has_aload) {
+				if (!ff.sig_aload[0].wire)
+					continue;
+
+				bool changed_ff = false;
+				for (int i = 0; i < ff.width; i++) {
+					if (!ff.sig_ad[i].wire) {
+						// Nothing to do
+						continue;
+					}
+
+					// Change AD to const if it's identical or complementary to ALOAD.
+					if (ff.sig_aload == ff.sig_ad[i]) {
+						log("Changing same-signal async load to constant at position %d on %s (%s) from module %s.\n",
+								i, log_id(cell), log_id(cell->type), log_id(module));
+						ff.sig_ad[i] = ff.pol_aload ? State::S1 : State::S0;
+						changed_ff = true;
+					} else {
+						if (!opt.sat)
+							continue;
+						int aload_pol_sat_pi = qcsat.importSigBit(ff.pol_aload ? State::S1 : State::S0);
+						int aload_not_pol_sat_pi = qcsat.importSigBit(ff.pol_aload ? State::S0 : State::S1);
+						int aload_sat_pi = qcsat.importSigBit(ff.sig_aload);
+						int ad_sat_pi = qcsat.importSigBit(ff.sig_ad[i]);
+
+						qcsat.prepare();
+
+						if (!qcsat.ez->solve(qcsat.ez->IFF(aload_sat_pi, aload_pol_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(ad_sat_pi, aload_not_pol_sat_pi)))) {
+							log("Changing comp-signal async load to constant at position %d on %s (%s) from module %s.\n",
+									i, log_id(cell), log_id(cell->type), log_id(module));
+							ff.sig_ad[i] = ff.pol_aload ? State::S0 : State::S1;
+							changed_ff = true;
+						}
+					}
+				}
+				if (changed_ff) {
+					ffs_to_emit.emplace_back(ff);
+					did_something = true;
+				}
+			}
+		}
+
+		for (auto& ff : ffs_to_emit)
+			ff.emit();
+
+		return did_something;
+	}
 };
 
 struct OptDffPass : public Pass {
@@ -985,6 +1047,8 @@ struct OptDffPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			OptDffWorker worker(opt, mod);
 			if (worker.run())
+				did_something = true;
+			if (worker.run_related_load_data())
 				did_something = true;
 			if (worker.run_constbits())
 				did_something = true;
