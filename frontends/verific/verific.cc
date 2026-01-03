@@ -3695,9 +3695,9 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-set_vhdl_default_library_path") {
 			for (argidx++; argidx < GetSize(args); argidx++) {
-		#ifdef VERIFIC_VHDL_SUPPORT
+#ifdef VERIFIC_VHDL_SUPPORT
 				vhdl_file::SetDefaultLibraryPath(args[argidx].c_str());
-		#endif
+#endif
 			}
 			goto check_error;
 		}
