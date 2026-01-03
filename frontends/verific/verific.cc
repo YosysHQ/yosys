@@ -3688,18 +3688,18 @@ struct VerificPass : public Pass {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-ignore_module") {
-				for (argidx++; argidx < GetSize(args); argidx++) {
-					string name = args[argidx];
-					veri_file::AddToIgnoredParsedModuleNames(name.c_str());
-				}
-				goto check_error;
-			}
 #endif
 			break;
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-ignore_module") {
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				string name = args[argidx];
+				veri_file::AddToIgnoredParsedModuleNames(name.c_str());
+			}
+			goto check_error;
+		}
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
