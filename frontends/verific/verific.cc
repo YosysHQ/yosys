@@ -3689,7 +3689,7 @@ struct VerificPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-set_relaxed_checking") {
-				VeriNode::SetRelaxedChecking(0);
+				VeriNode::SetRelaxedChecking(1);
 				continue;
 			}
 #endif
