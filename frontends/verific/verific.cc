@@ -3703,15 +3703,16 @@ struct VerificPass : public Pass {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-optimization") {
-				verific_opt = true;
-				continue;
-			}
 #endif
 			break;
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-optimization") {
+			verific_opt = true;
+			continue;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
