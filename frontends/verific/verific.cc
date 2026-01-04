@@ -3697,7 +3697,7 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-no_split_complex_ports") {
 			verific_no_split_complex_ports = true;
-			goto check_error;
+			continue;
 		}
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
