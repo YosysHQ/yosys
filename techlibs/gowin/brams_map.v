@@ -312,7 +312,7 @@ parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_R_WIDTH = 18;
 parameter PORT_W_WIDTH = 18;
-parameter PORT_W_WR_BE_WIDTH=4;
+parameter PORT_W_WR_BE_WIDTH = 4;
 
 input PORT_R_CLK;
 input PORT_R_CLK_EN;
