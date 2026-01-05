@@ -38,7 +38,7 @@ module INBUF(
   assign O = I;
 `ifdef IS_T16FFC
   specify
-    (I => O) = 22;
+    (I => O) = 42;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -59,7 +59,7 @@ module OUTBUF(
   assign O = I;
 `ifdef IS_T16FFC
   specify
-    (I => O) = 22;
+    (I => O) = 42;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -75,7 +75,7 @@ module LUT1(output O, input I0);
   assign O = I0 ? INIT[1] : INIT[0];
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22;
+    (I0 => O) = 42;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -92,8 +92,8 @@ module LUT2(output O, input I0, I1);
   assign O = I0 ? s1[1] : s1[0];
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22;
-    (I1 => O) = 22;
+    (I0 => O) = 42;
+    (I1 => O) = 39;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -112,9 +112,9 @@ module LUT3(output O, input I0, I1, I2);
   assign O = I0 ? s1[1] : s1[0];
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22;
-    (I1 => O) = 22;
-    (I2 => O) = 22;
+    (I0 => O) = 54;
+    (I1 => O) = 51;
+    (I2 => O) = 48;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -135,10 +135,10 @@ module LUT4(output O, input I0, I1, I2, I3);
   assign O = I0 ? s1[1] : s1[0];
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22;
-    (I1 => O) = 22;
-    (I2 => O) = 22;
-    (I3 => O) = 22;
+    (I0 => O) = 96;
+    (I1 => O) = 87;
+    (I2 => O) = 79;
+    (I3 => O) = 71;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -161,11 +161,11 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   assign O = I0 ? s1[1] : s1[0];
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22;
-    (I1 => O) = 22;
-    (I2 => O) = 22;
-    (I3 => O) = 22;
-    (I4 => O) = 22;
+    (I0 => O) = 99;
+    (I1 => O) = 90;
+    (I2 => O) = 82;
+    (I3 => O) = 74;
+    (I4 => O) = 66;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -190,12 +190,12 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   assign O = I0 ? s1[1] : s1[0];
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22;
-    (I1 => O) = 22;
-    (I2 => O) = 22;
-    (I3 => O) = 22;
-    (I4 => O) = 22;
-    (I5 => O) = 22;
+    (I0 => O) = 42;
+    (I1 => O) = 39;
+    (I2 => O) = 36;
+    (I3 => O) = 33;
+    (I4 => O) = 30;
+    (I5 => O) = 28;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -233,13 +233,13 @@ module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `ifndef __ICARUS__
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22 + 63 /* LUTMUX7.I1 */;
-    (I1 => O) = 22 + 63 /* LUTMUX7.I1 */;
-    (I2 => O) = 22 + 63 /* LUTMUX7.I1 */;
-    (I3 => O) = 22 + 63 /* LUTMUX7.I1 */;
-    (I4 => O) = 22 + 63 /* LUTMUX7.I1 */;
-    (I5 => O) = 22 + 63 /* LUTMUX7.I1 */;
-    (I6 => O) = 0  + 51 /* LUTMUX7.S */;
+    (I0 => O) = 42 + 111 /* LUTMUX7.I1 */;
+    (I1 => O) = 39 + 111 /* LUTMUX7.I1 */;
+    (I2 => O) = 36 + 111 /* LUTMUX7.I1 */;
+    (I3 => O) = 33 + 111 /* LUTMUX7.I1 */;
+    (I4 => O) = 30 + 111 /* LUTMUX7.I1 */;
+    (I5 => O) = 28 + 111 /* LUTMUX7.I1 */;
+    (I6 => O) = 0  + 57  /* LUTMUX7.S */;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -263,14 +263,14 @@ module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `ifndef __ICARUS__
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
-    (I1 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
-    (I2 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
-    (I3 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
-    (I4 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
-    (I5 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
-    (I6 => O) = 0  + 51 /* LUTMUX7.S */  + 48 /* LUTMUX8.I0 */;
-    (I7 => O) = 0  +  0                  + 58 /* LUTMUX8.S */;
+    (I0 => O) = 42 + 111 /* LUTMUX7.I1 */ + 59 /* LUTMUX8.I0 */;
+    (I1 => O) = 39 + 111 /* LUTMUX7.I1 */ + 59 /* LUTMUX8.I0 */;
+    (I2 => O) = 36 + 111 /* LUTMUX7.I1 */ + 59 /* LUTMUX8.I0 */;
+    (I3 => O) = 33 + 111 /* LUTMUX7.I1 */ + 59 /* LUTMUX8.I0 */;
+    (I4 => O) = 30 + 111 /* LUTMUX7.I1 */ + 59 /* LUTMUX8.I0 */;
+    (I5 => O) = 28 + 111 /* LUTMUX7.I1 */ + 59 /* LUTMUX8.I0 */;
+    (I6 => O) = 0  +  57 /* LUTMUX7.S */  + 59 /* LUTMUX8.I0 */;
+    (I7 => O) = 0  +  0                   + 60 /* LUTMUX8.S */;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -293,9 +293,9 @@ module LUTMUX7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 62;
-    (I1 => O) = 63;
-    (S => O) = 51;
+    (I0 => O) = 95;
+    (I1 => O) = 111;
+    (S => O) = 57;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -312,9 +312,9 @@ module LUTMUX8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
 `ifdef IS_T16FFC
   specify
-    (I0 => O) = 48;
-    (I1 => O) = 46;
-    (S => O) = 58;
+    (I0 => O) = 59;
+    (I1 => O) = 59;
+    (S => O) = 60;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -343,50 +343,58 @@ module CRY4(
   assign CO[3] = S[3] ? CO[2] : DI[3];
 `ifdef IS_T16FFC
   specify
-    (S[0]   => O[0]) = 39;
-    (CI     => O[0]) = 43;
-    (DI[0]  => O[1]) = 81;
-    (S[0]   => O[1]) = 61;
-    (S[1]   => O[1]) = 42;
-    (CI     => O[1]) = 50;
-    (DI[0]  => O[2]) = 98;
-    (DI[1]  => O[2]) = 95;
-    (S[0]   => O[2]) = 70;
-    (S[1]   => O[2]) = 75;
-    (S[2]   => O[2]) = 48;
-    (CI     => O[2]) = 64;
-    (DI[0]  => O[3]) = 101;
-    (DI[1]  => O[3]) = 120;
-    (DI[2]  => O[3]) = 65;
-    (S[0]   => O[3]) = 69;
-    (S[1]   => O[3]) = 91;
-    (S[2]   => O[3]) = 42;
-    (S[3]   => O[3]) = 39;
-    (CI     => O[3]) = 84;
-    (DI[0]  => CO[0]) = 59;
-    (S[0]   => CO[0]) = 43;
-    (CI     => CO[0]) = 50;
-    (DI[0]  => CO[1]) = 87;
-    (DI[1]  => CO[1]) = 64;
-    (S[0]   => CO[1]) = 63;
-    (S[1]   => CO[1]) = 51;
-    (CI     => CO[1]) = 55;
-    (DI[0]  => CO[2]) = 103;
-    (DI[1]  => CO[2]) = 113;
-    (DI[2]  => CO[2]) = 58;
-    (S[0]   => CO[2]) = 68;
-    (S[1]   => CO[2]) = 79;
-    (S[2]   => CO[2]) = 37;
-    (CI     => CO[2]) = 77;
-    (DI[0]  => CO[3]) = 93;
-    (DI[1]  => CO[3]) = 95;
-    (DI[2]  => CO[3]) = 84;
-    (DI[3]  => CO[3]) = 72;
-    (S[0]   => CO[3]) = 91;
-    (S[1]   => CO[3]) = 97;
-    (S[2]   => CO[3]) = 82;
-    (S[3]   => CO[3]) = 81;
+    (CI     => CO[0]) = 69;
+    (DI[0]  => CO[0]) = 74;
+    (S[0]   => CO[0]) = 76;
+
+    (CI     => CO[1]) = 76;
+    (DI[0]  => CO[1]) = 109;
+    (DI[1]  => CO[1]) = 69;
+    (S[0]   => CO[1]) = 99;
+    (S[1]   => CO[1]) = 59;
+
+    (CI     => CO[2]) = 144;
+    (DI[0]  => CO[2]) = 155;
+    (DI[1]  => CO[2]) = 126;
+    (DI[2]  => CO[2]) = 63;
+    (S[0]   => CO[2]) = 168;
+    (S[1]   => CO[2]) = 117;
+    (S[2]   => CO[2]) = 50;
+
     (CI     => CO[3]) = 20;
+    (DI[0]  => CO[3]) = 167;
+    (DI[1]  => CO[3]) = 181;
+    (DI[2]  => CO[3]) = 173;
+    (DI[3]  => CO[3]) = 77;
+    (S[0]   => CO[3]) = 185;
+    (S[1]   => CO[3]) = 182;
+    (S[2]   => CO[3]) = 159;
+    (S[3]   => CO[3]) = 179;
+
+    (CI     => O[0]) = 50;
+    (S[0]   => O[0]) = 82;
+
+    (CI     => O[1]) = 61;
+    (DI[0]  => O[1]) = 117;
+    (S[0]   => O[1]) = 132;
+    (S[1]   => O[1]) = 49;
+
+    (CI     => O[2]) = 148;
+    (DI[0]  => O[2]) = 196;
+    (DI[1]  => O[2]) = 130;
+    (S[0]   => O[2]) = 218;
+    (S[1]   => O[2]) = 145;
+    (S[2]   => O[2]) = 65;
+
+    (CI     => O[3]) = 132;
+    (DI[0]  => O[3]) = 208;
+    (DI[1]  => O[3]) = 148;
+    (DI[2]  => O[3]) = 110;
+    (S[0]   => O[3]) = 204;
+    (S[1]   => O[3]) = 160;
+    (S[2]   => O[3]) = 97;
+    (S[3]   => O[3]) = 39;
+
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -449,7 +457,7 @@ module CRY4INIT(
   assign CO = CYINIT;
 `ifdef IS_T16FFC
   specify
-    (CYINIT => CO) = 72;
+    (CYINIT => CO) = 77;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -475,11 +483,11 @@ module FFRE (
   always @(posedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , posedge C, 31);
-    $setup(CE, posedge C, 122);
-    $setup(R , posedge C, 128);
-    if (R)        (posedge C => (Q : 1'b0)) = 224;
-    if (!R && CE) (posedge C => (Q : D)) = 224;
+    $setup(D , posedge C, 65);
+    $setup(CE, posedge C, 63);
+    $setup(R , posedge C, 63);
+    if (R)        (posedge C => (Q : 1'b0)) = 291;
+    if (!R && CE) (posedge C => (Q : D)) = 291;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -507,11 +515,11 @@ module FFRE_N (
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , negedge C, 31);
-    $setup(CE, negedge C, 122);
-    $setup(R , negedge C, 128);
-    if (R)        (negedge C => (Q : 1'b0)) = 224;
-    if (!R && CE) (negedge C => (Q : D)) = 224;
+    $setup(D , negedge C, 65);
+    $setup(CE, negedge C, 63);
+    $setup(R , negedge C, 63);
+    if (R)        (negedge C => (Q : 1'b0)) = 291;
+    if (!R && CE) (negedge C => (Q : D)) = 291;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -539,11 +547,11 @@ module FFSE (
   always @(posedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , posedge C, 31);
-    $setup(CE, posedge C, 122);
-    $setup(S , posedge C, 128);
-    if (S)        (posedge C => (Q : 1'b1)) = 224;
-    if (!S && CE) (posedge C => (Q : D)) = 224;
+    $setup(D , posedge C, 65);
+    $setup(CE, posedge C, 63);
+    $setup(S , posedge C, 63);
+    if (S)        (posedge C => (Q : 1'b1)) = 265;
+    if (!S && CE) (posedge C => (Q : D)) = 265;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -571,11 +579,11 @@ module FFSE_N (
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , negedge C, 31);
-    $setup(CE, negedge C, 122);
-    $setup(S , negedge C, 128);
-    if (S)        (negedge C => (Q : 1'b1)) = 224;
-    if (!S && CE) (negedge C => (Q : D)) = 224;
+    $setup(D , negedge C, 65);
+    $setup(CE, negedge C, 63);
+    $setup(S , negedge C, 63);
+    if (S)        (negedge C => (Q : 1'b1)) = 265;
+    if (!S && CE) (negedge C => (Q : D)) = 265;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -603,12 +611,12 @@ module FFCE (
   always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , posedge C, 31);
-    $setup(CE, posedge C, 122);
-    $setup(CLR, posedge C, 0 /* missing? */);
-    if (!CLR && CE) (posedge C => (Q : D)) = 280;
+    $setup(D , posedge C, 65);
+    $setup(CE, posedge C, 64);
+    $setup(CLR, posedge C, 64);
+    if (!CLR && CE) (posedge C => (Q : D)) = 192;
 `ifdef YOSYS
-    if (CLR) (CLR => Q) = 0 /* missing? */;
+    if (CLR) (CLR => Q) = 192;
 `endif
   endspecify
 `endif
@@ -639,12 +647,12 @@ module FFCE_N (
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D,   negedge C, 31);
-    $setup(CE,  negedge C, 122);
-    $setup(CLR, negedge C, 0 /* missing? */);
-    if (!CLR && CE) (negedge C => (Q : D)) = 280;
+    $setup(D,   negedge C, 65);
+    $setup(CE,  negedge C, 64);
+    $setup(CLR, negedge C, 64);
+    if (!CLR && CE) (negedge C => (Q : D)) = 192;
 `ifdef YOSYS
-    if (CLR) (CLR => Q) = 0 /* missing? */;
+    if (CLR) (CLR => Q) = 192;
 `endif
   endspecify
 `endif
@@ -674,12 +682,12 @@ module FFPE (
   always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D,   posedge C, 31);
-    $setup(CE,  posedge C, 122);
-    $setup(PRE, posedge C, 0 /* missing? */);
-    if (!PRE && CE) (posedge C => (Q : D)) = 224;
+    $setup(D,   posedge C, 65);
+    $setup(CE,  posedge C, 65);
+    $setup(PRE, posedge C, 65);
+    if (!PRE && CE) (posedge C => (Q : D)) = 191;
 `ifdef YOSYS
-    if (PRE) (PRE => Q) = 0 /* missing? */;
+    if (PRE) (PRE => Q) = 191;
 `endif
   endspecify
 `endif
@@ -709,12 +717,12 @@ module FFPE_N (
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D,   negedge C, 28);
-    $setup(CE,  negedge C, 28);
-    $setup(PRE, negedge C, 28);
+    $setup(D,   negedge C, 64);
+    $setup(CE,  negedge C, 64);
+    $setup(PRE, negedge C, 64);
     if (!PRE && CE) (negedge C => (Q : D)) = 291;
 `ifdef YOSYS
-    if (PRE) (PRE => Q) = 57;
+    if (PRE) (PRE => Q) = 333;
 `endif
   endspecify
 `endif
@@ -751,19 +759,19 @@ module RAMS32X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(A0, posedge WCLK, 28);
-    $setup(A1, posedge WCLK, 28);
-    $setup(A2, posedge WCLK, 28);
-    $setup(A3, posedge WCLK, 28);
-    $setup(A4, posedge WCLK, 28);
-    $setup(D,  posedge WCLK, 28);
-    $setup(WE, posedge WCLK, 28);
-    (A0 => O) = 63;
-    (A1 => O) = 63;
-    (A2 => O) = 63;
-    (A3 => O) = 63;
-    (A4 => O) = 63;
-    (posedge WCLK => (O : D)) = 813;
+    $setup(A0, posedge WCLK, 62);
+    $setup(A1, posedge WCLK, 62);
+    $setup(A2, posedge WCLK, 62);
+    $setup(A3, posedge WCLK, 62);
+    $setup(A4, posedge WCLK, 62);
+    $setup(D,  posedge WCLK, 62);
+    $setup(WE, posedge WCLK, 62);
+    (A0 => O) = 100;
+    (A1 => O) = 91;
+    (A2 => O) = 83;
+    (A3 => O) = 75;
+    (A4 => O) = 67;
+    (posedge WCLK => (O : D)) = 807;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -801,21 +809,21 @@ module RAMS64X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(A0, posedge WCLK, 28);
-    $setup(A1, posedge WCLK, 28);
-    $setup(A2, posedge WCLK, 28);
-    $setup(A3, posedge WCLK, 28);
-    $setup(A4, posedge WCLK, 28);
-    $setup(A5, posedge WCLK, 28);
-    $setup(D,  posedge WCLK, 28);
-    $setup(WE, posedge WCLK, 28);
-    (A0 => O) = 161;
-    (A1 => O) = 161;
-    (A2 => O) = 161;
-    (A3 => O) = 161;
-    (A4 => O) = 161;
-    (A5 => O) = 64;
-    (posedge WCLK => (O : D)) = 762;
+    $setup(A0, posedge WCLK, 65);
+    $setup(A1, posedge WCLK, 65);
+    $setup(A2, posedge WCLK, 65);
+    $setup(A3, posedge WCLK, 65);
+    $setup(A4, posedge WCLK, 65);
+    $setup(A5, posedge WCLK, 65);
+    $setup(D,  posedge WCLK, 65);
+    $setup(WE, posedge WCLK, 65);
+    (A0 => O) = 184;
+    (A1 => O) = 175;
+    (A2 => O) = 167;
+    (A3 => O) = 159;
+    (A4 => O) = 151;
+    (A5 => O) = 61;
+    (posedge WCLK => (O : D)) = 747;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -860,33 +868,25 @@ module RAMD32X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    // HACK: partial setup timing
-    $setup(A0, posedge WCLK, 28);
-    $setup(A1, posedge WCLK, 28);
-    $setup(A2, posedge WCLK, 28);
-    $setup(A3, posedge WCLK, 28);
-    $setup(A4, posedge WCLK, 28);
-    $setup(DPRA0, posedge WCLK, 0);
-    $setup(DPRA1, posedge WCLK, 0);
-    $setup(DPRA2, posedge WCLK, 0);
-    $setup(DPRA3, posedge WCLK, 0);
-    $setup(DPRA4, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 28);
-    $setup(WE, posedge WCLK, 28);
-    // HACK: No timing arcs for SPO; using ones for DPO
-    // (are we meant to use the single-port timings here?)
-    (A0 => SPO) = 66;
-    (A1 => SPO) = 66;
-    (A2 => SPO) = 66;
-    (A3 => SPO) = 66;
-    (A4 => SPO) = 66;
-    (DPRA0 => DPO) = 66;
-    (DPRA1 => DPO) = 66;
-    (DPRA2 => DPO) = 66;
-    (DPRA3 => DPO) = 66;
-    (DPRA4 => DPO) = 66;
-    (posedge WCLK => (SPO : D)) = 813;
-    (posedge WCLK => (DPO : D)) = 813;
+    $setup(A0, posedge WCLK, 62);
+    $setup(A1, posedge WCLK, 62);
+    $setup(A2, posedge WCLK, 62);
+    $setup(A3, posedge WCLK, 62);
+    $setup(A4, posedge WCLK, 62);
+    $setup(D,  posedge WCLK, 62);
+    $setup(WE, posedge WCLK, 62);
+    (A0 => SPO) = 100;
+    (A1 => SPO) = 91;
+    (A2 => SPO) = 83;
+    (A3 => SPO) = 75;
+    (A4 => SPO) = 67;
+    (DPRA0 => DPO) = 101;
+    (DPRA1 => DPO) = 92;
+    (DPRA2 => DPO) = 84;
+    (DPRA3 => DPO) = 76;
+    (DPRA4 => DPO) = 68;
+    (posedge WCLK => (SPO : D)) = 807;
+    (posedge WCLK => (DPO : D)) = 807;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -897,11 +897,6 @@ module RAMD32X1 (
     $setup(A2, posedge WCLK, 84);
     $setup(A3, posedge WCLK, 84);
     $setup(A4, posedge WCLK, 84);
-    $setup(DPRA0, posedge WCLK, 0);
-    $setup(DPRA1, posedge WCLK, 0);
-    $setup(DPRA2, posedge WCLK, 0);
-    $setup(DPRA3, posedge WCLK, 0);
-    $setup(DPRA4, posedge WCLK, 0);
     $setup(D,  posedge WCLK, 84);
     $setup(WE, posedge WCLK, 84);
     // HACK: No timing arcs for SPO; using ones for DPO
@@ -941,35 +936,28 @@ module RAMD64X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    // HACK: partial setup timing
-    $setup(A0, posedge WCLK, 28);
-    $setup(A1, posedge WCLK, 28);
-    $setup(A2, posedge WCLK, 28);
-    $setup(A3, posedge WCLK, 28);
-    $setup(A4, posedge WCLK, 28);
-    $setup(A5, posedge WCLK, 28);
-    $setup(DPRA0, posedge WCLK, 0);
-    $setup(DPRA1, posedge WCLK, 0);
-    $setup(DPRA2, posedge WCLK, 0);
-    $setup(DPRA3, posedge WCLK, 0);
-    $setup(DPRA4, posedge WCLK, 0);
-    $setup(DPRA5, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 28);
-    $setup(WE, posedge WCLK, 28);
-    (A0 => SPO) = 161;
-    (A1 => SPO) = 161;
-    (A2 => SPO) = 161;
-    (A3 => SPO) = 161;
-    (A4 => SPO) = 161;
-    (A5 => SPO) = 64;
-    (DPRA0 => DPO) = 118;
-    (DPRA1 => DPO) = 118;
-    (DPRA2 => DPO) = 118;
-    (DPRA3 => DPO) = 118;
-    (DPRA4 => DPO) = 118;
-    (DPRA5 => DPO) = 63;    
-    (posedge WCLK => (SPO : D)) = 762;
-    (posedge WCLK => (DPO : D)) = 737;
+    $setup(A0, posedge WCLK, 65);
+    $setup(A1, posedge WCLK, 65);
+    $setup(A2, posedge WCLK, 65);
+    $setup(A3, posedge WCLK, 65);
+    $setup(A4, posedge WCLK, 65);
+    $setup(A5, posedge WCLK, 65);
+    $setup(D,  posedge WCLK, 65);
+    $setup(WE, posedge WCLK, 65);
+    (A0 => SPO) = 184;
+    (A1 => SPO) = 175;
+    (A2 => SPO) = 167;
+    (A3 => SPO) = 159;
+    (A4 => SPO) = 151;
+    (A5 => SPO) = 61;
+    (DPRA0 => DPO) = 164;
+    (DPRA1 => DPO) = 155;
+    (DPRA2 => DPO) = 147;
+    (DPRA3 => DPO) = 139;
+    (DPRA4 => DPO) = 131;
+    (DPRA5 => DPO) = 64;    
+    (posedge WCLK => (SPO : D)) = 761;
+    (posedge WCLK => (DPO : D)) = 733;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -981,12 +969,6 @@ module RAMD64X1 (
     $setup(A3, posedge WCLK, 84);
     $setup(A4, posedge WCLK, 84);
     $setup(A5, posedge WCLK, 84);
-    $setup(DPRA0, posedge WCLK, 0);
-    $setup(DPRA1, posedge WCLK, 0);
-    $setup(DPRA2, posedge WCLK, 0);
-    $setup(DPRA3, posedge WCLK, 0);
-    $setup(DPRA4, posedge WCLK, 0);
-    $setup(DPRA5, posedge WCLK, 0);
     $setup(D,  posedge WCLK, 84);
     $setup(WE, posedge WCLK, 84);
     (A0 => SPO) = 466;
@@ -1163,6 +1145,7 @@ module RBRAM #(
 
 endmodule
 
+(* lib_whitebox *)
 module RBRAM2 #(
     parameter TARGET_NODE = "T16FFC_Gen2.4",
     parameter BRAM_MODE = "SDP_2048x40",
@@ -1200,5 +1183,19 @@ module RBRAM2 #(
     input SLP,
     input PD
 );
+
+// Timings simplified for now
+specify
+  $setup(DA,  posedge CLKA, 2440);
+  $setup(CEA, posedge CLKA, 1668);
+  $setup(AA,  posedge CLKA, 2289);
+
+  $setup(DB,  posedge CLKB, 2420);
+  $setup(CEB, posedge CLKB, 1805);
+  $setup(AB,  posedge CLKB, 2170);
+
+  (posedge CLKA => (QA : DA)) = 2227;
+  (posedge CLKB => (QB : DB)) = 2189;
+endspecify
 
 endmodule
