@@ -3694,11 +3694,12 @@ struct VerificPass : public Pass {
 			break;
 		}
 
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-no_split_complex_ports") {
 			verific_no_split_complex_ports = true;
-			continue;
+			goto check_error;
 		}
+
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
