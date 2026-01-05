@@ -3074,7 +3074,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		Netlist *nl = it->second;
 
 		// use Verific optimizations
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (verific_opt) {
 			log("  Running Verific optimizations for %s.\n", it->first.c_str());
 
@@ -3084,7 +3083,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Running operator optimization for %s.\n", it->first.c_str());
 			nl->OperatorOptimization();
 		}
-#endif
 
 		if (nl_done.count(it->first) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false, false);
@@ -3707,12 +3705,12 @@ struct VerificPass : public Pass {
 			break;
 		}
 
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-optimization") {
 			verific_opt = true;
-			continue;
+			goto check_error;
 		}
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
