@@ -43,7 +43,7 @@ module INBUF(
 `endif
 `ifdef IS_T40LP
   specify
-    (I => O) = 121;
+    (I => O) = 187;
   endspecify
 `endif
 endmodule
@@ -64,7 +64,7 @@ module OUTBUF(
 `endif
 `ifdef IS_T40LP
   specify
-    (I => O) = 121;
+    (I => O) = 187;
   endspecify
 `endif
 endmodule
@@ -394,55 +394,61 @@ module CRY4(
     (S[1]   => O[3]) = 160;
     (S[2]   => O[3]) = 97;
     (S[3]   => O[3]) = 39;
-
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
-    (S[0]   => O[0]) = 128;
-    (CI     => O[0]) = 122;
-    (DI[0]  => O[1]) = 268;
-    (S[0]   => O[1]) = 256;
-    (S[1]   => O[1]) = 141;
-    (CI     => O[1]) = 173;
-    (DI[0]  => O[2]) = 344;
-    (DI[1]  => O[2]) = 320;
-    (S[0]   => O[2]) = 271;
-    (S[1]   => O[2]) = 225;
-    (S[2]   => O[2]) = 129;
-    (CI     => O[2]) = 223;
-    (DI[0]  => O[3]) = 371;
-    (DI[1]  => O[3]) = 383;
-    (DI[2]  => O[3]) = 327;
-    (S[0]   => O[3]) = 342;
-    (S[1]   => O[3]) = 327;
-    (S[2]   => O[3]) = 273;
-    (S[3]   => O[3]) = 145;
-    (CI     => O[3]) = 301;
-    (DI[0]  => CO[0]) = 243;
-    (S[0]   => CO[0]) = 136;
-    (CI     => CO[0]) = 119;
-    (DI[0]  => CO[1]) = 242;
-    (DI[1]  => CO[1]) = 251;
-    (S[0]   => CO[1]) = 220;
-    (S[1]   => CO[1]) = 159;
-    (CI     => CO[1]) = 155;
-    (DI[0]  => CO[2]) = 275;
-    (DI[1]  => CO[2]) = 241;
-    (DI[2]  => CO[2]) = 231;
-    (S[0]   => CO[2]) = 238;
-    (S[1]   => CO[2]) = 197;
-    (S[2]   => CO[2]) = 167;
-    (CI     => CO[2]) = 197;
-    (DI[0]  => CO[3]) = 294;
-    (DI[1]  => CO[3]) = 303;
-    (DI[2]  => CO[3]) = 317;
+    (CI     => CO[0]) = 132;
+    (DI[0]  => CO[0]) = 245;
+    (S[0]   => CO[0]) = 218;
+
+    (CI     => CO[1]) = 183;
+    (DI[0]  => CO[1]) = 261;
+    (DI[1]  => CO[1]) = 325;
+    (S[0]   => CO[1]) = 270;
+    (S[1]   => CO[1]) = 199;
+
+    (CI     => CO[2]) = 218;
+    (DI[0]  => CO[2]) = 284;
+    (DI[1]  => CO[2]) = 345;
+    (DI[2]  => CO[2]) = 242;
+    (S[0]   => CO[2]) = 334;
+    (S[1]   => CO[2]) = 271;
+    (S[2]   => CO[2]) = 228;
+
+    (CI     => CO[3]) = 258;
+    (DI[0]  => CO[3]) = 334;
+    (DI[1]  => CO[3]) = 395;
+    (DI[2]  => CO[3]) = 342;
     (DI[3]  => CO[3]) = 205;
-    (S[0]   => CO[3]) = 250;
-    (S[1]   => CO[3]) = 292;
-    (S[2]   => CO[3]) = 231;
-    (S[3]   => CO[3]) = 178;
-    (CI     => CO[3]) = 229;
+    (S[0]   => CO[3]) = 382;
+    (S[1]   => CO[3]) = 321;
+    (S[2]   => CO[3]) = 324;
+    (S[3]   => CO[3]) = 252;
+
+    (CI     => O[0]) = 123;
+    (S[0]   => O[0]) = 150;
+
+    (CI     => O[1]) = 265;
+    (DI[0]  => O[1]) = 331;
+    (S[0]   => O[1]) = 292;
+    (S[1]   => O[1]) = 151;
+
+    (CI     => O[2]) = 288;
+    (DI[0]  => O[2]) = 371;
+    (DI[1]  => O[2]) = 407;
+    (S[0]   => O[2]) = 391;
+    (S[1]   => O[2]) = 314;
+    (S[2]   => O[2]) = 144;
+
+    (CI     => O[3]) = 313;
+    (DI[0]  => O[3]) = 388;
+    (DI[1]  => O[3]) = 432;
+    (DI[2]  => O[3]) = 335;
+    (S[0]   => O[3]) = 418;
+    (S[1]   => O[3]) = 357;
+    (S[2]   => O[3]) = 331;
+    (S[3]   => O[3]) = 145;
   endspecify
 `endif
 endmodule
@@ -492,11 +498,11 @@ module FFRE (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , posedge C, 119);
-    $setup(CE, posedge C, 385);
-    $setup(R , posedge C, 565);
-    if (R)        (posedge C => (Q : 1'b0)) = 672;
-    if (!R && CE) (posedge C => (Q : D)) = 672;
+    $setup(D , posedge C, 144);
+    $setup(CE, posedge C, 412);
+    $setup(R , posedge C, 667);
+    if (R)        (posedge C => (Q : 1'b0)) = 712;
+    if (!R && CE) (posedge C => (Q : D)) = 712;
   endspecify
 `endif
 endmodule
@@ -524,11 +530,11 @@ module FFRE_N (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , negedge C, 119);
-    $setup(CE, negedge C, 385);
-    $setup(R , negedge C, 565);
-    if (R)        (negedge C => (Q : 1'b0)) = 672;
-    if (!R && CE) (negedge C => (Q : D)) = 672;
+    $setup(D , negedge C, 144);
+    $setup(CE, negedge C, 412);
+    $setup(R , negedge C, 667);
+    if (R)        (negedge C => (Q : 1'b0)) = 712;
+    if (!R && CE) (negedge C => (Q : D)) = 712;
   endspecify
 `endif
 endmodule
@@ -622,12 +628,12 @@ module FFCE (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , posedge C, 119);
-    $setup(CE, posedge C, 385);
-    $setup(CLR, posedge C, 0 /* missing? */);
-    if (!CLR && CE) (posedge C => (Q : D)) = 689;
+    $setup(D , posedge C, 140);
+    $setup(CE, posedge C, 412);
+    $setup(CLR, posedge C, 6);
+    if (!CLR && CE) (posedge C => (Q : D)) = 55;
 `ifdef YOSYS
-    if (CLR) (CLR => Q) = 0 /* missing? */;
+    if (CLR) (CLR => Q) = 55;
 `endif
   endspecify
 `endif
@@ -658,12 +664,12 @@ module FFCE_N (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D,   negedge C, 119);
-    $setup(CE,  negedge C, 385);
-    $setup(CLR, negedge C, 0 /* missing? */);
-    if (!CLR && CE) (negedge C => (Q : D)) = 689;
+    $setup(D,   negedge C, 140);
+    $setup(CE,  negedge C, 412);
+    $setup(CLR, negedge C, 6);
+    if (!CLR && CE) (negedge C => (Q : D)) = 55;
 `ifdef YOSYS
-    if (CLR) (CLR => Q) = 0 /* missing? */;
+    if (CLR) (CLR => Q) = 55;
 `endif
   endspecify
 `endif
@@ -693,12 +699,12 @@ module FFPE (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D,   posedge C, 119);
-    $setup(CE,  posedge C, 385);
-    $setup(PRE, posedge C, 0 /* missing? */);
-    if (!PRE && CE) (posedge C => (Q : D)) = 672;
+    $setup(D,   posedge C, 140);
+    $setup(CE,  posedge C, 412);
+    $setup(PRE, posedge C, 6);
+    if (!PRE && CE) (posedge C => (Q : D)) = 55;
 `ifdef YOSYS
-    if (PRE) (PRE => Q) = 0 /* missing? */;
+    if (PRE) (PRE => Q) = 55;
 `endif
   endspecify
 `endif
@@ -728,9 +734,9 @@ module FFPE_N (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D,   negedge C, 84);
-    $setup(CE,  negedge C, 84);
-    $setup(PRE, negedge C, 84);
+    $setup(D,   negedge C, 89);
+    $setup(CE,  negedge C, 89);
+    $setup(PRE, negedge C, 89);
     if (!PRE && CE) (negedge C => (Q : D)) = 712;
 `ifdef YOSYS
     if (PRE) (PRE => Q) = 57;
@@ -776,18 +782,18 @@ module RAMS32X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(A0, posedge WCLK, 84);
-    $setup(A1, posedge WCLK, 84);
-    $setup(A2, posedge WCLK, 84);
-    $setup(A3, posedge WCLK, 84);
-    $setup(A4, posedge WCLK, 84);
-    $setup(D,  posedge WCLK, 84);
-    $setup(WE, posedge WCLK, 84);
-    (A0 => O) = 168;
-    (A1 => O) = 168;
-    (A2 => O) = 168;
-    (A3 => O) = 168;
-    (A4 => O) = 168;
+    $setup(A0, posedge WCLK, 198);
+    $setup(A1, posedge WCLK, 198);
+    $setup(A2, posedge WCLK, 198);
+    $setup(A3, posedge WCLK, 198);
+    $setup(A4, posedge WCLK, 198);
+    $setup(D,  posedge WCLK, 198);
+    $setup(WE, posedge WCLK, 198);
+    (A0 => O) = 211;
+    (A1 => O) = 202;
+    (A2 => O) = 193;
+    (A3 => O) = 185;
+    (A4 => O) = 176;
     (posedge WCLK => (O : D)) = 1586;
   endspecify
 `endif
@@ -828,19 +834,19 @@ module RAMS64X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(A0, posedge WCLK, 84);
-    $setup(A1, posedge WCLK, 84);
-    $setup(A2, posedge WCLK, 84);
-    $setup(A3, posedge WCLK, 84);
-    $setup(A4, posedge WCLK, 84);
-    $setup(A5, posedge WCLK, 84);
-    $setup(D,  posedge WCLK, 84);
-    $setup(WE, posedge WCLK, 84);
-    (A0 => O) = 466;
-    (A1 => O) = 466;
-    (A2 => O) = 466;
-    (A3 => O) = 466;
-    (A4 => O) = 466;
+    $setup(A0, posedge WCLK, 224);
+    $setup(A1, posedge WCLK, 224);
+    $setup(A2, posedge WCLK, 224);
+    $setup(A3, posedge WCLK, 224);
+    $setup(A4, posedge WCLK, 224);
+    $setup(A5, posedge WCLK, 224);
+    $setup(D,  posedge WCLK, 224);
+    $setup(WE, posedge WCLK, 224);
+    (A0 => O) = 509;
+    (A1 => O) = 500;
+    (A2 => O) = 491;
+    (A3 => O) = 483;
+    (A4 => O) = 474;
     (A5 => O) = 187;
     (posedge WCLK => (O : D)) = 1730;
   endspecify
@@ -891,26 +897,23 @@ module RAMD32X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: partial setup timing
-    $setup(A0, posedge WCLK, 84);
-    $setup(A1, posedge WCLK, 84);
-    $setup(A2, posedge WCLK, 84);
-    $setup(A3, posedge WCLK, 84);
-    $setup(A4, posedge WCLK, 84);
-    $setup(D,  posedge WCLK, 84);
-    $setup(WE, posedge WCLK, 84);
-    // HACK: No timing arcs for SPO; using ones for DPO
-    // (are we meant to use the single-port timings here?)
-    (A0 => SPO) = 142;
-    (A1 => SPO) = 142;
-    (A2 => SPO) = 142;
-    (A3 => SPO) = 142;
-    (A4 => SPO) = 142;
-    (DPRA0 => DPO) = 142;
-    (DPRA1 => DPO) = 142;
-    (DPRA2 => DPO) = 142;
-    (DPRA3 => DPO) = 142;
-    (DPRA4 => DPO) = 142;
+    $setup(A0, posedge WCLK, 198);
+    $setup(A1, posedge WCLK, 198);
+    $setup(A2, posedge WCLK, 198);
+    $setup(A3, posedge WCLK, 198);
+    $setup(A4, posedge WCLK, 198);
+    $setup(D,  posedge WCLK, 198);
+    $setup(WE, posedge WCLK, 198);
+    (A0 => SPO) = 211;
+    (A1 => SPO) = 202;
+    (A2 => SPO) = 193;
+    (A3 => SPO) = 185;
+    (A4 => SPO) = 176;
+    (DPRA0 => DPO) = 185;
+    (DPRA1 => DPO) = 176;
+    (DPRA2 => DPO) = 167;
+    (DPRA3 => DPO) = 159;
+    (DPRA4 => DPO) = 150;
     (posedge WCLK => (SPO : D)) = 1586;
     (posedge WCLK => (DPO : D)) = 1586;
   endspecify
@@ -962,29 +965,28 @@ module RAMD64X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: partial setup timing
-    $setup(A0, posedge WCLK, 84);
-    $setup(A1, posedge WCLK, 84);
-    $setup(A2, posedge WCLK, 84);
-    $setup(A3, posedge WCLK, 84);
-    $setup(A4, posedge WCLK, 84);
-    $setup(A5, posedge WCLK, 84);
-    $setup(D,  posedge WCLK, 84);
-    $setup(WE, posedge WCLK, 84);
-    (A0 => SPO) = 466;
-    (A1 => SPO) = 466;
-    (A2 => SPO) = 466;
-    (A3 => SPO) = 466;
-    (A4 => SPO) = 466;
+    $setup(A0, posedge WCLK, 224);
+    $setup(A1, posedge WCLK, 224);
+    $setup(A2, posedge WCLK, 224);
+    $setup(A3, posedge WCLK, 224);
+    $setup(A4, posedge WCLK, 224);
+    $setup(A5, posedge WCLK, 224);
+    $setup(D,  posedge WCLK, 224);
+    $setup(WE, posedge WCLK, 224);
+    (A0 => SPO) = 509;
+    (A1 => SPO) = 500;
+    (A2 => SPO) = 491;
+    (A3 => SPO) = 483;
+    (A4 => SPO) = 474;
     (A5 => SPO) = 187;
-    (DPRA0 => DPO) = 380;
-    (DPRA1 => DPO) = 380;
-    (DPRA2 => DPO) = 380;
-    (DPRA3 => DPO) = 380;
-    (DPRA4 => DPO) = 380;
-    (DPRA5 => DPO) = 195;    
-    (posedge WCLK => (SPO : D)) = 1730;
-    (posedge WCLK => (DPO : D)) = 1799;
+    (DPRA0 => DPO) = 531;
+    (DPRA1 => DPO) = 522;
+    (DPRA2 => DPO) = 513;
+    (DPRA3 => DPO) = 505;
+    (DPRA4 => DPO) = 496;
+    (DPRA5 => DPO) = 199;    
+    (posedge WCLK => (SPO : D)) = 1798;
+    (posedge WCLK => (DPO : D)) = 1807;
   endspecify
 `endif
 endmodule
@@ -1143,9 +1145,22 @@ module RBRAM #(
     input PD
 );
 
+// Timings simplified for now
+specify
+  $setup(DA,  posedge CLKA, 715);
+  $setup(CEA, posedge CLKA, 414);
+  $setup(AA,  posedge CLKA, 624);
+
+  $setup(DB,  posedge CLKB, 744);
+  $setup(CEB, posedge CLKB, 350);
+  $setup(AB,  posedge CLKB, 643);
+
+  (posedge CLKA => (QA : DA)) = 2380;
+  (posedge CLKB => (QB : DB)) = 2289;
+endspecify
+
 endmodule
 
-(* lib_whitebox *)
 module RBRAM2 #(
     parameter TARGET_NODE = "T16FFC_Gen2.4",
     parameter BRAM_MODE = "SDP_2048x40",
