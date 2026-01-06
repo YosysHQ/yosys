@@ -289,6 +289,7 @@ struct OptMergeWorker
 				CellPtrHash,
 				CellPtrEqual> known_cells (0, CellPtrHash(*this), CellPtrEqual(*this));
 
+			std::vector<RTLIL::SigSig> redirects;
 			for (auto cell : cells)
 			{
 				auto [cell_in_map, inserted] = known_cells.insert(cell);
@@ -310,18 +311,21 @@ struct OptMergeWorker
 							RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
 							log_debug("    Redirecting output %s: %s = %s\n", it.first,
 									log_signal(it.second), log_signal(other_sig));
-							Const init = initvals(other_sig);
-							initvals.remove_init(it.second);
-							initvals.remove_init(other_sig);
-							module->connect(RTLIL::SigSig(it.second, other_sig));
-							assign_map.add(it.second, other_sig);
-							initvals.set_init(other_sig, init);
+							redirects.push_back(RTLIL::SigSig(it.second, std::move(other_sig)));
 						}
 					}
 					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
 					module->remove(cell);
 					total_count++;
 				}
+			}
+			for (const RTLIL::SigSig &redirect : redirects) {
+				module->connect(redirect);
+				Const init = initvals(redirect.second);
+				initvals.remove_init(redirect.first);
+				initvals.remove_init(redirect.second);
+				assign_map.add(redirect.first, redirect.second);
+				initvals.set_init(redirect.second, init);
 			}
 		}
 
