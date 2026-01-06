@@ -426,7 +426,7 @@ void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_stri
 	f << stringf("%sparameter %s", indent.c_str(), id(id_string).c_str());
 	f << stringf(" = ");
 	dump_const(f, parameter);
-	f << stringf(";\n");
+	f << ";\n";
 }
 
 void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
