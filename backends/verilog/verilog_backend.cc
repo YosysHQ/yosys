@@ -423,8 +423,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 
 void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_string, RTLIL::Const parameter)
 {
-	f << stringf("%sparameter %s", indent.c_str(), id(id_string).c_str());
-	f << stringf(" = ");
+	f << stringf("%sparameter %s = ", indent.c_str(), id(id_string).c_str());
 	dump_const(f, parameter);
 	f << ";\n";
 }
