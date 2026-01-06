@@ -1,0 +1,17 @@
+# just so slightly adjust the example from check.ys to induce a loop
+design -reset
+read -vlog2k <<EOF
+module top(input clk, input a, input b, output [9:0] x);
+	wire [9:0] ripple;
+	reg [9:0] prev_ripple = 9'b0;
+
+	always @(posedge clk) prev_ripple <= ripple;
+	assign ripple = {ripple[8:1], a, ripple[0]} ^ prev_ripple;
+	assign x = ripple[9] + b;
+endmodule
+EOF
+hierarchy -top top
+prep
+logger -expect warning "found logic loop in module top:" 1
+logger -expect error "Found 1 problems in 'check -assert'" 1
+check -assert

@@ -1,4 +1,3 @@
-*.log
-/run-test.mk
+*.json
 +*_synth.v
 +*_testbench

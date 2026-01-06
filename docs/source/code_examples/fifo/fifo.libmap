@@ -1,0 +1,65 @@
+
+yosys> debug memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt -no-auto-huge
+
+yosys> memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt -no-auto-huge
+
+4. Executing MEMORY_LIBMAP pass (mapping memories to cells).
+Memory fifo.data mapping candidates (post-geometry):
+- logic fallback
+  - cost: 2048.000000
+- $__ICE40_RAM4K_:
+  - option HAS_BE 0
+  - emulation score: 7
+  - replicates (for ports): 1
+  - replicates (for data): 1
+  - mux score: 0
+  - demux score: 0
+  - cost: 78.000000
+  - abits 11 dbits 2 4 8 16
+  - chosen base width 8
+  - swizzle 0 1 2 3 4 5 6 7
+  - emulate read-first behavior
+  - write port 0: port group W
+    - widths 2 4 8
+  - read port 0: port group R
+    - widths 2 4 8 16
+    - emulate transparency with write port 0
+- $__ICE40_RAM4K_:
+  - option HAS_BE 1
+  - emulation score: 7
+  - replicates (for ports): 1
+  - replicates (for data): 1
+  - mux score: 0
+  - demux score: 0
+  - cost: 78.000000
+  - abits 11 dbits 2 4 8 16
+  - byte width 1
+  - chosen base width 8
+  - swizzle 0 1 2 3 4 5 6 7
+  - emulate read-first behavior
+  - write port 0: port group W
+    - widths 16
+  - read port 0: port group R
+    - widths 2 4 8 16
+    - emulate transparency with write port 0
+Memory fifo.data mapping candidates (after post-geometry prune):
+- logic fallback
+  - cost: 2048.000000
+- $__ICE40_RAM4K_:
+  - option HAS_BE 0
+  - emulation score: 7
+  - replicates (for ports): 1
+  - replicates (for data): 1
+  - mux score: 0
+  - demux score: 0
+  - cost: 78.000000
+  - abits 11 dbits 2 4 8 16
+  - chosen base width 8
+  - swizzle 0 1 2 3 4 5 6 7
+  - emulate read-first behavior
+  - write port 0: port group W
+    - widths 2 4 8
+  - read port 0: port group R
+    - widths 2 4 8 16
+    - emulate transparency with write port 0
+mapping memory fifo.data via $__ICE40_RAM4K_

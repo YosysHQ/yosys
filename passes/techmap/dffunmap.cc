@@ -33,8 +33,8 @@ struct DffunmapPass : public Pass {
 		log("    dffunmap [options] [selection]\n");
 		log("\n");
 		log("This pass transforms FF types with clock enable and/or synchronous reset into\n");
-		log("their base type (with neither clock enable nor sync reset) by emulating the clock\n");
-		log("enable and synchronous reset with multiplexers on the cell input.\n");
+		log("their base type (with neither clock enable nor sync reset) by emulating the\n");
+		log("clock enable and synchronous reset with multiplexers on the cell input.\n");
 		log("\n");
 		log("    -ce-only\n");
 		log("        unmap only clock enables, leave synchronous resets alone.\n");
@@ -74,7 +74,7 @@ struct DffunmapPass : public Pass {
 
 			for (auto cell : mod->selected_cells())
 			{
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

@@ -7550,10 +7550,12 @@ module IBUF_ANALOG (...);
 endmodule
 
 module IBUFE3 (...);
+    parameter CCIO_EN = "TRUE";
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
-    parameter USE_IBUFDISABLE = "FALSE";
+    parameter SIM_DEVICE = "ULTRASCALE";
     parameter integer SIM_INPUT_BUFFER_OFFSET = 0;
+    parameter USE_IBUFDISABLE = "FALSE";
     output O;
     (* iopad_external_pin *)
     input I;
@@ -7760,8 +7762,9 @@ module IOBUFE3 (...);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
-    parameter USE_IBUFDISABLE = "FALSE";
+    parameter SIM_DEVICE = "ULTRASCALE";
     parameter integer SIM_INPUT_BUFFER_OFFSET = 0;
+    parameter USE_IBUFDISABLE = "FALSE";
     output O;
     (* iopad_external_pin *)
     inout IO;
@@ -19721,6 +19724,7 @@ module HSADC (...);
 endmodule
 
 module RFDAC (...);
+    parameter integer LD_DEVICE = 0;
     parameter integer OPT_CLK_DIST = 0;
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";
     parameter integer XPA_ACTIVE_DUTYCYCLE = 100;
@@ -19784,6 +19788,7 @@ module RFDAC (...);
 endmodule
 
 module RFADC (...);
+    parameter integer LD_DEVICE = 0;
     parameter integer OPT_ANALOG = 0;
     parameter integer OPT_CLK_DIST = 0;
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";

@@ -1,0 +1,17 @@
+read_verilog ../../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+
+equiv_opt -run :prove -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f
+async2sync
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+
+select -assert-count 9 t:$lut
+select -assert-count 6 t:sdffsre
+
+select -assert-none t:$lut t:sdffsre %% t:* %D

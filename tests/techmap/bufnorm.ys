@@ -1,0 +1,11 @@
+# Check wires driven by constants are kept
+read_verilog <<EOT
+module top(output wire [7:0] y);
+assign y = 27;
+endmodule
+EOT
+
+equiv_opt -assert bufnorm
+design -load postopt
+select -assert-count 1 t:$buf
+select -assert-count 1 w:y %ci t:$buf %i

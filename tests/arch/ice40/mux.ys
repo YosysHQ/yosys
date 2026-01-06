@@ -15,7 +15,7 @@ proc
 equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux4 # Constrain all select calls below inside the top module
-select -assert-count 2 t:SB_LUT4
+select -assert-count 3 t:SB_LUT4
 
 select -assert-none t:SB_LUT4 %% t:* %D
 
@@ -25,7 +25,7 @@ proc
 equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
-select -assert-count 5 t:SB_LUT4
+select -assert-count 6 t:SB_LUT4
 
 select -assert-none t:SB_LUT4 %% t:* %D
 
@@ -35,7 +35,7 @@ proc
 equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
-select -assert-min 11 t:SB_LUT4
-select -assert-max 12 t:SB_LUT4
+select -assert-min 13 t:SB_LUT4
+select -assert-max 14 t:SB_LUT4
 
 select -assert-none t:SB_LUT4 %% t:* %D

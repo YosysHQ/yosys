@@ -14,8 +14,7 @@
 `define x8_width(width) (width / 9 * 8 + width % 9)
 `define x8_rd_data(data) {1'bx, data[31:24], 1'bx, data[23:16], 1'bx, data[15:8], 1'bx, data[7:0]}
 `define x8_wr_data(data) {data[34:27], data[25:18], data[16:9], data[7:0]}
-`define wre(width, wr_en, wr_be) (width < 18 ? wr_en | wr_be[0] : wr_en)
-`define addrbe(width, addr, wr_be) (width < 18 ? addr : {addr[13:4], wr_be})
+`define addrbe(width, addr, w_be) (width < 18 ? addr :  width == 18 ? {addr[13:4], 2'b00, w_be[1:0]} : {addr[13:5], 1'b0, w_be[3:0]})
 
 
 `define INIT(func) \
@@ -90,8 +89,8 @@ parameter INIT = 0;
 parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_A_WIDTH = 36;
-parameter PORT_A_WR_BE_WIDTH = 4;
 parameter PORT_A_OPTION_WRITE_MODE = 0;
+parameter PORT_A_WR_BE_WIDTH = 4;
 
 input PORT_A_CLK;
 input PORT_A_CLK_EN;
@@ -106,7 +105,6 @@ output [PORT_A_WIDTH-1:0] PORT_A_RD_DATA;
 `DEF_FUNCS
 
 wire RST = OPTION_RESET_MODE == "SYNC" ? PORT_A_RD_SRST : PORT_A_RD_ARST;
-wire WRE = `wre(PORT_A_WIDTH, PORT_A_WR_EN, PORT_A_WR_BE);
 wire [13:0] AD = `addrbe(PORT_A_WIDTH, PORT_A_ADDR, PORT_A_WR_BE);
 
 generate
@@ -129,9 +127,9 @@ if (PORT_A_WIDTH < 9) begin
 		.BLKSEL(3'b000),
 		.CLK(PORT_A_CLK),
 		.CE(PORT_A_CLK_EN),
-		.WRE(WRE),
+		.WRE(PORT_A_WR_EN),
 		.RESET(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.AD(AD),
 		.DI(DI),
 		.DO(DO),
@@ -155,9 +153,9 @@ end else begin
 		.BLKSEL(3'b000),
 		.CLK(PORT_A_CLK),
 		.CE(PORT_A_CLK_EN),
-		.WRE(WRE),
+		.WRE(PORT_A_WR_EN),
 		.RESET(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.AD(AD),
 		.DI(DI),
 		.DO(DO),
@@ -176,12 +174,12 @@ parameter INIT = 0;
 parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_A_WIDTH = 18;
-parameter PORT_A_WR_BE_WIDTH = 2;
 parameter PORT_A_OPTION_WRITE_MODE = 0;
+parameter PORT_A_WR_BE_WIDTH = 4;
 
 parameter PORT_B_WIDTH = 18;
-parameter PORT_B_WR_BE_WIDTH = 2;
 parameter PORT_B_OPTION_WRITE_MODE = 0;
+parameter PORT_B_WR_BE_WIDTH = 4;
 
 input PORT_A_CLK;
 input PORT_A_CLK_EN;
@@ -199,7 +197,7 @@ input PORT_B_WR_EN;
 input PORT_B_RD_SRST;
 input PORT_B_RD_ARST;
 input [13:0] PORT_B_ADDR;
-input [PORT_A_WR_BE_WIDTH-1:0] PORT_B_WR_BE;
+input [PORT_B_WR_BE_WIDTH-1:0] PORT_B_WR_BE;
 input [PORT_A_WIDTH-1:0] PORT_B_WR_DATA;
 output [PORT_A_WIDTH-1:0] PORT_B_RD_DATA;
 
@@ -207,9 +205,7 @@ output [PORT_A_WIDTH-1:0] PORT_B_RD_DATA;
 
 wire RSTA = OPTION_RESET_MODE == "SYNC" ? PORT_A_RD_SRST : PORT_A_RD_ARST;
 wire RSTB = OPTION_RESET_MODE == "SYNC" ? PORT_B_RD_SRST : PORT_B_RD_ARST;
-wire WREA = `wre(PORT_A_WIDTH, PORT_A_WR_EN, PORT_A_WR_BE);
-wire WREB = `wre(PORT_B_WIDTH, PORT_B_WR_EN, PORT_B_WR_BE);
-wire [13:0] ADA = `addrbe(PORT_A_WIDTH, PORT_A_ADDR, PORT_A_WR_BE);
+wire [13:0] ADA = `addrbe(PORT_A_WIDTH, PORT_A_ADDR, PORT_B_WR_BE);
 wire [13:0] ADB = `addrbe(PORT_B_WIDTH, PORT_B_ADDR, PORT_B_WR_BE);
 
 generate
@@ -224,7 +220,7 @@ if (PORT_A_WIDTH < 9 || PORT_B_WIDTH < 9) begin
 	assign PORT_A_RD_DATA = `x8_rd_data(DOA);
 	assign PORT_B_RD_DATA = `x8_rd_data(DOB);
 
-	DP #(
+	DPB #(
 		`INIT(init_slice_x8)
 		.READ_MODE0(1'b0),
 		.READ_MODE1(1'b0),
@@ -232,25 +228,27 @@ if (PORT_A_WIDTH < 9 || PORT_B_WIDTH < 9) begin
 		.WRITE_MODE1(PORT_B_OPTION_WRITE_MODE),
 		.BIT_WIDTH_0(`x8_width(PORT_A_WIDTH)),
 		.BIT_WIDTH_1(`x8_width(PORT_B_WIDTH)),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_A_CLK),
 		.CEA(PORT_A_CLK_EN),
-		.WREA(WREA),
+		.WREA(PORT_A_WR_EN),
 		.RESETA(RSTA),
-		.OCEA(1'b0),
+		.OCEA(1'b1),
 		.ADA(ADA),
 		.DIA(DIA),
 		.DOA(DOA),
 
 		.CLKB(PORT_B_CLK),
 		.CEB(PORT_B_CLK_EN),
-		.WREB(WREB),
+		.WREB(PORT_B_WR_EN),
 		.RESETB(RSTB),
-		.OCEB(1'b0),
+		.OCEB(1'b1),
 		.ADB(ADB),
 		.DIB(DIB),
 		.DOB(DOB),
@@ -266,7 +264,7 @@ end else begin
 	assign PORT_A_RD_DATA = DOA;
 	assign PORT_B_RD_DATA = DOB;
 
-	DPX9 #(
+	DPX9B #(
 		`INIT(init_slice_x9)
 		.READ_MODE0(1'b0),
 		.READ_MODE1(1'b0),
@@ -274,25 +272,27 @@ end else begin
 		.WRITE_MODE1(PORT_B_OPTION_WRITE_MODE),
 		.BIT_WIDTH_0(PORT_A_WIDTH),
 		.BIT_WIDTH_1(PORT_B_WIDTH),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_A_CLK),
 		.CEA(PORT_A_CLK_EN),
-		.WREA(WREA),
+		.WREA(PORT_A_WR_EN),
 		.RESETA(RSTA),
-		.OCEA(1'b0),
+		.OCEA(1'b1),
 		.ADA(ADA),
 		.DIA(DIA),
 		.DOA(DOA),
 
 		.CLKB(PORT_B_CLK),
 		.CEB(PORT_B_CLK_EN),
-		.WREB(WREB),
+		.WREB(PORT_B_WR_EN),
 		.RESETB(RSTB),
-		.OCEB(1'b0),
+		.OCEB(1'b1),
 		.ADB(ADB),
 		.DIB(DIB),
 		.DOB(DOB),
@@ -311,9 +311,8 @@ parameter INIT = 0;
 parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_R_WIDTH = 18;
-
 parameter PORT_W_WIDTH = 18;
-parameter PORT_W_WR_BE_WIDTH = 2;
+parameter PORT_W_WR_BE_WIDTH = 4;
 
 input PORT_R_CLK;
 input PORT_R_CLK_EN;
@@ -332,8 +331,8 @@ input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 `DEF_FUNCS
 
 wire RST = OPTION_RESET_MODE == "SYNC" ? PORT_R_RD_SRST : PORT_R_RD_ARST;
-wire WRE = `wre(PORT_W_WIDTH, PORT_W_WR_EN, PORT_W_WR_BE);
 wire [13:0] ADW = `addrbe(PORT_W_WIDTH, PORT_W_ADDR, PORT_W_WR_BE);
+wire WRE = PORT_W_CLK_EN & PORT_W_WR_EN;
 
 generate
 
@@ -344,28 +343,28 @@ if (PORT_W_WIDTH < 9 || PORT_R_WIDTH < 9) begin
 
 	assign PORT_R_RD_DATA = `x8_rd_data(DO);
 
-	SDP #(
+	SDPB #(
 		`INIT(init_slice_x8)
 		.READ_MODE(1'b0),
 		.BIT_WIDTH_0(`x8_width(PORT_W_WIDTH)),
 		.BIT_WIDTH_1(`x8_width(PORT_R_WIDTH)),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_W_CLK),
-		.CEA(PORT_W_CLK_EN),
-		.WREA(WRE),
+		.CEA(WRE),
 		.RESETA(1'b0),
 		.ADA(ADW),
 		.DI(DI),
 
 		.CLKB(PORT_R_CLK),
 		.CEB(PORT_R_CLK_EN),
-		.WREB(1'b0),
 		.RESETB(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.ADB(PORT_R_ADDR),
 		.DO(DO),
 	);
@@ -377,28 +376,28 @@ end else begin
 
 	assign PORT_R_RD_DATA = DO;
 
-	SDPX9 #(
+	SDPX9B #(
 		`INIT(init_slice_x9)
 		.READ_MODE(1'b0),
 		.BIT_WIDTH_0(PORT_W_WIDTH),
 		.BIT_WIDTH_1(PORT_R_WIDTH),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_W_CLK),
-		.CEA(PORT_W_CLK_EN),
-		.WREA(WRE),
+		.CEA(WRE),
 		.RESETA(1'b0),
 		.ADA(ADW),
 		.DI(DI),
 
 		.CLKB(PORT_R_CLK),
 		.CEB(PORT_R_CLK_EN),
-		.WREB(1'b0),
 		.RESETB(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.ADB(PORT_R_ADDR),
 		.DO(DO),
 	);

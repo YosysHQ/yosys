@@ -1,0 +1,26 @@
+read_verilog <<EOT
+module top ( out, clk, reset );
+    output [7:0] out;
+    input clk, reset;
+    reg [7:0] out;
+
+    always @(posedge clk)
+      if (reset)
+          out <= 8'b0;
+      else
+          out <= out + 1;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -map +/fabulous/prims.v synth_fabulous # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:LUT2
+select -assert-count 7 t:LUT3
+select -assert-count 4 t:LUT4
+select -assert-count 8 t:LUTFF
+select -assert-none t:LUT2 t:LUT3 t:LUT4 t:LUTFF %% t:* %D

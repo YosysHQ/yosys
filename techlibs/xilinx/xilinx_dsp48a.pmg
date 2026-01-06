@@ -1,0 +1,429 @@
+// This file describes the main pattern matcher setup (of three total) that
+//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc - version for
+//   DSP48A/DSP48A1 (Spartan 3A DSP, Spartan 6).
+// At a high level, it works as follows:
+//   ( 1) Starting from a DSP48A/DSP48A1 cell
+//   ( 2) Match the driver of the 'B' input to a possible $dff cell (B1REG)
+//        If B1REG matched, treat 'B' input as input of B1REG
+//   ( 3) Match the driver of the 'B' and 'D' inputs for a possible $add cell
+//       (pre-adder)
+//   ( 4) Match 'B' input for B0REG
+//   ( 5) Match 'A' input for A1REG
+//        If A1REG, then match 'A' input for A0REG
+//   ( 6) Match 'D' input for DREG
+//   ( 7) Match 'P' output that exclusively drives an MREG
+//   ( 8) Match 'P' output that exclusively drives one of two inputs to an $add
+//        cell (post-adder).
+//        The other input to the adder is assumed to come in from the 'C' input
+//        (note: 'P' -> 'C' connections that exist for accumulators are
+//         recognised in xilinx_dsp.cc).
+//   ( 9) Match 'P' output that exclusively drives a PREG
+//   (10) If post-adder and PREG both present, match for a $mux cell driving
+//        the 'C' input, where one of the $mux's inputs is the PREG output.
+//        This indicates an accumulator situation, and one where a $mux exists
+//        to override the accumulated value:
+//             +--------------------------------+
+//             |   ____                         |
+//             +--|    \                        |
+//                |$mux|-+                      |
+//         'C' ---|____/ |                      |
+//                       | /-------\   +----+   |
+//            +----+     +-| post- |___|PREG|---+ 'P'
+//            |MREG|------ | adder |   +----+
+//            +----+       \-------/
+// Notes: see the notes in xilinx_dsp.pmg
+
+pattern xilinx_dsp48a_pack
+
+state <SigBit> clock
+state <SigSpec> sigA sigB sigC sigD sigM sigP
+state <IdString> postAddAB postAddMuxAB
+state <Cell*> ffA0 ffA1
+state <Cell*> ffB0 ffB1
+state <Cell*> ffD ffM ffP
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+
+// (1) Starting from a DSP48A/DSP48A1 cell
+match dsp
+	select dsp->type.in(\DSP48A, \DSP48A1)
+endmatch
+
+code sigA sigB sigC sigD sigM clock
+	auto unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+	sigA = unextend(port(dsp, \A));
+	sigB = unextend(port(dsp, \B));
+
+	sigC = port(dsp, \C, SigSpec());
+	sigD = port(dsp, \D, SigSpec());
+
+	SigSpec P = port(dsp, \P);
+	// Only care about those bits that are used
+	int i;
+	for (i = GetSize(P)-1; i >= 0; i--)
+		if (nusers(P[i]) > 1)
+			break;
+	i++;
+	log_assert(nusers(P.extract_end(i)) <= 1);
+	// This sigM could have no users if downstream sinks (e.g. $add) is
+	//   narrower than $mul result, for example
+	if (i == 0)
+		reject;
+	sigM = P.extract(0, i);
+
+	clock = port(dsp, \CLK, SigBit());
+endcode
+
+// (2) Match the driver of the 'B' input to a possible $dff cell (B1REG)
+//     (attached to at most two $mux cells that implement clock-enable or
+//      reset functionality, using a subpattern discussed above)
+//     If matched, treat 'B' input as input of B1REG
+code argQ ffB1 sigB clock
+	if (param(dsp, \B1REG).as_int() == 0 && param(dsp, \B0REG).as_int() == 0 && port(dsp, \OPMODE, SigSpec()).extract(4, 1).is_fully_zero()) {
+		argQ = sigB;
+		subpattern(in_dffe);
+		if (dff) {
+			ffB1 = dff;
+			clock = dffclock;
+			sigB = dffD;
+		}
+	}
+endcode
+
+// (3) Match the driver of the 'B' and 'D' inputs for a possible $add cell
+//     (pre-adder)
+match preAdd
+	if sigD.empty() || sigD.is_fully_zero()
+	if param(dsp, \B0REG).as_int() == 0
+	// Ensure that preAdder not already used
+	if port(dsp, \OPMODE, SigSpec()).extract(4, 1).is_fully_zero()
+
+	select preAdd->type.in($add, $sub)
+	// Output has to be 18 bits or less
+	select GetSize(port(preAdd, \Y)) <= 18
+	select nusers(port(preAdd, \Y)) == 2
+	// D port has to be 18 bits or less
+	select GetSize(port(preAdd, \A)) <= 18
+	// B port has to be 18 bits or less
+	select GetSize(port(preAdd, \B)) <= 18
+	index <SigSpec> port(preAdd, \Y) === sigB
+
+	optional
+endmatch
+
+code sigB sigD
+	if (preAdd) {
+		sigD = port(preAdd, \A);
+		sigB = port(preAdd, \B);
+	}
+endcode
+
+// (4) Match 'B' input for B0REG
+code argQ ffB0 sigB clock
+	if (param(dsp, \B0REG).as_int() == 0) {
+		argQ = sigB;
+		subpattern(in_dffe);
+		if (dff) {
+			if (ffB1) {
+				if (dff->type != ffB1->type)
+					goto ffB0_end;
+				if (dff->type.in($sdff, $sdffe, $sdffce)) {
+					if (param(dff, \SRST_POLARITY) != param(ffB1, \SRST_POLARITY))
+						goto ffB0_end;
+					if (port(dff, \SRST) != port(ffB1, \SRST))
+						goto ffB0_end;
+				}
+				if (dff->type.in($dffe, $sdffe, $sdffce)) {
+					if (param(dff, \EN_POLARITY) != param(ffB1, \EN_POLARITY))
+						goto ffB0_end;
+					if (port(dff, \EN) != port(ffB1, \EN))
+						goto ffB0_end;
+				}
+			}
+			ffB0 = dff;
+			clock = dffclock;
+			sigB = dffD;
+		}
+	}
+ffB0_end:
+endcode
+
+// (5) Match 'A' input for A1REG
+//     If A1REG, then match 'A' input for A0REG
+code argQ ffA1 sigA clock ffA0
+	if (param(dsp, \A0REG).as_int() == 0 && param(dsp, \A1REG).as_int() == 0) {
+		argQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			ffA1 = dff;
+			clock = dffclock;
+			sigA = dffD;
+
+			// Now attempt to match A0
+			if (ffA1) {
+				argQ = sigA;
+				subpattern(in_dffe);
+				if (dff) {
+					if (dff->type != ffA1->type)
+						goto ffA0_end;
+					if (dff->type.in($sdff, $sdffe, $sdffce)) {
+						if (param(dff, \SRST_POLARITY) != param(ffA1, \SRST_POLARITY))
+							goto ffA0_end;
+						if (port(dff, \SRST) != port(ffA1, \SRST))
+							goto ffA0_end;
+					}
+					if (dff->type.in($dffe, $sdffe, $sdffce)) {
+						if (param(dff, \EN_POLARITY) != param(ffA1, \EN_POLARITY))
+							goto ffA0_end;
+						if (port(dff, \EN) != port(ffA1, \EN))
+							goto ffA0_end;
+					}
+
+					ffA0 = dff;
+					clock = dffclock;
+					sigA = dffD;
+
+ffA0_end:				;
+				}
+			}
+
+		}
+	}
+endcode
+
+// (6) Match 'D' input for DREG
+code argQ ffD sigD clock
+	if (param(dsp, \DREG).as_int() == 0) {
+		argQ = sigD;
+		subpattern(in_dffe);
+		if (dff) {
+			ffD = dff;
+			clock = dffclock;
+			sigD = dffD;
+		}
+	}
+endcode
+
+// (7) Match 'P' output that exclusively drives an MREG
+code argD ffM sigM sigP clock
+	if (param(dsp, \MREG).as_int() == 0 && nusers(sigM) == 2) {
+		argD = sigM;
+		subpattern(out_dffe);
+		if (dff) {
+			ffM = dff;
+			clock = dffclock;
+			sigM = dffQ;
+		}
+	}
+	sigP = sigM;
+endcode
+
+// (8) Match 'P' output that exclusively drives one of two inputs to an $add
+//     cell (post-adder).
+//     The other input to the adder is assumed to come in from the 'C' input
+//     (note: 'P' -> 'C' connections that exist for accumulators are
+//      recognised in xilinx_dsp.cc).
+match postAdd
+	// Ensure that Z mux is not already used
+	if port(dsp, \OPMODE, SigSpec()).extract(2,2).is_fully_zero()
+
+	select postAdd->type.in($add)
+	select GetSize(port(postAdd, \Y)) <= 48
+	choice <IdString> AB {\A, \B}
+	select nusers(port(postAdd, AB)) == 2
+
+	index <SigBit> port(postAdd, AB)[0] === sigP[0]
+	filter GetSize(port(postAdd, AB)) >= GetSize(sigP)
+	filter port(postAdd, AB).extract(0, GetSize(sigP)) == sigP
+	// Check that remainder of AB is a sign- or zero-extension
+	filter port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(sigP[GetSize(sigP)-1], GetSize(port(postAdd, AB))-GetSize(sigP)) || port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(State::S0, GetSize(port(postAdd, AB))-GetSize(sigP))
+
+	set postAddAB AB
+	optional
+endmatch
+
+code sigC sigP
+	if (postAdd) {
+		sigC = port(postAdd, postAddAB == \A ? \B : \A);
+		sigP = port(postAdd, \Y);
+	}
+endcode
+
+// (9) Match 'P' output that exclusively drives a PREG
+code argD ffP sigP clock
+	if (param(dsp, \PREG).as_int() == 0) {
+		if (nusers(sigP) == 2) {
+			argD = sigP;
+			subpattern(out_dffe);
+			if (dff) {
+				ffP = dff;
+				clock = dffclock;
+				sigP = dffQ;
+			}
+		}
+	}
+endcode
+
+// (10) If post-adder and PREG both present, match for a $mux cell driving
+//      the 'C' input, where one of the $mux's inputs is the PREG output.
+//      This indicates an accumulator situation, and one where a $mux exists
+//      to override the accumulated value:
+//           +--------------------------------+
+//           |   ____                         |
+//           +--|    \                        |
+//              |$mux|-+                      |
+//       'C' ---|____/ |                      |
+//                     | /-------\   +----+   |
+//          +----+     +-| post- |___|PREG|---+ 'P'
+//          |MREG|------ | adder |   +----+
+//          +----+       \-------/
+match postAddMux
+	if postAdd
+	if ffP
+	select postAddMux->type.in($mux)
+	select nusers(port(postAddMux, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(postAddMux, AB) === sigP
+	index <SigSpec> port(postAddMux, \Y) === sigC
+	set postAddMuxAB AB
+	optional
+endmatch
+
+code sigC
+	if (postAddMux)
+		sigC = port(postAddMux, postAddMuxAB == \A ? \B : \A);
+endcode
+
+code
+	accept;
+endcode
+
+// #######################
+
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input.
+subpattern in_dffe
+arg argQ clock
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
+		if (!c.wire)
+			reject;
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		// (not supported by DSP48E1)
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
+endmatch
+
+code argQ
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	SigSpec D = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, D);
+endcode
+
+// #######################
+
+// Subpattern for matching against output registers, based on knowledge of the
+//   'D' input.
+// At a high level:
+//   (1) Starting from an optional $mux cell that implements clock enable
+//       semantics --- one where the given 'D' argument (partially or fully)
+//       drives one of its two inputs
+//   (2) Starting from, or continuing onto, another optional $mux cell that
+//       implements synchronous reset semantics --- one where the given 'D'
+//       argument (or the clock enable $mux output) drives one of its two inputs
+//       and where the other input is fully zero
+//   (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
+//       output of the previous clock enable or reset $mux cells)
+subpattern out_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argD.chunks())
+		// Abandon matches when 'D' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
+endmatch
+
+code argQ
+	SigSpec D = port(ff, \D);
+	SigSpec Q = port(ff, \Q);
+	argQ = argD;
+	argQ.replace(D, Q);
+
+	// Abandon matches when 'Q' has a non-zero init attribute set
+	// (not supported by DSP48E1)
+	for (auto c : argQ.chunks()) {
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+
+	dff = ff;
+	dffQ = argQ;
+	dffclock = port(ff, \CLK);
+endcode

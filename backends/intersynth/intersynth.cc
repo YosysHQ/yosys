@@ -100,13 +100,13 @@ struct IntersynthBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		log("Output filename: %s\n", filename.c_str());
+		log("Output filename: %s\n", filename);
 
 		for (auto filename : libfiles) {
 			std::ifstream f;
 			f.open(filename.c_str());
 			if (f.fail())
-				log_error("Can't open lib file `%s'.\n", filename.c_str());
+				log_error("Can't open lib file `%s'.\n", filename);
 			RTLIL::Design *lib = new RTLIL::Design;
 			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 			libs.push_back(lib);
@@ -172,15 +172,15 @@ struct IntersynthBackend : public Backend {
 					if (sig.size() != 0) {
 						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
 						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", log_id(port.first));
-						node_code += stringf(" %s %s", log_id(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
+						node_code += stringf(" %s %s", log_id(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig));
 					}
 				}
 				for (auto &param : cell->parameters) {
-					celltype_code += stringf(" cfg:%d %s", int(param.second.bits.size()), log_id(param.first));
-					if (param.second.bits.size() != 32) {
+					celltype_code += stringf(" cfg:%d %s", int(param.second.size()), log_id(param.first));
+					if (param.second.size() != 32) {
 						node_code += stringf(" %s '", log_id(param.first));
-						for (int i = param.second.bits.size()-1; i >= 0; i--)
-							node_code += param.second.bits[i] == State::S1 ? "1" : "0";
+						for (int i = param.second.size()-1; i >= 0; i--)
+							node_code += param.second[i] == State::S1 ? "1" : "0";
 					} else
 						node_code += stringf(" %s 0x%x", log_id(param.first), param.second.as_int());
 				}
@@ -199,13 +199,13 @@ struct IntersynthBackend : public Backend {
 		if (!flag_notypes) {
 			*f << stringf("### Connection Types\n");
 			for (auto code : conntypes_code)
-				*f << stringf("%s", code.c_str());
+				*f << stringf("%s", code);
 			*f << stringf("\n### Cell Types\n");
 			for (auto code : celltypes_code)
-				*f << stringf("%s", code.c_str());
+				*f << stringf("%s", code);
 		}
 		*f << stringf("\n### Netlists\n");
-		*f << stringf("%s", netlists_code.c_str());
+		*f << stringf("%s", netlists_code);
 
 		for (auto lib : libs)
 			delete lib;

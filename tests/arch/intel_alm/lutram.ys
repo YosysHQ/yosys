@@ -37,3 +37,4 @@ select -assert-count 2 t:MISTRAL_ALUT2
 select -assert-count 8 t:MISTRAL_ALUT3
 select -assert-count 8 t:MISTRAL_FF
 select -assert-none t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_FF t:MISTRAL_MLAB %% t:* %D
+

@@ -32,7 +32,7 @@ select -assert-count 1 c:*
 cd fine_keepdc
 simplemap
 opt_expr -keepdc
-select -assert-count 1 t:$_XOR_
+select -assert-count 1 t:$_XNOR_
 
 cd
 miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3

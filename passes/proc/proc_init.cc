@@ -31,7 +31,7 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 	for (auto &sync : proc->syncs)
 		if (sync->type == RTLIL::SyncType::STi)
 		{
-			log("Found init rule in `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
+			log("Found init rule in `%s.%s'.\n", mod->name, proc->name);
 
 			for (auto &action : sync->actions)
 			{
@@ -52,17 +52,15 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 
 						Const value = valuesig.as_const();
 						Const &wireinit = lhs_c.wire->attributes[ID::init];
-
-						while (GetSize(wireinit.bits) < lhs_c.wire->width)
-							wireinit.bits.push_back(State::Sx);
-
+						if (GetSize(wireinit) < lhs_c.wire->width)
+							wireinit.resize(lhs_c.wire->width, State::Sx);
 						for (int i = 0; i < lhs_c.width; i++) {
-							auto &initbit = wireinit.bits[i + lhs_c.offset];
+							int index = i + lhs_c.offset;
+							State initbit = wireinit[index];
 							if (initbit != State::Sx && initbit != value[i])
 								log_cmd_error("Conflicting initialization values for %s.\n", log_signal(lhs_c));
-							initbit = value[i];
+							wireinit.set(index, value[i]);
 						}
-
 						log("  Set init value: %s = %s\n", log_signal(lhs_c.wire), log_signal(wireinit));
 					}
 					offset += lhs_c.width;
@@ -91,13 +89,11 @@ struct ProcInitPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod)) {
-				SigMap sigmap(mod);
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_init(mod, sigmap, proc_it.second);
-			}
+		for (auto mod : design->all_selected_modules()) {
+			SigMap sigmap(mod);
+			for (auto proc : mod->selected_processes())
+				proc_init(mod, sigmap, proc);
+		}
 	}
 } ProcInitPass;
 

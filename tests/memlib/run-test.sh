@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+source ../common-env.sh
 set -eu
 
 OPTIND=1

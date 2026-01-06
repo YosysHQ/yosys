@@ -15,7 +15,7 @@ EOT
 select -assert-none a:* a:src %d
 
 
-logger -expect error "syntax error, unexpected ATTR_BEGIN" 1
+logger -expect error "syntax error, unexpected ';', expecting ATTR_BEGIN or TOK_INCREMENT or TOK_DECREMENT" 1
 design -reset
 read_verilog <<EOT
 module top;

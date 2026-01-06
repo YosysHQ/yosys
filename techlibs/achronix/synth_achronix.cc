@@ -26,7 +26,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct SynthAchronixPass : public ScriptPass {
-  SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Acrhonix Speedster22i FPGAs.") { }
+  SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Achronix Speedster22i FPGAs.") { }
 
   void help() override
   {
@@ -123,7 +123,7 @@ struct SynthAchronixPass : public ScriptPass {
     if (check_label("begin"))
       {
         run("read_verilog -sv -lib +/achronix/speedster22i/cells_sim.v");
-        run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+        run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
       }
 
     if (flatten && check_label("flatten", "(unless -noflatten)"))

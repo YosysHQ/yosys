@@ -18,15 +18,19 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct TeePass : public Pass {
 	TeePass() : Pass("tee", "redirect command output to file") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -45,6 +49,9 @@ struct TeePass : public Pass {
 		log("    -a logfile\n");
 		log("        Write output to this file, append if exists.\n");
 		log("\n");
+		log("    -s scratchpad\n");
+		log("        Write output to this scratchpad value, truncate if it exists.\n");
+		log("\n");
 		log("    +INT, -INT\n");
 		log("        Add/subtract INT from the -v setting for this command.\n");
 		log("\n");
@@ -53,9 +60,11 @@ struct TeePass : public Pass {
 	{
 		std::vector<FILE*> backup_log_files, files_to_close;
 		std::vector<std::ostream*> backup_log_streams;
+		std::vector<std::string> backup_log_scratchpads;
 		int backup_log_verbose_level = log_verbose_level;
 		backup_log_streams = log_streams;
 		backup_log_files = log_files;
+		backup_log_scratchpads = log_scratchpads;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -67,15 +76,23 @@ struct TeePass : public Pass {
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
 				const char *open_mode = args[argidx] == "-o" ? "w" : "a+";
-				FILE *f = fopen(args[++argidx].c_str(), open_mode);
+				auto path = args[++argidx];
+				rewrite_filename(path);
+				FILE *f = fopen(path.c_str(), open_mode);
 				yosys_input_files.insert(args[argidx]);
 				if (f == NULL) {
 					for (auto cf : files_to_close)
 						fclose(cf);
-					log_cmd_error("Can't create file %s.\n", args[argidx].c_str());
+					log_cmd_error("Can't create file %s.\n", args[argidx]);
 				}
 				log_files.push_back(f);
 				files_to_close.push_back(f);
+				continue;
+			}
+			if (args[argidx] == "-s" && argidx+1 < args.size()) {
+				auto name = args[++argidx];
+				design->scratchpad[name] = "";
+				log_scratchpads.push_back(name);
 				continue;
 			}
 			if (GetSize(args[argidx]) >= 2 && (args[argidx][0] == '-' || args[argidx][0] == '+') && args[argidx][1] >= '0' && args[argidx][1] <= '9') {
@@ -93,6 +110,7 @@ struct TeePass : public Pass {
 				fclose(cf);
 			log_files = backup_log_files;
 			log_streams = backup_log_streams;
+			log_scratchpads = backup_log_scratchpads;
 			throw;
 		}
 
@@ -102,6 +120,7 @@ struct TeePass : public Pass {
 		log_verbose_level = backup_log_verbose_level;
 		log_files = backup_log_files;
 		log_streams = backup_log_streams;
+		log_scratchpads = backup_log_scratchpads;
 	}
 } TeePass;
 

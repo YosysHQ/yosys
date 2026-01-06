@@ -1,0 +1,8 @@
+read_verilog -sv struct_dynamic_range.sv
+select -assert-count 4 t:$mul
+select -assert-count 2 t:$shift
+select -assert-count 2 t:$shiftx
+prep -top top
+flatten
+async2sync
+sat -enable_undef -verify -prove-asserts

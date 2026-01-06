@@ -1,4 +1,5 @@
 read_verilog -sv package_task_func.sv
 proc
 opt -full
+async2sync
 sat -verify -seq 1 -prove-asserts -show-all

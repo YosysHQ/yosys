@@ -1,0 +1,31 @@
+ram block \RAM_9b1B {
+	cost 64;
+	abits 7;
+	widths 1 2 4 9 18 per_port;
+	byte 9;
+	
+	ifdef INIT_NONE {
+		option "INIT" "NONE" {
+			init none;
+		}
+	} else ifdef INIT_ZERO {
+		option "INIT" "ZERO" {
+			init zero;
+		}
+	} else ifdef INIT_NO_UNDEF {
+		option "INIT" "NO_UNDEF" {
+			init no_undef;
+		}
+	} else ifdef INIT_ANY {
+		option "INIT" "ANY" {
+			init any;
+		}
+	}
+
+	port sw "W" {
+		clock anyedge;
+	}
+	port sr "R" {
+		clock anyedge;
+	}
+}

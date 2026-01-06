@@ -21,12 +21,13 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
-#include "kernel/cellaigs.h"
 #include "kernel/log.h"
 #include <string>
 #include <algorithm>
 #include <unordered_map>
 #include <vector>
+#include <sstream>
+#include <iterator>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -116,17 +117,17 @@ struct JnyWriter
         _include_connections(connections), _include_attributes(attributes), _include_properties(properties)
          { }
 
-    void write_metadata(Design *design, uint16_t indent_level = 0)
+    void write_metadata(Design *design, uint16_t indent_level = 0, std::string invk = "")
     {
         log_assert(design != nullptr);
 
         design->sort();
 
         f << "{\n";
-        f << stringf("  \"generator\": \"%s\",\n", escape_string(yosys_version_str).c_str());
-        // XXX(aki): Replace this with a proper version info eventually:tm:
-        f << "  \"version\": \"0.0.0\",\n";
-
+        f << "  \"$schema\": \"https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json\",\n";
+        f << stringf("  \"generator\": \"%s\",\n", escape_string(yosys_maybe_version()));
+        f << "  \"version\": \"0.0.1\",\n";
+        f << "  \"invocation\": \"" << escape_string(invk) << "\",\n";
         f << "  \"features\": [";
 
         size_t fnum{0};
@@ -231,7 +232,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         f << _indent << "{\n";
-        f << stringf("  %s\"name\": \"%s\",\n", _indent.c_str(), escape_string(RTLIL::unescape_id(mod->name)).c_str());
+        f << stringf("  %s\"name\": \"%s\",\n", _indent, escape_string(RTLIL::unescape_id(mod->name)));
         f << _indent << "  \"cell_sorts\": [\n";
 
         bool first_sort{true};
@@ -279,7 +280,7 @@ struct JnyWriter
                 f << ",\n";
 
             f << _indent << "  {\n";
-            f << stringf("    %s\"name\": \"%s\",\n", _indent.c_str(), escape_string(RTLIL::unescape_id(con.first)).c_str());
+            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(RTLIL::unescape_id(con.first)));
             f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
@@ -289,7 +290,7 @@ struct JnyWriter
             if (con.second.size() == 1)
                 f << _indent << "    \"range\": [0, 0]\n";
             else
-                f << stringf("    %s\"range\": [%d, %d]\n", _indent.c_str(), con.second.size(), 0);
+                f << stringf("    %s\"range\": [%d, %d]\n", _indent, con.second.size(), 0);
             f << _indent << "  }";
 
             first_port = false;
@@ -303,7 +304,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         f << _indent << "{\n";
-        f << stringf("  %s\"type\": \"%s\",\n", _indent.c_str(), sort.first.c_str());
+        f << stringf("  %s\"type\": \"%s\",\n", _indent, sort.first);
         f << _indent << "  \"ports\": [\n";
 
         write_cell_ports(port_cell, indent_level + 2);
@@ -350,10 +351,10 @@ struct JnyWriter
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s\"%s\": ", _indent.c_str(), escape_string(RTLIL::unescape_id(param.first)).c_str());
+                f << stringf("  %s\"%s\": ", _indent, escape_string(RTLIL::unescape_id(param.first)));
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s\"%s\": true", _indent.c_str(), escape_string(RTLIL::unescape_id(param.first)).c_str());
+                f << stringf("  %s\"%s\": true", _indent, escape_string(RTLIL::unescape_id(param.first)));
             }
 
             first_param = false;
@@ -365,7 +366,7 @@ struct JnyWriter
         log_assert(cell != nullptr);
 
         f << _indent << "  {\n";
-        f << stringf("    %s\"name\": \"%s\"", _indent.c_str(), escape_string(RTLIL::unescape_id(cell->name)).c_str());
+        f << stringf("    %s\"name\": \"%s\"", _indent, escape_string(RTLIL::unescape_id(cell->name)));
 
         if (_include_connections) {
             f << ",\n" << _indent << "    \"connections\": [\n";
@@ -409,10 +410,11 @@ struct JnyWriter
 struct JnyBackend : public Backend {
     JnyBackend() : Backend("jny", "generate design metadata") { }
     void help() override {
-        // XXX(aki): TODO: explicitly document the JSON schema
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
         log("    jny [options] [selection]\n");
+        log("\n");
+        log("Write JSON netlist metadata for the current design\n");
         log("\n");
         log("    -no-connections\n");
         log("        Don't include connection information in the netlist output.\n");
@@ -423,8 +425,8 @@ struct JnyBackend : public Backend {
         log("    -no-properties\n");
         log("        Don't include property information in the netlist output.\n");
         log("\n");
-        log("Write a JSON metadata for the current design\n");
-        log("\n");
+        log("The JSON schema for JNY output files is located in the \"jny.schema.json\" file\n");
+        log("which is located at \"https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json\"\n");
         log("\n");
     }
 
@@ -453,12 +455,22 @@ struct JnyBackend : public Backend {
 
             break;
         }
+
+        // Compose invocation line
+        std::ostringstream invk;
+        if (!args.empty()) {
+            std::copy(args.begin(), args.end(),
+                std::ostream_iterator<std::string>(invk, " ")
+            );
+        }
+        invk << filename;
+
         extra_args(f, filename, args, argidx);
 
         log_header(design, "Executing jny backend.\n");
 
         JnyWriter jny_writer(*f, false, connections, attributes, properties);
-        jny_writer.write_metadata(design);
+        jny_writer.write_metadata(design, 0, invk.str());
     }
 
 } JnyBackend;
@@ -472,7 +484,7 @@ struct JnyPass : public Pass {
         log("\n");
         log("    jny [options] [selection]\n");
         log("\n");
-        log("Write a JSON netlist metadata for the current design\n");
+        log("Write JSON netlist metadata for the current design\n");
         log("\n");
         log("    -o <filename>\n");
         log("        write to the specified file.\n");
@@ -520,32 +532,43 @@ struct JnyPass : public Pass {
 
             break;
         }
+
+        // Compose invocation line
+        std::ostringstream invk;
+        if (!args.empty()) {
+            std::copy(args.begin(), args.end(),
+                std::ostream_iterator<std::string>(invk, " ")
+            );
+        }
+
         extra_args(args, argidx, design);
 
         std::ostream *f;
         std::stringstream buf;
+        bool empty = filename.empty();
 
-        if (!filename.empty()) {
+        if (!empty) {
             rewrite_filename(filename);
             std::ofstream *ff = new std::ofstream;
             ff->open(filename.c_str(), std::ofstream::trunc);
             if (ff->fail()) {
                 delete ff;
-                log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+                log_error("Can't open file `%s' for writing: %s\n", filename, strerror(errno));
             }
             f = ff;
+            invk << filename;
         } else {
             f = &buf;
         }
 
 
         JnyWriter jny_writer(*f, false, connections, attributes, properties);
-        jny_writer.write_metadata(design);
+        jny_writer.write_metadata(design, 0, invk.str());
 
-        if (!filename.empty()) {
+        if (!empty) {
             delete f;
         } else {
-            log("%s", buf.str().c_str());
+            log("%s", buf.str());
         }
     }
 

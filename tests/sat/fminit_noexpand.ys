@@ -1,0 +1,10 @@
+read_verilog -sv <<EOF
+module thing(input [2:0] in, output reg [2:0] out);
+    assign out = in;
+endmodule
+EOF
+
+select -assert-count 0 t:$eq
+fminit -set out 1'b1
+select -assert-count 1 t:$eq
+select -assert-count 1 t:$eq r:A_WIDTH=1 %i

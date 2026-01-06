@@ -1,0 +1,24 @@
+verific -sv -lib <<EOF
+module TEST_CELL(input clk, input a, input b, output reg c);
+parameter PATH = "DEFAULT";
+always @(posedge clk) begin
+    if (PATH=="DEFAULT")
+		c <= a;
+	else 
+		c <= b;
+end
+
+endmodule
+EOF
+
+verific -sv <<EOF
+module top(input clk, input a, input b, output c, output d);
+	TEST_CELL  #(.PATH("TEST")) test1(.clk(clk),.a(a),.b(1'b1),.c(c));
+	TEST_CELL  #(.PATH("DEFAULT")) test2(.clk(clk),.a(a),.b(1'bx),.c(d));
+endmodule
+EOF
+
+verific -import top
+hierarchy -top top
+stat
+select -assert-count 2 t:TEST_CELL

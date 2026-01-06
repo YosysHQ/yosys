@@ -1,0 +1,8 @@
+read_verilog -sv unbased_unsized_shift.sv
+hierarchy
+proc
+flatten
+opt -full
+async2sync
+select -module top
+sat -verify -tempinduct -prove-asserts -show-all

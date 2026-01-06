@@ -1,7 +1,23 @@
 ram distributed \RAM_LUT {
 	abits 4;
 	width 4;
-	init any;
+	ifdef INIT_NONE {
+		option "INIT" "NONE" {
+			init none;
+		}
+	} else ifdef INIT_ZERO {
+		option "INIT" "ZERO" {
+			init zero;
+		}
+	} else ifdef INIT_NO_UNDEF {
+		option "INIT" "NO_UNDEF" {
+			init no_undef;
+		}
+	} else {
+		option "INIT" "ANY" {
+			init any;
+		}
+	}
 	cost 4;
 	port ar "R" {
 	}

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 for CLKPOL in 0 1; do
 for ENABLE_EN in 0 1; do

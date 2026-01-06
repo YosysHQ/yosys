@@ -38,6 +38,7 @@ struct OptFfInvWorker
 	// - ... which has no other users
 	// - all users of FF are LUTs
 	bool push_d_inv(FfData &ff) {
+		log_assert(ff.width == 1);
 		if (index.query_is_input(ff.sig_d))
 			return false;
 		if (index.query_is_output(ff.sig_d))
@@ -64,6 +65,7 @@ struct OptFfInvWorker
 			log_assert(d_inv == nullptr);
 			d_inv = port.cell;
 		}
+		if (!d_inv) return false;
 
 		if (index.query_is_output(ff.sig_q))
 			return false;
@@ -89,15 +91,15 @@ struct OptFfInvWorker
 				int flip_mask = 0;
 				SigSpec sig_a = lut->getPort(ID::A);
 				for (int i = 0; i < GetSize(sig_a); i++) {
-					if (index.sigmap(sig_a[i]) == index.sigmap(ff.sig_q)) {
+					if (index.sigmap(sig_a[i]) == index.sigmap(ff.sig_q[0])) {
 						flip_mask |= 1 << i;
 					}
 				}
 				Const mask = lut->getParam(ID::LUT);
-				Const new_mask;
-				for (int j = 0; j < (1 << GetSize(sig_a)); j++) {
-					new_mask.bits.push_back(mask.bits[j ^ flip_mask]);
-				}
+				Const::Builder new_mask_builder(1 << GetSize(sig_a));
+				for (int j = 0; j < (1 << GetSize(sig_a)); j++)
+					new_mask_builder.push_back(mask[j ^ flip_mask]);
+				Const new_mask = new_mask_builder.build();
 				if (GetSize(sig_a) == 1 && new_mask.as_int() == 2) {
 					module->connect(lut->getPort(ID::Y), ff.sig_q);
 					module->remove(lut);
@@ -140,6 +142,7 @@ struct OptFfInvWorker
 			log_assert(d_lut == nullptr);
 			d_lut = port.cell;
 		}
+		if (!d_lut) return false;
 
 		if (index.query_is_output(ff.sig_q))
 			return false;
@@ -167,6 +170,7 @@ struct OptFfInvWorker
 			log_assert(q_inv == nullptr);
 			q_inv = port.cell;
 		}
+		if (!q_inv) return false;
 
 		ff.flip_rst_bits({0});
 		ff.sig_q = q_inv->getPort(ID::Y);
@@ -174,13 +178,14 @@ struct OptFfInvWorker
 
 		if (d_lut->type == ID($lut)) {
 			Const mask = d_lut->getParam(ID::LUT);
-			Const new_mask;
+			Const::Builder new_mask_builder(GetSize(mask));
 			for (int i = 0; i < GetSize(mask); i++) {
-				if (mask.bits[i] == State::S0)
-					new_mask.bits.push_back(State::S1);
+				if (mask[i] == State::S0)
+					new_mask_builder.push_back(State::S1);
 				else
-					new_mask.bits.push_back(State::S0);
+					new_mask_builder.push_back(State::S0);
 			}
+			Const new_mask = new_mask_builder.build();
 			d_lut->setParam(ID::LUT, new_mask);
 			if (d_lut->getParam(ID::WIDTH) == 1 && new_mask.as_int() == 2) {
 				module->connect(ff.sig_d, d_lut->getPort(ID::A));
@@ -204,7 +209,7 @@ struct OptFfInvWorker
 		std::vector<Cell *> ffs;
 
 		for (Cell *cell : module->selected_cells())
-			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (cell->is_builtin_ff())
 				ffs.push_back(cell);
 
 		for (Cell *cell : ffs) {

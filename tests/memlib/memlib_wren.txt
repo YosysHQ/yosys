@@ -1,0 +1,37 @@
+ram block \RAM_WREN {
+	abits 4;
+	init none;
+
+	ifdef NO_BYTE {
+		# single enable signal
+		widths 4 8 global;
+	} else ifdef W4_B4 {
+		widths 4 global;
+		byte 4;
+	} else ifdef W8_B4 {
+		widths 8 global;
+		option "BYTESIZE" 4 {
+			byte 4;
+		}
+	} else ifdef W8_B8 {
+		width 8;
+		byte 8;
+	} else ifdef W16_B4 {
+		widths 16 global;
+		option "BYTESIZE" 4 {
+			byte 4;
+		}
+	} else ifdef W64_B8 {
+		widths 64 global;
+		option "BYTESIZE" 8 {
+			byte 8;
+		}
+	}
+
+	port srsw "A" {
+		clock posedge;
+		ifdef WRBE_SEPARATE {
+			wrbe_separate;
+		}
+	}
+}

@@ -18,12 +18,18 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct PrintAttrsPass : public Pass {
 	PrintAttrsPass() : Pass("printattrs", "print attributes of selected objects") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -39,13 +45,13 @@ struct PrintAttrsPass : public Pass {
 		return stringf("%*s", indent, "");
 	}
 
-	static void log_const(const RTLIL::IdString &s, const RTLIL::Const &x, const unsigned int indent) {
-		if (x.flags == RTLIL::CONST_FLAG_STRING)
-			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent).c_str(), log_id(s), x.decode_string().c_str());
-		else if (x.flags == RTLIL::CONST_FLAG_NONE)
-			log("%s(* %s=%s *)\n", get_indent_str(indent).c_str(), log_id(s), x.as_string().c_str());
+	static void log_const(RTLIL::IdString s, const RTLIL::Const &x, const unsigned int indent) {
+		if (x.flags & RTLIL::CONST_FLAG_STRING)
+			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent), log_id(s), x.decode_string());
+		else if (x.flags == RTLIL::CONST_FLAG_NONE || x.flags == RTLIL::CONST_FLAG_SIGNED)
+			log("%s(* %s=%s *)\n", get_indent_str(indent), log_id(s), x.as_string());
 		else
-			log_assert(x.flags == RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
+			log_assert(x.flags & RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -57,14 +63,14 @@ struct PrintAttrsPass : public Pass {
 		for (auto mod : design->selected_modules())
 		{
 			if (design->selected_whole_module(mod)) {
-				log("%s%s\n", get_indent_str(indent).c_str(), log_id(mod->name));
+				log("%s%s\n", get_indent_str(indent), log_id(mod->name));
 				indent += 2;
 				for (auto &it : mod->attributes)
 					log_const(it.first, it.second, indent);
 			}
 
 			for (auto cell : mod->selected_cells()) {
-				log("%s%s\n", get_indent_str(indent).c_str(), log_id(cell->name));
+				log("%s%s\n", get_indent_str(indent), log_id(cell->name));
 				indent += 2;
 				for (auto &it : cell->attributes)
 					log_const(it.first, it.second, indent);
@@ -72,7 +78,7 @@ struct PrintAttrsPass : public Pass {
 			}
 
 			for (auto wire : mod->selected_wires()) {
-				log("%s%s\n", get_indent_str(indent).c_str(), log_id(wire->name));
+				log("%s%s\n", get_indent_str(indent), log_id(wire->name));
 				indent += 2;
 				for (auto &it : wire->attributes)
 					log_const(it.first, it.second, indent);

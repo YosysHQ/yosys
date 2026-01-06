@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
+#include "kernel/mem.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
@@ -40,7 +41,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 
 	if (module->count_id(name) != 0)
 	{
-		log("Module %s already has such an object %s.\n", module->name.c_str(), name.c_str());
+		log("Module %s already has such an object %s.\n", module->name, name);
 		name += "$";
 		return add_wire(module, name, width, flag_input, flag_output);
 	}
@@ -55,7 +56,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 			module->fixup_ports();
 		}
 
-		log("Added wire %s to module %s.\n", name.c_str(), module->name.c_str());
+		log("Added wire %s to module %s.\n", name, module->name);
 	}
 
 	return wire;
@@ -242,7 +243,7 @@ struct SetundefPass : public Pass {
 			{
 				for (auto *cell : module->selected_cells()) {
 					for (auto &parameter : cell->parameters) {
-						for (auto &bit : parameter.second.bits) {
+						for (auto bit : parameter.second) {
 							if (bit > RTLIL::State::S1)
 								bit = worker.next_bit();
 						}
@@ -318,7 +319,7 @@ struct SetundefPass : public Pass {
 							wire = add_wire(module, name, c.width, true, false);
 							module->connect(RTLIL::SigSig(c, wire));
 						}
-						log("Exposing undriven wire %s as input.\n", wire->name.c_str());
+						log("Exposing undriven wire %s as input.\n", wire->name);
 					}
 					module->fixup_ports();
 				}
@@ -363,7 +364,7 @@ struct SetundefPass : public Pass {
 
 				for (auto cell : module->cells())
 				{
-					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (!cell->is_builtin_ff())
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))
@@ -389,12 +390,12 @@ struct SetundefPass : public Pass {
 					for (auto wire : initwires)
 					{
 						Const &initval = wire->attributes[ID::init];
-						initval.bits.resize(GetSize(wire), State::Sx);
+						initval.resize(GetSize(wire), State::Sx);
 
 						for (int i = 0; i < GetSize(wire); i++) {
 							SigBit bit = sigmap(SigBit(wire, i));
 							if (initval[i] == State::Sx && ffbits.count(bit)) {
-								initval[i] = worker.next_bit();
+								initval.set(i, worker.next_bit());
 								ffbits.erase(bit);
 							}
 						}
@@ -420,7 +421,7 @@ struct SetundefPass : public Pass {
 								continue;
 
 							Const &initval = wire->attributes[ID::init];
-							initval.bits.resize(GetSize(wire), State::Sx);
+							initval.resize(GetSize(wire), State::Sx);
 
 							if (initval.is_fully_undef()) {
 								wire->attributes.erase(ID::init);
@@ -478,7 +479,38 @@ struct SetundefPass : public Pass {
 				log_assert(ffbits.empty());
 			}
 
-			module->rewrite_sigspecs(worker);
+			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
+			{
+				// Do not add anyseq / anyconst to unused memory port clocks
+				std::vector<Mem> memories = Mem::get_selected_memories(module);
+				for (auto &mem : memories) {
+					bool changed = false;
+					for (auto &rd_port : mem.rd_ports) {
+						if (!rd_port.clk_enable && rd_port.clk.is_fully_undef()) {
+							changed = true;
+							rd_port.clk = State::S0;
+						}
+					}
+					for (auto &wr_port : mem.rd_ports) {
+						if (!wr_port.clk_enable && wr_port.clk.is_fully_undef()) {
+							changed = true;
+							wr_port.clk = State::S0;
+						}
+					}
+					if (changed)
+						mem.emit();
+				}
+			}
+
+			for (auto &it : module->cells_)
+				if (!it.second->get_bool_attribute(ID::xprop_decoder))
+					it.second->rewrite_sigspecs(worker);
+			for (auto &it : module->processes)
+				it.second->rewrite_sigspecs(worker);
+			for (auto &it : module->connections_) {
+				worker(it.first);
+				worker(it.second);
+			}
 
 			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
 			{

@@ -1,0 +1,28 @@
+read_verilog -icells <<EOF
+module test(a, b, s, y);
+  input a, b, s;
+  output y;
+  wire f, g;
+
+  $_ANDNOT_ g1(.A(a), .B(b), .Y(f));
+  $_ANDNOT_ g2(.A(b), .B(a), .Y(g));
+  $_MUX_ m(.A(f), .B(g), .S(s), .Y(y));
+endmodule
+EOF
+
+equiv_opt -assert opt_share
+
+design -reset
+read_verilog -icells <<EOF
+module test(a, b, s, y);
+  input a, b, s;
+  output y;
+  wire f, g;
+
+  $_ORNOT_ g1(.A(a), .B(b), .Y(f));
+  $_ORNOT_ g2(.A(b), .B(a), .Y(g));
+  $_MUX_ m(.A(f), .B(g), .S(s), .Y(y));
+endmodule
+EOF
+
+equiv_opt -assert opt_share

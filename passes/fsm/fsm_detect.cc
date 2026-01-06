@@ -118,7 +118,7 @@ static bool check_state_users(RTLIL::SigSpec sig)
 	return true;
 }
 
-static void detect_fsm(RTLIL::Wire *wire)
+static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 {
 	bool has_fsm_encoding_attr = wire->attributes.count(ID::fsm_encoding) > 0 && wire->attributes.at(ID::fsm_encoding).decode_string() != "none";
 	bool has_fsm_encoding_none = wire->attributes.count(ID::fsm_encoding) > 0 && wire->attributes.at(ID::fsm_encoding).decode_string() == "none";
@@ -199,8 +199,15 @@ static void detect_fsm(RTLIL::Wire *wire)
 		}
 
 		SigSpec sig_y = sig_d, sig_undef;
-		if (ce.eval(sig_y, sig_undef))
-			is_self_resetting = true;
+		if (!ignore_self_reset) {
+			if (cellport.first->type == ID($adff)) {
+				SigSpec sig_arst = assign_map(cellport.first->getPort(ID::ARST));
+				if (ce.eval(sig_arst, sig_undef))
+					is_self_resetting = true;
+			}
+			else if (ce.eval(sig_y, sig_undef))
+				is_self_resetting = true;
+		}
 	}
 
 	if (has_fsm_encoding_attr)
@@ -225,7 +232,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 		if (!warnings.empty()) {
 			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", log_id(wire->module), log_id(wire));
 			for (auto w : warnings) warnmsg += "    " + w;
-			log_warning("%s", warnmsg.c_str());
+			log_warning("%s", warnmsg);
 		} else {
 			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire));
 		}
@@ -261,25 +268,50 @@ struct FsmDetectPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    fsm_detect [selection]\n");
+		log("    fsm_detect [options] [selection]\n");
 		log("\n");
 		log("This pass detects finite state machines by identifying the state signal.\n");
 		log("The state signal is then marked by setting the attribute 'fsm_encoding'\n");
 		log("on the state signal to \"auto\".\n");
+		log("\n");
+		log("    -ignore-self-reset\n");
+		log("        Mark FSMs even if they are self-resetting\n");
 		log("\n");
 		log("Existing 'fsm_encoding' attributes are not changed by this pass.\n");
 		log("\n");
 		log("Signals can be protected from being detected by this pass by setting the\n");
 		log("'fsm_encoding' attribute to \"none\".\n");
 		log("\n");
+		log("This pass uses a subset of FF types to detect FSMs. Run 'opt -nosdff -nodffe'\n");
+		log("before this pass to prepare the design for fsm_detect.\n");
+		log("\n");
+#ifdef YOSYS_ENABLE_VERIFIC
+		log("The Verific frontend may optimize the design in a way that interferes with FSM\n");
+		log("detection. Run 'verific -cfg db_infer_wide_muxes_post_elaboration 0' before\n");
+		log("reading the source, and 'bmuxmap -pmux' after 'proc' for best results.\n");
+		log("\n");
+#endif
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing FSM_DETECT pass (finding FSMs in design).\n");
-		extra_args(args, 1, design);
+
+		bool ignore_self_reset = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-ignore-self-reset") {
+				ignore_self_reset = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
 		CellTypes ct;
 		ct.setup_internals();
+		ct.setup_internals_anyinit();
 		ct.setup_internals_mem();
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
@@ -311,7 +343,7 @@ struct FsmDetectPass : public Pass {
 					sig_at_port.add(assign_map(wire));
 
 			for (auto wire : module->selected_wires())
-				detect_fsm(wire);
+				detect_fsm(wire, ignore_self_reset);
 		}
 
 		assign_map.clear();

@@ -20,10 +20,7 @@ $(eval $(call add_share_file,share/intel_alm/cyclonev,techlibs/intel_alm/cyclone
 # RAM
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m10k.txt))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m10k_map.v))
-$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m20k.txt))
-$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m20k_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/lutram_mlab.txt))
 
 # Miscellaneous
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/megafunction_bb.v))
-$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/quartus_rename.v))

@@ -21,6 +21,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+const int lut_input_plane_limit = 12;
+
 static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, std::istream &f)
 {
 	string strbuf;
@@ -147,7 +149,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 		if (buffer[0] == '.')
 		{
 			if (lutptr) {
-				for (auto &bit : lutptr->bits)
+				for (auto bit : *lutptr)
 					if (bit == RTLIL::State::Sx)
 						bit = lut_default_state;
 				lutptr = NULL;
@@ -243,7 +245,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					if (undef_wire != nullptr)
 						module->rename(undef_wire, stringf("$undef$%d", ++blif_maxnum));
 
-					autoidx = std::max(autoidx, blif_maxnum+1);
+					autoidx.ensure_at_least(blif_maxnum+1);
 					blif_maxnum = 0;
 				}
 
@@ -251,6 +253,16 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				lastcell = nullptr;
 				obj_attributes = nullptr;
 				obj_parameters = nullptr;
+				continue;
+			}
+
+			if (!strcmp(cmd, ".area") || !strcmp(cmd, ".delay") || !strcmp(cmd, ".wire_load_slope") || !strcmp(cmd, ".wire") ||
+			    !strcmp(cmd, ".input_arrival") || !strcmp(cmd, ".default_input_arrival") || !strcmp(cmd, ".output_required") ||
+			    !strcmp(cmd, ".default_output_required") || !strcmp(cmd, ".input_drive") || !strcmp(cmd, ".default_input_drive") ||
+			    !strcmp(cmd, ".max_input_load") || !strcmp(cmd, ".default_max_input_load") || !strcmp(cmd, ".output_load") ||
+			    !strcmp(cmd, ".default_output_load"))
+			{
+				log_warning("Blif delay constraints (%s) are not supported.", cmd);
 				continue;
 			}
 
@@ -309,9 +321,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					const_v = Const(str);
 				} else {
 					int n = strlen(v);
-					const_v.bits.resize(n);
+					Const::Builder const_v_builder(n);
 					for (int i = 0; i < n; i++)
-						const_v.bits[i] = v[n-i-1] != '0' ? State::S1 : State::S0;
+						const_v_builder.push_back(v[n-i-1] != '0' ? State::S1 : State::S0);
+					const_v = const_v_builder.build();
 				}
 				if (!strcmp(cmd, ".attr")) {
 					if (obj_attributes == nullptr) {
@@ -350,17 +363,17 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto no_latch_clock;
 
 				if (!strcmp(edge, "re"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDffGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "fe"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDffGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else if (!strcmp(edge, "ah"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDlatchGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "al"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDlatchGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
 					if (dff_name.empty()) {
-						cell = module->addFf(NEW_ID, blif_wire(d), blif_wire(q));
+						cell = module->addFfGate(NEW_ID, blif_wire(d), blif_wire(q));
 					} else {
 						cell = module->addCell(NEW_ID, dff_name);
 						cell->setPort(ID::D, blif_wire(d));
@@ -513,6 +526,11 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					sopmode = -1;
 					lastcell = sopcell;
 				}
+				else if (input_sig.size() > lut_input_plane_limit)
+				{
+					err_reason = stringf("names' input plane must have fewer than %d signals.", lut_input_plane_limit + 1);
+					goto error_with_reason;
+				}
 				else
 				{
 					RTLIL::Cell *cell = module->addCell(NEW_ID, ID($lut));
@@ -546,21 +564,23 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 			log_assert(sopcell->parameters[ID::WIDTH].as_int() == input_len);
 			sopcell->parameters[ID::DEPTH] = sopcell->parameters[ID::DEPTH].as_int() + 1;
 
+			Const::Builder table_bits_builder(input_len * 2);
 			for (int i = 0; i < input_len; i++)
 				switch (input[i]) {
 					case '0':
-						sopcell->parameters[ID::TABLE].bits.push_back(State::S1);
-						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
+						table_bits_builder.push_back(State::S1);
+						table_bits_builder.push_back(State::S0);
 						break;
 					case '1':
-						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
-						sopcell->parameters[ID::TABLE].bits.push_back(State::S1);
+						table_bits_builder.push_back(State::S0);
+						table_bits_builder.push_back(State::S1);
 						break;
 					default:
-						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
-						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
+						table_bits_builder.push_back(State::S0);
+						table_bits_builder.push_back(State::S0);
 						break;
 				}
+			sopcell->parameters[ID::TABLE].append(table_bits_builder.build());
 
 			if (sopmode == -1) {
 				sopmode = (*output == '1');
@@ -576,7 +596,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 		if (lutptr)
 		{
-			if (input_len > 12)
+			if (input_len > lut_input_plane_limit)
 				goto error;
 
 			for (int i = 0; i < (1 << input_len); i++) {
@@ -588,7 +608,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 							goto try_next_value;
 					}
 				}
-				lutptr->bits.at(i) = !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1;
+				lutptr->set(i, !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1);
 			try_next_value:;
 			}
 
@@ -601,7 +621,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 error:
 	log_error("Syntax error in line %d!\n", line_count);
 error_with_reason:
-	log_error("Syntax error in line %d: %s\n", line_count, err_reason.c_str());
+	log_error("Syntax error in line %d: %s\n", line_count, err_reason);
 }
 
 struct BlifFrontend : public Frontend {

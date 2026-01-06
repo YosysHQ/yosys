@@ -1,0 +1,58 @@
+--- fst_win_unistd.h
++++ fst_win_unistd.h
+@@ -26,7 +26,7 @@
+ #define WIN_UNISTD_H
+ 
+ #include <stdlib.h>
+-#ifdef _WIN64
++#if defined(_MSC_VER)
+ #include <io.h>
+ #else
+ #include <sys/io.h>
+--- fstapi.cc
++++ fstapi.cc
+@@ -56,7 +56,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-#ifdef __MINGW32__
++#if defined __CYGWIN__ || defined __MINGW32__ || defined _MSC_VER
+ #define WIN32_LEAN_AND_MEAN
+ #include <windows.h>
+ #endif
+@@ -137,7 +137,7 @@ void **JenkinsIns(void *base_i, const unsigned char *mem, uint32_t length, uint3
+ #include <sys/sysctl.h>
+ #endif
+ #if defined(FST_MACOSX) || defined(__MINGW32__) || defined(__OpenBSD__) || defined(__FreeBSD__) || \
+-    defined(__NetBSD__)
++    defined(__NetBSD__) || defined(_MSC_VER)
+ #define FST_UNBUFFERED_IO
+ #endif
+ 
+@@ -159,7 +159,7 @@ void **JenkinsIns(void *base_i, const unsigned char *mem, uint32_t length, uint3
+ /***                 ***/
+ /***********************/
+ 
+-#ifdef __MINGW32__
++#if defined(__MINGW32__) || defined(_MSC_VER)
+ #include <io.h>
+ #ifndef HAVE_FSEEKO
+ #define ftello _ftelli64
+@@ -341,7 +341,7 @@ return(NULL);
+ /*
+  * mmap compatibility
+  */
+-#if defined __MINGW32__
++#if defined __MINGW32__ || defined _MSC_VER
+ #include <limits.h>
+ #define fstMmap(__addr,__len,__prot,__flags,__fd,__off) fstMmap2((__len), (__fd), (__off))
+ #define fstMunmap(__addr,__len)                         UnmapViewOfFile((LPCVOID)__addr)
+@@ -4638,7 +4638,7 @@ if(sectype == FST_BL_ZWRAPPER)
+ #endif
+ 
+         fstReaderFseeko(xc, xc->f, FST_ZWRAPPER_HDR_SIZE, SEEK_SET);
+-#ifndef __MINGW32__
++#if !defined(__MINGW32__) && !defined(_MSC_VER)
+         fflush(xc->f);
+ #else
+ 	/* Windows UCRT runtime library reads one byte ahead in the file

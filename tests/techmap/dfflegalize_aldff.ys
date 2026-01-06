@@ -24,8 +24,8 @@ design -save orig
 flatten
 equiv_opt -assert -multiclock dfflegalize -cell $_ALDFF_PP_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_ALDFFE_PPP_ x
-#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ x
-#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ x
 
 
 # Convert everything to ALDFFs.

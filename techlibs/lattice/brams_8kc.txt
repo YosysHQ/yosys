@@ -1,0 +1,54 @@
+ram block $__DP8KC_ {
+	abits 13;
+	widths 1 2 4 9 per_port;
+	cost 64;
+	init no_undef;
+	port srsw "A" "B" {
+		clock posedge;
+		clken;
+		portoption "WRITEMODE" "NORMAL" {
+			rdwr no_change;
+		}
+		portoption "WRITEMODE" "WRITETHROUGH" {
+			rdwr new;
+		}
+		portoption "WRITEMODE" "READBEFOREWRITE" {
+			rdwr old;
+		}
+		option "RESETMODE" "SYNC" {
+			rdsrst zero ungated block_wr;
+		}
+		option "RESETMODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+	}
+}
+
+ram block $__PDPW8KC_ {
+	abits 13;
+	widths 1 2 4 9 18 per_port;
+	byte 9;
+	cost 64;
+	init no_undef;
+	port sr "R" {
+		# width 2 cannot be supported because of quirks
+		# of the primitive, and memlib requires us to
+		# remove width 1 as well
+		width 4 9 18;
+		clock posedge;
+		clken;
+		option "RESETMODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		option "RESETMODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+	}
+	port sw "W" {
+		width 18;
+		clock posedge;
+		clken;
+	}
+}

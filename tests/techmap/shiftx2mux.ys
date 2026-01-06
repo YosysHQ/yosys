@@ -106,4 +106,4 @@ endmodule
 EOT
 opt
 wreduce
-equiv_opt techmap
+equiv_opt -assert techmap

@@ -29,7 +29,7 @@ struct QbfSolveOptions {
 	bool specialize = false, specialize_from_file = false, write_solution = false, nocleanup = false;
 	bool dump_final_smt2 = false, assume_outputs = false, assume_neg = false, nooptimize = false;
 	bool nobisection = false, sat = false, unsat = false, show_smtbmc = false;
-	enum Solver{Z3, Yices, CVC4} solver = Yices;
+	enum Solver{Z3, Yices, CVC4, CVC5} solver = Yices;
 	enum OptimizationLevel{O0, O1, O2} oflag = O0;
 	dict<std::string, std::string> solver_options;
 	int timeout = 0;
@@ -45,6 +45,8 @@ struct QbfSolveOptions {
 			return "yices";
 		else if (solver == Solver::CVC4)
 			return "cvc4";
+		else if (solver == Solver::CVC5)
+			return "cvc5";
 
 		log_cmd_error("unknown solver specified.\n");
 		return "";
@@ -152,67 +154,67 @@ struct QbfSolutionType {
 	}
 
 	void recover_solution() {
-		YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
-		YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
-		YS_REGEX_TYPE unsat_regex2 = YS_REGEX_COMPILE("Status: FAILED");
-		YS_REGEX_TYPE timeout_regex = YS_REGEX_COMPILE("No solution found! \\(timeout\\)");
-		YS_REGEX_TYPE timeout_regex2 = YS_REGEX_COMPILE("No solution found! \\(interrupted\\)");
-		YS_REGEX_TYPE unknown_regex = YS_REGEX_COMPILE("No solution found! \\(unknown\\)");
-		YS_REGEX_TYPE unknown_regex2 = YS_REGEX_COMPILE("Unexpected EOF response from solver");
-		YS_REGEX_TYPE memout_regex = YS_REGEX_COMPILE("Solver Error:.*error \"out of memory\"");
-		YS_REGEX_TYPE hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
+		std::regex sat_regex = YS_REGEX_COMPILE("Status: PASSED");
+		std::regex unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
+		std::regex unsat_regex2 = YS_REGEX_COMPILE("Status: FAILED");
+		std::regex timeout_regex = YS_REGEX_COMPILE("No solution found! \\(timeout\\)");
+		std::regex timeout_regex2 = YS_REGEX_COMPILE("No solution found! \\(interrupted\\)");
+		std::regex unknown_regex = YS_REGEX_COMPILE("No solution found! \\(unknown\\)");
+		std::regex unknown_regex2 = YS_REGEX_COMPILE("Unexpected EOF response from solver");
+		std::regex memout_regex = YS_REGEX_COMPILE("Solver Error:.*error \"out of memory\"");
+		std::regex hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
 #ifndef NDEBUG
-		YS_REGEX_TYPE hole_loc_regex = YS_REGEX_COMPILE("[^:]*:[0-9]+.[0-9]+-[0-9]+.[0-9]+");
-		YS_REGEX_TYPE hole_val_regex = YS_REGEX_COMPILE("[0-9]+");
+		std::regex hole_loc_regex = YS_REGEX_COMPILE("[^:]*:[0-9]+.[0-9]+-[0-9]+.[0-9]+");
+		std::regex hole_val_regex = YS_REGEX_COMPILE("[0-9]+");
 #endif
-		YS_REGEX_MATCH_TYPE m;
+		std::smatch m;
 		bool sat_regex_found = false;
 		bool unsat_regex_found = false;
 		dict<std::string, bool> hole_value_recovered;
 		for (const std::string &x : stdout_lines) {
-			if(YS_REGEX_NS::regex_search(x, m, hole_value_regex)) {
+			if(std::regex_search(x, m, hole_value_regex)) {
 				std::string loc = m[1].str();
 				std::string val = m[2].str();
 #ifndef NDEBUG
-				log_assert(YS_REGEX_NS::regex_search(loc, hole_loc_regex));
-				log_assert(YS_REGEX_NS::regex_search(val, hole_val_regex));
+				log_assert(std::regex_search(loc, hole_loc_regex));
+				log_assert(std::regex_search(val, hole_val_regex));
 #endif
 				auto locs = split_tokens(loc, "|");
 				pool<std::string> loc_pool(locs.begin(), locs.end());
 				hole_to_value[loc_pool] = val;
 			}
-			else if (YS_REGEX_NS::regex_search(x, sat_regex)) {
+			else if (std::regex_search(x, sat_regex)) {
 				sat_regex_found = true;
 				sat = true;
 				unknown = false;
 			}
-			else if (YS_REGEX_NS::regex_search(x, unsat_regex)) {
+			else if (std::regex_search(x, unsat_regex)) {
 				unsat_regex_found = true;
 				sat = false;
 				unknown = false;
 			}
-			else if (YS_REGEX_NS::regex_search(x, memout_regex)) {
+			else if (std::regex_search(x, memout_regex)) {
 				unknown = true;
 				log_warning("solver ran out of memory\n");
 			}
-			else if (YS_REGEX_NS::regex_search(x, timeout_regex)) {
+			else if (std::regex_search(x, timeout_regex)) {
 				unknown = true;
 				log_warning("solver timed out\n");
 			}
-			else if (YS_REGEX_NS::regex_search(x, timeout_regex2)) {
+			else if (std::regex_search(x, timeout_regex2)) {
 				unknown = true;
 				log_warning("solver timed out\n");
 			}
-			else if (YS_REGEX_NS::regex_search(x, unknown_regex)) {
+			else if (std::regex_search(x, unknown_regex)) {
 				unknown = true;
 				log_warning("solver returned \"unknown\"\n");
 			}
-			else if (YS_REGEX_NS::regex_search(x, unsat_regex2)) {
+			else if (std::regex_search(x, unsat_regex2)) {
 				unsat_regex_found = true;
 				sat = false;
 				unknown = false;
 			}
-			else if (YS_REGEX_NS::regex_search(x, unknown_regex2)) {
+			else if (std::regex_search(x, unknown_regex2)) {
 				unknown = true;
 			}
 		}

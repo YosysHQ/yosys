@@ -67,7 +67,10 @@ struct SynthGateMatePass : public ScriptPass
 		log("\n");
 		log("    -nomx8, -nomx4\n");
 		log("        do not use CC_MX{8,4} multiplexer cells in output netlist.\n");
-		log("\n");;
+		log("\n");
+		log("    -luttree\n");
+		log("        use new LUT tree mapping approach (EXPERIMENTAL).\n");
+		log("\n");
 		log("    -dff\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
@@ -87,7 +90,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, dff, retime, noiopad, noclkbuf;
+	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf;
 
 	void clear_flags() override
 	{
@@ -100,6 +103,7 @@ struct SynthGateMatePass : public ScriptPass
 		nomult = false;
 		nomx4 = false;
 		nomx8 = false;
+		luttree = false;
 		dff = false;
 		retime = false;
 		noiopad = false;
@@ -158,6 +162,10 @@ struct SynthGateMatePass : public ScriptPass
 				nomx8 = true;
 				continue;
 			}
+			if (args[argidx] == "-luttree") {
+				luttree = true;
+				continue;
+			}
 			if (args[argidx] == "-dff") {
 				dff = true;
 				continue;
@@ -195,7 +203,7 @@ struct SynthGateMatePass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib -specify +/gatemate/cells_sim.v +/gatemate/cells_bb.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (check_label("prepare"))
@@ -275,7 +283,7 @@ struct SynthGateMatePass : public ScriptPass
 		if (check_label("map_regs"))
 		{
 			run("opt_clean");
-			run("dfflegalize -cell $_DFFE_????_ x -cell $_DLATCH_???_ x");
+			run("dfflegalize -cell $_DFFE_????_ 01 -cell $_DLATCH_???_ 01");
 			run("techmap -map +/gatemate/reg_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
@@ -293,16 +301,29 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			run("muxcover " + muxcover_args);
 			run("opt -full");
+			run("simplemap");
 			run("techmap -map +/gatemate/mux_map.v");
 		}
 
 		if (check_label("map_luts"))
 		{
-			std::string abc_args = " -dress -lut 4";
-			if (dff) {
-				abc_args += " -dff";
+			if (luttree || help_mode) {
+				std::string abc_args = " -genlib +/gatemate/lut_tree_cells.genlib";
+				if (dff) {
+					abc_args += " -dff";
+				}
+				run("abc " + abc_args, "(with -luttree)");
+				run("techmap -map +/gatemate/lut_tree_map.v", "(with -luttree)");
+				run("gatemate_foldinv", "(with -luttree)");
+				run("techmap -map +/gatemate/inv_map.v", "(with -luttree)");
 			}
-			run("abc " + abc_args);
+			if (!luttree || help_mode) {
+				std::string abc_args = " -dress -lut 4";
+				if (dff) {
+					abc_args += " -dff";
+				}
+				run("abc " + abc_args, "(without -luttree)");
+			}
 			run("clean");
 		}
 
@@ -330,14 +351,14 @@ struct SynthGateMatePass : public ScriptPass
 		{
 			run("opt_clean -purge");
 			if (!vlog_file.empty() || help_mode) {
-				run(stringf("write_verilog -noattr %s", help_mode ? "<file-name>" : vlog_file.c_str()));
+				run(stringf("write_verilog -noattr %s", help_mode ? "<file-name>" : vlog_file));
 			}
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode) {
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 			}
 		}
 	}

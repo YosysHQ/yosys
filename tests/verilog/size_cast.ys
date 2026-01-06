@@ -2,4 +2,5 @@ read_verilog -sv size_cast.sv
 proc
 opt -full
 select -module top
+async2sync
 sat -verify -prove-asserts -show-all

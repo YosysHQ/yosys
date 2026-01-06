@@ -1,0 +1,110 @@
+read_verilog <<EOT
+(* module_attr = "module_attr" *)
+module some_mod(input a, output y);
+    assign y = a;
+endmodule
+
+module top(input a, output y);
+    (* inst_attr = "inst_attr" *)
+    some_mod some_inst(.a(a), .y(y));
+endmodule
+EOT
+
+hierarchy -top top
+flatten
+
+select -assert-count 1 top/n:some_inst top/t:$scopeinfo %i
+select -assert-count 1 top/n:some_inst top/r:TYPE=module %i
+select -assert-count 1 top/n:some_inst top/a:cell_inst_attr=inst_attr %i
+select -assert-count 1 top/n:some_inst top/a:module_module_attr=module_attr %i
+select -assert-count 1 top/n:some_inst top/a:cell_src %i
+select -assert-count 1 top/n:some_inst top/a:module_src %i
+
+opt_clean
+select -assert-count 1 top/t:$scopeinfo
+opt_clean -purge
+select -assert-count 0 top/t:$scopeinfo
+
+design -reset
+
+read_verilog <<EOT
+(* module_attr = "module_attr_deep" *)
+module some_mod_deep(input a, output y);
+    assign y = a;
+endmodule
+
+(* module_attr = "module_attr" *)
+module some_mod(input a, output y);
+    (* inst_attr = "inst_attr_deep" *)
+    some_mod_deep some_inst_deep(.a(a), .y(y));
+endmodule
+
+module top(input a, output y);
+    (* inst_attr = "inst_attr" *)
+    some_mod some_inst(.a(a), .y(y));
+endmodule
+EOT
+
+hierarchy -top top
+flatten
+
+select -assert-count 2 top/t:$scopeinfo
+select -assert-count 1 top/n:some_inst top/t:$scopeinfo %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep
+
+select -assert-count 1 top/n:some_inst top/r:TYPE=module %i
+select -assert-count 1 top/n:some_inst top/a:cell_inst_attr=inst_attr %i
+select -assert-count 1 top/n:some_inst top/a:module_module_attr=module_attr %i
+select -assert-count 1 top/n:some_inst top/a:cell_src %i
+select -assert-count 1 top/n:some_inst top/a:module_src %i
+
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/r:TYPE=module %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:cell_inst_attr=inst_attr_deep %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:module_module_attr=module_attr_deep %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:cell_src %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:module_src %i
+
+
+design -reset
+
+read_verilog <<EOT
+(* module_attr = "module_attr_deep" *)
+(* keep_hierarchy *)
+module some_mod_deep(input a, output y);
+    assign y = a;
+endmodule
+
+(* module_attr = "module_attr" *)
+module some_mod(input a, output y);
+    (* inst_attr = "inst_attr_deep" *)
+    some_mod_deep some_inst_deep(.a(a), .y(y));
+endmodule
+
+module top(input a, output y);
+    (* inst_attr = "inst_attr" *)
+    some_mod some_inst(.a(a), .y(y));
+endmodule
+EOT
+
+hierarchy -top top
+flatten top
+
+select -assert-count 1 top/t:$scopeinfo
+setattr -mod -unset keep_hierarchy *
+flatten
+
+select -assert-count 2 top/t:$scopeinfo
+select -assert-count 1 top/n:some_inst top/t:$scopeinfo %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep
+
+select -assert-count 1 top/n:some_inst top/r:TYPE=module %i
+select -assert-count 1 top/n:some_inst top/a:cell_inst_attr=inst_attr %i
+select -assert-count 1 top/n:some_inst top/a:module_module_attr=module_attr %i
+select -assert-count 1 top/n:some_inst top/a:cell_src %i
+select -assert-count 1 top/n:some_inst top/a:module_src %i
+
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/r:TYPE=module %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:cell_inst_attr=inst_attr_deep %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:module_module_attr=module_attr_deep %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:cell_src %i
+select -assert-count 1 top/a:hdlname=some_inst?some_inst_deep top/a:module_src %i

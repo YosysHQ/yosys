@@ -1,0 +1,31 @@
+# base case is able to map
+read_verilog << EOF
+module and_x3 (
+    input a, b, c, d,
+    output reg y
+);
+
+assign y = (a&b)&(c&d);
+endmodule
+EOF
+hierarchy -top and_x3
+opt
+extract -map ./bug3515.v
+select -assert-count 1 t:mod_74x08_3
+
+# more needles than haystacks; not able to map
+design -reset
+read_verilog << EOF
+module mod_and_or (
+    input a, b, c, d,
+    output reg y
+);
+
+assign y = (a&b)|(c&d);
+endmodule
+EOF
+hierarchy -top mod_and_or
+opt
+extract -map ./bug3515.v
+select -assert-count 2 t:$and
+

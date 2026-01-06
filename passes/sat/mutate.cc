@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
@@ -176,7 +177,7 @@ struct coverdb_t
 
 struct mutate_queue_t
 {
-	pool<mutate_t*, hash_ptr_ops> db;
+	pool<mutate_t*> db;
 
 	mutate_t *pick(xs128_t &rng, coverdb_t &coverdb, const mutate_opts_t &opts) {
 		mutate_t *m = nullptr;
@@ -527,6 +528,8 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	}
 
 	log("Raw database size: %d\n", GetSize(database));
+	if (N > GetSize(database))
+		log_warning("%d mutations requested but only %d could be created!\n", N, GetSize(database));
 	if (N != 0) {
 		database_reduce(database, opts, opts.none ? N-1 : N, rng);
 		log("Reduced database size: %d\n", GetSize(database));
@@ -536,7 +539,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		std::ofstream sout;
 		sout.open(srcsfile, std::ios::out | std::ios::trunc);
 		if (!sout.is_open())
-			log_error("Could not open file \"%s\" with write access.\n", srcsfile.c_str());
+			log_error("Could not open file \"%s\" with write access.\n", srcsfile);
 		sources.sort();
 		for (auto &s : sources)
 			sout << s << std::endl;
@@ -547,7 +550,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	if (!filename.empty()) {
 		fout.open(filename, std::ios::out | std::ios::trunc);
 		if (!fout.is_open())
-			log_error("Could not open file \"%s\" with write access.\n", filename.c_str());
+			log_error("Could not open file \"%s\" with write access.\n", filename);
 	}
 
 	int ctrl_value = opts.ctrl_value;
@@ -558,7 +561,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 			str += stringf(" -ctrl %s %d %d", log_id(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += " -mode none";
 		if (filename.empty())
-			log("%s\n", str.c_str());
+			log("%s\n", str);
 		else
 			fout << str << std::endl;
 	}
@@ -567,7 +570,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		string str = "mutate";
 		if (!opts.ctrl_name.empty())
 			str += stringf(" -ctrl %s %d %d", log_id(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
-		str += stringf(" -mode %s", entry.mode.c_str());
+		str += stringf(" -mode %s", entry.mode);
 		if (!entry.module.empty())
 			str += stringf(" -module %s", log_id(entry.module));
 		if (!entry.cell.empty())
@@ -583,9 +586,9 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		if (entry.wirebit >= 0)
 			str += stringf(" -wirebit %d", entry.wirebit);
 		for (auto &s : entry.src)
-			str += stringf(" -src %s", s.c_str());
+			str += stringf(" -src %s", s);
 		if (filename.empty())
-			log("%s\n", str.c_str());
+			log("%s\n", str);
 		else
 			fout << str << std::endl;
 	}
@@ -726,6 +729,11 @@ void mutate_cnot(Design *design, const mutate_opts_t &opts, bool one)
 
 struct MutatePass : public Pass {
 	MutatePass() : Pass("mutate", "generate or apply design mutations") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -981,7 +989,7 @@ struct MutatePass : public Pass {
 			return;
 		}
 
-		log_cmd_error("Invalid mode: %s\n", opts.mode.c_str());
+		log_cmd_error("Invalid mode: %s\n", opts.mode);
 	}
 } MutatePass;
 

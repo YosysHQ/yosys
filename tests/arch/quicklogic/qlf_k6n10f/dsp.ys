@@ -1,0 +1,121 @@
+read_verilog <<EOF
+module top(a, b, y, batch, clk);
+parameter [31:0] OPER_WIDTH=8;
+parameter [31:0] ACC_WIDTH=8;
+input wire batch;
+input wire clk;
+input wire [OPER_WIDTH-1:0] a;
+input wire [OPER_WIDTH-1:0] b;
+output reg [ACC_WIDTH-1:0] y;
+wire [ACC_WIDTH-1:0] ab = a * b;
+
+always @(posedge clk) begin
+	if (batch)
+		y <= ab;
+	else
+		y <= ab + y;
+end
+endmodule
+EOF
+
+design -save ast
+proc
+wreduce
+#equiv_opt -async2sync -map +/quicklogic/qlf_k6n10f/dsp_sim.v synth_quicklogic -family qlf_k6n10f
+#design -load postopt
+synth_quicklogic -family qlf_k6n10f
+cd top
+select -assert-count 1 t:QL_DSP2_MULTACC
+select -assert-none t:QL_DSP2_MULTACC %n t:* %i
+
+design -load ast
+chparam -set OPER_WIDTH 18
+chparam -set ACC_WIDTH 16
+proc
+wreduce
+synth_quicklogic -family qlf_k6n10f
+cd top
+select -assert-count 1 t:QL_DSP2_MULTACC
+select -assert-none t:QL_DSP2_MULTACC %n t:* %i
+
+design -load ast
+chparam -set OPER_WIDTH 19 # <-- too wide, shouldn't map to multacc
+chparam -set ACC_WIDTH 16
+proc
+wreduce
+synth_quicklogic -family qlf_k6n10f
+cd top
+select -assert-none t:QL_DSP2_MULTACC
+select -assert-count 1 t:QL_DSP2_MULT
+
+
+design -load ast
+chparam -set OPER_WIDTH 16
+chparam -set ACC_WIDTH 32
+proc
+
+synth_quicklogic -family qlf_k6n10f
+
+read_verilog -sv <<EOF
+module testbench(clk);
+localparam OPER_WIDTH=16;
+localparam ACC_WIDTH=32;
+localparam VECTORLEN=16;
+parameter PRIME1 = 237481091;
+parameter PRIME2 = 1752239;
+reg [OPER_WIDTH-1:0] a_vector [VECTORLEN-1:0];
+reg [OPER_WIDTH-1:0] b_vector [VECTORLEN-1:0];
+reg [ACC_WIDTH-1:0] y_vector [VECTORLEN-1:0];
+reg [0:0] batch_vector [VECTORLEN-1:0];
+
+integer j;
+integer a_, b_, y_, batch_;
+initial begin
+	y_ = 0;
+	a_ = 0;
+	b_ = 0;
+	y_vector[0] = 0;
+	for (j = 0; j < VECTORLEN; j = j + 1) begin
+		batch_ = (j % 4) == 0;
+		a_ = (a_ ^ (PRIME1 * j)) & ((1 << OPER_WIDTH) - 1);
+		b_ = (b_ ^ (PRIME2 * j)) & ((1 << OPER_WIDTH) - 1);
+		if (batch_)
+			y_ = a_ * b_;
+		else
+			y_ = a_ * b_ + y_;
+		a_vector[j] = a_;
+		b_vector[j] = b_;
+		y_vector[j + 1] = y_;
+		batch_vector[j] = batch_;
+	end
+end
+
+input wire clk;
+wire batch = batch_vector[i];
+wire [OPER_WIDTH-1:0] a = a_vector[i];
+wire [OPER_WIDTH-1:0] b = b_vector[i];
+wire [ACC_WIDTH-1:0] y_expected = y_vector[i];
+wire [ACC_WIDTH-1:0] y;
+top uut_top(
+	.batch(batch),
+	.clk(clk),
+	.a(a),
+	.b(b),
+	.y(y)
+);
+reg [7:0] i = 0;
+always @(posedge clk) begin
+	if (i < VECTORLEN) begin
+		// FIXME: for some reason the first assert fails (despite comparing zero to zero)
+		if (i > 0)
+			assert(y == y_expected);
+		i <= i + 1;
+	end
+end
+endmodule
+EOF
+read_verilog +/quicklogic/qlf_k6n10f/dsp_sim.v
+hierarchy -top testbench
+proc
+async2sync
+sim -assert -q -clock clk -n 20

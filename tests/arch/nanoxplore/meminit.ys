@@ -1,0 +1,44 @@
+read_verilog -sv meminit.v
+chparam -set DEPTH_LOG2 5 -set WIDTH 36
+prep
+opt_dff
+prep -rdff
+synth_nanoxplore 
+clean_zerowidth
+select -assert-none t:$mem_v2 t:$mem
+read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
+prep
+async2sync
+hierarchy -top top
+sim -assert -q -n 66 -clock clk
+
+design -reset
+read_verilog -sv meminit.v
+chparam -set DEPTH_LOG2 6 -set WIDTH 18
+prep
+opt_dff
+prep -rdff
+synth_nanoxplore 
+clean_zerowidth
+select -assert-none t:$mem_v2 t:$mem
+read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
+prep
+async2sync
+hierarchy -top top
+sim -assert -q -n 34 -clock clk
+
+
+design -reset
+read_verilog -sv meminit.v
+chparam -set DEPTH_LOG2 8 -set WIDTH 18
+prep
+opt_dff
+prep -rdff
+synth_nanoxplore 
+clean_zerowidth
+select -assert-none t:$mem_v2 t:$mem
+read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
+prep
+async2sync
+hierarchy -top top
+sim -assert -q -n 258 -clock clk

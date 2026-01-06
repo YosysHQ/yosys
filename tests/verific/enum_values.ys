@@ -1,0 +1,19 @@
+read -sv enum_values.sv
+hierarchy -top top
+printattrs a:*
+
+select -assert-count 1 a:some_attribute=16'd42
+# currently select doesn't support negative values in attributes
+select -assert-count 1 a:another_attribute=32'hffffffff
+
+select -assert-count 1 top/state a:wiretype=\state_t %i
+select -assert-count 1 top/state a:enum_value_11=\A %i
+select -assert-count 1 top/state a:enum_value_00=\B %i
+select -assert-count 1 top/state a:enum_value_01=\C %i
+select -assert-count 1 top/state a:enum_value_10=\D %i
+
+select -assert-count 1 top/wide_state a:wiretype=\wide_state_t %i
+select -assert-count 1 top/wide_state a:enum_value_00000000000000000000000000000000=\WA %i
+select -assert-count 1 top/wide_state a:enum_value_00000000000000000000000000000001=\WB %i
+select -assert-count 1 top/wide_state a:enum_value_00000000000000000000000000000010=\WC %i
+select -assert-count 1 top/wide_state a:enum_value_00000000000000000000000000000011=\WD %i

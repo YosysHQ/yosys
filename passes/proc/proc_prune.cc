@@ -91,7 +91,7 @@ struct PruneWorker
 			if (GetSize(new_lhs) == 0) {
 				if (GetSize(conn_lhs) == 0)
 					removed_count++;
-				cs->actions.erase((it++).base() - 1);
+				it = decltype(cs->actions)::reverse_iterator(cs->actions.erase(it.base() - 1));
 			} else {
 				it->first = new_lhs;
 				it->second = new_rhs;
@@ -127,15 +127,10 @@ struct ProcPrunePass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto mod : design->modules()) {
-			if (!design->selected(mod))
-				continue;
+		for (auto mod : design->all_selected_modules()) {
 			PruneWorker worker(mod);
-			for (auto &proc_it : mod->processes) {
-				if (!design->selected(mod, proc_it.second))
-					continue;
-				worker.do_process(proc_it.second);
-			}
+			for (auto proc : mod->selected_processes())
+				worker.do_process(proc);
 			total_removed_count += worker.removed_count;
 			total_promoted_count += worker.promoted_count;
 		}

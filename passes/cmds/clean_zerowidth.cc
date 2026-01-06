@@ -73,7 +73,7 @@ struct CleanZeroWidthPass : public Pass {
 							cell->unsetPort(it.first);
 						}
 					}
-				} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+				} else if (cell->is_builtin_ff()) {
 					// Coarse FF cells: remove if WIDTH == 0 (no outputs).
 					// This will also trigger on fine cells, so use the Q port
 					// width instead of actual WIDTH parameter.
@@ -128,7 +128,7 @@ struct CleanZeroWidthPass : public Pass {
 					// A and B to 1-bit if their width is 0.
 					if (cell->getParam(ID::Y_WIDTH).as_int() == 0) {
 						module->remove(cell);
-					} else if (cell->type == ID($macc)) {
+					} else if (cell->type.in(ID($macc), ID($macc_v2))) {
 						// TODO: fixing zero-width A and B not supported.
 					} else {
 						if (cell->getParam(ID::A_WIDTH).as_int() == 0) {
@@ -158,11 +158,11 @@ struct CleanZeroWidthPass : public Pass {
 							continue;
 						if (GetSize(memwr.address) == 0)
 							memwr.address = State::S0;
-						Const priority_mask;
+						RTLIL::Const::Builder new_mask_bits(swizzle.size());
 						for (auto x : swizzle) {
-							priority_mask.bits.push_back(memwr.priority_mask.bits[x]);
+							new_mask_bits.push_back(memwr.priority_mask[x]);
 						}
-						memwr.priority_mask = priority_mask;
+						memwr.priority_mask = new_mask_bits.build();
 						swizzle.push_back(i);
 						new_memwr_actions.push_back(memwr);
 					}

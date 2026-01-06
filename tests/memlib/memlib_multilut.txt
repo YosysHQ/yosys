@@ -1,0 +1,19 @@
+ram distributed \LUT_MULTI {
+	abits 4;
+	width 2;
+	init any;
+	port arsw "RW" {
+		clock posedge;
+	}
+	ifdef PORTS_QUAD {
+		option "PORTS" "QUAD" {
+			port ar "R0" "R1" "R2" {
+			}
+		}
+	} else ifdef PORTS_OCT {
+		option "PORTS" "OCT" {
+			port ar "R0" "R1" "R2" "R3" "R4" "R5" "R6" {
+			}
+		}
+	}
+}

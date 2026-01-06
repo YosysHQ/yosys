@@ -1,0 +1,8 @@
+library(fake) { 
+  cell(bugbad) { 
+    bundle(X) { 
+      members(x1, x2);
+      power_down_function : !a+b ; 
+    }
+  }
+}

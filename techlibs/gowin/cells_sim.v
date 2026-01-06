@@ -197,7 +197,7 @@ module DFFE (output reg Q, input D, CLK, CE);
   end
 endmodule // DFFE (positive clock edge; clock enable)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -216,7 +216,7 @@ module DFFS (output reg Q, input D, CLK, SET);
   end
 endmodule // DFFS (positive clock edge; synchronous set)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -282,7 +282,7 @@ module DFFP (output reg Q, input D, CLK, PRESET);
 
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, posedge CLK, 576);
 	endspecify
 
@@ -301,7 +301,7 @@ module DFFPE (output reg Q, input D, CLK, CE, PRESET);
 
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
@@ -321,7 +321,7 @@ module DFFC (output reg Q, input D, CLK, CLEAR);
 
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, posedge CLK, 576);
 	endspecify
 
@@ -340,7 +340,7 @@ module DFFCE (output reg Q, input D, CLK, CE, CLEAR);
 
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
@@ -384,7 +384,7 @@ module DFFNE (output reg Q, input D, CLK, CE);
   end
 endmodule // DFFNE (negative clock edge; clock enable)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFNS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -403,7 +403,7 @@ module DFFNS (output reg Q, input D, CLK, SET);
   end
 endmodule // DFFNS (negative clock edge; synchronous set)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFNSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -469,7 +469,7 @@ module DFFNP (output reg Q, input D, CLK, PRESET);
 
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, negedge CLK, 576);
 	endspecify
 
@@ -488,7 +488,7 @@ module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
   
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
@@ -508,7 +508,7 @@ module DFFNC (output reg Q, input D, CLK, CLEAR);
 
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, negedge CLK, 576);
 	endspecify
 
@@ -527,7 +527,7 @@ module DFFNCE (output reg Q, input D, CLK, CE, CLEAR);
 
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
@@ -582,12 +582,316 @@ module IOBUF (O, IO, I, OEN);
   assign I = IO;
 endmodule
 
+module ELVDS_OBUF (I, O, OB);
+  input I;
+  output O;
+  output OB;
+  assign O = I;
+  assign OB = ~I;
+endmodule
+
 module TLVDS_OBUF (I, O, OB);
   input I;
   output O;
   output OB;
   assign O = I;
   assign OB = ~I;
+endmodule
+
+module OSER4(D3, D2, D1, D0, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
+	output Q1;
+	output Q0;
+
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input TX1;
+	input TX0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+	parameter TXCLK_POL = 0;
+	parameter HWL = "false";
+endmodule
+
+module OSER4_MEM (Q0, Q1, D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET)  ;
+    parameter GSREN = "";
+    parameter LSREN = "";
+    parameter HWL = "";
+    parameter TCLK_SOURCE = "";
+    parameter TXCLK_POL = "";
+
+    input D0, D1, D2, D3;
+    input TX0, TX1;
+    input PCLK, FCLK, TCLK, RESET;
+    output  Q0,  Q1;
+
+    parameter ID = "";
+endmodule
+
+module OSER8(D7, D6, D5, D4, D3, D2, D1, D0, TX3, TX2, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
+	output Q1;
+	output Q0;
+
+	input D7;
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input TX3;
+	input TX2;
+	input TX1;
+	input TX0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+	parameter TXCLK_POL = 0;
+	parameter HWL = "false";
+endmodule
+
+module OSER10(D9, D8, D7, D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK, RESET, Q);
+	output Q;
+
+	input D9;
+	input D8;
+	input D7;
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module OVIDEO(D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK, RESET, Q);
+	output Q;
+
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module OSER16(D15, D14, D13, D12, D11, D10, 
+D9, D8, D7, D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK,
+RESET, Q);
+	output Q;
+
+	input D15;
+	input D14;
+	input D13;
+	input D12;
+	input D11;
+	input D10;
+	input D9;
+	input D8;
+	input D7;
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES4(Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES4_MEM (Q0, Q1, Q2, Q3, D, WADDR,
+RADDR, CALIB, PCLK, FCLK, ICLK, RESET)  ;
+parameter GSREN = "";
+parameter LSREN = "";
+
+input D, ICLK, FCLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input CALIB, RESET;
+
+output Q0,Q1,Q2,Q3;
+
+parameter ID = "";
+endmodule
+
+module IDES8(Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q7;
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES10(Q9, Q8, Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q9;
+	output Q8;
+	output Q7;
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IVIDEO(Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES16(Q15, Q14, Q13, Q12, Q11, Q10, 
+Q9, Q8, Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q15;
+	output Q14;
+	output Q13;
+	output Q12;
+	output Q11;
+	output Q10;
+	output Q9;
+	output Q8;
+	output Q7;
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDDR(D, CLK, Q0, Q1);
+	input D;
+	input CLK;
+	output Q0;
+	output Q1;
+	parameter Q0_INIT = 1'b0;
+	parameter Q1_INIT = 1'b0;
+endmodule
+
+module IDDRC(D, CLK, CLEAR, Q0, Q1);
+	input D;
+	input CLK;
+	input CLEAR;
+	output Q0;
+	output Q1;
+	parameter Q0_INIT = 1'b0;
+	parameter Q1_INIT = 1'b0;
+endmodule
+
+module DQS(DQSR90, DQSW0, DQSW270, RPOINT, WPOINT, RVALID, RBURST, RFLAG,
+WFLAG, DQSIN, DLLSTEP, WSTEP, READ, RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR,
+HOLD, RCLKSEL, PCLK, FCLK, RESET) ;
+    input DQSIN,PCLK,FCLK,RESET;
+    input [3:0] READ;
+    input [2:0] RCLKSEL;
+    input [7:0] DLLSTEP;
+    input [7:0] WSTEP;
+    input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
+
+    output DQSR90, DQSW0, DQSW270;
+    output [2:0] RPOINT, WPOINT;
+    output RVALID,RBURST, RFLAG, WFLAG;
+
+    parameter FIFO_MODE_SEL = "";
+    parameter RD_PNTR = "";
+    parameter DQS_MODE = "";
+    parameter HWL = "";
+    parameter GSREN = "";
+    parameter ID = "";
 endmodule
 
 (* blackbox *)
@@ -615,8 +919,12 @@ module ODDRC(D0, D1, CLEAR, TX, CLK, Q0, Q1);
 	parameter INIT = 0;
 endmodule
 
+(* blackbox, keep *)
 module GSR (input GSRI);
-	wire GSRO = GSRI;
+endmodule
+
+(* blackbox, keep *)
+module BANDGAP (input BGEN);
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -697,7 +1005,7 @@ always @* begin
 			C = I0;
 		end
 		MULT: begin
-			S = I0 & I1;
+			S = (I0 & I1) ^ I3;
 			C = I0 & I1;
 		end
 	endcase
@@ -705,7 +1013,7 @@ end
 
 endmodule
 
-
+(* abc9_flop, lib_whitebox *)
 module RAM16S1 (DO, DI, AD, WRE, CLK);
 
 parameter INIT_0 = 16'h0000;
@@ -740,7 +1048,7 @@ end
 
 endmodule
 
-
+(* abc9_flop, lib_whitebox *)
 module RAM16S2 (DO, DI, AD, WRE, CLK);
 
 parameter INIT_0 = 16'h0000;
@@ -779,7 +1087,7 @@ end
 
 endmodule
 
-
+(* abc9_flop, lib_whitebox *)
 module RAM16S4 (DO, DI, AD, WRE, CLK);
 
 parameter INIT_0 = 16'h0000;
@@ -1553,6 +1861,53 @@ parameter DEVICE = "GW1N-1";        // "GW1N-1", "GW1N-4", "GW1N-9", "GW1NR-4", 
 endmodule
 
 (* blackbox *)
+module PLLVR (CLKOUT, CLKOUTP, CLKOUTD, CLKOUTD3, LOCK, CLKIN, CLKFB, FBDSEL, IDSEL, ODSEL, DUTYDA, PSDA, FDLY, RESET, RESET_P, VREN);
+input CLKIN;
+input CLKFB;
+input RESET;
+input RESET_P;
+input [5:0] FBDSEL;
+input [5:0] IDSEL;
+input [5:0] ODSEL;
+input [3:0] PSDA,FDLY;
+input [3:0] DUTYDA;
+input VREN;
+
+output CLKOUT;
+output LOCK;
+output CLKOUTP;
+output CLKOUTD;
+output CLKOUTD3;
+
+parameter FCLKIN = "100.0";         // frequency of CLKIN
+parameter DYN_IDIV_SEL= "false";    // true:IDSEL, false:IDIV_SEL
+parameter IDIV_SEL = 0;             // 0:1, 1:2 ... 63:64
+parameter DYN_FBDIV_SEL= "false";   // true:FBDSEL, false:FBDIV_SEL
+parameter FBDIV_SEL = 0;            // 0:1, 1:2 ... 63:64
+parameter DYN_ODIV_SEL= "false";    // true:ODSEL, false:ODIV_SEL
+parameter ODIV_SEL = 8;             // 2/4/8/16/32/48/64/80/96/112/128
+
+parameter PSDA_SEL= "0000";
+parameter DYN_DA_EN = "false";      // true:PSDA or DUTYDA or FDA, false: DA_SEL
+parameter DUTYDA_SEL= "1000";
+
+parameter CLKOUT_FT_DIR = 1'b1;     // CLKOUT fine tuning direction. 1'b1 only
+parameter CLKOUTP_FT_DIR = 1'b1;    // 1'b1 only
+parameter CLKOUT_DLY_STEP = 0;      // 0, 1, 2, 4
+parameter CLKOUTP_DLY_STEP = 0;     // 0, 1, 2
+
+parameter CLKFB_SEL = "internal";   // "internal", "external"
+parameter CLKOUT_BYPASS = "false";  // "true", "false"
+parameter CLKOUTP_BYPASS = "false"; // "true", "false"
+parameter CLKOUTD_BYPASS = "false"; // "true", "false"
+parameter DYN_SDIV_SEL = 2;         // 2~128, only even numbers
+parameter CLKOUTD_SRC =  "CLKOUT";  // CLKOUT, CLKOUTP
+parameter CLKOUTD3_SRC = "CLKOUT";  // CLKOUT, CLKOUTP
+parameter DEVICE = "GW1NS-4";       // "GW1NS-4", "GW1NS-4C", "GW1NSR-4", "GW1NSR-4C", "GW1NSER-4C"
+
+endmodule
+
+(* blackbox *)
 module OSC(OSCOUT);
 output OSCOUT;
 
@@ -1585,3 +1940,121 @@ output OSCOUT;
 
 parameter FREQ_DIV = 96;
 endmodule
+
+(* blackbox *)
+module OSCW(OSCOUT);
+output OSCOUT;
+
+parameter FREQ_DIV = 80;
+endmodule
+
+(* blackbox *)
+module OSCO(OSCOUT, OSCEN);
+input OSCEN;
+
+output OSCOUT;
+
+parameter FREQ_DIV = 100;
+parameter REGULATOR_EN = 1'b0;
+endmodule
+
+(* blackbox *)
+module EMCU (
+  input          FCLK,
+  input          PORESETN,
+  input          SYSRESETN,
+  input          RTCSRCCLK,
+  output  [15:0] IOEXPOUTPUTO,
+  output  [15:0] IOEXPOUTPUTENO,
+  input   [15:0] IOEXPINPUTI,
+  output         UART0TXDO,
+  output         UART1TXDO,
+  output         UART0BAUDTICK,
+  output         UART1BAUDTICK,
+  input          UART0RXDI,
+  input          UART1RXDI,
+  output         INTMONITOR,
+  output         MTXHRESETN,
+  output  [12:0] SRAM0ADDR,
+  output   [3:0] SRAM0WREN,
+  output  [31:0] SRAM0WDATA,
+  output         SRAM0CS,
+  input   [31:0] SRAM0RDATA,
+  output         TARGFLASH0HSEL,
+  output  [28:0] TARGFLASH0HADDR,
+  output   [1:0] TARGFLASH0HTRANS,
+  output   [2:0] TARGFLASH0HSIZE,
+  output   [2:0] TARGFLASH0HBURST,
+  output         TARGFLASH0HREADYMUX,
+  input   [31:0] TARGFLASH0HRDATA,
+  input    [2:0] TARGFLASH0HRUSER,
+  input          TARGFLASH0HRESP,
+  input          TARGFLASH0EXRESP,
+  input          TARGFLASH0HREADYOUT,
+  output         TARGEXP0HSEL,
+  output  [31:0] TARGEXP0HADDR,
+  output   [1:0] TARGEXP0HTRANS,
+  output         TARGEXP0HWRITE,
+  output   [2:0] TARGEXP0HSIZE,
+  output   [2:0] TARGEXP0HBURST,
+  output   [3:0] TARGEXP0HPROT,
+  output   [1:0] TARGEXP0MEMATTR,
+  output         TARGEXP0EXREQ,
+  output   [3:0] TARGEXP0HMASTER,
+  output  [31:0] TARGEXP0HWDATA,
+  output         TARGEXP0HMASTLOCK,
+  output         TARGEXP0HREADYMUX,
+  output         TARGEXP0HAUSER,
+  output   [3:0] TARGEXP0HWUSER,
+  input   [31:0] TARGEXP0HRDATA,
+  input          TARGEXP0HREADYOUT,
+  input          TARGEXP0HRESP,
+  input          TARGEXP0EXRESP,
+  input    [2:0] TARGEXP0HRUSER,
+  output  [31:0] INITEXP0HRDATA,
+  output         INITEXP0HREADY,
+  output         INITEXP0HRESP,
+  output         INITEXP0EXRESP,
+  output   [2:0] INITEXP0HRUSER,
+  input          INITEXP0HSEL,
+  input   [31:0] INITEXP0HADDR,
+  input    [1:0] INITEXP0HTRANS,
+  input          INITEXP0HWRITE,
+  input    [2:0] INITEXP0HSIZE,
+  input    [2:0] INITEXP0HBURST,
+  input    [3:0] INITEXP0HPROT,
+  input    [1:0] INITEXP0MEMATTR,
+  input          INITEXP0EXREQ,
+  input    [3:0] INITEXP0HMASTER,
+  input   [31:0] INITEXP0HWDATA,
+  input          INITEXP0HMASTLOCK,
+  input          INITEXP0HAUSER,
+  input    [3:0] INITEXP0HWUSER,
+  output   [3:0] APBTARGEXP2PSTRB,
+  output   [2:0] APBTARGEXP2PPROT,
+  output         APBTARGEXP2PSEL,
+  output         APBTARGEXP2PENABLE,
+  output  [11:0] APBTARGEXP2PADDR,
+  output         APBTARGEXP2PWRITE,
+  output  [31:0] APBTARGEXP2PWDATA,
+  input   [31:0] APBTARGEXP2PRDATA,
+  input          APBTARGEXP2PREADY,
+  input          APBTARGEXP2PSLVERR,
+  input    [3:0] MTXREMAP,
+  output         DAPTDO,
+  output         DAPJTAGNSW,
+  output         DAPNTDOEN,
+  input          DAPSWDITMS,
+  input          DAPTDI,
+  input          DAPNTRST,
+  input          DAPSWCLKTCK,
+  output   [3:0] TPIUTRACEDATA,
+  output         TPIUTRACECLK,
+  input    [4:0] GPINT,
+  input          FLASHERR,
+  input          FLASHINT
+
+ );
+endmodule
+
+

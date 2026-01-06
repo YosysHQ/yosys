@@ -1,0 +1,50 @@
+# Memory bits <= 18K; Data width <= 36; Address width <= 14: -> RAMB18E1
+
+# w4b | r16b
+design -reset
+read_verilog asym_ram_sdp_read_wider.v
+synth_xilinx -top asym_ram_sdp_read_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+
+# w8b | r16b
+design -reset
+read_verilog asym_ram_sdp_read_wider.v
+chparam -set WIDTHA 8 -set SIZEA 512 -set ADDRWIDTHA 9 asym_ram_sdp_read_wider
+synth_xilinx -top asym_ram_sdp_read_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+
+# w4b | r32b
+design -reset
+read_verilog asym_ram_sdp_read_wider.v
+chparam -set WIDTHB 32 -set SIZEB 128 -set ADDRWIDTHB 7 asym_ram_sdp_read_wider
+synth_xilinx -top asym_ram_sdp_read_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+
+# w16b | r4b
+design -reset
+read_verilog asym_ram_sdp_write_wider.v
+synth_xilinx -top asym_ram_sdp_write_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+
+# w16b | r8b
+design -reset
+read_verilog asym_ram_sdp_write_wider.v
+chparam -set WIDTHB 8 -set SIZEB 512 -set ADDRWIDTHB 9 asym_ram_sdp_read_wider
+synth_xilinx -top asym_ram_sdp_write_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+
+# w32b | r4b
+design -reset
+read_verilog asym_ram_sdp_write_wider.v
+chparam -set WIDTHA 32 -set SIZEA 128 -set ADDRWIDTHA 7 asym_ram_sdp_read_wider
+synth_xilinx -top asym_ram_sdp_write_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+
+# w4b | r24b
+design -reset
+read_verilog asym_ram_sdp_read_wider.v
+chparam -set SIZEA 768
+chparam -set WIDTHB 24 -set SIZEB 128 -set ADDRWIDTHB 7 asym_ram_sdp_read_wider
+synth_xilinx -top asym_ram_sdp_read_wider -noiopad
+select -assert-count 1 t:RAMB18E1
+

@@ -1,0 +1,9 @@
+read_verilog << EOF
+module uut_00034(b, y);
+  input signed [30:0] b;
+  output [11:0] y = b >> ~31'b0; // shift by INT_MAX
+endmodule
+EOF
+
+# This should succeed, even with UBSAN halt_on_error
+opt_expr

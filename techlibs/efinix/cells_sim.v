@@ -113,7 +113,31 @@ module EFX_GBUFCE(
    
 endmodule
 
-module EFX_RAM_5K(
+module EFX_RAM_5K
+# (
+   parameter READ_WIDTH = 20,
+   parameter WRITE_WIDTH = 20,
+   localparam READ_ADDR_WIDTH = 
+			    (READ_WIDTH == 16) ? 8 :  // 256x16
+			    (READ_WIDTH == 8)  ? 9 :  // 512x8
+			    (READ_WIDTH == 4)  ? 10 : // 1024x4
+			    (READ_WIDTH == 2)  ? 11 : // 2048x2
+			    (READ_WIDTH == 1)  ? 12 : // 4096x1
+			    (READ_WIDTH == 20) ? 8 :  // 256x20
+			    (READ_WIDTH == 10) ? 9 :  // 512x10
+			    (READ_WIDTH == 5)  ? 10 : -1, // 1024x5
+   
+   localparam WRITE_ADDR_WIDTH = 
+			    (WRITE_WIDTH == 16) ? 8 :  // 256x16
+			    (WRITE_WIDTH == 8)  ? 9 :  // 512x8
+			    (WRITE_WIDTH == 4)  ? 10 : // 1024x4
+			    (WRITE_WIDTH == 2)  ? 11 : // 2048x2
+			    (WRITE_WIDTH == 1)  ? 12 : // 4096x1
+			    (WRITE_WIDTH == 20) ? 8 :  // 256x20
+			    (WRITE_WIDTH == 10) ? 9 :  // 512x10
+			    (WRITE_WIDTH == 5)  ? 10 : -1 // 1024x5
+)
+(
    input [WRITE_WIDTH-1:0] WDATA,
    input [WRITE_ADDR_WIDTH-1:0] WADDR,
    input WE, 
@@ -126,8 +150,6 @@ module EFX_RAM_5K(
    (* clkbuf_sink *)
    input RCLK
 );
-   parameter READ_WIDTH = 20;
-   parameter WRITE_WIDTH = 20;
    parameter OUTPUT_REG = 1'b0;
    parameter RCLK_POLARITY  = 1'b1;
    parameter RE_POLARITY    = 1'b1;
@@ -155,25 +177,4 @@ module EFX_RAM_5K(
    parameter INIT_11 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
    parameter INIT_12 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
    parameter INIT_13 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-
-   localparam READ_ADDR_WIDTH = 
-			    (READ_WIDTH == 16) ? 8 :  // 256x16
-			    (READ_WIDTH == 8)  ? 9 :  // 512x8
-			    (READ_WIDTH == 4)  ? 10 : // 1024x4
-			    (READ_WIDTH == 2)  ? 11 : // 2048x2
-			    (READ_WIDTH == 1)  ? 12 : // 4096x1
-			    (READ_WIDTH == 20) ? 8 :  // 256x20
-			    (READ_WIDTH == 10) ? 9 :  // 512x10
-			    (READ_WIDTH == 5)  ? 10 : -1; // 1024x5
-   
-   localparam WRITE_ADDR_WIDTH = 
-			    (WRITE_WIDTH == 16) ? 8 :  // 256x16
-			    (WRITE_WIDTH == 8)  ? 9 :  // 512x8
-			    (WRITE_WIDTH == 4)  ? 10 : // 1024x4
-			    (WRITE_WIDTH == 2)  ? 11 : // 2048x2
-			    (WRITE_WIDTH == 1)  ? 12 : // 4096x1
-			    (WRITE_WIDTH == 20) ? 8 :  // 256x20
-			    (WRITE_WIDTH == 10) ? 9 :  // 512x10
-			    (WRITE_WIDTH == 5)  ? 10 : -1; // 1024x5
-   
 endmodule

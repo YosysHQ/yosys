@@ -1,0 +1,68 @@
+# From https://github.com/YosysHQ/yosys/issues/5151
+read_verilog -sv <<EOT
+module expr_postsub_comb (
+    input logic [7:0] in_val_m2,
+    input logic [7:0] sub_val_m2,
+    output logic [7:0] out_diff_m2,
+    output logic [7:0] var_out_m2
+);
+    logic [7:0] var_m2;
+    always_comb begin
+      var_m2 = in_val_m2;
+      out_diff_m2 = (var_m2--) - sub_val_m2;
+      var_out_m2 = var_m2;
+    end
+
+    always_comb assert(out_diff_m2 == in_val_m2 - sub_val_m2);
+endmodule
+EOT
+
+prep
+chformal -lower
+sat -prove-asserts -verify
+
+design -reset
+
+read_verilog -sv <<EOT
+module top(
+	input logic [7:0] a,
+	output logic [7:0] pre_inc,
+	output logic [7:0] pre_dec,
+	output logic [7:0] post_inc,
+	output logic [7:0] post_dec
+);
+
+logic [7:0] a_pre_inc, a_pre_dec, a_post_inc, a_post_dec;
+always_comb begin
+	a_pre_inc = a;
+	a_pre_dec = a;
+	a_post_inc = a;
+	a_post_dec = a;
+
+	pre_inc = ++a_pre_inc;
+	pre_dec = --a_pre_dec;
+	post_inc = a_post_inc++;
+	post_dec = a_post_dec--;
+end
+
+wire [7:0] a_inc = a + 1;
+wire [7:0] a_dec = a - 1;
+
+always_comb begin
+	assert(a_pre_inc == a_inc);
+	assert(a_pre_dec == a_dec);
+	assert(a_post_inc == a_inc);
+	assert(a_post_dec == a_dec);
+
+	assert(pre_inc == a_inc);
+	assert(pre_dec == a_dec);
+	assert(post_inc == a);
+	assert(post_dec == a);
+end
+
+endmodule
+EOT
+
+prep
+chformal -lower
+sat -prove-asserts -verify

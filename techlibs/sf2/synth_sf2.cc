@@ -45,8 +45,8 @@ struct SynthSf2Pass : public ScriptPass
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -vlog <file>\n");
-		log("        write the design to the specified Verilog file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
+		log("        write the design to the specified Verilog file. writing of an output\n");
+		log("        file is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");
@@ -66,6 +66,9 @@ struct SynthSf2Pass : public ScriptPass
 		log("    -clkbuf\n");
 		log("        insert direct PAD->global_net buffers\n");
 		log("\n");
+		log("    -discard-ffinit\n");
+		log("        discard FF init value instead of emitting an error\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
@@ -76,7 +79,7 @@ struct SynthSf2Pass : public ScriptPass
 	}
 
 	string top_opt, edif_file, vlog_file, json_file;
-	bool flatten, retime, iobs, clkbuf;
+	bool flatten, retime, iobs, clkbuf, discard_ffinit;
 
 	void clear_flags() override
 	{
@@ -88,6 +91,7 @@ struct SynthSf2Pass : public ScriptPass
 		retime = false;
 		iobs = true;
 		clkbuf = false;
+		discard_ffinit = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -138,6 +142,10 @@ struct SynthSf2Pass : public ScriptPass
 				clkbuf = true;
 				continue;
 			}
+			if (args[argidx] == "-discard-ffinit") {
+				discard_ffinit = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -158,7 +166,7 @@ struct SynthSf2Pass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib +/sf2/cells_sim.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -171,6 +179,8 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
+			if (discard_ffinit || help_mode)
+				run("attrmap -remove init", "(only if -discard-ffinit)");
 			run("synth -run coarse");
 		}
 
@@ -218,9 +228,9 @@ struct SynthSf2Pass : public ScriptPass
 				} else {
 					run("clkbufmap -buf CLKINT Y:A");
 				}
-				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD", "(unless -noiobs");
+				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD", "(unless -noiobs)");
 			}
-			run("clean");
+			run("clean -purge");
 		}
 
 		if (check_label("check"))
@@ -234,19 +244,19 @@ struct SynthSf2Pass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif -gndvccy %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif -gndvccy %s", help_mode ? "<file-name>" : edif_file));
 		}
 
 		if (check_label("vlog"))
 		{
 			if (!vlog_file.empty() || help_mode)
-				run(stringf("write_verilog %s", help_mode ? "<file-name>" : vlog_file.c_str()));
+				run(stringf("write_verilog %s", help_mode ? "<file-name>" : vlog_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthSf2Pass;

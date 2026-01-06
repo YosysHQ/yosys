@@ -21,18 +21,18 @@ EOT
 
 design -save orig
 flatten
-#equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
 
 
 # Convert everything to SRs.

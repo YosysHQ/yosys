@@ -1,0 +1,30 @@
+read_verilog <<EOT
+module foo(
+	output o,
+	input [0:0] i1,
+	input i2
+);
+    wire [0:0] w1 = i1 ^ i2;
+    wire w2 = ~i1;
+	assign o = w1 ^ w2;
+endmodule
+EOT
+
+hierarchy
+proc
+select -assert-count 1 w:i1
+select -assert-count 1 w:i1 a:single_bit_vector %i
+select -assert-count 1 w:i2
+select -assert-count 0 w:i2 a:single_bit_vector %i
+select -assert-count 1 w:w1
+select -assert-count 1 w:w1 a:single_bit_vector %i
+select -assert-count 1 w:w2
+select -assert-count 0 w:w2 a:single_bit_vector %i
+
+write_verilog verilog_sbvector.out
+!grep -qF 'wire [0:0] i1;' verilog_sbvector.out
+!grep -qF 'input [0:0] i1;' verilog_sbvector.out
+!grep -qF 'wire i2;' verilog_sbvector.out
+!grep -qF 'input i2;' verilog_sbvector.out
+!grep -qF 'wire [0:0] w1;' verilog_sbvector.out
+!grep -qF 'wire w2;' verilog_sbvector.out

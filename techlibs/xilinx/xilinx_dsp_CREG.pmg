@@ -1,0 +1,149 @@
+// This file describes the second of three pattern matcher setups that
+//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc
+// At a high level, it works as follows:
+//   (1) Starting from a DSP48* cell that (a) doesn't have a CREG already,
+//       and (b) uses the 'C' port
+//   (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
+//       (attached to at most two $mux cells that implement clock-enable or
+//        reset functionality, using a subpattern discussed below)
+// Notes:
+//   - Running CREG packing after xilinx_dsp_pack is necessary since there is no
+//     guarantee that the cell ordering corresponds to the "expected" case (i.e.
+//     the order in which they appear in the source) thus the possiblity existed
+//     that a register got packed as a CREG into a downstream DSP that should
+//     have otherwise been a PREG of an upstream DSP that had not been visited
+//     yet
+//   - The reason this is separated out from the xilinx_dsp.pmg file is
+//     for efficiency --- each *.pmg file creates a class of the same basename,
+//     which when constructed, creates a custom database tailored to the
+//     pattern(s) contained within. Since the pattern in this file must be
+//     executed after the pattern contained in xilinx_dsp.pmg, it is necessary
+//     to reconstruct this database. Separating the two patterns into
+//     independent files causes two smaller, more specific, databases.
+
+pattern xilinx_dsp_packC
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+state <SigBit> clock
+state <SigSpec> sigC sigP
+state <Cell*> ffC
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+
+// (1) Starting from a DSP48* cell that (a) doesn't have a CREG already,
+//     and (b) uses the 'C' port
+match dsp
+	select dsp->type.in(\DSP48A, \DSP48A1, \DSP48E1)
+	select param(dsp, \CREG).as_int() == 0
+	select nusers(port(dsp, \C, SigSpec())) > 1
+endmatch
+
+code sigC sigP clock
+	unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+	sigC = unextend(port(dsp, \C, SigSpec()));
+
+	SigSpec P = port(dsp, \P);
+	if (!dsp->type.in(\DSP48E1) ||
+            param(dsp, \USE_MULT).decode_string() == "MULTIPLY") {
+		// Only care about those bits that are used
+		int i;
+		for (i = GetSize(P)-1; i >= 0; i--)
+			if (nusers(P[i]) > 1)
+				break;
+		i++;
+		log_assert(nusers(P.extract_end(i)) <= 1);
+		sigP = P.extract(0, i);
+	}
+	else
+		sigP = P;
+
+	clock = port(dsp, \CLK, SigBit());
+endcode
+
+// (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
+//     (attached to at most two $mux cells that implement clock-enable or
+//      reset functionality, using the in_dffe subpattern)
+code argQ ffC sigC clock
+	argQ = sigC;
+	subpattern(in_dffe);
+	if (dff) {
+		ffC = dff;
+		clock = dffclock;
+		sigC = dffD;
+	}
+endcode
+
+code
+	if (ffC)
+		accept;
+endcode
+
+// #######################
+
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input.
+subpattern in_dffe
+arg argQ clock
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
+		if (!c.wire)
+			reject;
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		// (not supported by DSP48E1)
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
+endmatch
+
+code argQ
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	SigSpec D = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, D);
+endcode

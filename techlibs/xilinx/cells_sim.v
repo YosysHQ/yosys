@@ -33,8 +33,12 @@ module IBUF(
     output O,
     (* iopad_external_pin *)
     input I);
-  parameter IOSTANDARD = "default";
-  parameter IBUF_LOW_PWR = 0;
+  parameter CCIO_EN = "TRUE";
+  parameter CAPACITANCE = "DONT_CARE";
+  parameter IBUF_DELAY_VALUE = "0";
+  parameter IBUF_LOW_PWR = "TRUE";
+  parameter IFD_DELAY_VALUE = "AUTO";
+  parameter IOSTANDARD = "DEFAULT";
   assign O = I;
   specify
     (I => O) = 0;
@@ -56,7 +60,8 @@ module OBUF(
     (* iopad_external_pin *)
     output O,
     input I);
-  parameter IOSTANDARD = "default";
+  parameter CAPACITANCE = "DONT_CARE";
+  parameter IOSTANDARD = "DEFAULT";
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
@@ -3614,7 +3619,7 @@ module DSP48E1 (
         if (CREG == 1) begin always @(posedge CLK) if (RSTC) Cr <= 48'b0; else if (CEC) Cr <= C; end
         else           always @* Cr <= C;
 
-        if (CREG == 1) initial Dr = 25'b0;
+	if (DREG == 1) initial Dr = 25'b0;
         if (DREG == 1) begin always @(posedge CLK) if (RSTD) Dr <= 25'b0; else if (CED) Dr <= D; end
         else           always @* Dr <= D;
 

@@ -31,6 +31,7 @@ extern void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell);
+extern void simplemap_bwmux(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_slice(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell);

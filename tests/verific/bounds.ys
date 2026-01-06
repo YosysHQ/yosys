@@ -1,0 +1,168 @@
+read -vhdl bounds.vhd
+hierarchy -top test
+
+# bit: not a scalar type
+select -assert-count 0 w:bit_in a:bottom_bound %i
+select -assert-count 0 w:bit_in a:top_bound %i
+select -assert-count 0 w:bit_out a:bottom_bound %i
+select -assert-count 0 w:bit_out a:top_bound %i
+
+# bit_vector: not a scalar type
+select -assert-count 0 w:bit_vector_in a:bottom_bound %i
+select -assert-count 0 w:bit_vector_in a:top_bound %i
+select -assert-count 0 w:bit_vector_out a:bottom_bound %i
+select -assert-count 0 w:bit_vector_out a:top_bound %i
+
+# bit_vector with to index: not a scalar type
+select -assert-count 0 w:bit_vector_in_to a:bottom_bound %i
+select -assert-count 0 w:bit_vector_in_to a:top_bound %i
+select -assert-count 0 w:bit_vector_out_to a:bottom_bound %i
+select -assert-count 0 w:bit_vector_out_to a:top_bound %i
+
+# std_ulogic: not a scalar type
+select -assert-count 0 w:std_ulogic_in a:bottom_bound %i
+select -assert-count 0 w:std_ulogic_in a:top_bound %i
+select -assert-count 0 w:std_ulogic_out a:bottom_bound %i
+select -assert-count 0 w:std_ulogic_out a:top_bound %i
+
+# std_ulogic_vector: not a scalar type
+select -assert-count 0 w:std_ulogic_vector_in a:bottom_bound %i
+select -assert-count 0 w:std_ulogic_vector_in a:top_bound %i
+select -assert-count 0 w:std_ulogic_vector_out a:bottom_bound %i
+select -assert-count 0 w:std_ulogic_vector_out a:top_bound %i
+
+# std_ulogic_vector with to index: not a scalar type
+select -assert-count 0 w:std_ulogic_vector_in_to a:bottom_bound %i
+select -assert-count 0 w:std_ulogic_vector_in_to a:top_bound %i
+select -assert-count 0 w:std_ulogic_vector_out_to a:bottom_bound %i
+select -assert-count 0 w:std_ulogic_vector_out_to a:top_bound %i
+
+# std_logic: not a scalar type
+select -assert-count 0 w:std_logic_in a:bottom_bound %i
+select -assert-count 0 w:std_logic_in a:top_bound %i
+select -assert-count 0 w:std_logic_out a:bottom_bound %i
+select -assert-count 0 w:std_logic_out a:top_bound %i
+
+# std_logic_vector: not a scalar type
+select -assert-count 0 w:std_logic_vector_in a:bottom_bound %i
+select -assert-count 0 w:std_logic_vector_in a:top_bound %i
+select -assert-count 0 w:std_logic_vector_out a:bottom_bound %i
+select -assert-count 0 w:std_logic_vector_out a:top_bound %i
+
+# std_logic_vector with to index: not a scalar type
+select -assert-count 0 w:std_logic_vector_in_to a:bottom_bound %i
+select -assert-count 0 w:std_logic_vector_in_to a:top_bound %i
+select -assert-count 0 w:std_logic_vector_out_to a:bottom_bound %i
+select -assert-count 0 w:std_logic_vector_out_to a:top_bound %i
+
+# signed: not a scalar type
+select -assert-count 0 w:signed_in a:bottom_bound %i
+select -assert-count 0 w:signed_in a:top_bound %i
+select -assert-count 0 w:signed_out a:bottom_bound %i
+select -assert-count 0 w:signed_out a:top_bound %i
+
+# signed with to index: not a scalar type
+select -assert-count 0 w:signed_in_to a:bottom_bound %i
+select -assert-count 0 w:signed_in_to a:top_bound %i
+select -assert-count 0 w:signed_out_to a:bottom_bound %i
+select -assert-count 0 w:signed_out_to a:top_bound %i
+
+# unsigned: not a scalar type
+select -assert-count 0 w:unsigned_in a:bottom_bound %i
+select -assert-count 0 w:unsigned_in a:top_bound %i
+select -assert-count 0 w:unsigned_out a:bottom_bound %i
+select -assert-count 0 w:unsigned_out a:top_bound %i
+
+# unsigned with to index: not a scalar type
+select -assert-count 0 w:unsigned_in_to a:bottom_bound %i
+select -assert-count 0 w:unsigned_in_to a:top_bound %i
+select -assert-count 0 w:unsigned_out_to a:bottom_bound %i
+select -assert-count 0 w:unsigned_out_to a:top_bound %i
+
+# integer: scalar type
+select -assert-count 1 w:integer_in a:bottom_bound=32'b10000000000000000000000000000000 %i
+select -assert-count 1 w:integer_in a:top_bound=32'b01111111111111111111111111111111 %i
+select -assert-count 1 w:integer_out a:bottom_bound=32'b10000000000000000000000000000000 %i
+select -assert-count 1 w:integer_out a:top_bound=32'b01111111111111111111111111111111 %i
+
+# integer with range: scalar type
+select -assert-count 1 w:integer_with_range_in a:bottom_bound=5'bs11011 %i
+select -assert-count 1 w:integer_with_range_in a:top_bound=5'bs01010 %i
+select -assert-count 1 w:integer_with_range_out a:bottom_bound=5'bs11010 %i
+select -assert-count 1 w:integer_with_range_out a:top_bound=5'bs01010 %i
+
+# integer with single value range: scalar type
+select -assert-count 1 w:integer_single_value_in a:bottom_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_in a:top_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_out a:bottom_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_out a:top_bound=3'bs101 %i
+
+# integer with null range: scalar type
+select -assert-count 1 w:integer_null_range_in a:bottom_bound=4'bs0111 %i
+select -assert-count 1 w:integer_null_range_in a:top_bound=4'bs1111 %i
+select -assert-count 1 w:integer_null_range_out a:bottom_bound=1'bs0 %i
+select -assert-count 1 w:integer_null_range_out a:top_bound=1'bs1 %i
+
+# natural: scalar type
+select -assert-count 1 w:natural_in a:bottom_bound=31'b0000000000000000000000000000000 %i
+select -assert-count 1 w:natural_in a:top_bound=31'b1111111111111111111111111111111 %i
+select -assert-count 1 w:natural_out a:bottom_bound=31'b0000000000000000000000000000000 %i
+select -assert-count 1 w:natural_out a:top_bound=31'b1111111111111111111111111111111 %i
+
+# positive: scalar type
+select -assert-count 1 w:positive_in a:bottom_bound=31'b0000000000000000000000000000001 %i
+select -assert-count 1 w:positive_in a:top_bound=31'b1111111111111111111111111111111 %i
+select -assert-count 1 w:positive_out a:bottom_bound=31'b0000000000000000000000000000001 %i
+select -assert-count 1 w:positive_out a:top_bound=31'b1111111111111111111111111111111 %i
+
+
+design -reset
+read -vhdl2019 bounds.vhd
+hierarchy -top test
+
+## integer size changed in VHDL 2019
+# integer: scalar type
+select -assert-count 1 w:integer_in a:bottom_bound=64'b1000000000000000000000000000000000000000000000000000000000000000 %i
+select -assert-count 1 w:integer_in a:top_bound=64'b0111111111111111111111111111111111111111111111111111111111111111 %i
+select -assert-count 1 w:integer_out a:bottom_bound=64'b1000000000000000000000000000000000000000000000000000000000000000 %i
+select -assert-count 1 w:integer_out a:top_bound=64'b0111111111111111111111111111111111111111111111111111111111111111 %i
+
+# natural: scalar type
+select -assert-count 1 w:natural_in a:bottom_bound=63'b000000000000000000000000000000000000000000000000000000000000000 %i
+select -assert-count 1 w:natural_in a:top_bound=63'b111111111111111111111111111111111111111111111111111111111111111 %i
+select -assert-count 1 w:natural_out a:bottom_bound=63'b000000000000000000000000000000000000000000000000000000000000000 %i
+select -assert-count 1 w:natural_out a:top_bound=63'b111111111111111111111111111111111111111111111111111111111111111 %i
+
+# positive: scalar type
+select -assert-count 1 w:positive_in a:bottom_bound=63'b000000000000000000000000000000000000000000000000000000000000001 %i
+select -assert-count 1 w:positive_in a:top_bound=63'b111111111111111111111111111111111111111111111111111111111111111 %i
+select -assert-count 1 w:positive_out a:bottom_bound=63'b000000000000000000000000000000000000000000000000000000000000001 %i
+select -assert-count 1 w:positive_out a:top_bound=63'b111111111111111111111111111111111111111111111111111111111111111 %i
+
+## ranged integer sizes should be unaffected
+# integer with range: scalar type
+select -assert-count 1 w:integer_with_range_in a:bottom_bound=5'bs11011 %i
+select -assert-count 1 w:integer_with_range_in a:top_bound=5'bs01010 %i
+select -assert-count 1 w:integer_with_range_out a:bottom_bound=5'bs11010 %i
+select -assert-count 1 w:integer_with_range_out a:top_bound=5'bs01010 %i
+
+# integer with single value range: scalar type
+select -assert-count 1 w:integer_single_value_in a:bottom_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_in a:top_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_out a:bottom_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_out a:top_bound=3'bs101 %i
+
+# integer with null range: scalar type
+select -assert-count 1 w:integer_null_range_in a:bottom_bound=4'bs0111 %i
+select -assert-count 1 w:integer_null_range_in a:top_bound=4'bs1111 %i
+select -assert-count 1 w:integer_null_range_out a:bottom_bound=1'bs0 %i
+select -assert-count 1 w:integer_null_range_out a:top_bound=1'bs1 %i
+
+
+design -reset
+read -sv bounds.sv
+hierarchy -top test
+
+## bounds should not be generated for SV
+select -assert-count none a:bottom_bound
+select -assert-count none a:top_bound

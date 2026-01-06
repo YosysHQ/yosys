@@ -1,0 +1,9 @@
+read_verilog ../common/add_sub.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/fabulous/prims.v synth_fabulous -carry ha # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-max 10 t:LUT4_HA
+select -assert-max 4 t:LUT1
+select -assert-none t:LUT1 t:LUT4_HA %% t:* %D

@@ -1,5 +1,5 @@
 read_verilog init.v
-read_verilog -lib +/gowin/cells_sim.v
+read_verilog -lib -specify +/gowin/cells_sim.v
 design -save read
 
 proc

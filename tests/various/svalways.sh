@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 trap 'echo "ERROR in svalways.sh" >&2; exit 1' ERR
 

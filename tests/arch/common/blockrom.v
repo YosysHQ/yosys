@@ -10,8 +10,11 @@ module sync_rom #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 	reg [WORD:0] data_out_r;
 	reg [WORD:0] memory [0:DEPTH];
 
-	integer i,j = 64'hF4B1CA8127865242;
-	initial
+	integer i,j;
+	// Initialize in initial block as a workaround for
+	// https://github.com/YosysHQ/yosys/issues/4792
+	initial begin
+		j = 64'hF4B1CA8127865242;
 		for (i = 0; i <= DEPTH; i++) begin
 			// In case this ROM will be implemented in fabric: fill the memory with some data
 			// uncorrelated with the address, or Yosys might see through the ruse and e.g. not
@@ -21,6 +24,7 @@ module sync_rom #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 			j = j ^ (j << 25);
 			j = j ^ (j >> 27);
 		end
+	end
 
 	always @(posedge clk) begin
 		data_out_r <= memory[address_in];

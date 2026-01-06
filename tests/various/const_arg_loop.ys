@@ -3,4 +3,5 @@ hierarchy
 proc
 opt -full
 select -module top
-sat -verify -seq 1 -tempinduct -prove-asserts -show-all
+async2sync
+sat -verify -tempinduct -prove-asserts -show-all

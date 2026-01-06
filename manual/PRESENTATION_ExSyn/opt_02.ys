@@ -1,3 +1,0 @@
-read_verilog opt_02.v
-hierarchy -check -top test
-opt

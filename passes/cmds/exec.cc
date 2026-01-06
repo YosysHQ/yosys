@@ -17,8 +17,8 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include <cstdio>
 
 #if defined(_WIN32)
@@ -38,6 +38,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ExecPass : public Pass {
 	ExecPass() : Pass("exec", "execute commands in the operating system shell") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -46,8 +51,8 @@ struct ExecPass : public Pass {
 		log("\n");
 		log("Execute a command in the operating system shell.  All supplied arguments are\n");
 		log("concatenated and passed as a command to popen(3).  Whitespace is not guaranteed\n");
-		log("to be preserved, even if quoted.  stdin and stderr are not connected, while stdout is\n");
-		log("logged unless the \"-q\" option is specified.\n");
+		log("to be preserved, even if quoted.  stdin and stderr are not connected, while\n");
+		log("stdout is logged unless the \"-q\" option is specified.\n");
 		log("\n");
 		log("\n");
 		log("    -q\n");
@@ -86,7 +91,7 @@ struct ExecPass : public Pass {
 			bool polarity;	//true: this regex must match at least one line
 					//false: this regex must not match any line
 			std::string str;
-			YS_REGEX_TYPE re;
+			std::regex re;
 
 			expect_stdout_elem() : matched(false), polarity(true), str(), re(){};
 		};
@@ -121,8 +126,8 @@ struct ExecPass : public Pass {
 						x.str = args[argidx];
 						x.re = YS_REGEX_COMPILE(args[argidx]);
 						expect_stdout.push_back(x);
-					} catch (const YS_REGEX_NS::regex_error& e) {
-						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
+					} catch (const std::regex_error& e) {
+						log_cmd_error("Error in regex expression '%s' !\n", args[argidx]);
 					}
 				} else if (args[argidx] == "-not-expect-stdout") {
 					flag_expect_stdout = true;
@@ -136,16 +141,16 @@ struct ExecPass : public Pass {
 						x.re = YS_REGEX_COMPILE(args[argidx]);
 						x.polarity = false;
 						expect_stdout.push_back(x);
-					} catch (const YS_REGEX_NS::regex_error& e) {
-						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
+					} catch (const std::regex_error& e) {
+						log_cmd_error("Error in regex expression '%s' !\n", args[argidx]);
 					}
 
 				} else
-					log_cmd_error("Unknown option \"%s\" or \"--\" doesn\'t precede command.", args[argidx].c_str());
+					log_cmd_error("Unknown option \"%s\" or \"--\" doesn\'t precede command.\n", args[argidx]);
 			}
 		}
 
-		log_header(design, "Executing command \"%s\".\n", cmd.c_str());
+		log_header(design, "Executing command \"%s\".\n", cmd);
 		log_push();
 
 		fflush(stdout);
@@ -167,11 +172,11 @@ struct ExecPass : public Pass {
 				std::string line = linebuf.substr(0, pos);
 				linebuf.erase(0, pos + 1);
 				if (!flag_quiet)
-					log("%s\n", line.c_str());
+					log("%s\n", line);
 
 				if (flag_expect_stdout)
 					for(auto &x : expect_stdout)
-						if (YS_REGEX_NS::regex_search(line, x.re))
+						if (std::regex_search(line, x.re))
 							x.matched = true;
 
 				pos = linebuf.find('\n');
@@ -196,7 +201,7 @@ struct ExecPass : public Pass {
 		if (flag_expect_stdout)
 			for (auto &x : expect_stdout)
 				if (x.polarity ^ x.matched)
-					log_cmd_error("Command stdout did%s have a line matching given regex \"%s\".\n", (x.polarity? " not" : ""), x.str.c_str());
+					log_cmd_error("Command stdout did%s have a line matching given regex \"%s\".\n", (x.polarity? " not" : ""), x.str);
 
 		log_pop();
 	}

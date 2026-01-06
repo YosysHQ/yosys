@@ -1,0 +1,57 @@
+read_verilog fifo.v
+echo on
+tee -o fifo.stat stat
+echo off
+synth_ice40 -top fifo -run begin:map_ram
+# this point should be the same as rdata_coarse
+
+# ========================================================
+
+echo on
+tee -o fifo.libmap debug memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt -no-auto-huge
+echo off
+synth_ice40 -top fifo -run map_ram:map_ffram
+select -set mem t:SB_RAM40_4K
+select -set remap @mem %ci:+SB_RAM40_4K[RADDR] @mem %co %%
+select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
+show -color cornflowerblue @remap -notitle -format dot -prefix rdata_map_ram @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_ffram:map_gates
+select -set mem t:SB_RAM40_4K
+select -set remap @mem %co @mem %d
+select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
+show -color maroon3 @mem -color cornflowerblue @remap -notitle -format dot -prefix rdata_map_ffram @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_gates:map_ffs
+select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
+select -set multibit t:$_MUX_ t:$_DFFE_*_
+select -set alu t:$_OR_ t:$_NOT_ t:$lut %% %ci %% w:fifo_reader.addr %d i:* %d
+show -color maroon3 @multibit -color cornflowerblue @alu -notitle -format dot -prefix rdata_map_gates @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_ffs:map_luts
+select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
+select -set dff t:SB_DFFER
+select -set primitives t:$_AND_ %ci i:* %d
+show -color maroon3 @dff -color cornflowerblue @primitives -notitle -format dot -prefix rdata_map_ffs @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_luts:map_cells
+select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
+show -color maroon3 t:SB_CARRY -color cornflowerblue t:$lut -notitle -format dot -prefix rdata_map_luts @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_cells:
+select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
+show -color maroon3 t:SB_LUT* -notitle -format dot -prefix rdata_map_cells @rdata_path
+
+echo on
+tee -a fifo.stat stat -top fifo
+echo off

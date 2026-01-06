@@ -1,0 +1,63 @@
+read_verilog -noblackbox << EOF
+(* raise_error=7 *)
+module top();
+endmodule
+
+(* raise_error="help me" *)
+module other();
+endmodule
+
+(* raise_error *)
+module def();
+endmodule
+EOF
+select -assert-mod-count 3 =*
+design -stash read
+
+# empty design does not raise_error
+design -reset
+logger -expect log "'raise_error' attribute not found" 1
+raise_error
+logger -check-expected
+
+# raise_error with int exits with status
+design -load read
+setattr -mod -unset raise_error def other
+dump
+bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 7
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 top
+
+# raise_error -always still uses 'raise_error' attribute if possible
+design -load read
+setattr -mod -unset raise_error def other
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -always" -expect-return 7
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 top
+
+# raise_error with string prints message and exits with 1
+design -load read
+setattr -mod -unset raise_error top def
+bugpoint -suffix error -yosys ../../yosys -command raise_error -grep "help me" -expect-return 1
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 other
+
+# raise_error with no value exits with 1
+design -load read
+setattr -mod -unset raise_error top
+delete other
+bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 1
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 def
+
+# raise_error -stderr prints to stderr and exits with 1
+design -load read
+setattr -mod -unset raise_error top def
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -stderr" -err-grep "help me" -expect-return 1
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 other
+
+# empty design can raise_error -always
+design -reset
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -always" -grep "ERROR: No 'raise_error' attribute found" -expect-return 1
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -always -stderr" -err-grep "No 'raise_error' attribute found" -expect-return 1

@@ -1,0 +1,80 @@
+read_verilog -formal <<EOT
+// From https://github.com/YosysHQ/yosys/pull/4568#issuecomment-2313740948
+
+module top(input clk, a, b, c, input [1:0] d, output reg [1:0] q);
+
+always @(posedge clk, posedge a, posedge b, posedge c) begin
+	if      (a) q <= '0;
+	else if (b) q <= 2'b10;
+	else if (c) q <= '0;
+	else        q <= d;
+end
+
+always @* begin
+	if      (a) assert(q == '0);
+	else if (b) assert(q == 2'b10);
+	else if (c) assert(q == '0);
+end
+
+endmodule
+EOT
+
+proc
+select -assert-count 1 t:$dffsr
+clk2fflogic
+select -assert-count 3 t:$assert
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+read_verilog -formal <<EOT
+// Tests aload combined with reset. The aload gets refactored into the set/reset
+// logic
+module top(input clk, rst, aload_n, input [1:0] l, d, output reg [1:0] q);
+
+always @(posedge clk, posedge rst, negedge aload_n) begin
+	if      (rst)      q <= '0;
+	else if (!aload_n) q <= l;
+	else               q <= d;
+end
+
+always @* begin
+	if      (rst)      assert(q == '0);
+	else if (!aload_n) assert(q == l);
+end
+
+endmodule
+EOT
+
+proc
+select -assert-count 1 t:$dffsr
+clk2fflogic
+select -assert-count 2 t:$assert
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+read_verilog -formal <<EOT
+// Tests combining of common reset signals
+module top(input clk, rst_a, rst_b, rst_c, input [1:0] d, output reg [1:0] q);
+
+always @(posedge clk, posedge rst_a, posedge rst_b, negedge rst_c) begin
+	if      (rst_a)  q <= '1;
+	else if (rst_b)  q <= '1;
+	else if (!rst_c) q <= '1;
+	else             q <= d;
+end
+
+always @* if (rst_a || rst_b || !rst_c) assert(q == '1);
+
+endmodule
+
+EOT
+
+proc
+select -assert-count 1 t:$adff
+clk2fflogic
+select -assert-count 1 t:$assert
+sat -tempinduct -verify -prove-asserts
+
+design -reset

@@ -21,13 +21,10 @@
 // Tarjan, R. E. (1972), "Depth-first search and linear graph algorithms", SIAM Journal on Computing 1 (2): 146-160, doi:10.1137/0201010
 // http://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
-#include "kernel/log.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <set>
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -39,18 +36,18 @@ struct SccWorker
 	SigMap sigmap;
 	CellTypes ct, specifyCells;
 
-	std::set<RTLIL::Cell*> workQueue;
-	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*>> cellToNextCell;
-	std::map<RTLIL::Cell*, RTLIL::SigSpec> cellToPrevSig, cellToNextSig;
+	pool<RTLIL::Cell*> workQueue;
+	dict<RTLIL::Cell*, pool<RTLIL::Cell*>> cellToNextCell;
+	dict<RTLIL::Cell*, RTLIL::SigSpec> cellToPrevSig, cellToNextSig;
 
-	std::map<RTLIL::Cell*, std::pair<int, int>> cellLabels;
-	std::map<RTLIL::Cell*, int> cellDepth;
-	std::set<RTLIL::Cell*> cellsOnStack;
+	dict<RTLIL::Cell*, std::pair<int, int>> cellLabels;
+	dict<RTLIL::Cell*, int> cellDepth;
+	pool<RTLIL::Cell*> cellsOnStack;
 	std::vector<RTLIL::Cell*> cellStack;
 	int labelCounter;
 
-	std::map<RTLIL::Cell*, int> cell2scc;
-	std::vector<std::set<RTLIL::Cell*>> sccList;
+	dict<RTLIL::Cell*, int> cell2scc;
+	std::vector<pool<RTLIL::Cell*>> sccList;
 
 	void run(RTLIL::Cell *cell, int depth, int maxDepth)
 	{
@@ -85,7 +82,7 @@ struct SccWorker
 			else
 			{
 				log("Found an SCC:");
-				std::set<RTLIL::Cell*> scc;
+				pool<RTLIL::Cell*> scc;
 				while (cellsOnStack.count(cell) > 0) {
 					RTLIL::Cell *c = cellStack.back();
 					cellStack.pop_back();
@@ -104,7 +101,7 @@ struct SccWorker
 			design(design), module(module), sigmap(module)
 	{
 		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name.c_str());
+			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name);
 			return;
 		}
 
@@ -199,11 +196,11 @@ struct SccWorker
 
 		for (auto cell : workQueue)
 		{
-			cellToNextCell[cell] = sigToNextCells.find(cellToNextSig[cell]);
+			sigToNextCells.find(cellToNextSig[cell], cellToNextCell[cell]);
 
 			if (!nofeedbackMode && cellToNextCell[cell].count(cell)) {
 				log("Found an SCC:");
-				std::set<RTLIL::Cell*> scc;
+				pool<RTLIL::Cell*> scc;
 				log(" %s", RTLIL::id2cstr(cell->name));
 				cell2scc[cell] = sccList.size();
 				scc.insert(cell);
@@ -231,7 +228,7 @@ struct SccWorker
 	{
 		for (int i = 0; i < int(sccList.size()); i++)
 		{
-			std::set<RTLIL::Cell*> &cells = sccList[i];
+			pool<RTLIL::Cell*> &cells = sccList[i];
 			RTLIL::SigSpec prevsig, nextsig, sig;
 
 			for (auto cell : cells) {
@@ -253,6 +250,11 @@ struct SccWorker
 
 struct SccPass : public Pass {
 	SccPass() : Pass("scc", "detect strongly connected components (logic loops)") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -295,7 +297,7 @@ struct SccPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		std::map<std::string, std::string> setAttr;
+		dict<std::string, std::string> setAttr;
 		bool allCellTypes = false;
 		bool selectMode = false;
 		bool nofeedbackMode = false;
@@ -341,7 +343,7 @@ struct SccPass : public Pass {
 		int origSelectPos = design->selection_stack.size() - 1;
 		extra_args(args, argidx, design);
 
-		RTLIL::Selection newSelection(false);
+		auto newSelection = RTLIL::Selection::EmptySelection(design);
 		int scc_counter = 0;
 
 		for (auto mod : design->selected_modules())

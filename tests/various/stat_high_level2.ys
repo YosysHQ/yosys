@@ -1,0 +1,91 @@
+
+read_rtlil << EOT
+module \top
+  wire input 1 \A
+  wire output 2 \Y
+  wire output 3 \N
+
+  cell $and \sub1
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \A
+    connect \B 1'0
+    connect \Y \Y
+  end
+
+  cell \child \sequential
+    connect \A \A
+    connect \B 1'0
+    connect \R 1'0
+    connect \Y \Y
+    connect \N \N
+  end
+
+  cell \child \sequential1
+    connect \A \A
+    connect \B 1'0
+    connect \R 1'0
+    connect \Y \Y
+    connect \N \N
+  end
+
+  cell $xor \sub2
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \A
+    connect \B 1'0
+    connect \Y \Y
+  end
+end
+
+module \child
+  wire input 1 \A
+  wire input 2 \B
+  wire input 3 \R
+
+  wire output 4 \Y
+  wire output 5 \N
+  wire \Y1
+  wire \Y2
+  wire width 2 \A2
+  cell \sg13g2_dfrbp_1 \sequential_ff
+    connect \CLK \A
+    connect \D \Y2
+    connect \Q \Y
+    connect \Q_N \N
+    connect \RESET_B \R
+  end
+
+  cell $bmux \bmux1
+    parameter \WIDTH 2
+    parameter \S_WIDTH 2
+    connect \A 8'00000000
+    connect \S 2'00
+    connect \Y \A2
+  end
+
+  cell $reduce_xor \sub3
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 10
+    parameter \Y_WIDTH 1
+    connect \A 10'0000000000
+    connect \Y \Y2
+  end
+
+end
+EOT
+
+logger -expect log "Chip area for top module '\\top': 80.000000" 1
+logger -expect log "1       12        1       12   \$bmux" 1
+logger -expect log "3     37.5        3     37.5 cells" 1
+logger -expect log "8       80        2        5 cells" 2
+logger -expect-no-warnings
+stat -liberty ./stat_area_by_width.lib -top \top -hierarchy
+
+

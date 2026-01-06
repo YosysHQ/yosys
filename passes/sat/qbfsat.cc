@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/consteval.h"
 #include "qbfsat.h"
 
@@ -66,9 +67,9 @@ pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, bool ass
 }
 
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
-	YS_REGEX_TYPE hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
-	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
-	YS_REGEX_MATCH_TYPE bit_m, m;
+	std::regex hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
+	std::regex hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
+	std::smatch bit_m, m;
 	dict<pool<std::string>, RTLIL::Cell*> anyconst_loc_to_cell;
 	dict<RTLIL::SigBit, RTLIL::State> hole_assignments;
 
@@ -83,10 +84,10 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	std::string buf;
 	while (std::getline(fin, buf)) {
 		bool bit_assn = true;
-		if (!YS_REGEX_NS::regex_search(buf, bit_m, hole_bit_assn_regex)) {
+		if (!std::regex_search(buf, bit_m, hole_bit_assn_regex)) {
 			bit_assn = false;
-			if (!YS_REGEX_NS::regex_search(buf, m, hole_assn_regex))
-				log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf.c_str());
+			if (!std::regex_search(buf, m, hole_assn_regex))
+				log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf);
 		}
 
 		std::string hole_loc = bit_assn? bit_m[1].str() : m[1].str();
@@ -107,7 +108,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 			pool<std::string> hole_loc_pool(locs.begin(), locs.end());
 			auto hole_cell_it = anyconst_loc_to_cell.find(hole_loc_pool);
 			if (hole_cell_it == anyconst_loc_to_cell.end())
-				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
+				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf);
 
 			RTLIL::Cell *hole_cell = hole_cell_it->second;
 			hole_sigbit = hole_cell->getPort(ID::Y)[hole_bit];
@@ -121,7 +122,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	for (auto &it : hole_assignments) {
 		RTLIL::SigSpec lhs(it.first);
 		RTLIL::SigSpec rhs(it.second);
-		log("Specializing %s from file with %s = %d.\n", module->name.c_str(), log_signal(it.first), it.second == RTLIL::State::S1? 1 : 0);
+		log("Specializing %s from file with %s = %d.\n", module->name, log_signal(it.first), it.second == RTLIL::State::S1? 1 : 0);
 		module->connect(lhs, rhs);
 	}
 }
@@ -150,7 +151,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 			RTLIL::SigSpec lhs(hole_sigbit.wire, hole_sigbit.offset, 1);
 			RTLIL::State hole_bit_val = hole_value[bit_idx] == '1'? RTLIL::State::S1 : RTLIL::State::S0;
 			if (!quiet)
-				log("Specializing %s with %s = %d.\n", module->name.c_str(), log_signal(hole_sigbit), hole_bit_val == RTLIL::State::S0? 0 : 1)
+				log("Specializing %s with %s = %d.\n", module->name, log_signal(hole_sigbit), hole_bit_val == RTLIL::State::S0? 0 : 1)
 ;
 			module->connect(lhs, hole_bit_val);
 		}
@@ -167,7 +168,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 		allconst->setPort(ID::Y, input);
 		allconst->set_src_attribute(input->get_src_attribute());
 		input->port_input = false;
-		log("Replaced input %s with $allconst cell.\n", n.c_str());
+		log("Replaced input %s with $allconst cell.\n", n);
 	}
 	module->fixup_ports();
 }
@@ -183,7 +184,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 	else {
 		log("Adding $assume cell for output(s): ");
 		for (auto w : wires_to_assume)
-			log("\"%s\" ", w->name.c_str());
+			log("\"%s\" ", w->name);
 		log("\n");
 	}
 
@@ -216,29 +217,29 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	QbfSolutionType ret;
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
 	const std::string smtbmc_warning = "z3: WARNING:";
-	const std::string smtbmc_cmd = stringf("%s -s %s %s -t 1 -g --binary %s %s/problem%d.smt2 2>&1",
+	const std::string smtbmc_cmd = stringf("\"%s\" -s %s %s -t 1 -g --binary %s %s/problem%d.smt2 2>&1",
 			yosys_smtbmc_exe.c_str(), opt.get_solver_name().c_str(),
-			(opt.timeout != 0? stringf("--timeout %d", opt.timeout) : "").c_str(),
+			(opt.timeout != 0? stringf("--timeout %d", opt.timeout) : ""),
 			(opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file : "").c_str(),
 			tempdir_name.c_str(), iter_num);
 
 	std::string smt2_command = "write_smt2 -stbv -wires ";
 	for (auto &solver_opt : opt.solver_options)
-		smt2_command += stringf("-solver-option %s %s ", solver_opt.first.c_str(), solver_opt.second.c_str());
-	smt2_command += stringf("%s/problem%d.smt2", tempdir_name.c_str(), iter_num);
+		smt2_command += stringf("-solver-option %s %s ", solver_opt.first, solver_opt.second);
+	smt2_command += stringf("%s/problem%d.smt2", tempdir_name, iter_num);
 	Pass::call(mod->design, smt2_command);
 
 	auto process_line = [&ret, &smtbmc_warning, &opt, &quiet](const std::string &line) {
 		ret.stdout_lines.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
 		auto warning_pos = line.find(smtbmc_warning);
 		if (warning_pos != std::string::npos)
-			log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
+			log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1));
 		else
 			if (opt.show_smtbmc && !quiet)
-				log("smtbmc output: %s", line.c_str());
+				log("smtbmc output: %s", line);
 	};
 	log_header(mod->design, "Solving QBF-SAT problem.\n");
-	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd.c_str());
+	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd);
 	int64_t begin = PerformanceTimer::query();
 	run_command(smtbmc_cmd, process_line);
 	int64_t end = PerformanceTimer::query();
@@ -302,7 +303,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 		log_assert(wire_to_optimize_name != "");
 		log_assert(module->wire(wire_to_optimize_name) != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name.c_str());
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name);
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -315,7 +316,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				                                    : module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
 				module->addAssume(wire_to_optimize_name.str() + "__threshold", comparator, RTLIL::Const(1, 1));
-				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name.c_str(), (maximize? ">=" : "<="), cur_thresh);
+				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), cur_thresh);
 			}
 
 			ret = call_qbf_solver(module, opt, tempdir_name, false, iter_num);
@@ -336,7 +337,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				log_assert(value.is_fully_const());
 				success = value.as_const().as_int();
 				best_soln = ret;
-				log("Problem is satisfiable with %s = %d.\n", wire_to_optimize_name.c_str(), success);
+				log("Problem is satisfiable with %s = %d.\n", wire_to_optimize_name, success);
 				Pass::call(design, "design -pop");
 				module = design->module(module_name);
 
@@ -354,7 +355,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 					break;
 				}
 				else
-					log("Problem is NOT satisfiable with %s %s %d.\n", wire_to_optimize_name.c_str(), (maximize? ">=" : "<="), failure);
+					log("Problem is NOT satisfiable with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), failure);
 			}
 
 			iter_num++;
@@ -366,7 +367,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				cur_thresh = (success + failure) / 2; //bisection
 		}
 		if (success != 0 || failure != 0) {
-			log("Wire %s is %s at %d.\n", wire_to_optimize_name.c_str(), (maximize? "maximized" : "minimized"), success);
+			log("Wire %s is %s at %d.\n", wire_to_optimize_name, (maximize? "maximized" : "minimized"), success);
 			ret = best_soln;
 		}
 	}
@@ -416,8 +417,10 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 					opt.solver = opt.Solver::Yices;
 				else if (args[opt.argidx+1] == "cvc4")
 					opt.solver = opt.Solver::CVC4;
+				else if (args[opt.argidx+1] == "cvc5")
+					opt.solver = opt.Solver::CVC5;
 				else
-					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1].c_str());
+					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1]);
 				opt.argidx++;
 			}
 			continue;
@@ -454,7 +457,7 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 					opt.oflag = opt.OptimizationLevel::O2;
 				break;
 				default:
-					log_cmd_error("unknown argument %s\n", args[opt.argidx].c_str());
+					log_cmd_error("unknown argument %s\n", args[opt.argidx]);
 			}
 			continue;
 		}
@@ -502,17 +505,22 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 
 struct QbfSatPass : public Pass {
 	QbfSatPass() : Pass("qbfsat", "solve a 2QBF-SAT problem in the circuit") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    qbfsat [options] [selection]\n");
 		log("\n");
-		log("This command solves an \"exists-forall\" 2QBF-SAT problem defined over the currently\n");
-		log("selected module. Existentially-quantified variables are declared by assigning a wire\n");
-		log("\"$anyconst\". Universally-quantified variables may be explicitly declared by assigning\n");
-		log("a wire \"$allconst\", but module inputs will be treated as universally-quantified\n");
-		log("variables by default.\n");
+		log("This command solves an \"exists-forall\" 2QBF-SAT problem defined over the\n");
+		log("currently selected module. Existentially-quantified variables are declared by\n");
+		log("assigning a wire \"$anyconst\". Universally-quantified variables may be\n");
+		log("explicitly declared by assigning a wire \"$allconst\", but module inputs will be\n");
+		log("treated as universally-quantified variables by default.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        Do not delete temporary files and directories. Useful for debugging.\n");
@@ -521,27 +529,29 @@ struct QbfSatPass : public Pass {
 		log("        Pass the --dump-smt2 option to yosys-smtbmc.\n");
 		log("\n");
 		log("    -assume-outputs\n");
-		log("        Add an \"$assume\" cell for the conjunction of all one-bit module output wires.\n");
+		log("        Add an \"$assume\" cell for the conjunction of all one-bit module output\n");
+		log("        wires.\n");
 		log("\n");
 		log("    -assume-negative-polarity\n");
-		log("        When adding $assume cells for one-bit module output wires, assume they are\n");
-		log("        negative polarity signals and should always be low, for example like the\n");
-		log("        miters created with the `miter` command.\n");
+		log("        When adding $assume cells for one-bit module output wires, assume they\n");
+		log("        are negative polarity signals and should always be low, for example like\n");
+		log("        the miters created with the `miter` command.\n");
 		log("\n");
 		log("    -nooptimize\n");
-		log("        Ignore \"\\minimize\" and \"\\maximize\" attributes, do not emit \"(maximize)\" or\n");
-		log("        \"(minimize)\" in the SMT-LIBv2, and generally make no attempt to optimize anything.\n");
+		log("        Ignore \"\\minimize\" and \"\\maximize\" attributes, do not emit\n");
+		log("        \"(maximize)\" or \"(minimize)\" in the SMT-LIBv2, and generally make no\n");
+		log("        attempt to optimize anything.\n");
 		log("\n");
 		log("    -nobisection\n");
-		log("        If a wire is marked with the \"\\minimize\" or \"\\maximize\" attribute, do not\n");
-		log("        attempt to optimize that value with the default iterated solving and threshold\n");
-		log("        bisection approach. Instead, have yosys-smtbmc emit a \"(minimize)\" or \"(maximize)\"\n");
-		log("        command in the SMT-LIBv2 output and hope that the solver supports optimizing\n");
-		log("        quantified bitvector problems.\n");
+		log("        If a wire is marked with the \"\\minimize\" or \"\\maximize\" attribute,\n");
+		log("        do not attempt to optimize that value with the default iterated solving\n");
+		log("        and threshold bisection approach. Instead, have yosys-smtbmc emit a\n");
+		log("        \"(minimize)\" or \"(maximize)\" command in the SMT-LIBv2 output and\n");
+		log("        hope that the solver supports optimizing quantified bitvector problems.\n");
 		log("\n");
 		log("    -solver <solver>\n");
-		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
-		log("        (default: yices)\n");
+		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", \"cvc4\"\n");
+		log("        and \"cvc5\". (default: yices)\n");
 		log("\n");
 		log("    -solver-option <name> <value>\n");
 		log("        Set the specified solver option in the SMT-LIBv2 problem file.\n");
@@ -567,13 +577,14 @@ struct QbfSatPass : public Pass {
 		log("        corresponding constant value from the model produced by the solver.\n");
 		log("\n");
 		log("    -specialize-from-file <solution file>\n");
-		log("        Do not run the solver, but instead only attempt to replace each \"$anyconst\"\n");
-		log("        cell in the current module with a constant value provided by the specified file.\n");
+		log("        Do not run the solver, but instead only attempt to replace each\n");
+		log("        \"$anyconst\" cell in the current module with a constant value provided\n");
+		log("        by the specified file.\n");
 		log("\n");
 		log("    -write-solution <solution file>\n");
-		log("        If the problem is satisfiable, write the corresponding constant value for each\n");
-		log("        \"$anyconst\" cell from the model produced by the solver to the specified file.");
-		log("\n");
+		log("        If the problem is satisfiable, write the corresponding constant value\n");
+		log("        for each \"$anyconst\" cell from the model produced by the solver to the\n");
+		log("        specified file.\n");
 		log("\n");
 	}
 

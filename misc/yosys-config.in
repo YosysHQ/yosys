@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 help() {
 	{
@@ -9,8 +9,10 @@ help() {
 		echo "Replacement args:"
 		echo "    --cxx         @CXX@"
 		echo "    --cxxflags    $( echo '@CXXFLAGS@' | fmt -w60 | sed ':a;N;$!ba;s/\n/ \\\n                      /g' )"
-		echo "    --ldflags     @LDFLAGS@"
-		echo "    --ldlibs      @LDLIBS@"
+		echo "    --linkflags   @LINKFLAGS@"
+		echo "    --ldflags     (alias of --linkflags)"
+		echo "    --libs        @LIBS@"
+		echo "    --ldlibs      (alias of --libs)"
 		echo "    --bindir      @BINDIR@"
 		echo "    --datdir      @DATDIR@"
 		echo ""
@@ -18,7 +20,7 @@ help() {
 		echo ""
 		echo "Use --exec to call a command instead of generating output. Example usage:"
 		echo ""
-		echo "  $0 --exec --cxx --cxxflags --ldflags -o plugin.so -shared plugin.cc --ldlibs"
+		echo "  $0 --exec --cxx --cxxflags --ldflags -o plugin.so -shared plugin.cc --libs"
 		echo ""
 		echo "The above command can be abbreviated as:"
 		echo ""
@@ -34,17 +36,17 @@ help() {
 		echo ""
 		echo "  $0 --datdir/simlib.v"
 		echo ""
-	} >&2
-	exit 1
+	} >&$(( $1 + 1))
+	exit $1
 }
 
 if [ $# -eq 0 ]; then
-	help
+	help 1
 fi
 
-if [ "$1" == "--build" ]; then
+if [ "$1" = "--build" ]; then
 	modname="$2"; shift 2
-	set -- --exec --cxx --cxxflags --ldflags -o "$modname" -shared "$@" --ldlibs
+	set -- --exec --cxx --cxxflags --ldflags -o "$modname" -shared "$@" --libs
 fi
 
 prefix="--"
@@ -63,10 +65,14 @@ for opt; do
 			tokens=( "${tokens[@]}"  @CXX@       ) ;;
 		"$prefix"cxxflags)
 			tokens=( "${tokens[@]}"  @CXXFLAGS@  ) ;;
+		"$prefix"linkflags)
+			tokens=( "${tokens[@]}"  @LINKFLAGS@   ) ;;
+		"$prefix"libs)
+			tokens=( "${tokens[@]}"  @LIBS@    ) ;;
 		"$prefix"ldflags)
-			tokens=( "${tokens[@]}"  @LDFLAGS@   ) ;;
+			tokens=( "${tokens[@]}"  @LINKFLAGS@   ) ;;
 		"$prefix"ldlibs)
-			tokens=( "${tokens[@]}"  @LDLIBS@    ) ;;
+			tokens=( "${tokens[@]}"  @LIBS@    ) ;;
 		"$prefix"bindir)
 			tokens=( "${tokens[@]}" '@BINDIR@'   ) ;;
 		"$prefix"datdir)
@@ -77,7 +83,7 @@ for opt; do
 			tokens=( "${tokens[@]}" '@DATDIR@'"${opt#${prefix}datdir}" ) ;;
 		--help|-\?|-h)
 			if [ ${#tokens[@]} -eq 0 ]; then
-				help
+				help 0
 			else
 				tokens=( "${tokens[@]}" "$opt" )
 			fi ;;
@@ -104,4 +110,3 @@ fi
 
 echo "${tokens[@]}"
 exit 0
-

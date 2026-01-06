@@ -1,0 +1,17 @@
+read_verilog -sv <<EOT
+module arithmetic (
+    input  logic [7:0] _0_,
+    input  logic [7:0] _1_,
+    output logic [7:0] _2_,
+);
+  assign _2_ = _0_ + _1_;
+
+endmodule : arithmetic
+EOT
+
+hierarchy
+techmap
+write_verilog reset_auto_counter.v
+! ! grep -qE '_0+0_' reset_auto_counter.v
+! ! grep -qE '_0+1_' reset_auto_counter.v
+! ! grep -qE '_0+2_' reset_auto_counter.v

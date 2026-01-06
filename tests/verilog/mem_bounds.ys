@@ -3,4 +3,5 @@ proc
 flatten
 opt -full
 select -module top
-sat -verify -seq 1 -tempinduct -prove-asserts -show-all -enable_undef
+async2sync
+sat -verify -tempinduct -prove-asserts -show-all -enable_undef

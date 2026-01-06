@@ -1,0 +1,10 @@
+read_verilog ../common/counter.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -multiclock -map +/lattice/cells_sim_xo2.v synth_lattice -family xo2 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 4 t:CCU2D
+select -assert-count 8 t:TRELLIS_FF
+select -assert-none t:CCU2D t:TRELLIS_FF %% t:* %D

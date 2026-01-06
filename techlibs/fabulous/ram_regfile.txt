@@ -1,0 +1,46 @@
+# Yosys doesn't support configurable sync/async ports.
+# So we define three RAMs for 2xasync, 1xsync 1xasync and 2xsync
+
+ram distributed $__REGFILE_AA_ {
+    abits 5;
+    width 4;
+    cost 6;
+    port sw "W" {
+        clock posedge "CLK";
+    }
+    port ar "A" {
+    }
+    port ar "B" {
+    }
+}
+
+ram distributed $__REGFILE_SA_ {
+    abits 5;
+    width 4;
+    cost 5;
+    port sw "W" {
+        clock posedge "CLK";
+        wrtrans all old;
+    }
+    port sr "A" {
+        clock posedge "CLK";
+    }
+    port ar "B" {
+    }
+}
+
+ram distributed $__REGFILE_SS_ {
+    abits 5;
+    width 4;
+    cost 4;
+    port sw "W" {
+        clock posedge "CLK";
+        wrtrans all old;
+    }
+    port sr "A" {
+        clock posedge "CLK";
+    }
+    port sr "B" {
+        clock posedge "CLK";
+    }
+}

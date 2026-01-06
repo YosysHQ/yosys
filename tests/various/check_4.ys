@@ -1,0 +1,29 @@
+# loop involving the asynchronous reset on a memory port
+design -reset
+read -vlog2k <<EOF
+module top(input wire clk, input wire [3:0] addr, output reg [3:0] data);
+	reg [3:0] mem [15:0];
+	reg [5:0] i;
+	initial begin
+		for (i = 0; i < 16; i = i + 1)
+			mem[i] = i * 371;
+	end
+
+	wire arst = !data[0];
+
+	always @(posedge arst, posedge clk) begin
+		if (arst)		
+			data <= 4'hx;
+		else
+			data <= mem[addr];
+	end
+endmodule
+EOF
+hierarchy -top top
+proc
+opt -keepdc
+memory_dff
+opt_clean
+logger -nowarn "found logic loop in module pingpong:"
+logger -expect error "Found [0-9]+ problems in 'check -assert'" 1
+check -assert

@@ -1,9 +1,9 @@
 
 CC = clang
-CXX = clang
+CXX = clang++
 CXXFLAGS = -MD -Wall -Wextra -ggdb
 CXXFLAGS += -std=c++11 -O0
-LDLIBS = ../minisat/Options.cc ../minisat/SimpSolver.cc ../minisat/Solver.cc ../minisat/System.cc -lm -lstdc++
+LIBS = ../minisat/Options.cc ../minisat/SimpSolver.cc ../minisat/Solver.cc ../minisat/System.cc -lm -lstdc++
 
 
 all: demo_vec demo_bit demo_cmp testbench puzzle3d
@@ -27,4 +27,3 @@ clean:
 .PHONY: all test clean
 
 -include *.d
-

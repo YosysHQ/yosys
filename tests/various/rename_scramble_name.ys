@@ -1,0 +1,31 @@
+read_verilog <<EOF
+module top();
+    wire a, b, c;
+endmodule
+EOF
+
+proc
+hierarchy -top top
+rename -seed 2 -scramble-name w:*
+select -assert-none w:a w:b w:c
+select -assert-count 3 w:$_*_
+select -assert-none w:$_*_ %% %n
+design -reset
+
+read_verilog <<EOF
+module foo(input a, b, output c);
+    assign c = a + b;
+endmodule
+
+module top();
+    wire a, b, c;
+    foo bar(.a(a), .b(b), .c(c));
+endmodule
+EOF
+
+proc
+hierarchy -top top
+rename -seed 2 -scramble-name c:bar
+select -assert-none c:bar
+select -assert-count 1 c:$_*_
+select -assert-none c:$_*_ w:* foo/c:$add$<<EOF:2$1 %% %n

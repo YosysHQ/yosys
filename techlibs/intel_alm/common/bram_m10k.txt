@@ -1,5 +1,5 @@
 bram $__MISTRAL_M10K
-    init   0   # TODO: Re-enable when I figure out how BRAM init works
+    init   1
     abits 13   @D8192x1
     dbits  1   @D8192x1
     abits 12   @D4096x2
@@ -10,6 +10,8 @@ bram $__MISTRAL_M10K
     dbits 10   @D1024x10
     abits  9   @D512x20
     dbits 20   @D512x20
+    abits  8   @D256x40
+    dbits 40   @D256x40
     groups 2
     ports  1 1
     wrmode 1 0

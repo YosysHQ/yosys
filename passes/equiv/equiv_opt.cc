@@ -60,13 +60,16 @@ struct EquivOptPass:public ScriptPass
 		log("    -undef\n");
 		log("        enable modelling of undef states during equiv_induct.\n");
 		log("\n");
+		log("    -nocheck\n");
+		log("        disable running check before and after the command under test.\n");
+		log("\n");
 		log("The following commands are executed by this verification command:\n");
 		help_script();
 		log("\n");
 	}
 
 	std::string command, techmap_opts, make_opts;
-	bool assert, undef, multiclock, async2sync;
+	bool assert, undef, multiclock, async2sync, nocheck;
 
 	void clear_flags() override
 	{
@@ -77,6 +80,7 @@ struct EquivOptPass:public ScriptPass
 		undef = false;
 		multiclock = false;
 		async2sync = false;
+		nocheck = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) override
@@ -108,6 +112,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-undef") {
 				undef = true;
+				continue;
+			}
+			if (args[argidx] == "-nocheck") {
+				nocheck = true;
 				continue;
 			}
 			if (args[argidx] == "-multiclock") {
@@ -153,10 +161,14 @@ struct EquivOptPass:public ScriptPass
 		if (check_label("run_pass")) {
 			run("hierarchy -auto-top");
 			run("design -save preopt");
+			if (!nocheck)
+				run("check -assert", "(unless -nocheck)");
 			if (help_mode)
 				run("[command]");
 			else
 				run(command);
+			if (!nocheck)
+				run("check -assert", "(unless -nocheck)");
 			run("design -stash postopt");
 		}
 

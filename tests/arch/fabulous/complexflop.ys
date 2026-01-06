@@ -1,0 +1,37 @@
+read_verilog <<EOT
+module top ( input d0, d1, d2, d3, ce, sr, clk, output reg q0, q1, q2, q3 );
+    always @(posedge clk)
+      begin
+        if (sr) begin
+            q0 <= 1'b0;
+            q1 <= 1'b1;
+        end else begin
+            q0 <= d0;
+            q1 <= d1;
+        end
+        if (ce) begin
+          if (sr) begin
+              q2 <= 1'b0;
+              q3 <= 1'b1;
+          end else begin
+              q2 <= d2;
+              q3 <= d3;
+          end
+        end
+      end
+endmodule
+EOT
+
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -map +/fabulous/prims.v synth_fabulous -complex-dff # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:LUTFF_SR
+select -assert-count 1 t:LUTFF_SS
+select -assert-count 1 t:LUTFF_ESR
+select -assert-count 1 t:LUTFF_ESS
+
+select -assert-none t:LUTFF_SR t:LUTFF_SS t:LUTFF_ESR t:LUTFF_ESS %% t:* %D

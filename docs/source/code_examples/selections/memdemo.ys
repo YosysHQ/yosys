@@ -1,0 +1,10 @@
+read_verilog memdemo.v
+prep -top memdemo; memory; opt
+
+cd memdemo
+show -format dot -prefix memdemo_00
+show -format dot -prefix memdemo_01 y %ci2
+show -format dot -prefix memdemo_02 y %ci5
+show -format dot -prefix memdemo_03 y %ci5:-$mux[S]
+show -format dot -prefix memdemo_04 y %ci*:-[CLK,S]:+$dff,$mux
+show -format dot -prefix memdemo_05 y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff

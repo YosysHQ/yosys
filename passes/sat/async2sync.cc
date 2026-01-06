@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -27,6 +28,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Async2syncPass : public Pass {
 	Async2syncPass() : Pass("async2sync", "convert async FF inputs to sync circuits") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -41,32 +47,89 @@ struct Async2syncPass : public Pass {
 		log("reset value in the next cycle regardless of the data-in value at the time of\n");
 		log("the clock edge.\n");
 		log("\n");
+		log("    -nolower\n");
+		log("        Do not automatically run 'chformal -lower' to lower $check cells.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		// bool flag_noinit = false;
+		bool flag_nolower = false;
 
 		log_header(design, "Executing ASYNC2SYNC pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-noinit") {
-			// 	flag_noinit = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-nolower") {
+				flag_nolower = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		bool have_check_cells = false;
 
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
 			FfInitVals initvals(&sigmap, module);
 
+			SigBit initstate;
+
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (cell->type.in(ID($print), ID($check)))
+				{
+					if (cell->type == ID($check))
+						have_check_cells = true;
+
+					bool trg_enable = cell->getParam(ID(TRG_ENABLE)).as_bool();
+					if (!trg_enable)
+						continue;
+
+					int trg_width = cell->getParam(ID(TRG_WIDTH)).as_int();
+
+					if (trg_width > 1)
+						log_error("$check cell %s with TRG_WIDTH > 1 is not support by async2sync, use clk2fflogic.\n", log_id(cell));
+
+					if (trg_width == 0) {
+						if (initstate == State::S0)
+							initstate = module->Initstate(NEW_ID);
+
+						SigBit sig_en = cell->getPort(ID::EN);
+						cell->setPort(ID::EN, module->And(NEW_ID, sig_en, initstate));
+					} else {
+						SigBit sig_en = cell->getPort(ID::EN);
+						SigSpec sig_args = cell->getPort(ID::ARGS);
+						bool trg_polarity = cell->getParam(ID(TRG_POLARITY)).as_bool();
+						SigBit sig_trg = cell->getPort(ID::TRG);
+						Wire *sig_en_q = module->addWire(NEW_ID);
+						Wire *sig_args_q = module->addWire(NEW_ID, GetSize(sig_args));
+						sig_en_q->attributes.emplace(ID::init, State::S0);
+						module->addDff(NEW_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->get_src_attribute());
+						module->addDff(NEW_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->get_src_attribute());
+						cell->setPort(ID::EN, sig_en_q);
+						cell->setPort(ID::ARGS, sig_args_q);
+						if (cell->type == ID($check)) {
+							SigBit sig_a = cell->getPort(ID::A);
+							Wire *sig_a_q = module->addWire(NEW_ID);
+							sig_a_q->attributes.emplace(ID::init, State::S1);
+							module->addDff(NEW_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->get_src_attribute());
+							cell->setPort(ID::A, sig_a_q);
+						}
+					}
+
+					cell->setPort(ID::TRG, SigSpec());
+
+					cell->setParam(ID::TRG_ENABLE, false);
+					cell->setParam(ID::TRG_WIDTH, 0);
+					cell->setParam(ID::TRG_POLARITY, false);
+					cell->set_bool_attribute(ID(trg_on_gclk));
+					continue;
+				}
+
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);
@@ -74,6 +137,9 @@ struct Async2syncPass : public Pass {
 				// Skip for $_FF_ and $ff cells.
 				if (ff.has_gclk)
 					continue;
+
+				if (ff.has_clk && ff.sig_clk.is_fully_const())
+					ff.has_ce = ff.has_clk = ff.has_srst = false;
 
 				if (ff.has_clk)
 				{
@@ -269,6 +335,12 @@ struct Async2syncPass : public Pass {
 				}
 				ff.emit();
 			}
+		}
+
+		if (have_check_cells && !flag_nolower) {
+			log_push();
+			Pass::call(design, "chformal -lower");
+			log_pop();
 		}
 	}
 } Async2syncPass;

@@ -24,6 +24,10 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Type represents the following constraint: Preserve connections to dedicated
+// logic cell <cell_type> that has ports connected to LUT inputs. This includes
+// the case where both LUT and dedicated logic input are connected to the same
+// constant.
 struct dlogic_t {
 	IdString cell_type;
 	// LUT input idx -> hard cell's port name
@@ -95,7 +99,7 @@ struct OptLutWorker
 		}
 		for (int i = 0; i < GetSize(dlogic); i++)
 		{
-			log("  with %-12s (#%d) %4d\n", dlogic[i].cell_type.c_str(), i, dlogic_counts[i]);
+			log("  with %-12s (#%d) %4d\n", dlogic[i].cell_type, i, dlogic_counts[i]);
 		}
 	}
 
@@ -158,15 +162,19 @@ struct OptLutWorker
 					{
 						if (lut_width <= dlogic_conn.first)
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
 							log_debug("    LUT input A[%d] not present.\n", dlogic_conn.first);
 							legal = false;
 							break;
 						}
-						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)))
+
+						if (lut_dlogic.second->getPort(dlogic_conn.second).size() != 1)
+							continue;
+
+						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)[0]))
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
-							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type.c_str(), dlogic_conn.second.c_str(), log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
+							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type, dlogic_conn.second, log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
 							legal = false;
 							break;
 						}
@@ -174,7 +182,7 @@ struct OptLutWorker
 
 					if (legal)
 					{
-						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
+						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
 						lut_legal_dlogics.insert(lut_dlogic);
 						for (auto &dlogic_conn : dlogic_map)
 							lut_dlogic_inputs.insert(dlogic_conn.first);
@@ -310,7 +318,7 @@ struct OptLutWorker
 
 			auto lutA = worklist.pop();
 			SigSpec lutA_input = sigmap(lutA->getPort(ID::A));
-			SigSpec lutA_output = sigmap(lutA->getPort(ID::Y)[0]);
+			SigBit lutA_output = sigmap(lutA->getPort(ID::Y)[0]);
 			int lutA_width = lutA->getParam(ID::WIDTH).as_int();
 			int lutA_arity = luts_arity[lutA];
 			pool<int> &lutA_dlogic_inputs = luts_dlogic_inputs[lutA];
@@ -485,12 +493,12 @@ struct OptLutWorker
 							eval_inputs[lutM_new_inputs[i]] = (eval >> i) & 1;
 						}
 						eval_inputs[lutA_output] = evaluate_lut(lutA, eval_inputs);
-						lutM_new_table[eval] = (RTLIL::State) evaluate_lut(lutB, eval_inputs);
+						lutM_new_table.set(eval, (RTLIL::State) evaluate_lut(lutB, eval_inputs));
 					}
 
-					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID::LUT).as_string().c_str());
-					log_debug("  Cell B truth table: %s.\n", lutB->getParam(ID::LUT).as_string().c_str());
-					log_debug("  Merged truth table: %s.\n", lutM_new_table.as_string().c_str());
+					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID::LUT).as_string());
+					log_debug("  Cell B truth table: %s.\n", lutB->getParam(ID::LUT).as_string());
+					log_debug("  Merged truth table: %s.\n", lutM_new_table.as_string());
 
 					lutM->setParam(ID::LUT, lutM_new_table);
 					lutM->setPort(ID::A, lutM_new_inputs);
@@ -515,16 +523,6 @@ struct OptLutWorker
 	}
 };
 
-static void split(std::vector<std::string> &tokens, const std::string &text, char sep)
-{
-	size_t start = 0, end = 0;
-	while ((end = text.find(sep, start)) != std::string::npos) {
-		tokens.push_back(text.substr(start, end - start));
-		start = end + 1;
-	}
-	tokens.push_back(text.substr(start));
-}
-
 struct OptLutPass : public Pass {
 	OptLutPass() : Pass("opt_lut", "optimize LUT cells") { }
 	void help() override
@@ -535,11 +533,9 @@ struct OptLutPass : public Pass {
 		log("\n");
 		log("This pass combines cascaded $lut cells with unused inputs.\n");
 		log("\n");
-		log("    -dlogic <type>:<cell-port>=<LUT-input>[:<cell-port>=<LUT-input>...]\n");
-		log("        preserve connections to dedicated logic cell <type> that has ports\n");
-		log("        <cell-port> connected to LUT inputs <LUT-input>. this includes\n");
-		log("        the case where both LUT and dedicated logic input are connected to\n");
-		log("        the same constant.\n");
+		log("	-tech ice40\n");
+		log("        treat the design as a LUT-mapped circuit for the iCE40 architecture\n");
+		log("        and preserve connections to SB_CARRY as appropriate\n");
 		log("\n");
 		log("    -limit N\n");
 		log("        only perform the first N combines, then stop. useful for debugging.\n");
@@ -555,28 +551,28 @@ struct OptLutPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-dlogic" && argidx+1 < args.size())
+			if (args[argidx] == "-tech" && argidx+1 < args.size())
 			{
-				std::vector<std::string> tokens;
-				split(tokens, args[++argidx], ':');
-				if (tokens.size() < 2)
-					log_cmd_error("The -dlogic option requires at least one connection.\n");
-				dlogic_t entry;
-				entry.cell_type = "\\" + tokens[0];
-				for (auto it = tokens.begin() + 1; it != tokens.end(); ++it) {
-					std::vector<std::string> conn_tokens;
-					split(conn_tokens, *it, '=');
-					if (conn_tokens.size() != 2)
-						log_cmd_error("Invalid format of -dlogic signal mapping.\n");
-					IdString logic_port = "\\" + conn_tokens[0];
-					int lut_input = atoi(conn_tokens[1].c_str());
-					entry.lut_input_port[lut_input] = logic_port;
-				}
-				dlogic.push_back(entry);
+				std::string tech = args[++argidx];
+				if (tech != "ice40")
+					log_cmd_error("Unsupported -tech argument: %s\n", tech);
+
+				dlogic = {{
+					ID(SB_CARRY),
+					dict<int, IdString>{
+						std::make_pair(1, ID(I0)),
+						std::make_pair(2, ID(I1)),
+						std::make_pair(3, ID(CI))
+					}
+				}, {
+					ID(SB_CARRY),
+					dict<int, IdString>{
+						std::make_pair(3, ID(CO))
+					}
+				}};
 				continue;
 			}
-			if (args[argidx] == "-limit" && argidx + 1 < args.size())
-			{
+			if (args[argidx] == "-limit" && argidx + 1 < args.size()) {
 				limit = atoi(args[++argidx].c_str());
 				continue;
 			}

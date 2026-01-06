@@ -1,0 +1,8 @@
+contact_links:
+  - name: Discourse
+    url: https://yosyshq.discourse.group
+    about: "Have a question? Ask it on our Discourse group!"
+  - name: IRC Channel
+    url: https://web.libera.chat/#yosys
+    about: "#yosys on irc.libera.chat"
+

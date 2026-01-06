@@ -1,0 +1,29 @@
+read_verilog -specify boxes.v
+clean
+
+# default selection == select *
+select -assert-count 4 *
+select -assert-count 4 %
+
+# -none replaces default selection
+select -none
+select -assert-none %
+select -assert-count 13 =*
+
+# select replaces current selection
+select =*
+select -assert-count 13 %
+
+# -module changes module
+select -module wb
+select -assert-none %
+select -assert-count 5 =*
+
+# -none maintains module
+select -none
+select -assert-count 5 =*
+
+# -clear clears current selection and module
+select -clear
+select -assert-count 4 %
+select -assert-count 13 =*

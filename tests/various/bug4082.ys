@@ -1,0 +1,8 @@
+read_verilog <<EOF
+module top;
+  wire a;
+  wire b;
+  assign a = b;
+endmodule
+EOF
+delete w:a

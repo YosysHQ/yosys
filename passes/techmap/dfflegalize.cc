@@ -118,34 +118,24 @@ struct DffLegalizePass : public Pass {
 		log("- $_DLATCH_[NP][NP][01]_\n");
 		log("- $_DLATCHSR_[NP][NP][NP]_\n");
 		log("\n");
-		log("The following transformations are performed by this pass:");
+		log("The following transformations are performed by this pass:\n");
 		log("\n");
-		log("- upconversion from a less capable cell to a more capable cell, if the less");
-		log("  capable cell is not supported (eg. dff -> dffe, or adff -> dffsr)");
-		log("\n");
-		log("- unmapping FFs with clock enable (due to unsupported cell type or -mince)");
-		log("\n");
-		log("- unmapping FFs with sync reset (due to unsupported cell type or -minsrst)");
-		log("\n");
-		log("- adding inverters on the control pins (due to unsupported polarity)");
-		log("\n");
+		log("- upconversion from a less capable cell to a more capable cell, if the less\n");
+		log("  capable cell is not supported (eg. dff -> dffe, or adff -> dffsr)\n");
+		log("- unmapping FFs with clock enable (due to unsupported cell type or -mince)\n");
+		log("- unmapping FFs with sync reset (due to unsupported cell type or -minsrst)\n");
+		log("- adding inverters on the control pins (due to unsupported polarity)\n");
 		log("- adding inverters on the D and Q pins and inverting the init/reset values\n");
-		log("  (due to unsupported init or reset value)");
-		log("\n");
-		log("- converting sr into adlatch (by tying D to 1 and using E as set input)");
-		log("\n");
-		log("- emulating unsupported dffsr cell by adff + adff + sr + mux");
-		log("\n");
-		log("- emulating unsupported dlatchsr cell by adlatch + adlatch + sr + mux");
-		log("\n");
+		log("  (due to unsupported init or reset value)\n");
+		log("- converting sr into adlatch (by tying D to 1 and using E as set input)\n");
+		log("- emulating unsupported dffsr cell by adff + adff + sr + mux\n");
+		log("- emulating unsupported dlatchsr cell by adlatch + adlatch + sr + mux\n");
 		log("- emulating adff when the (reset, init) value combination is unsupported by\n");
-		log("  dff + adff + dlatch + mux");
-		log("\n");
+		log("  dff + adff + dlatch + mux\n");
 		log("- emulating adlatch when the (reset, init) value combination is unsupported by\n");
-		log("- dlatch + adlatch + dlatch + mux");
-		log("\n");
-		log("If the pass is unable to realize a given cell type (eg. adff when only plain dff");
-		log("is available), an error is raised.");
+		log("- dlatch + adlatch + dlatch + mux\n");
+		log("If the pass is unable to realize a given cell type (eg. adff when only plain dff\n");
+		log("is available), an error is raised.\n");
 	}
 
 	// Table of all supported cell types.
@@ -879,17 +869,17 @@ struct DffLegalizePass : public Pass {
 			if (ff.has_arst) {
 				if (ff.val_arst[i] == State::Sx) {
 					if (!(supported & (mask << 8)))
-						ff.val_arst[i] = State::S0;
+						ff.val_arst.set(i, State::S0);
 					if (!(supported & (mask << 4)))
-						ff.val_arst[i] = State::S1;
+						ff.val_arst.set(i, State::S1);
 				}
 			}
 			if (ff.has_srst) {
 				if (ff.val_srst[i] == State::Sx) {
 					if (!(supported & (mask << 8)))
-						ff.val_srst[i] = State::S0;
+						ff.val_srst.set(i, State::S0);
 					if (!(supported & (mask << 4)))
-						ff.val_srst[i] = State::S1;
+						ff.val_srst.set(i, State::S1);
 				}
 			}
 		}
@@ -1031,8 +1021,8 @@ struct DffLegalizePass : public Pass {
 				supported_cells_neg[i][j] = 0;
 			supported_cells[i] = 0;
 		}
-		mince = 0;
-		minsrst = 0;
+		mince = design->scratchpad_get_int("dfflegalize.mince", 0);
+		minsrst = design->scratchpad_get_int("dfflegalize.minsrst", 0);
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -1121,7 +1111,7 @@ struct DffLegalizePass : public Pass {
 					pol_r = celltype[13];
 				} else {
 unrecognized:
-					log_error("unrecognized cell type %s.\n", celltype.c_str());
+					log_error("unrecognized cell type %s.\n", celltype);
 				}
 				int mask = 0;
 				int match = 0;
@@ -1150,12 +1140,12 @@ unrecognized:
 					initmask = 0x555;
 				} else if (inittype == "r") {
 					if (srval == 0)
-						log_error("init type r not valid for cell type %s.\n", celltype.c_str());
+						log_error("init type r not valid for cell type %s.\n", celltype);
 					initmask = 0x537;
 				} else if (inittype == "01") {
 					initmask = 0x777;
 				} else {
-					log_error("unrecognized init type %s for cell type %s.\n", inittype.c_str(), celltype.c_str());
+					log_error("unrecognized init type %s for cell type %s.\n", inittype, celltype);
 				}
 				if (srval == '0') {
 					initmask &= 0x0ff;
@@ -1206,7 +1196,7 @@ unrecognized:
 				srst_used.clear();
 
 				for (auto cell : module->cells()) {
-					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (!cell->is_builtin_ff())
 						continue;
 
 					FfData ff(&initvals, cell);
@@ -1218,7 +1208,7 @@ unrecognized:
 			}
 			for (auto cell : module->selected_cells())
 			{
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 				FfData ff(&initvals, cell);
 				legalize_ff(ff);

@@ -8,6 +8,7 @@ RUN apt-get update -qq \
  && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
     ca-certificates \
     clang \
+    lld \
     curl \
     libffi-dev \
     libreadline-dev \

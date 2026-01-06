@@ -7,7 +7,7 @@ module top(...);
 input CLK;
 input NE, NS;
 input EN;
-output [23:0] Q;
+output [17:0] Q;
 input [23:0] D;
 input SRST;
 input ARST;

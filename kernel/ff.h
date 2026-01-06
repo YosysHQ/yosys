@@ -28,7 +28,10 @@ YOSYS_NAMESPACE_BEGIN
 // Describes a flip-flop or a latch.
 //
 // If has_gclk, this is a formal verification FF with implicit global clock:
-// Q is simply previous cycle's D.
+// Q is simply previous cycle's D. Additionally if is_anyinit is true, this is
+// an $anyinit cell which always has an undefined initialization value. Note
+// that $anyinit is not considered to be among the FF celltypes, so a pass has
+// to explicitly opt-in to process $anyinit cells with FfData.
 //
 // Otherwise, the FF/latch can have any number of features selected by has_*
 // attributes that determine Q's value (in order of decreasing priority):
@@ -75,31 +78,20 @@ YOSYS_NAMESPACE_BEGIN
 // - has_arst [does not correspond to a native cell, represented as dlatch with const D input]
 // - empty set [not a cell — will be emitted as a simple direct connection]
 
-struct FfData {
-	Module *module;
-	FfInitVals *initvals;
-	Cell *cell;
-	IdString name;
-	// The FF output.
-	SigSpec sig_q;
-	// The sync data input, present if has_clk or has_gclk.
-	SigSpec sig_d;
-	// The async data input, present if has_aload.
-	SigSpec sig_ad;
-	// The sync clock, present if has_clk.
-	SigSpec sig_clk;
-	// The clock enable, present if has_ce.
-	SigSpec sig_ce;
-	// The async load enable, present if has_aload.
-	SigSpec sig_aload;
-	// The async reset, preset if has_arst.
-	SigSpec sig_arst;
-	// The sync reset, preset if has_srst.
-	SigSpec sig_srst;
-	// The async clear (per-lane), present if has_sr.
-	SigSpec sig_clr;
-	// The async set (per-lane), present if has_sr.
-	SigSpec sig_set;
+struct FfTypeData {
+	FfTypeData(IdString type);
+	FfTypeData() {
+		has_clk = false;
+		has_gclk = false;
+		has_ce = false;
+		has_aload = false;
+		has_srst = false;
+		has_arst = false;
+		has_sr = false;
+		ce_over_srst = false;
+		is_fine = false;
+		is_anyinit = false;
+	}
 	// True if this is a clocked (edge-sensitive) flip-flop.
 	bool has_clk;
 	// True if this is a $ff, exclusive with every other has_*.
@@ -126,9 +118,13 @@ struct FfData {
 	// True if this FF is a fine cell, false if it is a coarse cell.
 	// If true, width must be 1.
 	bool is_fine;
-	// Polarities, corresponding to sig_*.  True means active-high, false
-	// means active-low.
+	// True if this FF is an $anyinit cell.  Depends on has_gclk.
+	bool is_anyinit;
+	// Polarities, corresponding to sig_*.
+	// True means rising edge, false means falling edge.
 	bool pol_clk;
+	// True means active-high, false
+	// means active-low.
 	bool pol_ce;
 	bool pol_aload;
 	bool pol_arst;
@@ -136,9 +132,38 @@ struct FfData {
 	bool pol_clr;
 	bool pol_set;
 	// The value loaded by sig_arst.
+	// Zero length if unknowable from just type
 	Const val_arst;
 	// The value loaded by sig_srst.
+	// Zero length if unknowable from just type
 	Const val_srst;
+};
+
+struct FfData : FfTypeData {
+	Module *module;
+	FfInitVals *initvals;
+	Cell *cell;
+	IdString name;
+	// The FF output.
+	SigSpec sig_q;
+	// The sync data input, present if has_clk or has_gclk.
+	SigSpec sig_d;
+	// The async data input, present if has_aload.
+	SigSpec sig_ad;
+	// The sync clock, present if has_clk.
+	SigSpec sig_clk;
+	// The clock enable, present if has_ce.
+	SigSpec sig_ce;
+	// The async load enable, present if has_aload.
+	SigSpec sig_aload;
+	// The async reset, preset if has_arst.
+	SigSpec sig_arst;
+	// The sync reset, preset if has_srst.
+	SigSpec sig_srst;
+	// The async clear (per-lane), present if has_sr.
+	SigSpec sig_clr;
+	// The async set (per-lane), present if has_sr.
+	SigSpec sig_set;
 	// The initial value at power-up.
 	Const val_init;
 	// The FF data width in bits.
@@ -147,15 +172,6 @@ struct FfData {
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;
-		has_clk = false;
-		has_gclk = false;
-		has_ce = false;
-		has_aload = false;
-		has_srst = false;
-		has_arst = false;
-		has_sr = false;
-		ce_over_srst = false;
-		is_fine = false;
 		pol_clk = false;
 		pol_aload = false;
 		pol_ce = false;

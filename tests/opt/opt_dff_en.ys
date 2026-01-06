@@ -6,7 +6,7 @@ module top(...);
 
 input CLK;
 input [1:0] D;
-output [15:0] Q;
+output [11:0] Q;
 input SRST;
 input ARST;
 input [1:0] CLR;

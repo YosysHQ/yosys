@@ -89,7 +89,7 @@ struct OptDffWorker
 				}
 			}
 
-			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (module->design->selected(module, cell) && cell->is_builtin_ff())
 				dff_cells.push_back(cell);
 		}
 
@@ -170,9 +170,62 @@ struct OptDffWorker
 		return ret;
 	}
 
-	void simplify_patterns(patterns_t&)
+	void simplify_patterns(patterns_t& patterns)
 	{
-		// TBD
+		auto new_patterns = patterns;
+		auto find_comp = [](const auto& left, const auto& right) -> std::optional<RTLIL::SigBit> {
+			std::optional<RTLIL::SigBit> ret;
+			for (const auto &pt: left)
+				if (right.count(pt.first) == 0)
+					return {};
+				else if (right.at(pt.first) == pt.second)
+					continue;
+				else
+					if (ret)
+						return {};
+					else
+						ret = pt.first;
+			return ret;
+		};
+
+		// remove complimentary patterns
+		bool optimized;
+		do {
+			optimized = false;
+			for (auto i = patterns.begin(); i != patterns.end(); i++) {
+				for (auto j = std::next(i, 1); j != patterns.end(); j++) {
+					const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
+					auto right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
+
+					const auto complimentary_var = find_comp(left, right);
+
+					if (complimentary_var && new_patterns.count(right)) {
+						new_patterns.erase(right);
+						right.erase(complimentary_var.value());
+						new_patterns.insert(right);
+						optimized = true;
+					}
+				}
+			}
+			patterns = new_patterns;
+		} while(optimized);
+
+		// remove redundant patterns
+		for (auto i = patterns.begin(); i != patterns.end(); ++i) {
+			for (auto j = std::next(i, 1); j != patterns.end(); ++j) {
+				const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
+				const auto& right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
+
+		            	bool redundant = true;
+
+				for (const auto& pt : left)
+					if (right.count(pt.first) == 0 || right.at(pt.first) != pt.second)
+						redundant = false;
+				if (redundant)
+					new_patterns.erase(right);
+			}
+		}
+		patterns = std::move(new_patterns);
 	}
 
 	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates)
@@ -352,27 +405,29 @@ struct OptDffWorker
 				} else if (ff.pol_clr == ff.pol_set) {
 					// Try a more complex conversion to plain async reset.
 					State val_neutral = ff.pol_set ? State::S0 : State::S1;
-					Const val_arst;
-					SigSpec sig_arst;
+					SigBit sig_arst;
 					if (ff.sig_clr[0] == val_neutral)
 						sig_arst = ff.sig_set[0];
 					else
 						sig_arst = ff.sig_clr[0];
 					bool failed = false;
+					Const::Builder val_arst_builder(ff.width);
 					for (int i = 0; i < ff.width; i++) {
 						if (ff.sig_clr[i] == sig_arst && ff.sig_set[i] == val_neutral)
-							val_arst.bits.push_back(State::S0);
+							val_arst_builder.push_back(State::S0);
 						else if (ff.sig_set[i] == sig_arst && ff.sig_clr[i] == val_neutral)
-							val_arst.bits.push_back(State::S1);
-						else
+							val_arst_builder.push_back(State::S1);
+						else {
 							failed = true;
+							break;
+						}
 					}
 					if (!failed) {
 						log("Converting CLR/SET to ARST on %s (%s) from module %s.\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						ff.has_sr = false;
 						ff.has_arst = true;
-						ff.val_arst = val_arst;
+						ff.val_arst = val_arst_builder.build();
 						ff.sig_arst = sig_arst;
 						ff.pol_arst = ff.pol_clr;
 						changed = true;
@@ -491,11 +546,16 @@ struct OptDffWorker
 						ff.has_srst = false;
 						ff.sig_d = ff.val_srst;
 						changed = true;
-					} else {
+					} else if (!opt.keepdc || ff.val_init.is_fully_def()) {
 						log("Handling never-active EN on %s (%s) from module %s (removing D path).\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						// The D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
 						ff.has_ce = ff.has_clk = ff.has_srst = false;
+						changed = true;
+					} else {
+						// We need to keep the undefined initival around as such
+						ff.sig_d = ff.sig_q;
+						ff.has_ce = ff.has_srst = false;
 						changed = true;
 					}
 				} else if (ff.sig_ce == (ff.pol_ce ? State::S1 : State::S0)) {
@@ -508,13 +568,20 @@ struct OptDffWorker
 				}
 			}
 
-			if (ff.has_clk) {
-				if (ff.sig_clk.is_fully_const()) {
+			if (ff.has_clk && ff.sig_clk.is_fully_const()) {
+				if (!opt.keepdc || ff.val_init.is_fully_def()) {
 					// Const clock — the D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
 					log("Handling const CLK on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_ce = ff.has_clk = ff.has_srst = false;
 					changed = true;
+				} else {
+					// Const clock, but we need to keep the undefined initval around as such
+					if (ff.has_ce || ff.has_srst || ff.sig_d != ff.sig_q) {
+						ff.sig_d = ff.sig_q;
+						ff.has_ce = ff.has_srst = false;
+						changed = true;
+					}
 				}
 			}
 
@@ -550,7 +617,7 @@ struct OptDffWorker
 					ff.has_srst = false;
 					ff.sig_d = ff.val_srst;
 					changed = true;
-				} else {
+				} else if (!opt.keepdc || ff.val_init.is_fully_def()) {
 					// The D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
 					log("Handling D = Q on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
@@ -567,12 +634,12 @@ struct OptDffWorker
 			}
 
 			// The cell has been simplified as much as possible already.  Now try to spice it up with enables / sync resets.
-			if (ff.has_clk) {
+			if (ff.has_clk && ff.sig_d != ff.sig_q) {
 				if (!ff.has_arst && !ff.has_sr && (!ff.has_srst || !ff.has_ce || ff.ce_over_srst) && !opt.nosdff) {
 					// Try to merge sync resets.
 					std::map<ctrls_t, std::vector<int>> groups;
 					std::vector<int> remaining_indices;
-					Const val_srst;
+					Const::Builder val_srst_builder(ff.width);
 
 					for (int i = 0 ; i < ff.width; i++) {
 						ctrls_t resets;
@@ -614,16 +681,18 @@ struct OptDffWorker
 							groups[resets].push_back(i);
 						} else
 							remaining_indices.push_back(i);
-						val_srst.bits.push_back(reset_val);
+						val_srst_builder.push_back(reset_val);
 					}
+					Const val_srst = val_srst_builder.build();
 
 					for (auto &it : groups) {
 						FfData new_ff = ff.slice(it.second);
-						new_ff.val_srst = Const();
+						Const::Builder new_val_srst_builder(new_ff.width);
 						for (int i = 0; i < new_ff.width; i++) {
 							int j = it.second[i];
-							new_ff.val_srst.bits.push_back(val_srst[j]);
+							new_val_srst_builder.push_back(val_srst[j]);
 						}
+						new_ff.val_srst = new_val_srst_builder.build();
 						ctrl_t srst = combine_resets(it.first, ff.is_fine);
 
 						new_ff.has_srst = true;
@@ -726,10 +795,14 @@ struct OptDffWorker
 		ModWalker modwalker(module->design, module);
 		QuickConeSat qcsat(modwalker);
 
-		// Run as a separate sub-pass, so that we don't mutate (non-FF) cells under ModWalker.
+		// Defer mutating cells by removing them/emiting new flip flops so that
+		// cell references in modwalker are not invalidated
+		std::vector<RTLIL::Cell*> cells_to_remove;
+		std::vector<FfData> ffs_to_emit;
+
 		bool did_something = false;
 		for (auto cell : module->selected_cells()) {
-			if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (!cell->is_builtin_ff())
 				continue;
 			FfData ff(&initvals, cell);
 
@@ -818,16 +891,20 @@ struct OptDffWorker
 					if (!removed_sigbits.count(i))
 						keep_bits.push_back(i);
 				if (keep_bits.empty()) {
-					module->remove(cell);
+					cells_to_remove.emplace_back(cell);
 					did_something = true;
 					continue;
 				}
 				ff = ff.slice(keep_bits);
 				ff.cell = cell;
-				ff.emit();
+				ffs_to_emit.emplace_back(ff);
 				did_something = true;
 			}
 		}
+		for (auto* cell : cells_to_remove)
+			module->remove(cell);
+		for (auto& ff : ffs_to_emit)
+			ff.emit();
 		return did_something;
 	}
 };
@@ -841,14 +918,17 @@ struct OptDffPass : public Pass {
 		log("    opt_dff [-nodffe] [-nosdff] [-keepdc] [-sat] [selection]\n");
 		log("\n");
 		log("This pass converts flip-flops to a more suitable type by merging clock enables\n");
-		log("and synchronous reset multiplexers, removing unused control inputs, or potentially\n");
-		log("removes the flip-flop altogether, converting it to a constant driver.\n");
+		log("and synchronous reset multiplexers, removing unused control inputs, or\n");
+		log("potentially removes the flip-flop altogether, converting it to a constant\n");
+		log("driver.\n");
 		log("\n");
 		log("    -nodffe\n");
-		log("        disables dff -> dffe conversion, and other transforms recognizing clock enable\n");
+		log("        disables dff -> dffe conversion, and other transforms recognizing clock\n");
+		log("        enable\n");
 		log("\n");
 		log("    -nosdff\n");
-		log("        disables dff -> sdff conversion, and other transforms recognizing sync resets\n");
+		log("        disables dff -> sdff conversion, and other transforms recognizing sync\n");
+		log("        resets\n");
 		log("\n");
 		log("    -simple-dffe\n");
 		log("        only enables clock enable recognition transform for obvious cases\n");

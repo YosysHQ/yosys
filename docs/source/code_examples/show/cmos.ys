@@ -1,0 +1,17 @@
+# pitfall
+read_verilog cmos.v
+prep -top cmos_demo
+techmap
+abc -liberty ../intro/mycells.lib;; 
+show -format dot -prefix cmos_00
+
+# reset
+design -reset
+
+# fixed output
+read_verilog cmos.v
+prep -top cmos_demo
+techmap
+splitnets -ports
+abc -liberty ../intro/mycells.lib;; 
+show -lib ../intro/mycells.v -format dot -prefix cmos_01

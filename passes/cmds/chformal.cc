@@ -19,52 +19,119 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static RTLIL::IdString formal_flavor(RTLIL::Cell *cell)
+{
+	if (cell->type != ID($check))
+		return cell->type;
+
+	std::string flavor_param = cell->getParam(ID(FLAVOR)).decode_string();
+	if (flavor_param == "assert")
+		return ID($assert);
+	else if (flavor_param == "assume")
+		return ID($assume);
+	else if (flavor_param == "cover")
+		return ID($cover);
+	else if (flavor_param == "live")
+		return ID($live);
+	else if (flavor_param == "fair")
+		return ID($fair);
+	else
+		log_abort();
+}
+
+static void set_formal_flavor(RTLIL::Cell *cell, RTLIL::IdString flavor)
+{
+	if (cell->type != ID($check)) {
+		cell->type = flavor;
+		return;
+	}
+
+	if (flavor == ID($assert))
+		cell->setParam(ID(FLAVOR), std::string("assert"));
+	else if (flavor == ID($assume))
+		cell->setParam(ID(FLAVOR), std::string("assume"));
+	else if (flavor == ID($cover))
+		cell->setParam(ID(FLAVOR), std::string("cover"));
+	else if (flavor == ID($live))
+		cell->setParam(ID(FLAVOR), std::string("live"));
+	else if (flavor == ID($fair))
+		cell->setParam(ID(FLAVOR), std::string("fair"));
+	else
+		log_abort();
+}
+
+static bool is_triggered_check_cell(RTLIL::Cell * cell)
+{
+	return cell->type == ID($check) && cell->getParam(ID(TRG_ENABLE)).as_bool();
+}
+
 struct ChformalPass : public Pass {
-	ChformalPass() : Pass("chformal", "change formal constraints of the design") { }
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    chformal [types] [mode] [options] [selection]\n");
-		log("\n");
-		log("Make changes to the formal constraints of the design. The [types] options\n");
-		log("the type of constraint to operate on. If none of the following options are given,\n");
-		log("the command will operate on all constraint types:\n");
-		log("\n");
-		log("    -assert       $assert cells, representing assert(...) constraints\n");
-		log("    -assume       $assume cells, representing assume(...) constraints\n");
-		log("    -live         $live cells, representing assert(s_eventually ...)\n");
-		log("    -fair         $fair cells, representing assume(s_eventually ...)\n");
-		log("    -cover        $cover cells, representing cover() statements\n");
-		log("\n");
-		log("Exactly one of the following modes must be specified:\n");
-		log("\n");
-		log("    -remove\n");
-		log("        remove the cells and thus constraints from the design\n");
-		log("\n");
-		log("    -early\n");
-		log("        bypass FFs that only delay the activation of a constraint\n");
-		log("\n");
-		log("    -delay <N>\n");
-		log("        delay activation of the constraint by <N> clock cycles\n");
-		log("\n");
-		log("    -skip <N>\n");
-		log("        ignore activation of the constraint in the first <N> clock cycles\n");
-		log("\n");
-		log("    -assert2assume\n");
-		log("    -assume2assert\n");
-		log("    -live2fair\n");
-		log("    -fair2live\n");
-		log("        change the roles of cells as indicated. these options can be combined\n");
-		log("\n");
+	ChformalPass() : Pass("chformal", "change formal constraints of the design") {}
+
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+
+		auto content_root = help->get_root();
+
+		content_root->usage("chformal [types] [mode] [options] [selection]");
+		content_root->paragraph(
+			"Make changes to the formal constraints of the design. The [types] options "
+			"the type of constraint to operate on. If none of the following options are "
+			"given, the command will operate on all constraint types:"
+		);
+
+		content_root->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
+		content_root->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
+		content_root->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
+		content_root->option("-fair", "`$fair` cells, representing ``assume(s_eventually ...)``");
+		content_root->option("-cover", "`$cover` cells, representing ``cover()`` statements");
+		content_root->paragraph(
+			"Additionally chformal will operate on `$check` cells corresponding to the "
+			"selected constraint types."
+		);
+
+		content_root->paragraph("Exactly one of the following modes must be specified:");
+
+		content_root->option("-remove", "remove the cells and thus constraints from the design");
+		content_root->option("-early",
+			"bypass FFs that only delay the activation of a constraint. When inputs "
+			"of the bypassed FFs do not remain stable between clock edges, this may "
+			"result in unexpected behavior."
+		);
+		content_root->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
+		content_root->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
+		auto cover_option = content_root->open_option("-coverenable");
+		cover_option->paragraph(
+			"add cover statements for the enable signals of the constraints"
+		);
+#ifdef YOSYS_ENABLE_VERIFIC
+		cover_option->paragraph(
+			"Note: For the Verific frontend it is currently not guaranteed that a "
+			"reachable SVA statement corresponds to an active enable signal."
+		);
+#endif
+		content_root->option("-assert2assume");
+		content_root->option("-assert2cover");
+		content_root->option("-assume2assert");
+		content_root->option("-live2fair");
+		content_root->option("-fair2live", "change the roles of cells as indicated. these options can be combined");
+		content_root->option("-lower",
+			"convert each $check cell into an $assert, $assume, $live, $fair or "
+			"$cover cell. If the $check cell contains a message, also produce a "
+			"$print cell."
+		);
+		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool assert2assume = false;
+		bool assert2cover = false;
 		bool assume2assert = false;
 		bool live2fair = false;
 		bool fair2live = false;
@@ -114,8 +181,17 @@ struct ChformalPass : public Pass {
 				mode_arg = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (mode == 0 && args[argidx] == "-coverenable") {
+				mode = 'p';
+				continue;
+			}
 			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2assume") {
 				assert2assume = true;
+				mode = 'c';
+				continue;
+			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2cover") {
+				assert2cover = true;
 				mode = 'c';
 				continue;
 			}
@@ -134,6 +210,10 @@ struct ChformalPass : public Pass {
 				mode = 'c';
 				continue;
 			}
+			if (mode == 0 && args[argidx] == "-lower") {
+				mode = 'l';
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -146,6 +226,10 @@ struct ChformalPass : public Pass {
 			constr_types.insert(ID($cover));
 		}
 
+		if (assert2assume && assert2cover) {
+			log_cmd_error("Cannot use both -assert2assume and -assert2cover.\n");
+		}
+
 		if (mode == 0)
 			log_cmd_error("Mode option is missing.\n");
 
@@ -154,7 +238,7 @@ struct ChformalPass : public Pass {
 			vector<Cell*> constr_cells;
 
 			for (auto cell : module->selected_cells())
-				if (constr_types.count(cell->type))
+				if (constr_types.count(formal_flavor(cell)))
 					constr_cells.push_back(cell);
 
 			if (mode == 'r')
@@ -204,6 +288,18 @@ struct ChformalPass : public Pass {
 				}
 
 				for (auto cell : constr_cells)
+				{
+					if (is_triggered_check_cell(cell)) {
+						if (cell->getParam(ID::TRG_WIDTH).as_int() != 1)
+							continue;
+						cell->setPort(ID::TRG, SigSpec());
+						cell->setParam(ID::TRG_ENABLE, false);
+						cell->setParam(ID::TRG_WIDTH, 0);
+						cell->setParam(ID::TRG_POLARITY, false);
+					}
+
+					IdString flavor = formal_flavor(cell);
+
 					while (true)
 					{
 						SigSpec A = sigmap(cell->getPort(ID::A));
@@ -213,8 +309,8 @@ struct ChformalPass : public Pass {
 							break;
 
 						if (!init_zero.count(EN)) {
-							if (cell->type == ID($cover)) break;
-							if (cell->type.in(ID($assert), ID($assume)) && !init_one.count(A)) break;
+							if (flavor == ID($cover)) break;
+							if (flavor.in(ID($assert), ID($assume)) && !init_one.count(A)) break;
 						}
 
 						const auto &A_map = ffmap.at(A);
@@ -226,25 +322,31 @@ struct ChformalPass : public Pass {
 						cell->setPort(ID::A, A_map.first);
 						cell->setPort(ID::EN, EN_map.first);
 					}
+				}
 			}
 			else
 			if (mode == 'd')
 			{
 				for (auto cell : constr_cells)
-				for (int i = 0; i < mode_arg; i++)
 				{
-					SigSpec orig_a = cell->getPort(ID::A);
-					SigSpec orig_en = cell->getPort(ID::EN);
+					if (is_triggered_check_cell(cell))
+						log_error("Cannot delay edge triggered $check cell %s, run async2sync or clk2fflogic first.\n", log_id(cell));
 
-					Wire *new_a = module->addWire(NEW_ID);
-					Wire *new_en = module->addWire(NEW_ID);
-					new_en->attributes[ID::init] = State::S0;
+					for (int i = 0; i < mode_arg; i++)
+					{
+						SigSpec orig_a = cell->getPort(ID::A);
+						SigSpec orig_en = cell->getPort(ID::EN);
 
-					module->addFf(NEW_ID, orig_a, new_a);
-					module->addFf(NEW_ID, orig_en, new_en);
+						Wire *new_a = module->addWire(NEW_ID);
+						Wire *new_en = module->addWire(NEW_ID);
+						new_en->attributes[ID::init] = State::S0;
 
-					cell->setPort(ID::A, new_a);
-					cell->setPort(ID::EN, new_en);
+						module->addFf(NEW_ID, orig_a, new_a);
+						module->addFf(NEW_ID, orig_en, new_en);
+
+						cell->setPort(ID::A, new_a);
+						cell->setPort(ID::EN, new_en);
+					}
 				}
 			}
 			else
@@ -263,17 +365,81 @@ struct ChformalPass : public Pass {
 					cell->setPort(ID::EN, module->LogicAnd(NEW_ID, en, cell->getPort(ID::EN)));
 			}
 			else
-			if (mode == 'c')
+			if (mode =='p')
 			{
 				for (auto cell : constr_cells)
-					if (assert2assume && cell->type == ID($assert))
-						cell->type = ID($assume);
-					else if (assume2assert && cell->type == ID($assume))
-						cell->type = ID($assert);
-					else if (live2fair && cell->type == ID($live))
-						cell->type = ID($fair);
-					else if (fair2live && cell->type == ID($fair))
-						cell->type = ID($live);
+				{
+					if (cell->type == ID($check)) {
+						Cell *cover = module->addCell(NEW_ID_SUFFIX("coverenable"), ID($check));
+						cover->attributes = cell->attributes;
+						cover->parameters = cell->parameters;
+						cover->setParam(ID(FLAVOR), Const("cover"));
+
+						for (auto const &conn : cell->connections())
+							if (!conn.first.in(ID::A, ID::EN))
+								cover->setPort(conn.first, conn.second);
+						cover->setPort(ID::A, cell->getPort(ID::EN));
+						cover->setPort(ID::EN, State::S1);
+					} else {
+						module->addCover(NEW_ID_SUFFIX("coverenable"),
+							cell->getPort(ID::EN), State::S1, cell->get_src_attribute());
+					}
+				}
+			}
+			else
+			if (mode == 'c')
+			{
+				for (auto cell : constr_cells) {
+					IdString flavor = formal_flavor(cell);
+					if (assert2assume && flavor == ID($assert))
+						set_formal_flavor(cell, ID($assume));
+					if (assert2cover && flavor == ID($assert))
+						set_formal_flavor(cell, ID($cover));
+					else if (assume2assert && flavor == ID($assume))
+						set_formal_flavor(cell, ID($assert));
+					else if (live2fair && flavor == ID($live))
+						set_formal_flavor(cell, ID($fair));
+					else if (fair2live && flavor == ID($fair))
+						set_formal_flavor(cell, ID($live));
+				}
+			}
+			else
+			if (mode == 'l')
+			{
+				for (auto cell : constr_cells) {
+					if (cell->type != ID($check))
+						continue;
+
+					if (is_triggered_check_cell(cell))
+						log_error("Cannot lower edge triggered $check cell %s, run async2sync or clk2fflogic first.\n", log_id(cell));
+
+
+					Cell *plain_cell = module->addCell(NEW_ID, formal_flavor(cell));
+
+					plain_cell->attributes = cell->attributes;
+
+					SigBit sig_a = cell->getPort(ID::A);
+					SigBit sig_en = cell->getPort(ID::EN);
+
+					plain_cell->setPort(ID::A, sig_a);
+					plain_cell->setPort(ID::EN, sig_en);
+
+					if (plain_cell->type.in(ID($assert), ID($assume)))
+						sig_a = module->Not(NEW_ID, sig_a);
+
+					SigBit combined_en = module->And(NEW_ID, sig_a, sig_en);
+
+					module->swap_names(cell, plain_cell);
+
+					if (cell->getPort(ID::ARGS).empty()) {
+						module->remove(cell);
+					} else {
+						cell->type = ID($print);
+						cell->setPort(ID::EN, combined_en);
+						cell->unsetPort(ID::A);
+						cell->unsetParam(ID(FLAVOR));
+					}
+				}
 			}
 		}
 	}

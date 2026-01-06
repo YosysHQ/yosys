@@ -1,0 +1,90 @@
+#start:The following commands are executed by this synthesis command:
+#end:blif:
+begin:
+    read_verilog -D ICE40_HX -lib -specify +/ice40/cells_sim.v
+    hierarchy -check -top <top>
+    proc
+
+flatten:
+    flatten
+    tribuf -logic
+    deminout
+
+coarse:
+    opt_expr
+    opt_clean
+    check
+    opt -nodffe -nosdff
+    fsm
+    opt
+    wreduce
+    peepopt
+    opt_clean
+    share
+    techmap
+    opt_expr
+    opt_clean
+    memory_dff
+    wreduce t:$mul
+    techmap
+    select a:mul2dsp
+    setattr -unset mul2dsp
+    opt_expr -fine
+    wreduce
+    select -clear
+    ice40_dsp
+    chtype -set $mul t:$__soft_mul
+    alumacc
+    opt
+    memory -nomap [-no-rw-check]
+    opt_clean
+
+map_ram:
+    memory_libmap
+    techmap
+    ice40_braminit
+
+map_ffram:
+    opt -fast -mux_undef -undriven -fine
+    memory_map
+    opt -undriven -fine
+
+map_gates:
+    ice40_wrapcarry
+    techmap
+    opt -fast
+    abc -dff -D 1 
+    ice40_opt
+
+map_ffs:
+    dfflegalize
+    techmap
+    opt_expr -mux_undef
+    simplemap
+    ice40_opt -full
+
+map_luts:
+    abc
+    ice40_opt
+    techmap
+    simplemap
+    techmap
+    flowmap
+    read_verilog
+    abc9
+    ice40_wrapcarry -unwrap
+    techmap
+    clean
+    opt_lut -tech ice40
+
+map_cells:
+    techmap
+    clean
+
+check:
+    autoname
+    hierarchy -check
+    stat
+    check -noinit
+    blackbox =A:whitebox
+        

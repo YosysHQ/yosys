@@ -5,7 +5,7 @@ read_verilog << EOT
 module t0 (...);
 input wire clk;
 input wire [7:0] i;
-output wire [7:0] o;
+output wire [0:0] o;
 
 wire [7:0] tmp ;
 
@@ -52,7 +52,7 @@ read_verilog << EOT
 module t0 (...);
 input wire clk;
 input wire [7:0] i;
-output wire [7:0] o;
+output wire [0:0] o;
 
 wire [7:0] tmp ;
 
@@ -100,7 +100,7 @@ read_verilog << EOT
 module t0 (...);
 input wire clk;
 input wire [7:0] i;
-output wire [7:0] o;
+output wire [0:0] o;
 
 wire [7:0] tmp ;
 
@@ -137,7 +137,7 @@ read_verilog << EOT
 module t0 (...);
 input wire clk;
 input wire [7:0] i;
-output wire [7:0] o;
+output wire [0:0] o;
 
 wire [7:0] tmp ;
 
@@ -183,7 +183,7 @@ read_verilog << EOT
 module t0 (...);
 input wire clk;
 input wire [7:0] i;
-output wire [7:0] o;
+output wire [0:0] o;
 
 wire [7:0] tmp ;
 
@@ -232,7 +232,7 @@ read_verilog << EOT
 module t0 (...);
 input wire clk;
 input wire [7:0] i;
-output wire [7:0] o;
+output wire [0:0] o;
 
 wire [7:0] tmp ;
 

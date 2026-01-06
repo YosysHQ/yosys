@@ -17,10 +17,9 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
 #include "kernel/utils.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -164,7 +163,7 @@ private:
 			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + exp2(select_width));
 			for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
 				for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
-					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.c_str(), i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
+					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name, i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
 				}
 				if (GetSize(pmux_y_ports) % 2 == 1)
 					next_pmux_y_ports.push_back(pmux_y_ports[GetSize(pmux_y_ports) - 1]);
@@ -184,8 +183,8 @@ private:
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in({ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_MUX_), ID($_NMUX_), ID($_NOT_), ID($anyconst), ID($allconst), ID($assume), ID($assert)}) && module->design->module(cell->type) == nullptr) {
-				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
+			if (!cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_MUX_), ID($_NMUX_), ID($_NOT_), ID($anyconst), ID($allconst), ID($assume), ID($assert)) && module->design->module(cell->type) == nullptr) {
+				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type);
 			}
 			if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
@@ -207,7 +206,7 @@ private:
 					int num_versions = opt_instrumentmore? 8 : 4;
 
 					for (auto i = 1; i <= num_versions; ++i)
-						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name.c_str(), i), 1)));
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name, i), 1)));
 
 					for (auto i = 0; i < num_versions; ++i) {
 						switch(i) {
@@ -240,7 +239,7 @@ private:
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
 						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
-							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name.c_str(), i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name, i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
 						}
 						if (GetSize(meta_mux_y_ports) % 2 == 1)
 							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);
@@ -272,7 +271,7 @@ private:
 					log_assert(exp2(select_width) == num_versions);
 
 					for (auto i = 1; i <= num_versions; ++i)
-						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name.c_str(), i), 1)));
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name, i), 1)));
 
 					for (auto i = 0; i < num_versions; ++i) {
 						switch(i) {
@@ -295,7 +294,7 @@ private:
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
 						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
-							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name.c_str(), i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name, i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
 						}
 						if (GetSize(meta_mux_y_ports) % 2 == 1)
 							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);
@@ -344,7 +343,7 @@ private:
 				//with taint signals and connect the new ports to the corresponding taint signals.
 				RTLIL::Module *cell_module_def = module->design->module(cell->type);
 				dict<RTLIL::IdString, RTLIL::SigSpec> orig_ports = cell->connections();
-				log("Adding cell %s\n", cell_module_def->name.c_str());
+				log("Adding cell %s\n", cell_module_def->name);
 				for (auto &it : orig_ports) {
 					RTLIL::SigSpec port = it.second;
 					RTLIL::SigSpec port_taint = get_corresponding_taint_signal(port);
@@ -425,51 +424,58 @@ public:
 struct GliftPass : public Pass {
 	GliftPass() : Pass("glift", "create GLIFT models and optimization problems") {}
 
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    glift <command> [options] [selection]\n");
 		log("\n");
-		log("Augments the current or specified module with gate-level information flow tracking\n");
-		log("(GLIFT) logic using the \"constructive mapping\" approach. Also can set up QBF-SAT\n");
-		log("optimization problems in order to optimize GLIFT models or trade off precision and\n");
-		log("complexity.\n");
+		log("Augments the current or specified module with gate-level information flow \n");
+		log("tracking (GLIFT) logic using the \"constructive mapping\" approach. Also can set\n");
+		log("up QBF-SAT optimization problems in order to optimize GLIFT models or trade off\n");
+		log("precision and complexity.\n");
 		log("\n");
 		log("\n");
 		log("Commands:\n");
 		log("\n");
 		log("  -create-precise-model\n");
-		log("    Replaces the current or specified module with one that has corresponding \"taint\"\n");
-		log("    inputs, outputs, and internal nets along with precise taint tracking logic.\n");
-		log("    For example, precise taint tracking logic for an AND gate is:\n");
+		log("    Replaces the current or specified module with one that has corresponding\n");
+		log("    \"taint\" inputs, outputs, and internal nets along with precise taint\n");
+		log("    tracking logic. For example, precise taint tracking logic for an AND gate\n");
+		log("    is:\n");
 		log("\n");
 		log("      y_t = a & b_t | b & a_t | a_t & b_t\n");
 		log("\n");
 		log("\n");
 		log("  -create-imprecise-model\n");
-		log("    Replaces the current or specified module with one that has corresponding \"taint\"\n");
-		log("    inputs, outputs, and internal nets along with imprecise \"All OR\" taint tracking\n");
-		log("    logic:\n");
+		log("    Replaces the current or specified module with one that has corresponding\n");
+		log("    \"taint\" inputs, outputs, and internal nets along with imprecise \"All OR\"\n");
+		log("    taint tracking logic:\n");
 		log("\n");
 		log("      y_t = a_t | b_t\n");
 		log("\n");
 		log("\n");
 		log("  -create-instrumented-model\n");
-		log("    Replaces the current or specified module with one that has corresponding \"taint\"\n");
-		log("    inputs, outputs, and internal nets along with 4 varying-precision versions of taint\n");
-		log("    tracking logic. Which version of taint tracking logic is used for a given gate is\n");
-		log("    determined by a MUX selected by an $anyconst cell.  By default, unless the\n");
-		log("    `-no-cost-model` option is provided, an additional wire named `__glift_weight` with\n");
-		log("    the `keep` and `minimize` attributes is added to the module along with pmuxes and\n");
-		log("    adders to calculate a rough estimate of the number of logic gates in the GLIFT model\n");
-		log("    given an assignment for the $anyconst cells. The four versions of taint tracking logic\n");
-		log("    for an AND gate are:");
-		log("\n");
-		log("      y_t = a & b_t | b & a_t | a_t & b_t           (like `-create-precise-model`)\n");
+		log("    Replaces the current or specified module with one that has corresponding\n");
+		log("    \"taint\" inputs, outputs, and internal nets along with 4 varying-precision\n");
+		log("    versions of taint tracking logic. Which version of taint tracking logic is\n");
+		log("    used for a given gate is determined by a MUX selected by an $anyconst cell.\n");
+		log("     By default, unless the `-no-cost-model` option is provided, an additional\n");
+		log("    wire named `__glift_weight` with the `keep` and `minimize` attributes is\n");
+		log("    added to the module along with pmuxes and adders to calculate a rough\n");
+		log("    estimate of the number of logic gates in the GLIFT model given an assignment\n");
+		log("    for the $anyconst cells. The four versions of taint tracking logic for an\n");
+		log("    AND gate are:\n");
+		log("      y_t = a & b_t | b & a_t | a_t & b_t       (like `-create-precise-model`)\n");
 		log("      y_t = a_t | a & b_t\n");
 		log("      y_t = b_t | b & a_t\n");
-		log("      y_t = a_t | b_t                               (like `-create-imprecise-model`)\n");
+		log("      y_t = a_t | b_t                           (like `-create-imprecise-model`)\n");
 		log("\n");
 		log("\n");
 		log("Options:\n");
@@ -479,27 +485,30 @@ struct GliftPass : public Pass {
 		log("    (default: label constants as un-tainted)\n");
 		log("\n");
 		log("  -keep-outputs\n");
-		log("    Do not remove module outputs. Taint tracking outputs will appear in the module ports\n");
-		log("    alongside the orignal outputs.\n");
+		log("    Do not remove module outputs. Taint tracking outputs will appear in the\n");
+		log("    module ports alongside the orignal outputs.\n");
 		log("    (default: original module outputs are removed)\n");
 		log("\n");
 		log("  -simple-cost-model\n");
-		log("    Do not model logic area. Instead model the number of non-zero assignments to $anyconsts.\n");
-		log("    Taint tracking logic versions vary in their size, but all reduced-precision versions are\n");
-		log("    significantly smaller than the fully-precise version. A non-zero $anyconst assignment means\n");
-		log("    that reduced-precision taint tracking logic was chosen for some gate.\n");
-		log("    Only applicable in combination with `-create-instrumented-model`.\n");
-		log("    (default: use a complex model and give that wire the \"keep\" and \"minimize\" attributes)\n");
+		log("    Do not model logic area. Instead model the number of non-zero assignments to\n");
+		log("    $anyconsts. Taint tracking logic versions vary in their size, but all\n");
+		log("    reduced-precision versions are significantly smaller than the fully-precise\n");
+		log("    version. A non-zero $anyconst assignment means that reduced-precision taint\n");
+		log("    tracking logic was chosen for some gate. Only applicable in combination with\n");
+		log("    `-create-instrumented-model`. (default: use a complex model and give that\n");
+		log("     wire the \"keep\" and \"minimize\" attributes)\n");
 		log("\n");
 		log("  -no-cost-model\n");
-		log("    Do not model taint tracking logic area and do not create a `__glift_weight` wire.\n");
-		log("    Only applicable in combination with `-create-instrumented-model`.\n");
-		log("    (default: model area and give that wire the \"keep\" and \"minimize\" attributes)\n");
+		log("    Do not model taint tracking logic area and do not create a `__glift_weight`\n");
+		log("    wire. Only applicable in combination with `-create-instrumented-model`.\n");
+		log("    (default: model area and give that wire the \"keep\" and \"minimize\"\n");
+		log("    attributes)\n");
 		log("\n");
 		log("  -instrument-more\n");
-		log("    Allow choice from more versions of (even simpler) taint tracking logic. A total\n");
-		log("    of 8 versions of taint tracking logic will be added per gate, including the 4\n");
-		log("    versions from `-create-instrumented-model` and these additional versions:\n");
+		log("    Allow choice from more versions of (even simpler) taint tracking logic. A\n");
+		log("    total of 8 versions of taint tracking logic will be added per gate,\n");
+		log("    including the 4 versions from `-create-instrumented-model` and these\n");
+		log("    additional versions:\n");
 		log("\n");
 		log("      y_t = a_t\n");
 		log("      y_t = b_t\n");
@@ -578,7 +587,7 @@ struct GliftPass : public Pass {
 			for (auto cell : module->selected_cells()) {
 				RTLIL::Module *tpl = design->module(cell->type);
 				if (tpl != nullptr) {
-					if (topo_modules.database.count(tpl) == 0)
+					if (!topo_modules.has_node(tpl))
 						worklist.push_back(tpl);
 					topo_modules.edge(tpl, module);
 					non_top_modules.insert(cell->type);

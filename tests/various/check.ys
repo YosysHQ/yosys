@@ -1,0 +1,43 @@
+design -reset
+read -vlog2k <<EOF
+module top(input clk, input a, input b, output [9:0] x);
+	wire [9:0] ripple;
+	reg [9:0] prev_ripple = 9'b0;
+
+	always @(posedge clk) prev_ripple <= ripple;
+	assign ripple = {ripple[8:0], a} ^ prev_ripple; // only cyclic at the coarse-grain level
+	assign x = ripple[9] + b;
+endmodule
+EOF
+hierarchy -top top
+prep
+check -assert
+
+design -reset
+read -vlog2k <<EOF
+module top(clk, y, sideread_addr, sideread_data);
+	input wire clk;
+
+	reg [7:0] mem [255:0];
+	reg [8:0] i;
+	initial begin
+		for (i = 0; i < 256; i = i + 1)
+			mem[i] = i * 371;
+	end
+
+	output reg [7:0] y = 1;
+	always @(posedge clk)
+		y <= mem[y];
+
+	input wire [7:0] sideread_addr;
+	output wire [7:0] sideread_data;
+	assign sideread_data = mem[sideread_addr];
+endmodule
+EOF
+hierarchy -top top
+prep -rdff
+select -assert-count 1 t:$mem_v2
+check -assert
+memory_unpack
+select -assert-count 2 t:$memrd_v2
+check -assert

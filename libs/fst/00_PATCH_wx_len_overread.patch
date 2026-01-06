@@ -1,0 +1,10 @@
+--- fstapi.cc
++++ fstapi.cc
+@@ -6072,6 +6072,7 @@ for(;;)
+                                         }
+ 
+                                 wx_len = snprintf(wx_buf, 32, "r%.16g", d);
++                                if (wx_len > 32 || wx_len < 0) wx_len = 32;
+                                 fstWritex(xc, wx_buf, wx_len);
+                                 }
+                         }

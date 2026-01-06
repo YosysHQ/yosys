@@ -110,3 +110,42 @@ module partsel_test007 (
 		dout[n+1] = din[n];
 	end
 endmodule
+
+
+module partsel_test008 (
+	input [127:0] din,
+	input [3:0] idx,
+	input        [4:0] uoffset,
+	input signed [4:0] soffset,
+	output [ 7:0] dout0,
+	output [ 7:0] dout1,
+	output [ 7:0] dout2,
+	output [ 7:0] dout3,
+	output [ 3:0] dout4,
+	output [ 3:0] dout5,
+	output [ 3:0] dout6,
+	output [ 3:0] dout7,
+	output [ 3:0] dout8,
+	output [11:0] dout9,
+	output [11:0] dout10,
+	output [11:0] dout11
+);
+
+// common: block-select with offsets
+assign dout0  = din[idx*8 +uoffset +:8];
+assign dout1  = din[idx*8 -uoffset +:8];
+assign dout2  = din[idx*8 +soffset +:8];
+assign dout3  = din[idx*8 -soffset +:8];
+
+// only partial block used
+assign dout4  = din[idx*8 +uoffset +:4];
+assign dout5  = din[idx*8 -uoffset +:4];
+assign dout6  = din[idx*8 +soffset +:4];
+assign dout7  = din[idx*8 -soffset +:4];
+
+// uncommon: more than one block used
+assign dout8  = din[idx*8 +uoffset +:12];
+assign dout9  = din[idx*8 -uoffset +:12];
+assign dout10 = din[idx*8 +soffset +:12];
+assign dout11 = din[idx*8 -soffset +:12];
+endmodule

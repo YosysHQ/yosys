@@ -1,0 +1,14 @@
+--- fstapi.cc
++++ fstapi.cc
+@@ -4723,7 +4723,10 @@ if(gzread_pass_status)
+                     hdr_incomplete = (xc->start_time == 0) && (xc->end_time == 0);
+ 
+                     fstFread(&dcheck, 8, 1, xc->f);
+-                    xc->double_endian_match = (dcheck == FST_DOUBLE_ENDTEST);
++                   /*
++                    * Yosys patch: Fix double endian check for i386 targets built in modern gcc
++                    */
++                    xc->double_endian_match = (dcheck == (double)FST_DOUBLE_ENDTEST);
+                     if (!xc->double_endian_match) {
+                         union
+                         {

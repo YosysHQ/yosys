@@ -177,7 +177,7 @@ struct PrepPass : public ScriptPass
 					else
 						run("hierarchy -check");
 				} else
-					run(stringf("hierarchy -check -top %s", top_module.c_str()));
+					run(stringf("hierarchy -check -top %s", top_module));
 			}
 		}
 
@@ -189,6 +189,7 @@ struct PrepPass : public ScriptPass
 				run(ifxmode ? "proc -ifx" : "proc");
 			if (help_mode || flatten)
 				run("flatten", "(if -flatten)");
+			run("future");
 			run(nokeepdc ? "opt_expr" : "opt_expr -keepdc");
 			run("opt_clean");
 			run("check");

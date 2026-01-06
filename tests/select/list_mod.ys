@@ -1,0 +1,13 @@
+read_verilog <<EOF
+module top1;
+(* foo *)
+wire w;
+endmodule
+
+module top2;
+(* bar *)
+wire w;
+endmodule
+EOF
+logger -expect log top1 1
+select -list-mod a:foo %m

@@ -1,0 +1,14 @@
+#start: passes in the most common order.
+#end: This replaces the processes
+proc_clean # removes empty branches and processes
+proc_rmdead # removes unreachable branches
+proc_prune
+proc_init # special handling of “initial” blocks
+proc_arst # identifies modeling of async resets
+proc_rom
+proc_mux # converts decision trees to multiplexer networks
+proc_dlatch
+proc_dff # extracts registers from processes
+proc_memwr
+proc_clean # this should remove all the processes, provided all went fine
+opt_expr -keepdc

@@ -1,0 +1,20 @@
+# loop involving asynchronous memory ports
+design -reset
+read -vlog2k <<EOF
+module pingpong(input wire [1:0] x, output wire [3:0] y1, output wire [3:0] y2);
+	reg [3:0] mem [15:0];
+	reg [5:0] i;
+	initial begin
+		for (i = 0; i < 16; i = i + 1)
+			mem[i] = i * 371;
+	end
+
+	assign y1 = mem[{y2[3:2], x}];
+	assign y2 = mem[y1];
+endmodule
+EOF
+hierarchy -top pingpong
+prep
+logger -nowarn "found logic loop in module pingpong:"
+logger -expect error "Found [0-9]+ problems in 'check -assert'" 1
+check -assert

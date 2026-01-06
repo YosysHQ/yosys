@@ -1,0 +1,40 @@
+read_verilog ../../common/mux.v
+design -save read
+
+hierarchy -top mux2
+proc
+equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:$lut r:WIDTH=3 %i
+select -assert-none t:$lut r:WIDTH=3 %i %% t:* %D
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 1 t:$lut r:WIDTH=6 %i
+select -assert-none t:$lut r:WIDTH=6 %i %% t:* %D
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 2 t:$lut r:WIDTH=6 %i
+select -assert-count 1 t:$lut r:WIDTH=3 %i
+select -assert-none t:$lut r:WIDTH=6 r:WIDTH=3 %u %i %% t:* %D
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-max 5 t:$lut r:WIDTH=6 %i # OOT flow does 2
+select -assert-max 1 t:$lut r:WIDTH=3 %i # and here 1
+select -assert-max 1 t:$lut r:WIDTH=4 r:WIDTH=5 %u %i
+select -assert-none t:$lut r:WIDTH>2 %i %% t:* %D

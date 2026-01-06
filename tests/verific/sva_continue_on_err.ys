@@ -1,0 +1,38 @@
+verific -sv <<EOF
+module top(input clk, input a, input b);
+
+    prop_supported: assert property (@(posedge clk) a ##1 b |=> b);
+    prop_unsupported1: assert property (@(posedge clk) a ##1 b #=# b);
+    prop_unsupported2: assert property (@(posedge clk) a ##1 @(posedge b) ##1 a);
+
+    sequence local_var_seq;
+        logic v;
+        (1, v = a) ##1 b ##1 (v == a);
+    endsequence
+
+    prop_unsupported3: assert property (@(posedge clk) local_var_seq);
+
+endmodule
+EOF
+
+logger -expect warning "Mixed clocking is currently not supported" 1
+logger -expect warning "Verific SVA primitive sva_non_overlapped_followed_by .* is currently unsupported in this context" 1
+logger -expect warning "SVA sequences with local variable assignments are currently not supported" 1
+logger -expect warning "Encountered 3 items containing unsupported SVA" 1
+verific -import -sva-continue-on-err top
+logger -check-expected
+
+select -assert-count 4 top/t:$assert
+select -assert-count 4 top/a:unsupported_sva top/prop_supported %% top/t:$assert %i
+
+select -assert-count 3 top/a:unsupported_sva
+select -assert-count 3 top/a:unsupported_sva top/prop_unsupported* %i
+select -assert-count 1 top/a:unsupported_sva top/prop_unsupported1 %i
+select -assert-count 1 top/a:unsupported_sva top/prop_unsupported2 %i
+select -assert-count 1 top/a:unsupported_sva top/prop_unsupported3 %i
+select -assert-count 0 top/a:unsupported_sva top/prop_supported %i
+select -assert-count 1 top/prop_supported
+
+logger -expect error "uses unsupported SVA constructs." 1
+hierarchy -smtcheck -top top
+logger -check-expected

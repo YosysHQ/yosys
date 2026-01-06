@@ -1,0 +1,18 @@
+read_verilog <<EOT
+
+module uut(
+    input  [3:0] a, b,
+    output [3:0] y, z
+);
+    assign y = a + b;
+    assign z = b + a;
+endmodule
+
+EOT
+
+copy uut after
+opt_merge after
+clean
+
+show -format dot -prefix opt_merge_full -notitle -color cornflowerblue uut
+

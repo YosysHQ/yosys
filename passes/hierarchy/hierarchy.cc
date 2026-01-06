@@ -47,7 +47,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 	{
 		if (design->module(cell->type) != nullptr)
 			continue;
-		if (cell->type.begins_with("$__"))
+		if (cell->type.begins_with("$") && !cell->type.begins_with("$__"))
 			continue;
 		for (auto &pattern : celltypes)
 			if (patmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str()))
@@ -59,7 +59,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		std::set<RTLIL::IdString> portnames;
 		std::set<RTLIL::IdString> parameters;
 		std::map<RTLIL::IdString, int> portwidths;
-		log("Generate module for cell type %s:\n", celltype.c_str());
+		log("Generate module for cell type %s:\n", celltype);
 
 		for (auto mod : design->modules())
 		for (auto cell : mod->cells())
@@ -156,6 +156,21 @@ std::string basic_cell_type(const std::string celltype, int pos[3] = nullptr) {
 	return basicType;
 }
 
+// Try to read an IdString as a numbered connection name ("$123" or similar),
+// writing the result to dst. If the string isn't of the right format, ignore
+// dst and return false.
+bool read_id_num(RTLIL::IdString str, int *dst)
+{
+	log_assert(dst);
+
+	const char *c_str = str.c_str();
+	if (c_str[0] != '$' || !('0' <= c_str[1] && c_str[1] <= '9'))
+		return false;
+
+	*dst = atoi(c_str + 1);
+	return true;
+}
+
 // A helper struct for expanding a module's interface connections in expand_module
 struct IFExpander
 {
@@ -219,7 +234,7 @@ struct IFExpander
 	                  const RTLIL::SigSpec &conn_signals)
 	{
 		// Check if the connected wire is a potential interface in the parent module
-		std::string interface_name_str = conn_signals.bits()[0].wire->name.str();
+		std::string interface_name_str = conn_signals[0].wire->name.str();
 		// Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
 		interface_name_str.replace(0,23,"");
 		interface_name_str = "\\" + interface_name_str;
@@ -283,15 +298,42 @@ struct IFExpander
 	                   RTLIL::IdString       conn_name,
 	                   const RTLIL::SigSpec &conn_signals)
 	{
-		// Check if the connection is present as an interface in the sub-module's port list
-		const RTLIL::Wire *wire = submodule.wire(conn_name);
-		if (!wire || !wire->get_bool_attribute(ID::is_interface))
+		// Does the connection look like an interface
+		if (
+			conn_signals.size() != 1 ||
+			conn_signals[0].wire == nullptr ||
+			conn_signals[0].wire->get_bool_attribute(ID::is_interface) == false ||
+			conn_signals[0].wire->name.str().find("$dummywireforinterface") != 0
+		)
 			return;
 
+		// Check if the connection is present as an interface in the sub-module's port list
+		int id;
+		if (read_id_num(conn_name, &id)) {
+			/* Interface expansion is incompatible with positional arguments
+			 * during expansion, the port list gets each interface signal
+			 * inserted after the interface itself which means that the argument
+			 * positions in the parent module no longer match.
+			 *
+			 * Supporting this would require expanding the interfaces in the
+			 * parent module, renumbering the arguments to match, and then
+			 * iterating over the ports list to find the matching interface
+			 * (refactoring on_interface to accept different conn_names on the
+			 * parent and child).
+			 */
+			log_error("Unable to connect `%s' to submodule `%s' with positional interface argument `%s'!\n",
+				module.name,
+				submodule.name,
+				conn_signals[0].wire->name.str().substr(23)
+			);
+		} else {
+			// Lookup connection by name
+			const RTLIL::Wire *wire = submodule.wire(conn_name);
+			if (!wire || !wire->get_bool_attribute(ID::is_interface))
+				return;
+			}
 		// If the connection looks like an interface, handle it.
-		const auto &bits = conn_signals.bits();
-		if (bits.size() == 1 && bits[0].wire->get_bool_attribute(ID::is_interface))
-			on_interface(submodule, conn_name, conn_signals);
+		on_interface(submodule, conn_name, conn_signals);
 	}
 
 	// Iterate over the connections in a cell, tracking any interface
@@ -376,21 +418,6 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	return nullptr;
 }
 
-// Try to read an IdString as a numbered connection name ("$123" or similar),
-// writing the result to dst. If the string isn't of the right format, ignore
-// dst and return false.
-bool read_id_num(RTLIL::IdString str, int *dst)
-{
-	log_assert(dst);
-
-	const char *c_str = str.c_str();
-	if (c_str[0] != '$' || !('0' <= c_str[1] && c_str[1] <= '9'))
-		return false;
-
-	*dst = atoi(c_str + 1);
-	return true;
-}
-
 // Check that the connections on the cell match those that are defined
 // on the type: each named connection should match the name of a port
 // and each positional connection should have an index smaller than
@@ -439,7 +466,8 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 	}
 }
 
-bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, bool flag_smtcheck,
+		   std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
@@ -477,7 +505,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		RTLIL::Module *mod = design->module(cell->type);
 		if (!mod)
 		{
-			mod = get_module(*design, *cell, *module, flag_check || flag_simcheck, libdirs);
+			mod = get_module(*design, *cell, *module, flag_check || flag_simcheck || flag_smtcheck, libdirs);
 
 			// If we still don't have a module, treat the cell as a black box and skip
 			// it. Otherwise, we either loaded or derived something so should set the
@@ -495,11 +523,11 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		// interfaces.
 		if_expander.visit_connections(*cell, *mod);
 
-		if (flag_check || flag_simcheck)
+		if (flag_check || flag_simcheck || flag_smtcheck)
 			check_cell_connections(*module, *cell, *mod);
 
 		if (mod->get_blackbox_attribute()) {
-			if (flag_simcheck)
+			if (flag_simcheck || (flag_smtcheck && !mod->get_bool_attribute(ID::smtlib2_module)))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox/whitebox module.\n",
 						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
@@ -604,9 +632,9 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::
 		return;
 
 	if (indent == 0)
-		log("Top module:  %s\n", mod->name.c_str());
+		log("Top module:  %s\n", mod->name);
 	else if (!mod->get_blackbox_attribute())
-		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
+		log("Used module: %*s%s\n", indent, "", mod->name);
 	used.insert(mod);
 
 	for (auto cell : mod->cells()) {
@@ -646,7 +674,7 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 	for (auto mod : del_modules) {
 		if (!purge_lib && mod->get_blackbox_attribute())
 			continue;
-		log("Removing unused module `%s'.\n", mod->name.c_str());
+		log("Removing unused module `%s'.\n", mod->name);
 		design->remove(mod);
 		del_counter++;
 	}
@@ -654,12 +682,23 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 	log("Removed %d unused modules.\n", del_counter);
 }
 
+bool set_keep_print(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
+{
+	if (cache.count(mod) == 0)
+		for (auto c : mod->cells()) {
+			RTLIL::Module *m = mod->design->module(c->type);
+			if ((m != nullptr && set_keep_print(cache, m)) || c->type == ID($print))
+				return cache[mod] = true;
+		}
+	return cache[mod];
+}
+
 bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 {
 	if (cache.count(mod) == 0)
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 				return cache[mod] = true;
 		}
 	return cache[mod];
@@ -737,6 +776,9 @@ struct HierarchyPass : public Pass {
 		log("        like -check, but also throw an error if blackbox modules are\n");
 		log("        instantiated, and throw an error if the design has no top module.\n");
 		log("\n");
+		log("    -smtcheck\n");
+		log("        like -simcheck, but allow smtlib2_module modules.\n");
+		log("\n");
 		log("    -purge_lib\n");
 		log("        by default the hierarchy command will not remove library (blackbox)\n");
 		log("        modules. use this option to also remove unused blackbox modules.\n");
@@ -757,6 +799,11 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("    -nodefaults\n");
 		log("        do not resolve input port default values\n");
+		log("\n");
+		log("    -nokeep_prints\n");
+		log("        per default this pass sets the \"keep\" attribute on all modules\n");
+		log("        that directly or indirectly display text on the terminal.\n");
+		log("        This option disables this behavior.\n");
 		log("\n");
 		log("    -nokeep_asserts\n");
 		log("        per default this pass sets the \"keep\" attribute on all modules\n");
@@ -803,6 +850,7 @@ struct HierarchyPass : public Pass {
 
 		bool flag_check = false;
 		bool flag_simcheck = false;
+		bool flag_smtcheck = false;
 		bool purge_lib = false;
 		RTLIL::Module *top_mod = NULL;
 		std::string load_top_mod;
@@ -813,6 +861,7 @@ struct HierarchyPass : public Pass {
 		bool keep_positionals = false;
 		bool keep_portwidths = false;
 		bool nodefaults = false;
+		bool nokeep_prints = false;
 		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
@@ -821,7 +870,7 @@ struct HierarchyPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-generate" && !flag_check && !flag_simcheck && !top_mod) {
+			if (args[argidx] == "-generate" && !flag_check && !flag_simcheck && !flag_smtcheck && !top_mod) {
 				generate_mode = true;
 				log("Entering generate mode.\n");
 				while (++argidx < args.size()) {
@@ -851,11 +900,11 @@ struct HierarchyPass : public Pass {
 					log("Port declaration: %s", decl.input ? decl.output ? "inout" : "input" : "output");
 					if (decl.index >= 1)
 						log(" [at position %d]", decl.index);
-					log(" %s\n", decl.portname.c_str());
+					log(" %s\n", decl.portname);
 					generate_ports.push_back(decl);
 					continue;
 				is_celltype:
-					log("Celltype: %s\n", args[argidx].c_str());
+					log("Celltype: %s\n", args[argidx]);
 					generate_cells.push_back(RTLIL::unescape_id(args[argidx]));
 				}
 				continue;
@@ -866,6 +915,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-simcheck") {
 				flag_simcheck = true;
+				continue;
+			}
+			if (args[argidx] == "-smtcheck") {
+				flag_smtcheck = true;
 				continue;
 			}
 			if (args[argidx] == "-purge_lib") {
@@ -882,6 +935,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-nodefaults") {
 				nodefaults = true;
+				continue;
+			}
+			if (args[argidx] == "-nokeep_prints") {
+				nokeep_prints = true;
 				continue;
 			}
 			if (args[argidx] == "-nokeep_asserts") {
@@ -907,7 +964,7 @@ struct HierarchyPass : public Pass {
 				const std::string &value = args[++argidx];
 				auto r = parameters.emplace(key, value);
 				if (!r.second) {
-					log_warning("-chparam %s already specified: overwriting.\n", key.c_str());
+					log_warning("-chparam %s already specified: overwriting.\n", key);
 					r.first->second = value;
 				}
 				continue;
@@ -927,7 +984,7 @@ struct HierarchyPass : public Pass {
 				for (auto &para : parameters) {
 					SigSpec sig_value;
 					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
-						log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+						log_cmd_error("Can't decode value '%s'!\n", para.second);
 					top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
 				}
 			}
@@ -948,15 +1005,20 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
+		bool verific_mod = false;
+#ifdef YOSYS_ENABLE_VERIFIC
+		verific_mod = verific_import_pending;
+#endif
+
 		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
-				verific_import(design, parameters, load_top_mod);
+				load_top_mod = verific_import(design, parameters, load_top_mod);
 				top_mod = design->module(RTLIL::escape_id(load_top_mod));
 			}
 #endif
 			if (top_mod == NULL)
-				log_cmd_error("Module `%s' not found!\n", load_top_mod.c_str());
+				log_cmd_error("Module `%s' not found!\n", load_top_mod);
 		} else {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending)
@@ -973,8 +1035,22 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod == nullptr)
 			for (auto mod : design->modules())
-				if (mod->get_bool_attribute(ID::top))
+				if (mod->get_bool_attribute(ID::top)) {
+					log("Attribute `top' found on module `%s'. Setting top module to %s.\n", log_id(mod), log_id(mod));
 					top_mod = mod;
+				}
+
+		if (top_mod == nullptr)
+		{
+			std::vector<IdString> abstract_ids;
+			for (auto module : design->modules())
+				if (module->name.begins_with("$abstract"))
+					abstract_ids.push_back(module->name);
+			for (auto abstract_id : abstract_ids)
+				design->module(abstract_id)->derive(design, {});
+			for (auto abstract_id : abstract_ids)
+				design->remove(design->module(abstract_id));
+		}
 
 		if (top_mod == nullptr && auto_top_mode) {
 			log_header(design, "Finding top of design hierarchy..\n");
@@ -996,7 +1072,7 @@ struct HierarchyPass : public Pass {
 			for (auto &para : parameters) {
 				SigSpec sig_value;
 				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
-					log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+					log_cmd_error("Can't decode value '%s'!\n", para.second);
 				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
 			}
 
@@ -1013,7 +1089,7 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
-		if (flag_simcheck && top_mod == nullptr)
+		if ((flag_simcheck || flag_smtcheck) && top_mod == nullptr)
 			log_error("Design has no top module.\n");
 
 		if (top_mod != NULL) {
@@ -1039,7 +1115,7 @@ struct HierarchyPass : public Pass {
 			}
 
 			for (auto module : used_modules) {
-				if (expand_module(design, module, flag_check, flag_simcheck, libdirs))
+				if (expand_module(design, module, flag_check, flag_simcheck, flag_smtcheck, libdirs))
 					did_something = true;
 			}
 
@@ -1049,6 +1125,7 @@ struct HierarchyPass : public Pass {
 			if (tmp_top_mod != NULL) {
 				if (tmp_top_mod != top_mod){
 					top_mod = tmp_top_mod;
+					top_mod->attributes[ID::initial_top] = RTLIL::Const(1);
 					did_something = true;
 				}
 			}
@@ -1081,6 +1158,15 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
+		if (!nokeep_prints) {
+			std::map<RTLIL::Module*, bool> cache;
+			for (auto mod : design->modules())
+				if (set_keep_print(cache, mod)) {
+					log("Module %s directly or indirectly displays text -> setting \"keep\" attribute.\n", log_id(mod));
+					mod->set_bool_attribute(ID::keep);
+				}
+		}
+
 		if (!nokeep_asserts) {
 			std::map<RTLIL::Module*, bool> cache;
 			for (auto mod : design->modules())
@@ -1088,6 +1174,25 @@ struct HierarchyPass : public Pass {
 					log("Module %s directly or indirectly contains formal properties -> setting \"keep\" attribute.\n", log_id(mod));
 					mod->set_bool_attribute(ID::keep);
 				}
+		}
+
+		if (flag_simcheck || flag_smtcheck) {
+			for (auto mod : design->modules()) {
+				for (auto cell : mod->cells()) {
+					if (!cell->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+						continue;
+					if (!cell->has_attribute(ID(unsupported_sva)))
+						continue;
+
+					auto src = cell->get_src_attribute();
+
+					if (!src.empty())
+						src += ": ";
+
+					log_error("%sProperty `%s' in module `%s' uses unsupported SVA constructs. See frontend warnings for details, run `chformal -remove a:unsupported_sva' to ignore.\n",
+						src, log_id(cell->name), log_id(mod->name));
+				}
+			}
 		}
 
 		if (!keep_positionals)
@@ -1364,13 +1469,18 @@ struct HierarchyPass : public Pass {
 				if (m == nullptr)
 					continue;
 
-				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
-					if (new_m_name.empty())
-						continue;
-					if (new_m_name != m->name) {
-						m = design->module(new_m_name);
-						blackbox_derivatives.insert(m);
+				bool boxed_params = false;
+				if (m->get_blackbox_attribute() && !cell->parameters.empty()) {
+					if (m->get_bool_attribute(ID::dynports)) {
+						IdString new_m_name = m->derive(design, cell->parameters, true);
+						if (new_m_name.empty())
+							continue;
+						if (new_m_name != m->name) {
+							m = design->module(new_m_name);
+							blackbox_derivatives.insert(m);
+						}
+					} else {
+						boxed_params = true;
 					}
 				}
 
@@ -1386,8 +1496,12 @@ struct HierarchyPass : public Pass {
 
 					SigSpec sig = conn.second;
 
-					if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
-					{
+					bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(conn.second);
+					if (resize_widths && verific_mod && boxed_params)
+						log_debug("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
+								log_id(module), log_id(cell), log_id(conn.first)
+						);
+					else if (resize_widths) {
 						if (GetSize(w) < GetSize(conn.second))
 						{
 							int n = GetSize(conn.second) - GetSize(w);

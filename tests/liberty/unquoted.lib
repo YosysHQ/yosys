@@ -1,0 +1,60 @@
+library(dff_unquoted) {
+  cell (dff1) {
+    area : 1;
+    ff("IQ", "IQN") {
+      next_state : !D;
+      clocked_on : (CLK);
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : IQ;
+    }
+  }
+  cell (dff2) {
+    area : 1;
+    ff(IQ, IQN) {
+      next_state : D';
+      clocked_on : CLK;
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+  }
+  cell (dffe) {
+    area : 6;
+    ff("IQ", "IQN") {
+      next_state : (D&EN) | (IQ&!EN);
+      clocked_on : !CLK;
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(EN) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    }
+  }
+}

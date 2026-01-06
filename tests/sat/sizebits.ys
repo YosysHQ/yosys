@@ -1,2 +1,2 @@
 read_verilog -sv sizebits.sv
-prep; sat -verify -prove-asserts
+prep; async2sync; sat -verify -prove-asserts

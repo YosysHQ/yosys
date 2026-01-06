@@ -1,0 +1,4 @@
+read_verilog -sv typedef_const_shadow.sv
+select -assert-count 1 w:x s:5 %i
+select -assert-count 1 w:blk.y s:5 %i
+select -assert-count 1 w:blk.z s:10 %i

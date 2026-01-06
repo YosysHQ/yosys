@@ -1,0 +1,13 @@
+read_verilog ../../common/tribuf.v
+hierarchy -top tristate
+proc
+tribuf
+flatten
+synth
+equiv_opt -assert -map +/quicklogic/pp3/cells_sim.v -map +/quicklogic/common/cells_sim.v -map +/simcells.v synth_quicklogic # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd tristate # Constrain all select calls below inside the top module
+select -assert-count 2 t:inpad
+select -assert-count 1 t:outpad
+select -assert-count 1 t:$_TBUF_
+select -assert-none t:inpad t:outpad t:$_TBUF_ %% t:* %D

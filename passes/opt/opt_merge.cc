@@ -25,11 +25,17 @@
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <algorithm>
 #include <set>
+#include <unordered_map>
+#include <array>
 
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+template <typename T, typename U>
+inline Hasher hash_pair(const T &t, const U &u) { return hash_ops<std::pair<T, U>>::hash(t, u); }
 
 struct OptMergeWorker
 {
@@ -41,7 +47,18 @@ struct OptMergeWorker
 
 	CellTypes ct;
 	int total_count;
-	SHA1 checksum;
+
+	static Hasher hash_pmux_in(const SigSpec& sig_s, const SigSpec& sig_b, Hasher h)
+	{
+		int s_width = GetSize(sig_s);
+		int width = GetSize(sig_b) / s_width;
+
+		hashlib::commutative_hash comm;
+		for (int i = 0; i < s_width; i++)
+			comm.eat(hash_pair(sig_s[i], sig_b.extract(i*width, width)));
+
+		return comm.hash_into(h);
+	}
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
 	{
@@ -66,96 +83,63 @@ struct OptMergeWorker
 		}
 	}
 
-	std::string int_to_hash_string(unsigned int v)
+	Hasher hash_cell_inputs(const RTLIL::Cell *cell, Hasher h) const
 	{
-		if (v == 0)
-			return "0";
-		std::string str = "";
-		while (v > 0) {
-			str += 'a' + (v & 15);
-			v = v >> 4;
-		}
-		return str;
-	}
-
-	std::string hash_cell_parameters_and_connections(const RTLIL::Cell *cell)
-	{
-		vector<string> hash_conn_strings;
-		std::string hash_string = cell->type.str() + "\n";
-
-		const dict<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
-		dict<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
-
+		// TODO: when implemented, use celltypes to match:
+		// (builtin || stdcell) && (unary || binary) && symmetrical
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
-			alt_conn = *conn;
-			if (assign_map(alt_conn.at(ID::A)) < assign_map(alt_conn.at(ID::B))) {
-				alt_conn[ID::A] = conn->at(ID::B);
-				alt_conn[ID::B] = conn->at(ID::A);
-			}
-			conn = &alt_conn;
-		} else
-		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
-			alt_conn = *conn;
-			assign_map.apply(alt_conn.at(ID::A));
-			alt_conn.at(ID::A).sort();
-			conn = &alt_conn;
-		} else
-		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
-			alt_conn = *conn;
-			assign_map.apply(alt_conn.at(ID::A));
-			alt_conn.at(ID::A).sort_and_unify();
-			conn = &alt_conn;
-		} else
-		if (cell->type == ID($pmux)) {
-			alt_conn = *conn;
-			assign_map.apply(alt_conn.at(ID::A));
-			assign_map.apply(alt_conn.at(ID::B));
-			assign_map.apply(alt_conn.at(ID::S));
-			sort_pmux_conn(alt_conn);
-			conn = &alt_conn;
-		}
-
-		for (auto &it : *conn) {
-			RTLIL::SigSpec sig;
-			if (cell->output(it.first)) {
-				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type)) {
-					// For the 'Q' output of state elements,
-					//   use its (* init *) attribute value
-					sig = initvals(it.second);
-				}
-				else
+			hashlib::commutative_hash comm;
+			comm.eat(assign_map(cell->getPort(ID::A)));
+			comm.eat(assign_map(cell->getPort(ID::B)));
+			h = comm.hash_into(h);
+		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
+			SigSpec a = assign_map(cell->getPort(ID::A));
+			a.sort();
+			h = a.hash_into(h);
+		} else if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
+			SigSpec a = assign_map(cell->getPort(ID::A));
+			a.sort_and_unify();
+			h = a.hash_into(h);
+		} else if (cell->type == ID($pmux)) {
+			SigSpec sig_s = assign_map(cell->getPort(ID::S));
+			SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			h = hash_pmux_in(sig_s, sig_b, h);
+			h = assign_map(cell->getPort(ID::A)).hash_into(h);
+		} else {
+			hashlib::commutative_hash comm;
+			for (const auto& [port, sig] : cell->connections()) {
+				if (cell->output(port))
 					continue;
+				comm.eat(hash_pair(port, assign_map(sig)));
 			}
-			else
-				sig = assign_map(it.second);
-			string s = "C " + it.first.str() + "=";
-			for (auto &chunk : sig.chunks()) {
-				if (chunk.wire)
-					s += "{" + chunk.wire->name.str() + " " +
-							int_to_hash_string(chunk.offset) + " " +
-							int_to_hash_string(chunk.width) + "}";
-				else
-					s += RTLIL::Const(chunk.data).as_string();
-			}
-			hash_conn_strings.push_back(s + "\n");
+			h = comm.hash_into(h);
+			if (cell->is_builtin_ff())
+				h = initvals(cell->getPort(ID::Q)).hash_into(h);
 		}
-
-		for (auto &it : cell->parameters)
-			hash_conn_strings.push_back("P " + it.first.str() + "=" + it.second.as_string() + "\n");
-
-		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());
-
-		for (auto it : hash_conn_strings)
-			hash_string += it;
-
-		checksum.update(hash_string);
-		return checksum.final();
+		return h;
 	}
 
-	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2)
+	static Hasher hash_cell_parameters(const RTLIL::Cell *cell, Hasher h)
 	{
-		log_assert(cell1 != cell2);
+		hashlib::commutative_hash comm;
+		for (const auto& param : cell->parameters) {
+			comm.eat(param);
+		}
+		return comm.hash_into(h);
+	}
+
+	Hasher hash_cell_function(const RTLIL::Cell *cell, Hasher h) const
+	{
+		h.eat(cell->type);
+		h = hash_cell_inputs(cell, h);
+		h = hash_cell_parameters(cell, h);
+		return h;
+	}
+
+	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2) const
+	{
+		if (cell1 == cell2) return true;
 		if (cell1->type != cell2->type) return false;
 
 		if (cell1->parameters != cell2->parameters)
@@ -173,7 +157,7 @@ struct OptMergeWorker
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell1->type)) {
+				if (it.first == ID::Q && cell1->is_builtin_ff()) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					conn1[it.first] = initvals(it.second);
@@ -190,24 +174,20 @@ struct OptMergeWorker
 			}
 		}
 
-		if (cell1->type == ID($and) || cell1->type == ID($or) || cell1->type == ID($xor) || cell1->type == ID($xnor) || cell1->type == ID($add) || cell1->type == ID($mul) ||
-				cell1->type == ID($logic_and) || cell1->type == ID($logic_or) || cell1->type == ID($_AND_) || cell1->type == ID($_OR_) || cell1->type == ID($_XOR_)) {
+		if (cell1->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
+				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
 			if (conn1.at(ID::A) < conn1.at(ID::B)) {
-				RTLIL::SigSpec tmp = conn1[ID::A];
-				conn1[ID::A] = conn1[ID::B];
-				conn1[ID::B] = tmp;
+				std::swap(conn1[ID::A], conn1[ID::B]);
 			}
 			if (conn2.at(ID::A) < conn2.at(ID::B)) {
-				RTLIL::SigSpec tmp = conn2[ID::A];
-				conn2[ID::A] = conn2[ID::B];
-				conn2[ID::B] = tmp;
+				std::swap(conn2[ID::A], conn2[ID::B]);
 			}
 		} else
-		if (cell1->type == ID($reduce_xor) || cell1->type == ID($reduce_xnor)) {
+		if (cell1->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			conn1[ID::A].sort();
 			conn2[ID::A].sort();
 		} else
-		if (cell1->type == ID($reduce_and) || cell1->type == ID($reduce_or) || cell1->type == ID($reduce_bool)) {
+		if (cell1->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
 			conn1[ID::A].sort_and_unify();
 			conn2[ID::A].sort_and_unify();
 		} else
@@ -221,14 +201,14 @@ struct OptMergeWorker
 
 	bool has_dont_care_initval(const RTLIL::Cell *cell)
 	{
-		if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+		if (!cell->is_builtin_ff())
 			return false;
 
 		return !initvals(cell->getPort(ID::Q)).is_fully_def();
 	}
 
 	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
-		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
+		design(design), module(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
 		ct.setup_internals();
@@ -247,63 +227,100 @@ struct OptMergeWorker
 		ct.cell_types.erase(ID($anyconst));
 		ct.cell_types.erase(ID($allseq));
 		ct.cell_types.erase(ID($allconst));
+		ct.cell_types.erase(ID($check));
+		ct.cell_types.erase(ID($assert));
+		ct.cell_types.erase(ID($assume));
+		ct.cell_types.erase(ID($live));
+		ct.cell_types.erase(ID($cover));
 
-		log("Finding identical cells in module `%s'.\n", module->name.c_str());
+		log("Finding identical cells in module `%s'.\n", module->name);
 		assign_map.set(module);
 
 		initvals.set(&assign_map, module);
 
 		bool did_something = true;
+		// A cell may have to go through a lot of collisions if the hash
+		// function is performing poorly, but it's a symptom of something bad
+		// beyond the user's control.
 		while (did_something)
 		{
 			std::vector<RTLIL::Cell*> cells;
-			cells.reserve(module->cells_.size());
-			for (auto &it : module->cells_) {
-				if (!design->selected(module, it.second))
+			cells.reserve(module->cells().size());
+			for (auto cell : module->cells()) {
+				if (!design->selected(module, cell))
 					continue;
-				if (mode_keepdc && has_dont_care_initval(it.second))
+				if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
+					// Ignore those for performance: meminit can have an excessively large port,
+					// mem can have an excessively large parameter holding the init data
 					continue;
-				if (ct.cell_known(it.second->type) || (mode_share_all && it.second->known()))
-					cells.push_back(it.second);
+				}
+				if (cell->type == ID($scopeinfo))
+					continue;
+				if (mode_keepdc && has_dont_care_initval(cell))
+					continue;
+				if (!cell->known())
+					continue;
+				if (!mode_share_all && !ct.cell_known(cell->type))
+					continue;
+				cells.push_back(cell);
 			}
 
 			did_something = false;
-			dict<std::string, RTLIL::Cell*> sharemap;
+
+			// We keep a set of known cells. They're hashed with our hash_cell_function
+			// and compared with our compare_cell_parameters_and_connections.
+			// Both need to capture OptMergeWorker to access initvals
+			struct CellPtrHash {
+				const OptMergeWorker& worker;
+				CellPtrHash(const OptMergeWorker& w) : worker(w) {}
+				std::size_t operator()(const Cell* c) const {
+					return (std::size_t)worker.hash_cell_function(c, Hasher()).yield();
+				}
+			};
+			struct CellPtrEqual {
+				const OptMergeWorker& worker;
+				CellPtrEqual(const OptMergeWorker& w) : worker(w) {}
+				bool operator()(const Cell* lhs, const Cell* rhs) const {
+					return worker.compare_cell_parameters_and_connections(lhs, rhs);
+				}
+			};
+			std::unordered_set<
+				RTLIL::Cell*,
+				CellPtrHash,
+				CellPtrEqual> known_cells (0, CellPtrHash(*this), CellPtrEqual(*this));
+
 			for (auto cell : cells)
 			{
-				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
-					continue;
-
-				auto hash = hash_cell_parameters_and_connections(cell);
-				auto r = sharemap.insert(std::make_pair(hash, cell));
-				if (!r.second) {
-					if (compare_cell_parameters_and_connections(cell, r.first->second)) {
-						if (cell->has_keep_attr()) {
-							if (r.first->second->has_keep_attr())
-								continue;
-							std::swap(r.first->second, cell);
-						}
-
-
-						did_something = true;
-						log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), r.first->second->name.c_str());
-						for (auto &it : cell->connections()) {
-							if (cell->output(it.first)) {
-								RTLIL::SigSpec other_sig = r.first->second->getPort(it.first);
-								log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
-										log_signal(it.second), log_signal(other_sig));
-								Const init = initvals(other_sig);
-								initvals.remove_init(it.second);
-								initvals.remove_init(other_sig);
-								module->connect(RTLIL::SigSig(it.second, other_sig));
-								assign_map.add(it.second, other_sig);
-								initvals.set_init(other_sig, init);
-							}
-						}
-						log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
-						module->remove(cell);
-						total_count++;
+				auto [cell_in_map, inserted] = known_cells.insert(cell);
+				if (!inserted) {
+					// We've failed to insert since we already have an equivalent cell
+					Cell* other_cell = *cell_in_map;
+					if (cell->has_keep_attr()) {
+						if (other_cell->has_keep_attr())
+							continue;
+						known_cells.erase(other_cell);
+						known_cells.insert(cell);
+						std::swap(other_cell, cell);
 					}
+
+					did_something = true;
+					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name, other_cell->name);
+					for (auto &it : cell->connections()) {
+						if (cell->output(it.first)) {
+							RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
+							log_debug("    Redirecting output %s: %s = %s\n", it.first,
+									log_signal(it.second), log_signal(other_sig));
+							Const init = initvals(other_sig);
+							initvals.remove_init(it.second);
+							initvals.remove_init(other_sig);
+							module->connect(RTLIL::SigSig(it.second, other_sig));
+							assign_map.add(it.second, other_sig);
+							initvals.set_init(other_sig, init);
+						}
+					}
+					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
+					module->remove(cell);
+					total_count++;
 				}
 			}
 		}

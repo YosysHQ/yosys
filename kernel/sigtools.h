@@ -29,7 +29,11 @@ struct SigPool
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first->name);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	pool<bitDef_t> bits;
@@ -143,7 +147,11 @@ struct SigSet
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first->name);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	dict<bitDef_t, std::set<T, Compare>> bits;
@@ -229,79 +237,11 @@ using sort_by_name_id_guard = typename std::enable_if<std::is_same<T,RTLIL::Cell
 template<typename T>
 class SigSet<T, sort_by_name_id_guard<T>> : public SigSet<T, RTLIL::sort_by_name_id<typename std::remove_pointer<T>::type>> {};
 
-struct SigMap
+struct SigMapView
 {
 	mfp<SigBit> database;
 
-	SigMap(RTLIL::Module *module = NULL)
-	{
-		if (module != NULL)
-			set(module);
-	}
-
-	void swap(SigMap &other)
-	{
-		database.swap(other.database);
-	}
-
-	void clear()
-	{
-		database.clear();
-	}
-
-	void set(RTLIL::Module *module)
-	{
-		int bitcount = 0;
-		for (auto &it : module->connections())
-			bitcount += it.first.size();
-
-		database.clear();
-		database.reserve(bitcount);
-
-		for (auto &it : module->connections())
-			add(it.first, it.second);
-	}
-
-	void add(const RTLIL::SigSpec& from, const RTLIL::SigSpec& to)
-	{
-		log_assert(GetSize(from) == GetSize(to));
-
-		for (int i = 0; i < GetSize(from); i++)
-		{
-			int bfi = database.lookup(from[i]);
-			int bti = database.lookup(to[i]);
-
-			const RTLIL::SigBit &bf = database[bfi];
-			const RTLIL::SigBit &bt = database[bti];
-
-			if (bf.wire || bt.wire)
-			{
-				database.imerge(bfi, bti);
-
-				if (bf.wire == nullptr)
-					database.ipromote(bfi);
-
-				if (bt.wire == nullptr)
-					database.ipromote(bti);
-			}
-		}
-	}
-
-	void add(const RTLIL::SigBit &bit)
-	{
-		const auto &b = database.find(bit);
-		if (b.wire != nullptr)
-			database.promote(bit);
-	}
-
-	void add(const RTLIL::SigSpec &sig)
-	{
-		for (const auto &bit : sig)
-			add(bit);
-	}
-
-	inline void add(Wire *wire) { return add(RTLIL::SigSpec(wire)); }
-
+	// Modify bit to its representative
 	void apply(RTLIL::SigBit &bit) const
 	{
 		bit = database.find(bit);
@@ -331,7 +271,90 @@ struct SigMap
 		apply(sig);
 		return sig;
 	}
+};
 
+/**
+ * SigMap wraps a union-find "database"
+ * to map SigBits of a module to canonical representative SigBits.
+ * SigBits that are connected share a set in the underlying database.
+ * If a SigBit has a const state (impl: bit.wire is nullptr),
+ * it's promoted to a representative.
+ */
+struct SigMap final : public SigMapView
+{
+	SigMap(RTLIL::Module *module = NULL)
+	{
+		if (module != NULL)
+			set(module);
+	}
+
+	void swap(SigMap &other)
+	{
+		database.swap(other.database);
+	}
+
+	void clear()
+	{
+		database.clear();
+	}
+
+	// Rebuild SigMap for all connections in module
+	void set(RTLIL::Module *module)
+	{
+		int bitcount = 0;
+		for (auto &it : module->connections())
+			bitcount += it.first.size();
+
+		database.clear();
+		database.reserve(bitcount);
+
+		for (auto &it : module->connections())
+			add(it.first, it.second);
+	}
+
+	// Add connections from "from" to "to", bit-by-bit
+	void add(const RTLIL::SigSpec& from, const RTLIL::SigSpec& to)
+	{
+		log_assert(GetSize(from) == GetSize(to));
+
+		for (int i = 0; i < GetSize(from); i++)
+		{
+			int bfi = database.lookup(from[i]);
+			int bti = database.lookup(to[i]);
+
+			const RTLIL::SigBit &bf = database[bfi];
+			const RTLIL::SigBit &bt = database[bti];
+
+			if (bf.wire || bt.wire)
+			{
+				database.imerge(bfi, bti);
+
+				if (bf.wire == nullptr)
+					database.ipromote(bfi);
+
+				if (bt.wire == nullptr)
+					database.ipromote(bti);
+			}
+		}
+	}
+
+	// Add sig as disconnected from anything
+	void add(const RTLIL::SigBit &bit)
+	{
+		const auto &b = database.find(bit);
+		if (b.wire != nullptr)
+			database.promote(bit);
+	}
+
+	void add(const RTLIL::SigSpec &sig)
+	{
+		for (const auto &bit : sig)
+			add(bit);
+	}
+
+	inline void add(Wire *wire) { return add(RTLIL::SigSpec(wire)); }
+
+	// All non-const bits
 	RTLIL::SigSpec allbits() const
 	{
 		RTLIL::SigSpec sig;
@@ -339,6 +362,107 @@ struct SigMap
 			if (bit.wire != nullptr)
 				sig.append(bit);
 		return sig;
+	}
+};
+
+/**
+ * SiValgMap wraps a union-find "database" to map SigBits of a module to
+ * canonical representative SigBits plus some optional Val value associated with the bits.
+ * Val has a commutative, associative, idempotent operator|=, a default constructor
+ * which constructs an identity element, and a copy constructor.
+ * SigBits that are connected share a set in the underlying database;
+ * the associated value is the "sum" of all the values associated with the contributing bits.
+ * If any of the SigBits in a set are a constant, the canonical SigBit is a constant.
+ */
+template <class Val>
+struct SigValMap final : public SigMapView
+{
+	dict<SigBit, Val> values;
+
+	void swap(SigValMap<Val> &other)
+	{
+		database.swap(other.database);
+		values.swap(other.values);
+	}
+
+	void clear()
+	{
+		database.clear();
+		values.clear();
+	}
+
+	// Rebuild SigMap for all connections in module
+	void set(RTLIL::Module *module)
+	{
+		int bitcount = 0;
+		for (auto &it : module->connections())
+			bitcount += it.first.size();
+
+		database.clear();
+		values.clear();
+		database.reserve(bitcount);
+
+		for (auto &it : module->connections())
+			add(it.first, it.second);
+	}
+
+	// Add connections from "from" to "to", bit-by-bit.
+	void add(const RTLIL::SigSpec& from, const RTLIL::SigSpec& to)
+	{
+		log_assert(GetSize(from) == GetSize(to));
+
+		for (int i = 0; i < GetSize(from); i++)
+		{
+			int bfi = database.lookup(from[i]);
+			int bti = database.lookup(to[i]);
+			if (bfi == bti) {
+				continue;
+			}
+
+			const RTLIL::SigBit &bf = database[bfi];
+			const RTLIL::SigBit &bt = database[bti];
+			if (bf.wire == nullptr) {
+				// bf is constant so make it the canonical representative.
+				database.imerge(bti, bfi);
+				merge_value(bt, bf);
+			} else {
+				// Make bt the canonical representative.
+				database.imerge(bfi, bti);
+				merge_value(bf, bt);
+			}
+		}
+	}
+
+	void addVal(const RTLIL::SigBit &bit, const Val &val)
+	{
+		values[database.find(bit)] |= val;
+	}
+
+	void addVal(const RTLIL::SigSpec &sig, const Val &val)
+	{
+		for (const auto &bit : sig)
+			addVal(bit, val);
+	}
+
+	Val apply_and_get_value(RTLIL::SigBit &bit) const
+	{
+		bit = database.find(bit);
+		auto it = values.find(bit);
+		return it == values.end() ? Val() : it->second;
+	}
+
+private:
+	void merge_value(const RTLIL::SigBit &from, const RTLIL::SigBit &to)
+	{
+		auto it = values.find(from);
+		if (it == values.end()) {
+			return;
+		}
+		// values[to] could resize the underlying `entries` so
+		// finish using `it` first.
+		Val v = it->second;
+		values.erase(it);
+		values[to] |= v;
 	}
 };
 

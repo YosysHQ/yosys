@@ -60,16 +60,17 @@ struct MemoryShareWorker
 	bool merge_rst_value(Mem &mem, Const &res, int wide_log2, const Const &src1, int sub1, const Const &src2, int sub2) {
 		res = Const(State::Sx, mem.width << wide_log2);
 		for (int i = 0; i < GetSize(src1); i++)
-			res[i + sub1 * mem.width] = src1[i];
+			res.set(i + sub1 * mem.width, src1[i]);
 		for (int i = 0; i < GetSize(src2); i++) {
 			if (src2[i] == State::Sx)
 				continue;
-			auto &dst = res[i + sub2 * mem.width];
+			int idx = i + sub2 * mem.width;
+			RTLIL::State dst = res[idx];
 			if (dst == src2[i])
 				continue;
 			if (dst != State::Sx)
 				return false;
-			dst = src2[i];
+			res.set(idx, src2[i]);
 		}
 		return true;
 	}
@@ -371,9 +372,9 @@ struct MemoryShareWorker
 				ports += std::to_string(idx);
 			}
 			if (!some_port.clk_enable) {
-				log("  Checking unclocked group, width %d: ports %s.\n", mem.width << some_port.wide_log2, ports.c_str());
+				log("  Checking unclocked group, width %d: ports %s.\n", mem.width << some_port.wide_log2, ports);
 			} else {
-				log("  Checking group clocked with %sedge %s, width %d: ports %s.\n", some_port.clk_polarity ? "pos" : "neg", log_signal(some_port.clk), mem.width << some_port.wide_log2, ports.c_str());
+				log("  Checking group clocked with %sedge %s, width %d: ports %s.\n", some_port.clk_polarity ? "pos" : "neg", log_signal(some_port.clk), mem.width << some_port.wide_log2, ports);
 			}
 
 			// Okay, time to actually run the SAT solver.
@@ -523,8 +524,8 @@ struct MemorySharePass : public Pass {
 		log("  - When multiple write ports access the same address then this is converted\n");
 		log("    to a single write port with a more complex data and/or enable logic path.\n");
 		log("\n");
-		log("  - When multiple read or write ports access adjacent aligned addresses, they are\n");
-		log("    merged to a single wide read or write port.  This transformation can be\n");
+		log("  - When multiple read or write ports access adjacent aligned addresses, they\n");
+		log("    are merged to a single wide read or write port.  This transformation can be\n");
 		log("    disabled with the \"-nowiden\" option.\n");
 		log("\n");
 		log("  - When multiple write ports are never accessed at the same time (a SAT\n");
@@ -558,8 +559,12 @@ struct MemorySharePass : public Pass {
 		extra_args(args, argidx, design);
 		MemoryShareWorker msw(design, flag_widen, flag_sat);
 
-		for (auto module : design->selected_modules())
+		for (auto module : design->selected_modules()) {
+			if (module->has_processes_warn())
+				continue;
+
 			msw(module);
+		}
 	}
 } MemorySharePass;
 

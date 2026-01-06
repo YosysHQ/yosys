@@ -1,0 +1,17 @@
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
+proc
+memory -nomap
+equiv_opt -run :prove -map +/lattice/cells_sim_xo2.v synth_lattice -family xo2
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 20 t:LUT4
+select -assert-count 8 t:TRELLIS_DPR16X4
+select -assert-count 8 t:TRELLIS_FF
+select -assert-none t:LUT4 t:TRELLIS_DPR16X4 t:TRELLIS_FF %% t:* %D

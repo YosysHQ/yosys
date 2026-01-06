@@ -1,0 +1,3 @@
+read_rtlil vector_assign.il
+sim -r var_reference_without_whitespace.vcd -scope tb.uut
+sim -r var_reference_with_whitespace.vcd -scope tb.uut

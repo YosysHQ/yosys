@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 ../../yosys -qq -f verilog -p "proc; opt; memory -nomap -bram temp/brams_${2}.txt; opt -fast -full" \
 		-l temp/synth_${1}_${2}.log -o temp/synth_${1}_${2}.v temp/brams_${1}.v

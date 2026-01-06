@@ -1,0 +1,15 @@
+read_verilog -sv meminit.v
+chparam -set DEPTH_LOG2 3 -set WIDTH 36
+prep
+opt_dff
+prep -rdff
+synth_quicklogic -family qlf_k6n10f -run map_bram:map_bram
+select -assert-none t:$mem_v2 t:$mem
+select -assert-count 1 t:TDP36K
+select -assert-count 1 t:TDP36K a:is_split=0 %i
+select -assert-count 1 t:TDP36K a:was_split_candidate=0 %i
+read_verilog +/quicklogic/common/cells_sim.v +/quicklogic/qlf_k6n10f/cells_sim.v +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
+prep
+async2sync
+hierarchy -top top
+sim -assert -q -n 12 -clock clk

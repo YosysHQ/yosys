@@ -1,0 +1,10 @@
+read_verilog <<EOT
+module prim_test(input [7:0] a, b, output [7:0] q);
+	AND and_i (.A(a), .B(b), .Y(q));
+endmodule
+EOT
+
+# Test adding custom primitives and techmap rules
+synth_fabulous -top prim_test -extra-plib custom_prims.v -extra-map custom_map.v
+cd prim_test
+select -assert-count 1 t:ALU

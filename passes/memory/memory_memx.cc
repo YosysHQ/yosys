@@ -50,7 +50,7 @@ struct MemoryMemxPass : public Pass {
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
-		log_header(design, "Executing MEMORY_MEMX pass (converting $mem cells to logic and flip-flops).\n");
+		log_header(design, "Executing MEMORY_MEMX pass (emit soft logic for out-of-bounds handling).\n");
 		extra_args(args, 1, design);
 
 		for (auto module : design->selected_modules())

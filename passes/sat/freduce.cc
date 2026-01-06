@@ -17,17 +17,12 @@
  *
  */
 
-#include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
 #include "kernel/sigtools.h"
-#include "kernel/log.h"
 #include "kernel/satgen.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <algorithm>
-#include <limits>
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -252,7 +247,7 @@ struct PerformReduction
 			string loop_signals;
 			for (auto loop_bit : recursion_guard)
 				loop_signals += string(" ") + log_signal(loop_bit);
-			log_error("Found logic loop:%s\n", loop_signals.c_str());
+			log_error("Found logic loop:%s\n", loop_signals);
 		}
 
 		recursion_guard.insert(out);
@@ -600,9 +595,9 @@ struct FreduceWorker
 
 	void dump()
 	{
-		std::string filename = stringf("%s_%s_%05d.il", dump_prefix.c_str(), RTLIL::id2cstr(module->name), reduce_counter);
-		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename.c_str());
-		Pass::call(design, stringf("dump -outfile %s %s", filename.c_str(), design->selected_active_module.empty() ? module->name.c_str() : ""));
+		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, RTLIL::id2cstr(module->name), reduce_counter);
+		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename);
+		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module.empty() ? module->name.c_str() : ""));
 	}
 
 	int run()
@@ -761,6 +756,11 @@ struct FreduceWorker
 
 struct FreducePass : public Pass {
 	FreducePass() : Pass("freduce", "perform functional reduction") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
