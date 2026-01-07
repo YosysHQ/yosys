@@ -2143,6 +2143,9 @@ void dump_case_actions(std::ostream &f, std::string indent, RTLIL::CaseRule *cs)
 
 bool dump_proc_switch_ifelse(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw)
 {
+	if (sw->cases.empty())
+		return true;
+
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
 		if ((*it)->compare.size() == 0) {
 			break;
