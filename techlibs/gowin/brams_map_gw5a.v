@@ -14,7 +14,7 @@
 `define x8_width(width) (width / 9 * 8 + width % 9)
 `define x8_rd_data(data) {1'bx, data[31:24], 1'bx, data[23:16], 1'bx, data[15:8], 1'bx, data[7:0]}
 `define x8_wr_data(data) {data[34:27], data[25:18], data[16:9], data[7:0]}
-`define addrbe_always(width, addr) (width < 18 ? addr :  width == 18 ? {addr[13:4], 4'b0011} : {addr[13:5], 5'b01111})
+`define addrbe(width, addr, w_be) (width < 18 ? addr :  width == 18 ? {addr[13:4], 2'b00, w_be[1:0]} : {addr[13:5], 1'b0, w_be[3:0]})
 
 
 `define INIT(func) \
@@ -90,6 +90,7 @@ parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_A_WIDTH = 36;
 parameter PORT_A_OPTION_WRITE_MODE = 0;
+parameter PORT_A_WR_BE_WIDTH = 4;
 
 input PORT_A_CLK;
 input PORT_A_CLK_EN;
@@ -97,13 +98,14 @@ input PORT_A_WR_EN;
 input PORT_A_RD_SRST;
 input PORT_A_RD_ARST;
 input [13:0] PORT_A_ADDR;
+input [PORT_A_WR_BE_WIDTH-1:0] PORT_A_WR_BE;
 input [PORT_A_WIDTH-1:0] PORT_A_WR_DATA;
 output [PORT_A_WIDTH-1:0] PORT_A_RD_DATA;
 
 `DEF_FUNCS
 
 wire RST = OPTION_RESET_MODE == "SYNC" ? PORT_A_RD_SRST : PORT_A_RD_ARST;
-wire [13:0] AD = `addrbe_always(PORT_A_WIDTH, PORT_A_ADDR);
+wire [13:0] AD = `addrbe(PORT_A_WIDTH, PORT_A_ADDR, PORT_A_WR_BE);
 
 generate
 
@@ -173,9 +175,11 @@ parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_A_WIDTH = 18;
 parameter PORT_A_OPTION_WRITE_MODE = 0;
+parameter PORT_A_WR_BE_WIDTH = 4;
 
 parameter PORT_B_WIDTH = 18;
 parameter PORT_B_OPTION_WRITE_MODE = 0;
+parameter PORT_B_WR_BE_WIDTH = 4;
 
 input PORT_A_CLK;
 input PORT_A_CLK_EN;
@@ -183,6 +187,7 @@ input PORT_A_WR_EN;
 input PORT_A_RD_SRST;
 input PORT_A_RD_ARST;
 input [13:0] PORT_A_ADDR;
+input [PORT_A_WR_BE_WIDTH-1:0] PORT_A_WR_BE;
 input [PORT_A_WIDTH-1:0] PORT_A_WR_DATA;
 output [PORT_A_WIDTH-1:0] PORT_A_RD_DATA;
 
@@ -192,6 +197,7 @@ input PORT_B_WR_EN;
 input PORT_B_RD_SRST;
 input PORT_B_RD_ARST;
 input [13:0] PORT_B_ADDR;
+input [PORT_B_WR_BE_WIDTH-1:0] PORT_B_WR_BE;
 input [PORT_A_WIDTH-1:0] PORT_B_WR_DATA;
 output [PORT_A_WIDTH-1:0] PORT_B_RD_DATA;
 
@@ -199,8 +205,8 @@ output [PORT_A_WIDTH-1:0] PORT_B_RD_DATA;
 
 wire RSTA = OPTION_RESET_MODE == "SYNC" ? PORT_A_RD_SRST : PORT_A_RD_ARST;
 wire RSTB = OPTION_RESET_MODE == "SYNC" ? PORT_B_RD_SRST : PORT_B_RD_ARST;
-wire [13:0] ADA = `addrbe_always(PORT_A_WIDTH, PORT_A_ADDR);
-wire [13:0] ADB = `addrbe_always(PORT_B_WIDTH, PORT_B_ADDR);
+wire [13:0] ADA = `addrbe(PORT_A_WIDTH, PORT_A_ADDR, PORT_B_WR_BE);
+wire [13:0] ADB = `addrbe(PORT_B_WIDTH, PORT_B_ADDR, PORT_B_WR_BE);
 
 generate
 
@@ -306,6 +312,7 @@ parameter OPTION_RESET_MODE = "SYNC";
 
 parameter PORT_R_WIDTH = 18;
 parameter PORT_W_WIDTH = 18;
+parameter PORT_W_WR_BE_WIDTH = 4;
 
 input PORT_R_CLK;
 input PORT_R_CLK_EN;
@@ -318,12 +325,13 @@ input PORT_W_CLK;
 input PORT_W_CLK_EN;
 input PORT_W_WR_EN;
 input [13:0] PORT_W_ADDR;
+input [PORT_W_WR_BE_WIDTH-1:0] PORT_W_WR_BE;
 input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 
 `DEF_FUNCS
 
 wire RST = OPTION_RESET_MODE == "SYNC" ? PORT_R_RD_SRST : PORT_R_RD_ARST;
-wire [13:0] ADW = `addrbe_always(PORT_W_WIDTH, PORT_W_ADDR);
+wire [13:0] ADW = `addrbe(PORT_W_WIDTH, PORT_W_ADDR, PORT_W_WR_BE);
 wire WRE = PORT_W_CLK_EN & PORT_W_WR_EN;
 
 generate

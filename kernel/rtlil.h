@@ -223,8 +223,8 @@ struct RTLIL::IdString
 
 	constexpr inline IdString() : index_(0) { }
 	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
-	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
-	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+	constexpr IdString(const IdString &str) = default;
+	IdString(IdString &&str) = default;
 	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
 	inline IdString(std::string_view str) : index_(insert(str)) { }
 	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
@@ -2148,6 +2148,8 @@ public:
 	}
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
+	int wires_size() const { return wires_.size(); }
+	RTLIL::Wire* wire_at(int index) const { return wires_.element(index)->second; }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
 
 	void add(RTLIL::Binding *binding);
@@ -2155,6 +2157,7 @@ public:
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
+	void remove(RTLIL::Memory *memory);
 	void remove(RTLIL::Process *process);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);

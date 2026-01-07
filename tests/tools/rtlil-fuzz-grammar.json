@@ -1,0 +1,104 @@
+{
+	"<MODULE>": [
+		[
+			"module \\test\n",
+			"<WIRE>", "<WIRES>",
+			"<CELLS>",
+			"<CONNECTS>",
+			"end\n"
+		]
+	],
+	"<WIRE>": [ [ "  wire width ", "<WIDTH>", " ", "<WIRE_MODE>", " ", "<WIRE_ID>", "\n" ] ],
+	"<WIDTH>": [ [ "1" ], [ "2" ], [ "3" ], [ "4" ], [ "32" ], [ "128" ] ],
+	"<WIRE_MODE>": [ [ "input ", "<PORT_ID>" ], [ "output ", "<PORT_ID>" ], [ "inout ", "<PORT_ID>" ], [] ],
+	"<CELL>": [
+		[
+			"  cell $not ", "<CELL_ID>", "\n",
+			"    parameter \\A_SIGNED 0\n",
+			"    parameter \\A_WIDTH 0\n",
+			"    parameter \\Y_WIDTH 0\n",
+			"    connect \\A ", "<SIGSPEC>", "\n",
+			"    connect \\Y ", "<SIGSPEC>", "\n",
+			"  end\n"
+		],
+		[
+			"  cell $and ", "<CELL_ID>", "\n",
+			"    parameter \\A_SIGNED 0\n",
+			"    parameter \\B_SIGNED 0\n",
+			"    parameter \\A_WIDTH 0\n",
+			"    parameter \\B_WIDTH 0\n",
+			"    parameter \\Y_WIDTH 0\n",
+			"    connect \\A ", "<SIGSPEC>", "\n",
+			"    connect \\B ", "<SIGSPEC>", "\n",
+			"    connect \\Y ", "<SIGSPEC>", "\n",
+			"  end\n"
+		],
+		[
+			"  cell $or ", "<CELL_ID>", "\n",
+			"    parameter \\A_SIGNED 0\n",
+			"    parameter \\B_SIGNED 0\n",
+			"    parameter \\A_WIDTH 0\n",
+			"    parameter \\B_WIDTH 0\n",
+			"    parameter \\Y_WIDTH 0\n",
+			"    connect \\A ", "<SIGSPEC>", "\n",
+			"    connect \\B ", "<SIGSPEC>", "\n",
+			"    connect \\Y ", "<SIGSPEC>", "\n",
+			"  end\n"
+		],
+		[
+			"  cell $xor ", "<CELL_ID>", "\n",
+			"    parameter \\A_SIGNED 0\n",
+			"    parameter \\B_SIGNED 0\n",
+			"    parameter \\A_WIDTH 0\n",
+			"    parameter \\B_WIDTH 0\n",
+			"    parameter \\Y_WIDTH 0\n",
+			"    connect \\A ", "<SIGSPEC>", "\n",
+			"    connect \\B ", "<SIGSPEC>", "\n",
+			"    connect \\Y ", "<SIGSPEC>", "\n",
+			"  end\n"
+		],
+		[
+			"  cell ", "<BLACKBOX_CELL>", " ", "<CELL_ID>", "\n",
+			"    connect \\A ", "<SIGSPEC>", "\n",
+			"    connect \\Y ", "<SIGSPEC>", "\n",
+			"  end\n"
+		],
+		[
+			"  cell ", "<BLACKBOX_CELL>", " ", "<CELL_ID>", "\n",
+			"    connect \\A ", "<SIGSPEC>", "\n",
+			"    connect \\B ", "<SIGSPEC>", "\n",
+			"    connect \\Y ", "<SIGSPEC>", "\n",
+			"  end\n"
+		]
+	],
+	"<WIRE_ID>": [ [ "\\wire_a" ], [ "\\wire_b" ], [ "\\wire_c" ], [ "\\wire_d" ], [ "\\wire_e" ], [ "\\wire_f" ], [ "\\wire_g" ], [ "\\wire_h" ], [ "\\wire_i" ], [ "\\wire_j" ] ],
+	"<CELL_ID>": [ [ "\\cell_a" ], [ "\\cell_b" ], [ "\\cell_c" ], [ "\\cell_d" ], [ "\\cell_e" ], [ "\\cell_f" ], [ "\\cell_g" ], [ "\\cell_h" ], [ "\\cell_i" ], [ "\\cell_j" ] ],
+	"<BLACKBOX_CELL>": [ [ "\\bb1" ], [ "\\bb2" ] ],
+	"<SIGSPEC>": [
+		[ "<WIRE_ID>", " " ],
+		[ "{", "<SIGSPEC>", " ", "<SIGSPECS>", "}" ],
+		[ "<CONST>" ],
+		[ "<SIGSPEC>", "[", "<BIT_OFFSET>", "]" ],
+		[ "<SIGSPEC>", "[", "<BIT_OFFSET>", ":", "<BIT_OFFSET>", "]" ]
+	],
+	"<CONST>": [
+		[ "0'", "<BITS>" ],
+		[ "1'", "<BITS>" ],
+		[ "2'", "<BITS>" ],
+		[ "3'", "<BITS>" ],
+		[ "4'", "<BITS>" ],
+		[ "31'", "<BITS>" ],
+		[ "32'", "<BITS>" ],
+		[ "128'", "<BITS>" ]
+	],
+	"<BIT>": [ [ "0" ], [ "1" ], [ "x" ], [ "z" ], [ "-" ], [ "m" ] ],
+	"<BIT_OFFSET>": [ "0", "1", "2", "3", "31", "32" ],
+	"<PORT_ID>": [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ],
+	"<CONNECT>": [ [ "  connect ", "<SIGSPEC>", " ", "<SIGSPEC>", "\n" ] ],
+
+	"<WIRES>": [ [ ], [ "<WIRE>", "<WIRES>" ] ],
+	"<CELLS>": [ [ ], [ "<CELL>", "<CELLS>" ] ],
+	"<BITS>": [ [ ], [ "<BIT>", "<BITS>" ] ],
+	"<CONNECTS>": [ [ ], [ "<CONNECT>", "<CONNECTS>" ] ],
+	"<SIGSPECS>": [ [ ], [ "<SIGSPEC>", " ", "<SIGSPECS>" ] ]
+}

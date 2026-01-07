@@ -40,6 +40,7 @@ struct RTLILFrontendWorker {
 	bool flag_nooverwrite = false;
 	bool flag_overwrite = false;
 	bool flag_lib = false;
+	bool flag_legalize = false;
 
 	int line_num;
 	std::string line_buf;
@@ -322,6 +323,17 @@ struct RTLILFrontendWorker {
 		return val;
 	}
 
+	RTLIL::Wire *legalize_wire(RTLIL::IdString id)
+	{
+		int wires_size = current_module->wires_size();
+		if (wires_size == 0)
+			error("No wires found for legalization");
+		int hash = hash_ops<RTLIL::IdString>::hash(id).yield();
+		RTLIL::Wire *wire = current_module->wire_at(abs(hash % wires_size));
+		log("Legalizing wire `%s' to `%s'.\n", log_id(id), log_id(wire->name));
+		return wire;
+	}
+
 	RTLIL::SigSpec parse_sigspec()
 	{
 		RTLIL::SigSpec sig;
@@ -339,8 +351,12 @@ struct RTLILFrontendWorker {
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
 				RTLIL::Wire *wire = current_module->wire(*id);
-				if (wire == nullptr)
-					error("Wire `%s' not found.", *id);
+				if (wire == nullptr) {
+					if (flag_legalize)
+						wire = legalize_wire(*id);
+					else
+						error("Wire `%s' not found.", *id);
+				}
 				sig = RTLIL::SigSpec(wire);
 			} else {
 				sig = RTLIL::SigSpec(parse_const());
@@ -349,17 +365,44 @@ struct RTLILFrontendWorker {
 
 		while (try_parse_char('[')) {
 			int left = parse_integer();
-			if (left >= sig.size() || left < 0)
-				error("bit index %d out of range", left);
+			if (left >= sig.size() || left < 0) {
+				if (flag_legalize) {
+					int legalized;
+					if (sig.size() == 0)
+						legalized = 0;
+					else
+						legalized = std::max(0, std::min(left, sig.size() - 1));
+					log("Legalizing bit index %d to %d.\n", left, legalized);
+					left = legalized;
+				} else {
+					error("bit index %d out of range", left);
+				}
+			}
 			if (try_parse_char(':')) {
 				int right = parse_integer();
-				if (right < 0)
-					error("bit index %d out of range", right);
-				if (left < right)
-					error("invalid slice [%d:%d]", left, right);
-				sig = sig.extract(right, left-right+1);
+				if (right < 0) {
+					if (flag_legalize) {
+						log("Legalizing bit index %d to %d.\n", right, 0);
+						right = 0;
+					} else
+						error("bit index %d out of range", right);
+				}
+				if (left < right) {
+					if (flag_legalize) {
+						log("Legalizing bit index %d to %d.\n", left, right);
+						left = right;
+					} else
+						error("invalid slice [%d:%d]", left, right);
+				}
+				if (flag_legalize && left >= sig.size())
+					log("Legalizing slice %d:%d by igoring it\n", left, right);
+				else
+					sig = sig.extract(right, left - right + 1);
 			} else {
-				sig = sig.extract(left);
+				if (flag_legalize && left >= sig.size())
+					log("Legalizing slice %d by igoring it\n", left);
+				else
+					sig = sig.extract(left);
 			}
 			expect_char(']');
 		}
@@ -476,8 +519,14 @@ struct RTLILFrontendWorker {
 		{
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
-				if (current_module->wire(*id) != nullptr)
-					error("RTLIL error: redefinition of wire %s.", *id);
+				if (current_module->wire(*id) != nullptr) {
+				  if (flag_legalize) {
+						log("Legalizing redefinition of wire %s.\n", *id);
+						pool<RTLIL::Wire*> wires = {current_module->wire(*id)};
+						current_module->remove(wires);
+					} else
+						error("RTLIL error: redefinition of wire %s.", *id);
+				}
 				wire = current_module->addWire(std::move(*id));
 				break;
 			}
@@ -528,8 +577,13 @@ struct RTLILFrontendWorker {
 		{
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
-				if (current_module->memories.count(*id) != 0)
-					error("RTLIL error: redefinition of memory %s.", *id);
+				if (current_module->memories.count(*id) != 0) {
+					if (flag_legalize) {
+						log("Legalizing redefinition of memory %s.\n", *id);
+						current_module->remove(current_module->memories.at(*id));
+					} else
+						error("RTLIL error: redefinition of memory %s.", *id);
+				}
 				memory->name = std::move(*id);
 				break;
 			}
@@ -551,14 +605,36 @@ struct RTLILFrontendWorker {
 		expect_eol();
 	}
 
+	void legalize_width_parameter(RTLIL::Cell *cell, RTLIL::IdString port_name)
+	{
+		std::string width_param_name = port_name.str() + "_WIDTH";
+		if (cell->parameters.count(width_param_name) == 0)
+			return;
+		RTLIL::Const &param = cell->parameters.at(width_param_name);
+		if (param.as_int() != 0)
+			return;
+		cell->parameters[width_param_name] = RTLIL::Const(cell->getPort(port_name).size());
+	}
+
 	void parse_cell()
 	{
 		RTLIL::IdString cell_type = parse_id();
 		RTLIL::IdString cell_name = parse_id();
 		expect_eol();
 
-		if (current_module->cell(cell_name) != nullptr)
-			error("RTLIL error: redefinition of cell %s.", cell_name);
+		if (current_module->cell(cell_name) != nullptr) {
+			if (flag_legalize) {
+				RTLIL::IdString new_name;
+				int suffix = 1;
+				do {
+					new_name = RTLIL::IdString(cell_name.str() + "_" + std::to_string(suffix));
+					++suffix;
+				} while (current_module->cell(new_name) != nullptr);
+				log("Legalizing redefinition of cell %s by renaming to %s.\n", cell_name, new_name);
+				cell_name = new_name;
+			} else
+				error("RTLIL error: redefinition of cell %s.", cell_name);
+		}
 		RTLIL::Cell *cell = current_module->addCell(cell_name, cell_type);
 		cell->attributes = std::move(attrbuf);
 
@@ -587,9 +663,15 @@ struct RTLILFrontendWorker {
 				expect_eol();
 			} else if (try_parse_keyword("connect")) {
 				RTLIL::IdString port_name = parse_id();
-				if (cell->hasPort(port_name))
-					error("RTLIL error: redefinition of cell port %s.", port_name);
+				if (cell->hasPort(port_name)) {
+					if (flag_legalize)
+						log("Legalizing redefinition of cell port %s.", port_name);
+					else
+						error("RTLIL error: redefinition of cell port %s.", port_name);
+				}
 				cell->setPort(std::move(port_name), parse_sigspec());
+				if (flag_legalize)
+					legalize_width_parameter(cell, port_name);
 				expect_eol();
 			} else if (try_parse_keyword("end")) {
 				expect_eol();
@@ -606,6 +688,11 @@ struct RTLILFrontendWorker {
 			error("dangling attribute");
 		RTLIL::SigSpec s1 = parse_sigspec();
 		RTLIL::SigSpec s2 = parse_sigspec();
+		if (flag_legalize) {
+			int min_size = std::min(s1.size(), s2.size());
+			s1 = s1.extract(0, min_size);
+			s2 = s2.extract(0, min_size);
+		}
 		current_module->connect(std::move(s1), std::move(s2));
 		expect_eol();
 	}
@@ -682,8 +769,13 @@ struct RTLILFrontendWorker {
 		RTLIL::IdString proc_name = parse_id();
 		expect_eol();
 
-		if (current_module->processes.count(proc_name) != 0)
-			error("RTLIL error: redefinition of process %s.", proc_name);
+		if (current_module->processes.count(proc_name) != 0) {
+			if (flag_legalize) {
+				log("Legalizing redefinition of process %s.\n", proc_name);
+				current_module->remove(current_module->processes.at(proc_name));
+			} else
+				error("RTLIL error: redefinition of process %s.", proc_name);
+		}
 		RTLIL::Process *proc = current_module->addProcess(std::move(proc_name));
 		proc->attributes = std::move(attrbuf);
 
@@ -804,6 +896,11 @@ struct RTLILFrontend : public Frontend {
 		log("    -lib\n");
 		log("        only create empty blackbox modules\n");
 		log("\n");
+		log("    -legalize\n");
+		log("        prevent semantic errors (e.g. reference to unknown wire, redefinition of wire/cell)\n");
+		log("        by deterministically rewriting the input into something valid. Useful when using\n");
+		log("        fuzzing to generate random but valid RTLIL.\n");
+		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -826,6 +923,10 @@ struct RTLILFrontend : public Frontend {
 			}
 			if (arg == "-lib") {
 				worker.flag_lib = true;
+				continue;
+			}
+			if (arg == "-legalize") {
+				worker.flag_legalize = true;
 				continue;
 			}
 			break;
