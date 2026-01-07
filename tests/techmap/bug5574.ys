@@ -1,0 +1,7 @@
+read_verilog << EOT
+module fuzz_mwoqk (input i0, output o0);
+  assign o0 = i0 ^ 1;
+endmodule
+EOT
+synth
+abc -script +resub,-K,8;
