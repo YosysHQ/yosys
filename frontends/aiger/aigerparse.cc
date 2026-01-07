@@ -129,12 +129,8 @@ struct ConstEvalAig
 
 	void compute_deps(RTLIL::SigBit output, const pool<RTLIL::SigBit> &inputs)
 	{
-		log_debug("insert self to sig2deps at %s\n", log_signal(output));
 		sig2deps[output].insert(output);
-		log_debug("yea\n");
-		
 		RTLIL::Cell *cell = sig2driver.at(output);
-		log_debug("yeaaa\n");
 		if (cell->type == ID($lut))
 			return;
 		RTLIL::SigBit sig_a = cell->getPort(ID::A);
@@ -142,7 +138,6 @@ struct ConstEvalAig
 											   // that may occur does so here, and
 											   // not mid insertion (below)
 		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
-		log_debug("weh\n");
 		if (!inputs.count(sig_a))
 			compute_deps(sig_a, inputs);
 
@@ -430,17 +425,19 @@ void AigerReader::parse_xaiger()
 				std::vector<uint32_t> inputs;
 				bool processed = false;
 
-				void process(ConstEvalAig& ce, std::vector<Lut>& luts, const std::vector<pool<size_t>>& parents, size_t i, int aiger_autoidx, Module* module) {
+				void process(ConstEvalAig& ce, std::vector<Lut>& luts, const std::vector<std::unordered_set<size_t>>& parents, int aiger_autoidx, Module* module) {
 					if (processed) {
-						log_debug("...already processed %d\n", i);
 						return;
 					}
-					for (auto parent : parents[i]) {
-						log_debug("process parent %d\n", parent);
-						luts[parent].process(ce, luts, parents, parent, aiger_autoidx, module);
+					if (output < parents.size()) {
+						for (auto parent : parents[output]) {
+							if (!parent)
+								continue;
+							luts[parent].process(ce, luts, parents, aiger_autoidx, module);
+						}
 					}
 					processed = true;
-					log_debug("truly processing %d\n", i);
+					log_debug("Processing %d\n", output);
 
 					SigSpec input_sig;
 					for (auto input : inputs) {
@@ -455,15 +452,12 @@ void AigerReader::parse_xaiger()
 					}
 					// Reverse input order as fastest input is returned first
 					input_sig.reverse();
-					log_debug("looking for wire named %s\n", name);
 					RTLIL::Wire *output_wire = module->wire(name);
 					log_assert(output_wire);
 					log_assert(output_wire->width == 1);
-					log_debug("wehasdasd\n");
 					// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
 					ce.clear();
 					ce.compute_deps(output_wire, input_sig.to_sigbit_pool());
-					log_debug("weh\n");
 					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << GetSize(input_sig));
 					for (int j = 0; j < GetSize(lut_mask); ++j) {
 						int gray = j ^ (j >> 1);
@@ -481,7 +475,8 @@ void AigerReader::parse_xaiger()
 				}
 			};
 			std::vector<Lut> luts;
-			std::vector<pool<size_t>> parents;
+			std::vector<std::unordered_set<size_t>> parents;
+			std::unordered_map<size_t, std::optional<size_t>> remap;
 			for (unsigned i = 0; i < lutNum; ++i) {
 				Lut lut {};
 				lut.output = parse_xaiger_literal(f);
@@ -491,18 +486,35 @@ void AigerReader::parse_xaiger()
 				RTLIL::Wire *output_wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, lut.output));
 				log_assert(output_wire);
 				size_t lut_idx = luts.size();
+				remap[lut_idx] = lut.output;
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					uint32_t nodeID = parse_xaiger_literal(f);
+					log_debug("\t%d\n", nodeID);
 					lut.inputs.push_back(nodeID);
 					while (parents.size() < nodeID + 1)
-					 	parents.push_back(pool<size_t>());
-					log_debug("%d is parent of %d\n", lut_idx, nodeID);
+					 	parents.push_back({});
 					parents[nodeID].insert(lut_idx);
 				}
 				luts.push_back(lut);
 			}
 			for (size_t i = 0; i < luts.size(); i++) {
-				luts[i].process(ce, luts, parents, i, aiger_autoidx, module);
+				auto output = luts[i].output;
+				std::unordered_set<size_t> old_parents;
+				if (output < parents.size()) {
+					for (size_t parent : parents[output]) {
+						old_parents.insert(parent);
+					}
+
+				}
+				parents[i].clear();
+				for (auto parent : old_parents) {
+					if (remap[parent]) {
+						parents[i].insert(*remap[parent]);
+					}
+				}
+			}
+			for (auto lut : luts) {
+				lut.process(ce, luts, parents, aiger_autoidx, module);
 			}
 		}
 		else if (c == 'r') {
