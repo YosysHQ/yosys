@@ -428,17 +428,14 @@ void AigerReader::parse_xaiger()
 				std::string name;
 				uint32_t output;
 				std::vector<uint32_t> inputs;
-				void process(ConstEvalAig& ce, int aiger_autoidx, std::vector<bool>& lut_defined, std::deque<Lut>& deferred, Module* module) {
+
+				void process(ConstEvalAig& ce, int aiger_autoidx, Module* module) {
 					SigSpec input_sig;
 					for (auto input : inputs) {
 						log_debug("\t%u\n", input);
 						if (input == 0) {
 							log_debug("\tLUT '$lut%s' input %d is constant!\n", name, input);
 							continue;
-						}
-						if (lut_defined.size() >= input + 1 && lut_defined[input]) {
-							deferred.push_back(*this);
-							return;
 						}
 						RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, input));
 						log_assert(wire);
@@ -471,38 +468,20 @@ void AigerReader::parse_xaiger()
 					module->addLut(stringf("$lut%s", name), input_sig, output_wire, std::move(lut_mask));
 				}
 			};
-			std::vector<bool> lut_defined;
-			std::deque<Lut> deferred;
 			for (unsigned i = 0; i < lutNum; ++i) {
 				Lut lut;
 				lut.output = parse_xaiger_literal(f);
 				lut.name = stringf("$aiger%d$%d", aiger_autoidx, lut.output);
-				while (lut_defined.size() < lut.output + 1)
-					lut_defined.push_back(false);
-				lut_defined[lut.output] = true;
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug("output=%d cutLeavesM=%d\n", lut.output, cutLeavesM);
 				RTLIL::Wire *output_wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, lut.output));
 				log_assert(output_wire);
-				bool do_defer = false;
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					uint32_t nodeID = parse_xaiger_literal(f);
 					lut.inputs.push_back(nodeID);
-					if (lut_defined.size() >= nodeID + 1 && lut_defined[nodeID])
-						do_defer = true;
 				}
-				if (do_defer) {
-					deferred.push_back(lut);
-					continue;
-				}
-				lut.process(ce, aiger_autoidx, lut_defined, deferred, module);
+				lut.process(ce, aiger_autoidx, module);
 			}
-			while (!deferred.empty()) {
-				auto lut = deferred.front();
-				lut.process(ce, aiger_autoidx, lut_defined, deferred, module);
-				deferred.pop_front();
-			}
-
 		}
 		else if (c == 'r') {
 			uint32_t dataSize = parse_xaiger_literal(f);
