@@ -475,8 +475,8 @@ void AigerReader::parse_xaiger()
 			std::deque<Lut> deferred;
 			for (unsigned i = 0; i < lutNum; ++i) {
 				Lut lut;
-				lut.name = stringf("$aiger%d$%d", aiger_autoidx, lut.output);
 				lut.output = parse_xaiger_literal(f);
+				lut.name = stringf("$aiger%d$%d", aiger_autoidx, lut.output);
 				while (lut_defined.size() < lut.output + 1)
 					lut_defined.push_back(false);
 				lut_defined[lut.output] = true;
