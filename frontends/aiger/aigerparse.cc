@@ -428,8 +428,20 @@ void AigerReader::parse_xaiger()
 				std::string name;
 				uint32_t output;
 				std::vector<uint32_t> inputs;
+				bool processed = false;
 
-				void process(ConstEvalAig& ce, int aiger_autoidx, Module* module) {
+				void process(ConstEvalAig& ce, std::vector<Lut>& luts, const std::vector<pool<size_t>>& parents, size_t i, int aiger_autoidx, Module* module) {
+					if (processed) {
+						log_debug("...already processed %d\n", i);
+						return;
+					}
+					for (auto parent : parents[i]) {
+						log_debug("process parent %d\n", parent);
+						luts[parent].process(ce, luts, parents, parent, aiger_autoidx, module);
+					}
+					processed = true;
+					log_debug("truly processing %d\n", i);
+
 					SigSpec input_sig;
 					for (auto input : inputs) {
 						log_debug("\t%u\n", input);
@@ -468,19 +480,29 @@ void AigerReader::parse_xaiger()
 					module->addLut(stringf("$lut%s", name), input_sig, output_wire, std::move(lut_mask));
 				}
 			};
+			std::vector<Lut> luts;
+			std::vector<pool<size_t>> parents;
 			for (unsigned i = 0; i < lutNum; ++i) {
-				Lut lut;
+				Lut lut {};
 				lut.output = parse_xaiger_literal(f);
 				lut.name = stringf("$aiger%d$%d", aiger_autoidx, lut.output);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug("output=%d cutLeavesM=%d\n", lut.output, cutLeavesM);
 				RTLIL::Wire *output_wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, lut.output));
 				log_assert(output_wire);
+				size_t lut_idx = luts.size();
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					uint32_t nodeID = parse_xaiger_literal(f);
 					lut.inputs.push_back(nodeID);
+					while (parents.size() < nodeID + 1)
+					 	parents.push_back(pool<size_t>());
+					log_debug("%d is parent of %d\n", lut_idx, nodeID);
+					parents[nodeID].insert(lut_idx);
 				}
-				lut.process(ce, aiger_autoidx, module);
+				luts.push_back(lut);
+			}
+			for (size_t i = 0; i < luts.size(); i++) {
+				luts[i].process(ce, luts, parents, i, aiger_autoidx, module);
 			}
 		}
 		else if (c == 'r') {
