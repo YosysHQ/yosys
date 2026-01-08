@@ -2140,6 +2140,8 @@ public:
 	int wires_size() const { return wires_.size(); }
 	RTLIL::Wire* wire_at(int index) const { return wires_.element(index)->second; }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
+	int cells_size() const { return cells_.size(); }
+	RTLIL::Cell* cell_at(int index) const { return cells_.element(index)->second; }
 
 	void add(RTLIL::Binding *binding);
 
