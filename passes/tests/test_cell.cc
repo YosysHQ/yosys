@@ -149,6 +149,12 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
+
+		RTLIL::SigSpec polarity;
+		for (int i = 0; i < width; i++)
+			polarity.append(xorshift32(2) ? State::S1 : State::S0);
+
+		cell->setParam(ID::POLARITY, polarity.as_const());
 	}
 
 	if (cell_type == ID($fa))

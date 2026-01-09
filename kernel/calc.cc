@@ -658,7 +658,7 @@ RTLIL::Const RTLIL::const_bmux(const RTLIL::Const &arg1, const RTLIL::Const &arg
 	return t;
 }
 
-RTLIL::Const RTLIL::const_priority(const RTLIL::Const &arg)
+RTLIL::Const RTLIL::const_priority(const RTLIL::Const &arg, const RTLIL::Const &polarity)
 {
 	std::vector<State> t;
 	std::optional<State> first_non_zero = std::nullopt;
@@ -666,11 +666,13 @@ RTLIL::Const RTLIL::const_priority(const RTLIL::Const &arg)
 	{
 		RTLIL::State s = arg.at(i);
 		if (first_non_zero && s != State::Sx) {
-			t.push_back(*first_non_zero == State::S1 ? State::S0 : *first_non_zero);
+			auto inactive = polarity[i] == State::S0 ? State::S1 : State::S0;
+			auto val = *first_non_zero == State::Sx ? State::Sx : inactive;
+			t.push_back(val);
 		} else {
 			t.push_back(s);
 		}
-		if ((!first_non_zero && s != State::S0) || s == State::Sx) {
+		if ((!first_non_zero && s == polarity[i]) || s == State::Sx) {
 			first_non_zero = s;
 		}
 	}

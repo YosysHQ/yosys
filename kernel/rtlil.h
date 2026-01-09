@@ -848,7 +848,7 @@ namespace RTLIL {
 	RTLIL::Const const_pmux        (const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3);
 	RTLIL::Const const_bmux        (const RTLIL::Const &arg1, const RTLIL::Const &arg2);
 	RTLIL::Const const_demux       (const RTLIL::Const &arg1, const RTLIL::Const &arg2);
-	RTLIL::Const const_priority    (const RTLIL::Const &arg);
+	RTLIL::Const const_priority    (const RTLIL::Const &arg, const RTLIL::Const &polarity);
 
 	RTLIL::Const const_bweqx       (const RTLIL::Const &arg1, const RTLIL::Const &arg2);
 	RTLIL::Const const_bwmux       (const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3);

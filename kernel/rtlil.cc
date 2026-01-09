@@ -2656,6 +2656,7 @@ namespace {
 			}
 			if (cell->type.in(ID($priority))) {
 				param(ID::WIDTH);
+				param(ID::POLARITY);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, param(ID::WIDTH));
 				check_expected();

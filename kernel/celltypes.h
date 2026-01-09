@@ -511,7 +511,7 @@ struct CellTypes
 
 		if (cell->type == ID($priority))
 		{
-			return const_priority(arg1);
+			return const_priority(arg1, cell->getParam(ID::POLARITY));
 		}
 
 		bool signed_a = cell->parameters.count(ID::A_SIGNED) > 0 && cell->parameters[ID::A_SIGNED].as_bool();

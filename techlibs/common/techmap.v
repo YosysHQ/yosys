@@ -682,7 +682,8 @@ endmodule
 
 (* techmap_celltype = "$priority" *)
 module \$priority (A, Y);
-	parameter WIDTH = 3;
+	parameter WIDTH = 0;
+	parameter POLARITY = 0;
 
 	(* force_downto *)
 	input  [WIDTH-1:0] A;
@@ -691,16 +692,21 @@ module \$priority (A, Y);
 
 	(* force_downto *)
 	wire [WIDTH-1:0] tmp;
+	(* force_downto *)
+	wire [WIDTH-1:0] A_active;
+	wire [WIDTH-1:0] Y_active;
+	assign A_active = A ^ ~POLARITY;
+	assign Y = Y_active ^ ~POLARITY;
 
 	genvar i;
 	generate
 		if (WIDTH > 0) begin
-			assign tmp[0] = A[0];
-			assign Y[0] = A[0];
+			assign tmp[0] = A_active[0];
+			assign Y_active[0] = A_active[0];
 		end
 		for (i = 1; i < WIDTH; i = i + 1) begin
-			assign Y[i] = A[i] & ~tmp[i-1];
-			assign tmp[i] = tmp[i-1] | A[i];
+			assign Y_active[i] = tmp[i-1] ? 1'b0 : A_active[i];
+			assign tmp[i] = tmp[i-1] | A_active[i];
 		end
 	endgenerate
 
