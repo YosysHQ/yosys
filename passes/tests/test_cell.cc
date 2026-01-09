@@ -136,6 +136,21 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		cell->setPort(ID::Y, wire);
 	}
 
+	if (cell_type == ID($priority))
+	{
+		int width = 1 + xorshift32(8 * bloat_factor);
+
+		wire = module->addWire(ID::A);
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort(ID::A, wire);
+
+		wire = module->addWire(ID::Y);
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+	}
+
 	if (cell_type == ID($fa))
 	{
 		int width = 1 + xorshift32(8 * bloat_factor);
@@ -1039,6 +1054,7 @@ struct TestCellPass : public Pass {
 		cell_types[ID($mux)] = "*";
 		cell_types[ID($bmux)] = "*";
 		cell_types[ID($demux)] = "*";
+		cell_types[ID($priority)] = "*";
 		// $pmux doesn't work in sat, and is not supported with 'techmap -assert' or
 		// '-simlib'
 		if (nosat && techmap_cmd.compare("aigmap") == 0)

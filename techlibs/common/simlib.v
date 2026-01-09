@@ -3250,3 +3250,19 @@ parameter WIDTH = 0;
 inout [WIDTH-1:0] Y;
 
 endmodule
+
+// --------------------------------------------------------
+//-
+//-     $priority (A, Y)
+//* group unary
+//-
+//- Priority operator. An output bit is set if the input bit at the same index is set and no lower index input bit is set.
+//-
+module \$priority (A, Y);
+parameter WIDTH = 8;
+input  [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A & (~A + 1);
+
+endmodule

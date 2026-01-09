@@ -118,7 +118,7 @@ struct CellTypes
 	void setup_internals_eval()
 	{
 		std::vector<RTLIL::IdString> unary_ops = {
-			ID($not), ID($pos), ID($buf), ID($neg),
+			ID($not), ID($pos), ID($buf), ID($neg), ID($priority),
 			ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
 			ID($logic_not), ID($slice), ID($lut), ID($sop)
 		};
@@ -507,6 +507,11 @@ struct CellTypes
 			}
 
 			return default_ret;
+		}
+
+		if (cell->type == ID($priority))
+		{
+			return const_priority(arg1);
 		}
 
 		bool signed_a = cell->parameters.count(ID::A_SIGNED) > 0 && cell->parameters[ID::A_SIGNED].as_bool();

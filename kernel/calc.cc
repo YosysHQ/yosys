@@ -658,6 +658,25 @@ RTLIL::Const RTLIL::const_bmux(const RTLIL::Const &arg1, const RTLIL::Const &arg
 	return t;
 }
 
+RTLIL::Const RTLIL::const_priority(const RTLIL::Const &arg)
+{
+	std::vector<State> t;
+	std::optional<State> first_non_zero = std::nullopt;
+	for (int i = 0; i < GetSize(arg); i++)
+	{
+		RTLIL::State s = arg.at(i);
+		if (first_non_zero && s != State::Sx) {
+			t.push_back(*first_non_zero == State::S1 ? State::S0 : *first_non_zero);
+		} else {
+			t.push_back(s);
+		}
+		if ((!first_non_zero && s != State::S0) || s == State::Sx) {
+			first_non_zero = s;
+		}
+	}
+	return t;
+}
+
 RTLIL::Const RTLIL::const_demux(const RTLIL::Const &arg1, const RTLIL::Const &arg2)
 {
 	int width = GetSize(arg1);

@@ -430,6 +430,39 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
+	if (cell->type == ID($priority))
+	{
+		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
+		int tmp;
+		if (a.size()) {
+			tmp = a[0];
+			ez->assume(ez->IFF(yy[0], a[0]));
+		}
+		for (size_t i = 1; i < a.size(); i++) {
+			ez->assume(ez->IFF(yy[i], ez->AND(a[i], ez->NOT(tmp))));
+			tmp = ez->OR(tmp, a[i]);
+		}
+		if (model_undef) {
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+
+			if (a.size()) {
+				tmp = undef_a[0];
+				ez->assume(ez->IFF(undef_y[0], undef_a[0]));
+			}
+			for (size_t i = 1; i < a.size(); i++) {
+				tmp = ez->OR(tmp, undef_a[i]);
+				ez->assume(ez->IFF(undef_y[i], tmp));
+			}
+			undefGating(y, yy, undef_y);
+		}
+
+		return true;
+	}
+
 	if (cell->type.in(ID($pos), ID($buf), ID($neg)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
