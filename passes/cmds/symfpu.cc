@@ -364,38 +364,45 @@ struct SymFpuPass : public Pass {
 	{
 		auto *help = PrettyHelp::get_current();
 		help->set_group("formal");
-		return false;
-	}
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    symfpu [options] [selection]\n");
-		log("\n");
-		log("TODO\n");
-		log("\n");
+
+		auto content_root = help->get_root();
+
+		content_root->usage("symfpu [options]");
+		content_root->paragraph("TODO");
+
+		content_root->option("-eb <N>", "use <N> bits for exponent; default=8");
+		content_root->option("-sb <N>", "use <N> bits for significand, including hidden bit; default=24");
+
+		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-
+		int eb = 8, sb = 24;
 		log_header(design, "Executing SYMFPU pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-
+			if (args[argidx] == "-eb" && argidx+1 < args.size()) {
+				eb = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-sb" && argidx+1 < args.size()) {
+				sb = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 
 		extra_args(args, argidx, design);
 
-		fpt format(8, 24);
+		fpt format(eb, sb);
 
 		auto mod = design->addModule(ID(symfpu));
 
 		symfpu_mod = mod;
 
-		uf a = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(a), 32));
-		uf b = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(b), 32));
+		uf a = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(a), eb+sb));
+		uf b = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(b), eb+sb));
 
 		uf added(symfpu::add<rtlil_traits>(format, rtlil_traits::RNE(), a, b, prop(true)));
 		uf multiplied(symfpu::multiply<rtlil_traits>(format, rtlil_traits::RNE(), a, b));
