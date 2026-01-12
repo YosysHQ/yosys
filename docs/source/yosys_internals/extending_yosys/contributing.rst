@@ -165,9 +165,16 @@ Code that matters
 
 If you're adding complex functionality, or modifying core parts of yosys,
 we highly recommend discussing your motivation and approach
-ahead of time on the `Discourse forum`_.
+ahead of time on the `Discourse forum`_. Please, be as explicit and concrete
+as possible when explaining the motivation for what you're building.
+Additionally, if you do so on the forum first before you starting hacking
+away at C++, you might solve your problem without writing a single line
+of code!
 
-Before you build or fix something, search for existing `issues`_.
+PRs are considered for relevance, priority, and quality
+based on their descriptions first, code second.
+
+Before you build or fix something, also search for existing `issues`_.
 
 .. _`Discourse forum`: https://yosyshq.discourse.group/
 .. _`issues`: https://github.com/YosysHQ/yosys/issues
@@ -205,9 +212,10 @@ Here are some software engineering approaches that help:
   in coherent comments, and that variable and type naming is consistent with the terms
   you use in the description.
 * The logic of the implementation should be described in mathematical
-  or algorithm theory terms. Why would a non-trivial loop be guaranteed to terminate?
-  Is there some variant? Are you re-implementing a classic data structure from logic
-  synthesis?
+  or algorithm theory terms. Correctness, termination, computational complexity.
+  Make it clear if you're re-implementing a classic data structure for logic synthesis
+  or graph traversal etc.
+
 * There's various ways of traversing the design with use-def indices (for getting
   drivers and driven signals) available in Yosys. They have advantages and sometimes
   disadvantages. Prefer not re-implementing these
@@ -220,9 +228,10 @@ Here are some software engineering approaches that help:
 Common mistakes
 ~~~~~~~~~~~~~~~
 
-.. - Pointer invalidation when erasing design objects on a module while iterating
-.. TODO figure out how it works again and describe it
-
+* Deleting design objects invalidates iterators. Defer deletions or hold a copy
+  of the list of pointers to design objects
+* Deleting wires can get sketchy and is intended to be done solely by
+  the ``opt_clean`` pass so just don't do it
 * Iterating over an entire design and checking if things are selected is more
   inefficient than using the ``selected_*`` methods
 * Remember to call ``fixup_ports`` at the end if you're modifying module interfaces
@@ -300,7 +309,69 @@ Some style hints:
 * Prefer smaller commits organized by good chunks. Git has a lot of features
   like fixup commits, interactive rebase with autosquash
 
-.. Reviewing PRs
-.. -------------
+Reviewing PRs
+-------------
 
-.. TODO Emil review process
+Reviewing PRs is a totally valid form of external contributing to the project!
+
+Who's the reviewer?
+~~~~~~~~~~~~~~~~~~~
+
+Yosys HQ is a company with the inherited mandate to make decisions on behalf
+of the open source project. As such, we at HQ are collectively the maintainers.
+Within HQ, we allocate reviews based on expertise with the topic at hand
+as well as member time constraints.
+
+If you're intimately acquainted with a part of the codebase, we will be happy
+to defer to your experience and have you review PRs. The official way we like
+is our CODEOWNERS file in the git repository. What we're looking for in code
+owners is activity and trust. For activity, if you're only interested in
+a yosys pass for example for the time you spend writing a thesis, it might be
+better to focus on writing good tests and docs in the PRs you submit rather than
+to commit to code ownership and therefore to be responsible for fixing things
+and reviewing other people's PRs at various unexpected points later. If you're
+prolific in some part of the codebase and not a code owner, we still value your
+experience and may tag you in PRs.
+
+As a matter of fact, the purpose of code ownership is to avoid maintainer
+burnout by removing orphaned parts of the codebase. If you become a code owner
+and stop being responsive, in the future, we might decide to remove such code
+if convenient and costly to maintain. It's simply more respectful of the users'
+time to explicitly cut something out than let it "bitrot". Larger projects like
+LLVM or linux could not survive without such things, but Yosys is far smaller,
+and there are expectations
+
+.. TODO this deserves its own section elsewhere I think? But it would be distracting elsewhere
+
+Sometimes, multiple maintainers may add review comments. This is considered
+healthy collaborative even if it might create disagreement at times. If
+somebody is already reviewing a PR, others, even non-maintainers are free to
+leave comments with extra observations and alternate perspectives in a
+collaborative spirit.
+
+How to review
+~~~~~~~~~~~~~
+
+First, read everything above about contributing. Those are the values you
+should gently enforce as a reviewer. They're ordered by importance, but
+explicitly, descriptions are more important than code, long-form comments
+describing the design are more important than piecemeal comments, etc.
+
+If a PR is poorly described, incomplete, tests are broken, or if the
+author is not responding, please don't feel pressured to take over their
+role by reverse engineering the code or fixing things for them, unless
+there are good reasons to do so.
+
+If a PR author submits LLM outputs they haven't understood themselves,
+they will not be able to implement feedback. Take this into consideration
+as well. We do not ban LLM code from the codebase, we ban bad code.
+
+Reviewers may have diverse styles of communication while reviewing - one
+may do one thorough review, another may prefer a back and forth with the
+basics out the way before digging into the code. Generally, PRs may have
+several requests for modifications and long discussions, but often
+they just are good enough to merge as-is.
+
+The CI is required to go green for merging. New contributors need a CI
+run to be triggered by a maintainer before their PRs take up computing
+resources. It's a single click from the github web interface.
