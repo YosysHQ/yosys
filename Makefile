@@ -491,6 +491,7 @@ LIBS += $(GHDL_LIB_DIR)/libghdl.a $(file <$(GHDL_LIB_DIR)/libghdl.link)
 endif
 
 LIBS_VERIFIC =
+LIBS_VERIFIC_PATHS =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= /usr/local/src/verific_lib
 VERIFIC_COMPONENTS ?= database util containers
@@ -541,8 +542,10 @@ endif
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 ifeq ($(OS), Darwin)
 LIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)),-Wl,-force_load $(comp)) -lz
+LIBS_VERIFIC_PATHS += $(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS))
 else
 LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
+LIBS_VERIFIC_PATHS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS))
 endif
 endif
 
@@ -773,7 +776,19 @@ else
 endif
 
 libyosys.a: $(filter-out kernel/driver.o,$(OBJS))
-	$(P) $(AR) rcs $@ $^
+	$(Q) rm -f $@.tmp
+	$(P) $(AR) rcs $@.tmp $^
+	@echo "create $@" > ar.mri
+	@echo "addlib $@.tmp" >> ar.mri
+ifeq ($(ENABLE_VERIFIC),1)
+	@for lib in $(LIBS_VERIFIC_PATHS); do \
+		echo "addlib $$lib" >> ar.mri; \
+	done
+endif
+	@echo "save" >> ar.mri
+	@echo "end" >> ar.mri
+	$(Q) $(AR) -M < ar.mri
+	$(Q) rm -f $@.tmp ar.mri
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
