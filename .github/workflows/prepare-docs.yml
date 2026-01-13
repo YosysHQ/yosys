@@ -1,6 +1,6 @@
 name: Build docs artifact with Verific
 
-on: [push, pull_request]
+on: [push, pull_request, merge_group]
 
 jobs:
   check_docs_rebuild:
