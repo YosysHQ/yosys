@@ -91,7 +91,6 @@ struct Lut2muxPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells()) {
 			if (cell->type == ID($lut)) {
