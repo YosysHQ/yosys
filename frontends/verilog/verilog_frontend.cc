@@ -500,7 +500,6 @@ struct VerilogFrontend : public Frontend {
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
 
-		log("verilog frontend filename %s\n", filename.c_str());
 		if (flag_relative_share) {
 			auto share_path = proc_share_dirname();
 			if (filename.substr(0, share_path.length()) == share_path)
