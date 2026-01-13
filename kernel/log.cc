@@ -90,11 +90,11 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&counter);
 
-	counter.QuadPart *= 1000000;
+	counter.QuadPart *= 1'000'000;
 	counter.QuadPart /= freq.QuadPart;
 
 	tv->tv_sec = long(counter.QuadPart / 1000000);
-	tv->tv_usec = counter.QuadPart % 1000000;
+	tv->tv_usec = counter.QuadPart % 1'000'000;
 
 	return 0;
 }
@@ -135,7 +135,7 @@ static void logv_string(std::string_view format, std::string str) {
 				initial_tv = tv;
 			if (tv.tv_usec < initial_tv.tv_usec) {
 				tv.tv_sec--;
-				tv.tv_usec += 1000000;
+				tv.tv_usec += 1'000'000;
 			}
 			tv.tv_sec -= initial_tv.tv_sec;
 			tv.tv_usec -= initial_tv.tv_usec;
