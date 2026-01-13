@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.60 .. Yosys 0.61-dev
+Yosys 0.61 .. Yosys 0.62-dev
 --------------------------
+
+Yosys 0.60 .. Yosys 0.61
+--------------------------
+ * Various
+    - Removed "cover" pass for coverage tracking.
+    - Avoid merging formal properties with "opt_merge" pass.
+    - Parallelize "opt_merge" pass.
+
+ * New commands and options
+    - Added "design_equal" pass to support fuzz-test comparison.
+    - Added "lut2bmux" pass to convert $lut to $bmux.
+    - Added "-legalize" option to "read_rtlil" pass to prevent 
+      semantic errors.
 
 Yosys 0.59 .. Yosys 0.60
 --------------------------
