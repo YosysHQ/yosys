@@ -1,0 +1,19 @@
+read_rtlil << EOT
+attribute \top 1
+module \top
+  wire width 1 \sig
+  wire width 1 \val
+
+  process $2
+    switch \sig [0]
+      case 1'0
+      case 1'1
+      case
+        assign \val [0] 1'1
+    end
+  end
+end
+EOT
+proc_rmdead
+proc_clean
+select -assert-none p:*

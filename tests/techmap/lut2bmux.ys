@@ -1,0 +1,24 @@
+read_rtlil << EOT
+module \top
+  wire width 4 input 0 \A
+  wire output 1 \Y
+
+  cell $lut $0
+    parameter \WIDTH 4
+    parameter \LUT 16'0110100110010110
+    connect \A \A
+    connect \Y \Y
+  end
+end
+EOT
+
+hierarchy -auto-top
+
+
+equiv_opt -assert lut2bmux
+
+
+lut2bmux
+
+select -assert-count 0 t:$lut
+select -assert-count 1 t:$bmux r:WIDTH=1 r:S_WIDTH=4 %i
