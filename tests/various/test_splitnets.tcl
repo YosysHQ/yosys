@@ -8,10 +8,10 @@ proc read_stats { file } {
     set nets 0
     foreach line [split $result "\n"] {
 	# Match upstream yosys stat format: " <count> <area> wires"
-	if [regexp {^\s*(\d+)\s+[\d.]+\s+wires\s*$} $line -> n] {
+	if [regexp {^[ \t]*([0-9]+)[ \t]+[0-9.]+[ \t]+wires[ \t]*$} $line -> n] {
 	    set nets [expr $nets + $n]
 	}
-	if [regexp {^\s*(\d+)\s+[\d.]+\s+ports\s*$} $line -> n] {
+	if [regexp {^[ \t]*([0-9]+)[ \t]+[0-9.]+[ \t]+ports[ \t]*$} $line -> n] {
 	    set ports [expr $ports + $n]
 	}
     }
