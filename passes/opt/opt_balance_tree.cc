@@ -59,8 +59,9 @@ struct OptBalanceTreeWorker {
 			natural_width = std::max(a_width, b_width);
 		}
 
-		// Only allow cells where Y_WIDTH equals the natural width (no truncation)
-		return y_width == natural_width;
+		// Only allow cells where Y_WIDTH >= natural width (no truncation)
+		// This prevents rebalancing chains where truncation semantics matter
+		return y_width >= natural_width;
 	}
 
 	// Create a balanced binary tree from a vector of source signals
