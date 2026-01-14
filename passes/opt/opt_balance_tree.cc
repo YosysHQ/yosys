@@ -36,10 +36,31 @@ struct OptBalanceTreeWorker {
 	dict<IdString, int> cell_count;
 
 	// Check if cell is of the right type and has matching input/output widths
+	// Only allow cells with "natural" output widths (no truncation) to prevent
+	// equivalence issues when rebalancing (see YosysHQ/yosys#5605)
 	bool is_right_type(Cell* cell, IdString cell_type) {
-		return cell->type == cell_type &&
-		       cell->getParam(ID::Y_WIDTH).as_int() >= cell->getParam(ID::A_WIDTH).as_int() &&
-		       cell->getParam(ID::Y_WIDTH).as_int() >= cell->getParam(ID::B_WIDTH).as_int();
+		if (cell->type != cell_type)
+			return false;
+
+		int y_width = cell->getParam(ID::Y_WIDTH).as_int();
+		int a_width = cell->getParam(ID::A_WIDTH).as_int();
+		int b_width = cell->getParam(ID::B_WIDTH).as_int();
+
+		// Calculate the "natural" output width for this operation
+		int natural_width;
+		if (cell_type == ID($add)) {
+			// Addition produces max(A_WIDTH, B_WIDTH) + 1 (for carry bit)
+			natural_width = std::max(a_width, b_width) + 1;
+		} else if (cell_type == ID($mul)) {
+			// Multiplication produces A_WIDTH + B_WIDTH
+			natural_width = a_width + b_width;
+		} else {
+			// Logic operations ($and/$or/$xor) produce max(A_WIDTH, B_WIDTH)
+			natural_width = std::max(a_width, b_width);
+		}
+
+		// Only allow cells where Y_WIDTH equals the natural width (no truncation)
+		return y_width == natural_width;
 	}
 
 	// Create a balanced binary tree from a vector of source signals
