@@ -7,11 +7,11 @@ proc read_stats { file } {
     set ports 0
     set nets 0
     foreach line [split $result "\n"] {
-	# Match upstream yosys stat format: " <count> <area> wires"
-	if [regexp {^[ \t]*([0-9]+)[ \t]+[0-9.]+[ \t]+wires[ \t]*$} $line -> n] {
+	# Match upstream yosys stat format - be permissive about whitespace
+	if [regexp {([0-9]+).*wires} $line -> n] {
 	    set nets [expr $nets + $n]
 	}
-	if [regexp {^[ \t]*([0-9]+)[ \t]+[0-9.]+[ \t]+ports[ \t]*$} $line -> n] {
+	if [regexp {([0-9]+).*ports} $line -> n] {
 	    set ports [expr $ports + $n]
 	}
     }
