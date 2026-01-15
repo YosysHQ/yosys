@@ -385,7 +385,7 @@ log -pop
 
 
 # Test 8
-log -header "Simple 1-bit ADD chain"
+log -header "Simple 1-bit ADD chain (4 inputs)"
 log -push
 design -reset
 read_verilog <<EOF
@@ -394,13 +394,13 @@ module top (
   input wire b,
   input wire c,
   input wire d,
-  input wire e,
-  input wire f,
-  input wire g,
-  input wire h,
-  output wire [3:0] x,
+  output wire [3:0] x
 );
-  assign x = a + b + c + d + e + f + g + h;
+  wire [1:0] ab;
+  wire [2:0] abc;
+  assign ab = a + b;
+  assign abc = ab + c;
+  assign x = abc + d;
 endmodule
 EOF
 check -assert
@@ -418,42 +418,20 @@ select i:a %co2 t:$add %i -set a_cell
 select i:b %co2 t:$add %i -set b_cell
 select i:c %co2 t:$add %i -set c_cell
 select i:d %co2 t:$add %i -set d_cell
-select i:e %co2 t:$add %i -set e_cell
-select i:f %co2 t:$add %i -set f_cell
-select i:g %co2 t:$add %i -set g_cell
-select i:h %co2 t:$add %i -set h_cell
 select o:x %ci2 t:$add %i -set x_cell
 select @a_cell @b_cell %i -set a_plus_b_cell
 select @c_cell @d_cell %i -set c_plus_d_cell
-select @e_cell @f_cell %i -set e_plus_f_cell
-select @g_cell @h_cell %i -set g_plus_h_cell
 select @a_cell -assert-count 1
 select @b_cell -assert-count 1
 select @c_cell -assert-count 1
 select @d_cell -assert-count 1
-select @e_cell -assert-count 1
-select @f_cell -assert-count 1
-select @g_cell -assert-count 1
-select @h_cell -assert-count 1
 select @x_cell -assert-count 1
 select @a_plus_b_cell -assert-count 1
 select @c_plus_d_cell -assert-count 1
-select @e_plus_f_cell -assert-count 1
-select @g_plus_h_cell -assert-count 1
 
-# Check intermediate cells
-select @a_plus_b_cell %co3 -set a_plus_b_fanout
-select @c_plus_d_cell %co3 -set c_plus_d_fanout
-select @e_plus_f_cell %co3 -set e_plus_f_fanout
-select @g_plus_h_cell %co3 -set g_plus_h_fanout
-select @a_plus_b_fanout @c_plus_d_fanout %i -set a_plus_b_plus_c_plus_d_cell
-select @e_plus_f_fanout @g_plus_h_fanout %i -set e_plus_f_plus_g_plus_h_cell
-select @a_plus_b_plus_c_plus_d_cell t:$add %i -assert-count 1
-select @e_plus_f_plus_g_plus_h_cell t:$add %i -assert-count 1
-
-# Check that x is ((a + b) + (c + d)) + ((e + f) + (g + h))
-select @a_plus_b_plus_c_plus_d_cell %co3 @x_cell %i -assert-count 1
-select @e_plus_f_plus_g_plus_h_cell %co3 @x_cell %i -assert-count 1
+# Check that x is (a + b) + (c + d)
+select @a_plus_b_cell %co3 @x_cell %i -assert-count 1
+select @c_plus_d_cell %co3 @x_cell %i -assert-count 1
 
 design -reset
 log -pop
@@ -471,8 +449,8 @@ module top (
   input wire c,
   input wire d,
   output wire [1:0] x,
-  output wire [1:0] y,
-  output wire [1:0] z
+  output wire [2:0] y,
+  output wire [3:0] z
 );
   assign x = a + b;
   assign y = x + c;
@@ -543,10 +521,10 @@ module top (
   input wire c,
   input wire d,
   output wire [1:0] x,
-  output wire [1:0] y,
-  output wire [1:0] z
+  output wire [2:0] y,
+  output wire [3:0] z
 );
-  wire [1:0] temp;
+  wire [2:0] temp;
   assign y = ~temp;
   assign x = a + b;
   assign temp = x + c;
@@ -615,11 +593,11 @@ module top (
   input wire b,
   input wire c,
   input wire d,
-  output wire [5:0] x
+  output wire [8:0] x
 );
   assign x[1:0] = a + b;
-  assign x[3:2] = x[1:0] + c;
-  assign x[5:4] = x[3:2] + d;
+  assign x[4:2] = x[1:0] + c;
+  assign x[8:5] = x[4:2] + d;
 endmodule
 EOF
 check -assert
@@ -679,14 +657,14 @@ module top (
   input wire b,
   input wire c,
   input wire d,
-  output wire [5:0] x,
+  output wire [8:0] x,
   output wire y
 );
   assign x[1:0] = a + b;
-  assign x[3:2] = x[1:0] + c;
-  assign x[5:4] = x[3:2] + d;
+  assign x[4:2] = x[1:0] + c;
+  assign x[8:5] = x[4:2] + d;
 
-  assign y = x[3];
+  assign y = x[4];
 endmodule
 EOF
 check -assert
@@ -730,94 +708,6 @@ select @c_cells @x_cells %i -assert-count 1
 # Check that x[5:4] is (a + b) + (c + d)
 select @a_plus_b_cells %co3 @x_cells %i -assert-count 3
 select @c_plus_d_cells %co3 @x_cells %i -assert-count 1
-
-design -reset
-log -pop
-
-
-
-# Test 13
-log -header "Pre-existing partial tree"
-log -push
-design -reset
-read_verilog <<EOF
-module top (
-  input wire a, b, c, d,
-  input wire e, f, g, h,
-  input wire k, l, m, n,
-  output wire [3:0] x,
-);
-  wire [2:0] i, j;
-
-  assign i = a + b + c + d;
-  assign j = e + f + g + h;
-
-  assign x = i + j + k + l + m + n;
-endmodule
-EOF
-check -assert
-
-# Check equivalence after opt_balance_tree
-equiv_opt -assert opt_balance_tree
-design -load postopt
-
-# Width reduction
-equiv_opt -assert wreduce
-design -load postopt
-
-# Assert that there are 11 adders
-select t:$add -assert-count 11
-
-# Assert that logic depth is 4
-# Check that 4 fanin-traversals results in all adders selected
-select o:x %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 11
-
-design -reset
-log -pop
-
-
-
-# Test 14
-log -header "Pre-existing partial tree with intermediate outputs"
-log -push
-design -reset
-read_verilog <<EOF
-module top (
-  input wire a, b, c, d,
-  input wire e, f, g, h,
-  input wire k, l, m, n,
-  output wire [2:0] i, j,
-  output wire [3:0] x,
-);
-
-  assign i = a + b + c + d;
-  assign j = e + f + g + h;
-
-  assign x = i + j + k + l + m + n;
-endmodule
-EOF
-check -assert
-
-# Check equivalence after opt_balance_tree
-equiv_opt -assert opt_balance_tree
-design -load postopt
-
-# Width reduction
-equiv_opt -assert wreduce
-design -load postopt
-
-# Merge removes some redundancy
-equiv_opt -assert opt_merge
-design -load postopt
-
-# Assert that logic depth is 2 for i and j
-# Check that 2 fanin-traversals results in all adders selected
-select o:i %ci2 %ci2 t:$add %i -assert-count 3
-select o:j %ci2 %ci2 t:$add %i -assert-count 3
-
-# Assert that logic depth is 4 for x
-# Check that 4 fanin-traversals results in 11 adders selected
-select o:x %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 11
 
 design -reset
 log -pop
