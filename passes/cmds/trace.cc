@@ -115,14 +115,43 @@ struct DebugPass : public Pass {
 		log("\n");
 		log("Execute the specified command with debug log messages enabled\n");
 		log("\n");
+		log("    debug -on\n");
+		log("    debug -off\n");
+		log("\n");
+		log("Enable or disable debug log messages globally\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
+		bool mode_on = false;
+		bool mode_off = false;
+
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// .. parse options ..
+			if (args[argidx] == "-on") {
+				mode_on = true;
+				continue;
+			}
+			if (args[argidx] == "-off") {
+				mode_off = true;
+				continue;
+			}
 			break;
+		}
+
+		if (mode_on && mode_off)
+			log_cmd_error("Cannot specify both -on and -off\n");
+
+		if (mode_on) {
+			log_force_debug++;
+			return;
+		}
+
+		if (mode_off) {
+			if (log_force_debug > 0)
+				log_force_debug--;
+			return;
 		}
 
 		log_force_debug++;
