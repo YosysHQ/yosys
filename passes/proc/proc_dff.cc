@@ -53,13 +53,19 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
-void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
-		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
+struct DSigs {
+	RTLIL::SigSpec d;
+	RTLIL::SigSpec q;
+	RTLIL::SigSpec clk;
+};
+using Rules = std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>>;
+void gen_dffsr_complex(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
+		Rules &async_rules, RTLIL::Process *proc)
 {
 	// A signal should be set/cleared if there is a load trigger that is enabled
 	// such that the load value is 1/0 and it is the highest priority trigger
-	RTLIL::SigSpec sig_sr_set = RTLIL::SigSpec(0, sig_d.size());
-	RTLIL::SigSpec sig_sr_clr = RTLIL::SigSpec(0, sig_d.size());
+	RTLIL::SigSpec sig_sr_set = RTLIL::SigSpec(0, sigs.d.size());
+	RTLIL::SigSpec sig_sr_clr = RTLIL::SigSpec(0, sigs.d.size());
 
 	// Reverse iterate through the rules as the first ones are the highest priority
 	// so need to be at the top of the mux trees
@@ -81,7 +87,7 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 	std::stringstream sstr;
 	sstr << "$procdff$" << (autoidx++);
 
-	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
+	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), sigs.clk, sig_sr_set, sig_sr_clr, sigs.d, sigs.q, clk_polarity);
 	cell->attributes = proc->attributes;
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
@@ -261,7 +267,9 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		if (async_rules.size() > 1)
 		{
 			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
-			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, async_rules, proc);
+			DSigs sigs {insig, sig, sync_edge->signal};
+			bool clk_pol = sync_edge->type == RTLIL::SyncType::STp;
+			gen_dffsr_complex(mod, sigs, clk_pol, async_rules, proc);
 			continue;
 		}
 
