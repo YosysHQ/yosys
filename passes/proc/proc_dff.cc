@@ -108,7 +108,8 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 		bool trig_polarity; // true = active high, false = active low
 		bool effect; // true = set, false = reset
 	};
-	std::vector<std::vector<BitRule>> bit_rules(sigs.d.size());
+	// nullopt rule = "this bit is not assigned to in this rule"
+	std::vector<std::vector<std::optional<BitRule>>> bit_rules(sigs.d.size());
 	// For checking consistent per-bit set/reset edges and bailing out on inconsistent
 	std::optional<bool> bit_set_pol;
 	std::optional<bool> bit_reset_pol;
@@ -116,14 +117,14 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 	for (auto it = async_rules.cbegin(); it != async_rules.cend(); it++)
 	{
 		const auto& [sync_value, rule] = *it;
-		log_debug("sync_value %s, rule:\n", log_signal(sync_value));
-
 		for (int i = 0; i < sigs.d.size(); i++) {
-			log_debug("rule->signal %s\n", log_signal(rule->signal));
-			log_debug(rule->signal.size() == 1);
+			log_assert(rule->signal.size() == 1);
 			SigSpec value_bit = sync_value[i];
 			if (sync_value[i] == sigs.q[i]) {
 				log_debug("%s is %s\n", log_signal(sync_value[i]), log_signal(sigs.q[i]));
+				while (bit_rules.size() <= (size_t) i)
+					bit_rules.push_back({});
+				bit_rules[i].push_back(std::nullopt);
 				continue;
 			}
 			if (!ce.eval(value_bit)) {
@@ -135,7 +136,8 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 			bool trig_pol = rule->type == RTLIL::SyncType::ST1;
 			while (bit_rules.size() <= (size_t) i)
 				bit_rules.push_back({});
-			bit_rules[i].push_back({rule->signal[0], trig_pol, effect});
+			BitRule bit_rule {rule->signal[0], trig_pol, effect};
+			bit_rules[i].push_back(bit_rule);
 
 			bool set_inconsistent = effect && bit_set_pol && (*bit_set_pol != trig_pol);
 			bool reset_inconsistent = !effect && bit_reset_pol && (*bit_reset_pol != trig_pol);
@@ -165,10 +167,17 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 		SigSpec bit_sets;
 		SigSpec bit_resets;
 		for (auto rule : bit_rules[i]) {
-			log_debug("if %s == %d then set %d\n", log_signal(rule.trig), rule.trig_polarity, rule.effect);
-			priority_in.append(rule.trig);
-			priority_pol.push_back(RTLIL::State(rule.trig_polarity));
-			if (rule.effect)
+			if (!rule) {
+				// Unused bit due to no assignment to this bit from this rule
+				log_debug("Unused bit due to no assignment to this bit from this rule\n");
+				priority_in.append(Const(0, 1));
+				priority_pol.push_back(RTLIL::State::S0);
+				continue;
+			}
+			log_debug("if %s == %d then set %d\n", log_signal(rule->trig), rule->trig_polarity, rule->effect);
+			priority_in.append(rule->trig);
+			priority_pol.push_back(RTLIL::State(rule->trig_polarity));
+			if (rule->effect)
 				bit_sets.append(SigBit(prioritized, priority_in.size() - 1));
 			else
 				bit_resets.append(SigBit(prioritized, priority_in.size() - 1));
@@ -180,7 +189,7 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 			} else {
 				set = mod->addWire(NEW_ID);
 				// Polarities are consistent, as guaranteed by check prior
-				(bit_rules[i][0].trig_polarity ? mod->addReduceOr(NEW_ID, bit_sets, *set) : mod->addReduceAnd(NEW_ID, bit_sets, *set))->attributes = proc->attributes;
+				(*bit_set_pol ? mod->addReduceOr(NEW_ID, bit_sets, *set) : mod->addReduceAnd(NEW_ID, bit_sets, *set))->attributes = proc->attributes;
 			}
 		}
 		std::optional<SigBit> reset;
@@ -189,7 +198,7 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 				reset = bit_resets[0];
 			} else {
 				reset = mod->addWire(NEW_ID);
-				(bit_rules[i][0].trig_polarity ? mod->addReduceOr(NEW_ID, bit_resets, *reset) : mod->addReduceAnd(NEW_ID, bit_resets, *reset))->attributes = proc->attributes;
+				(*bit_reset_pol ? mod->addReduceOr(NEW_ID, bit_resets, *reset) : mod->addReduceAnd(NEW_ID, bit_resets, *reset))->attributes = proc->attributes;
 			}
 		}
 		if (set)
