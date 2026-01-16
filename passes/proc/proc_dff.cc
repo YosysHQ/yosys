@@ -169,8 +169,12 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 		}
 	}
 
-	log_assert(set_pol != std::nullopt);
-	log_assert(reset_pol != std::nullopt);
+	if (set_pol == std::nullopt || reset_pol == std::nullopt) {
+		// set or reset never used, falling back to mux tree
+		gen_dffsr_complex(mod, sigs, clk_polarity, async_rules, proc);
+		return;
+	}
+
 
 	struct Builder {
 		using BitControl = std::pair<std::optional<SigBit>, std::optional<SigBit>>;
@@ -280,6 +284,8 @@ void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 
 	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), sigs.clk, sig_sr_set, sig_sr_clr, sigs.d, sigs.q, clk_polarity);
 	cell->attributes = proc->attributes;
+	cell->setParam(ID::SET_POLARITY, Const(*set_pol, 1));
+	cell->setParam(ID::CLR_POLARITY, Const(*reset_pol, 1));
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
