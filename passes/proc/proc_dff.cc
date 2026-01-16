@@ -17,7 +17,9 @@
  *
  */
 
+#include "backends/rtlil/rtlil_backend.h"
 #include "kernel/register.h"
+#include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/consteval.h"
 #include "kernel/log.h"
@@ -59,6 +61,7 @@ struct DSigs {
 	RTLIL::SigSpec clk;
 };
 using Rules = std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>>;
+
 void gen_dffsr_complex(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 		Rules &async_rules, RTLIL::Process *proc)
 {
@@ -89,6 +92,124 @@ void gen_dffsr_complex(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
 
 	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), sigs.clk, sig_sr_set, sig_sr_clr, sigs.d, sigs.q, clk_polarity);
 	cell->attributes = proc->attributes;
+
+	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
+			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
+}
+
+void gen_dffsr(RTLIL::Module *mod, DSigs sigs, bool clk_polarity,
+		Rules &async_rules, ConstEval& ce, RTLIL::Process *proc)
+{
+	RTLIL::SigSpec sig_sr_set;
+	RTLIL::SigSpec sig_sr_clr;
+
+	struct BitRule {
+		SigBit trig;
+		bool trig_polarity; // true = active high, false = active low
+		bool effect; // true = set, false = reset
+	};
+	std::vector<std::vector<BitRule>> bit_rules(sigs.d.size());
+	// For checking consistent per-bit set/reset edges and bailing out on inconsistent
+	std::optional<bool> bit_set_pol;
+	std::optional<bool> bit_reset_pol;
+
+	for (auto it = async_rules.cbegin(); it != async_rules.cend(); it++)
+	{
+		const auto& [sync_value, rule] = *it;
+		log_debug("sync_value %s, rule:\n", log_signal(sync_value));
+
+		for (int i = 0; i < sigs.d.size(); i++) {
+			log_debug("rule->signal %s\n", log_signal(rule->signal));
+			log_debug(rule->signal.size() == 1);
+			SigSpec value_bit = sync_value[i];
+			if (sync_value[i] == sigs.q[i]) {
+				log_debug("%s is %s\n", log_signal(sync_value[i]), log_signal(sigs.q[i]));
+				continue;
+			}
+			if (!ce.eval(value_bit)) {
+				log_debug("non-const %s\n", log_signal(sync_value[i]));
+				gen_dffsr_complex(mod, sigs, clk_polarity, async_rules, proc);
+				return;
+			}
+			bool effect = ce.values_map(value_bit).as_const().as_bool();
+			bool trig_pol = rule->type == RTLIL::SyncType::ST1;
+			while (bit_rules.size() <= (size_t) i)
+				bit_rules.push_back({});
+			bit_rules[i].push_back({rule->signal[0], trig_pol, effect});
+
+			bool set_inconsistent = effect && bit_set_pol && (*bit_set_pol != trig_pol);
+			bool reset_inconsistent = !effect && bit_reset_pol && (*bit_reset_pol != trig_pol);
+			if (set_inconsistent || reset_inconsistent) {
+				gen_dffsr_complex(mod, sigs, clk_polarity, async_rules, proc);
+				return;
+			}
+			if (effect) {
+				bit_set_pol = trig_pol;
+			} else {
+				bit_reset_pol = trig_pol;
+			}
+		}
+	}
+
+	log_assert(bit_set_pol != std::nullopt);
+	log_assert(bit_reset_pol != std::nullopt);
+
+	RTLIL::Wire* prioritized = mod->addWire(NEW_ID, sigs.d.size() * async_rules.size());
+	RTLIL::Cell* priority = mod->addPriority(NEW_ID, SigSpec(), prioritized);
+	priority->setParam(ID::WIDTH, sigs.d.size());
+	priority->setParam(ID::P_WIDTH, async_rules.size());
+	SigSpec priority_in;
+	std::vector<RTLIL::State> priority_pol;
+	for (int i = 0; i < sigs.d.size(); i++) {
+		log_debug("bit %d:\n", i);
+		SigSpec bit_sets;
+		SigSpec bit_resets;
+		for (auto rule : bit_rules[i]) {
+			log_debug("if %s == %d then set %d\n", log_signal(rule.trig), rule.trig_polarity, rule.effect);
+			priority_in.append(rule.trig);
+			priority_pol.push_back(RTLIL::State(rule.trig_polarity));
+			if (rule.effect)
+				bit_sets.append(SigBit(prioritized, priority_in.size() - 1));
+			else
+				bit_resets.append(SigBit(prioritized, priority_in.size() - 1));
+		}
+		std::optional<SigBit> set;
+		if (bit_sets.size()) {
+			if (bit_sets.size() == 1) {
+				set = bit_sets[0];
+			} else {
+				set = mod->addWire(NEW_ID);
+				// Polarities are consistent, as guaranteed by check prior
+				(bit_rules[i][0].trig_polarity ? mod->addReduceOr(NEW_ID, bit_sets, *set) : mod->addReduceAnd(NEW_ID, bit_sets, *set))->attributes = proc->attributes;
+			}
+		}
+		std::optional<SigBit> reset;
+		if (bit_resets.size()) {
+			if (bit_resets.size() == 1) {
+				reset = bit_resets[0];
+			} else {
+				reset = mod->addWire(NEW_ID);
+				(bit_rules[i][0].trig_polarity ? mod->addReduceOr(NEW_ID, bit_resets, *reset) : mod->addReduceAnd(NEW_ID, bit_resets, *reset))->attributes = proc->attributes;
+			}
+		}
+		if (set)
+			sig_sr_set.append(*set);
+		else
+			sig_sr_set.append(*bit_set_pol ? Const(0, 1) : Const(1, 1));
+		if (reset)
+			sig_sr_clr.append(*reset);
+		else
+			sig_sr_clr.append(*bit_reset_pol ? Const(0, 1) : Const(1, 1));
+	}
+	priority->setPort(ID::A, priority_in);
+	priority->setParam(ID::POLARITY, priority_pol);
+
+	std::stringstream sstr;
+	sstr << "$procdff$" << (autoidx++);
+
+	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), sigs.clk, sig_sr_set, sig_sr_clr, sigs.d, sigs.q, clk_polarity);
+	cell->attributes = proc->attributes;
+	priority->attributes = proc->attributes;
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
@@ -269,7 +390,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
 			DSigs sigs {insig, sig, sync_edge->signal};
 			bool clk_pol = sync_edge->type == RTLIL::SyncType::STp;
-			gen_dffsr_complex(mod, sigs, clk_pol, async_rules, proc);
+			gen_dffsr(mod, sigs, clk_pol, async_rules, ce, proc);
 			continue;
 		}
 
@@ -313,6 +434,7 @@ struct ProcDffPass : public Pass {
 		log_header(design, "Executing PROC_DFF pass (convert process syncs to FFs).\n");
 
 		extra_args(args, 1, design);
+		Pass::call(design, "dump");
 
 		for (auto mod : design->all_selected_modules()) {
 			ConstEval ce(mod);
