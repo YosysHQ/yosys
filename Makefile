@@ -890,6 +890,7 @@ MK_TEST_DIRS += tests/opt
 MK_TEST_DIRS += tests/sat
 MK_TEST_DIRS += tests/sim
 MK_TEST_DIRS += tests/svtypes
+MK_TEST_DIRS += tests/symfpu
 MK_TEST_DIRS += tests/techmap
 MK_TEST_DIRS += tests/various
 MK_TEST_DIRS += tests/rtlil
