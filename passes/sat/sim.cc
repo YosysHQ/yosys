@@ -2335,7 +2335,7 @@ struct VCDWriter : public OutputWriter
 		}
 
 		if (!worker->timescale.empty())
-			vcdfile << stringf("$timescale %s $end\n", worker->timescale);
+			vcdfile << stringf("$timescale 1%s $end\n", worker->timescale);
 
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
