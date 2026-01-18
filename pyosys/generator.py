@@ -703,11 +703,11 @@ class PyosysWrapperGenerator(object):
 
         if basename == "Design":
             print(
-                '\t\t\t.def("run_pass", [](Design &s, std::vector<std::string> cmd) { Pass::call(cmd, &s); })',
+                '\t\t\t.def("run_pass", [](Design &s, std::vector<std::string> cmd) { Pass::call(&s, cmd); })',
                 file=self.f,
             )
             print(
-                '\t\t\t.def("run_pass", [](Design &s, std::string cmd) { Pass::call(cmd, &s); })',
+                '\t\t\t.def("run_pass", [](Design &s, std::string cmd) { Pass::call(&s, cmd); })',
                 file=self.f,
             )
 
