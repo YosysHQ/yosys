@@ -245,12 +245,13 @@ class CellNode(TocNode):
     """A custom node that describes an internal cell."""
 
     name = 'cell'
-
-    option_spec = {
+    
+    option_spec = TocNode.option_spec.copy()
+    option_spec.update({
         'title': directives.unchanged,
         'ports': directives.unchanged,
         'properties': directives.unchanged,
-    }
+    })
 
     doc_field_types = [
         CellGroupedField('props', label='Properties', rolename='prop',
@@ -693,8 +694,8 @@ class CellDomain(CommandDomain):
 
 def autoref(name, rawtext: str, text: str, lineno, inliner: Inliner,
             options=None, content=None):
-    words = text.split(' ')
-    if len(words) == 2 and words[0] == "help":
+    words = text.split()
+    if len(words) == 2 and words[0] == "help" and words[1][0] not in ['<', '-']:
         IsLinkable = True
         thing = words[1]
     else:

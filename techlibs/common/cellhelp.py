@@ -38,9 +38,6 @@ class SimHelper:
         return val
 
 def simcells_reparse(cell: SimHelper):
-    # cut manual signature
-    cell.desc = cell.desc[3:]
-
     # code-block truth table
     new_desc = []
     indent = ""
@@ -58,6 +55,7 @@ def simcells_reparse(cell: SimHelper):
 simHelper = SimHelper()
 
 for line in fileinput.input():
+    short_filename = Path(fileinput.filename()).name
     line = line.rstrip()
     # special comments
     if line.startswith("//-"):
@@ -71,7 +69,6 @@ for line in fileinput.input():
         clean_line = line[7:].replace("\\", "").replace(";", "")
         simHelper.name, simHelper.ports = clean_line.split(maxsplit=1)
         simHelper.code = []
-        short_filename = Path(fileinput.filename()).name
         simHelper.source = f'{short_filename}:{fileinput.filelineno()}'
     elif not line.startswith("endmodule"):
         line = "    " + line
@@ -81,14 +78,14 @@ for line in fileinput.input():
         # no module definition, ignore line
         pass
     if line.startswith("endmodule"):
-        short_filename = Path(fileinput.filename()).name
-        if simHelper.ver == "1" and short_filename == "simcells.v":
-            # default simcells parsing
-            simcells_reparse(simHelper)
+        if simHelper.ver == "1":
+            # cut manual signature
+            if len(simHelper.desc) > 3 and simHelper.desc[0] == "" and simHelper.desc[2] == "" and simHelper.desc[1].startswith("    "):
+                simHelper.desc = simHelper.desc[3:]
 
-        # check help
-        if simHelper.desc and simHelper.ver == "1" and short_filename == "simlib.v" and simHelper.desc[1].startswith('    '):
-            simHelper.desc.pop(1)
+            # default simcells parsing
+            if short_filename == "simcells.v":
+                simcells_reparse(simHelper)
 
         # check group
         assert simHelper.group, f"techlibs/common/{simHelper.source}: {simHelper.name} cell missing group"

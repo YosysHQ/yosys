@@ -41,12 +41,13 @@ class YosysCellGroupDocumenter(Documenter):
     object: tuple[str, list[str]]
     lib_key = 'groups'
 
-    option_spec = {
+    option_spec = Documenter.option_spec.copy()
+    option_spec.update({
         'caption': autodoc.annotation_option,
         'members': autodoc.members_option,
         'source': autodoc.bool_option,
         'linenos': autodoc.bool_option,
-    }
+    })
 
     __cell_lib: dict[str, list[str] | dict[str]] | None = None
     @property

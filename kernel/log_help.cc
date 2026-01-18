@@ -44,7 +44,7 @@ void ContentListing::usage(const string &text,
 void ContentListing::option(const string &text, const string &description,
 	const source_location location)
 {
-	auto option = open_option(text);
+	auto option = open_option(text, location);
 	if (description.length())
 		option->add_content("text", description, location);
 }
@@ -78,34 +78,52 @@ ContentListing* ContentListing::open_option(const string &text,
 }
 
 #define MAX_LINE_LEN 80
-void log_pass_str(const std::string &pass_str, std::string indent_str, bool leading_newline=false) {
-	if (pass_str.empty())
+void log_content_body(const ContentListing &content, int indent=0, bool leading_newline=false) {
+	// skip empty nodes
+	if (content.body.empty())
 		return;
-	std::istringstream iss(pass_str);
+
 	if (leading_newline)
 		log("\n");
+
+	// iterate over lines in content
+	std::string indent_str(indent*4, ' ');
+	std::istringstream iss(content.body);	
+	bool partial_line = false;
 	for (std::string line; std::getline(iss, line);) {
 		log("%s", indent_str);
-		auto curr_len = indent_str.length();
-		std::istringstream lss(line);
-		for (std::string word; std::getline(lss, word, ' ');) {
-			while (word[0] == '`' && word.back() == '`')
-				word = word.substr(1, word.length()-2);
-			if (curr_len + word.length() >= MAX_LINE_LEN-1) {
-				curr_len = 0;
-				log("\n%s", indent_str);
-			}
-			if (word.length()) {
-				log("%s ", word);
-				curr_len += word.length() + 1;
+		if (content.type == "code") {
+			// code blocks are verbatim
+			log("%s", line);
+		} else {
+			// iterate over words and break at max line length
+			auto curr_len = indent_str.length();
+			std::istringstream lss(line);
+			for (std::string word; std::getline(lss, word, ' ');) {
+				// remove inline rst formatting
+				while (word[0] == '`' && word.back() == '`')
+					word = word.substr(1, word.length()-2);
+
+				// if the current line is not empty, break before going over max
+				if (partial_line && (curr_len + word.length()) >= MAX_LINE_LEN) {
+					curr_len = indent_str.length();
+					log("\n%s", indent_str);
+					partial_line = false;
+				}
+
+				// print non-empty words
+				if (word.length()) {
+					if (partial_line)
+						// add space after prior word
+						word.insert(0, " ");
+					log("%s", word);
+					curr_len += word.length();
+					partial_line = true;
+				}
 			}
 		}
 		log("\n");
 	}
-}
-void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newline=false) {
-	std::string indent_str(indent*4, ' ');
-	log_pass_str(pass_str, indent_str, leading_newline);
 }
 
 PrettyHelp *current_help = nullptr;
@@ -134,16 +152,16 @@ void PrettyHelp::log_help() const
 {
 	for (auto &content : _root_listing) {
 		if (content.type.compare("usage") == 0) {
-			log_pass_str(content.body, 1, true);
+			log_content_body(content, 1, true);
 			log("\n");
 		} else if (content.type.compare("option") == 0) {
-			log_pass_str(content.body, 1);
-			for (auto text : content) {
-				log_pass_str(text.body, 2);
+			log_content_body(content, 1);
+			for (auto &child : content) {
+				log_content_body(child, 2);
 				log("\n");
 			}
 		} else {
-			log_pass_str(content.body, 0);
+			log_content_body(content, 0);
 			log("\n");
 		}
 	}
