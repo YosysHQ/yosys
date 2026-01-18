@@ -701,6 +701,16 @@ class PyosysWrapperGenerator(object):
 
         self.process_class_members(metadata, metadata, cls, basename)
 
+        if basename == "Design":
+            print(
+                '\t\t\t.def("run_pass", [](Design &s, std::vector<std::string> cmd) { Pass::call(cmd, &s); })',
+                file=self.f,
+            )
+            print(
+                '\t\t\t.def("run_pass", [](Design &s, std::string cmd) { Pass::call(cmd, &s); })',
+                file=self.f,
+            )
+
         if expr := metadata.string_expr:
             print(
                 f'\t\t.def("__str__", [](const {basename} &s) {{ return {expr}; }})',
