@@ -10,6 +10,7 @@ OBJS += passes/silimate/lut2bmux.o
 OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/opt_balance_tree.o
 OBJS += passes/silimate/reg_rename.o
+OBJS += passes/silimate/reg_width.o
 OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitlarge.o
