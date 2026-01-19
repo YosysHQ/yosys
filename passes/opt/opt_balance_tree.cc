@@ -340,6 +340,7 @@ struct OptBalanceTreePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
+		log_experimental("open_balance_tree");
 
 		// Handle arguments
 		size_t argidx;
