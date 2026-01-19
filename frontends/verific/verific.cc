@@ -3114,9 +3114,10 @@ struct VerificPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
+		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv2017|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
+		log("Note that -sv option will use parser for latest supported standard.\n");
 		log("\n");
 		log("All files specified in one call to this command are one compilation unit.\n");
 		log("Files passed to different calls to this command are treated as belonging to\n");
