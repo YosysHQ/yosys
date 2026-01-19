@@ -954,8 +954,8 @@ abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
 .PHONY: makefile-tests
 makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
 # this target actually emits .mk files
-%.mk:
-	+cd $(dir $*) && bash run-test.sh
+%/run-test.mk: %/run-test.sh
+	+cd $* && bash run-test.sh
 # this one spawns submake on each
 makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
 	$(MAKE) -C $* -f run-test.mk
