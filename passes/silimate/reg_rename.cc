@@ -60,7 +60,8 @@ struct RegRenamePass : public Pass {
 
 		// Data structure used to keep track of multi-bit registers.
 		// Relevant for correct register annotation.
-		std::map<std::string, RegTracker> regTrackers;
+		// Key is (Module*, baseName) to handle hierarchical designs where multiple modules may have same register names
+		std::map<std::pair<Module*, std::string>, RegTracker> regTrackers;
 
 		// Regex to match register output wires
 		// .*_reg[NUMBER] or .*_reg, can match NUMBER and part before _reg
@@ -109,9 +110,10 @@ struct RegRenamePass : public Pass {
 							// Log relevant information for multi-bit registers for wire reconstruction
 							if (isMultiBit) {
 								std::string origRegWidth = cell->get_string_attribute("$ORIG_REG_WIDTH");
-								regTrackers[baseName].origRegWidth = origRegWidth;
-								regTrackers[baseName].renamedRegs[registerName] = CellTracker{cell, std::stoi(indexStr)};
-								regTrackers[baseName].module = module;
+								auto key = std::make_pair(module, baseName);
+								regTrackers[key].origRegWidth = origRegWidth;
+								regTrackers[key].renamedRegs[registerName] = CellTracker{cell, std::stoi(indexStr)};
+								regTrackers[key].module = module;
 							}
 								
 							module->rename(wire, registerName);
@@ -122,14 +124,13 @@ struct RegRenamePass : public Pass {
 			}
 		}
 
-	for (const auto &[baseName, regTracker] : regTrackers) {
-
-		// Get the module for this register
-		Module *mod = regTracker.module;
+	for (const auto &[key, regTracker] : regTrackers) {
+		auto [mod, baseName] = key;
 
 		// Create a new wire for the multi-bit register
 		int width = std::stoi(regTracker.origRegWidth);
-		log("Creating new wire %s for register %s with width %d\n", baseName.c_str(), baseName.c_str(), width);
+		log("Creating new wire %s for register %s with width %d in module %s\n", 
+		    baseName.c_str(), baseName.c_str(), width, log_id(mod));
 		Wire *newWire = mod->addWire(baseName, width);
 
 		pool<Wire *> oldWires;
@@ -142,9 +143,9 @@ struct RegRenamePass : public Pass {
 
 			// Get the index of the renamed register
 			int index = cellTracker.index;
-			log("Connecting renamed register %s to index %d\n", renamedRegName.c_str(), index);
+			log("Connecting renamed register %s to index %d of %s\n", renamedRegName.c_str(), index, baseName.c_str());
 
-			// Connect the renamed register to the corresponding index of the new wire
+			// Connect the renamed register to the corresponding index of the new wiret
 			mod->connect(SigSpec(newWire, index, 1), cellTracker.cell->getPort(ID::Q));
 
 			// Replace all uses of oldWire with newWire[index] throughout the module
