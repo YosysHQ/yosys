@@ -467,8 +467,6 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 					wire->attributes.erase(ID::init);
 				else
 					wire->attributes.at(ID::init) = initval;
-				used_signals.add(new_conn.first);
-				used_signals.add(new_conn.second);
 				module->connect(new_conn);
 			}
 
