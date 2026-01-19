@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include <regex>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -45,13 +46,35 @@ struct RegRenamePass : public Pass {
 
 		uint32_t count = 0;
 		uint32_t moduleCount = design->selected_modules().size();
+
+		// Data structure used to keep track of multi-bit registers.
+		// Relevant for correct register annotation.
+
+
+		// Regex to match register output wires
+		// .*_reg[NUMBER] or .*_reg, can match NUMBER and part before _reg
+		std::regex reg_regex("(.*)_reg(?:\\[(\\d+)\\])?$");
 		for (auto module : design->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
 
-				// Rename the register output wire to the register name with
-				// "_reg" suffix removed.
-				if (cell->name.ends_with("_reg")) {
-					IdString registerName = cell->name.substr(0, cell->name.size() - 4);
+				// Rename register output wires to corresponding testbench names
+				std::smatch match;
+				std::string name = cell->name.c_str();
+				if (std::regex_match(name, match, reg_regex)) {
+
+
+					std::string origRegWidth = cell->get_string_attribute("$ORIG_REG_WIDTH");
+					log("Original register width for cell %s: %s\n", cell->name.c_str(), origRegWidth.c_str());
+
+					// baseName is the part before _reg
+					std::string baseName = match[1].str();
+					std::string registerName = baseName;
+					if (match.size() > 2 && match[2].matched) {
+						// indexStr is the NUMBER in .*_reg[NUMBER]
+						std::string indexStr = match[2].str();
+						registerName += indexStr;
+					}
+
 					for (auto conn : cell->connections()) {
 						if (conn.first == ID::Q && conn.second.is_wire()) {
 							Wire *wire = conn.second.as_wire();
@@ -70,7 +93,7 @@ struct RegRenamePass : public Pass {
 
 							// Rename register
 							log("Renaming register wire %s to %s for cell %s in module %s\n", 
-								wire->name.c_str(), registerName.c_str(), log_id(cell), log_id(module));
+								wire->name.c_str(), registerName, log_id(cell), log_id(module));
 							module->rename(wire, registerName);
 							count++;
 						}
