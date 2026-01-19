@@ -18,6 +18,7 @@
  */
 
 #include "simplemap.h"
+#include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/ff.h"
 #include <stdlib.h>
@@ -27,11 +28,11 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
-static void transfer_attr (Cell* to, const Cell* from, IdString attr) {
+static void transfer_attr (RTLIL::AttrObject* to, const RTLIL::AttrObject* from, IdString attr) {
 	if (from->has_attribute(attr))
 		to->attributes[attr] = from->attributes.at(attr);
 }
-static void transfer_src (Cell* to, const Cell* from) {
+static void transfer_src (RTLIL::AttrObject* to, const RTLIL::AttrObject* from) {
 	transfer_attr(to, from, ID::src);
 }
 
@@ -438,6 +439,37 @@ void simplemap_ff(RTLIL::Module *, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_priority(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	int width = cell->getParam(ID::WIDTH).as_int();
+	RTLIL::Const polarity = cell->getParam(ID::POLARITY);
+	RTLIL::Wire* any_previous_active = module->addWire(NEW_ID, width);
+	transfer_src(any_previous_active, cell);
+	RTLIL::Wire* active = module->addWire(NEW_ID, width);
+	transfer_src(active, cell);
+	RTLIL::SigSpec a = cell->getPort(ID::A);
+	RTLIL::SigSpec y = cell->getPort(ID::Y);
+	if (width) {
+		RTLIL::State active_val = polarity[0] ? RTLIL::State::S1 : RTLIL::State::S0;
+		RTLIL::Cell* xnor = module->addXnorGate(NEW_ID, a[0], active_val, {RTLIL::SigBit(any_previous_active, 0)});
+		transfer_src(xnor, cell);
+		module->connect({y[0], a[0]});
+	}
+	for (int i = 1; i < width; i++) {
+		RTLIL::State inactive_val = !polarity[i] ? RTLIL::State::S1 : RTLIL::State::S0;
+		RTLIL::State active_val = polarity[i] ? RTLIL::State::S1 : RTLIL::State::S0;
+		RTLIL::SigBit this_active = {active, i};
+		RTLIL::SigBit active_so_far = {any_previous_active, i - 1};
+		RTLIL::SigBit next_active_so_far = {any_previous_active, i};
+		RTLIL::Cell* mux = module->addMuxGate(NEW_ID, a[i], inactive_val, active_so_far, y[i]);
+		RTLIL::Cell* xnor = module->addXnorGate(NEW_ID, a[i], active_val, this_active);
+		RTLIL::Cell* or_ = module->addOrGate(NEW_ID, active_so_far, this_active, next_active_so_far);
+		transfer_src(xnor, cell);
+		transfer_src(mux, cell);
+		transfer_src(or_, cell);
+	}
+}
+
 void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
 {
 	mappers[ID($not)]         = simplemap_not;
@@ -484,6 +516,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($dlatch)]      = simplemap_ff;
 	mappers[ID($adlatch)]     = simplemap_ff;
 	mappers[ID($dlatchsr)]    = simplemap_ff;
+	mappers[ID($priority)]    = simplemap_priority;
 }
 
 void simplemap(RTLIL::Module *module, RTLIL::Cell *cell)
