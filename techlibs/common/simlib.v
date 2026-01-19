@@ -3259,10 +3259,26 @@ endmodule
 //- Priority operator. An output bit is set if the input bit at the same index is set and no lower index input bit is set.
 //-
 module \$priority (A, Y);
-parameter WIDTH = 8;
+parameter WIDTH = 0;
+parameter POLARITY = 0;
 input  [WIDTH-1:0] A;
 output [WIDTH-1:0] Y;
 
-assign Y = A & (~A + 1);
+wire [WIDTH-1:0] tmp;
+wire [WIDTH-1:0] A_active;
+wire [WIDTH-1:0] Y_active;
+assign A_active = A ^ ~POLARITY;
+assign Y = Y_active ^ ~POLARITY;
+genvar i;
+generate
+	if (WIDTH > 0) begin
+		assign tmp[0] = A_active[0];
+		assign Y_active[0] = A_active[0];
+	end
+	for (i = 1; i < WIDTH; i = i + 1) begin
+		assign Y_active[i] = tmp[i-1] ? 1'b0 : A_active[i];
+		assign tmp[i] = tmp[i-1] | A_active[i];
+	end
+endgenerate
 
 endmodule

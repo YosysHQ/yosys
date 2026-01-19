@@ -694,6 +694,7 @@ module \$priority (A, Y);
 	wire [WIDTH-1:0] tmp;
 	(* force_downto *)
 	wire [WIDTH-1:0] A_active;
+	(* force_downto *)
 	wire [WIDTH-1:0] Y_active;
 	assign A_active = A ^ ~POLARITY;
 	assign Y = Y_active ^ ~POLARITY;
