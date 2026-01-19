@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 #ifndef _WIN32
 #  include <dirent.h>
@@ -70,13 +71,13 @@ struct GraphNode {
 
 	pool<IdString> names_;
 	dict<int, uint8_t> tags_;
-	pool<GraphNode*, hash_ptr_ops> upstream_;
-	pool<GraphNode*, hash_ptr_ops> downstream_;
+	pool<GraphNode*> upstream_;
+	pool<GraphNode*> downstream_;
 
 	pool<IdString> &names() { return get()->names_; }
 	dict<int, uint8_t> &tags() { return get()->tags_; }
-	pool<GraphNode*, hash_ptr_ops> &upstream() { return get()->upstream_; }
-	pool<GraphNode*, hash_ptr_ops> &downstream() { return get()->downstream_; }
+	pool<GraphNode*> &upstream() { return get()->upstream_; }
+	pool<GraphNode*> &downstream() { return get()->downstream_; }
 
 	uint8_t tag(int index) {
 		return tags().at(index, 0);
@@ -154,8 +155,8 @@ struct Graph {
 			nodes.push_back(n);
 			n->index = GetSize(nodes);
 
-			pool<GraphNode*, hash_ptr_ops> new_upstream;
-			pool<GraphNode*, hash_ptr_ops> new_downstream;
+			pool<GraphNode*> new_upstream;
+			pool<GraphNode*> new_downstream;
 
 			for (auto g : n->upstream()) {
 				if (n != (g = g->get()))
@@ -302,7 +303,7 @@ struct Graph {
 			}
 		}
 
-		pool<GraphNode*, hash_ptr_ops> excluded;
+		pool<GraphNode*> excluded;
 
 		for (auto grp : config.groups)
 		{
@@ -348,7 +349,7 @@ struct Graph {
 			excluded.insert(g->get());
 
 		dict<Cell*, GraphNode*> cell_nodes;
-		dict<SigBit, pool<GraphNode*, hash_ptr_ops>> sig_users;
+		dict<SigBit, pool<GraphNode*>> sig_users;
 
 		for (auto cell : module->selected_cells()) {
 			auto g = new GraphNode;
@@ -483,8 +484,8 @@ struct Graph {
 
 			{
 				header("Any nodes with identical connections");
-				typedef pair<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> node_conn_t;
-				dict<node_conn_t, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn;
+				typedef pair<pool<GraphNode*>, pool<GraphNode*>> node_conn_t;
+				dict<node_conn_t, pool<GraphNode*>> nodes_by_conn;
 				for (auto g : term ? term_nodes : nonterm_nodes) {
 					auto &entry = nodes_by_conn[node_conn_t(g->upstream(), g->downstream())];
 					for (auto n : entry)
@@ -506,8 +507,8 @@ struct Graph {
 
 				header("Sibblings with identical tags");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
-						dict<std::vector<int>, pool<GraphNode*, hash_ptr_ops>> nodes_by_tags;
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
+						dict<std::vector<int>, pool<GraphNode*>> nodes_by_tags;
 						for (auto n : stream) {
 							if (n->terminal) continue;
 							std::vector<int> key;
@@ -556,7 +557,7 @@ struct Graph {
 			if (!term) {
 				header("Sibblings with similar tags (strict)");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
 						std::vector<GraphNode*> nodes;
 						for (auto n : stream)
 							if (!n->terminal) nodes.push_back(n);
@@ -585,7 +586,7 @@ struct Graph {
 			if (!term) {
 				header("Sibblings with similar tags (non-strict)");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
 						std::vector<GraphNode*> nodes;
 						for (auto n : stream)
 							if (!n->terminal) nodes.push_back(n);
@@ -603,7 +604,7 @@ struct Graph {
 
 			{
 				header("Any nodes with identical fan-in or fan-out");
-				dict<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn[2];
+				dict<pool<GraphNode*>, pool<GraphNode*>> nodes_by_conn[2];
 				for (auto g : term ? term_nodes : nonterm_nodes) {
 					auto &up_entry = nodes_by_conn[0][g->upstream()];
 					auto &down_entry = nodes_by_conn[1][g->downstream()];
@@ -629,7 +630,7 @@ struct Graph {
 			if (!term) {
 				header("Sibblings with similar tags (lax)");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
 						std::vector<GraphNode*> nodes;
 						for (auto n : stream)
 							if (!n->terminal) nodes.push_back(n);
@@ -720,9 +721,9 @@ struct VizWorker
 		fprintf(f, "digraph \"%s\" {\n", log_id(module));
 		fprintf(f, "  rankdir = LR;\n");
 
-		dict<GraphNode*, std::vector<std::vector<std::string>>, hash_ptr_ops> extra_lines;
-		dict<GraphNode*, GraphNode*, hash_ptr_ops> bypass_nodes;
-		pool<GraphNode*, hash_ptr_ops> bypass_candidates;
+		dict<GraphNode*, std::vector<std::vector<std::string>>> extra_lines;
+		dict<GraphNode*, GraphNode*> bypass_nodes;
+		pool<GraphNode*> bypass_candidates;
 
 		auto bypass = [&](GraphNode *g, GraphNode *n) {
 			log_assert(g->terminal);
@@ -817,6 +818,11 @@ struct VizWorker
 
 struct VizPass : public Pass {
 	VizPass() : Pass("viz", "visualize data flow graph") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -950,8 +956,8 @@ struct VizPass : public Pass {
 				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G :
 					arg == "-u" || arg == "-U" ? VizConfig::TYPE_U :
 					arg == "-x" || arg == "-X" ? VizConfig::TYPE_X : VizConfig::TYPE_S;
-				config.groups.push_back({type, design->selection_stack.back()});
-				design->selection_stack.pop_back();
+				config.groups.push_back({type, design->selection()});
+				design->pop_selection();
 				continue;
 			}
 			if (arg == "-0" || arg == "-1" || arg == "-2" || arg == "-3" || arg == "-4" ||
@@ -976,19 +982,19 @@ struct VizPass : public Pass {
 		if (modlist.empty())
 			log_cmd_error("Nothing there to show.\n");
 
-		std::string dot_file = stringf("%s.dot", prefix.c_str());
-		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());
+		std::string dot_file = stringf("%s.dot", prefix);
+		std::string out_file = stringf("%s.%s", prefix, format.empty() ? "svg" : format);
 
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
 
-		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		log("Writing dot description to `%s'.\n", dot_file);
 		FILE *f = nullptr;
 		auto open_dot_file = [&]() {
 			if (f != nullptr) return;
 			f = fopen(dot_file.c_str(), "w");
 			if (f == nullptr)
-				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
 		};
 		for (auto module : modlist) {
 			VizWorker worker(module, config);
@@ -1020,9 +1026,9 @@ struct VizPass : public Pass {
 			#else
 				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
 			#endif
-			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			#if !defined(YOSYS_DISABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
@@ -1037,21 +1043,21 @@ struct VizPass : public Pass {
 				// system()/cmd.exe does not understand single quotes nor
 				// background tasks on Windows. So we have to pause yosys
 				// until the viewer exits.
-				std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+				std::string cmd = stringf("%s \"%s\"", viewer_exe, out_file);
 			#else
-				std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+				std::string cmd = stringf("%s '%s' %s", viewer_exe, out_file, background);
 			#endif
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
 			#ifdef __APPLE__
-			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file, dot_file, background);
 			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file, dot_file, dot_file, dot_file, background);
 			#endif
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}

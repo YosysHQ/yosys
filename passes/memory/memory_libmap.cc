@@ -392,7 +392,7 @@ void MemMapping::dump_configs(int stage) {
 void MemMapping::dump_config(MemConfig &cfg) {
 	log_debug("- %s:\n", log_id(cfg.def->id));
 	for (auto &it: cfg.def->options)
-		log_debug("  - option %s %s\n", it.first.c_str(), log_const(it.second));
+		log_debug("  - option %s %s\n", it.first, log_const(it.second));
 	log_debug("  - emulation score: %d\n", cfg.score_emu);
 	log_debug("  - replicates (for ports): %d\n", cfg.repl_port);
 	log_debug("  - replicates (for data): %d\n", cfg.repl_d);
@@ -403,7 +403,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 	for (int x: cfg.def->dbits)
 		os << " " << x;
 	std::string dbits_s = os.str();
-	log_debug("  - abits %d dbits%s\n", cfg.def->abits, dbits_s.c_str());
+	log_debug("  - abits %d dbits%s\n", cfg.def->abits, dbits_s);
 	if (cfg.def->byte != 0)
 		log_debug("  - byte width %d\n", cfg.def->byte);
 	log_debug("  - chosen base width %d\n", cfg.def->dbits[cfg.base_width_log2]);
@@ -414,25 +414,25 @@ void MemMapping::dump_config(MemConfig &cfg) {
 		else
 			os << " " << x;
 	std::string swizzle_s = os.str();
-	log_debug("  - swizzle%s\n", swizzle_s.c_str());
+	log_debug("  - swizzle%s\n", swizzle_s);
 	os.str("");
 	for (int i = 0; (1 << i) <= cfg.hard_wide_mask; i++)
 		if (cfg.hard_wide_mask & 1 << i)
 			os << " " << i;
 	std::string wide_s = os.str();
 	if (cfg.hard_wide_mask)
-		log_debug("  - hard wide bits%s\n", wide_s.c_str());
+		log_debug("  - hard wide bits%s\n", wide_s);
 	if (cfg.emu_read_first)
 		log_debug("  - emulate read-first behavior\n");
 	for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 		auto &pcfg = cfg.wr_ports[i];
 		if (pcfg.rd_port == -1)
-			log_debug("  - write port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str());
+			log_debug("  - write port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0]);
 		else
-			log_debug("  - write port %d: port group %s (shared with read port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str(), pcfg.rd_port);
+			log_debug("  - write port %d: port group %s (shared with read port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0], pcfg.rd_port);
 
 		for (auto &it: pcfg.def->options)
-			log_debug("    - option %s %s\n", it.first.c_str(), log_const(it.second));
+			log_debug("    - option %s %s\n", it.first, log_const(it.second));
 		if (cfg.def->width_mode == WidthMode::PerPort) {
 			std::stringstream os;
 			for (int i = pcfg.def->min_wr_wide_log2; i <= pcfg.def->max_wr_wide_log2; i++)
@@ -441,7 +441,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 			const char *note = "";
 			if (pcfg.rd_port != -1)
 				note = pcfg.def->width_tied ? " (tied)" : " (independent)";
-			log_debug("    - widths%s%s\n", widths_s.c_str(), note);
+			log_debug("    - widths%s%s\n", widths_s, note);
 		}
 		for (auto i: pcfg.emu_prio)
 			log_debug("    - emulate priority over write port %d\n", i);
@@ -449,11 +449,11 @@ void MemMapping::dump_config(MemConfig &cfg) {
 	for (int i = 0; i < GetSize(mem.rd_ports); i++) {
 		auto &pcfg = cfg.rd_ports[i];
 		if (pcfg.wr_port == -1)
-			log_debug("  - read port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str());
+			log_debug("  - read port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0]);
 		else
-			log_debug("  - read port %d: port group %s (shared with write port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str(), pcfg.wr_port);
+			log_debug("  - read port %d: port group %s (shared with write port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0], pcfg.wr_port);
 		for (auto &it: pcfg.def->options)
-			log_debug("    - option %s %s\n", it.first.c_str(), log_const(it.second));
+			log_debug("    - option %s %s\n", it.first, log_const(it.second));
 		if (cfg.def->width_mode == WidthMode::PerPort) {
 			std::stringstream os;
 			for (int i = pcfg.def->min_rd_wide_log2; i <= pcfg.def->max_rd_wide_log2; i++)
@@ -462,7 +462,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 			const char *note = "";
 			if (pcfg.wr_port != -1)
 				note = pcfg.def->width_tied ? " (tied)" : " (independent)";
-			log_debug("    - widths%s%s\n", widths_s.c_str(), note);
+			log_debug("    - widths%s%s\n", widths_s, note);
 		}
 		if (pcfg.emu_sync)
 			log_debug("    - emulate data register\n");
@@ -548,20 +548,20 @@ void MemMapping::determine_style() {
 				// Nothing.
 			} else if (val_s == "logic" || val_s == "registers") {
 				kind = RamKind::Logic;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "distributed") {
 				kind = RamKind::Distributed;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "block" || val_s == "block_ram" || val_s == "ebr") {
 				kind = RamKind::Block;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "huge" || val_s == "ultra") {
 				kind = RamKind::Huge;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else {
 				kind = RamKind::NotLogic;
 				style = val_s;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid), val_s.c_str());
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid), val_s);
 			}
 			return;
 		}
@@ -1019,7 +1019,7 @@ void MemMapping::handle_priority() {
 }
 
 bool is_all_zero(const Const &val) {
-	for (auto bit: val.bits)
+	for (auto bit: val)
 		if (bit == State::S1)
 			return false;
 	return true;
@@ -1686,7 +1686,7 @@ std::vector<SigSpec> generate_mux(Mem &mem, int rpidx, const Swizzle &swz) {
 void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, const PortVariant &pdef, const char *name, int wpidx, int rpidx, const std::vector<int> &hw_addr_swizzle) {
 	for (auto &it: pdef.options)
 		for (auto cell: cells)
-			cell->setParam(stringf("\\PORT_%s_OPTION_%s", name, it.first.c_str()), it.second);
+			cell->setParam(stringf("\\PORT_%s_OPTION_%s", name, it.first), it.second);
 	SigSpec addr = Const(State::Sx, cfg.def->abits);
 	int wide_log2 = 0, wr_wide_log2 = 0, rd_wide_log2 = 0;
 	SigSpec clk = State::S0;
@@ -1913,7 +1913,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 							if (!bit.valid) {
 								hw_val.push_back(State::Sx);
 							} else {
-								hw_val.push_back(val.bits[bit.bit]);
+								hw_val.push_back(val[bit.bit]);
 							}
 						}
 						if (pdef.rdinitval == ResetValKind::NoUndef)
@@ -1926,7 +1926,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 							if (!bit.valid) {
 								hw_val.push_back(State::Sx);
 							} else {
-								hw_val.push_back(rport.arst_value.bits[bit.bit]);
+								hw_val.push_back(rport.arst_value[bit.bit]);
 							}
 						}
 						if (pdef.rdarstval == ResetValKind::NoUndef)
@@ -1939,7 +1939,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 							if (!bit.valid) {
 								hw_val.push_back(State::Sx);
 							} else {
-								hw_val.push_back(rport.srst_value.bits[bit.bit]);
+								hw_val.push_back(rport.srst_value[bit.bit]);
 							}
 						}
 						if (pdef.rdsrstval == ResetValKind::NoUndef)
@@ -2067,7 +2067,7 @@ void MemMapping::emit(const MemConfig &cfg) {
 	for (int rp = 0; rp < cfg.repl_port; rp++) {
 		std::vector<Cell *> cells;
 		for (int rd = 0; rd < cfg.repl_d; rd++) {
-			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid.c_str(), rp, rd), cfg.def->id);
+			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid, rp, rd), cfg.def->id);
 			if (cfg.def->width_mode == WidthMode::Global)
 				cell->setParam(ID::WIDTH, cfg.def->dbits[cfg.base_width_log2]);
 			if (cfg.def->widthscale) {
@@ -2077,18 +2077,18 @@ void MemMapping::emit(const MemConfig &cfg) {
 				cell->setParam(ID::BITS_USED, val);
 			}
 			for (auto &it: cfg.def->options)
-				cell->setParam(stringf("\\OPTION_%s", it.first.c_str()), it.second);
+				cell->setParam(stringf("\\OPTION_%s", it.first), it.second);
 			for (int i = 0; i < GetSize(cfg.def->shared_clocks); i++) {
 				auto &cdef = cfg.def->shared_clocks[i];
 				auto &ccfg = cfg.shared_clocks[i];
 				if (cdef.anyedge) {
-					cell->setParam(stringf("\\CLK_%s_POL", cdef.name.c_str()), ccfg.used ? ccfg.polarity : true);
-					cell->setPort(stringf("\\CLK_%s", cdef.name.c_str()), ccfg.used ? ccfg.clk : State::S0);
+					cell->setParam(stringf("\\CLK_%s_POL", cdef.name), ccfg.used ? ccfg.polarity : true);
+					cell->setPort(stringf("\\CLK_%s", cdef.name), ccfg.used ? ccfg.clk : State::S0);
 				} else {
 					SigSpec sig = ccfg.used ? ccfg.clk : State::S0;
 					if (ccfg.used && ccfg.invert)
 						sig = mem.module->Not(NEW_ID, sig);
-					cell->setPort(stringf("\\CLK_%s", cdef.name.c_str()), sig);
+					cell->setPort(stringf("\\CLK_%s", cdef.name), sig);
 				}
 			}
 			if (cfg.def->init == MemoryInitKind::Any || cfg.def->init == MemoryInitKind::NoUndef) {
@@ -2103,7 +2103,7 @@ void MemMapping::emit(const MemConfig &cfg) {
 								if (hwa & 1 << i)
 									addr += 1 << hw_addr_swizzle[i];
 							if (addr >= mem.start_offset && addr < mem.start_offset + mem.size)
-								initval.push_back(init_data.bits[(addr - mem.start_offset) * mem.width + bit.bit]);
+								initval.push_back(init_data[(addr - mem.start_offset) * mem.width + bit.bit]);
 							else
 								initval.push_back(State::Sx);
 						}
@@ -2136,11 +2136,11 @@ void MemMapping::emit(const MemConfig &cfg) {
 				}
 				if (pg.optional)
 					for (auto cell: cells)
-						cell->setParam(stringf("\\PORT_%s_USED", pg.names[pi].c_str()), used);
+						cell->setParam(stringf("\\PORT_%s_USED", pg.names[pi]), used);
 				if (pg.optional_rw)
 					for (auto cell: cells) {
-						cell->setParam(stringf("\\PORT_%s_RD_USED", pg.names[pi].c_str()), used_r);
-						cell->setParam(stringf("\\PORT_%s_WR_USED", pg.names[pi].c_str()), used_w);
+						cell->setParam(stringf("\\PORT_%s_RD_USED", pg.names[pi]), used_r);
+						cell->setParam(stringf("\\PORT_%s_WR_USED", pg.names[pi]), used_w);
 					}
 			}
 		}
@@ -2232,17 +2232,17 @@ struct MemoryLibMapPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			MapWorker worker(module);
+			auto worker = std::make_unique<MapWorker>(module);
 			auto mems = Mem::get_selected_memories(module);
 			for (auto &mem : mems)
 			{
-				MemMapping map(worker, mem, lib, opts);
+				MemMapping map(*worker, mem, lib, opts);
 				int idx = -1;
 				int best = map.logic_cost;
 				if (!map.logic_ok) {
 					if (map.cfgs.empty()) {
 						log_debug("Rejected candidates for mapping memory %s.%s:\n", log_id(module->name), log_id(mem.memid));
-						log_debug("%s", map.rejected_cfg_debug_msgs.c_str());
+						log_debug("%s", map.rejected_cfg_debug_msgs);
 						log_error("no valid mapping found for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
 					}
 					idx = 0;
@@ -2258,6 +2258,8 @@ struct MemoryLibMapPass : public Pass {
 					log("using FF mapping for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
 				} else {
 					map.emit(map.cfgs[idx]);
+					// Rebuild indices after modifying module
+					worker = std::make_unique<MapWorker>(module);
 				}
 			}
 		}

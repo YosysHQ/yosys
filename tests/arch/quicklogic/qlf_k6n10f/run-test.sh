@@ -2,4 +2,4 @@
 set -eu
 python3 mem_gen.py
 source ../../../gen-tests-makefile.sh
-run_tests --yosys-scripts --bash
+generate_mk --yosys-scripts --bash

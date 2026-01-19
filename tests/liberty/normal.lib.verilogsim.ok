@@ -1,0 +1,123 @@
+module inv (A, Y);
+  input A;
+  output Y;
+  assign Y = (~A); // "A'"
+endmodule
+module tri_inv (A, S, Z);
+  input A;
+  input S;
+  output Z;
+  assign Z = (~A); // "A'"
+endmodule
+module buffer (A, Y);
+  input A;
+  output Y;
+  assign Y = A; // "A"
+endmodule
+module nand2 (A, B, Y);
+  input A;
+  input B;
+  output Y;
+  assign Y = (~(A&B)); // "(A * B)'"
+endmodule
+module nor2 (A, B, Y);
+  input A;
+  input B;
+  output Y;
+  assign Y = (~(A|B)); // "(A + B)'"
+endmodule
+module xor2 (A, B, Y);
+  input A;
+  input B;
+  output Y;
+  assign Y = ((A&(~B))|((~A)&B)); // "(A *B') + (A' * B)"
+endmodule
+module imux2 (A, B, S, Y);
+  input A;
+  input B;
+  input S;
+  output Y;
+  assign Y = (~((A&S)|(B&(~S)))); // "( (A * S) + (B * S') )'"
+endmodule
+module dff (D, CLK, RESET, PRESET, Q, QN);
+  reg IQ, IQN;
+  wire IQ_clear, IQ_preset;
+  input D;
+  input CLK;
+  input RESET;
+  input PRESET;
+  output Q;
+  assign Q = IQ; // "IQ"
+  output QN;
+  assign QN = IQN; // "IQN"
+  always @(posedge CLK, posedge IQ_clear, posedge IQ_preset) begin
+    if (IQ_clear) begin
+      IQ <= 0;
+    end
+    else if (IQ_preset) begin
+      IQ <= 1;
+    end
+    else begin
+      IQ <= D;
+    end
+  end
+  always @(posedge CLK, posedge IQ_clear, posedge IQ_preset) begin
+    if (IQ_preset) begin
+      IQN <= 0;
+    end
+    else if (IQ_clear) begin
+      IQN <= 1;
+    end
+    else begin
+      IQN <= ~(D);
+    end
+  end
+  assign IQ_clear = RESET;
+  assign IQ_preset = PRESET;
+endmodule
+module latch (D, G, Q, QN);
+  reg IQ, IQN;
+  input D;
+  input G;
+  output Q;
+  assign Q = IQ; // "IQ"
+  output QN;
+  assign QN = IQN; // "IQN"
+  always @* begin
+    if (G) begin
+      IQ <= D;
+      IQN <= ~(D);
+    end
+  end
+endmodule
+module aoi211 (A, B, C, Y);
+  input A;
+  input B;
+  input C;
+  output Y;
+  assign Y = (~((A&B)|C)); // "((A * B) + C)'"
+endmodule
+module oai211 (A, B, C, Y);
+  input A;
+  input B;
+  input C;
+  output Y;
+  assign Y = (~((A|B)&C)); // "((A + B) * C)'"
+endmodule
+module halfadder (A, B, C, Y);
+  input A;
+  input B;
+  output C;
+  assign C = (A&B); // "(A * B)"
+  output Y;
+  assign Y = ((A&(~B))|((~A)&B)); // "(A *B') + (A' * B)"
+endmodule
+module fulladder (A, B, CI, CO, Y);
+  input A;
+  input B;
+  input CI;
+  output CO;
+  assign CO = (((A&B)|(B&CI))|(CI&A)); // "(((A * B)+(B * CI))+(CI * A))"
+  output Y;
+  assign Y = ((A^B)^CI); // "((A^B)^CI)"
+endmodule

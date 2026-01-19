@@ -1,0 +1,43 @@
+read_verilog << EOT
+
+module test();
+  wire [31:0] in;
+  wire [31:0] out;
+  assign out = in + 16;
+endmodule
+
+EOT
+
+constmap -cell const_cell O value
+select -assert-count 1 t:const_cell r:value=16 %i
+
+design -reset
+
+read_verilog -lib << EOT
+module const_cell(O);
+parameter value=0;
+output O;
+endmodule
+EOT
+
+read_verilog << EOT
+
+module test();
+  wire [31:0] in;
+  wire [31:0] out1;
+  wire [31:0] out2;
+  assign out1 = in + 16;
+  assign out2 = in + 32;
+endmodule
+
+EOT
+
+constmap -cell const_cell O value
+
+select -assert-count 2 t:const_cell
+select -assert-count 1 r:value=16
+select -assert-count 1 r:value=32
+select -assert-count 1 test/out1 %ci* r:value=16 %i
+select -assert-count 1 test/out2 %ci* r:value=32 %i
+select -assert-count 1 t:const_cell r:value=16 %i
+select -assert-count 1 t:const_cell r:value=32 %i

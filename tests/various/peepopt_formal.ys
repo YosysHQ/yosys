@@ -1,0 +1,45 @@
+read_verilog -sv <<EOT
+module peepopt_formal_clockgateff_0(
+	input  logic clk_i,
+	input  logic ena_i,
+	input  logic enb_i,
+	output logic clk_o
+);
+
+logic en_latched;
+
+always_latch
+	if (!clk_i)
+		en_latched <= ena_i | enb_i;
+
+assign clk_o = en_latched & clk_i;
+
+endmodule
+EOT
+
+# Check original design has latch
+prep -auto-top
+select -assert-count 1 t:$dlatch
+select -assert-count 0 t:$dff
+
+# Manually execute equiv_opt like pattern so clk2fflogic is called with
+# -nopeepopt, otherwise this doesn't test anything
+design -save preopt
+check -assert
+peepopt -formalclk
+check -assert
+design -stash postopt
+
+# Create miter and clk2fflogic without peepopt
+design -copy-from preopt -as gold A:top
+design -copy-from postopt -as gate A:top
+clk2fflogic -nopeepopt
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+# Check final design has dff instead of latch
+design -load postopt
+clean
+select -assert-count 0 t:$dlatch
+select -assert-count 1 t:$dff

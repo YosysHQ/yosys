@@ -5,7 +5,7 @@ def derive(module, parameters):
 	assert module == r"python_inv"
 	if parameters.keys() != {r"\width"}:
 		raise ValueError("Invalid parameters")
-	return "ilang", r"""
+	return "rtlil", r"""
 module \impl
 	wire width {width:d} input 1 \i
 	wire width {width:d} output 2 \o

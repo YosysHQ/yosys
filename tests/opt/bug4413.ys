@@ -1,0 +1,15 @@
+read_verilog <<EOT
+module top(
+	input wire shift,
+	input wire [4:0] data,
+	output wire out
+);
+
+	wire [1:0] shift2 = shift - 1'b1;
+
+	assign out = data >> shift2;
+endmodule
+
+EOT
+
+equiv_opt -assert peepopt

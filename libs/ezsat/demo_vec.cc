@@ -19,6 +19,7 @@
 
 #include "ezminisat.h"
 #include <assert.h>
+#include <stdlib.h>
 
 #define INIT_X 123456789
 #define INIT_Y 362436069
@@ -109,4 +110,3 @@ int main()
 
 	return 0;
 }
-

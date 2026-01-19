@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -33,6 +34,11 @@ struct SampledSig {
 
 struct Clk2fflogicPass : public Pass {
 	Clk2fflogicPass() : Pass("clk2fflogic", "convert clocked FFs to generic $ff cells") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -51,6 +57,10 @@ struct Clk2fflogicPass : public Pass {
 		log("    -nolower\n");
 		log("        Do not automatically run 'chformal -lower' to lower $check cells.\n");
 		log("\n");
+		log("    -nopeepopt\n");
+		log("        Do not automatically run 'peepopt -formalclk' to rewrite clock patterns\n");
+		log("        to more formal friendly forms.\n");
+		log("\n");
 	}
 	// Active-high sampled and current value of a level-triggered control signal. Initial sampled values is low/non-asserted.
 	SampledSig sample_control(Module *module, SigSpec sig, bool polarity, bool is_fine) {
@@ -62,7 +72,7 @@ struct Clk2fflogicPass : public Pass {
 		}
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = RTLIL::Const(State::S0, GetSize(sig));
 		if (is_fine)
 			module->addFfGate(NEW_ID, sig, sampled_sig);
@@ -74,7 +84,7 @@ struct Clk2fflogicPass : public Pass {
 	SigSpec sample_control_edge(Module *module, SigSpec sig, bool polarity, bool is_fine) {
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = RTLIL::Const(polarity ? State::S1 : State::S0, GetSize(sig));
 		if (is_fine)
 			module->addFfGate(NEW_ID, sig, sampled_sig);
@@ -88,7 +98,7 @@ struct Clk2fflogicPass : public Pass {
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
 
 
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = init;
 
 		Cell *cell;
@@ -121,6 +131,7 @@ struct Clk2fflogicPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_nolower = false;
+		bool flag_nopeepopt = false;
 
 		log_header(design, "Executing CLK2FFLOGIC pass (convert clocked FFs to generic $ff cells).\n");
 
@@ -131,9 +142,19 @@ struct Clk2fflogicPass : public Pass {
 				flag_nolower = true;
 				continue;
 			}
+			if (args[argidx] == "-nopeepopt") {
+				flag_nopeepopt = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (!flag_nopeepopt) {
+			log_push();
+			Pass::call(design, "peepopt -formalclk");
+			log_pop();
+		}
 
 		bool have_check_cells = false;
 
@@ -254,7 +275,7 @@ struct Clk2fflogicPass : public Pass {
 					continue;
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

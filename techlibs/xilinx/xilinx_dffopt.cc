@@ -79,7 +79,7 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 		for (int j = 0; j < GetSize(select.second); j++)
 			if (i & 1 << idx_sel[j])
 				sel_lut_idx |= 1 << j;
-		bool select_val = (select.first.bits[sel_lut_idx] == State::S1);
+		bool select_val = (select.first[sel_lut_idx] == State::S1);
 		bool new_bit;
 		if (select_val ^ select_inv) {
 			// Use alt_data.
@@ -90,9 +90,9 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 		} else {
 			// Use original LUT.
 			int lut_idx = i >> idx_data & ((1 << GetSize(data.second)) - 1);
-			new_bit = data.first.bits[lut_idx] == State::S1;
+			new_bit = data.first[lut_idx] == State::S1;
 		}
-		result.first.bits[i] = new_bit ? State::S1 : State::S0;
+		result.first.set(i, new_bit ? State::S1 : State::S0);
 	}
 	return true;
 }
@@ -211,8 +211,8 @@ lut_sigin_done:
 				Cell *cell_d = it_D->second.second;
 				if (cell->hasParam(ID(IS_D_INVERTED)) && cell->getParam(ID(IS_D_INVERTED)).as_bool()) {
 					// Flip all bits in the LUT.
-					for (int i = 0; i < GetSize(lut_d.first); i++)
-						lut_d.first.bits[i] = (lut_d.first.bits[i] == State::S1) ? State::S0 : State::S1;
+					for (auto bit : lut_d.first)
+						bit = (bit == State::S1) ? State::S0 : State::S1;
 				}
 
 				LutData lut_d_post_ce;
@@ -305,7 +305,7 @@ unmap:
 				if (worthy_post_r) ports += " + R";
 				if (worthy_post_s) ports += " + S";
 				if (worthy_post_ce) ports += " + CE";
-				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports.c_str(), log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
+				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports, log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 
 				// Okay, we're doing it.  Unmap ports.
 				if (worthy_post_r) {

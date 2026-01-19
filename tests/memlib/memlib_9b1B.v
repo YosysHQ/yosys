@@ -1,4 +1,14 @@
-module RAM_9b1B (
+module RAM_9b1B 
+#(
+	parameter INIT = 0,
+	parameter OPTION_INIT = "UNDEFINED",
+	parameter PORT_R_WIDTH = 9,
+	parameter PORT_W_WIDTH = 9,
+	parameter PORT_R_CLK_POL = 0,
+	parameter PORT_W_CLK_POL = 0,
+	parameter PORT_W_WR_EN_WIDTH = 1
+)
+(
 	input PORT_R_CLK,
 	input [6:0] PORT_R_ADDR,
 	output reg [PORT_R_WIDTH-1:0] PORT_R_RD_DATA,
@@ -7,14 +17,6 @@ module RAM_9b1B (
 	input [6:0] PORT_W_ADDR,
 	input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA
 );
-
-parameter INIT = 0;
-parameter OPTION_INIT = "UNDEFINED";
-parameter PORT_R_WIDTH = 9;
-parameter PORT_W_WIDTH = 9;
-parameter PORT_R_CLK_POL = 0;
-parameter PORT_W_CLK_POL = 0;
-parameter PORT_W_WR_EN_WIDTH = 1;
 
 reg [8:0] mem [0:15];
 

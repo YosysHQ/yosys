@@ -77,9 +77,9 @@ struct ScopeinfoExamplePass : public Pass {
 						continue;
 					}
 
-					log("%s %s\n", wire_scope.first.path_str().c_str(), log_id(wire_scope.second));
+					log("%s %s\n", wire_scope.first.path_str(), log_id(wire_scope.second));
 					for (auto src : index.sources(wire))
-						log(" - %s\n", src.c_str());
+						log(" - %s\n", src);
 				}
 			}
 		}
@@ -90,7 +90,7 @@ struct ScopeinfoExamplePass : public Pass {
 
 				// Shuffle wires so this example produces more interesting outputs
 				std::sort(wires.begin(), wires.end(), [](Wire *a, Wire *b) {
-					return mkhash_xorshift(a->name.hash() * 0x2c9277b5) < mkhash_xorshift(b->name.hash() * 0x2c9277b5);
+					return mkhash_xorshift(run_hash(a->name) * 0x2c9277b5) < mkhash_xorshift(run_hash(b->name) * 0x2c9277b5);
 				});
 
 				ModuleHdlnameIndex index(module);

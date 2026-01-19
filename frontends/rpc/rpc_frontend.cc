@@ -83,17 +83,17 @@ struct RpcServer {
 		std::string request;
 		json_request.dump(request);
 		request += '\n';
-		log_debug("RPC frontend request: %s", request.c_str());
+		log_debug("RPC frontend request: %s", request);
 		write(request);
 
 		std::string response = read();
-		log_debug("RPC frontend response: %s", response.c_str());
+		log_debug("RPC frontend response: %s", response);
 		std::string error;
 		Json json_response = Json::parse(response, error);
 		if (json_response.is_null())
-			log_cmd_error("parsing JSON failed: %s\n", error.c_str());
+			log_cmd_error("parsing JSON failed: %s\n", error);
 		if (json_response["error"].is_string())
-			log_cmd_error("RPC frontend returned an error: %s\n", json_response["error"].string_value().c_str());
+			log_cmd_error("RPC frontend returned an error: %s\n", json_response["error"].string_value());
 		return json_response;
 	}
 
@@ -111,7 +111,7 @@ struct RpcServer {
 			}
 		} else is_valid = false;
 		if (!is_valid)
-			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump().c_str());
+			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump());
 		return modules;
 	}
 
@@ -149,7 +149,7 @@ struct RpcServer {
 			source = response["source"].string_value();
 		else is_valid = false;
 		if (!is_valid)
-			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump().c_str());
+			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump());
 		return std::make_pair(frontend, source);
 	}
 };
@@ -163,12 +163,12 @@ struct RpcModule : RTLIL::Module {
 			stripped_name = stripped_name.substr(9);
 		log_assert(stripped_name[0] == '\\');
 
-		log_header(design, "Executing RPC frontend `%s' for module `%s'.\n", server->name.c_str(), stripped_name.c_str());
+		log_header(design, "Executing RPC frontend `%s' for module `%s'.\n", server->name, stripped_name);
 
 		std::string parameter_info;
 		for (auto &param : parameters) {
-			log("Parameter %s = %s\n", param.first.c_str(), log_signal(RTLIL::SigSpec(param.second)));
-			parameter_info += stringf("%s=%s", param.first.c_str(), log_signal(RTLIL::SigSpec(param.second)));
+			log("Parameter %s = %s\n", param.first, log_signal(RTLIL::SigSpec(param.second)));
+			parameter_info += stringf("%s=%s", param.first, log_signal(RTLIL::SigSpec(param.second)));
 		}
 
 		std::string derived_name;
@@ -180,7 +180,7 @@ struct RpcModule : RTLIL::Module {
 			derived_name = "$paramod" + stripped_name + parameter_info;
 
 		if (design->has(derived_name)) {
-			log("Found cached RTLIL representation for module `%s'.\n", derived_name.c_str());
+			log("Found cached RTLIL representation for module `%s'.\n", derived_name);
 		} else {
 			std::string command, input;
 			std::tie(command, input) = server->derive_module(stripped_name.substr(1), parameters);
@@ -202,7 +202,7 @@ struct RpcModule : RTLIL::Module {
 				}
 			}
 			if (!found_derived_top)
-				log_cmd_error("RPC frontend did not return requested module `%s`!\n", stripped_name.c_str());
+				log_cmd_error("RPC frontend did not return requested module `%s`!\n", stripped_name);
 
 			for (auto module : derived_design->modules())
 				for (auto cell : module->cells())
@@ -256,7 +256,7 @@ struct HandleRpcServer : RpcServer {
 		do {
 			DWORD data_written;
 			if (!WriteFile(hsend, &data[offset], data.length() - offset, &data_written, /*lpOverlapped=*/NULL))
-				log_cmd_error("WriteFile failed: %s\n", get_last_error_str().c_str());
+				log_cmd_error("WriteFile failed: %s\n", get_last_error_str());
 			offset += data_written;
 		} while(offset < (ssize_t)data.length());
 	}
@@ -268,7 +268,7 @@ struct HandleRpcServer : RpcServer {
 			data.resize(data.length() + 1024);
 			DWORD data_read;
 			if (!ReadFile(hrecv, &data[offset], data.length() - offset, &data_read, /*lpOverlapped=*/NULL))
-				log_cmd_error("ReadFile failed: %s\n", get_last_error_str().c_str());
+				log_cmd_error("ReadFile failed: %s\n", get_last_error_str());
 			offset += data_read;
 			data.resize(offset);
 			size_t term_pos = data.find('\n', offset);
@@ -437,7 +437,7 @@ struct RpcFrontend : public Pass {
 
 			command_path_len_w = SearchPathW(/*lpPath=*/NULL, /*lpFileName=*/command_w.c_str(), /*lpExtension=*/L".exe", /*nBufferLength=*/0, /*lpBuffer=*/NULL, /*lpFilePart=*/NULL);
 			if (command_path_len_w == 0) {
-				log_error("SearchPathW failed: %s\n", get_last_error_str().c_str());
+				log_error("SearchPathW failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			command_path_w.resize(command_path_len_w - 1);
@@ -448,19 +448,19 @@ struct RpcFrontend : public Pass {
 			pipe_attr.bInheritHandle = TRUE;
 			pipe_attr.lpSecurityDescriptor = NULL;
 			if (!CreatePipe(&send_r, &send_w, &pipe_attr, /*nSize=*/0)) {
-				log_error("CreatePipe failed: %s\n", get_last_error_str().c_str());
+				log_error("CreatePipe failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			if (!SetHandleInformation(send_w, HANDLE_FLAG_INHERIT, 0)) {
-				log_error("SetHandleInformation failed: %s\n", get_last_error_str().c_str());
+				log_error("SetHandleInformation failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			if (!CreatePipe(&recv_r, &recv_w, &pipe_attr, /*nSize=*/0)) {
-				log_error("CreatePipe failed: %s\n", get_last_error_str().c_str());
+				log_error("CreatePipe failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			if (!SetHandleInformation(recv_r, HANDLE_FLAG_INHERIT, 0)) {
-				log_error("SetHandleInformation failed: %s\n", get_last_error_str().c_str());
+				log_error("SetHandleInformation failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 
@@ -470,7 +470,7 @@ struct RpcFrontend : public Pass {
 			startup_info.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 			startup_info.dwFlags |= STARTF_USESTDHANDLES;
 			if (!CreateProcessW(/*lpApplicationName=*/command_path_w.c_str(), /*lpCommandLine=*/&command_line_w[0], /*lpProcessAttributes=*/NULL, /*lpThreadAttributes=*/NULL, /*bInheritHandles=*/TRUE, /*dwCreationFlags=*/0, /*lpEnvironment=*/NULL, /*lpCurrentDirectory=*/NULL, &startup_info, &proc_info)) {
-				log_error("CreateProcessW failed: %s\n", get_last_error_str().c_str());
+				log_error("CreateProcessW failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			CloseHandle(proc_info.hProcess);
@@ -550,7 +550,7 @@ cleanup_exec:
 
 			h = CreateFileW(path_w.c_str(), GENERIC_READ|GENERIC_WRITE, /*dwShareMode=*/0, /*lpSecurityAttributes=*/NULL, /*dwCreationDisposition=*/OPEN_EXISTING, /*dwFlagsAndAttributes=*/0, /*hTemplateFile=*/NULL);
 			if (h == INVALID_HANDLE_VALUE) {
-				log_error("CreateFileW failed: %s\n", get_last_error_str().c_str());
+				log_error("CreateFileW failed: %s\n", get_last_error_str());
 				goto cleanup_path;
 			}
 
@@ -586,7 +586,7 @@ cleanup_path:
 			log_cmd_error("Failed to connect to RPC frontend.\n");
 
 		for (auto &module_name : server->get_module_names()) {
-			log("Linking module `%s'.\n", module_name.c_str());
+			log("Linking module `%s'.\n", module_name);
 			RpcModule *module = new RpcModule;
 			module->name = "$abstract\\" + module_name;
 			module->server = server;

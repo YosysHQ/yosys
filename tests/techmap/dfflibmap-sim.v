@@ -20,3 +20,12 @@ always @(posedge CLK, posedge CLEAR, posedge PRESET)
 assign QN = ~Q;
 
 endmodule
+
+module dffe(input CLK, EN, D, output reg Q, output QN);
+
+always @(negedge CLK)
+	if (EN) Q <= D;
+
+assign QN = ~Q;
+
+endmodule

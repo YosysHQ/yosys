@@ -200,6 +200,10 @@ enum cxxrtl_flag {
 	// node, such as inputs and dangling wires.
 	CXXRTL_UNDRIVEN = 1 << 4,
 
+	// Generated correspond to netlist nodes that correspond to state with an internal name, that
+	// need to be saved, but wouldn't otherwise have a debug item generated.
+	CXXRTL_GENERATED = 1 << 5,
+
 	// More object flags may be added in the future, but the existing ones will never change.
 };
 

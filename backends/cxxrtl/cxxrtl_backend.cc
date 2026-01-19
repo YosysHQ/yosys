@@ -47,7 +47,7 @@ struct Scheduler {
 	struct Vertex {
 		T *data;
 		Vertex *prev, *next;
-		pool<Vertex*, hash_ptr_ops> preds, succs;
+		pool<Vertex*> preds, succs;
 
 		Vertex() : data(NULL), prev(this), next(this) {}
 		Vertex(T *data) : data(data), prev(NULL), next(NULL) {}
@@ -200,7 +200,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux));
+		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
@@ -300,10 +300,10 @@ struct FlowGraph {
 	};
 
 	std::vector<Node*> nodes;
-	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
-	dict<Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_comb_defs, node_sync_defs, node_uses;
+	dict<const RTLIL::Wire*, pool<Node*>> wire_comb_defs, wire_sync_defs, wire_uses;
+	dict<Node*, pool<const RTLIL::Wire*>> node_comb_defs, node_sync_defs, node_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_inlinable;
-	dict<const RTLIL::Wire*, dict<Node*, bool, hash_ptr_ops>> wire_use_inlinable;
+	dict<const RTLIL::Wire*, dict<Node*, bool>> wire_use_inlinable;
 	dict<RTLIL::SigBit, bool> bit_has_state;
 
 	~FlowGraph()
@@ -328,7 +328,7 @@ struct FlowGraph {
 					node_comb_defs[node].insert(chunk.wire);
 				}
 			}
-		for (auto bit : sig.bits())
+		for (auto bit : sig)
 			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be inlined.
 		if (!is_ff && sig.is_wire()) {
@@ -365,7 +365,7 @@ struct FlowGraph {
 		return false;
 	}
 
-	bool is_inlinable(const RTLIL::Wire *wire, const pool<Node*, hash_ptr_ops> &nodes) const
+	bool is_inlinable(const RTLIL::Wire *wire, const pool<Node*> &nodes) const
 	{
 		// Can the wire be inlined, knowing that the given nodes are reachable?
 		if (nodes.size() != 1)
@@ -606,41 +606,35 @@ std::vector<std::string> split_by(const std::string &str, const std::string &sep
 	return result;
 }
 
-std::string escape_cxx_string(const std::string &input)
+std::string escape_c_string(const std::string &input)
 {
-	std::string output = "\"";
+	std::string output;
+	output.push_back('"');
 	for (auto c : input) {
 		if (::isprint(c)) {
-			if (c == '\\')
+			if (c == '\\' || c == '"')
 				output.push_back('\\');
 			output.push_back(c);
 		} else {
-			char l = c & 0xf, h = (c >> 4) & 0xf;
-			output.append("\\x");
-			output.push_back((h < 10 ? '0' + h : 'a' + h - 10));
-			output.push_back((l < 10 ? '0' + l : 'a' + l - 10));
+			char l = c & 0x7, m = (c >> 3) & 0x7, h = (c >> 6) & 0x3;
+			output.append("\\");
+			output.push_back('0' + h);
+			output.push_back('0' + m);
+			output.push_back('0' + l);
 		}
 	}
 	output.push_back('"');
+	return output;
+}
+
+std::string escape_cxx_string(const std::string &input)
+{
+	std::string output = escape_c_string(input);
 	if (output.find('\0') != std::string::npos) {
 		output.insert(0, "std::string {");
 		output.append(stringf(", %zu}", input.size()));
 	}
 	return output;
-}
-
-std::string basename(const std::string &filepath)
-{
-#ifdef _WIN32
-	const std::string dir_seps = "\\/";
-#else
-	const std::string dir_seps = "/";
-#endif
-	size_t sep_pos = filepath.find_last_of(dir_seps);
-	if (sep_pos != std::string::npos)
-		return filepath.substr(sep_pos + 1);
-	else
-		return filepath;
 }
 
 template<class T>
@@ -762,7 +756,7 @@ struct CxxrtlWorker {
 	//  1b. Generated identifiers for internal names (beginning with `$`) start with `i_`.
 	//  2. An underscore is escaped with another underscore, i.e. `__`.
 	//  3. Any other non-alnum character is escaped with underscores around its lowercase hex code, e.g. `@` as `_40_`.
-	std::string mangle_name(const RTLIL::IdString &name)
+	std::string mangle_name(RTLIL::IdString name)
 	{
 		std::string mangled;
 		bool first = true;
@@ -792,7 +786,7 @@ struct CxxrtlWorker {
 		return mangled;
 	}
 
-	std::string mangle_module_name(const RTLIL::IdString &name, bool is_blackbox = false)
+	std::string mangle_module_name(RTLIL::IdString name, bool is_blackbox = false)
 	{
 		// Class namespace.
 		if (is_blackbox)
@@ -800,19 +794,19 @@ struct CxxrtlWorker {
 		return mangle_name(name);
 	}
 
-	std::string mangle_memory_name(const RTLIL::IdString &name)
+	std::string mangle_memory_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return "memory_" + mangle_name(name);
 	}
 
-	std::string mangle_cell_name(const RTLIL::IdString &name)
+	std::string mangle_cell_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return "cell_" + mangle_name(name);
 	}
 
-	std::string mangle_wire_name(const RTLIL::IdString &name)
+	std::string mangle_wire_name(RTLIL::IdString name)
 	{
 		// Class member namespace.
 		return mangle_name(name);
@@ -856,7 +850,7 @@ struct CxxrtlWorker {
 		if (!module->has_attribute(ID(cxxrtl_template)))
 			return {};
 
-		if (module->attributes.at(ID(cxxrtl_template)).flags != RTLIL::CONST_FLAG_STRING)
+		if (!(module->attributes.at(ID(cxxrtl_template)).flags & RTLIL::CONST_FLAG_STRING))
 			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", log_id(module));
 
 		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl_template)), " \t");
@@ -1130,7 +1124,7 @@ struct CxxrtlWorker {
 		f << indent << "// cell " << cell->name.str() << " syncs\n";
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first))
-				if (is_cxxrtl_sync_port(cell, conn.first)) {
+				if (is_cxxrtl_sync_port(cell, conn.first) && !conn.second.empty()) {
 					f << indent;
 					dump_sigspec_lhs(conn.second, for_debug);
 					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
@@ -1188,6 +1182,14 @@ struct CxxrtlWorker {
 			f << ".bmux<";
 			f << cell->getParam(ID::WIDTH).as_int();
 			f << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			f << ").val()";
+		// Bitwise muxes
+		} else if (cell->type == ID($bwmux)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			f << ".bwmux(";
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			f << ",";
 			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
 			f << ").val()";
 		// Demuxes
@@ -1517,7 +1519,7 @@ struct CxxrtlWorker {
 			}
 		// Internal cells
 		} else if (is_internal_cell(cell->type)) {
-			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
+			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type);
 		// User cells
 		} else if (for_debug) {
 			// Outlines are called on demand when computing the value of a debug item. Nothing to do here.
@@ -1652,26 +1654,29 @@ struct CxxrtlWorker {
 						f << signal_temp << " == ";
 						dump_sigspec(compare, /*is_lhs=*/false, for_debug);
 					} else if (compare.is_fully_const()) {
-						RTLIL::Const compare_mask, compare_value;
+						RTLIL::Const::Builder compare_mask_builder(compare.size());
+						RTLIL::Const::Builder compare_value_builder(compare.size());
 						for (auto bit : compare.as_const()) {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits.push_back(RTLIL::S1);
-									compare_value.bits.push_back(bit);
+									compare_mask_builder.push_back(RTLIL::S1);
+									compare_value_builder.push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits.push_back(RTLIL::S0);
-									compare_value.bits.push_back(RTLIL::S0);
+									compare_mask_builder.push_back(RTLIL::S0);
+									compare_value_builder.push_back(RTLIL::S0);
 									break;
 
 								default:
 									log_assert(false);
 							}
 						}
+						RTLIL::Const compare_mask = compare_mask_builder.build();
+						RTLIL::Const compare_value = compare_value_builder.build();
 						f << "and_uu<" << compare.size() << ">(" << signal_temp << ", ";
 						dump_const(compare_mask);
 						f << ") == ";
@@ -2275,46 +2280,92 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
-	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
-	{
-		if (metadata_map.empty()) {
-			f << "metadata_map()";
-			return;
-		}
-		f << "metadata_map({\n";
-		inc_indent();
-			for (auto metadata_item : metadata_map) {
-				if (!metadata_item.first.isPublic())
-					continue;
-				if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-					f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
-					continue;
-				}
-				f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
-				// In Yosys, a real is a type of string.
-				if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
-					f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
-				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
-					f << escape_cxx_string(metadata_item.second.decode_string());
-				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
-					f << "INT64_C(" << metadata_item.second.as_int(/*is_signed=*/true) << ")";
-				} else {
-					f << "UINT64_C(" << metadata_item.second.as_int(/*is_signed=*/false) << ")";
-				}
-				f << " },\n";
+	void dump_serialized_metadata(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
+		// Creating thousands metadata_map objects using initializer lists in a single function results in one of:
+		// 1. Megabytes of stack usage (with __attribute__((optnone))).
+		// 2. Minutes of compile time (without __attribute__((optnone))).
+		// So, don't create them.
+		std::string data;
+		auto put_u64 = [&](uint64_t value) {
+			for (size_t count = 0; count < 8; count++) {
+				data += (char)(value >> 56);
+				value <<= 8;
 			}
-		dec_indent();
-		f << indent << "})";
+		};
+		for (auto metadata_item : metadata_map) {
+			if (!metadata_item.first.isPublic())
+				continue;
+			if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
+				f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
+				continue;
+			}
+			data += metadata_item.first.str().substr(1) + '\0';
+			// In Yosys, a real is a type of string.
+			if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
+				double dvalue = std::stod(metadata_item.second.decode_string());
+				uint64_t uvalue;
+				static_assert(sizeof(dvalue) == sizeof(uvalue), "double must be 64 bits in size");
+				memcpy(&uvalue, &dvalue, sizeof(uvalue));
+				data += 'd';
+				put_u64(uvalue);
+			} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
+				data += 's';
+				data += metadata_item.second.decode_string();
+				data += '\0';
+			} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
+				data += 'i';
+				put_u64((uint64_t)metadata_item.second.as_int(/*is_signed=*/true));
+			} else {
+				data += 'u';
+				put_u64(metadata_item.second.as_int(/*is_signed=*/false));
+			}
+		}
+		f << escape_c_string(data);
 	}
 
-	void dump_debug_attrs(const RTLIL::AttrObject *object)
+	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
+		if (metadata_map.empty()) {
+			f << "metadata_map()";
+		} else {
+			f << "metadata_map({\n";
+			inc_indent();
+				for (auto metadata_item : metadata_map) {
+					if (!metadata_item.first.isPublic())
+						continue;
+					if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
+						f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
+						continue;
+					}
+					f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
+					// In Yosys, a real is a type of string.
+					if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
+						f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
+					} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
+						f << escape_cxx_string(metadata_item.second.decode_string());
+					} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
+						f << "INT64_C(" << metadata_item.second.as_int(/*is_signed=*/true) << ")";
+					} else {
+						f << "UINT64_C(" << metadata_item.second.as_int(/*is_signed=*/false) << ")";
+					}
+					f << " },\n";
+				}
+			dec_indent();
+			f << indent << "})";
+		}
+	}
+
+	void dump_debug_attrs(const RTLIL::AttrObject *object, bool serialize = true)
 	{
 		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
 		// Inherently necessary to get access to the object, so a waste of space to emit.
 		attributes.erase(ID::hdlname);
 		// Internal Yosys attribute that should be removed but isn't.
 		attributes.erase(ID::module_not_derived);
-		dump_metadata_map(attributes);
+		if (serialize) {
+			dump_serialized_metadata(attributes);
+		} else {
+			dump_metadata_map(attributes);
+		}
 	}
 
 	void dump_debug_info_method(RTLIL::Module *module)
@@ -2337,7 +2388,7 @@ struct CxxrtlWorker {
 				// The module is responsible for adding its own scope.
 				f << indent << "scopes->add(path.empty() ? path : path.substr(0, path.size() - 1), ";
 				f << escape_cxx_string(get_hdl_name(module)) << ", ";
-				dump_debug_attrs(module);
+				dump_debug_attrs(module, /*serialize=*/false);
 				f << ", std::move(cell_attrs));\n";
 				count_scopes++;
 				// If there were any submodules that were flattened, the module is also responsible for adding them.
@@ -2347,11 +2398,16 @@ struct CxxrtlWorker {
 						auto module_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Module);
 						auto cell_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Cell);
 						cell_attrs.erase(ID::module_not_derived);
-						f << indent << "scopes->add(path + " << escape_cxx_string(get_hdl_name(cell)) << ", ";
-						f << escape_cxx_string(cell->get_string_attribute(ID(module))) << ", ";
-						dump_metadata_map(module_attrs);
+						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(cell)) << ", ";
+						if (module_attrs.count(ID(hdlname))) {
+							f << escape_cxx_string(module_attrs.at(ID(hdlname)).decode_string());
+						} else {
+							f << escape_cxx_string(cell->get_string_attribute(ID(module)));
+						}
 						f << ", ";
-						dump_metadata_map(cell_attrs);
+						dump_serialized_metadata(module_attrs);
+						f << ", ";
+						dump_serialized_metadata(cell_attrs);
 						f << ");\n";
 					} else log_assert(false && "Unknown $scopeinfo type");
 					count_scopes++;
@@ -2362,14 +2418,15 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires()) {
 					const auto &debug_wire_type = debug_wire_types[wire];
-					if (!wire->name.isPublic())
-						continue;
 					count_public_wires++;
 					switch (debug_wire_type.type) {
 						case WireType::BUFFERED:
 						case WireType::MEMBER: {
 							// Member wire
 							std::vector<std::string> flags;
+
+							if (!wire->name.isPublic())
+								flags.push_back("GENERATED");
 
 							if (wire->port_input && wire->port_output)
 								flags.push_back("INOUT");
@@ -2419,20 +2476,22 @@ struct CxxrtlWorker {
 							if (has_driven_sync + has_driven_comb + has_undriven > 1)
 								count_mixed_driver++;
 
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(" << mangle(wire) << ", " << wire->start_offset;
-							bool first = true;
-							for (auto flag : flags) {
-								if (first) {
-									first = false;
-									f << ", ";
-								} else {
-									f << "|";
-								}
-								f << "debug_item::" << flag;
-							}
-							f << "), ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
 							dump_debug_attrs(wire);
+							f << ", " << mangle(wire);
+							if (wire->start_offset != 0 || !flags.empty()) {
+								f << ", " << wire->start_offset;
+								bool first = true;
+								for (auto flag : flags) {
+									if (first) {
+										first = false;
+										f << ", ";
+									} else {
+										f << "|";
+									}
+									f << "debug_item::" << flag;
+								}
+							}
 							f << ");\n";
 							count_member_wires++;
 							break;
@@ -2440,16 +2499,18 @@ struct CxxrtlWorker {
 						case WireType::ALIAS: {
 							// Alias of a member wire
 							const RTLIL::Wire *aliasee = debug_wire_type.sig_subst.as_wire();
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
+							dump_debug_attrs(wire);
+							f << ", ";
 							// If the aliasee is an outline, then the alias must be an outline, too; otherwise downstream
 							// tooling has no way to find out about the outline.
 							if (debug_wire_types[aliasee].is_outline())
 								f << "debug_eval_outline";
 							else
 								f << "debug_alias()";
-							f << ", " << mangle(aliasee) << ", " << wire->start_offset << "), ";
-							dump_debug_attrs(aliasee);
+							f << ", " << mangle(aliasee);
+							if (wire->start_offset != 0)
+								f << ", " << wire->start_offset;
 							f << ");\n";
 							count_alias_wires++;
 							break;
@@ -2459,18 +2520,22 @@ struct CxxrtlWorker {
 							f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
 							dump_const(debug_wire_type.sig_subst.as_const());
 							f << ";\n";
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(const_" << mangle(wire) << ", " << wire->start_offset << "), ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
 							dump_debug_attrs(wire);
+							f << ", const_" << mangle(wire);
+							if (wire->start_offset != 0)
+								f << ", " << wire->start_offset;
 							f << ");\n";
 							count_const_wires++;
 							break;
 						}
 						case WireType::OUTLINE: {
 							// Localized or inlined, but rematerializable wire
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(debug_eval_outline, " << mangle(wire) << ", " << wire->start_offset << "), ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
 							dump_debug_attrs(wire);
+							f << ", debug_eval_outline, " << mangle(wire);
+							if (wire->start_offset != 0)
+								f << ", " << wire->start_offset;
 							f << ");\n";
 							count_inline_wires++;
 							break;
@@ -2486,15 +2551,14 @@ struct CxxrtlWorker {
 					for (auto &mem : mod_memories[module]) {
 						if (!mem.memid.isPublic())
 							continue;
-						f << indent << "items->add(path + " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem));
-						f << ", debug_item(" << mangle(&mem) << ", ";
-						f << mem.start_offset << "), ";
+						f << indent << "items->add(path, " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem)) << ", ";
 						if (mem.packed) {
 							dump_debug_attrs(mem.cell);
 						} else {
 							dump_debug_attrs(mem.mem);
 						}
-						f << ");\n";
+						f << ", " << mangle(&mem) << ", ";
+						f << mem.start_offset << ");\n";
 					}
 				}
 			dec_indent();
@@ -2506,7 +2570,7 @@ struct CxxrtlWorker {
 					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 					f << indent << mangle(cell) << access;
 					f << "debug_info(items, scopes, path + " << escape_cxx_string(get_hdl_name(cell) + ' ') << ", ";
-					dump_debug_attrs(cell);
+					dump_debug_attrs(cell, /*serialize=*/false);
 					f << ");\n";
 				}
 			}
@@ -2780,7 +2844,7 @@ struct CxxrtlWorker {
 		}
 
 		if (split_intf)
-			f << "#include \"" << basename(intf_filename) << "\"\n";
+			f << "#include \"" << name_from_file_path(intf_filename) << "\"\n";
 		else
 			f << "#include <cxxrtl/cxxrtl.h>\n";
 		f << "\n";
@@ -2967,7 +3031,7 @@ struct CxxrtlWorker {
 								if (init == RTLIL::Const()) {
 									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
 								}
-								init[bit.offset] = port.init_value[i];
+								init.set(bit.offset, port.init_value[i]);
 							}
 						}
 					}
@@ -3019,7 +3083,7 @@ struct CxxrtlWorker {
 			// without feedback arcs can generally be evaluated in a single pass, i.e. it always requires only
 			// a single delta cycle.
 			Scheduler<FlowGraph::Node> scheduler;
-			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_vertex_map;
+			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*> node_vertex_map;
 			for (auto node : flow.nodes)
 				node_vertex_map[node] = scheduler.add(node);
 			for (auto node_comb_def : flow.node_comb_defs) {
@@ -3034,7 +3098,7 @@ struct CxxrtlWorker {
 
 			// Find out whether the order includes any feedback arcs.
 			std::vector<FlowGraph::Node*> node_order;
-			pool<FlowGraph::Node*, hash_ptr_ops> evaluated_nodes;
+			pool<FlowGraph::Node*> evaluated_nodes;
 			pool<const RTLIL::Wire*> feedback_wires;
 			for (auto vertex : scheduler.schedule()) {
 				auto node = vertex->data;
@@ -3078,7 +3142,7 @@ struct CxxrtlWorker {
 			}
 
 			// Discover nodes reachable from primary outputs (i.e. members) and collect reachable wire users.
-			pool<FlowGraph::Node*, hash_ptr_ops> worklist;
+			pool<FlowGraph::Node*> worklist;
 			for (auto node : flow.nodes) {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && !is_internal_cell(node->cell->type))
 					worklist.insert(node); // node evaluates a submodule
@@ -3098,8 +3162,8 @@ struct CxxrtlWorker {
 							worklist.insert(node); // node drives public wires
 				}
 			}
-			dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> live_wires;
-			pool<FlowGraph::Node*, hash_ptr_ops> live_nodes;
+			dict<const RTLIL::Wire*, pool<FlowGraph::Node*>> live_wires;
+			pool<FlowGraph::Node*> live_nodes;
 			while (!worklist.empty()) {
 				auto node = worklist.pop();
 				live_nodes.insert(node);
@@ -3202,6 +3266,7 @@ struct CxxrtlWorker {
 						debug_wire_type = wire_type; // wire is a member
 
 					if (!debug_alias) continue;
+					if (wire->port_input || wire->port_output) continue; // preserve input/output metadata in flags
 					const RTLIL::Wire *it = wire;
 					while (flow.is_inlinable(it)) {
 						log_assert(flow.wire_comb_defs[it].size() == 1);
@@ -3228,15 +3293,15 @@ struct CxxrtlWorker {
 
 				// Discover nodes reachable from primary outputs (i.e. outlines) up until primary inputs (i.e. members)
 				// and collect reachable wire users.
-				pool<FlowGraph::Node*, hash_ptr_ops> worklist;
+				pool<FlowGraph::Node*> worklist;
 				for (auto node : flow.nodes) {
 					if (flow.node_comb_defs.count(node))
 						for (auto wire : flow.node_comb_defs[node])
 							if (debug_wire_types[wire].is_outline())
 								worklist.insert(node); // node drives outline
 				}
-				dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> debug_live_wires;
-				pool<FlowGraph::Node*, hash_ptr_ops> debug_live_nodes;
+				dict<const RTLIL::Wire*, pool<FlowGraph::Node*>> debug_live_wires;
+				pool<FlowGraph::Node*> debug_live_nodes;
 				while (!worklist.empty()) {
 					auto node = worklist.pop();
 					debug_live_nodes.insert(node);
@@ -3402,8 +3467,8 @@ struct CxxrtlWorker {
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 6;
-	static const int DEFAULT_DEBUG_LEVEL = 4;
+	static constexpr int DEFAULT_OPT_LEVEL = 6;
+	static constexpr int DEFAULT_DEBUG_LEVEL = 4;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() override
@@ -3724,7 +3789,7 @@ struct CxxrtlBackend : public Backend {
 			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
 				worker.print_output = args[++argidx];
 				if (!(worker.print_output == "std::cout" || worker.print_output == "std::cerr")) {
-					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output.c_str());
+					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output);
 					worker.print_output = "std::cout";
 				}
 				continue;

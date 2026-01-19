@@ -58,3 +58,13 @@ select -assert-count 1 t:URAM288
 #  see above for details
 select -assert-count 1 t:URAM288 %co:+[DOUT_A] w:rdata_a %i
 select -assert-none 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i
+
+# sp read or write for size 2048 x 144b
+# the two URAM ports A and B are concatenated, with port A serving LSBs and port B serving MSBs
+design -reset
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top sp_read_or_write -noiopad
+select -assert-count 1 t:URAM288
+# we expect no more than 1 LUT2 to control the hardware enable ports
+#  see above for details about this command
+select -assert-max 1 t:LUT* n:*blif* %d

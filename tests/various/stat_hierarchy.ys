@@ -1,0 +1,62 @@
+
+read_rtlil << EOT
+module \top
+  wire input 1 \A
+  wire output 2 \Y
+  wire output 3 \N
+
+  cell \sg13g2_and2_1 \sub1
+    connect \A \A
+    connect \B 1'0
+    connect \Y \Y
+  end
+
+  cell \child \sequential
+    connect \A \A
+    connect \B 1'0
+    connect \R 1'0
+    connect \Y \Y
+    connect \N \N
+  end
+
+  cell \child \sequential1
+    connect \A \A
+    connect \B 1'0
+    connect \R 1'0
+    connect \Y \Y
+    connect \N \N
+  end
+
+  cell \sg13g2_and2_1 \sub2
+    connect \A \A
+    connect \B 1'0
+    connect \Y \Y
+  end
+end
+
+module \child
+  wire input 1 \A
+  wire input 2 \B
+  wire input 3 \R
+
+  wire output 4 \Y
+  wire output 5 \N
+
+  cell \sg13g2_dfrbp_1 \sequential_ff
+    connect \CLK \A
+    connect \D \B
+    connect \Q \Y
+    connect \Q_N \N
+    connect \RESET_B \R
+  end
+
+end
+EOT
+logger -expect log "4  112.493        2   18.144 cells" 2 
+logger -expect log "2   18.144        2   18.144   sg13g2_and2_1" 2
+logger -expect log "2   94.349        -        -   sg13g2_dfrbp_1" 2
+logger -expect log "2   94.349        2        - submodules" 2
+logger -expect-no-warnings
+stat -liberty ../../tests/liberty/foundry_data/sg13g2_stdcell_typ_1p20V_25C.lib.filtered.gz -top \top -hierarchy
+
+

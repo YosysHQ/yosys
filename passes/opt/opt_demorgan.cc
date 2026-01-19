@@ -39,6 +39,10 @@ void demorgan_worker(
 		return;
 
 	auto insig = sigmap(cell->getPort(ID::A));
+
+	if (GetSize(insig) < 1)
+		return;
+
 	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
@@ -183,7 +187,7 @@ struct OptDemorganPass : public Pass {
 	{
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
 
-		int argidx = 0;
+		int argidx = 1;
 		extra_args(args, argidx, design);
 
 		unsigned int cells_changed = 0;

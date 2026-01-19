@@ -1,0 +1,121 @@
+read_verilog << EOT
+module non_self_rs_fsm (
+    input  wire clk,
+    input  wire reset,
+    output wire s1
+);
+    localparam [7:0] RST = 8'b10010010;
+    localparam [7:0] S1 = 8'b01001000;
+    localparam [7:0] S2 = 8'b11000111;
+
+    reg [7:0] current_state, next_state;
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            current_state <= RST;
+        end else begin
+            current_state <= next_state;
+        end
+    end
+
+    always @(*) begin
+        next_state = current_state;
+
+        case (current_state)
+            RST: next_state = S1;
+            S1: next_state = S2;
+            S2: next_state = S1;
+            default: next_state = RST;
+        endcase
+    end
+
+    assign s1 = next_state == S1;
+endmodule
+
+module semi_self_rs_fsm (
+    input  wire clk,
+    input wire test,
+    output wire s1
+);
+    localparam [7:0] RST = 8'b10010010;
+    localparam [7:0] S1 = 8'b01001000;
+    localparam [7:0] S2 = 8'b11000111;
+
+    reg [7:0] current_state, next_state;
+    reg [1:0] reset_test;
+
+    wire reset = (test || (reset_test == 2));
+
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            current_state <= RST;
+            reset_test <= 0;
+        end else begin
+            current_state <= next_state;
+            if (current_state == S2)
+                reset_test = reset_test + 1;
+        end
+    end
+    
+
+    always @(*) begin
+        next_state = current_state;
+
+        case (current_state)
+            RST: next_state = S1;
+            S2: next_state = S1;
+            S1: next_state = S2;
+
+            default: next_state = RST;
+        endcase
+    end
+
+    assign s1 = next_state == S1;
+endmodule
+
+module self_rs_fsm (
+    input  wire clk,
+    output wire s1
+);
+    localparam [7:0] RST = 8'b10010010;
+    localparam [7:0] S1 = 8'b01001000;
+    localparam [7:0] S2 = 8'b11000111;
+
+    reg [7:0] next_state;
+    wire reset = next_state == S1;
+
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            next_state <= RST;
+        end else begin
+            case (next_state)
+                RST: next_state = S1;
+                S1: next_state = S2;
+                S2: next_state = S1;
+                default: next_state = RST;
+            endcase
+        end
+    end
+
+
+    assign s1 = next_state == S1;
+endmodule
+
+EOT
+
+proc
+opt_expr
+opt_clean
+check
+opt -nodffe -nosdff
+
+fsm_detect 
+fsm_extract
+
+cd non_self_rs_fsm
+select -assert-count 1 t:$fsm
+
+cd semi_self_rs_fsm
+select -assert-count 1 t:$fsm
+
+cd self_rs_fsm
+select -assert-none t:$fsm

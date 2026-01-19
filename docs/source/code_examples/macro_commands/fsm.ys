@@ -1,0 +1,27 @@
+#start:It also calls opt_clean as needed:
+#end:Options:
+# Identify and extract FSMs:
+fsm_detect
+fsm_extract
+
+# Basic optimizations:
+fsm_opt
+opt_clean
+fsm_opt
+
+# Expanding to nearby gate-logic (if called with -expand):
+fsm_expand
+opt_clean
+fsm_opt
+
+# Re-code FSM states (unless called with -norecode):
+fsm_recode
+
+# Print information about FSMs:
+fsm_info
+
+# Export FSMs in KISS2 file format (if called with -export):
+fsm_export
+
+# Map FSMs to RTL cells (unless called with -nomap):
+fsm_map

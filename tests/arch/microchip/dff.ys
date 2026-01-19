@@ -1,0 +1,76 @@
+# ISC License
+# 
+# Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+# 
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+# active low async reset with enable
+read_verilog <<EOT
+module top(
+	input clk,
+	input en,
+	input rst,
+	input D,
+	output reg Q
+);
+always @(posedge clk, negedge rst) begin
+	if (rst == 0) begin
+		Q <= 1;
+	end else if(en) begin
+		Q <= D;
+	end
+end
+endmodule
+EOT
+synth_microchip -top top -family polarfire -noiopad
+select -assert-count 1 t:SLE
+select -assert-count 1 t:CLKBUF
+select -assert-none t:SLE t:CLKBUF %% t:* %D
+
+design -reset
+read_verilog -D NO_INIT ../common/dffs.v
+synth_microchip -top dff -family polarfire -noiopad
+select -assert-count 1 t:SLE
+select -assert-count 1 t:CLKBUF
+select -assert-none t:SLE t:CLKBUF %% t:* %D
+
+design -reset
+read_verilog -D NO_INIT ../common/dffs.v
+synth_microchip -top dffe -family polarfire -noiopad
+select -assert-count 1 t:SLE
+select -assert-count 1 t:CLKBUF
+select -assert-none t:SLE t:CLKBUF %% t:* %D
+
+design -reset
+read_verilog -D NO_INIT ../common/adffs.v
+synth_microchip -top adff -family polarfire -noiopad
+select -assert-count 1 t:SLE
+select -assert-count 1 t:CLKBUF
+select -assert-count 1 t:CFG1
+select -assert-none t:SLE t:CLKBUF t:CFG1 %% t:* %D
+
+design -reset
+read_verilog -D NO_INIT ../common/adffs.v
+synth_microchip -top adffn -family polarfire -noiopad
+select -assert-count 1 t:SLE
+select -assert-count 1 t:CLKBUF
+select -assert-none t:SLE t:CLKBUF %% t:* %D
+
+design -reset
+read_verilog -D NO_INIT ../common/adffs.v
+synth_microchip -top dffs -family polarfire -noiopad
+select -assert-count 1 t:SLE
+select -assert-count 1 t:CLKBUF
+select -assert-count 1 t:CFG1
+select -assert-none t:SLE t:CLKBUF t:CFG1 %% t:* %D

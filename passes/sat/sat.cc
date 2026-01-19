@@ -21,17 +21,12 @@
 // Niklas Een and Niklas Sörensson (2003)
 // http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.8161
 
-#include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
 #include "kernel/sigtools.h"
-#include "kernel/log.h"
 #include "kernel/satgen.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <algorithm>
-#include <errno.h>
-#include <string.h>
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -111,9 +106,9 @@ struct SatHelper
 			RTLIL::SigSpec lhs, rhs;
 
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first);
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second);
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
@@ -132,9 +127,9 @@ struct SatHelper
 			RTLIL::SigSpec lhs, rhs;
 
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first);
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second);
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
@@ -153,7 +148,7 @@ struct SatHelper
 			RTLIL::SigSpec lhs;
 
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s);
 			show_signal_pool.add(sigmap(lhs));
 
 			log("Import unset-constraint for this timestep: %s\n", log_signal(lhs));
@@ -172,28 +167,28 @@ struct SatHelper
 		for (auto &s : sets_def) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].insert(sig);
 		}
 
 		for (auto &s : sets_any_undef) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[1].insert(sig);
 		}
 
 		for (auto &s : sets_all_undef) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[2].insert(sig);
 		}
 
 		for (auto &s : sets_def_at[timestep]) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].insert(sig);
 			sets_def_undef[1].erase(sig);
 			sets_def_undef[2].erase(sig);
@@ -202,7 +197,7 @@ struct SatHelper
 		for (auto &s : sets_any_undef_at[timestep]) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].erase(sig);
 			sets_def_undef[1].insert(sig);
 			sets_def_undef[2].erase(sig);
@@ -211,7 +206,7 @@ struct SatHelper
 		for (auto &s : sets_all_undef_at[timestep]) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].erase(sig);
 			sets_def_undef[1].erase(sig);
 			sets_def_undef[2].insert(sig);
@@ -300,9 +295,9 @@ struct SatHelper
 				RTLIL::SigSpec lhs, rhs;
 
 				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first);
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second);
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
@@ -367,9 +362,9 @@ struct SatHelper
 				RTLIL::SigSpec lhs, rhs;
 
 				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-					log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
+					log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first);
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-					log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
+					log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second);
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
@@ -395,9 +390,9 @@ struct SatHelper
 				RTLIL::SigSpec lhs, rhs;
 
 				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-					log_cmd_error("Failed to parse lhs proof-x expression `%s'.\n", s.first.c_str());
+					log_cmd_error("Failed to parse lhs proof-x expression `%s'.\n", s.first);
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-					log_cmd_error("Failed to parse rhs proof-x expression `%s'.\n", s.second.c_str());
+					log_cmd_error("Failed to parse rhs proof-x expression `%s'.\n", s.second);
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
@@ -545,7 +540,7 @@ struct SatHelper
 			for (auto &s : shows) {
 				RTLIL::SigSpec sig;
 				if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-					log_cmd_error("Failed to parse show expression `%s'.\n", s.c_str());
+					log_cmd_error("Failed to parse show expression `%s'.\n", s);
 				log("Import show expression: %s\n", log_signal(sig));
 				modelSig.append(sig);
 			}
@@ -625,24 +620,28 @@ struct SatHelper
 		int last_timestep = -2;
 		for (auto &info : modelInfo)
 		{
-			RTLIL::Const value;
 			bool found_undef = false;
 
+			RTLIL::Const::Builder value_builder(info.width);
 			for (int i = 0; i < info.width; i++) {
-				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
-				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits.back() = RTLIL::State::Sx, found_undef = true;
+				RTLIL::State bit = modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0;
+				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i)) {
+					bit = RTLIL::State::Sx;
+					found_undef = true;
+				}
+				value_builder.push_back(bit);
 			}
+			RTLIL::Const value = value_builder.build();
 
 			if (info.timestep != last_timestep) {
 				const char *hline = "---------------------------------------------------------------------------------------------------"
 						    "---------------------------------------------------------------------------------------------------"
 						    "---------------------------------------------------------------------------------------------------";
 				if (last_timestep == -2) {
-					log(max_timestep > 0 ? "  Time " : "  ");
+					log("%s", max_timestep > 0 ? "  Time " : "  ");
 					log("%-*s %11s %9s %*s\n", maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
 				}
-				log(max_timestep > 0 ? "  ---- " : "  ");
+				log("%s", max_timestep > 0 ? "  ---- " : "  ");
 				log("%*.*s %11.11s %9.9s %*.*s\n", maxModelName+5, maxModelName+5,
 						hline, hline, hline, maxModelWidth+3, maxModelWidth+3, hline);
 				last_timestep = info.timestep;
@@ -657,9 +656,9 @@ struct SatHelper
 				log("  ");
 
 			if (info.width <= 32 && !found_undef)
-				log("%-*s %11d %9x %*s\n", maxModelName+5, info.description.c_str(), value.as_int(), value.as_int(), maxModelWidth+3, value.as_string().c_str());
+				log("%-*s %11d %9x %*s\n", maxModelName+5, info.description, value.as_int(), value.as_int(), maxModelWidth+3, value.as_string());
 			else
-				log("%-*s %11s %9s %*s\n", maxModelName+5, info.description.c_str(), "--", "--", maxModelWidth+3, value.as_string().c_str());
+				log("%-*s %11s %9s %*s\n", maxModelName+5, info.description, "--", "--", maxModelWidth+3, value.as_string());
 		}
 
 		if (last_timestep == -2)
@@ -671,9 +670,9 @@ struct SatHelper
 		rewrite_filename(vcd_file_name);
 		FILE *f = fopen(vcd_file_name.c_str(), "w");
 		if (!f)
-			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name.c_str(), strerror(errno));
+			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name, strerror(errno));
 
-		log("Dumping SAT model to VCD file %s\n", vcd_file_name.c_str());
+		log("Dumping SAT model to VCD file %s\n", vcd_file_name);
 
 		time_t timestamp;
 		struct tm* now;
@@ -691,7 +690,7 @@ struct SatHelper
 		fprintf(f, "    %s\n", stime);
 		fprintf(f, "$end\n");
 		fprintf(f, "$version\n");
-		fprintf(f, "    Generated by %s\n", yosys_version_str);
+		fprintf(f, "    Generated by %s\n", yosys_maybe_version());
 		fprintf(f, "$end\n");
 		fprintf(f, "$comment\n");
 		fprintf(f, "    Generated from SAT problem in module %s (declared at %s)\n",
@@ -737,13 +736,14 @@ struct SatHelper
 		int last_timestep = -2;
 		for (auto &info : modelInfo)
 		{
-			RTLIL::Const value;
-
+			RTLIL::Const::Builder value_builder(info.width);
 			for (int i = 0; i < info.width; i++) {
-				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				RTLIL::State bit = modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0;
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits.back() = RTLIL::State::Sx;
+					bit = RTLIL::State::Sx;
+				value_builder.push_back(bit);
 			}
+			RTLIL::Const value = value_builder.build();
 
 			if (info.timestep != last_timestep) {
 				if(last_timestep == 0)
@@ -754,11 +754,11 @@ struct SatHelper
 			}
 
 			if(info.width == 1) {
-				fprintf(f, "%c%s\n", bitvals[value.bits[0]], vcdnames[info.description].c_str());
+				fprintf(f, "%c%s\n", bitvals[value[0]], vcdnames[info.description].c_str());
 			} else {
 				fprintf(f, "b");
 				for(int k=info.width-1; k >= 0; k --)	//need to flip bit ordering for VCD
-					fprintf(f, "%c", bitvals[value.bits[k]]);
+					fprintf(f, "%c", bitvals[value[k]]);
 				fprintf(f, " %s\n", vcdnames[info.description].c_str());
 			}
 		}
@@ -775,21 +775,23 @@ struct SatHelper
 		rewrite_filename(json_file_name);
 		FILE *f = fopen(json_file_name.c_str(), "w");
 		if (!f)
-			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name.c_str(), strerror(errno));
+			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name, strerror(errno));
 
-		log("Dumping SAT model to WaveJSON file '%s'.\n", json_file_name.c_str());
+		log("Dumping SAT model to WaveJSON file '%s'.\n", json_file_name);
 
 		int mintime = 1, maxtime = 0, maxwidth = 0;;
 		dict<string, pair<int, dict<int, Const>>> wavedata;
 
 		for (auto &info : modelInfo)
 		{
-			Const value;
+			RTLIL::Const::Builder value_builder(info.width);
 			for (int i = 0; i < info.width; i++) {
-				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				RTLIL::State bit = modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0;
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits.back() = RTLIL::State::Sx;
+					bit = RTLIL::State::Sx;
+				value_builder.push_back(bit);
 			}
+			Const value = value_builder.build();
 
 			wavedata[info.description].first = info.width;
 			wavedata[info.description].second[info.timestep] = value;
@@ -902,6 +904,11 @@ void print_qed()
 
 struct SatPass : public Pass {
 	SatPass() : Pass("sat", "solve a SAT problem in the circuit") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1528,9 +1535,9 @@ struct SatPass : public Pass {
 							rewrite_filename(cnf_file_name);
 							FILE *f = fopen(cnf_file_name.c_str(), "w");
 							if (!f)
-								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
+								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name, strerror(errno));
 
-							log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+							log("Dumping CNF to file `%s'.\n", cnf_file_name);
 							cnf_file_name.clear();
 
 							inductstep.ez->printDIMACS(f, false);
@@ -1632,9 +1639,9 @@ struct SatPass : public Pass {
 				rewrite_filename(cnf_file_name);
 				FILE *f = fopen(cnf_file_name.c_str(), "w");
 				if (!f)
-					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
+					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name, strerror(errno));
 
-				log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+				log("Dumping CNF to file `%s'.\n", cnf_file_name);
 				cnf_file_name.clear();
 
 				sathelper.ez->printDIMACS(f, false);

@@ -676,10 +676,10 @@ void ezSAT::preSolverCallback()
 bool ezSAT::solver(const std::vector<int>&, std::vector<bool>&, const std::vector<int>&)
 {
 	preSolverCallback();
-	fprintf(stderr, "************************************************************************\n");
-	fprintf(stderr, "ERROR: You are trying to use the solve() method of the ezSAT base class!\n");
+	fprintf(stderr, "*************************************************************************\n");
+	fprintf(stderr, "ERROR: You are trying to use the solver() method of the ezSAT base class!\n");
 	fprintf(stderr, "Use a dervied class like ezMiniSAT instead.\n");
-	fprintf(stderr, "************************************************************************\n");
+	fprintf(stderr, "*************************************************************************\n");
 	abort();
 }
 
@@ -1332,7 +1332,7 @@ void ezSAT::printInternalState(FILE *f) const
 		fprintf(f, "\n");
 	}
 	if (cnfConsumed)
-		fprintf(f, " *** more clauses consumed via cnfConsume() ***\n");
+		fprintf(f, " *** more clauses consumed via consumeCnf() ***\n");
 
 	fprintf(f, "--8<-- snap --8<--\n");
 }

@@ -292,7 +292,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 	SigSet<std::pair<RTLIL::IdString, int>> sig2port;
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), autoidx++), needle->name);
+	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), needle->name);
 
 	// create cell ports
 	for (auto wire : needle->wires()) {
@@ -605,7 +605,7 @@ struct ExtractPass : public Pass {
 					f.open(filename.c_str());
 					if (f.fail()) {
 						delete map;
-						log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+						log_cmd_error("Can't open map file `%s'.\n", filename);
 					}
 					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 					f.close();
@@ -627,7 +627,7 @@ struct ExtractPass : public Pass {
 			for (auto module : map->modules()) {
 				SubCircuit::Graph mod_graph;
 				std::string graph_name = "needle_" + RTLIL::unescape_id(module->name);
-				log("Creating needle graph %s.\n", graph_name.c_str());
+				log("Creating needle graph %s.\n", graph_name);
 				if (module2graph(mod_graph, module, constports)) {
 					solver.addGraph(graph_name, mod_graph);
 					needle_map[graph_name] = module;
@@ -638,7 +638,7 @@ struct ExtractPass : public Pass {
 		for (auto module : design->modules()) {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "haystack_" + RTLIL::unescape_id(module->name);
-			log("Creating haystack graph %s.\n", graph_name.c_str());
+			log("Creating haystack graph %s.\n", graph_name);
 			if (module2graph(mod_graph, module, constports, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : nullptr)) {
 				solver.addGraph(graph_name, mod_graph);
 				haystack_map[graph_name] = module;
@@ -654,7 +654,7 @@ struct ExtractPass : public Pass {
 
 			for (auto needle : needle_list)
 			for (auto &haystack_it : haystack_map) {
-				log("Solving for %s in %s.\n", ("needle_" + RTLIL::unescape_id(needle->name)).c_str(), haystack_it.first.c_str());
+				log("Solving for %s in %s.\n", ("needle_" + RTLIL::unescape_id(needle->name)), haystack_it.first);
 				solver.solve(results, "needle_" + RTLIL::unescape_id(needle->name), haystack_it.first, false);
 			}
 			log("Found %d matches.\n", GetSize(results));
@@ -665,11 +665,11 @@ struct ExtractPass : public Pass {
 
 				for (int i = 0; i < int(results.size()); i++) {
 					auto &result = results[i];
-					log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId.c_str(), result.haystackGraphId.c_str());
+					log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId, result.haystackGraphId);
 					for (const auto &it : result.mappings) {
-						log("  %s -> %s", it.first.c_str(), it.second.haystackNodeId.c_str());
+						log("  %s -> %s", it.first, it.second.haystackNodeId);
 						for (const auto & it2 : it.second.portMapping)
-							log(" %s:%s", it2.first.c_str(), it2.second.c_str());
+							log(" %s:%s", it2.first, it2.second);
 						log("\n");
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
@@ -693,7 +693,7 @@ struct ExtractPass : public Pass {
 				log("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
 				log("  primary match in %s:", log_id(haystack_map.at(result.graphId)->name));
 				for (auto &node : result.nodes)
-					log(" %s", RTLIL::unescape_id(node.nodeId).c_str());
+					log(" %s", RTLIL::unescape_id(node.nodeId));
 				log("\n");
 				for (auto &it : result.matchesPerGraph)
 					log("  matches in %s: %d\n", log_id(haystack_map.at(it.first)->name), it.second);
@@ -744,7 +744,7 @@ struct ExtractPass : public Pass {
 			rewrite_filename(mine_outfile);
 			f.open(mine_outfile.c_str(), std::ofstream::trunc);
 			if (f.fail())
-				log_error("Can't open output file `%s'.\n", mine_outfile.c_str());
+				log_error("Can't open output file `%s'.\n", mine_outfile);
 			Backend::backend_call(map, &f, mine_outfile, "rtlil");
 			f.close();
 		}

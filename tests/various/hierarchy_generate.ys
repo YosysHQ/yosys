@@ -1,0 +1,20 @@
+read_verilog -icells <<EOF
+module top(input [2:0] a, input [2:0] b, output [2:0] y);
+
+sub sub_i (.a(a[0]), .b(b[0]), .y(y[0]));
+
+unknown_sub sub_ii (.a(a[1]), .b(b[1]), .y(y[1]));
+
+$__dunder_sub sub_iii (.a(a[2]), .b(b[2]), .y(y[2]));
+
+endmodule
+
+module sub(input a, input b, output y);
+    assign y = a ^ b;
+endmodule
+EOF
+hierarchy -generate unknown_sub i:a i:b o:y
+hierarchy -generate $__dunder_sub i:a i:b o:y
+hierarchy -generate $xor i:A i:B o:Y # this one is ignored
+hierarchy -top top -check
+check -assert

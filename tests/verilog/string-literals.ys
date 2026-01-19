@@ -1,0 +1,257 @@
+# Test valid escape sequences yield correct results:
+logger -expect-no-warnings
+read_verilog << EOF
+module top;
+	wire[7:0] sp = "\ ";
+	wire[7:0] spval = 32;
+	wire[7:0] ex = "\!";
+	wire[7:0] exval = 33;
+	wire[7:0] dq = "\"";
+	wire[7:0] dqval = 34;
+	wire[7:0] ha = "\#";
+	wire[7:0] haval = 35;
+	wire[7:0] do = "\$";
+	wire[7:0] doval = 36;
+	wire[7:0] pc = "\%";
+	wire[7:0] pcval = 37;
+	wire[7:0] am = "\&";
+	wire[7:0] amval = 38;
+	wire[7:0] sq = "\'";
+	wire[7:0] sqval = 39;
+	wire[7:0] op = "\(";
+	wire[7:0] opval = 40;
+	wire[7:0] cp = "\)";
+	wire[7:0] cpval = 41;
+	wire[7:0] as = "\*";
+	wire[7:0] asval = 42;
+	wire[7:0] pl = "\+";
+	wire[7:0] plval = 43;
+	wire[7:0] co = "\,";
+	wire[7:0] coval = 44;
+	wire[7:0] mi = "\-";
+	wire[7:0] mival = 45;
+	wire[7:0] do = "\.";
+	wire[7:0] doval = 46;
+	wire[7:0] sl = "\/";
+	wire[7:0] slval = 47;
+
+	wire[7:0] dig0 = "\012";
+	wire[7:0] dig0val = 10;
+	wire[7:0] dig8 = "\8"; // not octal, a literal '8'
+	wire[7:0] dig8val = 56;
+	wire[7:0] dig9 = "\9"; // not octal, a literal '9'
+	wire[7:0] dig9val = 57;
+	
+	wire[7:0] cl = "\:";
+	wire[7:0] clval = 58;
+	wire[7:0] sc = "\;";
+	wire[7:0] scval = 59;
+	wire[7:0] lt = "\<";
+	wire[7:0] ltval = 60;
+	wire[7:0] eq = "\=";
+	wire[7:0] eqval = 61;
+	wire[7:0] gt = "\>";
+	wire[7:0] gtval = 62;
+	wire[7:0] qu = "\?";
+	wire[7:0] quval = 63;
+	wire[7:0] at = "\@";
+	wire[7:0] atval = 64;
+
+	wire[7:0] A = "\A";
+	wire[7:0] Aval = 65; // etc. etc.
+
+	wire[7:0] os = "\[";
+	wire[7:0] osval = 91;
+	wire[7:0] bs = "\\";
+	wire[7:0] bsval = 92;
+	wire[7:0] cs = "\]";
+	wire[7:0] csval = 93;
+	wire[7:0] ca = "\^";
+	wire[7:0] caval = 94;
+	wire[7:0] us = "\_";
+	wire[7:0] usval = 95;
+	wire[7:0] bq = "\`";
+	wire[7:0] bqval = 96;
+
+	wire[7:0] a = "\a"; // alert, ASCII BEL=7
+	wire[7:0] aval = 7;
+	wire[7:0] b = "\b";
+	wire[7:0] bval = 98;
+	wire[7:0] c = "\c";
+	wire[7:0] cval = 99;
+	wire[7:0] d = "\d";
+	wire[7:0] dval = 100;
+	wire[7:0] e = "\e";
+	wire[7:0] eval = 101;
+	wire[7:0] f = "\f"; // form feed, ASCII FF=12
+	wire[7:0] fval = 12;
+	wire[7:0] g = "\g";
+	wire[7:0] gval = 103;
+	wire[7:0] h = "\h";
+	wire[7:0] hval = 104;
+	wire[7:0] i = "\i";
+	wire[7:0] ival = 105;
+	wire[7:0] j = "\j";
+	wire[7:0] jval = 106;
+	wire[7:0] k = "\k";
+	wire[7:0] kval = 107;
+	wire[7:0] l = "\l";
+	wire[7:0] lval = 108;
+	wire[7:0] m = "\m";
+	wire[7:0] mval = 109;
+	wire[7:0] n = "\n"; // new line, ASCII LF=10
+	wire[7:0] nval = 10;
+	wire[7:0] o = "\o";
+	wire[7:0] oval = 111;
+	wire[7:0] p = "\p";
+	wire[7:0] pval = 112;
+	wire[7:0] q = "\q";
+	wire[7:0] qval = 113;
+	wire[7:0] r = "\r"; // carriage return, ASCII CR=13, not IEEE 1800-2023
+	wire[7:0] rval = 13;
+	wire[7:0] s = "\s";
+	wire[7:0] sval = 115;
+	wire[7:0] t = "\t"; // tab, ASCII HT=9
+	wire[7:0] tval = 9;
+	wire[7:0] u = "\u";
+	wire[7:0] uval = 117;
+	wire[7:0] v = "\v"; // vertical tab, ASCII VT=11
+	wire[7:0] vval = 11;
+	wire[7:0] w = "\w";
+	wire[7:0] wval = 119;
+	wire[7:0] x = "\x2A"; // hex escape
+	wire[7:0] xval = 42;
+	wire[7:0] y = "\y";
+	wire[7:0] yval = 121;
+	wire[7:0] z = "\z";
+	wire[7:0] zval = 122;
+
+	wire[7:0] ob = "\{";
+	wire[7:0] obval = 123;
+	wire[7:0] vb = "\|";
+	wire[7:0] vbval = 124;
+	wire[7:0] cb = "\}";
+	wire[7:0] cbval = 125;
+	wire[7:0] ti = "\~";
+	wire[7:0] tival = 126;
+endmodule
+EOF
+sat -prove sp spval -prove ex exval -prove dq dqval -prove ha haval -prove do doval -prove pc pcval -prove am amval -prove sq sqval -prove op opval -prove cp cpval -prove as asval -prove pl plval -prove co coval -prove mi mival -prove do doval -prove sl slval -verify
+sat -prove dig0 dig0val -prove dig8 dig8val -prove dig9 dig9val -verify
+sat -prove cl clval -prove sc scval -prove lt ltval -prove eq eqval -prove gt gtval -prove qu quval -prove at atval -prove A Aval -verify
+sat -prove os osval -prove bs bsval -prove cs csval -prove ca caval -prove us usval -prove bq bqval -verify
+sat -prove a aval -prove b bval -prove c cval -prove d dval -prove e eval -prove f fval -prove g gval -prove h hval -prove i ival -prove j jval -prove k kval -prove l lval -prove m mval -prove n nval -prove o oval -prove p pval -prove q qval -prove r rval -prove s sval -prove t tval -prove u uval -prove v vval -prove w wval -prove x xval -prove y yval -prove z zval -verify
+sat -prove ob obval -prove vb vbval -prove cb cbval -prove ti tival -verify
+logger -check-expected
+design -reset
+
+# Test octal escape out of range.
+logger -expect warning "octal escape exceeds \\377" 1
+read_verilog << EOF
+module top;
+	wire[7:0] x = "\400";
+endmodule
+EOF
+logger -check-expected
+design -reset
+
+# Test invalid octal digit.
+logger -expect warning "'\?' not a valid digit in octal escape sequence" 1
+read_verilog << EOF
+module top;
+	wire[7:0] x = "\0?";
+endmodule
+EOF
+logger -check-expected
+design -reset
+
+# Test invalid hex digit.
+logger -expect warning "'X' not a valid digit in hex escape sequence" 1
+read_verilog << EOF
+module top;
+	wire[7:0] x = "\x0X";
+endmodule
+EOF
+logger -check-expected
+design -reset
+
+# Test hex escape with no hex digits at all.
+logger -expect warning "ignoring invalid hex escape" 1
+read_verilog << EOF
+module top;
+	wire[7:0] x = "\xy";
+endmodule
+EOF
+logger -check-expected
+design -reset
+
+# Test hex escape interrupted by end of string.
+logger -expect warning "ignoring invalid hex escape" 1
+read_verilog << EOF
+module top;
+	wire[7:0] x = "\x";
+endmodule
+EOF
+logger -check-expected
+design -reset
+
+# Test multi-line string.
+logger -expect warning "Multi-line string literals should be triple-quoted or escaped" 1
+read_verilog << EOF
+module top;
+	wire[31:0] x = "A
+BC";
+	wire[31:0] xval = 32'h410A4243;
+endmodule
+EOF
+logger -check-expected
+design -reset
+
+# Test multi-line triple-quoted string.
+logger -expect-no-warnings
+read_verilog << EOF
+module top;
+	wire[31:0] x = """A
+BC""";
+	wire[31:0] xval = 32'h410A4243;
+endmodule
+EOF
+logger -check-expected
+sat -prove x xval -verify
+design -reset
+
+# Test escaped multi-line string.
+logger -expect-no-warnings
+read_verilog << EOF
+module top;
+	wire[31:0] x = "AB\
+CD";
+	wire[31:0] xval = 32'h41424344;
+endmodule
+EOF
+logger -check-expected
+sat -prove x xval -verify
+design -reset
+
+# Test octal escape with surrounding data.
+logger -expect-no-warnings
+read_verilog << EOF
+module top;
+	wire[31:0] x = "AB\234C";
+	wire[31:0] xval = 32'h41429C43;
+endmodule
+EOF
+logger -check-expected
+sat -prove x xval -verify
+design -reset
+
+# Test hex escape with surrounding data.
+logger -expect-no-warnings
+read_verilog << EOF
+module top;
+	wire[31:0] x = "A\xBCDE";
+	wire[31:0] xval = 32'h41BC4445;
+endmodule
+EOF
+logger -check-expected
+sat -prove x xval -verify

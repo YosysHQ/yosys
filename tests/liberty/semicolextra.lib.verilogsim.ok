@@ -1,0 +1,12 @@
+module DFF (D, CK, Q);
+  reg IQ, IQN;
+  input D;
+  input CK;
+  output Q;
+  always @(posedge CK) begin
+      IQ <= D;
+  end
+  always @(posedge CK) begin
+      IQN <= ~(D);
+  end
+endmodule

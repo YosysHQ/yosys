@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://raw.githubusercontent.com/YosysHQ/yosys/master/misc/jny.schema.json",
+	"$id": "https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json",
 	"title": "Yosys JSON Netlist metadata",
 	"description": "Yosys JSON Netlist",
 	"type": "object",

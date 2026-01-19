@@ -171,8 +171,7 @@ struct AigmapPass : public Pass {
 				module->remove(cell);
 
 			if (select_mode) {
-				log_assert(!design->selection_stack.empty());
-				RTLIL::Selection& sel = design->selection_stack.back();
+				RTLIL::Selection& sel = design->selection();
 				sel.selected_members[module->name] = std::move(new_sel);
 			}
 

@@ -27,10 +27,10 @@ YOSYS_NAMESPACE_BEGIN
 
 struct FfInitVals
 {
-	const SigMap *sigmap;
+	const SigMapView *sigmap;
 	dict<SigBit, std::pair<State,SigBit>> initbits;
 
-	void set(const SigMap *sigmap_, RTLIL::Module *module)
+	void set(const SigMapView *sigmap_, RTLIL::Module *module)
 	{
 		sigmap = sigmap_;
 		initbits.clear();
@@ -74,10 +74,10 @@ struct FfInitVals
 
 	RTLIL::Const operator()(const RTLIL::SigSpec &sig) const
 	{
-		RTLIL::Const res;
+		RTLIL::Const::Builder res_bits(GetSize(sig));
 		for (auto bit : sig)
-			res.bits.push_back((*this)(bit));
-		return res;
+			res_bits.push_back((*this)(bit));
+		return res_bits.build();
 	}
 
 	void set_init(RTLIL::SigBit bit, RTLIL::State val)
@@ -93,12 +93,12 @@ struct FfInitVals
 		initbits[mbit] = std::make_pair(val,abit);
 		auto it2 = abit.wire->attributes.find(ID::init);
 		if (it2 != abit.wire->attributes.end()) {
-			it2->second[abit.offset] = val;
+			it2->second.set(abit.offset, val);
 			if (it2->second.is_fully_undef())
 				abit.wire->attributes.erase(it2);
 		} else if (val != State::Sx) {
 			Const cval(State::Sx, GetSize(abit.wire));
-			cval[abit.offset] = val;
+			cval.set(abit.offset, val);
 			abit.wire->attributes[ID::init] = cval;
 		}
 	}
@@ -126,7 +126,7 @@ struct FfInitVals
 		initbits.clear();
 	}
 
-	FfInitVals (const SigMap *sigmap, RTLIL::Module *module)
+	FfInitVals (const SigMapView *sigmap, RTLIL::Module *module)
 	{
 		set(sigmap, module);
 	}

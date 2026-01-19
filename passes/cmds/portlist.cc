@@ -19,12 +19,18 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct PortlistPass : public Pass {
 	PortlistPass() : Pass("portlist", "list (top-level) ports") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -69,7 +75,7 @@ struct PortlistPass : public Pass {
 			}
 			log("module %s%s\n", log_id(module), m_mode ? " (" : "");
 			for (int i = 0; i < GetSize(ports); i++)
-				log("%s%s\n", ports[i].c_str(), m_mode && i+1 < GetSize(ports) ? "," : "");
+				log("%s%s\n", ports[i], m_mode && i+1 < GetSize(ports) ? "," : "");
 			if (m_mode)
 				log(");\nendmodule\n");
 		};

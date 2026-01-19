@@ -1,0 +1,15 @@
+ram distributed $__NX_RFB_L_ {
+    abits 6;
+    width 16;
+    cost 10;
+    init no_undef;
+    prune_rom;
+
+    port sw "W" {
+        clock anyedge;
+    }
+    port sr "R" {
+        clock anyedge;
+        rden;
+    }
+}

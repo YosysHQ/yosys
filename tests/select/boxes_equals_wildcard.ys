@@ -1,0 +1,6 @@
+read_verilog -specify boxes.v
+clean
+
+select -assert-count 3 =c:*
+select -assert-count 10 =w:*
+select -assert-count 13 =*

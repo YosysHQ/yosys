@@ -1,4 +1,4 @@
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 4 input 0 \S

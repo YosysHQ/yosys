@@ -1,0 +1,83 @@
+# based on the peepopt_formal.ys test
+read_verilog -sv <<EOT
+module peepopt_formal_clockgateff_0(
+	input  logic clk_i,
+	input  logic ena_i,
+	input  logic enb_i,
+	input  logic enc_i,
+	input  logic d_0_i,
+	input  logic d_1_i,
+	output logic clk_o,
+	output logic d_0_o,
+	output logic d_1_o,
+    output logic d_2_o
+);
+
+logic en_latched;
+initial d_0_o = '0;
+initial d_1_o = '0;
+initial en_latched = '0;
+initial d_2_o = '0;
+
+reg mem [4];
+
+initial begin
+    mem[0] = 0;
+    mem[1] = 0;
+    mem[2] = 0;
+    mem[3] = 0;
+end
+reg [1:0] counter = 0;
+
+always_latch
+	if (!clk_i)
+		en_latched <= ena_i | enb_i;
+
+assign clk_o = en_latched & clk_i;
+
+always @(posedge clk_o)
+	d_0_o <= d_0_i;
+
+always @(posedge clk_o)
+	if (enc_i)
+		d_1_o <= d_1_i;
+
+
+always @(posedge clk_o) begin
+    counter <= counter + 1;
+    mem[counter] <= mem[counter] + 1;
+    d_2_o <= mem[counter] + 1;
+end;
+
+
+
+endmodule
+EOT
+
+# Check original design has latch
+prep -auto-top
+opt_dff
+select -assert-count 1 t:$dlatch
+
+# Manually execute equiv_opt like pattern so clk2fflogic is called with
+# -nopeepopt, otherwise this doesn't test everything
+design -save preopt
+check -assert
+formalff -declockgate
+
+design -save postopt
+
+delete -output */clk_o
+clean -purge
+select -assert-count 0 t:$dlatch
+
+design -reset
+
+# Create miter and clk2fflogic without peepopt
+design -copy-from preopt -as gold A:top
+design -copy-from postopt -as gate A:top
+clk2fflogic -nopeepopt
+
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+memory_map -formal
+sat -prove-asserts -seq 16 -show-public -verify equiv

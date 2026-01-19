@@ -1,0 +1,9 @@
+# check memory_collect doesn't produce invalid RTLIL on a memory w/o read ports
+read_rtlil <<EOF
+autoidx 1
+attribute \top 1
+module \top
+  memory width 4 size 3 \foo
+end
+EOF
+memory_collect

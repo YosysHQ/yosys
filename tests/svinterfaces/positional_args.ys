@@ -1,0 +1,33 @@
+read_verilog -sv << EOF
+interface simple_if;
+    logic receiver;
+    logic driver;
+endinterface
+
+module driver_mod(simple_if intf, input in);
+    assign intf.driver = in;
+endmodule
+
+module receiver_mod(simple_if intf);
+    assign intf.receiver = intf.driver;
+endmodule
+
+module top(
+    input logic [1:0] inputs,
+    output logic [1:0] outputs
+);
+    simple_if intf0();
+    simple_if intf1();
+
+    driver_mod d0(intf0, inputs[0]);
+    driver_mod d1(intf1, inputs[1]);
+
+    receiver_mod r0(intf0);
+    receiver_mod r1(intf1);
+
+    assign outputs = {intf0.receiver, intf1.receiver};
+endmodule
+EOF
+
+logger -expect error "Unable to connect.* with positional interface" 1
+hierarchy -top top

@@ -1,0 +1,39 @@
+read_verilog -specify boxes.v
+
+design -save read
+select -assert-none =a:test_attr
+select -assert-none =A:test_attr
+
+# setattr =* affects all modules
+setattr -set test_attr 1 =*
+select -assert-mod-count 3 =a:test_attr
+select -assert-none =A:test_attr
+
+design -load read
+setattr -mod -set test_attr 1 =*
+select -assert-none =a:test_attr
+select -assert-mod-count 3 =A:test_attr
+
+# setattr * doesn't affect boxed modules
+design -load read
+setattr -mod -set test_attr 1 *
+select -assert-mod-count 1 =A:test_attr
+
+# setattr can set and unset whitebox attr
+design -load read
+setattr -mod -unset whitebox =wb
+select -assert-mod-count 2 *
+setattr -mod -set whitebox 1 wb
+select -assert-mod-count 1 *
+
+# wbflip works on all non-bb in selection
+design -load read
+select -assert-mod-count 1 =A:whitebox
+wbflip
+select -assert-mod-count 2 =A:whitebox
+wbflip
+select -assert-mod-count 2 =A:whitebox
+wbflip =wb
+select -assert-mod-count 1 =A:whitebox
+wbflip =bb
+select -assert-mod-count 1 =A:whitebox

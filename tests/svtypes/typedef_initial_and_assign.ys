@@ -11,4 +11,4 @@ logger -expect warning "reg '\\var_19' is assigned in a continuous assignment" 1
 read_verilog -sv typedef_initial_and_assign.sv
 hierarchy; proc; opt; async2sync
 select -module top
-sat -verify -seq 1 -tempinduct -prove-asserts -show-all
+sat -verify -tempinduct -prove-asserts -show-all

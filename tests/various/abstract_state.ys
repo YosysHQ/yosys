@@ -1,0 +1,178 @@
+read_verilog <<EOT
+
+module half_clock (CLK, Q, magic);
+	input CLK;
+	output reg Q;
+	input magic;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+
+EOT
+proc
+design -save half_clock
+
+# -----------------------------------------------------------------------------
+# An empty selection causes no change
+select -none
+
+logger -expect log "Abstracted 0 stateful cells" 1
+	abstract -state -enablen magic
+logger -check-expected
+
+logger -expect log "Abstracted 0 init bits" 1
+	abstract -init
+logger -check-expected
+
+logger -expect log "Abstracted 0 driver ports" 1
+	abstract -value -enablen magic
+logger -check-expected
+
+select -clear
+# -----------------------------------------------------------------------------
+design -load half_clock
+# Basic -state test
+abstract -state -enablen magic
+check -assert
+# Connections to dff D input port
+select -set conn_to_d t:$dff %x:+[D] t:$dff %d
+# The D input port is fed with a mux
+select -set mux @conn_to_d %ci t:$mux %i
+select -assert-count 1 @mux
+# The S input port is fed with the magic wire
+select -assert-count 1 @mux %x:+[S] w:magic %i
+# The A input port is fed with an anyseq
+select -assert-count 1 @mux %x:+[A] %ci t:$anyseq %i
+# The B input port is fed with the negated Q
+select -set not @mux %x:+[B] %ci t:$not %i
+select -assert-count 1 @not %x:+[A] o:Q %i
+
+design -load half_clock
+# Same thing, inverted polarity
+abstract -state -enable magic
+check -assert
+select -set conn_to_d t:$dff %x:+[D] t:$dff %d
+select -set mux @conn_to_d %ci t:$mux %i
+select -assert-count 1 @mux
+select -assert-count 1 @mux %x:+[S] w:magic %i
+# so we get swapped A and B
+select -assert-count 1 @mux %x:+[B] %ci t:$anyseq %i
+select -set not @mux %x:+[A] %ci t:$not %i
+select -assert-count 1 @not %x:+[A] o:Q %i
+# -----------------------------------------------------------------------------
+design -reset
+read_verilog <<EOT
+module wide_flop_no_q (CLK, DDD, QQQ, magic);
+	input CLK;
+	input [2:0] DDD;
+	output reg [2:0] QQQ;
+	input magic;
+	always @(posedge CLK)
+		QQQ <= DDD;
+endmodule
+EOT
+proc
+opt_expr
+opt_dff
+dump
+abstract -state -enablen magic -slice 0 w:QQQ
+check -assert
+# Connections to dff D input port
+select -set conn_to_d t:$dff %x:+[D] t:$dff %d
+# The D input port is partially fed with a mux
+select -set mux @conn_to_d %ci t:$mux %i
+select -assert-count 1 @mux
+# and also the DDD input
+select -assert-count 1 @conn_to_d w:DDD %i
+# The S input port is fed with the magic wire
+select -assert-count 1 @mux %x:+[S] w:magic %i
+# The A input port is fed with an anyseq
+select -assert-count 1 @mux %x:+[A] %ci t:$anyseq %i
+# The B input port is fed with DDD
+select -assert-count 1 @mux %x:+[B] %ci w:DDD %i
+# -----------------------------------------------------------------------------
+# Selecting wire Q connected to bit 0 of QQQ is the same as specifying
+# QQQ with the -slice 0 argument
+design -reset
+read_verilog <<EOT
+module wide_flop (CLK, DDD, QQQ, Q, magic);
+	input CLK;
+	input [2:0] DDD;
+	output reg [2:0] QQQ;
+	output reg Q;
+	input magic;
+	always @(posedge CLK)
+		QQQ <= DDD;
+	assign Q = QQQ[0];
+endmodule
+EOT
+proc
+design -save wide_flop
+# Test that abstracting an output slice muxes an input slice
+abstract -state -enablen magic w:Q
+check -assert
+# Same testing as previous case
+select -set conn_to_d t:$dff %x:+[D] t:$dff %d
+select -set mux @conn_to_d %ci t:$mux %i
+select -assert-count 1 @mux
+select -assert-count 1 @conn_to_d w:DDD %i
+select -assert-count 1 @mux %x:+[S] w:magic %i
+select -assert-count 1 @mux %x:+[A] %ci t:$anyseq %i
+select -assert-count 1 @mux %x:+[B] %ci w:DDD %i
+# -----------------------------------------------------------------------------
+design -reset
+read_verilog <<EOT
+module half_clock_en (CLK, E, Q, magic);
+	input CLK;
+	input E;
+	output reg Q;
+	input magic;
+	always @(posedge CLK)
+        if (E)
+            Q <= ~Q;
+endmodule
+EOT
+proc
+opt_expr
+opt_dff
+design -save half_clock_en
+# Test that abstracting a $dffe unmaps the enable
+select -assert-count 1 t:$dffe
+abstract -state -enablen magic
+check -assert
+select -assert-count 0 t:$dffe
+select -assert-count 1 t:$dff
+# -----------------------------------------------------------------------------
+design -reset
+read_verilog <<EOT
+module top (CLK, E, Q, Q_EN);
+	input CLK;
+	input E;
+	output reg Q;
+	output reg Q_EN;
+	half_clock uut (CLK, Q, 1'b0);
+	half_clock_en uut_en (CLK, E, Q_EN, 1'b0);
+endmodule
+EOT
+proc
+design -import half_clock
+design -import half_clock_en
+hierarchy -check -top top
+# Test when the abstraction is disabled (enable is inactive),
+# the equivalence is preserved
+rename top top_gold
+design -save gold
+abstract -state -enable magic half_clock half_clock_en
+flatten
+rename top_gold top_gate
+design -save gate
+design -load gold
+flatten
+design -import gate -as top_gate
+
+equiv_make top_gold top_gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
+# The reader may verify that this model checking is functional
+# by changing -enable to -enablen in the abstract pass invocation above
+# -----------------------------------------------------------------------------

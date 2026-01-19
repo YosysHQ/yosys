@@ -59,7 +59,7 @@ struct OptLutInsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (techname != "" && techname != "xilinx" && techname != "lattice" && techname != "ecp5" && techname != "gowin")
-			log_cmd_error("Unsupported technology: '%s'\n", techname.c_str());
+			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
 		for (auto module : design->selected_modules())
 		{
@@ -78,7 +78,7 @@ struct OptLutInsPass : public Pass {
 				if (techname == "") {
 					if (cell->type != ID($lut))
 						continue;
-					inputs = cell->getPort(ID::A).bits();
+					inputs = cell->getPort(ID::A);
 					output = cell->getPort(ID::Y);
 					lut = cell->getParam(ID::LUT);
 				} else if (techname == "xilinx" || techname == "gowin") {
@@ -213,7 +213,7 @@ struct OptLutInsPass : public Pass {
 						}
 						lidx |= val << j;
 					}
-					new_lut[i] = lut[lidx];
+					new_lut.set(i, lut[lidx]);
 				}
 				// For lattice, and gowin do not replace with a const driver — the nextpnr
 				// packer requires a complete set of LUTs for wide LUT muxes.
@@ -278,7 +278,7 @@ struct OptLutInsPass : public Pass {
 				module->remove(cell);
 		}
 	}
-} XilinxDffOptPass;
+} OptLutInsPass;
 
 PRIVATE_NAMESPACE_END
 

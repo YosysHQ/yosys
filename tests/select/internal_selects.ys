@@ -1,0 +1,165 @@
+read_verilog boxes.v
+
+## base case, no warnings ##
+logger -expect-no-warnings
+
+select =*
+select -assert-count 13 %
+select -assert-mod-count 3 %
+test_select # SELECT_ALL && SB_ALL
+select -assert-count 13 %
+select -assert-mod-count 3 %
+
+select =*
+select -assert-mod-count 3 %
+test_select -whole_only # SELECT_WHOLE_ONLY
+select -assert-mod-count 3 %
+
+select =*
+select -assert-count 13 %
+test_select -unboxed_only -include_wb # SB_EXCL_BB_ONLY
+select -assert-count 10 %
+
+select =*
+select -assert-count 13 %
+test_select -unboxed_only # SB_UNBOXED_ONLY
+select -assert-count 5 %
+
+logger -check-expected
+
+## don't add to selection ##
+select *
+select -assert-count 5 %
+select -assert-mod-count 1 %
+test_select # SELECT_ALL && SB_ALL
+select -assert-count 5 %
+select -assert-mod-count 1 %
+
+select =wb/a %n
+select -assert-mod-count 3 %
+test_select -whole_only # SELECT_WHOLE_ONLY
+select -assert-mod-count 2 %
+
+select =w:*
+select -assert-mod-count 3 %
+test_select -whole_only # SELECT_WHOLE_ONLY
+select -assert-mod-count 1 %
+
+select =w:*
+select -assert-mod-count 3 %
+test_select -whole_only -unboxed_only # SELECT_WHOLE_ONLY && SB_UNBOXED_ONLY
+select -assert-none %
+
+select =w:* %n
+select -assert-mod-count 2 %
+test_select -whole_only # SELECT_WHOLE_ONLY
+select -assert-none %
+
+select =?b
+select -assert-count 8 %
+test_select -unboxed_only -include_wb # SB_EXCL_BB_ONLY
+select -assert-count 5 %
+
+select =?b
+select -assert-count 8 %
+test_select -unboxed_only # SB_UNBOXED_ONLY
+select -assert-none %
+
+select =wb %n
+select -assert-count 8 %
+test_select -unboxed_only -include_wb # SB_EXCL_BB_ONLY
+select -assert-count 5 %
+
+select =top/a %n
+select -assert-count 12 %
+select -assert-mod-count 3 %
+test_select -whole_only -unboxed_only -include_wb # SELECT_WHOLE_ONLY && SB_EXCL_BB_ONLY
+select -assert-count 5 %
+select -assert-mod-count 1 %
+
+## warnings work ##
+logger -expect warning "Ignoring blackbox module bb." 1
+select =*
+test_select -unboxed_only -include_wb -warn_boxes # SB_EXCL_BB_WARN
+logger -check-expected
+
+logger -expect warning "Ignoring boxed module .b." 2
+select =*
+test_select -unboxed_only -warn_boxes # SB_UNBOXED_WARN
+logger -check-expected
+
+logger -expect warning "Ignoring partially selected module [wb|top]." 2
+select =w:*
+test_select -whole_warn # SELECT_WHOLE_WARN
+logger -check-expected
+
+logger -expect warning "Ignoring partially selected module [wb|top]." 2
+logger -expect warning "Ignoring blackbox module bb." 1
+select =w:*
+test_select -whole_warn -unboxed_only -include_wb -warn_boxes # SELECT_WHOLE_WARN && SB_EXCL_BB_WARN
+logger -check-expected
+
+logger -expect warning "Ignoring partially selected module [wb|top]." 2
+logger -expect warning "Ignoring boxed module bb." 1
+select =w:*
+test_select -whole_warn -unboxed_only -warn_boxes # SELECT_WHOLE_WARN && SB_UNBOXED_WARN
+logger -check-expected
+
+## partials warn before boxes ##
+logger -expect warning "Ignoring partially selected module wb." 1
+select =wb/a
+test_select -whole_warn -unboxed_only -warn_boxes # SELECT_WHOLE_WARN && SB_UNBOXED_WARN
+logger -check-expected
+
+## boxes won't warn if they've been removed because of partial selection ##
+logger -expect-no-warnings
+select =wb/a
+test_select -whole_only -unboxed_only -warn_boxes # SELECT_WHOLE_ONLY && SB_UNBOXED_WARN
+logger -check-expected
+
+## boxes still warn if they're not partially selected
+logger -expect warning "Ignoring boxed module wb." 1
+select =bb %n
+test_select -whole_only -unboxed_only -warn_boxes # SELECT_WHOLE_ONLY && SB_UNBOXED_WARN
+logger -check-expected
+
+## don't warn if it's not selected ##
+logger -expect-no-warnings
+select =bb %n
+test_select -unboxed_only -include_wb -warn_boxes # SB_EXCL_BB_WARN
+logger -check-expected
+
+logger -expect-no-warnings
+select *
+test_select -unboxed_only -warn_boxes # SB_UNBOXED_WARN
+logger -check-expected
+
+logger -expect warning "Ignoring boxed module bb." 1
+select =wb %n
+test_select -unboxed_only -warn_boxes # SB_UNBOXED_WARN
+logger -check-expected
+
+## don't error if it's not selected ##
+logger -expect-no-warnings
+
+select =bb %n
+test_select -unboxed_only -include_wb -err_boxes # SB_EXCL_BB_ERR
+
+select =bb %n
+test_select -unboxed_only -include_wb -cmderr_boxes # SB_EXCL_BB_CMDERR
+
+select *
+test_select -unboxed_only -err_boxes # SB_UNBOXED_ERR
+
+select *
+test_select -unboxed_only -cmderr_boxes # SB_UNBOXED_CMDERR
+
+select *
+test_select -whole_err # SELECT_WHOLE_ERR
+
+select *
+test_select -whole_cmderr # SELECT_WHOLE_CMDERR
+
+logger -check-expected
+
+##

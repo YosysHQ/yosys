@@ -1,0 +1,52 @@
+read_rtlil <<EOT
+module \pdk_not
+
+  wire input 1 \A
+  wire output 2 \Y
+
+  cell $_NOT_ \not
+    connect \A \A
+    connect \Y \Y
+  end
+
+end
+
+module \pdk_buf
+
+  wire input 1 \A
+  wire output 2 \Y
+
+  cell $_BUF_ \buf
+    connect \A \A
+    connect \Y \Y
+  end
+
+end
+
+module \top
+  wire input 1 \A
+  wire output 2 \Y
+  wire \w
+
+  cell \pdk_buf \buf
+    connect \A \A
+    connect \Y \w
+  end
+
+  cell \pdk_not \not
+    connect \A \w
+    connect \Y \Y
+  end
+
+end
+EOT
+
+cellmatch -derive_luts *
+
+select -set buffers a:lut=2'b10 %m
+select -set inverters a:lut=2'b01 %m
+
+select -assert-count 1 t:@buffers t:pdk_buf %i
+select -assert-count 0 t:@buffers t:pdk_not %i
+select -assert-count 0 t:@inverters t:pdk_buf %i
+select -assert-count 1 t:@inverters t:pdk_not %i

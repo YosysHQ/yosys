@@ -1,7 +1,7 @@
 // The MLAB
 // --------
 // In addition to Logic Array Blocks (LABs) that contain ten Adaptive Logic
-// Modules (ALMs, see alm_sim.v), the Cyclone V/10GX also contain
+// Modules (ALMs, see alm_sim.v), the Cyclone V also contains
 // Memory/Logic Array Blocks (MLABs) that can act as either ten ALMs, or utilise
 // the memory the ALM uses to store the look-up table data for general usage,
 // producing a 32 address by 20-bit block of memory. MLABs are spread out
@@ -14,11 +14,8 @@
 // or shift registers (by using the output of the Nth bit as input for the N+1th
 // bit).
 //
-// Oddly, instead of providing a block 32 address by 20-bit cell, Quartus asks
-// synthesis tools to build MLABs out of 32 address by 1-bit cells, and tries
-// to put these cells in the same MLAB during cell placement. Because of this
-// a MISTRAL_MLAB cell represents one of these 32 address by 1-bit cells, and
-// 20 of them represent a physical MLAB.
+// For historical reasons a MISTRAL_MLAB cell represents a 32 address by 1-bit cell,
+// and 20 of them represent a physical MLAB.
 //
 // How the MLAB works
 // ------------------
@@ -28,10 +25,7 @@
 // by the Yosys `memory_bram` pass, and it doesn't make sense to me to use
 // `techmap` just for the sake of renaming the cell ports.
 //
-// The MLAB can be initialised to any value, but unfortunately Quartus only
-// allows memory initialisation from a file. Since Yosys doesn't preserve input
-// file information, or write the contents of an `initial` block to a file,
-// Yosys can't currently initialise the MLAB in a way Quartus will accept.
+// The MLAB can be initialised to any value.
 //
 // The MLAB takes in data from A1DATA at the rising edge of CLK1, and if A1EN
 // is high, writes it to the address in A1ADDR. A1EN can therefore be used to
@@ -39,9 +33,7 @@
 //
 // Simultaneously, the MLAB reads data from B1ADDR, and outputs it to B1DATA,
 // asynchronous to CLK1 and ignoring A1EN. If a synchronous read is needed
-// then the output can be fed to embedded flops. Presently, Yosys assumes
-// Quartus will pack external flops into the MLAB, but this is an assumption
-// that needs testing.
+// then the output can be fed to embedded flops.
 
 // The vendor sim model outputs 'x for a very short period (a few
 // combinational delta cycles) after each write. This has been omitted from
@@ -57,33 +49,6 @@ module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN,
 reg [31:0] mem = 32'b0;
 
 `ifdef cyclonev
-specify
-    $setup(A1ADDR, posedge CLK1, 86);
-    $setup(A1DATA, posedge CLK1, 86);
-    $setup(A1EN, posedge CLK1, 86);
-
-    (B1ADDR[0] => B1DATA) = 487;
-    (B1ADDR[1] => B1DATA) = 475;
-    (B1ADDR[2] => B1DATA) = 382;
-    (B1ADDR[3] => B1DATA) = 284;
-    (B1ADDR[4] => B1DATA) = 96;
-endspecify
-`endif
-`ifdef arriav
-specify
-    $setup(A1ADDR, posedge CLK1, 62);
-    $setup(A1DATA, posedge CLK1, 62);
-    $setup(A1EN, posedge CLK1, 62);
-
-    (B1ADDR[0] => B1DATA) = 370;
-    (B1ADDR[1] => B1DATA) = 292;
-    (B1ADDR[2] => B1DATA) = 218;
-    (B1ADDR[3] => B1DATA) = 74;
-    (B1ADDR[4] => B1DATA) = 177;
-endspecify
-`endif
-`ifdef cyclone10gx
-// TODO: Cyclone 10 GX timings; the below timings are for Cyclone V
 specify
     $setup(A1ADDR, posedge CLK1, 86);
     $setup(A1DATA, posedge CLK1, 86);
@@ -132,17 +97,6 @@ specify
     $setup(B1EN, posedge CLK1, 161);
 
     if (B1EN) (posedge CLK1 => (B1DATA : A1DATA)) = 1004;
-endspecify
-`endif
-`ifdef arriav
-specify
-    $setup(A1ADDR, posedge CLK1, 97);
-    $setup(A1DATA, posedge CLK1, 74);
-    $setup(A1EN, posedge CLK1, 109);
-    $setup(B1ADDR, posedge CLK1, 97);
-    $setup(B1EN, posedge CLK1, 126);
-
-    if (B1EN) (posedge CLK1 => (B1DATA : A1DATA)) = 787;
 endspecify
 `endif
 

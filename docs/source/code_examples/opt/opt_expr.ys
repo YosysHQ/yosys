@@ -1,0 +1,17 @@
+read_verilog <<EOT
+
+module uut(
+    input a,
+    output y, z
+);  
+    assign y = a == a;
+    assign z = a != a;
+endmodule
+
+EOT
+
+copy uut after
+opt_expr after
+clean
+
+show -format dot -prefix opt_expr_full -notitle -color cornflowerblue uut

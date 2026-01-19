@@ -1,0 +1,125 @@
+pattern muldiv_c
+//
+// Authored by Akash Levy and Alain Dargelas of Silimate, Inc. under ISC license.
+// Transforms mul->div into const->mul when b and c are divisible constants:
+// y = (a * b_const) / c_const   ===>   a * eval(b_const / c_const)
+//
+
+state <SigSpec> a b_const mul_y
+
+match mul
+	// Select multiplier
+	select mul->type == $mul
+endmatch
+
+code a b_const mul_y
+	// Get multiplier signals
+	a = port(mul, \A);
+	b_const = port(mul, \B);
+	mul_y = port(mul, \Y);
+
+	// Fanout of each multiplier Y bit should be 1 (no bit-split)
+	if (nusers(mul_y) != 2)
+		reject;
+
+	// A and B can be interchanged
+	branch;
+	std::swap(a, b_const);
+endcode
+
+match div
+	// Select div of form (a * b_const) / c_const
+	select div->type == $div
+
+	// Check that b_const and c_const is constant
+	filter b_const.is_fully_const()
+	filter port(div, \B).is_fully_const()
+	index <SigSpec> remove_bottom_padding(port(div, \A)) === mul_y
+endmatch
+
+code
+	// Get div signals
+	SigSpec div_a = port(div, \A);
+	SigSpec c_const = port(div, \B);
+	SigSpec div_y = port(div, \Y);
+
+	// Get offset of multiplier result chunk in divider
+	int offset = GetSize(div_a) - GetSize(mul_y);
+
+	// Get properties and values of b_const and c_const
+	// b_const may be coming from the A port
+	// But it is an RTLIL invariant that A_SIGNED equals B_SIGNED
+	bool b_const_signed = mul->getParam(ID::B_SIGNED).as_bool();
+	bool c_const_signed = div->getParam(ID::B_SIGNED).as_bool();
+	int b_const_int = b_const.as_int(b_const_signed);
+	int c_const_int = c_const.as_int(c_const_signed);
+	int b_const_int_shifted = b_const_int << offset;
+
+	// Helper lambdas for two's complement math	
+	auto sign2sComplement = [](auto value, int numBits) {
+  		if (value & (1 << (numBits - 1))) {
+   			return -1; 
+  		} else {
+   		    return 1; 
+  		}
+	};
+	auto twosComplement = [](auto value, int numBits) {
+  		if (value & (1 << (numBits - 1))) {
+   			return (~value) + 1; // invert bits before adding 1
+  		} else {
+   		    return value; 
+  		}
+	};
+
+	// Two's complement conversion
+	if (b_const_signed)
+		b_const_int = sign2sComplement(b_const_int, GetSize(b_const)) * twosComplement(b_const_int, GetSize(b_const));
+	if (c_const_signed)
+		c_const_int = sign2sComplement(c_const_int, GetSize(c_const)) * twosComplement(c_const_int, GetSize(c_const));
+	// Calculate the constant and compress the width to fit the value
+	Const const_ratio;
+	Const b_const_actual;
+	// Avoid division by zero
+	if (c_const_int == 0)
+		reject;
+	b_const_actual = b_const_int_shifted;
+	b_const_actual.compress(b_const_signed);
+
+	const_ratio = b_const_int_shifted / c_const_int;
+	const_ratio.compress(b_const_signed | c_const_signed);
+
+	// Integer values should be lesser than 32 bits
+	// This is because we are using C++ types, and int is 32 bits
+	// FIXME: use long long or BigInteger to make pass work with >32 bits
+	if (GetSize(mul->getParam(ID::B_WIDTH)) > 32)
+		reject;
+	if (GetSize(b_const) > 32)
+		reject;
+	if (GetSize(c_const) + offset > 32)
+		reject;
+
+	// Check for potential multiplier overflow
+	if (GetSize(b_const_actual) + GetSize(a) > GetSize(mul_y))
+		reject;
+
+	// Check that there are only zeros before offset
+	if (offset < 0 || !div_a.extract(0, offset).is_fully_zero())
+		reject;
+
+	// Check that b is divisible by c
+	if (b_const_int_shifted % c_const_int != 0)
+		reject;
+
+	// Rewire to only keep multiplier
+	mul->setPort(\A, a);
+	mul->setPort(\B, const_ratio);
+	mul->setPort(\Y, div_y);
+
+	// Remove divider
+	autoremove(div);
+
+	// Log, fixup, accept
+	log("muldiv_const pattern in %s: mul=%s, div=%s\n", log_id(module), log_id(mul), log_id(div));
+	mul->fixup_parameters();
+	accept;
+endcode

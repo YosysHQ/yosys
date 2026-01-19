@@ -1,4 +1,4 @@
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 4 input 0 \A
@@ -22,7 +22,7 @@ select -assert-count 1 t:$demux r:WIDTH=4 %i
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 2 input 1 \S
@@ -45,7 +45,7 @@ select -assert-count 0 t:$demux
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 5 input 0 \A
@@ -69,7 +69,7 @@ select -assert-count 1 t:$demux r:S_WIDTH=2 %i
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 5 input 0 \A

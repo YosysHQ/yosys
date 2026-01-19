@@ -1,0 +1,145 @@
+# Dual-port RAMs.
+# NX_RFB_U in mode 0 (DPREG)
+
+read_verilog <<EOT
+module lutram_dpreg
+#(parameter D_WIDTH=18, A_WIDTH=5)
+(
+	input [D_WIDTH-1:0] data,
+	input [A_WIDTH:1] addr_w, addr_r,
+	input we, clk,
+	output reg [D_WIDTH-1:0] q
+);
+	// Declare the RAM variable
+	reg [D_WIDTH-1:0] ram[(2**A_WIDTH)-1:0];
+
+	// Port A
+	always @ (posedge clk)
+	begin
+		if (we)
+			ram[addr_w] <= data;
+		q <= ram[addr_r];
+	end
+endmodule
+EOT
+
+hierarchy -top lutram_dpreg
+proc
+memory -nomap
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_dpreg
+stat
+select -assert-count 1 t:NX_RFB_U r:mode=0 %i
+select -assert-count 18 t:NX_DFF
+select -assert-none t:NX_RFB_U t:NX_DFF %% t:* %D
+
+# Single-port RAMs.
+# NX_RFB_U in mode 1 (SPREG)
+design -reset
+
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r -chparam A_WIDTH 5 -chparam D_WIDTH 18
+proc
+memory -nomap
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 1 t:NX_RFB_U r:mode=1 %i
+select -assert-count 18 t:NX_DFF
+select -assert-none t:NX_RFB_U t:NX_DFF %% t:* %D
+
+# Dual-port RAMs.
+# NX_RFB_U in mode 2 (NX_XRFB_64x18)
+design -reset
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r -chparam A_WIDTH 6 -chparam D_WIDTH 18
+proc
+memory -nomap
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 1 t:NX_RFB_U r:mode=2 %i
+select -assert-count 18 t:NX_DFF
+select -assert-none t:NX_RFB_U t:NX_DFF %% t:* %D
+
+# Dual-port RAMs.
+# NX_RFB_U in mode 3 (NX_XRFB_32x36)
+design -reset
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r -chparam A_WIDTH 5 -chparam D_WIDTH 36
+proc
+memory -nomap
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 1 t:NX_RFB_U r:mode=3 %i
+select -assert-count 36 t:NX_DFF
+select -assert-none t:NX_RFB_U t:NX_DFF %% t:* %D
+
+# Single write dual read RAMs.
+# NX_RFB_U in mode 4 (NX_XRFB_2R_1W)
+design -reset
+
+read_verilog <<EOT
+module lutram_1w2r
+#(parameter D_WIDTH=8, A_WIDTH=5)
+(
+	input [D_WIDTH-1:0] data_a, data_b,
+	input [A_WIDTH:1] addr_a, addr_b,
+	input we_a, clk,
+	output reg [D_WIDTH-1:0] q_a, q_b
+);
+	// Declare the RAM variable
+	reg [D_WIDTH-1:0] ram[(2**A_WIDTH)-1:0];
+
+	// Port A
+	always @ (posedge clk)
+	begin
+		if (we_a)
+			ram[addr_a] <= data_a;
+		q_a <= ram[addr_a];
+		q_b <= ram[addr_b];
+	end
+endmodule
+EOT
+
+hierarchy -top lutram_1w2r -chparam A_WIDTH 5 -chparam D_WIDTH 18
+proc
+memory -nomap
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w2r
+select -assert-count 1 t:NX_RFB_U r:mode=4 %i
+select -assert-count 36 t:NX_DFF
+select -assert-none t:NX_RFB_U t:NX_DFF %% t:* %D

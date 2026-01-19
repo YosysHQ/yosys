@@ -1,0 +1,3 @@
+module SRAM (CE1);
+  input CE1;
+endmodule

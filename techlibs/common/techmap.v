@@ -59,7 +59,7 @@ module _90_simplemap_compare_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$pos $slice $concat $mux $tribuf $bmux $bwmux $bweqx" *)
+(* techmap_celltype = "$buf $pos $slice $concat $mux $tribuf $bmux $bwmux $bweqx" *)
 module _90_simplemap_various;
 endmodule
 
@@ -207,7 +207,7 @@ module _90_fa (A, B, C, X, Y);
 endmodule
 
 (* techmap_celltype = "$lcu" *)
-module _90_lcu (P, G, CI, CO);
+module _90_lcu_brent_kung (P, G, CI, CO);
 	parameter WIDTH = 2;
 
 	(* force_downto *)
@@ -283,14 +283,21 @@ module _90_alu (A, B, CI, BI, X, Y, CO);
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(X), .G(AA & BB), .CI(CI), .CO(CO));
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] P;
+	wire [Y_WIDTH-1:0] G;
+	wire [Y_WIDTH-1:0] Cnull;
+	assign Cnull = 1'b0;
 
-	assign X = AA ^ BB;
+	\$fa #(.WIDTH(Y_WIDTH)) fa (.A(AA), .B(BB), .C(Cnull), .X(G), .Y(P));
+	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(P), .G(G), .CI(CI), .CO(CO));
+
+	assign X = P;
 	assign Y = X ^ {CO, CI};
 endmodule
 
 (* techmap_maccmap *)
-(* techmap_celltype = "$macc" *)
+(* techmap_celltype = "$macc $macc_v2" *)
 module _90_macc;
 endmodule
 
@@ -304,6 +311,7 @@ endmodule
 // Divide and Modulo
 // --------------------------------------------------------
 
+`ifndef NODIV
 module \$__div_mod_u (A, B, Y, R);
 	parameter WIDTH = 1;
 
@@ -531,7 +539,7 @@ module _90_modfloor (A, B, Y);
 		.R(Y)
 	);
 endmodule
-
+`endif
 
 // --------------------------------------------------------
 // Power
@@ -646,3 +654,28 @@ module _90_lut;
 endmodule
 `endif
 
+
+// --------------------------------------------------------
+// Bufnorm helpers
+// --------------------------------------------------------
+
+(* techmap_celltype = "$connect" *)
+module \$connect (A, B);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] A;
+inout [WIDTH-1:0] B;
+
+assign A = B; // RTLIL assignments are not inherently directed
+
+endmodule
+
+(* techmap_celltype = "$input_port" *)
+module \$input_port (Y);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] Y; // This cell is just a maker, so we leave Y undriven
+
+endmodule

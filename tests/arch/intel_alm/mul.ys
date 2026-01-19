@@ -9,26 +9,12 @@ cd top # Constrain all select calls below inside the top module
 select -assert-count 1 t:MISTRAL_MUL9X9
 select -assert-none t:MISTRAL_MUL9X9 %% t:* %D
 
-# Cyclone 10 GX does not have 9x9 multipliers.
-
 design -reset
 read_verilog ../common/mul.v
 chparam -set X_WIDTH 17 -set Y_WIDTH 17 -set A_WIDTH 34
 hierarchy -top top
 proc
 equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd top # Constrain all select calls below inside the top module
-
-select -assert-count 1 t:MISTRAL_MUL18X18
-select -assert-none t:MISTRAL_MUL18X18 %% t:* %D
-
-design -reset
-read_verilog ../common/mul.v
-chparam -set X_WIDTH 17 -set Y_WIDTH 17 -set A_WIDTH 34
-hierarchy -top top
-proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -47,14 +33,3 @@ cd top # Constrain all select calls below inside the top module
 select -assert-count 1 t:MISTRAL_MUL27X27
 select -assert-none t:MISTRAL_MUL27X27 %% t:* %D
 
-design -reset
-read_verilog ../common/mul.v
-chparam -set X_WIDTH 26 -set Y_WIDTH 26 -set A_WIDTH 52
-hierarchy -top top
-proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd top # Constrain all select calls below inside the top module
-
-select -assert-count 1 t:MISTRAL_MUL27X27
-select -assert-none t:MISTRAL_MUL27X27 %% t:* %D

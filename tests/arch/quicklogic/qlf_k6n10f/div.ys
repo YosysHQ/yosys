@@ -1,0 +1,14 @@
+# division by constants should not infer carry chains.
+read_verilog <<EOF
+
+module top (input [15:0] a, output [15:0] y);
+assign y = a / 3;
+endmodule
+
+EOF
+
+equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v synth_quicklogic -family qlf_k6n10f
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-max 100 t:$lut
+select -assert-none t:$lut %% t:* %D

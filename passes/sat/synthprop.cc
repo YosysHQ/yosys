@@ -18,7 +18,9 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -168,7 +170,7 @@ void SynthPropWorker::run()
 		std::ofstream fout;
 		fout.open(map_file, std::ios::out | std::ios::trunc);
 		if (!fout.is_open())
-			log_error("Could not open file \"%s\" with write access.\n", map_file.c_str());
+			log_error("Could not open file \"%s\" with write access.\n", map_file);
 
 		for (auto name : tracing_data[module].names) {
 			fout << name << std::endl;
@@ -179,46 +181,42 @@ void SynthPropWorker::run()
 struct SyntProperties : public Pass {
 	SyntProperties() : Pass("synthprop", "synthesize SVA properties") { }
 
-	virtual void help()
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
+
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    synthprop [options]\n");
 		log("\n");
-		log("This creates synthesizable properties for selected module.\n");
+		log("This creates synthesizable properties for the selected module.\n");
 		log("\n");
 		log("\n");
 		log("    -name <portname>\n");
-		log("\n");
-		log("Name output port for assertions (default: assertions).\n");
-		log("\n");
+		log("        name of the output port for assertions (default: assertions).\n");
 		log("\n");
 		log("    -map <filename>\n");
-		log("\n");
-		log("Write port mapping for synthesizable properties.\n");
-		log("\n");
+		log("        write the port mapping for synthesizable properties into the given file.\n");
 		log("\n");
 		log("    -or_outputs\n");
-		log("\n");
-		log("Or all outputs together to create a single output that goes high when any\n");
-		log("property is violated, instead of generating individual output bits.\n");
-		log("\n");
+		log("        Or all outputs together to create a single output that goes high when\n");
+		log("        any property is violated, instead of generating individual output bits.\n");
 		log("\n");
 		log("    -reset <portname>\n");
-		log("\n");
-		log("Name of top-level reset input. Latch a high state on the generated outputs\n");
-		log("until an asynchronous top-level reset input is activated.\n");
-		log("\n");
+		log("        name of the top-level reset input. Latch a high state on the generated\n");
+		log("        outputs until an asynchronous top-level reset input is activated.\n");
 		log("\n");
 		log("    -resetn <portname>\n");
-		log("\n");
-		log("Name of top-level reset input (inverse polarity). Latch a high state on the\n");
-		log("generated outputs until an asynchronous top-level reset input is activated.\n");
+		log("        like above but with inverse polarity\n");
 		log("\n");
 		log("\n");
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design* design)
+	void execute(std::vector<std::string> args, RTLIL::Design* design) override
 	{
 		log_header(design, "Executing SYNTHPROP pass.\n");
 		SynthPropWorker worker(design);

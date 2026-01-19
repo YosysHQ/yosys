@@ -8,7 +8,7 @@ EOT
 cat > $1.ys <<EOT
 echo on
 
-read_ilang $1.il
+read_rtlil $1.il
 hierarchy; proc; opt
 rename -top uut
 design -save gold

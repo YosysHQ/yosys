@@ -6,6 +6,7 @@ OBJS += techlibs/quicklogic/ql_bram_merge.o
 OBJS += techlibs/quicklogic/ql_bram_types.o
 OBJS += techlibs/quicklogic/ql_dsp_simd.o
 OBJS += techlibs/quicklogic/ql_dsp_io_regs.o
+OBJS += techlibs/quicklogic/ql_ioff.o
 
 # --------------------------------------
 

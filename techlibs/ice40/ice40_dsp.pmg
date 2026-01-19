@@ -1,0 +1,432 @@
+pattern ice40_dsp
+
+state <SigBit> clock
+state <bool> clock_pol cd_signed o_lo
+state <SigSpec> sigA sigB sigCD sigH sigO
+state <Cell*> add mux
+state <IdString> addAB muxAB
+
+state <Cell*> ffA ffB ffCD
+state <Cell*> ffFJKG ffH ffO
+
+// subpattern
+state <bool> argSdff
+state <SigSpec> argQ argD
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+udata <bool> dffclock_pol
+
+match mul
+	select mul->type.in($mul, \SB_MAC16)
+	select GetSize(mul->getPort(\A)) + GetSize(mul->getPort(\B)) > 10
+endmatch
+
+code sigA sigB sigH
+	auto unextend_signed = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove sign bit
+		++i;
+		return sig.extract(0, i);
+	};
+	auto unextend_unsigned = [](const SigSpec &sig) {
+		int i; 
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != SigBit(State::S0))
+				break;
+		++i;
+		return sig.extract(0, i);
+	};
+	sigA = param(mul, \A_SIGNED).as_bool() ? unextend_signed(port(mul, \A)) : unextend_unsigned(port(mul, \A));
+	sigB = param(mul, \B_SIGNED).as_bool() ? unextend_signed(port(mul, \B)) : unextend_unsigned(port(mul, \B));
+
+	SigSpec O;
+	if (mul->type == $mul)
+		O = mul->getPort(\Y);
+	else if (mul->type == \SB_MAC16)
+		O = mul->getPort(\O);
+	else log_abort();
+	if (GetSize(O) <= 10)
+		reject;
+
+	// Only care about those bits that are used
+	int i;
+	for (i = GetSize(O) - 1; i > 0 && nusers(O[i]) <= 1; i--)
+		;
+	// This sigM could have no users if downstream sinks (e.g. $add) is
+	//   narrower than $mul result, for example
+	if (i == 0)
+		reject;
+
+	for (int j = 0, wire_width = 0; j <= i; j++) 
+		if (nusers(O[j]) == 0)
+			wire_width++;
+		else {
+			if (wire_width) { // add empty wires for bit offset if needed
+				sigH.append(module->addWire(NEW_ID, wire_width));
+				wire_width = 0;
+			}
+			sigH.append(O[j]);
+		}
+
+endcode
+
+code argQ ffA sigA clock clock_pol
+	if (mul->type != \SB_MAC16 || !param(mul, \A_REG).as_bool()) {
+		argQ = sigA;
+		subpattern(in_dffe);
+		if (dff) {
+			ffA = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			sigA = dffD;
+		}
+	}
+endcode
+
+code argQ ffB sigB clock clock_pol
+	if (mul->type != \SB_MAC16 || !param(mul, \B_REG).as_bool()) {
+		argQ = sigB;
+		subpattern(in_dffe);
+		if (dff) {
+			ffB = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			sigB = dffD;
+		}
+	}
+endcode
+
+code argD argSdff ffFJKG sigH clock clock_pol
+	if (nusers(sigH) == 2 &&
+			(mul->type != \SB_MAC16 ||
+			 (!param(mul, \TOP_8x8_MULT_REG).as_bool() && !param(mul, \BOT_8x8_MULT_REG).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool() && !param(mul, \PIPELINE_16x16_MULT_REG1).as_bool()))) {
+		argD = sigH;
+		argSdff = false;
+		subpattern(out_dffe);
+		if (dff) {
+			// F/J/K/G do not have a CE-like (hold) input
+			if (dff->hasPort(\EN))
+				goto reject_ffFJKG;
+
+			// Reset signal of F/J (IRSTTOP) and K/G (IRSTBOT)
+			//   shared with A and B
+			if (ffA) {
+				if (ffA->hasPort(\ARST) != dff->hasPort(\ARST))
+					goto reject_ffFJKG;
+				if (ffA->hasPort(\ARST)) {
+					if (port(ffA, \ARST) != port(dff, \ARST))
+						goto reject_ffFJKG;
+					if (param(ffA, \ARST_POLARITY) != param(dff, \ARST_POLARITY))
+						goto reject_ffFJKG;
+				}
+			}
+			if (ffB) {
+				if (ffB->hasPort(\ARST) != dff->hasPort(\ARST))
+					goto reject_ffFJKG;
+				if (ffB->hasPort(\ARST)) {
+					if (port(ffB, \ARST) != port(dff, \ARST))
+						goto reject_ffFJKG;
+					if (param(ffB, \ARST_POLARITY) != param(dff, \ARST_POLARITY))
+						goto reject_ffFJKG;
+				}
+			}
+
+			ffFJKG = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			sigH = dffQ;
+
+reject_ffFJKG: 		;
+		}
+	}
+endcode
+
+code argD argSdff ffH sigH sigO clock clock_pol
+	if (ffFJKG && nusers(sigH) == 2 &&
+			(mul->type != \SB_MAC16 || !param(mul, \PIPELINE_16x16_MULT_REG2).as_bool())) {
+		argD = sigH;
+		argSdff = false;
+		subpattern(out_dffe);
+		if (dff) {
+			// H does not have a CE-like (hold) input
+			if (dff->hasPort(\EN))
+				goto reject_ffH;
+
+			// Reset signal of H (IRSTBOT) shared with B
+			if (ffB->hasPort(\ARST) != dff->hasPort(\ARST))
+				goto reject_ffH;
+			if (ffB->hasPort(\ARST)) {
+				if (port(ffB, \ARST) != port(dff, \ARST))
+					goto reject_ffH;
+				if (param(ffB, \ARST_POLARITY) != param(dff, \ARST_POLARITY))
+					goto reject_ffH;
+			}
+
+			ffH = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			sigH = dffQ;
+
+reject_ffH:		;
+		}
+	}
+
+	sigO = sigH;
+endcode
+
+match add
+	if mul->type != \SB_MAC16 || (param(mul, \TOPOUTPUT_SELECT).as_int() == 3 && param(mul, \BOTOUTPUT_SELECT).as_int() == 3)
+
+	select add->type.in($add)
+	choice <IdString> AB {\A, \B}
+	select nusers(port(add, AB)) == 2
+
+	index <SigBit> port(add, AB)[0] === sigH[0]
+	filter GetSize(port(add, AB)) <= GetSize(sigH)
+	filter port(add, AB) == sigH.extract(0, GetSize(port(add, AB)))
+	filter nusers(sigH.extract_end(GetSize(port(add, AB)))) <= 1
+	set addAB AB
+	optional
+endmatch
+
+code sigCD sigO cd_signed
+	if (add) {
+		sigCD = port(add, addAB == \A ? \B : \A);
+		cd_signed = param(add, addAB == \A ? \B_SIGNED : \A_SIGNED).as_bool();
+
+		int natural_mul_width = GetSize(sigA) + GetSize(sigB);
+		int actual_mul_width = GetSize(sigH);
+		int actual_acc_width = GetSize(sigCD);
+
+		if ((actual_acc_width > actual_mul_width) && (natural_mul_width > actual_mul_width))
+			reject;
+		// If accumulator, check adder width and signedness
+		if (sigCD == sigH && (actual_acc_width != actual_mul_width) && (param(mul, \A_SIGNED).as_bool() != param(add, \A_SIGNED).as_bool()))
+			reject;
+
+		sigO = port(add, \Y);
+	}
+endcode
+
+match mux
+	select mux->type == $mux
+	choice <IdString> AB {\A, \B}
+	select nusers(port(mux, AB)) == 2
+	index <SigSpec> port(mux, AB) === sigO
+	set muxAB AB
+	optional
+endmatch
+
+code sigO
+	if (mux)
+		sigO = port(mux, \Y);
+endcode
+
+code argD argSdff ffO sigO sigCD clock clock_pol cd_signed o_lo
+	if (mul->type != \SB_MAC16 ||
+			// Ensure that register is not already used
+			((param(mul, \TOPOUTPUT_SELECT).as_int() != 1 && param(mul, \BOTOUTPUT_SELECT).as_int() != 1) &&
+			 // Ensure that OLOADTOP/OLOADBOT is unused or zero
+			 (port(mul, \OLOADTOP, State::S0).is_fully_zero() && port(mul, \OLOADBOT, State::S0).is_fully_zero()))) {
+
+		dff = nullptr;
+
+		// First try entire sigO
+		if (nusers(sigO) == 2) {
+			argD = sigO;
+			argSdff = !mux;
+			subpattern(out_dffe);
+		}
+
+		// Otherwise try just its least significant 16 bits
+		if (!dff && GetSize(sigO) > 16) {
+			argD = sigO.extract(0, 16);
+			if (nusers(argD) == 2) {
+				argSdff = !mux;
+				subpattern(out_dffe);
+				o_lo = dff;
+			}
+		}
+
+		if (dff) {
+			ffO = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+
+			sigO.replace(sigO.extract(0, GetSize(dffQ)), dffQ);
+		}
+
+		// Loading value into output register is not
+		//   supported unless using accumulator
+		if (mux) {
+			if (sigCD != sigO)
+				reject;
+			sigCD = port(mux, muxAB == \B ? \A : \B);
+
+			cd_signed = add && param(add, \A_SIGNED).as_bool() && param(add, \B_SIGNED).as_bool();
+		} else if (dff && dff->hasPort(\SRST)) {
+			if (sigCD != sigO)
+				reject;
+			sigCD = param(dff, \SRST_VALUE);
+
+			cd_signed = add && param(add, \A_SIGNED).as_bool() && param(add, \B_SIGNED).as_bool();
+		}
+	}
+endcode
+
+code argQ ffCD sigCD clock clock_pol
+	if (!sigCD.empty() && sigCD != sigO &&
+			(mul->type != \SB_MAC16 || (!param(mul, \C_REG).as_bool() && !param(mul, \D_REG).as_bool()))) {
+		argQ = sigCD;
+		subpattern(in_dffe);
+		if (dff) {
+			// Reset signal of C (IRSTTOP) and D (IRSTBOT)
+			//   shared with A and B
+			if (ffA) {
+				if (ffA->hasPort(\ARST) != dff->hasPort(\ARST))
+					goto reject_ffCD;
+				if (ffA->hasPort(\ARST)) {
+					if (port(ffA, \ARST) != port(dff, \ARST))
+						goto reject_ffCD;
+					if (param(ffA, \ARST_POLARITY) != param(dff, \ARST_POLARITY))
+						goto reject_ffCD;
+				}
+			}
+			if (ffB) {
+				if (ffB->hasPort(\ARST) != dff->hasPort(\ARST))
+					goto reject_ffCD;
+				if (ffB->hasPort(\ARST)) {
+					if (port(ffB, \ARST) != port(dff, \ARST))
+						goto reject_ffCD;
+					if (param(ffB, \ARST_POLARITY) != param(dff, \ARST_POLARITY))
+						goto reject_ffCD;
+				}
+			}
+
+			ffCD = dff;
+			clock = dffclock;
+			clock_pol = dffclock_pol;
+			sigCD = dffD;
+
+reject_ffCD: 		;
+		}
+	}
+endcode
+
+code sigCD
+	sigCD.extend_u0(32, cd_signed);
+endcode
+
+code
+	accept;
+endcode
+
+// #######################
+
+subpattern in_dffe
+arg argD argQ clock clock_pol
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (auto c : argQ.chunks()) {
+		if (!c.wire)
+			reject;
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		Const init = c.wire->attributes.at(\init, State::Sx);
+		if (!init.is_fully_undef() && !init.is_fully_zero())
+			reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+endmatch
+
+code argQ argD
+{
+	if (clock != SigBit()) {
+		if (port(ff, \CLK)[0] != clock)
+			reject;
+		if (param(ff, \CLK_POLARITY).as_bool() != clock_pol)
+			reject;
+	}
+
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffclock_pol = param(ff, \CLK_POLARITY).as_bool();
+	dffD = argQ;
+	argD = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, argD);
+}
+endcode
+
+// #######################
+
+subpattern out_dffe
+arg argD argSdff argQ clock clock_pol
+
+code
+	dff = nullptr;
+	for (auto c : argD.chunks())
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffce)
+	// SB_MAC16 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	// Only allow sync reset if requested.
+	filter argSdff || ff->type.in($dff, $dffe)
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+endmatch
+
+code argQ
+	if (ff) {
+		if (clock != SigBit()) {
+			if (port(ff, \CLK)[0] != clock)
+				reject;
+			if (param(ff, \CLK_POLARITY).as_bool() != clock_pol)
+				reject;
+		}
+		SigSpec D = port(ff, \D);
+		SigSpec Q = port(ff, \Q);
+		argQ = argD;
+		argQ.replace(D, Q);
+
+		for (auto c : argQ.chunks()) {
+			Const init = c.wire->attributes.at(\init, State::Sx);
+			if (!init.is_fully_undef() && !init.is_fully_zero())
+				reject;
+		}
+
+		dff = ff;
+		dffQ = argQ;
+		dffclock = port(ff, \CLK);
+		dffclock_pol = param(ff, \CLK_POLARITY).as_bool();
+	}
+endcode

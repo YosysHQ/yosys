@@ -1,0 +1,70 @@
+name: iverilog setup
+description: Cached build and install of iverilog
+
+inputs:
+  runs-on:
+    required: true
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: iverilog Linux deps
+      if: steps.restore-iverilog.outputs.cache-hit != 'true' && runner.os == 'Linux'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: autoconf gperf make gcc g++ bison flex libbz2-dev
+        version: ${{ inputs.runs-on }}-iverilog
+
+    - name: iverilog macOS deps
+      if: steps.restore-iverilog.outputs.cache-hit != 'true' && runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install autoconf
+
+    - name: Get iverilog
+      id: get-iverilog
+      shell: bash
+      run: |
+        git clone https://github.com/steveicarus/iverilog.git
+        cd iverilog
+        echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Get vcd2fst
+      shell: bash
+      run: |
+        git clone https://github.com/mmicko/libwave.git
+        mkdir -p ${{ github.workspace }}/.local/
+        cd libwave
+        cmake . -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/.local
+        make -j$procs
+        make install
+
+    - uses: actions/cache/restore@v4
+      id: restore-iverilog
+      with:
+        path: .local/
+        key: ${{ inputs.runs-on }}-${{ steps.get-iverilog.outputs.IVERILOG_GIT }}
+
+    - name: Build iverilog
+      if: steps.restore-iverilog.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ${{ github.workspace }}/.local/
+        cd iverilog
+        autoconf
+        CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
+        make -j$procs
+        make install
+
+    - name: Check iverilog
+      shell: bash
+      run: |
+        iverilog -V
+
+    - uses: actions/cache/save@v4
+      id: save-iverilog
+      if: steps.restore-iverilog.outputs.cache-hit != 'true'
+      with:
+        path: .local/
+        key: ${{ steps.restore-iverilog.outputs.cache-primary-key }}

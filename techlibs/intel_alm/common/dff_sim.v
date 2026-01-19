@@ -77,38 +77,6 @@ specify
     if (ACLR === 1'b0) (ACLR => Q) = 282;
 endspecify
 `endif
-`ifdef arriav
-specify
-    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 470;
-    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 633;
-    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 439;
-
-    $setup(DATAIN, posedge CLK, /* -170 */ 0);
-    $setup(ENA, posedge CLK, /* -170 */ 0);
-    $setup(SCLR, posedge CLK, /* -170 */ 0);
-    $setup(SLOAD, posedge CLK, /* -170 */ 0);
-    $setup(SDATA, posedge CLK, /* -170 */ 0);
-
-    if (ACLR === 1'b0) (ACLR => Q) = 215;
-endspecify
-`endif
-`ifdef cyclone10gx
-specify
-    // TODO (long-term): investigate these numbers.
-    // It seems relying on the Quartus Timing Analyzer was not the best idea; it's too fiddly.
-    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 219;
-    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 219;
-    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 219;
-
-    $setup(DATAIN, posedge CLK, 268);
-    $setup(ENA, posedge CLK, 268);
-    $setup(SCLR, posedge CLK, 268);
-    $setup(SLOAD, posedge CLK, 268);
-    $setup(SDATA, posedge CLK, 268);
-
-    if (ACLR === 1'b0) (ACLR => Q) = 0;
-endspecify
-`endif
 
 initial begin
     // Altera flops initialise to zero.

@@ -1,0 +1,166 @@
+read_verilog <<EOT
+module top(A, B, X, Y);
+input [7:0] A, B;
+output [7:0] X, Y;
+assign X = A + B;
+assign Y = A + B;
+endmodule
+EOT
+# Most basic case
+# Binary
+select -assert-count 2 t:$add
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 1 t:$add
+
+design -reset
+read_verilog <<EOT
+module top(A, B, C, X, Y);
+input [7:0] A, B, C;
+output [7:0] X, Y;
+assign X = A + B;
+assign Y = A + C; // <- look here
+endmodule
+EOT
+# Reject on a different input
+select -assert-count 2 t:$add
+opt_merge
+select -assert-count 2 t:$add
+
+design -reset
+read_verilog <<EOT
+module top(A, X, Y);
+input [7:0] A;
+output X, Y;
+assign X = ^A;
+assign Y = ^A;
+endmodule
+EOT
+# Unary
+select -assert-count 2 t:$reduce_xor
+dump
+opt_merge
+select -assert-count 1 t:$reduce_xor
+
+design -reset
+read_verilog -icells <<EOT
+module top(A, B, X, Y);
+input [7:0] A, B;
+output X, Y;
+  \$reduce_xor  #(
+    .A_SIGNED(32'd0),
+    .A_WIDTH(32'd16),
+    .Y_WIDTH(32'd1),
+  ) one  (
+    .A({A, B}), // <- look here
+    .Y(X)
+  );
+  \$reduce_xor  #(
+    .A_SIGNED(32'd0),
+    .A_WIDTH(32'd16),
+    .Y_WIDTH(32'd1),
+  ) other  (
+    .A({B, A}), // <- look here
+    .Y(Y)
+  );
+endmodule
+EOT
+# Unary is sorted
+opt_expr
+select -assert-count 2 t:$reduce_xor
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 1 t:$reduce_xor
+
+design -reset
+read_verilog -icells <<EOT
+module top(A, B, X, Y);
+input [7:0] A, B;
+output X, Y;
+  \$reduce_or  #(
+    .A_SIGNED(32'd0),
+    .A_WIDTH(32'd24),
+    .Y_WIDTH(32'd1),
+  ) one  (
+    .A({A, B, B}), // <- look here
+    .Y(X)
+  );
+  \$reduce_or  #(
+    .A_SIGNED(32'd0),
+    .A_WIDTH(32'd24),
+    .Y_WIDTH(32'd1),
+  ) other  (
+    .A({A, A, B}), // <- look here
+    .Y(Y)
+  );
+endmodule
+EOT
+# Unary is unified when valid
+opt_expr
+select -assert-count 2 t:$reduce_or
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 1 t:$reduce_or
+
+design -reset
+read_verilog -icells <<EOT
+module top(A, B, X, Y);
+input [7:0] A, B;
+output X, Y;
+  \$reduce_xor  #(
+    .A_SIGNED(32'd0),
+    .A_WIDTH(32'd24),
+    .Y_WIDTH(32'd1),
+  ) one  (
+    .A({A, B, B}), // <- look here
+    .Y(X)
+  );
+  \$reduce_xor  #(
+    .A_SIGNED(32'd0),
+    .A_WIDTH(32'd24),
+    .Y_WIDTH(32'd1),
+  ) other  (
+    .A({A, A, B}), // <- look here
+    .Y(Y)
+  );
+endmodule
+EOT
+# Unary isn't unified when that would be invalid
+opt_expr
+select -assert-count 2 t:$reduce_xor
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 2 t:$reduce_xor
+
+# TODO pmux
+
+design -reset
+read_verilog <<EOT
+module top(A, B, X, Y);
+input [7:0] A, B;
+output X, Y;
+assign X = A > B;
+assign Y = A > B;
+endmodule
+EOT
+# Exercise the general case in hash_cell_inputs - accept
+opt_expr
+select -assert-count 2 t:$gt
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 1 t:$gt
+
+design -reset
+read_verilog <<EOT
+module top(A, B, C, X, Y);
+input [7:0] A, B, C;
+output X, Y;
+assign X = A > B;
+assign Y = A > C; // <- look here
+endmodule
+EOT
+# Exercise the general case in hash_cell_inputs - reject
+opt_expr
+select -assert-count 2 t:$gt
+opt_merge
+select -assert-count 2 t:$gt

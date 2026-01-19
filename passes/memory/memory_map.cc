@@ -192,7 +192,7 @@ struct MemoryMapWorker
 			}
 		}
 
-		log("Mapping memory %s in module %s:\n", mem.memid.c_str(), module->name.c_str());
+		log("Mapping memory %s in module %s:\n", mem.memid, module->name);
 
 		int abits = ceil_log2(mem.size);
 		std::vector<RTLIL::SigSpec> data_reg_in(1 << abits);
@@ -244,7 +244,7 @@ struct MemoryMapWorker
 				data_reg_in[idx] = w_in;
 				c->setPort(ID::D, w_in);
 
-				std::string w_out_name = stringf("%s[%d]", mem.memid.c_str(), addr);
+				std::string w_out_name = stringf("%s[%d]", mem.memid, addr);
 				if (module->wires_.count(w_out_name) > 0)
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
@@ -415,7 +415,7 @@ struct MemoryMapPass : public Pass {
 		log("        to any of the values.\n");
 		log("\n");
 		log("    -iattr\n");
-		log("        for -attr, ignore case of <value>.\n");
+		log("        for -attr, suppress case sensitivity in matching of <value>.\n");
 		log("\n");
 		log("    -rom-only\n");
 		log("        only perform conversion for ROMs (memories with no write ports).\n");

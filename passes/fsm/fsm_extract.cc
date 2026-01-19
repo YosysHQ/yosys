@@ -71,7 +71,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	{
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != ID::Y) {
-			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
+			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type, cell->name);
 			return false;
 		}
 
@@ -168,10 +168,10 @@ undef_bit_in_next_state:
 			ctrl_in_bit_indices[ctrl_in[i]] = i;
 
 		for (auto &it : ctrl_in_bit_indices)
-			if (tr.ctrl_in.bits.at(it.second) == State::S1 && exclusive_ctrls.count(it.first) != 0)
+			if (tr.ctrl_in.at(it.second) == State::S1 && exclusive_ctrls.count(it.first) != 0)
 				for (auto &dc_bit : exclusive_ctrls.at(it.first))
 					if (ctrl_in_bit_indices.count(dc_bit))
-						tr.ctrl_in.bits.at(ctrl_in_bit_indices.at(dc_bit)) = RTLIL::State::Sa;
+						tr.ctrl_in.set(ctrl_in_bit_indices.at(dc_bit), RTLIL::State::Sa);
 
 		RTLIL::Const log_state_in = RTLIL::Const(RTLIL::State::Sx, fsm_data.state_bits);
 		if (state_in >= 0)
@@ -255,7 +255,7 @@ undef_bit_in_next_state:
 
 static void extract_fsm(RTLIL::Wire *wire)
 {
-	log("Extracting FSM `%s' from module `%s'.\n", wire->name.c_str(), module->name.c_str());
+	log("Extracting FSM `%s' from module `%s'.\n", wire->name, module->name);
 
 	// get input and output signals for state ff
 
@@ -274,7 +274,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != ID::Q)
 			continue;
-		log("  found %s cell for state register: %s\n", cell->type.c_str(), cell->name.c_str());
+		log("  found %s cell for state register: %s\n", cell->type, cell->name);
 		RTLIL::SigSpec sig_q = assign_map(cell->getPort(ID::Q));
 		RTLIL::SigSpec sig_d = assign_map(cell->getPort(ID::D));
 		clk = cell->getPort(ID::CLK);
@@ -368,7 +368,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++), ID($fsm));
+	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name, autoidx++), ID($fsm));
 	fsm_cell->setPort(ID::CLK, clk);
 	fsm_cell->setPort(ID::ARST, arst);
 	fsm_cell->parameters[ID::CLK_POLARITY] = clk_polarity ? State::S1 : State::S0;
@@ -377,14 +377,28 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
 	fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
 	fsm_cell->attributes = wire->attributes;
+	if(fsm_cell->attributes.count(ID::hdlname)) {
+		auto hdlname = fsm_cell->get_hdlname_attribute();
+		hdlname.pop_back();
+		fsm_cell->set_hdlname_attribute(hdlname);
+		fsm_cell->set_string_attribute(ID(scopename), fsm_cell->get_string_attribute(ID::hdlname));
+		fsm_cell->attributes.erase(ID::hdlname);
+	}
 	fsm_data.copy_to_cell(fsm_cell);
 
 	// rename original state wire
 
 	module->wires_.erase(wire->name);
 	wire->attributes.erase(ID::fsm_encoding);
-	wire->name = stringf("$fsm$oldstate%s", wire->name.c_str());
+	wire->name = stringf("$fsm$oldstate%s", wire->name);
 	module->wires_[wire->name] = wire;
+	if(wire->attributes.count(ID::hdlname)) {
+		auto hdlname = wire->get_hdlname_attribute();
+		hdlname.pop_back();
+		wire->set_hdlname_attribute(hdlname);
+		wire->set_string_attribute(ID(scopename), wire->get_string_attribute(ID::hdlname));
+		wire->attributes.erase(ID::hdlname);
+	}
 
 	// unconnect control outputs from old drivers
 

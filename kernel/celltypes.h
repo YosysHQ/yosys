@@ -29,6 +29,8 @@ struct CellType
 	RTLIL::IdString type;
 	pool<RTLIL::IdString> inputs, outputs;
 	bool is_evaluable;
+	bool is_combinatorial;
+	bool is_synthesizable;
 };
 
 struct CellTypes
@@ -56,9 +58,9 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false)
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
 	{
-		CellType ct = {type, inputs, outputs, is_evaluable};
+		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
 		cell_types[ct.type] = ct;
 	}
 
@@ -109,12 +111,14 @@ struct CellTypes
 		setup_type(ID($original_tag), {ID::A}, {ID::Y});
 		setup_type(ID($future_ff), {ID::A}, {ID::Y});
 		setup_type(ID($scopeinfo), {}, {});
+		setup_type(ID($input_port), {}, {ID::Y});
+		setup_type(ID($connect), {ID::A, ID::B}, {});
 	}
 
 	void setup_internals_eval()
 	{
 		std::vector<RTLIL::IdString> unary_ops = {
-			ID($not), ID($pos), ID($neg),
+			ID($not), ID($pos), ID($buf), ID($neg),
 			ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
 			ID($logic_not), ID($slice), ID($lut), ID($sop)
 		};
@@ -142,6 +146,7 @@ struct CellTypes
 
 		setup_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO}, true);
 		setup_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO}, true);
+		setup_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y}, true);
 		setup_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y}, true);
 	}
 
@@ -317,6 +322,16 @@ struct CellTypes
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
 	}
 
+	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, RTLIL::IdString port) const
+	{
+		auto it = cell_types.find(type);
+		if (it == cell_types.end())
+			return RTLIL::PD_UNKNOWN;
+		bool is_input = it->second.inputs.count(port);
+		bool is_output = it->second.outputs.count(port);
+		return RTLIL::PortDir(is_input + is_output * 2);
+	}
+
 	bool cell_evaluable(RTLIL::IdString type) const
 	{
 		auto it = cell_types.find(type);
@@ -325,12 +340,13 @@ struct CellTypes
 
 	static RTLIL::Const eval_not(RTLIL::Const v)
 	{
-		for (auto &bit : v.bits)
+		for (auto bit : v)
 			if (bit == State::S0) bit = State::S1;
 			else if (bit == State::S1) bit = State::S0;
 		return v;
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::IdString type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len, bool *errp = nullptr)
 	{
 		if (type == ID($sshr) && !signed1)
@@ -339,7 +355,7 @@ struct CellTypes
 			type = ID($shl);
 
 		if (type != ID($sshr) && type != ID($sshl) && type != ID($shr) && type != ID($shl) && type != ID($shift) && type != ID($shiftx) &&
-				type != ID($pos) && type != ID($neg) && type != ID($not)) {
+				type != ID($pos) && type != ID($buf) && type != ID($neg) && type != ID($not)) {
 			if (!signed1 || !signed2)
 				signed1 = false, signed2 = false;
 		}
@@ -384,7 +400,7 @@ struct CellTypes
 		HANDLE_CELL_TYPE(neg)
 #undef HANDLE_CELL_TYPE
 
-		if (type == ID($_BUF_))
+		if (type.in(ID($_BUF_), ID($buf)))
 			return arg1;
 		if (type == ID($_NOT_))
 			return eval_not(arg1);
@@ -413,19 +429,18 @@ struct CellTypes
 		log_abort();
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool *errp = nullptr)
 	{
 		if (cell->type == ID($slice)) {
-			RTLIL::Const ret;
 			int width = cell->parameters.at(ID::Y_WIDTH).as_int();
 			int offset = cell->parameters.at(ID::OFFSET).as_int();
-			ret.bits.insert(ret.bits.end(), arg1.bits.begin()+offset, arg1.bits.begin()+offset+width);
-			return ret;
+			return arg1.extract(offset, width);
 		}
 
 		if (cell->type == ID($concat)) {
 			RTLIL::Const ret = arg1;
-			ret.bits.insert(ret.bits.end(), arg2.bits.begin(), arg2.bits.end());
+			ret.append(arg2);
 			return ret;
 		}
 
@@ -448,7 +463,7 @@ struct CellTypes
 		{
 			int width = cell->parameters.at(ID::WIDTH).as_int();
 
-			std::vector<RTLIL::State> t = cell->parameters.at(ID::LUT).bits;
+			std::vector<RTLIL::State> t = cell->parameters.at(ID::LUT).to_bits();
 			while (GetSize(t) < (1 << width))
 				t.push_back(State::S0);
 			t.resize(1 << width);
@@ -460,7 +475,7 @@ struct CellTypes
 		{
 			int width = cell->parameters.at(ID::WIDTH).as_int();
 			int depth = cell->parameters.at(ID::DEPTH).as_int();
-			std::vector<RTLIL::State> t = cell->parameters.at(ID::TABLE).bits;
+			std::vector<RTLIL::State> t = cell->parameters.at(ID::TABLE).to_bits();
 
 			while (GetSize(t) < width*depth*2)
 				t.push_back(State::S0);
@@ -473,7 +488,7 @@ struct CellTypes
 				bool match_x = true;
 
 				for (int j = 0; j < width; j++) {
-					RTLIL::State a = arg1.bits.at(j);
+					RTLIL::State a = arg1.at(j);
 					if (t.at(2*width*i + 2*j + 0) == State::S1) {
 						if (a == State::S1) match_x = false;
 						if (a != State::S0) match = false;
@@ -500,10 +515,13 @@ struct CellTypes
 		return eval(cell->type, arg1, arg2, signed_a, signed_b, result_len, errp);
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, bool *errp = nullptr)
 	{
 		if (cell->type.in(ID($mux), ID($_MUX_)))
 			return const_mux(arg1, arg2, arg3);
+		if (cell->type == ID($_NMUX_))
+			return eval_not(const_mux(arg1, arg2, arg3));
 		if (cell->type == ID($bwmux))
 			return const_bwmux(arg1, arg2, arg3);
 		if (cell->type == ID($pmux))
@@ -513,10 +531,11 @@ struct CellTypes
 		if (cell->type == ID($_OAI3_))
 			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), arg3, false, false, 1));
 
-		log_assert(arg3.bits.size() == 0);
+		log_assert(arg3.size() == 0);
 		return eval(cell, arg1, arg2, errp);
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, const RTLIL::Const &arg4, bool *errp = nullptr)
 	{
 		if (cell->type == ID($_AOI4_))
@@ -524,7 +543,7 @@ struct CellTypes
 		if (cell->type == ID($_OAI4_))
 			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_or(arg3, arg4, false, false, 1), false, false, 1));
 
-		log_assert(arg4.bits.size() == 0);
+		log_assert(arg4.size() == 0);
 		return eval(cell, arg1, arg2, arg3, errp);
 	}
 };

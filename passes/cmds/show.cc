@@ -17,10 +17,9 @@
  *
  */
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
-#include "kernel/log.h"
-#include <string.h>
+#include "kernel/log_help.h"
 
 #ifndef _WIN32
 #  include <dirent.h>
@@ -60,6 +59,7 @@ struct ShowWorker
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
+	std::string wireshape;
 	bool genSignedLabels;
 	bool stretchIO;
 	bool enumerateIds;
@@ -150,7 +150,7 @@ struct ShowWorker
 	{
 		for (auto &s : color_selections)
 			if (s.second.selected_member(module->name, member_name)) {
-				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first.c_str(), s.first.c_str());
+				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first, s.first);
 			}
 
 		RTLIL::Const colorattr_value;
@@ -189,7 +189,7 @@ struct ShowWorker
 			if (enumerateIds) {
 				if (autonames.count(id) == 0) {
 					autonames[id] = autonames.size() + 1;
-					log("Generated short name for internal identifier: _%d_ -> %s\n", autonames[id], id.c_str());
+					log("Generated short name for internal identifier: _%d_ -> %s\n", autonames[id], id);
 				}
 				id = stringf("_%d_", autonames[id]);
 			} else if (abbreviateIds) {
@@ -278,11 +278,12 @@ struct ShowWorker
 			std::vector<std::string> label_pieces;
 			int bitpos = sig.size()-1;
 
-			for (int rep, chunk_idx = ((int) sig.chunks().size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
-				const RTLIL::SigChunk &c = sig.chunks().at(chunk_idx);
+			RTLIL::SigSpec::Chunks sig_chunks = sig.chunks();
+			for (int rep, chunk_idx = ((int) sig_chunks.size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
+				const RTLIL::SigChunk &c = sig_chunks.at(chunk_idx);
 
 				// Find the number of times this chunk is repeating
-				for (rep = 1; chunk_idx - rep >= 0 && c == sig.chunks().at(chunk_idx - rep); rep++);
+				for (rep = 1; chunk_idx - rep >= 0 && c == sig_chunks.at(chunk_idx - rep); rep++);
 
 				int cl, cr;
 				cl = c.offset + c.width - 1;
@@ -309,11 +310,11 @@ struct ShowWorker
 
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				std::string portside = stringf("%d:%d", bitpos, bitpos - rep*c.width + 1);
-				std::string remoteside = stringf("%s%d:%d", repinfo.c_str(), cl, cr);
+				std::string remoteside = stringf("%s%d:%d", repinfo, cl, cr);
 
 				if (driver) {
 					log_assert(!net.empty());
-					label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, portside.c_str(), remoteside.c_str()));
+					label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, portside, remoteside));
 					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else {
@@ -326,7 +327,7 @@ struct ShowWorker
 								c.data.front() == State::Sz ? 'Z' : '?',
 								bitpos, bitpos-rep*c.width+1));
 					} else {
-						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside.c_str(), portside.c_str()));
+						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside, portside));
 						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 					}
@@ -336,14 +337,14 @@ struct ShowWorker
 			}
 
 			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
-					+ join_label_pieces(label_pieces) + stringf("\", %s ];\n", nextColor(sig).c_str());
+					+ join_label_pieces(label_pieces) + stringf("\", %s ];\n", nextColor(sig));
 
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), dot_idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port, dot_idx, nextColor(sig), widthLabel(sig.size()));
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", dot_idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", dot_idx, port, nextColor(sig), widthLabel(sig.size()));
 			}
 			if (node != nullptr)
 				*node = stringf("x%d", dot_idx);
@@ -429,16 +430,19 @@ struct ShowWorker
 
 		std::map<std::string, std::string> wires_on_demand;
 		for (auto wire : module->selected_wires()) {
-			const char *shape = "diamond";
+		    std::string shape = wireshape;
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
+			const bool is_borderless = (shape == "plaintext") || (shape == "plain") || (shape == "none");
 			if (wire->name.isPublic()) {
 				std::string src_href;
 				if (href && wire->attributes.count(ID::src) > 0)
 					src_href = stringf(", href=\"%s\" ", escape(wire->attributes.at(ID::src).decode_string()));
-				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s%s];\n",
-						id2num(wire->name), shape, findLabel(wire->name.str()),
-						nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(),
+				fprintf(f, "n%d [ shape=%s,%s label=\"%s\", %s%s];\n",
+						id2num(wire->name), shape.c_str(), is_borderless? " margin=0, width=0" : "",  findLabel(wire->name.str()),
+						is_borderless
+						    ? "color=\"none\", fontcolor=\"black\""
+							: nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(), 
 						src_href.c_str());
 				if (wire->port_input)
 					all_sources.insert(stringf("n%d", id2num(wire->name)));
@@ -491,7 +495,7 @@ struct ShowWorker
 			std::string in_label = join_label_pieces(in_label_pieces);
 			std::string out_label = join_label_pieces(out_label_pieces);
 
-			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label.c_str(),
+			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label,
 											   findLabel(cell->name.str()), escape(cell->type.str()),
 											   out_label.c_str());
 
@@ -617,10 +621,10 @@ struct ShowWorker
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
-			bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
+			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
-			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
+			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{
@@ -658,6 +662,11 @@ struct ShowWorker
 
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -707,6 +716,9 @@ struct ShowPass : public Pass {
 		log("    -colorattr <attribute_name>\n");
 		log("        Use the specified attribute to assign colors. A unique color is\n");
 		log("        assigned to each unique value of this attribute.\n");
+		log("\n");
+		log("    -wireshape <graphviz_shape>\n");
+		log("        Use the specified shape for wire nodes. E.g. plaintext.\n");
 		log("\n");
 		log("    -width\n");
 		log("        annotate buses with a label indicating the width of the bus.\n");
@@ -766,6 +778,7 @@ struct ShowPass : public Pass {
 		std::string prefix = stringf("%s/.yosys_show", getenv("HOME") ? getenv("HOME") : ".");
 #endif
 		std::string viewer_exe;
+		std::string flag_wireshape = "diamond";
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
@@ -802,8 +815,8 @@ struct ShowPass : public Pass {
 				std::pair<std::string, RTLIL::Selection> data;
 				data.first = args[++argidx], argidx++;
 				handle_extra_select_args(this, args, argidx, argidx+1, design);
-				data.second = design->selection_stack.back();
-				design->selection_stack.pop_back();
+				data.second = design->selection();
+				design->pop_selection();
 				color_selections.push_back(data);
 				continue;
 			}
@@ -811,8 +824,8 @@ struct ShowPass : public Pass {
 				std::pair<std::string, RTLIL::Selection> data;
 				data.first = args[++argidx], argidx++;
 				handle_extra_select_args(this, args, argidx, argidx+1, design);
-				data.second = design->selection_stack.back();
-				design->selection_stack.pop_back();
+				data.second = design->selection();
+				design->pop_selection();
 				label_selections.push_back(data);
 				continue;
 			}
@@ -828,6 +841,10 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {
 				format = args[++argidx];
+				continue;
+			}
+			if (arg == "-wireshape" && argidx+1 < args.size()) {
+				flag_wireshape = args[++argidx];
 				continue;
 			}
 			if (arg == "-width") {
@@ -891,7 +908,7 @@ struct ShowPass : public Pass {
 			f.open(filename.c_str());
 			yosys_input_files.insert(filename);
 			if (f.fail())
-				log_error("Can't open lib file `%s'.\n", filename.c_str());
+				log_error("Can't open lib file `%s'.\n", filename);
 			RTLIL::Design *lib = new RTLIL::Design;
 			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 			libs.push_back(lib);
@@ -900,19 +917,19 @@ struct ShowPass : public Pass {
 		if (libs.size() > 0)
 			log_header(design, "Continuing show pass.\n");
 
-		std::string dot_file = stringf("%s.dot", prefix.c_str());
-		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());
+		std::string dot_file = stringf("%s.dot", prefix);
+		std::string out_file = stringf("%s.%s", prefix, format.empty() ? "svg" : format);
 
-		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		log("Writing dot description to `%s'.\n", dot_file);
 		FILE *f = fopen(dot_file.c_str(), "w");
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
 		if (f == nullptr) {
 			for (auto lib : libs)
 				delete lib;
-			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
 		fclose(f);
 
 		for (auto lib : libs)
@@ -928,9 +945,9 @@ struct ShowPass : public Pass {
 			#else
 				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
 			#endif
-			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			#if !defined(YOSYS_DISABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
@@ -946,21 +963,21 @@ struct ShowPass : public Pass {
 					// system()/cmd.exe does not understand single quotes nor
 					// background tasks on Windows. So we have to pause yosys
 					// until the viewer exits.
-					std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+					std::string cmd = stringf("%s \"%s\"", viewer_exe, out_file);
 				#else
-					std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+					std::string cmd = stringf("%s '%s' %s", viewer_exe, out_file, background);
 				#endif
-				log("Exec: %s\n", cmd.c_str());
+				log("Exec: %s\n", cmd);
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
 			} else
 			if (format.empty()) {
 				#ifdef __APPLE__
-				std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file, dot_file, background);
 				#else
-				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file, dot_file, dot_file, dot_file, background);
 				#endif
-				log("Exec: %s\n", cmd.c_str());
+				log("Exec: %s\n", cmd);
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
 			}

@@ -187,7 +187,10 @@ module \$__XILINX_SHIFTX (A, B, Y);
     // Trim off any leading 1'bx -es in A
     else if (_TECHMAP_CONSTMSK_A_[A_WIDTH-1] && _TECHMAP_CONSTVAL_A_[A_WIDTH-1] === 1'bx) begin
       localparam A_WIDTH_new = A_WIDTH_trimmed(A_WIDTH-1);
-      \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B), .Y(Y));
+      if (A_WIDTH_new == 0)
+        assign Y = 1'bx;
+      else
+        \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B), .Y(Y));
     end
     else if (A_WIDTH < `MIN_MUX_INPUTS) begin
       wire _TECHMAP_FAIL_ = 1;

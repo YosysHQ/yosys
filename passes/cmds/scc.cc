@@ -21,12 +21,10 @@
 // Tarjan, R. E. (1972), "Depth-first search and linear graph algorithms", SIAM Journal on Computing 1 (2): 146-160, doi:10.1137/0201010
 // http://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
 
-#include "kernel/register.h"
+#include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
-#include "kernel/log.h"
-#include <stdlib.h>
-#include <stdio.h>
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -103,7 +101,7 @@ struct SccWorker
 			design(design), module(module), sigmap(module)
 	{
 		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name.c_str());
+			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name);
 			return;
 		}
 
@@ -252,6 +250,11 @@ struct SccWorker
 
 struct SccPass : public Pass {
 	SccPass() : Pass("scc", "detect strongly connected components (logic loops)") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -340,7 +343,7 @@ struct SccPass : public Pass {
 		int origSelectPos = design->selection_stack.size() - 1;
 		extra_args(args, argidx, design);
 
-		RTLIL::Selection newSelection(false);
+		auto newSelection = RTLIL::Selection::EmptySelection(design);
 		int scc_counter = 0;
 
 		for (auto mod : design->selected_modules())

@@ -1,4 +1,4 @@
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 12 input 0 \A
@@ -22,7 +22,7 @@ select -assert-count 1 t:$bmux r:WIDTH=4 %i
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 6 input 0 \A
@@ -46,7 +46,7 @@ select -assert-count 0 t:$bmux
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 160 input 0 \A
@@ -70,7 +70,7 @@ select -assert-count 1 t:$bmux r:S_WIDTH=2 %i
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 10 input 0 \A
@@ -95,7 +95,7 @@ select -assert-count 1 t:$mux
 
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 5 input 0 \A

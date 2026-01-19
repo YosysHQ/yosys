@@ -57,6 +57,8 @@ keep_going = False
 check_witness = False
 detect_loops = False
 incremental = None
+track_assumes = False
+minimize_assumes = False
 so = SmtOpts()
 
 
@@ -189,6 +191,14 @@ def help():
     --incremental
         run in incremental mode (experimental)
 
+    --track-assumes
+        track individual assumptions and report a subset of used
+        assumptions that are sufficient for the reported outcome. This
+        can be used to debug PREUNSAT failures as well as to find a
+        smaller set of sufficient assumptions.
+
+    --minimize-assumes
+        when using --track-assumes, solve for a minimal set of sufficient assumptions.
 """ + so.helpmsg())
 
 def usage():
@@ -200,7 +210,8 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:higcm:", so.longopts +
             ["help", "final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "yw=", "btorwit=", "presat",
              "dump-vcd=", "dump-yw=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness", "detect-loops", "incremental"])
+             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness", "detect-loops", "incremental",
+             "track-assumes", "minimize-assumes"])
 except:
     usage()
 
@@ -289,6 +300,10 @@ for o, a in opts:
     elif o == "--incremental":
         from smtbmc_incremental import Incremental
         incremental = Incremental()
+    elif o == "--track-assumes":
+        track_assumes = True
+    elif o == "--minimize-assumes":
+        minimize_assumes = True
     elif so.handle(o, a):
         pass
     else:
@@ -446,6 +461,9 @@ def get_constr_expr(db, state, final=False, getvalues=False, individual=False):
 
 
 smt = SmtIo(opts=so)
+
+if track_assumes:
+    smt.smt2_options[':produce-unsat-assumptions'] = 'true'
 
 if noinfo and vcdfile is None and vlogtbfile is None and outconstr is None:
     smt.produce_models = False
@@ -651,18 +669,12 @@ if aimfile is not None:
 
 ywfile_hierwitness_cache = None
 
-def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
+def ywfile_hierwitness():
     global ywfile_hierwitness_cache
-    if map_steps is None:
-        map_steps = {}
+    if ywfile_hierwitness_cache is None:
+        ywfile_hierwitness = smt.hierwitness(topmod, allregs=True, blackbox=True)
 
-    with open(inywfile, "r") as f:
-        inyw = ReadWitness(f)
-
-        if ywfile_hierwitness_cache is None:
-            ywfile_hierwitness_cache = smt.hierwitness(topmod, allregs=True, blackbox=True)
-
-        inits, seqs, clocks, mems = ywfile_hierwitness_cache
+        inits, seqs, clocks, mems = ywfile_hierwitness
 
         smt_wires = defaultdict(list)
         smt_mems = defaultdict(list)
@@ -673,9 +685,158 @@ def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
         for mem in mems:
             smt_mems[mem["path"]].append(mem)
 
-        addr_re = re.compile(r'\\\[[0-9]+\]$')
-        bits_re = re.compile(r'[01?]*$')
+        ywfile_hierwitness_cache = inits, seqs, clocks, mems, smt_wires, smt_mems
 
+    return ywfile_hierwitness_cache
+
+def_bits_re = re.compile(r'([01]+)')
+
+def smt_extract_mask(smt_expr, mask):
+    chunks = []
+    def_bits = ''
+
+    mask_index_order = mask[::-1]
+
+    for matched in def_bits_re.finditer(mask_index_order):
+        chunks.append(matched.span())
+        def_bits += matched[0]
+
+    if not chunks:
+        return
+
+    if len(chunks) == 1:
+        start, end = chunks[0]
+        if start == 0 and end == len(mask_index_order):
+            combined_chunks = smt_expr
+        else:
+            combined_chunks = '((_ extract %d %d) %s)' % (end - 1, start, smt_expr)
+    else:
+        combined_chunks = '(let ((x %s)) (concat %s))' % (smt_expr, ' '.join(
+            '((_ extract %d %d) x)' % (end - 1, start)
+            for start, end in reversed(chunks)
+        ))
+
+    return combined_chunks, ''.join(mask_index_order[start:end] for start, end in chunks)[::-1]
+
+def smt_concat(exprs):
+    if not isinstance(exprs, (tuple, list)):
+        exprs = tuple(exprs)
+    if not exprs:
+        return ""
+    if len(exprs) == 1:
+        return exprs[1]
+    return "(concat %s)" % ' '.join(exprs)
+
+def ywfile_signal(sig, step, mask=None):
+    assert sig.width > 0
+
+    inits, seqs, clocks, mems, smt_wires, smt_mems = ywfile_hierwitness()
+    sig_end = sig.offset + sig.width
+
+    output = []
+
+    def ywfile_signal_error(reason, detail=None):
+        msg = f"Yosys witness signal mismatch for {sig.pretty()}: {reason}"
+        if detail:
+            msg += f" ({detail})"
+        raise ValueError(msg)
+
+    if sig.path in smt_wires:
+        for wire in smt_wires[sig.path]:
+            width, offset = wire["width"], wire["offset"]
+
+            smt_bool = smt.net_width(topmod, wire["smtpath"]) == 1
+
+            offset = max(offset, 0)
+
+            end = width + offset
+            common_offset = max(sig.offset, offset)
+            common_end = min(sig_end, end)
+            if common_end <= common_offset:
+                continue
+
+            smt_expr = smt.witness_net_expr(topmod, f"s{step}", wire)
+
+            if not smt_bool:
+                slice_high = common_end - offset - 1
+                slice_low = common_offset - offset
+                smt_expr = "((_ extract %d %d) %s)" % (slice_high, slice_low, smt_expr)
+            else:
+                smt_expr = "(ite %s #b1 #b0)" % smt_expr
+
+            output.append(((common_offset - sig.offset), (common_end - sig.offset), smt_expr))
+
+    if sig.memory_path:
+        if sig.memory_path in smt_mems:
+            for mem in smt_mems[sig.memory_path]:
+                width, size, bv = mem["width"], mem["size"], mem["statebv"]
+
+                if sig.memory_addr is not None and sig.memory_addr >= size:
+                    ywfile_signal_error(
+                        "memory address out of bounds",
+                        f"address={sig.memory_addr} size={size}",
+                    )
+
+                smt_expr = smt.net_expr(topmod, f"s{step}", mem["smtpath"])
+
+                if bv:
+                    word_low = sig.memory_addr * width
+                    word_high = word_low + width - 1
+                    smt_expr = "((_ extract %d %d) %s)" % (word_high, word_low, smt_expr)
+                else:
+                    addr_width = (size - 1).bit_length()
+                    addr_bits = f"{sig.memory_addr:0{addr_width}b}"
+                    smt_expr = "(select %s #b%s )" % (smt_expr, addr_bits)
+
+                if sig.width < width:
+                    slice_high = sig.offset + sig.width - 1
+                    smt_expr = "((_ extract %d %d) %s)" % (slice_high, sig.offset, smt_expr)
+
+                output.append((0, sig.width, smt_expr))
+        else:
+            ywfile_signal_error("memory not found in design")
+
+    output.sort()
+
+    output = [chunk for chunk in output if chunk[0] != chunk[1]]
+
+    if not output:
+        if sig.memory_path:
+            ywfile_signal_error("memory signal has no matching bits in design")
+        else:
+            ywfile_signal_error("signal not found in design")
+
+    pos = 0
+
+    for start, end, smt_expr in output:
+        if start != pos:
+            ywfile_signal_error(
+                "signal width/offset mismatch",
+                f"expected coverage at bit {pos}",
+            )
+        pos = end
+
+    if pos != sig.width:
+        ywfile_signal_error(
+            "signal width/offset mismatch",
+            f"covered {pos} of {sig.width} bits",
+        )
+
+    if len(output) == 1:
+        return output[0][-1]
+    return smt_concat(smt_expr for start, end, smt_expr in reversed(output))
+
+def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
+    global ywfile_hierwitness_cache
+    if map_steps is None:
+        map_steps = {}
+
+    with open(inywfile, "r") as f:
+        inyw = ReadWitness(f)
+
+        inits, seqs, clocks, mems, smt_wires, smt_mems = ywfile_hierwitness()
+
+        bits_re = re.compile(r'[01?]*$')
         max_t = -1
 
         for t, step in inyw.steps():
@@ -687,77 +848,17 @@ def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
                 if not bits_re.match(bits):
                     raise ValueError("unsupported bit value in Yosys witness file")
 
-                sig_end = sig.offset + len(bits)
-                if sig.path in smt_wires:
-                    for wire in smt_wires[sig.path]:
-                        width, offset = wire["width"], wire["offset"]
+                if bits.count('?') == len(bits):
+                    continue
 
-                        smt_bool = smt.net_width(topmod, wire["smtpath"]) == 1
+                smt_expr = ywfile_signal(sig, map_steps.get(t, t))
 
-                        offset = max(offset, 0)
+                smt_expr, bits = smt_extract_mask(smt_expr, bits)
 
-                        end = width + offset
-                        common_offset = max(sig.offset, offset)
-                        common_end = min(sig_end, end)
-                        if common_end <= common_offset:
-                            continue
+                smt_constr = "(= %s #b%s)" % (smt_expr, bits)
+                constr_assumes[t].append((inywfile, smt_constr))
 
-                        smt_expr = smt.witness_net_expr(topmod, f"s{map_steps.get(t, t)}", wire)
-
-                        if not smt_bool:
-                            slice_high = common_end - offset - 1
-                            slice_low = common_offset - offset
-                            smt_expr = "((_ extract %d %d) %s)" % (slice_high, slice_low, smt_expr)
-
-                        bit_slice = bits[len(bits) - (common_end - sig.offset):len(bits) - (common_offset - sig.offset)]
-
-                        if bit_slice.count("?") == len(bit_slice):
-                            continue
-
-                        if smt_bool:
-                            assert width == 1
-                            smt_constr = "(= %s %s)" % (smt_expr, "true" if bit_slice == "1" else "false")
-                        else:
-                            if "?" in bit_slice:
-                                mask = bit_slice.replace("0", "1").replace("?", "0")
-                                bit_slice = bit_slice.replace("?", "0")
-                                smt_expr = "(bvand %s #b%s)" % (smt_expr, mask)
-
-                            smt_constr = "(= %s #b%s)" % (smt_expr, bit_slice)
-
-                        constr_assumes[t].append((inywfile, smt_constr))
-
-                if sig.memory_path:
-                    if sig.memory_path in smt_mems:
-                        for mem in smt_mems[sig.memory_path]:
-                            width, size, bv = mem["width"], mem["size"], mem["statebv"]
-
-                            smt_expr = smt.net_expr(topmod, f"s{map_steps.get(t, t)}", mem["smtpath"])
-
-                            if bv:
-                                word_low = sig.memory_addr * width
-                                word_high = word_low + width - 1
-                                smt_expr = "((_ extract %d %d) %s)" % (word_high, word_low, smt_expr)
-                            else:
-                                addr_width = (size - 1).bit_length()
-                                addr_bits = f"{sig.memory_addr:0{addr_width}b}"
-                                smt_expr = "(select %s #b%s )" % (smt_expr, addr_bits)
-
-                            if len(bits) < width:
-                                slice_high = sig.offset + len(bits) - 1
-                                smt_expr = "((_ extract %d %d) %s)" % (slice_high, sig.offset, smt_expr)
-
-                            bit_slice = bits
-
-                            if "?" in bit_slice:
-                                mask = bit_slice.replace("0", "1").replace("?", "0")
-                                bit_slice = bit_slice.replace("?", "0")
-                                smt_expr = "(bvand %s #b%s)" % (smt_expr, mask)
-
-                            smt_constr = "(= %s #b%s)" % (smt_expr, bit_slice)
-                            constr_assumes[t].append((inywfile, smt_constr))
             max_t = t
-
         return max_t
 
 if inywfile is not None:
@@ -1348,11 +1449,11 @@ def write_yw_trace(steps, index, allregs=False, filename=None):
 
             exprs.extend(smt.witness_net_expr(topmod, f"s{k}", sig) for sig in sigs)
 
-            all_sigs.append(sigs)
+            all_sigs.append((step_values, sigs))
 
         bvs = iter(smt.get_list(exprs))
 
-        for sigs in all_sigs:
+        for (step_values, sigs) in all_sigs:
             for sig in sigs:
                 value = smt.bv2bin(next(bvs))
                 step_values[sig["sig"]] = value
@@ -1381,6 +1482,10 @@ def write_trace(steps_start, steps_stop, index, allregs=False):
     if outywfile is not None:
         write_yw_trace(steps, index, allregs)
 
+def escape_path_segment(segment):
+    if "." in segment:
+        return f"\\{segment} "
+    return segment
 
 def print_failed_asserts_worker(mod, state, path, extrainfo, infomap, infokey=()):
     assert mod in smt.modinfo
@@ -1391,7 +1496,8 @@ def print_failed_asserts_worker(mod, state, path, extrainfo, infomap, infokey=()
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
         cell_infokey = (mod, cellname, infokey)
-        if print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname, extrainfo, infomap, cell_infokey):
+        cell_path = path + "." + escape_path_segment(cellname)
+        if print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), cell_path, extrainfo, infomap, cell_infokey):
             found_failed_assert = True
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
@@ -1424,7 +1530,7 @@ def print_anyconsts_worker(mod, state, path):
     assert mod in smt.modinfo
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
-        print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
+        print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + escape_path_segment(cellname))
 
     for fun, info in smt.modinfo[mod].anyconsts.items():
         if info[1] is None:
@@ -1444,18 +1550,21 @@ def print_anyconsts(state):
     print_anyconsts_worker(topmod, "s%d" % state, topmod)
 
 
-def get_cover_list(mod, base):
+def get_cover_list(mod, base, path=None):
+    path = path or mod
     assert mod in smt.modinfo
 
     cover_expr = list()
+    # A tuple of path and cell name
     cover_desc = list()
 
     for expr, desc in smt.modinfo[mod].covers.items():
         cover_expr.append("(ite (|%s| %s) #b1 #b0)" % (expr, base))
-        cover_desc.append(desc)
+        cover_desc.append((path, desc))
 
     for cell, submod in smt.modinfo[mod].cells.items():
-        e, d = get_cover_list(submod, "(|%s_h %s| %s)" % (mod, cell, base))
+        cell_path = path + "." + escape_path_segment(cell)
+        e, d = get_cover_list(submod, "(|%s_h %s| %s)" % (mod, cell, base), cell_path)
         cover_expr += e
         cover_desc += d
 
@@ -1471,7 +1580,8 @@ def get_assert_map(mod, base, path, key_base=()):
         assert_map[(expr, key_base)] = ("(|%s| %s)" % (expr, base), path, desc)
 
     for cell, submod in smt.modinfo[mod].cells.items():
-        assert_map.update(get_assert_map(submod, "(|%s_h %s| %s)" % (mod, cell, base), path + "." + cell, (mod, cell, key_base)))
+        cell_path = path + "." + escape_path_segment(cell)
+        assert_map.update(get_assert_map(submod, "(|%s_h %s| %s)" % (mod, cell, base), cell_path, (mod, cell, key_base)))
 
     return assert_map
 
@@ -1497,6 +1607,44 @@ def get_active_assert_map(step, active):
 
     return assert_map
 
+assume_enables = {}
+
+def declare_assume_enables():
+    def recurse(mod, path, key_base=()):
+        for expr, desc in smt.modinfo[mod].assumes.items():
+            enable = f"|assume_enable {len(assume_enables)}|"
+            smt.smt2_assumptions[(expr, key_base)] = enable
+            smt.write(f"(declare-const {enable} Bool)")
+            assume_enables[(expr, key_base)] = (enable, path, desc)
+
+        for cell, submod in smt.modinfo[mod].cells.items():
+            recurse(submod, f"{path}.{cell}", (mod, cell, key_base))
+
+    recurse(topmod, topmod)
+
+if track_assumes:
+    declare_assume_enables()
+
+def smt_assert_design_assumes(step):
+    if not track_assumes:
+        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        return
+
+    if not assume_enables:
+        return
+
+    def expr_for_assume(assume_key, base=None):
+        expr, key_base = assume_key
+        expr_prefix = f"(|{expr}| "
+        expr_suffix = ")"
+        while key_base:
+            mod, cell, key_base = key_base
+            expr_prefix += f"(|{mod}_h {cell}| "
+            expr_suffix += ")"
+        return f"{expr_prefix} s{step}{expr_suffix}"
+
+    for assume_key, (enable, path, desc) in assume_enables.items():
+        smt_assert_consequent(f"(=> {enable} {expr_for_assume(assume_key)})")
 
 states = list()
 asserts_antecedent_cache = [list()]
@@ -1651,6 +1799,13 @@ def smt_check_sat(expected=["sat", "unsat"]):
         smt_forall_assert()
     return smt.check_sat(expected=expected)
 
+def report_tracked_assumptions(msg):
+    if track_assumes:
+        print_msg(msg)
+        for key in smt.get_unsat_assumptions(minimize=minimize_assumes):
+            enable, path, descr = assume_enables[key]
+            print_msg(f"  In {path}: {descr}")
+
 
 if incremental:
     incremental.mainloop()
@@ -1664,7 +1819,7 @@ elif tempind:
             break
 
         smt_state(step)
-        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        smt_assert_design_assumes(step)
         smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step))
         smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, step))
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
@@ -1707,6 +1862,7 @@ elif tempind:
 
         else:
             print_msg("Temporal induction successful.")
+            report_tracked_assumptions("Used assumptions:")
             retstatus = "PASSED"
             break
 
@@ -1732,7 +1888,7 @@ elif covermode:
 
     while step < num_steps:
         smt_state(step)
-        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        smt_assert_design_assumes(step)
         smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step))
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
 
@@ -1747,12 +1903,18 @@ elif covermode:
             smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, step-1, step))
             smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, step))
 
+        if step < skip_steps:
+            print_msg("Skipping step %d.." % (step))
+            step += 1
+            continue
+
         while "1" in cover_mask:
             print_msg("Checking cover reachability in step %d.." % (step))
             smt_push()
             smt_assert("(distinct (covers_%d s%d) #b%s)" % (coveridx, step, "0" * len(cover_desc)))
 
             if smt_check_sat() == "unsat":
+                report_tracked_assumptions("Used assumptions:")
                 smt_pop()
                 break
 
@@ -1761,13 +1923,14 @@ elif covermode:
                     print_msg("Appending additional step %d." % i)
                     smt_state(i)
                     smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, i))
-                    smt_assert_consequent("(|%s_u| s%d)" % (topmod, i))
+                    smt_assert_design_assumes(i)
                     smt_assert_antecedent("(|%s_h| s%d)" % (topmod, i))
                     smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                     smt_assert_consequent(get_constr_expr(constr_assumes, i))
                 print_msg("Re-solving with appended steps..")
                 if smt_check_sat() == "unsat":
                     print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                    report_tracked_assumptions("Conflicting assumptions:")
                     found_failed_assert = True
                     retstatus = "FAILED"
                     break
@@ -1782,7 +1945,9 @@ elif covermode:
                     new_cover_mask.append(cover_mask[i])
                     continue
 
-                print_msg("Reached cover statement at %s in step %d." % (cover_desc[i], step))
+                path = cover_desc[i][0]
+                name = cover_desc[i][1]
+                print_msg("Reached cover statement in step %d at %s: %s" % (step, path, name))
                 new_cover_mask.append("0")
 
             cover_mask = "".join(new_cover_mask)
@@ -1812,7 +1977,7 @@ elif covermode:
     if "1" in cover_mask:
         for i in range(len(cover_mask)):
             if cover_mask[i] == "1":
-                print_msg("Unreached cover statement at %s." % cover_desc[i])
+                print_msg("Unreached cover statement at %s: %s" % (cover_desc[i][0], cover_desc[i][1]))
 
 else:  # not tempind, covermode
     active_assert_keys = get_assert_keys()
@@ -1823,7 +1988,7 @@ else:  # not tempind, covermode
     retstatus = "PASSED"
     while step < num_steps:
         smt_state(step)
-        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        smt_assert_design_assumes(step)
         smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step))
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
 
@@ -1853,7 +2018,7 @@ else:  # not tempind, covermode
             if step+i < num_steps:
                 smt_state(step+i)
                 smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, step+i))
-                smt_assert_consequent("(|%s_u| s%d)" % (topmod, step+i))
+                smt_assert_design_assumes(step + i)
                 smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step+i))
                 smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, step+i-1, step+i))
                 smt_assert_consequent(get_constr_expr(constr_assumes, step+i))
@@ -1867,7 +2032,8 @@ else:  # not tempind, covermode
                     print_msg("Checking assumptions in steps %d to %d.." % (step, last_check_step))
 
                 if smt_check_sat() == "unsat":
-                    print("%s Assumptions are unsatisfiable!" % smt.timestamp())
+                    print_msg("Assumptions are unsatisfiable!")
+                    report_tracked_assumptions("Conficting assumptions:")
                     retstatus = "PREUNSAT"
                     break
 
@@ -1920,13 +2086,14 @@ else:  # not tempind, covermode
                                 print_msg("Appending additional step %d." % i)
                                 smt_state(i)
                                 smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, i))
-                                smt_assert_consequent("(|%s_u| s%d)" % (topmod, i))
+                                smt_assert_design_assumes(i)
                                 smt_assert_antecedent("(|%s_h| s%d)" % (topmod, i))
                                 smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                                 smt_assert_consequent(get_constr_expr(constr_assumes, i))
                             print_msg("Re-solving with appended steps..")
                             if smt_check_sat() == "unsat":
-                                print("%s Cannot append steps without violating assumptions!" % smt.timestamp())
+                                print_msg("Cannot append steps without violating assumptions!")
+                                report_tracked_assumptions("Conflicting assumptions:")
                                 retstatus = "FAILED"
                                 break
                         print_anyconsts(step)

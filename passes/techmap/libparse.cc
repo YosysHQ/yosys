@@ -25,15 +25,109 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
-#ifndef FILTERLIB
+#ifdef FILTERLIB
+#undef log_assert
+void log_assert(bool cond) {
+	if (!cond)
+		fprintf(stderr, "Unspecified assertion failed\n");
+}
+void warn(std::string str) {
+	std::cerr << str;
+}
+#else
 #include "kernel/log.h"
+void warn(std::string str) {
+	Yosys::log_formatted_warning("", str);
+}
 #endif
 
 using namespace Yosys;
 
-std::set<std::string> LibertyAst::blacklist;
-std::set<std::string> LibertyAst::whitelist;
+#ifndef FILTERLIB
+
+LibertyAstCache LibertyAstCache::instance;
+
+std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string &fname)
+{
+	auto it = cached.find(fname);
+	if (it == cached.end())
+		return nullptr;
+	if (verbose)
+		log("Using cached data for liberty file `%s'\n", fname);
+	return it->second;
+}
+
+void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast)
+{
+	auto it = cache_path.find(fname);
+	bool should_cache = it == cache_path.end() ? cache_by_default : it->second;
+	if (!should_cache)
+		return;
+	if (verbose)
+		log("Caching data for liberty file `%s'\n", fname);
+	cached.emplace(fname, ast);
+}
+
+#endif
+
+bool LibertyInputStream::extend_buffer_once()
+{
+	if (eof)
+		return false;
+
+	// To support unget we leave the last already read character in the buffer
+	if (buf_pos > 1) {
+		size_t move_pos = buf_pos - 1;
+		memmove(buffer.data(), buffer.data() + move_pos, buf_end - move_pos);
+		buf_pos -= move_pos;
+		buf_end -= move_pos;
+	}
+
+	const size_t chunk_size = 4096;
+	if (buffer.size() < buf_end + chunk_size) {
+		buffer.resize(buf_end + chunk_size);
+	}
+
+	size_t read_size = f.rdbuf()->sgetn((char *)buffer.data() + buf_end, chunk_size);
+	buf_end += read_size;
+	if (read_size < chunk_size)
+		eof = true;
+	return read_size != 0;
+}
+
+bool LibertyInputStream::extend_buffer_at_least(size_t size) {
+	while (buffered_size() < size) {
+		if (!extend_buffer_once())
+			return false;
+	}
+	return true;
+}
+
+int LibertyInputStream::get_cold()
+{
+	if (buf_pos == buf_end) {
+		if (!extend_buffer_at_least())
+			return EOF;
+	}
+
+	int c = buffer[buf_pos];
+	buf_pos += 1;
+	return c;
+}
+
+int LibertyInputStream::peek_cold(size_t offset)
+{
+	if (buf_pos + offset >= buf_end) {
+		if (!extend_buffer_at_least(offset + 1))
+			return EOF;
+	}
+#ifdef log_assert
+	log_assert(buf_pos + offset < buffer.size());
+#endif
+	return buffer[buf_pos + offset];
+}
 
 LibertyAst::~LibertyAst()
 {
@@ -42,7 +136,7 @@ LibertyAst::~LibertyAst()
 	children.clear();
 }
 
-LibertyAst *LibertyAst::find(std::string name)
+const LibertyAst *LibertyAst::find(std::string name) const
 {
 	for (auto child : children)
 		if (child->id == name)
@@ -50,7 +144,7 @@ LibertyAst *LibertyAst::find(std::string name)
 	return NULL;
 }
 
-void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_ok)
+void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string indent, std::string path, bool path_ok) const
 {
 	if (whitelist.count(path + "/*") > 0)
 		path_ok = true;
@@ -77,13 +171,260 @@ void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_o
 	if (!children.empty()) {
 		fprintf(f, " {\n");
 		for (size_t i = 0; i < children.size(); i++)
-			children[i]->dump(f, indent + "  ", path, path_ok);
+			children[i]->dump(f, blacklist, whitelist, indent + "  ", path, path_ok);
 		fprintf(f, "%s}\n", indent.c_str());
 	} else
 		fprintf(f, " ;\n");
 }
 
-int LibertyParser::lexer(std::string &str)
+// binary operators excluding ' '
+bool LibertyExpression::char_is_nice_binop(char c) {
+	return c == '*' || c == '&' || c == '^' || c == '+' || c == '|';
+}
+
+bool LibertyExpression::is_binop() {
+	return kind == AND || kind == OR || kind == XOR;
+}
+
+// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
+	if (s.empty())
+		return LibertyExpression{};
+
+	char c = s.peek();
+	auto lhs = LibertyExpression{};
+
+	while (isspace(c) || c == '"') {
+		if (s.empty())
+			return lhs;
+		s.next();
+		c = s.peek();
+	}
+
+	if (isalpha(c)) { // pin
+		lhs.kind = Kind::PIN;
+		lhs.name = s.pin();
+	} else if (c == '(') { // parens
+		s.next();
+		lhs = parse(s);
+		if (s.peek() != ')') {
+			std::stringstream ss;
+			ss << "expected ')' instead of " << s.peek() << " while parsing Liberty expression '" << s.full_expr() << "'\n";
+			warn(ss.str());
+			return lhs;
+		}
+		s.next();
+	} else if (c == '!') { // prefix NOT
+		s.next();
+		lhs.kind = Kind::NOT;
+		lhs.children.push_back(parse(s, 7));
+	} else {
+		std::stringstream ss;
+		ss << "unrecognised character " << c << " while parsing Liberty expression " << s.full_expr() << "\n";
+		warn(ss.str());
+		return lhs;
+	}
+	while (true) {
+		if (s.empty())
+			break;
+
+		c = s.peek();
+
+		if (c == '\'') { // postfix NOT
+			if (min_prio > 7)
+				break;
+			s.next();
+
+			auto n = LibertyExpression{};
+			n.kind = Kind::NOT;
+			n.children.push_back(lhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '^') { // infix XOR
+			if (min_prio > 5)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 6);
+			auto n = LibertyExpression{};
+			n.kind = Kind::XOR;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '&' || c == '*' || isspace(c)) { // infix AND
+			if (min_prio > 3)
+				break;
+
+			if (isspace(c)) {
+				// Rewind past this space and any further spaces
+				while (isspace(c)) {
+					if (s.empty())
+						return lhs;
+					s.next();
+					c = s.peek();
+				}
+				if (char_is_nice_binop(c) || c == ')' || c == '\'' || c == '\"') {
+					// We found a real binop, so this space wasn't an AND
+					// and we just discard it as meaningless whitespace
+					// Tail operators also imply this isn't an AND
+					continue;
+				}
+			} else {
+				// Rewind past this op
+				s.next();
+			}
+
+			auto rhs = parse(s, 4);
+			if (rhs.kind == EMPTY)
+				continue;
+			auto n = LibertyExpression{};
+			n.kind = Kind::AND;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '+' || c == '|') { // infix OR
+			if (min_prio > 1)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 2);
+			auto n = LibertyExpression{};
+			n.kind = Kind::OR;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		}
+		break;
+	}
+
+	return lhs;
+}
+
+void LibertyExpression::get_pin_names(std::unordered_set<std::string>& names) {
+	if (kind == Kind::PIN) {
+		names.insert(name);
+	} else {
+		for (auto& child : children)
+			child.get_pin_names(names);
+	}
+}
+
+bool LibertyExpression::eval(std::unordered_map<std::string, bool>& values) {
+	bool result = false;
+	switch (kind) {
+	case Kind::AND:
+		result = true;
+		for (auto& child : children)
+			result &= child.eval(values);
+		return result;
+	case Kind::OR:
+		result = false;
+		for (auto& child : children)
+			result |= child.eval(values);
+		return result;
+	case Kind::NOT:
+		log_assert(children.size() == 1);
+		return !children[0].eval(values);
+	case Kind::XOR:
+		result = false;
+		for (auto& child : children)
+			result ^= child.eval(values);
+		return result;
+	case Kind::PIN:
+		return values.at(name);
+	case Kind::EMPTY:
+		log_assert(false);
+	}
+	return false;
+}
+
+std::string LibertyExpression::sexpr_str(int indent)
+{
+	std::string prefix;
+	switch (kind) {
+		case AND:
+			prefix += "(and ";
+			break;
+		case OR:
+			prefix += "(or ";
+			break;
+		case NOT:
+			prefix += "(not ";
+			break;
+		case XOR:
+			prefix += "(xor ";
+			break;
+		case PIN:
+			prefix += "(pin \"" + name + "\"";
+			break;
+		case EMPTY:
+			prefix += "(";
+			break;
+		default:
+			log_assert(false);
+	}
+	size_t add_indent = prefix.length();
+	bool first = true;
+	for (auto child : children) {
+		if (!first) {
+			prefix += "\n" + std::string(indent + add_indent, ' ');
+		}
+		prefix += child.sexpr_str(indent + add_indent);
+		first = false;
+	}
+	prefix += ")";
+	return prefix;
+}
+
+std::string LibertyExpression::vlog_str()
+{
+	std::string prefix;
+	if (kind != PIN)
+		prefix += "(";
+	if (is_binop()) {
+		log_assert(children.size() == 2);
+		prefix += children[0].vlog_str();
+		switch (kind) {
+			case AND:
+				prefix += "&";
+				break;
+			case OR:
+				prefix += "|";
+				break;
+			case XOR:
+				prefix += "^";
+				break;
+			default:
+				log_assert(false);
+		}
+		prefix += children[1].vlog_str();
+	} else {
+		switch (kind) {
+			case NOT:
+				log_assert(children.size() == 1);
+				prefix += "~";
+				prefix += children[0].vlog_str();
+				break;
+			case PIN:
+				prefix += name;
+				break;
+			default:
+				log_assert(false);
+			}
+	}
+	if (kind != PIN)
+		prefix += ")";
+	return prefix;
+}
+
+int LibertyParser::lexer_inner(std::string &str)
 {
 	int c;
 
@@ -94,22 +435,24 @@ int LibertyParser::lexer(std::string &str)
 
 	// search for identifiers, numbers, plus or minus.
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
-		str = static_cast<char>(c);
-		while (1) {
-			c = f.get();
+		f.unget();
+		size_t i = 1;
+		while (true) {
+			c = f.peek(i);
 			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
-				str += c;
+				i += 1;
 			else
 				break;
 		}
-		f.unget();
+		str.clear();
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i);
+
 		if (str == "+" || str == "-") {
 			/* Single operator is not an identifier */
-			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
 			return str[0];
 		}
 		else {
-			// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
 			return 'v';
 		}
 	}
@@ -117,16 +460,23 @@ int LibertyParser::lexer(std::string &str)
 	// if it wasn't an identifer, number of array range,
 	// maybe it's a string?
 	if (c == '"') {
-		str = "";
-		while (1) {
-			c = f.get();
-			if (c == '\n')
-				line++;
-			if (c == '"')
+		size_t i = 0;
+		while (true) {
+			c = f.peek(i);
+			line += (c == '\n');
+			if (c != '"' && c != EOF)
+				i += 1;
+			else
 				break;
-			str += c;
 		}
-		// fprintf(stderr, "LEX: string >>%s<<\n", str.c_str());
+		str.clear();
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		// Usage in filterlib is expected to retain quotes
+		// but yosys expects to get unquoted
+#ifdef FILTERLIB
+		str = "\"" + str + "\"";
+#endif
+		f.consume(i + 1);
 		return 'v';
 	}
 
@@ -149,13 +499,12 @@ int LibertyParser::lexer(std::string &str)
 			return lexer(str);
 		}
 		f.unget();
-		// fprintf(stderr, "LEX: char >>/<<\n");
 		return '/';             // a single '/' charater.
 	}
 
 	// check for a backslash
 	if (c == '\\') {
-		c = f.get();		
+		c = f.get();
 		if (c == '\r')
 			c = f.get();
 		if (c == '\n') {
@@ -174,15 +523,112 @@ int LibertyParser::lexer(std::string &str)
 
 	// anything else, such as ';' will get passed
 	// through as literal items.
-
-	// if (c >= 32 && c < 255)
-	// 	fprintf(stderr, "LEX: char >>%c<<\n", c);
-	// else
-	// 	fprintf(stderr, "LEX: char %d\n", c);
 	return c;
 }
 
-LibertyAst *LibertyParser::parse()
+int LibertyParser::lexer(std::string &str)
+{
+	int ret = lexer_inner(str);
+	// if (ret >= 32 && ret < 255) {
+	// 	fprintf(stdout, "LEX: ret >>%c<<\n", ret);
+	// } else if (ret == 'v') {
+	// 	fprintf(stdout, "LEX: ret v str %s\n", str.c_str());
+	// } else {
+	// 	fprintf(stdout, "LEX: ret %d\n", ret);
+	// }
+	return ret;
+}
+
+void LibertyParser::report_unexpected_token(int tok)
+{
+	std::string eReport;
+	switch(tok)
+	{
+	case 'n':
+		error("Unexpected newline.");
+		break;
+	case '[':
+	case ']':
+	case '}':
+	case '{':
+	case '\"':
+	case ':':
+		eReport = "Unexpected '";
+		eReport += static_cast<char>(tok);
+		eReport += "'.";
+		error(eReport);
+		break;
+	case EOF:
+		error("Unexpected end of file");
+		break;
+	default:
+		eReport = "Unexpected token: ";
+		eReport += static_cast<char>(tok);
+		error(eReport);
+	}
+}
+
+// FIXME: the AST needs to be extended to store
+//        these vector ranges.
+void LibertyParser::parse_vector_range(int tok)
+{
+	// parse vector range [A] or [A:B]
+	std::string arg;
+	tok = lexer(arg);
+	if (tok != 'v')
+	{
+		// expected a vector array index
+		error("Expected a number.");
+	}
+	else
+	{
+		// fixme: check for number A
+	}
+	tok = lexer(arg);
+	// optionally check for : in case of [A:B]
+	// if it isn't we just expect ']'
+	// as we have [A]
+	if (tok == ':')
+	{
+		tok = lexer(arg);
+		if (tok != 'v')
+		{
+			// expected a vector array index
+			error("Expected a number.");
+		}
+		else
+		{
+			// fixme: check for number B
+			tok = lexer(arg);
+		}
+	}
+	// expect a closing bracket of array range
+	if (tok != ']')
+	{
+		error("Expected ']' on array range.");
+	}
+}
+
+// Consume into out_str any string-ish tokens, seperated with spaces
+// to cope with abuse of the underdefined spec by real world PDKs
+// enabled by proprietary implementations.
+// Sorry.
+int LibertyParser::consume_wrecked_str(int tok, std::string& out_str) {
+	std::string str = "";
+	while (tok != ';' && tok != EOF && tok != 'n') {
+		out_str += " ";
+		if (tok == 'v')
+			out_str += str;
+		else
+			out_str += tok;
+		tok = lexer(str);
+	}
+	if (tok == EOF)
+		error("wrecked string EOF");
+	return tok;
+}
+
+LibertyAst *LibertyParser::parse(bool top_level)
 {
 	std::string str;
 
@@ -196,30 +642,17 @@ LibertyAst *LibertyParser::parse()
 	while ((tok == 'n') || (tok == ';'))
 		tok = lexer(str);
 
-	if (tok == '}' || tok < 0)
+	if (tok == EOF) {
+		if (top_level)
+			return NULL;
+		report_unexpected_token(tok);
+	}
+
+	if (tok == '}')
 		return NULL;
 
 	if (tok != 'v') {
-		std::string eReport;
-		switch(tok)
-		{
-		case 'n':
-			error("Unexpected newline.");
-			break;
-		case '[':
-		case ']':
-		case '}':
-		case '{':
-		case '\"':
-		case ':':
-			eReport = "Unexpected '";
-			eReport += static_cast<char>(tok);
-			eReport += "'.";
-			error(eReport);
-			break;
-		default:
-			error();
-		}
+		report_unexpected_token(tok);	
 	}
 
 	LibertyAst *ast = new LibertyAst;
@@ -237,7 +670,18 @@ LibertyAst *LibertyParser::parse()
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
 			if (tok == 'v') {
-    				tok = lexer(str);
+				tok = lexer(str);
+				if (tok == '[') {
+					parse_vector_range(tok);
+					tok = lexer(str);
+				} else {
+					// Hack for when an expression string is unquoted
+					tok = consume_wrecked_str(tok, ast->value);
+				}
+			} else if (tok == '(') {
+				// Hack for when an expression string is unquoted and starts with
+				// parentheses
+				tok = consume_wrecked_str(tok, ast->value);
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
@@ -247,7 +691,7 @@ LibertyAst *LibertyParser::parse()
 				ast->value += str;
 				tok = lexer(str);
 			}
-			
+
 			// In a liberty file, all key : value pairs should end in ';'
 			// However, there are some liberty files in the wild that
 			// just have a newline. We'll be kind and accept a newline
@@ -267,68 +711,16 @@ LibertyAst *LibertyParser::parse()
 					continue;
 				if (tok == ')')
 					break;
-				
-				// FIXME: the AST needs to be extended to store
-				//        these vector ranges.
+
 				if (tok == '[')
 				{
-					// parse vector range [A] or [A:B]
-					std::string arg;
-					tok = lexer(arg);
-					if (tok != 'v')
-					{
-						// expected a vector array index
-						error("Expected a number.");
-					}
-					else
-					{
-						// fixme: check for number A
-					}
-					tok = lexer(arg);
-					// optionally check for : in case of [A:B]
-					// if it isn't we just expect ']'
-					// as we have [A]
-					if (tok == ':')
-					{
-						tok = lexer(arg);
-						if (tok != 'v')
-						{
-							// expected a vector array index
-							error("Expected a number.");
-						}
-						else
-						{
-							// fixme: check for number B
-							tok = lexer(arg);                            
-						}
-					}
-					// expect a closing bracket of array range
-					if (tok != ']')
-					{
-						error("Expected ']' on array range.");
-					}
-					continue;           
+					parse_vector_range(tok);
+					continue;
 				}
+				if (tok == 'n')
+					continue;
 				if (tok != 'v') {
-					std::string eReport;
-					switch(tok)
-					{
-					case 'n':
-					  continue;
-					case '[':
-					case ']':
-					case '}':
-					case '{':
-					case '\"':
-					case ':':
-						eReport = "Unexpected '";
-						eReport += static_cast<char>(tok);
-						eReport += "'.";
-						error(eReport);
-						break;
-					default:
-						error();
-					}
+					report_unexpected_token(tok);
 				}
 				ast->args.push_back(arg);
 			}
@@ -336,16 +728,22 @@ LibertyAst *LibertyParser::parse()
 		}
 
 		if (tok == '{') {
+			bool terminated = false;
 			while (1) {
-				LibertyAst *child = parse();
-				if (child == NULL)
+				LibertyAst *child = parse(false);
+				if (child == NULL) {
+					terminated = true;
 					break;
+				}
 				ast->children.push_back(child);
+			}
+			if (!terminated) {
+				report_unexpected_token(EOF);
 			}
 			break;
 		}
 
-		error();
+		report_unexpected_token(tok);
 	}
 
 	return ast;
@@ -353,28 +751,31 @@ LibertyAst *LibertyParser::parse()
 
 #ifndef FILTERLIB
 
-void LibertyParser::error()
+void LibertyParser::error() const
 {
 	log_error("Syntax error in liberty file on line %d.\n", line);
 }
 
-void LibertyParser::error(const std::string &str)
+void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";
 	ss << "  " << str << "\n";
-	log_error("%s", ss.str().c_str());
+	log_error("%s", ss.str());
 }
 
 #else
 
-void LibertyParser::error()
+YS_ATTRIBUTE(weak)
+void LibertyParser::error() const
 {
 	fprintf(stderr, "Syntax error in liberty file on line %d.\n", line);
 	exit(1);
 }
 
-void LibertyParser::error(const std::string &str)
+
+YS_ATTRIBUTE(weak)
+void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";
@@ -406,9 +807,9 @@ void LibertyParser::error(const std::string &str)
 
 /**** END: http://svn.clairexen.net/tools/trunk/examples/check.h ****/
 
-LibertyAst *find_non_null(LibertyAst *node, const char *name)
+const LibertyAst *find_non_null(const LibertyAst *node, const char *name)
 {
-	LibertyAst *ret = node->find(name);
+	const LibertyAst *ret = node->find(name);
 	if (ret == NULL)
 		fprintf(stderr, "Error: expected to find `%s' node.\n", name);
 	return ret;
@@ -416,92 +817,203 @@ LibertyAst *find_non_null(LibertyAst *node, const char *name)
 
 std::string func2vl(std::string str)
 {
-	for (size_t pos = str.find_first_of("\" \t"); pos != std::string::npos; pos = str.find_first_of("\" \t")) {
-		char c_left = pos > 0 ? str[pos-1] : ' ';
-		char c_right = pos+1 < str.size() ? str[pos+1] : ' ';
-		if (std::string("\" \t*+").find(c_left) != std::string::npos)
-			str.erase(pos, 1);
-		else if (std::string("\" \t*+").find(c_right) != std::string::npos)
-			str.erase(pos, 1);
-		else
-			str[pos] = '*';
-	}
+	auto helper = LibertyExpression::Lexer(str);
+	return LibertyExpression::parse(helper).vlog_str();
+}
 
-	std::vector<size_t> group_start;
-	for (size_t pos = 0; pos < str.size(); pos++) {
-		if (str[pos] == '(')
-			group_start.push_back(pos);
-		if (str[pos] == ')' && group_start.size() > 0) {
-			if (pos+1 < str.size() && str[pos+1] == '\'') {
-				std::string group = str.substr(group_start.back(), pos-group_start.back()+1);
-				str[group_start.back()] = '~';
-				str.replace(group_start.back()+1, group.size(), group);
-				pos++;
-			}
-			group_start.pop_back();
-		}
-		if (str[pos] == '\'' && pos > 0) {
-			size_t start = str.find_last_of("()'*+^&| ", pos-1)+1;
-			std::string group = str.substr(start, pos-start);
-			str[start] = '~';
-			str.replace(start+1, group.size(), group);
-		}
-		if (str[pos] == '*')
-			str[pos] = '&';
-		if (str[pos] == '+')
-			str[pos] = '|';
-	}
-
+std::string vlog_identifier(std::string str)
+{
+	str.erase(std::remove(str.begin(), str.end(), '\"'), str.end());
 	return str;
 }
 
-void event2vl(LibertyAst *ast, std::string &edge, std::string &expr)
+void event2vl_wire(std::string &edge, LibertyExpression& parsed, const std::string& wire)
+{
+	edge.clear();
+	if (parsed.kind == LibertyExpression::Kind::NOT) {
+		edge = "negedge " + wire;
+		// parsed = parsed.children[0];
+	} else {
+		edge = "posedge " + wire;
+	}
+}
+
+void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 {
 	edge.clear();
 	expr.clear();
 
 	if (ast != NULL) {
-		expr = func2vl(ast->value);
-		if (expr.size() > 0 && expr[0] == '~')
-			edge = "negedge " + expr.substr(1);
+		auto helper = LibertyExpression::Lexer(ast->value);
+		auto parsed = LibertyExpression::parse(helper);
+		expr = parsed.vlog_str();
+		if (parsed.kind == LibertyExpression::Kind::NOT)
+			edge = "negedge " + parsed.children[0].vlog_str();
 		else
-			edge = "posedge " + expr;
+			edge = "posedge " + parsed.vlog_str();
 	}
 }
 
-void clear_preset_var(std::string var, std::string type)
+enum ClearPresetVar {
+	Error,
+	L,
+	H,
+	T,
+	X,
+};
+
+ClearPresetVar clear_preset_var(std::string type)
 {
 	if (type.find('L') != std::string::npos) {
+		return ClearPresetVar::L;
+	}
+	if (type.find('H') != std::string::npos) {
+		return ClearPresetVar::H;
+	}
+	if (type.find('T') != std::string::npos) {
+		return ClearPresetVar::T;
+	}
+	if (type.find('X') != std::string::npos) {
+		return ClearPresetVar::X;
+	}
+	return ClearPresetVar::X;
+}
+
+void print_clear_preset_var(std::string var, ClearPresetVar type)
+{
+	if (type == ClearPresetVar::L) {
 		printf("      %s <= 0;\n", var.c_str());
 		return;
 	}
-	if (type.find('H') != std::string::npos) {
+	if (type == ClearPresetVar::H) {
 		printf("      %s <= 1;\n", var.c_str());
 		return;
 	}
-	if (type.find('T') != std::string::npos) {
+	if (type == ClearPresetVar::T) {
 		printf("      %s <= ~%s;\n", var.c_str(), var.c_str());
 		return;
 	}
-	if (type.find('X') != std::string::npos) {
+	if (type == ClearPresetVar::X) {
 		printf("      %s <= 'bx;\n", var.c_str());
 		return;
 	}
 }
 
-void gen_verilogsim_cell(LibertyAst *ast)
+struct FfEdge {
+	std::string edge;
+	std::string expr;
+};
+struct FfEdges {
+	FfEdge clock;
+	FfEdge clear;
+	FfEdge preset;
+	std::string edge;
+	void wired(FfEdge& edge, const LibertyAst* ast, const std::string& wire, const char* tag) {
+		auto* found = ast->find(tag);
+		if (!found)
+			return;
+		auto lexer = LibertyExpression::Lexer(found->value);
+		auto expr = LibertyExpression::parse(lexer);
+		event2vl_wire(edge.edge, expr, wire);
+		edge.expr = expr.vlog_str();
+	}
+	FfEdges(LibertyAst* child, const std::string& clear_wire, const std::string& preset_wire) {
+		wired(clear, child, clear_wire, "clear");
+		wired(preset, child, preset_wire, "preset");
+		event2vl(child->find("clocked_on"), clock.edge, clock.expr);
+		edge = "";
+		if (!clock.edge.empty())
+			edge += (edge.empty() ? "" : ", ") + clock.edge;
+		if (!clear.edge.empty())
+			edge += (edge.empty() ? "" : ", ") + clear.edge;
+		if (!preset.edge.empty())
+			edge += (edge.empty() ? "" : ", ") + preset.edge;
+	}
+};
+
+struct FfVar {
+	std::string var;
+	std::string edge;
+	FfEdge clear;
+	FfEdge preset;
+	// Value for both asserted
+	const char* clear_preset_var_name;
+	std::string next_state;
+	const char* else_prefix = "";
+public:
+	void proc_header() {
+		printf("  always @(%s) begin\n", edge.c_str());
+	}
+	void proc_footer() {
+		if (*else_prefix)
+			printf("    end\n");
+
+		printf("  end\n");
+	}
+	void proc_cond(FfEdge& edge, const char* value) {
+		printf("    %sif (%s) begin\n", else_prefix, edge.expr.c_str());
+		printf("      %s <= %s;\n", var.c_str(), value);
+		printf("    end\n");
+		else_prefix = "else ";
+	}
+	void proc_cond_clear() { proc_cond(clear, "0"); }
+	void proc_cond_preset() { proc_cond(preset, "1"); }
+	void proc_next_state() {
+		if (*else_prefix)
+			printf("    %sbegin\n", else_prefix);
+		printf("      %s <= %s;\n", var.c_str(), next_state.c_str());
+	}
+	void proc(LibertyAst* child) {
+		else_prefix = "";
+		proc_header();
+		if (!clear.expr.empty() && !preset.expr.empty()) {
+			ClearPresetVar clear_preset = clear_preset_var(find_non_null(child, clear_preset_var_name)->value);
+			if (clear_preset == ClearPresetVar::L) {
+				proc_cond_clear();
+				proc_cond_preset();
+				proc_next_state();
+				proc_footer();
+				return;
+			} else if (clear_preset == ClearPresetVar::H) {
+				// Notice that preset and clear are swapped
+				proc_cond_preset();
+				proc_cond_clear();
+				proc_next_state();
+				proc_footer();
+				return;
+			} else {
+				// Boo, we have to emit non-synthesizable verilog
+				printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear.expr.c_str(), preset.expr.c_str());
+				print_clear_preset_var(var, clear_preset);
+				printf("    end\n");
+				else_prefix = "else ";
+			}
+		}
+		if (!clear.expr.empty()) {
+			proc_cond_clear();
+		}
+		if (!preset.expr.empty()) {
+			proc_cond_preset();
+		}
+		proc_next_state();
+		proc_footer();
+	}
+};
+
+void gen_verilogsim_cell(const LibertyAst *ast)
 {
 	if (ast->find("statetable") != NULL)
 		return;
 
 	CHECK_NV(ast->args.size(), == 1);
-	printf("module %s (", ast->args[0].c_str());
+	auto module_name = vlog_identifier(ast->args[0]);
+	printf("module %s (", module_name.c_str());
 	bool first = true;
 	for (auto child : ast->children) {
 		if (child->id != "pin")
 			continue;
 		CHECK_NV(child->args.size(), == 1);
-		printf("%s%s", first ? "" : ", ", child->args[0].c_str());
+		printf("%s%s", first ? "" : ", ", vlog_identifier(child->args[0]).c_str());
 		first = false;
 	}
 	printf(");\n");
@@ -509,24 +1021,41 @@ void gen_verilogsim_cell(LibertyAst *ast)
 	for (auto child : ast->children) {
 		if (child->id != "ff" && child->id != "latch")
 			continue;
-		printf("  reg ");
 		first = true;
+		std::string iq = "";
 		for (auto arg : child->args) {
-			printf("%s%s", first ? "" : ", ", arg.c_str());
+			if (first)
+				printf("  reg ");
+			printf("%s%s", first ? "" : ", ", vlog_identifier(arg).c_str());
+			if (first)
+				iq = vlog_identifier(arg);
 			first = false;
 		}
-		printf(";\n");
+		if (!first)
+			printf(";\n");
+		first = true;
+		for (auto gchild : child->children) {
+			if (gchild->id == "clear" || gchild->id == "preset") {
+				if (first)
+					printf("  wire ");
+				printf("%s%s_%s", first ? "" : ", ", iq.c_str(), gchild->id.c_str());
+				first = false;
+			}
+		}
+		if (!first)
+			printf(";\n");
 	}
 
 	for (auto child : ast->children) {
 		if (child->id != "pin")
 			continue;
 		CHECK_NV(child->args.size(), == 1);
-		LibertyAst *dir = find_non_null(child, "direction");
-		LibertyAst *func = child->find("function");
-		printf("  %s %s;\n", dir->value.c_str(), child->args[0].c_str());
+		const LibertyAst *dir = find_non_null(child, "direction");
+		const LibertyAst *func = child->find("function");
+		std::string var = vlog_identifier(child->args[0]);
+		printf("  %s %s;\n", dir->value.c_str(), var.c_str());
 		if (func != NULL)
-			printf("  assign %s = %s; // %s\n", child->args[0].c_str(), func2vl(func->value).c_str(), func->value.c_str());
+			printf("  assign %s = %s; // %s\n", var.c_str(), func2vl(func->value).c_str(), func->value.c_str());
 	}
 
 	for (auto child : ast->children)
@@ -534,63 +1063,45 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		if (child->id != "ff" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = child->args[0];
-		std::string iqn_var = child->args[1];
+		auto iq_name = vlog_identifier(child->args[0]);
+		auto clear_wire = iq_name + "_clear";
+		auto preset_wire = iq_name + "_preset";
+		FfEdges edges(child, clear_wire, preset_wire);
 
-		std::string clock_edge, clock_expr;
-		event2vl(child->find("clocked_on"), clock_edge, clock_expr);
-
-		std::string clear_edge, clear_expr;
-		event2vl(child->find("clear"), clear_edge, clear_expr);
-
-		std::string preset_edge, preset_expr;
-		event2vl(child->find("preset"), preset_edge, preset_expr);
-
-		std::string edge = "";
-		if (!clock_edge.empty())
-			edge += (edge.empty() ? "" : ", ") + clock_edge;
-		if (!clear_edge.empty())
-			edge += (edge.empty() ? "" : ", ") + clear_edge;
-		if (!preset_edge.empty())
-			edge += (edge.empty() ? "" : ", ") + preset_edge;
-
-		if (edge.empty())
+		if (edges.edge.empty())
 			continue;
 
-		printf("  always @(%s) begin\n", edge.c_str());
+		std::string next_state = func2vl(find_non_null(child, "next_state")->value);
+		std::string not_next_state = std::string("~(") + next_state + ")";
 
-		const char *else_prefix = "";
-		if (!clear_expr.empty() && !preset_expr.empty()) {
-			printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear_expr.c_str(), preset_expr.c_str());
-			clear_preset_var(iq_var, find_non_null(child, "clear_preset_var1")->value);
-			clear_preset_var(iqn_var, find_non_null(child, "clear_preset_var2")->value);
-			printf("    end\n");
-			else_prefix = "else ";
-		}
-		if (!clear_expr.empty()) {
-			printf("    %sif (%s) begin\n", else_prefix, clear_expr.c_str());
-			printf("      %s <= 0;\n", iq_var.c_str());
-			printf("      %s <= 1;\n", iqn_var.c_str());
-			printf("    end\n");
-			else_prefix = "else ";
-		}
-		if (!preset_expr.empty()) {
-			printf("    %sif (%s) begin\n", else_prefix, preset_expr.c_str());
-			printf("      %s <= 1;\n", iq_var.c_str());
-			printf("      %s <= 0;\n", iqn_var.c_str());
-			printf("    end\n");
-			else_prefix = "else ";
-		}
-		if (*else_prefix)
-			printf("    %sbegin\n", else_prefix);
-		std::string expr = find_non_null(child, "next_state")->value;
-		printf("      // %s\n", expr.c_str());
-		printf("      %s <= %s;\n", iq_var.c_str(), func2vl(expr).c_str());
-		printf("      %s <= ~(%s);\n", iqn_var.c_str(), func2vl(expr).c_str());
-		if (*else_prefix)
-			printf("    end\n");
 
-		printf("  end\n");
+		if (edges.clear.expr.length())
+			std::swap(clear_wire, edges.clear.expr);
+		if (edges.preset.expr.length())
+			std::swap(preset_wire, edges.preset.expr);
+		auto iq = FfVar {
+			.var = vlog_identifier(child->args[0]),
+			.edge = edges.edge,
+			.clear = edges.clear,
+			.preset = edges.preset,
+			.clear_preset_var_name = "clear_preset_var1",
+			.next_state = next_state,
+		};
+		auto iqn = FfVar {
+			.var = vlog_identifier(child->args[1]),
+			.edge = edges.edge,
+			// Swapped clear and preset
+			.clear = edges.preset,
+			.preset = edges.clear,
+			.clear_preset_var_name = "clear_preset_var2",
+			.next_state = not_next_state,
+		};
+		iq.proc(child);
+		iqn.proc(child);
+		if (edges.clear.expr.length())
+			printf("  assign %s = %s;\n", edges.clear.expr.c_str(), clear_wire.c_str());
+		if (edges.preset.expr.length())
+			printf("  assign %s = %s;\n", edges.preset.expr.c_str(), preset_wire.c_str());
 	}
 
 	for (auto child : ast->children)
@@ -598,8 +1109,8 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		if (child->id != "latch" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = child->args[0];
-		std::string iqn_var = child->args[1];
+		std::string iq_var = vlog_identifier(child->args[0]);
+		std::string iqn_var = vlog_identifier(child->args[1]);
 
 		std::string enable_edge, enable_expr;
 		event2vl(child->find("enable"), enable_edge, enable_expr);
@@ -615,8 +1126,8 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		const char *else_prefix = "";
 		if (!clear_expr.empty() && !preset_expr.empty()) {
 			printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear_expr.c_str(), preset_expr.c_str());
-			clear_preset_var(iq_var, find_non_null(child, "clear_preset_var1")->value);
-			clear_preset_var(iqn_var, find_non_null(child, "clear_preset_var2")->value);
+			print_clear_preset_var(iq_var, clear_preset_var(find_non_null(child, "clear_preset_var1")->value));
+			print_clear_preset_var(iqn_var, clear_preset_var(find_non_null(child, "clear_preset_var2")->value));
 			printf("    end\n");
 			else_prefix = "else ";
 		}
@@ -649,7 +1160,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 	printf("endmodule\n");
 }
 
-void gen_verilogsim(LibertyAst *ast)
+void gen_verilogsim(const LibertyAst *ast)
 {
 	CHECK_COND(ast->id == "library");
 
@@ -668,6 +1179,7 @@ void usage()
 int main(int argc, char **argv)
 {
 	bool flag_verilogsim = false;
+	std::set<std::string> whitelist, blacklist;
 
 	if (argc > 3)
 		usage();
@@ -678,26 +1190,26 @@ int main(int argc, char **argv)
 			flag_verilogsim = true;
 		if (!strcmp(argv[1], "-") || !strcmp(argv[1], "-verilogsim"))
 		{
-			LibertyAst::whitelist.insert("/library");
-			LibertyAst::whitelist.insert("/library/cell");
-			LibertyAst::whitelist.insert("/library/cell/area");
-			LibertyAst::whitelist.insert("/library/cell/cell_footprint");
-			LibertyAst::whitelist.insert("/library/cell/dont_touch");
-			LibertyAst::whitelist.insert("/library/cell/dont_use");
-			LibertyAst::whitelist.insert("/library/cell/ff");
-			LibertyAst::whitelist.insert("/library/cell/ff/*");
-			LibertyAst::whitelist.insert("/library/cell/latch");
-			LibertyAst::whitelist.insert("/library/cell/latch/*");
-			LibertyAst::whitelist.insert("/library/cell/pin");
-			LibertyAst::whitelist.insert("/library/cell/pin/clock");
-			LibertyAst::whitelist.insert("/library/cell/pin/direction");
-			LibertyAst::whitelist.insert("/library/cell/pin/driver_type");
-			LibertyAst::whitelist.insert("/library/cell/pin/function");
-			LibertyAst::whitelist.insert("/library/cell/pin_opposite");
-			LibertyAst::whitelist.insert("/library/cell/pin/state_function");
-			LibertyAst::whitelist.insert("/library/cell/pin/three_state");
-			LibertyAst::whitelist.insert("/library/cell/statetable");
-			LibertyAst::whitelist.insert("/library/cell/statetable/*");
+			whitelist.insert("/library");
+			whitelist.insert("/library/cell");
+			whitelist.insert("/library/cell/area");
+			whitelist.insert("/library/cell/cell_footprint");
+			whitelist.insert("/library/cell/dont_touch");
+			whitelist.insert("/library/cell/dont_use");
+			whitelist.insert("/library/cell/ff");
+			whitelist.insert("/library/cell/ff/*");
+			whitelist.insert("/library/cell/latch");
+			whitelist.insert("/library/cell/latch/*");
+			whitelist.insert("/library/cell/pin");
+			whitelist.insert("/library/cell/pin/clock");
+			whitelist.insert("/library/cell/pin/direction");
+			whitelist.insert("/library/cell/pin/driver_type");
+			whitelist.insert("/library/cell/pin/function");
+			whitelist.insert("/library/cell/pin_opposite");
+			whitelist.insert("/library/cell/pin/state_function");
+			whitelist.insert("/library/cell/pin/three_state");
+			whitelist.insert("/library/cell/statetable");
+			whitelist.insert("/library/cell/statetable/*");
 		}
 		else
 		{
@@ -723,10 +1235,10 @@ int main(int argc, char **argv)
 					if (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == '#') {
 						if (!id.empty()) {
 							if (mode == '-')
-								LibertyAst::blacklist.insert(id);
+								blacklist.insert(id);
 							else
 							if (mode == '+')
-								LibertyAst::whitelist.insert(id);
+								whitelist.insert(id);
 							else
 								goto syntax_error;
 						}
@@ -764,7 +1276,7 @@ int main(int argc, char **argv)
 		if (flag_verilogsim)
 			gen_verilogsim(parser.ast);
 		else
-			parser.ast->dump(stdout);
+			parser.ast->dump(stdout, blacklist, whitelist);
 	}
 
 	if (argc == 3)

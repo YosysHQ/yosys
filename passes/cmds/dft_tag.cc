@@ -22,6 +22,7 @@
 #include "kernel/modtools.h"
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -47,7 +48,7 @@ struct DftTagWorker {
 		bool operator<(const tag_set &other) const { return index < other.index; }
 		bool operator==(const tag_set &other) const { return index == other.index; }
 
-		unsigned int hash() const { return hash_ops<int>::hash(index); }
+		[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(index); return h; }
 
 		bool empty() const { return index == 0; }
 	};
@@ -371,7 +372,7 @@ struct DftTagWorker {
 	void propagate_tags(Cell *cell)
 	{
 		if (cell->type == ID($set_tag)) {
-			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 			if (all_tags.insert(tag).second) {
 				auto group_sep = tag.str().find(':');
 				IdString tag_group = group_sep != std::string::npos ? tag.str().substr(0, group_sep) : tag;
@@ -429,7 +430,7 @@ struct DftTagWorker {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if (ff.has_clk || ff.has_gclk)
@@ -477,7 +478,7 @@ struct DftTagWorker {
 	void process_cell(IdString tag, Cell *cell)
 	{
 		if (cell->type == ID($set_tag)) {
-			IdString cell_tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString cell_tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			auto tag_sig_a = tag_signal(tag, cell->getPort(ID::A));
 			auto &sig_y = cell->getPort(ID::Y);
@@ -685,7 +686,7 @@ struct DftTagWorker {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 			// TODO handle some more variants
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {
@@ -751,7 +752,7 @@ struct DftTagWorker {
 
 		for (auto cell : get_tag_cells) {
 			auto &sig_a = cell->getPort(ID::A);
-			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			tag_signal(tag, sig_a);
 		}
@@ -771,7 +772,7 @@ struct DftTagWorker {
 						continue;
 
 					int index = 0;
-					auto name = module->uniquify(stringf("%s:%s", wire->name.c_str(), tag.c_str() + 1), index);
+					auto name = module->uniquify(stringf("%s:%s", wire->name, tag.c_str() + 1), index);
 					auto hdlname = wire->get_hdlname_attribute();
 
 					if (!hdlname.empty())
@@ -816,7 +817,7 @@ struct DftTagWorker {
 		for (auto cell : get_tag_cells) {
 			auto &sig_a = cell->getPort(ID::A);
 			auto &sig_y = cell->getPort(ID::Y);
-			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			auto tag_sig = tag_signal(tag, sig_a);
 			module->connect(sig_y, tag_sig);
@@ -883,8 +884,10 @@ struct DftTagWorker {
 	{
 		if (sig_a.is_fully_const()) {
 			auto const_val = sig_a.as_const();
-			for (auto &bit : const_val.bits)
-				bit = bit == State::S0 ? State::S1 : bit == State::S1 ? State::S0 : bit;
+			for (auto bit : const_val) {
+				State b = bit;
+				bit = b == State::S0 ? State::S1 : b == State::S1 ? State::S0 : b;
+			}
 			return const_val;
 		}
 		return module->Not(name, sig_a);
@@ -952,6 +955,11 @@ struct DftTagWorker {
 
 struct DftTagPass : public Pass {
 	DftTagPass() : Pass("dft_tag", "create tagging logic for data flow tracking") {}
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

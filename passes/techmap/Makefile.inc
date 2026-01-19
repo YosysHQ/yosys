@@ -1,21 +1,23 @@
 
-OBJS += passes/techmap/flatten.o
 OBJS += passes/techmap/techmap.o
 OBJS += passes/techmap/simplemap.o
 OBJS += passes/techmap/dfflibmap.o
 OBJS += passes/techmap/maccmap.o
 OBJS += passes/techmap/booth.o
 OBJS += passes/techmap/libparse.o
+OBJS += passes/techmap/libcache.o
 
 ifeq ($(ENABLE_ABC),1)
 OBJS += passes/techmap/abc.o
 OBJS += passes/techmap/abc9.o
 OBJS += passes/techmap/abc9_exe.o
 OBJS += passes/techmap/abc9_ops.o
+OBJS += passes/techmap/abc_new.o
 ifneq ($(ABCEXTERNAL),)
 passes/techmap/abc.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 passes/techmap/abc9.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 passes/techmap/abc9_exe.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
+passes/techmap/abc_new.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 endif
 endif
 
@@ -37,10 +39,12 @@ OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/tribuf.o
 OBJS += passes/techmap/lut2mux.o
+OBJS += passes/techmap/lut2bmux.o
 OBJS += passes/techmap/nlutmap.o
 OBJS += passes/techmap/shregmap.o
 OBJS += passes/techmap/deminout.o
 OBJS += passes/techmap/insbuf.o
+OBJS += passes/techmap/bufnorm.o
 OBJS += passes/techmap/attrmvcp.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
@@ -48,6 +52,9 @@ OBJS += passes/techmap/dfflegalize.o
 OBJS += passes/techmap/dffunmap.o
 OBJS += passes/techmap/flowmap.o
 OBJS += passes/techmap/extractinv.o
+OBJS += passes/techmap/cellmatch.o
+OBJS += passes/techmap/clockgate.o
+OBJS += passes/techmap/constmap.o
 endif
 
 ifeq ($(DISABLE_SPAWN),0)
@@ -56,5 +63,5 @@ EXTRA_OBJS += passes/techmap/filterlib.o
 
 $(PROGRAM_PREFIX)yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys-filterlib$(EXE) $(LINKFLAGS) $^ $(LIBS)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys-filterlib$(EXE) $(LINKFLAGS) $^ $(EXE_LIBS) $(LIBS)
 endif

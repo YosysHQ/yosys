@@ -63,7 +63,7 @@ struct ZinitPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);
@@ -73,10 +73,10 @@ struct ZinitPass : public Pass {
 
 				pool<int> bits;
 				for (int i = 0; i < ff.width; i++) {
-					if (ff.val_init.bits[i] == State::S1)
+					if (ff.val_init[i] == State::S1)
 						bits.insert(i);
-					else if (ff.val_init.bits[i] != State::S0 && all_mode)
-						ff.val_init.bits[i] = State::S0;
+					else if (ff.val_init[i] != State::S0 && all_mode)
+						ff.val_init.set(i, State::S0);
 				}
 				ff.flip_bits(bits);
 				ff.emit();

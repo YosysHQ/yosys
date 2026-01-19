@@ -1,2 +1,4 @@
-sphinx-press-theme
+furo-ys @ git+https://github.com/YosysHQ/furo-ys
 sphinxcontrib-bibtex
+rtds-action
+sphinx-inline-tabs

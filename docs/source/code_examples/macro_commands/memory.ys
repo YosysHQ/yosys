@@ -1,0 +1,15 @@
+#start:passes in a useful order:
+#end:This converts memories to word-wide DFFs and address decoders
+opt_mem
+opt_mem_priority
+opt_mem_feedback
+memory_bmux2rom
+memory_dff
+opt_clean
+memory_share
+opt_mem_widen
+memory_memx                         (when called with -memx)
+opt_clean
+memory_collect
+memory_bram -rules <bram_rules>     (when called with -bram)
+memory_map                          (skipped if called with -nomap)

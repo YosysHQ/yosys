@@ -17,10 +17,9 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
 #include "kernel/utils.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -164,7 +163,7 @@ private:
 			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + exp2(select_width));
 			for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
 				for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
-					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.c_str(), i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
+					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name, i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
 				}
 				if (GetSize(pmux_y_ports) % 2 == 1)
 					next_pmux_y_ports.push_back(pmux_y_ports[GetSize(pmux_y_ports) - 1]);
@@ -184,8 +183,8 @@ private:
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in({ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_MUX_), ID($_NMUX_), ID($_NOT_), ID($anyconst), ID($allconst), ID($assume), ID($assert)}) && module->design->module(cell->type) == nullptr) {
-				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
+			if (!cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_MUX_), ID($_NMUX_), ID($_NOT_), ID($anyconst), ID($allconst), ID($assume), ID($assert)) && module->design->module(cell->type) == nullptr) {
+				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type);
 			}
 			if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
@@ -207,7 +206,7 @@ private:
 					int num_versions = opt_instrumentmore? 8 : 4;
 
 					for (auto i = 1; i <= num_versions; ++i)
-						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name.c_str(), i), 1)));
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name, i), 1)));
 
 					for (auto i = 0; i < num_versions; ++i) {
 						switch(i) {
@@ -240,7 +239,7 @@ private:
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
 						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
-							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name.c_str(), i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name, i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
 						}
 						if (GetSize(meta_mux_y_ports) % 2 == 1)
 							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);
@@ -272,7 +271,7 @@ private:
 					log_assert(exp2(select_width) == num_versions);
 
 					for (auto i = 1; i <= num_versions; ++i)
-						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name.c_str(), i), 1)));
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name, i), 1)));
 
 					for (auto i = 0; i < num_versions; ++i) {
 						switch(i) {
@@ -295,7 +294,7 @@ private:
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
 						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
-							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name.c_str(), i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name, i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
 						}
 						if (GetSize(meta_mux_y_ports) % 2 == 1)
 							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);
@@ -344,7 +343,7 @@ private:
 				//with taint signals and connect the new ports to the corresponding taint signals.
 				RTLIL::Module *cell_module_def = module->design->module(cell->type);
 				dict<RTLIL::IdString, RTLIL::SigSpec> orig_ports = cell->connections();
-				log("Adding cell %s\n", cell_module_def->name.c_str());
+				log("Adding cell %s\n", cell_module_def->name);
 				for (auto &it : orig_ports) {
 					RTLIL::SigSpec port = it.second;
 					RTLIL::SigSpec port_taint = get_corresponding_taint_signal(port);
@@ -424,6 +423,12 @@ public:
 
 struct GliftPass : public Pass {
 	GliftPass() : Pass("glift", "create GLIFT models and optimization problems") {}
+
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 
 	void help() override
 	{

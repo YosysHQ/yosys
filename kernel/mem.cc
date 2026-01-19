@@ -131,9 +131,6 @@ void Mem::emit() {
 		cell->parameters[ID::WIDTH] = Const(width);
 		cell->parameters[ID::OFFSET] = Const(start_offset);
 		cell->parameters[ID::SIZE] = Const(size);
-		Const rd_wide_continuation, rd_clk_enable, rd_clk_polarity, rd_transparency_mask, rd_collision_x_mask;
-		Const wr_wide_continuation, wr_clk_enable, wr_clk_polarity, wr_priority_mask;
-		Const rd_ce_over_srst, rd_arst_value, rd_srst_value, rd_init_value;
 		SigSpec rd_clk, rd_en, rd_addr, rd_data;
 		SigSpec wr_clk, wr_en, wr_addr, wr_data;
 		SigSpec rd_arst, rd_srst;
@@ -147,6 +144,15 @@ void Mem::emit() {
 		for (int i = 0; i < GetSize(wr_ports); i++)
 			for (int j = 0; j < (1 << wr_ports[i].wide_log2); j++)
 				wr_port_xlat.push_back(i);
+		Const::Builder rd_wide_continuation_builder;
+		Const::Builder rd_clk_enable_builder;
+		Const::Builder rd_clk_polarity_builder;
+		Const::Builder rd_transparency_mask_builder;
+		Const::Builder rd_collision_x_mask_builder;
+		Const::Builder rd_ce_over_srst_builder;
+		Const::Builder rd_arst_value_builder;
+		Const::Builder rd_srst_value_builder;
+		Const::Builder rd_init_value_builder;
 		for (auto &port : rd_ports) {
 			for (auto attr: port.attributes)
 				if (!cell->has_attribute(attr.first))
@@ -157,10 +163,10 @@ void Mem::emit() {
 			}
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				rd_wide_continuation.bits.push_back(State(sub != 0));
-				rd_clk_enable.bits.push_back(State(port.clk_enable));
-				rd_clk_polarity.bits.push_back(State(port.clk_polarity));
-				rd_ce_over_srst.bits.push_back(State(port.ce_over_srst));
+				rd_wide_continuation_builder.push_back(State(sub != 0));
+				rd_clk_enable_builder.push_back(State(port.clk_enable));
+				rd_clk_polarity_builder.push_back(State(port.clk_polarity));
+				rd_ce_over_srst_builder.push_back(State(port.ce_over_srst));
 				rd_clk.append(port.clk);
 				rd_arst.append(port.arst);
 				rd_srst.append(port.srst);
@@ -170,18 +176,27 @@ void Mem::emit() {
 				rd_addr.append(addr);
 				log_assert(GetSize(addr) == abits);
 				for (auto idx : wr_port_xlat) {
-					rd_transparency_mask.bits.push_back(State(bool(port.transparency_mask[idx])));
-					rd_collision_x_mask.bits.push_back(State(bool(port.collision_x_mask[idx])));
+					rd_transparency_mask_builder.push_back(State(bool(port.transparency_mask[idx])));
+					rd_collision_x_mask_builder.push_back(State(bool(port.collision_x_mask[idx])));
 				}
 			}
 			rd_data.append(port.data);
-			for (auto &bit : port.arst_value)
-				rd_arst_value.bits.push_back(bit);
-			for (auto &bit : port.srst_value)
-				rd_srst_value.bits.push_back(bit);
-			for (auto &bit : port.init_value)
-				rd_init_value.bits.push_back(bit);
+			for (auto bit : port.arst_value)
+				rd_arst_value_builder.push_back(bit);
+			for (auto bit : port.srst_value)
+				rd_srst_value_builder.push_back(bit);
+			for (auto bit : port.init_value)
+				rd_init_value_builder.push_back(bit);
 		}
+		Const rd_wide_continuation = rd_wide_continuation_builder.build();
+		Const rd_clk_enable = rd_clk_enable_builder.build();
+		Const rd_clk_polarity = rd_clk_polarity_builder.build();
+		Const rd_transparency_mask = rd_transparency_mask_builder.build();
+		Const rd_collision_x_mask = rd_collision_x_mask_builder.build();
+		Const rd_ce_over_srst = rd_ce_over_srst_builder.build();
+		Const rd_arst_value = rd_arst_value_builder.build();
+		Const rd_srst_value = rd_srst_value_builder.build();
+		Const rd_init_value = rd_init_value_builder.build();
 		if (rd_ports.empty()) {
 			rd_wide_continuation = State::S0;
 			rd_clk_enable = State::S0;
@@ -212,6 +227,10 @@ void Mem::emit() {
 		cell->setPort(ID::RD_SRST, rd_srst);
 		cell->setPort(ID::RD_ADDR, rd_addr);
 		cell->setPort(ID::RD_DATA, rd_data);
+		Const::Builder wr_wide_continuation_builder;
+		Const::Builder wr_clk_enable_builder;
+		Const::Builder wr_clk_polarity_builder;
+		Const::Builder wr_priority_mask_builder;
 		for (auto &port : wr_ports) {
 			for (auto attr: port.attributes)
 				if (!cell->has_attribute(attr.first))
@@ -222,12 +241,12 @@ void Mem::emit() {
 			}
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				wr_wide_continuation.bits.push_back(State(sub != 0));
-				wr_clk_enable.bits.push_back(State(port.clk_enable));
-				wr_clk_polarity.bits.push_back(State(port.clk_polarity));
+				wr_wide_continuation_builder.push_back(State(sub != 0));
+				wr_clk_enable_builder.push_back(State(port.clk_enable));
+				wr_clk_polarity_builder.push_back(State(port.clk_polarity));
 				wr_clk.append(port.clk);
 				for (auto idx : wr_port_xlat)
-					wr_priority_mask.bits.push_back(State(bool(port.priority_mask[idx])));
+					wr_priority_mask_builder.push_back(State(bool(port.priority_mask[idx])));
 				SigSpec addr = port.sub_addr(sub);
 				addr.extend_u0(abits, false);
 				wr_addr.append(addr);
@@ -236,6 +255,10 @@ void Mem::emit() {
 			wr_en.append(port.en);
 			wr_data.append(port.data);
 		}
+		Const wr_wide_continuation = wr_wide_continuation_builder.build();
+		Const wr_clk_enable = wr_clk_enable_builder.build();
+		Const wr_clk_polarity = wr_clk_polarity_builder.build();
+		Const wr_priority_mask = wr_priority_mask_builder.build();
 		if (wr_ports.empty()) {
 			wr_wide_continuation = State::S0;
 			wr_clk_enable = State::S0;
@@ -414,7 +437,7 @@ void Mem::coalesce_inits() {
 			if (!init.en.is_fully_ones()) {
 				for (int i = 0; i < GetSize(init.data); i++)
 					if (init.en[i % width] != State::S1)
-						init.data[i] = State::Sx;
+						init.data.set(i, State::Sx);
 				init.en = Const(State::S1, width);
 			}
 			continue;
@@ -427,7 +450,7 @@ void Mem::coalesce_inits() {
 			log_assert(offset + GetSize(init.data) <= GetSize(cdata));
 			for (int i = 0; i < GetSize(init.data); i++)
 				if (init.en[i % width] == State::S1)
-					cdata.bits[i+offset] = init.data.bits[i];
+					cdata.set(i+offset, init.data[i]);
 			init.removed = true;
 		}
 		MemInit new_init;
@@ -446,7 +469,7 @@ Const Mem::get_init_data() const {
 		int offset = (init.addr.as_int() - start_offset) * width;
 		for (int i = 0; i < GetSize(init.data); i++)
 			if (0 <= i+offset && i+offset < GetSize(init_data) && init.en[i % width] == State::S1)
-				init_data.bits[i+offset] = init.data.bits[i];
+				init_data.set(i+offset, init.data[i]);
 	}
 	return init_data;
 }
@@ -900,7 +923,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		if (width)
 		{
-			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid.c_str(), idx), width);
+			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid, idx), width);
 			SigSpec sig_d;
 
 			int pos = 0;
@@ -910,7 +933,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 					port.addr[i] = sig_q[pos++];
 				}
 
-			c = module->addDff(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, sig_d, sig_q, port.clk_polarity);
+			c = module->addDff(stringf("$%s$rdreg[%d]", memid, idx), port.clk, sig_d, sig_q, port.clk_polarity);
 		} else {
 			c = nullptr;
 		}
@@ -919,7 +942,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	{
 		log_assert(port.arst == State::S0 || port.srst == State::S0);
 
-		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid.c_str(), idx), GetSize(port.data));
+		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid, idx), GetSize(port.data));
 		SigSpec sig_d = async_d;
 
 		for (int i = 0; i < GetSize(wr_ports); i++) {
@@ -942,7 +965,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						raddr = port.sub_addr(sub);
 					SigSpec addr_eq;
 					if (raddr != waddr)
-						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid.c_str(), idx, i, sub), raddr, waddr);
+						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid, idx, i, sub), raddr, waddr);
 					int pos = 0;
 					int ewidth = width << min_wide_log2;
 					int wsub = wide_write ? sub : 0;
@@ -955,10 +978,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						SigSpec other = port.transparency_mask[i] ? wport.data.extract(pos + wsub * width, epos-pos) : Const(State::Sx, epos-pos);
 						SigSpec cond;
 						if (raddr != waddr)
-							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid.c_str(), idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
+							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid, idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
 						else
 							cond = wport.en[pos + wsub * width];
-						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid.c_str(), idx, i, sub, pos), cur, other, cond);
+						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid, idx, i, sub, pos), cur, other, cond);
 						sig_d.replace(pos + rsub * width, merged);
 						pos = epos;
 					}
@@ -966,7 +989,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			}
 		}
 
-		IdString name = stringf("$%s$rdreg[%d]", memid.c_str(), idx);
+		IdString name = stringf("$%s$rdreg[%d]", memid, idx);
 		FfData ff(module, initvals, name);
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
@@ -1678,4 +1701,218 @@ SigSpec MemWr::decompress_en(const std::vector<int> &swizzle, SigSpec sig) {
 	for (int i: swizzle)
 		res.append(sig[i]);
 	return res;
+}
+
+MemContents::MemContents(Mem *mem) :
+	MemContents(ceil_log2(mem->size), mem->width)
+{
+	for(const auto &init : mem->inits) {
+		if(init.en.is_fully_zero()) continue;
+		log_assert(init.en.size() == _data_width);
+		if(init.en.is_fully_ones())
+			insert_concatenated(init.addr.as_int(), init.data);
+		else {
+			// TODO: this case could be handled more efficiently by adding
+			// a flag to reserve_range that tells it to preserve
+			// previous contents
+			addr_t addr = init.addr.as_int();
+			addr_t words = init.data.size() / _data_width;
+			RTLIL::Const data = init.data;
+			log_assert(data.size() % _data_width == 0);
+			for(addr_t i = 0; i < words; i++) {
+				RTLIL::Const previous = (*this)[addr + i];
+				for(int j = 0; j < _data_width; j++)
+					if(init.en[j] != State::S1)
+						data.set(_data_width * i + j, previous[j]);
+			}
+			insert_concatenated(init.addr.as_int(), data);
+		}
+	}
+}
+
+MemContents::iterator & MemContents::iterator::operator++() {
+	auto it = _memory->_values.upper_bound(_addr);
+	if(it == _memory->_values.end()) {
+		_memory = nullptr;
+		_addr = ~(addr_t) 0;
+	} else
+		_addr = it->first;
+	return *this;
+}
+
+void MemContents::check() {
+	log_assert(_addr_width > 0 && _addr_width < (int)sizeof(addr_t) * 8);
+	log_assert(_data_width > 0);
+	log_assert(_default_value.size() == _data_width);
+	if(_values.empty()) return;
+	auto it = _values.begin();
+	for(;;) {
+		log_assert(!it->second.empty());
+		log_assert(it->second.size() % _data_width == 0);
+		auto end1 = _range_end(it);
+		log_assert(_range_begin(it) < (addr_t)(1<<_addr_width));
+		log_assert(end1 <= (addr_t)(1<<_addr_width));
+		if(++it == _values.end())
+			break;
+		// check that ranges neither overlap nor touch
+		log_assert(_range_begin(it) > end1);
+	}
+}
+
+bool MemContents::_range_contains(std::map<addr_t, RTLIL::Const>::iterator it, addr_t addr) const {
+	// if addr < begin, the subtraction will overflow, and the comparison will always fail
+	// (since we have an invariant that begin + size <= 2^(addr_t bits))
+	return it != _values.end() && addr - _range_begin(it) < _range_size(it);
+}
+
+
+bool MemContents::_range_contains(std::map<addr_t, RTLIL::Const>::iterator it, addr_t begin_addr, addr_t end_addr) const {
+	// note that we assume begin_addr <= end_addr
+	return it != _values.end() && _range_begin(it) <= begin_addr && end_addr - _range_begin(it) <= _range_size(it);
+}
+
+bool MemContents::_range_overlaps(std::map<addr_t, RTLIL::Const>::iterator it, addr_t begin_addr, addr_t end_addr) const {
+	if(it == _values.end() || begin_addr >= end_addr)
+		return false;
+	auto top1 = _range_end(it) - 1;
+	auto top2 = end_addr - 1;
+	return !(top1 < begin_addr || top2 < _range_begin(it));
+}
+
+std::map<MemContents::addr_t, RTLIL::Const>::iterator MemContents::_range_at(addr_t addr) const {
+	// allow addr == 1<<_addr_width (which will just return end())
+	log_assert(addr <= (addr_t)(1<<_addr_width));
+	// get the first range with base > addr
+	// (we use const_cast since map::iterators are only passed around internally and not exposed to the user
+	// and using map::iterator in both the const and non-const case simplifies the code a little,
+	// at the cost of having to be a little careful when implementing const methods)
+	auto it = const_cast<std::map<addr_t, RTLIL::Const> &>(_values).upper_bound(addr);
+	// if we get the very first range, all ranges are past the addr, so return the first one
+	if(it == _values.begin())
+		return it;
+	// otherwise, go back to the previous interval
+	// this must be the last interval with base <= addr
+	auto it_prev = std::next(it, -1);
+	if(_range_contains(it_prev, addr))
+		return it_prev;
+	else
+		return it;
+}
+
+RTLIL::Const MemContents::operator[](addr_t addr) const {
+	auto it = _range_at(addr);
+	if(_range_contains(it, addr))
+		return it->second.extract(_range_offset(it, addr), _data_width);
+	else
+		return _default_value;
+}
+
+MemContents::addr_t MemContents::count_range(addr_t begin_addr, addr_t end_addr) const {
+	addr_t count = 0;
+	for(auto it = _range_at(begin_addr); _range_overlaps(it, begin_addr, end_addr); it++) {
+		auto first = std::max(_range_begin(it), begin_addr);
+		auto last = std::min(_range_end(it), end_addr);
+		count += last - first;
+	}
+	return count;
+}
+
+void MemContents::clear_range(addr_t begin_addr, addr_t end_addr) {
+	if(begin_addr >= end_addr) return;
+	// identify which ranges are affected by this operation
+	// the first iterator affected is the first one containing any addr >= begin_addr
+	auto begin_it = _range_at(begin_addr);
+	// the first iterator *not* affected is the first one with base addr > end_addr - 1
+	auto end_it = _values.upper_bound(end_addr - 1);
+	if(begin_it == end_it)
+		return; // nothing to do
+	// the last iterator affected is one before the first one not affected
+	auto last_it = std::next(end_it, -1);
+	// the first and last range may need to be truncated, the rest can just be deleted
+	// to handle the begin_it == last_it case correctly, do the end case first by inserting a new range past the end
+	if(_range_contains(last_it, end_addr - 1)) {
+		auto new_begin = end_addr;
+		auto end = _range_end(last_it);
+		// if there is data past the end address, preserve it by creating a new range
+		if(new_begin != end)
+			end_it = _values.emplace_hint(last_it, new_begin, last_it->second.extract(_range_offset(last_it, new_begin), (_range_end(last_it) - new_begin) * _data_width));
+		// the original range will either be truncated in the next if() block or deleted in the erase, so we can leave it untruncated
+	}
+	if(_range_contains(begin_it, begin_addr)) {
+		auto new_end = begin_addr;
+		// if there is data before the start address, truncate but don't delete
+		if(new_end != begin_it->first) {
+			begin_it->second.extu(_range_offset(begin_it, new_end));
+			++begin_it;
+		}
+		// else: begin_it will be deleted
+	}
+	_values.erase(begin_it, end_it);
+}
+
+std::map<MemContents::addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begin_addr, addr_t end_addr) {
+	if(begin_addr >= end_addr)
+		return _values.end(); // need a dummy value to return, end() is cheap
+	// find the first range containing any addr >= begin_addr - 1
+	auto lower_it = begin_addr == 0 ? _values.begin() : _range_at(begin_addr - 1);
+	// check if our range is already covered by a single range
+	// note that since ranges are not allowed to touch, if any range contains begin_addr, lower_it equals that range
+	if (_range_contains(lower_it, begin_addr, end_addr))
+		return lower_it;
+	// find the first range containing any addr >= end_addr
+	auto upper_it = _range_at(end_addr);
+	// check if either of the two ranges we just found touch our range
+	bool lower_touch = begin_addr > 0 && _range_contains(lower_it, begin_addr - 1);
+	bool upper_touch = _range_contains(upper_it, end_addr);
+	if (lower_touch && upper_touch) {
+		log_assert (lower_it != upper_it); // lower_it == upper_it should be excluded by the check above
+		// we have two different ranges touching at either end, we need to merge them
+		auto upper_end = _range_end(upper_it);
+		// make range bigger (maybe reserve here instead of resize?)
+		lower_it->second.resize(_range_offset(lower_it, upper_end), State::Sx);
+		// copy only the data beyond our range
+		std::copy(_range_data(upper_it, end_addr), _range_data(upper_it, upper_end), _range_data(lower_it, end_addr));
+		// keep lower_it, but delete upper_it
+		_values.erase(std::next(lower_it), std::next(upper_it));
+		return lower_it;
+	} else if (lower_touch) {
+		// we have a range to the left, just make it bigger and delete any other that may exist.
+		lower_it->second.resize(_range_offset(lower_it, end_addr), State::Sx);
+		// keep lower_it and upper_it
+		_values.erase(std::next(lower_it), upper_it);
+		return lower_it;
+	} else if (upper_touch) {
+		// we have a range to the right, we need to expand it
+		// since we need to erase and reinsert to a new address, steal the data
+		// note that begin_addr is not in upper_it, otherwise the whole range covered check would have tripped
+		RTLIL::Const data(State::Sx, (_range_begin(upper_it) - begin_addr) * _data_width);
+		data.append(std::move(upper_it->second));
+		// delete lower_it and upper_it, then reinsert
+		_values.erase(lower_it, std::next(upper_it));
+		return _values.emplace(begin_addr, std::move(data)).first;
+	} else {
+		// no ranges are touching, so just delete all ranges in our range and allocate a new one
+		// could try to resize an existing range but not sure if that actually helps
+		_values.erase(lower_it, upper_it);
+		return _values.emplace(begin_addr, RTLIL::Const(State::Sx, (end_addr - begin_addr) * _data_width)).first;
+	}
+}
+
+void MemContents::insert_concatenated(addr_t addr, RTLIL::Const const &values) {
+	addr_t words = (values.size() + _data_width - 1) / _data_width;
+	log_assert(addr < (addr_t)(1<<_addr_width));
+	log_assert(words <= (addr_t)(1<<_addr_width) - addr);
+	auto it = _reserve_range(addr, addr + words);
+	auto to_begin = _range_data(it, addr);
+	std::copy(values.begin(), values.end(), to_begin);
+	// if values is not word-aligned, fill any missing bits with 0
+	std::fill(to_begin + values.size(), to_begin + words * _data_width, State::S0);
+}
+
+RTLIL::Const::iterator MemContents::_range_write(RTLIL::Const::iterator it, RTLIL::Const const &word) {
+	auto from_end = word.size() <= _data_width ? word.end() : word.begin() + _data_width;
+	auto to_end = std::copy(word.begin(), from_end, it);
+	auto it_next = std::next(it, _data_width);
+	std::fill(to_end, it_next, State::S0);
+	return it_next;
 }

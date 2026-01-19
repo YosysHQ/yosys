@@ -150,7 +150,7 @@ struct SynthAnlogicPass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib +/anlogic/cells_sim.v +/anlogic/eagle_bb.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -169,12 +169,14 @@ struct SynthAnlogicPass : public ScriptPass
 		if (check_label("map_ram"))
 		{
 			std::string args = "";
-			if (nobram)
-				args += " -no-auto-block";
-			if (nolutram)
-				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
+			else {
+				if (nobram)
+					args += " -no-auto-block";
+				if (nolutram)
+					args += " -no-auto-distributed";
+			}
 			run("memory_libmap -lib +/anlogic/lutrams.txt -lib +/anlogic/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
 			run("techmap -map +/anlogic/lutrams_map.v -map +/anlogic/brams_map.v");
 		}
@@ -231,13 +233,13 @@ struct SynthAnlogicPass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthAnlogicPass;

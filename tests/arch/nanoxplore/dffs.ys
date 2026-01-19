@@ -1,0 +1,22 @@
+read_verilog ../common/dffs.v
+design -save read
+
+hierarchy -top dff
+proc
+equiv_opt -assert -async2sync -map +/nanoxplore/cells_sim.v synth_nanoxplore -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dff # Constrain all select calls below inside the top module
+select -assert-count 1 t:NX_DFF
+
+select -assert-none t:NX_DFF %% t:* %D
+
+design -load read
+hierarchy -top dffe
+proc
+equiv_opt -assert -async2sync -map +/nanoxplore/cells_sim.v synth_nanoxplore -noiopad -min_ce_use 0 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dffe # Constrain all select calls below inside the top module
+stat
+select -assert-count 1 t:NX_DFF
+
+select -assert-none t:NX_DFF %% t:* %D

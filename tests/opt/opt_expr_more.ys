@@ -1,0 +1,177 @@
+design -reset
+read_verilog <<EOT
+module test(input a, output [7:0] y);
+assign y = a * 0;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+# The multiplication by zero should be replaced with constant zero
+select -assert-count 0 t:$mul
+
+## opt.opt_expr.mul_shift
+
+design -reset
+read_verilog <<EOT
+module test(input [7:0] a, output [15:0] y, output [15:0] z);
+assign y = a * 8; // Multiply by 2^3 (power of 2)
+assign z = 8 * a;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+# The multiplication by 8 should be replaced with a shift by const
+select -assert-count 0 t:$mul
+# No shift operator cells should be present
+select -assert-count 0 t:$shl
+
+design -reset
+read_verilog <<EOT
+module test(input [7:0] a, output [7:0] y);
+assign y = a / 4; // Division by 2^2 (power of 2)
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+# The division by 4 should be replaced with a shift by const
+select -assert-count 0 t:$div
+
+design -reset
+read_verilog <<EOT
+module test(input [7:0] a, output [7:0] y);
+assign y = a / 0; // Division by zero should be replaced with x
+endmodule
+EOT
+
+opt_expr -fine
+# The division by zero should be removed
+select -assert-count 0 t:$div
+# No cells should be left as it's replaced with constant undef
+select -assert-none t:*
+
+design -reset
+read_verilog <<EOT
+module test(input s, output y);
+assign y = s ? 1'b1 : 1'b0; // This is equivalent to just 's'
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine -mux_bool
+design -load postopt
+# The mux should be removed completely
+select -assert-count 0 t:$mux
+# No additional cells needed - direct connection
+select -assert-none t:*
+
+design -reset
+read_verilog <<EOT
+module test(input s, output y);
+assign y = s ? 1'b0 : 1'b1; // This is equivalent to '!s'
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine -mux_bool
+design -load postopt
+# The mux should be converted to a not gate
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$not
+
+design -reset
+read_verilog <<EOT
+module test(input [3:0] a, input [3:0] b, output y);
+assign y = (a == b); // Test equality optimization
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+# Check for optimization of equality comparison
+select -assert-count 1 t:$eq
+
+# opt.opt_expr.eqneq.*
+
+design -reset
+read_verilog -noopt <<EOT
+module test(output y1, y2, y3, y4);
+// Compare two constants that are guaranteed to be different
+assign y1 = 2'b01 == 2'b10;
+assign y2 = 2'b01 != 2'b10;
+assign y3 = 2'b01 !== 2'b10;
+assign y4 = 2'b01 === 2'b10;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr
+select -assert-count 1 t:$eq
+design -load postopt
+# The comparison of different constants should be replaced with constant 0
+select -assert-count 0 t:$eq
+# No other cells should be present (just the constant driver)
+select -assert-none t:*
+
+# opt.opt_expr.invert.double
+
+design -reset
+read_verilog -noopt <<EOT
+module test(input a, output y);
+// Double negation should be optimized away
+wire not_a;
+assign not_a = ~a;
+assign y = ~not_a;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr
+select -assert-count 2 t:$not
+design -load postopt
+# Both NOT gates should be eliminated
+opt_clean -purge
+select -assert-count 0 t:$not
+# No other cells should be present
+select -assert-none t:*
+
+# opt.opt_expr.reduce_xnor_not
+
+design -reset
+read_verilog -noopt <<EOT
+module test(input a, output y);
+assign y = ~^a; // XNOR reduction of a single bit
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -full
+design -load postopt
+select -assert-count 0 t:$reduce_xnor
+select -assert-count 1 t:$not
+
+## opt.opt_expr.mod_mask
+
+design -reset
+read_verilog -noopt <<EOT
+module test(input [7:0] a, output [7:0] y);
+assign y = a % 8; // Modulo by power of 2
+endmodule
+EOT
+
+select -assert-count 1 t:$mod
+equiv_opt -assert opt_expr -full
+design -load postopt
+select -assert-count 0 t:$mod
+select -assert-count 0 t:$and
+
+## opt.opt_expr.eqneq.empty (indirectly)
+
+design -reset
+read_verilog -noopt <<EOT
+module test(output [7:0] y1);
+assign y1 = 7'b1 == 7'b1;
+endmodule
+EOT
+
+select -assert-count 1 t:$eq
+equiv_opt -assert opt_expr -full
+design -load postopt
+select -assert-count 0 t:$eq

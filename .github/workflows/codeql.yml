@@ -10,11 +10,17 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-    - name: Install deps
-      run: sudo apt-get install bison flex libreadline-dev tcl-dev libffi-dev
-
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: true
+        persist-credentials: false
+
+    - name: Setup environment
+      uses: ./.github/actions/setup-build-env
+      with:
+        runs-on: ubuntu-latest
+        get-build-deps: true
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3

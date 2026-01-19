@@ -1,0 +1,2 @@
+logger -expect prefix-error "./constparser_f_file.sv:2: ERROR: Digit larger than 1 used in in base-2 constant." 1
+read_verilog -sv ./constparser_f_file.sv

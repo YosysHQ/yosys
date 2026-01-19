@@ -17,11 +17,11 @@ EOT
 
 for fn in test_*.il; do
 	../../../yosys -p "
-		read_ilang $fn
+		read_rtlil $fn
 		rename gold gate
 		synth
 
-		read_ilang $fn
+		read_rtlil $fn
 		miter -equiv -flatten gold gate main
 		hierarchy -top main
 		write_smv -tpl template.txt ${fn#.il}.smv

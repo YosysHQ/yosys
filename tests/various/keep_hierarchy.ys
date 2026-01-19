@@ -1,0 +1,53 @@
+read_verilog <<EOF
+(* blackbox *)
+(* gate_cost_equivalent=150 *)
+module macro;
+endmodule
+
+module branch1;
+	macro inst1();
+	macro inst2();
+	macro inst3();
+endmodule
+
+module branch2;
+	macro inst1();
+	macro inst2();
+	macro inst3();
+	macro inst4();
+endmodule
+
+// branch3_submod on its own doesn't meet the threshold
+module branch3_submod();
+	wire [2:0] y;
+	wire [2:0] a;
+	wire [2:0] b;
+	assign y = a * b;
+endmodule
+
+// on the other hand four branch3_submods do
+module branch3;
+	branch3_submod inst1();
+	branch3_submod inst2();
+	branch3_submod inst3();
+	branch3_submod inst4();
+endmodule
+
+// wrapper should have zero cost when branch3 is marked
+// keep_hierarchy
+module branch3_wrapper;
+	branch3 inst();
+endmodule
+
+module top;
+	branch1 inst1();
+	branch2 inst2();
+	branch3_wrapper wrapper();
+endmodule
+EOF
+
+hierarchy -top top
+keep_hierarchy -min_cost 500
+select -assert-mod-count 2 A:keep_hierarchy
+select -assert-any A:keep_hierarchy branch2 %i
+select -assert-any A:keep_hierarchy branch3 %i

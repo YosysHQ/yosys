@@ -21,35 +21,274 @@
 #include "kernel/macc.h"
 #include "kernel/celltypes.h"
 #include "kernel/binding.h"
+#include "kernel/sigtools.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
 #include "backends/rtlil/rtlil_backend.h"
 
 #include <string.h>
 #include <algorithm>
+#include <charconv>
+#include <optional>
+#include <string_view>
+#include <sstream>
 
 YOSYS_NAMESPACE_BEGIN
 
 bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
-std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
-#ifndef YOSYS_NO_IDS_REFCNT
-std::vector<int> RTLIL::IdString::global_refcount_storage_;
+std::vector<RTLIL::IdString::Storage> RTLIL::IdString::global_id_storage_;
+std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
+std::unordered_map<int, RTLIL::IdString::AutoidxStorage> RTLIL::IdString::global_autoidx_id_storage_;
+std::unordered_map<int, int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
-#endif
-#ifdef YOSYS_USE_STICKY_IDS
-int RTLIL::IdString::last_created_idx_[8];
-int RTLIL::IdString::last_created_idx_ptr_;
-#endif
 
-#define X(_id) IdString RTLIL::ID::_id;
+static void populate(std::string_view name)
+{
+	if (name[1] == '$') {
+		// Skip prepended '\'
+		name = name.substr(1);
+	}
+	RTLIL::IdString::global_id_index_.insert({name, GetSize(RTLIL::IdString::global_id_storage_)});
+	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(name.data()), GetSize(name)});
+}
+
+void RTLIL::IdString::prepopulate()
+{
+	int size = static_cast<short>(RTLIL::StaticId::STATIC_ID_END);
+	global_id_storage_.reserve(size);
+	global_id_index_.reserve(size);
+	RTLIL::IdString::global_id_index_.insert({"", 0});
+	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(""), 0});
+#define X(N) populate("\\" #N);
 #include "kernel/constids.inc"
 #undef X
+}
+
+static std::optional<int> parse_autoidx(std::string_view v)
+{
+	// autoidx values can never be <= 0, so there can never be a leading 0 digit.
+	if (v.empty() || v[0] == '0')
+		return std::nullopt;
+	for (char ch : v) {
+		if (ch < '0' || ch > '9')
+			return std::nullopt;
+	}
+	int p_autoidx;
+	if (std::from_chars(v.data(), v.data() + v.size(), p_autoidx).ec != std::errc())
+		return std::nullopt;
+	return p_autoidx;
+}
+
+int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it)
+{
+	ensure_prepopulated();
+
+	log_assert(p[0] == '$' || p[0] == '\\');
+	for (char ch : p)
+		if ((unsigned)ch <= (unsigned)' ')
+			log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
+
+	if (p.substr(0, 6) == "$auto$") {
+		size_t autoidx_pos = p.find_last_of('$') + 1;
+		std::optional<int> p_autoidx = parse_autoidx(p.substr(autoidx_pos));
+		if (p_autoidx.has_value()) {
+			auto autoidx_it = global_autoidx_id_storage_.find(-*p_autoidx);
+			if (autoidx_it != global_autoidx_id_storage_.end() &&
+					p.substr(0, autoidx_pos) == *autoidx_it->second.prefix)
+				return -*p_autoidx;
+			// Ensure NEW_ID/NEW_ID_SUFFIX will not create collisions with the ID
+			// we're about to create.
+			autoidx.ensure_at_least(*p_autoidx + 1);
+		}
+	}
+
+	if (global_free_idx_list_.empty()) {
+		log_assert(global_id_storage_.size() < 0x40000000);
+		global_free_idx_list_.push_back(global_id_storage_.size());
+		global_id_storage_.push_back({nullptr, 0});
+	}
+
+	int idx = global_free_idx_list_.back();
+	global_free_idx_list_.pop_back();
+	char* buf = static_cast<char*>(malloc(p.size() + 1));
+	memcpy(buf, p.data(), p.size());
+	buf[p.size()] = 0;
+	global_id_storage_.at(idx) = {buf, GetSize(p)};
+	global_id_index_.insert(it, {std::string_view(buf, p.size()), idx});
+
+	if (yosys_xtrace) {
+		log("#X# New IdString '%s' with index %d.\n", global_id_storage_.at(idx).buf, idx);
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+#ifdef YOSYS_XTRACE_GET_PUT
+	if (yosys_xtrace)
+		log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx).buf, idx, refcount(idx));
+#endif
+	return idx;
+}
+
+static constexpr bool check_well_known_id_order()
+{
+	int size = sizeof(IdTable) / sizeof(IdTable[0]);
+	for (int i = 1; i < size; ++i)
+		if (IdTable[i - 1].name >= IdTable[i].name)
+			return false;
+	return true;
+}
+
+// Ensure the statically allocated IdStrings in kernel/constids.inc are unique
+// and in sorted ascii order, as required by the ID macro.
+static_assert(check_well_known_id_order());
+
+struct IdStringCollector {
+	void trace(IdString id) {
+		live.insert(id.index_);
+	}
+	template <typename T> void trace(const T* v) {
+		trace(*v);
+	}
+	template <typename V> void trace(const std::vector<V> &v) {
+		for (const auto &element : v)
+			trace(element);
+	}
+	template <typename K> void trace(const pool<K> &p) {
+		for (const auto &element : p)
+			trace(element);
+	}
+	template <typename K, typename V> void trace(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(key);
+			trace(value);
+		}
+	}
+	template <typename K, typename V> void trace_keys(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(key);
+		}
+	}
+	template <typename K, typename V> void trace_values(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(value);
+		}
+	}
+	template <typename K> void trace(const idict<K> &d) {
+		for (const auto &element : d)
+			trace(element);
+	}
+
+	void trace(const RTLIL::Design &design) {
+		trace_values(design.modules_);
+		trace(design.selection_vars);
+	}
+	void trace(const RTLIL::Selection &selection_var) {
+		trace(selection_var.selected_modules);
+		trace(selection_var.selected_members);
+	}
+	void trace_named(const RTLIL::NamedObject named) {
+		trace_keys(named.attributes);
+		trace(named.name);
+	}
+	void trace(const RTLIL::Module &module) {
+		trace_named(module);
+		trace_values(module.wires_);
+		trace_values(module.cells_);
+		trace(module.avail_parameters);
+		trace_keys(module.parameter_default_values);
+		trace_values(module.memories);
+		trace_values(module.processes);
+	}
+	void trace(const RTLIL::Wire &wire) {
+		trace_named(wire);
+		if (wire.known_driver())
+			trace(wire.driverPort());
+	}
+	void trace(const RTLIL::Cell &cell) {
+		trace_named(cell);
+		trace(cell.type);
+		trace_keys(cell.connections_);
+		trace_keys(cell.parameters);
+	}
+	void trace(const RTLIL::Memory &mem) {
+		trace_named(mem);
+	}
+	void trace(const RTLIL::Process &proc) {
+		trace_named(proc);
+		trace(proc.root_case);
+		trace(proc.syncs);
+	}
+	void trace(const RTLIL::CaseRule &rule) {
+		trace_keys(rule.attributes);
+		trace(rule.switches);
+	}
+	void trace(const RTLIL::SwitchRule &rule) {
+		trace_keys(rule.attributes);
+		trace(rule.cases);
+	}
+	void trace(const RTLIL::SyncRule &rule) {
+		trace(rule.mem_write_actions);
+	}
+	void trace(const RTLIL::MemWriteAction &action) {
+		trace_keys(action.attributes);
+		trace(action.memid);
+	}
+
+	std::unordered_set<int> live;
+};
+
+int64_t RTLIL::OwningIdString::gc_ns;
+int RTLIL::OwningIdString::gc_count;
+
+void RTLIL::OwningIdString::collect_garbage()
+{
+	int64_t start = PerformanceTimer::query();
+	IdStringCollector collector;
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
+		collector.trace(*design);
+	}
+	int size = GetSize(global_id_storage_);
+	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
+		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
+		if (storage.buf == nullptr)
+			continue;
+		if (collector.live.find(i) != collector.live.end())
+			continue;
+		if (global_refcount_storage_.find(i) != global_refcount_storage_.end())
+			continue;
+
+		if (yosys_xtrace) {
+			log("#X# Removed IdString '%s' with index %d.\n", storage.buf, i);
+			log_backtrace("-X- ", yosys_xtrace-1);
+		}
+
+		global_id_index_.erase(std::string_view(storage.buf, storage.size));
+		free(storage.buf);
+		storage = {nullptr, 0};
+		global_free_idx_list_.push_back(i);
+	}
+
+	for (auto it = global_autoidx_id_storage_.begin(); it != global_autoidx_id_storage_.end();) {
+		if (collector.live.find(it->first) != collector.live.end()) {
+			++it;
+			continue;
+		}
+		if (global_refcount_storage_.find(it->first) != global_refcount_storage_.end()) {
+			++it;
+			continue;
+		}
+		it = global_autoidx_id_storage_.erase(it);
+	}
+
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	gc_ns += time_ns;
+	++gc_count;
+}
 
 dict<std::string, std::string> RTLIL::constpad;
 
-const pool<IdString> &RTLIL::builtin_ff_cell_types() {
+static const pool<IdString> &builtin_ff_cell_types_internal() {
 	static const pool<IdString> res = {
 		ID($sr),
 		ID($ff),
@@ -200,25 +439,73 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 	return res;
 }
 
-RTLIL::Const::Const(const std::string &str)
-{
-	flags = RTLIL::CONST_FLAG_STRING;
-	bits.reserve(str.size() * 8);
-	for (int i = str.size()-1; i >= 0; i--) {
-		unsigned char ch = str[i];
-		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
-			ch = ch >> 1;
-		}
-	}
+const pool<IdString> &RTLIL::builtin_ff_cell_types() {
+	return builtin_ff_cell_types_internal();
 }
 
-RTLIL::Const::Const(int val, int width)
+#define check(condition) log_assert(condition && "malformed Const union")
+
+const Const::bitvectype& Const::get_bits() const {
+	check(is_bits());
+	return *get_if_bits();
+}
+
+const std::string& Const::get_str() const {
+	check(is_str());
+	return *get_if_str();
+}
+
+Const::bitvectype& Const::get_bits() {
+	check(is_bits());
+	return *get_if_bits();
+}
+
+std::string& Const::get_str() {
+	check(is_str());
+	return *get_if_str();
+}
+
+RTLIL::Const::Const(std::string str)
+{
+	flags = RTLIL::CONST_FLAG_STRING;
+	new ((void*)&str_) std::string(std::move(str));
+	tag = backing_tag::string;
+}
+
+RTLIL::Const::Const(long long val) // default width 32
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
+	char bytes[] = {
+		(char)(val >> 24), (char)(val >> 16), (char)(val >> 8), (char)val
+	};
+	new ((void*)&str_) std::string(bytes, 4);
+	tag = backing_tag::string;
+}
+
+RTLIL::Const::Const(long long val, int width)
+{
+	flags = RTLIL::CONST_FLAG_NONE;
+	if ((width & 7) == 0) {
+		new ((void*)&str_) std::string();
+		tag = backing_tag::string;
+		std::string& str = get_str();
+		int bytes = width >> 3;
+		signed char sign_byte = val < 0 ? -1 : 0;
+		str.resize(bytes, sign_byte);
+		bytes = std::min<int>(bytes, sizeof(val));
+		for (int i = 0; i < bytes; i++) {
+			str[str.size() - 1 - i] = val;
+			val = val >> 8;
+		}
+		return;
+	}
+
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(width);
 	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
+		bv.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
 	}
 }
@@ -226,43 +513,142 @@ RTLIL::Const::Const(int val, int width)
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(width);
 	for (int i = 0; i < width; i++)
-		bits.push_back(bit);
+		bv.push_back(bit);
 }
 
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	this->bits.reserve(bits.size());
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(bits.size());
 	for (const auto &b : bits)
-		this->bits.emplace_back(b ? State::S1 : State::S0);
+		bv.emplace_back(b ? State::S1 : State::S0);
 }
 
-bool RTLIL::Const::operator <(const RTLIL::Const &other) const
+RTLIL::Const::Const(const RTLIL::Const &other) {
+	tag = other.tag;
+	flags = other.flags;
+	if (is_str())
+		new ((void*)&str_) std::string(other.get_str());
+	else if (is_bits())
+		new ((void*)&bits_) bitvectype(other.get_bits());
+	else
+		check(false);
+}
+
+RTLIL::Const::Const(RTLIL::Const &&other) {
+	tag = other.tag;
+	flags = other.flags;
+	if (is_str())
+		new ((void*)&str_) std::string(std::move(other.get_str()));
+	else if (is_bits())
+		new ((void*)&bits_) bitvectype(std::move(other.get_bits()));
+	else
+		check(false);
+}
+
+RTLIL::Const &RTLIL::Const::operator =(const RTLIL::Const &other) {
+	flags = other.flags;
+	if (other.is_str()) {
+		if (!is_str()) {
+			// sketchy zone
+			check(is_bits());
+			bits_.~bitvectype();
+			(void)new ((void*)&str_) std::string();
+		}
+		tag = other.tag;
+		get_str() = other.get_str();
+	} else if (other.is_bits()) {
+		if (!is_bits()) {
+			// sketchy zone
+			check(is_str());
+			str_.~string();
+			(void)new ((void*)&bits_) bitvectype();
+		}
+		tag = other.tag;
+		get_bits() = other.get_bits();
+	} else {
+		check(false);
+	}
+	return *this;
+}
+
+RTLIL::Const::~Const() {
+	if (is_bits())
+		bits_.~bitvectype();
+	else if (is_str())
+		str_.~string();
+	else
+		check(false);
+}
+
+bool RTLIL::Const::operator<(const RTLIL::Const &other) const
 {
-	if (bits.size() != other.bits.size())
-		return bits.size() < other.bits.size();
-	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] != other.bits[i])
-			return bits[i] < other.bits[i];
+	if (size() != other.size())
+		return size() < other.size();
+
+	for (int i = 0; i < size(); i++)
+		if ((*this)[i] != other[i])
+			return (*this)[i] < other[i];
+
 	return false;
 }
 
 bool RTLIL::Const::operator ==(const RTLIL::Const &other) const
 {
-	return bits == other.bits;
+	if (is_str() && other.is_str())
+		return get_str() == other.get_str();
+	if (is_bits() && other.is_bits())
+		return get_bits() == other.get_bits();
+
+	if (size() != other.size())
+		return false;
+
+	for (int i = 0; i < size(); i++)
+	if ((*this)[i] != other[i])
+		return false;
+
+	return true;
 }
 
 bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 {
-	return bits != other.bits;
+	return !(*this == other);
+}
+
+std::vector<RTLIL::State>& RTLIL::Const::bits_internal()
+{
+	bitvectorize_internal();
+	return get_bits();
+}
+
+std::vector<RTLIL::State> RTLIL::Const::to_bits() const
+{
+	std::vector<State> v;
+	for (auto bit : *this)
+		v.push_back(bit);
+	return v;
 }
 
 bool RTLIL::Const::as_bool() const
 {
-	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] == State::S1)
+	if (is_str()) {
+		for (char ch : get_str())
+			if (ch != 0)
+				return true;
+		return false;
+	}
+
+	const bitvectype& bv = get_bits();
+	for (size_t i = 0; i < bv.size(); i++)
+		if (bv[i] == State::S1)
 			return true;
 	return false;
 }
@@ -270,27 +656,118 @@ bool RTLIL::Const::as_bool() const
 int RTLIL::Const::as_int(bool is_signed) const
 {
 	int32_t ret = 0;
-	for (size_t i = 0; i < bits.size() && i < 32; i++)
-		if (bits[i] == State::S1)
+	if (const std::string *s = get_if_str()) {
+		int size = GetSize(*s);
+		// Ignore any bytes after the first 4 since bits beyond 32 are truncated.
+		for (int i = std::min(4, size); i > 0; i--)
+			ret |= static_cast<unsigned char>((*s)[size - i]) << ((i - 1) * 8);
+		// If is_signed and the string is shorter than 4 bytes then apply sign extension.
+		if (is_signed && size > 0 && size < 4 && ((*s)[0] & 0x80))
+			ret |= UINT32_MAX << size*8;
+		return ret;
+	}
+
+	const bitvectype& bv = get_bits();
+	int significant_bits = std::min(GetSize(bv), 32);
+	for (int i = 0; i < significant_bits; i++)
+		if (bv[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bits.back() == State::S1)
-		for (size_t i = bits.size(); i < 32; i++)
-			ret |= 1 << i;
+	if (is_signed && significant_bits > 0 && significant_bits < 32 && bv.back() == State::S1 )
+		ret |= UINT32_MAX << significant_bits;
 	return ret;
 }
 
-std::string RTLIL::Const::as_string() const
+bool RTLIL::Const::convertible_to_int(bool is_signed) const
 {
+	auto size = get_min_size(is_signed);
+
+	if (size < 0)
+		return false;
+
+	// If it fits in 31 bits it is definitely convertible
+	if (size <= 31)
+		return true;
+
+	// If it fits in 32 bits, it is convertible if signed or if unsigned and the
+	// leading bit is not 1
+	if (size == 32) {
+		if (is_signed)
+			return true;
+		return back() != State::S1;
+	}
+
+	return false;
+}
+
+std::optional<int> RTLIL::Const::try_as_int(bool is_signed) const
+{
+	if (!convertible_to_int(is_signed))
+		return std::nullopt;
+	return as_int(is_signed);
+}
+
+int RTLIL::Const::as_int_saturating(bool is_signed) const
+{
+	if (!convertible_to_int(is_signed)) {
+		if (!is_signed)
+			return std::numeric_limits<int>::max();
+
+		const auto min_size = get_min_size(is_signed);
+		log_assert(min_size > 0);
+		const auto neg = (*this)[min_size - 1];
+		return neg ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
+	}
+	return as_int(is_signed);
+}
+
+int RTLIL::Const::get_min_size(bool is_signed) const
+{
+	if (empty()) return 0;
+
+	// back to front (MSB to LSB)
+	RTLIL::State leading_bit;
+	if (is_signed)
+		leading_bit = (back() == RTLIL::State::Sx) ? RTLIL::State::S0 : back();
+	else
+		leading_bit = RTLIL::State::S0;
+
+	auto idx = size();
+	while (idx > 0 && (*this)[idx -1] == leading_bit) {
+		idx--;
+	}
+
+	// signed needs one leading bit
+	if (is_signed && idx < size()) {
+		idx++;
+	}
+	// must be at least one bit
+	return (idx == 0) ? 1 : idx;
+}
+
+void RTLIL::Const::compress(bool is_signed)
+{
+	auto idx = get_min_size(is_signed);
+	resize(idx, RTLIL::State::S0);
+}
+
+std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
+{
+	return try_as_int(is_signed);
+}
+
+std::string RTLIL::Const::as_string(const char* any) const
+{
+	int sz = size();
 	std::string ret;
-	ret.reserve(bits.size());
-	for (size_t i = bits.size(); i > 0; i--)
-		switch (bits[i-1]) {
-			case S0: ret += "0"; break;
-			case S1: ret += "1"; break;
-			case Sx: ret += "x"; break;
-			case Sz: ret += "z"; break;
-			case Sa: ret += "-"; break;
-			case Sm: ret += "m"; break;
+	ret.reserve(sz);
+	for (int i = sz - 1; i >= 0; --i)
+		switch ((*this)[i]) {
+			case S0: ret.push_back('0'); break;
+			case S1: ret.push_back('1'); break;
+			case Sx: ret.push_back('x'); break;
+			case Sz: ret.push_back('z'); break;
+			case Sa: ret += any; break;
+			case Sm: ret.push_back('m'); break;
 		}
 	return ret;
 }
@@ -298,22 +775,27 @@ std::string RTLIL::Const::as_string() const
 RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 {
 	Const c;
-	c.bits.reserve(str.size());
+	bitvectype& bv = c.get_bits();
+	bv.reserve(str.size());
 	for (auto it = str.rbegin(); it != str.rend(); it++)
 		switch (*it) {
-			case '0': c.bits.push_back(State::S0); break;
-			case '1': c.bits.push_back(State::S1); break;
-			case 'x': c.bits.push_back(State::Sx); break;
-			case 'z': c.bits.push_back(State::Sz); break;
-			case 'm': c.bits.push_back(State::Sm); break;
-			default: c.bits.push_back(State::Sa);
+			case '0': bv.push_back(State::S0); break;
+			case '1': bv.push_back(State::S1); break;
+			case 'x': bv.push_back(State::Sx); break;
+			case 'z': bv.push_back(State::Sz); break;
+			case 'm': bv.push_back(State::Sm); break;
+			default: bv.push_back(State::Sa);
 		}
 	return c;
 }
 
 std::string RTLIL::Const::decode_string() const
 {
-	const int n = GetSize(bits);
+	if (auto str = get_if_str())
+		return *str;
+
+	const bitvectype& bv = get_bits();
+	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
 	std::string s;
 	s.reserve(n_over_8);
@@ -321,7 +803,7 @@ std::string RTLIL::Const::decode_string() const
 	if (i < n) {
 		char ch = 0;
 		for (int j = 0; j < (n - i); j++) {
-			if (bits[i + j] == RTLIL::State::S1) {
+			if (bv[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -332,7 +814,7 @@ std::string RTLIL::Const::decode_string() const
 	for (; i >= 0; i -= 8) {
 		char ch = 0;
 		for (int j = 0; j < 8; j++) {
-			if (bits[i + j] == RTLIL::State::S1) {
+			if (bv[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -342,11 +824,76 @@ std::string RTLIL::Const::decode_string() const
 	return s;
 }
 
+int RTLIL::Const::size() const {
+	if (is_str())
+		return 8 * str_.size();
+	else {
+		check(is_bits());
+		return bits_.size();
+	}
+}
+
+bool RTLIL::Const::empty() const {
+	if (is_str())
+		return str_.empty();
+	else {
+		check(is_bits());
+		return bits_.empty();
+	}
+}
+
+void RTLIL::Const::bitvectorize_internal() {
+	if (tag == backing_tag::bits)
+		return;
+
+	check(is_str());
+
+	bitvectype new_bits;
+
+	new_bits.reserve(str_.size() * 8);
+	for (int i = str_.size() - 1; i >= 0; i--) {
+		unsigned char ch = str_[i];
+		for (int j = 0; j < 8; j++) {
+			new_bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
+			ch = ch >> 1;
+		}
+	}
+
+	{
+		// sketchy zone
+		str_.~string();
+		(void)new ((void*)&bits_) bitvectype(std::move(new_bits));
+		tag = backing_tag::bits;
+	}
+}
+
+void RTLIL::Const::append(const RTLIL::Const &other) {
+	bitvectorize_internal();
+	bitvectype& bv = get_bits();
+	bv.insert(bv.end(), other.begin(), other.end());
+}
+
+RTLIL::State RTLIL::Const::const_iterator::operator*() const {
+	if (auto bv = parent->get_if_bits())
+		return (*bv)[idx];
+
+	int char_idx = parent->get_str().size() - idx / 8 - 1;
+	bool bit = (parent->get_str()[char_idx] & (1 << (idx % 8)));
+	return bit ? State::S1 : State::S0;
+}
+
 bool RTLIL::Const::is_fully_zero() const
 {
-	cover("kernel.rtlil.const.is_fully_zero");
+	if (auto str = get_if_str()) {
+		for (char ch : *str)
+			if (ch != 0)
+				return false;
+		return true;
+	}
 
-	for (const auto &bit : bits)
+	const bitvectype& bv = get_bits();
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0)
 			return false;
 
@@ -355,9 +902,15 @@ bool RTLIL::Const::is_fully_zero() const
 
 bool RTLIL::Const::is_fully_ones() const
 {
-	cover("kernel.rtlil.const.is_fully_ones");
+	if (auto str = get_if_str()) {
+		for (char ch : *str)
+			if (ch != (char)0xff)
+				return false;
+		return true;
+	}
 
-	for (const auto &bit : bits)
+	const bitvectype& bv = get_bits();
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S1)
 			return false;
 
@@ -366,9 +919,11 @@ bool RTLIL::Const::is_fully_ones() const
 
 bool RTLIL::Const::is_fully_def() const
 {
-	cover("kernel.rtlil.const.is_fully_def");
+	if (is_str())
+		return true;
 
-	for (const auto &bit : bits)
+	const bitvectype& bv = get_bits();
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 
@@ -377,9 +932,11 @@ bool RTLIL::Const::is_fully_def() const
 
 bool RTLIL::Const::is_fully_undef() const
 {
-	cover("kernel.rtlil.const.is_fully_undef");
+	if (auto str = get_if_str())
+		return str->empty();
 
-	for (const auto &bit : bits)
+	const bitvectype& bv = get_bits();
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
 			return false;
 
@@ -388,9 +945,11 @@ bool RTLIL::Const::is_fully_undef() const
 
 bool RTLIL::Const::is_fully_undef_x_only() const
 {
-	cover("kernel.rtlil.const.is_fully_undef_x_only");
+	if (auto str = get_if_str())
+		return str->empty();
 
-	for (const auto &bit : bits)
+	const bitvectype& bv = get_bits();
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
 			return false;
 
@@ -399,11 +958,10 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 
 bool RTLIL::Const::is_onehot(int *pos) const
 {
-	cover("kernel.rtlil.const.is_onehot");
-
 	bool found = false;
-	for (int i = 0; i < GetSize(*this); i++) {
-		auto &bit = bits[i];
+	int size = GetSize(*this);
+	for (int i = 0; i < size; i++) {
+		State bit = (*this)[i];
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 		if (bit == RTLIL::State::S1) {
@@ -417,12 +975,55 @@ bool RTLIL::Const::is_onehot(int *pos) const
 	return found;
 }
 
-bool RTLIL::AttrObject::has_attribute(const RTLIL::IdString &id) const
+Hasher RTLIL::Const::hash_into(Hasher h) const
+{
+	if (auto str = get_if_str())
+		return hashlib::hash_ops<std::string>::hash_into(*str, h);
+
+	// If the bits are all 0/1, hash packed bits using the string hash.
+	// Otherwise hash the leading packed bits with the rest of the bits individually.
+	const bitvectype &bv = get_bits();
+	int size = GetSize(bv);
+	std::string packed;
+	int packed_size = (size + 7) >> 3;
+	packed.resize(packed_size, 0);
+	for (int bi = 0; bi < packed_size; ++bi) {
+		char ch = 0;
+		int end = std::min((bi + 1)*8, size);
+		for (int i = bi*8; i < end; ++i) {
+			RTLIL::State b = bv[i];
+			if (b > RTLIL::State::S1) {
+				// Hash the packed bits we've seen so far, plus the remaining bits.
+				h = hashlib::hash_ops<std::string>::hash_into(packed, h);
+				h = hashlib::hash_ops<char>::hash_into(ch, h);
+				for (; i < size; ++i) {
+					h = hashlib::hash_ops<RTLIL::State>::hash_into(bv[i], h);
+				}
+				h.eat(size);
+				return h;
+			}
+			ch |= static_cast<int>(b) << (i & 7);
+		}
+		packed[packed_size - 1 - bi] = ch;
+	}
+	return hashlib::hash_ops<std::string>::hash_into(packed, h);
+}
+
+RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) const {
+	bitvectype ret_bv;
+	ret_bv.reserve(len);
+	for (int i = offset; i < offset + len; i++)
+		ret_bv.push_back(i < GetSize(*this) ? (*this)[i] : padding);
+	return RTLIL::Const(ret_bv);
+}
+#undef check /* check(condition) for Const */
+
+bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	return attributes.count(id);
 }
 
-void RTLIL::AttrObject::set_bool_attribute(const RTLIL::IdString &id, bool value)
+void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
 	if (value)
 		attributes[id] = RTLIL::Const(1);
@@ -430,7 +1031,7 @@ void RTLIL::AttrObject::set_bool_attribute(const RTLIL::IdString &id, bool value
 		attributes.erase(id);
 }
 
-bool RTLIL::AttrObject::get_bool_attribute(const RTLIL::IdString &id) const
+bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
@@ -438,7 +1039,7 @@ bool RTLIL::AttrObject::get_bool_attribute(const RTLIL::IdString &id) const
 	return it->second.as_bool();
 }
 
-void RTLIL::AttrObject::set_string_attribute(const RTLIL::IdString& id, string value)
+void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 {
 	if (value.empty())
 		attributes.erase(id);
@@ -446,7 +1047,7 @@ void RTLIL::AttrObject::set_string_attribute(const RTLIL::IdString& id, string v
 		attributes[id] = value;
 }
 
-string RTLIL::AttrObject::get_string_attribute(const RTLIL::IdString &id) const
+string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 {
 	std::string value;
 	const auto it = attributes.find(id);
@@ -455,7 +1056,7 @@ string RTLIL::AttrObject::get_string_attribute(const RTLIL::IdString &id) const
 	return value;
 }
 
-void RTLIL::AttrObject::set_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data)
+void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
 {
 	string attrval;
 	for (const auto &s : data) {
@@ -466,7 +1067,7 @@ void RTLIL::AttrObject::set_strpool_attribute(const RTLIL::IdString& id, const p
 	set_string_attribute(id, attrval);
 }
 
-void RTLIL::AttrObject::add_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data)
+void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
 {
 	pool<string> union_data = get_strpool_attribute(id);
 	union_data.insert(data.begin(), data.end());
@@ -474,7 +1075,7 @@ void RTLIL::AttrObject::add_strpool_attribute(const RTLIL::IdString& id, const p
 		set_strpool_attribute(id, union_data);
 }
 
-pool<string> RTLIL::AttrObject::get_strpool_attribute(const RTLIL::IdString &id) const
+pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 {
 	pool<string> data;
 	if (attributes.count(id) != 0)
@@ -499,7 +1100,7 @@ vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
 	return split_tokens(get_string_attribute(ID::hdlname), " ");
 }
 
-void RTLIL::AttrObject::set_intvec_attribute(const RTLIL::IdString& id, const vector<int> &data)
+void RTLIL::AttrObject::set_intvec_attribute(RTLIL::IdString id, const vector<int> &data)
 {
 	std::stringstream attrval;
 	for (auto &i : data) {
@@ -510,7 +1111,7 @@ void RTLIL::AttrObject::set_intvec_attribute(const RTLIL::IdString& id, const ve
 	attributes[id] = RTLIL::Const(attrval.str());
 }
 
-vector<int> RTLIL::AttrObject::get_intvec_attribute(const RTLIL::IdString &id) const
+vector<int> RTLIL::AttrObject::get_intvec_attribute(RTLIL::IdString id) const
 {
 	vector<int> data;
 	auto it = attributes.find(id);
@@ -528,8 +1129,23 @@ vector<int> RTLIL::AttrObject::get_intvec_attribute(const RTLIL::IdString &id) c
 	return data;
 }
 
-bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
+bool RTLIL::Selection::boxed_module(RTLIL::IdString mod_name) const
 {
+	if (current_design != nullptr) {
+		auto module = current_design->module(mod_name);
+		return module && module->get_blackbox_attribute();
+	} else {
+		log_warning("Unable to check if module is boxed for null design.\n");
+		return false;
+	}
+}
+
+bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
+{
+	if (complete_selection)
+		return true;
+	if (!selects_boxes && boxed_module(mod_name))
+		return false;
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
@@ -539,8 +1155,12 @@ bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
 	return false;
 }
 
-bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) const
+bool RTLIL::Selection::selected_whole_module(RTLIL::IdString mod_name) const
 {
+	if (complete_selection)
+		return true;
+	if (!selects_boxes && boxed_module(mod_name))
+		return false;
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
@@ -548,8 +1168,12 @@ bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) co
 	return false;
 }
 
-bool RTLIL::Selection::selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const
+bool RTLIL::Selection::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const
 {
+	if (complete_selection)
+		return true;
+	if (!selects_boxes && boxed_module(mod_name))
+		return false;
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
@@ -562,7 +1186,17 @@ bool RTLIL::Selection::selected_member(const RTLIL::IdString &mod_name, const RT
 
 void RTLIL::Selection::optimize(RTLIL::Design *design)
 {
-	if (full_selection) {
+	if (design != current_design) {
+		current_design = design;
+	}
+
+	if (selects_boxes && full_selection)
+		complete_selection = true;
+	if (complete_selection) {
+		full_selection = false;
+		selects_boxes = true;
+	}
+	if (selects_all()) {
 		selected_modules.clear();
 		selected_members.clear();
 		return;
@@ -572,7 +1206,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 	del_list.clear();
 	for (auto mod_name : selected_modules) {
-		if (design->modules_.count(mod_name) == 0)
+		if (current_design->modules_.count(mod_name) == 0 || (!selects_boxes && boxed_module(mod_name)))
 			del_list.push_back(mod_name);
 		selected_members.erase(mod_name);
 	}
@@ -581,7 +1215,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 	del_list.clear();
 	for (auto &it : selected_members)
-		if (design->modules_.count(it.first) == 0)
+		if (current_design->modules_.count(it.first) == 0 || (!selects_boxes && boxed_module(it.first)))
 			del_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -589,7 +1223,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members) {
 		del_list.clear();
 		for (auto memb_name : it.second)
-			if (design->modules_[it.first]->count_id(memb_name) == 0)
+			if (current_design->modules_[it.first]->count_id(memb_name) == 0)
 				del_list.push_back(memb_name);
 		for (auto memb_name : del_list)
 			it.second.erase(memb_name);
@@ -600,8 +1234,8 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members)
 		if (it.second.size() == 0)
 			del_list.push_back(it.first);
-		else if (it.second.size() == design->modules_[it.first]->wires_.size() + design->modules_[it.first]->memories.size() +
-				design->modules_[it.first]->cells_.size() + design->modules_[it.first]->processes.size())
+		else if (it.second.size() == current_design->modules_[it.first]->wires_.size() + current_design->modules_[it.first]->memories.size() +
+				current_design->modules_[it.first]->cells_.size() + current_design->modules_[it.first]->processes.size())
 			add_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -610,11 +1244,22 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		selected_modules.insert(mod_name);
 	}
 
-	if (selected_modules.size() == design->modules_.size()) {
-		full_selection = true;
+	if (selected_modules.size() == current_design->modules_.size()) {
 		selected_modules.clear();
 		selected_members.clear();
+		if (selects_boxes)
+			complete_selection = true;
+		else
+			full_selection = true;
 	}
+}
+
+void RTLIL::Selection::clear()
+{
+	full_selection = false;
+	complete_selection = false;
+	selected_modules.clear();
+	selected_members.clear();
 }
 
 RTLIL::Design::Design()
@@ -625,11 +1270,9 @@ RTLIL::Design::Design()
 	hashidx_ = hashidx_count;
 
 	refcount_modules_ = 0;
-	selection_stack.push_back(RTLIL::Selection());
+	push_full_selection();
 
-#ifdef WITH_PYTHON
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Design::~Design()
@@ -638,39 +1281,31 @@ RTLIL::Design::~Design()
 		delete pr.second;
 	for (auto n : bindings_)
 		delete n;
-	for (auto n : verilog_packages)
-		delete n;
-	for (auto n : verilog_globals)
-		delete n;
-#ifdef WITH_PYTHON
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
-#endif
 }
 
-#ifdef WITH_PYTHON
 static std::map<unsigned int, RTLIL::Design*> all_designs;
 std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
 	return &all_designs;
 }
-#endif
 
 RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
 {
 	return RTLIL::ObjRange<RTLIL::Module*>(&modules_, &refcount_modules_);
 }
 
-RTLIL::Module *RTLIL::Design::module(const RTLIL::IdString& name)
+RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
 {
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
-const RTLIL::Module *RTLIL::Design::module(const RTLIL::IdString& name) const
+const RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name) const
 {
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
-RTLIL::Module *RTLIL::Design::top_module()
+RTLIL::Module *RTLIL::Design::top_module() const
 {
 	RTLIL::Module *module = nullptr;
 	int module_count = 0;
@@ -710,7 +1345,7 @@ void RTLIL::Design::add(RTLIL::Binding *binding)
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 {
 	if (modules_.count(name) != 0)
-		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", name.c_str());
+		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", name);
 	log_assert(refcount_modules_ == 0);
 
 	RTLIL::Module *module = new RTLIL::Module;
@@ -825,9 +1460,16 @@ void RTLIL::Design::sort()
 		it.second->sort();
 }
 
+void RTLIL::Design::sort_modules()
+{
+	scratchpad.sort();
+	modules_.sort(sort_by_id_str());
+}
+
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
+	log_assert(!selection_stack.empty());
 	for (auto &it : modules_) {
 		log_assert(this == it.second->design);
 		log_assert(it.first == it.second->name);
@@ -847,31 +1489,25 @@ void RTLIL::Design::optimize()
 		it.second.optimize(this);
 }
 
-bool RTLIL::Design::selected_module(const RTLIL::IdString& mod_name) const
+bool RTLIL::Design::selected_module(RTLIL::IdString mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
-	return selection_stack.back().selected_module(mod_name);
+	return selection().selected_module(mod_name);
 }
 
-bool RTLIL::Design::selected_whole_module(const RTLIL::IdString& mod_name) const
+bool RTLIL::Design::selected_whole_module(RTLIL::IdString mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
-	return selection_stack.back().selected_whole_module(mod_name);
+	return selection().selected_whole_module(mod_name);
 }
 
-bool RTLIL::Design::selected_member(const RTLIL::IdString& mod_name, const RTLIL::IdString& memb_name) const
+bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
-	return selection_stack.back().selected_member(mod_name, memb_name);
+	return selection().selected_member(mod_name, memb_name);
 }
 
 bool RTLIL::Design::selected_module(RTLIL::Module *mod) const
@@ -884,37 +1520,93 @@ bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
 	return selected_whole_module(mod->name);
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
+void RTLIL::Design::push_selection(RTLIL::Selection sel)
 {
-	std::vector<RTLIL::Module*> result;
-	result.reserve(modules_.size());
-	for (auto &it : modules_)
-		if (selected_module(it.first) && !it.second->get_blackbox_attribute())
-			result.push_back(it.second);
-	return result;
+	sel.current_design = this;
+	selection_stack.push_back(sel);
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
+void RTLIL::Design::push_empty_selection()
 {
-	std::vector<RTLIL::Module*> result;
-	result.reserve(modules_.size());
-	for (auto &it : modules_)
-		if (selected_whole_module(it.first) && !it.second->get_blackbox_attribute())
-			result.push_back(it.second);
-	return result;
+	push_selection(RTLIL::Selection::EmptySelection(this));
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn(bool include_wb) const
+void RTLIL::Design::push_full_selection()
 {
+	push_selection(RTLIL::Selection::FullSelection(this));
+}
+
+void RTLIL::Design::push_complete_selection()
+{
+	push_selection(RTLIL::Selection::CompleteSelection(this));
+}
+
+void RTLIL::Design::pop_selection()
+{
+	selection_stack.pop_back();
+	// Default to a full_selection if we ran out of stack
+	if (selection_stack.empty())
+		push_full_selection();
+}
+
+std::string RTLIL::Design::to_rtlil_str(bool only_selected) const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_design(f, const_cast<RTLIL::Design*>(this), only_selected);
+	return f.str();
+}
+
+std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
+{
+	bool include_partials = partials == RTLIL::SELECT_ALL;
+	bool exclude_boxes = (boxes & RTLIL::SB_UNBOXED_ONLY) != 0;
+	bool ignore_wb = (boxes & RTLIL::SB_INCL_WB) != 0;
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (it.second->get_blackbox_attribute(include_wb))
-			continue;
-		else if (selected_whole_module(it.first))
-			result.push_back(it.second);
-		else if (selected_module(it.first))
-			log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+		if (selected_whole_module(it.first) || (include_partials && selected_module(it.first))) {
+			if (!(exclude_boxes && it.second->get_blackbox_attribute(ignore_wb)))
+				result.push_back(it.second);
+			else
+				switch (boxes)
+				{
+				case RTLIL::SB_UNBOXED_WARN:
+					log_warning("Ignoring boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_WARN:
+					log_warning("Ignoring blackbox module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_UNBOXED_ERR:
+					log_error("Unsupported boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_ERR:
+					log_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_UNBOXED_CMDERR:
+					log_cmd_error("Unsupported boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_CMDERR:
+					log_cmd_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					break;
+				default:
+					break;
+				}
+		} else if (!include_partials && selected_module(it.first)) {
+			switch(partials)
+			{
+			case RTLIL::SELECT_WHOLE_WARN:
+				log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+				break;
+			case RTLIL::SELECT_WHOLE_ERR:
+				log_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				break;
+			case RTLIL::SELECT_WHOLE_CMDERR:
+				log_cmd_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				break;
+			default:
+				break;
+			}
+		}
 	return result;
 }
 
@@ -928,7 +1620,7 @@ RTLIL::Module::Module()
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
 #endif
 }
@@ -945,12 +1637,12 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto binding : bindings_)
 		delete binding;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Module*> all_modules;
 std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
 {
@@ -1009,7 +1701,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
 }
 
-size_t RTLIL::Module::count_id(const RTLIL::IdString& id)
+size_t RTLIL::Module::count_id(RTLIL::IdString id)
 {
 	return wires_.count(id) + memories.count(id) + cells_.count(id) + processes.count(id);
 }
@@ -1034,7 +1726,7 @@ namespace {
 					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
-		int param(const RTLIL::IdString& name)
+		int param(RTLIL::IdString name)
 		{
 			auto it = cell->parameters.find(name);
 			if (it == cell->parameters.end())
@@ -1043,7 +1735,7 @@ namespace {
 			return it->second.as_int();
 		}
 
-		int param_bool(const RTLIL::IdString& name)
+		int param_bool(RTLIL::IdString name)
 		{
 			int v = param(name);
 			if (GetSize(cell->parameters.at(name)) > 32)
@@ -1053,7 +1745,7 @@ namespace {
 			return v;
 		}
 
-		int param_bool(const RTLIL::IdString& name, bool expected)
+		int param_bool(RTLIL::IdString name, bool expected)
 		{
 			int v = param_bool(name);
 			if (v != expected)
@@ -1061,20 +1753,20 @@ namespace {
 			return v;
 		}
 
-		void param_bits(const RTLIL::IdString& name, int width)
+		void param_bits(RTLIL::IdString name, int width)
 		{
 			param(name);
-			if (GetSize(cell->parameters.at(name).bits) != width)
+			if (GetSize(cell->parameters.at(name)) != width)
 				error(__LINE__);
 		}
 
-		std::string param_string(const RTLIL::IdString &name)
+		std::string param_string(RTLIL::IdString name)
 		{
 			param(name);
 			return cell->parameters.at(name).decode_string();
 		}
 
-		void port(const RTLIL::IdString& name, int width)
+		void port(RTLIL::IdString name, int width)
 		{
 			auto it = cell->connections_.find(name);
 			if (it == cell->connections_.end())
@@ -1107,6 +1799,13 @@ namespace {
 			if (!cell->type.begins_with("$") || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
 					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
+
+			if (cell->type == ID($buf)) {
+				port(ID::A, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 
 			if (cell->type.in(ID($not), ID($pos), ID($neg))) {
 				param_bool(ID::A_SIGNED);
@@ -1219,6 +1918,40 @@ namespace {
 				port(ID::Y, param(ID::Y_WIDTH));
 				check_expected();
 				Macc().from_cell(cell);
+				return;
+			}
+
+			if (cell->type == ID($macc_v2)) {
+				if (param(ID::NPRODUCTS) < 0)
+					error(__LINE__);
+				if (param(ID::NADDENDS) < 0)
+					error(__LINE__);
+				param_bits(ID::PRODUCT_NEGATED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::ADDEND_NEGATED, max(param(ID::NADDENDS), 1));
+				param_bits(ID::A_SIGNED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::B_SIGNED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::C_SIGNED, max(param(ID::NADDENDS), 1));
+				if (cell->getParam(ID::A_SIGNED) != cell->getParam(ID::B_SIGNED))
+					error(__LINE__);
+				param_bits(ID::A_WIDTHS, max(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::B_WIDTHS, max(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::C_WIDTHS, max(param(ID::NADDENDS) * 16, 1));
+				const Const &a_width = cell->getParam(ID::A_WIDTHS);
+				const Const &b_width = cell->getParam(ID::B_WIDTHS);
+				const Const &c_width = cell->getParam(ID::C_WIDTHS);
+				int a_width_sum = 0, b_width_sum = 0, c_width_sum = 0;
+				for (int i = 0; i < param(ID::NPRODUCTS); i++) {
+					a_width_sum += a_width.extract(16 * i, 16).as_int(false);
+					b_width_sum += b_width.extract(16 * i, 16).as_int(false);
+				}
+				for (int i = 0; i < param(ID::NADDENDS); i++) {
+					c_width_sum += c_width.extract(16 * i, 16).as_int(false);
+				}
+				port(ID::A, a_width_sum);
+				port(ID::B, b_width_sum);
+				port(ID::C, c_width_sum);
+				port(ID::Y, param(ID::Y_WIDTH));
+				check_expected();
 				return;
 			}
 
@@ -1617,9 +2350,9 @@ namespace {
 				param_bits(ID::RD_COLLISION_X_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
 				param_bits(ID::RD_WIDE_CONTINUATION, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CE_OVER_SRST, max(1, param(ID::RD_PORTS)));
-				param_bits(ID::RD_ARST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
-				param_bits(ID::RD_SRST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
-				param_bits(ID::RD_INIT_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_ARST_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
+				param_bits(ID::RD_SRST_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
+				param_bits(ID::RD_INIT_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
 				param_bits(ID::WR_CLK_ENABLE, max(1, param(ID::WR_PORTS)));
 				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
 				param_bits(ID::WR_WIDE_CONTINUATION, max(1, param(ID::WR_PORTS)));
@@ -1773,7 +2506,7 @@ namespace {
 				param(ID::TYPE);
 				check_expected();
 				std::string scope_type = cell->getParam(ID::TYPE).decode_string();
-				if (scope_type != "module" && scope_type != "struct")
+				if (scope_type != "module" && scope_type != "struct" && scope_type != "blackbox")
 					error(__LINE__);
 				return;
 			}
@@ -1908,6 +2641,34 @@ namespace {
 				check_expected();
 				return;
 			}
+			if (cell->type.in(ID($input_port))) {
+				param(ID::WIDTH);
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+			if (cell->type.in(ID($connect))) {
+				param(ID::WIDTH);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::B, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+			/*
+			 * Checklist for adding internal cell types
+			 * ========================================
+			 * Things to do right away:
+			 *    - Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
+			 *    - Add to InternalCellChecker::check() in kernel/rtlil.cc
+			 *    - Add to techlibs/common/simlib.v
+			 *    - Add to techlibs/common/techmap.v
+			 *
+			 * Things to do after finalizing the cell interface:
+			 *    - Add support to kernel/satgen.h for the new cell type
+			 *    - Add to docs/source/CHAPTER_CellLib.rst (or just add a fixme to the bottom)
+			 *    - Maybe add support to the Verilog backend for dumping such cells as expression
+			 *
+			 */
 			error(__LINE__);
 		}
 	};
@@ -1989,6 +2750,20 @@ void RTLIL::Module::check()
 			log_assert(!memories.count(memid));
 			log_assert(!packed_memids.count(memid));
 			packed_memids.insert(memid);
+		}
+		auto cell_mod = design->module(it.first);
+		if (cell_mod != nullptr) {
+			// assertion check below to make sure that there are no
+			// cases where a cell has a blackbox attribute since
+			// that is deprecated
+			#ifdef __GNUC__
+			#pragma GCC diagnostic push
+			#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+			#endif
+			log_assert(!it.second->get_blackbox_attribute());
+			#ifdef __GNUC__
+			#pragma GCC diagnostic pop
+			#endif
 		}
 	}
 
@@ -2072,10 +2847,9 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		RTLIL::Module *mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
-			sig.pack();
-			for (auto &c : sig.chunks_)
-				if (c.wire != NULL)
-					c.wire = mod->wires_.at(c.wire->name);
+			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
+				wire = mod->wires_.at(wire->name);
+			});
 		}
 	};
 
@@ -2117,6 +2891,16 @@ bool RTLIL::Module::has_processes_warn() const
 	return !processes.empty();
 }
 
+bool RTLIL::Module::is_selected() const
+{
+	return design->selected_module(this->name);
+}
+
+bool RTLIL::Module::is_selected_whole() const
+{
+	return design->selected_whole_module(this->name);
+}
+
 std::vector<RTLIL::Wire*> RTLIL::Module::selected_wires() const
 {
 	std::vector<RTLIL::Wire*> result;
@@ -2134,6 +2918,40 @@ std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 	for (auto &it : cells_)
 		if (design->selected(this, it.second))
 			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Memory*> RTLIL::Module::selected_memories() const
+{
+	std::vector<RTLIL::Memory*> result;
+	result.reserve(memories.size());
+	for (auto &it : memories)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Process*> RTLIL::Module::selected_processes() const
+{
+	std::vector<RTLIL::Process*> result;
+	result.reserve(processes.size());
+	for (auto &it : processes)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::NamedObject*> RTLIL::Module::selected_members() const
+{
+	std::vector<RTLIL::NamedObject*> result;
+	auto cells = selected_cells();
+	auto memories = selected_memories();
+	auto wires = selected_wires();
+	auto processes = selected_processes();
+	result.insert(result.end(), cells.begin(), cells.end());
+	result.insert(result.end(), memories.begin(), memories.end());
+	result.insert(result.end(), wires.begin(), wires.end());
+	result.insert(result.end(), processes.begin(), processes.end());
 	return result;
 }
 
@@ -2179,12 +2997,10 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		const pool<RTLIL::Wire*> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
-			sig.pack();
-			for (auto &c : sig.chunks_)
-				if (c.wire != NULL && wires_p->count(c.wire)) {
-					c.wire = module->addWire(stringf("$delete_wire$%d", autoidx++), c.width);
-					c.offset = 0;
-				}
+			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
+				if (wires_p->count(wire))
+					wire = module->addWire(stringf("$delete_wire$%d", autoidx++), wire->width);
+			});
 		}
 
 		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
@@ -2199,6 +3015,13 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 	delete_wire_worker.module = this;
 	delete_wire_worker.wires_p = &wires;
 	rewrite_sigspecs2(delete_wire_worker);
+
+	if (design->flagBufferedNormalized) {
+		for (auto wire : wires) {
+			buf_norm_wire_queue.erase(wire);
+			buf_norm_connect_index.erase(wire);
+		}
+	}
 
 	for (auto &it : wires) {
 		log_assert(wires_.count(it->name) != 0);
@@ -2215,7 +3038,20 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
-	delete cell;
+	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
+		cell->type.clear();
+		cell->name.clear();
+		pending_deleted_cells.insert(cell);
+	} else {
+		delete cell;
+	}
+}
+
+void RTLIL::Module::remove(RTLIL::Memory *memory)
+{
+	log_assert(memories.count(memory->name) != 0);
+	memories.erase(memory->name);
+	delete memory;
 }
 
 void RTLIL::Module::remove(RTLIL::Process *process)
@@ -2299,7 +3135,7 @@ RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name, int &index)
 	}
 
 	while (1) {
-		RTLIL::IdString new_name = stringf("%s_%d", name.c_str(), index);
+		RTLIL::IdString new_name = stringf("%s_%d", name, index);
 		if (count_id(new_name) == 0)
 			return new_name;
 		index++;
@@ -2390,6 +3226,14 @@ void RTLIL::Module::fixup_ports()
 
 	std::sort(all_ports.begin(), all_ports.end(), fixup_ports_compare);
 
+	if (design && design->flagBufferedNormalized) {
+		for (auto &w : wires_)
+			if (w.second->driverCell_ && w.second->driverCell_->type == ID($input_port))
+				buf_norm_wire_queue.insert(w.second);
+
+		buf_norm_wire_queue.insert(all_ports.begin(), all_ports.end());
+	}
+
 	ports.clear();
 	for (size_t i = 0; i < all_ports.size(); i++) {
 		ports.push_back(all_ports[i]->name);
@@ -2400,7 +3244,7 @@ void RTLIL::Module::fixup_ports()
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
 	RTLIL::Wire *wire = new RTLIL::Wire;
-	wire->name = name;
+	wire->name = std::move(name);
 	wire->width = width;
 	add(wire);
 	return wire;
@@ -2408,7 +3252,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
 {
-	RTLIL::Wire *wire = addWire(name);
+	RTLIL::Wire *wire = addWire(std::move(name));
 	wire->width = other->width;
 	wire->start_offset = other->start_offset;
 	wire->port_id = other->port_id;
@@ -2423,7 +3267,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = name;
+	cell->name = std::move(name);
 	cell->type = type;
 	add(cell);
 	return cell;
@@ -2431,17 +3275,25 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
-	RTLIL::Cell *cell = addCell(name, other->type);
+	RTLIL::Cell *cell = addCell(std::move(name), other->type);
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
 	return cell;
 }
 
+RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name)
+{
+	RTLIL::Memory *mem = new RTLIL::Memory;
+	mem->name = std::move(name);
+	memories[mem->name] = mem;
+	return mem;
+}
+
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->name = name;
+	mem->name = std::move(name);
 	mem->width = other->width;
 	mem->start_offset = other->start_offset;
 	mem->size = other->size;
@@ -2453,7 +3305,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
 {
 	RTLIL::Process *proc = new RTLIL::Process;
-	proc->name = name;
+	proc->name = std::move(name);
 	add(proc);
 	return proc;
 }
@@ -2461,7 +3313,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
 	RTLIL::Process *proc = other->clone();
-	proc->name = name;
+	proc->name = std::move(name);
 	add(proc);
 	return proc;
 }
@@ -2494,6 +3346,23 @@ DEF_METHOD(LogicNot,   1, ID($logic_not))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool /* is_signed */, const std::string &src) { \
+		RTLIL::Cell *cell = addCell(name, _type);           \
+		cell->parameters[ID::WIDTH] = sig_a.size();         \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::Y, sig_y);                        \
+		cell->set_src_attribute(src);                       \
+		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed, const std::string &src) { \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
+		add ## _func(name, sig_a, sig_y, is_signed, src);   \
+		return sig_y;                                       \
+	}
+DEF_METHOD(Buf, sig_a.size(), ID($buf))
+#undef DEF_METHOD
+
+#define DEF_METHOD(_func, _y_size, _type) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);           \
 		cell->parameters[ID::A_SIGNED] = is_signed;         \
@@ -2517,7 +3386,6 @@ DEF_METHOD(Or,       max(sig_a.size(), sig_b.size()), ID($or))
 DEF_METHOD(Xor,      max(sig_a.size(), sig_b.size()), ID($xor))
 DEF_METHOD(Xnor,     max(sig_a.size(), sig_b.size()), ID($xnor))
 DEF_METHOD(Shift,    sig_a.size(), ID($shift))
-DEF_METHOD(Shiftx,   sig_a.size(), ID($shiftx))
 DEF_METHOD(Lt,       1, ID($lt))
 DEF_METHOD(Le,       1, ID($le))
 DEF_METHOD(Eq,       1, ID($eq))
@@ -2560,6 +3428,28 @@ DEF_METHOD(Shl,      sig_a.size(), ID($shl))
 DEF_METHOD(Shr,      sig_a.size(), ID($shr))
 DEF_METHOD(Sshl,     sig_a.size(), ID($sshl))
 DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
+#undef DEF_METHOD
+
+#define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
+		RTLIL::Cell *cell = addCell(name, _type);           \
+		cell->parameters[ID::A_SIGNED] = false;             \
+		cell->parameters[ID::B_SIGNED] = is_signed;         \
+		cell->parameters[ID::A_WIDTH] = sig_a.size();       \
+		cell->parameters[ID::B_WIDTH] = sig_b.size();       \
+		cell->parameters[ID::Y_WIDTH] = sig_y.size();       \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::B, sig_b);                        \
+		cell->setPort(ID::Y, sig_y);                        \
+		cell->set_src_attribute(src);                       \
+		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const std::string &src) { \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);         \
+		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
+		return sig_y;                                            \
+	}
+DEF_METHOD(Shiftx,      sig_a.size(), ID($shiftx))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _pmux) \
@@ -3406,6 +4296,13 @@ RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpe
 	return sig;
 }
 
+std::string RTLIL::Module::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_module(f, "", const_cast<RTLIL::Module*>(this), design, false);
+	return f.str();
+}
+
 RTLIL::Wire::Wire()
 {
 	static unsigned int hashidx_count = 123456789;
@@ -3421,19 +4318,26 @@ RTLIL::Wire::Wire()
 	upto = false;
 	is_signed = false;
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
 #endif
 }
 
 RTLIL::Wire::~Wire()
 {
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Wire::get_all_wires()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+std::string RTLIL::Wire::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_wire(f, "", this);
+	return f.str();
+}
+
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Wire*> all_wires;
 std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 {
@@ -3450,9 +4354,16 @@ RTLIL::Memory::Memory()
 	width = 1;
 	start_offset = 0;
 	size = 0;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
 #endif
+}
+
+std::string RTLIL::Memory::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_memory(f, "", this);
+	return f.str();
 }
 
 RTLIL::Process::Process() : module(nullptr)
@@ -3460,6 +4371,13 @@ RTLIL::Process::Process() : module(nullptr)
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+}
+
+std::string RTLIL::Process::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_proc(f, "", this);
+	return f.str();
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
@@ -3471,19 +4389,26 @@ RTLIL::Cell::Cell() : module(nullptr)
 	// log("#memtrace# %p\n", this);
 	memhasher();
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
 #endif
 }
 
 RTLIL::Cell::~Cell()
 {
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+std::string RTLIL::Cell::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_cell(f, "", this);
+	return f.str();
+}
+
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Cell*> all_cells;
 std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
 {
@@ -3491,57 +4416,14 @@ std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
 }
 #endif
 
-bool RTLIL::Cell::hasPort(const RTLIL::IdString& portname) const
+bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 {
 	return connections_.count(portname) != 0;
 }
 
-void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
-{
-	RTLIL::SigSpec signal;
-	auto conn_it = connections_.find(portname);
+// bufnorm
 
-	if (conn_it != connections_.end())
-	{
-		for (auto mon : module->monitors)
-			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-		if (module->design)
-			for (auto mon : module->design->monitors)
-				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-		if (yosys_xtrace) {
-			log("#X# Unconnect %s.%s.%s\n", log_id(this->module), log_id(this), log_id(portname));
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-
-		connections_.erase(conn_it);
-	}
-}
-
-void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
-{
-	auto r = connections_.insert(portname);
-	auto conn_it = r.first;
-	if (!r.second && conn_it->second == signal)
-		return;
-
-	for (auto mon : module->monitors)
-		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-	if (module->design)
-		for (auto mon : module->design->monitors)
-			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
-		log_backtrace("-X- ", yosys_xtrace-1);
-	}
-
-	conn_it->second = std::move(signal);
-}
-
-const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString& portname) const
+const RTLIL::SigSpec &RTLIL::Cell::getPort(RTLIL::IdString portname) const
 {
 	return connections_.at(portname);
 }
@@ -3560,7 +4442,7 @@ bool RTLIL::Cell::known() const
 	return false;
 }
 
-bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
+bool RTLIL::Cell::input(RTLIL::IdString portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_input(type, portname);
@@ -3572,7 +4454,7 @@ bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
 	return false;
 }
 
-bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
+bool RTLIL::Cell::output(RTLIL::IdString portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
@@ -3584,22 +4466,38 @@ bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
 	return false;
 }
 
-bool RTLIL::Cell::hasParam(const RTLIL::IdString& paramname) const
+RTLIL::PortDir RTLIL::Cell::port_dir(RTLIL::IdString portname) const
+{
+	if (yosys_celltypes.cell_known(type))
+		return yosys_celltypes.cell_port_dir(type, portname);
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		if (m == nullptr)
+			return PortDir::PD_UNKNOWN;
+		RTLIL::Wire *w = m->wire(portname);
+		if (w == nullptr)
+			return PortDir::PD_UNKNOWN;
+		return PortDir(w->port_input + w->port_output * 2);
+	}
+	return PortDir::PD_UNKNOWN;
+}
+
+bool RTLIL::Cell::hasParam(RTLIL::IdString paramname) const
 {
 	return parameters.count(paramname) != 0;
 }
 
-void RTLIL::Cell::unsetParam(const RTLIL::IdString& paramname)
+void RTLIL::Cell::unsetParam(RTLIL::IdString paramname)
 {
 	parameters.erase(paramname);
 }
 
-void RTLIL::Cell::setParam(const RTLIL::IdString& paramname, RTLIL::Const value)
+void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
 {
 	parameters[paramname] = std::move(value);
 }
 
-const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) const
+const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 {
 	const auto &it = parameters.find(paramname);
 	if (it != parameters.end())
@@ -3633,9 +4531,9 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
-	if (type == ID($mux) || type == ID($pmux) || type == ID($bmux)) {
+	if (type == ID($buf) || type == ID($mux) || type == ID($pmux) || type == ID($bmux) || type == ID($bwmux) || type == ID($bweqx)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::Y]);
-		if (type != ID($mux))
+		if (type.in(ID($pmux), ID($bmux)))
 			parameters[ID::S_WIDTH] = GetSize(connections_[ID::S]);
 		check();
 		return;
@@ -3663,6 +4561,11 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		return;
 	}
 
+	if (type == ID($macc_v2)) {
+		parameters[ID::Y_WIDTH] = GetSize(connections_[ID::Y]);
+		return;
+	}
+
 	bool signedness_ab = !type.in(ID($slice), ID($concat), ID($macc));
 
 	if (connections_.count(ID::A)) {
@@ -3685,7 +4588,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		parameters[ID::B_WIDTH] = GetSize(connections_[ID::B]);
 	}
 
-	if (connections_.count(ID::Y))
+	if (connections_.count(ID::Y) && type != ID($concat))
 		parameters[ID::Y_WIDTH] = GetSize(connections_[ID::Y]);
 
 	if (connections_.count(ID::Q))
@@ -3704,12 +4607,16 @@ bool RTLIL::Cell::is_mem_cell() const
 	return type.in(ID($mem), ID($mem_v2)) || has_memid();
 }
 
+bool RTLIL::Cell::is_builtin_ff() const {
+	return builtin_ff_cell_types_internal().count(type) > 0;
+}
+
 RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)
 {
 	wire = bit.wire;
 	offset = 0;
 	if (wire == NULL)
-		data = RTLIL::Const(bit.data).bits;
+		data = {bit.data};
 	else
 		offset = bit.offset;
 	width = 1;
@@ -3729,6 +4636,20 @@ RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
 		for (int i = 0; i < length; i++)
 			ret.data.push_back(data[offset+i]);
 		ret.width = length;
+	}
+	return ret;
+}
+
+RTLIL::SigBit RTLIL::SigChunk::operator[](int offset) const
+{
+	log_assert(offset >= 0);
+	log_assert(offset < width);
+	RTLIL::SigBit ret;
+	if (wire) {
+		ret.wire = wire;
+		ret.offset = this->offset + offset;
+	} else {
+		ret.data = data[offset];
 	}
 	return ret;
 }
@@ -3765,11 +4686,7 @@ bool RTLIL::SigChunk::operator !=(const RTLIL::SigChunk &other) const
 
 RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)
 {
-	cover("kernel.rtlil.sigspec.init.list");
-
-	width_ = 0;
-	hash_ = 0;
-
+	init_empty_bits();
 	log_assert(parts.size() > 0);
 	auto ie = parts.begin();
 	auto it = ie + parts.size() - 1;
@@ -3779,146 +4696,124 @@ RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)
 
 RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 {
-	cover("kernel.rtlil.sigspec.init.const");
-
 	if (GetSize(value) != 0) {
-		chunks_.emplace_back(value);
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(value);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(RTLIL::Const &&value)
 {
-	cover("kernel.rtlil.sigspec.init.const.move");
-
 	if (GetSize(value) != 0) {
-		chunks_.emplace_back(std::move(value));
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(value);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 {
-	cover("kernel.rtlil.sigspec.init.chunk");
-
 	if (chunk.width != 0) {
-		chunks_.emplace_back(chunk);
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(chunk);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(RTLIL::SigChunk &&chunk)
 {
-	cover("kernel.rtlil.sigspec.init.chunk.move");
-
 	if (chunk.width != 0) {
-		chunks_.emplace_back(std::move(chunk));
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(chunk);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 {
-	cover("kernel.rtlil.sigspec.init.wire");
-
 	if (wire->width != 0) {
-		chunks_.emplace_back(wire);
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(wire);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 {
-	cover("kernel.rtlil.sigspec.init.wire_part");
-
 	if (width != 0) {
-		chunks_.emplace_back(wire, offset, width);
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(wire, offset, width);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(const std::string &str)
 {
-	cover("kernel.rtlil.sigspec.init.str");
-
 	if (str.size() != 0) {
-		chunks_.emplace_back(str);
-		width_ = chunks_.back().width;
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(str);
 	} else {
-		width_ = 0;
+		init_empty_bits();
 	}
-	hash_ = 0;
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(int val, int width)
 {
-	cover("kernel.rtlil.sigspec.init.int");
-
-	if (width != 0)
-		chunks_.emplace_back(val, width);
-	width_ = width;
-	hash_ = 0;
+	if (width != 0) {
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(val, width);
+	} else
+		init_empty_bits();
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 {
-	cover("kernel.rtlil.sigspec.init.state");
-
-	if (width != 0)
-		chunks_.emplace_back(bit, width);
-	width_ = width;
-	hash_ = 0;
+	if (width != 0) {
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(bit, width);
+	} else
+		init_empty_bits();
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(const RTLIL::SigBit &bit, int width)
 {
-	cover("kernel.rtlil.sigspec.init.bit");
-
 	if (width != 0) {
-		if (bit.wire == NULL)
-			chunks_.emplace_back(bit.data, width);
-		else
+		if (bit.wire == NULL) {
+			rep_ = CHUNK;
+			new (&chunk_) RTLIL::SigChunk(bit.data, width);
+		} else if (width == 1) {
+			rep_ = CHUNK;
+			new (&chunk_) RTLIL::SigChunk(bit);
+		} else {
+			init_empty_bits();
+			bits_.reserve(width);
 			for (int i = 0; i < width; i++)
-				chunks_.push_back(bit);
-	}
-	width_ = width;
-	hash_ = 0;
+				bits_.push_back(bit);
+		}
+	} else
+		init_empty_bits();
 	check();
 }
 
 RTLIL::SigSpec::SigSpec(const std::vector<RTLIL::SigChunk> &chunks)
 {
-	cover("kernel.rtlil.sigspec.init.stdvec_chunks");
-
-	width_ = 0;
-	hash_ = 0;
+	init_empty_bits();
 	for (const auto &c : chunks)
 		append(c);
 	check();
@@ -3926,10 +4821,7 @@ RTLIL::SigSpec::SigSpec(const std::vector<RTLIL::SigChunk> &chunks)
 
 RTLIL::SigSpec::SigSpec(const std::vector<RTLIL::SigBit> &bits)
 {
-	cover("kernel.rtlil.sigspec.init.stdvec_bits");
-
-	width_ = 0;
-	hash_ = 0;
+	init_empty_bits();
 	for (const auto &bit : bits)
 		append(bit);
 	check();
@@ -3937,10 +4829,7 @@ RTLIL::SigSpec::SigSpec(const std::vector<RTLIL::SigBit> &bits)
 
 RTLIL::SigSpec::SigSpec(const pool<RTLIL::SigBit> &bits)
 {
-	cover("kernel.rtlil.sigspec.init.pool_bits");
-
-	width_ = 0;
-	hash_ = 0;
+	init_empty_bits();
 	for (const auto &bit : bits)
 		append(bit);
 	check();
@@ -3948,10 +4837,7 @@ RTLIL::SigSpec::SigSpec(const pool<RTLIL::SigBit> &bits)
 
 RTLIL::SigSpec::SigSpec(const std::set<RTLIL::SigBit> &bits)
 {
-	cover("kernel.rtlil.sigspec.init.stdset_bits");
-
-	width_ = 0;
-	hash_ = 0;
+	init_empty_bits();
 	for (const auto &bit : bits)
 		append(bit);
 	check();
@@ -3959,106 +4845,112 @@ RTLIL::SigSpec::SigSpec(const std::set<RTLIL::SigBit> &bits)
 
 RTLIL::SigSpec::SigSpec(bool bit)
 {
-	cover("kernel.rtlil.sigspec.init.bool");
-
-	width_ = 0;
-	hash_ = 0;
-	append(SigBit(bit));
+	rep_ = CHUNK;
+	new (&chunk_) RTLIL::SigChunk(bit ? RTLIL::S1 : RTLIL::S0);
 	check();
 }
 
-void RTLIL::SigSpec::pack() const
+void RTLIL::SigSpec::Chunks::const_iterator::next_chunk_bits()
 {
-	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
-
-	if (that->bits_.empty())
+	int bits_size = GetSize(spec.bits_);
+	if (bit_index >= bits_size)
 		return;
-
-	cover("kernel.rtlil.sigspec.convert.pack");
-	log_assert(that->chunks_.empty());
-
-	std::vector<RTLIL::SigBit> old_bits;
-	old_bits.swap(that->bits_);
-
-	RTLIL::SigChunk *last = NULL;
-	int last_end_offset = 0;
-
-	for (auto &bit : old_bits) {
-		if (last && bit.wire == last->wire) {
-			if (bit.wire == NULL) {
-				last->data.push_back(bit.data);
-				last->width++;
-				continue;
-			} else if (last_end_offset == bit.offset) {
-				last_end_offset++;
-				last->width++;
-				continue;
-			}
+	int i = bit_index;
+	const SigBit &bit = spec.bits_[i++];
+	chunk.wire = bit.wire;
+	chunk.data.clear();
+	if (bit.is_wire()) {
+		chunk.offset = bit.offset;
+		while (i < bits_size && spec.bits_[i].wire == bit.wire &&
+			spec.bits_[i].offset == bit.offset + i - bit_index)
+			++i;
+	} else {
+		chunk.offset = 0;
+		chunk.data.push_back(bit.data);
+		while (i < bits_size && !spec.bits_[i].is_wire()) {
+			chunk.data.push_back(spec.bits_[i].data);
+			++i;
 		}
-		that->chunks_.push_back(bit);
-		last = &that->chunks_.back();
-		last_end_offset = bit.offset + 1;
 	}
-
-	check();
+	chunk.width = i - bit_index;
 }
 
-void RTLIL::SigSpec::unpack() const
+void RTLIL::SigSpec::unpack()
 {
-	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
-
-	if (that->chunks_.empty())
+	if (rep_ == BITS)
 		return;
 
-	cover("kernel.rtlil.sigspec.convert.unpack");
-	log_assert(that->bits_.empty());
+	std::vector<RTLIL::SigBit> bits;
+	bits.reserve(chunk_.width);
+	for (int i = 0; i < chunk_.width; i++)
+		bits.emplace_back(chunk_, i);
 
-	that->bits_.reserve(that->width_);
-	for (auto &c : that->chunks_)
-		for (int i = 0; i < c.width; i++)
-			that->bits_.emplace_back(c, i);
-
-	that->chunks_.clear();
-	that->hash_ = 0;
+	chunk_.~SigChunk();
+	rep_ = BITS;
+	new (&bits_) std::vector<RTLIL::SigBit>(std::move(bits));
 }
 
-void RTLIL::SigSpec::updhash() const
+void RTLIL::SigSpec::try_repack()
 {
-	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
-
-	if (that->hash_ != 0)
+	if (rep_ != BITS)
 		return;
 
-	cover("kernel.rtlil.sigspec.hash");
-	that->pack();
+	int bits_size = GetSize(bits_);
+	if (bits_size == 0)
+		return;
+	if (bits_[0].is_wire()) {
+		for (int i = 1; i < bits_size; i++)
+			if (bits_[0].wire != bits_[i].wire || bits_[0].offset + i != bits_[i].offset)
+				return;
+		SigChunk chunk(bits_[0].wire, bits_[0].offset, bits_size);
+		bits_.~vector();
+		rep_ = CHUNK;
+		new (&chunk_) SigChunk(std::move(chunk));
+		return;
+	}
+	std::vector<RTLIL::State> bits;
+	bits.reserve(bits_size);
+	bits.push_back(bits_[0].data);
+	for (int i = 1; i < bits_size; i++) {
+		if (bits_[i].is_wire())
+			return;
+		bits.push_back(bits_[i].data);
+	}
+	bits_.~vector();
+	rep_ = CHUNK;
+	new (&chunk_) SigChunk(std::move(bits));
+}
 
-	that->hash_ = mkhash_init;
-	for (auto &c : that->chunks_)
+Hasher::hash_t RTLIL::SigSpec::updhash() const
+{
+	Hasher h;
+	for (auto &c : chunks())
 		if (c.wire == NULL) {
 			for (auto &v : c.data)
-				that->hash_ = mkhash(that->hash_, v);
+				h.eat(v);
 		} else {
-			that->hash_ = mkhash(that->hash_, c.wire->name.index_);
-			that->hash_ = mkhash(that->hash_, c.offset);
-			that->hash_ = mkhash(that->hash_, c.width);
+			h.eat(c.wire->name.index_);
+			h.eat(c.offset);
+			h.eat(c.width);
 		}
-
-	if (that->hash_ == 0)
-		that->hash_ = 1;
+	Hasher::hash_t result = h.yield();
+	if (result == 0)
+		result = 1;
+	hash_.set(result);
+	return result;
 }
 
 void RTLIL::SigSpec::sort()
 {
 	unpack();
-	cover("kernel.rtlil.sigspec.sort");
 	std::sort(bits_.begin(), bits_.end());
+	hash_.clear();
+	try_repack();
 }
 
 void RTLIL::SigSpec::sort_and_unify()
 {
 	unpack();
-	cover("kernel.rtlil.sigspec.sort_and_unify");
-
 	// A copy of the bits vector is used to prevent duplicating the logic from
 	// SigSpec::SigSpec(std::vector<SigBit>).  This incurrs an extra copy but
 	// that isn't showing up as significant in profiles.
@@ -4068,6 +4960,8 @@ void RTLIL::SigSpec::sort_and_unify()
 	unique_bits.erase(last, unique_bits.end());
 
 	*this = unique_bits;
+	hash_.clear();
+	try_repack();
 }
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with)
@@ -4078,28 +4972,30 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const
 {
 	log_assert(other != NULL);
-	log_assert(width_ == other->width_);
-	log_assert(pattern.width_ == with.width_);
-
-	pattern.unpack();
-	with.unpack();
-	unpack();
-	other->unpack();
+	log_assert(size() == other->size());
+	log_assert(pattern.size() == with.size());
 
 	dict<RTLIL::SigBit, int> pattern_to_with;
-	for (int i = 0; i < GetSize(pattern.bits_); i++) {
-		if (pattern.bits_[i].wire != NULL) {
-			pattern_to_with.emplace(pattern.bits_[i], i);
+	int pattern_size = pattern.size();
+	for (int i = 0; i < pattern_size; i++) {
+		SigBit pattern_bit = pattern[i];
+		if (pattern_bit.wire != NULL) {
+			pattern_to_with.emplace(pattern_bit, i);
 		}
 	}
 
-	for (int j = 0; j < GetSize(bits_); j++) {
-		auto it = pattern_to_with.find(bits_[j]);
+	int this_size = size();
+	bool other_modified = false;
+	for (int j = 0; j < this_size; j++) {
+		auto it = pattern_to_with.find((*this)[j]);
 		if (it != pattern_to_with.end()) {
-			other->bits_[j] = with.bits_[it->second];
+			other_modified = true;
+			(*other)[j] = with[it->second];
 		}
 	}
 
+	if (other_modified)
+		other->try_repack();
 	other->check();
 }
 
@@ -4110,21 +5006,23 @@ void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules)
 
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const
 {
-	cover("kernel.rtlil.sigspec.replace_dict");
-
 	log_assert(other != NULL);
-	log_assert(width_ == other->width_);
+	log_assert(size() == other->size());
 
 	if (rules.empty()) return;
-	unpack();
-	other->unpack();
 
-	for (int i = 0; i < GetSize(bits_); i++) {
-		auto it = rules.find(bits_[i]);
-		if (it != rules.end())
-			other->bits_[i] = it->second;
+	int this_size = size();
+	bool other_modified = false;
+	for (int i = 0; i < this_size; i++) {
+		auto it = rules.find((*this)[i]);
+		if (it != rules.end()) {
+			other_modified = true;
+			(*other)[i] = it->second;
+		}
 	}
 
+	if (other_modified)
+		other->try_repack();
 	other->check();
 }
 
@@ -4135,21 +5033,23 @@ void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules
 
 void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const
 {
-	cover("kernel.rtlil.sigspec.replace_map");
-
 	log_assert(other != NULL);
-	log_assert(width_ == other->width_);
+	log_assert(size() == other->size());
 
 	if (rules.empty()) return;
-	unpack();
-	other->unpack();
 
-	for (int i = 0; i < GetSize(bits_); i++) {
-		auto it = rules.find(bits_[i]);
-		if (it != rules.end())
-			other->bits_[i] = it->second;
+	int this_size = size();
+	bool other_modified = false;
+	for (int i = 0; i < this_size; i++) {
+		auto it = rules.find((*this)[i]);
+		if (it != rules.end()) {
+			other_modified = true;
+			(*other)[i] = it->second;
+		}
 	}
 
+	if (other_modified)
+		other->try_repack();
 	other->check();
 }
 
@@ -4166,17 +5066,14 @@ void RTLIL::SigSpec::remove(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other
 
 void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *other)
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.remove_other");
-	else
-		cover("kernel.rtlil.sigspec.remove");
-
 	unpack();
 	if (other != NULL) {
-		log_assert(width_ == other->width_);
+		log_assert(size() == other->size());
 		other->unpack();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--)
 	{
 		if (bits_[i].wire == NULL) continue;
@@ -4185,16 +5082,24 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 			if (bits_[i].wire == pattern_chunk.wire &&
 				bits_[i].offset >= pattern_chunk.offset &&
 				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
+				modified = true;
 				bits_.erase(bits_.begin() + i);
-				width_--;
 				if (other != NULL) {
+					other_modified = true;
 					other->bits_.erase(other->bits_.begin() + i);
-					other->width_--;
 				}
 				break;
 			}
 	}
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
@@ -4211,96 +5116,106 @@ void RTLIL::SigSpec::remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *
 
 void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other)
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.remove_other");
-	else
-		cover("kernel.rtlil.sigspec.remove");
-
 	unpack();
 
 	if (other != NULL) {
-		log_assert(width_ == other->width_);
+		log_assert(size() == other->size());
 		other->unpack();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			modified = true;
 			bits_.erase(bits_.begin() + i);
-			width_--;
 			if (other != NULL) {
+				other_modified = true;
 				other->bits_.erase(other->bits_.begin() + i);
-				other->width_--;
 			}
 		}
 	}
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
 void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other)
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.remove_other");
-	else
-		cover("kernel.rtlil.sigspec.remove");
-
 	unpack();
 
 	if (other != NULL) {
-		log_assert(width_ == other->width_);
+		log_assert(size() == other->size());
 		other->unpack();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			modified = true;
 			bits_.erase(bits_.begin() + i);
-			width_--;
 			if (other != NULL) {
+				other_modified = true;
 				other->bits_.erase(other->bits_.begin() + i);
-				other->width_--;
 			}
 		}
 	}
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
 void RTLIL::SigSpec::remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *other)
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.remove_other");
-	else
-		cover("kernel.rtlil.sigspec.remove");
-
 	unpack();
 
 	if (other != NULL) {
-		log_assert(width_ == other->width_);
+		log_assert(size() == other->size());
 		other->unpack();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i].wire)) {
+			modified = true;
 			bits_.erase(bits_.begin() + i);
-			width_--;
 			if (other != NULL) {
+				other_modified = true;
 				other->bits_.erase(other->bits_.begin() + i);
-				other->width_--;
 			}
 		}
 	}
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.extract_other");
-	else
-		cover("kernel.rtlil.sigspec.extract");
-
-	log_assert(other == NULL || width_ == other->width_);
+	log_assert(other == NULL || size() == other->size());
 
 	RTLIL::SigSpec ret;
 	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
@@ -4308,19 +5223,22 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLI
 	for (auto& pattern_chunk : pattern.chunks()) {
 		if (other) {
 			std::vector<RTLIL::SigBit> bits_other = other->to_sigbit_vector();
-			for (int i = 0; i < width_; i++)
-				if (bits_match[i].wire &&
-					bits_match[i].wire == pattern_chunk.wire &&
-					bits_match[i].offset >= pattern_chunk.offset &&
-					bits_match[i].offset < pattern_chunk.offset + pattern_chunk.width)
+			int i = 0;
+			for (const RTLIL::SigBit &bit : bits_match) {
+				if (bit.wire &&
+					bit.wire == pattern_chunk.wire &&
+					bit.offset >= pattern_chunk.offset &&
+					bit.offset < pattern_chunk.offset + pattern_chunk.width)
 					ret.append(bits_other[i]);
+				++i;
+			}
 		} else {
-			for (int i = 0; i < width_; i++)
-				if (bits_match[i].wire &&
-					bits_match[i].wire == pattern_chunk.wire &&
-					bits_match[i].offset >= pattern_chunk.offset &&
-					bits_match[i].offset < pattern_chunk.offset + pattern_chunk.width)
-					ret.append(bits_match[i]);
+			for (const RTLIL::SigBit &bit : bits_match)
+				if (bit.wire &&
+					bit.wire == pattern_chunk.wire &&
+					bit.offset >= pattern_chunk.offset &&
+					bit.offset < pattern_chunk.offset + pattern_chunk.width)
+					ret.append(bit);
 		}
 	}
 
@@ -4330,25 +5248,23 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLI
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other) const
 {
-	if (other)
-		cover("kernel.rtlil.sigspec.extract_other");
-	else
-		cover("kernel.rtlil.sigspec.extract");
-
-	log_assert(other == NULL || width_ == other->width_);
+	log_assert(other == NULL || size() == other->size());
 
 	std::vector<RTLIL::SigBit> bits_match = to_sigbit_vector();
 	RTLIL::SigSpec ret;
 
 	if (other) {
 		std::vector<RTLIL::SigBit> bits_other = other->to_sigbit_vector();
-		for (int i = 0; i < width_; i++)
-			if (bits_match[i].wire && pattern.count(bits_match[i]))
+		int i = 0;
+		for (const RTLIL::SigBit &bit : bits_match) {
+			if (bit.wire && pattern.count(bit))
 				ret.append(bits_other[i]);
+			++i;
+		}
 	} else {
-		for (int i = 0; i < width_; i++)
-			if (bits_match[i].wire && pattern.count(bits_match[i]))
-				ret.append(bits_match[i]);
+		for (const RTLIL::SigBit &bit : bits_match)
+			if (bit.wire && pattern.count(bit))
+				ret.append(bit);
 	}
 
 	ret.check();
@@ -4357,58 +5273,48 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(const pool<RTLIL::SigBit> &pattern, const
 
 void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 {
-	cover("kernel.rtlil.sigspec.replace_pos");
+	if (with.size() == 0)
+		return;
 
 	unpack();
-	with.unpack();
 
 	log_assert(offset >= 0);
-	log_assert(with.width_ >= 0);
-	log_assert(offset+with.width_ <= width_);
+	log_assert(with.size() >= 0);
+	log_assert(offset+with.size() <= size());
 
-	for (int i = 0; i < with.width_; i++)
-		bits_.at(offset + i) = with.bits_.at(i);
+	int i = 0;
+	for (const RTLIL::SigBit &bit : with.bits()) {
+		bits_.at(offset + i) = bit;
+		++i;
+	}
+	hash_.clear();
+	try_repack();
 
 	check();
 }
 
 void RTLIL::SigSpec::remove_const()
 {
-	if (packed())
+	if (rep_ == CHUNK)
 	{
-		cover("kernel.rtlil.sigspec.remove_const.packed");
-
-		std::vector<RTLIL::SigChunk> new_chunks;
-		new_chunks.reserve(GetSize(chunks_));
-
-		width_ = 0;
-		for (auto &chunk : chunks_)
-			if (chunk.wire != NULL) {
-				if (!new_chunks.empty() &&
-					new_chunks.back().wire == chunk.wire &&
-					new_chunks.back().offset + new_chunks.back().width == chunk.offset) {
-					new_chunks.back().width += chunk.width;
-				} else {
-					new_chunks.push_back(chunk);
-				}
-				width_ += chunk.width;
-			}
-
-		chunks_.swap(new_chunks);
+		if (chunk_.wire == NULL) {
+			chunk_.~SigChunk();
+			init_empty_bits();
+			hash_.clear();
+		}
 	}
 	else
 	{
-		cover("kernel.rtlil.sigspec.remove_const.unpacked");
-
 		std::vector<RTLIL::SigBit> new_bits;
-		new_bits.reserve(width_);
-
+		new_bits.reserve(bits_.size());
 		for (auto &bit : bits_)
 			if (bit.wire != NULL)
 				new_bits.push_back(bit);
-
-		bits_.swap(new_bits);
-		width_ = bits_.size();
+		if (GetSize(new_bits) != GetSize(bits_)) {
+			bits_.swap(new_bits);
+			hash_.clear();
+			try_repack();
+		}
 	}
 
 	check();
@@ -4416,17 +5322,19 @@ void RTLIL::SigSpec::remove_const()
 
 void RTLIL::SigSpec::remove(int offset, int length)
 {
-	cover("kernel.rtlil.sigspec.remove_pos");
+	if (length == 0)
+		return;
 
 	unpack();
 
 	log_assert(offset >= 0);
 	log_assert(length >= 0);
-	log_assert(offset + length <= width_);
+	log_assert(offset + length <= size());
 
 	bits_.erase(bits_.begin() + offset, bits_.begin() + offset + length);
-	width_ = bits_.size();
 
+	hash_.clear();
+	try_repack();
 	check();
 }
 
@@ -4434,105 +5342,125 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 {
 	log_assert(offset >= 0);
 	log_assert(length >= 0);
-	log_assert(offset + length <= width_);
-	unpack();
-	cover("kernel.rtlil.sigspec.extract_pos");
-	return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
+	log_assert(offset + length <= size());
+
+	SigSpec extracted;
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	for (; offset; offset -= it->width, ++it) {
+		if (offset < it->width) {
+			int chunk_length = min(it->width - offset, length);
+			extracted.append(it->extract(offset, chunk_length));
+			length -= chunk_length;
+			++it;
+			break;
+		}
+	}
+	for (; length; length -= it->width, ++it) {
+		if (length >= it->width) {
+			extracted.append(*it);
+		} else {
+			extracted.append(it->extract(0, length));
+			break;
+		}
+	}
+	return extracted;
+}
+
+void RTLIL::SigSpec::rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewrite)
+{
+	if (rep_ == CHUNK) {
+		if (chunk_.wire != nullptr)
+			rewrite(chunk_.wire);
+		return;
+	}
+
+	std::vector<RTLIL::SigBit> new_bits;
+	for (const RTLIL::SigChunk &chunk : chunks()) {
+		RTLIL::SigChunk c = chunk;
+		if (c.wire != nullptr)
+			rewrite(c.wire);
+		for (int i = 0; i < c.width; i++)
+			new_bits.emplace_back(c, i);
+	}
+	bits_ = std::move(new_bits);
+	hash_.clear();
 }
 
 void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 {
-	if (signal.width_ == 0)
+	if (signal.size() == 0)
 		return;
 
-	if (width_ == 0) {
+	if (size() == 0) {
 		*this = signal;
 		return;
 	}
 
-	cover("kernel.rtlil.sigspec.append");
-
-	if (packed() != signal.packed()) {
-		pack();
-		signal.pack();
+	hash_.clear();
+	if (rep_ == CHUNK && signal.rep_ == CHUNK && chunk_.wire == signal.chunk_.wire) {
+		if (chunk_.wire == NULL) {
+			chunk_.data.insert(chunk_.data.end(), signal.chunk_.data.begin(), signal.chunk_.data.end());
+			chunk_.width = GetSize(chunk_.data);
+			return;
+		}
+		if (chunk_.offset + chunk_.width == signal.chunk_.offset) {
+			chunk_.width += signal.chunk_.width;
+			return;
+		}
 	}
 
-	if (packed())
-		for (auto &other_c : signal.chunks_)
-		{
-			auto &my_last_c = chunks_.back();
-			if (my_last_c.wire == NULL && other_c.wire == NULL) {
-				auto &this_data = my_last_c.data;
-				auto &other_data = other_c.data;
-				this_data.insert(this_data.end(), other_data.begin(), other_data.end());
-				my_last_c.width += other_c.width;
-			} else
-			if (my_last_c.wire == other_c.wire && my_last_c.offset + my_last_c.width == other_c.offset) {
-				my_last_c.width += other_c.width;
-			} else
-				chunks_.push_back(other_c);
-		}
-	else
-		bits_.insert(bits_.end(), signal.bits_.begin(), signal.bits_.end());
-
-	width_ += signal.width_;
+	unpack();
+	for (const SigBit &bit : signal.bits())
+		bits_.push_back(bit);
 	check();
 }
 
 void RTLIL::SigSpec::append(const RTLIL::SigBit &bit)
 {
-	if (packed())
-	{
-		cover("kernel.rtlil.sigspec.append_bit.packed");
+	hash_.clear();
 
-		if (chunks_.size() == 0)
-			chunks_.push_back(bit);
-		else
-			if (bit.wire == NULL)
-				if (chunks_.back().wire == NULL) {
-					chunks_.back().data.push_back(bit.data);
-					chunks_.back().width++;
-				} else
-					chunks_.push_back(bit);
-			else
-				if (chunks_.back().wire == bit.wire && chunks_.back().offset + chunks_.back().width == bit.offset)
-					chunks_.back().width++;
-				else
-					chunks_.push_back(bit);
-	}
-	else
-	{
-		cover("kernel.rtlil.sigspec.append_bit.unpacked");
-		bits_.push_back(bit);
+	if (size() == 0) {
+		destroy();
+		rep_ = CHUNK;
+		new (&chunk_) RTLIL::SigChunk(bit);
+		return;
 	}
 
-	width_++;
+	if (rep_ == CHUNK && chunk_.wire == bit.wire) {
+		if (chunk_.wire == NULL) {
+			chunk_.data.push_back(bit.data);
+			chunk_.width++;
+			return;
+		}
+		if (chunk_.offset + chunk_.width == bit.offset) {
+			chunk_.width++;
+			return;
+		}
+	}
+
+	unpack();
+
+	bits_.push_back(bit);
 	check();
 }
 
 void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
-	cover("kernel.rtlil.sigspec.extend_u0");
+	if (size() > width)
+		remove(width, size() - width);
 
-	pack();
-
-	if (width_ > width)
-		remove(width, width_ - width);
-
-	if (width_ < width) {
-		RTLIL::SigBit padding = width_ > 0 ? (*this)[width_ - 1] : RTLIL::State::Sx;
+	if (size() < width) {
+		RTLIL::SigBit padding = size() > 0 ? (*this)[size() - 1] : RTLIL::State::Sx;
 		if (!is_signed)
 			padding = RTLIL::State::S0;
-		while (width_ < width)
+		while (size() < width)
 			append(padding);
 	}
-
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 {
-	cover("kernel.rtlil.sigspec.repeat");
-
 	RTLIL::SigSpec sig;
 	for (int i = 0; i < num; i++)
 		sig.append(*this);
@@ -4542,161 +5470,110 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 #ifndef NDEBUG
 void RTLIL::SigSpec::check(Module *mod) const
 {
-	if (width_ > 64)
+	if (rep_ == CHUNK)
 	{
-		cover("kernel.rtlil.sigspec.check.skip");
-	}
-	else if (packed())
-	{
-		cover("kernel.rtlil.sigspec.check.packed");
-
-		int w = 0;
-		for (size_t i = 0; i < chunks_.size(); i++) {
-			const RTLIL::SigChunk &chunk = chunks_[i];
-			log_assert(chunk.width != 0);
-			if (chunk.wire == NULL) {
-				if (i > 0)
-					log_assert(chunks_[i-1].wire != NULL);
-				log_assert(chunk.offset == 0);
-				log_assert(chunk.data.size() == (size_t)chunk.width);
-			} else {
-				if (i > 0 && chunks_[i-1].wire == chunk.wire)
-					log_assert(chunk.offset != chunks_[i-1].offset + chunks_[i-1].width);
-				log_assert(chunk.offset >= 0);
-				log_assert(chunk.width >= 0);
-				log_assert(chunk.offset + chunk.width <= chunk.wire->width);
-				log_assert(chunk.data.size() == 0);
-				if (mod != nullptr)
-					log_assert(chunk.wire->module == mod);
-			}
-			w += chunk.width;
+		log_assert(chunk_.width != 0);
+		if (chunk_.wire == NULL) {
+			log_assert(chunk_.offset == 0);
+			log_assert(chunk_.data.size() == (size_t)chunk_.width);
+		} else {
+			log_assert(chunk_.offset >= 0);
+			log_assert(chunk_.width >= 0);
+			log_assert(chunk_.offset + chunk_.width <= chunk_.wire->width);
+			log_assert(chunk_.data.size() == 0);
+			if (mod != nullptr)
+				log_assert(chunk_.wire->module == mod);
 		}
-		log_assert(w == width_);
-		log_assert(bits_.empty());
 	}
-	else
+	else if (size() <= 64)
 	{
-		cover("kernel.rtlil.sigspec.check.unpacked");
-
 		if (mod != nullptr) {
-			for (size_t i = 0; i < bits_.size(); i++)
-				if (bits_[i].wire != nullptr)
-					log_assert(bits_[i].wire->module == mod);
+			for (const RTLIL::SigBit &bit : bits_)
+				if (bit.wire != nullptr)
+					log_assert(bit.wire->module == mod);
 		}
-
-		log_assert(width_ == GetSize(bits_));
-		log_assert(chunks_.empty());
 	}
 }
 #endif
 
 bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 {
-	cover("kernel.rtlil.sigspec.comp_lt");
-
 	if (this == &other)
 		return false;
 
-	if (width_ != other.width_)
-		return width_ < other.width_;
+	if (size() != other.size())
+		return size() < other.size();
 
-	pack();
-	other.pack();
+	auto other_it = other.chunks().begin();
+	for (const SigChunk &c : chunks()) {
+		if (c != *other_it)
+			return c < *other_it;
+		++other_it;
+	}
 
-	if (chunks_.size() != other.chunks_.size())
-		return chunks_.size() < other.chunks_.size();
-
-	updhash();
-	other.updhash();
-
-	if (hash_ != other.hash_)
-		return hash_ < other.hash_;
-
-	for (size_t i = 0; i < chunks_.size(); i++)
-		if (chunks_[i] != other.chunks_[i]) {
-			cover("kernel.rtlil.sigspec.comp_lt.hash_collision");
-			return chunks_[i] < other.chunks_[i];
-		}
-
-	cover("kernel.rtlil.sigspec.comp_lt.equal");
 	return false;
 }
 
 bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 {
-	cover("kernel.rtlil.sigspec.comp_eq");
-
 	if (this == &other)
 		return true;
 
-	if (width_ != other.width_)
+	if (size() != other.size())
 		return false;
 
-	// Without this, SigSpec() == SigSpec(State::S0, 0) will fail
-	//   since the RHS will contain one SigChunk of width 0 causing
-	//   the size check below to fail
-	if (width_ == 0)
-		return true;
-
-	pack();
-	other.pack();
-
-	if (chunks_.size() != other.chunks_.size())
-		return false;
-
-	updhash();
-	other.updhash();
-
-	if (hash_ != other.hash_)
-		return false;
-
-	for (size_t i = 0; i < chunks_.size(); i++)
-		if (chunks_[i] != other.chunks_[i]) {
-			cover("kernel.rtlil.sigspec.comp_eq.hash_collision");
+	auto other_it = other.chunks().begin();
+	for (const SigChunk &c : chunks()) {
+		if (c != *other_it)
 			return false;
-		}
+		++other_it;
+	}
 
-	cover("kernel.rtlil.sigspec.comp_eq.equal");
 	return true;
 }
 
 bool RTLIL::SigSpec::is_wire() const
 {
-	cover("kernel.rtlil.sigspec.is_wire");
-
-	pack();
-	return GetSize(chunks_) == 1 && chunks_[0].wire && chunks_[0].wire->width == width_;
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	if (it == cs.end())
+		return false;
+	const RTLIL::SigChunk &chunk = *it;
+	return chunk.wire && chunk.wire->width == size() && ++it == cs.end();
 }
 
 bool RTLIL::SigSpec::is_chunk() const
 {
-	cover("kernel.rtlil.sigspec.is_chunk");
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	if (it == cs.end())
+		return false;
+	return ++it == cs.end();
+}
 
-	pack();
-	return GetSize(chunks_) == 1;
+bool RTLIL::SigSpec::known_driver() const
+{
+	for (auto &chunk : chunks())
+		if (chunk.is_wire() && !chunk.wire->known_driver())
+			return false;
+	return true;
 }
 
 bool RTLIL::SigSpec::is_fully_const() const
 {
-	cover("kernel.rtlil.sigspec.is_fully_const");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
 	return true;
 }
 
 bool RTLIL::SigSpec::is_fully_zero() const
 {
-	cover("kernel.rtlil.sigspec.is_fully_zero");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks()) {
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
-		for (size_t i = 0; i < it->data.size(); i++)
-			if (it->data[i] != RTLIL::State::S0)
+		for (RTLIL::State d : chunk.data)
+			if (d != RTLIL::State::S0)
 				return false;
 	}
 	return true;
@@ -4704,14 +5581,11 @@ bool RTLIL::SigSpec::is_fully_zero() const
 
 bool RTLIL::SigSpec::is_fully_ones() const
 {
-	cover("kernel.rtlil.sigspec.is_fully_ones");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks()) {
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
-		for (size_t i = 0; i < it->data.size(); i++)
-			if (it->data[i] != RTLIL::State::S1)
+		for (RTLIL::State d : chunk.data)
+			if (d != RTLIL::State::S1)
 				return false;
 	}
 	return true;
@@ -4719,14 +5593,11 @@ bool RTLIL::SigSpec::is_fully_ones() const
 
 bool RTLIL::SigSpec::is_fully_def() const
 {
-	cover("kernel.rtlil.sigspec.is_fully_def");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks()) {
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
-		for (size_t i = 0; i < it->data.size(); i++)
-			if (it->data[i] != RTLIL::State::S0 && it->data[i] != RTLIL::State::S1)
+		for (RTLIL::State d : chunk.data)
+			if (d != RTLIL::State::S0 && d != RTLIL::State::S1)
 				return false;
 	}
 	return true;
@@ -4734,14 +5605,11 @@ bool RTLIL::SigSpec::is_fully_def() const
 
 bool RTLIL::SigSpec::is_fully_undef() const
 {
-	cover("kernel.rtlil.sigspec.is_fully_undef");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks()) {
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
-		for (size_t i = 0; i < it->data.size(); i++)
-			if (it->data[i] != RTLIL::State::Sx && it->data[i] != RTLIL::State::Sz)
+		for (RTLIL::State d : chunk.data)
+			if (d != RTLIL::State::Sx && d != RTLIL::State::Sz)
 				return false;
 	}
 	return true;
@@ -4749,24 +5617,27 @@ bool RTLIL::SigSpec::is_fully_undef() const
 
 bool RTLIL::SigSpec::has_const() const
 {
-	cover("kernel.rtlil.sigspec.has_const");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire == NULL)
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL)
 			return true;
 	return false;
 }
 
+bool RTLIL::SigSpec::has_const(State state) const
+{
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL && std::find(chunk.data.begin(), chunk.data.end(), state) != chunk.data.end())
+			return true;
+	return false;
+}
+
+
 bool RTLIL::SigSpec::has_marked_bits() const
 {
-	cover("kernel.rtlil.sigspec.has_marked_bits");
-
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire == NULL) {
-			for (size_t i = 0; i < it->data.size(); i++)
-				if (it->data[i] == RTLIL::State::Sm)
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL) {
+			for (RTLIL::State d : chunk.data)
+				if (d == RTLIL::State::Sm)
 					return true;
 		}
 	return false;
@@ -4774,48 +5645,55 @@ bool RTLIL::SigSpec::has_marked_bits() const
 
 bool RTLIL::SigSpec::is_onehot(int *pos) const
 {
-	cover("kernel.rtlil.sigspec.is_onehot");
-
-	pack();
-	if (!is_fully_const())
-		return false;
-	log_assert(GetSize(chunks_) <= 1);
-	if (width_)
-		return RTLIL::Const(chunks_[0].data).is_onehot(pos);
+	if (std::optional<RTLIL::Const> c = try_as_const())
+		return c->is_onehot(pos);
 	return false;
 }
 
 bool RTLIL::SigSpec::as_bool() const
 {
-	cover("kernel.rtlil.sigspec.as_bool");
-
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	if (width_)
-		return RTLIL::Const(chunks_[0].data).as_bool();
-	return false;
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return c->as_bool();
 }
 
 int RTLIL::SigSpec::as_int(bool is_signed) const
 {
-	cover("kernel.rtlil.sigspec.as_int");
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return c->as_int(is_signed);
+}
 
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	if (width_)
-		return RTLIL::Const(chunks_[0].data).as_int(is_signed);
-	return 0;
+bool RTLIL::SigSpec::convertible_to_int(bool is_signed) const
+{
+	std::optional<RTLIL::Const> c = try_as_const();
+	if (!c.has_value())
+		return false;
+	return c->convertible_to_int(is_signed);
+}
+
+std::optional<int> RTLIL::SigSpec::try_as_int(bool is_signed) const
+{
+	std::optional<RTLIL::Const> c = try_as_const();
+	if (!c.has_value())
+		return std::nullopt;
+	return c->try_as_int(is_signed);
+}
+
+int RTLIL::SigSpec::as_int_saturating(bool is_signed) const
+{
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return c->as_int_saturating(is_signed);
 }
 
 std::string RTLIL::SigSpec::as_string() const
 {
-	cover("kernel.rtlil.sigspec.as_string");
-
-	pack();
 	std::string str;
 	str.reserve(size());
-	for (size_t i = chunks_.size(); i > 0; i--) {
-		const RTLIL::SigChunk &chunk = chunks_[i-1];
+	std::vector<RTLIL::SigChunk> chunks = *this;
+	for (size_t i = chunks.size(); i > 0; i--) {
+		const RTLIL::SigChunk &chunk = chunks[i-1];
 		if (chunk.wire != NULL)
 			str.append(chunk.width, '?');
 		else
@@ -4824,67 +5702,71 @@ std::string RTLIL::SigSpec::as_string() const
 	return str;
 }
 
+std::optional<RTLIL::Const> RTLIL::SigSpec::try_as_const() const
+{
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	if (it == cs.end())
+		return RTLIL::Const();
+	SigChunk chunk = *it;
+	if (chunk.wire != NULL || ++it != cs.end())
+		return std::nullopt;
+	return RTLIL::Const(std::move(chunk.data));
+}
+
 RTLIL::Const RTLIL::SigSpec::as_const() const
 {
-	cover("kernel.rtlil.sigspec.as_const");
-
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	if (width_)
-		return chunks_[0].data;
-	return RTLIL::Const();
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return *c;
 }
 
 RTLIL::Wire *RTLIL::SigSpec::as_wire() const
 {
-	cover("kernel.rtlil.sigspec.as_wire");
-
-	pack();
-	log_assert(is_wire());
-	return chunks_[0].wire;
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	log_assert(it != cs.end());
+	RTLIL::SigChunk chunk = *it;
+	log_assert(++it == cs.end() && chunk.wire && chunk.wire->width == size());
+	return chunk.wire;
 }
 
 RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
 {
-	cover("kernel.rtlil.sigspec.as_chunk");
-
-	pack();
-	log_assert(is_chunk());
-	return chunks_[0];
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	log_assert(it != cs.end());
+	RTLIL::SigChunk chunk = *it;
+	log_assert(++it == cs.end());
+	return chunk;
 }
 
 RTLIL::SigBit RTLIL::SigSpec::as_bit() const
 {
-	cover("kernel.rtlil.sigspec.as_bit");
-
-	log_assert(width_ == 1);
-	if (packed())
-		return RTLIL::SigBit(*chunks_.begin());
-	else
-		return bits_[0];
+	return RTLIL::SigBit(*this);
 }
 
 bool RTLIL::SigSpec::match(const char* pattern) const
 {
-	cover("kernel.rtlil.sigspec.match");
+	int pattern_len = strlen(pattern);
+	log_assert(pattern_len == size());
 
-	unpack();
-	log_assert(int(strlen(pattern)) == GetSize(bits_));
-
-	for (auto it = bits_.rbegin(); it != bits_.rend(); it++, pattern++) {
-		if (*pattern == ' ')
+	for (int i = 0; i < pattern_len; ++i) {
+		char ch = pattern[i];
+		if (ch == ' ')
 			continue;
-		if (*pattern == '*') {
-			if (*it != State::Sz && *it != State::Sx)
+		RTLIL::SigBit bit = (*this)[pattern_len - 1 - i];
+		if (ch == '*') {
+			if (bit != State::Sz && bit != State::Sx)
 				return false;
 			continue;
 		}
-		if (*pattern == '0') {
-			if (*it != State::S0)
+		if (ch == '0') {
+			if (bit != State::S0)
 				return false;
 		} else
-		if (*pattern == '1') {
-			if (*it != State::S1)
+		if (ch == '1') {
+			if (bit != State::S1)
 				return false;
 		} else
 			log_abort();
@@ -4895,11 +5777,8 @@ bool RTLIL::SigSpec::match(const char* pattern) const
 
 std::set<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_set() const
 {
-	cover("kernel.rtlil.sigspec.to_sigbit_set");
-
-	pack();
 	std::set<RTLIL::SigBit> sigbits;
-	for (auto &c : chunks_)
+	for (auto &c : chunks())
 		for (int i = 0; i < c.width; i++)
 			sigbits.insert(RTLIL::SigBit(c, i));
 	return sigbits;
@@ -4907,12 +5786,9 @@ std::set<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_set() const
 
 pool<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_pool() const
 {
-	cover("kernel.rtlil.sigspec.to_sigbit_pool");
-
-	pack();
 	pool<RTLIL::SigBit> sigbits;
 	sigbits.reserve(size());
-	for (auto &c : chunks_)
+	for (auto &c : chunks())
 		for (int i = 0; i < c.width; i++)
 			sigbits.insert(RTLIL::SigBit(c, i));
 	return sigbits;
@@ -4920,41 +5796,34 @@ pool<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_pool() const
 
 std::vector<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_vector() const
 {
-	cover("kernel.rtlil.sigspec.to_sigbit_vector");
-
-	unpack();
-	return bits_;
+	std::vector<RTLIL::SigBit> result;
+	result.reserve(size());
+	for (SigBit bit : *this)
+		result.push_back(bit);
+	return result;
 }
 
 std::map<RTLIL::SigBit, RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_map(const RTLIL::SigSpec &other) const
 {
-	cover("kernel.rtlil.sigspec.to_sigbit_map");
-
-	unpack();
-	other.unpack();
-
-	log_assert(width_ == other.width_);
+	int this_size = size();
+	log_assert(this_size == other.size());
 
 	std::map<RTLIL::SigBit, RTLIL::SigBit> new_map;
-	for (int i = 0; i < width_; i++)
-		new_map[bits_[i]] = other.bits_[i];
+	for (int i = 0; i < this_size; i++)
+		new_map[(*this)[i]] = other[i];
 
 	return new_map;
 }
 
 dict<RTLIL::SigBit, RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_dict(const RTLIL::SigSpec &other) const
 {
-	cover("kernel.rtlil.sigspec.to_sigbit_dict");
-
-	unpack();
-	other.unpack();
-
-	log_assert(width_ == other.width_);
+	int this_size = size();
+	log_assert(this_size == other.size());
 
 	dict<RTLIL::SigBit, RTLIL::SigBit> new_map;
-	new_map.reserve(size());
-	for (int i = 0; i < width_; i++)
-		new_map[bits_[i]] = other.bits_[i];
+	new_map.reserve(this_size);
+	for (int i = 0; i < this_size; i++)
+		new_map[(*this)[i]] = other[i];
 
 	return new_map;
 }
@@ -4969,17 +5838,8 @@ static void sigspec_parse_split(std::vector<std::string> &tokens, const std::str
 	tokens.push_back(text.substr(start));
 }
 
-static int sigspec_parse_get_dummy_line_num()
-{
-	return 0;
-}
-
 bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
-	cover("kernel.rtlil.sigspec.parse");
-
-	AST::current_filename = "input";
-
 	std::vector<std::string> tokens;
 	sigspec_parse_split(tokens, str, ',');
 
@@ -4993,20 +5853,16 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			continue;
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
-			cover("kernel.rtlil.sigspec.parse.const");
-			AST::get_line_num = sigspec_parse_get_dummy_line_num;
-			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);
-			if (ast == NULL)
+			VERILOG_FRONTEND::ConstParser p{Location()};
+			auto ast = p.const2ast(netname);
+			if (ast == nullptr)
 				return false;
 			sig.append(RTLIL::Const(ast->bits));
-			delete ast;
 			continue;
 		}
 
 		if (module == NULL)
 			return false;
-
-		cover("kernel.rtlil.sigspec.parse.net");
 
 		if (netname[0] != '$' && netname[0] != '\\')
 			netname = "\\" + netname;
@@ -5036,13 +5892,11 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			std::vector<std::string> index_tokens;
 			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');
 			if (index_tokens.size() == 1) {
-				cover("kernel.rtlil.sigspec.parse.bit_sel");
 				int a = atoi(index_tokens.at(0).c_str());
 				if (a < 0 || a >= wire->width)
 					return false;
 				sig.append(RTLIL::SigSpec(wire, a));
 			} else {
-				cover("kernel.rtlil.sigspec.parse.part_sel");
 				int a = atoi(index_tokens.at(0).c_str());
 				int b = atoi(index_tokens.at(1).c_str());
 				if (a > b) {
@@ -5067,8 +5921,6 @@ bool RTLIL::SigSpec::parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL
 	if (str.empty() || str[0] != '@')
 		return parse(sig, module, str);
 
-	cover("kernel.rtlil.sigspec.parse.sel");
-
 	str = RTLIL::escape_id(str.substr(1));
 	if (design->selection_vars.count(str) == 0)
 		return false;
@@ -5085,28 +5937,37 @@ bool RTLIL::SigSpec::parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL
 bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
 	if (str == "0") {
-		cover("kernel.rtlil.sigspec.parse.rhs_zeros");
-		sig = RTLIL::SigSpec(RTLIL::State::S0, lhs.width_);
+		sig = RTLIL::SigSpec(RTLIL::State::S0, lhs.size());
 		return true;
 	}
 
 	if (str == "~0") {
-		cover("kernel.rtlil.sigspec.parse.rhs_ones");
-		sig = RTLIL::SigSpec(RTLIL::State::S1, lhs.width_);
+		sig = RTLIL::SigSpec(RTLIL::State::S1, lhs.size());
 		return true;
 	}
 
-	if (lhs.chunks_.size() == 1) {
+	if (lhs.is_chunk()) {
 		char *p = (char*)str.c_str(), *endptr;
 		long int val = strtol(p, &endptr, 10);
 		if (endptr && endptr != p && *endptr == 0) {
-			sig = RTLIL::SigSpec(val, lhs.width_);
-			cover("kernel.rtlil.sigspec.parse.rhs_dec");
+			sig = RTLIL::SigSpec(val, lhs.size());
 			return true;
 		}
 	}
 
-	return parse(sig, module, str);
+	if (!parse(sig, module, str))
+		return false;
+	if (sig.size() > lhs.size())
+		sig.remove(lhs.size(), sig.size() - lhs.size());
+	return true;
+}
+
+RTLIL::SigSpec::operator std::vector<RTLIL::SigChunk>() const
+{
+	std::vector<RTLIL::SigChunk> result;
+	for (const RTLIL::SigChunk &c : chunks())
+		result.push_back(c);
+	return result;
 }
 
 RTLIL::CaseRule::~CaseRule()
@@ -5125,6 +5986,7 @@ RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
 	new_caserule->compare = compare;
 	new_caserule->actions = actions;
+	new_caserule->attributes = attributes;
 	for (auto &it : switches)
 		new_caserule->switches.push_back(it->clone());
 	return new_caserule;
@@ -5186,7 +6048,7 @@ RTLIL::Process *RTLIL::Process::clone() const
 	return new_proc;
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 RTLIL::Memory::~Memory()
 {
 	RTLIL::Memory::get_all_memorys()->erase(hashidx_);

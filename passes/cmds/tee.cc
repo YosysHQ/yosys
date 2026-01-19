@@ -18,15 +18,19 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct TeePass : public Pass {
 	TeePass() : Pass("tee", "redirect command output to file") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -72,12 +76,14 @@ struct TeePass : public Pass {
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
 				const char *open_mode = args[argidx] == "-o" ? "w" : "a+";
-				FILE *f = fopen(args[++argidx].c_str(), open_mode);
+				auto path = args[++argidx];
+				rewrite_filename(path);
+				FILE *f = fopen(path.c_str(), open_mode);
 				yosys_input_files.insert(args[argidx]);
 				if (f == NULL) {
 					for (auto cf : files_to_close)
 						fclose(cf);
-					log_cmd_error("Can't create file %s.\n", args[argidx].c_str());
+					log_cmd_error("Can't create file %s.\n", args[argidx]);
 				}
 				log_files.push_back(f);
 				files_to_close.push_back(f);

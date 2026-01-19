@@ -1,0 +1,16 @@
+read_verilog -sv <<EOF
+module top ();
+    always_comb begin
+        label1: cover(0);
+        label2: cover(0);
+    end
+endmodule
+EOF
+
+hierarchy -top top
+proc
+chformal -lower
+clean
+opt_merge
+select -assert-count 2 t:$cover
+

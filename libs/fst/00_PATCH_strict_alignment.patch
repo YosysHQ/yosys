@@ -1,0 +1,42 @@
+diff --git a/fastlz.cc b/fastlz.cc
+index 3272ca7a8..41ea27a16 100644
+--- a/fastlz.cc
++++ b/fastlz.cc
+@@ -60,24 +60,9 @@
+ #endif
+ 
+ /*
+- * Prevent accessing more than 8-bit at once, except on x86 architectures.
++ * Yosys patch: do not do unaligned accesses on any platform
+  */
+-#if !defined(FASTLZ_STRICT_ALIGN)
+ #define FASTLZ_STRICT_ALIGN
+-#if defined(__i386__) || defined(__386)  /* GNU C, Sun Studio */
+-#undef FASTLZ_STRICT_ALIGN
+-#elif defined(__i486__) || defined(__i586__) || defined(__i686__) || defined(__amd64) /* GNU C */
+-#undef FASTLZ_STRICT_ALIGN
+-#elif defined(_M_IX86) /* Intel, MSVC */
+-#undef FASTLZ_STRICT_ALIGN
+-#elif defined(__386)
+-#undef FASTLZ_STRICT_ALIGN
+-#elif defined(_X86_) /* MinGW */
+-#undef FASTLZ_STRICT_ALIGN
+-#elif defined(__I86__) /* Digital Mars */
+-#undef FASTLZ_STRICT_ALIGN
+-#endif
+-#endif
+ 
+ /* prototypes */
+ int fastlz_compress(const void* input, int length, void* output);
+@@ -88,11 +73,7 @@ int fastlz_decompress(const void* input, int length, void* output, int maxout);
+ #define MAX_LEN       264  /* 256 + 8 */
+ #define MAX_DISTANCE 8192
+ 
+-#if !defined(FASTLZ_STRICT_ALIGN)
+-#define FASTLZ_READU16(p) *((const flzuint16*)(p))
+-#else
+ #define FASTLZ_READU16(p) ((p)[0] | (p)[1]<<8)
+-#endif
+ 
+ #define HASH_LOG  13
+ #define HASH_SIZE (1<< HASH_LOG)

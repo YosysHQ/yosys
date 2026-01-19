@@ -42,9 +42,9 @@ PRIVATE_NAMESPACE_BEGIN
 void apply_prefix(IdString prefix, IdString &id)
 {
 	if (id[0] == '\\')
-		id = stringf("%s.%s", prefix.c_str(), id.c_str()+1);
+		id = stringf("%s.%s", prefix, id.c_str()+1);
 	else
-		id = stringf("$techmap%s.%s", prefix.c_str(), id.c_str());
+		id = stringf("$techmap%s.%s", prefix, id);
 }
 
 void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
@@ -107,7 +107,7 @@ struct TechmapWorker
 				}
 			}
 
-		return stringf("$paramod$constmap:%s%s", sha1(constmap_info).c_str(), tpl->name.c_str());
+		return stringf("$paramod$constmap:%s%s", sha1(constmap_info), tpl->name);
 	}
 
 	TechmapWires techmap_find_special_wires(RTLIL::Module *module)
@@ -222,7 +222,7 @@ struct TechmapWorker
 			design->select(module, w);
 
 			if (const char *p = strstr(tpl_w->name.c_str(), "_TECHMAP_REPLACE_.")) {
-				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), p + strlen("_TECHMAP_REPLACE_"));
+				IdString replace_name = stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_"));
 				Wire *replace_w = module->addWire(replace_name, tpl_w);
 				module->connect(replace_w, w);
 			}
@@ -247,7 +247,7 @@ struct TechmapWorker
 				portname = positional_ports.at(portname);
 			if (tpl->wire(portname) == nullptr || tpl->wire(portname)->port_id == 0) {
 				if (portname.begins_with("$"))
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname, cell->name, tpl->name);
 				continue;
 			}
 
@@ -327,12 +327,17 @@ struct TechmapWorker
 			if (techmap_replace_cell)
 				c_name = orig_cell_name;
 			else if (const char *p = strstr(tpl_cell->name.c_str(), "_TECHMAP_REPLACE_."))
-				c_name = stringf("%s%s", orig_cell_name.c_str(), p + strlen("_TECHMAP_REPLACE_"));
+				c_name = stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_"));
 			else
 				apply_prefix(cell->name, c_name);
 
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
 			design->select(module, c);
+
+			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
+				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
+				c->attributes.erase(ID::techmap_chtype);
+			}
 
 			vector<IdString> autopurge_ports;
 
@@ -493,7 +498,7 @@ struct TechmapWorker
 				{
 					if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
 					{
-						std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
+						std::string m_name = stringf("$extern:%s:%s", extmapper_name, log_id(cell->type));
 
 						for (auto &c : cell->parameters)
 							m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
@@ -535,15 +540,15 @@ struct TechmapWorker
 
 							if (extmapper_name == "maccmap") {
 								log("Creating %s with maccmap.\n", log_id(extmapper_module));
-								if (extmapper_cell->type != ID($macc))
-									log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
+								if (!extmapper_cell->type.in(ID($macc), ID($macc_v2)))
+									log_error("The maccmap mapper can only map $macc/$macc_v2 (not %s) cells!\n", log_id(extmapper_cell->type));
 								maccmap(extmapper_module, extmapper_cell);
 								extmapper_module->remove(extmapper_cell);
 							}
 
 							if (extmapper_name == "wrap") {
 								std::string cmd_string = tpl->attributes.at(ID::techmap_wrap).decode_string();
-								log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
+								log("Running \"%s\" on wrapper %s.\n", cmd_string, log_id(extmapper_module));
 								mkdebug.on();
 								Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
 								log_continue = true;
@@ -561,18 +566,18 @@ struct TechmapWorker
 						auto msg = stringf("Using extmapper %s for cells of type %s.", log_id(extmapper_module), log_id(cell->type));
 						if (!log_msg_cache.count(msg)) {
 							log_msg_cache.insert(msg);
-							log("%s\n", msg.c_str());
+							log("%s\n", msg);
 						}
-						log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
+						log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
 					}
 					else
 					{
-						auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name.c_str(), log_id(cell->type));
+						auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name, log_id(cell->type));
 						if (!log_msg_cache.count(msg)) {
 							log_msg_cache.insert(msg);
-							log("%s\n", msg.c_str());
+							log("%s\n", msg);
 						}
-						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
+						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(cell->type), extmapper_name);
 
 						if (extmapper_name == "simplemap") {
 							if (simplemap_mappers.count(cell->type) == 0)
@@ -581,8 +586,8 @@ struct TechmapWorker
 						}
 
 						if (extmapper_name == "maccmap") {
-							if (cell->type != ID($macc))
-								log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(cell->type));
+							if (!cell->type.in(ID($macc), ID($macc_v2)))
+								log_error("The maccmap mapper can only map $macc/$macc_v2 (not %s) cells!\n", log_id(cell->type));
 							maccmap(module, cell);
 						}
 
@@ -661,15 +666,16 @@ struct TechmapWorker
 
 					for (auto &conn : cell->connections())
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))) != 0) {
-							RTLIL::Const value;
-							for (auto &bit : sigmap(conn.second)) {
+							SigSpec sm = sigmap(conn.second);
+							RTLIL::Const::Builder builder(GetSize(sm) * bits);
+							for (auto &bit : sm) {
 								int val = unique_bit_id.at(bit);
 								for (int i = 0; i < bits; i++) {
-									value.bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
+									builder.push_back((val & 1) != 0 ? State::S1 : State::S0);
 									val = val >> 1;
 								}
 							}
-							parameters.emplace(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first)), value);
+							parameters.emplace(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first)), builder.build());
 						}
 				}
 
@@ -918,7 +924,7 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(m_name));
 					cell->type = m_name;
 					cell->parameters.clear();
 				}
@@ -927,9 +933,9 @@ struct TechmapWorker
 					auto msg = stringf("Using template %s for cells of type %s.", log_id(tpl), log_id(cell->type));
 					if (!log_msg_cache.count(msg)) {
 						log_msg_cache.insert(msg);
-						log("%s\n", msg.c_str());
+						log("%s\n", msg);
 					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
 					techmap_module_worker(design, module, cell, tpl);
 					cell = nullptr;
 				}
@@ -1004,6 +1010,13 @@ struct TechmapPass : public Pass {
 		log("        map file. Note that the Verilog frontend is also called with the\n");
 		log("        '-nooverwrite' option set.\n");
 		log("\n");
+		log("    -dont_map <celltype>\n");
+		log("        leave the given cell type unmapped by ignoring any mapping rules for it\n");
+		log("\n");
+		log("    -relativeshare\n");
+		log("        use paths relative to share directory for source locations\n");
+		log("        where possible (experimental).\n");
+		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
 		log("the module name will be used to match the cell.  Multiple space-separated cell\n");
@@ -1022,8 +1035,8 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("When a port on a module in the map file has the 'techmap_autopurge' attribute\n");
 		log("set, and that port is not connected in the instantiation that is mapped, then\n");
-		log("then a cell port connected only to such wires will be omitted in the mapped\n");
-		log("version of the circuit.\n");
+		log("a cell port connected only to such wires will be omitted in the mapped version\n");
+		log("of the circuit.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
@@ -1116,6 +1129,10 @@ struct TechmapPass : public Pass {
 		log("new wire alias to be created and named as above but with the `_TECHMAP_REPLACE_'\n");
 		log("prefix also substituted.\n");
 		log("\n");
+		log("A cell with the type _TECHMAP_PLACEHOLDER_ in the map file will have its type\n");
+		log("changed to the content of the techmap_chtype attribute. This allows for choosing\n");
+		log("the cell type dynamically.\n");
+		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
 		log("See 'help flatten' for a pass that does flatten the design (which is\n");
@@ -1131,6 +1148,7 @@ struct TechmapPass : public Pass {
 		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
+		std::vector<RTLIL::IdString> dont_map;
 		std::string verilog_frontend = "verilog -nooverwrite -noblackbox -icells";
 		int max_iter = -1;
 
@@ -1152,6 +1170,11 @@ struct TechmapPass : public Pass {
 				verilog_frontend += " -I " + args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-relativeshare") {
+				verilog_frontend += " -relativeshare";
+				log_experimental("techmap -relativeshare");
+				continue;
+			}
 			if (args[argidx] == "-assert") {
 				worker.assert_mode = true;
 				continue;
@@ -1170,6 +1193,10 @@ struct TechmapPass : public Pass {
 			}
 			if (args[argidx] == "-wb") {
 				worker.ignore_wb = true;
+				continue;
+			}
+			if (args[argidx] == "-dont_map" && argidx+1 < args.size()) {
+				dont_map.push_back(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
@@ -1198,7 +1225,7 @@ struct TechmapPass : public Pass {
 
 		dict<IdString, pool<IdString>> celltypeMap;
 		for (auto module : map->modules()) {
-			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).bits.empty()) {
+			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).empty()) {
 				char *p = strdup(module->attributes.at(ID::techmap_celltype).decode_string().c_str());
 				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(nullptr, " \t\r\n")) {
 					std::vector<std::string> queue;
@@ -1228,13 +1255,18 @@ struct TechmapPass : public Pass {
 				celltypeMap[module_name].insert(module->name);
 			}
 		}
+
+		// Erase any rules disabled with a -dont_map argument
+		for (auto type : dont_map)
+			celltypeMap.erase(type);
+
 		log_debug("Cell type mappings to use:\n");
 		for (auto &i : celltypeMap) {
 			i.second.sort(RTLIL::sort_by_id_str());
 			std::string maps = "";
 			for (auto &map : i.second)
 				maps += stringf(" %s", log_id(map));
-			log_debug("    %s:%s\n", log_id(i.first), maps.c_str());
+			log_debug("    %s:%s\n", log_id(i.first), maps);
 		}
 		log_debug("\n");
 

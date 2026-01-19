@@ -77,7 +77,7 @@ void QuickConeSat::prepare()
 
 int QuickConeSat::cell_complexity(RTLIL::Cell *cell)
 {
-	if (cell->type.in(ID($concat), ID($slice), ID($pos), ID($_BUF_)))
+	if (cell->type.in(ID($concat), ID($slice), ID($pos), ID($buf), ID($_BUF_)))
 		return 0;
 	if (cell->type.in(ID($not), ID($and), ID($or), ID($xor), ID($xnor),
 			ID($reduce_and), ID($reduce_or), ID($reduce_xor),

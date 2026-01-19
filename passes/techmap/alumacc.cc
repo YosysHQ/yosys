@@ -40,34 +40,51 @@ struct AlumaccWorker
 	{
 		std::vector<RTLIL::Cell*> cells;
 		RTLIL::SigSpec a, b, c, y;
-		std::vector<tuple<bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
+		std::vector<tuple<bool, bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
 		bool is_signed, invert_b;
 
 		RTLIL::Cell *alu_cell;
-		RTLIL::SigSpec cached_lt, cached_gt, cached_eq, cached_ne;
+		RTLIL::SigSpec cached_lt, cached_slt, cached_gt, cached_sgt, cached_eq, cached_ne;
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
-		RTLIL::SigSpec get_lt() {
-			if (GetSize(cached_lt) == 0) {
-				if (is_signed) {
+		RTLIL::SigSpec get_lt(bool is_signed) {
+			if (is_signed) {
+				if (GetSize(cached_slt) == 0) {
 					get_of();
 					get_sf();
-					cached_lt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
 				}
-				else
+
+				return cached_slt;
+			} else {
+				if (GetSize(cached_lt) == 0) {
 					cached_lt = get_cf();
+				}
+
+				return cached_lt;
 			}
-			return cached_lt;
 		}
 
-		RTLIL::SigSpec get_gt() {
-			if (GetSize(cached_gt) == 0) {
-				get_lt();
-				get_eq();
-				SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-				cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+		RTLIL::SigSpec get_gt(bool is_signed) {
+			if (is_signed) {
+				if (GetSize(cached_sgt) == 0) {
+					get_lt(is_signed);
+					get_eq();
+					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
+					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+				}
+
+				return cached_sgt;
+			} else {
+				if (GetSize(cached_gt) == 0) {
+					get_lt(is_signed);
+					get_eq();
+					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
+					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+				}
+
+				return cached_gt;
 			}
-			return cached_gt;
 		}
 
 		RTLIL::SigSpec get_eq() {
@@ -111,7 +128,7 @@ struct AlumaccWorker
 
 	dict<RTLIL::SigBit, int> bit_users;
 	dict<RTLIL::SigSpec, maccnode_t*> sig_macc;
-	dict<RTLIL::SigSig, pool<alunode_t*, hash_ptr_ops>> sig_alu;
+	dict<RTLIL::SigSig, pool<alunode_t*>> sig_alu;
 	int macc_counter, alu_counter;
 
 	AlumaccWorker(RTLIL::Module *module) : module(module), sigmap(module)
@@ -142,7 +159,7 @@ struct AlumaccWorker
 			log("  creating $macc model for %s (%s).\n", log_id(cell), log_id(cell->type));
 
 			maccnode_t *n = new maccnode_t;
-			Macc::port_t new_port;
+			Macc::term_t new_term;
 
 			n->cell = cell;
 			n->y = sigmap(cell->getPort(ID::Y));
@@ -153,32 +170,32 @@ struct AlumaccWorker
 
 			if (cell->type.in(ID($pos), ID($neg)))
 			{
-				new_port.in_a = sigmap(cell->getPort(ID::A));
-				new_port.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
-				new_port.do_subtract = cell->type == ID($neg);
-				n->macc.ports.push_back(new_port);
+				new_term.in_a = sigmap(cell->getPort(ID::A));
+				new_term.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+				new_term.do_subtract = cell->type == ID($neg);
+				n->macc.terms.push_back(new_term);
 			}
 
 			if (cell->type.in(ID($add), ID($sub)))
 			{
-				new_port.in_a = sigmap(cell->getPort(ID::A));
-				new_port.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
-				new_port.do_subtract = false;
-				n->macc.ports.push_back(new_port);
+				new_term.in_a = sigmap(cell->getPort(ID::A));
+				new_term.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+				new_term.do_subtract = false;
+				n->macc.terms.push_back(new_term);
 
-				new_port.in_a = sigmap(cell->getPort(ID::B));
-				new_port.is_signed = cell->getParam(ID::B_SIGNED).as_bool();
-				new_port.do_subtract = cell->type == ID($sub);
-				n->macc.ports.push_back(new_port);
+				new_term.in_a = sigmap(cell->getPort(ID::B));
+				new_term.is_signed = cell->getParam(ID::B_SIGNED).as_bool();
+				new_term.do_subtract = cell->type == ID($sub);
+				n->macc.terms.push_back(new_term);
 			}
 
 			if (cell->type.in(ID($mul)))
 			{
-				new_port.in_a = sigmap(cell->getPort(ID::A));
-				new_port.in_b = sigmap(cell->getPort(ID::B));
-				new_port.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
-				new_port.do_subtract = false;
-				n->macc.ports.push_back(new_port);
+				new_term.in_a = sigmap(cell->getPort(ID::A));
+				new_term.in_b = sigmap(cell->getPort(ID::B));
+				new_term.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+				new_term.do_subtract = false;
+				n->macc.terms.push_back(new_term);
 			}
 
 			log_assert(sig_macc.count(n->y) == 0);
@@ -190,7 +207,7 @@ struct AlumaccWorker
 	{
 		std::vector<int> port_sizes;
 
-		for (auto &port : macc.ports) {
+		for (auto &port : macc.terms) {
 			if (port.is_signed != is_signed)
 				return true;
 			if (!port.is_signed && port.do_subtract)
@@ -226,7 +243,7 @@ struct AlumaccWorker
 	{
 		while (1)
 		{
-			pool<maccnode_t*, hash_ptr_ops> delete_nodes;
+			pool<maccnode_t*> delete_nodes;
 
 			for (auto &it : sig_macc)
 			{
@@ -235,9 +252,9 @@ struct AlumaccWorker
 				if (delete_nodes.count(n))
 					continue;
 
-				for (int i = 0; i < GetSize(n->macc.ports); i++)
+				for (int i = 0; i < GetSize(n->macc.terms); i++)
 				{
-					auto &port = n->macc.ports[i];
+					auto &port = n->macc.terms[i];
 
 					if (GetSize(port.in_b) > 0 || sig_macc.count(port.in_a) == 0)
 						continue;
@@ -253,13 +270,13 @@ struct AlumaccWorker
 					log("  merging $macc model for %s into %s.\n", log_id(other_n->cell), log_id(n->cell));
 
 					bool do_subtract = port.do_subtract;
-					for (int j = 0; j < GetSize(other_n->macc.ports); j++) {
+					for (int j = 0; j < GetSize(other_n->macc.terms); j++) {
 						if (do_subtract)
-							other_n->macc.ports[j].do_subtract = !other_n->macc.ports[j].do_subtract;
+							other_n->macc.terms[j].do_subtract = !other_n->macc.terms[j].do_subtract;
 						if (j == 0)
-							n->macc.ports[i--] = other_n->macc.ports[j];
+							n->macc.terms[i--] = other_n->macc.terms[j];
 						else
-							n->macc.ports.push_back(other_n->macc.ports[j]);
+							n->macc.terms.push_back(other_n->macc.terms[j]);
 					}
 
 					delete_nodes.insert(other_n);
@@ -278,17 +295,17 @@ struct AlumaccWorker
 
 	void macc_to_alu()
 	{
-		pool<maccnode_t*, hash_ptr_ops> delete_nodes;
+		pool<maccnode_t*> delete_nodes;
 
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
-			RTLIL::SigSpec A, B, C = n->macc.bit_ports;
+			RTLIL::SigSpec A, B, C;
 			bool a_signed = false, b_signed = false;
 			bool subtract_b = false;
 			alunode_t *alunode;
 
-			for (auto &port : n->macc.ports)
+			for (auto &port : n->macc.terms)
 				if (GetSize(port.in_b) > 0) {
 					goto next_macc;
 				} else if (GetSize(port.in_a) == 1 && !port.is_signed && !port.do_subtract) {
@@ -405,18 +422,23 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
 			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
 
-			if (B < A && GetSize(B)) {
-				cmp_less = !cmp_less;
-				std::swap(A, B);
-			}
-
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+				if (node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
+
+			if (n == nullptr) {
+				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
+					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+						n = node;
+						cmp_less = !cmp_less;
+						std::swap(A, B);
+						break;
+					}
+			}
 
 			if (n == nullptr) {
 				n = new alunode_t;
@@ -433,7 +455,7 @@ struct AlumaccWorker
 			}
 
 			n->cells.push_back(cell);
-			n->cmp.push_back(std::make_tuple(cmp_less, !cmp_less, cmp_equal, false, Y));
+			n->cmp.push_back(std::make_tuple(cmp_less, !cmp_less, cmp_equal, false, is_signed, Y));
 		}
 
 		for (auto cell : eq_cells)
@@ -445,21 +467,26 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
 			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
 
-			if (B < A && GetSize(B))
-				std::swap(A, B);
-
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+				if (node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
 
+			if (n == nullptr) {
+				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
+					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+						n = node;
+						break;
+					}
+			}
+
 			if (n != nullptr) {
 				log("  creating $alu model for %s (%s): merged with %s.\n", log_id(cell), log_id(cell->type), log_id(n->cells.front()));
 				n->cells.push_back(cell);
-				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, Y));
+				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, false, Y));
 			}
 		}
 	}
@@ -508,11 +535,12 @@ struct AlumaccWorker
 				bool cmp_gt = std::get<1>(it);
 				bool cmp_eq = std::get<2>(it);
 				bool cmp_ne = std::get<3>(it);
-				RTLIL::SigSpec cmp_y = std::get<4>(it);
+				bool is_signed = std::get<4>(it);
+				RTLIL::SigSpec cmp_y = std::get<5>(it);
 
 				RTLIL::SigSpec sig;
-				if (cmp_lt) sig.append(n->get_lt());
-				if (cmp_gt) sig.append(n->get_gt());
+				if (cmp_lt) sig.append(n->get_lt(is_signed));
+				if (cmp_gt) sig.append(n->get_gt(is_signed));
 				if (cmp_eq) sig.append(n->get_eq());
 				if (cmp_ne) sig.append(n->get_ne());
 

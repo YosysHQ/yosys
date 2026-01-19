@@ -1,0 +1,80 @@
+read_verilog << EOT
+module top(input wire [14:0] a, output wire [18:0] b);
+assign b = a*$unsigned(5'b01111);
+endmodule
+EOT
+
+prep
+ice40_dsp
+
+read_verilog << EOT
+module ref(a, b);
+  wire _0_;
+  wire _1_;
+  wire _2_;
+  wire [12:0] _3_;
+  (* src = "<<EOT:1.30-1.31" *)
+  input [14:0] a;
+  wire [14:0] a;
+  (* src = "<<EOT:1.52-1.53" *)
+  output [18:0] b;
+  wire [18:0] b;
+  SB_MAC16 #(
+    .A_REG(1'h0),
+    .A_SIGNED(32'd0),
+    .BOTADDSUB_CARRYSELECT(2'h0),
+    .BOTADDSUB_LOWERINPUT(2'h2),
+    .BOTADDSUB_UPPERINPUT(1'h1),
+    .BOTOUTPUT_SELECT(2'h3),
+    .BOT_8x8_MULT_REG(1'h0),
+    .B_REG(1'h0),
+    .B_SIGNED(32'd0),
+    .C_REG(1'h0),
+    .D_REG(1'h0),
+    .MODE_8x8(1'h0),
+    .NEG_TRIGGER(1'h0),
+    .PIPELINE_16x16_MULT_REG1(1'h0),
+    .PIPELINE_16x16_MULT_REG2(1'h0),
+    .TOPADDSUB_CARRYSELECT(2'h3),
+    .TOPADDSUB_LOWERINPUT(2'h2),
+    .TOPADDSUB_UPPERINPUT(1'h1),
+    .TOPOUTPUT_SELECT(2'h3),
+    .TOP_8x8_MULT_REG(1'h0)
+  ) _4_ (
+    .A({ 1'h0, a }),
+    .ACCUMCI(1'hx),
+    .ACCUMCO(_1_),
+    .ADDSUBBOT(1'h0),
+    .ADDSUBTOP(1'h0),
+    .AHOLD(1'h0),
+    .B(16'b1111),
+    .BHOLD(1'h0),
+    .C(16'h0000),
+    .CE(1'h0),
+    .CHOLD(1'h0),
+    .CI(1'hx),
+    .CLK(1'h0),
+    .CO(_2_),
+    .D(16'h0000),
+    .DHOLD(1'h0),
+    .IRSTBOT(1'h0),
+    .IRSTTOP(1'h0),
+    .O({ _3_, b }),
+    .OHOLDBOT(1'h0),
+    .OHOLDTOP(1'h0),
+    .OLOADBOT(1'h0),
+    .OLOADTOP(1'h0),
+    .ORSTBOT(1'h0),
+    .ORSTTOP(1'h0),
+    .SIGNEXTIN(1'hx),
+    .SIGNEXTOUT(_0_)
+  );
+endmodule
+EOT
+
+techmap -wb -D EQUIV -autoproc -map +/ice40/cells_sim.v
+
+equiv_make top ref equiv 
+select -assert-any -module equiv t:$equiv 
+equiv_induct 
+equiv_status -assert

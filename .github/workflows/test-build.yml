@@ -1,0 +1,266 @@
+name: Build and run tests
+
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  merge_group:
+  # test PRs
+  pull_request:
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # don't run on documentation changes
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+          # cancel previous builds if a new commit is pushed
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
+
+  pre_docs_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # don't run on readme changes
+          paths_ignore: '["**/README.md"]'
+          # cancel previous builds if a new commit is pushed
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
+
+  build-yosys:
+    name: Reusable build
+    runs-on: ${{ matrix.os }}
+    # pre_job is a subset of pre_docs_job, so we can always build for pre_docs_job
+    needs: pre_docs_job
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-build-deps: true
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          make -f ../Makefile config-$CC
+          make -f ../Makefile -j$procs
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Compress build
+        shell: bash
+        run: |
+          cd build
+          tar -cvf ../build.tar share/ yosys yosys-*
+
+      - name: Store build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build.tar
+          retention-days: 1
+
+  test-yosys:
+    name: Run tests
+    runs-on: ${{ matrix.os }}
+    needs: [build-yosys, pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-test-deps: true
+          get-iverilog: true
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+
+      - name: Report errors
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          find tests/**/*.err -print -exec cat {} \;
+
+  test-cells:
+    name: Run test_cell
+    runs-on: ${{ matrix.os }}
+    needs: [build-yosys, pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: test_cell
+        shell: bash
+        run: |
+          ./yosys -p 'test_cell -n 20 -s 1 all'
+          ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $pow $pmux'
+          ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $eqx $nex $bweqx'
+          ./yosys -p 'test_cell -n 20 -s 1 -aigmap $buf'
+
+  test-docs:
+    name: Run docs tests
+    runs-on: ${{ matrix.os }}
+    needs: [build-yosys, pre_docs_job]
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-build-deps: true
+          get-docs-deps: true
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -C docs test -j$procs
+
+  test-docs-build:
+    name: Try build docs
+    runs-on: [self-hosted, linux, x64, fast]
+    needs: [pre_docs_job]
+    if: ${{ needs.pre_docs_job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    strategy:
+      matrix:
+        docs-target: [html, latexpdf]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Yosys
+        run: |
+          make config-clang
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: Install doc prereqs
+        shell: bash
+        run: |
+          make docs/reqs
+
+      - name: Build docs
+        shell: bash
+        run: |
+          make docs DOC_TARGET=${{ matrix.docs-target }} -j$procs
+
+      - name: Store docs build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-build-${{ matrix.docs-target }}
+          path: docs/build/
+          retention-days: 7

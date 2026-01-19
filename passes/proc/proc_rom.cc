@@ -97,10 +97,10 @@ struct RomWorker
 						log_debug("rejecting switch: lhs not uniform\n");
 						return;
 					}
-					val[it2->second] = it.second[i].data;
+					val.set(it2->second, it.second[i].data);
 				}
 			}
-			for (auto bit: val.bits) {
+			for (auto bit: val) {
 				if (bit == State::Sm) {
 					log_debug("rejecting switch: lhs not uniform\n");
 					return;
@@ -113,8 +113,8 @@ struct RomWorker
 					return;
 				}
 				Const c = addr.as_const();
-				while (GetSize(c) && c.bits.back() == State::S0)
-					c.bits.pop_back();
+				while (GetSize(c) && c.back() == State::S0)
+					c.resize(c.size() - 1, State::S0);
 				if (GetSize(c) > swsigbits)
 					continue;
 				if (GetSize(c) > 30) {
@@ -155,22 +155,22 @@ struct RomWorker
 		Mem mem(module, NEW_ID, GetSize(lhs), 0, 1 << abits);
 		mem.attributes = sw->attributes;
 
-		Const init_data;
+		Const::Builder builder(mem.size * GetSize(lhs));
 		for (int i = 0; i < mem.size; i++) {
 			auto it = vals.find(i);
 			if (it == vals.end()) {
 				log_assert(got_default);
-				for (auto bit: default_val.bits)
-					init_data.bits.push_back(bit);
+				for (auto bit: default_val)
+					builder.push_back(bit);
 			} else {
-				for (auto bit: it->second.bits)
-					init_data.bits.push_back(bit);
+				for (auto bit: it->second)
+					builder.push_back(bit);
 			}
 		}
 
 		MemInit init;
 		init.addr = 0;
-		init.data = init_data;
+		init.data = builder.build();
 		init.en = Const(State::S1, GetSize(lhs));
 		mem.inits.push_back(std::move(init));
 
@@ -183,6 +183,12 @@ struct RomWorker
 		mem.rd_ports.push_back(std::move(rd));
 
 		mem.emit();
+
+		if (sw->has_attribute(ID::src)) {
+			mem.inits[0].cell->attributes[ID::src] = sw->attributes[ID::src];
+			mem.rd_ports[0].cell->attributes[ID::src] = sw->attributes[ID::src];
+		}
+
 		for (auto cs: sw->cases)
 			delete cs;
 		sw->cases.clear();
@@ -237,15 +243,10 @@ struct ProcRomPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto mod : design->modules()) {
-			if (!design->selected(mod))
-				continue;
+		for (auto mod : design->all_selected_modules()) {
 			RomWorker worker(mod);
-			for (auto &proc_it : mod->processes) {
-				if (!design->selected(mod, proc_it.second))
-					continue;
-				worker.do_process(proc_it.second);
-			}
+			for (auto proc : mod->selected_processes())
+				worker.do_process(proc);
 			total_count += worker.count;
 		}
 

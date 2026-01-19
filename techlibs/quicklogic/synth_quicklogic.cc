@@ -78,7 +78,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 	}
 
 	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
-	bool abc9, inferAdder, nobram, bramTypes, dsp;
+	bool abc9, inferAdder, nobram, bramTypes, dsp, ioff, flatten;
 
 	void clear_flags() override
 	{
@@ -94,6 +94,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 		bramTypes = false;
 		lib_path = "+/quicklogic/";
 		dsp = true;
+		ioff = true;
+		flatten = true;
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -158,6 +160,14 @@ struct SynthQuickLogicPass : public ScriptPass {
 				dsp = false;
 				continue;
 			}
+			if (args[argidx] == "-noioff") {
+				ioff = false;
+				continue;
+			}
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -166,7 +176,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (family != "pp3" && family != "qlf_k6n10f")
-			log_cmd_error("Invalid family specified: '%s'\n", family.c_str());
+			log_cmd_error("Invalid family specified: '%s'\n", family);
 
 		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
 			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
@@ -188,21 +198,22 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("begin")) {
-			std::string read_simlibs = stringf("read_verilog -lib -specify %scommon/cells_sim.v %s%s/cells_sim.v", lib_path.c_str(), lib_path.c_str(), family.c_str());
+			std::string read_simlibs = stringf("read_verilog -lib -specify %scommon/cells_sim.v %s%s/cells_sim.v", lib_path, lib_path, family);
 			if (family == "qlf_k6n10f") {
-				read_simlibs += stringf(" %sqlf_k6n10f/brams_sim.v", lib_path.c_str());
+				read_simlibs += stringf(" %sqlf_k6n10f/brams_sim.v", lib_path);
 				if (bramTypes)
-					read_simlibs += stringf(" %sqlf_k6n10f/bram_types_sim.v", lib_path.c_str());
+					read_simlibs += stringf(" %sqlf_k6n10f/bram_types_sim.v", lib_path);
 				if (dsp)
-					read_simlibs += stringf(" %sqlf_k6n10f/dsp_sim.v", lib_path.c_str());
+					read_simlibs += stringf(" %sqlf_k6n10f/dsp_sim.v", lib_path);
 			}
 			run(read_simlibs);
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (check_label("prepare")) {
 			run("proc");
-			run("flatten");
+			if (flatten)
+				run("flatten", "(unless -noflatten)");
 			if (help_mode || family == "pp3") {
 				run("tribuf -logic", "                   (for pp3)");
 			}
@@ -266,7 +277,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("map_gates")) {
 			if (inferAdder && family == "qlf_k6n10f") {
-				run("techmap -map +/techmap.v -map " + lib_path + family + "/arith_map.v", "(unless -no_adder)");
+				run("techmap -map +/techmap.v -map " + lib_path + family + "/arith_map.v -D NODIV", "(unless -no_adder)");
+				run("techmap", "(unless -no_adder)");
 			} else {
 				run("techmap");
 			}
@@ -327,6 +339,13 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("clean");
 			run("opt_lut");
 		}
+		
+		if (check_label("iomap", "(for qlf_k6n10f, skip if -noioff)") && (family == "qlf_k6n10f" || help_mode)) {
+			if (ioff || help_mode) {
+				run("ql_ioff");
+				run("opt_clean");
+			}
+		}
 
 		if (check_label("check")) {
 			run("autoname");
@@ -354,13 +373,13 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("blif", "(if -blif)")) {
 			if (!blif_file.empty() || help_mode) {
-				run(stringf("write_blif -attr -param %s %s", top_opt.c_str(), blif_file.c_str()));
+				run(stringf("write_blif -attr -param %s %s", top_opt, blif_file));
 			}
 		}
 
 		if (check_label("verilog", "(if -verilog)")) {
 			if (!verilog_file.empty() || help_mode) {
-				run(stringf("write_verilog -noattr -nohex %s", help_mode ? "<file-name>" : verilog_file.c_str()));
+				run(stringf("write_verilog -noattr -nohex %s", help_mode ? "<file-name>" : verilog_file));
 			}
 		}
 	}

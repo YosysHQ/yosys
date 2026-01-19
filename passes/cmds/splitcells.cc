@@ -103,8 +103,7 @@ struct SplitcellsWorker
 
 				auto slice_signal = [&](SigSpec old_sig) -> SigSpec {
 					SigSpec new_sig;
-					for (int i = 0; i < GetSize(old_sig); i += GetSize(outsig)) {
-						int offset = i+slice_lsb;
+					for (int offset = slice_lsb; offset < GetSize(old_sig); offset += GetSize(outsig)) {
 						int length = std::min(GetSize(old_sig)-offset, slice_msb-slice_lsb+1);
 						new_sig.append(old_sig.extract(offset, length));
 					}
@@ -134,7 +133,7 @@ struct SplitcellsWorker
 			return GetSize(slices)-1;
 		}
 
-		if (cell->type.in("$ff", "$dff", "$dffe", "$dffsr", "$dffsre", "$adff", "$adffe", "$aldffe",
+		if (cell->type.in("$ff", "$dff", "$dffe", "$dffsr", "$dffsre", "$adff", "$adffe", "$aldff", "$aldffe",
 				"$sdff", "$sdffce", "$sdffe", "$dlatch", "$dlatchsr", "$adlatch"))
 		{
 			auto splitports = {ID::D, ID::Q, ID::AD, ID::SET, ID::CLR};

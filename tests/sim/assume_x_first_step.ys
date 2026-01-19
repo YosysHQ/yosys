@@ -1,0 +1,2 @@
+read_verilog simple_assign.v
+sim -r simple_assign.vcd -scope simple_assign

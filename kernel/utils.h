@@ -21,6 +21,7 @@
 // do not depend on any other components of yosys (except stuff like log_*).
 
 #include "kernel/yosys.h"
+#include <iterator>
 
 #ifndef UTILS_H
 #define UTILS_H
@@ -31,17 +32,17 @@ YOSYS_NAMESPACE_BEGIN
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
 
-template<typename Key, typename T, typename OPS = hash_ops<Key>>
+template<typename Key, typename T>
 struct stackmap
 {
 private:
-	std::vector<dict<Key, T*, OPS>> backup_state;
-	dict<Key, T, OPS> current_state;
+	std::vector<dict<Key, T*>> backup_state;
+	dict<Key, T> current_state;
 	static T empty_tuple;
 
 public:
 	stackmap() { }
-	stackmap(const dict<Key, T, OPS> &other) : current_state(other) { }
+	stackmap(const dict<Key, T> &other) : current_state(other) { }
 
 	template<typename Other>
 	void operator=(const Other &other)
@@ -94,7 +95,7 @@ public:
 		current_state.erase(k);
 	}
 
-	const dict<Key, T, OPS> &stdmap()
+	const dict<Key, T> &stdmap()
 	{
 		return current_state;
 	}
@@ -128,7 +129,7 @@ public:
 // A simple class for topological sorting
 // ------------------------------------------------
 
-template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> class TopoSort
+template <typename T, typename C = std::less<T>> class TopoSort
 {
       public:
 	// We use this ordering of the edges in the adjacency matrix for
@@ -149,7 +150,7 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 	std::map<T, int, C> node_to_index;
 	std::vector<std::set<int, IndirectCmp>> edges;
 	std::vector<T> sorted;
-	std::set<std::set<T, C>> loops;
+	std::set<std::vector<T>> loops;
 
 	TopoSort() : indirect_cmp(nodes)
 	{
@@ -220,10 +221,10 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 		if (active_cells[root_index]) {
 			found_loops = true;
 			if (analyze_loops) {
-				std::set<T, C> loop;
+				std::vector<T> loop;
 				for (int i = GetSize(active_stack) - 1; i >= 0; i--) {
 					const int index = active_stack[i];
-					loop.insert(nodes[index]);
+					loop.push_back(nodes[index]);
 					if (index == root_index)
 						break;
 				}
@@ -252,6 +253,51 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 		sorted.push_back(nodes[root_index]);
 	}
 };
+
+// this class is used for implementing operator-> on iterators that return values rather than references
+// it's necessary because in C++ operator-> is called recursively until a raw pointer is obtained
+template<class T>
+struct arrow_proxy {
+	T v;
+	explicit arrow_proxy(T const & v) : v(v) {}
+	T* operator->() { return &v; }
+};
+
+inline int ceil_log2(int x)
+{
+#if defined(__GNUC__)
+        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+#else
+	if (x <= 0)
+		return 0;
+	for (int i = 0; i < 32; i++)
+		if (((x-1) >> i) == 0)
+			return i;
+	log_abort();
+#endif
+}
+
+template <typename T>
+auto reversed(T& container) {
+	struct reverse_view {
+		reverse_view(T& container) : container(container) {}
+		auto begin() const { return container.rbegin(); }
+		auto end() const { return container.rend(); }
+		T& container;
+	};
+	return reverse_view{container};
+}
+
+template <typename T>
+auto reversed(const T& container) {
+	struct reverse_view {
+		reverse_view(const T& container) : container(container) {}
+		auto begin() const { return container.rbegin(); }
+		auto end() const { return container.rend(); }
+		const T& container;
+	};
+	return reverse_view{container};
+}
 
 YOSYS_NAMESPACE_END
 

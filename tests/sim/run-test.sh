@@ -9,4 +9,4 @@ find tb/* -name tb*.v | while read name; do
     iverilog -o tb/$test_name.out $name $verilog_name
     ./tb/$test_name.out -fst
 done
-run_tests --yosys-scripts --bash --yosys-args "-w 'Yosys has only limited support for tri-state logic at the moment.'"
+generate_mk --yosys-scripts --bash --yosys-args "-w 'Yosys has only limited support for tri-state logic at the moment.'"

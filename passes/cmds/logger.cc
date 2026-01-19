@@ -17,14 +17,19 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct LoggerPass : public Pass {
 	LoggerPass() : Pass("logger", "set logger properties") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -60,6 +65,8 @@ struct LoggerPass : public Pass {
 		log("    -expect <type> <regex> <expected_count>\n");
 		log("        expect log, warning or error to appear. matched errors will terminate\n");
 		log("        with exit code 0.\n");
+		log("        Types prefix-log, prefix-warning and prefix-error match the entire\n");
+		log("        logged string, including filename if present.\n");
 		log("\n");
 		log("    -expect-no-warnings\n");
 		log("        gives error in case there is at least one warning that is not expected.\n");
@@ -67,7 +74,7 @@ struct LoggerPass : public Pass {
 		log("    -check-expected\n");
 		log("        verifies that the patterns previously set up by -expect have actually\n");
 		log("        been met, then clears the expected log list.  If this is not called\n");
-		log("        manually, the check will happen at yosys exist time instead.\n");
+		log("        manually, the check will happen at yosys exit time instead.\n");
 		log("\n");
 	}
 
@@ -101,11 +108,11 @@ struct LoggerPass : public Pass {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);		
 				try {
-					log("Added regex '%s' for warnings to warn list.\n", pattern.c_str());
+					log("Added regex '%s' for warnings to warn list.\n", pattern);
 					log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}
@@ -113,11 +120,11 @@ struct LoggerPass : public Pass {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
 				try {
-					log("Added regex '%s' for warnings to nowarn list.\n", pattern.c_str());
+					log("Added regex '%s' for warnings to nowarn list.\n", pattern);
 					log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}
@@ -125,11 +132,11 @@ struct LoggerPass : public Pass {
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
 				try {
-					log("Added regex '%s' for warnings to werror list.\n", pattern.c_str());
+					log("Added regex '%s' for warnings to werror list.\n", pattern);
 					log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}
@@ -145,35 +152,43 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-experimental" && argidx+1 < args.size()) {
 				std::string value = args[++argidx];
-				log("Added '%s' experimental ignore list.\n", value.c_str());
+				log("Added '%s' experimental ignore list.\n", value);
 				log_experimentals_ignored.insert(value);
 				continue;
 			}
 			if (args[argidx] == "-expect" && argidx+3 < args.size()) {
 				std::string type = args[++argidx];
-				if (type!="error" && type!="warning" && type!="log")
+				if (type!="error" && type!="warning" && type!="log"
+						&& type!="prefix-error" && type!="prefix-warning" && type!="prefix-log")
 					log_cmd_error("Expect command require type to be 'log', 'warning' or 'error' !\n");
-				if (type=="error" && log_expect_error.size()>0)
+				if ((type=="error" || type=="prefix-error") && log_expect_error.size()>0)
 					log_cmd_error("Only single error message can be expected !\n");
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);					
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				int count = atoi(args[++argidx].c_str());
 				if (count<=0)
 					log_cmd_error("Number of expected messages must be higher then 0 !\n");
-				if (type=="error" && count!=1)
+				if ((type=="error" || type=="prefix-error") && count!=1)
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
-				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
+				log("Added regex '%s' to expected %s messages list.\n",
+					pattern.c_str(), type.c_str());
 				try {
 					if (type == "error")
 						log_expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "prefix-error")
+						log_expect_prefix_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 					else if (type == "warning")
 						log_expect_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "prefix-warning")
+						log_expect_prefix_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 					else if (type == "log")
 						log_expect_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "prefix-log")
+						log_expect_prefix_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 					else log_abort();
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}

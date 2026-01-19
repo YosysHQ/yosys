@@ -34,6 +34,7 @@ struct JsonWriter
 	bool use_selection;
 	bool aig_mode;
 	bool compat_int_mode;
+	bool scopeinfo_mode;
 
 	Design *design;
 	Module *module;
@@ -43,9 +44,9 @@ struct JsonWriter
 	dict<SigBit, string> sigids;
 	pool<Aig> aig_models;
 
-	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode) :
+	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode, bool scopeinfo_mode) :
 			f(f), use_selection(use_selection), aig_mode(aig_mode),
-			compat_int_mode(compat_int_mode) { }
+			compat_int_mode(compat_int_mode), scopeinfo_mode(scopeinfo_mode) { }
 
 	string get_string(string str)
 	{
@@ -134,7 +135,7 @@ struct JsonWriter
 		bool first = true;
 		for (auto &param : parameters) {
 			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first).c_str());
+			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first));
 			write_parameter_value(param.second);
 			first = false;
 		}
@@ -154,7 +155,7 @@ struct JsonWriter
 			log_error("Module %s contains processes, which are not supported by JSON backend (run `proc` first).\n", log_id(module));
 		}
 
-		f << stringf("    %s: {\n", get_name(module->name).c_str());
+		f << stringf("    %s: {\n", get_name(module->name));
 
 		f << stringf("      \"attributes\": {");
 		write_parameters(module->attributes, /*for_module=*/true);
@@ -173,7 +174,7 @@ struct JsonWriter
 			if (use_selection && !module->selected(w))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("        %s: {\n", get_name(n).c_str());
+			f << stringf("        %s: {\n", get_name(n));
 			f << stringf("          \"direction\": \"%s\",\n", w->port_input ? w->port_output ? "inout" : "input" : "output");
 			if (w->start_offset)
 				f << stringf("          \"offset\": %d,\n", w->start_offset);
@@ -181,7 +182,7 @@ struct JsonWriter
 				f << stringf("          \"upto\": 1,\n");
 			if (w->is_signed)
 				f << stringf("          \"signed\": %d,\n", w->is_signed);
-			f << stringf("          \"bits\": %s\n", get_bits(w).c_str());
+			f << stringf("          \"bits\": %s\n", get_bits(w));
 			f << stringf("        }");
 			first = false;
 		}
@@ -192,18 +193,16 @@ struct JsonWriter
 		for (auto c : module->cells()) {
 			if (use_selection && !module->selected(c))
 				continue;
-			// Eventually we will want to emit $scopeinfo, but currently this
-			// will break JSON netlist consumers like nextpnr
-			if (c->type == ID($scopeinfo))
+			if (!scopeinfo_mode && c->type == ID($scopeinfo))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("        %s: {\n", get_name(c->name).c_str());
+			f << stringf("        %s: {\n", get_name(c->name));
 			f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");
-			f << stringf("          \"type\": %s,\n", get_name(c->type).c_str());
+			f << stringf("          \"type\": %s,\n", get_name(c->type));
 			if (aig_mode) {
 				Aig aig(c);
 				if (!aig.name.empty()) {
-					f << stringf("          \"model\": \"%s\",\n", aig.name.c_str());
+					f << stringf("          \"model\": \"%s\",\n", aig.name);
 					aig_models.insert(aig);
 				}
 			}
@@ -221,7 +220,7 @@ struct JsonWriter
 					if (c->input(conn.first))
 						direction = c->output(conn.first) ? "inout" : "input";
 					f << stringf("%s\n", first2 ? "" : ",");
-					f << stringf("            %s: \"%s\"", get_name(conn.first).c_str(), direction.c_str());
+					f << stringf("            %s: \"%s\"", get_name(conn.first), direction);
 					first2 = false;
 				}
 				f << stringf("\n          },\n");
@@ -230,7 +229,7 @@ struct JsonWriter
 			bool first2 = true;
 			for (auto &conn : c->connections()) {
 				f << stringf("%s\n", first2 ? "" : ",");
-				f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
+				f << stringf("            %s: %s", get_name(conn.first), get_bits(conn.second));
 				first2 = false;
 			}
 			f << stringf("\n          }\n");
@@ -246,7 +245,7 @@ struct JsonWriter
 				if (use_selection && !module->selected(it.second))
 					continue;
 				f << stringf("%s\n", first ? "" : ",");
-				f << stringf("        %s: {\n", get_name(it.second->name).c_str());
+				f << stringf("        %s: {\n", get_name(it.second->name));
 				f << stringf("          \"hide_name\": %s,\n", it.second->name[0] == '$' ? "1" : "0");
 				f << stringf("          \"attributes\": {");
 				write_parameters(it.second->attributes);
@@ -266,9 +265,9 @@ struct JsonWriter
 			if (use_selection && !module->selected(w))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("        %s: {\n", get_name(w->name).c_str());
+			f << stringf("        %s: {\n", get_name(w->name));
 			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
-			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
+			f << stringf("          \"bits\": %s,\n", get_bits(w));
 			if (w->start_offset)
 				f << stringf("          \"offset\": %d,\n", w->start_offset);
 			if (w->upto)
@@ -292,7 +291,7 @@ struct JsonWriter
 		design->sort();
 
 		f << stringf("{\n");
-		f << stringf("  \"creator\": %s,\n", get_string(yosys_version_str).c_str());
+		f << stringf("  \"creator\": %s,\n", get_string(yosys_maybe_version()));
 		f << stringf("  \"modules\": {\n");
 		vector<Module*> modules = use_selection ? design->selected_modules() : design->modules();
 		bool first_module = true;
@@ -309,7 +308,7 @@ struct JsonWriter
 			for (auto &aig : aig_models) {
 				if (!first_model)
 					f << stringf(",\n");
-				f << stringf("    \"%s\": [\n", aig.name.c_str());
+				f << stringf("    \"%s\": [\n", aig.name);
 				int node_idx = 0;
 				for (auto &node : aig.nodes) {
 					if (node_idx != 0)
@@ -352,6 +351,12 @@ struct JsonBackend : public Backend {
 		log("    -compat-int\n");
 		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
+		log("\n");
+		log("    -selected\n");
+		log("        output only select module\n");
+		log("\n");
+		log("    -noscopeinfo\n");
+		log("        don't include $scopeinfo cells in the output\n");
 		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
@@ -403,7 +408,7 @@ struct JsonBackend : public Backend {
 		log("\n");
 		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.\n");
 		log("They don't affect connection semantics, and are only used to preserve original\n");
-		log("HDL bit indexing.");
+		log("HDL bit indexing.\n");
 		log("And <cell_details> is:\n");
 		log("\n");
 		log("    {\n");
@@ -597,6 +602,8 @@ struct JsonBackend : public Backend {
 	{
 		bool aig_mode = false;
 		bool compat_int_mode = false;
+		bool use_selection = false;
+		bool scopeinfo_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -609,13 +616,21 @@ struct JsonBackend : public Backend {
 				compat_int_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-selected") {
+				use_selection = true;
+				continue;
+			}
+			if (args[argidx] == "-noscopeinfo") {
+				scopeinfo_mode = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing JSON backend.\n");
 
-		JsonWriter json_writer(*f, false, aig_mode, compat_int_mode);
+		JsonWriter json_writer(*f, use_selection, aig_mode, compat_int_mode, scopeinfo_mode);
 		json_writer.write_design(design);
 	}
 } JsonBackend;
@@ -640,6 +655,9 @@ struct JsonPass : public Pass {
 		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
+		log("    -noscopeinfo\n");
+		log("        don't include $scopeinfo cells in the output\n");
+		log("\n");
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
@@ -648,6 +666,7 @@ struct JsonPass : public Pass {
 		std::string filename;
 		bool aig_mode = false;
 		bool compat_int_mode = false;
+		bool scopeinfo_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -664,6 +683,10 @@ struct JsonPass : public Pass {
 				compat_int_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-noscopeinfo") {
+				scopeinfo_mode = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -678,20 +701,20 @@ struct JsonPass : public Pass {
 			ff->open(filename.c_str(), std::ofstream::trunc);
 			if (ff->fail()) {
 				delete ff;
-				log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+				log_error("Can't open file `%s' for writing: %s\n", filename, strerror(errno));
 			}
 			f = ff;
 		} else {
 			f = &buf;
 		}
 
-		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode);
+		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode, scopeinfo_mode);
 		json_writer.write_design(design);
 
 		if (!empty) {
 			delete f;
 		} else {
-			log("%s", buf.str().c_str());
+			log("%s", buf.str());
 		}
 	}
 } JsonPass;

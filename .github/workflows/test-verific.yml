@@ -1,0 +1,125 @@
+name: Build and run tests with Verific (Linux)
+
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  merge_group:
+  # test PRs
+  pull_request:
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
+
+jobs:
+  pre-job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # don't run on documentation changes
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+          # cancel previous builds if a new commit is pushed
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
+
+  test-verific:
+    needs: pre-job
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    runs-on: [self-hosted, linux, x64, fast]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Yosys
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_FUNCTIONAL_TESTS := 1" >> Makefile.conf
+          make -j$procs ENABLE_LTO=1
+
+      - name: Install Yosys
+        run: |
+          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+
+      - name: Checkout SBY
+        uses: actions/checkout@v4
+        with:
+          repository: 'YosysHQ/sby'
+          path: 'sby'
+          persist-credentials: false
+
+      - name: Build SBY
+        run: |
+          make -C sby install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+
+      - name: Run Yosys tests
+        run: |
+          make -j$procs test
+
+      - name: Run Verific specific Yosys tests
+        run: |
+          make -C tests/sva
+          cd tests/svtypes && bash run-test.sh
+
+      - name: Run SBY tests
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          make -C sby run_ci
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          make -j$procs unit-test ENABLE_LTO=1 ENABLE_LIBYOSYS=1
+
+  test-pyosys:
+    needs: pre-job
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    runs-on: [self-hosted, linux, x64, fast]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
+
+      - name: Build pyosys
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_PYOSYS := 1" >> Makefile.conf
+          echo "PYTHON_DESTDIR := /usr/lib/python3/site-packages" >> Makefile.conf
+          make -j$procs
+
+      - name: Install pyosys
+        run: |
+          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+
+      - name: Run pyosys tests
+        run: |
+          export PYTHONPATH=${GITHUB_WORKSPACE}/.local/usr/lib/python3/site-packages:$PYTHONPATH
+          python3 tests/pyosys/run_tests.py

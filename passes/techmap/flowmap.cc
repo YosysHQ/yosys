@@ -250,9 +250,11 @@ struct FlowGraph
 		{
 			return !(*this == other);
 		}
-		unsigned int hash() const
+		[[nodiscard]] Hasher hash_into(Hasher h) const
 		{
-			return hash_ops<pair<RTLIL::SigBit, int>>::hash({node, is_bottom});
+			std::pair<RTLIL::SigBit, int> p = {node, is_bottom};
+			h.eat(p);
+			return h;
 		}
 
 		static NodePrime top(RTLIL::SigBit node)
@@ -596,7 +598,7 @@ struct FlowmapWorker
 				continue;
 
 			if (!cell->known())
-				log_error("Cell %s (%s.%s) is unknown.\n", cell->type.c_str(), log_id(module), log_id(cell));
+				log_error("Cell %s (%s.%s) is unknown.\n", cell->type, log_id(module), log_id(cell));
 
 			pool<RTLIL::SigBit> fanout;
 			for (auto conn : cell->connections())
@@ -1399,7 +1401,7 @@ struct FlowmapWorker
 					          log_signal(node), log_signal(undef), env.c_str());
 				}
 
-				lut_table[i] = value.as_bool() ? State::S1 : State::S0;
+				lut_table.set(i, value.as_bool() ? State::S1 : State::S0);
 				ce.pop();
 			}
 

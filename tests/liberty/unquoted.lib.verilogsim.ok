@@ -1,0 +1,42 @@
+module dff1 (D, CLK, Q);
+  reg IQ, IQN;
+  input D;
+  input CLK;
+  output Q;
+  assign Q = IQ; // IQ
+  always @(posedge CLK) begin
+      IQ <= (~D);
+  end
+  always @(posedge CLK) begin
+      IQN <= ~((~D));
+  end
+endmodule
+module dff2 (D, CLK, Q);
+  reg IQ, IQN;
+  input D;
+  input CLK;
+  output Q;
+  assign Q = IQ; // "IQ"
+  always @(posedge CLK) begin
+      IQ <= (~D);
+  end
+  always @(posedge CLK) begin
+      IQN <= ~((~D));
+  end
+endmodule
+module dffe (D, EN, CLK, Q, QN);
+  reg IQ, IQN;
+  input D;
+  input EN;
+  input CLK;
+  output Q;
+  assign Q = IQ; // "IQ"
+  output QN;
+  assign QN = IQN; // "IQN"
+  always @(negedge CLK) begin
+      IQ <= ((D&EN)|(IQ&(~EN)));
+  end
+  always @(negedge CLK) begin
+      IQN <= ~(((D&EN)|(IQ&(~EN))));
+  end
+endmodule

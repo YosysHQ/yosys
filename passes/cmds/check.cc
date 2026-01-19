@@ -19,14 +19,21 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/celledges.h"
 #include "kernel/celltypes.h"
 #include "kernel/utils.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct CheckPass : public Pass {
 	CheckPass() : Pass("check", "check for obvious problems in the design") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -58,6 +65,12 @@ struct CheckPass : public Pass {
 		log("    -assert\n");
 		log("        produce a runtime error if any problems are found in the current design\n");
 		log("\n");
+		log("    -force-detailed-loop-check\n");
+		log("        for the detection of combinatorial loops, use a detailed connectivity\n");
+		log("        model for all internal cells for which it is available. This disables\n");
+		log("        falling back to a simpler overapproximating model for those cells for\n");
+		log("        which the detailed model is expected costly.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -67,6 +80,8 @@ struct CheckPass : public Pass {
 		bool mapped = false;
 		bool allow_tbuf = false;
 		bool assert_mode = false;
+		bool force_detailed_loop_check = false;
+		bool suggest_detail = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -90,6 +105,10 @@ struct CheckPass : public Pass {
 				assert_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-force-detailed-loop-check") {
+				force_detailed_loop_check = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -102,10 +121,10 @@ struct CheckPass : public Pass {
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
+			dict<SigBit, Cell *> driver_cells;
 			dict<SigBit, int> wire_drivers_count;
 			pool<SigBit> used_wires;
-			TopoSort<string> topo;
-
+			TopoSort<std::pair<RTLIL::IdString, int>> topo;
 			for (auto &proc_it : module->processes)
 			{
 				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
@@ -150,6 +169,92 @@ struct CheckPass : public Pass {
 				}
 			}
 
+			struct CircuitEdgesDatabase : AbstractCellEdgesDatabase {
+				TopoSort<std::pair<RTLIL::IdString, int>> &topo;
+				SigMap sigmap;
+				bool force_detail;
+
+				CircuitEdgesDatabase(TopoSort<std::pair<RTLIL::IdString, int>> &topo, SigMap &sigmap, bool force_detail)
+					: topo(topo), sigmap(sigmap), force_detail(force_detail) {}
+
+				void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit,
+							  RTLIL::IdString to_port, int to_bit, int) override {
+					SigSpec from_portsig = cell->getPort(from_port);
+					SigSpec to_portsig = cell->getPort(to_port);
+					log_assert(from_bit >= 0 && from_bit < from_portsig.size());
+					log_assert(to_bit >= 0 && to_bit < to_portsig.size());
+					SigBit from = sigmap(from_portsig[from_bit]);
+					SigBit to = sigmap(to_portsig[to_bit]);
+
+					if (from.wire && to.wire)
+						topo.edge(std::make_pair(from.wire->name, from.offset), std::make_pair(to.wire->name, to.offset));
+				}
+
+				bool detail_costly(Cell *cell) {
+					// Only those cell types for which the edge data can expode quadratically
+					// in port widths are those for us to check.
+					if (!cell->type.in(
+							ID($add), ID($sub),
+							ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+							ID($pmux), ID($bmux)))
+						return false;
+
+					int in_widths = 0, out_widths = 0;
+
+					if (cell->type.in(ID($pmux), ID($bmux))) {
+						// We're skipping inputs A and B, since each of their bits contributes only one edge
+						in_widths = GetSize(cell->getPort(ID::S));
+						out_widths = GetSize(cell->getPort(ID::Y));
+					} else {
+						for (auto &conn : cell->connections()) {
+							if (cell->input(conn.first))
+								in_widths += conn.second.size();
+							if (cell->output(conn.first))
+								out_widths += conn.second.size();
+						}
+					}
+
+					const int threshold = 1024;
+
+					// if the multiplication may overflow we will catch it here 
+					if (in_widths + out_widths >= threshold)
+						return true;
+
+					if (in_widths * out_widths >= threshold)
+						return true;
+
+					return false;
+				}
+
+				bool add_edges_from_cell(Cell *cell) {
+					if (force_detail || !detail_costly(cell)) {
+						if (AbstractCellEdgesDatabase::add_edges_from_cell(cell))
+							return true;
+					}
+
+					// We don't have accurate cell edges, do the fallback of all input-output pairs
+					for (auto &conn : cell->connections()) {
+						if (cell->input(conn.first))
+						for (auto bit : sigmap(conn.second))
+						if (bit.wire)
+							topo.edge(std::make_pair(bit.wire->name, bit.offset),
+									  std::make_pair(cell->name, -1));
+
+						if (cell->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+						if (bit.wire)
+							topo.edge(std::make_pair(cell->name, -1),
+									  std::make_pair(bit.wire->name, bit.offset));
+					}
+
+					// Return false to signify the fallback
+					return false;
+				}
+			};
+
+			CircuitEdgesDatabase edges_db(topo, sigmap, force_detailed_loop_check);
+
+			pool<Cell *> coarsened_cells;
 			for (auto cell : module->cells())
 			{
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
@@ -158,30 +263,31 @@ struct CheckPass : public Pass {
 					counter++;
 				cell_allowed:;
 				}
-				for (auto &conn : cell->connections()) {
-					SigSpec sig = sigmap(conn.second);
-					bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
-					if (cell->input(conn.first))
-						for (auto bit : sig)
-							if (bit.wire) {
-								if (logic_cell)
-									topo.edge(stringf("wire %s", log_signal(bit)),
-											stringf("cell %s (%s)", log_id(cell), log_id(cell->type)));
-								used_wires.insert(bit);
-							}
-					if (cell->output(conn.first))
-						for (int i = 0; i < GetSize(sig); i++) {
-							if (logic_cell)
-								topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
-										stringf("wire %s", log_signal(sig[i])));
 
-							if (sig[i].wire || !cell->input(conn.first))
-								wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
-										log_id(conn.first), i, log_id(cell), log_id(cell->type)));
-						}
-					if (!cell->input(conn.first) && cell->output(conn.first))
-						for (auto bit : sig)
-							if (bit.wire) wire_drivers_count[bit]++;
+				for (auto &conn : cell->connections()) {
+					bool input = cell->input(conn.first);
+					bool output = cell->output(conn.first);
+
+					SigSpec sig = sigmap(conn.second);
+					for (int i = 0; i < sig.size(); i++) {
+						SigBit bit = sig[i];
+
+						if (input && bit.wire)
+							used_wires.insert(bit);
+						if (output && !input && bit.wire)
+							wire_drivers_count[bit]++;
+						if (output && (bit.wire || !input))
+							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", log_id(conn.first), i,
+																log_id(cell), log_id(cell->type)));
+						if (output)
+							driver_cells[bit] = cell;
+					}
+				}
+
+				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)) \
+						|| cell->is_builtin_ff()) {
+					if (!edges_db.add_edges_from_cell(cell))
+						coarsened_cells.insert(cell);
 				}
 			}
 
@@ -216,8 +322,8 @@ struct CheckPass : public Pass {
 				if (wire_drivers.count(state)) {
 					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
 					for (auto str : wire_drivers[state])
-						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
+						message += stringf("    %s\n", str);
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -225,8 +331,8 @@ struct CheckPass : public Pass {
 				if (wire_drivers_count[it.first] > 1) {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
 					for (auto str : it.second)
-						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
+						message += stringf("    %s\n", str);
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -239,9 +345,80 @@ struct CheckPass : public Pass {
 			topo.sort();
 			for (auto &loop : topo.loops) {
 				string message = stringf("found logic loop in module %s:\n", log_id(module));
-				for (auto &str : loop)
-					message += stringf("    %s\n", str.c_str());
-				log_warning("%s", message.c_str());
+
+				// `loop` only contains wire bits, or an occasional special helper node for cells for
+				// which we have done the edges fallback. The cell and its ports that led to an edge are
+				// a piece of information we need to recover now. For that we need to have the previous
+				// wire bit of the loop at hand.
+				SigBit prev;
+				for (auto it = loop.rbegin(); it != loop.rend(); it++)
+				if (it->second != -1) { // skip the fallback helper nodes
+					prev = SigBit(module->wire(it->first), it->second);
+					break;
+				}
+				log_assert(prev != SigBit());
+
+				for (auto &pair : loop) {
+					if (pair.second == -1)
+						continue; // helper node for edges fallback, we can ignore it
+
+					struct MatchingEdgePrinter : AbstractCellEdgesDatabase {
+						std::string &message;
+						SigMap &sigmap;
+						SigBit from, to;
+						int nhits;
+						const int HITS_LIMIT = 3;
+
+						MatchingEdgePrinter(std::string &message, SigMap &sigmap, SigBit from, SigBit to)
+							: message(message), sigmap(sigmap), from(from), to(to), nhits(0) {}
+
+						void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit,
+									  RTLIL::IdString to_port, int to_bit, int) override {
+							SigBit edge_from = sigmap(cell->getPort(from_port))[from_bit];
+							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
+
+							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
+								message += stringf("      %s[%d] --> %s[%d]\n", log_id(from_port), from_bit,
+												   log_id(to_port), to_bit);
+							if (nhits == HITS_LIMIT)
+								message += "      ...\n";
+						}
+					};
+
+					Wire *wire = module->wire(pair.first);
+					log_assert(wire);
+					SigBit bit(module->wire(pair.first), pair.second);
+					log_assert(driver_cells.count(bit));
+					Cell *driver = driver_cells.at(bit);
+
+					std::string driver_src;
+					if (driver->has_attribute(ID::src)) {
+						std::string src_attr = driver->get_src_attribute();
+						driver_src = stringf(" source: %s", src_attr);
+					}
+
+					message += stringf("    cell %s (%s)%s\n", log_id(driver), log_id(driver->type), driver_src);
+
+					if (!coarsened_cells.count(driver)) {						
+						MatchingEdgePrinter printer(message, sigmap, prev, bit);
+						printer.add_edges_from_cell(driver);
+					} else {
+						message += "      (cell's internal connectivity overapproximated; loop may be a false positive)\n";
+						suggest_detail = true;
+					}
+
+					if (wire->name.isPublic()) {
+						std::string wire_src;
+						if (wire->has_attribute(ID::src)) {
+							std::string src_attr = wire->get_src_attribute();
+							wire_src = stringf(" source: %s", src_attr);
+						}
+						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);						
+					}
+
+					prev = bit;
+				}
+				log_warning("%s", message);
 				counter++;
 			}
 
@@ -249,7 +426,7 @@ struct CheckPass : public Pass {
 			{
 				for (auto cell : module->cells())
 				{
-					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
+					if (cell->is_builtin_ff() == 0)
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))
@@ -267,6 +444,9 @@ struct CheckPass : public Pass {
 		}
 
 		log("Found and reported %d problems.\n", counter);
+
+		if (suggest_detail)
+			log("Consider re-running with '-force-detailed-loop-check' to rule out false positives.\n");
 
 		if (assert_mode && counter > 0)
 			log_error("Found %d problems in 'check -assert'.\n", counter);

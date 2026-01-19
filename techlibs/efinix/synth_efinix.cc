@@ -142,7 +142,7 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib +/efinix/cells_sim.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -161,9 +161,13 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("map_ram"))
 		{
 			std::string args = "";
-			if (nobram)
-				args += " -no-auto-block";
-			run("memory_libmap -lib +/efinix/brams.txt" + args);
+			if (help_mode)
+				args += " [-no-auto-block]";
+			else {
+				if (nobram)
+					args += " -no-auto-block";
+			}
+			run("memory_libmap -lib +/efinix/brams.txt" + args, "(-no-auto-block if -nobram)");
 			run("techmap -map +/efinix/brams_map.v");
 		}
 
@@ -221,13 +225,13 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthEfinixPass;

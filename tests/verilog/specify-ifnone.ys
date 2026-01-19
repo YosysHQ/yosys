@@ -1,0 +1,27 @@
+# ifnone gets parsed and ignored without -specify
+logger -expect-no-warnings
+read_verilog << EOF
+module dut1 (i, o);
+	output o;
+	input i;
+	specify
+		if (a ^ (* meow *) 1 == 1'b0)
+			(i => o) = 1;
+		ifnone (i => o) = 0;
+	endspecify
+endmodule
+EOF
+
+# ifnone is still an error with -specify
+logger -expect error "syntax error" 1
+read_verilog -specify << EOF
+module dut2 (i, o);
+	output o;
+	input i;
+	specify
+		if (a ^ (* meow *) 1 == 1'b0)
+			(i => o) = 1;
+		ifnone (i => o) = 0;
+	endspecify
+endmodule
+EOF
