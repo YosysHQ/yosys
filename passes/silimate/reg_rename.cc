@@ -24,15 +24,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct CellTracker {
-	Cell *cell;
-	int index;
-};
-
-struct RegTracker {
-	std::map<std::string, CellTracker> renamedRegs;
-	std::string origRegWidth;
-	Module *module;
+struct RegWires {
+	std::vector<std::pair<Wire*, int>> oldWires;
+	int origRegWidth;
 };
 
 struct RegRenamePass : public Pass {
@@ -61,7 +55,8 @@ struct RegRenamePass : public Pass {
 		// Data structure used to keep track of multi-bit registers.
 		// Relevant for correct register annotation.
 		// Key is (Module*, baseName) to handle hierarchical designs where multiple modules may have same register names
-		std::map<std::pair<Module*, std::string>, RegTracker> regTrackers;
+		// Value is a vector of (Wire*, index) pairs to connect the renamed registers to the corresponding index of the new wire
+		std::map<std::pair<Module*, std::string>, RegWires> regWireMap;
 
 		// Regex to match register output wires
 		// .*_reg[NUMBER] or .*_reg, can match NUMBER and part before _reg
@@ -111,9 +106,8 @@ struct RegRenamePass : public Pass {
 							if (isMultiBit) {
 								std::string origRegWidth = cell->get_string_attribute("$ORIG_REG_WIDTH");
 								auto key = std::make_pair(module, baseName);
-								regTrackers[key].origRegWidth = origRegWidth;
-								regTrackers[key].renamedRegs[registerName] = CellTracker{cell, std::stoi(indexStr)};
-								regTrackers[key].module = module;
+								regWireMap[key].oldWires.push_back(std::make_pair(wire, std::stoi(indexStr)));
+								regWireMap[key].origRegWidth = std::stoi(origRegWidth);
 							}
 								
 							module->rename(wire, registerName);
@@ -124,45 +118,44 @@ struct RegRenamePass : public Pass {
 			}
 		}
 
-	for (const auto &[key, regTracker] : regTrackers) {
-		auto [mod, baseName] = key;
+		// Iterate over regWireMap to create new wires and connect renamed registers to it.
+		// Only applies to multi-bit registers.
+		for (const auto &[key, regWires] : regWireMap) {
+			auto [mod, baseName] = key; // module and original register name in RTL
 
-		// Create a new wire for the multi-bit register
-		int width = std::stoi(regTracker.origRegWidth);
-		log("Creating new wire %s for register %s with width %d in module %s\n", 
-		    baseName.c_str(), baseName.c_str(), width, log_id(mod));
-		Wire *newWire = mod->addWire(baseName, width);
+			// Create a new wire for the multi-bit register
+			int width = regWires.origRegWidth;
+			log("Creating new wire %s for register %s with width %d in module %s\n", 
+					baseName.c_str(), baseName.c_str(), width, log_id(mod));
+			Wire *newWire = mod->addWire(baseName, width);
 
-		pool<Wire *> oldWires;
+			// Initialize a pool of old wire to remove from the netlist
+			pool<Wire *> oldWires;
 
-		// Connect the renamed registers to the corresponding index of the new wire
-		for (const auto &[renamedRegName, cellTracker] : regTracker.renamedRegs) {
+			// Connect the renamed registers to the corresponding index of the new wire
+			for (const auto &[oldWire, index] : regWires.oldWires) {
 
-			// Get the old wire (the Q output that was renamed)
-			Wire *oldWire = cellTracker.cell->getPort(ID::Q).as_wire();
+				// Get the old wire (the Q output that was renamed)
+				log("Connecting renamed register %s to index %d of %s\n", oldWire->name.c_str(), index, baseName.c_str());
 
-			// Get the index of the renamed register
-			int index = cellTracker.index;
-			log("Connecting renamed register %s to index %d of %s\n", renamedRegName.c_str(), index, baseName.c_str());
+				// Connect the renamed register to the corresponding index of the new wiret
+				mod->connect(SigSpec(newWire, index, 1), oldWire);
 
-			// Connect the renamed register to the corresponding index of the new wiret
-			mod->connect(SigSpec(newWire, index, 1), cellTracker.cell->getPort(ID::Q));
+				// Replace all uses of oldWire with newWire[index] throughout the module
+				auto rewriter = [&](SigSpec &sig) {
+					sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
+				};
+				mod->rewrite_sigspecs(rewriter);
 
-			// Replace all uses of oldWire with newWire[index] throughout the module
-			auto rewriter = [&](SigSpec &sig) {
-				sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
-			};
-			mod->rewrite_sigspecs(rewriter);
+				// Add the old wire to the list of old wires to delete
+				oldWires.insert(oldWire);
+			}
 
-			// Add the old wire to the list of old wires to delete
-			oldWires.insert(oldWire);
+			// Delete the old wires
+			mod->remove(oldWires);
 		}
 
-		// Delete the old wires
-		mod->remove(oldWires);
-	}
-
-
+		// End
 		log("Renamed %d registers in %d modules\n", count, moduleCount);
 		log_flush();
 	}
