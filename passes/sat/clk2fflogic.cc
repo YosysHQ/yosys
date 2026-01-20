@@ -123,10 +123,14 @@ struct Clk2fflogicPass : public Pass {
 			return module->Mux(NEW_ID, a, b, s);
 	}
 	SigSpec bitwise_sr(Module *module, SigSpec a, SigSpec s, SigSpec r, bool is_fine) {
-		if (is_fine)
-			return module->AndGate(NEW_ID, module->OrGate(NEW_ID, a, s), module->NotGate(NEW_ID, r));
-		else
-			return module->And(NEW_ID, module->Or(NEW_ID, a, s), module->Not(NEW_ID, r));
+		if (is_fine) {
+			return module->MuxGate(NEW_ID, module->AndGate(NEW_ID, module->OrGate(NEW_ID, a, s), module->NotGate(NEW_ID, r)), RTLIL::State::Sx, module->AndGate(NEW_ID, s, r));
+		} else {
+			std::vector<SigBit> y;
+			for (int i = 0; i < a.size(); i++)
+				y.push_back(module->MuxGate(NEW_ID, module->AndGate(NEW_ID, module->OrGate(NEW_ID, a[i], s[i]), module->NotGate(NEW_ID, r[i])), RTLIL::State::Sx, module->AndGate(NEW_ID, s[i], r[i])));
+			return y;
+		}
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
