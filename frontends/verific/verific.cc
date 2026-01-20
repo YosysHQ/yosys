@@ -172,10 +172,6 @@ struct YosysVerificSettings {
 		}
 	}
 
-	bool has_option(const std::string &name) const {
-		return options.find(name) != options.end();
-	}
-
 	bool get_bool(const std::string &name) const {
 		auto it = options.find(name);
 		if (it == options.end() || it->second.type != Type::BOOL)
@@ -4546,7 +4542,7 @@ struct VerificPass : public Pass {
 			// One argument: show specific setting
 			if (argidx+2 == GetSize(args)) {
 				const std::string &name = args[argidx+1];
-				if (!yosys_verific_settings.has_option(name))
+				if (!yosys_verific_settings.options.count(name))
 					log_cmd_error("Unknown Yosys-Verific setting '%s'.\n", name.c_str());
 				const auto &opt = yosys_verific_settings.options.at(name);
 				switch (opt.type) {
@@ -4570,7 +4566,7 @@ struct VerificPass : public Pass {
 			if (argidx+3 == GetSize(args)) {
 				const std::string &name = args[argidx+1];
 				const std::string &value = args[argidx+2];
-				if (!yosys_verific_settings.has_option(name))
+				if (!yosys_verific_settings.options.count(name))
 					log_cmd_error("Unknown Yosys-Verific setting '%s'.\n", name.c_str());
 				auto &opt = yosys_verific_settings.options.at(name);
 				switch (opt.type) {
