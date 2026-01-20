@@ -459,8 +459,14 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 				ez->assume(ez->IFF(undef_y[0], undef_a[0]));
 			}
 			for (size_t i = 1; i < a.size(); i++) {
-				any_previous_undef = ez->OR(any_previous_undef, undef_a[i]);
-				ez->assume(ez->IFF(undef_y[i], ez->AND(ez->NOT(active_so_far[i - 1]), any_previous_undef)));
+				int inactive_val = !polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
+				// $mux emulation
+				int is_active = ez->XOR(inactive_val, a[i]);
+				int undef_because_s = ez->AND(any_previous_undef, ez->OR(is_active, undef_a[i]));
+				int undef_because_a = ez->AND(ez->OR(any_previous_undef, ez->NOT(active_so_far[i-1])), undef_a[i]);
+				int undef = ez->OR(undef_because_s, undef_because_a);
+				any_previous_undef = ez->OR(any_previous_undef, is_active);
+				ez->assume(ez->IFF(undef_y[i], undef));
 			}
 			undefGating(y, yy, undef_y);
 		}
