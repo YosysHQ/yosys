@@ -30,7 +30,7 @@ struct RegWires {
 };
 
 struct RegRenamePass : public Pass {
-	RegRenamePass() : Pass("reg_rename", "renames register output wires to the correct register name") { }
+	RegRenamePass() : Pass("reg_rename", "renames register output wires to the correct register name and creates new wires for multi-bit registers for correct VCD register annotations.") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -90,21 +90,22 @@ struct RegRenamePass : public Pass {
 							// Different cases for multi-bit and single-bit registers
 							if (isMultiBit) {
 
-								// Index of the register and original register width
+								// Index of the register
 								int index = std::stoi(match[2].str());
-								int origRegWidth = std::stoi(cell->get_string_attribute("$ORIG_REG_WIDTH"));
 
 								// Get or create the multi-bit wire
 								Wire *newWire = module->wire(RTLIL::escape_id(baseName));
 								if (newWire == nullptr) {
-									// Wire doesn't exist, create it
+									// Wire doesn't exist, create it with the original register width
+									int origRegWidth = std::stoi(cell->get_string_attribute("$ORIG_REG_WIDTH"));
 									log("Creating multi-bit wire %s with width %d in module %s\n",
 										baseName.c_str(), origRegWidth, log_id(module));
 									newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
 								}
 
+								// Log that the new wire is being connected to the register
 								log("Connecting register wire %s to bit %d of %s in module %s\n",
-									oldWire->name.c_str(), index, baseName.c_str(), log_id(module));
+									newWire->name.c_str(), index, baseName.c_str(), log_id(module));
 								
 								// Replace all uses of oldWire with newWire[index]
 								auto rewriter = [&](SigSpec &sig) {
@@ -113,9 +114,10 @@ struct RegRenamePass : public Pass {
 								module->rewrite_sigspecs(rewriter);
 								
 								// Mark old wire for deletion
+								log("Marking old wire %s for deletion in module %s\n",
+									oldWire->name.c_str(), log_id(module));
 								wiresToRemove.insert(oldWire);
 								count++;
-
 							} else {
 								if (oldWire->name != baseName) {
 									// Rename single-bit register to correct name from RTL
