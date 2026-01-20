@@ -62,6 +62,7 @@ struct RegRenamePass : public Pass {
 		// .*_reg[NUMBER] or .*_reg, can match NUMBER and part before _reg
 		std::regex reg_regex("(.*)_reg(?:\\[(\\d+)\\])?$");
 		for (auto module : design->selected_modules()) {
+			pool<Wire *> wiresToRemove; // pool of wires to remove from the netlist
 			for (auto cell : module->selected_cells()) {
 
 				// Rename register output wires to corresponding testbench names
@@ -71,88 +72,64 @@ struct RegRenamePass : public Pass {
 
 					// baseName is the part before _reg
 					std::string baseName = match[1].str();
-					std::string registerName = baseName;
 
-					// Check if the register is a multi-bit register
+					// Check if the register is a multi-bit register (look for [NUMBER] match in regex)
 					bool isMultiBit = match.size() > 2 && match[2].matched;
 					std::string indexStr;
-					if (isMultiBit) {
-						// indexStr is the NUMBER in .*_reg[NUMBER]
-						indexStr = match[2].str();
-						registerName += "_" + indexStr;
-					}
-
 					for (auto conn : cell->connections()) {
 						if (conn.first == ID::Q && conn.second.is_wire()) {
-							Wire *wire = conn.second.as_wire();
+							Wire *oldWire = conn.second.as_wire();
 
 							// Skip if this wire is a module port (input/output)
-							if (wire->port_input || wire->port_output) {
+							if (oldWire->port_input || oldWire->port_output) {
 								log("Skipping port wire %s in register renaming for cell %s in module %s\n", 
-									wire->name.c_str(), log_id(cell), log_id(module));
+									oldWire->name.c_str(), log_id(cell), log_id(module));
 								continue;
 							}
 
-							// Skip if we already renamed the wire
-							if (wire->name == registerName) {
-								continue;
-							}
-
-							// Rename register
-							log("Renaming register wire %s to %s for cell %s in module %s\n", 
-								wire->name.c_str(), registerName, log_id(cell), log_id(module));
-
-							// Log relevant information for multi-bit registers for wire reconstruction
+							// Different cases for multi-bit and single-bit registers
 							if (isMultiBit) {
-								std::string origRegWidth = cell->get_string_attribute("$ORIG_REG_WIDTH");
-								auto key = std::make_pair(module, baseName);
-								regWireMap[key].oldWires.push_back(std::make_pair(wire, std::stoi(indexStr)));
-								regWireMap[key].origRegWidth = std::stoi(origRegWidth);
-							}
+
+								// Index of the register and original register width
+								int index = std::stoi(match[2].str());
+								int origRegWidth = std::stoi(cell->get_string_attribute("$ORIG_REG_WIDTH"));
+
+								// Get or create the multi-bit wire
+								Wire *newWire = module->wire(RTLIL::escape_id(baseName));
+								if (newWire == nullptr) {
+									// Wire doesn't exist, create it
+									log("Creating multi-bit wire %s with width %d in module %s\n",
+										baseName.c_str(), origRegWidth, log_id(module));
+									newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
+								}
+
+								log("Connecting register wire %s to bit %d of %s in module %s\n",
+									oldWire->name.c_str(), index, baseName.c_str(), log_id(module));
 								
-							module->rename(wire, registerName);
-							count++;
+								// Replace all uses of oldWire with newWire[index]
+								auto rewriter = [&](SigSpec &sig) {
+									sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
+								};
+								module->rewrite_sigspecs(rewriter);
+								
+								// Mark old wire for deletion
+								wiresToRemove.insert(oldWire);
+								count++;
+
+							} else {
+								if (oldWire->name != baseName) {
+									// Rename single-bit register to correct name from RTL
+									log("Renaming register wire %s to %s for cell %s in module %s\n", 
+										oldWire->name.c_str(), baseName, log_id(cell), log_id(module));
+									module->rename(oldWire, baseName);
+									count++;
+								}
+							}
 						}
 					}
 				}
 			}
-		}
-
-		// Iterate over regWireMap to create new wires and connect renamed registers to it.
-		// Only applies to multi-bit registers.
-		for (const auto &[key, regWires] : regWireMap) {
-			auto [mod, baseName] = key; // module and original register name in RTL
-
-			// Create a new wire for the multi-bit register
-			int width = regWires.origRegWidth;
-			log("Creating new wire %s for register %s with width %d in module %s\n", 
-					baseName.c_str(), baseName.c_str(), width, log_id(mod));
-			Wire *newWire = mod->addWire(baseName, width);
-
-			// Initialize a pool of old wire to remove from the netlist
-			pool<Wire *> oldWires;
-
-			// Connect the renamed registers to the corresponding index of the new wire
-			for (const auto &[oldWire, index] : regWires.oldWires) {
-
-				// Get the old wire (the Q output that was renamed)
-				log("Connecting renamed register %s to index %d of %s\n", oldWire->name.c_str(), index, baseName.c_str());
-
-				// Connect the renamed register to the corresponding index of the new wiret
-				mod->connect(SigSpec(newWire, index, 1), oldWire);
-
-				// Replace all uses of oldWire with newWire[index] throughout the module
-				auto rewriter = [&](SigSpec &sig) {
-					sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
-				};
-				mod->rewrite_sigspecs(rewriter);
-
-				// Add the old wire to the list of old wires to delete
-				oldWires.insert(oldWire);
-			}
-
-			// Delete the old wires
-			mod->remove(oldWires);
+			module->remove(wiresToRemove);
 		}
 
 		// End
