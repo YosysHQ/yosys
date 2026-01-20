@@ -50,7 +50,6 @@ struct RegRenamePass : public Pass {
 		extra_args(args, argidx, design);
 
 		uint32_t count = 0;
-		uint32_t moduleCount = design->selected_modules().size();
 
 		// Data structure used to keep track of multi-bit registers.
 		// Relevant for correct register annotation.
@@ -135,7 +134,7 @@ struct RegRenamePass : public Pass {
 		}
 
 		// End
-		log("Renamed %d registers in %d modules\n", count, moduleCount);
+		log("Renamed %d registers in %d modules\n", count, design->selected_modules().size());
 		log_flush();
 	}
 } RegRenamePass;
