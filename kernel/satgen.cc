@@ -465,7 +465,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 				int undef_because_s = ez->AND(any_previous_undef, ez->OR(is_active, undef_a[i]));
 				int undef_because_a = ez->AND(ez->OR(any_previous_undef, ez->NOT(active_so_far[i-1])), undef_a[i]);
 				int undef = ez->OR(undef_because_s, undef_because_a);
-				any_previous_undef = ez->OR(any_previous_undef, is_active);
+				any_previous_undef = ez->AND(ez->NOT(is_active), ez->OR(any_previous_undef, undef_a[i]));
 				ez->assume(ez->IFF(undef_y[i], undef));
 			}
 			undefGating(y, yy, undef_y);
