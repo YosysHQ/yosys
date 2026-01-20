@@ -126,7 +126,6 @@ struct YosysVerificSettings {
 		std::string default_string;
 		std::vector<std::string> default_string_list;
 		std::string description;
-		bool available; 
 	};
 
 	std::map<std::string, Option> options;
@@ -138,10 +137,8 @@ struct YosysVerificSettings {
 		{
 			Option opt;
 			opt.type = Type::BOOL;
-			opt.bool_value = false;
 			opt.default_bool = false;
 			opt.description = "Ignore translate_off/translate_on pragmas";
-			opt.available = true;
 			options["ignore_translate_off"] = opt;
 		}
 
@@ -150,13 +147,12 @@ struct YosysVerificSettings {
 		{
 			Option opt;
 			opt.type = Type::STRING_LIST;
-			opt.string_list_value = {".v", ".vh", ".sv", ".svh"};
 			opt.default_string_list = {".v", ".vh", ".sv", ".svh"};
 			opt.description = "Comma-separated Verilog/SystemVerilog file extensions";
-			opt.available = true;
 			options["vlog_file_extensions"] = opt;
 		}
 #endif
+		reset();
 	}
 
 	void reset() {
@@ -177,8 +173,7 @@ struct YosysVerificSettings {
 	}
 
 	bool has_option(const std::string &name) const {
-		auto it = options.find(name);
-		return it != options.end() && it->second.available;
+		return options.find(name) != options.end();
 	}
 
 	bool get_bool(const std::string &name) const {
@@ -3517,17 +3512,20 @@ struct VerificPass : public Pass {
 		log("With two arguments, sets the specified setting to the given value.\n");
 		log("\n");
 		log("Available settings:\n");
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		log("  ignore_translate_off   (bool)        Ignore translate_off/translate_on pragmas\n");
-		log("  vlog_file_extensions   (string-list) Verilog/SV file extensions for relaxed mode\n");
-#endif
+		// Initialize settings to get option metadata
+		if (!yosys_verific_settings_initialized) {
+			yosys_verific_settings.init();
+			yosys_verific_settings_initialized = true;
+		}
+		for (const auto &it : yosys_verific_settings.options) {
+			const char *type_str = 
+				it.second.type == YosysVerificSettings::Type::BOOL ? "bool" :
+				it.second.type == YosysVerificSettings::Type::STRING ? "string" : "string-list";
+			log("  %-20s (%s) %s\n", it.first.c_str(), type_str, it.second.description.c_str());
+		}
 		log("\n");
 		log("For boolean settings, use 0/1, true/false, on/off, yes/no.\n");
 		log("For string-list settings, provide comma-separated values (e.g. \".v,.sv,.vh\").\n");
-		log("\n");
-		log("Example usage:\n");
-		log("  verific -set ignore_translate_off true\n");
-		log("  verific -set vlog_file_extensions \".v,.sv,.vh,.svh,.h,.inc\"\n");
 		log("\n");
 		log("\n");
 		log("    verific -set-reset\n");
@@ -4522,8 +4520,6 @@ struct VerificPass : public Pass {
 			if (argidx+1 == GetSize(args)) {
 				log("Yosys-Verific settings:\n");
 				for (const auto &it : yosys_verific_settings.options) {
-					if (!it.second.available)
-						continue;
 					const auto &name = it.first;
 					const auto &opt = it.second;
 					switch (opt.type) {
