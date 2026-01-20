@@ -416,13 +416,25 @@ struct SymFpuPass : public Pass {
 			"muladd | three input fused multiple-add | o = (a*b)+c\n"
 		);
 
+		auto rm_option = content_root->open_option("-rm <RM>");
+		rm_option->paragraph("rounding mode to generate, must be one of the below; default=RNE");
+		rm_option->codeblock(
+			"<RM> | description\n"
+			"-----+----------------------\n"
+			"RNE  | round ties to even\n"
+			"RNA  | round ties to away\n"
+			"RTP  | round toward positive\n"
+			"RTN  | round toward negative\n"
+			"RTZ  | round toward zero\n"
+		);
+
 		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		//TODO: fix multiple calls to symfpu in single Yosys instance
 		int eb = 8, sb = 24;
-		string op = "mul";
+		string op = "mul", rounding = "RNE";
 		int inputs = 2;
 		log_header(design, "Executing SYMFPU pass.\n");
 
@@ -452,10 +464,28 @@ struct SymFpuPass : public Pass {
 				log("Generating '%s'\n", op);
 				continue;
 			}
+			if (args[argidx] == "-rm" && argidx+1 < args.size()) {
+				rounding = args[++argidx];
+				continue;
+			}
 			break;
 		}
 
 		extra_args(args, argidx, design);
+
+		rm rounding_mode;
+		if (rounding.compare("RNE") == 0)
+			rounding_mode = rtlil_traits::RNE();
+			else if (rounding.compare("RNA") == 0)
+			rounding_mode = rtlil_traits::RNA();
+			else if (rounding.compare("RTP") == 0)
+			rounding_mode = rtlil_traits::RTP();
+			else if (rounding.compare("RTN") == 0)
+			rounding_mode = rtlil_traits::RTN();
+			else if (rounding.compare("RTZ") == 0)
+			rounding_mode = rtlil_traits::RTZ();
+		else
+			log_cmd_error("Unknown rounding mode '%s'. Call help sympfpu for available rounding modes.\n", rounding);
 
 		fpt format(eb, sb);
 
@@ -473,17 +503,17 @@ struct SymFpuPass : public Pass {
 		uf o = symfpu::unpackedFloat<rtlil_traits>::makeNaN(format);
 
 		if (op.compare("sqrt") == 0)
-			o = symfpu::sqrt(format, rtlil_traits::RNE(), a);
+			o = symfpu::sqrt(format, rounding_mode, a);
 		else if (op.compare("add") == 0)
-			o = symfpu::add<rtlil_traits>(format, rtlil_traits::RNE(), a, b, prop(true));
+			o = symfpu::add<rtlil_traits>(format, rounding_mode, a, b, prop(true));
 		else if (op.compare("sub") == 0)
-			o = symfpu::add<rtlil_traits>(format, rtlil_traits::RNE(), a, b, prop(false));
+			o = symfpu::add<rtlil_traits>(format, rounding_mode, a, b, prop(false));
 		else if (op.compare("mul") == 0)
-			o = symfpu::multiply<rtlil_traits>(format, rtlil_traits::RNE(), a, b);
+			o = symfpu::multiply<rtlil_traits>(format, rounding_mode, a, b);
 		else if (op.compare("div") == 0)
-			o = symfpu::divide<rtlil_traits>(format, rtlil_traits::RNE(), a, b);
+			o = symfpu::divide<rtlil_traits>(format, rounding_mode, a, b);
 		else if (op.compare("muladd") == 0)
-			o = symfpu::fma<rtlil_traits>(format, rtlil_traits::RNE(), a, b, c);
+			o = symfpu::fma<rtlil_traits>(format, rounding_mode, a, b, c);
 		else
 			log_abort();
 
@@ -519,7 +549,8 @@ struct SymFpuPass : public Pass {
 		prop overflow(symfpu_mod->ReduceOr(NEW_ID, flag_map["OF"]));
 		// overflow value depends on rounding mode
 		// RNE and RNA overflows to (correctly-signed) infinity
-		rtlil_traits::invariant(!overflow || o.getInf());
+		if (rounding.compare("RNE") == 0 || rounding.compare("RNA") == 0)
+			rtlil_traits::invariant(!overflow || o.getInf());
 		output_prop(ID(OF), overflow);
 
 		// inexactness doesn't have an output value test, but OF and UF imply NX
