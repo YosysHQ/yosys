@@ -438,16 +438,16 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		const Const& polarity = cell->getParam(ID::POLARITY);
 
-		int any_previous_active;
+		std::vector<int> active_so_far;
 		if (a.size()) {
-			any_previous_active = polarity[0] ? a[0] : ez->NOT(a[0]);
+			active_so_far.push_back(polarity[0] ? a[0] : ez->NOT(a[0]));
 			ez->assume(ez->IFF(yy[0], a[0]));
 		}
 		for (size_t i = 1; i < a.size(); i++) {
 			int inactive_val = !polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
 			int active_val = polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
-			ez->assume(ez->IFF(yy[i], ez->ITE(any_previous_active, inactive_val, a[i])));
-			any_previous_active = ez->OR(any_previous_active, ez->IFF(a[i], active_val));
+			ez->assume(ez->IFF(yy[i], ez->ITE(active_so_far.back(), inactive_val, a[i])));
+			active_so_far.push_back(ez->OR(active_so_far.back(), ez->IFF(a[i], active_val)));
 		}
 		if (model_undef) {
 			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
@@ -460,7 +460,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			}
 			for (size_t i = 1; i < a.size(); i++) {
 				any_previous_undef = ez->OR(any_previous_undef, undef_a[i]);
-				ez->assume(ez->IFF(undef_y[i], any_previous_undef));
+				ez->assume(ez->IFF(undef_y[i], ez->AND(ez->NOT(active_so_far[i - 1]), any_previous_undef)));
 			}
 			undefGating(y, yy, undef_y);
 		}
