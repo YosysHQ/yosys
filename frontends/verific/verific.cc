@@ -114,6 +114,168 @@ int verific_sva_fsm_limit;
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 #endif
 
+struct YosysVerificSettings {
+	enum class Type { BOOL, STRING, STRING_LIST };
+
+	struct Option {
+		Type type;
+		bool bool_value;
+		std::string string_value;
+		std::vector<std::string> string_list_value;
+		bool default_bool;
+		std::string default_string;
+		std::vector<std::string> default_string_list;
+		std::string description;
+		bool available; 
+	};
+
+	std::map<std::string, Option> options;
+
+	void init() {
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		// Bool option example: ignore_translate_off
+		// When true, translate_off/translate_on pragmas are ignored
+		{
+			Option opt;
+			opt.type = Type::BOOL;
+			opt.bool_value = false;
+			opt.default_bool = false;
+			opt.description = "Ignore translate_off/translate_on pragmas";
+			opt.available = true;
+			options["ignore_translate_off"] = opt;
+		}
+
+		// String-list option example: vlog_file_extensions
+		// Allows user to specify which file extensions should be treated as SystemVerilog
+		{
+			Option opt;
+			opt.type = Type::STRING_LIST;
+			opt.string_list_value = {".v", ".vh", ".sv", ".svh"};
+			opt.default_string_list = {".v", ".vh", ".sv", ".svh"};
+			opt.description = "Comma-separated Verilog/SystemVerilog file extensions";
+			opt.available = true;
+			options["vlog_file_extensions"] = opt;
+		}
+#endif
+	}
+
+	void reset() {
+		for (auto &it : options) {
+			auto &opt = it.second;
+			switch (opt.type) {
+				case Type::BOOL:
+					opt.bool_value = opt.default_bool;
+					break;
+				case Type::STRING:
+					opt.string_value = opt.default_string;
+					break;
+				case Type::STRING_LIST:
+					opt.string_list_value = opt.default_string_list;
+					break;
+			}
+		}
+	}
+
+	bool has_option(const std::string &name) const {
+		auto it = options.find(name);
+		return it != options.end() && it->second.available;
+	}
+
+	bool get_bool(const std::string &name) const {
+		auto it = options.find(name);
+		if (it == options.end() || it->second.type != Type::BOOL)
+			return false;
+		return it->second.bool_value;
+	}
+
+	std::string get_string(const std::string &name) const {
+		auto it = options.find(name);
+		if (it == options.end() || it->second.type != Type::STRING)
+			return "";
+		return it->second.string_value;
+	}
+
+	std::vector<std::string> get_string_list(const std::string &name) const {
+		auto it = options.find(name);
+		if (it == options.end() || it->second.type != Type::STRING_LIST)
+			return {};
+		return it->second.string_list_value;
+	}
+
+	void set_bool(const std::string &name, bool value) {
+		auto it = options.find(name);
+		if (it != options.end() && it->second.type == Type::BOOL)
+			it->second.bool_value = value;
+	}
+
+	void set_string(const std::string &name, const std::string &value) {
+		auto it = options.find(name);
+		if (it != options.end() && it->second.type == Type::STRING)
+			it->second.string_value = value;
+	}
+
+	void set_string_list(const std::string &name, const std::vector<std::string> &value) {
+		auto it = options.find(name);
+		if (it != options.end() && it->second.type == Type::STRING_LIST)
+			it->second.string_list_value = value;
+	}
+
+	// Apply a setting to Verific APIs when changed
+	void apply_setting(const std::string &name) {
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (name == "ignore_translate_off") {
+			veri_file::SetIgnoreTranslateOff(get_bool("ignore_translate_off") ? 1 : 0);
+			return;
+		}
+		if (name == "vlog_file_extensions") {
+			// Remove default .v extension and add user-specified ones
+			veri_file::RemoveFileExt(".v");
+			for (const auto &ext : get_string_list("vlog_file_extensions")) {
+				veri_file::AddFileExtMode(ext.c_str(), veri_file::SYSTEM_VERILOG);
+			}
+			return;
+		}
+#else
+		(void)name;
+#endif
+	}
+
+	// Parse comma-separated string into vector
+	static std::vector<std::string> parse_string_list(const std::string &value) {
+		std::vector<std::string> result;
+		size_t start = 0;
+		size_t end;
+		while ((end = value.find(',', start)) != std::string::npos) {
+			std::string item = value.substr(start, end - start);
+			// Trim whitespace
+			size_t first = item.find_first_not_of(" \t");
+			size_t last = item.find_last_not_of(" \t");
+			if (first != std::string::npos)
+				result.push_back(item.substr(first, last - first + 1));
+			start = end + 1;
+		}
+		std::string item = value.substr(start);
+		size_t first = item.find_first_not_of(" \t");
+		size_t last = item.find_last_not_of(" \t");
+		if (first != std::string::npos)
+			result.push_back(item.substr(first, last - first + 1));
+		return result;
+	}
+
+	// Format vector as comma-separated string
+	static std::string format_string_list(const std::vector<std::string> &list) {
+		std::string result;
+		for (size_t i = 0; i < list.size(); i++) {
+			if (i > 0) result += ",";
+			result += list[i];
+		}
+		return result;
+	}
+};
+
+static YosysVerificSettings yosys_verific_settings;
+static bool yosys_verific_settings_initialized = false;
+
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
 	string message_prefix = stringf("VERIFIC-%s [%s] ",
@@ -3345,6 +3507,34 @@ struct VerificPass : public Pass {
 		log("Get/set Verific runtime flags.\n");
 		log("\n");
 		log("\n");
+		log("    verific -set [<name> [<value>]]\n");
+		log("\n");
+		log("Get/set Yosys-Verific settings. These are Yosys-specific options that control\n");
+		log("how Verific integration behaves.\n");
+		log("\n");
+		log("Without arguments, lists all available settings and their current values.\n");
+		log("With one argument, shows the current value of the specified setting.\n");
+		log("With two arguments, sets the specified setting to the given value.\n");
+		log("\n");
+		log("Available settings:\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		log("  ignore_translate_off   (bool)        Ignore translate_off/translate_on pragmas\n");
+		log("  vlog_file_extensions   (string-list) Verilog/SV file extensions for relaxed mode\n");
+#endif
+		log("\n");
+		log("For boolean settings, use 0/1, true/false, on/off, yes/no.\n");
+		log("For string-list settings, provide comma-separated values (e.g. \".v,.sv,.vh\").\n");
+		log("\n");
+		log("Example usage:\n");
+		log("  verific -set ignore_translate_off true\n");
+		log("  verific -set vlog_file_extensions \".v,.sv,.vh,.svh,.h,.inc\"\n");
+		log("\n");
+		log("\n");
+		log("    verific -set-reset\n");
+		log("\n");
+		log("Reset all Yosys-Verific settings to their default values.\n");
+		log("\n");
+		log("\n");
 #if defined(YOSYS_ENABLE_VERIFIC) and defined(YOSYSHQ_VERIFIC_EXTENSIONS)
 		VerificExtensions::Help();
 #endif	
@@ -3538,6 +3728,12 @@ struct VerificPass : public Pass {
 #endif
 
 			set_verific_global_flags = false;
+		}
+
+		// Initialize Yosys-Verific settings if not done yet
+		if (!yosys_verific_settings_initialized) {
+			yosys_verific_settings.init();
+			yosys_verific_settings_initialized = true;
 		}
 
 		verific_verbose = 0;
@@ -4303,6 +4499,115 @@ struct VerificPass : public Pass {
 				}
 			}
 		}
+
+		if (argidx < GetSize(args) && args[argidx] == "-set-reset")
+		{
+			if (!yosys_verific_settings_initialized) {
+				yosys_verific_settings.init();
+				yosys_verific_settings_initialized = true;
+			}
+			yosys_verific_settings.reset();
+			log("All Yosys-Verific settings reset to defaults.\n");
+			goto check_error;
+		}
+
+		if (argidx < GetSize(args) && args[argidx] == "-set")
+		{
+			if (!yosys_verific_settings_initialized) {
+				yosys_verific_settings.init();
+				yosys_verific_settings_initialized = true;
+			}
+
+			// No arguments: list all settings
+			if (argidx+1 == GetSize(args)) {
+				log("Yosys-Verific settings:\n");
+				for (const auto &it : yosys_verific_settings.options) {
+					if (!it.second.available)
+						continue;
+					const auto &name = it.first;
+					const auto &opt = it.second;
+					switch (opt.type) {
+						case YosysVerificSettings::Type::BOOL:
+							log("  %s = %s (bool, default: %s)\n", name.c_str(),
+								opt.bool_value ? "true" : "false",
+								opt.default_bool ? "true" : "false");
+							break;
+						case YosysVerificSettings::Type::STRING:
+							log("  %s = \"%s\" (string, default: \"%s\")\n", name.c_str(),
+								opt.string_value.c_str(),
+								opt.default_string.c_str());
+							break;
+						case YosysVerificSettings::Type::STRING_LIST:
+							log("  %s = \"%s\" (string-list, default: \"%s\")\n", name.c_str(),
+								YosysVerificSettings::format_string_list(opt.string_list_value).c_str(),
+								YosysVerificSettings::format_string_list(opt.default_string_list).c_str());
+							break;
+					}
+				}
+				goto check_error;
+			}
+
+			// One argument: show specific setting
+			if (argidx+2 == GetSize(args)) {
+				const std::string &name = args[argidx+1];
+				if (!yosys_verific_settings.has_option(name))
+					log_cmd_error("Unknown Yosys-Verific setting '%s'.\n", name.c_str());
+				const auto &opt = yosys_verific_settings.options.at(name);
+				switch (opt.type) {
+					case YosysVerificSettings::Type::BOOL:
+						log("verific -set %s %s\n", name.c_str(),
+							opt.bool_value ? "true" : "false");
+						break;
+					case YosysVerificSettings::Type::STRING:
+						log("verific -set %s \"%s\"\n", name.c_str(),
+							opt.string_value.c_str());
+						break;
+					case YosysVerificSettings::Type::STRING_LIST:
+						log("verific -set %s \"%s\"\n", name.c_str(),
+							YosysVerificSettings::format_string_list(opt.string_list_value).c_str());
+						break;
+				}
+				goto check_error;
+			}
+
+			// Two arguments: set specific setting
+			if (argidx+3 == GetSize(args)) {
+				const std::string &name = args[argidx+1];
+				const std::string &value = args[argidx+2];
+				if (!yosys_verific_settings.has_option(name))
+					log_cmd_error("Unknown Yosys-Verific setting '%s'.\n", name.c_str());
+				auto &opt = yosys_verific_settings.options.at(name);
+				switch (opt.type) {
+					case YosysVerificSettings::Type::BOOL: {
+						bool bval;
+						if (value == "1" || value == "true" || value == "on" || value == "yes")
+							bval = true;
+						else if (value == "0" || value == "false" || value == "off" || value == "no")
+							bval = false;
+						else
+							log_cmd_error("Invalid boolean value '%s'. Use 0/1, true/false, on/off, or yes/no.\n", value.c_str());
+						yosys_verific_settings.set_bool(name, bval);
+						log("Setting '%s' = %s\n", name.c_str(), bval ? "true" : "false");
+						break;
+					}
+					case YosysVerificSettings::Type::STRING:
+						yosys_verific_settings.set_string(name, value);
+						log("Setting '%s' = \"%s\"\n", name.c_str(), value.c_str());
+						break;
+					case YosysVerificSettings::Type::STRING_LIST: {
+						auto list = YosysVerificSettings::parse_string_list(value);
+						yosys_verific_settings.set_string_list(name, list);
+						log("Setting '%s' = \"%s\"\n", name.c_str(),
+							YosysVerificSettings::format_string_list(list).c_str());
+						break;
+					}
+				}
+				// Apply the setting to Verific APIs
+				yosys_verific_settings.apply_setting(name);
+				goto check_error;
+			}
+		}
+
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 		if (VerificExtensions::Execute(args, argidx, work, 
 			[this](const std::vector<std::string> &args, size_t argidx, std::string msg)
