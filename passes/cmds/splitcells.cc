@@ -169,9 +169,14 @@ struct SplitcellsWorker
 				int slice_msb = slices[i]-1;
 				int slice_lsb = slices[i-1];
 
-				IdString slice_name = module->uniquify(cell->name.str() + (slice_msb == slice_lsb ?
-						stringf("%c%d%c", format[0], slice_lsb, format[1]) :
-						stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1])));
+				std::string base_name = cell->name.str();
+				if (blast) {
+					base_name = base_name.substr(0, base_name.find('['));
+				}
+
+				IdString slice_name = module->uniquify(base_name + (slice_msb == slice_lsb ?
+					stringf("%c%d%c", format[0], slice_lsb, format[1]) :
+					stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1])));
 
 				Cell *slice = module->addCell(slice_name, cell);
 
