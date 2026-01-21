@@ -7,7 +7,6 @@ OBJS += passes/silimate/bus_rebuild.o
 OBJS += passes/silimate/fanoutbuf.o
 OBJS += passes/silimate/l2j_frontend.o
 OBJS += passes/silimate/obs_clean.o
-OBJS += passes/silimate/opt_balance_tree.o
 OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitlarge.o
