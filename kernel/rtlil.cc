@@ -2990,6 +2990,8 @@ void RTLIL::Module::add(RTLIL::Binding *binding)
 void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 {
 	log_assert(refcount_wires_ == 0);
+	if (wires.empty())
+		return;
 
 	struct DeleteWireWorker
 	{
