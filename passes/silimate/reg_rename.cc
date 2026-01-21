@@ -116,11 +116,12 @@ struct RegRenamePass : public Pass {
 							if (isMultiBit) {
 
 								// Index of the register
+								int index = 0;
 								try {
-									int index = std::stoi(match[2].str());
+									index = std::stoi(match[2].str());
 								} catch (const std::exception &e) {
 									log_warning("Failed to convert index %s to integer in register %s: %s\n",
-										match[2].str().c_str(), cell->name.c_str(), e.what());
+										match[2].str().c_str(), log_id(cell), e.what());
 									continue;
 								}
 
