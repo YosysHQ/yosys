@@ -172,7 +172,12 @@ struct SplitcellsWorker
 				std::string base_name = cell->name.str();
 				IdString slice_name;
 				if (blast) {
-					slice_name = module->uniquify(cell->name.str().substr(0, cell->name.str().find('[')) + stringf(
+					// Strip existing brackets from cell name
+					size_t bracket_pos = base_name.find('[');
+					if (bracket_pos != std::string::npos) {
+						base_name = base_name.substr(0, bracket_pos);
+					}
+					slice_name = module->uniquify(base_name + stringf(
 						"%c%d%c", format[0], slice_lsb, format[1]));
 				} else {
 					slice_name = module->uniquify(base_name + (slice_msb == slice_lsb ?
