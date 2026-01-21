@@ -116,7 +116,13 @@ struct RegRenamePass : public Pass {
 							if (isMultiBit) {
 
 								// Index of the register
-								int index = std::stoi(match[2].str());
+								try {
+									int index = std::stoi(match[2].str());
+								} catch (const std::exception &e) {
+									log_warning("Failed to convert index %s to integer in register %s: %s\n",
+										match[2].str().c_str(), cell->name.c_str(), e.what());
+									continue;
+								}
 
 								// Get or create the multi-bit wire
 								Wire *newWire = module->wire(RTLIL::escape_id(baseName));
@@ -134,7 +140,7 @@ struct RegRenamePass : public Pass {
 
 								// Log that the new wire is being connected to the register
 								log("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
-									newWire->name.c_str(), index, index, baseName.c_str(), log_id(module));
+									newWire->name.c_str(), index, index, log_id(cell), log_id(module));
 
 								// Replace all uses of oldWire with newWire[index]
 								auto rewriter = [&](SigSpec &sig) {
