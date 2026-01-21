@@ -90,83 +90,87 @@ struct RegRenamePass : public Pass {
 			pool<Wire *> wiresToRemove; // pool of wires to remove from the netlist
 			for (auto cell : module->selected_cells()) {
 
-				// Rename register output wires to corresponding testbench names
-				std::smatch match;
-				std::string name = cell->name.c_str();
-				if (std::regex_match(name, match, reg_regex)) {
+				// Only check register cell
+				if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 
-					// baseName is the part before _reg
-					std::string baseName = match[1].str();
+					// Rename register output wires to corresponding testbench names
+					std::smatch match;
+					std::string name = cell->name.c_str();
+					if (std::regex_match(name, match, reg_regex)) {
 
-					// Check if the register is a multi-bit register (look for [NUMBER] match in regex)
-					bool isMultiBit = match.size() > 2 && match[2].matched;
-					std::string indexStr;
-					for (auto conn : cell->connections()) {
-						if (conn.first == ID::Q && conn.second.is_wire()) {
-							Wire *oldWire = conn.second.as_wire();
+						// baseName is the part before _reg
+						std::string baseName = match[1].str();
 
-							// Skip if this wire is a module port (input/output)
-							if (oldWire->port_input || oldWire->port_output) {
-								log("Skipping port wire %s in register renaming for cell %s in module %s\n", 
-									oldWire->name.c_str(), log_id(cell), log_id(module));
-								continue;
-							}
+						// Check if the register is a multi-bit register (look for [NUMBER] match in regex)
+						bool isMultiBit = match.size() > 2 && match[2].matched;
+						std::string indexStr;
+						for (auto conn : cell->connections()) {
+							if (conn.first == ID::Q && conn.second.is_wire()) {
+								Wire *oldWire = conn.second.as_wire();
 
-							// Different cases for multi-bit and single-bit registers
-							if (isMultiBit) {
-
-								// Index of the register
-								int index = 0;
-								try {
-									index = std::stoi(match[2].str());
-								} catch (const std::exception &e) {
-									log_warning("Failed to convert index %s to integer in register %s: %s\n",
-										match[2].str().c_str(), log_id(cell), e.what());
+								// Skip if this wire is a module port (input/output)
+								if (oldWire->port_input || oldWire->port_output) {
+									log("Skipping port wire %s in register renaming for cell %s in module %s\n", 
+										oldWire->name.c_str(), log_id(cell), log_id(module));
 									continue;
 								}
 
-								// Get or create the multi-bit wire
-								Wire *newWire = module->wire(RTLIL::escape_id(baseName));
-								if (newWire == nullptr) {
-									// Wire doesn't exist, create it with the original register width
-									int origRegWidth = vcd_reg_widths[baseName];
-									if (origRegWidth == 0) {
-										log_warning("Register '%s' not found in VCD file or has width 0\n", baseName.c_str());
+								// Different cases for multi-bit and single-bit registers
+								if (isMultiBit) {
+
+									// Index of the register
+									int index = 0;
+									try {
+										index = std::stoi(match[2].str());
+									} catch (const std::exception &e) {
+										log_warning("Failed to convert index %s to integer in register %s: %s\n",
+											match[2].str().c_str(), log_id(cell), e.what());
 										continue;
 									}
-									log("Creating multi-bit wire %s with width %d in module %s\n",
-										baseName.c_str(), origRegWidth, log_id(module));
-									newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
-								}
 
-								// Log that the new wire is being connected to the register
-								log("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
-									newWire->name.c_str(), index, index, log_id(cell), log_id(module));
+									// Get or create the multi-bit wire
+									Wire *newWire = module->wire(RTLIL::escape_id(baseName));
+									if (newWire == nullptr) {
+										// Wire doesn't exist, create it with the original register width
+										int origRegWidth = vcd_reg_widths[baseName];
+										if (origRegWidth == 0) {
+											log_warning("Register '%s' not found in VCD file or has width 0\n", baseName.c_str());
+											continue;
+										}
+										log("Creating multi-bit wire %s with width %d in module %s\n",
+											baseName.c_str(), origRegWidth, log_id(module));
+										newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
+									}
 
-								// Replace all uses of oldWire with newWire[index]
-								auto rewriter = [&](SigSpec &sig) {
-									sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
-								};
-								module->rewrite_sigspecs(rewriter);
+									// Log that the new wire is being connected to the register
+									log("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
+										newWire->name.c_str(), index, index, log_id(cell), log_id(module));
 
-								// Mark old wire for deletion
-								log("Marking old wire %s for deletion in module %s\n",
-									oldWire->name.c_str(), log_id(module));
-								wiresToRemove.insert(oldWire);
-								count++;
-							} else {
-								IdString target_name = RTLIL::escape_id(baseName);
-								if (oldWire->name != target_name) {
-									// Check if target name already exists
-									if (module->wire(target_name)) {
-										log("Skipping rename: wire %s already exists in module %s\n",
-											target_name.c_str(), log_id(module));
-									} else {
-										// Rename single-bit register to correct name from RTL
-										log("Renaming register wire %s to %s for cell %s in module %s\n", 
-											oldWire->name.c_str(), target_name.c_str(), log_id(cell), log_id(module));
-										module->rename(oldWire, target_name);
-										count++;
+									// Replace all uses of oldWire with newWire[index]
+									auto rewriter = [&](SigSpec &sig) {
+										sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
+									};
+									module->rewrite_sigspecs(rewriter);
+
+									// Mark old wire for deletion
+									log("Marking old wire %s for deletion in module %s\n",
+										oldWire->name.c_str(), log_id(module));
+									wiresToRemove.insert(oldWire);
+									count++;
+								} else {
+									IdString target_name = RTLIL::escape_id(baseName);
+									if (oldWire->name != target_name) {
+										// Check if target name already exists
+										if (module->wire(target_name)) {
+											log("Skipping rename: wire %s already exists in module %s\n",
+												target_name.c_str(), log_id(module));
+										} else {
+											// Rename single-bit register to correct name from RTL
+											log("Renaming register wire %s to %s for cell %s in module %s\n", 
+												oldWire->name.c_str(), target_name.c_str(), log_id(cell), log_id(module));
+											module->rename(oldWire, target_name);
+											count++;
+										}
 									}
 								}
 							}
