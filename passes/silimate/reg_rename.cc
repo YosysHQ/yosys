@@ -125,6 +125,7 @@ struct RegRenamePass : public Pass {
 									int origRegWidth = vcd_reg_widths[baseName];
 									if (origRegWidth == 0) {
 										log_warning("Register '%s' not found in VCD file or has width 0\n", baseName.c_str());
+										continue;
 									}
 									log("Creating multi-bit wire %s with width %d in module %s\n",
 										baseName.c_str(), origRegWidth, log_id(module));
@@ -132,15 +133,15 @@ struct RegRenamePass : public Pass {
 								}
 
 								// Log that the new wire is being connected to the register
-								log("Connecting register wire %s to bit %d of %s in module %s\n",
-									newWire->name.c_str(), index, baseName.c_str(), log_id(module));
-								
+								log("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
+									newWire->name.c_str(), index, index, baseName.c_str(), log_id(module));
+
 								// Replace all uses of oldWire with newWire[index]
 								auto rewriter = [&](SigSpec &sig) {
 									sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1));
 								};
 								module->rewrite_sigspecs(rewriter);
-								
+
 								// Mark old wire for deletion
 								log("Marking old wire %s for deletion in module %s\n",
 									oldWire->name.c_str(), log_id(module));
