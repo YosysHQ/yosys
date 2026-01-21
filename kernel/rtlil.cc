@@ -186,7 +186,7 @@ struct IdStringCollector {
 		trace(selection_var.selected_modules);
 		trace(selection_var.selected_members);
 	}
-	void trace_named(const RTLIL::NamedObject named) {
+	void trace_named(const RTLIL::NamedObject &named) {
 		trace_keys(named.attributes);
 		trace(named.name);
 	}
