@@ -33,6 +33,7 @@
 #include <optional>
 #include <set>
 #include <string_view>
+#include <sstream>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -187,7 +188,7 @@ struct IdStringCollector {
 		trace(selection_var.selected_modules);
 		trace(selection_var.selected_members);
 	}
-	void trace_named(const RTLIL::NamedObject named) {
+	void trace_named(const RTLIL::NamedObject &named) {
 		trace_keys(named.attributes);
 		trace(named.name);
 	}
@@ -1548,6 +1549,13 @@ void RTLIL::Design::pop_selection()
 	// Default to a full_selection if we ran out of stack
 	if (selection_stack.empty())
 		push_full_selection();
+}
+
+std::string RTLIL::Design::to_rtlil_str(bool only_selected) const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_design(f, const_cast<RTLIL::Design*>(this), only_selected);
+	return f.str();
 }
 
 std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
@@ -4333,6 +4341,13 @@ RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpe
 	return sig;
 }
 
+std::string RTLIL::Module::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_module(f, "", const_cast<RTLIL::Module*>(this), design, false);
+	return f.str();
+}
+
 RTLIL::Wire::Wire()
 {
 	static unsigned int hashidx_count = 123456789;
@@ -4360,6 +4375,13 @@ RTLIL::Wire::~Wire()
 #endif
 }
 
+std::string RTLIL::Wire::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_wire(f, "", this);
+	return f.str();
+}
+
 #ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Wire*> all_wires;
 std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
@@ -4382,11 +4404,25 @@ RTLIL::Memory::Memory()
 #endif
 }
 
+std::string RTLIL::Memory::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_memory(f, "", this);
+	return f.str();
+}
+
 RTLIL::Process::Process() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+}
+
+std::string RTLIL::Process::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_proc(f, "", this);
+	return f.str();
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
@@ -4408,6 +4444,13 @@ RTLIL::Cell::~Cell()
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
+}
+
+std::string RTLIL::Cell::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_cell(f, "", this);
+	return f.str();
 }
 
 #ifdef YOSYS_ENABLE_PYTHON

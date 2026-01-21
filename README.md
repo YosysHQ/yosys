@@ -246,6 +246,8 @@ Building the documentation
 
 Note that there is no need to build the manual if you just want to read it.
 Simply visit https://yosys.readthedocs.io/en/latest/ instead.
+If you're offline, you can read the sources, replacing `.../en/latest`
+with `docs/source`.
 
 In addition to those packages listed above for building Yosys from source, the
 following are used for building the website:

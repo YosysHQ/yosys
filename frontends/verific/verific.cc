@@ -3196,9 +3196,11 @@ struct VerificPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
+		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|\n");
+		log("             -sv2017|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
+		log("Note that -sv option will use latest supported SystemVerilog standard.\n");
 		log("\n");
 		log("All files specified in one call to this command are one compilation unit.\n");
 		log("Files passed to different calls to this command are treated as belonging to\n");
@@ -3243,7 +3245,7 @@ struct VerificPass : public Pass {
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
-		log("                     -sv2012|-sv|-formal] <command-file>\n");
+		log("                     -sv2012|-sv2017|-sv|-formal] <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
 		log("Override verilog parsing mode can be set.\n");
@@ -3963,7 +3965,8 @@ struct VerificPass : public Pass {
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vlog95" || args[argidx] == "-vlog2k" || args[argidx] == "-sv2005" ||
-				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal"))
+				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv2017" || args[argidx] == "-sv" ||
+				args[argidx] == "-formal"))
 		{
 			Array file_names;
 			unsigned verilog_mode;
@@ -3976,7 +3979,11 @@ struct VerificPass : public Pass {
 				verilog_mode = veri_file::SYSTEM_VERILOG_2005;
 			else if (args[argidx] == "-sv2009")
 				verilog_mode = veri_file::SYSTEM_VERILOG_2009;
-			else if (args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal")
+			else if (args[argidx] == "-sv2012")
+				verilog_mode = veri_file::SYSTEM_VERILOG_2012;
+			else if (args[argidx] == "-sv2017")
+				verilog_mode = veri_file::SYSTEM_VERILOG_2017;
+			else if (args[argidx] == "-sv" || args[argidx] == "-formal")
 				verilog_mode = veri_file::SYSTEM_VERILOG;
 			else
 				log_abort();
