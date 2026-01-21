@@ -82,7 +82,7 @@ struct RegRenamePass : public Pass {
 			log_error("No VCD file provided. Please provide a VCD file with the -vcd option.\n");
 		}
 
-		// Regex to match register output wires
+		// Regex to match registers to output wires
 		// .*_reg[NUMBER] or .*_reg, can match NUMBER and part before _reg
 		std::regex reg_regex("(.*)_reg(?:\\[(\\d+)\\])?$");
 		uint32_t count = 0;
