@@ -25,11 +25,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct RegWires {
-	std::vector<std::pair<Wire*, int>> oldWires;
-	int origRegWidth;
-};
-
 struct RegRenamePass : public Pass {
 	RegRenamePass() : Pass("reg_rename", "renames register output wires to the correct register name and creates new wires for multi-bit registers for correct VCD register annotations.") { }
 	void help() override
@@ -58,7 +53,7 @@ struct RegRenamePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		// Populate data strucutre with register widths from VCD file
+		// Populate data structure with register widths from VCD file
 		dict<std::string, int> vcd_reg_widths;
 		if (!vcd_filename.empty()) {
 			log("Reading VCD file: %s\n", vcd_filename.c_str());
