@@ -460,13 +460,20 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			}
 			for (size_t i = 1; i < a.size(); i++) {
 				int inactive_val = !polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
-				// $mux emulation
 				int is_active = ez->XOR(inactive_val, a[i]);
-				int undef_because_s = ez->AND(any_previous_undef, ez->OR(is_active, undef_a[i]));
+				int is_not_inactive = ez->OR(is_active, undef_a[i]);
+				int is_not_active = ez->OR(ez->NOT(is_active), undef_a[i]);
+
+				// $mux
+				int undef_because_s = ez->AND(any_previous_undef, is_not_inactive);
 				int undef_because_a = ez->AND(ez->OR(any_previous_undef, ez->NOT(active_so_far[i-1])), undef_a[i]);
 				int undef = ez->OR(undef_because_s, undef_because_a);
-				any_previous_undef = ez->AND(ez->NOT(is_active), ez->OR(any_previous_undef, undef_a[i]));
 				ez->assume(ez->IFF(undef_y[i], undef));
+
+				// $or
+				int next_previous_undef_because_previous = ez->AND(any_previous_undef, is_not_active);
+				int next_previous_undef_because_a = ez->AND(ez->NOT(active_so_far[i-1]), undef_a[i]);
+				any_previous_undef = ez->OR(next_previous_undef_because_previous, next_previous_undef_because_a);
 			}
 			undefGating(y, yy, undef_y);
 		}

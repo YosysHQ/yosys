@@ -660,21 +660,22 @@ RTLIL::Const RTLIL::const_bmux(const RTLIL::Const &arg1, const RTLIL::Const &arg
 
 RTLIL::Const RTLIL::const_priority(const RTLIL::Const &arg, const RTLIL::Const &polarity)
 {
-	std::vector<State> t;
-	std::optional<State> first_non_zero = std::nullopt;
-	for (int i = 0; i < GetSize(arg); i++)
+	std::vector<RTLIL::State> t;
+	RTLIL::State previous;
+	if (GetSize(arg)) {
+		RTLIL::State s = arg.at(0);
+		t.push_back(s);
+		previous = polarity[0] ? s : const_not(s, Const(), false, false, 1)[0];
+	}
+	for (int i = 1; i < GetSize(arg); i++)
 	{
 		RTLIL::State s = arg.at(i);
-		if (first_non_zero && s != State::Sx) {
-			auto inactive = polarity[i] == State::S0 ? State::S1 : State::S0;
-			auto val = *first_non_zero == State::Sx ? State::Sx : inactive;
-			t.push_back(val);
-		} else {
-			t.push_back(s);
-		}
-		if ((!first_non_zero && s == polarity[i]) || s == State::Sx) {
-			first_non_zero = s;
-		}
+		RTLIL::State is_active = const_xnor(s, polarity[i], false, false, 1)[0];
+		RTLIL::State next = const_or(is_active, previous, false, false, 1)[0];
+		RTLIL::State inactive_polarity = const_not(polarity[i], Const(), false, false, 1)[0];
+		RTLIL::State y = const_mux(s, inactive_polarity, previous)[0];
+		t.push_back(y);
+		previous = next;
 	}
 	return t;
 }
