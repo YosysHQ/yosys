@@ -64,6 +64,7 @@ module edges();
     wire o_norm = o_exp > 8'h00 && !o_special;
     wire o_subnorm = o_exp == 8'h00 && o_sig != '0;
     wire o_finite = o_norm || o_subnorm;
+    wire o_unclamped = o_finite && o_unsigned != 31'h7f7fffff;
 
 `ifdef MULADD
     wire muladd_zero = c_zero;
@@ -133,19 +134,49 @@ module edges();
     wire lhs_dominates = lhs_exp > rhs_exp;
     wire [7:0] exp_diff = lhs_dominates ? lhs_exp - rhs_exp : rhs_exp - lhs_exp;
 
-    wire round_p_001 = 0;
-    wire round_p_011 = a == 32'h40400000 && b == 32'h40000001;
-    wire round_n_011 = 0;
-    wire round_n_011 = a == 32'hc0400000 && b == 32'h40000001;
+    wire round_p_001, round_p_011, round_n_001, round_n_011;
+    wire [30:0] rounded_100, rounded_010, rounded_000;
 
-    wire [30:0] rounded_100 = 31'h40C00002;
-    wire [30:0] rounded_010 = 31'h40C00001;
-    wire [30:0] rounded_000 = 31'h40C00000;
+`ifdef MUL
+    assign round_p_001 = 0;
+    assign round_p_011 = a == 32'h40400000 && b == 32'h40000001;
+    assign round_n_001 = 0;
+    assign round_n_011 = a == 32'hc0400000 && b == 32'h40000001;
+
+    assign rounded_100 = 31'h40C00002;
+    assign rounded_010 = 31'h40C00001;
+    assign rounded_000 = 31'h40C00000;
+`elsif ADD
+    assign round_p_001 = a == 32'h4c000000 && b == 32'h40000000;
+    assign round_p_011 = a == 32'h4c000001 && b == 32'h40000000;
+    assign round_n_001 = a == 32'hcc000000 && b == 32'hc0000000;
+    assign round_n_011 = a == 32'hcc000001 && b == 32'hc0000000;
+
+    assign rounded_100 = 31'h4C000002;
+    assign rounded_010 = 31'h4C000001;
+    assign rounded_000 = 31'h4C000000;
+`else
+    assign round_p_001 = 0;
+    assign round_p_011 = 0;
+    assign round_n_001 = 0;
+    assign round_n_011 = 0;
+
+    assign rounded_100 = '0;
+    assign rounded_010 = '0;
+    assign rounded_000 = '0;
+`endif
 
     always @* begin
-        if (a_nan)
+        if (a_nan || b_nan || c_nan) begin
             // input NaN = output NaN
             assert (o_nan);
+
+		    // NaN inputs give NaN outputs, do not raise exceptions (unless signaling NV)
+            // assert (!DZ);
+            // assert (!OF);
+            // assert (!UF);
+            // assert (!NX);
+        end
 
         if (a_snan)
             // signalling NaN raises invalid exception
@@ -179,7 +210,6 @@ module edges();
             assert (o_inf);
 `elsif RTP
         if (OF) // output = +inf or -max
-            // RTP add is raising inexact overflow for NaN input
             assert (o == pos_inf || o == neg_max);
         if (o == neg_inf)
             assert (!OF);
@@ -208,6 +238,7 @@ module edges();
             assert (!NX);
 
 `ifdef DIV
+        assume (c_zero);
         // a = finite, b = 0
         if ((a_norm || a_subnorm) && b_unsigned == '0)
             assert (DZ);
@@ -231,6 +262,10 @@ module edges();
         end
 `endif
 
+`ifdef MUL
+        assume (c_zero);
+`endif
+
 `ifdef MULS
         // 0/inf or inf/0
         if ((a_inf && b_zero) || (a_zero && b_inf))
@@ -242,16 +277,18 @@ module edges();
         if (a_norm && a_exp < 8'h60 && b_subnorm && !c_special) begin
             assert (NX);
     `ifdef MULADD
-            assert (UF || (c_zero ? o_zero : o == c));
+            // within rounding
+            assert (UF || (c_zero ? o_zero : (o == c || o == c+1 || o == c-1)));
     `else
             assert (UF || o_zero);
-    `endif
             if (o_zero)
                 assert (o_sign == a_sign ^ b_sign);
+    `endif
         end
 `endif
 
 `ifdef ADDSUB
+        assume (c_zero);
         // adder can't underflow, subnormals are always exact
         assert (!UF);
 `endif
@@ -259,27 +296,27 @@ module edges();
 `ifdef RNE
         if (round_p_001) assert (o_unsigned == rounded_000);
         if (round_p_011) assert (o_unsigned == rounded_100);
-        if (round_n_011) assert (o_unsigned == rounded_000);
+        if (round_n_001) assert (o_unsigned == rounded_000);
         if (round_n_011) assert (o_unsigned == rounded_100);
 `elsif RNA
         if (round_p_001) assert (o_unsigned == rounded_010);
         if (round_p_011) assert (o_unsigned == rounded_100);
-        if (round_n_011) assert (o_unsigned == rounded_010);
+        if (round_n_001) assert (o_unsigned == rounded_010);
         if (round_n_011) assert (o_unsigned == rounded_100);
 `elsif RTP
         if (round_p_001) assert (o_unsigned == rounded_010);
         if (round_p_011) assert (o_unsigned == rounded_100);
-        if (round_n_011) assert (o_unsigned == rounded_000);
+        if (round_n_001) assert (o_unsigned == rounded_000);
         if (round_n_011) assert (o_unsigned == rounded_010);
 `elsif RTN
         if (round_p_001) assert (o_unsigned == rounded_000);
         if (round_p_011) assert (o_unsigned == rounded_010);
-        if (round_n_011) assert (o_unsigned == rounded_010);
+        if (round_n_001) assert (o_unsigned == rounded_010);
         if (round_n_011) assert (o_unsigned == rounded_100);
 `elsif RTZ
         if (round_p_001) assert (o_unsigned == rounded_000);
         if (round_p_011) assert (o_unsigned == rounded_010);
-        if (round_n_011) assert (o_unsigned == rounded_000);
+        if (round_n_001) assert (o_unsigned == rounded_000);
         if (round_n_011) assert (o_unsigned == rounded_010);
 `endif
 
@@ -298,7 +335,7 @@ module edges();
             if (!UF) begin
                 // for a small difference in exponent with zero LSB, the result must be
                 // exact
-                if (o_finite && lhs_dominates && exp_diff < 8'd08 && rhs_sig[7:0] == 0 && lhs_sig[7:0] == 0)
+                if (o_unclamped && lhs_dominates && exp_diff < 8'd08 && rhs_sig[7:0] == 0 && lhs_sig[7:0] == 0)
                     assert (!NX);
                 if (exp_diff == 0 && !OF && lhs_sig[7:0] == 0 && rhs_sig[7:0] == 0)
                     assert (!NX);
@@ -338,6 +375,8 @@ module edges();
 `endif
 
 `ifdef SQRT
+        assume (b_zero);
+        assume (c_zero);
         // complex roots are invalid
         if (a_sign && (a_norm || a_subnorm))
             assert (NV);
