@@ -8,6 +8,7 @@ OBJS += passes/silimate/fanoutbuf.o
 OBJS += passes/silimate/l2j_frontend.o
 OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/segv.o
+OBJS += passes/silimate/reg_rename.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitlarge.o
 OBJS += passes/silimate/splitnetlist.o
