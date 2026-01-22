@@ -386,6 +386,8 @@ struct SynthXilinxPass : public ScriptPass
 				run("pmux2shiftx", "(skip if '-nosrl' and '-widemux=0')");
 				run("clean", "      (skip if '-nosrl' and '-widemux=0')");
 			}
+
+			run("sort");
 		}
 
 		if (check_label("map_dsp", "(skip if '-nodsp')")) {
