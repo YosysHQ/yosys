@@ -1,0 +1,414 @@
+log -header "Test sub2neg: a-b -> a+(-b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	assign y = a - b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 0 t:$sub
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+log -pop
+
+log -header "Test sub2neg: signed operands"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [7:0] y;
+	assign y = a - b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 0 t:$sub
+log -pop
+
+log -header "Test sub2neg: a wider than b"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [15:0] a;
+	input wire [7:0] b;
+	output wire [15:0] y;
+	assign y = a - b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 0 t:$sub
+log -pop
+
+log -header "Test sub2neg: no transform when B is constant (preserve addsub_c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, y);
+	input wire [7:0] a;
+	output wire [7:0] y;
+	assign y = a - 8'd10;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$sub
+select -assert-count 0 t:$neg
+log -pop
+
+log -header "Test negneg: -(-a) -> a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, y);
+	input wire [7:0] a;
+	output wire [7:0] y;
+	wire [7:0] neg_a = -a;
+	assign y = -neg_a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 2 t:$neg
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 0 t:$neg
+log -pop
+
+log -header "Test negexpand: -(a+b) -> (-a)+(-b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	wire [7:0] sum = a + b;
+	assign y = -sum;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 1 t:$neg
+select -assert-count 1 t:$add
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 2 t:$neg
+select -assert-count 1 t:$add
+log -pop
+
+log -header "Test negexpand: no transform when sum has multiple fanouts"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y, z);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	output wire [7:0] z;
+	wire [7:0] sum = a + b;
+	assign y = -sum;
+	assign z = sum;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$add
+log -pop
+
+log -header "Test negrebuild: (-a)+(-b) -> -(a+b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	wire [7:0] neg_a = -a;
+	wire [7:0] neg_b = -b;
+	assign y = neg_a + neg_b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 2 t:$neg
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$neg
+select -assert-count 1 t:$add
+log -pop
+
+log -header "Test negrebuild: no transform when both negs have multiple fanouts"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y, z, w);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	output wire [7:0] z;
+	output wire [7:0] w;
+	wire [7:0] neg_a = -a;
+	wire [7:0] neg_b = -b;
+	assign y = neg_a + neg_b;
+	assign z = neg_a;
+	assign w = neg_b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 2 t:$neg
+log -pop
+
+log -header "Test neg2sub: a+(-b) -> a-b"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	wire [7:0] neg_b = -b;
+	assign y = a + neg_b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 0 t:$neg
+select -assert-count 1 t:$sub
+log -pop
+
+log -header "Test neg2sub: (-a)+b -> b-a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	wire [7:0] neg_a = -a;
+	assign y = neg_a + b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$sub
+log -pop
+
+log -header "Test neg2sub: no transform when neg has multiple fanouts"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y, z);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	output wire [7:0] z;
+	wire [7:0] neg_b = -b;
+	assign y = a + neg_b;
+	assign z = neg_b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+log -pop
+
+log -header "Test negmux: -(s?a:b) -> s?(-a):(-b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire s;
+	output wire [7:0] y;
+	wire [7:0] mux_out = s ? a : b;
+	assign y = -mux_out;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 1 t:$neg
+select -assert-count 1 t:$mux
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 2 t:$neg
+select -assert-count 1 t:$mux
+log -pop
+
+log -header "Test negmux: no transform when mux has multiple fanouts"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y, z);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire s;
+	output wire [7:0] y;
+	output wire [7:0] z;
+	wire [7:0] mux_out = s ? a : b;
+	assign y = -mux_out;
+	assign z = mux_out;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$neg
+log -pop
+
+log -header "Test muxneg: s?(-a):(-b) -> -(s?a:b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire s;
+	output wire [7:0] y;
+	wire [7:0] neg_a = -a;
+	wire [7:0] neg_b = -b;
+	assign y = s ? neg_a : neg_b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 2 t:$neg
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$neg
+select -assert-count 1 t:$mux
+log -pop
+
+log -header "Test muxneg: no transform when neg has multiple fanouts"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y, z);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire s;
+	output wire [7:0] y;
+	output wire [7:0] z;
+	wire [7:0] neg_a = -a;
+	wire [7:0] neg_b = -b;
+	assign y = s ? neg_a : neg_b;
+	assign z = neg_a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 2 t:$neg
+log -pop
+
+log -header "Test full pipeline: subtraction chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, d, e, y);
+	input wire [15:0] a;
+	input wire [15:0] b;
+	input wire [15:0] c;
+	input wire [15:0] d;
+	input wire [15:0] e;
+	output wire [15:0] y;
+	assign y = a - b - c - d - e;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+equiv_opt -assert negopt -post
+log -pop
+
+log -header "Test full pipeline: mixed mux and arithmetic"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, d, e, f, s, y);
+	input wire [15:0] a;
+	input wire [15:0] b;
+	input wire [15:0] c;
+	input wire [15:0] d;
+	input wire [15:0] e;
+	input wire [15:0] f;
+	input wire s;
+	output wire [15:0] y;
+	assign y = (s ? (a + b - c) : (a + d - e)) + f;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -pre
+equiv_opt -assert negopt -post
+log -pop
+
+log -header "Test edge: wide operations (32-bit)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [31:0] a;
+	input wire [31:0] b;
+	output wire [31:0] y;
+	wire [31:0] neg_b = -b;
+	assign y = a + neg_b;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert negopt -post
+log -pop

@@ -1,0 +1,298 @@
+log -header "Test muxfactor: s?(a+b):(a+c) -> a+(s?b:c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [8:0] y;
+	assign y = s ? (a + b) : (a + c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 2 t:$add
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$add
+log -pop
+
+log -header "Test muxfactor: common on B port s?(b+a):(c+a)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [8:0] y;
+	assign y = s ? (b + a) : (c + a);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$add
+log -pop
+
+log -header "Test muxfactor: mixed positions s?(a+b):(c+a)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [8:0] y;
+	assign y = s ? (a + b) : (c + a);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$add
+log -pop
+
+log -header "Test muxfactor: sub with common minuend s?(a-b):(a-c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [7:0] y;
+	assign y = s ? (a - b) : (a - c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 2 t:$sub
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$sub
+log -pop
+
+log -header "Test muxfactor: sub with common subtrahend s?(b-a):(c-a)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [7:0] y;
+	assign y = s ? (b - a) : (c - a);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$sub
+log -pop
+
+log -header "Test muxfactor: no sub factor when positions differ s?(a-b):(c-a)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [7:0] y;
+	assign y = s ? (a - b) : (c - a);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 2 t:$sub
+log -pop
+
+log -header "Test muxfactor: mul s?(a*b):(a*c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [15:0] y;
+	assign y = s ? (a * b) : (a * c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+select -assert-count 2 t:$mul
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$mul
+log -pop
+
+log -header "Test muxfactor: and s?(a&b):(a&c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [7:0] y;
+	assign y = s ? (a & b) : (a & c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$and
+log -pop
+
+log -header "Test muxfactor: or s?(a|b):(a|c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [7:0] y;
+	assign y = s ? (a | b) : (a | c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$or
+log -pop
+
+log -header "Test muxfactor: xor s?(a^b):(a^c)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [7:0] y;
+	assign y = s ? (a ^ b) : (a ^ c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$xor
+log -pop
+
+log -header "Test muxfactor: no transform when op has multiple fanouts"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y, z);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [8:0] y;
+	output wire [8:0] z;
+	wire [8:0] ab = a + b;
+	wire [8:0] ac = a + c;
+	assign y = s ? ab : ac;
+	assign z = ab;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 2 t:$add
+log -pop
+
+log -header "Test muxfactor: different bitwidths (a wider)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [15:0] a;
+	input wire [7:0] b;
+	input wire [7:0] c;
+	input wire s;
+	output wire [16:0] y;
+	assign y = s ? (a + b) : (a + c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+log -pop
+
+log -header "Test muxfactor: signed operands"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire signed [7:0] c;
+	input wire s;
+	output wire signed [8:0] y;
+	assign y = s ? (a + b) : (a + c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+log -pop
+
+log -header "Test muxfactor: wide (32-bit)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s, y);
+	input wire [31:0] a;
+	input wire [31:0] b;
+	input wire [31:0] c;
+	input wire s;
+	output wire [32:0] y;
+	assign y = s ? (a + b) : (a + c);
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxfactor
+design -load postopt
+select -assert-count 1 t:$add
+log -pop

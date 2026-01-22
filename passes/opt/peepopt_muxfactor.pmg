@@ -1,0 +1,133 @@
+pattern muxfactor
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Factors out common operand from mux branches:
+//   s ? (a OP b) : (a OP c)   ===>   a OP (s ? b : c)
+//
+// Supported OPs: $add, $sub, $mul, $and, $or, $xor
+//
+// NOTE: For $sub, common operand must be in same position since
+// subtraction is non-commutative: (a-b) != (b-a)
+//
+
+state <SigSpec> mux_a mux_b mux_s mux_y
+state <SigSpec> op1_a op1_b op2_a op2_b
+state <IdString> op_type
+state <bool> op1_a_signed op2_a_signed
+state <bool> common_is_a
+
+match mux
+	select mux->type == $mux
+	set mux_a port(mux, \A)
+	set mux_b port(mux, \B)
+	set mux_s port(mux, \S)
+	set mux_y port(mux, \Y)
+endmatch
+
+match op1
+	select op1->type.in($add, $sub, $mul, $and, $or, $xor)
+	select nusers(op1->getPort(\Y)) == 2
+	index <SigSpec> op1->getPort(\Y) === mux_b
+	set op1_a port(op1, \A)
+	set op1_b port(op1, \B)
+	set op_type op1->type
+	set op1_a_signed op1->getParam(\A_SIGNED).as_bool()
+endmatch
+
+match op2
+	select op2->type.in($add, $sub, $mul, $and, $or, $xor)
+	select nusers(op2->getPort(\Y)) == 2
+	index <SigSpec> op2->getPort(\Y) === mux_a
+	filter op2->type == op_type
+	set op2_a port(op2, \A)
+	set op2_b port(op2, \B)
+	set op2_a_signed op2->getParam(\A_SIGNED).as_bool()
+endmatch
+
+code common_is_a
+	bool is_sub = (op_type == $sub);
+
+	if (is_sub) {
+		if (op1_a == op2_a)
+			common_is_a = true;
+		else if (op1_b == op2_b)
+			common_is_a = false;
+		else
+			reject;
+	} else {
+		if (op1_a == op2_a || op1_a == op2_b)
+			common_is_a = true;
+		else if (op1_b == op2_a || op1_b == op2_b)
+			common_is_a = false;
+		else
+			reject;
+	}
+endcode
+
+code mux_a mux_b mux_s mux_y op1_a op1_b op2_a op2_b op_type common_is_a op1_a_signed op2_a_signed
+	SigSpec common, diff1, diff2;
+	bool is_sub = (op_type == $sub);
+
+	if (is_sub) {
+		if (common_is_a) {
+			common = op1_a;
+			diff1 = op1_b;
+			diff2 = op2_b;
+		} else {
+			common = op1_b;
+			diff1 = op1_a;
+			diff2 = op2_a;
+		}
+	} else {
+		if (common_is_a) {
+			common = op1_a;
+			diff1 = op1_b;
+			diff2 = (op2_a == common) ? op2_b : op2_a;
+		} else {
+			common = op1_b;
+			diff1 = op1_a;
+			diff2 = (op2_a == common) ? op2_b : op2_a;
+		}
+	}
+
+	int width = GetSize(mux_y);
+
+	SigSpec new_mux_y = module->addWire(NEW_ID, std::max(GetSize(diff1), GetSize(diff2)));
+	Cell *new_mux = module->addMux(NEW_ID, diff2, diff1, mux_s, new_mux_y);
+
+	SigSpec new_op_y = module->addWire(NEW_ID, width);
+	Cell *new_op;
+	bool is_signed = op1_a_signed && op2_a_signed;
+
+	if (op_type == $add)
+		new_op = module->addAdd(NEW_ID, common, new_mux_y, new_op_y, is_signed);
+	else if (op_type == $sub) {
+		if (common_is_a)
+			new_op = module->addSub(NEW_ID, common, new_mux_y, new_op_y, is_signed);
+		else
+			new_op = module->addSub(NEW_ID, new_mux_y, common, new_op_y, is_signed);
+	} else if (op_type == $mul)
+		new_op = module->addMul(NEW_ID, common, new_mux_y, new_op_y, is_signed);
+	else if (op_type == $and)
+		new_op = module->addAnd(NEW_ID, common, new_mux_y, new_op_y, false);
+	else if (op_type == $or)
+		new_op = module->addOr(NEW_ID, common, new_mux_y, new_op_y, false);
+	else if (op_type == $xor)
+		new_op = module->addXor(NEW_ID, common, new_mux_y, new_op_y, false);
+	else
+		log_assert(false);
+
+	module->connect(mux_y, new_op_y);
+
+	log("muxfactor pattern in %s: mux=%s, op1=%s, op2=%s, optype=%s\n",
+		log_id(module), log_id(mux), log_id(op1), log_id(op2), log_id(op_type));
+
+	new_mux->fixup_parameters();
+	new_op->fixup_parameters();
+	autoremove(mux);
+	autoremove(op1);
+	autoremove(op2);
+	did_something = true;
+	accept;
+endcode

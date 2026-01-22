@@ -6,6 +6,7 @@ OBJS += passes/silimate/breaksop.o
 OBJS += passes/silimate/bus_rebuild.o
 OBJS += passes/silimate/fanoutbuf.o
 OBJS += passes/silimate/l2j_frontend.o
+OBJS += passes/silimate/lut2bmux.o
 OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/opt_balance_tree.o
 OBJS += passes/silimate/segv.o
@@ -32,4 +33,21 @@ PEEPOPT_PATTERN  = passes/silimate/peepopt_muxmode.pmg
 PEEPOPT_PATTERN += passes/silimate/peepopt_muxinvprop.pmg
 
 passes/silimate/peepopt_muxmode.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
+
+# Negopt pass for arithmetic tree balancing
+OBJS += passes/silimate/negopt.o
+GENFILES += passes/silimate/peepopt_negopt.h
+passes/silimate/negopt.o: passes/silimate/peepopt_negopt.h
+$(eval $(call add_extra_objs,passes/silimate/peepopt_negopt.h))
+
+NEGOPT_PATTERN  = passes/silimate/peepopt_sub2neg.pmg
+NEGOPT_PATTERN += passes/silimate/peepopt_negexpand.pmg
+NEGOPT_PATTERN += passes/silimate/peepopt_negrebuild.pmg
+NEGOPT_PATTERN += passes/silimate/peepopt_negneg.pmg
+NEGOPT_PATTERN += passes/silimate/peepopt_negmux.pmg
+NEGOPT_PATTERN += passes/silimate/peepopt_muxneg.pmg
+NEGOPT_PATTERN += passes/silimate/peepopt_neg2sub.pmg
+
+passes/silimate/peepopt_negopt.h: passes/pmgen/pmgen.py $(NEGOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
