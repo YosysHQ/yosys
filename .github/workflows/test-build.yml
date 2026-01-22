@@ -57,7 +57,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-          persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup environment
@@ -110,7 +109,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-          persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup environment
@@ -161,8 +159,6 @@ jobs:
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
@@ -203,7 +199,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-          persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup environment
@@ -249,7 +244,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-          persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Runtime environment
