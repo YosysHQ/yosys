@@ -51,6 +51,8 @@ struct OptBalanceTreeWorker {
 		if (cell_type == ID($add)) {
 			// Addition produces max(A_WIDTH, B_WIDTH) + 1 (for carry bit)
 			natural_width = std::max(a_width, b_width) + 1;
+			// SILIMATE: Ignore carry bit for now for more aggressive balancing
+			natural_width--;
 		} else if (cell_type == ID($mul)) {
 			// Multiplication produces A_WIDTH + B_WIDTH
 			natural_width = a_width + b_width;
@@ -77,7 +79,7 @@ struct OptBalanceTreeWorker {
 		// Base case: if we have two sources, create a single cell
 		if (sources.size() == 2) {
 			// Create a new cell of the same type
-			Cell* new_cell = module->addCell(NEW_ID, cell_type);
+			Cell* new_cell = module->addCell(NEW_ID2_SUFFIX("tree"), cell_type);
 			
 			// Copy attributes from reference cell
 			new_cell->attributes = cell->attributes;
@@ -88,7 +90,7 @@ struct OptBalanceTreeWorker {
 				out_width = max(sources[0].size(), sources[1].size()) + 1;
 			else if (cell_type == ID($mul))
 				out_width = sources[0].size() + sources[1].size();
-			Wire* out_wire = module->addWire(NEW_ID, out_width);
+			Wire* out_wire = module->addWire(NEW_ID2_SUFFIX("tree_out"), out_width);
 			
 			// Connect ports and fix up parameters
 			new_cell->setPort(ID::A, sources[0]);
@@ -112,7 +114,7 @@ struct OptBalanceTreeWorker {
 		SigSpec right_tree = create_balanced_tree(right_sources, cell_type, cell);
 		
 		// Create a cell to combine the two subtrees
-		Cell* new_cell = module->addCell(NEW_ID, cell_type);
+		Cell* new_cell = module->addCell(NEW_ID2_SUFFIX("tree"), cell_type);
 		
 		// Copy attributes from reference cell
 		new_cell->attributes = cell->attributes;
@@ -123,7 +125,7 @@ struct OptBalanceTreeWorker {
 			out_width = max(left_tree.size(), right_tree.size()) + 1;
 		else if (cell_type == ID($mul))
 			out_width = left_tree.size() + right_tree.size();
-		Wire* out_wire = module->addWire(NEW_ID, out_width);
+		Wire* out_wire = module->addWire(NEW_ID2_SUFFIX("tree_out"), out_width);
 		
 		// Connect ports and fix up parameters
 		new_cell->setPort(ID::A, left_tree);
@@ -340,7 +342,7 @@ struct OptBalanceTreePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
-		log_experimental("open_balance_tree");
+		// log_experimental("open_balance_tree");
 
 		// Handle arguments
 		size_t argidx;
