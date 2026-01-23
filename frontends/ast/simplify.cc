@@ -269,6 +269,73 @@ static int add_dimension(AstNode *node, AstNode *rnode)
 	node->input_error("Unpacked array in packed struct/union member %s\n", node->str);
 }
 
+// Check if node is an unexpanded array reference (AST_IDENTIFIER -> AST_MEMORY without indexing)
+static bool is_unexpanded_array_ref(AstNode *node)
+{
+	if (node->type != AST_IDENTIFIER)
+		return false;
+	if (node->id2ast == nullptr || node->id2ast->type != AST_MEMORY)
+		return false;
+	// No indexing children = whole array reference
+	return node->children.empty();
+}
+
+// Check if two memories have compatible unpacked dimensions for array assignment
+static bool arrays_have_compatible_dims(AstNode *mem_a, AstNode *mem_b)
+{
+	if (mem_a->unpacked_dimensions != mem_b->unpacked_dimensions)
+		return false;
+	for (int i = 0; i < mem_a->unpacked_dimensions; i++) {
+		if (mem_a->dimensions[i].range_width != mem_b->dimensions[i].range_width)
+			return false;
+	}
+	// Also check packed dimensions (element width)
+	int a_width, a_size, a_bits;
+	int b_width, b_size, b_bits;
+	mem_a->meminfo(a_width, a_size, a_bits);
+	mem_b->meminfo(b_width, b_size, b_bits);
+	return a_width == b_width;
+}
+
+// Generate all index combinations for multi-dimensional array and call callback for each
+static void foreach_array_index(AstNode *mem, std::function<void(const std::vector<int>&)> callback)
+{
+	int num_dims = mem->unpacked_dimensions;
+	if (num_dims == 0) {
+		callback({});
+		return;
+	}
+
+	std::vector<int> indices(num_dims, 0);
+	std::vector<int> ranges_min(num_dims), ranges_max(num_dims);
+
+	// Get min/max for each dimension
+	for (int d = 0; d < num_dims; d++) {
+		int right = mem->dimensions[d].range_right;
+		int width = mem->dimensions[d].range_width;
+		ranges_min[d] = right;
+		ranges_max[d] = right + width - 1;
+		indices[d] = ranges_min[d];
+	}
+
+	// Iterate through all combinations
+	while (true) {
+		callback(indices);
+
+		// Increment indices (like counting in mixed-radix)
+		int d = num_dims - 1;
+		while (d >= 0) {
+			indices[d]++;
+			if (indices[d] <= ranges_max[d])
+				break;
+			indices[d] = ranges_min[d];
+			d--;
+		}
+		if (d < 0)
+			break;
+	}
+}
+
 static int size_packed_struct(AstNode *snode, int base_offset)
 {
 	// Struct members will be laid out in the structure contiguously from left to right.
@@ -3194,6 +3261,114 @@ skip_dynamic_range_lvalue_expansion:;
 				newNode->children.push_back(std::make_unique<AstNode>(location, type, child->clone(), std::move(rhs)));
 
 				cursor += child_width_hint;
+			}
+
+			goto apply_newNode;
+		}
+	}
+
+	// Expand array assignment: arr_out = arr_in OR arr_out = cond ? arr_a : arr_b
+	// Supports multi-dimensional unpacked arrays
+	if ((type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE || type == AST_ASSIGN) &&
+	    is_unexpanded_array_ref(children[0].get()))
+	{
+		AstNode *lhs = children[0].get();
+		AstNode *rhs = children[1].get();
+		AstNode *lhs_mem = lhs->id2ast;
+
+		// Case 1: Direct array assignment (b = a)
+		bool is_direct_assign = is_unexpanded_array_ref(rhs);
+
+		// Case 2: Ternary array assignment (out = sel ? a : b)
+		bool is_ternary_assign = (rhs->type == AST_TERNARY &&
+		                          is_unexpanded_array_ref(rhs->children[1].get()) &&
+		                          is_unexpanded_array_ref(rhs->children[2].get()));
+
+		if (is_direct_assign || is_ternary_assign)
+		{
+			// Validate array compatibility
+			if (is_direct_assign) {
+				if (!arrays_have_compatible_dims(lhs_mem, rhs->id2ast))
+					input_error("Array dimension mismatch in assignment\n");
+			} else {
+				AstNode *true_mem = rhs->children[1]->id2ast;
+				AstNode *false_mem = rhs->children[2]->id2ast;
+				if (!arrays_have_compatible_dims(lhs_mem, true_mem) ||
+				    !arrays_have_compatible_dims(lhs_mem, false_mem))
+					input_error("Array dimension mismatch in ternary expression\n");
+			}
+
+			int num_dims = lhs_mem->unpacked_dimensions;
+
+			// Helper to add index to an identifier clone
+			auto add_indices_to_id = [&](std::unique_ptr<AstNode> id, const std::vector<int>& indices) {
+				if (num_dims == 1) {
+					// Single dimension: use AST_RANGE
+					id->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+						mkconst_int(location, indices[0], true)));
+				} else {
+					// Multiple dimensions: use AST_MULTIRANGE
+					auto multirange = std::make_unique<AstNode>(location, AST_MULTIRANGE);
+					for (int idx : indices) {
+						multirange->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+							mkconst_int(location, idx, true)));
+					}
+					id->children.push_back(std::move(multirange));
+				}
+				id->integer = num_dims;
+				// Reset basic_prep so multirange gets resolved during subsequent simplify passes
+				id->basic_prep = false;
+				return id;
+			};
+
+			// Calculate total number of elements and warn if large
+			int total_elements = 1;
+			for (int d = 0; d < num_dims; d++)
+				total_elements *= lhs_mem->dimensions[d].range_width;
+			if (total_elements > 10000)
+				log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
+					total_elements, location.to_string().c_str());
+
+			// Collect all assignments
+			std::vector<std::unique_ptr<AstNode>> assignments;
+
+			foreach_array_index(lhs_mem, [&](const std::vector<int>& indices) {
+				auto lhs_idx = add_indices_to_id(lhs->clone(), indices);
+
+				std::unique_ptr<AstNode> rhs_expr;
+				if (is_direct_assign) {
+					rhs_expr = add_indices_to_id(rhs->clone(), indices);
+				} else {
+					// Ternary case
+					AstNode *cond = rhs->children[0].get();
+					AstNode *true_val = rhs->children[1].get();
+					AstNode *false_val = rhs->children[2].get();
+
+					auto true_idx = add_indices_to_id(true_val->clone(), indices);
+					auto false_idx = add_indices_to_id(false_val->clone(), indices);
+
+					rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
+						cond->clone(), std::move(true_idx), std::move(false_idx));
+				}
+
+				auto assign = std::make_unique<AstNode>(location, type,
+					std::move(lhs_idx), std::move(rhs_expr));
+				assign->was_checked = true;
+				assignments.push_back(std::move(assign));
+			});
+
+			// For continuous assignments, add to module; for procedural, use block
+			if (type == AST_ASSIGN) {
+				// Add all but last to module
+				for (size_t i = 0; i + 1 < assignments.size(); i++)
+					current_ast_mod->children.push_back(std::move(assignments[i]));
+				// Last one replaces current node
+				newNode = std::move(assignments.back());
+			} else {
+				// Wrap in AST_BLOCK for procedural
+				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+				for (auto& assign : assignments)
+					newNode->children.push_back(std::move(assign));
 			}
 
 			goto apply_newNode;
