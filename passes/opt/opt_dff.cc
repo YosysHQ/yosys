@@ -55,10 +55,11 @@ struct OptDffWorker
 	dict<SigBit, int> bitusers;       // Signal sink count
 	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
 
-	typedef std::map<RTLIL::SigBit, bool> pattern_t;
-	typedef std::set<pattern_t> patterns_t;
-	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;
-	typedef std::set<ctrl_t> ctrls_t;
+	// Eattern matching for clock enable
+	typedef std::map<RTLIL::SigBit, bool> pattern_t; // Control signal -> required vals
+	typedef std::set<pattern_t> patterns_t;          // Alternative patterns (OR)
+	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;   // Control signal
+	typedef std::set<ctrl_t> ctrls_t;                // Control signals (AND)
 
 	std::vector<Cell *> dff_cells;
 
@@ -794,7 +795,7 @@ struct OptDffWorker
 				continue;
 			}
 
-			// Control signal opt
+			// Async control signal opt
 			if (ff.has_sr && optimize_sr(ff, cell, changed)) {
 				did_something = true;
 				continue;
@@ -810,6 +811,7 @@ struct OptDffWorker
 				continue;
 			}
 
+			// Sync control signal opt
 			if (ff.has_srst)
 				optimize_srst(ff, cell, changed);
 
@@ -859,9 +861,9 @@ struct OptDffWorker
 
 	bool prove_const_with_sat(QuickConeSat &qcsat, ModWalker &modwalker, SigBit q, SigBit d, State val)
 	{
+		// Trivial non-const cases
 		if (!modwalker.has_drivers(d))
 			return false;
-
 		if (val != State::S0 && val != State::S1)
 			return false;
 
@@ -870,6 +872,7 @@ struct OptDffWorker
 		int d_sat_pi = qcsat.importSigBit(d);
 		qcsat.prepare();
 
+		// If no counterexample exists, FF is constant
 		return !qcsat.ez->solve(
 			qcsat.ez->IFF(q_sat_pi, init_sat_pi),
 			qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
@@ -892,6 +895,7 @@ struct OptDffWorker
 
 	bool run_constbits()
 	{
+		// Find FFs that are provably constant
 		ModWalker modwalker(module->design, module);
 		QuickConeSat qcsat(modwalker);
 
