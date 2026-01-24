@@ -346,7 +346,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
 			RTLIL::SigBit s1 = RTLIL::SigBit(wire, i), s2 = assign_map(s1);
-			if (!compare_signals(s1, s2, register_signals, connected_signals, direct_wires))
+			if (compare_signals(s2, s1, register_signals, connected_signals, direct_wires))
 				assign_map.add(s1);
 		}
 	}
