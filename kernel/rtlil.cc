@@ -29,6 +29,8 @@
 #include <string.h>
 #include <algorithm>
 #include <charconv>
+#include <codecvt>
+#include <locale>
 #include <optional>
 #include <string_view>
 #include <sstream>
@@ -4294,6 +4296,24 @@ RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpe
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
+}
+
+std::string RTLIL::Module::rtlil_dump()
+{
+	std::stringstream stream;
+	sort();
+	RTLIL_BACKEND::dump_module(stream, " ", this, design, false, true, false);
+	std::string origstring = stream.str();
+	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
+	std::u32string orig(origstring.begin(), origstring.end());
+	return converter.to_bytes(orig);
+}
+
+std::string RTLIL::Module::rtlil_hash()
+{
+	std::hash<std::string> hasher;
+	size_t hash = hasher(rtlil_dump());
+	return std::to_string(hash);
 }
 
 std::string RTLIL::Module::to_rtlil_str() const

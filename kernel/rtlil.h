@@ -2398,6 +2398,8 @@ public:
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
 
 	std::string to_rtlil_str() const;
+	std::string rtlil_dump();
+	std::string rtlil_hash();
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif
