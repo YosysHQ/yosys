@@ -3744,10 +3744,28 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
 
+#ifdef VERIFIC_VHDL_SUPPORT
+			int i;
+			FOREACH_ARRAY_ITEM(file_names, i, filename) {
+				std::string filename_str = filename;
+				if ((filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") ||
+						(filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl")) {
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
+					if (!vhdl_file::Analyze(filename, work.c_str(), vhdl_file::VHDL_2019)) {
+						verific_error_msg.clear();
+						log_cmd_error("Reading VHDL sources failed.\n");
+					}
+				} else if (!veri_file::Analyze(filename, analysis_mode, work.c_str())) {
+					verific_error_msg.clear();
+					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
+				}
+			}
+#else
 			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
 				log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 			}
+#endif
 
 			delete file_names;
 			verific_import_pending = true;
