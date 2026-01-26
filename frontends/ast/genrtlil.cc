@@ -694,6 +694,7 @@ struct AST_INTERNAL::ProcessGenerator
 				sw->module = current_module;
 				set_src_attr(sw, ast);
 				sw->signal = ast->children[0]->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap());
+				sw->signal_src = current_module->design->twines.add(Twine{ast->children[0]->loc_string()});
 				current_case->switches.push_back(sw);
 
 				for (auto &attr : ast->attributes) {
