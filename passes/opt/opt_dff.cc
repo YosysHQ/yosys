@@ -26,8 +26,8 @@
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
+#include "kernel/pattern.h"
 #include "passes/techmap/simplemap.h"
-#include "passes/opt/opt_dff_comp.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -57,8 +57,7 @@ struct OptDffWorker
 	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
 
 	// Pattern matching for clock enable
-	typedef std::map<RTLIL::SigBit, bool> pattern_t; // Control signal -> required vals
-	typedef std::set<pattern_t> patterns_t;          // Alternative patterns (OR)
+	typedef std::map<RTLIL::SigBit, bool> pattern_t;
 	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;   // Control signal
 	typedef std::set<ctrl_t> ctrls_t;                // Control signals (AND)
 
@@ -219,49 +218,6 @@ struct OptDffWorker
 		}
 
 		return ret;
-	}
-
-	void simplify_patterns(patterns_t& patterns)
-	{
-		auto new_patterns = patterns;
-
-		// Remove complimentary patterns
-		bool optimized;
-		do {
-			optimized = false;
-			for (auto i = patterns.begin(); i != patterns.end(); i++) {
-				for (auto j = std::next(i, 1); j != patterns.end(); j++) {
-					const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
-					auto right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
-					const auto complimentary_var = find_complementary_pattern_var(left, right);
-
-					if (complimentary_var && new_patterns.count(right)) {
-						new_patterns.erase(right);
-						right.erase(complimentary_var.value());
-						new_patterns.insert(right);
-						optimized = true;
-					}
-				}
-			}
-			patterns = new_patterns;
-		} while(optimized);
-
-		// Remove redundant patterns
-		for (auto i = patterns.begin(); i != patterns.end(); ++i) {
-			for (auto j = std::next(i, 1); j != patterns.end(); ++j) {
-				const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
-				const auto& right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
-				bool redundant = true;
-
-				for (const auto& pt : left)
-					if (right.count(pt.first) == 0 || right.at(pt.first) != pt.second)
-						redundant = false;
-				if (redundant)
-					new_patterns.erase(right);
-			}
-		}
-
-		patterns = std::move(new_patterns);
 	}
 
 	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates)
