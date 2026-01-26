@@ -614,7 +614,7 @@ struct OptDffWorker
 			ctrls_t resets;
 			State reset_val = ff.has_srst ? ff.val_srst[i] : State::Sx;
 
-			if (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
+			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
 				cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
@@ -702,7 +702,7 @@ struct OptDffWorker
 		for (int i = 0; i < ff.width; i++) {
 			ctrls_t enables;
 
-			if (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
+			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
 				cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
