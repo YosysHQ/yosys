@@ -317,10 +317,12 @@ Reviewing PRs is a totally valid form of external contributing to the project!
 Who's the reviewer?
 ~~~~~~~~~~~~~~~~~~~
 
-Yosys HQ is a company with the inherited mandate to make decisions on behalf
-of the open source project. As such, we at HQ are collectively the maintainers.
-Within HQ, we allocate reviews based on expertise with the topic at hand
-as well as member time constraints.
+Yosys HQ GmbH is a company with a mandate to make decisions for the good
+of Yosys HQ open source software. It was co-founded by Claire Xenia Wolf,
+the original author of Yosys.
+Within it, we allocate reviews based on expertise with the topic at hand
+as well as member time constraints. However, decisions including reviews
+are also contributed by people external to the company.
 
 If you're intimately acquainted with a part of the codebase, we will be happy
 to defer to your experience and have you review PRs. The official way we like
