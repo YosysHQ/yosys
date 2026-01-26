@@ -28,9 +28,9 @@ example `MVCE`_.
 Providing an MVCE with your bug report drastically increases the likelihood that
 someone will be able to help resolve your issue.
 Make sure that your report input is free of any problems as reported by the
-`check_` command.
-One way to minimize a design is to use the `bugpoint_` command.
-You can learn more in the `how-to guide for bugpoint_`.
+`check`_ command.
+One way to minimize a design is to use the `bugpoint`_ command.
+You can learn more in the `how-to guide for bugpoint`_.
 
 The reproduction steps are ideally a code-block (starting and ending with
 triple backquotes) containing
