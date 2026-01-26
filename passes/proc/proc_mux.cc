@@ -242,8 +242,13 @@ struct MuxGenCtx {
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(mod->design->twines.add(std::string{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}), ifxmode ? TW($eqx) : TW($eq));
 				apply_attrs(eq_cell, cs);
-				if (cs->compare_src != Twine::Null)
-					eq_cell->set_src_attribute(cs->compare_src);
+				std::vector<TwineRef> eq_sources;
+				if (sw->signal_src != Twine::Null)
+					eq_sources.push_back(sw->signal_src);
+				if (cs->compare_src != Twine::Null && cs->compare_src != sw->signal_src)
+					eq_sources.push_back(cs->compare_src);
+				if (!eq_sources.empty())
+					eq_cell->set_src_attribute(mod->design->twines.concat(std::span<const TwineRef>{eq_sources}));
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
