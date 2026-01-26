@@ -27,6 +27,7 @@
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
 #include "passes/techmap/simplemap.h"
+#include "passes/opt/opt_dff_comp.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -55,7 +56,7 @@ struct OptDffWorker
 	dict<SigBit, int> bitusers;       // Signal sink count
 	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
 
-	// Eattern matching for clock enable
+	// Pattern matching for clock enable
 	typedef std::map<RTLIL::SigBit, bool> pattern_t; // Control signal -> required vals
 	typedef std::set<pattern_t> patterns_t;          // Alternative patterns (OR)
 	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;   // Control signal
@@ -224,17 +225,6 @@ struct OptDffWorker
 	{
 		auto new_patterns = patterns;
 
-		auto find_comp = [](const auto& left, const auto& right) -> std::optional<RTLIL::SigBit> {
-			std::optional<RTLIL::SigBit> ret;
-			for (const auto &pt: left) {
-				if (right.count(pt.first) == 0) return {};
-				if (right.at(pt.first) == pt.second) continue;
-				if (ret) return {};
-				ret = pt.first;
-			}
-			return ret;
-		};
-
 		// Remove complimentary patterns
 		bool optimized;
 		do {
@@ -243,7 +233,7 @@ struct OptDffWorker
 				for (auto j = std::next(i, 1); j != patterns.end(); j++) {
 					const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
 					auto right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
-					const auto complimentary_var = find_comp(left, right);
+					const auto complimentary_var = find_complementary_pattern_var(left, right);
 
 					if (complimentary_var && new_patterns.count(right)) {
 						new_patterns.erase(right);
@@ -624,7 +614,7 @@ struct OptDffWorker
 			ctrls_t resets;
 			State reset_val = ff.has_srst ? ff.val_srst[i] : State::Sx;
 
-			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
+			if (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
 				cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
@@ -712,7 +702,7 @@ struct OptDffWorker
 		for (int i = 0; i < ff.width; i++) {
 			ctrls_t enables;
 
-			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
+			if (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
 				cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
