@@ -248,8 +248,13 @@ struct MuxGenCtx {
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
 				apply_attrs(eq_cell, cs);
+				pool<std::string> eq_sources;
 				if (cs->compare_src.size())
-					eq_cell->attributes[ID::src] = cs->compare_src;
+					eq_sources.insert(cs->compare_src.decode_string());
+				if (sw->signal_src.size())
+					eq_sources.insert(sw->signal_src.decode_string());
+				if (eq_sources.size())
+					eq_cell->set_strpool_attribute(ID::src, eq_sources);
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
