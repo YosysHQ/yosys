@@ -1,0 +1,4 @@
+read_rtlil stage_1_init.il
+select */a:phase */a:phase=1 %d
+delete
+write_rtlil stage_1_fv.il
