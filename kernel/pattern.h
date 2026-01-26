@@ -19,8 +19,12 @@ YOSYS_NAMESPACE_BEGIN
  *  Used for analyzing MUX tree control paths in DFF optimization.
  */
 
-typedef std::map<RTLIL::SigBit, bool> pattern_t; // Control signal -> required vals
+// Pattern matching for clock enable
+// A pattern maps control signals to their required values for a MUX path
+typedef std::map<RTLIL::SigBit, bool> pattern_t; // Set of control signals that must ALL match required vals
 typedef std::set<pattern_t> patterns_t;          // Alternative patterns (OR)
+typedef std::pair<RTLIL::SigBit, bool> ctrl_t;   // Control signal
+typedef std::set<ctrl_t> ctrls_t;                // Set of control signals that must ALL be active
 
 /**
  * Find if two patterns differ in exactly one variable.

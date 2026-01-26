@@ -56,11 +56,6 @@ struct OptDffWorker
 	dict<SigBit, int> bitusers;       // Signal sink count
 	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
 
-	// Pattern matching for clock enable
-	typedef std::map<RTLIL::SigBit, bool> pattern_t;
-	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;   // Control signal
-	typedef std::set<ctrl_t> ctrls_t;                // Control signals (AND)
-
 	std::vector<Cell *> dff_cells;
 
 	bool is_active(SigBit sig, bool pol) const {
