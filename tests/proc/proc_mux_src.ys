@@ -1,10 +1,10 @@
 read_verilog proc_mux_src.v
 proc -noopt
 check -assert
-# eq refer to the values compared against
+# eq refer to both sides of the comparison of switch signal vs case value
 select -assert-count 2 tiny2/t:$eq
-select -assert-count 1 tiny2/t:$eq a:src=proc_mux_src.v:81.4-81.10 %i
-select -assert-count 1 tiny2/t:$eq a:src=proc_mux_src.v:84.4-84.10 %i
+select -assert-count 1 tiny2/t:$eq a:src=proc_mux_src.v:80.9-80.11|proc_mux_src.v:81.4-81.10 %i
+select -assert-count 1 tiny2/t:$eq a:src=proc_mux_src.v:80.9-80.11|proc_mux_src.v:84.4-84.10 %i
 # Flops cover the assigned to wire and whole process
 select -assert-count 1 tiny2/t:$dff
 select -assert-count 1 tiny2/t:$dff a:src=proc_mux_src.v:76.19-76.22|proc_mux_src.v:78.2-91.5
