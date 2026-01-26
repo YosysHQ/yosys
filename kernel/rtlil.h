@@ -2111,7 +2111,7 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 	std::vector<RTLIL::SigSpec> compare;
 	std::vector<RTLIL::SyncAction> actions;
 	std::vector<RTLIL::SwitchRule*> switches;
-	Const compare_src;
+	RTLIL::Const compare_src;
 
 	~CaseRule();
 
@@ -2125,6 +2125,7 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 struct RTLIL::SwitchRule : public RTLIL::AttrObject
 {
 	RTLIL::SigSpec signal;
+	RTLIL::Const signal_src;
 	std::vector<RTLIL::CaseRule*> cases;
 
 	~SwitchRule();
