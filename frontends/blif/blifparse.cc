@@ -470,6 +470,27 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				continue;
 			}
 
+			if (!strcmp(cmd, ".gateinit"))
+			{
+				char *p = strtok(NULL, " \t\r\n");
+				if (p == NULL)
+					goto error;
+
+				char *n = strtok(p, "=");
+				char *init = strtok(NULL, "=");
+				if (n == NULL || init == NULL)
+					goto error;
+				if (init[0] != '0' && init[0] != '1')
+					goto error;
+
+				if (blif_wire(n)->attributes.find(ID::init) == blif_wire(n)->attributes.end())
+					blif_wire(n)->attributes.emplace(ID::init, Const(init[0] == '1' ? 1 : 0, 1));
+				else
+					blif_wire(n)->attributes[ID::init] = Const(init[0] == '1' ? 1 : 0, 1);
+
+				continue;
+			}
+
 			if (!strcmp(cmd, ".names"))
 			{
 				char *p;

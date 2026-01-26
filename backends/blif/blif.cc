@@ -44,6 +44,7 @@ struct BlifDumperConfig
 	bool iattr_mode;
 	bool blackbox_mode;
 	bool noalias_mode;
+	bool gatesi_mode;
 
 	std::string buf_type, buf_in, buf_out;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
@@ -51,7 +52,7 @@ struct BlifDumperConfig
 
 	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false),
 			cname_mode(false), iname_mode(false), param_mode(false), attr_mode(false), iattr_mode(false),
-			blackbox_mode(false), noalias_mode(false) { }
+			blackbox_mode(false), noalias_mode(false), gatesi_mode(false) { }
 };
 
 struct BlifDumper
@@ -118,16 +119,21 @@ struct BlifDumper
 		return str;
 	}
 
-	const std::string str_init(RTLIL::SigBit sig)
+	template <bool Space = true> const std::string str_init(RTLIL::SigBit sig)
 	{
 		sigmap.apply(sig);
 
-		if (init_bits.count(sig) == 0)
-			return " 2";
+		if (init_bits.count(sig) == 0) {
+			if constexpr (Space)
+				return " 2";
+			else
+				return "2";
+		}
 
-		string str = stringf(" %d", init_bits.at(sig));
-
-		return str;
+		if constexpr (Space)
+			return stringf(" %d", init_bits.at(sig));
+		else
+			return stringf("%d", init_bits.at(sig));
 	}
 
 	const char *subckt_or_gate(std::string cell_type)
@@ -469,6 +475,11 @@ struct BlifDumper
 				f << stringf(".names %s %s\n1 1\n", str(rhs_bit), str(lhs_bit));
 		}
 
+		if (config->gatesi_mode) {
+			for (auto &&init_bit : init_bits)
+				f << stringf(".gateinit %s=%s\n", str(init_bit.first), str_init<false>(init_bit.first));
+		}
+
 		f << stringf(".end\n");
 	}
 
@@ -549,6 +560,9 @@ struct BlifBackend : public Backend {
 		log("\n");
 		log("    -impltf\n");
 		log("        do not write definitions for the $true, $false and $undef wires.\n");
+		log("\n");
+		log("    -gatesi\n");
+		log("        write initial bit(s) with .gateinit for gates that needs to be initialized.\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
@@ -638,6 +652,10 @@ struct BlifBackend : public Backend {
 			}
 			if (args[argidx] == "-noalias") {
 				config.noalias_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-gatesi") {
+				config.gatesi_mode = true;
 				continue;
 			}
 			break;
