@@ -27,6 +27,8 @@ The reproduction steps should be a minimal, complete and verifiable
 example `MVCE`_.
 Providing an MVCE with your bug report drastically increases the likelihood that
 someone will be able to help resolve your issue.
+Make sure that your report input is free of any problems as reported by the
+`check_` command.
 One way to minimize a design is to use the `bugpoint_` command.
 You can learn more in the `how-to guide for bugpoint_`.
 
@@ -86,6 +88,7 @@ Don't forget to mention:
 
 .. _MVCE: https://stackoverflow.com/help/minimal-reproducible-example
 .. _bugpoint: https://yosys.readthedocs.io/en/latest/cmd/bugpoint.html
+.. _check: https://yosyshq.readthedocs.io/projects/yosys/en/latest/cmd/index_passes_status.html#check-check-for-obvious-problems-in-the-design
 .. _how-to guide for bugpoint: https://yosys.readthedocs.io/en/latest/using_yosys/bugpoint.html
 
 Expected Behaviour
