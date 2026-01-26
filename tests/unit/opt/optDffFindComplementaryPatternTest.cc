@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "passes/opt/opt_dff_comp.h"
+#include "kernel/pattern.h"
 
 YOSYS_NAMESPACE_BEGIN
 
