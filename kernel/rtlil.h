@@ -2563,6 +2563,7 @@ struct RTLIL::SwitchRule : public RTLIL::AttrObject
 	RTLIL::Module *module = nullptr;
 
 	RTLIL::SigSpec signal;
+	TwineRef signal_src = Twine::Null;
 	std::vector<RTLIL::CaseRule*> cases;
 
 	~SwitchRule();
