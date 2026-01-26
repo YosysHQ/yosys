@@ -341,7 +341,8 @@ and stop being responsive, in the future, we might decide to remove such code
 if convenient and costly to maintain. It's simply more respectful of the users'
 time to explicitly cut something out than let it "bitrot". Larger projects like
 LLVM or linux could not survive without such things, but Yosys is far smaller,
-and there are expectations
+and there are implicit expectations of stability we aim to
+relatively respect.
 
 .. TODO this deserves its own section elsewhere I think? But it would be distracting elsewhere
 
