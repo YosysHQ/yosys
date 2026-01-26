@@ -627,6 +627,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
 				set_src_attr(sw, ast);
 				sw->signal = ast->children[0]->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap());
+				sw->signal_src = ast->children[0]->loc_string();
 				current_case->switches.push_back(sw);
 
 				for (auto &attr : ast->attributes) {
