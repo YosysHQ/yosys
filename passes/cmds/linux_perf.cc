@@ -29,9 +29,14 @@ PRIVATE_NAMESPACE_BEGIN
 
 #ifdef __linux__
 struct LinuxPerf : public Pass {
-	LinuxPerf() : Pass("linux_perf", "turn linux perf recording off or on") { }
+	LinuxPerf() : Pass("linux_perf", "turn linux perf recording off or on") {
+		internal();
+	}
 	void help() override
 	{
+		log("\n");
+		log("    linux_perf [mode]\n");
+		log("\n");
 		log("This pass turns Linux 'perf' profiling on or off, when it has been configured to use control FIFOs.\n");
 		log("\n");
 		log("Example shell command line:\n");
