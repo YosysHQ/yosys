@@ -5,59 +5,11 @@ first time contributing to an open source project, please take a look at the
 following guide about the basics:
 https://opensource.guide/how-to-contribute/#orienting-yourself-to-a-new-project.
 
-## Asking questions
+Check out our [Contributing guidelines](https://yosys.readthedocs.io/en/latest/yosys_internals/extending_yosys/contributing.html) to learn the best ways to
 
-If you have a question about how to use Yosys, please ask on our [Discourse forum](https://yosyshq.discourse.group/).
-The Discourse is also a great place to ask questions about developing or
-contributing to Yosys.
++ get help
++ report bugs
++ contribute code
++ review code
 
-We have open [dev 'jour fixe' (JF) meetings](https://docs.google.com/document/d/1SapA6QAsJcsgwsdKJDgnGR2mr97pJjV4eeXg_TVJhRU/edit?usp=sharing) where developers from YosysHQ and the
-community come together to discuss open issues and PRs.  This is also a good
-place to talk to us about how to implement larger PRs.
-
-## Using the issue tracker
-
-The [issue tracker](https://github.com/YosysHQ/yosys/issues) is used for
-tracking bugs or other problems with Yosys or its documentation.  It is also the
-place to go for requesting new features.
-
-### Bug reports
-
-Learn more [here](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/contributing.html#reporting-bugs) about how to report bugs. We fix well-reported bugs the fastest.
-
-## Contributing code
-
-If you're adding complex functionality, or modifying core parts of Yosys,
-we highly recommend discussing your motivation and approach
-ahead of time on the [Discourse forum](https://yosyshq.discourse.group/).
-
-### Using pull requests
-
-If you are working on something to add to Yosys, or fix something that isn't
-working quite right,
-make a [pull request (PR)](https://github.com/YosysHQ/yosys/pulls).
-
-An open PR, even as a draft, tells everyone that you're working on it and they
-don't have to. It can also be a useful way to solicit feedback on in-progress
-changes. See above to find the best way to [ask us questions](#asking-questions).
-
-### Continuous integration
-
-[Continuous Integration (CI)](https://github.com/YosysHQ/yosys/actions) tools
-automatically compile Yosys and run it with the full suite of tests.
-If you're a first time contributor, a maintainer has to trigger a run for you.
-We test on various platforms, compilers. Sanitizer builds are only tested
-on the main branch.
-
-### Labels
-
-We use [labels](https://github.com/YosysHQ/yosys/labels) to help categorise
-issues and PRs.  If a label seems relevant to your work, please do add it; this
-also includes the labels beginning with 'status-'.  The 'merge-' labels are used
-by maintainers for tracking and communicating which PRs are ready and pending
-merge; please do not use these labels if you are not a maintainer.
-
-
-### Coding style
-
-Learn more [here](https://yosys.readthedocs.io/en/latest/yosys_internals/extending_yosys/contributing.html).
+If you're reading this file offline and don't have internet access, you can read the `contributing.rst` file [locally](docs/source/yosys_internals/extending_yosys/contributing.rst).

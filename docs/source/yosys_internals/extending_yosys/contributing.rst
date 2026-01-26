@@ -4,8 +4,10 @@ Contributing to Yosys
 Reporting bugs
 --------------
 
-A good bug report includes the following information:
+We fix well-reported bugs the fastest. A good bug report is an issue on the `issue tracker`_
+and includes the following information:
 
+.. _`issue tracker`: https://github.com/YosysHQ/yosys/issues
 
 Title
 ~~~~~
@@ -28,9 +30,9 @@ example `MVCE`_.
 Providing an MVCE with your bug report drastically increases the likelihood that
 someone will be able to help resolve your issue.
 Make sure that your report input is free of any problems as reported by the
-`check`_ command.
-One way to minimize a design is to use the `bugpoint`_ command.
-You can learn more in the `how-to guide for bugpoint`_.
+`check` command.
+One way to minimize a design is to use the `bugpoint` command.
+You can learn more in the :doc:`how-to guide for bugpoint </using_yosys/bugpoint>`.
 
 The reproduction steps are ideally a code-block (starting and ending with
 triple backquotes) containing
@@ -87,7 +89,6 @@ Don't forget to mention:
    reproduction steps to just the Yosys part.
 
 .. _MVCE: https://stackoverflow.com/help/minimal-reproducible-example
-.. _bugpoint: https://yosys.readthedocs.io/en/latest/cmd/bugpoint.html
 .. _check: https://yosyshq.readthedocs.io/projects/yosys/en/latest/cmd/index_passes_status.html#check-check-for-obvious-problems-in-the-design
 .. _how-to guide for bugpoint: https://yosys.readthedocs.io/en/latest/using_yosys/bugpoint.html
 
@@ -179,6 +180,12 @@ based on their descriptions first, code second.
 
 Before you build or fix something, also search for existing `issues`_.
 
+We have open `developer 'jour fixe' (Dev JF) meetings`_
+where developers from YosysHQ and the
+community come together to discuss open issues and PRs.  This is also a good
+place to talk to us about how to implement larger PRs.
+
+.. _`developer 'jour fixe' (Dev JF) meetings`: https://docs.google.com/document/d/1SapA6QAsJcsgwsdKJDgnGR2mr97pJjV4eeXg_TVJhRU/edit?usp=sharing
 .. _`Discourse forum`: https://yosyshq.discourse.group/
 .. _`issues`: https://github.com/YosysHQ/yosys/issues
 
@@ -300,6 +307,26 @@ Otherwise stick to the `Linux Kernel Coding Style`_.
 
 .. _Linux Kernel Coding Style: https://www.kernel.org/doc/Documentation/process/coding-style.rst
 
+Pull requests (PRs)
+~~~~~~~~~~~~~~~~~~~
+
+If you are working on something to add to Yosys, or fix something that isn't
+working quite right,
+make a `pull request (PR)`_.
+
+An open PR, even as a draft, tells everyone that you're working on it and they
+don't have to. It can also be a useful way to solicit feedback on in-progress
+changes.
+
+We use `labels`_ to help categorise
+issues and PRs.  If a label seems relevant to your work, please do add it; this
+also includes the labels beginning with 'status-'.  The 'merge-' labels are used
+by maintainers for tracking and communicating which PRs are ready and pending
+merge; please do not use these labels if you are not a maintainer.
+
+.. _`pull request (PR)`: https://github.com/YosysHQ/yosys/pulls
+.. _`labels`: https://github.com/YosysHQ/yosys/labels
+
 Git style
 ~~~~~~~~~
 
@@ -381,3 +408,5 @@ they just are good enough to merge as-is.
 The CI is required to go green for merging. New contributors need a CI
 run to be triggered by a maintainer before their PRs take up computing
 resources. It's a single click from the github web interface.
+We test on various platforms, compilers. Sanitizer builds are only tested
+on the main branch.
