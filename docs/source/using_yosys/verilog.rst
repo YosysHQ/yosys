@@ -355,6 +355,9 @@ from SystemVerilog:
   design with `read_verilog`, all its packages are available to SystemVerilog
   files being read into the same design afterwards.
 
+  - nested packages are currently not supported (i.e. calling ``import`` inside
+    a ``package`` .. ``endpackage`` block)
+
 - typedefs are supported (including inside packages)
 
   - type casts are currently not supported

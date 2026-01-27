@@ -1,0 +1,31 @@
+# Test 1: internal cells from alumacc/techmap must not keep module_not_derived.
+read_verilog <<EOF_VERILOG
+module top(a, b, y);
+  input wire [7:0] a;
+  input wire [7:0] b;
+  output wire [7:0] y;
+  assign y = a + b;
+endmodule
+EOF_VERILOG
+
+prep
+alumacc
+techmap -max_iter 1
+
+select -assert-any t:$lcu
+select -assert-count 0 t:$lcu a:module_not_derived %i
+
+design -reset
+# Test 2: public module instances should still keep module_not_derived.
+read_verilog <<EOF_VERILOG
+module mycell(input a, output y);
+	assign y = a;
+endmodule
+
+module top(input a, output y);
+	mycell u0(.a(a), .y(y));
+endmodule
+EOF_VERILOG
+
+hierarchy -top top
+select -assert-any t:mycell a:module_not_derived %i

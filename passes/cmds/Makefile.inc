@@ -37,6 +37,7 @@ OBJS += passes/cmds/chformal.o
 OBJS += passes/cmds/chtype.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
+OBJS += passes/cmds/linux_perf.o
 ifeq ($(DISABLE_SPAWN),0)
 OBJS += passes/cmds/bugpoint.o
 endif

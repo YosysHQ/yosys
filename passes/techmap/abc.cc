@@ -1149,6 +1149,12 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 				// Ignore any leftover output, there should only be a prompt perhaps
 				return true;
 			}
+			// If ABC aborted the sourced script, it returns to the prompt and will
+			// never print YOSYS_ABC_DONE. Treat this as a failed run, not a hang.
+			if (line.substr(0, 7) == "Error: ") {
+				logs.log_error("ABC: %s", line.c_str());
+				return false;
+			}
 			filt.next_line(line);
 			line.clear();
 			start = p + 1;
