@@ -49,8 +49,8 @@ struct LinuxPerf : public Pass {
 			"mkfifo /tmp/perf.fifo /tmp/perf-ack.fifo\n"
 			"YOSYS_PERF_CTL=/tmp/perf.fifo YOSYS_PERF_ACK=/tmp/perf-ack.fifo \\\n"
 			"  perf record --latency --delay=-1 \\\n"
-			"  --control=fifo:/tmp/perf.fifo,/tmp/perf-ack.fifo --call-graph=dwarf ./yosys -dt -p \\\n"
-			"  \"read_rtlil design.rtlil; linux_perf on; opt_clean; linux_perf off\"\n"
+			"  --control=fifo:/tmp/perf.fifo,/tmp/perf-ack.fifo --call-graph=dwarf ./yosys \\\n"
+			"  -dt -p \"read_rtlil design.rtlil; linux_perf on; opt_clean; linux_perf off\"\n"
 		);
 
 		return true;
