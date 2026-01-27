@@ -32,28 +32,28 @@ struct LinuxPerf : public Pass {
 	LinuxPerf() : Pass("linux_perf", "turn linux perf recording off or on") {
 		internal();
 	}
-	void help() override
+	bool formatted_help() override
 	{
-		log("\n");
-		log("    linux_perf [mode]\n");
-		log("\n");
-		log("This pass turns Linux 'perf' profiling on or off, when it has been configured to use control FIFOs.\n");
-		log("\n");
-		log("Example shell command line:\n");
-		log("mkfifo /tmp/perf.fifo /tmp/perf-ack.fifo\n");
-		log("YOSYS_PERF_CTL=/tmp/perf.fifo YOSYS_PERF_ACK=/tmp/perf-ack.fifo \\\n");
-		log("  perf record --latency --delay=-1 \\\n");
-		log("  --control=fifo:/tmp/perf.fifo,/tmp/perf-ack.fifo --call-graph=dwarf ./yosys -dt -p \\\n");
-		log("  \"read_rtlil design.rtlil; linux_perf on; opt_clean; linux_perf off\"\n");
-		log("\n");
-		log("    linux_perf on\n");
-		log("\n");
-		log("Start perf recording. YOSYS_PERF_CTL and YOSYS_PERF_ACK must point to Linux perf control FIFOs.\n");
-		log("\n");
-		log("    linux_perf off\n");
-		log("\n");
-		log("Stop perf recording.\n");
-		log("\n");
+		auto *help = PrettyHelp::get_current();
+		
+		auto content_root = help->get_root();
+
+		content_root->usage("linux_perf [on|off]");
+
+		content_root->paragraph(
+			"This pass turns Linux 'perf' profiling on or off, when it has been configured to use control FIFOs."
+			"YOSYS_PERF_CTL and YOSYS_PERF_ACK must point to Linux perf control FIFOs."
+		);
+		content_root->paragraph("Example shell command line:");
+		content_root->codeblock(
+			"mkfifo /tmp/perf.fifo /tmp/perf-ack.fifo\n"
+			"YOSYS_PERF_CTL=/tmp/perf.fifo YOSYS_PERF_ACK=/tmp/perf-ack.fifo \\\n"
+			"  perf record --latency --delay=-1 \\\n"
+			"  --control=fifo:/tmp/perf.fifo,/tmp/perf-ack.fifo --call-graph=dwarf ./yosys -dt -p \\\n"
+			"  \"read_rtlil design.rtlil; linux_perf on; opt_clean; linux_perf off\"\n"
+		);
+
+		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *) override
 	{
