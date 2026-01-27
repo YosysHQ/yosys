@@ -1,6 +1,6 @@
 # On Linux, with a spawned abc, this message is the error
 # otherwise the error is the failure to load the output.blif
-logger -expect log "ABC: Error: This command can only be applied to an AIG" 1
+logger -expect log "ABC: Error: This command can only be applied to an AIG" 2
 logger -expect error "ABC" 1
 read_verilog << EOT
 module fuzz_mwoqk (input i0, output o0);
