@@ -23,6 +23,7 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
