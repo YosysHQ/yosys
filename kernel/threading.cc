@@ -92,4 +92,59 @@ IntRange item_range_for_worker(int num_items, int thread_num, int num_threads)
 	return {start, end};
 }
 
+ParallelDispatchThreadPool::ParallelDispatchThreadPool(int pool_size)
+		: num_worker_threads_(std::max(1, pool_size) - 1)
+{
+#ifdef YOSYS_ENABLE_THREADS
+	main_to_workers_signal.resize(num_worker_threads_, 0);
+#endif
+	// Don't start the threads until we've constructed all our data members.
+	thread_pool = std::make_unique<ThreadPool>(num_worker_threads_, [this](int thread_num){
+		run_worker(thread_num);
+	});
+}
+
+ParallelDispatchThreadPool::~ParallelDispatchThreadPool()
+{
+#ifdef YOSYS_ENABLE_THREADS
+	if (num_worker_threads_ == 0)
+		return;
+	current_work = nullptr;
+	num_active_worker_threads_ = num_worker_threads_;
+	signal_workers_start();
+	wait_for_workers_done();
+#endif
+}
+
+void ParallelDispatchThreadPool::run(std::function<void(const RunCtx &)> work, int max_threads)
+{
+	Multithreading multithreading;
+	num_active_worker_threads_ = num_threads(max_threads) - 1;
+	if (num_active_worker_threads_ == 0) {
+		work({{0}, 1});
+		return;
+	}
+#ifdef YOSYS_ENABLE_THREADS
+	current_work = &work;
+	signal_workers_start();
+	work({{0}, num_active_worker_threads_ + 1});
+	wait_for_workers_done();
+#endif
+}
+
+void ParallelDispatchThreadPool::run_worker(int thread_num)
+{
+#ifdef YOSYS_ENABLE_THREADS
+	while (true)
+	{
+		worker_wait_for_start(thread_num);
+		if (current_work == nullptr)
+			break;
+		(*current_work)({{thread_num + 1}, num_active_worker_threads_ + 1});
+		signal_worker_done();
+	}
+	signal_worker_done();
+#endif
+}
+
 YOSYS_NAMESPACE_END
