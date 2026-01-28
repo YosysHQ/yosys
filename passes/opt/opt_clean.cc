@@ -671,47 +671,53 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 	return did_something;
 }
 
-void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit, RmStats &stats, keep_cache_t &keep_cache)
+void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose)
 {
-	if (verbose)
-		log("Finding unused cells or wires in module %s..\n", module->name);
+	ShardedVector<RTLIL::Cell*> delcells(subpool);
+	ShardedVector<RTLIL::SigSig> new_connections(subpool);
+	const RTLIL::Module *const_module = module;
+	subpool.run([const_module, &delcells, &new_connections](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(const_module->cells_size())) {
+			RTLIL::Cell *cell = const_module->cell_at(i);
+			if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
+				bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
+				RTLIL::SigSpec a = cell->getPort(ID::A);
+				RTLIL::SigSpec y = cell->getPort(ID::Y);
+				a.extend_u0(GetSize(y), is_signed);
 
-	std::vector<RTLIL::Cell*> delcells;
-	for (auto cell : module->cells()) {
-		if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
-			bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
-			RTLIL::SigSpec a = cell->getPort(ID::A);
-			RTLIL::SigSpec y = cell->getPort(ID::Y);
-			a.extend_u0(GetSize(y), is_signed);
-
-			if (a.has_const(State::Sz)) {
-				SigSpec new_a;
-				SigSpec new_y;
-				for (int i = 0; i < GetSize(a); ++i) {
-					SigBit b = a[i];
-					if (b == State::Sz)
-						continue;
-					new_a.append(b);
-					new_y.append(y[i]);
+				if (a.has_const(State::Sz)) {
+					RTLIL::SigSpec new_a;
+					RTLIL::SigSpec new_y;
+					for (int i = 0; i < GetSize(a); ++i) {
+						RTLIL::SigBit b = a[i];
+						if (b == State::Sz)
+							continue;
+						new_a.append(b);
+						new_y.append(y[i]);
+					}
+					a = std::move(new_a);
+					y = std::move(new_y);
 				}
-				a = std::move(new_a);
-				y = std::move(new_y);
+				if (!y.empty())
+					new_connections.insert(ctx, {y, a});
+				delcells.insert(ctx, cell);
+			} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
+				RTLIL::SigSpec a = cell->getPort(ID::A);
+				RTLIL::SigSpec b = cell->getPort(ID::B);
+				if (a.has_const() && !b.has_const())
+					std::swap(a, b);
+				new_connections.insert(ctx, {a, b});
+				delcells.insert(ctx, cell);
+			} else if (cell->type.in(ID($input_port)) && !cell->has_keep_attr()) {
+				delcells.insert(ctx, cell);
 			}
-			if (!y.empty())
-				module->connect(y, a);
-			delcells.push_back(cell);
-		} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
-			RTLIL::SigSpec a = cell->getPort(ID::A);
-			RTLIL::SigSpec b = cell->getPort(ID::B);
-			if (a.has_const() && !b.has_const())
-				std::swap(a, b);
-			module->connect(a, b);
-			delcells.push_back(cell);
-		} else if (cell->type.in(ID($input_port)) && !cell->has_keep_attr()) {
-			delcells.push_back(cell);
 		}
+	});
+	bool did_something = false;
+	for (RTLIL::SigSig &connection : new_connections) {
+		module->connect(connection);
 	}
-	for (auto cell : delcells) {
+	for (RTLIL::Cell *cell : delcells) {
 		if (verbose) {
 			if (cell->type == ID($connect))
 				log_debug("  removing connect cell `%s': %s <-> %s\n", cell->name,
@@ -724,10 +730,22 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 						log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
 		}
 		module->remove(cell);
+		did_something = true;
 	}
-	if (!delcells.empty())
+	if (did_something)
 		module->design->scratchpad_set_bool("opt.did_something", true);
+}
 
+void rmunused_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool, bool purge_mode, bool verbose, bool rminit, RmStats &stats, keep_cache_t &keep_cache)
+{
+	if (verbose)
+		log("Finding unused cells or wires in module %s..\n", module->name);
+
+	// Use no more than one worker per thousand cells, rounded down, so
+	// we only start multithreading with at least 2000 cells.
+	int num_worker_threads = ThreadPool::work_pool_size(0, module->cells_size(), 1000);
+	ParallelDispatchThreadPool::Subpool subpool(thread_pool, num_worker_threads);
+	remove_temporary_cells(module, subpool, verbose);
 	rmunused_module_cells(module, verbose, stats, keep_cache);
 	while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
 
@@ -790,7 +808,7 @@ struct OptCleanPass : public Pass {
 
 		RmStats stats;
 		for (auto module : selected_modules) {
-			rmunused_module(module, purge_mode, true, true, stats, keep_cache);
+			rmunused_module(module, thread_pool, purge_mode, true, true, stats, keep_cache);
 		}
 		stats.log();
 
@@ -855,7 +873,7 @@ struct CleanPass : public Pass {
 
 		RmStats stats;
 		for (auto module : selected_modules) {
-			rmunused_module(module, purge_mode, ys_debug(), true, stats, keep_cache);
+			rmunused_module(module, thread_pool, purge_mode, ys_debug(), true, stats, keep_cache);
 		}
 
 		log_suppressed();
