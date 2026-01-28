@@ -304,6 +304,80 @@ private:
 	std::vector<T> contents;
 };
 
+// A vector that is sharded into buckets, one per thread. This lets multiple threads write
+// efficiently to the vector without synchronization overhead. After all writers have
+// finished writing, the vector can be iterated over. The iteration order is deterministic:
+// all the elements written by thread 0 in the order it inserted them, followed by all elements
+// written by thread 1, etc.
+template <typename T>
+class ShardedVector {
+public:
+	ShardedVector(const ParallelDispatchThreadPool &thread_pool) {
+		init(thread_pool.num_threads());
+	}
+	ShardedVector(const ParallelDispatchThreadPool::Subpool &thread_pool) {
+		init(thread_pool.num_threads());
+	}
+
+	// Insert a value, passing the `ThreadIndex` of the writer thread.
+	// Parallel inserts with different `ThreadIndex` values are fine.
+	// Inserts must not run concurrently with any other methods (e.g.
+	// iteration or `empty()`.)
+	void insert(const ThreadIndex &thread, T value) {
+		buckets[thread.thread_num].emplace_back(std::move(value));
+	}
+
+	bool empty() const {
+		for (const std::vector<T> &bucket : buckets)
+			if (!bucket.empty())
+				return false;
+		return true;
+	}
+
+	using Buckets = std::vector<std::vector<T>>;
+	class iterator {
+	public:
+		iterator(typename Buckets::iterator bucket_it, typename Buckets::iterator bucket_end)
+			: bucket_it(std::move(bucket_it)), bucket_end(std::move(bucket_end)) {
+			if (bucket_it != bucket_end)
+				inner_it = bucket_it->begin();
+			normalize();
+		}
+		T& operator*() const { return *inner_it.value(); }
+		iterator &operator++() {
+			++*inner_it;
+			normalize();
+			return *this;
+		}
+		bool operator!=(const iterator &other) const {
+			return bucket_it != other.bucket_it || inner_it != other.inner_it;
+		}
+	private:
+		void normalize() {
+			if (bucket_it == bucket_end)
+				return;
+			while (inner_it == bucket_it->end()) {
+				++bucket_it;
+				if (bucket_it == bucket_end) {
+					inner_it.reset();
+					return;
+				}
+				inner_it = bucket_it->begin();
+			}
+		}
+		std::optional<typename std::vector<T>::iterator> inner_it;
+		typename Buckets::iterator bucket_it;
+		typename Buckets::iterator bucket_end;
+	};
+	iterator begin() { return iterator(buckets.begin(), buckets.end()); }
+	iterator end() { return iterator(buckets.end(), buckets.end()); }
+private:
+	void init(int num_threads) {
+		buckets.resize(num_threads);
+	}
+	Buckets buckets;
+};
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_THREADING_H
