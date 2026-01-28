@@ -286,6 +286,7 @@ struct RTLILFrontendWorker {
 		if (width > MAX_CONST_WIDTH)
 			error("Constant width %lld out of range before `%s`.", width, error_token());
 		bits.reserve(width);
+		int start_idx = idx;
 		while (true) {
 			RTLIL::State bit;
 			switch (line[idx]) {
@@ -300,8 +301,9 @@ struct RTLILFrontendWorker {
 			bits.push_back(bit);
 			++idx;
 		}
-		done:
-		std::reverse(bits.begin(), bits.end());
+	done:
+		if (start_idx < idx)
+			std::reverse(bits.begin(), bits.end());
 
 		if (GetSize(bits) > width)
 			bits.resize(width);
