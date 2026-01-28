@@ -89,7 +89,6 @@ Don't forget to mention:
    reproduction steps to just the Yosys part.
 
 .. _MVCE: https://stackoverflow.com/help/minimal-reproducible-example
-.. _check: https://yosyshq.readthedocs.io/projects/yosys/en/latest/cmd/index_passes_status.html#check-check-for-obvious-problems-in-the-design
 .. _how-to guide for bugpoint: https://yosys.readthedocs.io/en/latest/using_yosys/bugpoint.html
 
 Expected Behaviour
@@ -372,7 +371,7 @@ if convenient and costly to maintain. It's simply more respectful of the users'
 time to explicitly cut something out than let it "bitrot". Larger projects like
 LLVM or linux could not survive without such things, but Yosys is far smaller,
 and there are implicit expectations of stability we aim to
-relatively respect.
+respect within reason.
 
 .. TODO this deserves its own section elsewhere I think? But it would be distracting elsewhere
 
@@ -408,5 +407,5 @@ they just are good enough to merge as-is.
 The CI is required to go green for merging. New contributors need a CI
 run to be triggered by a maintainer before their PRs take up computing
 resources. It's a single click from the github web interface.
-We test on various platforms, compilers. Sanitizer builds are only tested
-on the main branch.
+We test on various platforms and compilers. Sanitizer builds are only
+tested on the main branch.
