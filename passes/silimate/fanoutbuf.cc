@@ -66,7 +66,7 @@ struct FanoutbufPass : public Pass {
 				if (wire->port_input) {
 					auto new_in_name = module->uniquify(wire->name.str().replace(0, 1, "$") + "_new");
 					auto new_in = module->addWire(new_in_name, wire);
-					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_in"), new_in, wire);
+					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_in"), new_in, wire, false, wire->get_src_attribute());
 					iobufs.push_back(iobuf);
 					module->swap_names(wire, new_in);
 					wire->port_input = false;
@@ -74,7 +74,7 @@ struct FanoutbufPass : public Pass {
 				if (wire->port_output) {
 					auto new_out_name = module->uniquify(wire->name.str().replace(0, 1, "$") + "_new");
 					auto new_out = module->addWire(new_out_name, wire);
-					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_out"), wire, new_out);
+					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_out"), wire, new_out, false, wire->get_src_attribute());
 					iobufs.push_back(iobuf);
 					module->swap_names(wire, new_out);
 					wire->port_output = false;
@@ -131,6 +131,7 @@ struct FanoutbufPass : public Pass {
 								buf_name = NEW_ID2_SUFFIX("fbuf");
 							// Create buffer, connect input to bit and output to new wire
 							Wire *bufout = module->addWire(buf_name.str() + "_out");
+							bufout->set_src_attribute(cell->get_src_attribute());
 							Cell *buf = module->addBuf(buf_name, bit, bufout, false, cell->get_src_attribute());
 							buf->set_bool_attribute("\\keep", true);
 							sigmap.add(bufout);
