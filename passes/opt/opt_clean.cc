@@ -450,9 +450,62 @@ int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	return count;
 }
 
+struct ShardedSigBit {
+	using Accumulated = ShardedSigBit;
+	RTLIL::SigBit bit;
+	ShardedSigBit() = default;
+	ShardedSigBit(const RTLIL::SigBit &bit) : bit(bit) {}
+};
+struct ShardedSigBitEquality {
+	bool operator()(const ShardedSigBit &b1, const ShardedSigBit &b2) const {
+		return b1.bit == b2.bit;
+	}
+};
+using ShardedSigPool = ShardedHashtable<ShardedSigBit, ShardedSigBitEquality>;
+
+struct ShardedSigSpec {
+	using Accumulated = ShardedSigSpec;
+	RTLIL::SigSpec spec;
+	ShardedSigSpec() = default;
+	ShardedSigSpec(RTLIL::SigSpec spec) : spec(std::move(spec)) {}
+	ShardedSigSpec(ShardedSigSpec &&) = default;
+};
+struct ShardedSigSpecEquality {
+	bool operator()(const ShardedSigSpec &s1, const ShardedSigSpec &s2) const {
+		return s1.spec == s2.spec;
+	}
+};
+using ShardedSigSpecPool = ShardedHashtable<ShardedSigSpec, ShardedSigSpecEquality>;
+
+struct DirectWires {
+	const SigMap &assign_map;
+	const ShardedSigSpecPool &direct_sigs;
+	dict<RTLIL::Wire *, bool> cache;
+
+	DirectWires(const SigMap &assign_map, const ShardedSigSpecPool &direct_sigs) : assign_map(assign_map), direct_sigs(direct_sigs) {}
+	void cache_result_for_bit(const SigBit &bit) {
+		if (bit.wire != nullptr)
+			is_direct(bit.wire);
+	}
+	bool is_direct(RTLIL::Wire *wire) {
+		if (wire->port_input)
+			return true;
+		auto it = cache.find(wire);
+		if (it != cache.end())
+			return it->second;
+		SigSpec direct_sig = assign_map(wire);
+		bool direct = direct_sigs.find({direct_sig, direct_sig.hash_into(Hasher()).yield()}) != nullptr;
+		cache.insert({wire, direct});
+		return direct;
+	}
+};
+
 // Should we pick `s2` over `s1` to represent a signal?
-bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, pool<RTLIL::Wire*> &direct_wires)
+bool compare_signals(const RTLIL::SigBit &s1, const RTLIL::SigBit &s2, const ShardedSigPool &regs, const ShardedSigPool &conns, DirectWires &direct_wires)
 {
+	if (s1 == s2)
+		return false;
+
 	RTLIL::Wire *w1 = s1.wire;
 	RTLIL::Wire *w2 = s2.wire;
 
@@ -466,12 +519,20 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 		return !(w2->port_input && w2->port_output);
 
 	if (w1->name.isPublic() && w2->name.isPublic()) {
-		if (regs.check(s1) != regs.check(s2))
-			return regs.check(s2);
-		if (direct_wires.count(w1) != direct_wires.count(w2))
-			return direct_wires.count(w2) != 0;
-		if (conns.check_any(s1) != conns.check_any(s2))
-			return conns.check_any(s2);
+		ShardedSigPool::AccumulatedValue s1_val = {s1, s1.hash_top().yield()};
+		ShardedSigPool::AccumulatedValue s2_val = {s2, s2.hash_top().yield()};
+		bool regs1 = regs.find(s1_val) != nullptr;
+		bool regs2 = regs.find(s2_val) != nullptr;
+		if (regs1 != regs2)
+			return regs2;
+		bool w1_direct = direct_wires.is_direct(w1);
+		bool w2_direct = direct_wires.is_direct(w2);
+		if (w1_direct != w2_direct)
+			return w2_direct;
+		bool conns1 = conns.find(s1_val) != nullptr;
+		bool conns2 = conns.find(s2_val) != nullptr;
+		if (conns1 != conns2)
+			return conns2;
 	}
 
 	if (w1 == w2)
@@ -504,109 +565,185 @@ bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose, RmStats &stats)
-{
-	// `register_signals` and `connected_signals` will help us decide later on
-	// on picking representatives out of groups of connected signals
-	SigPool register_signals;
-	SigPool connected_signals;
-	if (!purge_mode)
-		for (auto &it : module->cells_) {
-			RTLIL::Cell *cell = it.second;
-			if (ct_reg.cell_known(cell->type)) {
-				bool clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic));
-				for (auto &it2 : cell->connections())
-					if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
-						register_signals.add(it2.second);
-			}
-			for (auto &it2 : cell->connections())
-				connected_signals.add(it2.second);
-		}
+void add_spec(ShardedSigPool::Builder &builder, const ThreadIndex &thread, const RTLIL::SigSpec &spec) {
+	for (SigBit bit : spec)
+		if (bit.wire != nullptr)
+			builder.insert(thread, {bit, bit.hash_top().yield()});
+}
 
+bool check_any(const ShardedSigPool &sigs, const RTLIL::SigSpec &spec) {
+	for (SigBit b : spec)
+		if (sigs.find({b, b.hash_top().yield()}) != nullptr)
+			return true;
+	return false;
+}
+
+bool check_all(const ShardedSigPool &sigs, const RTLIL::SigSpec &spec) {
+	for (SigBit b : spec)
+		if (sigs.find({b, b.hash_top().yield()}) == nullptr)
+			return false;
+	return true;
+}
+
+bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, RmStats &stats)
+{
 	SigMap assign_map(module);
 
+	const RTLIL::Module *const_module = module;
+	// `register_signals` and `connected_signals` will help us decide later on
+	// on picking representatives out of groups of connected signals
+	ShardedSigPool::Builder register_signals_builder(subpool);
+	ShardedSigPool::Builder connected_signals_builder(subpool);
 	// construct a pool of wires which are directly driven by a known celltype,
 	// this will influence our choice of representatives
-	pool<RTLIL::Wire*> direct_wires;
-	{
-		pool<RTLIL::SigSpec> direct_sigs;
-		for (auto &it : module->cells_) {
-			RTLIL::Cell *cell = it.second;
+	ShardedSigSpecPool::Builder direct_sigs_builder(subpool);
+	subpool.run([const_module, purge_mode, &assign_map, &direct_sigs_builder, &register_signals_builder, &connected_signals_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(const_module->cells_size())) {
+			RTLIL::Cell *cell = const_module->cell_at(i);
+			if (!purge_mode) {
+				if (ct_reg.cell_known(cell->type)) {
+					bool clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic));
+					for (auto &it2 : cell->connections())
+						if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
+							add_spec(register_signals_builder, ctx, it2.second);
+				}
+				for (auto &it2 : cell->connections())
+					add_spec(connected_signals_builder, ctx, it2.second);
+			}
 			if (ct_all.cell_known(cell->type))
 				for (auto &it2 : cell->connections())
-					if (ct_all.cell_output(cell->type, it2.first))
-						direct_sigs.insert(assign_map(it2.second));
+					if (ct_all.cell_output(cell->type, it2.first)) {
+						RTLIL::SigSpec spec = assign_map(it2.second);
+						unsigned int hash = spec.hash_into(Hasher()).yield();
+						direct_sigs_builder.insert(ctx, {std::move(spec), hash});
+					}
 		}
-		for (auto &it : module->wires_) {
-			if (direct_sigs.count(assign_map(it.second)) || it.second->port_input)
-				direct_wires.insert(it.second);
-		}
-	}
+	});
+	subpool.run([&register_signals_builder, &connected_signals_builder, &direct_sigs_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		register_signals_builder.process(ctx);
+		connected_signals_builder.process(ctx);
+		direct_sigs_builder.process(ctx);
+	});
+	ShardedSigPool register_signals(register_signals_builder);
+	ShardedSigPool connected_signals(connected_signals_builder);
+	ShardedSigSpecPool direct_sigs(direct_sigs_builder);
 
-	// weight all options for representatives with `compare_signals`,
-	// the one that wins will be what `assign_map` maps to
-	for (auto &it : module->wires_) {
-		RTLIL::Wire *wire = it.second;
-		for (int i = 0; i < wire->width; i++) {
-			RTLIL::SigBit s1 = RTLIL::SigBit(wire, i), s2 = assign_map(s1);
-			if (compare_signals(s2, s1, register_signals, connected_signals, direct_wires))
-				assign_map.add(s1);
+	ShardedVector<RTLIL::SigBit> sigmap_canonical_candidates(subpool);
+	DirectWires direct_wires(assign_map, direct_sigs);
+	subpool.run([const_module, &assign_map, &register_signals, &connected_signals, &sigmap_canonical_candidates, &direct_sigs, &direct_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		std::optional<DirectWires> local_direct_wires;
+		DirectWires *this_thread_direct_wires = &direct_wires;
+		if (ctx.thread_num > 0) {
+			local_direct_wires.emplace(assign_map, direct_sigs);
+			this_thread_direct_wires = &local_direct_wires.value();
 		}
+		for (int i : ctx.item_range(const_module->wires_size())) {
+			RTLIL::Wire *wire = const_module->wire_at(i);
+			for (int j = 0; j < wire->width; ++j) {
+				RTLIL::SigBit s1(wire, j);
+				RTLIL::SigBit s2 = assign_map(s1);
+				if (compare_signals(s2, s1, register_signals, connected_signals, *this_thread_direct_wires))
+					sigmap_canonical_candidates.insert(ctx, s1);
+			}
+		}
+	});
+	// Cache all the direct_wires results that we might possible need. This avoids the results
+	// changing when we update `assign_map` below.
+	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
+		direct_wires.cache_result_for_bit(candidate);
+		direct_wires.cache_result_for_bit(assign_map(candidate));
+	}
+	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
+		RTLIL::SigBit current_canonical = assign_map(candidate);
+		if (compare_signals(current_canonical, candidate, register_signals, connected_signals, direct_wires))
+			assign_map.add(candidate);
 	}
 
 	// we are removing all connections
 	module->connections_.clear();
 
 	// used signals sigmapped
-	SigPool used_signals;
+	ShardedSigPool::Builder used_signals_builder(subpool);
 	// used signals pre-sigmapped
-	SigPool raw_used_signals;
+	ShardedSigPool::Builder raw_used_signals_builder(subpool);
 	// used signals sigmapped, ignoring drivers (we keep track of this to set `unused_bits`)
-	SigPool used_signals_nodrivers;
-
-	// gather the usage information for cells
-	for (auto &it : module->cells_) {
-		RTLIL::Cell *cell = it.second;
-		for (auto &it2 : cell->connections_) {
-			assign_map.apply(it2.second); // modify the cell connection in place
-			raw_used_signals.add(it2.second);
-			used_signals.add(it2.second);
-			if (!ct_all.cell_output(cell->type, it2.first))
-				used_signals_nodrivers.add(it2.second);
-		}
-	}
-
-	// gather the usage information for ports, wires with `keep`,
+	ShardedSigPool::Builder used_signals_nodrivers_builder(subpool);
+	struct UpdateConnection {
+		RTLIL::Cell *cell;
+		RTLIL::IdString port;
+		RTLIL::SigSpec spec;
+	};
+	ShardedVector<UpdateConnection> update_connections(subpool);
+	ShardedVector<RTLIL::Wire*> initialized_wires(subpool);
+	// gather the usage information for cells and update cell connections
+	// also gather the usage information for ports, wires with `keep`
 	// also gather init bits
+	subpool.run([const_module, &register_signals, &connected_signals, &direct_sigs, &assign_map, &used_signals_builder, &raw_used_signals_builder, &used_signals_nodrivers_builder, &update_connections, &initialized_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		// Parallel destruction of these sharded structures
+		register_signals.clear(ctx);
+		connected_signals.clear(ctx);
+		direct_sigs.clear(ctx);
+
+		for (int i : ctx.item_range(const_module->cells_size())) {
+			RTLIL::Cell *cell = const_module->cell_at(i);
+			for (const auto &it2 : cell->connections_) {
+				SigSpec spec = assign_map(it2.second);
+				if (spec != it2.second)
+					update_connections.insert(ctx, {cell, it2.first, spec});
+				add_spec(raw_used_signals_builder, ctx, spec);
+				add_spec(used_signals_builder, ctx, spec);
+				if (!ct_all.cell_output(cell->type, it2.first))
+					add_spec(used_signals_nodrivers_builder, ctx, spec);
+			}
+		}
+		for (int i : ctx.item_range(const_module->wires_size())) {
+			RTLIL::Wire *wire = const_module->wire_at(i);
+			if (wire->port_id > 0) {
+				RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+				add_spec(raw_used_signals_builder, ctx, sig);
+				assign_map.apply(sig);
+				add_spec(used_signals_builder, ctx, sig);
+				if (!wire->port_input)
+					add_spec(used_signals_nodrivers_builder, ctx, sig);
+			}
+			if (wire->get_bool_attribute(ID::keep)) {
+				RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+				assign_map.apply(sig);
+				add_spec(used_signals_builder, ctx, sig);
+			}
+			auto it2 = wire->attributes.find(ID::init);
+			if (it2 != wire->attributes.end())
+				initialized_wires.insert(ctx, wire);
+		}
+	});
+	subpool.run([&used_signals_builder, &raw_used_signals_builder, &used_signals_nodrivers_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		used_signals_builder.process(ctx);
+		raw_used_signals_builder.process(ctx);
+		used_signals_nodrivers_builder.process(ctx);
+	});
+	ShardedSigPool used_signals(used_signals_builder);
+	ShardedSigPool raw_used_signals(raw_used_signals_builder);
+	ShardedSigPool used_signals_nodrivers(used_signals_nodrivers_builder);
+
 	dict<RTLIL::SigBit, RTLIL::State> init_bits;
-	for (auto &it : module->wires_) {
-		RTLIL::Wire *wire = it.second;
-		if (wire->port_id > 0) {
-			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
-			raw_used_signals.add(sig);
-			assign_map.apply(sig);
-			used_signals.add(sig);
-			if (!wire->port_input)
-				used_signals_nodrivers.add(sig);
-		}
-		if (wire->get_bool_attribute(ID::keep)) {
-			RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
-			assign_map.apply(sig);
-			used_signals.add(sig);
-		}
-		auto it2 = wire->attributes.find(ID::init);
-		if (it2 != wire->attributes.end()) {
-			RTLIL::Const &val = it2->second;
-			SigSpec sig = assign_map(wire);
-			for (int i = 0; i < GetSize(val) && i < GetSize(sig); i++)
-				if (val[i] != State::Sx)
-					init_bits[sig[i]] = val[i];
-			wire->attributes.erase(it2);
-		}
+	// The wires that appear in the keys of `init_bits`
+	pool<Wire*> init_bits_wires;
+	for (const UpdateConnection &update : update_connections)
+		update.cell->connections_.at(update.port) = std::move(update.spec);
+	for (RTLIL::Wire *intialized_wire : initialized_wires) {
+		auto it = intialized_wire->attributes.find(ID::init);
+		RTLIL::Const &val = it->second;
+		SigSpec sig = assign_map(intialized_wire);
+		for (int i = 0; i < GetSize(val) && i < GetSize(sig); i++)
+			if (val[i] != State::Sx && sig[i].wire != nullptr) {
+				init_bits[sig[i]] = val[i];
+				init_bits_wires.insert(sig[i].wire);
+			}
+		intialized_wire->attributes.erase(it);
 	}
 
 	// set init attributes on all wires of a connected group
-	for (auto wire : module->wires()) {
+	for (RTLIL::Wire *wire : init_bits_wires) {
 		bool found = false;
 		Const val(State::Sx, wire->width);
 		for (int i = 0; i < wire->width; i++) {
@@ -621,81 +758,117 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	}
 
 	// now decide for each wire if we should be deleting it
-	pool<RTLIL::Wire*> del_wires_queue;
-	for (auto wire : module->wires())
-	{
-		SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
-		log_assert(GetSize(s1) == GetSize(s2));
+	ShardedVector<RTLIL::Wire*> del_wires(subpool);
+	ShardedVector<RTLIL::Wire*> remove_init(subpool);
+	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_init(subpool);
+	ShardedVector<RTLIL::SigSig> connections(subpool);
+	ShardedVector<RTLIL::Wire*> remove_unused_bits(subpool);
+	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_unused_bits(subpool);
+	subpool.run([const_module, purge_mode, &assign_map, &used_signals, &raw_used_signals, &used_signals_nodrivers, &del_wires, &remove_init, &set_init, &connections, &remove_unused_bits, &set_unused_bits](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(const_module->wires_size())) {
+			RTLIL::Wire *wire = const_module->wire_at(i);
+			SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
+			log_assert(GetSize(s1) == GetSize(s2));
 
-		Const initval;
-		if (wire->attributes.count(ID::init))
-			initval = wire->attributes.at(ID::init);
-		if (GetSize(initval) != GetSize(wire))
-			initval.resize(GetSize(wire), State::Sx);
-		if (initval.is_fully_undef())
-			wire->attributes.erase(ID::init);
+			Const initval;
+			bool has_init_attribute = wire->attributes.count(ID::init);
+			bool init_changed = false;
+			if (has_init_attribute)
+				initval = wire->attributes.at(ID::init);
+			if (GetSize(initval) != GetSize(wire)) {
+				initval.resize(GetSize(wire), State::Sx);
+				init_changed = true;
+			}
 
-		if (GetSize(wire) == 0) {
-			// delete zero-width wires, unless they are module ports
-			if (wire->port_id == 0)
+			if (GetSize(wire) == 0) {
+				// delete zero-width wires, unless they are module ports
+				if (wire->port_id == 0)
+					goto delete_this_wire;
+			} else
+			if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
+				// do not delete anything with "keep" or module ports or initialized wires
+			} else
+			if (!purge_mode && check_public_name(wire->name) && (check_any(raw_used_signals, s1) || check_any(used_signals, s2) || s1 != s2)) {
+				// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
+			} else
+			if (!check_any(raw_used_signals, s1)) {
+				// delete wires that aren't used by anything directly
 				goto delete_this_wire;
-		} else
-		if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
-			// do not delete anything with "keep" or module ports or initialized wires
-		} else
-		if (!purge_mode && check_public_name(wire->name) && (raw_used_signals.check_any(s1) || used_signals.check_any(s2) || s1 != s2)) {
-			// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
-		} else
-		if (!raw_used_signals.check_any(s1)) {
-			// delete wires that aren't used by anything directly
-			goto delete_this_wire;
-		}
-
-		if (0)
-		{
-	delete_this_wire:
-			del_wires_queue.insert(wire);
-		}
-		else
-		{
-			RTLIL::SigSig new_conn;
-			for (int i = 0; i < GetSize(s1); i++)
-				if (s1[i] != s2[i]) {
-					if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
-						s2[i] = initval[i];
-						initval.set(i, State::Sx);
-					}
-					new_conn.first.append(s1[i]);
-					new_conn.second.append(s2[i]);
-				}
-			if (new_conn.first.size() > 0) {
-				if (initval.is_fully_undef())
-					wire->attributes.erase(ID::init);
-				else
-					wire->attributes.at(ID::init) = initval;
-				module->connect(new_conn);
 			}
 
-			if (!used_signals_nodrivers.check_all(s2)) {
+			if (0)
+			{
+		delete_this_wire:
+				del_wires.insert(ctx, wire);
+			}
+			else
+			{
+				RTLIL::SigSig new_conn;
+				for (int i = 0; i < GetSize(s1); i++)
+					if (s1[i] != s2[i]) {
+						if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+							s2[i] = initval[i];
+							initval.set(i, State::Sx);
+							init_changed = true;
+						}
+						new_conn.first.append(s1[i]);
+						new_conn.second.append(s2[i]);
+					}
+				if (new_conn.first.size() > 0)
+					connections.insert(ctx, std::move(new_conn));
+				if (initval.is_fully_undef()) {
+					if (has_init_attribute)
+						remove_init.insert(ctx, wire);
+				} else
+					if (init_changed)
+						set_init.insert(ctx, {wire, std::move(initval)});
+
 				std::string unused_bits;
-				for (int i = 0; i < GetSize(s2); i++) {
-					if (s2[i].wire == NULL)
-						continue;
-					if (!used_signals_nodrivers.check(s2[i])) {
-						if (!unused_bits.empty())
-							unused_bits += " ";
-						unused_bits += stringf("%d", i);
+				if (!check_all(used_signals_nodrivers, s2)) {
+					for (int i = 0; i < GetSize(s2); i++) {
+						if (s2[i].wire == NULL)
+							continue;
+						SigBit b = s2[i];
+						if (used_signals_nodrivers.find({b, b.hash_top().yield()}) == nullptr) {
+							if (!unused_bits.empty())
+								unused_bits += " ";
+							unused_bits += stringf("%d", i);
+						}
 					}
 				}
-				if (unused_bits.empty() || wire->port_id != 0)
-					wire->attributes.erase(ID::unused_bits);
-				else
-					wire->attributes[ID::unused_bits] = RTLIL::Const(unused_bits);
-			} else {
-				wire->attributes.erase(ID::unused_bits);
+				if (unused_bits.empty() || wire->port_id != 0) {
+					if (wire->attributes.count(ID::unused_bits))
+						remove_unused_bits.insert(ctx, wire);
+				} else {
+					RTLIL::Const unused_bits_const(std::move(unused_bits));
+					if (wire->attributes.count(ID::unused_bits)) {
+						RTLIL::Const &unused_bits_attr = wire->attributes.at(ID::unused_bits);
+						if (unused_bits_attr != unused_bits_const)
+							set_unused_bits.insert(ctx, {wire, std::move(unused_bits_const)});
+					} else
+						set_unused_bits.insert(ctx, {wire, std::move(unused_bits_const)});
+				}
 			}
 		}
-	}
+	});
+	pool<RTLIL::Wire*> del_wires_queue;
+	del_wires_queue.insert(del_wires.begin(), del_wires.end());
+	for (RTLIL::Wire *wire : remove_init)
+		wire->attributes.erase(ID::init);
+	for (auto &p : set_init)
+		p.first->attributes[ID::init] = std::move(p.second);
+	for (auto &conn : connections)
+		module->connect(std::move(conn));
+	for (RTLIL::Wire *wire : remove_unused_bits)
+		wire->attributes.erase(ID::unused_bits);
+	for (auto &p : set_unused_bits)
+		p.first->attributes[ID::unused_bits] = std::move(p.second);
+
+	subpool.run([&used_signals, &raw_used_signals, &used_signals_nodrivers](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		used_signals.clear(ctx);
+		raw_used_signals.clear(ctx);
+		used_signals_nodrivers.clear(ctx);
+	});
 
 	int del_temp_wires_count = 0;
 	for (auto wire : del_wires_queue) {
@@ -888,12 +1061,11 @@ void rmunused_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_p
 	ParallelDispatchThreadPool::Subpool subpool(thread_pool, num_worker_threads);
 	remove_temporary_cells(module, subpool, verbose);
 	rmunused_module_cells(module, subpool, verbose, stats, keep_cache);
-	while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
+	while (rmunused_module_signals(module, subpool, purge_mode, verbose, stats)) { }
 
 	if (rminit && rmunused_module_init(module, subpool, verbose))
-		while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
+		while (rmunused_module_signals(module, subpool, purge_mode, verbose, stats)) { }
 }
-
 struct OptCleanPass : public Pass {
 	OptCleanPass() : Pass("opt_clean", "remove unused cells and wires") { }
 	void help() override
