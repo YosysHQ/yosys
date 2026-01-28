@@ -206,12 +206,7 @@ template <typename... Args>
 	log_formatted_cmd_error(fmt.format(args...));
 }
 
-static inline void log_suppressed() {
-	if (log_debug_suppressed && !log_make_debug) {
-		log("<suppressed ~%d debug messages>\n", log_debug_suppressed);
-		log_debug_suppressed = 0;
-	}
-}
+void log_suppressed();
 
 struct LogMakeDebugHdl {
 	bool status = false;

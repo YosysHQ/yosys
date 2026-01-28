@@ -324,6 +324,14 @@ void log_formatted_file_info(std::string_view filename, int lineno, std::string 
 	log("%s:%d: Info: %s", filename, lineno, str);
 }
 
+void log_suppressed() {
+	if (log_debug_suppressed && !log_make_debug) {
+		constexpr const char* format = "<suppressed ~%d debug messages>\n";
+		logv_string(format, stringf(format, log_debug_suppressed));
+		log_debug_suppressed = 0;
+	}
+}
+
 [[noreturn]]
 static void log_error_with_prefix(std::string_view prefix, std::string str)
 {
@@ -345,7 +353,9 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	}
 
 	log_last_error = std::move(str);
-	log("%s%s", prefix, log_last_error);
+	std::string message(prefix);
+	message += log_last_error;
+	logv_string("%s%s", message);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -355,7 +365,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 			item.current_count++;
 
 	for (auto &[_, item] : log_expect_prefix_error)
-		if (std::regex_search(string(prefix) + string(log_last_error), item.pattern))
+		if (std::regex_search(message, item.pattern))
 			item.current_count++;
 
 	log_check_expected();
