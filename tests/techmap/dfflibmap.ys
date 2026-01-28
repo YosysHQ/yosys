@@ -64,8 +64,8 @@ select -assert-count 1 t:dffe
 select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
 
 design -load orig
-dfflibmap -prepare -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr.lib
-dfflibmap -map-only -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr.lib
+dfflibmap -prepare -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_r.lib
+dfflibmap -map-only -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_r.lib
 clean
 
 select -assert-count 5 t:$_NOT_

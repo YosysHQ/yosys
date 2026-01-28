@@ -21,10 +21,46 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffsr.lib
+read_liberty dfflibmap_dffsr_s.lib
 
 copy top top_unmapped
-dfflibmap -liberty dfflibmap_dffsr.lib top
+dfflibmap -liberty dfflibmap_dffsr_s.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+##################################################################
+
+design -reset
+read_verilog -sv -icells <<EOT
+
+module top(input C, D, E, S, R, output [11:0] Q);
+
+$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
+$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
+$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+
+$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
+$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+
+$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
+
+assign Q[11:6] = ~Q[5:0];
+
+endmodule
+
+EOT
+
+proc
+opt
+read_liberty dfflibmap_dffsr_r.lib
+
+copy top top_unmapped
+dfflibmap -liberty dfflibmap_dffsr_r.lib top
 
 async2sync
 flatten
