@@ -590,79 +590,93 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	return !del_wires_queue.empty();
 }
 
-bool rmunused_module_init(RTLIL::Module *module, bool verbose)
+bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose)
 {
-	bool did_something = false;
 	CellTypes fftypes;
 	fftypes.setup_internals_mem();
 
 	SigMap sigmap(module);
-	dict<SigBit, State> qbits;
 
-	for (auto cell : module->cells())
-		if (fftypes.cell_known(cell->type) && cell->hasPort(ID::Q))
-		{
-			SigSpec sig = cell->getPort(ID::Q);
-
-			for (int i = 0; i < GetSize(sig); i++)
+	const Module *const_module = module;
+	ShardedVector<std::pair<SigBit, State>> results(subpool);
+	subpool.run([const_module, &fftypes, &results](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(const_module->cells_size())) {
+			RTLIL::Cell *cell = const_module->cell_at(i);
+			if (fftypes.cell_known(cell->type) && cell->hasPort(ID::Q))
 			{
-				SigBit bit = sig[i];
+				SigSpec sig = cell->getPort(ID::Q);
 
-				if (bit.wire == nullptr || bit.wire->attributes.count(ID::init) == 0)
-					continue;
+				for (int i = 0; i < GetSize(sig); i++)
+				{
+					SigBit bit = sig[i];
 
-				Const init = bit.wire->attributes.at(ID::init);
+					if (bit.wire == nullptr || bit.wire->attributes.count(ID::init) == 0)
+						continue;
 
-				if (i >= GetSize(init) || init[i] == State::Sx || init[i] == State::Sz)
-					continue;
+					Const init = bit.wire->attributes.at(ID::init);
 
-				sigmap.add(bit);
-				qbits[bit] = init[i];
-			}
-		}
+					if (i >= GetSize(init) || init[i] == State::Sx || init[i] == State::Sz)
+						continue;
 
-	for (auto wire : module->wires())
-	{
-		if (wire->attributes.count(ID::init) == 0)
-			continue;
-
-		Const init = wire->attributes.at(ID::init);
-
-		for (int i = 0; i < GetSize(wire) && i < GetSize(init); i++)
-		{
-			if (init[i] == State::Sx || init[i] == State::Sz)
-				continue;
-
-			SigBit wire_bit = SigBit(wire, i);
-			SigBit mapped_wire_bit = sigmap(wire_bit);
-
-			if (wire_bit == mapped_wire_bit)
-				goto next_wire;
-
-			if (mapped_wire_bit.wire) {
-				if (qbits.count(mapped_wire_bit) == 0)
-					goto next_wire;
-
-				if (qbits.at(mapped_wire_bit) != init[i])
-					goto next_wire;
-			}
-			else {
-				if (mapped_wire_bit == State::Sx || mapped_wire_bit == State::Sz)
-					goto next_wire;
-
-				if (mapped_wire_bit != init[i]) {
-					log_warning("Initial value conflict for %s resolving to %s but with init %s.\n", log_signal(wire_bit), log_signal(mapped_wire_bit), log_signal(init[i]));
-					goto next_wire;
+					results.insert(ctx, {bit, init[i]});
 				}
 			}
 		}
+	});
+	dict<SigBit, State> qbits;
+	for (std::pair<SigBit, State> &p : results) {
+		sigmap.add(p.first);
+		qbits[p.first] = p.second;
+	}
 
+	ShardedVector<RTLIL::Wire*> wire_results(subpool);
+	subpool.run([const_module, &sigmap, &qbits, &wire_results](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int j : ctx.item_range(const_module->wires_size())) {
+			RTLIL::Wire *wire = const_module->wire_at(j);
+			if (wire->attributes.count(ID::init) == 0)
+				continue;
+			Const init = wire->attributes.at(ID::init);
+
+			for (int i = 0; i < GetSize(wire) && i < GetSize(init); i++)
+			{
+				if (init[i] == State::Sx || init[i] == State::Sz)
+					continue;
+
+				SigBit wire_bit = SigBit(wire, i);
+				SigBit mapped_wire_bit = sigmap(wire_bit);
+
+				if (wire_bit == mapped_wire_bit)
+					goto next_wire;
+
+				if (mapped_wire_bit.wire) {
+					if (qbits.count(mapped_wire_bit) == 0)
+						goto next_wire;
+
+					if (qbits.at(mapped_wire_bit) != init[i])
+						goto next_wire;
+				}
+				else {
+					if (mapped_wire_bit == State::Sx || mapped_wire_bit == State::Sz)
+						goto next_wire;
+
+					if (mapped_wire_bit != init[i]) {
+						log_warning("Initial value conflict for %s resolving to %s but with init %s.\n", log_signal(wire_bit), log_signal(mapped_wire_bit), log_signal(init[i]));
+						goto next_wire;
+					}
+				}
+			}
+			wire_results.insert(ctx, wire);
+
+			next_wire:;
+		}
+	});
+
+	bool did_something = false;
+	for (RTLIL::Wire *wire : wire_results) {
 		if (verbose)
 			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
-
 		wire->attributes.erase(ID::init);
 		did_something = true;
-	next_wire:;
 	}
 
 	if (did_something)
@@ -749,7 +763,7 @@ void rmunused_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_p
 	rmunused_module_cells(module, verbose, stats, keep_cache);
 	while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
 
-	if (rminit && rmunused_module_init(module, verbose))
+	if (rminit && rmunused_module_init(module, subpool, verbose))
 		while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
 }
 
@@ -790,10 +804,9 @@ struct OptCleanPass : public Pass {
 		extra_args(args, argidx, design);
 
 		std::vector<RTLIL::Module*> selected_modules;
-		for (auto module : design->selected_whole_modules_warn()) {
+		for (auto module : design->selected_whole_modules_warn())
 			if (!module->has_processes_warn())
 				selected_modules.push_back(module);
-		}
 		int thread_pool_size = 0;
 		for (RTLIL::Module *m : selected_modules)
 			thread_pool_size = std::max(thread_pool_size, ThreadPool::work_pool_size(0, m->cells_size(), 1000));
@@ -807,9 +820,8 @@ struct OptCleanPass : public Pass {
 		ct_all.setup(design);
 
 		RmStats stats;
-		for (auto module : selected_modules) {
+		for (auto module : selected_modules)
 			rmunused_module(module, thread_pool, purge_mode, true, true, stats, keep_cache);
-		}
 		stats.log();
 
 		design->optimize();
@@ -855,10 +867,9 @@ struct CleanPass : public Pass {
 		extra_args(args, argidx, design);
 
 		std::vector<RTLIL::Module*> selected_modules;
-		for (auto module : design->selected_unboxed_whole_modules()) {
+		for (auto module : design->selected_unboxed_whole_modules())
 			if (!module->has_processes())
 				selected_modules.push_back(module);
-		}
 		int thread_pool_size = 0;
 		for (RTLIL::Module *m : selected_modules)
 			thread_pool_size = std::max(thread_pool_size, ThreadPool::work_pool_size(0, m->cells_size(), 1000));
@@ -872,9 +883,8 @@ struct CleanPass : public Pass {
 		ct_all.setup(design);
 
 		RmStats stats;
-		for (auto module : selected_modules) {
+		for (auto module : selected_modules)
 			rmunused_module(module, thread_pool, purge_mode, ys_debug(), true, stats, keep_cache);
-		}
 
 		log_suppressed();
 		stats.log();
