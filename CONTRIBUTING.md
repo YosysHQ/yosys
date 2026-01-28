@@ -12,4 +12,4 @@ Check out our [Contributing guidelines](https://yosys.readthedocs.io/en/latest/y
 + contribute code
 + review code
 
-If you're reading this file offline and don't have internet access, you can read the `contributing.rst` file [locally](docs/source/yosys_internals/extending_yosys/contributing.rst).
+If you're reading this file offline and don't have internet access, you can [read the contributing.rst file locally](docs/source/yosys_internals/extending_yosys/contributing.rst).
