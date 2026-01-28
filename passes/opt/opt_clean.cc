@@ -33,55 +33,100 @@ using RTLIL::id2cstr;
 
 struct keep_cache_t
 {
-	Design *design;
-	dict<Module*, bool> cache;
-	bool purge_mode = false;
+	dict<Module*, bool> keep_modules;
+	bool purge_mode;
 
-	void reset(Design *design = nullptr, bool purge_mode = false)
-	{
-		this->design = design;
-		this->purge_mode = purge_mode;
-		cache.clear();
-	}
-
-	bool query(Module *module)
-	{
-		log_assert(design != nullptr);
-
-		if (module == nullptr)
-			return false;
-
-		if (cache.count(module))
-			return cache.at(module);
-
-		cache[module] = true;
-		if (!module->get_bool_attribute(ID::keep)) {
-		    bool found_keep = false;
-		    for (auto cell : module->cells())
-			if (query(cell, true /* ignore_specify */)) {
-			    found_keep = true;
-			    break;
-			}
-		    for (auto wire : module->wires())
-			if (wire->get_bool_attribute(ID::keep)) {
-			    found_keep = true;
-			    break;
-			}
-		    cache[module] = found_keep;
+	keep_cache_t(bool purge_mode, const std::vector<RTLIL::Module *> &selected_modules)
+			: purge_mode(purge_mode) {
+		std::vector<RTLIL::Module *> scan_modules_worklist;
+		dict<RTLIL::Module *, std::vector<RTLIL::Module*>> dependents;
+		std::vector<RTLIL::Module *> propagate_kept_modules_worklist;
+		for (RTLIL::Module *module : selected_modules) {
+			if (keep_modules.count(module))
+				continue;
+			bool keep = scan_module(module, dependents, true, scan_modules_worklist);
+			keep_modules[module] = keep;
+			if (keep)
+				propagate_kept_modules_worklist.push_back(module);
 		}
 
-		return cache[module];
+		while (!scan_modules_worklist.empty()) {
+			RTLIL::Module *module = scan_modules_worklist.back();
+			scan_modules_worklist.pop_back();
+			if (keep_modules.count(module))
+				continue;
+			bool keep = scan_module(module, dependents, false, scan_modules_worklist);
+			keep_modules[module] = keep;
+			if (keep)
+				propagate_kept_modules_worklist.push_back(module);
+		}
+
+		while (!propagate_kept_modules_worklist.empty()) {
+			RTLIL::Module *module = propagate_kept_modules_worklist.back();
+			propagate_kept_modules_worklist.pop_back();
+			for (RTLIL::Module *dependent : dependents[module]) {
+				if (keep_modules[dependent])
+					continue;
+				keep_modules[dependent] = true;
+				propagate_kept_modules_worklist.push_back(dependent);
+			}
+		}
 	}
 
-	bool query(Cell *cell, bool ignore_specify = false)
+	bool query(Cell *cell) const
+	{
+		if (keep_cell(cell, purge_mode))
+			return true;
+		if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
+			return true;
+		if (cell->module && cell->module->design) {
+			RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+			return cell_module != nullptr && keep_modules.at(cell_module);
+		}
+		return false;
+	}
+
+private:
+	bool scan_module(Module *module, dict<RTLIL::Module *, std::vector<RTLIL::Module*>> &dependents,
+			bool scan_all_cells, std::vector<Module*> &worklist) const
+	{
+		bool keep = false;
+		if (module->get_bool_attribute(ID::keep)) {
+			if (!scan_all_cells)
+				return true;
+			keep = true;
+		}
+
+		for (Cell *cell : module->cells()) {
+			if (keep_cell(cell, purge_mode)) {
+				if (!scan_all_cells)
+					return true;
+				keep = true;
+			}
+			if (module->design) {
+				RTLIL::Module *cell_module = module->design->module(cell->type);
+				if (cell_module != nullptr) {
+					dependents[cell_module].push_back(module);
+					worklist.push_back(cell_module);
+				}
+			}
+		}
+		if (!scan_all_cells && keep)
+			return true;
+		for (Wire *wire : module->wires()) {
+			if (wire->get_bool_attribute(ID::keep)) {
+				return true;
+			}
+		}
+		return keep;
+	}
+
+	static bool keep_cell(Cell *cell, bool purge_mode)
 	{
 		if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 			return true;
 
 		if (cell->type.in(ID($overwrite_tag)))
-			return true;
-
-		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
 			return true;
 
 		if (cell->type == ID($print) || cell->type == ID($check))
@@ -92,19 +137,14 @@ struct keep_cache_t
 
 		if (!purge_mode && cell->type == ID($scopeinfo))
 			return true;
-
-		if (cell->module && cell->module->design)
-			return query(cell->module->design->module(cell->type));
-
 		return false;
 	}
 };
 
-keep_cache_t keep_cache;
 CellTypes ct_reg, ct_all;
 int count_rm_cells, count_rm_wires;
 
-void rmunused_module_cells(Module *module, bool verbose)
+void rmunused_module_cells(Module *module, bool verbose, keep_cache_t &keep_cache)
 {
 	SigMap sigmap(module);
 	dict<IdString, pool<Cell*>> mem2cells;
@@ -595,7 +635,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 	return did_something;
 }
 
-void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit)
+void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit, keep_cache_t &keep_cache)
 {
 	if (verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name);
@@ -652,7 +692,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	if (!delcells.empty())
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
-	rmunused_module_cells(module, verbose);
+	rmunused_module_cells(module, verbose, keep_cache);
 	while (rmunused_module_signals(module, purge_mode, verbose)) { }
 
 	if (rminit && rmunused_module_init(module, verbose))
@@ -695,7 +735,12 @@ struct OptCleanPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		keep_cache.reset(design, purge_mode);
+		std::vector<RTLIL::Module*> selected_modules;
+		for (auto module : design->selected_whole_modules_warn()) {
+			if (!module->has_processes_warn())
+				selected_modules.push_back(module);
+		}
+		keep_cache_t keep_cache(purge_mode, selected_modules);
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_internals_anyinit();
@@ -706,10 +751,8 @@ struct OptCleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto module : design->selected_whole_modules_warn()) {
-			if (module->has_processes_warn())
-				continue;
-			rmunused_module(module, purge_mode, true, true);
+		for (auto module : selected_modules) {
+			rmunused_module(module, purge_mode, true, true, keep_cache);
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)
@@ -718,7 +761,6 @@ struct OptCleanPass : public Pass {
 		design->optimize();
 		design->check();
 
-		keep_cache.reset();
 		ct_reg.clear();
 		ct_all.clear();
 		log_pop();
@@ -758,7 +800,12 @@ struct CleanPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		keep_cache.reset(design);
+		std::vector<RTLIL::Module*> selected_modules;
+		for (auto module : design->selected_unboxed_whole_modules()) {
+			if (!module->has_processes())
+				selected_modules.push_back(module);
+		}
+		keep_cache_t keep_cache(purge_mode, selected_modules);
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_internals_anyinit();
@@ -769,10 +816,8 @@ struct CleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto module : design->selected_unboxed_whole_modules()) {
-			if (module->has_processes())
-				continue;
-			rmunused_module(module, purge_mode, ys_debug(), true);
+		for (auto module : selected_modules) {
+			rmunused_module(module, purge_mode, ys_debug(), true, keep_cache);
 		}
 
 		log_suppressed();
@@ -782,7 +827,6 @@ struct CleanPass : public Pass {
 		design->optimize();
 		design->check();
 
-		keep_cache.reset();
 		ct_reg.clear();
 		ct_all.clear();
 
