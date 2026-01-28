@@ -1,0 +1,5 @@
+verific -f -sv mixed_flist.flist
+verific -import sv_top
+verific -import vhdl_mod
+select -assert-mod-count 1 sv_top
+select -assert-mod-count 1 vhdl_mod
