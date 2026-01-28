@@ -378,6 +378,185 @@ private:
 	Buckets buckets;
 };
 
+// The default collision handler for `ShardedHashtable` resolves collisions by keeping
+// the current value and discarding the other. This is correct when all values with the
+// same key are interchangeable (e.g. the hashtable is being used as a set).
+template <typename V>
+struct DefaultCollisionHandler {
+	void operator()(typename V::Accumulated &, typename V::Accumulated &) const {}
+};
+
+// A hashtable that can be efficiently built in parallel and then looked up concurrently.
+// `V` is the type of elements that will be added to the hashtable. It must have a
+// member type `Accumulated` representing the combination of multiple `V` elements. This
+// can be the same as `V`, but for example `V` could contain a Wire* and `V::Accumulated`
+// could contain a `pool<Wire*>`. `KeyEquality` is a class containing an `operator()` that
+// returns true of two `V` elements have equal keys.
+// `CollisionHandler` is used to reduce two `V::Accumulated` values into a single value.
+//
+// To use this, first construct a `Builder` and fill it in (in parallel), then construct
+// a `ShardedHashtable` from the `Builder`.
+template <typename V, typename KeyEquality, typename CollisionHandler = DefaultCollisionHandler<V>>
+class ShardedHashtable {
+public:
+	// A combination of a `V` and its hash value.
+	struct Value {
+		Value(V value, unsigned int hash) : value(std::move(value)), hash(hash) {}
+		Value(Value &&) = default;
+		Value(const Value &) = delete;
+		Value &operator=(const Value &) = delete;
+		V value;
+		unsigned int hash;
+	};
+	// A combination of a `V::Accumulated` and its hash value.
+	struct AccumulatedValue {
+		AccumulatedValue(typename V::Accumulated value, unsigned int hash) : value(std::move(value)), hash(hash) {}
+		AccumulatedValue(AccumulatedValue &&) = default;
+#if defined(_MSC_VER)
+		AccumulatedValue(const AccumulatedValue &) {
+			log_error("Copy constructor called on AccumulatedValue");
+		}
+		AccumulatedValue &operator=(const AccumulatedValue &) {
+			log_error("Copy assignment called on AccumulatedValue");
+			return *this;
+		}
+#else
+		AccumulatedValue(const AccumulatedValue &) = delete;
+		AccumulatedValue &operator=(const AccumulatedValue &) = delete;
+#endif
+		typename V::Accumulated value;
+		unsigned int hash;
+	};
+	// A class containing an `operator()` that returns true of two `AccumulatedValue`
+	// elements have equal keys.
+	// Required to insert `AccumulatedValue`s into an `std::unordered_set`.
+	struct AccumulatedValueEquality {
+		KeyEquality inner;
+		AccumulatedValueEquality(const KeyEquality &inner) : inner(inner) {}
+		bool operator()(const AccumulatedValue &v1, const AccumulatedValue &v2) const {
+			return inner(v1.value, v2.value);
+		}
+	};
+	// A class containing an `operator()` that returns the hash value of an `AccumulatedValue`.
+	// Required to insert `AccumulatedValue`s into an `std::unordered_set`.
+	struct AccumulatedValueHashOp {
+		size_t operator()(const AccumulatedValue &v) const {
+			return static_cast<size_t>(v.hash);
+		}
+	};
+	using Shard = std::unordered_set<AccumulatedValue, AccumulatedValueHashOp, AccumulatedValueEquality>;
+
+	// First construct one of these. Then populate it in parallel by calling `insert()` from many threads.
+	// Then do another parallel phase calling `process()` from many threads.
+	class Builder {
+	public:
+		Builder(const ParallelDispatchThreadPool &thread_pool, KeyEquality equality = KeyEquality(), CollisionHandler collision_handler = CollisionHandler())
+				: collision_handler(std::move(collision_handler)) {
+			init(thread_pool.num_threads(), std::move(equality));
+		}
+		Builder(const ParallelDispatchThreadPool::Subpool &thread_pool, KeyEquality equality = KeyEquality(), CollisionHandler collision_handler = CollisionHandler())
+				: collision_handler(std::move(collision_handler)) {
+			init(thread_pool.num_threads(), std::move(equality));
+		}
+		// First call `insert` to insert all elements. All inserts must finish
+		// before calling any `process()`.
+		void insert(const ThreadIndex &thread, Value v) {
+			// You might think that for the single-threaded case, we can optimize by
+			// inserting directly into the `std::unordered_set` here. But that slows things down
+			// a lot and I never got around to figuring out why.
+			std::vector<std::vector<Value>> &buckets = all_buckets[thread.thread_num];
+			size_t bucket = static_cast<size_t>(v.hash) % buckets.size();
+			buckets[bucket].emplace_back(std::move(v));
+		}
+		// Then call `process` for each thread. All `process()`s must finish before using
+		// the `Builder` to construct a `ShardedHashtable`.
+		void process(const ThreadIndex &thread) {
+			int size = 0;
+			for (std::vector<std::vector<Value>> &buckets : all_buckets)
+				size += GetSize(buckets[thread.thread_num]);
+			Shard &shard = shards[thread.thread_num];
+			shard.reserve(size);
+			for (std::vector<std::vector<Value>> &buckets : all_buckets) {
+				for (Value &value : buckets[thread.thread_num])
+					accumulate(value, shard);
+				// Free as much memory as we can during the parallel phase.
+				std::vector<Value>().swap(buckets[thread.thread_num]);
+			}
+		}
+	private:
+		friend class ShardedHashtable<V, KeyEquality, CollisionHandler>;
+		void accumulate(Value &value, Shard &shard) {
+			// With C++20 we could make this more efficient using heterogenous lookup
+			AccumulatedValue accumulated_value{std::move(value.value), value.hash};
+			auto [it, inserted] = shard.insert(std::move(accumulated_value));
+			if (!inserted)
+				collision_handler(const_cast<typename V::Accumulated &>(it->value), accumulated_value.value);
+		}
+		void init(int num_threads, KeyEquality equality) {
+			all_buckets.resize(num_threads);
+			for (std::vector<std::vector<Value>> &buckets : all_buckets)
+				buckets.resize(num_threads);
+			for (int i = 0; i < num_threads; ++i)
+				shards.emplace_back(0, AccumulatedValueHashOp(), AccumulatedValueEquality(equality));
+		}
+		const CollisionHandler collision_handler;
+		// A num_threads x num_threads matrix of buckets.
+		// In the first phase, each thread i gemerates elements and writes them to
+		// bucket [i][j] where j = hash(element) % num_threads.
+		// In the second phase, thread i reads from bucket [j][i] for all j, collecting
+		// all elements where i = hash(element) % num_threads.
+		std::vector<std::vector<std::vector<Value>>> all_buckets;
+		std::vector<Shard> shards;
+	};
+
+	// Then finally construct the hashtable:
+	ShardedHashtable(Builder &builder) : shards(std::move(builder.shards)) {
+		// Check that all necessary 'process()' calls were made.
+		for (std::vector<std::vector<Value>> &buckets : builder.all_buckets)
+			for (std::vector<Value> &bucket : buckets)
+				log_assert(bucket.empty());
+		// Free memory.
+		std::vector<std::vector<std::vector<Value>>>().swap(builder.all_buckets);
+	}
+	ShardedHashtable(ShardedHashtable &&other) = default;
+	ShardedHashtable() {}
+
+	ShardedHashtable &operator=(ShardedHashtable &&other) = default;
+
+	// Look up by `AccumulatedValue`. If we switch to C++20 then we could use
+	// heterogenous lookup to support looking up by `Value` here. Returns nullptr
+	// if the key is not found.
+	const typename V::Accumulated *find(const AccumulatedValue &v) const {
+		size_t num_shards = shards.size();
+		if (num_shards == 0)
+			return nullptr;
+		size_t shard = static_cast<size_t>(v.hash) % num_shards;
+		auto it = shards[shard].find(v);
+		if (it == shards[shard].end())
+			return nullptr;
+		return &it->value;
+	}
+
+	// Insert an element into the table. The caller is responsible for ensuring this does not
+	// happen concurrently with any other method calls.
+	void insert(AccumulatedValue v) {
+		size_t num_shards = shards.size();
+		if (num_shards == 0)
+			return;
+		size_t shard = static_cast<size_t>(v.hash) % num_shards;
+		shards[shard].insert(v);
+	}
+
+	// Call this for each shard to implement parallel destruction. For very large `ShardedHashtable`s,
+	// deleting all elements of all shards on a single thread can be a performance bottleneck.
+	void clear(const ThreadIndex &shard) {
+		AccumulatedValueEquality equality = shards[0].key_eq();
+		shards[shard.thread_num] = Shard(0, AccumulatedValueHashOp(), equality);
+	}
+private:
+	std::vector<Shard> shards;
+};
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_THREADING_H
