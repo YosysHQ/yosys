@@ -79,6 +79,7 @@ using sbv = rtlil_traits::sbv;
 using symfpu::ite;
 using uf = symfpu::unpackedFloat<rtlil_traits>;
 using uf_flagged = symfpu::floatWithStatusFlags<rtlil_traits>;
+using uf_flagged_ite = symfpu::ite<prop, uf_flagged>;
 
 PRIVATE_NAMESPACE_END
 
@@ -411,16 +412,18 @@ struct SymFpuPass : public Pass {
 		);
 
 		auto rm_option = content_root->open_option("-rm <RM>");
-		rm_option->paragraph("rounding mode to generate, must be one of the below; default=RNE");
+		rm_option->paragraph("rounding mode to generate, must be one of the below; default=DYN");
 		rm_option->codeblock(
-			"<RM> | description\n"
-			"-----+----------------------\n"
-			"RNE  | round ties to even\n"
-			"RNA  | round ties to away\n"
-			"RTP  | round toward positive\n"
-			"RTN  | round toward negative\n"
-			"RTZ  | round toward zero\n"
+			"<RM> | rm    | description\n"
+			"-----+--------+----------------------\n"
+			"RNE  | 00001 | round ties to even\n"
+			"RNA  | 00010 | round ties to away\n"
+			"RTP  | 00100 | round toward positive\n"
+			"RTN  | 01000 | round toward negative\n"
+			"RTZ  | 10000 | round toward zero\n"
+			"DYN  | xxxxx | round based on 'rm' input signal\n"
 		);
+		rm_option->paragraph("Note: when not using DYN mode, the 'rm' input is ignored.");
 
 		return true;
 	}
@@ -428,7 +431,7 @@ struct SymFpuPass : public Pass {
 	{
 		//TODO: fix multiple calls to symfpu in single Yosys instance
 		int eb = 8, sb = 24;
-		string op = "mul", rounding = "RNE";
+		string op = "mul", rounding = "DYN";
 		int inputs = 2;
 		log_header(design, "Executing SYMFPU pass.\n");
 
@@ -470,14 +473,16 @@ struct SymFpuPass : public Pass {
 		rm rounding_mode;
 		if (rounding.compare("RNE") == 0)
 			rounding_mode = rtlil_traits::RNE();
-			else if (rounding.compare("RNA") == 0)
+		else if (rounding.compare("RNA") == 0)
 			rounding_mode = rtlil_traits::RNA();
-			else if (rounding.compare("RTP") == 0)
+		else if (rounding.compare("RTP") == 0)
 			rounding_mode = rtlil_traits::RTP();
-			else if (rounding.compare("RTN") == 0)
+		else if (rounding.compare("RTN") == 0)
 			rounding_mode = rtlil_traits::RTN();
-			else if (rounding.compare("RTZ") == 0)
+		else if (rounding.compare("RTZ") == 0)
 			rounding_mode = rtlil_traits::RTZ();
+		else if (rounding.compare("DYN") == 0)
+			rounding_mode = {};
 		else
 			log_cmd_error("Unknown rounding mode '%s'. Call help sympfpu for available rounding modes.\n", rounding);
 
@@ -495,11 +500,37 @@ struct SymFpuPass : public Pass {
 		uf b = symfpu::unpack<rtlil_traits>(format, b_bv);
 		uf c = symfpu::unpack<rtlil_traits>(format, c_bv);
 
+		auto rm_wire = symfpu_mod->addWire(ID(rm), 5);
+		rm_wire->port_input = true;
+		SigSpec rm_sig(rm_wire);
+		prop rm_RNE(rm_sig[0]);
+		prop rm_RNA(rm_sig[1]);
+		prop rm_RTP(rm_sig[2]);
+		prop rm_RTN(rm_sig[3]);
+		prop rm_RTZ(rm_sig[4]);
+
 		// signaling NaN inputs raise NV
 		prop signals_invalid((a.getNaN() && is_sNaN(a_bv, sb))
 			|| (b.getNaN() && is_sNaN(b_bv, sb) && inputs >= 2)
 			|| (c.getNaN() && is_sNaN(c_bv, sb) && inputs >= 3)
 		);
+
+		auto make_op = [&op, &format, &a, &b, &c](rm rounding_mode) {
+			if (op.compare("add") == 0)
+				return symfpu::add_flagged(format, rounding_mode, a, b, prop(true));
+			else if (op.compare("sub") == 0)
+				return symfpu::add_flagged(format, rounding_mode, a, b, prop(false));
+			else if (op.compare("mul") == 0)
+				return symfpu::multiply_flagged(format, rounding_mode, a, b);
+			else if (op.compare("div") == 0)
+				return symfpu::divide_flagged(format, rounding_mode, a, b);
+			else if (op.compare("sqrt") == 0)
+				return symfpu::sqrt_flagged(format, rounding_mode, a);
+			else if (op.compare("muladd") == 0)
+				return symfpu::fma_flagged(format, rounding_mode, a, b, c);
+			else
+				log_abort();
+		};
 
 		// calling this more than once will fail
 		auto output_fpu = [&signals_invalid, &format](const uf_flagged &o_flagged) {
@@ -512,20 +543,24 @@ struct SymFpuPass : public Pass {
 			output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o_flagged.val));
 		};
 
-		if (op.compare("add") == 0)
-			output_fpu(symfpu::add_flagged(format, rounding_mode, a, b, prop(true)));
-		else if (op.compare("sub") == 0)
-			output_fpu(symfpu::add_flagged(format, rounding_mode, a, b, prop(false)));
-		else if (op.compare("mul") == 0)
-			output_fpu(symfpu::multiply_flagged(format, rounding_mode, a, b));
-		else if (op.compare("div") == 0)
-			output_fpu(symfpu::divide_flagged(format, rounding_mode, a, b));
-		else if (op.compare("sqrt") == 0)
-			output_fpu(symfpu::sqrt_flagged(format, rounding_mode, a));
-		else if (op.compare("muladd") == 0)
-			output_fpu(symfpu::fma_flagged(format, rounding_mode, a, b, c));
-		else 
-			log_abort();
+		if (rounding.compare("DYN") != 0) 
+			output_fpu(make_op(rounding_mode));
+		else {
+			auto out_RNE = make_op(rtlil_traits::RNE());
+			auto out_RNA = make_op(rtlil_traits::RNA());
+			auto out_RTP = make_op(rtlil_traits::RTP());
+			auto out_RTN = make_op(rtlil_traits::RTN());
+			auto out_RTZ = make_op(rtlil_traits::RTZ());
+			output_fpu(
+				uf_flagged_ite::iteOp(rm_RNE, out_RNE, 
+					uf_flagged_ite::iteOp(rm_RNA, out_RNA,
+						uf_flagged_ite::iteOp(rm_RTP, out_RTP,
+							uf_flagged_ite::iteOp(rm_RTN, out_RTN, 
+								uf_flagged_ite::iteOp(rm_RTZ, out_RTZ,
+									uf_flagged::makeNaN(format, prop(true)))))))
+			);
+		}
+			
 
 		symfpu_mod->fixup_ports();
 	}

@@ -10,9 +10,11 @@ prove_rm() {
     rm=$2
     defs=$3
     ys_file=${op}_${rm}_edges.ys
+    echo "symfpu -op $op -rm $rm" > $ys_file
+    if [[ $rm != "DYN" ]] then
+        echo "sat -prove-asserts -verify" >> $ys_file
+    fi
     echo """\
-symfpu -op $op -rm $rm
-sat -prove-asserts -verify
 chformal -remove
 opt
 
@@ -20,13 +22,13 @@ read_verilog -sv -formal $defs -D${rm} edges.sv
 chformal -lower
 prep -top edges -flatten
 sat -set-assumes -prove-asserts -verify
-""" > $ys_file
+""" >> $ys_file
 }
 
 prove_op() {
     op=$1
     defs=$2
-    rms="RNE RNA RTP RTN RTZ"
+    rms="RNE RNA RTP RTN RTZ DYN"
     for rm in $rms; do
         prove_rm $op $rm "$defs"
     done
