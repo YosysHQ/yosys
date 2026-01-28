@@ -22,6 +22,7 @@
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
 #include "kernel/ffinit.h"
+#include "kernel/threading.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -36,15 +37,16 @@ struct keep_cache_t
 	dict<Module*, bool> keep_modules;
 	bool purge_mode;
 
-	keep_cache_t(bool purge_mode, const std::vector<RTLIL::Module *> &selected_modules)
+	keep_cache_t(bool purge_mode, ParallelDispatchThreadPool &thread_pool, const std::vector<RTLIL::Module *> &selected_modules)
 			: purge_mode(purge_mode) {
+
 		std::vector<RTLIL::Module *> scan_modules_worklist;
 		dict<RTLIL::Module *, std::vector<RTLIL::Module*>> dependents;
 		std::vector<RTLIL::Module *> propagate_kept_modules_worklist;
 		for (RTLIL::Module *module : selected_modules) {
 			if (keep_modules.count(module))
 				continue;
-			bool keep = scan_module(module, dependents, true, scan_modules_worklist);
+			bool keep = scan_module(module, thread_pool, dependents, ALL_CELLS, scan_modules_worklist);
 			keep_modules[module] = keep;
 			if (keep)
 				propagate_kept_modules_worklist.push_back(module);
@@ -55,7 +57,7 @@ struct keep_cache_t
 			scan_modules_worklist.pop_back();
 			if (keep_modules.count(module))
 				continue;
-			bool keep = scan_module(module, dependents, false, scan_modules_worklist);
+			bool keep = scan_module(module, thread_pool, dependents, MINIMUM_CELLS, scan_modules_worklist);
 			keep_modules[module] = keep;
 			if (keep)
 				propagate_kept_modules_worklist.push_back(module);
@@ -87,38 +89,62 @@ struct keep_cache_t
 	}
 
 private:
-	bool scan_module(Module *module, dict<RTLIL::Module *, std::vector<RTLIL::Module*>> &dependents,
-			bool scan_all_cells, std::vector<Module*> &worklist) const
+	enum ScanCells {
+		// Scan every cell to see if it uses a module that is kept.
+		ALL_CELLS,
+		// Stop scanning cells if we determine early that this module is kept.
+		MINIMUM_CELLS,
+	};
+	bool scan_module(Module *module, ParallelDispatchThreadPool &thread_pool, dict<RTLIL::Module *, std::vector<RTLIL::Module*>> &dependents,
+			ScanCells scan_cells, std::vector<Module*> &worklist) const
 	{
-		bool keep = false;
+		MonotonicFlag keep_module;
 		if (module->get_bool_attribute(ID::keep)) {
-			if (!scan_all_cells)
+			if (scan_cells == MINIMUM_CELLS)
 				return true;
-			keep = true;
+			keep_module.set();
 		}
 
-		for (Cell *cell : module->cells()) {
-			if (keep_cell(cell, purge_mode)) {
-				if (!scan_all_cells)
-					return true;
-				keep = true;
-			}
-			if (module->design) {
-				RTLIL::Module *cell_module = module->design->module(cell->type);
-				if (cell_module != nullptr) {
-					dependents[cell_module].push_back(module);
-					worklist.push_back(cell_module);
+		ParallelDispatchThreadPool::Subpool subpool(thread_pool, ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+		ShardedVector<Module*> deps(subpool);
+		const RTLIL::Module *const_module = module;
+		bool purge_mode = this->purge_mode;
+		subpool.run([purge_mode, const_module, scan_cells, &deps, &keep_module](const ParallelDispatchThreadPool::RunCtx &ctx) {
+			bool keep = false;
+			for (int i : ctx.item_range(const_module->cells_size())) {
+				Cell *cell = const_module->cell_at(i);
+				if (keep_cell(cell, purge_mode)) {
+					if (scan_cells == MINIMUM_CELLS) {
+						keep_module.set();
+						return;
+					}
+					keep = true;
+				}
+				if (const_module->design) {
+					RTLIL::Module *cell_module = const_module->design->module(cell->type);
+					if (cell_module != nullptr)
+						deps.insert(ctx, cell_module);
 				}
 			}
-		}
-		if (!scan_all_cells && keep)
-			return true;
-		for (Wire *wire : module->wires()) {
-			if (wire->get_bool_attribute(ID::keep)) {
-				return true;
+			if (keep) {
+				keep_module.set();
+				return;
 			}
+			for (int i : ctx.item_range(const_module->wires_size())) {
+				Wire *wire = const_module->wire_at(i);
+				if (wire->get_bool_attribute(ID::keep)) {
+					keep_module.set();
+					return;
+				}
+			}
+		});
+		if (scan_cells == MINIMUM_CELLS && keep_module.load())
+			return true;
+		for (Module *dep : deps) {
+			dependents[dep].push_back(module);
+			worklist.push_back(dep);
 		}
-		return keep;
+		return keep_module.load();
 	}
 
 	static bool keep_cell(Cell *cell, bool purge_mode)
@@ -750,7 +776,11 @@ struct OptCleanPass : public Pass {
 			if (!module->has_processes_warn())
 				selected_modules.push_back(module);
 		}
-		keep_cache_t keep_cache(purge_mode, selected_modules);
+		int thread_pool_size = 0;
+		for (RTLIL::Module *m : selected_modules)
+			thread_pool_size = std::max(thread_pool_size, ThreadPool::work_pool_size(0, m->cells_size(), 1000));
+		ParallelDispatchThreadPool thread_pool(thread_pool_size);
+		keep_cache_t keep_cache(purge_mode, thread_pool, selected_modules);
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_internals_anyinit();
@@ -811,7 +841,11 @@ struct CleanPass : public Pass {
 			if (!module->has_processes())
 				selected_modules.push_back(module);
 		}
-		keep_cache_t keep_cache(purge_mode, selected_modules);
+		int thread_pool_size = 0;
+		for (RTLIL::Module *m : selected_modules)
+			thread_pool_size = std::max(thread_pool_size, ThreadPool::work_pool_size(0, m->cells_size(), 1000));
+		ParallelDispatchThreadPool thread_pool(thread_pool_size);
+		keep_cache_t keep_cache(purge_mode, thread_pool, selected_modules);
 
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_internals_anyinit();
