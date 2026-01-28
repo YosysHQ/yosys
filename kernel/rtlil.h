@@ -2031,6 +2031,7 @@ struct RTLIL::Design
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
+
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 
 	std::string to_rtlil_str(bool only_selected = true) const;
