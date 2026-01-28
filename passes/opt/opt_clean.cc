@@ -142,9 +142,19 @@ private:
 };
 
 CellTypes ct_reg, ct_all;
-int count_rm_cells, count_rm_wires;
 
-void rmunused_module_cells(Module *module, bool verbose, keep_cache_t &keep_cache)
+struct RmStats {
+	int count_rm_cells = 0;
+	int count_rm_wires = 0;
+
+	void log()
+	{
+		if (count_rm_cells > 0 || count_rm_wires > 0)
+			YOSYS_NAMESPACE_PREFIX log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
+	}
+};
+
+void rmunused_module_cells(Module *module, bool verbose, RmStats &stats, keep_cache_t &keep_cache)
 {
 	SigMap sigmap(module);
 	dict<IdString, pool<Cell*>> mem2cells;
@@ -249,7 +259,7 @@ void rmunused_module_cells(Module *module, bool verbose, keep_cache_t &keep_cach
 		if (cell->is_builtin_ff())
 			ffinit.remove_init(cell->getPort(ID::Q));
 		module->remove(cell);
-		count_rm_cells++;
+		stats.count_rm_cells++;
 	}
 
 	for (auto it : mem_unused)
@@ -341,7 +351,7 @@ bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
+bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose, RmStats &stats)
 {
 	// `register_signals` and `connected_signals` will help us decide later on
 	// on picking representatives out of groups of connected signals
@@ -543,7 +553,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	}
 
 	module->remove(del_wires_queue);
-	count_rm_wires += GetSize(del_wires_queue);
+	stats.count_rm_wires += GetSize(del_wires_queue);
 
 	if (verbose && del_temp_wires_count)
 		log_debug("  removed %d unused temporary wires.\n", del_temp_wires_count);
@@ -635,7 +645,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 	return did_something;
 }
 
-void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit, keep_cache_t &keep_cache)
+void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit, RmStats &stats, keep_cache_t &keep_cache)
 {
 	if (verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name);
@@ -692,11 +702,11 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	if (!delcells.empty())
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
-	rmunused_module_cells(module, verbose, keep_cache);
-	while (rmunused_module_signals(module, purge_mode, verbose)) { }
+	rmunused_module_cells(module, verbose, stats, keep_cache);
+	while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
 
 	if (rminit && rmunused_module_init(module, verbose))
-		while (rmunused_module_signals(module, purge_mode, verbose)) { }
+		while (rmunused_module_signals(module, purge_mode, verbose, stats)) { }
 }
 
 struct OptCleanPass : public Pass {
@@ -748,15 +758,11 @@ struct OptCleanPass : public Pass {
 
 		ct_all.setup(design);
 
-		count_rm_cells = 0;
-		count_rm_wires = 0;
-
+		RmStats stats;
 		for (auto module : selected_modules) {
-			rmunused_module(module, purge_mode, true, true, keep_cache);
+			rmunused_module(module, purge_mode, true, true, stats, keep_cache);
 		}
-
-		if (count_rm_cells > 0 || count_rm_wires > 0)
-			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
+		stats.log();
 
 		design->optimize();
 		design->check();
@@ -813,16 +819,13 @@ struct CleanPass : public Pass {
 
 		ct_all.setup(design);
 
-		count_rm_cells = 0;
-		count_rm_wires = 0;
-
+		RmStats stats;
 		for (auto module : selected_modules) {
-			rmunused_module(module, purge_mode, ys_debug(), true, keep_cache);
+			rmunused_module(module, purge_mode, ys_debug(), true, stats, keep_cache);
 		}
 
 		log_suppressed();
-		if (count_rm_cells > 0 || count_rm_wires > 0)
-			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
+		stats.log();
 
 		design->optimize();
 		design->check();
