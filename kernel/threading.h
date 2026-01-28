@@ -663,6 +663,22 @@ private:
 	int num_waiters = 0;
 };
 
+// A monotonic flag. Starts false, and can be set to true in a thread-safe way.
+// Once `load()` returns true, it will always return true.
+// Uses relaxed atomics so there are no memory ordering guarantees. Do not use this
+// to guard access to shared memory.
+class MonotonicFlag {
+public:
+	MonotonicFlag() : value(false) {}
+	bool load() const { return value.load(std::memory_order_relaxed); }
+	void set() { value.store(true, std::memory_order_relaxed); }
+	bool set_and_return_old() {
+		return value.exchange(true, std::memory_order_relaxed);
+	}
+private:
+	std::atomic<bool> value;
+};
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_THREADING_H
