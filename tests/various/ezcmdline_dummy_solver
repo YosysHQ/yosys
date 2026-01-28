@@ -1,0 +1,61 @@
+#!/bin/sh
+# Dummy SAT solver for ezCmdlineSAT tests.
+# Accepts exactly two CNF shapes:
+#  - SAT:   p cnf 1 1; clause: "1 0"  -> exits 10 with v 1
+#  - UNSAT: p cnf 1 2; clauses: "1 0" and "-1 0" -> exits 20
+set -e
+
+if [ "$#" -ne 1 ]; then
+	echo "usage: $0 <cnf>" >&2
+	exit 1
+fi
+
+awk '
+BEGIN {
+	vars = 0;
+	clauses = 0;
+	clause_count = 0;
+	clause_data = "";
+	current = "";
+}
+$1 == "c" {
+	next;
+}
+$1 == "p" && $2 == "cnf" {
+	vars = $3;
+	clauses = $4;
+	next;
+}
+{
+	for (i = 1; i <= NF; i++) {
+		lit = $i;
+		if (lit == 0) {
+			clause_count++;
+			if (clause_data != "")
+				clause_data = clause_data ";" current;
+			else
+				clause_data = current;
+			current = "";
+		} else {
+			if (current == "")
+				current = lit;
+			else
+				current = current "," lit;
+		}
+	}
+}
+END {
+	if (vars == 1 && clause_count == 1 && clause_data == "1") {
+		print "s SATISFIABLE";
+		print "v 1 0";
+		exit 10;
+	}
+	if (vars == 1 && clause_count == 2 && clause_data == "1;-1") {
+		print "s UNSATISFIABLE";
+		exit 20;
+	}
+	print "c unexpected CNF for dummy solver";
+	print "c vars=" vars " header_clauses=" clauses " parsed_clauses=" clause_count " data=" clause_data;
+	exit 1;
+}
+' "$1"
