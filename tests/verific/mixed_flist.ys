@@ -1,4 +1,4 @@
 verific -f -sv mixed_flist.flist
 verific -import -all
 select -assert-mod-count 1 sv_top
-select -assert-mod-count 2
+select -assert-mod-count 2 =*
