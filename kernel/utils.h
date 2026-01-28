@@ -299,6 +299,21 @@ auto reversed(const T& container) {
 	return reverse_view{container};
 }
 
+// A range of integers [start_, end_) that can be iterated over with a
+// C++ range-based for loop.
+struct IntRange {
+	int start_;
+	int end_;
+	struct Int {
+		int v;
+		int operator*() const { return v; }
+		Int &operator++() { ++v; return *this; }
+		bool operator!=(const Int &other) const { return v != other.v; }
+	};
+	Int begin() const { return {start_}; }
+	Int end() const { return {end_}; }
+};
+
 YOSYS_NAMESPACE_END
 
 #endif
