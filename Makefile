@@ -161,7 +161,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.61+80
+YOSYS_VER := 0.61+97
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
