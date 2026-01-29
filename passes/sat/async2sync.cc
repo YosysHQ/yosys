@@ -157,6 +157,7 @@ struct Async2syncPass : public Pass {
 
 						SigSpec sig_set = ff.sig_set;
 						SigSpec sig_clr = ff.sig_clr;
+						SigSpec sig_clr_inv = ff.sig_clr;
 
 						if (!ff.pol_set) {
 							if (!ff.is_fine)
@@ -167,6 +168,11 @@ struct Async2syncPass : public Pass {
 
 						if (ff.pol_clr) {
 							if (!ff.is_fine)
+								sig_clr_inv = module->Not(NEW_ID, sig_clr);
+							else
+								sig_clr_inv = module->NotGate(NEW_ID, sig_clr);
+						} else {
+							if (!ff.is_fine)
 								sig_clr = module->Not(NEW_ID, sig_clr);
 							else
 								sig_clr = module->NotGate(NEW_ID, sig_clr);
@@ -175,19 +181,19 @@ struct Async2syncPass : public Pass {
 						SigSpec set_and_clr = module->AndGate(NEW_ID, sig_set, sig_clr);
 						if (!ff.is_fine) {
 							SigSpec tmp = module->Or(NEW_ID, ff.sig_d, sig_set);
-							tmp = module->And(NEW_ID, tmp, sig_clr);
+							tmp = module->And(NEW_ID, tmp, sig_clr_inv);
 							module->addMux(NEW_ID, tmp, Const(State::Sx, ff.width), set_and_clr, new_d);
 
 							tmp = module->Or(NEW_ID, new_q, sig_set);
-							tmp = module->And(NEW_ID, tmp, sig_clr);
+							tmp = module->And(NEW_ID, tmp, sig_clr_inv);
 							module->addMux(NEW_ID, tmp, Const(State::Sx, ff.width), set_and_clr, ff.sig_q);
 						} else {
 							SigSpec tmp = module->OrGate(NEW_ID, ff.sig_d, sig_set);
-							tmp = module->AndGate(NEW_ID, tmp, sig_clr);
+							tmp = module->AndGate(NEW_ID, tmp, sig_clr_inv);
 							module->addMuxGate(NEW_ID, tmp, State::Sx, set_and_clr, new_d);
 
 							tmp = module->OrGate(NEW_ID, new_q, sig_set);
-							tmp = module->AndGate(NEW_ID, tmp, sig_clr);
+							tmp = module->AndGate(NEW_ID, tmp, sig_clr_inv);
 							module->addMuxGate(NEW_ID, tmp, State::Sx, set_and_clr, ff.sig_q);
 						}
 
