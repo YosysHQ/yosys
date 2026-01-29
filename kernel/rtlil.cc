@@ -1503,15 +1503,21 @@ void RTLIL::Design::sort_modules()
 	modules_.sort(sort_by_id_str());
 }
 
+void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool);
+
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
 	log_assert(!selection_stack.empty());
+	int pool_size = 0;
+	for (auto &it : modules_)
+		pool_size = std::max(pool_size, ThreadPool::work_pool_size(0, it.second->cells_size(), 1000));
+	ParallelDispatchThreadPool thread_pool(pool_size);
 	for (auto &it : modules_) {
 		log_assert(this == it.second->design);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
-		it.second->check();
+		check_module(it.second, thread_pool);
 	}
 #endif
 }
@@ -1747,11 +1753,11 @@ size_t RTLIL::Module::count_id(RTLIL::IdString id)
 namespace {
 	struct InternalCellChecker
 	{
-		RTLIL::Module *module;
+		const RTLIL::Module *module;
 		RTLIL::Cell *cell;
 		pool<RTLIL::IdString> expected_params, expected_ports;
 
-		InternalCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
+		InternalCellChecker(const RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
 
 		void error(int linenr)
 		{
@@ -2727,88 +2733,96 @@ void RTLIL::Module::sort()
 		it.second->attributes.sort(sort_by_id_str());
 }
 
-void RTLIL::Module::check()
+void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool)
 {
 #ifndef NDEBUG
-	std::vector<bool> ports_declared;
-	for (auto &it : wires_) {
-		log_assert(this == it.second->module);
-		log_assert(it.first == it.second->name);
-		log_assert(!it.first.empty());
-		log_assert(it.second->width >= 0);
-		log_assert(it.second->port_id >= 0);
-		for (auto &it2 : it.second->attributes)
-			log_assert(!it2.first.empty());
-		if (it.second->port_id) {
-			log_assert(GetSize(ports) >= it.second->port_id);
-			log_assert(ports.at(it.second->port_id-1) == it.first);
-			log_assert(it.second->port_input || it.second->port_output);
-			if (GetSize(ports_declared) < it.second->port_id)
-				ports_declared.resize(it.second->port_id);
-			log_assert(ports_declared[it.second->port_id-1] == false);
-			ports_declared[it.second->port_id-1] = true;
-		} else
-			log_assert(!it.second->port_input && !it.second->port_output);
-	}
-	for (auto port_declared : ports_declared)
-		log_assert(port_declared == true);
-	log_assert(GetSize(ports) == GetSize(ports_declared));
+	ParallelDispatchThreadPool::Subpool subpool(thread_pool, ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+	const RTLIL::Module *const_module = module;
 
-	for (auto &it : memories) {
+	pool<std::string> memory_strings;
+	for (auto &it : module->memories) {
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->size >= 0);
 		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
+		memory_strings.insert(it.second->name.str());
 	}
 
-	pool<IdString> packed_memids;
+	std::vector<MonotonicFlag> ports_declared(GetSize(module->ports));
+	ShardedVector<std::string> memids(subpool);
+	subpool.run([const_module, &ports_declared, &memory_strings, &memids](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(const_module->cells_size())) {
+			auto it = *const_module->cells_.element(i);
+			log_assert(const_module == it.second->module);
+			log_assert(it.first == it.second->name);
+			log_assert(!it.first.empty());
+			log_assert(!it.second->type.empty());
+			for (auto &it2 : it.second->connections()) {
+				log_assert(!it2.first.empty());
+				it2.second.check(const_module);
+			}
+			for (auto &it2 : it.second->attributes)
+				log_assert(!it2.first.empty());
+			for (auto &it2 : it.second->parameters)
+				log_assert(!it2.first.empty());
+			InternalCellChecker checker(const_module, it.second);
+			checker.check();
+			if (it.second->has_memid()) {
+				log_assert(memory_strings.count(it.second->parameters.at(ID::MEMID).decode_string()));
+			} else if (it.second->is_mem_cell()) {
+				std::string memid = it.second->parameters.at(ID::MEMID).decode_string();
+				log_assert(!memory_strings.count(memid));
+				memids.insert(ctx, std::move(memid));
+			}
+			auto cell_mod = const_module->design->module(it.first);
+			if (cell_mod != nullptr) {
+				// assertion check below to make sure that there are no
+				// cases where a cell has a blackbox attribute since
+				// that is deprecated
+				#ifdef __GNUC__
+				#pragma GCC diagnostic push
+				#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+				#endif
+				log_assert(!it.second->get_blackbox_attribute());
+				#ifdef __GNUC__
+				#pragma GCC diagnostic pop
+				#endif
+			}
+		}
 
-	for (auto &it : cells_) {
-		log_assert(this == it.second->module);
-		log_assert(it.first == it.second->name);
-		log_assert(!it.first.empty());
-		log_assert(!it.second->type.empty());
-		for (auto &it2 : it.second->connections()) {
-			log_assert(!it2.first.empty());
-			it2.second.check(this);
+		for (int i : ctx.item_range(const_module->wires_size())) {
+			auto it = *const_module->wires_.element(i);
+			log_assert(const_module == it.second->module);
+			log_assert(it.first == it.second->name);
+			log_assert(!it.first.empty());
+			log_assert(it.second->width >= 0);
+			log_assert(it.second->port_id >= 0);
+			for (auto &it2 : it.second->attributes)
+				log_assert(!it2.first.empty());
+			if (it.second->port_id) {
+				log_assert(GetSize(const_module->ports) >= it.second->port_id);
+				log_assert(const_module->ports.at(it.second->port_id-1) == it.first);
+				log_assert(it.second->port_input || it.second->port_output);
+				log_assert(it.second->port_id <= GetSize(ports_declared));
+				bool previously_declared = ports_declared[it.second->port_id-1].set_and_return_old();
+				log_assert(previously_declared == false);
+			} else
+				log_assert(!it.second->port_input && !it.second->port_output);
 		}
-		for (auto &it2 : it.second->attributes)
-			log_assert(!it2.first.empty());
-		for (auto &it2 : it.second->parameters)
-			log_assert(!it2.first.empty());
-		InternalCellChecker checker(this, it.second);
-		checker.check();
-		if (it.second->has_memid()) {
-			log_assert(memories.count(it.second->parameters.at(ID::MEMID).decode_string()));
-		} else if (it.second->is_mem_cell()) {
-			IdString memid = it.second->parameters.at(ID::MEMID).decode_string();
-			log_assert(!memories.count(memid));
-			log_assert(!packed_memids.count(memid));
-			packed_memids.insert(memid);
-		}
-		auto cell_mod = design->module(it.first);
-		if (cell_mod != nullptr) {
-			// assertion check below to make sure that there are no
-			// cases where a cell has a blackbox attribute since
-			// that is deprecated
-			#ifdef __GNUC__
-			#pragma GCC diagnostic push
-			#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-			#endif
-			log_assert(!it.second->get_blackbox_attribute());
-			#ifdef __GNUC__
-			#pragma GCC diagnostic pop
-			#endif
-		}
-	}
+	});
+	for (const MonotonicFlag &port_declared : ports_declared)
+		log_assert(port_declared.load() == true);
+	pool<std::string> memids_pool;
+	for (std::string &memid : memids)
+		log_assert(memids_pool.insert(memid).second);
 
-	for (auto &it : processes) {
+	for (auto &it : module->processes) {
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(it.second->root_case.compare.empty());
-		std::vector<CaseRule*> all_cases = {&it.second->root_case};
+		std::vector<RTLIL::CaseRule*> all_cases = {&it.second->root_case};
 		for (size_t i = 0; i < all_cases.size(); i++) {
 			for (auto &switch_it : all_cases[i]->switches) {
 				for (auto &case_it : switch_it->cases) {
@@ -2821,32 +2835,39 @@ void RTLIL::Module::check()
 		}
 		for (auto &sync_it : it.second->syncs) {
 			switch (sync_it->type) {
-				case SyncType::ST0:
-				case SyncType::ST1:
-				case SyncType::STp:
-				case SyncType::STn:
-				case SyncType::STe:
+				case RTLIL::SyncType::ST0:
+				case RTLIL::SyncType::ST1:
+				case RTLIL::SyncType::STp:
+				case RTLIL::SyncType::STn:
+				case RTLIL::SyncType::STe:
 					log_assert(!sync_it->signal.empty());
 					break;
-				case SyncType::STa:
-				case SyncType::STg:
-				case SyncType::STi:
+				case RTLIL::SyncType::STa:
+				case RTLIL::SyncType::STg:
+				case RTLIL::SyncType::STi:
 					log_assert(sync_it->signal.empty());
 					break;
 			}
 		}
 	}
 
-	for (auto &it : connections_) {
+	for (auto &it : module->connections_) {
 		log_assert(it.first.size() == it.second.size());
 		log_assert(!it.first.has_const());
-		it.first.check(this);
-		it.second.check(this);
+		it.first.check(module);
+		it.second.check(module);
 	}
 
-	for (auto &it : attributes)
+	for (auto &it : module->attributes)
 		log_assert(!it.first.empty());
 #endif
+}
+
+void RTLIL::Module::check()
+{
+	int pool_size = ThreadPool::work_pool_size(0, cells_size(), 1000);
+	ParallelDispatchThreadPool thread_pool(pool_size);
+	check_module(this, thread_pool);
 }
 
 void RTLIL::Module::optimize()
@@ -5507,7 +5528,7 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 }
 
 #ifndef NDEBUG
-void RTLIL::SigSpec::check(Module *mod) const
+void RTLIL::SigSpec::check(const Module *mod) const
 {
 	if (rep_ == CHUNK)
 	{
