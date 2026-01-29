@@ -623,6 +623,7 @@ struct OptDffWorker
 				new_ff.ce_over_srst = true;
 
 			Cell *new_cell = new_ff.emit();
+			module->swap_names(cell, new_cell);
 			if (new_cell)
 				dff_cells.push_back(new_cell);
 
@@ -697,6 +698,7 @@ struct OptDffWorker
 			new_ff.ce_over_srst = false;
 
 			Cell *new_cell = new_ff.emit();
+			module->swap_names(cell, new_cell);
 			if (new_cell)
 				dff_cells.push_back(new_cell);
 
