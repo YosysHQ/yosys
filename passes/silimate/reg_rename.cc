@@ -150,9 +150,9 @@ struct RegRenameInstance {
 
 struct RegRenamePass : public Pass {
 	RegRenamePass()
-	    : Pass("reg_rename", "renames register output wires to the correct
-				register name and creates new wires for multi-bit registers for
-				orrect VCD register annotations.")
+	    : Pass("reg_rename", "renames register output wires to the correct "
+				"register name and creates new wires for multi-bit registers for "
+				"correct VCD register annotations.")
 	{
 	}
 	void help() override
