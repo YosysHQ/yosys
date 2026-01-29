@@ -2399,7 +2399,7 @@ public:
 
 	std::string to_rtlil_str() const;
 	std::string rtlil_dump();
-	std::string rtlil_hash();
+	unsigned int rtlil_hash();
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif

@@ -4300,20 +4300,16 @@ RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpe
 
 std::string RTLIL::Module::rtlil_dump()
 {
-	std::stringstream stream;
 	sort();
+	std::stringstream stream;
 	RTLIL_BACKEND::dump_module(stream, " ", this, design, false, true, false);
-	std::string origstring = stream.str();
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
-	std::u32string orig(origstring.begin(), origstring.end());
-	return converter.to_bytes(orig);
+	return stream.str();
 }
 
-std::string RTLIL::Module::rtlil_hash()
+unsigned int RTLIL::Module::rtlil_hash()
 {
 	std::hash<std::string> hasher;
-	size_t hash = hasher(rtlil_dump());
-	return std::to_string(hash);
+	return hasher(rtlil_dump());
 }
 
 std::string RTLIL::Module::to_rtlil_str() const
