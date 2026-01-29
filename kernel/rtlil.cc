@@ -22,6 +22,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/binding.h"
 #include "kernel/sigtools.h"
+#include "kernel/threading.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
 #include "backends/rtlil/rtlil_backend.h"
@@ -142,9 +143,17 @@ static constexpr bool check_well_known_id_order()
 // and in sorted ascii order, as required by the ID macro.
 static_assert(check_well_known_id_order());
 
+constexpr int STATIC_ID_END = static_cast<int>(RTLIL::StaticId::STATIC_ID_END);
+
 struct IdStringCollector {
+	IdStringCollector(std::vector<MonotonicFlag> &live_ids)
+			: live_ids(live_ids) {}
+
 	void trace(IdString id) {
-		live.insert(id.index_);
+		if (id.index_ >= STATIC_ID_END)
+			live_ids[id.index_ - STATIC_ID_END].set();
+		else if (id.index_ < 0)
+			live_autoidx_ids.push_back(id.index_);
 	}
 	template <typename T> void trace(const T* v) {
 		trace(*v);
@@ -178,10 +187,6 @@ struct IdStringCollector {
 			trace(element);
 	}
 
-	void trace(const RTLIL::Design &design) {
-		trace_values(design.modules_);
-		trace(design.selection_vars);
-	}
 	void trace(const RTLIL::Selection &selection_var) {
 		trace(selection_var.selected_modules);
 		trace(selection_var.selected_members);
@@ -189,15 +194,6 @@ struct IdStringCollector {
 	void trace_named(const RTLIL::NamedObject &named) {
 		trace_keys(named.attributes);
 		trace(named.name);
-	}
-	void trace(const RTLIL::Module &module) {
-		trace_named(module);
-		trace_values(module.wires_);
-		trace_values(module.cells_);
-		trace(module.avail_parameters);
-		trace_keys(module.parameter_default_values);
-		trace_values(module.memories);
-		trace_values(module.processes);
 	}
 	void trace(const RTLIL::Wire &wire) {
 		trace_named(wire);
@@ -234,7 +230,8 @@ struct IdStringCollector {
 		trace(action.memid);
 	}
 
-	std::unordered_set<int> live;
+	std::vector<MonotonicFlag> &live_ids;
+	std::vector<int> live_autoidx_ids;
 };
 
 int64_t RTLIL::OwningIdString::gc_ns;
@@ -243,20 +240,55 @@ int RTLIL::OwningIdString::gc_count;
 void RTLIL::OwningIdString::collect_garbage()
 {
 	int64_t start = PerformanceTimer::query();
-	IdStringCollector collector;
-	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
-		collector.trace(*design);
-	}
-	int size = GetSize(global_id_storage_);
-	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
-		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
-		if (storage.buf == nullptr)
-			continue;
-		if (collector.live.find(i) != collector.live.end())
-			continue;
-		if (global_refcount_storage_.find(i) != global_refcount_storage_.end())
-			continue;
 
+	int pool_size = 0;
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs())
+		for (RTLIL::Module *module : design->modules())
+			pool_size = std::max(pool_size, ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+	ParallelDispatchThreadPool thread_pool(pool_size);
+
+	int size = GetSize(global_id_storage_);
+	std::vector<MonotonicFlag> live_ids(size - STATIC_ID_END);
+	std::vector<IdStringCollector> collectors;
+	int num_threads = thread_pool.num_threads();
+	collectors.reserve(num_threads);
+	for (int i = 0; i < num_threads; ++i)
+		collectors.emplace_back(live_ids);
+
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
+		for (RTLIL::Module *module : design->modules()) {
+			collectors[0].trace_named(*module);
+			ParallelDispatchThreadPool::Subpool subpool(thread_pool, ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+			subpool.run([&collectors, module](const ParallelDispatchThreadPool::RunCtx &ctx) {
+				for (int i : ctx.item_range(module->cells_size()))
+					collectors[ctx.thread_num].trace(module->cell_at(i));
+				for (int i : ctx.item_range(module->wires_size()))
+					collectors[ctx.thread_num].trace(module->wire_at(i));
+			});
+			collectors[0].trace(module->avail_parameters);
+			collectors[0].trace_keys(module->parameter_default_values);
+			collectors[0].trace_values(module->memories);
+			collectors[0].trace_values(module->processes);
+		}
+		collectors[0].trace(design->selection_vars);
+	}
+
+	ShardedVector<int> free_ids(thread_pool);
+	thread_pool.run([&live_ids, size, &free_ids](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(size - STATIC_ID_END)) {
+			int index = i + STATIC_ID_END;
+			RTLIL::IdString::Storage &storage = global_id_storage_.at(index);
+			if (storage.buf == nullptr)
+				continue;
+			if (live_ids[i].load())
+				continue;
+			if (global_refcount_storage_.find(index) != global_refcount_storage_.end())
+				continue;
+			free_ids.insert(ctx, index);
+		}
+	});
+	for (int i : free_ids) {
+		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
 		if (yosys_xtrace) {
 			log("#X# Removed IdString '%s' with index %d.\n", storage.buf, i);
 			log_backtrace("-X- ", yosys_xtrace-1);
@@ -268,8 +300,13 @@ void RTLIL::OwningIdString::collect_garbage()
 		global_free_idx_list_.push_back(i);
 	}
 
+	std::unordered_set<int> live_autoidx_ids;
+	for (IdStringCollector &collector : collectors)
+		for (int id : collector.live_autoidx_ids)
+			live_autoidx_ids.insert(id);
+
 	for (auto it = global_autoidx_id_storage_.begin(); it != global_autoidx_id_storage_.end();) {
-		if (collector.live.find(it->first) != collector.live.end()) {
+		if (live_autoidx_ids.find(it->first) != live_autoidx_ids.end()) {
 			++it;
 			continue;
 		}
