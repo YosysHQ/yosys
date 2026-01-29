@@ -399,7 +399,6 @@ struct OptDffWorker
 			// ALOAD always active
 			log("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
 					log_id(cell), log_id(cell->type), log_id(module));
-			ff.remove();
 
 			if (ff.has_sr) {
 				SigSpec tmp;
@@ -427,6 +426,7 @@ struct OptDffWorker
 			} else {
 				module->connect(ff.sig_q, ff.sig_ad);
 			}
+			ff.remove();
 			return true;
 		}
 
