@@ -28,10 +28,11 @@ PRIVATE_NAMESPACE_BEGIN
 struct RegRenameInstance {
 	std::string vcd_scope;
 	Module *module;
-	dict<Cell *, RegRenameInstance *> children;
+	dict<Cell*, RegRenameInstance *> children;
 
 	// Constructor
-	// When constructing, it will recursively build the module hierarchy with correct VCD scope mapping
+	// When constructing, it will recursively build the
+	// module hierarchy with correct VCD scope mapping
 	RegRenameInstance(std::string scope, Module *mod) : vcd_scope(scope), module(mod)
 	{
 		// Loop through all cells in the module
@@ -40,20 +41,22 @@ struct RegRenameInstance {
 			if (child == nullptr) {
 				continue; // skip non-module cells
 			}
-			// Construct the child's scope in VCD format, which is the parent scope plus the instance name
+			// Construct the child's scope in VCD format,
+			// which is the parent scope plus the instance name
 			std::string child_scope = vcd_scope + "." + RTLIL::unescape_id(cell->name);
 			children[cell] = new RegRenameInstance(child_scope, child);
 		}
 	}
 
-	// Deconstructor
+	// Destructor
 	~RegRenameInstance()
 	{
 		for (auto &it : children)
 			delete it.second;
 	}
 
-	// Processes registers in a given module hierarchy and renames to allow for correct register annotation
+	// Processes registers in a given module hierarchy
+	// and renames to allow for correct register annotation
 	void process_registers(dict<std::pair<std::string, std::string>, int> &vcd_reg_widths)
 	{
 		std::regex reg_regex("(.*)_reg(?:\\[(\\d+)\\])?$");
@@ -93,7 +96,8 @@ struct RegRenameInstance {
 					if (isMultiBit) {
 						int index = std::stoi(match[2].str());
 
-						// Lookup the original register width using the VCD scope and netlist-extracted register name
+						// Lookup the original register width using the VCD scope
+						// and netlist-extracted register name
 						int origRegWidth = vcd_reg_widths[{vcd_scope, baseName}];
 						if (origRegWidth == 0) { // if not found, log a warning and skip
 							log_warning("Register '%s' with extracted name '%s' in scope '%s' not found in VCD\n",
@@ -110,8 +114,8 @@ struct RegRenameInstance {
 						}
 
 						// Log the connection of the new wire to the register
-						log("Connecting register wire %s[%d] to bit %d of %s in module %s\n", newWire->name.c_str(), index,
-						    index, log_id(newWire), log_id(module));
+						log("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
+							newWire->name.c_str(), index, index, log_id(newWire), log_id(module));
 
 						// Replace old connection with a new one even at the input ports of subsequent cells from the register
 						// output
@@ -146,8 +150,9 @@ struct RegRenameInstance {
 
 struct RegRenamePass : public Pass {
 	RegRenamePass()
-	    : Pass("reg_rename", "renames register output wires to the correct register name and creates new wires for multi-bit registers for "
-				 "correct VCD register annotations.")
+	    : Pass("reg_rename", "renames register output wires to the correct
+				register name and creates new wires for multi-bit registers for
+				orrect VCD register annotations.")
 	{
 	}
 	void help() override
@@ -201,15 +206,17 @@ struct RegRenamePass : public Pass {
 						if (auto pos = reg_name.find('['); pos != std::string::npos)
 							reg_name.erase(pos);
 
-						// Map the register's vcd scope and name to its original width for later lookup
+						// Map the register's vcd scope and name to
+						// its original width for later lookup.
 						vcd_reg_widths[{reg_vcd_scope, reg_name}] = var.width;
-						log("Found register '%s' in scope '%s' with width %d\n", reg_name.c_str(), reg_vcd_scope.c_str(),
-						    var.width);
+						log("Found register '%s' in scope '%s' with width %d\n",
+							reg_name.c_str(), reg_vcd_scope.c_str(), var.width);
 					}
 				}
 				log("Extracted %d register widths from VCD\n", GetSize(vcd_reg_widths));
 			} catch (const std::exception &e) {
-				log_error("Failed to read VCD file '%s': %s\n", vcd_filename.c_str(), e.what());
+				log_error("Failed to read VCD file '%s': %s\n", 
+					vcd_filename.c_str(), e.what());
 			}
 		} else {
 			log_error("No VCD file provided. Use -vcd option.\n");
