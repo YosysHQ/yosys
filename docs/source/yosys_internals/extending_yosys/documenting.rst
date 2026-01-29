@@ -210,7 +210,7 @@ at the source code for `chformal`.
 We can see that each of the ``ContentListing`` methods have the body of the new
 node as the first argument.  For a ``usage`` node, this is how to call the
 command (i.e. its usage signature).  ``paragraph`` nodes contain a paragraph of
-text with line breaks added automatically; the argument itself should contain
+text with line breaks added automatically; the argument itself shouldn't contain
 any line breaks, but the string can be broken across multiple lines as shown.
 The body of a ``paragraph`` node is treated as raw RST, allowing for inline
 formatting and references as if it were written in the RST file itself.  As
