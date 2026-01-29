@@ -311,6 +311,7 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
+			run("sort");
 			if (nowidelut && abc9) {
 				run("read_verilog -icells -lib -specify +/abc9_model.v");
 				run("abc9 -maxlut 4 -W 500");
