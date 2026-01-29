@@ -100,7 +100,7 @@ struct RegRenameInstance {
 						// and netlist-extracted register name
 						int origRegWidth = vcd_reg_widths[{vcd_scope, baseName}];
 						if (origRegWidth == 0) { // if not found, log a warning and skip
-							log_warning("Register '%s' with extracted name '%s' in scope '%s' not found in VCD\n",
+							log_debug("Register '%s' with extracted name '%s' in scope '%s' not found in VCD\n",
 								    cell->name.c_str(), baseName.c_str(), vcd_scope.c_str());
 							continue;
 						}
@@ -108,13 +108,13 @@ struct RegRenameInstance {
 						// Create a new wire for the multi-bit register if it doesn't exist already
 						Wire *newWire = module->wire(RTLIL::escape_id(baseName));
 						if (newWire == nullptr) {
-							log("Creating wire %s[%d:0] in scope %s\n", baseName.c_str(), origRegWidth - 1,
+							log_debug("Creating wire %s[%d:0] in scope %s\n", baseName.c_str(), origRegWidth - 1,
 							    vcd_scope.c_str());
 							newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
 						}
 
 						// Log the connection of the new wire to the register
-						log("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
+						log_debug("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
 							newWire->name.c_str(), index, index, log_id(newWire), log_id(module));
 
 						// Replace old connection with a new one even at the input ports of subsequent cells from the register
@@ -128,7 +128,7 @@ struct RegRenameInstance {
 						// Single-bit register rename
 						IdString target_name = RTLIL::escape_id(baseName);
 						if (oldWire->name != target_name && !module->wire(target_name)) {
-							log("Renaming %s to %s in scope %s\n", oldWire->name.c_str(), target_name.c_str(),
+							log_debug("Renaming %s to %s in scope %s\n", oldWire->name.c_str(), target_name.c_str(),
 							    vcd_scope.c_str());
 							module->rename(oldWire, target_name);
 						}
@@ -209,7 +209,7 @@ struct RegRenamePass : public Pass {
 						// Map the register's vcd scope and name to
 						// its original width for later lookup.
 						vcd_reg_widths[{reg_vcd_scope, reg_name}] = var.width;
-						log("Found register '%s' in scope '%s' with width %d\n",
+						log_debug("Found register '%s' in scope '%s' with width %d\n",
 							reg_name.c_str(), reg_vcd_scope.c_str(), var.width);
 					}
 				}
