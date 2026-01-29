@@ -188,10 +188,10 @@ struct AbcProcess
 		int status;
 		int ret = waitpid(pid, &status, 0);
 		if (ret != pid) {
-			log_error("waitpid(%d) failed", pid);
+			log_error("waitpid(%d) failed\n", pid);
 		}
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-			log_error("ABC failed with status %X", status);
+			log_error("ABC failed with status %X\n", status);
 		}
 		if (from_child_pipe >= 0)
 			close(from_child_pipe);
@@ -203,12 +203,12 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 	// fork()s.
 	int to_child_pipe[2];
 	if (pipe2(to_child_pipe, O_CLOEXEC) != 0) {
-		logs.log_error("pipe failed");
+		logs.log_error("pipe failed\n");
 		return std::nullopt;
 	}
 	int from_child_pipe[2];
 	if (pipe2(from_child_pipe, O_CLOEXEC) != 0) {
-		logs.log_error("pipe failed");
+		logs.log_error("pipe failed\n");
 		return std::nullopt;
 	}
 
@@ -221,39 +221,39 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 
 	posix_spawn_file_actions_t file_actions;
 	if (posix_spawn_file_actions_init(&file_actions) != 0) {
-		logs.log_error("posix_spawn_file_actions_init failed");
+		logs.log_error("posix_spawn_file_actions_init failed\n");
 		return std::nullopt;
 	}
 
 	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[1]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_addclose(&file_actions, from_child_pipe[0]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_adddup2(&file_actions, to_child_pipe[0], STDIN_FILENO) != 0) {
-		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		logs.log_error("posix_spawn_file_actions_adddup2 failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_adddup2(&file_actions, from_child_pipe[1], STDOUT_FILENO) != 0) {
-		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		logs.log_error("posix_spawn_file_actions_adddup2 failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[0]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_addclose(&file_actions, from_child_pipe[1]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 
 	char arg1[] = "-s";
 	char* argv[] = { strdup(abc_exe), arg1, nullptr };
 	if (0 != posix_spawnp(&result.pid, abc_exe, &file_actions, nullptr, argv, environ)) {
-		logs.log_error("posix_spawnp %s failed (errno=%s)", abc_exe, strerror(errno));
+		logs.log_error("posix_spawnp %s failed (errno=%s)\n", abc_exe, strerror(errno));
 		return std::nullopt;
 	}
 	free(argv[0]);
@@ -1158,11 +1158,11 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 	while (true) {
 		int ret = read(fd, buf, sizeof(buf) - 1);
 		if (ret < 0) {
-			logs.log_error("Failed to read from ABC, errno=%d", errno);
+			logs.log_error("Failed to read from ABC, errno=%d\n", errno);
 			return false;
 		}
 		if (ret == 0) {
-			logs.log_error("ABC exited prematurely");
+			logs.log_error("ABC exited prematurely\n");
 			return false;
 		}
 		char *start = buf;
