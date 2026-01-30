@@ -3923,15 +3923,14 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
 			*/
 
-			// SILIMATE: Mixed SV-VHDL support
 #ifdef VERIFIC_VHDL_SUPPORT
 			int i;
 			Array *file_names_sv = new Array(POINTER_HASH);
-			bool has_vhdl = false;
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
 				std::string filename_str = filename;
-				if ((filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") || filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl") {
-					has_vhdl = true;
+				if ((filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") ||
+						(filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl")) {
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
 					if (!vhdl_file::Analyze(filename, work.c_str(), vhdl_file::VHDL_2019)) {
 						verific_error_msg.clear();
 						log_cmd_error("Reading VHDL sources failed.\n");
@@ -3940,14 +3939,7 @@ struct VerificPass : public Pass {
 					file_names_sv->Insert(strdup(filename));
 				}
 			}
-			if (has_vhdl) {
-				FOREACH_ARRAY_ITEM(file_names_sv, i, filename) {
-					if (!veri_file::Analyze(filename, analysis_mode, work.c_str())) {
-						verific_error_msg.clear();
-						log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
-					}
-				}
-			} else if (!veri_file::AnalyzeMultipleFiles(file_names_sv, analysis_mode, work.c_str(), veri_file::MFCU)) {
+			if (!veri_file::AnalyzeMultipleFiles(file_names_sv, analysis_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
 				log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 			}

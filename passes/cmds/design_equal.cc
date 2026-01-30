@@ -30,6 +30,21 @@ class ModuleComparator
 public:
 	ModuleComparator(RTLIL::Module *mod_a, RTLIL::Module *mod_b) : mod_a(mod_a), mod_b(mod_b) {}
 
+	template <typename... Args>
+	[[noreturn]] void error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+	{
+		formatted_error(fmt.format(args...));
+	}
+	[[noreturn]]
+	void formatted_error(std::string err)
+	{
+		log("Module A: %s\n", log_id(mod_a->name));
+		log_module(mod_a, "  ");
+		log("Module B: %s\n", log_id(mod_b->name));
+		log_module(mod_b, "  ");
+		log_cmd_error("Designs are different: %s\n", err);
+	}
+
 	bool compare_sigbit(const RTLIL::SigBit &a, const RTLIL::SigBit &b)
 	{
 		if (a.wire == nullptr && b.wire == nullptr)
@@ -90,13 +105,13 @@ public:
 	{
 		for (const auto &it : mod_a->wires_) {
 			if (mod_b->wires_.count(it.first) == 0)
-				log_error("Module %s missing wire %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing wire %s in second design.\n", log_id(mod_a->name), log_id(it.first));
 			if (std::string mismatch = compare_wires(it.second, mod_b->wires_.at(it.first)); !mismatch.empty())
-				log_error("Module %s wire %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
+				error("Module %s wire %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
 		}
 		for (const auto &it : mod_b->wires_)
 			if (mod_a->wires_.count(it.first) == 0)
-				log_error("Module %s missing wire %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing wire %s in first design.\n", log_id(mod_b->name), log_id(it.first));
 	}
 
 	std::string compare_memories(const RTLIL::Memory *a, const RTLIL::Memory *b)
@@ -150,26 +165,26 @@ public:
 	{
 		for (const auto &it : mod_a->cells_) {
 			if (mod_b->cells_.count(it.first) == 0)
-				log_error("Module %s missing cell %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing cell %s in second design.\n", log_id(mod_a->name), log_id(it.first));
 			if (std::string mismatch = compare_cells(it.second, mod_b->cells_.at(it.first)); !mismatch.empty())
-				log_error("Module %s cell %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
+				error("Module %s cell %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
 		}
 		for (const auto &it : mod_b->cells_)
 			if (mod_a->cells_.count(it.first) == 0)
-				log_error("Module %s missing cell %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing cell %s in first design.\n", log_id(mod_b->name), log_id(it.first));
 	}
 
 	void check_memories()
 	{
 		for (const auto &it : mod_a->memories) {
 			if (mod_b->memories.count(it.first) == 0)
-				log_error("Module %s missing memory %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing memory %s in second design.\n", log_id(mod_a->name), log_id(it.first));
 			if (std::string mismatch = compare_memories(it.second, mod_b->memories.at(it.first)); !mismatch.empty())
-				log_error("Module %s memory %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
+				error("Module %s memory %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
 		}
 		for (const auto &it : mod_b->memories)
 			if (mod_a->memories.count(it.first) == 0)
-				log_error("Module %s missing memory %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing memory %s in first design.\n", log_id(mod_b->name), log_id(it.first));
 	}
 
 	std::string compare_case_rules(const RTLIL::CaseRule *a, const RTLIL::CaseRule *b)
@@ -270,13 +285,13 @@ public:
 	{
 		for (auto &it : mod_a->processes) {
 			if (mod_b->processes.count(it.first) == 0)
-				log_error("Module %s missing process %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing process %s in second design.\n", log_id(mod_a->name), log_id(it.first));
 			if (std::string mismatch = compare_processes(it.second, mod_b->processes.at(it.first)); !mismatch.empty())
-				log_error("Module %s process %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch.c_str());
+				error("Module %s process %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch.c_str());
 		}
 		for (auto &it : mod_b->processes)
 			if (mod_a->processes.count(it.first) == 0)
-				log_error("Module %s missing process %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing process %s in first design.\n", log_id(mod_b->name), log_id(it.first));
 	}
 
 	void check_connections()
@@ -284,13 +299,13 @@ public:
 		const auto &conns_a = mod_a->connections();
 		const auto &conns_b = mod_b->connections();
 		if (conns_a.size() != conns_b.size()) {
-			log_error("Module %s connection count differs: %zu != %zu\n", log_id(mod_a->name), conns_a.size(), conns_b.size());
+			error("Module %s connection count differs: %zu != %zu\n", log_id(mod_a->name), conns_a.size(), conns_b.size());
 		} else {
 			for (size_t i = 0; i < conns_a.size(); i++) {
 				if (!compare_sigspec(conns_a[i].first, conns_b[i].first))
-					log_error("Module %s connection %zu LHS %s != %s.\n", log_id(mod_a->name), i, log_signal(conns_a[i].first), log_signal(conns_b[i].first));
+					error("Module %s connection %zu LHS %s != %s.\n", log_id(mod_a->name), i, log_signal(conns_a[i].first), log_signal(conns_b[i].first));
 				if (!compare_sigspec(conns_a[i].second, conns_b[i].second))
-					log_error("Module %s connection %zu RHS %s != %s.\n", log_id(mod_a->name), i, log_signal(conns_a[i].second), log_signal(conns_b[i].second));
+					error("Module %s connection %zu RHS %s != %s.\n", log_id(mod_a->name), i, log_signal(conns_a[i].second), log_signal(conns_b[i].second));
 			}
 		}
 	}
@@ -298,9 +313,9 @@ public:
 	void check()
 	{
 		if (mod_a->name != mod_b->name)
-			log_error("Modules have different names: %s != %s\n", log_id(mod_a->name), log_id(mod_b->name));
+			error("Modules have different names: %s != %s\n", log_id(mod_a->name), log_id(mod_b->name));
 		if (std::string mismatch = compare_attributes(mod_a, mod_b); !mismatch.empty())
-			log_error("Module %s %s.\n", log_id(mod_a->name), mismatch);
+			error("Module %s %s.\n", log_id(mod_a->name), mismatch);
 		check_wires();
 		check_cells();
 		check_memories();

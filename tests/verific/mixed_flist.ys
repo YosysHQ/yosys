@@ -1,0 +1,3 @@
+verific -f -sv mixed_flist.flist
+verific -import sv_top
+select -assert-mod-count 1 sv_top
