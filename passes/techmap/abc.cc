@@ -2761,6 +2761,7 @@ struct AbcPass : public Pass {
 			}
 		}
 
+cleanup:
 		if (config.cleanup) {
 			log("Removing global temp directory.\n");
 			remove_directory(config.global_tempdir_name);
