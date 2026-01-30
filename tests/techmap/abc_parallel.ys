@@ -1,4 +1,4 @@
-read_verilog <<'EOT'
+﻿read_verilog <<'EOT'
 module leaf1(
 	input a,
 	input b,
@@ -34,22 +34,18 @@ EOT
 
 hierarchy -auto-top
 
-# Keep a pristine copy of the design.
 design -save pre
 
-# Sequential ABC run.
 design -load pre
 abc -g AND,OR,XOR -max_threads 0
-# Preserve a copy for equivalence.
+
 design -stash seq
 
-# Parallel ABC run.
 design -load pre
 abc -g AND,OR,XOR -max_threads 2 -reserved_cores 0
-# Preserve a copy for equivalence.
+
 design -stash par
 
-# Compare sequential vs parallel outputs.
 design -copy-from seq -as gold A:top
 design -copy-from par -as gate A:top
 
