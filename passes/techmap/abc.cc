@@ -2478,7 +2478,6 @@ struct AbcPass : public Pass {
 			work_queue.close();
 			while (work_finished_count < num_modules) {
 				std::optional<AbcModuleState*> work = work_finished_queue.pop_front();
-				(*work)->run_abc.logs.flush();
 				log_flush();
 				++work_finished_count;
 				log("Completed abc on module %d/%d\n", work_finished_count, num_modules);
