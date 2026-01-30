@@ -25,9 +25,42 @@
 #include <stdlib.h>
 
 USING_YOSYS_NAMESPACE
-PRIVATE_NAMESPACE_BEGIN
 
 #ifdef __linux__
+static void linux_perf(bool enable)
+{
+	const char *ctl_fifo = std::getenv("YOSYS_PERF_CTL");
+	if (!ctl_fifo)
+		log_error("YOSYS_PERF_CTL environment variable not set.");
+	const char *ack_fifo = std::getenv("YOSYS_PERF_ACK");
+	if (!ack_fifo)
+		log_error("YOSYS_PERF_ACK environment variable not set.");
+
+	int ctl_fd = open(ctl_fifo, O_WRONLY);
+	if (ctl_fd < 0)
+		log_error("Failed to open YOSYS_PERF_CTL.");
+	int ack_fd = open(ack_fifo, O_RDONLY);
+	if (ack_fd < 0)
+		log_error("Failed to open YOSYS_PERF_ACK.");
+	std::string_view ctl_msg = enable ? "enable\n" : "disable\n";
+	int result = write(ctl_fd, ctl_msg.data(), ctl_msg.size());
+	if (result != static_cast<int>(ctl_msg.size()))
+		log_error("Failed to write to YOSYS_PERF_CTL.");
+	char buffer[64];
+	result = read(ack_fd, buffer, sizeof(buffer));
+	close(ctl_fd);
+	close(ack_fd);
+	if (result <= 0)
+		log_error("Failed to read from YOSYS_PERF_ACK.");
+	if (strcmp(buffer, "ack\n") != 0)
+		log_error("YOSYS_PERF_ACK did not return 'ack'.");
+}
+
+void linux_perf_on() { linux_perf(true); }
+void linux_perf_off() { linux_perf(false); }
+
+PRIVATE_NAMESPACE_BEGIN
+
 struct LinuxPerf : public Pass {
 	LinuxPerf() : Pass("linux_perf", "turn linux perf recording off or on") {
 		internal();
@@ -60,42 +93,18 @@ struct LinuxPerf : public Pass {
 		if (args.size() > 2)
 			cmd_error(args, 2, "Unexpected argument.");
 
-		std::string_view ctl_msg;
 		if (args.size() == 2) {
 			if (args[1] == "on")
-				ctl_msg = "enable\n";
+				linux_perf_on();
 			else if (args[1] == "off")
-				ctl_msg = "disable\n";
+				linux_perf_off();
 			else
 				cmd_error(args, 1, "Unexpected argument.");
 		}
 
-		const char *ctl_fifo = std::getenv("YOSYS_PERF_CTL");
-		if (!ctl_fifo)
-			log_error("YOSYS_PERF_CTL environment variable not set.");
-		const char *ack_fifo = std::getenv("YOSYS_PERF_ACK");
-		if (!ack_fifo)
-			log_error("YOSYS_PERF_ACK environment variable not set.");
-
-		int ctl_fd = open(ctl_fifo, O_WRONLY);
-		if (ctl_fd < 0)
-			log_error("Failed to open YOSYS_PERF_CTL.");
-		int ack_fd = open(ack_fifo, O_RDONLY);
-		if (ack_fd < 0)
-			log_error("Failed to open YOSYS_PERF_ACK.");
-		int result = write(ctl_fd, ctl_msg.data(), ctl_msg.size());
-		if (result != static_cast<int>(ctl_msg.size()))
-			log_error("Failed to write to YOSYS_PERF_CTL.");
-		char buffer[64];
-		result = read(ack_fd, buffer, sizeof(buffer));
-		close(ctl_fd);
-		close(ack_fd);
-		if (result <= 0)
-			log_error("Failed to read from YOSYS_PERF_ACK.");
-		if (strcmp(buffer, "ack\n") != 0)
-			log_error("YOSYS_PERF_ACK did not return 'ack'.");
 	}
 } LinuxPerf;
-#endif
 
 PRIVATE_NAMESPACE_END
+
+#endif
