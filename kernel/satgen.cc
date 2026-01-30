@@ -1220,18 +1220,18 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		}
 		else
 		{
-			std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep-1);
+			std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep);
 			std::vector<int> undef_d;
 			if (model_undef)
-				undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep-1);
+				undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep);
 			if (ff.has_srst && ff.has_ce && ff.ce_over_srst) {
-				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
-				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
+				int srst = importDefSigSpec(ff.sig_srst, timestep).at(0);
+				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep);
 				int undef_srst = -1;
 				std::vector<int> undef_rval;
 				if (model_undef) {
-					undef_srst = importUndefSigSpec(ff.sig_srst, timestep-1).at(0);
-					undef_rval = importUndefSigSpec(ff.val_srst, timestep-1);
+					undef_srst = importUndefSigSpec(ff.sig_srst, timestep).at(0);
+					undef_rval = importUndefSigSpec(ff.val_srst, timestep);
 				}
 				if (ff.pol_srst)
 					std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
@@ -1239,13 +1239,13 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
 			}
 			if (ff.has_ce) {
-				int ce = importDefSigSpec(ff.sig_ce, timestep-1).at(0);
-				std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep-1);
+				int ce = importDefSigSpec(ff.sig_ce, timestep).at(0);
+				std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep);
 				int undef_ce = -1;
 				std::vector<int> undef_old_q;
 				if (model_undef) {
-					undef_ce = importUndefSigSpec(ff.sig_ce, timestep-1).at(0);
-					undef_old_q = importUndefSigSpec(ff.sig_q, timestep-1);
+					undef_ce = importUndefSigSpec(ff.sig_ce, timestep).at(0);
+					undef_old_q = importUndefSigSpec(ff.sig_q, timestep);
 				}
 				if (ff.pol_ce)
 					std::tie(d, undef_d) = mux(ce, undef_ce, old_q, undef_old_q, d, undef_d);
@@ -1253,13 +1253,13 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 					std::tie(d, undef_d) = mux(ce, undef_ce, d, undef_d, old_q, undef_old_q);
 			}
 			if (ff.has_srst && !(ff.has_ce && ff.ce_over_srst)) {
-				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
-				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
+				int srst = importDefSigSpec(ff.sig_srst, timestep).at(0);
+				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep);
 				int undef_srst = -1;
 				std::vector<int> undef_rval;
 				if (model_undef) {
-					undef_srst = importUndefSigSpec(ff.sig_srst, timestep-1).at(0);
-					undef_rval = importUndefSigSpec(ff.val_srst, timestep-1);
+					undef_srst = importUndefSigSpec(ff.sig_srst, timestep).at(0);
+					undef_rval = importUndefSigSpec(ff.val_srst, timestep);
 				}
 				if (ff.pol_srst)
 					std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
@@ -1267,15 +1267,26 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
 			}
 			std::vector<int> q = importDefSigSpec(cell->getPort(ID::Q), timestep);
+			std::vector<int> old_q = importDefSigSpec(cell->getPort(ID::Q), timestep-1);
 
 			std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
-			ez->assume(ez->vec_eq(d, qq));
+
+			// Detect the clock edge
+			int old_clk = importSigBit(ff.sig_clk, timestep-1);
+			int clk = importSigBit(ff.sig_clk, timestep);
+			int clk_active_level = ff.pol_clk ? ez->CONST_TRUE : ez->CONST_FALSE;
+			int old_clk_active = ez->IFF(old_clk, clk_active_level);
+			int clk_active = ez->IFF(clk, clk_active_level);
+			int edge_detected = ez->AND(ez->NOT(old_clk_active), clk_active);
+			// If edge, then this Q is this D. Otherwise, it's last Q.
+			ez->assume(ez->vec_eq(ez->vec_ite(edge_detected, d, old_q), qq));
 
 			if (model_undef)
 			{
+				std::vector<int> undef_old_q = importUndefSigSpec(cell->getPort(ID::Q), timestep-1);
 				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
 
-				ez->assume(ez->vec_eq(undef_d, undef_q));
+				ez->assume(ez->vec_eq(ez->vec_ite(edge_detected, undef_d, undef_old_q), undef_q));
 				undefGating(q, qq, undef_q);
 			}
 		}
