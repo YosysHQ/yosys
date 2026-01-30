@@ -1,4 +1,4 @@
-﻿read_verilog <<'EOT'
+read_verilog <<'EOT'
 module leaf1(
 	input a,
 	input b,
