@@ -114,7 +114,7 @@ VPATH := $(YOSYS_SRC)
 UNITESTPATH := $(YOSYS_SRC)/tests/unit
 
 export CXXSTD ?= c++17
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include $(PYTHON_INCLUDE_FLAGS)
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
 PLUGIN_LIBS :=
