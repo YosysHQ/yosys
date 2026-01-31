@@ -3245,6 +3245,9 @@ struct VerificPass : public Pass {
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
+#ifdef VERIFIC_VHDL_SUPPORT
+		log("                     -vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl|\n");
+#endif
 		log("                     -sv2012|-sv2017|-sv|-formal] <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
@@ -3861,6 +3864,8 @@ struct VerificPass : public Pass {
 		{
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+			unsigned verilog_mode = veri_file::UNDEFINED;
+			unsigned vhdl_mode = vhdl_file::UNDEFINED;
 			bool is_formal = false;
 #endif
 			const char* filename = nullptr;
@@ -3883,12 +3888,40 @@ struct VerificPass : public Pass {
 				} else if (args[argidx] == "-sv2009") {
 					verilog_mode = veri_file::SYSTEM_VERILOG_2009;
 					continue;
-				} else if (args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal") {
+				} else if (args[argidx] == "-sv2012") {
+					verilog_mode = veri_file::SYSTEM_VERILOG_2012;
+					continue;
+				} else if (args[argidx] == "-sv2017") {
+					verilog_mode = veri_file::SYSTEM_VERILOG_2017;
+					continue;
+				} else if (args[argidx] == "-sv" || args[argidx] == "-formal") {
 					verilog_mode = veri_file::SYSTEM_VERILOG;
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 					if (args[argidx] == "-formal") is_formal = true;
 #endif
 					continue;
+#ifdef VERIFIC_VHDL_SUPPORT
+				} else if (args[argidx] == "-vhdl87") {
+					vhdl_mode = vhdl_file::VHDL_87;
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
+					continue;
+				} else if (args[argidx] == "-vhdl93") {
+					vhdl_mode = vhdl_file::VHDL_93;
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
+					continue;
+				} else if (args[argidx] == "-vhdl2k") {
+					vhdl_mode = vhdl_file::VHDL_2K;
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
+					continue;
+				} else if (args[argidx] == "-vhdl2019") {
+					vhdl_mode = vhdl_file::VHDL_2019;
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
+					continue;
+				} else if (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl") {
+					vhdl_mode = vhdl_file::VHDL_2008;
+					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
+					continue;
+#endif
 				} else if (args[argidx].compare(0, 1, "-") == 0) {
 					cmd_error(args, argidx, "unknown option");
 					goto check_error;
@@ -3924,14 +3957,17 @@ struct VerificPass : public Pass {
 			*/
 
 #ifdef VERIFIC_VHDL_SUPPORT
+			if (vhdl_mode == vhdl_file::UNDEFINED) {
+				vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
+				vhdl_mode = vhdl_file::VHDL_2008;
+			}
 			int i;
 			Array *file_names_sv = new Array(POINTER_HASH);
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
 				std::string filename_str = filename;
 				if ((filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") ||
 						(filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl")) {
-					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
-					if (!vhdl_file::Analyze(filename, work.c_str(), vhdl_file::VHDL_2019)) {
+					if (!vhdl_file::Analyze(filename, work.c_str(), vhdl_mode)) {
 						verific_error_msg.clear();
 						log_cmd_error("Reading VHDL sources failed.\n");
 					}

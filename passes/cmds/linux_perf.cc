@@ -23,12 +23,12 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 #ifdef __linux__
+#include <unistd.h>
 struct LinuxPerf : public Pass {
 	LinuxPerf() : Pass("linux_perf", "turn linux perf recording off or on") {
 		internal();
