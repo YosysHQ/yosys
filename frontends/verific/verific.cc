@@ -3862,11 +3862,16 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
-			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			unsigned verilog_mode = veri_file::UNDEFINED;
 			unsigned vhdl_mode = vhdl_file::UNDEFINED;
 			bool is_formal = false;
+#endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
+#endif
+#ifdef VERIFIC_VHDL_SUPPORT
+			unsigned vhdl_mode = vhdl_file::UNDEFINED;
 #endif
 			const char* filename = nullptr;
 
