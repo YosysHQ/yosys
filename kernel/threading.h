@@ -172,6 +172,9 @@ struct IntRange {
 	};
 	Int begin() const { return {start_}; }
 	Int end() const { return {end_}; }
+
+	bool operator==(const IntRange &other) const { return start_ == other.start_ && end_ == other.end_; }
+	bool operator!=(const IntRange &other) const { return !(*this == other); }
 };
 // Divides some number of items into `num_threads` subranges and returns the
 // `thread_num`'th subrange. If `num_threads` is zero, returns the whole range.
