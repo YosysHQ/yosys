@@ -161,4 +161,79 @@ TEST_F(ThreadingTest, MonotonicFlagSetAndReturnOld) {
 	EXPECT_TRUE(flag.set_and_return_old());
 }
 
+TEST_F(ThreadingTest, ConcurrentQueueBasic) {
+	ConcurrentQueue<int> queue;
+	queue.push_back(1);
+	queue.push_back(2);
+	queue.push_back(3);
+
+	auto v1 = queue.pop_front();
+	auto v2 = queue.pop_front();
+	auto v3 = queue.pop_front();
+
+	ASSERT_TRUE(v1.has_value());
+	ASSERT_TRUE(v2.has_value());
+	ASSERT_TRUE(v3.has_value());
+	EXPECT_EQ(*v1, 1);
+	EXPECT_EQ(*v2, 2);
+	EXPECT_EQ(*v3, 3);
+}
+
+TEST_F(ThreadingTest, ConcurrentQueueTryPopEmpty) {
+	ConcurrentQueue<int> queue;
+	auto v = queue.try_pop_front();
+	EXPECT_FALSE(v.has_value());
+}
+
+TEST_F(ThreadingTest, ConcurrentQueueClose) {
+	ConcurrentQueue<int> queue;
+	queue.push_back(42);
+	queue.close();
+
+	// Can still pop existing elements
+	auto v1 = queue.pop_front();
+	ASSERT_TRUE(v1.has_value());
+	EXPECT_EQ(*v1, 42);
+
+	// After close and empty, pop_front returns nullopt
+	auto v2 = queue.pop_front();
+	EXPECT_FALSE(v2.has_value());
+}
+
+TEST_F(ThreadingTest, ThreadPoolCreate) {
+	// pool_size of 0 means no worker threads
+	ThreadPool pool0(0, [](int) {});
+	EXPECT_EQ(pool0.num_threads(), 0);
+
+	// pool_size of 1 means 1 worker thread
+	std::atomic<int> counter{0};
+	{
+		ThreadPool pool1(1, [&counter](int thread_num) {
+			EXPECT_EQ(thread_num, 0);
+			counter.fetch_add(1);
+		});
+	}
+#ifdef YOSYS_ENABLE_THREADS
+	EXPECT_EQ(counter.load(), 1);
+#else
+	EXPECT_EQ(counter.load(), 0);
+#endif
+}
+
+TEST_F(ThreadingTest, ThreadPoolMultipleThreads) {
+	std::atomic<int> counter{0};
+	{
+		ThreadPool pool(2, [&counter](int) {
+			counter.fetch_add(1);
+		});
+		EXPECT_LE(pool.num_threads(), 2);
+	}
+#ifdef YOSYS_ENABLE_THREADS
+	EXPECT_GE(counter.load(), 1);
+	EXPECT_LE(counter.load(), 2);
+#else
+	EXPECT_EQ(counter.load(), 0);
+#endif
+}
+
 YOSYS_NAMESPACE_END
