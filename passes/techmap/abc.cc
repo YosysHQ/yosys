@@ -188,10 +188,10 @@ struct AbcProcess
 		int status;
 		int ret = waitpid(pid, &status, 0);
 		if (ret != pid) {
-			log_error("waitpid(%d) failed", pid);
+			log_error("waitpid(%d) failed\n", pid);
 		}
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-			log_error("ABC failed with status %X", status);
+			log_error("ABC failed with status %X\n", status);
 		}
 		if (from_child_pipe >= 0)
 			close(from_child_pipe);
@@ -203,12 +203,12 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 	// fork()s.
 	int to_child_pipe[2];
 	if (pipe2(to_child_pipe, O_CLOEXEC) != 0) {
-		logs.log_error("pipe failed");
+		logs.log_error("pipe failed\n");
 		return std::nullopt;
 	}
 	int from_child_pipe[2];
 	if (pipe2(from_child_pipe, O_CLOEXEC) != 0) {
-		logs.log_error("pipe failed");
+		logs.log_error("pipe failed\n");
 		return std::nullopt;
 	}
 
@@ -221,39 +221,39 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 
 	posix_spawn_file_actions_t file_actions;
 	if (posix_spawn_file_actions_init(&file_actions) != 0) {
-		logs.log_error("posix_spawn_file_actions_init failed");
+		logs.log_error("posix_spawn_file_actions_init failed\n");
 		return std::nullopt;
 	}
 
 	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[1]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_addclose(&file_actions, from_child_pipe[0]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_adddup2(&file_actions, to_child_pipe[0], STDIN_FILENO) != 0) {
-		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		logs.log_error("posix_spawn_file_actions_adddup2 failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_adddup2(&file_actions, from_child_pipe[1], STDOUT_FILENO) != 0) {
-		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		logs.log_error("posix_spawn_file_actions_adddup2 failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[0]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 	if (posix_spawn_file_actions_addclose(&file_actions, from_child_pipe[1]) != 0) {
-		logs.log_error("posix_spawn_file_actions_addclose failed");
+		logs.log_error("posix_spawn_file_actions_addclose failed\n");
 		return std::nullopt;
 	}
 
 	char arg1[] = "-s";
 	char* argv[] = { strdup(abc_exe), arg1, nullptr };
 	if (0 != posix_spawnp(&result.pid, abc_exe, &file_actions, nullptr, argv, environ)) {
-		logs.log_error("posix_spawnp %s failed (errno=%s)", abc_exe, strerror(errno));
+		logs.log_error("posix_spawnp %s failed (errno=%s)\n", abc_exe, strerror(errno));
 		return std::nullopt;
 	}
 	free(argv[0]);
@@ -1127,40 +1127,72 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	handle_loops(assign_map, module);
 }
 
+static bool is_abc_prompt(const std::string &line, std::string &rest) {
+	size_t pos = 0;
+	while (true) {
+		// The prompt may not start at the start of the line, because
+		// ABC can output progress and maybe other data that isn't
+		// newline-terminated.
+		size_t start = line.find("abc ", pos);
+		if (start == std::string::npos)
+			return false;
+		pos = start + 4;
+
+		size_t digits = 0;
+		while (pos + digits < line.size() && line[pos + digits] >= '0' && line[pos + digits] <= '9')
+			++digits;
+		if (digits < 2)
+			return false;
+		if (line.substr(pos + digits, 2) == "> ") {
+			rest = line.substr(pos + digits + 2);
+			return true;
+		}
+	}
+}
+
 bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 	std::string line;
 	char buf[1024];
+	bool seen_source_cmd = false;
+	bool seen_yosys_abc_done = false;
 	while (true) {
 		int ret = read(fd, buf, sizeof(buf) - 1);
 		if (ret < 0) {
-			logs.log_error("Failed to read from ABC, errno=%d", errno);
+			logs.log_error("Failed to read from ABC, errno=%d\n", errno);
 			return false;
 		}
 		if (ret == 0) {
-			logs.log_error("ABC exited prematurely");
+			logs.log_error("ABC exited prematurely\n");
 			return false;
 		}
 		char *start = buf;
 		char *end = buf + ret;
 		while (start < end) {
 			char *p = static_cast<char*>(memchr(start, '\n', end - start));
-			if (p == nullptr) {
-				break;
+			char *upto = p == nullptr ? end : p + 1;
+			line.append(start, upto - start);
+			start = upto;
+
+			std::string rest;
+			bool is_prompt = is_abc_prompt(line, rest);
+			if (is_prompt && seen_source_cmd) {
+				// This is the first prompt after we sourced the script.
+				// We are done here.
+				// We won't have seen a newline yet since ABC is waiting at the prompt.
+				if (!seen_yosys_abc_done)
+					logs.log_error("ABC script did not complete successfully\n");
+				return seen_yosys_abc_done;
 			}
-			line.append(start, p + 1 - start);
-			if (line.substr(0, 14) == "YOSYS_ABC_DONE") {
-				// Ignore any leftover output, there should only be a prompt perhaps
-				return true;
-			}
-			// If ABC aborted the sourced script, it returns to the prompt and will
-			// never print YOSYS_ABC_DONE. Treat this as a failed run, not a hang.
-			if (line.substr(0, 7) == "Error: ") {
-				logs.log_error("ABC: %s", line.c_str());
-				return false;
+			if (line.empty() || line[line.size() - 1] != '\n') {
+				// No newline yet, wait for more text
+				continue;
 			}
 			filt.next_line(line);
+			if (is_prompt && rest.substr(0, 7) == "source ")
+				seen_source_cmd = true;
+			if (line.substr(0, 14) == "YOSYS_ABC_DONE")
+				seen_yosys_abc_done = true;
 			line.clear();
-			start = p + 1;
 		}
 		line.append(start, end - start);
 	}
