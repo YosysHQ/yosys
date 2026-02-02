@@ -236,4 +236,137 @@ TEST_F(ThreadingTest, ThreadPoolMultipleThreads) {
 #endif
 }
 
+// Helper types for ShardedHashtable tests
+struct IntValue {
+	using Accumulated = IntValue;
+	int value;
+	operator int() const { return value; }
+};
+
+struct IntValueEquality {
+	bool operator()(int a, int b) const { return a == b; }
+};
+
+TEST_F(ThreadingTest, ShardedHashtableBasic) {
+	ParallelDispatchThreadPool pool(1);
+
+	using HashSet = ShardedHashtable<IntValue, IntValueEquality>;
+	HashSet::Builder builder(pool);
+
+	// Insert some values
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		builder.insert(ctx, {{10}, 10});
+		builder.insert(ctx, {{20}, 20});
+		builder.insert(ctx, {{30}, 30});
+	});
+
+	// Process
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		builder.process(ctx);
+	});
+
+	// Build and lookup
+	HashSet set(builder);
+	const IntValue *found10 = set.find({{10}, 10});
+	const IntValue *found20 = set.find({{20}, 20});
+	const IntValue *found99 = set.find({{99}, 99});
+
+	ASSERT_NE(found10, nullptr);
+	ASSERT_NE(found20, nullptr);
+	EXPECT_EQ(found99, nullptr);
+	EXPECT_EQ(*found10, 10);
+	EXPECT_EQ(*found20, 20);
+}
+
+TEST_F(ThreadingTest, ShardedHashtableParallelInsert) {
+	ParallelDispatchThreadPool pool(3);
+
+	using HashSet = ShardedHashtable<IntValue, IntValueEquality>;
+	HashSet::Builder builder(pool);
+
+	// Insert values from multiple threads
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i = 0; i < 10; ++i) {
+			int val = ctx.thread_num * 100 + i;
+			builder.insert(ctx, {{val}, static_cast<unsigned>(val)});
+		}
+	});
+
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		builder.process(ctx);
+	});
+
+	HashSet set(builder);
+
+	// Verify all values can be found
+	for (int t = 0; t < pool.num_threads(); ++t) {
+		for (int i = 0; i < 10; ++i) {
+			int val = t * 100 + i;
+			const IntValue *found = set.find({{val}, static_cast<unsigned>(val)});
+			ASSERT_NE(found, nullptr) << "Value " << val << " not found";
+			EXPECT_EQ(*found, val);
+		}
+	}
+}
+
+// Helper types for ShardedHashtable tests
+struct IntDictValue {
+	using Accumulated = IntDictValue;
+	int key;
+	int value;
+	bool operator==(const IntDictValue &other) const { return key == other.key && value == other.value; }
+	bool operator!=(const IntDictValue &other) const { return !(*this == other); }
+};
+
+struct IntDictKeyEquality {
+	bool operator()(const IntDictValue &a, const IntDictValue &b) const { return a.key == b.key; }
+};
+
+// Collision handler that sums values
+struct SumCollisionHandler {
+	void operator()(IntDictValue &existing, IntDictValue &incoming) const {
+		existing.value += incoming.value;
+	}
+};
+
+TEST_F(ThreadingTest, ShardedHashtableCollision) {
+	ParallelDispatchThreadPool pool(1);
+
+	using HashSet = ShardedHashtable<IntDictValue, IntDictKeyEquality, SumCollisionHandler>;
+	HashSet::Builder builder(pool);
+
+	// Insert duplicate keys with same hash - duplicates should collapse
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		builder.insert(ctx, {{5, 10}, 5});
+		builder.insert(ctx, {{5, 12}, 5});  // Duplicate key/hash
+		builder.insert(ctx, {{5, 14}, 5});  // Another duplicate
+	});
+
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		builder.process(ctx);
+	});
+
+	HashSet set(builder);
+	const IntDictValue *found = set.find({{5, 0}, 5});
+	ASSERT_NE(found, nullptr);
+	// With default collision handler, first value is kept
+	EXPECT_EQ(*found, (IntDictValue{5, 36}));
+}
+
+TEST_F(ThreadingTest, ShardedHashtableEmpty) {
+	ParallelDispatchThreadPool pool(1);
+
+	using HashSet = ShardedHashtable<IntValue, IntValueEquality>;
+	HashSet::Builder builder(pool);
+
+	// Don't insert anything, just process
+	pool.run([&builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		builder.process(ctx);
+	});
+
+	HashSet set(builder);
+	const IntValue *found = set.find({{42}, 42});
+	EXPECT_EQ(found, nullptr);
+}
+
 YOSYS_NAMESPACE_END
