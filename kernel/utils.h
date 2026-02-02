@@ -312,6 +312,9 @@ struct IntRange {
 	};
 	Int begin() const { return {start_}; }
 	Int end() const { return {end_}; }
+
+	bool operator==(const IntRange &other) const { return start_ == other.start_ && end_ == other.end_; }
+	bool operator!=(const IntRange &other) const { return !(*this == other); }
 };
 
 YOSYS_NAMESPACE_END
