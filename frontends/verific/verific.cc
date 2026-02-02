@@ -3701,7 +3701,9 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
+#ifdef VERIFIC_VHDL_SUPPORT
 			unsigned vhdl_mode = vhdl_file::UNDEFINED;
+#endif
 			bool is_formal = false;
 			const char* filename = nullptr;
 
