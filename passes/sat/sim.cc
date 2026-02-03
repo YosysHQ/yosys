@@ -2578,9 +2578,7 @@ struct AnnotateActivity : public OutputWriter {
 				  activity_str += std::to_string(activity) + " ";
 			  }
 			  if (worker->debug) {
-				  std::cout << activity_str;
-				  std::cout << "\n";
-				  std::cout << "     DUTY: ";
+				  log_debug("     ACKT: %s", activity_str.c_str());
 			  }
 			  std::string duty_str;
 			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
