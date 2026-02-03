@@ -1,0 +1,56 @@
+read_verilog <<EOT
+module leaf1(
+	input a,
+	input b,
+	input c,
+	input d,
+	output y
+);
+	assign y = (a & b) | (c ^ d);
+endmodule
+
+module leaf2(
+	input a,
+	input b,
+	input c,
+	input d,
+	output y
+);
+	assign y = (a | b) & (c | d);
+endmodule
+
+module top(
+	input  [3:0] a,
+	input  [3:0] b,
+	output y
+);
+	wire w1;
+	wire w2;
+	leaf1 u1(.a(a[0]), .b(a[1]), .c(b[0]), .d(b[1]), .y(w1));
+	leaf2 u2(.a(a[2]), .b(a[3]), .c(b[2]), .d(b[3]), .y(w2));
+	assign y = w1 ^ w2;
+endmodule
+EOT
+
+hierarchy -auto-top
+
+design -save pre
+
+design -load pre
+abc -g AND,OR,XOR -max_threads 0
+
+design -stash seq
+
+design -load pre
+abc -g AND,OR,XOR -max_threads 2 -reserved_cores 0
+
+design -stash par
+
+design -copy-from seq -as gold A:top
+design -copy-from par -as gate A:top
+
+equiv_make gold gate equiv
+
+equiv_simple equiv
+
+equiv_status -assert equiv
