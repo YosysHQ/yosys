@@ -336,7 +336,7 @@ struct EquivSimpleWorker : public EquivWorker
 			for (auto cell : problem_cells) {
 				auto key = pair<Cell*, int>(cell, step+1);
 				if (!imported_cells_cache.count(key) && !satgen.importCell(cell, step+1)) {
-					report_missing_model(true, cell);
+					report_missing_model(cfg.ignore_unknown_cells, cell);
 				}
 				imported_cells_cache.insert(key);
 			}

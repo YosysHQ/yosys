@@ -33,6 +33,7 @@ struct EquivWorker {
 		bool model_undef = false;
 		int max_seq = 1;
 		bool set_assumes = false;
+		bool ignore_unknown_cells = false;
 
 		bool parse(const std::vector<std::string>& args, size_t& idx) {
 			if (args[idx] == "-undef") {
@@ -47,6 +48,10 @@ struct EquivWorker {
 				set_assumes = true;
 				return true;
 			}
+			if (args[idx] == "-ignore-unknown-cells") {
+				ignore_unknown_cells = true;
+				return true;
+			}
 			return false;
 		}
 		static std::string help(const char* default_seq) {
@@ -59,6 +64,9 @@ struct EquivWorker {
 			"\n"
 			"    -set-assumes\n"
 			"        set all assumptions provided via $assume cells\n"
+			"\n"
+			"    -ignore-unknown-cells\n"
+			"        ignore all cells that can not be matched to a SAT model\n"
 			, default_seq);
 		}
     };

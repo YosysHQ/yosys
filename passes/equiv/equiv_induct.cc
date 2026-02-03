@@ -45,7 +45,7 @@ struct EquivInductWorker : public EquivWorker
 
 		for (auto cell : cells) {
 			if (!satgen.importCell(cell, step)) {
-				report_missing_model(true, cell);
+				report_missing_model(cfg.ignore_unknown_cells, cell);
 			}
 			if (cell->type == ID($equiv)) {
 				SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
