@@ -17,15 +17,52 @@
  *
  */
 
+#include "kernel/log.h"
 #include "kernel/yosys.h"
-#include "kernel/satgen.h"
+#include "passes/equiv/equiv.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct EquivSimpleWorker
+struct EquivSimpleWorker : public EquivWorker
 {
-	Module *module;
+	struct Config : EquivWorker::Config {
+		bool verbose = false;
+		bool short_cones = false;
+		bool group = true;
+		bool parse(const std::vector<std::string>& args, size_t& idx) {
+			if (EquivWorker::Config::parse(args, idx))
+				return true;
+			if (args[idx] == "-v") {
+				verbose = true;
+				return true;
+			}
+			if (args[idx] == "-short") {
+				short_cones = true;
+				return true;
+			}
+			if (args[idx] == "-nogroup") {
+				group = false;
+				return true;
+			}
+			return false;
+		}
+		static std::string help(const char* default_seq) {
+			return EquivWorker::Config::help(default_seq) +
+			"    -v\n"
+			"        verbose output\n"
+			"\n"
+			"    -short\n"
+			"        create shorter input cones that stop at shared nodes. This yields\n"
+			"        simpler SAT problems but sometimes fails to prove equivalence.\n"
+			"\n"
+			"    -nogroup\n"
+			"        disabling grouping of $equiv cells by output wire\n"
+			"\n";
+		}
+	};
+	Config cfg;
+
 	const vector<Cell*> &equiv_cells;
 	const vector<Cell*> &assume_cells;
 	struct Cone {
@@ -43,27 +80,11 @@ struct EquivSimpleWorker
 	};
 	DesignModel model;
 
-	ezSatPtr ez;
-	SatGen satgen;
-
-	struct Config {
-		bool verbose = false;
-		bool short_cones = false;
-		bool model_undef = false;
-		bool nogroup = false;
-		bool set_assumes = false;
-		int max_seq = 1;
-	};
-	Config cfg;
-
 	pool<pair<Cell*, int>> imported_cells_cache;
 
 	EquivSimpleWorker(const vector<Cell*> &equiv_cells, const vector<Cell*> &assume_cells, DesignModel model, Config cfg) :
-			module(equiv_cells.front()->module), equiv_cells(equiv_cells), assume_cells(assume_cells),
-			model(model), satgen(ez.get(), &model.sigmap), cfg(cfg)
-	{
-		satgen.model_undef = cfg.model_undef;
-	}
+			EquivWorker(equiv_cells.front()->module, &model.sigmap, cfg), equiv_cells(equiv_cells), assume_cells(assume_cells),
+			model(model) {}
 
 	struct ConeFinder {
 		DesignModel model;
@@ -229,14 +250,6 @@ struct EquivSimpleWorker
 		return extra_problem_cells;
 	}
 
-	static void report_missing_model(Cell* cell)
-	{
-		if (cell->is_builtin_ff())
-			log_cmd_error("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
-		else
-			log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
-	}
-
 	void prepare_ezsat(int ez_context, SigBit bit_a, SigBit bit_b)
 	{
 		if (satgen.model_undef)
@@ -323,7 +336,7 @@ struct EquivSimpleWorker
 			for (auto cell : problem_cells) {
 				auto key = pair<Cell*, int>(cell, step+1);
 				if (!imported_cells_cache.count(key) && !satgen.importCell(cell, step+1)) {
-					report_missing_model(cell);
+					report_missing_model(true, cell);
 				}
 				imported_cells_cache.insert(key);
 			}
@@ -414,24 +427,7 @@ struct EquivSimplePass : public Pass {
 		log("\n");
 		log("This command tries to prove $equiv cells using a simple direct SAT approach.\n");
 		log("\n");
-		log("    -v\n");
-		log("        verbose output\n");
-		log("\n");
-		log("    -undef\n");
-		log("        enable modelling of undef states\n");
-		log("\n");
-		log("    -short\n");
-		log("        create shorter input cones that stop at shared nodes. This yields\n");
-		log("        simpler SAT problems but sometimes fails to prove equivalence.\n");
-		log("\n");
-		log("    -nogroup\n");
-		log("        disabling grouping of $equiv cells by output wire\n");
-		log("\n");
-		log("    -seq <N>\n");
-		log("        the max. number of time steps to be considered (default = 1)\n");
-		log("\n");
-		log("    -set-assumes\n");
-		log("        set all assumptions provided via $assume cells\n");
+		EquivSimpleWorker::Config::help("1");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) override
@@ -443,30 +439,8 @@ struct EquivSimplePass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-v") {
-				cfg.verbose = true;
+			if (cfg.parse(args, argidx))
 				continue;
-			}
-			if (args[argidx] == "-short") {
-				cfg.short_cones = true;
-				continue;
-			}
-			if (args[argidx] == "-undef") {
-				cfg.model_undef = true;
-				continue;
-			}
-			if (args[argidx] == "-nogroup") {
-				cfg.nogroup = true;
-				continue;
-			}
-			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
-				cfg.max_seq = atoi(args[++argidx].c_str());
-				continue;
-			}
-			if (args[argidx] == "-set-assumes") {
-				cfg.set_assumes = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -489,7 +463,7 @@ struct EquivSimplePass : public Pass {
 				if (cell->type == ID($equiv) && cell->getPort(ID::A) != cell->getPort(ID::B)) {
 					auto bit = sigmap(cell->getPort(ID::Y).as_bit());
 					auto bit_group = bit;
-					if (!cfg.nogroup && bit_group.wire)
+					if (cfg.group && bit_group.wire)
 						bit_group.offset = 0;
 					unproven_equiv_cells[bit_group][bit] = cell;
 					unproven_cells_counter++;
