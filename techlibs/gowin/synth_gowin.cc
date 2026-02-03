@@ -254,17 +254,13 @@ struct SynthGowinPass : public ScriptPass
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
-		{
-			run("proc");
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
-		}
-
 		if (check_label("coarse"))
 		{
 			run("proc");
+			if (flatten || help_mode)
+				run("flatten", "(unless -noflatten)");
+			run("tribuf -logic");
+			run("deminout");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
