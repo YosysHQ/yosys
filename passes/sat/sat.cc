@@ -961,10 +961,10 @@ struct SatPass : public Pass {
 		log("    -show-regs, -show-public, -show-all\n");
 		log("        show all registers, show signals with 'public' names, show all signals\n");
 		log("\n");
-		log("    -ignore_div_by_zero\n");
+		log("    -ignore-div-by-zero\n");
 		log("        ignore all solutions that involve a division by zero\n");
 		log("\n");
-		log("    -ignore_unknown_cells\n");
+		log("    -ignore-unknown-cells\n");
 		log("        ignore all cells that can not be matched to a SAT model\n");
 		log("\n");
 		log("The following options can be used to set up a sequential problem:\n");
@@ -1141,7 +1141,7 @@ struct SatPass : public Pass {
 				stepsize = max(1, atoi(args[++argidx].c_str()));
 				continue;
 			}
-			if (args[argidx] == "-ignore_div_by_zero") {
+			if (args[argidx] == "-ignore-div-by-zero" || args[argidx] == "-ignore_div_by_zero") {
 				ignore_div_by_zero = true;
 				continue;
 			}
@@ -1316,7 +1316,7 @@ struct SatPass : public Pass {
 				show_all = true;
 				continue;
 			}
-			if (args[argidx] == "-ignore_unknown_cells") {
+			if (args[argidx] == "-ignore-unknown-cells" || args[argidx] == "-ignore_unknown_cells") {
 				ignore_unknown_cells = true;
 				continue;
 			}
