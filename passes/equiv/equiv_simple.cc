@@ -24,45 +24,44 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct EquivSimpleWorker : public EquivWorker
-{
-	struct Config : EquivWorker::Config {
-		bool verbose = false;
-		bool short_cones = false;
-		bool group = true;
-		bool parse(const std::vector<std::string>& args, size_t& idx) {
-			if (EquivWorker::Config::parse(args, idx))
-				return true;
-			if (args[idx] == "-v") {
-				verbose = true;
-				return true;
-			}
-			if (args[idx] == "-short") {
-				short_cones = true;
-				return true;
-			}
-			if (args[idx] == "-nogroup") {
-				group = false;
-				return true;
-			}
-			return false;
+struct EquivSimpleConfig : EquivBasicConfig {
+	bool verbose = false;
+	bool short_cones = false;
+	bool group = true;
+	bool parse(const std::vector<std::string>& args, size_t& idx) {
+		if (EquivBasicConfig::parse(args, idx))
+			return true;
+		if (args[idx] == "-v") {
+			verbose = true;
+			return true;
 		}
-		static std::string help(const char* default_seq) {
-			return EquivWorker::Config::help(default_seq) +
-			"    -v\n"
-			"        verbose output\n"
-			"\n"
-			"    -short\n"
-			"        create shorter input cones that stop at shared nodes. This yields\n"
-			"        simpler SAT problems but sometimes fails to prove equivalence.\n"
-			"\n"
-			"    -nogroup\n"
-			"        disabling grouping of $equiv cells by output wire\n"
-			"\n";
+		if (args[idx] == "-short") {
+			short_cones = true;
+			return true;
 		}
-	};
-	Config cfg;
+		if (args[idx] == "-nogroup") {
+			group = false;
+			return true;
+		}
+		return false;
+	}
+	static std::string help(const char* default_seq) {
+		return EquivBasicConfig::help(default_seq) +
+		"    -v\n"
+		"        verbose output\n"
+		"\n"
+		"    -short\n"
+		"        create shorter input cones that stop at shared nodes. This yields\n"
+		"        simpler SAT problems but sometimes fails to prove equivalence.\n"
+		"\n"
+		"    -nogroup\n"
+		"        disabling grouping of $equiv cells by output wire\n"
+		"\n";
+	}
+};
 
+struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
+{
 	const vector<Cell*> &equiv_cells;
 	const vector<Cell*> &assume_cells;
 	struct Cone {
@@ -82,8 +81,8 @@ struct EquivSimpleWorker : public EquivWorker
 
 	pool<pair<Cell*, int>> imported_cells_cache;
 
-	EquivSimpleWorker(const vector<Cell*> &equiv_cells, const vector<Cell*> &assume_cells, DesignModel model, Config cfg) :
-			EquivWorker(equiv_cells.front()->module, &model.sigmap, cfg), equiv_cells(equiv_cells), assume_cells(assume_cells),
+	EquivSimpleWorker(const vector<Cell*> &equiv_cells, const vector<Cell*> &assume_cells, DesignModel model, EquivSimpleConfig cfg) :
+			EquivWorker<EquivSimpleConfig>(equiv_cells.front()->module, &model.sigmap, cfg), equiv_cells(equiv_cells), assume_cells(assume_cells),
 			model(model) {}
 
 	struct ConeFinder {
@@ -270,7 +269,9 @@ struct EquivSimpleWorker : public EquivWorker
 	}
 	void construct_ezsat(const pool<SigBit>& input_bits, int step)
 	{
+		log("ezsat\n");
 		if (cfg.set_assumes) {
+			log("yep assume\n");
 			if (cfg.verbose && step == cfg.max_seq) {
 				RTLIL::SigSpec assumes_a, assumes_en;
 				satgen.getAssumes(assumes_a, assumes_en, step+1);
@@ -427,12 +428,12 @@ struct EquivSimplePass : public Pass {
 		log("\n");
 		log("This command tries to prove $equiv cells using a simple direct SAT approach.\n");
 		log("\n");
-		EquivSimpleWorker::Config::help("1");
+		EquivSimpleConfig::help("1");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
-		EquivSimpleWorker::Config cfg = {};
+		EquivSimpleConfig cfg {};
 		int success_counter = 0;
 
 		log_header(design, "Executing EQUIV_SIMPLE pass.\n");

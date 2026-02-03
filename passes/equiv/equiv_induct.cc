@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct EquivInductWorker : public EquivWorker
+struct EquivInductWorker : public EquivWorker<>
 {
 	SigMap sigmap;
 
@@ -35,7 +35,7 @@ struct EquivInductWorker : public EquivWorker
 	dict<int, int> ez_step_is_consistent;
 	SigPool undriven_signals;
 
-	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, Config cfg) : EquivWorker(module, &sigmap, cfg), sigmap(module),
+	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, EquivBasicConfig cfg) : EquivWorker<>(module, &sigmap, cfg), sigmap(module),
 			cells(module->selected_cells()), workset(unproven_equiv_cells),
 			success_counter(0) {}
 
@@ -174,7 +174,7 @@ struct EquivInductPass : public Pass {
 		log("Only selected $equiv cells are proven and only selected cells are used to\n");
 		log("perform the proof.\n");
 		log("\n");
-		EquivWorker::Config::help("4");
+		EquivBasicConfig::help("4");
 		log("\n");
 		log("This command is very effective in proving complex sequential circuits, when\n");
 		log("the internal state of the circuit quickly propagates to $equiv cells.\n");
@@ -192,7 +192,7 @@ struct EquivInductPass : public Pass {
 	void execute(std::vector<std::string> args, Design *design) override
 	{
 		int success_counter = 0;
-		EquivWorker::Config cfg;
+		EquivBasicConfig cfg {};
 		cfg.max_seq = 4;
 
 		log_header(design, "Executing EQUIV_INDUCT pass.\n");
