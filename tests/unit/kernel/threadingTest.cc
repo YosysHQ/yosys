@@ -369,4 +369,74 @@ TEST_F(ThreadingTest, ShardedHashtableEmpty) {
 	EXPECT_EQ(found, nullptr);
 }
 
+TEST_F(ThreadingTest, ConcurrentWorkQueueSingleThread) {
+	ConcurrentWorkQueue<int> queue(1, 10);  // 1 thread, batch size 10
+	EXPECT_EQ(queue.num_threads(), 1);
+
+	ThreadIndex thread{0};
+
+	// Push some items (less than batch size)
+	for (int i = 0; i < 5; ++i)
+		queue.push(thread, i);
+
+	// Pop should return those items
+	std::vector<int> batch = queue.pop_batch(thread);
+	EXPECT_THAT(batch, testing::UnorderedElementsAre(0, 1, 2, 3, 4));
+
+	// Next pop should return empty (all threads "waiting")
+	std::vector<int> empty_batch = queue.pop_batch(thread);
+	EXPECT_TRUE(empty_batch.empty());
+}
+
+TEST_F(ThreadingTest, ConcurrentWorkQueueBatching) {
+	ConcurrentWorkQueue<int> queue(1, 3);  // batch size 3
+	ThreadIndex thread{0};
+
+	queue.push(thread, 10);
+	queue.push(thread, 20);
+	queue.push(thread, 30);
+	queue.push(thread, 40);
+	queue.push(thread, 50);
+
+	std::vector<int> popped;
+	while (true) {
+		std::vector<int> batch = queue.pop_batch(thread);
+		if (batch.empty())
+			break;
+		popped.insert(popped.end(), batch.begin(), batch.end());
+	}
+	EXPECT_THAT(popped, testing::UnorderedElementsAre(10, 20, 30, 40, 50));
+}
+
+TEST_F(ThreadingTest, ConcurrentWorkQueueParallel) {
+	ParallelDispatchThreadPool pool(2);
+	if (pool.num_threads() < 2) {
+		// Skip test if we don't have multiple threads
+		return;
+	}
+
+	ConcurrentWorkQueue<int> queue(2, 3);
+	std::atomic<int> sum{0};
+
+	pool.run([&queue, &sum](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		// Each thread pushes some work
+		for (int i = 0; i < 10; ++i)
+			queue.push(ctx, ctx.thread_num * 100 + i);
+
+		// Each thread processes work until done
+		while (true) {
+			std::vector<int> batch = queue.pop_batch(ctx);
+			if (batch.empty())
+				break;
+			for (int v : batch)
+				sum.fetch_add(v);
+		}
+	});
+
+	// Thread 0 pushes: 0+1+2+...+9 = 45
+	// Thread 1 pushes: 100+101+...+109 = 1045
+	// Total = 45 + 1045 = 1090
+	EXPECT_EQ(sum.load(), 1090);
+}
+
 YOSYS_NAMESPACE_END
