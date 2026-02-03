@@ -3864,14 +3864,18 @@ struct VerificPass : public Pass {
 		{
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			unsigned verilog_mode = veri_file::UNDEFINED;
+#ifdef VERIFIC_VHDL_SUPPORT
 			unsigned vhdl_mode = vhdl_file::UNDEFINED;
 			bool is_formal = false;
 #endif
+			bool is_formal = false;
+#else
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			unsigned vhdl_mode = vhdl_file::UNDEFINED;
+#endif
 #endif
 			const char* filename = nullptr;
 
