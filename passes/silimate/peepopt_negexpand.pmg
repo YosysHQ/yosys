@@ -1,0 +1,56 @@
+pattern negexpand
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Expand negation over addition
+//
+// -(a + b)  ===>  (-a) + (-b)
+//
+
+state <SigSpec> neg_a neg_y add_a add_b
+state <bool> a_signed
+
+match neg
+	select neg->type == $neg
+	set neg_a port(neg, \A)
+	set neg_y port(neg, \Y)
+	set a_signed neg->getParam(\A_SIGNED).as_bool()
+endmatch
+
+match add
+	select add->type == $add
+	index <SigSpec> port(add, \Y) === neg_a
+	select nusers(port(add, \Y)) == 2
+	set add_a port(add, \A)
+	set add_b port(add, \B)
+endmatch
+
+code neg_a neg_y add_a add_b a_signed
+	if (add->getParam(\A_SIGNED).as_bool() != a_signed)
+		reject;
+	if (add->getParam(\B_SIGNED).as_bool() != a_signed)
+		reject;
+
+	{
+		// Use output width for negations to handle overflow correctly
+		int width = GetSize(neg_y);
+		SigSpec neg_add_a = module->addWire(NEW_ID, width);
+		Cell *neg_a_cell = module->addNeg(NEW_ID, add_a, neg_add_a, a_signed);
+
+		SigSpec neg_add_b = module->addWire(NEW_ID, width);
+		Cell *neg_b_cell = module->addNeg(NEW_ID, add_b, neg_add_b, a_signed);
+
+		Cell *new_add = module->addAdd(NEW_ID, neg_add_a, neg_add_b, neg_y, a_signed);
+
+		log("negexpand pattern in %s: neg=%s, add=%s\n",
+			log_id(module), log_id(neg), log_id(add));
+
+		neg_a_cell->fixup_parameters();
+		neg_b_cell->fixup_parameters();
+		new_add->fixup_parameters();
+		autoremove(neg);
+		autoremove(add);
+		did_something = true;
+	}
+	accept;
+endcode

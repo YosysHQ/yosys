@@ -1,0 +1,35 @@
+pattern negneg
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Simplify double negation
+//
+// -(-a)  ===>  a
+//
+
+state <SigSpec> neg1_a neg1_y neg2_a
+
+match neg1
+	select neg1->type == $neg
+	set neg1_a port(neg1, \A)
+	set neg1_y port(neg1, \Y)
+endmatch
+
+match neg2
+	select neg2->type == $neg
+	index <SigSpec> port(neg2, \Y) === neg1_a
+	select nusers(port(neg2, \Y)) == 2
+	set neg2_a port(neg2, \A)
+endmatch
+
+code neg1_a neg1_y neg2_a
+	module->connect(neg1_y, neg2_a);
+
+	log("negneg pattern in %s: neg1=%s, neg2=%s\n",
+		log_id(module), log_id(neg1), log_id(neg2));
+
+	autoremove(neg1);
+	autoremove(neg2);
+	did_something = true;
+	accept;
+endcode

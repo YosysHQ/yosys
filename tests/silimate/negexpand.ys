@@ -1,0 +1,65 @@
+log -header "Simple positive case (same width)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [7:0] y;
+	assign y = -(a + b);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 2 t:$neg
+design -reset
+log -pop
+
+log -header "Width extension case (output wider than inputs)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [9:0] y;
+	assign y = -(a + b);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+# Negations should use output width (9 bits) not input width (8 bits)
+select -assert-count 1 t:$add
+select -assert-count 2 t:$neg
+design -reset
+log -pop
+
+log -header "Negative case: fanout on add output"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y, z);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [7:0] y;
+	output wire signed [7:0] z;
+	(* keep *) wire signed [7:0] sum;
+	assign sum = a + b;
+	assign y = -sum;
+	assign z = sum;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+# Should NOT transform due to extra fanout on add output
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+design -reset
+log -pop

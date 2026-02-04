@@ -1,0 +1,44 @@
+log -header "Simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire s;
+	output wire signed [7:0] y;
+	assign y = s ? (-a) : (-b);
+endmodule
+EOF
+check -assert
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$mux
+select -assert-count 1 t:$neg
+design -reset
+log -pop
+
+log -header "With intermediate signals"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire s;
+	output wire signed [7:0] y;
+	wire signed [7:0] neg_a;
+	wire signed [7:0] neg_b;
+	assign neg_a = -a;
+	assign neg_b = -b;
+	assign y = s ? neg_a : neg_b;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$mux
+select -assert-count 1 t:$neg
+design -reset
+log -pop

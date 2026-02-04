@@ -1,0 +1,42 @@
+pattern sub2neg
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Convert subtraction to addition with negation
+//
+// a - b  ===>  a + (-b)
+//
+
+state <SigSpec> sub_a sub_b sub_y
+state <bool> a_signed b_signed
+
+match sub
+	select sub->type == $sub
+	filter !sub->getPort(\B).is_fully_const()
+	set sub_a port(sub, \A)
+	set sub_b port(sub, \B)
+	set sub_y port(sub, \Y)
+	set a_signed sub->getParam(\A_SIGNED).as_bool()
+	set b_signed sub->getParam(\B_SIGNED).as_bool()
+endmatch
+
+code sub_a sub_b sub_y a_signed b_signed
+	if (a_signed != b_signed)
+		reject;
+
+	{
+		int width = GetSize(sub_y);
+		SigSpec neg_y = module->addWire(NEW_ID, width);
+		Cell *neg = module->addNeg(NEW_ID, sub_b, neg_y, b_signed);
+		Cell *add = module->addAdd(NEW_ID, sub_a, neg_y, sub_y, a_signed);
+
+		log("sub2neg pattern in %s: sub=%s -> neg=%s, add=%s\n",
+			log_id(module), log_id(sub), log_id(neg), log_id(add));
+
+		neg->fixup_parameters();
+		add->fixup_parameters();
+		autoremove(sub);
+		did_something = true;
+	}
+	accept;
+endcode

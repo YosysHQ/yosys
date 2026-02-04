@@ -1,0 +1,41 @@
+log -header "Simple positive case (negation on port B)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [8:0] y;
+	assign y = a + (-b);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$sub
+select -assert-none t:$add
+select -assert-none t:$neg
+design -reset
+log -pop
+
+log -header "Positive case (negation on port A)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [8:0] y;
+	assign y = (-a) + b;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$sub
+select -assert-none t:$add
+select -assert-none t:$neg
+design -reset
+log -pop

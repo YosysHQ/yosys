@@ -1,0 +1,59 @@
+pattern muxneg
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Factor negation out of mux
+//
+// s ? (-a) : (-b)  ===>  -(s ? a : b)
+//
+
+state <SigSpec> mux_a mux_b mux_s mux_y neg_a_in neg_b_in
+state <bool> neg_a_signed neg_b_signed
+
+match mux
+	select mux->type == $mux
+	set mux_a port(mux, \A)
+	set mux_b port(mux, \B)
+	set mux_s port(mux, \S)
+	set mux_y port(mux, \Y)
+endmatch
+
+match neg_a
+	select neg_a->type == $neg
+	select nusers(port(neg_a, \Y)) == 2
+	index <SigSpec> port(neg_a, \Y) === mux_a
+	set neg_a_in port(neg_a, \A)
+	set neg_a_signed neg_a->getParam(\A_SIGNED).as_bool()
+endmatch
+
+match neg_b
+	select neg_b->type == $neg
+	select nusers(port(neg_b, \Y)) == 2
+	index <SigSpec> port(neg_b, \Y) === mux_b
+	set neg_b_in port(neg_b, \A)
+	set neg_b_signed neg_b->getParam(\A_SIGNED).as_bool()
+endmatch
+
+code mux_a mux_b mux_s mux_y neg_a_in neg_b_in neg_a_signed neg_b_signed
+	if (neg_a_signed != neg_b_signed)
+		reject;
+
+	{
+		int width = GetSize(mux_y);
+
+		SigSpec mux_out = module->addWire(NEW_ID, width);
+		Cell *new_mux = module->addMux(NEW_ID, neg_a_in, neg_b_in, mux_s, mux_out);
+		Cell *new_neg = module->addNeg(NEW_ID, mux_out, mux_y, neg_a_signed);
+
+		log("muxneg pattern in %s: mux=%s, neg_a=%s, neg_b=%s\n",
+			log_id(module), log_id(mux), log_id(neg_a), log_id(neg_b));
+
+		new_mux->fixup_parameters();
+		new_neg->fixup_parameters();
+		autoremove(mux);
+		autoremove(neg_a);
+		autoremove(neg_b);
+		did_something = true;
+	}
+	accept;
+endcode

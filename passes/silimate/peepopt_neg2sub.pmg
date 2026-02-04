@@ -1,0 +1,60 @@
+pattern neg2sub
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Convert addition with negation back to subtraction
+//
+// a + (-b)  ===>  a - b
+//
+
+state <SigSpec> add_a add_b add_y neg_a
+state <bool> add_a_signed add_b_signed neg_signed
+state <bool> neg_on_a
+
+match add
+	select add->type == $add
+	set add_a port(add, \A)
+	set add_b port(add, \B)
+	set add_y port(add, \Y)
+	set add_a_signed add->getParam(\A_SIGNED).as_bool()
+	set add_b_signed add->getParam(\B_SIGNED).as_bool()
+endmatch
+
+code neg_on_a
+	neg_on_a = true;
+	branch;
+	neg_on_a = false;
+endcode
+
+match neg
+	select neg->type == $neg
+	select nusers(port(neg, \Y)) == 2
+	index <SigSpec> port(neg, \Y) === (neg_on_a ? add_a : add_b)
+	set neg_a port(neg, \A)
+	set neg_signed neg->getParam(\A_SIGNED).as_bool()
+endmatch
+
+code add_a add_b add_y neg_a neg_on_a add_a_signed add_b_signed neg_signed
+	if (add_a_signed != add_b_signed)
+		reject;
+
+	if (neg_signed != (neg_on_a ? add_a_signed : add_b_signed))
+		reject;
+
+	{
+		Cell *new_sub;
+		if (neg_on_a)
+			new_sub = module->addSub(NEW_ID, add_b, neg_a, add_y, add_b_signed);
+		else
+			new_sub = module->addSub(NEW_ID, add_a, neg_a, add_y, add_a_signed);
+
+		log("neg2sub pattern in %s: add=%s, neg=%s\n",
+			log_id(module), log_id(add), log_id(neg));
+
+		new_sub->fixup_parameters();
+		autoremove(add);
+		autoremove(neg);
+		did_something = true;
+	}
+	accept;
+endcode

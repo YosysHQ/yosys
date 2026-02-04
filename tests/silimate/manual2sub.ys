@@ -1,0 +1,73 @@
+log -header "Positive case: (a + ~b) + 1 => a - b => a + (-b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	
+	assign y = (a + ~b) + 1;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+select -assert-none t:$not
+select -assert-none t:$sub
+design -reset
+log -pop
+
+log -header "Positive case B: 1 + (a + ~b) => a - b => a + (-b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	
+	assign y = 1 + (a + ~b);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+select -assert-none t:$not
+select -assert-none t:$sub
+design -reset
+log -pop
+
+log -header "Negative case: fanout on inner add output"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y, z);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	output wire [7:0] y;
+	output wire [7:0] z;
+	(* keep *) wire [7:0] s;
+	assign s = a + ~b;
+	assign y = s + 1;
+	assign z = s + a;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+# Should NOT transform due to fanout on inner add output (marked with keep)
+select -assert-count 3 t:$add
+select -assert-count 1 t:$not
+select -assert-none t:$sub
+select -assert-none t:$neg
+design -reset
+log -pop
+
