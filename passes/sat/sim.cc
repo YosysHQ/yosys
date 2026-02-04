@@ -258,9 +258,13 @@ struct SimInstance
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0 && wire->name.isPublic()) {
-					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
+					if (shared->debug) {
+						log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
+					}
 				} else {
-					log("Found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
+					if (shared->debug) {
+						log("Found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
+					}
 				}
 				fst_handles[wire] = id;
 			}
@@ -2504,16 +2508,11 @@ struct AnnotateActivity : public OutputWriter {
 			}
 		}
 
-		// Retrieve VCD timescale
-		std::string timescale = worker->timescale;
-		double real_timescale = 1e-12; // ps
-		if (timescale == "ns")
-			real_timescale = 1e-9;
-		if (timescale == "fs")
-			real_timescale = 1e-15;
-
-		// TODO: remove all debug sections when dev is completed
-		bool debug = false;
+		// Retrieve timescale from converted VCD file
+		double real_timescale = worker->fst->getTimescale();
+		if (worker->debug) {
+			log_debug("Timescale %e seconds extracted from converted VCD file", real_timescale);
+		}
 
 		// Compute clock period, find the highest toggling signal and compute its average period
 		SignalActivityDataMap::iterator itr = dataMap.find(clk);
@@ -2527,31 +2526,32 @@ struct AnnotateActivity : public OutputWriter {
 		std::stringstream ss;
 		ss << std::setprecision(4) << real_timescale;
 		worker->top->module->set_string_attribute("$TIMESCALE", ss.str());
-		if (debug) {
-			std::cout << "Clock toggle count: " << clktoggleCounts[0] << "\n";
-			std::cout << "Max time: " << max_time << "\n";
-			std::cout << "Clock period: " << clk_period << "\n";
-			std::cout << "Frequency: " << frequency << "\n";
+		if (worker->debug) {
+			log_debug("Clock toggle count: %f", clktoggleCounts[0]);
+			log_debug("Max time: %d", max_time);
+			log_debug("Clock period: %f", clk_period);
+			log_debug("Frequency: %f", frequency);
 		}
 		double totalActivity = 0.0f;
 		double totalDuty = 0.0f;
+
+		// TODO make this debug code less messy and more readable.
 		worker->top->write_output_header(
-		  [debug](IdString name) {
-			  if (debug)
-				  std::cout << stringf("module %s\n", log_id(name));
+		  [&](IdString name) {
+			  if (worker->debug)
+				  log_debug("module %s", log_id(name));
 		  },
-		  [debug]() {
-			  if (debug)
-				  std::cout << "endmodule\n";
+		  [&]() {
+			  if (worker->debug)
+				  log_debug("endmodule");
 		  },
-		  [&use_signal, &dataMap, max_time, real_timescale, clk_period, debug, &totalActivity, &totalDuty]
-			(const char *name, int size, Wire *w, int id, bool) {
+		  [&](const char *name, int size, Wire *w, int id, bool) {
 			  if (!use_signal.at(id) || (w == nullptr))
 				  return;
 			  SignalActivityDataMap::const_iterator itr = dataMap.find(id);
 			  const std::vector<double_t> &toggleCounts = itr->second.toggleCounts;
 			  const std::vector<uint64_t> &highTimes = itr->second.highTimes;
-			  if (debug) {
+			  if (worker->debug) {
 				  std::string full_name = form_vcd_name(name, size, w);
 				  std::cout << full_name << " " << id << ":\n";
 				  std::cout << "     TC: ";
@@ -2577,10 +2577,8 @@ struct AnnotateActivity : public OutputWriter {
 				  totalActivity += activity;
 				  activity_str += std::to_string(activity) + " ";
 			  }
-			  if (debug) {
-				  std::cout << activity_str;
-				  std::cout << "\n";
-				  std::cout << "     DUTY: ";
+			  if (worker->debug) {
+				  log_debug("     ACKT: %s", activity_str.c_str());
 			  }
 			  std::string duty_str;
 			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
@@ -2589,9 +2587,8 @@ struct AnnotateActivity : public OutputWriter {
 					totalDuty += duty;
 				  duty_str += std::to_string(duty) + " ";
 			  }
-			  if (debug) {
-				  std::cout << duty_str;
-				  std::cout << "\n";
+			  if (worker->debug) {
+				  log_debug("     DUTY: %s", duty_str.c_str());
 			  }
 			  w->set_string_attribute("$ACKT", activity_str);
 			  w->set_string_attribute("$DUTY", duty_str);
