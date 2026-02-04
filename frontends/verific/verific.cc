@@ -3143,9 +3143,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		if (verific_opt) {
 			log("  Optimizing netlist for %s.\n", it->first.c_str());
 
-			// log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
-			// nl->InferClockEnableMux();
-
 			log("    Running post-elaboration for %s.\n", it->first.c_str());
 			nl->PostElaborationProcess();
 
@@ -3864,14 +3861,17 @@ struct VerificPass : public Pass {
 		{
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			unsigned verilog_mode = veri_file::UNDEFINED;
+#ifdef VERIFIC_VHDL_SUPPORT
 			unsigned vhdl_mode = vhdl_file::UNDEFINED;
-			bool is_formal = false;
 #endif
+			bool is_formal = false;
+#else
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			unsigned vhdl_mode = vhdl_file::UNDEFINED;
+#endif
 #endif
 			const char* filename = nullptr;
 
