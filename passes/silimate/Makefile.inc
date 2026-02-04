@@ -33,3 +33,20 @@ PEEPOPT_PATTERN += passes/silimate/peepopt_muxinvprop.pmg
 
 passes/silimate/peepopt_muxmode.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
+
+OBJS += passes/silimate/negopt.o
+GENFILES += passes/silimate/peepopt_negopt.h
+passes/silimate/negopt.o: passes/silimate/peepopt_negopt.h
+$(eval $(call add_extra_objs,passes/silimate/peepopt_negopt.h))
+
+PEEPOPT_PATTERN  = passes/silimate/peepopt_manual2sub.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_sub2neg.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_negexpand.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_negneg.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_negmux.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_negrebuild.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_muxneg.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_neg2sub.pmg
+
+passes/silimate/peepopt_negopt.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)

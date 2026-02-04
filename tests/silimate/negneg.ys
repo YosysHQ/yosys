@@ -1,0 +1,60 @@
+log -header "Simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, y);
+	input wire signed [7:0] a;
+	output wire signed [7:0] y;
+	assign y = -(-a);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-none t:$neg
+design -reset
+log -pop
+
+log -header "With intermediate signal"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, y);
+	input wire signed [7:0] a;
+	output wire signed [7:0] y;
+	wire signed [7:0] neg_a;
+	assign neg_a = -a;
+	assign y = -neg_a;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-none t:$neg
+design -reset
+log -pop
+
+log -header "Negative case: extra fanout on inner neg"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, y, z);
+	input wire signed [7:0] a;
+	output wire signed [7:0] y;
+	output wire signed [7:0] z;
+	(* keep *) wire signed [7:0] neg_a;
+	assign neg_a = -a;
+	assign y = -neg_a;
+	assign z = neg_a;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+# Should NOT transform due to extra fanout on inner neg output
+select -assert-count 2 t:$neg
+design -reset
+log -pop

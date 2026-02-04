@@ -1,0 +1,39 @@
+log -header "Simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [7:0] y;
+	assign y = a - b;
+endmodule
+EOF
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+select -assert-none t:$sub
+design -reset
+log -pop
+
+log -header "Negative case: constant subtrahend"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, y);
+	input wire signed [7:0] a;
+	output wire signed [7:0] y;
+	assign y = a - 8'd5;
+endmodule
+EOF
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+# Should NOT transform because constant subtraction is kept as $sub
+select -assert-count 1 t:$sub
+select -assert-none t:$add
+select -assert-none t:$neg
+design -reset
+log -pop

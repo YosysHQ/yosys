@@ -1,0 +1,19 @@
+log -header "Simple positive case (same width)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [7:0] y;
+	assign y = (-a) + (-b);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$neg
+design -reset
+log -pop

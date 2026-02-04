@@ -1,0 +1,63 @@
+pattern negrebuild
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Rebuild addition of negations into negation of addition
+//
+// (-a) + (-b)  ===>  -(a + b)
+//
+
+state <SigSpec> add_a add_b add_y neg1_a neg2_a
+state <bool> add_signed add_b_signed neg1_signed neg2_signed
+
+match add
+	select add->type == $add
+	set add_a port(add, \A)
+	set add_b port(add, \B)
+	set add_y port(add, \Y)
+	set add_signed add->getParam(\A_SIGNED).as_bool()
+	set add_b_signed add->getParam(\B_SIGNED).as_bool()
+endmatch
+
+match neg1
+	select neg1->type == $neg
+	select nusers(port(neg1, \Y)) == 2
+	index <SigSpec> port(neg1, \Y) === add_a
+	set neg1_a port(neg1, \A)
+	set neg1_signed neg1->getParam(\A_SIGNED).as_bool()
+endmatch
+
+match neg2
+	select neg2->type == $neg
+	select nusers(port(neg2, \Y)) == 2
+	index <SigSpec> port(neg2, \Y) === add_b
+	set neg2_a port(neg2, \A)
+	set neg2_signed neg2->getParam(\A_SIGNED).as_bool()
+endmatch
+
+code add_a add_b add_y neg1_a neg2_a add_signed add_b_signed neg1_signed neg2_signed
+	if (add_signed != add_b_signed)
+		reject;
+
+	if (neg1_signed != add_signed || neg2_signed != add_signed)
+		reject;
+
+	{
+		int width = GetSize(add_y);
+
+		SigSpec sum = module->addWire(NEW_ID, width);
+		Cell *new_add = module->addAdd(NEW_ID, neg1_a, neg2_a, sum, add_signed);
+		Cell *new_neg = module->addNeg(NEW_ID, sum, add_y, add_signed);
+
+		log("negrebuild pattern in %s: add=%s, neg1=%s, neg2=%s\n",
+			log_id(module), log_id(add), log_id(neg1), log_id(neg2));
+
+		new_add->fixup_parameters();
+		new_neg->fixup_parameters();
+		autoremove(add);
+		autoremove(neg1);
+		autoremove(neg2);
+		did_something = true;
+	}
+	accept;
+endcode

@@ -1,0 +1,52 @@
+pattern negmux
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Distribute negation over mux
+//
+// -(s ? a : b)  ===>  s ? (-a) : (-b)
+//
+
+state <SigSpec> neg_a neg_y mux_a mux_b mux_s
+state <bool> a_signed
+
+match neg
+	select neg->type == $neg
+	set neg_a port(neg, \A)
+	set neg_y port(neg, \Y)
+	set a_signed neg->getParam(\A_SIGNED).as_bool()
+endmatch
+
+match mux
+	select mux->type == $mux
+	index <SigSpec> port(mux, \Y) === neg_a
+	select nusers(port(mux, \Y)) == 2
+	set mux_a port(mux, \A)
+	set mux_b port(mux, \B)
+	set mux_s port(mux, \S)
+endmatch
+
+code neg_a neg_y mux_a mux_b mux_s a_signed
+	{
+		int width = GetSize(neg_y);
+
+		SigSpec neg_mux_a = module->addWire(NEW_ID, width);
+		Cell *neg_a_cell = module->addNeg(NEW_ID, mux_a, neg_mux_a, a_signed);
+
+		SigSpec neg_mux_b = module->addWire(NEW_ID, width);
+		Cell *neg_b_cell = module->addNeg(NEW_ID, mux_b, neg_mux_b, a_signed);
+
+		Cell *new_mux = module->addMux(NEW_ID, neg_mux_a, neg_mux_b, mux_s, neg_y);
+
+		log("negmux pattern in %s: neg=%s, mux=%s\n",
+			log_id(module), log_id(neg), log_id(mux));
+
+		neg_a_cell->fixup_parameters();
+		neg_b_cell->fixup_parameters();
+		new_mux->fixup_parameters();
+		autoremove(neg);
+		autoremove(mux);
+		did_something = true;
+	}
+	accept;
+endcode

@@ -1,0 +1,171 @@
+pattern manual2sub
+//
+// Authored by Abhinav Tondapu of Silimate, Inc. under ISC license.
+//
+// Canonicalize manual 2's complement subtraction:
+//   Case A: (a + ~b) + 1  ===>  a - b
+//   Case B: a + (~b + 1)  ===>  a - b
+//
+// Note: Fanout checking includes module connections to avoid breaking
+// designs where intermediate results are used by output assignments.
+//
+
+state <SigSpec> minuend subtrahend result_sig
+state <bool> is_signed
+state <SigSpec> inner_y
+
+// 1. Match the "root" add (the one that produces the final result)
+match root_add
+    select root_add->type == $add
+    set result_sig port(root_add, \Y)
+    set is_signed root_add->getParam(ID::A_SIGNED).as_bool()
+endmatch
+
+// 2. Case A: (a + ~b) + 1
+// Check if root_add has a constant 1
+code root_add inner_y
+{
+    SigSpec pa = root_add->getPort(ID::A);
+    SigSpec pb = root_add->getPort(ID::B);
+
+    auto is_one = [](SigSpec s) {
+        if (!s.is_fully_const()) return false;
+        Const c = s.as_const();
+        for (int i = 0; i < c.size(); i++) {
+            if (i == 0 && c[i] != State::S1) return false;
+            if (i > 0 && c[i] != State::S0) return false;
+        }
+        return true;
+    };
+
+    if (is_one(pa)) {
+        inner_y = pb;
+    } else if (is_one(pb)) {
+        inner_y = pa;
+    } else {
+        branch;
+        reject;
+    }
+}
+endcode
+
+// Find the inner add
+match inner_add_A
+    select inner_add_A->type == $add
+    index <SigSpec> port(inner_add_A, \Y) === inner_y
+    select nusers(port(inner_add_A, \Y)) == 2
+endmatch
+
+// Find the NOT gate on one of the ports of inner_add_A
+match not_gate_A
+    select not_gate_A->type == $not
+    filter not_gate_A->getPort(ID::Y) == inner_add_A->getPort(ID::A) || not_gate_A->getPort(ID::Y) == inner_add_A->getPort(ID::B)
+    set subtrahend port(not_gate_A, \A)
+endmatch
+
+code root_add inner_add_A not_gate_A subtrahend minuend result_sig is_signed
+{
+
+    // Require consistent signedness on the root add.
+    if (root_add->getParam(ID::B_SIGNED).as_bool() != is_signed)
+        reject;
+
+    if (inner_add_A->getParam(ID::A_SIGNED).as_bool() != is_signed)
+        reject;
+    if (inner_add_A->getParam(ID::B_SIGNED).as_bool() != is_signed)
+        reject;
+
+    if (not_gate_A->getPort(ID::Y) == inner_add_A->getPort(ID::A))
+        minuend = inner_add_A->getPort(ID::B);
+    else
+        minuend = inner_add_A->getPort(ID::A);
+
+    // Create the subtraction cell
+    log("manual2sub in %s: Found (a + ~b) + 1 pattern, creating $sub for %s\n", log_id(module), log_signal(result_sig));
+    Cell *sub = module->addSub(NEW_ID, minuend, subtrahend, result_sig, is_signed);
+
+    // Let fixup_parameters handle width adjustments
+    sub->fixup_parameters();
+
+    // Remove old cells
+    autoremove(root_add);
+    autoremove(inner_add_A);
+    autoremove(not_gate_A);
+
+    did_something = true;
+    accept;
+}
+endcode
+
+// 3. Case B: a + (~b + 1)
+code root_add
+    // Just fall through to the next match
+endcode
+
+// Find the inner add on either port of root_add
+match inner_add_B
+    select inner_add_B->type == $add
+    filter inner_add_B->getPort(ID::Y) == root_add->getPort(ID::A) || inner_add_B->getPort(ID::Y) == root_add->getPort(ID::B)
+    select nusers(port(inner_add_B, \Y)) == 2
+endmatch
+
+// Check if inner_add_B has a constant 1 and a NOT gate
+match not_gate_B
+    select not_gate_B->type == $not
+    filter not_gate_B->getPort(ID::Y) == inner_add_B->getPort(ID::A) || not_gate_B->getPort(ID::Y) == inner_add_B->getPort(ID::B)
+endmatch
+
+code root_add inner_add_B not_gate_B minuend subtrahend result_sig is_signed
+{
+
+    // Require consistent signedness on the root add.
+    if (root_add->getParam(ID::B_SIGNED).as_bool() != is_signed)
+        reject;
+
+    if (inner_add_B->getParam(ID::A_SIGNED).as_bool() != is_signed)
+        reject;
+    if (inner_add_B->getParam(ID::B_SIGNED).as_bool() != is_signed)
+        reject;
+
+    SigSpec pa = inner_add_B->getPort(ID::A);
+    SigSpec pb = inner_add_B->getPort(ID::B);
+    SigSpec not_y = not_gate_B->getPort(ID::Y);
+
+    auto is_one = [](SigSpec s) {
+        if (!s.is_fully_const()) return false;
+        Const c = s.as_const();
+        for (int i = 0; i < c.size(); i++) {
+            if (i == 0 && c[i] != State::S1) return false;
+            if (i > 0 && c[i] != State::S0) return false;
+        }
+        return true;
+    };
+
+    bool valid = false;
+    if (is_one(pa) && pb == not_y) valid = true;
+    if (is_one(pb) && pa == not_y) valid = true;
+
+    if (!valid) reject;
+
+    subtrahend = not_gate_B->getPort(ID::A);
+    if (inner_add_B->getPort(ID::Y) == root_add->getPort(ID::A))
+        minuend = root_add->getPort(ID::B);
+    else
+        minuend = root_add->getPort(ID::A);
+
+    // Create the subtraction cell
+    log("manual2sub in %s: Found a + (~b + 1) pattern, creating $sub for %s\n", log_id(module), log_signal(result_sig));
+    Cell *sub = module->addSub(NEW_ID, minuend, subtrahend, result_sig, is_signed);
+
+    // Let fixup_parameters handle width adjustments
+    sub->fixup_parameters();
+
+    // Remove old cells
+    autoremove(root_add);
+    autoremove(inner_add_B);
+    autoremove(not_gate_B);
+
+    did_something = true;
+    accept;
+}
+endcode

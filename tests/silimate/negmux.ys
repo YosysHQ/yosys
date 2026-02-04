@@ -1,0 +1,69 @@
+log -header "Simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire s;
+	output wire signed [7:0] y;
+	assign y = -(s ? a : b);
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$mux
+select -assert-count 2 t:$neg
+design -reset
+log -pop
+
+log -header "With intermediate signal"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire s;
+	output wire signed [7:0] y;
+	wire signed [7:0] m;
+	assign m = s ? a : b;
+	assign y = -m;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$mux
+select -assert-count 2 t:$neg
+design -reset
+log -pop
+
+log -header "Negative case: mux output has extra fanout"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y, z);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire s;
+	output wire signed [7:0] y;
+	output wire signed [7:0] z;
+	(* keep *) wire signed [7:0] m;
+	assign m = s ? a : b;
+	assign y = -m;
+	assign z = m;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+# Should NOT transform due to extra fanout on mux output
+select -assert-count 1 t:$mux
+select -assert-count 1 t:$neg
+design -reset
+log -pop
