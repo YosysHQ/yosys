@@ -146,6 +146,14 @@ struct AbcConfig
 	bool cmos_cost = false;
 	int max_threads = -1;    // -1 means auto (use number of modules)
 	int reserved_cores = 4;  // cores reserved for main thread and other work
+
+	bool is_yosys_abc() const {
+#ifdef ABCEXTERNAL
+		return false;
+#else
+		return exe_file == yosys_abc_executable;
+#endif
+	}
 };
 
 struct AbcSigVal {
@@ -158,7 +166,12 @@ struct AbcSigVal {
 	}
 };
 
-#if defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
+// REUSE_YOSYS_ABC_PROCESSES only works when ABC is built with ENABLE_READLINE.
+#if defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN) && defined(YOSYS_ENABLE_READLINE)
+#define REUSE_YOSYS_ABC_PROCESSES
+#endif
+
+#ifdef REUSE_YOSYS_ABC_PROCESSES
 struct AbcProcess
 {
 	pid_t pid;
@@ -1060,8 +1073,9 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.tempdir_name);
 	abc_script += stringf("; write_blif %s/output.blif", run_abc.tempdir_name);
 	abc_script = add_echos_to_abc_cmd(abc_script);
-#if defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
-	abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
+#if defined(REUSE_YOSYS_ABC_PROCESSES)
+	if (config.is_yosys_abc())
+		abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
 #endif
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
@@ -1124,6 +1138,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	handle_loops(assign_map, module);
 }
 
+#if defined(REUSE_YOSYS_ABC_PROCESSES)
 static bool is_abc_prompt(const std::string &line, std::string &rest) {
 	size_t pos = 0;
 	while (true) {
@@ -1187,8 +1202,13 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 		line.append(start, end - start);
 	}
 }
+#endif
 
+#if defined(REUSE_YOSYS_ABC_PROCESSES)
 void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
+#else
+void RunAbcState::run(ConcurrentStack<AbcProcess> &)
+#endif
 {
 	std::string buffer = stringf("%s/input.blif", tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
@@ -1313,9 +1333,13 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 
 	logs.log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, GetSize(signal_list), count_input, count_output);
-	if (count_output > 0)
-	{
-		std::string tmp_script_name = stringf("%s/abc.script", tempdir_name);
+	if (count_output == 0) {
+		log("Don't call ABC as there is nothing to map.\n");
+		return;
+	}
+	int ret;
+	std::string tmp_script_name = stringf("%s/abc.script", tempdir_name);
+	do {
 		logs.log("Running ABC script: %s\n", replace_tempdir(tmp_script_name, tempdir_name, config.show_tempdir));
 
 		errno = 0;
@@ -1346,7 +1370,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 		abc_argv[2] = strdup("-f");
 		abc_argv[3] = strdup(tmp_script_name.c_str());
 		abc_argv[4] = 0;
-		int ret = abc::Abc_RealMain(4, abc_argv);
+		ret = abc::Abc_RealMain(4, abc_argv);
 		free(abc_argv[0]);
 		free(abc_argv[1]);
 		free(abc_argv[2]);
@@ -1361,39 +1385,43 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 		for (std::string line; std::getline(temp_stdouterr_r, line); )
 			filt.next_line(line + "\n");
 		temp_stdouterr_r.close();
-#elif defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
-		AbcProcess process;
-		if (std::optional<AbcProcess> process_opt = process_pool.try_pop_back()) {
-			process = std::move(process_opt.value());
-		} else if (std::optional<AbcProcess> process_opt = spawn_abc(config.exe_file.c_str(), logs)) {
-			process = std::move(process_opt.value());
-		} else {
-			return;
-		}
-		std::string cmd = stringf(
-				"empty\n"
-				"source %s\n", tmp_script_name);
-		int ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
-		if (ret != static_cast<int>(cmd.size())) {
-			logs.log_error("write failed");
-			return;
-		}
-		ret = read_until_abc_done(filt, process.from_child_pipe, logs) ? 0 : 1;
-		if (ret == 0) {
-			process_pool.push_back(std::move(process));
-		}
+		break;
 #else
-		std::string cmd = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file.c_str(), tempdir_name.c_str());
-		int ret = run_command(cmd, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
-#endif
-		if (ret != 0) {
-			logs.log_error("ABC: execution of script \"%s\" failed: return code %d (errno=%d).\n", tmp_script_name, ret, errno);
-			return;
+#if defined(REUSE_YOSYS_ABC_PROCESSES)
+		if (config.is_yosys_abc()) {
+			AbcProcess process;
+			if (std::optional<AbcProcess> process_opt = process_pool.try_pop_back()) {
+				process = std::move(process_opt.value());
+			} else if (std::optional<AbcProcess> process_opt = spawn_abc(config.exe_file.c_str(), logs)) {
+				process = std::move(process_opt.value());
+			} else {
+				return;
+			}
+			std::string cmd = stringf(
+					"empty\n"
+					"source %s\n", tmp_script_name);
+			ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
+			if (ret != static_cast<int>(cmd.size())) {
+				logs.log_error("write failed");
+				return;
+			}
+			ret = read_until_abc_done(filt, process.from_child_pipe, logs) ? 0 : 1;
+			if (ret == 0) {
+				process_pool.push_back(std::move(process));
+			}
+			break;
 		}
-		did_run = true;
+#endif
+		std::string cmd = stringf("\"%s\" -s -f %s 2>&1", config.exe_file, tmp_script_name);
+		ret = run_command(cmd, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
+#endif
+	} while (false);
+	if (ret != 0) {
+		logs.log_error("ABC: execution of script \"%s\" failed: return code %d (errno=%d).\n", tmp_script_name, ret, errno);
 		return;
 	}
 	logs.log("Don't call ABC as there is nothing to map.\n");
+	did_run = true;
 }
 
 void emit_global_input_files(const AbcConfig &config)

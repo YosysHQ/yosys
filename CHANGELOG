@@ -2,8 +2,29 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.61 .. Yosys 0.62-dev
+Yosys 0.62 .. Yosys 0.63-dev
 --------------------------
+
+Yosys 0.61 .. Yosys 0.62
+--------------------------
+ * Various
+    - verific: Added "-sv2017" flag option to support System
+      Verilog 2017.
+    - verific: Added VHDL related flags to "-f" and "-F" and
+      support reading VHDL file from file lists.
+    - Updated cell libs with proper module declaration where
+      non standard (...) style was used.
+
+ * New commands and options
+    - Added "-word" option to "lut2mux" pass to enable emitting
+      word level cells.
+    - Added experimental "opt_balance_tree" pass to convert
+      cascaded cells into tree of cells to improve timing.
+    - Added "-gatesi" option to "write_blif" pass to init gates
+      under gates_mode in BLIF format.
+    - Added "-on" and "-off" options to "debug" pass for 
+      persistent debug logging.
+    - Added "linux_perf" pass to control performance recording.
 
 Yosys 0.60 .. Yosys 0.61
 --------------------------
