@@ -319,3 +319,59 @@ check
 equiv_opt -assert opt_expr -keepdc
 design -load postopt
 select -assert-count 1 t:$mul r:A_WIDTH=4 %i r:B_WIDTH=4 %i r:Y_WIDTH=8 %i
+
+###########
+
+design -reset
+read_rtlil <<EOF
+module \top
+  wire width 3 input 2 \binary
+
+  wire width 32 output 3 \y
+
+  cell $pow $0
+    parameter \A_WIDTH 32
+    parameter \B_WIDTH 3
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \Y_WIDTH 32
+    connect \A 2
+    connect \B \binary
+    connect \Y \y
+  end
+end
+EOF
+
+scratchpad -set opt.did_something false
+opt_expr
+scratchpad -assert opt.did_something true
+sat -verify -set binary 0 -prove y 1
+sat -verify -set binary 1 -prove y 2
+sat -verify -set binary 2 -prove y 4
+sat -verify -set binary 3 -prove y 8
+
+###########
+
+design -reset
+read_rtlil <<EOF
+module \top
+  wire width 3 input 2 \binary
+
+  wire width 32 output 3 \y
+
+  cell $pow $0
+    parameter \A_WIDTH 2
+    parameter \B_WIDTH 3
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \Y_WIDTH 32
+    connect \A 2'10
+    connect \B \binary
+    connect \Y \y
+  end
+end
+EOF
+
+scratchpad -set opt.did_something false
+opt_expr
+scratchpad -assert opt.did_something false
