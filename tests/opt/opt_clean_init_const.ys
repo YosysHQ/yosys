@@ -1,0 +1,9 @@
+read_rtlil << EOT
+module \top
+  attribute \init 1'0
+  wire \w
+
+  connect \w 1'0
+end
+EOT
+opt_clean
