@@ -3698,6 +3698,10 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-set_ignore_translate_off") {
+			veri_file::SetIgnoreTranslateOff(1);
+			continue;
+		}
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
