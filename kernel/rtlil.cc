@@ -2654,6 +2654,14 @@ namespace {
 				check_expected();
 				return;
 			}
+			if (cell->type.in(ID($priority))) {
+				param(ID::WIDTH);
+				param(ID::POLARITY);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 			/*
 			 * Checklist for adding internal cell types
 			 * ========================================
@@ -3971,6 +3979,14 @@ RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, const RTLIL::SigSp
 	cell->set_src_attribute(src);
 	return cell;
 }
+RTLIL::Cell* RTLIL::Module::addPriority(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($priority));
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::Y, sig_y);
+	cell->set_src_attribute(src);
+	return cell;
+}
 
 RTLIL::Cell* RTLIL::Module::addSrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const std::string &src)
@@ -4548,7 +4564,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		return;
 	}
 
-	if (type == ID($lut) || type == ID($sop)) {
+	if (type == ID($lut) || type == ID($sop) || type == ID($priority)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::A]);
 		return;
 	}

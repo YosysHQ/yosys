@@ -501,6 +501,27 @@ Aig::Aig(Cell *cell)
 		goto optimize;
 	}
 
+	if (cell->type == ID($priority))
+	{
+		int width = GetSize(cell->getPort(ID::Y));
+		RTLIL::Const polarity = cell->getParam(ID::POLARITY);
+		vector<int> A = mk.inport_vec(ID::A, width);
+		vector<int> Y;
+		int any_previous_active;
+		if (width) {
+			any_previous_active = polarity[0] ? A[0] : mk.not_gate(A[0]);
+			Y.push_back(A[0]);
+		}
+		for (int i = 1; i < width; i++) {
+			int inactive_val = mk.bool_node(!polarity[i]);
+			Y.push_back(mk.mux_gate(A[i], inactive_val, any_previous_active));
+			int is_active = mk.xnor_gate(inactive_val, A[i]);
+			any_previous_active = mk.or_gate(any_previous_active, is_active);
+		}
+		mk.outport_vec(Y, ID::Y);
+		goto optimize;
+	}
+
 	name.clear();
 	return;
 

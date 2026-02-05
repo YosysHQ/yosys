@@ -658,6 +658,28 @@ RTLIL::Const RTLIL::const_bmux(const RTLIL::Const &arg1, const RTLIL::Const &arg
 	return t;
 }
 
+RTLIL::Const RTLIL::const_priority(const RTLIL::Const &arg, const RTLIL::Const &polarity)
+{
+	std::vector<RTLIL::State> t;
+	RTLIL::State previous;
+	if (GetSize(arg)) {
+		RTLIL::State s = arg.at(0);
+		t.push_back(s);
+		previous = polarity[0] ? s : const_not(s, Const(), false, false, 1)[0];
+	}
+	for (int i = 1; i < GetSize(arg); i++)
+	{
+		RTLIL::State s = arg.at(i);
+		RTLIL::State is_active = const_xnor(s, polarity[i], false, false, 1)[0];
+		RTLIL::State next = const_or(is_active, previous, false, false, 1)[0];
+		RTLIL::State inactive_polarity = const_not(polarity[i], Const(), false, false, 1)[0];
+		RTLIL::State y = const_mux(s, inactive_polarity, previous)[0];
+		t.push_back(y);
+		previous = next;
+	}
+	return t;
+}
+
 RTLIL::Const RTLIL::const_demux(const RTLIL::Const &arg1, const RTLIL::Const &arg2)
 {
 	int width = GetSize(arg1);
