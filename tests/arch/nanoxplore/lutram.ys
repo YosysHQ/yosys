@@ -31,6 +31,7 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
@@ -53,6 +54,7 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
@@ -73,6 +75,7 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
@@ -93,6 +96,7 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
@@ -136,6 +140,7 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
