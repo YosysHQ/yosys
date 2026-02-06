@@ -1210,109 +1210,139 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		if (ff.has_aload || ff.has_arst || ff.has_sr)
 			return false;
 
-		if (timestep == 1)
-		{
-			initial_state.add((*sigmap)(cell->getPort(ID::Q)));
-			if (model_undef && def_formal) {
-				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
-				ez->assume(ez->NOT(ez->vec_reduce_or(undef_q)));
-			}
-		}
-		else
-		{
-			std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep);
-			std::vector<int> undef_d;
-			if (model_undef)
-				undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep);
-			if (ff.has_srst && ff.has_ce && ff.ce_over_srst) {
-				int srst = importDefSigSpec(ff.sig_srst, timestep).at(0);
-				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep);
-				int undef_srst = -1;
-				std::vector<int> undef_rval;
-				if (model_undef) {
-					undef_srst = importUndefSigSpec(ff.sig_srst, timestep).at(0);
-					undef_rval = importUndefSigSpec(ff.val_srst, timestep);
-				}
-				if (ff.pol_srst)
-					std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
-				else
-					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
-			}
-			if (ff.has_ce) {
-				int ce = importDefSigSpec(ff.sig_ce, timestep).at(0);
-				std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep);
-				int undef_ce = -1;
-				std::vector<int> undef_old_q;
-				if (model_undef) {
-					undef_ce = importUndefSigSpec(ff.sig_ce, timestep).at(0);
-					undef_old_q = importUndefSigSpec(ff.sig_q, timestep);
-				}
-				if (ff.pol_ce)
-					std::tie(d, undef_d) = mux(ce, undef_ce, old_q, undef_old_q, d, undef_d);
-				else
-					std::tie(d, undef_d) = mux(ce, undef_ce, d, undef_d, old_q, undef_old_q);
-			}
-			if (ff.has_srst && !(ff.has_ce && ff.ce_over_srst)) {
-				int srst = importDefSigSpec(ff.sig_srst, timestep).at(0);
-				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep);
-				int undef_srst = -1;
-				std::vector<int> undef_rval;
-				if (model_undef) {
-					undef_srst = importUndefSigSpec(ff.sig_srst, timestep).at(0);
-					undef_rval = importUndefSigSpec(ff.val_srst, timestep);
-				}
-				if (ff.pol_srst)
-					std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
-				else
-					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
-			}
-			std::vector<int> q = importDefSigSpec(ff.sig_q, timestep);
-			std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep-1);
-			std::vector<int> undef_old_q;
-
-			std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
-			std::vector<int> undef_q;
-
-			int edge_detected = -1;
-			int undef_edge_detected = -1;
-			if (ff.has_clk)
+		if (ff.has_gclk) {
+			// $ff, $anyinit
+			if (timestep == 1)
 			{
-				// Detect the clock edge
-				int old_clk = importDefSigBit(ff.sig_clk, timestep-1);
-				int clk = importDefSigBit(ff.sig_clk, timestep);
-				int clk_active_level = ff.pol_clk ? ez->CONST_TRUE : ez->CONST_FALSE;
-				int old_clk_active = ez->IFF(old_clk, clk_active_level);
-				int clk_active = ez->IFF(clk, clk_active_level);
-				edge_detected = ez->AND(ez->NOT(old_clk_active), clk_active);
-				undef_edge_detected = -1;
+				initial_state.add((*sigmap)(cell->getPort(ID::Q)));
+				if (model_undef && def_formal) {
+					std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
+					ez->assume(ez->NOT(ez->vec_reduce_or(undef_q)));
+				}
+			}
+			else
+			{
+				std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep-1);
+				std::vector<int> undef_d;
+				if (model_undef)
+					undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep-1);
+				std::vector<int> q = importDefSigSpec(cell->getPort(ID::Q), timestep);
+				std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
+				ez->assume(ez->vec_eq(d, qq));
 				if (model_undef)
 				{
-					undef_old_q = importUndefSigSpec(ff.sig_q, timestep-1);
-					undef_q = importUndefSigSpec(ff.sig_q, timestep);
-					int undef_old_clk = importUndefSigBit(ff.sig_clk, timestep-1);
-					int undef_clk = importUndefSigBit(ff.sig_clk, timestep);
-					undef_edge_detected = ez->OR(undef_clk, undef_old_clk);
+					std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
+					ez->assume(ez->vec_eq(undef_d, undef_q));
+					undefGating(q, qq, undef_q);
 				}
-			} else {
-				// No clk signal -> always clocking
-				edge_detected = ez->CONST_TRUE;
-				undef_edge_detected = ez->CONST_FALSE;
 			}
+			return true;
+		} else {
 
-			// If edge, then this Q is this D. Otherwise, it's last Q.
+			if (timestep == 1)
 			{
-				std::vector<int> mux_out, mux_out_undef;
-				std::tie(mux_out, mux_out_undef) = mux(edge_detected, undef_edge_detected, old_q, undef_old_q, d, undef_d);
-				ez->assume(ez->vec_eq(mux_out, qq));
-				ez->assume(ez->vec_eq(mux_out_undef, undef_q));
+				initial_state.add((*sigmap)(cell->getPort(ID::Q)));
+				if (model_undef && def_formal) {
+					std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
+					ez->assume(ez->NOT(ez->vec_reduce_or(undef_q)));
+				}
 			}
+			else
+			{
+				std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep);
+				std::vector<int> undef_d;
+				if (model_undef)
+					undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep);
+				if (ff.has_srst && ff.has_ce && ff.ce_over_srst) {
+					int srst = importDefSigSpec(ff.sig_srst, timestep).at(0);
+					std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep);
+					int undef_srst = -1;
+					std::vector<int> undef_rval;
+					if (model_undef) {
+						undef_srst = importUndefSigSpec(ff.sig_srst, timestep).at(0);
+						undef_rval = importUndefSigSpec(ff.val_srst, timestep);
+					}
+					if (ff.pol_srst)
+						std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
+					else
+						std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
+				}
+				if (ff.has_ce) {
+					int ce = importDefSigSpec(ff.sig_ce, timestep).at(0);
+					std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep);
+					int undef_ce = -1;
+					std::vector<int> undef_old_q;
+					if (model_undef) {
+						undef_ce = importUndefSigSpec(ff.sig_ce, timestep).at(0);
+						undef_old_q = importUndefSigSpec(ff.sig_q, timestep);
+					}
+					if (ff.pol_ce)
+						std::tie(d, undef_d) = mux(ce, undef_ce, old_q, undef_old_q, d, undef_d);
+					else
+						std::tie(d, undef_d) = mux(ce, undef_ce, d, undef_d, old_q, undef_old_q);
+				}
+				if (ff.has_srst && !(ff.has_ce && ff.ce_over_srst)) {
+					int srst = importDefSigSpec(ff.sig_srst, timestep).at(0);
+					std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep);
+					int undef_srst = -1;
+					std::vector<int> undef_rval;
+					if (model_undef) {
+						undef_srst = importUndefSigSpec(ff.sig_srst, timestep).at(0);
+						undef_rval = importUndefSigSpec(ff.val_srst, timestep);
+					}
+					if (ff.pol_srst)
+						std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
+					else
+						std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
+				}
+				std::vector<int> q = importDefSigSpec(ff.sig_q, timestep);
+				std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep-1);
+				std::vector<int> undef_old_q;
 
-			if (model_undef)
-			{
-				undefGating(q, qq, undef_q);
+				std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
+				std::vector<int> undef_q;
+
+				int edge_detected = -1;
+				int undef_edge_detected = -1;
+				if (ff.has_clk)
+				{
+					// Detect the clock edge
+					int old_clk = importDefSigBit(ff.sig_clk, timestep-1);
+					int clk = importDefSigBit(ff.sig_clk, timestep);
+					int clk_active_level = ff.pol_clk ? ez->CONST_TRUE : ez->CONST_FALSE;
+					int old_clk_active = ez->IFF(old_clk, clk_active_level);
+					int clk_active = ez->IFF(clk, clk_active_level);
+					edge_detected = ez->AND(ez->NOT(old_clk_active), clk_active);
+					undef_edge_detected = -1;
+					if (model_undef)
+					{
+						undef_old_q = importUndefSigSpec(ff.sig_q, timestep-1);
+						undef_q = importUndefSigSpec(ff.sig_q, timestep);
+						int undef_old_clk = importUndefSigBit(ff.sig_clk, timestep-1);
+						int undef_clk = importUndefSigBit(ff.sig_clk, timestep);
+						undef_edge_detected = ez->OR(undef_clk, undef_old_clk);
+					}
+				} else {
+					// No clk signal -> always clocking
+					edge_detected = ez->CONST_TRUE;
+					undef_edge_detected = ez->CONST_FALSE;
+				}
+
+				// If edge, then this Q is this D. Otherwise, it's last Q.
+				{
+					std::vector<int> mux_out, mux_out_undef;
+					std::tie(mux_out, mux_out_undef) = mux(edge_detected, undef_edge_detected, old_q, undef_old_q, d, undef_d);
+					ez->assume(ez->vec_eq(mux_out, qq));
+					ez->assume(ez->vec_eq(mux_out_undef, undef_q));
+				}
+
+				if (model_undef)
+				{
+					undefGating(q, qq, undef_q);
+				}
 			}
+			return true;
 		}
-		return true;
 	}
 
 	if (cell->type == ID($anyconst))
