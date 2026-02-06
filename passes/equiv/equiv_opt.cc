@@ -189,8 +189,10 @@ struct EquivOptPass:public ScriptPass
 		if (check_label("prove")) {
 			if (multiclock || help_mode)
 				run("clk2fflogic", "(only with -multiclock)");
-			if (async2sync || help_mode)
+			if (async2sync || help_mode) {
 				run("async2sync", " (only with -async2sync)");
+				run("formalff -clk2ff", " (only with -async2sync)");
+			}
 			string opts;
 			if (help_mode)
 				opts = " -blacklist <filename> ...";
