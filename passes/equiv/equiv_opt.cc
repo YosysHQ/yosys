@@ -57,6 +57,9 @@ struct EquivOptPass:public ScriptPass
 		log("    -async2sync\n");
 		log("        run async2sync before equivalence checking.\n");
 		log("\n");
+		log("    -formalff\n");
+		log("        run formalff -clk2ff before equivalence checking.\n");
+		log("\n");
 		log("    -undef\n");
 		log("        enable modelling of undef states during equiv_induct.\n");
 		log("\n");
@@ -69,7 +72,7 @@ struct EquivOptPass:public ScriptPass
 	}
 
 	std::string command, techmap_opts, make_opts;
-	bool assert, undef, multiclock, async2sync, nocheck;
+	bool assert, undef, multiclock, async2sync, formalff, nocheck;
 
 	void clear_flags() override
 	{
@@ -81,6 +84,7 @@ struct EquivOptPass:public ScriptPass
 		multiclock = false;
 		async2sync = false;
 		nocheck = false;
+		formalff = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) override
@@ -124,6 +128,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-async2sync") {
 				async2sync = true;
+				continue;
+			}
+			if (args[argidx] == "-formalff") {
+				formalff = true;
 				continue;
 			}
 			break;
@@ -191,8 +199,9 @@ struct EquivOptPass:public ScriptPass
 				run("clk2fflogic", "(only with -multiclock)");
 			if (async2sync || help_mode) {
 				run("async2sync", " (only with -async2sync)");
-				run("formalff -clk2ff", " (only with -async2sync)");
 			}
+			if (async2sync || formalff || help_mode)
+				run("formalff -clk2ff", " (only with -async2sync or -formalff)");
 			string opts;
 			if (help_mode)
 				opts = " -blacklist <filename> ...";
