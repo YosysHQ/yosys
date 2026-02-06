@@ -275,6 +275,17 @@ struct RTLIL::IdString
 		*out += std::to_string(-index_);
 	}
 
+	std::string unescape() const {
+		if (index_ < 0) {
+			// Must start with "$auto$" so no unescaping required.
+			return str();
+		}
+		std::string_view str = global_id_storage_.at(index_).str_view();
+		if (str.size() < 2 || str[0] != '\\' || str[1] == '$' || str[1] == '\\' || (str[1] >= '0' && str[1] <= '9'))
+			return std::string(str);
+		return std::string(str.substr(1));
+	}
+
 	class Substrings {
 		std::string_view first_;
 		int suffix_number;
@@ -758,7 +769,7 @@ namespace RTLIL {
 	}
 
 	static inline std::string unescape_id(RTLIL::IdString str) {
-		return unescape_id(str.str());
+		return str.unescape();
 	}
 
 	static inline const char *id2cstr(RTLIL::IdString str) {
@@ -1748,9 +1759,9 @@ public:
 	}
 
 #ifndef NDEBUG
-	void check(Module *mod = nullptr) const;
+	void check(const Module *mod = nullptr) const;
 #else
-	void check(Module *mod = nullptr) const { (void)mod; }
+	void check(const Module *mod = nullptr) const { (void)mod; }
 #endif
 };
 
