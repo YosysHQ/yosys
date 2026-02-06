@@ -1,0 +1,13 @@
+read_verilog <<EOT
+module simple(I1, I2, O);
+	input wire I1;
+	input wire I2;
+	output wire O;
+
+	assign O = I1 | I2;
+endmodule
+EOT
+techmap
+
+logger -warn " /tmp/" -werror " /tmp/"
+abc -g all
