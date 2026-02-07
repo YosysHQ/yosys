@@ -1,3 +1,4 @@
+#TODO formalff shouldn't be used here. Instead, we should use SAT
 ##################################################################
 
 read_verilog -sv -icells <<EOT
@@ -33,6 +34,7 @@ copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
 
 async2sync
+formalff -clk2ff
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
@@ -74,6 +76,7 @@ copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffr_not_next.lib top
 
 async2sync
+formalff -clk2ff
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
@@ -109,6 +112,7 @@ simplemap top
 dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
 
 async2sync
+formalff -clk2ff
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
@@ -140,6 +144,7 @@ simplemap top
 dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dff_not_next.lib top
 
 async2sync
+formalff -clk2ff
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv

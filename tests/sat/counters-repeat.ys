@@ -4,6 +4,7 @@ proc; opt
 
 expose -shared counter1 counter2
 miter -equiv -make_assert -make_outputs counter1 counter2 miter
+formalff -clk2ff
 
 cd miter; flatten; opt
 sat -verify -prove-asserts -tempinduct -set-at 1 in_rst 1 -seq 1 -show-inputs -show-outputs

@@ -18,4 +18,4 @@ endmodule
 EOT
 
 # This ensures that 1) coarse cells have SAT models, 2) fine cells have SAT models, 3) they're equivalent
-equiv_opt -assert simplemap
+equiv_opt -formalff -assert simplemap
