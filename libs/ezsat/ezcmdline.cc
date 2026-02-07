@@ -67,7 +67,7 @@ bool ezCmdlineSAT::solver(const std::vector<int> &modelExpressions, std::vector<
 	modelValues.resize(modelIdx.size());
 
 	if (!status_sat && !status_unsat) {
-		solverTimoutStatus = true;
+		solverTimeoutStatus = true;
 	}
 	if (!status_sat) {
 		return false;

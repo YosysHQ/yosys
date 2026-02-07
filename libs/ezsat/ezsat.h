@@ -78,7 +78,7 @@ protected:
 
 public:
 	int solverTimeout;
-	bool solverTimoutStatus;
+	bool solverTimeoutStatus;
 
 	ezSAT();
 	virtual ~ezSAT();
@@ -153,8 +153,8 @@ public:
 		solverTimeout = newTimeoutSeconds;
 	}
 
-	bool getSolverTimoutStatus() {
-		return solverTimoutStatus;
+	bool getSolverTimeoutStatus() {
+		return solverTimeoutStatus;
 	}
 
 	// manage CNF (usually only accessed by SAT solvers)

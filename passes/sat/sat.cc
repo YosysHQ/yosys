@@ -441,7 +441,7 @@ struct SatHelper
 		log_assert(gotTimeout == false);
 		ez->setSolverTimeout(timeout);
 		bool success = ez->solve(modelExpressions, modelValues, assumptions);
-		if (ez->getSolverTimoutStatus())
+		if (ez->getSolverTimeoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -451,7 +451,7 @@ struct SatHelper
 		log_assert(gotTimeout == false);
 		ez->setSolverTimeout(timeout);
 		bool success = ez->solve(modelExpressions, modelValues, a, b, c, d, e, f);
-		if (ez->getSolverTimoutStatus())
+		if (ez->getSolverTimeoutStatus())
 			gotTimeout = true;
 		return success;
 	}

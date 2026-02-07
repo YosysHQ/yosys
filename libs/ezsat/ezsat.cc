@@ -54,7 +54,7 @@ ezSAT::ezSAT()
 	cnfClausesCount = 0;
 
 	solverTimeout = 0;
-	solverTimoutStatus = false;
+	solverTimeoutStatus = false;
 
 	literal("CONST_TRUE");
 	literal("CONST_FALSE");
