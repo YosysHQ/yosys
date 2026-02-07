@@ -14,6 +14,9 @@ bool ezCmdlineSAT::solver(const std::vector<int> &modelExpressions, std::vector<
 	const std::string cnf_filename = Yosys::stringf("%s/problem.cnf", tempdir_name.c_str());
 	const std::string sat_command = Yosys::stringf("%s %s", command.c_str(), cnf_filename.c_str());
 	FILE *dimacs = fopen(cnf_filename.c_str(), "w");
+	if (dimacs == nullptr) {
+		Yosys::log_cmd_error("Failed to create CNF file `%s`.\n", cnf_filename.c_str());
+	}
 
 	std::vector<int> modelIdx;
 	for (auto id : modelExpressions)

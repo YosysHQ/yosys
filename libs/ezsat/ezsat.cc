@@ -1224,6 +1224,11 @@ ezSATvec ezSAT::vec(const std::vector<int> &vec)
 
 void ezSAT::printDIMACS(FILE *f, bool verbose, const std::vector<std::vector<int>> &extraClauses) const
 {
+	if (f == nullptr) {
+		fprintf(stderr, "Usage error: printDIMACS() must not be called with a null FILE pointer\n");
+		abort();
+	}
+
 	if (cnfConsumed) {
 		fprintf(stderr, "Usage error: printDIMACS() must not be called after cnfConsumed()!\n");
 		abort();
