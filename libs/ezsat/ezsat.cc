@@ -1225,7 +1225,7 @@ ezSATvec ezSAT::vec(const std::vector<int> &vec)
 void ezSAT::printDIMACS(FILE *f, bool verbose, const std::vector<std::vector<int>> &extraClauses) const
 {
 	if (cnfConsumed) {
-		fprintf(stderr, "Usage error: printDIMACS() must not be called after cnfConsumed()!");
+		fprintf(stderr, "Usage error: printDIMACS() must not be called after cnfConsumed()!\n");
 		abort();
 	}
 
