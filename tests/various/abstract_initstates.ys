@@ -10,6 +10,7 @@ endmodule
 
 EOT
 proc
+formalff -clk2ff
 design -save half_clock
 
 sat -set-init-undef -enable_undef -verify -seq 5 -set-at 1 Q 0

@@ -35,6 +35,7 @@ design -stash gate
 
 design -copy-from gold -as gold pmtest_xilinx_srl_pm_fixed
 design -copy-from gate -as gate pmtest_xilinx_srl_pm_fixed
+formalff -clk2ff
 miter -equiv -flatten -make_assert gold gate miter
 sat -set-init-zero -seq 5 -verify -prove-asserts miter
 
@@ -51,5 +52,6 @@ design -stash gate
 
 design -copy-from gold -as gold pmtest_xilinx_srl_pm_variable
 design -copy-from gate -as gate pmtest_xilinx_srl_pm_variable
+formalff -clk2ff
 miter -equiv -flatten -make_assert gold gate miter
 sat -set-init-zero -seq 5 -verify -prove-asserts miter

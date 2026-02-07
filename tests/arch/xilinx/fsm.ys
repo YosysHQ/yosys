@@ -7,6 +7,7 @@ design -save orig
 
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 miter -equiv -make_assert -flatten gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
 
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
@@ -23,6 +24,7 @@ design -load orig
 
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc3se -noiopad
 miter -equiv -make_assert -flatten gold gate miter
+formalff -clk2ff
 sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
 
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)

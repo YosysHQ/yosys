@@ -32,6 +32,7 @@ prep
 design -stash gate
 design -import gold -as gold
 design -import gate -as gate
+formalff -clk2ff
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
 " -l ${aag}.log
@@ -49,6 +50,7 @@ prep
 design -stash gate
 design -import gold -as gold
 design -import gate -as gate
+formalff -clk2ff
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
 " -l ${aig}.log

@@ -13,6 +13,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### Multiple blocking assingments ###
@@ -31,6 +32,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### Non-blocking to the same output register ###
@@ -49,6 +51,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### For-loop select, one dynamic input
@@ -67,6 +70,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### For-loop select, one dynamic input, (* nowrshmsk *)
@@ -85,6 +89,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 #### Double loop (part-select, reset) ### 
@@ -103,6 +108,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### Reversed part-select case ###
@@ -121,6 +127,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### Latches
@@ -140,6 +147,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -show-public -verify -set-init-zero equiv
 
 ###
@@ -159,6 +167,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -falsify -set-init-zero equiv
 
 ## Part select + latch, with no shift&mask
@@ -177,4 +186,5 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+formalff -clk2ff
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv

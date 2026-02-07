@@ -6,6 +6,7 @@ flatten
 equiv_opt -run :prove -map +/fabulous/prims.v synth_fabulous
 async2sync
 miter -equiv -make_assert -flatten gold gate miter
+formalff -clk2ff
 stat
 sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
 
