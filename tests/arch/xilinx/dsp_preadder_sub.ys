@@ -1,23 +1,11 @@
 read_verilog <<EOT
 module top(
-	// NOTE: This test is intentionally "bitwidth-shaped" to match the current
-	// pre-subtractor matcher in `techlibs/xilinx/xilinx_dsp.pmg`.
-	//
-	// The `preSub` pattern requires `port(preSub, \\Y) === sigA` (SigSpec identity),
-	// where `sigA` is the (typically 25-bit) signal feeding the DSP multiplier
-	// A-side after sign-extension into the DSP input port width.
-	//
-	// If the `$sub` result is narrower (e.g. 9-bit for 8-bit operands) and only
-	// later sign-extended up to 25 bits, that identity check fails even though the
-	// values are equivalent. Therefore we explicitly compute a 25-bit signed
-	// subtraction here so the `$sub` output is already the same SigSpec that the
-	// DSP mapping uses for the A-side input.
 	input  signed [7:0] A,
 	input  signed [7:0] D,
 	input  signed [7:0] B,
 	output signed [16:0] P
 );
-	assign P = ($signed({{17{A[7]}}, A}) - $signed({{17{D[7]}}, D})) * B;
+	assign P = (A - D) * B;
 endmodule
 EOT
 
