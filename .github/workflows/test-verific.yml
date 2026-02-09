@@ -68,7 +68,7 @@ jobs:
 
       - name: Run Yosys tests
         run: |
-          make -j$procs test
+          make -j$procs vanilla-test
 
       - name: Run Verific specific Yosys tests
         run: |
@@ -83,7 +83,7 @@ jobs:
       - name: Run unit tests
         shell: bash
         run: |
-          make -j$procs unit-test ENABLE_LTO=1 ENABLE_LIBYOSYS=1
+          make -j$procs unit-test ENABLE_LTO=1
 
   test-pyosys:
     needs: pre-job

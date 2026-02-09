@@ -977,9 +977,11 @@ makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
 	$(MAKE) -C $* -f run-test.mk
 	+@echo "...passed tests in $*"
 
-test: makefile-tests abcopt-tests seed-tests
+test: vanilla-test unit-test
+
+vanilla-test: makefile-tests abcopt-tests seed-tests
 	@echo ""
-	@echo "  Passed \"make test\"."
+	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)
 ifeq ($(YOSYS_NOVERIFIC),1)
 	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
