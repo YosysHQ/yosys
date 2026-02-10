@@ -27,7 +27,8 @@ which runs a frontend like ``read_verilog`` or ``read_rtlil`` with
 a relative path or a heredoc, then runs some commands including the command
 under test, and then uses :doc:`/using_yosys/more_scripting/selections`
 with ``-assert-count``. Usually it's unnecessary to "register" the test anywhere
-as if it's similar to other tests it will be run together with the rest.
+as if it's being added to an existing directory, depending
+on how the ``run-test.sh`` in that directory works.
 
 Unit tests
 ~~~~~~~~~~
