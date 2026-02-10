@@ -73,7 +73,3 @@ jobs:
         run: |
           find tests/**/*.err -print -exec cat {} \;
 
-      - name: Run unit tests
-        shell: bash
-        run: |
-          make -j$procs unit-test

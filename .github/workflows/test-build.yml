@@ -71,7 +71,8 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-$CC
-          make -f ../Makefile -j$procs ENABLE_LIBYOSYS=1
+          make -f ../Makefile -j$procs
+          make -f ../Makefile unit-test -j$procs
 
       - name: Log yosys-config output
         run: |
@@ -219,7 +220,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -C docs test -j$procs
+          make -C docs vanilla-test -j$procs
 
   test-docs-build:
     name: Try build docs
