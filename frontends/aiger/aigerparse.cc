@@ -657,6 +657,9 @@ void AigerReader::parse_aiger_binary()
 	unsigned l1, l2, l3;
 	std::string line;
 
+	if (M != I + L + A)
+		log_error("Binary AIGER input is malformed: maximum variable index M is %u, but number of inputs, latches and AND gates adds up to %u.\n", M, I + L + A);
+
 	// Parse inputs
 	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i) {
