@@ -430,6 +430,57 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
+	if (cell->type == ID($priority))
+	{
+		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
+
+		const Const& polarity = cell->getParam(ID::POLARITY);
+
+		std::vector<int> active_so_far;
+		if (a.size()) {
+			active_so_far.push_back(polarity[0] ? a[0] : ez->NOT(a[0]));
+			ez->assume(ez->IFF(yy[0], a[0]));
+		}
+		for (size_t i = 1; i < a.size(); i++) {
+			int inactive_val = !polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
+			int active_val = polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
+			ez->assume(ez->IFF(yy[i], ez->ITE(active_so_far.back(), inactive_val, a[i])));
+			active_so_far.push_back(ez->OR(active_so_far.back(), ez->IFF(a[i], active_val)));
+		}
+		if (model_undef) {
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+
+			int any_previous_undef;
+			if (a.size()) {
+				any_previous_undef = undef_a[0];
+				ez->assume(ez->IFF(undef_y[0], undef_a[0]));
+			}
+			for (size_t i = 1; i < a.size(); i++) {
+				int inactive_val = !polarity[i] ? ez->CONST_TRUE : ez->CONST_FALSE;
+				int is_active = ez->XOR(inactive_val, a[i]);
+				int is_not_inactive = ez->OR(is_active, undef_a[i]);
+				int is_not_active = ez->OR(ez->NOT(is_active), undef_a[i]);
+
+				// $mux
+				int undef_because_s = ez->AND(any_previous_undef, is_not_inactive);
+				int undef_because_a = ez->AND(ez->OR(any_previous_undef, ez->NOT(active_so_far[i-1])), undef_a[i]);
+				int undef = ez->OR(undef_because_s, undef_because_a);
+				ez->assume(ez->IFF(undef_y[i], undef));
+
+				// $or
+				int next_previous_undef_because_previous = ez->AND(any_previous_undef, is_not_active);
+				int next_previous_undef_because_a = ez->AND(ez->NOT(active_so_far[i-1]), undef_a[i]);
+				any_previous_undef = ez->OR(next_previous_undef_because_previous, next_previous_undef_because_a);
+			}
+			undefGating(y, yy, undef_y);
+		}
+
+		return true;
+	}
+
 	if (cell->type.in(ID($pos), ID($buf), ID($neg)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);

@@ -679,3 +679,36 @@ parameter WIDTH = 0;
 inout [WIDTH-1:0] Y; // This cell is just a maker, so we leave Y undriven
 
 endmodule
+
+(* techmap_celltype = "$priority" *)
+module \$priority (A, Y);
+	parameter WIDTH = 0;
+	parameter POLARITY = 0;
+
+	(* force_downto *)
+	input  [WIDTH-1:0] A;
+	(* force_downto *)
+	output [WIDTH-1:0] Y;
+
+	(* force_downto *)
+	wire [WIDTH-1:0] tmp;
+	(* force_downto *)
+	wire [WIDTH-1:0] A_active;
+	(* force_downto *)
+	wire [WIDTH-1:0] Y_active;
+	assign A_active = A ^ ~POLARITY;
+	assign Y = Y_active ^ ~POLARITY;
+
+	genvar i;
+	generate
+		if (WIDTH > 0) begin
+			assign tmp[0] = A_active[0];
+			assign Y_active[0] = A_active[0];
+		end
+		for (i = 1; i < WIDTH; i = i + 1) begin
+			assign Y_active[i] = tmp[i-1] ? 1'b0 : A_active[i];
+			assign tmp[i] = tmp[i-1] | A_active[i];
+		end
+	endgenerate
+
+endmodule
