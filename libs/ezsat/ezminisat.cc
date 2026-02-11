@@ -103,7 +103,7 @@ bool ezMiniSAT::solver(const std::vector<int> &modelExpressions, std::vector<boo
 {
 	preSolverCallback();
 
-	solverTimoutStatus = false;
+	solverTimeoutStatus = false;
 
 	if (0) {
 contradiction:
@@ -206,7 +206,7 @@ contradiction:
 #if defined(HAS_ALARM)
 	if (solverTimeout > 0) {
 		if (alarmHandlerTimeout == 0)
-			solverTimoutStatus = true;
+			solverTimeoutStatus = true;
 		alarm(0);
 		sigaction(SIGALRM, &old_sig_action, NULL);
 		alarm(old_alarm_timeout);

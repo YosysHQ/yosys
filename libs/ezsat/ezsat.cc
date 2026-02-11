@@ -54,7 +54,7 @@ ezSAT::ezSAT()
 	cnfClausesCount = 0;
 
 	solverTimeout = 0;
-	solverTimoutStatus = false;
+	solverTimeoutStatus = false;
 
 	literal("CONST_TRUE");
 	literal("CONST_FALSE");
@@ -1222,10 +1222,15 @@ ezSATvec ezSAT::vec(const std::vector<int> &vec)
 	return ezSATvec(*this, vec);
 }
 
-void ezSAT::printDIMACS(FILE *f, bool verbose) const
+void ezSAT::printDIMACS(FILE *f, bool verbose, const std::vector<std::vector<int>> &extraClauses) const
 {
+	if (f == nullptr) {
+		fprintf(stderr, "Usage error: printDIMACS() must not be called with a null FILE pointer\n");
+		abort();
+	}
+
 	if (cnfConsumed) {
-		fprintf(stderr, "Usage error: printDIMACS() must not be called after cnfConsumed()!");
+		fprintf(stderr, "Usage error: printDIMACS() must not be called after cnfConsumed()!\n");
 		abort();
 	}
 
@@ -1259,8 +1264,10 @@ void ezSAT::printDIMACS(FILE *f, bool verbose) const
 	std::vector<std::vector<int>> all_clauses;
 	getFullCnf(all_clauses);
 	assert(cnfClausesCount == int(all_clauses.size()));
+	for (auto c : extraClauses)
+		all_clauses.push_back(c);
 
-	fprintf(f, "p cnf %d %d\n", cnfVariableCount, cnfClausesCount);
+	fprintf(f, "p cnf %d %d\n", cnfVariableCount, (int) all_clauses.size());
 	int maxClauseLen = 0;
 	for (auto &clause : all_clauses)
 		maxClauseLen = std::max(int(clause.size()), maxClauseLen);

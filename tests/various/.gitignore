@@ -4,6 +4,8 @@
 /plugin.so
 /plugin_search
 /plugin.so.dSYM
+/ezcmdline_plugin.so
+/ezcmdline_plugin.so.dSYM
 /temp
 /smtlib2_module.smt2
 /smtlib2_module-filtered.smt2
