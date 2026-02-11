@@ -17,8 +17,11 @@
  *
  */
 
+#include "kernel/rtlil.h"
 #include "kernel/yosys.h"
 #include "kernel/cellaigs.h"
+#include "kernel/yosys_common.h"
+#include <sstream>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -93,6 +96,7 @@ struct AigmapPass : public Pass {
 
 				vector<SigBit> sigs;
 				dict<pair<int, int>, SigBit> and_cache;
+				dict<pair<int, int>, SigBit> not_cache;
 
 				for (int node_idx = 0; node_idx < GetSize(aig.nodes); node_idx++)
 				{
@@ -119,21 +123,37 @@ struct AigmapPass : public Pass {
 							if (and_cache.count(key))
 								bit = and_cache.at(key);
 							else {
-								bit = module->addWire(NEW_ID);
+								std::stringstream ss;
+								ss << log_id(cell->name) << "$" << node_idx;
+								bit = module->addWire(IdString(ss.str()));
 								auto gate = module->addAndGate(NEW_ID, A, B, bit);
 								if (select_mode)
 									new_sel.insert(gate->name);
+								and_cache.insert({key, bit});
 							}
 						}
 					}
 
 					if (node.inverter) {
-						SigBit new_bit = module->addWire(NEW_ID);
-						auto gate = module->addNotGate(NEW_ID, bit, new_bit);
-						bit = new_bit;
-						if (select_mode)
-							new_sel.insert(gate->name);
-
+						pair<int, int> key(node.left_parent, node.right_parent);
+						if (not_cache.count(key))
+							bit = not_cache.at(key);
+						else {
+							IdString name;
+							if (bit.wire != nullptr) {
+								std::stringstream ss;
+								ss << "\\~" << log_id(bit.wire) << "[" << bit.offset << "]" << "$" << (autoidx++);
+								name = IdString(ss.str());
+							} else {
+								name = NEW_ID;
+							}
+							SigBit new_bit = module->addWire(name);
+							auto gate = module->addNotGate(NEW_ID, bit, new_bit);
+							bit = new_bit;
+							if (select_mode)
+								new_sel.insert(gate->name);
+							not_cache.insert({key, bit});
+						}
 					}
 
 				skip_inverter:

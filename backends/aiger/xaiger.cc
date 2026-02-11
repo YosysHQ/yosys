@@ -683,6 +683,7 @@ struct XAigerWriter
 	{
 		dict<int, string> input_lines;
 		dict<int, string> output_lines;
+		dict<int, string> node_lines;
 
 		for (auto wire : module->wires())
 		{
@@ -702,6 +703,14 @@ struct XAigerWriter
 			}
 		}
 
+		for (auto &it : aig_map) {
+			auto bit = it.first;
+			auto node = it.second;
+			if (bit.wire == nullptr || input_bits.count(bit) || output_bits.count(bit))
+				continue;
+			node_lines[node] += stringf("node %d %d %s\n", node - 2, bit.wire->start_offset + bit.offset, log_id(bit.wire));
+		}
+
 		input_lines.sort();
 		for (auto &it : input_lines)
 			f << it.second;
@@ -710,6 +719,10 @@ struct XAigerWriter
 		int box_count = 0;
 		for (auto cell : box_list)
 			f << stringf("box %d %d %s\n", box_count++, 0, log_id(cell->name));
+
+		node_lines.sort();
+		for (auto &it : node_lines)
+			f << it.second;
 
 		output_lines.sort();
 		for (auto &it : output_lines)

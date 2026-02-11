@@ -908,6 +908,9 @@ void AigerReader::post_process()
 				else
 					module->rename(cell, escaped_s);
 			}
+			else if (type == "node") {
+				
+			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
 		}
