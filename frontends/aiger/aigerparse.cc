@@ -286,10 +286,15 @@ end_of_header:
 
 			RTLIL::IdString escaped_s = stringf("\\%s", s);
 			RTLIL::Wire* wire;
-			if (c == 'i') wire = inputs[l1];
-			else if (c == 'l') wire = latches[l1];
-			else if (c == 'o') {
+			if (c == 'i')  {
+				log_assert(l1 < inputs.size());
+				wire = inputs[l1];
+			} else if (c == 'l') {
+				log_assert(l1 < latches.size());
+				wire = latches[l1];
+			} else if (c == 'o') {
 				wire = module->wire(escaped_s);
+				log_assert(l1 < outputs.size());
 				if (wire) {
 					// Could have been renamed by a latch
 					module->swap_names(wire, outputs[l1]);
@@ -297,9 +302,9 @@ end_of_header:
 					goto next;
 				}
 				wire = outputs[l1];
-			}
-			else if (c == 'b') wire = bad_properties[l1];
-			else log_abort();
+			} else if (c == 'b') {
+				wire = bad_properties[l1];
+			} else log_abort();
 
 			module->rename(wire, escaped_s);
 		}
