@@ -221,7 +221,7 @@ struct Abc9Pass : public ScriptPass
 			if ((arg == "-exe" || arg == "-script" || arg == "-D" ||
 						/*arg == "-S" ||*/ arg == "-lut" || arg == "-luts" ||
 						/*arg == "-box" ||*/ arg == "-W" || arg == "-genlib" ||
-						arg == "-constr" || arg == "-dont_use" || arg == "-liberty") &&
+						arg == "-constr" || arg == "-dont_use") &&
 					argidx+1 < args.size()) {
 				if (arg == "-lut" || arg == "-luts")
 					lut_mode = true;
