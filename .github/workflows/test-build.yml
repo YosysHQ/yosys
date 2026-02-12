@@ -220,7 +220,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -C docs vanilla-test -j$procs
+          make -C docs test -j$procs
 
   test-docs-build:
     name: Try build docs
