@@ -97,13 +97,16 @@ struct SynthGowinPass : public ScriptPass
 		log("    -setundef\n");
 		log("        set undriven wires and parameters to zero\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not infer DSP multipliers.\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, vout_file, json_file, family;
-	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check, setundef;
+	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check, setundef, nodsp;
 
 	void clear_flags() override
 	{
@@ -123,6 +126,7 @@ struct SynthGowinPass : public ScriptPass
 		noalu = false;
 		no_rw_check = false;
 		setundef = false;
+		nodsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -209,6 +213,10 @@ struct SynthGowinPass : public ScriptPass
 				setundef = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -223,6 +231,24 @@ struct SynthGowinPass : public ScriptPass
 
 		log_pop();
 	}
+
+	// DSP mapping rules for mul2dsp
+	struct DSPRule {
+		int a_maxwidth;
+		int b_maxwidth;
+		int a_minwidth;
+		int b_minwidth;
+		std::string prim;
+	};
+
+	// gw1n and gw2a
+	const std::vector<DSPRule> dsp_rules = {
+		{36, 36, 18, 18, "$__MUL36X36"},
+		{18, 18, 10,  4, "$__MUL18X18"},
+		{18, 18,  4, 10, "$__MUL18X18"},
+		{ 9,  9,  4,  4, "$__MUL9X9"},
+	};
+	// TODO: gw5a (MULT12X12, MULT27x36)
 
 	void script() override
 	{
@@ -249,6 +275,23 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
+			if (help_mode)
+			{
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
+				run("techmap -map +/gowin/dsp_map.v [...]", "(unless -nodsp)");
+			} else if (!nodsp) {
+				if (family == "gw1n" || family == "gw2a")
+				{
+					for (const auto &rule : dsp_rules)
+					{
+						run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d -D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_NAME=%s",
+							rule.a_maxwidth, rule.b_maxwidth, rule.a_minwidth, rule.b_minwidth, rule.prim.c_str()));
+						run("chtype -set $mul t:$__soft_mul");
+					}
+					run("techmap -map +/gowin/dsp_map.v");
+				}
+			}
+
 			run("synth -run coarse" + no_rw_check_opt);
 		}
 
