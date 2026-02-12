@@ -112,13 +112,16 @@ struct SynthGowinPass : public ScriptPass
 		log("    -setundef\n");
 		log("        set undriven wires and parameters to zero\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not infer DSP multipliers\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, vout_file, json_file, family;
-	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check, setundef;
+	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check, setundef, nodsp;
 
 	void clear_flags() override
 	{
@@ -138,6 +141,7 @@ struct SynthGowinPass : public ScriptPass
 		noalu = false;
 		no_rw_check = false;
 		setundef = false;
+		nodsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -224,6 +228,10 @@ struct SynthGowinPass : public ScriptPass
 				setundef = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -273,9 +281,9 @@ struct SynthGowinPass : public ScriptPass
 			run("share");
 
 			if (help_mode) {
-				run("techmap -map +/mul2dsp.v [...]", "(if -family gw1n or gw2a)");
-				run("techmap -map +/gowin/dsp_map.v", "(if -family gw1n or gw2a)");
-			} else if (family == "gw1n" || family == "gw2a") {
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp and if -family gw1n or gw2a)");
+				run("techmap -map +/gowin/dsp_map.v", "(unless -nodsp and if -family gw1n or gw2a)");
+			} else if (!nodsp && (family == "gw1n" || family == "gw2a")) {
 				for (const auto &rule : dsp_rules) {
 					run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d -D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_NAME=%s",
 						rule.a_maxwidth, rule.b_maxwidth, rule.a_minwidth, rule.b_minwidth, rule.prim));
