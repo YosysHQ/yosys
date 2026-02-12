@@ -132,7 +132,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test OBJS= TARGETS= EXTRA_TARGETS= CONFIG=$CC
+          make -j$procs vanilla-test OBJS= TARGETS= EXTRA_TARGETS= CONFIG=$CC
 
       - name: Report errors
         if: ${{ failure() }}
