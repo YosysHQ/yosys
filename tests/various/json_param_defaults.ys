@@ -1,0 +1,8 @@
+! mkdir -p temp
+read_verilog -sv json_param_defaults.v
+write_json temp/json_param_defaults.json
+design -reset
+read_json temp/json_param_defaults.json
+write_verilog -noattr -defaultparams temp/json_param_defaults.v
+! grep -qF "parameter WIDTH = 32'd8" temp/json_param_defaults.v
+! grep -qF "parameter SIGNED = 32'd1" temp/json_param_defaults.v

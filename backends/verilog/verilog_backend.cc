@@ -95,7 +95,8 @@ bool VERILOG_BACKEND::id_is_verilog_escaped(const std::string &str) {
 
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs, noparallelcase;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs,
+  noparallelcase, default_params;
 int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 dict<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires;
@@ -419,6 +420,13 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 			dump_const(f, it->second, -1, 0, false, as_comment);
 		f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
 	}
+}
+
+void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_string, RTLIL::Const parameter)
+{
+	f << stringf("%sparameter %s = ", indent.c_str(), id(id_string).c_str());
+	dump_const(f, parameter);
+	f << ";\n";
 }
 
 void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
@@ -2438,6 +2446,10 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
 
+	if (default_params)
+		for (auto p : module->parameter_default_values)
+			dump_parameter(f, indent + "  ", p.first, p.second);
+
 	// first dump input / output according to their order in module->ports
 	for (auto port : module->ports)
 		dump_wire(f, indent + "  ", module->wire(port));
@@ -2545,6 +2557,10 @@ struct VerilogBackend : public Backend {
 		log("        use 'defparam' statements instead of the Verilog-2001 syntax for\n");
 		log("        cell parameters.\n");
 		log("\n");
+		log("    -default_params\n");
+		log("        emit module parameter declarations from\n");
+		log("        parameter_default_values.\n");
+		log("\n");
 		log("    -blackboxes\n");
 		log("        usually modules with the 'blackbox' attribute are ignored. with\n");
 		log("        this option set only the modules with the 'blackbox' attribute\n");
@@ -2582,6 +2598,7 @@ struct VerilogBackend : public Backend {
 		siminit = false;
 		simple_lhs = false;
 		noparallelcase = false;
+		default_params = false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
@@ -2640,6 +2657,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-defparam") {
 				defparam = true;
+				continue;
+			}
+			if (arg == "-defaultparams") {
+				default_params = true;
 				continue;
 			}
 			if (arg == "-decimal") {
