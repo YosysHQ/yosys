@@ -42,7 +42,7 @@ runs:
       if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
       with:
-        packages: bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev
+        packages: bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev libgtest-dev
         version: ${{ inputs.runs-on }}-buildys
 
     - name: Linux docs dependencies
@@ -51,15 +51,6 @@ runs:
       with:
         packages: graphviz xdot
         version: ${{ inputs.runs-on }}-docsys
-
-    # if updating test dependencies, make sure to update
-    # docs/source/yosys_internals/extending_yosys/test_suites.rst to match.
-    - name: Linux test dependencies
-      if: runner.os == 'Linux' && inputs.get-test-deps == 'true'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
-      with:
-        packages: libgtest-dev
-        version: ${{ inputs.runs-on }}-testys
 
     - name: Install macOS Dependencies
       if: runner.os == 'macOS'

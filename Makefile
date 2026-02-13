@@ -979,9 +979,11 @@ makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
 	$(MAKE) -C $* -f run-test.mk
 	+@echo "...passed tests in $*"
 
-test: makefile-tests abcopt-tests seed-tests
+test: vanilla-test unit-test
+
+vanilla-test: makefile-tests abcopt-tests seed-tests
 	@echo ""
-	@echo "  Passed \"make test\"."
+	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)
 ifeq ($(YOSYS_NOVERIFIC),1)
 	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
@@ -1013,11 +1015,11 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 
 # Unit test
 unit-test: libyosys.so
-	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
+	@$(MAKE) -f $(UNITESTPATH)/Makefile CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
 		CXXFLAGS="$(CXXFLAGS)" LINKFLAGS="$(LINKFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
 
 clean-unit-test:
-	@$(MAKE) -C $(UNITESTPATH) clean
+	@$(MAKE) -f $(UNITESTPATH)/Makefile clean
 
 install-dev: $(PROGRAM_PREFIX)yosys-config share
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)

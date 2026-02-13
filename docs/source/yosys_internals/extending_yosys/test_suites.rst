@@ -8,7 +8,44 @@ Running the included test suite
 
 The Yosys source comes with a test suite to avoid regressions and keep
 everything working as expected.  Tests can be run by calling ``make test`` from
-the root Yosys directory.
+the root Yosys directory. By default, this runs vanilla and unit tests.
+
+Vanilla tests
+~~~~~~~~~~~~~
+
+These make up the majority of our testing coverage.
+They can be run with ``make vanilla-test`` and are based on calls to
+make subcommands (``make makefile-tests``) and shell scripts
+(``make seed-tests`` and ``make abcopt-tests``). Both use ``run-test.sh``
+files, but make-based tests only call ``tests/gen-tests-makefile.sh``
+to generate a makefile appropriate for the given directory, so only
+afterwards when make is invoked do the tests actually run.
+
+Usually their structure looks something like this:
+you write a .ys file that gets automatically run,
+which runs a frontend like ``read_verilog`` or ``read_rtlil`` with
+a relative path or a heredoc, then runs some commands including the command
+under test, and then uses :doc:`/using_yosys/more_scripting/selections`
+with ``-assert-count``. Usually it's unnecessary to "register" the test anywhere
+as if it's being added to an existing directory, depending
+on how the ``run-test.sh`` in that directory works.
+
+Unit tests
+~~~~~~~~~~
+
+Running the unit tests requires the following additional packages:
+
+.. tab:: Ubuntu
+
+   .. code:: console
+
+      sudo apt-get install libgtest-dev
+
+.. tab:: macOS
+
+   No additional requirements.
+
+Unit tests can be run with ``make unit-test``.
 
 Functional tests
 ~~~~~~~~~~~~~~~~
@@ -40,23 +77,6 @@ instructions <https://github.com/Z3Prover/z3>`_.
 
 Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
 ``make test`` and the functional tests will be run as well.
-
-Unit tests
-~~~~~~~~~~
-
-Running the unit tests requires the following additional packages:
-
-.. tab:: Ubuntu
-
-   .. code:: console
-
-      sudo apt-get install libgtest-dev
-
-.. tab:: macOS
-
-   No additional requirements.
-
-Unit tests can be run with ``make unit-test``. 
 
 Docs tests
 ~~~~~~~~~~
