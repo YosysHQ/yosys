@@ -161,7 +161,17 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.62+55
+YOSYS_VER := 0.62
+
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+    GIT_COMMIT_COUNT := $(shell git rev-list --count $(shell git describe --tags --abbrev=0)..HEAD 2>/dev/null)
+    ifneq ($(GIT_COMMIT_COUNT),0)
+        YOSYS_VER := $(YOSYS_VER)+$(GIT_COMMIT_COUNT)
+    endif
+endif
+endif
+
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
@@ -184,9 +194,6 @@ GIT_DIRTY := ""
 endif
 
 OBJS = kernel/version_$(GIT_REV).o
-
-bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 7326bb7.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
