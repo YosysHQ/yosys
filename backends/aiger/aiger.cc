@@ -931,6 +931,11 @@ struct AigerBackend : public Backend {
 		log("\n");
 		log("    -ywmap <filename>\n");
 		log("        write a map file for conversion to and from yosys witness traces.\n");
+		log("        The generated JSON map includes \"asserts\" and \"assumes\" arrays\n");
+		log("        containing the hierarchical witness paths of the corresponding\n");
+		log("        $assert and $assume cells. This enables downstream tools to map\n");
+		log("        AIGER bad-state properties and invariant constraints back to\n");
+		log("        individual formal properties by name.\n");
 		log("\n");
 		log("    -I, -O, -B, -L\n");
 		log("        If the design contains no input/output/assert/flip-flop then create one\n");

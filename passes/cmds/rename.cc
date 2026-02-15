@@ -263,9 +263,14 @@ struct RenamePass : public Pass {
 		log("    rename -witness\n");
 		log("\n");
 		log("Assigns auto-generated names to all $any*/$all* output wires and containing\n");
-		log("cells that do not have a public name. This ensures that, during formal\n");
-		log("verification, a solver-found trace can be fully specified using a public\n");
-		log("hierarchical names.\n");
+		log("cells that do not have a public name. Also renames formal property cells\n");
+		log("($assert, $assume, $cover, $live, $fair, $check) that have private names,\n");
+		log("giving them public witness-trackable names.\n");
+		log("\n");
+		log("This ensures that, during formal verification, a solver-found trace can be\n");
+		log("fully specified using public hierarchical names, and that individual property\n");
+		log("results can be tracked by name in flows that support per-property reporting\n");
+		log("(e.g. SBY with abc pdr in --keep-going mode).\n");
 		log("\n");
 		log("\n");
 		log("    rename -hide [selection]\n");
