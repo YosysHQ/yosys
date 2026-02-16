@@ -165,7 +165,7 @@ YOSYS_VER := 0.62
 
 ifneq (, $(shell command -v git 2>/dev/null))
 ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
-    GIT_COMMIT_COUNT := $(shell git rev-list --count $(shell git describe --tags --abbrev=0)..HEAD 2>/dev/null)
+    GIT_COMMIT_COUNT := $(or $(shell git rev-list --count v$(YOSYS_VER)..HEAD 2>/dev/null),0)
     ifneq ($(GIT_COMMIT_COUNT),0)
         YOSYS_VER := $(YOSYS_VER)+$(GIT_COMMIT_COUNT)
     endif
