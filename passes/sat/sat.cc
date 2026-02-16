@@ -27,6 +27,7 @@
 #include "kernel/satgen.h"
 #include "kernel/yosys.h"
 #include "kernel/log_help.h"
+#include "passes/equiv/equiv.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -227,16 +228,12 @@ struct SatHelper
 		int import_cell_counter = 0;
 		for (auto cell : module->cells())
 			if (design->selected(module, cell)) {
-				// log("Import cell: %s\n", RTLIL::id2cstr(cell->name));
 				if (satgen.importCell(cell, timestep)) {
 					for (auto &p : cell->connections())
 						if (ct.cell_output(cell->type, p.first))
 							show_drivers.insert(sigmap(p.second), cell);
 					import_cell_counter++;
-				} else if (ignore_unknown_cells)
-					log_warning("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
-				else
-					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+				} else report_missing_model(ignore_unknown_cells, cell);
 		}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
 
