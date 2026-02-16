@@ -279,6 +279,12 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	int num_threads = subpool.num_threads();
 	ConcurrentWorkQueue<int> cell_queue(num_threads);
 	std::vector<std::atomic<bool>> unused(const_module->cells_size());
+
+	// Enqueue kept cells into cell_queue
+	// Prepare input cone traversal from wire to driver cell as wire2driver
+	// Prepare "input cone" traversal from memory to write port or meminit as mem2cells
+	// Also check driver conflicts
+	// Also mark cells unused to true unless keep (we override this later)
 	subpool.run([&sigmap, &raw_sigmap, &keep_cache, const_module, &mem2cells_vector, &driver_driver_logs, &keep_wires, &cell_queue, &wire2driver_builder, &unused](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		for (int i : ctx.item_range(const_module->cells_size())) {
 			Cell *cell = const_module->cell_at(i);
@@ -313,15 +319,18 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 				keep_wires.insert(ctx, wire);
 		}
 	});
+	// Finish by merging per-thread collected data
 	subpool.run([&wire2driver_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		wire2driver_builder.process(ctx);
 	});
 	Wire2Drivers wire2driver(wire2driver_builder);
-
 	dict<std::string, pool<int>> mem2cells;
 	for (std::pair<std::string, int> &mem2cell : mem2cells_vector)
 		mem2cells[mem2cell.first].insert(mem2cell.second);
 
+	// Also enqueue cells that drive kept wires into cell_queue
+	// and mark those cells as used
+	// and mark all bits of those wires as used
 	pool<SigBit> used_raw_bits;
 	int i = 0;
 	for (Wire *wire : keep_wires) {
@@ -338,6 +347,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 			used_raw_bits.insert(raw_sigmap(raw_bit));
 	}
 
+	// Mark all memories as unused (we override this later)
 	std::vector<std::atomic<bool>> mem_unused(module->memories.size());
 	dict<std::string, int> mem_indices;
 	for (int i = 0; i < GetSize(module->memories); ++i) {
@@ -345,6 +355,8 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 		mem_unused[i].store(true, std::memory_order_relaxed);
 	}
 
+	// Discover and mark used memories and cells
+	// Processes the cell queue in batches, traversing input cones by enqueuing more cells
 	subpool.run([const_module, &sigmap, &wire2driver, &mem2cells, &unused, &cell_queue, &mem_indices, &mem_unused](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		pool<SigBit> bits;
 		pool<std::string> mems;
@@ -389,18 +401,21 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 		}
 	});
 
-	ShardedVector<int> sharded_unused_cells(subpool);
-	subpool.run([const_module, &unused, &sharded_unused_cells, &wire2driver](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		// Parallel destruction of `wire2driver`
-		wire2driver.clear(ctx);
-		for (int i : ctx.item_range(const_module->cells_size()))
-			if (unused[i].load(std::memory_order_relaxed))
-				sharded_unused_cells.insert(ctx, i);
-	});
+	// Set of all unused cells, built in parallel from unused by filtering for unused[i]==true
 	pool<Cell*> unused_cells;
-	for (int cell_index : sharded_unused_cells)
-		unused_cells.insert(const_module->cell_at(cell_index));
-	unused_cells.sort(RTLIL::sort_by_name_id<RTLIL::Cell>());
+	{
+		ShardedVector<int> sharded_unused_cells(subpool);
+		subpool.run([const_module, &unused, &sharded_unused_cells, &wire2driver](const ParallelDispatchThreadPool::RunCtx &ctx) {
+			// Parallel destruction of `wire2driver`
+			wire2driver.clear(ctx);
+			for (int i : ctx.item_range(const_module->cells_size()))
+				if (unused[i].load(std::memory_order_relaxed))
+					sharded_unused_cells.insert(ctx, i);
+		});
+		for (int cell_index : sharded_unused_cells)
+			unused_cells.insert(const_module->cell_at(cell_index));
+		unused_cells.sort(RTLIL::sort_by_name_id<RTLIL::Cell>());
+	}
 
 	for (auto cell : unused_cells) {
 		if (verbose)
@@ -424,12 +439,11 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 
 	if (!driver_driver_logs.empty()) {
 		// We could do this in parallel but hopefully this is rare.
-		for (auto &it : module->cells_) {
-			Cell *cell = it.second;
-			for (auto &it2 : cell->connections()) {
-				if (ct_all.cell_known(cell->type) && !ct_all.cell_input(cell->type, it2.first))
+		for (auto [_, cell] : module->cells_) {
+			for (auto &[port, sig] : cell->connections()) {
+				if (ct_all.cell_known(cell->type) && !ct_all.cell_input(cell->type, port))
 					continue;
-				for (auto raw_bit : raw_sigmap(it2.second))
+				for (auto raw_bit : raw_sigmap(sig))
 					used_raw_bits.insert(raw_bit);
 			}
 		}
@@ -445,11 +459,12 @@ int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	int count = w->attributes.size();
 	count -= w->attributes.count(ID::src);
 	count -= w->attributes.count(ID::hdlname);
-	count -= w->attributes.count(ID(scopename));
+	count -= w->attributes.count(ID::scopename);
 	count -= w->attributes.count(ID::unused_bits);
 	return count;
 }
 
+// No collision handler for these, since we will use them such that collisions don't happen
 struct ShardedSigBit {
 	using Accumulated = ShardedSigBit;
 	RTLIL::SigBit bit;
