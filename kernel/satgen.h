@@ -292,6 +292,8 @@ struct SatGen
 	bool importCell(RTLIL::Cell *cell, int timestep = -1);
 };
 
+void report_missing_model(bool warn_only, RTLIL::Cell* cell);
+
 YOSYS_NAMESPACE_END
 
 #endif

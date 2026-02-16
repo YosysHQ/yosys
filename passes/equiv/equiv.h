@@ -8,21 +8,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-static void report_missing_model(bool warn_only, RTLIL::Cell* cell)
-{
-	std::string s;
-	if (cell->is_builtin_ff())
-		s = stringf("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
-	else
-		s = stringf("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
-
-	if (warn_only) {
-		log_formatted_warning_noprefix(s);
-	} else {
-		log_formatted_error(s);
-	}
-}
-
 struct EquivBasicConfig {
 	bool model_undef = false;
 	int max_seq = 1;

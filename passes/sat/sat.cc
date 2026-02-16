@@ -27,7 +27,6 @@
 #include "kernel/satgen.h"
 #include "kernel/yosys.h"
 #include "kernel/log_help.h"
-#include "passes/equiv/equiv.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
