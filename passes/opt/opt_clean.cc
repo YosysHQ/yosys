@@ -500,7 +500,7 @@ struct DirectWires {
 	DirectWires(const SigMap &assign_map, const ShardedSigSpecPool &direct_sigs) : assign_map(assign_map), direct_sigs(direct_sigs) {}
 	void cache_result_for_bit(const SigBit &bit) {
 		if (bit.wire != nullptr)
-			is_direct(bit.wire);
+			(void)is_direct(bit.wire);
 	}
 	bool is_direct(RTLIL::Wire *wire) {
 		if (wire->port_input)
@@ -607,7 +607,9 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	const RTLIL::Module *const_module = module;
 	// `register_signals` and `connected_signals` will help us decide later on
 	// on picking representatives out of groups of connected signals
+	// Wire bits driven by registers (with clk2fflogic exception)
 	ShardedSigPool::Builder register_signals_builder(subpool);
+	// Wire bits connected to any cell port
 	ShardedSigPool::Builder connected_signals_builder(subpool);
 	// construct a pool of wires which are directly driven by a known celltype,
 	// this will influence our choice of representatives
@@ -617,18 +619,21 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 			RTLIL::Cell *cell = const_module->cell_at(i);
 			if (!purge_mode) {
 				if (ct_reg.cell_known(cell->type)) {
-					bool clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic));
-					for (auto &it2 : cell->connections())
-						if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
-							add_spec(register_signals_builder, ctx, it2.second);
+					// Improve witness signal naming when clk2fflogic used
+					// see commit message e36c71b5
+					bool clk2fflogic = cell->get_bool_attribute(ID::clk2fflogic);
+					for (auto &[port, sig] : cell->connections())
+						if (clk2fflogic ? port == ID::D : ct_reg.cell_output(cell->type, port))
+							add_spec(register_signals_builder, ctx, sig);
 				}
-				for (auto &it2 : cell->connections())
-					add_spec(connected_signals_builder, ctx, it2.second);
+				// TODO optimize for direct wire connections?
+				for (auto &[_, sig] : cell->connections())
+					add_spec(connected_signals_builder, ctx, sig);
 			}
 			if (ct_all.cell_known(cell->type))
-				for (auto &it2 : cell->connections())
-					if (ct_all.cell_output(cell->type, it2.first)) {
-						RTLIL::SigSpec spec = assign_map(it2.second);
+				for (auto &[port, sig] : cell->connections())
+					if (ct_all.cell_output(cell->type, port)) {
+						RTLIL::SigSpec spec = assign_map(sig);
 						unsigned int hash = spec.hash_into(Hasher()).yield();
 						direct_sigs_builder.insert(ctx, {std::move(spec), hash});
 					}
@@ -643,12 +648,17 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	ShardedSigPool connected_signals(connected_signals_builder);
 	ShardedSigSpecPool direct_sigs(direct_sigs_builder);
 
-	ShardedVector<RTLIL::SigBit> sigmap_canonical_candidates(subpool);
+	// First thread's cached direct wires are retained and used later:
 	DirectWires direct_wires(assign_map, direct_sigs);
+	// Other threads' caches get discarded when threads finish
+	// but the per-thread results are collected into sigmap_canonical_candidates
+	ShardedVector<RTLIL::SigBit> sigmap_canonical_candidates(subpool);
 	subpool.run([const_module, &assign_map, &register_signals, &connected_signals, &sigmap_canonical_candidates, &direct_sigs, &direct_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		std::optional<DirectWires> local_direct_wires;
 		DirectWires *this_thread_direct_wires = &direct_wires;
 		if (ctx.thread_num > 0) {
+			// Rebuild a thread-local direct_wires from scratch
+			// but from the same inputs
 			local_direct_wires.emplace(assign_map, direct_sigs);
 			this_thread_direct_wires = &local_direct_wires.value();
 		}
@@ -668,6 +678,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 		direct_wires.cache_result_for_bit(candidate);
 		direct_wires.cache_result_for_bit(assign_map(candidate));
 	}
+	// Modify assign_map to reflect the connectivity we want, not the one we have
 	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
 		RTLIL::SigBit current_canonical = assign_map(candidate);
 		if (compare_signals(current_canonical, candidate, register_signals, connected_signals, direct_wires))
@@ -688,6 +699,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 		RTLIL::IdString port;
 		RTLIL::SigSpec spec;
 	};
+	// Deferred updates to the assign_map
 	ShardedVector<UpdateConnection> update_connections(subpool);
 	ShardedVector<RTLIL::Wire*> initialized_wires(subpool);
 	// gather the usage information for cells and update cell connections
@@ -701,13 +713,13 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 
 		for (int i : ctx.item_range(const_module->cells_size())) {
 			RTLIL::Cell *cell = const_module->cell_at(i);
-			for (const auto &it2 : cell->connections_) {
-				SigSpec spec = assign_map(it2.second);
-				if (spec != it2.second)
-					update_connections.insert(ctx, {cell, it2.first, spec});
+			for (const auto &[port, sig] : cell->connections_) {
+				SigSpec spec = assign_map(sig);
+				if (spec != sig)
+					update_connections.insert(ctx, {cell, port, spec});
 				add_spec(raw_used_signals_builder, ctx, spec);
 				add_spec(used_signals_builder, ctx, spec);
-				if (!ct_all.cell_output(cell->type, it2.first))
+				if (!ct_all.cell_output(cell->type, port))
 					add_spec(used_signals_nodrivers_builder, ctx, spec);
 			}
 		}
@@ -726,8 +738,8 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 				assign_map.apply(sig);
 				add_spec(used_signals_builder, ctx, sig);
 			}
-			auto it2 = wire->attributes.find(ID::init);
-			if (it2 != wire->attributes.end())
+			auto it = wire->attributes.find(ID::init);
+			if (it != wire->attributes.end())
 				initialized_wires.insert(ctx, wire);
 		}
 	});
