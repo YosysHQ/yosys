@@ -489,6 +489,7 @@ struct WreduceWorker
 		for (auto w : module->wires())
 			complete_wires.insert(mi.sigmap(w));
 
+		mi.dump_db();
 		for (auto w : module->selected_wires())
 		{
 			int unused_top_bits = 0;
@@ -496,6 +497,8 @@ struct WreduceWorker
 			if (w->port_id > 0 || count_nontrivial_wire_attrs(w) > 0)
 				continue;
 
+			log_debug("wire %s\n", w->name);
+			mi.check_db();
 			for (int i = GetSize(w)-1; i >= 0; i--) {
 				SigBit bit(w, i);
 				auto info = mi.query(bit);

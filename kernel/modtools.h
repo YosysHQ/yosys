@@ -297,6 +297,13 @@ struct ModIndex : public RTLIL::Monitor
 		return info->ports;
 	}
 
+	void check_db()
+	{
+		for (auto &it : database) {
+			log_assert(database.find(it.first) != database.end());
+		}
+	}
+
 	void dump_db()
 	{
 		log("--- ModIndex Dump ---\n");
