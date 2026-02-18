@@ -254,10 +254,9 @@ struct RenamePass : public Pass {
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
-		log("Assign short auto-generated names to all selected wires and cells with private\n");
-		log("names. The -pattern option can be used to set the pattern for the new names.\n");
-		log("The character %% in the pattern is replaced with a integer number. The default\n");
-		log("pattern is '_%%_'.\n");
+		log("Assigns auto-generated names to objects used in formal verification\n");
+		log("that do not have a public name. This applies to all formal property\n");
+		log("cells, $any*/$all* output wires, and their containing cells.\n");
 		log("\n");
 		log("\n");
 		log("    rename -witness\n");
