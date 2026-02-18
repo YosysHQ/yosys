@@ -1,0 +1,6 @@
+verific -formal dut.sv
+verific -import -all
+hierarchy -top dut
+prep -top dut
+flatten
+write_rtlil stage_1_init.il

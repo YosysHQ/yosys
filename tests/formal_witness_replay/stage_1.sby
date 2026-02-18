@@ -1,0 +1,12 @@
+[options]
+mode cover
+depth 24
+
+[engines]
+smtbmc
+
+[script]
+read_rtlil stage_1_fv.il
+
+[files]
+stage_1_fv.il
