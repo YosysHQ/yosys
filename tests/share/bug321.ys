@@ -1,0 +1,11 @@
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire s;
+	output wire y;
+	assign y = s ? |a : |b;
+endmodule
+EOF
+
+share -force
