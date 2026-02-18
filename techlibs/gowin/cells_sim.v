@@ -110,6 +110,45 @@ module MUX2 (O, I0, I1, S0);
   assign O = S0 ? I1 : I0;
 endmodule
 
+(* abc9_box, lib_whitebox *)
+module \$_MUX4_ (A, B, C, D, S, T, Y);
+	input A, B, C, D, S, T;
+	output Y;
+	specify
+		(A => Y) = (808, 1116);
+		(B => Y) = (995, 1371);
+		(C => Y) = (808, 1116);
+		(D => Y) = (995, 1371);
+		(S => Y) = (1184, 1638);
+		(T => Y) = (486, 680);
+	endspecify
+	assign Y = T ? (S ? D : C) :
+	               (S ? B : A);
+endmodule
+
+(* abc9_box, lib_whitebox *)
+module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
+	input A, B, C, D, E, F, G, H, S, T, U;
+	output Y;
+	specify
+		(A => Y) = (808 + 136, 1116 + 255);
+		(B => Y) = (995 + 136, 1371 + 255);
+		(C => Y) = (808 + 136, 1116 + 255);
+		(D => Y) = (995 + 136, 1371 + 255);
+		(E => Y) = (808 + 136, 1116 + 255);
+		(F => Y) = (995 + 136, 1371 + 255);
+		(G => Y) = (808 + 136, 1116 + 255);
+		(H => Y) = (995 + 136, 1371 + 255);
+		(S => Y) = (1184 + 136, 1638 + 255);
+		(T => Y) = (486 + 136, 680 + 255);
+		(U => Y) = (478, 723);
+	endspecify
+	assign Y = U ? T ? (S ? H : G) :
+	                   (S ? F : E) :
+	               T ? (S ? D : C) :
+	                   (S ? B : A);
+endmodule
+
 module MUX2_LUT5 (O, I0, I1, S0);
   input I0,I1;
   input S0;
