@@ -28,6 +28,22 @@ YOSYS_NAMESPACE_BEGIN
 
 struct ModIndex : public RTLIL::Monitor
 {
+	struct PointerOrderedSigBit : public RTLIL::SigBit {
+		PointerOrderedSigBit(SigBit s) {
+			wire = s.wire;
+			if (wire)
+				offset = s.offset;
+			else
+				data = s.data;
+		}
+		inline bool operator<(const RTLIL::SigBit &other) const {
+			if (wire == other.wire)
+				return wire ? (offset < other.offset) : (data < other.data);
+			if (wire != nullptr && other.wire != nullptr)
+				return wire < other.wire; // look here
+			return (wire != nullptr) < (other.wire != nullptr);
+		}
+	};
 	struct PortInfo {
 		RTLIL::Cell* cell;
 		RTLIL::IdString port;
@@ -77,7 +93,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	SigMap sigmap;
 	RTLIL::Module *module;
-	std::map<RTLIL::SigBit, SigBitInfo> database;
+	std::map<PointerOrderedSigBit, SigBitInfo> database;
 	int auto_reload_counter;
 	bool auto_reload_module;
 
