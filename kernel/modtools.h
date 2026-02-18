@@ -151,11 +151,11 @@ struct ModIndex : public RTLIL::Monitor
 		}
 	}
 
-	void check()
+	bool ok()
 	{
 #ifndef NDEBUG
 		if (auto_reload_module)
-			return;
+			return true;
 
 		for (auto it : database)
 			log_assert(it.first == sigmap(it.first));
@@ -175,9 +175,15 @@ struct ModIndex : public RTLIL::Monitor
 				else if (!(it.second == database_bak.at(it.first)))
 					log("ModuleIndex::check(): Different content for database[%s].\n", log_signal(it.first));
 
-			log_assert(database == database_bak);
+			return false;
 		}
+		return true;
 #endif
+	}
+
+	void check()
+	{
+		log_assert(ok());
 	}
 
 	void notify_connect(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
