@@ -802,9 +802,30 @@ endif
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
+YOSYS_REPO :=
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+	GIT_REMOTE := $(strip $(shell git config --get remote.origin.url 2>/dev/null | $(AWK) '{print tolower($$0)}'))
+	ifneq ($(strip $(GIT_REMOTE)),)
+		YOSYS_REPO := $(strip $(shell echo $(GIT_REMOTE) | $(AWK) -F '[:/]' '{gsub(/\.git$$/, "", $$NF); printf "%s/%s", $$(NF-1), $$NF}'))
+	endif
+	ifeq ($(strip $(YOSYS_REPO)),yosyshq/yosys)
+		YOSYS_REPO :=
+	endif
+	GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+	ifeq ($(filter main HEAD release/v%,$(GIT_BRANCH)),)
+		YOSYS_REPO := $(YOSYS_REPO) at $(GIT_BRANCH)
+	endif
+	YOSYS_REPO := $(strip $(YOSYS_REPO))
+endif
+endif
+
 YOSYS_GIT_STR := $(GIT_REV)$(GIT_DIRTY)
 YOSYS_COMPILER := $(notdir $(CXX)) $(shell $(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS))
 YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(YOSYS_COMPILER))
+ifneq ($(strip $(YOSYS_REPO)),)
+	YOSYS_VER_STR := $(YOSYS_VER_STR) [$(YOSYS_REPO)]
+endif
 
 kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
