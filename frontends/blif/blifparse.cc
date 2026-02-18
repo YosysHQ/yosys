@@ -629,6 +629,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 							goto try_next_value;
 					}
 				}
+				log_assert(i < lutptr->size());
 				lutptr->set(i, !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1);
 			try_next_value:;
 			}
