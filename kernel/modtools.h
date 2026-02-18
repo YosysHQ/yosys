@@ -94,8 +94,11 @@ struct ModIndex : public RTLIL::Monitor
 	{
 		for (int i = 0; i < GetSize(sig); i++) {
 			RTLIL::SigBit bit = sigmap(sig[i]);
-			if (bit.wire)
+			if (bit.wire) {
 				database[bit].ports.erase(PortInfo(cell, port, i));
+				if (!database[bit].is_input && !database[bit].is_output && database[bit].ports.empty())
+					database.erase(bit);
+			}
 		}
 	}
 
