@@ -19,6 +19,7 @@ chformal -remove
 opt
 
 read_verilog -sv -formal $defs -D${rm} edges.sv
+chformal -remove -cover
 chformal -lower
 prep -top edges -flatten
 sat -set-assumes -prove-asserts -verify
