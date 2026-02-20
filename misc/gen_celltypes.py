@@ -10,7 +10,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-MAX_CELLS = 300
+MAX_CELLS = 1024
 MAX_PORTS = 20
 
 # Build the IdString index map
@@ -51,7 +51,7 @@ class Features:
 @dataclass
 class CellInfo:
     type_name: str
-    inputs: list
+    inputs: MAX_CELLS
     outputs: list
     features: Features
 

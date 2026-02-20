@@ -93,12 +93,12 @@ struct CellTypes
 			setup_module(module);
 	}
 
-	void setup_internals()         { enabled_cats |= BIT_INTERNALS_OTHER | BIT_INTERNALS_EVAL | BIT_INTERNALS_FF | BIT_INTERNALS_ANYINIT | BIT_INTERNALS_MEM; }
+	void setup_internals()         { enabled_cats |= BIT_INTERNALS_OTHER | BIT_INTERNALS_EVAL; }
 	void setup_internals_eval()    { enabled_cats |= BIT_INTERNALS_EVAL; }
 	void setup_internals_ff()      { enabled_cats |= BIT_INTERNALS_FF; }
 	void setup_internals_anyinit() { enabled_cats |= BIT_INTERNALS_ANYINIT; }
 	void setup_internals_mem()     { enabled_cats |= BIT_INTERNALS_FF | BIT_INTERNALS_MEM; }
-	void setup_stdcells()          { enabled_cats |= BIT_STDCELLS_EVAL | BIT_STDCELLS_TRISTATE | BIT_STDCELLS_FF; }
+	void setup_stdcells()          { enabled_cats |= BIT_STDCELLS_EVAL | BIT_STDCELLS_TRISTATE; }
 	void setup_stdcells_eval()     { enabled_cats |= BIT_STDCELLS_EVAL; }
 	void setup_stdcells_mem()      { enabled_cats |= BIT_STDCELLS_FF; }
 
