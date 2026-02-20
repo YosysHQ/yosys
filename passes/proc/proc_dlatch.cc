@@ -364,17 +364,17 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 
 		for (auto ss : sr->actions)
 		{
-			db.sigmap.apply(ss.first);
-			db.sigmap.apply(ss.second);
+			db.sigmap.apply(ss.lhs);
+			db.sigmap.apply(ss.rhs);
 
-			if (!db.quickcheck(ss.second, ss.first)) {
-				nolatches_bits.first.append(ss.first);
-				nolatches_bits.second.append(ss.second);
+			if (!db.quickcheck(ss.rhs, ss.lhs)) {
+				nolatches_bits.first.append(ss.lhs);
+				nolatches_bits.second.append(ss.rhs);
 				continue;
 			}
 
-			for (int i = 0; i < GetSize(ss.first); i++)
-				latches_out_in[ss.first[i]] = ss.second[i];
+			for (int i = 0; i < GetSize(ss.lhs); i++)
+				latches_out_in[ss.lhs[i]] = ss.rhs[i];
 		}
 		sr->actions.clear();
 	}

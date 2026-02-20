@@ -23,6 +23,7 @@
 
 #include "kernel/register.h"
 #include "kernel/log.h"
+#include "kernel/rtlil.h"
 #include "kernel/utils.h"
 #include <charconv>
 #include <deque>
@@ -715,7 +716,7 @@ struct RTLILFrontendWorker {
 						"The assign statement is reordered to come before all switch statements.");
 				RTLIL::SigSpec s1 = parse_sigspec();
 				RTLIL::SigSpec s2 = parse_sigspec();
-				current_case->actions.push_back(RTLIL::SigSig(std::move(s1), std::move(s2)));
+				current_case->actions.push_back({std::move(s1), std::move(s2), Const("")});
 				expect_eol();
 			} else
 				return;
@@ -811,7 +812,7 @@ struct RTLILFrontendWorker {
 				if (try_parse_keyword("update")) {
 					RTLIL::SigSpec s1 = parse_sigspec();
 					RTLIL::SigSpec s2 = parse_sigspec();
-					rule->actions.push_back(RTLIL::SigSig(std::move(s1), std::move(s2)));
+					rule->actions.push_back({std::move(s1), std::move(s2), Const("")});
 					expect_eol();
 					continue;
 				}

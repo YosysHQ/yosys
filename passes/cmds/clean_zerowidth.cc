@@ -17,6 +17,7 @@
  *
  */
 
+#include "kernel/rtlil.h"
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
@@ -40,9 +41,9 @@ struct CleanZeroWidthPass : public Pass {
 
 	void clean_case(RTLIL::CaseRule *cs)
 	{
-		std::vector<SigSig> new_actions;
+		std::vector<RTLIL::SyncAction> new_actions;
 		for (auto &action : cs->actions)
-			if (GetSize(action.first) != 0)
+			if (GetSize(action.lhs) != 0)
 				new_actions.push_back(action);
 		std::swap(new_actions, cs->actions);
 		for (auto sw : cs->switches)
@@ -167,9 +168,9 @@ struct CleanZeroWidthPass : public Pass {
 						new_memwr_actions.push_back(memwr);
 					}
 					std::swap(new_memwr_actions, sync->mem_write_actions);
-					std::vector<SigSig> new_actions;
+					std::vector<RTLIL::SyncAction> new_actions;
 					for (auto &action : sync->actions)
-						if (GetSize(action.first) != 0)
+						if (GetSize(action.lhs) != 0)
 							new_actions.push_back(action);
 					std::swap(new_actions, sync->actions);
 				}

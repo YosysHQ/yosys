@@ -300,7 +300,7 @@ example, calling :yoscrypt:`dump $2` after the :yoscrypt:`cd example` above:
 
 .. literalinclude:: /code_examples/show/example.out
    :language: RTLIL
-   :start-after: yosys [example]> dump
+   :start-after: Warning: Module example contains processes. Case action sources attributes will be lost.
    :end-before: yosys [example]> cd
    :dedent:
    :caption: Output of :yoscrypt:`dump $2` after :numref:`lscd`

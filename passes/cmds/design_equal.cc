@@ -185,10 +185,10 @@ public:
 		if (a->actions.size() != b->actions.size())
 			return "actions size mismatch: " + std::to_string(a->actions.size()) + " != " + std::to_string(b->actions.size());
 		for (size_t i = 0; i < a->actions.size(); i++) {
-			if (!compare_sigspec(a->actions[i].first, b->actions[i].first))
-				return "action " + std::to_string(i) + " first mismatch: " + log_signal(a->actions[i].first) + " != " + log_signal(b->actions[i].first);
-			if (!compare_sigspec(a->actions[i].second, b->actions[i].second))
-				return "action " + std::to_string(i) + " second mismatch: " + log_signal(a->actions[i].second) + " != " + log_signal(b->actions[i].second);
+			if (!compare_sigspec(a->actions[i].lhs, b->actions[i].lhs))
+				return "action " + std::to_string(i) + " lhs mismatch: " + log_signal(a->actions[i].lhs) + " != " + log_signal(b->actions[i].lhs);
+			if (!compare_sigspec(a->actions[i].rhs, b->actions[i].rhs))
+				return "action " + std::to_string(i) + " rhs mismatch: " + log_signal(a->actions[i].rhs) + " != " + log_signal(b->actions[i].rhs);
 		}
 
 		if (a->switches.size() != b->switches.size())
@@ -225,10 +225,10 @@ public:
 		if (a->actions.size() != b->actions.size())
 			return "actions size mismatch: " + std::to_string(a->actions.size()) + " != " + std::to_string(b->actions.size());
 		for (size_t i = 0; i < a->actions.size(); i++) {
-			if (!compare_sigspec(a->actions[i].first, b->actions[i].first))
-				return "action " + std::to_string(i) + " first mismatch: " + log_signal(a->actions[i].first) + " != " + log_signal(b->actions[i].first);
-			if (!compare_sigspec(a->actions[i].second, b->actions[i].second))
-				return "action " + std::to_string(i) + " second mismatch: " + log_signal(a->actions[i].second) + " != " + log_signal(b->actions[i].second);
+			if (!compare_sigspec(a->actions[i].lhs, b->actions[i].lhs))
+				return "action " + std::to_string(i) + " lhs mismatch: " + log_signal(a->actions[i].lhs) + " != " + log_signal(b->actions[i].lhs);
+			if (!compare_sigspec(a->actions[i].rhs, b->actions[i].rhs))
+				return "action " + std::to_string(i) + " rhs mismatch: " + log_signal(a->actions[i].rhs) + " != " + log_signal(b->actions[i].rhs);
 		}
 		if (a->mem_write_actions.size() != b->mem_write_actions.size())
 			return "mem_write_actions size mismatch: " + std::to_string(a->mem_write_actions.size()) + " != " + std::to_string(b->mem_write_actions.size());

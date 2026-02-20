@@ -34,8 +34,8 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 
 	for (auto sync : proc->syncs)
 	for (auto &action : sync->actions)
-		if (action.first.size() > 0) {
-			lvalue = action.first;
+		if (action.lhs.size() > 0) {
+			lvalue = action.lhs;
 			lvalue.sort_and_unify();
 			break;
 		}
@@ -43,7 +43,7 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	for (auto sync : proc->syncs) {
 		RTLIL::SigSpec this_lvalue;
 		for (auto &action : sync->actions)
-			this_lvalue.append(action.first);
+			this_lvalue.append(action.lhs);
 		this_lvalue.sort_and_unify();
 		RTLIL::SigSpec common_sig = this_lvalue.extract(lvalue);
 		if (common_sig.size() > 0)
@@ -51,6 +51,16 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	}
 
 	return lvalue;
+}
+
+void transfer_wire_sources(const SigSpec& sig, Cell* cell)
+{
+	pool<std::string> sources;
+	for (auto chunk : sig.chunks())
+		if (chunk.wire && chunk.wire->has_attribute(ID::src))
+			sources.insert(chunk.wire->attributes[ID::src].decode_string());
+	if (!sources.empty())
+		cell->add_strpool_attribute(ID::src, sources);
 }
 
 void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
@@ -83,6 +93,7 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 
 	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_q, cell);
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
@@ -96,6 +107,7 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_out, cell);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
@@ -118,6 +130,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), clk.empty() ? ID($ff) : arst ? ID($adff) : ID($dff));
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_out, cell);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	if (arst) {
@@ -142,6 +155,20 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	if (arst)
 		log(" and %s level reset", arst_polarity ? "positive" : "negative");
 	log(".\n");
+}
+
+
+template <typename T>
+static void error_at_src(const RTLIL::Const* src, T msg) {
+	if (!src || src->empty()) {
+		log_error("%s\n", msg);
+	} else {
+		log_error("%s: %s\n", src->decode_string(), msg);
+	}
+}
+template <typename T>
+static void error_at_proc(const RTLIL::Process* proc, T msg) {
+	error_at_src(proc->attributes.count(ID::src) ? &proc->attributes.at(ID::src) : nullptr, msg);
 }
 
 void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
@@ -172,35 +199,36 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		for (auto sync : proc->syncs)
 		for (auto &action : sync->actions)
 		{
-			if (action.first.extract(sig).size() == 0)
+			if (action.lhs.extract(sig).size() == 0)
 				continue;
 
 			if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
 				RTLIL::SigSpec rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-				sig.replace(action.first, action.second, &rstval);
+				sig.replace(action.lhs, action.rhs, &rstval);
 				async_rules.emplace_back(rstval, sync);
 			}
 			else if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
-				if (sync_edge != NULL && sync_edge != sync)
-					log_error("Multiple edge sensitive events found for this signal!\n");
-				sig.replace(action.first, action.second, &insig);
+				if (sync_edge != NULL && sync_edge != sync) {
+					error_at_src(&action.src, stringf("Multiple edge sensitive events found for signal %s", log_signal(sig)));
+				}
+				sig.replace(action.lhs, action.rhs, &insig);
 				sync_edge = sync;
 			}
 			else if (sync->type == RTLIL::SyncType::STa) {
 				if (sync_always != NULL && sync_always != sync)
-					log_error("Multiple always events found for this signal!\n");
-				sig.replace(action.first, action.second, &insig);
+					error_at_proc(proc, stringf("Multiple always events found for signal %s", log_signal(sig)));
+				sig.replace(action.lhs, action.rhs, &insig);
 				sync_always = sync;
 			}
 			else if (sync->type == RTLIL::SyncType::STg) {
-				sig.replace(action.first, action.second, &insig);
+				sig.replace(action.lhs, action.rhs, &insig);
 				global_clock = true;
 			}
 			else {
-				log_error("Event with any-edge sensitivity found for this signal!\n");
+				error_at_proc(proc, stringf("Event with any-edge sensitivity found for signal %s", log_signal(sig)));
 			}
 
-			action.first.remove2(sig, &action.second);
+			action.lhs.remove2(sig, &action.rhs);
 		}
 
 		// If all async rules assign the same value, priority ordering between
@@ -223,7 +251,8 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			// as ones coming from the module
 			single_async_rule.type = RTLIL::SyncType::ST1;
 			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers);
-			single_async_rule.actions.push_back(RTLIL::SigSig(sig, rstval));
+			// TODO
+			single_async_rule.actions.push_back({sig, rstval, Const("")});
 
 			// Replace existing rules with this new rule
 			async_rules.clear();
@@ -248,14 +277,14 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 
 		if (sync_always) {
 			if (sync_edge || !async_rules.empty())
-				log_error("Mixed always event with edge and/or level sensitive events!\n");
+				error_at_proc(proc, stringf("Mixed always event with edge and/or level sensitive events for signal %s", log_signal(sig)));
 			log("  created direct connection (no actual register cell created).\n");
 			mod->connect(RTLIL::SigSig(sig, insig));
 			continue;
 		}
 
 		if (!sync_edge && !global_clock)
-			log_error("Missing edge-sensitive event for this signal!\n");
+			error_at_proc(proc, stringf("Missing edge-sensitive event for signal %s", log_signal(sig)));
 
 		// More than one reset value so we derive a dffsr formulation
 		if (async_rules.size() > 1)
