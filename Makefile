@@ -741,6 +741,8 @@ ifeq ($(LINK_ABC),1)
 OBJS += $(PROGRAM_PREFIX)yosys-libabc.a
 endif
 
+OBJS += kernel/gen_celltypes_data.o
+
 # prevent the CXXFLAGS set by this Makefile from reaching abc/Makefile,
 # especially the -MD flag which will break the build when CXX is clang
 unexport CXXFLAGS
@@ -1182,6 +1184,12 @@ clean-abc:
 
 mrproper: clean
 	git clean -xdf
+
+# Generate cell type tables
+GENFILES += kernel/gen_celltypes_data.cc kernel/gen_celltypes_data.h
+kernel/gen_celltypes_data.cc kernel/gen_celltypes_data.h: kernel/constids.inc misc/gen_celltypes.py
+	$(P) $(PYTHON_EXECUTABLE) $(YOSYS_SRC)/misc/gen_celltypes.py $(YOSYS_SRC)
+$(OBJS): | kernel/gen_celltypes_data.h
 
 coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'

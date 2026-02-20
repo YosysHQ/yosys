@@ -67,7 +67,8 @@
 # other
 /coverage.info
 /coverage_html
-
+kernel/gen_celltypes_data.h
+kernel/gen_celltypes_data.cc
 
 # these really belong in global gitignore since they're not specific to this project but rather to user tool choice
 # but too many people don't have a global gitignore configured:
