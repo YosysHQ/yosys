@@ -129,6 +129,7 @@ struct YosysVerificSettings {
 	};
 
 	std::map<std::string, Option> options;
+	std::vector<std::string> _applied_vlog_extensions;
 
 	void init() {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
@@ -148,7 +149,7 @@ struct YosysVerificSettings {
 			Option opt;
 			opt.type = Type::STRING_LIST;
 			opt.default_string_list = {".v", ".vh", ".sv", ".svh"};
-			opt.description = "Comma-separated Verilog/SystemVerilog file extensions";
+			opt.description = "Comma-separated SystemVerilog file extensions";
 			options["vlog_file_extensions"] = opt;
 		}
 #endif
@@ -219,16 +220,28 @@ struct YosysVerificSettings {
 			return;
 		}
 		if (name == "vlog_file_extensions") {
-			// Remove default .v extension and add user-specified ones
-			veri_file::RemoveFileExt(".v");
-			for (const auto &ext : get_string_list("vlog_file_extensions")) {
+			// Remove all previously applied extensions to avoid stale mappings
+			for (const auto &ext : _applied_vlog_extensions) {
+				veri_file::RemoveFileExt(ext.c_str());
+			}
+			auto new_exts = get_string_list("vlog_file_extensions");
+			for (const auto &ext : new_exts) {
+				veri_file::RemoveFileExt(ext.c_str());
 				veri_file::AddFileExtMode(ext.c_str(), veri_file::SYSTEM_VERILOG);
 			}
+			_applied_vlog_extensions = new_exts;
 			return;
 		}
 #else
 		(void)name;
 #endif
+	}
+
+	// Apply all settings to Verific APIs (used after reset)
+	void apply_all() {
+		for (const auto &it : options) {
+			apply_setting(it.first);
+		}
 	}
 
 	// Parse comma-separated string into vector
@@ -4501,6 +4514,7 @@ struct VerificPass : public Pass {
 				yosys_verific_settings_initialized = true;
 			}
 			yosys_verific_settings.reset();
+			yosys_verific_settings.apply_all();
 			log("All Yosys-Verific settings reset to defaults.\n");
 			goto check_error;
 		}
@@ -4521,17 +4535,17 @@ struct VerificPass : public Pass {
 					switch (opt.type) {
 						case YosysVerificSettings::Type::BOOL:
 							log("  %s = %s (bool, default: %s)\n", name.c_str(),
-								opt.bool_value ? "true" : "false",
+								yosys_verific_settings.get_bool(name) ? "true" : "false",
 								opt.default_bool ? "true" : "false");
 							break;
 						case YosysVerificSettings::Type::STRING:
 							log("  %s = \"%s\" (string, default: \"%s\")\n", name.c_str(),
-								opt.string_value.c_str(),
+								yosys_verific_settings.get_string(name).c_str(),
 								opt.default_string.c_str());
 							break;
 						case YosysVerificSettings::Type::STRING_LIST:
 							log("  %s = \"%s\" (string-list, default: \"%s\")\n", name.c_str(),
-								YosysVerificSettings::format_string_list(opt.string_list_value).c_str(),
+								YosysVerificSettings::format_string_list(yosys_verific_settings.get_string_list(name)).c_str(),
 								YosysVerificSettings::format_string_list(opt.default_string_list).c_str());
 							break;
 					}
@@ -4548,15 +4562,15 @@ struct VerificPass : public Pass {
 				switch (opt.type) {
 					case YosysVerificSettings::Type::BOOL:
 						log("verific -set %s %s\n", name.c_str(),
-							opt.bool_value ? "true" : "false");
+							yosys_verific_settings.get_bool(name) ? "true" : "false");
 						break;
 					case YosysVerificSettings::Type::STRING:
 						log("verific -set %s \"%s\"\n", name.c_str(),
-							opt.string_value.c_str());
+							yosys_verific_settings.get_string(name).c_str());
 						break;
 					case YosysVerificSettings::Type::STRING_LIST:
 						log("verific -set %s \"%s\"\n", name.c_str(),
-							YosysVerificSettings::format_string_list(opt.string_list_value).c_str());
+							YosysVerificSettings::format_string_list(yosys_verific_settings.get_string_list(name)).c_str());
 						break;
 				}
 				goto check_error;
