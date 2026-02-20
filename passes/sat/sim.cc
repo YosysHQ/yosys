@@ -2624,6 +2624,7 @@ struct SimPass : public Pass {
 		log("    -r <filename>\n");
 		log("        read simulation or formal results file\n");
 		log("            File formats supported: FST, VCD, AIW, WIT and .yw\n");
+		log("            Yosys witness (.yw) replay is preferred when possible.\n");
 		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
 		log("    -width <integer>\n");
