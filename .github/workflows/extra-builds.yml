@@ -103,6 +103,7 @@ jobs:
           ENABLE_ZLIB := 0
 
           CXXFLAGS += -I$(pwd)/flex-prefix/include
+          LINKFLAGS += -Wl,-z,stack-size=8388608 -Wl,--stack-first -Wl,--strip-all
           END
 
           make -C build -f ../Makefile CXX=clang -j$(nproc)
