@@ -28,6 +28,22 @@ YOSYS_NAMESPACE_BEGIN
 
 struct ModIndex : public RTLIL::Monitor
 {
+	struct PointerOrderedSigBit : public RTLIL::SigBit {
+		PointerOrderedSigBit(SigBit s) {
+			wire = s.wire;
+			if (wire)
+				offset = s.offset;
+			else
+				data = s.data;
+		}
+		inline bool operator<(const RTLIL::SigBit &other) const {
+			if (wire == other.wire)
+				return wire ? (offset < other.offset) : (data < other.data);
+			if (wire != nullptr && other.wire != nullptr)
+				return wire < other.wire; // look here
+			return (wire != nullptr) < (other.wire != nullptr);
+		}
+	};
 	struct PortInfo {
 		RTLIL::Cell* cell;
 		RTLIL::IdString port;
@@ -77,7 +93,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	SigMap sigmap;
 	RTLIL::Module *module;
-	std::map<RTLIL::SigBit, SigBitInfo> database;
+	std::map<PointerOrderedSigBit, SigBitInfo> database;
 	int auto_reload_counter;
 	bool auto_reload_module;
 
@@ -94,8 +110,11 @@ struct ModIndex : public RTLIL::Monitor
 	{
 		for (int i = 0; i < GetSize(sig); i++) {
 			RTLIL::SigBit bit = sigmap(sig[i]);
-			if (bit.wire)
+			if (bit.wire) {
 				database[bit].ports.erase(PortInfo(cell, port, i));
+				if (!database[bit].is_input && !database[bit].is_output && database[bit].ports.empty())
+					database.erase(bit);
+			}
 		}
 	}
 
@@ -132,11 +151,11 @@ struct ModIndex : public RTLIL::Monitor
 		}
 	}
 
-	void check()
+	bool ok()
 	{
 #ifndef NDEBUG
 		if (auto_reload_module)
-			return;
+			return true;
 
 		for (auto it : database)
 			log_assert(it.first == sigmap(it.first));
@@ -156,9 +175,15 @@ struct ModIndex : public RTLIL::Monitor
 				else if (!(it.second == database_bak.at(it.first)))
 					log("ModuleIndex::check(): Different content for database[%s].\n", log_signal(it.first));
 
-			log_assert(database == database_bak);
+			return false;
 		}
+		return true;
 #endif
+	}
+
+	void check()
+	{
+		log_assert(ok());
 	}
 
 	void notify_connect(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
