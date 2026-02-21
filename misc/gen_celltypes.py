@@ -39,6 +39,7 @@ def resolve_id(index_map, name):
 @dataclass
 class Features:
     is_evaluable: bool = False
+    is_cell_evaluable: bool = False
     is_combinatorial: bool = False
     is_synthesizable: bool = False
     is_stdcell: bool = False
@@ -51,7 +52,7 @@ class Features:
 @dataclass
 class CellInfo:
     type_name: str
-    inputs: MAX_CELLS
+    inputs: list
     outputs: list
     features: Features
 
@@ -64,7 +65,7 @@ def build_cell_table():
                               Features(**vars(features))))
 
     # setup_internals_other
-    f = Features(is_tristate=True)
+    f = Features(is_tristate=True, is_cell_evaluable=True)
     setup_type("$tribuf", ["A", "EN"], ["Y"], f)
 
     f = Features()
@@ -79,9 +80,13 @@ def build_cell_table():
     setup_type("$allconst", [], ["Y"], f)
     setup_type("$allseq", [], ["Y"], f)
     setup_type("$equiv", ["A", "B"], ["Y"], f)
+
+    f = Features(is_cell_evaluable=True)
     setup_type("$specify2", ["EN", "SRC", "DST"], [], f)
     setup_type("$specify3", ["EN", "SRC", "DST", "DAT"], [], f)
     setup_type("$specrule", ["EN_SRC", "EN_DST", "SRC", "DST"], [], f)
+
+    f = Features()
     setup_type("$print", ["EN", "ARGS", "TRG"], [], f)
     setup_type("$check", ["A", "EN", "ARGS", "TRG"], [], f)
     setup_type("$set_tag", ["A", "SET", "CLR"], ["Y"], f)
@@ -94,7 +99,7 @@ def build_cell_table():
     setup_type("$connect", ["A", "B"], [], f)
 
     # setup_internals_eval
-    f = Features(is_evaluable=True)
+    f = Features(is_evaluable=True, is_cell_evaluable=True)
 
     unary_ops = [
         "$not", "$pos", "$buf", "$neg",
@@ -150,7 +155,7 @@ def build_cell_table():
     f = Features(is_anyinit=True)
     setup_type("$anyinit", ["D"], ["Q"], f)
 
-    # setup_internals_mem_noff
+    # setup_internals_mem_noff (mem cells that are NOT FFs)
     f = Features(is_mem_noff=True)
     setup_type("$memrd", ["CLK", "EN", "ADDR"], ["DATA"], f)
     setup_type("$memrd_v2", ["CLK", "EN", "ARST", "SRST", "ADDR"],
@@ -170,11 +175,11 @@ def build_cell_table():
     setup_type("$fsm", ["CLK", "ARST", "CTRL_IN"], ["CTRL_OUT"], f)
 
     # setup_stdcells_tristate
-    f = Features(is_stdcell=True, is_tristate=True)
+    f = Features(is_stdcell=True, is_tristate=True, is_cell_evaluable=True)
     setup_type("$_TBUF_", ["A", "E"], ["Y"], f)
 
     # setup_stdcells_eval
-    f = Features(is_stdcell=True, is_evaluable=True)
+    f = Features(is_stdcell=True, is_evaluable=True, is_cell_evaluable=True)
     setup_type("$_BUF_", ["A"], ["Y"], f)
     setup_type("$_NOT_", ["A"], ["Y"], f)
     setup_type("$_AND_", ["A", "B"], ["Y"], f)
@@ -298,6 +303,7 @@ def build_arrays(cells, index_map):
     cats = {
         "is_known": [0] * MAX_CELLS,
         "is_evaluable": [0] * MAX_CELLS,
+        "is_cell_evaluable": [0] * MAX_CELLS,
         "is_combinatorial": [0] * MAX_CELLS,
         "is_synthesizable": [0] * MAX_CELLS,
         "is_stdcell": [0] * MAX_CELLS,
@@ -320,9 +326,9 @@ def build_arrays(cells, index_map):
             continue
 
         cats["is_known"][idx] = 1
-        for feat in ["is_evaluable", "is_combinatorial", "is_synthesizable",
-                      "is_stdcell", "is_ff", "is_mem_noff", "is_anyinit",
-                      "is_tristate"]:
+        for feat in ["is_evaluable", "is_cell_evaluable", "is_combinatorial",
+                      "is_synthesizable", "is_stdcell", "is_ff", "is_mem_noff",
+                      "is_anyinit", "is_tristate"]:
             if getattr(cell.features, feat):
                 cats[feat][idx] = 1
 
@@ -449,7 +455,13 @@ constexpr int GEN_MAX_PORTS = {MAX_PORTS};
 namespace GeneratedData {{
 
 extern const uint8_t is_known[GEN_MAX_CELLS];
+// Category flag: true for cells in setup_internals_eval / setup_stdcells_eval.
+// Used by builtin_match() for subset filtering.
 extern const uint8_t is_evaluable[GEN_MAX_CELLS];
+// Property flag: true for any cell whose original setup_type() had is_evaluable=true.
+// Superset of is_evaluable (includes $tribuf, $specify*, $_TBUF_).
+// Used by cell_evaluable() to answer "can this cell be const-evaluated?"
+extern const uint8_t is_cell_evaluable[GEN_MAX_CELLS];
 extern const uint8_t is_combinatorial[GEN_MAX_CELLS];
 extern const uint8_t is_synthesizable[GEN_MAX_CELLS];
 extern const uint8_t is_stdcell[GEN_MAX_CELLS];
@@ -498,15 +510,16 @@ struct GenPortLookup {{
 	}}
 }};
 
-inline GenCategory gen_is_known()         {{ return {{GeneratedData::is_known}}; }}
-inline GenCategory gen_is_evaluable()     {{ return {{GeneratedData::is_evaluable}}; }}
-inline GenCategory gen_is_combinatorial() {{ return {{GeneratedData::is_combinatorial}}; }}
-inline GenCategory gen_is_synthesizable() {{ return {{GeneratedData::is_synthesizable}}; }}
-inline GenCategory gen_is_stdcell()       {{ return {{GeneratedData::is_stdcell}}; }}
-inline GenCategory gen_is_ff()            {{ return {{GeneratedData::is_ff}}; }}
-inline GenCategory gen_is_mem_noff()      {{ return {{GeneratedData::is_mem_noff}}; }}
-inline GenCategory gen_is_anyinit()       {{ return {{GeneratedData::is_anyinit}}; }}
-inline GenCategory gen_is_tristate()      {{ return {{GeneratedData::is_tristate}}; }}
+inline GenCategory gen_is_known()          {{ return {{GeneratedData::is_known}}; }}
+inline GenCategory gen_is_evaluable()      {{ return {{GeneratedData::is_evaluable}}; }}
+inline GenCategory gen_is_cell_evaluable() {{ return {{GeneratedData::is_cell_evaluable}}; }}
+inline GenCategory gen_is_combinatorial()  {{ return {{GeneratedData::is_combinatorial}}; }}
+inline GenCategory gen_is_synthesizable()  {{ return {{GeneratedData::is_synthesizable}}; }}
+inline GenCategory gen_is_stdcell()        {{ return {{GeneratedData::is_stdcell}}; }}
+inline GenCategory gen_is_ff()             {{ return {{GeneratedData::is_ff}}; }}
+inline GenCategory gen_is_mem_noff()       {{ return {{GeneratedData::is_mem_noff}}; }}
+inline GenCategory gen_is_anyinit()        {{ return {{GeneratedData::is_anyinit}}; }}
+inline GenCategory gen_is_tristate()       {{ return {{GeneratedData::is_tristate}}; }}
 
 inline GenCategory gen_compat_internals_all()        {{ return {{GeneratedData::compat_internals_all}}; }}
 inline GenCategory gen_compat_mem_ff()               {{ return {{GeneratedData::compat_mem_ff}}; }}

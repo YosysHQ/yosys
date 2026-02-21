@@ -146,7 +146,7 @@ struct CellTypes
 	bool builtin_is_known(size_t idx) const
 	{
 		return enabled_cats && idx < (size_t)StaticCellTypes::GEN_MAX_CELLS &&
-		       StaticCellTypes::GeneratedData::is_known[idx];
+			StaticCellTypes::GeneratedData::is_known[idx];
 	}
 
 	bool cell_known(const RTLIL::IdString &type) const
@@ -157,7 +157,6 @@ struct CellTypes
 		} else if (builtin_match(type.index_)) {
 			return true;
 		}
-
 		return cell_types.count(type) != 0;
 	}
 
@@ -171,10 +170,8 @@ struct CellTypes
 			for (uint16_t i = 0; i < count; i++)
 				if (StaticCellTypes::GeneratedData::port_outputs_ports[idx][i] == target)
 					return true;
-
 			return false;
 		}
-
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.outputs.count(port) != 0;
 	}
@@ -189,10 +186,8 @@ struct CellTypes
 			for (uint16_t i = 0; i < count; i++)
 				if (StaticCellTypes::GeneratedData::port_inputs_ports[idx][i] == target)
 					return true;
-
 			return false;
 		}
-
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
 	}
@@ -206,24 +201,17 @@ struct CellTypes
 			uint32_t target = (uint32_t)port.index_;
 			uint16_t ic = StaticCellTypes::GeneratedData::port_inputs_counts[idx];
 			for (uint16_t i = 0; i < ic; i++)
-				if (StaticCellTypes::GeneratedData::port_inputs_ports[idx][i] == target) {
-					is_in = true;
-					break;
-				}
-
+				if (StaticCellTypes::GeneratedData::port_inputs_ports[idx][i] == target)
+					{ is_in = true; break; }
 			uint16_t oc = StaticCellTypes::GeneratedData::port_outputs_counts[idx];
 			for (uint16_t i = 0; i < oc; i++)
-				if (StaticCellTypes::GeneratedData::port_outputs_ports[idx][i] == target) {
-					is_out = true;
-					break;
-				}
-
+				if (StaticCellTypes::GeneratedData::port_outputs_ports[idx][i] == target)
+					{ is_out = true; break; }
 			return RTLIL::PortDir(is_in + is_out * 2);
 		}
 		auto it = cell_types.find(type);
 		if (it == cell_types.end())
 			return RTLIL::PD_UNKNOWN;
-
 		bool is_in = it->second.inputs.count(port);
 		bool is_out = it->second.outputs.count(port);
 		return RTLIL::PortDir(is_in + is_out * 2);
@@ -234,8 +222,8 @@ struct CellTypes
 		size_t idx = type.index_;
 		bool is_builtin = (enabled_cats == BITS_ALL) ? builtin_is_known(idx) : builtin_match(idx);
 		if (is_builtin)
-			return idx < (size_t)StaticCellTypes::GEN_MAX_CELLS && StaticCellTypes::GeneratedData::is_evaluable[idx];
-
+			return idx < (size_t)StaticCellTypes::GEN_MAX_CELLS &&
+				StaticCellTypes::GeneratedData::is_cell_evaluable[idx];
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.is_evaluable;
 	}
@@ -245,7 +233,6 @@ struct CellTypes
 		for (auto bit : v)
 			if (bit == State::S0) bit = State::S1;
 			else if (bit == State::S1) bit = State::S0;
-
 		return v;
 	}
 
@@ -361,7 +348,6 @@ struct CellTypes
 			std::vector<RTLIL::State> t = cell->parameters.at(ID::LUT).to_bits();
 			while (GetSize(t) < (1 << width))
 				t.push_back(State::S0);
-
 			t.resize(1 << width);
 
 			return const_bmux(t, arg1);
@@ -373,7 +359,7 @@ struct CellTypes
 			int depth = cell->parameters.at(ID::DEPTH).as_int();
 			std::vector<RTLIL::State> t = cell->parameters.at(ID::TABLE).to_bits();
 
-			while (GetSize(t) < width * depth * 2)
+			while (GetSize(t) < width*depth*2)
 				t.push_back(State::S0);
 
 			RTLIL::State default_ret = State::S0;
@@ -385,11 +371,11 @@ struct CellTypes
 
 				for (int j = 0; j < width; j++) {
 					RTLIL::State a = arg1.at(j);
-					if (t.at(2 * width * i + 2 * j + 0) == State::S1) {
+					if (t.at(2*width*i + 2*j + 0) == State::S1) {
 						if (a == State::S1) match_x = false;
 						if (a != State::S0) match = false;
 					}
-					if (t.at(2 * width * i + 2 * j + 1) == State::S1) {
+					if (t.at(2*width*i + 2*j + 1) == State::S1) {
 						if (a == State::S0) match_x = false;
 						if (a != State::S1) match = false;
 					}
