@@ -48,6 +48,9 @@ module edges(input clk);
     wire a_subnorm = a_exp == 8'h00 && a_sig != '0;
     wire a_finite = a_norm || a_subnorm;
 
+    wire signed [8:0] a_sexp = $signed({1'b0, a_exp}) - 8'h7f;
+    wire signed [8:0] half_a_sexp = a_sexp >>> 1;
+
     wire b_sign = b[31];
     wire [30:0] b_unsigned = b[30:0];
     wire [7:0] b_exp = b[30:23];
@@ -92,6 +95,8 @@ module edges(input clk);
     wire o_clamped = o_unsigned == 31'h7f7fffff;
     wire o_unclamped = o_finite && !o_clamped;
     wire o_ebmin = o_exp == 8'h01 && o_sig == '0;
+
+    wire signed [8:0] o_sexp = $signed({1'b0, o_exp}) - 8'h7f;
 
     (* keep *) wire [25:0] a_faux = {2'b10, !a_subnorm, a_sig};
     (* keep *) wire [25:0] b_faux = {2'b00, !b_subnorm, b_sig};
@@ -219,6 +224,8 @@ module edges(input clk);
         cover (a_qnan);
         cover (a_snan);
 
+`ifndef SQRTS
+// sqrt has no b input
         cover (b_sign);
         cover (!b_sign);
         cover (b_zero);
@@ -227,8 +234,10 @@ module edges(input clk);
         cover (b_inf);
         cover (b_qnan);
         cover (b_snan);
+`endif
 
 `ifdef MULADD
+// only muladd has c input
         cover (c_sign);
         cover (!c_sign);
         cover (c_zero);
@@ -241,14 +250,17 @@ module edges(input clk);
 
         // all flags are possible
         cover (NV);
-`ifdef DIV
-        // only div can div/zero
+`ifdef DIVS
+// only div can div/zero
         cover (DZ);
 `endif
+`ifndef SQRTS
+// sqrt can't overflow or underflow
         cover (OF);
-`ifndef ADDSUB
-        // add/sub can't underflow
+    `ifndef ADDSUB
+    // add/sub can't underflow
         cover (UF);
+    `endif
 `endif
         cover (NX);
         cover (!NV);
@@ -262,11 +274,15 @@ module edges(input clk);
         cover (!o_sign);
         cover (o_zero);
         cover (o_norm);
-        cover (o_subnorm);
         cover (o_inf);
         cover (o_nan);
+`ifndef SQRTS
+// subnormal outputs not possible for 8/24 sqrt
+        cover (o_subnorm);
         cover (o_ebmin);
+`endif
 
+`ifndef SQRTS
         if (OF) begin
             cover (o_inf);
             cover (o_clamped);
@@ -276,11 +292,11 @@ module edges(input clk);
         end
 
         if (UF) begin
-`ifndef ADDSUB
+    `ifndef ADDSUB
             cover (o_zero);
             cover (o_ebmin);
             cover (o_subnorm);
-`endif
+    `endif
         end else begin
             cover (o_zero);
             cover (o_ebmin);
@@ -290,11 +306,12 @@ module edges(input clk);
         if (NX) begin
             cover (o_norm);
             cover (o_inf);
-`ifndef ADDSUB
+    `ifndef ADDSUB
             cover (o_subnorm);
             cover (o_zero);
-`endif
+    `endif
         end
+`endif
 
         if (a_nan || b_nan || c_nan) begin
             // input NaN = output NaN
@@ -343,7 +360,7 @@ module edges(input clk);
             // a non-underflowing subnormal is exact
             assert (!NX);
 
-`ifdef DIV
+`ifdef DIVS
         assume (c_zero);
         // div/zero only when a is finite
         assert (DZ ^~ (a_finite && b_zero));
@@ -368,7 +385,7 @@ module edges(input clk);
         // an unrounded result between +-e^bmin is still an underflow when rounded to ebmin
         if (a_unsigned == 31'h0031b7be && b_unsigned == 31'h3ec6def9)
             assert (UF);
-    `ifdef ALT_DIV
+    `ifdef ALTDIV
         if (!NV && !NX && !a_special && b_finite && o_norm)
             // if o is subnorm then it can be shifted arbitrarily depending on exponent difference
             assert (o_sig == (o_faux[25] ? o_faux[24:2] : o_faux[23:1]));
@@ -542,12 +559,51 @@ module edges(input clk);
         end
 `endif
 
-`ifdef SQRT
+`ifdef SQRTS
         assume (b_zero);
         assume (c_zero);
+        assert (!UF);
+        assert (!OF);
         // complex roots are invalid
-        if (a_sign && (a_norm || a_subnorm))
-            assert (NV);
+        if (a_sign) begin
+            if (a_norm || a_subnorm)
+                assert (NV);
+        end else begin
+            // root exponents for normal numbers are trivial
+            if (a_norm) begin
+                // root of a normal is always normal
+                assert (o_norm);
+                if (rm_RTZ)
+                    assert (o_sexp == half_a_sexp);
+                else
+                    assert (o_sexp == half_a_sexp || o_sexp == (half_a_sexp + 1));
+    `ifdef ALTSQRT
+                if (o_sexp == half_a_sexp) begin
+                    if (NX) begin
+                        assert (a_sig[0] == 1'b1);
+                        if (rm_RTZ || rm_RTN) begin
+                            assert (o_sig[22] == 1'b1);
+                            assert (o_sig[21:0] == a_sig >> 1);
+                        end else begin
+                            assert (o_sig[22] != &a_sig);
+                            if (rm_RNE && a_sig[1] == 1'b0) begin
+                                assert (o_sig[21:0] == a_sig >> 1);
+                            end else begin
+                                assert (o_sig[21:0] == (a_sig[22:1]+1'b1));
+                            end
+                        end
+                    end else begin
+                        assert (a_sig[0] == 1'b0);
+                        assert (o_sig[22] == a_sig[0]);
+                        assert (o_sig[21:0] == a_sig >> 1);
+                    end
+                end
+    `endif
+            end else if (a_subnorm) begin
+                // root of a subnormal is either normal or an exact subnormal
+                assert (o_norm || !NX);
+            end
+        end
 `endif
     end
 
@@ -558,6 +614,43 @@ module edges(input clk);
         end else begin
             // same input, different rounding mode
             if ($stable(a) && $stable(b) && $stable(c)) begin
+                // general rounding
+                cover (NX && rm_RNE && o_sig[1:0] == 2'b00);
+                cover (NX && rm_RNE && o_sig[1:0] == 2'b10);
+                if (NX && $fell(rm_RNE)) begin
+                    if ($past(o_sig[1:0]) == 2'b00) begin // should be rounding from 001
+                        if (o_sign) begin
+`ifndef SQRTS
+                            cover ($rose(rm_RNA) && o_sig[1:0] == 2'b01);
+                            cover ($rose(rm_RTP) && o_sig[1:0] == 2'b00);
+                            cover ($rose(rm_RTN) && o_sig[1:0] == 2'b01);
+                            cover ($rose(rm_RTZ) && o_sig[1:0] == 2'b00);
+`endif
+                        end else begin
+                            cover ($rose(rm_RNA) && o_sig[1:0] == 2'b01);
+                            cover ($rose(rm_RTP) && o_sig[1:0] == 2'b01);
+                            cover ($rose(rm_RTN) && o_sig[1:0] == 2'b00);
+                            cover ($rose(rm_RTZ) && o_sig[1:0] == 2'b00);
+                        end
+                    end else if ($past(o_sig[1:0]) == 2'b10) begin // should be rounding from 011
+                        if (o_sign) begin
+`ifndef SQRTS
+                            cover ($rose(rm_RNA) && o_sig[1:0] == 2'b10);
+                            cover ($rose(rm_RTP) && o_sig[1:0] == 2'b01);
+                            cover ($rose(rm_RTN) && o_sig[1:0] == 2'b10);
+                            cover ($rose(rm_RTZ) && o_sig[1:0] == 2'b01);
+`endif
+                        end else begin
+                            cover ($rose(rm_RNA) && o_sig[1:0] == 2'b10);
+                            cover ($rose(rm_RTP) && o_sig[1:0] == 2'b10);
+                            cover ($rose(rm_RTN) && o_sig[1:0] == 2'b01);
+                            cover ($rose(rm_RTZ) && o_sig[1:0] == 2'b01);
+                        end
+                    end
+                end
+
+`ifndef SQRTS
+// none of these are applicable for sqrt since we can't underflow or overflow
                 // inf edge cases
                 cover ($rose(o_inf));
                 if ($rose(o_inf)) begin
@@ -568,8 +661,8 @@ module edges(input clk);
                     // rm_RTZ can never round to inf
                 end
 
-`ifndef ADDSUB
-                // these aren't applicable to addsub since we they rely on underflow
+    `ifndef ADDSUB
+    // these aren't applicable to addsub since we they rely on underflow
                 // ebmin edge cases
                 cover ($rose(o_ebmin));
                 if ($rose(o_ebmin)) begin
@@ -589,13 +682,14 @@ module edges(input clk);
                     cover ($rose(rm_RTP));
                     cover ($rose(rm_RTZ));
                 end
-`endif
+    `endif
 
-`ifndef DIV
+    `ifndef DIV
                 cover ($rose(OF));
-`endif
-`ifdef TININESS_AFTER
+    `endif
+    `ifdef TININESS_AFTER
                 cover ($rose(UF));
+    `endif
 `endif
             end
         end
