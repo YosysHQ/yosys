@@ -1,0 +1,31 @@
+read_verilog << EOT
+`default_nettype none
+
+module top (
+    input  wire        clk,
+    input  wire [9:0]  rd_addr,
+    output reg  [15:0] rd_data,
+    input  wire [9:0]  wr_addr,
+    input  wire [15:0] wr_data,
+    input  wire        wr_en
+);
+
+    (* ram_style = "block" *) reg [15:0] mem [0:1023];
+
+    // Read port — separate always block
+    always @(posedge clk) begin
+        rd_data <= mem[rd_addr];
+    end
+
+    // Write port — separate always block
+    always @(posedge clk) begin
+        if (wr_en)
+            mem[wr_addr] <= wr_data;
+    end
+
+endmodule
+
+EOT
+synth_gowin -top top
+splitnets
+select -assert-any top/mem.0.0 %ci*:+DPX9B[ADA]:+DFF:+IBUF i:wr_en %i
