@@ -783,14 +783,14 @@ struct UsedSignals {
 
 std::tuple<DeferredUpdates, UsedSignals> analyse_connectivity(SigConnKinds& sig_analysis, const AnalysisContext& actx) {
 	DeferredUpdates deferred(actx.subpool);
+	ShardedSigPool::Builder conn_builder(actx.subpool);
+	ShardedSigPool::Builder raw_conn_builder(actx.subpool);
 	ShardedSigPool::Builder used_builder(actx.subpool);
-	ShardedSigPool::Builder raw_used_builder(actx.subpool);
-	ShardedSigPool::Builder used_nodrivers_builder(actx.subpool);
 
 	// gather the usage information for cells and update cell connections with the altered sigmap
 	// also gather the usage information for ports, wires with `keep`
 	// also gather init bits
-	actx.subpool.run([&deferred, &used_builder, &raw_used_builder, &used_nodrivers_builder, &sig_analysis, &actx](const ParallelDispatchThreadPool::RunCtx &ctx) {
+	actx.subpool.run([&deferred, &conn_builder, &raw_conn_builder, &used_builder, &sig_analysis, &actx](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		// Parallel destruction of these sharded structures
 		sig_analysis.clear(ctx);
 
@@ -800,38 +800,38 @@ std::tuple<DeferredUpdates, UsedSignals> analyse_connectivity(SigConnKinds& sig_
 				SigSpec spec = actx.assign_map(sig);
 				if (spec != sig)
 					deferred.update_connections.insert(ctx, {cell, port, spec});
-				add_spec(raw_used_builder, ctx, spec);
-				add_spec(used_builder, ctx, spec);
+				add_spec(raw_conn_builder, ctx, spec);
+				add_spec(conn_builder, ctx, spec);
 				if (!ct_all.cell_output(cell->type, port))
-					add_spec(used_nodrivers_builder, ctx, spec);
+					add_spec(used_builder, ctx, spec);
 			}
 		}
 		for (int i : ctx.item_range(actx.mod->wires_size())) {
 			RTLIL::Wire *wire = actx.mod->wire_at(i);
 			if (wire->port_id > 0) {
 				RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
-				add_spec(raw_used_builder, ctx, sig);
+				add_spec(raw_conn_builder, ctx, sig);
 				actx.assign_map.apply(sig);
-				add_spec(used_builder, ctx, sig);
+				add_spec(conn_builder, ctx, sig);
 				if (!wire->port_input)
-					add_spec(used_nodrivers_builder, ctx, sig);
+					add_spec(used_builder, ctx, sig);
 			}
 			if (wire->get_bool_attribute(ID::keep)) {
 				RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
 				actx.assign_map.apply(sig);
-				add_spec(used_builder, ctx, sig);
+				add_spec(conn_builder, ctx, sig);
 			}
 			auto it = wire->attributes.find(ID::init);
 			if (it != wire->attributes.end())
 				deferred.initialized_wires.insert(ctx, wire);
 		}
 	});
-	actx.subpool.run([&used_builder, &raw_used_builder, &used_nodrivers_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+	actx.subpool.run([&conn_builder, &raw_conn_builder, &used_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		conn_builder.process(ctx);
+		raw_conn_builder.process(ctx);
 		used_builder.process(ctx);
-		raw_used_builder.process(ctx);
-		used_nodrivers_builder.process(ctx);
 	});
-	UsedSignals used {used_builder, raw_used_builder, used_nodrivers_builder};
+	UsedSignals used {conn_builder, raw_conn_builder, used_builder};
 	return {std::move(deferred), std::move(used)};
 }
 
