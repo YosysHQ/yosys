@@ -659,7 +659,7 @@ static InitBits consume_inits(ShardedVector<RTLIL::Wire*> &initialized_wires, co
 }
 
 struct SigAnalysis {
-	// `register_signals` and `connected_signals` will help us decide later on
+	// `registers` and `connected` will help us decide later on
 	// on picking representatives out of groups of connected signals
 
 	// Wire bits driven by registers (with clk2fflogic exception)
@@ -790,6 +790,135 @@ struct UsedSigAnalysis {
 	}
 };
 
+struct WireDeleter {
+	pool<RTLIL::Wire*> del_wires_queue;
+	ShardedVector<RTLIL::Wire*> remove_init;
+	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_init;
+	ShardedVector<RTLIL::SigSig> connections;
+	ShardedVector<RTLIL::Wire*> remove_unused_bits;
+	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_unused_bits;
+	WireDeleter(UsedSigAnalysis& used_sig_analysis, bool purge_mode, const RTLIL::Module* mod, SigMap& assign_map, ParallelDispatchThreadPool::Subpool &subpool) :
+		remove_init(subpool),
+		set_init(subpool),
+		connections(subpool),
+		remove_unused_bits(subpool),
+		set_unused_bits(subpool) {
+		ShardedVector<RTLIL::Wire*> del_wires(subpool);
+		subpool.run([mod, purge_mode, &del_wires, &assign_map, &used_sig_analysis, this](const ParallelDispatchThreadPool::RunCtx &ctx) {
+			for (int i : ctx.item_range(mod->wires_size())) {
+				RTLIL::Wire *wire = mod->wire_at(i);
+				SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
+				log_assert(GetSize(s1) == GetSize(s2));
+
+				Const initval;
+				bool has_init_attribute = wire->attributes.count(ID::init);
+				bool init_changed = false;
+				if (has_init_attribute)
+					initval = wire->attributes.at(ID::init);
+				if (GetSize(initval) != GetSize(wire)) {
+					initval.resize(GetSize(wire), State::Sx);
+					init_changed = true;
+				}
+
+				if (GetSize(wire) == 0) {
+					// delete zero-width wires, unless they are module ports
+					if (wire->port_id == 0)
+						goto delete_this_wire;
+				} else
+				if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
+					// do not delete anything with "keep" or module ports or initialized wires
+				} else
+				if (!purge_mode && check_public_name(wire->name) && (check_any(used_sig_analysis.raw_used, s1) || check_any(used_sig_analysis.used, s2) || s1 != s2)) {
+					// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
+				} else
+				if (!check_any(used_sig_analysis.raw_used, s1)) {
+					// delete wires that aren't used by anything directly
+					goto delete_this_wire;
+				}
+
+				if (0)
+				{
+			delete_this_wire:
+					del_wires.insert(ctx, wire);
+				}
+				else
+				{
+					RTLIL::SigSig new_conn;
+					for (int i = 0; i < GetSize(s1); i++)
+						if (s1[i] != s2[i]) {
+							if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
+								s2[i] = initval[i];
+								initval.set(i, State::Sx);
+								init_changed = true;
+							}
+							new_conn.first.append(s1[i]);
+							new_conn.second.append(s2[i]);
+						}
+					if (new_conn.first.size() > 0)
+						connections.insert(ctx, std::move(new_conn));
+					if (initval.is_fully_undef()) {
+						if (has_init_attribute)
+							remove_init.insert(ctx, wire);
+					} else
+						if (init_changed)
+							set_init.insert(ctx, {wire, std::move(initval)});
+
+					std::string unused_bits;
+					if (!check_all(used_sig_analysis.used_nodrivers, s2)) {
+						for (int i = 0; i < GetSize(s2); i++) {
+							if (s2[i].wire == NULL)
+								continue;
+							SigBit b = s2[i];
+							if (used_sig_analysis.used_nodrivers.find({b, b.hash_top().yield()}) == nullptr) {
+								if (!unused_bits.empty())
+									unused_bits += " ";
+								unused_bits += stringf("%d", i);
+							}
+						}
+					}
+					if (unused_bits.empty() || wire->port_id != 0) {
+						if (wire->attributes.count(ID::unused_bits))
+							remove_unused_bits.insert(ctx, wire);
+					} else {
+						RTLIL::Const unused_bits_const(std::move(unused_bits));
+						if (wire->attributes.count(ID::unused_bits)) {
+							RTLIL::Const &unused_bits_attr = wire->attributes.at(ID::unused_bits);
+							if (unused_bits_attr != unused_bits_const)
+								set_unused_bits.insert(ctx, {wire, std::move(unused_bits_const)});
+						} else
+							set_unused_bits.insert(ctx, {wire, std::move(unused_bits_const)});
+					}
+				}
+			}
+		});
+		del_wires_queue.insert(del_wires.begin(), del_wires.end());
+	}
+	// now decide for each wire if we should be deleting it
+	void commit_attrs(RTLIL::Module* mod) {
+		for (RTLIL::Wire *wire : remove_init)
+			wire->attributes.erase(ID::init);
+		for (auto &p : set_init)
+			p.first->attributes[ID::init] = std::move(p.second);
+		for (auto &conn : connections)
+			mod->connect(std::move(conn));
+		for (RTLIL::Wire *wire : remove_unused_bits)
+			wire->attributes.erase(ID::unused_bits);
+		for (auto &p : set_unused_bits)
+			p.first->attributes[ID::unused_bits] = std::move(p.second);
+	}
+	int delete_wires(RTLIL::Module* mod, bool verbose) {
+		int deleted_and_unreported = 0;
+		for (auto wire : del_wires_queue) {
+			if (ys_debug() || (check_public_name(wire->name) && verbose))
+				log_debug("  removing unused non-port wire %s.\n", wire->name);
+			else
+				deleted_and_unreported++;
+		}
+		mod->remove(del_wires_queue);
+		return deleted_and_unreported;
+	}
+};
+
 bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, RmStats &stats)
 {
 	SigMap assign_map(module);
@@ -832,142 +961,36 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 			assign_map.add(candidate);
 	}
 
-	// we are removing all connections
+	// Remove all wire-wire connections
 	module->connections_.clear();
 
 	UsedSigAnalysis used_sig_analysis(sig_analysis, const_module, assign_map, subpool);
 	fixup_update_ports(used_sig_analysis.update_connections);
 	consume_inits(used_sig_analysis.initialized_wires, assign_map).apply_normalised_inits();
 
-	// now decide for each wire if we should be deleting it
-	ShardedVector<RTLIL::Wire*> del_wires(subpool);
-	ShardedVector<RTLIL::Wire*> remove_init(subpool);
-	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_init(subpool);
-	ShardedVector<RTLIL::SigSig> connections(subpool);
-	ShardedVector<RTLIL::Wire*> remove_unused_bits(subpool);
-	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_unused_bits(subpool);
-	subpool.run([const_module, purge_mode, &assign_map, &used_sig_analysis, &del_wires, &remove_init, &set_init, &connections, &remove_unused_bits, &set_unused_bits](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		for (int i : ctx.item_range(const_module->wires_size())) {
-			RTLIL::Wire *wire = const_module->wire_at(i);
-			SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
-			log_assert(GetSize(s1) == GetSize(s2));
-
-			Const initval;
-			bool has_init_attribute = wire->attributes.count(ID::init);
-			bool init_changed = false;
-			if (has_init_attribute)
-				initval = wire->attributes.at(ID::init);
-			if (GetSize(initval) != GetSize(wire)) {
-				initval.resize(GetSize(wire), State::Sx);
-				init_changed = true;
-			}
-
-			if (GetSize(wire) == 0) {
-				// delete zero-width wires, unless they are module ports
-				if (wire->port_id == 0)
-					goto delete_this_wire;
-			} else
-			if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
-				// do not delete anything with "keep" or module ports or initialized wires
-			} else
-			if (!purge_mode && check_public_name(wire->name) && (check_any(used_sig_analysis.raw_used, s1) || check_any(used_sig_analysis.used, s2) || s1 != s2)) {
-				// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
-			} else
-			if (!check_any(used_sig_analysis.raw_used, s1)) {
-				// delete wires that aren't used by anything directly
-				goto delete_this_wire;
-			}
-
-			if (0)
-			{
-		delete_this_wire:
-				del_wires.insert(ctx, wire);
-			}
-			else
-			{
-				RTLIL::SigSig new_conn;
-				for (int i = 0; i < GetSize(s1); i++)
-					if (s1[i] != s2[i]) {
-						if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
-							s2[i] = initval[i];
-							initval.set(i, State::Sx);
-							init_changed = true;
-						}
-						new_conn.first.append(s1[i]);
-						new_conn.second.append(s2[i]);
-					}
-				if (new_conn.first.size() > 0)
-					connections.insert(ctx, std::move(new_conn));
-				if (initval.is_fully_undef()) {
-					if (has_init_attribute)
-						remove_init.insert(ctx, wire);
-				} else
-					if (init_changed)
-						set_init.insert(ctx, {wire, std::move(initval)});
-
-				std::string unused_bits;
-				if (!check_all(used_sig_analysis.used_nodrivers, s2)) {
-					for (int i = 0; i < GetSize(s2); i++) {
-						if (s2[i].wire == NULL)
-							continue;
-						SigBit b = s2[i];
-						if (used_sig_analysis.used_nodrivers.find({b, b.hash_top().yield()}) == nullptr) {
-							if (!unused_bits.empty())
-								unused_bits += " ";
-							unused_bits += stringf("%d", i);
-						}
-					}
-				}
-				if (unused_bits.empty() || wire->port_id != 0) {
-					if (wire->attributes.count(ID::unused_bits))
-						remove_unused_bits.insert(ctx, wire);
-				} else {
-					RTLIL::Const unused_bits_const(std::move(unused_bits));
-					if (wire->attributes.count(ID::unused_bits)) {
-						RTLIL::Const &unused_bits_attr = wire->attributes.at(ID::unused_bits);
-						if (unused_bits_attr != unused_bits_const)
-							set_unused_bits.insert(ctx, {wire, std::move(unused_bits_const)});
-					} else
-						set_unused_bits.insert(ctx, {wire, std::move(unused_bits_const)});
-				}
-			}
-		}
-	});
-	pool<RTLIL::Wire*> del_wires_queue;
-	del_wires_queue.insert(del_wires.begin(), del_wires.end());
-	for (RTLIL::Wire *wire : remove_init)
-		wire->attributes.erase(ID::init);
-	for (auto &p : set_init)
-		p.first->attributes[ID::init] = std::move(p.second);
-	for (auto &conn : connections)
-		module->connect(std::move(conn));
-	for (RTLIL::Wire *wire : remove_unused_bits)
-		wire->attributes.erase(ID::unused_bits);
-	for (auto &p : set_unused_bits)
-		p.first->attributes[ID::unused_bits] = std::move(p.second);
+	WireDeleter deleter(used_sig_analysis,
+		purge_mode,
+		const_module,
+		assign_map,
+		subpool);
 
 	subpool.run([&used_sig_analysis](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		used_sig_analysis.clear(ctx);
 	});
 
-	int del_temp_wires_count = 0;
-	for (auto wire : del_wires_queue) {
-		if (ys_debug() || (check_public_name(wire->name) && verbose))
-			log_debug("  removing unused non-port wire %s.\n", wire->name);
-		else
-			del_temp_wires_count++;
-	}
+	deleter.commit_attrs(module);
+	int deleted_and_unreported = deleter.delete_wires(module, verbose);
+	int deleted_total = GetSize(deleter.del_wires_queue);
 
-	module->remove(del_wires_queue);
-	stats.count_rm_wires += GetSize(del_wires_queue);
+	stats.count_rm_wires += deleted_total;
 
-	if (verbose && del_temp_wires_count)
-		log_debug("  removed %d unused temporary wires.\n", del_temp_wires_count);
+	if (verbose && deleted_and_unreported)
+		log_debug("  removed %d unused temporary wires.\n", deleted_and_unreported);
 
-	if (!del_wires_queue.empty())
+	if (deleted_total)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
-	return !del_wires_queue.empty();
+	return deleted_total != 0;
 }
 
 bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose)
