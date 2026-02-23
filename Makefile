@@ -568,7 +568,7 @@ $(subst //,/,$(1)/$(3)): $(2)
 	$$(Q) cp "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(3))
 endef
 
-define add_gen_share_file
+define add_gen_share_fila
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(P) mkdir -p $(1)
@@ -742,14 +742,18 @@ OBJS += $(PROGRAM_PREFIX)yosys-libabc.a
 endif
 
 # Generate cell type tables
+# Generate cell type tables
 GENFILES += kernel/gen_celltypes_data.cc kernel/gen_celltypes_data.h
 kernel/gen_celltypes_data.cc kernel/gen_celltypes_data.h: kernel/constids.inc misc/gen_celltypes.py
+	$(Q) mkdir -p kernel
 	$(Q) $(PYTHON_EXECUTABLE) $(YOSYS_SRC)/misc/gen_celltypes.py $(YOSYS_SRC)
+	$(Q) if [ "$(YOSYS_SRC)" != "./" ] && [ "$(YOSYS_SRC)" != "." ]; then \
+		cp $(YOSYS_SRC)/kernel/gen_celltypes_data.cc kernel/gen_celltypes_data.cc; \
+		cp $(YOSYS_SRC)/kernel/gen_celltypes_data.h kernel/gen_celltypes_data.h; \
+	fi
 $(OBJS): kernel/gen_celltypes_data.h
-
 OBJS += kernel/gen_celltypes_data.o
 kernel/gen_celltypes_data.o: kernel/gen_celltypes_data.cc kernel/gen_celltypes_data.h
-
 
 # prevent the CXXFLAGS set by this Makefile from reaching abc/Makefile,
 # especially the -MD flag which will break the build when CXX is clang
