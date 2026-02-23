@@ -151,6 +151,34 @@ struct YosysVerificSettings {
 		void set(T v) { value = v; }
 		template<typename T>
 		void default_set(T v) { default_value = v; }
+
+		static std::string to_string(const OptionValue &val)
+		{
+			return std::visit([](const auto &v) -> std::string {
+				using V = std::decay_t<decltype(v)>;
+
+				if constexpr (std::is_same_v<V, bool>)
+					return v ? "true" : "false";
+				else if constexpr (std::is_same_v<V, std::string>)
+					return "\"" + v + "\"";
+				else if constexpr (std::is_same_v<V, std::vector<std::string>>)
+					return "\"" + YosysVerificSettings::format_string_list(v) + "\"";
+			}, val);
+		}
+
+		std::string str() const { return to_string(value); }
+
+		std::string str_default() const { return to_string(default_value); }
+
+		std::string type_str() const
+		{
+			switch (type) {
+				case Type::BOOL:        return "bool";
+				case Type::STRING:      return "string";
+				case Type::STRING_LIST: return "string-list";
+			}
+			return "unknown";
+		}
 	};
 
 	std::map<std::string, Option> options;
@@ -4509,23 +4537,8 @@ struct VerificPass : public Pass {
 				for (const auto &it : yosys_verific_settings.options) {
 					const auto &name = it.first;
 					const auto &opt = it.second;
-					switch (opt.type) {
-						case YosysVerificSettings::Type::BOOL:
-							log("  %s = %s (bool, default: %s)\n", name.c_str(),
-								opt.get<bool>() ? "true" : "false",
-								opt.get_default<bool>() ? "true" : "false");
-							break;
-						case YosysVerificSettings::Type::STRING:
-							log("  %s = \"%s\" (string, default: \"%s\")\n", name.c_str(),
-								opt.get<std::string>().c_str(),
-								opt.get_default<std::string>().c_str());
-							break;
-						case YosysVerificSettings::Type::STRING_LIST:
-							log("  %s = \"%s\" (string-list, default: \"%s\")\n", name.c_str(),
-								YosysVerificSettings::format_string_list(opt.get<std::vector<std::string>>()).c_str(),
-								YosysVerificSettings::format_string_list(opt.get_default<std::vector<std::string>>()).c_str());
-							break;
-					}
+					log("  %s = %s (%s, default: %s)\n", name.c_str(), opt.str().c_str(), 
+						opt.type_str().c_str(), opt.str_default().c_str());
 				}
 				goto check_error;
 			}
@@ -4536,20 +4549,7 @@ struct VerificPass : public Pass {
 				if (!yosys_verific_settings.options.count(name))
 					log_cmd_error("Unknown Yosys-Verific setting '%s'.\n", name.c_str());
 				const auto &opt = yosys_verific_settings.options.at(name);
-				switch (opt.type) {
-					case YosysVerificSettings::Type::BOOL:
-						log("verific -set %s %s\n", name.c_str(),
-							opt.get<bool>() ? "true" : "false");
-						break;
-					case YosysVerificSettings::Type::STRING:
-						log("verific -set %s \"%s\"\n", name.c_str(),
-							opt.get<std::string>().c_str());
-						break;
-					case YosysVerificSettings::Type::STRING_LIST:
-						log("verific -set %s \"%s\"\n", name.c_str(),
-							YosysVerificSettings::format_string_list(opt.get<std::vector<std::string>>()).c_str());
-						break;
-				}
+				log("verific -set %s %s\n", name.c_str(), opt.str().c_str());
 				goto check_error;
 			}
 
@@ -4571,21 +4571,18 @@ struct VerificPass : public Pass {
 						else
 							log_cmd_error("Invalid boolean value '%s'. Use 0/1, true/false, on/off, or yes/no.\n", value.c_str());
 						opt.set<bool>(bval);
-						log("Setting '%s' = %s\n", name.c_str(), bval ? "true" : "false");
 						break;
 					}
 					case YosysVerificSettings::Type::STRING:
 						opt.set<std::string>(value);
-						log("Setting '%s' = \"%s\"\n", name.c_str(), value.c_str());
 						break;
 					case YosysVerificSettings::Type::STRING_LIST: {
 						auto list = YosysVerificSettings::parse_string_list(value);
 						opt.set<std::vector<std::string>>(list);
-						log("Setting '%s' = \"%s\"\n", name.c_str(),
-							YosysVerificSettings::format_string_list(list).c_str());
 						break;
 					}
 				}
+				log("Setting '%s' = %s\n", name.c_str(), opt.str().c_str());
 				// Apply the setting to Verific APIs
 				yosys_verific_settings.apply_setting(name);
 				goto check_error;
