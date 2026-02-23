@@ -833,13 +833,13 @@ struct WireDeleter {
 	pool<RTLIL::Wire*> del_wires_queue;
 	ShardedVector<RTLIL::Wire*> remove_init;
 	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_init;
-	ShardedVector<RTLIL::SigSig> connections;
+	ShardedVector<RTLIL::SigSig> new_connections;
 	ShardedVector<RTLIL::Wire*> remove_unused_bits;
 	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_unused_bits;
 	WireDeleter(UsedSigAnalysis& used_sig_analysis, bool purge_mode, const AnalysisContext& actx) :
 		remove_init(actx.subpool),
 		set_init(actx.subpool),
-		connections(actx.subpool),
+		new_connections(actx.subpool),
 		remove_unused_bits(actx.subpool),
 		set_unused_bits(actx.subpool) {
 		ShardedVector<RTLIL::Wire*> del_wires(actx.subpool);
@@ -894,7 +894,7 @@ struct WireDeleter {
 							new_conn.second.append(s2[i]);
 						}
 					if (new_conn.first.size() > 0)
-						connections.insert(ctx, std::move(new_conn));
+						new_connections.insert(ctx, std::move(new_conn));
 					if (initval.is_fully_undef()) {
 						if (has_init_attribute)
 							remove_init.insert(ctx, wire);
@@ -932,13 +932,14 @@ struct WireDeleter {
 		});
 		del_wires_queue.insert(del_wires.begin(), del_wires.end());
 	}
-	// now decide for each wire if we should be deleting it
-	void commit_attrs(RTLIL::Module* mod) {
+	// Decide for each wire if we should be deleting it
+	// and fix up attributes
+	void commit_changes(RTLIL::Module* mod) {
 		for (RTLIL::Wire *wire : remove_init)
 			wire->attributes.erase(ID::init);
 		for (auto &p : set_init)
 			p.first->attributes[ID::init] = std::move(p.second);
-		for (auto &conn : connections)
+		for (auto &conn : new_connections)
 			mod->connect(std::move(conn));
 		for (RTLIL::Wire *wire : remove_unused_bits)
 			wire->attributes.erase(ID::unused_bits);
@@ -988,7 +989,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 		used_sig_analysis.clear(ctx);
 	});
 
-	deleter.commit_attrs(module);
+	deleter.commit_changes(module);
 	int deleted_and_unreported = deleter.delete_wires(module, verbose);
 	int deleted_total = GetSize(deleter.del_wires_queue);
 
