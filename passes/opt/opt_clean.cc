@@ -688,6 +688,9 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	// we are removing all connections
 	module->connections_.clear();
 
+	// here, "used" means "driven or driving something"
+	// meanwhile, "unused" means "driving nothing"
+	// TODO ...
 	// used signals sigmapped
 	ShardedSigPool::Builder used_signals_builder(subpool);
 	// used signals pre-sigmapped
@@ -702,7 +705,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	// Deferred updates to the assign_map
 	ShardedVector<UpdateConnection> update_connections(subpool);
 	ShardedVector<RTLIL::Wire*> initialized_wires(subpool);
-	// gather the usage information for cells and update cell connections
+	// gather the usage information for cells and update cell connections with the altered sigmap
 	// also gather the usage information for ports, wires with `keep`
 	// also gather init bits
 	subpool.run([const_module, &register_signals, &connected_signals, &direct_sigs, &assign_map, &used_signals_builder, &raw_used_signals_builder, &used_signals_nodrivers_builder, &update_connections, &initialized_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
