@@ -116,16 +116,41 @@ vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 
 struct YosysVerificSettings {
 	enum class Type { BOOL, STRING, STRING_LIST };
+	template<typename T>
+	struct OptionType;
+
+	template<>
+	struct OptionType<bool> {
+		static constexpr Type value = Type::BOOL;
+	};
+
+	template<>
+	struct OptionType<std::string> {
+		static constexpr Type value = Type::STRING;
+	};
+
+	template<>
+	struct OptionType<std::vector<std::string>> {
+		static constexpr Type value = Type::STRING_LIST;
+	};
+
+	using OptionValue = std::variant<bool,std::string,std::vector<std::string>>;
 
 	struct Option {
 		Type type;
-		bool bool_value;
-		std::string string_value;
-		std::vector<std::string> string_list_value;
-		bool default_bool;
-		std::string default_string;
-		std::vector<std::string> default_string_list;
+		OptionValue value;
+		OptionValue default_value;
 		std::string description;
+
+		template<typename T>
+		T get() const { return std::get<T>(value); }
+		template<typename T>
+		T get_default() const { return std::get<T>(default_value); }
+
+		template<typename T>
+		void set(T v) { value = v; }
+		template<typename T>
+		void default_set(T v) { default_value = v; }
 	};
 
 	std::map<std::string, Option> options;
@@ -133,22 +158,20 @@ struct YosysVerificSettings {
 
 	void init() {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		// Bool option example: ignore_translate_off
 		// When true, translate_off/translate_on pragmas are ignored
 		{
 			Option opt;
 			opt.type = Type::BOOL;
-			opt.default_bool = false;
+			opt.default_set<bool>(false);
 			opt.description = "Ignore translate_off/translate_on pragmas";
 			options["ignore_translate_off"] = opt;
 		}
 
-		// String-list option example: vlog_file_extensions
 		// Allows user to specify which file extensions should be treated as SystemVerilog
 		{
 			Option opt;
 			opt.type = Type::STRING_LIST;
-			opt.default_string_list = {".v", ".vh", ".sv", ".svh"};
+			opt.default_set<std::vector<std::string>>({".v", ".vh", ".sv", ".svh"});
 			opt.description = "Comma-separated SystemVerilog file extensions";
 			options["vlog_file_extensions"] = opt;
 		}
@@ -159,64 +182,25 @@ struct YosysVerificSettings {
 	void reset() {
 		for (auto &it : options) {
 			auto &opt = it.second;
-			switch (opt.type) {
-				case Type::BOOL:
-					opt.bool_value = opt.default_bool;
-					break;
-				case Type::STRING:
-					opt.string_value = opt.default_string;
-					break;
-				case Type::STRING_LIST:
-					opt.string_list_value = opt.default_string_list;
-					break;
-			}
+			opt.value = opt.default_value;
 		}
 	}
 
-	bool get_bool(const std::string &name) const {
+	template<typename T>
+	T get_setting(const std::string &name) const {
 		auto it = options.find(name);
-		if (it == options.end() || it->second.type != Type::BOOL)
-			return false;
-		return it->second.bool_value;
-	}
-
-	std::string get_string(const std::string &name) const {
-		auto it = options.find(name);
-		if (it == options.end() || it->second.type != Type::STRING)
-			return "";
-		return it->second.string_value;
-	}
-
-	std::vector<std::string> get_string_list(const std::string &name) const {
-		auto it = options.find(name);
-		if (it == options.end() || it->second.type != Type::STRING_LIST)
-			return {};
-		return it->second.string_list_value;
-	}
-
-	void set_bool(const std::string &name, bool value) {
-		auto it = options.find(name);
-		if (it != options.end() && it->second.type == Type::BOOL)
-			it->second.bool_value = value;
-	}
-
-	void set_string(const std::string &name, const std::string &value) {
-		auto it = options.find(name);
-		if (it != options.end() && it->second.type == Type::STRING)
-			it->second.string_value = value;
-	}
-
-	void set_string_list(const std::string &name, const std::vector<std::string> &value) {
-		auto it = options.find(name);
-		if (it != options.end() && it->second.type == Type::STRING_LIST)
-			it->second.string_list_value = value;
+		if (it == options.end())
+			throw std::invalid_argument(stringf("Unknown Yosys-Verific setting '%s'.\n", name.c_str()));
+		if (it->second.type != OptionType<T>::value)
+			throw std::invalid_argument(stringf("Reading Yosys-Verific setting '%s' as wrong type.\n", name.c_str()));
+		return it->second.get<T>();
 	}
 
 	// Apply a setting to Verific APIs when changed
 	void apply_setting(const std::string &name) {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (name == "ignore_translate_off") {
-			veri_file::SetIgnoreTranslateOff(get_bool("ignore_translate_off") ? 1 : 0);
+			veri_file::SetIgnoreTranslateOff(get_setting<bool>("ignore_translate_off") ? 1 : 0);
 			return;
 		}
 		if (name == "vlog_file_extensions") {
@@ -224,7 +208,7 @@ struct YosysVerificSettings {
 			for (const auto &ext : _applied_vlog_extensions) {
 				veri_file::RemoveFileExt(ext.c_str());
 			}
-			auto new_exts = get_string_list("vlog_file_extensions");
+			auto new_exts = get_setting<std::vector<std::string>>("vlog_file_extensions");
 			for (const auto &ext : new_exts) {
 				veri_file::RemoveFileExt(ext.c_str());
 				veri_file::AddFileExtMode(ext.c_str(), veri_file::SYSTEM_VERILOG);
@@ -3521,6 +3505,7 @@ struct VerificPass : public Pass {
 		log("With two arguments, sets the specified setting to the given value.\n");
 		log("\n");
 		log("Available settings:\n");
+#if defined(YOSYS_ENABLE_VERIFIC)
 		// Initialize settings to get option metadata
 		if (!yosys_verific_settings_initialized) {
 			yosys_verific_settings.init();
@@ -3532,6 +3517,7 @@ struct VerificPass : public Pass {
 				it.second.type == YosysVerificSettings::Type::STRING ? "string" : "string-list";
 			log("  %-20s (%s) %s\n", it.first.c_str(), type_str, it.second.description.c_str());
 		}
+#endif
 		log("\n");
 		log("For boolean settings, use 0/1, true/false, on/off, yes/no.\n");
 		log("For string-list settings, provide comma-separated values (e.g. \".v,.sv,.vh\").\n");
@@ -4535,18 +4521,18 @@ struct VerificPass : public Pass {
 					switch (opt.type) {
 						case YosysVerificSettings::Type::BOOL:
 							log("  %s = %s (bool, default: %s)\n", name.c_str(),
-								yosys_verific_settings.get_bool(name) ? "true" : "false",
-								opt.default_bool ? "true" : "false");
+								opt.get<bool>() ? "true" : "false",
+								opt.get_default<bool>() ? "true" : "false");
 							break;
 						case YosysVerificSettings::Type::STRING:
 							log("  %s = \"%s\" (string, default: \"%s\")\n", name.c_str(),
-								yosys_verific_settings.get_string(name).c_str(),
-								opt.default_string.c_str());
+								opt.get<std::string>().c_str(),
+								opt.get_default<std::string>().c_str());
 							break;
 						case YosysVerificSettings::Type::STRING_LIST:
 							log("  %s = \"%s\" (string-list, default: \"%s\")\n", name.c_str(),
-								YosysVerificSettings::format_string_list(yosys_verific_settings.get_string_list(name)).c_str(),
-								YosysVerificSettings::format_string_list(opt.default_string_list).c_str());
+								YosysVerificSettings::format_string_list(opt.get<std::vector<std::string>>()).c_str(),
+								YosysVerificSettings::format_string_list(opt.get_default<std::vector<std::string>>()).c_str());
 							break;
 					}
 				}
@@ -4562,15 +4548,15 @@ struct VerificPass : public Pass {
 				switch (opt.type) {
 					case YosysVerificSettings::Type::BOOL:
 						log("verific -set %s %s\n", name.c_str(),
-							yosys_verific_settings.get_bool(name) ? "true" : "false");
+							opt.get<bool>() ? "true" : "false");
 						break;
 					case YosysVerificSettings::Type::STRING:
 						log("verific -set %s \"%s\"\n", name.c_str(),
-							yosys_verific_settings.get_string(name).c_str());
+							opt.get<std::string>().c_str());
 						break;
 					case YosysVerificSettings::Type::STRING_LIST:
 						log("verific -set %s \"%s\"\n", name.c_str(),
-							YosysVerificSettings::format_string_list(yosys_verific_settings.get_string_list(name)).c_str());
+							YosysVerificSettings::format_string_list(opt.get<std::vector<std::string>>()).c_str());
 						break;
 				}
 				goto check_error;
@@ -4579,9 +4565,10 @@ struct VerificPass : public Pass {
 			// Two arguments: set specific setting
 			if (argidx+3 == GetSize(args)) {
 				const std::string &name = args[argidx+1];
-				const std::string &value = args[argidx+2];
+				std::string value = args[argidx+2];
 				if (!yosys_verific_settings.options.count(name))
 					log_cmd_error("Unknown Yosys-Verific setting '%s'.\n", name.c_str());
+				if (value.front() == '\"' && value.back() == '\"') value = value.substr(1, value.size() - 2);
 				auto &opt = yosys_verific_settings.options.at(name);
 				switch (opt.type) {
 					case YosysVerificSettings::Type::BOOL: {
@@ -4592,17 +4579,17 @@ struct VerificPass : public Pass {
 							bval = false;
 						else
 							log_cmd_error("Invalid boolean value '%s'. Use 0/1, true/false, on/off, or yes/no.\n", value.c_str());
-						yosys_verific_settings.set_bool(name, bval);
+						opt.set<bool>(bval);
 						log("Setting '%s' = %s\n", name.c_str(), bval ? "true" : "false");
 						break;
 					}
 					case YosysVerificSettings::Type::STRING:
-						yosys_verific_settings.set_string(name, value);
+						opt.set<std::string>(value);
 						log("Setting '%s' = \"%s\"\n", name.c_str(), value.c_str());
 						break;
 					case YosysVerificSettings::Type::STRING_LIST: {
 						auto list = YosysVerificSettings::parse_string_list(value);
-						yosys_verific_settings.set_string_list(name, list);
+						opt.set<std::vector<std::string>>(list);
 						log("Setting '%s' = \"%s\"\n", name.c_str(),
 							YosysVerificSettings::format_string_list(list).c_str());
 						break;
