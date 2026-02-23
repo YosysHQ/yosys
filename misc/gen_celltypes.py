@@ -68,7 +68,7 @@ def build_cell_table():
     f = Features(is_tristate=True, is_cell_evaluable=True)
     setup_type("$tribuf", ["A", "EN"], ["Y"], f)
 
-    f = Features()
+    f = Features(is_cell_evaluable=True)
     setup_type("$assert", ["A", "EN"], [], f)
     setup_type("$assume", ["A", "EN"], [], f)
     setup_type("$live", ["A", "EN"], [], f)
