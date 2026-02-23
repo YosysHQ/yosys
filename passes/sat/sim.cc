@@ -2685,7 +2685,7 @@ struct SimPass : public Pass {
 		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
 		log("    -no-undriven-check\n");
-		log("        skip undriven-signal checks for FST/VCD replay\n");
+		log("        skip undriven-signal checks for FST/VCD replay (can be expensive for large designs)\n");
 		log("\n");
 		log("    -undriven-warn\n");
 		log("        downgrade undriven-signal replay errors to warnings\n");
