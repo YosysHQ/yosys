@@ -715,6 +715,38 @@ struct SigAnalysis {
 	}
 };
 
+ShardedVector<RTLIL::SigBit> build_candidates(DirectWires& direct_wires, const SigAnalysis& sig_analysis, const RTLIL::Module* mod, ParallelDispatchThreadPool::Subpool &subpool, const SigMap& assign_map) {
+	ShardedVector<RTLIL::SigBit> sigmap_canonical_candidates(subpool);
+	subpool.run([mod, &assign_map, &sig_analysis, &sigmap_canonical_candidates, &direct_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		std::optional<DirectWires> local_direct_wires;
+		DirectWires *this_thread_direct_wires = &direct_wires;
+		if (ctx.thread_num > 0) {
+			// Rebuild a thread-local direct_wires from scratch
+			// but from the same inputs
+			local_direct_wires.emplace(assign_map, sig_analysis.direct);
+			this_thread_direct_wires = &local_direct_wires.value();
+		}
+		for (int i : ctx.item_range(mod->wires_size())) {
+			RTLIL::Wire *wire = mod->wire_at(i);
+			for (int j = 0; j < wire->width; ++j) {
+				RTLIL::SigBit s1(wire, j);
+				RTLIL::SigBit s2 = assign_map(s1);
+				if (compare_signals(s2, s1, sig_analysis.registers, sig_analysis.connected, *this_thread_direct_wires))
+					sigmap_canonical_candidates.insert(ctx, s1);
+			}
+		}
+	});
+	return sigmap_canonical_candidates;
+}
+
+bool update_assign_map(SigMap& assign_map, ShardedVector<RTLIL::SigBit>& sigmap_canonical_candidates, DirectWires& direct_wires, const SigAnalysis& sig_analysis) {
+	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
+		RTLIL::SigBit current_canonical = assign_map(candidate);
+		if (compare_signals(current_canonical, candidate, sig_analysis.registers, sig_analysis.connected, direct_wires))
+			assign_map.add(candidate);
+	}
+
+}
 struct UsedSigAnalysis {
 	// here, "used" means "driven or driving something"
 	// meanwhile, "unused" means "driving nothing"
@@ -927,39 +959,17 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 
 	SigAnalysis sig_analysis(const_module, subpool, purge_mode, assign_map);
 
-	// First thread's cached direct wires are retained and used later:
+	// Main thread's cached direct wires are retained and used later:
 	DirectWires direct_wires(assign_map, sig_analysis.direct);
-	// Other threads' caches get discarded when threads finish
+	// Other threads' caches get discarded when threads finish in build_candidates
 	// but the per-thread results are collected into sigmap_canonical_candidates
-	ShardedVector<RTLIL::SigBit> sigmap_canonical_candidates(subpool);
-	subpool.run([const_module, &assign_map, &sig_analysis, &sigmap_canonical_candidates, &direct_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		std::optional<DirectWires> local_direct_wires;
-		DirectWires *this_thread_direct_wires = &direct_wires;
-		if (ctx.thread_num > 0) {
-			// Rebuild a thread-local direct_wires from scratch
-			// but from the same inputs
-			local_direct_wires.emplace(assign_map, sig_analysis.direct);
-			this_thread_direct_wires = &local_direct_wires.value();
-		}
-		for (int i : ctx.item_range(const_module->wires_size())) {
-			RTLIL::Wire *wire = const_module->wire_at(i);
-			for (int j = 0; j < wire->width; ++j) {
-				RTLIL::SigBit s1(wire, j);
-				RTLIL::SigBit s2 = assign_map(s1);
-				if (compare_signals(s2, s1, sig_analysis.registers, sig_analysis.connected, *this_thread_direct_wires))
-					sigmap_canonical_candidates.insert(ctx, s1);
-			}
-		}
-	});
+	ShardedVector<RTLIL::SigBit> sigmap_canonical_candidates = build_candidates(direct_wires, sig_analysis, const_module, subpool, assign_map);
+
 	// Cache all the direct_wires results that we might possible need. This avoids the results
 	// changing when we update `assign_map` below.
 	direct_wires.cache_all(sigmap_canonical_candidates);
 	// Modify assign_map to reflect the connectivity we want, not the one we have
-	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
-		RTLIL::SigBit current_canonical = assign_map(candidate);
-		if (compare_signals(current_canonical, candidate, sig_analysis.registers, sig_analysis.connected, direct_wires))
-			assign_map.add(candidate);
-	}
+	update_assign_map(assign_map, sigmap_canonical_candidates, direct_wires, sig_analysis);
 
 	// Remove all wire-wire connections
 	module->connections_.clear();
