@@ -1,13 +1,13 @@
 module edges(input clk);
 
 `ifdef MASK
-    (* anyconst *) reg [31:0] a_in, b_in, c_in;
+    (* anyseq *) reg [31:0] a_in, b_in, c_in;
     wire [31:0] a, b, c;
     assign a = a_in & 32'hffc42108;
     assign b = b_in & 32'hfff80001;
     assign c = c_in & 32'hfff80001;
 `elsif MAP
-    (* anyconst *) reg [31:0] a_pre, b_pre, c_pre;
+    (* anyseq *) reg [31:0] a_pre, b_pre, c_pre;
     wire [31:0] a_in, b_in, c_in;
     // assuming 8/24
     assign a_in[31:22] = a_pre[31:22];
@@ -21,7 +21,7 @@ module edges(input clk);
     assign b = b_in & 32'hfff80001;
     assign c = c_in & 32'hfff80001;
 `else
-    (* anyconst *) reg [31:0] a, b, c;
+    (* anyseq *) reg [31:0] a, b, c;
 `endif
 
     (* anyseq *) reg [4:0] rm;
@@ -607,6 +607,7 @@ module edges(input clk);
 `endif
     end
 
+`ifdef EDGE_EVENTS
     reg skip = 1;
     always @(posedge clk) begin
         if (skip) begin
@@ -691,7 +692,32 @@ module edges(input clk);
                 cover ($rose(UF));
     `endif
 `endif
+`ifdef MULADD
+            // same multiplier output, different addend
+            end else if ($stable(a) && $stable(b) && $stable(rm)) begin
+                // we can get boundary cases
+                cover ($rose(o_inf));
+                cover ($rose(o_ebmin));
+                cover ($rose(o_zero));
+
+                // multiplication with an exception can be recovered by addend
+                if ($fell(c_zero)) begin
+                    cover ($fell(OF));
+                    cover ($fell(UF));
+                    cover ($fell(NX));
+                    // unless it was an invalid multiplication
+                    if ($past(NV))
+                        assert (NV);
+                end
+
+                // flags are always determined after addition
+                cover ($rose(OF));
+                cover ($rose(UF));
+                cover ($rose(NV));
+                cover ($rose(NX));
+`endif
             end
         end
     end
+`endif
 endmodule
