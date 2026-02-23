@@ -513,6 +513,13 @@ struct DirectWires {
 		cache.insert({wire, direct});
 		return direct;
 	}
+	void cache_all(ShardedVector<RTLIL::SigBit> &bits) {
+		for (RTLIL::SigBit candidate : bits) {
+			cache_result_for_bit(candidate);
+			cache_result_for_bit(assign_map(candidate));
+		}
+
+	}
 };
 
 // Should we pick `s2` over `s1` to represent a signal?
@@ -707,6 +714,82 @@ struct SigAnalysis {
 		direct.clear(ctx);
 	}
 };
+
+struct UsedSigAnalysis {
+	// here, "used" means "driven or driving something"
+	// meanwhile, "unused" means "driving nothing"
+	// TODO ...
+	// used signals sigmapped
+	ShardedSigPool used;
+	// used signals pre-sigmapped
+	ShardedSigPool raw_used;
+	// used signals sigmapped, ignoring drivers (we keep track of this to set `unused_bits`)
+	ShardedSigPool used_nodrivers;
+
+	// Deferred updates to the assign_map
+	ShardedVector<UpdateConnection> update_connections;
+	ShardedVector<RTLIL::Wire*> initialized_wires;
+
+	UsedSigAnalysis(SigAnalysis& sig_analysis, const RTLIL::Module* mod, SigMap& assign_map, ParallelDispatchThreadPool::Subpool &subpool) : update_connections(subpool), initialized_wires(subpool) {
+		ShardedSigPool::Builder used_builder(subpool);
+		ShardedSigPool::Builder raw_used_builder(subpool);
+		ShardedSigPool::Builder used_nodrivers_builder(subpool);
+
+		// gather the usage information for cells and update cell connections with the altered sigmap
+		// also gather the usage information for ports, wires with `keep`
+		// also gather init bits
+		subpool.run([mod, &sig_analysis, &assign_map, &used_builder, &raw_used_builder, &used_nodrivers_builder, this](const ParallelDispatchThreadPool::RunCtx &ctx) {
+			// Parallel destruction of these sharded structures
+			sig_analysis.clear(ctx);
+
+			for (int i : ctx.item_range(mod->cells_size())) {
+				RTLIL::Cell *cell = mod->cell_at(i);
+				for (const auto &[port, sig] : cell->connections_) {
+					SigSpec spec = assign_map(sig);
+					if (spec != sig)
+						update_connections.insert(ctx, {cell, port, spec});
+					add_spec(raw_used_builder, ctx, spec);
+					add_spec(used_builder, ctx, spec);
+					if (!ct_all.cell_output(cell->type, port))
+						add_spec(used_nodrivers_builder, ctx, spec);
+				}
+			}
+			for (int i : ctx.item_range(mod->wires_size())) {
+				RTLIL::Wire *wire = mod->wire_at(i);
+				if (wire->port_id > 0) {
+					RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+					add_spec(raw_used_builder, ctx, sig);
+					assign_map.apply(sig);
+					add_spec(used_builder, ctx, sig);
+					if (!wire->port_input)
+						add_spec(used_nodrivers_builder, ctx, sig);
+				}
+				if (wire->get_bool_attribute(ID::keep)) {
+					RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
+					assign_map.apply(sig);
+					add_spec(used_builder, ctx, sig);
+				}
+				auto it = wire->attributes.find(ID::init);
+				if (it != wire->attributes.end())
+					initialized_wires.insert(ctx, wire);
+			}
+		});
+		subpool.run([&used_builder, &raw_used_builder, &used_nodrivers_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+			used_builder.process(ctx);
+			raw_used_builder.process(ctx);
+			used_nodrivers_builder.process(ctx);
+		});
+		ShardedSigPool used_signals(used_builder);
+		ShardedSigPool raw_used_signals(raw_used_builder);
+		ShardedSigPool used_signals_nodrivers(used_nodrivers_builder);
+	}
+	void clear(const ParallelDispatchThreadPool::RunCtx &ctx) {
+		used.clear(ctx);
+		raw_used.clear(ctx);
+		used_nodrivers.clear(ctx);
+	}
+};
+
 bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, RmStats &stats)
 {
 	SigMap assign_map(module);
@@ -741,10 +824,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	});
 	// Cache all the direct_wires results that we might possible need. This avoids the results
 	// changing when we update `assign_map` below.
-	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
-		direct_wires.cache_result_for_bit(candidate);
-		direct_wires.cache_result_for_bit(assign_map(candidate));
-	}
+	direct_wires.cache_all(sigmap_canonical_candidates);
 	// Modify assign_map to reflect the connectivity we want, not the one we have
 	for (RTLIL::SigBit candidate : sigmap_canonical_candidates) {
 		RTLIL::SigBit current_canonical = assign_map(candidate);
@@ -755,68 +835,9 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	// we are removing all connections
 	module->connections_.clear();
 
-	// here, "used" means "driven or driving something"
-	// meanwhile, "unused" means "driving nothing"
-	// TODO ...
-	// used signals sigmapped
-	ShardedSigPool::Builder used_signals_builder(subpool);
-	// used signals pre-sigmapped
-	ShardedSigPool::Builder raw_used_signals_builder(subpool);
-	// used signals sigmapped, ignoring drivers (we keep track of this to set `unused_bits`)
-	ShardedSigPool::Builder used_signals_nodrivers_builder(subpool);
-	// Deferred updates to the assign_map
-	ShardedVector<UpdateConnection> update_connections(subpool);
-	ShardedVector<RTLIL::Wire*> initialized_wires(subpool);
-	// gather the usage information for cells and update cell connections with the altered sigmap
-	// also gather the usage information for ports, wires with `keep`
-	// also gather init bits
-	subpool.run([const_module, &sig_analysis, &assign_map, &used_signals_builder, &raw_used_signals_builder, &used_signals_nodrivers_builder, &update_connections, &initialized_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		// Parallel destruction of these sharded structures
-		sig_analysis.clear(ctx);
-
-		for (int i : ctx.item_range(const_module->cells_size())) {
-			RTLIL::Cell *cell = const_module->cell_at(i);
-			for (const auto &[port, sig] : cell->connections_) {
-				SigSpec spec = assign_map(sig);
-				if (spec != sig)
-					update_connections.insert(ctx, {cell, port, spec});
-				add_spec(raw_used_signals_builder, ctx, spec);
-				add_spec(used_signals_builder, ctx, spec);
-				if (!ct_all.cell_output(cell->type, port))
-					add_spec(used_signals_nodrivers_builder, ctx, spec);
-			}
-		}
-		for (int i : ctx.item_range(const_module->wires_size())) {
-			RTLIL::Wire *wire = const_module->wire_at(i);
-			if (wire->port_id > 0) {
-				RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
-				add_spec(raw_used_signals_builder, ctx, sig);
-				assign_map.apply(sig);
-				add_spec(used_signals_builder, ctx, sig);
-				if (!wire->port_input)
-					add_spec(used_signals_nodrivers_builder, ctx, sig);
-			}
-			if (wire->get_bool_attribute(ID::keep)) {
-				RTLIL::SigSpec sig = RTLIL::SigSpec(wire);
-				assign_map.apply(sig);
-				add_spec(used_signals_builder, ctx, sig);
-			}
-			auto it = wire->attributes.find(ID::init);
-			if (it != wire->attributes.end())
-				initialized_wires.insert(ctx, wire);
-		}
-	});
-	subpool.run([&used_signals_builder, &raw_used_signals_builder, &used_signals_nodrivers_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		used_signals_builder.process(ctx);
-		raw_used_signals_builder.process(ctx);
-		used_signals_nodrivers_builder.process(ctx);
-	});
-	ShardedSigPool used_signals(used_signals_builder);
-	ShardedSigPool raw_used_signals(raw_used_signals_builder);
-	ShardedSigPool used_signals_nodrivers(used_signals_nodrivers_builder);
-
-	fixup_update_ports(update_connections);
-	consume_inits(initialized_wires, assign_map).apply_normalised_inits();
+	UsedSigAnalysis used_sig_analysis(sig_analysis, const_module, assign_map, subpool);
+	fixup_update_ports(used_sig_analysis.update_connections);
+	consume_inits(used_sig_analysis.initialized_wires, assign_map).apply_normalised_inits();
 
 	// now decide for each wire if we should be deleting it
 	ShardedVector<RTLIL::Wire*> del_wires(subpool);
@@ -825,7 +846,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	ShardedVector<RTLIL::SigSig> connections(subpool);
 	ShardedVector<RTLIL::Wire*> remove_unused_bits(subpool);
 	ShardedVector<std::pair<RTLIL::Wire*, RTLIL::Const>> set_unused_bits(subpool);
-	subpool.run([const_module, purge_mode, &assign_map, &used_signals, &raw_used_signals, &used_signals_nodrivers, &del_wires, &remove_init, &set_init, &connections, &remove_unused_bits, &set_unused_bits](const ParallelDispatchThreadPool::RunCtx &ctx) {
+	subpool.run([const_module, purge_mode, &assign_map, &used_sig_analysis, &del_wires, &remove_init, &set_init, &connections, &remove_unused_bits, &set_unused_bits](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		for (int i : ctx.item_range(const_module->wires_size())) {
 			RTLIL::Wire *wire = const_module->wire_at(i);
 			SigSpec s1 = SigSpec(wire), s2 = assign_map(s1);
@@ -849,10 +870,10 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 			if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
 				// do not delete anything with "keep" or module ports or initialized wires
 			} else
-			if (!purge_mode && check_public_name(wire->name) && (check_any(raw_used_signals, s1) || check_any(used_signals, s2) || s1 != s2)) {
+			if (!purge_mode && check_public_name(wire->name) && (check_any(used_sig_analysis.raw_used, s1) || check_any(used_sig_analysis.used, s2) || s1 != s2)) {
 				// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
 			} else
-			if (!check_any(raw_used_signals, s1)) {
+			if (!check_any(used_sig_analysis.raw_used, s1)) {
 				// delete wires that aren't used by anything directly
 				goto delete_this_wire;
 			}
@@ -885,12 +906,12 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 						set_init.insert(ctx, {wire, std::move(initval)});
 
 				std::string unused_bits;
-				if (!check_all(used_signals_nodrivers, s2)) {
+				if (!check_all(used_sig_analysis.used_nodrivers, s2)) {
 					for (int i = 0; i < GetSize(s2); i++) {
 						if (s2[i].wire == NULL)
 							continue;
 						SigBit b = s2[i];
-						if (used_signals_nodrivers.find({b, b.hash_top().yield()}) == nullptr) {
+						if (used_sig_analysis.used_nodrivers.find({b, b.hash_top().yield()}) == nullptr) {
 							if (!unused_bits.empty())
 								unused_bits += " ";
 							unused_bits += stringf("%d", i);
@@ -925,10 +946,8 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	for (auto &p : set_unused_bits)
 		p.first->attributes[ID::unused_bits] = std::move(p.second);
 
-	subpool.run([&used_signals, &raw_used_signals, &used_signals_nodrivers](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		used_signals.clear(ctx);
-		raw_used_signals.clear(ctx);
-		used_signals_nodrivers.clear(ctx);
+	subpool.run([&used_sig_analysis](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		used_sig_analysis.clear(ctx);
 	});
 
 	int del_temp_wires_count = 0;
