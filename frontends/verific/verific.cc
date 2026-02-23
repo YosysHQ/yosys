@@ -4495,10 +4495,6 @@ struct VerificPass : public Pass {
 
 		if (argidx < GetSize(args) && args[argidx] == "-set-reset")
 		{
-			if (!yosys_verific_settings_initialized) {
-				yosys_verific_settings.init();
-				yosys_verific_settings_initialized = true;
-			}
 			yosys_verific_settings.reset();
 			yosys_verific_settings.apply_all();
 			log("All Yosys-Verific settings reset to defaults.\n");
@@ -4507,11 +4503,6 @@ struct VerificPass : public Pass {
 
 		if (argidx < GetSize(args) && args[argidx] == "-set")
 		{
-			if (!yosys_verific_settings_initialized) {
-				yosys_verific_settings.init();
-				yosys_verific_settings_initialized = true;
-			}
-
 			// No arguments: list all settings
 			if (argidx+1 == GetSize(args)) {
 				log("Yosys-Verific settings:\n");
