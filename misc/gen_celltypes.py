@@ -65,10 +65,10 @@ def build_cell_table():
                               Features(**vars(features))))
 
     # setup_internals_other
-    f = Features(is_tristate=True, is_cell_evaluable=True)
+    f = Features(is_tristate=True, is_evaluable=True, is_cell_evaluable=True)
     setup_type("$tribuf", ["A", "EN"], ["Y"], f)
 
-    f = Features(is_cell_evaluable=True)
+    f = Features(is_evaluable=True, is_cell_evaluable=True)
     setup_type("$assert", ["A", "EN"], [], f)
     setup_type("$assume", ["A", "EN"], [], f)
     setup_type("$live", ["A", "EN"], [], f)
@@ -81,7 +81,7 @@ def build_cell_table():
     setup_type("$allseq", [], ["Y"], f)
     setup_type("$equiv", ["A", "B"], ["Y"], f)
 
-    f = Features(is_cell_evaluable=True)
+    f = Features(is_evaluable=True, is_cell_evaluable=True)
     setup_type("$specify2", ["EN", "SRC", "DST"], [], f)
     setup_type("$specify3", ["EN", "SRC", "DST", "DAT"], [], f)
     setup_type("$specrule", ["EN_SRC", "EN_DST", "SRC", "DST"], [], f)
@@ -175,7 +175,7 @@ def build_cell_table():
     setup_type("$fsm", ["CLK", "ARST", "CTRL_IN"], ["CTRL_OUT"], f)
 
     # setup_stdcells_tristate
-    f = Features(is_stdcell=True, is_tristate=True, is_cell_evaluable=True)
+    f = Features(is_stdcell=True, is_tristate=True, is_evaluable=True, is_cell_evaluable=True)
     setup_type("$_TBUF_", ["A", "E"], ["Y"], f)
 
     # setup_stdcells_eval
@@ -359,7 +359,7 @@ def build_arrays(cells, index_map):
         "compat_internals_mem_ff": band(internals_all, mem_ff),
         "compat_internals_nomem_noff": band(internals_all, nomem_noff),
         "compat_stdcells_nomem_noff": band(cats["is_stdcell"], nomem_noff),
-        "compat_stdcells_mem": band(cats["is_stdcell"], cats["is_mem_noff"]),
+        "compat_stdcells_mem": band(cats["is_stdcell"], mem_ff),
     }
 
     return (cats, compat,
