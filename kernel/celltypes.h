@@ -160,8 +160,11 @@ struct CellTypes
 		return cell_types.count(type) != 0;
 	}
 
-	bool cell_output(const RTLIL::IdString &type, const RTLIL::IdString &port) const
+bool cell_output(const RTLIL::IdString &type, const RTLIL::IdString &port) const
 	{
+		auto it = cell_types.find(type);
+		if (it != cell_types.end())
+			return it->second.outputs.count(port) != 0;
 		size_t idx = type.index_;
 		bool is_builtin = (enabled_cats == BITS_ALL) ? builtin_is_known(idx) : builtin_match(idx);
 		if (is_builtin) {
@@ -170,14 +173,15 @@ struct CellTypes
 			for (uint16_t i = 0; i < count; i++)
 				if (StaticCellTypes::GeneratedData::port_outputs_ports[idx][i] == target)
 					return true;
-			return false;
 		}
-		auto it = cell_types.find(type);
-		return it != cell_types.end() && it->second.outputs.count(port) != 0;
+		return false;
 	}
 
 	bool cell_input(const RTLIL::IdString &type, const RTLIL::IdString &port) const
 	{
+		auto it = cell_types.find(type);
+		if (it != cell_types.end())
+			return it->second.inputs.count(port) != 0;
 		size_t idx = type.index_;
 		bool is_builtin = (enabled_cats == BITS_ALL) ? builtin_is_known(idx) : builtin_match(idx);
 		if (is_builtin) {
@@ -186,14 +190,18 @@ struct CellTypes
 			for (uint16_t i = 0; i < count; i++)
 				if (StaticCellTypes::GeneratedData::port_inputs_ports[idx][i] == target)
 					return true;
-			return false;
 		}
-		auto it = cell_types.find(type);
-		return it != cell_types.end() && it->second.inputs.count(port) != 0;
+		return false;
 	}
 
 	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, RTLIL::IdString port) const
 	{
+		auto it = cell_types.find(type);
+		if (it != cell_types.end()) {
+			bool is_input = it->second.inputs.count(port);
+			bool is_output = it->second.outputs.count(port);
+			return RTLIL::PortDir(is_input + is_output * 2);
+		}
 		size_t idx = type.index_;
 		bool is_builtin = (enabled_cats == BITS_ALL) ? builtin_is_known(idx) : builtin_match(idx);
 		if (is_builtin) {
@@ -209,23 +217,21 @@ struct CellTypes
 					{ is_out = true; break; }
 			return RTLIL::PortDir(is_in + is_out * 2);
 		}
-		auto it = cell_types.find(type);
-		if (it == cell_types.end())
-			return RTLIL::PD_UNKNOWN;
-		bool is_in = it->second.inputs.count(port);
-		bool is_out = it->second.outputs.count(port);
-		return RTLIL::PortDir(is_in + is_out * 2);
+		return RTLIL::PD_UNKNOWN;
 	}
 
 	bool cell_evaluable(const RTLIL::IdString &type) const
 	{
+		auto it = cell_types.find(type);
+		if (it != cell_types.end())
+			return it->second.is_evaluable;
+
 		size_t idx = type.index_;
 		bool is_builtin = (enabled_cats == BITS_ALL) ? builtin_is_known(idx) : builtin_match(idx);
 		if (is_builtin)
 			return idx < (size_t)StaticCellTypes::GEN_MAX_CELLS &&
 				StaticCellTypes::GeneratedData::is_cell_evaluable[idx];
-		auto it = cell_types.find(type);
-		return it != cell_types.end() && it->second.is_evaluable;
+		return false;
 	}
 
 	static RTLIL::Const eval_not(RTLIL::Const v)
