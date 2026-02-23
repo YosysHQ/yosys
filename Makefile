@@ -568,7 +568,7 @@ $(subst //,/,$(1)/$(3)): $(2)
 	$$(Q) cp "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(3))
 endef
 
-define add_gen_share_fila
+define add_gen_share_file
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(P) mkdir -p $(1)
