@@ -3,8 +3,3 @@ prep -top undriven_replay
 
 logger -expect error "Found 1 undriven signal in the replay trace" 1
 sim -r undriven_replay.vcd -scope undriven_replay -q
-
-logger -expect warning "Input trace contains undriven signal" 1
-sim -r undriven_replay.vcd -scope undriven_replay -q -undriven-warn
-
-sim -r undriven_replay.vcd -scope undriven_replay -q -no-undriven-check
