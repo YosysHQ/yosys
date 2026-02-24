@@ -968,6 +968,8 @@ struct WireDeleter {
 bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, RmStats &stats)
 {
 	// Passing actx to function == function does parallel work
+	// Not passing module as function argument == function does not modify module
+	// TODO the above sentence is false due to constness laundering in wire_at / cell_at
 	AnalysisContext actx(module, subpool);
 	SigConnKinds conn_kinds(purge_mode, actx);
 
@@ -1010,18 +1012,13 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	return deleted_total != 0;
 }
 
-bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose)
-{
+ShardedVector<std::pair<SigBit, State>> build_inits(AnalysisContext& actx) {
+	ShardedVector<std::pair<SigBit, State>> results(actx.subpool);
 	CellTypes fftypes;
 	fftypes.setup_internals_mem();
-
-	SigMap sigmap(module);
-
-	const Module *const_module = module;
-	ShardedVector<std::pair<SigBit, State>> results(subpool);
-	subpool.run([const_module, &fftypes, &results](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		for (int i : ctx.item_range(const_module->cells_size())) {
-			RTLIL::Cell *cell = const_module->cell_at(i);
+	actx.subpool.run([&results, &fftypes, &actx](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(actx.mod->cells_size())) {
+			RTLIL::Cell *cell = actx.mod->cell_at(i);
 			if (fftypes.cell_known(cell->type) && cell->hasPort(ID::Q))
 			{
 				SigSpec sig = cell->getPort(ID::Q);
@@ -1043,16 +1040,23 @@ bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Sub
 			}
 		}
 	});
-	dict<SigBit, State> qbits;
-	for (std::pair<SigBit, State> &p : results) {
-		sigmap.add(p.first);
+	return results;
+}
+
+dict<SigBit, State> qbits_from_inits(ShardedVector<std::pair<SigBit, State>>& inits, AnalysisContext& actx) {
+	dict<SigBit, State> qbits = qbits_from_inits(inits, actx);
+	for (std::pair<SigBit, State> &p : inits) {
+		actx.assign_map.add(p.first);
 		qbits[p.first] = p.second;
 	}
+	return qbits;
+}
 
-	ShardedVector<RTLIL::Wire*> wire_results(subpool);
-	subpool.run([const_module, &sigmap, &qbits, &wire_results](const ParallelDispatchThreadPool::RunCtx &ctx) {
-		for (int j : ctx.item_range(const_module->wires_size())) {
-			RTLIL::Wire *wire = const_module->wire_at(j);
+ShardedVector<RTLIL::Wire*> deferred_init_transfer(const dict<SigBit, State>& qbits, AnalysisContext& actx) {
+	ShardedVector<RTLIL::Wire*> wire_results(actx.subpool);
+	actx.subpool.run([&actx, &qbits, &wire_results](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int j : ctx.item_range(actx.mod->wires_size())) {
+			RTLIL::Wire *wire = actx.mod->wire_at(j);
 			if (wire->attributes.count(ID::init) == 0)
 				continue;
 			Const init = wire->attributes.at(ID::init);
@@ -1063,7 +1067,7 @@ bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Sub
 					continue;
 
 				SigBit wire_bit = SigBit(wire, i);
-				SigBit mapped_wire_bit = sigmap(wire_bit);
+				SigBit mapped_wire_bit = actx.assign_map(wire_bit);
 
 				if (wire_bit == mapped_wire_bit)
 					goto next_wire;
@@ -1090,15 +1094,29 @@ bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Sub
 			next_wire:;
 		}
 	});
+	return wire_results;
+}
 
+bool remove_redundant_inits(ShardedVector<RTLIL::Wire*> wires, bool verbose) {
 	bool did_something = false;
-	for (RTLIL::Wire *wire : wire_results) {
+	for (RTLIL::Wire *wire : wires) {
 		if (verbose)
 			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
 		wire->attributes.erase(ID::init);
 		did_something = true;
 	}
+	return did_something;
+}
 
+bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose)
+{
+	AnalysisContext actx(module, subpool);
+
+	ShardedVector<std::pair<SigBit, State>> inits = build_inits(actx);
+	dict<SigBit, State> qbits = qbits_from_inits(inits, actx);
+	ShardedVector<RTLIL::Wire*> inits_to_transfer = deferred_init_transfer(qbits, actx);
+
+	bool did_something = remove_redundant_inits(inits_to_transfer, verbose);
 	if (did_something)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
