@@ -17,14 +17,7 @@
  *
  */
 
-#include "kernel/register.h"
-#include "kernel/sigtools.h"
-#include "kernel/log.h"
-#include "kernel/celltypes.h"
-#include "kernel/ffinit.h"
-#include "kernel/threading.h"
-#include "kernel/yosys_common.h"
-#include "passes/opt/opt_clean/shared.h"
+#include "passes/opt/opt_clean/opt_clean.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

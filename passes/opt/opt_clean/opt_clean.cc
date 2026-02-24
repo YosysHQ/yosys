@@ -18,21 +18,11 @@
  */
 
 #include "kernel/register.h"
-#include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include "kernel/celltypes.h"
-#include "kernel/ffinit.h"
-#include "kernel/threading.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <set>
-#include "passes/opt/opt_clean/shared.h"
-#include "passes/opt/opt_clean/keep_cache.h"
+#include "passes/opt/opt_clean/opt_clean.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-using RTLIL::id2cstr;
 
 void rmunused_module(RTLIL::Module *module, bool rminit, CleanRunContext &clean_ctx)
 {

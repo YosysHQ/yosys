@@ -18,17 +18,13 @@
  */
 
 #include "kernel/rtlil.h"
-#include "kernel/sigtools.h"
 #include "kernel/threading.h"
-#include "kernel/celltypes.h"
-#include "kernel/yosys_common.h"
 #include "passes/opt/opt_clean/keep_cache.h"
 
 #ifndef OPT_CLEAN_SHARED_H
 #define OPT_CLEAN_SHARED_H
 
 YOSYS_NAMESPACE_BEGIN
-
 
 struct AnalysisContext {
 	SigMap assign_map;
