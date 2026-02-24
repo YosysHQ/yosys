@@ -1214,7 +1214,7 @@ Yosys 0.7 .. Yosys 0.8
     - Added "write_smt2 -stbv" and "write_smt2 -stdt"
     - Fix equiv_simple, old behavior now available with "equiv_simple -short"
     - Change to Yices2 as default SMT solver (it is GPL now)
-    - Added "yosys-smtbmc --presat" (now default in SymbiYosys)
+    - Added "yosys-smtbmc --presat" (now default in SBY)
     - Added "yosys-smtbmc --smtc-init --smtc-top --noinit"
     - Added a brand new "write_btor" command for BTOR2
     - Added clk2fflogic memory support and other improvements
