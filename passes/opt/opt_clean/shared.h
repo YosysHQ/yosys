@@ -22,6 +22,7 @@
 #include "kernel/threading.h"
 #include "kernel/celltypes.h"
 #include "kernel/yosys_common.h"
+#include "passes/opt/opt_clean/keep_cache.h"
 
 #ifndef OPT_CLEAN_SHARED_H
 #define OPT_CLEAN_SHARED_H
@@ -47,27 +48,60 @@ struct RmStats {
 	}
 };
 
+struct Flags {
+	bool purge = false;
+	bool verbose = false;
+};
 struct CleanRunContext {
 	CellTypes ct_reg;
 	CellTypes ct_all;
 	RmStats stats;
-	CleanRunContext(RTLIL::Design* design) {
+	ParallelDispatchThreadPool thread_pool;
+	std::vector<RTLIL::Module*> selected_modules;
+	keep_cache_t keep_cache;
+	Flags flags;
+
+private:
+	// Helper to compute thread pool size
+	static int compute_thread_pool_size(RTLIL::Design* design) {
+		int thread_pool_size = 0;
+		for (auto module : design->selected_unboxed_whole_modules())
+			if (!module->has_processes())
+				thread_pool_size = std::max(thread_pool_size,
+					ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+		return thread_pool_size;
+	}
+
+	static std::vector<RTLIL::Module*> get_selected_modules(RTLIL::Design* design) {
+		std::vector<RTLIL::Module*> modules;
+		for (auto module : design->selected_unboxed_whole_modules())
+			if (!module->has_processes())
+				modules.push_back(module);
+		return modules;
+	}
+
+public:
+	CleanRunContext(RTLIL::Design* design, Flags f)
+		: thread_pool(compute_thread_pool_size(design)),
+		selected_modules(get_selected_modules(design)),
+		keep_cache(f.purge, thread_pool, selected_modules),
+		flags(f)
+	{
 		ct_reg.setup_internals_mem();
 		ct_reg.setup_internals_anyinit();
 		ct_reg.setup_stdcells_mem();
-
 		ct_all.setup(design);
 	}
+
 	~CleanRunContext() {
 		ct_reg.clear();
 		ct_all.clear();
 	}
 };
 
-struct keep_cache_t;
 void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose);
-void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose, CleanRunContext &clean_ctx, keep_cache_t &keep_cache);
-bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, CleanRunContext &clean_ctx);
+void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);
+bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);
 bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose);
 
 YOSYS_NAMESPACE_END

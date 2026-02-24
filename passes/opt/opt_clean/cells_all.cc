@@ -33,7 +33,7 @@ unsigned int hash_bit(const SigBit &bit) {
 	return static_cast<unsigned int>(hash_ops<SigBit>::hash(bit).yield());
 }
 
-void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose, CleanRunContext &clean_ctx, keep_cache_t &keep_cache)
+void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx)
 {
 	SigMap sigmap(module);
 	FfInitVals ffinit;
@@ -134,7 +134,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	// Prepare "input cone" traversal from memory to write port or meminit as mem2cells
 	// Also check driver conflicts
 	// Also mark cells unused to true unless keep (we override this later)
-	subpool.run([&sigmap, &raw_sigmap, &keep_cache, const_module, &mem2cells_vector, &driver_driver_logs, &keep_wires, &cell_queue, &wire2driver_builder, &clean_ctx, &unused](const ParallelDispatchThreadPool::RunCtx &ctx) {
+	subpool.run([&sigmap, &raw_sigmap, const_module, &mem2cells_vector, &driver_driver_logs, &keep_wires, &cell_queue, &wire2driver_builder, &clean_ctx, &unused](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		for (int i : ctx.item_range(const_module->cells_size())) {
 			Cell *cell = const_module->cell_at(i);
 			if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2)))
@@ -157,7 +157,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 						wire2driver_builder.insert(ctx, {{bit, i}, hash_bit(bit)});
 				}
 			}
-			bool keep = keep_cache.query(cell);
+			bool keep = clean_ctx.keep_cache.query(cell);
 			unused[i].store(!keep, std::memory_order_relaxed);
 			if (keep)
 				cell_queue.push(ctx, i);
@@ -267,7 +267,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	}
 
 	for (auto cell : unused_cells) {
-		if (verbose)
+		if (clean_ctx.flags.verbose)
 			log_debug("  removing unused `%s' cell `%s'.\n", cell->type, cell->name);
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		if (cell->is_builtin_ff())
@@ -280,7 +280,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 		if (!mem_unused[it.second].load(std::memory_order_relaxed))
 			continue;
 		RTLIL::IdString id(it.first);
-		if (verbose)
+		if (clean_ctx.flags.verbose)
 			log_debug("  removing unused memory `%s'.\n", id.unescape());
 		delete module->memories.at(id);
 		module->memories.erase(id);

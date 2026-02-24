@@ -34,21 +34,21 @@ PRIVATE_NAMESPACE_BEGIN
 
 using RTLIL::id2cstr;
 
-void rmunused_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool, bool purge_mode, bool verbose, bool rminit, CleanRunContext &clean_ctx, keep_cache_t &keep_cache)
+void rmunused_module(RTLIL::Module *module, bool rminit, CleanRunContext &clean_ctx)
 {
-	if (verbose)
+	if (clean_ctx.flags.verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name);
 
 	// Use no more than one worker per thousand cells, rounded down, so
 	// we only start multithreading with at least 2000 cells.
 	int num_worker_threads = ThreadPool::work_pool_size(0, module->cells_size(), 1000);
-	ParallelDispatchThreadPool::Subpool subpool(thread_pool, num_worker_threads);
-	remove_temporary_cells(module, subpool, verbose);
-	rmunused_module_cells(module, subpool, verbose, clean_ctx, keep_cache);
-	while (rmunused_module_signals(module, subpool, purge_mode, verbose, clean_ctx)) { }
+	ParallelDispatchThreadPool::Subpool subpool(clean_ctx.thread_pool, num_worker_threads);
+	remove_temporary_cells(module, subpool, clean_ctx.flags.verbose);
+	rmunused_module_cells(module, subpool, clean_ctx);
+	while (rmunused_module_signals(module, subpool, clean_ctx)) { }
 
-	if (rminit && rmunused_module_init(module, subpool, verbose))
-		while (rmunused_module_signals(module, subpool, purge_mode, verbose, clean_ctx)) { }
+	if (rminit && rmunused_module_init(module, subpool, clean_ctx.flags.verbose))
+		while (rmunused_module_signals(module, subpool, clean_ctx)) { }
 }
 struct OptCleanPass : public Pass {
 	OptCleanPass() : Pass("opt_clean", "remove unused cells and wires") { }
@@ -97,9 +97,9 @@ struct OptCleanPass : public Pass {
 		keep_cache_t keep_cache(purge_mode, thread_pool, selected_modules);
 
 		{
-			CleanRunContext clean_ctx(design);
+			CleanRunContext clean_ctx(design, {purge_mode, true});
 			for (auto module : selected_modules)
-				rmunused_module(module, thread_pool, purge_mode, true, true, clean_ctx, keep_cache);
+				rmunused_module(module, true, clean_ctx);
 			clean_ctx.stats.log();
 
 			design->optimize();
@@ -143,20 +143,10 @@ struct CleanPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		std::vector<RTLIL::Module*> selected_modules;
-		for (auto module : design->selected_unboxed_whole_modules())
-			if (!module->has_processes())
-				selected_modules.push_back(module);
-		int thread_pool_size = 0;
-		for (RTLIL::Module *m : selected_modules)
-			thread_pool_size = std::max(thread_pool_size, ThreadPool::work_pool_size(0, m->cells_size(), 1000));
-		ParallelDispatchThreadPool thread_pool(thread_pool_size);
-		keep_cache_t keep_cache(purge_mode, thread_pool, selected_modules);
-
 		{
-			CleanRunContext clean_ctx(design);
-			for (auto module : selected_modules)
-				rmunused_module(module, thread_pool, purge_mode, ys_debug(), true, clean_ctx, keep_cache);
+			CleanRunContext clean_ctx(design, {purge_mode, ys_debug()});
+			for (auto module : clean_ctx.selected_modules)
+				rmunused_module(module, true, clean_ctx);
 
 			log_suppressed();
 			clean_ctx.stats.log();

@@ -537,13 +537,13 @@ PRIVATE_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
-bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, CleanRunContext &clean_ctx)
+bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx)
 {
 	// Passing actx to function == function does parallel work
 	// Not passing module as function argument == function does not modify module
 	// TODO the above sentence is false due to constness laundering in wire_at / cell_at
 	AnalysisContext actx(module, subpool);
-	SigConnKinds conn_kinds(purge_mode, actx, clean_ctx);
+	SigConnKinds conn_kinds(clean_ctx.flags.purge, actx, clean_ctx);
 
 	// Main thread's cached direct wires are retained and used later:
 	DirectWires direct_wires(conn_kinds.direct, actx.assign_map);
@@ -565,17 +565,17 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	fixup_update_ports(deferred.update_connections);
 	consume_inits(deferred.initialized_wires, actx.assign_map).apply_normalised_inits();
 
-	WireDeleter deleter(used, purge_mode, actx);
+	WireDeleter deleter(used, clean_ctx.flags.purge, actx);
 
 	used.clear(subpool);
 
 	deleter.commit_changes(module);
-	int deleted_and_unreported = deleter.delete_wires(module, verbose);
+	int deleted_and_unreported = deleter.delete_wires(module, clean_ctx.flags.verbose);
 	int deleted_total = GetSize(deleter.del_wires_queue);
 
 	clean_ctx.stats.count_rm_wires += deleted_total;
 
-	if (verbose && deleted_and_unreported)
+	if (clean_ctx.flags.verbose && deleted_and_unreported)
 		log_debug("  removed %d unused temporary wires.\n", deleted_and_unreported);
 
 	if (deleted_total)
