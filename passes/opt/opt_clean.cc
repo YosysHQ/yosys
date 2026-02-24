@@ -967,6 +967,7 @@ struct WireDeleter {
 
 bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool purge_mode, bool verbose, RmStats &stats)
 {
+	// Passing actx to function == function does parallel work
 	AnalysisContext actx(module, subpool);
 	SigConnKinds conn_kinds(purge_mode, actx);
 
