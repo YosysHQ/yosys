@@ -23,9 +23,11 @@
 #include "kernel/celltypes.h"
 #include "kernel/ffinit.h"
 #include "kernel/threading.h"
+#include "kernel/yosys_common.h"
 #include "passes/opt/opt_clean/shared.h"
 
-YOSYS_NAMESPACE_BEGIN
+USING_YOSYS_NAMESPACE
+PRIVATE_NAMESPACE_BEGIN
 
 ShardedVector<std::pair<SigBit, State>> build_inits(AnalysisContext& actx) {
 	ShardedVector<std::pair<SigBit, State>> results(actx.subpool);
@@ -122,6 +124,9 @@ bool remove_redundant_inits(ShardedVector<RTLIL::Wire*> wires, bool verbose) {
 	}
 	return did_something;
 }
+
+PRIVATE_NAMESPACE_END
+YOSYS_NAMESPACE_BEGIN
 
 bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose)
 {
