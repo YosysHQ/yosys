@@ -40,4 +40,4 @@ passes/opt/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
 endif
 
-include passes/opt/opt_clean/Makefile.inc
+include $(YOSYS_SRC)/passes/opt/opt_clean/Makefile.inc
