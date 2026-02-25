@@ -343,9 +343,6 @@ YOSYS_NAMESPACE_BEGIN
 void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx)
 {
 	AnalysisContext actx(module, subpool);
-	SigMap sigmap(module);
-	FfInitVals ffinit;
-	ffinit.set_parallel(&sigmap, subpool.thread_pool(), module);
 
 	// Used for logging warnings only
 	SigMap wire_map = wire_sigmap(module);
@@ -357,7 +354,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	auto logs = explore(analysis, traversal, wire_map, actx, clean_ctx);
 	// Mark cells that drive kept wires into cell_queue and those bits as used
 	// and queue up cell traversal from those cells
-	pool<SigBit> used_raw_bits = analysis.analyze_kept_wires(traversal, sigmap, wire_map, subpool.num_threads());
+	pool<SigBit> used_raw_bits = analysis.analyze_kept_wires(traversal, actx.assign_map, wire_map, subpool.num_threads());
 
 	// Mark all memories as unused initially
 	MemAnalysis mem_analysis(module);
@@ -369,6 +366,8 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	// wire2driver is passed in only to destroy it
 	pool<Cell*> unused_cells = all_unused_cells(module, analysis, traversal.wire2driver, subpool);
 
+	FfInitVals ffinit;
+	ffinit.set_parallel(&actx.assign_map, subpool.thread_pool(), module);
 	// Now we know what to kill
 	remove_cells(module, ffinit, unused_cells, clean_ctx.flags.verbose, clean_ctx.stats);
 	remove_mems(module, mem_analysis, clean_ctx.flags.verbose);
