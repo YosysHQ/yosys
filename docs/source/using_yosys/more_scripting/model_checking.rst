@@ -121,12 +121,12 @@ Result with fixed :file:`axis_master.v`:
 Witness framework and per-property tracking
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When using AIGER-based formal verification flows (such as the `abc` engine in
+When using AIGER-based formal verification flows (such as the ``abc`` engine in
 SBY), Yosys provides infrastructure for tracking individual formal
 properties through the verification pipeline.
 
-The `rename -witness` pass (run automatically by `prep`) assigns public
-names to all cells that participate in the witness framework:
+The `rename -witness` pass assigns public names to all cells that participate in
+the witness framework:
 
 - Witness signal cells: `$anyconst`, `$anyseq`, `$anyinit`,
   `$allconst`, `$allseq`
@@ -139,7 +139,7 @@ their hierarchical path rather than by anonymous internal identifiers.
 The `write_aiger -ywmap` option generates a map file for conversion to and from
 Yosys witness traces, and also allows for mapping AIGER bad-state properties and
 invariant constraints back to individual formal properties by name. This enables
-features like per-property pass/fail reporting (e.g. `abc pdr` with
+features like per-property pass/fail reporting (e.g. ``abc pdr`` with
 ``--keep-going`` mode).
 
 The `write_smt2` backend similarly uses the public witness names when emitting
