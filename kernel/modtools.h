@@ -78,6 +78,8 @@ struct ModIndex : public RTLIL::Monitor
 
 	SigMap sigmap;
 private:
+	friend class ModIndexTest;
+	FRIEND_TEST(ModIndexTest, swap);
 	struct sigbit_pointer_hash
 	{
 		std::size_t operator()(const Yosys::RTLIL::SigBit& s) const noexcept
