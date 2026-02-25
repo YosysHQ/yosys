@@ -365,7 +365,7 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	fixup_unused_cells_and_mems(analysis, mem_analysis, traversal, actx, clean_ctx);
 	// Analyses are now fully correct
 
-	// Set of all unused cells, built in parallel from unused by filtering for unused[i]==true
+	// unused_cells.contains(foo) iff analysis.used[foo] == true
 	// wire2driver is passed in only to destroy it
 	pool<Cell*> unused_cells = all_unused_cells(module, analysis, traversal.wire2driver, subpool);
 
