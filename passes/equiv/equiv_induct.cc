@@ -18,49 +18,34 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/satgen.h"
-#include "kernel/sigtools.h"
+#include "passes/equiv/equiv.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct EquivInductWorker
+struct EquivInductWorker : public EquivWorker<>
 {
-	Module *module;
 	SigMap sigmap;
 
 	vector<Cell*> cells;
 	pool<Cell*> workset;
 
-	ezSatPtr ez;
-	SatGen satgen;
-
-	int max_seq;
 	int success_counter;
-	bool set_assumes;
 
 	dict<int, int> ez_step_is_consistent;
-	pool<Cell*> cell_warn_cache;
 	SigPool undriven_signals;
 
-	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, bool model_undef, int max_seq, bool set_assumes) : module(module), sigmap(module),
+	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, EquivBasicConfig cfg) : EquivWorker<>(module, &sigmap, cfg), sigmap(module),
 			cells(module->selected_cells()), workset(unproven_equiv_cells),
-			satgen(ez.get(), &sigmap), max_seq(max_seq), success_counter(0), set_assumes(set_assumes)
-	{
-		satgen.model_undef = model_undef;
-	}
+			success_counter(0) {}
 
 	void create_timestep(int step)
 	{
 		vector<int> ez_equal_terms;
 
 		for (auto cell : cells) {
-			if (!satgen.importCell(cell, step) && !cell_warn_cache.count(cell)) {
-				if (cell->is_builtin_ff())
-					log_warning("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
-				else
-					log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
-				cell_warn_cache.insert(cell);
+			if (!satgen.importCell(cell, step)) {
+				report_missing_model(cfg.ignore_unknown_cells, cell);
 			}
 			if (cell->type == ID($equiv)) {
 				SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
@@ -78,7 +63,7 @@ struct EquivInductWorker
 			}
 		}
 
-		if (set_assumes) {
+		if (cfg.set_assumes) {
 			if (step == 1) {
 				RTLIL::SigSpec assumes_a, assumes_en;
 				satgen.getAssumes(assumes_a, assumes_en, step);
@@ -123,7 +108,7 @@ struct EquivInductWorker
 				GetSize(satgen.initial_state), GetSize(undriven_signals));
 		}
 
-		for (int step = 1; step <= max_seq; step++)
+		for (int step = 1; step <= cfg.max_seq; step++)
 		{
 			ez->assume(ez_step_is_consistent[step]);
 
@@ -146,7 +131,7 @@ struct EquivInductWorker
 				return;
 			}
 
-			log("  Proof for induction step failed. %s\n", step != max_seq ? "Extending to next time step." : "Trying to prove individual $equiv from workset.");
+			log("  Proof for induction step failed. %s\n", step != cfg.max_seq ? "Extending to next time step." : "Trying to prove individual $equiv from workset.");
 		}
 
 		workset.sort();
@@ -158,12 +143,12 @@ struct EquivInductWorker
 
 			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort(ID::Y))));
 
-			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
-			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
+			int ez_a = satgen.importSigBit(bit_a, cfg.max_seq+1);
+			int ez_b = satgen.importSigBit(bit_b, cfg.max_seq+1);
 			int cond = ez->XOR(ez_a, ez_b);
 
 			if (satgen.model_undef)
-				cond = ez->AND(cond, ez->NOT(satgen.importUndefSigBit(bit_a, max_seq+1)));
+				cond = ez->AND(cond, ez->NOT(satgen.importUndefSigBit(bit_a, cfg.max_seq+1)));
 
 			if (!ez->solve(cond)) {
 				log(" success!\n");
@@ -189,14 +174,7 @@ struct EquivInductPass : public Pass {
 		log("Only selected $equiv cells are proven and only selected cells are used to\n");
 		log("perform the proof.\n");
 		log("\n");
-		log("    -undef\n");
-		log("        enable modelling of undef states\n");
-		log("\n");
-		log("    -seq <N>\n");
-		log("        the max. number of time steps to be considered (default = 4)\n");
-		log("\n");
-		log("    -set-assumes\n");
-		log("        set all assumptions provided via $assume cells\n");
+		EquivBasicConfig::help("4");
 		log("\n");
 		log("This command is very effective in proving complex sequential circuits, when\n");
 		log("the internal state of the circuit quickly propagates to $equiv cells.\n");
@@ -214,25 +192,15 @@ struct EquivInductPass : public Pass {
 	void execute(std::vector<std::string> args, Design *design) override
 	{
 		int success_counter = 0;
-		bool model_undef = false, set_assumes = false;
-		int max_seq = 4;
+		EquivBasicConfig cfg {};
+		cfg.max_seq = 4;
 
 		log_header(design, "Executing EQUIV_INDUCT pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-undef") {
-				model_undef = true;
+			if (cfg.parse(args, argidx))
 				continue;
-			}
-			if (args[argidx] == "-seq" && argidx+1 < args.size()) {
-				max_seq = atoi(args[++argidx].c_str());
-				continue;
-			}
-			if (args[argidx] == "-set-assumes") {
-				set_assumes = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -253,7 +221,7 @@ struct EquivInductPass : public Pass {
 				continue;
 			}
 
-			EquivInductWorker worker(module, unproven_equiv_cells, model_undef, max_seq, set_assumes);
+			EquivInductWorker worker(module, unproven_equiv_cells, cfg);
 			worker.run();
 			success_counter += worker.success_counter;
 		}
