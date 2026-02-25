@@ -112,93 +112,12 @@ struct WireDriversCollisionHandler {
 };
 using Wire2Drivers = ShardedHashtable<WireDriver, WireDriversKeyEquality, WireDriversCollisionHandler>;
 
-struct CellAnalysis {
-	Wire2Drivers wire2driver;
-	dict<std::string, pool<int>> mem2cells;
-	ShardedVector<Wire*> keep_wires;
-	std::vector<std::atomic<bool>> unused;
-	ConcurrentWorkQueue<int> cell_queue;
-	ShardedVector<std::pair<SigBit, std::string>> driver_driver_logs;
-
-	CellAnalysis(const SigMap& wire_map, AnalysisContext& actx, CleanRunContext &clean_ctx) : mem2cells(), keep_wires(actx.subpool), unused(actx.mod->cells_size()), cell_queue(actx.subpool.num_threads()), driver_driver_logs(actx.subpool) {
-		Wire2Drivers::Builder wire2driver_builder(actx.subpool);
-		ShardedVector<std::pair<std::string, int>> mem2cells_vector(actx.subpool);
-
-		// Enqueue kept cells into cell_queue
-		// Prepare input cone traversal from wire to driver cell as wire2driver
-		// Prepare "input cone" traversal from memory to write port or meminit as mem2cells
-		// Also check driver conflicts
-		// Also mark cells unused to true unless keep (we override this later)
-		actx.subpool.run([this, &wire_map, &mem2cells_vector, &wire2driver_builder, &actx, &clean_ctx](const ParallelDispatchThreadPool::RunCtx &ctx) {
-			for (int i : ctx.item_range(actx.mod->cells_size())) {
-				Cell *cell = actx.mod->cell_at(i);
-				if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2)))
-					mem2cells_vector.insert(ctx, {cell->getParam(ID::MEMID).decode_string(), i});
-
-				for (auto &it2 : cell->connections()) {
-					if (clean_ctx.ct_all.cell_known(cell->type) && !clean_ctx.ct_all.cell_output(cell->type, it2.first))
-						continue;
-					for (auto raw_bit : it2.second) {
-						if (raw_bit.wire == nullptr)
-							continue;
-						auto bit = actx.assign_map(raw_bit);
-						if (bit.wire == nullptr && clean_ctx.ct_all.cell_known(cell->type)) {
-							std::string msg = stringf("Driver-driver conflict "
-									"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
-									log_signal(raw_bit), cell->name.unescape(), it2.first.unescape(), log_signal(bit), actx.mod->name.unescape());
-							driver_driver_logs.insert(ctx, {wire_map(raw_bit), msg});
-						}
-						if (bit.wire != nullptr)
-							wire2driver_builder.insert(ctx, {{bit, i}, hash_bit(bit)});
-					}
-				}
-				bool keep = clean_ctx.keep_cache.query(cell);
-				unused[i].store(!keep, std::memory_order_relaxed);
-				if (keep)
-					cell_queue.push(ctx, i);
-			}
-			for (int i : ctx.item_range(actx.mod->wires_size())) {
-				Wire *wire = actx.mod->wire_at(i);
-				if (wire->port_output || wire->get_bool_attribute(ID::keep))
-					keep_wires.insert(ctx, wire);
-			}
-		});
-		// Finish by merging per-thread collected data
-		actx.subpool.run([&wire2driver_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
-			wire2driver_builder.process(ctx);
-		});
-		wire2driver = wire2driver_builder;
-
-		for (std::pair<std::string, int> &mem2cell : mem2cells_vector)
-			mem2cells[mem2cell.first].insert(mem2cell.second);
-	}
-	pool<SigBit> raw_wires_from_keep(const SigMap& sigmap, const SigMap& wire_map, int num_threads) {
-		// Also enqueue cells that drive kept wires into cell_queue
-		// and mark those cells as used
-		// and mark all bits of those wires as used
-		pool<SigBit> used_raw_bits;
-		int i = 0;
-		for (Wire *wire : keep_wires) {
-			for (auto bit : sigmap(wire)) {
-				const WireDrivers *drivers = wire2driver.find({{bit}, hash_bit(bit)});
-				if (drivers != nullptr)
-					for (int cell_index : *drivers)
-						if (unused[cell_index].exchange(false, std::memory_order_relaxed)) {
-							ThreadIndex fake_thread_index = {i++ % num_threads};
-							cell_queue.push(fake_thread_index, cell_index);
-						}
-			}
-			for (auto raw_bit : SigSpec(wire))
-				used_raw_bits.insert(wire_map(raw_bit));
-		}
-		return used_raw_bits;
-	}
-	void queue_cell_if_used(int cell_idx, const ParallelDispatchThreadPool::RunCtx &ctx) {
-		if (unused[cell_idx].exchange(false, std::memory_order_relaxed))
-			cell_queue.push(ctx, cell_idx);
-	}
+// TODO difference from DeferredLogs ?
+struct ConflictLogs {
+	ShardedVector<std::pair<SigBit, std::string>> logs;
+	ConflictLogs(ParallelDispatchThreadPool::Subpool &subpool) : logs(subpool) {}
 	void print_warnings(pool<SigBit>& used_raw_bits, const SigMap& wire_map, const RTLIL::Module* mod, CleanRunContext &clean_ctx) {
-		if (!driver_driver_logs.empty()) {
+		if (!logs.empty()) {
 			// We could do this in parallel but hopefully this is rare.
 			for (auto [_, cell] : mod->cells_) {
 				for (auto &[port, sig] : cell->connections()) {
@@ -208,7 +127,7 @@ struct CellAnalysis {
 						used_raw_bits.insert(raw_bit);
 				}
 			}
-			for (std::pair<SigBit, std::string> &it : driver_driver_logs) {
+			for (std::pair<SigBit, std::string> &it : logs) {
 				if (used_raw_bits.count(it.first))
 					log_warning("%s\n", it.second);
 			}
@@ -216,85 +135,180 @@ struct CellAnalysis {
 	}
 };
 
+struct CellTraversal {
+	ConcurrentWorkQueue<int> queue;
+	Wire2Drivers wire2driver;
+	dict<std::string, pool<int>> mem2cells;
+	CellTraversal(int num_threads) : queue(num_threads), wire2driver(), mem2cells() {}
+};
+
+struct CellAnalysis {
+	ShardedVector<Wire*> keep_wires;
+	std::vector<std::atomic<bool>> unused;
+
+	CellAnalysis(AnalysisContext& actx)
+	: keep_wires(actx.subpool), unused(actx.mod->cells_size()) {}
+
+	pool<SigBit> analyze_kept_wires(CellTraversal& traversal, const SigMap& sigmap, const SigMap& wire_map, int num_threads) {
+		// Also enqueue cells that drive kept wires into cell_queue
+		// and mark those cells as used
+		// and mark all bits of those wires as used
+		pool<SigBit> used_raw_bits;
+		int i = 0;
+		for (Wire *wire : keep_wires) {
+			for (auto bit : sigmap(wire)) {
+				const WireDrivers *drivers = traversal.wire2driver.find({{bit}, hash_bit(bit)});
+				if (drivers != nullptr)
+					for (int cell_index : *drivers)
+						if (unused[cell_index].exchange(false, std::memory_order_relaxed)) {
+							ThreadIndex fake_thread_index = {i++ % num_threads};
+							traversal.queue.push(fake_thread_index, cell_index);
+						}
+			}
+			for (auto raw_bit : SigSpec(wire))
+				used_raw_bits.insert(wire_map(raw_bit));
+		}
+		return used_raw_bits;
+	}
+
+	void mark_used_and_enqueue(int cell_idx, ConcurrentWorkQueue<int>& queue, const ParallelDispatchThreadPool::RunCtx &ctx) {
+		if (unused[cell_idx].exchange(false, std::memory_order_relaxed))
+			queue.push(ctx, cell_idx);
+	}
+};
+
+
+
+// TODO name
+ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const SigMap& wire_map, AnalysisContext& actx, CleanRunContext &clean_ctx) {
+	ConflictLogs logs(actx.subpool);
+	Wire2Drivers::Builder wire2driver_builder(actx.subpool);
+	ShardedVector<std::pair<std::string, int>> mem2cells_vector(actx.subpool);
+
+	// Enqueue kept cells into traversal.queue
+	// Prepare input cone traversal into traversal.wire2driver
+	// Prepare "input cone" traversal from memory to write port or meminit as analysis.mem2cells
+	// Also check driver conflicts
+	// Also mark cells unused to true unless keep (we override this later)
+	actx.subpool.run([&analysis, &traversal, &logs, &wire_map, &mem2cells_vector, &wire2driver_builder, &actx, &clean_ctx](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		for (int i : ctx.item_range(actx.mod->cells_size())) {
+			Cell *cell = actx.mod->cell_at(i);
+			if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2)))
+				mem2cells_vector.insert(ctx, {cell->getParam(ID::MEMID).decode_string(), i});
+
+			for (auto &it2 : cell->connections()) {
+				if (clean_ctx.ct_all.cell_known(cell->type) && !clean_ctx.ct_all.cell_output(cell->type, it2.first))
+					continue;
+				for (auto raw_bit : it2.second) {
+					if (raw_bit.wire == nullptr)
+						continue;
+					auto bit = actx.assign_map(raw_bit);
+					if (bit.wire == nullptr && clean_ctx.ct_all.cell_known(cell->type)) {
+						std::string msg = stringf("Driver-driver conflict "
+							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
+							log_signal(raw_bit), cell->name.unescape(), it2.first.unescape(), log_signal(bit), actx.mod->name.unescape());
+							logs.logs.insert(ctx, {wire_map(raw_bit), msg});
+						}
+						if (bit.wire != nullptr)
+							wire2driver_builder.insert(ctx, {{bit, i}, hash_bit(bit)});
+					}
+			}
+			bool keep = clean_ctx.keep_cache.query(cell);
+			analysis.unused[i].store(!keep, std::memory_order_relaxed);
+			if (keep)
+				traversal.queue.push(ctx, i);
+		}
+		for (int i : ctx.item_range(actx.mod->wires_size())) {
+			Wire *wire = actx.mod->wire_at(i);
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
+				analysis.keep_wires.insert(ctx, wire);
+		}
+	});
+	// Finish by merging per-thread collected data
+	actx.subpool.run([&wire2driver_builder](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		wire2driver_builder.process(ctx);
+	});
+	traversal.wire2driver = wire2driver_builder;
+
+	for (std::pair<std::string, int> &mem2cell : mem2cells_vector)
+		traversal.mem2cells[mem2cell.first].insert(mem2cell.second);
+
+	return logs;
+}
+
 struct MemAnalysis {
 	std::vector<std::atomic<bool>> unused;
 	dict<std::string, int> indices;
-	MemAnalysis(RTLIL::Module* mod) : unused(mod->memories.size()), indices() {
+	MemAnalysis(const RTLIL::Module* mod) : unused(mod->memories.size()), indices() {
 		for (int i = 0; i < GetSize(mod->memories); ++i) {
 			indices[mod->memories.element(i)->first.str()] = i;
 			unused[i].store(true, std::memory_order_relaxed);
 		}
 	}
-
-	/**
-	* Functionally, analysis access is read-only
-	*/
-	void fixup_unused(CellAnalysis& analysis, AnalysisContext& actx, CleanRunContext &clean_ctx) {
-		// Processes the cell queue in batches, traversing input cones by enqueuing more cells
-		// Discover and mark used memories and cells
-		actx.subpool.run([this, &analysis, &actx, &clean_ctx](const ParallelDispatchThreadPool::RunCtx &ctx) {
-			pool<SigBit> bits;
-			pool<std::string> mems;
-			while (true) {
-				std::vector<int> cell_indices = analysis.cell_queue.pop_batch(ctx);
-				if (cell_indices.empty())
-					return;
-				for (auto cell_index : cell_indices) {
-					Cell *cell = actx.mod->cell_at(cell_index);
-					for (auto &it : cell->connections())
-						if (!clean_ctx.ct_all.cell_known(cell->type) || clean_ctx.ct_all.cell_input(cell->type, it.first))
-							for (auto bit : actx.assign_map(it.second))
-								bits.insert(bit);
-
-					if (cell->type.in(ID($memrd), ID($memrd_v2))) {
-						std::string mem_id = cell->getParam(ID::MEMID).decode_string();
-						if (indices.count(mem_id)) {
-							int mem_index = indices[mem_id];
-							// This is the actual fixup, everything else is just traversal
-							if (unused[mem_index].exchange(false, std::memory_order_relaxed))
-								mems.insert(mem_id);
-						}
-					}
-				}
-
-				for (auto bit : bits) {
-					const WireDrivers *drivers = analysis.wire2driver.find({{bit}, hash_bit(bit)});
-					if (drivers != nullptr)
-						for (int cell_idx : *drivers)
-							analysis.queue_cell_if_used(cell_idx, ctx);
-				}
-				bits.clear();
-
-				for (auto mem : mems) {
-					if (analysis.mem2cells.count(mem) == 0)
-						continue;
-					for (int cell_idx : analysis.mem2cells.at(mem))
-						analysis.queue_cell_if_used(cell_idx, ctx);
-				}
-				mems.clear();
-			}
-		});
-	}
 };
 
-/**
-  * Functionally, analysis access is read-only
- */
-pool<Cell*> all_unused_cells(const Module *mod, CellAnalysis& analysis, ParallelDispatchThreadPool::Subpool &subpool) {
+void fixup_unused_cells_and_mems(CellAnalysis& analysis, MemAnalysis& mem_analysis, CellTraversal& traversal, AnalysisContext& actx, CleanRunContext &clean_ctx) {
+	// Processes the cell queue in batches, traversing input cones by enqueuing more cells
+	// Discover and mark used memories and cells
+	actx.subpool.run([&analysis, &mem_analysis, &traversal, &actx, &clean_ctx](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		pool<SigBit> bits;
+		pool<std::string> mems;
+		while (true) {
+			std::vector<int> cell_indices = traversal.queue.pop_batch(ctx);
+			if (cell_indices.empty())
+				return;
+			for (auto cell_index : cell_indices) {
+				Cell *cell = actx.mod->cell_at(cell_index);
+				for (auto &it : cell->connections())
+					if (!clean_ctx.ct_all.cell_known(cell->type) || clean_ctx.ct_all.cell_input(cell->type, it.first))
+						for (auto bit : actx.assign_map(it.second))
+							bits.insert(bit);
+
+				if (cell->type.in(ID($memrd), ID($memrd_v2))) {
+					std::string mem_id = cell->getParam(ID::MEMID).decode_string();
+					if (mem_analysis.indices.count(mem_id)) {
+						int mem_index = mem_analysis.indices[mem_id];
+						// Memory fixup
+						if (mem_analysis.unused[mem_index].exchange(false, std::memory_order_relaxed))
+							mems.insert(mem_id);
+					}
+				}
+			}
+
+			for (auto bit : bits) {
+				// Cells fixup
+				const WireDrivers *drivers = traversal.wire2driver.find({{bit}, hash_bit(bit)});
+				if (drivers != nullptr)
+					for (int cell_idx : *drivers)
+						analysis.mark_used_and_enqueue(cell_idx, traversal.queue, ctx);
+			}
+			bits.clear();
+
+			for (auto mem : mems) {
+				if (traversal.mem2cells.count(mem) == 0)
+					continue;
+				// Cells fixup
+				for (int cell_idx : traversal.mem2cells.at(mem))
+					analysis.mark_used_and_enqueue(cell_idx, traversal.queue, ctx);
+			}
+			mems.clear();
+		}
+	});
+}
+
+pool<Cell*> all_unused_cells(const Module *mod, const CellAnalysis& analysis, Wire2Drivers& wire2driver, ParallelDispatchThreadPool::Subpool &subpool) {
 	pool<Cell*> unused_cells;
-	{
-		ShardedVector<int> sharded_unused_cells(subpool);
-		subpool.run([mod, &analysis, &sharded_unused_cells](const ParallelDispatchThreadPool::RunCtx &ctx) {
-			// Parallel destruction of `wire2driver`
-			analysis.wire2driver.clear(ctx);
-			for (int i : ctx.item_range(mod->cells_size()))
-				if (analysis.unused[i].load(std::memory_order_relaxed))
-					sharded_unused_cells.insert(ctx, i);
-		});
-		for (int cell_index : sharded_unused_cells)
-			unused_cells.insert(mod->cell_at(cell_index));
-		unused_cells.sort(RTLIL::sort_by_name_id<RTLIL::Cell>());
-	}
+	ShardedVector<int> sharded_unused_cells(subpool);
+	subpool.run([mod, &analysis, &wire2driver, &sharded_unused_cells](const ParallelDispatchThreadPool::RunCtx &ctx) {
+		// Parallel destruction of `wire2driver`
+		wire2driver.clear(ctx);
+		for (int i : ctx.item_range(mod->cells_size()))
+			if (analysis.unused[i].load(std::memory_order_relaxed))
+				sharded_unused_cells.insert(ctx, i);
+	});
+	for (int cell_index : sharded_unused_cells)
+		unused_cells.insert(mod->cell_at(cell_index));
+	unused_cells.sort(RTLIL::sort_by_name_id<RTLIL::Cell>());
 	return unused_cells;
 }
 
@@ -333,27 +347,32 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	FfInitVals ffinit;
 	ffinit.set_parallel(&sigmap, subpool.thread_pool(), module);
 
-	// Formerly known as raw_sigmap
-	// TODO What exactly makes it "raw"? No constants on the rhs?
-	// Otherwise, "raw" is used to mean "not sigmapped"
+	// Used for logging warnings only
 	SigMap wire_map = wire_sigmap(module);
 
-	CellAnalysis analysis(wire_map, actx, clean_ctx);
-	pool<SigBit> used_raw_bits = analysis.raw_wires_from_keep(sigmap, wire_map, subpool.num_threads());
+	CellAnalysis analysis(actx);
+	CellTraversal traversal(subpool.num_threads());
+	// Mark all unkept cells as unused initially
+	// and queue up cell traversal from those cells
+	auto logs = explore(analysis, traversal, wire_map, actx, clean_ctx);
+	// Mark cells that drive kept wires into cell_queue and those bits as used
+	// and queue up cell traversal from those cells
+	pool<SigBit> used_raw_bits = analysis.analyze_kept_wires(traversal, sigmap, wire_map, subpool.num_threads());
 
 	// Mark all memories as unused initially
 	MemAnalysis mem_analysis(module);
-	// then fix that by traversing design with analysis.cell_queue
-	mem_analysis.fixup_unused(analysis, actx, clean_ctx);
-	// mem_analysis is now correct
-	// analysis and mem_analysis now are functionally finalized and read-only
+	// Marked all used cells and mems as used by traversing with cell queue
+	fixup_unused_cells_and_mems(analysis, mem_analysis, traversal, actx, clean_ctx);
+	// Analyses are now fully correct
 
 	// Set of all unused cells, built in parallel from unused by filtering for unused[i]==true
-	pool<Cell*> unused_cells = all_unused_cells(module, analysis, subpool);
+	// wire2driver is passed in only to destroy it
+	pool<Cell*> unused_cells = all_unused_cells(module, analysis, traversal.wire2driver, subpool);
 
+	// Now we know what to kill
 	remove_cells(module, ffinit, unused_cells, clean_ctx.flags.verbose, clean_ctx.stats);
 	remove_mems(module, mem_analysis, clean_ctx.flags.verbose);
-	analysis.print_warnings(used_raw_bits, wire_map, module, clean_ctx);
+	logs.print_warnings(used_raw_bits, wire_map, module, clean_ctx);
 }
 
 YOSYS_NAMESPACE_END
