@@ -23,27 +23,12 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/yosys_common.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 struct ModIndex : public RTLIL::Monitor
 {
-	struct PointerOrderedSigBit : public RTLIL::SigBit {
-		PointerOrderedSigBit(SigBit s) {
-			wire = s.wire;
-			if (wire)
-				offset = s.offset;
-			else
-				data = s.data;
-		}
-		inline bool operator<(const RTLIL::SigBit &other) const {
-			if (wire == other.wire)
-				return wire ? (offset < other.offset) : (data < other.data);
-			if (wire != nullptr && other.wire != nullptr)
-				return wire < other.wire; // look here
-			return (wire != nullptr) < (other.wire != nullptr);
-		}
-	};
 	struct PortInfo {
 		RTLIL::Cell* cell;
 		RTLIL::IdString port;
@@ -92,11 +77,25 @@ struct ModIndex : public RTLIL::Monitor
 	};
 
 	SigMap sigmap;
+private:
+	struct sigbit_pointer_hash
+	{
+		std::size_t operator()(const Yosys::RTLIL::SigBit& s) const noexcept
+		{
+			Yosys::Hasher h;
+			h.eat(s.wire);
+			if (s.wire)
+				h.eat(s.offset);
+			else
+				h.eat(s.data);
+			return (size_t) h.yield();
+		}
+	};
 	RTLIL::Module *module;
-	std::map<PointerOrderedSigBit, SigBitInfo> database;
+	std::unordered_map<SigBit, SigBitInfo, sigbit_pointer_hash> database;
 	int auto_reload_counter;
 	bool auto_reload_module;
-
+public:
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
 		for (int i = 0; i < GetSize(sig); i++) {
@@ -254,7 +253,7 @@ struct ModIndex : public RTLIL::Monitor
 		auto_reload_module = true;
 	}
 
-	ModIndex(RTLIL::Module *_m) : sigmap(_m), module(_m)
+	ModIndex(RTLIL::Module *_m) : sigmap(_m), module(_m), database()
 	{
 		auto_reload_counter = 0;
 		auto_reload_module = true;
