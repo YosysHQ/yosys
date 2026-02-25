@@ -24,6 +24,7 @@
 
 #include <time.h>
 
+#include <atomic>
 #include <regex>
 #define YS_REGEX_COMPILE(param) std::regex(param, \
 				std::regex_constants::nosubs | \
@@ -288,53 +289,6 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 void log_abort_internal(const char *file, int line);
 #define log_abort() YOSYS_NAMESPACE_PREFIX log_abort_internal(__FILE__, __LINE__)
 #define log_ping() YOSYS_NAMESPACE_PREFIX log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
-
-
-// ---------------------------------------------------
-// This is the magic behind the code coverage counters
-// ---------------------------------------------------
-
-#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
-
-#define cover(_id) do { \
-    static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
-    __d.counter++; \
-} while (0)
-
-struct CoverData {
-	const char *file, *func, *id;
-	int line, counter;
-} YS_ATTRIBUTE(packed);
-
-// this two symbols are created by the linker for the "yosys_cover_list" ELF section
-extern "C" struct CoverData __start_yosys_cover_list[];
-extern "C" struct CoverData __stop_yosys_cover_list[];
-
-extern dict<std::string, std::pair<std::string, int>> extra_coverage_data;
-
-void cover_extra(std::string parent, std::string id, bool increment = true);
-dict<std::string, std::pair<std::string, int>> get_coverage_data();
-
-#define cover_list(_id, ...) do { cover(_id); \
-	std::string r = cover_list_worker(_id, __VA_ARGS__); \
-	log_assert(r.empty()); \
-} while (0)
-
-static inline std::string cover_list_worker(std::string, std::string last) {
-	return last;
-}
-
-template<typename... T>
-std::string cover_list_worker(std::string prefix, std::string first, T... rest) {
-	std::string selected = cover_list_worker(prefix, rest...);
-	cover_extra(prefix, prefix + "." + first, first == selected);
-	return first == selected ? "" : selected;
-}
-
-#else
-#  define cover(...) do { } while (0)
-#  define cover_list(...) do { } while (0)
-#endif
 
 
 // ------------------------------------------------------------

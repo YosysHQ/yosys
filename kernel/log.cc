@@ -90,11 +90,11 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&counter);
 
-	counter.QuadPart *= 1000000;
+	counter.QuadPart *= 1'000'000;
 	counter.QuadPart /= freq.QuadPart;
 
 	tv->tv_sec = long(counter.QuadPart / 1000000);
-	tv->tv_usec = counter.QuadPart % 1000000;
+	tv->tv_usec = counter.QuadPart % 1'000'000;
 
 	return 0;
 }
@@ -135,7 +135,7 @@ static void logv_string(std::string_view format, std::string str) {
 				initial_tv = tv;
 			if (tv.tv_usec < initial_tv.tv_usec) {
 				tv.tv_sec--;
-				tv.tv_usec += 1000000;
+				tv.tv_usec += 1'000'000;
 			}
 			tv.tv_sec -= initial_tv.tv_sec;
 			tv.tv_usec -= initial_tv.tv_usec;
@@ -203,6 +203,8 @@ static void logv_string(std::string_view format, std::string str) {
 
 void log_formatted_string(std::string_view format, std::string str)
 {
+	log_assert(!Multithreading::active());
+
 	if (log_make_debug && !ys_debug(1))
 		return;
 	logv_string(format, std::move(str));
@@ -210,6 +212,8 @@ void log_formatted_string(std::string_view format, std::string str)
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
+	log_assert(!Multithreading::active());
+
 	bool pop_errfile = false;
 
 	log_spacer();
@@ -249,6 +253,8 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 
 void log_formatted_warning(std::string_view prefix, std::string message)
 {
+	log_assert(!Multithreading::active());
+
 	bool suppressed = false;
 
 	for (auto &re : log_nowarn_regexes)
@@ -680,56 +686,5 @@ void log_check_expected()
 	for (auto &[pattern, item] : expect_prefix_error)
 		check_err("prefixed error", pattern, item);
 }
-
-// ---------------------------------------------------
-// This is the magic behind the code coverage counters
-// ---------------------------------------------------
-#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
-
-dict<std::string, std::pair<std::string, int>> extra_coverage_data;
-
-void cover_extra(std::string parent, std::string id, bool increment) {
-	if (extra_coverage_data.count(id) == 0) {
-		for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++)
-			if (p->id == parent)
-				extra_coverage_data[id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-		log_assert(extra_coverage_data.count(id));
-	}
-	if (increment)
-		extra_coverage_data[id].second++;
-}
-
-dict<std::string, std::pair<std::string, int>> get_coverage_data()
-{
-	dict<std::string, std::pair<std::string, int>> coverage_data;
-
-	for (auto &it : pass_register) {
-		std::string key = stringf("passes.%s", it.first);
-		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
-		coverage_data[key].second += it.second->call_counter;
-	}
-
-	for (auto &it : extra_coverage_data) {
-		if (coverage_data.count(it.first))
-			log_warning("found duplicate coverage id \"%s\".\n", it.first);
-		coverage_data[it.first].first = it.second.first;
-		coverage_data[it.first].second += it.second.second;
-	}
-
-	for (CoverData *p = __start_yosys_cover_list; p != __stop_yosys_cover_list; p++) {
-		if (coverage_data.count(p->id))
-			log_warning("found duplicate coverage id \"%s\".\n", p->id);
-		coverage_data[p->id].first = stringf("%s:%d:%s", p->file, p->line, p->func);
-		coverage_data[p->id].second += p->counter;
-	}
-
-	for (auto &it : coverage_data)
-		if (!it.second.first.compare(0, strlen(YOSYS_SRC "/"), YOSYS_SRC "/"))
-			it.second.first = it.second.first.substr(strlen(YOSYS_SRC "/"));
-
-	return coverage_data;
-}
-
-#endif
 
 YOSYS_NAMESPACE_END

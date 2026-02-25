@@ -31,6 +31,22 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static SatSolver *find_satsolver(const std::string &name)
+{
+	for (auto solver = yosys_satsolver_list; solver != nullptr; solver = solver->next)
+		if (solver->name == name)
+			return solver;
+	return nullptr;
+}
+
+static std::string list_satsolvers()
+{
+	std::string result;
+	for (auto solver = yosys_satsolver_list; solver != nullptr; solver = solver->next)
+		result += result.empty() ? solver->name : ", " + solver->name;
+	return result;
+}
+
 struct SatHelper
 {
 	RTLIL::Design *design;
@@ -60,8 +76,8 @@ struct SatHelper
 	int max_timestep, timeout;
 	bool gotTimeout;
 
-	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef, bool set_def_formal) :
-		design(design), module(module), sigmap(module), ct(design), satgen(ez.get(), &sigmap)
+	SatHelper(RTLIL::Design *design, RTLIL::Module *module, SatSolver *solver, bool enable_undef, bool set_def_formal) :
+		design(design), module(module), sigmap(module), ct(design), ez(solver), satgen(ez.get(), &sigmap)
 	{
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
@@ -441,7 +457,7 @@ struct SatHelper
 		log_assert(gotTimeout == false);
 		ez->setSolverTimeout(timeout);
 		bool success = ez->solve(modelExpressions, modelValues, assumptions);
-		if (ez->getSolverTimoutStatus())
+		if (ez->getSolverTimeoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -451,7 +467,7 @@ struct SatHelper
 		log_assert(gotTimeout == false);
 		ez->setSolverTimeout(timeout);
 		bool success = ez->solve(modelExpressions, modelValues, a, b, c, d, e, f);
-		if (ez->getSolverTimoutStatus())
+		if (ez->getSolverTimeoutStatus())
 			gotTimeout = true;
 		return success;
 	}
@@ -1066,6 +1082,10 @@ struct SatPass : public Pass {
 		log("    -timeout <N>\n");
 		log("        Maximum number of seconds a single SAT instance may take.\n");
 		log("\n");
+		log("    -select-solver <name>\n");
+		log("        Select SAT solver implementation for this invocation.\n");
+		log("        If not given, uses scratchpad key 'sat.solver' if set, otherwise default.\n");
+		log("\n");
 		log("    -verify\n");
 		log("        Return an error and stop the synthesis script if the proof fails.\n");
 		log("\n");
@@ -1097,8 +1117,14 @@ struct SatPass : public Pass {
 
 		log_header(design, "Executing SAT pass (solving SAT problems in the circuit).\n");
 
+		std::string solver_name = design->scratchpad_get_string("sat.solver", "");
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-select-solver" && argidx+1 < args.size()) {
+				solver_name = args[++argidx];
+				continue;
+			}
 			if (args[argidx] == "-all") {
 				loopcount = -1;
 				continue;
@@ -1336,6 +1362,14 @@ struct SatPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		SatSolver *solver = yosys_satsolver;
+		if (!solver_name.empty()) {
+			solver = find_satsolver(solver_name);
+			if (solver == nullptr)
+				log_cmd_error("Unknown SAT solver '%s'. Available solvers: %s\n",
+						solver_name, list_satsolvers());
+		}
+
 		RTLIL::Module *module = NULL;
 		for (auto mod : design->selected_modules()) {
 			if (module)
@@ -1398,13 +1432,15 @@ struct SatPass : public Pass {
 				shows.push_back(wire->name.str());
 		}
 
+		log("Using SAT solver `%s`.\n", solver->name.c_str());
+
 		if (tempinduct)
 		{
 			if (loopcount > 0 || max_undef)
 				log_cmd_error("The options -max, -all, and -max_undef are not supported for temporal induction proofs!\n");
 
-			SatHelper basecase(design, module, enable_undef, set_def_formal);
-			SatHelper inductstep(design, module, enable_undef, set_def_formal);
+			SatHelper basecase(design, module, solver, enable_undef, set_def_formal);
+			SatHelper inductstep(design, module, solver, enable_undef, set_def_formal);
 
 			basecase.sets = sets;
 			basecase.set_assumes = set_assumes;
@@ -1593,7 +1629,7 @@ struct SatPass : public Pass {
 			if (maxsteps > 0)
 				log_cmd_error("The options -maxsteps is only supported for temporal induction proofs!\n");
 
-			SatHelper sathelper(design, module, enable_undef, set_def_formal);
+			SatHelper sathelper(design, module, solver, enable_undef, set_def_formal);
 
 			sathelper.sets = sets;
 			sathelper.set_assumes = set_assumes;

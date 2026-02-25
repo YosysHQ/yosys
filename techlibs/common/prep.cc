@@ -211,6 +211,7 @@ struct PrepPass : public ScriptPass
 				run("memory_collect");
 			}
 			run(nokeepdc ? "opt -noff -fast" : "opt -noff -keepdc -fast");
+			run("sort");
 		}
 
 		if (check_label("check"))

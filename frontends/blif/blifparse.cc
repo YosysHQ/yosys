@@ -245,7 +245,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					if (undef_wire != nullptr)
 						module->rename(undef_wire, stringf("$undef$%d", ++blif_maxnum));
 
-					autoidx = std::max(autoidx, blif_maxnum+1);
+					autoidx.ensure_at_least(blif_maxnum+1);
 					blif_maxnum = 0;
 				}
 
@@ -470,6 +470,27 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				continue;
 			}
 
+			if (!strcmp(cmd, ".gateinit"))
+			{
+				char *p = strtok(NULL, " \t\r\n");
+				if (p == NULL)
+					goto error;
+
+				char *n = strtok(p, "=");
+				char *init = strtok(NULL, "=");
+				if (n == NULL || init == NULL)
+					goto error;
+				if (init[0] != '0' && init[0] != '1')
+					goto error;
+
+				if (blif_wire(n)->attributes.find(ID::init) == blif_wire(n)->attributes.end())
+					blif_wire(n)->attributes.emplace(ID::init, Const(init[0] == '1' ? 1 : 0, 1));
+				else
+					blif_wire(n)->attributes[ID::init] = Const(init[0] == '1' ? 1 : 0, 1);
+
+				continue;
+			}
+
 			if (!strcmp(cmd, ".names"))
 			{
 				char *p;
@@ -608,6 +629,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 							goto try_next_value;
 					}
 				}
+				log_assert(i < lutptr->size());
 				lutptr->set(i, !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1);
 			try_next_value:;
 			}

@@ -570,7 +570,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 		ct.setup(design);
 
 	if (pos < int(arg.size()) && arg[pos] == '*') {
-		levels = 1000000;
+		levels = 1'000'000;
 		pos++;
 	} else
 	if (pos < int(arg.size()) && '0' <= arg[pos] && arg[pos] <= '9') {

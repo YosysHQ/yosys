@@ -134,6 +134,17 @@ struct RTLIL::IdString
 
 		std::string_view str_view() const { return {buf, static_cast<size_t>(size)}; }
 	};
+	struct AutoidxStorage {
+		// Append the negated (i.e. positive) ID to this string to get
+		// the real string. The prefix strings must live forever.
+		const std::string *prefix;
+		// Cache of the full string, or nullptr if not cached yet.
+		std::atomic<char *> full_str;
+
+		AutoidxStorage(const std::string *prefix) : prefix(prefix), full_str(nullptr) {}
+		AutoidxStorage(AutoidxStorage&& other) : prefix(other.prefix), full_str(other.full_str.exchange(nullptr, std::memory_order_relaxed)) {}
+		~AutoidxStorage() { delete[] full_str.load(std::memory_order_acquire); }
+	};
 
 	// the global id string cache
 
@@ -147,17 +158,12 @@ struct RTLIL::IdString
 	static std::vector<Storage> global_id_storage_;
 	// Lookup table for non-autoidx IDs
 	static std::unordered_map<std::string_view, int> global_id_index_;
-	// Shared prefix string storage for autoidx IDs, which have negative
-	// indices. Append the negated (i.e. positive) ID to this string to get
-	// the real string. The prefix strings must live forever.
-	static std::unordered_map<int, const std::string*> global_autoidx_id_prefix_storage_;
-	// Explicit string storage for autoidx IDs
-	static std::unordered_map<int, char*> global_autoidx_id_storage_;
-#ifndef YOSYS_NO_IDS_REFCNT
+	// Storage for autoidx IDs, which have negative indices, i.e. all entries in this
+	// map have negative keys.
+	static std::unordered_map<int, AutoidxStorage> global_autoidx_id_storage_;
 	// All (index, refcount) pairs in this map have refcount > 0.
 	static std::unordered_map<int, int> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
-#endif
 
 	static int refcount(int idx) {
 		auto it = global_refcount_storage_.find(idx);
@@ -189,6 +195,7 @@ struct RTLIL::IdString
 	static int insert(std::string_view p)
 	{
 		log_assert(destruct_guard_ok);
+		log_assert(!Multithreading::active());
 
 		auto it = global_id_index_.find(p);
 		if (it != global_id_index_.end()) {
@@ -204,8 +211,9 @@ struct RTLIL::IdString
 	// Inserts an ID with string `prefix + autoidx', incrementing autoidx.
 	// `prefix` must start with '$auto$', end with '$', and live forever.
 	static IdString new_autoidx_with_prefix(const std::string *prefix) {
+		log_assert(!Multithreading::active());
 		int index = -(autoidx++);
-		global_autoidx_id_prefix_storage_.insert({index, prefix});
+		global_autoidx_id_storage_.insert({index, prefix});
 		return from_index(index);
 	}
 
@@ -215,8 +223,8 @@ struct RTLIL::IdString
 
 	constexpr inline IdString() : index_(0) { }
 	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
-	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
-	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+	constexpr IdString(const IdString &str) = default;
+	IdString(IdString &&str) = default;
 	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
 	inline IdString(std::string_view str) : index_(insert(str)) { }
 	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
@@ -233,22 +241,23 @@ struct RTLIL::IdString
 		*this = id;
 	}
 
-	constexpr inline const IdString &id_string() const { return *this; }
-
 	inline const char *c_str() const {
 		if (index_ >= 0)
 			return global_id_storage_.at(index_).buf;
-		auto it = global_autoidx_id_storage_.find(index_);
-		if (it != global_autoidx_id_storage_.end())
-			return it->second;
 
-		const std::string &prefix = *global_autoidx_id_prefix_storage_.at(index_);
+		AutoidxStorage &s = global_autoidx_id_storage_.at(index_);
+		char *full_str = s.full_str.load(std::memory_order_acquire);
+		if (full_str != nullptr)
+			return full_str;
+		const std::string &prefix = *s.prefix;
 		std::string suffix = std::to_string(-index_);
 		char *c = new char[prefix.size() + suffix.size() + 1];
 		memcpy(c, prefix.data(), prefix.size());
 		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
-		global_autoidx_id_storage_.insert(it, {index_, c});
-		return c;
+		if (s.full_str.compare_exchange_strong(full_str, c, std::memory_order_acq_rel))
+			return c;
+		delete[] c;
+		return full_str;
 	}
 
 	inline std::string str() const {
@@ -262,7 +271,7 @@ struct RTLIL::IdString
 			*out += global_id_storage_.at(index_).str_view();
 			return;
 		}
-		*out += *global_autoidx_id_prefix_storage_.at(index_);
+		*out += *global_autoidx_id_storage_.at(index_).prefix;
 		*out += std::to_string(-index_);
 	}
 
@@ -348,7 +357,7 @@ struct RTLIL::IdString
 		if (index_ >= 0) {
 			return const_iterator(global_id_storage_.at(index_));
 		}
-		return const_iterator(global_autoidx_id_prefix_storage_.at(index_), -index_);
+		return const_iterator(global_autoidx_id_storage_.at(index_).prefix, -index_);
 	}
 	const_iterator end() const {
 		return const_iterator();
@@ -358,10 +367,10 @@ struct RTLIL::IdString
 		if (index_ >= 0) {
 			return Substrings(global_id_storage_.at(index_));
 		}
-		return Substrings(global_autoidx_id_prefix_storage_.at(index_), -index_);
+		return Substrings(global_autoidx_id_storage_.at(index_).prefix, -index_);
 	}
 
-	inline bool lt_by_name(const IdString &rhs) const {
+	inline bool lt_by_name(IdString rhs) const {
 		Substrings lhs_it = substrings();
 		Substrings rhs_it = rhs.substrings();
 		std::string_view lhs_substr = lhs_it.first();
@@ -388,12 +397,12 @@ struct RTLIL::IdString
 		}
 	}
 
-	inline bool operator<(const IdString &rhs) const {
+	inline bool operator<(IdString rhs) const {
 		return index_ < rhs.index_;
 	}
 
-	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+	inline bool operator==(IdString rhs) const { return index_ == rhs.index_; }
+	inline bool operator!=(IdString rhs) const { return index_ != rhs.index_; }
 
 	// The methods below are just convenience functions for better compatibility with std::string.
 
@@ -411,7 +420,7 @@ struct RTLIL::IdString
 #endif
 			return *(storage.buf + i);
 		}
-		const std::string &id_start = *global_autoidx_id_prefix_storage_.at(index_);
+		const std::string &id_start = *global_autoidx_id_storage_.at(index_).prefix;
 		if (i < id_start.size())
 			return id_start[i];
 		i -= id_start.size();
@@ -517,7 +526,7 @@ struct RTLIL::IdString
 		return (... || in(args));
 	}
 
-	bool in(const IdString &rhs) const { return *this == rhs; }
+	bool in(IdString rhs) const { return *this == rhs; }
 	bool in(const char *rhs) const { return *this == rhs; }
 	bool in(const std::string &rhs) const { return *this == rhs; }
 	inline bool in(const pool<IdString> &rhs) const;
@@ -597,7 +606,8 @@ private:
 	}
 	static void get_reference(int idx)
 	{
-	#ifndef YOSYS_NO_IDS_REFCNT
+		log_assert(!Multithreading::active());
+
 		if (idx < static_cast<short>(StaticId::STATIC_ID_END))
 			return;
 		auto it = global_refcount_storage_.find(idx);
@@ -605,7 +615,6 @@ private:
 			global_refcount_storage_.insert(it, {idx, 1});
 		else
 			++it->second;
-	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
 			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", from_index(idx), idx, refcount(idx));
@@ -614,7 +623,8 @@ private:
 
 	void put_reference()
 	{
-	#ifndef YOSYS_NO_IDS_REFCNT
+		log_assert(!Multithreading::active());
+
 		// put_reference() may be called from destructors after the destructor of
 		// global_refcount_storage_ has been run. in this case we simply do nothing.
 		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
@@ -628,20 +638,19 @@ private:
 		if (--it->second == 0) {
 			global_refcount_storage_.erase(it);
 		}
-	#endif
 	}
 };
 
 namespace hashlib {
 	template <>
 	struct hash_ops<RTLIL::IdString> {
-		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
+		static inline bool cmp(RTLIL::IdString a, RTLIL::IdString b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString &id) {
+		[[nodiscard]] static inline Hasher hash(RTLIL::IdString id) {
 			return id.hash_top();
 		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString &id, Hasher h) {
+		[[nodiscard]] static inline Hasher hash_into(RTLIL::IdString id, Hasher h) {
 			return id.hash_into(h);
 		}
 	};
@@ -748,11 +757,11 @@ namespace RTLIL {
 		return str.substr(1);
 	}
 
-	static inline std::string unescape_id(const RTLIL::IdString &str) {
+	static inline std::string unescape_id(RTLIL::IdString str) {
 		return unescape_id(str.str());
 	}
 
-	static inline const char *id2cstr(const RTLIL::IdString &str) {
+	static inline const char *id2cstr(RTLIL::IdString str) {
 		return log_id(str);
 	}
 
@@ -769,7 +778,7 @@ namespace RTLIL {
 	};
 
 	struct sort_by_id_str {
-		bool operator()(const RTLIL::IdString &a, const RTLIL::IdString &b) const {
+		bool operator()(RTLIL::IdString a, RTLIL::IdString b) const {
 			return a.lt_by_name(b);
 		}
 	};
@@ -1235,22 +1244,22 @@ struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
-	bool has_attribute(const RTLIL::IdString &id) const;
+	bool has_attribute(RTLIL::IdString id) const;
 
-	void set_bool_attribute(const RTLIL::IdString &id, bool value=true);
-	bool get_bool_attribute(const RTLIL::IdString &id) const;
+	void set_bool_attribute(RTLIL::IdString id, bool value=true);
+	bool get_bool_attribute(RTLIL::IdString id) const;
 
 	[[deprecated("Use Module::get_blackbox_attribute() instead.")]]
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
-	void set_string_attribute(const RTLIL::IdString& id, string value);
-	string get_string_attribute(const RTLIL::IdString &id) const;
+	void set_string_attribute(RTLIL::IdString  id, string value);
+	string get_string_attribute(RTLIL::IdString id) const;
 
-	void set_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data);
-	void add_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data);
-	pool<string> get_strpool_attribute(const RTLIL::IdString &id) const;
+	void set_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
+	void add_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
+	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
 	void set_src_attribute(const std::string &src) {
 		set_string_attribute(ID::src, src);
@@ -1262,8 +1271,8 @@ struct RTLIL::AttrObject
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
 
-	void set_intvec_attribute(const RTLIL::IdString& id, const vector<int> &data);
-	vector<int> get_intvec_attribute(const RTLIL::IdString &id) const;
+	void set_intvec_attribute(RTLIL::IdString  id, const vector<int> &data);
+	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 };
 
 struct RTLIL::NamedObject : public RTLIL::AttrObject
@@ -1770,18 +1779,18 @@ struct RTLIL::Selection
 
 	// checks if the given module exists in the current design and is a
 	// boxed module, warning the user if the current design is not set
-	bool boxed_module(const RTLIL::IdString &mod_name) const;
+	bool boxed_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given module is included in this selection
-	bool selected_module(const RTLIL::IdString &mod_name) const;
+	bool selected_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given module is wholly included in this selection,
 	// i.e. not partially selected
-	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+	bool selected_whole_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given member from the given module is included in this
 	// selection
-	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 
 	// optimizes this selection for the given design by:
 	// - removing non-existent modules and members, any boxed modules and
@@ -1851,7 +1860,7 @@ struct RTLIL::Monitor
 	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
-	virtual void notify_connect(RTLIL::Cell*, const RTLIL::IdString&, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
+	virtual void notify_connect(RTLIL::Cell*, RTLIL::IdString, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
 	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
 	virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 	virtual void notify_blackout(RTLIL::Module*) { }
@@ -1886,11 +1895,11 @@ struct RTLIL::Design
 	~Design();
 
 	RTLIL::ObjRange<RTLIL::Module*> modules();
-	RTLIL::Module *module(const RTLIL::IdString &name);
-	const RTLIL::Module *module(const RTLIL::IdString &name) const;
+	RTLIL::Module *module(RTLIL::IdString name);
+	const RTLIL::Module *module(RTLIL::IdString name) const;
 	RTLIL::Module *top_module() const;
 
-	bool has(const RTLIL::IdString &id) const {
+	bool has(RTLIL::IdString id) const {
 		return modules_.count(id) != 0;
 	}
 
@@ -1917,15 +1926,15 @@ struct RTLIL::Design
 	void optimize();
 
 	// checks if the given module is included in the current selection
-	bool selected_module(const RTLIL::IdString &mod_name) const;
+	bool selected_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given module is wholly included in the current
 	// selection, i.e. not partially selected
-	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+	bool selected_whole_module(RTLIL::IdString mod_name) const;
 
 	// checks if the given member from the given module is included in the
 	// current selection
-	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
+	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
 
 	// checks if the given module is included in the current selection
 	bool selected_module(RTLIL::Module *mod) const;
@@ -2022,7 +2031,10 @@ struct RTLIL::Design
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
+
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
+
+	std::string to_rtlil_str(bool only_selected = true) const;
 };
 
 struct RTLIL::Module : public RTLIL::NamedObject
@@ -2057,7 +2069,7 @@ public:
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
-	virtual size_t count_id(const RTLIL::IdString& id);
+	virtual size_t count_id(RTLIL::IdString id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
 
@@ -2109,32 +2121,37 @@ public:
 		return design->selected_member(name, member->name);
 	}
 
-	RTLIL::Wire* wire(const RTLIL::IdString &id) {
+	RTLIL::Wire* wire(RTLIL::IdString id) {
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
 	}
-	RTLIL::Cell* cell(const RTLIL::IdString &id) {
+	RTLIL::Cell* cell(RTLIL::IdString id) {
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
 
-	const RTLIL::Wire* wire(const RTLIL::IdString &id) const{
+	const RTLIL::Wire* wire(RTLIL::IdString id) const{
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
 	}
-	const RTLIL::Cell* cell(const RTLIL::IdString &id) const {
+	const RTLIL::Cell* cell(RTLIL::IdString id) const {
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
+	int wires_size() const { return wires_.size(); }
+	RTLIL::Wire* wire_at(int index) const { return wires_.element(index)->second; }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
+	int cells_size() const { return cells_.size(); }
+	RTLIL::Cell* cell_at(int index) const { return cells_.element(index)->second; }
 
 	void add(RTLIL::Binding *binding);
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
+	void remove(RTLIL::Memory *memory);
 	void remove(RTLIL::Process *process);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
@@ -2381,6 +2398,7 @@ public:
 	RTLIL::SigSpec OriginalTag     (RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src = "");
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
 
+	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif
@@ -2434,6 +2452,7 @@ public:
 		return zero_index + start_offset;
 	}
 
+	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
@@ -2451,6 +2470,8 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	Memory();
 
 	int width, start_offset, size;
+
+	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
 	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
@@ -2479,23 +2500,23 @@ public:
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
 	// access cell ports
-	bool hasPort(const RTLIL::IdString &portname) const;
-	void unsetPort(const RTLIL::IdString &portname);
-	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
-	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
+	bool hasPort(RTLIL::IdString portname) const;
+	void unsetPort(RTLIL::IdString portname);
+	void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
+	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
 	// information about cell ports
 	bool known() const;
-	bool input(const RTLIL::IdString &portname) const;
-	bool output(const RTLIL::IdString &portname) const;
-	PortDir port_dir(const RTLIL::IdString &portname) const;
+	bool input(RTLIL::IdString portname) const;
+	bool output(RTLIL::IdString portname) const;
+	PortDir port_dir(RTLIL::IdString portname) const;
 
 	// access cell parameters
-	bool hasParam(const RTLIL::IdString &paramname) const;
-	void unsetParam(const RTLIL::IdString &paramname);
-	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
-	const RTLIL::Const &getParam(const RTLIL::IdString &paramname) const;
+	bool hasParam(RTLIL::IdString paramname) const;
+	void unsetParam(RTLIL::IdString paramname);
+	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
+	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	void sort();
 	void check();
@@ -2508,6 +2529,8 @@ public:
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
+
+	std::string to_rtlil_str() const;
 
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
@@ -2587,6 +2610,7 @@ public:
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::Process *clone() const;
+	std::string to_rtlil_str() const;
 };
 
 

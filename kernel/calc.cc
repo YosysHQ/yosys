@@ -291,7 +291,7 @@ static RTLIL::Const const_shift_worker(const RTLIL::Const &arg1, const RTLIL::Co
 		if (pos < 0)
 			result.set(i, vacant_bits);
 		else if (pos >= BigInteger(GetSize(arg1)))
-			result.set(i, sign_ext ? arg1.back() : vacant_bits);
+			result.set(i, sign_ext && !arg1.empty() ? arg1.back() : vacant_bits);
 		else
 			result.set(i, arg1[pos.toInt()]);
 	}

@@ -5,6 +5,7 @@ endif
 OBJS += passes/cmds/add.o
 OBJS += passes/cmds/delete.o
 OBJS += passes/cmds/design.o
+OBJS += passes/cmds/design_equal.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/viz.o
@@ -27,7 +28,6 @@ OBJS += passes/cmds/logcmd.o
 OBJS += passes/cmds/tee.o
 OBJS += passes/cmds/write_file.o
 OBJS += passes/cmds/connwrappers.o
-OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/trace.o
 OBJS += passes/cmds/plugin.o
 OBJS += passes/cmds/check.o
@@ -37,6 +37,7 @@ OBJS += passes/cmds/chformal.o
 OBJS += passes/cmds/chtype.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
+OBJS += passes/cmds/linux_perf.o
 ifeq ($(DISABLE_SPAWN),0)
 OBJS += passes/cmds/bugpoint.o
 endif

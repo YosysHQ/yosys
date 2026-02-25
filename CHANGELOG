@@ -2,8 +2,53 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.59 .. Yosys 0.60-dev
+Yosys 0.62 .. Yosys 0.63-dev
 --------------------------
+
+Yosys 0.61 .. Yosys 0.62
+--------------------------
+ * Various
+    - verific: Added "-sv2017" flag option to support System
+      Verilog 2017.
+    - verific: Added VHDL related flags to "-f" and "-F" and
+      support reading VHDL file from file lists.
+    - Updated cell libs with proper module declaration where
+      non standard (...) style was used.
+
+ * New commands and options
+    - Added "-word" option to "lut2mux" pass to enable emitting
+      word level cells.
+    - Added experimental "opt_balance_tree" pass to convert
+      cascaded cells into tree of cells to improve timing.
+    - Added "-gatesi" option to "write_blif" pass to init gates
+      under gates_mode in BLIF format.
+    - Added "-on" and "-off" options to "debug" pass for 
+      persistent debug logging.
+    - Added "linux_perf" pass to control performance recording.
+
+Yosys 0.60 .. Yosys 0.61
+--------------------------
+ * Various
+    - Removed "cover" pass for coverage tracking.
+    - Avoid merging formal properties with "opt_merge" pass.
+    - Parallelize "opt_merge" pass.
+
+ * New commands and options
+    - Added "design_equal" pass to support fuzz-test comparison.
+    - Added "lut2bmux" pass to convert $lut to $bmux.
+    - Added "-legalize" option to "read_rtlil" pass to prevent 
+      semantic errors.
+
+Yosys 0.59 .. Yosys 0.60
+--------------------------
+ * Various
+    - read_verilog: suport unsized parameters.
+    - Added static library compile option.
+
+ * New commands and options
+    - Added "sdc" pass for reading SDC files.
+    - Added experimental "sdc_expand" and "opensta" for OpenSTA integration.
+    - Added "icell_liberty" pass for used internal cells.
 
 Yosys 0.58 .. Yosys 0.59
 --------------------------

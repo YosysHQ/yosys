@@ -267,7 +267,30 @@ int ceil_log2(int x) YS_ATTRIBUTE(const);
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 inline int GetSize(RTLIL::Wire *wire);
 
-extern int autoidx;
+// When multiple threads are accessing RTLIL, one of these guard objects
+// must exist.
+struct Multithreading
+{
+	Multithreading();
+	~Multithreading();
+	// Returns true when multiple threads are accessing RTLIL.
+	// autoidx cannot be used during such times.
+	// IdStrings cannot be created during such times.
+	static bool active() { return active_; }
+private:
+	static bool active_;
+};
+
+struct Autoidx {
+	Autoidx(int value) : value(value) {}
+	operator int() const { return value; }
+	void ensure_at_least(int v);
+	int operator++(int);
+private:
+	int value;
+};
+
+extern Autoidx autoidx;
 extern int yosys_xtrace;
 extern bool yosys_write_versions;
 
@@ -276,8 +299,8 @@ RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view 
 
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX RTLIL::IdString::new_autoidx_with_prefix([](std::string_view func) -> const std::string * { \
-		static const std::string *prefix = YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func); \
-		return prefix; \
+		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
+		return prefix.get(); \
 	}(__FUNCTION__))
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)

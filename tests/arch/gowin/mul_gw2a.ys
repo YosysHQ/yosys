@@ -1,0 +1,53 @@
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 8 -set Y_WIDTH 8 -set A_WIDTH 16
+hierarchy -top top
+proc
+# equivalence checking is somewhat slow (and missing simulation models)
+synth_gowin -family gw2a
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT9X9
+
+
+# Make sure that DSPs are not inferred with -nodsp option
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 8 -set Y_WIDTH 8 -set A_WIDTH 16
+hierarchy -top top
+proc
+synth_gowin -family gw2a -nodsp
+cd top # Constrain all select calls below inside the top module
+select -assert-none t:MULT9X9
+
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 16 -set Y_WIDTH 16 -set A_WIDTH 32
+hierarchy -top top
+proc
+synth_gowin -family gw2a
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT18X18
+
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 32 -set Y_WIDTH 32 -set A_WIDTH 64
+hierarchy -top top
+proc
+# equivalence checking is too slow here
+synth_gowin -family gw2a
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT36X36
+
+
+# We end up with two 18x18 multipliers
+# 36x36 min width is 22
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 32 -set Y_WIDTH 16 -set A_WIDTH 48
+hierarchy -top top
+proc
+# equivalence checking is too slow here
+synth_gowin -family gw2a
+cd top # Constrain all select calls below inside the top module
+select -assert-count 2 t:MULT18X18

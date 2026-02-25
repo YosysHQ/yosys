@@ -275,6 +275,9 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 			return conns.check_any(s2);
 	}
 
+	if (w1 == w2)
+		return s2.offset < s1.offset;
+
 	if (w1->port_output != w2->port_output)
 		return w2->port_output;
 
@@ -347,7 +350,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
 			RTLIL::SigBit s1 = RTLIL::SigBit(wire, i), s2 = assign_map(s1);
-			if (!compare_signals(s1, s2, register_signals, connected_signals, direct_wires))
+			if (compare_signals(s2, s1, register_signals, connected_signals, direct_wires))
 				assign_map.add(s1);
 		}
 	}
@@ -471,8 +474,6 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 					wire->attributes.erase(ID::init);
 				else
 					wire->attributes.at(ID::init) = initval;
-				used_signals.add(new_conn.first);
-				used_signals.add(new_conn.second);
 				module->connect(new_conn);
 			}
 
@@ -713,7 +714,6 @@ struct OptCleanPass : public Pass {
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
 		design->optimize();
-		design->sort();
 		design->check();
 
 		keep_cache.reset();
@@ -773,7 +773,6 @@ struct CleanPass : public Pass {
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
 		design->optimize();
-		design->sort();
 		design->check();
 
 		keep_cache.reset();

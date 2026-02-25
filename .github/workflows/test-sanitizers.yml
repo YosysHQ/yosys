@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  merge_group:
   # ignore PRs due to time needed
   # allow triggering tests, ignores skip check
   workflow_dispatch:
@@ -64,7 +65,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS=
+          make -j$procs vanilla-test TARGETS= EXTRA_TARGETS=
 
       - name: Report errors
         if: ${{ failure() }}
@@ -72,7 +73,3 @@ jobs:
         run: |
           find tests/**/*.err -print -exec cat {} \;
 
-      - name: Run unit tests
-        shell: bash
-        run: |
-          make -j$procs unit-test ENABLE_LIBYOSYS=1

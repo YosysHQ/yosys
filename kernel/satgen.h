@@ -59,6 +59,7 @@ struct SatSolver
 
 struct ezSatPtr : public std::unique_ptr<ezSAT> {
 	ezSatPtr() : unique_ptr<ezSAT>(yosys_satsolver->create()) { }
+	explicit ezSatPtr(SatSolver *solver) : unique_ptr<ezSAT>((solver ? solver : yosys_satsolver)->create()) { }
 };
 
 struct SatGen

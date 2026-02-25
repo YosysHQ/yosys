@@ -255,6 +255,7 @@ int main(int argc, char **argv)
 		("h,help", "print this help message. If given, print help for <command>.",
 			cxxopts::value<std::string>(), "[<command>]")
 		("V,version", "print version information and exit")
+		("git-hash", "print git commit hash and exit")
 		("infile", "input files", cxxopts::value<std::vector<std::string>>())
 	;
 	options.add_options("logging")
@@ -330,6 +331,10 @@ int main(int argc, char **argv)
 		if (result.count("no-version")) yosys_write_versions = false;
 		if (result.count("V")) {
 			std::cout << yosys_version_str << std::endl;
+			exit(0);
+		}
+		if (result.count("git-hash")) {
+			std::cout << yosys_git_hash_str << std::endl;
 			exit(0);
 		}
 		if (result.count("S")) {
@@ -763,33 +768,6 @@ int main(int argc, char **argv)
 			fprintf(f, "\n  }\n}\n");
 		}
 	}
-
-#if defined(YOSYS_ENABLE_COVER) && (defined(__linux__) || defined(__FreeBSD__))
-	if (getenv("YOSYS_COVER_DIR") || getenv("YOSYS_COVER_FILE"))
-	{
-		string filename;
-		FILE *f;
-
-		if (getenv("YOSYS_COVER_DIR")) {
-			filename = stringf("%s/yosys_cover_%d_XXXXXX.txt", getenv("YOSYS_COVER_DIR"), getpid());
-			filename = make_temp_file(filename);
-		} else {
-			filename = getenv("YOSYS_COVER_FILE");
-		}
-
-		f = fopen(filename.c_str(), "a+");
-
-		if (f == NULL)
-			log_error("Can't create coverage file `%s'.\n", filename);
-
-		log("<writing coverage file \"%s\">\n", filename);
-
-		for (auto &it : get_coverage_data())
-			fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
-
-		fclose(f);
-	}
-#endif
 
 	log_check_expected();
 

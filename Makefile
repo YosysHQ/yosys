@@ -21,8 +21,8 @@ ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
-ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
+ENABLE_LIBYOSYS_STATIC := 0
 ENABLE_ZLIB := 1
 ENABLE_HELP_SOURCE := 0
 
@@ -161,7 +161,19 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.59+110
+YOSYS_VER := 0.62
+
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+    GIT_COMMIT_COUNT := $(or $(shell git rev-list --count v$(YOSYS_VER)..HEAD 2>/dev/null),0)
+    ifneq ($(GIT_COMMIT_COUNT),0)
+        YOSYS_VER := $(YOSYS_VER)+$(GIT_COMMIT_COUNT)
+    endif
+else
+    YOSYS_VER := $(YOSYS_VER)+post
+endif
+endif
+
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
@@ -177,14 +189,13 @@ CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
 TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
 ifneq ($(findstring Format:,$(TARBALL_GIT_REV)),)
 GIT_REV := $(shell GIT_DIR=$(YOSYS_SRC)/.git git rev-parse --short=9 HEAD || echo UNKNOWN)
+GIT_DIRTY := $(shell GIT_DIR=$(YOSYS_SRC)/.git git diff --exit-code --quiet 2>/dev/null; if [ $$? -ne 0 ]; then echo "-dirty"; fi)
 else
 GIT_REV := $(TARBALL_GIT_REV)
+GIT_DIRTY := ""
 endif
 
 OBJS = kernel/version_$(GIT_REV).o
-
-bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 03eb220.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -248,9 +259,6 @@ ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
 CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
 LINKFLAGS += -g -fsanitize=$(SANITIZER)
-ifneq ($(findstring address,$(SANITIZER)),)
-ENABLE_COVER := 0
-endif
 ifneq ($(findstring memory,$(SANITIZER)),)
 CXXFLAGS += -fPIE -fsanitize-memory-track-origins
 LINKFLAGS += -fPIE -fsanitize-memory-track-origins
@@ -342,6 +350,9 @@ endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
+ifeq ($(ENABLE_LIBYOSYS_STATIC),1)
+TARGETS += libyosys.a
+endif
 endif
 
 PY_WRAPPER_FILE = pyosys/wrappers
@@ -474,6 +485,9 @@ else
 ifeq ($(ABCEXTERNAL),)
 TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
 endif
+ifeq ($(DISABLE_SPAWN),1)
+$(error ENABLE_ABC=1 requires either LINK_ABC=1 or DISABLE_SPAWN=0)
+endif
 endif
 endif
 
@@ -539,10 +553,6 @@ LIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_C
 else
 LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
-endif
-
-ifeq ($(ENABLE_COVER),1)
-CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
 
 ifeq ($(ENABLE_CCACHE),1)
@@ -638,6 +648,7 @@ $(eval $(call add_include_file,kernel/yosys_common.h))
 $(eval $(call add_include_file,kernel/yw.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
+$(eval $(call add_include_file,libs/ezsat/ezcmdline.h))
 ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,libs/fst/fstapi.h))
 endif
@@ -645,8 +656,6 @@ $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,passes/techmap/libparse.h))
-$(eval $(call add_include_file,frontends/ast/ast.h))
-$(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
@@ -685,6 +694,7 @@ OBJS += libs/json11/json11.o
 
 OBJS += libs/ezsat/ezsat.o
 OBJS += libs/ezsat/ezminisat.o
+OBJS += libs/ezsat/ezcmdline.o
 
 OBJS += libs/minisat/Options.o
 OBJS += libs/minisat/SimpSolver.o
@@ -723,7 +733,6 @@ OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
-OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
@@ -773,6 +782,9 @@ else
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 endif
 
+libyosys.a: $(filter-out kernel/driver.o,$(OBJS))
+	$(P) $(AR) rcs $@ $^
+
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
@@ -791,12 +803,34 @@ endif
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
-YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(GIT_REV), $(notdir $(CXX)) $(shell \
-		$(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS)))
+YOSYS_REPO :=
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+	GIT_REMOTE := $(strip $(shell git config --get remote.origin.url 2>/dev/null | $(AWK) '{print tolower($$0)}'))
+	ifneq ($(strip $(GIT_REMOTE)),)
+		YOSYS_REPO := $(strip $(shell echo $(GIT_REMOTE) | $(AWK) -F '[:/]' '{gsub(/\.git$$/, "", $$NF); printf "%s/%s", $$(NF-1), $$NF}'))
+	endif
+	ifeq ($(strip $(YOSYS_REPO)),yosyshq/yosys)
+		YOSYS_REPO :=
+	endif
+	GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+	ifeq ($(filter main HEAD release/v%,$(GIT_BRANCH)),)
+		YOSYS_REPO := $(YOSYS_REPO) at $(GIT_BRANCH)
+	endif
+	YOSYS_REPO := $(strip $(YOSYS_REPO))
+endif
+endif
+
+YOSYS_GIT_STR := $(GIT_REV)$(GIT_DIRTY)
+YOSYS_COMPILER := $(notdir $(CXX)) $(shell $(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS))
+YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(YOSYS_COMPILER))
+ifneq ($(strip $(YOSYS_REPO)),)
+	YOSYS_VER_STR := $(YOSYS_VER_STR) [$(YOSYS_REPO)]
+endif
 
 kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
-	$(Q) mkdir -p kernel && echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"$(YOSYS_VER_STR)\"; }" > kernel/version_$(GIT_REV).cc
+	$(Q) mkdir -p kernel && echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"$(YOSYS_VER_STR)\"; const char *yosys_git_hash_str=\"$(YOSYS_GIT_STR)\"; }" > kernel/version_$(GIT_REV).cc
 
 ifeq ($(ENABLE_VERIFIC),1)
 CXXFLAGS_NOVERIFIC = $(foreach v,$(CXXFLAGS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
@@ -976,9 +1010,11 @@ makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
 	$(MAKE) -C $* -f run-test.mk
 	+@echo "...passed tests in $*"
 
-test: makefile-tests abcopt-tests seed-tests
+test: vanilla-test unit-test
+
+vanilla-test: makefile-tests abcopt-tests seed-tests
 	@echo ""
-	@echo "  Passed \"make test\"."
+	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)
 ifeq ($(YOSYS_NOVERIFIC),1)
 	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
@@ -1010,11 +1046,11 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 
 # Unit test
 unit-test: libyosys.so
-	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
+	@$(MAKE) -f $(UNITESTPATH)/Makefile CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
 		CXXFLAGS="$(CXXFLAGS)" LINKFLAGS="$(LINKFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
 
 clean-unit-test:
-	@$(MAKE) -C $(UNITESTPATH) clean
+	@$(MAKE) -f $(UNITESTPATH)/Makefile clean
 
 install-dev: $(PROGRAM_PREFIX)yosys-config share
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
@@ -1024,7 +1060,7 @@ install-dev: $(PROGRAM_PREFIX)yosys-config share
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) cp $(filter-out libyosys.so libyosys.a,$(TARGETS)) $(DESTDIR)$(BINDIR)
 ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
 	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys; fi
 endif
@@ -1040,13 +1076,18 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so; fi
+ifeq ($(ENABLE_LIBYOSYS_STATIC),1)
+	$(INSTALL_SUDO) cp libyosys.a $(DESTDIR)$(LIBDIR)/
+endif
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 	$(INSTALL_SUDO) cp $(YOSYS_SRC)/pyosys/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 ifeq ($(ENABLE_ABC),1)
-	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
+ifeq ($(ABCEXTERNAL),)
+	$(INSTALL_SUDO) cp $(PROGRAM_PREFIX)yosys-abc$(EXE) $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc$(EXE)
+endif
 endif
 endif
 endif
@@ -1062,6 +1103,9 @@ uninstall:
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
+ifeq ($(ENABLE_LIBYOSYS_STATIC),1)
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.a
+endif
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
@@ -1160,7 +1204,7 @@ clean-py:
 	rm -f $(PY_WRAPPER_FILE).inc.cc $(PY_WRAPPER_FILE).cc
 	rm -f $(PYTHON_OBJECTS)
 	rm -f *.whl
-	rm -f libyosys.so
+	rm -f libyosys.so libyosys.a
 	rm -rf kernel/*.pyh
 
 clean-abc:
@@ -1194,15 +1238,17 @@ qtcreator:
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
 	touch qtcreator.creator
 
-vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
-	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
+VCX_DIR_NAME := yosys-win32-vcxsrc-$(YOSYS_VER)
+vcxsrc: $(GENFILES) $(EXTRA_TARGETS) kernel/version_$(GIT_REV).cc
+	rm -rf $(VCX_DIR_NAME){,.zip}
+	cp -f kernel/version_$(GIT_REV).cc kernel/version.cc
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
 		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
 	echo "libs/fst/fst_win_unistd.h" >> srcfiles.txt
-	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
-	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
-	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
-	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
+	echo "kernel/version.cc" >> srcfiles.txt
+	bash misc/create_vcxsrc.sh $(VCX_DIR_NAME) $(YOSYS_VER)
+	zip $(VCX_DIR_NAME)/genfiles.zip $(GENFILES) kernel/version.cc
+	zip -r $(VCX_DIR_NAME).zip $(VCX_DIR_NAME)/
 	rm -f srcfiles.txt kernel/version.cc
 
 config-clean: clean

@@ -28,6 +28,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+/**
+ * ConstEval provides on-demand constant propagation by traversing input cones
+ * with caching
+ */
 struct ConstEval
 {
 	RTLIL::Module *module;

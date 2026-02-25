@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/newcelltypes.h"
+#include "kernel/log.h"
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -80,7 +81,7 @@ extern "C" PyObject* PyInit_pyosys();
 
 YOSYS_NAMESPACE_BEGIN
 
-int autoidx = 1;
+Autoidx autoidx(1);
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
 const char* yosys_maybe_version() {
@@ -108,8 +109,29 @@ uint32_t Hasher::fudge = 0;
 std::string yosys_share_dirname;
 std::string yosys_abc_executable;
 
+bool Multithreading::active_ = false;
+
 void init_share_dirname();
 void init_abc_executable_name();
+
+Multithreading::Multithreading() {
+	log_assert(!active_);
+	active_ = true;
+}
+
+Multithreading::~Multithreading() {
+	log_assert(active_);
+	active_ = false;
+}
+
+void Autoidx::ensure_at_least(int v) {
+	value = std::max(value, v);
+}
+
+int Autoidx::operator++(int) {
+	log_assert(!Multithreading::active());
+	return value++;
+}
 
 void memhasher_on()
 {
@@ -151,7 +173,7 @@ void yosys_banner()
 	log("\n");
 	log(" /----------------------------------------------------------------------------\\\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
-	log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
+	log(" |  Copyright (C) 2012 - 2026  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |  Distributed under an ISC-like license, type \"license\" to see terms        |\n");
 	log(" \\----------------------------------------------------------------------------/\n");
 	log(" %s\n", yosys_maybe_version());

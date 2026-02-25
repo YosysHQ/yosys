@@ -844,6 +844,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
 				set_src_attr(cell, ast);
+				cell->set_bool_attribute(ID(keep));
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
 						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first);
@@ -2084,8 +2085,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			check_unique_id(current_module, id, this, "cell");
 			RTLIL::Cell *cell = current_module->addCell(id, "");
 			set_src_attr(cell, this);
-			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
-			cell->set_bool_attribute(ID::module_not_derived);
 
 			for (auto it = children.begin(); it != children.end(); it++) {
 				auto* child = it->get();
@@ -2148,6 +2147,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 				log_abort();
 			}
+
+			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
+			if (cell->type.isPublic())
+				cell->set_bool_attribute(ID::module_not_derived);
+
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
 					input_error("Attribute `%s' with non-constant value.\n", attr.first);

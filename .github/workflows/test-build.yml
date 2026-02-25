@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  merge_group:
   # test PRs
   pull_request:
   # allow triggering tests, ignores skip check
@@ -71,6 +72,7 @@ jobs:
           cd build
           make -f ../Makefile config-$CC
           make -f ../Makefile -j$procs
+          make -f ../Makefile unit-test -j$procs
 
       - name: Log yosys-config output
         run: |
@@ -80,7 +82,7 @@ jobs:
         shell: bash
         run: |
           cd build
-          tar -cvf ../build.tar share/ yosys yosys-*
+          tar -cvf ../build.tar share/ yosys yosys-* libyosys.so
 
       - name: Store build artifact
         uses: actions/upload-artifact@v4
@@ -130,7 +132,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+          make -j$procs vanilla-test TARGETS= EXTRA_TARGETS= CONFIG=$CC
 
       - name: Report errors
         if: ${{ failure() }}
