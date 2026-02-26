@@ -30,6 +30,7 @@
 #include "libs/symfpu/core/sqrt.h"
 #include "libs/symfpu/core/unpackedFloat.h"
 #include "libs/symfpu/core/classify.h"
+#include "libs/symfpu/core/compare.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -417,6 +418,8 @@ struct SymFpuPass : public Pass {
 			"sub    | two input subtraction          | o = a-b\n"
 			"mul    | two input multiplication       | o = a*b\n"
 			"div    | two input divison              | o = a/b\n"
+			"min    | two input minimum              | o = min(a,b)\n"
+			"max    | two input maximum              | o = max(a,b)\n"
 			"muladd | three input fused multiple-add | o = (a*b)+c\n"
 		);
 
@@ -441,6 +444,13 @@ struct SymFpuPass : public Pass {
 			"isPositive, isNegative, and isFinite."
 		);
 
+		content_root->usage("symfpu -compare [size]");
+		content_root->paragraph(
+			"Generates netlist for floating point comparison of inputs a and b.  Outputs "
+			"6 single-bit signals, smtlibEqual, ieee754Equal, lessThan, lessThanOrEqual, "
+			"sNV (invalid signaling comparison), and qNV (invalid quiet comparison)."
+		);
+
 		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -449,7 +459,7 @@ struct SymFpuPass : public Pass {
 		int eb = 8, sb = 24;
 		string op = "mul", rounding = "DYN";
 		int inputs = 2;
-		bool classify = false;
+		bool classify = false, compare = false;
 		log_header(design, "Executing SYMFPU pass.\n");
 
 		size_t argidx;
@@ -472,6 +482,8 @@ struct SymFpuPass : public Pass {
 					|| op.compare("mul") == 0
 					|| op.compare("altdiv") == 0 // currently undocumented
 					|| op.compare("alt2div") == 0 // currently undocumented
+					|| op.compare("min") == 0
+					|| op.compare("max") == 0
 					|| op.compare("div") == 0)
 					inputs = 2;
 				else if (op.compare("muladd") == 0)
@@ -489,15 +501,31 @@ struct SymFpuPass : public Pass {
 				classify = true;
 				continue;
 			}
+			if (args[argidx] == "-compare") {
+				compare = true;
+				continue;
+			}
 			break;
 		}
 
 		extra_args(args, argidx, design);
 
-		if (classify) {
-			if (rounding.compare("DYN") != 0)
+		if (compare && classify)
+			log_cmd_error("-classify and -compare flags are incompatible.\n");
+
+		if (rounding.compare("DYN") != 0) {
+			if (compare)
+				log_cmd_error("symfpu -compare does not support rounding modes.\n");
+			if (classify)
 				log_cmd_error("symfpu -classify does not support rounding modes.\n");
-			if (op.compare("mul") != 0)
+			if (op.compare("min") == 0 || op.compare("max") == 0)
+				log_cmd_error("min/max operations do not support rounding modes.\n");
+		}
+
+		if (op.compare("mul") != 0) {
+			if (compare)
+				log_cmd_error("symfpu -compare does not support operator selection.\n");
+			if (classify)
 				log_cmd_error("symfpu -classify does not support operator selection.\n");
 		}
 
@@ -535,6 +563,15 @@ struct SymFpuPass : public Pass {
 			output_prop(ID(isPositive), symfpu::isPositive(format, a));
 			output_prop(ID(isNegative), symfpu::isNegative(format, a));
 			output_prop(ID(isFinite), symfpu::isFinite(format, a));
+		} else if (compare) {
+			auto b_bv = input_ubv(ID(b), eb+sb);
+			uf b = symfpu::unpack<rtlil_traits>(format, b_bv);
+			output_prop(ID(smtlibEqual), symfpu::smtlibEqual(format, a, b));
+			output_prop(ID(ieee754Equal), symfpu::ieee754Equal(format, a, b));
+			output_prop(ID(lessThan), symfpu::lessThan(format, a, b));
+			output_prop(ID(lessThanOrEqual), symfpu::lessThanOrEqual(format, a, b));
+			output_prop(ID(sNV), a.getNaN() || b.getNaN());
+			output_prop(ID(qNV), (a.getNaN() && is_sNaN(a_bv, sb)) || (b.getNaN() && is_sNaN(b_bv, sb)));
 		} else {
 			auto b_bv = input_ubv(ID(b), eb+sb);
 			auto c_bv = input_ubv(ID(c), eb+sb);
@@ -575,6 +612,11 @@ struct SymFpuPass : public Pass {
 					return symfpu::falseDivide_flagged(format, rounding_mode, a, b, prop(false));
 				else if (op.compare("altsqrt") == 0)
 					return symfpu::falseSqrt_flagged(format, rounding_mode, a);
+				else if (op.compare("min") == 0)
+					// setting zeroCase=a.getSign() makes +0 > -0, as per IEEE 754-2019
+					return uf_flagged(symfpu::min(format, a, b, a.getSign()));
+				else if (op.compare("max") == 0)
+					return uf_flagged(symfpu::max(format, a, b, a.getSign()));
 				else
 					log_abort();
 			};
