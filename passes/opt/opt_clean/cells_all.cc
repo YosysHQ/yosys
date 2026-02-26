@@ -112,7 +112,6 @@ struct WireDriversCollisionHandler {
 };
 using Wire2Drivers = ShardedHashtable<WireDriver, WireDriversKeyEquality, WireDriversCollisionHandler>;
 
-// TODO difference from DeferredLogs ?
 struct ConflictLogs {
 	ShardedVector<std::pair<SigBit, std::string>> logs;
 	ConflictLogs(ParallelDispatchThreadPool::Subpool &subpool) : logs(subpool) {}
@@ -177,9 +176,6 @@ struct CellAnalysis {
 	}
 };
 
-
-
-// TODO name
 ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const SigMap& wire_map, AnalysisContext& actx, CleanRunContext &clean_ctx) {
 	ConflictLogs logs(actx.subpool);
 	Wire2Drivers::Builder wire2driver_builder(actx.subpool);

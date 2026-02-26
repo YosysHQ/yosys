@@ -322,14 +322,13 @@ struct DeferredUpdates {
 	DeferredUpdates(ParallelDispatchThreadPool::Subpool &subpool) : update_connections(subpool), initialized_wires(subpool) {}
 };
 struct UsedSignals {
-	// here, "used" means "driven or driving something"
-	// meanwhile, "unused" means "driving nothing"
-	// TODO ...
-	// used signals sigmapped
+	// here, "connected" means "driven or driving something"
+	// meanwhile, "used" means "driving something"
+	// sigmapped
 	ShardedSigPool connected;
-	// used signals pre-sigmapped
+	// pre-sigmapped
 	ShardedSigPool raw_connected;
-	// used signals sigmapped, ignoring drivers (we keep track of this to set `unused_bits`)
+	// sigmapped
 	ShardedSigPool used;
 
 	void clear(ParallelDispatchThreadPool::Subpool &subpool) {
