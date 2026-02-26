@@ -247,7 +247,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		}
 	}
 
-	abc9_script += stringf("; &ps -l; &write -n %s/output.aig", tempdir_name);
+	abc9_script += stringf("; &ps -l; &write_retention %s/output.retention; &write -n %s/output.aig", tempdir_name, tempdir_name);
 	if (design->scratchpad_get_bool("abc9.verify", true)) {
 		if (dff_mode)
 			abc9_script += "; &verify -s";

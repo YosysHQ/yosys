@@ -23,6 +23,8 @@
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
 #include "kernel/timinginfo.h"
+#include <fstream>
+#include <sstream>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -1136,7 +1138,42 @@ void write_box(RTLIL::Module *module, const std::string &dst) {
 	ofs.close();
 }
 
-void reintegrate(RTLIL::Module *module, bool dff_mode)
+void write_src_map(RTLIL::Module *module, const std::string &sym_file, const std::string &dst)
+{
+	// Read the sym file to get CI position -> wire name mapping,
+	// then look up \src attributes from the module's wires
+	std::ifstream sf(sym_file);
+	if (!sf.is_open()) {
+		log_warning("Cannot open sym file '%s' for src_map generation.\n", sym_file.c_str());
+		return;
+	}
+
+	std::ofstream of(dst);
+	if (!of.is_open()) {
+		log_warning("Cannot open '%s' for writing src_map.\n", dst.c_str());
+		return;
+	}
+
+	std::string type, symbol;
+	int variable, index;
+	while (sf >> type >> variable >> index >> symbol) {
+		if (type != "input")
+			continue;
+		RTLIL::IdString wire_name = RTLIL::escape_id(symbol);
+		RTLIL::Wire *wire = module->wire(wire_name);
+		if (!wire)
+			continue;
+		if (!wire->attributes.count(ID::src))
+			continue;
+		std::string src_val = wire->attributes.at(ID::src).decode_string();
+		if (!src_val.empty())
+			of << variable << "\t" << index << "\t" << src_val << "\n";
+	}
+	of.close();
+	log("Wrote src_map to '%s'.\n", dst.c_str());
+}
+
+void reintegrate(RTLIL::Module *module, bool dff_mode, const std::string &tempdir = "")
 {
 	auto design = module->design;
 	log_assert(design);
@@ -1563,6 +1600,122 @@ clone_lut:
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
 	log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
+	// Apply \src attributes from retention data if available
+	if (!tempdir.empty()) {
+		std::string retention_path = tempdir + "/output.retention";
+		std::string src_map_path = tempdir + "/src_map.txt";
+
+		// Read src_map: ci_position \t bit_index \t \src_value
+		dict<std::pair<int,int>, std::string> src_map;
+		{
+			std::ifstream sf(src_map_path);
+			std::string line;
+			while (std::getline(sf, line)) {
+				auto tab1 = line.find('\t');
+				if (tab1 == std::string::npos) continue;
+				auto tab2 = line.find('\t', tab1 + 1);
+				if (tab2 == std::string::npos) continue;
+				int ci_pos = std::stoi(line.substr(0, tab1));
+				int bit_idx = std::stoi(line.substr(tab1 + 1, tab2 - tab1 - 1));
+				std::string src_val = line.substr(tab2 + 1);
+				if (!src_val.empty())
+					src_map[std::make_pair(ci_pos, bit_idx)] = src_val;
+			}
+		}
+
+		// Read retention file:
+		// .gia_retention_begin
+		// CI <ci_position> <gia_obj_id>
+		// <gia_obj_id> SRC <origin1> <origin2> ...
+		// .gia_retention_end
+		dict<int, int> ci_id_to_pos; // gia_obj_id -> ci_position
+		dict<int, pool<int>> retention_map; // gia_obj_id -> {origin_gia_ids}
+		{
+			std::ifstream rf(retention_path);
+			std::string line;
+			bool in_retention = false;
+			while (std::getline(rf, line)) {
+				if (line == ".gia_retention_begin") { in_retention = true; continue; }
+				if (line == ".gia_retention_end") break;
+				if (!in_retention) continue;
+				std::istringstream iss(line);
+				std::string tok;
+				iss >> tok;
+				if (tok == "CI") {
+					int pos, id;
+					iss >> pos >> id;
+					ci_id_to_pos[id] = pos;
+				} else {
+					// <gia_obj_id> SRC <origin1> ...
+					int obj_id = std::stoi(tok);
+					std::string src_tok;
+					iss >> src_tok; // "SRC"
+					if (src_tok != "SRC") continue;
+					int origin;
+					while (iss >> origin)
+						retention_map[obj_id].insert(origin);
+				}
+			}
+		}
+
+		if (!src_map.empty() && !retention_map.empty()) {
+			// Build: gia_obj_id -> \src values by resolving origins through CI map
+			auto resolve_src = [&](int gia_obj_id) -> pool<std::string> {
+				pool<std::string> result;
+				auto it = retention_map.find(gia_obj_id);
+				if (it == retention_map.end()) return result;
+				for (int origin_id : it->second) {
+					auto cit = ci_id_to_pos.find(origin_id);
+					if (cit == ci_id_to_pos.end()) continue;
+					// Look up all bit indices for this CI position
+					for (auto &sm : src_map) {
+						if (sm.first.first == cit->second)
+							result.insert(sm.second);
+					}
+				}
+				return result;
+			};
+
+			// LUT cells in the module have names like:
+			// $abc$<map_autoidx>$$lut$aiger<aiger_autoidx>$<gia_obj_id>
+			// Extract the GIA object ID from the cell name to look up retention data.
+			// We search for "$lut$aiger" and extract the number after the last '$'.
+			int src_applied = 0;
+			for (auto cell : module->cells()) {
+				if (cell->type != ID($lut))
+					continue;
+				if (cell->attributes.count(ID::src))
+					continue;
+				std::string cell_name = cell->name.str();
+				// Find "$lut$aiger" in the cell name
+				auto pos = cell_name.find("$lut$aiger");
+				if (pos == std::string::npos)
+					continue;
+				// After "$lut$aiger<N>$", extract the GIA object ID
+				auto dollar_after = cell_name.find('$', pos + strlen("$lut$aiger"));
+				if (dollar_after == std::string::npos)
+					continue;
+				std::string id_str = cell_name.substr(dollar_after + 1);
+				if (id_str.empty())
+					continue;
+				int gia_id;
+				try {
+					gia_id = std::stoi(id_str);
+				} catch (...) {
+					continue;
+				}
+
+				pool<std::string> src_pool = resolve_src(gia_id);
+				if (!src_pool.empty()) {
+					cell->add_strpool_attribute(ID::src, src_pool);
+					src_applied++;
+				}
+			}
+			if (src_applied > 0)
+				log("Applied \\src attributes to %d cells from retention data.\n", src_applied);
+		}
+	}
+
 	design->remove(mapped_mod);
 }
 
@@ -1711,10 +1864,18 @@ struct Abc9OpsPass : public Pass {
 		log("    -write_box <dst>\n");
 		log("        write the pre-computed box library to <dst>.\n");
 		log("\n");
+		log("    -write_src_map <sym_file> <dst>\n");
+		log("        read the XAIGER sym file and write a src_map file mapping CI positions\n");
+		log("        to \\src attributes from the module's wires.\n");
+		log("\n");
 		log("    -reintegrate\n");
 		log("        for each selected module, re-intergrate the module '<module-name>$abc9'\n");
 		log("        by first recovering ABC9 boxes, and then stitching in the remaining\n");
 		log("        primary inputs and outputs.\n");
+		log("\n");
+		log("    -reintegrate_tempdir <dir>\n");
+		log("        when used with -reintegrate, read node retention data from <dir> to\n");
+		log("        recover \\src attributes on post-synthesis cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -1737,6 +1898,9 @@ struct Abc9OpsPass : public Pass {
 		std::string write_lut_dst;
 		int maxlut = 0;
 		std::string write_box_dst;
+		std::string write_src_map_sym;
+		std::string write_src_map_dst;
+		std::string reintegrate_tempdir;
 
 		bool valid = false;
 		size_t argidx;
@@ -1810,9 +1974,22 @@ struct Abc9OpsPass : public Pass {
 				valid = true;
 				continue;
 			}
+			if (arg == "-write_src_map" && argidx+2 < args.size()) {
+				write_src_map_sym = args[++argidx];
+				rewrite_filename(write_src_map_sym);
+				write_src_map_dst = args[++argidx];
+				rewrite_filename(write_src_map_dst);
+				valid = true;
+				continue;
+			}
 			if (arg == "-reintegrate") {
 				reintegrate_mode = true;
 				valid = true;
+				continue;
+			}
+			if (arg == "-reintegrate_tempdir" && argidx+1 < args.size()) {
+				reintegrate_tempdir = args[++argidx];
+				rewrite_filename(reintegrate_tempdir);
 				continue;
 			}
 			if (arg == "-dff") {
@@ -1834,7 +2011,7 @@ struct Abc9OpsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!valid)
-			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate, -{replace,restore}_zbufs must be specified.\n");
+			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box,src_map}, -reintegrate, -{replace,restore}_zbufs must be specified.\n");
 
 		if (dff_mode && !check_mode && !prep_hier_mode && !prep_delays_mode && !prep_xaiger_mode && !reintegrate_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_{hier,delay,xaiger} or -reintegrate.\n");
@@ -1875,12 +2052,14 @@ struct Abc9OpsPass : public Pass {
 				write_lut(mod, write_lut_dst);
 			if (!write_box_dst.empty())
 				write_box(mod, write_box_dst);
+			if (!write_src_map_sym.empty())
+				write_src_map(mod, write_src_map_sym, write_src_map_dst);
 			if (break_scc_mode)
 				break_scc(mod);
 			if (prep_xaiger_mode)
 				prep_xaiger(mod, dff_mode);
 			if (reintegrate_mode)
-				reintegrate(mod, dff_mode);
+				reintegrate(mod, dff_mode, reintegrate_tempdir);
 		}
 	}
 } Abc9OpsPass;
