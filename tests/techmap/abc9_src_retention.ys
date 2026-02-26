@@ -1,0 +1,23 @@
+# Test that \src attributes are preserved through ABC9 synthesis
+# when node retention is available in the ABC output.
+#
+# NOTE: This test requires an ABC binary with node_retention support
+# (e.g., from robtaylor/abc branch node_retention).
+# When using stock ABC, the retention data won't be present and
+# \src attributes won't be recovered (but the pass won't error).
+
+read_verilog -sv <<EOT
+(* src = "test.v:1.1-5.10" *)
+module test(input wire a, input wire b, output wire y);
+    (* src = "test.v:3.5-3.20" *)
+    wire w;
+    assign w = a & b;
+    assign y = ~w;
+endmodule
+EOT
+
+synth -top test -flatten
+abc9 -lut 4
+
+# Basic sanity: design should have LUT cells after abc9
+select -assert-any t:$lut

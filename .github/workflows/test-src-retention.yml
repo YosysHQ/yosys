@@ -1,0 +1,290 @@
+name: Test src retention through ABC
+
+on:
+  push:
+    branches:
+      - src_retention_abc
+      - src_retention_abc9
+  pull_request:
+    branches:
+      - master
+      - src_retention_abc
+  workflow_dispatch:
+
+jobs:
+  test-src-retention:
+    name: Test src retention (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
+          get-build-deps: true
+          get-test-deps: true
+
+      - name: Build retention-enabled ABC
+        shell: bash
+        run: |
+          git clone --depth 1 --branch node_retention https://github.com/robtaylor/abc.git abc-retention
+          cd abc-retention
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j"$procs"
+          echo "ABC_PATH=$(pwd)/abc" >> "$GITHUB_ENV"
+
+      - name: Build Yosys with retention-enabled ABC
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          make -f ../Makefile config-"$CC"
+          make -f ../Makefile -j"$procs" ABCEXTERNAL="$ABC_PATH"
+
+      - name: Create test fixtures
+        shell: bash
+        run: |
+          mkdir -p build/test_fixtures
+
+          cat > build/test_fixtures/simple.v <<'VEOF'
+          (* src = "test.v:1.1-5.10" *)
+          module test(input wire a, input wire b, output wire y);
+              (* src = "test.v:3.5-3.20" *)
+              wire w;
+              assign w = a & b;
+              assign y = ~w;
+          endmodule
+          VEOF
+
+          cat > build/test_fixtures/counter.v <<'VEOF'
+          (* src = "counter.v:1.1-10.10" *)
+          module counter(input wire clk, input wire rst, input wire en, output reg [3:0] count);
+              (* src = "counter.v:3.5-8.8" *)
+              always @(posedge clk) begin
+                  if (rst)
+                      count <= 4'b0;
+                  else if (en)
+                      count <= count + 1;
+              end
+          endmodule
+          VEOF
+
+          cat > build/test_fixtures/adder.v <<'VEOF'
+          (* src = "adder.v:1.1-6.10" *)
+          module adder(input wire [7:0] a, input wire [7:0] b, output wire [8:0] sum);
+              assign sum = a + b;
+          endmodule
+          VEOF
+
+          cat > build/test_fixtures/amaranth_encoder.v <<'VEOF'
+          (* generator = "Amaranth" *)
+          (* src = "encoder.py:8.1-30.0" *)
+          module priority_enc(input wire clk, input wire rst, input wire [3:0] req, output reg [1:0] grant, output reg valid);
+              (* src = "encoder.py:12.5-12.35" *)
+              reg [1:0] last_grant;
+              (* src = "encoder.py:14.5-28.8" *)
+              always @(posedge clk) begin
+                  if (rst) begin
+                      grant <= 2'b0;
+                      valid <= 1'b0;
+                      last_grant <= 2'b0;
+                  end else begin
+                      if (req[3]) begin grant <= 2'd3; valid <= 1'b1; end
+                      else if (req[2]) begin grant <= 2'd2; valid <= 1'b1; end
+                      else if (req[1]) begin grant <= 2'd1; valid <= 1'b1; end
+                      else if (req[0]) begin grant <= 2'd0; valid <= 1'b1; end
+                      else valid <= 1'b0;
+                      last_grant <= grant;
+                  end
+              end
+          endmodule
+          VEOF
+
+          cat > build/test_fixtures/spinal_regbank.v <<'VEOF'
+          (* src = "RegBank.scala:15.3-50.4" *)
+          module RegBank(
+              input wire clk,
+              input wire resetn,
+              input wire [1:0] io_addr,
+              input wire io_wen,
+              input wire [7:0] io_wdata,
+              output reg [7:0] io_rdata
+          );
+              (* src = "RegBank.scala:20.5-20.30" *)
+              reg [7:0] regs_0;
+              (* src = "RegBank.scala:21.5-21.30" *)
+              reg [7:0] regs_1;
+              (* src = "RegBank.scala:22.5-22.30" *)
+              reg [7:0] regs_2;
+              (* src = "RegBank.scala:23.5-23.30" *)
+              reg [7:0] regs_3;
+              (* src = "RegBank.scala:25.5-42.6" *)
+              always @(posedge clk) begin
+                  if (!resetn) begin
+                      regs_0 <= 8'd0;
+                      regs_1 <= 8'd0;
+                      regs_2 <= 8'd0;
+                      regs_3 <= 8'd0;
+                  end else if (io_wen) begin
+                      case (io_addr)
+                          2'b00: regs_0 <= io_wdata;
+                          2'b01: regs_1 <= io_wdata;
+                          2'b10: regs_2 <= io_wdata;
+                          2'b11: regs_3 <= io_wdata;
+                      endcase
+                  end
+              end
+              (* src = "RegBank.scala:44.5-48.6" *)
+              always @(*) begin
+                  case (io_addr)
+                      2'b00: io_rdata = regs_0;
+                      2'b01: io_rdata = regs_1;
+                      2'b10: io_rdata = regs_2;
+                      2'b11: io_rdata = regs_3;
+                  endcase
+              end
+          endmodule
+          VEOF
+
+      - name: Run basic ABC techmap test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql abc_basic.log -p "
+          read_verilog -sv test_fixtures/simple.v;
+          synth -top test -flatten;
+          abc -lut 4;
+          select -assert-any t:\$lut;
+          "
+
+      - name: Run ABC src retention test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql abc_src_retention.log -p "
+          read_verilog -sv test_fixtures/simple.v;
+          synth -top test -flatten;
+          abc -lut 4;
+          write_json abc_src_ret_output.json;
+          "
+          python3 ../tests/techmap/scripts/validate_src_retention.py abc_src_ret_output.json
+
+      - name: Run ABC9 src retention test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql abc9_src_retention.log -p "
+          read_verilog -sv test_fixtures/counter.v;
+          synth -top counter -flatten;
+          abc9 -lut 4;
+          write_json abc9_src_ret_output.json;
+          "
+          python3 ../tests/techmap/scripts/validate_src_retention.py abc9_src_ret_output.json
+
+      - name: Run multi-module retention test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql multi_abc.log -p "
+          read_verilog -sv test_fixtures/adder.v;
+          synth -top adder -flatten;
+          abc -lut 4;
+          write_json multi_abc_output.json;
+          "
+          python3 ../tests/techmap/scripts/validate_src_retention.py multi_abc_output.json
+
+      - name: Run Amaranth-style abc9 retention test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql amaranth_abc9.log -p "
+          read_verilog -sv test_fixtures/amaranth_encoder.v;
+          synth -top priority_enc -flatten;
+          abc9 -lut 4;
+          write_json amaranth_abc9_output.json;
+          "
+          python3 ../tests/techmap/scripts/validate_src_retention.py amaranth_abc9_output.json --expect-source encoder.py
+
+      - name: Run SpinalHDL-style abc retention test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql spinal_abc.log -p "
+          read_verilog -sv test_fixtures/spinal_regbank.v;
+          synth -top RegBank -flatten;
+          abc -lut 4;
+          write_json spinal_abc_output.json;
+          "
+          python3 ../tests/techmap/scripts/validate_src_retention.py spinal_abc_output.json --expect-source RegBank.scala
+
+      - name: Run ABC sideband invariant test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql abc_sideband.log -p "
+          read_verilog -sv test_fixtures/counter.v;
+          synth -top counter -flatten;
+          abc -lut 4;
+          autoname;
+          rename -enumerate;
+          write_json abc_sideband_output.json;
+          write_verilog -noattr -noexpr abc_sideband_output.nl.v;
+          "
+          python3 ../tests/techmap/scripts/validate_src_sideband.py \
+            abc_sideband_output.json abc_sideband_output.nl.v \
+            --expect-source counter.v
+
+      - name: Run ABC9 sideband invariant test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql abc9_sideband.log -p "
+          read_verilog -sv test_fixtures/counter.v;
+          synth -top counter -flatten;
+          abc9 -lut 4;
+          autoname;
+          rename -enumerate;
+          write_json abc9_sideband_output.json;
+          write_verilog -noattr -noexpr abc9_sideband_output.nl.v;
+          "
+          python3 ../tests/techmap/scripts/validate_src_sideband.py \
+            abc9_sideband_output.json abc9_sideband_output.nl.v \
+            --expect-source counter.v
+
+      - name: Run Amaranth sideband invariant test
+        shell: bash
+        run: |
+          cd build
+          ./yosys -ql amaranth_sideband.log -p "
+          read_verilog -sv test_fixtures/amaranth_encoder.v;
+          synth -top priority_enc -flatten;
+          abc9 -lut 4;
+          autoname;
+          rename -enumerate;
+          write_json amaranth_sideband_output.json;
+          write_verilog -noattr -noexpr amaranth_sideband_output.nl.v;
+          "
+          python3 ../tests/techmap/scripts/validate_src_sideband.py \
+            amaranth_sideband_output.json amaranth_sideband_output.nl.v \
+            --expect-source encoder.py
+
+      - name: Report errors
+        if: failure()
+        shell: bash
+        run: |
+          for f in build/*.log; do
+            echo "=== $(basename "$f") ==="
+            cat "$f" 2>/dev/null || true
+          done
