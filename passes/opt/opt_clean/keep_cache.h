@@ -28,12 +28,12 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct keep_cache_t
+struct KeepCache
 {
 	dict<Module*, bool> keep_modules;
 	bool purge_mode;
 
-	keep_cache_t(bool purge_mode, ParallelDispatchThreadPool &thread_pool, const std::vector<RTLIL::Module *> &selected_modules)
+	KeepCache(bool purge_mode, ParallelDispatchThreadPool &thread_pool, const std::vector<RTLIL::Module *> &selected_modules)
 			: purge_mode(purge_mode) {
 
 		std::vector<RTLIL::Module *> scan_modules_worklist;

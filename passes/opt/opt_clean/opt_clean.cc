@@ -84,7 +84,7 @@ struct OptCleanPass : public Pass {
 		for (RTLIL::Module *m : selected_modules)
 			thread_pool_size = std::max(thread_pool_size, ThreadPool::work_pool_size(0, m->cells_size(), 1000));
 		ParallelDispatchThreadPool thread_pool(thread_pool_size);
-		keep_cache_t keep_cache(purge_mode, thread_pool, selected_modules);
+		KeepCache keep_cache(purge_mode, thread_pool, selected_modules);
 
 		{
 			CleanRunContext clean_ctx(design, {purge_mode, true});

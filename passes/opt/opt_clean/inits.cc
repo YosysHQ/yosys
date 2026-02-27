@@ -53,10 +53,10 @@ ShardedVector<std::pair<SigBit, State>> build_inits(AnalysisContext& actx) {
 	return results;
 }
 
-dict<SigBit, State> qbits_from_inits(ShardedVector<std::pair<SigBit, State>>& inits, AnalysisContext& actx) {
+dict<SigBit, State> qbits_from_inits(ShardedVector<std::pair<SigBit, State>>& inits, SigMap& assign_map) {
 	dict<SigBit, State> qbits;
 	for (std::pair<SigBit, State> &p : inits) {
-		actx.assign_map.add(p.first);
+		assign_map.add(p.first);
 		qbits[p.first] = p.second;
 	}
 	return qbits;
@@ -126,7 +126,7 @@ bool rmunused_module_init(RTLIL::Module *module, ParallelDispatchThreadPool::Sub
 	AnalysisContext actx(module, subpool);
 
 	ShardedVector<std::pair<SigBit, State>> inits = build_inits(actx);
-	dict<SigBit, State> qbits = qbits_from_inits(inits, actx);
+	dict<SigBit, State> qbits = qbits_from_inits(inits, actx.assign_map);
 	ShardedVector<RTLIL::Wire*> inits_to_transfer = deferred_init_transfer(qbits, actx);
 
 	bool did_something = remove_redundant_inits(inits_to_transfer, verbose);

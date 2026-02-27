@@ -54,7 +54,7 @@ struct CleanRunContext {
 	RmStats stats;
 	ParallelDispatchThreadPool thread_pool;
 	std::vector<RTLIL::Module*> selected_modules;
-	keep_cache_t keep_cache;
+	KeepCache keep_cache;
 	Flags flags;
 
 private:
