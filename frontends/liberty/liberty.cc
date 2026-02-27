@@ -210,7 +210,9 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec clk_sig, data_sig, clear_sig, preset_sig;
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
+	const std::string name = RTLIL::unescape_id(module->name);
 
+	bool clear_preset_reported = false;
 	for (auto child : node->children) {
 		if (child->id == "clocked_on")
 			clk_sig = parse_func_expr(module, child->value.c_str());
@@ -220,10 +222,21 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 			clear_sig = parse_func_expr(module, child->value.c_str());
 		if (child->id == "preset")
 			preset_sig = parse_func_expr(module, child->value.c_str());
+		// TODO with $priority cell, any pair of clear_preset_var1 clear_preset_var2
+		// can be modeled as a pair of flops with different priority
+		// rather than just having IQN = ~IQ
+		if (child->id == "clear_preset_var1" || child->id == "clear_preset_var2") {
+			if (child->value.size() != 1)
+				log_error("Unexpected length of clear_preset_var* value %s in FF cell %s\n", child->value, name);
+			if (child->value[0] != 'X' && !clear_preset_reported) {
+				log_warning("FF cell %s has well-defined clear&preset behavior, but Yosys models it as undefined\n", name);
+				clear_preset_reported = true;
+			}
+		}
 	}
 
 	if (clk_sig.size() == 0 || data_sig.size() == 0)
-		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", RTLIL::unescape_id(module->name));
+		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", name);
 
 	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
 	{

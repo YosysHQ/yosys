@@ -6,9 +6,9 @@ library(test) {
       clocked_on : "CLK";
       clear      : "CLEAR";
       preset     : "PRESET";
-      clear_preset_var1 : L;
+      clear_preset_var1 : H;
       clear_preset_var2 : L;
-    } 
+    }
     pin(D) {
       direction : input;
     }
@@ -28,6 +28,6 @@ library(test) {
     pin(QN) {
       direction: output;
       function : "IQN";
-    } 
+    }
   }
 }

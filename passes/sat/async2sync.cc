@@ -157,33 +157,49 @@ struct Async2syncPass : public Pass {
 
 						SigSpec sig_set = ff.sig_set;
 						SigSpec sig_clr = ff.sig_clr;
+						SigSpec sig_clr_inv = ff.sig_clr;
 
 						if (!ff.pol_set) {
-							if (!ff.is_fine)
+							if (!ff.is_fine || sig_set.size() > 1)
 								sig_set = module->Not(NEW_ID, sig_set);
 							else
 								sig_set = module->NotGate(NEW_ID, sig_set);
 						}
 
 						if (ff.pol_clr) {
-							if (!ff.is_fine)
+							if (!ff.is_fine || sig_clr.size() > 1)
+								sig_clr_inv = module->Not(NEW_ID, sig_clr);
+							else
+								sig_clr_inv = module->NotGate(NEW_ID, sig_clr);
+						} else {
+							if (!ff.is_fine || sig_clr.size() > 1)
 								sig_clr = module->Not(NEW_ID, sig_clr);
 							else
 								sig_clr = module->NotGate(NEW_ID, sig_clr);
 						}
 
+						SigSpec set_and_clr;
+						if (!ff.is_fine || sig_clr.size() > 1 || sig_set.size() > 1)
+							set_and_clr = module->And(NEW_ID, sig_set, sig_clr);
+						else
+							set_and_clr = module->AndGate(NEW_ID, sig_set, sig_clr);
+
 						if (!ff.is_fine) {
 							SigSpec tmp = module->Or(NEW_ID, ff.sig_d, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, new_d);
+							tmp = module->And(NEW_ID, tmp, sig_clr_inv);
+							module->addBwmux(NEW_ID, tmp, Const(State::Sx, ff.width), set_and_clr, new_d);
 
 							tmp = module->Or(NEW_ID, new_q, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+							tmp = module->And(NEW_ID, tmp, sig_clr_inv);
+							module->addBwmux(NEW_ID, tmp, Const(State::Sx, ff.width), set_and_clr, ff.sig_q);
 						} else {
 							SigSpec tmp = module->OrGate(NEW_ID, ff.sig_d, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, new_d);
+							tmp = module->AndGate(NEW_ID, tmp, sig_clr_inv);
+							module->addMuxGate(NEW_ID, tmp, State::Sx, set_and_clr, new_d);
 
 							tmp = module->OrGate(NEW_ID, new_q, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+							tmp = module->AndGate(NEW_ID, tmp, sig_clr_inv);
+							module->addMuxGate(NEW_ID, tmp, State::Sx, set_and_clr, ff.sig_q);
 						}
 
 						ff.sig_d = new_d;

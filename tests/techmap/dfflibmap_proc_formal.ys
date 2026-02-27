@@ -1,0 +1,99 @@
+##################################################################
+
+read_verilog -sv -icells <<EOT
+
+module top(input C, D, E, S, R, output [7:0] Q);
+
+	always @( posedge C, posedge S, posedge R)
+		if (R)
+			Q[0] <= 0;
+		else if (S)
+			Q[0] <= 1;
+		else
+			Q[0] <= D;
+
+	always @( posedge C, posedge S, posedge R)
+		if (S)
+			Q[1] <= 1;
+		else if (R)
+			Q[1] <= 0;
+		else
+			Q[1] <= D;
+
+	always @( posedge C, posedge S, posedge R)
+		if (R)
+			Q[2] <= 0;
+		else if (S)
+			Q[2] <= 1;
+		else if (E)
+			Q[2] <= D;
+
+	always @( posedge C, posedge S, posedge R)
+		if (S)
+			Q[3] <= 1;
+		else if (R)
+			Q[3] <= 0;
+		else if (E)
+			Q[3] <= D;
+
+assign Q[7:4] = ~Q[3:0];
+
+endmodule
+
+EOT
+
+proc
+opt
+read_liberty dfflibmap_dffsr_s.lib
+
+copy top top_unmapped
+dfflibmap -liberty dfflibmap_dffsr_s.lib top
+
+clk2fflogic
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+##################################################################
+
+delete top equiv
+
+copy top_unmapped top
+dfflibmap -liberty dfflibmap_dffsr_r.lib top
+
+clk2fflogic
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+##################################################################
+
+delete top equiv
+
+copy top_unmapped top
+dfflibmap -liberty dfflibmap_dffsr_mixedpol.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+##################################################################
+
+delete top equiv
+
+copy top_unmapped top
+dfflibmap -liberty dfflibmap_dffsr_not_next.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
