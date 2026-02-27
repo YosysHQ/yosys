@@ -26,11 +26,11 @@ read_liberty dfflibmap_dffsr_s.lib
 copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffsr_s.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
-equiv_induct equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 ##################################################################
@@ -62,11 +62,11 @@ read_liberty dfflibmap_dffsr_r.lib
 copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffsr_r.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
-equiv_induct equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 ##################################################################
@@ -81,12 +81,12 @@ $_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
 $_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
 
 // Formal checking of directly instantiated DFFSR doesn't work at the moment
-// likely due to an equiv_induct assume bug #5196
+// likely due to an equiv_induct -set-assumes assume bug #5196
 
-// // Workaround for DFFSR bug #5194
-// assume property (~R || ~S);
-// $_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-// $_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+// Workaround for DFFSR bug #5194
+assume property (~R || ~S);
+$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
+$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
 $_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
 
@@ -104,11 +104,11 @@ read_liberty dfflibmap_dffsr_not_next.lib
 copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
-equiv_induct equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 ##################################################################
@@ -123,12 +123,12 @@ $_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
 $_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
 
 // Formal checking of directly instantiated DFFSR doesn't work at the moment
-// likely due to an equiv_induct assume bug #5196
+// likely due to an equiv_induct -set-assumes assume bug #5196
 
-// // Workaround for DFFSR bug #5194
-// assume property (~R || ~S);
-// $_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-// $_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+// Workaround for DFFSR inconsistency #5194
+assume property (~R || ~S);
+$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
+$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
 $_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
 
@@ -145,11 +145,11 @@ read_liberty dfflibmap_dffr_not_next.lib
 copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffr_not_next.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
-equiv_induct equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 ##################################################################
@@ -180,11 +180,11 @@ copy top top_unmapped
 simplemap top
 dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
-equiv_induct equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 ##################################################################
@@ -211,9 +211,9 @@ copy top top_unmapped
 simplemap top
 dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dff_not_next.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
-equiv_induct equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv

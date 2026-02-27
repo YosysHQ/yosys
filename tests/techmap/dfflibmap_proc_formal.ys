@@ -49,7 +49,7 @@ read_liberty dfflibmap_dffsr_s.lib
 copy top top_unmapped
 dfflibmap -liberty dfflibmap_dffsr_s.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
@@ -63,7 +63,7 @@ delete top equiv
 copy top_unmapped top
 dfflibmap -liberty dfflibmap_dffsr_r.lib top
 
-async2sync
+clk2fflogic
 flatten
 opt_clean -purge
 equiv_make top top_unmapped equiv
