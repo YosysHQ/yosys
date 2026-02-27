@@ -74,6 +74,23 @@ struct rtlil_traits {
 	static void setflag(const string &name, const prop &p);
 };
 
+rm parse_rounding(std::string rounding) {
+	if (rounding.compare("RNE") == 0)
+		return rtlil_traits::RNE();
+	else if (rounding.compare("RNA") == 0)
+		return rtlil_traits::RNA();
+	else if (rounding.compare("RTP") == 0)
+		return rtlil_traits::RTP();
+	else if (rounding.compare("RTN") == 0)
+		return rtlil_traits::RTN();
+	else if (rounding.compare("RTZ") == 0)
+		return rtlil_traits::RTZ();
+	else if (rounding.compare("DYN") == 0)
+		return {};
+	else
+		log_cmd_error("Unknown rounding mode '%s'. Call help sympfpu for available rounding modes.\n", rounding);
+}
+
 using bwt = rtlil_traits::bwt;
 using fpt = rtlil_traits::fpt;
 using ubv = rtlil_traits::ubv;
@@ -529,22 +546,7 @@ struct SymFpuPass : public Pass {
 				log_cmd_error("symfpu -classify does not support operator selection.\n");
 		}
 
-		rm rounding_mode;
-		if (rounding.compare("RNE") == 0)
-			rounding_mode = rtlil_traits::RNE();
-		else if (rounding.compare("RNA") == 0)
-			rounding_mode = rtlil_traits::RNA();
-		else if (rounding.compare("RTP") == 0)
-			rounding_mode = rtlil_traits::RTP();
-		else if (rounding.compare("RTN") == 0)
-			rounding_mode = rtlil_traits::RTN();
-		else if (rounding.compare("RTZ") == 0)
-			rounding_mode = rtlil_traits::RTZ();
-		else if (rounding.compare("DYN") == 0)
-			rounding_mode = {};
-		else
-			log_cmd_error("Unknown rounding mode '%s'. Call help sympfpu for available rounding modes.\n", rounding);
-
+		rm rounding_mode = parse_rounding(rounding);
 		fpt format(eb, sb);
 
 		auto mod = design->addModule(ID(symfpu));
@@ -654,5 +656,118 @@ struct SymFpuPass : public Pass {
 		symfpu_mod->fixup_ports();
 	}
 } SymFpuPass;
+
+
+struct SymFpuConvertPass : public Pass {
+	SymFpuConvertPass() : Pass("symfpu_convert", "SymFPU based floating point conversion netlist generator") {}
+	bool formatted_help() override
+	{
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+
+		auto content_root = help->get_root();
+
+		content_root->usage("symfpu_convert <insize> <outsize> [-rm <RM>]");
+		content_root->paragraph(
+			"Generates netlist for converting given input size to given output size. "
+			"Generated module has one input `i`, and three outputs, `o_if`, `o_fi`, and `o_ff`, "
+			"performing int -> float, float -> int, and float -> float conversions respectively. "
+		);
+
+		content_root->option("-isize <iN>", "input port is <iN> bits wide; default=32");
+		content_root->option("-osize <oN>", "output ports are <oN> bits wide; default=32");
+		content_root->option("-iexp <iM>", "input port uses <iM> bits for exponent; default=8");
+		content_root->option("-oexp <oM>", "output ports use <oM> bits for exponent; default=8");
+
+		content_root->paragraph(
+			"<M> bits of exponent implies <N-M> bits of significand (including hidden bit), "
+			"e.g. the default is single precision float with N=32 and M=8 (and 24 bits of significand). "
+		);
+
+		auto rm_option = content_root->open_option("-rm <RM>");
+		rm_option->paragraph("rounding mode to generate, must be one of the below; default=DYN");
+		rm_option->codeblock(
+			"<RM> | rm    | description\n"
+			"-----+--------+----------------------\n"
+			"RNE  | 00001 | round ties to even\n"
+			"RNA  | 00010 | round ties to away\n"
+			"RTP  | 00100 | round toward positive\n"
+			"RTN  | 01000 | round toward negative\n"
+			"RTZ  | 10000 | round toward zero\n"
+			"DYN  | xxxxx | round based on 'rm' input signal\n"
+		);
+		rm_option->paragraph("Note: when not using DYN mode, the 'rm' input is ignored.");
+
+		return true;
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		//TODO: fix multiple calls to symfpu in single Yosys instance
+		//TODO: signed integers
+		int i_size = 32, o_size = 32, i_exp = 8, o_exp = 8;
+		string rounding = "DYN";
+		log_header(design, "Executing SYMFPU_CONVERT pass.\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			// all args take a value
+			if (argidx+1 >= args.size())
+				break;
+			if (args[argidx] == "-isize") {
+				i_size = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-osize") {
+				o_size = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-iexp") {
+				i_exp = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-oexp") {
+				o_exp = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-rm") {
+				rounding = args[++argidx];
+				continue;
+			}
+			break;
+		}
+
+		extra_args(args, argidx, design);
+
+		if (o_exp >= o_size || o_exp <= 0)
+			log_cmd_error("-oexp value (%d) must be in range: 0 < oM < oN (oN=%d)!\n", o_exp, o_size);
+		if (i_exp >= i_size || i_exp <= 0)
+			log_cmd_error("-iexp value (%d) must be in range: 0 < iM < iN (iN=%d)!\n", i_exp, i_size);
+
+		if (rounding.compare("DYN") == 0)
+			log_cmd_error("rm must be set to a single rounding mode!\n");
+		rm rounding_mode = parse_rounding(rounding);
+
+		auto mod = design->addModule(ID(symfpu));
+		symfpu_mod = mod;
+
+		fpt i_format(i_exp, i_size-i_exp);
+		fpt o_format(o_exp, o_size-o_exp);	
+
+		auto i_bv = input_ubv(ID(i), i_size);
+		uf i_f = symfpu::unpack<rtlil_traits>(i_format, i_bv);
+
+		uf o_ff = symfpu::convertFloatToFloat(i_format, o_format, rounding_mode, i_f);
+		output_ubv(ID(o_ff), symfpu::pack<rtlil_traits>(o_format, o_ff));
+
+		ubv o_default = symfpu::ITE(i_f.getSign(), ubv::zero(o_size), ubv::allOnes(o_size));
+		ubv o_fi = symfpu::convertFloatToUBV(i_format, rounding_mode, i_f, o_size, o_default);
+		output_ubv(ID(o_fi), o_fi);
+
+		uf o_if = symfpu::convertUBVToFloat<rtlil_traits>(o_format, rounding_mode, i_bv);
+		output_ubv(ID(o_if), symfpu::pack<rtlil_traits>(o_format, o_if));
+
+		symfpu_mod->fixup_ports();
+	}
+} SymFpuConvertPass;
 
 PRIVATE_NAMESPACE_END
