@@ -1,0 +1,15 @@
+$version Yosys $end
+$scope module undriven_replay $end
+$var wire 1 ! in $end
+$var wire 1 " out $end
+$var wire 1 # undrv $end
+$upscope $end
+$enddefinitions $end
+#0
+b0 !
+b0 "
+b1 #
+#10
+b1 !
+b1 "
+b0 #
