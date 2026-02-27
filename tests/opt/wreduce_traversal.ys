@@ -1,0 +1,34 @@
+# Ensure wreduce propagates width reductions across dependent cells.
+read_verilog <<EOT
+module top(input [7:0] a, input [7:0] b, input [3:0] c, output [3:0] y);
+  wire [8:0] sum_full;
+  wire [3:0] sum_trunc;
+
+  assign sum_full = a + b;
+  assign sum_trunc = sum_full[3:0];
+  assign y = sum_trunc + c;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+opt_expr
+opt_clean
+
+design -save gold
+
+wreduce
+opt_clean
+
+# After wreduce, the first add should be reduced from 9 bits to 4 bits
+select -assert-count 2 t:$add
+select -assert-count 0 t:$add r:Y_WIDTH=9 %i
+select -assert-count 2 t:$add r:Y_WIDTH=4 %i
+
+design -stash reduced
+
+design -import gold -as gold
+design -import reduced -as reduced
+
+miter -equiv -flatten -make_assert -make_outputs gold reduced miter
+sat -verify -prove-asserts -show-ports miter
