@@ -144,6 +144,38 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	log(".\n");
 }
 
+
+void gen_dffe(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_out,
+		bool clk_polarity, bool en_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec *en, RTLIL::Process *proc)
+{
+	std::stringstream sstr;
+	sstr << "$procdffe$" << (autoidx++);
+
+	RTLIL::Cell *cell = mod->addCell(sstr.str(), clk.empty() ? ID($ff) : ID($dffe));
+	cell->attributes = proc->attributes;
+
+	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
+	cell->parameters[ID::EN_POLARITY] = RTLIL::Const(en_polarity, 1);
+	if (!clk.empty()) {
+		cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
+	}
+
+	cell->setPort(ID::D, sig_in);
+	cell->setPort(ID::Q, sig_out);
+	if (en)
+		cell->setPort(ID::EN, *en);
+	if (!clk.empty())
+		cell->setPort(ID::CLK, clk);
+
+	if (!clk.empty())
+		log("  created %s cell `%s' with %s edge clock", cell->type, cell->name, clk_polarity ? "positive" : "negative");
+	else
+		log("  created %s cell `%s' with global clock", cell->type, cell->name);
+	if (en)
+		log(" and %s level en (reset)", en_polarity ? "positive" : "negative");
+	log(".\n");
+}
+
 void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 {
 	while (1)
@@ -270,13 +302,72 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		RTLIL::SyncRule* sync_level = async_rules.empty() ? nullptr : async_rules.front().second;
 		ce.assign_map.apply(rstval);
 
-		if (!rstval.is_fully_const() && !ce.eval(rstval))
-		{
-			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
-			gen_aldff(mod, insig, rstval, sig_q,
-					sync_edge->type == RTLIL::SyncType::STp,
-					sync_level && sync_level->type == RTLIL::SyncType::ST1,
-					sync_edge->signal, sync_level->signal, proc);
+		if (!rstval.is_fully_const() && !ce.eval(rstval)) {
+			enum class ResetType : unsigned char {
+				CONST = 0,
+				SELFDEP,
+				ASYNC
+			};
+
+			bool need_split = false;
+			std::vector<ResetType> bitmap;
+			bitmap.reserve(rstval.size());
+			for (long i = 0; i < rstval.size() && i < sig_q.size(); i++) {
+				if (rstval[i].is_wire() && sig_q[i].is_wire()) {
+					if (rstval[i].wire == sig_q[i].wire) {
+						bitmap[i] = ResetType::SELFDEP;
+						need_split = true;
+					} else {
+						bitmap[i] = ResetType::ASYNC;
+					}
+				} else {
+					bitmap[i] = ResetType::CONST;
+				}
+			}
+
+			if (need_split && sync_level) {
+				size_t offset = 0;
+				for (auto &chunk : rstval.chunks()) {
+					auto size = chunk.size();
+					auto subrst_val = rstval.extract(offset, size);
+					ResetType chunk_type = ResetType::CONST;
+					for (auto loffset = offset; loffset < offset+size; loffset++) {
+						if (bitmap[loffset] > chunk_type) {
+							chunk_type = bitmap[loffset];
+						}
+					}
+					auto subsig_in = insig.extract(offset, size);
+					auto subsig_q = sig_q.extract(offset, size);
+					if (subrst_val.is_fully_const() || ce.eval(subrst_val)) {
+						 log_assert(chunk_type == ResetType::CONST);
+						 gen_dff(mod, subsig_in, subrst_val.as_const(), subsig_q,
+							 sync_edge && sync_edge->type == RTLIL::SyncType::STp,
+							 sync_level->type == RTLIL::SyncType::ST1,
+							 sync_edge ? sync_edge->signal : SigSpec(),
+							 &sync_level->signal, proc);
+					} else {
+						if (chunk_type == ResetType::SELFDEP) {
+							gen_dffe(mod, subsig_in, subsig_q,
+								 sync_edge && sync_edge->type == RTLIL::SyncType::STp,
+								 sync_level->type != RTLIL::SyncType::ST1,
+								 sync_edge ? sync_edge->signal : SigSpec(),
+								 &sync_level->signal, proc);
+						} else {
+							gen_aldff(mod, subsig_in, subrst_val, subsig_q,
+								  sync_edge->type == RTLIL::SyncType::STp,
+								  sync_level->type == RTLIL::SyncType::ST1,
+								  sync_edge->signal, sync_level->signal, proc);
+						}
+					}
+					offset += chunk.size();
+				}
+			} else {
+				log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
+				gen_aldff(mod, insig, rstval, sig_q,
+					  sync_edge->type == RTLIL::SyncType::STp,
+					  sync_level && sync_level->type == RTLIL::SyncType::ST1,
+					  sync_edge->signal, sync_level->signal, proc);
+			}
 			continue;
 		}
 
