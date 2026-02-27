@@ -248,11 +248,14 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	}
 
 	abc9_script += stringf("; &ps -l; &write -n %s/output.aig", tempdir_name);
-	if (design->scratchpad_get_bool("abc9.verify", true)) {
-		if (dff_mode)
+	if (design->scratchpad_get_bool("abc9.verify")) {
+		if (dff_mode) {
 			abc9_script += "; &verify -s";
-		else
-			abc9_script += "; &verify";
+		} else {
+			abc9_script += "; &verify -y";
+			// Rewrite output to include "y" extension from verification
+			abc9_script += stringf("; &write -n %s/output.aig", tempdir_name);
+		}
 	}
 	abc9_script += "; time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
