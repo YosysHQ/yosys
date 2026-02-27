@@ -1,0 +1,19 @@
+read_verilog -icells -specify <<EOT
+(* abc9_box, blackbox *)
+module box1(input i, output o);
+specify
+  (i => o) = 1;
+endspecify
+endmodule
+
+module top(input i, output o);
+  wire a, b, c, z;
+  $_AND_ a0(.A(b), .B(i), .Y(a));
+  $_AND_ b0(.A(a), .B(c), .Y(b));
+  $_AND_ c0(.A(b), .B(i), .Y(c));
+  box1 u_box(.i(i), .o(z));
+  assign o = c ^ z;
+endmodule
+EOT
+
+abc9 -lut 4
