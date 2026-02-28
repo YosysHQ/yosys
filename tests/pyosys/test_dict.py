@@ -33,6 +33,3 @@ assert repr_test == {'tomato': 'tomato', 'first': 'second', 'key': 'value', 'im 
 before = len(repr_test)
 print(repr_test.popitem())
 assert before - 1 == len(repr_test)
-
-# test noncomparable
-# TODO newcelltypes?
