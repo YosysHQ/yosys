@@ -121,6 +121,9 @@ struct Xaiger2Frontend : public Frontend {
 		bits[0] = RTLIL::S0;
 		bits[1] = RTLIL::S1;
 
+		// Map from input AIG object ID to \src attribute value
+		dict<int, std::string> obj_src;
+
 		std::string type;
 		while (map_file >> type) {
 			if (type == "pi") {
@@ -165,6 +168,16 @@ struct Xaiger2Frontend : public Frontend {
 					retained_boxes.resize(box_seq + 1);
 				}
 				boxes[box_seq] = std::make_pair(box, def);
+			} else if (type == "src") {
+				int obj_id;
+				std::string src_value;
+				if (!(map_file >> obj_id))
+					log_error("Bad map file (30)\n");
+				std::getline(map_file, src_value);
+				// Trim leading whitespace
+				size_t start = src_value.find_first_not_of(" \t");
+				if (start != std::string::npos)
+					obj_src[obj_id] = src_value.substr(start);
 			} else {
 				std::string scratch;
 				std::getline(map_file, scratch);
@@ -248,6 +261,9 @@ struct Xaiger2Frontend : public Frontend {
 
 		log_debug("reading 'M' (second pass)\n");
 
+		// Track output literal → Cell* for \src application
+		dict<uint32_t, Cell*> lit_to_instance;
+
 		f->seekg(extensions_start);
 		bool read_mapping = false;
 		uint32_t no_cells, no_instances;
@@ -294,6 +310,7 @@ struct Xaiger2Frontend : public Frontend {
 					auto out_w = module->addWire(module->uniquify(stringf("$lit%d", out_lit)));
 					instance->setPort(cell.out, out_w);
 					bits[out_lit] = out_w;
+					lit_to_instance[out_lit] = instance;
 					for (auto in : cell.ins) {
 						uint32_t in_lit = read_be32(*f);
 						log_assert(out_lit < bits.size());
@@ -317,6 +334,49 @@ struct Xaiger2Frontend : public Frontend {
 
 		log("Read %d instances with cell library of size %d.\n",
 			no_instances, no_cells);
+
+		// Read 'y' extension (equivalence literal IDs from &verify -y)
+		// and apply \src attributes to mapped cells
+		f->seekg(extensions_start);
+		log_debug("reading 'y' (third pass)\n");
+		for (int c = f->get(); c != EOF; c = f->get()) {
+			if (c == 'y') {
+				uint32_t len = read_be32(*f);
+				uint32_t n_entries = len / 4;
+				log_debug("y: len=%u n_entries=%u\n", len, n_entries);
+
+				std::vector<int32_t> equiv_lit_ids(n_entries);
+				// Data is written as native-endian 32-bit ints by ABC
+				f->read(reinterpret_cast<char*>(equiv_lit_ids.data()), len);
+
+				// Apply \src: for each mapped cell, look up its equivalent
+				// input object via the "y" mapping, then look up the \src
+				// from the input map file
+				for (auto &[out_lit, instance] : lit_to_instance) {
+					uint32_t out_obj = out_lit >> 1;
+					if (out_obj >= n_entries)
+						continue;
+					int32_t equiv_lit = equiv_lit_ids[out_obj];
+					if (equiv_lit < 0)
+						continue;  // no mapping for this object
+					int input_obj = equiv_lit >> 1;
+					auto src_it = obj_src.find(input_obj);
+					if (src_it != obj_src.end()) {
+						instance->set_string_attribute(ID::src, src_it->second);
+						log_debug("  applied \\src '%s' to cell %s (out_obj=%d -> input_obj=%d)\n",
+								  src_it->second.c_str(), log_id(instance), out_obj, input_obj);
+					}
+				}
+				break;
+			} else if (c == '\n') {
+				break;
+			} else if (c == 'c') {
+				break;
+			} else {
+				uint32_t len = read_be32(*f);
+				f->ignore(len);
+			}
+		}
 
 		f->seekg(extensions_start);
 		log_debug("reading 'h' (second pass)\n");

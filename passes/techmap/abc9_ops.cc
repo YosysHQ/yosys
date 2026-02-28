@@ -1553,6 +1553,7 @@ clone_lut:
 				driver_lut->getPort(ID::A),
 				y_bit,
 				driver_mask);
+		cell->attributes = driver_lut->attributes;
 		for (auto &bit : cell->connections_.at(ID::A)) {
 			bit.wire = module->wires_.at(remap_name(bit.wire->name));
 			bit2sinks[bit].push_back(cell);

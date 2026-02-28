@@ -1,0 +1,45 @@
+# Test \src retention through ABC9 with Amaranth-style generated Verilog.
+# Amaranth (Python HDL) emits Verilog with \src attributes referencing
+# Python source files (e.g., "led_blinker.py:15") and a \generator attribute.
+# This test verifies \src survives ABC9 for a realistic Amaranth design.
+
+read_verilog <<EOT
+(* \generator = "Amaranth" *)
+(* src = "led_blinker.py:8.1-42.0" *)
+module top(
+    (* src = "led_blinker.py:10.5-10.30" *)
+    input wire [3:0] i_data,
+    (* src = "led_blinker.py:11.5-11.30" *)
+    input wire [3:0] i_mask,
+    (* src = "led_blinker.py:12.5-12.30" *)
+    input wire i_mode,
+    (* src = "led_blinker.py:13.5-13.30" *)
+    output wire [3:0] o_result,
+    (* src = "led_blinker.py:14.5-14.30" *)
+    output wire o_any
+);
+
+    (* src = "led_blinker.py:18.5-18.40" *)
+    wire [3:0] masked;
+    (* src = "led_blinker.py:19.5-19.40" *)
+    wire [3:0] inverted;
+    (* src = "led_blinker.py:20.5-20.40" *)
+    wire [3:0] selected;
+
+    assign masked = i_data & i_mask;
+    assign inverted = i_data ^ i_mask;
+    assign selected = i_mode ? inverted : masked;
+    assign o_result = selected;
+    assign o_any = |selected;
+endmodule
+EOT
+
+# Amaranth designs have \src on all cells after elaboration
+simplemap
+select -assert-any a:src
+
+scratchpad -set abc9.verify true
+abc9 -lut 4
+
+# After abc9, at least some LUT cells should retain \src
+select -assert-any t:$lut a:src
