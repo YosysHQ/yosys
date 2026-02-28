@@ -74,6 +74,7 @@ EOT
 
 techmap -wb -D EQUIV -autoproc -map +/ice40/cells_sim.v
 
+async2sync
 equiv_make top ref equiv 
 select -assert-any -module equiv t:$equiv 
 equiv_induct 

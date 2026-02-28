@@ -19,6 +19,7 @@
 
 #include "kernel/satgen.h"
 #include "kernel/ff.h"
+#include "kernel/yosys_common.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -1378,7 +1379,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (cell->type == ID($scopeinfo))
+	if (cell->type == ID($scopeinfo) || cell->type == ID($input_port))
 	{
 		return true;
 	}
@@ -1386,4 +1387,23 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	// Unsupported internal cell types: $pow $fsm $mem*
 	// .. and all sequential cells with asynchronous inputs
 	return false;
+}
+
+namespace Yosys {
+
+void report_missing_model(bool warn_only, RTLIL::Cell* cell)
+{
+	std::string s;
+	if (cell->is_builtin_ff())
+		s = stringf("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
+	else
+		s = stringf("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+
+	if (warn_only) {
+		log_formatted_warning_noprefix(s);
+	} else {
+		log_formatted_error(s);
+	}
+}
+
 }
