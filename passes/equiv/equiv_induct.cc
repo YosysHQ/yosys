@@ -18,6 +18,9 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/satgen.h"
+#include "kernel/sigtools.h"
+#include "kernel/newcelltypes.h"
 #include "passes/equiv/equiv.h"
 
 USING_YOSYS_NAMESPACE
