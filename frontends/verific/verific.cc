@@ -109,6 +109,7 @@ int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
 int verific_sva_fsm_limit;
+bool verific_no_split_complex_ports = false; // disable splitting of complex ports
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
@@ -3061,8 +3062,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg);
 
-	for (auto nl : nl_todo)
-		nl.second->ChangePortBusStructures(1 /* hierarchical */);
+	if (!verific_no_split_complex_ports)
+		for (auto nl : nl_todo)
+			nl.second->ChangePortBusStructures(1 /* hierarchical */);
 
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
@@ -3695,6 +3697,11 @@ struct VerificPass : public Pass {
 			}
 #endif
 			break;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-no_split_complex_ports") {
+			verific_no_split_complex_ports = true;
+			goto check_error;
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
