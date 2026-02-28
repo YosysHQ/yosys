@@ -23,7 +23,7 @@
 //  - zero-width operands
 
 #include "kernel/register.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/rtlil.h"
 
 USING_YOSYS_NAMESPACE
@@ -45,10 +45,30 @@ PRIVATE_NAMESPACE_BEGIN
 // TODO
 //#define ARITH_OPS ID($add), ID($sub), ID($neg)
 
-// TODO convert to newcelltypes
-
-#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, \
-				  ID($pmux), ID($bmux) /*, ARITH_OPS*/
+static constexpr auto known_ops = []() constexpr {
+	StaticCellTypes::Categories::Category c{};
+	// bitwise
+	for (auto id : {ID($buf), ID($not), ID($mux), ID($and), ID($or), ID($xor), ID($xnor), ID($fa), ID($bwmux)})
+		c.set_id(id);
+	// reduce
+	for (auto id : {ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)})
+		c.set_id(id);
+	// logic
+	for (auto id : {ID($logic_and), ID($logic_or), ID($logic_not)})
+		c.set_id(id);
+	// gates
+	for (auto id : {ID($_BUF_), ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
+					ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_),
+					ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)})
+		c.set_id(id);
+	// compare
+	for (auto id : {ID($eq), ID($ne), ID($lt), ID($le), ID($ge), ID($gt)})
+		c.set_id(id);
+	// other
+	for (auto id : {ID($pos), ID($pmux), ID($bmux)})
+		c.set_id(id);
+	return c;
+}();
 
 template<typename Writer, typename Lit, Lit CFALSE, Lit CTRUE>
 struct Index {
@@ -94,7 +114,7 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (cell->type.in(KNOWN_OPS) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
+			if (known_ops(cell->type) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
 				continue;
 
 			Module *submodule = m->design->module(cell->type);
@@ -106,7 +126,7 @@ struct Index {
 				pos += index_module(submodule);
 			} else {
 				if (allow_blackboxes) {
-					info.found_blackboxes.insert(cell);	
+					info.found_blackboxes.insert(cell);
 				} else {
 					// Even if we don't allow blackboxes these might still be
 					// present outside of any traversed input cones, so we
@@ -271,7 +291,7 @@ struct Index {
 			} else if (cell->type.in(ID($lt), ID($le), ID($gt), ID($ge))) {
 				if (cell->type.in(ID($gt), ID($ge)))
 					std::swap(aport, bport);
-				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE; 
+				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE;
 				Lit a = Writer::EMPTY_LIT;
 				Lit b = Writer::EMPTY_LIT;
 				// TODO: this might not be the most economic structure; revisit at a later date
@@ -581,7 +601,7 @@ struct Index {
 			// an output of a cell
 			Cell *driver = bit.wire->driverCell();
 
-			if (driver->type.in(KNOWN_OPS)) {
+			if (known_ops(driver->type)) {
 				ret = impl_op(cursor, driver, bit.wire->driverPort(), bit.offset);
 			} else {
 				Module *def = cursor.enter(*this, driver);
@@ -918,15 +938,15 @@ struct XAigerWriter : AigerWriter {
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
 
-    // * The aiger output port sequence is COs (inputs to modeled boxes),
-    //   inputs to opaque boxes, then module outputs. COs going first is
-    //   required by abc.
-    // * proper_pos_counter counts ports which follow after COs
-    // * The mapping file `pseudopo` and `po` statements use indexing relative
-    //   to the first port following COs.
-    // * If a module output is directly driven by an opaque box, the emission
-    //   of the po statement in the mapping file is skipped. This is done to
-    //   aid re-integration of the mapped result.
+	// * The aiger output port sequence is COs (inputs to modeled boxes),
+	//   inputs to opaque boxes, then module outputs. COs going first is
+	//   required by abc.
+	// * proper_pos_counter counts ports which follow after COs
+	// * The mapping file `pseudopo` and `po` statements use indexing relative
+	//   to the first port following COs.
+	// * If a module output is directly driven by an opaque box, the emission
+	//   of the po statement in the mapping file is skipped. This is done to
+	//   aid re-integration of the mapped result.
 	int proper_pos_counter = 0;
 
 	pool<SigBit> driven_by_opaque_box;
@@ -1333,41 +1353,50 @@ struct Aiger2Backend : Backend {
 		log("        perform structural hashing while writing\n");
 		log("\n");
 		log("    -flatten\n");
-        log("        allow descending into submodules and write a flattened view of the design\n");
-        log("        hierarchy starting at the selected top\n");
-        log("\n");
+		log("        allow descending into submodules and write a flattened view of the design\n");
+		log("        hierarchy starting at the selected top\n");
+		log("\n");
 		log("This command is able to ingest all combinational cells except for:\n");
 		log("\n");
-		pool<IdString> supported = {KNOWN_OPS};
-		CellTypes ct;
-		ct.setup_internals_eval();
 		log("    ");
 		int col = 0;
-		for (auto pair : ct.cell_types)
-		if (!supported.count(pair.first)) {
-			if (col + pair.first.size() + 2 > 72) {
+		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
+			auto &cell = StaticCellTypes::builder.cells[i];
+			if (!cell.features.is_evaluable)
+				continue;
+			if (cell.features.is_stdcell)
+				continue;
+			if (known_ops(cell.type))
+				continue;
+			std::string name = log_id(cell.type);
+			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
 			}
-			col += pair.first.size() + 2;
-			log("%s, ", log_id(pair.first));
+			col += name.size() + 2;
+			log("%s, ", name.c_str());
 		}
 		log("\n");
 		log("\n");
 		log("And all combinational gates except for:\n");
 		log("\n");
-		CellTypes ct2;
-		ct2.setup_stdcells();
 		log("    ");
 		col = 0;
-		for (auto pair : ct2.cell_types)
-		if (!supported.count(pair.first)) {
-			if (col + pair.first.size() + 2 > 72) {
+		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
+			auto &cell = StaticCellTypes::builder.cells[i];
+			if (!cell.features.is_evaluable)
+				continue;
+			if (!cell.features.is_stdcell)
+				continue;
+			if (known_ops(cell.type))
+				continue;
+			std::string name = log_id(cell.type);
+			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
 			}
-			col += pair.first.size() + 2;
-			log("%s, ", log_id(pair.first));
+			col += name.size() + 2;
+			log("%s, ", name.c_str());
 		}
 		log("\n");
 	}
@@ -1425,20 +1454,20 @@ struct XAiger2Backend : Backend {
 		log("        perform structural hashing while writing\n");
 		log("\n");
 		log("    -flatten\n");
-        log("        allow descending into submodules and write a flattened view of the design\n");
-        log("        hierarchy starting at the selected top\n");
-        log("\n");
-        log("    -mapping_prep\n");
-        log("        after the file is written, prepare the module for reintegration of\n");
-        log("        a mapping in a subsequent command. all cells which are not blackboxed nor\n");
-        log("        whiteboxed are removed from the design as well as all wires which only\n");
-        log("        connect to removed cells\n");
-        log("        (conflicts with -flatten)\n");
-        log("\n");
-        log("    -map2 <file>\n");
-        log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
-        log("        reintegrate a mapping\n");
-        log("        (conflicts with -flatten)\n");
+		log("        allow descending into submodules and write a flattened view of the design\n");
+		log("        hierarchy starting at the selected top\n");
+		log("\n");
+		log("    -mapping_prep\n");
+		log("        after the file is written, prepare the module for reintegration of\n");
+		log("        a mapping in a subsequent command. all cells which are not blackboxed nor\n");
+		log("        whiteboxed are removed from the design as well as all wires which only\n");
+		log("        connect to removed cells\n");
+		log("        (conflicts with -flatten)\n");
+		log("\n");
+		log("    -map2 <file>\n");
+		log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
+		log("        reintegrate a mapping\n");
+		log("        (conflicts with -flatten)\n");
 		log("\n");
 	}
 
