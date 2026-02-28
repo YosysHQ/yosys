@@ -930,7 +930,9 @@ struct AigerBackend : public Backend {
 		log("        make indexes zero based, enable using map files with smt solvers.\n");
 		log("\n");
 		log("    -ywmap <filename>\n");
-		log("        write a map file for conversion to and from yosys witness traces.\n");
+		log("        write a map file for conversion to and from yosys witness traces,\n");
+		log("        also allows for mapping AIGER bad-state properties and invariant\n");
+		log("        constraints back to individual formal properties by name.\n");
 		log("\n");
 		log("    -I, -O, -B, -L\n");
 		log("        If the design contains no input/output/assert/flip-flop then create one\n");
