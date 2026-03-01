@@ -1,0 +1,194 @@
+log -header "Simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a,
+  output wire x
+);
+  assign x = a[0] | (a[1] & a[2]);
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 1 t:$sop
+
+# Check equivalence after breaksop
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 2 t:$reduce_and
+select -assert-count 1 t:$reduce_or
+
+design -reset
+log -pop
+
+
+
+log -header "With negation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a,
+  output wire x
+);
+  assign x = ~a[0] | (~a[1] & ~a[2]);
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 1 t:$sop
+
+# Check equivalence after breaksop
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+design -load postopt
+write_verilog dump_post.v
+select -assert-count 2 t:$reduce_and
+select -assert-count 1 t:$reduce_or
+
+design -reset
+log -pop
+
+
+
+log -header "More depth"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire x
+);
+  assign x = (a[0] & a[1]) | (~a[2] & a[3]) | (a[0] & ~a[1] & a[2]);
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 1 t:$sop
+
+# Check equivalence after breaksop
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$reduce_and
+select -assert-count 1 t:$reduce_or
+
+design -reset
+log -pop
+
+
+
+log -header "Only ORs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire x
+);
+  assign x = a[0] | a[1] | a[2] | a[3];
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 1 t:$sop
+
+# Check equivalence after breaksop
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+# We only have one AND gate since breaksop turns the OR gate into an AND gate
+# The inputs to this gate are inverted and the outputs are also inverted, so with 
+# DeMorgan's law, they are equivalent
+design -load postopt
+opt     # Run opt to remove unneeded OR gate
+select -assert-count 1 t:$reduce_and
+select -assert-count 0 t:$reduce_or
+
+design -reset
+log -pop
+
+
+
+log -header "With constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire x
+);
+  assign x = (~a[0] & 1'b1) | (a[1] & 1'b0) | (a[2] & a[3]);
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 1 t:$sop
+
+# Check equivalence after breaksop
+write_verilog dump_pre.v
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+design -load postopt
+opt
+write_verilog dump_post.v
+select -assert-count 2 t:$reduce_and
+select -assert-count 1 t:$reduce_or
+
+design -reset
+log -pop
+
+
+
+log -header "Multiple sops"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  input wire [3:0] b,
+  output wire x,
+  output wire y
+);
+  assign x = (a[0] & a[1]) | (~a[2] & a[3]) | (a[0] & ~a[1] & a[2]);
+  assign y = (b[0] & b[1]) | (~b[2] & b[3]) | (b[0] & ~b[1] & b[2]);
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 2 t:$sop
+
+# Check equivalence after breaksop
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 6 t:$reduce_and
+select -assert-count 2 t:$reduce_or
+
+design -reset
+log -pop
