@@ -1,0 +1,42 @@
+logger -nowarn "Yosys has only limited support for tri-state logic at the moment\. .*"
+logger -nowarn "Ignoring boxed module .*\."
+
+read_verilog <<EOT
+module top(input [24:0] A, input [17:0] B, output [47:0] P);
+DSP48E1 #(.PREG(0)) dsp(.A(A), .B(B), .P(P));
+endmodule
+EOT
+techmap -autoproc -wb -map +/analogdevices/cells_sim.v
+opt
+scc -expect 0
+
+
+design -reset
+read_verilog <<EOT
+module top(input signed [24:0] A, input signed [17:0] B, output [47:0] P);
+assign P = A * B;
+endmodule
+EOT
+synth_analogdevices 
+techmap -autoproc -wb -map +/analogdevices/cells_sim.v
+opt -full -fine
+select -assert-count 2 t:$mul
+select -assert-count 0 t:* t:$mul %D
+
+
+design -reset
+read_verilog -icells -formal <<EOT
+module top(output [43:0] P);
+\$__MUL22X22 mul (.A(42), .B(42), .Y(P));
+assert property (P == 42*42);
+endmodule
+EOT
+async2sync
+techmap -map +/analogdevices/dsp_map.v
+verilog_defaults -add -D ALLOW_WHITEBOX_DSP48E1
+synth_analogdevices 
+techmap -autoproc -wb -map +/analogdevices/cells_sim.v
+opt -full -fine
+select -assert-count 0 t:* t:$assert %d
+sat -verify -prove-asserts
+

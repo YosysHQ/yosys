@@ -1,0 +1,285 @@
+ifdef IS_T16FFC {
+	ram block $__ANALOGDEVICES_BLOCKRAM_FULL_ {
+		option "ERR" "ECC" {
+			style "ECC";
+			option "SIZE" "2048x32" {
+				abits 11;
+				width 32;
+				byte 32;
+				option "MODE" "TDP" cost 4502;
+				option "MODE" "SDP" forbid;
+				option "MODE" "SP" forbid;
+			}
+			option "SIZE" "1024x32" {
+				abits 10;
+				width 32;
+				byte 32;
+				option "MODE" "TDP" forbid;
+				option "MODE" "SDP" cost 2402;
+				option "MODE" "SP" forbid;
+			}
+		}
+		option "ERR" "BP" {
+			style "BP";
+			option "SIZE" "2048x36" {
+				abits 11;
+				width 36;
+				byte 9;
+				option "MODE" "TDP" cost 4504;
+				option "MODE" "SDP" forbid;
+				option "MODE" "SP" forbid;
+			}
+			option "SIZE" "1024x36" {
+				abits 10;
+				width 36;
+				byte 9;
+				option "MODE" "TDP" forbid;
+				option "MODE" "SDP" cost 2404;
+				option "MODE" "SP" forbid;
+			}
+		}
+		option "ERR" "FP" {
+			style "FP";
+			option "SIZE" "2048x18" {
+				abits 11;
+				width 18;
+				byte 18;
+				option "MODE" "TDP" cost 2501;
+				option "MODE" "SDP" cost 2401;
+				option "MODE" "SP" forbid;
+			}
+		}
+		option "ERR" "NONE" {
+			option "SIZE" "8192x05" {
+				abits 13;
+				width 5;
+				byte 1;
+				option "MODE" "TDP" cost 2505;
+				option "MODE" "SDP" forbid;
+				option "MODE" "SP" forbid;
+			}
+			option "SIZE" "4096x09" {
+				abits 12;
+				width 9;
+				byte 1;
+				option "MODE" "TDP" cost 2509;
+				option "MODE" "SDP" forbid;
+				option "MODE" "SP" forbid;
+			}
+			option "SIZE" "4096x10" {
+				abits 12;
+				width 10;
+				byte 1;
+				option "MODE" "TDP" forbid;
+				option "MODE" "SDP" cost 2410;
+				option "MODE" "SP" forbid;
+			}
+			option "SIZE" "2048x20" {
+				abits 11;
+				width 20;
+				byte 1;
+				option "MODE" "TDP" forbid;
+				option "MODE" "SDP" forbid;
+				option "MODE" "SP" cost 2320;
+			}
+			option "SIZE" "2048x40" {
+				abits 11;
+				width 40;
+				byte 8;
+				option "MODE" "TDP" cost 4505;
+				option "MODE" "SDP" forbid;
+				option "MODE" "SP" forbid;
+			}
+		}
+
+		# supports any initialization value, but need to export memory files
+		init any;
+
+		option "MODE" "TDP" {
+			port srsw "A" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
+			port srsw "B" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
+		}
+		option "MODE" "SDP" {
+			port sw "A" {
+				clock anyedge;
+				clken;
+			}
+			port sr "B" {
+				clock anyedge;
+				clken;
+			}
+		}
+		option "MODE" "SP" {
+			port srsw "A" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
+		}
+	}
+}
+
+ram block $__ANALOGDEVICES_BLOCKRAM_HALF_ {
+	option "ERR" "ECC" {
+		style "ECC";
+		option "SIZE" "1024x32" {
+			abits 10;
+			width 32;
+			byte 32;
+			option "MODE" "SDP" cost 2402;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" forbid;
+		}
+		option "SIZE" "512x32" {
+			abits 9;
+			width 32;
+			byte 32;
+			option "MODE" "SDP" forbid;
+			option "MODE" "SP" cost 2302;
+			option "MODE" "SP2" forbid;
+		}
+	}
+	option "ERR" "BP" {
+		style "BP";
+		option "SIZE" "1024x36" {
+			abits 10;
+			width 36;
+			byte 9;
+			option "MODE" "SDP" cost 2404;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" forbid;
+		}
+		option "SIZE" "512x36" {
+			abits 9;
+			width 36;
+			byte 9;
+			option "MODE" "SDP" forbid;
+			option "MODE" "SP" cost 2304;
+			option "MODE" "SP2" forbid;
+		}
+	}
+	option "ERR" "FP" {
+		style "FP";
+		option "SIZE" "1024x18" {
+			abits 10;
+			width 18;
+			byte 18;
+			option "MODE" "SDP" forbid;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" cost 2301;
+		}
+	}
+	option "ERR" "NONE" {
+		option "SIZE" "4096x05" {
+			abits 12;
+			width 5;
+			byte 1;
+			option "MODE" "SDP" cost 2405;
+			option "MODE" "SP" cost 2305;
+			option "MODE" "SP2" forbid;
+		}
+		option "SIZE" "2048x09" {
+			abits 11;
+			width 9;
+			byte 1;
+			option "MODE" "SDP" cost 2409;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" cost 2309;
+		}
+		option "SIZE" "2048x10" {
+			abits 11;
+			width 10;
+			byte 1;
+			option "MODE" "SDP" cost 2410;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" forbid;
+		}
+		option "SIZE" "1024x20" {
+			abits 10;
+			width 20;
+			byte 1;
+			option "MODE" "SDP" forbid;
+			option "MODE" "SP" cost 2320;
+			option "MODE" "SP2" forbid;
+		}
+		option "SIZE" "1024x40" {
+			abits 10;
+			width 40;
+			byte 8;
+			option "MODE" "SDP" cost 2405;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" forbid;
+		}
+	}
+
+	option "MODE" "SDP" {
+		ifdef IS_T16FFC forbid;
+		port sw "A" {
+			clock anyedge;
+			clken;
+		}
+		port sr "B" {
+			clock anyedge;
+			clken;
+		}
+	}
+	option "MODE" "SP" {
+		ifdef IS_T16FFC forbid;
+		port srsw "A" {
+			clock anyedge;
+			clken;
+			rdwr no_change;
+		}
+	}
+	option "MODE" "SP2" {
+		ifdef IS_T40LP forbid;
+		port srsw "A" {
+			clock anyedge;
+			clken;
+			rdwr no_change;
+		}
+	}
+}
+
+ifdef IS_T40LP {
+	ram block $__ANALOGDEVICES_BLOCKRAM_QUARTER_ {
+		option "ERR" "BP" {
+			style "BP";
+			option "SIZE" "512x18" {
+				abits 9;
+				width 18;
+				byte 9;
+				option "MODE" "SP2" cost 2202;
+			}
+		}
+		option "ERR" "NONE" {
+			option "SIZE" "2048x05" {
+				abits 11;
+				width 5;
+				byte 1;
+				option "MODE" "SP2" cost 2205;
+			}
+			option "SIZE" "1024x09" {
+				abits 10;
+				width 9;
+				byte 1;
+				option "MODE" "SP2" cost 2209;
+			}
+		}
+		option "MODE" "SP2" {
+			port srsw "A" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
+		}
+	}
+}
