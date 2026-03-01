@@ -4,8 +4,10 @@ Contributing to Yosys
 Reporting bugs
 --------------
 
-A good bug report includes the following information:
+We fix well-reported bugs the fastest. A good bug report is an issue on the `issue tracker`_
+and includes the following information:
 
+.. _`issue tracker`: https://github.com/YosysHQ/yosys/issues
 
 Title
 ~~~~~
@@ -27,8 +29,10 @@ The reproduction steps should be a minimal, complete and verifiable
 example `MVCE`_.
 Providing an MVCE with your bug report drastically increases the likelihood that
 someone will be able to help resolve your issue.
-One way to minimize a design is to use the `bugpoint_` command.
-You can learn more in the `how-to guide for bugpoint_`.
+Make sure that your report input is free of any problems as reported by the
+`check` command.
+One way to minimize a design is to use the `bugpoint` command.
+You can learn more in the :doc:`how-to guide for bugpoint </using_yosys/bugpoint>`.
 
 The reproduction steps are ideally a code-block (starting and ending with
 triple backquotes) containing
@@ -85,7 +89,6 @@ Don't forget to mention:
    reproduction steps to just the Yosys part.
 
 .. _MVCE: https://stackoverflow.com/help/minimal-reproducible-example
-.. _bugpoint: https://yosys.readthedocs.io/en/latest/cmd/bugpoint.html
 .. _how-to guide for bugpoint: https://yosys.readthedocs.io/en/latest/using_yosys/bugpoint.html
 
 Expected Behaviour
@@ -176,6 +179,12 @@ based on their descriptions first, code second.
 
 Before you build or fix something, also search for existing `issues`_.
 
+We have open `developer 'jour fixe' (Dev JF) meetings`_
+where developers from YosysHQ and the
+community come together to discuss open issues and PRs.  This is also a good
+place to talk to us about how to implement larger PRs.
+
+.. _`developer 'jour fixe' (Dev JF) meetings`: https://docs.google.com/document/d/1SapA6QAsJcsgwsdKJDgnGR2mr97pJjV4eeXg_TVJhRU/edit?usp=sharing
 .. _`Discourse forum`: https://yosyshq.discourse.group/
 .. _`issues`: https://github.com/YosysHQ/yosys/issues
 
@@ -297,6 +306,26 @@ Otherwise stick to the `Linux Kernel Coding Style`_.
 
 .. _Linux Kernel Coding Style: https://www.kernel.org/doc/Documentation/process/coding-style.rst
 
+Pull requests (PRs)
+~~~~~~~~~~~~~~~~~~~
+
+If you are working on something to add to Yosys, or fix something that isn't
+working quite right,
+make a `pull request (PR)`_.
+
+An open PR, even as a draft, tells everyone that you're working on it and they
+don't have to. It can also be a useful way to solicit feedback on in-progress
+changes.
+
+We use `labels`_ to help categorise
+issues and PRs.  If a label seems relevant to your work, please do add it; this
+also includes the labels beginning with 'status-'.  The 'merge-' labels are used
+by maintainers for tracking and communicating which PRs are ready and pending
+merge; please do not use these labels if you are not a maintainer.
+
+.. _`pull request (PR)`: https://github.com/YosysHQ/yosys/pulls
+.. _`labels`: https://github.com/YosysHQ/yosys/labels
+
 Git style
 ~~~~~~~~~
 
@@ -317,10 +346,12 @@ Reviewing PRs is a totally valid form of external contributing to the project!
 Who's the reviewer?
 ~~~~~~~~~~~~~~~~~~~
 
-Yosys HQ is a company with the inherited mandate to make decisions on behalf
-of the open source project. As such, we at HQ are collectively the maintainers.
-Within HQ, we allocate reviews based on expertise with the topic at hand
-as well as member time constraints.
+YosysHQ GmbH is a company with a mandate to make decisions for the good
+of YosysHQ open source software. It was co-founded by Claire Xenia Wolf,
+the original author of Yosys.
+Within it, we allocate reviews based on expertise with the topic at hand
+as well as member time constraints. However, decisions including reviews
+are also contributed by people external to the company.
 
 If you're intimately acquainted with a part of the codebase, we will be happy
 to defer to your experience and have you review PRs. The official way we like
@@ -339,7 +370,8 @@ and stop being responsive, in the future, we might decide to remove such code
 if convenient and costly to maintain. It's simply more respectful of the users'
 time to explicitly cut something out than let it "bitrot". Larger projects like
 LLVM or linux could not survive without such things, but Yosys is far smaller,
-and there are expectations
+and there are implicit expectations of stability we aim to
+respect within reason.
 
 .. TODO this deserves its own section elsewhere I think? But it would be distracting elsewhere
 
@@ -375,3 +407,5 @@ they just are good enough to merge as-is.
 The CI is required to go green for merging. New contributors need a CI
 run to be triggered by a maintainer before their PRs take up computing
 resources. It's a single click from the github web interface.
+We test on various platforms and compilers. Sanitizer builds are only
+tested on the main branch.
