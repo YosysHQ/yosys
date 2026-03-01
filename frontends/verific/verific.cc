@@ -3698,6 +3698,18 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+
+		if (GetSize(args) > argidx && args[argidx] == "-set_relaxed_file_libext_modes") {
+			veri_file::AddLibExt(".v");
+			veri_file::AddLibExt(".vh");
+			veri_file::AddLibExt(".sv");
+			veri_file::AddLibExt(".sv1");
+			veri_file::AddLibExt(".svh");
+			veri_file::AddLibExt(".svp");
+			veri_file::AddLibExt(".h");
+			veri_file::AddLibExt(".inc");
+			continue;
+		}
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
