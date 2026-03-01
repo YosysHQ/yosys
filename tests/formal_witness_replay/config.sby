@@ -1,0 +1,34 @@
+[tasks]
+stage_1_init
+stage_1_fv
+stage_2_init
+stage_2_fv
+
+[options]
+stage_1_init:
+mode prep
+expect unknown
+make_model prep
+
+stage_1_fv:
+mode cover
+depth 24
+
+[engines]
+stage_1_init stage_2_init:
+none
+
+stage_1_fv stage_2_fv: 
+smtbmc
+
+[script]
+stage_1_init:
+verific -formal dut.sv
+
+
+[files]
+stage_1_init: dut.sv
+
+stage_2_init:
+stage_1/engine_0/trace0.yw
+stage_1_init.il
