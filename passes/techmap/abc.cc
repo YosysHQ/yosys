@@ -188,8 +188,11 @@ struct AbcProcess
 	~AbcProcess() {
 		if (pid == 0)
 			return;
-		if (to_child_pipe >= 0)
+		if (to_child_pipe >= 0) {
+			static const char quit_cmd[] = "quit\n";
+			if (write(to_child_pipe, quit_cmd, sizeof(quit_cmd) - 1)) {}
 			close(to_child_pipe);
+		}
 		int status;
 		int ret = waitpid(pid, &status, 0);
 		if (ret != pid) {
