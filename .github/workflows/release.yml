@@ -71,46 +71,31 @@ jobs:
           submodules: recursive
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Build wheel in CentOS 7 container
+      - name: Build wheel in manylinux2014 container
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/src" \
             -w /src \
             --platform linux/amd64 \
-            centos:7 bash -c '
+            quay.io/pypa/manylinux2014_x86_64 bash -c '
               set -ex
 
-              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
-              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
-
-              yum install -y centos-release-scl epel-release
-              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
-              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
-
-              yum install -y devtoolset-11-gcc-c++ make git curl \
-                tcl-devel tcl-tclreadline-devel readline-devel zlib-devel libffi-devel \
+              yum install -y tcl-devel readline-devel zlib-devel libffi-devel \
                 flex gperf ccache patchelf
 
               # Build bison >= 3.x from source
               curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
-              cd /tmp/bison-3.8.2 && source /opt/rh/devtoolset-11/enable && ./configure && make -j$(nproc) && make install
+              cd /tmp/bison-3.8.2 && ./configure && make -j$(nproc) && make install
               cd /src
 
-              source /opt/rh/devtoolset-11/enable
-
-              # Install a modern Python (3.13) from the manylinux toolchain
-              PYBIN=/opt/python/cp313-cp313/bin
-              if [ ! -d "$PYBIN" ]; then
-                # Fall back to system Python 3 if manylinux Python not available
-                yum install -y python3 python3-devel python3-pip python3-setuptools
-                PYBIN=/usr/bin
-              fi
-              export PATH=$PYBIN:$PATH
+              # Use the manylinux2014 Python 3.13
+              export PATH=/opt/python/cp313-cp313/bin:$PATH
 
               git config --global --add safe.directory /src
               git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
+
+              # musl/manylinux compatibility shim for Verific tclmain link step
+              echo "void dummy_nsl(void){}" | gcc -shared -o /usr/lib64/libnsl.so -x c - || true
 
               # Build Verific TCL main
               cd /src/verific/tclmain
@@ -123,7 +108,7 @@ jobs:
                 grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
               ) python3 setup.py bdist_wheel --dist-dir /src/dist-manylinux
 
-              # Tag wheel as manylinux
+              # Tag wheel as manylinux2014
               pip3 install auditwheel || true
               for whl in /src/dist-manylinux/*.whl; do
                 auditwheel repair "$whl" --plat manylinux2014_x86_64 -w /src/dist-manylinux/ 2>/dev/null || true
