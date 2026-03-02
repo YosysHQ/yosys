@@ -308,10 +308,10 @@ std::string FstData::autoScope(Module *topmod) {
 	log("Trying port-based scope matching...\n");
 
 	// Map port name to their bit widths (RTL reference point)
-	dict<std::string, int> ports;
+	dict<std::string, int> ports2widths;
 	for (auto wire : topmod->wires()) {
 		if (wire->port_input || wire->port_output) {
-			ports[RTLIL::unescape_id(wire->name)] = wire->width;
+			ports2widths[RTLIL::unescape_id(wire->name)] = wire->width;
 		}
 	}
 
@@ -322,15 +322,16 @@ std::string FstData::autoScope(Module *topmod) {
 
 		// Strip array '[]' notation from variable name
 		std::string var_name = var.name;
+		log("Checking variable: %s with scope: %s\n", var_name.c_str(), var.scope.c_str());
 		size_t bracket = var_name.find('[');
 		if (bracket != std::string::npos) {
 			var_name = var_name.substr(0, bracket);
 		}
 		
 		// Check if this variable name matches one of our port names
-		if (ports.count(var_name)) {
+		if (ports2widths.count(var_name)) {
 			// Also check if width matches
-			if (ports[var_name] == var.width) {
+			if (ports2widths[var_name] == var.width) {
 				scope_found_ports[var.scope].insert(var_name);
 			}
 		}
@@ -342,9 +343,9 @@ std::string FstData::autoScope(Module *topmod) {
 		const std::set<std::string>& found = entry.second;
 		
 		// Check if all port names exist in this scope
-		if (found.size() == ports.size()) {
+		if (found.size() == ports2widths.size()) {
 			log("Auto-discovered scope: %s (matched all %d ports by name)\n", 
-				scope.c_str(), (int)ports.size());
+				scope.c_str(), (int)ports2widths.size());
 			return scope;
 		}
 	}
