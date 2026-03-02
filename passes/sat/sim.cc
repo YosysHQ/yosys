@@ -1477,15 +1477,7 @@ struct SimWorker : SimShared
 		if (scope.empty()) {
 			scope = fst->autoScope(topmod);
 			if (scope.empty()) {
-				std::set<std::string> unique_scopes;
-				for (const auto& var : fst->getVars()) {
-					unique_scopes.insert(var.scope);
-				}
-				log_warning("Available scopes:\n");
-				for (const auto& scope : unique_scopes) {
-					log_warning("  %s\n", scope.c_str());
-				}
-				log_error("No scope found for module '%s'. Please specify -scope explicitly with above options.\n", 
+				log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
 					RTLIL::unescape_id(topmod->name).c_str());
 			}
 		}

@@ -298,7 +298,9 @@ std::string FstData::autoScope(Module *topmod) {
 			// Extract the full path up to (and including) the top module
 			size_t pos = var.scope.find(top);
 			if (pos != std::string::npos) {
-				return var.scope.substr(0, pos + top.length());
+				std::string scope = var.scope.substr(0, pos + top.length());
+				log("Found scope: %s\n", scope.c_str());
+				return scope;
 			}
 		}
 	}
@@ -307,47 +309,47 @@ std::string FstData::autoScope(Module *topmod) {
 	// Matches based on exact port name matching of the top module
 	log("Trying port-based scope matching...\n");
 
-	// Map port name to their bit widths (RTL reference point)
-	dict<std::string, int> ports2widths;
+	// Map top moduleport name to their bit widths (RTL reference point)
+	dict<std::string, int> top2widths;
 	for (auto wire : topmod->wires()) {
 		if (wire->port_input || wire->port_output) {
-			ports2widths[RTLIL::unescape_id(wire->name)] = wire->width;
+			log("Extracted %d ports from top module\n", GetSize(top2widths));
+			top2widths[RTLIL::unescape_id(wire->name)] = wire->width;
 		}
 	}
 
-	// For each scope, track which ports were found with matching width
-	// (VCD reference point)
-	dict<std::string, std::set<std::string>> scope_found_ports;
+	// For each scope, track the number of matching ports
+	dict<std::string, int> scopes2matches;
 	for (const auto& var : vars) {
 
 		// Strip array '[]' notation from variable name
 		std::string var_name = var.name;
-		log("Checking variable: %s with scope: %s\n", var_name.c_str(), var.scope.c_str());
 		size_t bracket = var_name.find('[');
 		if (bracket != std::string::npos) {
 			var_name = var_name.substr(0, bracket);
 		}
-		
-		// Check if this variable name matches one of our port names
-		if (ports2widths.count(var_name)) {
-			// Also check if width matches
-			if (ports2widths[var_name] == var.width) {
-				scope_found_ports[var.scope].insert(var_name);
+
+		// Check if this variable name matches one of our top module port names and width
+		if (top2widths.count(var_name) && top2widths[var_name] == var.width) {
+			scopes2matches[var.scope] += 1;
+		}
+	}
+
+	// Find scopes with exact matches
+	// If there is a tie, return the longest scope
+	std::string result = "";
+	for (const auto& entry : scopes2matches) {
+		int num_matches = entry.second;
+		if (num_matches == GetSize(top2widths)) {
+			std::string scope = entry.first;
+			if (result.empty() || scope.length() > result.length()) {
+				result = scope;
 			}
 		}
 	}
-	
-	// Compare RTl and VCD references and find an exact match
-	for (const auto& entry : scope_found_ports) {
-		const std::string& scope = entry.first;
-		const std::set<std::string>& found = entry.second;
-		
-		// Check if all port names exist in this scope
-		if (found.size() == ports2widths.size()) {
-			log("Auto-discovered scope: %s (matched all %d ports by name)\n", 
-				scope.c_str(), (int)ports2widths.size());
-			return scope;
-		}
+	if (!result.empty()) {
+		log("Found scope: %s\n", result.c_str());
+		return result;
 	}
 
 	// No match found
