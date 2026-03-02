@@ -47,24 +47,16 @@ PRIVATE_NAMESPACE_BEGIN
 
 static constexpr auto known_ops = []() constexpr {
 	StaticCellTypes::Categories::Category c{};
-	// bitwise
-	for (auto id : {ID($buf), ID($not), ID($mux), ID($and), ID($or), ID($xor), ID($xnor), ID($fa), ID($bwmux)})
+	for (auto id : {BITWISE_OPS})
 		c.set_id(id);
-	// reduce
-	for (auto id : {ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)})
+	for (auto id : {REDUCE_OPS})
 		c.set_id(id);
-	// logic
-	for (auto id : {ID($logic_and), ID($logic_or), ID($logic_not)})
+	for (auto id : {LOGIC_OPS})
 		c.set_id(id);
-	// gates
-	for (auto id : {ID($_BUF_), ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
-					ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_),
-					ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)})
+	for (auto id : {GATE_OPS})
 		c.set_id(id);
-	// compare
-	for (auto id : {ID($eq), ID($ne), ID($lt), ID($le), ID($ge), ID($gt)})
+	for (auto id : {CMP_OPS})
 		c.set_id(id);
-	// other
 	for (auto id : {ID($pos), ID($pmux), ID($bmux)})
 		c.set_id(id);
 	return c;
