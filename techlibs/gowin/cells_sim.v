@@ -540,6 +540,113 @@ module DFFNCE (output reg Q, input D, CLK, CE, CLEAR);
   end
 endmodule // DFFNCE (negative clock edge; asynchronous clear; clock enable)
 
+// Latch sim cells
+// Gate signal uses CLK port name to match the physical DFF BEL pin
+
+(* lib_whitebox *)
+module DL (output reg Q, input D, CLK);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (CLK) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLN (output reg Q, input D, CLK);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (!CLK) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLE (output reg Q, input D, CLK, CE);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (CLK && CE) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLNE (output reg Q, input D, CLK, CE);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (!CLK && CE) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLC (output reg Q, input D, CLK, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (CLEAR) Q <= 1'b0;
+    else if (CLK) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLCE (output reg Q, input D, CLK, CE, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (CLEAR) Q <= 1'b0;
+    else if (CLK && CE) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLNC (output reg Q, input D, CLK, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (CLEAR) Q <= 1'b0;
+    else if (!CLK) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLNCE (output reg Q, input D, CLK, CE, CLEAR);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (CLEAR) Q <= 1'b0;
+    else if (!CLK && CE) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLP (output reg Q, input D, CLK, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (PRESET) Q <= 1'b1;
+    else if (CLK) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLPE (output reg Q, input D, CLK, CE, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (PRESET) Q <= 1'b1;
+    else if (CLK && CE) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLNP (output reg Q, input D, CLK, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (PRESET) Q <= 1'b1;
+    else if (!CLK) Q <= D;
+endmodule
+
+(* lib_whitebox *)
+module DLNPE (output reg Q, input D, CLK, CE, PRESET);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @*
+    if (PRESET) Q <= 1'b1;
+    else if (!CLK && CE) Q <= D;
+endmodule
+
 // TODO add more DFF sim cells
 
 module VCC(output V);
