@@ -288,6 +288,19 @@ void RTLIL::OwningIdString::collect_garbage()
 
 dict<std::string, std::string> RTLIL::constpad;
 
+const pool<IdString> &RTLIL::builtin_ff_cell_types() {
+	static const pool<IdString> res = []() {
+		pool<IdString> r;
+		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
+			auto &cell = StaticCellTypes::builder.cells[i];
+			if (cell.features.is_ff)
+				r.insert(cell.type);
+		}
+		return r;
+	}();
+	return res;
+}
+
 #define check(condition) log_assert(condition && "malformed Const union")
 
 const Const::bitvectype& Const::get_bits() const {

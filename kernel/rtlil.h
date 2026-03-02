@@ -737,6 +737,9 @@ template <> struct IDMacroHelper<-1> {
 namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
+	[[deprecated("use StaticCellTypes::categories.is_ff() instead")]]
+	const pool<IdString> &builtin_ff_cell_types();
+
 	static inline std::string escape_id(const std::string &str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
 			return "\\" + str;
