@@ -12,7 +12,7 @@ permissions:
 jobs:
   build-linux-wheel:
     runs-on: ubuntu-latest
-    name: Build Linux amd64 wheel
+    name: Build Linux amd64 wheel (musl)
 
     steps:
       - uses: actions/checkout@v4
@@ -55,56 +55,85 @@ jobs:
               ) python3 setup.py bdist_wheel --dist-dir /src/dist
             '
 
-      - name: Generate release notes
-        id: meta
-        run: |
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          FULL_SHA=$(git rev-parse HEAD)
-          DATE=$(date -u +%Y-%m-%d)
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "date=$DATE" >> "$GITHUB_OUTPUT"
-          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
-          printf '%s\n' \
-            "Automated build from \`main\` @ [\`${SHORT_SHA}\`](${REPO_URL}/commit/${FULL_SHA})" \
-            "" \
-            "**Built:** ${DATE}" \
-            "" \
-            "### Assets" \
-            "| File | Platform |" \
-            "|------|----------|" \
-            "| \`pyosys-*-linux_x86_64.whl\` | Linux x86-64 |" \
-            "| \`pyosys-*-macosx_*_arm64.whl\` | macOS Apple Silicon |" \
-            "" \
-            "### Installation" \
-            "\`\`\`bash" \
-            "pip install pyosys-*.whl" \
-            "\`\`\`" \
-            > release_notes.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-musl-wheel
+          path: dist/*.whl
 
-      - name: Create permanent release
-        run: |
-          TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
-          gh release create "$TAG" \
-            dist/*.whl \
-            --target "${{ github.sha }}" \
-            --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
-            --notes-file release_notes.md
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-manylinux-wheel:
+    runs-on: ubuntu-latest
+    name: Build Linux amd64 wheel (manylinux2014, glibc 2.17+)
 
-      - name: Update latest release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Build wheel in CentOS 7 container
         run: |
-          git tag -f latest HEAD
-          git push -f origin latest
-          gh release delete latest --yes 2>/dev/null || true
-          gh release create latest \
-            dist/*.whl \
-            --target "${{ github.sha }}" \
-            --title "Latest Build (${{ steps.meta.outputs.date }})" \
-            --notes-file release_notes.md \
-            --prerelease
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            --platform linux/amd64 \
+            centos:7 bash -c '
+              set -ex
+
+              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
+              yum install -y centos-release-scl epel-release
+              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
+              yum install -y devtoolset-11-gcc-c++ make git curl \
+                tcl-devel tcl-tclreadline-devel readline-devel zlib-devel libffi-devel \
+                flex gperf ccache patchelf
+
+              # Build bison >= 3.x from source
+              curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
+              cd /tmp/bison-3.8.2 && source /opt/rh/devtoolset-11/enable && ./configure && make -j$(nproc) && make install
+              cd /src
+
+              source /opt/rh/devtoolset-11/enable
+
+              # Install a modern Python (3.13) from the manylinux toolchain
+              PYBIN=/opt/python/cp313-cp313/bin
+              if [ ! -d "$PYBIN" ]; then
+                # Fall back to system Python 3 if manylinux Python not available
+                yum install -y python3 python3-devel python3-pip python3-setuptools
+                PYBIN=/usr/bin
+              fi
+              export PATH=$PYBIN:$PATH
+
+              git config --global --add safe.directory /src
+              git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
+
+              # Build Verific TCL main
+              cd /src/verific/tclmain
+              make
+              cd /src
+
+              pip3 install --upgrade pip setuptools wheel pybind11 cxxheaderparser
+
+              _PYOSYS_OVERRIDE_VER=$(
+                grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
+              ) python3 setup.py bdist_wheel --dist-dir /src/dist-manylinux
+
+              # Tag wheel as manylinux
+              pip3 install auditwheel || true
+              for whl in /src/dist-manylinux/*.whl; do
+                auditwheel repair "$whl" --plat manylinux2014_x86_64 -w /src/dist-manylinux/ 2>/dev/null || true
+              done
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-manylinux-wheel
+          path: dist-manylinux/*.whl
 
   build-macos-wheel:
     runs-on: macos-15
@@ -141,24 +170,75 @@ jobs:
             grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
           ) python3 setup.py bdist_wheel --dist-dir dist
 
-      - name: Upload to permanent release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-wheel
+          path: dist/*.whl
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-linux-wheel, build-manylinux-wheel, build-macos-wheel]
+    name: Create GitHub releases
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-wheels
+          merge-multiple: true
+
+      - name: Generate release notes
+        id: meta
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
+          FULL_SHA=$(git rev-parse HEAD)
           DATE=$(date -u +%Y-%m-%d)
-          TAG="build-${DATE}-${SHORT_SHA}"
-          until gh release view "$TAG" >/dev/null 2>&1; do sleep 5; done
-          for i in 1 2 3 4 5; do
-            gh release upload "$TAG" dist/*.whl --clobber && break
-            echo "Upload attempt $i failed, retrying in 15s..."
-            sleep 15
-          done
-          # Wait for the Linux job to finish creating the latest release with its wheel
-          echo "Waiting for Linux wheel to appear in latest release..."
-          until gh release view latest --json assets --jq '.assets[].name' 2>/dev/null | grep -q linux; do sleep 10; done
-          for i in 1 2 3 4 5; do
-            gh release upload latest dist/*.whl --clobber && break
-            echo "Upload attempt $i failed, retrying in 15s..."
-            sleep 15
-          done
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          printf '%s\n' \
+            "Automated build from \`main\` @ [\`${SHORT_SHA}\`](${REPO_URL}/commit/${FULL_SHA})" \
+            "" \
+            "**Built:** ${DATE}" \
+            "" \
+            "### Assets" \
+            "| File | Platform |" \
+            "|------|----------|" \
+            "| \`pyosys-*-linux_x86_64.whl\` | Linux x86-64 (musl) |" \
+            "| \`pyosys-*-manylinux2014*.whl\` | Linux x86-64 (manylinux2014, glibc 2.17+) |" \
+            "| \`pyosys-*-macosx_*_arm64.whl\` | macOS Apple Silicon |" \
+            "" \
+            "### Installation" \
+            "\`\`\`bash" \
+            "pip install pyosys-*.whl" \
+            "\`\`\`" \
+            > release_notes.md
+
+      - name: Create permanent release
+        run: |
+          TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
+          gh release create "$TAG" \
+            all-wheels/*.whl \
+            --target "${{ github.sha }}" \
+            --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
+            --notes-file release_notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest release
+        run: |
+          git tag -f latest HEAD
+          git push -f origin latest
+          gh release delete latest --yes 2>/dev/null || true
+          gh release create latest \
+            all-wheels/*.whl \
+            --target "${{ github.sha }}" \
+            --title "Latest Build (${{ steps.meta.outputs.date }})" \
+            --notes-file release_notes.md \
+            --prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
