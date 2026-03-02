@@ -81,33 +81,47 @@ struct NegoptPass : public Pass {
 			run_post = true;
 		}
 
+		constexpr int max_iterations = 100;
+
 		for (auto module : design->selected_modules()) {
 			if (run_pre) {
 				did_something = true;
-				while (did_something) {
+				for (int iter = 0; iter < max_iterations && did_something; iter++) {
 					did_something = false;
 					peepopt_pm pm(module);
 					pm.setup(module->selected_cells());
 
 					pm.run_manual2sub();  // Reduce manual 2's complement to subtraction first
+					log_flush();
 					pm.run_sub2neg();
+					log_flush();
 					pm.run_negexpand();
+					log_flush();
 					pm.run_negneg();
+					log_flush();
 					pm.run_negmux();
+					log_flush();
 				}
+				if (did_something)
+					log_warning("NEGOPT pre reached max iterations (%d) in module %s without convergence.\n", max_iterations, log_id(module));
 			}
 
 			if (run_post) {
 				did_something = true;
-				while (did_something) {
+				for (int iter = 0; iter < max_iterations && did_something; iter++) {
 					did_something = false;
 					peepopt_pm pm(module);
 					pm.setup(module->selected_cells());
 
 					pm.run_negrebuild();
+					log_flush();
 					pm.run_muxneg();
+					log_flush();
 					pm.run_neg2sub();
+					log_flush();
 				}
+				if (did_something)
+					log_warning("NEGOPT post reached max iterations (%d) in module %s without convergence.\n", max_iterations, log_id(module));
 			}
 		}
 	}

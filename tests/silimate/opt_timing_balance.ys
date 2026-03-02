@@ -1,0 +1,511 @@
+#
+# opt_timing_balance regression coverage
+#
+
+# ---------------------------------------------------------------------------
+# Case: XOR chain with late leaf should be rewritten
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: xor late leaf rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late ^ a ^ b ^ c ^ d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -logic
+design -load postopt
+select -assert-count 4 t:$xor
+select o:y %ci2 t:$xor %i -set root_xor
+select @root_xor i:late -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Default mode should rewrite both logic and arithmetic cones
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: default mode mixed categories"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [7:0]  u2,
+  input  wire [7:0]  u3,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y_add,
+  output wire [15:0] y_xor
+);
+  wire [15:0] late_add = u0 * u1;
+  wire [15:0] late_xor = u2 * u3;
+  assign y_add = late_add + a + b + c + d;
+  assign y_xor = late_xor ^ a ^ b ^ c ^ d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance
+design -load postopt
+select -assert-min 1 t:$add a:timing_balance_generated=1 %i
+select -assert-min 1 t:$xor a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Running the pass twice should be idempotent on generated cones
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: idempotent second invocation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late + a + b + c + d;
+endmodule
+EOF
+check -assert
+
+opt_timing_balance -arith
+select -assert-count 4 t:$add a:timing_balance_generated=1 %i
+opt_timing_balance -arith
+select -assert-count 4 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Without negopt -pre, subtraction chains should not be rewritten
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: direct subtraction conservative skip"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] a,
+  input  wire [7:0] b,
+  input  wire [7:0] c,
+  input  wire [7:0] d,
+  output wire [7:0] y
+);
+  assign y = a - b - c - d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-count 3 t:$sub
+select -assert-count 0 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Signed-width logic extension semantics are preserved under rewrite
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: signed logic extension equivalence"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]        u0,
+  input  wire [7:0]        u1,
+  input  wire signed [1:0] a,
+  input  wire        [3:0] b,
+  input  wire        [3:0] c,
+  output wire        [3:0] y
+);
+  wire [3:0] late = u0 * u1;
+  assign y = late & a & b & c;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -logic
+design -load postopt
+select -assert-min 1 t:$and a:timing_balance_generated=1 %i
+select o:y %ci2 t:$and %i -set signed_logic_root
+select @signed_logic_root i:late -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: AND chain with late leaf should be rewritten
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: and late leaf rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late & a & b & c & d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -logic
+design -load postopt
+select -assert-count 4 t:$and
+select o:y %ci2 t:$and %i -set root_and
+select @root_and i:late -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: OR chain with late leaf should be rewritten
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: or late leaf rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late | a | b | c | d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -logic
+design -load postopt
+select -assert-count 4 t:$or
+select o:y %ci2 t:$or %i -set root_or
+select @root_or i:late -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: ADD chain with late leaf should be rewritten
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: add late leaf rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late + a + b + c + d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-count 4 t:$add
+select o:y %ci2 t:$add %i -set root_add
+select @root_add i:late -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Balanced add tree should remain unchanged (no rewrite)
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: balanced add no-op"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  input  wire [15:0] e,
+  input  wire [15:0] f,
+  input  wire [15:0] g,
+  input  wire [15:0] h,
+  output wire [15:0] y
+);
+  assign y = ((a+b)+(c+d))+((e+f)+(g+h));
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-count 7 t:$add
+select -assert-count 0 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: -logic mode must not rewrite arithmetic cones
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: mode filter logic-only"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late + a + b + c + d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -logic
+design -load postopt
+select -assert-count 4 t:$add
+select -assert-count 0 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: -arith mode must not rewrite logic cones
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: mode filter arith-only"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late ^ a ^ b ^ c ^ d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-count 4 t:$xor
+select -assert-count 0 t:$xor a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Shared-fanout cone must preserve both tap and final output semantics
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: shared fanout tap safety"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] tap,
+  output wire [15:0] y
+);
+  wire [15:0] x0 = a + b;
+  wire [15:0] x1 = x0 + c;
+  assign tap = x1;
+  assign y = x1 + d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select o:tap %ci2 t:$add %i -assert-count 1
+select o:y %ci2 t:$add %i -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Subtraction chain after negopt -pre should be balanced as add/neg
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: negopt-pre normalized subtraction chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] a,
+  input  wire [7:0] b,
+  input  wire [7:0] c,
+  input  wire [7:0] d,
+  output wire [7:0] y
+);
+  assign y = a - b - c - d;
+endmodule
+EOF
+check -assert
+
+negopt -pre
+select -assert-count 0 t:$sub
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-min 1 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Mixed-sign add chains should be skipped conservatively
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: mixed-sign conservative skip"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire signed [7:0] a,
+  input  wire        [7:0] b,
+  input  wire        [7:0] c,
+  output wire        [8:0] y
+);
+  assign y = a + b + c;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 0 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Two independent arithmetic heads should both rewrite
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: multi-head arithmetic rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [7:0]  u2,
+  input  wire [7:0]  u3,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  input  wire [15:0] e,
+  input  wire [15:0] f,
+  input  wire [15:0] g,
+  input  wire [15:0] h,
+  output wire [15:0] y0,
+  output wire [15:0] y1
+);
+  wire [15:0] late0 = u0 * u1;
+  wire [15:0] late1 = u2 * u3;
+  assign y0 = late0 + a + b + c + d;
+  assign y1 = late1 + e + f + g + h;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-min 2 t:$add
+select o:y0 %ci2 t:$add %i -set root0
+select o:y1 %ci2 t:$add %i -set root1
+select @root0 i:late0 -assert-count 1
+select @root1 i:late1 -assert-count 1
+
+design -reset
+log -pop
+
+
+# ---------------------------------------------------------------------------
+# Case: Generated-cell tagging exists for rewritten cones (contract test)
+# ---------------------------------------------------------------------------
+log -header "opt_timing_balance: generated tag contract"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  u0,
+  input  wire [7:0]  u1,
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [15:0] y
+);
+  wire [15:0] late = u0 * u1;
+  assign y = late + a + b + c + d;
+endmodule
+EOF
+check -assert
+
+equiv_opt -assert opt_timing_balance -arith
+design -load postopt
+select -assert-min 1 t:$add a:timing_balance_generated=1 %i
+
+design -reset
+log -pop
