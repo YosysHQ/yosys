@@ -5,7 +5,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-TEST(ModIndexSwapTest, has)
+TEST(ModIndexTest, swap)
 {
     Design* d = new Design;
     Module* m = d->addModule("$m");
@@ -26,7 +26,7 @@ TEST(ModIndexSwapTest, has)
     }
 }
 
-TEST(ModIndexDeleteTest, has)
+TEST(ModIndexTest, modify)
 {
     if (log_files.empty()) log_files.emplace_back(stdout);
     Design* d = new Design;
