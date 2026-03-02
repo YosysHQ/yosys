@@ -213,6 +213,8 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	const std::string name = RTLIL::unescape_id(module->name);
 
 	bool clear_preset_reported = false;
+	std::optional<char> clear_preset_var1;
+	std::optional<char> clear_preset_var2;
 	for (auto child : node->children) {
 		if (child->id == "clocked_on")
 			clk_sig = parse_func_expr(module, child->value.c_str());
@@ -222,16 +224,19 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 			clear_sig = parse_func_expr(module, child->value.c_str());
 		if (child->id == "preset")
 			preset_sig = parse_func_expr(module, child->value.c_str());
-		// TODO with $priority cell, any pair of clear_preset_var1 clear_preset_var2
-		// can be modeled as a pair of flops with different priority
-		// rather than just having IQN = ~IQ
-		if (child->id == "clear_preset_var1" || child->id == "clear_preset_var2") {
-			if (child->value.size() != 1)
-				log_error("Unexpected length of clear_preset_var* value %s in FF cell %s\n", child->value, name);
-			if (child->value[0] != 'X' && !clear_preset_reported) {
-				log_warning("FF cell %s has well-defined clear&preset behavior, but Yosys models it as undefined\n", name);
-				clear_preset_reported = true;
+
+		for (auto& [id, var] : {pair{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}})
+			if (child->id == id) {
+				if (child->value.size() != 1)
+					log_error("Unexpected length of clear_preset_var* value %s in FF cell %s\n", child->value, name);
+				*var = child->value[0];
 			}
+
+	}
+	if (clear_preset_var1 == 'X' || clear_preset_var2 == 'X') {
+		if (!clear_preset_reported) {
+			log_warning("FF cell %s has well-defined clear&preset behavior, but Yosys models it as undefined\n", name);
+			clear_preset_reported = true;
 		}
 	}
 
@@ -261,36 +266,64 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		}
 	}
 
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_NOT_));
-	cell->setPort(ID::A, iq_sig);
-	cell->setPort(ID::Y, iqn_sig);
+	for (auto& [out_sig, cp_var, neg] : {tuple{iq_sig, clear_preset_var1, false}, {iqn_sig, clear_preset_var2, true}}) {
+		SigSpec q_sig = out_sig;
+		if (neg) {
+			q_sig = module->addWire(NEW_ID, out_sig.as_wire());
+			module->addNotGate(NEW_ID, q_sig, out_sig);
+		}
 
-	cell = module->addCell(NEW_ID, "");
-	cell->setPort(ID::D, data_sig);
-	cell->setPort(ID::Q, iq_sig);
-	cell->setPort(ID::C, clk_sig);
+		RTLIL::Cell* cell = module->addCell(NEW_ID, "");
+		cell->setPort(ID::D, data_sig);
+		cell->setPort(ID::Q, q_sig);
+		cell->setPort(ID::C, clk_sig);
 
-	if (clear_sig.size() == 0 && preset_sig.size() == 0) {
-		cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
+		if (clear_sig.size() == 0 && preset_sig.size() == 0) {
+			cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
+		}
+
+		if (clear_sig.size() == 1 && preset_sig.size() == 0) {
+			cell->type = stringf("$_DFF_%c%c0_", clk_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
+			cell->setPort(ID::R, clear_sig);
+		}
+
+		if (clear_sig.size() == 0 && preset_sig.size() == 1) {
+			cell->type = stringf("$_DFF_%c%c1_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N');
+			cell->setPort(ID::R, preset_sig);
+		}
+
+		if (clear_sig.size() == 1 && preset_sig.size() == 1) {
+			cell->type = stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
+
+			SigBit s_sig = preset_sig;
+			SigBit r_sig = clear_sig;
+			if (cp_var && *cp_var != 'X') {
+				// Either set or reset dominates
+				bool set_dominates;
+				if (*cp_var == 'L') {
+					set_dominates = neg;
+				} else if (*cp_var == 'H') {
+					set_dominates = not neg;
+				} else {
+					log_error("FF cell %s has unsupported clear&preset behavior \'%c\'.\n", name, *cp_var);
+				}
+				log_debug("cell %s variable %d cp_var %c set dominates? %d\n", name, (int)neg + 1, *cp_var, set_dominates);
+				// S&R priority is well-defined now
+				if (set_dominates) {
+					r_sig = module->AndnotGate(NEW_ID, r_sig, s_sig);
+				} else {
+					s_sig = module->AndnotGate(NEW_ID, s_sig, r_sig);
+				}
+			} else {
+				log_debug("cell %s variable %d undef c&p behavior\n", name, (int)neg + 1);
+			}
+
+			cell->setPort(ID::S, s_sig);
+			cell->setPort(ID::R, r_sig);
+		}
+
+		log_assert(!cell->type.empty());
 	}
-
-	if (clear_sig.size() == 1 && preset_sig.size() == 0) {
-		cell->type = stringf("$_DFF_%c%c0_", clk_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
-		cell->setPort(ID::R, clear_sig);
-	}
-
-	if (clear_sig.size() == 0 && preset_sig.size() == 1) {
-		cell->type = stringf("$_DFF_%c%c1_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N');
-		cell->setPort(ID::R, preset_sig);
-	}
-
-	if (clear_sig.size() == 1 && preset_sig.size() == 1) {
-		cell->type = stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
-		cell->setPort(ID::S, preset_sig);
-		cell->setPort(ID::R, clear_sig);
-	}
-
-	log_assert(!cell->type.empty());
 }
 
 static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool flag_ignore_miss_data_latch)
