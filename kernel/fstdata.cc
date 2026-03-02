@@ -287,6 +287,15 @@ std::string FstData::autoScope(Module *topmod) {
 	log("Auto-discovering scope from file...\n");
 	std::string top = RTLIL::unescape_id(topmod->name);
 
+	log("Available scopes:\n");
+	std::set<std::string> unique_scopes;
+	for (const auto& var : vars) {
+		unique_scopes.insert(var.scope);
+	}
+	for (const auto& scope : unique_scopes) {
+		log("  %s\n", scope.c_str());
+	}
+
 	// Option 1 - Instance based scope matching
 	// Will fail if the DUT instance name != the top module name
 	log("Trying instance-based scope matching...\n");
@@ -353,10 +362,5 @@ std::string FstData::autoScope(Module *topmod) {
 	// No match found
 	log_warning("Could not auto-discover scope for module '%s'...\n", 
 		RTLIL::unescape_id(topmod->name).c_str());
-	log("Available scopes:\n");
-	for (const auto& entry : scopes2matches) {
-		std::string scope = entry.first;
-		log("  %s\n", scope.c_str());
-	}
 	return "";
 }
