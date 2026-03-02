@@ -313,11 +313,11 @@ std::string FstData::autoScope(Module *topmod) {
 		}
 	}
 
-	// Option 2 - Post based scope matching
+	// Option 2 - Port based scope matching
 	// Matches based on exact port name matching of the top module
 	log("Trying port-based scope matching...\n");
 
-	// Map top moduleport name to their bit widths (RTL reference point)
+	// Map top module port name to their bit widths (RTL reference point)
 	dict<std::string, int> top2widths;
 	for (auto wire : topmod->wires()) {
 		if (wire->port_input || wire->port_output) {
