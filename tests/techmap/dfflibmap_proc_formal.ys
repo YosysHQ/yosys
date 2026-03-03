@@ -52,48 +52,49 @@ dfflibmap -liberty dfflibmap_dffsr_s.lib top
 clk2fflogic
 flatten
 opt_clean -purge
-equiv_make top top_unmapped equiv
-equiv_induct equiv
-equiv_status -assert equiv
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 ##################################################################
 
-delete top equiv
+delete top miter
 
 copy top_unmapped top
 dfflibmap -liberty dfflibmap_dffsr_r.lib top
 
 clk2fflogic
 flatten
-opt_clean -purge
-equiv_make top top_unmapped equiv
-equiv_induct equiv
-equiv_status -assert equiv
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 ##################################################################
 
-delete top equiv
+delete top miter
 
 copy top_unmapped top
 dfflibmap -liberty dfflibmap_dffsr_mixedpol.lib top
 
 async2sync
 flatten
-opt_clean -purge
-equiv_make top top_unmapped equiv
-equiv_induct equiv
-equiv_status -assert equiv
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 ##################################################################
 
-delete top equiv
+delete top miter
 
 copy top_unmapped top
 dfflibmap -liberty dfflibmap_dffsr_not_next.lib top
 
 async2sync
 flatten
-opt_clean -purge
-equiv_make top top_unmapped equiv
-equiv_induct equiv
-equiv_status -assert equiv
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
