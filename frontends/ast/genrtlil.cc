@@ -403,6 +403,18 @@ struct AST_INTERNAL::ProcessGenerator
 				if (GetSize(syncrule->signal) != 1)
 					always->input_error("Found posedge/negedge event on a signal that is not 1 bit wide!\n");
 				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
+				// Automatic (nosync) variables must not become flip-flops: remove
+				// them from clocked sync rules so that proc_dff does not infer
+				// an unnecessary register for a purely combinational temporary.
+				syncrule->actions.erase(
+					std::remove_if(syncrule->actions.begin(), syncrule->actions.end(),
+						[](const RTLIL::SigSig &ss) {
+							for (auto &chunk : ss.first.chunks())
+								if (chunk.wire && chunk.wire->get_bool_attribute(ID::nosync))
+									return true;
+							return false;
+						}),
+					syncrule->actions.end());
 				proc->syncs.push_back(syncrule);
 			}
 		if (proc->syncs.empty()) {
