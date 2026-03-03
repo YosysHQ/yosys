@@ -28,7 +28,7 @@ endcode
 
 match neg
 	select neg->type == $neg
-	select nusers(port(neg, \Y)) == 2
+	filter nusers(port(neg, \Y)) == 2
 	index <SigSpec> port(neg, \Y) === (neg_on_a ? add_a : add_b)
 	set neg_a port(neg, \A)
 	set neg_y port(neg, \Y)
