@@ -20,7 +20,7 @@ endmatch
 
 match neg_a
 	select neg_a->type == $neg
-	select nusers(port(neg_a, \Y)) == 2
+	filter nusers(port(neg_a, \Y)) == 2
 	index <SigSpec> port(neg_a, \Y) === mux_a
 	set neg_a_in port(neg_a, \A)
 	set neg_a_y port(neg_a, \Y)
@@ -29,7 +29,7 @@ endmatch
 
 match neg_b
 	select neg_b->type == $neg
-	select nusers(port(neg_b, \Y)) == 2
+	filter nusers(port(neg_b, \Y)) == 2
 	index <SigSpec> port(neg_b, \Y) === mux_b
 	set neg_b_in port(neg_b, \A)
 	set neg_b_y port(neg_b, \Y)
