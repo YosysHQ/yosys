@@ -116,10 +116,13 @@ void FstData::extractVarNames()
 
 	// Track nested fork scopes using a stack to handle nested packed structs
 	// Begins with outmost scope and ends with innermost scope
+	// Scopes are not normalized on the stack
 	std::vector<std::string> fork_scope_stack;
 
 	// Start fork handles after the maximum real handle from FST file to avoid collisions
 	fstHandle next_fork_handle = fstReaderGetMaxHandle(ctx) + 1;
+
+	// Map of fork scopes to their members, which are all normalized
 	std::map<std::string, std::vector<fstHandle>> fork_scopes;
 
 	while ((h = fstReaderIterateHier(ctx))) {
@@ -152,6 +155,7 @@ void FstData::extractVarNames()
 					// If this is a nested fork scope, add its handle to the parent fork scope
 					if (fork_scope_stack.size() > 1) {
 						std::string parent_fork = fork_scope_stack[fork_scope_stack.size() - 2];
+						normalize_brackets(parent_fork);
 						fork_scopes[parent_fork].push_back(fork_handle);
 					}
 
@@ -176,7 +180,9 @@ void FstData::extractVarNames()
 
 				// Add variable to the innermost fork scope in the fork scope stack
 				if (!fork_scope_stack.empty()) {
-					fork_scopes[fork_scope_stack.back()].push_back(h->u.var.handle);
+					std::string current_fork = fork_scope_stack.back();
+					normalize_brackets(current_fork);
+					fork_scopes[current_fork].push_back(h->u.var.handle);
 				}
 
 				std::string clean_name;
