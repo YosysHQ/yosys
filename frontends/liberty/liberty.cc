@@ -20,6 +20,7 @@
 #include "passes/techmap/libparse.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
+#include <array>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -303,7 +304,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 				if (*cp_var == 'L') {
 					set_dominates = neg;
 				} else if (*cp_var == 'H') {
-					set_dominates = not neg;
+					set_dominates = !neg;
 				} else {
 					log_error("FF cell %s has unsupported clear&preset behavior \'%c\'.\n", name, *cp_var);
 				}
