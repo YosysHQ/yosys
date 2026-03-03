@@ -58,14 +58,8 @@ struct CellMatch {
 	int num_pins = 0;
 	bool has_noninv_output = false;
 
-	enum ScanResult {
-		REJECT,    // cell has unconnected inputs
-		NO_OUTPUT, // cell is valid but has no Q/QN output
-		OK         // cell is valid with output found
-	};
-
 	// Scan cell pins to count them, check inputs, and identify Q/QN outputs.
-	ScanResult scan_outputs(const LibertyAst *cell, const LibertyAst *ff, bool cell_next_pol)
+	bool find_outputs(const LibertyAst *cell, const LibertyAst *ff, bool cell_next_pol)
 	{
 		bool found_output = false;
 		for (auto pin : cell->children) {
@@ -76,7 +70,7 @@ struct CellMatch {
 				continue;
 			num_pins++;
 			if (dir->value == "input" && ports.count(pin->args[0]) == 0)
-				return REJECT;
+				return false;
 			const LibertyAst *func = pin->find("function");
 			if (dir->value == "output" && func != nullptr) {
 				std::string value = func->value;
@@ -84,18 +78,20 @@ struct CellMatch {
 				// next_state negation propagated to output
 				if (value == ff->args[0]) {
 					ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol) has_noninv_output = true;
+					if (cell_next_pol)
+						has_noninv_output = true;
 					found_output = true;
 				} else if (value == ff->args[1]) {
 					ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol) has_noninv_output = true;
+					if (!cell_next_pol)
+						has_noninv_output = true;
 					found_output = true;
 				}
 			}
 			if (ports.count(pin->args[0]) == 0)
 				ports[pin->args[0]] = 0;
 		}
-		return found_output ? OK : NO_OUTPUT;
+		return found_output;
 	}
 };
 
@@ -236,6 +232,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 		return false;
 	}
 
+	// TODO refactor this enable pin logic
 	data_not_inverted = true;
 	data_name = "";
 	enable_not_inverted = true;
@@ -357,13 +354,14 @@ struct DffFinder {
 
 			CellMatch match;
 			match.ports[cell_clk_pin] = 'C';
-			if (ff.has_arst) match.ports[cell_rst_pin] = 'R';
-			if (ff.has_ce) match.ports[cell_enable_pin] = 'E';
+			if (ff.has_arst)
+				match.ports[cell_rst_pin] = 'R';
+			if (ff.has_ce)
+				match.ports[cell_enable_pin] = 'E';
 			match.ports[cell_next_pin] = 'D';
 
-			if (match.scan_outputs(cell, cell_ff, cell_next_pol) != CellMatch::OK)
-				continue;
-			best.update(cell, match);
+			if (match.find_outputs(cell, cell_ff, cell_next_pol))
+				best.update(cell, match);
 		}
 		best.record_mapping(cell_type);
 	}
@@ -404,12 +402,12 @@ struct DffFinder {
 			match.ports[cell_clk_pin] = 'C';
 			match.ports[cell_set_pin] = 'S';
 			match.ports[cell_clr_pin] = 'R';
-			if (ff.has_ce) match.ports[cell_enable_pin] = 'E';
+			if (ff.has_ce)
+				match.ports[cell_enable_pin] = 'E';
 			match.ports[cell_next_pin] = 'D';
 
-			if (match.scan_outputs(cell, cell_ff, cell_next_pol) != CellMatch::OK)
-				continue;
-			best.update(cell, match);
+			if (match.find_outputs(cell, cell_ff, cell_next_pol))
+				best.update(cell, match);
 		}
 		best.record_mapping(cell_type);
 	}
