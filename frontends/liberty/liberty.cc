@@ -20,6 +20,7 @@
 #include "passes/techmap/libparse.h"
 #include "kernel/register.h"
 #include "kernel/log.h"
+#include <array>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -225,7 +226,8 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		if (child->id == "preset")
 			preset_sig = parse_func_expr(module, child->value.c_str());
 
-		for (auto& [id, var] : {pair{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}})
+		using SillyMsvcType = std::tuple<const char*, std::optional<char>*>;
+		for (auto& [id, var] : std::array<SillyMsvcType, 2>{SillyMsvcType{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}})
 			if (child->id == id) {
 				if (child->value.size() != 1)
 					log_error("Unexpected length of clear_preset_var* value %s in FF cell %s\n", child->value, name);
@@ -266,7 +268,8 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		}
 	}
 
-	for (auto& [out_sig, cp_var, neg] : {tuple{iq_sig, clear_preset_var1, false}, {iqn_sig, clear_preset_var2, true}}) {
+	using SillyMsvcType = std::tuple<SigSpec&, std::optional<char>&, bool>;
+	for (auto& [out_sig, cp_var, neg] : std::array<SillyMsvcType, 2>{SillyMsvcType{iq_sig, clear_preset_var1, false}, {iqn_sig, clear_preset_var2, true}}) {
 		SigSpec q_sig = out_sig;
 		if (neg) {
 			q_sig = module->addWire(NEW_ID, out_sig.as_wire());
