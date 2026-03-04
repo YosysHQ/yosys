@@ -502,14 +502,22 @@ struct SetundefPass : public Pass {
 				}
 			}
 
-			for (auto &it : module->cells_)
-				if (!it.second->get_bool_attribute(ID::xprop_decoder))
-					it.second->rewrite_sigspecs(worker);
+			for (auto cell : module->selected_cells())
+				if (!cell->get_bool_attribute(ID::xprop_decoder))
+					cell->rewrite_sigspecs(worker);
 			for (auto &it : module->processes)
-				it.second->rewrite_sigspecs(worker);
+				if (module->selected(it.second))
+					it.second->rewrite_sigspecs(worker);
 			for (auto &it : module->connections_) {
-				worker(it.first);
-				worker(it.second);
+				SigSpec lhs = it.first;
+				bool selected = false;
+				for (auto &chunk : lhs.chunks())
+					if (chunk.wire && module->design->selected(module, chunk.wire))
+						selected = true;
+				if (selected) {
+					worker(it.first);
+					worker(it.second);
+				}
 			}
 
 			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
