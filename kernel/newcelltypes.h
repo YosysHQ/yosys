@@ -6,6 +6,11 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+/**
+ * This API is unstable.
+ * It may change or be removed in future versions and break dependent code.
+ */
+
 namespace StaticCellTypes {
 
 // Given by last internal cell type IdString constids.inc, compilation error if too low
