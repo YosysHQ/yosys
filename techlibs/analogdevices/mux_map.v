@@ -60,7 +60,7 @@ module \$shiftx (A, B, Y);
       if (((A_WIDTH + Y_WIDTH - 1) / Y_WIDTH) < `MIN_MUX_INPUTS)
         wire _TECHMAP_FAIL_ = 1;
       else
-        \$__XILINX_SHIFTX #(
+        \$__ANALOGDEVICES_SHIFTX #(
           .A_SIGNED(A_SIGNED),
           .B_SIGNED(B_SIGNED),
           .A_WIDTH(A_WIDTH),
