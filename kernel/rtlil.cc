@@ -3151,7 +3151,7 @@ void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
 
 RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name)
 {
-	int index = 0;
+	int &index = uniquify_cache_[name];
 	return uniquify(name, index);
 }
 

@@ -20,7 +20,7 @@ endmatch
 match add
 	select add->type == $add
 	index <SigSpec> port(add, \Y) === neg_a
-	select nusers(port(add, \Y)) == 2
+	filter nusers(port(add, \Y)) == 2
 	set add_a port(add, \A)
 	set add_b port(add, \B)
 endmatch

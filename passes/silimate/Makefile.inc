@@ -14,6 +14,7 @@ OBJS += passes/silimate/infer_ce.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitlarge.o
 OBJS += passes/silimate/splitnetlist.o
+OBJS += passes/silimate/opt_timing_balance.o
 
 OBJS += passes/silimate/opt_expand.o
 GENFILES += passes/silimate/peepopt_expand.h

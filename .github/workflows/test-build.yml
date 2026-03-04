@@ -116,7 +116,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           runs-on: ${{ matrix.os }}
-          get-test-deps: true
+          get-build-deps: true
           get-iverilog: true
 
       - name: Download build artifact

@@ -1,0 +1,230 @@
+name: Release (pyosys wheels)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-wheel:
+    runs-on: ubuntu-latest
+    name: Build Linux amd64 wheel (musl)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Build wheel in Alpine container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            --platform linux/amd64 \
+            alpine:3.20 sh -c '
+              set -ex
+              apk add --no-cache \
+                build-base bison flex flex-dev gperf \
+                tcl-dev readline-dev zlib-dev libffi-dev \
+                libdwarf-dev elfutils-dev \
+                python3 python3-dev py3-pip py3-setuptools py3-wheel \
+                git pkgconf ccache
+
+              git config --global --add safe.directory /src
+              git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
+
+              # Alpine/musl compatibility shims for Verific tclmain link step
+              ln -sf /usr/lib/libtcl8.6.so /usr/lib/libtcl.so
+              echo "void dummy_nsl(void){}" | gcc -shared -o /usr/lib/libnsl.so -x c -
+
+              # Build Verific TCL main (needed before Yosys)
+              cd /src/verific/tclmain
+              make
+              cd /src
+
+              # Build the wheel via setup.py
+              pip install --break-system-packages pybind11 cxxheaderparser
+              _PYOSYS_OVERRIDE_VER=$(
+                grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
+              ) python3 setup.py bdist_wheel --dist-dir /src/dist
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-musl-wheel
+          path: dist/*.whl
+
+  build-manylinux-wheel:
+    runs-on: ubuntu-latest
+    name: Build Linux amd64 wheel (manylinux2014, glibc 2.17+)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Build wheel in manylinux2014 container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            --platform linux/amd64 \
+            quay.io/pypa/manylinux2014_x86_64 bash -c '
+              set -ex
+
+              yum install -y tcl-devel readline-devel zlib-devel libffi-devel \
+                flex gperf ccache patchelf \
+                elfutils-devel elfutils-libelf-devel libdwarf-devel
+
+              # Build bison >= 3.x from source
+              curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
+              cd /tmp/bison-3.8.2 && ./configure && make -j$(nproc) && make install
+              cd /src
+
+              # Use the manylinux2014 Python 3.13
+              export PATH=/opt/python/cp313-cp313/bin:$PATH
+
+              git config --global --add safe.directory /src
+              git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
+
+              # musl/manylinux compatibility shim for Verific tclmain link step
+              echo "void dummy_nsl(void){}" | gcc -shared -o /usr/lib64/libnsl.so -x c - || true
+
+              # Build Verific TCL main
+              cd /src/verific/tclmain
+              make
+              cd /src
+
+              pip3 install --upgrade pip setuptools wheel pybind11 cxxheaderparser
+
+              _PYOSYS_OVERRIDE_VER=$(
+                grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
+              ) python3 setup.py bdist_wheel --dist-dir /src/dist-manylinux
+
+              # Tag wheel as manylinux2014
+              pip3 install auditwheel || true
+              for whl in /src/dist-manylinux/*.whl; do
+                auditwheel repair "$whl" --plat manylinux2014_x86_64 -w /src/dist-manylinux/ 2>/dev/null || true
+              done
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-manylinux-wheel
+          path: dist-manylinux/*.whl
+
+  build-macos-wheel:
+    runs-on: macos-15
+    name: Build macOS arm64 wheel
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          brew install bison flex gperf tcl-tk@8 readline libffi dwarfutils libelf ccache
+          pip3 install pybind11 cxxheaderparser setuptools wheel
+
+      - name: Build Verific tclmain
+        run: |
+          export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
+          export MACOSX_DEPLOYMENT_TARGET=11.0
+          cd verific/tclmain
+          make
+
+      - name: Build wheel
+        run: |
+          export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
+          export MACOSX_DEPLOYMENT_TARGET=11.0
+          _PYOSYS_OVERRIDE_VER=$(
+            grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
+          ) python3 setup.py bdist_wheel --dist-dir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-wheel
+          path: dist/*.whl
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-linux-wheel, build-manylinux-wheel, build-macos-wheel]
+    name: Create GitHub releases
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-wheels
+          merge-multiple: true
+
+      - name: Generate release notes
+        id: meta
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          FULL_SHA=$(git rev-parse HEAD)
+          DATE=$(date -u +%Y-%m-%d)
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          printf '%s\n' \
+            "Automated build from \`main\` @ [\`${SHORT_SHA}\`](${REPO_URL}/commit/${FULL_SHA})" \
+            "" \
+            "**Built:** ${DATE}" \
+            "" \
+            "### Assets" \
+            "| File | Platform |" \
+            "|------|----------|" \
+            "| \`pyosys-*-linux_x86_64.whl\` | Linux x86-64 (musl) |" \
+            "| \`pyosys-*-manylinux2014*.whl\` | Linux x86-64 (manylinux2014, glibc 2.17+) |" \
+            "| \`pyosys-*-macosx_*_arm64.whl\` | macOS Apple Silicon |" \
+            "" \
+            "### Installation" \
+            "\`\`\`bash" \
+            "pip install pyosys-*.whl" \
+            "\`\`\`" \
+            > release_notes.md
+
+      - name: Create permanent release
+        run: |
+          TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
+          gh release create "$TAG" \
+            all-wheels/*.whl \
+            --target "${{ github.sha }}" \
+            --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
+            --notes-file release_notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest release
+        run: |
+          git tag -f latest HEAD
+          git push -f origin latest
+          gh release delete latest --yes 2>/dev/null || true
+          gh release create latest \
+            all-wheels/*.whl \
+            --target "${{ github.sha }}" \
+            --title "Latest Build (${{ steps.meta.outputs.date }})" \
+            --notes-file release_notes.md \
+            --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

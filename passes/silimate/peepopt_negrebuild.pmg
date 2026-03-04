@@ -39,16 +39,16 @@ code add_a add_b add_y neg1_a neg1_y neg2_a neg2_y add_signed add_b_signed neg1_
 	if (add_signed != add_b_signed)
 		reject;
 
-	// Require negations to share the add signedness
+	// Require both negations share the add's signedness
 	if (neg1_signed != add_signed || neg2_signed != add_signed)
 		reject;
 
 	{
-		// Avoid matching the same neg cell twice
+		// Avoid matching the same neg cell for both inputs
 		if (neg1 == neg2)
 			reject;
 
-		// Require a single wrap boundary for both negations and the sum
+		// Require a single wrap boundary across both negations and the sum
 		if (GetSize(neg1_y) != GetSize(neg2_y))
 			reject;
 		if (GetSize(add_y) != GetSize(neg1_y))
@@ -89,11 +89,13 @@ code add_a add_b add_y neg1_a neg1_y neg2_a neg2_y add_signed add_b_signed neg1_
 		neg1_a_rs.extend_u0(width, add_signed);
 		neg2_a_rs.extend_u0(width, add_signed);
 
+		// Build -(a + b) to replace (-a) + (-b)
 		SigSpec sum = module->addWire(NEW_ID2_SUFFIX("sum"), width);
 		Cell *new_add = module->addAdd(NEW_ID2_SUFFIX("add"), neg1_a_rs, neg2_a_rs, sum, add_signed);
 		SigSpec neg_out = module->addWire(NEW_ID2_SUFFIX("neg_y"), width);
 		Cell *new_neg = module->addNeg(NEW_ID2_SUFFIX("neg"), sum, neg_out, add_signed);
 
+		// Extend result back to original add output width
 		SigSpec neg_out_rs = neg_out;
 		neg_out_rs.extend_u0(GetSize(add_y), add_signed);
 		module->connect(add_y, neg_out_rs);
