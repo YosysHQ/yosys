@@ -395,12 +395,9 @@ struct ClockgatePass : public Pass {
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
 					Wire *ce_not_wire = module->addWire(NEW_ID2_SUFFIX("ce_not_w"));
-				Cell *ce_not = module->addCell(NEW_ID2_SUFFIX("ce_not"), ID($not));
-				ce_not->setParam(ID::A_SIGNED, 0);
-				ce_not->setParam(ID::A_WIDTH, 1);
-				ce_not->setParam(ID::Y_WIDTH, 1);
-				ce_not->setPort(ID::A, clk.ce_bit);
-				ce_not->setPort(ID::Y, ce_not_wire);
+					Cell *ce_not = module->addCell(NEW_ID2_SUFFIX("ce_not"), ID($_NOT_));
+					ce_not->setPort(ID::A, clk.ce_bit);
+					ce_not->setPort(ID::Y, ce_not_wire);
 					gclk.ce_not_cell = ce_not;
 					icg->setPort(matching_icg_desc->ce_pin, ce_not_wire);
 				}
