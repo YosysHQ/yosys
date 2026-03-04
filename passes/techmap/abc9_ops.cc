@@ -23,6 +23,7 @@
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
 #include "kernel/timinginfo.h"
+#include <optional>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -587,6 +588,7 @@ void break_scc(RTLIL::Module *module)
 		auto id = it->second;
 		auto r = ids_seen.insert(id);
 		cell->attributes.erase(it);
+		// Cut exactly one representative cell per SCC id.
 		if (!r.second)
 			continue;
 		for (auto &c : cell->connections_) {
@@ -710,8 +712,6 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	SigMap sigmap(module);
 
-	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 	dict<IdString, std::vector<IdString>> box_ports;
 
 	for (auto cell : module->cells()) {
@@ -750,39 +750,100 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				}
 			}
 		}
-		else if (!yosys_celltypes.cell_known(cell->type))
-			continue;
-
-		// TODO: Speed up toposort -- we care about box ordering only
-		for (auto conn : cell->connections()) {
-			if (cell->input(conn.first))
-				for (auto bit : sigmap(conn.second))
-					bit_users[bit].insert(cell->name);
-
-			if (cell->output(conn.first) && !abc9_flop)
-				for (auto bit : sigmap(conn.second))
-					bit_drivers[bit].insert(cell->name);
-		}
-		toposort.node(cell->name);
 	}
 
 	if (box_ports.empty())
 		return;
 
-	for (auto &it : bit_users)
-		if (bit_drivers.count(it.first))
-			for (auto driver_cell : bit_drivers.at(it.first))
-				for (auto user_cell : it.second)
-					toposort.edge(driver_cell, user_cell);
+	// Build the same topo graph for the initial pass and the optional retry.
+	auto build_toposort = [&](TopoSort<IdString, RTLIL::sort_by_id_str> &toposort) {
+		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 
-	if (ys_debug(1))
-		toposort.analyze_loops = true;
+		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+				continue;
+			if (cell->has_keep_attr())
+				continue;
 
-	bool no_loops = toposort.sort();
+			auto inst_module = design->module(cell->type);
+			bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
+			if (abc9_flop && !dff)
+				continue;
+			if (!(inst_module && inst_module->get_bool_attribute(ID::abc9_box)) && !yosys_celltypes.cell_known(cell->type))
+				continue;
+
+			// TODO: Speed up toposort -- we care about box ordering only
+			for (auto conn : cell->connections()) {
+				if (cell->input(conn.first))
+					for (auto bit : sigmap(conn.second))
+						bit_users[bit].insert(cell->name);
+
+				if (cell->output(conn.first) && !abc9_flop)
+					for (auto bit : sigmap(conn.second))
+						bit_drivers[bit].insert(cell->name);
+			}
+			toposort.node(cell->name);
+		}
+
+		// Build producer -> consumer edges on sigmapped nets.
+		for (auto &it : bit_users)
+			if (bit_drivers.count(it.first))
+				for (auto driver_cell : bit_drivers.at(it.first))
+					for (auto user_cell : it.second)
+						toposort.edge(driver_cell, user_cell);
+		if (ys_debug(1))
+			toposort.analyze_loops = true;
+		return toposort.sort();
+	};
+
+	// Build TopoSort in a container, as we may need to conditionally rebuild it on retry.
+	std::optional<TopoSort<IdString, RTLIL::sort_by_id_str>> toposort;
+	toposort.emplace();
+	bool no_loops = build_toposort(toposort.value());
+
+	// Fallback for residual loops after SCC cutting: insert additional
+	// breakers on non-box loop cells, then re-run toposort checks.
+	if (!no_loops) {
+		SigSpec I, O;
+		pool<IdString> broken_cells;
+
+		for (auto &loop : toposort.value().loops)
+			for (auto cell_name : loop) {
+				// Loop reports can overlap; cut each cell at most once.
+				if (!broken_cells.insert(cell_name).second)
+					continue;
+				auto cell = module->cell(cell_name);
+				log_assert(cell);
+				auto inst_module = design->module(cell->type);
+				if (inst_module && inst_module->get_bool_attribute(ID::abc9_box))
+					continue;
+				for (auto &c : cell->connections_) {
+					if (c.second.is_fully_const()) continue;
+					if (cell->output(c.first)) {
+						Wire *w = module->addWire(NEW_ID, GetSize(c.second));
+						I.append(w);
+						O.append(c.second);
+						c.second = w;
+					}
+				}
+			}
+
+		if (!I.empty()) {
+			auto cell = module->addCell(NEW_ID, ID($__ABC9_SCC_BREAKER));
+			log_assert(GetSize(I) == GetSize(O));
+			cell->setParam(ID::WIDTH, GetSize(I));
+			cell->setPort(ID::I, std::move(I));
+			cell->setPort(ID::O, std::move(O));
+
+			// Rebuild topo ordering after inserting the additional breakers.
+			toposort.emplace();
+			no_loops = build_toposort(toposort.value());
+		}
+	}
 
 	if (ys_debug(1)) {
 		unsigned i = 0;
-		for (auto &it : toposort.loops) {
+		for (auto &it : toposort.value().loops) {
 			log("  loop %d\n", i++);
 			for (auto cell_name : it) {
 				auto cell = module->cell(cell_name);
@@ -806,7 +867,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	TimingInfo timing;
 
 	int port_id = 1, box_count = 0;
-	for (auto cell_name : toposort.sorted) {
+	for (auto cell_name : toposort.value().sorted) {
 		RTLIL::Cell *cell = module->cell(cell_name);
 		log_assert(cell);
 
