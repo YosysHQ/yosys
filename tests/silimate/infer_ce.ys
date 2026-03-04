@@ -1,0 +1,217 @@
+# =============================================================================
+# Test 1: Basic enable inference with non-trivial cone
+# infer_ce needs cone_size >= 2, so we add combinational logic before the mux.
+# We use proc; opt_expr; opt_clean (NOT full opt) to avoid opt_dff stealing
+# the mux-feedback pattern before infer_ce gets a chance.
+# =============================================================================
+log -header "Basic enable inference"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input en,
+           input [7:0] a1, b1, a2, b2,
+           output reg [7:0] q1, q2);
+    always @(posedge clk)
+        if (en) begin
+            q1 <= a1 + b1;
+            q2 <= a2 + b2;
+        end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+log "After proc; opt_expr; opt_clean:"
+stat
+
+equiv_opt -assert infer_ce -min_net_size 2
+design -load postopt
+log "After infer_ce:"
+stat
+select -assert-count 2 t:$dffe
+design -reset
+log -pop
+
+# =============================================================================
+# Test 2: min_net_size filters out small groups
+# With min_net_size=3, a group of 2 registers should NOT get gated.
+# =============================================================================
+log -header "min_net_size filters small groups"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input en,
+           input [7:0] a1, b1, a2, b2,
+           output reg [7:0] q1, q2);
+    always @(posedge clk)
+        if (en) begin
+            q1 <= a1 + b1;
+            q2 <= a2 + b2;
+        end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+log "After proc; opt_expr; opt_clean:"
+stat
+
+equiv_opt -assert infer_ce -min_net_size 3
+design -load postopt
+log "After infer_ce (min_net_size=3, expect no change):"
+stat
+select -assert-count 0 t:$dffe
+select -assert-count 2 t:$dff
+design -reset
+log -pop
+
+# =============================================================================
+# Test 3: Already-enabled FFs are skipped
+# Registers that already have a CE (from opt_dff) should not be touched.
+# =============================================================================
+log -header "Skip registers with existing CE"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input en1, input en2,
+           input [7:0] a1, b1, a2, b2,
+           output reg [7:0] q1, q2);
+    always @(posedge clk)
+        if (en1)
+            if (en2) begin
+                q1 <= a1 + b1;
+                q2 <= a2 + b2;
+            end
+endmodule
+EOF
+proc; opt
+log "After proc; opt (already has CE from opt_dff):"
+stat
+equiv_opt -assert infer_ce -min_net_size 2
+design -load postopt
+log "After infer_ce (should not add more CEs):"
+stat
+check -assert
+design -reset
+log -pop
+
+# =============================================================================
+# Test 4: Unconditional registers are not gated
+# Registers with no conditional logic should not get a CE.
+# =============================================================================
+log -header "Unconditional registers not gated"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk,
+           input [7:0] a1, b1, a2, b2,
+           output reg [7:0] q1, q2);
+    always @(posedge clk) begin
+        q1 <= a1 + b1;
+        q2 <= a2 + b2;
+    end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+log "After proc; opt_expr; opt_clean (unconditional):"
+stat
+select -assert-count 2 t:$dff
+
+equiv_opt -assert infer_ce -min_net_size 2
+design -load postopt
+log "After infer_ce (should remain unconditional):"
+stat
+select -assert-count 2 t:$dff
+select -assert-count 0 t:$dffe
+design -reset
+log -pop
+
+# =============================================================================
+# Test 5: Wide registers with shared enable
+# 32-bit registers should still be grouped and gated.
+# =============================================================================
+log -header "Wide registers with shared enable"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input en,
+           input [31:0] a1, b1, a2, b2,
+           output reg [31:0] q1, q2);
+    always @(posedge clk)
+        if (en) begin
+            q1 <= a1 + b1;
+            q2 <= a2 + b2;
+        end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+log "After proc; opt_expr; opt_clean (wide 32-bit):"
+stat
+
+equiv_opt -assert infer_ce -min_net_size 2
+design -load postopt
+log "After infer_ce (wide regs):"
+stat
+select -assert-count 2 t:$dffe
+design -reset
+log -pop
+
+# =============================================================================
+# Test 6: Mixed conditional and unconditional registers
+# Only the conditional registers should get a CE.
+# =============================================================================
+log -header "Mixed conditional and unconditional"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input en,
+           input [7:0] a1, b1, a2, b2, a3, b3, a4, b4,
+           output reg [7:0] q1, q2, q3, q4);
+    always @(posedge clk) begin
+        q1 <= a1 + b1;
+        q2 <= a2 + b2;
+        if (en) begin
+            q3 <= a3 + b3;
+            q4 <= a4 + b4;
+        end
+    end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+log "After proc; opt_expr; opt_clean (mixed):"
+stat
+
+equiv_opt -assert infer_ce -min_net_size 2
+design -load postopt
+log "After infer_ce (mixed):"
+stat
+select -assert-count 2 t:$dff
+select -assert-count 2 t:$dffe
+design -reset
+log -pop
+
+# =============================================================================
+# Test 7: Negative-edge clock registers
+# infer_ce should work on negedge FFs too.
+# =============================================================================
+log -header "Negative-edge clock registers"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input en,
+           input [7:0] a1, b1, a2, b2,
+           output reg [7:0] q1, q2);
+    always @(negedge clk)
+        if (en) begin
+            q1 <= a1 + b1;
+            q2 <= a2 + b2;
+        end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+log "After proc; opt_expr; opt_clean (negedge):"
+stat
+
+equiv_opt -assert infer_ce -min_net_size 2
+design -load postopt
+log "After infer_ce (negedge):"
+stat
+select -assert-count 2 t:$dffe
+design -reset
+log -pop
