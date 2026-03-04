@@ -25,7 +25,7 @@
 //   ABC cannot optimise just one of the MUXF7 away
 //   and expect to save on its delay
 (* abc9_box, lib_whitebox *)
-module \$__XILINX_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
+module \$__ANALOGDEVICES_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
   assign O = S1 ? (S0 ? I3 : I2)
                 : (S0 ? I1 : I0);
   specify
