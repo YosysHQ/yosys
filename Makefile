@@ -161,7 +161,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.62
+YOSYS_VER := 0.63
 
 ifneq (, $(shell command -v git 2>/dev/null))
 ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
