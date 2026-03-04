@@ -57,6 +57,7 @@ class FstData
 	dict<int,fstHandle> getMemoryHandles(std::string name);
 	double getTimescale() { return timescale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
+	std::string autoScope(Module *topmod);
 private:
 	void extractVarNames();
 
@@ -69,6 +70,7 @@ private:
 	uint64_t last_time;
 	std::map<fstHandle, std::string> past_data;
 	uint64_t past_time;
+	std::map<fstHandle, std::vector<fstHandle>> fork_scope_members;
 	double timescale;
 	std::string timescale_str;
 	uint64_t start_time;

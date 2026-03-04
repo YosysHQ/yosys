@@ -1474,8 +1474,14 @@ struct SimWorker : SimShared
 		log_assert(top == nullptr);
 		fst = new FstData(sim_filename);
 		timescale = fst->getTimescaleString();
-		if (scope.empty())
-			log_error("Scope must be defined for co-simulation.\n");
+		if (scope.empty()) {
+			scope = fst->autoScope(topmod);
+			if (scope.empty()) {
+				log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
+					RTLIL::unescape_id(topmod->name).c_str());
+			}
+		}
+		log("Using scope: \"%s\"\n", scope.c_str());
 
 		top = new SimInstance(this, scope, topmod);
 		register_signals();
