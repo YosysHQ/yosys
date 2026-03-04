@@ -537,7 +537,7 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 {
 	// Passing actx to function == function does parallel work
 	// Not passing module as function argument == function does not modify module
-	// TODO the above sentence is false due to constness laundering in wire_at / cell_at
+	// The above sentence signals intent; it's not enforced due to constness laundering in wire_at / cell_at
 	AnalysisContext actx(module, subpool);
 	SigConnKinds conn_kinds(clean_ctx.flags.purge, actx, clean_ctx);
 
