@@ -188,15 +188,25 @@ struct RegRenamePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Extract top module
+		Module *topmod = design->top_module();
+		if (!topmod)
+			log_error("No top module found!\n");
+
 		// Extract pre-optimization register widths from VCD file
 		dict<std::pair<std::string, std::string>, int> vcd_reg_widths;
 		if (!vcd_filename.empty()) {
-			if (scope.empty()) {
-				log_error("No scope provided. Use -scope option.\n");
-			}
 			log("Reading VCD file: %s\n", vcd_filename.c_str());
 			try {
 				FstData fst(vcd_filename);
+				if (scope.empty()) {
+					scope = fst.autoScope(topmod);
+					if (scope.empty()) {
+						log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
+							RTLIL::unescape_id(topmod->name).c_str());
+					}
+				}
+				log("Using scope: \"%s\"\n", scope.c_str());
 				for (auto &var : fst.getVars()) {
 					if (var.is_reg) {
 						std::string reg_vcd_scope = var.scope;
@@ -223,9 +233,6 @@ struct RegRenamePass : public Pass {
 		}
 
 		// STEP 2: Build hierarchy and process
-		Module *topmod = design->top_module();
-		if (!topmod)
-			log_error("No top module found!\n");
 		log("Building hierarchy from scope: %s\n", scope.c_str());
 
 		// Build hierarchy and process register renamings

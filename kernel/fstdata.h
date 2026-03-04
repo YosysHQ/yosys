@@ -57,6 +57,7 @@ class FstData
 	dict<int,fstHandle> getMemoryHandles(std::string name);
 	double getTimescale() { return timescale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
+	std::string autoScope(Module *topmod);
 private:
 	void extractVarNames();
 

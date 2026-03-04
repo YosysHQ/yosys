@@ -374,3 +374,87 @@ std::string FstData::valueOf(fstHandle signal)
 	}
 	return past_data[signal];
 }
+
+// Auto-discover scope from FST by finding the top module
+std::string FstData::autoScope(Module *topmod) {	
+
+	log("Auto-discovering scope from file...\n");
+	std::string top = RTLIL::unescape_id(topmod->name);
+
+	log("Available scopes:\n");
+	std::set<std::string> unique_scopes;
+	for (const auto& var : vars) {
+		unique_scopes.insert(var.scope);
+	}
+	for (const auto& scope : unique_scopes) {
+		log("  %s\n", scope.c_str());
+	}
+
+	// Option 1 - Instance based scope matching
+	// Will fail if the DUT instance name != the top module name
+	log("Trying instance-based scope matching...\n");
+	for (const auto& var : vars) {
+		// Check if this scope ends with our top module
+		log_debug("Checking scope: %s\n", var.scope.c_str());
+		if (var.scope == top || 
+			var.scope.find("." + top) != std::string::npos) {
+			// Extract the full path up to (and including) the top module
+			size_t pos = var.scope.find(top);
+			if (pos != std::string::npos) {
+				std::string scope = var.scope.substr(0, pos + top.length());
+				return scope;
+			}
+		}
+	}
+
+	// Option 2 - Port based scope matching
+	// Matches based on exact port name matching of the top module
+	log("Trying port-based scope matching...\n");
+
+	// Map top module port name to their bit widths (RTL reference point)
+	dict<std::string, int> top2widths;
+	for (auto wire : topmod->wires()) {
+		if (wire->port_input || wire->port_output) {
+			top2widths[RTLIL::unescape_id(wire->name)] = wire->width;
+		}
+	}
+	log("Extracted %d ports from top module\n", GetSize(top2widths));
+
+	// For each scope, track the number of matching ports
+	dict<std::string, int> scopes2matches;
+	for (const auto& var : vars) {
+
+		// Strip array '[]' notation from variable name
+		std::string var_name = var.name;
+		size_t bracket = var_name.find('[');
+		if (bracket != std::string::npos) {
+			var_name = var_name.substr(0, bracket);
+		}
+
+		// Check if this variable name matches one of our top module port names and width
+		if (top2widths.count(var_name) && top2widths[var_name] == var.width) {
+			scopes2matches[var.scope] += 1;
+		}
+	}
+
+	// Find scopes with exact matches
+	// If there is a tie, return the longest scope
+	std::string result = "";
+	for (const auto& entry : scopes2matches) {
+		int num_matches = entry.second;
+		if (num_matches == GetSize(top2widths)) {
+			std::string scope = entry.first;
+			if (result.empty() || scope.length() > result.length()) {
+				result = scope;
+			}
+		}
+	}
+	if (!result.empty()) {
+		return result;
+	}
+
+	// No match found
+	log_warning("Could not auto-discover scope for module '%s'...\n", 
+		RTLIL::unescape_id(topmod->name).c_str());
+	return "";
+}
