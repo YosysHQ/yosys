@@ -80,7 +80,7 @@ module LUT1(output O, input I0);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121;
+    (I0 => O) = 187;
   endspecify
 `endif
 endmodule
@@ -98,8 +98,8 @@ module LUT2(output O, input I0, I1);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121;
-    (I1 => O) = 121;
+    (I0 => O) = 187;
+    (I1 => O) = 176;
   endspecify
 `endif
 endmodule
@@ -119,9 +119,9 @@ module LUT3(output O, input I0, I1, I2);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121;
-    (I1 => O) = 121;
-    (I2 => O) = 121;
+    (I0 => O) = 249;
+    (I1 => O) = 238;
+    (I2 => O) = 227;
   endspecify
 `endif
 endmodule
@@ -143,10 +143,10 @@ module LUT4(output O, input I0, I1, I2, I3);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121;
-    (I1 => O) = 121;
-    (I2 => O) = 121;
-    (I3 => O) = 121;
+    (I0 => O) = 192;
+    (I1 => O) = 181;
+    (I2 => O) = 170;
+    (I3 => O) = 160;
   endspecify
 `endif
 endmodule
@@ -170,11 +170,11 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121;
-    (I1 => O) = 121;
-    (I2 => O) = 121;
-    (I3 => O) = 121;
-    (I4 => O) = 121;
+    (I0 => O) = 204;
+    (I1 => O) = 195;
+    (I2 => O) = 186;
+    (I3 => O) = 178;
+    (I4 => O) = 169;
   endspecify
 `endif
 endmodule
@@ -200,12 +200,12 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121;
-    (I1 => O) = 121;
-    (I2 => O) = 121;
-    (I3 => O) = 121;
-    (I4 => O) = 121;
-    (I5 => O) = 121;
+    (I0 => O) = 185;
+    (I1 => O) = 176;
+    (I2 => O) = 165;
+    (I3 => O) = 155;
+    (I4 => O) = 144;
+    (I5 => O) = 134;
   endspecify
 `endif
 endmodule
@@ -244,13 +244,13 @@ module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121 + 140 /* LUTMUX7.I0 */;
-    (I1 => O) = 121 + 140 /* LUTMUX7.I0 */;
-    (I2 => O) = 121 + 140 /* LUTMUX7.I0 */;
-    (I3 => O) = 121 + 140 /* LUTMUX7.I0 */;
-    (I4 => O) = 121 + 140 /* LUTMUX7.I0 */;
-    (I5 => O) = 121 + 140 /* LUTMUX7.I0 */;
-    (I6 => O) = 0   + 162 /* LUTMUX7.S */;
+    (I0 => O) = 185 + 210 /* LUTMUX7.I0 */;
+    (I1 => O) = 176 + 210 /* LUTMUX7.I0 */;
+    (I2 => O) = 165 + 210 /* LUTMUX7.I0 */;
+    (I3 => O) = 155 + 210 /* LUTMUX7.I0 */;
+    (I4 => O) = 144 + 210 /* LUTMUX7.I0 */;
+    (I5 => O) = 134 + 210 /* LUTMUX7.I0 */;
+    (I6 => O) = 0   + 188 /* LUTMUX7.S */;
   endspecify
 `endif
 `endif
@@ -275,14 +275,14 @@ module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 121 + 140 /* LUTMUX7.I0 */ + 146 /* LUTMUX8.I1 */;
-    (I1 => O) = 121 + 140 /* LUTMUX7.I0 */ + 146 /* LUTMUX8.I1 */;
-    (I2 => O) = 121 + 140 /* LUTMUX7.I0 */ + 146 /* LUTMUX8.I1 */;
-    (I3 => O) = 121 + 140 /* LUTMUX7.I0 */ + 146 /* LUTMUX8.I1 */;
-    (I4 => O) = 121 + 140 /* LUTMUX7.I0 */ + 146 /* LUTMUX8.I1 */;
-    (I5 => O) = 121 + 140 /* LUTMUX7.I0 */ + 146 /* LUTMUX8.I1 */;
-    (I6 => O) = 0   + 162 /* LUTMUX7.S */  + 146 /* LUTMUX8.I1 */;
-    (I7 => O) = 0   +   0                  + 181 /* LUTMUX8.S */;
+    (I0 => O) = 185 + 210 /* LUTMUX7.I0 */ + 155 /* LUTMUX8.I0 */;
+    (I1 => O) = 176 + 210 /* LUTMUX7.I0 */ + 155 /* LUTMUX8.I0 */;
+    (I2 => O) = 165 + 210 /* LUTMUX7.I0 */ + 155 /* LUTMUX8.I0 */;
+    (I3 => O) = 155 + 210 /* LUTMUX7.I0 */ + 155 /* LUTMUX8.I0 */;
+    (I4 => O) = 144 + 210 /* LUTMUX7.I0 */ + 155 /* LUTMUX8.I0 */;
+    (I5 => O) = 134 + 210 /* LUTMUX7.I0 */ + 155 /* LUTMUX8.I0 */;
+    (I6 => O) = 0   + 188 /* LUTMUX7.S */  + 155 /* LUTMUX8.I0 */;
+    (I7 => O) = 0   +   0                  + 193 /* LUTMUX8.S */;
   endspecify
 `endif
 `endif
@@ -300,9 +300,9 @@ module LUTMUX7(output O, input I0, I1, S);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 140;
-    (I1 => O) = 140;
-    (S => O) = 162;
+    (I0 => O) = 210;
+    (I1 => O) = 182;
+    (S => O) = 188;
   endspecify
 `endif
 endmodule
@@ -319,9 +319,9 @@ module LUTMUX8(output O, input I0, I1, S);
 `endif
 `ifdef IS_T40LP
   specify
-    (I0 => O) = 140;
-    (I1 => O) = 146;
-    (S => O) = 181;
+    (I0 => O) = 155;
+    (I1 => O) = 147;
+    (S => O) = 193;
   endspecify
 `endif
 endmodule
@@ -562,11 +562,11 @@ module FFSE (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , posedge C, 119);
-    $setup(CE, posedge C, 385);
-    $setup(S , posedge C, 565);
-    if (S)        (posedge C => (Q : 1'b1)) = 672;
-    if (!S && CE) (posedge C => (Q : D)) = 672;
+    $setup(D , posedge C, 144);
+    $setup(CE, posedge C, 412);
+    $setup(S , posedge C, 689);
+    if (S)        (posedge C => (Q : 1'b1)) = 693;
+    if (!S && CE) (posedge C => (Q : D)) = 693;
   endspecify
 `endif
 endmodule
@@ -594,11 +594,11 @@ module FFSE_N (
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , negedge C, 119);
-    $setup(CE, negedge C, 385);
-    $setup(S , negedge C, 565);
-    if (S)        (negedge C => (Q : 1'b1)) = 672;
-    if (!S && CE) (negedge C => (Q : D)) = 672;
+    $setup(D , negedge C, 144);
+    $setup(CE, negedge C, 412);
+    $setup(S , negedge C, 689);
+    if (S)        (negedge C => (Q : 1'b1)) = 693;
+    if (!S && CE) (negedge C => (Q : D)) = 693;
   endspecify
 `endif
 endmodule
