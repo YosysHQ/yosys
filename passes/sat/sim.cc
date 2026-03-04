@@ -2533,19 +2533,24 @@ struct AnnotateActivity : public OutputWriter {
 		}
 
 		// Compute clock period, find the highest toggling signal and compute its average period
+		double clk_period;
 		SignalActivityDataMap::iterator itr = dataMap.find(clk);
-		std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
-		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
+		if (itr == dataMap.end()) { // if clock signal can't be identified, set frequency to 1GHz
+			log_warning("Clock signal not found, setting frequency to 1GHz...\n");
+			clk_period = 1.0 / 1.0e9;
+		} else {
+			std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
+			clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
+		}
+		log_flush();
+
 		double frequency = 1.0 / clk_period;
-		double density = clktoggleCounts[0] / (real_timescale * (double)max_time);
-		worker->top->module->set_string_attribute("$DENSITY", std::to_string(density));
 		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
 		worker->top->module->set_string_attribute("$DURATION", std::to_string(max_time));
 		std::stringstream ss;
 		ss << std::setprecision(4) << real_timescale;
 		worker->top->module->set_string_attribute("$TIMESCALE", ss.str());
 		if (worker->debug) {
-			log_debug("Clock toggle count: %f", clktoggleCounts[0]);
 			log_debug("Max time: %d", max_time);
 			log_debug("Clock period: %f", clk_period);
 			log_debug("Frequency: %f", frequency);
