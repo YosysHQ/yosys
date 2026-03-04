@@ -224,6 +224,8 @@ struct ClockgatePass : public Pass {
 		log("        Only transform sets of at least <n> eligible FFs.\n");
 		log("    -max_src <n>\n");
 		log("        Maximum number of src attributes to copy to ICG cells (default: unlimited).\n");
+		log("    -word\n");
+		log("        Use word-level $not cell for CE inversion instead of gate-level $_NOT_.\n");
 		log("        \n");
 	}
 
@@ -279,6 +281,7 @@ struct ClockgatePass : public Pass {
 		std::vector<std::string> dont_use_cells;
 		int min_net_size = 0;
 		int max_src = -1;
+		bool word_level = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -312,6 +315,10 @@ struct ClockgatePass : public Pass {
 			}
 			if (args[argidx] == "-max_src" && argidx+1 < args.size()) {
 				max_src = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-word") {
+				word_level = true;
 				continue;
 			}
 			break;
@@ -395,9 +402,19 @@ struct ClockgatePass : public Pass {
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
 					Wire *ce_not_wire = module->addWire(NEW_ID2_SUFFIX("ce_not_w"));
-					Cell *ce_not = module->addCell(NEW_ID2_SUFFIX("ce_not"), ID($_NOT_));
-					ce_not->setPort(ID::A, clk.ce_bit);
-					ce_not->setPort(ID::Y, ce_not_wire);
+					Cell *ce_not;
+					if (word_level) {
+						ce_not = module->addCell(NEW_ID2_SUFFIX("ce_not"), ID($not));
+						ce_not->setParam(ID::A_SIGNED, 0);
+						ce_not->setParam(ID::A_WIDTH, 1);
+						ce_not->setParam(ID::Y_WIDTH, 1);
+						ce_not->setPort(ID::A, clk.ce_bit);
+						ce_not->setPort(ID::Y, ce_not_wire);
+					} else {
+						ce_not = module->addCell(NEW_ID2_SUFFIX("ce_not"), ID($_NOT_));
+						ce_not->setPort(ID::A, clk.ce_bit);
+						ce_not->setPort(ID::Y, ce_not_wire);
+					}
 					gclk.ce_not_cell = ce_not;
 					icg->setPort(matching_icg_desc->ce_pin, ce_not_wire);
 				}
