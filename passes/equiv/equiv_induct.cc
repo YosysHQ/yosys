@@ -174,7 +174,7 @@ struct EquivInductPass : public Pass {
 		log("Only selected $equiv cells are proven and only selected cells are used to\n");
 		log("perform the proof.\n");
 		log("\n");
-		EquivBasicConfig::help("4");
+		log("%s", EquivBasicConfig::help("4"));
 		log("\n");
 		log("This command is very effective in proving complex sequential circuits, when\n");
 		log("the internal state of the circuit quickly propagates to $equiv cells.\n");
