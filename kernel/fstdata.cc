@@ -375,6 +375,27 @@ std::string FstData::valueOf(fstHandle signal)
 	return past_data[signal];
 }
 
+int FstData::getWidth(fstHandle signal)
+{
+	// Check if signal is a fork scope (struct)
+	if (fork_scope_members.count(signal)) {
+		// Sum the widths of all members of the fork scope, which may be forks themselves
+		int width = 0;
+		for (fstHandle member : fork_scope_members[signal]) {
+			width += getWidth(member);
+		}
+		return width;
+	}
+
+	if (handle_to_var.count(signal)) {
+		return handle_to_var[signal].width;
+	}
+	
+	// Signal not found
+	log_warning("Signal %d was not extracted from file...\n", signal);
+	return 0;
+}
+
 // Auto-discover scope from FST by finding the top module
 std::string FstData::autoScope(Module *topmod) {	
 
@@ -422,18 +443,27 @@ std::string FstData::autoScope(Module *topmod) {
 
 	// For each scope, track the number of matching ports
 	dict<std::string, int> scopes2matches;
-	for (const auto& var : vars) {
 
-		// Strip array '[]' notation from variable name
-		std::string var_name = var.name;
-		size_t bracket = var_name.find('[');
-		if (bracket != std::string::npos) {
-			var_name = var_name.substr(0, bracket);
-		}
+	// Use name_to_handle to get all signals from the FST file
+	for (auto entry : name_to_handle) {
+		std::string name = entry.first;
+		fstHandle handle = entry.second;
 
-		// Check if this variable name matches one of our top module port names and width
-		if (top2widths.count(var_name) && top2widths[var_name] == var.width) {
-			scopes2matches[var.scope] += 1;
+		// Extract signal name and scope using '.'
+		// Signal names of form '{scope}.signal_name' with scope potentially
+		// having zero to multiple '.'
+		size_t last_dot = name.find_last_of('.');
+		if (last_dot != std::string::npos) { // no '.' means no scope/signal extraction is possible
+			std::string scope = name.substr(0, last_dot);
+			std::string signal_name = name.substr(last_dot + 1);
+			
+			// Check that signal is in the top module and width matches
+			if (top2widths.count(signal_name)) {
+				int signal_width = getWidth(handle);
+				if (signal_width == top2widths[signal_name]) {
+					scopes2matches[scope]++;
+				}
+			}
 		}
 	}
 
