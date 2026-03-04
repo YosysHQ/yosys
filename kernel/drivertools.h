@@ -25,7 +25,7 @@
 
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -1093,10 +1093,10 @@ private:
 
 struct DriverMap
 {
-	CellTypes celltypes;
+	NewCellTypes celltypes;
 
 	DriverMap() { celltypes.setup(); }
-	DriverMap(Design *design) { celltypes.setup(); celltypes.setup_design(design); }
+	DriverMap(Design *design) { celltypes.setup(design); }
 
 private:
 
