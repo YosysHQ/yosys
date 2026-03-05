@@ -21,6 +21,7 @@
 #define CELLTYPES_H
 
 #include "kernel/yosys.h"
+#include "kernel/newcelltypes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
