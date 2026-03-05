@@ -31,7 +31,7 @@ void rmunused_module(RTLIL::Module *module, bool rminit, CleanRunContext &clean_
 
 	// Use no more than one worker per thousand cells, rounded down, so
 	// we only start multithreading with at least 2000 cells.
-	int num_worker_threads = ThreadPool::work_pool_size(0, module->cells_size(), 1000);
+	int num_worker_threads = ThreadPool::work_pool_size(0, module->cells_size(), 10000);
 	ParallelDispatchThreadPool::Subpool subpool(clean_ctx.thread_pool, num_worker_threads);
 	remove_temporary_cells(module, subpool, clean_ctx.flags.verbose);
 	rmunused_module_cells(module, subpool, clean_ctx);

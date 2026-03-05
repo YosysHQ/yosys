@@ -64,7 +64,7 @@ private:
 		int thread_pool_size = 0;
 		for (auto module : selected_modules)
 			thread_pool_size = std::max(thread_pool_size,
-				ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+				ThreadPool::work_pool_size(0, module->cells_size(), 10000));
 		return thread_pool_size;
 	}
 
