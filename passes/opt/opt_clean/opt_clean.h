@@ -55,33 +55,22 @@ struct CleanRunContext {
 	NewCellTypes ct_all;
 	RmStats stats;
 	ParallelDispatchThreadPool thread_pool;
-	std::vector<RTLIL::Module*> selected_modules;
 	KeepCache keep_cache;
 	Flags flags;
 
 private:
 	// Helper to compute thread pool size
-	static int compute_thread_pool_size(RTLIL::Design* design) {
+	static int compute_thread_pool_size(const std::vector<RTLIL::Module*>& selected_modules) {
 		int thread_pool_size = 0;
-		for (auto module : design->selected_unboxed_whole_modules())
-			if (!module->has_processes())
-				thread_pool_size = std::max(thread_pool_size,
-					ThreadPool::work_pool_size(0, module->cells_size(), 1000));
+		for (auto module : selected_modules)
+			thread_pool_size = std::max(thread_pool_size,
+				ThreadPool::work_pool_size(0, module->cells_size(), 1000));
 		return thread_pool_size;
 	}
 
-	static std::vector<RTLIL::Module*> get_selected_modules(RTLIL::Design* design) {
-		std::vector<RTLIL::Module*> modules;
-		for (auto module : design->selected_unboxed_whole_modules())
-			if (!module->has_processes())
-				modules.push_back(module);
-		return modules;
-	}
-
 public:
-	CleanRunContext(RTLIL::Design* design, Flags f)
-		: thread_pool(compute_thread_pool_size(design)),
-		selected_modules(get_selected_modules(design)),
+	CleanRunContext(RTLIL::Design* design, const std::vector<RTLIL::Module*>& selected_modules, Flags f)
+		: thread_pool(compute_thread_pool_size(selected_modules)),
 		keep_cache(f.purge, thread_pool, selected_modules),
 		flags(f)
 	{
