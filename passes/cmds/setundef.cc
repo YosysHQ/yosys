@@ -417,6 +417,9 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
+							if (!design->selected(module, wire))
+									continue;
+
 							if (!wire->attributes.count(ID::init))
 								continue;
 
@@ -446,6 +449,9 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
+							if (!design->selected(module, wire))
+									continue;
+
 							for (auto bit : sigmap(wire))
 								if (!ffbits.count(bit))
 									goto next_wire;
@@ -466,6 +472,9 @@ struct SetundefPass : public Pass {
 						{
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
+
+							if (!design->selected(module, wire))
+									continue;
 
 							for (auto bit : sigmap(wire))
 								if (ffbits.count(bit))
@@ -505,8 +514,8 @@ struct SetundefPass : public Pass {
 			for (auto cell : module->selected_cells())
 				if (!cell->get_bool_attribute(ID::xprop_decoder))
 					cell->rewrite_sigspecs(worker);
-			for (auto &it : module->selected_processes())
-				it->rewrite_sigspecs(worker);
+			for (auto proc : module->selected_processes())
+				proc->rewrite_sigspecs(worker);
 			for (auto &it : module->connections_) {
 				SigSpec lhs = it.first;
 				bool selected = false;
