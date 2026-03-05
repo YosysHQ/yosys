@@ -23,6 +23,8 @@
 // http://fmv.jku.at/papers/Biere-FMV-TR-07-1.pdf
 
 // https://stackoverflow.com/a/46137633
+#include "kernel/rtlil.h"
+#include <deque>
 #ifdef _MSC_VER
 #include <stdlib.h>
 #define __builtin_bswap32 _byteswap_ulong
@@ -128,8 +130,9 @@ struct ConstEvalAig
 	void compute_deps(RTLIL::SigBit output, const pool<RTLIL::SigBit> &inputs)
 	{
 		sig2deps[output].insert(output);
-
 		RTLIL::Cell *cell = sig2driver.at(output);
+		if (cell->type == ID($lut))
+			return;
 		RTLIL::SigBit sig_a = cell->getPort(ID::A);
 		sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size()); // Reserve so that any invalidation
 											   // that may occur does so here, and
@@ -348,7 +351,7 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
 	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) return wire;
-	log_debug2("Creating %s\n", wire_name.c_str());
+	log_debug("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
@@ -358,12 +361,12 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 		if (module->cell(wire_inv_name)) return wire;
 	}
 	else {
-		log_debug2("Creating %s\n", wire_inv_name.c_str());
+		log_debug("Creating %s\n", wire_inv_name.c_str());
 		wire_inv = module->addWire(wire_inv_name);
 		wire_inv->port_input = wire_inv->port_output = false;
 	}
 
-	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
+	log_debug("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
 	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), wire_inv, wire);
 
 	return wire;
@@ -421,44 +424,102 @@ void AigerReader::parse_xaiger()
 			uint32_t lutSize = parse_xaiger_literal(f);
 			log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
 			ConstEvalAig ce(module);
-			for (unsigned i = 0; i < lutNum; ++i) {
-				uint32_t rootNodeID = parse_xaiger_literal(f);
-				uint32_t cutLeavesM = parse_xaiger_literal(f);
-				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-				RTLIL::Wire *output_sig = module->wire(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID));
-				log_assert(output_sig);
-				uint32_t nodeID;
-				RTLIL::SigSpec input_sig;
-				for (unsigned j = 0; j < cutLeavesM; ++j) {
-					nodeID = parse_xaiger_literal(f);
-					log_debug2("\t%u\n", nodeID);
-					if (nodeID == 0) {
-						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
-						continue;
+			struct Lut {
+				std::string name;
+				uint32_t output;
+				std::vector<uint32_t> inputs;
+				bool processed = false;
+
+				void process(ConstEvalAig& ce, std::vector<Lut>& luts, const std::vector<std::unordered_set<size_t>>& parents, int aiger_autoidx, Module* module) {
+					if (processed) {
+						return;
 					}
-					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
-					log_assert(wire);
-					input_sig.append(wire);
+					if (output < parents.size()) {
+						for (auto parent : parents[output]) {
+							if (!parent)
+								continue;
+							luts[parent].process(ce, luts, parents, aiger_autoidx, module);
+						}
+					}
+					processed = true;
+					log_debug("Processing %d\n", output);
+
+					SigSpec input_sig;
+					for (auto input : inputs) {
+						log_debug("\t%u\n", input);
+						if (input == 0) {
+							log_debug("\tLUT '$lut%s' input %d is constant!\n", name, input);
+							continue;
+						}
+						RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, input));
+						log_assert(wire);
+						input_sig.append(wire);
+					}
+					// Reverse input order as fastest input is returned first
+					input_sig.reverse();
+					RTLIL::Wire *output_wire = module->wire(name);
+					log_assert(output_wire);
+					log_assert(output_wire->width == 1);
+					// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
+					ce.clear();
+					ce.compute_deps(output_wire, input_sig.to_sigbit_pool());
+					RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << GetSize(input_sig));
+					for (int j = 0; j < GetSize(lut_mask); ++j) {
+						int gray = j ^ (j >> 1);
+						ce.set_incremental(input_sig, RTLIL::Const{gray, GetSize(input_sig)});
+						RTLIL::SigBit o(output_wire);
+						bool success = ce.eval(o);
+						log_assert(success);
+						log_assert(o.wire == nullptr);
+						lut_mask.set(gray, o.data);
+					}
+					RTLIL::Cell *output_cell = module->cell(stringf("$and%s", name));
+					log_assert(output_cell);
+					module->remove(output_cell);
+					module->addLut(stringf("$lut%s", name), input_sig, output_wire, std::move(lut_mask));
 				}
-				// Reverse input order as fastest input is returned first
-				input_sig.reverse();
-				// TODO: Compute LUT mask from AIG in less than O(2 ** input_sig.size())
-				ce.clear();
-				ce.compute_deps(output_sig, input_sig.to_sigbit_pool());
-				RTLIL::Const lut_mask(RTLIL::State::Sx, 1 << GetSize(input_sig));
-				for (int j = 0; j < GetSize(lut_mask); ++j) {
-					int gray = j ^ (j >> 1);
-					ce.set_incremental(input_sig, RTLIL::Const{gray, GetSize(input_sig)});
-					RTLIL::SigBit o(output_sig);
-					bool success = ce.eval(o);
-					log_assert(success);
-					log_assert(o.wire == nullptr);
-					lut_mask.set(gray, o.data);
+			};
+			std::vector<Lut> luts;
+			std::vector<std::unordered_set<size_t>> parents;
+			std::unordered_map<size_t, std::optional<size_t>> remap;
+			for (unsigned i = 0; i < lutNum; ++i) {
+				Lut lut {};
+				lut.output = parse_xaiger_literal(f);
+				lut.name = stringf("$aiger%d$%d", aiger_autoidx, lut.output);
+				uint32_t cutLeavesM = parse_xaiger_literal(f);
+				log_debug("output=%d cutLeavesM=%d\n", lut.output, cutLeavesM);
+				RTLIL::Wire *output_wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, lut.output));
+				log_assert(output_wire);
+				size_t lut_idx = luts.size();
+				remap[lut_idx] = lut.output;
+				for (unsigned j = 0; j < cutLeavesM; ++j) {
+					uint32_t nodeID = parse_xaiger_literal(f);
+					log_debug("\t%d\n", nodeID);
+					lut.inputs.push_back(nodeID);
+					while (parents.size() < nodeID + 1)
+					 	parents.push_back({});
+					parents[nodeID].insert(lut_idx);
 				}
-				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
-				log_assert(output_cell);
-				module->remove(output_cell);
-				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				luts.push_back(lut);
+			}
+			for (size_t i = 0; i < luts.size(); i++) {
+				auto output = luts[i].output;
+				std::unordered_set<size_t> old_parents;
+				if (output < parents.size()) {
+					for (size_t parent : parents[output]) {
+						old_parents.insert(parent);
+					}
+
+				}
+				parents[i].clear();
+				for (auto parent : old_parents) {
+					if (remap[parent]) {
+						parents[i].insert(*remap[parent]);
+					}
+				}
+			}
+			for (auto lut : luts) {
+				lut.process(ce, luts, parents, aiger_autoidx, module);
 			}
 		}
 		else if (c == 'r') {
@@ -535,7 +596,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
-		log_debug2("%d is an input\n", l1);
+		log_debug("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
 		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, l1 >> 1));
 		wire->port_input = true;
@@ -548,7 +609,7 @@ void AigerReader::parse_aiger_ascii()
 	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug2("Creating %s\n", clk_name.c_str());
+		log_debug("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -557,7 +618,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
-		log_debug2("%d %d is a latch\n", l1, l2);
+		log_debug("%d %d is a latch\n", l1, l2);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
 		module->connect(createWireIfNotExists(module, l1), q_wire);
@@ -597,7 +658,7 @@ void AigerReader::parse_aiger_ascii()
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
-		log_debug2("%d is an output\n", l1);
+		log_debug("%d is an output\n", l1);
 		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
 		wire->port_output = true;
 		module->connect(wire, createWireIfNotExists(module, l1));
@@ -610,7 +671,7 @@ void AigerReader::parse_aiger_ascii()
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
-		log_debug2("%d is a bad state property\n", l1);
+		log_debug("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
@@ -634,7 +695,7 @@ void AigerReader::parse_aiger_ascii()
 			log_error("Line %u cannot be interpreted as an AND!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
-		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
+		log_debug("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
@@ -663,7 +724,7 @@ void AigerReader::parse_aiger_binary()
 	// Parse inputs
 	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i) {
-		log_debug2("%d is an input\n", i);
+		log_debug("%d is an input\n", i);
 		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, i));
 		wire->port_input = true;
 		module->connect(createWireIfNotExists(module, i << 1), wire);
@@ -675,7 +736,7 @@ void AigerReader::parse_aiger_binary()
 	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug2("Creating %s\n", clk_name.c_str());
+		log_debug("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -724,7 +785,7 @@ void AigerReader::parse_aiger_binary()
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
-		log_debug2("%d is an output\n", l1);
+		log_debug("%d is an output\n", l1);
 		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
 		wire->port_output = true;
 		module->connect(wire, createWireIfNotExists(module, l1));
@@ -737,7 +798,7 @@ void AigerReader::parse_aiger_binary()
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
-		log_debug2("%d is a bad state property\n", l1);
+		log_debug("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
@@ -761,7 +822,7 @@ void AigerReader::parse_aiger_binary()
 		l2 = parse_next_delta_literal(f, l1);
 		l3 = parse_next_delta_literal(f, l2);
 
-		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
+		log_debug("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
 		RTLIL::Wire *o_wire = createWireIfNotExists(module, l1);
 		RTLIL::Wire *i1_wire = createWireIfNotExists(module, l2);
