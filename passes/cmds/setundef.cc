@@ -505,9 +505,8 @@ struct SetundefPass : public Pass {
 			for (auto cell : module->selected_cells())
 				if (!cell->get_bool_attribute(ID::xprop_decoder))
 					cell->rewrite_sigspecs(worker);
-			for (auto &it : module->processes)
-				if (module->selected(it.second))
-					it.second->rewrite_sigspecs(worker);
+			for (auto &it : module->selected_processes())
+				it.second->rewrite_sigspecs(worker);
 			for (auto &it : module->connections_) {
 				SigSpec lhs = it.first;
 				bool selected = false;
