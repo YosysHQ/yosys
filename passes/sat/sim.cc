@@ -1475,11 +1475,12 @@ struct SimWorker : SimShared
 		fst = new FstData(sim_filename);
 		timescale = fst->getTimescaleString();
 		if (scope.empty()) {
-			scope = fst->autoScope(topmod);
-			if (scope.empty()) {
+			scopes = fst->autoScope(topmod);
+			if (scopes.empty()) {
 				log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
 					RTLIL::unescape_id(topmod->name).c_str());
 			}
+			scope = scopes[0]; // Use the first scope found by default
 		}
 		log("Using scope: \"%s\"\n", scope.c_str());
 
