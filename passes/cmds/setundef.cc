@@ -310,6 +310,8 @@ struct SetundefPass : public Pass {
 
 					RTLIL::SigSpec sig = undriven_signals.export_all();
 					for (auto &c : sig.chunks()) {
+						if (!design->selected(module, c.wire))
+							continue;
 						RTLIL::Wire * wire;
 						if (c.wire->width == c.width) {
 							wire = c.wire;
@@ -343,6 +345,8 @@ struct SetundefPass : public Pass {
 
 					RTLIL::SigSpec sig = undriven_signals.export_all();
 					for (auto &c : sig.chunks()) {
+						if (!design->selected(module, c.wire))
+							continue;
 						RTLIL::SigSpec bits;
 						if (worker.next_bit_mode == MODE_ANYSEQ)
 							bits = module->Anyseq(NEW_ID, c.width);
