@@ -410,7 +410,7 @@ std::string FstData::autoScope(Module *topmod) {
 			top2widths[RTLIL::unescape_id(wire->name)] = wire->width;
 		}
 	}
-	log("Extracted %d ports from top module\n", GetSize(top2widths));
+	log("Extracted %d ports from module '%s'\n", GetSize(top2widths), top);
 
 	// For each scope, track the number of matching ports
 	dict<std::string, int> scopes2matches;
@@ -449,16 +449,16 @@ std::string FstData::autoScope(Module *topmod) {
 	}
 	if (results.empty()) {
 		log_warning("Could not auto-discover scope for module '%s'...\n", 
-			RTLIL::unescape_id(topmod->name).c_str());
+			top);
 		return "";
 	} else {
-		log("Found %d scopes for module '%s':\n", GetSize(results), RTLIL::unescape_id(topmod->name).c_str());
+		log("Found %d scopes for module '%s':\n", GetSize(results), top);
 		for (const auto& scope : results) {
 			log("  %s\n", scope.c_str());
 		}
 		if (results.size() > 1) {
 			log_warning("Multiple scopes found for module '%s'. Using the first one.\n", 
-				RTLIL::unescape_id(topmod->name).c_str());
+				top);
 		}
 		std::string scope = results[0];
 	}
