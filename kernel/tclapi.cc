@@ -279,7 +279,7 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		ERROR("object not found")
 
 	if (string_flag) {
-		Tcl_SetResult(interp, (char *) obj->get_string_attribute(attr_id).c_str(), TCL_VOLATILE);
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->get_string_attribute(attr_id).c_str(), -1));
 	} else if (int_flag || uint_flag || sint_flag) {
 		if (!obj->has_attribute(attr_id))
 			ERROR("attribute missing (required for -int)");
@@ -295,7 +295,7 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		if (!obj->has_attribute(attr_id))
 			ERROR("attribute missing (required unless -bool or -string)")
 
-		Tcl_SetResult(interp, (char *) obj->attributes.at(attr_id).as_string().c_str(), TCL_VOLATILE);
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->attributes.at(attr_id).as_string().c_str(), -1));
 	}
 
 	return TCL_OK;
@@ -341,7 +341,7 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (!obj)
 		ERROR("object not found")
 
-	Tcl_SetResult(interp, (char *) std::to_string(obj->has_attribute(attr_id)).c_str(), TCL_VOLATILE);
+	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(obj->has_attribute(attr_id)).c_str(), -1));
 	return TCL_OK;
 }
 
@@ -465,14 +465,14 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 	const RTLIL::Const &value = cell->getParam(param_id);
 
 	if (string_flag) {
-		Tcl_SetResult(interp, (char *) value.decode_string().c_str(), TCL_VOLATILE);
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(value.decode_string().c_str(), -1));
 	} else if (int_flag || uint_flag || sint_flag) {
 		mp_int value_mp;
 		if (!const_to_mp_int(value, &value_mp, sint_flag, uint_flag))
 			ERROR("bignum manipulation failed");
 		Tcl_SetObjResult(interp, Tcl_NewBignumObj(&value_mp));
 	} else {
-		Tcl_SetResult(interp, (char *) value.as_string().c_str(), TCL_VOLATILE);
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(value.as_string().c_str(), -1));
 	}
 	return TCL_OK;
 }
