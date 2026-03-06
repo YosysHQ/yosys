@@ -1475,7 +1475,7 @@ struct SimWorker : SimShared
 		fst = new FstData(sim_filename);
 		timescale = fst->getTimescaleString();
 		if (scope.empty()) {
-			scopes = fst->autoScope(topmod);
+			std::vector<std::string> scopes = fst->autoScope(topmod);
 			if (scopes.empty()) {
 				log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
 					RTLIL::unescape_id(topmod->name).c_str());
