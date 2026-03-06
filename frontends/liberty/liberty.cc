@@ -213,7 +213,6 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
 	const std::string name = RTLIL::unescape_id(module->name);
 
-	bool clear_preset_reported = false;
 	std::optional<char> clear_preset_var1;
 	std::optional<char> clear_preset_var2;
 	for (auto child : node->children) {
@@ -233,12 +232,6 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 				*var = child->value[0];
 			}
 
-	}
-	if (clear_preset_var1 == 'X' || clear_preset_var2 == 'X') {
-		if (!clear_preset_reported) {
-			log_warning("FF cell %s has well-defined clear&preset behavior, but Yosys models it as undefined\n", name);
-			clear_preset_reported = true;
-		}
 	}
 
 	if (clk_sig.size() == 0 || data_sig.size() == 0)
@@ -843,4 +836,5 @@ skip_cell:;
 } LibertyFrontend;
 
 YOSYS_NAMESPACE_END
+
 
