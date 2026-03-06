@@ -763,6 +763,9 @@ include $(YOSYS_SRC)/passes/silimate/Makefile.inc
 
 OBJS += passes/sat/recover_names.o
 OBJS += passes/sat/sim.o
+OBJS += passes/sat/sat.o
+OBJS += passes/sat/miter.o
+OBJS += passes/sat/async2sync.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
 OBJS += passes/techmap/alumacc.o
@@ -773,6 +776,7 @@ OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/clockgate.o
+OBJS += passes/techmap/dffunmap.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
