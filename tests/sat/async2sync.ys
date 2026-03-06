@@ -1,0 +1,11 @@
+read_verilog << EOT
+module top(input clk, arst, d, output reg q);
+  always @(posedge clk or posedge arst)
+    if (arst) q <= 0;
+    else q <= d;
+endmodule
+EOT
+proc
+async2sync
+dump w:\$auto\$async2sync*
+

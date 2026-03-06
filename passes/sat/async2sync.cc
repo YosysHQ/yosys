@@ -153,7 +153,10 @@ struct Async2syncPass : public Pass {
 						initvals.remove_init(ff.sig_q);
 
 						Wire *new_d = module->addWire(NEW_ID, ff.width);
+						new_d->set_src_attribute(cell->get_src_attribute());
+
 						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						new_q->set_src_attribute(cell->get_src_attribute());
 
 						SigSpec sig_set = ff.sig_set;
 						SigSpec sig_clr = ff.sig_clr;
@@ -199,7 +202,10 @@ struct Async2syncPass : public Pass {
 						initvals.remove_init(ff.sig_q);
 
 						Wire *new_d = module->addWire(NEW_ID, ff.width);
+						new_d->set_src_attribute(cell->get_src_attribute());
+
 						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						new_q->set_src_attribute(cell->get_src_attribute());
 
 						if (ff.pol_aload) {
 							if (!ff.is_fine) {
@@ -232,6 +238,7 @@ struct Async2syncPass : public Pass {
 						initvals.remove_init(ff.sig_q);
 
 						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						new_q->set_src_attribute(cell->get_src_attribute());
 
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
@@ -266,10 +273,13 @@ struct Async2syncPass : public Pass {
 					initvals.remove_init(ff.sig_q);
 
 					Wire *new_q = module->addWire(NEW_ID, ff.width);
+					new_q->set_src_attribute(cell->get_src_attribute());
+
 					Wire *new_d;
 
 					if (ff.has_aload) {
 						new_d = module->addWire(NEW_ID, ff.width);
+						new_d->set_src_attribute(cell->get_src_attribute());
 						if (ff.pol_aload) {
 							if (!ff.is_fine)
 								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
