@@ -23,7 +23,7 @@ EOF
 
 read_verilog -lib +/ecp5/cells_sim.v
 
-equiv_opt -assert -map +/ecp5/cells_sim.v opt_lut_ins -tech ecp5
+equiv_opt -assert -map +/ecp5/cells_sim.v opt_lut_ins -tech lattice
 
 design -load postopt
 
