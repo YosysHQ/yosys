@@ -58,7 +58,7 @@ class FstData
 	double getTimescale() { return timescale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
 	int getWidth(fstHandle signal);
-	std::vector<std::string> autoScope(Module *topmod);
+	std::string autoScope(Module *topmod);
 private:
 	void extractVarNames();
 

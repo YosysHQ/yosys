@@ -397,7 +397,7 @@ int FstData::getWidth(fstHandle signal)
 }
 
 // Auto-discover scope from FST by finding the top module
-std::vector<std::string> FstData::autoScope(Module *topmod) {	
+std::string FstData::autoScope(Module *topmod) {
 
 	log("Auto-discovering scopes from file...\n");
 	std::string top = RTLIL::unescape_id(topmod->name);
@@ -449,11 +449,17 @@ std::vector<std::string> FstData::autoScope(Module *topmod) {
 	if (results.empty()) {
 		log_warning("Could not auto-discover scope for module '%s'...\n", 
 			RTLIL::unescape_id(topmod->name).c_str());
+		return "";
 	} else {
 		log("Found %d scopes for module '%s':\n", GetSize(results), RTLIL::unescape_id(topmod->name).c_str());
 		for (const auto& scope : results) {
 			log("  %s\n", scope.c_str());
 		}
+		if (results.size() > 1) {
+			log_warning("Multiple scopes found for module '%s'. Using the first one.\n", 
+				RTLIL::unescape_id(topmod->name).c_str());
+		}
+		std::string scope = results[0];
 	}
-	return results;
+	return scope;
 }
