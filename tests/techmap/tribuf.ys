@@ -1,0 +1,15 @@
+read_verilog << EOT
+module tribuf_nested_simple(input [3:0] in1, input [3:0] in2, input [3:0] in3, input sel1, input sel2, input sel3, output [3:0] out1);
+  assign out1 = (sel1) ? in1 : ((sel2) ? in2 : 4'bzzzz);
+  assign out1 = (sel3) ? in3 : 4'bzzzz;
+endmodule
+
+EOT
+
+opt_clean
+tribuf -merge -nested
+
+# -assert ensures that we won't have
+# multiple drivers (as the first mux is recognized correctly).
+check -assert
+
