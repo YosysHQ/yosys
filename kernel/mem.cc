@@ -349,8 +349,11 @@ void Mem::emit() {
 			bool v2 = !init.en.is_fully_ones();
 			if (!init.cell)
 				init.cell = module->addCell(NEW_ID, v2 ? ID($meminit_v2) : ID($meminit));
-			else
+			else {
+				if (!v2)
+					init.cell->unsetPort(ID::EN);
 				init.cell->type = v2 ? ID($meminit_v2) : ID($meminit);
+			}
 			init.cell->attributes = init.attributes;
 			init.cell->parameters[ID::MEMID] = memid.str();
 			init.cell->parameters[ID::ABITS] = GetSize(init.addr);
@@ -361,8 +364,6 @@ void Mem::emit() {
 			init.cell->setPort(ID::DATA, init.data);
 			if (v2)
 				init.cell->setPort(ID::EN, init.en);
-			else
-				init.cell->unsetPort(ID::EN);
 		}
 	}
 }
