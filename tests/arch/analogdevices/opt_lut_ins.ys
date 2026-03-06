@@ -19,7 +19,7 @@ end
 EOF
 
 read_verilog -lib +/analogdevices/cells_sim.v
-equiv_opt -assert -map +/analogdevices/cells_sim.v opt_lut_ins -tech xilinx
+equiv_opt -assert -map +/analogdevices/cells_sim.v opt_lut_ins -tech analogdevices
 
 design -load postopt
 

@@ -490,7 +490,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			techmap_args += " -D LUT_WIDTH=6";
 			run("techmap " + techmap_args);
 			run("xilinx_dffopt");
-			run("opt_lut_ins -tech xilinx");
+			run("opt_lut_ins -tech analogdevices");
 		}
 
 		if (check_label("finalize")) {
@@ -499,7 +499,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 		if (check_label("check")) {
 			run("hierarchy -check");
-			run("stat -tech xilinx");
+			run("stat -tech analogdevices");
 			run("check -noinit");
 			run("blackbox =A:whitebox");
 		}
