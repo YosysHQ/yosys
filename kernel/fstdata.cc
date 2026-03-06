@@ -460,7 +460,7 @@ std::string FstData::autoScope(Module *topmod) {
 			log_warning("Multiple scopes found for module '%s'. Using the first one.\n", 
 				top);
 		}
-		std::string scope = results[0];
+		scope = results[0];
 	}
 	return scope;
 }
