@@ -5605,13 +5605,13 @@ bool RTLIL::SigSpec::is_chunk() const
 	return ++it == cs.end();
 }
 
-bool RTLIL::SigSpec::is_mostly_const() const
+bool RTLIL::SigSpec::is_mostly_const(double const_ratio_threshold) const
 {
 	int constbits = 0;
 	for (auto &chunk : chunks())
 		if (chunk.width > 0 && chunk.wire == NULL)
 			constbits += chunk.width;
-	return (constbits > size()/2);
+	return (constbits > size() * const_ratio_threshold);
 }
 
 bool RTLIL::SigSpec::known_driver() const

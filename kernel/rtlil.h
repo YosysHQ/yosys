@@ -1684,7 +1684,9 @@ public:
 
 	bool known_driver() const;
 
-	bool is_mostly_const() const;
+	// const_ratio_threshold is expected in [0.0, 1.0]
+	// boundary is exclusive, returns true only if const bit ratio > const_ratio_threshold
+	bool is_mostly_const(double const_ratio_threshold = 0.5) const;
 	bool is_fully_const() const;
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
