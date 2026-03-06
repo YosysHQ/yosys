@@ -330,12 +330,12 @@ struct SetundefPass : public Pass {
 					SigMap sigmap(module);
 					SigPool undriven_signals;
 
-					for (auto &it : module->wires_)
-						undriven_signals.add(sigmap(it.second));
+					for (auto wire : module->selected_wires())
+						undriven_signals.add(sigmap(wire));
 
-					for (auto &it : module->wires_)
-						if (it.second->port_input)
-							undriven_signals.del(sigmap(it.second));
+					for (auto wire : module->selected_wires())
+						if (wire->port_input)
+							undriven_signals.del(sigmap(wire));
 
 					CellTypes ct(design);
 					for (auto &it : module->cells_)
@@ -345,8 +345,6 @@ struct SetundefPass : public Pass {
 
 					RTLIL::SigSpec sig = undriven_signals.export_all();
 					for (auto &c : sig.chunks()) {
-						if (!design->selected(module, c.wire))
-							continue;
 						RTLIL::SigSpec bits;
 						if (worker.next_bit_mode == MODE_ANYSEQ)
 							bits = module->Anyseq(NEW_ID, c.width);
@@ -366,7 +364,7 @@ struct SetundefPass : public Pass {
 				pool<SigBit> ffbits;
 				pool<Wire*> initwires;
 
-				for (auto cell : module->cells())
+				for (auto cell : module->selected_cells())
 				{
 					if (!cell->is_builtin_ff())
 						continue;
@@ -421,9 +419,6 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
-							if (!design->selected(module, wire))
-									continue;
-
 							if (!wire->attributes.count(ID::init))
 								continue;
 
@@ -453,9 +448,6 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
-							if (!design->selected(module, wire))
-									continue;
-
 							for (auto bit : sigmap(wire))
 								if (!ffbits.count(bit))
 									goto next_wire;
@@ -476,9 +468,6 @@ struct SetundefPass : public Pass {
 						{
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
-
-							if (!design->selected(module, wire))
-									continue;
 
 							for (auto bit : sigmap(wire))
 								if (ffbits.count(bit))
