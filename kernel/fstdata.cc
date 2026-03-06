@@ -401,6 +401,7 @@ std::string FstData::autoScope(Module *topmod) {
 
 	log("Auto-discovering scopes from file...\n");
 	std::string top = RTLIL::unescape_id(topmod->name);
+	std::string scope = "";
 
 	// Map top module port name to their bit widths (RTL reference point)
 	dict<std::string, int> top2widths;
