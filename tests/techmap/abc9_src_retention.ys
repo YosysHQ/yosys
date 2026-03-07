@@ -1,0 +1,29 @@
+# Test that \src attributes are preserved through ABC9 synthesis
+# via the XAIGER "y" extension equivalence mapping.
+#
+# The Verilog frontend sets \src attributes based on source location.
+# These must survive: simplemap -> aigmap -> write_xaiger -> ABC ->
+# read_aiger -> reintegrate, via the "y" identity/equivalence mapping.
+#
+# Not all LUT cells may receive \src — only those ABC can prove equivalent
+# to an input object via &verify -y get the mapping back.
+
+read_verilog <<EOT
+module top(input a, b, c, output o);
+assign o = (a & b) | c;
+endmodule
+EOT
+
+# After simplemap, primitive cells should have \src attributes
+simplemap
+select -assert-any a:src
+
+# Enable verification with -y flag for src attribute propagation
+scratchpad -set abc9.verify true
+
+# Run abc9
+abc9 -lut 4
+
+# After abc9, at least some LUT cells should have \src attributes
+# propagated via the "y" extension equivalence mapping
+select -assert-any t:$lut a:src

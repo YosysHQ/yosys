@@ -458,7 +458,9 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
-				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				auto *lut = module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				// Track for \src application via "y" mapping
+				lut_by_obj[rootNodeID] = lut;
 			}
 		}
 		else if (c == 'r') {
@@ -509,6 +511,14 @@ void AigerReader::parse_xaiger()
 				cell->attributes[ID::abc9_box_seq] = oldBoxNum;
 				boxes.emplace_back(cell);
 			}
+		}
+		else if (c == 'y') {
+			uint32_t dataSize = parse_xaiger_literal(f);
+			uint32_t n_entries = dataSize / 4;
+			log_debug("y: dataSize=%u n_entries=%u\n", dataSize, n_entries);
+			equiv_lit_ids.resize(n_entries);
+			// Data is written as native-endian 32-bit ints by ABC
+			f.read(reinterpret_cast<char*>(equiv_lit_ids.data()), dataSize);
 		}
 		else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
 			uint32_t dataSize = parse_xaiger_literal(f);
@@ -810,11 +820,29 @@ void AigerReader::post_process()
 
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
 
+	// Map from input AIG object ID to \src attribute value
+	dict<int, std::string> obj_src;
+
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
 		std::string type, symbol;
 		int variable, index;
-		while (mf >> type >> variable >> index >> symbol) {
+		while (mf >> type) {
+			if (type == "src") {
+				// Parse src lines: "src <obj_id> <src_value>"
+				int obj_id;
+				std::string src_value;
+				if (!(mf >> obj_id))
+					log_error("Bad map file: malformed src line\n");
+				std::getline(mf, src_value);
+				// Trim leading whitespace
+				size_t start = src_value.find_first_not_of(" \t");
+				if (start != std::string::npos)
+					obj_src[obj_id] = src_value.substr(start);
+				continue;
+			}
+			if (!(mf >> variable >> index >> symbol))
+				break;
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			if (type == "input") {
 				log_assert(static_cast<unsigned>(variable) < inputs.size());
@@ -982,6 +1010,28 @@ void AigerReader::post_process()
 			module->rename(cell, stringf("$lut%s", y_port.wire->name));
 		else
 			module->rename(cell, stringf("$lut%s[%d]", y_port.wire->name, y_port.offset));
+	}
+
+	// Apply \src attributes using "y" extension equivalence mapping
+	if (!equiv_lit_ids.empty() && !obj_src.empty()) {
+		int applied = 0;
+		for (auto &[obj_id, lut] : lut_by_obj) {
+			if (obj_id < 0 || obj_id >= (int) equiv_lit_ids.size())
+				continue;
+			int32_t equiv_lit = equiv_lit_ids[obj_id];
+			if (equiv_lit < 0)
+				continue;
+			int input_obj = equiv_lit >> 1;
+			auto src_it = obj_src.find(input_obj);
+			if (src_it != obj_src.end()) {
+				lut->set_string_attribute(ID::src, src_it->second);
+				applied++;
+				log_debug("Applied \\src '%s' to cell %s (obj %d -> input obj %d)\n",
+						  src_it->second.c_str(), log_id(lut), obj_id, input_obj);
+			}
+		}
+		if (applied > 0)
+			log("Applied \\src attributes to %d cells via equivalence mapping.\n", applied);
 	}
 }
 

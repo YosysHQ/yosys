@@ -1,0 +1,30 @@
+# Test \src retention through ABC9 with a larger combinational design.
+# An 8-bit adder with carry chain exercises many AIG nodes and LUTs.
+# Verifies that \src attributes propagate through non-trivial optimization.
+
+read_verilog <<EOT
+module adder_mux(
+    input wire [7:0] a,
+    input wire [7:0] b,
+    input wire [7:0] c,
+    input wire sel,
+    output wire [8:0] sum,
+    output wire zero
+);
+    wire [8:0] ab_sum;
+    wire [8:0] ac_sum;
+    assign ab_sum = a + b;
+    assign ac_sum = a + c;
+    assign sum = sel ? ac_sum : ab_sum;
+    assign zero = (sum == 9'd0);
+endmodule
+EOT
+
+simplemap
+select -assert-any a:src
+
+scratchpad -set abc9.verify true
+abc9 -lut 4
+
+# At least some LUT cells should retain \src
+select -assert-any t:$lut a:src
