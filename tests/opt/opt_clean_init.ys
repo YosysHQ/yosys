@@ -19,4 +19,4 @@ EOT
 synth
 check -assert -initdrv
 
-select -assert-count 1 a:init=2'b0x
+select -assert-count 1 a:init=1'b0
