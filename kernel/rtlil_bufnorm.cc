@@ -75,9 +75,9 @@ struct RTLIL::SigNormIndex
 			else
 				cells_to_remove.push_back(cell);
 
-			for (auto cell : cells_to_remove)
-				module->remove(cell);
 		}
+		for (auto cell : cells_to_remove)
+			module->remove(cell);
 
 		for (auto portname : module->ports) {
 			Wire *wire = module->wire(portname);
