@@ -7,21 +7,26 @@ endmodule
 EOT
 setundef -zero w:a
 sat -prove a 0
+sat -enable_undef -prove b 0 -falsify
 design -reset
 
 # Test that setundef -undriven -zero respects wire selection
-read_verilog <<EOT
-module test(output wire a, output wire b);
-    assign a = 1'b0;
-endmodule
-EOT
+read_rtlil setundef_selection_undriven.il
 setundef -undriven -zero w:b
 sat -prove b 0
+sat -enable_undef -prove a 0 -falsify
 design -reset
 
 # Test that setundef -init respects cell selection: only selected FF gets init set
 read_rtlil setundef_selection_ff.il
 setundef -init -zero c:myff_a
-# only wire a should have init attribute, not b
 select -assert-count 1 w:* a:init %i
+select -assert-count 0 w:b a:init %i
+design -reset
+
+# Test that setundef -init works with wire selection
+read_rtlil setundef_selection_ff.il
+setundef -init -zero w:a
+select -assert-count 1 w:* a:init %i
+select -assert-count 0 w:b a:init %i
 design -reset

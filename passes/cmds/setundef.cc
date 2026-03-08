@@ -364,9 +364,17 @@ struct SetundefPass : public Pass {
 				pool<SigBit> ffbits;
 				pool<Wire*> initwires;
 
-				for (auto cell : module->selected_cells())
+				for (auto cell : module->cells())
 				{
 					if (!cell->is_builtin_ff())
+						continue;
+
+					bool cell_selected = design->selected(module, cell);
+   	 			bool wire_selected = false;
+					for (auto bit : sigmap(cell->getPort(ID::Q)))
+						if (bit.wire && design->selected(module, bit.wire))
+							wire_selected = true;
+					if (!cell_selected && !wire_selected)
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))
