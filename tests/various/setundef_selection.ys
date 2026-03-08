@@ -20,7 +20,7 @@ sat -prove b 0
 design -reset
 
 # Test that setundef -init respects cell selection: only selected FF gets init set
-read_rtlil tests/various/setundef_selection_ff.il
+read_rtlil setundef_selection_ff.il
 setundef -init -zero c:myff_a
 # only wire a should have init attribute, not b
 select -assert-count 1 w:* a:init %i
