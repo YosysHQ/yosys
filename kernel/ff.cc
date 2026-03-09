@@ -564,8 +564,6 @@ Cell *FfData::emit() {
 			return nullptr;
 		}
 	}
-	if (initvals && !is_anyinit)
-		initvals->set_init(sig_q, val_init);
 	if (!is_fine) {
 		if (has_gclk) {
 			log_assert(!has_clk);
@@ -676,6 +674,8 @@ Cell *FfData::emit() {
 		}
 	}
 	cell->attributes = attributes;
+	if (initvals && !is_anyinit)
+		initvals->set_init(cell->getPort(ID::Q), val_init);
 	return cell;
 }
 
