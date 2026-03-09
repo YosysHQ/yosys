@@ -705,9 +705,9 @@ int main(int argc, char **argv)
 		double wall_seconds = std::chrono::duration<double>(
 				std::chrono::steady_clock::now() - wall_clock_start).count();
 
-		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs, wall: %.2fs%s\n", hash,
-				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
-				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, wall_seconds, meminfo.c_str());
+		log("End of script. Logfile hash: %s%stime: %.2fs, user: %.2fs, system: %.2fs%s\n", hash,
+				stats_divider.c_str(), wall_seconds, ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
 		log("%s\n", yosys_maybe_version());
 
