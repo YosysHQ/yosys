@@ -178,6 +178,9 @@ struct Async2syncPass : public Pass {
 								sig_clr = module->NotGate(NEW_ID, sig_clr);
 						}
 
+						// At this point, sig_set and sig_clr are now unconditionally
+						// active-high, and sig_clr_inv is inverted sig_clr
+
 						SigSpec set_and_clr;
 						if (!ff.is_fine)
 							set_and_clr = module->And(NEW_ID, sig_set, sig_clr);
