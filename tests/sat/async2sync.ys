@@ -1,3 +1,4 @@
+# has_arst path
 read_verilog << EOT
 module top(input clk, arst, d, output reg q);
   always @(posedge clk or posedge arst)
@@ -7,5 +8,49 @@ endmodule
 EOT
 proc
 async2sync
-dump w:\$auto\$async2sync*
+select -assert-count 1 w:$auto$async2sync* a:src=* %i
+design -reset
 
+# has_sr path
+read_verilog << EOT
+module sr(input clk, set, clr, d, output reg q);
+  always @(posedge clk or posedge set or posedge clr)
+    if (clr) q <= 0;
+    else if (set) q <= 1;
+    else q <= d;
+endmodule
+EOT
+proc
+async2sync
+select -assert-count 2 w:$auto$async2sync* a:src=* %i
+design -reset
+
+# has_aload path
+read_verilog << EOT
+module aload(input clk, aload, d, ad, output reg q);
+  always @(posedge clk or posedge aload)
+    if (aload) q <= ad;
+    else q <= d;
+endmodule
+EOT
+proc
+async2sync
+select -assert-count 2 w:$auto$async2sync* a:src=* %i
+design -reset
+
+# latch path
+read_verilog << EOT
+module latch(input en, arst, d, output reg q);
+  always @(*)
+    if (arst) q <= 0;
+    else if (en) q <= d;
+endmodule
+EOT
+proc
+async2sync
+# latch with async reset path creates 2 wires (new_q + new_d from has_arst handling)
+select -assert-count 2 w:$auto$async2sync* a:src=* %i
+design -reset
+# a latch where has_aload is false (no async load) cannot be tested here
+# because proc optimizes it away into muxes before async2sync runs,
+# leaving no latch cell for async2sync to process.
