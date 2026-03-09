@@ -11,7 +11,7 @@ sat -enable_undef -prove b 0 -falsify
 design -reset
 
 # Test that setundef -undriven -zero respects wire selection
-read_rtlil setundef_selection_undriven.il
+read_verilog setundef_selection_undriven.v
 setundef -undriven -zero w:b
 sat -prove b 0
 sat -enable_undef -prove a 0 -falsify
