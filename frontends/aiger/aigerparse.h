@@ -48,6 +48,7 @@ struct AigerReader
     std::vector<int> mergeability, initial_state;
     std::vector<int32_t> equiv_lit_ids;
     dict<int, RTLIL::Cell*> lut_by_obj;
+    dict<int, std::vector<int>> lut_input_objs;
 
     AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports);
     void parse_aiger();

@@ -263,6 +263,7 @@ struct Xaiger2Frontend : public Frontend {
 
 		// Track output literal → Cell* for \src application
 		dict<uint32_t, Cell*> lit_to_instance;
+		dict<uint32_t, std::vector<uint32_t>> instance_input_lits;
 
 		f->seekg(extensions_start);
 		bool read_mapping = false;
@@ -316,6 +317,7 @@ struct Xaiger2Frontend : public Frontend {
 						log_assert(out_lit < bits.size());
 						log_assert(bits[in_lit] != RTLIL::Sm);
 						instance->setPort(in, bits[in_lit]);
+						instance_input_lits[out_lit].push_back(in_lit);
 					}
 				}
 			} else if (c == '\n') {
@@ -335,8 +337,10 @@ struct Xaiger2Frontend : public Frontend {
 		log("Read %d instances with cell library of size %d.\n",
 			no_instances, no_cells);
 
-		// Read 'y' extension (equivalence literal IDs from &verify -y)
-		// and apply \src attributes to mapped cells
+		// Read 'y' extension (origin literal IDs from ABC origin tracking)
+		// and apply \src attributes to mapped cells.
+		// Each cell gets \src from its output object's origin plus the
+		// origins of its input objects, merged with '|'.
 		f->seekg(extensions_start);
 		log_debug("reading 'y' (third pass)\n");
 		for (int c = f->get(); c != EOF; c = f->get()) {
@@ -346,25 +350,44 @@ struct Xaiger2Frontend : public Frontend {
 				log_debug("y: len=%u n_entries=%u\n", len, n_entries);
 
 				std::vector<int32_t> equiv_lit_ids(n_entries);
-				// Data is written as native-endian 32-bit ints by ABC
 				f->read(reinterpret_cast<char*>(equiv_lit_ids.data()), len);
 
-				// Apply \src: for each mapped cell, look up its equivalent
-				// input object via the "y" mapping, then look up the \src
-				// from the input map file
 				for (auto &[out_lit, instance] : lit_to_instance) {
+					pool<std::string> src_values;
+					// Collect \src from the output object's origin
 					uint32_t out_obj = out_lit >> 1;
-					if (out_obj >= n_entries)
-						continue;
-					int32_t equiv_lit = equiv_lit_ids[out_obj];
-					if (equiv_lit < 0)
-						continue;  // no mapping for this object
-					int input_obj = equiv_lit >> 1;
-					auto src_it = obj_src.find(input_obj);
-					if (src_it != obj_src.end()) {
-						instance->set_string_attribute(ID::src, src_it->second);
-						log_debug("  applied \\src '%s' to cell %s (out_obj=%d -> input_obj=%d)\n",
-								  src_it->second.c_str(), log_id(instance), out_obj, input_obj);
+					if (out_obj < n_entries) {
+						int32_t equiv_lit = equiv_lit_ids[out_obj];
+						if (equiv_lit >= 0) {
+							auto src_it = obj_src.find(equiv_lit >> 1);
+							if (src_it != obj_src.end())
+								src_values.insert(src_it->second);
+						}
+					}
+					// Collect \src from each input object's origin
+					auto leaf_it = instance_input_lits.find(out_lit);
+					if (leaf_it != instance_input_lits.end()) {
+						for (uint32_t in_lit : leaf_it->second) {
+							uint32_t in_obj = in_lit >> 1;
+							if (in_obj < n_entries) {
+								int32_t leaf_equiv = equiv_lit_ids[in_obj];
+								if (leaf_equiv >= 0) {
+									auto src_it = obj_src.find(leaf_equiv >> 1);
+									if (src_it != obj_src.end())
+										src_values.insert(src_it->second);
+								}
+							}
+						}
+					}
+					if (!src_values.empty()) {
+						std::string merged;
+						for (auto &s : src_values) {
+							if (!merged.empty()) merged += "|";
+							merged += s;
+						}
+						instance->set_string_attribute(ID::src, merged);
+						log_debug("  applied \\src '%s' to cell %s (out_obj=%d)\n",
+								  merged.c_str(), log_id(instance), out_obj);
 					}
 				}
 				break;

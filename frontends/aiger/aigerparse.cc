@@ -429,6 +429,7 @@ void AigerReader::parse_xaiger()
 				log_assert(output_sig);
 				uint32_t nodeID;
 				RTLIL::SigSpec input_sig;
+				std::vector<int> input_node_ids;
 				for (unsigned j = 0; j < cutLeavesM; ++j) {
 					nodeID = parse_xaiger_literal(f);
 					log_debug2("\t%u\n", nodeID);
@@ -439,6 +440,7 @@ void AigerReader::parse_xaiger()
 					RTLIL::Wire *wire = module->wire(stringf("$aiger%d$%d", aiger_autoidx, nodeID));
 					log_assert(wire);
 					input_sig.append(wire);
+					input_node_ids.push_back(nodeID);
 				}
 				// Reverse input order as fastest input is returned first
 				input_sig.reverse();
@@ -461,6 +463,7 @@ void AigerReader::parse_xaiger()
 				auto *lut = module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 				// Track for \src application via "y" mapping
 				lut_by_obj[rootNodeID] = lut;
+				lut_input_objs[rootNodeID] = std::move(input_node_ids);
 			}
 		}
 		else if (c == 'r') {
@@ -1012,26 +1015,50 @@ void AigerReader::post_process()
 			module->rename(cell, stringf("$lut%s[%d]", y_port.wire->name, y_port.offset));
 	}
 
-	// Apply \src attributes using "y" extension equivalence mapping
+	// Apply \src attributes using "y" extension origin mapping.
+	// Each LUT gets \src from its output object's origin plus the origins
+	// of its input objects, merged with '|' (Yosys multi-source convention).
 	if (!equiv_lit_ids.empty() && !obj_src.empty()) {
 		int applied = 0;
 		for (auto &[obj_id, lut] : lut_by_obj) {
-			if (obj_id < 0 || obj_id >= (int) equiv_lit_ids.size())
-				continue;
-			int32_t equiv_lit = equiv_lit_ids[obj_id];
-			if (equiv_lit < 0)
-				continue;
-			int input_obj = equiv_lit >> 1;
-			auto src_it = obj_src.find(input_obj);
-			if (src_it != obj_src.end()) {
-				lut->set_string_attribute(ID::src, src_it->second);
+			pool<std::string> src_values;
+			// Collect \src from the output object's origin
+			if (obj_id >= 0 && obj_id < (int) equiv_lit_ids.size()) {
+				int32_t equiv_lit = equiv_lit_ids[obj_id];
+				if (equiv_lit >= 0) {
+					auto src_it = obj_src.find(equiv_lit >> 1);
+					if (src_it != obj_src.end())
+						src_values.insert(src_it->second);
+				}
+			}
+			// Collect \src from each input object's origin
+			auto leaf_it = lut_input_objs.find(obj_id);
+			if (leaf_it != lut_input_objs.end()) {
+				for (int leaf_obj : leaf_it->second) {
+					if (leaf_obj >= 0 && leaf_obj < (int) equiv_lit_ids.size()) {
+						int32_t leaf_equiv = equiv_lit_ids[leaf_obj];
+						if (leaf_equiv >= 0) {
+							auto src_it = obj_src.find(leaf_equiv >> 1);
+							if (src_it != obj_src.end())
+								src_values.insert(src_it->second);
+						}
+					}
+				}
+			}
+			if (!src_values.empty()) {
+				std::string merged;
+				for (auto &s : src_values) {
+					if (!merged.empty()) merged += "|";
+					merged += s;
+				}
+				lut->set_string_attribute(ID::src, merged);
 				applied++;
-				log_debug("Applied \\src '%s' to cell %s (obj %d -> input obj %d)\n",
-						  src_it->second.c_str(), log_id(lut), obj_id, input_obj);
+				log_debug("Applied \\src '%s' to cell %s (obj %d)\n",
+						  merged.c_str(), log_id(lut), obj_id);
 			}
 		}
 		if (applied > 0)
-			log("Applied \\src attributes to %d cells via equivalence mapping.\n", applied);
+			log("Applied \\src attributes to %d cells via origin mapping.\n", applied);
 	}
 }
 
