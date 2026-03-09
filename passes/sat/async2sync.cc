@@ -160,26 +160,26 @@ struct Async2syncPass : public Pass {
 						SigSpec sig_clr_inv = ff.sig_clr;
 
 						if (!ff.pol_set) {
-							if (!ff.is_fine || sig_set.size() > 1)
+							if (!ff.is_fine)
 								sig_set = module->Not(NEW_ID, sig_set);
 							else
 								sig_set = module->NotGate(NEW_ID, sig_set);
 						}
 
 						if (ff.pol_clr) {
-							if (!ff.is_fine || sig_clr.size() > 1)
+							if (!ff.is_fine)
 								sig_clr_inv = module->Not(NEW_ID, sig_clr);
 							else
 								sig_clr_inv = module->NotGate(NEW_ID, sig_clr);
 						} else {
-							if (!ff.is_fine || sig_clr.size() > 1)
+							if (!ff.is_fine)
 								sig_clr = module->Not(NEW_ID, sig_clr);
 							else
 								sig_clr = module->NotGate(NEW_ID, sig_clr);
 						}
 
 						SigSpec set_and_clr;
-						if (!ff.is_fine || sig_clr.size() > 1 || sig_set.size() > 1)
+						if (!ff.is_fine)
 							set_and_clr = module->And(NEW_ID, sig_set, sig_clr);
 						else
 							set_and_clr = module->AndGate(NEW_ID, sig_set, sig_clr);
