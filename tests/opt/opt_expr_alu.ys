@@ -8,7 +8,7 @@ alumacc
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-none t:$pos t:* %D
+select -assert-none t:$pos t:* %D t:$input_port %d
 
 
 design -reset
@@ -20,7 +20,7 @@ EOT
 
 alumacc
 select -assert-count 1 t:$alu
-select -assert-none t:$alu t:* %D
+select -assert-none t:$alu t:* %D t:$input_port %d
 
 
 design -reset
@@ -33,7 +33,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-none t:$pos t:* %D
+select -assert-none t:$pos t:* %D t:$input_port %d
 
 
 design -reset
@@ -46,7 +46,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-none t:$pos t:* %D
+select -assert-none t:$pos t:* %D t:$input_port %d
 
 
 design -reset
@@ -60,7 +60,7 @@ alumacc
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$not
-select -assert-none t:$not %% t:* %D
+select -assert-none t:$not %% t:* %D t:$input_port %d
 
 
 design -reset
@@ -76,7 +76,7 @@ design -load postopt
 select -assert-count 1 t:$alu
 select -assert-count 1 t:$alu r:Y_WIDTH=3 %i
 select -assert-count 1 t:$not
-select -assert-none t:$alu t:$not t:* %D %D
+select -assert-none t:$alu t:$not t:* %D %D t:$input_port %d
 
 
 design -reset
@@ -93,7 +93,7 @@ dump
 select -assert-count 2 t:$alu
 select -assert-count 1 t:$alu r:Y_WIDTH=2 %i
 select -assert-count 1 t:$alu r:Y_WIDTH=3 %i
-select -assert-none t:$alu t:* %D
+select -assert-none t:$alu t:* %D t:$input_port %d
 
 
 design -reset
@@ -108,7 +108,7 @@ equiv_opt -assert opt -fine
 design -load postopt
 select -assert-count 2 t:$alu
 select -assert-count 2 t:$alu r:Y_WIDTH=3 %i
-select -assert-none t:$alu t:* %D
+select -assert-none t:$alu t:* %D t:$input_port %d
 
 
 design -reset
