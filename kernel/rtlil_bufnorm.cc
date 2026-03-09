@@ -952,7 +952,7 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 					if (found->second.empty())
 						fanout.erase(found);
 				}
-			} else {
+			} else if (GetSize(conn_it->second)) {
 				Wire *w = conn_it->second.as_wire();
 				log_assert(w->driverCell_ == this);
 				log_assert(w->driverPort_ == portname);
@@ -1093,7 +1093,7 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 			int i = 0;
 			for (auto bit : signal)
 				fanout[bit].insert(PortBit(this, portname, i++));
-		} else {
+		} else if (GetSize(signal)) {
 			Wire *w = signal.as_wire();
 			log_assert(w->driverCell_ == nullptr);
 			log_assert(w->driverPort_.empty());
