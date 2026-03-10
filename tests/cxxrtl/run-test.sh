@@ -14,5 +14,5 @@ run_subtest value
 run_subtest value_fuzz
 
 # Compile-only test.
-../../yosys -p "read_verilog test_unconnected_output.v; select =*; proc; clean; write_cxxrtl cxxrtl-test-unconnected_output.cc"
+../../yosys -p "read_verilog test_unconnected_output.v; select =*; proc; clean; write_cxxrtl cxxrtl-test-unconnected_output.cc" >/dev/null 2>&1
 ${CXX:-g++} -std=c++11 -c -o cxxrtl-test-unconnected_output -I../../backends/cxxrtl/runtime cxxrtl-test-unconnected_output.cc

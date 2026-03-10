@@ -3,5 +3,5 @@ source ../common-env.sh
 set -e
 for x in *.ys; do
   echo "Running $x.."
-  ../../yosys -ql ${x%.ys}.log $x
+  ../../yosys -ql ${x%.ys}.log $x >/dev/null 2>&1
 done

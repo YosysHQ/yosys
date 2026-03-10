@@ -18,19 +18,19 @@ $PWD/../../yosys -p "read_verilog -sv ${TESTNAME}_ref.v ; hierarchy -check -top 
 
 rm -f a.out reference_result.txt dut_result.txt
 
-iverilog -g2012 ${TESTNAME}_syn.v
-iverilog -g2012 ${TESTNAME}_ref_syn.v
+iverilog -g2012 ${TESTNAME}_syn.v >/dev/null 2>&1
+iverilog -g2012 ${TESTNAME}_ref_syn.v >/dev/null 2>&1
 
 set +e
-iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_ref_syn.v
-./a.out
+iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_ref_syn.v >/dev/null 2>&1
+./a.out >/dev/null 2>&1
 mv output.txt reference_result.txt
 if [ -f ${TESTNAME}_wrapper.v ] ; then
-    iverilog -g2012 ${TESTNAME}_tb_wrapper.v ${TESTNAME}_syn.v
+    iverilog -g2012 ${TESTNAME}_tb_wrapper.v ${TESTNAME}_syn.v >/dev/null 2>&1
 else
-    iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_syn.v
+    iverilog -g2012 ${TESTNAME}_tb.v ${TESTNAME}_syn.v >/dev/null 2>&1
 fi
-./a.out
+./a.out >/dev/null 2>&1
 mv output.txt dut_result.txt
 
 diff reference_result.txt dut_result.txt > ${TESTNAME}.diff
