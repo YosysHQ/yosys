@@ -34,7 +34,7 @@ python3 generate.py -c $count $seed
 		echo "test-$idx:"
 		printf "\t@%s\n" \
 			"echo -n [$i]" \
-			"../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys"
+			"../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys >/dev/null 2>&1"
 	done
 } > temp/makefile
 

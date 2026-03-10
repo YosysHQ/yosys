@@ -27,7 +27,7 @@ echo "running tests.."
 for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do
 	echo -n "[$i]"
 	idx=$( printf "%05d" $i )
-	../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys
+	../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys >/dev/null 2>&1
 done
 echo
 
