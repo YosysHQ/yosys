@@ -922,7 +922,7 @@ test: vanilla-test unit-test
 
 .PHONY: vanilla-test
 
-vanilla-test:
+vanilla-test: $(TARGETS) $(EXTRA_TARGETS)
 	@$(MAKE) -C tests vanilla-test \
 	$(if $(ENABLE_VERIFIC),ENABLE_VERIFIC=$(ENABLE_VERIFIC)) \
 	$(if $(YOSYS_NOVERIFIC),YOSYS_NOVERIFIC=$(YOSYS_NOVERIFIC))

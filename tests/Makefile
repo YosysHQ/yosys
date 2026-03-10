@@ -71,14 +71,14 @@ all: vanilla-test
 .PHONY: seed-tests
 seed-tests: $(SH_TEST_DIRS:%=seed-./%)
 .PHONY: seed-./%
-seed-./%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
+seed-./%: %/run-test.sh
 	+cd $* && bash run-test.sh $(SEEDOPT)
 	+@echo "...passed tests in $*"
 
 # abcopt-./ is a dummy string, not a directory
 .PHONY: abcopt-tests
 abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-./%)
-abcopt-./%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
+abcopt-./%: %/run-test.sh
 	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+@echo "...passed tests in $*"
 
@@ -89,7 +89,7 @@ makefile-tests: $(MK_TEST_DIRS:%=makefile-./%)
 %.mk:
 	+cd $(dir $*) && bash run-test.sh
 # this one spawns submake on each
-makefile-./%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
+makefile-./%: %/run-test.mk
 	$(MAKE) -C $* -f run-test.mk
 	+@echo "...passed tests in $*"
 
