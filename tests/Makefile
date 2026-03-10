@@ -79,19 +79,20 @@ seed-./%: %/run-test.sh
 .PHONY: abcopt-tests
 abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-./%)
 abcopt-./%: %/run-test.sh
-	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
+	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT) >/dev/null 2>&1
 	+@echo "...passed tests in $*"
 
 # makefile-./ is a dummy string, not a directory
 .PHONY: makefile-tests
+#.SILENT: $(MK_TEST_DIRS:%=%/run-test.mk)
 makefile-tests: $(MK_TEST_DIRS:%=makefile-./%)
 # this target actually emits .mk files
 %.mk:
-	+cd $(dir $*) && bash run-test.sh
+	+@cd $(dir $*) && bash run-test.sh
 # this one spawns submake on each
 makefile-./%: %/run-test.mk
-	$(MAKE) -C $* -f run-test.mk
-	+@echo "...passed tests in $*"
+	@$(MAKE) -C $* -f run-test.mk
+	@echo "...passed tests in $*"
 
 vanilla-test: makefile-tests abcopt-tests seed-tests
 	@echo ""
@@ -104,12 +105,12 @@ endif
 	@echo ""
 
 clean:
-	rm -rf ./asicworld/*.out ./asicworld/*.log
-	rm -rf ./hana/*.out ./hana/*.log
-	rm -rf ./simple/*.out ./simple/*.log
-	rm -rf ./memories/*.out ./memories/*.log ./memories/*.dmp
-	rm -rf ./sat/*.log ./techmap/*.log ./various/*.log
-	rm -rf ./bram/temp ./fsm/temp ./realmath/temp ./share/temp ./smv/temp ./various/temp
-	rm -f ./svinterfaces/*.log_stdout ./svinterfaces/*.log_stderr ./svinterfaces/dut_result.txt ./svinterfaces/reference_result.txt ./svinterfaces/a.out ./svinterfaces/*_syn.v ./svinterfaces/*.diff
-	rm -f  ./tools/cmp_tbdata
-	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
+	@rm -rf ./asicworld/*.out ./asicworld/*.log
+	@rm -rf ./hana/*.out ./hana/*.log
+	@rm -rf ./simple/*.out ./simple/*.log
+	@rm -rf ./memories/*.out ./memories/*.log ./memories/*.dmp
+	@rm -rf ./sat/*.log ./techmap/*.log ./various/*.log
+	@rm -rf ./bram/temp ./fsm/temp ./realmath/temp ./share/temp ./smv/temp ./various/temp
+	@rm -f ./svinterfaces/*.log_stdout ./svinterfaces/*.log_stderr ./svinterfaces/dut_result.txt ./svinterfaces/reference_result.txt ./svinterfaces/a.out ./svinterfaces/*_syn.v ./svinterfaces/*.diff
+	@rm -f  ./tools/cmp_tbdata
+	@rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
