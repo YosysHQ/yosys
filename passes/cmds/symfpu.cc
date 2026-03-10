@@ -23,9 +23,11 @@
 #include "libs/symfpu/baseTypes/shared.h"
 #include "libs/symfpu/core/add.h"
 #include "libs/symfpu/core/divide.h"
+#include "libs/symfpu/core/fma.h"
 #include "libs/symfpu/core/ite.h"
 #include "libs/symfpu/core/multiply.h"
 #include "libs/symfpu/core/packing.h"
+#include "libs/symfpu/core/sqrt.h"
 #include "libs/symfpu/core/unpackedFloat.h"
 
 USING_YOSYS_NAMESPACE
@@ -358,6 +360,13 @@ void output_ubv(IdString name, const ubv &value)
 	output->port_output = true;
 }
 
+void output_prop(IdString name, const prop &value)
+{
+	auto output = symfpu_mod->addWire(name);
+	symfpu_mod->connect(output, value.bit);
+	output->port_output = true;
+}
+
 struct SymFpuPass : public Pass {
 	SymFpuPass() : Pass("symfpu", "SymFPU based floating point netlist generator") {}
 	bool formatted_help() override
@@ -373,11 +382,26 @@ struct SymFpuPass : public Pass {
 		content_root->option("-eb <N>", "use <N> bits for exponent; default=8");
 		content_root->option("-sb <N>", "use <N> bits for significand, including hidden bit; default=24");
 
+		auto op_option = content_root->open_option("-op <OP>");
+		op_option->paragraph("floating point operation to generate, must be one of the below; default=mul");
+		op_option->codeblock(
+			"<OP>   | description                    | equation\n"
+			"-------+--------------------------------+------------\n"
+			"sqrt   | one input square root          | o = sqrt(a)\n"
+			"add    | two input addition             | o = a+b\n"
+			"sub    | two input subtraction          | o = a-b\n"
+			"mul    | two input multiplication       | o = a*b\n"
+			"div    | two input divison              | o = a/b\n"
+			"muladd | three input fused multiple-add | o = (a*b)+c\n"
+		);
+
 		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int eb = 8, sb = 24;
+		string op = "mul";
+		int inputs = 2;
 		log_header(design, "Executing SYMFPU pass.\n");
 
 		size_t argidx;
@@ -388,6 +412,22 @@ struct SymFpuPass : public Pass {
 			}
 			if (args[argidx] == "-sb" && argidx+1 < args.size()) {
 				sb = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-op" && argidx+1 < args.size()) {
+				op = args[++argidx];
+				if (op.compare("sqrt") == 0)
+					inputs = 1;
+				else if (op.compare("add") == 0
+					|| op.compare("sub") == 0
+					|| op.compare("mul") == 0
+					|| op.compare("div") == 0)
+					inputs = 2;
+				else if (op.compare("muladd") == 0)
+					inputs = 3;
+				else
+					log_cmd_error("Unknown operation '%s'. Call help symfpu for available operations.\n", op);
+				log("Generating '%s'\n", op);
 				continue;
 			}
 			break;
@@ -403,14 +443,25 @@ struct SymFpuPass : public Pass {
 
 		uf a = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(a), eb+sb));
 		uf b = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(b), eb+sb));
+		uf c = symfpu::unpack<rtlil_traits>(format, input_ubv(ID(c), eb+sb));
+		uf o = symfpu::unpackedFloat<rtlil_traits>::makeNaN(format);
 
-		uf added(symfpu::add<rtlil_traits>(format, rtlil_traits::RNE(), a, b, prop(true)));
-		uf multiplied(symfpu::multiply<rtlil_traits>(format, rtlil_traits::RNE(), a, b));
-		uf divided(symfpu::divide<rtlil_traits>(format, rtlil_traits::RNE(), a, b));
+		if (op.compare("sqrt") == 0)
+			o = symfpu::sqrt(format, rtlil_traits::RNE(), a);
+		else if (op.compare("add") == 0)
+			o = symfpu::add<rtlil_traits>(format, rtlil_traits::RNE(), a, b, prop(true));
+		else if (op.compare("sub") == 0)
+			o = symfpu::add<rtlil_traits>(format, rtlil_traits::RNE(), a, b, prop(false));
+		else if (op.compare("mul") == 0)
+			o = symfpu::multiply<rtlil_traits>(format, rtlil_traits::RNE(), a, b);
+		else if (op.compare("div") == 0)
+			o = symfpu::divide<rtlil_traits>(format, rtlil_traits::RNE(), a, b);
+		else if (op.compare("muladd") == 0)
+			o = symfpu::fma<rtlil_traits>(format, rtlil_traits::RNE(), a, b, c);
+		else
+			log_abort();
 
-		output_ubv(ID(added), symfpu::pack<rtlil_traits>(format, added));
-		output_ubv(ID(multiplied), symfpu::pack<rtlil_traits>(format, multiplied));
-		output_ubv(ID(divided), symfpu::pack<rtlil_traits>(format, divided));
+		output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o));
 		symfpu_mod->fixup_ports();
 	}
 } SymFpuPass;
