@@ -249,13 +249,27 @@ module edges();
                 assert (UF || o_zero);
             end
         end
+        // an unrounded result between +-e^bmin is still an underflow when rounded to ebmin
+        if (a_unsigned == 31'h0031b7be && b_unsigned == 31'h3ec6def9)
+            assert (UF);
 `endif
 
 `ifdef MUL
         assume (c_zero);
+        // an unrounded result between +-e^bmin is still an underflow when rounded to ebmin
+        if (a_unsigned == 31'h0ffffffd && b_unsigned == 31'h30000001) begin
+            assert (UF);
+            // but it's only ebmin when rounded towards the nearest infinity
+            assert (o_ebmin ^~ (o_sign ? rm_RTN : rm_RTP));
+        end
 `endif
 
 `ifdef MULS
+        if (a_unsigned == 31'h0ffffffd && b_unsigned == 31'h30000001 && c_subnorm)
+            if (!c_sign ^ b_sign ^ a_sign)
+                assert (!UF);
+            else
+                assert (UF);
         // 0/inf or inf/0
         if ((a_inf && b_zero) || (a_zero && b_inf))
             assert (NV);
@@ -263,7 +277,7 @@ module edges();
         if (a_unsigned == 31'h7f400000 && b_unsigned == a_unsigned && !c_special)
             assert (OF);
         // multiplying a small number by an even smaller number will underflow
-        if (a_norm && a_exp < 8'h60 && b_subnorm && !c_special) begin
+        if (a_norm && a_exp < 8'h68 && b_subnorm && !c_special) begin
             assert (NX);
     `ifdef MULADD
             // within rounding
