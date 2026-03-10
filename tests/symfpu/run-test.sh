@@ -41,5 +41,6 @@ prove_op sub "-DSUB -DADDSUB -DADDS"
 prove_op mul "-DMUL -DMULS"
 prove_op div "-DDIV"
 prove_op muladd "-DMULADD -DMULS -DADDS"
+prove_op altdiv "-DDIV -DALTDIV"
 
 generate_mk --yosys-scripts
