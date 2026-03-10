@@ -17,14 +17,14 @@ generate_target() {
 generate_ys_test() {
 	ys_file=$1
 	yosys_args_=${2:-}
-	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file}.err $yosys_args_ $ys_file && mv ${ys_file}.err ${ys_file}.log"
+	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file}.err $yosys_args_ $ys_file >/dev/null 2>&1 && mv ${ys_file}.err ${ys_file}.log"
 }
 
 # $ generate_tcl_test tcl_file [yosys_args]
 generate_tcl_test() {
 	tcl_file=$1
 	yosys_args_=${2:-}
-	generate_target "$tcl_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${tcl_file}.err $yosys_args_ $tcl_file && mv ${tcl_file}.err ${tcl_file}.log"
+	generate_target "$tcl_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${tcl_file}.err $yosys_args_ $tcl_file >/dev/null 2>&1 && mv ${tcl_file}.err ${tcl_file}.log"
 }
 
 # $ generate_bash_test bash_file
