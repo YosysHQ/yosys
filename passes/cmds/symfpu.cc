@@ -78,6 +78,7 @@ using ubv = rtlil_traits::ubv;
 using sbv = rtlil_traits::sbv;
 using symfpu::ite;
 using uf = symfpu::unpackedFloat<rtlil_traits>;
+using uf_flagged = symfpu::floatWithStatusFlags<rtlil_traits>;
 
 PRIVATE_NAMESPACE_END
 
@@ -500,74 +501,36 @@ struct SymFpuPass : public Pass {
 		uf a = symfpu::unpack<rtlil_traits>(format, a_bv);
 		uf b = symfpu::unpack<rtlil_traits>(format, b_bv);
 		uf c = symfpu::unpack<rtlil_traits>(format, c_bv);
-		uf o = symfpu::unpackedFloat<rtlil_traits>::makeNaN(format);
+		uf_flagged o_flagged(symfpu::unpackedFloat<rtlil_traits>::makeNaN(format));
 
-		if (op.compare("sqrt") == 0)
-			o = symfpu::sqrt(format, rounding_mode, a);
-		else if (op.compare("add") == 0)
-			o = symfpu::add<rtlil_traits>(format, rounding_mode, a, b, prop(true));
+		if (op.compare("add") == 0)
+			o_flagged = uf_flagged(symfpu::add_flagged<rtlil_traits>(format, rounding_mode, a, b, prop(true)));
 		else if (op.compare("sub") == 0)
-			o = symfpu::add<rtlil_traits>(format, rounding_mode, a, b, prop(false));
+			o_flagged = uf_flagged(symfpu::add_flagged<rtlil_traits>(format, rounding_mode, a, b, prop(false)));
 		else if (op.compare("mul") == 0)
-			o = symfpu::multiply<rtlil_traits>(format, rounding_mode, a, b);
+			o_flagged = uf_flagged(symfpu::multiply_flagged<rtlil_traits>(format, rounding_mode, a, b));
 		else if (op.compare("div") == 0)
-			o = symfpu::divide<rtlil_traits>(format, rounding_mode, a, b);
+			o_flagged = uf_flagged(symfpu::divide_flagged<rtlil_traits>(format, rounding_mode, a, b));
+		else if (op.compare("sqrt") == 0)
+			o_flagged = uf_flagged(symfpu::sqrt_flagged(format, rounding_mode, a));
 		else if (op.compare("muladd") == 0)
-			o = symfpu::fma<rtlil_traits>(format, rounding_mode, a, b, c);
-		else
+			o_flagged = symfpu::fma_flagged<rtlil_traits>(format, rounding_mode, a, b, c);
+		else 
 			log_abort();
 
 		// signaling NaN inputs raise NV
-		rtlil_traits::setflag("NV", (a.getNaN() && is_sNaN(a_bv, sb))
+		prop signals_invalid((a.getNaN() && is_sNaN(a_bv, sb))
 			|| (b.getNaN() && is_sNaN(b_bv, sb) && inputs >= 2)
 			|| (c.getNaN() && is_sNaN(c_bv, sb) && inputs >= 3)
 		);
 
-		// invalid operation sets output to NaN
-		prop invalid_operation(symfpu_mod->ReduceOr(NEW_ID, flag_map["NV"]));
-		rtlil_traits::invariant(!invalid_operation || o.getNaN());
-		output_prop(ID(NV), invalid_operation);
+		output_prop(ID(NV), o_flagged.nv || signals_invalid);
+		output_prop(ID(DZ), o_flagged.dz);
+		output_prop(ID(OF), o_flagged.of);
+		output_prop(ID(UF), o_flagged.uf);
+		output_prop(ID(NX), o_flagged.nx);
 
-		// div/0 is a (correctly-signed) infinity
-		prop divide_by_zero(symfpu_mod->ReduceOr(NEW_ID, flag_map["DZ"]));
-		rtlil_traits::invariant(!divide_by_zero || o.getInf());
-		output_prop(ID(DZ), divide_by_zero);
-
-		prop maybe_overflow(symfpu_mod->ReduceOr(NEW_ID, flag_map["maybe_OF"]));
-		if (op.compare("div") == 0)
-			// this feels like the division should be skipped but isn't handling
-			// special cases until the end, so we need to manually check if the
-			// overflow is valid
-			rtlil_traits::setflag("OF", maybe_overflow && !(a.getInf() || a.getNaN() || a.getZero()));
-		else if (op.compare("muladd") == 0) {
-			// *grumbles*
-			prop anyInf(a.getInf() || b.getInf() || c.getInf());
-			// *grumbling intensifies*
-			rtlil_traits::setflag("OF", maybe_overflow && !(anyInf || !o.getInf()));
-		} else
-			rtlil_traits::setflag("OF", maybe_overflow);
-		prop overflow(symfpu_mod->ReduceOr(NEW_ID, flag_map["OF"]));
-		// overflow value depends on rounding mode
-		// RNE and RNA overflows to (correctly-signed) infinity
-		if (rounding.compare("RNE") == 0 || rounding.compare("RNA") == 0)
-			rtlil_traits::invariant(!overflow || o.getInf());
-		output_prop(ID(OF), overflow);
-
-		// inexactness doesn't have an output value test, but OF and UF imply NX
-		prop inexact(symfpu_mod->ReduceOr(NEW_ID, flag_map["NX"]));
-		output_prop(ID(NX), inexact);
-
-		// underflow is non-zero tininess
-		rtlil_traits::setflag("UF", inexact && o.inSubnormalRange(format, prop(true)));
-		prop underflow(symfpu_mod->ReduceOr(NEW_ID, flag_map["UF"]));
-		rtlil_traits::invariant(!underflow || o.inSubnormalRange(format, prop(true)));
-		output_prop(ID(UF), underflow);
-
-		// over/underflow is definitionally inexact
-		rtlil_traits::invariant(!overflow || inexact);
-		rtlil_traits::invariant(!underflow || inexact);
-
-		output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o));
+		output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o_flagged.val));
 		symfpu_mod->fixup_ports();
 	}
 } SymFpuPass;

@@ -166,16 +166,26 @@ module edges();
     assign rounded_000 = '0;
 `endif
 
+`ifdef RTP
+    wire c_muladd_turning = c_sig == '0;
+`elsif RTN
+    wire c_muladd_turning = c_sig < 23'h400000;
+`elsif RTZ
+    wire c_muladd_turning = c_sig == '0;
+`else // RNA || RNE (default)
+    wire c_muladd_turning = c_sig <= 23'h200000;
+`endif
+
     always @* begin
         if (a_nan || b_nan || c_nan) begin
             // input NaN = output NaN
             assert (o_nan);
 
 		    // NaN inputs give NaN outputs, do not raise exceptions (unless signaling NV)
-            // assert (!DZ);
-            // assert (!OF);
-            // assert (!UF);
-            // assert (!NX);
+            assert (!DZ);
+            assert (!OF);
+            assert (!UF);
+            assert (!NX);
         end
 
         if (a_snan)
@@ -226,8 +236,8 @@ module edges();
 `endif
 
         if (UF)
-            // output = subnormal
-            assert (o_subnorm);
+            // output = subnormal or zero
+            assert (o_subnorm || o_zero);
 
         if (o_inf && !OF)
             // a non-overflowing infinity is exact
@@ -354,7 +364,6 @@ module edges();
         // normal multiplication, overflow addition
         if (a == 31'h5f400000 && b == a && c == 32'h7f400000) begin
             assert (OF);
-            assert (o_inf); // assuming RNE
         end
         // if multiplication overflows, addition can bring it back in range
         if (a == 32'hc3800001 && b == 32'h7b800000 && !c_special) begin
@@ -364,7 +373,7 @@ module edges();
             else if (c_exp <= 8'he7)
                 // addend can't be too small
                 assert (OF);
-            else if (c_exp == 8'he8 && c_sig <= 22'h200000)
+            else if (c_exp == 8'he8 && c_muladd_turning)
                 // this is just the turning point for this particular value
                 assert (OF);
             else
