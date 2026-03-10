@@ -147,7 +147,8 @@ struct WreduceWorker
 		SigSpec sig_d = mi.sigmap(cell->getPort(ID::D));
 		SigSpec sig_q = mi.sigmap(cell->getPort(ID::Q));
 		bool has_reset = false;
-		Const initval = initvals(sig_q), rst_value;
+		Const rst_value;
+		std::vector<State> initval = initvals(sig_q).to_bits();
 
 		int width_before = GetSize(sig_q);
 
@@ -165,12 +166,16 @@ struct WreduceWorker
 		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
 		bool sign_ext = !zero_ext;
 
+		if (mi.auto_reload_module)
+			mi.reload_module();
+
 		for (int i = GetSize(sig_q)-1; i >= 0; i--)
 		{
 			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || (!config->keepdc && initval[i] == State::Sx)) &&
 					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == State::S0 || (!config->keepdc && rst_value[i] == State::Sx))) {
 				module->connect(sig_q[i], State::S0);
 				initvals.remove_init(sig_q[i]);
+				initval.erase(initval.begin() + i);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				continue;
@@ -180,6 +185,7 @@ struct WreduceWorker
 					(!has_reset || i >= GetSize(rst_value) || (rst_value[i] == rst_value[i-1] && (!config->keepdc || rst_value[i] != State::Sx)))) {
 				module->connect(sig_q[i], sig_q[i-1]);
 				initvals.remove_init(sig_q[i]);
+				initval.erase(initval.begin() + i);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				continue;
@@ -190,6 +196,7 @@ struct WreduceWorker
 				return;
 			if (!info->is_output && GetSize(info->ports) == 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
 				initvals.remove_init(sig_q[i]);
+				initval.erase(initval.begin() + i);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				zero_ext = false;
@@ -229,6 +236,7 @@ struct WreduceWorker
 
 		cell->setPort(ID::D, sig_d);
 		cell->setPort(ID::Q, sig_q);
+		initvals.set_init(cell->getPort(ID::Q), initval);
 		cell->fixup_parameters();
 	}
 
