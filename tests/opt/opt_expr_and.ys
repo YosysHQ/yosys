@@ -12,12 +12,12 @@ copy gold fine_keepdc
 
 cd coarse
 opt_expr
-select -assert-none c:*
+select -assert-none c:* t:$input_port %d
 
 cd fine
 simplemap
 opt_expr
-select -assert-none c:*
+select -assert-none c:* t:$input_port %d
 
 cd
 miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold coarse miter
@@ -27,12 +27,12 @@ sat -verify -prove-asserts -show-ports -enable_undef miter2
 
 cd coarse_keepdc
 opt_expr -keepdc
-select -assert-count 1 c:*
+select -assert-count 1 c:* t:$input_port %d
 
 cd fine_keepdc
 simplemap
 opt_expr -keepdc
-select -assert-count 1 c:*
+select -assert-count 1 c:* t:$input_port %d
 
 cd
 miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3
@@ -56,12 +56,12 @@ copy gold fine_keepdc
 
 cd coarse
 opt_expr -fine
-select -assert-none c:*
+select -assert-none c:* t:$input_port %d
 
 cd fine
 simplemap
 opt_expr
-select -assert-none c:*
+select -assert-none c:* t:$input_port %d
 
 cd
 miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold coarse miter
@@ -71,12 +71,12 @@ sat -verify -prove-asserts -show-ports -enable_undef miter2
 
 cd coarse_keepdc
 opt_expr -fine -keepdc
-select -assert-count 1 c:*
+select -assert-count 1 c:* t:$input_port %d
 
 cd fine_keepdc
 simplemap
 opt_expr -keepdc
-select -assert-count 2 c:*
+select -assert-count 2 c:* t:$input_port %d
 
 cd
 miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3
