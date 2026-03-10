@@ -393,6 +393,27 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 			if (full_case_bits.count(sig[i]))
 				result[i] = State::Sx;
 
+		// For full_case switches, if a majority of arms assign the same value to a bit
+		// (via direct actions), use that as the else-branch seed instead of Sx. This
+		// lets proc_mux skip generating mux cells for arms that produce the dominant value.
+		if (!full_case_bits.empty() && !sw->cases.empty()) {
+			int n = GetSize(sw->cases);
+			std::vector<dict<SigBit, int>> counts(GetSize(sig));
+			for (auto cs2 : sw->cases) {
+				RTLIL::SigSpec probe = RTLIL::SigSpec(RTLIL::State::Sx, sig.size());
+				for (auto &action : cs2->actions)
+					sig.replace(action.first, action.second, &probe);
+				for (int i = 0; i < GetSize(sig); i++)
+					if (full_case_bits.count(sig[i]) && probe[i] != RTLIL::State::Sx)
+						counts[i][probe[i]]++;
+			}
+			for (int i = 0; i < GetSize(sig); i++) {
+				if (!full_case_bits.count(sig[i])) continue;
+				for (auto &kv : counts[i])
+					if (kv.second * 2 > n) { result[i] = kv.first; break; }
+			}
+		}
+
 		// evaluate in reverse order to give the first entry the top priority
 		RTLIL::SigSpec initial_val = result;
 		RTLIL::Cell *last_mux_cell = NULL;
