@@ -79,7 +79,7 @@ seed-./%: %/run-test.sh
 .PHONY: abcopt-tests
 abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-./%)
 abcopt-./%: %/run-test.sh
-	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT) >/dev/null 2>&1
+	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+@echo "...passed tests in $*"
 
 # makefile-./ is a dummy string, not a directory

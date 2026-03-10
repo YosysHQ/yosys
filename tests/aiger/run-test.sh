@@ -22,7 +22,7 @@ for aag in *.aag; do
     # (which would have been created by the reference aig2aig utility,
     #  available from http://fmv.jku.at/aiger/)
     echo "Checking $aag."
-    $abcprog -q "read -c ${aag%.*}.aig; write ${aag%.*}_ref.v"
+    $abcprog -q "read -c ${aag%.*}.aig; write ${aag%.*}_ref.v" >/dev/null 2>&1
     ../../yosys -qp "
 read_verilog ${aag%.*}_ref.v
 prep
@@ -34,12 +34,12 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
-" -l ${aag}.log
+" -l ${aag}.log >/dev/null 2>&1
 done
 
 for aig in *.aig; do
     echo "Checking $aig."
-    $abcprog -q "read -c $aig; write ${aig%.*}_ref.v"
+    $abcprog -q "read -c $aig; write ${aig%.*}_ref.v" >/dev/null 2>&1
     ../../yosys -qp "
 read_verilog ${aig%.*}_ref.v
 prep
@@ -51,18 +51,18 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
-" -l ${aig}.log
+" -l ${aig}.log >/dev/null 2>&1
 done
 
 for y in *.ys; do
     echo "Running $y."
-    ../../yosys -ql ${y%.*}.log $y
+    ../../yosys -ql ${y%.*}.log $y >/dev/null 2>&1
 done
 
 # compare aigmap with reference
 # make gold with: rm gold/*; yosys --no-version -p "test_cell -aigmap -w gold/ -n 1 -s 1 all"
 rm -rf gate; mkdir gate
-../../yosys --no-version -p "test_cell -aigmap -w gate/ -n 1 -s 1 all"
+../../yosys --no-version -p "test_cell -aigmap -w gate/ -n 1 -s 1 all" >/dev/null 2>&1
 (
     set -o pipefail
     diff --brief gold gate | tee aigmap.err
