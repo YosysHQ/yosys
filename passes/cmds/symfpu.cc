@@ -381,13 +381,6 @@ template <bool is_signed> prop is_sNaN(bv<is_signed> bitvector, int sb) {
 	return bitvector.extract(sb-2, sb-2).isAllZeros();
 }
 
-std::map<std::string, SigSpec> flag_map;
-
-void rtlil_traits::setflag(const string &name, const prop &cond)
-{
-	flag_map[name].append(cond.bit);
-}
-
 struct SymFpuPass : public Pass {
 	SymFpuPass() : Pass("symfpu", "SymFPU based floating point netlist generator") {}
 	bool formatted_help() override
@@ -501,22 +494,6 @@ struct SymFpuPass : public Pass {
 		uf a = symfpu::unpack<rtlil_traits>(format, a_bv);
 		uf b = symfpu::unpack<rtlil_traits>(format, b_bv);
 		uf c = symfpu::unpack<rtlil_traits>(format, c_bv);
-		uf_flagged o_flagged(symfpu::unpackedFloat<rtlil_traits>::makeNaN(format));
-
-		if (op.compare("add") == 0)
-			o_flagged = uf_flagged(symfpu::add_flagged<rtlil_traits>(format, rounding_mode, a, b, prop(true)));
-		else if (op.compare("sub") == 0)
-			o_flagged = uf_flagged(symfpu::add_flagged<rtlil_traits>(format, rounding_mode, a, b, prop(false)));
-		else if (op.compare("mul") == 0)
-			o_flagged = uf_flagged(symfpu::multiply_flagged<rtlil_traits>(format, rounding_mode, a, b));
-		else if (op.compare("div") == 0)
-			o_flagged = uf_flagged(symfpu::divide_flagged<rtlil_traits>(format, rounding_mode, a, b));
-		else if (op.compare("sqrt") == 0)
-			o_flagged = uf_flagged(symfpu::sqrt_flagged(format, rounding_mode, a));
-		else if (op.compare("muladd") == 0)
-			o_flagged = symfpu::fma_flagged<rtlil_traits>(format, rounding_mode, a, b, c);
-		else 
-			log_abort();
 
 		// signaling NaN inputs raise NV
 		prop signals_invalid((a.getNaN() && is_sNaN(a_bv, sb))
@@ -524,13 +501,32 @@ struct SymFpuPass : public Pass {
 			|| (c.getNaN() && is_sNaN(c_bv, sb) && inputs >= 3)
 		);
 
-		output_prop(ID(NV), o_flagged.nv || signals_invalid);
-		output_prop(ID(DZ), o_flagged.dz);
-		output_prop(ID(OF), o_flagged.of);
-		output_prop(ID(UF), o_flagged.uf);
-		output_prop(ID(NX), o_flagged.nx);
+		// calling this more than once will fail
+		auto output_fpu = [&signals_invalid, &format](const uf_flagged &o_flagged) {
+			output_prop(ID(NV), o_flagged.nv || signals_invalid);
+			output_prop(ID(DZ), o_flagged.dz);
+			output_prop(ID(OF), o_flagged.of);
+			output_prop(ID(UF), o_flagged.uf);
+			output_prop(ID(NX), o_flagged.nx);
 
-		output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o_flagged.val));
+			output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o_flagged.val));
+		};
+
+		if (op.compare("add") == 0)
+			output_fpu(symfpu::add_flagged(format, rounding_mode, a, b, prop(true)));
+		else if (op.compare("sub") == 0)
+			output_fpu(symfpu::add_flagged(format, rounding_mode, a, b, prop(false)));
+		else if (op.compare("mul") == 0)
+			output_fpu(symfpu::multiply_flagged(format, rounding_mode, a, b));
+		else if (op.compare("div") == 0)
+			output_fpu(symfpu::divide_flagged(format, rounding_mode, a, b));
+		else if (op.compare("sqrt") == 0)
+			output_fpu(symfpu::sqrt_flagged(format, rounding_mode, a));
+		else if (op.compare("muladd") == 0)
+			output_fpu(symfpu::fma_flagged(format, rounding_mode, a, b, c));
+		else 
+			log_abort();
+
 		symfpu_mod->fixup_ports();
 	}
 } SymFpuPass;
