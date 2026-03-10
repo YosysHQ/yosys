@@ -103,3 +103,13 @@ endif
 endif
 	@echo ""
 
+clean:
+	rm -rf ./asicworld/*.out ./asicworld/*.log
+	rm -rf ./hana/*.out ./hana/*.log
+	rm -rf ./simple/*.out ./simple/*.log
+	rm -rf ./memories/*.out ./memories/*.log ./memories/*.dmp
+	rm -rf ./sat/*.log ./techmap/*.log ./various/*.log
+	rm -rf ./bram/temp ./fsm/temp ./realmath/temp ./share/temp ./smv/temp ./various/temp
+	rm -f ./svinterfaces/*.log_stdout ./svinterfaces/*.log_stderr ./svinterfaces/dut_result.txt ./svinterfaces/reference_result.txt ./svinterfaces/a.out ./svinterfaces/*_syn.v ./svinterfaces/*.diff
+	rm -f  ./tools/cmp_tbdata
+	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))

@@ -1091,16 +1091,8 @@ clean: clean-py clean-unit-test
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
-	rm -rf tests/asicworld/*.out tests/asicworld/*.log
-	rm -rf tests/hana/*.out tests/hana/*.log
-	rm -rf tests/simple/*.out tests/simple/*.log
-	rm -rf tests/memories/*.out tests/memories/*.log tests/memories/*.dmp
-	rm -rf tests/sat/*.log tests/techmap/*.log tests/various/*.log
-	rm -rf tests/bram/temp tests/fsm/temp tests/realmath/temp tests/share/temp tests/smv/temp tests/various/temp
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
-	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
-	rm -f  tests/tools/cmp_tbdata
-	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
+	-$(MAKE) -C $(YOSYS_SRC)/tests clean
 	-$(MAKE) -C $(YOSYS_SRC)/docs clean
 	rm -rf docs/util/__pycache__
 	rm -f libyosys.so
