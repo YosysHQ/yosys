@@ -925,7 +925,8 @@ test: vanilla-test unit-test
 vanilla-test: $(TARGETS) $(EXTRA_TARGETS)
 	@$(MAKE) -C tests vanilla-test \
 	$(if $(ENABLE_VERIFIC),ENABLE_VERIFIC=$(ENABLE_VERIFIC)) \
-	$(if $(YOSYS_NOVERIFIC),YOSYS_NOVERIFIC=$(YOSYS_NOVERIFIC))
+	$(if $(YOSYS_NOVERIFIC),YOSYS_NOVERIFIC=$(YOSYS_NOVERIFIC)) \
+	SEEDOPT=$(SEEDOPT) ABCOPT=$(ABCOPT)
 
 VALGRIND ?= valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 
