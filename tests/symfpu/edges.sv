@@ -4,6 +4,11 @@ module edges();
     reg NV, DZ, OF, UF, NX;
     symfpu mod (.*);
 
+    wire [31:0] pos_max = 32'h7f7fffff;
+    wire [31:0] pos_inf = 32'h7f800000;
+    wire [31:0] neg_max = 32'hff7fffff;
+    wire [31:0] neg_inf = 32'hff800000;
+
     wire a_sign = a[31];
     wire [30:0] a_unsigned = a[30:0];
     wire [7:0] a_exp = a[30:23];
@@ -128,6 +133,15 @@ module edges();
     wire lhs_dominates = lhs_exp > rhs_exp;
     wire [7:0] exp_diff = lhs_dominates ? lhs_exp - rhs_exp : rhs_exp - lhs_exp;
 
+    wire round_p_001 = 0;
+    wire round_p_011 = a == 32'h40400000 && b == 32'h40000001;
+    wire round_n_011 = 0;
+    wire round_n_011 = a == 32'hc0400000 && b == 32'h40000001;
+
+    wire [30:0] rounded_100 = 31'h40C00002;
+    wire [30:0] rounded_010 = 31'h40C00001;
+    wire [30:0] rounded_000 = 31'h40C00000;
+
     always @* begin
         if (a_nan)
             // input NaN = output NaN
@@ -157,10 +171,29 @@ module edges();
             // underflow is always inexact
             assert (NX);
 
-        if (OF) begin
-            // for RNE, output = +=inf
+`ifdef RNE
+        if (OF) // output = +-inf
             assert (o_inf);
-        end
+`elsif RNA
+        if (OF) // output = +-inf
+            assert (o_inf);
+`elsif RTP
+        if (OF) // output = +inf or -max
+            // RTP add is raising inexact overflow for NaN input
+            assert (o == pos_inf || o == neg_max);
+        if (o == neg_inf)
+            assert (!OF);
+`elsif RTN
+        if (OF) // output = +max or -inf
+            assert (o == pos_max || o == neg_inf);
+        if (o == pos_inf)
+            assert (!OF);
+`elsif RTZ
+        if (OF) // output = +-max
+            assert (o == pos_max || o == neg_max);
+        if (o_inf) // cannot overflow to infinity 
+            assert (!OF);
+`endif
 
         if (UF)
             // output = subnormal
@@ -221,6 +254,33 @@ module edges();
 `ifdef ADDSUB
         // adder can't underflow, subnormals are always exact
         assert (!UF);
+`endif
+
+`ifdef RNE
+        if (round_p_001) assert (o_unsigned == rounded_000);
+        if (round_p_011) assert (o_unsigned == rounded_100);
+        if (round_n_011) assert (o_unsigned == rounded_000);
+        if (round_n_011) assert (o_unsigned == rounded_100);
+`elsif RNA
+        if (round_p_001) assert (o_unsigned == rounded_010);
+        if (round_p_011) assert (o_unsigned == rounded_100);
+        if (round_n_011) assert (o_unsigned == rounded_010);
+        if (round_n_011) assert (o_unsigned == rounded_100);
+`elsif RTP
+        if (round_p_001) assert (o_unsigned == rounded_010);
+        if (round_p_011) assert (o_unsigned == rounded_100);
+        if (round_n_011) assert (o_unsigned == rounded_000);
+        if (round_n_011) assert (o_unsigned == rounded_010);
+`elsif RTN
+        if (round_p_001) assert (o_unsigned == rounded_000);
+        if (round_p_011) assert (o_unsigned == rounded_010);
+        if (round_n_011) assert (o_unsigned == rounded_010);
+        if (round_n_011) assert (o_unsigned == rounded_100);
+`elsif RTZ
+        if (round_p_001) assert (o_unsigned == rounded_000);
+        if (round_p_011) assert (o_unsigned == rounded_010);
+        if (round_n_011) assert (o_unsigned == rounded_000);
+        if (round_n_011) assert (o_unsigned == rounded_010);
 `endif
 
 `ifdef ADDS
