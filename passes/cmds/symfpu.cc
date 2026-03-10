@@ -99,7 +99,8 @@ using symfpu::ite;
 using uf = symfpu::unpackedFloat<rtlil_traits>;
 using uf_flagged = symfpu::floatWithStatusFlags<rtlil_traits>;
 using uf_flagged_ite = symfpu::ite<prop, uf_flagged>;
-using ubv_flagged = symfpu::ubvWithStatusFlags<rtlil_traits>;
+using ubv_flagged = symfpu::bvWithStatusFlags<rtlil_traits, ubv>;
+using sbv_flagged = symfpu::bvWithStatusFlags<rtlil_traits, sbv>;
 
 PRIVATE_NAMESPACE_END
 
@@ -183,8 +184,8 @@ template <bool is_signed> struct bv {
 		return bv{SigSpec(value)};
 	}
 
-	bv toSigned(void) const { return bv<true>(*this); }
-	bv toUnsigned(void) const { return bv<false>(*this); }
+	bv<true> toSigned(void) const { return bv<true>(*this); }
+	bv<false> toUnsigned(void) const { return bv<false>(*this); }
 
 	bv<is_signed> extract(bwt upper, bwt lower) const
 	{
@@ -380,6 +381,13 @@ ubv input_ubv(IdString name, int width)
 	auto input = symfpu_mod->addWire(name, width);
 	input->port_input = true;
 	return ubv(SigSpec(input));
+}
+
+prop input_prop(IdString name)
+{
+	auto input = symfpu_mod->addWire(name);
+	input->port_input = true;
+	return prop(SigBit(input));
 }
 
 void output_ubv(IdString name, const ubv &value)
@@ -766,12 +774,21 @@ struct SymFpuConvertPass : public Pass {
 		output_ubv(ID(o_ff), symfpu::pack<rtlil_traits>(o_format, o_ff.val));
 		output_flags(ID(flags_ff), o_ff.nv || i_sNaN, o_ff.nx, o_ff.of, o_ff.uf);
 
-		ubv o_default = symfpu::ITE(i_f.getSign(), ubv::zero(o_size), ubv::allOnes(o_size));
-		ubv_flagged o_fi = symfpu::convertFloatToUBV_flagged(i_format, rounding_mode, i_f, o_size, o_default);
-		output_ubv(ID(o_fi), o_fi.val);
-		output_flags(ID(flags_fi), o_fi.nv, o_fi.nx);
+		auto is_signed = input_prop(ID(is_signed));
 
-		uf_flagged o_if = symfpu::convertUBVToFloat_flagged<rtlil_traits>(o_format, rounding_mode, i_bv);
+		// use riscv behavior for invalid inputs
+		ubv o_signed_default = symfpu::ITE(i_f.getSign(), ubv::one(1).append(ubv::zero(o_size-1)), ubv::zero(1).append(ubv::allOnes(o_size-1)));
+		ubv o_unsigned_default = symfpu::ITE(i_f.getSign(), ubv::zero(o_size), ubv::allOnes(o_size));
+		auto o_fi_signed = symfpu::convertFloatToSBV_flagged(i_format, rounding_mode, i_f, o_size, o_signed_default);
+		auto o_fi_unsigned = symfpu::convertFloatToUBV_flagged(i_format, rounding_mode, i_f, o_size, o_unsigned_default);
+		output_ubv(ID(o_fi), symfpu::ITE(is_signed, o_fi_signed.val.toUnsigned(), o_fi_unsigned.val));
+		output_flags(ID(flags_fi),
+			symfpu::ITE(is_signed, o_fi_signed.nv, o_fi_unsigned.nv),
+			symfpu::ITE(is_signed, o_fi_signed.nx, o_fi_unsigned.nx));
+
+		uf_flagged o_if(uf_flagged_ite::iteOp(is_signed,
+			symfpu::convertSBVToFloat_flagged<rtlil_traits>(o_format, rounding_mode, i_bv),
+			symfpu::convertUBVToFloat_flagged<rtlil_traits>(o_format, rounding_mode, i_bv)));
 		output_ubv(ID(o_if), symfpu::pack<rtlil_traits>(o_format, o_if.val));
 		output_flags(ID(flags_if), o_if.nv, o_if.nx, o_if.of);
 
