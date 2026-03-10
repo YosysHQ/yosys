@@ -1,5 +1,6 @@
 module edges();
     (* anyseq *) reg [31:0] a, b, c;
+    (* anyseq *) reg [4:0] rm;
     reg [31:0] o;
     reg NV, DZ, OF, UF, NX;
     symfpu mod (.*);
@@ -166,15 +167,16 @@ module edges();
     assign rounded_000 = '0;
 `endif
 
-`ifdef RTP
-    wire c_muladd_turning = c_sig == '0;
-`elsif RTN
-    wire c_muladd_turning = c_sig < 23'h400000;
-`elsif RTZ
-    wire c_muladd_turning = c_sig == '0;
-`else // RNA || RNE (default)
-    wire c_muladd_turning = c_sig <= 23'h200000;
-`endif
+    wire rm_RNE = rm[0] == 1'b1;
+    wire rm_RNA = rm[1:0] == 2'b10;
+    wire rm_RTP = rm[2:0] == 3'b100;
+    wire rm_RTN = rm[3:0] == 4'b1000;
+    wire rm_RTZ = rm[4:0] == 5'b10000;
+
+    wire c_muladd_turning = rm_RNE || rm_RNA ? c_sig <= 23'h200000 :
+        rm_RTP ? c_sig == '0 :
+        rm_RTN ? c_sig < 23'h400000 :
+        c_sig == '0;
 
     always @* begin
         if (a_nan || b_nan || c_nan) begin
@@ -211,29 +213,6 @@ module edges();
         if (UF)
             // underflow is always inexact
             assert (NX);
-
-`ifdef RNE
-        if (OF) // output = +-inf
-            assert (o_inf);
-`elsif RNA
-        if (OF) // output = +-inf
-            assert (o_inf);
-`elsif RTP
-        if (OF) // output = +inf or -max
-            assert (o == pos_inf || o == neg_max);
-        if (o == neg_inf)
-            assert (!OF);
-`elsif RTN
-        if (OF) // output = +max or -inf
-            assert (o == pos_max || o == neg_inf);
-        if (o == pos_inf)
-            assert (!OF);
-`elsif RTZ
-        if (OF) // output = +-max
-            assert (o == pos_max || o == neg_max);
-        if (o_inf) // cannot overflow to infinity 
-            assert (!OF);
-`endif
 
         if (UF)
             // output = subnormal or zero
@@ -304,31 +283,72 @@ module edges();
 `endif
 
 `ifdef RNE
-        if (round_p_001) assert (o_unsigned == rounded_000);
-        if (round_p_011) assert (o_unsigned == rounded_100);
-        if (round_n_001) assert (o_unsigned == rounded_000);
-        if (round_n_011) assert (o_unsigned == rounded_100);
+        assume (rm_RNE);
 `elsif RNA
-        if (round_p_001) assert (o_unsigned == rounded_010);
-        if (round_p_011) assert (o_unsigned == rounded_100);
-        if (round_n_001) assert (o_unsigned == rounded_010);
-        if (round_n_011) assert (o_unsigned == rounded_100);
+        assume (rm_RNA);
 `elsif RTP
-        if (round_p_001) assert (o_unsigned == rounded_010);
-        if (round_p_011) assert (o_unsigned == rounded_100);
-        if (round_n_001) assert (o_unsigned == rounded_000);
-        if (round_n_011) assert (o_unsigned == rounded_010);
+        assume (rm_RTP);
 `elsif RTN
-        if (round_p_001) assert (o_unsigned == rounded_000);
-        if (round_p_011) assert (o_unsigned == rounded_010);
-        if (round_n_001) assert (o_unsigned == rounded_010);
-        if (round_n_011) assert (o_unsigned == rounded_100);
+        assume (rm_RTN);
 `elsif RTZ
-        if (round_p_001) assert (o_unsigned == rounded_000);
-        if (round_p_011) assert (o_unsigned == rounded_010);
-        if (round_n_001) assert (o_unsigned == rounded_000);
-        if (round_n_011) assert (o_unsigned == rounded_010);
+        assume (rm_RTZ);
+`else
+        assume ($onehot(rm));
 `endif
+
+        if (OF)
+            // rounding mode determines if overflow value is inf or max
+            casez (rm)
+                5'bzzzz1 /* RNE */: assert (o_inf);
+                5'bzzz10 /* RNA */: assert (o_inf);
+                5'bzz100 /* RTP */: assert (o == pos_inf || o == neg_max);
+                5'bz1000 /* RTN */: assert (o == pos_max || o == neg_inf);
+                5'b10000 /* RTZ */: assert (o == pos_max || o == neg_max);
+            endcase
+
+        // RTx modes cannot overflow to the far infinity
+        if (rm_RTP && o == neg_inf)
+            assert (!OF);
+        if (rm_RTN && o == pos_inf)
+            assert (!OF);
+
+        // RTZ cannot overflow to either
+        if (rm_RTZ && o_inf)
+            assert (!OF);
+
+        // test rounding
+        if (round_p_001)
+            casez (rm)
+                5'bzzzz1 /* RNE */: assert (o_unsigned == rounded_000);
+                5'bzzz10 /* RNA */: assert (o_unsigned == rounded_010);
+                5'bzz100 /* RTP */: assert (o_unsigned == rounded_010);
+                5'bz1000 /* RTN */: assert (o_unsigned == rounded_000);
+                5'b10000 /* RTZ */: assert (o_unsigned == rounded_000);
+            endcase
+        if (round_p_011)
+            casez (rm)
+                5'bzzzz1 /* RNE */: assert (o_unsigned == rounded_100);
+                5'bzzz10 /* RNA */: assert (o_unsigned == rounded_100);
+                5'bzz100 /* RTP */: assert (o_unsigned == rounded_100);
+                5'bz1000 /* RTN */: assert (o_unsigned == rounded_010);
+                5'b10000 /* RTZ */: assert (o_unsigned == rounded_010);
+            endcase
+        if (round_n_001)
+            casez (rm)
+                5'bzzzz1 /* RNE */: assert (o_unsigned == rounded_000);
+                5'bzzz10 /* RNA */: assert (o_unsigned == rounded_010);
+                5'bzz100 /* RTP */: assert (o_unsigned == rounded_000);
+                5'bz1000 /* RTN */: assert (o_unsigned == rounded_010);
+                5'b10000 /* RTZ */: assert (o_unsigned == rounded_000);
+            endcase
+        if (round_n_011)
+            casez (rm)
+                5'bzzzz1 /* RNE */: assert (o_unsigned == rounded_100);
+                5'bzzz10 /* RNA */: assert (o_unsigned == rounded_100);
+                5'bzz100 /* RTP */: assert (o_unsigned == rounded_010);
+                5'bz1000 /* RTN */: assert (o_unsigned == rounded_100);
+                5'b10000 /* RTZ */: assert (o_unsigned == rounded_010);
+            endcase
 
 `ifdef ADDS
         if (use_lhs) begin
