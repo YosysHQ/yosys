@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 source ../common-env.sh
 
-set -ex
+set -e
 
-../../yosys -p 'read_verilog initial_display.v' | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >yosys-initial_display.log
+../../yosys -p 'read_verilog initial_display.v' | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >yosys-initial_display.log 2>&1
 iverilog -o iverilog-initial_display initial_display.v
 ./iverilog-initial_display >iverilog-initial_display.log
 diff yosys-initial_display.log iverilog-initial_display.log
 
 test_always_display () {
 	local subtest=$1; shift
-	../../yosys -p "read_verilog $* always_display.v; proc; opt_expr -mux_bool; clean" -o yosys-always_display-${subtest}-1.v
-	../../yosys -p "read_verilog yosys-always_display-${subtest}-1.v; proc; opt_expr -mux_bool; clean" -o yosys-always_display-${subtest}-2.v
+	../../yosys -p "read_verilog $* always_display.v; proc; opt_expr -mux_bool; clean" -o yosys-always_display-${subtest}-1.v >/dev/null 2>&1
+	../../yosys -p "read_verilog yosys-always_display-${subtest}-1.v; proc; opt_expr -mux_bool; clean" -o yosys-always_display-${subtest}-2.v >/dev/null 2>&1
 	diff yosys-always_display-${subtest}-1.v yosys-always_display-${subtest}-2.v
 }
 
@@ -25,15 +25,15 @@ test_always_display star_en -DEVENT_STAR -DCOND_EN
 
 test_roundtrip () {
 	local subtest=$1; shift
-	../../yosys -p "read_verilog $* roundtrip.v; proc; clean" -o yosys-roundtrip-${subtest}-1.v
-	../../yosys -p "read_verilog yosys-roundtrip-${subtest}-1.v; proc; clean" -o yosys-roundtrip-${subtest}-2.v
+	../../yosys -p "read_verilog $* roundtrip.v; proc; clean" -o yosys-roundtrip-${subtest}-1.v >/dev/null 2>&1
+	../../yosys -p "read_verilog yosys-roundtrip-${subtest}-1.v; proc; clean" -o yosys-roundtrip-${subtest}-2.v >/dev/null 2>&1
 	diff yosys-roundtrip-${subtest}-1.v yosys-roundtrip-${subtest}-2.v
 
-	iverilog $* -o iverilog-roundtrip-${subtest} roundtrip.v roundtrip_tb.v
+	iverilog $* -o iverilog-roundtrip-${subtest} roundtrip.v roundtrip_tb.v >/dev/null 2>&1
 	./iverilog-roundtrip-${subtest} >iverilog-roundtrip-${subtest}.log
-	iverilog $* -o iverilog-roundtrip-${subtest}-1 yosys-roundtrip-${subtest}-1.v roundtrip_tb.v
+	iverilog $* -o iverilog-roundtrip-${subtest}-1 yosys-roundtrip-${subtest}-1.v roundtrip_tb.v >/dev/null 2>&1
 	./iverilog-roundtrip-${subtest}-1 >iverilog-roundtrip-${subtest}-1.log
-	iverilog $* -o iverilog-roundtrip-${subtest}-2 yosys-roundtrip-${subtest}-2.v roundtrip_tb.v
+	iverilog $* -o iverilog-roundtrip-${subtest}-2 yosys-roundtrip-${subtest}-2.v roundtrip_tb.v >/dev/null 2>&1
 	./iverilog-roundtrip-${subtest}-1 >iverilog-roundtrip-${subtest}-2.log
 	diff iverilog-roundtrip-${subtest}.log iverilog-roundtrip-${subtest}-1.log
 	diff iverilog-roundtrip-${subtest}-1.log iverilog-roundtrip-${subtest}-2.log
@@ -51,10 +51,10 @@ test_roundtrip bin_signed -DBASE_HEX -DSIGN="signed"
 test_cxxrtl () {
 	local subtest=$1; shift
 
-	../../yosys -p "read_verilog ${subtest}.v; proc; clean; write_cxxrtl -print-output std::cerr yosys-${subtest}.cc"
+	../../yosys -p "read_verilog ${subtest}.v; proc; clean; write_cxxrtl -print-output std::cerr yosys-${subtest}.cc" >/dev/null 2>&1
 	${CXX:-g++} -std=c++11 -o yosys-${subtest} -I../../backends/cxxrtl/runtime ${subtest}_tb.cc -lstdc++
 	./yosys-${subtest} 2>yosys-${subtest}.log
-	iverilog -o iverilog-${subtest} ${subtest}.v ${subtest}_tb.v
+	iverilog -o iverilog-${subtest} ${subtest}.v ${subtest}_tb.v >/dev/null 2>&1
 	./iverilog-${subtest} |grep -v '\$finish called' >iverilog-${subtest}.log
 	diff iverilog-${subtest}.log yosys-${subtest}.log
 }
@@ -63,16 +63,16 @@ test_cxxrtl always_full
 test_cxxrtl always_comb
 
 # Ensure Verilog backend preserves behaviour of always block with multiple $displays.
-../../yosys -p "read_verilog always_full.v; prep; clean" -o yosys-always_full-1.v
-iverilog -o iverilog-always_full-1 yosys-always_full-1.v always_full_tb.v
+../../yosys -p "read_verilog always_full.v; prep; clean" -o yosys-always_full-1.v >/dev/null 2>&1
+iverilog -o iverilog-always_full-1 yosys-always_full-1.v always_full_tb.v >/dev/null 2>&1
 ./iverilog-always_full-1 |grep -v '\$finish called' >iverilog-always_full-1.log
 diff iverilog-always_full.log iverilog-always_full-1.log
 
-../../yosys -p "read_verilog display_lm.v" >yosys-display_lm.log
-../../yosys -p "read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc"
+../../yosys -p "read_verilog display_lm.v" >yosys-display_lm.log 2>&1
+../../yosys -p "read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc" >/dev/null 2>&1
 ${CXX:-g++} -std=c++11 -o yosys-display_lm_cc -I../../backends/cxxrtl/runtime display_lm_tb.cc -lstdc++
 ./yosys-display_lm_cc >yosys-display_lm_cc.log
 for log in yosys-display_lm.log yosys-display_lm_cc.log; do
-	grep "^%l: \\\\bot\$" "$log"
-	grep "^%m: \\\\bot\$" "$log"
+	grep "^%l: \\\\bot\$" "$log" >/dev/null 2>&1
+	grep "^%m: \\\\bot\$" "$log" >/dev/null 2>&1
 done

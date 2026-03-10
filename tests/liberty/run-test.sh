@@ -10,13 +10,13 @@ for x in *.lib; do
 	diff $x.filtered $x.filtered.ok
 	diff $x.verilogsim $x.verilogsim.ok
 	if [[ -e ${x%.lib}.log.ok ]]; then
-		../../yosys -p "dfflibmap -info -liberty ${x}" -TqqQl ${x%.lib}.log
+		../../yosys -p "dfflibmap -info -liberty ${x}" -TqqQl ${x%.lib}.log >/dev/null 2>&1
 		diff ${x%.lib}.log ${x%.lib}.log.ok
 	fi
 done
 
 for x in *.ys; do
   echo "Running $x.."
-  ../../yosys -q -s $x -l ${x%.ys}.log
+  ../../yosys -q -s $x -l ${x%.ys}.log >/dev/null 2>&1
 done
 

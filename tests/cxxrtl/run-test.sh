@@ -1,7 +1,7 @@
 #!/bin/bash
 source ../common-env.sh
 
-set -ex
+set -e
 
 run_subtest () {
     local subtest=$1; shift
