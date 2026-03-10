@@ -202,6 +202,12 @@ module edges(input clk);
     assign rounded_000 = '0;
 `endif
 
+`ifdef MAX
+    wire choose_max = 1;
+`else
+    wire choose_max = 0;
+`endif
+
     wire rm_RNE = rm[0] == 1'b1;
     wire rm_RNA = rm[1:0] == 2'b10;
     wire rm_RTP = rm[2:0] == 3'b100;
@@ -250,19 +256,21 @@ module edges(input clk);
 
         // all flags are possible
         cover (NV);
-`ifdef DIVS
-// only div can div/zero
+`ifndef COMPARES
+    `ifdef DIVS
+    // only div can div/zero
         cover (DZ);
-`endif
-`ifndef SQRTS
-// sqrt can't overflow or underflow
-        cover (OF);
-    `ifndef ADDSUB
-    // add/sub can't underflow
-        cover (UF);
     `endif
-`endif
+    `ifndef SQRTS
+    // sqrt can't overflow or underflow
+        cover (OF);
+        `ifndef ADDSUB
+        // add/sub can't underflow
+        cover (UF);
+        `endif
+    `endif
         cover (NX);
+`endif
         cover (!NV);
         cover (!DZ);
         cover (!OF);
@@ -282,6 +290,7 @@ module edges(input clk);
         cover (o_ebmin);
 `endif
 
+`ifndef COMPARES
 `ifndef SQRTS
         if (OF) begin
             cover (o_inf);
@@ -324,7 +333,12 @@ module edges(input clk);
             assert (!NX);
         end
 
-        if (a_snan)
+        if (NV)
+            // output = qNaN
+            assert (o_qnan);
+`endif // !COMPARES
+
+        if (a_snan || b_snan)
             // signalling NaN raises invalid exception
             assert (NV);
 
@@ -335,10 +349,6 @@ module edges(input clk);
         if (DZ)
             // output = +-inf
             assert (o_inf);
-
-        if (NV)
-            // output = qNaN
-            assert (o_qnan);
 
         if (OF)
             // overflow is always inexact
@@ -359,6 +369,57 @@ module edges(input clk);
         if (o_subnorm && !UF)
             // a non-underflowing subnormal is exact
             assert (!NX);
+
+`ifdef COMPARES
+        assume (c_zero);
+        assert (!OF);
+        assert (!UF);
+        assert (!NX);
+        assert (!DZ);
+
+        if (!a_nan && b_nan)
+            assert (o == a);
+        else if (a_nan && !b_nan)
+            assert (o == b);
+        else if (a_nan && b_nan)
+            assert (o_nan);
+        else begin
+            assert (o == a || o == b);
+
+            if (a_inf) begin
+                if (a_sign == choose_max)
+                    assert (o == b);
+                else
+                    assert (o == a);
+            end
+
+            if (b_inf) begin
+                if (b_sign == choose_max)
+                    assert (o == a);
+                else
+                    assert (o == b);
+            end
+        end
+
+        if (!a_special && !b_special) begin
+            if (a_sign != b_sign)
+                if (a_sign == choose_max)
+                    assert (o == b);
+                else
+                    assert (o == a);
+            // a_sign == b_sign
+            else if (a_exp != b_exp)
+                if ((a_exp > b_exp) ^ a_sign ^ choose_max)
+                    assert (o == b);
+                else
+                    assert (o == a);
+            // a_exp == b_exp
+            else if ((a_sig > b_sig) ^ a_sign ^ choose_max)
+                assert (o == b);
+            else
+                assert (o == a);
+        end
+`endif
 
 `ifdef DIVS
         assume (c_zero);
