@@ -228,9 +228,8 @@ module edges();
 
 `ifdef DIV
         assume (c_zero);
-        // a = finite, b = 0
-        if ((a_norm || a_subnorm) && b_unsigned == '0)
-            assert (DZ);
+        // div/zero when a = finite, b = 0
+        assert (!DZ || ((a_norm || a_subnorm) && b_unsigned == '0));
         // 0/0 or inf/inf
         if ((a_zero && b_zero) || (a_inf && b_inf))
             assert (NV);
