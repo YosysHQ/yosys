@@ -55,6 +55,7 @@ map_ffram:
 
 map_gates:
     ice40_wrapcarry
+    read_verilog -D ICE40_HX -icells -lib -specify +/ice40/abc9_model.v
     techmap
     opt -fast
     ice40_opt
@@ -71,7 +72,6 @@ map_luts:
     techmap
     simplemap
     techmap
-    read_verilog
     abc9
     ice40_wrapcarry -unwrap
     techmap
