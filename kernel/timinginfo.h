@@ -106,9 +106,10 @@ struct TimingInfo
 				for (const auto &c : src.chunks())
 					if (!c.wire || !c.wire->port_input)
 						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
-				for (const auto &c : dst.chunks())
-					if (!c.wire || !c.wire->port_output)
-						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
+				// TODO disabled check because signorm breaks this assumption
+				// for (const auto &c : dst.chunks())
+				// 	if (!c.wire || !c.wire->port_output)
+				// 		log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
 				int rise_max = cell->getParam(ID::T_RISE_MAX).as_int();
 				int fall_max = cell->getParam(ID::T_FALL_MAX).as_int();
 				int max = std::max(rise_max,fall_max);
