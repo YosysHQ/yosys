@@ -1119,7 +1119,7 @@ struct fmt_part {
 
 			case STRING: {
 				buf.reserve(Bits/8);
-				for (int i = 0; i < Bits; i += 8) {
+				for (size_t i = 0; i < Bits; i += 8) {
 					char ch = 0;
 					for (int j = 0; j < 8 && i + j < int(Bits); j++)
 						if (val.bit(i + j))
