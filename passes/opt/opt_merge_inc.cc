@@ -439,7 +439,14 @@ struct OptMergeIncWorker
 
 				for (auto &[port, sig] : cell->connections()) {
 					if (cell->output(port)) {
+						// TODO why was this removed before?
+						RTLIL::SigSpec other_sig = other_cell->getPort(port);
+						Const init = initvals(other_sig);
+						initvals.remove_init(sig);
+						initvals.remove_init(other_sig);
 						module->connect(sig, other_cell->getPort(port));
+						assign_map.add(sig, other_sig);
+						initvals.set_init(other_sig, init);
 					}
 				}
 
