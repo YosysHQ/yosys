@@ -422,6 +422,11 @@ struct OptHierPass : Pass {
 	{
 		log_header(d, "Executing OPT_HIER pass.\n");
 
+		// TODO: This pass breaks in signorm
+		// since rewrite_sigspecs won't rewrite persistent sigmap
+		// and adding that rewrite is a performance risk
+		d->sigNormalize(false);
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			break;
