@@ -2740,6 +2740,7 @@ inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
 template<typename T>
 void RTLIL::Module::rewrite_sigspecs(T &functor)
 {
+	log_assert(sig_norm_index == nullptr);
 	for (auto &it : cells_)
 		it.second->rewrite_sigspecs(functor);
 	for (auto &it : processes)
@@ -2753,6 +2754,7 @@ void RTLIL::Module::rewrite_sigspecs(T &functor)
 template<typename T>
 void RTLIL::Module::rewrite_sigspecs2(T &functor)
 {
+	log_assert(sig_norm_index == nullptr);
 	for (auto &it : cells_)
 		it.second->rewrite_sigspecs2(functor);
 	for (auto &it : processes)
