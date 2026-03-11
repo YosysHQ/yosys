@@ -1163,6 +1163,8 @@ struct TechmapPass : public Pass {
 		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
 
+		// TODO not sure why signorm breaks on us here yet
+		design->sigNormalize(false);
 		TechmapWorker worker;
 		simplemap_get_mappers(worker.simplemap_mappers);
 
