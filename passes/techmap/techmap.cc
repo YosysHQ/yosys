@@ -150,6 +150,7 @@ struct TechmapWorker
 			log("\n");
 			if (autoproc_mode) {
 				Pass::call_on_module(tpl->design, tpl, "proc");
+				tpl->design->sigNormalize(false);
 				log_assert(GetSize(tpl->processes) == 0);
 			} else
 				log_error("Technology map yielded processes -> this is not supported (use -autoproc to run 'proc' automatically).\n");
@@ -551,6 +552,7 @@ struct TechmapWorker
 								log("Running \"%s\" on wrapper %s.\n", cmd_string, log_id(extmapper_module));
 								mkdebug.on();
 								Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
+								extmapper_design->sigNormalize(false);
 								log_continue = true;
 							}
 						}
@@ -850,6 +852,7 @@ struct TechmapWorker
 							}
 
 							Pass::call_on_module(map, tpl, cmd_string);
+							map->sigNormalize(false);
 
 							log_assert(!strncmp(q, "_TECHMAP_DO_", 12));
 							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
