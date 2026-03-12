@@ -465,6 +465,26 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
+	if (cell->type.in(ID($connect)))
+	{
+		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
+		extendSignalWidthUnary(a, b, cell);
+
+		std::vector<int> bb = model_undef ? ez->vec_var(b.size()) : b;
+		ez->assume(ez->vec_eq(a, bb));
+
+		if (model_undef)
+		{
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
+			extendSignalWidthUnary(undef_a, undef_b, cell);
+			ez->assume(ez->vec_eq(undef_a, undef_b));
+			undefGating(b, bb, undef_b);
+		}
+		return true;
+	}
+
 	if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool), ID($logic_not)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
