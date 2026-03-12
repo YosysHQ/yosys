@@ -114,8 +114,8 @@ To build Yosys simply type 'make' in this directory.
 	$ sudo make install
 
 Tests are located in the tests subdirectory and can be executed using the test
-target. Note that you need gawk as well as a recent version of iverilog (i.e.
-build from git). Then, execute tests via:
+target. Note that you need gawk, a recent version of iverilog, and gtest.
+Execute tests via:
 
 	$ make test
 
@@ -246,6 +246,8 @@ Building the documentation
 
 Note that there is no need to build the manual if you just want to read it.
 Simply visit https://yosys.readthedocs.io/en/latest/ instead.
+If you're offline, you can read the sources, replacing `.../en/latest`
+with `docs/source`.
 
 In addition to those packages listed above for building Yosys from source, the
 following are used for building the website:

@@ -84,7 +84,7 @@
 			int current_function_or_task_port_id;
 			std::vector<char> case_type_stack;
 			bool do_not_require_port_stubs;
-			bool current_wire_rand, current_wire_const;
+			bool current_wire_rand, current_wire_const, current_wire_automatic;
 			bool current_modport_input, current_modport_output;
 			bool default_nettype_wire = true;
 			std::istream* lexin;
@@ -958,14 +958,18 @@ delay:
 	non_opt_delay | %empty;
 
 io_wire_type:
-	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; }
+	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; extra->current_wire_automatic = false; }
 	wire_type_token_io wire_type_const_rand opt_wire_type_token wire_type_signedness
 	{ $$ = std::move(extra->astbuf3); SET_RULE_LOC(@$, @2, @$); };
 
 non_io_wire_type:
-	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; }
-	wire_type_const_rand wire_type_token wire_type_signedness
-	{ $$ = std::move(extra->astbuf3); SET_RULE_LOC(@$, @2, @$); };
+	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; extra->current_wire_automatic = false; }
+	opt_lifetime wire_type_const_rand wire_type_token wire_type_signedness
+	{
+		if (extra->current_wire_automatic)
+			extra->astbuf3->set_attribute(ID::nosync, AstNode::mkconst_int(extra->astbuf3->location, 1, false));
+		$$ = std::move(extra->astbuf3); SET_RULE_LOC(@$, @2, @$);
+	};
 
 wire_type:
 	io_wire_type { $$ = std::move($1); }  |
@@ -1251,6 +1255,10 @@ dpi_function_args:
 
 opt_automatic:
 	TOK_AUTOMATIC |
+	%empty;
+
+opt_lifetime:
+	TOK_AUTOMATIC { extra->current_wire_automatic = true; } |
 	%empty;
 
 task_func_args_opt:

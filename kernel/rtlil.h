@@ -223,8 +223,8 @@ struct RTLIL::IdString
 
 	constexpr inline IdString() : index_(0) { }
 	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
-	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
-	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+	constexpr IdString(const IdString &str) = default;
+	IdString(IdString &&str) = default;
 	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
 	inline IdString(std::string_view str) : index_(insert(str)) { }
 	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
@@ -737,6 +737,7 @@ template <> struct IDMacroHelper<-1> {
 namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
+	[[deprecated("use StaticCellTypes::categories.is_ff() instead")]]
 	const pool<IdString> &builtin_ff_cell_types();
 
 	static inline std::string escape_id(const std::string &str) {
@@ -2031,7 +2032,10 @@ struct RTLIL::Design
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
+
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
+
+	std::string to_rtlil_str(bool only_selected = true) const;
 };
 
 struct RTLIL::Module : public RTLIL::NamedObject
@@ -2137,13 +2141,18 @@ public:
 	}
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
+	int wires_size() const { return wires_.size(); }
+	RTLIL::Wire* wire_at(int index) const { return wires_.element(index)->second; }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
+	int cells_size() const { return cells_.size(); }
+	RTLIL::Cell* cell_at(int index) const { return cells_.element(index)->second; }
 
 	void add(RTLIL::Binding *binding);
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
+	void remove(RTLIL::Memory *memory);
 	void remove(RTLIL::Process *process);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
@@ -2390,6 +2399,7 @@ public:
 	RTLIL::SigSpec OriginalTag     (RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src = "");
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
 
+	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif
@@ -2443,6 +2453,7 @@ public:
 		return zero_index + start_offset;
 	}
 
+	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
@@ -2460,6 +2471,8 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	Memory();
 
 	int width, start_offset, size;
+
+	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
 	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
@@ -2517,6 +2530,8 @@ public:
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
+
+	std::string to_rtlil_str() const;
 
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
@@ -2596,6 +2611,7 @@ public:
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::Process *clone() const;
+	std::string to_rtlil_str() const;
 };
 
 

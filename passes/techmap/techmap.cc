@@ -333,9 +333,6 @@ struct TechmapWorker
 
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
 			design->select(module, c);
-
-			if (c->type.begins_with("\\$"))
-				c->type = c->type.substr(1);
 			
 			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
 				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
@@ -436,13 +433,9 @@ struct TechmapWorker
 			if (handled_cells.count(cell) > 0)
 				continue;
 
-			std::string cell_type = cell->type.str();
-			if (in_recursion && cell->type.begins_with("\\$"))
-				cell_type = cell_type.substr(1);
-
-			if (celltypeMap.count(cell_type) == 0) {
-				if (assert_mode && cell_type.back() != '_')
-					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell_type));
+			if (celltypeMap.count(cell->type) == 0) {
+				if (assert_mode && !cell->type.ends_with("_"))
+					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell->type));
 				continue;
 			}
 
@@ -454,7 +447,7 @@ struct TechmapWorker
 				if (GetSize(sig) == 0)
 					continue;
 
-				for (auto &tpl_name : celltypeMap.at(cell_type)) {
+				for (auto &tpl_name : celltypeMap.at(cell->type)) {
 					RTLIL::Module *tpl = map->module(tpl_name);
 					RTLIL::Wire *port = tpl->wire(conn.first);
 					if (port && port->port_input)
@@ -481,12 +474,7 @@ struct TechmapWorker
 			log_assert(cell == module->cell(cell->name));
 			bool mapped_cell = false;
 
-			std::string cell_type = cell->type.str();
-
-			if (in_recursion && cell->type.begins_with("\\$"))
-				cell_type = cell_type.substr(1);
-
-			for (auto &tpl_name : celltypeMap.at(cell_type))
+			for (auto &tpl_name : celltypeMap.at(cell->type))
 			{
 				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(tpl_name);
@@ -508,8 +496,6 @@ struct TechmapWorker
 
 				if (!extmapper_name.empty())
 				{
-					cell->type = cell_type;
-
 					if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
 					{
 						std::string m_name = stringf("$extern:%s:%s", extmapper_name, log_id(cell->type));
@@ -935,11 +921,6 @@ struct TechmapWorker
 						RTLIL::Module *m = design->addModule(m_name);
 						tpl->cloneInto(m);
 
-						for (auto cell : m->cells()) {
-							if (cell->type.begins_with("\\$"))
-								cell->type = cell->type.substr(1);
-						}
-
 						module_queue.insert(m);
 					}
 
@@ -1168,7 +1149,7 @@ struct TechmapPass : public Pass {
 
 		std::vector<std::string> map_files;
 		std::vector<RTLIL::IdString> dont_map;
-		std::string verilog_frontend = "verilog -nooverwrite -noblackbox";
+		std::string verilog_frontend = "verilog -nooverwrite -noblackbox -icells";
 		int max_iter = -1;
 
 		size_t argidx;

@@ -20,7 +20,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/log.h"
 #include <string>
 
@@ -117,7 +117,7 @@ struct IntersynthBackend : public Backend {
 
 		std::set<std::string> conntypes_code, celltypes_code;
 		std::string netlists_code;
-		CellTypes ct(design);
+		NewCellTypes ct(design);
 
 		for (auto lib : libs)
 			ct.setup_design(lib);

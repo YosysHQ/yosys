@@ -161,7 +161,19 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.60+70
+YOSYS_VER := 0.63
+
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+    GIT_COMMIT_COUNT := $(or $(shell git rev-list --count v$(YOSYS_VER)..HEAD 2>/dev/null),0)
+    ifneq ($(GIT_COMMIT_COUNT),0)
+        YOSYS_VER := $(YOSYS_VER)+$(GIT_COMMIT_COUNT)
+    endif
+else
+    YOSYS_VER := $(YOSYS_VER)+post
+endif
+endif
+
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
@@ -184,9 +196,6 @@ GIT_DIRTY := ""
 endif
 
 OBJS = kernel/version_$(GIT_REV).o
-
-bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 5bafeb7.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -604,6 +613,7 @@ $(eval $(call add_include_file,kernel/bitpattern.h))
 $(eval $(call add_include_file,kernel/cellaigs.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
+$(eval $(call add_include_file,kernel/newcelltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/cost.h))
@@ -638,6 +648,7 @@ $(eval $(call add_include_file,kernel/yosys_common.h))
 $(eval $(call add_include_file,kernel/yw.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
+$(eval $(call add_include_file,libs/ezsat/ezcmdline.h))
 ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,libs/fst/fstapi.h))
 endif
@@ -645,8 +656,6 @@ $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,passes/techmap/libparse.h))
-$(eval $(call add_include_file,frontends/ast/ast.h))
-$(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
@@ -685,6 +694,7 @@ OBJS += libs/json11/json11.o
 
 OBJS += libs/ezsat/ezsat.o
 OBJS += libs/ezsat/ezminisat.o
+OBJS += libs/ezsat/ezcmdline.o
 
 OBJS += libs/minisat/Options.o
 OBJS += libs/minisat/SimpSolver.o
@@ -793,9 +803,30 @@ endif
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
+YOSYS_REPO :=
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+	GIT_REMOTE := $(strip $(shell git config --get remote.origin.url 2>/dev/null | $(AWK) '{print tolower($$0)}'))
+	ifneq ($(strip $(GIT_REMOTE)),)
+		YOSYS_REPO := $(strip $(shell echo $(GIT_REMOTE) | $(AWK) -F '[:/]' '{gsub(/\.git$$/, "", $$NF); printf "%s/%s", $$(NF-1), $$NF}'))
+	endif
+	ifeq ($(strip $(YOSYS_REPO)),yosyshq/yosys)
+		YOSYS_REPO :=
+	endif
+	GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+	ifeq ($(filter main HEAD release/v%,$(GIT_BRANCH)),)
+		YOSYS_REPO := $(YOSYS_REPO) at $(GIT_BRANCH)
+	endif
+	YOSYS_REPO := $(strip $(YOSYS_REPO))
+endif
+endif
+
 YOSYS_GIT_STR := $(GIT_REV)$(GIT_DIRTY)
 YOSYS_COMPILER := $(notdir $(CXX)) $(shell $(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS))
 YOSYS_VER_STR := Yosys $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(YOSYS_COMPILER))
+ifneq ($(strip $(YOSYS_REPO)),)
+	YOSYS_VER_STR := $(YOSYS_VER_STR) [$(YOSYS_REPO)]
+endif
 
 kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 	$(P) rm -f kernel/version_*.o kernel/version_*.d kernel/version_*.cc
@@ -889,6 +920,7 @@ endif
 
 # Tests that generate .mk with tests/gen-tests-makefile.sh
 MK_TEST_DIRS =
+MK_TEST_DIRS += tests/arch/analogdevices
 MK_TEST_DIRS += tests/arch/anlogic
 MK_TEST_DIRS += tests/arch/ecp5
 MK_TEST_DIRS += tests/arch/efinix
@@ -979,9 +1011,11 @@ makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
 	$(MAKE) -C $* -f run-test.mk
 	+@echo "...passed tests in $*"
 
-test: makefile-tests abcopt-tests seed-tests
+test: vanilla-test unit-test
+
+vanilla-test: makefile-tests abcopt-tests seed-tests
 	@echo ""
-	@echo "  Passed \"make test\"."
+	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)
 ifeq ($(YOSYS_NOVERIFIC),1)
 	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
@@ -1013,11 +1047,11 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 
 # Unit test
 unit-test: libyosys.so
-	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
+	@$(MAKE) -f $(UNITESTPATH)/Makefile CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
 		CXXFLAGS="$(CXXFLAGS)" LINKFLAGS="$(LINKFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
 
 clean-unit-test:
-	@$(MAKE) -C $(UNITESTPATH) clean
+	@$(MAKE) -f $(UNITESTPATH)/Makefile clean
 
 install-dev: $(PROGRAM_PREFIX)yosys-config share
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)

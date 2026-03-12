@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/utils.h"
 #include "kernel/log.h"
 #include <stdlib.h>
@@ -31,7 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
+void replace_undriven(RTLIL::Module *module, const NewCellTypes &ct)
 {
 	SigMap sigmap(module);
 	SigPool driven_signals;
@@ -407,9 +408,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		}
 	}
 
-	CellTypes ct_memcells;
-	ct_memcells.setup_stdcells_mem();
-
 	if (!noclkinv)
 	for (auto cell : module->cells())
 	if (design->selected(module, cell)) {
@@ -433,7 +431,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (cell->type.in(ID($dffe), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr)))
 			handle_polarity_inv(cell, ID::EN, ID::EN_POLARITY, assign_map, invert_map);
 
-		if (!ct_memcells.cell_known(cell->type))
+		if (!StaticCellTypes::Compat::stdcells_mem(cell->type))
 			continue;
 
 		handle_clkpol_celltype_swap(cell, "$_SR_N?_", "$_SR_P?_", ID::S, assign_map, invert_map);
@@ -1667,7 +1665,11 @@ skip_identity:
 			int bit_idx;
 			const auto onehot = sig_a.is_onehot(&bit_idx);
 
-			if (onehot) {
+			// Power of two
+			// A is unsigned or positive
+			if (onehot && (!cell->parameters[ID::A_SIGNED].as_bool() || bit_idx < sig_a.size() - 1)) {
+				cell->parameters[ID::A_SIGNED] = 0;
+				// 2^B = 1<<B
 				if (bit_idx == 1) {
 					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n",
 							cell->name.c_str(), module->name.c_str());
@@ -1679,7 +1681,6 @@ skip_identity:
 					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n",
 							cell->name.c_str(), module->name.c_str());
 					cell->type = ID($mul);
-					cell->parameters[ID::A_SIGNED] = 0;
 					cell->setPort(ID::A, Const(bit_idx, cell->parameters[ID::A_WIDTH].as_int()));
 
 					SigSpec y_wire = module->addWire(NEW_ID, y_size);
@@ -2291,7 +2292,7 @@ struct OptExprPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		CellTypes ct(design);
+		NewCellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
 			log("Optimizing module %s.\n", log_id(module));

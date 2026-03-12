@@ -1,0 +1,15 @@
+read_rtlil << EOT
+module \top
+  wire \sig
+  wire \val
+  process $2
+    attribute \full_case 1
+    switch \sig
+    end
+  end
+end
+EOT
+
+write_verilog bug5572.v
+design -reset
+read_verilog bug5572.v

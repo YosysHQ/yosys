@@ -33,12 +33,3 @@ assert repr_test == {'tomato': 'tomato', 'first': 'second', 'key': 'value', 'im 
 before = len(repr_test)
 print(repr_test.popitem())
 assert before - 1 == len(repr_test)
-
-# test noncomparable
-## if ys.CellType ever gets an == operator just disable this section
-uncomparable_value = ys.Globals.yosys_celltypes.cell_types[ys.IdString("$not")]
-
-x = ys.IdstringToCelltypeDict({ ys.IdString("\\a"): uncomparable_value})
-y = ys.IdstringToCelltypeDict({ ys.IdString("\\a"): uncomparable_value})
-
-assert x != y # not comparable

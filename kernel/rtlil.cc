@@ -19,7 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/binding.h"
 #include "kernel/sigtools.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -31,6 +31,7 @@
 #include <charconv>
 #include <optional>
 #include <string_view>
+#include <sstream>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -185,7 +186,7 @@ struct IdStringCollector {
 		trace(selection_var.selected_modules);
 		trace(selection_var.selected_members);
 	}
-	void trace_named(const RTLIL::NamedObject named) {
+	void trace_named(const RTLIL::NamedObject &named) {
 		trace_keys(named.attributes);
 		trace(named.name);
 	}
@@ -287,159 +288,17 @@ void RTLIL::OwningIdString::collect_garbage()
 
 dict<std::string, std::string> RTLIL::constpad;
 
-static const pool<IdString> &builtin_ff_cell_types_internal() {
-	static const pool<IdString> res = {
-		ID($sr),
-		ID($ff),
-		ID($dff),
-		ID($dffe),
-		ID($dffsr),
-		ID($dffsre),
-		ID($adff),
-		ID($adffe),
-		ID($aldff),
-		ID($aldffe),
-		ID($sdff),
-		ID($sdffe),
-		ID($sdffce),
-		ID($dlatch),
-		ID($adlatch),
-		ID($dlatchsr),
-		ID($_DFFE_NN_),
-		ID($_DFFE_NP_),
-		ID($_DFFE_PN_),
-		ID($_DFFE_PP_),
-		ID($_DFFSR_NNN_),
-		ID($_DFFSR_NNP_),
-		ID($_DFFSR_NPN_),
-		ID($_DFFSR_NPP_),
-		ID($_DFFSR_PNN_),
-		ID($_DFFSR_PNP_),
-		ID($_DFFSR_PPN_),
-		ID($_DFFSR_PPP_),
-		ID($_DFFSRE_NNNN_),
-		ID($_DFFSRE_NNNP_),
-		ID($_DFFSRE_NNPN_),
-		ID($_DFFSRE_NNPP_),
-		ID($_DFFSRE_NPNN_),
-		ID($_DFFSRE_NPNP_),
-		ID($_DFFSRE_NPPN_),
-		ID($_DFFSRE_NPPP_),
-		ID($_DFFSRE_PNNN_),
-		ID($_DFFSRE_PNNP_),
-		ID($_DFFSRE_PNPN_),
-		ID($_DFFSRE_PNPP_),
-		ID($_DFFSRE_PPNN_),
-		ID($_DFFSRE_PPNP_),
-		ID($_DFFSRE_PPPN_),
-		ID($_DFFSRE_PPPP_),
-		ID($_DFF_N_),
-		ID($_DFF_P_),
-		ID($_DFF_NN0_),
-		ID($_DFF_NN1_),
-		ID($_DFF_NP0_),
-		ID($_DFF_NP1_),
-		ID($_DFF_PN0_),
-		ID($_DFF_PN1_),
-		ID($_DFF_PP0_),
-		ID($_DFF_PP1_),
-		ID($_DFFE_NN0N_),
-		ID($_DFFE_NN0P_),
-		ID($_DFFE_NN1N_),
-		ID($_DFFE_NN1P_),
-		ID($_DFFE_NP0N_),
-		ID($_DFFE_NP0P_),
-		ID($_DFFE_NP1N_),
-		ID($_DFFE_NP1P_),
-		ID($_DFFE_PN0N_),
-		ID($_DFFE_PN0P_),
-		ID($_DFFE_PN1N_),
-		ID($_DFFE_PN1P_),
-		ID($_DFFE_PP0N_),
-		ID($_DFFE_PP0P_),
-		ID($_DFFE_PP1N_),
-		ID($_DFFE_PP1P_),
-		ID($_ALDFF_NN_),
-		ID($_ALDFF_NP_),
-		ID($_ALDFF_PN_),
-		ID($_ALDFF_PP_),
-		ID($_ALDFFE_NNN_),
-		ID($_ALDFFE_NNP_),
-		ID($_ALDFFE_NPN_),
-		ID($_ALDFFE_NPP_),
-		ID($_ALDFFE_PNN_),
-		ID($_ALDFFE_PNP_),
-		ID($_ALDFFE_PPN_),
-		ID($_ALDFFE_PPP_),
-		ID($_SDFF_NN0_),
-		ID($_SDFF_NN1_),
-		ID($_SDFF_NP0_),
-		ID($_SDFF_NP1_),
-		ID($_SDFF_PN0_),
-		ID($_SDFF_PN1_),
-		ID($_SDFF_PP0_),
-		ID($_SDFF_PP1_),
-		ID($_SDFFE_NN0N_),
-		ID($_SDFFE_NN0P_),
-		ID($_SDFFE_NN1N_),
-		ID($_SDFFE_NN1P_),
-		ID($_SDFFE_NP0N_),
-		ID($_SDFFE_NP0P_),
-		ID($_SDFFE_NP1N_),
-		ID($_SDFFE_NP1P_),
-		ID($_SDFFE_PN0N_),
-		ID($_SDFFE_PN0P_),
-		ID($_SDFFE_PN1N_),
-		ID($_SDFFE_PN1P_),
-		ID($_SDFFE_PP0N_),
-		ID($_SDFFE_PP0P_),
-		ID($_SDFFE_PP1N_),
-		ID($_SDFFE_PP1P_),
-		ID($_SDFFCE_NN0N_),
-		ID($_SDFFCE_NN0P_),
-		ID($_SDFFCE_NN1N_),
-		ID($_SDFFCE_NN1P_),
-		ID($_SDFFCE_NP0N_),
-		ID($_SDFFCE_NP0P_),
-		ID($_SDFFCE_NP1N_),
-		ID($_SDFFCE_NP1P_),
-		ID($_SDFFCE_PN0N_),
-		ID($_SDFFCE_PN0P_),
-		ID($_SDFFCE_PN1N_),
-		ID($_SDFFCE_PN1P_),
-		ID($_SDFFCE_PP0N_),
-		ID($_SDFFCE_PP0P_),
-		ID($_SDFFCE_PP1N_),
-		ID($_SDFFCE_PP1P_),
-		ID($_SR_NN_),
-		ID($_SR_NP_),
-		ID($_SR_PN_),
-		ID($_SR_PP_),
-		ID($_DLATCH_N_),
-		ID($_DLATCH_P_),
-		ID($_DLATCH_NN0_),
-		ID($_DLATCH_NN1_),
-		ID($_DLATCH_NP0_),
-		ID($_DLATCH_NP1_),
-		ID($_DLATCH_PN0_),
-		ID($_DLATCH_PN1_),
-		ID($_DLATCH_PP0_),
-		ID($_DLATCH_PP1_),
-		ID($_DLATCHSR_NNN_),
-		ID($_DLATCHSR_NNP_),
-		ID($_DLATCHSR_NPN_),
-		ID($_DLATCHSR_NPP_),
-		ID($_DLATCHSR_PNN_),
-		ID($_DLATCHSR_PNP_),
-		ID($_DLATCHSR_PPN_),
-		ID($_DLATCHSR_PPP_),
-		ID($_FF_),
-	};
-	return res;
-}
-
 const pool<IdString> &RTLIL::builtin_ff_cell_types() {
-	return builtin_ff_cell_types_internal();
+	static const pool<IdString> res = []() {
+		pool<IdString> r;
+		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
+			auto &cell = StaticCellTypes::builder.cells[i];
+			if (cell.features.is_ff)
+				r.insert(cell.type);
+		}
+		return r;
+	}();
+	return res;
 }
 
 #define check(condition) log_assert(condition && "malformed Const union")
@@ -1546,6 +1405,13 @@ void RTLIL::Design::pop_selection()
 	// Default to a full_selection if we ran out of stack
 	if (selection_stack.empty())
 		push_full_selection();
+}
+
+std::string RTLIL::Design::to_rtlil_str(bool only_selected) const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_design(f, const_cast<RTLIL::Design*>(this), only_selected);
+	return f.str();
 }
 
 std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
@@ -2982,6 +2848,8 @@ void RTLIL::Module::add(RTLIL::Binding *binding)
 void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 {
 	log_assert(refcount_wires_ == 0);
+	if (wires.empty())
+		return;
 
 	struct DeleteWireWorker
 	{
@@ -3037,6 +2905,13 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	} else {
 		delete cell;
 	}
+}
+
+void RTLIL::Module::remove(RTLIL::Memory *memory)
+{
+	log_assert(memories.count(memory->name) != 0);
+	memories.erase(memory->name);
+	delete memory;
 }
 
 void RTLIL::Module::remove(RTLIL::Process *process)
@@ -4281,6 +4156,13 @@ RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpe
 	return sig;
 }
 
+std::string RTLIL::Module::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_module(f, "", const_cast<RTLIL::Module*>(this), design, false);
+	return f.str();
+}
+
 RTLIL::Wire::Wire()
 {
 	static unsigned int hashidx_count = 123456789;
@@ -4308,6 +4190,13 @@ RTLIL::Wire::~Wire()
 #endif
 }
 
+std::string RTLIL::Wire::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_wire(f, "", this);
+	return f.str();
+}
+
 #ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Wire*> all_wires;
 std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
@@ -4330,11 +4219,25 @@ RTLIL::Memory::Memory()
 #endif
 }
 
+std::string RTLIL::Memory::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_memory(f, "", this);
+	return f.str();
+}
+
 RTLIL::Process::Process() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+}
+
+std::string RTLIL::Process::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_proc(f, "", this);
+	return f.str();
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
@@ -4356,6 +4259,13 @@ RTLIL::Cell::~Cell()
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
+}
+
+std::string RTLIL::Cell::to_rtlil_str() const
+{
+	std::ostringstream f;
+	RTLIL_BACKEND::dump_cell(f, "", this);
+	return f.str();
 }
 
 #ifdef YOSYS_ENABLE_PYTHON
@@ -4558,7 +4468,7 @@ bool RTLIL::Cell::is_mem_cell() const
 }
 
 bool RTLIL::Cell::is_builtin_ff() const {
-	return builtin_ff_cell_types_internal().count(type) > 0;
+	return StaticCellTypes::categories.is_ff(type);
 }
 
 RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)

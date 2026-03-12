@@ -269,6 +269,83 @@ static int add_dimension(AstNode *node, AstNode *rnode)
 	node->input_error("Unpacked array in packed struct/union member %s\n", node->str);
 }
 
+// Check if node is an unexpanded array reference (AST_IDENTIFIER -> AST_MEMORY without indexing)
+static bool is_unexpanded_array_ref(AstNode *node)
+{
+	if (node->type != AST_IDENTIFIER)
+		return false;
+	if (node->id2ast == nullptr || node->id2ast->type != AST_MEMORY)
+		return false;
+	// No indexing children = whole array reference
+	return node->children.empty();
+}
+
+// Check if two memories have compatible unpacked dimensions for array assignment
+static bool arrays_have_compatible_dims(AstNode *mem_a, AstNode *mem_b)
+{
+	if (mem_a->unpacked_dimensions != mem_b->unpacked_dimensions)
+		return false;
+	for (int i = 0; i < mem_a->unpacked_dimensions; i++) {
+		if (mem_a->dimensions[i].range_width != mem_b->dimensions[i].range_width)
+			return false;
+	}
+	// Also check packed dimensions (element width)
+	int a_width, a_size, a_bits;
+	int b_width, b_size, b_bits;
+	mem_a->meminfo(a_width, a_size, a_bits);
+	mem_b->meminfo(b_width, b_size, b_bits);
+	return a_width == b_width;
+}
+
+// Convert per-dimension element positions to declared index values.
+// Position 0 is the first declared element for each unpacked dimension.
+static std::vector<int> array_indices_from_position(AstNode *mem, const std::vector<int> &position)
+{
+	int num_dims = mem->unpacked_dimensions;
+	log_assert(GetSize(position) == num_dims);
+
+	std::vector<int> indices(num_dims);
+	for (int d = 0; d < num_dims; d++) {
+		int low = mem->dimensions[d].range_right;
+		int high = low + mem->dimensions[d].range_width - 1;
+		indices[d] = mem->dimensions[d].range_swapped ? (low + position[d]) : (high - position[d]);
+	}
+	return indices;
+}
+
+// Generate all element positions for a multi-dimensional unpacked array and
+// call callback once for each combination.
+static void foreach_array_position(AstNode *mem, std::function<void(const std::vector<int>&)> callback)
+{
+	int num_dims = mem->unpacked_dimensions;
+	if (num_dims == 0) {
+		callback({});
+		return;
+	}
+
+	std::vector<int> position(num_dims, 0);
+	std::vector<int> sizes(num_dims);
+
+	for (int d = 0; d < num_dims; d++)
+		sizes[d] = mem->dimensions[d].range_width;
+
+	// Iterate through all position combinations (rightmost dimension fastest).
+	while (true) {
+		callback(position);
+
+		int d = num_dims - 1;
+		while (d >= 0) {
+			position[d]++;
+			if (position[d] < sizes[d])
+				break;
+			position[d] = 0;
+			d--;
+		}
+		if (d < 0)
+			break;
+	}
+}
+
 static int size_packed_struct(AstNode *snode, int base_offset)
 {
 	// Struct members will be laid out in the structure contiguously from left to right.
@@ -3200,6 +3277,123 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 	}
 
+	// Expand array assignment: arr_out = arr_in OR arr_out = cond ? arr_a : arr_b
+	// Supports multi-dimensional unpacked arrays
+	if ((type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE || type == AST_ASSIGN) &&
+	    is_unexpanded_array_ref(children[0].get()))
+	{
+		AstNode *lhs = children[0].get();
+		AstNode *rhs = children[1].get();
+		AstNode *lhs_mem = lhs->id2ast;
+
+		// Case 1: Direct array assignment (b = a)
+		bool is_direct_assign = is_unexpanded_array_ref(rhs);
+
+		// Case 2: Ternary array assignment (out = sel ? a : b)
+		bool is_ternary_assign = (rhs->type == AST_TERNARY &&
+		                          is_unexpanded_array_ref(rhs->children[1].get()) &&
+		                          is_unexpanded_array_ref(rhs->children[2].get()));
+
+		if (is_direct_assign || is_ternary_assign)
+		{
+			AstNode *direct_rhs_mem = nullptr;
+			AstNode *true_mem = nullptr;
+			AstNode *false_mem = nullptr;
+
+			// Validate array compatibility
+			if (is_direct_assign) {
+				direct_rhs_mem = rhs->id2ast;
+				if (!arrays_have_compatible_dims(lhs_mem, direct_rhs_mem))
+					input_error("Array dimension mismatch in assignment\n");
+			} else {
+				true_mem = rhs->children[1]->id2ast;
+				false_mem = rhs->children[2]->id2ast;
+				if (!arrays_have_compatible_dims(lhs_mem, true_mem) ||
+				    !arrays_have_compatible_dims(lhs_mem, false_mem))
+					input_error("Array dimension mismatch in ternary expression\n");
+			}
+
+			int num_dims = lhs_mem->unpacked_dimensions;
+
+			// Helper to add index to an identifier clone
+			auto add_indices_to_id = [&](std::unique_ptr<AstNode> id, const std::vector<int>& indices) {
+				if (num_dims == 1) {
+					// Single dimension: use AST_RANGE
+					id->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+						mkconst_int(location, indices[0], true)));
+				} else {
+					// Multiple dimensions: use AST_MULTIRANGE
+					auto multirange = std::make_unique<AstNode>(location, AST_MULTIRANGE);
+					for (int idx : indices) {
+						multirange->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+							mkconst_int(location, idx, true)));
+					}
+					id->children.push_back(std::move(multirange));
+				}
+				id->integer = num_dims;
+				// Reset basic_prep so multirange gets resolved during subsequent simplify passes
+				id->basic_prep = false;
+				return id;
+			};
+
+			// Calculate total number of elements and warn if large
+			int total_elements = 1;
+			for (int d = 0; d < num_dims; d++)
+				total_elements *= lhs_mem->dimensions[d].range_width;
+			if (total_elements > 10000)
+				log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
+					total_elements, location.to_string().c_str());
+
+			// Collect all assignments
+			std::vector<std::unique_ptr<AstNode>> assignments;
+
+			foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+				auto lhs_indices = array_indices_from_position(lhs_mem, position);
+				auto lhs_idx = add_indices_to_id(lhs->clone(), lhs_indices);
+
+				std::unique_ptr<AstNode> rhs_expr;
+				if (is_direct_assign) {
+					auto rhs_indices = array_indices_from_position(direct_rhs_mem, position);
+					rhs_expr = add_indices_to_id(rhs->clone(), rhs_indices);
+				} else {
+					// Ternary case
+					AstNode *cond = rhs->children[0].get();
+					AstNode *true_val = rhs->children[1].get();
+					AstNode *false_val = rhs->children[2].get();
+
+					auto true_indices = array_indices_from_position(true_mem, position);
+					auto false_indices = array_indices_from_position(false_mem, position);
+					auto true_idx = add_indices_to_id(true_val->clone(), true_indices);
+					auto false_idx = add_indices_to_id(false_val->clone(), false_indices);
+
+					rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
+						cond->clone(), std::move(true_idx), std::move(false_idx));
+				}
+
+				auto assign = std::make_unique<AstNode>(location, type,
+					std::move(lhs_idx), std::move(rhs_expr));
+				assign->was_checked = true;
+				assignments.push_back(std::move(assign));
+			});
+
+			// For continuous assignments, add to module; for procedural, use block
+			if (type == AST_ASSIGN) {
+				// Add all but last to module
+				for (size_t i = 0; i + 1 < assignments.size(); i++)
+					current_ast_mod->children.push_back(std::move(assignments[i]));
+				// Last one replaces current node
+				newNode = std::move(assignments.back());
+			} else {
+				// Wrap in AST_BLOCK for procedural
+				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+				for (auto& assign : assignments)
+					newNode->children.push_back(std::move(assign));
+			}
+
+			goto apply_newNode;
+		}
+	}
+
 	// assignment with memory in left-hand side expression -> replace with memory write port
 	if (stage > 1 && (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) && children[0]->type == AST_IDENTIFIER &&
 			children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY && children[0]->id2ast->children.size() >= 2 &&
@@ -4690,6 +4884,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 
 		switch (child->type) {
 		case AST_WIRE:
+		case AST_AUTOWIRE:
 		case AST_MEMORY:
 		case AST_STRUCT:
 		case AST_UNION:
@@ -4718,6 +4913,93 @@ void AstNode::expand_genblock(const std::string &prefix)
 			}
 			break;
 
+		case AST_IDENTIFIER:
+			if (!child->str.empty() && prefix.size() > 0) {
+				bool is_resolved = false;
+				std::string identifier_str = child->str;
+				if (current_ast_mod != nullptr && identifier_str.compare(0, current_ast_mod->str.size(), current_ast_mod->str) == 0) {
+					if (identifier_str.at(current_ast_mod->str.size()) == '.') {
+						identifier_str = '\\' + identifier_str.substr(current_ast_mod->str.size()+1, identifier_str.size());
+					}
+				}
+				// search starting in the innermost scope and then stepping outward
+				for (size_t ppos = prefix.size() - 1; ppos; --ppos) {
+					if (prefix.at(ppos) != '.') continue;
+
+					std::string new_prefix = prefix.substr(0, ppos + 1);
+					auto attempt_resolve = [&new_prefix](const std::string &ident) -> std::string {
+						std::string new_name = prefix_id(new_prefix, ident);
+						if (current_scope.count(new_name))
+							return new_name;
+						return {};
+					};
+
+					// attempt to resolve the full identifier
+					std::string resolved = attempt_resolve(identifier_str);
+					if (!resolved.empty()) {
+						is_resolved = true;
+						break;
+					}
+					// attempt to resolve hierarchical prefixes within the identifier,
+					// as the prefix could refer to a local scope which exists but
+					// hasn't yet been elaborated
+					for (size_t spos = identifier_str.size() - 1; spos; --spos) {
+						if (identifier_str.at(spos) != '.') continue;
+						resolved = attempt_resolve(identifier_str.substr(0, spos));
+						if (!resolved.empty()) {
+							is_resolved = true;
+							identifier_str = resolved + identifier_str.substr(spos);
+							ppos = 1; // break outer loop
+							break;
+						}
+					}
+					if (current_scope.count(identifier_str) == 0) {
+						AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
+						for (auto& node : current_scope_ast->children) {
+							switch (node->type) {
+							case AST_PARAMETER:
+							case AST_LOCALPARAM:
+							case AST_WIRE:
+							case AST_AUTOWIRE:
+							case AST_GENVAR:
+							case AST_MEMORY:
+							case AST_FUNCTION:
+							case AST_TASK:
+							case AST_DPI_FUNCTION:
+								if (prefix_id(new_prefix, identifier_str) == node->str) {
+									is_resolved = true;
+									current_scope[node->str] = node.get();
+								}
+								break;
+							case AST_ENUM:
+								current_scope[node->str] = node.get();
+								for (auto& enum_node : node->children) {
+									log_assert(enum_node->type==AST_ENUM_ITEM);
+									if (prefix_id(new_prefix, identifier_str) == enum_node->str) {
+										is_resolved = true;
+										current_scope[enum_node->str] = enum_node.get();
+									}
+								}
+								break;
+							default:
+								break;
+							}
+						}
+					}
+				}
+				if ((current_scope.count(identifier_str) == 0) && is_resolved == false) {
+					if (current_ast_mod == nullptr) {
+						input_error("Identifier `%s' is implicitly declared outside of a module.\n", child->str.c_str());
+					} else if (flag_autowire || identifier_str == "\\$global_clock") {
+						auto auto_wire = std::make_unique<AstNode>(child->location, AST_AUTOWIRE);
+						auto_wire->str = identifier_str;
+						children.push_back(std::move(auto_wire));
+					} else {
+						input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", identifier_str.c_str());
+					}
+				}
+			}
+			break;
 		default:
 			break;
 		}

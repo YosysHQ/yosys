@@ -97,6 +97,7 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 					all_empty = false;
 			if (all_empty)
 			{
+				did_something = true;
 				for (auto cs : sw->cases)
 					delete cs;
 				sw->cases.clear();

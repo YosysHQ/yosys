@@ -1,18 +1,21 @@
 // Created by cells_xtra.py from Lattice models
 
 (* blackbox *) (* keep *)
-module GSR (...);
+module GSR(GSR);
     input GSR;
 endmodule
 
 (* blackbox *) (* keep *)
-module SGSR (...);
+module SGSR(GSR, CLK);
     input GSR;
     input CLK;
 endmodule
 
 (* blackbox *)
-module DP8KC (...);
+module DP8KC(DIA8, DIA7, DIA6, DIA5, DIA4, DIA3, DIA2, DIA1, DIA0, ADA12, ADA11, ADA10, ADA9, ADA8, ADA7, ADA6, ADA5, ADA4, ADA3, ADA2, ADA1
+, ADA0, CEA, OCEA, CLKA, WEA, CSA2, CSA1, CSA0, RSTA, DIB8, DIB7, DIB6, DIB5, DIB4, DIB3, DIB2, DIB1, DIB0, ADB12, ADB11, ADB10
+, ADB9, ADB8, ADB7, ADB6, ADB5, ADB4, ADB3, ADB2, ADB1, ADB0, CEB, OCEB, CLKB, WEB, CSB2, CSB1, CSB0, RSTB, DOA8, DOA7, DOA6
+, DOA5, DOA4, DOA3, DOA2, DOA1, DOA0, DOB8, DOB7, DOB6, DOB5, DOB4, DOB3, DOB2, DOB1, DOB0);
     parameter DATA_WIDTH_A = 9;
     parameter DATA_WIDTH_B = 9;
     parameter REGMODE_A = "NOREG";
@@ -138,7 +141,10 @@ module DP8KC (...);
 endmodule
 
 (* blackbox *)
-module PDPW8KC (...);
+module PDPW8KC(DI17, DI16, DI15, DI14, DI13, DI12, DI11, DI10, DI9, DI8, DI7, DI6, DI5, DI4, DI3, DI2, DI1, DI0, ADW8, ADW7, ADW6
+, ADW5, ADW4, ADW3, ADW2, ADW1, ADW0, BE1, BE0, CEW, CLKW, CSW2, CSW1, CSW0, ADR12, ADR11, ADR10, ADR9, ADR8, ADR7, ADR6, ADR5
+, ADR4, ADR3, ADR2, ADR1, ADR0, CER, OCER, CLKR, CSR2, CSR1, CSR0, RST, DO17, DO16, DO15, DO14, DO13, DO12, DO11, DO10, DO9
+, DO8, DO7, DO6, DO5, DO4, DO3, DO2, DO1, DO0);
     parameter DATA_WIDTH_W = 18;
     parameter DATA_WIDTH_R = 9;
     parameter REGMODE = "NOREG";
@@ -255,7 +261,8 @@ module PDPW8KC (...);
 endmodule
 
 (* blackbox *)
-module SP8KC (...);
+module SP8KC(DI8, DI7, DI6, DI5, DI4, DI3, DI2, DI1, DI0, AD12, AD11, AD10, AD9, AD8, AD7, AD6, AD5, AD4, AD3, AD2, AD1
+, AD0, CE, OCE, CLK, WE, CS2, CS1, CS0, RST, DO8, DO7, DO6, DO5, DO4, DO3, DO2, DO1, DO0);
     parameter DATA_WIDTH = 9;
     parameter REGMODE = "NOREG";
     parameter CSDECODE = "0b000";
@@ -338,7 +345,9 @@ module SP8KC (...);
 endmodule
 
 (* blackbox *)
-module FIFO8KB (...);
+module FIFO8KB(DI0, DI1, DI2, DI3, DI4, DI5, DI6, DI7, DI8, DI9, DI10, DI11, DI12, DI13, DI14, DI15, DI16, DI17, CSW0, CSW1, CSR0
+, CSR1, WE, RE, ORE, CLKW, CLKR, RST, RPRST, FULLI, EMPTYI, DO0, DO1, DO2, DO3, DO4, DO5, DO6, DO7, DO8, DO9, DO10
+, DO11, DO12, DO13, DO14, DO15, DO16, DO17, EF, AEF, AFF, FF);
     parameter DATA_WIDTH_W = 18;
     parameter DATA_WIDTH_R = 18;
     parameter REGMODE = "NOREG";
@@ -409,7 +418,7 @@ module FIFO8KB (...);
 endmodule
 
 (* blackbox *)
-module CLKDIVC (...);
+module CLKDIVC(RST, CLKI, ALIGNWD, CDIV1, CDIVX);
     parameter GSR = "DISABLED";
     parameter DIV = "2.0";
     input RST;
@@ -420,7 +429,7 @@ module CLKDIVC (...);
 endmodule
 
 (* blackbox *)
-module DCMA (...);
+module DCMA(CLK0, CLK1, SEL, DCMOUT);
     input CLK0;
     input CLK1;
     input SEL;
@@ -428,14 +437,14 @@ module DCMA (...);
 endmodule
 
 (* blackbox *)
-module ECLKSYNCA (...);
+module ECLKSYNCA(ECLKI, STOP, ECLKO);
     input ECLKI;
     input STOP;
     output ECLKO;
 endmodule
 
 (* blackbox *)
-module ECLKBRIDGECS (...);
+module ECLKBRIDGECS(CLK0, CLK1, SEL, ECSOUT);
     input CLK0;
     input CLK1;
     input SEL;
@@ -443,19 +452,21 @@ module ECLKBRIDGECS (...);
 endmodule
 
 (* blackbox *)
-module DCCA (...);
+module DCCA(CLKI, CE, CLKO);
     input CLKI;
     input CE;
     output CLKO;
 endmodule
 
 (* blackbox *) (* keep *)
-module START (...);
+module START(STARTCLK);
     input STARTCLK;
 endmodule
 
 (* blackbox *)
-module EHXPLLJ (...);
+module EHXPLLJ(CLKI, CLKFB, PHASESEL1, PHASESEL0, PHASEDIR, PHASESTEP, LOADREG, STDBY, PLLWAKESYNC, RST, RESETM, RESETC, RESETD, ENCLKOP, ENCLKOS, ENCLKOS2, ENCLKOS3, PLLCLK, PLLRST, PLLSTB, PLLWE
+, PLLDATI7, PLLDATI6, PLLDATI5, PLLDATI4, PLLDATI3, PLLDATI2, PLLDATI1, PLLDATI0, PLLADDR4, PLLADDR3, PLLADDR2, PLLADDR1, PLLADDR0, CLKOP, CLKOS, CLKOS2, CLKOS3, LOCK, INTLOCK, REFCLK, PLLDATO7
+, PLLDATO6, PLLDATO5, PLLDATO4, PLLDATO3, PLLDATO2, PLLDATO1, PLLDATO0, PLLACK, DPHSRC, CLKINTFB);
     parameter CLKI_DIV = 1;
     parameter CLKFB_DIV = 1;
     parameter CLKOP_DIV = 8;
@@ -557,7 +568,7 @@ module EHXPLLJ (...);
 endmodule
 
 (* blackbox *)
-module OSCH (...);
+module OSCH(STDBY, OSC, SEDSTDBY);
     parameter NOM_FREQ = "2.08";
     input STDBY;
     output OSC;
@@ -565,7 +576,7 @@ module OSCH (...);
 endmodule
 
 (* blackbox *) (* keep *)
-module TSALL (...);
+module TSALL(TSALL);
     input TSALL;
 endmodule
 

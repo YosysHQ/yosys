@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/ffinit.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -101,7 +102,10 @@ struct keep_cache_t
 };
 
 keep_cache_t keep_cache;
-CellTypes ct_reg, ct_all;
+static constexpr auto ct_reg = StaticCellTypes::Categories::join(
+	StaticCellTypes::Compat::mem_ff,
+	StaticCellTypes::categories.is_anyinit);
+NewCellTypes ct_all;
 int count_rm_cells, count_rm_wires;
 
 void rmunused_module_cells(Module *module, bool verbose)
@@ -271,6 +275,9 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 			return conns.check_any(s2);
 	}
 
+	if (w1 == w2)
+		return s2.offset < s1.offset;
+
 	if (w1->port_output != w2->port_output)
 		return w2->port_output;
 
@@ -307,10 +314,10 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	if (!purge_mode)
 		for (auto &it : module->cells_) {
 			RTLIL::Cell *cell = it.second;
-			if (ct_reg.cell_known(cell->type)) {
+			if (ct_reg(cell->type)) {
 				bool clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic));
 				for (auto &it2 : cell->connections())
-					if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
+					if (clk2fflogic ? it2.first == ID::D : ct_all.cell_output(cell->type, it2.first))
 						register_signals.add(it2.second);
 			}
 			for (auto &it2 : cell->connections())
@@ -343,7 +350,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
 			RTLIL::SigBit s1 = RTLIL::SigBit(wire, i), s2 = assign_map(s1);
-			if (!compare_signals(s1, s2, register_signals, connected_signals, direct_wires))
+			if (compare_signals(s2, s1, register_signals, connected_signals, direct_wires))
 				assign_map.add(s1);
 		}
 	}
@@ -467,8 +474,6 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 					wire->attributes.erase(ID::init);
 				else
 					wire->attributes.at(ID::init) = initval;
-				used_signals.add(new_conn.first);
-				used_signals.add(new_conn.second);
 				module->connect(new_conn);
 			}
 
@@ -516,14 +521,12 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 {
 	bool did_something = false;
-	CellTypes fftypes;
-	fftypes.setup_internals_mem();
 
 	SigMap sigmap(module);
 	dict<SigBit, State> qbits;
 
 	for (auto cell : module->cells())
-		if (fftypes.cell_known(cell->type) && cell->hasPort(ID::Q))
+		if (StaticCellTypes::Compat::internals_mem_ff(cell->type) && cell->hasPort(ID::Q))
 		{
 			SigSpec sig = cell->getPort(ID::Q);
 
@@ -696,10 +699,6 @@ struct OptCleanPass : public Pass {
 
 		keep_cache.reset(design, purge_mode);
 
-		ct_reg.setup_internals_mem();
-		ct_reg.setup_internals_anyinit();
-		ct_reg.setup_stdcells_mem();
-
 		ct_all.setup(design);
 
 		count_rm_cells = 0;
@@ -715,11 +714,9 @@ struct OptCleanPass : public Pass {
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
 		design->optimize();
-		design->sort();
 		design->check();
 
 		keep_cache.reset();
-		ct_reg.clear();
 		ct_all.clear();
 		log_pop();
 
@@ -760,10 +757,6 @@ struct CleanPass : public Pass {
 
 		keep_cache.reset(design);
 
-		ct_reg.setup_internals_mem();
-		ct_reg.setup_internals_anyinit();
-		ct_reg.setup_stdcells_mem();
-
 		ct_all.setup(design);
 
 		count_rm_cells = 0;
@@ -780,11 +773,9 @@ struct CleanPass : public Pass {
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
 		design->optimize();
-		design->sort();
 		design->check();
 
 		keep_cache.reset();
-		ct_reg.clear();
 		ct_all.clear();
 
 		request_garbage_collection();

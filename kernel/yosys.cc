@@ -18,8 +18,8 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "kernel/newcelltypes.h"
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -92,7 +92,7 @@ const char* yosys_maybe_version() {
 }
 
 RTLIL::Design *yosys_design = NULL;
-CellTypes yosys_celltypes;
+NewCellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
@@ -173,7 +173,7 @@ void yosys_banner()
 	log("\n");
 	log(" /----------------------------------------------------------------------------\\\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
-	log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
+	log(" |  Copyright (C) 2012 - 2026  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |  Distributed under an ISC-like license, type \"license\" to see terms        |\n");
 	log(" \\----------------------------------------------------------------------------/\n");
 	log(" %s\n", yosys_maybe_version());
@@ -262,7 +262,7 @@ void yosys_setup()
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
-	yosys_celltypes.setup();
+	yosys_celltypes.static_cell_types = StaticCellTypes::categories.is_known;
 	log_push();
 }
 
@@ -290,8 +290,6 @@ void yosys_shutdown()
 			fclose(f);
 	log_errfile = NULL;
 	log_files.clear();
-
-	yosys_celltypes.clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {

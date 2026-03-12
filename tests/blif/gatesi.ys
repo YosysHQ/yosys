@@ -1,0 +1,2 @@
+read_blif gatesi.blif
+write_blif -gatesi gatesi.blif.out

@@ -78,7 +78,7 @@ ContentListing* ContentListing::open_option(const string &text,
 }
 
 #define MAX_LINE_LEN 80
-void log_pass_str(const std::string &pass_str, std::string indent_str, bool leading_newline=false) {
+void log_body_str(const std::string &pass_str, std::string indent_str, bool leading_newline=false, bool is_formatted=false) {
 	if (pass_str.empty())
 		return;
 	std::istringstream iss(pass_str);
@@ -86,26 +86,30 @@ void log_pass_str(const std::string &pass_str, std::string indent_str, bool lead
 		log("\n");
 	for (std::string line; std::getline(iss, line);) {
 		log("%s", indent_str);
-		auto curr_len = indent_str.length();
-		std::istringstream lss(line);
-		for (std::string word; std::getline(lss, word, ' ');) {
-			while (word[0] == '`' && word.back() == '`')
-				word = word.substr(1, word.length()-2);
-			if (curr_len + word.length() >= MAX_LINE_LEN-1) {
-				curr_len = 0;
-				log("\n%s", indent_str);
-			}
-			if (word.length()) {
-				log("%s ", word);
-				curr_len += word.length() + 1;
+		if (is_formatted) {
+			log("%s", line);
+		} else {
+			auto curr_len = indent_str.length();
+			std::istringstream lss(line);
+			for (std::string word; std::getline(lss, word, ' ');) {
+				while (word[0] == '`' && word.back() == '`')
+					word = word.substr(1, word.length()-2);
+				if (curr_len + word.length() >= MAX_LINE_LEN-1) {
+					curr_len = 0;
+					log("\n%s", indent_str);
+				}
+				if (word.length()) {
+					log("%s ", word);
+					curr_len += word.length() + 1;
+				}
 			}
 		}
 		log("\n");
 	}
 }
-void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newline=false) {
+void log_body(const ContentListing &content, int indent=0, bool leading_newline=false) {
 	std::string indent_str(indent*4, ' ');
-	log_pass_str(pass_str, indent_str, leading_newline);
+	log_body_str(content.body, indent_str, leading_newline, content.type.compare("code") == 0);
 }
 
 PrettyHelp *current_help = nullptr;
@@ -134,16 +138,16 @@ void PrettyHelp::log_help() const
 {
 	for (auto &content : _root_listing) {
 		if (content.type.compare("usage") == 0) {
-			log_pass_str(content.body, 1, true);
+			log_body(content, 1, true);
 			log("\n");
 		} else if (content.type.compare("option") == 0) {
-			log_pass_str(content.body, 1);
+			log_body(content, 1);
 			for (auto text : content) {
-				log_pass_str(text.body, 2);
+				log_body(text, 2);
 				log("\n");
 			}
 		} else {
-			log_pass_str(content.body, 0);
+			log_body(content, 0);
 			log("\n");
 		}
 	}

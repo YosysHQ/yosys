@@ -1,0 +1,49 @@
+# Regression test for #5684: const_shift_worker must not crash when arg1 is
+# empty.
+
+read_json << EOF
+{
+    "modules": {
+        "sshl": {
+            "cells": {
+                "sshlCell": {
+                    "connections": {
+                        "A": [],
+                        "B": [3],
+                        "Y": [1]
+                    },
+                    "parameters": {
+                        "A_SIGNED": "1",
+                        "A_WIDTH": "0",
+                        "B_SIGNED": "0",
+                        "B_WIDTH": "1",
+                        "Y_WIDTH": "1"
+                    },
+                    "port_directions": {
+                        "A": "input",
+                        "B": "input",
+                        "Y": "output"
+                    },
+                    "type": "$sshl"
+                }
+            },
+            "ports": {
+                "A": {
+                    "bits": [],
+                    "direction": "input"
+                },
+                "B": {
+                    "bits": [3],
+                    "direction": "input"
+                },
+                "Y": {
+                    "bits": [1],
+                    "direction": "output"
+                }
+            }
+        }
+    }
+}
+EOF
+
+eval -set B 0 -show Y sshl

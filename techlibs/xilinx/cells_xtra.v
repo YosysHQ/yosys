@@ -1,6 +1,6 @@
 // Created by cells_xtra.py from Xilinx models
 
-module RAMB4_S1 (...);
+module RAMB4_S1(DO, ADDR, DI, EN, CLK, WE, RST);
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -27,7 +27,7 @@ module RAMB4_S1 (...);
     input RST;
 endmodule
 
-module RAMB4_S2 (...);
+module RAMB4_S2(DO, ADDR, DI, EN, CLK, WE, RST);
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -54,7 +54,7 @@ module RAMB4_S2 (...);
     input RST;
 endmodule
 
-module RAMB4_S4 (...);
+module RAMB4_S4(DO, ADDR, DI, EN, CLK, WE, RST);
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -81,7 +81,7 @@ module RAMB4_S4 (...);
     input RST;
 endmodule
 
-module RAMB4_S8 (...);
+module RAMB4_S8(DO, ADDR, DI, EN, CLK, WE, RST);
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -108,7 +108,7 @@ module RAMB4_S8 (...);
     input RST;
 endmodule
 
-module RAMB4_S16 (...);
+module RAMB4_S16(DO, ADDR, DI, EN, CLK, WE, RST);
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -135,7 +135,7 @@ module RAMB4_S16 (...);
     input RST;
 endmodule
 
-module RAMB4_S1_S1 (...);
+module RAMB4_S1_S1(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -171,7 +171,7 @@ module RAMB4_S1_S1 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S1_S2 (...);
+module RAMB4_S1_S2(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -207,7 +207,7 @@ module RAMB4_S1_S2 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S1_S4 (...);
+module RAMB4_S1_S4(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -243,7 +243,7 @@ module RAMB4_S1_S4 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S1_S8 (...);
+module RAMB4_S1_S8(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -279,7 +279,7 @@ module RAMB4_S1_S8 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S1_S16 (...);
+module RAMB4_S1_S16(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -315,7 +315,7 @@ module RAMB4_S1_S16 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S2_S2 (...);
+module RAMB4_S2_S2(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -351,7 +351,7 @@ module RAMB4_S2_S2 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S2_S4 (...);
+module RAMB4_S2_S4(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -387,7 +387,7 @@ module RAMB4_S2_S4 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S2_S8 (...);
+module RAMB4_S2_S8(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -423,7 +423,7 @@ module RAMB4_S2_S8 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S2_S16 (...);
+module RAMB4_S2_S16(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -459,7 +459,7 @@ module RAMB4_S2_S16 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S4_S4 (...);
+module RAMB4_S4_S4(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -495,7 +495,7 @@ module RAMB4_S4_S4 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S4_S8 (...);
+module RAMB4_S4_S8(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -531,7 +531,7 @@ module RAMB4_S4_S8 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S4_S16 (...);
+module RAMB4_S4_S16(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -567,7 +567,7 @@ module RAMB4_S4_S16 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S8_S8 (...);
+module RAMB4_S8_S8(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -603,7 +603,7 @@ module RAMB4_S8_S8 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S8_S16 (...);
+module RAMB4_S8_S16(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -639,7 +639,7 @@ module RAMB4_S8_S16 (...);
     input RSTB;
 endmodule
 
-module RAMB4_S16_S16 (...);
+module RAMB4_S16_S16(DOA, ADDRA, DIA, ENA, CLKA, WEA, RSTA, DOB, ADDRB, DIB, ENB, CLKB, WEB, RSTB);
     parameter SIM_COLLISION_CHECK = "ALL";
     parameter INIT_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
     parameter INIT_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -675,7 +675,7 @@ module RAMB4_S16_S16 (...);
     input RSTB;
 endmodule
 
-module RAMB16_S1 (...);
+module RAMB16_S1(DO, ADDR, DI, EN, CLK, WE, SSR);
     parameter [0:0] INIT = 1'h0;
     parameter [0:0] SRVAL = 1'h0;
     parameter WRITE_MODE = "WRITE_FIRST";
@@ -753,7 +753,7 @@ module RAMB16_S1 (...);
     input SSR;
 endmodule
 
-module RAMB16_S2 (...);
+module RAMB16_S2(DO, ADDR, DI, EN, CLK, WE, SSR);
     parameter [1:0] INIT = 2'h0;
     parameter [1:0] SRVAL = 2'h0;
     parameter WRITE_MODE = "WRITE_FIRST";
@@ -831,7 +831,7 @@ module RAMB16_S2 (...);
     input SSR;
 endmodule
 
-module RAMB16_S4 (...);
+module RAMB16_S4(DO, ADDR, DI, EN, CLK, WE, SSR);
     parameter [3:0] INIT = 4'h0;
     parameter [3:0] SRVAL = 4'h0;
     parameter WRITE_MODE = "WRITE_FIRST";
@@ -909,7 +909,7 @@ module RAMB16_S4 (...);
     input SSR;
 endmodule
 
-module RAMB16_S9 (...);
+module RAMB16_S9(DO, DOP, ADDR, DI, DIP, EN, CLK, WE, SSR);
     parameter [8:0] INIT = 9'h0;
     parameter [8:0] SRVAL = 9'h0;
     parameter WRITE_MODE = "WRITE_FIRST";
@@ -997,7 +997,7 @@ module RAMB16_S9 (...);
     input SSR;
 endmodule
 
-module RAMB16_S18 (...);
+module RAMB16_S18(DO, DOP, ADDR, DI, DIP, EN, CLK, WE, SSR);
     parameter [17:0] INIT = 18'h0;
     parameter [17:0] SRVAL = 18'h0;
     parameter WRITE_MODE = "WRITE_FIRST";
@@ -1085,7 +1085,7 @@ module RAMB16_S18 (...);
     input SSR;
 endmodule
 
-module RAMB16_S36 (...);
+module RAMB16_S36(DO, DOP, ADDR, DI, DIP, EN, CLK, WE, SSR);
     parameter [35:0] INIT = 36'h0;
     parameter [35:0] SRVAL = 36'h0;
     parameter WRITE_MODE = "WRITE_FIRST";
@@ -1173,7 +1173,7 @@ module RAMB16_S36 (...);
     input SSR;
 endmodule
 
-module RAMB16_S1_S1 (...);
+module RAMB16_S1_S1(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, ADDRB, DIB, ENB, CLKB, WEB, SSRB);
     parameter [0:0] INIT_A = 1'h0;
     parameter [0:0] INIT_B = 1'h0;
     parameter [0:0] SRVAL_A = 1'h0;
@@ -1263,7 +1263,7 @@ module RAMB16_S1_S1 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S1_S2 (...);
+module RAMB16_S1_S2(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, ADDRB, DIB, ENB, CLKB, WEB, SSRB);
     parameter [0:0] INIT_A = 1'h0;
     parameter [1:0] INIT_B = 2'h0;
     parameter [0:0] SRVAL_A = 1'h0;
@@ -1353,7 +1353,7 @@ module RAMB16_S1_S2 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S1_S4 (...);
+module RAMB16_S1_S4(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, ADDRB, DIB, ENB, CLKB, WEB, SSRB);
     parameter [0:0] INIT_A = 1'h0;
     parameter [3:0] INIT_B = 4'h0;
     parameter [0:0] SRVAL_A = 1'h0;
@@ -1443,7 +1443,7 @@ module RAMB16_S1_S4 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S1_S9 (...);
+module RAMB16_S1_S9(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [0:0] INIT_A = 1'h0;
     parameter [8:0] INIT_B = 9'h0;
     parameter [0:0] SRVAL_A = 1'h0;
@@ -1543,7 +1543,7 @@ module RAMB16_S1_S9 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S1_S18 (...);
+module RAMB16_S1_S18(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [0:0] INIT_A = 1'h0;
     parameter [17:0] INIT_B = 18'h0;
     parameter [0:0] SRVAL_A = 1'h0;
@@ -1643,7 +1643,7 @@ module RAMB16_S1_S18 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S1_S36 (...);
+module RAMB16_S1_S36(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [0:0] INIT_A = 1'h0;
     parameter [35:0] INIT_B = 36'h0;
     parameter [0:0] SRVAL_A = 1'h0;
@@ -1743,7 +1743,7 @@ module RAMB16_S1_S36 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S2_S2 (...);
+module RAMB16_S2_S2(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, ADDRB, DIB, ENB, CLKB, WEB, SSRB);
     parameter [1:0] INIT_A = 2'h0;
     parameter [1:0] INIT_B = 2'h0;
     parameter [1:0] SRVAL_A = 2'h0;
@@ -1833,7 +1833,7 @@ module RAMB16_S2_S2 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S2_S4 (...);
+module RAMB16_S2_S4(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, ADDRB, DIB, ENB, CLKB, WEB, SSRB);
     parameter [1:0] INIT_A = 2'h0;
     parameter [3:0] INIT_B = 4'h0;
     parameter [1:0] SRVAL_A = 2'h0;
@@ -1923,7 +1923,7 @@ module RAMB16_S2_S4 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S2_S9 (...);
+module RAMB16_S2_S9(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [1:0] INIT_A = 2'h0;
     parameter [8:0] INIT_B = 9'h0;
     parameter [1:0] SRVAL_A = 2'h0;
@@ -2023,7 +2023,7 @@ module RAMB16_S2_S9 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S2_S18 (...);
+module RAMB16_S2_S18(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [1:0] INIT_A = 2'h0;
     parameter [17:0] INIT_B = 18'h0;
     parameter [1:0] SRVAL_A = 2'h0;
@@ -2123,7 +2123,7 @@ module RAMB16_S2_S18 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S2_S36 (...);
+module RAMB16_S2_S36(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [1:0] INIT_A = 2'h0;
     parameter [35:0] INIT_B = 36'h0;
     parameter [1:0] SRVAL_A = 2'h0;
@@ -2223,7 +2223,7 @@ module RAMB16_S2_S36 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S4_S4 (...);
+module RAMB16_S4_S4(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, ADDRB, DIB, ENB, CLKB, WEB, SSRB);
     parameter [3:0] INIT_A = 4'h0;
     parameter [3:0] INIT_B = 4'h0;
     parameter [3:0] SRVAL_A = 4'h0;
@@ -2313,7 +2313,7 @@ module RAMB16_S4_S4 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S4_S9 (...);
+module RAMB16_S4_S9(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [3:0] INIT_A = 4'h0;
     parameter [8:0] INIT_B = 9'h0;
     parameter [3:0] SRVAL_A = 4'h0;
@@ -2413,7 +2413,7 @@ module RAMB16_S4_S9 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S4_S18 (...);
+module RAMB16_S4_S18(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [3:0] INIT_A = 4'h0;
     parameter [17:0] INIT_B = 18'h0;
     parameter [3:0] SRVAL_A = 4'h0;
@@ -2513,7 +2513,7 @@ module RAMB16_S4_S18 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S4_S36 (...);
+module RAMB16_S4_S36(DOA, ADDRA, DIA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [3:0] INIT_A = 4'h0;
     parameter [35:0] INIT_B = 36'h0;
     parameter [3:0] SRVAL_A = 4'h0;
@@ -2613,7 +2613,7 @@ module RAMB16_S4_S36 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S9_S9 (...);
+module RAMB16_S9_S9(DOA, DOPA, ADDRA, DIA, DIPA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [8:0] INIT_A = 9'h0;
     parameter [8:0] INIT_B = 9'h0;
     parameter [8:0] SRVAL_A = 9'h0;
@@ -2715,7 +2715,7 @@ module RAMB16_S9_S9 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S9_S18 (...);
+module RAMB16_S9_S18(DOA, DOPA, ADDRA, DIA, DIPA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [8:0] INIT_A = 9'h0;
     parameter [17:0] INIT_B = 18'h0;
     parameter [8:0] SRVAL_A = 9'h0;
@@ -2817,7 +2817,7 @@ module RAMB16_S9_S18 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S9_S36 (...);
+module RAMB16_S9_S36(DOA, DOPA, ADDRA, DIA, DIPA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [8:0] INIT_A = 9'h0;
     parameter [35:0] INIT_B = 36'h0;
     parameter [8:0] SRVAL_A = 9'h0;
@@ -2919,7 +2919,7 @@ module RAMB16_S9_S36 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S18_S18 (...);
+module RAMB16_S18_S18(DOA, DOPA, ADDRA, DIA, DIPA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [17:0] INIT_A = 18'h0;
     parameter [17:0] INIT_B = 18'h0;
     parameter [17:0] SRVAL_A = 18'h0;
@@ -3021,7 +3021,7 @@ module RAMB16_S18_S18 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S18_S36 (...);
+module RAMB16_S18_S36(DOA, DOPA, ADDRA, DIA, DIPA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [17:0] INIT_A = 18'h0;
     parameter [35:0] INIT_B = 36'h0;
     parameter [17:0] SRVAL_A = 18'h0;
@@ -3123,7 +3123,7 @@ module RAMB16_S18_S36 (...);
     input SSRB;
 endmodule
 
-module RAMB16_S36_S36 (...);
+module RAMB16_S36_S36(DOA, DOPA, ADDRA, DIA, DIPA, ENA, CLKA, WEA, SSRA, DOB, DOPB, ADDRB, DIB, DIPB, ENB, CLKB, WEB, SSRB);
     parameter [35:0] INIT_A = 36'h0;
     parameter [35:0] INIT_B = 36'h0;
     parameter [35:0] SRVAL_A = 36'h0;
@@ -3225,7 +3225,7 @@ module RAMB16_S36_S36 (...);
     input SSRB;
 endmodule
 
-module RAMB16BWE_S18 (...);
+module RAMB16BWE_S18(DO, DOP, CLK, EN, SSR, WE, DI, DIP, ADDR);
     parameter [17:0] INIT = 18'h0;
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
@@ -3313,7 +3313,7 @@ module RAMB16BWE_S18 (...);
     input [9:0] ADDR;
 endmodule
 
-module RAMB16BWE_S36 (...);
+module RAMB16BWE_S36(DO, DOP, CLK, EN, SSR, WE, DI, DIP, ADDR);
     parameter [35:0] INIT = 36'h0;
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
@@ -3401,7 +3401,7 @@ module RAMB16BWE_S36 (...);
     input [8:0] ADDR;
 endmodule
 
-module RAMB16BWE_S18_S9 (...);
+module RAMB16BWE_S18_S9(DOA, DOB, DOPA, DOPB, CLKA, CLKB, ENA, ENB, SSRA, SSRB, WEB, WEA, DIA, DIB, DIPA, DIPB, ADDRA, ADDRB);
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
     parameter [255:0] INITP_02 = 256'h0;
@@ -3503,7 +3503,7 @@ module RAMB16BWE_S18_S9 (...);
     input [10:0] ADDRB;
 endmodule
 
-module RAMB16BWE_S18_S18 (...);
+module RAMB16BWE_S18_S18(DOA, DOB, DOPA, DOPB, CLKA, CLKB, ENA, ENB, SSRA, SSRB, WEB, WEA, DIA, DIB, DIPA, DIPB, ADDRA, ADDRB);
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
     parameter [255:0] INITP_02 = 256'h0;
@@ -3605,7 +3605,7 @@ module RAMB16BWE_S18_S18 (...);
     input [9:0] ADDRB;
 endmodule
 
-module RAMB16BWE_S36_S9 (...);
+module RAMB16BWE_S36_S9(DOA, DOPA, DOB, DOPB, CLKA, CLKB, ENA, ENB, SSRA, SSRB, WEA, WEB, DIA, DIPA, DIB, DIPB, ADDRA, ADDRB);
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
     parameter [255:0] INITP_02 = 256'h0;
@@ -3707,7 +3707,7 @@ module RAMB16BWE_S36_S9 (...);
     input [10:0] ADDRB;
 endmodule
 
-module RAMB16BWE_S36_S18 (...);
+module RAMB16BWE_S36_S18(DOA, DOPA, DOB, DOPB, CLKA, CLKB, ENA, ENB, SSRA, SSRB, WEA, WEB, DIA, DIPA, DIB, DIPB, ADDRA, ADDRB);
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
     parameter [255:0] INITP_02 = 256'h0;
@@ -3809,7 +3809,7 @@ module RAMB16BWE_S36_S18 (...);
     input [9:0] ADDRB;
 endmodule
 
-module RAMB16BWE_S36_S36 (...);
+module RAMB16BWE_S36_S36(DOA, DOPA, DOB, DOPB, CLKA, CLKB, ENA, ENB, SSRA, SSRB, WEA, WEB, DIA, DIPA, DIB, DIPB, ADDRA, ADDRB);
     parameter [255:0] INITP_00 = 256'h0;
     parameter [255:0] INITP_01 = 256'h0;
     parameter [255:0] INITP_02 = 256'h0;
@@ -3911,7 +3911,7 @@ module RAMB16BWE_S36_S36 (...);
     input [8:0] ADDRB;
 endmodule
 
-module RAMB16BWER (...);
+module RAMB16BWER(DOA, DOB, DOPA, DOPB, ADDRA, ADDRB, CLKA, CLKB, DIA, DIB, DIPA, DIPB, ENA, ENB, REGCEA, REGCEB, RSTA, RSTB, WEA, WEB);
     parameter integer DATA_WIDTH_A = 0;
     parameter integer DATA_WIDTH_B = 0;
     parameter integer DOA_REG = 0;
@@ -4028,7 +4028,7 @@ module RAMB16BWER (...);
     input [3:0] WEB;
 endmodule
 
-module RAMB8BWER (...);
+module RAMB8BWER(DOADO, DOBDO, DOPADOP, DOPBDOP, ADDRAWRADDR, ADDRBRDADDR, CLKAWRCLK, CLKBRDCLK, DIADI, DIBDI, DIPADIP, DIPBDIP, ENAWREN, ENBRDEN, REGCEA, REGCEBREGCE, RSTA, RSTBRST, WEAWEL, WEBWEU);
     parameter integer DATA_WIDTH_A = 0;
     parameter integer DATA_WIDTH_B = 0;
     parameter integer DOA_REG = 0;
@@ -4109,7 +4109,7 @@ module RAMB8BWER (...);
     input [1:0] WEBWEU;
 endmodule
 
-module FIFO16 (...);
+module FIFO16(ALMOSTEMPTY, ALMOSTFULL, DO, DOP, EMPTY, FULL, RDCOUNT, RDERR, WRCOUNT, WRERR, DI, DIP, RDCLK, RDEN, RST, WRCLK, WREN);
     parameter [11:0] ALMOST_FULL_OFFSET = 12'h080;
     parameter [11:0] ALMOST_EMPTY_OFFSET = 12'h080;
     parameter integer DATA_WIDTH = 36;
@@ -4135,7 +4135,8 @@ module FIFO16 (...);
     input WREN;
 endmodule
 
-module RAMB16 (...);
+module RAMB16(CASCADEOUTA, CASCADEOUTB, DOA, DOB, DOPA, DOPB, ENA, CLKA, SSRA, CASCADEINA, REGCEA, ENB, CLKB, SSRB, CASCADEINB, REGCEB, ADDRA, ADDRB, DIA, DIB, DIPA
+, DIPB, WEA, WEB);
     parameter integer DOA_REG = 0;
     parameter integer DOB_REG = 0;
     parameter [255:0] INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -4254,7 +4255,7 @@ module RAMB16 (...);
     input [3:0] WEB;
 endmodule
 
-module RAMB32_S64_ECC (...);
+module RAMB32_S64_ECC(STATUS, DO, RDCLK, RDEN, SSR, WRCLK, WREN, DI, RDADDR, WRADDR);
     parameter DO_REG = 0;
     parameter SIM_COLLISION_CHECK = "ALL";
     output [1:0] STATUS;
@@ -4271,7 +4272,7 @@ module RAMB32_S64_ECC (...);
     input [8:0] WRADDR;
 endmodule
 
-module FIFO18 (...);
+module FIFO18(ALMOSTEMPTY, ALMOSTFULL, DO, DOP, EMPTY, FULL, RDCOUNT, RDERR, WRCOUNT, WRERR, DI, DIP, RDCLK, RDEN, RST, WRCLK, WREN);
     parameter [11:0] ALMOST_EMPTY_OFFSET = 12'h080;
     parameter [11:0] ALMOST_FULL_OFFSET = 12'h080;
     parameter integer DATA_WIDTH = 4;
@@ -4300,7 +4301,7 @@ module FIFO18 (...);
     input WREN;
 endmodule
 
-module FIFO18_36 (...);
+module FIFO18_36(ALMOSTEMPTY, ALMOSTFULL, DO, DOP, EMPTY, FULL, RDCOUNT, RDERR, WRCOUNT, WRERR, DI, DIP, RDCLK, RDEN, RST, WRCLK, WREN);
     parameter [8:0] ALMOST_EMPTY_OFFSET = 9'h080;
     parameter [8:0] ALMOST_FULL_OFFSET = 9'h080;
     parameter integer DO_REG = 1;
@@ -4328,7 +4329,7 @@ module FIFO18_36 (...);
     input WREN;
 endmodule
 
-module FIFO36 (...);
+module FIFO36(ALMOSTEMPTY, ALMOSTFULL, DO, DOP, EMPTY, FULL, RDCOUNT, RDERR, WRCOUNT, WRERR, DI, DIP, RDCLK, RDEN, RST, WRCLK, WREN);
     parameter [12:0] ALMOST_EMPTY_OFFSET = 13'h080;
     parameter [12:0] ALMOST_FULL_OFFSET = 13'h080;
     parameter integer DATA_WIDTH = 4;
@@ -4357,7 +4358,7 @@ module FIFO36 (...);
     input WREN;
 endmodule
 
-module FIFO36_72 (...);
+module FIFO36_72(ALMOSTEMPTY, ALMOSTFULL, DBITERR, DO, DOP, ECCPARITY, EMPTY, FULL, RDCOUNT, RDERR, SBITERR, WRCOUNT, WRERR, DI, DIP, RDCLK, RDEN, RST, WRCLK, WREN);
     parameter [8:0] ALMOST_EMPTY_OFFSET = 9'h080;
     parameter [8:0] ALMOST_FULL_OFFSET = 9'h080;
     parameter integer DO_REG = 1;
@@ -4390,7 +4391,7 @@ module FIFO36_72 (...);
     input WREN;
 endmodule
 
-module RAMB18 (...);
+module RAMB18(DOA, DOB, DOPA, DOPB, ENA, CLKA, SSRA, REGCEA, ENB, CLKB, SSRB, REGCEB, ADDRA, ADDRB, DIA, DIB, DIPA, DIPB, WEA, WEB);
     parameter integer DOA_REG = 0;
     parameter integer DOB_REG = 0;
     parameter [255:0] INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -4502,7 +4503,8 @@ module RAMB18 (...);
     input [1:0] WEB;
 endmodule
 
-module RAMB36 (...);
+module RAMB36(CASCADEOUTLATA, CASCADEOUTREGA, CASCADEOUTLATB, CASCADEOUTREGB, DOA, DOB, DOPA, DOPB, ENA, CLKA, SSRA, CASCADEINLATA, CASCADEINREGA, REGCEA, ENB, CLKB, SSRB, CASCADEINLATB, CASCADEINREGB, REGCEB, ADDRA
+, ADDRB, DIA, DIB, DIPA, DIPB, WEA, WEB);
     parameter integer DOA_REG = 0;
     parameter integer DOB_REG = 0;
     parameter [255:0] INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -4696,7 +4698,7 @@ module RAMB36 (...);
     input [3:0] WEB;
 endmodule
 
-module RAMB18SDP (...);
+module RAMB18SDP(DO, DOP, RDCLK, RDEN, REGCE, SSR, WRCLK, WREN, WRADDR, RDADDR, DI, DIP, WE);
     parameter integer DO_REG = 0;
     parameter [35:0] INIT = 36'h0;
     parameter [255:0] INITP_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -4792,7 +4794,7 @@ module RAMB18SDP (...);
     input [3:0] WE;
 endmodule
 
-module RAMB36SDP (...);
+module RAMB36SDP(DBITERR, SBITERR, DO, DOP, ECCPARITY, RDCLK, RDEN, REGCE, SSR, WRCLK, WREN, WRADDR, RDADDR, DI, DIP, WE);
     parameter integer DO_REG = 0;
     parameter EN_ECC_READ = "FALSE";
     parameter EN_ECC_SCRUB = "FALSE";
@@ -4966,7 +4968,7 @@ module RAMB36SDP (...);
     input [7:0] WE;
 endmodule
 
-module FIFO18E1 (...);
+module FIFO18E1(ALMOSTEMPTY, ALMOSTFULL, DO, DOP, EMPTY, FULL, RDCOUNT, RDERR, WRCOUNT, WRERR, DI, DIP, RDCLK, RDEN, REGCE, RST, RSTREG, WRCLK, WREN);
     parameter ALMOST_EMPTY_OFFSET = 13'h0080;
     parameter ALMOST_FULL_OFFSET = 13'h0080;
     parameter integer DATA_WIDTH = 4;
@@ -5012,7 +5014,8 @@ module FIFO18E1 (...);
     input WREN;
 endmodule
 
-module FIFO36E1 (...);
+module FIFO36E1(ALMOSTEMPTY, ALMOSTFULL, DBITERR, DO, DOP, ECCPARITY, EMPTY, FULL, RDCOUNT, RDERR, SBITERR, WRCOUNT, WRERR, DI, DIP, INJECTDBITERR, INJECTSBITERR, RDCLK, RDEN, REGCE, RST
+, RSTREG, WRCLK, WREN);
     parameter ALMOST_EMPTY_OFFSET = 13'h0080;
     parameter ALMOST_FULL_OFFSET = 13'h0080;
     parameter integer DATA_WIDTH = 4;
@@ -5065,7 +5068,8 @@ module FIFO36E1 (...);
     input WREN;
 endmodule
 
-module FIFO18E2 (...);
+module FIFO18E2(CASDOUT, CASDOUTP, CASNXTEMPTY, CASPRVRDEN, DOUT, DOUTP, EMPTY, FULL, PROGEMPTY, PROGFULL, RDCOUNT, RDERR, RDRSTBUSY, WRCOUNT, WRERR, WRRSTBUSY, CASDIN, CASDINP, CASDOMUX, CASDOMUXEN, CASNXTRDEN
+, CASOREGIMUX, CASOREGIMUXEN, CASPRVEMPTY, DIN, DINP, RDCLK, RDEN, REGCE, RST, RSTREG, SLEEP, WRCLK, WREN);
     parameter CASCADE_ORDER = "NONE";
     parameter CLOCK_DOMAINS = "INDEPENDENT";
     parameter FIRST_WORD_FALL_THROUGH = "FALSE";
@@ -5130,7 +5134,8 @@ module FIFO18E2 (...);
     input WREN;
 endmodule
 
-module FIFO36E2 (...);
+module FIFO36E2(CASDOUT, CASDOUTP, CASNXTEMPTY, CASPRVRDEN, DBITERR, DOUT, DOUTP, ECCPARITY, EMPTY, FULL, PROGEMPTY, PROGFULL, RDCOUNT, RDERR, RDRSTBUSY, SBITERR, WRCOUNT, WRERR, WRRSTBUSY, CASDIN, CASDINP
+, CASDOMUX, CASDOMUXEN, CASNXTRDEN, CASOREGIMUX, CASOREGIMUXEN, CASPRVEMPTY, DIN, DINP, INJECTDBITERR, INJECTSBITERR, RDCLK, RDEN, REGCE, RST, RSTREG, SLEEP, WRCLK, WREN);
     parameter CASCADE_ORDER = "NONE";
     parameter CLOCK_DOMAINS = "INDEPENDENT";
     parameter EN_ECC_PIPE = "FALSE";
@@ -5203,7 +5208,9 @@ module FIFO36E2 (...);
     input WREN;
 endmodule
 
-module RAMB18E2 (...);
+module RAMB18E2(CASDOUTA, CASDOUTB, CASDOUTPA, CASDOUTPB, DOUTADOUT, DOUTBDOUT, DOUTPADOUTP, DOUTPBDOUTP, ADDRARDADDR, ADDRBWRADDR, ADDRENA, ADDRENB, CASDIMUXA, CASDIMUXB, CASDINA, CASDINB, CASDINPA, CASDINPB, CASDOMUXA, CASDOMUXB, CASDOMUXEN_A
+, CASDOMUXEN_B, CASOREGIMUXA, CASOREGIMUXB, CASOREGIMUXEN_A, CASOREGIMUXEN_B, CLKARDCLK, CLKBWRCLK, DINADIN, DINBDIN, DINPADINP, DINPBDINP, ENARDEN, ENBWREN, REGCEAREGCE, REGCEB, RSTRAMARSTRAM, RSTRAMB, RSTREGARSTREG, RSTREGB, SLEEP, WEA
+, WEBWE);
     parameter CASCADE_ORDER_A = "NONE";
     parameter CASCADE_ORDER_B = "NONE";
     parameter CLOCK_DOMAINS = "INDEPENDENT";
@@ -5363,7 +5370,9 @@ module RAMB18E2 (...);
     input [3:0] WEBWE;
 endmodule
 
-module RAMB36E2 (...);
+module RAMB36E2(CASDOUTA, CASDOUTB, CASDOUTPA, CASDOUTPB, CASOUTDBITERR, CASOUTSBITERR, DBITERR, DOUTADOUT, DOUTBDOUT, DOUTPADOUTP, DOUTPBDOUTP, ECCPARITY, RDADDRECC, SBITERR, ADDRARDADDR, ADDRBWRADDR, ADDRENA, ADDRENB, CASDIMUXA, CASDIMUXB, CASDINA
+, CASDINB, CASDINPA, CASDINPB, CASDOMUXA, CASDOMUXB, CASDOMUXEN_A, CASDOMUXEN_B, CASINDBITERR, CASINSBITERR, CASOREGIMUXA, CASOREGIMUXB, CASOREGIMUXEN_A, CASOREGIMUXEN_B, CLKARDCLK, CLKBWRCLK, DINADIN, DINBDIN, DINPADINP, DINPBDINP, ECCPIPECE, ENARDEN
+, ENBWREN, INJECTDBITERR, INJECTSBITERR, REGCEAREGCE, REGCEB, RSTRAMARSTRAM, RSTRAMB, RSTREGARSTREG, RSTREGB, SLEEP, WEA, WEBWE);
     parameter CASCADE_ORDER_A = "NONE";
     parameter CASCADE_ORDER_B = "NONE";
     parameter CLOCK_DOMAINS = "INDEPENDENT";
@@ -5609,7 +5618,10 @@ module RAMB36E2 (...);
     input [7:0] WEBWE;
 endmodule
 
-module URAM288 (...);
+module URAM288(CAS_OUT_ADDR_A, CAS_OUT_ADDR_B, CAS_OUT_BWE_A, CAS_OUT_BWE_B, CAS_OUT_DBITERR_A, CAS_OUT_DBITERR_B, CAS_OUT_DIN_A, CAS_OUT_DIN_B, CAS_OUT_DOUT_A, CAS_OUT_DOUT_B, CAS_OUT_EN_A, CAS_OUT_EN_B, CAS_OUT_RDACCESS_A, CAS_OUT_RDACCESS_B, CAS_OUT_RDB_WR_A, CAS_OUT_RDB_WR_B, CAS_OUT_SBITERR_A, CAS_OUT_SBITERR_B, DBITERR_A, DBITERR_B, DOUT_A
+, DOUT_B, RDACCESS_A, RDACCESS_B, SBITERR_A, SBITERR_B, ADDR_A, ADDR_B, BWE_A, BWE_B, CAS_IN_ADDR_A, CAS_IN_ADDR_B, CAS_IN_BWE_A, CAS_IN_BWE_B, CAS_IN_DBITERR_A, CAS_IN_DBITERR_B, CAS_IN_DIN_A, CAS_IN_DIN_B, CAS_IN_DOUT_A, CAS_IN_DOUT_B, CAS_IN_EN_A, CAS_IN_EN_B
+, CAS_IN_RDACCESS_A, CAS_IN_RDACCESS_B, CAS_IN_RDB_WR_A, CAS_IN_RDB_WR_B, CAS_IN_SBITERR_A, CAS_IN_SBITERR_B, CLK, DIN_A, DIN_B, EN_A, EN_B, INJECT_DBITERR_A, INJECT_DBITERR_B, INJECT_SBITERR_A, INJECT_SBITERR_B, OREG_CE_A, OREG_CE_B, OREG_ECC_CE_A, OREG_ECC_CE_B, RDB_WR_A, RDB_WR_B
+, RST_A, RST_B, SLEEP);
     parameter integer AUTO_SLEEP_LATENCY = 8;
     parameter integer AVG_CONS_INACTIVE_CYCLES = 10;
     parameter BWE_MODE_A = "PARITY_INTERLEAVED";
@@ -5724,7 +5736,8 @@ module URAM288 (...);
     input SLEEP;
 endmodule
 
-module URAM288_BASE (...);
+module URAM288_BASE(DBITERR_A, DBITERR_B, DOUT_A, DOUT_B, SBITERR_A, SBITERR_B, ADDR_A, ADDR_B, BWE_A, BWE_B, CLK, DIN_A, DIN_B, EN_A, EN_B, INJECT_DBITERR_A, INJECT_DBITERR_B, INJECT_SBITERR_A, INJECT_SBITERR_B, OREG_CE_A, OREG_CE_B
+, OREG_ECC_CE_A, OREG_ECC_CE_B, RDB_WR_A, RDB_WR_B, RST_A, RST_B, SLEEP);
     parameter integer AUTO_SLEEP_LATENCY = 8;
     parameter integer AVG_CONS_INACTIVE_CYCLES = 10;
     parameter BWE_MODE_A = "PARITY_INTERLEAVED";
@@ -5789,7 +5802,9 @@ module URAM288_BASE (...);
     input SLEEP;
 endmodule
 
-module DSP48E (...);
+module DSP48E(ACOUT, BCOUT, CARRYCASCOUT, CARRYOUT, MULTSIGNOUT, OVERFLOW, P, PATTERNBDETECT, PATTERNDETECT, PCOUT, UNDERFLOW, A, ACIN, ALUMODE, B, BCIN, C, CARRYCASCIN, CARRYIN, CARRYINSEL, CEA1
+, CEA2, CEALUMODE, CEB1, CEB2, CEC, CECARRYIN, CECTRL, CEM, CEMULTCARRYIN, CEP, CLK, MULTSIGNIN, OPMODE, PCIN, RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTM
+, RSTP);
     parameter SIM_MODE = "SAFE";
     parameter integer ACASCREG = 1;
     parameter integer ALUMODEREG = 1;
@@ -5861,7 +5876,9 @@ module DSP48E (...);
     input RSTP;
 endmodule
 
-module DSP48E2 (...);
+module DSP48E2(ACOUT, BCOUT, CARRYCASCOUT, CARRYOUT, MULTSIGNOUT, OVERFLOW, P, PATTERNBDETECT, PATTERNDETECT, PCOUT, UNDERFLOW, XOROUT, A, ACIN, ALUMODE, B, BCIN, C, CARRYCASCIN, CARRYIN, CARRYINSEL
+, CEA1, CEA2, CEAD, CEALUMODE, CEB1, CEB2, CEC, CECARRYIN, CECTRL, CED, CEINMODE, CEM, CEP, CLK, D, INMODE, MULTSIGNIN, OPMODE, PCIN, RSTA, RSTALLCARRYIN
+, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP);
     parameter integer ACASCREG = 1;
     parameter integer ADREG = 1;
     parameter integer ALUMODEREG = 1;
@@ -5976,7 +5993,7 @@ module DSP48E2 (...);
     input RSTP;
 endmodule
 
-module FDDRCPE (...);
+module FDDRCPE(C0, C1, CE, D0, D1, CLR, PRE, Q);
     parameter INIT = 1'b0;
     (* clkbuf_sink *)
     input C0;
@@ -5990,7 +6007,7 @@ module FDDRCPE (...);
     output Q;
 endmodule
 
-module FDDRRSE (...);
+module FDDRRSE(Q, C0, C1, CE, D0, D1, R, S);
     parameter INIT = 1'b0;
     output Q;
     (* clkbuf_sink *)
@@ -6004,7 +6021,7 @@ module FDDRRSE (...);
     input S;
 endmodule
 
-module IFDDRCPE (...);
+module IFDDRCPE(Q0, Q1, C0, C1, CE, CLR, D, PRE);
     output Q0;
     output Q1;
     (* clkbuf_sink *)
@@ -6018,7 +6035,7 @@ module IFDDRCPE (...);
     input PRE;
 endmodule
 
-module IFDDRRSE (...);
+module IFDDRRSE(Q0, Q1, C0, C1, CE, D, R, S);
     output Q0;
     output Q1;
     (* clkbuf_sink *)
@@ -6032,7 +6049,7 @@ module IFDDRRSE (...);
     input S;
 endmodule
 
-module OFDDRCPE (...);
+module OFDDRCPE(Q, C0, C1, CE, CLR, D0, D1, PRE);
     (* iopad_external_pin *)
     output Q;
     (* clkbuf_sink *)
@@ -6046,7 +6063,7 @@ module OFDDRCPE (...);
     input PRE;
 endmodule
 
-module OFDDRRSE (...);
+module OFDDRRSE(Q, C0, C1, CE, D0, D1, R, S);
     (* iopad_external_pin *)
     output Q;
     (* clkbuf_sink *)
@@ -6060,7 +6077,7 @@ module OFDDRRSE (...);
     input S;
 endmodule
 
-module OFDDRTCPE (...);
+module OFDDRTCPE(O, C0, C1, CE, CLR, D0, D1, PRE, T);
     (* iopad_external_pin *)
     output O;
     (* clkbuf_sink *)
@@ -6075,7 +6092,7 @@ module OFDDRTCPE (...);
     input T;
 endmodule
 
-module OFDDRTRSE (...);
+module OFDDRTRSE(O, C0, C1, CE, D0, D1, R, S, T);
     (* iopad_external_pin *)
     output O;
     (* clkbuf_sink *)
@@ -6090,7 +6107,7 @@ module OFDDRTRSE (...);
     input T;
 endmodule
 
-module IDDR2 (...);
+module IDDR2(Q0, Q1, C0, C1, CE, D, R, S);
     parameter DDR_ALIGNMENT = "NONE";
     parameter [0:0] INIT_Q0 = 1'b0;
     parameter [0:0] INIT_Q1 = 1'b0;
@@ -6107,7 +6124,7 @@ module IDDR2 (...);
     input S;
 endmodule
 
-module ODDR2 (...);
+module ODDR2(Q, C0, C1, CE, D0, D1, R, S);
     parameter DDR_ALIGNMENT = "NONE";
     parameter [0:0] INIT = 1'b0;
     parameter SRTYPE = "SYNC";
@@ -6123,7 +6140,7 @@ module ODDR2 (...);
     input S;
 endmodule
 
-module IDDR (...);
+module IDDR(Q1, Q2, C, CE, D, R, S);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter INIT_Q1 = 1'b0;
     parameter INIT_Q2 = 1'b0;
@@ -6144,7 +6161,7 @@ module IDDR (...);
     input S;
 endmodule
 
-module IDDR_2CLK (...);
+module IDDR_2CLK(Q1, Q2, C, CB, CE, D, R, S);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter INIT_Q1 = 1'b0;
     parameter INIT_Q2 = 1'b0;
@@ -6167,7 +6184,7 @@ module IDDR_2CLK (...);
     input S;
 endmodule
 
-module ODDR (...);
+module ODDR(Q, C, CE, D1, D2, R, S);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter INIT = 1'b0;
     parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -6190,7 +6207,7 @@ module ODDR (...);
 endmodule
 
 (* keep *)
-module IDELAYCTRL (...);
+module IDELAYCTRL(RDY, REFCLK, RST);
     parameter SIM_DEVICE = "7SERIES";
     output RDY;
     (* clkbuf_sink *)
@@ -6198,7 +6215,7 @@ module IDELAYCTRL (...);
     input RST;
 endmodule
 
-module IDELAY (...);
+module IDELAY(O, C, CE, I, INC, RST);
     parameter IOBDELAY_TYPE = "DEFAULT";
     parameter integer IOBDELAY_VALUE = 0;
     output O;
@@ -6210,7 +6227,8 @@ module IDELAY (...);
     input RST;
 endmodule
 
-module ISERDES (...);
+module ISERDES(O, Q1, Q2, Q3, Q4, Q5, Q6, SHIFTOUT1, SHIFTOUT2, BITSLIP, CE1, CE2, CLK, CLKDIV, D, DLYCE, DLYINC, DLYRST, OCLK, REV, SHIFTIN1
+, SHIFTIN2, SR);
     parameter BITSLIP_ENABLE = "FALSE";
     parameter DATA_RATE = "DDR";
     parameter integer DATA_WIDTH = 4;
@@ -6259,7 +6277,8 @@ module ISERDES (...);
     input SR;
 endmodule
 
-module OSERDES (...);
+module OSERDES(OQ, SHIFTOUT1, SHIFTOUT2, TQ, CLK, CLKDIV, D1, D2, D3, D4, D5, D6, OCE, REV, SHIFTIN1, SHIFTIN2, SR, T1, T2, T3, T4
+, TCE);
     parameter DATA_RATE_OQ = "DDR";
     parameter DATA_RATE_TQ = "DDR";
     parameter integer DATA_WIDTH = 4;
@@ -6295,7 +6314,7 @@ module OSERDES (...);
     input TCE;
 endmodule
 
-module IODELAY (...);
+module IODELAY(DATAOUT, C, CE, DATAIN, IDATAIN, INC, ODATAIN, RST, T);
     parameter DELAY_SRC = "I";
     parameter HIGH_PERFORMANCE_MODE = "TRUE";
     parameter IDELAY_TYPE = "DEFAULT";
@@ -6315,7 +6334,7 @@ module IODELAY (...);
     input T;
 endmodule
 
-module ISERDES_NODELAY (...);
+module ISERDES_NODELAY(Q1, Q2, Q3, Q4, Q5, Q6, SHIFTOUT1, SHIFTOUT2, BITSLIP, CE1, CE2, CLK, CLKB, CLKDIV, D, OCLK, RST, SHIFTIN1, SHIFTIN2);
     parameter BITSLIP_ENABLE = "FALSE";
     parameter DATA_RATE = "DDR";
     parameter integer DATA_WIDTH = 4;
@@ -6351,7 +6370,7 @@ module ISERDES_NODELAY (...);
     input SHIFTIN2;
 endmodule
 
-module IODELAYE1 (...);
+module IODELAYE1(CNTVALUEOUT, DATAOUT, C, CE, CINVCTRL, CLKIN, CNTVALUEIN, DATAIN, IDATAIN, INC, ODATAIN, RST, T);
     parameter CINVCTRL_SEL = "FALSE";
     parameter DELAY_SRC = "I";
     parameter HIGH_PERFORMANCE_MODE = "FALSE";
@@ -6377,7 +6396,8 @@ module IODELAYE1 (...);
     input T;
 endmodule
 
-module ISERDESE1 (...);
+module ISERDESE1(O, Q1, Q2, Q3, Q4, Q5, Q6, SHIFTOUT1, SHIFTOUT2, BITSLIP, CE1, CE2, CLK, CLKB, CLKDIV, D, DDLY, DYNCLKDIVSEL, DYNCLKSEL, OCLK, OFB
+, RST, SHIFTIN1, SHIFTIN2);
     parameter DATA_RATE = "DDR";
     parameter integer DATA_WIDTH = 4;
     parameter DYN_CLKDIV_INV_EN = "FALSE";
@@ -6425,7 +6445,8 @@ module ISERDESE1 (...);
     input SHIFTIN2;
 endmodule
 
-module OSERDESE1 (...);
+module OSERDESE1(OCBEXTEND, OFB, OQ, SHIFTOUT1, SHIFTOUT2, TFB, TQ, CLK, CLKDIV, CLKPERF, CLKPERFDELAY, D1, D2, D3, D4, D5, D6, OCE, ODV, RST, SHIFTIN1
+, SHIFTIN2, T1, T2, T3, T4, TCE, WC);
     parameter DATA_RATE_OQ = "DDR";
     parameter DATA_RATE_TQ = "DDR";
     parameter integer DATA_WIDTH = 4;
@@ -6470,7 +6491,7 @@ module OSERDESE1 (...);
     input WC;
 endmodule
 
-module IDELAYE2 (...);
+module IDELAYE2(CNTVALUEOUT, DATAOUT, C, CE, CINVCTRL, CNTVALUEIN, DATAIN, IDATAIN, INC, LD, LDPIPEEN, REGRST);
     parameter CINVCTRL_SEL = "FALSE";
     parameter DELAY_SRC = "IDATAIN";
     parameter HIGH_PERFORMANCE_MODE = "FALSE";
@@ -6501,7 +6522,7 @@ module IDELAYE2 (...);
     input REGRST;
 endmodule
 
-module ODELAYE2 (...);
+module ODELAYE2(CNTVALUEOUT, DATAOUT, C, CE, CINVCTRL, CLKIN, CNTVALUEIN, INC, LD, LDPIPEEN, ODATAIN, REGRST);
     parameter CINVCTRL_SEL = "FALSE";
     parameter DELAY_SRC = "ODATAIN";
     parameter HIGH_PERFORMANCE_MODE = "FALSE";
@@ -6530,7 +6551,8 @@ module ODELAYE2 (...);
     input REGRST;
 endmodule
 
-module ISERDESE2 (...);
+module ISERDESE2(O, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, SHIFTOUT1, SHIFTOUT2, BITSLIP, CE1, CE2, CLK, CLKB, CLKDIV, CLKDIVP, D, DDLY, DYNCLKDIVSEL
+, DYNCLKSEL, OCLK, OCLKB, OFB, RST, SHIFTIN1, SHIFTIN2);
     parameter DATA_RATE = "DDR";
     parameter integer DATA_WIDTH = 4;
     parameter DYN_CLKDIV_INV_EN = "FALSE";
@@ -6598,7 +6620,8 @@ module ISERDESE2 (...);
     input SHIFTIN2;
 endmodule
 
-module OSERDESE2 (...);
+module OSERDESE2(OFB, OQ, SHIFTOUT1, SHIFTOUT2, TBYTEOUT, TFB, TQ, CLK, CLKDIV, D1, D2, D3, D4, D5, D6, D7, D8, OCE, RST, SHIFTIN1, SHIFTIN2
+, T1, T2, T3, T4, TBYTEIN, TCE);
     parameter DATA_RATE_OQ = "DDR";
     parameter DATA_RATE_TQ = "DDR";
     parameter integer DATA_WIDTH = 4;
@@ -6670,7 +6693,7 @@ module OSERDESE2 (...);
 endmodule
 
 (* keep *)
-module PHASER_IN (...);
+module PHASER_IN(FINEOVERFLOW, ICLK, ICLKDIV, ISERDESRST, RCLK, COUNTERREADVAL, COUNTERLOADEN, COUNTERREADEN, DIVIDERST, EDGEADV, FINEENABLE, FINEINC, FREQREFCLK, MEMREFCLK, PHASEREFCLK, RST, SYNCIN, SYSCLK, RANKSEL, COUNTERLOADVAL);
     parameter integer CLKOUT_DIV = 4;
     parameter DQS_BIAS_MODE = "FALSE";
     parameter EN_ISERDES_RST = "FALSE";
@@ -6707,7 +6730,8 @@ module PHASER_IN (...);
 endmodule
 
 (* keep *)
-module PHASER_IN_PHY (...);
+module PHASER_IN_PHY(DQSFOUND, DQSOUTOFRANGE, FINEOVERFLOW, ICLK, ICLKDIV, ISERDESRST, PHASELOCKED, RCLK, WRENABLE, COUNTERREADVAL, BURSTPENDINGPHY, COUNTERLOADEN, COUNTERREADEN, FINEENABLE, FINEINC, FREQREFCLK, MEMREFCLK, PHASEREFCLK, RST, RSTDQSFIND, SYNCIN
+, SYSCLK, ENCALIBPHY, RANKSELPHY, COUNTERLOADVAL);
     parameter BURST_MODE = "FALSE";
     parameter integer CLKOUT_DIV = 4;
     parameter [0:0] DQS_AUTO_RECAL = 1'b1;
@@ -6752,7 +6776,8 @@ module PHASER_IN_PHY (...);
 endmodule
 
 (* keep *)
-module PHASER_OUT (...);
+module PHASER_OUT(COARSEOVERFLOW, FINEOVERFLOW, OCLK, OCLKDELAYED, OCLKDIV, OSERDESRST, COUNTERREADVAL, COARSEENABLE, COARSEINC, COUNTERLOADEN, COUNTERREADEN, DIVIDERST, EDGEADV, FINEENABLE, FINEINC, FREQREFCLK, MEMREFCLK, PHASEREFCLK, RST, SELFINEOCLKDELAY, SYNCIN
+, SYSCLK, COUNTERLOADVAL);
     parameter integer CLKOUT_DIV = 4;
     parameter COARSE_BYPASS = "FALSE";
     parameter integer COARSE_DELAY = 0;
@@ -6794,7 +6819,8 @@ module PHASER_OUT (...);
 endmodule
 
 (* keep *)
-module PHASER_OUT_PHY (...);
+module PHASER_OUT_PHY(COARSEOVERFLOW, FINEOVERFLOW, OCLK, OCLKDELAYED, OCLKDIV, OSERDESRST, RDENABLE, CTSBUS, DQSBUS, DTSBUS, COUNTERREADVAL, BURSTPENDINGPHY, COARSEENABLE, COARSEINC, COUNTERLOADEN, COUNTERREADEN, FINEENABLE, FINEINC, FREQREFCLK, MEMREFCLK, PHASEREFCLK
+, RST, SELFINEOCLKDELAY, SYNCIN, SYSCLK, ENCALIBPHY, COUNTERLOADVAL);
     parameter integer CLKOUT_DIV = 4;
     parameter COARSE_BYPASS = "FALSE";
     parameter integer COARSE_DELAY = 0;
@@ -6841,7 +6867,7 @@ module PHASER_OUT_PHY (...);
 endmodule
 
 (* keep *)
-module PHASER_REF (...);
+module PHASER_REF(LOCKED, CLKIN, PWRDWN, RST);
     parameter [0:0] IS_RST_INVERTED = 1'b0;
     parameter [0:0] IS_PWRDWN_INVERTED = 1'b0;
     output LOCKED;
@@ -6853,7 +6879,8 @@ module PHASER_REF (...);
 endmodule
 
 (* keep *)
-module PHY_CONTROL (...);
+module PHY_CONTROL(PHYCTLALMOSTFULL, PHYCTLEMPTY, PHYCTLFULL, PHYCTLREADY, INRANKA, INRANKB, INRANKC, INRANKD, PCENABLECALIB, AUXOUTPUT, INBURSTPENDING, OUTBURSTPENDING, MEMREFCLK, PHYCLK, PHYCTLMSTREMPTY, PHYCTLWRENABLE, PLLLOCK, READCALIBENABLE, REFDLLLOCK, RESET, SYNCIN
+, WRITECALIBENABLE, PHYCTLWD);
     parameter integer AO_TOGGLE = 0;
     parameter [3:0] AO_WRLVL_EN = 4'b0000;
     parameter BURST_MODE = "FALSE";
@@ -6913,7 +6940,7 @@ module PHY_CONTROL (...);
     input [31:0] PHYCTLWD;
 endmodule
 
-module IDDRE1 (...);
+module IDDRE1(Q1, Q2, C, CB, D, R);
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter [0:0] IS_CB_INVERTED = 1'b0;
     parameter [0:0] IS_C_INVERTED = 1'b0;
@@ -6929,7 +6956,7 @@ module IDDRE1 (...);
     input R;
 endmodule
 
-module ODDRE1 (...);
+module ODDRE1(Q, C, D1, D2, SR);
     parameter [0:0] IS_C_INVERTED = 1'b0;
     parameter [0:0] IS_D1_INVERTED = 1'b0;
     parameter [0:0] IS_D2_INVERTED = 1'b0;
@@ -6946,7 +6973,7 @@ module ODDRE1 (...);
     input SR;
 endmodule
 
-module IDELAYE3 (...);
+module IDELAYE3(CASC_OUT, CNTVALUEOUT, DATAOUT, CASC_IN, CASC_RETURN, CE, CLK, CNTVALUEIN, DATAIN, EN_VTC, IDATAIN, INC, LOAD, RST);
     parameter CASCADE = "NONE";
     parameter DELAY_FORMAT = "TIME";
     parameter DELAY_SRC = "IDATAIN";
@@ -6978,7 +7005,7 @@ module IDELAYE3 (...);
     input RST;
 endmodule
 
-module ODELAYE3 (...);
+module ODELAYE3(CASC_OUT, CNTVALUEOUT, DATAOUT, CASC_IN, CASC_RETURN, CE, CLK, CNTVALUEIN, EN_VTC, INC, LOAD, ODATAIN, RST);
     parameter CASCADE = "NONE";
     parameter DELAY_FORMAT = "TIME";
     parameter DELAY_TYPE = "FIXED";
@@ -7007,7 +7034,7 @@ module ODELAYE3 (...);
     input RST;
 endmodule
 
-module ISERDESE3 (...);
+module ISERDESE3(FIFO_EMPTY, INTERNAL_DIVCLK, Q, CLK, CLKDIV, CLK_B, D, FIFO_RD_CLK, FIFO_RD_EN, RST);
     parameter integer DATA_WIDTH = 8;
     parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
     parameter FIFO_ENABLE = "FALSE";
@@ -7037,7 +7064,7 @@ module ISERDESE3 (...);
     input RST;
 endmodule
 
-module OSERDESE3 (...);
+module OSERDESE3(OQ, T_OUT, CLK, CLKDIV, D, RST, T);
     parameter integer DATA_WIDTH = 8;
     parameter [0:0] INIT = 1'b0;
     parameter [0:0] IS_CLKDIV_INVERTED = 1'b0;
@@ -7063,7 +7090,9 @@ module OSERDESE3 (...);
 endmodule
 
 (* keep *)
-module BITSLICE_CONTROL (...);
+module BITSLICE_CONTROL(CLK_TO_EXT_NORTH, CLK_TO_EXT_SOUTH, DLY_RDY, DYN_DCI, NCLK_NIBBLE_OUT, PCLK_NIBBLE_OUT, RIU_RD_DATA, RIU_VALID, RX_BIT_CTRL_OUT0, RX_BIT_CTRL_OUT1, RX_BIT_CTRL_OUT2, RX_BIT_CTRL_OUT3, RX_BIT_CTRL_OUT4, RX_BIT_CTRL_OUT5, RX_BIT_CTRL_OUT6, TX_BIT_CTRL_OUT0, TX_BIT_CTRL_OUT1, TX_BIT_CTRL_OUT2, TX_BIT_CTRL_OUT3, TX_BIT_CTRL_OUT4, TX_BIT_CTRL_OUT5
+, TX_BIT_CTRL_OUT6, TX_BIT_CTRL_OUT_TRI, VTC_RDY, CLK_FROM_EXT, EN_VTC, NCLK_NIBBLE_IN, PCLK_NIBBLE_IN, PHY_RDCS0, PHY_RDCS1, PHY_RDEN, PHY_WRCS0, PHY_WRCS1, PLL_CLK, REFCLK, RIU_ADDR, RIU_CLK, RIU_NIBBLE_SEL, RIU_WR_DATA, RIU_WR_EN, RST, RX_BIT_CTRL_IN0
+, RX_BIT_CTRL_IN1, RX_BIT_CTRL_IN2, RX_BIT_CTRL_IN3, RX_BIT_CTRL_IN4, RX_BIT_CTRL_IN5, RX_BIT_CTRL_IN6, TBYTE_IN, TX_BIT_CTRL_IN0, TX_BIT_CTRL_IN1, TX_BIT_CTRL_IN2, TX_BIT_CTRL_IN3, TX_BIT_CTRL_IN4, TX_BIT_CTRL_IN5, TX_BIT_CTRL_IN6, TX_BIT_CTRL_IN_TRI);
     parameter CTRL_CLK = "EXTERNAL";
     parameter DIV_MODE = "DIV2";
     parameter EN_CLK_TO_EXT_NORTH = "DISABLE";
@@ -7148,7 +7177,7 @@ module BITSLICE_CONTROL (...);
 endmodule
 
 (* keep *)
-module RIU_OR (...);
+module RIU_OR(RIU_RD_DATA, RIU_RD_VALID, RIU_RD_DATA_LOW, RIU_RD_DATA_UPP, RIU_RD_VALID_LOW, RIU_RD_VALID_UPP);
     parameter SIM_DEVICE = "ULTRASCALE";
     parameter real SIM_VERSION = 2.0;
     output [15:0] RIU_RD_DATA;
@@ -7159,7 +7188,8 @@ module RIU_OR (...);
     input RIU_RD_VALID_UPP;
 endmodule
 
-module RX_BITSLICE (...);
+module RX_BITSLICE(CNTVALUEOUT, CNTVALUEOUT_EXT, FIFO_EMPTY, FIFO_WRCLK_OUT, Q, RX_BIT_CTRL_OUT, TX_BIT_CTRL_OUT, CE, CE_EXT, CLK, CLK_EXT, CNTVALUEIN, CNTVALUEIN_EXT, DATAIN, EN_VTC, EN_VTC_EXT, FIFO_RD_CLK, FIFO_RD_EN, INC, INC_EXT, LOAD
+, LOAD_EXT, RST, RST_DLY, RST_DLY_EXT, RX_BIT_CTRL_IN, TX_BIT_CTRL_IN);
     parameter CASCADE = "TRUE";
     parameter DATA_TYPE = "NONE";
     parameter integer DATA_WIDTH = 8;
@@ -7212,7 +7242,8 @@ module RX_BITSLICE (...);
     input [39:0] TX_BIT_CTRL_IN;
 endmodule
 
-module RXTX_BITSLICE (...);
+module RXTX_BITSLICE(FIFO_EMPTY, FIFO_WRCLK_OUT, O, Q, RX_BIT_CTRL_OUT, RX_CNTVALUEOUT, TX_BIT_CTRL_OUT, TX_CNTVALUEOUT, T_OUT, D, DATAIN, FIFO_RD_CLK, FIFO_RD_EN, RX_BIT_CTRL_IN, RX_CE, RX_CLK, RX_CNTVALUEIN, RX_EN_VTC, RX_INC, RX_LOAD, RX_RST
+, RX_RST_DLY, T, TBYTE_IN, TX_BIT_CTRL_IN, TX_CE, TX_CLK, TX_CNTVALUEIN, TX_EN_VTC, TX_INC, TX_LOAD, TX_RST, TX_RST_DLY);
     parameter FIFO_SYNC_MODE = "FALSE";
     parameter [0:0] INIT = 1'b1;
     parameter [0:0] IS_RX_CLK_INVERTED = 1'b0;
@@ -7282,7 +7313,7 @@ module RXTX_BITSLICE (...);
     input TX_RST_DLY;
 endmodule
 
-module TX_BITSLICE (...);
+module TX_BITSLICE(CNTVALUEOUT, O, RX_BIT_CTRL_OUT, TX_BIT_CTRL_OUT, T_OUT, CE, CLK, CNTVALUEIN, D, EN_VTC, INC, LOAD, RST, RST_DLY, RX_BIT_CTRL_IN, T, TBYTE_IN, TX_BIT_CTRL_IN);
     parameter integer DATA_WIDTH = 8;
     parameter DELAY_FORMAT = "TIME";
     parameter DELAY_TYPE = "FIXED";
@@ -7322,7 +7353,7 @@ module TX_BITSLICE (...);
     input [39:0] TX_BIT_CTRL_IN;
 endmodule
 
-module TX_BITSLICE_TRI (...);
+module TX_BITSLICE_TRI(BIT_CTRL_OUT, CNTVALUEOUT, TRI_OUT, BIT_CTRL_IN, CE, CLK, CNTVALUEIN, EN_VTC, INC, LOAD, RST, RST_DLY);
     parameter integer DATA_WIDTH = 8;
     parameter DELAY_FORMAT = "TIME";
     parameter DELAY_TYPE = "FIXED";
@@ -7354,7 +7385,7 @@ module TX_BITSLICE_TRI (...);
     input RST_DLY;
 endmodule
 
-module IODELAY2 (...);
+module IODELAY2(BUSY, DATAOUT2, DATAOUT, DOUT, TOUT, CAL, CE, CLK, IDATAIN, INC, IOCLK0, IOCLK1, ODATAIN, RST, T);
     parameter COUNTER_WRAPAROUND = "WRAPAROUND";
     parameter DATA_RATE = "SDR";
     parameter DELAY_SRC = "IO";
@@ -7385,7 +7416,7 @@ module IODELAY2 (...);
     input T;
 endmodule
 
-module IODRP2 (...);
+module IODRP2(DATAOUT2, DATAOUT, DOUT, SDO, TOUT, ADD, BKST, CLK, CS, IDATAIN, IOCLK0, IOCLK1, ODATAIN, SDI, T);
     parameter DATA_RATE = "SDR";
     parameter integer SIM_TAPDELAY_VALUE = 75;
     output DATAOUT2;
@@ -7408,7 +7439,8 @@ module IODRP2 (...);
     input T;
 endmodule
 
-module IODRP2_MCB (...);
+module IODRP2_MCB(AUXSDO, DATAOUT2, DATAOUT, DOUT, DQSOUTN, DQSOUTP, SDO, TOUT, ADD, AUXSDOIN, BKST, CLK, CS, IDATAIN, IOCLK0, IOCLK1, MEMUPDATE, ODATAIN, SDI, T, AUXADDR
+);
     parameter DATA_RATE = "SDR";
     parameter integer IDELAY_VALUE = 0;
     parameter integer MCB_ADDRESS = 0;
@@ -7441,7 +7473,7 @@ module IODRP2_MCB (...);
     input [4:0] AUXADDR;
 endmodule
 
-module ISERDES2 (...);
+module ISERDES2(CFB0, CFB1, DFB, FABRICOUT, INCDEC, Q1, Q2, Q3, Q4, SHIFTOUT, VALID, BITSLIP, CE0, CLK0, CLK1, CLKDIV, D, IOCE, RST, SHIFTIN);
     parameter BITSLIP_ENABLE = "FALSE";
     parameter DATA_RATE = "SDR";
     parameter integer DATA_WIDTH = 1;
@@ -7472,7 +7504,8 @@ module ISERDES2 (...);
     input SHIFTIN;
 endmodule
 
-module OSERDES2 (...);
+module OSERDES2(OQ, SHIFTOUT1, SHIFTOUT2, SHIFTOUT3, SHIFTOUT4, TQ, CLK0, CLK1, CLKDIV, D1, D2, D3, D4, IOCE, OCE, RST, SHIFTIN1, SHIFTIN2, SHIFTIN3, SHIFTIN4, T1
+, T2, T3, T4, TCE, TRAIN);
     parameter BYPASS_GCLK_FF = "FALSE";
     parameter DATA_RATE_OQ = "DDR";
     parameter DATA_RATE_OT = "DDR";
@@ -7511,7 +7544,7 @@ module OSERDES2 (...);
     input TRAIN;
 endmodule
 
-module IBUF_DLY_ADJ (...);
+module IBUF_DLY_ADJ(O, I, S);
     parameter DELAY_OFFSET = "OFF";
     parameter IOSTANDARD = "DEFAULT";
     output O;
@@ -7520,7 +7553,7 @@ module IBUF_DLY_ADJ (...);
     input [2:0] S;
 endmodule
 
-module IBUF_IBUFDISABLE (...);
+module IBUF_IBUFDISABLE(O, I, IBUFDISABLE);
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SIM_DEVICE = "7SERIES";
@@ -7531,7 +7564,7 @@ module IBUF_IBUFDISABLE (...);
     input IBUFDISABLE;
 endmodule
 
-module IBUF_INTERMDISABLE (...);
+module IBUF_INTERMDISABLE(O, I, IBUFDISABLE, INTERMDISABLE);
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SIM_DEVICE = "7SERIES";
@@ -7543,13 +7576,13 @@ module IBUF_INTERMDISABLE (...);
     input INTERMDISABLE;
 endmodule
 
-module IBUF_ANALOG (...);
+module IBUF_ANALOG(O, I);
     output O;
     (* iopad_external_pin *)
     input I;
 endmodule
 
-module IBUFE3 (...);
+module IBUFE3(O, I, IBUFDISABLE, OSC, OSC_EN, VREF);
     parameter CCIO_EN = "TRUE";
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
@@ -7565,7 +7598,7 @@ module IBUFE3 (...);
     input VREF;
 endmodule
 
-module IBUFDS (...);
+module IBUFDS(O, I, IB);
     parameter CAPACITANCE = "DONT_CARE";
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
@@ -7580,7 +7613,7 @@ module IBUFDS (...);
     input IB;
 endmodule
 
-module IBUFDS_DLY_ADJ (...);
+module IBUFDS_DLY_ADJ(O, I, IB, S);
     parameter DELAY_OFFSET = "OFF";
     parameter DIFF_TERM = "FALSE";
     parameter IOSTANDARD = "DEFAULT";
@@ -7592,7 +7625,7 @@ module IBUFDS_DLY_ADJ (...);
     input [2:0] S;
 endmodule
 
-module IBUFDS_IBUFDISABLE (...);
+module IBUFDS_IBUFDISABLE(O, I, IB, IBUFDISABLE);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7607,7 +7640,7 @@ module IBUFDS_IBUFDISABLE (...);
     input IBUFDISABLE;
 endmodule
 
-module IBUFDS_INTERMDISABLE (...);
+module IBUFDS_INTERMDISABLE(O, I, IB, IBUFDISABLE, INTERMDISABLE);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7623,7 +7656,7 @@ module IBUFDS_INTERMDISABLE (...);
     input INTERMDISABLE;
 endmodule
 
-module IBUFDS_DIFF_OUT (...);
+module IBUFDS_DIFF_OUT(O, OB, I, IB);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7636,7 +7669,7 @@ module IBUFDS_DIFF_OUT (...);
     input IB;
 endmodule
 
-module IBUFDS_DIFF_OUT_IBUFDISABLE (...);
+module IBUFDS_DIFF_OUT_IBUFDISABLE(O, OB, I, IB, IBUFDISABLE);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7652,7 +7685,7 @@ module IBUFDS_DIFF_OUT_IBUFDISABLE (...);
     input IBUFDISABLE;
 endmodule
 
-module IBUFDS_DIFF_OUT_INTERMDISABLE (...);
+module IBUFDS_DIFF_OUT_INTERMDISABLE(O, OB, I, IB, IBUFDISABLE, INTERMDISABLE);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7669,7 +7702,7 @@ module IBUFDS_DIFF_OUT_INTERMDISABLE (...);
     input INTERMDISABLE;
 endmodule
 
-module IBUFDSE3 (...);
+module IBUFDSE3(O, I, IB, IBUFDISABLE, OSC, OSC_EN);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7686,7 +7719,7 @@ module IBUFDSE3 (...);
     input [1:0] OSC_EN;
 endmodule
 
-module IBUFDS_DPHY (...);
+module IBUFDS_DPHY(HSRX_O, LPRX_O_N, LPRX_O_P, HSRX_DISABLE, I, IB, LPRX_DISABLE);
     parameter DIFF_TERM = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
     output HSRX_O;
@@ -7700,7 +7733,7 @@ module IBUFDS_DPHY (...);
     input LPRX_DISABLE;
 endmodule
 
-module IBUFGDS (...);
+module IBUFGDS(O, I, IB);
     parameter CAPACITANCE = "DONT_CARE";
     parameter DIFF_TERM = "FALSE";
     parameter IBUF_DELAY_VALUE = "0";
@@ -7713,7 +7746,7 @@ module IBUFGDS (...);
     input IB;
 endmodule
 
-module IBUFGDS_DIFF_OUT (...);
+module IBUFGDS_DIFF_OUT(O, OB, I, IB);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7726,7 +7759,7 @@ module IBUFGDS_DIFF_OUT (...);
     input IB;
 endmodule
 
-module IOBUF_DCIEN (...);
+module IOBUF_DCIEN(O, IO, DCITERMDISABLE, I, IBUFDISABLE, T);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
@@ -7742,7 +7775,7 @@ module IOBUF_DCIEN (...);
     input T;
 endmodule
 
-module IOBUF_INTERMDISABLE (...);
+module IOBUF_INTERMDISABLE(O, IO, I, IBUFDISABLE, INTERMDISABLE, T);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
@@ -7758,7 +7791,7 @@ module IOBUF_INTERMDISABLE (...);
     input T;
 endmodule
 
-module IOBUFE3 (...);
+module IOBUFE3(O, IO, DCITERMDISABLE, I, IBUFDISABLE, OSC, OSC_EN, T, VREF);
     parameter integer DRIVE = 12;
     parameter IBUF_LOW_PWR = "TRUE";
     parameter IOSTANDARD = "DEFAULT";
@@ -7777,7 +7810,7 @@ module IOBUFE3 (...);
     input VREF;
 endmodule
 
-module IOBUFDS (...);
+module IOBUFDS(O, IO, IOB, I, T);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7792,7 +7825,7 @@ module IOBUFDS (...);
     input T;
 endmodule
 
-module IOBUFDS_DCIEN (...);
+module IOBUFDS_DCIEN(O, IO, IOB, DCITERMDISABLE, I, IBUFDISABLE, T);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7811,7 +7844,7 @@ module IOBUFDS_DCIEN (...);
     input T;
 endmodule
 
-module IOBUFDS_INTERMDISABLE (...);
+module IOBUFDS_INTERMDISABLE(O, IO, IOB, I, IBUFDISABLE, INTERMDISABLE, T);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7830,7 +7863,7 @@ module IOBUFDS_INTERMDISABLE (...);
     input T;
 endmodule
 
-module IOBUFDS_DIFF_OUT (...);
+module IOBUFDS_DIFF_OUT(O, OB, IO, IOB, I, TM, TS);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7846,7 +7879,7 @@ module IOBUFDS_DIFF_OUT (...);
     input TS;
 endmodule
 
-module IOBUFDS_DIFF_OUT_DCIEN (...);
+module IOBUFDS_DIFF_OUT_DCIEN(O, OB, IO, IOB, DCITERMDISABLE, I, IBUFDISABLE, TM, TS);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7866,7 +7899,7 @@ module IOBUFDS_DIFF_OUT_DCIEN (...);
     input TS;
 endmodule
 
-module IOBUFDS_DIFF_OUT_INTERMDISABLE (...);
+module IOBUFDS_DIFF_OUT_INTERMDISABLE(O, OB, IO, IOB, I, IBUFDISABLE, INTERMDISABLE, TM, TS);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7886,7 +7919,7 @@ module IOBUFDS_DIFF_OUT_INTERMDISABLE (...);
     input TS;
 endmodule
 
-module IOBUFDSE3 (...);
+module IOBUFDSE3(O, IO, IOB, DCITERMDISABLE, I, IBUFDISABLE, OSC, OSC_EN, T);
     parameter DIFF_TERM = "FALSE";
     parameter DQS_BIAS = "FALSE";
     parameter IBUF_LOW_PWR = "TRUE";
@@ -7906,7 +7939,7 @@ module IOBUFDSE3 (...);
     input T;
 endmodule
 
-module OBUFDS (...);
+module OBUFDS(O, OB, I);
     parameter CAPACITANCE = "DONT_CARE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
@@ -7917,7 +7950,7 @@ module OBUFDS (...);
     input I;
 endmodule
 
-module OBUFDS_DPHY (...);
+module OBUFDS_DPHY(O, OB, HSTX_I, HSTX_T, LPTX_I_N, LPTX_I_P, LPTX_T);
     parameter IOSTANDARD = "DEFAULT";
     (* iopad_external_pin *)
     output O;
@@ -7930,7 +7963,7 @@ module OBUFDS_DPHY (...);
     input LPTX_T;
 endmodule
 
-module OBUFTDS (...);
+module OBUFTDS(O, OB, I, T);
     parameter CAPACITANCE = "DONT_CARE";
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
@@ -7942,32 +7975,32 @@ module OBUFTDS (...);
     input T;
 endmodule
 
-module KEEPER (...);
+module KEEPER(O);
     inout O;
 endmodule
 
-module PULLDOWN (...);
+module PULLDOWN(O);
     output O;
 endmodule
 
-module PULLUP (...);
+module PULLUP(O);
     output O;
 endmodule
 
 (* keep *)
-module DCIRESET (...);
+module DCIRESET(LOCKED, RST);
     output LOCKED;
     input RST;
 endmodule
 
 (* keep *)
-module HPIO_VREF (...);
+module HPIO_VREF(VREF, FABRIC_VREF_TUNE);
     parameter VREF_CNTR = "OFF";
     output VREF;
     input [6:0] FABRIC_VREF_TUNE;
 endmodule
 
-module BUFGCE (...);
+module BUFGCE(O, CE, I);
     parameter CE_TYPE = "SYNC";
     parameter [0:0] IS_CE_INVERTED = 1'b0;
     parameter [0:0] IS_I_INVERTED = 1'b0;
@@ -7981,14 +8014,14 @@ module BUFGCE (...);
     input I;
 endmodule
 
-module BUFGCE_1 (...);
+module BUFGCE_1(O, CE, I);
     (* clkbuf_driver *)
     output O;
     input CE;
     input I;
 endmodule
 
-module BUFGMUX (...);
+module BUFGMUX(O, I0, I1, S);
     parameter CLK_SEL_TYPE = "SYNC";
     (* clkbuf_driver *)
     output O;
@@ -7997,7 +8030,7 @@ module BUFGMUX (...);
     input S;
 endmodule
 
-module BUFGMUX_1 (...);
+module BUFGMUX_1(O, I0, I1, S);
     parameter CLK_SEL_TYPE = "SYNC";
     (* clkbuf_driver *)
     output O;
@@ -8006,7 +8039,7 @@ module BUFGMUX_1 (...);
     input S;
 endmodule
 
-module BUFGMUX_CTRL (...);
+module BUFGMUX_CTRL(O, I0, I1, S);
     (* clkbuf_driver *)
     output O;
     input I0;
@@ -8014,7 +8047,7 @@ module BUFGMUX_CTRL (...);
     input S;
 endmodule
 
-module BUFGMUX_VIRTEX4 (...);
+module BUFGMUX_VIRTEX4(O, I0, I1, S);
     (* clkbuf_driver *)
     output O;
     input I0;
@@ -8022,7 +8055,7 @@ module BUFGMUX_VIRTEX4 (...);
     input S;
 endmodule
 
-module BUFG_GT (...);
+module BUFG_GT(O, CE, CEMASK, CLR, CLRMASK, DIV, I);
     parameter SIM_DEVICE = "ULTRASCALE";
     parameter STARTUP_SYNC = "FALSE";
     (* clkbuf_driver *)
@@ -8035,7 +8068,7 @@ module BUFG_GT (...);
     input I;
 endmodule
 
-module BUFG_GT_SYNC (...);
+module BUFG_GT_SYNC(CESYNC, CLRSYNC, CE, CLK, CLR);
     output CESYNC;
     output CLRSYNC;
     input CE;
@@ -8043,7 +8076,7 @@ module BUFG_GT_SYNC (...);
     input CLR;
 endmodule
 
-module BUFG_PS (...);
+module BUFG_PS(O, I);
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";
     parameter STARTUP_SYNC = "FALSE";
     (* clkbuf_driver *)
@@ -8051,7 +8084,7 @@ module BUFG_PS (...);
     input I;
 endmodule
 
-module BUFGCE_DIV (...);
+module BUFGCE_DIV(O, CE, CLR, I);
     parameter integer BUFGCE_DIVIDE = 1;
     parameter CE_TYPE = "SYNC";
     parameter HARDSYNC_CLR = "FALSE";
@@ -8070,13 +8103,13 @@ module BUFGCE_DIV (...);
     input I;
 endmodule
 
-module BUFH (...);
+module BUFH(O, I);
     (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-module BUFIO2 (...);
+module BUFIO2(DIVCLK, IOCLK, SERDESSTROBE, I);
     parameter DIVIDE_BYPASS = "TRUE";
     parameter integer DIVIDE = 1;
     parameter I_INVERT = "FALSE";
@@ -8089,7 +8122,7 @@ module BUFIO2 (...);
     input I;
 endmodule
 
-module BUFIO2_2CLK (...);
+module BUFIO2_2CLK(DIVCLK, IOCLK, SERDESSTROBE, I, IB);
     parameter integer DIVIDE = 2;
     (* clkbuf_driver *)
     output DIVCLK;
@@ -8100,14 +8133,14 @@ module BUFIO2_2CLK (...);
     input IB;
 endmodule
 
-module BUFIO2FB (...);
+module BUFIO2FB(O, I);
     parameter DIVIDE_BYPASS = "TRUE";
     (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-module BUFPLL (...);
+module BUFPLL(IOCLK, LOCK, SERDESSTROBE, GCLK, LOCKED, PLLIN);
     parameter integer DIVIDE = 1;
     parameter ENABLE_SYNC = "TRUE";
     (* clkbuf_driver *)
@@ -8119,7 +8152,7 @@ module BUFPLL (...);
     input PLLIN;
 endmodule
 
-module BUFPLL_MCB (...);
+module BUFPLL_MCB(IOCLK0, IOCLK1, LOCK, SERDESSTROBE0, SERDESSTROBE1, GCLK, LOCKED, PLLIN0, PLLIN1);
     parameter integer DIVIDE = 2;
     parameter LOCK_SRC = "LOCK_TO_0";
     (* clkbuf_driver *)
@@ -8135,13 +8168,13 @@ module BUFPLL_MCB (...);
     input PLLIN1;
 endmodule
 
-module BUFIO (...);
+module BUFIO(O, I);
     (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-module BUFIODQS (...);
+module BUFIODQS(O, DQSMASK, I);
     parameter DQSMASK_ENABLE = "FALSE";
     (* clkbuf_driver *)
     output O;
@@ -8149,7 +8182,7 @@ module BUFIODQS (...);
     input I;
 endmodule
 
-module BUFR (...);
+module BUFR(O, CE, CLR, I);
     parameter BUFR_DIVIDE = "BYPASS";
     parameter SIM_DEVICE = "7SERIES";
     (* clkbuf_driver *)
@@ -8159,13 +8192,13 @@ module BUFR (...);
     input I;
 endmodule
 
-module BUFMR (...);
+module BUFMR(O, I);
     (* clkbuf_driver *)
     output O;
     input I;
 endmodule
 
-module BUFMRCE (...);
+module BUFMRCE(O, CE, I);
     parameter CE_TYPE = "SYNC";
     parameter integer INIT_OUT = 0;
     parameter [0:0] IS_CE_INVERTED = 1'b0;
@@ -8176,7 +8209,7 @@ module BUFMRCE (...);
     input I;
 endmodule
 
-module DCM (...);
+module DCM(CLKFB, CLKIN, DSSEN, PSCLK, PSEN, PSINCDEC, RST, CLK0, CLK180, CLK270, CLK2X, CLK2X180, CLK90, CLKDV, CLKFX, CLKFX180, LOCKED, PSDONE, STATUS);
     parameter real CLKDV_DIVIDE = 2.0;
     parameter integer CLKFX_DIVIDE = 1;
     parameter integer CLKFX_MULTIPLY = 4;
@@ -8214,7 +8247,7 @@ module DCM (...);
     output [7:0] STATUS;
 endmodule
 
-module DCM_SP (...);
+module DCM_SP(CLKFB, CLKIN, DSSEN, PSCLK, PSEN, PSINCDEC, RST, CLK0, CLK180, CLK270, CLK2X, CLK2X180, CLK90, CLKDV, CLKFX, CLKFX180, LOCKED, PSDONE, STATUS);
     parameter real CLKDV_DIVIDE = 2.0;
     parameter integer CLKFX_DIVIDE = 1;
     parameter integer CLKFX_MULTIPLY = 4;
@@ -8251,7 +8284,7 @@ module DCM_SP (...);
     output [7:0] STATUS;
 endmodule
 
-module DCM_CLKGEN (...);
+module DCM_CLKGEN(CLKFX180, CLKFX, CLKFXDV, LOCKED, PROGDONE, STATUS, CLKIN, FREEZEDCM, PROGCLK, PROGDATA, PROGEN, RST);
     parameter SPREAD_SPECTRUM = "NONE";
     parameter STARTUP_WAIT = "FALSE";
     parameter integer CLKFXDV_DIVIDE = 2;
@@ -8273,7 +8306,8 @@ module DCM_CLKGEN (...);
     input RST;
 endmodule
 
-module DCM_ADV (...);
+module DCM_ADV(CLK0, CLK180, CLK270, CLK2X180, CLK2X, CLK90, CLKDV, CLKFX180, CLKFX, DRDY, LOCKED, PSDONE, DO, CLKFB, CLKIN, DCLK, DEN, DWE, PSCLK, PSEN, PSINCDEC
+, RST, DI, DADDR);
     parameter real CLKDV_DIVIDE = 2.0;
     parameter integer CLKFX_DIVIDE = 1;
     parameter integer CLKFX_MULTIPLY = 4;
@@ -8317,7 +8351,7 @@ module DCM_ADV (...);
     input [6:0] DADDR;
 endmodule
 
-module DCM_BASE (...);
+module DCM_BASE(CLK0, CLK180, CLK270, CLK2X180, CLK2X, CLK90, CLKDV, CLKFX180, CLKFX, LOCKED, CLKFB, CLKIN, RST);
     parameter real CLKDV_DIVIDE = 2.0;
     parameter integer CLKFX_DIVIDE = 1;
     parameter integer CLKFX_MULTIPLY = 4;
@@ -8349,7 +8383,7 @@ module DCM_BASE (...);
     input RST;
 endmodule
 
-module DCM_PS (...);
+module DCM_PS(CLK0, CLK180, CLK270, CLK2X180, CLK2X, CLK90, CLKDV, CLKFX180, CLKFX, LOCKED, PSDONE, DO, CLKFB, CLKIN, PSCLK, PSEN, PSINCDEC, RST);
     parameter real CLKDV_DIVIDE = 2.0;
     parameter integer CLKFX_DIVIDE = 1;
     parameter integer CLKFX_MULTIPLY = 4;
@@ -8386,7 +8420,7 @@ module DCM_PS (...);
     input RST;
 endmodule
 
-module PMCD (...);
+module PMCD(CLKA1, CLKA1D2, CLKA1D4, CLKA1D8, CLKB1, CLKC1, CLKD1, CLKA, CLKB, CLKC, CLKD, REL, RST);
     parameter EN_REL = "FALSE";
     parameter RST_DEASSERT_CLK = "CLKA";
     output CLKA1;
@@ -8404,7 +8438,8 @@ module PMCD (...);
     input RST;
 endmodule
 
-module PLL_ADV (...);
+module PLL_ADV(CLKFBDCM, CLKFBOUT, CLKOUT0, CLKOUT1, CLKOUT2, CLKOUT3, CLKOUT4, CLKOUT5, CLKOUTDCM0, CLKOUTDCM1, CLKOUTDCM2, CLKOUTDCM3, CLKOUTDCM4, CLKOUTDCM5, DRDY, LOCKED, DO, CLKFBIN, CLKIN1, CLKIN2, CLKINSEL
+, DCLK, DEN, DWE, REL, RST, DI, DADDR);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter CLK_FEEDBACK = "CLKFBOUT";
     parameter CLKFBOUT_DESKEW_ADJUST = "NONE";
@@ -8480,7 +8515,7 @@ module PLL_ADV (...);
     input [4:0] DADDR;
 endmodule
 
-module PLL_BASE (...);
+module PLL_BASE(CLKFBOUT, CLKOUT0, CLKOUT1, CLKOUT2, CLKOUT3, CLKOUT4, CLKOUT5, LOCKED, CLKFBIN, CLKIN, RST);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter integer CLKFBOUT_MULT = 1;
     parameter real CLKFBOUT_PHASE = 0.0;
@@ -8521,7 +8556,8 @@ module PLL_BASE (...);
     input RST;
 endmodule
 
-module MMCM_ADV (...);
+module MMCM_ADV(CLKFBOUT, CLKFBOUTB, CLKFBSTOPPED, CLKINSTOPPED, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, DRDY, LOCKED, PSDONE, DO, CLKFBIN, CLKIN1
+, CLKIN2, CLKINSEL, DCLK, DEN, DWE, PSCLK, PSEN, PSINCDEC, PWRDWN, RST, DI, DADDR);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter CLKFBOUT_USE_FINE_PS = "FALSE";
     parameter CLKOUT0_USE_FINE_PS = "FALSE";
@@ -8604,7 +8640,7 @@ module MMCM_ADV (...);
     input [6:0] DADDR;
 endmodule
 
-module MMCM_BASE (...);
+module MMCM_BASE(CLKFBOUT, CLKFBOUTB, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, LOCKED, CLKFBIN, CLKIN1, PWRDWN, RST);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter real CLKFBOUT_MULT_F = 5.000;
     parameter real CLKFBOUT_PHASE = 0.000;
@@ -8655,7 +8691,8 @@ module MMCM_BASE (...);
     input RST;
 endmodule
 
-module MMCME2_ADV (...);
+module MMCME2_ADV(CLKFBOUT, CLKFBOUTB, CLKFBSTOPPED, CLKINSTOPPED, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, DO, DRDY, LOCKED, PSDONE, CLKFBIN, CLKIN1
+, CLKIN2, CLKINSEL, DADDR, DCLK, DEN, DI, DWE, PSCLK, PSEN, PSINCDEC, PWRDWN, RST);
     parameter real CLKIN_FREQ_MAX = 1066.000;
     parameter real CLKIN_FREQ_MIN = 10.000;
     parameter real CLKPFD_FREQ_MAX = 550.000;
@@ -8750,7 +8787,7 @@ module MMCME2_ADV (...);
     input RST;
 endmodule
 
-module MMCME2_BASE (...);
+module MMCME2_BASE(CLKFBOUT, CLKFBOUTB, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, LOCKED, CLKFBIN, CLKIN1, PWRDWN, RST);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter real CLKFBOUT_MULT_F = 5.000;
     parameter real CLKFBOUT_PHASE = 0.000;
@@ -8800,7 +8837,8 @@ module MMCME2_BASE (...);
     input RST;
 endmodule
 
-module PLLE2_ADV (...);
+module PLLE2_ADV(CLKFBOUT, CLKOUT0, CLKOUT1, CLKOUT2, CLKOUT3, CLKOUT4, CLKOUT5, DRDY, LOCKED, DO, CLKFBIN, CLKIN1, CLKIN2, CLKINSEL, DCLK, DEN, DWE, PWRDWN, RST, DI, DADDR
+);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter COMPENSATION = "ZHOLD";
     parameter STARTUP_WAIT = "FALSE";
@@ -8864,7 +8902,7 @@ module PLLE2_ADV (...);
     input [6:0] DADDR;
 endmodule
 
-module PLLE2_BASE (...);
+module PLLE2_BASE(CLKFBOUT, CLKOUT0, CLKOUT1, CLKOUT2, CLKOUT3, CLKOUT4, CLKOUT5, LOCKED, CLKFBIN, CLKIN1, PWRDWN, RST);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter integer CLKFBOUT_MULT = 5;
     parameter real CLKFBOUT_PHASE = 0.000;
@@ -8904,7 +8942,8 @@ module PLLE2_BASE (...);
     input RST;
 endmodule
 
-module MMCME3_ADV (...);
+module MMCME3_ADV(CDDCDONE, CLKFBOUT, CLKFBOUTB, CLKFBSTOPPED, CLKINSTOPPED, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, DO, DRDY, LOCKED, PSDONE, CDDCREQ
+, CLKFBIN, CLKIN1, CLKIN2, CLKINSEL, DADDR, DCLK, DEN, DI, DWE, PSCLK, PSEN, PSINCDEC, PWRDWN, RST);
     parameter real CLKIN_FREQ_MAX = 1066.000;
     parameter real CLKIN_FREQ_MIN = 10.000;
     parameter real CLKPFD_FREQ_MAX = 550.000;
@@ -9007,7 +9046,7 @@ module MMCME3_ADV (...);
     input RST;
 endmodule
 
-module MMCME3_BASE (...);
+module MMCME3_BASE(CLKFBOUT, CLKFBOUTB, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, LOCKED, CLKFBIN, CLKIN1, PWRDWN, RST);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter real CLKFBOUT_MULT_F = 5.000;
     parameter real CLKFBOUT_PHASE = 0.000;
@@ -9065,7 +9104,7 @@ module MMCME3_BASE (...);
     input RST;
 endmodule
 
-module PLLE3_ADV (...);
+module PLLE3_ADV(CLKFBOUT, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUTPHY, DO, DRDY, LOCKED, CLKFBIN, CLKIN, CLKOUTPHYEN, DADDR, DCLK, DEN, DI, DWE, PWRDWN, RST);
     parameter real CLKIN_FREQ_MAX = 1066.000;
     parameter real CLKIN_FREQ_MIN = 70.000;
     parameter real CLKPFD_FREQ_MAX = 667.500;
@@ -9115,7 +9154,7 @@ module PLLE3_ADV (...);
     input RST;
 endmodule
 
-module PLLE3_BASE (...);
+module PLLE3_BASE(CLKFBOUT, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUTPHY, LOCKED, CLKFBIN, CLKIN, CLKOUTPHYEN, PWRDWN, RST);
     parameter integer CLKFBOUT_MULT = 5;
     parameter real CLKFBOUT_PHASE = 0.000;
     parameter real CLKIN_PERIOD = 0.000;
@@ -9151,7 +9190,8 @@ module PLLE3_BASE (...);
     input RST;
 endmodule
 
-module MMCME4_ADV (...);
+module MMCME4_ADV(CDDCDONE, CLKFBOUT, CLKFBOUTB, CLKFBSTOPPED, CLKINSTOPPED, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, DO, DRDY, LOCKED, PSDONE, CDDCREQ
+, CLKFBIN, CLKIN1, CLKIN2, CLKINSEL, DADDR, DCLK, DEN, DI, DWE, PSCLK, PSEN, PSINCDEC, PWRDWN, RST);
     parameter real CLKIN_FREQ_MAX = 1066.000;
     parameter real CLKIN_FREQ_MIN = 10.000;
     parameter real CLKPFD_FREQ_MAX = 550.000;
@@ -9254,7 +9294,7 @@ module MMCME4_ADV (...);
     input RST;
 endmodule
 
-module MMCME4_BASE (...);
+module MMCME4_BASE(CLKFBOUT, CLKFBOUTB, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B, CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6, LOCKED, CLKFBIN, CLKIN1, PWRDWN, RST);
     parameter BANDWIDTH = "OPTIMIZED";
     parameter real CLKFBOUT_MULT_F = 5.000;
     parameter real CLKFBOUT_PHASE = 0.000;
@@ -9312,7 +9352,7 @@ module MMCME4_BASE (...);
     input RST;
 endmodule
 
-module PLLE4_ADV (...);
+module PLLE4_ADV(CLKFBOUT, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUTPHY, DO, DRDY, LOCKED, CLKFBIN, CLKIN, CLKOUTPHYEN, DADDR, DCLK, DEN, DI, DWE, PWRDWN, RST);
     parameter real CLKIN_FREQ_MAX = 1066.000;
     parameter real CLKIN_FREQ_MIN = 70.000;
     parameter real CLKPFD_FREQ_MAX = 667.500;
@@ -9362,7 +9402,7 @@ module PLLE4_ADV (...);
     input RST;
 endmodule
 
-module PLLE4_BASE (...);
+module PLLE4_BASE(CLKFBOUT, CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUTPHY, LOCKED, CLKFBIN, CLKIN, CLKOUTPHYEN, PWRDWN, RST);
     parameter integer CLKFBOUT_MULT = 5;
     parameter real CLKFBOUT_PHASE = 0.000;
     parameter real CLKIN_PERIOD = 0.000;
@@ -9398,13 +9438,14 @@ module PLLE4_BASE (...);
     input RST;
 endmodule
 
-module BUFT (...);
+module BUFT(O, I, T);
     output O;
     input I;
     input T;
 endmodule
 
-module IN_FIFO (...);
+module IN_FIFO(ALMOSTEMPTY, ALMOSTFULL, EMPTY, FULL, Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, RDCLK, RDEN, RESET, WRCLK, WREN, D0, D1
+, D2, D3, D4, D7, D8, D9, D5, D6);
     parameter integer ALMOST_EMPTY_VALUE = 1;
     parameter integer ALMOST_FULL_VALUE = 1;
     parameter ARRAY_MODE = "ARRAY_MODE_4_X_8";
@@ -9442,7 +9483,8 @@ module IN_FIFO (...);
     input [7:0] D6;
 endmodule
 
-module OUT_FIFO (...);
+module OUT_FIFO(ALMOSTEMPTY, ALMOSTFULL, EMPTY, FULL, Q0, Q1, Q2, Q3, Q4, Q7, Q8, Q9, Q5, Q6, RDCLK, RDEN, RESET, WRCLK, WREN, D0, D1
+, D2, D3, D4, D5, D6, D7, D8, D9);
     parameter integer ALMOST_EMPTY_VALUE = 1;
     parameter integer ALMOST_FULL_VALUE = 1;
     parameter ARRAY_MODE = "ARRAY_MODE_8_X_4";
@@ -9481,7 +9523,7 @@ module OUT_FIFO (...);
     input [7:0] D9;
 endmodule
 
-module HARD_SYNC (...);
+module HARD_SYNC(DOUT, CLK, DIN);
     parameter [0:0] INIT = 1'b0;
     parameter [0:0] IS_CLK_INVERTED = 1'b0;
     parameter integer LATENCY = 2;
@@ -9493,14 +9535,14 @@ module HARD_SYNC (...);
 endmodule
 
 (* keep *)
-module STARTUP_SPARTAN3 (...);
+module STARTUP_SPARTAN3(CLK, GSR, GTS);
     input CLK;
     input GSR;
     input GTS;
 endmodule
 
 (* keep *)
-module STARTUP_SPARTAN3E (...);
+module STARTUP_SPARTAN3E(CLK, GSR, GTS, MBT);
     input CLK;
     input GSR;
     input GTS;
@@ -9508,14 +9550,14 @@ module STARTUP_SPARTAN3E (...);
 endmodule
 
 (* keep *)
-module STARTUP_SPARTAN3A (...);
+module STARTUP_SPARTAN3A(CLK, GSR, GTS);
     input CLK;
     input GSR;
     input GTS;
 endmodule
 
 (* keep *)
-module STARTUP_SPARTAN6 (...);
+module STARTUP_SPARTAN6(CFGCLK, CFGMCLK, EOS, CLK, GSR, GTS, KEYCLEARB);
     output CFGCLK;
     output CFGMCLK;
     output EOS;
@@ -9526,7 +9568,7 @@ module STARTUP_SPARTAN6 (...);
 endmodule
 
 (* keep *)
-module STARTUP_VIRTEX4 (...);
+module STARTUP_VIRTEX4(EOS, CLK, GSR, GTS, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS);
     output EOS;
     input CLK;
     input GSR;
@@ -9538,7 +9580,7 @@ module STARTUP_VIRTEX4 (...);
 endmodule
 
 (* keep *)
-module STARTUP_VIRTEX5 (...);
+module STARTUP_VIRTEX5(CFGCLK, CFGMCLK, DINSPI, EOS, TCKSPI, CLK, GSR, GTS, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS);
     output CFGCLK;
     output CFGMCLK;
     output DINSPI;
@@ -9554,7 +9596,7 @@ module STARTUP_VIRTEX5 (...);
 endmodule
 
 (* keep *)
-module STARTUP_VIRTEX6 (...);
+module STARTUP_VIRTEX6(CFGCLK, CFGMCLK, DINSPI, EOS, PREQ, TCKSPI, CLK, GSR, GTS, KEYCLEARB, PACK, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS);
     parameter PROG_USR = "FALSE";
     output CFGCLK;
     output CFGMCLK;
@@ -9574,7 +9616,7 @@ module STARTUP_VIRTEX6 (...);
 endmodule
 
 (* keep *)
-module STARTUPE2 (...);
+module STARTUPE2(CFGCLK, CFGMCLK, EOS, PREQ, CLK, GSR, GTS, KEYCLEARB, PACK, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS);
     parameter PROG_USR = "FALSE";
     parameter real SIM_CCLK_FREQ = 0.0;
     output CFGCLK;
@@ -9593,7 +9635,7 @@ module STARTUPE2 (...);
 endmodule
 
 (* keep *)
-module STARTUPE3 (...);
+module STARTUPE3(CFGCLK, CFGMCLK, DI, EOS, PREQ, DO, DTS, FCSBO, FCSBTS, GSR, GTS, KEYCLEARB, PACK, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS);
     parameter PROG_USR = "FALSE";
     parameter real SIM_CCLK_FREQ = 0.0;
     output CFGCLK;
@@ -9616,49 +9658,49 @@ module STARTUPE3 (...);
 endmodule
 
 (* keep *)
-module CAPTURE_SPARTAN3 (...);
+module CAPTURE_SPARTAN3(CAP, CLK);
     parameter ONESHOT = "FALSE";
     input CAP;
     input CLK;
 endmodule
 
 (* keep *)
-module CAPTURE_SPARTAN3A (...);
+module CAPTURE_SPARTAN3A(CAP, CLK);
     parameter ONESHOT = "TRUE";
     input CAP;
     input CLK;
 endmodule
 
 (* keep *)
-module CAPTURE_VIRTEX4 (...);
+module CAPTURE_VIRTEX4(CAP, CLK);
     parameter ONESHOT = "TRUE";
     input CAP;
     input CLK;
 endmodule
 
 (* keep *)
-module CAPTURE_VIRTEX5 (...);
+module CAPTURE_VIRTEX5(CAP, CLK);
     parameter ONESHOT = "TRUE";
     input CAP;
     input CLK;
 endmodule
 
 (* keep *)
-module CAPTURE_VIRTEX6 (...);
+module CAPTURE_VIRTEX6(CAP, CLK);
     parameter ONESHOT = "TRUE";
     input CAP;
     input CLK;
 endmodule
 
 (* keep *)
-module CAPTUREE2 (...);
+module CAPTUREE2(CAP, CLK);
     parameter ONESHOT = "TRUE";
     input CAP;
     input CLK;
 endmodule
 
 (* keep *)
-module ICAP_SPARTAN3A (...);
+module ICAP_SPARTAN3A(BUSY, O, CE, CLK, WRITE, I);
     output BUSY;
     output [7:0] O;
     input CE;
@@ -9668,7 +9710,7 @@ module ICAP_SPARTAN3A (...);
 endmodule
 
 (* keep *)
-module ICAP_SPARTAN6 (...);
+module ICAP_SPARTAN6(BUSY, O, CLK, CE, WRITE, I);
     parameter DEVICE_ID = 32'h04000093;
     parameter SIM_CFG_FILE_NAME = "NONE";
     output BUSY;
@@ -9680,7 +9722,7 @@ module ICAP_SPARTAN6 (...);
 endmodule
 
 (* keep *)
-module ICAP_VIRTEX4 (...);
+module ICAP_VIRTEX4(BUSY, O, CE, CLK, WRITE, I);
     parameter ICAP_WIDTH = "X8";
     output BUSY;
     output [31:0] O;
@@ -9691,7 +9733,7 @@ module ICAP_VIRTEX4 (...);
 endmodule
 
 (* keep *)
-module ICAP_VIRTEX5 (...);
+module ICAP_VIRTEX5(BUSY, O, CE, CLK, WRITE, I);
     parameter ICAP_WIDTH = "X8";
     output BUSY;
     output [31:0] O;
@@ -9702,7 +9744,7 @@ module ICAP_VIRTEX5 (...);
 endmodule
 
 (* keep *)
-module ICAP_VIRTEX6 (...);
+module ICAP_VIRTEX6(BUSY, O, CLK, CSB, RDWRB, I);
     parameter [31:0] DEVICE_ID = 32'h04244093;
     parameter ICAP_WIDTH = "X8";
     parameter SIM_CFG_FILE_NAME = "NONE";
@@ -9715,7 +9757,7 @@ module ICAP_VIRTEX6 (...);
 endmodule
 
 (* keep *)
-module ICAPE2 (...);
+module ICAPE2(O, CLK, CSIB, RDWRB, I);
     parameter [31:0] DEVICE_ID = 32'h04244093;
     parameter ICAP_WIDTH = "X32";
     parameter SIM_CFG_FILE_NAME = "NONE";
@@ -9727,7 +9769,7 @@ module ICAPE2 (...);
 endmodule
 
 (* keep *)
-module ICAPE3 (...);
+module ICAPE3(AVAIL, O, PRDONE, PRERROR, CLK, CSIB, RDWRB, I);
     parameter [31:0] DEVICE_ID = 32'h03628093;
     parameter ICAP_AUTO_SWITCH = "DISABLE";
     parameter SIM_CFG_FILE_NAME = "NONE";
@@ -9742,7 +9784,7 @@ module ICAPE3 (...);
 endmodule
 
 (* keep *)
-module BSCAN_SPARTAN3 (...);
+module BSCAN_SPARTAN3(CAPTURE, DRCK1, DRCK2, RESET, SEL1, SEL2, SHIFT, TDI, UPDATE, TDO1, TDO2);
     output CAPTURE;
     output DRCK1;
     output DRCK2;
@@ -9757,7 +9799,7 @@ module BSCAN_SPARTAN3 (...);
 endmodule
 
 (* keep *)
-module BSCAN_SPARTAN3A (...);
+module BSCAN_SPARTAN3A(CAPTURE, DRCK1, DRCK2, RESET, SEL1, SEL2, SHIFT, TCK, TDI, TMS, UPDATE, TDO1, TDO2);
     output CAPTURE;
     output DRCK1;
     output DRCK2;
@@ -9774,7 +9816,7 @@ module BSCAN_SPARTAN3A (...);
 endmodule
 
 (* keep *)
-module BSCAN_SPARTAN6 (...);
+module BSCAN_SPARTAN6(CAPTURE, DRCK, RESET, RUNTEST, SEL, SHIFT, TCK, TDI, TMS, UPDATE, TDO);
     parameter integer JTAG_CHAIN = 1;
     output CAPTURE;
     output DRCK;
@@ -9790,7 +9832,7 @@ module BSCAN_SPARTAN6 (...);
 endmodule
 
 (* keep *)
-module BSCAN_VIRTEX4 (...);
+module BSCAN_VIRTEX4(CAPTURE, DRCK, RESET, SEL, SHIFT, TDI, UPDATE, TDO);
     parameter integer JTAG_CHAIN = 1;
     output CAPTURE;
     output DRCK;
@@ -9803,7 +9845,7 @@ module BSCAN_VIRTEX4 (...);
 endmodule
 
 (* keep *)
-module BSCAN_VIRTEX5 (...);
+module BSCAN_VIRTEX5(CAPTURE, DRCK, RESET, SEL, SHIFT, TDI, UPDATE, TDO);
     parameter integer JTAG_CHAIN = 1;
     output CAPTURE;
     output DRCK;
@@ -9816,7 +9858,7 @@ module BSCAN_VIRTEX5 (...);
 endmodule
 
 (* keep *)
-module BSCAN_VIRTEX6 (...);
+module BSCAN_VIRTEX6(CAPTURE, DRCK, RESET, RUNTEST, SEL, SHIFT, TCK, TDI, TMS, UPDATE, TDO);
     parameter DISABLE_JTAG = "FALSE";
     parameter integer JTAG_CHAIN = 1;
     output CAPTURE;
@@ -9833,7 +9875,7 @@ module BSCAN_VIRTEX6 (...);
 endmodule
 
 (* keep *)
-module BSCANE2 (...);
+module BSCANE2(CAPTURE, DRCK, RESET, RUNTEST, SEL, SHIFT, TCK, TDI, TMS, UPDATE, TDO);
     parameter DISABLE_JTAG = "FALSE";
     parameter integer JTAG_CHAIN = 1;
     output CAPTURE;
@@ -9849,7 +9891,7 @@ module BSCANE2 (...);
     input TDO;
 endmodule
 
-module DNA_PORT (...);
+module DNA_PORT(DOUT, CLK, DIN, READ, SHIFT);
     parameter [56:0] SIM_DNA_VALUE = 57'h0;
     output DOUT;
     input CLK;
@@ -9858,7 +9900,7 @@ module DNA_PORT (...);
     input SHIFT;
 endmodule
 
-module DNA_PORTE2 (...);
+module DNA_PORTE2(DOUT, CLK, DIN, READ, SHIFT);
     parameter [95:0] SIM_DNA_VALUE = 96'h000000000000000000000000;
     output DOUT;
     input CLK;
@@ -9867,20 +9909,20 @@ module DNA_PORTE2 (...);
     input SHIFT;
 endmodule
 
-module FRAME_ECC_VIRTEX4 (...);
+module FRAME_ECC_VIRTEX4(ERROR, SYNDROME, SYNDROMEVALID);
     output ERROR;
     output [11:0] SYNDROME;
     output SYNDROMEVALID;
 endmodule
 
-module FRAME_ECC_VIRTEX5 (...);
+module FRAME_ECC_VIRTEX5(CRCERROR, ECCERROR, SYNDROMEVALID, SYNDROME);
     output CRCERROR;
     output ECCERROR;
     output SYNDROMEVALID;
     output [11:0] SYNDROME;
 endmodule
 
-module FRAME_ECC_VIRTEX6 (...);
+module FRAME_ECC_VIRTEX6(CRCERROR, ECCERROR, ECCERRORSINGLE, SYNDROMEVALID, SYNDROME, FAR, SYNBIT, SYNWORD);
     parameter FARSRC = "EFAR";
     parameter FRAME_RBT_IN_FILENAME = "NONE";
     output CRCERROR;
@@ -9893,7 +9935,7 @@ module FRAME_ECC_VIRTEX6 (...);
     output [6:0] SYNWORD;
 endmodule
 
-module FRAME_ECCE2 (...);
+module FRAME_ECCE2(CRCERROR, ECCERROR, ECCERRORSINGLE, SYNDROMEVALID, SYNDROME, FAR, SYNBIT, SYNWORD);
     parameter FARSRC = "EFAR";
     parameter FRAME_RBT_IN_FILENAME = "NONE";
     output CRCERROR;
@@ -9906,7 +9948,7 @@ module FRAME_ECCE2 (...);
     output [6:0] SYNWORD;
 endmodule
 
-module FRAME_ECCE3 (...);
+module FRAME_ECCE3(CRCERROR, ECCERRORNOTSINGLE, ECCERRORSINGLE, ENDOFFRAME, ENDOFSCAN, FAR, FARSEL, ICAPBOTCLK, ICAPTOPCLK);
     output CRCERROR;
     output ECCERRORNOTSINGLE;
     output ECCERRORSINGLE;
@@ -9918,7 +9960,7 @@ module FRAME_ECCE3 (...);
     input ICAPTOPCLK;
 endmodule
 
-module FRAME_ECCE4 (...);
+module FRAME_ECCE4(CRCERROR, ECCERRORNOTSINGLE, ECCERRORSINGLE, ENDOFFRAME, ENDOFSCAN, FAR, FARSEL, ICAPBOTCLK, ICAPTOPCLK);
     output CRCERROR;
     output ECCERRORNOTSINGLE;
     output ECCERRORSINGLE;
@@ -9930,47 +9972,47 @@ module FRAME_ECCE4 (...);
     input ICAPTOPCLK;
 endmodule
 
-module USR_ACCESS_VIRTEX4 (...);
+module USR_ACCESS_VIRTEX4(DATA, DATAVALID);
     output [31:0] DATA;
     output DATAVALID;
 endmodule
 
-module USR_ACCESS_VIRTEX5 (...);
+module USR_ACCESS_VIRTEX5(CFGCLK, DATA, DATAVALID);
     output CFGCLK;
     output [31:0] DATA;
     output DATAVALID;
 endmodule
 
-module USR_ACCESS_VIRTEX6 (...);
+module USR_ACCESS_VIRTEX6(CFGCLK, DATA, DATAVALID);
     output CFGCLK;
     output [31:0] DATA;
     output DATAVALID;
 endmodule
 
-module USR_ACCESSE2 (...);
+module USR_ACCESSE2(CFGCLK, DATAVALID, DATA);
     output CFGCLK;
     output DATAVALID;
     output [31:0] DATA;
 endmodule
 
-module POST_CRC_INTERNAL (...);
+module POST_CRC_INTERNAL(CRCERROR);
     output CRCERROR;
 endmodule
 
 (* keep *)
-module SUSPEND_SYNC (...);
+module SUSPEND_SYNC(SREQ, CLK, SACK);
     output SREQ;
     input CLK;
     input SACK;
 endmodule
 
 (* keep *)
-module KEY_CLEAR (...);
+module KEY_CLEAR(KEYCLEARB);
     input KEYCLEARB;
 endmodule
 
 (* keep *)
-module MASTER_JTAG (...);
+module MASTER_JTAG(TDO, TCK, TDI, TMS);
     output TDO;
     input TCK;
     input TDI;
@@ -9978,7 +10020,7 @@ module MASTER_JTAG (...);
 endmodule
 
 (* keep *)
-module SPI_ACCESS (...);
+module SPI_ACCESS(MISO, CLK, CSB, MOSI);
     parameter SIM_DELAY_TYPE = "SCALED";
     parameter SIM_DEVICE = "3S1400AN";
     parameter SIM_FACTORY_ID = 512'h00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
@@ -9990,13 +10032,14 @@ module SPI_ACCESS (...);
     input MOSI;
 endmodule
 
-module EFUSE_USR (...);
+module EFUSE_USR(EFUSEUSR);
     parameter [31:0] SIM_EFUSE_VALUE = 32'h00000000;
     output [31:0] EFUSEUSR;
 endmodule
 
 (* keep *)
-module SYSMON (...);
+module SYSMON(BUSY, DRDY, EOC, EOS, JTAGBUSY, JTAGLOCKED, JTAGMODIFIED, OT, DO, ALM, CHANNEL, CONVST, CONVSTCLK, DCLK, DEN, DWE, RESET, VN, VP, DI, VAUXN
+, VAUXP, DADDR);
     parameter [15:0] INIT_40 = 16'h0;
     parameter [15:0] INIT_41 = 16'h0;
     parameter [15:0] INIT_42 = 16'h0800;
@@ -10049,7 +10092,8 @@ module SYSMON (...);
 endmodule
 
 (* keep *)
-module XADC (...);
+module XADC(BUSY, DRDY, EOC, EOS, JTAGBUSY, JTAGLOCKED, JTAGMODIFIED, OT, DO, ALM, CHANNEL, MUXADDR, CONVST, CONVSTCLK, DCLK, DEN, DWE, RESET, VN, VP, DI
+, VAUXN, VAUXP, DADDR);
     parameter [15:0] INIT_40 = 16'h0;
     parameter [15:0] INIT_41 = 16'h0;
     parameter [15:0] INIT_42 = 16'h0800;
@@ -10115,7 +10159,8 @@ module XADC (...);
 endmodule
 
 (* keep *)
-module SYSMONE1 (...);
+module SYSMONE1(ALM, BUSY, CHANNEL, DO, DRDY, EOC, EOS, I2C_SCLK_TS, I2C_SDA_TS, JTAGBUSY, JTAGLOCKED, JTAGMODIFIED, MUXADDR, OT, CONVST, CONVSTCLK, DADDR, DCLK, DEN, DI, DWE
+, I2C_SCLK, I2C_SDA, RESET, VAUXN, VAUXP, VN, VP);
     parameter [15:0] INIT_40 = 16'h0;
     parameter [15:0] INIT_41 = 16'h0;
     parameter [15:0] INIT_42 = 16'h0;
@@ -10224,7 +10269,8 @@ module SYSMONE1 (...);
 endmodule
 
 (* keep *)
-module SYSMONE4 (...);
+module SYSMONE4(ADC_DATA, ALM, BUSY, CHANNEL, DO, DRDY, EOC, EOS, I2C_SCLK_TS, I2C_SDA_TS, JTAGBUSY, JTAGLOCKED, JTAGMODIFIED, MUXADDR, OT, SMBALERT_TS, CONVST, CONVSTCLK, DADDR, DCLK, DEN
+, DI, DWE, I2C_SCLK, I2C_SDA, RESET, VAUXN, VAUXP, VN, VP);
     parameter [15:0] COMMON_N_SOURCE = 16'hFFFF;
     parameter [15:0] INIT_40 = 16'h0000;
     parameter [15:0] INIT_41 = 16'h0000;
@@ -10336,7 +10382,17 @@ module SYSMONE4 (...);
     input VP;
 endmodule
 
-module GTPA1_DUAL (...);
+module GTPA1_DUAL(DRDY, PHYSTATUS0, PHYSTATUS1, PLLLKDET0, PLLLKDET1, REFCLKOUT0, REFCLKOUT1, REFCLKPLL0, REFCLKPLL1, RESETDONE0, RESETDONE1, RXBYTEISALIGNED0, RXBYTEISALIGNED1, RXBYTEREALIGN0, RXBYTEREALIGN1, RXCHANBONDSEQ0, RXCHANBONDSEQ1, RXCHANISALIGNED0, RXCHANISALIGNED1, RXCHANREALIGN0, RXCHANREALIGN1
+, RXCOMMADET0, RXCOMMADET1, RXELECIDLE0, RXELECIDLE1, RXPRBSERR0, RXPRBSERR1, RXRECCLK0, RXRECCLK1, RXVALID0, RXVALID1, TXN0, TXN1, TXOUTCLK0, TXOUTCLK1, TXP0, TXP1, DRPDO, GTPCLKFBEAST, GTPCLKFBWEST, GTPCLKOUT0, GTPCLKOUT1
+, RXLOSSOFSYNC0, RXLOSSOFSYNC1, TXBUFSTATUS0, TXBUFSTATUS1, RXBUFSTATUS0, RXBUFSTATUS1, RXCHBONDO, RXCLKCORCNT0, RXCLKCORCNT1, RXSTATUS0, RXSTATUS1, RXDATA0, RXDATA1, RXCHARISCOMMA0, RXCHARISCOMMA1, RXCHARISK0, RXCHARISK1, RXDISPERR0, RXDISPERR1, RXNOTINTABLE0, RXNOTINTABLE1
+, RXRUNDISP0, RXRUNDISP1, TXKERR0, TXKERR1, TXRUNDISP0, TXRUNDISP1, RCALOUTEAST, RCALOUTWEST, TSTOUT0, TSTOUT1, CLK00, CLK01, CLK10, CLK11, CLKINEAST0, CLKINEAST1, CLKINWEST0, CLKINWEST1, DCLK, DEN, DWE
+, GATERXELECIDLE0, GATERXELECIDLE1, GCLK00, GCLK01, GCLK10, GCLK11, GTPRESET0, GTPRESET1, IGNORESIGDET0, IGNORESIGDET1, INTDATAWIDTH0, INTDATAWIDTH1, PLLCLK00, PLLCLK01, PLLCLK10, PLLCLK11, PLLLKDETEN0, PLLLKDETEN1, PLLPOWERDOWN0, PLLPOWERDOWN1, PRBSCNTRESET0
+, PRBSCNTRESET1, REFCLKPWRDNB0, REFCLKPWRDNB1, RXBUFRESET0, RXBUFRESET1, RXCDRRESET0, RXCDRRESET1, RXCHBONDMASTER0, RXCHBONDMASTER1, RXCHBONDSLAVE0, RXCHBONDSLAVE1, RXCOMMADETUSE0, RXCOMMADETUSE1, RXDEC8B10BUSE0, RXDEC8B10BUSE1, RXENCHANSYNC0, RXENCHANSYNC1, RXENMCOMMAALIGN0, RXENMCOMMAALIGN1, RXENPCOMMAALIGN0, RXENPCOMMAALIGN1
+, RXENPMAPHASEALIGN0, RXENPMAPHASEALIGN1, RXN0, RXN1, RXP0, RXP1, RXPMASETPHASE0, RXPMASETPHASE1, RXPOLARITY0, RXPOLARITY1, RXRESET0, RXRESET1, RXSLIDE0, RXSLIDE1, RXUSRCLK0, RXUSRCLK1, RXUSRCLK20, RXUSRCLK21, TSTCLK0, TSTCLK1, TXCOMSTART0
+, TXCOMSTART1, TXCOMTYPE0, TXCOMTYPE1, TXDETECTRX0, TXDETECTRX1, TXELECIDLE0, TXELECIDLE1, TXENC8B10BUSE0, TXENC8B10BUSE1, TXENPMAPHASEALIGN0, TXENPMAPHASEALIGN1, TXINHIBIT0, TXINHIBIT1, TXPDOWNASYNCH0, TXPDOWNASYNCH1, TXPMASETPHASE0, TXPMASETPHASE1, TXPOLARITY0, TXPOLARITY1, TXPRBSFORCEERR0, TXPRBSFORCEERR1
+, TXRESET0, TXRESET1, TXUSRCLK0, TXUSRCLK1, TXUSRCLK20, TXUSRCLK21, USRCODEERR0, USRCODEERR1, TSTIN0, TSTIN1, DI, GTPCLKFBSEL0EAST, GTPCLKFBSEL0WEST, GTPCLKFBSEL1EAST, GTPCLKFBSEL1WEST, RXDATAWIDTH0, RXDATAWIDTH1, RXEQMIX0, RXEQMIX1, RXPOWERDOWN0, RXPOWERDOWN1
+, TXDATAWIDTH0, TXDATAWIDTH1, TXPOWERDOWN0, TXPOWERDOWN1, LOOPBACK0, LOOPBACK1, REFSELDYPLL0, REFSELDYPLL1, RXCHBONDI, RXENPRBSTST0, RXENPRBSTST1, TXBUFDIFFCTRL0, TXBUFDIFFCTRL1, TXENPRBSTST0, TXENPRBSTST1, TXPREEMPHASIS0, TXPREEMPHASIS1, TXDATA0, TXDATA1, TXBYPASS8B10B0, TXBYPASS8B10B1
+, TXCHARDISPMODE0, TXCHARDISPMODE1, TXCHARDISPVAL0, TXCHARDISPVAL1, TXCHARISK0, TXCHARISK1, TXDIFFCTRL0, TXDIFFCTRL1, RCALINEAST, RCALINWEST, DADDR, GTPTEST0, GTPTEST1);
     parameter AC_CAP_DIS_0 = "TRUE";
     parameter AC_CAP_DIS_1 = "TRUE";
     parameter integer ALIGN_COMMA_WORD_0 = 1;
@@ -10788,7 +10844,11 @@ module GTPA1_DUAL (...);
     input [7:0] GTPTEST1;
 endmodule
 
-module GT11_CUSTOM (...);
+module GT11_CUSTOM(DRDY, RXBUFERR, RXCALFAIL, RXCOMMADET, RXCYCLELIMIT, RXLOCK, RXMCLK, RXPCSHCLKOUT, RXREALIGN, RXRECCLK1, RXRECCLK2, RXSIGDET, TX1N, TX1P, TXBUFERR, TXCALFAIL, TXCYCLELIMIT, TXLOCK, TXOUTCLK1, TXOUTCLK2, TXPCSHCLKOUT
+, DO, RXLOSSOFSYNC, RXCRCOUT, TXCRCOUT, CHBONDO, RXSTATUS, RXDATA, RXCHARISCOMMA, RXCHARISK, RXDISPERR, RXNOTINTABLE, RXRUNDISP, TXKERR, TXRUNDISP, DCLK, DEN, DWE, ENCHANSYNC, ENMCOMMAALIGN, ENPCOMMAALIGN, GREFCLK
+, POWERDOWN, REFCLK1, REFCLK2, RX1N, RX1P, RXBLOCKSYNC64B66BUSE, RXCLKSTABLE, RXCOMMADETUSE, RXCRCCLK, RXCRCDATAVALID, RXCRCINIT, RXCRCINTCLK, RXCRCPD, RXCRCRESET, RXDEC64B66BUSE, RXDEC8B10BUSE, RXDESCRAM64B66BUSE, RXIGNOREBTF, RXPMARESET, RXPOLARITY, RXRESET
+, RXSLIDE, RXSYNC, RXUSRCLK2, RXUSRCLK, TXCLKSTABLE, TXCRCCLK, TXCRCDATAVALID, TXCRCINIT, TXCRCINTCLK, TXCRCPD, TXCRCRESET, TXENC64B66BUSE, TXENC8B10BUSE, TXENOOB, TXGEARBOX64B66BUSE, TXINHIBIT, TXPMARESET, TXPOLARITY, TXRESET, TXSCRAM64B66BUSE, TXSYNC
+, TXUSRCLK2, TXUSRCLK, DI, LOOPBACK, RXDATAWIDTH, RXINTDATAWIDTH, TXDATAWIDTH, TXINTDATAWIDTH, RXCRCDATAWIDTH, TXCRCDATAWIDTH, CHBONDI, RXCRCIN, TXCRCIN, TXDATA, DADDR, TXBYPASS8B10B, TXCHARDISPMODE, TXCHARDISPVAL, TXCHARISK);
     parameter ALIGN_COMMA_WORD = 1;
     parameter BANDGAPSEL = "FALSE";
     parameter BIASRESSEL = "TRUE";
@@ -11060,7 +11120,16 @@ module GT11_CUSTOM (...);
     input [7:0] TXCHARISK;
 endmodule
 
-module GT11_DUAL (...);
+module GT11_DUAL(DRDYA, DRDYB, RXBUFERRA, RXBUFERRB, RXCALFAILA, RXCALFAILB, RXCOMMADETA, RXCOMMADETB, RXCYCLELIMITA, RXCYCLELIMITB, RXLOCKA, RXLOCKB, RXMCLKA, RXMCLKB, RXPCSHCLKOUTA, RXPCSHCLKOUTB, RXREALIGNA, RXREALIGNB, RXRECCLK1A, RXRECCLK1B, RXRECCLK2A
+, RXRECCLK2B, RXSIGDETA, RXSIGDETB, TX1NA, TX1NB, TX1PA, TX1PB, TXBUFERRA, TXBUFERRB, TXCALFAILA, TXCALFAILB, TXCYCLELIMITA, TXCYCLELIMITB, TXLOCKA, TXLOCKB, TXOUTCLK1A, TXOUTCLK1B, TXOUTCLK2A, TXOUTCLK2B, TXPCSHCLKOUTA, TXPCSHCLKOUTB
+, DOA, DOB, RXLOSSOFSYNCA, RXLOSSOFSYNCB, RXCRCOUTA, RXCRCOUTB, TXCRCOUTA, TXCRCOUTB, CHBONDOA, CHBONDOB, RXSTATUSA, RXSTATUSB, RXDATAA, RXDATAB, RXCHARISCOMMAA, RXCHARISCOMMAB, RXCHARISKA, RXCHARISKB, RXDISPERRA, RXDISPERRB, RXNOTINTABLEA
+, RXNOTINTABLEB, RXRUNDISPA, RXRUNDISPB, TXKERRA, TXKERRB, TXRUNDISPA, TXRUNDISPB, DCLKA, DCLKB, DENA, DENB, DWEA, DWEB, ENCHANSYNCA, ENCHANSYNCB, ENMCOMMAALIGNA, ENMCOMMAALIGNB, ENPCOMMAALIGNA, ENPCOMMAALIGNB, GREFCLKA, GREFCLKB
+, POWERDOWNA, POWERDOWNB, REFCLK1A, REFCLK1B, REFCLK2A, REFCLK2B, RX1NA, RX1NB, RX1PA, RX1PB, RXBLOCKSYNC64B66BUSEA, RXBLOCKSYNC64B66BUSEB, RXCLKSTABLEA, RXCLKSTABLEB, RXCOMMADETUSEA, RXCOMMADETUSEB, RXCRCCLKA, RXCRCCLKB, RXCRCDATAVALIDA, RXCRCDATAVALIDB, RXCRCINITA
+, RXCRCINITB, RXCRCINTCLKA, RXCRCINTCLKB, RXCRCPDA, RXCRCPDB, RXCRCRESETA, RXCRCRESETB, RXDEC64B66BUSEA, RXDEC64B66BUSEB, RXDEC8B10BUSEA, RXDEC8B10BUSEB, RXDESCRAM64B66BUSEA, RXDESCRAM64B66BUSEB, RXIGNOREBTFA, RXIGNOREBTFB, RXPMARESETA, RXPMARESETB, RXPOLARITYA, RXPOLARITYB, RXRESETA, RXRESETB
+, RXSLIDEA, RXSLIDEB, RXSYNCA, RXSYNCB, RXUSRCLK2A, RXUSRCLK2B, RXUSRCLKA, RXUSRCLKB, TXCLKSTABLEA, TXCLKSTABLEB, TXCRCCLKA, TXCRCCLKB, TXCRCDATAVALIDA, TXCRCDATAVALIDB, TXCRCINITA, TXCRCINITB, TXCRCINTCLKA, TXCRCINTCLKB, TXCRCPDA, TXCRCPDB, TXCRCRESETA
+, TXCRCRESETB, TXENC64B66BUSEA, TXENC64B66BUSEB, TXENC8B10BUSEA, TXENC8B10BUSEB, TXENOOBA, TXENOOBB, TXGEARBOX64B66BUSEA, TXGEARBOX64B66BUSEB, TXINHIBITA, TXINHIBITB, TXPMARESETA, TXPMARESETB, TXPOLARITYA, TXPOLARITYB, TXRESETA, TXRESETB, TXSCRAM64B66BUSEA, TXSCRAM64B66BUSEB, TXSYNCA, TXSYNCB
+, TXUSRCLK2A, TXUSRCLK2B, TXUSRCLKA, TXUSRCLKB, DIA, DIB, LOOPBACKA, LOOPBACKB, RXDATAWIDTHA, RXDATAWIDTHB, RXINTDATAWIDTHA, RXINTDATAWIDTHB, TXDATAWIDTHA, TXDATAWIDTHB, TXINTDATAWIDTHA, TXINTDATAWIDTHB, RXCRCDATAWIDTHA, RXCRCDATAWIDTHB, TXCRCDATAWIDTHA, TXCRCDATAWIDTHB, CHBONDIA
+, CHBONDIB, RXCRCINA, RXCRCINB, TXCRCINA, TXCRCINB, TXDATAA, TXDATAB, DADDRA, DADDRB, TXBYPASS8B10BA, TXBYPASS8B10BB, TXCHARDISPMODEA, TXCHARDISPMODEB, TXCHARDISPVALA, TXCHARDISPVALB, TXCHARISKA, TXCHARISKB);
     parameter ALIGN_COMMA_WORD_A = 1;
     parameter ALIGN_COMMA_WORD_B = 1;
     parameter BANDGAPSEL_A = "FALSE";
@@ -11601,7 +11670,7 @@ module GT11_DUAL (...);
     input [7:0] TXCHARISKB;
 endmodule
 
-module GT11CLK (...);
+module GT11CLK(SYNCLK1OUT, SYNCLK2OUT, MGTCLKN, MGTCLKP, REFCLK, RXBCLK, SYNCLK1IN, SYNCLK2IN);
     parameter REFCLKSEL = "MGTCLK";
     parameter SYNCLK1OUTEN = "ENABLE";
     parameter SYNCLK2OUTEN = "DISABLE";
@@ -11615,7 +11684,7 @@ module GT11CLK (...);
     input SYNCLK2IN;
 endmodule
 
-module GT11CLK_MGT (...);
+module GT11CLK_MGT(SYNCLK1OUT, SYNCLK2OUT, MGTCLKN, MGTCLKP);
     parameter SYNCLK1OUTEN = "ENABLE";
     parameter SYNCLK2OUTEN = "DISABLE";
     output SYNCLK1OUT;
@@ -11624,7 +11693,15 @@ module GT11CLK_MGT (...);
     input MGTCLKP;
 endmodule
 
-module GTP_DUAL (...);
+module GTP_DUAL(DRDY, PHYSTATUS0, PHYSTATUS1, PLLLKDET, REFCLKOUT, RESETDONE0, RESETDONE1, RXBYTEISALIGNED0, RXBYTEISALIGNED1, RXBYTEREALIGN0, RXBYTEREALIGN1, RXCHANBONDSEQ0, RXCHANBONDSEQ1, RXCHANISALIGNED0, RXCHANISALIGNED1, RXCHANREALIGN0, RXCHANREALIGN1, RXCOMMADET0, RXCOMMADET1, RXELECIDLE0, RXELECIDLE1
+, RXOVERSAMPLEERR0, RXOVERSAMPLEERR1, RXPRBSERR0, RXPRBSERR1, RXRECCLK0, RXRECCLK1, RXVALID0, RXVALID1, TXN0, TXN1, TXOUTCLK0, TXOUTCLK1, TXP0, TXP1, DO, RXDATA0, RXDATA1, RXCHARISCOMMA0, RXCHARISCOMMA1, RXCHARISK0, RXCHARISK1
+, RXDISPERR0, RXDISPERR1, RXLOSSOFSYNC0, RXLOSSOFSYNC1, RXNOTINTABLE0, RXNOTINTABLE1, RXRUNDISP0, RXRUNDISP1, TXBUFSTATUS0, TXBUFSTATUS1, TXKERR0, TXKERR1, TXRUNDISP0, TXRUNDISP1, RXBUFSTATUS0, RXBUFSTATUS1, RXCHBONDO0, RXCHBONDO1, RXCLKCORCNT0, RXCLKCORCNT1, RXSTATUS0
+, RXSTATUS1, CLKIN, DCLK, DEN, DWE, GTPRESET, INTDATAWIDTH, PLLLKDETEN, PLLPOWERDOWN, PRBSCNTRESET0, PRBSCNTRESET1, REFCLKPWRDNB, RXBUFRESET0, RXBUFRESET1, RXCDRRESET0, RXCDRRESET1, RXCOMMADETUSE0, RXCOMMADETUSE1, RXDATAWIDTH0, RXDATAWIDTH1, RXDEC8B10BUSE0
+, RXDEC8B10BUSE1, RXELECIDLERESET0, RXELECIDLERESET1, RXENCHANSYNC0, RXENCHANSYNC1, RXENELECIDLERESETB, RXENEQB0, RXENEQB1, RXENMCOMMAALIGN0, RXENMCOMMAALIGN1, RXENPCOMMAALIGN0, RXENPCOMMAALIGN1, RXENSAMPLEALIGN0, RXENSAMPLEALIGN1, RXN0, RXN1, RXP0, RXP1, RXPMASETPHASE0, RXPMASETPHASE1, RXPOLARITY0
+, RXPOLARITY1, RXRESET0, RXRESET1, RXSLIDE0, RXSLIDE1, RXUSRCLK0, RXUSRCLK1, RXUSRCLK20, RXUSRCLK21, TXCOMSTART0, TXCOMSTART1, TXCOMTYPE0, TXCOMTYPE1, TXDATAWIDTH0, TXDATAWIDTH1, TXDETECTRX0, TXDETECTRX1, TXELECIDLE0, TXELECIDLE1, TXENC8B10BUSE0, TXENC8B10BUSE1
+, TXENPMAPHASEALIGN, TXINHIBIT0, TXINHIBIT1, TXPMASETPHASE, TXPOLARITY0, TXPOLARITY1, TXRESET0, TXRESET1, TXUSRCLK0, TXUSRCLK1, TXUSRCLK20, TXUSRCLK21, DI, TXDATA0, TXDATA1, RXENPRBSTST0, RXENPRBSTST1, RXEQMIX0, RXEQMIX1, RXPOWERDOWN0, RXPOWERDOWN1
+, TXBYPASS8B10B0, TXBYPASS8B10B1, TXCHARDISPMODE0, TXCHARDISPMODE1, TXCHARDISPVAL0, TXCHARDISPVAL1, TXCHARISK0, TXCHARISK1, TXENPRBSTST0, TXENPRBSTST1, TXPOWERDOWN0, TXPOWERDOWN1, LOOPBACK0, LOOPBACK1, RXCHBONDI0, RXCHBONDI1, TXBUFDIFFCTRL0, TXBUFDIFFCTRL1, TXDIFFCTRL0, TXDIFFCTRL1, TXPREEMPHASIS0
+, TXPREEMPHASIS1, GTPTEST, RXEQPOLE0, RXEQPOLE1, DADDR);
     parameter AC_CAP_DIS_0 = "TRUE";
     parameter AC_CAP_DIS_1 = "TRUE";
     parameter CHAN_BOND_MODE_0 = "OFF";
@@ -11981,7 +12058,17 @@ module GTP_DUAL (...);
     input [6:0] DADDR;
 endmodule
 
-module GTX_DUAL (...);
+module GTX_DUAL(DRDY, PHYSTATUS0, PHYSTATUS1, PLLLKDET, REFCLKOUT, RESETDONE0, RESETDONE1, RXBYTEISALIGNED0, RXBYTEISALIGNED1, RXBYTEREALIGN0, RXBYTEREALIGN1, RXCHANBONDSEQ0, RXCHANBONDSEQ1, RXCHANISALIGNED0, RXCHANISALIGNED1, RXCHANREALIGN0, RXCHANREALIGN1, RXCOMMADET0, RXCOMMADET1, RXDATAVALID0, RXDATAVALID1
+, RXELECIDLE0, RXELECIDLE1, RXHEADERVALID0, RXHEADERVALID1, RXOVERSAMPLEERR0, RXOVERSAMPLEERR1, RXPRBSERR0, RXPRBSERR1, RXRECCLK0, RXRECCLK1, RXSTARTOFSEQ0, RXSTARTOFSEQ1, RXVALID0, RXVALID1, TXGEARBOXREADY0, TXGEARBOXREADY1, TXN0, TXN1, TXOUTCLK0, TXOUTCLK1, TXP0
+, TXP1, DO, RXLOSSOFSYNC0, RXLOSSOFSYNC1, TXBUFSTATUS0, TXBUFSTATUS1, DFESENSCAL0, DFESENSCAL1, RXBUFSTATUS0, RXBUFSTATUS1, RXCLKCORCNT0, RXCLKCORCNT1, RXHEADER0, RXHEADER1, RXSTATUS0, RXSTATUS1, RXDATA0, RXDATA1, DFETAP3MONITOR0, DFETAP3MONITOR1, DFETAP4MONITOR0
+, DFETAP4MONITOR1, RXCHARISCOMMA0, RXCHARISCOMMA1, RXCHARISK0, RXCHARISK1, RXCHBONDO0, RXCHBONDO1, RXDISPERR0, RXDISPERR1, RXNOTINTABLE0, RXNOTINTABLE1, RXRUNDISP0, RXRUNDISP1, TXKERR0, TXKERR1, TXRUNDISP0, TXRUNDISP1, DFEEYEDACMONITOR0, DFEEYEDACMONITOR1, DFETAP1MONITOR0, DFETAP1MONITOR1
+, DFETAP2MONITOR0, DFETAP2MONITOR1, DFECLKDLYADJMONITOR0, DFECLKDLYADJMONITOR1, CLKIN, DCLK, DEN, DWE, GTXRESET, INTDATAWIDTH, PLLLKDETEN, PLLPOWERDOWN, PRBSCNTRESET0, PRBSCNTRESET1, REFCLKPWRDNB, RXBUFRESET0, RXBUFRESET1, RXCDRRESET0, RXCDRRESET1, RXCOMMADETUSE0, RXCOMMADETUSE1
+, RXDEC8B10BUSE0, RXDEC8B10BUSE1, RXENCHANSYNC0, RXENCHANSYNC1, RXENEQB0, RXENEQB1, RXENMCOMMAALIGN0, RXENMCOMMAALIGN1, RXENPCOMMAALIGN0, RXENPCOMMAALIGN1, RXENPMAPHASEALIGN0, RXENPMAPHASEALIGN1, RXENSAMPLEALIGN0, RXENSAMPLEALIGN1, RXGEARBOXSLIP0, RXGEARBOXSLIP1, RXN0, RXN1, RXP0, RXP1, RXPMASETPHASE0
+, RXPMASETPHASE1, RXPOLARITY0, RXPOLARITY1, RXRESET0, RXRESET1, RXSLIDE0, RXSLIDE1, RXUSRCLK0, RXUSRCLK1, RXUSRCLK20, RXUSRCLK21, TXCOMSTART0, TXCOMSTART1, TXCOMTYPE0, TXCOMTYPE1, TXDETECTRX0, TXDETECTRX1, TXELECIDLE0, TXELECIDLE1, TXENC8B10BUSE0, TXENC8B10BUSE1
+, TXENPMAPHASEALIGN0, TXENPMAPHASEALIGN1, TXINHIBIT0, TXINHIBIT1, TXPMASETPHASE0, TXPMASETPHASE1, TXPOLARITY0, TXPOLARITY1, TXRESET0, TXRESET1, TXSTARTSEQ0, TXSTARTSEQ1, TXUSRCLK0, TXUSRCLK1, TXUSRCLK20, TXUSRCLK21, GTXTEST, DI, RXDATAWIDTH0, RXDATAWIDTH1, RXENPRBSTST0
+, RXENPRBSTST1, RXEQMIX0, RXEQMIX1, RXPOWERDOWN0, RXPOWERDOWN1, TXDATAWIDTH0, TXDATAWIDTH1, TXENPRBSTST0, TXENPRBSTST1, TXPOWERDOWN0, TXPOWERDOWN1, LOOPBACK0, LOOPBACK1, TXBUFDIFFCTRL0, TXBUFDIFFCTRL1, TXDIFFCTRL0, TXDIFFCTRL1, TXHEADER0, TXHEADER1, TXDATA0, TXDATA1
+, DFETAP30, DFETAP31, DFETAP40, DFETAP41, RXCHBONDI0, RXCHBONDI1, RXEQPOLE0, RXEQPOLE1, TXBYPASS8B10B0, TXBYPASS8B10B1, TXCHARDISPMODE0, TXCHARDISPMODE1, TXCHARDISPVAL0, TXCHARDISPVAL1, TXCHARISK0, TXCHARISK1, TXPREEMPHASIS0, TXPREEMPHASIS1, DFETAP10, DFETAP11, DFETAP20
+, DFETAP21, DFECLKDLYADJ0, DFECLKDLYADJ1, DADDR, TXSEQUENCE0, TXSEQUENCE1);
     parameter STEPPING = "0";
     parameter AC_CAP_DIS_0 = "TRUE";
     parameter AC_CAP_DIS_1 = "TRUE";
@@ -12417,7 +12504,7 @@ module GTX_DUAL (...);
     input [6:0] TXSEQUENCE1;
 endmodule
 
-module CRC32 (...);
+module CRC32(CRCOUT, CRCCLK, CRCDATAVALID, CRCDATAWIDTH, CRCIN, CRCRESET);
     parameter CRC_INIT = 32'hFFFFFFFF;
     output [31:0] CRCOUT;
     (* clkbuf_sink *)
@@ -12428,7 +12515,7 @@ module CRC32 (...);
     input CRCRESET;
 endmodule
 
-module CRC64 (...);
+module CRC64(CRCOUT, CRCCLK, CRCDATAVALID, CRCDATAWIDTH, CRCIN, CRCRESET);
     parameter CRC_INIT = 32'hFFFFFFFF;
     output [31:0] CRCOUT;
     (* clkbuf_sink *)
@@ -12439,7 +12526,15 @@ module CRC64 (...);
     input CRCRESET;
 endmodule
 
-module GTHE1_QUAD (...);
+module GTHE1_QUAD(DRDY, GTHINITDONE, MGMTPCSRDACK, RXCTRLACK0, RXCTRLACK1, RXCTRLACK2, RXCTRLACK3, RXDATATAP0, RXDATATAP1, RXDATATAP2, RXDATATAP3, RXPCSCLKSMPL0, RXPCSCLKSMPL1, RXPCSCLKSMPL2, RXPCSCLKSMPL3, RXUSERCLKOUT0, RXUSERCLKOUT1, RXUSERCLKOUT2, RXUSERCLKOUT3, TSTPATH, TSTREFCLKFAB
+, TSTREFCLKOUT, TXCTRLACK0, TXCTRLACK1, TXCTRLACK2, TXCTRLACK3, TXDATATAP10, TXDATATAP11, TXDATATAP12, TXDATATAP13, TXDATATAP20, TXDATATAP21, TXDATATAP22, TXDATATAP23, TXN0, TXN1, TXN2, TXN3, TXP0, TXP1, TXP2, TXP3
+, TXPCSCLKSMPL0, TXPCSCLKSMPL1, TXPCSCLKSMPL2, TXPCSCLKSMPL3, TXUSERCLKOUT0, TXUSERCLKOUT1, TXUSERCLKOUT2, TXUSERCLKOUT3, DRPDO, MGMTPCSRDDATA, RXDATA0, RXDATA1, RXDATA2, RXDATA3, RXCODEERR0, RXCODEERR1, RXCODEERR2, RXCODEERR3, RXCTRL0, RXCTRL1, RXCTRL2
+, RXCTRL3, RXDISPERR0, RXDISPERR1, RXDISPERR2, RXDISPERR3, RXVALID0, RXVALID1, RXVALID2, RXVALID3, DCLK, DEN, DFETRAINCTRL0, DFETRAINCTRL1, DFETRAINCTRL2, DFETRAINCTRL3, DISABLEDRP, DWE, GTHINIT, GTHRESET, GTHX2LANE01, GTHX2LANE23
+, GTHX4LANE, MGMTPCSREGRD, MGMTPCSREGWR, POWERDOWN0, POWERDOWN1, POWERDOWN2, POWERDOWN3, REFCLK, RXBUFRESET0, RXBUFRESET1, RXBUFRESET2, RXBUFRESET3, RXENCOMMADET0, RXENCOMMADET1, RXENCOMMADET2, RXENCOMMADET3, RXN0, RXN1, RXN2, RXN3, RXP0
+, RXP1, RXP2, RXP3, RXPOLARITY0, RXPOLARITY1, RXPOLARITY2, RXPOLARITY3, RXSLIP0, RXSLIP1, RXSLIP2, RXSLIP3, RXUSERCLKIN0, RXUSERCLKIN1, RXUSERCLKIN2, RXUSERCLKIN3, TXBUFRESET0, TXBUFRESET1, TXBUFRESET2, TXBUFRESET3, TXDEEMPH0, TXDEEMPH1
+, TXDEEMPH2, TXDEEMPH3, TXUSERCLKIN0, TXUSERCLKIN1, TXUSERCLKIN2, TXUSERCLKIN3, DADDR, DI, MGMTPCSREGADDR, MGMTPCSWRDATA, RXPOWERDOWN0, RXPOWERDOWN1, RXPOWERDOWN2, RXPOWERDOWN3, RXRATE0, RXRATE1, RXRATE2, RXRATE3, TXPOWERDOWN0, TXPOWERDOWN1, TXPOWERDOWN2
+, TXPOWERDOWN3, TXRATE0, TXRATE1, TXRATE2, TXRATE3, PLLREFCLKSEL, SAMPLERATE0, SAMPLERATE1, SAMPLERATE2, SAMPLERATE3, TXMARGIN0, TXMARGIN1, TXMARGIN2, TXMARGIN3, MGMTPCSLANESEL, MGMTPCSMMDADDR, PLLPCSCLKDIV, TXDATA0, TXDATA1, TXDATA2, TXDATA3
+, TXCTRL0, TXCTRL1, TXCTRL2, TXCTRL3, TXDATAMSB0, TXDATAMSB1, TXDATAMSB2, TXDATAMSB3);
     parameter [15:0] BER_CONST_PTRN0 = 16'h0000;
     parameter [15:0] BER_CONST_PTRN1 = 16'h0000;
     parameter [15:0] BUFFER_CONFIG_LANE0 = 16'h4004;
@@ -12907,7 +13002,15 @@ module GTHE1_QUAD (...);
     input [7:0] TXDATAMSB3;
 endmodule
 
-module GTXE1 (...);
+module GTXE1(COMFINISH, COMINITDET, COMSASDET, COMWAKEDET, DRDY, PHYSTATUS, RXBYTEISALIGNED, RXBYTEREALIGN, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCOMMADET, RXDATAVALID, RXELECIDLE, RXHEADERVALID, RXOVERSAMPLEERR, RXPLLLKDET, RXPRBSERR, RXRATEDONE, RXRECCLK, RXRECCLKPCS
+, RXRESETDONE, RXSTARTOFSEQ, RXVALID, TXGEARBOXREADY, TXN, TXOUTCLK, TXOUTCLKPCS, TXP, TXPLLLKDET, TXRATEDONE, TXRESETDONE, DRPDO, MGTREFCLKFAB, RXLOSSOFSYNC, TXBUFSTATUS, DFESENSCAL, RXBUFSTATUS, RXCLKCORCNT, RXHEADER, RXSTATUS, RXDATA
+, DFETAP3MONITOR, DFETAP4MONITOR, RXCHARISCOMMA, RXCHARISK, RXCHBONDO, RXDISPERR, RXNOTINTABLE, RXRUNDISP, TXKERR, TXRUNDISP, DFEEYEDACMON, DFETAP1MONITOR, DFETAP2MONITOR, DFECLKDLYADJMON, RXDLYALIGNMONITOR, TXDLYALIGNMONITOR, TSTOUT, DCLK, DEN, DFEDLYOVRD, DFETAPOVRD
+, DWE, GATERXELECIDLE, GREFCLKRX, GREFCLKTX, GTXRXRESET, GTXTXRESET, IGNORESIGDET, PERFCLKRX, PERFCLKTX, PLLRXRESET, PLLTXRESET, PRBSCNTRESET, RXBUFRESET, RXCDRRESET, RXCHBONDMASTER, RXCHBONDSLAVE, RXCOMMADETUSE, RXDEC8B10BUSE, RXDLYALIGNDISABLE, RXDLYALIGNMONENB, RXDLYALIGNOVERRIDE
+, RXDLYALIGNRESET, RXDLYALIGNSWPPRECURB, RXDLYALIGNUPDSW, RXENCHANSYNC, RXENMCOMMAALIGN, RXENPCOMMAALIGN, RXENPMAPHASEALIGN, RXENSAMPLEALIGN, RXGEARBOXSLIP, RXN, RXP, RXPLLLKDETEN, RXPLLPOWERDOWN, RXPMASETPHASE, RXPOLARITY, RXRESET, RXSLIDE, RXUSRCLK2, RXUSRCLK, TSTCLK0, TSTCLK1
+, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXDEEMPH, TXDETECTRX, TXDLYALIGNDISABLE, TXDLYALIGNMONENB, TXDLYALIGNOVERRIDE, TXDLYALIGNRESET, TXDLYALIGNUPDSW, TXELECIDLE, TXENC8B10BUSE, TXENPMAPHASEALIGN, TXINHIBIT, TXPDOWNASYNCH, TXPLLLKDETEN, TXPLLPOWERDOWN, TXPMASETPHASE, TXPOLARITY, TXPRBSFORCEERR, TXRESET
+, TXSTARTSEQ, TXSWING, TXUSRCLK2, TXUSRCLK, USRCODEERR, GTXTEST, DI, TSTIN, MGTREFCLKRX, MGTREFCLKTX, NORTHREFCLKRX, NORTHREFCLKTX, RXPOWERDOWN, RXRATE, SOUTHREFCLKRX, SOUTHREFCLKTX, TXPOWERDOWN, TXRATE, LOOPBACK, RXCHBONDLEVEL, RXENPRBSTST
+, RXPLLREFSELDY, TXBUFDIFFCTRL, TXENPRBSTST, TXHEADER, TXMARGIN, TXPLLREFSELDY, TXDATA, DFETAP3, DFETAP4, RXCHBONDI, TXBYPASS8B10B, TXCHARDISPMODE, TXCHARDISPVAL, TXCHARISK, TXDIFFCTRL, TXPREEMPHASIS, DFETAP1, DFETAP2, TXPOSTEMPHASIS, DFECLKDLYADJ, TXSEQUENCE
+, DADDR, RXEQMIX);
     parameter AC_CAP_DIS = "TRUE";
     parameter integer ALIGN_COMMA_WORD = 1;
     parameter [1:0] BGTEST_CFG = 2'b00;
@@ -13259,7 +13362,7 @@ module GTXE1 (...);
     input [9:0] RXEQMIX;
 endmodule
 
-module IBUFDS_GTXE1 (...);
+module IBUFDS_GTXE1(O, ODIV2, CEB, I, IB);
     parameter CLKCM_CFG = "TRUE";
     parameter CLKRCV_TRST = "TRUE";
     parameter [9:0] REFCLKOUT_DLY = 10'b0000000000;
@@ -13272,7 +13375,7 @@ module IBUFDS_GTXE1 (...);
     input IB;
 endmodule
 
-module IBUFDS_GTHE1 (...);
+module IBUFDS_GTHE1(O, I, IB);
     output O;
     (* iopad_external_pin *)
     input I;
@@ -13280,7 +13383,20 @@ module IBUFDS_GTHE1 (...);
     input IB;
 endmodule
 
-module GTHE2_CHANNEL (...);
+module GTHE2_CHANNEL(CPLLFBCLKLOST, CPLLLOCK, CPLLREFCLKLOST, DRPRDY, EYESCANDATAERROR, GTHTXN, GTHTXP, GTREFCLKMONITOR, PHYSTATUS, RSOSINTDONE, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCOMINITDET, RXCOMMADET, RXCOMSASDET, RXCOMWAKEDET, RXDFESLIDETAPSTARTED
+, RXDFESLIDETAPSTROBEDONE, RXDFESLIDETAPSTROBESTARTED, RXDFESTADAPTDONE, RXDLYSRESETDONE, RXELECIDLE, RXOSINTSTARTED, RXOSINTSTROBEDONE, RXOSINTSTROBESTARTED, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE, RXPMARESETDONE, RXPRBSERR, RXQPISENN, RXQPISENP, RXRATEDONE, RXRESETDONE, RXSYNCDONE, RXSYNCOUT, RXVALID
+, TXCOMFINISH, TXDLYSRESETDONE, TXGEARBOXREADY, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE, TXPHINITDONE, TXPMARESETDONE, TXQPISENN, TXQPISENP, TXRATEDONE, TXRESETDONE, TXSYNCDONE, TXSYNCOUT, DMONITOROUT, DRPDO, PCSRSVDOUT, RXCLKCORCNT, RXDATAVALID, RXHEADERVALID
+, RXSTARTOFSEQ, TXBUFSTATUS, RXBUFSTATUS, RXSTATUS, RXCHBONDO, RXPHMONITOR, RXPHSLIPMONITOR, RXHEADER, RXDATA, RXMONITOROUT, RXCHARISCOMMA, RXCHARISK, RXDISPERR, RXNOTINTABLE, CFGRESET, CLKRSVD0, CLKRSVD1, CPLLLOCKDETCLK, CPLLLOCKEN, CPLLPD, CPLLRESET
+, DMONFIFORESET, DMONITORCLK, DRPCLK, DRPEN, DRPWE, EYESCANMODE, EYESCANRESET, EYESCANTRIGGER, GTGREFCLK, GTHRXN, GTHRXP, GTNORTHREFCLK0, GTNORTHREFCLK1, GTREFCLK0, GTREFCLK1, GTRESETSEL, GTRXRESET, GTSOUTHREFCLK0, GTSOUTHREFCLK1, GTTXRESET, QPLLCLK
+, QPLLREFCLK, RESETOVRD, RX8B10BEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCDRRESETRSV, RXCHBONDEN, RXCHBONDMASTER, RXCHBONDSLAVE, RXCOMMADETEN, RXDDIEN, RXDFEAGCHOLD, RXDFEAGCOVRDEN, RXDFECM1EN, RXDFELFHOLD, RXDFELFOVRDEN, RXDFELPMRESET, RXDFESLIDETAPADAPTEN
+, RXDFESLIDETAPHOLD, RXDFESLIDETAPINITOVRDEN, RXDFESLIDETAPONLYADAPTEN, RXDFESLIDETAPOVRDEN, RXDFESLIDETAPSTROBE, RXDFETAP2HOLD, RXDFETAP2OVRDEN, RXDFETAP3HOLD, RXDFETAP3OVRDEN, RXDFETAP4HOLD, RXDFETAP4OVRDEN, RXDFETAP5HOLD, RXDFETAP5OVRDEN, RXDFETAP6HOLD, RXDFETAP6OVRDEN, RXDFETAP7HOLD, RXDFETAP7OVRDEN, RXDFEUTHOLD, RXDFEUTOVRDEN, RXDFEVPHOLD, RXDFEVPOVRDEN
+, RXDFEVSEN, RXDFEXYDEN, RXDLYBYPASS, RXDLYEN, RXDLYOVRDEN, RXDLYSRESET, RXGEARBOXSLIP, RXLPMEN, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFKLOVRDEN, RXMCOMMAALIGNEN, RXOOBRESET, RXOSCALRESET, RXOSHOLD, RXOSINTEN, RXOSINTHOLD, RXOSINTNTRLEN, RXOSINTOVRDEN, RXOSINTSTROBE
+, RXOSINTTESTOVRDEN, RXOSOVRDEN, RXPCOMMAALIGNEN, RXPCSRESET, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPHOVRDEN, RXPMARESET, RXPOLARITY, RXPRBSCNTRESET, RXQPIEN, RXRATEMODE, RXSLIDE, RXSYNCALLIN, RXSYNCIN, RXSYNCMODE, RXUSERRDY, RXUSRCLK2, RXUSRCLK
+, SETERRSTATUS, SIGVALIDCLK, TX8B10BEN, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXDEEMPH, TXDETECTRX, TXDIFFPD, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE, TXINHIBIT, TXPCSRESET, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN
+, TXPHDLYPD, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPIPPMEN, TXPIPPMOVRDEN, TXPIPPMPD, TXPIPPMSEL, TXPISOPD, TXPMARESET, TXPOLARITY, TXPOSTCURSORINV, TXPRBSFORCEERR, TXPRECURSORINV, TXQPIBIASEN, TXQPISTRONGPDOWN, TXQPIWEAKPUP, TXRATEMODE, TXSTARTSEQ, TXSWING
+, TXSYNCALLIN, TXSYNCIN, TXSYNCMODE, TXUSERRDY, TXUSRCLK2, TXUSRCLK, RXADAPTSELTEST, DRPDI, GTRSVD, PCSRSVDIN, TSTIN, RXELECIDLEMODE, RXMONITORSEL, RXPD, RXSYSCLKSEL, TXPD, TXSYSCLKSEL, CPLLREFCLKSEL, LOOPBACK, RXCHBONDLEVEL, RXOUTCLKSEL
+, RXPRBSSEL, RXRATE, TXBUFDIFFCTRL, TXHEADER, TXMARGIN, TXOUTCLKSEL, TXPRBSSEL, TXRATE, RXOSINTCFG, RXOSINTID0, TXDIFFCTRL, PCSRSVDIN2, PMARSVDIN, RXCHBONDI, RXDFEAGCTRL, RXDFESLIDETAP, TXPIPPMSTEPSIZE, TXPOSTCURSOR, TXPRECURSOR, RXDFESLIDETAPID, TXDATA
+, TXMAINCURSOR, TXSEQUENCE, TX8B10BBYPASS, TXCHARDISPMODE, TXCHARDISPVAL, TXCHARISK, DRPADDR);
     parameter [0:0] ACJTAG_DEBUG_MODE = 1'b0;
     parameter [0:0] ACJTAG_MODE = 1'b0;
     parameter [0:0] ACJTAG_RESET = 1'b0;
@@ -13843,7 +13959,8 @@ module GTHE2_CHANNEL (...);
     input [8:0] DRPADDR;
 endmodule
 
-module GTHE2_COMMON (...);
+module GTHE2_COMMON(DRPRDY, QPLLFBCLKLOST, QPLLLOCK, QPLLOUTCLK, QPLLOUTREFCLK, QPLLREFCLKLOST, REFCLKOUTMONITOR, DRPDO, PMARSVDOUT, QPLLDMONITOR, BGBYPASSB, BGMONITORENB, BGPDB, BGRCALOVRDENB, DRPCLK, DRPEN, DRPWE, GTGREFCLK, GTNORTHREFCLK0, GTNORTHREFCLK1, GTREFCLK0
+, GTREFCLK1, GTSOUTHREFCLK0, GTSOUTHREFCLK1, QPLLLOCKDETCLK, QPLLLOCKEN, QPLLOUTRESET, QPLLPD, QPLLRESET, RCALENB, DRPDI, QPLLRSVD1, QPLLREFCLKSEL, BGRCALOVRD, QPLLRSVD2, DRPADDR, PMARSVD);
     parameter [63:0] BIAS_CFG = 64'h0000040000001000;
     parameter [31:0] COMMON_CFG = 32'h0000001C;
     parameter [0:0] IS_DRPCLK_INVERTED = 1'b0;
@@ -13913,7 +14030,17 @@ module GTHE2_COMMON (...);
     input [7:0] PMARSVD;
 endmodule
 
-module GTPE2_CHANNEL (...);
+module GTPE2_CHANNEL(DRPRDY, EYESCANDATAERROR, GTPTXN, GTPTXP, PHYSTATUS, PMARSVDOUT0, PMARSVDOUT1, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCOMINITDET, RXCOMMADET, RXCOMSASDET, RXCOMWAKEDET, RXDLYSRESETDONE, RXELECIDLE, RXHEADERVALID, RXOSINTDONE
+, RXOSINTSTARTED, RXOSINTSTROBEDONE, RXOSINTSTROBESTARTED, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE, RXPMARESETDONE, RXPRBSERR, RXRATEDONE, RXRESETDONE, RXSYNCDONE, RXSYNCOUT, RXVALID, TXCOMFINISH, TXDLYSRESETDONE, TXGEARBOXREADY, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE
+, TXPHINITDONE, TXPMARESETDONE, TXRATEDONE, TXRESETDONE, TXSYNCDONE, TXSYNCOUT, DMONITOROUT, DRPDO, PCSRSVDOUT, RXCLKCORCNT, RXDATAVALID, RXSTARTOFSEQ, TXBUFSTATUS, RXBUFSTATUS, RXHEADER, RXSTATUS, RXDATA, RXCHARISCOMMA, RXCHARISK, RXCHBONDO, RXDISPERR
+, RXNOTINTABLE, RXPHMONITOR, RXPHSLIPMONITOR, CFGRESET, CLKRSVD0, CLKRSVD1, DMONFIFORESET, DMONITORCLK, DRPCLK, DRPEN, DRPWE, EYESCANMODE, EYESCANRESET, EYESCANTRIGGER, GTPRXN, GTPRXP, GTRESETSEL, GTRXRESET, GTTXRESET, PLL0CLK, PLL0REFCLK
+, PLL1CLK, PLL1REFCLK, PMARSVDIN0, PMARSVDIN1, PMARSVDIN2, PMARSVDIN3, PMARSVDIN4, RESETOVRD, RX8B10BEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCDRRESETRSV, RXCHBONDEN, RXCHBONDMASTER, RXCHBONDSLAVE, RXCOMMADETEN, RXDDIEN, RXDFEXYDEN
+, RXDLYBYPASS, RXDLYEN, RXDLYOVRDEN, RXDLYSRESET, RXGEARBOXSLIP, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFOVRDEN, RXLPMOSINTNTRLEN, RXLPMRESET, RXMCOMMAALIGNEN, RXOOBRESET, RXOSCALRESET, RXOSHOLD, RXOSINTEN, RXOSINTHOLD, RXOSINTNTRLEN, RXOSINTOVRDEN, RXOSINTPD, RXOSINTSTROBE
+, RXOSINTTESTOVRDEN, RXOSOVRDEN, RXPCOMMAALIGNEN, RXPCSRESET, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPHOVRDEN, RXPMARESET, RXPOLARITY, RXPRBSCNTRESET, RXRATEMODE, RXSLIDE, RXSYNCALLIN, RXSYNCIN, RXSYNCMODE, RXUSERRDY, RXUSRCLK2, RXUSRCLK, SETERRSTATUS
+, SIGVALIDCLK, TX8B10BEN, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXDEEMPH, TXDETECTRX, TXDIFFPD, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE, TXINHIBIT, TXPCSRESET, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN, TXPHDLYPD
+, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPIPPMEN, TXPIPPMOVRDEN, TXPIPPMPD, TXPIPPMSEL, TXPISOPD, TXPMARESET, TXPOLARITY, TXPOSTCURSORINV, TXPRBSFORCEERR, TXPRECURSORINV, TXRATEMODE, TXSTARTSEQ, TXSWING, TXSYNCALLIN, TXSYNCIN, TXSYNCMODE, TXUSERRDY
+, TXUSRCLK2, TXUSRCLK, RXADAPTSELTEST, DRPDI, GTRSVD, PCSRSVDIN, TSTIN, RXELECIDLEMODE, RXPD, RXSYSCLKSEL, TXPD, TXSYSCLKSEL, LOOPBACK, RXCHBONDLEVEL, RXOUTCLKSEL, RXPRBSSEL, RXRATE, TXBUFDIFFCTRL, TXHEADER, TXMARGIN, TXOUTCLKSEL
+, TXPRBSSEL, TXRATE, TXDATA, RXCHBONDI, RXOSINTCFG, RXOSINTID0, TX8B10BBYPASS, TXCHARDISPMODE, TXCHARDISPVAL, TXCHARISK, TXDIFFCTRL, TXPIPPMSTEPSIZE, TXPOSTCURSOR, TXPRECURSOR, TXMAINCURSOR, TXSEQUENCE, DRPADDR);
     parameter [0:0] ACJTAG_DEBUG_MODE = 1'b0;
     parameter [0:0] ACJTAG_MODE = 1'b0;
     parameter [0:0] ACJTAG_RESET = 1'b0;
@@ -14395,7 +14522,9 @@ module GTPE2_CHANNEL (...);
     input [8:0] DRPADDR;
 endmodule
 
-module GTPE2_COMMON (...);
+module GTPE2_COMMON(DRPRDY, PLL0FBCLKLOST, PLL0LOCK, PLL0OUTCLK, PLL0OUTREFCLK, PLL0REFCLKLOST, PLL1FBCLKLOST, PLL1LOCK, PLL1OUTCLK, PLL1OUTREFCLK, PLL1REFCLKLOST, REFCLKOUTMONITOR0, REFCLKOUTMONITOR1, DRPDO, PMARSVDOUT, DMONITOROUT, BGBYPASSB, BGMONITORENB, BGPDB, BGRCALOVRDENB, DRPCLK
+, DRPEN, DRPWE, GTEASTREFCLK0, GTEASTREFCLK1, GTGREFCLK0, GTGREFCLK1, GTREFCLK0, GTREFCLK1, GTWESTREFCLK0, GTWESTREFCLK1, PLL0LOCKDETCLK, PLL0LOCKEN, PLL0PD, PLL0RESET, PLL1LOCKDETCLK, PLL1LOCKEN, PLL1PD, PLL1RESET, RCALENB, DRPDI, PLLRSVD1
+, PLL0REFCLKSEL, PLL1REFCLKSEL, BGRCALOVRD, PLLRSVD2, DRPADDR, PMARSVD);
     parameter [63:0] BIAS_CFG = 64'h0000000000000000;
     parameter [31:0] COMMON_CFG = 32'h00000000;
     parameter [0:0] IS_DRPCLK_INVERTED = 1'b0;
@@ -14479,7 +14608,17 @@ module GTPE2_COMMON (...);
     input [7:0] PMARSVD;
 endmodule
 
-module GTXE2_CHANNEL (...);
+module GTXE2_CHANNEL(CPLLFBCLKLOST, CPLLLOCK, CPLLREFCLKLOST, DRPRDY, EYESCANDATAERROR, GTREFCLKMONITOR, GTXTXN, GTXTXP, PHYSTATUS, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCOMINITDET, RXCOMMADET, RXCOMSASDET, RXCOMWAKEDET, RXDATAVALID, RXDLYSRESETDONE
+, RXELECIDLE, RXHEADERVALID, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE, RXPRBSERR, RXQPISENN, RXQPISENP, RXRATEDONE, RXRESETDONE, RXSTARTOFSEQ, RXVALID, TXCOMFINISH, TXDLYSRESETDONE, TXGEARBOXREADY, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE, TXPHINITDONE
+, TXQPISENN, TXQPISENP, TXRATEDONE, TXRESETDONE, DRPDO, PCSRSVDOUT, RXCLKCORCNT, TXBUFSTATUS, RXBUFSTATUS, RXHEADER, RXSTATUS, RXCHBONDO, RXPHMONITOR, RXPHSLIPMONITOR, RXDATA, RXMONITOROUT, DMONITOROUT, RXCHARISCOMMA, RXCHARISK, RXDISPERR, RXNOTINTABLE
+, TSTOUT, CFGRESET, CPLLLOCKDETCLK, CPLLLOCKEN, CPLLPD, CPLLRESET, DRPCLK, DRPEN, DRPWE, EYESCANMODE, EYESCANRESET, EYESCANTRIGGER, GTGREFCLK, GTNORTHREFCLK0, GTNORTHREFCLK1, GTREFCLK0, GTREFCLK1, GTRESETSEL, GTRXRESET, GTSOUTHREFCLK0, GTSOUTHREFCLK1
+, GTTXRESET, GTXRXN, GTXRXP, QPLLCLK, QPLLREFCLK, RESETOVRD, RX8B10BEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCDRRESETRSV, RXCHBONDEN, RXCHBONDMASTER, RXCHBONDSLAVE, RXCOMMADETEN, RXDDIEN, RXDFEAGCHOLD, RXDFEAGCOVRDEN, RXDFECM1EN
+, RXDFELFHOLD, RXDFELFOVRDEN, RXDFELPMRESET, RXDFETAP2HOLD, RXDFETAP2OVRDEN, RXDFETAP3HOLD, RXDFETAP3OVRDEN, RXDFETAP4HOLD, RXDFETAP4OVRDEN, RXDFETAP5HOLD, RXDFETAP5OVRDEN, RXDFEUTHOLD, RXDFEUTOVRDEN, RXDFEVPHOLD, RXDFEVPOVRDEN, RXDFEVSEN, RXDFEXYDEN, RXDFEXYDHOLD, RXDFEXYDOVRDEN, RXDLYBYPASS, RXDLYEN
+, RXDLYOVRDEN, RXDLYSRESET, RXGEARBOXSLIP, RXLPMEN, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFKLOVRDEN, RXMCOMMAALIGNEN, RXOOBRESET, RXOSHOLD, RXOSOVRDEN, RXPCOMMAALIGNEN, RXPCSRESET, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPHOVRDEN, RXPMARESET, RXPOLARITY
+, RXPRBSCNTRESET, RXQPIEN, RXSLIDE, RXUSERRDY, RXUSRCLK2, RXUSRCLK, SETERRSTATUS, TX8B10BEN, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXDEEMPH, TXDETECTRX, TXDIFFPD, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE
+, TXINHIBIT, TXPCSRESET, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN, TXPHDLYPD, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPISOPD, TXPMARESET, TXPOLARITY, TXPOSTCURSORINV, TXPRBSFORCEERR, TXPRECURSORINV, TXQPIBIASEN, TXQPISTRONGPDOWN, TXQPIWEAKPUP, TXSTARTSEQ, TXSWING
+, TXUSERRDY, TXUSRCLK2, TXUSRCLK, DRPDI, GTRSVD, PCSRSVDIN, TSTIN, RXELECIDLEMODE, RXMONITORSEL, RXPD, RXSYSCLKSEL, TXPD, TXSYSCLKSEL, CPLLREFCLKSEL, LOOPBACK, RXCHBONDLEVEL, RXOUTCLKSEL, RXPRBSSEL, RXRATE, TXBUFDIFFCTRL, TXHEADER
+, TXMARGIN, TXOUTCLKSEL, TXPRBSSEL, TXRATE, CLKRSVD, TXDIFFCTRL, PCSRSVDIN2, PMARSVDIN2, PMARSVDIN, RXCHBONDI, TXPOSTCURSOR, TXPRECURSOR, TXDATA, TXMAINCURSOR, TXSEQUENCE, TX8B10BBYPASS, TXCHARDISPMODE, TXCHARDISPVAL, TXCHARISK, DRPADDR);
     parameter ALIGN_COMMA_DOUBLE = "FALSE";
     parameter [9:0] ALIGN_COMMA_ENABLE = 10'b0001111111;
     parameter integer ALIGN_COMMA_WORD = 1;
@@ -14927,7 +15066,8 @@ module GTXE2_CHANNEL (...);
     input [8:0] DRPADDR;
 endmodule
 
-module GTXE2_COMMON (...);
+module GTXE2_COMMON(DRPRDY, QPLLFBCLKLOST, QPLLLOCK, QPLLOUTCLK, QPLLOUTREFCLK, QPLLREFCLKLOST, REFCLKOUTMONITOR, DRPDO, QPLLDMONITOR, BGBYPASSB, BGMONITORENB, BGPDB, DRPCLK, DRPEN, DRPWE, GTGREFCLK, GTNORTHREFCLK0, GTNORTHREFCLK1, GTREFCLK0, GTREFCLK1, GTSOUTHREFCLK0
+, GTSOUTHREFCLK1, QPLLLOCKDETCLK, QPLLLOCKEN, QPLLOUTRESET, QPLLPD, QPLLRESET, RCALENB, DRPDI, QPLLRSVD1, QPLLREFCLKSEL, BGRCALOVRD, QPLLRSVD2, DRPADDR, PMARSVD);
     parameter [63:0] BIAS_CFG = 64'h0000040000001000;
     parameter [31:0] COMMON_CFG = 32'h00000000;
     parameter [0:0] IS_DRPCLK_INVERTED = 1'b0;
@@ -14990,7 +15130,7 @@ module GTXE2_COMMON (...);
     input [7:0] PMARSVD;
 endmodule
 
-module IBUFDS_GTE2 (...);
+module IBUFDS_GTE2(O, ODIV2, CEB, I, IB);
     parameter CLKCM_CFG = "TRUE";
     parameter CLKRCV_TRST = "TRUE";
     parameter CLKSWING_CFG = "TRUE";
@@ -15003,7 +15143,22 @@ module IBUFDS_GTE2 (...);
     input IB;
 endmodule
 
-module GTHE3_CHANNEL (...);
+module GTHE3_CHANNEL(BUFGTCE, BUFGTCEMASK, BUFGTDIV, BUFGTRESET, BUFGTRSTMASK, CPLLFBCLKLOST, CPLLLOCK, CPLLREFCLKLOST, DMONITOROUT, DRPDO, DRPRDY, EYESCANDATAERROR, GTHTXN, GTHTXP, GTPOWERGOOD, GTREFCLKMONITOR, PCIERATEGEN3, PCIERATEIDLE, PCIERATEQPLLPD, PCIERATEQPLLRESET, PCIESYNCTXSYNCDONE
+, PCIEUSERGEN3RDY, PCIEUSERPHYSTATUSRST, PCIEUSERRATESTART, PCSRSVDOUT, PHYSTATUS, PINRSRVDAS, RESETEXCEPTION, RXBUFSTATUS, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCDRPHDONE, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCHBONDO, RXCLKCORCNT, RXCOMINITDET, RXCOMMADET, RXCOMSASDET, RXCOMWAKEDET
+, RXCTRL0, RXCTRL1, RXCTRL2, RXCTRL3, RXDATA, RXDATAEXTENDRSVD, RXDATAVALID, RXDLYSRESETDONE, RXELECIDLE, RXHEADER, RXHEADERVALID, RXMONITOROUT, RXOSINTDONE, RXOSINTSTARTED, RXOSINTSTROBEDONE, RXOSINTSTROBESTARTED, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE, RXPHALIGNERR
+, RXPMARESETDONE, RXPRBSERR, RXPRBSLOCKED, RXPRGDIVRESETDONE, RXQPISENN, RXQPISENP, RXRATEDONE, RXRECCLKOUT, RXRESETDONE, RXSLIDERDY, RXSLIPDONE, RXSLIPOUTCLKRDY, RXSLIPPMARDY, RXSTARTOFSEQ, RXSTATUS, RXSYNCDONE, RXSYNCOUT, RXVALID, TXBUFSTATUS, TXCOMFINISH, TXDLYSRESETDONE
+, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE, TXPHINITDONE, TXPMARESETDONE, TXPRGDIVRESETDONE, TXQPISENN, TXQPISENP, TXRATEDONE, TXRESETDONE, TXSYNCDONE, TXSYNCOUT, CFGRESET, CLKRSVD0, CLKRSVD1, CPLLLOCKDETCLK, CPLLLOCKEN, CPLLPD, CPLLREFCLKSEL, CPLLRESET
+, DMONFIFORESET, DMONITORCLK, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, EVODDPHICALDONE, EVODDPHICALSTART, EVODDPHIDRDEN, EVODDPHIDWREN, EVODDPHIXRDEN, EVODDPHIXWREN, EYESCANMODE, EYESCANRESET, EYESCANTRIGGER, GTGREFCLK, GTHRXN, GTHRXP, GTNORTHREFCLK0, GTNORTHREFCLK1
+, GTREFCLK0, GTREFCLK1, GTRESETSEL, GTRSVD, GTRXRESET, GTSOUTHREFCLK0, GTSOUTHREFCLK1, GTTXRESET, LOOPBACK, LPBKRXTXSEREN, LPBKTXRXSEREN, PCIEEQRXEQADAPTDONE, PCIERSTIDLE, PCIERSTTXSYNCSTART, PCIEUSERRATEDONE, PCSRSVDIN, PCSRSVDIN2, PMARSVDIN, QPLL0CLK, QPLL0REFCLK, QPLL1CLK
+, QPLL1REFCLK, RESETOVRD, RSTCLKENTX, RX8B10BEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCDRRESETRSV, RXCHBONDEN, RXCHBONDI, RXCHBONDLEVEL, RXCHBONDMASTER, RXCHBONDSLAVE, RXCOMMADETEN, RXDFEAGCCTRL, RXDFEAGCHOLD, RXDFEAGCOVRDEN, RXDFELFHOLD, RXDFELFOVRDEN
+, RXDFELPMRESET, RXDFETAP10HOLD, RXDFETAP10OVRDEN, RXDFETAP11HOLD, RXDFETAP11OVRDEN, RXDFETAP12HOLD, RXDFETAP12OVRDEN, RXDFETAP13HOLD, RXDFETAP13OVRDEN, RXDFETAP14HOLD, RXDFETAP14OVRDEN, RXDFETAP15HOLD, RXDFETAP15OVRDEN, RXDFETAP2HOLD, RXDFETAP2OVRDEN, RXDFETAP3HOLD, RXDFETAP3OVRDEN, RXDFETAP4HOLD, RXDFETAP4OVRDEN, RXDFETAP5HOLD, RXDFETAP5OVRDEN
+, RXDFETAP6HOLD, RXDFETAP6OVRDEN, RXDFETAP7HOLD, RXDFETAP7OVRDEN, RXDFETAP8HOLD, RXDFETAP8OVRDEN, RXDFETAP9HOLD, RXDFETAP9OVRDEN, RXDFEUTHOLD, RXDFEUTOVRDEN, RXDFEVPHOLD, RXDFEVPOVRDEN, RXDFEVSEN, RXDFEXYDEN, RXDLYBYPASS, RXDLYEN, RXDLYOVRDEN, RXDLYSRESET, RXELECIDLEMODE, RXGEARBOXSLIP, RXLATCLK
+, RXLPMEN, RXLPMGCHOLD, RXLPMGCOVRDEN, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFKLOVRDEN, RXLPMOSHOLD, RXLPMOSOVRDEN, RXMCOMMAALIGNEN, RXMONITORSEL, RXOOBRESET, RXOSCALRESET, RXOSHOLD, RXOSINTCFG, RXOSINTEN, RXOSINTHOLD, RXOSINTOVRDEN, RXOSINTSTROBE, RXOSINTTESTOVRDEN, RXOSOVRDEN
+, RXOUTCLKSEL, RXPCOMMAALIGNEN, RXPCSRESET, RXPD, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPHOVRDEN, RXPLLCLKSEL, RXPMARESET, RXPOLARITY, RXPRBSCNTRESET, RXPRBSSEL, RXPROGDIVRESET, RXQPIEN, RXRATE, RXRATEMODE, RXSLIDE, RXSLIPOUTCLK, RXSLIPPMA
+, RXSYNCALLIN, RXSYNCIN, RXSYNCMODE, RXSYSCLKSEL, RXUSERRDY, RXUSRCLK, RXUSRCLK2, SIGVALIDCLK, TSTIN, TX8B10BBYPASS, TX8B10BEN, TXBUFDIFFCTRL, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXCTRL0, TXCTRL1, TXCTRL2, TXDATA, TXDATAEXTENDRSVD, TXDEEMPH
+, TXDETECTRX, TXDIFFCTRL, TXDIFFPD, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE, TXHEADER, TXINHIBIT, TXLATCLK, TXMAINCURSOR, TXMARGIN, TXOUTCLKSEL, TXPCSRESET, TXPD, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN
+, TXPHDLYPD, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPIPPMEN, TXPIPPMOVRDEN, TXPIPPMPD, TXPIPPMSEL, TXPIPPMSTEPSIZE, TXPISOPD, TXPLLCLKSEL, TXPMARESET, TXPOLARITY, TXPOSTCURSOR, TXPOSTCURSORINV, TXPRBSFORCEERR, TXPRBSSEL, TXPRECURSOR, TXPRECURSORINV, TXPROGDIVRESET
+, TXQPIBIASEN, TXQPISTRONGPDOWN, TXQPIWEAKPUP, TXRATE, TXRATEMODE, TXSEQUENCE, TXSWING, TXSYNCALLIN, TXSYNCIN, TXSYNCMODE, TXSYSCLKSEL, TXUSERRDY, TXUSRCLK, TXUSRCLK2);
     parameter [0:0] ACJTAG_DEBUG_MODE = 1'b0;
     parameter [0:0] ACJTAG_MODE = 1'b0;
     parameter [0:0] ACJTAG_RESET = 1'b0;
@@ -15723,7 +15878,10 @@ module GTHE3_CHANNEL (...);
     input TXUSRCLK2;
 endmodule
 
-module GTHE3_COMMON (...);
+module GTHE3_COMMON(DRPDO, DRPRDY, PMARSVDOUT0, PMARSVDOUT1, QPLL0FBCLKLOST, QPLL0LOCK, QPLL0OUTCLK, QPLL0OUTREFCLK, QPLL0REFCLKLOST, QPLL1FBCLKLOST, QPLL1LOCK, QPLL1OUTCLK, QPLL1OUTREFCLK, QPLL1REFCLKLOST, QPLLDMONITOR0, QPLLDMONITOR1, REFCLKOUTMONITOR0, REFCLKOUTMONITOR1, RXRECCLK0_SEL, RXRECCLK1_SEL, BGBYPASSB
+, BGMONITORENB, BGPDB, BGRCALOVRD, BGRCALOVRDENB, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, GTGREFCLK0, GTGREFCLK1, GTNORTHREFCLK00, GTNORTHREFCLK01, GTNORTHREFCLK10, GTNORTHREFCLK11, GTREFCLK00, GTREFCLK01, GTREFCLK10, GTREFCLK11, GTSOUTHREFCLK00, GTSOUTHREFCLK01
+, GTSOUTHREFCLK10, GTSOUTHREFCLK11, PMARSVD0, PMARSVD1, QPLL0CLKRSVD0, QPLL0CLKRSVD1, QPLL0LOCKDETCLK, QPLL0LOCKEN, QPLL0PD, QPLL0REFCLKSEL, QPLL0RESET, QPLL1CLKRSVD0, QPLL1CLKRSVD1, QPLL1LOCKDETCLK, QPLL1LOCKEN, QPLL1PD, QPLL1REFCLKSEL, QPLL1RESET, QPLLRSVD1, QPLLRSVD2, QPLLRSVD3
+, QPLLRSVD4, RCALENB);
     parameter [15:0] BIAS_CFG0 = 16'h0000;
     parameter [15:0] BIAS_CFG1 = 16'h0000;
     parameter [15:0] BIAS_CFG2 = 16'h0000;
@@ -15865,7 +16023,22 @@ module GTHE3_COMMON (...);
     input RCALENB;
 endmodule
 
-module GTYE3_CHANNEL (...);
+module GTYE3_CHANNEL(BUFGTCE, BUFGTCEMASK, BUFGTDIV, BUFGTRESET, BUFGTRSTMASK, CPLLFBCLKLOST, CPLLLOCK, CPLLREFCLKLOST, DMONITOROUT, DRPDO, DRPRDY, EYESCANDATAERROR, GTPOWERGOOD, GTREFCLKMONITOR, GTYTXN, GTYTXP, PCIERATEGEN3, PCIERATEIDLE, PCIERATEQPLLPD, PCIERATEQPLLRESET, PCIESYNCTXSYNCDONE
+, PCIEUSERGEN3RDY, PCIEUSERPHYSTATUSRST, PCIEUSERRATESTART, PCSRSVDOUT, PHYSTATUS, PINRSRVDAS, RESETEXCEPTION, RXBUFSTATUS, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCDRPHDONE, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCHBONDO, RXCKCALDONE, RXCLKCORCNT, RXCOMINITDET, RXCOMMADET, RXCOMSASDET
+, RXCOMWAKEDET, RXCTRL0, RXCTRL1, RXCTRL2, RXCTRL3, RXDATA, RXDATAEXTENDRSVD, RXDATAVALID, RXDLYSRESETDONE, RXELECIDLE, RXHEADER, RXHEADERVALID, RXMONITOROUT, RXOSINTDONE, RXOSINTSTARTED, RXOSINTSTROBEDONE, RXOSINTSTROBESTARTED, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE
+, RXPHALIGNERR, RXPMARESETDONE, RXPRBSERR, RXPRBSLOCKED, RXPRGDIVRESETDONE, RXRATEDONE, RXRECCLKOUT, RXRESETDONE, RXSLIDERDY, RXSLIPDONE, RXSLIPOUTCLKRDY, RXSLIPPMARDY, RXSTARTOFSEQ, RXSTATUS, RXSYNCDONE, RXSYNCOUT, RXVALID, TXBUFSTATUS, TXCOMFINISH, TXDCCDONE, TXDLYSRESETDONE
+, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE, TXPHINITDONE, TXPMARESETDONE, TXPRGDIVRESETDONE, TXRATEDONE, TXRESETDONE, TXSYNCDONE, TXSYNCOUT, CDRSTEPDIR, CDRSTEPSQ, CDRSTEPSX, CFGRESET, CLKRSVD0, CLKRSVD1, CPLLLOCKDETCLK, CPLLLOCKEN, CPLLPD, CPLLREFCLKSEL
+, CPLLRESET, DMONFIFORESET, DMONITORCLK, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, ELPCALDVORWREN, ELPCALPAORWREN, EVODDPHICALDONE, EVODDPHICALSTART, EVODDPHIDRDEN, EVODDPHIDWREN, EVODDPHIXRDEN, EVODDPHIXWREN, EYESCANMODE, EYESCANRESET, EYESCANTRIGGER, GTGREFCLK, GTNORTHREFCLK0
+, GTNORTHREFCLK1, GTREFCLK0, GTREFCLK1, GTRESETSEL, GTRSVD, GTRXRESET, GTSOUTHREFCLK0, GTSOUTHREFCLK1, GTTXRESET, GTYRXN, GTYRXP, LOOPBACK, LOOPRSVD, LPBKRXTXSEREN, LPBKTXRXSEREN, PCIEEQRXEQADAPTDONE, PCIERSTIDLE, PCIERSTTXSYNCSTART, PCIEUSERRATEDONE, PCSRSVDIN, PCSRSVDIN2
+, PMARSVDIN, QPLL0CLK, QPLL0REFCLK, QPLL1CLK, QPLL1REFCLK, RESETOVRD, RSTCLKENTX, RX8B10BEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCDRRESETRSV, RXCHBONDEN, RXCHBONDI, RXCHBONDLEVEL, RXCHBONDMASTER, RXCHBONDSLAVE, RXCKCALRESET, RXCOMMADETEN
+, RXDCCFORCESTART, RXDFEAGCHOLD, RXDFEAGCOVRDEN, RXDFELFHOLD, RXDFELFOVRDEN, RXDFELPMRESET, RXDFETAP10HOLD, RXDFETAP10OVRDEN, RXDFETAP11HOLD, RXDFETAP11OVRDEN, RXDFETAP12HOLD, RXDFETAP12OVRDEN, RXDFETAP13HOLD, RXDFETAP13OVRDEN, RXDFETAP14HOLD, RXDFETAP14OVRDEN, RXDFETAP15HOLD, RXDFETAP15OVRDEN, RXDFETAP2HOLD, RXDFETAP2OVRDEN, RXDFETAP3HOLD
+, RXDFETAP3OVRDEN, RXDFETAP4HOLD, RXDFETAP4OVRDEN, RXDFETAP5HOLD, RXDFETAP5OVRDEN, RXDFETAP6HOLD, RXDFETAP6OVRDEN, RXDFETAP7HOLD, RXDFETAP7OVRDEN, RXDFETAP8HOLD, RXDFETAP8OVRDEN, RXDFETAP9HOLD, RXDFETAP9OVRDEN, RXDFEUTHOLD, RXDFEUTOVRDEN, RXDFEVPHOLD, RXDFEVPOVRDEN, RXDFEVSEN, RXDFEXYDEN, RXDLYBYPASS, RXDLYEN
+, RXDLYOVRDEN, RXDLYSRESET, RXELECIDLEMODE, RXGEARBOXSLIP, RXLATCLK, RXLPMEN, RXLPMGCHOLD, RXLPMGCOVRDEN, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFKLOVRDEN, RXLPMOSHOLD, RXLPMOSOVRDEN, RXMCOMMAALIGNEN, RXMONITORSEL, RXOOBRESET, RXOSCALRESET, RXOSHOLD, RXOSINTCFG, RXOSINTEN
+, RXOSINTHOLD, RXOSINTOVRDEN, RXOSINTSTROBE, RXOSINTTESTOVRDEN, RXOSOVRDEN, RXOUTCLKSEL, RXPCOMMAALIGNEN, RXPCSRESET, RXPD, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPHOVRDEN, RXPLLCLKSEL, RXPMARESET, RXPOLARITY, RXPRBSCNTRESET, RXPRBSSEL, RXPROGDIVRESET, RXRATE
+, RXRATEMODE, RXSLIDE, RXSLIPOUTCLK, RXSLIPPMA, RXSYNCALLIN, RXSYNCIN, RXSYNCMODE, RXSYSCLKSEL, RXUSERRDY, RXUSRCLK, RXUSRCLK2, SIGVALIDCLK, TSTIN, TX8B10BBYPASS, TX8B10BEN, TXBUFDIFFCTRL, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXCTRL0, TXCTRL1
+, TXCTRL2, TXDATA, TXDATAEXTENDRSVD, TXDCCFORCESTART, TXDCCRESET, TXDEEMPH, TXDETECTRX, TXDIFFCTRL, TXDIFFPD, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE, TXELFORCESTART, TXHEADER, TXINHIBIT, TXLATCLK, TXMAINCURSOR
+, TXMARGIN, TXOUTCLKSEL, TXPCSRESET, TXPD, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN, TXPHDLYPD, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPIPPMEN, TXPIPPMOVRDEN, TXPIPPMPD, TXPIPPMSEL, TXPIPPMSTEPSIZE, TXPISOPD, TXPLLCLKSEL, TXPMARESET, TXPOLARITY
+, TXPOSTCURSOR, TXPRBSFORCEERR, TXPRBSSEL, TXPRECURSOR, TXPROGDIVRESET, TXRATE, TXRATEMODE, TXSEQUENCE, TXSWING, TXSYNCALLIN, TXSYNCIN, TXSYNCMODE, TXSYSCLKSEL, TXUSERRDY, TXUSRCLK, TXUSRCLK2);
     parameter [0:0] ACJTAG_DEBUG_MODE = 1'b0;
     parameter [0:0] ACJTAG_MODE = 1'b0;
     parameter [0:0] ACJTAG_RESET = 1'b0;
@@ -16666,7 +16839,10 @@ module GTYE3_CHANNEL (...);
     input TXUSRCLK2;
 endmodule
 
-module GTYE3_COMMON (...);
+module GTYE3_COMMON(DRPDO, DRPRDY, PMARSVDOUT0, PMARSVDOUT1, QPLL0FBCLKLOST, QPLL0LOCK, QPLL0OUTCLK, QPLL0OUTREFCLK, QPLL0REFCLKLOST, QPLL1FBCLKLOST, QPLL1LOCK, QPLL1OUTCLK, QPLL1OUTREFCLK, QPLL1REFCLKLOST, QPLLDMONITOR0, QPLLDMONITOR1, REFCLKOUTMONITOR0, REFCLKOUTMONITOR1, RXRECCLK0_SEL, RXRECCLK1_SEL, SDM0FINALOUT
+, SDM0TESTDATA, SDM1FINALOUT, SDM1TESTDATA, BGBYPASSB, BGMONITORENB, BGPDB, BGRCALOVRD, BGRCALOVRDENB, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, GTGREFCLK0, GTGREFCLK1, GTNORTHREFCLK00, GTNORTHREFCLK01, GTNORTHREFCLK10, GTNORTHREFCLK11, GTREFCLK00, GTREFCLK01
+, GTREFCLK10, GTREFCLK11, GTSOUTHREFCLK00, GTSOUTHREFCLK01, GTSOUTHREFCLK10, GTSOUTHREFCLK11, PMARSVD0, PMARSVD1, QPLL0CLKRSVD0, QPLL0LOCKDETCLK, QPLL0LOCKEN, QPLL0PD, QPLL0REFCLKSEL, QPLL0RESET, QPLL1CLKRSVD0, QPLL1LOCKDETCLK, QPLL1LOCKEN, QPLL1PD, QPLL1REFCLKSEL, QPLL1RESET, QPLLRSVD1
+, QPLLRSVD2, QPLLRSVD3, QPLLRSVD4, RCALENB, SDM0DATA, SDM0RESET, SDM0WIDTH, SDM1DATA, SDM1RESET, SDM1WIDTH);
     parameter [15:0] A_SDM1DATA1_0 = 16'b0000000000000000;
     parameter [8:0] A_SDM1DATA1_1 = 9'b000000000;
     parameter [15:0] BIAS_CFG0 = 16'h0000;
@@ -16814,7 +16990,7 @@ module GTYE3_COMMON (...);
     input [1:0] SDM1WIDTH;
 endmodule
 
-module IBUFDS_GTE3 (...);
+module IBUFDS_GTE3(O, ODIV2, CEB, I, IB);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter [1:0] REFCLK_HROW_CK_SEL = 2'b00;
     parameter [1:0] REFCLK_ICNTL_RX = 2'b00;
@@ -16827,7 +17003,7 @@ module IBUFDS_GTE3 (...);
     input IB;
 endmodule
 
-module OBUFDS_GTE3 (...);
+module OBUFDS_GTE3(O, OB, CEB, I);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter [4:0] REFCLK_ICNTL_TX = 5'b00000;
     (* iopad_external_pin *)
@@ -16838,7 +17014,7 @@ module OBUFDS_GTE3 (...);
     input I;
 endmodule
 
-module OBUFDS_GTE3_ADV (...);
+module OBUFDS_GTE3_ADV(O, OB, CEB, I, RXRECCLK_SEL);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter [4:0] REFCLK_ICNTL_TX = 5'b00000;
     (* iopad_external_pin *)
@@ -16850,7 +17026,23 @@ module OBUFDS_GTE3_ADV (...);
     input [1:0] RXRECCLK_SEL;
 endmodule
 
-module GTHE4_CHANNEL (...);
+module GTHE4_CHANNEL(BUFGTCE, BUFGTCEMASK, BUFGTDIV, BUFGTRESET, BUFGTRSTMASK, CPLLFBCLKLOST, CPLLLOCK, CPLLREFCLKLOST, DMONITOROUT, DMONITOROUTCLK, DRPDO, DRPRDY, EYESCANDATAERROR, GTHTXN, GTHTXP, GTPOWERGOOD, GTREFCLKMONITOR, PCIERATEGEN3, PCIERATEIDLE, PCIERATEQPLLPD, PCIERATEQPLLRESET
+, PCIESYNCTXSYNCDONE, PCIEUSERGEN3RDY, PCIEUSERPHYSTATUSRST, PCIEUSERRATESTART, PCSRSVDOUT, PHYSTATUS, PINRSRVDAS, POWERPRESENT, RESETEXCEPTION, RXBUFSTATUS, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCDRPHDONE, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCHBONDO, RXCKCALDONE, RXCLKCORCNT, RXCOMINITDET
+, RXCOMMADET, RXCOMSASDET, RXCOMWAKEDET, RXCTRL0, RXCTRL1, RXCTRL2, RXCTRL3, RXDATA, RXDATAEXTENDRSVD, RXDATAVALID, RXDLYSRESETDONE, RXELECIDLE, RXHEADER, RXHEADERVALID, RXLFPSTRESETDET, RXLFPSU2LPEXITDET, RXLFPSU3WAKEDET, RXMONITOROUT, RXOSINTDONE, RXOSINTSTARTED, RXOSINTSTROBEDONE
+, RXOSINTSTROBESTARTED, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE, RXPHALIGNERR, RXPMARESETDONE, RXPRBSERR, RXPRBSLOCKED, RXPRGDIVRESETDONE, RXQPISENN, RXQPISENP, RXRATEDONE, RXRECCLKOUT, RXRESETDONE, RXSLIDERDY, RXSLIPDONE, RXSLIPOUTCLKRDY, RXSLIPPMARDY, RXSTARTOFSEQ, RXSTATUS
+, RXSYNCDONE, RXSYNCOUT, RXVALID, TXBUFSTATUS, TXCOMFINISH, TXDCCDONE, TXDLYSRESETDONE, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE, TXPHINITDONE, TXPMARESETDONE, TXPRGDIVRESETDONE, TXQPISENN, TXQPISENP, TXRATEDONE, TXRESETDONE, TXSYNCDONE, TXSYNCOUT, CDRSTEPDIR
+, CDRSTEPSQ, CDRSTEPSX, CFGRESET, CLKRSVD0, CLKRSVD1, CPLLFREQLOCK, CPLLLOCKDETCLK, CPLLLOCKEN, CPLLPD, CPLLREFCLKSEL, CPLLRESET, DMONFIFORESET, DMONITORCLK, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPRST, DRPWE, EYESCANRESET, EYESCANTRIGGER
+, FREQOS, GTGREFCLK, GTHRXN, GTHRXP, GTNORTHREFCLK0, GTNORTHREFCLK1, GTREFCLK0, GTREFCLK1, GTRSVD, GTRXRESET, GTRXRESETSEL, GTSOUTHREFCLK0, GTSOUTHREFCLK1, GTTXRESET, GTTXRESETSEL, INCPCTRL, LOOPBACK, PCIEEQRXEQADAPTDONE, PCIERSTIDLE, PCIERSTTXSYNCSTART, PCIEUSERRATEDONE
+, PCSRSVDIN, QPLL0CLK, QPLL0FREQLOCK, QPLL0REFCLK, QPLL1CLK, QPLL1FREQLOCK, QPLL1REFCLK, RESETOVRD, RX8B10BEN, RXAFECFOKEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCHBONDEN, RXCHBONDI, RXCHBONDLEVEL, RXCHBONDMASTER, RXCHBONDSLAVE, RXCKCALRESET
+, RXCKCALSTART, RXCOMMADETEN, RXDFEAGCCTRL, RXDFEAGCHOLD, RXDFEAGCOVRDEN, RXDFECFOKFCNUM, RXDFECFOKFEN, RXDFECFOKFPULSE, RXDFECFOKHOLD, RXDFECFOKOVREN, RXDFEKHHOLD, RXDFEKHOVRDEN, RXDFELFHOLD, RXDFELFOVRDEN, RXDFELPMRESET, RXDFETAP10HOLD, RXDFETAP10OVRDEN, RXDFETAP11HOLD, RXDFETAP11OVRDEN, RXDFETAP12HOLD, RXDFETAP12OVRDEN
+, RXDFETAP13HOLD, RXDFETAP13OVRDEN, RXDFETAP14HOLD, RXDFETAP14OVRDEN, RXDFETAP15HOLD, RXDFETAP15OVRDEN, RXDFETAP2HOLD, RXDFETAP2OVRDEN, RXDFETAP3HOLD, RXDFETAP3OVRDEN, RXDFETAP4HOLD, RXDFETAP4OVRDEN, RXDFETAP5HOLD, RXDFETAP5OVRDEN, RXDFETAP6HOLD, RXDFETAP6OVRDEN, RXDFETAP7HOLD, RXDFETAP7OVRDEN, RXDFETAP8HOLD, RXDFETAP8OVRDEN, RXDFETAP9HOLD
+, RXDFETAP9OVRDEN, RXDFEUTHOLD, RXDFEUTOVRDEN, RXDFEVPHOLD, RXDFEVPOVRDEN, RXDFEXYDEN, RXDLYBYPASS, RXDLYEN, RXDLYOVRDEN, RXDLYSRESET, RXELECIDLEMODE, RXEQTRAINING, RXGEARBOXSLIP, RXLATCLK, RXLPMEN, RXLPMGCHOLD, RXLPMGCOVRDEN, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFKLOVRDEN
+, RXLPMOSHOLD, RXLPMOSOVRDEN, RXMCOMMAALIGNEN, RXMONITORSEL, RXOOBRESET, RXOSCALRESET, RXOSHOLD, RXOSOVRDEN, RXOUTCLKSEL, RXPCOMMAALIGNEN, RXPCSRESET, RXPD, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPHOVRDEN, RXPLLCLKSEL, RXPMARESET, RXPOLARITY, RXPRBSCNTRESET
+, RXPRBSSEL, RXPROGDIVRESET, RXQPIEN, RXRATE, RXRATEMODE, RXSLIDE, RXSLIPOUTCLK, RXSLIPPMA, RXSYNCALLIN, RXSYNCIN, RXSYNCMODE, RXSYSCLKSEL, RXTERMINATION, RXUSERRDY, RXUSRCLK, RXUSRCLK2, SIGVALIDCLK, TSTIN, TX8B10BBYPASS, TX8B10BEN, TXCOMINIT
+, TXCOMSAS, TXCOMWAKE, TXCTRL0, TXCTRL1, TXCTRL2, TXDATA, TXDATAEXTENDRSVD, TXDCCFORCESTART, TXDCCRESET, TXDEEMPH, TXDETECTRX, TXDIFFCTRL, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE, TXHEADER, TXINHIBIT
+, TXLATCLK, TXLFPSTRESET, TXLFPSU2LPEXIT, TXLFPSU3WAKE, TXMAINCURSOR, TXMARGIN, TXMUXDCDEXHOLD, TXMUXDCDORWREN, TXONESZEROS, TXOUTCLKSEL, TXPCSRESET, TXPD, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN, TXPHDLYPD, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPIPPMEN
+, TXPIPPMOVRDEN, TXPIPPMPD, TXPIPPMSEL, TXPIPPMSTEPSIZE, TXPISOPD, TXPLLCLKSEL, TXPMARESET, TXPOLARITY, TXPOSTCURSOR, TXPRBSFORCEERR, TXPRBSSEL, TXPRECURSOR, TXPROGDIVRESET, TXQPIBIASEN, TXQPIWEAKPUP, TXRATE, TXRATEMODE, TXSEQUENCE, TXSWING, TXSYNCALLIN, TXSYNCIN
+, TXSYNCMODE, TXSYSCLKSEL, TXUSERRDY, TXUSRCLK, TXUSRCLK2);
     parameter [0:0] ACJTAG_DEBUG_MODE = 1'b0;
     parameter [0:0] ACJTAG_MODE = 1'b0;
     parameter [0:0] ACJTAG_RESET = 1'b0;
@@ -17698,7 +17890,11 @@ module GTHE4_CHANNEL (...);
     input TXUSRCLK2;
 endmodule
 
-module GTHE4_COMMON (...);
+module GTHE4_COMMON(DRPDO, DRPRDY, PMARSVDOUT0, PMARSVDOUT1, QPLL0FBCLKLOST, QPLL0LOCK, QPLL0OUTCLK, QPLL0OUTREFCLK, QPLL0REFCLKLOST, QPLL1FBCLKLOST, QPLL1LOCK, QPLL1OUTCLK, QPLL1OUTREFCLK, QPLL1REFCLKLOST, QPLLDMONITOR0, QPLLDMONITOR1, REFCLKOUTMONITOR0, REFCLKOUTMONITOR1, RXRECCLK0SEL, RXRECCLK1SEL, SDM0FINALOUT
+, SDM0TESTDATA, SDM1FINALOUT, SDM1TESTDATA, TCONGPO, TCONRSVDOUT0, BGBYPASSB, BGMONITORENB, BGPDB, BGRCALOVRD, BGRCALOVRDENB, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, GTGREFCLK0, GTGREFCLK1, GTNORTHREFCLK00, GTNORTHREFCLK01, GTNORTHREFCLK10, GTNORTHREFCLK11
+, GTREFCLK00, GTREFCLK01, GTREFCLK10, GTREFCLK11, GTSOUTHREFCLK00, GTSOUTHREFCLK01, GTSOUTHREFCLK10, GTSOUTHREFCLK11, PCIERATEQPLL0, PCIERATEQPLL1, PMARSVD0, PMARSVD1, QPLL0CLKRSVD0, QPLL0CLKRSVD1, QPLL0FBDIV, QPLL0LOCKDETCLK, QPLL0LOCKEN, QPLL0PD, QPLL0REFCLKSEL, QPLL0RESET, QPLL1CLKRSVD0
+, QPLL1CLKRSVD1, QPLL1FBDIV, QPLL1LOCKDETCLK, QPLL1LOCKEN, QPLL1PD, QPLL1REFCLKSEL, QPLL1RESET, QPLLRSVD1, QPLLRSVD2, QPLLRSVD3, QPLLRSVD4, RCALENB, SDM0DATA, SDM0RESET, SDM0TOGGLE, SDM0WIDTH, SDM1DATA, SDM1RESET, SDM1TOGGLE, SDM1WIDTH, TCONGPI
+, TCONPOWERUP, TCONRESET, TCONRSVDIN1);
     parameter [0:0] AEN_QPLL0_FBDIV = 1'b1;
     parameter [0:0] AEN_QPLL1_FBDIV = 1'b1;
     parameter [0:0] AEN_SDM0TOGGLE = 1'b0;
@@ -17870,7 +18066,22 @@ module GTHE4_COMMON (...);
     input [1:0] TCONRSVDIN1;
 endmodule
 
-module GTYE4_CHANNEL (...);
+module GTYE4_CHANNEL(BUFGTCE, BUFGTCEMASK, BUFGTDIV, BUFGTRESET, BUFGTRSTMASK, CPLLFBCLKLOST, CPLLLOCK, CPLLREFCLKLOST, DMONITOROUT, DMONITOROUTCLK, DRPDO, DRPRDY, EYESCANDATAERROR, GTPOWERGOOD, GTREFCLKMONITOR, GTYTXN, GTYTXP, PCIERATEGEN3, PCIERATEIDLE, PCIERATEQPLLPD, PCIERATEQPLLRESET
+, PCIESYNCTXSYNCDONE, PCIEUSERGEN3RDY, PCIEUSERPHYSTATUSRST, PCIEUSERRATESTART, PCSRSVDOUT, PHYSTATUS, PINRSRVDAS, POWERPRESENT, RESETEXCEPTION, RXBUFSTATUS, RXBYTEISALIGNED, RXBYTEREALIGN, RXCDRLOCK, RXCDRPHDONE, RXCHANBONDSEQ, RXCHANISALIGNED, RXCHANREALIGN, RXCHBONDO, RXCKCALDONE, RXCLKCORCNT, RXCOMINITDET
+, RXCOMMADET, RXCOMSASDET, RXCOMWAKEDET, RXCTRL0, RXCTRL1, RXCTRL2, RXCTRL3, RXDATA, RXDATAEXTENDRSVD, RXDATAVALID, RXDLYSRESETDONE, RXELECIDLE, RXHEADER, RXHEADERVALID, RXLFPSTRESETDET, RXLFPSU2LPEXITDET, RXLFPSU3WAKEDET, RXMONITOROUT, RXOSINTDONE, RXOSINTSTARTED, RXOSINTSTROBEDONE
+, RXOSINTSTROBESTARTED, RXOUTCLK, RXOUTCLKFABRIC, RXOUTCLKPCS, RXPHALIGNDONE, RXPHALIGNERR, RXPMARESETDONE, RXPRBSERR, RXPRBSLOCKED, RXPRGDIVRESETDONE, RXRATEDONE, RXRECCLKOUT, RXRESETDONE, RXSLIDERDY, RXSLIPDONE, RXSLIPOUTCLKRDY, RXSLIPPMARDY, RXSTARTOFSEQ, RXSTATUS, RXSYNCDONE, RXSYNCOUT
+, RXVALID, TXBUFSTATUS, TXCOMFINISH, TXDCCDONE, TXDLYSRESETDONE, TXOUTCLK, TXOUTCLKFABRIC, TXOUTCLKPCS, TXPHALIGNDONE, TXPHINITDONE, TXPMARESETDONE, TXPRGDIVRESETDONE, TXRATEDONE, TXRESETDONE, TXSYNCDONE, TXSYNCOUT, CDRSTEPDIR, CDRSTEPSQ, CDRSTEPSX, CFGRESET, CLKRSVD0
+, CLKRSVD1, CPLLFREQLOCK, CPLLLOCKDETCLK, CPLLLOCKEN, CPLLPD, CPLLREFCLKSEL, CPLLRESET, DMONFIFORESET, DMONITORCLK, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPRST, DRPWE, EYESCANRESET, EYESCANTRIGGER, FREQOS, GTGREFCLK, GTNORTHREFCLK0, GTNORTHREFCLK1
+, GTREFCLK0, GTREFCLK1, GTRSVD, GTRXRESET, GTRXRESETSEL, GTSOUTHREFCLK0, GTSOUTHREFCLK1, GTTXRESET, GTTXRESETSEL, GTYRXN, GTYRXP, INCPCTRL, LOOPBACK, PCIEEQRXEQADAPTDONE, PCIERSTIDLE, PCIERSTTXSYNCSTART, PCIEUSERRATEDONE, PCSRSVDIN, QPLL0CLK, QPLL0FREQLOCK, QPLL0REFCLK
+, QPLL1CLK, QPLL1FREQLOCK, QPLL1REFCLK, RESETOVRD, RX8B10BEN, RXAFECFOKEN, RXBUFRESET, RXCDRFREQRESET, RXCDRHOLD, RXCDROVRDEN, RXCDRRESET, RXCHBONDEN, RXCHBONDI, RXCHBONDLEVEL, RXCHBONDMASTER, RXCHBONDSLAVE, RXCKCALRESET, RXCKCALSTART, RXCOMMADETEN, RXDFEAGCHOLD, RXDFEAGCOVRDEN
+, RXDFECFOKFCNUM, RXDFECFOKFEN, RXDFECFOKFPULSE, RXDFECFOKHOLD, RXDFECFOKOVREN, RXDFEKHHOLD, RXDFEKHOVRDEN, RXDFELFHOLD, RXDFELFOVRDEN, RXDFELPMRESET, RXDFETAP10HOLD, RXDFETAP10OVRDEN, RXDFETAP11HOLD, RXDFETAP11OVRDEN, RXDFETAP12HOLD, RXDFETAP12OVRDEN, RXDFETAP13HOLD, RXDFETAP13OVRDEN, RXDFETAP14HOLD, RXDFETAP14OVRDEN, RXDFETAP15HOLD
+, RXDFETAP15OVRDEN, RXDFETAP2HOLD, RXDFETAP2OVRDEN, RXDFETAP3HOLD, RXDFETAP3OVRDEN, RXDFETAP4HOLD, RXDFETAP4OVRDEN, RXDFETAP5HOLD, RXDFETAP5OVRDEN, RXDFETAP6HOLD, RXDFETAP6OVRDEN, RXDFETAP7HOLD, RXDFETAP7OVRDEN, RXDFETAP8HOLD, RXDFETAP8OVRDEN, RXDFETAP9HOLD, RXDFETAP9OVRDEN, RXDFEUTHOLD, RXDFEUTOVRDEN, RXDFEVPHOLD, RXDFEVPOVRDEN
+, RXDFEXYDEN, RXDLYBYPASS, RXDLYEN, RXDLYOVRDEN, RXDLYSRESET, RXELECIDLEMODE, RXEQTRAINING, RXGEARBOXSLIP, RXLATCLK, RXLPMEN, RXLPMGCHOLD, RXLPMGCOVRDEN, RXLPMHFHOLD, RXLPMHFOVRDEN, RXLPMLFHOLD, RXLPMLFKLOVRDEN, RXLPMOSHOLD, RXLPMOSOVRDEN, RXMCOMMAALIGNEN, RXMONITORSEL, RXOOBRESET
+, RXOSCALRESET, RXOSHOLD, RXOSOVRDEN, RXOUTCLKSEL, RXPCOMMAALIGNEN, RXPCSRESET, RXPD, RXPHALIGN, RXPHALIGNEN, RXPHDLYPD, RXPHDLYRESET, RXPLLCLKSEL, RXPMARESET, RXPOLARITY, RXPRBSCNTRESET, RXPRBSSEL, RXPROGDIVRESET, RXRATE, RXRATEMODE, RXSLIDE, RXSLIPOUTCLK
+, RXSLIPPMA, RXSYNCALLIN, RXSYNCIN, RXSYNCMODE, RXSYSCLKSEL, RXTERMINATION, RXUSERRDY, RXUSRCLK, RXUSRCLK2, SIGVALIDCLK, TSTIN, TX8B10BBYPASS, TX8B10BEN, TXCOMINIT, TXCOMSAS, TXCOMWAKE, TXCTRL0, TXCTRL1, TXCTRL2, TXDATA, TXDATAEXTENDRSVD
+, TXDCCFORCESTART, TXDCCRESET, TXDEEMPH, TXDETECTRX, TXDIFFCTRL, TXDLYBYPASS, TXDLYEN, TXDLYHOLD, TXDLYOVRDEN, TXDLYSRESET, TXDLYUPDOWN, TXELECIDLE, TXHEADER, TXINHIBIT, TXLATCLK, TXLFPSTRESET, TXLFPSU2LPEXIT, TXLFPSU3WAKE, TXMAINCURSOR, TXMARGIN, TXMUXDCDEXHOLD
+, TXMUXDCDORWREN, TXONESZEROS, TXOUTCLKSEL, TXPCSRESET, TXPD, TXPDELECIDLEMODE, TXPHALIGN, TXPHALIGNEN, TXPHDLYPD, TXPHDLYRESET, TXPHDLYTSTCLK, TXPHINIT, TXPHOVRDEN, TXPIPPMEN, TXPIPPMOVRDEN, TXPIPPMPD, TXPIPPMSEL, TXPIPPMSTEPSIZE, TXPISOPD, TXPLLCLKSEL, TXPMARESET
+, TXPOLARITY, TXPOSTCURSOR, TXPRBSFORCEERR, TXPRBSSEL, TXPRECURSOR, TXPROGDIVRESET, TXRATE, TXRATEMODE, TXSEQUENCE, TXSWING, TXSYNCALLIN, TXSYNCIN, TXSYNCMODE, TXSYSCLKSEL, TXUSERRDY, TXUSRCLK, TXUSRCLK2);
     parameter [0:0] ACJTAG_DEBUG_MODE = 1'b0;
     parameter [0:0] ACJTAG_MODE = 1'b0;
     parameter [0:0] ACJTAG_RESET = 1'b0;
@@ -18696,7 +18907,11 @@ module GTYE4_CHANNEL (...);
     input TXUSRCLK2;
 endmodule
 
-module GTYE4_COMMON (...);
+module GTYE4_COMMON(DRPDO, DRPRDY, PMARSVDOUT0, PMARSVDOUT1, QPLL0FBCLKLOST, QPLL0LOCK, QPLL0OUTCLK, QPLL0OUTREFCLK, QPLL0REFCLKLOST, QPLL1FBCLKLOST, QPLL1LOCK, QPLL1OUTCLK, QPLL1OUTREFCLK, QPLL1REFCLKLOST, QPLLDMONITOR0, QPLLDMONITOR1, REFCLKOUTMONITOR0, REFCLKOUTMONITOR1, RXRECCLK0SEL, RXRECCLK1SEL, SDM0FINALOUT
+, SDM0TESTDATA, SDM1FINALOUT, SDM1TESTDATA, UBDADDR, UBDEN, UBDI, UBDWE, UBMDMTDO, UBRSVDOUT, UBTXUART, BGBYPASSB, BGMONITORENB, BGPDB, BGRCALOVRD, BGRCALOVRDENB, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, GTGREFCLK0
+, GTGREFCLK1, GTNORTHREFCLK00, GTNORTHREFCLK01, GTNORTHREFCLK10, GTNORTHREFCLK11, GTREFCLK00, GTREFCLK01, GTREFCLK10, GTREFCLK11, GTSOUTHREFCLK00, GTSOUTHREFCLK01, GTSOUTHREFCLK10, GTSOUTHREFCLK11, PCIERATEQPLL0, PCIERATEQPLL1, PMARSVD0, PMARSVD1, QPLL0CLKRSVD0, QPLL0CLKRSVD1, QPLL0FBDIV, QPLL0LOCKDETCLK
+, QPLL0LOCKEN, QPLL0PD, QPLL0REFCLKSEL, QPLL0RESET, QPLL1CLKRSVD0, QPLL1CLKRSVD1, QPLL1FBDIV, QPLL1LOCKDETCLK, QPLL1LOCKEN, QPLL1PD, QPLL1REFCLKSEL, QPLL1RESET, QPLLRSVD1, QPLLRSVD2, QPLLRSVD3, QPLLRSVD4, RCALENB, SDM0DATA, SDM0RESET, SDM0TOGGLE, SDM0WIDTH
+, SDM1DATA, SDM1RESET, SDM1TOGGLE, SDM1WIDTH, UBCFGSTREAMEN, UBDO, UBDRDY, UBENABLE, UBGPI, UBINTR, UBIOLMBRST, UBMBRST, UBMDMCAPTURE, UBMDMDBGRST, UBMDMDBGUPDATE, UBMDMREGEN, UBMDMSHIFT, UBMDMSYSRST, UBMDMTCK, UBMDMTDI);
     parameter [0:0] AEN_QPLL0_FBDIV = 1'b1;
     parameter [0:0] AEN_QPLL1_FBDIV = 1'b1;
     parameter [0:0] AEN_SDM0TOGGLE = 1'b0;
@@ -18892,7 +19107,7 @@ module GTYE4_COMMON (...);
     input UBMDMTDI;
 endmodule
 
-module IBUFDS_GTE4 (...);
+module IBUFDS_GTE4(O, ODIV2, CEB, I, IB);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter [1:0] REFCLK_HROW_CK_SEL = 2'b00;
     parameter [1:0] REFCLK_ICNTL_RX = 2'b00;
@@ -18905,7 +19120,7 @@ module IBUFDS_GTE4 (...);
     input IB;
 endmodule
 
-module OBUFDS_GTE4 (...);
+module OBUFDS_GTE4(O, OB, CEB, I);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter [4:0] REFCLK_ICNTL_TX = 5'b00000;
     (* iopad_external_pin *)
@@ -18916,7 +19131,7 @@ module OBUFDS_GTE4 (...);
     input I;
 endmodule
 
-module OBUFDS_GTE4_ADV (...);
+module OBUFDS_GTE4_ADV(O, OB, CEB, I, RXRECCLK_SEL);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter [4:0] REFCLK_ICNTL_TX = 5'b00000;
     (* iopad_external_pin *)
@@ -18928,7 +19143,20 @@ module OBUFDS_GTE4_ADV (...);
     input [1:0] RXRECCLK_SEL;
 endmodule
 
-module GTM_DUAL (...);
+module GTM_DUAL(CH0_AXISTDATA, CH0_AXISTLAST, CH0_AXISTVALID, CH0_DMONITOROUT, CH0_DMONITOROUTCLK, CH0_GTMTXN, CH0_GTMTXP, CH0_PCSRSVDOUT, CH0_PMARSVDOUT, CH0_RESETEXCEPTION, CH0_RXBUFSTATUS, CH0_RXDATA, CH0_RXDATAFLAGS, CH0_RXDATAISAM, CH0_RXDATASTART, CH0_RXOUTCLK, CH0_RXPMARESETDONE, CH0_RXPRBSERR, CH0_RXPRBSLOCKED, CH0_RXPRGDIVRESETDONE, CH0_RXPROGDIVCLK
+, CH0_RXRESETDONE, CH0_TXBUFSTATUS, CH0_TXOUTCLK, CH0_TXPMARESETDONE, CH0_TXPRGDIVRESETDONE, CH0_TXPROGDIVCLK, CH0_TXRESETDONE, CH1_AXISTDATA, CH1_AXISTLAST, CH1_AXISTVALID, CH1_DMONITOROUT, CH1_DMONITOROUTCLK, CH1_GTMTXN, CH1_GTMTXP, CH1_PCSRSVDOUT, CH1_PMARSVDOUT, CH1_RESETEXCEPTION, CH1_RXBUFSTATUS, CH1_RXDATA, CH1_RXDATAFLAGS, CH1_RXDATAISAM
+, CH1_RXDATASTART, CH1_RXOUTCLK, CH1_RXPMARESETDONE, CH1_RXPRBSERR, CH1_RXPRBSLOCKED, CH1_RXPRGDIVRESETDONE, CH1_RXPROGDIVCLK, CH1_RXRESETDONE, CH1_TXBUFSTATUS, CH1_TXOUTCLK, CH1_TXPMARESETDONE, CH1_TXPRGDIVRESETDONE, CH1_TXPROGDIVCLK, CH1_TXRESETDONE, CLKTESTSIG2PAD, DMONITOROUTPLLCLK, DRPDO, DRPRDY, FECRX0ALIGNED, FECRX0CORRCWINC, FECRX0CWINC
+, FECRX0UNCORRCWINC, FECRX1ALIGNED, FECRX1CORRCWINC, FECRX1CWINC, FECRX1UNCORRCWINC, FECRXLN0BITERR0TO1INC, FECRXLN0BITERR1TO0INC, FECRXLN0DLY, FECRXLN0ERRCNTINC, FECRXLN0MAPPING, FECRXLN1BITERR0TO1INC, FECRXLN1BITERR1TO0INC, FECRXLN1DLY, FECRXLN1ERRCNTINC, FECRXLN1MAPPING, FECRXLN2BITERR0TO1INC, FECRXLN2BITERR1TO0INC, FECRXLN2DLY, FECRXLN2ERRCNTINC, FECRXLN2MAPPING, FECRXLN3BITERR0TO1INC
+, FECRXLN3BITERR1TO0INC, FECRXLN3DLY, FECRXLN3ERRCNTINC, FECRXLN3MAPPING, FECTRXLN0LOCK, FECTRXLN1LOCK, FECTRXLN2LOCK, FECTRXLN3LOCK, GTPOWERGOOD, PLLFBCLKLOST, PLLLOCK, PLLREFCLKLOST, PLLREFCLKMONITOR, PLLRESETDONE, PLLRSVDOUT, RCALCMP, RCALOUT, RXRECCLK0, RXRECCLK1, BGBYPASSB, BGMONITORENB
+, BGPDB, BGRCALOVRD, BGRCALOVRDENB, CH0_AXISEN, CH0_AXISRST, CH0_AXISTRDY, CH0_CFGRESET, CH0_DMONFIFORESET, CH0_DMONITORCLK, CH0_GTMRXN, CH0_GTMRXP, CH0_GTRXRESET, CH0_GTTXRESET, CH0_LOOPBACK, CH0_PCSRSVDIN, CH0_PMARSVDIN, CH0_RESETOVRD, CH0_RXADAPTRESET, CH0_RXADCCALRESET, CH0_RXADCCLKGENRESET, CH0_RXBUFRESET
+, CH0_RXCDRFREQOS, CH0_RXCDRFRRESET, CH0_RXCDRHOLD, CH0_RXCDRINCPCTRL, CH0_RXCDROVRDEN, CH0_RXCDRPHRESET, CH0_RXDFERESET, CH0_RXDSPRESET, CH0_RXEQTRAINING, CH0_RXEYESCANRESET, CH0_RXFECRESET, CH0_RXOUTCLKSEL, CH0_RXPCSRESET, CH0_RXPCSRESETMASK, CH0_RXPMARESET, CH0_RXPMARESETMASK, CH0_RXPOLARITY, CH0_RXPRBSCNTSTOP, CH0_RXPRBSCSCNTRST, CH0_RXPRBSPTN, CH0_RXPROGDIVRESET
+, CH0_RXQPRBSEN, CH0_RXRESETMODE, CH0_RXSPCSEQADV, CH0_RXUSRCLK, CH0_RXUSRCLK2, CH0_RXUSRRDY, CH0_RXUSRSTART, CH0_RXUSRSTOP, CH0_TXCKALRESET, CH0_TXCTLFIRDAT, CH0_TXDATA, CH0_TXDATASTART, CH0_TXDRVAMP, CH0_TXEMPMAIN, CH0_TXEMPPOST, CH0_TXEMPPRE, CH0_TXEMPPRE2, CH0_TXFECRESET, CH0_TXINHIBIT, CH0_TXMUXDCDEXHOLD, CH0_TXMUXDCDORWREN
+, CH0_TXOUTCLKSEL, CH0_TXPCSRESET, CH0_TXPCSRESETMASK, CH0_TXPMARESET, CH0_TXPMARESETMASK, CH0_TXPOLARITY, CH0_TXPRBSINERR, CH0_TXPRBSPTN, CH0_TXPROGDIVRESET, CH0_TXQPRBSEN, CH0_TXRESETMODE, CH0_TXSPCSEQADV, CH0_TXUSRCLK, CH0_TXUSRCLK2, CH0_TXUSRRDY, CH1_AXISEN, CH1_AXISRST, CH1_AXISTRDY, CH1_CFGRESET, CH1_DMONFIFORESET, CH1_DMONITORCLK
+, CH1_GTMRXN, CH1_GTMRXP, CH1_GTRXRESET, CH1_GTTXRESET, CH1_LOOPBACK, CH1_PCSRSVDIN, CH1_PMARSVDIN, CH1_RESETOVRD, CH1_RXADAPTRESET, CH1_RXADCCALRESET, CH1_RXADCCLKGENRESET, CH1_RXBUFRESET, CH1_RXCDRFREQOS, CH1_RXCDRFRRESET, CH1_RXCDRHOLD, CH1_RXCDRINCPCTRL, CH1_RXCDROVRDEN, CH1_RXCDRPHRESET, CH1_RXDFERESET, CH1_RXDSPRESET, CH1_RXEQTRAINING
+, CH1_RXEYESCANRESET, CH1_RXFECRESET, CH1_RXOUTCLKSEL, CH1_RXPCSRESET, CH1_RXPCSRESETMASK, CH1_RXPMARESET, CH1_RXPMARESETMASK, CH1_RXPOLARITY, CH1_RXPRBSCNTSTOP, CH1_RXPRBSCSCNTRST, CH1_RXPRBSPTN, CH1_RXPROGDIVRESET, CH1_RXQPRBSEN, CH1_RXRESETMODE, CH1_RXSPCSEQADV, CH1_RXUSRCLK, CH1_RXUSRCLK2, CH1_RXUSRRDY, CH1_RXUSRSTART, CH1_RXUSRSTOP, CH1_TXCKALRESET
+, CH1_TXCTLFIRDAT, CH1_TXDATA, CH1_TXDATASTART, CH1_TXDRVAMP, CH1_TXEMPMAIN, CH1_TXEMPPOST, CH1_TXEMPPRE, CH1_TXEMPPRE2, CH1_TXFECRESET, CH1_TXINHIBIT, CH1_TXMUXDCDEXHOLD, CH1_TXMUXDCDORWREN, CH1_TXOUTCLKSEL, CH1_TXPCSRESET, CH1_TXPCSRESETMASK, CH1_TXPMARESET, CH1_TXPMARESETMASK, CH1_TXPOLARITY, CH1_TXPRBSINERR, CH1_TXPRBSPTN, CH1_TXPROGDIVRESET
+, CH1_TXQPRBSEN, CH1_TXRESETMODE, CH1_TXSPCSEQADV, CH1_TXUSRCLK, CH1_TXUSRCLK2, CH1_TXUSRRDY, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPRST, DRPWE, FECCTRLRX0BITSLIPFS, FECCTRLRX1BITSLIPFS, GTGREFCLK2PLL, GTNORTHREFCLK, GTREFCLK, GTSOUTHREFCLK, PLLFBDIV, PLLMONCLK, PLLPD
+, PLLREFCLKSEL, PLLRESET, PLLRESETBYPASSMODE, PLLRESETMASK, PLLRSVDIN, RCALENB, SDMDATA, SDMTOGGLE);
     parameter [15:0] A_CFG = 16'b0000100001000000;
     parameter [15:0] A_SDM_DATA_CFG0 = 16'b0000000011010000;
     parameter [15:0] A_SDM_DATA_CFG1 = 16'b0000000011010000;
@@ -19575,7 +19803,7 @@ module GTM_DUAL (...);
     input SDMTOGGLE;
 endmodule
 
-module IBUFDS_GTM (...);
+module IBUFDS_GTM(O, ODIV2, CEB, I, IB);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter integer REFCLK_HROW_CK_SEL = 0;
     parameter integer REFCLK_ICNTL_RX = 0;
@@ -19588,7 +19816,7 @@ module IBUFDS_GTM (...);
     input IB;
 endmodule
 
-module OBUFDS_GTM (...);
+module OBUFDS_GTM(O, OB, CEB, I);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter integer REFCLK_ICNTL_TX = 0;
     (* iopad_external_pin *)
@@ -19599,7 +19827,7 @@ module OBUFDS_GTM (...);
     input I;
 endmodule
 
-module OBUFDS_GTM_ADV (...);
+module OBUFDS_GTM_ADV(O, OB, CEB, I);
     parameter [0:0] REFCLK_EN_TX_PATH = 1'b0;
     parameter integer REFCLK_ICNTL_TX = 0;
     parameter [1:0] RXRECCLK_SEL = 2'b00;
@@ -19611,7 +19839,9 @@ module OBUFDS_GTM_ADV (...);
     input [3:0] I;
 endmodule
 
-module HSDAC (...);
+module HSDAC(CLK_DAC, DOUT, DRDY, PLL_DMON_OUT, PLL_REFCLK_OUT, STATUS_COMMON, STATUS_DAC0, STATUS_DAC1, STATUS_DAC2, STATUS_DAC3, SYSREF_OUT_NORTH, SYSREF_OUT_SOUTH, VOUT0_N, VOUT0_P, VOUT1_N, VOUT1_P, VOUT2_N, VOUT2_P, VOUT3_N, VOUT3_P, CLK_FIFO_LM
+, CONTROL_COMMON, CONTROL_DAC0, CONTROL_DAC1, CONTROL_DAC2, CONTROL_DAC3, DAC_CLK_N, DAC_CLK_P, DADDR, DATA_DAC0, DATA_DAC1, DATA_DAC2, DATA_DAC3, DCLK, DEN, DI, DWE, FABRIC_CLK, PLL_MONCLK, PLL_REFCLK_IN, SYSREF_IN_NORTH, SYSREF_IN_SOUTH
+, SYSREF_N, SYSREF_P);
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";
     parameter integer XPA_CFG0 = 0;
     parameter integer XPA_CFG1 = 0;
@@ -19665,7 +19895,9 @@ module HSDAC (...);
     input SYSREF_P;
 endmodule
 
-module HSADC (...);
+module HSADC(CLK_ADC, DATA_ADC0, DATA_ADC1, DATA_ADC2, DATA_ADC3, DOUT, DRDY, PLL_DMON_OUT, PLL_REFCLK_OUT, STATUS_ADC0, STATUS_ADC1, STATUS_ADC2, STATUS_ADC3, STATUS_COMMON, SYSREF_OUT_NORTH, SYSREF_OUT_SOUTH, ADC_CLK_N, ADC_CLK_P, CLK_FIFO_LM, CONTROL_ADC0, CONTROL_ADC1
+, CONTROL_ADC2, CONTROL_ADC3, CONTROL_COMMON, DADDR, DCLK, DEN, DI, DWE, FABRIC_CLK, PLL_MONCLK, PLL_REFCLK_IN, SYSREF_IN_NORTH, SYSREF_IN_SOUTH, SYSREF_N, SYSREF_P, VIN0_N, VIN0_P, VIN1_N, VIN1_P, VIN2_N, VIN2_P
+, VIN3_N, VIN3_P, VIN_I01_N, VIN_I01_P, VIN_I23_N, VIN_I23_P);
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";
     parameter integer XPA_CFG0 = 0;
     parameter integer XPA_CFG1 = 0;
@@ -19723,7 +19955,9 @@ module HSADC (...);
     input VIN_I23_P;
 endmodule
 
-module RFDAC (...);
+module RFDAC(CLK_DAC, CLK_DIST_OUT_NORTH, CLK_DIST_OUT_SOUTH, DOUT, DRDY, PLL_DMON_OUT, PLL_REFCLK_OUT, STATUS_COMMON, STATUS_DAC0, STATUS_DAC1, STATUS_DAC2, STATUS_DAC3, SYSREF_OUT_NORTH, SYSREF_OUT_SOUTH, T1_ALLOWED_SOUTH, VOUT0_N, VOUT0_P, VOUT1_N, VOUT1_P, VOUT2_N, VOUT2_P
+, VOUT3_N, VOUT3_P, CLK_DIST_IN_NORTH, CLK_DIST_IN_SOUTH, CLK_FIFO_LM, CONTROL_COMMON, CONTROL_DAC0, CONTROL_DAC1, CONTROL_DAC2, CONTROL_DAC3, DAC_CLK_N, DAC_CLK_P, DADDR, DATA_DAC0, DATA_DAC1, DATA_DAC2, DATA_DAC3, DCLK, DEN, DI, DWE
+, FABRIC_CLK, PLL_MONCLK, PLL_REFCLK_IN, SYSREF_IN_NORTH, SYSREF_IN_SOUTH, SYSREF_N, SYSREF_P, T1_ALLOWED_NORTH);
     parameter integer LD_DEVICE = 0;
     parameter integer OPT_CLK_DIST = 0;
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";
@@ -19787,7 +20021,9 @@ module RFDAC (...);
     input T1_ALLOWED_NORTH;
 endmodule
 
-module RFADC (...);
+module RFADC(CLK_ADC, CLK_DIST_OUT_NORTH, CLK_DIST_OUT_SOUTH, DATA_ADC0, DATA_ADC1, DATA_ADC2, DATA_ADC3, DOUT, DRDY, PLL_DMON_OUT, PLL_REFCLK_OUT, STATUS_ADC0, STATUS_ADC1, STATUS_ADC2, STATUS_ADC3, STATUS_COMMON, SYSREF_OUT_NORTH, SYSREF_OUT_SOUTH, T1_ALLOWED_SOUTH, ADC_CLK_N, ADC_CLK_P
+, CLK_DIST_IN_NORTH, CLK_DIST_IN_SOUTH, CLK_FIFO_LM, CONTROL_ADC0, CONTROL_ADC1, CONTROL_ADC2, CONTROL_ADC3, CONTROL_COMMON, DADDR, DCLK, DEN, DI, DWE, FABRIC_CLK, PLL_MONCLK, PLL_REFCLK_IN, SYSREF_IN_NORTH, SYSREF_IN_SOUTH, SYSREF_N, SYSREF_P, T1_ALLOWED_NORTH
+, VIN0_N, VIN0_P, VIN1_N, VIN1_P, VIN2_N, VIN2_P, VIN3_N, VIN3_P, VIN_I01_N, VIN_I01_P, VIN_I23_N, VIN_I23_P);
     parameter integer LD_DEVICE = 0;
     parameter integer OPT_ANALOG = 0;
     parameter integer OPT_CLK_DIST = 0;
@@ -19856,7 +20092,14 @@ module RFADC (...);
     input VIN_I23_P;
 endmodule
 
-module PCIE_A1 (...);
+module PCIE_A1(CFGCOMMANDBUSMASTERENABLE, CFGCOMMANDINTERRUPTDISABLE, CFGCOMMANDIOENABLE, CFGCOMMANDMEMENABLE, CFGCOMMANDSERREN, CFGDEVCONTROLAUXPOWEREN, CFGDEVCONTROLCORRERRREPORTINGEN, CFGDEVCONTROLENABLERO, CFGDEVCONTROLEXTTAGEN, CFGDEVCONTROLFATALERRREPORTINGEN, CFGDEVCONTROLNONFATALREPORTINGEN, CFGDEVCONTROLNOSNOOPEN, CFGDEVCONTROLPHANTOMEN, CFGDEVCONTROLURERRREPORTINGEN, CFGDEVSTATUSCORRERRDETECTED, CFGDEVSTATUSFATALERRDETECTED, CFGDEVSTATUSNONFATALERRDETECTED, CFGDEVSTATUSURDETECTED, CFGERRCPLRDYN, CFGINTERRUPTMSIENABLE, CFGINTERRUPTRDYN
+, CFGLINKCONTOLRCB, CFGLINKCONTROLCOMMONCLOCK, CFGLINKCONTROLEXTENDEDSYNC, CFGRDWRDONEN, CFGTOTURNOFFN, DBGBADDLLPSTATUS, DBGBADTLPLCRC, DBGBADTLPSEQNUM, DBGBADTLPSTATUS, DBGDLPROTOCOLSTATUS, DBGFCPROTOCOLERRSTATUS, DBGMLFRMDLENGTH, DBGMLFRMDMPS, DBGMLFRMDTCVC, DBGMLFRMDTLPSTATUS, DBGMLFRMDUNRECTYPE, DBGPOISTLPSTATUS, DBGRCVROVERFLOWSTATUS, DBGREGDETECTEDCORRECTABLE, DBGREGDETECTEDFATAL, DBGREGDETECTEDNONFATAL
+, DBGREGDETECTEDUNSUPPORTED, DBGRPLYROLLOVERSTATUS, DBGRPLYTIMEOUTSTATUS, DBGURNOBARHIT, DBGURPOISCFGWR, DBGURSTATUS, DBGURUNSUPMSG, MIMRXREN, MIMRXWEN, MIMTXREN, MIMTXWEN, PIPEGTTXELECIDLEA, PIPEGTTXELECIDLEB, PIPERXPOLARITYA, PIPERXPOLARITYB, PIPERXRESETA, PIPERXRESETB, PIPETXRCVRDETA, PIPETXRCVRDETB, RECEIVEDHOTRESET, TRNLNKUPN
+, TRNREOFN, TRNRERRFWDN, TRNRSOFN, TRNRSRCDSCN, TRNRSRCRDYN, TRNTCFGREQN, TRNTDSTRDYN, TRNTERRDROPN, USERRSTN, MIMRXRADDR, MIMRXWADDR, MIMTXRADDR, MIMTXWADDR, TRNFCCPLD, TRNFCNPD, TRNFCPD, PIPETXDATAA, PIPETXDATAB, CFGLINKCONTROLASPMCONTROL, PIPEGTPOWERDOWNA, PIPEGTPOWERDOWNB
+, PIPETXCHARDISPMODEA, PIPETXCHARDISPMODEB, PIPETXCHARDISPVALA, PIPETXCHARDISPVALB, PIPETXCHARISKA, PIPETXCHARISKB, CFGDEVCONTROLMAXPAYLOAD, CFGDEVCONTROLMAXREADREQ, CFGFUNCTIONNUMBER, CFGINTERRUPTMMENABLE, CFGPCIELINKSTATEN, CFGDO, TRNRD, MIMRXWDATA, MIMTXWDATA, CFGDEVICENUMBER, CFGLTSSMSTATE, TRNTBUFAV, TRNRBARHITN, CFGBUSNUMBER, CFGINTERRUPTDO
+, TRNFCCPLH, TRNFCNPH, TRNFCPH, CFGERRCORN, CFGERRCPLABORTN, CFGERRCPLTIMEOUTN, CFGERRECRCN, CFGERRLOCKEDN, CFGERRPOSTEDN, CFGERRURN, CFGINTERRUPTASSERTN, CFGINTERRUPTN, CFGPMWAKEN, CFGRDENN, CFGTRNPENDINGN, CFGTURNOFFOKN, CLOCKLOCKED, MGTCLK, PIPEGTRESETDONEA, PIPEGTRESETDONEB, PIPEPHYSTATUSA
+, PIPEPHYSTATUSB, PIPERXENTERELECIDLEA, PIPERXENTERELECIDLEB, SYSRESETN, TRNRDSTRDYN, TRNRNPOKN, TRNTCFGGNTN, TRNTEOFN, TRNTERRFWDN, TRNTSOFN, TRNTSRCDSCN, TRNTSRCRDYN, TRNTSTRN, USERCLK, CFGDEVID, CFGSUBSYSID, CFGSUBSYSVENID, CFGVENID, PIPERXDATAA, PIPERXDATAB, PIPERXCHARISKA
+, PIPERXCHARISKB, PIPERXSTATUSA, PIPERXSTATUSB, TRNFCSEL, TRNTD, MIMRXRDATA, MIMTXRDATA, CFGERRTLPCPLHEADER, CFGDSN, CFGINTERRUPTDI, CFGREVID, CFGDWADDR);
     parameter [31:0] BAR0 = 32'h00000000;
     parameter [31:0] BAR1 = 32'h00000000;
     parameter [31:0] BAR2 = 32'h00000000;
@@ -20099,7 +20342,20 @@ module PCIE_A1 (...);
     input [9:0] CFGDWADDR;
 endmodule
 
-module PCIE_EP (...);
+module PCIE_EP(BUSMASTERENABLE, CRMDOHOTRESETN, CRMPWRSOFTRESETN, DLLTXPMDLLPOUTSTANDING, INTERRUPTDISABLE, IOSPACEENABLE, L0CFGLOOPBACKACK, L0DLLRXACKOUTSTANDING, L0DLLTXNONFCOUTSTANDING, L0DLLTXOUTSTANDING, L0FIRSTCFGWRITEOCCURRED, L0MACENTEREDL0, L0MACLINKTRAINING, L0MACLINKUP, L0MACNEWSTATEACK, L0MACRXL0SSTATE, L0MSIENABLE0, L0PMEACK, L0PMEEN, L0PMEREQOUT, L0PWRL1STATE
+, L0PWRL23READYSTATE, L0PWRTURNOFFREQ, L0PWRTXL0SSTATE, L0RXDLLPM, L0STATSCFGOTHERRECEIVED, L0STATSCFGOTHERTRANSMITTED, L0STATSCFGRECEIVED, L0STATSCFGTRANSMITTED, L0STATSDLLPRECEIVED, L0STATSDLLPTRANSMITTED, L0STATSOSRECEIVED, L0STATSOSTRANSMITTED, L0STATSTLPRECEIVED, L0STATSTLPTRANSMITTED, L0UNLOCKRECEIVED, LLKRXEOFN, LLKRXEOPN, LLKRXSOFN, LLKRXSOPN, LLKRXSRCLASTREQN, LLKRXSRCRDYN
+, LLKTXCONFIGREADYN, LLKTXDSTRDYN, MEMSPACEENABLE, MIMDLLBREN, MIMDLLBWEN, MIMRXBREN, MIMRXBWEN, MIMTXBREN, MIMTXBWEN, PARITYERRORRESPONSE, PIPEDESKEWLANESL0, PIPEDESKEWLANESL1, PIPEDESKEWLANESL2, PIPEDESKEWLANESL3, PIPEDESKEWLANESL4, PIPEDESKEWLANESL5, PIPEDESKEWLANESL6, PIPEDESKEWLANESL7, PIPERESETL0, PIPERESETL1, PIPERESETL2
+, PIPERESETL3, PIPERESETL4, PIPERESETL5, PIPERESETL6, PIPERESETL7, PIPERXPOLARITYL0, PIPERXPOLARITYL1, PIPERXPOLARITYL2, PIPERXPOLARITYL3, PIPERXPOLARITYL4, PIPERXPOLARITYL5, PIPERXPOLARITYL6, PIPERXPOLARITYL7, PIPETXCOMPLIANCEL0, PIPETXCOMPLIANCEL1, PIPETXCOMPLIANCEL2, PIPETXCOMPLIANCEL3, PIPETXCOMPLIANCEL4, PIPETXCOMPLIANCEL5, PIPETXCOMPLIANCEL6, PIPETXCOMPLIANCEL7
+, PIPETXDATAKL0, PIPETXDATAKL1, PIPETXDATAKL2, PIPETXDATAKL3, PIPETXDATAKL4, PIPETXDATAKL5, PIPETXDATAKL6, PIPETXDATAKL7, PIPETXDETECTRXLOOPBACKL0, PIPETXDETECTRXLOOPBACKL1, PIPETXDETECTRXLOOPBACKL2, PIPETXDETECTRXLOOPBACKL3, PIPETXDETECTRXLOOPBACKL4, PIPETXDETECTRXLOOPBACKL5, PIPETXDETECTRXLOOPBACKL6, PIPETXDETECTRXLOOPBACKL7, PIPETXELECIDLEL0, PIPETXELECIDLEL1, PIPETXELECIDLEL2, PIPETXELECIDLEL3, PIPETXELECIDLEL4
+, PIPETXELECIDLEL5, PIPETXELECIDLEL6, PIPETXELECIDLEL7, SERRENABLE, URREPORTINGENABLE, MGMTSTATSCREDIT, MIMDLLBRADD, MIMDLLBWADD, L0COMPLETERID, MIMRXBRADD, MIMRXBWADD, MIMTXBRADD, MIMTXBWADD, LLKRXPREFERREDTYPE, MGMTPSO, L0PWRSTATE0, L0RXMACLINKERROR, LLKRXVALIDN, PIPEPOWERDOWNL0, PIPEPOWERDOWNL1, PIPEPOWERDOWNL2
+, PIPEPOWERDOWNL3, PIPEPOWERDOWNL4, PIPEPOWERDOWNL5, PIPEPOWERDOWNL6, PIPEPOWERDOWNL7, L0MULTIMSGEN0, L0RXDLLPMTYPE, MAXPAYLOADSIZE, MAXREADREQUESTSIZE, MGMTRDATA, L0LTSSMSTATE, L0MACNEGOTIATEDLINKWIDTH, LLKRXDATA, MIMDLLBWDATA, MIMRXBWDATA, MIMTXBWDATA, L0DLLERRORVECTOR, L0DLLVCSTATUS, L0DLUPDOWN, LLKRXCHCOMPLETIONAVAILABLEN, LLKRXCHNONPOSTEDAVAILABLEN
+, LLKRXCHPOSTEDAVAILABLEN, LLKTCSTATUS, LLKTXCHCOMPLETIONREADYN, LLKTXCHNONPOSTEDREADYN, LLKTXCHPOSTEDREADYN, PIPETXDATAL0, PIPETXDATAL1, PIPETXDATAL2, PIPETXDATAL3, PIPETXDATAL4, PIPETXDATAL5, PIPETXDATAL6, PIPETXDATAL7, LLKTXCHANSPACE, AUXPOWER, COMPLIANCEAVOID, CRMCORECLK, CRMCORECLKDLO, CRMCORECLKRXO, CRMCORECLKTXO, CRMLINKRSTN
+, CRMMACRSTN, CRMMGMTRSTN, CRMNVRSTN, CRMURSTN, CRMUSERCFGRSTN, CRMUSERCLK, CRMUSERCLKRXO, CRMUSERCLKTXO, L0CFGDISABLESCRAMBLE, L0CFGLOOPBACKMASTER, L0LEGACYINTFUNCT0, L0PMEREQIN, L0SETCOMPLETERABORTERROR, L0SETCOMPLETIONTIMEOUTCORRERROR, L0SETCOMPLETIONTIMEOUTUNCORRERROR, L0SETDETECTEDCORRERROR, L0SETDETECTEDFATALERROR, L0SETDETECTEDNONFATALERROR, L0SETUNEXPECTEDCOMPLETIONCORRERROR, L0SETUNEXPECTEDCOMPLETIONUNCORRERROR, L0SETUNSUPPORTEDREQUESTNONPOSTEDERROR
+, L0SETUNSUPPORTEDREQUESTOTHERERROR, L0SETUSERDETECTEDPARITYERROR, L0SETUSERMASTERDATAPARITY, L0SETUSERRECEIVEDMASTERABORT, L0SETUSERRECEIVEDTARGETABORT, L0SETUSERSIGNALLEDTARGETABORT, L0SETUSERSYSTEMERROR, L0TRANSACTIONSPENDING, LLKRXDSTCONTREQN, LLKRXDSTREQN, LLKTXEOFN, LLKTXEOPN, LLKTXSOFN, LLKTXSOPN, LLKTXSRCDSCN, LLKTXSRCRDYN, MGMTRDEN, MGMTWREN, PIPEPHYSTATUSL0, PIPEPHYSTATUSL1, PIPEPHYSTATUSL2
+, PIPEPHYSTATUSL3, PIPEPHYSTATUSL4, PIPEPHYSTATUSL5, PIPEPHYSTATUSL6, PIPEPHYSTATUSL7, PIPERXCHANISALIGNEDL0, PIPERXCHANISALIGNEDL1, PIPERXCHANISALIGNEDL2, PIPERXCHANISALIGNEDL3, PIPERXCHANISALIGNEDL4, PIPERXCHANISALIGNEDL5, PIPERXCHANISALIGNEDL6, PIPERXCHANISALIGNEDL7, PIPERXDATAKL0, PIPERXDATAKL1, PIPERXDATAKL2, PIPERXDATAKL3, PIPERXDATAKL4, PIPERXDATAKL5, PIPERXDATAKL6, PIPERXDATAKL7
+, PIPERXELECIDLEL0, PIPERXELECIDLEL1, PIPERXELECIDLEL2, PIPERXELECIDLEL3, PIPERXELECIDLEL4, PIPERXELECIDLEL5, PIPERXELECIDLEL6, PIPERXELECIDLEL7, PIPERXVALIDL0, PIPERXVALIDL1, PIPERXVALIDL2, PIPERXVALIDL3, PIPERXVALIDL4, PIPERXVALIDL5, PIPERXVALIDL6, PIPERXVALIDL7, MGMTADDR, L0PACKETHEADERFROMUSER, LLKRXCHFIFO, LLKTXCHFIFO, LLKTXENABLEN
+, LLKRXCHTC, LLKTXCHTC, PIPERXSTATUSL0, PIPERXSTATUSL1, PIPERXSTATUSL2, PIPERXSTATUSL3, PIPERXSTATUSL4, PIPERXSTATUSL5, PIPERXSTATUSL6, PIPERXSTATUSL7, MGMTWDATA, L0MSIREQUEST0, MGMTBWREN, LLKTXDATA, MIMDLLBRDATA, MIMRXBRDATA, MIMTXBRDATA, MGMTSTATSCREDITSEL, PIPERXDATAL0, PIPERXDATAL1, PIPERXDATAL2
+, PIPERXDATAL3, PIPERXDATAL4, PIPERXDATAL5, PIPERXDATAL6, PIPERXDATAL7);
     parameter BAR0EXIST = "TRUE";
     parameter BAR0PREFETCHABLE = "TRUE";
     parameter BAR1EXIST = "FALSE";
@@ -20540,7 +20796,23 @@ module PCIE_EP (...);
     input [7:0] PIPERXDATAL7;
 endmodule
 
-module PCIE_2_0 (...);
+module PCIE_2_0(CFGAERECRCCHECKEN, CFGAERECRCGENEN, CFGCOMMANDBUSMASTERENABLE, CFGCOMMANDINTERRUPTDISABLE, CFGCOMMANDIOENABLE, CFGCOMMANDMEMENABLE, CFGCOMMANDSERREN, CFGDEVCONTROL2CPLTIMEOUTDIS, CFGDEVCONTROLAUXPOWEREN, CFGDEVCONTROLCORRERRREPORTINGEN, CFGDEVCONTROLENABLERO, CFGDEVCONTROLEXTTAGEN, CFGDEVCONTROLFATALERRREPORTINGEN, CFGDEVCONTROLNONFATALREPORTINGEN, CFGDEVCONTROLNOSNOOPEN, CFGDEVCONTROLPHANTOMEN, CFGDEVCONTROLURERRREPORTINGEN, CFGDEVSTATUSCORRERRDETECTED, CFGDEVSTATUSFATALERRDETECTED, CFGDEVSTATUSNONFATALERRDETECTED, CFGDEVSTATUSURDETECTED
+, CFGERRAERHEADERLOGSETN, CFGERRCPLRDYN, CFGINTERRUPTMSIENABLE, CFGINTERRUPTMSIXENABLE, CFGINTERRUPTMSIXFM, CFGINTERRUPTRDYN, CFGLINKCONTROLAUTOBANDWIDTHINTEN, CFGLINKCONTROLBANDWIDTHINTEN, CFGLINKCONTROLCLOCKPMEN, CFGLINKCONTROLCOMMONCLOCK, CFGLINKCONTROLEXTENDEDSYNC, CFGLINKCONTROLHWAUTOWIDTHDIS, CFGLINKCONTROLLINKDISABLE, CFGLINKCONTROLRCB, CFGLINKCONTROLRETRAINLINK, CFGLINKSTATUSAUTOBANDWIDTHSTATUS, CFGLINKSTATUSBANDWITHSTATUS, CFGLINKSTATUSDLLACTIVE, CFGLINKSTATUSLINKTRAINING, CFGMSGRECEIVED, CFGMSGRECEIVEDASSERTINTA
+, CFGMSGRECEIVEDASSERTINTB, CFGMSGRECEIVEDASSERTINTC, CFGMSGRECEIVEDASSERTINTD, CFGMSGRECEIVEDDEASSERTINTA, CFGMSGRECEIVEDDEASSERTINTB, CFGMSGRECEIVEDDEASSERTINTC, CFGMSGRECEIVEDDEASSERTINTD, CFGMSGRECEIVEDERRCOR, CFGMSGRECEIVEDERRFATAL, CFGMSGRECEIVEDERRNONFATAL, CFGMSGRECEIVEDPMASNAK, CFGMSGRECEIVEDPMETO, CFGMSGRECEIVEDPMETOACK, CFGMSGRECEIVEDPMPME, CFGMSGRECEIVEDSETSLOTPOWERLIMIT, CFGMSGRECEIVEDUNLOCK, CFGPMCSRPMEEN, CFGPMCSRPMESTATUS, CFGPMRCVASREQL1N, CFGPMRCVENTERL1N, CFGPMRCVENTERL23N
+, CFGPMRCVREQACKN, CFGRDWRDONEN, CFGSLOTCONTROLELECTROMECHILCTLPULSE, CFGTRANSACTION, CFGTRANSACTIONTYPE, DBGSCLRA, DBGSCLRB, DBGSCLRC, DBGSCLRD, DBGSCLRE, DBGSCLRF, DBGSCLRG, DBGSCLRH, DBGSCLRI, DBGSCLRJ, DBGSCLRK, DRPDRDY, LL2BADDLLPERRN, LL2BADTLPERRN, LL2PROTOCOLERRN, LL2REPLAYROERRN
+, LL2REPLAYTOERRN, LL2SUSPENDOKN, LL2TFCINIT1SEQN, LL2TFCINIT2SEQN, LNKCLKEN, MIMRXRCE, MIMRXREN, MIMRXWEN, MIMTXRCE, MIMTXREN, MIMTXWEN, PIPERX0POLARITY, PIPERX1POLARITY, PIPERX2POLARITY, PIPERX3POLARITY, PIPERX4POLARITY, PIPERX5POLARITY, PIPERX6POLARITY, PIPERX7POLARITY, PIPETX0COMPLIANCE, PIPETX0ELECIDLE
+, PIPETX1COMPLIANCE, PIPETX1ELECIDLE, PIPETX2COMPLIANCE, PIPETX2ELECIDLE, PIPETX3COMPLIANCE, PIPETX3ELECIDLE, PIPETX4COMPLIANCE, PIPETX4ELECIDLE, PIPETX5COMPLIANCE, PIPETX5ELECIDLE, PIPETX6COMPLIANCE, PIPETX6ELECIDLE, PIPETX7COMPLIANCE, PIPETX7ELECIDLE, PIPETXDEEMPH, PIPETXRATE, PIPETXRCVRDET, PIPETXRESET, PL2LINKUPN, PL2RECEIVERERRN, PL2RECOVERYN
+, PL2RXELECIDLE, PL2SUSPENDOK, PLLINKGEN2CAP, PLLINKPARTNERGEN2SUPPORTED, PLLINKUPCFGCAP, PLPHYLNKUPN, PLRECEIVEDHOTRST, PLSELLNKRATE, RECEIVEDFUNCLVLRSTN, TL2ASPMSUSPENDCREDITCHECKOKN, TL2ASPMSUSPENDREQN, TL2PPMSUSPENDOKN, TRNLNKUPN, TRNRDLLPSRCRDYN, TRNRECRCERRN, TRNREOFN, TRNRERRFWDN, TRNRREMN, TRNRSOFN, TRNRSRCDSCN, TRNRSRCRDYN
+, TRNTCFGREQN, TRNTDLLPDSTRDYN, TRNTDSTRDYN, TRNTERRDROPN, USERRSTN, DBGVECC, PLDBGVEC, TRNFCCPLD, TRNFCNPD, TRNFCPD, MIMRXRADDR, MIMRXWADDR, MIMTXRADDR, MIMTXWADDR, CFGMSGDATA, DRPDO, PIPETX0DATA, PIPETX1DATA, PIPETX2DATA, PIPETX3DATA, PIPETX4DATA
+, PIPETX5DATA, PIPETX6DATA, PIPETX7DATA, CFGLINKCONTROLASPMCONTROL, CFGLINKSTATUSCURRENTSPEED, CFGPMCSRPOWERSTATE, PIPETX0CHARISK, PIPETX0POWERDOWN, PIPETX1CHARISK, PIPETX1POWERDOWN, PIPETX2CHARISK, PIPETX2POWERDOWN, PIPETX3CHARISK, PIPETX3POWERDOWN, PIPETX4CHARISK, PIPETX4POWERDOWN, PIPETX5CHARISK, PIPETX5POWERDOWN, PIPETX6CHARISK, PIPETX6POWERDOWN, PIPETX7CHARISK
+, PIPETX7POWERDOWN, PLLANEREVERSALMODE, PLRXPMSTATE, PLSELLNKWIDTH, CFGDEVCONTROLMAXPAYLOAD, CFGDEVCONTROLMAXREADREQ, CFGINTERRUPTMMENABLE, CFGPCIELINKSTATE, PIPETXMARGIN, PLINITIALLINKWIDTH, PLTXPMSTATE, CFGDO, TRNRDLLPDATA, CFGDEVCONTROL2CPLTIMEOUTVAL, CFGLINKSTATUSNEGOTIATEDWIDTH, PLLTSSMSTATE, TRNTBUFAV, DBGVECA, DBGVECB, TRNRD, MIMRXWDATA
+, MIMTXWDATA, CFGTRANSACTIONADDR, CFGVCTCVCMAP, TRNRBARHITN, CFGINTERRUPTDO, TRNFCCPLH, TRNFCNPH, TRNFCPH, CFGERRACSN, CFGERRCORN, CFGERRCPLABORTN, CFGERRCPLTIMEOUTN, CFGERRCPLUNEXPECTN, CFGERRECRCN, CFGERRLOCKEDN, CFGERRPOSTEDN, CFGERRURN, CFGINTERRUPTASSERTN, CFGINTERRUPTN, CFGPMDIRECTASPML1N, CFGPMSENDPMACKN
+, CFGPMSENDPMETON, CFGPMSENDPMNAKN, CFGPMTURNOFFOKN, CFGPMWAKEN, CFGRDENN, CFGTRNPENDINGN, CFGWRENN, CFGWRREADONLYN, CFGWRRW1CASRWN, CMRSTN, CMSTICKYRSTN, DBGSUBMODE, DLRSTN, DRPCLK, DRPDEN, DRPDWE, FUNCLVLRSTN, LL2SENDASREQL1N, LL2SENDENTERL1N, LL2SENDENTERL23N, LL2SUSPENDNOWN
+, LL2TLPRCVN, PIPECLK, PIPERX0CHANISALIGNED, PIPERX0ELECIDLE, PIPERX0PHYSTATUS, PIPERX0VALID, PIPERX1CHANISALIGNED, PIPERX1ELECIDLE, PIPERX1PHYSTATUS, PIPERX1VALID, PIPERX2CHANISALIGNED, PIPERX2ELECIDLE, PIPERX2PHYSTATUS, PIPERX2VALID, PIPERX3CHANISALIGNED, PIPERX3ELECIDLE, PIPERX3PHYSTATUS, PIPERX3VALID, PIPERX4CHANISALIGNED, PIPERX4ELECIDLE, PIPERX4PHYSTATUS
+, PIPERX4VALID, PIPERX5CHANISALIGNED, PIPERX5ELECIDLE, PIPERX5PHYSTATUS, PIPERX5VALID, PIPERX6CHANISALIGNED, PIPERX6ELECIDLE, PIPERX6PHYSTATUS, PIPERX6VALID, PIPERX7CHANISALIGNED, PIPERX7ELECIDLE, PIPERX7PHYSTATUS, PIPERX7VALID, PLDIRECTEDLINKAUTON, PLDIRECTEDLINKSPEED, PLDOWNSTREAMDEEMPHSOURCE, PLRSTN, PLTRANSMITHOTRST, PLUPSTREAMPREFERDEEMPH, SYSRSTN, TL2ASPMSUSPENDCREDITCHECKN
+, TL2PPMSUSPENDREQN, TLRSTN, TRNRDSTRDYN, TRNRNPOKN, TRNTCFGGNTN, TRNTDLLPSRCRDYN, TRNTECRCGENN, TRNTEOFN, TRNTERRFWDN, TRNTREMN, TRNTSOFN, TRNTSRCDSCN, TRNTSRCRDYN, TRNTSTRN, USERCLK, CFGERRAERHEADERLOG, DRPDI, PIPERX0DATA, PIPERX1DATA, PIPERX2DATA, PIPERX3DATA
+, PIPERX4DATA, PIPERX5DATA, PIPERX6DATA, PIPERX7DATA, DBGMODE, PIPERX0CHARISK, PIPERX1CHARISK, PIPERX2CHARISK, PIPERX3CHARISK, PIPERX4CHARISK, PIPERX5CHARISK, PIPERX6CHARISK, PIPERX7CHARISK, PLDIRECTEDLINKCHANGE, PLDIRECTEDLINKWIDTH, CFGDSFUNCTIONNUMBER, PIPERX0STATUS, PIPERX1STATUS, PIPERX2STATUS, PIPERX3STATUS, PIPERX4STATUS
+, PIPERX5STATUS, PIPERX6STATUS, PIPERX7STATUS, PLDBGMODE, TRNFCSEL, CFGDI, TRNTDLLPDATA, CFGBYTEENN, CFGERRTLPCPLHEADER, CFGDSDEVICENUMBER, PL2DIRECTEDLSTATE, CFGDSN, TRNTD, MIMRXRDATA, MIMTXRDATA, CFGDSBUSNUMBER, CFGINTERRUPTDI, CFGPORTNUMBER, DRPDADDR, CFGDWADDR);
     parameter [11:0] AER_BASE_PTR = 12'h128;
     parameter AER_CAP_ECRC_CHECK_CAPABLE = "FALSE";
     parameter AER_CAP_ECRC_GEN_CAPABLE = "FALSE";
@@ -21135,7 +21407,26 @@ module PCIE_2_0 (...);
     input [9:0] CFGDWADDR;
 endmodule
 
-module PCIE_2_1 (...);
+module PCIE_2_1(CFGAERECRCCHECKEN, CFGAERECRCGENEN, CFGAERROOTERRCORRERRRECEIVED, CFGAERROOTERRCORRERRREPORTINGEN, CFGAERROOTERRFATALERRRECEIVED, CFGAERROOTERRFATALERRREPORTINGEN, CFGAERROOTERRNONFATALERRRECEIVED, CFGAERROOTERRNONFATALERRREPORTINGEN, CFGBRIDGESERREN, CFGCOMMANDBUSMASTERENABLE, CFGCOMMANDINTERRUPTDISABLE, CFGCOMMANDIOENABLE, CFGCOMMANDMEMENABLE, CFGCOMMANDSERREN, CFGDEVCONTROL2ARIFORWARDEN, CFGDEVCONTROL2ATOMICEGRESSBLOCK, CFGDEVCONTROL2ATOMICREQUESTEREN, CFGDEVCONTROL2CPLTIMEOUTDIS, CFGDEVCONTROL2IDOCPLEN, CFGDEVCONTROL2IDOREQEN, CFGDEVCONTROL2LTREN
+, CFGDEVCONTROL2TLPPREFIXBLOCK, CFGDEVCONTROLAUXPOWEREN, CFGDEVCONTROLCORRERRREPORTINGEN, CFGDEVCONTROLENABLERO, CFGDEVCONTROLEXTTAGEN, CFGDEVCONTROLFATALERRREPORTINGEN, CFGDEVCONTROLNONFATALREPORTINGEN, CFGDEVCONTROLNOSNOOPEN, CFGDEVCONTROLPHANTOMEN, CFGDEVCONTROLURERRREPORTINGEN, CFGDEVSTATUSCORRERRDETECTED, CFGDEVSTATUSFATALERRDETECTED, CFGDEVSTATUSNONFATALERRDETECTED, CFGDEVSTATUSURDETECTED, CFGERRAERHEADERLOGSETN, CFGERRCPLRDYN, CFGINTERRUPTMSIENABLE, CFGINTERRUPTMSIXENABLE, CFGINTERRUPTMSIXFM, CFGINTERRUPTRDYN, CFGLINKCONTROLAUTOBANDWIDTHINTEN
+, CFGLINKCONTROLBANDWIDTHINTEN, CFGLINKCONTROLCLOCKPMEN, CFGLINKCONTROLCOMMONCLOCK, CFGLINKCONTROLEXTENDEDSYNC, CFGLINKCONTROLHWAUTOWIDTHDIS, CFGLINKCONTROLLINKDISABLE, CFGLINKCONTROLRCB, CFGLINKCONTROLRETRAINLINK, CFGLINKSTATUSAUTOBANDWIDTHSTATUS, CFGLINKSTATUSBANDWIDTHSTATUS, CFGLINKSTATUSDLLACTIVE, CFGLINKSTATUSLINKTRAINING, CFGMGMTRDWRDONEN, CFGMSGRECEIVED, CFGMSGRECEIVEDASSERTINTA, CFGMSGRECEIVEDASSERTINTB, CFGMSGRECEIVEDASSERTINTC, CFGMSGRECEIVEDASSERTINTD, CFGMSGRECEIVEDDEASSERTINTA, CFGMSGRECEIVEDDEASSERTINTB, CFGMSGRECEIVEDDEASSERTINTC
+, CFGMSGRECEIVEDDEASSERTINTD, CFGMSGRECEIVEDERRCOR, CFGMSGRECEIVEDERRFATAL, CFGMSGRECEIVEDERRNONFATAL, CFGMSGRECEIVEDPMASNAK, CFGMSGRECEIVEDPMETO, CFGMSGRECEIVEDPMETOACK, CFGMSGRECEIVEDPMPME, CFGMSGRECEIVEDSETSLOTPOWERLIMIT, CFGMSGRECEIVEDUNLOCK, CFGPMCSRPMEEN, CFGPMCSRPMESTATUS, CFGPMRCVASREQL1N, CFGPMRCVENTERL1N, CFGPMRCVENTERL23N, CFGPMRCVREQACKN, CFGROOTCONTROLPMEINTEN, CFGROOTCONTROLSYSERRCORRERREN, CFGROOTCONTROLSYSERRFATALERREN, CFGROOTCONTROLSYSERRNONFATALERREN, CFGSLOTCONTROLELECTROMECHILCTLPULSE
+, CFGTRANSACTION, CFGTRANSACTIONTYPE, DBGSCLRA, DBGSCLRB, DBGSCLRC, DBGSCLRD, DBGSCLRE, DBGSCLRF, DBGSCLRG, DBGSCLRH, DBGSCLRI, DBGSCLRJ, DBGSCLRK, DRPRDY, LL2BADDLLPERR, LL2BADTLPERR, LL2PROTOCOLERR, LL2RECEIVERERR, LL2REPLAYROERR, LL2REPLAYTOERR, LL2SUSPENDOK
+, LL2TFCINIT1SEQ, LL2TFCINIT2SEQ, LL2TXIDLE, LNKCLKEN, MIMRXREN, MIMRXWEN, MIMTXREN, MIMTXWEN, PIPERX0POLARITY, PIPERX1POLARITY, PIPERX2POLARITY, PIPERX3POLARITY, PIPERX4POLARITY, PIPERX5POLARITY, PIPERX6POLARITY, PIPERX7POLARITY, PIPETX0COMPLIANCE, PIPETX0ELECIDLE, PIPETX1COMPLIANCE, PIPETX1ELECIDLE, PIPETX2COMPLIANCE
+, PIPETX2ELECIDLE, PIPETX3COMPLIANCE, PIPETX3ELECIDLE, PIPETX4COMPLIANCE, PIPETX4ELECIDLE, PIPETX5COMPLIANCE, PIPETX5ELECIDLE, PIPETX6COMPLIANCE, PIPETX6ELECIDLE, PIPETX7COMPLIANCE, PIPETX7ELECIDLE, PIPETXDEEMPH, PIPETXRATE, PIPETXRCVRDET, PIPETXRESET, PL2L0REQ, PL2LINKUP, PL2RECEIVERERR, PL2RECOVERY, PL2RXELECIDLE, PL2SUSPENDOK
+, PLDIRECTEDCHANGEDONE, PLLINKGEN2CAP, PLLINKPARTNERGEN2SUPPORTED, PLLINKUPCFGCAP, PLPHYLNKUPN, PLRECEIVEDHOTRST, PLSELLNKRATE, RECEIVEDFUNCLVLRSTN, TL2ASPMSUSPENDCREDITCHECKOK, TL2ASPMSUSPENDREQ, TL2ERRFCPE, TL2ERRMALFORMED, TL2ERRRXOVERFLOW, TL2PPMSUSPENDOK, TRNLNKUP, TRNRECRCERR, TRNREOF, TRNRERRFWD, TRNRSOF, TRNRSRCDSC, TRNRSRCRDY
+, TRNTCFGREQ, TRNTDLLPDSTRDY, TRNTERRDROP, USERRSTN, DBGVECC, PLDBGVEC, TRNFCCPLD, TRNFCNPD, TRNFCPD, TRNRD, MIMRXRADDR, MIMRXWADDR, MIMTXRADDR, MIMTXWADDR, CFGMSGDATA, DRPDO, PIPETX0DATA, PIPETX1DATA, PIPETX2DATA, PIPETX3DATA, PIPETX4DATA
+, PIPETX5DATA, PIPETX6DATA, PIPETX7DATA, CFGLINKCONTROLASPMCONTROL, CFGLINKSTATUSCURRENTSPEED, CFGPMCSRPOWERSTATE, PIPETX0CHARISK, PIPETX0POWERDOWN, PIPETX1CHARISK, PIPETX1POWERDOWN, PIPETX2CHARISK, PIPETX2POWERDOWN, PIPETX3CHARISK, PIPETX3POWERDOWN, PIPETX4CHARISK, PIPETX4POWERDOWN, PIPETX5CHARISK, PIPETX5POWERDOWN, PIPETX6CHARISK, PIPETX6POWERDOWN, PIPETX7CHARISK
+, PIPETX7POWERDOWN, PL2RXPMSTATE, PLLANEREVERSALMODE, PLRXPMSTATE, PLSELLNKWIDTH, TRNRDLLPSRCRDY, TRNRREM, CFGDEVCONTROLMAXPAYLOAD, CFGDEVCONTROLMAXREADREQ, CFGINTERRUPTMMENABLE, CFGPCIELINKSTATE, PIPETXMARGIN, PLINITIALLINKWIDTH, PLTXPMSTATE, CFGMGMTDO, CFGDEVCONTROL2CPLTIMEOUTVAL, CFGLINKSTATUSNEGOTIATEDWIDTH, TRNTDSTRDY, LL2LINKSTATUS, PLLTSSMSTATE, TRNTBUFAV
+, DBGVECA, DBGVECB, TL2ERRHDR, TRNRDLLPDATA, MIMRXWDATA, MIMTXWDATA, CFGTRANSACTIONADDR, CFGVCTCVCMAP, CFGINTERRUPTDO, TRNFCCPLH, TRNFCNPH, TRNFCPH, TRNRBARHIT, CFGERRACSN, CFGERRATOMICEGRESSBLOCKEDN, CFGERRCORN, CFGERRCPLABORTN, CFGERRCPLTIMEOUTN, CFGERRCPLUNEXPECTN, CFGERRECRCN, CFGERRINTERNALCORN
+, CFGERRINTERNALUNCORN, CFGERRLOCKEDN, CFGERRMALFORMEDN, CFGERRMCBLOCKEDN, CFGERRNORECOVERYN, CFGERRPOISONEDN, CFGERRPOSTEDN, CFGERRURN, CFGFORCECOMMONCLOCKOFF, CFGFORCEEXTENDEDSYNCON, CFGINTERRUPTASSERTN, CFGINTERRUPTN, CFGINTERRUPTSTATN, CFGMGMTRDENN, CFGMGMTWRENN, CFGMGMTWRREADONLYN, CFGMGMTWRRW1CASRWN, CFGPMFORCESTATEENN, CFGPMHALTASPML0SN, CFGPMHALTASPML1N, CFGPMSENDPMETON
+, CFGPMTURNOFFOKN, CFGPMWAKEN, CFGTRNPENDINGN, CMRSTN, CMSTICKYRSTN, DBGSUBMODE, DLRSTN, DRPCLK, DRPEN, DRPWE, FUNCLVLRSTN, LL2SENDASREQL1, LL2SENDENTERL1, LL2SENDENTERL23, LL2SENDPMACK, LL2SUSPENDNOW, LL2TLPRCV, PIPECLK, PIPERX0CHANISALIGNED, PIPERX0ELECIDLE, PIPERX0PHYSTATUS
+, PIPERX0VALID, PIPERX1CHANISALIGNED, PIPERX1ELECIDLE, PIPERX1PHYSTATUS, PIPERX1VALID, PIPERX2CHANISALIGNED, PIPERX2ELECIDLE, PIPERX2PHYSTATUS, PIPERX2VALID, PIPERX3CHANISALIGNED, PIPERX3ELECIDLE, PIPERX3PHYSTATUS, PIPERX3VALID, PIPERX4CHANISALIGNED, PIPERX4ELECIDLE, PIPERX4PHYSTATUS, PIPERX4VALID, PIPERX5CHANISALIGNED, PIPERX5ELECIDLE, PIPERX5PHYSTATUS, PIPERX5VALID
+, PIPERX6CHANISALIGNED, PIPERX6ELECIDLE, PIPERX6PHYSTATUS, PIPERX6VALID, PIPERX7CHANISALIGNED, PIPERX7ELECIDLE, PIPERX7PHYSTATUS, PIPERX7VALID, PLDIRECTEDLINKAUTON, PLDIRECTEDLINKSPEED, PLDIRECTEDLTSSMNEWVLD, PLDIRECTEDLTSSMSTALL, PLDOWNSTREAMDEEMPHSOURCE, PLRSTN, PLTRANSMITHOTRST, PLUPSTREAMPREFERDEEMPH, SYSRSTN, TL2ASPMSUSPENDCREDITCHECK, TL2PPMSUSPENDREQ, TLRSTN, TRNRDSTRDY
+, TRNRFCPRET, TRNRNPOK, TRNRNPREQ, TRNTCFGGNT, TRNTDLLPSRCRDY, TRNTECRCGEN, TRNTEOF, TRNTERRFWD, TRNTSOF, TRNTSRCDSC, TRNTSRCRDY, TRNTSTR, USERCLK2, USERCLK, CFGERRAERHEADERLOG, TRNTD, CFGDEVID, CFGSUBSYSID, CFGSUBSYSVENDID, CFGVENDID, DRPDI
+, PIPERX0DATA, PIPERX1DATA, PIPERX2DATA, PIPERX3DATA, PIPERX4DATA, PIPERX5DATA, PIPERX6DATA, PIPERX7DATA, CFGPMFORCESTATE, DBGMODE, PIPERX0CHARISK, PIPERX1CHARISK, PIPERX2CHARISK, PIPERX3CHARISK, PIPERX4CHARISK, PIPERX5CHARISK, PIPERX6CHARISK, PIPERX7CHARISK, PLDIRECTEDLINKCHANGE, PLDIRECTEDLINKWIDTH, TRNTREM
+, CFGDSFUNCTIONNUMBER, CFGFORCEMPS, PIPERX0STATUS, PIPERX1STATUS, PIPERX2STATUS, PIPERX3STATUS, PIPERX4STATUS, PIPERX5STATUS, PIPERX6STATUS, PIPERX7STATUS, PLDBGMODE, TRNFCSEL, CFGMGMTDI, TRNTDLLPDATA, CFGMGMTBYTEENN, CFGERRTLPCPLHEADER, CFGAERINTERRUPTMSGNUM, CFGDSDEVICENUMBER, CFGPCIECAPINTERRUPTMSGNUM, PL2DIRECTEDLSTATE, PLDIRECTEDLTSSMNEW
+, CFGDSN, MIMRXRDATA, MIMTXRDATA, CFGDSBUSNUMBER, CFGINTERRUPTDI, CFGPORTNUMBER, CFGREVID, DRPADDR, CFGMGMTDWADDR);
     parameter [11:0] AER_BASE_PTR = 12'h140;
     parameter AER_CAP_ECRC_CHECK_CAPABLE = "FALSE";
     parameter AER_CAP_ECRC_GEN_CAPABLE = "FALSE";
@@ -21830,7 +22121,29 @@ module PCIE_2_1 (...);
     input [9:0] CFGMGMTDWADDR;
 endmodule
 
-module PCIE_3_0 (...);
+module PCIE_3_0(CFGERRCOROUT, CFGERRFATALOUT, CFGERRNONFATALOUT, CFGEXTREADRECEIVED, CFGEXTWRITERECEIVED, CFGHOTRESETOUT, CFGINPUTUPDATEDONE, CFGINTERRUPTAOUTPUT, CFGINTERRUPTBOUTPUT, CFGINTERRUPTCOUTPUT, CFGINTERRUPTDOUTPUT, CFGINTERRUPTMSIFAIL, CFGINTERRUPTMSIMASKUPDATE, CFGINTERRUPTMSISENT, CFGINTERRUPTMSIXFAIL, CFGINTERRUPTMSIXSENT, CFGINTERRUPTSENT, CFGLOCALERROR, CFGLTRENABLE, CFGMCUPDATEDONE, CFGMGMTREADWRITEDONE
+, CFGMSGRECEIVED, CFGMSGTRANSMITDONE, CFGPERFUNCTIONUPDATEDONE, CFGPHYLINKDOWN, CFGPLSTATUSCHANGE, CFGPOWERSTATECHANGEINTERRUPT, CFGTPHSTTREADENABLE, CFGTPHSTTWRITEENABLE, DRPRDY, MAXISCQTLAST, MAXISCQTVALID, MAXISRCTLAST, MAXISRCTVALID, PCIERQSEQNUMVLD, PCIERQTAGVLD, PIPERX0POLARITY, PIPERX1POLARITY, PIPERX2POLARITY, PIPERX3POLARITY, PIPERX4POLARITY, PIPERX5POLARITY
+, PIPERX6POLARITY, PIPERX7POLARITY, PIPETX0COMPLIANCE, PIPETX0DATAVALID, PIPETX0ELECIDLE, PIPETX0STARTBLOCK, PIPETX1COMPLIANCE, PIPETX1DATAVALID, PIPETX1ELECIDLE, PIPETX1STARTBLOCK, PIPETX2COMPLIANCE, PIPETX2DATAVALID, PIPETX2ELECIDLE, PIPETX2STARTBLOCK, PIPETX3COMPLIANCE, PIPETX3DATAVALID, PIPETX3ELECIDLE, PIPETX3STARTBLOCK, PIPETX4COMPLIANCE, PIPETX4DATAVALID, PIPETX4ELECIDLE
+, PIPETX4STARTBLOCK, PIPETX5COMPLIANCE, PIPETX5DATAVALID, PIPETX5ELECIDLE, PIPETX5STARTBLOCK, PIPETX6COMPLIANCE, PIPETX6DATAVALID, PIPETX6ELECIDLE, PIPETX6STARTBLOCK, PIPETX7COMPLIANCE, PIPETX7DATAVALID, PIPETX7ELECIDLE, PIPETX7STARTBLOCK, PIPETXDEEMPH, PIPETXRCVRDET, PIPETXRESET, PIPETXSWING, PLEQINPROGRESS, CFGFCCPLD, CFGFCNPD, CFGFCPD
+, CFGVFSTATUS, MIREPLAYRAMWRITEDATA, MIREQUESTRAMWRITEDATA, CFGPERFUNCSTATUSDATA, DBGDATAOUT, DRPDO, CFGVFPOWERSTATE, CFGVFTPHSTMODE, CFGDPASUBSTATECHANGE, CFGFLRINPROCESS, CFGINTERRUPTMSIENABLE, CFGINTERRUPTMSIXENABLE, CFGINTERRUPTMSIXMASK, CFGLINKPOWERSTATE, CFGOBFFENABLE, CFGPHYLINKSTATUS, CFGRCBSTATUS, CFGTPHREQUESTERENABLE, MIREPLAYRAMREADENABLE, MIREPLAYRAMWRITEENABLE, PCIERQTAGAV
+, PCIETFCNPDAV, PCIETFCNPHAV, PIPERX0EQCONTROL, PIPERX1EQCONTROL, PIPERX2EQCONTROL, PIPERX3EQCONTROL, PIPERX4EQCONTROL, PIPERX5EQCONTROL, PIPERX6EQCONTROL, PIPERX7EQCONTROL, PIPETX0CHARISK, PIPETX0EQCONTROL, PIPETX0POWERDOWN, PIPETX0SYNCHEADER, PIPETX1CHARISK, PIPETX1EQCONTROL, PIPETX1POWERDOWN, PIPETX1SYNCHEADER, PIPETX2CHARISK, PIPETX2EQCONTROL, PIPETX2POWERDOWN
+, PIPETX2SYNCHEADER, PIPETX3CHARISK, PIPETX3EQCONTROL, PIPETX3POWERDOWN, PIPETX3SYNCHEADER, PIPETX4CHARISK, PIPETX4EQCONTROL, PIPETX4POWERDOWN, PIPETX4SYNCHEADER, PIPETX5CHARISK, PIPETX5EQCONTROL, PIPETX5POWERDOWN, PIPETX5SYNCHEADER, PIPETX6CHARISK, PIPETX6EQCONTROL, PIPETX6POWERDOWN, PIPETX6SYNCHEADER, PIPETX7CHARISK, PIPETX7EQCONTROL, PIPETX7POWERDOWN, PIPETX7SYNCHEADER
+, PIPETXRATE, PLEQPHASE, MAXISCQTDATA, MAXISRCTDATA, CFGCURRENTSPEED, CFGMAXPAYLOAD, CFGMAXREADREQ, CFGTPHFUNCTIONNUM, PIPERX0EQPRESET, PIPERX1EQPRESET, PIPERX2EQPRESET, PIPERX3EQPRESET, PIPERX4EQPRESET, PIPERX5EQPRESET, PIPERX6EQPRESET, PIPERX7EQPRESET, PIPETXMARGIN, CFGEXTWRITEDATA, CFGINTERRUPTMSIDATA, CFGMGMTREADDATA, CFGTPHSTTWRITEDATA
+, PIPETX0DATA, PIPETX1DATA, PIPETX2DATA, PIPETX3DATA, PIPETX4DATA, PIPETX5DATA, PIPETX6DATA, PIPETX7DATA, CFGEXTWRITEBYTEENABLE, CFGNEGOTIATEDWIDTH, CFGTPHSTTWRITEBYTEVALID, MICOMPLETIONRAMREADENABLEL, MICOMPLETIONRAMREADENABLEU, MICOMPLETIONRAMWRITEENABLEL, MICOMPLETIONRAMWRITEENABLEU, MIREQUESTRAMREADENABLE, MIREQUESTRAMWRITEENABLE, PCIERQSEQNUM, PIPERX0EQLPTXPRESET, PIPERX1EQLPTXPRESET, PIPERX2EQLPTXPRESET
+, PIPERX3EQLPTXPRESET, PIPERX4EQLPTXPRESET, PIPERX5EQLPTXPRESET, PIPERX6EQLPTXPRESET, PIPERX7EQLPTXPRESET, PIPETX0EQPRESET, PIPETX1EQPRESET, PIPETX2EQPRESET, PIPETX3EQPRESET, PIPETX4EQPRESET, PIPETX5EQPRESET, PIPETX6EQPRESET, PIPETX7EQPRESET, SAXISCCTREADY, SAXISRQTREADY, CFGMSGRECEIVEDTYPE, CFGTPHSTTADDRESS, CFGFUNCTIONPOWERSTATE, CFGINTERRUPTMSIMMENABLE, CFGINTERRUPTMSIVFENABLE, CFGINTERRUPTMSIXVFENABLE
+, CFGINTERRUPTMSIXVFMASK, CFGLTSSMSTATE, CFGTPHSTMODE, CFGVFFLRINPROCESS, CFGVFTPHREQUESTERENABLE, PCIECQNPREQCOUNT, PCIERQTAG, PIPERX0EQLPLFFS, PIPERX1EQLPLFFS, PIPERX2EQLPLFFS, PIPERX3EQLPLFFS, PIPERX4EQLPLFFS, PIPERX5EQLPLFFS, PIPERX6EQLPLFFS, PIPERX7EQLPLFFS, PIPETX0EQDEEMPH, PIPETX1EQDEEMPH, PIPETX2EQDEEMPH, PIPETX3EQDEEMPH, PIPETX4EQDEEMPH, PIPETX5EQDEEMPH
+, PIPETX6EQDEEMPH, PIPETX7EQDEEMPH, MICOMPLETIONRAMWRITEDATAL, MICOMPLETIONRAMWRITEDATAU, MAXISRCTUSER, CFGEXTFUNCTIONNUMBER, CFGFCCPLH, CFGFCNPH, CFGFCPH, CFGFUNCTIONSTATUS, CFGMSGRECEIVEDDATA, MAXISCQTKEEP, MAXISRCTKEEP, PLGEN3PCSRXSLIDE, MAXISCQTUSER, MIREPLAYRAMADDRESS, MIREQUESTRAMREADADDRESSA, MIREQUESTRAMREADADDRESSB, MIREQUESTRAMWRITEADDRESSA, MIREQUESTRAMWRITEADDRESSB, CFGEXTREGISTERNUMBER
+, MICOMPLETIONRAMREADADDRESSAL, MICOMPLETIONRAMREADADDRESSAU, MICOMPLETIONRAMREADADDRESSBL, MICOMPLETIONRAMREADADDRESSBU, MICOMPLETIONRAMWRITEADDRESSAL, MICOMPLETIONRAMWRITEADDRESSAU, MICOMPLETIONRAMWRITEADDRESSBL, MICOMPLETIONRAMWRITEADDRESSBU, CFGCONFIGSPACEENABLE, CFGERRCORIN, CFGERRUNCORIN, CFGEXTREADDATAVALID, CFGHOTRESETIN, CFGINPUTUPDATEREQUEST, CFGINTERRUPTMSITPHPRESENT, CFGINTERRUPTMSIXINT, CFGLINKTRAININGENABLE, CFGMCUPDATEREQUEST, CFGMGMTREAD, CFGMGMTTYPE1CFGREGACCESS, CFGMGMTWRITE
+, CFGMSGTRANSMIT, CFGPERFUNCTIONOUTPUTREQUEST, CFGPOWERSTATECHANGEACK, CFGREQPMTRANSITIONL23READY, CFGTPHSTTREADDATAVALID, CORECLK, CORECLKMICOMPLETIONRAML, CORECLKMICOMPLETIONRAMU, CORECLKMIREPLAYRAM, CORECLKMIREQUESTRAM, DRPCLK, DRPEN, DRPWE, MGMTRESETN, MGMTSTICKYRESETN, PCIECQNPREQ, PIPECLK, PIPERESETN, PIPERX0DATAVALID, PIPERX0ELECIDLE, PIPERX0EQDONE
+, PIPERX0EQLPADAPTDONE, PIPERX0EQLPLFFSSEL, PIPERX0PHYSTATUS, PIPERX0STARTBLOCK, PIPERX0VALID, PIPERX1DATAVALID, PIPERX1ELECIDLE, PIPERX1EQDONE, PIPERX1EQLPADAPTDONE, PIPERX1EQLPLFFSSEL, PIPERX1PHYSTATUS, PIPERX1STARTBLOCK, PIPERX1VALID, PIPERX2DATAVALID, PIPERX2ELECIDLE, PIPERX2EQDONE, PIPERX2EQLPADAPTDONE, PIPERX2EQLPLFFSSEL, PIPERX2PHYSTATUS, PIPERX2STARTBLOCK, PIPERX2VALID
+, PIPERX3DATAVALID, PIPERX3ELECIDLE, PIPERX3EQDONE, PIPERX3EQLPADAPTDONE, PIPERX3EQLPLFFSSEL, PIPERX3PHYSTATUS, PIPERX3STARTBLOCK, PIPERX3VALID, PIPERX4DATAVALID, PIPERX4ELECIDLE, PIPERX4EQDONE, PIPERX4EQLPADAPTDONE, PIPERX4EQLPLFFSSEL, PIPERX4PHYSTATUS, PIPERX4STARTBLOCK, PIPERX4VALID, PIPERX5DATAVALID, PIPERX5ELECIDLE, PIPERX5EQDONE, PIPERX5EQLPADAPTDONE, PIPERX5EQLPLFFSSEL
+, PIPERX5PHYSTATUS, PIPERX5STARTBLOCK, PIPERX5VALID, PIPERX6DATAVALID, PIPERX6ELECIDLE, PIPERX6EQDONE, PIPERX6EQLPADAPTDONE, PIPERX6EQLPLFFSSEL, PIPERX6PHYSTATUS, PIPERX6STARTBLOCK, PIPERX6VALID, PIPERX7DATAVALID, PIPERX7ELECIDLE, PIPERX7EQDONE, PIPERX7EQLPADAPTDONE, PIPERX7EQLPLFFSSEL, PIPERX7PHYSTATUS, PIPERX7STARTBLOCK, PIPERX7VALID, PIPETX0EQDONE, PIPETX1EQDONE
+, PIPETX2EQDONE, PIPETX3EQDONE, PIPETX4EQDONE, PIPETX5EQDONE, PIPETX6EQDONE, PIPETX7EQDONE, PLDISABLESCRAMBLER, PLEQRESETEIEOSCOUNT, PLGEN3PCSDISABLE, RECCLK, RESETN, SAXISCCTLAST, SAXISCCTVALID, SAXISRQTLAST, SAXISRQTVALID, USERCLK, DRPADDR, MICOMPLETIONRAMREADDATA, MIREPLAYRAMREADDATA, MIREQUESTRAMREADDATA, CFGDEVID
+, CFGSUBSYSID, CFGSUBSYSVENDID, CFGVENDID, DRPDI, PIPERX0EQLPNEWTXCOEFFORPRESET, PIPERX1EQLPNEWTXCOEFFORPRESET, PIPERX2EQLPNEWTXCOEFFORPRESET, PIPERX3EQLPNEWTXCOEFFORPRESET, PIPERX4EQLPNEWTXCOEFFORPRESET, PIPERX5EQLPNEWTXCOEFFORPRESET, PIPERX6EQLPNEWTXCOEFFORPRESET, PIPERX7EQLPNEWTXCOEFFORPRESET, PIPETX0EQCOEFF, PIPETX1EQCOEFF, PIPETX2EQCOEFF, PIPETX3EQCOEFF, PIPETX4EQCOEFF, PIPETX5EQCOEFF, PIPETX6EQCOEFF, PIPETX7EQCOEFF, CFGMGMTADDR
+, CFGFLRDONE, CFGINTERRUPTMSITPHTYPE, CFGINTERRUPTPENDING, PIPERX0CHARISK, PIPERX0SYNCHEADER, PIPERX1CHARISK, PIPERX1SYNCHEADER, PIPERX2CHARISK, PIPERX2SYNCHEADER, PIPERX3CHARISK, PIPERX3SYNCHEADER, PIPERX4CHARISK, PIPERX4SYNCHEADER, PIPERX5CHARISK, PIPERX5SYNCHEADER, PIPERX6CHARISK, PIPERX6SYNCHEADER, PIPERX7CHARISK, PIPERX7SYNCHEADER, MAXISCQTREADY, MAXISRCTREADY
+, SAXISCCTDATA, SAXISRQTDATA, CFGDSFUNCTIONNUMBER, CFGFCSEL, CFGINTERRUPTMSIATTR, CFGINTERRUPTMSIFUNCTIONNUMBER, CFGMSGTRANSMITTYPE, CFGPERFUNCSTATUSCONTROL, CFGPERFUNCTIONNUMBER, PIPERX0STATUS, PIPERX1STATUS, PIPERX2STATUS, PIPERX3STATUS, PIPERX4STATUS, PIPERX5STATUS, PIPERX6STATUS, PIPERX7STATUS, CFGEXTREADDATA, CFGINTERRUPTMSIINT, CFGINTERRUPTMSIXDATA, CFGMGMTWRITEDATA
+, CFGMSGTRANSMITDATA, CFGTPHSTTREADDATA, PIPERX0DATA, PIPERX1DATA, PIPERX2DATA, PIPERX3DATA, PIPERX4DATA, PIPERX5DATA, PIPERX6DATA, PIPERX7DATA, SAXISCCTUSER, CFGINTERRUPTINT, CFGINTERRUPTMSISELECT, CFGMGMTBYTEENABLE, CFGDSDEVICENUMBER, SAXISRQTUSER, CFGVFFLRDONE, PIPEEQFS, PIPEEQLF, CFGDSN, CFGINTERRUPTMSIPENDINGSTATUS
+, CFGINTERRUPTMSIXADDRESS, CFGDSBUSNUMBER, CFGDSPORTNUMBER, CFGREVID, PLGEN3PCSRXSYNCDONE, SAXISCCTKEEP, SAXISRQTKEEP, CFGINTERRUPTMSITPHSTTAG);
     parameter ARI_CAP_ENABLE = "FALSE";
     parameter AXISTEN_IF_CC_ALIGNMENT_MODE = "FALSE";
     parameter AXISTEN_IF_CC_PARITY_CHK = "TRUE";
@@ -22736,7 +23049,33 @@ module PCIE_3_0 (...);
     input [8:0] CFGINTERRUPTMSITPHSTTAG;
 endmodule
 
-module PCIE_3_1 (...);
+module PCIE_3_1(CFGCURRENTSPEED, CFGDPASUBSTATECHANGE, CFGERRCOROUT, CFGERRFATALOUT, CFGERRNONFATALOUT, CFGEXTFUNCTIONNUMBER, CFGEXTREADRECEIVED, CFGEXTREGISTERNUMBER, CFGEXTWRITEBYTEENABLE, CFGEXTWRITEDATA, CFGEXTWRITERECEIVED, CFGFCCPLD, CFGFCCPLH, CFGFCNPD, CFGFCNPH, CFGFCPD, CFGFCPH, CFGFLRINPROCESS, CFGFUNCTIONPOWERSTATE, CFGFUNCTIONSTATUS, CFGHOTRESETOUT
+, CFGINTERRUPTMSIDATA, CFGINTERRUPTMSIENABLE, CFGINTERRUPTMSIFAIL, CFGINTERRUPTMSIMASKUPDATE, CFGINTERRUPTMSIMMENABLE, CFGINTERRUPTMSISENT, CFGINTERRUPTMSIVFENABLE, CFGINTERRUPTMSIXENABLE, CFGINTERRUPTMSIXFAIL, CFGINTERRUPTMSIXMASK, CFGINTERRUPTMSIXSENT, CFGINTERRUPTMSIXVFENABLE, CFGINTERRUPTMSIXVFMASK, CFGINTERRUPTSENT, CFGLINKPOWERSTATE, CFGLOCALERROR, CFGLTRENABLE, CFGLTSSMSTATE, CFGMAXPAYLOAD, CFGMAXREADREQ, CFGMGMTREADDATA
+, CFGMGMTREADWRITEDONE, CFGMSGRECEIVED, CFGMSGRECEIVEDDATA, CFGMSGRECEIVEDTYPE, CFGMSGTRANSMITDONE, CFGNEGOTIATEDWIDTH, CFGOBFFENABLE, CFGPERFUNCSTATUSDATA, CFGPERFUNCTIONUPDATEDONE, CFGPHYLINKDOWN, CFGPHYLINKSTATUS, CFGPLSTATUSCHANGE, CFGPOWERSTATECHANGEINTERRUPT, CFGRCBSTATUS, CFGTPHFUNCTIONNUM, CFGTPHREQUESTERENABLE, CFGTPHSTMODE, CFGTPHSTTADDRESS, CFGTPHSTTREADENABLE, CFGTPHSTTWRITEBYTEVALID, CFGTPHSTTWRITEDATA
+, CFGTPHSTTWRITEENABLE, CFGVFFLRINPROCESS, CFGVFPOWERSTATE, CFGVFSTATUS, CFGVFTPHREQUESTERENABLE, CFGVFTPHSTMODE, CONFMCAPDESIGNSWITCH, CONFMCAPEOS, CONFMCAPINUSEBYPCIE, CONFREQREADY, CONFRESPRDATA, CONFRESPVALID, DBGDATAOUT, DBGMCAPCSB, DBGMCAPDATA, DBGMCAPEOS, DBGMCAPERROR, DBGMCAPMODE, DBGMCAPRDATAVALID, DBGMCAPRDWRB, DBGMCAPRESET
+, DBGPLDATABLOCKRECEIVEDAFTEREDS, DBGPLGEN3FRAMINGERRORDETECTED, DBGPLGEN3SYNCHEADERERRORDETECTED, DBGPLINFERREDRXELECTRICALIDLE, DRPDO, DRPRDY, LL2LMMASTERTLPSENT0, LL2LMMASTERTLPSENT1, LL2LMMASTERTLPSENTTLPID0, LL2LMMASTERTLPSENTTLPID1, LL2LMMAXISRXTDATA, LL2LMMAXISRXTUSER, LL2LMMAXISRXTVALID, LL2LMSAXISTXTREADY, MAXISCQTDATA, MAXISCQTKEEP, MAXISCQTLAST, MAXISCQTUSER, MAXISCQTVALID, MAXISRCTDATA, MAXISRCTKEEP
+, MAXISRCTLAST, MAXISRCTUSER, MAXISRCTVALID, MICOMPLETIONRAMREADADDRESSAL, MICOMPLETIONRAMREADADDRESSAU, MICOMPLETIONRAMREADADDRESSBL, MICOMPLETIONRAMREADADDRESSBU, MICOMPLETIONRAMREADENABLEL, MICOMPLETIONRAMREADENABLEU, MICOMPLETIONRAMWRITEADDRESSAL, MICOMPLETIONRAMWRITEADDRESSAU, MICOMPLETIONRAMWRITEADDRESSBL, MICOMPLETIONRAMWRITEADDRESSBU, MICOMPLETIONRAMWRITEDATAL, MICOMPLETIONRAMWRITEDATAU, MICOMPLETIONRAMWRITEENABLEL, MICOMPLETIONRAMWRITEENABLEU, MIREPLAYRAMADDRESS, MIREPLAYRAMREADENABLE, MIREPLAYRAMWRITEDATA, MIREPLAYRAMWRITEENABLE
+, MIREQUESTRAMREADADDRESSA, MIREQUESTRAMREADADDRESSB, MIREQUESTRAMREADENABLE, MIREQUESTRAMWRITEADDRESSA, MIREQUESTRAMWRITEADDRESSB, MIREQUESTRAMWRITEDATA, MIREQUESTRAMWRITEENABLE, PCIECQNPREQCOUNT, PCIEPERST0B, PCIEPERST1B, PCIERQSEQNUM, PCIERQSEQNUMVLD, PCIERQTAG, PCIERQTAGAV, PCIERQTAGVLD, PCIETFCNPDAV, PCIETFCNPHAV, PIPERX0EQCONTROL, PIPERX0EQLPLFFS, PIPERX0EQLPTXPRESET, PIPERX0EQPRESET
+, PIPERX0POLARITY, PIPERX1EQCONTROL, PIPERX1EQLPLFFS, PIPERX1EQLPTXPRESET, PIPERX1EQPRESET, PIPERX1POLARITY, PIPERX2EQCONTROL, PIPERX2EQLPLFFS, PIPERX2EQLPTXPRESET, PIPERX2EQPRESET, PIPERX2POLARITY, PIPERX3EQCONTROL, PIPERX3EQLPLFFS, PIPERX3EQLPTXPRESET, PIPERX3EQPRESET, PIPERX3POLARITY, PIPERX4EQCONTROL, PIPERX4EQLPLFFS, PIPERX4EQLPTXPRESET, PIPERX4EQPRESET, PIPERX4POLARITY
+, PIPERX5EQCONTROL, PIPERX5EQLPLFFS, PIPERX5EQLPTXPRESET, PIPERX5EQPRESET, PIPERX5POLARITY, PIPERX6EQCONTROL, PIPERX6EQLPLFFS, PIPERX6EQLPTXPRESET, PIPERX6EQPRESET, PIPERX6POLARITY, PIPERX7EQCONTROL, PIPERX7EQLPLFFS, PIPERX7EQLPTXPRESET, PIPERX7EQPRESET, PIPERX7POLARITY, PIPETX0CHARISK, PIPETX0COMPLIANCE, PIPETX0DATA, PIPETX0DATAVALID, PIPETX0DEEMPH, PIPETX0ELECIDLE
+, PIPETX0EQCONTROL, PIPETX0EQDEEMPH, PIPETX0EQPRESET, PIPETX0MARGIN, PIPETX0POWERDOWN, PIPETX0RATE, PIPETX0RCVRDET, PIPETX0RESET, PIPETX0STARTBLOCK, PIPETX0SWING, PIPETX0SYNCHEADER, PIPETX1CHARISK, PIPETX1COMPLIANCE, PIPETX1DATA, PIPETX1DATAVALID, PIPETX1DEEMPH, PIPETX1ELECIDLE, PIPETX1EQCONTROL, PIPETX1EQDEEMPH, PIPETX1EQPRESET, PIPETX1MARGIN
+, PIPETX1POWERDOWN, PIPETX1RATE, PIPETX1RCVRDET, PIPETX1RESET, PIPETX1STARTBLOCK, PIPETX1SWING, PIPETX1SYNCHEADER, PIPETX2CHARISK, PIPETX2COMPLIANCE, PIPETX2DATA, PIPETX2DATAVALID, PIPETX2DEEMPH, PIPETX2ELECIDLE, PIPETX2EQCONTROL, PIPETX2EQDEEMPH, PIPETX2EQPRESET, PIPETX2MARGIN, PIPETX2POWERDOWN, PIPETX2RATE, PIPETX2RCVRDET, PIPETX2RESET
+, PIPETX2STARTBLOCK, PIPETX2SWING, PIPETX2SYNCHEADER, PIPETX3CHARISK, PIPETX3COMPLIANCE, PIPETX3DATA, PIPETX3DATAVALID, PIPETX3DEEMPH, PIPETX3ELECIDLE, PIPETX3EQCONTROL, PIPETX3EQDEEMPH, PIPETX3EQPRESET, PIPETX3MARGIN, PIPETX3POWERDOWN, PIPETX3RATE, PIPETX3RCVRDET, PIPETX3RESET, PIPETX3STARTBLOCK, PIPETX3SWING, PIPETX3SYNCHEADER, PIPETX4CHARISK
+, PIPETX4COMPLIANCE, PIPETX4DATA, PIPETX4DATAVALID, PIPETX4DEEMPH, PIPETX4ELECIDLE, PIPETX4EQCONTROL, PIPETX4EQDEEMPH, PIPETX4EQPRESET, PIPETX4MARGIN, PIPETX4POWERDOWN, PIPETX4RATE, PIPETX4RCVRDET, PIPETX4RESET, PIPETX4STARTBLOCK, PIPETX4SWING, PIPETX4SYNCHEADER, PIPETX5CHARISK, PIPETX5COMPLIANCE, PIPETX5DATA, PIPETX5DATAVALID, PIPETX5DEEMPH
+, PIPETX5ELECIDLE, PIPETX5EQCONTROL, PIPETX5EQDEEMPH, PIPETX5EQPRESET, PIPETX5MARGIN, PIPETX5POWERDOWN, PIPETX5RATE, PIPETX5RCVRDET, PIPETX5RESET, PIPETX5STARTBLOCK, PIPETX5SWING, PIPETX5SYNCHEADER, PIPETX6CHARISK, PIPETX6COMPLIANCE, PIPETX6DATA, PIPETX6DATAVALID, PIPETX6DEEMPH, PIPETX6ELECIDLE, PIPETX6EQCONTROL, PIPETX6EQDEEMPH, PIPETX6EQPRESET
+, PIPETX6MARGIN, PIPETX6POWERDOWN, PIPETX6RATE, PIPETX6RCVRDET, PIPETX6RESET, PIPETX6STARTBLOCK, PIPETX6SWING, PIPETX6SYNCHEADER, PIPETX7CHARISK, PIPETX7COMPLIANCE, PIPETX7DATA, PIPETX7DATAVALID, PIPETX7DEEMPH, PIPETX7ELECIDLE, PIPETX7EQCONTROL, PIPETX7EQDEEMPH, PIPETX7EQPRESET, PIPETX7MARGIN, PIPETX7POWERDOWN, PIPETX7RATE, PIPETX7RCVRDET
+, PIPETX7RESET, PIPETX7STARTBLOCK, PIPETX7SWING, PIPETX7SYNCHEADER, PLEQINPROGRESS, PLEQPHASE, SAXISCCTREADY, SAXISRQTREADY, SPAREOUT, CFGCONFIGSPACEENABLE, CFGDEVID, CFGDSBUSNUMBER, CFGDSDEVICENUMBER, CFGDSFUNCTIONNUMBER, CFGDSN, CFGDSPORTNUMBER, CFGERRCORIN, CFGERRUNCORIN, CFGEXTREADDATA, CFGEXTREADDATAVALID, CFGFCSEL
+, CFGFLRDONE, CFGHOTRESETIN, CFGINTERRUPTINT, CFGINTERRUPTMSIATTR, CFGINTERRUPTMSIFUNCTIONNUMBER, CFGINTERRUPTMSIINT, CFGINTERRUPTMSIPENDINGSTATUS, CFGINTERRUPTMSIPENDINGSTATUSDATAENABLE, CFGINTERRUPTMSIPENDINGSTATUSFUNCTIONNUM, CFGINTERRUPTMSISELECT, CFGINTERRUPTMSITPHPRESENT, CFGINTERRUPTMSITPHSTTAG, CFGINTERRUPTMSITPHTYPE, CFGINTERRUPTMSIXADDRESS, CFGINTERRUPTMSIXDATA, CFGINTERRUPTMSIXINT, CFGINTERRUPTPENDING, CFGLINKTRAININGENABLE, CFGMGMTADDR, CFGMGMTBYTEENABLE, CFGMGMTREAD
+, CFGMGMTTYPE1CFGREGACCESS, CFGMGMTWRITE, CFGMGMTWRITEDATA, CFGMSGTRANSMIT, CFGMSGTRANSMITDATA, CFGMSGTRANSMITTYPE, CFGPERFUNCSTATUSCONTROL, CFGPERFUNCTIONNUMBER, CFGPERFUNCTIONOUTPUTREQUEST, CFGPOWERSTATECHANGEACK, CFGREQPMTRANSITIONL23READY, CFGREVID, CFGSUBSYSID, CFGSUBSYSVENDID, CFGTPHSTTREADDATA, CFGTPHSTTREADDATAVALID, CFGVENDID, CFGVFFLRDONE, CONFMCAPREQUESTBYCONF, CONFREQDATA, CONFREQREGNUM
+, CONFREQTYPE, CONFREQVALID, CORECLK, CORECLKMICOMPLETIONRAML, CORECLKMICOMPLETIONRAMU, CORECLKMIREPLAYRAM, CORECLKMIREQUESTRAM, DBGCFGLOCALMGMTREGOVERRIDE, DBGDATASEL, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, LL2LMSAXISTXTUSER, LL2LMSAXISTXTVALID, LL2LMTXTLPID0, LL2LMTXTLPID1, MAXISCQTREADY, MAXISRCTREADY, MCAPCLK
+, MCAPPERST0B, MCAPPERST1B, MGMTRESETN, MGMTSTICKYRESETN, MICOMPLETIONRAMREADDATA, MIREPLAYRAMREADDATA, MIREQUESTRAMREADDATA, PCIECQNPREQ, PIPECLK, PIPEEQFS, PIPEEQLF, PIPERESETN, PIPERX0CHARISK, PIPERX0DATA, PIPERX0DATAVALID, PIPERX0ELECIDLE, PIPERX0EQDONE, PIPERX0EQLPADAPTDONE, PIPERX0EQLPLFFSSEL, PIPERX0EQLPNEWTXCOEFFORPRESET, PIPERX0PHYSTATUS
+, PIPERX0STARTBLOCK, PIPERX0STATUS, PIPERX0SYNCHEADER, PIPERX0VALID, PIPERX1CHARISK, PIPERX1DATA, PIPERX1DATAVALID, PIPERX1ELECIDLE, PIPERX1EQDONE, PIPERX1EQLPADAPTDONE, PIPERX1EQLPLFFSSEL, PIPERX1EQLPNEWTXCOEFFORPRESET, PIPERX1PHYSTATUS, PIPERX1STARTBLOCK, PIPERX1STATUS, PIPERX1SYNCHEADER, PIPERX1VALID, PIPERX2CHARISK, PIPERX2DATA, PIPERX2DATAVALID, PIPERX2ELECIDLE
+, PIPERX2EQDONE, PIPERX2EQLPADAPTDONE, PIPERX2EQLPLFFSSEL, PIPERX2EQLPNEWTXCOEFFORPRESET, PIPERX2PHYSTATUS, PIPERX2STARTBLOCK, PIPERX2STATUS, PIPERX2SYNCHEADER, PIPERX2VALID, PIPERX3CHARISK, PIPERX3DATA, PIPERX3DATAVALID, PIPERX3ELECIDLE, PIPERX3EQDONE, PIPERX3EQLPADAPTDONE, PIPERX3EQLPLFFSSEL, PIPERX3EQLPNEWTXCOEFFORPRESET, PIPERX3PHYSTATUS, PIPERX3STARTBLOCK, PIPERX3STATUS, PIPERX3SYNCHEADER
+, PIPERX3VALID, PIPERX4CHARISK, PIPERX4DATA, PIPERX4DATAVALID, PIPERX4ELECIDLE, PIPERX4EQDONE, PIPERX4EQLPADAPTDONE, PIPERX4EQLPLFFSSEL, PIPERX4EQLPNEWTXCOEFFORPRESET, PIPERX4PHYSTATUS, PIPERX4STARTBLOCK, PIPERX4STATUS, PIPERX4SYNCHEADER, PIPERX4VALID, PIPERX5CHARISK, PIPERX5DATA, PIPERX5DATAVALID, PIPERX5ELECIDLE, PIPERX5EQDONE, PIPERX5EQLPADAPTDONE, PIPERX5EQLPLFFSSEL
+, PIPERX5EQLPNEWTXCOEFFORPRESET, PIPERX5PHYSTATUS, PIPERX5STARTBLOCK, PIPERX5STATUS, PIPERX5SYNCHEADER, PIPERX5VALID, PIPERX6CHARISK, PIPERX6DATA, PIPERX6DATAVALID, PIPERX6ELECIDLE, PIPERX6EQDONE, PIPERX6EQLPADAPTDONE, PIPERX6EQLPLFFSSEL, PIPERX6EQLPNEWTXCOEFFORPRESET, PIPERX6PHYSTATUS, PIPERX6STARTBLOCK, PIPERX6STATUS, PIPERX6SYNCHEADER, PIPERX6VALID, PIPERX7CHARISK, PIPERX7DATA
+, PIPERX7DATAVALID, PIPERX7ELECIDLE, PIPERX7EQDONE, PIPERX7EQLPADAPTDONE, PIPERX7EQLPLFFSSEL, PIPERX7EQLPNEWTXCOEFFORPRESET, PIPERX7PHYSTATUS, PIPERX7STARTBLOCK, PIPERX7STATUS, PIPERX7SYNCHEADER, PIPERX7VALID, PIPETX0EQCOEFF, PIPETX0EQDONE, PIPETX1EQCOEFF, PIPETX1EQDONE, PIPETX2EQCOEFF, PIPETX2EQDONE, PIPETX3EQCOEFF, PIPETX3EQDONE, PIPETX4EQCOEFF, PIPETX4EQDONE
+, PIPETX5EQCOEFF, PIPETX5EQDONE, PIPETX6EQCOEFF, PIPETX6EQDONE, PIPETX7EQCOEFF, PIPETX7EQDONE, PLEQRESETEIEOSCOUNT, PLGEN2UPSTREAMPREFERDEEMPH, RESETN, SAXISCCTDATA, SAXISCCTKEEP, SAXISCCTLAST, SAXISCCTUSER, SAXISCCTVALID, SAXISRQTDATA, SAXISRQTKEEP, SAXISRQTLAST, SAXISRQTUSER, SAXISRQTVALID, SPAREIN, USERCLK
+);
     parameter ARI_CAP_ENABLE = "FALSE";
     parameter AXISTEN_IF_CC_ALIGNMENT_MODE = "FALSE";
     parameter AXISTEN_IF_CC_PARITY_CHK = "TRUE";
@@ -24004,7 +24343,40 @@ module PCIE_3_1 (...);
     input USERCLK;
 endmodule
 
-module PCIE40E4 (...);
+module PCIE40E4(AXIUSEROUT, CFGBUSNUMBER, CFGCURRENTSPEED, CFGERRCOROUT, CFGERRFATALOUT, CFGERRNONFATALOUT, CFGEXTFUNCTIONNUMBER, CFGEXTREADRECEIVED, CFGEXTREGISTERNUMBER, CFGEXTWRITEBYTEENABLE, CFGEXTWRITEDATA, CFGEXTWRITERECEIVED, CFGFCCPLD, CFGFCCPLH, CFGFCNPD, CFGFCNPH, CFGFCPD, CFGFCPH, CFGFLRINPROCESS, CFGFUNCTIONPOWERSTATE, CFGFUNCTIONSTATUS
+, CFGHOTRESETOUT, CFGINTERRUPTMSIDATA, CFGINTERRUPTMSIENABLE, CFGINTERRUPTMSIFAIL, CFGINTERRUPTMSIMASKUPDATE, CFGINTERRUPTMSIMMENABLE, CFGINTERRUPTMSISENT, CFGINTERRUPTMSIXENABLE, CFGINTERRUPTMSIXMASK, CFGINTERRUPTMSIXVECPENDINGSTATUS, CFGINTERRUPTSENT, CFGLINKPOWERSTATE, CFGLOCALERROROUT, CFGLOCALERRORVALID, CFGLTRENABLE, CFGLTSSMSTATE, CFGMAXPAYLOAD, CFGMAXREADREQ, CFGMGMTREADDATA, CFGMGMTREADWRITEDONE, CFGMSGRECEIVED
+, CFGMSGRECEIVEDDATA, CFGMSGRECEIVEDTYPE, CFGMSGTRANSMITDONE, CFGMSIXRAMADDRESS, CFGMSIXRAMREADENABLE, CFGMSIXRAMWRITEBYTEENABLE, CFGMSIXRAMWRITEDATA, CFGNEGOTIATEDWIDTH, CFGOBFFENABLE, CFGPHYLINKDOWN, CFGPHYLINKSTATUS, CFGPLSTATUSCHANGE, CFGPOWERSTATECHANGEINTERRUPT, CFGRCBSTATUS, CFGRXPMSTATE, CFGTPHRAMADDRESS, CFGTPHRAMREADENABLE, CFGTPHRAMWRITEBYTEENABLE, CFGTPHRAMWRITEDATA, CFGTPHREQUESTERENABLE, CFGTPHSTMODE
+, CFGTXPMSTATE, CONFMCAPDESIGNSWITCH, CONFMCAPEOS, CONFMCAPINUSEBYPCIE, CONFREQREADY, CONFRESPRDATA, CONFRESPVALID, DBGCTRL0OUT, DBGCTRL1OUT, DBGDATA0OUT, DBGDATA1OUT, DRPDO, DRPRDY, MAXISCQTDATA, MAXISCQTKEEP, MAXISCQTLAST, MAXISCQTUSER, MAXISCQTVALID, MAXISRCTDATA, MAXISRCTKEEP, MAXISRCTLAST
+, MAXISRCTUSER, MAXISRCTVALID, MIREPLAYRAMADDRESS0, MIREPLAYRAMADDRESS1, MIREPLAYRAMREADENABLE0, MIREPLAYRAMREADENABLE1, MIREPLAYRAMWRITEDATA0, MIREPLAYRAMWRITEDATA1, MIREPLAYRAMWRITEENABLE0, MIREPLAYRAMWRITEENABLE1, MIRXCOMPLETIONRAMREADADDRESS0, MIRXCOMPLETIONRAMREADADDRESS1, MIRXCOMPLETIONRAMREADENABLE0, MIRXCOMPLETIONRAMREADENABLE1, MIRXCOMPLETIONRAMWRITEADDRESS0, MIRXCOMPLETIONRAMWRITEADDRESS1, MIRXCOMPLETIONRAMWRITEDATA0, MIRXCOMPLETIONRAMWRITEDATA1, MIRXCOMPLETIONRAMWRITEENABLE0, MIRXCOMPLETIONRAMWRITEENABLE1, MIRXPOSTEDREQUESTRAMREADADDRESS0
+, MIRXPOSTEDREQUESTRAMREADADDRESS1, MIRXPOSTEDREQUESTRAMREADENABLE0, MIRXPOSTEDREQUESTRAMREADENABLE1, MIRXPOSTEDREQUESTRAMWRITEADDRESS0, MIRXPOSTEDREQUESTRAMWRITEADDRESS1, MIRXPOSTEDREQUESTRAMWRITEDATA0, MIRXPOSTEDREQUESTRAMWRITEDATA1, MIRXPOSTEDREQUESTRAMWRITEENABLE0, MIRXPOSTEDREQUESTRAMWRITEENABLE1, PCIECQNPREQCOUNT, PCIEPERST0B, PCIEPERST1B, PCIERQSEQNUM0, PCIERQSEQNUM1, PCIERQSEQNUMVLD0, PCIERQSEQNUMVLD1, PCIERQTAG0, PCIERQTAG1, PCIERQTAGAV, PCIERQTAGVLD0, PCIERQTAGVLD1
+, PCIETFCNPDAV, PCIETFCNPHAV, PIPERX00EQCONTROL, PIPERX00POLARITY, PIPERX01EQCONTROL, PIPERX01POLARITY, PIPERX02EQCONTROL, PIPERX02POLARITY, PIPERX03EQCONTROL, PIPERX03POLARITY, PIPERX04EQCONTROL, PIPERX04POLARITY, PIPERX05EQCONTROL, PIPERX05POLARITY, PIPERX06EQCONTROL, PIPERX06POLARITY, PIPERX07EQCONTROL, PIPERX07POLARITY, PIPERX08EQCONTROL, PIPERX08POLARITY, PIPERX09EQCONTROL
+, PIPERX09POLARITY, PIPERX10EQCONTROL, PIPERX10POLARITY, PIPERX11EQCONTROL, PIPERX11POLARITY, PIPERX12EQCONTROL, PIPERX12POLARITY, PIPERX13EQCONTROL, PIPERX13POLARITY, PIPERX14EQCONTROL, PIPERX14POLARITY, PIPERX15EQCONTROL, PIPERX15POLARITY, PIPERXEQLPLFFS, PIPERXEQLPTXPRESET, PIPETX00CHARISK, PIPETX00COMPLIANCE, PIPETX00DATA, PIPETX00DATAVALID, PIPETX00ELECIDLE, PIPETX00EQCONTROL
+, PIPETX00EQDEEMPH, PIPETX00POWERDOWN, PIPETX00STARTBLOCK, PIPETX00SYNCHEADER, PIPETX01CHARISK, PIPETX01COMPLIANCE, PIPETX01DATA, PIPETX01DATAVALID, PIPETX01ELECIDLE, PIPETX01EQCONTROL, PIPETX01EQDEEMPH, PIPETX01POWERDOWN, PIPETX01STARTBLOCK, PIPETX01SYNCHEADER, PIPETX02CHARISK, PIPETX02COMPLIANCE, PIPETX02DATA, PIPETX02DATAVALID, PIPETX02ELECIDLE, PIPETX02EQCONTROL, PIPETX02EQDEEMPH
+, PIPETX02POWERDOWN, PIPETX02STARTBLOCK, PIPETX02SYNCHEADER, PIPETX03CHARISK, PIPETX03COMPLIANCE, PIPETX03DATA, PIPETX03DATAVALID, PIPETX03ELECIDLE, PIPETX03EQCONTROL, PIPETX03EQDEEMPH, PIPETX03POWERDOWN, PIPETX03STARTBLOCK, PIPETX03SYNCHEADER, PIPETX04CHARISK, PIPETX04COMPLIANCE, PIPETX04DATA, PIPETX04DATAVALID, PIPETX04ELECIDLE, PIPETX04EQCONTROL, PIPETX04EQDEEMPH, PIPETX04POWERDOWN
+, PIPETX04STARTBLOCK, PIPETX04SYNCHEADER, PIPETX05CHARISK, PIPETX05COMPLIANCE, PIPETX05DATA, PIPETX05DATAVALID, PIPETX05ELECIDLE, PIPETX05EQCONTROL, PIPETX05EQDEEMPH, PIPETX05POWERDOWN, PIPETX05STARTBLOCK, PIPETX05SYNCHEADER, PIPETX06CHARISK, PIPETX06COMPLIANCE, PIPETX06DATA, PIPETX06DATAVALID, PIPETX06ELECIDLE, PIPETX06EQCONTROL, PIPETX06EQDEEMPH, PIPETX06POWERDOWN, PIPETX06STARTBLOCK
+, PIPETX06SYNCHEADER, PIPETX07CHARISK, PIPETX07COMPLIANCE, PIPETX07DATA, PIPETX07DATAVALID, PIPETX07ELECIDLE, PIPETX07EQCONTROL, PIPETX07EQDEEMPH, PIPETX07POWERDOWN, PIPETX07STARTBLOCK, PIPETX07SYNCHEADER, PIPETX08CHARISK, PIPETX08COMPLIANCE, PIPETX08DATA, PIPETX08DATAVALID, PIPETX08ELECIDLE, PIPETX08EQCONTROL, PIPETX08EQDEEMPH, PIPETX08POWERDOWN, PIPETX08STARTBLOCK, PIPETX08SYNCHEADER
+, PIPETX09CHARISK, PIPETX09COMPLIANCE, PIPETX09DATA, PIPETX09DATAVALID, PIPETX09ELECIDLE, PIPETX09EQCONTROL, PIPETX09EQDEEMPH, PIPETX09POWERDOWN, PIPETX09STARTBLOCK, PIPETX09SYNCHEADER, PIPETX10CHARISK, PIPETX10COMPLIANCE, PIPETX10DATA, PIPETX10DATAVALID, PIPETX10ELECIDLE, PIPETX10EQCONTROL, PIPETX10EQDEEMPH, PIPETX10POWERDOWN, PIPETX10STARTBLOCK, PIPETX10SYNCHEADER, PIPETX11CHARISK
+, PIPETX11COMPLIANCE, PIPETX11DATA, PIPETX11DATAVALID, PIPETX11ELECIDLE, PIPETX11EQCONTROL, PIPETX11EQDEEMPH, PIPETX11POWERDOWN, PIPETX11STARTBLOCK, PIPETX11SYNCHEADER, PIPETX12CHARISK, PIPETX12COMPLIANCE, PIPETX12DATA, PIPETX12DATAVALID, PIPETX12ELECIDLE, PIPETX12EQCONTROL, PIPETX12EQDEEMPH, PIPETX12POWERDOWN, PIPETX12STARTBLOCK, PIPETX12SYNCHEADER, PIPETX13CHARISK, PIPETX13COMPLIANCE
+, PIPETX13DATA, PIPETX13DATAVALID, PIPETX13ELECIDLE, PIPETX13EQCONTROL, PIPETX13EQDEEMPH, PIPETX13POWERDOWN, PIPETX13STARTBLOCK, PIPETX13SYNCHEADER, PIPETX14CHARISK, PIPETX14COMPLIANCE, PIPETX14DATA, PIPETX14DATAVALID, PIPETX14ELECIDLE, PIPETX14EQCONTROL, PIPETX14EQDEEMPH, PIPETX14POWERDOWN, PIPETX14STARTBLOCK, PIPETX14SYNCHEADER, PIPETX15CHARISK, PIPETX15COMPLIANCE, PIPETX15DATA
+, PIPETX15DATAVALID, PIPETX15ELECIDLE, PIPETX15EQCONTROL, PIPETX15EQDEEMPH, PIPETX15POWERDOWN, PIPETX15STARTBLOCK, PIPETX15SYNCHEADER, PIPETXDEEMPH, PIPETXMARGIN, PIPETXRATE, PIPETXRCVRDET, PIPETXRESET, PIPETXSWING, PLEQINPROGRESS, PLEQPHASE, PLGEN34EQMISMATCH, SAXISCCTREADY, SAXISRQTREADY, USERSPAREOUT, AXIUSERIN, CFGCONFIGSPACEENABLE
+, CFGDEVIDPF0, CFGDEVIDPF1, CFGDEVIDPF2, CFGDEVIDPF3, CFGDSBUSNUMBER, CFGDSDEVICENUMBER, CFGDSFUNCTIONNUMBER, CFGDSN, CFGDSPORTNUMBER, CFGERRCORIN, CFGERRUNCORIN, CFGEXTREADDATA, CFGEXTREADDATAVALID, CFGFCSEL, CFGFLRDONE, CFGHOTRESETIN, CFGINTERRUPTINT, CFGINTERRUPTMSIATTR, CFGINTERRUPTMSIFUNCTIONNUMBER, CFGINTERRUPTMSIINT, CFGINTERRUPTMSIPENDINGSTATUS
+, CFGINTERRUPTMSIPENDINGSTATUSDATAENABLE, CFGINTERRUPTMSIPENDINGSTATUSFUNCTIONNUM, CFGINTERRUPTMSISELECT, CFGINTERRUPTMSITPHPRESENT, CFGINTERRUPTMSITPHSTTAG, CFGINTERRUPTMSITPHTYPE, CFGINTERRUPTMSIXADDRESS, CFGINTERRUPTMSIXDATA, CFGINTERRUPTMSIXINT, CFGINTERRUPTMSIXVECPENDING, CFGINTERRUPTPENDING, CFGLINKTRAININGENABLE, CFGMGMTADDR, CFGMGMTBYTEENABLE, CFGMGMTDEBUGACCESS, CFGMGMTFUNCTIONNUMBER, CFGMGMTREAD, CFGMGMTWRITE, CFGMGMTWRITEDATA, CFGMSGTRANSMIT, CFGMSGTRANSMITDATA
+, CFGMSGTRANSMITTYPE, CFGMSIXRAMREADDATA, CFGPMASPML1ENTRYREJECT, CFGPMASPMTXL0SENTRYDISABLE, CFGPOWERSTATECHANGEACK, CFGREQPMTRANSITIONL23READY, CFGREVIDPF0, CFGREVIDPF1, CFGREVIDPF2, CFGREVIDPF3, CFGSUBSYSIDPF0, CFGSUBSYSIDPF1, CFGSUBSYSIDPF2, CFGSUBSYSIDPF3, CFGSUBSYSVENDID, CFGTPHRAMREADDATA, CFGVENDID, CFGVFFLRDONE, CFGVFFLRFUNCNUM, CONFMCAPREQUESTBYCONF, CONFREQDATA
+, CONFREQREGNUM, CONFREQTYPE, CONFREQVALID, CORECLK, CORECLKMIREPLAYRAM0, CORECLKMIREPLAYRAM1, CORECLKMIRXCOMPLETIONRAM0, CORECLKMIRXCOMPLETIONRAM1, CORECLKMIRXPOSTEDREQUESTRAM0, CORECLKMIRXPOSTEDREQUESTRAM1, DBGSEL0, DBGSEL1, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, MAXISCQTREADY, MAXISRCTREADY, MCAPCLK, MCAPPERST0B
+, MCAPPERST1B, MGMTRESETN, MGMTSTICKYRESETN, MIREPLAYRAMERRCOR, MIREPLAYRAMERRUNCOR, MIREPLAYRAMREADDATA0, MIREPLAYRAMREADDATA1, MIRXCOMPLETIONRAMERRCOR, MIRXCOMPLETIONRAMERRUNCOR, MIRXCOMPLETIONRAMREADDATA0, MIRXCOMPLETIONRAMREADDATA1, MIRXPOSTEDREQUESTRAMERRCOR, MIRXPOSTEDREQUESTRAMERRUNCOR, MIRXPOSTEDREQUESTRAMREADDATA0, MIRXPOSTEDREQUESTRAMREADDATA1, PCIECOMPLDELIVERED, PCIECOMPLDELIVEREDTAG0, PCIECOMPLDELIVEREDTAG1, PCIECQNPREQ, PCIECQNPUSERCREDITRCVD, PCIECQPIPELINEEMPTY
+, PCIEPOSTEDREQDELIVERED, PIPECLK, PIPECLKEN, PIPEEQFS, PIPEEQLF, PIPERESETN, PIPERX00CHARISK, PIPERX00DATA, PIPERX00DATAVALID, PIPERX00ELECIDLE, PIPERX00EQDONE, PIPERX00EQLPADAPTDONE, PIPERX00EQLPLFFSSEL, PIPERX00EQLPNEWTXCOEFFORPRESET, PIPERX00PHYSTATUS, PIPERX00STARTBLOCK, PIPERX00STATUS, PIPERX00SYNCHEADER, PIPERX00VALID, PIPERX01CHARISK, PIPERX01DATA
+, PIPERX01DATAVALID, PIPERX01ELECIDLE, PIPERX01EQDONE, PIPERX01EQLPADAPTDONE, PIPERX01EQLPLFFSSEL, PIPERX01EQLPNEWTXCOEFFORPRESET, PIPERX01PHYSTATUS, PIPERX01STARTBLOCK, PIPERX01STATUS, PIPERX01SYNCHEADER, PIPERX01VALID, PIPERX02CHARISK, PIPERX02DATA, PIPERX02DATAVALID, PIPERX02ELECIDLE, PIPERX02EQDONE, PIPERX02EQLPADAPTDONE, PIPERX02EQLPLFFSSEL, PIPERX02EQLPNEWTXCOEFFORPRESET, PIPERX02PHYSTATUS, PIPERX02STARTBLOCK
+, PIPERX02STATUS, PIPERX02SYNCHEADER, PIPERX02VALID, PIPERX03CHARISK, PIPERX03DATA, PIPERX03DATAVALID, PIPERX03ELECIDLE, PIPERX03EQDONE, PIPERX03EQLPADAPTDONE, PIPERX03EQLPLFFSSEL, PIPERX03EQLPNEWTXCOEFFORPRESET, PIPERX03PHYSTATUS, PIPERX03STARTBLOCK, PIPERX03STATUS, PIPERX03SYNCHEADER, PIPERX03VALID, PIPERX04CHARISK, PIPERX04DATA, PIPERX04DATAVALID, PIPERX04ELECIDLE, PIPERX04EQDONE
+, PIPERX04EQLPADAPTDONE, PIPERX04EQLPLFFSSEL, PIPERX04EQLPNEWTXCOEFFORPRESET, PIPERX04PHYSTATUS, PIPERX04STARTBLOCK, PIPERX04STATUS, PIPERX04SYNCHEADER, PIPERX04VALID, PIPERX05CHARISK, PIPERX05DATA, PIPERX05DATAVALID, PIPERX05ELECIDLE, PIPERX05EQDONE, PIPERX05EQLPADAPTDONE, PIPERX05EQLPLFFSSEL, PIPERX05EQLPNEWTXCOEFFORPRESET, PIPERX05PHYSTATUS, PIPERX05STARTBLOCK, PIPERX05STATUS, PIPERX05SYNCHEADER, PIPERX05VALID
+, PIPERX06CHARISK, PIPERX06DATA, PIPERX06DATAVALID, PIPERX06ELECIDLE, PIPERX06EQDONE, PIPERX06EQLPADAPTDONE, PIPERX06EQLPLFFSSEL, PIPERX06EQLPNEWTXCOEFFORPRESET, PIPERX06PHYSTATUS, PIPERX06STARTBLOCK, PIPERX06STATUS, PIPERX06SYNCHEADER, PIPERX06VALID, PIPERX07CHARISK, PIPERX07DATA, PIPERX07DATAVALID, PIPERX07ELECIDLE, PIPERX07EQDONE, PIPERX07EQLPADAPTDONE, PIPERX07EQLPLFFSSEL, PIPERX07EQLPNEWTXCOEFFORPRESET
+, PIPERX07PHYSTATUS, PIPERX07STARTBLOCK, PIPERX07STATUS, PIPERX07SYNCHEADER, PIPERX07VALID, PIPERX08CHARISK, PIPERX08DATA, PIPERX08DATAVALID, PIPERX08ELECIDLE, PIPERX08EQDONE, PIPERX08EQLPADAPTDONE, PIPERX08EQLPLFFSSEL, PIPERX08EQLPNEWTXCOEFFORPRESET, PIPERX08PHYSTATUS, PIPERX08STARTBLOCK, PIPERX08STATUS, PIPERX08SYNCHEADER, PIPERX08VALID, PIPERX09CHARISK, PIPERX09DATA, PIPERX09DATAVALID
+, PIPERX09ELECIDLE, PIPERX09EQDONE, PIPERX09EQLPADAPTDONE, PIPERX09EQLPLFFSSEL, PIPERX09EQLPNEWTXCOEFFORPRESET, PIPERX09PHYSTATUS, PIPERX09STARTBLOCK, PIPERX09STATUS, PIPERX09SYNCHEADER, PIPERX09VALID, PIPERX10CHARISK, PIPERX10DATA, PIPERX10DATAVALID, PIPERX10ELECIDLE, PIPERX10EQDONE, PIPERX10EQLPADAPTDONE, PIPERX10EQLPLFFSSEL, PIPERX10EQLPNEWTXCOEFFORPRESET, PIPERX10PHYSTATUS, PIPERX10STARTBLOCK, PIPERX10STATUS
+, PIPERX10SYNCHEADER, PIPERX10VALID, PIPERX11CHARISK, PIPERX11DATA, PIPERX11DATAVALID, PIPERX11ELECIDLE, PIPERX11EQDONE, PIPERX11EQLPADAPTDONE, PIPERX11EQLPLFFSSEL, PIPERX11EQLPNEWTXCOEFFORPRESET, PIPERX11PHYSTATUS, PIPERX11STARTBLOCK, PIPERX11STATUS, PIPERX11SYNCHEADER, PIPERX11VALID, PIPERX12CHARISK, PIPERX12DATA, PIPERX12DATAVALID, PIPERX12ELECIDLE, PIPERX12EQDONE, PIPERX12EQLPADAPTDONE
+, PIPERX12EQLPLFFSSEL, PIPERX12EQLPNEWTXCOEFFORPRESET, PIPERX12PHYSTATUS, PIPERX12STARTBLOCK, PIPERX12STATUS, PIPERX12SYNCHEADER, PIPERX12VALID, PIPERX13CHARISK, PIPERX13DATA, PIPERX13DATAVALID, PIPERX13ELECIDLE, PIPERX13EQDONE, PIPERX13EQLPADAPTDONE, PIPERX13EQLPLFFSSEL, PIPERX13EQLPNEWTXCOEFFORPRESET, PIPERX13PHYSTATUS, PIPERX13STARTBLOCK, PIPERX13STATUS, PIPERX13SYNCHEADER, PIPERX13VALID, PIPERX14CHARISK
+, PIPERX14DATA, PIPERX14DATAVALID, PIPERX14ELECIDLE, PIPERX14EQDONE, PIPERX14EQLPADAPTDONE, PIPERX14EQLPLFFSSEL, PIPERX14EQLPNEWTXCOEFFORPRESET, PIPERX14PHYSTATUS, PIPERX14STARTBLOCK, PIPERX14STATUS, PIPERX14SYNCHEADER, PIPERX14VALID, PIPERX15CHARISK, PIPERX15DATA, PIPERX15DATAVALID, PIPERX15ELECIDLE, PIPERX15EQDONE, PIPERX15EQLPADAPTDONE, PIPERX15EQLPLFFSSEL, PIPERX15EQLPNEWTXCOEFFORPRESET, PIPERX15PHYSTATUS
+, PIPERX15STARTBLOCK, PIPERX15STATUS, PIPERX15SYNCHEADER, PIPERX15VALID, PIPETX00EQCOEFF, PIPETX00EQDONE, PIPETX01EQCOEFF, PIPETX01EQDONE, PIPETX02EQCOEFF, PIPETX02EQDONE, PIPETX03EQCOEFF, PIPETX03EQDONE, PIPETX04EQCOEFF, PIPETX04EQDONE, PIPETX05EQCOEFF, PIPETX05EQDONE, PIPETX06EQCOEFF, PIPETX06EQDONE, PIPETX07EQCOEFF, PIPETX07EQDONE, PIPETX08EQCOEFF
+, PIPETX08EQDONE, PIPETX09EQCOEFF, PIPETX09EQDONE, PIPETX10EQCOEFF, PIPETX10EQDONE, PIPETX11EQCOEFF, PIPETX11EQDONE, PIPETX12EQCOEFF, PIPETX12EQDONE, PIPETX13EQCOEFF, PIPETX13EQDONE, PIPETX14EQCOEFF, PIPETX14EQDONE, PIPETX15EQCOEFF, PIPETX15EQDONE, PLEQRESETEIEOSCOUNT, PLGEN2UPSTREAMPREFERDEEMPH, PLGEN34REDOEQSPEED, PLGEN34REDOEQUALIZATION, RESETN, SAXISCCTDATA
+, SAXISCCTKEEP, SAXISCCTLAST, SAXISCCTUSER, SAXISCCTVALID, SAXISRQTDATA, SAXISRQTKEEP, SAXISRQTLAST, SAXISRQTUSER, SAXISRQTVALID, USERCLK, USERCLK2, USERCLKEN, USERSPAREIN);
     parameter ARI_CAP_ENABLE = "FALSE";
     parameter AUTO_FLR_RESPONSE = "FALSE";
     parameter [1:0] AXISTEN_IF_CC_ALIGNMENT_MODE = 2'h0;
@@ -25233,7 +25605,41 @@ module PCIE40E4 (...);
     input [31:0] USERSPAREIN;
 endmodule
 
-module PCIE4CE4 (...);
+module PCIE4CE4(AXIUSEROUT, CCIXTXCREDIT, CFGBUSNUMBER, CFGCURRENTSPEED, CFGERRCOROUT, CFGERRFATALOUT, CFGERRNONFATALOUT, CFGEXTFUNCTIONNUMBER, CFGEXTREADRECEIVED, CFGEXTREGISTERNUMBER, CFGEXTWRITEBYTEENABLE, CFGEXTWRITEDATA, CFGEXTWRITERECEIVED, CFGFCCPLD, CFGFCCPLH, CFGFCNPD, CFGFCNPH, CFGFCPD, CFGFCPH, CFGFLRINPROCESS, CFGFUNCTIONPOWERSTATE
+, CFGFUNCTIONSTATUS, CFGHOTRESETOUT, CFGINTERRUPTMSIDATA, CFGINTERRUPTMSIENABLE, CFGINTERRUPTMSIFAIL, CFGINTERRUPTMSIMASKUPDATE, CFGINTERRUPTMSIMMENABLE, CFGINTERRUPTMSISENT, CFGINTERRUPTMSIXENABLE, CFGINTERRUPTMSIXMASK, CFGINTERRUPTMSIXVECPENDINGSTATUS, CFGINTERRUPTSENT, CFGLINKPOWERSTATE, CFGLOCALERROROUT, CFGLOCALERRORVALID, CFGLTRENABLE, CFGLTSSMSTATE, CFGMAXPAYLOAD, CFGMAXREADREQ, CFGMGMTREADDATA, CFGMGMTREADWRITEDONE
+, CFGMSGRECEIVED, CFGMSGRECEIVEDDATA, CFGMSGRECEIVEDTYPE, CFGMSGTRANSMITDONE, CFGMSIXRAMADDRESS, CFGMSIXRAMREADENABLE, CFGMSIXRAMWRITEBYTEENABLE, CFGMSIXRAMWRITEDATA, CFGNEGOTIATEDWIDTH, CFGOBFFENABLE, CFGPHYLINKDOWN, CFGPHYLINKSTATUS, CFGPLSTATUSCHANGE, CFGPOWERSTATECHANGEINTERRUPT, CFGRCBSTATUS, CFGRXPMSTATE, CFGTPHRAMADDRESS, CFGTPHRAMREADENABLE, CFGTPHRAMWRITEBYTEENABLE, CFGTPHRAMWRITEDATA, CFGTPHREQUESTERENABLE
+, CFGTPHSTMODE, CFGTXPMSTATE, CFGVC1ENABLE, CFGVC1NEGOTIATIONPENDING, CONFMCAPDESIGNSWITCH, CONFMCAPEOS, CONFMCAPINUSEBYPCIE, CONFREQREADY, CONFRESPRDATA, CONFRESPVALID, DBGCCIXOUT, DBGCTRL0OUT, DBGCTRL1OUT, DBGDATA0OUT, DBGDATA1OUT, DRPDO, DRPRDY, MAXISCCIXRXTUSER, MAXISCCIXRXTVALID, MAXISCQTDATA, MAXISCQTKEEP
+, MAXISCQTLAST, MAXISCQTUSER, MAXISCQTVALID, MAXISRCTDATA, MAXISRCTKEEP, MAXISRCTLAST, MAXISRCTUSER, MAXISRCTVALID, MIREPLAYRAMADDRESS0, MIREPLAYRAMADDRESS1, MIREPLAYRAMREADENABLE0, MIREPLAYRAMREADENABLE1, MIREPLAYRAMWRITEDATA0, MIREPLAYRAMWRITEDATA1, MIREPLAYRAMWRITEENABLE0, MIREPLAYRAMWRITEENABLE1, MIRXCOMPLETIONRAMREADADDRESS0, MIRXCOMPLETIONRAMREADADDRESS1, MIRXCOMPLETIONRAMREADENABLE0, MIRXCOMPLETIONRAMREADENABLE1, MIRXCOMPLETIONRAMWRITEADDRESS0
+, MIRXCOMPLETIONRAMWRITEADDRESS1, MIRXCOMPLETIONRAMWRITEDATA0, MIRXCOMPLETIONRAMWRITEDATA1, MIRXCOMPLETIONRAMWRITEENABLE0, MIRXCOMPLETIONRAMWRITEENABLE1, MIRXPOSTEDREQUESTRAMREADADDRESS0, MIRXPOSTEDREQUESTRAMREADADDRESS1, MIRXPOSTEDREQUESTRAMREADENABLE0, MIRXPOSTEDREQUESTRAMREADENABLE1, MIRXPOSTEDREQUESTRAMWRITEADDRESS0, MIRXPOSTEDREQUESTRAMWRITEADDRESS1, MIRXPOSTEDREQUESTRAMWRITEDATA0, MIRXPOSTEDREQUESTRAMWRITEDATA1, MIRXPOSTEDREQUESTRAMWRITEENABLE0, MIRXPOSTEDREQUESTRAMWRITEENABLE1, PCIECQNPREQCOUNT, PCIEPERST0B, PCIEPERST1B, PCIERQSEQNUM0, PCIERQSEQNUM1, PCIERQSEQNUMVLD0
+, PCIERQSEQNUMVLD1, PCIERQTAG0, PCIERQTAG1, PCIERQTAGAV, PCIERQTAGVLD0, PCIERQTAGVLD1, PCIETFCNPDAV, PCIETFCNPHAV, PIPERX00EQCONTROL, PIPERX00POLARITY, PIPERX01EQCONTROL, PIPERX01POLARITY, PIPERX02EQCONTROL, PIPERX02POLARITY, PIPERX03EQCONTROL, PIPERX03POLARITY, PIPERX04EQCONTROL, PIPERX04POLARITY, PIPERX05EQCONTROL, PIPERX05POLARITY, PIPERX06EQCONTROL
+, PIPERX06POLARITY, PIPERX07EQCONTROL, PIPERX07POLARITY, PIPERX08EQCONTROL, PIPERX08POLARITY, PIPERX09EQCONTROL, PIPERX09POLARITY, PIPERX10EQCONTROL, PIPERX10POLARITY, PIPERX11EQCONTROL, PIPERX11POLARITY, PIPERX12EQCONTROL, PIPERX12POLARITY, PIPERX13EQCONTROL, PIPERX13POLARITY, PIPERX14EQCONTROL, PIPERX14POLARITY, PIPERX15EQCONTROL, PIPERX15POLARITY, PIPERXEQLPLFFS, PIPERXEQLPTXPRESET
+, PIPETX00CHARISK, PIPETX00COMPLIANCE, PIPETX00DATA, PIPETX00DATAVALID, PIPETX00ELECIDLE, PIPETX00EQCONTROL, PIPETX00EQDEEMPH, PIPETX00POWERDOWN, PIPETX00STARTBLOCK, PIPETX00SYNCHEADER, PIPETX01CHARISK, PIPETX01COMPLIANCE, PIPETX01DATA, PIPETX01DATAVALID, PIPETX01ELECIDLE, PIPETX01EQCONTROL, PIPETX01EQDEEMPH, PIPETX01POWERDOWN, PIPETX01STARTBLOCK, PIPETX01SYNCHEADER, PIPETX02CHARISK
+, PIPETX02COMPLIANCE, PIPETX02DATA, PIPETX02DATAVALID, PIPETX02ELECIDLE, PIPETX02EQCONTROL, PIPETX02EQDEEMPH, PIPETX02POWERDOWN, PIPETX02STARTBLOCK, PIPETX02SYNCHEADER, PIPETX03CHARISK, PIPETX03COMPLIANCE, PIPETX03DATA, PIPETX03DATAVALID, PIPETX03ELECIDLE, PIPETX03EQCONTROL, PIPETX03EQDEEMPH, PIPETX03POWERDOWN, PIPETX03STARTBLOCK, PIPETX03SYNCHEADER, PIPETX04CHARISK, PIPETX04COMPLIANCE
+, PIPETX04DATA, PIPETX04DATAVALID, PIPETX04ELECIDLE, PIPETX04EQCONTROL, PIPETX04EQDEEMPH, PIPETX04POWERDOWN, PIPETX04STARTBLOCK, PIPETX04SYNCHEADER, PIPETX05CHARISK, PIPETX05COMPLIANCE, PIPETX05DATA, PIPETX05DATAVALID, PIPETX05ELECIDLE, PIPETX05EQCONTROL, PIPETX05EQDEEMPH, PIPETX05POWERDOWN, PIPETX05STARTBLOCK, PIPETX05SYNCHEADER, PIPETX06CHARISK, PIPETX06COMPLIANCE, PIPETX06DATA
+, PIPETX06DATAVALID, PIPETX06ELECIDLE, PIPETX06EQCONTROL, PIPETX06EQDEEMPH, PIPETX06POWERDOWN, PIPETX06STARTBLOCK, PIPETX06SYNCHEADER, PIPETX07CHARISK, PIPETX07COMPLIANCE, PIPETX07DATA, PIPETX07DATAVALID, PIPETX07ELECIDLE, PIPETX07EQCONTROL, PIPETX07EQDEEMPH, PIPETX07POWERDOWN, PIPETX07STARTBLOCK, PIPETX07SYNCHEADER, PIPETX08CHARISK, PIPETX08COMPLIANCE, PIPETX08DATA, PIPETX08DATAVALID
+, PIPETX08ELECIDLE, PIPETX08EQCONTROL, PIPETX08EQDEEMPH, PIPETX08POWERDOWN, PIPETX08STARTBLOCK, PIPETX08SYNCHEADER, PIPETX09CHARISK, PIPETX09COMPLIANCE, PIPETX09DATA, PIPETX09DATAVALID, PIPETX09ELECIDLE, PIPETX09EQCONTROL, PIPETX09EQDEEMPH, PIPETX09POWERDOWN, PIPETX09STARTBLOCK, PIPETX09SYNCHEADER, PIPETX10CHARISK, PIPETX10COMPLIANCE, PIPETX10DATA, PIPETX10DATAVALID, PIPETX10ELECIDLE
+, PIPETX10EQCONTROL, PIPETX10EQDEEMPH, PIPETX10POWERDOWN, PIPETX10STARTBLOCK, PIPETX10SYNCHEADER, PIPETX11CHARISK, PIPETX11COMPLIANCE, PIPETX11DATA, PIPETX11DATAVALID, PIPETX11ELECIDLE, PIPETX11EQCONTROL, PIPETX11EQDEEMPH, PIPETX11POWERDOWN, PIPETX11STARTBLOCK, PIPETX11SYNCHEADER, PIPETX12CHARISK, PIPETX12COMPLIANCE, PIPETX12DATA, PIPETX12DATAVALID, PIPETX12ELECIDLE, PIPETX12EQCONTROL
+, PIPETX12EQDEEMPH, PIPETX12POWERDOWN, PIPETX12STARTBLOCK, PIPETX12SYNCHEADER, PIPETX13CHARISK, PIPETX13COMPLIANCE, PIPETX13DATA, PIPETX13DATAVALID, PIPETX13ELECIDLE, PIPETX13EQCONTROL, PIPETX13EQDEEMPH, PIPETX13POWERDOWN, PIPETX13STARTBLOCK, PIPETX13SYNCHEADER, PIPETX14CHARISK, PIPETX14COMPLIANCE, PIPETX14DATA, PIPETX14DATAVALID, PIPETX14ELECIDLE, PIPETX14EQCONTROL, PIPETX14EQDEEMPH
+, PIPETX14POWERDOWN, PIPETX14STARTBLOCK, PIPETX14SYNCHEADER, PIPETX15CHARISK, PIPETX15COMPLIANCE, PIPETX15DATA, PIPETX15DATAVALID, PIPETX15ELECIDLE, PIPETX15EQCONTROL, PIPETX15EQDEEMPH, PIPETX15POWERDOWN, PIPETX15STARTBLOCK, PIPETX15SYNCHEADER, PIPETXDEEMPH, PIPETXMARGIN, PIPETXRATE, PIPETXRCVRDET, PIPETXRESET, PIPETXSWING, PLEQINPROGRESS, PLEQPHASE
+, PLGEN34EQMISMATCH, SAXISCCTREADY, SAXISRQTREADY, USERSPAREOUT, AXIUSERIN, CCIXOPTIMIZEDTLPTXANDRXENABLE, CCIXRXCORRECTABLEERRORDETECTED, CCIXRXFIFOOVERFLOW, CCIXRXTLPFORWARDED0, CCIXRXTLPFORWARDED1, CCIXRXTLPFORWARDEDLENGTH0, CCIXRXTLPFORWARDEDLENGTH1, CCIXRXUNCORRECTABLEERRORDETECTED, CFGCONFIGSPACEENABLE, CFGDEVIDPF0, CFGDEVIDPF1, CFGDEVIDPF2, CFGDEVIDPF3, CFGDSBUSNUMBER, CFGDSDEVICENUMBER, CFGDSFUNCTIONNUMBER
+, CFGDSN, CFGDSPORTNUMBER, CFGERRCORIN, CFGERRUNCORIN, CFGEXTREADDATA, CFGEXTREADDATAVALID, CFGFCSEL, CFGFCVCSEL, CFGFLRDONE, CFGHOTRESETIN, CFGINTERRUPTINT, CFGINTERRUPTMSIATTR, CFGINTERRUPTMSIFUNCTIONNUMBER, CFGINTERRUPTMSIINT, CFGINTERRUPTMSIPENDINGSTATUS, CFGINTERRUPTMSIPENDINGSTATUSDATAENABLE, CFGINTERRUPTMSIPENDINGSTATUSFUNCTIONNUM, CFGINTERRUPTMSISELECT, CFGINTERRUPTMSITPHPRESENT, CFGINTERRUPTMSITPHSTTAG, CFGINTERRUPTMSITPHTYPE
+, CFGINTERRUPTMSIXADDRESS, CFGINTERRUPTMSIXDATA, CFGINTERRUPTMSIXINT, CFGINTERRUPTMSIXVECPENDING, CFGINTERRUPTPENDING, CFGLINKTRAININGENABLE, CFGMGMTADDR, CFGMGMTBYTEENABLE, CFGMGMTDEBUGACCESS, CFGMGMTFUNCTIONNUMBER, CFGMGMTREAD, CFGMGMTWRITE, CFGMGMTWRITEDATA, CFGMSGTRANSMIT, CFGMSGTRANSMITDATA, CFGMSGTRANSMITTYPE, CFGMSIXRAMREADDATA, CFGPMASPML1ENTRYREJECT, CFGPMASPMTXL0SENTRYDISABLE, CFGPOWERSTATECHANGEACK, CFGREQPMTRANSITIONL23READY
+, CFGREVIDPF0, CFGREVIDPF1, CFGREVIDPF2, CFGREVIDPF3, CFGSUBSYSIDPF0, CFGSUBSYSIDPF1, CFGSUBSYSIDPF2, CFGSUBSYSIDPF3, CFGSUBSYSVENDID, CFGTPHRAMREADDATA, CFGVENDID, CFGVFFLRDONE, CFGVFFLRFUNCNUM, CONFMCAPREQUESTBYCONF, CONFREQDATA, CONFREQREGNUM, CONFREQTYPE, CONFREQVALID, CORECLK, CORECLKCCIX, CORECLKMIREPLAYRAM0
+, CORECLKMIREPLAYRAM1, CORECLKMIRXCOMPLETIONRAM0, CORECLKMIRXCOMPLETIONRAM1, CORECLKMIRXPOSTEDREQUESTRAM0, CORECLKMIRXPOSTEDREQUESTRAM1, DBGSEL0, DBGSEL1, DRPADDR, DRPCLK, DRPDI, DRPEN, DRPWE, MAXISCQTREADY, MAXISRCTREADY, MCAPCLK, MCAPPERST0B, MCAPPERST1B, MGMTRESETN, MGMTSTICKYRESETN, MIREPLAYRAMERRCOR, MIREPLAYRAMERRUNCOR
+, MIREPLAYRAMREADDATA0, MIREPLAYRAMREADDATA1, MIRXCOMPLETIONRAMERRCOR, MIRXCOMPLETIONRAMERRUNCOR, MIRXCOMPLETIONRAMREADDATA0, MIRXCOMPLETIONRAMREADDATA1, MIRXPOSTEDREQUESTRAMERRCOR, MIRXPOSTEDREQUESTRAMERRUNCOR, MIRXPOSTEDREQUESTRAMREADDATA0, MIRXPOSTEDREQUESTRAMREADDATA1, PCIECOMPLDELIVERED, PCIECOMPLDELIVEREDTAG0, PCIECOMPLDELIVEREDTAG1, PCIECQNPREQ, PCIECQNPUSERCREDITRCVD, PCIECQPIPELINEEMPTY, PCIEPOSTEDREQDELIVERED, PIPECLK, PIPECLKEN, PIPEEQFS, PIPEEQLF
+, PIPERESETN, PIPERX00CHARISK, PIPERX00DATA, PIPERX00DATAVALID, PIPERX00ELECIDLE, PIPERX00EQDONE, PIPERX00EQLPADAPTDONE, PIPERX00EQLPLFFSSEL, PIPERX00EQLPNEWTXCOEFFORPRESET, PIPERX00PHYSTATUS, PIPERX00STARTBLOCK, PIPERX00STATUS, PIPERX00SYNCHEADER, PIPERX00VALID, PIPERX01CHARISK, PIPERX01DATA, PIPERX01DATAVALID, PIPERX01ELECIDLE, PIPERX01EQDONE, PIPERX01EQLPADAPTDONE, PIPERX01EQLPLFFSSEL
+, PIPERX01EQLPNEWTXCOEFFORPRESET, PIPERX01PHYSTATUS, PIPERX01STARTBLOCK, PIPERX01STATUS, PIPERX01SYNCHEADER, PIPERX01VALID, PIPERX02CHARISK, PIPERX02DATA, PIPERX02DATAVALID, PIPERX02ELECIDLE, PIPERX02EQDONE, PIPERX02EQLPADAPTDONE, PIPERX02EQLPLFFSSEL, PIPERX02EQLPNEWTXCOEFFORPRESET, PIPERX02PHYSTATUS, PIPERX02STARTBLOCK, PIPERX02STATUS, PIPERX02SYNCHEADER, PIPERX02VALID, PIPERX03CHARISK, PIPERX03DATA
+, PIPERX03DATAVALID, PIPERX03ELECIDLE, PIPERX03EQDONE, PIPERX03EQLPADAPTDONE, PIPERX03EQLPLFFSSEL, PIPERX03EQLPNEWTXCOEFFORPRESET, PIPERX03PHYSTATUS, PIPERX03STARTBLOCK, PIPERX03STATUS, PIPERX03SYNCHEADER, PIPERX03VALID, PIPERX04CHARISK, PIPERX04DATA, PIPERX04DATAVALID, PIPERX04ELECIDLE, PIPERX04EQDONE, PIPERX04EQLPADAPTDONE, PIPERX04EQLPLFFSSEL, PIPERX04EQLPNEWTXCOEFFORPRESET, PIPERX04PHYSTATUS, PIPERX04STARTBLOCK
+, PIPERX04STATUS, PIPERX04SYNCHEADER, PIPERX04VALID, PIPERX05CHARISK, PIPERX05DATA, PIPERX05DATAVALID, PIPERX05ELECIDLE, PIPERX05EQDONE, PIPERX05EQLPADAPTDONE, PIPERX05EQLPLFFSSEL, PIPERX05EQLPNEWTXCOEFFORPRESET, PIPERX05PHYSTATUS, PIPERX05STARTBLOCK, PIPERX05STATUS, PIPERX05SYNCHEADER, PIPERX05VALID, PIPERX06CHARISK, PIPERX06DATA, PIPERX06DATAVALID, PIPERX06ELECIDLE, PIPERX06EQDONE
+, PIPERX06EQLPADAPTDONE, PIPERX06EQLPLFFSSEL, PIPERX06EQLPNEWTXCOEFFORPRESET, PIPERX06PHYSTATUS, PIPERX06STARTBLOCK, PIPERX06STATUS, PIPERX06SYNCHEADER, PIPERX06VALID, PIPERX07CHARISK, PIPERX07DATA, PIPERX07DATAVALID, PIPERX07ELECIDLE, PIPERX07EQDONE, PIPERX07EQLPADAPTDONE, PIPERX07EQLPLFFSSEL, PIPERX07EQLPNEWTXCOEFFORPRESET, PIPERX07PHYSTATUS, PIPERX07STARTBLOCK, PIPERX07STATUS, PIPERX07SYNCHEADER, PIPERX07VALID
+, PIPERX08CHARISK, PIPERX08DATA, PIPERX08DATAVALID, PIPERX08ELECIDLE, PIPERX08EQDONE, PIPERX08EQLPADAPTDONE, PIPERX08EQLPLFFSSEL, PIPERX08EQLPNEWTXCOEFFORPRESET, PIPERX08PHYSTATUS, PIPERX08STARTBLOCK, PIPERX08STATUS, PIPERX08SYNCHEADER, PIPERX08VALID, PIPERX09CHARISK, PIPERX09DATA, PIPERX09DATAVALID, PIPERX09ELECIDLE, PIPERX09EQDONE, PIPERX09EQLPADAPTDONE, PIPERX09EQLPLFFSSEL, PIPERX09EQLPNEWTXCOEFFORPRESET
+, PIPERX09PHYSTATUS, PIPERX09STARTBLOCK, PIPERX09STATUS, PIPERX09SYNCHEADER, PIPERX09VALID, PIPERX10CHARISK, PIPERX10DATA, PIPERX10DATAVALID, PIPERX10ELECIDLE, PIPERX10EQDONE, PIPERX10EQLPADAPTDONE, PIPERX10EQLPLFFSSEL, PIPERX10EQLPNEWTXCOEFFORPRESET, PIPERX10PHYSTATUS, PIPERX10STARTBLOCK, PIPERX10STATUS, PIPERX10SYNCHEADER, PIPERX10VALID, PIPERX11CHARISK, PIPERX11DATA, PIPERX11DATAVALID
+, PIPERX11ELECIDLE, PIPERX11EQDONE, PIPERX11EQLPADAPTDONE, PIPERX11EQLPLFFSSEL, PIPERX11EQLPNEWTXCOEFFORPRESET, PIPERX11PHYSTATUS, PIPERX11STARTBLOCK, PIPERX11STATUS, PIPERX11SYNCHEADER, PIPERX11VALID, PIPERX12CHARISK, PIPERX12DATA, PIPERX12DATAVALID, PIPERX12ELECIDLE, PIPERX12EQDONE, PIPERX12EQLPADAPTDONE, PIPERX12EQLPLFFSSEL, PIPERX12EQLPNEWTXCOEFFORPRESET, PIPERX12PHYSTATUS, PIPERX12STARTBLOCK, PIPERX12STATUS
+, PIPERX12SYNCHEADER, PIPERX12VALID, PIPERX13CHARISK, PIPERX13DATA, PIPERX13DATAVALID, PIPERX13ELECIDLE, PIPERX13EQDONE, PIPERX13EQLPADAPTDONE, PIPERX13EQLPLFFSSEL, PIPERX13EQLPNEWTXCOEFFORPRESET, PIPERX13PHYSTATUS, PIPERX13STARTBLOCK, PIPERX13STATUS, PIPERX13SYNCHEADER, PIPERX13VALID, PIPERX14CHARISK, PIPERX14DATA, PIPERX14DATAVALID, PIPERX14ELECIDLE, PIPERX14EQDONE, PIPERX14EQLPADAPTDONE
+, PIPERX14EQLPLFFSSEL, PIPERX14EQLPNEWTXCOEFFORPRESET, PIPERX14PHYSTATUS, PIPERX14STARTBLOCK, PIPERX14STATUS, PIPERX14SYNCHEADER, PIPERX14VALID, PIPERX15CHARISK, PIPERX15DATA, PIPERX15DATAVALID, PIPERX15ELECIDLE, PIPERX15EQDONE, PIPERX15EQLPADAPTDONE, PIPERX15EQLPLFFSSEL, PIPERX15EQLPNEWTXCOEFFORPRESET, PIPERX15PHYSTATUS, PIPERX15STARTBLOCK, PIPERX15STATUS, PIPERX15SYNCHEADER, PIPERX15VALID, PIPETX00EQCOEFF
+, PIPETX00EQDONE, PIPETX01EQCOEFF, PIPETX01EQDONE, PIPETX02EQCOEFF, PIPETX02EQDONE, PIPETX03EQCOEFF, PIPETX03EQDONE, PIPETX04EQCOEFF, PIPETX04EQDONE, PIPETX05EQCOEFF, PIPETX05EQDONE, PIPETX06EQCOEFF, PIPETX06EQDONE, PIPETX07EQCOEFF, PIPETX07EQDONE, PIPETX08EQCOEFF, PIPETX08EQDONE, PIPETX09EQCOEFF, PIPETX09EQDONE, PIPETX10EQCOEFF, PIPETX10EQDONE
+, PIPETX11EQCOEFF, PIPETX11EQDONE, PIPETX12EQCOEFF, PIPETX12EQDONE, PIPETX13EQCOEFF, PIPETX13EQDONE, PIPETX14EQCOEFF, PIPETX14EQDONE, PIPETX15EQCOEFF, PIPETX15EQDONE, PLEQRESETEIEOSCOUNT, PLGEN2UPSTREAMPREFERDEEMPH, PLGEN34REDOEQSPEED, PLGEN34REDOEQUALIZATION, RESETN, SAXISCCIXTXTDATA, SAXISCCIXTXTUSER, SAXISCCIXTXTVALID, SAXISCCTDATA, SAXISCCTKEEP, SAXISCCTLAST
+, SAXISCCTUSER, SAXISCCTVALID, SAXISRQTDATA, SAXISRQTKEEP, SAXISRQTLAST, SAXISRQTUSER, SAXISRQTVALID, USERCLK, USERCLK2, USERCLKEN, USERSPAREIN);
     parameter ARI_CAP_ENABLE = "FALSE";
     parameter AUTO_FLR_RESPONSE = "FALSE";
     parameter [7:0] AXISTEN_IF_CCIX_RX_CREDIT_LIMIT = 8'h08;
@@ -26539,7 +26945,14 @@ module PCIE4CE4 (...);
     input [31:0] USERSPAREIN;
 endmodule
 
-module EMAC (...);
+module EMAC(DCRHOSTDONEIR, EMAC0CLIENTANINTERRUPT, EMAC0CLIENTRXBADFRAME, EMAC0CLIENTRXCLIENTCLKOUT, EMAC0CLIENTRXDVLD, EMAC0CLIENTRXDVLDMSW, EMAC0CLIENTRXDVREG6, EMAC0CLIENTRXFRAMEDROP, EMAC0CLIENTRXGOODFRAME, EMAC0CLIENTRXSTATSBYTEVLD, EMAC0CLIENTRXSTATSVLD, EMAC0CLIENTTXACK, EMAC0CLIENTTXCLIENTCLKOUT, EMAC0CLIENTTXCOLLISION, EMAC0CLIENTTXGMIIMIICLKOUT, EMAC0CLIENTTXRETRANSMIT, EMAC0CLIENTTXSTATS, EMAC0CLIENTTXSTATSBYTEVLD, EMAC0CLIENTTXSTATSVLD, EMAC0PHYENCOMMAALIGN, EMAC0PHYLOOPBACKMSB
+, EMAC0PHYMCLKOUT, EMAC0PHYMDOUT, EMAC0PHYMDTRI, EMAC0PHYMGTRXRESET, EMAC0PHYMGTTXRESET, EMAC0PHYPOWERDOWN, EMAC0PHYSYNCACQSTATUS, EMAC0PHYTXCHARDISPMODE, EMAC0PHYTXCHARDISPVAL, EMAC0PHYTXCHARISK, EMAC0PHYTXCLK, EMAC0PHYTXEN, EMAC0PHYTXER, EMAC1CLIENTANINTERRUPT, EMAC1CLIENTRXBADFRAME, EMAC1CLIENTRXCLIENTCLKOUT, EMAC1CLIENTRXDVLD, EMAC1CLIENTRXDVLDMSW, EMAC1CLIENTRXDVREG6, EMAC1CLIENTRXFRAMEDROP, EMAC1CLIENTRXGOODFRAME
+, EMAC1CLIENTRXSTATSBYTEVLD, EMAC1CLIENTRXSTATSVLD, EMAC1CLIENTTXACK, EMAC1CLIENTTXCLIENTCLKOUT, EMAC1CLIENTTXCOLLISION, EMAC1CLIENTTXGMIIMIICLKOUT, EMAC1CLIENTTXRETRANSMIT, EMAC1CLIENTTXSTATS, EMAC1CLIENTTXSTATSBYTEVLD, EMAC1CLIENTTXSTATSVLD, EMAC1PHYENCOMMAALIGN, EMAC1PHYLOOPBACKMSB, EMAC1PHYMCLKOUT, EMAC1PHYMDOUT, EMAC1PHYMDTRI, EMAC1PHYMGTRXRESET, EMAC1PHYMGTTXRESET, EMAC1PHYPOWERDOWN, EMAC1PHYSYNCACQSTATUS, EMAC1PHYTXCHARDISPMODE, EMAC1PHYTXCHARDISPVAL
+, EMAC1PHYTXCHARISK, EMAC1PHYTXCLK, EMAC1PHYTXEN, EMAC1PHYTXER, EMACDCRACK, HOSTMIIMRDY, EMACDCRDBUS, EMAC0CLIENTRXD, EMAC1CLIENTRXD, HOSTRDDATA, EMAC0CLIENTRXSTATS, EMAC1CLIENTRXSTATS, EMAC0PHYTXD, EMAC1PHYTXD, CLIENTEMAC0DCMLOCKED, CLIENTEMAC0PAUSEREQ, CLIENTEMAC0RXCLIENTCLKIN, CLIENTEMAC0TXCLIENTCLKIN, CLIENTEMAC0TXDVLD, CLIENTEMAC0TXDVLDMSW, CLIENTEMAC0TXFIRSTBYTE
+, CLIENTEMAC0TXGMIIMIICLKIN, CLIENTEMAC0TXUNDERRUN, CLIENTEMAC1DCMLOCKED, CLIENTEMAC1PAUSEREQ, CLIENTEMAC1RXCLIENTCLKIN, CLIENTEMAC1TXCLIENTCLKIN, CLIENTEMAC1TXDVLD, CLIENTEMAC1TXDVLDMSW, CLIENTEMAC1TXFIRSTBYTE, CLIENTEMAC1TXGMIIMIICLKIN, CLIENTEMAC1TXUNDERRUN, DCREMACCLK, DCREMACENABLE, DCREMACREAD, DCREMACWRITE, HOSTCLK, HOSTEMAC1SEL, HOSTMIIMSEL, HOSTREQ, PHYEMAC0COL, PHYEMAC0CRS
+, PHYEMAC0GTXCLK, PHYEMAC0MCLKIN, PHYEMAC0MDIN, PHYEMAC0MIITXCLK, PHYEMAC0RXBUFERR, PHYEMAC0RXCHARISCOMMA, PHYEMAC0RXCHARISK, PHYEMAC0RXCHECKINGCRC, PHYEMAC0RXCLK, PHYEMAC0RXCOMMADET, PHYEMAC0RXDISPERR, PHYEMAC0RXDV, PHYEMAC0RXER, PHYEMAC0RXNOTINTABLE, PHYEMAC0RXRUNDISP, PHYEMAC0SIGNALDET, PHYEMAC0TXBUFERR, PHYEMAC1COL, PHYEMAC1CRS, PHYEMAC1GTXCLK, PHYEMAC1MCLKIN
+, PHYEMAC1MDIN, PHYEMAC1MIITXCLK, PHYEMAC1RXBUFERR, PHYEMAC1RXCHARISCOMMA, PHYEMAC1RXCHARISK, PHYEMAC1RXCHECKINGCRC, PHYEMAC1RXCLK, PHYEMAC1RXCOMMADET, PHYEMAC1RXDISPERR, PHYEMAC1RXDV, PHYEMAC1RXER, PHYEMAC1RXNOTINTABLE, PHYEMAC1RXRUNDISP, PHYEMAC1SIGNALDET, PHYEMAC1TXBUFERR, RESET, DCREMACDBUS, CLIENTEMAC0PAUSEVAL, CLIENTEMAC0TXD, CLIENTEMAC1PAUSEVAL, CLIENTEMAC1TXD
+, HOSTOPCODE, PHYEMAC0RXBUFSTATUS, PHYEMAC0RXLOSSOFSYNC, PHYEMAC1RXBUFSTATUS, PHYEMAC1RXLOSSOFSYNC, PHYEMAC0RXCLKCORCNT, PHYEMAC1RXCLKCORCNT, HOSTWRDATA, TIEEMAC0UNICASTADDR, TIEEMAC1UNICASTADDR, PHYEMAC0PHYAD, PHYEMAC1PHYAD, TIEEMAC0CONFIGVEC, TIEEMAC1CONFIGVEC, CLIENTEMAC0TXIFGDELAY, CLIENTEMAC1TXIFGDELAY, PHYEMAC0RXD, PHYEMAC1RXD, DCREMACABUS, HOSTADDR);
     parameter EMAC0_MODE = "RGMII";
     parameter EMAC1_MODE = "RGMII";
     output DCRHOSTDONEIR;
@@ -26711,7 +27124,14 @@ module EMAC (...);
     input [9:0] HOSTADDR;
 endmodule
 
-module TEMAC (...);
+module TEMAC(DCRHOSTDONEIR, EMAC0CLIENTANINTERRUPT, EMAC0CLIENTRXBADFRAME, EMAC0CLIENTRXCLIENTCLKOUT, EMAC0CLIENTRXDVLD, EMAC0CLIENTRXDVLDMSW, EMAC0CLIENTRXFRAMEDROP, EMAC0CLIENTRXGOODFRAME, EMAC0CLIENTRXSTATSBYTEVLD, EMAC0CLIENTRXSTATSVLD, EMAC0CLIENTTXACK, EMAC0CLIENTTXCLIENTCLKOUT, EMAC0CLIENTTXCOLLISION, EMAC0CLIENTTXRETRANSMIT, EMAC0CLIENTTXSTATS, EMAC0CLIENTTXSTATSBYTEVLD, EMAC0CLIENTTXSTATSVLD, EMAC0PHYENCOMMAALIGN, EMAC0PHYLOOPBACKMSB, EMAC0PHYMCLKOUT, EMAC0PHYMDOUT
+, EMAC0PHYMDTRI, EMAC0PHYMGTRXRESET, EMAC0PHYMGTTXRESET, EMAC0PHYPOWERDOWN, EMAC0PHYSYNCACQSTATUS, EMAC0PHYTXCHARDISPMODE, EMAC0PHYTXCHARDISPVAL, EMAC0PHYTXCHARISK, EMAC0PHYTXCLK, EMAC0PHYTXEN, EMAC0PHYTXER, EMAC0PHYTXGMIIMIICLKOUT, EMAC0SPEEDIS10100, EMAC1CLIENTANINTERRUPT, EMAC1CLIENTRXBADFRAME, EMAC1CLIENTRXCLIENTCLKOUT, EMAC1CLIENTRXDVLD, EMAC1CLIENTRXDVLDMSW, EMAC1CLIENTRXFRAMEDROP, EMAC1CLIENTRXGOODFRAME, EMAC1CLIENTRXSTATSBYTEVLD
+, EMAC1CLIENTRXSTATSVLD, EMAC1CLIENTTXACK, EMAC1CLIENTTXCLIENTCLKOUT, EMAC1CLIENTTXCOLLISION, EMAC1CLIENTTXRETRANSMIT, EMAC1CLIENTTXSTATS, EMAC1CLIENTTXSTATSBYTEVLD, EMAC1CLIENTTXSTATSVLD, EMAC1PHYENCOMMAALIGN, EMAC1PHYLOOPBACKMSB, EMAC1PHYMCLKOUT, EMAC1PHYMDOUT, EMAC1PHYMDTRI, EMAC1PHYMGTRXRESET, EMAC1PHYMGTTXRESET, EMAC1PHYPOWERDOWN, EMAC1PHYSYNCACQSTATUS, EMAC1PHYTXCHARDISPMODE, EMAC1PHYTXCHARDISPVAL, EMAC1PHYTXCHARISK, EMAC1PHYTXCLK
+, EMAC1PHYTXEN, EMAC1PHYTXER, EMAC1PHYTXGMIIMIICLKOUT, EMAC1SPEEDIS10100, EMACDCRACK, HOSTMIIMRDY, EMACDCRDBUS, EMAC0CLIENTRXD, EMAC1CLIENTRXD, HOSTRDDATA, EMAC0CLIENTRXSTATS, EMAC1CLIENTRXSTATS, EMAC0PHYTXD, EMAC1PHYTXD, CLIENTEMAC0DCMLOCKED, CLIENTEMAC0PAUSEREQ, CLIENTEMAC0RXCLIENTCLKIN, CLIENTEMAC0TXCLIENTCLKIN, CLIENTEMAC0TXDVLD, CLIENTEMAC0TXDVLDMSW, CLIENTEMAC0TXFIRSTBYTE
+, CLIENTEMAC0TXUNDERRUN, CLIENTEMAC1DCMLOCKED, CLIENTEMAC1PAUSEREQ, CLIENTEMAC1RXCLIENTCLKIN, CLIENTEMAC1TXCLIENTCLKIN, CLIENTEMAC1TXDVLD, CLIENTEMAC1TXDVLDMSW, CLIENTEMAC1TXFIRSTBYTE, CLIENTEMAC1TXUNDERRUN, DCREMACCLK, DCREMACENABLE, DCREMACREAD, DCREMACWRITE, HOSTCLK, HOSTEMAC1SEL, HOSTMIIMSEL, HOSTREQ, PHYEMAC0COL, PHYEMAC0CRS, PHYEMAC0GTXCLK, PHYEMAC0MCLKIN
+, PHYEMAC0MDIN, PHYEMAC0MIITXCLK, PHYEMAC0RXBUFERR, PHYEMAC0RXCHARISCOMMA, PHYEMAC0RXCHARISK, PHYEMAC0RXCHECKINGCRC, PHYEMAC0RXCLK, PHYEMAC0RXCOMMADET, PHYEMAC0RXDISPERR, PHYEMAC0RXDV, PHYEMAC0RXER, PHYEMAC0RXNOTINTABLE, PHYEMAC0RXRUNDISP, PHYEMAC0SIGNALDET, PHYEMAC0TXBUFERR, PHYEMAC0TXGMIIMIICLKIN, PHYEMAC1COL, PHYEMAC1CRS, PHYEMAC1GTXCLK, PHYEMAC1MCLKIN, PHYEMAC1MDIN
+, PHYEMAC1MIITXCLK, PHYEMAC1RXBUFERR, PHYEMAC1RXCHARISCOMMA, PHYEMAC1RXCHARISK, PHYEMAC1RXCHECKINGCRC, PHYEMAC1RXCLK, PHYEMAC1RXCOMMADET, PHYEMAC1RXDISPERR, PHYEMAC1RXDV, PHYEMAC1RXER, PHYEMAC1RXNOTINTABLE, PHYEMAC1RXRUNDISP, PHYEMAC1SIGNALDET, PHYEMAC1TXBUFERR, PHYEMAC1TXGMIIMIICLKIN, RESET, DCREMACDBUS, DCREMACABUS, CLIENTEMAC0PAUSEVAL, CLIENTEMAC0TXD, CLIENTEMAC1PAUSEVAL
+, CLIENTEMAC1TXD, HOSTOPCODE, PHYEMAC0RXBUFSTATUS, PHYEMAC0RXLOSSOFSYNC, PHYEMAC1RXBUFSTATUS, PHYEMAC1RXLOSSOFSYNC, PHYEMAC0RXCLKCORCNT, PHYEMAC1RXCLKCORCNT, HOSTWRDATA, PHYEMAC0PHYAD, PHYEMAC1PHYAD, CLIENTEMAC0TXIFGDELAY, CLIENTEMAC1TXIFGDELAY, PHYEMAC0RXD, PHYEMAC1RXD, HOSTADDR);
     parameter EMAC0_1000BASEX_ENABLE = "FALSE";
     parameter EMAC0_ADDRFILTER_ENABLE = "FALSE";
     parameter EMAC0_BYTEPHY = "FALSE";
@@ -26957,7 +27377,11 @@ module TEMAC (...);
     input [9:0] HOSTADDR;
 endmodule
 
-module TEMAC_SINGLE (...);
+module TEMAC_SINGLE(DCRHOSTDONEIR, EMACCLIENTANINTERRUPT, EMACCLIENTRXBADFRAME, EMACCLIENTRXCLIENTCLKOUT, EMACCLIENTRXDVLD, EMACCLIENTRXDVLDMSW, EMACCLIENTRXFRAMEDROP, EMACCLIENTRXGOODFRAME, EMACCLIENTRXSTATSBYTEVLD, EMACCLIENTRXSTATSVLD, EMACCLIENTTXACK, EMACCLIENTTXCLIENTCLKOUT, EMACCLIENTTXCOLLISION, EMACCLIENTTXRETRANSMIT, EMACCLIENTTXSTATS, EMACCLIENTTXSTATSBYTEVLD, EMACCLIENTTXSTATSVLD, EMACDCRACK, EMACPHYENCOMMAALIGN, EMACPHYLOOPBACKMSB, EMACPHYMCLKOUT
+, EMACPHYMDOUT, EMACPHYMDTRI, EMACPHYMGTRXRESET, EMACPHYMGTTXRESET, EMACPHYPOWERDOWN, EMACPHYSYNCACQSTATUS, EMACPHYTXCHARDISPMODE, EMACPHYTXCHARDISPVAL, EMACPHYTXCHARISK, EMACPHYTXCLK, EMACPHYTXEN, EMACPHYTXER, EMACPHYTXGMIIMIICLKOUT, EMACSPEEDIS10100, HOSTMIIMRDY, EMACDCRDBUS, EMACCLIENTRXD, HOSTRDDATA, EMACCLIENTRXSTATS, EMACPHYTXD, CLIENTEMACDCMLOCKED
+, CLIENTEMACPAUSEREQ, CLIENTEMACRXCLIENTCLKIN, CLIENTEMACTXCLIENTCLKIN, CLIENTEMACTXDVLD, CLIENTEMACTXDVLDMSW, CLIENTEMACTXFIRSTBYTE, CLIENTEMACTXUNDERRUN, DCREMACCLK, DCREMACENABLE, DCREMACREAD, DCREMACWRITE, HOSTCLK, HOSTMIIMSEL, HOSTREQ, PHYEMACCOL, PHYEMACCRS, PHYEMACGTXCLK, PHYEMACMCLKIN, PHYEMACMDIN, PHYEMACMIITXCLK, PHYEMACRXCHARISCOMMA
+, PHYEMACRXCHARISK, PHYEMACRXCLK, PHYEMACRXDISPERR, PHYEMACRXDV, PHYEMACRXER, PHYEMACRXNOTINTABLE, PHYEMACRXRUNDISP, PHYEMACSIGNALDET, PHYEMACTXBUFERR, PHYEMACTXGMIIMIICLKIN, RESET, DCREMACDBUS, DCREMACABUS, CLIENTEMACPAUSEVAL, CLIENTEMACTXD, HOSTOPCODE, PHYEMACRXBUFSTATUS, PHYEMACRXCLKCORCNT, HOSTWRDATA, PHYEMACPHYAD, CLIENTEMACTXIFGDELAY
+, PHYEMACRXD, HOSTADDR);
     parameter EMAC_1000BASEX_ENABLE = "FALSE";
     parameter EMAC_ADDRFILTER_ENABLE = "FALSE";
     parameter EMAC_BYTEPHY = "FALSE";
@@ -27088,7 +27512,24 @@ module TEMAC_SINGLE (...);
     input [9:0] HOSTADDR;
 endmodule
 
-module CMAC (...);
+module CMAC(DRP_DO, DRP_RDY, RX_DATAOUT0, RX_DATAOUT1, RX_DATAOUT2, RX_DATAOUT3, RX_ENAOUT0, RX_ENAOUT1, RX_ENAOUT2, RX_ENAOUT3, RX_EOPOUT0, RX_EOPOUT1, RX_EOPOUT2, RX_EOPOUT3, RX_ERROUT0, RX_ERROUT1, RX_ERROUT2, RX_ERROUT3, RX_LANE_ALIGNER_FILL_0, RX_LANE_ALIGNER_FILL_1, RX_LANE_ALIGNER_FILL_10
+, RX_LANE_ALIGNER_FILL_11, RX_LANE_ALIGNER_FILL_12, RX_LANE_ALIGNER_FILL_13, RX_LANE_ALIGNER_FILL_14, RX_LANE_ALIGNER_FILL_15, RX_LANE_ALIGNER_FILL_16, RX_LANE_ALIGNER_FILL_17, RX_LANE_ALIGNER_FILL_18, RX_LANE_ALIGNER_FILL_19, RX_LANE_ALIGNER_FILL_2, RX_LANE_ALIGNER_FILL_3, RX_LANE_ALIGNER_FILL_4, RX_LANE_ALIGNER_FILL_5, RX_LANE_ALIGNER_FILL_6, RX_LANE_ALIGNER_FILL_7, RX_LANE_ALIGNER_FILL_8, RX_LANE_ALIGNER_FILL_9, RX_MTYOUT0, RX_MTYOUT1, RX_MTYOUT2, RX_MTYOUT3
+, RX_PTP_PCSLANE_OUT, RX_PTP_TSTAMP_OUT, RX_SOPOUT0, RX_SOPOUT1, RX_SOPOUT2, RX_SOPOUT3, STAT_RX_ALIGNED, STAT_RX_ALIGNED_ERR, STAT_RX_BAD_CODE, STAT_RX_BAD_FCS, STAT_RX_BAD_PREAMBLE, STAT_RX_BAD_SFD, STAT_RX_BIP_ERR_0, STAT_RX_BIP_ERR_1, STAT_RX_BIP_ERR_10, STAT_RX_BIP_ERR_11, STAT_RX_BIP_ERR_12, STAT_RX_BIP_ERR_13, STAT_RX_BIP_ERR_14, STAT_RX_BIP_ERR_15, STAT_RX_BIP_ERR_16
+, STAT_RX_BIP_ERR_17, STAT_RX_BIP_ERR_18, STAT_RX_BIP_ERR_19, STAT_RX_BIP_ERR_2, STAT_RX_BIP_ERR_3, STAT_RX_BIP_ERR_4, STAT_RX_BIP_ERR_5, STAT_RX_BIP_ERR_6, STAT_RX_BIP_ERR_7, STAT_RX_BIP_ERR_8, STAT_RX_BIP_ERR_9, STAT_RX_BLOCK_LOCK, STAT_RX_BROADCAST, STAT_RX_FRAGMENT, STAT_RX_FRAMING_ERR_0, STAT_RX_FRAMING_ERR_1, STAT_RX_FRAMING_ERR_10, STAT_RX_FRAMING_ERR_11, STAT_RX_FRAMING_ERR_12, STAT_RX_FRAMING_ERR_13, STAT_RX_FRAMING_ERR_14
+, STAT_RX_FRAMING_ERR_15, STAT_RX_FRAMING_ERR_16, STAT_RX_FRAMING_ERR_17, STAT_RX_FRAMING_ERR_18, STAT_RX_FRAMING_ERR_19, STAT_RX_FRAMING_ERR_2, STAT_RX_FRAMING_ERR_3, STAT_RX_FRAMING_ERR_4, STAT_RX_FRAMING_ERR_5, STAT_RX_FRAMING_ERR_6, STAT_RX_FRAMING_ERR_7, STAT_RX_FRAMING_ERR_8, STAT_RX_FRAMING_ERR_9, STAT_RX_FRAMING_ERR_VALID_0, STAT_RX_FRAMING_ERR_VALID_1, STAT_RX_FRAMING_ERR_VALID_10, STAT_RX_FRAMING_ERR_VALID_11, STAT_RX_FRAMING_ERR_VALID_12, STAT_RX_FRAMING_ERR_VALID_13, STAT_RX_FRAMING_ERR_VALID_14, STAT_RX_FRAMING_ERR_VALID_15
+, STAT_RX_FRAMING_ERR_VALID_16, STAT_RX_FRAMING_ERR_VALID_17, STAT_RX_FRAMING_ERR_VALID_18, STAT_RX_FRAMING_ERR_VALID_19, STAT_RX_FRAMING_ERR_VALID_2, STAT_RX_FRAMING_ERR_VALID_3, STAT_RX_FRAMING_ERR_VALID_4, STAT_RX_FRAMING_ERR_VALID_5, STAT_RX_FRAMING_ERR_VALID_6, STAT_RX_FRAMING_ERR_VALID_7, STAT_RX_FRAMING_ERR_VALID_8, STAT_RX_FRAMING_ERR_VALID_9, STAT_RX_GOT_SIGNAL_OS, STAT_RX_HI_BER, STAT_RX_INRANGEERR, STAT_RX_INTERNAL_LOCAL_FAULT, STAT_RX_JABBER, STAT_RX_LANE0_VLM_BIP7, STAT_RX_LANE0_VLM_BIP7_VALID, STAT_RX_LOCAL_FAULT, STAT_RX_MF_ERR
+, STAT_RX_MF_LEN_ERR, STAT_RX_MF_REPEAT_ERR, STAT_RX_MISALIGNED, STAT_RX_MULTICAST, STAT_RX_OVERSIZE, STAT_RX_PACKET_1024_1518_BYTES, STAT_RX_PACKET_128_255_BYTES, STAT_RX_PACKET_1519_1522_BYTES, STAT_RX_PACKET_1523_1548_BYTES, STAT_RX_PACKET_1549_2047_BYTES, STAT_RX_PACKET_2048_4095_BYTES, STAT_RX_PACKET_256_511_BYTES, STAT_RX_PACKET_4096_8191_BYTES, STAT_RX_PACKET_512_1023_BYTES, STAT_RX_PACKET_64_BYTES, STAT_RX_PACKET_65_127_BYTES, STAT_RX_PACKET_8192_9215_BYTES, STAT_RX_PACKET_BAD_FCS, STAT_RX_PACKET_LARGE, STAT_RX_PACKET_SMALL, STAT_RX_PAUSE
+, STAT_RX_PAUSE_QUANTA0, STAT_RX_PAUSE_QUANTA1, STAT_RX_PAUSE_QUANTA2, STAT_RX_PAUSE_QUANTA3, STAT_RX_PAUSE_QUANTA4, STAT_RX_PAUSE_QUANTA5, STAT_RX_PAUSE_QUANTA6, STAT_RX_PAUSE_QUANTA7, STAT_RX_PAUSE_QUANTA8, STAT_RX_PAUSE_REQ, STAT_RX_PAUSE_VALID, STAT_RX_RECEIVED_LOCAL_FAULT, STAT_RX_REMOTE_FAULT, STAT_RX_STATUS, STAT_RX_STOMPED_FCS, STAT_RX_SYNCED, STAT_RX_SYNCED_ERR, STAT_RX_TEST_PATTERN_MISMATCH, STAT_RX_TOOLONG, STAT_RX_TOTAL_BYTES, STAT_RX_TOTAL_GOOD_BYTES
+, STAT_RX_TOTAL_GOOD_PACKETS, STAT_RX_TOTAL_PACKETS, STAT_RX_TRUNCATED, STAT_RX_UNDERSIZE, STAT_RX_UNICAST, STAT_RX_USER_PAUSE, STAT_RX_VLAN, STAT_RX_VL_DEMUXED, STAT_RX_VL_NUMBER_0, STAT_RX_VL_NUMBER_1, STAT_RX_VL_NUMBER_10, STAT_RX_VL_NUMBER_11, STAT_RX_VL_NUMBER_12, STAT_RX_VL_NUMBER_13, STAT_RX_VL_NUMBER_14, STAT_RX_VL_NUMBER_15, STAT_RX_VL_NUMBER_16, STAT_RX_VL_NUMBER_17, STAT_RX_VL_NUMBER_18, STAT_RX_VL_NUMBER_19, STAT_RX_VL_NUMBER_2
+, STAT_RX_VL_NUMBER_3, STAT_RX_VL_NUMBER_4, STAT_RX_VL_NUMBER_5, STAT_RX_VL_NUMBER_6, STAT_RX_VL_NUMBER_7, STAT_RX_VL_NUMBER_8, STAT_RX_VL_NUMBER_9, STAT_TX_BAD_FCS, STAT_TX_BROADCAST, STAT_TX_FRAME_ERROR, STAT_TX_LOCAL_FAULT, STAT_TX_MULTICAST, STAT_TX_PACKET_1024_1518_BYTES, STAT_TX_PACKET_128_255_BYTES, STAT_TX_PACKET_1519_1522_BYTES, STAT_TX_PACKET_1523_1548_BYTES, STAT_TX_PACKET_1549_2047_BYTES, STAT_TX_PACKET_2048_4095_BYTES, STAT_TX_PACKET_256_511_BYTES, STAT_TX_PACKET_4096_8191_BYTES, STAT_TX_PACKET_512_1023_BYTES
+, STAT_TX_PACKET_64_BYTES, STAT_TX_PACKET_65_127_BYTES, STAT_TX_PACKET_8192_9215_BYTES, STAT_TX_PACKET_LARGE, STAT_TX_PACKET_SMALL, STAT_TX_PAUSE, STAT_TX_PAUSE_VALID, STAT_TX_PTP_FIFO_READ_ERROR, STAT_TX_PTP_FIFO_WRITE_ERROR, STAT_TX_TOTAL_BYTES, STAT_TX_TOTAL_GOOD_BYTES, STAT_TX_TOTAL_GOOD_PACKETS, STAT_TX_TOTAL_PACKETS, STAT_TX_UNICAST, STAT_TX_USER_PAUSE, STAT_TX_VLAN, TX_OVFOUT, TX_PTP_PCSLANE_OUT, TX_PTP_TSTAMP_OUT, TX_PTP_TSTAMP_TAG_OUT, TX_PTP_TSTAMP_VALID_OUT
+, TX_RDYOUT, TX_SERDES_ALT_DATA0, TX_SERDES_ALT_DATA1, TX_SERDES_ALT_DATA2, TX_SERDES_ALT_DATA3, TX_SERDES_DATA0, TX_SERDES_DATA1, TX_SERDES_DATA2, TX_SERDES_DATA3, TX_SERDES_DATA4, TX_SERDES_DATA5, TX_SERDES_DATA6, TX_SERDES_DATA7, TX_SERDES_DATA8, TX_SERDES_DATA9, TX_UNFOUT, CTL_CAUI4_MODE, CTL_RX_CHECK_ETYPE_GCP, CTL_RX_CHECK_ETYPE_GPP, CTL_RX_CHECK_ETYPE_PCP, CTL_RX_CHECK_ETYPE_PPP
+, CTL_RX_CHECK_MCAST_GCP, CTL_RX_CHECK_MCAST_GPP, CTL_RX_CHECK_MCAST_PCP, CTL_RX_CHECK_MCAST_PPP, CTL_RX_CHECK_OPCODE_GCP, CTL_RX_CHECK_OPCODE_GPP, CTL_RX_CHECK_OPCODE_PCP, CTL_RX_CHECK_OPCODE_PPP, CTL_RX_CHECK_SA_GCP, CTL_RX_CHECK_SA_GPP, CTL_RX_CHECK_SA_PCP, CTL_RX_CHECK_SA_PPP, CTL_RX_CHECK_UCAST_GCP, CTL_RX_CHECK_UCAST_GPP, CTL_RX_CHECK_UCAST_PCP, CTL_RX_CHECK_UCAST_PPP, CTL_RX_ENABLE, CTL_RX_ENABLE_GCP, CTL_RX_ENABLE_GPP, CTL_RX_ENABLE_PCP, CTL_RX_ENABLE_PPP
+, CTL_RX_FORCE_RESYNC, CTL_RX_PAUSE_ACK, CTL_RX_PAUSE_ENABLE, CTL_RX_SYSTEMTIMERIN, CTL_RX_TEST_PATTERN, CTL_TX_ENABLE, CTL_TX_LANE0_VLM_BIP7_OVERRIDE, CTL_TX_LANE0_VLM_BIP7_OVERRIDE_VALUE, CTL_TX_PAUSE_ENABLE, CTL_TX_PAUSE_QUANTA0, CTL_TX_PAUSE_QUANTA1, CTL_TX_PAUSE_QUANTA2, CTL_TX_PAUSE_QUANTA3, CTL_TX_PAUSE_QUANTA4, CTL_TX_PAUSE_QUANTA5, CTL_TX_PAUSE_QUANTA6, CTL_TX_PAUSE_QUANTA7, CTL_TX_PAUSE_QUANTA8, CTL_TX_PAUSE_REFRESH_TIMER0, CTL_TX_PAUSE_REFRESH_TIMER1, CTL_TX_PAUSE_REFRESH_TIMER2
+, CTL_TX_PAUSE_REFRESH_TIMER3, CTL_TX_PAUSE_REFRESH_TIMER4, CTL_TX_PAUSE_REFRESH_TIMER5, CTL_TX_PAUSE_REFRESH_TIMER6, CTL_TX_PAUSE_REFRESH_TIMER7, CTL_TX_PAUSE_REFRESH_TIMER8, CTL_TX_PAUSE_REQ, CTL_TX_PTP_VLANE_ADJUST_MODE, CTL_TX_RESEND_PAUSE, CTL_TX_SEND_IDLE, CTL_TX_SEND_RFI, CTL_TX_SYSTEMTIMERIN, CTL_TX_TEST_PATTERN, DRP_ADDR, DRP_CLK, DRP_DI, DRP_EN, DRP_WE, RX_CLK, RX_RESET, RX_SERDES_ALT_DATA0
+, RX_SERDES_ALT_DATA1, RX_SERDES_ALT_DATA2, RX_SERDES_ALT_DATA3, RX_SERDES_CLK, RX_SERDES_DATA0, RX_SERDES_DATA1, RX_SERDES_DATA2, RX_SERDES_DATA3, RX_SERDES_DATA4, RX_SERDES_DATA5, RX_SERDES_DATA6, RX_SERDES_DATA7, RX_SERDES_DATA8, RX_SERDES_DATA9, RX_SERDES_RESET, TX_CLK, TX_DATAIN0, TX_DATAIN1, TX_DATAIN2, TX_DATAIN3, TX_ENAIN0
+, TX_ENAIN1, TX_ENAIN2, TX_ENAIN3, TX_EOPIN0, TX_EOPIN1, TX_EOPIN2, TX_EOPIN3, TX_ERRIN0, TX_ERRIN1, TX_ERRIN2, TX_ERRIN3, TX_MTYIN0, TX_MTYIN1, TX_MTYIN2, TX_MTYIN3, TX_PTP_1588OP_IN, TX_PTP_CHKSUM_OFFSET_IN, TX_PTP_RXTSTAMP_IN, TX_PTP_TAG_FIELD_IN, TX_PTP_TSTAMP_OFFSET_IN, TX_PTP_UPD_CHKSUM_IN
+, TX_RESET, TX_SOPIN0, TX_SOPIN1, TX_SOPIN2, TX_SOPIN3);
     parameter CTL_PTP_TRANSPCLK_MODE = "FALSE";
     parameter CTL_RX_CHECK_ACK = "TRUE";
     parameter CTL_RX_CHECK_PREAMBLE = "FALSE";
@@ -27533,7 +27974,26 @@ module CMAC (...);
     input TX_SOPIN3;
 endmodule
 
-module CMACE4 (...);
+module CMACE4(DRP_DO, DRP_RDY, RSFEC_BYPASS_RX_DOUT, RSFEC_BYPASS_RX_DOUT_CW_START, RSFEC_BYPASS_RX_DOUT_VALID, RSFEC_BYPASS_TX_DOUT, RSFEC_BYPASS_TX_DOUT_CW_START, RSFEC_BYPASS_TX_DOUT_VALID, RX_DATAOUT0, RX_DATAOUT1, RX_DATAOUT2, RX_DATAOUT3, RX_ENAOUT0, RX_ENAOUT1, RX_ENAOUT2, RX_ENAOUT3, RX_EOPOUT0, RX_EOPOUT1, RX_EOPOUT2, RX_EOPOUT3, RX_ERROUT0
+, RX_ERROUT1, RX_ERROUT2, RX_ERROUT3, RX_LANE_ALIGNER_FILL_0, RX_LANE_ALIGNER_FILL_1, RX_LANE_ALIGNER_FILL_10, RX_LANE_ALIGNER_FILL_11, RX_LANE_ALIGNER_FILL_12, RX_LANE_ALIGNER_FILL_13, RX_LANE_ALIGNER_FILL_14, RX_LANE_ALIGNER_FILL_15, RX_LANE_ALIGNER_FILL_16, RX_LANE_ALIGNER_FILL_17, RX_LANE_ALIGNER_FILL_18, RX_LANE_ALIGNER_FILL_19, RX_LANE_ALIGNER_FILL_2, RX_LANE_ALIGNER_FILL_3, RX_LANE_ALIGNER_FILL_4, RX_LANE_ALIGNER_FILL_5, RX_LANE_ALIGNER_FILL_6, RX_LANE_ALIGNER_FILL_7
+, RX_LANE_ALIGNER_FILL_8, RX_LANE_ALIGNER_FILL_9, RX_MTYOUT0, RX_MTYOUT1, RX_MTYOUT2, RX_MTYOUT3, RX_OTN_BIP8_0, RX_OTN_BIP8_1, RX_OTN_BIP8_2, RX_OTN_BIP8_3, RX_OTN_BIP8_4, RX_OTN_DATA_0, RX_OTN_DATA_1, RX_OTN_DATA_2, RX_OTN_DATA_3, RX_OTN_DATA_4, RX_OTN_ENA, RX_OTN_LANE0, RX_OTN_VLMARKER, RX_PREOUT, RX_PTP_PCSLANE_OUT
+, RX_PTP_TSTAMP_OUT, RX_SOPOUT0, RX_SOPOUT1, RX_SOPOUT2, RX_SOPOUT3, STAT_RX_ALIGNED, STAT_RX_ALIGNED_ERR, STAT_RX_BAD_CODE, STAT_RX_BAD_FCS, STAT_RX_BAD_PREAMBLE, STAT_RX_BAD_SFD, STAT_RX_BIP_ERR_0, STAT_RX_BIP_ERR_1, STAT_RX_BIP_ERR_10, STAT_RX_BIP_ERR_11, STAT_RX_BIP_ERR_12, STAT_RX_BIP_ERR_13, STAT_RX_BIP_ERR_14, STAT_RX_BIP_ERR_15, STAT_RX_BIP_ERR_16, STAT_RX_BIP_ERR_17
+, STAT_RX_BIP_ERR_18, STAT_RX_BIP_ERR_19, STAT_RX_BIP_ERR_2, STAT_RX_BIP_ERR_3, STAT_RX_BIP_ERR_4, STAT_RX_BIP_ERR_5, STAT_RX_BIP_ERR_6, STAT_RX_BIP_ERR_7, STAT_RX_BIP_ERR_8, STAT_RX_BIP_ERR_9, STAT_RX_BLOCK_LOCK, STAT_RX_BROADCAST, STAT_RX_FRAGMENT, STAT_RX_FRAMING_ERR_0, STAT_RX_FRAMING_ERR_1, STAT_RX_FRAMING_ERR_10, STAT_RX_FRAMING_ERR_11, STAT_RX_FRAMING_ERR_12, STAT_RX_FRAMING_ERR_13, STAT_RX_FRAMING_ERR_14, STAT_RX_FRAMING_ERR_15
+, STAT_RX_FRAMING_ERR_16, STAT_RX_FRAMING_ERR_17, STAT_RX_FRAMING_ERR_18, STAT_RX_FRAMING_ERR_19, STAT_RX_FRAMING_ERR_2, STAT_RX_FRAMING_ERR_3, STAT_RX_FRAMING_ERR_4, STAT_RX_FRAMING_ERR_5, STAT_RX_FRAMING_ERR_6, STAT_RX_FRAMING_ERR_7, STAT_RX_FRAMING_ERR_8, STAT_RX_FRAMING_ERR_9, STAT_RX_FRAMING_ERR_VALID_0, STAT_RX_FRAMING_ERR_VALID_1, STAT_RX_FRAMING_ERR_VALID_10, STAT_RX_FRAMING_ERR_VALID_11, STAT_RX_FRAMING_ERR_VALID_12, STAT_RX_FRAMING_ERR_VALID_13, STAT_RX_FRAMING_ERR_VALID_14, STAT_RX_FRAMING_ERR_VALID_15, STAT_RX_FRAMING_ERR_VALID_16
+, STAT_RX_FRAMING_ERR_VALID_17, STAT_RX_FRAMING_ERR_VALID_18, STAT_RX_FRAMING_ERR_VALID_19, STAT_RX_FRAMING_ERR_VALID_2, STAT_RX_FRAMING_ERR_VALID_3, STAT_RX_FRAMING_ERR_VALID_4, STAT_RX_FRAMING_ERR_VALID_5, STAT_RX_FRAMING_ERR_VALID_6, STAT_RX_FRAMING_ERR_VALID_7, STAT_RX_FRAMING_ERR_VALID_8, STAT_RX_FRAMING_ERR_VALID_9, STAT_RX_GOT_SIGNAL_OS, STAT_RX_HI_BER, STAT_RX_INRANGEERR, STAT_RX_INTERNAL_LOCAL_FAULT, STAT_RX_JABBER, STAT_RX_LANE0_VLM_BIP7, STAT_RX_LANE0_VLM_BIP7_VALID, STAT_RX_LOCAL_FAULT, STAT_RX_MF_ERR, STAT_RX_MF_LEN_ERR
+, STAT_RX_MF_REPEAT_ERR, STAT_RX_MISALIGNED, STAT_RX_MULTICAST, STAT_RX_OVERSIZE, STAT_RX_PACKET_1024_1518_BYTES, STAT_RX_PACKET_128_255_BYTES, STAT_RX_PACKET_1519_1522_BYTES, STAT_RX_PACKET_1523_1548_BYTES, STAT_RX_PACKET_1549_2047_BYTES, STAT_RX_PACKET_2048_4095_BYTES, STAT_RX_PACKET_256_511_BYTES, STAT_RX_PACKET_4096_8191_BYTES, STAT_RX_PACKET_512_1023_BYTES, STAT_RX_PACKET_64_BYTES, STAT_RX_PACKET_65_127_BYTES, STAT_RX_PACKET_8192_9215_BYTES, STAT_RX_PACKET_BAD_FCS, STAT_RX_PACKET_LARGE, STAT_RX_PACKET_SMALL, STAT_RX_PAUSE, STAT_RX_PAUSE_QUANTA0
+, STAT_RX_PAUSE_QUANTA1, STAT_RX_PAUSE_QUANTA2, STAT_RX_PAUSE_QUANTA3, STAT_RX_PAUSE_QUANTA4, STAT_RX_PAUSE_QUANTA5, STAT_RX_PAUSE_QUANTA6, STAT_RX_PAUSE_QUANTA7, STAT_RX_PAUSE_QUANTA8, STAT_RX_PAUSE_REQ, STAT_RX_PAUSE_VALID, STAT_RX_RECEIVED_LOCAL_FAULT, STAT_RX_REMOTE_FAULT, STAT_RX_RSFEC_AM_LOCK0, STAT_RX_RSFEC_AM_LOCK1, STAT_RX_RSFEC_AM_LOCK2, STAT_RX_RSFEC_AM_LOCK3, STAT_RX_RSFEC_CORRECTED_CW_INC, STAT_RX_RSFEC_CW_INC, STAT_RX_RSFEC_ERR_COUNT0_INC, STAT_RX_RSFEC_ERR_COUNT1_INC, STAT_RX_RSFEC_ERR_COUNT2_INC
+, STAT_RX_RSFEC_ERR_COUNT3_INC, STAT_RX_RSFEC_HI_SER, STAT_RX_RSFEC_LANE_ALIGNMENT_STATUS, STAT_RX_RSFEC_LANE_FILL_0, STAT_RX_RSFEC_LANE_FILL_1, STAT_RX_RSFEC_LANE_FILL_2, STAT_RX_RSFEC_LANE_FILL_3, STAT_RX_RSFEC_LANE_MAPPING, STAT_RX_RSFEC_RSVD, STAT_RX_RSFEC_UNCORRECTED_CW_INC, STAT_RX_STATUS, STAT_RX_STOMPED_FCS, STAT_RX_SYNCED, STAT_RX_SYNCED_ERR, STAT_RX_TEST_PATTERN_MISMATCH, STAT_RX_TOOLONG, STAT_RX_TOTAL_BYTES, STAT_RX_TOTAL_GOOD_BYTES, STAT_RX_TOTAL_GOOD_PACKETS, STAT_RX_TOTAL_PACKETS, STAT_RX_TRUNCATED
+, STAT_RX_UNDERSIZE, STAT_RX_UNICAST, STAT_RX_USER_PAUSE, STAT_RX_VLAN, STAT_RX_VL_DEMUXED, STAT_RX_VL_NUMBER_0, STAT_RX_VL_NUMBER_1, STAT_RX_VL_NUMBER_10, STAT_RX_VL_NUMBER_11, STAT_RX_VL_NUMBER_12, STAT_RX_VL_NUMBER_13, STAT_RX_VL_NUMBER_14, STAT_RX_VL_NUMBER_15, STAT_RX_VL_NUMBER_16, STAT_RX_VL_NUMBER_17, STAT_RX_VL_NUMBER_18, STAT_RX_VL_NUMBER_19, STAT_RX_VL_NUMBER_2, STAT_RX_VL_NUMBER_3, STAT_RX_VL_NUMBER_4, STAT_RX_VL_NUMBER_5
+, STAT_RX_VL_NUMBER_6, STAT_RX_VL_NUMBER_7, STAT_RX_VL_NUMBER_8, STAT_RX_VL_NUMBER_9, STAT_TX_BAD_FCS, STAT_TX_BROADCAST, STAT_TX_FRAME_ERROR, STAT_TX_LOCAL_FAULT, STAT_TX_MULTICAST, STAT_TX_PACKET_1024_1518_BYTES, STAT_TX_PACKET_128_255_BYTES, STAT_TX_PACKET_1519_1522_BYTES, STAT_TX_PACKET_1523_1548_BYTES, STAT_TX_PACKET_1549_2047_BYTES, STAT_TX_PACKET_2048_4095_BYTES, STAT_TX_PACKET_256_511_BYTES, STAT_TX_PACKET_4096_8191_BYTES, STAT_TX_PACKET_512_1023_BYTES, STAT_TX_PACKET_64_BYTES, STAT_TX_PACKET_65_127_BYTES, STAT_TX_PACKET_8192_9215_BYTES
+, STAT_TX_PACKET_LARGE, STAT_TX_PACKET_SMALL, STAT_TX_PAUSE, STAT_TX_PAUSE_VALID, STAT_TX_PTP_FIFO_READ_ERROR, STAT_TX_PTP_FIFO_WRITE_ERROR, STAT_TX_TOTAL_BYTES, STAT_TX_TOTAL_GOOD_BYTES, STAT_TX_TOTAL_GOOD_PACKETS, STAT_TX_TOTAL_PACKETS, STAT_TX_UNICAST, STAT_TX_USER_PAUSE, STAT_TX_VLAN, TX_OVFOUT, TX_PTP_PCSLANE_OUT, TX_PTP_TSTAMP_OUT, TX_PTP_TSTAMP_TAG_OUT, TX_PTP_TSTAMP_VALID_OUT, TX_RDYOUT, TX_SERDES_ALT_DATA0, TX_SERDES_ALT_DATA1
+, TX_SERDES_ALT_DATA2, TX_SERDES_ALT_DATA3, TX_SERDES_DATA0, TX_SERDES_DATA1, TX_SERDES_DATA2, TX_SERDES_DATA3, TX_SERDES_DATA4, TX_SERDES_DATA5, TX_SERDES_DATA6, TX_SERDES_DATA7, TX_SERDES_DATA8, TX_SERDES_DATA9, TX_UNFOUT, CTL_CAUI4_MODE, CTL_RSFEC_ENABLE_TRANSCODER_BYPASS_MODE, CTL_RSFEC_IEEE_ERROR_INDICATION_MODE, CTL_RX_CHECK_ETYPE_GCP, CTL_RX_CHECK_ETYPE_GPP, CTL_RX_CHECK_ETYPE_PCP, CTL_RX_CHECK_ETYPE_PPP, CTL_RX_CHECK_MCAST_GCP
+, CTL_RX_CHECK_MCAST_GPP, CTL_RX_CHECK_MCAST_PCP, CTL_RX_CHECK_MCAST_PPP, CTL_RX_CHECK_OPCODE_GCP, CTL_RX_CHECK_OPCODE_GPP, CTL_RX_CHECK_OPCODE_PCP, CTL_RX_CHECK_OPCODE_PPP, CTL_RX_CHECK_SA_GCP, CTL_RX_CHECK_SA_GPP, CTL_RX_CHECK_SA_PCP, CTL_RX_CHECK_SA_PPP, CTL_RX_CHECK_UCAST_GCP, CTL_RX_CHECK_UCAST_GPP, CTL_RX_CHECK_UCAST_PCP, CTL_RX_CHECK_UCAST_PPP, CTL_RX_ENABLE, CTL_RX_ENABLE_GCP, CTL_RX_ENABLE_GPP, CTL_RX_ENABLE_PCP, CTL_RX_ENABLE_PPP, CTL_RX_FORCE_RESYNC
+, CTL_RX_PAUSE_ACK, CTL_RX_PAUSE_ENABLE, CTL_RX_RSFEC_ENABLE, CTL_RX_RSFEC_ENABLE_CORRECTION, CTL_RX_RSFEC_ENABLE_INDICATION, CTL_RX_SYSTEMTIMERIN, CTL_RX_TEST_PATTERN, CTL_TX_ENABLE, CTL_TX_LANE0_VLM_BIP7_OVERRIDE, CTL_TX_LANE0_VLM_BIP7_OVERRIDE_VALUE, CTL_TX_PAUSE_ENABLE, CTL_TX_PAUSE_QUANTA0, CTL_TX_PAUSE_QUANTA1, CTL_TX_PAUSE_QUANTA2, CTL_TX_PAUSE_QUANTA3, CTL_TX_PAUSE_QUANTA4, CTL_TX_PAUSE_QUANTA5, CTL_TX_PAUSE_QUANTA6, CTL_TX_PAUSE_QUANTA7, CTL_TX_PAUSE_QUANTA8, CTL_TX_PAUSE_REFRESH_TIMER0
+, CTL_TX_PAUSE_REFRESH_TIMER1, CTL_TX_PAUSE_REFRESH_TIMER2, CTL_TX_PAUSE_REFRESH_TIMER3, CTL_TX_PAUSE_REFRESH_TIMER4, CTL_TX_PAUSE_REFRESH_TIMER5, CTL_TX_PAUSE_REFRESH_TIMER6, CTL_TX_PAUSE_REFRESH_TIMER7, CTL_TX_PAUSE_REFRESH_TIMER8, CTL_TX_PAUSE_REQ, CTL_TX_PTP_VLANE_ADJUST_MODE, CTL_TX_RESEND_PAUSE, CTL_TX_RSFEC_ENABLE, CTL_TX_SEND_IDLE, CTL_TX_SEND_LFI, CTL_TX_SEND_RFI, CTL_TX_SYSTEMTIMERIN, CTL_TX_TEST_PATTERN, DRP_ADDR, DRP_CLK, DRP_DI, DRP_EN
+, DRP_WE, RSFEC_BYPASS_RX_DIN, RSFEC_BYPASS_RX_DIN_CW_START, RSFEC_BYPASS_TX_DIN, RSFEC_BYPASS_TX_DIN_CW_START, RX_CLK, RX_RESET, RX_SERDES_ALT_DATA0, RX_SERDES_ALT_DATA1, RX_SERDES_ALT_DATA2, RX_SERDES_ALT_DATA3, RX_SERDES_CLK, RX_SERDES_DATA0, RX_SERDES_DATA1, RX_SERDES_DATA2, RX_SERDES_DATA3, RX_SERDES_DATA4, RX_SERDES_DATA5, RX_SERDES_DATA6, RX_SERDES_DATA7, RX_SERDES_DATA8
+, RX_SERDES_DATA9, RX_SERDES_RESET, TX_CLK, TX_DATAIN0, TX_DATAIN1, TX_DATAIN2, TX_DATAIN3, TX_ENAIN0, TX_ENAIN1, TX_ENAIN2, TX_ENAIN3, TX_EOPIN0, TX_EOPIN1, TX_EOPIN2, TX_EOPIN3, TX_ERRIN0, TX_ERRIN1, TX_ERRIN2, TX_ERRIN3, TX_MTYIN0, TX_MTYIN1
+, TX_MTYIN2, TX_MTYIN3, TX_PREIN, TX_PTP_1588OP_IN, TX_PTP_CHKSUM_OFFSET_IN, TX_PTP_RXTSTAMP_IN, TX_PTP_TAG_FIELD_IN, TX_PTP_TSTAMP_OFFSET_IN, TX_PTP_UPD_CHKSUM_IN, TX_RESET, TX_SOPIN0, TX_SOPIN1, TX_SOPIN2, TX_SOPIN3);
     parameter CTL_PTP_TRANSPCLK_MODE = "FALSE";
     parameter CTL_RX_CHECK_ACK = "TRUE";
     parameter CTL_RX_CHECK_PREAMBLE = "FALSE";
@@ -28033,7 +28493,16 @@ module CMACE4 (...);
     input TX_SOPIN3;
 endmodule
 
-module MCB (...);
+module MCB(CAS, CKE, DQIOWEN0, DQSIOWEN90N, DQSIOWEN90P, IOIDRPADD, IOIDRPBROADCAST, IOIDRPCLK, IOIDRPCS, IOIDRPSDO, IOIDRPTRAIN, IOIDRPUPDATE, LDMN, LDMP, ODT, P0CMDEMPTY, P0CMDFULL, P0RDEMPTY, P0RDERROR, P0RDFULL, P0RDOVERFLOW
+, P0WREMPTY, P0WRERROR, P0WRFULL, P0WRUNDERRUN, P1CMDEMPTY, P1CMDFULL, P1RDEMPTY, P1RDERROR, P1RDFULL, P1RDOVERFLOW, P1WREMPTY, P1WRERROR, P1WRFULL, P1WRUNDERRUN, P2CMDEMPTY, P2CMDFULL, P2EMPTY, P2ERROR, P2FULL, P2RDOVERFLOW, P2WRUNDERRUN
+, P3CMDEMPTY, P3CMDFULL, P3EMPTY, P3ERROR, P3FULL, P3RDOVERFLOW, P3WRUNDERRUN, P4CMDEMPTY, P4CMDFULL, P4EMPTY, P4ERROR, P4FULL, P4RDOVERFLOW, P4WRUNDERRUN, P5CMDEMPTY, P5CMDFULL, P5EMPTY, P5ERROR, P5FULL, P5RDOVERFLOW, P5WRUNDERRUN
+, RAS, RST, SELFREFRESHMODE, UDMN, UDMP, UOCALSTART, UOCMDREADYIN, UODATAVALID, UODONECAL, UOREFRSHFLAG, UOSDO, WE, ADDR, DQON, DQOP, BA, P0RDDATA, P1RDDATA, P2RDDATA, P3RDDATA, P4RDDATA
+, P5RDDATA, STATUS, IOIDRPADDR, P0RDCOUNT, P0WRCOUNT, P1RDCOUNT, P1WRCOUNT, P2COUNT, P3COUNT, P4COUNT, P5COUNT, UODATA, DQSIOIN, DQSIOIP, IOIDRPSDI, P0ARBEN, P0CMDCLK, P0CMDEN, P0RDCLK, P0RDEN, P0WRCLK
+, P0WREN, P1ARBEN, P1CMDCLK, P1CMDEN, P1RDCLK, P1RDEN, P1WRCLK, P1WREN, P2ARBEN, P2CLK, P2CMDCLK, P2CMDEN, P2EN, P3ARBEN, P3CLK, P3CMDCLK, P3CMDEN, P3EN, P4ARBEN, P4CLK, P4CMDCLK
+, P4CMDEN, P4EN, P5ARBEN, P5CLK, P5CMDCLK, P5CMDEN, P5EN, PLLLOCK, RECAL, SELFREFRESHENTER, SYSRST, UDQSIOIN, UDQSIOIP, UIADD, UIBROADCAST, UICLK, UICMD, UICMDEN, UICMDIN, UICS, UIDONECAL
+, UIDQLOWERDEC, UIDQLOWERINC, UIDQUPPERDEC, UIDQUPPERINC, UIDRPUPDATE, UILDQSDEC, UILDQSINC, UIREAD, UISDI, UIUDQSDEC, UIUDQSINC, P0CMDCA, P1CMDCA, P2CMDCA, P3CMDCA, P4CMDCA, P5CMDCA, P0CMDRA, P1CMDRA, P2CMDRA, P3CMDRA
+, P4CMDRA, P5CMDRA, DQI, PLLCE, PLLCLK, P0CMDBA, P0CMDINSTR, P1CMDBA, P1CMDINSTR, P2CMDBA, P2CMDINSTR, P3CMDBA, P3CMDINSTR, P4CMDBA, P4CMDINSTR, P5CMDBA, P5CMDINSTR, P0WRDATA, P1WRDATA, P2WRDATA, P3WRDATA
+, P4WRDATA, P5WRDATA, P0RWRMASK, P1RWRMASK, P2WRMASK, P3WRMASK, P4WRMASK, P5WRMASK, UIDQCOUNT, UIADDR, P0CMDBL, P1CMDBL, P2CMDBL, P3CMDBL, P4CMDBL, P5CMDBL);
     parameter integer ARB_NUM_TIME_SLOTS = 12;
     parameter [17:0] ARB_TIME_SLOT_0 = 18'b111111111111111111;
     parameter [17:0] ARB_TIME_SLOT_1 = 18'b111111111111111111;
@@ -28297,12 +28766,12 @@ module MCB (...);
 endmodule
 
 (* keep *)
-module HBM_REF_CLK (...);
+module HBM_REF_CLK(REF_CLK);
     input REF_CLK;
 endmodule
 
 (* keep *)
-module HBM_SNGLBLI_INTF_APB (...);
+module HBM_SNGLBLI_INTF_APB(CATTRIP_PIPE, PRDATA_PIPE, PREADY_PIPE, PSLVERR_PIPE, TEMP_PIPE, PADDR, PCLK, PENABLE, PRESET_N, PSEL, PWDATA, PWRITE);
     parameter CLK_SEL = "FALSE";
     parameter [0:0] IS_PCLK_INVERTED = 1'b0;
     parameter [0:0] IS_PRESET_N_INVERTED = 1'b0;
@@ -28327,7 +28796,9 @@ module HBM_SNGLBLI_INTF_APB (...);
 endmodule
 
 (* keep *)
-module HBM_SNGLBLI_INTF_AXI (...);
+module HBM_SNGLBLI_INTF_AXI(ARREADY_PIPE, AWREADY_PIPE, BID_PIPE, BRESP_PIPE, BVALID_PIPE, DFI_AW_AERR_N_PIPE, DFI_CLK_BUF, DFI_CTRLUPD_ACK_PIPE, DFI_DBI_BYTE_DISABLE_PIPE, DFI_DW_RDDATA_DBI_PIPE, DFI_DW_RDDATA_DERR_PIPE, DFI_DW_RDDATA_PAR_VALID_PIPE, DFI_DW_RDDATA_VALID_PIPE, DFI_INIT_COMPLETE_PIPE, DFI_PHYUPD_REQ_PIPE, DFI_PHYUPD_TYPE_PIPE, DFI_PHY_LP_STATE_PIPE, DFI_RST_N_BUF, MC_STATUS, PHY_STATUS, RDATA_PARITY_PIPE
+, RDATA_PIPE, RID_PIPE, RLAST_PIPE, RRESP_PIPE, RVALID_PIPE, STATUS, WREADY_PIPE, ACLK, ARADDR, ARBURST, ARESET_N, ARID, ARLEN, ARSIZE, ARVALID, AWADDR, AWBURST, AWID, AWLEN, AWSIZE, AWVALID
+, BREADY, BSCAN_CK, DFI_LP_PWR_X_REQ, MBIST_EN, RREADY, WDATA, WDATA_PARITY, WLAST, WSTRB, WVALID);
     parameter CLK_SEL = "FALSE";
     parameter integer DATARATE = 1800;
     parameter [0:0] IS_ACLK_INVERTED = 1'b0;
@@ -28395,7 +28866,42 @@ module HBM_SNGLBLI_INTF_AXI (...);
 endmodule
 
 (* keep *)
-module HBM_ONE_STACK_INTF (...);
+module HBM_ONE_STACK_INTF(APB_0_PRDATA, APB_0_PREADY, APB_0_PSLVERR, AXI_00_ARREADY, AXI_00_AWREADY, AXI_00_BID, AXI_00_BRESP, AXI_00_BVALID, AXI_00_DFI_AW_AERR_N, AXI_00_DFI_CLK_BUF, AXI_00_DFI_DBI_BYTE_DISABLE, AXI_00_DFI_DW_RDDATA_DBI, AXI_00_DFI_DW_RDDATA_DERR, AXI_00_DFI_DW_RDDATA_VALID, AXI_00_DFI_INIT_COMPLETE, AXI_00_DFI_PHYUPD_REQ, AXI_00_DFI_PHY_LP_STATE, AXI_00_DFI_RST_N_BUF, AXI_00_MC_STATUS, AXI_00_PHY_STATUS, AXI_00_RDATA
+, AXI_00_RDATA_PARITY, AXI_00_RID, AXI_00_RLAST, AXI_00_RRESP, AXI_00_RVALID, AXI_00_WREADY, AXI_01_ARREADY, AXI_01_AWREADY, AXI_01_BID, AXI_01_BRESP, AXI_01_BVALID, AXI_01_DFI_AW_AERR_N, AXI_01_DFI_CLK_BUF, AXI_01_DFI_DBI_BYTE_DISABLE, AXI_01_DFI_DW_RDDATA_DBI, AXI_01_DFI_DW_RDDATA_DERR, AXI_01_DFI_DW_RDDATA_VALID, AXI_01_DFI_INIT_COMPLETE, AXI_01_DFI_PHYUPD_REQ, AXI_01_DFI_PHY_LP_STATE, AXI_01_DFI_RST_N_BUF
+, AXI_01_RDATA, AXI_01_RDATA_PARITY, AXI_01_RID, AXI_01_RLAST, AXI_01_RRESP, AXI_01_RVALID, AXI_01_WREADY, AXI_02_ARREADY, AXI_02_AWREADY, AXI_02_BID, AXI_02_BRESP, AXI_02_BVALID, AXI_02_DFI_AW_AERR_N, AXI_02_DFI_CLK_BUF, AXI_02_DFI_DBI_BYTE_DISABLE, AXI_02_DFI_DW_RDDATA_DBI, AXI_02_DFI_DW_RDDATA_DERR, AXI_02_DFI_DW_RDDATA_VALID, AXI_02_DFI_INIT_COMPLETE, AXI_02_DFI_PHYUPD_REQ, AXI_02_DFI_PHY_LP_STATE
+, AXI_02_DFI_RST_N_BUF, AXI_02_MC_STATUS, AXI_02_PHY_STATUS, AXI_02_RDATA, AXI_02_RDATA_PARITY, AXI_02_RID, AXI_02_RLAST, AXI_02_RRESP, AXI_02_RVALID, AXI_02_WREADY, AXI_03_ARREADY, AXI_03_AWREADY, AXI_03_BID, AXI_03_BRESP, AXI_03_BVALID, AXI_03_DFI_AW_AERR_N, AXI_03_DFI_CLK_BUF, AXI_03_DFI_DBI_BYTE_DISABLE, AXI_03_DFI_DW_RDDATA_DBI, AXI_03_DFI_DW_RDDATA_DERR, AXI_03_DFI_DW_RDDATA_VALID
+, AXI_03_DFI_INIT_COMPLETE, AXI_03_DFI_PHYUPD_REQ, AXI_03_DFI_PHY_LP_STATE, AXI_03_DFI_RST_N_BUF, AXI_03_RDATA, AXI_03_RDATA_PARITY, AXI_03_RID, AXI_03_RLAST, AXI_03_RRESP, AXI_03_RVALID, AXI_03_WREADY, AXI_04_ARREADY, AXI_04_AWREADY, AXI_04_BID, AXI_04_BRESP, AXI_04_BVALID, AXI_04_DFI_AW_AERR_N, AXI_04_DFI_CLK_BUF, AXI_04_DFI_DBI_BYTE_DISABLE, AXI_04_DFI_DW_RDDATA_DBI, AXI_04_DFI_DW_RDDATA_DERR
+, AXI_04_DFI_DW_RDDATA_VALID, AXI_04_DFI_INIT_COMPLETE, AXI_04_DFI_PHYUPD_REQ, AXI_04_DFI_PHY_LP_STATE, AXI_04_DFI_RST_N_BUF, AXI_04_MC_STATUS, AXI_04_PHY_STATUS, AXI_04_RDATA, AXI_04_RDATA_PARITY, AXI_04_RID, AXI_04_RLAST, AXI_04_RRESP, AXI_04_RVALID, AXI_04_WREADY, AXI_05_ARREADY, AXI_05_AWREADY, AXI_05_BID, AXI_05_BRESP, AXI_05_BVALID, AXI_05_DFI_AW_AERR_N, AXI_05_DFI_CLK_BUF
+, AXI_05_DFI_DBI_BYTE_DISABLE, AXI_05_DFI_DW_RDDATA_DBI, AXI_05_DFI_DW_RDDATA_DERR, AXI_05_DFI_DW_RDDATA_VALID, AXI_05_DFI_INIT_COMPLETE, AXI_05_DFI_PHYUPD_REQ, AXI_05_DFI_PHY_LP_STATE, AXI_05_DFI_RST_N_BUF, AXI_05_RDATA, AXI_05_RDATA_PARITY, AXI_05_RID, AXI_05_RLAST, AXI_05_RRESP, AXI_05_RVALID, AXI_05_WREADY, AXI_06_ARREADY, AXI_06_AWREADY, AXI_06_BID, AXI_06_BRESP, AXI_06_BVALID, AXI_06_DFI_AW_AERR_N
+, AXI_06_DFI_CLK_BUF, AXI_06_DFI_DBI_BYTE_DISABLE, AXI_06_DFI_DW_RDDATA_DBI, AXI_06_DFI_DW_RDDATA_DERR, AXI_06_DFI_DW_RDDATA_VALID, AXI_06_DFI_INIT_COMPLETE, AXI_06_DFI_PHYUPD_REQ, AXI_06_DFI_PHY_LP_STATE, AXI_06_DFI_RST_N_BUF, AXI_06_MC_STATUS, AXI_06_PHY_STATUS, AXI_06_RDATA, AXI_06_RDATA_PARITY, AXI_06_RID, AXI_06_RLAST, AXI_06_RRESP, AXI_06_RVALID, AXI_06_WREADY, AXI_07_ARREADY, AXI_07_AWREADY, AXI_07_BID
+, AXI_07_BRESP, AXI_07_BVALID, AXI_07_DFI_AW_AERR_N, AXI_07_DFI_CLK_BUF, AXI_07_DFI_DBI_BYTE_DISABLE, AXI_07_DFI_DW_RDDATA_DBI, AXI_07_DFI_DW_RDDATA_DERR, AXI_07_DFI_DW_RDDATA_VALID, AXI_07_DFI_INIT_COMPLETE, AXI_07_DFI_PHYUPD_REQ, AXI_07_DFI_PHY_LP_STATE, AXI_07_DFI_RST_N_BUF, AXI_07_RDATA, AXI_07_RDATA_PARITY, AXI_07_RID, AXI_07_RLAST, AXI_07_RRESP, AXI_07_RVALID, AXI_07_WREADY, AXI_08_ARREADY, AXI_08_AWREADY
+, AXI_08_BID, AXI_08_BRESP, AXI_08_BVALID, AXI_08_DFI_AW_AERR_N, AXI_08_DFI_CLK_BUF, AXI_08_DFI_DBI_BYTE_DISABLE, AXI_08_DFI_DW_RDDATA_DBI, AXI_08_DFI_DW_RDDATA_DERR, AXI_08_DFI_DW_RDDATA_VALID, AXI_08_DFI_INIT_COMPLETE, AXI_08_DFI_PHYUPD_REQ, AXI_08_DFI_PHY_LP_STATE, AXI_08_DFI_RST_N_BUF, AXI_08_MC_STATUS, AXI_08_PHY_STATUS, AXI_08_RDATA, AXI_08_RDATA_PARITY, AXI_08_RID, AXI_08_RLAST, AXI_08_RRESP, AXI_08_RVALID
+, AXI_08_WREADY, AXI_09_ARREADY, AXI_09_AWREADY, AXI_09_BID, AXI_09_BRESP, AXI_09_BVALID, AXI_09_DFI_AW_AERR_N, AXI_09_DFI_CLK_BUF, AXI_09_DFI_DBI_BYTE_DISABLE, AXI_09_DFI_DW_RDDATA_DBI, AXI_09_DFI_DW_RDDATA_DERR, AXI_09_DFI_DW_RDDATA_VALID, AXI_09_DFI_INIT_COMPLETE, AXI_09_DFI_PHYUPD_REQ, AXI_09_DFI_PHY_LP_STATE, AXI_09_DFI_RST_N_BUF, AXI_09_RDATA, AXI_09_RDATA_PARITY, AXI_09_RID, AXI_09_RLAST, AXI_09_RRESP
+, AXI_09_RVALID, AXI_09_WREADY, AXI_10_ARREADY, AXI_10_AWREADY, AXI_10_BID, AXI_10_BRESP, AXI_10_BVALID, AXI_10_DFI_AW_AERR_N, AXI_10_DFI_CLK_BUF, AXI_10_DFI_DBI_BYTE_DISABLE, AXI_10_DFI_DW_RDDATA_DBI, AXI_10_DFI_DW_RDDATA_DERR, AXI_10_DFI_DW_RDDATA_VALID, AXI_10_DFI_INIT_COMPLETE, AXI_10_DFI_PHYUPD_REQ, AXI_10_DFI_PHY_LP_STATE, AXI_10_DFI_RST_N_BUF, AXI_10_MC_STATUS, AXI_10_PHY_STATUS, AXI_10_RDATA, AXI_10_RDATA_PARITY
+, AXI_10_RID, AXI_10_RLAST, AXI_10_RRESP, AXI_10_RVALID, AXI_10_WREADY, AXI_11_ARREADY, AXI_11_AWREADY, AXI_11_BID, AXI_11_BRESP, AXI_11_BVALID, AXI_11_DFI_AW_AERR_N, AXI_11_DFI_CLK_BUF, AXI_11_DFI_DBI_BYTE_DISABLE, AXI_11_DFI_DW_RDDATA_DBI, AXI_11_DFI_DW_RDDATA_DERR, AXI_11_DFI_DW_RDDATA_VALID, AXI_11_DFI_INIT_COMPLETE, AXI_11_DFI_PHYUPD_REQ, AXI_11_DFI_PHY_LP_STATE, AXI_11_DFI_RST_N_BUF, AXI_11_RDATA
+, AXI_11_RDATA_PARITY, AXI_11_RID, AXI_11_RLAST, AXI_11_RRESP, AXI_11_RVALID, AXI_11_WREADY, AXI_12_ARREADY, AXI_12_AWREADY, AXI_12_BID, AXI_12_BRESP, AXI_12_BVALID, AXI_12_DFI_AW_AERR_N, AXI_12_DFI_CLK_BUF, AXI_12_DFI_DBI_BYTE_DISABLE, AXI_12_DFI_DW_RDDATA_DBI, AXI_12_DFI_DW_RDDATA_DERR, AXI_12_DFI_DW_RDDATA_VALID, AXI_12_DFI_INIT_COMPLETE, AXI_12_DFI_PHYUPD_REQ, AXI_12_DFI_PHY_LP_STATE, AXI_12_DFI_RST_N_BUF
+, AXI_12_MC_STATUS, AXI_12_PHY_STATUS, AXI_12_RDATA, AXI_12_RDATA_PARITY, AXI_12_RID, AXI_12_RLAST, AXI_12_RRESP, AXI_12_RVALID, AXI_12_WREADY, AXI_13_ARREADY, AXI_13_AWREADY, AXI_13_BID, AXI_13_BRESP, AXI_13_BVALID, AXI_13_DFI_AW_AERR_N, AXI_13_DFI_CLK_BUF, AXI_13_DFI_DBI_BYTE_DISABLE, AXI_13_DFI_DW_RDDATA_DBI, AXI_13_DFI_DW_RDDATA_DERR, AXI_13_DFI_DW_RDDATA_VALID, AXI_13_DFI_INIT_COMPLETE
+, AXI_13_DFI_PHYUPD_REQ, AXI_13_DFI_PHY_LP_STATE, AXI_13_DFI_RST_N_BUF, AXI_13_RDATA, AXI_13_RDATA_PARITY, AXI_13_RID, AXI_13_RLAST, AXI_13_RRESP, AXI_13_RVALID, AXI_13_WREADY, AXI_14_ARREADY, AXI_14_AWREADY, AXI_14_BID, AXI_14_BRESP, AXI_14_BVALID, AXI_14_DFI_AW_AERR_N, AXI_14_DFI_CLK_BUF, AXI_14_DFI_DBI_BYTE_DISABLE, AXI_14_DFI_DW_RDDATA_DBI, AXI_14_DFI_DW_RDDATA_DERR, AXI_14_DFI_DW_RDDATA_VALID
+, AXI_14_DFI_INIT_COMPLETE, AXI_14_DFI_PHYUPD_REQ, AXI_14_DFI_PHY_LP_STATE, AXI_14_DFI_RST_N_BUF, AXI_14_MC_STATUS, AXI_14_PHY_STATUS, AXI_14_RDATA, AXI_14_RDATA_PARITY, AXI_14_RID, AXI_14_RLAST, AXI_14_RRESP, AXI_14_RVALID, AXI_14_WREADY, AXI_15_ARREADY, AXI_15_AWREADY, AXI_15_BID, AXI_15_BRESP, AXI_15_BVALID, AXI_15_DFI_AW_AERR_N, AXI_15_DFI_CLK_BUF, AXI_15_DFI_DBI_BYTE_DISABLE
+, AXI_15_DFI_DW_RDDATA_DBI, AXI_15_DFI_DW_RDDATA_DERR, AXI_15_DFI_DW_RDDATA_VALID, AXI_15_DFI_INIT_COMPLETE, AXI_15_DFI_PHYUPD_REQ, AXI_15_DFI_PHY_LP_STATE, AXI_15_DFI_RST_N_BUF, AXI_15_RDATA, AXI_15_RDATA_PARITY, AXI_15_RID, AXI_15_RLAST, AXI_15_RRESP, AXI_15_RVALID, AXI_15_WREADY, DRAM_0_STAT_CATTRIP, DRAM_0_STAT_TEMP, APB_0_PADDR, APB_0_PCLK, APB_0_PENABLE, APB_0_PRESET_N, APB_0_PSEL
+, APB_0_PWDATA, APB_0_PWRITE, AXI_00_ACLK, AXI_00_ARADDR, AXI_00_ARBURST, AXI_00_ARESET_N, AXI_00_ARID, AXI_00_ARLEN, AXI_00_ARSIZE, AXI_00_ARVALID, AXI_00_AWADDR, AXI_00_AWBURST, AXI_00_AWID, AXI_00_AWLEN, AXI_00_AWSIZE, AXI_00_AWVALID, AXI_00_BREADY, AXI_00_DFI_LP_PWR_X_REQ, AXI_00_RREADY, AXI_00_WDATA, AXI_00_WDATA_PARITY
+, AXI_00_WLAST, AXI_00_WSTRB, AXI_00_WVALID, AXI_01_ACLK, AXI_01_ARADDR, AXI_01_ARBURST, AXI_01_ARESET_N, AXI_01_ARID, AXI_01_ARLEN, AXI_01_ARSIZE, AXI_01_ARVALID, AXI_01_AWADDR, AXI_01_AWBURST, AXI_01_AWID, AXI_01_AWLEN, AXI_01_AWSIZE, AXI_01_AWVALID, AXI_01_BREADY, AXI_01_DFI_LP_PWR_X_REQ, AXI_01_RREADY, AXI_01_WDATA
+, AXI_01_WDATA_PARITY, AXI_01_WLAST, AXI_01_WSTRB, AXI_01_WVALID, AXI_02_ACLK, AXI_02_ARADDR, AXI_02_ARBURST, AXI_02_ARESET_N, AXI_02_ARID, AXI_02_ARLEN, AXI_02_ARSIZE, AXI_02_ARVALID, AXI_02_AWADDR, AXI_02_AWBURST, AXI_02_AWID, AXI_02_AWLEN, AXI_02_AWSIZE, AXI_02_AWVALID, AXI_02_BREADY, AXI_02_DFI_LP_PWR_X_REQ, AXI_02_RREADY
+, AXI_02_WDATA, AXI_02_WDATA_PARITY, AXI_02_WLAST, AXI_02_WSTRB, AXI_02_WVALID, AXI_03_ACLK, AXI_03_ARADDR, AXI_03_ARBURST, AXI_03_ARESET_N, AXI_03_ARID, AXI_03_ARLEN, AXI_03_ARSIZE, AXI_03_ARVALID, AXI_03_AWADDR, AXI_03_AWBURST, AXI_03_AWID, AXI_03_AWLEN, AXI_03_AWSIZE, AXI_03_AWVALID, AXI_03_BREADY, AXI_03_DFI_LP_PWR_X_REQ
+, AXI_03_RREADY, AXI_03_WDATA, AXI_03_WDATA_PARITY, AXI_03_WLAST, AXI_03_WSTRB, AXI_03_WVALID, AXI_04_ACLK, AXI_04_ARADDR, AXI_04_ARBURST, AXI_04_ARESET_N, AXI_04_ARID, AXI_04_ARLEN, AXI_04_ARSIZE, AXI_04_ARVALID, AXI_04_AWADDR, AXI_04_AWBURST, AXI_04_AWID, AXI_04_AWLEN, AXI_04_AWSIZE, AXI_04_AWVALID, AXI_04_BREADY
+, AXI_04_DFI_LP_PWR_X_REQ, AXI_04_RREADY, AXI_04_WDATA, AXI_04_WDATA_PARITY, AXI_04_WLAST, AXI_04_WSTRB, AXI_04_WVALID, AXI_05_ACLK, AXI_05_ARADDR, AXI_05_ARBURST, AXI_05_ARESET_N, AXI_05_ARID, AXI_05_ARLEN, AXI_05_ARSIZE, AXI_05_ARVALID, AXI_05_AWADDR, AXI_05_AWBURST, AXI_05_AWID, AXI_05_AWLEN, AXI_05_AWSIZE, AXI_05_AWVALID
+, AXI_05_BREADY, AXI_05_DFI_LP_PWR_X_REQ, AXI_05_RREADY, AXI_05_WDATA, AXI_05_WDATA_PARITY, AXI_05_WLAST, AXI_05_WSTRB, AXI_05_WVALID, AXI_06_ACLK, AXI_06_ARADDR, AXI_06_ARBURST, AXI_06_ARESET_N, AXI_06_ARID, AXI_06_ARLEN, AXI_06_ARSIZE, AXI_06_ARVALID, AXI_06_AWADDR, AXI_06_AWBURST, AXI_06_AWID, AXI_06_AWLEN, AXI_06_AWSIZE
+, AXI_06_AWVALID, AXI_06_BREADY, AXI_06_DFI_LP_PWR_X_REQ, AXI_06_RREADY, AXI_06_WDATA, AXI_06_WDATA_PARITY, AXI_06_WLAST, AXI_06_WSTRB, AXI_06_WVALID, AXI_07_ACLK, AXI_07_ARADDR, AXI_07_ARBURST, AXI_07_ARESET_N, AXI_07_ARID, AXI_07_ARLEN, AXI_07_ARSIZE, AXI_07_ARVALID, AXI_07_AWADDR, AXI_07_AWBURST, AXI_07_AWID, AXI_07_AWLEN
+, AXI_07_AWSIZE, AXI_07_AWVALID, AXI_07_BREADY, AXI_07_DFI_LP_PWR_X_REQ, AXI_07_RREADY, AXI_07_WDATA, AXI_07_WDATA_PARITY, AXI_07_WLAST, AXI_07_WSTRB, AXI_07_WVALID, AXI_08_ACLK, AXI_08_ARADDR, AXI_08_ARBURST, AXI_08_ARESET_N, AXI_08_ARID, AXI_08_ARLEN, AXI_08_ARSIZE, AXI_08_ARVALID, AXI_08_AWADDR, AXI_08_AWBURST, AXI_08_AWID
+, AXI_08_AWLEN, AXI_08_AWSIZE, AXI_08_AWVALID, AXI_08_BREADY, AXI_08_DFI_LP_PWR_X_REQ, AXI_08_RREADY, AXI_08_WDATA, AXI_08_WDATA_PARITY, AXI_08_WLAST, AXI_08_WSTRB, AXI_08_WVALID, AXI_09_ACLK, AXI_09_ARADDR, AXI_09_ARBURST, AXI_09_ARESET_N, AXI_09_ARID, AXI_09_ARLEN, AXI_09_ARSIZE, AXI_09_ARVALID, AXI_09_AWADDR, AXI_09_AWBURST
+, AXI_09_AWID, AXI_09_AWLEN, AXI_09_AWSIZE, AXI_09_AWVALID, AXI_09_BREADY, AXI_09_DFI_LP_PWR_X_REQ, AXI_09_RREADY, AXI_09_WDATA, AXI_09_WDATA_PARITY, AXI_09_WLAST, AXI_09_WSTRB, AXI_09_WVALID, AXI_10_ACLK, AXI_10_ARADDR, AXI_10_ARBURST, AXI_10_ARESET_N, AXI_10_ARID, AXI_10_ARLEN, AXI_10_ARSIZE, AXI_10_ARVALID, AXI_10_AWADDR
+, AXI_10_AWBURST, AXI_10_AWID, AXI_10_AWLEN, AXI_10_AWSIZE, AXI_10_AWVALID, AXI_10_BREADY, AXI_10_DFI_LP_PWR_X_REQ, AXI_10_RREADY, AXI_10_WDATA, AXI_10_WDATA_PARITY, AXI_10_WLAST, AXI_10_WSTRB, AXI_10_WVALID, AXI_11_ACLK, AXI_11_ARADDR, AXI_11_ARBURST, AXI_11_ARESET_N, AXI_11_ARID, AXI_11_ARLEN, AXI_11_ARSIZE, AXI_11_ARVALID
+, AXI_11_AWADDR, AXI_11_AWBURST, AXI_11_AWID, AXI_11_AWLEN, AXI_11_AWSIZE, AXI_11_AWVALID, AXI_11_BREADY, AXI_11_DFI_LP_PWR_X_REQ, AXI_11_RREADY, AXI_11_WDATA, AXI_11_WDATA_PARITY, AXI_11_WLAST, AXI_11_WSTRB, AXI_11_WVALID, AXI_12_ACLK, AXI_12_ARADDR, AXI_12_ARBURST, AXI_12_ARESET_N, AXI_12_ARID, AXI_12_ARLEN, AXI_12_ARSIZE
+, AXI_12_ARVALID, AXI_12_AWADDR, AXI_12_AWBURST, AXI_12_AWID, AXI_12_AWLEN, AXI_12_AWSIZE, AXI_12_AWVALID, AXI_12_BREADY, AXI_12_DFI_LP_PWR_X_REQ, AXI_12_RREADY, AXI_12_WDATA, AXI_12_WDATA_PARITY, AXI_12_WLAST, AXI_12_WSTRB, AXI_12_WVALID, AXI_13_ACLK, AXI_13_ARADDR, AXI_13_ARBURST, AXI_13_ARESET_N, AXI_13_ARID, AXI_13_ARLEN
+, AXI_13_ARSIZE, AXI_13_ARVALID, AXI_13_AWADDR, AXI_13_AWBURST, AXI_13_AWID, AXI_13_AWLEN, AXI_13_AWSIZE, AXI_13_AWVALID, AXI_13_BREADY, AXI_13_DFI_LP_PWR_X_REQ, AXI_13_RREADY, AXI_13_WDATA, AXI_13_WDATA_PARITY, AXI_13_WLAST, AXI_13_WSTRB, AXI_13_WVALID, AXI_14_ACLK, AXI_14_ARADDR, AXI_14_ARBURST, AXI_14_ARESET_N, AXI_14_ARID
+, AXI_14_ARLEN, AXI_14_ARSIZE, AXI_14_ARVALID, AXI_14_AWADDR, AXI_14_AWBURST, AXI_14_AWID, AXI_14_AWLEN, AXI_14_AWSIZE, AXI_14_AWVALID, AXI_14_BREADY, AXI_14_DFI_LP_PWR_X_REQ, AXI_14_RREADY, AXI_14_WDATA, AXI_14_WDATA_PARITY, AXI_14_WLAST, AXI_14_WSTRB, AXI_14_WVALID, AXI_15_ACLK, AXI_15_ARADDR, AXI_15_ARBURST, AXI_15_ARESET_N
+, AXI_15_ARID, AXI_15_ARLEN, AXI_15_ARSIZE, AXI_15_ARVALID, AXI_15_AWADDR, AXI_15_AWBURST, AXI_15_AWID, AXI_15_AWLEN, AXI_15_AWSIZE, AXI_15_AWVALID, AXI_15_BREADY, AXI_15_DFI_LP_PWR_X_REQ, AXI_15_RREADY, AXI_15_WDATA, AXI_15_WDATA_PARITY, AXI_15_WLAST, AXI_15_WSTRB, AXI_15_WVALID, BSCAN_DRCK, BSCAN_TCK, HBM_REF_CLK
+, MBIST_EN_00, MBIST_EN_01, MBIST_EN_02, MBIST_EN_03, MBIST_EN_04, MBIST_EN_05, MBIST_EN_06, MBIST_EN_07);
     parameter CLK_SEL_00 = "FALSE";
     parameter CLK_SEL_01 = "FALSE";
     parameter CLK_SEL_02 = "FALSE";
@@ -29298,7 +29804,77 @@ module HBM_ONE_STACK_INTF (...);
 endmodule
 
 (* keep *)
-module HBM_TWO_STACK_INTF (...);
+module HBM_TWO_STACK_INTF(APB_0_PRDATA, APB_0_PREADY, APB_0_PSLVERR, APB_1_PRDATA, APB_1_PREADY, APB_1_PSLVERR, AXI_00_ARREADY, AXI_00_AWREADY, AXI_00_BID, AXI_00_BRESP, AXI_00_BVALID, AXI_00_DFI_AW_AERR_N, AXI_00_DFI_CLK_BUF, AXI_00_DFI_DBI_BYTE_DISABLE, AXI_00_DFI_DW_RDDATA_DBI, AXI_00_DFI_DW_RDDATA_DERR, AXI_00_DFI_DW_RDDATA_VALID, AXI_00_DFI_INIT_COMPLETE, AXI_00_DFI_PHYUPD_REQ, AXI_00_DFI_PHY_LP_STATE, AXI_00_DFI_RST_N_BUF
+, AXI_00_MC_STATUS, AXI_00_PHY_STATUS, AXI_00_RDATA, AXI_00_RDATA_PARITY, AXI_00_RID, AXI_00_RLAST, AXI_00_RRESP, AXI_00_RVALID, AXI_00_WREADY, AXI_01_ARREADY, AXI_01_AWREADY, AXI_01_BID, AXI_01_BRESP, AXI_01_BVALID, AXI_01_DFI_AW_AERR_N, AXI_01_DFI_CLK_BUF, AXI_01_DFI_DBI_BYTE_DISABLE, AXI_01_DFI_DW_RDDATA_DBI, AXI_01_DFI_DW_RDDATA_DERR, AXI_01_DFI_DW_RDDATA_VALID, AXI_01_DFI_INIT_COMPLETE
+, AXI_01_DFI_PHYUPD_REQ, AXI_01_DFI_PHY_LP_STATE, AXI_01_DFI_RST_N_BUF, AXI_01_RDATA, AXI_01_RDATA_PARITY, AXI_01_RID, AXI_01_RLAST, AXI_01_RRESP, AXI_01_RVALID, AXI_01_WREADY, AXI_02_ARREADY, AXI_02_AWREADY, AXI_02_BID, AXI_02_BRESP, AXI_02_BVALID, AXI_02_DFI_AW_AERR_N, AXI_02_DFI_CLK_BUF, AXI_02_DFI_DBI_BYTE_DISABLE, AXI_02_DFI_DW_RDDATA_DBI, AXI_02_DFI_DW_RDDATA_DERR, AXI_02_DFI_DW_RDDATA_VALID
+, AXI_02_DFI_INIT_COMPLETE, AXI_02_DFI_PHYUPD_REQ, AXI_02_DFI_PHY_LP_STATE, AXI_02_DFI_RST_N_BUF, AXI_02_MC_STATUS, AXI_02_PHY_STATUS, AXI_02_RDATA, AXI_02_RDATA_PARITY, AXI_02_RID, AXI_02_RLAST, AXI_02_RRESP, AXI_02_RVALID, AXI_02_WREADY, AXI_03_ARREADY, AXI_03_AWREADY, AXI_03_BID, AXI_03_BRESP, AXI_03_BVALID, AXI_03_DFI_AW_AERR_N, AXI_03_DFI_CLK_BUF, AXI_03_DFI_DBI_BYTE_DISABLE
+, AXI_03_DFI_DW_RDDATA_DBI, AXI_03_DFI_DW_RDDATA_DERR, AXI_03_DFI_DW_RDDATA_VALID, AXI_03_DFI_INIT_COMPLETE, AXI_03_DFI_PHYUPD_REQ, AXI_03_DFI_PHY_LP_STATE, AXI_03_DFI_RST_N_BUF, AXI_03_RDATA, AXI_03_RDATA_PARITY, AXI_03_RID, AXI_03_RLAST, AXI_03_RRESP, AXI_03_RVALID, AXI_03_WREADY, AXI_04_ARREADY, AXI_04_AWREADY, AXI_04_BID, AXI_04_BRESP, AXI_04_BVALID, AXI_04_DFI_AW_AERR_N, AXI_04_DFI_CLK_BUF
+, AXI_04_DFI_DBI_BYTE_DISABLE, AXI_04_DFI_DW_RDDATA_DBI, AXI_04_DFI_DW_RDDATA_DERR, AXI_04_DFI_DW_RDDATA_VALID, AXI_04_DFI_INIT_COMPLETE, AXI_04_DFI_PHYUPD_REQ, AXI_04_DFI_PHY_LP_STATE, AXI_04_DFI_RST_N_BUF, AXI_04_MC_STATUS, AXI_04_PHY_STATUS, AXI_04_RDATA, AXI_04_RDATA_PARITY, AXI_04_RID, AXI_04_RLAST, AXI_04_RRESP, AXI_04_RVALID, AXI_04_WREADY, AXI_05_ARREADY, AXI_05_AWREADY, AXI_05_BID, AXI_05_BRESP
+, AXI_05_BVALID, AXI_05_DFI_AW_AERR_N, AXI_05_DFI_CLK_BUF, AXI_05_DFI_DBI_BYTE_DISABLE, AXI_05_DFI_DW_RDDATA_DBI, AXI_05_DFI_DW_RDDATA_DERR, AXI_05_DFI_DW_RDDATA_VALID, AXI_05_DFI_INIT_COMPLETE, AXI_05_DFI_PHYUPD_REQ, AXI_05_DFI_PHY_LP_STATE, AXI_05_DFI_RST_N_BUF, AXI_05_RDATA, AXI_05_RDATA_PARITY, AXI_05_RID, AXI_05_RLAST, AXI_05_RRESP, AXI_05_RVALID, AXI_05_WREADY, AXI_06_ARREADY, AXI_06_AWREADY, AXI_06_BID
+, AXI_06_BRESP, AXI_06_BVALID, AXI_06_DFI_AW_AERR_N, AXI_06_DFI_CLK_BUF, AXI_06_DFI_DBI_BYTE_DISABLE, AXI_06_DFI_DW_RDDATA_DBI, AXI_06_DFI_DW_RDDATA_DERR, AXI_06_DFI_DW_RDDATA_VALID, AXI_06_DFI_INIT_COMPLETE, AXI_06_DFI_PHYUPD_REQ, AXI_06_DFI_PHY_LP_STATE, AXI_06_DFI_RST_N_BUF, AXI_06_MC_STATUS, AXI_06_PHY_STATUS, AXI_06_RDATA, AXI_06_RDATA_PARITY, AXI_06_RID, AXI_06_RLAST, AXI_06_RRESP, AXI_06_RVALID, AXI_06_WREADY
+, AXI_07_ARREADY, AXI_07_AWREADY, AXI_07_BID, AXI_07_BRESP, AXI_07_BVALID, AXI_07_DFI_AW_AERR_N, AXI_07_DFI_CLK_BUF, AXI_07_DFI_DBI_BYTE_DISABLE, AXI_07_DFI_DW_RDDATA_DBI, AXI_07_DFI_DW_RDDATA_DERR, AXI_07_DFI_DW_RDDATA_VALID, AXI_07_DFI_INIT_COMPLETE, AXI_07_DFI_PHYUPD_REQ, AXI_07_DFI_PHY_LP_STATE, AXI_07_DFI_RST_N_BUF, AXI_07_RDATA, AXI_07_RDATA_PARITY, AXI_07_RID, AXI_07_RLAST, AXI_07_RRESP, AXI_07_RVALID
+, AXI_07_WREADY, AXI_08_ARREADY, AXI_08_AWREADY, AXI_08_BID, AXI_08_BRESP, AXI_08_BVALID, AXI_08_DFI_AW_AERR_N, AXI_08_DFI_CLK_BUF, AXI_08_DFI_DBI_BYTE_DISABLE, AXI_08_DFI_DW_RDDATA_DBI, AXI_08_DFI_DW_RDDATA_DERR, AXI_08_DFI_DW_RDDATA_VALID, AXI_08_DFI_INIT_COMPLETE, AXI_08_DFI_PHYUPD_REQ, AXI_08_DFI_PHY_LP_STATE, AXI_08_DFI_RST_N_BUF, AXI_08_MC_STATUS, AXI_08_PHY_STATUS, AXI_08_RDATA, AXI_08_RDATA_PARITY, AXI_08_RID
+, AXI_08_RLAST, AXI_08_RRESP, AXI_08_RVALID, AXI_08_WREADY, AXI_09_ARREADY, AXI_09_AWREADY, AXI_09_BID, AXI_09_BRESP, AXI_09_BVALID, AXI_09_DFI_AW_AERR_N, AXI_09_DFI_CLK_BUF, AXI_09_DFI_DBI_BYTE_DISABLE, AXI_09_DFI_DW_RDDATA_DBI, AXI_09_DFI_DW_RDDATA_DERR, AXI_09_DFI_DW_RDDATA_VALID, AXI_09_DFI_INIT_COMPLETE, AXI_09_DFI_PHYUPD_REQ, AXI_09_DFI_PHY_LP_STATE, AXI_09_DFI_RST_N_BUF, AXI_09_RDATA, AXI_09_RDATA_PARITY
+, AXI_09_RID, AXI_09_RLAST, AXI_09_RRESP, AXI_09_RVALID, AXI_09_WREADY, AXI_10_ARREADY, AXI_10_AWREADY, AXI_10_BID, AXI_10_BRESP, AXI_10_BVALID, AXI_10_DFI_AW_AERR_N, AXI_10_DFI_CLK_BUF, AXI_10_DFI_DBI_BYTE_DISABLE, AXI_10_DFI_DW_RDDATA_DBI, AXI_10_DFI_DW_RDDATA_DERR, AXI_10_DFI_DW_RDDATA_VALID, AXI_10_DFI_INIT_COMPLETE, AXI_10_DFI_PHYUPD_REQ, AXI_10_DFI_PHY_LP_STATE, AXI_10_DFI_RST_N_BUF, AXI_10_MC_STATUS
+, AXI_10_PHY_STATUS, AXI_10_RDATA, AXI_10_RDATA_PARITY, AXI_10_RID, AXI_10_RLAST, AXI_10_RRESP, AXI_10_RVALID, AXI_10_WREADY, AXI_11_ARREADY, AXI_11_AWREADY, AXI_11_BID, AXI_11_BRESP, AXI_11_BVALID, AXI_11_DFI_AW_AERR_N, AXI_11_DFI_CLK_BUF, AXI_11_DFI_DBI_BYTE_DISABLE, AXI_11_DFI_DW_RDDATA_DBI, AXI_11_DFI_DW_RDDATA_DERR, AXI_11_DFI_DW_RDDATA_VALID, AXI_11_DFI_INIT_COMPLETE, AXI_11_DFI_PHYUPD_REQ
+, AXI_11_DFI_PHY_LP_STATE, AXI_11_DFI_RST_N_BUF, AXI_11_RDATA, AXI_11_RDATA_PARITY, AXI_11_RID, AXI_11_RLAST, AXI_11_RRESP, AXI_11_RVALID, AXI_11_WREADY, AXI_12_ARREADY, AXI_12_AWREADY, AXI_12_BID, AXI_12_BRESP, AXI_12_BVALID, AXI_12_DFI_AW_AERR_N, AXI_12_DFI_CLK_BUF, AXI_12_DFI_DBI_BYTE_DISABLE, AXI_12_DFI_DW_RDDATA_DBI, AXI_12_DFI_DW_RDDATA_DERR, AXI_12_DFI_DW_RDDATA_VALID, AXI_12_DFI_INIT_COMPLETE
+, AXI_12_DFI_PHYUPD_REQ, AXI_12_DFI_PHY_LP_STATE, AXI_12_DFI_RST_N_BUF, AXI_12_MC_STATUS, AXI_12_PHY_STATUS, AXI_12_RDATA, AXI_12_RDATA_PARITY, AXI_12_RID, AXI_12_RLAST, AXI_12_RRESP, AXI_12_RVALID, AXI_12_WREADY, AXI_13_ARREADY, AXI_13_AWREADY, AXI_13_BID, AXI_13_BRESP, AXI_13_BVALID, AXI_13_DFI_AW_AERR_N, AXI_13_DFI_CLK_BUF, AXI_13_DFI_DBI_BYTE_DISABLE, AXI_13_DFI_DW_RDDATA_DBI
+, AXI_13_DFI_DW_RDDATA_DERR, AXI_13_DFI_DW_RDDATA_VALID, AXI_13_DFI_INIT_COMPLETE, AXI_13_DFI_PHYUPD_REQ, AXI_13_DFI_PHY_LP_STATE, AXI_13_DFI_RST_N_BUF, AXI_13_RDATA, AXI_13_RDATA_PARITY, AXI_13_RID, AXI_13_RLAST, AXI_13_RRESP, AXI_13_RVALID, AXI_13_WREADY, AXI_14_ARREADY, AXI_14_AWREADY, AXI_14_BID, AXI_14_BRESP, AXI_14_BVALID, AXI_14_DFI_AW_AERR_N, AXI_14_DFI_CLK_BUF, AXI_14_DFI_DBI_BYTE_DISABLE
+, AXI_14_DFI_DW_RDDATA_DBI, AXI_14_DFI_DW_RDDATA_DERR, AXI_14_DFI_DW_RDDATA_VALID, AXI_14_DFI_INIT_COMPLETE, AXI_14_DFI_PHYUPD_REQ, AXI_14_DFI_PHY_LP_STATE, AXI_14_DFI_RST_N_BUF, AXI_14_MC_STATUS, AXI_14_PHY_STATUS, AXI_14_RDATA, AXI_14_RDATA_PARITY, AXI_14_RID, AXI_14_RLAST, AXI_14_RRESP, AXI_14_RVALID, AXI_14_WREADY, AXI_15_ARREADY, AXI_15_AWREADY, AXI_15_BID, AXI_15_BRESP, AXI_15_BVALID
+, AXI_15_DFI_AW_AERR_N, AXI_15_DFI_CLK_BUF, AXI_15_DFI_DBI_BYTE_DISABLE, AXI_15_DFI_DW_RDDATA_DBI, AXI_15_DFI_DW_RDDATA_DERR, AXI_15_DFI_DW_RDDATA_VALID, AXI_15_DFI_INIT_COMPLETE, AXI_15_DFI_PHYUPD_REQ, AXI_15_DFI_PHY_LP_STATE, AXI_15_DFI_RST_N_BUF, AXI_15_RDATA, AXI_15_RDATA_PARITY, AXI_15_RID, AXI_15_RLAST, AXI_15_RRESP, AXI_15_RVALID, AXI_15_WREADY, AXI_16_ARREADY, AXI_16_AWREADY, AXI_16_BID, AXI_16_BRESP
+, AXI_16_BVALID, AXI_16_DFI_AW_AERR_N, AXI_16_DFI_CLK_BUF, AXI_16_DFI_DBI_BYTE_DISABLE, AXI_16_DFI_DW_RDDATA_DBI, AXI_16_DFI_DW_RDDATA_DERR, AXI_16_DFI_DW_RDDATA_VALID, AXI_16_DFI_INIT_COMPLETE, AXI_16_DFI_PHYUPD_REQ, AXI_16_DFI_PHY_LP_STATE, AXI_16_DFI_RST_N_BUF, AXI_16_MC_STATUS, AXI_16_PHY_STATUS, AXI_16_RDATA, AXI_16_RDATA_PARITY, AXI_16_RID, AXI_16_RLAST, AXI_16_RRESP, AXI_16_RVALID, AXI_16_WREADY, AXI_17_ARREADY
+, AXI_17_AWREADY, AXI_17_BID, AXI_17_BRESP, AXI_17_BVALID, AXI_17_DFI_AW_AERR_N, AXI_17_DFI_CLK_BUF, AXI_17_DFI_DBI_BYTE_DISABLE, AXI_17_DFI_DW_RDDATA_DBI, AXI_17_DFI_DW_RDDATA_DERR, AXI_17_DFI_DW_RDDATA_VALID, AXI_17_DFI_INIT_COMPLETE, AXI_17_DFI_PHYUPD_REQ, AXI_17_DFI_PHY_LP_STATE, AXI_17_DFI_RST_N_BUF, AXI_17_RDATA, AXI_17_RDATA_PARITY, AXI_17_RID, AXI_17_RLAST, AXI_17_RRESP, AXI_17_RVALID, AXI_17_WREADY
+, AXI_18_ARREADY, AXI_18_AWREADY, AXI_18_BID, AXI_18_BRESP, AXI_18_BVALID, AXI_18_DFI_AW_AERR_N, AXI_18_DFI_CLK_BUF, AXI_18_DFI_DBI_BYTE_DISABLE, AXI_18_DFI_DW_RDDATA_DBI, AXI_18_DFI_DW_RDDATA_DERR, AXI_18_DFI_DW_RDDATA_VALID, AXI_18_DFI_INIT_COMPLETE, AXI_18_DFI_PHYUPD_REQ, AXI_18_DFI_PHY_LP_STATE, AXI_18_DFI_RST_N_BUF, AXI_18_MC_STATUS, AXI_18_PHY_STATUS, AXI_18_RDATA, AXI_18_RDATA_PARITY, AXI_18_RID, AXI_18_RLAST
+, AXI_18_RRESP, AXI_18_RVALID, AXI_18_WREADY, AXI_19_ARREADY, AXI_19_AWREADY, AXI_19_BID, AXI_19_BRESP, AXI_19_BVALID, AXI_19_DFI_AW_AERR_N, AXI_19_DFI_CLK_BUF, AXI_19_DFI_DBI_BYTE_DISABLE, AXI_19_DFI_DW_RDDATA_DBI, AXI_19_DFI_DW_RDDATA_DERR, AXI_19_DFI_DW_RDDATA_VALID, AXI_19_DFI_INIT_COMPLETE, AXI_19_DFI_PHYUPD_REQ, AXI_19_DFI_PHY_LP_STATE, AXI_19_DFI_RST_N_BUF, AXI_19_RDATA, AXI_19_RDATA_PARITY, AXI_19_RID
+, AXI_19_RLAST, AXI_19_RRESP, AXI_19_RVALID, AXI_19_WREADY, AXI_20_ARREADY, AXI_20_AWREADY, AXI_20_BID, AXI_20_BRESP, AXI_20_BVALID, AXI_20_DFI_AW_AERR_N, AXI_20_DFI_CLK_BUF, AXI_20_DFI_DBI_BYTE_DISABLE, AXI_20_DFI_DW_RDDATA_DBI, AXI_20_DFI_DW_RDDATA_DERR, AXI_20_DFI_DW_RDDATA_VALID, AXI_20_DFI_INIT_COMPLETE, AXI_20_DFI_PHYUPD_REQ, AXI_20_DFI_PHY_LP_STATE, AXI_20_DFI_RST_N_BUF, AXI_20_MC_STATUS, AXI_20_PHY_STATUS
+, AXI_20_RDATA, AXI_20_RDATA_PARITY, AXI_20_RID, AXI_20_RLAST, AXI_20_RRESP, AXI_20_RVALID, AXI_20_WREADY, AXI_21_ARREADY, AXI_21_AWREADY, AXI_21_BID, AXI_21_BRESP, AXI_21_BVALID, AXI_21_DFI_AW_AERR_N, AXI_21_DFI_CLK_BUF, AXI_21_DFI_DBI_BYTE_DISABLE, AXI_21_DFI_DW_RDDATA_DBI, AXI_21_DFI_DW_RDDATA_DERR, AXI_21_DFI_DW_RDDATA_VALID, AXI_21_DFI_INIT_COMPLETE, AXI_21_DFI_PHYUPD_REQ, AXI_21_DFI_PHY_LP_STATE
+, AXI_21_DFI_RST_N_BUF, AXI_21_RDATA, AXI_21_RDATA_PARITY, AXI_21_RID, AXI_21_RLAST, AXI_21_RRESP, AXI_21_RVALID, AXI_21_WREADY, AXI_22_ARREADY, AXI_22_AWREADY, AXI_22_BID, AXI_22_BRESP, AXI_22_BVALID, AXI_22_DFI_AW_AERR_N, AXI_22_DFI_CLK_BUF, AXI_22_DFI_DBI_BYTE_DISABLE, AXI_22_DFI_DW_RDDATA_DBI, AXI_22_DFI_DW_RDDATA_DERR, AXI_22_DFI_DW_RDDATA_VALID, AXI_22_DFI_INIT_COMPLETE, AXI_22_DFI_PHYUPD_REQ
+, AXI_22_DFI_PHY_LP_STATE, AXI_22_DFI_RST_N_BUF, AXI_22_MC_STATUS, AXI_22_PHY_STATUS, AXI_22_RDATA, AXI_22_RDATA_PARITY, AXI_22_RID, AXI_22_RLAST, AXI_22_RRESP, AXI_22_RVALID, AXI_22_WREADY, AXI_23_ARREADY, AXI_23_AWREADY, AXI_23_BID, AXI_23_BRESP, AXI_23_BVALID, AXI_23_DFI_AW_AERR_N, AXI_23_DFI_CLK_BUF, AXI_23_DFI_DBI_BYTE_DISABLE, AXI_23_DFI_DW_RDDATA_DBI, AXI_23_DFI_DW_RDDATA_DERR
+, AXI_23_DFI_DW_RDDATA_VALID, AXI_23_DFI_INIT_COMPLETE, AXI_23_DFI_PHYUPD_REQ, AXI_23_DFI_PHY_LP_STATE, AXI_23_DFI_RST_N_BUF, AXI_23_RDATA, AXI_23_RDATA_PARITY, AXI_23_RID, AXI_23_RLAST, AXI_23_RRESP, AXI_23_RVALID, AXI_23_WREADY, AXI_24_ARREADY, AXI_24_AWREADY, AXI_24_BID, AXI_24_BRESP, AXI_24_BVALID, AXI_24_DFI_AW_AERR_N, AXI_24_DFI_CLK_BUF, AXI_24_DFI_DBI_BYTE_DISABLE, AXI_24_DFI_DW_RDDATA_DBI
+, AXI_24_DFI_DW_RDDATA_DERR, AXI_24_DFI_DW_RDDATA_VALID, AXI_24_DFI_INIT_COMPLETE, AXI_24_DFI_PHYUPD_REQ, AXI_24_DFI_PHY_LP_STATE, AXI_24_DFI_RST_N_BUF, AXI_24_MC_STATUS, AXI_24_PHY_STATUS, AXI_24_RDATA, AXI_24_RDATA_PARITY, AXI_24_RID, AXI_24_RLAST, AXI_24_RRESP, AXI_24_RVALID, AXI_24_WREADY, AXI_25_ARREADY, AXI_25_AWREADY, AXI_25_BID, AXI_25_BRESP, AXI_25_BVALID, AXI_25_DFI_AW_AERR_N
+, AXI_25_DFI_CLK_BUF, AXI_25_DFI_DBI_BYTE_DISABLE, AXI_25_DFI_DW_RDDATA_DBI, AXI_25_DFI_DW_RDDATA_DERR, AXI_25_DFI_DW_RDDATA_VALID, AXI_25_DFI_INIT_COMPLETE, AXI_25_DFI_PHYUPD_REQ, AXI_25_DFI_PHY_LP_STATE, AXI_25_DFI_RST_N_BUF, AXI_25_RDATA, AXI_25_RDATA_PARITY, AXI_25_RID, AXI_25_RLAST, AXI_25_RRESP, AXI_25_RVALID, AXI_25_WREADY, AXI_26_ARREADY, AXI_26_AWREADY, AXI_26_BID, AXI_26_BRESP, AXI_26_BVALID
+, AXI_26_DFI_AW_AERR_N, AXI_26_DFI_CLK_BUF, AXI_26_DFI_DBI_BYTE_DISABLE, AXI_26_DFI_DW_RDDATA_DBI, AXI_26_DFI_DW_RDDATA_DERR, AXI_26_DFI_DW_RDDATA_VALID, AXI_26_DFI_INIT_COMPLETE, AXI_26_DFI_PHYUPD_REQ, AXI_26_DFI_PHY_LP_STATE, AXI_26_DFI_RST_N_BUF, AXI_26_MC_STATUS, AXI_26_PHY_STATUS, AXI_26_RDATA, AXI_26_RDATA_PARITY, AXI_26_RID, AXI_26_RLAST, AXI_26_RRESP, AXI_26_RVALID, AXI_26_WREADY, AXI_27_ARREADY, AXI_27_AWREADY
+, AXI_27_BID, AXI_27_BRESP, AXI_27_BVALID, AXI_27_DFI_AW_AERR_N, AXI_27_DFI_CLK_BUF, AXI_27_DFI_DBI_BYTE_DISABLE, AXI_27_DFI_DW_RDDATA_DBI, AXI_27_DFI_DW_RDDATA_DERR, AXI_27_DFI_DW_RDDATA_VALID, AXI_27_DFI_INIT_COMPLETE, AXI_27_DFI_PHYUPD_REQ, AXI_27_DFI_PHY_LP_STATE, AXI_27_DFI_RST_N_BUF, AXI_27_RDATA, AXI_27_RDATA_PARITY, AXI_27_RID, AXI_27_RLAST, AXI_27_RRESP, AXI_27_RVALID, AXI_27_WREADY, AXI_28_ARREADY
+, AXI_28_AWREADY, AXI_28_BID, AXI_28_BRESP, AXI_28_BVALID, AXI_28_DFI_AW_AERR_N, AXI_28_DFI_CLK_BUF, AXI_28_DFI_DBI_BYTE_DISABLE, AXI_28_DFI_DW_RDDATA_DBI, AXI_28_DFI_DW_RDDATA_DERR, AXI_28_DFI_DW_RDDATA_VALID, AXI_28_DFI_INIT_COMPLETE, AXI_28_DFI_PHYUPD_REQ, AXI_28_DFI_PHY_LP_STATE, AXI_28_DFI_RST_N_BUF, AXI_28_MC_STATUS, AXI_28_PHY_STATUS, AXI_28_RDATA, AXI_28_RDATA_PARITY, AXI_28_RID, AXI_28_RLAST, AXI_28_RRESP
+, AXI_28_RVALID, AXI_28_WREADY, AXI_29_ARREADY, AXI_29_AWREADY, AXI_29_BID, AXI_29_BRESP, AXI_29_BVALID, AXI_29_DFI_AW_AERR_N, AXI_29_DFI_CLK_BUF, AXI_29_DFI_DBI_BYTE_DISABLE, AXI_29_DFI_DW_RDDATA_DBI, AXI_29_DFI_DW_RDDATA_DERR, AXI_29_DFI_DW_RDDATA_VALID, AXI_29_DFI_INIT_COMPLETE, AXI_29_DFI_PHYUPD_REQ, AXI_29_DFI_PHY_LP_STATE, AXI_29_DFI_RST_N_BUF, AXI_29_RDATA, AXI_29_RDATA_PARITY, AXI_29_RID, AXI_29_RLAST
+, AXI_29_RRESP, AXI_29_RVALID, AXI_29_WREADY, AXI_30_ARREADY, AXI_30_AWREADY, AXI_30_BID, AXI_30_BRESP, AXI_30_BVALID, AXI_30_DFI_AW_AERR_N, AXI_30_DFI_CLK_BUF, AXI_30_DFI_DBI_BYTE_DISABLE, AXI_30_DFI_DW_RDDATA_DBI, AXI_30_DFI_DW_RDDATA_DERR, AXI_30_DFI_DW_RDDATA_VALID, AXI_30_DFI_INIT_COMPLETE, AXI_30_DFI_PHYUPD_REQ, AXI_30_DFI_PHY_LP_STATE, AXI_30_DFI_RST_N_BUF, AXI_30_MC_STATUS, AXI_30_PHY_STATUS, AXI_30_RDATA
+, AXI_30_RDATA_PARITY, AXI_30_RID, AXI_30_RLAST, AXI_30_RRESP, AXI_30_RVALID, AXI_30_WREADY, AXI_31_ARREADY, AXI_31_AWREADY, AXI_31_BID, AXI_31_BRESP, AXI_31_BVALID, AXI_31_DFI_AW_AERR_N, AXI_31_DFI_CLK_BUF, AXI_31_DFI_DBI_BYTE_DISABLE, AXI_31_DFI_DW_RDDATA_DBI, AXI_31_DFI_DW_RDDATA_DERR, AXI_31_DFI_DW_RDDATA_VALID, AXI_31_DFI_INIT_COMPLETE, AXI_31_DFI_PHYUPD_REQ, AXI_31_DFI_PHY_LP_STATE, AXI_31_DFI_RST_N_BUF
+, AXI_31_RDATA, AXI_31_RDATA_PARITY, AXI_31_RID, AXI_31_RLAST, AXI_31_RRESP, AXI_31_RVALID, AXI_31_WREADY, DRAM_0_STAT_CATTRIP, DRAM_0_STAT_TEMP, DRAM_1_STAT_CATTRIP, DRAM_1_STAT_TEMP, APB_0_PADDR, APB_0_PCLK, APB_0_PENABLE, APB_0_PRESET_N, APB_0_PSEL, APB_0_PWDATA, APB_0_PWRITE, APB_1_PADDR, APB_1_PCLK, APB_1_PENABLE
+, APB_1_PRESET_N, APB_1_PSEL, APB_1_PWDATA, APB_1_PWRITE, AXI_00_ACLK, AXI_00_ARADDR, AXI_00_ARBURST, AXI_00_ARESET_N, AXI_00_ARID, AXI_00_ARLEN, AXI_00_ARSIZE, AXI_00_ARVALID, AXI_00_AWADDR, AXI_00_AWBURST, AXI_00_AWID, AXI_00_AWLEN, AXI_00_AWSIZE, AXI_00_AWVALID, AXI_00_BREADY, AXI_00_DFI_LP_PWR_X_REQ, AXI_00_RREADY
+, AXI_00_WDATA, AXI_00_WDATA_PARITY, AXI_00_WLAST, AXI_00_WSTRB, AXI_00_WVALID, AXI_01_ACLK, AXI_01_ARADDR, AXI_01_ARBURST, AXI_01_ARESET_N, AXI_01_ARID, AXI_01_ARLEN, AXI_01_ARSIZE, AXI_01_ARVALID, AXI_01_AWADDR, AXI_01_AWBURST, AXI_01_AWID, AXI_01_AWLEN, AXI_01_AWSIZE, AXI_01_AWVALID, AXI_01_BREADY, AXI_01_DFI_LP_PWR_X_REQ
+, AXI_01_RREADY, AXI_01_WDATA, AXI_01_WDATA_PARITY, AXI_01_WLAST, AXI_01_WSTRB, AXI_01_WVALID, AXI_02_ACLK, AXI_02_ARADDR, AXI_02_ARBURST, AXI_02_ARESET_N, AXI_02_ARID, AXI_02_ARLEN, AXI_02_ARSIZE, AXI_02_ARVALID, AXI_02_AWADDR, AXI_02_AWBURST, AXI_02_AWID, AXI_02_AWLEN, AXI_02_AWSIZE, AXI_02_AWVALID, AXI_02_BREADY
+, AXI_02_DFI_LP_PWR_X_REQ, AXI_02_RREADY, AXI_02_WDATA, AXI_02_WDATA_PARITY, AXI_02_WLAST, AXI_02_WSTRB, AXI_02_WVALID, AXI_03_ACLK, AXI_03_ARADDR, AXI_03_ARBURST, AXI_03_ARESET_N, AXI_03_ARID, AXI_03_ARLEN, AXI_03_ARSIZE, AXI_03_ARVALID, AXI_03_AWADDR, AXI_03_AWBURST, AXI_03_AWID, AXI_03_AWLEN, AXI_03_AWSIZE, AXI_03_AWVALID
+, AXI_03_BREADY, AXI_03_DFI_LP_PWR_X_REQ, AXI_03_RREADY, AXI_03_WDATA, AXI_03_WDATA_PARITY, AXI_03_WLAST, AXI_03_WSTRB, AXI_03_WVALID, AXI_04_ACLK, AXI_04_ARADDR, AXI_04_ARBURST, AXI_04_ARESET_N, AXI_04_ARID, AXI_04_ARLEN, AXI_04_ARSIZE, AXI_04_ARVALID, AXI_04_AWADDR, AXI_04_AWBURST, AXI_04_AWID, AXI_04_AWLEN, AXI_04_AWSIZE
+, AXI_04_AWVALID, AXI_04_BREADY, AXI_04_DFI_LP_PWR_X_REQ, AXI_04_RREADY, AXI_04_WDATA, AXI_04_WDATA_PARITY, AXI_04_WLAST, AXI_04_WSTRB, AXI_04_WVALID, AXI_05_ACLK, AXI_05_ARADDR, AXI_05_ARBURST, AXI_05_ARESET_N, AXI_05_ARID, AXI_05_ARLEN, AXI_05_ARSIZE, AXI_05_ARVALID, AXI_05_AWADDR, AXI_05_AWBURST, AXI_05_AWID, AXI_05_AWLEN
+, AXI_05_AWSIZE, AXI_05_AWVALID, AXI_05_BREADY, AXI_05_DFI_LP_PWR_X_REQ, AXI_05_RREADY, AXI_05_WDATA, AXI_05_WDATA_PARITY, AXI_05_WLAST, AXI_05_WSTRB, AXI_05_WVALID, AXI_06_ACLK, AXI_06_ARADDR, AXI_06_ARBURST, AXI_06_ARESET_N, AXI_06_ARID, AXI_06_ARLEN, AXI_06_ARSIZE, AXI_06_ARVALID, AXI_06_AWADDR, AXI_06_AWBURST, AXI_06_AWID
+, AXI_06_AWLEN, AXI_06_AWSIZE, AXI_06_AWVALID, AXI_06_BREADY, AXI_06_DFI_LP_PWR_X_REQ, AXI_06_RREADY, AXI_06_WDATA, AXI_06_WDATA_PARITY, AXI_06_WLAST, AXI_06_WSTRB, AXI_06_WVALID, AXI_07_ACLK, AXI_07_ARADDR, AXI_07_ARBURST, AXI_07_ARESET_N, AXI_07_ARID, AXI_07_ARLEN, AXI_07_ARSIZE, AXI_07_ARVALID, AXI_07_AWADDR, AXI_07_AWBURST
+, AXI_07_AWID, AXI_07_AWLEN, AXI_07_AWSIZE, AXI_07_AWVALID, AXI_07_BREADY, AXI_07_DFI_LP_PWR_X_REQ, AXI_07_RREADY, AXI_07_WDATA, AXI_07_WDATA_PARITY, AXI_07_WLAST, AXI_07_WSTRB, AXI_07_WVALID, AXI_08_ACLK, AXI_08_ARADDR, AXI_08_ARBURST, AXI_08_ARESET_N, AXI_08_ARID, AXI_08_ARLEN, AXI_08_ARSIZE, AXI_08_ARVALID, AXI_08_AWADDR
+, AXI_08_AWBURST, AXI_08_AWID, AXI_08_AWLEN, AXI_08_AWSIZE, AXI_08_AWVALID, AXI_08_BREADY, AXI_08_DFI_LP_PWR_X_REQ, AXI_08_RREADY, AXI_08_WDATA, AXI_08_WDATA_PARITY, AXI_08_WLAST, AXI_08_WSTRB, AXI_08_WVALID, AXI_09_ACLK, AXI_09_ARADDR, AXI_09_ARBURST, AXI_09_ARESET_N, AXI_09_ARID, AXI_09_ARLEN, AXI_09_ARSIZE, AXI_09_ARVALID
+, AXI_09_AWADDR, AXI_09_AWBURST, AXI_09_AWID, AXI_09_AWLEN, AXI_09_AWSIZE, AXI_09_AWVALID, AXI_09_BREADY, AXI_09_DFI_LP_PWR_X_REQ, AXI_09_RREADY, AXI_09_WDATA, AXI_09_WDATA_PARITY, AXI_09_WLAST, AXI_09_WSTRB, AXI_09_WVALID, AXI_10_ACLK, AXI_10_ARADDR, AXI_10_ARBURST, AXI_10_ARESET_N, AXI_10_ARID, AXI_10_ARLEN, AXI_10_ARSIZE
+, AXI_10_ARVALID, AXI_10_AWADDR, AXI_10_AWBURST, AXI_10_AWID, AXI_10_AWLEN, AXI_10_AWSIZE, AXI_10_AWVALID, AXI_10_BREADY, AXI_10_DFI_LP_PWR_X_REQ, AXI_10_RREADY, AXI_10_WDATA, AXI_10_WDATA_PARITY, AXI_10_WLAST, AXI_10_WSTRB, AXI_10_WVALID, AXI_11_ACLK, AXI_11_ARADDR, AXI_11_ARBURST, AXI_11_ARESET_N, AXI_11_ARID, AXI_11_ARLEN
+, AXI_11_ARSIZE, AXI_11_ARVALID, AXI_11_AWADDR, AXI_11_AWBURST, AXI_11_AWID, AXI_11_AWLEN, AXI_11_AWSIZE, AXI_11_AWVALID, AXI_11_BREADY, AXI_11_DFI_LP_PWR_X_REQ, AXI_11_RREADY, AXI_11_WDATA, AXI_11_WDATA_PARITY, AXI_11_WLAST, AXI_11_WSTRB, AXI_11_WVALID, AXI_12_ACLK, AXI_12_ARADDR, AXI_12_ARBURST, AXI_12_ARESET_N, AXI_12_ARID
+, AXI_12_ARLEN, AXI_12_ARSIZE, AXI_12_ARVALID, AXI_12_AWADDR, AXI_12_AWBURST, AXI_12_AWID, AXI_12_AWLEN, AXI_12_AWSIZE, AXI_12_AWVALID, AXI_12_BREADY, AXI_12_DFI_LP_PWR_X_REQ, AXI_12_RREADY, AXI_12_WDATA, AXI_12_WDATA_PARITY, AXI_12_WLAST, AXI_12_WSTRB, AXI_12_WVALID, AXI_13_ACLK, AXI_13_ARADDR, AXI_13_ARBURST, AXI_13_ARESET_N
+, AXI_13_ARID, AXI_13_ARLEN, AXI_13_ARSIZE, AXI_13_ARVALID, AXI_13_AWADDR, AXI_13_AWBURST, AXI_13_AWID, AXI_13_AWLEN, AXI_13_AWSIZE, AXI_13_AWVALID, AXI_13_BREADY, AXI_13_DFI_LP_PWR_X_REQ, AXI_13_RREADY, AXI_13_WDATA, AXI_13_WDATA_PARITY, AXI_13_WLAST, AXI_13_WSTRB, AXI_13_WVALID, AXI_14_ACLK, AXI_14_ARADDR, AXI_14_ARBURST
+, AXI_14_ARESET_N, AXI_14_ARID, AXI_14_ARLEN, AXI_14_ARSIZE, AXI_14_ARVALID, AXI_14_AWADDR, AXI_14_AWBURST, AXI_14_AWID, AXI_14_AWLEN, AXI_14_AWSIZE, AXI_14_AWVALID, AXI_14_BREADY, AXI_14_DFI_LP_PWR_X_REQ, AXI_14_RREADY, AXI_14_WDATA, AXI_14_WDATA_PARITY, AXI_14_WLAST, AXI_14_WSTRB, AXI_14_WVALID, AXI_15_ACLK, AXI_15_ARADDR
+, AXI_15_ARBURST, AXI_15_ARESET_N, AXI_15_ARID, AXI_15_ARLEN, AXI_15_ARSIZE, AXI_15_ARVALID, AXI_15_AWADDR, AXI_15_AWBURST, AXI_15_AWID, AXI_15_AWLEN, AXI_15_AWSIZE, AXI_15_AWVALID, AXI_15_BREADY, AXI_15_DFI_LP_PWR_X_REQ, AXI_15_RREADY, AXI_15_WDATA, AXI_15_WDATA_PARITY, AXI_15_WLAST, AXI_15_WSTRB, AXI_15_WVALID, AXI_16_ACLK
+, AXI_16_ARADDR, AXI_16_ARBURST, AXI_16_ARESET_N, AXI_16_ARID, AXI_16_ARLEN, AXI_16_ARSIZE, AXI_16_ARVALID, AXI_16_AWADDR, AXI_16_AWBURST, AXI_16_AWID, AXI_16_AWLEN, AXI_16_AWSIZE, AXI_16_AWVALID, AXI_16_BREADY, AXI_16_DFI_LP_PWR_X_REQ, AXI_16_RREADY, AXI_16_WDATA, AXI_16_WDATA_PARITY, AXI_16_WLAST, AXI_16_WSTRB, AXI_16_WVALID
+, AXI_17_ACLK, AXI_17_ARADDR, AXI_17_ARBURST, AXI_17_ARESET_N, AXI_17_ARID, AXI_17_ARLEN, AXI_17_ARSIZE, AXI_17_ARVALID, AXI_17_AWADDR, AXI_17_AWBURST, AXI_17_AWID, AXI_17_AWLEN, AXI_17_AWSIZE, AXI_17_AWVALID, AXI_17_BREADY, AXI_17_DFI_LP_PWR_X_REQ, AXI_17_RREADY, AXI_17_WDATA, AXI_17_WDATA_PARITY, AXI_17_WLAST, AXI_17_WSTRB
+, AXI_17_WVALID, AXI_18_ACLK, AXI_18_ARADDR, AXI_18_ARBURST, AXI_18_ARESET_N, AXI_18_ARID, AXI_18_ARLEN, AXI_18_ARSIZE, AXI_18_ARVALID, AXI_18_AWADDR, AXI_18_AWBURST, AXI_18_AWID, AXI_18_AWLEN, AXI_18_AWSIZE, AXI_18_AWVALID, AXI_18_BREADY, AXI_18_DFI_LP_PWR_X_REQ, AXI_18_RREADY, AXI_18_WDATA, AXI_18_WDATA_PARITY, AXI_18_WLAST
+, AXI_18_WSTRB, AXI_18_WVALID, AXI_19_ACLK, AXI_19_ARADDR, AXI_19_ARBURST, AXI_19_ARESET_N, AXI_19_ARID, AXI_19_ARLEN, AXI_19_ARSIZE, AXI_19_ARVALID, AXI_19_AWADDR, AXI_19_AWBURST, AXI_19_AWID, AXI_19_AWLEN, AXI_19_AWSIZE, AXI_19_AWVALID, AXI_19_BREADY, AXI_19_DFI_LP_PWR_X_REQ, AXI_19_RREADY, AXI_19_WDATA, AXI_19_WDATA_PARITY
+, AXI_19_WLAST, AXI_19_WSTRB, AXI_19_WVALID, AXI_20_ACLK, AXI_20_ARADDR, AXI_20_ARBURST, AXI_20_ARESET_N, AXI_20_ARID, AXI_20_ARLEN, AXI_20_ARSIZE, AXI_20_ARVALID, AXI_20_AWADDR, AXI_20_AWBURST, AXI_20_AWID, AXI_20_AWLEN, AXI_20_AWSIZE, AXI_20_AWVALID, AXI_20_BREADY, AXI_20_DFI_LP_PWR_X_REQ, AXI_20_RREADY, AXI_20_WDATA
+, AXI_20_WDATA_PARITY, AXI_20_WLAST, AXI_20_WSTRB, AXI_20_WVALID, AXI_21_ACLK, AXI_21_ARADDR, AXI_21_ARBURST, AXI_21_ARESET_N, AXI_21_ARID, AXI_21_ARLEN, AXI_21_ARSIZE, AXI_21_ARVALID, AXI_21_AWADDR, AXI_21_AWBURST, AXI_21_AWID, AXI_21_AWLEN, AXI_21_AWSIZE, AXI_21_AWVALID, AXI_21_BREADY, AXI_21_DFI_LP_PWR_X_REQ, AXI_21_RREADY
+, AXI_21_WDATA, AXI_21_WDATA_PARITY, AXI_21_WLAST, AXI_21_WSTRB, AXI_21_WVALID, AXI_22_ACLK, AXI_22_ARADDR, AXI_22_ARBURST, AXI_22_ARESET_N, AXI_22_ARID, AXI_22_ARLEN, AXI_22_ARSIZE, AXI_22_ARVALID, AXI_22_AWADDR, AXI_22_AWBURST, AXI_22_AWID, AXI_22_AWLEN, AXI_22_AWSIZE, AXI_22_AWVALID, AXI_22_BREADY, AXI_22_DFI_LP_PWR_X_REQ
+, AXI_22_RREADY, AXI_22_WDATA, AXI_22_WDATA_PARITY, AXI_22_WLAST, AXI_22_WSTRB, AXI_22_WVALID, AXI_23_ACLK, AXI_23_ARADDR, AXI_23_ARBURST, AXI_23_ARESET_N, AXI_23_ARID, AXI_23_ARLEN, AXI_23_ARSIZE, AXI_23_ARVALID, AXI_23_AWADDR, AXI_23_AWBURST, AXI_23_AWID, AXI_23_AWLEN, AXI_23_AWSIZE, AXI_23_AWVALID, AXI_23_BREADY
+, AXI_23_DFI_LP_PWR_X_REQ, AXI_23_RREADY, AXI_23_WDATA, AXI_23_WDATA_PARITY, AXI_23_WLAST, AXI_23_WSTRB, AXI_23_WVALID, AXI_24_ACLK, AXI_24_ARADDR, AXI_24_ARBURST, AXI_24_ARESET_N, AXI_24_ARID, AXI_24_ARLEN, AXI_24_ARSIZE, AXI_24_ARVALID, AXI_24_AWADDR, AXI_24_AWBURST, AXI_24_AWID, AXI_24_AWLEN, AXI_24_AWSIZE, AXI_24_AWVALID
+, AXI_24_BREADY, AXI_24_DFI_LP_PWR_X_REQ, AXI_24_RREADY, AXI_24_WDATA, AXI_24_WDATA_PARITY, AXI_24_WLAST, AXI_24_WSTRB, AXI_24_WVALID, AXI_25_ACLK, AXI_25_ARADDR, AXI_25_ARBURST, AXI_25_ARESET_N, AXI_25_ARID, AXI_25_ARLEN, AXI_25_ARSIZE, AXI_25_ARVALID, AXI_25_AWADDR, AXI_25_AWBURST, AXI_25_AWID, AXI_25_AWLEN, AXI_25_AWSIZE
+, AXI_25_AWVALID, AXI_25_BREADY, AXI_25_DFI_LP_PWR_X_REQ, AXI_25_RREADY, AXI_25_WDATA, AXI_25_WDATA_PARITY, AXI_25_WLAST, AXI_25_WSTRB, AXI_25_WVALID, AXI_26_ACLK, AXI_26_ARADDR, AXI_26_ARBURST, AXI_26_ARESET_N, AXI_26_ARID, AXI_26_ARLEN, AXI_26_ARSIZE, AXI_26_ARVALID, AXI_26_AWADDR, AXI_26_AWBURST, AXI_26_AWID, AXI_26_AWLEN
+, AXI_26_AWSIZE, AXI_26_AWVALID, AXI_26_BREADY, AXI_26_DFI_LP_PWR_X_REQ, AXI_26_RREADY, AXI_26_WDATA, AXI_26_WDATA_PARITY, AXI_26_WLAST, AXI_26_WSTRB, AXI_26_WVALID, AXI_27_ACLK, AXI_27_ARADDR, AXI_27_ARBURST, AXI_27_ARESET_N, AXI_27_ARID, AXI_27_ARLEN, AXI_27_ARSIZE, AXI_27_ARVALID, AXI_27_AWADDR, AXI_27_AWBURST, AXI_27_AWID
+, AXI_27_AWLEN, AXI_27_AWSIZE, AXI_27_AWVALID, AXI_27_BREADY, AXI_27_DFI_LP_PWR_X_REQ, AXI_27_RREADY, AXI_27_WDATA, AXI_27_WDATA_PARITY, AXI_27_WLAST, AXI_27_WSTRB, AXI_27_WVALID, AXI_28_ACLK, AXI_28_ARADDR, AXI_28_ARBURST, AXI_28_ARESET_N, AXI_28_ARID, AXI_28_ARLEN, AXI_28_ARSIZE, AXI_28_ARVALID, AXI_28_AWADDR, AXI_28_AWBURST
+, AXI_28_AWID, AXI_28_AWLEN, AXI_28_AWSIZE, AXI_28_AWVALID, AXI_28_BREADY, AXI_28_DFI_LP_PWR_X_REQ, AXI_28_RREADY, AXI_28_WDATA, AXI_28_WDATA_PARITY, AXI_28_WLAST, AXI_28_WSTRB, AXI_28_WVALID, AXI_29_ACLK, AXI_29_ARADDR, AXI_29_ARBURST, AXI_29_ARESET_N, AXI_29_ARID, AXI_29_ARLEN, AXI_29_ARSIZE, AXI_29_ARVALID, AXI_29_AWADDR
+, AXI_29_AWBURST, AXI_29_AWID, AXI_29_AWLEN, AXI_29_AWSIZE, AXI_29_AWVALID, AXI_29_BREADY, AXI_29_DFI_LP_PWR_X_REQ, AXI_29_RREADY, AXI_29_WDATA, AXI_29_WDATA_PARITY, AXI_29_WLAST, AXI_29_WSTRB, AXI_29_WVALID, AXI_30_ACLK, AXI_30_ARADDR, AXI_30_ARBURST, AXI_30_ARESET_N, AXI_30_ARID, AXI_30_ARLEN, AXI_30_ARSIZE, AXI_30_ARVALID
+, AXI_30_AWADDR, AXI_30_AWBURST, AXI_30_AWID, AXI_30_AWLEN, AXI_30_AWSIZE, AXI_30_AWVALID, AXI_30_BREADY, AXI_30_DFI_LP_PWR_X_REQ, AXI_30_RREADY, AXI_30_WDATA, AXI_30_WDATA_PARITY, AXI_30_WLAST, AXI_30_WSTRB, AXI_30_WVALID, AXI_31_ACLK, AXI_31_ARADDR, AXI_31_ARBURST, AXI_31_ARESET_N, AXI_31_ARID, AXI_31_ARLEN, AXI_31_ARSIZE
+, AXI_31_ARVALID, AXI_31_AWADDR, AXI_31_AWBURST, AXI_31_AWID, AXI_31_AWLEN, AXI_31_AWSIZE, AXI_31_AWVALID, AXI_31_BREADY, AXI_31_DFI_LP_PWR_X_REQ, AXI_31_RREADY, AXI_31_WDATA, AXI_31_WDATA_PARITY, AXI_31_WLAST, AXI_31_WSTRB, AXI_31_WVALID, BSCAN_DRCK_0, BSCAN_DRCK_1, BSCAN_TCK_0, BSCAN_TCK_1, HBM_REF_CLK_0, HBM_REF_CLK_1
+, MBIST_EN_00, MBIST_EN_01, MBIST_EN_02, MBIST_EN_03, MBIST_EN_04, MBIST_EN_05, MBIST_EN_06, MBIST_EN_07, MBIST_EN_08, MBIST_EN_09, MBIST_EN_10, MBIST_EN_11, MBIST_EN_12, MBIST_EN_13, MBIST_EN_14, MBIST_EN_15);
     parameter CLK_SEL_00 = "FALSE";
     parameter CLK_SEL_01 = "FALSE";
     parameter CLK_SEL_02 = "FALSE";
@@ -31096,7 +31672,16 @@ module HBM_TWO_STACK_INTF (...);
     input MBIST_EN_15;
 endmodule
 
-module PPC405_ADV (...);
+module PPC405_ADV(APUFCMDECODED, APUFCMDECUDIVALID, APUFCMENDIAN, APUFCMFLUSH, APUFCMINSTRVALID, APUFCMLOADDVALID, APUFCMOPERANDVALID, APUFCMWRITEBACKOK, APUFCMXERCA, C405CPMCORESLEEPREQ, C405CPMMSRCE, C405CPMMSREE, C405CPMTIMERIRQ, C405CPMTIMERRESETREQ, C405DBGLOADDATAONAPUDBUS, C405DBGMSRWE, C405DBGSTOPACK, C405DBGWBCOMPLETE, C405DBGWBFULL, C405JTGCAPTUREDR, C405JTGEXTEST
+, C405JTGPGMOUT, C405JTGSHIFTDR, C405JTGTDO, C405JTGTDOEN, C405JTGUPDATEDR, C405PLBDCUABORT, C405PLBDCUCACHEABLE, C405PLBDCUGUARDED, C405PLBDCUREQUEST, C405PLBDCURNW, C405PLBDCUSIZE2, C405PLBDCUU0ATTR, C405PLBDCUWRITETHRU, C405PLBICUABORT, C405PLBICUCACHEABLE, C405PLBICUREQUEST, C405PLBICUU0ATTR, C405RSTCHIPRESETREQ, C405RSTCORERESETREQ, C405RSTSYSRESETREQ, C405TRCCYCLE
+, C405TRCTRIGGEREVENTOUT, C405XXXMACHINECHECK, DCREMACCLK, DCREMACENABLER, DCREMACREAD, DCREMACWRITE, DSOCMBRAMEN, DSOCMBUSY, DSOCMRDADDRVALID, DSOCMWRADDRVALID, EXTDCRREAD, EXTDCRWRITE, ISOCMBRAMEN, ISOCMBRAMEVENWRITEEN, ISOCMBRAMODDWRITEEN, ISOCMDCRBRAMEVENEN, ISOCMDCRBRAMODDEN, ISOCMDCRBRAMRDSELECT, C405TRCTRIGGEREVENTTYPE, C405PLBDCUPRIORITY, C405PLBICUPRIORITY
+, C405TRCEVENEXECUTIONSTATUS, C405TRCODDEXECUTIONSTATUS, C405DBGWBIAR, C405PLBICUABUS, APUFCMDECUDI, APUFCMINSTRUCTION, APUFCMLOADDATA, APUFCMRADATA, APUFCMRBDATA, C405PLBDCUABUS, DCREMACDBUS, DSOCMBRAMWRDBUS, EXTDCRDBUSOUT, ISOCMBRAMWRDBUS, APUFCMLOADBYTEEN, C405TRCTRACESTATUS, DSOCMBRAMBYTEWRITE, C405PLBDCUWRDBUS, C405PLBDCUBE, EXTDCRABUS, C405PLBICUSIZE
+, ISOCMBRAMRDABUS, ISOCMBRAMWRABUS, DSOCMBRAMABUS, DCREMACABUS, BRAMDSOCMCLK, BRAMISOCMCLK, CPMC405CLOCK, CPMC405CORECLKINACTIVE, CPMC405CPUCLKEN, CPMC405JTAGCLKEN, CPMC405SYNCBYPASS, CPMC405TIMERCLKEN, CPMC405TIMERTICK, CPMDCRCLK, CPMFCMCLK, DBGC405DEBUGHALT, DBGC405EXTBUSHOLDACK, DBGC405UNCONDDEBUGEVENT, DSOCMRWCOMPLETE, EICC405CRITINPUTIRQ, EICC405EXTINPUTIRQ
+, EMACDCRACK, EXTDCRACK, FCMAPUDCDCREN, FCMAPUDCDFORCEALIGN, FCMAPUDCDFORCEBESTEERING, FCMAPUDCDFPUOP, FCMAPUDCDGPRWRITE, FCMAPUDCDLDSTBYTE, FCMAPUDCDLDSTDW, FCMAPUDCDLDSTHW, FCMAPUDCDLDSTQW, FCMAPUDCDLDSTWD, FCMAPUDCDLOAD, FCMAPUDCDPRIVOP, FCMAPUDCDRAEN, FCMAPUDCDRBEN, FCMAPUDCDSTORE, FCMAPUDCDTRAPBE, FCMAPUDCDTRAPLE, FCMAPUDCDUPDATE, FCMAPUDCDXERCAEN
+, FCMAPUDCDXEROVEN, FCMAPUDECODEBUSY, FCMAPUDONE, FCMAPUEXCEPTION, FCMAPUEXEBLOCKINGMCO, FCMAPUEXENONBLOCKINGMCO, FCMAPUINSTRACK, FCMAPULOADWAIT, FCMAPURESULTVALID, FCMAPUSLEEPNOTREADY, FCMAPUXERCA, FCMAPUXEROV, JTGC405BNDSCANTDO, JTGC405TCK, JTGC405TDI, JTGC405TMS, JTGC405TRSTNEG, MCBCPUCLKEN, MCBJTAGEN, MCBTIMEREN, MCPPCRST
+, PLBC405DCUADDRACK, PLBC405DCUBUSY, PLBC405DCUERR, PLBC405DCURDDACK, PLBC405DCUSSIZE1, PLBC405DCUWRDACK, PLBC405ICUADDRACK, PLBC405ICUBUSY, PLBC405ICUERR, PLBC405ICURDDACK, PLBC405ICUSSIZE1, PLBCLK, RSTC405RESETCHIP, RSTC405RESETCORE, RSTC405RESETSYS, TIEC405DETERMINISTICMULT, TIEC405DISOPERANDFWD, TIEC405MMUEN, TIEPVRBIT10, TIEPVRBIT11, TIEPVRBIT28
+, TIEPVRBIT29, TIEPVRBIT30, TIEPVRBIT31, TIEPVRBIT8, TIEPVRBIT9, TRCC405TRACEDISABLE, TRCC405TRIGGEREVENTIN, TIEAPUCONTROL, TIEAPUUDI1, TIEAPUUDI2, TIEAPUUDI3, TIEAPUUDI4, TIEAPUUDI5, TIEAPUUDI6, TIEAPUUDI7, TIEAPUUDI8, FCMAPUEXECRFIELD, BRAMDSOCMRDDBUS, BRAMISOCMDCRRDDBUS, EMACDCRDBUS, EXTDCRDBUSIN
+, FCMAPURESULT, FCMAPUCR, TIEDCRADDR, BRAMISOCMRDDBUS, PLBC405DCURDDBUS, PLBC405ICURDDBUS, DSARCVALUE, DSCNTLVALUE, ISARCVALUE, ISCNTLVALUE, PLBC405DCURDWDADDR, PLBC405ICURDWDADDR);
     parameter in_delay=100;
     parameter out_delay=100;
     output APUFCMDECODED;
@@ -31302,7 +31887,22 @@ module PPC405_ADV (...);
     input [1:3] PLBC405ICURDWDADDR;
 endmodule
 
-module PPC440 (...);
+module PPC440(APUFCMDECFPUOP, APUFCMDECLOAD, APUFCMDECNONAUTON, APUFCMDECSTORE, APUFCMDECUDIVALID, APUFCMENDIAN, APUFCMFLUSH, APUFCMINSTRVALID, APUFCMLOADDVALID, APUFCMMSRFE0, APUFCMMSRFE1, APUFCMNEXTINSTRREADY, APUFCMOPERANDVALID, APUFCMWRITEBACKOK, C440CPMCORESLEEPREQ, C440CPMDECIRPTREQ, C440CPMFITIRPTREQ, C440CPMMSRCE, C440CPMMSREE, C440CPMTIMERRESETREQ, C440CPMWDIRPTREQ
+, C440JTGTDO, C440JTGTDOEN, C440MACHINECHECK, C440RSTCHIPRESETREQ, C440RSTCORERESETREQ, C440RSTSYSTEMRESETREQ, C440TRCCYCLE, C440TRCTRIGGEREVENTOUT, DMA0LLRSTENGINEACK, DMA0LLRXDSTRDYN, DMA0LLTXEOFN, DMA0LLTXEOPN, DMA0LLTXSOFN, DMA0LLTXSOPN, DMA0LLTXSRCRDYN, DMA0RXIRQ, DMA0TXIRQ, DMA1LLRSTENGINEACK, DMA1LLRXDSTRDYN, DMA1LLTXEOFN, DMA1LLTXEOPN
+, DMA1LLTXSOFN, DMA1LLTXSOPN, DMA1LLTXSRCRDYN, DMA1RXIRQ, DMA1TXIRQ, DMA2LLRSTENGINEACK, DMA2LLRXDSTRDYN, DMA2LLTXEOFN, DMA2LLTXEOPN, DMA2LLTXSOFN, DMA2LLTXSOPN, DMA2LLTXSRCRDYN, DMA2RXIRQ, DMA2TXIRQ, DMA3LLRSTENGINEACK, DMA3LLRXDSTRDYN, DMA3LLTXEOFN, DMA3LLTXEOPN, DMA3LLTXSOFN, DMA3LLTXSOPN, DMA3LLTXSRCRDYN
+, DMA3RXIRQ, DMA3TXIRQ, MIMCADDRESSVALID, MIMCBANKCONFLICT, MIMCREADNOTWRITE, MIMCROWCONFLICT, MIMCWRITEDATAVALID, PPCCPMINTERCONNECTBUSY, PPCDMDCRREAD, PPCDMDCRWRITE, PPCDSDCRACK, PPCDSDCRTIMEOUTWAIT, PPCEICINTERCONNECTIRQ, PPCMPLBABORT, PPCMPLBBUSLOCK, PPCMPLBLOCKERR, PPCMPLBRDBURST, PPCMPLBREQUEST, PPCMPLBRNW, PPCMPLBWRBURST, PPCS0PLBADDRACK
+, PPCS0PLBRDBTERM, PPCS0PLBRDCOMP, PPCS0PLBRDDACK, PPCS0PLBREARBITRATE, PPCS0PLBWAIT, PPCS0PLBWRBTERM, PPCS0PLBWRCOMP, PPCS0PLBWRDACK, PPCS1PLBADDRACK, PPCS1PLBRDBTERM, PPCS1PLBRDCOMP, PPCS1PLBRDDACK, PPCS1PLBREARBITRATE, PPCS1PLBWAIT, PPCS1PLBWRBTERM, PPCS1PLBWRCOMP, PPCS1PLBWRDACK, APUFCMLOADDATA, MIMCWRITEDATA, PPCMPLBWRDBUS, PPCS0PLBRDDBUS
+, PPCS1PLBRDDBUS, C440TRCTRIGGEREVENTTYPE, MIMCBYTEENABLE, PPCMPLBBE, PPCMPLBTATTRIBUTE, PPCMPLBPRIORITY, PPCS0PLBSSIZE, PPCS1PLBSSIZE, APUFCMDECLDSTXFERSIZE, C440TRCBRANCHSTATUS, PPCMPLBTYPE, APUFCMINSTRUCTION, APUFCMRADATA, APUFCMRBDATA, DMA0LLTXD, DMA1LLTXD, DMA2LLTXD, DMA3LLTXD, PPCDMDCRDBUSOUT, PPCDSDCRDBUSIN, PPCMPLBABUS
+, MIMCADDRESS, APUFCMDECUDI, APUFCMLOADBYTEADDR, DMA0LLTXREM, DMA1LLTXREM, DMA2LLTXREM, DMA3LLTXREM, PPCMPLBSIZE, PPCS0PLBMBUSY, PPCS0PLBMIRQ, PPCS0PLBMRDERR, PPCS0PLBMWRERR, PPCS0PLBRDWDADDR, PPCS1PLBMBUSY, PPCS1PLBMIRQ, PPCS1PLBMRDERR, PPCS1PLBMWRERR, PPCS1PLBRDWDADDR, C440TRCEXECUTIONSTATUS, C440TRCTRACESTATUS, C440DBGSYSTEMCONTROL
+, PPCDMDCRABUS, PPCDMDCRUABUS, PPCMPLBUABUS, CPMC440CLK, CPMC440CLKEN, CPMC440CORECLOCKINACTIVE, CPMC440TIMERCLOCK, CPMDCRCLK, CPMDMA0LLCLK, CPMDMA1LLCLK, CPMDMA2LLCLK, CPMDMA3LLCLK, CPMFCMCLK, CPMINTERCONNECTCLK, CPMINTERCONNECTCLKEN, CPMINTERCONNECTCLKNTO1, CPMMCCLK, CPMPPCMPLBCLK, CPMPPCS0PLBCLK, CPMPPCS1PLBCLK, DBGC440DEBUGHALT
+, DBGC440UNCONDDEBUGEVENT, DCRPPCDMACK, DCRPPCDMTIMEOUTWAIT, DCRPPCDSREAD, DCRPPCDSWRITE, EICC440CRITIRQ, EICC440EXTIRQ, FCMAPUCONFIRMINSTR, FCMAPUDONE, FCMAPUEXCEPTION, FCMAPUFPSCRFEX, FCMAPURESULTVALID, FCMAPUSLEEPNOTREADY, JTGC440TCK, JTGC440TDI, JTGC440TMS, JTGC440TRSTNEG, LLDMA0RSTENGINEREQ, LLDMA0RXEOFN, LLDMA0RXEOPN, LLDMA0RXSOFN
+, LLDMA0RXSOPN, LLDMA0RXSRCRDYN, LLDMA0TXDSTRDYN, LLDMA1RSTENGINEREQ, LLDMA1RXEOFN, LLDMA1RXEOPN, LLDMA1RXSOFN, LLDMA1RXSOPN, LLDMA1RXSRCRDYN, LLDMA1TXDSTRDYN, LLDMA2RSTENGINEREQ, LLDMA2RXEOFN, LLDMA2RXEOPN, LLDMA2RXSOFN, LLDMA2RXSOPN, LLDMA2RXSRCRDYN, LLDMA2TXDSTRDYN, LLDMA3RSTENGINEREQ, LLDMA3RXEOFN, LLDMA3RXEOPN, LLDMA3RXSOFN
+, LLDMA3RXSOPN, LLDMA3RXSRCRDYN, LLDMA3TXDSTRDYN, MCMIADDRREADYTOACCEPT, MCMIREADDATAERR, MCMIREADDATAVALID, PLBPPCMADDRACK, PLBPPCMMBUSY, PLBPPCMMIRQ, PLBPPCMMRDERR, PLBPPCMMWRERR, PLBPPCMRDBTERM, PLBPPCMRDDACK, PLBPPCMRDPENDREQ, PLBPPCMREARBITRATE, PLBPPCMTIMEOUT, PLBPPCMWRBTERM, PLBPPCMWRDACK, PLBPPCMWRPENDREQ, PLBPPCS0ABORT, PLBPPCS0BUSLOCK
+, PLBPPCS0LOCKERR, PLBPPCS0PAVALID, PLBPPCS0RDBURST, PLBPPCS0RDPENDREQ, PLBPPCS0RDPRIM, PLBPPCS0RNW, PLBPPCS0SAVALID, PLBPPCS0WRBURST, PLBPPCS0WRPENDREQ, PLBPPCS0WRPRIM, PLBPPCS1ABORT, PLBPPCS1BUSLOCK, PLBPPCS1LOCKERR, PLBPPCS1PAVALID, PLBPPCS1RDBURST, PLBPPCS1RDPENDREQ, PLBPPCS1RDPRIM, PLBPPCS1RNW, PLBPPCS1SAVALID, PLBPPCS1WRBURST, PLBPPCS1WRPENDREQ
+, PLBPPCS1WRPRIM, RSTC440RESETCHIP, RSTC440RESETCORE, RSTC440RESETSYSTEM, TIEC440ENDIANRESET, TRCC440TRACEDISABLE, TRCC440TRIGGEREVENTIN, FCMAPUSTOREDATA, MCMIREADDATA, PLBPPCMRDDBUS, PLBPPCS0WRDBUS, PLBPPCS1WRDBUS, PLBPPCS0BE, PLBPPCS0TATTRIBUTE, PLBPPCS1BE, PLBPPCS1TATTRIBUTE, PLBPPCMRDPENDPRI, PLBPPCMREQPRI, PLBPPCMSSIZE, PLBPPCMWRPENDPRI, PLBPPCS0MASTERID
+, PLBPPCS0MSIZE, PLBPPCS0RDPENDPRI, PLBPPCS0REQPRI, PLBPPCS0WRPENDPRI, PLBPPCS1MASTERID, PLBPPCS1MSIZE, PLBPPCS1RDPENDPRI, PLBPPCS1REQPRI, PLBPPCS1WRPENDPRI, TIEC440DCURDLDCACHEPLBPRIO, TIEC440DCURDNONCACHEPLBPRIO, TIEC440DCURDTOUCHPLBPRIO, TIEC440DCURDURGENTPLBPRIO, TIEC440DCUWRFLUSHPLBPRIO, TIEC440DCUWRSTOREPLBPRIO, TIEC440DCUWRURGENTPLBPRIO, TIEC440ICURDFETCHPLBPRIO, TIEC440ICURDSPECPLBPRIO, TIEC440ICURDTOUCHPLBPRIO, TIEDCRBASEADDR, PLBPPCS0TYPE
+, PLBPPCS1TYPE, DCRPPCDMDBUSIN, DCRPPCDSDBUSOUT, FCMAPURESULT, LLDMA0RXD, LLDMA1RXD, LLDMA2RXD, LLDMA3RXD, PLBPPCS0ABUS, PLBPPCS1ABUS, FCMAPUCR, LLDMA0RXREM, LLDMA1RXREM, LLDMA2RXREM, LLDMA3RXREM, PLBPPCMRDWDADDR, PLBPPCS0SIZE, PLBPPCS1SIZE, TIEC440ERPNRESET, TIEC440USERRESET, DBGC440SYSTEMSTATUS
+, DCRPPCDSABUS, PLBPPCS0UABUS, PLBPPCS1UABUS, TIEC440PIR, TIEC440PVR);
     parameter CLOCK_DELAY = "FALSE";
     parameter DCR_AUTOLOCK_ENABLE = "TRUE";
     parameter PPCDM_ASYNCMODE = "FALSE";
@@ -31692,7 +32292,36 @@ module PPC440 (...);
 endmodule
 
 (* keep *)
-module PS7 (...);
+module PS7(DMA0DAVALID, DMA0DRREADY, DMA0RSTN, DMA1DAVALID, DMA1DRREADY, DMA1RSTN, DMA2DAVALID, DMA2DRREADY, DMA2RSTN, DMA3DAVALID, DMA3DRREADY, DMA3RSTN, EMIOCAN0PHYTX, EMIOCAN1PHYTX, EMIOENET0GMIITXEN, EMIOENET0GMIITXER, EMIOENET0MDIOMDC, EMIOENET0MDIOO, EMIOENET0MDIOTN, EMIOENET0PTPDELAYREQRX, EMIOENET0PTPDELAYREQTX
+, EMIOENET0PTPPDELAYREQRX, EMIOENET0PTPPDELAYREQTX, EMIOENET0PTPPDELAYRESPRX, EMIOENET0PTPPDELAYRESPTX, EMIOENET0PTPSYNCFRAMERX, EMIOENET0PTPSYNCFRAMETX, EMIOENET0SOFRX, EMIOENET0SOFTX, EMIOENET1GMIITXEN, EMIOENET1GMIITXER, EMIOENET1MDIOMDC, EMIOENET1MDIOO, EMIOENET1MDIOTN, EMIOENET1PTPDELAYREQRX, EMIOENET1PTPDELAYREQTX, EMIOENET1PTPPDELAYREQRX, EMIOENET1PTPPDELAYREQTX, EMIOENET1PTPPDELAYRESPRX, EMIOENET1PTPPDELAYRESPTX, EMIOENET1PTPSYNCFRAMERX, EMIOENET1PTPSYNCFRAMETX
+, EMIOENET1SOFRX, EMIOENET1SOFTX, EMIOI2C0SCLO, EMIOI2C0SCLTN, EMIOI2C0SDAO, EMIOI2C0SDATN, EMIOI2C1SCLO, EMIOI2C1SCLTN, EMIOI2C1SDAO, EMIOI2C1SDATN, EMIOPJTAGTDO, EMIOPJTAGTDTN, EMIOSDIO0BUSPOW, EMIOSDIO0CLK, EMIOSDIO0CMDO, EMIOSDIO0CMDTN, EMIOSDIO0LED, EMIOSDIO1BUSPOW, EMIOSDIO1CLK, EMIOSDIO1CMDO, EMIOSDIO1CMDTN
+, EMIOSDIO1LED, EMIOSPI0MO, EMIOSPI0MOTN, EMIOSPI0SCLKO, EMIOSPI0SCLKTN, EMIOSPI0SO, EMIOSPI0SSNTN, EMIOSPI0STN, EMIOSPI1MO, EMIOSPI1MOTN, EMIOSPI1SCLKO, EMIOSPI1SCLKTN, EMIOSPI1SO, EMIOSPI1SSNTN, EMIOSPI1STN, EMIOTRACECTL, EMIOUART0DTRN, EMIOUART0RTSN, EMIOUART0TX, EMIOUART1DTRN, EMIOUART1RTSN
+, EMIOUART1TX, EMIOUSB0VBUSPWRSELECT, EMIOUSB1VBUSPWRSELECT, EMIOWDTRSTO, EVENTEVENTO, MAXIGP0ARESETN, MAXIGP0ARVALID, MAXIGP0AWVALID, MAXIGP0BREADY, MAXIGP0RREADY, MAXIGP0WLAST, MAXIGP0WVALID, MAXIGP1ARESETN, MAXIGP1ARVALID, MAXIGP1AWVALID, MAXIGP1BREADY, MAXIGP1RREADY, MAXIGP1WLAST, MAXIGP1WVALID, SAXIACPARESETN, SAXIACPARREADY
+, SAXIACPAWREADY, SAXIACPBVALID, SAXIACPRLAST, SAXIACPRVALID, SAXIACPWREADY, SAXIGP0ARESETN, SAXIGP0ARREADY, SAXIGP0AWREADY, SAXIGP0BVALID, SAXIGP0RLAST, SAXIGP0RVALID, SAXIGP0WREADY, SAXIGP1ARESETN, SAXIGP1ARREADY, SAXIGP1AWREADY, SAXIGP1BVALID, SAXIGP1RLAST, SAXIGP1RVALID, SAXIGP1WREADY, SAXIHP0ARESETN, SAXIHP0ARREADY
+, SAXIHP0AWREADY, SAXIHP0BVALID, SAXIHP0RLAST, SAXIHP0RVALID, SAXIHP0WREADY, SAXIHP1ARESETN, SAXIHP1ARREADY, SAXIHP1AWREADY, SAXIHP1BVALID, SAXIHP1RLAST, SAXIHP1RVALID, SAXIHP1WREADY, SAXIHP2ARESETN, SAXIHP2ARREADY, SAXIHP2AWREADY, SAXIHP2BVALID, SAXIHP2RLAST, SAXIHP2RVALID, SAXIHP2WREADY, SAXIHP3ARESETN, SAXIHP3ARREADY
+, SAXIHP3AWREADY, SAXIHP3BVALID, SAXIHP3RLAST, SAXIHP3RVALID, SAXIHP3WREADY, MAXIGP0ARID, MAXIGP0AWID, MAXIGP0WID, MAXIGP1ARID, MAXIGP1AWID, MAXIGP1WID, DMA0DATYPE, DMA1DATYPE, DMA2DATYPE, DMA3DATYPE, EMIOUSB0PORTINDCTL, EMIOUSB1PORTINDCTL, EVENTSTANDBYWFE, EVENTSTANDBYWFI, MAXIGP0ARBURST, MAXIGP0ARLOCK
+, MAXIGP0ARSIZE, MAXIGP0AWBURST, MAXIGP0AWLOCK, MAXIGP0AWSIZE, MAXIGP1ARBURST, MAXIGP1ARLOCK, MAXIGP1ARSIZE, MAXIGP1AWBURST, MAXIGP1AWLOCK, MAXIGP1AWSIZE, SAXIACPBRESP, SAXIACPRRESP, SAXIGP0BRESP, SAXIGP0RRESP, SAXIGP1BRESP, SAXIGP1RRESP, SAXIHP0BRESP, SAXIHP0RRESP, SAXIHP1BRESP, SAXIHP1RRESP, SAXIHP2BRESP
+, SAXIHP2RRESP, SAXIHP3BRESP, SAXIHP3RRESP, IRQP2F, EMIOSDIO0BUSVOLT, EMIOSDIO1BUSVOLT, EMIOSPI0SSON, EMIOSPI1SSON, EMIOTTC0WAVEO, EMIOTTC1WAVEO, MAXIGP0ARPROT, MAXIGP0AWPROT, MAXIGP1ARPROT, MAXIGP1AWPROT, SAXIACPBID, SAXIACPRID, SAXIHP0RACOUNT, SAXIHP1RACOUNT, SAXIHP2RACOUNT, SAXIHP3RACOUNT, EMIOTRACEDATA
+, FTMTP2FDEBUG, MAXIGP0ARADDR, MAXIGP0AWADDR, MAXIGP0WDATA, MAXIGP1ARADDR, MAXIGP1AWADDR, MAXIGP1WDATA, SAXIGP0RDATA, SAXIGP1RDATA, EMIOSDIO0DATAO, EMIOSDIO0DATATN, EMIOSDIO1DATAO, EMIOSDIO1DATATN, FCLKCLK, FCLKRESETN, FTMTF2PTRIGACK, FTMTP2FTRIG, MAXIGP0ARCACHE, MAXIGP0ARLEN, MAXIGP0ARQOS, MAXIGP0AWCACHE
+, MAXIGP0AWLEN, MAXIGP0AWQOS, MAXIGP0WSTRB, MAXIGP1ARCACHE, MAXIGP1ARLEN, MAXIGP1ARQOS, MAXIGP1AWCACHE, MAXIGP1AWLEN, MAXIGP1AWQOS, MAXIGP1WSTRB, SAXIGP0BID, SAXIGP0RID, SAXIGP1BID, SAXIGP1RID, SAXIHP0BID, SAXIHP0RID, SAXIHP0WACOUNT, SAXIHP1BID, SAXIHP1RID, SAXIHP1WACOUNT, SAXIHP2BID
+, SAXIHP2RID, SAXIHP2WACOUNT, SAXIHP3BID, SAXIHP3RID, SAXIHP3WACOUNT, EMIOGPIOO, EMIOGPIOTN, SAXIACPRDATA, SAXIHP0RDATA, SAXIHP1RDATA, SAXIHP2RDATA, SAXIHP3RDATA, EMIOENET0GMIITXD, EMIOENET1GMIITXD, SAXIHP0RCOUNT, SAXIHP0WCOUNT, SAXIHP1RCOUNT, SAXIHP1WCOUNT, SAXIHP2RCOUNT, SAXIHP2WCOUNT, SAXIHP3RCOUNT
+, SAXIHP3WCOUNT, DDRCASB, DDRCKE, DDRCKN, DDRCKP, DDRCSB, DDRDRSTB, DDRODT, DDRRASB, DDRVRN, DDRVRP, DDRWEB, PSCLK, PSPORB, PSSRSTB, DDRA, DDRBA, DDRDQ, DDRDM, DDRDQSN, DDRDQSP
+, MIO, DMA0ACLK, DMA0DAREADY, DMA0DRLAST, DMA0DRVALID, DMA1ACLK, DMA1DAREADY, DMA1DRLAST, DMA1DRVALID, DMA2ACLK, DMA2DAREADY, DMA2DRLAST, DMA2DRVALID, DMA3ACLK, DMA3DAREADY, DMA3DRLAST, DMA3DRVALID, EMIOCAN0PHYRX, EMIOCAN1PHYRX, EMIOENET0EXTINTIN, EMIOENET0GMIICOL
+, EMIOENET0GMIICRS, EMIOENET0GMIIRXCLK, EMIOENET0GMIIRXDV, EMIOENET0GMIIRXER, EMIOENET0GMIITXCLK, EMIOENET0MDIOI, EMIOENET1EXTINTIN, EMIOENET1GMIICOL, EMIOENET1GMIICRS, EMIOENET1GMIIRXCLK, EMIOENET1GMIIRXDV, EMIOENET1GMIIRXER, EMIOENET1GMIITXCLK, EMIOENET1MDIOI, EMIOI2C0SCLI, EMIOI2C0SDAI, EMIOI2C1SCLI, EMIOI2C1SDAI, EMIOPJTAGTCK, EMIOPJTAGTDI, EMIOPJTAGTMS
+, EMIOSDIO0CDN, EMIOSDIO0CLKFB, EMIOSDIO0CMDI, EMIOSDIO0WP, EMIOSDIO1CDN, EMIOSDIO1CLKFB, EMIOSDIO1CMDI, EMIOSDIO1WP, EMIOSPI0MI, EMIOSPI0SCLKI, EMIOSPI0SI, EMIOSPI0SSIN, EMIOSPI1MI, EMIOSPI1SCLKI, EMIOSPI1SI, EMIOSPI1SSIN, EMIOSRAMINTIN, EMIOTRACECLK, EMIOUART0CTSN, EMIOUART0DCDN, EMIOUART0DSRN
+, EMIOUART0RIN, EMIOUART0RX, EMIOUART1CTSN, EMIOUART1DCDN, EMIOUART1DSRN, EMIOUART1RIN, EMIOUART1RX, EMIOUSB0VBUSPWRFAULT, EMIOUSB1VBUSPWRFAULT, EMIOWDTCLKI, EVENTEVENTI, FPGAIDLEN, FTMDTRACEINCLOCK, FTMDTRACEINVALID, MAXIGP0ACLK, MAXIGP0ARREADY, MAXIGP0AWREADY, MAXIGP0BVALID, MAXIGP0RLAST, MAXIGP0RVALID, MAXIGP0WREADY
+, MAXIGP1ACLK, MAXIGP1ARREADY, MAXIGP1AWREADY, MAXIGP1BVALID, MAXIGP1RLAST, MAXIGP1RVALID, MAXIGP1WREADY, SAXIACPACLK, SAXIACPARVALID, SAXIACPAWVALID, SAXIACPBREADY, SAXIACPRREADY, SAXIACPWLAST, SAXIACPWVALID, SAXIGP0ACLK, SAXIGP0ARVALID, SAXIGP0AWVALID, SAXIGP0BREADY, SAXIGP0RREADY, SAXIGP0WLAST, SAXIGP0WVALID
+, SAXIGP1ACLK, SAXIGP1ARVALID, SAXIGP1AWVALID, SAXIGP1BREADY, SAXIGP1RREADY, SAXIGP1WLAST, SAXIGP1WVALID, SAXIHP0ACLK, SAXIHP0ARVALID, SAXIHP0AWVALID, SAXIHP0BREADY, SAXIHP0RDISSUECAP1EN, SAXIHP0RREADY, SAXIHP0WLAST, SAXIHP0WRISSUECAP1EN, SAXIHP0WVALID, SAXIHP1ACLK, SAXIHP1ARVALID, SAXIHP1AWVALID, SAXIHP1BREADY, SAXIHP1RDISSUECAP1EN
+, SAXIHP1RREADY, SAXIHP1WLAST, SAXIHP1WRISSUECAP1EN, SAXIHP1WVALID, SAXIHP2ACLK, SAXIHP2ARVALID, SAXIHP2AWVALID, SAXIHP2BREADY, SAXIHP2RDISSUECAP1EN, SAXIHP2RREADY, SAXIHP2WLAST, SAXIHP2WRISSUECAP1EN, SAXIHP2WVALID, SAXIHP3ACLK, SAXIHP3ARVALID, SAXIHP3AWVALID, SAXIHP3BREADY, SAXIHP3RDISSUECAP1EN, SAXIHP3RREADY, SAXIHP3WLAST, SAXIHP3WRISSUECAP1EN
+, SAXIHP3WVALID, MAXIGP0BID, MAXIGP0RID, MAXIGP1BID, MAXIGP1RID, IRQF2P, DMA0DRTYPE, DMA1DRTYPE, DMA2DRTYPE, DMA3DRTYPE, MAXIGP0BRESP, MAXIGP0RRESP, MAXIGP1BRESP, MAXIGP1RRESP, SAXIACPARBURST, SAXIACPARLOCK, SAXIACPARSIZE, SAXIACPAWBURST, SAXIACPAWLOCK, SAXIACPAWSIZE, SAXIGP0ARBURST
+, SAXIGP0ARLOCK, SAXIGP0ARSIZE, SAXIGP0AWBURST, SAXIGP0AWLOCK, SAXIGP0AWSIZE, SAXIGP1ARBURST, SAXIGP1ARLOCK, SAXIGP1ARSIZE, SAXIGP1AWBURST, SAXIGP1AWLOCK, SAXIGP1AWSIZE, SAXIHP0ARBURST, SAXIHP0ARLOCK, SAXIHP0ARSIZE, SAXIHP0AWBURST, SAXIHP0AWLOCK, SAXIHP0AWSIZE, SAXIHP1ARBURST, SAXIHP1ARLOCK, SAXIHP1ARSIZE, SAXIHP1AWBURST
+, SAXIHP1AWLOCK, SAXIHP1AWSIZE, SAXIHP2ARBURST, SAXIHP2ARLOCK, SAXIHP2ARSIZE, SAXIHP2AWBURST, SAXIHP2AWLOCK, SAXIHP2AWSIZE, SAXIHP3ARBURST, SAXIHP3ARLOCK, SAXIHP3ARSIZE, SAXIHP3AWBURST, SAXIHP3AWLOCK, SAXIHP3AWSIZE, EMIOTTC0CLKI, EMIOTTC1CLKI, SAXIACPARID, SAXIACPARPROT, SAXIACPAWID, SAXIACPAWPROT, SAXIACPWID
+, SAXIGP0ARPROT, SAXIGP0AWPROT, SAXIGP1ARPROT, SAXIGP1AWPROT, SAXIHP0ARPROT, SAXIHP0AWPROT, SAXIHP1ARPROT, SAXIHP1AWPROT, SAXIHP2ARPROT, SAXIHP2AWPROT, SAXIHP3ARPROT, SAXIHP3AWPROT, FTMDTRACEINDATA, FTMTF2PDEBUG, MAXIGP0RDATA, MAXIGP1RDATA, SAXIACPARADDR, SAXIACPAWADDR, SAXIGP0ARADDR, SAXIGP0AWADDR, SAXIGP0WDATA
+, SAXIGP1ARADDR, SAXIGP1AWADDR, SAXIGP1WDATA, SAXIHP0ARADDR, SAXIHP0AWADDR, SAXIHP1ARADDR, SAXIHP1AWADDR, SAXIHP2ARADDR, SAXIHP2AWADDR, SAXIHP3ARADDR, SAXIHP3AWADDR, DDRARB, EMIOSDIO0DATAI, EMIOSDIO1DATAI, FCLKCLKTRIGN, FTMDTRACEINATID, FTMTF2PTRIG, FTMTP2FTRIGACK, SAXIACPARCACHE, SAXIACPARLEN, SAXIACPARQOS
+, SAXIACPAWCACHE, SAXIACPAWLEN, SAXIACPAWQOS, SAXIGP0ARCACHE, SAXIGP0ARLEN, SAXIGP0ARQOS, SAXIGP0AWCACHE, SAXIGP0AWLEN, SAXIGP0AWQOS, SAXIGP0WSTRB, SAXIGP1ARCACHE, SAXIGP1ARLEN, SAXIGP1ARQOS, SAXIGP1AWCACHE, SAXIGP1AWLEN, SAXIGP1AWQOS, SAXIGP1WSTRB, SAXIHP0ARCACHE, SAXIHP0ARLEN, SAXIHP0ARQOS, SAXIHP0AWCACHE
+, SAXIHP0AWLEN, SAXIHP0AWQOS, SAXIHP1ARCACHE, SAXIHP1ARLEN, SAXIHP1ARQOS, SAXIHP1AWCACHE, SAXIHP1AWLEN, SAXIHP1AWQOS, SAXIHP2ARCACHE, SAXIHP2ARLEN, SAXIHP2ARQOS, SAXIHP2AWCACHE, SAXIHP2AWLEN, SAXIHP2AWQOS, SAXIHP3ARCACHE, SAXIHP3ARLEN, SAXIHP3ARQOS, SAXIHP3AWCACHE, SAXIHP3AWLEN, SAXIHP3AWQOS, SAXIACPARUSER
+, SAXIACPAWUSER, SAXIGP0ARID, SAXIGP0AWID, SAXIGP0WID, SAXIGP1ARID, SAXIGP1AWID, SAXIGP1WID, SAXIHP0ARID, SAXIHP0AWID, SAXIHP0WID, SAXIHP1ARID, SAXIHP1AWID, SAXIHP1WID, SAXIHP2ARID, SAXIHP2AWID, SAXIHP2WID, SAXIHP3ARID, SAXIHP3AWID, SAXIHP3WID, EMIOGPIOI, SAXIACPWDATA
+, SAXIHP0WDATA, SAXIHP1WDATA, SAXIHP2WDATA, SAXIHP3WDATA, EMIOENET0GMIIRXD, EMIOENET1GMIIRXD, SAXIACPWSTRB, SAXIHP0WSTRB, SAXIHP1WSTRB, SAXIHP2WSTRB, SAXIHP3WSTRB);
     output DMA0DAVALID;
     output DMA0DRREADY;
     output DMA0RSTN;
@@ -32316,7 +32945,55 @@ module PS7 (...);
 endmodule
 
 (* keep *)
-module PS8 (...);
+module PS8(ADMA2PLCACK, ADMA2PLTVLD, DPAUDIOREFCLK, DPAUXDATAOEN, DPAUXDATAOUT, DPLIVEVIDEODEOUT, DPMAXISMIXEDAUDIOTDATA, DPMAXISMIXEDAUDIOTID, DPMAXISMIXEDAUDIOTVALID, DPSAXISAUDIOTREADY, DPVIDEOOUTHSYNC, DPVIDEOOUTPIXEL1, DPVIDEOOUTVSYNC, DPVIDEOREFCLK, EMIOCAN0PHYTX, EMIOCAN1PHYTX, EMIOENET0DMABUSWIDTH, EMIOENET0DMATXENDTOG, EMIOENET0GEMTSUTIMERCNT, EMIOENET0GMIITXD, EMIOENET0GMIITXEN
+, EMIOENET0GMIITXER, EMIOENET0MDIOMDC, EMIOENET0MDIOO, EMIOENET0MDIOTN, EMIOENET0RXWDATA, EMIOENET0RXWEOP, EMIOENET0RXWERR, EMIOENET0RXWFLUSH, EMIOENET0RXWSOP, EMIOENET0RXWSTATUS, EMIOENET0RXWWR, EMIOENET0SPEEDMODE, EMIOENET0TXRRD, EMIOENET0TXRSTATUS, EMIOENET1DMABUSWIDTH, EMIOENET1DMATXENDTOG, EMIOENET1GMIITXD, EMIOENET1GMIITXEN, EMIOENET1GMIITXER, EMIOENET1MDIOMDC, EMIOENET1MDIOO
+, EMIOENET1MDIOTN, EMIOENET1RXWDATA, EMIOENET1RXWEOP, EMIOENET1RXWERR, EMIOENET1RXWFLUSH, EMIOENET1RXWSOP, EMIOENET1RXWSTATUS, EMIOENET1RXWWR, EMIOENET1SPEEDMODE, EMIOENET1TXRRD, EMIOENET1TXRSTATUS, EMIOENET2DMABUSWIDTH, EMIOENET2DMATXENDTOG, EMIOENET2GMIITXD, EMIOENET2GMIITXEN, EMIOENET2GMIITXER, EMIOENET2MDIOMDC, EMIOENET2MDIOO, EMIOENET2MDIOTN, EMIOENET2RXWDATA, EMIOENET2RXWEOP
+, EMIOENET2RXWERR, EMIOENET2RXWFLUSH, EMIOENET2RXWSOP, EMIOENET2RXWSTATUS, EMIOENET2RXWWR, EMIOENET2SPEEDMODE, EMIOENET2TXRRD, EMIOENET2TXRSTATUS, EMIOENET3DMABUSWIDTH, EMIOENET3DMATXENDTOG, EMIOENET3GMIITXD, EMIOENET3GMIITXEN, EMIOENET3GMIITXER, EMIOENET3MDIOMDC, EMIOENET3MDIOO, EMIOENET3MDIOTN, EMIOENET3RXWDATA, EMIOENET3RXWEOP, EMIOENET3RXWERR, EMIOENET3RXWFLUSH, EMIOENET3RXWSOP
+, EMIOENET3RXWSTATUS, EMIOENET3RXWWR, EMIOENET3SPEEDMODE, EMIOENET3TXRRD, EMIOENET3TXRSTATUS, EMIOGEM0DELAYREQRX, EMIOGEM0DELAYREQTX, EMIOGEM0PDELAYREQRX, EMIOGEM0PDELAYREQTX, EMIOGEM0PDELAYRESPRX, EMIOGEM0PDELAYRESPTX, EMIOGEM0RXSOF, EMIOGEM0SYNCFRAMERX, EMIOGEM0SYNCFRAMETX, EMIOGEM0TSUTIMERCMPVAL, EMIOGEM0TXRFIXEDLAT, EMIOGEM0TXSOF, EMIOGEM1DELAYREQRX, EMIOGEM1DELAYREQTX, EMIOGEM1PDELAYREQRX, EMIOGEM1PDELAYREQTX
+, EMIOGEM1PDELAYRESPRX, EMIOGEM1PDELAYRESPTX, EMIOGEM1RXSOF, EMIOGEM1SYNCFRAMERX, EMIOGEM1SYNCFRAMETX, EMIOGEM1TSUTIMERCMPVAL, EMIOGEM1TXRFIXEDLAT, EMIOGEM1TXSOF, EMIOGEM2DELAYREQRX, EMIOGEM2DELAYREQTX, EMIOGEM2PDELAYREQRX, EMIOGEM2PDELAYREQTX, EMIOGEM2PDELAYRESPRX, EMIOGEM2PDELAYRESPTX, EMIOGEM2RXSOF, EMIOGEM2SYNCFRAMERX, EMIOGEM2SYNCFRAMETX, EMIOGEM2TSUTIMERCMPVAL, EMIOGEM2TXRFIXEDLAT, EMIOGEM2TXSOF, EMIOGEM3DELAYREQRX
+, EMIOGEM3DELAYREQTX, EMIOGEM3PDELAYREQRX, EMIOGEM3PDELAYREQTX, EMIOGEM3PDELAYRESPRX, EMIOGEM3PDELAYRESPTX, EMIOGEM3RXSOF, EMIOGEM3SYNCFRAMERX, EMIOGEM3SYNCFRAMETX, EMIOGEM3TSUTIMERCMPVAL, EMIOGEM3TXRFIXEDLAT, EMIOGEM3TXSOF, EMIOGPIOO, EMIOGPIOTN, EMIOI2C0SCLO, EMIOI2C0SCLTN, EMIOI2C0SDAO, EMIOI2C0SDATN, EMIOI2C1SCLO, EMIOI2C1SCLTN, EMIOI2C1SDAO, EMIOI2C1SDATN
+, EMIOSDIO0BUSPOWER, EMIOSDIO0BUSVOLT, EMIOSDIO0CLKOUT, EMIOSDIO0CMDENA, EMIOSDIO0CMDOUT, EMIOSDIO0DATAENA, EMIOSDIO0DATAOUT, EMIOSDIO0LEDCONTROL, EMIOSDIO1BUSPOWER, EMIOSDIO1BUSVOLT, EMIOSDIO1CLKOUT, EMIOSDIO1CMDENA, EMIOSDIO1CMDOUT, EMIOSDIO1DATAENA, EMIOSDIO1DATAOUT, EMIOSDIO1LEDCONTROL, EMIOSPI0MO, EMIOSPI0MOTN, EMIOSPI0SCLKO, EMIOSPI0SCLKTN, EMIOSPI0SO
+, EMIOSPI0SSNTN, EMIOSPI0SSON, EMIOSPI0STN, EMIOSPI1MO, EMIOSPI1MOTN, EMIOSPI1SCLKO, EMIOSPI1SCLKTN, EMIOSPI1SO, EMIOSPI1SSNTN, EMIOSPI1SSON, EMIOSPI1STN, EMIOTTC0WAVEO, EMIOTTC1WAVEO, EMIOTTC2WAVEO, EMIOTTC3WAVEO, EMIOU2DSPORTVBUSCTRLUSB30, EMIOU2DSPORTVBUSCTRLUSB31, EMIOU3DSPORTVBUSCTRLUSB30, EMIOU3DSPORTVBUSCTRLUSB31, EMIOUART0DTRN, EMIOUART0RTSN
+, EMIOUART0TX, EMIOUART1DTRN, EMIOUART1RTSN, EMIOUART1TX, EMIOWDT0RSTO, EMIOWDT1RSTO, FMIOGEM0FIFORXCLKTOPLBUFG, FMIOGEM0FIFOTXCLKTOPLBUFG, FMIOGEM1FIFORXCLKTOPLBUFG, FMIOGEM1FIFOTXCLKTOPLBUFG, FMIOGEM2FIFORXCLKTOPLBUFG, FMIOGEM2FIFOTXCLKTOPLBUFG, FMIOGEM3FIFORXCLKTOPLBUFG, FMIOGEM3FIFOTXCLKTOPLBUFG, FMIOGEMTSUCLKTOPLBUFG, FTMGPO, GDMA2PLCACK, GDMA2PLTVLD, MAXIGP0ARADDR, MAXIGP0ARBURST, MAXIGP0ARCACHE
+, MAXIGP0ARID, MAXIGP0ARLEN, MAXIGP0ARLOCK, MAXIGP0ARPROT, MAXIGP0ARQOS, MAXIGP0ARSIZE, MAXIGP0ARUSER, MAXIGP0ARVALID, MAXIGP0AWADDR, MAXIGP0AWBURST, MAXIGP0AWCACHE, MAXIGP0AWID, MAXIGP0AWLEN, MAXIGP0AWLOCK, MAXIGP0AWPROT, MAXIGP0AWQOS, MAXIGP0AWSIZE, MAXIGP0AWUSER, MAXIGP0AWVALID, MAXIGP0BREADY, MAXIGP0RREADY
+, MAXIGP0WDATA, MAXIGP0WLAST, MAXIGP0WSTRB, MAXIGP0WVALID, MAXIGP1ARADDR, MAXIGP1ARBURST, MAXIGP1ARCACHE, MAXIGP1ARID, MAXIGP1ARLEN, MAXIGP1ARLOCK, MAXIGP1ARPROT, MAXIGP1ARQOS, MAXIGP1ARSIZE, MAXIGP1ARUSER, MAXIGP1ARVALID, MAXIGP1AWADDR, MAXIGP1AWBURST, MAXIGP1AWCACHE, MAXIGP1AWID, MAXIGP1AWLEN, MAXIGP1AWLOCK
+, MAXIGP1AWPROT, MAXIGP1AWQOS, MAXIGP1AWSIZE, MAXIGP1AWUSER, MAXIGP1AWVALID, MAXIGP1BREADY, MAXIGP1RREADY, MAXIGP1WDATA, MAXIGP1WLAST, MAXIGP1WSTRB, MAXIGP1WVALID, MAXIGP2ARADDR, MAXIGP2ARBURST, MAXIGP2ARCACHE, MAXIGP2ARID, MAXIGP2ARLEN, MAXIGP2ARLOCK, MAXIGP2ARPROT, MAXIGP2ARQOS, MAXIGP2ARSIZE, MAXIGP2ARUSER
+, MAXIGP2ARVALID, MAXIGP2AWADDR, MAXIGP2AWBURST, MAXIGP2AWCACHE, MAXIGP2AWID, MAXIGP2AWLEN, MAXIGP2AWLOCK, MAXIGP2AWPROT, MAXIGP2AWQOS, MAXIGP2AWSIZE, MAXIGP2AWUSER, MAXIGP2AWVALID, MAXIGP2BREADY, MAXIGP2RREADY, MAXIGP2WDATA, MAXIGP2WLAST, MAXIGP2WSTRB, MAXIGP2WVALID, OSCRTCCLK, PLCLK, PMUAIBAFIFMFPDREQ
+, PMUAIBAFIFMLPDREQ, PMUERRORTOPL, PMUPLGPO, PSPLEVENTO, PSPLIRQFPD, PSPLIRQLPD, PSPLSTANDBYWFE, PSPLSTANDBYWFI, PSPLTRACECTL, PSPLTRACEDATA, PSPLTRIGACK, PSPLTRIGGER, PSS_ALTO_CORE_PAD_MGTTXN0OUT, PSS_ALTO_CORE_PAD_MGTTXN1OUT, PSS_ALTO_CORE_PAD_MGTTXN2OUT, PSS_ALTO_CORE_PAD_MGTTXN3OUT, PSS_ALTO_CORE_PAD_MGTTXP0OUT, PSS_ALTO_CORE_PAD_MGTTXP1OUT, PSS_ALTO_CORE_PAD_MGTTXP2OUT, PSS_ALTO_CORE_PAD_MGTTXP3OUT, PSS_ALTO_CORE_PAD_PADO
+, RPUEVENTO0, RPUEVENTO1, SACEFPDACADDR, SACEFPDACPROT, SACEFPDACSNOOP, SACEFPDACVALID, SACEFPDARREADY, SACEFPDAWREADY, SACEFPDBID, SACEFPDBRESP, SACEFPDBUSER, SACEFPDBVALID, SACEFPDCDREADY, SACEFPDCRREADY, SACEFPDRDATA, SACEFPDRID, SACEFPDRLAST, SACEFPDRRESP, SACEFPDRUSER, SACEFPDRVALID, SACEFPDWREADY
+, SAXIACPARREADY, SAXIACPAWREADY, SAXIACPBID, SAXIACPBRESP, SAXIACPBVALID, SAXIACPRDATA, SAXIACPRID, SAXIACPRLAST, SAXIACPRRESP, SAXIACPRVALID, SAXIACPWREADY, SAXIGP0ARREADY, SAXIGP0AWREADY, SAXIGP0BID, SAXIGP0BRESP, SAXIGP0BVALID, SAXIGP0RACOUNT, SAXIGP0RCOUNT, SAXIGP0RDATA, SAXIGP0RID, SAXIGP0RLAST
+, SAXIGP0RRESP, SAXIGP0RVALID, SAXIGP0WACOUNT, SAXIGP0WCOUNT, SAXIGP0WREADY, SAXIGP1ARREADY, SAXIGP1AWREADY, SAXIGP1BID, SAXIGP1BRESP, SAXIGP1BVALID, SAXIGP1RACOUNT, SAXIGP1RCOUNT, SAXIGP1RDATA, SAXIGP1RID, SAXIGP1RLAST, SAXIGP1RRESP, SAXIGP1RVALID, SAXIGP1WACOUNT, SAXIGP1WCOUNT, SAXIGP1WREADY, SAXIGP2ARREADY
+, SAXIGP2AWREADY, SAXIGP2BID, SAXIGP2BRESP, SAXIGP2BVALID, SAXIGP2RACOUNT, SAXIGP2RCOUNT, SAXIGP2RDATA, SAXIGP2RID, SAXIGP2RLAST, SAXIGP2RRESP, SAXIGP2RVALID, SAXIGP2WACOUNT, SAXIGP2WCOUNT, SAXIGP2WREADY, SAXIGP3ARREADY, SAXIGP3AWREADY, SAXIGP3BID, SAXIGP3BRESP, SAXIGP3BVALID, SAXIGP3RACOUNT, SAXIGP3RCOUNT
+, SAXIGP3RDATA, SAXIGP3RID, SAXIGP3RLAST, SAXIGP3RRESP, SAXIGP3RVALID, SAXIGP3WACOUNT, SAXIGP3WCOUNT, SAXIGP3WREADY, SAXIGP4ARREADY, SAXIGP4AWREADY, SAXIGP4BID, SAXIGP4BRESP, SAXIGP4BVALID, SAXIGP4RACOUNT, SAXIGP4RCOUNT, SAXIGP4RDATA, SAXIGP4RID, SAXIGP4RLAST, SAXIGP4RRESP, SAXIGP4RVALID, SAXIGP4WACOUNT
+, SAXIGP4WCOUNT, SAXIGP4WREADY, SAXIGP5ARREADY, SAXIGP5AWREADY, SAXIGP5BID, SAXIGP5BRESP, SAXIGP5BVALID, SAXIGP5RACOUNT, SAXIGP5RCOUNT, SAXIGP5RDATA, SAXIGP5RID, SAXIGP5RLAST, SAXIGP5RRESP, SAXIGP5RVALID, SAXIGP5WACOUNT, SAXIGP5WCOUNT, SAXIGP5WREADY, SAXIGP6ARREADY, SAXIGP6AWREADY, SAXIGP6BID, SAXIGP6BRESP
+, SAXIGP6BVALID, SAXIGP6RACOUNT, SAXIGP6RCOUNT, SAXIGP6RDATA, SAXIGP6RID, SAXIGP6RLAST, SAXIGP6RRESP, SAXIGP6RVALID, SAXIGP6WACOUNT, SAXIGP6WCOUNT, SAXIGP6WREADY, PSS_ALTO_CORE_PAD_BOOTMODE, PSS_ALTO_CORE_PAD_CLK, PSS_ALTO_CORE_PAD_DONEB, PSS_ALTO_CORE_PAD_DRAMA, PSS_ALTO_CORE_PAD_DRAMACTN, PSS_ALTO_CORE_PAD_DRAMALERTN, PSS_ALTO_CORE_PAD_DRAMBA, PSS_ALTO_CORE_PAD_DRAMBG, PSS_ALTO_CORE_PAD_DRAMCK, PSS_ALTO_CORE_PAD_DRAMCKE
+, PSS_ALTO_CORE_PAD_DRAMCKN, PSS_ALTO_CORE_PAD_DRAMCSN, PSS_ALTO_CORE_PAD_DRAMDM, PSS_ALTO_CORE_PAD_DRAMDQ, PSS_ALTO_CORE_PAD_DRAMDQS, PSS_ALTO_CORE_PAD_DRAMDQSN, PSS_ALTO_CORE_PAD_DRAMODT, PSS_ALTO_CORE_PAD_DRAMPARITY, PSS_ALTO_CORE_PAD_DRAMRAMRSTN, PSS_ALTO_CORE_PAD_ERROROUT, PSS_ALTO_CORE_PAD_ERRORSTATUS, PSS_ALTO_CORE_PAD_INITB, PSS_ALTO_CORE_PAD_JTAGTCK, PSS_ALTO_CORE_PAD_JTAGTDI, PSS_ALTO_CORE_PAD_JTAGTDO, PSS_ALTO_CORE_PAD_JTAGTMS, PSS_ALTO_CORE_PAD_MIO, PSS_ALTO_CORE_PAD_PORB, PSS_ALTO_CORE_PAD_PROGB, PSS_ALTO_CORE_PAD_RCALIBINOUT, PSS_ALTO_CORE_PAD_SRSTB
+, PSS_ALTO_CORE_PAD_ZQ, ADMAFCICLK, AIBPMUAFIFMFPDACK, AIBPMUAFIFMLPDACK, DDRCEXTREFRESHRANK0REQ, DDRCEXTREFRESHRANK1REQ, DDRCREFRESHPLCLK, DPAUXDATAIN, DPEXTERNALCUSTOMEVENT1, DPEXTERNALCUSTOMEVENT2, DPEXTERNALVSYNCEVENT, DPHOTPLUGDETECT, DPLIVEGFXALPHAIN, DPLIVEGFXPIXEL1IN, DPLIVEVIDEOINDE, DPLIVEVIDEOINHSYNC, DPLIVEVIDEOINPIXEL1, DPLIVEVIDEOINVSYNC, DPMAXISMIXEDAUDIOTREADY, DPSAXISAUDIOCLK, DPSAXISAUDIOTDATA
+, DPSAXISAUDIOTID, DPSAXISAUDIOTVALID, DPVIDEOINCLK, EMIOCAN0PHYRX, EMIOCAN1PHYRX, EMIOENET0DMATXSTATUSTOG, EMIOENET0EXTINTIN, EMIOENET0GMIICOL, EMIOENET0GMIICRS, EMIOENET0GMIIRXCLK, EMIOENET0GMIIRXD, EMIOENET0GMIIRXDV, EMIOENET0GMIIRXER, EMIOENET0GMIITXCLK, EMIOENET0MDIOI, EMIOENET0RXWOVERFLOW, EMIOENET0TXRCONTROL, EMIOENET0TXRDATA, EMIOENET0TXRDATARDY, EMIOENET0TXREOP, EMIOENET0TXRERR
+, EMIOENET0TXRFLUSHED, EMIOENET0TXRSOP, EMIOENET0TXRUNDERFLOW, EMIOENET0TXRVALID, EMIOENET1DMATXSTATUSTOG, EMIOENET1EXTINTIN, EMIOENET1GMIICOL, EMIOENET1GMIICRS, EMIOENET1GMIIRXCLK, EMIOENET1GMIIRXD, EMIOENET1GMIIRXDV, EMIOENET1GMIIRXER, EMIOENET1GMIITXCLK, EMIOENET1MDIOI, EMIOENET1RXWOVERFLOW, EMIOENET1TXRCONTROL, EMIOENET1TXRDATA, EMIOENET1TXRDATARDY, EMIOENET1TXREOP, EMIOENET1TXRERR, EMIOENET1TXRFLUSHED
+, EMIOENET1TXRSOP, EMIOENET1TXRUNDERFLOW, EMIOENET1TXRVALID, EMIOENET2DMATXSTATUSTOG, EMIOENET2EXTINTIN, EMIOENET2GMIICOL, EMIOENET2GMIICRS, EMIOENET2GMIIRXCLK, EMIOENET2GMIIRXD, EMIOENET2GMIIRXDV, EMIOENET2GMIIRXER, EMIOENET2GMIITXCLK, EMIOENET2MDIOI, EMIOENET2RXWOVERFLOW, EMIOENET2TXRCONTROL, EMIOENET2TXRDATA, EMIOENET2TXRDATARDY, EMIOENET2TXREOP, EMIOENET2TXRERR, EMIOENET2TXRFLUSHED, EMIOENET2TXRSOP
+, EMIOENET2TXRUNDERFLOW, EMIOENET2TXRVALID, EMIOENET3DMATXSTATUSTOG, EMIOENET3EXTINTIN, EMIOENET3GMIICOL, EMIOENET3GMIICRS, EMIOENET3GMIIRXCLK, EMIOENET3GMIIRXD, EMIOENET3GMIIRXDV, EMIOENET3GMIIRXER, EMIOENET3GMIITXCLK, EMIOENET3MDIOI, EMIOENET3RXWOVERFLOW, EMIOENET3TXRCONTROL, EMIOENET3TXRDATA, EMIOENET3TXRDATARDY, EMIOENET3TXREOP, EMIOENET3TXRERR, EMIOENET3TXRFLUSHED, EMIOENET3TXRSOP, EMIOENET3TXRUNDERFLOW
+, EMIOENET3TXRVALID, EMIOENETTSUCLK, EMIOGEM0TSUINCCTRL, EMIOGEM1TSUINCCTRL, EMIOGEM2TSUINCCTRL, EMIOGEM3TSUINCCTRL, EMIOGPIOI, EMIOHUBPORTOVERCRNTUSB20, EMIOHUBPORTOVERCRNTUSB21, EMIOHUBPORTOVERCRNTUSB30, EMIOHUBPORTOVERCRNTUSB31, EMIOI2C0SCLI, EMIOI2C0SDAI, EMIOI2C1SCLI, EMIOI2C1SDAI, EMIOSDIO0CDN, EMIOSDIO0CMDIN, EMIOSDIO0DATAIN, EMIOSDIO0FBCLKIN, EMIOSDIO0WP, EMIOSDIO1CDN
+, EMIOSDIO1CMDIN, EMIOSDIO1DATAIN, EMIOSDIO1FBCLKIN, EMIOSDIO1WP, EMIOSPI0MI, EMIOSPI0SCLKI, EMIOSPI0SI, EMIOSPI0SSIN, EMIOSPI1MI, EMIOSPI1SCLKI, EMIOSPI1SI, EMIOSPI1SSIN, EMIOTTC0CLKI, EMIOTTC1CLKI, EMIOTTC2CLKI, EMIOTTC3CLKI, EMIOUART0CTSN, EMIOUART0DCDN, EMIOUART0DSRN, EMIOUART0RIN, EMIOUART0RX
+, EMIOUART1CTSN, EMIOUART1DCDN, EMIOUART1DSRN, EMIOUART1RIN, EMIOUART1RX, EMIOWDT0CLKI, EMIOWDT1CLKI, FMIOGEM0FIFORXCLKFROMPL, FMIOGEM0FIFOTXCLKFROMPL, FMIOGEM0SIGNALDETECT, FMIOGEM1FIFORXCLKFROMPL, FMIOGEM1FIFOTXCLKFROMPL, FMIOGEM1SIGNALDETECT, FMIOGEM2FIFORXCLKFROMPL, FMIOGEM2FIFOTXCLKFROMPL, FMIOGEM2SIGNALDETECT, FMIOGEM3FIFORXCLKFROMPL, FMIOGEM3FIFOTXCLKFROMPL, FMIOGEM3SIGNALDETECT, FMIOGEMTSUCLKFROMPL, FTMGPI
+, GDMAFCICLK, MAXIGP0ACLK, MAXIGP0ARREADY, MAXIGP0AWREADY, MAXIGP0BID, MAXIGP0BRESP, MAXIGP0BVALID, MAXIGP0RDATA, MAXIGP0RID, MAXIGP0RLAST, MAXIGP0RRESP, MAXIGP0RVALID, MAXIGP0WREADY, MAXIGP1ACLK, MAXIGP1ARREADY, MAXIGP1AWREADY, MAXIGP1BID, MAXIGP1BRESP, MAXIGP1BVALID, MAXIGP1RDATA, MAXIGP1RID
+, MAXIGP1RLAST, MAXIGP1RRESP, MAXIGP1RVALID, MAXIGP1WREADY, MAXIGP2ACLK, MAXIGP2ARREADY, MAXIGP2AWREADY, MAXIGP2BID, MAXIGP2BRESP, MAXIGP2BVALID, MAXIGP2RDATA, MAXIGP2RID, MAXIGP2RLAST, MAXIGP2RRESP, MAXIGP2RVALID, MAXIGP2WREADY, NFIQ0LPDRPU, NFIQ1LPDRPU, NIRQ0LPDRPU, NIRQ1LPDRPU, PL2ADMACVLD
+, PL2ADMATACK, PL2GDMACVLD, PL2GDMATACK, PLACECLK, PLACPINACT, PLFPGASTOP, PLLAUXREFCLKFPD, PLLAUXREFCLKLPD, PLPMUGPI, PLPSAPUGICFIQ, PLPSAPUGICIRQ, PLPSEVENTI, PLPSIRQ0, PLPSIRQ1, PLPSTRACECLK, PLPSTRIGACK, PLPSTRIGGER, PMUERRORFROMPL, PSS_ALTO_CORE_PAD_MGTRXN0IN, PSS_ALTO_CORE_PAD_MGTRXN1IN, PSS_ALTO_CORE_PAD_MGTRXN2IN
+, PSS_ALTO_CORE_PAD_MGTRXN3IN, PSS_ALTO_CORE_PAD_MGTRXP0IN, PSS_ALTO_CORE_PAD_MGTRXP1IN, PSS_ALTO_CORE_PAD_MGTRXP2IN, PSS_ALTO_CORE_PAD_MGTRXP3IN, PSS_ALTO_CORE_PAD_PADI, PSS_ALTO_CORE_PAD_REFN0IN, PSS_ALTO_CORE_PAD_REFN1IN, PSS_ALTO_CORE_PAD_REFN2IN, PSS_ALTO_CORE_PAD_REFN3IN, PSS_ALTO_CORE_PAD_REFP0IN, PSS_ALTO_CORE_PAD_REFP1IN, PSS_ALTO_CORE_PAD_REFP2IN, PSS_ALTO_CORE_PAD_REFP3IN, RPUEVENTI0, RPUEVENTI1, SACEFPDACREADY, SACEFPDARADDR, SACEFPDARBAR, SACEFPDARBURST, SACEFPDARCACHE
+, SACEFPDARDOMAIN, SACEFPDARID, SACEFPDARLEN, SACEFPDARLOCK, SACEFPDARPROT, SACEFPDARQOS, SACEFPDARREGION, SACEFPDARSIZE, SACEFPDARSNOOP, SACEFPDARUSER, SACEFPDARVALID, SACEFPDAWADDR, SACEFPDAWBAR, SACEFPDAWBURST, SACEFPDAWCACHE, SACEFPDAWDOMAIN, SACEFPDAWID, SACEFPDAWLEN, SACEFPDAWLOCK, SACEFPDAWPROT, SACEFPDAWQOS
+, SACEFPDAWREGION, SACEFPDAWSIZE, SACEFPDAWSNOOP, SACEFPDAWUSER, SACEFPDAWVALID, SACEFPDBREADY, SACEFPDCDDATA, SACEFPDCDLAST, SACEFPDCDVALID, SACEFPDCRRESP, SACEFPDCRVALID, SACEFPDRACK, SACEFPDRREADY, SACEFPDWACK, SACEFPDWDATA, SACEFPDWLAST, SACEFPDWSTRB, SACEFPDWUSER, SACEFPDWVALID, SAXIACPACLK, SAXIACPARADDR
+, SAXIACPARBURST, SAXIACPARCACHE, SAXIACPARID, SAXIACPARLEN, SAXIACPARLOCK, SAXIACPARPROT, SAXIACPARQOS, SAXIACPARSIZE, SAXIACPARUSER, SAXIACPARVALID, SAXIACPAWADDR, SAXIACPAWBURST, SAXIACPAWCACHE, SAXIACPAWID, SAXIACPAWLEN, SAXIACPAWLOCK, SAXIACPAWPROT, SAXIACPAWQOS, SAXIACPAWSIZE, SAXIACPAWUSER, SAXIACPAWVALID
+, SAXIACPBREADY, SAXIACPRREADY, SAXIACPWDATA, SAXIACPWLAST, SAXIACPWSTRB, SAXIACPWVALID, SAXIGP0ARADDR, SAXIGP0ARBURST, SAXIGP0ARCACHE, SAXIGP0ARID, SAXIGP0ARLEN, SAXIGP0ARLOCK, SAXIGP0ARPROT, SAXIGP0ARQOS, SAXIGP0ARSIZE, SAXIGP0ARUSER, SAXIGP0ARVALID, SAXIGP0AWADDR, SAXIGP0AWBURST, SAXIGP0AWCACHE, SAXIGP0AWID
+, SAXIGP0AWLEN, SAXIGP0AWLOCK, SAXIGP0AWPROT, SAXIGP0AWQOS, SAXIGP0AWSIZE, SAXIGP0AWUSER, SAXIGP0AWVALID, SAXIGP0BREADY, SAXIGP0RCLK, SAXIGP0RREADY, SAXIGP0WCLK, SAXIGP0WDATA, SAXIGP0WLAST, SAXIGP0WSTRB, SAXIGP0WVALID, SAXIGP1ARADDR, SAXIGP1ARBURST, SAXIGP1ARCACHE, SAXIGP1ARID, SAXIGP1ARLEN, SAXIGP1ARLOCK
+, SAXIGP1ARPROT, SAXIGP1ARQOS, SAXIGP1ARSIZE, SAXIGP1ARUSER, SAXIGP1ARVALID, SAXIGP1AWADDR, SAXIGP1AWBURST, SAXIGP1AWCACHE, SAXIGP1AWID, SAXIGP1AWLEN, SAXIGP1AWLOCK, SAXIGP1AWPROT, SAXIGP1AWQOS, SAXIGP1AWSIZE, SAXIGP1AWUSER, SAXIGP1AWVALID, SAXIGP1BREADY, SAXIGP1RCLK, SAXIGP1RREADY, SAXIGP1WCLK, SAXIGP1WDATA
+, SAXIGP1WLAST, SAXIGP1WSTRB, SAXIGP1WVALID, SAXIGP2ARADDR, SAXIGP2ARBURST, SAXIGP2ARCACHE, SAXIGP2ARID, SAXIGP2ARLEN, SAXIGP2ARLOCK, SAXIGP2ARPROT, SAXIGP2ARQOS, SAXIGP2ARSIZE, SAXIGP2ARUSER, SAXIGP2ARVALID, SAXIGP2AWADDR, SAXIGP2AWBURST, SAXIGP2AWCACHE, SAXIGP2AWID, SAXIGP2AWLEN, SAXIGP2AWLOCK, SAXIGP2AWPROT
+, SAXIGP2AWQOS, SAXIGP2AWSIZE, SAXIGP2AWUSER, SAXIGP2AWVALID, SAXIGP2BREADY, SAXIGP2RCLK, SAXIGP2RREADY, SAXIGP2WCLK, SAXIGP2WDATA, SAXIGP2WLAST, SAXIGP2WSTRB, SAXIGP2WVALID, SAXIGP3ARADDR, SAXIGP3ARBURST, SAXIGP3ARCACHE, SAXIGP3ARID, SAXIGP3ARLEN, SAXIGP3ARLOCK, SAXIGP3ARPROT, SAXIGP3ARQOS, SAXIGP3ARSIZE
+, SAXIGP3ARUSER, SAXIGP3ARVALID, SAXIGP3AWADDR, SAXIGP3AWBURST, SAXIGP3AWCACHE, SAXIGP3AWID, SAXIGP3AWLEN, SAXIGP3AWLOCK, SAXIGP3AWPROT, SAXIGP3AWQOS, SAXIGP3AWSIZE, SAXIGP3AWUSER, SAXIGP3AWVALID, SAXIGP3BREADY, SAXIGP3RCLK, SAXIGP3RREADY, SAXIGP3WCLK, SAXIGP3WDATA, SAXIGP3WLAST, SAXIGP3WSTRB, SAXIGP3WVALID
+, SAXIGP4ARADDR, SAXIGP4ARBURST, SAXIGP4ARCACHE, SAXIGP4ARID, SAXIGP4ARLEN, SAXIGP4ARLOCK, SAXIGP4ARPROT, SAXIGP4ARQOS, SAXIGP4ARSIZE, SAXIGP4ARUSER, SAXIGP4ARVALID, SAXIGP4AWADDR, SAXIGP4AWBURST, SAXIGP4AWCACHE, SAXIGP4AWID, SAXIGP4AWLEN, SAXIGP4AWLOCK, SAXIGP4AWPROT, SAXIGP4AWQOS, SAXIGP4AWSIZE, SAXIGP4AWUSER
+, SAXIGP4AWVALID, SAXIGP4BREADY, SAXIGP4RCLK, SAXIGP4RREADY, SAXIGP4WCLK, SAXIGP4WDATA, SAXIGP4WLAST, SAXIGP4WSTRB, SAXIGP4WVALID, SAXIGP5ARADDR, SAXIGP5ARBURST, SAXIGP5ARCACHE, SAXIGP5ARID, SAXIGP5ARLEN, SAXIGP5ARLOCK, SAXIGP5ARPROT, SAXIGP5ARQOS, SAXIGP5ARSIZE, SAXIGP5ARUSER, SAXIGP5ARVALID, SAXIGP5AWADDR
+, SAXIGP5AWBURST, SAXIGP5AWCACHE, SAXIGP5AWID, SAXIGP5AWLEN, SAXIGP5AWLOCK, SAXIGP5AWPROT, SAXIGP5AWQOS, SAXIGP5AWSIZE, SAXIGP5AWUSER, SAXIGP5AWVALID, SAXIGP5BREADY, SAXIGP5RCLK, SAXIGP5RREADY, SAXIGP5WCLK, SAXIGP5WDATA, SAXIGP5WLAST, SAXIGP5WSTRB, SAXIGP5WVALID, SAXIGP6ARADDR, SAXIGP6ARBURST, SAXIGP6ARCACHE
+, SAXIGP6ARID, SAXIGP6ARLEN, SAXIGP6ARLOCK, SAXIGP6ARPROT, SAXIGP6ARQOS, SAXIGP6ARSIZE, SAXIGP6ARUSER, SAXIGP6ARVALID, SAXIGP6AWADDR, SAXIGP6AWBURST, SAXIGP6AWCACHE, SAXIGP6AWID, SAXIGP6AWLEN, SAXIGP6AWLOCK, SAXIGP6AWPROT, SAXIGP6AWQOS, SAXIGP6AWSIZE, SAXIGP6AWUSER, SAXIGP6AWVALID, SAXIGP6BREADY, SAXIGP6RCLK
+, SAXIGP6RREADY, SAXIGP6WCLK, SAXIGP6WDATA, SAXIGP6WLAST, SAXIGP6WSTRB, SAXIGP6WVALID, STMEVENT);
     output [7:0] ADMA2PLCACK;
     output [7:0] ADMA2PLTVLD;
     output DPAUDIOREFCLK;
@@ -33334,7 +34011,17 @@ module PS8 (...);
     input [59:0] STMEVENT;
 endmodule
 
-module ILKN (...);
+module ILKN(DRP_DO, DRP_RDY, RX_BYPASS_DATAOUT00, RX_BYPASS_DATAOUT01, RX_BYPASS_DATAOUT02, RX_BYPASS_DATAOUT03, RX_BYPASS_DATAOUT04, RX_BYPASS_DATAOUT05, RX_BYPASS_DATAOUT06, RX_BYPASS_DATAOUT07, RX_BYPASS_DATAOUT08, RX_BYPASS_DATAOUT09, RX_BYPASS_DATAOUT10, RX_BYPASS_DATAOUT11, RX_BYPASS_ENAOUT, RX_BYPASS_IS_AVAILOUT, RX_BYPASS_IS_BADLYFRAMEDOUT, RX_BYPASS_IS_OVERFLOWOUT, RX_BYPASS_IS_SYNCEDOUT, RX_BYPASS_IS_SYNCWORDOUT, RX_CHANOUT0
+, RX_CHANOUT1, RX_CHANOUT2, RX_CHANOUT3, RX_DATAOUT0, RX_DATAOUT1, RX_DATAOUT2, RX_DATAOUT3, RX_ENAOUT0, RX_ENAOUT1, RX_ENAOUT2, RX_ENAOUT3, RX_EOPOUT0, RX_EOPOUT1, RX_EOPOUT2, RX_EOPOUT3, RX_ERROUT0, RX_ERROUT1, RX_ERROUT2, RX_ERROUT3, RX_MTYOUT0, RX_MTYOUT1
+, RX_MTYOUT2, RX_MTYOUT3, RX_OVFOUT, RX_SOPOUT0, RX_SOPOUT1, RX_SOPOUT2, RX_SOPOUT3, STAT_RX_ALIGNED, STAT_RX_ALIGNED_ERR, STAT_RX_BAD_TYPE_ERR, STAT_RX_BURSTMAX_ERR, STAT_RX_BURST_ERR, STAT_RX_CRC24_ERR, STAT_RX_CRC32_ERR, STAT_RX_CRC32_VALID, STAT_RX_DESCRAM_ERR, STAT_RX_DIAGWORD_INTFSTAT, STAT_RX_DIAGWORD_LANESTAT, STAT_RX_FC_STAT, STAT_RX_FRAMING_ERR, STAT_RX_MEOP_ERR
+, STAT_RX_MF_ERR, STAT_RX_MF_LEN_ERR, STAT_RX_MF_REPEAT_ERR, STAT_RX_MISALIGNED, STAT_RX_MSOP_ERR, STAT_RX_MUBITS, STAT_RX_MUBITS_UPDATED, STAT_RX_OVERFLOW_ERR, STAT_RX_RETRANS_CRC24_ERR, STAT_RX_RETRANS_DISC, STAT_RX_RETRANS_LATENCY, STAT_RX_RETRANS_REQ, STAT_RX_RETRANS_RETRY_ERR, STAT_RX_RETRANS_SEQ, STAT_RX_RETRANS_SEQ_UPDATED, STAT_RX_RETRANS_STATE, STAT_RX_RETRANS_SUBSEQ, STAT_RX_RETRANS_WDOG_ERR, STAT_RX_RETRANS_WRAP_ERR, STAT_RX_SYNCED, STAT_RX_SYNCED_ERR
+, STAT_RX_WORD_SYNC, STAT_TX_BURST_ERR, STAT_TX_ERRINJ_BITERR_DONE, STAT_TX_OVERFLOW_ERR, STAT_TX_RETRANS_BURST_ERR, STAT_TX_RETRANS_BUSY, STAT_TX_RETRANS_RAM_PERROUT, STAT_TX_RETRANS_RAM_RADDR, STAT_TX_RETRANS_RAM_RD_B0, STAT_TX_RETRANS_RAM_RD_B1, STAT_TX_RETRANS_RAM_RD_B2, STAT_TX_RETRANS_RAM_RD_B3, STAT_TX_RETRANS_RAM_RSEL, STAT_TX_RETRANS_RAM_WADDR, STAT_TX_RETRANS_RAM_WDATA, STAT_TX_RETRANS_RAM_WE_B0, STAT_TX_RETRANS_RAM_WE_B1, STAT_TX_RETRANS_RAM_WE_B2, STAT_TX_RETRANS_RAM_WE_B3, STAT_TX_UNDERFLOW_ERR, TX_OVFOUT
+, TX_RDYOUT, TX_SERDES_DATA00, TX_SERDES_DATA01, TX_SERDES_DATA02, TX_SERDES_DATA03, TX_SERDES_DATA04, TX_SERDES_DATA05, TX_SERDES_DATA06, TX_SERDES_DATA07, TX_SERDES_DATA08, TX_SERDES_DATA09, TX_SERDES_DATA10, TX_SERDES_DATA11, CORE_CLK, CTL_RX_FORCE_RESYNC, CTL_RX_RETRANS_ACK, CTL_RX_RETRANS_ENABLE, CTL_RX_RETRANS_ERRIN, CTL_RX_RETRANS_FORCE_REQ, CTL_RX_RETRANS_RESET, CTL_RX_RETRANS_RESET_MODE
+, CTL_TX_DIAGWORD_INTFSTAT, CTL_TX_DIAGWORD_LANESTAT, CTL_TX_ENABLE, CTL_TX_ERRINJ_BITERR_GO, CTL_TX_ERRINJ_BITERR_LANE, CTL_TX_FC_STAT, CTL_TX_MUBITS, CTL_TX_RETRANS_ENABLE, CTL_TX_RETRANS_RAM_PERRIN, CTL_TX_RETRANS_RAM_RDATA, CTL_TX_RETRANS_REQ, CTL_TX_RETRANS_REQ_VALID, CTL_TX_RLIM_DELTA, CTL_TX_RLIM_ENABLE, CTL_TX_RLIM_INTV, CTL_TX_RLIM_MAX, DRP_ADDR, DRP_CLK, DRP_DI, DRP_EN, DRP_WE
+, LBUS_CLK, RX_BYPASS_FORCE_REALIGNIN, RX_BYPASS_RDIN, RX_RESET, RX_SERDES_CLK, RX_SERDES_DATA00, RX_SERDES_DATA01, RX_SERDES_DATA02, RX_SERDES_DATA03, RX_SERDES_DATA04, RX_SERDES_DATA05, RX_SERDES_DATA06, RX_SERDES_DATA07, RX_SERDES_DATA08, RX_SERDES_DATA09, RX_SERDES_DATA10, RX_SERDES_DATA11, RX_SERDES_RESET, TX_BCTLIN0, TX_BCTLIN1, TX_BCTLIN2
+, TX_BCTLIN3, TX_BYPASS_CTRLIN, TX_BYPASS_DATAIN00, TX_BYPASS_DATAIN01, TX_BYPASS_DATAIN02, TX_BYPASS_DATAIN03, TX_BYPASS_DATAIN04, TX_BYPASS_DATAIN05, TX_BYPASS_DATAIN06, TX_BYPASS_DATAIN07, TX_BYPASS_DATAIN08, TX_BYPASS_DATAIN09, TX_BYPASS_DATAIN10, TX_BYPASS_DATAIN11, TX_BYPASS_ENAIN, TX_BYPASS_GEARBOX_SEQIN, TX_BYPASS_MFRAMER_STATEIN, TX_CHANIN0, TX_CHANIN1, TX_CHANIN2, TX_CHANIN3
+, TX_DATAIN0, TX_DATAIN1, TX_DATAIN2, TX_DATAIN3, TX_ENAIN0, TX_ENAIN1, TX_ENAIN2, TX_ENAIN3, TX_EOPIN0, TX_EOPIN1, TX_EOPIN2, TX_EOPIN3, TX_ERRIN0, TX_ERRIN1, TX_ERRIN2, TX_ERRIN3, TX_MTYIN0, TX_MTYIN1, TX_MTYIN2, TX_MTYIN3, TX_RESET
+, TX_SERDES_REFCLK, TX_SERDES_REFCLK_RESET, TX_SOPIN0, TX_SOPIN1, TX_SOPIN2, TX_SOPIN3);
     parameter BYPASS = "FALSE";
     parameter [1:0] CTL_RX_BURSTMAX = 2'h3;
     parameter [1:0] CTL_RX_CHAN_EXT = 2'h0;
@@ -33579,7 +34266,17 @@ module ILKN (...);
     input TX_SOPIN3;
 endmodule
 
-module ILKNE4 (...);
+module ILKNE4(DRP_DO, DRP_RDY, RX_BYPASS_DATAOUT00, RX_BYPASS_DATAOUT01, RX_BYPASS_DATAOUT02, RX_BYPASS_DATAOUT03, RX_BYPASS_DATAOUT04, RX_BYPASS_DATAOUT05, RX_BYPASS_DATAOUT06, RX_BYPASS_DATAOUT07, RX_BYPASS_DATAOUT08, RX_BYPASS_DATAOUT09, RX_BYPASS_DATAOUT10, RX_BYPASS_DATAOUT11, RX_BYPASS_ENAOUT, RX_BYPASS_IS_AVAILOUT, RX_BYPASS_IS_BADLYFRAMEDOUT, RX_BYPASS_IS_OVERFLOWOUT, RX_BYPASS_IS_SYNCEDOUT, RX_BYPASS_IS_SYNCWORDOUT, RX_CHANOUT0
+, RX_CHANOUT1, RX_CHANOUT2, RX_CHANOUT3, RX_DATAOUT0, RX_DATAOUT1, RX_DATAOUT2, RX_DATAOUT3, RX_ENAOUT0, RX_ENAOUT1, RX_ENAOUT2, RX_ENAOUT3, RX_EOPOUT0, RX_EOPOUT1, RX_EOPOUT2, RX_EOPOUT3, RX_ERROUT0, RX_ERROUT1, RX_ERROUT2, RX_ERROUT3, RX_MTYOUT0, RX_MTYOUT1
+, RX_MTYOUT2, RX_MTYOUT3, RX_OVFOUT, RX_SOPOUT0, RX_SOPOUT1, RX_SOPOUT2, RX_SOPOUT3, STAT_RX_ALIGNED, STAT_RX_ALIGNED_ERR, STAT_RX_BAD_TYPE_ERR, STAT_RX_BURSTMAX_ERR, STAT_RX_BURST_ERR, STAT_RX_CRC24_ERR, STAT_RX_CRC32_ERR, STAT_RX_CRC32_VALID, STAT_RX_DESCRAM_ERR, STAT_RX_DIAGWORD_INTFSTAT, STAT_RX_DIAGWORD_LANESTAT, STAT_RX_FC_STAT, STAT_RX_FRAMING_ERR, STAT_RX_MEOP_ERR
+, STAT_RX_MF_ERR, STAT_RX_MF_LEN_ERR, STAT_RX_MF_REPEAT_ERR, STAT_RX_MISALIGNED, STAT_RX_MSOP_ERR, STAT_RX_MUBITS, STAT_RX_MUBITS_UPDATED, STAT_RX_OVERFLOW_ERR, STAT_RX_RETRANS_CRC24_ERR, STAT_RX_RETRANS_DISC, STAT_RX_RETRANS_LATENCY, STAT_RX_RETRANS_REQ, STAT_RX_RETRANS_RETRY_ERR, STAT_RX_RETRANS_SEQ, STAT_RX_RETRANS_SEQ_UPDATED, STAT_RX_RETRANS_STATE, STAT_RX_RETRANS_SUBSEQ, STAT_RX_RETRANS_WDOG_ERR, STAT_RX_RETRANS_WRAP_ERR, STAT_RX_SYNCED, STAT_RX_SYNCED_ERR
+, STAT_RX_WORD_SYNC, STAT_TX_BURST_ERR, STAT_TX_ERRINJ_BITERR_DONE, STAT_TX_OVERFLOW_ERR, STAT_TX_RETRANS_BURST_ERR, STAT_TX_RETRANS_BUSY, STAT_TX_RETRANS_RAM_PERROUT, STAT_TX_RETRANS_RAM_RADDR, STAT_TX_RETRANS_RAM_RD_B0, STAT_TX_RETRANS_RAM_RD_B1, STAT_TX_RETRANS_RAM_RD_B2, STAT_TX_RETRANS_RAM_RD_B3, STAT_TX_RETRANS_RAM_RSEL, STAT_TX_RETRANS_RAM_WADDR, STAT_TX_RETRANS_RAM_WDATA, STAT_TX_RETRANS_RAM_WE_B0, STAT_TX_RETRANS_RAM_WE_B1, STAT_TX_RETRANS_RAM_WE_B2, STAT_TX_RETRANS_RAM_WE_B3, STAT_TX_UNDERFLOW_ERR, TX_OVFOUT
+, TX_RDYOUT, TX_SERDES_DATA00, TX_SERDES_DATA01, TX_SERDES_DATA02, TX_SERDES_DATA03, TX_SERDES_DATA04, TX_SERDES_DATA05, TX_SERDES_DATA06, TX_SERDES_DATA07, TX_SERDES_DATA08, TX_SERDES_DATA09, TX_SERDES_DATA10, TX_SERDES_DATA11, CORE_CLK, CTL_RX_FORCE_RESYNC, CTL_RX_RETRANS_ACK, CTL_RX_RETRANS_ENABLE, CTL_RX_RETRANS_ERRIN, CTL_RX_RETRANS_FORCE_REQ, CTL_RX_RETRANS_RESET, CTL_RX_RETRANS_RESET_MODE
+, CTL_TX_DIAGWORD_INTFSTAT, CTL_TX_DIAGWORD_LANESTAT, CTL_TX_ENABLE, CTL_TX_ERRINJ_BITERR_GO, CTL_TX_ERRINJ_BITERR_LANE, CTL_TX_FC_STAT, CTL_TX_MUBITS, CTL_TX_RETRANS_ENABLE, CTL_TX_RETRANS_RAM_PERRIN, CTL_TX_RETRANS_RAM_RDATA, CTL_TX_RETRANS_REQ, CTL_TX_RETRANS_REQ_VALID, CTL_TX_RLIM_DELTA, CTL_TX_RLIM_ENABLE, CTL_TX_RLIM_INTV, CTL_TX_RLIM_MAX, DRP_ADDR, DRP_CLK, DRP_DI, DRP_EN, DRP_WE
+, LBUS_CLK, RX_BYPASS_FORCE_REALIGNIN, RX_BYPASS_RDIN, RX_RESET, RX_SERDES_CLK, RX_SERDES_DATA00, RX_SERDES_DATA01, RX_SERDES_DATA02, RX_SERDES_DATA03, RX_SERDES_DATA04, RX_SERDES_DATA05, RX_SERDES_DATA06, RX_SERDES_DATA07, RX_SERDES_DATA08, RX_SERDES_DATA09, RX_SERDES_DATA10, RX_SERDES_DATA11, RX_SERDES_RESET, TX_BCTLIN0, TX_BCTLIN1, TX_BCTLIN2
+, TX_BCTLIN3, TX_BYPASS_CTRLIN, TX_BYPASS_DATAIN00, TX_BYPASS_DATAIN01, TX_BYPASS_DATAIN02, TX_BYPASS_DATAIN03, TX_BYPASS_DATAIN04, TX_BYPASS_DATAIN05, TX_BYPASS_DATAIN06, TX_BYPASS_DATAIN07, TX_BYPASS_DATAIN08, TX_BYPASS_DATAIN09, TX_BYPASS_DATAIN10, TX_BYPASS_DATAIN11, TX_BYPASS_ENAIN, TX_BYPASS_GEARBOX_SEQIN, TX_BYPASS_MFRAMER_STATEIN, TX_CHANIN0, TX_CHANIN1, TX_CHANIN2, TX_CHANIN3
+, TX_DATAIN0, TX_DATAIN1, TX_DATAIN2, TX_DATAIN3, TX_ENAIN0, TX_ENAIN1, TX_ENAIN2, TX_ENAIN3, TX_EOPIN0, TX_EOPIN1, TX_EOPIN2, TX_EOPIN3, TX_ERRIN0, TX_ERRIN1, TX_ERRIN2, TX_ERRIN3, TX_MTYIN0, TX_MTYIN1, TX_MTYIN2, TX_MTYIN3, TX_RESET
+, TX_SERDES_REFCLK, TX_SERDES_REFCLK_RESET, TX_SOPIN0, TX_SOPIN1, TX_SOPIN2, TX_SOPIN3);
     parameter BYPASS = "FALSE";
     parameter [1:0] CTL_RX_BURSTMAX = 2'h3;
     parameter [1:0] CTL_RX_CHAN_EXT = 2'h0;
@@ -33825,7 +34522,17 @@ module ILKNE4 (...);
 endmodule
 
 (* keep *)
-module VCU (...);
+module VCU(VCUPLARREADYAXILITEAPB, VCUPLAWREADYAXILITEAPB, VCUPLBRESPAXILITEAPB, VCUPLBVALIDAXILITEAPB, VCUPLCORESTATUSCLKPLL, VCUPLDECARADDR0, VCUPLDECARADDR1, VCUPLDECARBURST0, VCUPLDECARBURST1, VCUPLDECARCACHE0, VCUPLDECARCACHE1, VCUPLDECARID0, VCUPLDECARID1, VCUPLDECARLEN0, VCUPLDECARLEN1, VCUPLDECARPROT0, VCUPLDECARPROT1, VCUPLDECARQOS0, VCUPLDECARQOS1, VCUPLDECARSIZE0, VCUPLDECARSIZE1
+, VCUPLDECARVALID0, VCUPLDECARVALID1, VCUPLDECAWADDR0, VCUPLDECAWADDR1, VCUPLDECAWBURST0, VCUPLDECAWBURST1, VCUPLDECAWCACHE0, VCUPLDECAWCACHE1, VCUPLDECAWID0, VCUPLDECAWID1, VCUPLDECAWLEN0, VCUPLDECAWLEN1, VCUPLDECAWPROT0, VCUPLDECAWPROT1, VCUPLDECAWQOS0, VCUPLDECAWQOS1, VCUPLDECAWSIZE0, VCUPLDECAWSIZE1, VCUPLDECAWVALID0, VCUPLDECAWVALID1, VCUPLDECBREADY0
+, VCUPLDECBREADY1, VCUPLDECRREADY0, VCUPLDECRREADY1, VCUPLDECWDATA0, VCUPLDECWDATA1, VCUPLDECWLAST0, VCUPLDECWLAST1, VCUPLDECWVALID0, VCUPLDECWVALID1, VCUPLENCALL2CADDR, VCUPLENCALL2CRVALID, VCUPLENCALL2CWDATA, VCUPLENCALL2CWVALID, VCUPLENCARADDR0, VCUPLENCARADDR1, VCUPLENCARBURST0, VCUPLENCARBURST1, VCUPLENCARCACHE0, VCUPLENCARCACHE1, VCUPLENCARID0, VCUPLENCARID1
+, VCUPLENCARLEN0, VCUPLENCARLEN1, VCUPLENCARPROT0, VCUPLENCARPROT1, VCUPLENCARQOS0, VCUPLENCARQOS1, VCUPLENCARSIZE0, VCUPLENCARSIZE1, VCUPLENCARVALID0, VCUPLENCARVALID1, VCUPLENCAWADDR0, VCUPLENCAWADDR1, VCUPLENCAWBURST0, VCUPLENCAWBURST1, VCUPLENCAWCACHE0, VCUPLENCAWCACHE1, VCUPLENCAWID0, VCUPLENCAWID1, VCUPLENCAWLEN0, VCUPLENCAWLEN1, VCUPLENCAWPROT0
+, VCUPLENCAWPROT1, VCUPLENCAWQOS0, VCUPLENCAWQOS1, VCUPLENCAWSIZE0, VCUPLENCAWSIZE1, VCUPLENCAWVALID0, VCUPLENCAWVALID1, VCUPLENCBREADY0, VCUPLENCBREADY1, VCUPLENCRREADY0, VCUPLENCRREADY1, VCUPLENCWDATA0, VCUPLENCWDATA1, VCUPLENCWLAST0, VCUPLENCWLAST1, VCUPLENCWVALID0, VCUPLENCWVALID1, VCUPLMCUMAXIICDCARADDR, VCUPLMCUMAXIICDCARBURST, VCUPLMCUMAXIICDCARCACHE, VCUPLMCUMAXIICDCARID
+, VCUPLMCUMAXIICDCARLEN, VCUPLMCUMAXIICDCARLOCK, VCUPLMCUMAXIICDCARPROT, VCUPLMCUMAXIICDCARQOS, VCUPLMCUMAXIICDCARSIZE, VCUPLMCUMAXIICDCARVALID, VCUPLMCUMAXIICDCAWADDR, VCUPLMCUMAXIICDCAWBURST, VCUPLMCUMAXIICDCAWCACHE, VCUPLMCUMAXIICDCAWID, VCUPLMCUMAXIICDCAWLEN, VCUPLMCUMAXIICDCAWLOCK, VCUPLMCUMAXIICDCAWPROT, VCUPLMCUMAXIICDCAWQOS, VCUPLMCUMAXIICDCAWSIZE, VCUPLMCUMAXIICDCAWVALID, VCUPLMCUMAXIICDCBREADY, VCUPLMCUMAXIICDCRREADY, VCUPLMCUMAXIICDCWDATA, VCUPLMCUMAXIICDCWLAST, VCUPLMCUMAXIICDCWSTRB
+, VCUPLMCUMAXIICDCWVALID, VCUPLMCUSTATUSCLKPLL, VCUPLPINTREQ, VCUPLPLLSTATUSPLLLOCK, VCUPLPWRSUPPLYSTATUSVCCAUX, VCUPLPWRSUPPLYSTATUSVCUINT, VCUPLRDATAAXILITEAPB, VCUPLRRESPAXILITEAPB, VCUPLRVALIDAXILITEAPB, VCUPLWREADYAXILITEAPB, INITPLVCUGASKETCLAMPCONTROLLVLSHVCCINTD, PLVCUARADDRAXILITEAPB, PLVCUARPROTAXILITEAPB, PLVCUARVALIDAXILITEAPB, PLVCUAWADDRAXILITEAPB, PLVCUAWPROTAXILITEAPB, PLVCUAWVALIDAXILITEAPB, PLVCUAXIDECCLK, PLVCUAXIENCCLK, PLVCUAXILITECLK, PLVCUAXIMCUCLK
+, PLVCUBREADYAXILITEAPB, PLVCUCORECLK, PLVCUDECARREADY0, PLVCUDECARREADY1, PLVCUDECAWREADY0, PLVCUDECAWREADY1, PLVCUDECBID0, PLVCUDECBID1, PLVCUDECBRESP0, PLVCUDECBRESP1, PLVCUDECBVALID0, PLVCUDECBVALID1, PLVCUDECRDATA0, PLVCUDECRDATA1, PLVCUDECRID0, PLVCUDECRID1, PLVCUDECRLAST0, PLVCUDECRLAST1, PLVCUDECRRESP0, PLVCUDECRRESP1, PLVCUDECRVALID0
+, PLVCUDECRVALID1, PLVCUDECWREADY0, PLVCUDECWREADY1, PLVCUENCALL2CRDATA, PLVCUENCALL2CRREADY, PLVCUENCARREADY0, PLVCUENCARREADY1, PLVCUENCAWREADY0, PLVCUENCAWREADY1, PLVCUENCBID0, PLVCUENCBID1, PLVCUENCBRESP0, PLVCUENCBRESP1, PLVCUENCBVALID0, PLVCUENCBVALID1, PLVCUENCL2CCLK, PLVCUENCRDATA0, PLVCUENCRDATA1, PLVCUENCRID0, PLVCUENCRID1, PLVCUENCRLAST0
+, PLVCUENCRLAST1, PLVCUENCRRESP0, PLVCUENCRRESP1, PLVCUENCRVALID0, PLVCUENCRVALID1, PLVCUENCWREADY0, PLVCUENCWREADY1, PLVCUMCUCLK, PLVCUMCUMAXIICDCARREADY, PLVCUMCUMAXIICDCAWREADY, PLVCUMCUMAXIICDCBID, PLVCUMCUMAXIICDCBRESP, PLVCUMCUMAXIICDCBVALID, PLVCUMCUMAXIICDCRDATA, PLVCUMCUMAXIICDCRID, PLVCUMCUMAXIICDCRLAST, PLVCUMCUMAXIICDCRRESP, PLVCUMCUMAXIICDCRVALID, PLVCUMCUMAXIICDCWREADY, PLVCUPLLREFCLKPL, PLVCURAWRSTN
+, PLVCURREADYAXILITEAPB, PLVCUWDATAAXILITEAPB, PLVCUWSTRBAXILITEAPB, PLVCUWVALIDAXILITEAPB);
     parameter integer CORECLKREQ = 667;
     parameter integer DECHORRESOLUTION = 3840;
     parameter DECODERCHROMAFORMAT = "4_2_2";
@@ -34057,7 +34764,9 @@ module VCU (...);
     input PLVCUWVALIDAXILITEAPB;
 endmodule
 
-module FE (...);
+module FE(DEBUG_DOUT, DEBUG_PHASE, INTERRUPT, M_AXIS_DOUT_TDATA, M_AXIS_DOUT_TLAST, M_AXIS_DOUT_TVALID, M_AXIS_STATUS_TDATA, M_AXIS_STATUS_TVALID, SPARE_OUT, S_AXIS_CTRL_TREADY, S_AXIS_DIN_TREADY, S_AXIS_DIN_WORDS_TREADY, S_AXIS_DOUT_WORDS_TREADY, S_AXI_ARREADY, S_AXI_AWREADY, S_AXI_BVALID, S_AXI_RDATA, S_AXI_RVALID, S_AXI_WREADY, CORE_CLK, DEBUG_CLK_EN
+, DEBUG_EN, DEBUG_SEL_IN, M_AXIS_DOUT_ACLK, M_AXIS_DOUT_TREADY, M_AXIS_STATUS_ACLK, M_AXIS_STATUS_TREADY, RESET_N, SPARE_IN, S_AXIS_CTRL_ACLK, S_AXIS_CTRL_TDATA, S_AXIS_CTRL_TVALID, S_AXIS_DIN_ACLK, S_AXIS_DIN_TDATA, S_AXIS_DIN_TLAST, S_AXIS_DIN_TVALID, S_AXIS_DIN_WORDS_ACLK, S_AXIS_DIN_WORDS_TDATA, S_AXIS_DIN_WORDS_TLAST, S_AXIS_DIN_WORDS_TVALID, S_AXIS_DOUT_WORDS_ACLK, S_AXIS_DOUT_WORDS_TDATA
+, S_AXIS_DOUT_WORDS_TLAST, S_AXIS_DOUT_WORDS_TVALID, S_AXI_ACLK, S_AXI_ARADDR, S_AXI_ARVALID, S_AXI_AWADDR, S_AXI_AWVALID, S_AXI_BREADY, S_AXI_RREADY, S_AXI_WDATA, S_AXI_WVALID);
     parameter MODE = "TURBO_DECODE";
     parameter real PHYSICAL_UTILIZATION = 100.00;
     parameter SIM_DEVICE = "ULTRASCALE_PLUS";

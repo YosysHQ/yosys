@@ -39,6 +39,7 @@ struct PassOptions {
 	bool no_auto_distributed;
 	bool no_auto_block;
 	bool no_auto_huge;
+	bool force_params;
 	double logic_cost_rom;
 	double logic_cost_ram;
 };
@@ -1859,7 +1860,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 						cell->setParam(stringf("\\PORT_%s_WR_BE_WIDTH", name), GetSize(hw_wren));
 				} else {
 					cell->setPort(stringf("\\PORT_%s_WR_EN", name), hw_wren);
-					if (cfg.def->byte != 0 && cfg.def->width_mode != WidthMode::Single)
+					if (cfg.def->byte != 0 && (cfg.def->width_mode != WidthMode::Single || opts.force_params))
 						cell->setParam(stringf("\\PORT_%s_WR_EN_WIDTH", name), GetSize(hw_wren));
 				}
 			}
@@ -2068,8 +2069,10 @@ void MemMapping::emit(const MemConfig &cfg) {
 		std::vector<Cell *> cells;
 		for (int rd = 0; rd < cfg.repl_d; rd++) {
 			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid, rp, rd), cfg.def->id);
-			if (cfg.def->width_mode == WidthMode::Global)
+			if (cfg.def->width_mode == WidthMode::Global || opts.force_params)
 				cell->setParam(ID::WIDTH, cfg.def->dbits[cfg.base_width_log2]);
+			if (opts.force_params)
+				cell->setParam(ID::ABITS, cfg.def->abits);
 			if (cfg.def->widthscale) {
 				std::vector<State> val;
 				for (auto &bit: init_swz.bits[rd])
@@ -2179,6 +2182,9 @@ struct MemoryLibMapPass : public Pass {
 		log("    Disables automatic mapping of given kind of RAMs.  Manual mapping\n");
 		log("    (using ram_style or other attributes) is still supported.\n");
 		log("\n");
+		log("  -force-params\n");
+		log("    Always generate memories with WIDTH and ABITS parameters.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -2188,6 +2194,7 @@ struct MemoryLibMapPass : public Pass {
 		opts.no_auto_distributed = false;
 		opts.no_auto_block = false;
 		opts.no_auto_huge = false;
+		opts.force_params = false;
 		opts.logic_cost_ram = 1.0;
 		opts.logic_cost_rom = 1.0/16.0;
 		log_header(design, "Executing MEMORY_LIBMAP pass (mapping memories to cells).\n");
@@ -2212,6 +2219,10 @@ struct MemoryLibMapPass : public Pass {
 			}
 			if (args[argidx] == "-no-auto-huge") {
 				opts.no_auto_huge = true;
+				continue;
+			}
+			if (args[argidx] == "-force-params") {
+				opts.force_params = true;
 				continue;
 			}
 			if (args[argidx] == "-logic-cost-rom" && argidx+1 < args.size()) {
