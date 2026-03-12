@@ -451,7 +451,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
 			extendSignalWidthUnary(undef_a, undef_y, cell);
 
-			if (cell->type.in(ID($pos), ID($buf))) {
+			if (cell->type.in(ID($pos), ID($buf), ID($connect))) {
 				ez->assume(ez->vec_eq(undef_a, undef_y));
 			} else {
 				int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);
