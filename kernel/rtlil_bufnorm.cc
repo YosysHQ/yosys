@@ -55,6 +55,19 @@ struct RTLIL::SigNormIndex
 		setup_fanout();
 	}
 
+	void dump_sigmap() {
+		for (auto [name, wire] : module->wires_) { 
+			log_debug("wire %s %p %s\n", name, wire, wire->name);
+			SigSpec ss(wire);
+			log_debug("ss %s\n", log_signal(ss));
+			sigmap(ss);
+			log_debug("sigmapped %s\n", log_signal(ss));
+		}
+		for (auto [lhs, rhs] : module->connections_) {
+			log_debug("connection %s %s\n", log_signal(lhs), log_signal(rhs));
+		}
+	}
+
 	void normalize() {
 		flush_connections();
 		flush_newly_driven();
@@ -343,6 +356,12 @@ void RTLIL::Module::sigNormalize()
 
 	sig_norm_index->normalize();
 
+}
+
+void RTLIL::Module::dump_sigmap()
+{
+	if (sig_norm_index != nullptr)
+		sig_norm_index->dump_sigmap();
 }
 
 void RTLIL::Module::clear_sig_norm_index()

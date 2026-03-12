@@ -1753,6 +1753,7 @@ public:
 	pool<RTLIL::Cell *> pending_deleted_cells;
 	dict<RTLIL::Wire *, pool<RTLIL::Cell *>> buf_norm_connect_index;
 	void bufNormalize();
+	void dump_sigmap();
 
 protected:
 	SigNormIndex *sig_norm_index = nullptr;
