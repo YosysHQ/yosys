@@ -1,9 +1,10 @@
-# Tests that generate .mk with ./gen-tests-makefile.sh
+# Tests that generate Makefile with gen_tests_makefile.py
 MK_TEST_DIRS =
 MK_TEST_DIRS += ./arch/analogdevices
 MK_TEST_DIRS += ./arch/anlogic
 MK_TEST_DIRS += ./arch/ecp5
 MK_TEST_DIRS += ./arch/efinix
+MK_TEST_DIRS += ./arch/fabulous
 MK_TEST_DIRS += ./arch/gatemate
 MK_TEST_DIRS += ./arch/gowin
 MK_TEST_DIRS += ./arch/ice40
@@ -84,14 +85,14 @@ abcopt-./%: %/run-test.sh
 
 # makefile-./ is a dummy string, not a directory
 .PHONY: makefile-tests
-#.SILENT: $(MK_TEST_DIRS:%=%/run-test.mk)
+.SILENT: $(MK_TEST_DIRS:%=%/Makefile)
 makefile-tests: $(MK_TEST_DIRS:%=makefile-./%)
-# this target actually emits .mk files
-%.mk:
-	+@cd $(dir $*) && bash run-test.sh
-# this one spawns submake on each
-makefile-./%: %/run-test.mk
-	@$(MAKE) -C $* -f run-test.mk
+# this target actually emits Makefile files
+%/Makefile:
+	+@cd $* && python3 generate_mk.py
+
+makefile-./%: %/Makefile
+	@$(MAKE) -C $*
 	@echo "...passed tests in $*"
 
 vanilla-test: makefile-tests abcopt-tests seed-tests
