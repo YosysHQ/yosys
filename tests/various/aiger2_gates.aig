@@ -1,0 +1,71 @@
+aig 00000066 00000038 00000000 00000016 00000028
+00000083
+00000088
+00000093
+00000096
+00000102
+00000109
+00000111
+00000112
+00000118
+00000125
+00000126
+00000129
+00000131
+00000132
+00000005
+00000002
+*(14=@JOUX_biov|o0 _OAI4__y
+o1 _AOI4__y
+o2 _OAI3__y
+o3 _AOI3__y
+o4 _NMUX__y
+o5 _MUX__y
+o6 _ORNOT__y
+o7 _ANDNOT__y
+o8 _XNOR__y
+o9 _XOR__y
+o10 _NOR__y
+o11 _OR__y
+o12 _NAND__y
+o13 _AND__y
+o14 _NOT__y
+o15 _BUF__y
+i0 _BUF__a
+i1 _NOT__a
+i2 _AND__a
+i3 _AND__b
+i4 _NAND__a
+i5 _NAND__b
+i6 _OR__a
+i7 _OR__b
+i8 _NOR__a
+i9 _NOR__b
+i10 _XOR__a
+i11 _XOR__b
+i12 _XNOR__a
+i13 _XNOR__b
+i14 _ANDNOT__a
+i15 _ANDNOT__b
+i16 _ORNOT__a
+i17 _ORNOT__b
+i18 _MUX__a
+i19 _MUX__b
+i20 _MUX__s
+i21 _NMUX__a
+i22 _NMUX__b
+i23 _NMUX__s
+i24 _AOI3__a
+i25 _AOI3__b
+i26 _AOI3__c
+i27 _OAI3__a
+i28 _OAI3__b
+i29 _OAI3__c
+i30 _AOI4__a
+i31 _AOI4__b
+i32 _AOI4__c
+i33 _AOI4__d
+i34 _OAI4__a
+i35 _OAI4__b
+i36 _OAI4__c
+i37 _OAI4__d

@@ -178,8 +178,8 @@ struct ModIndex : public RTLIL::Monitor
 
 			return false;
 		}
+#endif // Return true unconditionally if NDEBUG
 		return true;
-#endif
 	}
 
 	void check()
