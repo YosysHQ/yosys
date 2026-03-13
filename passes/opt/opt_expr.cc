@@ -400,7 +400,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 	auto dirty_cells = module->dirty_cells(timestamp);
 
-	for (auto cell : dirty_cells) {
+	// TODO this could be cheaper
+	for (auto cell : module->cells()) {
 		if (design->selected(module, cell) && cell->type[0] == '$') {
 			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
 					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
