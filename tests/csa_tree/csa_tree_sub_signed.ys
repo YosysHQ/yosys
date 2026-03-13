@@ -1,6 +1,4 @@
-# Test csa_tree with single-bit operands — carry shift edge case
-
-read_verilog add_1bit.v
+read_verilog sub_signed.v
 hierarchy -auto-top
 proc; opt_clean
 csa_tree
@@ -8,3 +6,4 @@ stat
 
 select -assert-min 1 t:$fa
 select -assert-count 1 t:$add
+select -assert-none t:$sub
