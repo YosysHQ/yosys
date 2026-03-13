@@ -1,17 +1,20 @@
+# ABC synthesis comparison: with vs without csa_tree
+
 # Baseline: no csa_tree
 read_verilog abc_bench_add8.v
 hierarchy -top abc_bench_add8
 proc; opt
-
-# Baseline synth
 techmap
 abc -g AND,OR,XOR
 opt_clean
 stat
-design -save baseline
+
+# Baseline is typically 238 gates — assert it's above 235
+select -assert-min 236 t:$_AND_ t:$_OR_ t:$_XOR_ %u
+
+design -reset
 
 # With csa_tree
-design -reset
 read_verilog abc_bench_add8.v
 hierarchy -top abc_bench_add8
 proc; opt
@@ -21,25 +24,36 @@ abc -g AND,OR,XOR
 opt_clean
 stat
 
-select -assert-max 250 t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NOT_ %u
-design -save csa_result
+# CSA was giving ~232 gates, assert rough equality
+select -assert-max 235 t:$_AND_ t:$_OR_ t:$_XOR_ %u
 
-# Depth comparison via ABC
 design -reset
+
+# Depth-optimal: baseline
 read_verilog abc_bench_add8.v
 hierarchy -top abc_bench_add8
 proc; opt
 techmap
 abc -D 1
+opt_clean
 stat
-log "baseline depth mapping complete"
+
+# Baseline depth-optimal is  ~243 cells
+select -assert-min 240 t:$_AND_ t:$_NAND_ t:$_OR_ t:$_NOR_ t:$_XOR_ t:$_XNOR_ t:$_NOT_ %u
 
 design -reset
+
+# Depth-optimal: with csa_tree
 read_verilog abc_bench_add8.v
 hierarchy -top abc_bench_add8
 proc; opt
 csa_tree
 techmap
 abc -D 1
+opt_clean
 stat
-log "CSA depth mapping complete"
+
+# CSA depth-optimal is ~232 cells, must be under baseline
+select -assert-max 236 t:$_AND_ t:$_NAND_ t:$_OR_ t:$_NOR_ t:$_XOR_ t:$_XNOR_ t:$_NOT_ %u
+
+log "CSA depth and gate count: ok"

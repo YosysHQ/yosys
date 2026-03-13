@@ -6,4 +6,3 @@ design -load postopt
 
 select -assert-min 1 t:$fa
 select -assert-count 1 t:$add
-
