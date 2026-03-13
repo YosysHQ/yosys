@@ -1,0 +1,9 @@
+read_verilog add_mixed_widths.v
+hierarchy -auto-top
+proc; opt_clean
+equiv_opt csa_tree
+design -load postopt
+
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+

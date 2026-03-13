@@ -1,0 +1,8 @@
+# Test csa_tree with single-bit operands — carry shift edge case
+
+read_verilog add_1bit.v
+hierarchy -auto-top
+proc; opt_clean
+equiv_opt csa_tree
+design -load postopt
+
