@@ -1,0 +1,23 @@
+read_verilog sim_add4.v
+hierarchy -top sim_add4
+proc; opt_clean
+csa_tree
+opt_clean
+
+# 1 + 2 + 3 + 4 = 10
+sat -set a 1 -set b 2 -set c 3 -set d 4 -prove y 10
+
+# 0 + 0 + 0 + 0 = 0
+sat -set a 0 -set b 0 -set c 0 -set d 0 -prove y 0
+
+# 255 + 1 + 0 + 0 = 0
+sat -set a 255 -set b 1 -set c 0 -set d 0 -prove y 0
+
+# 100 + 50 + 25 + 25 = 200
+sat -set a 100 -set b 50 -set c 25 -set d 25 -prove y 200
+
+# 255 + 255 + 255 + 255 = 252
+sat -set a 255 -set b 255 -set c 255 -set d 255 -prove y 252
+
+log "ok"
+
