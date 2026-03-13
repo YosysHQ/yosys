@@ -15,8 +15,8 @@ def generate_target(name, command):
     print(f"all: {target}")
     print(f".PHONY: {target}")
     print(f"{target}:")
-    print(f"\t@YOSYS_MAX_THREADS=4 {command}")
-    print(f"\t@echo 'Passed {target}'")
+    print(f"\t@@$(call run_test,{target}, \\")
+    print(f"\tYOSYS_MAX_THREADS=4 {command})")
 
 def generate_ys_test(ys_file, yosys_args=""):
     cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} >/dev/null 2>&1 && mv {ys_file}.err {ys_file}.log'
@@ -52,7 +52,18 @@ def generate_tests(argv):
 
     print(f"YOSYS ?= {yosys_basedir}/yosys")
     print()
-
+    print("define run_test")
+    print("	rc=0; \\")
+    print("	$(2) || rc=$$?; \\")
+    print("	if [ $$rc -eq 0 ]; then \\")
+    print("		echo \"PASS $1\"; \\")
+    print("		echo PASS > $1.result; \\")
+    print("	else \\")
+    print("		echo \"FAIL $1\"; \\")
+    print("		echo FAIL > $1.result; \\")
+    print("	fi")
+    print("endef")
+    print()
     print(".PHONY: all")
     print("all:")
 
