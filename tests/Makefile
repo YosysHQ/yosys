@@ -104,8 +104,12 @@ ifeq ($(YOSYS_NOVERIFIC),1)
 endif
 endif
 	@echo ""
-	@pass=$$(grep -h PASS **/*.result 2>/dev/null | wc -l); \
-	fail=$$(grep -h FAIL **/*.result 2>/dev/null | wc -l); \
+	-@$(MAKE) summary
+
+.PHONY: summary
+summary:
+	@pass=$$(find . -type f -name '*.result' -exec grep '^PASS$$' {} + | wc -l); \
+	fail=$$(find . -type f -name '*.result' -exec grep '^FAIL$$' {} + | wc -l); \
 	total=$$((pass + fail)); \
 	echo "=========================="; \
 	echo "Tests: $$total"; \
