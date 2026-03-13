@@ -1,4 +1,5 @@
 # Test bit correctness
+
 read_verilog equiv_narrow.v
 hierarchy -top equiv_add3
 proc; opt_clean

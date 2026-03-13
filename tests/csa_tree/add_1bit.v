@@ -1,4 +1,4 @@
-// edge case for carry shifting
+// Edge case for carry shifting
 
 module add_1bit(
 	input  a, b, c,
