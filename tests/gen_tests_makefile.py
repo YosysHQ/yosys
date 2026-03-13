@@ -5,7 +5,8 @@ import os
 import sys
 import argparse
 
-yosys_basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+yosys_basedir = os.path.relpath(os.path.join(os.path.dirname(__file__), ".."))
+common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk"))
 
 def _cwd_base():
     return os.path.basename(os.getcwd())
@@ -50,19 +51,8 @@ def generate_tests(argv):
     if not (args.yosys_scripts or args.tcl_scripts or args.prove_sv or args.bash):
         raise RuntimeError("No file types selected")
 
+    print(f"include {common_mk}")
     print(f"YOSYS ?= {yosys_basedir}/yosys")
-    print()
-    print("define run_test")
-    print("	rc=0; \\")
-    print("	$(2) || rc=$$?; \\")
-    print("	if [ $$rc -eq 0 ]; then \\")
-    print("		echo \"PASS $1\"; \\")
-    print("		echo PASS > $1.result; \\")
-    print("	else \\")
-    print("		echo \"FAIL $1\"; \\")
-    print("		echo FAIL > $1.result; \\")
-    print("	fi")
-    print("endef")
     print()
     print(".PHONY: all")
     print("all:")
