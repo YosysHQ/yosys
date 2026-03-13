@@ -1,0 +1,11 @@
+# Test csa_tree with 5 operands — tree with remainders
+
+read_verilog add_chain_5.v
+hierarchy -auto-top
+proc; opt_clean
+equiv_opt csa_tree
+design -load postopt
+
+select -assert-min 2 t:$fa
+select -assert-count 1 t:$add
+
