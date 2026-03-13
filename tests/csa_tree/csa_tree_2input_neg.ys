@@ -1,0 +1,11 @@
+# Test csa_tree on 2-operand — should not trigger
+
+read_verilog add_chain_2_neg.v
+hierarchy -auto-top
+proc; opt_clean
+equiv_opt csa_tree
+design -load postopt
+
+select -assert-none t:$fa
+select -assert-count 1 t:$add
+

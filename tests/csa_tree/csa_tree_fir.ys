@@ -1,0 +1,8 @@
+read_verilog fir_4tap.v
+hierarchy -auto-top
+proc; opt_clean
+equiv_opt -async2sync csa_tree
+design -load postopt
+
+select -assert-min 1 t:$fa
+
