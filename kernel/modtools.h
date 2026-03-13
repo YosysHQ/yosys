@@ -178,8 +178,8 @@ struct ModIndex : public RTLIL::Monitor
 
 			return false;
 		}
-		return true;
 #endif
+		return true;
 	}
 
 	void check()
