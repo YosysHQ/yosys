@@ -94,8 +94,13 @@ abcopt-./%: %/run-test.sh
 .PHONY: makefile-tests
 .SILENT: $(MK_TEST_DIRS:%=%/Makefile)
 makefile-tests: $(MK_TEST_DIRS:%=makefile-./%)
+prep: $(MK_TEST_DIRS:%=%/Makefile)
+	@echo "All Makefiles generated."
 # this target actually emits Makefile files
-%/Makefile:
+.PHONY: force-create
+force-create:
+
+%/Makefile: force-create
 	+@cd $* && python3 generate_mk.py
 
 makefile-./%: %/Makefile
@@ -122,6 +127,5 @@ clean:
 	@rm -rf ./bram/temp ./fsm/temp ./realmath/temp ./share/temp ./smv/temp ./various/temp
 	@rm -f ./svinterfaces/*.log_stdout ./svinterfaces/*.log_stderr ./svinterfaces/dut_result.txt ./svinterfaces/reference_result.txt ./svinterfaces/a.out ./svinterfaces/*_syn.v ./svinterfaces/*.diff
 	@rm -f  ./tools/cmp_tbdata
-	@rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
+	@rm -f $(addsuffix /Makefile,$(MK_TEST_DIRS))
 	@find . -name '*.result' -type f -exec rm -f {} +
-	@find . -mindepth 2 \( -path './sva*' -o -path './unit*' \) -prune -o -name 'Makefile' -type f -exec rm -f {} +
