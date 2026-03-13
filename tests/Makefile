@@ -104,7 +104,7 @@ ifeq ($(YOSYS_NOVERIFIC),1)
 endif
 endif
 	@echo ""
-	-@$(MAKE) summary
+	-@$(MAKE) --no-print-directory summary
 
 .PHONY: summary
 summary:
@@ -116,6 +116,10 @@ summary:
 	echo "Passed: $$pass"; \
 	echo "Failed: $$fail"; \
 	echo "=========================="; \
+	if [ $$fail -ne 0 ]; then \
+		echo; \
+		$(MAKE) --no-print-directory report; \
+	fi; \
 	test $$fail -eq 0
 
 clean:
