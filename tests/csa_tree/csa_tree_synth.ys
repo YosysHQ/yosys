@@ -1,0 +1,45 @@
+# Baseline: no csa_tree
+read_verilog abc_bench_add8.v
+hierarchy -top abc_bench_add8
+proc; opt
+
+# Baseline synth
+techmap
+abc -g AND,OR,XOR
+opt_clean
+stat
+design -save baseline
+
+# With csa_tree
+design -reset
+read_verilog abc_bench_add8.v
+hierarchy -top abc_bench_add8
+proc; opt
+csa_tree
+techmap
+abc -g AND,OR,XOR
+opt_clean
+stat
+
+select -assert-max 250 t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NOT_ %u
+design -save csa_result
+
+# Depth comparison via ABC
+design -reset
+read_verilog abc_bench_add8.v
+hierarchy -top abc_bench_add8
+proc; opt
+techmap
+abc -D 1
+stat
+log "baseline depth mapping complete"
+
+design -reset
+read_verilog abc_bench_add8.v
+hierarchy -top abc_bench_add8
+proc; opt
+csa_tree
+techmap
+abc -D 1
+stat
+log "CSA depth mapping complete"
