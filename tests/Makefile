@@ -96,10 +96,9 @@ abcopt-./%: %/run-test.sh
 makefile-tests: $(MK_TEST_DIRS:%=makefile-./%)
 prep: $(MK_TEST_DIRS:%=%/Makefile)
 	@echo "All Makefiles generated."
-# this target actually emits Makefile files
-.PHONY: force-create
-force-create:
 
+.PHONY: force-create
+# this target actually emits Makefile files
 %/Makefile: force-create
 	+@cd $* && python3 generate_mk.py
 
