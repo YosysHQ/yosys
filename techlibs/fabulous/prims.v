@@ -149,6 +149,30 @@ module OutPass4_frame_config (input CLK, I0, I1, I2, I3);
 
 endmodule
 
+(* blackbox, keep *)
+module InPass4_frame_config_mux #(
+  parameter [3:0] O_reg = 0
+) (
+  input CLK,
+  output O0,
+  output O1,
+  output O2,
+  output O3
+);
+endmodule
+
+(* blackbox, keep *)
+module OutPass4_frame_config_mux #(
+  parameter [3:0] I_reg = 0
+) (
+  input I0,
+  input I1,
+  input I2,
+  input I3,
+  input CLK
+);
+endmodule
+
 (* keep *)
 module IO_1_bidirectional_frame_config_pass (input CLK, T, I, output Q, O, (* iopad_external_pin *) inout PAD);
   assign PAD = T ? 1'bz : I;
