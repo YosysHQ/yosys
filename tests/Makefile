@@ -42,10 +42,10 @@ MK_TEST_DIRS += ./verilog
 
 # Tests that don't generate .mk
 SH_TEST_DIRS =
-#SH_TEST_DIRS += ./simple
-#SH_TEST_DIRS += ./simple_abc9
-#SH_TEST_DIRS += ./hana
-#SH_TEST_DIRS += ./asicworld
+MK_TEST_DIRS += ./simple
+MK_TEST_DIRS += ./simple_abc9
+MK_TEST_DIRS += ./hana
+MK_TEST_DIRS += ./asicworld
 #SH_TEST_DIRS += ./realmath
 #SH_TEST_DIRS += ./share
 #SH_TEST_DIRS += ./opt_share
