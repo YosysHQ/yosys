@@ -23,6 +23,7 @@ MK_TEST_DIRS += ./arch/nexus
 MK_TEST_DIRS += ./arch/quicklogic/pp3
 MK_TEST_DIRS += ./arch/quicklogic/qlf_k6n10f
 MK_TEST_DIRS += ./arch/xilinx
+MK_TEST_DIRS += ./bind
 MK_TEST_DIRS += ./bugpoint
 MK_TEST_DIRS += ./opt
 MK_TEST_DIRS += ./sat
@@ -70,8 +71,8 @@ SH_TEST_DIRS =
 # Tests that don't generate .mk and need special args
 SH_ABC_TEST_DIRS =
 #SH_ABC_TEST_DIRS += ./memories
-#SH_ABC_TEST_DIRS += ./aiger
-#SH_ABC_TEST_DIRS += ./alumacc
+MK_TEST_DIRS += ./aiger
+MK_TEST_DIRS += ./alumacc
 
 all: vanilla-test
 
