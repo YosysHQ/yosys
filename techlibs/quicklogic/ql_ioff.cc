@@ -24,6 +24,9 @@ struct QlIoffPass : public Pass {
 	{
 		log_header(design, "Executing QL_IOFF pass.\n");
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		ModWalker modwalker(design);
 		Module *module = design->top_module();
 		if (!module)

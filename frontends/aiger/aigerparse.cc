@@ -1049,6 +1049,9 @@ struct AigerFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx, true);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (module_name.empty()) {
 #ifdef _WIN32
 			char fname[_MAX_FNAME];
