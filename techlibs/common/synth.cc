@@ -67,6 +67,10 @@ struct SynthPass : public ScriptPass {
 		log("    -booth\n");
 		log("        run the booth pass to map $mul to Booth encoded multipliers\n");
 		log("\n");
+		log("    -csa\n");
+		log("        run the csa_tree pass to convert $add/$sub chains to\n");
+		log("        carry-save adder trees.\n");
+		log("\n");
 		log("    -noalumacc\n");
 		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
 		log("        their direct form ($add, $sub, etc.).\n");
@@ -108,7 +112,7 @@ struct SynthPass : public ScriptPass {
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, hieropt, relative_share;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, csa, hieropt, relative_share;
 	int lut;
 	std::vector<std::string> techmap_maps;
 
@@ -127,6 +131,7 @@ struct SynthPass : public ScriptPass {
 		noshare = false;
 		flowmap = false;
 		booth = false;
+		csa = false;
 		hieropt = false;
 		relative_share = false;
 		abc = "abc";
@@ -187,7 +192,10 @@ struct SynthPass : public ScriptPass {
 				booth = true;
 				continue;
 			}
-
+			if (args[argidx] == "-csa") {
+				csa = true;
+				continue;
+			}
 			if (args[argidx] == "-nordff") {
 				memory_opts += " -nordff";
 				continue;
@@ -287,6 +295,8 @@ struct SynthPass : public ScriptPass {
 				run(stringf("%s -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", techmap_cmd, lut));
 			if (booth || help_mode)
 				run("booth", "    (if -booth)");
+			if (csa || help_mode)
+				run("csa_tree", " (if -csa)");
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
@@ -301,7 +311,7 @@ struct SynthPass : public ScriptPass {
 			run("memory_map");
 			run("opt -full");
 			if (help_mode) {
-				run(techmap_cmd, "                  (unless -extra-map)");	
+				run(techmap_cmd, "                  (unless -extra-map)");
 				run(techmap_cmd + " -map +/techmap.v -map <inject>", "  (if -extra-map)");
 			} else {
 				std::string techmap_opts;
