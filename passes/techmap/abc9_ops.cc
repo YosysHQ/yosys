@@ -1833,6 +1833,9 @@ struct Abc9OpsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (!valid)
 			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate, -{replace,restore}_zbufs must be specified.\n");
 

@@ -579,6 +579,9 @@ struct WreducePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		for (auto module : design->selected_modules())
 		{
 			if (module->has_processes_warn())
