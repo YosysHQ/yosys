@@ -4568,19 +4568,15 @@ const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 std::map<std::string, int> RTLIL::Cell::getParamsAsInts() const
 {
 	std::map<std::string, int> result;
-	for (auto &param : parameters) {
-		std::string key = param.first.str();
-		if (key.size() > 0 && key[0] == '\\')
-			key = key.substr(1);
-		result[key] = param.second.as_int();
-	}
+	for (const auto &param : parameters)
+		result[RTLIL::unescape_id(param.first)] = param.second.as_int();
 	return result;
 }
 
 double RTLIL::Cell::maxInputConstRatio() const
 {
 	double max_ratio = 0.0;
-	for (auto &conn : connections_) {
+	for (const auto &conn : connections_) {
 		if (input(conn.first)) {
 			double ratio = conn.second.const_ratio();
 			if (ratio > max_ratio)
@@ -4588,6 +4584,24 @@ double RTLIL::Cell::maxInputConstRatio() const
 		}
 	}
 	return max_ratio;
+}
+
+std::vector<std::string> RTLIL::Cell::getOutputPortNames() const
+{
+	std::vector<std::string> result;
+	for (const auto &conn : connections_) {
+		if (output(conn.first))
+			result.push_back(RTLIL::unescape_id(conn.first));
+	}
+	return result;
+}
+
+std::map<std::string, int> RTLIL::Cell::getConnectionSizes() const
+{
+	std::map<std::string, int> result;
+	for (const auto &conn : connections_)
+		result[RTLIL::unescape_id(conn.first)] = conn.second.size();
+	return result;
 }
 
 void RTLIL::Cell::sort()

@@ -2539,6 +2539,12 @@ public:
 	// Returns the maximum const_ratio() across all input ports, 0.0 if no input ports
 	double maxInputConstRatio() const;
 
+	// Returns the names of all output ports (backslash-stripped)
+	std::vector<std::string> getOutputPortNames() const;
+
+	// Returns {port_name: sig.size()} for all connections, port names backslash-stripped
+	std::map<std::string, int> getConnectionSizes() const;
+
 	void sort();
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
