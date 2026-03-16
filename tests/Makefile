@@ -5,6 +5,16 @@ endif
 OVERRIDE_MAIN=1
 include ./common.mk
 
+# Directories with tests not run:
+#  errors
+#  lut
+#  pyosys
+#  smv
+#  sva
+#  tools
+#  unit
+#  vloghtb
+
 # Tests that generate Makefile with gen_tests_makefile.py
 MK_TEST_DIRS =
 MK_TEST_DIRS += ./arch/analogdevices
