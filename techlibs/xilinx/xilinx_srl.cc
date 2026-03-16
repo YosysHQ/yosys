@@ -237,6 +237,9 @@ struct XilinxSrlPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (!fixed && !variable)
 			log_cmd_error("'-fixed' and/or '-variable' must be specified.\n");
 

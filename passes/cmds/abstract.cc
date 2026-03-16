@@ -462,6 +462,8 @@ struct AbstractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
 		if (enable != Enable::Always) {
 			if (mode == Mode::Initial)
 				log_cmd_error("Conditional initial value abstraction is not supported\n");
