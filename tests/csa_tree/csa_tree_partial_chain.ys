@@ -4,5 +4,5 @@ proc; opt_clean
 csa_tree
 stat
 
-select -assert-min 1 t:$fa
-select -assert-min 2 t:$add
+select -assert-count 2 t:$fa
+select -assert-count 2 t:$add
