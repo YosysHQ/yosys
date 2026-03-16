@@ -399,7 +399,7 @@ int FstData::getWidth(fstHandle signal)
 // Auto-discover scope from FST by finding the top module
 std::string FstData::autoScope(Module *topmod) {
 
-	log("Auto-discovering scopes from file...\n");
+	log("Auto-discovering scopes from %d candidates...\n", GetSize(name_to_handle));
 	std::string top = RTLIL::unescape_id(topmod->name);
 	std::string scope = "";
 
