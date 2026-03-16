@@ -12,11 +12,12 @@ def _cwd_base():
     return os.path.basename(os.getcwd())
 
 def generate_target(name, command):
-    target = f"{_cwd_base()}-{name}"
+    #target = f"{_cwd_base()}-{name}"
+    target = f"{name}"
     print(f"all: {target}")
     print(f".PHONY: {target}")
     print(f"{target}:")
-    print(f"\t@@$(call run_test,{target}, \\")
+    print(f"\t@$(call run_test,{target}, \\")
     print(f"\tYOSYS_MAX_THREADS=4 {command})")
 
 def generate_ys_test(ys_file, yosys_args=""):
@@ -37,6 +38,16 @@ def generate_sv_test(sv_file, yosys_args=""):
 def generate_bash_test(sh_file):
     cmd = f"bash -v {sh_file} >{sh_file}.err 2>&1 && mv {sh_file}.err {sh_file}.log"
     generate_target(sh_file, cmd)
+
+def unpack_cmd(cmd):
+    if isinstance(cmd, str):
+        return cmd
+    if isinstance(cmd, (list, tuple)):
+        return " \\\n".join(cmd)
+    raise TypeError("cmd must be a string or a list/tuple of strings")
+
+def generate_cmd_test(test_name, cmd, yosys_args=""):
+    generate_target(test_name, unpack_cmd(cmd))
 
 def generate_tests(argv):
     parser = argparse.ArgumentParser(add_help=False)
@@ -83,5 +94,24 @@ def generate(argv, extra=None):
                 for line in extra:
                     print(line)
             generate_tests(argv)
+        finally:
+            sys.stdout = old
+
+def generate_custom(callback, extra=None):
+    with open("Makefile", "w") as f:
+        old = sys.stdout
+        sys.stdout = f
+        try:
+            print(f"include {common_mk}")
+            print(f"YOSYS ?= {yosys_basedir}/yosys")
+            if extra:
+                for line in extra:
+                    print(line)
+            print()
+            print(".PHONY: all")
+            print("all:")
+            print()
+
+            callback()
         finally:
             sys.stdout = old
