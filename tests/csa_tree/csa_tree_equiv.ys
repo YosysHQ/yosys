@@ -1,4 +1,4 @@
-# Test bit correctness
+# Equivalence tests using narrow operands
 
 read_verilog equiv_narrow.v
 hierarchy -top equiv_add3
@@ -8,34 +8,34 @@ design -load postopt
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
 design -reset
-log "equiv_add3: ok"
+log "equiv_add3"
 
 read_verilog equiv_narrow.v
 hierarchy -top equiv_add4
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 1 t:$fa
+select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 design -reset
-log "equiv_add4: ok"
+log "equiv_add4"
 
 read_verilog equiv_narrow.v
 hierarchy -top equiv_add5
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 2 t:$fa
+select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
 design -reset
-log "equiv_add5: ok"
+log "equiv_add5"
 
 read_verilog equiv_narrow.v
 hierarchy -top equiv_add8
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 1 t:$fa
+select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 design -reset
 log "equiv_add8: ok"
@@ -45,7 +45,7 @@ hierarchy -top equiv_signed
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 1 t:$fa
+select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 design -reset
 log "equiv_signed: ok"
@@ -55,7 +55,7 @@ hierarchy -top equiv_mixed_w
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 1 t:$fa
+select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
 design -reset
 log "equiv_mixed_w: ok"
@@ -65,7 +65,7 @@ hierarchy -top equiv_repeated
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 1 t:$fa
+select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 design -reset
 log "equiv_repeated: ok"
@@ -75,7 +75,7 @@ hierarchy -top equiv_1bit_wide
 proc; opt_clean
 equiv_opt csa_tree
 design -load postopt
-select -assert-min 1 t:$fa
+select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 design -reset
 log "equiv_1bit_wide: ok"

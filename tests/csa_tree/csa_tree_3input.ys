@@ -1,11 +1,8 @@
-# Test csa_tree on 3-operand chain — minimal trigger case
-
 read_verilog add_chain_3.v
 hierarchy -auto-top
 proc; opt_clean
-equiv_opt csa_tree
-design -load postopt
+csa_tree
+stat
 
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
-
