@@ -18,7 +18,7 @@ def generate_target(name, command):
     print(f".PHONY: {target}")
     print(f"{target}:")
     print(f"\t@$(call run_test,{target}, \\")
-    print(f"\tYOSYS_MAX_THREADS=4 {command})")
+    print(f"\t{command})")
 
 def generate_ys_test(ys_file, yosys_args=""):
     cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} >/dev/null 2>&1 && mv {ys_file}.err {ys_file}.log'
@@ -62,12 +62,6 @@ def generate_tests(argv):
     if not (args.yosys_scripts or args.tcl_scripts or args.prove_sv or args.bash):
         raise RuntimeError("No file types selected")
 
-    print(f"include {common_mk}")
-    print(f"YOSYS ?= {yosys_basedir}/yosys")
-    print()
-    print(".PHONY: all")
-    print("all:")
-
     if args.yosys_scripts:
         for f in sorted(glob.glob("*.ys")):
             generate_ys_test(f, args.yosys_args)
@@ -85,14 +79,24 @@ def generate_tests(argv):
             if f != "run-test.sh":
                 generate_bash_test(f)
 
+def print_header(extra=None):
+    print(f"include {common_mk}")
+    print(f"YOSYS ?= {yosys_basedir}/yosys")
+    print()
+    print("export YOSYS_MAX_THREADS := 4")
+    if extra:
+        for line in extra:
+            print(line)
+    print()
+    print(".PHONY: all")
+    print("all:")
+
 def generate(argv, extra=None):
     with open("Makefile", "w") as f:
         old = sys.stdout
         sys.stdout = f
         try:
-            if extra:
-                for line in extra:
-                    print(line)
+            print_header(extra)
             generate_tests(argv)
         finally:
             sys.stdout = old
@@ -102,16 +106,7 @@ def generate_custom(callback, extra=None):
         old = sys.stdout
         sys.stdout = f
         try:
-            print(f"include {common_mk}")
-            print(f"YOSYS ?= {yosys_basedir}/yosys")
-            if extra:
-                for line in extra:
-                    print(line)
-            print()
-            print(".PHONY: all")
-            print("all:")
-            print()
-
+            print_header(extra)
             callback()
         finally:
             sys.stdout = old
