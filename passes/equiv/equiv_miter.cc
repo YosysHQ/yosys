@@ -319,6 +319,9 @@ struct EquivMiterPass : public Pass {
 		worker.miter_name = RTLIL::escape_id(args[argidx++]);
 		extra_args(args, argidx, design);
 
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
+
 		if (design->module(worker.miter_name))
 			log_cmd_error("Miter module %s already exists.\n", log_id(worker.miter_name));
 

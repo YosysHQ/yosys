@@ -71,6 +71,8 @@ struct ConstmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
 
 		if (design->has(celltype)) {
 			Module *existing = design->module(celltype);
