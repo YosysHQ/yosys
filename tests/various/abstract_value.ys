@@ -90,6 +90,6 @@ select -assert-count 3 t:$mux
 # All cells selected -> muxes on outputs only
 design -load split_output
 select -assert-count 0 t:$mux
-abstract -value -enable magic t:*
+abstract -value -enable magic t:$add
 select -assert-count 1 t:$mux
 # -----------------------------------------------------------------------------
