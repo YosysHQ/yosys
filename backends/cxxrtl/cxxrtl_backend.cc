@@ -1532,7 +1532,7 @@ struct CxxrtlWorker {
 				f << (cell->getParam(ID::CLR_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
 		// Internal cells
-		} else if (is_internal_cell(cell->type)) {
+		} else if (is_internal_cell(cell->type) && cell->type != ID($input_port)) {
 			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type);
 		// User cells
 		} else if (for_debug) {
