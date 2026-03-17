@@ -410,6 +410,8 @@ struct FlattenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		bool was_signormed = design->flagSigNormalized;
+
 		RTLIL::Module *top = nullptr;
 		if (design->full_selection())
 			for (auto module : design->modules())
@@ -449,6 +451,11 @@ struct FlattenPass : public Pass {
 					design->remove(module);
 				}
 
+		if (was_signormed) {
+			// TODO inconvenient workaround for fanout out of sync
+			design->sigNormalize(false);
+			design->sigNormalize(true);
+		}
 		log_pop();
 	}
 } FlattenPass;
