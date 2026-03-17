@@ -74,6 +74,9 @@ struct ConstmapPass : public Pass {
 		if (celltype.empty())
 			log_cmd_error("Missing required option -cell.\n");
 
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
+
 		if (design->has(celltype)) {
 			Module *existing = design->module(celltype);
 			bool has_port = false;
