@@ -327,6 +327,13 @@ void RTLIL::Design::sigNormalize(bool enable)
 				wire->driverCell_ = nullptr;
 				wire->driverPort_ = IdString();
 			}
+
+			// TODO inefficient?
+			std::vector<Cell*> cells_snapshot = module->cells();
+			for (auto cell : cells_snapshot) {
+				if (cell->type == ID($input_port))
+					module->remove(cell);
+			}
 		}
 
 		flagSigNormalized = false;
