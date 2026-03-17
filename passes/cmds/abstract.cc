@@ -265,6 +265,8 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 	unsigned int changed = 0;
 	std::vector<Cell*> cells_snapshot = mod->cells();
 	for (auto cell : cells_snapshot) {
+		if (cell->type == ID($input_port))
+			continue;
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first)) {
 				std::set<int> offsets_to_abstract;
