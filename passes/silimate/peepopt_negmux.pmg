@@ -18,8 +18,8 @@ match neg
 endmatch
 
 match mux
-    select mux->type == $mux
-    select nusers(port(mux, \Y)) == 2
+	select mux->type == $mux
+	select nusers(port(mux, \Y)) == 2
 	set mux_a port(mux, \A)
 	set mux_b port(mux, \B)
 	set mux_s port(mux, \S)
@@ -43,7 +43,7 @@ code neg_a neg_y mux_a mux_b mux_s mux_y a_signed
 	}
 
 	{
-		// Anchor negations to the original negation width
+		// Anchor negations to the original neg output width
 		int width = GetSize(neg_y);
 
 		Cell *cell = neg;

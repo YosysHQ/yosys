@@ -114,13 +114,54 @@ void FstData::extractVarNames()
 	struct fstHier *h;
 	std::string fst_scope_name;
 
+	// Track nested fork scopes using a stack to handle nested packed structs
+	// Begins with outmost scope and ends with innermost scope
+	// Scopes are not normalized on the stack
+	std::vector<std::string> fork_scope_stack;
+
+	// Start fork handles after the maximum real handle from FST file to avoid collisions
+	fstHandle next_fork_handle = fstReaderGetMaxHandle(ctx) + 1;
+
+	// Map of fork scopes to their members, which are all normalized
+	std::map<std::string, std::vector<fstHandle>> fork_scopes;
+
 	while ((h = fstReaderIterateHier(ctx))) {
 		switch (h->htyp) {
 			case FST_HT_SCOPE: {
 				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
+
+				// Fork scopes are identified by FST_ST_VCD_FORK and are pushed onto the stack
+				if (h->u.scope.typ == FST_ST_VCD_FORK) {
+					fork_scope_stack.push_back(fst_scope_name);
+					// Create new vector that contains struct members
+					normalize_brackets(fst_scope_name);
+					fork_scopes[fst_scope_name] = std::vector<fstHandle>();
+				}
 				break;
 			}
 			case FST_HT_UPSCOPE: {
+				if (!fork_scope_stack.empty() && fork_scope_stack.back() == fst_scope_name) {
+					// Assign a unique handle to this fork scope and increment for future forks
+					fstHandle fork_handle = next_fork_handle++;
+
+					// Map normalized scope name to the handle for future lookups via getHandle()
+					normalize_brackets(fst_scope_name);
+					name_to_handle[fst_scope_name] = fork_handle;
+
+					// Copy the extracted members of the fork scope to the fork scope members map
+					// for value lookups in valueOf()
+					fork_scope_members[fork_handle] = fork_scopes[fst_scope_name];
+
+					// If this is a nested fork scope, add its handle to the parent fork scope
+					if (fork_scope_stack.size() > 1) {
+						std::string parent_fork = fork_scope_stack[fork_scope_stack.size() - 2];
+						normalize_brackets(parent_fork);
+						fork_scopes[parent_fork].push_back(fork_handle);
+					}
+
+					// Pop this fork scope from the stack
+					fork_scope_stack.pop_back();
+				}
 				fst_scope_name = fstReaderPopScope(ctx);
 				break;
 			}
@@ -136,6 +177,14 @@ void FstData::extractVarNames()
 				vars.push_back(var);
 				if (!var.is_alias)
 					handle_to_var[h->u.var.handle] = var;
+
+				// Add variable to the innermost fork scope in the fork scope stack
+				if (!fork_scope_stack.empty()) {
+					std::string current_fork = fork_scope_stack.back();
+					normalize_brackets(current_fork);
+					fork_scopes[current_fork].push_back(h->u.var.handle);
+				}
+
 				std::string clean_name;
 				bool has_space = false;
 				for(size_t i=0;i<strlen(h->u.var.name);i++) 
@@ -275,8 +324,137 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 
 std::string FstData::valueOf(fstHandle signal)
 {
+	// Check if this is a fork scope (struct)
+	auto it = fork_scope_members.find(signal);
+	if (it != fork_scope_members.end()) {
+		std::string result;
+		const std::vector<fstHandle>& members = it->second;
+
+		// Iterate over members of the struct to get concatenated value.
+		// The first declared member is MSB in SystemVerilog packed structs
+		for (auto m = members.begin(); m != members.end(); m++) {
+			fstHandle member = *m;
+			std::string member_val;
+			
+			// Check if this member is itself a nested fork scope (struct)
+			if (fork_scope_members.find(member) != fork_scope_members.end()) {
+				// Recursively get the value of the nested struct
+				member_val = valueOf(member);
+			} else {
+				// Regular variable - look up in past_data
+				int expected_width = 0;
+
+				// Get the declared width of this member
+				if (handle_to_var.find(member) != handle_to_var.end()) {
+					expected_width = handle_to_var[member].width;
+				}
+				// Get the current value of the member
+				if (past_data.find(member) != past_data.end()) {
+					member_val = past_data[member];
+					// Pad with zeros to the expected width of the member
+					if (expected_width > 0 && (int)member_val.length() < expected_width) {
+						member_val = std::string(expected_width - member_val.length(), '0') + member_val;
+					}
+				} else if (expected_width > 0) {
+					// No value yet, use X to pad
+					member_val = std::string(expected_width, 'x');
+				} else { // fallback to X
+					member_val = "x";
+				}
+			}
+			// Concatenate the member value to the overall struct value
+			result += member_val;
+		}
+		return result;
+	}
+	
+	// Normal signal handling
 	if (past_data.find(signal) == past_data.end()) {
 		return std::string(handle_to_var[signal].width, 'x');
 	}
 	return past_data[signal];
+}
+
+// Auto-discover scope from FST by finding the top module
+std::string FstData::autoScope(Module *topmod) {	
+
+	log("Auto-discovering scope from file...\n");
+	std::string top = RTLIL::unescape_id(topmod->name);
+
+	log("Available scopes:\n");
+	std::set<std::string> unique_scopes;
+	for (const auto& var : vars) {
+		unique_scopes.insert(var.scope);
+	}
+	for (const auto& scope : unique_scopes) {
+		log("  %s\n", scope.c_str());
+	}
+
+	// Option 1 - Instance based scope matching
+	// Will fail if the DUT instance name != the top module name
+	log("Trying instance-based scope matching...\n");
+	for (const auto& var : vars) {
+		// Check if this scope ends with our top module
+		log_debug("Checking scope: %s\n", var.scope.c_str());
+		if (var.scope == top || 
+			var.scope.find("." + top) != std::string::npos) {
+			// Extract the full path up to (and including) the top module
+			size_t pos = var.scope.find(top);
+			if (pos != std::string::npos) {
+				std::string scope = var.scope.substr(0, pos + top.length());
+				return scope;
+			}
+		}
+	}
+
+	// Option 2 - Port based scope matching
+	// Matches based on exact port name matching of the top module
+	log("Trying port-based scope matching...\n");
+
+	// Map top module port name to their bit widths (RTL reference point)
+	dict<std::string, int> top2widths;
+	for (auto wire : topmod->wires()) {
+		if (wire->port_input || wire->port_output) {
+			top2widths[RTLIL::unescape_id(wire->name)] = wire->width;
+		}
+	}
+	log("Extracted %d ports from top module\n", GetSize(top2widths));
+
+	// For each scope, track the number of matching ports
+	dict<std::string, int> scopes2matches;
+	for (const auto& var : vars) {
+
+		// Strip array '[]' notation from variable name
+		std::string var_name = var.name;
+		size_t bracket = var_name.find('[');
+		if (bracket != std::string::npos) {
+			var_name = var_name.substr(0, bracket);
+		}
+
+		// Check if this variable name matches one of our top module port names and width
+		if (top2widths.count(var_name) && top2widths[var_name] == var.width) {
+			scopes2matches[var.scope] += 1;
+		}
+	}
+
+	// Find scopes with exact matches
+	// If there is a tie, return the longest scope
+	std::string result = "";
+	for (const auto& entry : scopes2matches) {
+		int num_matches = entry.second;
+		if (num_matches == GetSize(top2widths)) {
+			std::string scope = entry.first;
+			if (result.empty() || scope.length() > result.length()) {
+				result = scope;
+			}
+		}
+	}
+	if (!result.empty()) {
+		return result;
+	}
+
+	// No match found
+	log_warning("Could not auto-discover scope for module '%s'...\n", 
+		RTLIL::unescape_id(topmod->name).c_str());
+	return "";
 }

@@ -85,16 +85,29 @@ struct NegoptPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			if (run_pre) {
+				// manual2sub and sub2neg only need to run once: no downstream
+				// pre-subpass creates the patterns they match
+				// separate pm instances so sub2neg sees the $sub cells manual2sub creates.
+				{
+					peepopt_pm pm(module);
+					pm.setup(module->selected_cells());
+					pm.run_manual2sub();
+					log_flush();
+				}
+				{
+					peepopt_pm pm(module);
+					pm.setup(module->selected_cells());
+					pm.run_sub2neg();
+					log_flush();
+				}
+
+				// negexpand/negneg/negmux can feed each other.
 				did_something = true;
 				for (int iter = 0; iter < max_iterations && did_something; iter++) {
 					did_something = false;
 					peepopt_pm pm(module);
 					pm.setup(module->selected_cells());
 
-					pm.run_manual2sub();  // Reduce manual 2's complement to subtraction first
-					log_flush();
-					pm.run_sub2neg();
-					log_flush();
 					pm.run_negexpand();
 					log_flush();
 					pm.run_negneg();
