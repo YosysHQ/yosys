@@ -178,6 +178,8 @@ struct FlattenWorker
 		}
 
 		for (auto tpl_cell : tpl->cells()) {
+			if (tpl_cell->type == ID($input_port))
+				continue;
 			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell, separator), tpl_cell);
 			map_attributes(cell, new_cell, tpl_cell->name);
 			if (new_cell->has_memid()) {
