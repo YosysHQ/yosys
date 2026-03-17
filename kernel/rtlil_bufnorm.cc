@@ -143,7 +143,8 @@ struct RTLIL::SigNormIndex
 					continue;
 				int i = 0;
 				for (auto bit : sig)
-					fanout[bit].insert(PortBit(cell, port, i++));
+					if (bit.is_wire())
+						fanout[bit].insert(PortBit(cell, port, i++));
 			}
 		}
 	}
@@ -964,6 +965,8 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 				auto &fanout = module->sig_norm_index->fanout;
 				int counter = 0;
 				for (auto bit : conn_it->second) {
+					if (!bit.is_wire())
+						continue;
 					int i = counter++;
 					auto found = fanout.find(bit);
 					log_assert(found != fanout.end());
@@ -1091,6 +1094,8 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 				auto &fanout = module->sig_norm_index->fanout;
 				int counter = 0;
 				for (auto bit : conn_it->second) {
+					if (!bit.is_wire())
+						continue;
 					int i = counter++;
 					auto found = fanout.find(bit);
 					log_assert(found != fanout.end());
@@ -1112,7 +1117,8 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 			auto &fanout = module->sig_norm_index->fanout;
 			int i = 0;
 			for (auto bit : signal)
-				fanout[bit].insert(PortBit(this, portname, i++));
+				if (bit.is_wire())
+					fanout[bit].insert(PortBit(this, portname, i++));
 		} else if (GetSize(signal)) {
 			Wire *w = signal.as_wire();
 			log_assert(w->driverCell_ == nullptr);
