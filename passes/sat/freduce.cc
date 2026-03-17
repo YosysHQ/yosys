@@ -827,6 +827,8 @@ struct FreducePass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
 
 		int bitcount = 0;
 		for (auto module : design->selected_modules()) {
