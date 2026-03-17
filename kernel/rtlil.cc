@@ -4564,6 +4564,32 @@ const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 	throw std::out_of_range("Cell::getParam()");
 }
 
+// NOTE: as_int() silently truncates >32-bit values and reinterprets string-typed Const values
+std::map<std::string, int> RTLIL::Cell::getParamsAsInts() const
+{
+	std::map<std::string, int> result;
+	for (auto &param : parameters) {
+		std::string key = param.first.str();
+		if (key.size() > 0 && key[0] == '\\')
+			key = key.substr(1);
+		result[key] = param.second.as_int();
+	}
+	return result;
+}
+
+double RTLIL::Cell::maxInputConstRatio() const
+{
+	double max_ratio = 0.0;
+	for (auto &conn : connections_) {
+		if (input(conn.first)) {
+			double ratio = conn.second.const_ratio();
+			if (ratio > max_ratio)
+				max_ratio = ratio;
+		}
+	}
+	return max_ratio;
+}
+
 void RTLIL::Cell::sort()
 {
 	connections_.sort(sort_by_id_str());
@@ -5605,13 +5631,18 @@ bool RTLIL::SigSpec::is_chunk() const
 	return ++it == cs.end();
 }
 
-bool RTLIL::SigSpec::is_mostly_const() const
+double RTLIL::SigSpec::const_ratio() const
 {
 	int constbits = 0;
 	for (auto &chunk : chunks())
 		if (chunk.width > 0 && chunk.wire == NULL)
 			constbits += chunk.width;
-	return (constbits > size()/2);
+	return empty() ? 0.0 : static_cast<double>(constbits) / size();
+}
+
+bool RTLIL::SigSpec::is_mostly_const(double const_ratio_threshold) const
+{
+	return (const_ratio() > const_ratio_threshold);
 }
 
 bool RTLIL::SigSpec::known_driver() const
