@@ -378,6 +378,9 @@ struct RenamePass : public Pass {
 			break;
 		}
 
+		// TODO disable signorm due to rename I think?
+		design->sigNormalize(false);
+
 		if (flag_src)
 		{
 			extra_args(args, argidx, design);
