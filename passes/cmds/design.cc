@@ -338,8 +338,11 @@ struct DesignPass : public Pass {
 		{
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
-			for (auto mod : design->modules())
+			for (auto mod : design->modules()) {
+				// Triggers signorm flush if needed (hacky)
+				(void)mod->connections();
 				design_copy->add(mod->clone());
+			}
 
 			design_copy->selection_stack = design->selection_stack;
 			design_copy->selection_vars = design->selection_vars;
