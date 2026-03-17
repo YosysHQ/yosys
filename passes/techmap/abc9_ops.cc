@@ -1446,6 +1446,7 @@ struct Abc9OpsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		// TODO Disabled signorm because swap_names breaks fanout logic
+		// TODO disable signorm due to rewrite_sigspecs assert
 		design->sigNormalize(false);
 
 		if (!valid)

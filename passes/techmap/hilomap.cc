@@ -105,6 +105,9 @@ struct HilomapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
+
 		for (auto mod : design->selected_modules())
 		{
 			module = mod;
