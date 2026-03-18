@@ -100,6 +100,14 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - test-compile
-    if: always() && !contains(join(needs.*.result, ','), 'failure') && !contains(join(needs.*.result, ','), 'cancelled')
+    if: always()
     steps:
+      - name: Check results
+        run: |
+          echo "Needs results: ${{ join(needs.*.result, ',') }}"
+          if [[ "${{ join(needs.*.result, ',') }}" == *failure* ]] || \
+            [[ "${{ join(needs.*.result, ',') }}" == *cancelled* ]]; then
+            echo "Some jobs failed or were cancelled"
+            exit 1
+          fi
       - run: echo "All good"
