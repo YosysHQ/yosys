@@ -765,6 +765,7 @@ OBJS += passes/sat/recover_names.o
 OBJS += passes/sat/sim.o
 OBJS += passes/sat/sat.o
 OBJS += passes/sat/miter.o
+OBJS += passes/sat/struct_partition.o
 OBJS += passes/sat/async2sync.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o

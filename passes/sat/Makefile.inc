@@ -15,6 +15,7 @@ OBJS += passes/sat/supercover.o
 OBJS += passes/sat/fmcombine.o
 OBJS += passes/sat/mutate.o
 OBJS += passes/sat/cutpoint.o
+OBJS += passes/sat/struct_partition.o
 OBJS += passes/sat/fminit.o
 OBJS += passes/sat/recover_names.o
 ifeq ($(DISABLE_SPAWN),0)
