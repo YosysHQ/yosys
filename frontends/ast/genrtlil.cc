@@ -557,14 +557,24 @@ struct AST_INTERNAL::ProcessGenerator
 	// e.g. when the last statement in the code "a = 23; if (b) a = 42; a = 0;" is processed this
 	// function is called to clean up the first two assignments as they are overwritten by
 	// the third assignment.
-	void removeSignalFromCaseTree(const RTLIL::SigSpec &pattern, RTLIL::CaseRule *cs)
+	void removeSignalFromCaseTree(const pool<RTLIL::SigBit> &pattern_bits, RTLIL::CaseRule *cs)
 	{
 		for (auto it = cs->actions.begin(); it != cs->actions.end(); it++)
-			it->first.remove2(pattern, &it->second);
+			it->first.remove2(pattern_bits, &it->second);
 
 		for (auto it = cs->switches.begin(); it != cs->switches.end(); it++)
 			for (auto it2 = (*it)->cases.begin(); it2 != (*it)->cases.end(); it2++)
-				removeSignalFromCaseTree(pattern, *it2);
+				removeSignalFromCaseTree(pattern_bits, *it2);
+	}
+
+	void removeSignalFromCaseTree(const RTLIL::SigSpec &pattern, RTLIL::CaseRule *cs)
+	{
+		pool<RTLIL::SigBit> pattern_bits;
+		pattern_bits.reserve(pattern.size());
+		for (auto &bit : pattern)
+			if (bit.wire != NULL)
+				pattern_bits.insert(bit);
+		removeSignalFromCaseTree(pattern_bits, cs);
 	}
 
 	// add an assignment (aka "action") but split it up in chunks. this way huge assignments
