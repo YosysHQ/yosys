@@ -1,6 +1,12 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append("..")
+
+import gen_tests_makefile
+
 import os
 import re
-import sys
 import random
 import argparse
 
@@ -16,7 +22,9 @@ if args.seed is None:
 
 print(f"xprop PRNG seed: {args.seed}")
 
-makefile = open("run-test.mk", "w")
+makefile = open("Makefile", "w")
+
+gen_tests_makefile.print_header(out = makefile)
 
 def add_test(name, src, seq=False):
     if not re.search(args.filter, name):
@@ -26,17 +34,10 @@ def add_test(name, src, seq=False):
     os.makedirs(workdir, exist_ok=True)
     with open(f"{workdir}/uut.v", "w") as uut:
         print(src, file=uut)
-    print(f"all: {workdir}", file=makefile)
-    print(f".PHONY: {workdir}", file=makefile)
-    print(f"{workdir}:", file=makefile)
     seq_arg = " -s" if seq else ""
-    print(
-        f"\t@cd {workdir} && python3 -u ../test.py -S {args.seed} -c {args.count}{seq_arg} > test.log 2>&1 || echo {workdir}: failed > status\n"
-        f"\t@cat {workdir}/status\n"
-        f"\t@grep '^.*: ok' {workdir}/status\n"
-        ,
-        file=makefile,
-    )
+    gen_tests_makefile.generate_target(workdir,
+                                       f"cd {workdir} && python3 -u ../test.py -S {args.seed} -c {args.count}{seq_arg} > test.log 2>&1",
+                                       out=makefile)
 
 def cell_test(name, cell, inputs, outputs, params, initial={}, defclock=False, seq=False):
     ports = []
@@ -118,10 +119,6 @@ def dff_test(width, pol, defclock):
 
 def dffe_test(width, pol, enpol, defclock):
     cell_test(f"dffe_{width}{'np'[pol]}{'np'[enpol]}{'xd'[defclock]}", 'dffe', {"CLK": 1, "EN": 1, "D": width}, {"Q": width}, {"WIDTH": width, "CLK_POLARITY": int(pol), "EN_POLARITY": int(enpol)}, defclock=defclock, seq=True)
-
-
-print(".PHONY: all", file=makefile)
-print("all:\n\t@echo done\n", file=makefile)
 
 for cell in ["not", "pos", "neg"]:
     if args.more:

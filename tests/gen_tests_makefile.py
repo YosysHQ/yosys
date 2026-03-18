@@ -11,14 +11,17 @@ common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk")
 def _cwd_base():
     return os.path.basename(os.getcwd())
 
-def generate_target(name, command):
+def generate_target(name, command, out=sys.stdout):
     #target = f"{_cwd_base()}-{name}"
     target = f"{name}"
-    print(f"all: {target}")
-    print(f".PHONY: {target}")
-    print(f"{target}:")
-    print(f"\t@$(call run_test,{target}, \\")
-    print(f"\t{command})")
+    print(f"all: {target}", file=out)
+    print(f".PHONY: {target}", file=out)
+    print(f"{target}:", file=out)
+    if command:
+        print(f"\t@$(call run_test,{target}, \\", file=out)
+        print(f"\t{command})", file=out)
+    else:
+        print(f"\t@$(call run_test,{target})", file=out)
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
     cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} >/dev/null 2>&1 && mv {ys_file}.err {ys_file}.log'
@@ -87,17 +90,17 @@ def generate_tests(argv, cmds):
             if f != "run-test.sh":
                 generate_bash_test(f, cmds)
 
-def print_header(extra=None):
-    print(f"include {common_mk}")
-    print(f"YOSYS ?= {yosys_basedir}/yosys")
-    print()
-    print("export YOSYS_MAX_THREADS := 4")
+def print_header(extra=None, out=sys.stdout):
+    print(f"include {common_mk}", file=out)
+    print(f"YOSYS ?= {yosys_basedir}/yosys", file=out)
+    print("", file=out)
+    print("export YOSYS_MAX_THREADS := 4", file=out)
     if extra:
         for line in extra:
-            print(line)
-    print()
-    print(".PHONY: all")
-    print("all:")
+            print(line, file=out)
+    print("", file=out)
+    print(".PHONY: all", file=out)
+    print("all:", file=out)
 
 def generate(argv, extra=None, cmds=""):
     with open("Makefile", "w") as f:
