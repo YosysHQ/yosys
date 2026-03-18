@@ -148,6 +148,7 @@ struct AbcConfig
 	int reserved_cores = 4;  // cores reserved for main thread and other work
 	bool abc_node_retention = false; // retain nodes in ABC (off by default)
 	int abc_max_node_retention_origins = 5; // number of node retention origins (default 5)
+	std::string signal_map_file;
 };
 
 struct AbcSigVal {
@@ -1217,6 +1218,28 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 	for (auto &si : signal_list)
 		fprintf(f, "# ys__n%-5d %s\n", si.id, si.bit_str.c_str());
 
+	if (!config.signal_map_file.empty()) {
+		FILE *mf = fopen(config.signal_map_file.c_str(), "wt");
+		if (mf == nullptr) {
+			logs.log("Opening %s for writing failed: %s\n", config.signal_map_file, strerror(errno));
+		} else {
+			fprintf(mf, "# ABC signal name -> Yosys signal name\n");
+			fprintf(mf, "# Inputs\n");
+			for (auto &si : signal_list) {
+				if (!si.is_port || si.type != G(NONE))
+					continue;
+				fprintf(mf, "ys__n%d %s\n", si.id, si.bit_str.c_str());
+			}
+			fprintf(mf, "# Outputs\n");
+			for (auto &si : signal_list) {
+				if (!si.is_port || si.type == G(NONE))
+					continue;
+				fprintf(mf, "ys__n%d %s\n", si.id, si.bit_str.c_str());
+			}
+			fclose(mf);
+		}
+	}
+
 	for (auto &si : signal_list) {
 		if (!si.bit_is_wire) {
 			fprintf(f, ".names ys__n%d\n", si.id);
@@ -2046,6 +2069,10 @@ struct AbcPass : public Pass {
 		log("        which means auto (use number of modules). Set to 0 to disable parallel\n");
 		log("        execution and run everything on the main thread.\n");
 		log("\n");
+		log("    -signal_map <file>\n");
+		log("        write a mapping of ABC signal names (ys__nN) to original port names\n");
+		log("        for inputs and outputs. useful for interpreting ABC counterexamples.\n");
+		log("\n");
 		log("    -reserved_cores <num>\n");
 		log("        number of CPU cores to reserve for the main thread and other work.\n");
 		log("        Default is 4. The actual number of worker threads used is:\n");
@@ -2256,6 +2283,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-reserved_cores" && argidx+1 < args.size()) {
 				config.reserved_cores = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (arg == "-signal_map" && argidx+1 < args.size()) {
+				config.signal_map_file = args[++argidx];
 				continue;
 			}
 			break;
