@@ -131,10 +131,6 @@ struct Abc9Pass : public ScriptPass
 		log("        replaced by this option when used, and an empty string otherwise\n");
 		log("        (indicating best possible delay).\n");
 		log("\n");
-//		log("    -S <num>\n");
-//		log("        maximum number of LUT inputs shared.\n");
-//		log("        (replaces {S} in the default scripts above, default: -S 1)\n");
-//		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
@@ -226,8 +222,7 @@ struct Abc9Pass : public ScriptPass
 				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
-			if (arg == "-fast" || /* arg == "-dff" || */
-					/* arg == "-nocleanup" || */ arg == "-showtmp") {
+			if (arg == "-fast" || arg == "-showtmp") {
 				exe_cmd << " " << arg;
 				continue;
 			}
