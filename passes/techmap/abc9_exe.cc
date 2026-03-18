@@ -513,7 +513,7 @@ struct Abc9ExePass : public Pass {
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
-				lut_arg = args[++argidx];
+				luts_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-fast") {
