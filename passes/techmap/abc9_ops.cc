@@ -1620,7 +1620,6 @@ clone_lut:
 		}
 	}
 
-	//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
 	log("ABC RESULTS:          output signals: %8d\n", out_wires);
 

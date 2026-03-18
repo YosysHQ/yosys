@@ -165,7 +165,7 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe_file,
-		vector<int> lut_costs, bool dff_mode, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		vector<int> lut_costs, bool dff_mode, std::string delay_target, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::vector<std::string> liberty_files, std::string wire_delay, std::string tempdir_name,
 		std::string constr_file, std::vector<std::string> dont_use_cells, std::vector<std::string> genlib_files)
@@ -217,9 +217,6 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 
 	for (size_t pos = abc9_script.find("{D}"); pos != std::string::npos; pos = abc9_script.find("{D}", pos))
 		abc9_script = abc9_script.substr(0, pos) + delay_target + abc9_script.substr(pos+3);
-
-	//for (size_t pos = abc9_script.find("{S}"); pos != std::string::npos; pos = abc9_script.find("{S}", pos))
-	//	abc9_script = abc9_script.substr(0, pos) + lutin_shared + abc9_script.substr(pos+3);
 
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
@@ -453,7 +450,7 @@ struct Abc9ExePass : public Pass {
 		std::string exe_file = yosys_abc_executable;
 		std::string script_file, clk_str, box_file, lut_file, constr_file;
 		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
-		std::string delay_target, lutin_shared = "-S 1", wire_delay;
+		std::string delay_target, wire_delay;
 		std::string tempdir_name;
 		bool fast_mode = false, dff_mode = false;
 		bool show_tempdir = false;
@@ -504,10 +501,6 @@ struct Abc9ExePass : public Pass {
 				delay_target = "-D " + args[++argidx];
 				continue;
 			}
-			//if (arg == "-S" && argidx+1 < args.size()) {
-			//	lutin_shared = "-S " + args[++argidx];
-			//	continue;
-			//}
 			if (arg == "-lut" && argidx+1 < args.size()) {
 				lut_arg = args[++argidx];
 				continue;
@@ -622,7 +615,7 @@ struct Abc9ExePass : public Pass {
 			log_cmd_error("abc9_exe '-genlib' is incompatible with '-dont_use'.\n");
 
 		abc9_module(design, script_file, exe_file, lut_costs, dff_mode,
-				delay_target, lutin_shared, fast_mode, show_tempdir,
+				delay_target, fast_mode, show_tempdir,
 				box_file, lut_file, liberty_files, wire_delay, tempdir_name,
 				constr_file, dont_use_cells, genlib_files);
 	}
