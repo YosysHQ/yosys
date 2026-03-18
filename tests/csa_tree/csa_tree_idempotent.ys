@@ -1,15 +1,19 @@
-read_verilog add_chain_8.v
+read_verilog <<EOT
+module add8(
+	input [15:0] a, b, c, d, e, f, g, h,
+	output [15:0] y
+);
+	assign y = a + b + c + d + e + f + g + h;
+endmodule
+EOT
 hierarchy -auto-top
-proc; opt_clean
+proc
 
 csa_tree
-stat
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 
 csa_tree
-stat
-
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 select -assert-none t:$sub
