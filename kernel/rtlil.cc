@@ -4990,31 +4990,35 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 		other->unpack();
 	}
 
-	bool modified = false;
-	bool other_modified = false;
-	for (int i = GetSize(bits_) - 1; i >= 0; i--)
-	{
-		if (bits_[i].wire == NULL) continue;
+	//  Convert pattern to pool for O(1) lookup, avoiding O(n*m) chunk iteration
+	pool<SigBit> pattern_bits;
+	pattern_bits.reserve(pattern.size());
+	for (auto &bit : pattern)
+		if (bit.wire != NULL)
+			pattern_bits.insert(bit);
 
-		for (auto &pattern_chunk : pattern.chunks())
-			if (bits_[i].wire == pattern_chunk.wire &&
-				bits_[i].offset >= pattern_chunk.offset &&
-				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
-				modified = true;
-				bits_.erase(bits_.begin() + i);
-				if (other != NULL) {
-					other_modified = true;
-					other->bits_.erase(other->bits_.begin() + i);
-				}
-				break;
+	// Compact in-place to avoid O(n^2) erase operations
+	size_t write_idx = 0;
+	for (size_t read_idx = 0; read_idx < bits_.size(); read_idx++)
+	{
+		if (!(bits_[read_idx].wire != NULL && pattern_bits.count(bits_[read_idx]))) {
+			if (write_idx != read_idx) {
+				bits_[write_idx] = bits_[read_idx];
+				if (other != NULL)
+					other->bits_[write_idx] = other->bits_[read_idx];
 			}
+			write_idx++;
+		}
 	}
 
+	bool modified = (write_idx < bits_.size());
 	if (modified) {
+		bits_.resize(write_idx);
 		hash_.clear();
 		try_repack();
 	}
-	if (other_modified) {
+	if (other != NULL && modified) {
+		other->bits_.resize(write_idx);
 		other->hash_.clear();
 		other->try_repack();
 	}
@@ -5041,24 +5045,27 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 		other->unpack();
 	}
 
-	bool modified = false;
-	bool other_modified = false;
-	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
-		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
-			modified = true;
-			bits_.erase(bits_.begin() + i);
-			if (other != NULL) {
-				other_modified = true;
-				other->bits_.erase(other->bits_.begin() + i);
+	// Avoid O(n^2) complexity by compacting in-place
+	size_t write_idx = 0;
+	for (size_t read_idx = 0; read_idx < bits_.size(); read_idx++) {
+		if (!(bits_[read_idx].wire != NULL && pattern.count(bits_[read_idx]))) {
+			if (write_idx != read_idx) {
+				bits_[write_idx] = bits_[read_idx];
+				if (other != NULL)
+					other->bits_[write_idx] = other->bits_[read_idx];
 			}
+			write_idx++;
 		}
 	}
 
+	bool modified = (write_idx < bits_.size());
 	if (modified) {
+		bits_.resize(write_idx);
 		hash_.clear();
 		try_repack();
 	}
-	if (other_modified) {
+	if (other != NULL && modified) {
+		other->bits_.resize(write_idx);
 		other->hash_.clear();
 		other->try_repack();
 	}
@@ -5074,24 +5081,27 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 		other->unpack();
 	}
 
-	bool modified = false;
-	bool other_modified = false;
-	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
-		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
-			modified = true;
-			bits_.erase(bits_.begin() + i);
-			if (other != NULL) {
-				other_modified = true;
-				other->bits_.erase(other->bits_.begin() + i);
+	// Avoid O(n^2) complexity by compacting in-place
+	size_t write_idx = 0;
+	for (size_t read_idx = 0; read_idx < bits_.size(); read_idx++) {
+		if (!(bits_[read_idx].wire != NULL && pattern.count(bits_[read_idx]))) {
+			if (write_idx != read_idx) {
+				bits_[write_idx] = bits_[read_idx];
+				if (other != NULL)
+					other->bits_[write_idx] = other->bits_[read_idx];
 			}
+			write_idx++;
 		}
 	}
 
+	bool modified = (write_idx < bits_.size());
 	if (modified) {
+		bits_.resize(write_idx);
 		hash_.clear();
 		try_repack();
 	}
-	if (other_modified) {
+	if (other != NULL && modified) {
+		other->bits_.resize(write_idx);
 		other->hash_.clear();
 		other->try_repack();
 	}
