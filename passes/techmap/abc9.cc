@@ -121,11 +121,6 @@ struct Abc9Pass : public ScriptPass
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)));
 		log("\n");
-		log("    -fast\n");
-		log("        use different default scripts that are slightly faster (at the cost\n");
-		log("        of output quality):\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)));
-		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise\n");
@@ -222,7 +217,7 @@ struct Abc9Pass : public ScriptPass
 				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
-			if (arg == "-fast" || arg == "-showtmp") {
+			if (arg == "-showtmp") {
 				exe_cmd << " " << arg;
 				continue;
 			}
