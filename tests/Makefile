@@ -79,8 +79,7 @@ MK_TEST_DIRS += ./asicworld
 #endif
 
 # Tests that don't generate .mk and need special args
-SH_ABC_TEST_DIRS =
-#SH_ABC_TEST_DIRS += ./memories
+MK_TEST_DIRS += ./memories
 MK_TEST_DIRS += ./aiger
 MK_TEST_DIRS += ./alumacc
 
@@ -92,13 +91,6 @@ seed-tests: $(SH_TEST_DIRS:%=seed-./%)
 .PHONY: seed-./%
 seed-./%: %/run-test.sh
 	+cd $* && bash run-test.sh $(SEEDOPT)
-	+@echo "...passed tests in $*"
-
-# abcopt-./ is a dummy string, not a directory
-.PHONY: abcopt-tests
-abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-./%)
-abcopt-./%: %/run-test.sh
-	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+@echo "...passed tests in $*"
 
 # makefile-./ is a dummy string, not a directory
@@ -117,7 +109,7 @@ makefile-./%: %/Makefile
 	@$(MAKE) -C $*
 	@echo "...passed tests in $*"
 
-vanilla-test: makefile-tests abcopt-tests seed-tests
+vanilla-test: makefile-tests seed-tests
 	@echo ""
 	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)

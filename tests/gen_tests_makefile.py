@@ -111,11 +111,11 @@ def generate_custom(callback, extra=None):
         finally:
             sys.stdout = old
 
-def generate_autotest_file(test_file):
-    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file} >/dev/null 2>&1"
+def generate_autotest_file(test_file, commands):
+    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file} >/dev/null 2>&1; \\\n{commands}"
     generate_target(test_file, cmd)
 
-def generate_autotest(pattern, extra_flags):
+def generate_autotest(pattern, extra_flags, cmds=""):
     with open("Makefile", "w") as f:
         old = sys.stdout
         sys.stdout = f
@@ -124,9 +124,9 @@ def generate_autotest(pattern, extra_flags):
                            "SEED ?=",
                            "ifneq ($(strip $(SEED)),)",
                            "    SEEDOPT=-S$(SEED)",
-                           "endif"
+                           "endif",
                         ])
             for f in sorted(glob.glob(pattern)):
-                generate_autotest_file(f)
+                generate_autotest_file(f, cmds)
         finally:
             sys.stdout = old
