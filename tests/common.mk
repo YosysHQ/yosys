@@ -6,8 +6,9 @@ clean:
 endif
 
 define run_test
+	@set -e; \
 	rc=0; \
-	$(2) || rc=$$?; \
+	( set -e; $(2) ) || rc=$$?; \
 	if [ $$rc -eq 0 ]; then \
 		echo "PASS $1"; \
 		echo PASS > $1.result; \
