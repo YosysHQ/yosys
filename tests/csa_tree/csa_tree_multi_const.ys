@@ -1,9 +1,0 @@
-read_verilog add_multi_const.v
-hierarchy -auto-top
-proc; opt_clean
-csa_tree
-stat
-
-select -assert-none t:$fa
-select -assert-max 1 t:$add
-

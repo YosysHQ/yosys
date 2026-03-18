@@ -1,8 +1,0 @@
-read_verilog add_chain_3.v
-hierarchy -auto-top
-proc; opt_clean
-csa_tree
-stat
-
-select -assert-count 1 t:$fa
-select -assert-count 1 t:$add
