@@ -20,23 +20,31 @@ def generate_target(name, command):
     print(f"\t@$(call run_test,{target}, \\")
     print(f"\t{command})")
 
-def generate_ys_test(ys_file, yosys_args=""):
+def generate_ys_test(ys_file, yosys_args="", commands=""):
     cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} >/dev/null 2>&1 && mv {ys_file}.err {ys_file}.log'
+    if commands:
+        cmd += f"; \\\n{commands}"
     generate_target(ys_file, cmd)
 
-def generate_tcl_test(tcl_file, yosys_args=""):
+def generate_tcl_test(tcl_file, yosys_args="", commands=""):
     cmd = f'$(YOSYS) -ql {tcl_file}.err {yosys_args} {tcl_file} >/dev/null 2>&1 && mv {tcl_file}.err {tcl_file}.log'
+    if commands:
+        cmd += f"; \\\n{commands}"
     generate_target(tcl_file, cmd)
 
-def generate_sv_test(sv_file, yosys_args=""):
+def generate_sv_test(sv_file, yosys_args="", commands=""):
     base = os.path.splitext(sv_file)[0]
     if not os.path.exists(base + ".ys"):
         yosys_cmd = '-p "prep -top top; async2sync; sat -enable_undef -verify -prove-asserts"'
         cmd = f'$(YOSYS) -ql {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} >/dev/null 2>&1 && mv {sv_file}.err {sv_file}.log'
+        if commands:
+            cmd += f"; \\\n{commands}"
         generate_target(sv_file, cmd)
 
-def generate_bash_test(sh_file):
+def generate_bash_test(sh_file, commands=""):
     cmd = f"bash -v {sh_file} >{sh_file}.err 2>&1 && mv {sh_file}.err {sh_file}.log"
+    if commands:
+        cmd += f"; \\\n{commands}"
     generate_target(sh_file, cmd)
 
 def unpack_cmd(cmd):
@@ -49,7 +57,7 @@ def unpack_cmd(cmd):
 def generate_cmd_test(test_name, cmd, yosys_args=""):
     generate_target(test_name, unpack_cmd(cmd))
 
-def generate_tests(argv):
+def generate_tests(argv, cmds):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-y", "--yosys-scripts", action="store_true")
     parser.add_argument("-t", "--tcl-scripts", action="store_true")
@@ -64,20 +72,20 @@ def generate_tests(argv):
 
     if args.yosys_scripts:
         for f in sorted(glob.glob("*.ys")):
-            generate_ys_test(f, args.yosys_args)
+            generate_ys_test(f, args.yosys_args, cmds)
 
     if args.tcl_scripts:
         for f in sorted(glob.glob("*.tcl")):
-            generate_tcl_test(f, args.yosys_args)
+            generate_tcl_test(f, args.yosys_args, cmds)
 
     if args.prove_sv:
         for f in sorted(glob.glob("*.sv")):
-            generate_sv_test(f, args.yosys_args)
+            generate_sv_test(f, args.yosys_args, cmds)
 
     if args.bash:
         for f in sorted(glob.glob("*.sh")):
             if f != "run-test.sh":
-                generate_bash_test(f)
+                generate_bash_test(f, cmds)
 
 def print_header(extra=None):
     print(f"include {common_mk}")
@@ -91,13 +99,13 @@ def print_header(extra=None):
     print(".PHONY: all")
     print("all:")
 
-def generate(argv, extra=None):
+def generate(argv, extra=None, cmds=""):
     with open("Makefile", "w") as f:
         old = sys.stdout
         sys.stdout = f
         try:
             print_header(extra)
-            generate_tests(argv)
+            generate_tests(argv, cmds)
         finally:
             sys.stdout = old
 
