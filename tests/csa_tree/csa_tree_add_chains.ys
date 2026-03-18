@@ -1,0 +1,61 @@
+read_verilog <<EOT
+module add3(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-count 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add5(
+	input [11:0] a, b, c, d, e,
+	output [11:0] y
+);
+	assign y = a + b + c + d + e;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add8(
+	input [15:0] a, b, c, d, e, f, g, h,
+	output [15:0] y
+);
+	assign y = a + b + c + d + e + f + g + h;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-count 6 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add16(
+	input [15:0] a0, a1, a2, a3, a4, a5, a6, a7,
+	input [15:0] a8, a9, a10, a11, a12, a13, a14, a15,
+	output [15:0] y
+);
+	assign y = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7
+	+ a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-count 14 t:$fa
+select -assert-count 1 t:$add
+design -reset

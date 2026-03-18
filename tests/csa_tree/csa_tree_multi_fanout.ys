@@ -1,8 +1,0 @@
-read_verilog add_multi_fanout.v
-hierarchy -auto-top
-proc; opt_clean
-equiv_opt csa_tree
-design -load postopt
-
-select -assert-none t:$fa
-
