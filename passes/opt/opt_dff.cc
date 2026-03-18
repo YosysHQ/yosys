@@ -979,6 +979,8 @@ struct OptDffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+		// TODO extra wires signorm adds breaks muxtree traversal or requires sigmapping
+		design->sigNormalize(false);
 
 		bool did_something = false;
 		for (auto mod : design->selected_modules()) {
