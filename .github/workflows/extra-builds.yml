@@ -37,14 +37,14 @@ jobs:
     needs: [pre_job]
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           persist-credentials: false
       - run: sudo apt-get install libfl-dev
       - name: Build
         run: make vcxsrc YOSYS_COMPILER="Visual Studio" VCX_DIR_NAME=yosys-win32-vcxsrc-latest
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vcxsrc
           path: yosys-win32-vcxsrc-latest.zip
@@ -55,7 +55,7 @@ jobs:
     needs: [vs-prep, pre_job]
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: vcxsrc
           path: .
@@ -73,7 +73,7 @@ jobs:
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           persist-credentials: false
@@ -123,7 +123,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           persist-credentials: false
