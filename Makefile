@@ -778,6 +778,7 @@ OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/clockgate.o
 OBJS += passes/techmap/dffunmap.o
+OBJS += passes/techmap/zinit.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
