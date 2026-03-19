@@ -94,15 +94,19 @@ struct StructuralHasher {
 		return id;
 	}
 
-	// Intern a primary-input identity.  We use the port name's hash to
-	// generate a stable integer that is the same in both gold and gate.
-	dict<IdString, int> pi_ids;
-	int intern_pi(IdString port_name) {
-		auto it = pi_ids.find(port_name);
+	// Intern a primary-input bit identity.  We use the port name AND bit
+	// index to generate a stable integer that is the same in both gold
+	// and gate.  Each bit of a multi-bit port must get a distinct ID,
+	// otherwise cones differing only in which bit they read would
+	// incorrectly appear structurally identical.
+	dict<std::pair<IdString, int>, int> pi_ids;
+	int intern_pi(IdString port_name, int bit_idx) {
+		auto key = std::make_pair(port_name, bit_idx);
+		auto it = pi_ids.find(key);
 		if (it != pi_ids.end())
 			return it->second;
 		int id = PI_BASE - (int)pi_ids.size();
-		pi_ids[port_name] = id;
+		pi_ids[key] = id;
 		return id;
 	}
 
@@ -134,7 +138,7 @@ struct ModuleAnalysis {
 	dict<Cell*, int> cell_hash;
 
 	// Which SigBits are primary inputs (module input ports)
-	dict<SigBit, IdString> pi_bits; // bit -> port_name
+	dict<SigBit, std::pair<IdString, int>> pi_bits; // bit -> (port_name, bit_idx)
 
 	// Set of cells being visited (cycle detection)
 	pool<Cell*> visiting;
@@ -150,7 +154,7 @@ struct ModuleAnalysis {
 			if (wire->port_input) {
 				SigSpec sig = sigmap(wire);
 				for (int i = 0; i < GetSize(sig); i++)
-					pi_bits[sig[i]] = wire->name;
+					pi_bits[sig[i]] = {wire->name, i};
 			}
 		}
 
@@ -186,7 +190,7 @@ struct ModuleAnalysis {
 		// Primary input
 		auto pi_it = pi_bits.find(bit);
 		if (pi_it != pi_bits.end())
-			return hasher.intern_pi(pi_it->second);
+			return hasher.intern_pi(pi_it->second.first, pi_it->second.second);
 
 		// Driven by a cell
 		auto drv_it = bit_driver.find(bit);
