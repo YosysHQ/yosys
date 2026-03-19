@@ -78,7 +78,7 @@ delete top miter
 copy top_unmapped top
 dfflibmap -liberty dfflibmap_dffsr_mixedpol.lib top
 
-async2sync
+clk2fflogic
 flatten
 miter -equiv -make_assert -flatten top_unmapped top miter
 
@@ -92,7 +92,7 @@ delete top miter
 copy top_unmapped top
 dfflibmap -liberty dfflibmap_dffsr_not_next.lib top
 
-async2sync
+clk2fflogic
 flatten
 miter -equiv -make_assert -flatten top_unmapped top miter
 
