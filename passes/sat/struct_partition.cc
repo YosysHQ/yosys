@@ -61,6 +61,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include <cstdarg>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -303,22 +304,35 @@ struct StructPartitionWorker {
 	Module *gold_mod;
 	Module *gate_mod;
 	bool verbose;
+	FILE *log_file;
 
 	int total_cutpoints = 0;
 	int total_cells_removed = 0;
 
-	StructPartitionWorker(Design *d, Module *gold, Module *gate, bool v)
-		: design(d), gold_mod(gold), gate_mod(gate), verbose(v) {}
+	StructPartitionWorker(Design *d, Module *gold, Module *gate, bool v, FILE *lf = nullptr)
+		: design(d), gold_mod(gold), gate_mod(gate), verbose(v), log_file(lf) {}
+
+	void vlog(const char *fmt, ...) __attribute__((format(printf, 2, 3))) {
+		va_list ap;
+		va_start(ap, fmt);
+		char buf[4096];
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+		va_end(ap);
+		if (log_file)
+			fputs(buf, log_file);
+		else
+			log("%s", buf);
+	}
 
 	void run() {
 		// A single shared hasher ensures the same intern IDs across both modules
 		StructuralHasher hasher;
 
-		log("Structural partitioning: analyzing module `%s'.\n", gold_mod->name.c_str());
+		vlog("Structural partitioning: analyzing module `%s'.\n", gold_mod->name.c_str());
 		ModuleAnalysis gold_analysis(gold_mod, design);
 		gold_analysis.hash_all_cells(hasher);
 
-		log("Structural partitioning: analyzing module `%s'.\n", gate_mod->name.c_str());
+		vlog("Structural partitioning: analyzing module `%s'.\n", gate_mod->name.c_str());
 		ModuleAnalysis gate_analysis(gate_mod, design);
 		gate_analysis.hash_all_cells(hasher);
 
@@ -347,12 +361,12 @@ struct StructPartitionWorker {
 		}
 
 		if (groups.empty()) {
-			log("No structural matches found between `%s' and `%s'.\n",
+			vlog("No structural matches found between `%s' and `%s'.\n",
 				gold_mod->name.c_str(), gate_mod->name.c_str());
 			return;
 		}
 
-		log("Found %d structurally matched groups.\n", (int)groups.size());
+		vlog("Found %d structurally matched groups.\n", (int)groups.size());
 
 		// For each group, create cutpoint PIs and rewire
 		for (auto &group : groups)
@@ -366,7 +380,7 @@ struct StructPartitionWorker {
 		gold_mod->fixup_ports();
 		gate_mod->fixup_ports();
 
-		log("Structural partitioning: created %d cutpoints, removed %d cells.\n",
+		vlog("Structural partitioning: created %d cutpoints, removed %d cells.\n",
 			total_cutpoints, total_cells_removed);
 	}
 
@@ -408,7 +422,7 @@ private:
 			total_cutpoints++;
 
 			if (verbose)
-				log("  Cutpoint %s (width %d) for %d+%d cells of type %s.\n",
+				vlog("  Cutpoint %s (width %d) for %d+%d cells of type %s.\n",
 					cut_name.c_str(), width,
 					(int)gold_cells.size(), (int)gate_cells.size(),
 					representative->type.c_str());
@@ -438,13 +452,13 @@ private:
 		// Remove the matched cells
 		for (auto cell : gold_cells) {
 			if (verbose)
-				log_debug("    Removing gold cell `%s'.\n", cell->name.c_str());
+				vlog("    Removing gold cell `%s'.\n", cell->name.c_str());
 			gold_mod->remove(cell);
 			total_cells_removed++;
 		}
 		for (auto cell : gate_cells) {
 			if (verbose)
-				log_debug("    Removing gate cell `%s'.\n", cell->name.c_str());
+				vlog("    Removing gate cell `%s'.\n", cell->name.c_str());
 			gate_mod->remove(cell);
 			total_cells_removed++;
 		}
@@ -509,7 +523,7 @@ private:
 
 			for (auto cell : to_remove) {
 				if (verbose)
-					log_debug("    Dead cell removal: `%s' (%s).\n",
+					vlog("    Dead cell removal: `%s' (%s).\n",
 						cell->name.c_str(), cell->type.c_str());
 				mod->remove(cell);
 				total_cells_removed++;
@@ -554,6 +568,9 @@ struct StructPartitionPass : public Pass {
 		log("    -v\n");
 		log("        verbose output: log each cutpoint and removed cell\n");
 		log("\n");
+		log("    -o <file>\n");
+		log("        write verbose log output to <file> instead of standard log\n");
+		log("\n");
 		log("Typical usage:\n");
 		log("\n");
 		log("    read_rtlil gold.il\n");
@@ -567,6 +584,7 @@ struct StructPartitionPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool verbose = false;
+		std::string log_file_path;
 
 		log_header(design, "Executing STRUCT_PARTITION pass.\n");
 
@@ -574,6 +592,10 @@ struct StructPartitionPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-v") {
 				verbose = true;
+				continue;
+			}
+			if (args[argidx] == "-o" && argidx + 1 < args.size()) {
+				log_file_path = args[++argidx];
 				continue;
 			}
 			break;
@@ -606,8 +628,18 @@ struct StructPartitionPass : public Pass {
 					gold_wire->name.c_str(), gold_wire->width, gate_wire->width);
 		}
 
-		StructPartitionWorker worker(design, gold_mod, gate_mod, verbose);
+		FILE *log_file = nullptr;
+		if (!log_file_path.empty()) {
+			log_file = fopen(log_file_path.c_str(), "w");
+			if (!log_file)
+				log_cmd_error("Cannot open output file `%s'.\n", log_file_path.c_str());
+		}
+
+		StructPartitionWorker worker(design, gold_mod, gate_mod, verbose, log_file);
 		worker.run();
+
+		if (log_file)
+			fclose(log_file);
 	}
 } StructPartitionPass;
 
