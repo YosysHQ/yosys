@@ -38,53 +38,53 @@ struct Abc9Pass : public ScriptPass
 	Abc9Pass() : ScriptPass("abc9", "use ABC9 for technology mapping") { }
 	void on_register() override
 	{
-		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f -r; &ps; &if {C} {W} {D} {R} -v; &mfs";
-		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f -r; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
-		RTLIL::constpad["abc9.script.default.fast"] = "+&if {C} {W} {D} {R} -v";
+		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f -r; &ps; &if {W} {D} {R} -v; &mfs";
+		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f -r; &ps; &if {W} {D} {R} -a -v; &mfs";
+		RTLIL::constpad["abc9.script.default.fast"] = "+&if {W} {D} {R} -v";
 		// Based on ABC's &flow
 		RTLIL::constpad["abc9.script.flow"] = "+&scorr; &sweep;" \
 			"&dch -C 500;" \
 			/* Round 1 */ \
-			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 1 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &dsdb;" \
-			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 2 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &syn2 -m -R 10; &dsdb;" \
 			"&blut -a -K 6;" \
-			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 3 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			/* Round 2 */ \
 			"&st; &sopb;" \
-			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 1 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &dsdb;" \
-			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 2 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &syn2 -m -R 10; &dsdb;" \
 			"&blut -a -K 6;" \
-			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 3 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			/* Round 3 */ \
-			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 1 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &dsdb;" \
-			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Map 2 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;" \
 			"&st; &syn2 -m -R 10; &dsdb;" \
 			"&blut -a -K 6;" \
-			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;";
+			/* Map 3 */ "&unmap; &if {W} {D} {R} -v; &save; &load; &mfs;";
 		// Based on ABC's &flow2
 		RTLIL::constpad["abc9.script.flow2"] = "+&scorr; &sweep;" \
-			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
-			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
 			"&load; &st; &sopb -R 10 -C 4; " \
-			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
-			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
+			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
 			"&load";
 		// Based on ABC's &flow3 -m
 		RTLIL::constpad["abc9.script.flow3"] = "+&scorr; &sweep;" \
-			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
-			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &save; &load;"\
-			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&if {W} {D}; &save; &st; &syn2; &if {W} {D} {R} -v; &save; &load;"\
+			"&st; &if -g -K 6; &dch -f; &if {W} {D} {R} -v; &save; &load;"\
+			"&st; &if -g -K 6; &synch2; &if {W} {D} {R} -v; &save; &load;"\
 			"&mfs";
 		// As above, but with &mfs calls as in the original &flow3
 		RTLIL::constpad["abc9.script.flow3mfs"] = "+&scorr; &sweep;" \
-			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
-			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &mfs; &save; &load;"\
-			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &mfs; &save; &load;"\
+			"&if {W} {D}; &save; &st; &syn2; &if {W} {D} {R} -v; &save; &load;"\
+			"&st; &if -g -K 6; &dch -f; &if {W} {D} {R} -v; &mfs; &save; &load;"\
+			"&st; &if -g -K 6; &synch2; &if {W} {D} {R} -v; &mfs; &save; &load;"\
 			"&mfs";
 	}
 	void help() override
