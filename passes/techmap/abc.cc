@@ -1205,10 +1205,22 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 		fprintf(f, " dummy_input\n");
 	fprintf(f, "\n");
 
+	// Only keep the output port whose signal originates from the miter equiv NOT cell
+	for (auto &si : signal_list) {
+		if (!si.is_port || si.type == G(NONE))
+			continue;
+		if (si.type == G(FF) || si.type == G(FF0) || si.type == G(FF1))
+			continue;
+		if (si.bit_str.find("trigger") == std::string::npos)
+			si.is_port = false;
+	}
+
 	int count_output = 0;
 	fprintf(f, ".outputs");
 	for (auto &si : signal_list) {
 		if (!si.is_port || si.type == G(NONE))
+			continue;
+		if (si.type == G(FF) || si.type == G(FF0) || si.type == G(FF1))
 			continue;
 		fprintf(f, " ys__n%d", si.id);
 		po_map[count_output++] = si.bit_str;
