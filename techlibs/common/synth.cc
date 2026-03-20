@@ -68,7 +68,7 @@ struct SynthPass : public ScriptPass {
 		log("        run the booth pass to map $mul to Booth encoded multipliers\n");
 		log("\n");
 		log("    -csa\n");
-		log("        run the csa_tree pass to convert $add/$sub chains to\n");
+		log("        run the csa_tree pass to convert $add/$sub chains and $macc cells to\n");
 		log("        carry-save adder trees.\n");
 		log("\n");
 		log("    -noalumacc\n");
@@ -295,10 +295,10 @@ struct SynthPass : public ScriptPass {
 				run(stringf("%s -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", techmap_cmd, lut));
 			if (booth || help_mode)
 				run("booth", "    (if -booth)");
-			if (csa || help_mode)
-				run("csa_tree", " (if -csa)");
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
+			if (csa || help_mode)
+				run("csa_tree", " (if -csa)");
 			if (!noshare)
 				run("share", "    (unless -noshare)");
 			run("opt" + hieropt_flag);
