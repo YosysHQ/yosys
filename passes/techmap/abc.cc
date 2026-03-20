@@ -288,6 +288,10 @@ struct RunAbcState {
 	DeferredLogs logs;
 	dict<int, std::string> pi_map, po_map;
 
+	int state_index = 0;
+	bool clk_polarity = false;
+	RTLIL::SigSpec clk_sig;
+
 	RunAbcState(const AbcConfig &config) : config(config) {}
 	void run(ConcurrentStack<AbcProcess> &process_pool);
 };
@@ -1140,6 +1144,10 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		mark_port(assign_map, srst_sig);
 
 	handle_loops(assign_map, module);
+
+	run_abc.state_index = state_index;
+	run_abc.clk_polarity = clk_polarity;
+	run_abc.clk_sig = clk_sig;
 }
 
 bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
@@ -1231,11 +1239,16 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 		fprintf(f, "# ys__n%-5d %s\n", si.id, si.bit_str.c_str());
 
 	if (!config.signal_map_file.empty()) {
-		FILE *mf = fopen(config.signal_map_file.c_str(), "wt");
+		FILE *mf = fopen(config.signal_map_file.c_str(), state_index == 0 ? "wt" : "at");
 		if (mf == nullptr) {
 			logs.log("Opening %s for writing failed: %s\n", config.signal_map_file, strerror(errno));
 		} else {
-			fprintf(mf, "# ABC signal name -> Yosys signal name\n");
+			if (clk_sig.size() != 0) {
+				std::string clk_str = log_signal(clk_sig);
+				fprintf(mf, "# Clock domain %d: %s%s\n", state_index,
+					clk_polarity ? "" : "!", clk_str.c_str());
+			} else
+				fprintf(mf, "# Clock domain %d: (none)\n", state_index);
 			fprintf(mf, "# Inputs\n");
 			for (auto &si : signal_list) {
 				if (!si.is_port || si.type != G(NONE))
