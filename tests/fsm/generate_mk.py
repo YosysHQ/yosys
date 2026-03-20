@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 
+import sys
+sys.path.append("..")
+
+import gen_tests_makefile
+
 import argparse
 import sys
 import random
-from contextlib import contextmanager
+from pathlib import Path
 
 # set to 'True' to compare verific with yosys
 test_verific = False
-
-@contextmanager
-def redirect_stdout(new_target):
-    old_target, sys.stdout = sys.stdout, new_target
-    try:
-        yield new_target
-    finally:
-        sys.stdout = old_target
 
 def random_expr(variables):
     c = random.choice(['bin', 'uni', 'var', 'const'])
@@ -39,12 +36,16 @@ args = parser.parse_args()
 seed = args.seed
 if seed is None:
     seed = random.randrange(sys.maxsize)
-print("PRNG seed: %d" % seed)
+print("fsm PRNG seed: %d" % seed)
 random.seed(seed)
 
+for path in Path(".").glob("uut_*.*"):
+    if path.is_file():
+        path.unlink()
+
 for idx in range(args.count):
-    with open('temp/uut_%05d.v' % idx, 'w') as f:
-        with redirect_stdout(f):
+    with open('uut_%05d.v' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
             rst2 = random.choice([False, True])
             if rst2:
                 print('module uut_%05d(clk, rst1, rst2, rst, a, b, c, x, y, z);' % (idx))
@@ -99,16 +100,16 @@ for idx in range(args.count):
             print('    end')
             print('  end')
             print('endmodule')
-    with open('temp/uut_%05d.ys' % idx, 'w') as f:
-        with redirect_stdout(f):
+    with open('uut_%05d.ys' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
             if test_verific:
-                print('read_verilog temp/uut_%05d.v' % idx)
+                print('read_verilog uut_%05d.v' % idx)
                 print('proc;; rename uut_%05d gold' % idx)
-                print('verific -vlog2k temp/uut_%05d.v' % idx)
+                print('verific -vlog2k uut_%05d.v' % idx)
                 print('verific -import uut_%05d' % idx)
                 print('rename uut_%05d gate' % idx)
             else:
-                print('read_verilog temp/uut_%05d.v' % idx)
+                print('read_verilog uut_%05d.v' % idx)
                 print('proc;;')
                 print('copy uut_%05d gold' % idx)
                 print('rename uut_%05d gate' % idx)
@@ -118,3 +119,4 @@ for idx in range(args.count):
             print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
             print('sat -verify-no-timeout -timeout 20 -seq 5 -set-at 1 %s_rst 1 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter' % ('gold' if rst2 else 'in'))
 
+gen_tests_makefile.generate(["--yosys-scripts"])

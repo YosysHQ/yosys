@@ -22,9 +22,10 @@ if args.seed is None:
 
 print(f"xprop PRNG seed: {args.seed}")
 
-makefile = open("Makefile", "w")
 
-gen_tests_makefile.print_header(out = makefile)
+makefile = open("Makefile", "w")
+with gen_tests_makefile.redirect_stdout(makefile):
+    gen_tests_makefile.print_header()
 
 def add_test(name, src, seq=False):
     if not re.search(args.filter, name):
@@ -35,9 +36,9 @@ def add_test(name, src, seq=False):
     with open(f"{workdir}/uut.v", "w") as uut:
         print(src, file=uut)
     seq_arg = " -s" if seq else ""
-    gen_tests_makefile.generate_target(workdir,
-                                       f"cd {workdir} && python3 -u ../test.py -S {args.seed} -c {args.count}{seq_arg} > test.log 2>&1",
-                                       out=makefile)
+    with gen_tests_makefile.redirect_stdout(makefile):
+        gen_tests_makefile.generate_target(workdir,
+                                        f"cd {workdir} && python3 -u ../test.py -S {args.seed} -c {args.count}{seq_arg} > test.log 2>&1")
 
 def cell_test(name, cell, inputs, outputs, params, initial={}, defclock=False, seq=False):
     ports = []

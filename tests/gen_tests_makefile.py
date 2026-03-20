@@ -4,6 +4,7 @@ import glob
 import os
 import sys
 import argparse
+from contextlib import contextmanager
 
 yosys_basedir = os.path.relpath(os.path.join(os.path.dirname(__file__), ".."))
 common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk"))
@@ -11,17 +12,17 @@ common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk")
 def _cwd_base():
     return os.path.basename(os.getcwd())
 
-def generate_target(name, command, out=sys.stdout):
+def generate_target(name, command):
     #target = f"{_cwd_base()}-{name}"
     target = f"{name}"
-    print(f"all: {target}", file=out)
-    print(f".PHONY: {target}", file=out)
-    print(f"{target}:", file=out)
+    print(f"all: {target}")
+    print(f".PHONY: {target}")
+    print(f"{target}:")
     if command:
-        print(f"\t@$(call run_test,{target}, \\", file=out)
-        print(f"\t{command})", file=out)
+        print(f"\t@$(call run_test,{target}, \\")
+        print(f"\t{command})")
     else:
-        print(f"\t@$(call run_test,{target})", file=out)
+        print(f"\t@$(call run_test,{target})")
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
     cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} >/dev/null 2>&1 && mv {ys_file}.err {ys_file}.log'
@@ -90,37 +91,37 @@ def generate_tests(argv, cmds):
             if f != "run-test.sh":
                 generate_bash_test(f, cmds)
 
-def print_header(extra=None, out=sys.stdout):
-    print(f"include {common_mk}", file=out)
-    print(f"YOSYS ?= {yosys_basedir}/yosys", file=out)
-    print("", file=out)
-    print("export YOSYS_MAX_THREADS := 4", file=out)
+def print_header(extra=None):
+    print(f"include {common_mk}")
+    print(f"YOSYS ?= {yosys_basedir}/yosys")
+    print("")
+    print("export YOSYS_MAX_THREADS := 4")
     if extra:
         for line in extra:
-            print(line, file=out)
-    print("", file=out)
-    print(".PHONY: all", file=out)
-    print("all:", file=out)
+            print(line)
+    print("")
+    print(".PHONY: all")
+    print("all:")
+
+@contextmanager
+def redirect_stdout(new_target):
+    old_target, sys.stdout = sys.stdout, new_target
+    try:
+        yield new_target
+    finally:
+        sys.stdout = old_target
 
 def generate(argv, extra=None, cmds=""):
     with open("Makefile", "w") as f:
-        old = sys.stdout
-        sys.stdout = f
-        try:
+        with redirect_stdout(f):
             print_header(extra)
             generate_tests(argv, cmds)
-        finally:
-            sys.stdout = old
 
 def generate_custom(callback, extra=None):
     with open("Makefile", "w") as f:
-        old = sys.stdout
-        sys.stdout = f
-        try:
+        with redirect_stdout(f):
             print_header(extra)
             callback()
-        finally:
-            sys.stdout = old
 
 def generate_autotest_file(test_file, commands):
     cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file} >/dev/null 2>&1; \\\n{commands}"
@@ -128,16 +129,12 @@ def generate_autotest_file(test_file, commands):
 
 def generate_autotest(pattern, extra_flags, cmds=""):
     with open("Makefile", "w") as f:
-        old = sys.stdout
-        sys.stdout = f
-        try:
+        with redirect_stdout(f):
             print_header([ f"EXTRA_FLAGS = {extra_flags}",
                            "SEED ?=",
                            "ifneq ($(strip $(SEED)),)",
                            "    SEEDOPT=-S$(SEED)",
                            "endif",
                         ])
-            for f in sorted(glob.glob(pattern)):
-                generate_autotest_file(f, cmds)
-        finally:
-            sys.stdout = old
+            for fn in sorted(glob.glob(pattern)):
+                generate_autotest_file(fn, cmds)
