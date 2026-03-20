@@ -17,6 +17,7 @@ OBJS += passes/silimate/splitnetlist.o
 OBJS += passes/silimate/opt_timing_balance.o
 OBJS += passes/silimate/struct_partition.o
 OBJS += passes/silimate/cone_partition.o
+OBJS += passes/silimate/clkmerge.o
 
 OBJS += passes/silimate/opt_expand.o
 GENFILES += passes/silimate/peepopt_expand.h

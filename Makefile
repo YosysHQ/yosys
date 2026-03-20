@@ -766,6 +766,7 @@ OBJS += passes/sat/sim.o
 OBJS += passes/sat/sat.o
 OBJS += passes/sat/miter.o
 OBJS += passes/sat/async2sync.o
+OBJS += passes/sat/clk2fflogic.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
 OBJS += passes/techmap/alumacc.o
