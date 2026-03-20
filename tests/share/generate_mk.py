@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
+import sys
+sys.path.append("..")
+
+import gen_tests_makefile
+
 import argparse
 import sys
 import random
-from contextlib import contextmanager
-
-@contextmanager
-def redirect_stdout(new_target):
-    old_target, sys.stdout = sys.stdout, new_target
-    try:
-        yield new_target
-    finally:
-        sys.stdout = old_target
+from pathlib import Path
 
 def random_plus_x():
     return "%s x" % random.choice(['+', '+', '+', '-', '-', '|', '&', '^'])
@@ -27,13 +24,19 @@ parser.add_argument('-S', '--seed',  type = int, help = 'seed for PRNG')
 parser.add_argument('-c', '--count', type = int, default = 100, help = 'number of test cases to generate')
 args = parser.parse_args()
 
-if args.seed is not None:
-    print("PRNG seed: %d" % args.seed)
-    random.seed(args.seed)
+seed = args.seed
+if seed is None:
+    seed = random.randrange(sys.maxsize)
+print("share PRNG seed: %d" % seed)
+random.seed(seed)
+
+for path in Path(".").glob("uut_*.*"):
+    if path.is_file():
+        path.unlink()
 
 for idx in range(args.count):
-    with open('temp/uut_%05d.v' % idx, 'w') as f:
-        with redirect_stdout(f):
+    with open('uut_%05d.v' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
             if random.choice(['bin', 'uni']) == 'bin':
                 print('module uut_%05d(a, b, c, d, x, s, y);' % (idx))
                 op = random.choice([
@@ -67,16 +70,16 @@ for idx in range(args.count):
                          random.choice(['', '$signed', '$unsigned']), op, maybe_plus_x('b'),
                          random_plus_x() if random.randint(0, 4) == 0 else ''))
                 print('endmodule')
-    with open('temp/uut_%05d.ys' % idx, 'w') as f:
-        with redirect_stdout(f):
-            print('read_verilog temp/uut_%05d.v' % idx)
-            print('proc;;')
+    with open('uut_%05d.ys' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
+            print('read_verilog uut_%05d.v' % idx)
+            print('proc -noopt;;')
             print('copy uut_%05d gold' % idx)
             print('rename uut_%05d gate' % idx)
-            print('tee -a temp/all_share_log.txt log')
-            print('tee -a temp/all_share_log.txt log #job# uut_%05d' % idx)
-            print('tee -a temp/all_share_log.txt wreduce')
-            print('tee -a temp/all_share_log.txt share -aggressive gate')
+            print('tee -o uut_%05d.txt wreduce' % idx)
+            print('tee -a uut_%05d.txt share -aggressive gate' % idx)
             print('miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter')
             print('sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter')
+            print('! grep -q \'^Removing [246] cells\' uut_%05d.txt' % idx)
 
+gen_tests_makefile.generate(["--yosys-scripts"])
