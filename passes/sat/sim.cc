@@ -1235,6 +1235,10 @@ struct SimInstance
 
 	bool checkSignals()
 	{
+		// No checks performed when using stimulus
+		if (shared->sim_mode == SimulationMode::sim)
+			return false;
+
 		bool retVal = false;
 		for(auto &item : fst_handles) {
 			if (item.second==0) continue; // Ignore signals not found
@@ -1244,9 +1248,7 @@ struct SimInstance
 				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope, log_id(item.first));
 				continue;
 			}
-			if (shared->sim_mode == SimulationMode::sim) {
-				// No checks performed when using stimulus
-			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
+			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
 						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
