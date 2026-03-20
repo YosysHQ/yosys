@@ -149,6 +149,7 @@ struct AbcConfig
 	bool abc_node_retention = false; // retain nodes in ABC (off by default)
 	int abc_max_node_retention_origins = 5; // number of node retention origins (default 5)
 	std::string signal_map_file;
+	std::string cdc_file;
 };
 
 struct AbcSigVal {
@@ -1868,7 +1869,7 @@ void AbcModuleState::finish()
 // For every signal that connects cells from different sets, or a cell in a set to a cell not in any set,
 // mark it as a port in `assign_map`.
 void assign_cell_connection_ports(RTLIL::Module *module, const std::vector<std::vector<RTLIL::Cell *> *> &cell_sets,
-	AbcSigMap &assign_map)
+	AbcSigMap &assign_map, const std::string &cdc_file)
 {
 	pool<RTLIL::Cell *> cells_in_no_set;
 	for (RTLIL::Cell *cell : module->cells()) {
@@ -1877,6 +1878,8 @@ void assign_cell_connection_ports(RTLIL::Module *module, const std::vector<std::
 	// For every canonical signal in `assign_map`, the index of the set it is connected to,
 	// or -1 if it connects a cell in one set to a cell in another set or not in any set.
 	dict<SigBit, int> signal_cell_set;
+	// Maps each signal that crosses clock domains to the pair of domain indices it bridges.
+	dict<SigBit, std::pair<int, int>> clock_domain_cross_signal_map;
 	for (int i = 0; i < int(cell_sets.size()); ++i) {
 		for (RTLIL::Cell *cell : *cell_sets[i]) {
 			cells_in_no_set.erase(cell);
@@ -1887,6 +1890,7 @@ void assign_cell_connection_ports(RTLIL::Module *module, const std::vector<std::
 					if (it == signal_cell_set.end())
 						signal_cell_set[bit] = i;
 					else if (it->second >= 0 && it->second != i) {
+						clock_domain_cross_signal_map[bit] = {it->second, i};
 						it->second = -1;
 						assign_map.addVal(bit, AbcSigVal(true));
 					}
@@ -1899,9 +1903,27 @@ void assign_cell_connection_ports(RTLIL::Module *module, const std::vector<std::
 			for (SigBit bit : port_it.second) {
 				assign_map.apply(bit);
 				auto it = signal_cell_set.find(bit);
-				if (it != signal_cell_set.end() && it->second >= 0)
+				if (it != signal_cell_set.end() && it->second >= 0) {
+					clock_domain_cross_signal_map[bit] = {it->second, -1};
 					assign_map.addVal(bit, AbcSigVal(true));
+				}
 			}
+		}
+	}
+
+	if (!cdc_file.empty() && !clock_domain_cross_signal_map.empty()) {
+		FILE *f = fopen(cdc_file.c_str(), "wt");
+		if (f == nullptr) {
+			log("Opening %s for writing failed: %s\n", cdc_file.c_str(), strerror(errno));
+		} else {
+			fprintf(f, "# Clock domain crossing signals for module %s\n", log_id(module));
+			for (auto &it : clock_domain_cross_signal_map) {
+				if (it.second.second >= 0)
+					fprintf(f, "%s domain %d -> domain %d\n", log_signal(it.first).c_str(), it.second.first, it.second.second);
+				else
+					fprintf(f, "%s domain %d -> outside\n", log_signal(it.first).c_str(), it.second.first);
+			}
+			fclose(f);
 		}
 	}
 }
@@ -2097,6 +2119,10 @@ struct AbcPass : public Pass {
 		log("    -signal_map <file>\n");
 		log("        write a mapping of ABC signal names (ys__nN) to original port names\n");
 		log("        for inputs and outputs. useful for interpreting ABC counterexamples.\n");
+		log("\n");
+		log("    -cdc_map <file>\n");
+		log("        write a mapping of signals that cross clock domain boundaries.\n");
+		log("        each line lists a signal and the domain indices it bridges.\n");
 		log("\n");
 		log("    -reserved_cores <num>\n");
 		log("        number of CPU cores to reserve for the main thread and other work.\n");
@@ -2312,6 +2338,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-signal_map" && argidx+1 < args.size()) {
 				config.signal_map_file = args[++argidx];
+				continue;
+			}
+			if (arg == "-cdc_map" && argidx+1 < args.size()) {
+				config.cdc_file = args[++argidx];
 				continue;
 			}
 			break;
@@ -2557,7 +2587,7 @@ struct AbcPass : public Pass {
 
 				// Populate assign_map with cell connections
 				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
-				assign_cell_connection_ports(mod, {&cells}, assign_map);
+				assign_cell_connection_ports(mod, {&cells}, assign_map, config.cdc_file);
 
 				// Create a map of all signals and their corresponding src attrs
 				SigMap sigmap(mod);
@@ -2858,7 +2888,7 @@ struct AbcPass : public Pass {
 							std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
 					cell_sets.push_back(&it.second);
 				}
-				assign_cell_connection_ports(mod, cell_sets, assign_map);
+				assign_cell_connection_ports(mod, cell_sets, assign_map, config.cdc_file);
 			}
 
 			// Reserve one core for our main thread, and don't create more worker threads
