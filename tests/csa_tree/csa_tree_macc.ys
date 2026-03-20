@@ -1,8 +1,3 @@
-# Tests for csa_tree operating on $macc cells (post-alumacc)
-# After alumacc, chains of adds get merged into a single $macc cell.
-# The csa_tree pass should decompose it into FA + final add.
-
-# 3-input add merged into $macc
 read_verilog <<EOT
 module macc_add3(
 	input [7:0] a, b, c,
@@ -22,7 +17,6 @@ select -assert-count 1 t:$add
 select -assert-none t:$macc t:$macc_v2 %u
 design -reset
 
-# 4-input add merged into $macc
 read_verilog <<EOT
 module macc_add4(
 	input [7:0] a, b, c, d,
@@ -42,7 +36,6 @@ select -assert-count 1 t:$add
 select -assert-none t:$macc t:$macc_v2 %u
 design -reset
 
-# 5-input add merged into $macc
 read_verilog <<EOT
 module macc_add5(
 	input [11:0] a, b, c, d, e,
@@ -62,7 +55,6 @@ select -assert-count 1 t:$add
 select -assert-none t:$macc t:$macc_v2 %u
 design -reset
 
-# 8-input add merged into $macc
 read_verilog <<EOT
 module macc_add8(
 	input [15:0] a, b, c, d, e, f, g, h,
