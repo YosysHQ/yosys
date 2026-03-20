@@ -319,8 +319,8 @@ if (OFFSET > 0) begin
 
 	always @(mem_read, subaddr_r)
 		rd <= mem_read[subaddr_r*RDBITS+:RDBITS];
-end 
-else 
+end
+else
 begin
 	always @(posedge clk)
 		case (OFFSET)
@@ -970,7 +970,7 @@ for (abits, wbits, words, defs, cells) in [
 		name, ENABLES.format(abits=abits, wbits=wbits, words=words),
 		["wren"], defs, cells
 	))
-	
+
 # abits/dbits determination (aka general geometry picking)
 GEOMETRIC = """
 module top(clk, rwa, rd, wd, we);
@@ -991,7 +991,7 @@ always @(posedge clk)
 	if (we)
 		mem[rwa] <= wd;
 	else
-		rd <= mem[rwa];	
+		rd <= mem[rwa];
 
 endmodule
 """
@@ -1372,7 +1372,7 @@ for (abits, wbits, rwords, cntquad, cntoct) in [
 	(4, 2, 4, 1, 1),
 	(4, 2, 5, 2, 1),
 	(4, 2, 6, 2, 1),
-	(4, 2, 7, 2, 1), # Write port needs to be duplicated, so only 3 extra read 
+	(4, 2, 7, 2, 1), # Write port needs to be duplicated, so only 3 extra read
 	(4, 2, 8, 3, 1), # ports per quad port LUT (i.e. 7 ports in 2, 8 ports in 3)
 	(4, 2, 9, 3, 2),
 	(4, 4, 1, 2, 2),
@@ -1440,7 +1440,7 @@ for (testname, 		reset_gate, 	rdwr,  clk_en, add_logic) in [
 	write = "if (wren) \n\t\tmem[addr] <= wdata;"
 
 	if rdwr == "new":
-		read = """if (rden) 
+		read = """if (rden)
 		if (wren)
 			rdata <= wdata;
 		else
@@ -1466,7 +1466,7 @@ end"""
 
 	TESTS.append(Test(
 		testname, PRIORITY.format(code=code, abits=4, wbits=8, words=2),
-		["block_sp_full"], ["USE_SRST"], 
+		["block_sp_full"], ["USE_SRST"],
 		{"RAM_BLOCK_SP": 1, "$*": add_logic}
 	))
 
@@ -1510,10 +1510,10 @@ end"""
 
 	TESTS.append(Test(
 		testname, PRIORITY.format(code=code, abits=4, wbits=1, words=2),
-		["block_sp_full"], defs, 
+		["block_sp_full"], defs,
 		{"RAM_BLOCK_SP": 1, "$*": add_logic}
 	))
-	
+
 ROM_CASE = """
 module rom(input clk, input [2:0] addr, {attr}output reg [7:0] data);
 
@@ -1536,44 +1536,28 @@ endmodule
 TESTS.append(Test("rom_case", ROM_CASE.format(attr=""), ["block_sdp"], [], {"RAM_BLOCK_SDP" : 0}))
 TESTS.append(Test("rom_case_block", ROM_CASE.format(attr="(* rom_style = \"block\" *) "), ["block_sdp"], [], {"RAM_BLOCK_SDP" : 1}))
 
-with open("run-test.mk", "w") as mf:
-    mf.write("ifneq ($(strip $(SEED)),)\n")
-    mf.write("SEEDOPT=-S$(SEED)\n")
-    mf.write("endif\n")
-    mf.write("all:")
-    for t in TESTS:
-        mf.write(" " + t.name)
-    mf.write("\n")
-    mf.write(".PHONY: all\n")
-
-
-    for t in TESTS:
-        with open("t_{}.v".format(t.name), "w") as tf:
-            tf.write(t.src)
-        with open("t_{}.ys".format(t.name), "w") as sf:
-            sf.write("proc\n")
-            sf.write("opt\n")
-            sf.write("opt -full\n")
-            sf.write("memory -nomap\n")
-            sf.write("dump\n")
-            sf.write("memory_libmap")
-            for lib in t.libs:
-                sf.write(" -lib ../memlib_{}.txt".format(lib))
-            for d in t.defs:
-                sf.write(" -D {}".format(d))
-            sf.write("\n")
-            sf.write("memory_map\n")
-            for k, v in t.cells.items():
-                if isinstance(v, tuple):
-                    (cc, ca) = v
-                    sf.write("select -assert-count {} t:{}\n".format(cc, k))
-                    for kk, vv in ca.items():
-                        sf.write("select -assert-count {} t:{} r:{}={} %i\n".format(cc, k, kk, vv))
-                else:
-                    sf.write("select -assert-count {} t:{}\n".format(v, k))
-        mf.write("{}:\n".format(t.name))
-        mf.write("\t@../tools/autotest.sh -G -j $(SEEDOPT) $(EXTRA_FLAGS) -p 'script ../t_{}.ys'".format(t.name))
+for t in TESTS:
+    with open("t_{}.v".format(t.name), "w") as tf:
+        tf.write(t.src)
+    with open("t_{}.ys".format(t.name), "w") as sf:
+        sf.write("proc\n")
+        sf.write("opt\n")
+        sf.write("opt -full\n")
+        sf.write("memory -nomap\n")
+        sf.write("dump\n")
+        sf.write("memory_libmap")
         for lib in t.libs:
-            mf.write(" -l memlib_{}.v".format(lib))
-        mf.write(" t_{}.v || (cat t_{}.err; exit 1)\n".format(t.name, t.name))
-        mf.write(".PHONY: {}\n".format(t.name))
+            sf.write(" -lib ../memlib_{}.txt".format(lib))
+        for d in t.defs:
+            sf.write(" -D {}".format(d))
+        sf.write("\n")
+        sf.write("memory_map\n")
+        for k, v in t.cells.items():
+            if isinstance(v, tuple):
+                (cc, ca) = v
+                sf.write("select -assert-count {} t:{}\n".format(cc, k))
+                for kk, vv in ca.items():
+                    sf.write("select -assert-count {} t:{} r:{}={} %i\n".format(cc, k, kk, vv))
+            else:
+                sf.write("select -assert-count {} t:{}\n".format(v, k))
+
