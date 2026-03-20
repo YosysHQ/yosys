@@ -4,6 +4,10 @@ import argparse
 import os
 import sys
 import random
+import glob
+
+sys.path.append("..")
+import gen_tests_makefile
 
 debug_mode = False
 
@@ -287,8 +291,10 @@ if args.seed is not None:
 else:
     seed = (int(os.times()[4]*100) + os.getpid()) % 900000 + 100000
 
-print("PRNG seed: %d" % seed)
+print("bram PRNG seed: %d" % seed)
 random.seed(seed)
+
+os.makedirs("temp", exist_ok=True)
 
 for k1 in range(args.count):
     dsc_f = open("temp/brams_%02d.txt" % k1, "w")
@@ -302,4 +308,20 @@ for k1 in range(args.count):
     lenk2 = 1 if debug_mode else 10
     for k2 in range(lenk2):
         create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, random.randrange(2 if k2+1 < lenk2 else 1))
+
+configs = sorted(set(
+    os.path.basename(f).replace("brams_", "").replace(".txt", "")
+    for f in glob.glob("temp/brams_*.txt")
+))
+
+def create_tests():
+    for i in configs:
+        for j in configs:
+            if i != j:
+                gen_tests_makefile.generate_cmd_test(
+                    f"bram_{i}_{j}",
+                    f"bash run-single.sh {i} {j} >/dev/null 2>&1"
+                )
+
+gen_tests_makefile.generate_custom(create_tests)
 
