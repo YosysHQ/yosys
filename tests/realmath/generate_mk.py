@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
+import sys
+sys.path.append("..")
+import gen_tests_makefile
 import argparse
 import sys
 import random
-from contextlib import contextmanager
 
-@contextmanager
-def redirect_stdout(new_target):
-    old_target, sys.stdout = sys.stdout, new_target
-    try:
-        yield new_target
-    finally:
-        sys.stdout = old_target
 
 def random_expression(depth = 3, maxparam = 0):
     def recursion():
@@ -42,13 +37,15 @@ parser.add_argument('-S', '--seed',  type = int, help = 'seed for PRNG')
 parser.add_argument('-c', '--count', type = int, default = 100, help = 'number of test cases to generate')
 args = parser.parse_args()
 
-if args.seed is not None:
-    print("PRNG seed: %d" % args.seed)
-    random.seed(args.seed)
+seed = args.seed
+if seed is None:
+    seed = random.randrange(sys.maxsize)
+print("realmath PRNG seed: %d" % seed)
+random.seed(seed)
 
 for idx in range(args.count):
-    with open('temp/uut_%05d.v' % idx, 'w') as f:
-        with redirect_stdout(f):
+    with open('uut_%05d.v' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
             print('module uut_%05d(output [63:0] %s);\n' % (idx, ', '.join(['y%02d' % i for i in range(100)])))
             for i in range(30):
                 if idx < 10:
@@ -63,13 +60,13 @@ for idx in range(args.count):
             for i in range(100):
                 print('assign y%02d = 65536 * (%s);' % (i, random_expression(maxparam = 60)))
             print('endmodule')
-    with open('temp/uut_%05d.ys' % idx, 'w') as f:
-        with redirect_stdout(f):
+    with open('uut_%05d.ys' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
             print('read_verilog uut_%05d.v' % idx)
             print('rename uut_%05d uut_%05d_syn' % (idx, idx))
             print('write_verilog uut_%05d_syn.v' % idx)
-    with open('temp/uut_%05d_tb.v' % idx, 'w') as f:
-        with redirect_stdout(f):
+    with open('uut_%05d_tb.v' % idx, 'w') as f:
+        with gen_tests_makefile.redirect_stdout(f):
             print('module uut_%05d_tb;\n' % idx)
             print('wire [63:0] %s;' % (', '.join(['r%02d' % i for i in range(100)])))
             print('wire [63:0] %s;' % (', '.join(['s%02d' % i for i in range(100)])))
@@ -99,3 +96,20 @@ for idx in range(args.count):
             print('end')
             print('endmodule')
 
+
+def create_tests():
+    for idx in range(args.count):
+        cmd = [
+            f"$(YOSYS) -qq uut_{idx:05d}.ys >/dev/null 2>&1 &&",
+            f"iverilog -o uut_{idx:05d}_tb uut_{idx:05d}_tb.v uut_{idx:05d}.v uut_{idx:05d}_syn.v >/dev/null 2>&1 &&",
+            f"./uut_{idx:05d}_tb"
+#            f"./uut_{idx:05d}_tb | tee uut_{idx:05d}.err;",
+#            f"if test -s uut_{idx:05d}.err; then",
+#            "    echo \"Note: Make sure that iverilog is an up-to-date git checkout of Icarus Verilog.\";",
+#            "    exit 1;",
+#            "fi;",
+#            f"rm -f uut_{idx:05d}.err"
+        ]
+        gen_tests_makefile.generate_cmd_test(f"uut_{idx:05d}", cmd)
+
+gen_tests_makefile.generate_custom(create_tests)
