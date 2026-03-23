@@ -777,6 +777,10 @@ namespace {
 			check_param_size(ID::WR_CLK_ENABLE, n_wr_ports);
 			check_param_size(ID::WR_CLK_POLARITY, n_wr_ports);
 			check_param_size(ID::WR_PRIORITY_MASK, n_wr_ports * n_wr_ports);
+			if (bad_params.count(ID::RD_WIDE_CONTINUATION))
+				rd_wide_continuation = Const(State::S0, n_rd_ports);
+			if (bad_params.count(ID::WR_WIDE_CONTINUATION))
+				wr_wide_continuation = Const(State::S0, n_wr_ports);
 		}
 		auto safe_param_extract = [&](IdString param_name, int offset, int len) -> Const {
 			if (bad_params.count(param_name))
@@ -862,7 +866,7 @@ namespace {
 				auto &port = res.rd_ports[i];
 				port.transparency_mask.resize(GetSize(res.wr_ports));
 				port.collision_x_mask.resize(GetSize(res.wr_ports));
-				if (!cell->parameters.at(ID::RD_TRANSPARENT).extract(i, 1).as_bool())
+				if (!cell->parameters.at(ID::RD_TRANSPARENT).extract(i, 1, State::S0).as_bool())
 					continue;
 				if (!port.clk_enable)
 					continue;
