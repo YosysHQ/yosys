@@ -4,5 +4,14 @@ import sys
 sys.path.append("..")
 
 import gen_tests_makefile
+import glob
 
-gen_tests_makefile.generate(["--yosys-scripts"])
+def create_tests():
+    yss = sorted(glob.glob("*.ys"))
+    for ys in yss:
+        gen_tests_makefile.generate_ys_test(ys)
+
+    cmd = [ "python3 frontend.py unix-socket frontend.sock >/dev/null 2>&1" ]
+    gen_tests_makefile.generate_cmd_test("frontend.py", cmd)
+
+gen_tests_makefile.generate_custom(create_tests)
