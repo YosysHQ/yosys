@@ -53,6 +53,6 @@ def create_tests():
 
     gen_tests_makefile.generate_cmd_test("aigmap", cmd)
 
-extra = [ f"ABC ?= {gen_tests_makefile.yosys_basedir}/yosys-abc" ]
+extra = [ f"ABC ?= {gen_tests_makefile.yosys_basedir}/yosys-abc", "SHELL := /bin/bash" ]
 
 gen_tests_makefile.generate_custom(create_tests, extra)
