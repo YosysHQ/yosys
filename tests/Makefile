@@ -118,7 +118,7 @@ ifeq ($(YOSYS_NOVERIFIC),1)
 endif
 endif
 	@echo ""
-	-@$(MAKE) --no-print-directory summary
+	@$(MAKE) --no-print-directory summary
 
 clean:
 	@rm -rf ./asicworld/*.out ./asicworld/*.log
