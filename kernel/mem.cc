@@ -753,6 +753,36 @@ namespace {
 		int n_wr_ports = cell->parameters.at(ID::WR_PORTS).as_int();
 		Const rd_wide_continuation = is_compat ? Const(State::S0, n_rd_ports) : cell->parameters.at(ID::RD_WIDE_CONTINUATION);
 		Const wr_wide_continuation = is_compat ? Const(State::S0, n_wr_ports) : cell->parameters.at(ID::WR_WIDE_CONTINUATION);
+		pool<IdString> bad_params;
+		if (!is_compat) {
+			auto check_param_size = [&](IdString param_name, int expected_size) {
+				const Const &param = cell->parameters.at(param_name);
+				if (GetSize(param) != expected_size) {
+					log_warning("Memory cell %s.%s (%s) has inconsistent parameter %s: expected size %d, got %d\n",
+						log_id(cell->module), log_id(cell), log_id(res.memid),
+						log_id(param_name), expected_size, GetSize(param));
+					bad_params.insert(param_name);
+				}
+			};
+			check_param_size(ID::RD_WIDE_CONTINUATION, n_rd_ports);
+			check_param_size(ID::RD_CLK_ENABLE, n_rd_ports);
+			check_param_size(ID::RD_CLK_POLARITY, n_rd_ports);
+			check_param_size(ID::RD_CE_OVER_SRST, n_rd_ports);
+			check_param_size(ID::RD_ARST_VALUE, n_rd_ports * res.width);
+			check_param_size(ID::RD_SRST_VALUE, n_rd_ports * res.width);
+			check_param_size(ID::RD_INIT_VALUE, n_rd_ports * res.width);
+			check_param_size(ID::RD_TRANSPARENCY_MASK, n_rd_ports * n_wr_ports);
+			check_param_size(ID::RD_COLLISION_X_MASK, n_rd_ports * n_wr_ports);
+			check_param_size(ID::WR_WIDE_CONTINUATION, n_wr_ports);
+			check_param_size(ID::WR_CLK_ENABLE, n_wr_ports);
+			check_param_size(ID::WR_CLK_POLARITY, n_wr_ports);
+			check_param_size(ID::WR_PRIORITY_MASK, n_wr_ports * n_wr_ports);
+		}
+		auto safe_param_extract = [&](IdString param_name, int offset, int len) -> Const {
+			if (bad_params.count(param_name))
+				return Const(State::S0, len);
+			return cell->parameters.at(param_name).extract(offset, len);
+		};
 		for (int i = 0, ni; i < n_rd_ports; i = ni) {
 			ni = i + 1;
 			while (ni < n_rd_ports && rd_wide_continuation[ni] == State::S1)
@@ -760,8 +790,8 @@ namespace {
 			MemRd mrd;
 			mrd.wide_log2 = ceil_log2(ni - i);
 			log_assert(ni - i == (1 << mrd.wide_log2));
-			mrd.clk_enable = cell->parameters.at(ID::RD_CLK_ENABLE).extract(i, 1).as_bool();
-			mrd.clk_polarity = cell->parameters.at(ID::RD_CLK_POLARITY).extract(i, 1).as_bool();
+			mrd.clk_enable = safe_param_extract(ID::RD_CLK_ENABLE, i, 1).as_bool();
+			mrd.clk_polarity = safe_param_extract(ID::RD_CLK_POLARITY, i, 1).as_bool();
 			mrd.clk = cell->getPort(ID::RD_CLK).extract(i, 1);
 			mrd.en = cell->getPort(ID::RD_EN).extract(i, 1);
 			mrd.addr = cell->getPort(ID::RD_ADDR).extract(i * abits, abits);
@@ -774,16 +804,16 @@ namespace {
 				mrd.arst = State::S0;
 				mrd.srst = State::S0;
 			} else {
-				mrd.ce_over_srst = cell->parameters.at(ID::RD_CE_OVER_SRST).extract(i, 1).as_bool();
-				mrd.arst_value = cell->parameters.at(ID::RD_ARST_VALUE).extract(i * res.width, (ni - i) * res.width);
-				mrd.srst_value = cell->parameters.at(ID::RD_SRST_VALUE).extract(i * res.width, (ni - i) * res.width);
-				mrd.init_value = cell->parameters.at(ID::RD_INIT_VALUE).extract(i * res.width, (ni - i) * res.width);
+				mrd.ce_over_srst = safe_param_extract(ID::RD_CE_OVER_SRST, i, 1).as_bool();
+				mrd.arst_value = safe_param_extract(ID::RD_ARST_VALUE, i * res.width, (ni - i) * res.width);
+				mrd.srst_value = safe_param_extract(ID::RD_SRST_VALUE, i * res.width, (ni - i) * res.width);
+				mrd.init_value = safe_param_extract(ID::RD_INIT_VALUE, i * res.width, (ni - i) * res.width);
 				mrd.arst = cell->getPort(ID::RD_ARST).extract(i, 1);
 				mrd.srst = cell->getPort(ID::RD_SRST).extract(i, 1);
 			}
 			if (!is_compat) {
-				Const transparency_mask = cell->parameters.at(ID::RD_TRANSPARENCY_MASK).extract(i * n_wr_ports, n_wr_ports);
-				Const collision_x_mask = cell->parameters.at(ID::RD_COLLISION_X_MASK).extract(i * n_wr_ports, n_wr_ports);
+				Const transparency_mask = safe_param_extract(ID::RD_TRANSPARENCY_MASK, i * n_wr_ports, n_wr_ports);
+				Const collision_x_mask = safe_param_extract(ID::RD_COLLISION_X_MASK, i * n_wr_ports, n_wr_ports);
 				for (int j = 0; j < n_wr_ports; j++)
 					if (wr_wide_continuation[j] != State::S1) {
 						mrd.transparency_mask.push_back(transparency_mask[j] == State::S1);
@@ -799,14 +829,14 @@ namespace {
 			MemWr mwr;
 			mwr.wide_log2 = ceil_log2(ni - i);
 			log_assert(ni - i == (1 << mwr.wide_log2));
-			mwr.clk_enable = cell->parameters.at(ID::WR_CLK_ENABLE).extract(i, 1).as_bool();
-			mwr.clk_polarity = cell->parameters.at(ID::WR_CLK_POLARITY).extract(i, 1).as_bool();
+			mwr.clk_enable = safe_param_extract(ID::WR_CLK_ENABLE, i, 1).as_bool();
+			mwr.clk_polarity = safe_param_extract(ID::WR_CLK_POLARITY, i, 1).as_bool();
 			mwr.clk = cell->getPort(ID::WR_CLK).extract(i, 1);
 			mwr.en = cell->getPort(ID::WR_EN).extract(i * res.width, (ni - i) * res.width);
 			mwr.addr = cell->getPort(ID::WR_ADDR).extract(i * abits, abits);
 			mwr.data = cell->getPort(ID::WR_DATA).extract(i * res.width, (ni - i) * res.width);
 			if (!is_compat) {
-				Const priority_mask = cell->parameters.at(ID::WR_PRIORITY_MASK).extract(i * n_wr_ports, n_wr_ports);
+				Const priority_mask = safe_param_extract(ID::WR_PRIORITY_MASK, i * n_wr_ports, n_wr_ports);
 				for (int j = 0; j < n_wr_ports; j++)
 					if (wr_wide_continuation[j] != State::S1)
 						mwr.priority_mask.push_back(priority_mask[j] == State::S1);
