@@ -3,6 +3,7 @@ OBJS += techlibs/gowin/synth_gowin.o
 
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/cells_map.v))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/cells_sim.v))
+$(eval $(call add_share_file,share/gowin,techlibs/gowin/cells_latch.v))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/cells_xtra_gw1n.v))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/cells_xtra_gw2a.v))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/cells_xtra_gw5a.v))
