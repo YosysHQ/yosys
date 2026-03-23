@@ -1,9 +1,6 @@
 # Issue #4402: read_verilog doesn't respect signed keyword
 #
-# write_verilog drops the signed keyword from input port declarations,
-# even though the internal comparison logic is correctly preserved via
-# explicit $signed() casts. The port declaration should retain signed
-# so that the interface contract is correct for downstream tools.
+# write_verilog was not emitting the signed keyword for port declarations.
 
 ! mkdir -p temp
 
@@ -16,5 +13,4 @@ hierarchy -top mod
 write_verilog temp/issue4402_roundtrip.v
 
 # The output port declaration must include the signed keyword.
-# Bug: write_verilog emits `input [5:0] wire0` instead of `input signed [5:0] wire0`.
 ! grep -q "input signed" temp/issue4402_roundtrip.v
