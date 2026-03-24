@@ -31,13 +31,11 @@
 
 #define ABC_COMMAND_LIB "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 #define ABC_COMMAND_CTR "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_COMMAND_LUT "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; if; mfs2"
 #define ABC_COMMAND_SOP "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
 #define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
 #define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "strash; dretime; if"
 #define ABC_FAST_COMMAND_SOP "strash; dretime; cover {I} {P}"
 #define ABC_FAST_COMMAND_DFL "strash; dretime; map"
 
@@ -125,7 +123,6 @@ struct AbcConfig
 	std::vector<std::string> liberty_files;
 	std::vector<std::string> genlib_files;
 	std::string constr_file;
-	vector<int> lut_costs;
 	std::string delay_target;
 	std::string sop_inputs;
 	std::string sop_products;
@@ -135,7 +132,6 @@ struct AbcConfig
 	bool fast_mode = false;
 	bool show_tempdir = false;
 	bool sop_mode = false;
-	bool abc_dress = false;
 	bool map_mux4 = false;
 	bool map_mux8 = false;
 	bool map_mux16 = false;
@@ -1031,9 +1027,6 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		if (!config.constr_file.empty())
 			abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file);
 	} else
-	if (!config.lut_costs.empty())
-		abc_script += stringf("read_lut %s/lutdefs.txt; ", config.global_tempdir_name);
-	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", config.global_tempdir_name);
 
 	if (!config.script_file.empty()) {
@@ -1048,14 +1041,6 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 					abc_script += script_file[i];
 		} else
 			abc_script += stringf("source %s", script_file);
-	} else if (!config.lut_costs.empty()) {
-		bool all_luts_cost_same = true;
-		for (int this_cost : config.lut_costs)
-			if (this_cost != config.lut_costs.front())
-				all_luts_cost_same = false;
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
-		if (all_luts_cost_same && !config.fast_mode)
-			abc_script += "; lutpack -S 1";
 	} else if (!config.liberty_files.empty() || !config.genlib_files.empty())
 		abc_script += config.constr_file.empty() ?
 			(config.fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (config.fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
@@ -1077,8 +1062,6 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{P}", pos))
 		abc_script = abc_script.substr(0, pos) + config.sop_products + abc_script.substr(pos+3);
 
-	if (config.abc_dress)
-		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
 	abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
 	abc_script = add_echos_to_abc_cmd(abc_script);
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
@@ -1440,61 +1423,51 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 
 void emit_global_input_files(const AbcConfig &config)
 {
-	if (!config.lut_costs.empty()) {
-		std::string buffer = stringf("%s/lutdefs.txt", config.global_tempdir_name.c_str());
-		FILE *f = fopen(buffer.c_str(), "wt");
-		if (f == nullptr)
-			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
-		for (int i = 0; i < GetSize(config.lut_costs); i++)
-			fprintf(f, "%d %d.00 1.00\n", i+1, config.lut_costs.at(i));
-		fclose(f);
-	} else {
-		auto &cell_cost = config.cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
+	auto &cell_cost = config.cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
 
-		std::string buffer = stringf("%s/stdcells.genlib", config.global_tempdir_name.c_str());
-		FILE *f = fopen(buffer.c_str(), "wt");
-		if (f == nullptr)
-			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
-		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
-		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
-		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_BUF_)));
-		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOT_)));
-		if (config.enabled_gates.count("AND"))
-			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_AND_)));
-		if (config.enabled_gates.count("NAND"))
-			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NAND_)));
-		if (config.enabled_gates.count("OR"))
-			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_OR_)));
-		if (config.enabled_gates.count("NOR"))
-			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOR_)));
-		if (config.enabled_gates.count("XOR"))
-			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XOR_)));
-		if (config.enabled_gates.count("XNOR"))
-			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XNOR_)));
-		if (config.enabled_gates.count("ANDNOT"))
-			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ANDNOT_)));
-		if (config.enabled_gates.count("ORNOT"))
-			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ORNOT_)));
-		if (config.enabled_gates.count("AOI3"))
-			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI3_)));
-		if (config.enabled_gates.count("OAI3"))
-			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI3_)));
-		if (config.enabled_gates.count("AOI4"))
-			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI4_)));
-		if (config.enabled_gates.count("OAI4"))
-			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI4_)));
-		if (config.enabled_gates.count("MUX"))
-			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_MUX_)));
-		if (config.enabled_gates.count("NMUX"))
-			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_NMUX_)));
-		if (config.map_mux4)
-			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at(ID($_MUX_)));
-		if (config.map_mux8)
-			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
-		if (config.map_mux16)
-			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
-		fclose(f);
-	}
+	std::string buffer = stringf("%s/stdcells.genlib", config.global_tempdir_name.c_str());
+	FILE *f = fopen(buffer.c_str(), "wt");
+	if (f == nullptr)
+		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+	fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
+	fprintf(f, "GATE ONE     1 Y=CONST1;\n");
+	fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_BUF_)));
+	fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOT_)));
+	if (config.enabled_gates.count("AND"))
+		fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_AND_)));
+	if (config.enabled_gates.count("NAND"))
+		fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NAND_)));
+	if (config.enabled_gates.count("OR"))
+		fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_OR_)));
+	if (config.enabled_gates.count("NOR"))
+		fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOR_)));
+	if (config.enabled_gates.count("XOR"))
+		fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XOR_)));
+	if (config.enabled_gates.count("XNOR"))
+		fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XNOR_)));
+	if (config.enabled_gates.count("ANDNOT"))
+		fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ANDNOT_)));
+	if (config.enabled_gates.count("ORNOT"))
+		fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ORNOT_)));
+	if (config.enabled_gates.count("AOI3"))
+		fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI3_)));
+	if (config.enabled_gates.count("OAI3"))
+		fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI3_)));
+	if (config.enabled_gates.count("AOI4"))
+		fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI4_)));
+	if (config.enabled_gates.count("OAI4"))
+		fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI4_)));
+	if (config.enabled_gates.count("MUX"))
+		fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_MUX_)));
+	if (config.enabled_gates.count("NMUX"))
+		fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_NMUX_)));
+	if (config.map_mux4)
+		fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at(ID($_MUX_)));
+	if (config.map_mux8)
+		fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
+	if (config.map_mux16)
+		fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
+	fclose(f);
 }
 
 void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
@@ -1727,13 +1700,6 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			RTLIL::Cell *cell = ff.emit();
 			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 			design->select(module, cell);
-			continue;
-		}
-
-		if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID::LUT).as_int() == 2) {
-			SigSpec my_a = module->wire(remap_name(c->getPort(ID::A).as_wire()->name));
-			SigSpec my_y = module->wire(remap_name(c->getPort(ID::Y).as_wire()->name));
-			connect(assign_map, module, RTLIL::SigSig(my_a, my_y));
 			continue;
 		}
 
@@ -1988,11 +1954,6 @@ struct AbcPass : public Pass {
 		log("        this attribute is a unique integer for each ABC process started. This\n");
 		log("        is useful for debugging the partitioning of clock domains.\n");
 		log("\n");
-		log("    -dress\n");
-		log("        run the 'dress' command after all other ABC commands. This aims to\n");
-		log("        preserve naming by an equivalence check between the original and\n");
-		log("        post-ABC netlists (experimental).\n");
-		log("\n");
 		log("When no target cell library is specified the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
@@ -2014,7 +1975,7 @@ struct AbcPass : public Pass {
 		AbcConfig config;
 
 		// get arguments from scratchpad first, then override by command arguments
-		std::string lut_arg, luts_arg, g_arg;
+		std::string g_arg;
 		config.exe_file = design->scratchpad_get_string("abc.exe", yosys_abc_executable /* inherit default value if not set */);
 		config.script_file = design->scratchpad_get_string("abc.script", "");
 		std::string default_liberty_file = design->scratchpad_get_string("abc.liberty", "");
@@ -2028,13 +1989,10 @@ struct AbcPass : public Pass {
 		if (design->scratchpad.count("abc.P")) {
 			config.sop_products = "-P " + design->scratchpad_get_string("abc.P");
 		}
-		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
-		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
 		config.sop_mode = design->scratchpad_get_bool("abc.sop", false);
 		config.map_mux4 = design->scratchpad_get_bool("abc.mux4", false);
 		config.map_mux8 = design->scratchpad_get_bool("abc.mux8", false);
 		config.map_mux16 = design->scratchpad_get_bool("abc.mux16", false);
-		config.abc_dress = design->scratchpad_get_bool("abc.dress", false);
 		g_arg = design->scratchpad_get_string("abc.g", g_arg);
 
 		config.fast_mode = design->scratchpad_get_bool("abc.fast", false);
@@ -2124,10 +2082,6 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-mux16") {
 				config.map_mux16 = true;
-				continue;
-			}
-			if (arg == "-dress") {
-				config.abc_dress = true;
 				continue;
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
