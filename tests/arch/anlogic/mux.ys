@@ -27,7 +27,7 @@ equiv_opt -assert -map +/anlogic/cells_sim.v synth_anlogic # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
 select -assert-max 3 t:AL_MAP_LUT3
-select -assert-max 3 t:AL_MAP_LUT4
+select -assert-max 4 t:AL_MAP_LUT4
 select -assert-max 1 t:AL_MAP_LUT5
 select -assert-max 1 t:AL_MAP_LUT6
 

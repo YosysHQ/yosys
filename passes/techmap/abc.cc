@@ -1875,12 +1875,6 @@ struct AbcPass : public Pass {
 		log("        for -liberty/-genlib with -constr:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR));
 		log("\n");
-		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1"));
-		log("\n");
-		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
-		log("\n");
 		log("        for -sop:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_SOP));
 		log("\n");
@@ -1896,9 +1890,6 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("        for -liberty/-genlib with -constr:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_CTR));
-		log("\n");
-		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT));
 		log("\n");
 		log("        for -sop:\n");
 		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_SOP));
@@ -1944,26 +1935,9 @@ struct AbcPass : public Pass {
 		log("        maximum number of SOP products.\n");
 		log("        (replaces {P} in the default scripts above)\n");
 		log("\n");
-		log("    -lut <width>\n");
-		log("        generate netlist using luts of (max) the specified width.\n");
-		log("\n");
-		log("    -lut <w1>:<w2>\n");
-		log("        generate netlist using luts of (max) the specified width <w2>. All\n");
-		log("        luts with width <= <w1> have constant cost. for luts larger than <w1>\n");
-		log("        the area cost doubles with each additional input bit. the delay cost\n");
-		log("        is still constant for all lut widths.\n");
-		log("\n");
-		log("    -luts <cost1>,<cost2>,<cost3>,<sizeN>:<cost4-N>,..\n");
-		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
-		log("        2, 3, .. inputs.\n");
-		log("\n");
 		log("    -sop\n");
 		log("        map to sum-of-product cells and inverters\n");
 		log("\n");
-		// log("    -mux4, -mux8, -mux16\n");
-		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
-		// log("        (ignored when used with -liberty/-genlib or -lut)\n");
-		// log("\n");
 		log("    -g type1,type2,...\n");
 		log("        Map to the specified list of gate types. Supported gates types are:\n");
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -2136,14 +2110,6 @@ struct AbcPass : public Pass {
 				config.sop_products = "-P " + args[++argidx];
 				continue;
 			}
-			if (arg == "-lut" && argidx+1 < args.size()) {
-				lut_arg = args[++argidx];
-				continue;
-			}
-			if (arg == "-luts" && argidx+1 < args.size()) {
-				luts_arg = args[++argidx];
-				continue;
-			}
 			if (arg == "-sop") {
 				config.sop_mode = true;
 				continue;
@@ -2224,40 +2190,6 @@ struct AbcPass : public Pass {
 		rewrite_filename(config.constr_file);
 		if (!config.constr_file.empty() && !is_absolute_path(config.constr_file))
 			config.constr_file = std::string(pwd) + "/" + config.constr_file;
-
-		// handle -lut argument
-		if (!lut_arg.empty()) {
-			size_t pos = lut_arg.find_first_of(':');
-			int lut_mode = 0, lut_mode2 = 0;
-			if (pos != string::npos) {
-				lut_mode = atoi(lut_arg.substr(0, pos).c_str());
-				lut_mode2 = atoi(lut_arg.substr(pos+1).c_str());
-			} else {
-				lut_mode = atoi(lut_arg.c_str());
-				lut_mode2 = lut_mode;
-			}
-			config.lut_costs.clear();
-			for (int i = 0; i < lut_mode; i++)
-				config.lut_costs.push_back(1);
-			for (int i = lut_mode; i < lut_mode2; i++)
-				config.lut_costs.push_back(2 << (i - lut_mode));
-		}
-		//handle -luts argument
-		if (!luts_arg.empty()){
-			config.lut_costs.clear();
-			for (auto &tok : split_tokens(luts_arg, ",")) {
-				auto parts = split_tokens(tok, ":");
-				if (GetSize(parts) == 0 && !config.lut_costs.empty())
-					config.lut_costs.push_back(config.lut_costs.back());
-				else if (GetSize(parts) == 1)
-					config.lut_costs.push_back(atoi(parts.at(0).c_str()));
-				else if (GetSize(parts) == 2)
-					while (GetSize(config.lut_costs) < std::atoi(parts.at(0).c_str()))
-						config.lut_costs.push_back(atoi(parts.at(1).c_str()));
-				else
-					log_cmd_error("Invalid -luts syntax.\n");
-			}
-		}
 
 		// handle -g argument
 		if (!g_arg.empty()){
@@ -2384,8 +2316,6 @@ struct AbcPass : public Pass {
 			}
 		}
 
-		if (!config.lut_costs.empty() && !(config.liberty_files.empty() && config.genlib_files.empty()))
-			log_cmd_error("Got -lut and -liberty/-genlib! These two options are exclusive.\n");
 		if (!config.constr_file.empty() && (config.liberty_files.empty() && config.genlib_files.empty()))
 			log_cmd_error("Got -constr but no -liberty/-genlib!\n");
 

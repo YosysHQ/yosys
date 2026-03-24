@@ -75,7 +75,7 @@ design -save gold
 
 design -load gold
 techmap
-abc -lut 6
+abc9 -lut 6
 select -assert-count 16 t:$lut
 
 design -stash gate

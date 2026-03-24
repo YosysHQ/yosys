@@ -8,4 +8,4 @@ cd top # Constrain all select calls below inside the top module
 stat
 select -assert-count 5 t:CCU2
 select -assert-count 8 t:FD1P3DX
-select -assert-none t:CCU2 t:FD1P3DX t:IB t:OB t:VLO t:VHI %% t:* %D
+select -assert-none t:CCU2 t:FD1P3DX t:IB t:OB t:INV t:VLO t:VHI %% t:* %D

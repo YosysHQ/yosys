@@ -193,7 +193,7 @@ struct SynthAnlogicPass : public ScriptPass
 			run("techmap -map +/techmap.v -map +/anlogic/arith_map.v");
 			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
+				run("abc9 -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
@@ -206,7 +206,7 @@ struct SynthAnlogicPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4:6");
+			run("abc9 -lut 4:6");
 			run("clean");
 		}
 

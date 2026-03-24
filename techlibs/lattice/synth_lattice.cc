@@ -544,14 +544,14 @@ struct SynthLatticePass : public ScriptPass
 					abc9_opts += " -dff";
 				run("abc9" + abc9_opts);
 			} else {
-				std::string abc_args = " -dress";
+				std::string abc_args = "";
 				if (nowidelut)
 					abc_args += " -lut 4";
 				else
 					abc_args += " -lut " + widelut_abc;
 				if (dff)
 					abc_args += " -dff";
-				run("abc" + abc_args);
+				run("abc9" + abc_args);
 			}
 			run("clean");
 		}

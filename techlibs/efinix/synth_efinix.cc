@@ -196,7 +196,7 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4");
+			run("abc9 -lut 4");
 			run("clean");
 		}
 

@@ -640,7 +640,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
+				run("abc9 -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
 			else if (abc9) {
 				if (lut_size != 6)
 					log_error("'synth_xilinx -abc9' not currently supported for LUT4-based devices.\n");
@@ -681,7 +681,7 @@ struct SynthXilinxPass : public ScriptPass
 					abc_opts += " -dff";
 				if (retime)
 					abc_opts += " -D 1";
-				run("abc" + abc_opts);
+				run("abc9" + abc_opts);
 			}
 			run("clean");
 

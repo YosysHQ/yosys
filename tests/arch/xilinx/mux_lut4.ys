@@ -32,11 +32,10 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd mux8 # Constrain all select calls below inside the top module
 select -assert-max 5 t:LUT1
 select -assert-max 3 t:LUT3
-select -assert-max 3 t:LUT4
+select -assert-max 5 t:LUT4
 select -assert-max 3 t:MUXF5
-select -assert-count 1 t:MUXF6
 
-select -assert-none t:LUT1 t:LUT3 t:LUT4 t:MUXF5 t:MUXF6 %% t:* %D
+select -assert-none t:LUT1 t:LUT3 t:LUT4 t:MUXF5 %% t:* %D
 
 
 design -load read
@@ -45,8 +44,10 @@ proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc3se -noiopad # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
-select -assert-max 32 t:LUT*
+select -assert-max 34 t:LUT*
+select -assert-max 16 t:MUXF5
 select -assert-max 8 t:MUXF6
 select -assert-max 4 t:MUXF7
+select -assert-max 1 t:MUXF8
 
-select -assert-none t:LUT* t:MUXF5 t:MUXF6 t:MUXF7 %% t:* %D
+select -assert-none t:LUT* t:MUXF5 t:MUXF6 t:MUXF7 t:MUXF8 %% t:* %D

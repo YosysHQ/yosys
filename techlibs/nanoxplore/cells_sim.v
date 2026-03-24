@@ -10,7 +10,6 @@ assign O = I1 ? s3[1] : s3[0];
 
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module NX_DFF(input I, CK, L, R, output reg O);
 
 parameter dff_ctxt = 1'bx;
@@ -36,7 +35,6 @@ always @(posedge clock, posedge async_reset)
 
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module NX_DFR(input I, CK, L, R, output O);
 
 parameter data_inv = 1'b0;
@@ -66,8 +64,6 @@ assign O = data_inv ? O_reg : ~O_reg;
 
 endmodule
 
-
-(* abc9_box, lib_whitebox *)
 module NX_CY(input A1, A2, A3, A4, B1, B2, B3, B4, (* abc9_carry *) input CI, output S1, S2, S3, S4, (* abc9_carry *) output CO);
 parameter add_carry = 0;
 
@@ -175,7 +171,6 @@ module NX_IOB_O(I, C, T, IO);
 	assign IO = C ? I : 1'bz;
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module NX_CY_1BIT(CI, A, B, S, CO);
     (* abc9_carry *)
     input CI;
@@ -217,7 +212,6 @@ module NX_BFR(I, O);
     assign O = data_inv ? ~I : I;
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module NX_RAM(ACK, ACKC, ACKD, ACKR, BCK, BCKC, BCKD, BCKR, AI1, AI2, AI3, AI4, AI5, AI6, AI7, AI8, AI9, AI10, AI11, AI12, AI13
 , AI14, AI15, AI16, AI17, AI18, AI19, AI20, AI21, AI22, AI23, AI24, BI1, BI2, BI3, BI4, BI5, BI6, BI7, BI8, BI9, BI10
 , BI11, BI12, BI13, BI14, BI15, BI16, BI17, BI18, BI19, BI20, BI21, BI22, BI23, BI24, ACOR, AERR, BCOR, BERR, AO1, AO2, AO3

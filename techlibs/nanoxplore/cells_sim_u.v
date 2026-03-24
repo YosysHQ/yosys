@@ -1,4 +1,3 @@
-(* abc9_box, lib_whitebox *)
 module NX_GCK_U(SI1, SI2, CMD, SO);
     input CMD;
     input SI1;
@@ -31,7 +30,6 @@ module NX_GCK_U(SI1, SI2, CMD, SO);
     assign SO = inv_out ? ~SO_int : SO_int;
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20
 , I21, I22, I23, I24, I25, I26, I27, I28, I29, I30, I31, I32, I33, I34, I35, I36, O1, O2, O3, O4, O5
 , O6, O7, O8, O9, O10, O11, O12, O13, O14, O15, O16, O17, O18, O19, O20, O21, O22, O23, O24, O25, O26
@@ -205,7 +203,6 @@ module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14
             mem[WA] <= I[MEM_WIDTH-1:0];
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module NX_WFG_U(R, SI, ZI, SO, ZO);
     input R;
     input SI;

@@ -340,9 +340,9 @@ struct SynthNanoXplorePass : public ScriptPass
 					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
 				run("abc9" + abc9_opts);
 			} else {
-				std::string abc_args = " -dress";
+				std::string abc_args = "";
 				abc_args += " -lut 4";
-				run("abc" + abc_args);
+				run("abc9" + abc_args);
 			}
 			run("techmap -map +/nanoxplore/cells_map.v t:$lut");
 			run("opt -fast");
