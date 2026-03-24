@@ -49,9 +49,6 @@ MK_TEST_DIRS += ./verific
 endif
 endif
 MK_TEST_DIRS += ./verilog
-
-# Tests that don't generate .mk
-SH_TEST_DIRS =
 MK_TEST_DIRS += ./simple
 MK_TEST_DIRS += ./simple_abc9
 MK_TEST_DIRS += ./hana
@@ -71,27 +68,17 @@ MK_TEST_DIRS += ./blif
 MK_TEST_DIRS += ./arch
 MK_TEST_DIRS += ./rpc
 MK_TEST_DIRS += ./memfile
-#SH_TEST_DIRS += ./fmt
+#MK_TEST_DIRS += ./fmt
 MK_TEST_DIRS += ./cxxrtl
 MK_TEST_DIRS += ./liberty
-#ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-#SH_TEST_DIRS += ./functional
-#endif
-
-# Tests that don't generate .mk and need special args
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+MK_TEST_DIRS += ./functional
+endif
 MK_TEST_DIRS += ./memories
 MK_TEST_DIRS += ./aiger
 MK_TEST_DIRS += ./alumacc
 
 all: vanilla-test
-
-# seed-./ is a dummy string, not a directory
-.PHONY: seed-tests
-seed-tests: $(SH_TEST_DIRS:%=seed-./%)
-.PHONY: seed-./%
-seed-./%: %/run-test.sh
-	+cd $* && bash run-test.sh $(SEEDOPT)
-	+@echo "...passed tests in $*"
 
 # makefile-./ is a dummy string, not a directory
 .PHONY: makefile-tests
@@ -109,7 +96,7 @@ makefile-./%: %/Makefile
 	@$(MAKE) -C $*
 	@echo "...passed tests in $*"
 
-vanilla-test: makefile-tests seed-tests
+vanilla-test: prep makefile-tests
 	@echo ""
 	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)
