@@ -32,10 +32,22 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
+	// (void)module->connections(); // trigger signorm flush
+
 	for (auto cell : module->cells())
 	for (auto &port : cell->connections_)
 		if (ct.cell_output(cell->type, port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
+
+	bool need_fixup = false;
+	for (auto bit : sig.bits()) {
+		if (bit.is_wire() && bit.wire->port_input) {
+			bit.wire->port_input = false;
+			need_fixup = true;
+		}
+	}
+	if (need_fixup)
+		module->fixup_ports();
 
 	for (auto &conn : module->connections_)
 		sigmap(conn.first).replace(sig, dummy_wire, &conn.first);
@@ -66,7 +78,7 @@ struct ConnectPass : public Pass {
 		log("\n");
 		log("\n");
 		log("Per default signal alias names are resolved and all signal names are mapped\n");
-		log("the the signal name of the primary driver. Using the -nomap option deactivates\n");
+		log("to the signal name of the primary driver. Using the -nomap option deactivates\n");
 		log("this behavior.\n");
 		log("\n");
 		log("The connect command operates in one module only. Either only one module must\n");
@@ -76,6 +88,8 @@ struct ConnectPass : public Pass {
 		log("making it.\n");
 		log("\n");
 		log("This command does not operate on module with processes.\n");
+		log("\n");
+		log("Overriding any bits connected to a module input port will remove the input port.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
