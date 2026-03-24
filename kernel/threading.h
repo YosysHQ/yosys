@@ -237,7 +237,7 @@ private:
 	// Keeps a correct count even when threads are exiting.
 	int num_worker_threads_;
 	// The count of active workerthreads for the current `run()`.
-	int num_active_worker_threads_ = 0;
+	std::atomic<int> num_active_worker_threads_ = 0;
 
 #ifdef YOSYS_ENABLE_THREADS
 	// Not especially efficient for large numbers of threads. Worker wakeup could scale
