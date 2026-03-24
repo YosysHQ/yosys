@@ -68,7 +68,7 @@ MK_TEST_DIRS += ./blif
 MK_TEST_DIRS += ./arch
 MK_TEST_DIRS += ./rpc
 MK_TEST_DIRS += ./memfile
-#MK_TEST_DIRS += ./fmt
+MK_TEST_DIRS += ./fmt
 MK_TEST_DIRS += ./cxxrtl
 MK_TEST_DIRS += ./liberty
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
