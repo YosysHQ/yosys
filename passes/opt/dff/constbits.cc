@@ -48,7 +48,7 @@ struct ConstBitsContext
 	// fire forces 0/1)
 	// returns S0/S1 as the candidate, Sx if unconstrained, Sm on conflict
 	// the candidate doubles as the induction base case
-	State check_constbit(FfData &ff, int i)
+	State check_constbit(FfDataSigMapped &ff, int i)
 	{
 		State val = ff.val_init[i];
 		if (ff.has_arst) val = combine_const(val, ff.val_arst[i]);
@@ -162,7 +162,7 @@ struct ConstBitsContext
 
 	// fold every constant input into the candidate from check_constbit, so a
 	// wire input that sigmaps to a constant counts as constant too
-	ConstCandidate fold_const_inputs(FfData &ff, int i)
+	ConstCandidate fold_const_inputs(FfDataSigMapped &ff, int i)
 	{
 		ConstCandidate cand;
 
@@ -201,7 +201,7 @@ struct ConstBitsContext
 			if (!cell->is_builtin_ff())
 				continue;
 
-			FfData ff(&worker.initvals, cell);
+			FfDataSigMapped ff(worker.sigmap, &worker.initvals, cell);
 
 			for (int i = 0; i < ff.width; i++) {
 				ConstCandidate cand = fold_const_inputs(ff, i);
@@ -325,6 +325,8 @@ struct ConstBitsContext
 
 	bool run_constbits()
 	{
+		worker.resync();
+
 		dict<Cell *, pool<int>> const_bits;
 
 		std::vector<ConstObligation> obligations = fold_const_bits(const_bits);

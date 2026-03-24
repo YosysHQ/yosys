@@ -27,14 +27,14 @@ PRIVATE_NAMESPACE_BEGIN
 // Bit-parallel random simulation used as a cheap pre-filter for equivalence
 struct BitSim {
 	Module *module;
-	SigMap &sigmap;
+	const SigMapView &sigmap;
 	ModWalker &modwalker;
 	dict<SigBit, uint64_t> sim_vals;
 	uint64_t rng_state;
 	int max_depth;
 	int evals_left;
 
-	BitSim(Module *m, SigMap &sm, ModWalker &mw)
+	BitSim(Module *m, const SigMapView &sm, ModWalker &mw)
 		: module(m), sigmap(sm), modwalker(mw), rng_state(1337)
 	{
 		max_depth = module->design->scratchpad_get_int("opt_dff.sim_depth", 10000);
@@ -178,7 +178,7 @@ struct EqBitsContext
 			if (!cell->is_builtin_ff())
 				continue;
 
-			FfData ff(&worker.initvals, cell);
+			FfDataSigMapped ff(worker.sigmap, &worker.initvals, cell);
 			if (!ff.has_clk && !ff.has_gclk)
 				continue;
 
@@ -480,6 +480,8 @@ struct EqBitsContext
 
 	bool run_eqbits()
 	{
+		worker.resync();
+
 		EqCandidates cand = gather_initial_eq_classes();
 		if (cand.classes.empty())
 			return false;

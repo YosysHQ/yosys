@@ -44,7 +44,8 @@ struct OptDffWorker
 	const OptDffOptions &opt;
 	Module *module;
 
-	SigMap sigmap;                    // Signal aliasing
+	SigMap own_sigmap;                // Used only when there is no index to borrow
+	const SigMapView &sigmap;         // Signal aliasing
 	FfInitVals initvals;
 
 	SatEffortBudget sat_budget;
@@ -60,6 +61,24 @@ struct OptDffWorker
 		if (!modwalker_ptr)
 			modwalker_ptr = std::make_unique<ModWalker>(module->design, module);
 		return *modwalker_ptr;
+	}
+
+	// In signorm mode the index already maintains this map, and it keeps
+	// changing as the pass rewrites cells -- a snapshot taken up front goes
+	// stale the moment an emit() re-drives a wire through an alias. Borrow the
+	// live one and re-normalize before each traversal that reads it.
+	static const SigMapView &pick_sigmap(Module *mod, SigMap &fallback)
+	{
+		if (const SigMap *index_sigmap = mod->signorm_sigmap())
+			return *index_sigmap;
+		fallback.set(mod);
+		return fallback;
+	}
+
+	void resync()
+	{
+		if (module->signorm_indexed())
+			module->signorm_sigmap();
 	}
 
 	bool warn_if_budget_spent()

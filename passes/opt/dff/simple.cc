@@ -110,7 +110,7 @@ struct SimpleContext
 
 	void break_feedback(RTLIL::Cell *mux, RTLIL::IdString port, int offset)
 	{
-		RTLIL::SigSpec s = mux->getPort(port);
+		RTLIL::SigSpec s = worker.sigmap(mux->getPort(port));
 		s[offset] = RTLIL::Sx;
 		mux->setPort(port, s);
 	}
@@ -514,7 +514,7 @@ struct SimpleContext
 		}
 	}
 
-	bool try_merge_srst(FfData &ff, Cell *cell, bool &changed)
+	bool try_merge_srst(FfDataSigMapped &ff, Cell *cell, bool &changed)
 	{
 		std::map<ctrls_t, std::vector<int>> groups;
 		std::vector<int> remaining_indices;
@@ -529,9 +529,9 @@ struct SimpleContext
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
 
-				SigBit s = mbit.first->getPort(ID::S);
-				SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-				SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+				SigBit s = port_bit(mbit.first, ID::S, 0);
+				SigBit a = port_bit(mbit.first, ID::A, mbit.second);
+				SigBit b = port_bit(mbit.first, ID::B, mbit.second);
 
 				if ((a == State::S0 || a == State::S1) && (b == State::S0 || b == State::S1))
 					break;
@@ -567,7 +567,7 @@ struct SimpleContext
 		Const val_srst = val_srst_builder.build();
 
 		for (auto &it : groups) {
-			FfData new_ff = ff.slice(it.second);
+			FfDataSigMapped new_ff = ff.slice(it.second);
 			Const::Builder new_val_srst_builder(new_ff.width);
 			for (int i = 0; i < new_ff.width; i++)
 				new_val_srst_builder.push_back(val_srst[it.second[i]]);
@@ -604,7 +604,7 @@ struct SimpleContext
 		return false;
 	}
 
-	bool try_merge_ce(FfData &ff, Cell *cell, bool &changed)
+	bool try_merge_ce(FfDataSigMapped &ff, Cell *cell, bool &changed)
 	{
 		std::map<std::pair<patterns_t, ctrls_t>, std::vector<int>> groups;
 		std::vector<int> remaining_indices;
@@ -617,9 +617,9 @@ struct SimpleContext
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
 
-				SigBit s = mbit.first->getPort(ID::S);
-				SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-				SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+				SigBit s = port_bit(mbit.first, ID::S, 0);
+				SigBit a = port_bit(mbit.first, ID::A, mbit.second);
+				SigBit b = port_bit(mbit.first, ID::B, mbit.second);
 
 				if (a == ff.sig_q[i]) {
 					enables.insert(ctrl_t(s, true));
@@ -647,7 +647,7 @@ struct SimpleContext
 		}
 
 		for (auto &it : groups) {
-			FfData new_ff = ff.slice(it.second);
+			FfDataSigMapped new_ff = ff.slice(it.second);
 			ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
 
 			new_ff.has_ce = true;
@@ -685,8 +685,9 @@ struct SimpleContext
 		while (!dff_cells.empty()) {
 			Cell *cell = dff_cells.back();
 			dff_cells.pop_back();
-
-			FfData ff(&worker.initvals, cell);
+			worker.resync();
+			// Break down the FF into pieces.
+			FfDataSigMapped ff(worker.sigmap, &worker.initvals, cell);
 			bool changed = false;
 
 			if (!ff.width) {

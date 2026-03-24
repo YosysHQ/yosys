@@ -30,20 +30,20 @@ USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
 OptDffWorker::OptDffWorker(const OptDffOptions &opt, Module *mod)
-	: opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod)
+	: opt(opt), module(mod), sigmap(pick_sigmap(mod, own_sigmap)), initvals(&sigmap, mod)
 {
 	sat_budget = SatEffortBudget(module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000000));
 }
 
 void OptDffWorker::remove_ff_bits(Cell *cell, const pool<int> &drop)
 {
-	FfData ff(&initvals, cell);
+	FfDataSigMapped ff(sigmap, &initvals, cell);
 	std::vector<int> keep;
 	for (int i = 0; i < ff.width; i++)
 		if (!drop.count(i))
 			keep.push_back(i);
 
-	FfData new_ff = ff.slice(keep);
+	FfDataSigMapped new_ff = ff.slice(keep);
 	new_ff.cell = cell;
 	new_ff.emit();
 }
