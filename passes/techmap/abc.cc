@@ -2193,6 +2193,8 @@ struct AbcPass : public Pass {
 		config.markgroups = design->scratchpad_get_bool("abc.markgroups", false);
 		config.max_threads = design->scratchpad_get_int("abc.max_threads", -1);
 		config.reserved_cores = design->scratchpad_get_int("abc.reserved_cores", 4);
+		config.signal_map_file = design->scratchpad_get_string("abc.signal_map", "");
+		config.cdc_file = design->scratchpad_get_string("abc.cdc_map", "");
 
 		if (config.cleanup)
 			config.global_tempdir_name = get_base_tmpdir() + "/";
