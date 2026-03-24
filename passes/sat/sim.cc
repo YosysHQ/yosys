@@ -216,7 +216,13 @@ struct SimInstance
 
 	std::vector<Mem> memories;
 
-	dict<Wire*, pair<int, Const>> signal_database;
+	struct signal_entry_t {
+		int id;
+		Const last_value;
+		SigSpec mapped_sig;
+	};
+
+	dict<Wire*, signal_entry_t> signal_database;
 	dict<IdString, std::map<int, pair<int, Const>>> trace_mem_database;
 	dict<std::pair<IdString, int>, Const> trace_mem_init_database;
 	dict<Wire*, fstHandle> fst_handles;
@@ -413,11 +419,11 @@ struct SimInstance
 		return result;
 	}
 
-	Const get_state(SigSpec sig)
+	Const get_state_mapped(const SigSpec &mapped_sig)
 	{
-		Const::Builder builder(GetSize(sig));
+		Const::Builder builder(GetSize(mapped_sig));
 
-		for (auto bit : sigmap(sig))
+		for (auto bit : mapped_sig)
 			if (bit.wire == nullptr)
 				builder.push_back(bit.data);
 			else if (state_nets.count(bit))
@@ -425,7 +431,12 @@ struct SimInstance
 			else
 				builder.push_back(State::Sz);
 
-		Const value = builder.build();
+		return builder.build();
+	}
+
+	Const get_state(SigSpec sig)
+	{
+		Const value = get_state_mapped(sigmap(sig));
 		if (shared->debug)
 			log("[%s] get %s: %s\n", hiername(), log_signal(sig), log_signal(value));
 		return value;
@@ -991,7 +1002,7 @@ struct SimInstance
 			if (shared->hide_internal && wire->name[0] == '$')
 				continue;
 
-			signal_database[wire] = make_pair(id, Const());
+			signal_database[wire] = {id, Const(), sigmap(wire)};
 			id++;
 		}
 
@@ -1032,11 +1043,11 @@ struct SimInstance
 				hdlname.pop_back();
 				for (auto name : hdlname)
 					enter_scope("\\" + name);
-				register_signal(signal_name.c_str(), GetSize(signal.first), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				register_signal(signal_name.c_str(), GetSize(signal.first), signal.first, signal.second.id, registers.count(signal.first)!=0);
 				for (auto name : hdlname)
 					exit_scope();
 			} else
-				register_signal(log_id(signal.first->name), GetSize(signal.first), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				register_signal(log_id(signal.first->name), GetSize(signal.first), signal.first, signal.second.id, registers.count(signal.first)!=0);
 		}
 
 		for (auto &trace_mem : trace_mem_database)
@@ -1108,15 +1119,14 @@ struct SimInstance
 	{
 		for (auto &it : signal_database)
 		{
-			Wire *wire = it.first;
-			Const value = get_state(wire);
-			int id = it.second.first;
+			signal_entry_t &entry = it.second;
+			Const value = get_state_mapped(entry.mapped_sig);
 
-			if (it.second.second == value)
+			if (entry.last_value == value)
 				continue;
 
-			it.second.second = value;
-			data->emplace(id, value);
+			entry.last_value = value;
+			data->emplace(entry.id, value);
 		}
 
 		for (auto &trace_mem : trace_mem_database)
