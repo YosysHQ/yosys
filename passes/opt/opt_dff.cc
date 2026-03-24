@@ -129,7 +129,7 @@ struct OptDffWorker
 				ret = find_muxtree_feedback_patterns(sig_b[i*width + index], q, path);
 
 				if (sig_b[i*width + index] == q) {
-					RTLIL::SigSpec s = mbit.first->getPort(ID::B);
+					RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::B));
 					s[i*width + index] = RTLIL::Sx;
 					mbit.first->setPort(ID::B, s);
 				}
@@ -152,7 +152,7 @@ struct OptDffWorker
 				ret.insert(pat);
 
 			if (sig_b[i*width + index] == q) {
-				RTLIL::SigSpec s = mbit.first->getPort(ID::B);
+				RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::B));
 				s[i*width + index] = RTLIL::Sx;
 				mbit.first->setPort(ID::B, s);
 			}
@@ -162,7 +162,7 @@ struct OptDffWorker
 			ret.insert(pat);
 
 		if (sig_a[index] == q) {
-			RTLIL::SigSpec s = mbit.first->getPort(ID::A);
+			RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::A));
 			s[index] = RTLIL::Sx;
 			mbit.first->setPort(ID::A, s);
 		}
@@ -321,7 +321,7 @@ struct OptDffWorker
 			Cell *cell = dff_cells.back();
 			dff_cells.pop_back();
 			// Break down the FF into pieces.
-			FfData ff(&initvals, cell);
+			FfDataSigMapped ff(sigmap, &initvals, cell);
 			bool changed = false;
 
 			if (!ff.width) {
@@ -650,9 +650,9 @@ struct OptDffWorker
 							cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
 							if (GetSize(mbit.first->getPort(ID::S)) != 1)
 								break;
-							SigBit s = mbit.first->getPort(ID::S);
-							SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-							SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+							SigBit s = sigmap(mbit.first->getPort(ID::S));
+							SigBit a = sigmap(mbit.first->getPort(ID::A)[mbit.second]);
+							SigBit b = sigmap(mbit.first->getPort(ID::B)[mbit.second]);
 							// Workaround for funny memory WE pattern.
 							if ((a == State::S0 || a == State::S1) && (b == State::S0 || b == State::S1))
 								break;
@@ -686,7 +686,7 @@ struct OptDffWorker
 					Const val_srst = val_srst_builder.build();
 
 					for (auto &it : groups) {
-						FfData new_ff = ff.slice(it.second);
+						FfDataSigMapped new_ff = ff.slice(it.second);
 						Const::Builder new_val_srst_builder(new_ff.width);
 						for (int i = 0; i < new_ff.width; i++) {
 							int j = it.second[i];
@@ -729,9 +729,9 @@ struct OptDffWorker
 							cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
 							if (GetSize(mbit.first->getPort(ID::S)) != 1)
 								break;
-							SigBit s = mbit.first->getPort(ID::S);
-							SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-							SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+							SigBit s = sigmap(mbit.first->getPort(ID::S));
+							SigBit a = sigmap(mbit.first->getPort(ID::A)[mbit.second]);
+							SigBit b = sigmap(mbit.first->getPort(ID::B)[mbit.second]);
 							if (a == ff.sig_q[i]) {
 								enables.insert(ctrl_t(s, true));
 								ff.sig_d[i] = b;
@@ -756,7 +756,7 @@ struct OptDffWorker
 					}
 
 					for (auto &it : groups) {
-						FfData new_ff = ff.slice(it.second);
+						FfDataSigMapped new_ff = ff.slice(it.second);
 						ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
 
 						new_ff.has_ce = true;
@@ -798,13 +798,13 @@ struct OptDffWorker
 		// Defer mutating cells by removing them/emiting new flip flops so that
 		// cell references in modwalker are not invalidated
 		std::vector<RTLIL::Cell*> cells_to_remove;
-		std::vector<FfData> ffs_to_emit;
+		std::vector<FfDataSigMapped> ffs_to_emit;
 
 		bool did_something = false;
 		for (auto cell : module->selected_cells()) {
 			if (!cell->is_builtin_ff())
 				continue;
-			FfData ff(&initvals, cell);
+			FfDataSigMapped ff(sigmap, &initvals, cell);
 
 			// Now check if any bit can be replaced by a constant.
 			pool<int> removed_sigbits;
