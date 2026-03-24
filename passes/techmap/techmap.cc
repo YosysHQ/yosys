@@ -1173,7 +1173,7 @@ struct TechmapPass : public Pass {
 
 		std::vector<std::string> map_files;
 		std::vector<RTLIL::IdString> dont_map;
-		std::string verilog_frontend = "verilog -nooverwrite -noblackbox";
+		std::string verilog_frontend = "verilog -icells -nooverwrite -noblackbox";
 		int max_iter = -1;
 
 		size_t argidx;
