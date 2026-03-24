@@ -172,7 +172,7 @@ struct OptDffWorker
 			if (path.count(sig_s[i]) && path.at(sig_s[i])) {
 				ret = find_muxtree_feedback_patterns(sig_b[i*width + index], q, path);
 				if (sig_b[i*width + index] == q) {
-					RTLIL::SigSpec s = mbit.first->getPort(ID::B);
+					RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::B));
 					s[i*width + index] = RTLIL::Sx;
 					mbit.first->setPort(ID::B, s);
 				}
@@ -196,7 +196,7 @@ struct OptDffWorker
 				ret.insert(pat);
 
 			if (sig_b[i*width + index] == q) {
-				RTLIL::SigSpec s = mbit.first->getPort(ID::B);
+				RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::B));
 				s[i*width + index] = RTLIL::Sx;
 				mbit.first->setPort(ID::B, s);
 			}
@@ -207,7 +207,7 @@ struct OptDffWorker
 			ret.insert(pat);
 
 		if (sig_a[index] == q) {
-			RTLIL::SigSpec s = mbit.first->getPort(ID::A);
+			RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::A));
 			s[index] = RTLIL::Sx;
 			mbit.first->setPort(ID::A, s);
 		}
@@ -555,7 +555,7 @@ struct OptDffWorker
 		}
 	}
 
-	bool try_merge_srst(FfData &ff, Cell *cell, bool &changed)
+	bool try_merge_srst(FfDataSigMapped &ff, Cell *cell, bool &changed)
 	{
 		std::map<ctrls_t, std::vector<int>> groups;
 		std::vector<int> remaining_indices;
@@ -570,9 +570,9 @@ struct OptDffWorker
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
 
-				SigBit s = mbit.first->getPort(ID::S);
-				SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-				SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+				SigBit s = sigmap(mbit.first->getPort(ID::S));
+				SigBit a = sigmap(mbit.first->getPort(ID::A)[mbit.second]);
+				SigBit b = sigmap(mbit.first->getPort(ID::B)[mbit.second]);
 
 				if ((a == State::S0 || a == State::S1) && (b == State::S0 || b == State::S1))
 					break;
@@ -608,7 +608,7 @@ struct OptDffWorker
 		Const val_srst = val_srst_builder.build();
 
 		for (auto &it : groups) {
-			FfData new_ff = ff.slice(it.second);
+			FfDataSigMapped new_ff = ff.slice(it.second);
 			Const::Builder new_val_srst_builder(new_ff.width);
 			for (int i = 0; i < new_ff.width; i++)
 				new_val_srst_builder.push_back(val_srst[it.second[i]]);
@@ -645,7 +645,7 @@ struct OptDffWorker
 		return false;
 	}
 
-	bool try_merge_ce(FfData &ff, Cell *cell, bool &changed)
+	bool try_merge_ce(FfDataSigMapped &ff, Cell *cell, bool &changed)
 	{
 		std::map<std::pair<patterns_t, ctrls_t>, std::vector<int>> groups;
 		std::vector<int> remaining_indices;
@@ -658,9 +658,9 @@ struct OptDffWorker
 				if (GetSize(mbit.first->getPort(ID::S)) != 1)
 					break;
 
-				SigBit s = mbit.first->getPort(ID::S);
-				SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-				SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+				SigBit s = sigmap(mbit.first->getPort(ID::S));
+				SigBit a = sigmap(mbit.first->getPort(ID::A)[mbit.second]);
+				SigBit b = sigmap(mbit.first->getPort(ID::B)[mbit.second]);
 
 				if (a == ff.sig_q[i]) {
 					enables.insert(ctrl_t(s, true));
@@ -688,7 +688,7 @@ struct OptDffWorker
 		}
 
 		for (auto &it : groups) {
-			FfData new_ff = ff.slice(it.second);
+			FfDataSigMapped new_ff = ff.slice(it.second);
 			ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
 
 			new_ff.has_ce = true;
@@ -726,8 +726,8 @@ struct OptDffWorker
 		while (!dff_cells.empty()) {
 			Cell *cell = dff_cells.back();
 			dff_cells.pop_back();
-
-			FfData ff(&initvals, cell);
+			// Break down the FF into pieces.
+			FfDataSigMapped ff(sigmap, &initvals, cell);
 			bool changed = false;
 
 			if (!ff.width) {
@@ -819,7 +819,7 @@ struct OptDffWorker
 			qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
 	}
 
-	State check_constbit(FfData &ff, int i)
+	State check_constbit(FfDataSigMapped &ff, int i)
 	{
 		State val = ff.val_init[i];
 		if (ff.has_arst) val = combine_const(val, ff.val_arst[i]);
@@ -841,14 +841,15 @@ struct OptDffWorker
 		QuickConeSat qcsat(modwalker);
 
 		std::vector<RTLIL::Cell*> cells_to_remove;
-		std::vector<FfData> ffs_to_emit;
+		std::vector<FfDataSigMapped> ffs_to_emit;
+
 		bool did_something = false;
 
 		for (auto cell : module->selected_cells()) {
 			if (!cell->is_builtin_ff())
 				continue;
 
-			FfData ff(&initvals, cell);
+			FfDataSigMapped ff(sigmap, &initvals, cell);
 			pool<int> removed_sigbits;
 
 			for (int i = 0; i < ff.width; i++) {
