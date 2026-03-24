@@ -229,6 +229,43 @@ struct FfData : FfTypeData {
 	void flip_rst_bits(const pool<int> &bits);
 };
 
+struct FfDataSigMapped : public FfData {
+	SigMap& sigmap;
+	FfDataSigMapped(SigMap& map, Module *module, FfInitVals *initvals = nullptr, IdString name = IdString()) : FfData(module, initvals, name), sigmap(map) {}
+
+	void remap() {
+		sigmap(sig_q);
+		sigmap(sig_d);
+		sigmap(sig_ad);
+		sigmap(sig_clk);
+		sigmap(sig_ce);
+		sigmap(sig_aload);
+		sigmap(sig_arst);
+		sigmap(sig_srst);
+		sigmap(sig_clr);
+		sigmap(sig_set);
+	}
+	FfDataSigMapped(SigMap& map, FfInitVals *initvals, Cell *cell_) : FfData(initvals, cell_), sigmap(map) {
+		remap();
+	}
+	FfDataSigMapped(SigMap& map, const FfData& base) : FfData(base), sigmap(map) {
+		remap();
+	}
+	FfDataSigMapped(const FfDataSigMapped& other) : FfData(other), sigmap(other.sigmap) {}
+	FfDataSigMapped& operator=(const FfDataSigMapped& other) {
+		FfData::operator=(other);
+		return *this;
+	}
+	Cell* emit() {
+		Cell* cell = FfData::emit();
+		remap();
+		return cell;
+	}
+	FfDataSigMapped slice(const std::vector<int> &bits) {
+		return FfDataSigMapped(sigmap, FfData::slice(bits));
+	}
+};
+
 YOSYS_NAMESPACE_END
 
 #endif
