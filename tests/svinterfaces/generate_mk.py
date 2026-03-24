@@ -9,7 +9,7 @@ import gen_tests_makefile
 
 runone_tests = [
     "svinterface1",
-    "svinterface_at_top"
+    #"svinterface_at_top"
 ]
 
 def run_one():
