@@ -8,7 +8,7 @@ endif
 define run_test
 	@set -e; \
 	rc=0; \
-	( set -e; $(2) ) || rc=$$?; \
+	( set -e; $(2) ) >/dev/null 2>&1 || rc=$$?; \
 	if [ $$rc -eq 0 ]; then \
 		echo "PASS $1"; \
 		echo PASS > $1.result; \

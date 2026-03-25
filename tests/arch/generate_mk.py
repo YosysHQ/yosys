@@ -27,18 +27,18 @@ def archs():
             if arch_name in defines:
                 for defn in defines[arch_name]:
                     target_name = f"{target_base}_{defn}"
-                    cmd = f"iverilog -t null -I{arch} -D{defn} -DNO_ICE40_DEFAULT_ASSIGNMENTS {path_str} >/dev/null 2>&1"
+                    cmd = f"iverilog -t null -I{arch} -D{defn} -DNO_ICE40_DEFAULT_ASSIGNMENTS {path_str}"
                     gen_tests_makefile.generate_target(target_name, cmd)
             else:
                 target_name = f"{target_base}"
-                cmd = f"iverilog -t null -I{arch} -g2005-sv {path_str} >/dev/null 2>&1"
+                cmd = f"iverilog -t null -I{arch} -g2005-sv {path_str}"
                 gen_tests_makefile.generate_target(target_name, cmd)
 
 def common():
     for path in ["../../techlibs/common/simcells.v", "../../techlibs/common/simlib.v"]:
         path_obj = Path(path)
         target_name = path_obj.stem
-        cmd = f"iverilog -t null {path} >/dev/null 2>&1"
+        cmd = f"iverilog -t null {path}"
         gen_tests_makefile.generate_target(target_name, cmd)
 
 def main():

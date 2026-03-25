@@ -25,7 +25,7 @@ def create_tests():
         b = base(aag)
 
         cmd = [
-            f"$(ABC) -q \"read -c {b}.aig; write {b}_ref.v\" >/dev/null 2>&1;",
+            f"$(ABC) -q \"read -c {b}.aig; write {b}_ref.v\";",
             "$(YOSYS) -qp \"",
             f"read_verilog {b}_ref.v;",
             "prep;",
@@ -37,7 +37,7 @@ def create_tests():
             "design -import gate -as gate;",
             "miter -equiv -flatten -make_assert -make_outputs gold gate miter;",
             "sat -verify -prove-asserts -show-ports -seq 16 miter;",
-            f"\" -l {aag}.log >/dev/null 2>&1"
+            f"\" -l {aag}.log"
         ]
 
         gen_tests_makefile.generate_cmd_test(aag, cmd)
@@ -47,7 +47,7 @@ def create_tests():
         gen_tests_makefile.generate_ys_test(ys)
 
     cmd = [ "rm -rf gate; mkdir gate;",
-            "$(YOSYS) --no-version -p \"test_cell -aigmap -w gate/ -n 1 -s 1 all\" >/dev/null 2>&1;",
+            "$(YOSYS) --no-version -p \"test_cell -aigmap -w gate/ -n 1 -s 1 all\";",
             "set -o pipefail; diff --brief gold gate | tee aigmap.err;",
             "rm -f aigmap.err" ]
 

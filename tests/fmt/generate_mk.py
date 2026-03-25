@@ -29,8 +29,8 @@ def always_display():
 
     for name, defs in cases:
         gen_tests_makefile.generate_target(f"always_display_{name}", cmd([
-            f"$(YOSYS) -p \"read_verilog {defs} always_display.v; proc; opt_expr -mux_bool; clean\" -o yosys-always_display-{name}-1.v >/dev/null 2>&1",
-            f"$(YOSYS) -p \"read_verilog yosys-always_display-{name}-1.v; proc; opt_expr -mux_bool; clean\" -o yosys-always_display-{name}-2.v >/dev/null 2>&1",
+            f"$(YOSYS) -p \"read_verilog {defs} always_display.v; proc; opt_expr -mux_bool; clean\" -o yosys-always_display-{name}-1.v",
+            f"$(YOSYS) -p \"read_verilog yosys-always_display-{name}-1.v; proc; opt_expr -mux_bool; clean\" -o yosys-always_display-{name}-2.v",
             f"diff yosys-always_display-{name}-1.v yosys-always_display-{name}-2.v",
         ]))
 
@@ -49,17 +49,17 @@ def roundtrip():
 
     for name, defs in cases:
         gen_tests_makefile.generate_target(f"roundtrip_{name}", cmd([
-            f"$(YOSYS) -p \"read_verilog {defs} roundtrip.v; proc; clean\" -o yosys-roundtrip-{name}-1.v >/dev/null 2>&1",
-            f"$(YOSYS) -p \"read_verilog yosys-roundtrip-{name}-1.v; proc; clean\" -o yosys-roundtrip-{name}-2.v >/dev/null 2>&1",
+            f"$(YOSYS) -p \"read_verilog {defs} roundtrip.v; proc; clean\" -o yosys-roundtrip-{name}-1.v",
+            f"$(YOSYS) -p \"read_verilog yosys-roundtrip-{name}-1.v; proc; clean\" -o yosys-roundtrip-{name}-2.v",
             f"diff yosys-roundtrip-{name}-1.v yosys-roundtrip-{name}-2.v",
 
-            f"iverilog {defs} -o iverilog-roundtrip-{name} roundtrip.v roundtrip_tb.v >/dev/null 2>&1",
+            f"iverilog {defs} -o iverilog-roundtrip-{name} roundtrip.v roundtrip_tb.v",
             f"./iverilog-roundtrip-{name} >iverilog-roundtrip-{name}.log",
 
-            f"iverilog {defs} -o iverilog-roundtrip-{name}-1 yosys-roundtrip-{name}-1.v roundtrip_tb.v >/dev/null 2>&1",
+            f"iverilog {defs} -o iverilog-roundtrip-{name}-1 yosys-roundtrip-{name}-1.v roundtrip_tb.v",
             f"./iverilog-roundtrip-{name}-1 >iverilog-roundtrip-{name}-1.log",
 
-            f"iverilog {defs} -o iverilog-roundtrip-{name}-2 yosys-roundtrip-{name}-2.v roundtrip_tb.v >/dev/null 2>&1",
+            f"iverilog {defs} -o iverilog-roundtrip-{name}-2 yosys-roundtrip-{name}-2.v roundtrip_tb.v",
             f"./iverilog-roundtrip-{name}-2 >iverilog-roundtrip-{name}-2.log",
 
             f"diff iverilog-roundtrip-{name}.log iverilog-roundtrip-{name}-1.log",
@@ -72,11 +72,11 @@ def cxxrtl():
 
     for name in cases:
         gen_tests_makefile.generate_target(f"cxxrtl_{name}", cmd([
-            f"$(YOSYS) -p \"read_verilog {name}.v; proc; clean; write_cxxrtl -print-output std::cerr yosys-{name}.cc\" >/dev/null 2>&1",
+            f"$(YOSYS) -p \"read_verilog {name}.v; proc; clean; write_cxxrtl -print-output std::cerr yosys-{name}.cc\"",
             f"$${{CXX:-g++}} -std=c++11 -o yosys-{name} -I../../backends/cxxrtl/runtime {name}_tb.cc -lstdc++",
             f"./yosys-{name} 2>yosys-{name}.log",
 
-            f"iverilog -o iverilog-{name} {name}.v {name}_tb.v >/dev/null 2>&1",
+            f"iverilog -o iverilog-{name} {name}.v {name}_tb.v",
             f"./iverilog-{name} | grep -v \"$finish called\" >iverilog-{name}.log",
 
             f"diff iverilog-{name}.log yosys-{name}.log",
@@ -85,21 +85,21 @@ def cxxrtl():
 
 def extra():
     gen_tests_makefile.generate_target("always_full_equiv", cmd([
-        "$(YOSYS) -p \"read_verilog always_full.v; prep; clean\" -o yosys-always_full-1.v >/dev/null 2>&1",
-        "iverilog -o iverilog-always_full-1 yosys-always_full-1.v always_full_tb.v >/dev/null 2>&1",
+        "$(YOSYS) -p \"read_verilog always_full.v; prep; clean\" -o yosys-always_full-1.v",
+        "iverilog -o iverilog-always_full-1 yosys-always_full-1.v always_full_tb.v",
         "./iverilog-always_full-1 | grep -v \"$finish called\" >iverilog-always_full-1.log",
         "diff iverilog-always_full.log iverilog-always_full-1.log",
     ]))
 
     gen_tests_makefile.generate_target("display_lm", cmd([
         "$(YOSYS) -p \"read_verilog display_lm.v\" >yosys-display_lm.log 2>&1",
-        "$(YOSYS) -p \"read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc\" >/dev/null 2>&1",
-        f"$${{CXX:-g++}} -std=c++11 -o yosys-display_lm_cc -I../../backends/cxxrtl/runtime display_lm_tb.cc -lstdc++ >/dev/null 2>&1",
-        "./yosys-display_lm_cc >yosys-display_lm_cc.log 2>/dev/null",
-        "grep \"^%l: \\\\\\bot\\$$\" \"yosys-display_lm.log\" >/dev/null 2>&1",
-        "grep \"^%m: \\\\\\bot\\$$\" \"yosys-display_lm.log\" >/dev/null 2>&1",
-        "grep \"^%l: \\\\\\bot\\$$\" \"yosys-display_lm_cc.log\" >/dev/null 2>&1",
-        "grep \"^%m: \\\\\\bot\\$$\" \"yosys-display_lm_cc.log\" >/dev/null 2>&1",
+        "$(YOSYS) -p \"read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc\"",
+        f"$${{CXX:-g++}} -std=c++11 -o yosys-display_lm_cc -I../../backends/cxxrtl/runtime display_lm_tb.cc -lstdc++",
+        "./yosys-display_lm_cc >yosys-display_lm_cc.log",
+        "grep \"^%l: \\\\\\bot\\$$\" \"yosys-display_lm.log\"",
+        "grep \"^%m: \\\\\\bot\\$$\" \"yosys-display_lm.log\"",
+        "grep \"^%l: \\\\\\bot\\$$\" \"yosys-display_lm_cc.log\"",
+        "grep \"^%m: \\\\\\bot\\$$\" \"yosys-display_lm_cc.log\"",
     ]))
 
 

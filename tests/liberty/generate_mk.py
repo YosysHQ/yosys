@@ -14,14 +14,14 @@ def lib_tests():
         gen_tests_makefile.generate_cmd_test(lib, [
             f'$(YOSYS) -p "read_verilog small.v; synth -top small; dfflibmap -info -liberty {lib}" -ql {base}.log;',
 
-            f'../../yosys-filterlib - {lib} 2>/dev/null > {lib}.filtered;',
+            f'../../yosys-filterlib - {lib} > {lib}.filtered;',
             f'../../yosys-filterlib -verilogsim {lib} > {lib}.verilogsim;',
 
             f'diff {lib}.filtered {lib}.filtered.ok;',
             f'diff {lib}.verilogsim {lib}.verilogsim.ok;',
 
             f'if [ -e {base}.log.ok ]; then '
-            f'$(YOSYS) -p "dfflibmap -info -liberty {lib}" -TqqQl {base}.log >/dev/null 2>&1; '
+            f'$(YOSYS) -p "dfflibmap -info -liberty {lib}" -TqqQl {base}.log; '
             f'diff {base}.log {base}.log.ok; '
             f'fi',
         ])
