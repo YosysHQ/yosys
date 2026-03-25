@@ -71,9 +71,9 @@ MK_TEST_DIRS += ./memfile
 MK_TEST_DIRS += ./fmt
 MK_TEST_DIRS += ./cxxrtl
 MK_TEST_DIRS += ./liberty
-ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-MK_TEST_DIRS += ./functional
-endif
+#ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+#MK_TEST_DIRS += ./functional
+#endif
 MK_TEST_DIRS += ./memories
 MK_TEST_DIRS += ./aiger
 MK_TEST_DIRS += ./alumacc
@@ -96,7 +96,13 @@ makefile-./%: %/Makefile
 	@$(MAKE) -C $*
 	@echo "...passed tests in $*"
 
-vanilla-test: prep makefile-tests
+.PHONY: functional
+functional:
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+	@cd functional && ./run-test.sh
+endif
+
+vanilla-test: prep makefile-tests functional
 	@echo ""
 	@echo "  Passed \"make vanilla-test\"."
 ifeq ($(ENABLE_VERIFIC),1)
