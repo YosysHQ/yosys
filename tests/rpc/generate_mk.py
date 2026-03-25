@@ -11,7 +11,7 @@ def create_tests():
     for ys in yss:
         gen_tests_makefile.generate_ys_test(ys)
 
-    cmd = [ "python3 frontend.py unix-socket frontend.sock >/dev/null 2>&1" ]
+    cmd = [ "python3 frontend.py unix-socket frontend.sock" ]
     gen_tests_makefile.generate_cmd_test("frontend.py", cmd)
 
 gen_tests_makefile.generate_custom(create_tests)

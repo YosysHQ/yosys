@@ -1577,7 +1577,7 @@ def create_tests():
             f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} "
             f"-p 'script ../t_{t.name}.ys'"
             f"{libs_args} "
-            f"t_{t.name}.v >/dev/null 2>&1 || (cat t_{t.name}.err; exit 1)"
+            f"t_{t.name}.v || (cat t_{t.name}.err; exit 1)"
         )
         gen_tests_makefile.generate_target(t.name, cmd)
 

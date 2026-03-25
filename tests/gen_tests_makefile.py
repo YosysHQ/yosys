@@ -22,13 +22,13 @@ def generate_target(name, command):
     print(f"\t@$(call run_test,{target}, $({target}_cmd))")
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
-    cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} >/dev/null 2>&1 && mv {ys_file}.err {ys_file}.log'
+    cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} && mv {ys_file}.err {ys_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(ys_file, cmd)
 
 def generate_tcl_test(tcl_file, yosys_args="", commands=""):
-    cmd = f'$(YOSYS) -ql {tcl_file}.err {yosys_args} {tcl_file} >/dev/null 2>&1 && mv {tcl_file}.err {tcl_file}.log'
+    cmd = f'$(YOSYS) -ql {tcl_file}.err {yosys_args} {tcl_file} && mv {tcl_file}.err {tcl_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(tcl_file, cmd)
@@ -37,7 +37,7 @@ def generate_sv_test(sv_file, yosys_args="", commands=""):
     base = os.path.splitext(sv_file)[0]
     if not os.path.exists(base + ".ys"):
         yosys_cmd = '-p "prep -top top; async2sync; sat -enable_undef -verify -prove-asserts"'
-        cmd = f'$(YOSYS) -ql {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} >/dev/null 2>&1 && mv {sv_file}.err {sv_file}.log'
+        cmd = f'$(YOSYS) -ql {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} && mv {sv_file}.err {sv_file}.log'
         if commands:
             cmd += f"; \\\n{commands}"
         generate_target(sv_file, cmd)
@@ -121,7 +121,7 @@ def generate_custom(callback, extra=None):
             callback()
 
 def generate_autotest_file(test_file, commands):
-    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file} >/dev/null 2>&1; \\\n{commands}"
+    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file}; \\\n{commands}"
     generate_target(test_file, cmd)
 
 def generate_autotest(pattern, extra_flags, cmds=""):

@@ -100,8 +100,8 @@ for idx in range(args.count):
 def create_tests():
     for idx in range(args.count):
         cmd = [
-            f"$(YOSYS) -qq uut_{idx:05d}.ys >/dev/null 2>&1 &&",
-            f"iverilog -o uut_{idx:05d}_tb uut_{idx:05d}_tb.v uut_{idx:05d}.v uut_{idx:05d}_syn.v >/dev/null 2>&1 &&",
+            f"$(YOSYS) -qq uut_{idx:05d}.ys &&",
+            f"iverilog -o uut_{idx:05d}_tb uut_{idx:05d}_tb.v uut_{idx:05d}.v uut_{idx:05d}_syn.v &&",
             f"./uut_{idx:05d}_tb"
 #            f"./uut_{idx:05d}_tb | tee uut_{idx:05d}.err;",
 #            f"if test -s uut_{idx:05d}.err; then",
