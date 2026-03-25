@@ -1,0 +1,363 @@
+# =============================================================================
+# Test 1: Basic structurally identical gold/gate — single FF, single clock
+# Both modules have exactly the same structure. The FF should be matched
+# and exposed as a cone PI/PO pair.
+# =============================================================================
+log -header "Basic identical gold/gate single FF"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+
+module gate(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone*
+select -clear
+select -module gate
+select -assert-any w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 2: Multiple matched FF groups — two independent FFs
+# Both modules have two FFs with identical structure. Each FF should get
+# its own cone.
+# =============================================================================
+log -header "Multiple matched FF groups"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, c, d,
+            output reg [7:0] q1, q2);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c ^ d;
+    end
+endmodule
+
+module gate(input clk, input [7:0] a, b, c, d,
+            output reg [7:0] q1, q2);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c ^ d;
+    end
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone_0*
+select -assert-any w:*cone_1*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 3: No structural match — different FF fanin logic
+# Gold uses addition, gate uses subtraction for the same FF. The structural
+# hashes should NOT match, so no cones should be created.
+# =============================================================================
+log -header "No structural match"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+
+module gate(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a - b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-none w:*cone*
+select -clear
+select -module gate
+select -assert-none w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 4: Partial match — one FF matches, one doesn't
+# Both modules have two FFs; one with identical fanin (a+b), the other
+# with different fanin (c^d vs c&d). Only the matching FF should be coned.
+# =============================================================================
+log -header "Partial match"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, c, d,
+            output reg [7:0] q1, q2);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c ^ d;
+    end
+endmodule
+
+module gate(input clk, input [7:0] a, b, c, d,
+            output reg [7:0] q1, q2);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c & d;
+    end
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone_0*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 5: Wide FFs (32-bit) — structural match on wider registers
+# =============================================================================
+log -header "Wide FFs match"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [31:0] a, b, output reg [31:0] q);
+    always @(posedge clk)
+        q <= a & b;
+endmodule
+
+module gate(input clk, input [31:0] a, b, output reg [31:0] q);
+    always @(posedge clk)
+        q <= a & b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 6: Negedge clock — both modules use negedge, should still match
+# =============================================================================
+log -header "Negedge clock match"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(negedge clk)
+        q <= a | b;
+endmodule
+
+module gate(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(negedge clk)
+        q <= a | b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 7: Chain of combinational logic before FF — deeper cones
+# The structural hash should still match through the combinational chain.
+# =============================================================================
+log -header "Deeper combinational cone"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, c,
+            output reg [7:0] q);
+    wire [7:0] t1 = a + b;
+    wire [7:0] t2 = t1 ^ c;
+    always @(posedge clk)
+        q <= t2;
+endmodule
+
+module gate(input clk, input [7:0] a, b, c,
+            output reg [7:0] q);
+    wire [7:0] t1 = a + b;
+    wire [7:0] t2 = t1 ^ c;
+    always @(posedge clk)
+        q <= t2;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 8: Verbose output and log file option
+# Verify that -o flag creates a log file without errors.
+# =============================================================================
+log -header "Verbose with log file"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk) q <= a + b;
+endmodule
+
+module gate(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk) q <= a + b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v -o /tmp/cone_partition_test.log gold gate
+design -reset
+log -pop
+
+# =============================================================================
+# Test 9: Multiple FFs, some with enable, mixed structure
+# Gold and gate both have 3 FFs: two match structurally, one doesn't.
+# =============================================================================
+log -header "Mixed FFs with enable"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input en,
+            input [7:0] a, b, c, d, e, f,
+            output reg [7:0] q1, q2, q3);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c & d;
+        if (en) q3 <= e ^ f;
+    end
+endmodule
+
+module gate(input clk, input en,
+            input [7:0] a, b, c, d, e, f,
+            output reg [7:0] q1, q2, q3);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c & d;
+        if (en) q3 <= e | f;
+    end
+endmodule
+EOF
+proc; opt_expr; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 10: Identity — gate is exact copy of gold (all FFs should match)
+# =============================================================================
+log -header "Exact copy — all FFs match"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, c, d, e, f,
+            output reg [7:0] q1, q2, q3);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c ^ d;
+        q3 <= e & f;
+    end
+endmodule
+
+module gate(input clk, input [7:0] a, b, c, d, e, f,
+            output reg [7:0] q1, q2, q3);
+    always @(posedge clk) begin
+        q1 <= a + b;
+        q2 <= c ^ d;
+        q3 <= e & f;
+    end
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*cone_0*
+select -assert-any w:*cone_1*
+select -assert-any w:*cone_2*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 11: Completely different modules — zero matching FFs
+# Gold and gate have entirely different operations on the same ports.
+# =============================================================================
+log -header "Completely different — no cones"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+
+module gate(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a ^ b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-none w:*cone*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# Test 12: PI/PO wire naming conventions
+# Verify that matched cones produce wires with the expected naming pattern.
+# =============================================================================
+log -header "PI/PO naming"
+log -push
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+
+module gate(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+EOF
+proc; opt_clean
+cone_partition -v gold gate
+select -module gold
+select -assert-any w:*ff_pi*
+select -assert-any w:*_po*
+select -clear
+select -module gate
+select -assert-any w:*ff_pi*
+select -assert-any w:*_po*
+select -clear
+design -reset
+log -pop
+
+# =============================================================================
+# TODO: Test cases for both gold and gate having the same number of
+# multiple clock domains (both multi-clock). These would test the
+# unmatched FF guarding with clkguard PIs and AND gates.
+# =============================================================================

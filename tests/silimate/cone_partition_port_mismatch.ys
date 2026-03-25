@@ -1,0 +1,17 @@
+# Port mismatch — gate is missing an input port from gold.
+# The pass should error because ports don't match.
+design -reset
+read_verilog <<EOF
+module gold(input clk, input [7:0] a, b, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a + b;
+endmodule
+
+module gate(input clk, input [7:0] a, output reg [7:0] q);
+    always @(posedge clk)
+        q <= a;
+endmodule
+EOF
+proc; opt_clean
+logger -expect error "Input port.*has no match" 1
+cone_partition -v gold gate

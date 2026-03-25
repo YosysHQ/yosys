@@ -1,0 +1,316 @@
+# =============================================================================
+# Test 1: Two coarse-grain $dff on different clocks, merged via -target
+# After merge + simplemap, verify all become $_DFF_P_ (posedge)
+# =============================================================================
+log -header "Two coarse-grain DFFs on different clocks"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, input clk2, input [7:0] d1, d2, output [7:0] q1, q2);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clk1), .D(d1), .Q(q1));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff2 (.CLK(clk2), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 2 t:$dff
+clkmerge -target clk1
+select -assert-count 2 t:$dff
+simplemap
+select -assert-count 16 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 2: Single clock domain - nothing to merge
+# =============================================================================
+log -header "Single clock domain - no merge needed"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input [7:0] d1, d2, output reg [7:0] q1, q2);
+always @(posedge clk) q1 <= d1;
+always @(posedge clk) q2 <= d2;
+endmodule
+EOF
+proc
+select -assert-count 2 t:$dff
+clkmerge
+select -assert-count 2 t:$dff
+design -reset
+log -pop
+
+# =============================================================================
+# Test 3: Posedge and negedge on same clock - polarity merge (coarse-grain)
+# After merge + simplemap, both should be posedge
+# =============================================================================
+log -header "Merge posedge and negedge on same clock (coarse-grain)"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk, input [7:0] d1, d2, output [7:0] q1, q2);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clk), .D(d1), .Q(q1));
+$dff #(.CLK_POLARITY(1'b0), .WIDTH(8)) ff2 (.CLK(clk), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 2 t:$dff
+clkmerge -target clk
+select -assert-count 2 t:$dff
+simplemap
+# Both 8-bit DFFs (16 bits total) should now be posedge
+select -assert-count 16 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 4: Fine-grain $_DFF_P_ and $_DFF_N_ merged with explicit -target
+# =============================================================================
+log -header "Merge fine-grain DFF_P and DFF_N using -target for posedge"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk, input d1, d2, output q1, q2);
+$_DFF_P_ ff1 (.C(clk), .D(d1), .Q(q1));
+$_DFF_N_ ff2 (.C(clk), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 1 t:$_DFF_P_
+select -assert-count 1 t:$_DFF_N_
+clkmerge -target clk
+select -assert-count 2 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 5: Fine-grain DFFs on different clocks merged with explicit target
+# =============================================================================
+log -header "Fine-grain DFFs on different clocks merged via -target"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2, input d1, d2, output q1, q2);
+$_DFF_P_ ff1 (.C(clk1), .D(d1), .Q(q1));
+$_DFF_N_ ff2 (.C(clk2), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 1 t:$_DFF_P_
+select -assert-count 1 t:$_DFF_N_
+clkmerge -target clk1
+select -assert-count 2 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 6: -target option to force specific clock signal (coarse-grain)
+# =============================================================================
+log -header "Using -target option to force clk2"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2, input [7:0] d1, d2, output [7:0] q1, q2);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clk1), .D(d1), .Q(q1));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff2 (.CLK(clk2), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 2 t:$dff
+clkmerge -target clk2
+select -assert-count 2 t:$dff
+simplemap
+select -assert-count 16 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 7: Three clock domains merged
+# =============================================================================
+log -header "Three clock domains merged"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clkA, clkB, clkC, input [7:0] d1, d2, d3, output [7:0] q1, q2, q3);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clkA), .D(d1), .Q(q1));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff2 (.CLK(clkB), .D(d2), .Q(q2));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff3 (.CLK(clkC), .D(d3), .Q(q3));
+endmodule
+EOF
+select -assert-count 3 t:$dff
+clkmerge -target clkA
+select -assert-count 3 t:$dff
+simplemap
+select -assert-count 24 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 8: Coarse-grain $dffe with different clocks and polarities
+# After merge, both should be posedge
+# =============================================================================
+log -header "Coarse-grain DFFE with different clocks and polarities"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2, en, input [7:0] d1, d2, output [7:0] q1, q2);
+$dffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clk1), .EN(en), .D(d1), .Q(q1));
+$dffe #(.CLK_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(8)) ff2 (.CLK(clk2), .EN(en), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 2 t:$dffe
+clkmerge -target clk1
+select -assert-count 2 t:$dffe
+simplemap
+# Both should now be posedge-clk, posedge-enable
+select -assert-count 16 t:$_DFFE_PP_
+select -assert-count 0 t:$_DFFE_NP_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 9: Non-clocked cells (latches) are ignored
+# =============================================================================
+log -header "Non-clocked cells are ignored"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2, en, input [7:0] d1, d2, d3, output [7:0] q1, q2, q3);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clk1), .D(d1), .Q(q1));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff2 (.CLK(clk2), .D(d2), .Q(q2));
+$dlatch #(.EN_POLARITY(1'b1), .WIDTH(8)) lat1 (.EN(en), .D(d3), .Q(q3));
+endmodule
+EOF
+select -assert-count 2 t:$dff
+select -assert-count 1 t:$dlatch
+clkmerge
+select -assert-count 2 t:$dff
+select -assert-count 1 t:$dlatch
+design -reset
+log -pop
+
+# =============================================================================
+# Test 10: Fine-grain $_DFFE_PP_ on different clocks merged with -target
+# =============================================================================
+log -header "Merge fine-grain DFFE_PP on different clocks"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2, en, input d1, d2, output q1, q2);
+$_DFFE_PP_ ff1 (.C(clk1), .E(en), .D(d1), .Q(q1));
+$_DFFE_PP_ ff2 (.C(clk2), .E(en), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 2 t:$_DFFE_PP_
+clkmerge -target clk1
+select -assert-count 2 t:$_DFFE_PP_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 11: Module with no FFs - pass should do nothing
+# =============================================================================
+log -header "Module with no FFs"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, b, output y);
+assign y = a & b;
+endmodule
+EOF
+clkmerge
+select -assert-count 1 t:$and
+design -reset
+log -pop
+
+# =============================================================================
+# Test 12: Miter-style use case - gold posedge clk1, gate negedge clk2
+# Verifies both clock signal and polarity are unified
+# =============================================================================
+log -header "Miter-style: gold posedge clk1, gate negedge clk2"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module miter(input clk1, clk2, input [7:0] d, output [7:0] q_gold, q_gate);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) gold_ff (.CLK(clk1), .D(d), .Q(q_gold));
+$dff #(.CLK_POLARITY(1'b0), .WIDTH(8)) gate_ff (.CLK(clk2), .D(d), .Q(q_gate));
+endmodule
+EOF
+select -assert-count 2 t:$dff
+clkmerge -target clk1
+select -assert-count 2 t:$dff
+simplemap
+# Both should be posedge after merge
+select -assert-count 16 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 13: Fine-grain $_DFF_PN0_ and $_DFF_NN0_ - async reset variants
+# =============================================================================
+log -header "Merge fine-grain DFF with async reset - DFF_PN0 and DFF_NN0"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk, rst, input d1, d2, output q1, q2);
+$_DFF_PN0_ ff1 (.C(clk), .R(rst), .D(d1), .Q(q1));
+$_DFF_NN0_ ff2 (.C(clk), .R(rst), .D(d2), .Q(q2));
+endmodule
+EOF
+select -assert-count 1 t:$_DFF_PN0_
+select -assert-count 1 t:$_DFF_NN0_
+clkmerge -target clk
+select -assert-count 2 t:$_DFF_PN0_
+select -assert-count 0 t:$_DFF_NN0_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 14: Many FFs across two domains - verify all unified
+# =============================================================================
+log -header "Many FFs across two clock domains"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2,
+           input [7:0] d1, d2, d3, d4, d5,
+           output [7:0] q1, q2, q3, q4, q5);
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff1 (.CLK(clk1), .D(d1), .Q(q1));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff2 (.CLK(clk1), .D(d2), .Q(q2));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff3 (.CLK(clk1), .D(d3), .Q(q3));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff4 (.CLK(clk2), .D(d4), .Q(q4));
+$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff5 (.CLK(clk2), .D(d5), .Q(q5));
+endmodule
+EOF
+select -assert-count 5 t:$dff
+clkmerge -target clk1
+select -assert-count 5 t:$dff
+simplemap
+# 5 * 8 = 40 bits, all posedge
+select -assert-count 40 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
+
+# =============================================================================
+# Test 15: Verilog-level posedge/negedge merging - verify polarity unified
+# =============================================================================
+log -header "Verilog-level posedge and negedge merge"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input clk, input [7:0] d1, d2, output reg [7:0] q1, q2);
+always @(posedge clk) q1 <= d1;
+always @(negedge clk) q2 <= d2;
+endmodule
+EOF
+proc
+select -assert-count 2 t:$dff
+clkmerge -target clk
+select -assert-count 2 t:$dff
+simplemap
+select -assert-count 16 t:$_DFF_P_
+select -assert-count 0 t:$_DFF_N_
+design -reset
+log -pop
