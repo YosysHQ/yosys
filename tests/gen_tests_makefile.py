@@ -12,13 +12,17 @@ common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk")
 def _cwd_base():
     return os.path.basename(os.getcwd())
 
-def generate_target(name, command):
+def generate_target(name, command, deps = None):
     #target = f"{_cwd_base()}-{name}"
     target = f"{name}"
     print(f"all: {target}")
     print(f".PHONY: {target}")
     print(f"{target}_cmd={command}")
-    print(f"{target}:")
+    if deps:
+        print(f"{target}: {' '.join(deps)}")
+    else:
+        print(f"{target}:")
+
     print(f"\t@$(call run_test,{target}, $({target}_cmd))")
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
