@@ -1213,7 +1213,7 @@ skip_fine_alu:
 			}
 		}
 
-		if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex)))
+		if (!keepdc && cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex)))
 		{
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec b = cell->getPort(ID::B);
