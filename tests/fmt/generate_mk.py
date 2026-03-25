@@ -90,7 +90,7 @@ def extra():
         "./iverilog-always_full-1 > tmp.log",
         "grep -v '\\$finish called' tmp.log > iverilog-always_full-1.log",
         "diff iverilog-always_full.log iverilog-always_full-1.log",
-    ]))
+    ]), deps=["cxxrtl_always_full"])
 
     gen_tests_makefile.generate_target("display_lm", cmd([
         "$(YOSYS) -p \"read_verilog display_lm.v\" >yosys-display_lm.log 2>&1",
