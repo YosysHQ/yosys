@@ -6,11 +6,11 @@ sys.path.append("..")
 import gen_tests_makefile
 
 def cmd(lines):
-    return " ; \\\n".join(lines)
+    return " && \\\n".join(lines)
 
 def initial_display():
     gen_tests_makefile.generate_target("initial_display", cmd([
-        f"$(YOSYS) -p \"read_verilog initial_display.v\" | awk \"/<<<BEGIN>>>/,/<<<END>>>/ {{print $$0}}\" >yosys-initial_display.log 2>&1",
+        f"$(YOSYS) -p \"read_verilog initial_display.v\" | awk '/<<<BEGIN>>>/,/<<<END>>>/ {{print $$0}}' >yosys-initial_display.log 2>&1",
         "iverilog -o iverilog-initial_display initial_display.v",
         "./iverilog-initial_display >iverilog-initial_display.log",
         "diff yosys-initial_display.log iverilog-initial_display.log",
@@ -94,22 +94,22 @@ def extra():
     gen_tests_makefile.generate_target("display_lm", cmd([
         "$(YOSYS) -p \"read_verilog display_lm.v\" >yosys-display_lm.log 2>&1",
         "$(YOSYS) -p \"read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc\" >/dev/null 2>&1",
-        f"$${{CXX:-g++}} -std=c++11 -o yosys-display_lm_cc -I../../backends/cxxrtl/runtime display_lm_tb.cc -lstdc++",
-        "./yosys-display_lm_cc >yosys-display_lm_cc.log",
-        "for log in yosys-display_lm.log yosys-display_lm_cc.log; do "
-        "grep \"^%l: \\\\bot\\$\" \"$log\" >/dev/null 2>&1; "
-        "grep \"^%m: \\\\bot\\$\" \"$log\" >/dev/null 2>&1; "
-        "done",
+        f"$${{CXX:-g++}} -std=c++11 -o yosys-display_lm_cc -I../../backends/cxxrtl/runtime display_lm_tb.cc -lstdc++ >/dev/null 2>&1",
+        "./yosys-display_lm_cc >yosys-display_lm_cc.log 2>/dev/null",
+        "grep \"^%l: \\\\\\bot\\$$\" \"yosys-display_lm.log\" >/dev/null 2>&1",
+        "grep \"^%m: \\\\\\bot\\$$\" \"yosys-display_lm.log\" >/dev/null 2>&1",
+        "grep \"^%l: \\\\\\bot\\$$\" \"yosys-display_lm_cc.log\" >/dev/null 2>&1",
+        "grep \"^%m: \\\\\\bot\\$$\" \"yosys-display_lm_cc.log\" >/dev/null 2>&1",
     ]))
 
 
 def main():
     def callback():
-        #initial_display()
+        initial_display()
         always_display()
         roundtrip()
         cxxrtl()
-        #extra()
+        extra()
 
     gen_tests_makefile.generate_custom(callback)
 
