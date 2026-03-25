@@ -1213,7 +1213,7 @@ skip_fine_alu:
 			}
 		}
 
-		if (!keepdc && cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex)))
+		if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex)))
 		{
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec b = cell->getPort(ID::B);
@@ -1235,8 +1235,13 @@ skip_fine_alu:
 					replace_cell(assign_map, module, cell, "isneq", ID::Y, new_y);
 					goto next_cell;
 				}
-				if (a[i] == b[i])
-					continue;
+				if (keepdc) {
+					if (!a[i].is_wire() && !b[i].is_wire() && a[i].data != RTLIL::State::Sx && b[i].data != RTLIL::State::Sx && a[i] == b[i])
+						continue;
+				} else {
+					if (a[i] == b[i])
+						continue;
+				}
 				new_a.append(a[i]);
 				new_b.append(b[i]);
 			}
