@@ -87,7 +87,8 @@ def extra():
     gen_tests_makefile.generate_target("always_full_equiv", cmd([
         "$(YOSYS) -p \"read_verilog always_full.v; prep; clean\" -o yosys-always_full-1.v",
         "iverilog -o iverilog-always_full-1 yosys-always_full-1.v always_full_tb.v",
-        "./iverilog-always_full-1 | grep -v \"$finish called\" >iverilog-always_full-1.log",
+        "./iverilog-always_full-1 > tmp.log",
+        "grep -v '\\$finish called' tmp.log > iverilog-always_full-1.log",
         "diff iverilog-always_full.log iverilog-always_full-1.log",
     ]))
 
