@@ -564,32 +564,33 @@ struct AST_INTERNAL::ProcessGenerator
 	// e.g. when the last statement in the code "a = 23; if (b) a = 42; a = 0;" is processed this
 	// function is called to clean up the first two assignments as they are overwritten by
 	// the third assignment.
-	void removeSignalFromCaseTree(const pool<RTLIL::SigBit> &pattern_bits, RTLIL::CaseRule *cs)
+	void removeSignalFromCaseTree(const pool<RTLIL::SigBit> &pattern_bits, const pool<RTLIL::Wire*> &pattern_wires, RTLIL::CaseRule *cs)
 	{
-		// Optimization: check actions in reverse order and stop early if we've found all pattern bits
-		pool<RTLIL::SigBit> remaining_bits = pattern_bits;
-
-		for (auto it = cs->actions.rbegin(); it != cs->actions.rend(); ++it) {
-			bool has_pattern = false;
-			for (auto &bit : it->first) {
-				if (bit.wire != NULL && remaining_bits.count(bit)) {
-					has_pattern = true;
-					remaining_bits.erase(bit);
+		for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it) {
+			// Quick check: if the lvalue doesn't reference any pattern wires, skip
+			bool may_overlap = false;
+			for (auto &chunk : it->first.chunks()) {
+				if (chunk.wire != NULL && pattern_wires.count(chunk.wire)) {
+					may_overlap = true;
+					break;
 				}
 			}
-
-			if (has_pattern) {
+			if (may_overlap)
 				it->first.remove2(pattern_bits, &it->second);
-			}
-
-			// Early exit if we've processed all bits in pattern
-			if (remaining_bits.empty())
-				break;
 		}
 
 		for (auto it = cs->switches.begin(); it != cs->switches.end(); it++)
 			for (auto it2 = (*it)->cases.begin(); it2 != (*it)->cases.end(); it2++)
-				removeSignalFromCaseTree(pattern_bits, *it2);
+				removeSignalFromCaseTree(pattern_bits, pattern_wires, *it2);
+	}
+
+	void removeSignalFromCaseTree(const pool<RTLIL::SigBit> &pattern_bits, RTLIL::CaseRule *cs)
+	{
+		// Build a set of wires referenced by the pattern for quick filtering
+		pool<RTLIL::Wire*> pattern_wires;
+		for (auto &bit : pattern_bits)
+			pattern_wires.insert(bit.wire);
+		removeSignalFromCaseTree(pattern_bits, pattern_wires, cs);
 	}
 
 	void removeSignalFromCaseTree(const RTLIL::SigSpec &pattern, RTLIL::CaseRule *cs)
