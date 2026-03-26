@@ -566,17 +566,40 @@ struct AST_INTERNAL::ProcessGenerator
 	// the third assignment.
 	void removeSignalFromCaseTree(const pool<RTLIL::SigBit> &pattern_bits, const pool<RTLIL::Wire*> &pattern_wires, RTLIL::CaseRule *cs)
 	{
-		for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it) {
-			// Quick check: if the lvalue doesn't reference any pattern wires, skip
-			bool may_overlap = false;
-			for (auto &chunk : it->first.chunks()) {
-				if (chunk.wire != NULL && pattern_wires.count(chunk.wire)) {
-					may_overlap = true;
-					break;
+		// If pattern only uses one wire, we can check more efficiently
+		if (pattern_wires.size() == 1) {
+			RTLIL::Wire *pattern_wire = *pattern_wires.begin();
+			for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it) {
+				// Quick check using first/last bit heuristic
+				int sz = it->first.size();
+				if (sz == 0) continue;
+				RTLIL::Wire *first_wire = it->first[0].wire;
+				if (first_wire == pattern_wire ||
+				    (sz > 1 && it->first[sz-1].wire == pattern_wire)) {
+					it->first.remove2(pattern_bits, &it->second);
+				} else if (first_wire != it->first[sz > 1 ? sz-1 : 0].wire) {
+					// Multiple wires - need full check
+					for (auto &chunk : it->first.chunks()) {
+						if (chunk.wire == pattern_wire) {
+							it->first.remove2(pattern_bits, &it->second);
+							break;
+						}
+					}
 				}
 			}
-			if (may_overlap)
-				it->first.remove2(pattern_bits, &it->second);
+		} else {
+			for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it) {
+				// Quick check: if the lvalue doesn't reference any pattern wires, skip
+				bool may_overlap = false;
+				for (auto &chunk : it->first.chunks()) {
+					if (chunk.wire != NULL && pattern_wires.count(chunk.wire)) {
+						may_overlap = true;
+						break;
+					}
+				}
+				if (may_overlap)
+					it->first.remove2(pattern_bits, &it->second);
+			}
 		}
 
 		for (auto it = cs->switches.begin(); it != cs->switches.end(); it++)
