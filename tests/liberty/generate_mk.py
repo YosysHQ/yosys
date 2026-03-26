@@ -12,13 +12,13 @@ def lib_tests():
         base = os.path.splitext(lib)[0]
 
         gen_tests_makefile.generate_cmd_test(lib, [
-            f'$(YOSYS) -p "read_verilog small.v; synth -top small; dfflibmap -info -liberty {lib}" -ql {base}.log;',
+            f'$(YOSYS) -p "read_verilog small.v; synth -top small; dfflibmap -info -liberty {lib}" -ql {base}.log',
 
-            f'../../yosys-filterlib - {lib} > {lib}.filtered;',
-            f'../../yosys-filterlib -verilogsim {lib} > {lib}.verilogsim;',
+            f'$(YOSYS_FILTERLIB) - {lib} > {lib}.filtered',
+            f'$(YOSYS_FILTERLIB) -verilogsim {lib} > {lib}.verilogsim',
 
-            f'diff {lib}.filtered {lib}.filtered.ok;',
-            f'diff {lib}.verilogsim {lib}.verilogsim.ok;',
+            f'diff {lib}.filtered {lib}.filtered.ok',
+            f'diff {lib}.verilogsim {lib}.verilogsim.ok',
 
             f'if [ -e {base}.log.ok ]; then '
             f'$(YOSYS) -p "dfflibmap -info -liberty {lib}" -TqqQl {base}.log; '
@@ -36,7 +36,8 @@ def main():
         lib_tests()
         ys_tests()
 
-    gen_tests_makefile.generate_custom(callback)
+    gen_tests_makefile.generate_custom(callback,
+        [f"YOSYS_FILTERLIB ?= {gen_tests_makefile.yosys_basedir}/yosys-filterlib"])
 
 
 if __name__ == "__main__":
