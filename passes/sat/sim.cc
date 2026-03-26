@@ -444,6 +444,13 @@ struct SimInstance
 		bool did_something = false;
 
 		sig = sigmap(sig);
+		if (shared->debug) {
+			log("GetSize(sig) %s: %d, GetSize(value) %s: %d\n",
+				log_signal(sig),
+				GetSize(sig),
+				log_signal(value),
+				GetSize(value));
+		}
 		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)

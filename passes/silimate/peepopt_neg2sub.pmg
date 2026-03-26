@@ -62,8 +62,8 @@ code add_a add_b add_y neg_a neg_y neg_on_a add_a_signed add_b_signed neg_signed
 		add->setPort(\Y, add_y);
 		add->type = $sub;
 
-		log("neg2sub pattern in %s: add=%s, neg=%s (safe sub replacement)\n",
-			log_id(module), log_id(add), log_id(neg));
+		log("        add=%s, neg=%s (safe sub replacement)\n",
+			log_id(add), log_id(neg));
 
 		add->fixup_parameters();
 		autoremove(neg);

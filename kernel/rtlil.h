@@ -1684,7 +1684,10 @@ public:
 
 	bool known_driver() const;
 
-	bool is_mostly_const() const;
+	// Constant bit ratio helpers: const_ratio() returns [0.0, 1.0],
+	// is_mostly_const() returns true if const_ratio() > threshold
+	double const_ratio() const;
+	bool is_mostly_const(double const_ratio_threshold = 0.5) const;
 	bool is_fully_const() const;
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
@@ -2528,6 +2531,19 @@ public:
 	void unsetParam(RTLIL::IdString paramname);
 	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
+
+	// Primitive-type parameter accessors for efficient Python interop.
+	// NOTE: silently truncates wide (>32-bit) parameters and reinterprets string-typed Const values
+	std::map<std::string, int> getParamsAsInts() const;
+
+	// Returns the maximum const_ratio() across all input ports, 0.0 if no input ports
+	double maxInputConstRatio() const;
+
+	// Returns the names of all output ports (backslash-stripped)
+	std::vector<std::string> getOutputPortNames() const;
+
+	// Returns {port_name: sig.size()} for all connections, port names backslash-stripped
+	std::map<std::string, int> getConnectionSizes() const;
 
 	void sort();
 	void check();
