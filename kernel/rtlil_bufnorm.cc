@@ -1057,7 +1057,7 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
 {
 	bool is_input_port = false;
-	if (module->sig_norm_index != nullptr) {
+	if (module->sig_norm_index != nullptr && type != ID($specify2)) {
 		module->sig_norm_index->sigmap.apply(signal);
 		auto dir = port_dir(portname);
 
