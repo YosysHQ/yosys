@@ -11,6 +11,9 @@ import os
 def base(fn):
     return os.path.splitext(fn)[0]
 
+def cmd(lines):
+    return " \\\n".join(lines)
+
 # NB: *.aag and *.aig must contain a symbol table naming the primary
 #     inputs and outputs, otherwise ABC and Yosys will name them
 #     arbitrarily (and inconsistently with each other).
@@ -24,7 +27,7 @@ def create_tests():
     for aag in aags:
         b = base(aag)
 
-        cmd = [
+        gen_tests_makefile.generate_target(aag, cmd([
             f"$(ABC) -q \"read -c {b}.aig; write {b}_ref.v\";",
             "$(YOSYS) -qp \"",
             f"read_verilog {b}_ref.v;",
@@ -38,20 +41,18 @@ def create_tests():
             "miter -equiv -flatten -make_assert -make_outputs gold gate miter;",
             "sat -verify -prove-asserts -show-ports -seq 16 miter;",
             f"\" -l {aag}.log"
-        ]
-
-        gen_tests_makefile.generate_cmd_test(aag, cmd)
+        ]))
 
     # ---- Yosys script tests ----
     for ys in yss:
         gen_tests_makefile.generate_ys_test(ys)
 
-    cmd = [ "rm -rf gate; mkdir gate;",
-            "$(YOSYS) --no-version -p \"test_cell -aigmap -w gate/ -n 1 -s 1 all\";",
-            "set -o pipefail; diff --brief gold gate | tee aigmap.err;",
-            "rm -f aigmap.err" ]
-
-    gen_tests_makefile.generate_cmd_test("aigmap", cmd)
+    gen_tests_makefile.generate_target("aigmap", cmd([
+        "rm -rf gate; mkdir gate;",
+        "$(YOSYS) --no-version -p \"test_cell -aigmap -w gate/ -n 1 -s 1 all\";",
+        "set -o pipefail; diff --brief gold gate | tee aigmap.err;",
+        "rm -f aigmap.err"
+    ]))
 
 extra = [ f"ABC ?= {gen_tests_makefile.yosys_basedir}/yosys-abc", "SHELL := /bin/bash" ]
 

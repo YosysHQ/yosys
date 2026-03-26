@@ -56,11 +56,11 @@ def unpack_cmd(cmd):
     if isinstance(cmd, str):
         return cmd
     if isinstance(cmd, (list, tuple)):
-        return " \\\n".join(cmd)
+        return " && \\\n".join(cmd)
     raise TypeError("cmd must be a string or a list/tuple of strings")
 
-def generate_cmd_test(test_name, cmd, yosys_args=""):
-    generate_target(test_name, unpack_cmd(cmd))
+def generate_cmd_test(test_name, cmd, yosys_args="", deps = None):
+    generate_target(test_name, unpack_cmd(cmd), deps)
 
 def generate_tests(argv, cmds):
     parser = argparse.ArgumentParser(add_help=False)
