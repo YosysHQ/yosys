@@ -94,7 +94,7 @@ code root_add inner_add_A not_gate_A subtrahend minuend result_sig is_signed
 
     subtrahend = port(not_gate_A, \A);
 
-    log("manual2sub in %s: Found (a + ~b) + 1 pattern, creating $sub for %s\n", log_id(module), log_signal(result_sig));
+    log("        creating $sub for %s from (a + ~b) + 1\n", log_signal(result_sig));
     Cell *cell = root_add;
     int width = GetSize(result_sig);
     int inner_width = GetSize(inner_y);
@@ -196,7 +196,7 @@ code root_add inner_add_B not_gate_B minuend subtrahend result_sig is_signed
     else
         minuend = root_a;
 
-    log("manual2sub in %s: Found a + (~b + 1) pattern, creating $sub for %s\n", log_id(module), log_signal(result_sig));
+    log("        creating $sub for %s from a + (~b + 1)\n", log_signal(result_sig));
     Cell *cell = root_add;
     int width = GetSize(result_sig);
     int inner_width = GetSize(inner_add_B->getPort(ID::Y));
