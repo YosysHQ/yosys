@@ -11,7 +11,7 @@ sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip
 
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd fsm # Constrain all select calls below inside the top module
-stat
+
 select -assert-count 6 t:LUTFF
 select -assert-max 5 t:LUT2
 select -assert-max 4 t:LUT3
