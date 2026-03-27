@@ -1,5 +1,3 @@
-# Assert against abc synth with and without csa, hopefully prevent regressions
-# Baseline
 read_verilog <<EOT
 module bench(
 	input [7:0] a, b, c, d, e, f, g, h,
@@ -16,7 +14,6 @@ abc -g AND,OR,XOR
 select -assert-min 236 t:$_AND_ t:$_OR_ t:$_XOR_ %u
 design -reset
 
-# With csa_tree
 read_verilog <<EOT
 module bench(
 	input [7:0] a, b, c, d, e, f, g, h,
@@ -34,7 +31,6 @@ abc -g AND,OR,XOR
 select -assert-max 235 t:$_AND_ t:$_OR_ t:$_XOR_ %u
 design -reset
 
-# Depth-otimal baseline
 read_verilog <<EOT
 module bench(
 	input [7:0] a, b, c, d, e, f, g, h,
@@ -51,7 +47,6 @@ abc -D 1
 select -assert-min 240 t:$_AND_ t:$_NAND_ t:$_OR_ t:$_NOR_ t:$_XOR_ t:$_XNOR_ t:$_NOT_ %u
 design -reset
 
-# Depth-optimal with csa_tree
 read_verilog <<EOT
 module bench(
 	input [7:0] a, b, c, d, e, f, g, h,
