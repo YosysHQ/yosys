@@ -177,3 +177,21 @@ design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 design -reset
+
+read_verilog <<EOT
+module equiv_macc_sub_mixed(
+	input [3:0] a, b, c, d,
+	output [3:0] y
+);
+	assign y = a + b - c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt csa_tree
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset

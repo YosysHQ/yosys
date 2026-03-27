@@ -100,3 +100,141 @@ select -assert-count 1 t:$add
 select -assert-count 1 t:$not
 select -assert-none t:$sub
 design -reset
+
+read_verilog <<EOT
+module alu_sub_3op(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a - b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt_clean
+csa_tree
+opt_clean
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+select -assert-none t:$sub
+design -reset
+
+read_verilog <<EOT
+module alu_sub_mixed(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a + b - c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt_clean
+csa_tree
+opt_clean
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+select -assert-none t:$sub
+design -reset
+
+read_verilog <<EOT
+module alu_sub_all(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a - b - c - d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt_clean
+csa_tree
+opt_clean
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+select -assert-none t:$sub
+design -reset
+
+read_verilog <<EOT
+module alu_sub_signed(
+	input signed [7:0] a, b, c, d,
+	output signed [9:0] y
+);
+	assign y = a + b - c - d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt_clean
+csa_tree
+opt_clean
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+select -assert-none t:$sub
+design -reset
+
+read_verilog <<EOT
+module macc_sub_mixed(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a + b - c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+csa_tree
+opt_clean
+select -assert-none t:$macc t:$macc_v2 %u
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module macc_const(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c + 8'd42;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+csa_tree
+opt_clean
+select -assert-none t:$macc t:$macc_v2 %u
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module macc_two(
+	input [7:0] a, b, c, d, e, f, g, h,
+	output [7:0] y1, y2
+);
+	assign y1 = a + b + c + d;
+	assign y2 = e + f + g + h;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+csa_tree
+opt_clean
+select -assert-none t:$macc t:$macc_v2 %u
+select -assert-count 4 t:$fa
+select -assert-count 2 t:$add
+design -reset
