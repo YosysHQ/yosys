@@ -1242,7 +1242,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 	if (!config.signal_map_file.empty()) {
 		FILE *mf = fopen(config.signal_map_file.c_str(), state_index == 0 ? "wt" : "at");
 		if (mf == nullptr) {
-			logs.log("Opening %s for writing failed: %s\n", config.signal_map_file, strerror(errno));
+			logs.log("Opening %s for writing failed: %s\n", config.signal_map_file.c_str(), strerror(errno));
 		} else {
 			if (clk_sig.size() != 0) {
 				std::string clk_str = log_signal(clk_sig);
