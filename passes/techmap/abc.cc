@@ -150,6 +150,7 @@ struct AbcConfig
 	int abc_max_node_retention_origins = 5; // number of node retention origins (default 5)
 	std::string signal_map_file;
 	std::string cdc_file;
+	bool filter_non_trigger_outputs = false;
 };
 
 struct AbcSigVal {
@@ -1214,14 +1215,15 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 		fprintf(f, " dummy_input\n");
 	fprintf(f, "\n");
 
-	// Only keep the output port whose signal originates from the miter equiv NOT cell
-	for (auto &si : signal_list) {
-		if (!si.is_port || si.type == G(NONE))
-			continue;
-		if (si.type == G(FF) || si.type == G(FF0) || si.type == G(FF1))
-			continue;
-		if (si.bit_str.find("trigger") == std::string::npos)
-			si.is_port = false;
+	if (config.filter_non_trigger_outputs) {
+		for (auto &si : signal_list) {
+			if (!si.is_port || si.type == G(NONE))
+				continue;
+			if (si.type == G(FF) || si.type == G(FF0) || si.type == G(FF1))
+				continue;
+			if (si.bit_str.find("trigger") == std::string::npos)
+				si.is_port = false;
+		}
 	}
 
 	int count_output = 0;
@@ -1229,7 +1231,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 	for (auto &si : signal_list) {
 		if (!si.is_port || si.type == G(NONE))
 			continue;
-		if (si.type == G(FF) || si.type == G(FF0) || si.type == G(FF1))
+		if (config.filter_non_trigger_outputs && (si.type == G(FF) || si.type == G(FF0) || si.type == G(FF1)))
 			continue;
 		fprintf(f, " ys__n%d", si.id);
 		po_map[count_output++] = si.bit_str;
@@ -2124,6 +2126,10 @@ struct AbcPass : public Pass {
 		log("        write a mapping of signals that cross clock domain boundaries.\n");
 		log("        each line lists a signal and the domain indices it bridges.\n");
 		log("\n");
+		log("    -filter_non_trigger_outputs\n");
+		log("        only keep output ports whose signal name contains 'trigger'.\n");
+		log("        intended for miter/equivalence-checking flows. off by default.\n");
+		log("\n");
 		log("    -reserved_cores <num>\n");
 		log("        number of CPU cores to reserve for the main thread and other work.\n");
 		log("        Default is 4. The actual number of worker threads used is:\n");
@@ -2195,6 +2201,7 @@ struct AbcPass : public Pass {
 		config.reserved_cores = design->scratchpad_get_int("abc.reserved_cores", 4);
 		config.signal_map_file = design->scratchpad_get_string("abc.signal_map", "");
 		config.cdc_file = design->scratchpad_get_string("abc.cdc_map", "");
+		config.filter_non_trigger_outputs = design->scratchpad_get_bool("abc.filter_non_trigger_outputs", false);
 
 		if (config.cleanup)
 			config.global_tempdir_name = get_base_tmpdir() + "/";
@@ -2344,6 +2351,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-cdc_map" && argidx+1 < args.size()) {
 				config.cdc_file = args[++argidx];
+				continue;
+			}
+			if (arg == "-filter_non_trigger_outputs") {
+				config.filter_non_trigger_outputs = true;
 				continue;
 			}
 			break;
