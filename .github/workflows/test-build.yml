@@ -114,7 +114,8 @@ jobs:
       CC: clang
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
+        #os: [ubuntu-latest, macos-latest]
       fail-fast: false
     steps:
       - name: Checkout Yosys

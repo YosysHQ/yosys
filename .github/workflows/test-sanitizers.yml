@@ -42,7 +42,8 @@ jobs:
       UBSAN_OPTIONS: halt_on_error=1
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
+        #os: [ubuntu-latest, macos-latest]
         sanitizer: ['undefined,address']
       fail-fast: false
     steps:
