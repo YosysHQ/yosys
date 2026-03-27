@@ -236,6 +236,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("ql_dsp_macc");
 
 			run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=20 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=11 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__QL_MUL20X18");
+			run("chtype -set $mul t:$__soft_mul");
 			run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=10 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__QL_MUL10X9");
 			run("chtype -set $mul t:$__soft_mul");
 

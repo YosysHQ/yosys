@@ -71,6 +71,7 @@
     "variant": "cpp",
     "algorithm": "cpp",
     "*.inc": "cpp",
-    "tuple": "cpp"
+    "tuple": "cpp",
+    "typeindex": "cpp"
   }
 }

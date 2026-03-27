@@ -9,7 +9,6 @@ OBJS += passes/opt/opt_muxtree.o
 OBJS += passes/opt/opt_reduce.o
 OBJS += passes/opt/opt_dff.o
 OBJS += passes/opt/opt_share.o
-OBJS += passes/opt/opt_clean.o
 OBJS += passes/opt/opt_expr.o
 OBJS += passes/opt/opt_hier.o
 
@@ -41,3 +40,5 @@ PEEPOPT_PATTERN += passes/opt/peepopt_sub_neg.pmg
 
 passes/opt/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
+
+include $(YOSYS_SRC)/passes/opt/opt_clean/Makefile.inc

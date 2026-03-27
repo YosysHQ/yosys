@@ -176,7 +176,19 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.62+55
+YOSYS_VER := 0.63
+
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+    GIT_COMMIT_COUNT := $(or $(shell git rev-list --count v$(YOSYS_VER)..HEAD 2>/dev/null),0)
+    ifneq ($(GIT_COMMIT_COUNT),0)
+        YOSYS_VER := $(YOSYS_VER)+$(GIT_COMMIT_COUNT)
+    endif
+else
+    YOSYS_VER := $(YOSYS_VER)+post
+endif
+endif
+
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -634,6 +646,7 @@ $(eval $(call add_include_file,kernel/bitpattern.h))
 $(eval $(call add_include_file,kernel/cellaigs.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
+$(eval $(call add_include_file,kernel/newcelltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/cost.h))
@@ -846,6 +859,24 @@ endif
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $<
 
+YOSYS_REPO :=
+ifneq (, $(shell command -v git 2>/dev/null))
+ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
+	GIT_REMOTE := $(strip $(shell git config --get remote.origin.url 2>/dev/null | $(AWK) '{print tolower($$0)}'))
+	ifneq ($(strip $(GIT_REMOTE)),)
+		YOSYS_REPO := $(strip $(shell echo $(GIT_REMOTE) | $(AWK) -F '[:/]' '{gsub(/\.git$$/, "", $$NF); printf "%s/%s", $$(NF-1), $$NF}'))
+	endif
+	ifeq ($(strip $(YOSYS_REPO)),yosyshq/yosys)
+		YOSYS_REPO :=
+	endif
+	GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+	ifeq ($(filter main HEAD release/v%,$(GIT_BRANCH)),)
+		YOSYS_REPO := $(YOSYS_REPO) at $(GIT_BRANCH)
+	endif
+	YOSYS_REPO := $(strip $(YOSYS_REPO))
+endif
+endif
+
 YOSYS_GIT_STR := $(GIT_REV)$(GIT_DIRTY)
 YOSYS_COMPILER := $(notdir $(CXX)) $(shell $(CXX) --version | tr ' ()' '\n' | grep '^[0-9]' | head -n1) $(filter -f% -m% -O% -DNDEBUG,$(CXXFLAGS))
 YOSYS_VER_STR := Preqorsor $(YOSYS_VER) (git sha1 $(YOSYS_GIT_STR), $(YOSYS_COMPILER))
@@ -942,6 +973,7 @@ endif
 
 # Tests that generate .mk with tests/gen-tests-makefile.sh
 MK_TEST_DIRS =
+MK_TEST_DIRS += tests/arch/analogdevices
 MK_TEST_DIRS += tests/arch/anlogic
 MK_TEST_DIRS += tests/arch/ecp5
 MK_TEST_DIRS += tests/arch/efinix

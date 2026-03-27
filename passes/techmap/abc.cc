@@ -43,7 +43,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
 #include "kernel/cost.h"
@@ -129,7 +129,6 @@ struct AbcConfig
 	std::string delay_target;
 	std::string sop_inputs;
 	std::string sop_products;
-	std::string lutin_shared;
 	std::vector<std::string> dont_use_cells;
 	bool cleanup = true;
 	bool keepff = false;
@@ -1049,7 +1048,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 				all_luts_cost_same = false;
 		abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !config.fast_mode)
-			abc_script += "; lutpack {S}";
+			abc_script += "; lutpack -S 1";
 	} else if (!config.liberty_files.empty() || !config.genlib_files.empty())
 		abc_script += config.constr_file.empty() ?
 			(config.fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (config.fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
@@ -1071,8 +1070,6 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{P}", pos))
 		abc_script = abc_script.substr(0, pos) + config.sop_products + abc_script.substr(pos+3);
 
-	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
-		abc_script = abc_script.substr(0, pos) + config.lutin_shared + abc_script.substr(pos+3);
 	if (config.abc_dress)
 		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
 	abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
@@ -1894,7 +1891,7 @@ struct AbcPass : public Pass {
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR));
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack {S}"));
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1"));
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
@@ -1961,10 +1958,6 @@ struct AbcPass : public Pass {
 		log("    -P <num>\n");
 		log("        maximum number of SOP products.\n");
 		log("        (replaces {P} in the default scripts above)\n");
-		log("\n");
-		log("    -S <num>\n");
-		log("        maximum number of LUT inputs shared.\n");
-		log("        (replaces {S} in the default scripts above, default: -S 1)\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
@@ -2086,11 +2079,6 @@ struct AbcPass : public Pass {
 		if (design->scratchpad.count("abc.P")) {
 			config.sop_products = "-P " + design->scratchpad_get_string("abc.P");
 		}
-		if (design->scratchpad.count("abc.S")) {
-			config.lutin_shared = "-S " + design->scratchpad_get_string("abc.S");
-		} else {
-			config.lutin_shared = "-S 1";
-		}
 		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
 		config.sop_mode = design->scratchpad_get_bool("abc.sop", false);
@@ -2175,10 +2163,6 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-P" && argidx+1 < args.size()) {
 				config.sop_products = "-P " + args[++argidx];
-				continue;
-			}
-			if (arg == "-S" && argidx+1 < args.size()) {
-				config.lutin_shared = "-S " + args[++argidx];
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
@@ -2651,7 +2635,7 @@ struct AbcPass : public Pass {
 								sig2src[bit] = bit.wire->get_src_attribute();
 						}
 
-			CellTypes ct(design);
+			NewCellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
 			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());

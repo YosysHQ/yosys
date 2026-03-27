@@ -342,6 +342,9 @@ struct AST_INTERNAL::ProcessGenerator
 	// The most recently assigned $print or $check cell \PRIORITY.
 	int last_effect_priority;
 
+	// Track which signals have been assigned in current_case to avoid unnecessary removeSignalFromCaseTree calls
+	pool<RTLIL::SigBit> current_case_assigned_bits;
+
 	ProcessGenerator(std::unique_ptr<AstNode> a, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(std::move(a)), initSyncSignals(initSyncSignalsArg), last_effect_priority(0)
 	{
 		// rewrite lookahead references
@@ -403,6 +406,18 @@ struct AST_INTERNAL::ProcessGenerator
 				if (GetSize(syncrule->signal) != 1)
 					always->input_error("Found posedge/negedge event on a signal that is not 1 bit wide!\n");
 				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
+				// Automatic (nosync) variables must not become flip-flops: remove
+				// them from clocked sync rules so that proc_dff does not infer
+				// an unnecessary register for a purely combinational temporary.
+				syncrule->actions.erase(
+					std::remove_if(syncrule->actions.begin(), syncrule->actions.end(),
+						[](const RTLIL::SigSig &ss) {
+							for (auto &chunk : ss.first.chunks())
+								if (chunk.wire && chunk.wire->get_bool_attribute(ID::nosync))
+									return true;
+							return false;
+						}),
+					syncrule->actions.end());
 				proc->syncs.push_back(syncrule);
 			}
 		if (proc->syncs.empty()) {
@@ -418,6 +433,10 @@ struct AST_INTERNAL::ProcessGenerator
 			subst_rvalue_map = subst_lvalue_from.to_sigbit_dict(RTLIL::SigSpec(RTLIL::State::Sx, GetSize(subst_lvalue_from)));
 		} else {
 			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from);
+			// Track initial assignments
+			for (auto &bit : subst_lvalue_to)
+				if (bit.wire != NULL)
+					current_case_assigned_bits.insert(bit);
 		}
 
 		// process the AST
@@ -545,14 +564,42 @@ struct AST_INTERNAL::ProcessGenerator
 	// e.g. when the last statement in the code "a = 23; if (b) a = 42; a = 0;" is processed this
 	// function is called to clean up the first two assignments as they are overwritten by
 	// the third assignment.
-	void removeSignalFromCaseTree(const RTLIL::SigSpec &pattern, RTLIL::CaseRule *cs)
+	void removeSignalFromCaseTree(const pool<RTLIL::SigBit> &pattern_bits, RTLIL::CaseRule *cs)
 	{
-		for (auto it = cs->actions.begin(); it != cs->actions.end(); it++)
-			it->first.remove2(pattern, &it->second);
+		// Optimization: check actions in reverse order and stop early if we've found all pattern bits
+		pool<RTLIL::SigBit> remaining_bits = pattern_bits;
+
+		for (auto it = cs->actions.rbegin(); it != cs->actions.rend(); ++it) {
+			bool has_pattern = false;
+			for (auto &bit : it->first) {
+				if (bit.wire != NULL && remaining_bits.count(bit)) {
+					has_pattern = true;
+					remaining_bits.erase(bit);
+				}
+			}
+
+			if (has_pattern) {
+				it->first.remove2(pattern_bits, &it->second);
+			}
+
+			// Early exit if we've processed all bits in pattern
+			if (remaining_bits.empty())
+				break;
+		}
 
 		for (auto it = cs->switches.begin(); it != cs->switches.end(); it++)
 			for (auto it2 = (*it)->cases.begin(); it2 != (*it)->cases.end(); it2++)
-				removeSignalFromCaseTree(pattern, *it2);
+				removeSignalFromCaseTree(pattern_bits, *it2);
+	}
+
+	void removeSignalFromCaseTree(const RTLIL::SigSpec &pattern, RTLIL::CaseRule *cs)
+	{
+		pool<RTLIL::SigBit> pattern_bits;
+		pattern_bits.reserve(pattern.size());
+		for (auto &bit : pattern)
+			if (bit.wire != NULL)
+				pattern_bits.insert(bit);
+		removeSignalFromCaseTree(pattern_bits, cs);
 	}
 
 	// add an assignment (aka "action") but split it up in chunks. this way huge assignments
@@ -611,7 +658,23 @@ struct AST_INTERNAL::ProcessGenerator
 						subst_rvalue_map.set(unmapped_lvalue[i], rvalue[i]);
 				}
 
-				removeSignalFromCaseTree(lvalue, current_case);
+				// Check if any bits in lvalue have been assigned before in current_case
+				bool has_overlap = false;
+				for (auto &bit : lvalue) {
+					if (bit.wire != NULL && current_case_assigned_bits.count(bit)) {
+						has_overlap = true;
+						break;
+					}
+				}
+
+				if (has_overlap)
+					removeSignalFromCaseTree(lvalue, current_case);
+
+				// Track newly assigned bits
+				for (auto &bit : lvalue)
+					if (bit.wire != NULL)
+						current_case_assigned_bits.insert(bit);
+
 				remove_unwanted_lvalue_bits(lvalue, rvalue);
 				current_case->actions.push_back(RTLIL::SigSig(lvalue, rvalue));
 			}
@@ -658,9 +721,15 @@ struct AST_INTERNAL::ProcessGenerator
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
+					pool<RTLIL::SigBit> backup_assigned_bits = std::move(current_case_assigned_bits);
+					current_case_assigned_bits.clear();
 					set_src_attr(current_case, child.get());
 					last_generated_case = current_case;
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
+					// Track temp assignments
+					for (auto &bit : this_case_eq_ltemp)
+						if (bit.wire != NULL)
+							current_case_assigned_bits.insert(bit);
 					for (auto& node : child->children) {
 						if (node->type == AST_DEFAULT)
 							default_case = current_case;
@@ -674,6 +743,7 @@ struct AST_INTERNAL::ProcessGenerator
 					else
 						log_assert(current_case->compare.size() == 0);
 					current_case = backup_case;
+					current_case_assigned_bits = std::move(backup_assigned_bits);
 
 					subst_lvalue_map.restore();
 					subst_rvalue_map.restore();
@@ -702,8 +772,24 @@ struct AST_INTERNAL::ProcessGenerator
 					subst_rvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 				this_case_eq_lvalue.replace(subst_lvalue_map.stdmap());
-				removeSignalFromCaseTree(this_case_eq_lvalue, current_case);
+
+				// Check if any bits in lvalue have been assigned before in current_case
+				bool has_overlap = false;
+				for (auto &bit : this_case_eq_lvalue) {
+					if (bit.wire != NULL && current_case_assigned_bits.count(bit)) {
+						has_overlap = true;
+						break;
+					}
+				}
+
+				if (has_overlap)
+					removeSignalFromCaseTree(this_case_eq_lvalue, current_case);
+
 				addChunkActions(current_case->actions, this_case_eq_lvalue, this_case_eq_ltemp);
+				// Track newly assigned bits
+				for (auto &bit : this_case_eq_lvalue)
+					if (bit.wire != NULL)
+						current_case_assigned_bits.insert(bit);
 			}
 			break;
 

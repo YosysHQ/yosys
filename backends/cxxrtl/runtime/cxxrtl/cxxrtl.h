@@ -614,7 +614,7 @@ struct value : public expr_base<value<Bits>> {
 		int64_t divisor_shift = divisor.ctlz() - dividend.ctlz();
 		assert(divisor_shift >= 0);
 		divisor = divisor.shl(value<Bits>{(chunk::type) divisor_shift});
-		for (size_t step = 0; step <= divisor_shift; step++) {
+		for (size_t step = 0; step <= (uint64_t) divisor_shift; step++) {
 			quotient = quotient.shl(value<Bits>{1u});
 			if (!dividend.ucmp(divisor)) {
 				dividend = dividend.sub(divisor);
@@ -1119,7 +1119,7 @@ struct fmt_part {
 
 			case STRING: {
 				buf.reserve(Bits/8);
-				for (int i = 0; i < Bits; i += 8) {
+				for (size_t i = 0; i < Bits; i += 8) {
 					char ch = 0;
 					for (int j = 0; j < 8 && i + j < int(Bits); j++)
 						if (val.bit(i + j))

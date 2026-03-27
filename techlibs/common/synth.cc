@@ -326,13 +326,13 @@ struct SynthPass : public ScriptPass {
 			if ((!noabc && !flowmap) || help_mode) {
 #ifdef YOSYS_ENABLE_ABC
 				if (help_mode) {
-					run(abc + " -fast", "       (unless -noabc, unless -lut)");
-					run(abc + " -fast -lut k", "(unless -noabc, if -lut)");
+					run(abc, "       (unless -noabc, unless -lut)");
+					run(abc + " -lut k", "(unless -noabc, if -lut)");
 				} else {
 					if (lut)
-						run(stringf("%s -fast -lut %d", abc, lut));
+						run(stringf("%s -lut %d", abc, lut));
 					else
-						run(abc + " -fast");
+						run(abc);
 				}
 				run("opt -fast", "       (unless -noabc)");
 #endif

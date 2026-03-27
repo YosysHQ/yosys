@@ -309,7 +309,7 @@ struct SynthGowinPass : public ScriptPass
 				if (nolutram)
 					args += " -no-auto-distributed";
 			}
-			run(stringf("memory_libmap -lib +/gowin/lutrams.txt -lib +/gowin/brams.txt -D %s", family) + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run(stringf("memory_libmap -lib +/gowin/lutrams.txt -lib +/gowin/brams.txt%s", family == "gw5a" ? " -D gw5a" : "") + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
 			run(stringf("techmap -map +/gowin/lutrams_map.v -map +/gowin/brams_map%s.v", family == "gw5a" ? "_gw5a" : ""));
 		}
 
@@ -340,17 +340,18 @@ struct SynthGowinPass : public ScriptPass
 			run("opt_clean");
 			if (family == "gw5a") {
 				if (strict_gw5a_dffs) {
-					run("dfflegalize -cell $_SDFFE_PP?P_ r -cell $_DFFE_PP?P_ r");
+					run("dfflegalize -cell $_SDFFE_PP?P_ r -cell $_DFFE_PP?P_ r -cell $_DLATCH_?_ x -cell $_DLATCH_?P?_ x");
 				} else {
-					run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFFE_PP?P_ r -cell $_DFFE_PP?P_ r");
+					run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFFE_PP?P_ r -cell $_DFFE_PP?P_ r -cell $_DLATCH_?_ x -cell $_DLATCH_?P?_ x");
 				}
 			} else {
 				if (nodffe)
-					run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFF_?P?_ r -cell $_DFF_?P?_ r");
+					run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFF_?P?_ r -cell $_DFF_?P?_ r -cell $_DLATCH_?_ x -cell $_DLATCH_?P?_ x");
 				else
-					run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r -cell $_DFFE_?P?P_ r");
+					run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r -cell $_DFFE_?P?P_ r -cell $_DLATCH_?_ x -cell $_DLATCH_?P?_ x");
 			}
 			run("techmap -map +/gowin/cells_map.v");
+			run("techmap -map +/gowin/cells_latch.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}
