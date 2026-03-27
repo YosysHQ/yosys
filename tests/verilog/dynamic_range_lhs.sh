@@ -7,7 +7,7 @@ run() {
     right=$4
     echo "a=$alt s=$span l=$left r=$right"
 
-    ../../yosys -q \
+    $YOSYS -q \
         -DALT=$alt \
         -DSPAN=$span \
         -DLEFT=$left \

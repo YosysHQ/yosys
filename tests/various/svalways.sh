@@ -3,7 +3,7 @@
 trap 'echo "ERROR in svalways.sh" >&2; exit 1' ERR
 
 # Good case
-../../yosys -f "verilog -sv" -qp proc - <<EOT
+$YOSYS -f "verilog -sv" -qp proc - <<EOT
 module top(input clk, en, d, output reg p, q, r);
 
 always_ff @(posedge clk)
@@ -19,7 +19,7 @@ endmodule
 EOT
 
 # Incorrect always_comb syntax
-((../../yosys -f "verilog -sv" -qp proc -|| true) <<EOT
+(($YOSYS -f "verilog -sv" -qp proc -|| true) <<EOT
 module top(input d, output reg q);
 
 always_comb @(d)
@@ -30,7 +30,7 @@ EOT
 ) 2>&1 | grep -F "<stdin>:3: ERROR: syntax error, unexpected '@'" > /dev/null
 
 # Incorrect use of always_comb
-((../../yosys -f "verilog -sv" -qp proc -|| true) <<EOT
+(($YOSYS -f "verilog -sv" -qp proc -|| true) <<EOT
 module top(input en, d, output reg q);
 
 always_comb
@@ -41,7 +41,7 @@ EOT
 ) 2>&1 | grep -F "ERROR: Latch inferred for signal \`\\top.\\q' from always_comb process" > /dev/null
 
 # Incorrect use of always_latch
-((../../yosys -f "verilog -sv" -qp proc -|| true) <<EOT
+(($YOSYS -f "verilog -sv" -qp proc -|| true) <<EOT
 module top(input en, d, output reg q);
 
 always_latch
@@ -52,7 +52,7 @@ EOT
 ) 2>&1 | grep -F "ERROR: No latch inferred for signal \`\\top.\\q' from always_latch process" > /dev/null
 
 # Incorrect use of always_ff
-((../../yosys -f "verilog -sv" -qp proc -|| true) <<EOT
+(($YOSYS -f "verilog -sv" -qp proc -|| true) <<EOT
 module top(input en, d, output reg q);
 
 always_ff @(*)

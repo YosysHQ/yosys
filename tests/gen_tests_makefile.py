@@ -47,7 +47,7 @@ def generate_sv_test(sv_file, yosys_args="", commands=""):
         generate_target(sv_file, cmd)
 
 def generate_bash_test(sh_file, commands=""):
-    cmd = f"bash -v {sh_file} >{sh_file}.err 2>&1 && mv {sh_file}.err {sh_file}.log"
+    cmd = f"YOSYS=$(YOSYS) IVERILOG=iverilog bash -v {sh_file} >{sh_file}.err 2>&1 && mv {sh_file}.err {sh_file}.log"
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(sh_file, cmd)
@@ -125,7 +125,7 @@ def generate_custom(callback, extra=None):
             callback()
 
 def generate_autotest_file(test_file, commands):
-    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file}; \\\n{commands}"
+    cmd = f"YOSYS=$(YOSYS) IVERILOG=iverilog ../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file}; \\\n{commands}"
     generate_target(test_file, cmd)
 
 def generate_autotest(pattern, extra_flags, cmds=""):

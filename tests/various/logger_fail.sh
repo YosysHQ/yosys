@@ -10,7 +10,7 @@ runTest() {
 	want="$2"
 	shift 2
 	echo "running '$desc' with args $@"
-	output=`../../yosys -q "$@" 2>&1`
+	output=`$YOSYS -q "$@" 2>&1`
 	if [ $? -ne 1 ]; then
 		fail "exit code for '$desc' was not 1"
 	fi

@@ -157,7 +157,7 @@ do
 		fi
 
 		if [ ! -f ../${bn}_tb.v ]; then
-			"$toolsdir"/../../yosys -f "$frontend $include_opts -D_AUTOTB" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${refext}
+			$YOSYS -f "$frontend $include_opts -D_AUTOTB" -b "test_autotb $autotb_opts" -o ${bn}_tb.v ${bn}_ref.${refext}
 		else
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
@@ -171,7 +171,7 @@ do
 
 		test_count=0
 		test_passes() {
-			"$toolsdir"/../../yosys -b "verilog $backend_opts" -o ${bn}_syn${test_count}.v "$@"
+			$YOSYS -b "verilog $backend_opts" -o ${bn}_syn${test_count}.v "$@"
 			touch ${bn}.iverilog
 			compile_and_run ${bn}_tb_syn${test_count} ${bn}_out_syn${test_count} \
 					${bn}_tb.v ${bn}_syn${test_count}.v "${libs[@]}" \
@@ -201,7 +201,7 @@ do
 			test_passes -f "$frontend $include_opts" -p "hierarchy; synth -run coarse; techmap; opt; abc -dff" ${bn}_ref.${refext}
 			if [ -n "$firrtl2verilog" ]; then
 			    if test -z "$xfirrtl" || ! grep "$fn" "$xfirrtl" ; then
-				"$toolsdir"/../../yosys -b "firrtl" -o ${bn}_ref.fir -f "$frontend $include_opts" -p "prep; proc; opt -nodffe -nosdff; fsm; opt; memory; opt -full -fine; pmuxtree" ${bn}_ref.${refext}
+				$YOSYS -b "firrtl" -o ${bn}_ref.fir -f "$frontend $include_opts" -p "prep; proc; opt -nodffe -nosdff; fsm; opt; memory; opt -full -fine; pmuxtree" ${bn}_ref.${refext}
 				$firrtl2verilog -i ${bn}_ref.fir -o ${bn}_ref.fir.v
 				test_passes -f "$frontend $include_opts" -p "hierarchy; proc; opt -nodffe -nosdff; fsm; opt; memory; opt -full -fine" ${bn}_ref.fir.v
 			    fi

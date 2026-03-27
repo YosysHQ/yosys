@@ -320,7 +320,7 @@ def create_tests():
             if i != j:
                 gen_tests_makefile.generate_cmd_test(
                     f"bram_{i}_{j}",
-                    f"bash run-single.sh {i} {j}"
+                    f"YOSYS=$(YOSYS) IVERILOG=iverilog bash run-single.sh {i} {j}"
                 )
 
 gen_tests_makefile.generate_custom(create_tests)

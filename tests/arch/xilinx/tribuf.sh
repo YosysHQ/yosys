@@ -1,5 +1,5 @@
-../../../yosys -f verilog -qp "synth_xilinx" ../common/tribuf.v
-../../../yosys -f verilog -qp "synth_xilinx -iopad; \
+$YOSYS -f verilog -qp "synth_xilinx" ../common/tribuf.v
+$YOSYS -f verilog -qp "synth_xilinx -iopad; \
 select -assert-count 2 t:IBUF; \
 select -assert-count 1 t:INV; \
 select -assert-count 1 t:OBUFT" ../common/tribuf.v

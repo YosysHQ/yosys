@@ -4,7 +4,7 @@
 set -e
 
 echo -n "  TOP first - "
-../../yosys -s - <<- EOY | grep "Automatically selected TOP as design top module"
+$YOSYS -s - <<- EOY | grep "Automatically selected TOP as design top module"
   read_verilog << EOV
     module TOP(a, y);
       input a;
@@ -23,7 +23,7 @@ echo -n "  TOP first - "
 EOY
 
 echo -n "  TOP last - "
-../../yosys -s - <<- EOY | grep "Automatically selected TOP as design top module"
+$YOSYS -s - <<- EOY | grep "Automatically selected TOP as design top module"
   read_verilog << EOV
     module aoi12(a, y);
       input a;
@@ -42,7 +42,7 @@ echo -n "  TOP last - "
 EOY
 
 echo -n "  no explicit top - "
-../../yosys -s - <<- EOY | grep "Automatically selected noTop as design top module."
+$YOSYS -s - <<- EOY | grep "Automatically selected noTop as design top module."
   read_verilog << EOV
     module aoi12(a, y);
       input a;

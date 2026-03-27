@@ -3,7 +3,7 @@
 set -eu
 
 # only works with read_verilog
-yosys='../../yosys -f verilog'
+yosys="$YOSYS -f verilog"
 test='-p hierarchy'
 subdir=subdir
 source=local_include.v
