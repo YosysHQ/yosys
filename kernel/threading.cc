@@ -110,7 +110,7 @@ ParallelDispatchThreadPool::~ParallelDispatchThreadPool()
 	if (num_worker_threads_ == 0)
 		return;
 	current_work = nullptr;
-	num_active_worker_threads_ = num_worker_threads_;
+	num_active_worker_threads_.store(num_worker_threads_, std::memory_order_relaxed);
 	signal_workers_start();
 	wait_for_workers_done();
 #endif
@@ -119,15 +119,16 @@ ParallelDispatchThreadPool::~ParallelDispatchThreadPool()
 void ParallelDispatchThreadPool::run(std::function<void(const RunCtx &)> work, int max_threads)
 {
 	Multithreading multithreading;
-	num_active_worker_threads_ = num_threads(max_threads) - 1;
-	if (num_active_worker_threads_ == 0) {
+	int num_active_worker_threads = num_threads(max_threads) - 1;
+	if (num_active_worker_threads == 0) {
 		work({{0}, 1});
 		return;
 	}
 #ifdef YOSYS_ENABLE_THREADS
+	num_active_worker_threads_.store(num_active_worker_threads, std::memory_order_relaxed);
 	current_work = &work;
 	signal_workers_start();
-	work({{0}, num_active_worker_threads_ + 1});
+	work({{0}, num_active_worker_threads + 1});
 	wait_for_workers_done();
 #endif
 }
@@ -140,7 +141,8 @@ void ParallelDispatchThreadPool::run_worker(int thread_num)
 		worker_wait_for_start(thread_num);
 		if (current_work == nullptr)
 			break;
-		(*current_work)({{thread_num + 1}, num_active_worker_threads_ + 1});
+		int num_active_worker_threads = num_active_worker_threads_.load(std::memory_order_relaxed);
+		(*current_work)({{thread_num + 1}, num_active_worker_threads + 1});
 		signal_worker_done();
 	}
 	signal_worker_done();
