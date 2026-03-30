@@ -96,10 +96,17 @@ fstHandle FstData::getHandle(std::string name) {
 		return 0;
 };
 
-dict<int,fstHandle> FstData::getMemoryHandles(std::string name) { 
+dict<int,fstHandle> FstData::getMemoryHandles(std::string name) {
 	if (memory_to_handle.find(name) != memory_to_handle.end())
 		return memory_to_handle[name];
-	else 
+	else
+		return dict<int,fstHandle>();
+};
+
+dict<int,fstHandle> FstData::getArrayHandles(std::string name) {
+	if (array_to_handle.find(name) != array_to_handle.end())
+		return array_to_handle[name];
+	else
 		return dict<int,fstHandle>();
 };
 
@@ -219,7 +226,7 @@ void FstData::extractVarNames()
 								// Check it's an array index (no colon), not a bit range
 								if (index_str.find(':') == std::string::npos) {
 									int array_index = std::stoi(index_str);
-									memory_to_handle[var.scope+"."+clean_name][array_index] = var.id;
+									array_to_handle[var.scope+"."+clean_name][array_index] = var.id;
 								}
 							}
 						}

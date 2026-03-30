@@ -230,43 +230,22 @@ struct SimInstance
 
 	// Helper function to detect and retrieve array element handles
 	// Returns non-empty dict if wire is a multi-dimensional array split in VCD
-	dict<int, fstHandle> tryGetArrayHandles(FstData* fst, const std::string& scope, 
-	                                         Wire* wire, bool debug_mode)
+	dict<int, fstHandle> tryGetArrayHandles(FstData* fst, const std::string& scope, Wire* wire)
 	{
 		std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
-		fstHandle id = fst->getHandle(wire_name);
+		dict<int, fstHandle> array_handles = fst->getArrayHandles(wire_name);
 		
-		if (id != 0) {
-			int fst_width = fst->getWidth(id);
-			if (fst_width != wire->width) {
-				// If there is a width mismatch, try to find array elements
-				if (debug_mode) {
-					log("Wire %s width mismatch (wire: %d, FST: %d), checking for array elements.\n",
-						wire_name.c_str(), wire->width, fst_width);
+		if (!array_handles.empty()) {
+			int total_width = 0;
+			for (auto &pair : array_handles) {
+				total_width += fst->getWidth(pair.second);
+			}
+			if (total_width == wire->width) {
+				if (shared->debug) {
+					log("Found %zu array elements for wire %s, total width: %d\n",
+						array_handles.size(), wire_name.c_str(), total_width);
 				}
-				
-				// Array elements are stored in memory_to_handle  
-				dict<int, fstHandle> array_handles = fst->getMemoryHandles(wire_name);
-				if (!array_handles.empty()) {
-
-					// Calculate total width of all array elements
-					int total_width = 0;
-					for (auto &pair : array_handles) {
-						total_width += fst->getWidth(pair.second);
-					}
-					
-					// If the total width of all array elements matches the wire, return the corresponding array handles
-					if (total_width == wire->width) {
-						if (debug_mode) {
-							log("Found %zu array elements for wire %s, total width: %d\n",
-								array_handles.size(), wire_name.c_str(), total_width);
-						}
-						return array_handles;
-					} else if (debug_mode) {
-						log_warning("Array elements total width %d doesn't match wire width %d\n",
-							total_width, wire->width);
-					}
-				}
+				return array_handles;
 			}
 		}
 		return dict<int, fstHandle>();
@@ -308,7 +287,7 @@ struct SimInstance
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				
 				// Try to get array element handles if this is a multi-dimensional array
-				dict<int, fstHandle> array_handles = tryGetArrayHandles(shared->fst, scope, wire, shared->debug);
+				dict<int, fstHandle> array_handles = tryGetArrayHandles(shared->fst, scope, wire);
 				if (!array_handles.empty()) {
 					// Must be an array, store in fst_array_handles
 					fst_array_handles[wire] = array_handles;
@@ -1612,7 +1591,7 @@ struct SimWorker : SimShared
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				
 				// Try to get array element handles if this is a multi-dimensional array
-				dict<int, fstHandle> array_handles = top->tryGetArrayHandles(fst, scope, wire, debug);
+				dict<int, fstHandle> array_handles = top->tryGetArrayHandles(fst, scope, wire);
 				if (!array_handles.empty()) {
 					// Must be an array, store in fst_array_inputs
 					top->fst_array_inputs[wire] = array_handles;
