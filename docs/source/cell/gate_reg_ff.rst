@@ -154,6 +154,10 @@ to the following Verilog code template, where ``RST_EDGE`` is ``posedge`` if
 ``RST_LVL`` if ``1``, ``negedge`` otherwise, and ``SET_EDGE`` is ``posedge`` if
 ``SET_LVL`` if ``1``, ``negedge`` otherwise.
 
+When both set and reset are active, the state and output is undefined. The Verilog
+code model does not correspond to this due to limitations
+of synthesizable Verilog.
+
 .. code-block:: verilog
    :force:
 
@@ -186,6 +190,10 @@ asynchronous set and reset and enable. The values in the table for these cell
 types relate to the following Verilog code template, where ``RST_EDGE`` is
 ``posedge`` if ``RST_LVL`` if ``1``, ``negedge`` otherwise, and ``SET_EDGE`` is
 ``posedge`` if ``SET_LVL`` if ``1``, ``negedge`` otherwise.
+
+When both set and reset are active, the state and output is undefined. The Verilog
+code model does not correspond to this due to limitations
+of synthesizable Verilog.
 
 .. code-block:: verilog
    :force:
