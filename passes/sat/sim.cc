@@ -247,6 +247,8 @@ struct SimInstance
 				}
 				return array_handles;
 			}
+			log_warning("Array wire '%s' found in VCD (total width %d) but does not match Yosys wire width %d; skipping.\n",
+        wire_name.c_str(), total_width, wire->width);
 		}
 		return dict<int, fstHandle>();
 	}
