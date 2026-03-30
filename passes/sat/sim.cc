@@ -251,6 +251,24 @@ struct SimInstance
 		return dict<int, fstHandle>();
 	}
 
+	// Helper function to set wire state from array element handles
+	// Concatenates values from array elements in descending index order
+	bool setStateFromArrayHandles(Wire* wire, dict<int, fstHandle>& handles)
+	{
+		// Collect and sort indices in descending order (MSB = highest index)
+		std::vector<int> indices;
+		for (auto &kv : handles)
+			indices.push_back(kv.first);
+		std::sort(indices.begin(), indices.end(), std::greater<int>());
+		
+		// Concatenate values in descending index order
+		std::string concatenated = "";
+		for (int idx : indices) {
+			concatenated += shared->fst->valueOf(handles[idx]);
+		}
+		return set_state(wire, Const::from_string(concatenated));
+	}
+
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
 			shared(shared), scope(scope), module(module), instance(instance), parent(parent), sigmap(module)
 	{
@@ -1214,17 +1232,7 @@ struct SimInstance
 		}
 		// Handle multi-dimensional arrays by concatenating array elements
 		for(auto &item : fst_array_handles) {
-			Wire* wire = item.first;
-			dict<int, fstHandle>& handles = item.second;
-			
-			// Concatenate values from all array elements in reverse order
-			std::string concatenated = "";
-			for (int idx = handles.size() - 1; idx >= 0; idx--) {
-				if (handles.count(idx) == 0) continue;
-				concatenated += shared->fst->valueOf(handles[idx]);
-			}
-			
-			did_something |= set_state(wire, Const::from_string(concatenated));
+			did_something |= setStateFromArrayHandles(item.first, item.second);
 		}
 		for (auto cell : module->cells())
 		{
@@ -1277,19 +1285,8 @@ struct SimInstance
 		}
 		// Handle multi-dimensional array inputs by concatenating array elements
 		for(auto &item : fst_array_inputs) {
-			Wire* wire = item.first;
-			dict<int, fstHandle>& handles = item.second;
-			
-			// Concatenate values from all array elements in reverse order
-			std::string concatenated = "";
-			for (int idx = handles.size() - 1; idx >= 0; idx--) {
-				if (handles.count(idx) == 0) continue;
-				concatenated += shared->fst->valueOf(handles[idx]);
-			}
-			
-			did_something |= set_state(wire, Const::from_string(concatenated));
+			did_something |= setStateFromArrayHandles(item.first, item.second);
 		}
-
 		for (auto child : children)
 			did_something |= child.second->setInputs();
 
