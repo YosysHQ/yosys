@@ -60,8 +60,7 @@ code neg_a neg_y mux_a mux_b mux_s mux_y a_signed
 
 		Cell *new_mux = module->addMux(NEW_ID2_SUFFIX("mux"), neg_mux_a, neg_mux_b, mux_s, neg_y);
 
-		log("negmux pattern in %s: neg=%s, mux=%s\n",
-			log_id(module), log_id(neg), log_id(mux));
+		log("        neg=%s, mux=%s\n", log_id(neg), log_id(mux));
 
 		neg_a_cell->fixup_parameters();
 		neg_b_cell->fixup_parameters();

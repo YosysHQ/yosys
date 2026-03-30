@@ -1,0 +1,23 @@
+# Clock domain mismatch — gold has two clocks, gate has one.
+# The pass should error declaring inequivalence.
+design -reset
+read_verilog <<EOF
+module gold(input clk1, input clk2,
+            input [7:0] a, b, c, d,
+            output reg [7:0] q1, q2);
+    always @(posedge clk1) q1 <= a + b;
+    always @(posedge clk2) q2 <= c + d;
+endmodule
+
+module gate(input clk1, input clk2,
+            input [7:0] a, b, c, d,
+            output reg [7:0] q1, q2);
+    always @(posedge clk1) begin
+        q1 <= a + b;
+        q2 <= c + d;
+    end
+endmodule
+EOF
+proc; opt_clean
+logger -expect error "Designs are inequivalent: clock domain count mismatch" 1
+cone_partition -v gold gate

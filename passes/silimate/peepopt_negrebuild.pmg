@@ -100,8 +100,8 @@ code add_a add_b add_y neg1_a neg1_y neg2_a neg2_y add_signed add_b_signed neg1_
 		neg_out_rs.extend_u0(GetSize(add_y), add_signed);
 		module->connect(add_y, neg_out_rs);
 
-		log("negrebuild pattern in %s: add=%s, neg1=%s, neg2=%s\n",
-			log_id(module), log_id(add), log_id(neg1), log_id(neg2));
+		log("        add=%s, neg1=%s, neg2=%s\n",
+			log_id(add), log_id(neg1), log_id(neg2));
 
 		new_add->fixup_parameters();
 		new_neg->fixup_parameters();

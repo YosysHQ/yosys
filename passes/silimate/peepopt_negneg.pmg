@@ -29,8 +29,7 @@ code neg1_a neg1_y neg2_a
 
 	module->connect(neg1_y, neg2_a);
 
-	log("negneg pattern in %s: neg1=%s, neg2=%s\n",
-		log_id(module), log_id(neg1), log_id(neg2));
+	log("        neg1=%s, neg2=%s\n", log_id(neg1), log_id(neg2));
 
 	autoremove(neg1);
 	autoremove(neg2);

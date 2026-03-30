@@ -60,8 +60,8 @@ code mux_a mux_b mux_s mux_y neg_a_in neg_a_y neg_b_in neg_b_y neg_a_signed neg_
 		neg_out_rs.extend_u0(GetSize(mux_y), neg_a_signed);
 		module->connect(mux_y, neg_out_rs);
 
-		log("muxneg pattern in %s: mux=%s, neg_a=%s, neg_b=%s\n",
-			log_id(module), log_id(mux), log_id(neg_a), log_id(neg_b));
+		log("        mux=%s, neg_a=%s, neg_b=%s\n",
+			log_id(mux), log_id(neg_a), log_id(neg_b));
 
 		new_mux->fixup_parameters();
 		new_neg->fixup_parameters();

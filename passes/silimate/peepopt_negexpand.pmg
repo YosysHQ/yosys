@@ -49,8 +49,7 @@ code neg_a neg_y add_a add_b a_signed
 
 		Cell *new_add = module->addAdd(NEW_ID2_SUFFIX("add"), neg_add_a, neg_add_b, neg_y, a_signed);
 
-		log("negexpand pattern in %s: neg=%s, add=%s\n",
-			log_id(module), log_id(neg), log_id(add));
+		log("        neg=%s, add=%s\n", log_id(neg), log_id(add));
 
 		neg_a_cell->fixup_parameters();
 		neg_b_cell->fixup_parameters();

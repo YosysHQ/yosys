@@ -43,8 +43,8 @@ code sub_a sub_b sub_y a_signed b_signed
 		sub->setPort(\Y, sub_y);
 		sub->type = $add;
 
-		log("sub2neg pattern in %s: sub=%s -> neg=%s, add=%s\n",
-			log_id(module), log_id(sub), log_id(neg), log_id(sub));
+		log("        sub=%s -> neg=%s, add=%s\n",
+			log_id(sub), log_id(neg), log_id(sub));
 
 		sub->fixup_parameters();
 		neg->fixup_parameters();
