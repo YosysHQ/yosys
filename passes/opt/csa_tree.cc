@@ -397,7 +397,7 @@ struct CsaTreeWorker
 		int fa_count;
 		auto [a, b] = reduce_wallace(extended, width, fa_count);
 
-		log("  %s → %d $fa + 1 $add (%d operands, module %s)\n",
+		log("  %s -> %d $fa + 1 $add (%d operands, module %s)\n",
 			desc, fa_count, (int)operands.size(), log_id(module));
 
 		emit_final_add(a, b, result_y, width);
