@@ -24,6 +24,26 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
+// Normalize top-end sign/zero extension for PMG prefiltering
+static SigSpec strip_ext_for_match(SigSpec sig)
+{
+	int n = GetSize(sig);
+	if (n <= 1)
+		return sig;
+
+	while (n > 1) {
+		SigBit top = sig[n-1];
+		SigBit prev = sig[n-2];
+		if (top == prev || top == SigBit(State::S0)) {
+			n--;
+			continue;
+		}
+		break;
+	}
+
+	return sig.extract(0, n);
+}
+
 #include "passes/silimate/peepopt_negopt.h"
 
 struct NegoptPass : public Pass {
@@ -51,7 +71,7 @@ struct NegoptPass : public Pass {
 		log("          - muxneg:     s?(-a):(-b) => -(s?a:b)\n");
 		log("          - neg2sub:    a + (-b)    => a - b\n"   );
 		log("\n");
-		log("When called without options, both -pre and -post are executed.\n");
+		log("Specify exactly one of -pre or -post.\n");
 		log("\n");
 	}
 

@@ -7,8 +7,8 @@ pattern negrebuild
 // (-a) + (-b)  ===>  -(a + b)
 //
 
-state <SigSpec> add_a add_b add_y neg1_a neg1_y neg2_a neg2_y
-state <bool> add_signed add_b_signed neg1_signed neg2_signed
+state <SigSpec> add_a add_b add_y add_a_norm add_b_norm neg1_a neg1_y neg2_a neg2_y
+state <bool> add_signed add_b_signed neg1_signed neg2_signed neg1_on_a
 
 match add
 	select add->type == $add
@@ -17,11 +17,20 @@ match add
 	set add_y port(add, \Y)
 	set add_signed add->getParam(\A_SIGNED).as_bool()
 	set add_b_signed add->getParam(\B_SIGNED).as_bool()
+	set add_a_norm strip_ext_for_match(add_a)
+	set add_b_norm strip_ext_for_match(add_b)
 endmatch
+
+code neg1_on_a
+	neg1_on_a = true;
+	branch;
+	neg1_on_a = false;
+endcode
 
 match neg1
 	select neg1->type == $neg
-	select nusers(port(neg1, \Y)) == 2
+	index <SigSpec> strip_ext_for_match(port(neg1, \Y)) === (neg1_on_a ? add_a_norm : add_b_norm)
+	filter nusers(port(neg1, \Y)) == 2
 	set neg1_a port(neg1, \A)
 	set neg1_y port(neg1, \Y)
 	set neg1_signed neg1->getParam(\A_SIGNED).as_bool()
@@ -29,7 +38,8 @@ endmatch
 
 match neg2
 	select neg2->type == $neg
-	select nusers(port(neg2, \Y)) == 2
+	index <SigSpec> strip_ext_for_match(port(neg2, \Y)) === (neg1_on_a ? add_b_norm : add_a_norm)
+	filter nusers(port(neg2, \Y)) == 2
 	set neg2_a port(neg2, \A)
 	set neg2_y port(neg2, \Y)
 	set neg2_signed neg2->getParam(\A_SIGNED).as_bool()
