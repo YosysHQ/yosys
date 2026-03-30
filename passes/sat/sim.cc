@@ -224,6 +224,54 @@ struct SimInstance
 	dict<Wire*, fstHandle> fst_inputs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
 
+	// For multi-dimensional arrays
+	dict<Wire*, dict<int,fstHandle>> fst_array_handles;
+	dict<Wire*, dict<int,fstHandle>> fst_array_inputs;
+
+	// Helper function to detect and retrieve array element handles
+	// Returns non-empty dict if wire is a multi-dimensional array split in VCD
+	dict<int, fstHandle> tryGetArrayHandles(FstData* fst, const std::string& scope, 
+	                                         Wire* wire, bool debug_mode)
+	{
+		std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
+		fstHandle id = fst->getHandle(wire_name);
+		
+		if (id != 0) {
+			int fst_width = fst->getWidth(id);
+			if (fst_width != wire->width) {
+				// If there is a width mismatch, try to find array elements
+				if (debug_mode) {
+					log("Wire %s width mismatch (wire: %d, FST: %d), checking for array elements.\n",
+						wire_name.c_str(), wire->width, fst_width);
+				}
+				
+				// Array elements are stored in memory_to_handle  
+				dict<int, fstHandle> array_handles = fst->getMemoryHandles(wire_name);
+				if (!array_handles.empty()) {
+
+					// Calculate total width of all array elements
+					int total_width = 0;
+					for (auto &pair : array_handles) {
+						total_width += fst->getWidth(pair.second);
+					}
+					
+					// If the total width of all array elements matches the wire, return the corresponding array handles
+					if (total_width == wire->width) {
+						if (debug_mode) {
+							log("Found %zu array elements for wire %s, total width: %d\n",
+								array_handles.size(), wire_name.c_str(), total_width);
+						}
+						return array_handles;
+					} else if (debug_mode) {
+						log_warning("Array elements total width %d doesn't match wire width %d\n",
+							total_width, wire->width);
+					}
+				}
+			}
+		}
+		return dict<int, fstHandle>();
+	}
+
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
 			shared(shared), scope(scope), module(module), instance(instance), parent(parent), sigmap(module)
 	{
@@ -255,18 +303,25 @@ struct SimInstance
 				}
 			}
 
+			// Populate fst_handles and fst_array_handles for signal lookups
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-				if (id==0 && wire->name.isPublic()) {
-					if (shared->debug) {
-						log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
-					}
-				} else {
+				
+				// Try to get array element handles if this is a multi-dimensional array
+				dict<int, fstHandle> array_handles = tryGetArrayHandles(shared->fst, scope, wire, shared->debug);
+				if (!array_handles.empty()) {
+					// Must be an array, store in fst_array_handles
+					fst_array_handles[wire] = array_handles;
+				} else if (id != 0) {
+					// Case of a regular wire/reg
+					fst_handles[wire] = id;
 					if (shared->debug) {
 						log("Found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
 					}
+				} else if (wire->name.isPublic() && shared->debug) {
+					// Not found
+					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
 				}
-				fst_handles[wire] = id;
 			}
 
 			if (wire->attributes.count(ID::init)) {
@@ -1178,6 +1233,20 @@ struct SimInstance
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
 		}
+		// Handle multi-dimensional arrays by concatenating array elements
+		for(auto &item : fst_array_handles) {
+			Wire* wire = item.first;
+			dict<int, fstHandle>& handles = item.second;
+			
+			// Concatenate values from all array elements in reverse order
+			std::string concatenated = "";
+			for (int idx = handles.size() - 1; idx >= 0; idx--) {
+				if (handles.count(idx) == 0) continue;
+				concatenated += shared->fst->valueOf(handles[idx]);
+			}
+			
+			did_something |= set_state(wire, Const::from_string(concatenated));
+		}
 		for (auto cell : module->cells())
 		{
 			if (cell->is_mem_cell()) {
@@ -1226,6 +1295,20 @@ struct SimInstance
 		for(auto &item : fst_inputs) {
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
+		}
+		// Handle multi-dimensional array inputs by concatenating array elements
+		for(auto &item : fst_array_inputs) {
+			Wire* wire = item.first;
+			dict<int, fstHandle>& handles = item.second;
+			
+			// Concatenate values from all array elements in reverse order
+			std::string concatenated = "";
+			for (int idx = handles.size() - 1; idx >= 0; idx--) {
+				if (handles.count(idx) == 0) continue;
+				concatenated += shared->fst->valueOf(handles[idx]);
+			}
+			
+			did_something |= set_state(wire, Const::from_string(concatenated));
 		}
 
 		for (auto child : children)
@@ -1523,11 +1606,23 @@ struct SimWorker : SimShared
 		SigMap sigmap(topmod);
 
 		for (auto wire : topmod->wires()) {
+
+			// Populate fst_inputs and fst_array_inputs for input ports
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-				if (id==0)
+				
+				// Try to get array element handles if this is a multi-dimensional array
+				dict<int, fstHandle> array_handles = top->tryGetArrayHandles(fst, scope, wire, debug);
+				if (!array_handles.empty()) {
+					// Must be an array, store in fst_array_inputs
+					top->fst_array_inputs[wire] = array_handles;
+				} else if (id != 0) {
+					// Case of a regular wire/reg
+					top->fst_inputs[wire] = id;
+				} else {
+					// Not found
 					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
-				top->fst_inputs[wire] = id;
+				}
 			}
 		}
 
