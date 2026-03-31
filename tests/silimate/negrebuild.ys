@@ -40,6 +40,35 @@ select -assert-none t:$sub
 design -reset
 log -pop
 
+log -header "Negative case: add inputs are sign-extended neg outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	output wire signed [11:0] y;
+	wire signed [7:0] na;
+	wire signed [7:0] nb;
+	wire signed [11:0] na_ext;
+	wire signed [11:0] nb_ext;
+	assign na = -a;
+	assign nb = -b;
+	assign na_ext = na;
+	assign nb_ext = nb;
+	assign y = na_ext + nb_ext;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -post
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 2 t:$neg
+select -assert-none t:$sub
+design -reset
+log -pop
+
 log -header "Anchor case: neg branches with different widths"
 log -push
 design -reset

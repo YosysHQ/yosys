@@ -48,7 +48,7 @@ code mux_a mux_b mux_s mux_y neg_a_in neg_a_y neg_b_in neg_b_y neg_a_signed neg_
 		SigSpec neg_a_rs = neg_a_in;
 		SigSpec neg_b_rs = neg_b_in;
 		neg_a_rs.extend_u0(width, neg_a_signed);
-		neg_b_rs.extend_u0(width, neg_a_signed);
+		neg_b_rs.extend_u0(width, neg_b_signed);
 
 		SigSpec mux_out = module->addWire(NEW_ID2_SUFFIX("y"), width);
 		Cell *new_mux = module->addMux(NEW_ID2_SUFFIX("mux"), neg_a_rs, neg_b_rs, mux_s, mux_out);

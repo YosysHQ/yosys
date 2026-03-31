@@ -42,6 +42,56 @@ select -assert-count 2 t:$neg
 design -reset
 log -pop
 
+log -header "Positive case: neg input is sign extension of mux output"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire signed [7:0] a;
+	input wire signed [7:0] b;
+	input wire s;
+	output wire signed [11:0] y;
+	wire signed [7:0] m;
+	wire signed [11:0] m_ext;
+	assign m = s ? a : b;
+	assign m_ext = m;
+	assign y = -m_ext;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$mux
+select -assert-count 2 t:$neg
+design -reset
+log -pop
+
+log -header "Positive case: neg input is zero extension of mux output"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [7:0] a;
+	input wire [7:0] b;
+	input wire s;
+	output wire [11:0] y;
+	wire [7:0] m;
+	wire [11:0] m_ext;
+	assign m = s ? a : b;
+	assign m_ext = m;
+	assign y = -m_ext;
+endmodule
+EOF
+proc; opt
+check -assert
+equiv_opt -assert negopt -pre
+design -load postopt
+select -assert-count 1 t:$mux
+select -assert-count 2 t:$neg
+design -reset
+log -pop
+
 log -header "Negative case: mux output has extra fanout"
 log -push
 design -reset
