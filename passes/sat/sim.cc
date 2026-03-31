@@ -225,15 +225,15 @@ struct SimInstance
 	dict<IdString, dict<int,fstHandle>> fst_memories;
 
 	// For multi-dimensional arrays
-	dict<Wire*, dict<int,fstHandle>> fst_array_handles;
-	dict<Wire*, dict<int,fstHandle>> fst_array_inputs;
+	dict<Wire*, dict<std::vector<int>,fstHandle>> fst_array_handles;
+	dict<Wire*, dict<std::vector<int>,fstHandle>> fst_array_inputs;
 
 	// Helper function to detect and retrieve array element handles
 	// Returns non-empty dict if wire is a multi-dimensional array split in VCD
-	dict<int, fstHandle> tryGetArrayHandles(FstData* fst, const std::string& scope, Wire* wire)
+	dict<std::vector<int>, fstHandle> tryGetArrayHandles(FstData* fst, const std::string& scope, Wire* wire)
 	{
 		std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
-		dict<int, fstHandle> array_handles = fst->getArrayHandles(wire_name);
+		dict<std::vector<int>, fstHandle> array_handles = fst->getArrayHandles(wire_name);
 		
 		if (!array_handles.empty()) {
 			int total_width = 0;
@@ -250,25 +250,26 @@ struct SimInstance
 			log_warning("Array wire '%s' found in VCD (total width %d) but does not match Yosys wire width %d; skipping.\n",
         wire_name.c_str(), total_width, wire->width);
 		}
-		return dict<int, fstHandle>();
+		return dict<std::vector<int>, fstHandle>();
 	}
 
 	// Helper function to set wire state from array element handles
 	// Concatenates values from array elements in descending index order
-	bool setStateFromArrayHandles(Wire* wire, dict<int, fstHandle>& handles)
+	bool setStateFromArrayHandles(Wire* wire, dict<std::vector<int>, fstHandle>& handles)
 	{
-		// Collect and sort indices in descending order (MSB = highest index)
-		std::vector<int> indices;
-		for (auto &kv : handles)
-			indices.push_back(kv.first);
-		std::sort(indices.begin(), indices.end(), std::greater<int>());
+		// Collect and sort indices in descending row-major orde
+    std::vector<std::pair<std::vector<int>, fstHandle>> sorted_elements;
+    for (auto &kv : handles) {
+        sorted_elements.push_back({kv.first, kv.second});
+    }
+		std::sort(sorted_elements.begin(), sorted_elements.end(), std::greater<>());
 		
 		// Concatenate values in descending index order
-		std::string concatenated = "";
-		for (int idx : indices) {
-			concatenated += shared->fst->valueOf(handles[idx]);
-		}
-		return set_state(wire, Const::from_string(concatenated));
+    std::string concatenated = "";
+    for (auto &elem : sorted_elements) {
+        concatenated += shared->fst->valueOf(elem.second);
+    }
+    return set_state(wire, Const::from_string(concatenated));
 	}
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
