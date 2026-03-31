@@ -7,7 +7,7 @@ pattern negmux
 // -(s ? a : b)  ===>  s ? (-a) : (-b)
 //
 
-state <SigSpec> neg_a neg_y mux_a mux_b mux_s mux_y
+state <SigSpec> neg_a neg_y neg_a_norm mux_a mux_b mux_s mux_y
 state <bool> a_signed
 
 match neg
@@ -15,11 +15,13 @@ match neg
 	set neg_a port(neg, \A)
 	set neg_y port(neg, \Y)
 	set a_signed neg->getParam(\A_SIGNED).as_bool()
+	set neg_a_norm strip_ext_for_match(neg_a)
 endmatch
 
 match mux
 	select mux->type == $mux
-	select nusers(port(mux, \Y)) == 2
+	index <SigSpec> strip_ext_for_match(port(mux, \Y)) === neg_a_norm
+	filter nusers(port(mux, \Y)) == 2
 	set mux_a port(mux, \A)
 	set mux_b port(mux, \B)
 	set mux_s port(mux, \S)

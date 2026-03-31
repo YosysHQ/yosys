@@ -55,6 +55,7 @@ class FstData
 	std::string valueOf(fstHandle signal);
 	fstHandle getHandle(std::string name);
 	dict<int,fstHandle> getMemoryHandles(std::string name);
+	dict<int,fstHandle> getArrayHandles(std::string name);
 	double getTimescale() { return timescale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
 	int getWidth(fstHandle signal);
@@ -67,6 +68,7 @@ private:
 	std::map<fstHandle, FstVar> handle_to_var;
 	std::map<std::string, fstHandle> name_to_handle;
 	std::map<std::string, dict<int, fstHandle>> memory_to_handle;
+	std::map<std::string, dict<int, fstHandle>> array_to_handle;
 	std::map<fstHandle, std::string> last_data;
 	uint64_t last_time;
 	std::map<fstHandle, std::string> past_data;

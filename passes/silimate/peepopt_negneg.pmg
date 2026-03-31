@@ -23,7 +23,7 @@ match neg2
 endmatch
 
 code neg1_a neg1_y neg2_a
-	// Reject if inner negation truncates
+	// Reject if the inner negation widens its output
 	if (GetSize(neg1_a) > GetSize(neg2_a))
 		reject;
 

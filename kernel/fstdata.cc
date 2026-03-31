@@ -96,10 +96,17 @@ fstHandle FstData::getHandle(std::string name) {
 		return 0;
 };
 
-dict<int,fstHandle> FstData::getMemoryHandles(std::string name) { 
+dict<int,fstHandle> FstData::getMemoryHandles(std::string name) {
 	if (memory_to_handle.find(name) != memory_to_handle.end())
 		return memory_to_handle[name];
-	else 
+	else
+		return dict<int,fstHandle>();
+};
+
+dict<int,fstHandle> FstData::getArrayHandles(std::string name) {
+	if (array_to_handle.find(name) != array_to_handle.end())
+		return array_to_handle[name];
+	else
 		return dict<int,fstHandle>();
 };
 
@@ -195,13 +202,38 @@ void FstData::extractVarNames()
 				}
 				if (clean_name[0]=='\\')
 					clean_name = clean_name.substr(1);
+
+				// Strip bit ranges like [4:0] from the end (only if no space)
 				if (!has_space) {
 					size_t pos = clean_name.find_last_of("[");
-					std::string index_or_range = clean_name.substr(pos+1);
-					if (index_or_range.find(":") != std::string::npos) {
-						clean_name = clean_name.substr(0,pos);
+					if (pos != std::string::npos) {
+						std::string index_or_range = clean_name.substr(pos+1);
+						if (index_or_range.find(":") != std::string::npos) {
+							clean_name = clean_name.substr(0,pos);
+						}
+					}
+				} else {
+					// Handle "signal [index][bitrange]" format
+					std::string full_name = h->u.var.name;
+					size_t space_pos = full_name.find(' ');
+					if (space_pos != std::string::npos) {
+						std::string suffix = full_name.substr(space_pos + 1);
+						// Parse first bracket pair for array index
+						if (!suffix.empty() && suffix[0] == '[') {
+							size_t close_bracket = suffix.find(']');
+							if (close_bracket != std::string::npos) {
+								std::string index_str = suffix.substr(1, close_bracket - 1);
+								// Check it's an array index (no colon), not a bit range
+								if (index_str.find(':') == std::string::npos) {
+									int array_index = std::stoi(index_str);
+									array_to_handle[var.scope+"."+clean_name][array_index] = var.id;
+								}
+							}
+						}
 					}
 				}
+
+				// Handle memory addresses
 				size_t pos = clean_name.find_last_of("<");
 				if (pos != std::string::npos && clean_name.back() == '>') {
 					std::string mem_cell = clean_name.substr(0, pos);

@@ -169,8 +169,8 @@ code root_add inner_add_B not_gate_B minuend subtrahend result_sig is_signed
 
     // Verify inner_add_B has the form (~b + 1): one port is constant 1,
     // the other is the NOT output
-    SigSpec pa = inner_add_B->getPort(ID::A);
-    SigSpec pb = inner_add_B->getPort(ID::B);
+    SigSpec pa = port(inner_add_B, \A);
+    SigSpec pb = port(inner_add_B, \B);
     SigSpec not_y = port(not_gate_B, \Y);
 
     auto is_one = [](SigSpec s) {
@@ -191,7 +191,7 @@ code root_add inner_add_B not_gate_B minuend subtrahend result_sig is_signed
 
     // The minuend is whichever root_add port is NOT the inner_add_B output
     subtrahend = port(not_gate_B, \A);
-    if (inner_add_B->getPort(ID::Y) == root_add->getPort(ID::A))
+    if (port(inner_add_B, \Y) == port(root_add, \A))
         minuend = root_b;
     else
         minuend = root_a;

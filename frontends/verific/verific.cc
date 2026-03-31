@@ -1593,6 +1593,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	Instance *inst;
 	PortRef *pr;
 	Att *attr;
+	pool<Net*> empty_port_nets;
 
 	FOREACH_ATTRIBUTE(nl, mi, attr) {
 		if (!strcmp(attr->Key(), "noblackbox"))
@@ -1603,6 +1604,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	{
 		if (port->Bus())
 			continue;
+
+		if (port->GetAtt(" empty_port")) {
+			if (port->GetNet())
+				empty_port_nets.insert(port->GetNet());
+			continue;
+		}
 
 		if (verific_verbose)
 			log("  importing port %s.\n", port->Name());
@@ -1687,6 +1694,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	FOREACH_NET_OF_NETLIST(nl, mi, net)
 	{
+		if (empty_port_nets.count(net))
+			continue;
+
 		if (net->IsRamNet())
 		{
 			RTLIL::Memory *memory = new RTLIL::Memory;
@@ -2291,6 +2301,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		}
 
 		FOREACH_PORTREF_OF_INST(inst, mi2, pr) {
+			if (pr->GetPort()->GetAtt(" empty_port"))
+				continue;
 			if (verific_verbose)
 				log("      .%s(%s)\n", pr->GetPort()->Name(), pr->GetNet()->Name());
 			const char *port_name = pr->GetPort()->Name();
