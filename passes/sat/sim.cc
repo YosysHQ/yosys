@@ -308,7 +308,7 @@ struct SimInstance
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				
 				// Try to get array element handles if this is a multi-dimensional array
-				dict<int, fstHandle> array_handles = tryGetArrayHandles(shared->fst, scope, wire);
+				dict<std::vector<int>, fstHandle> array_handles = tryGetArrayHandles(shared->fst, scope, wire);
 				if (!array_handles.empty()) {
 					// Must be an array, store in fst_array_handles
 					fst_array_handles[wire] = array_handles;
@@ -1591,7 +1591,7 @@ struct SimWorker : SimShared
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				
 				// Try to get array element handles if this is a multi-dimensional array
-				dict<int, fstHandle> array_handles = top->tryGetArrayHandles(fst, scope, wire);
+				dict<std::vector<int>, fstHandle> array_handles = top->tryGetArrayHandles(fst, scope, wire);
 				if (!array_handles.empty()) {
 					// Must be an array, store in fst_array_inputs
 					top->fst_array_inputs[wire] = array_handles;
