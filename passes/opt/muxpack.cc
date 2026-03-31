@@ -38,6 +38,9 @@ struct ExclusiveDatabase
 		pool<Cell*> reduce_or;
 		for (auto cell : module->cells()) {
 			if (cell->type == ID($eq)) {
+				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
+				if (GetSize(y_sig) == 0)
+					continue;
 				nonconst_sig = sigmap(cell->getPort(ID::A));
 				const_sig = sigmap(cell->getPort(ID::B));
 				if (!const_sig.is_fully_const()) {
@@ -45,12 +48,15 @@ struct ExclusiveDatabase
 						continue;
 					std::swap(nonconst_sig, const_sig);
 				}
-				y_port = sigmap(cell->getPort(ID::Y));
+				y_port = y_sig[0];
 			}
 			else if (cell->type == ID($logic_not)) {
+				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
+				if (GetSize(y_sig) == 0)
+					continue;
 				nonconst_sig = sigmap(cell->getPort(ID::A));
 				const_sig = Const(State::S0, GetSize(nonconst_sig));
-				y_port = sigmap(cell->getPort(ID::Y));
+				y_port = y_sig[0];
 			}
 			else if (cell->type == ID($reduce_or)) {
 				reduce_or.insert(cell);
@@ -84,7 +90,10 @@ struct ExclusiveDatabase
 			}
 			if (nonconst_sig.empty())
 				continue;
-			y_port = sigmap(cell->getPort(ID::Y));
+			SigSpec y_sig = sigmap(cell->getPort(ID::Y));
+			if (GetSize(y_sig) == 0)
+				continue;
+			y_port = y_sig[0];
 			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,std::move(values));
 		}
 	}
