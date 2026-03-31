@@ -427,11 +427,11 @@ struct rules_t
 						inputs.insert(stringf("\\%sEN", pf));
 				}
 
-				log("setting up %s\n", bram.name);
+				log_debug("setting up %s\n", bram.name);
 				for (auto input : inputs)
-					log("input %s\n", input);
+					log_debug("input %s\n", input);
 				for (auto output : outputs)
-					log("output %s\n", output);
+					log_debug("output %s\n", output);
 				yosys_celltypes.setup_type(bram.name, inputs, outputs);
 			}
 		}
