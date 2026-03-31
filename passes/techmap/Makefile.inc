@@ -55,6 +55,7 @@ OBJS += passes/techmap/extractinv.o
 OBJS += passes/techmap/cellmatch.o
 OBJS += passes/techmap/clockgate.o
 OBJS += passes/techmap/constmap.o
+OBJS += passes/techmap/csa_tree.o
 endif
 
 ifeq ($(DISABLE_SPAWN),0)
