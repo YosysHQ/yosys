@@ -113,12 +113,18 @@ struct RegRenameInstance {
 							newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
 						}
 
+						// Check if the bit index exceeds the actual wire width before creating SigSpec
+						if (index >= newWire->width) {
+							log_warning("Register bit index %d exceeds wire width %d for '%s' in scope '%s'. Skipping.\n",
+								index, newWire->width, baseName.c_str(), vcd_scope.c_str());
+							continue;
+						}
+
 						// Log the connection of the new wire to the register
 						log_debug("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
 							newWire->name.c_str(), index, index, log_id(newWire), log_id(module));
 
-						// Replace old connection with a new one even at the input ports of subsequent cells from the register
-						// output
+						// Replace old connection with a new one even at the input ports of subsequent cells from the register output
 						auto rewriter = [&](SigSpec &sig) { sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1)); };
 						module->rewrite_sigspecs(rewriter);
 
