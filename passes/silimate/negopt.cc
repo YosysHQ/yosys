@@ -24,7 +24,13 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-// Normalize top-end sign/zero extension for PMG prefiltering
+// Normalize top-end sign/zero extension for PMG prefiltering.
+// Strips any redundant high bits so that a sign- or zero-extended SigSpec
+// and its narrower original compare equal under index lookups.
+//   - top == prev:              sign extension (MSB replicated)
+//   - top == SigBit(State::S0): zero extension (constant-zero padding)
+// Only the prefilter key is stripped; exact legality is re-checked in the
+// code block, so false-positive index hits are safe.
 static SigSpec strip_ext_for_match(SigSpec sig)
 {
 	int n = GetSize(sig);
@@ -34,6 +40,7 @@ static SigSpec strip_ext_for_match(SigSpec sig)
 	while (n > 1) {
 		SigBit top = sig[n-1];
 		SigBit prev = sig[n-2];
+		// Strip sign-extended (repeated MSB) or zero-extended (S0) bits
 		if (top == prev || top == SigBit(State::S0)) {
 			n--;
 			continue;
