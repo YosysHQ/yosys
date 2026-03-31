@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/mem.h"
 #include "kernel/ffinit.h"
+#include "kernel/celltypes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -396,7 +397,48 @@ struct rules_t
 
 		infile.close();
 	}
+
+	void register_celltypes() const
+	{
+		for (auto& [_, variants] : brams)
+		{
+			for (const bram_t& bram : variants)
+			{
+				auto portinfos = bram.make_portinfos();
+				int clocks_max = 0;
+				for (auto &pi : portinfos)
+					clocks_max = max(clocks_max, pi.clocks);
+
+				pool<IdString> inputs;
+				pool<IdString> outputs;
+				for (auto &pi : portinfos)
+				{
+					string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
+					const char *pf = prefix.c_str();
+					if (pi.clocks)
+						inputs.insert(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1));
+					inputs.insert(stringf("\\%sADDR", pf));
+					if (pi.wrmode) {
+						inputs.insert(stringf("\\%sDATA", pf));
+					} else {
+						outputs.insert(stringf("\\%sDATA", pf));
+					}
+					if (pi.enable)
+						inputs.insert(stringf("\\%sEN", pf));
+				}
+
+				log_debug("setting up %s\n", bram.name);
+				for (auto input : inputs)
+					log_debug("input %s\n", input);
+				for (auto output : outputs)
+					log_debug("output %s\n", output);
+				yosys_celltypes.setup_type(bram.name, inputs, outputs);
+			}
+		}
+	}
 };
+
+struct Maxima {};
 
 bool replace_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
 {
@@ -1311,14 +1353,21 @@ struct MemoryBramPass : public Pass {
 		log_header(design, "Executing MEMORY_BRAM pass (mapping $mem cells to block memories).\n");
 
 		size_t argidx;
+		bool register_mode = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-rules" && argidx+1 < args.size()) {
 				rules.parse(args[++argidx]);
 				continue;
 			}
+			if (args[argidx++] == "-register") {
+				register_mode = true;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (register_mode)
+			rules.register_celltypes();
 
 		for (auto mod : design->selected_modules()) {
 			SigMap sigmap(mod);
