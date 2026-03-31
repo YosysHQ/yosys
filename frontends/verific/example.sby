@@ -1,4 +1,4 @@
-# Simple SymbiYosys example job utilizing Verific
+# Simple SBY example job utilizing Verific
 
 [options]
 mode prove
