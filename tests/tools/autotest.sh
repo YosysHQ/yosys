@@ -148,7 +148,7 @@ do
 
 		rm -f ${bn}_ref.fir
 		if [[ "$ext" == "v" ]]; then
-			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+			grep -Ev '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		elif [[ "$ext" == "aig" ]] || [[ "$ext" == "aag" ]]; then
 			$abcprog -c "read_aiger ../${fn}; write ${bn}_ref.${refext}"
 		else
