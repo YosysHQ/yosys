@@ -1244,6 +1244,7 @@ struct TechmapPass : public Pass {
 					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : verilog_frontend));
 				}
 		}
+		Pass::call(map, "hierarchy");
 
 		log_header(design, "Continuing TECHMAP pass.\n");
 
