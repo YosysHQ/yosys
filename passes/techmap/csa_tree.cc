@@ -1,3 +1,6 @@
+// Replaces chains of $add/$sub and $macc cells with carry-save adder trees, reducing multi-operand
+// addition to logarithmic depth. ref. paper: Zimmermann, "Architectures for Adders"
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/macc.h"
@@ -88,6 +91,7 @@ struct AluInfo {
 		return GetSize(bi) == 1 && bi[0] == State::S0 && GetSize(ci) == 1 && ci[0] == State::S0;
 	}
 
+	// A cell is chainable if it's a plain add/sub with unused carries.
 	bool is_chainable(Cell* cell)
 	{
 		if (!(is_add(cell) || is_subtract(cell)))
@@ -134,6 +138,7 @@ struct Rewriter
 		return consumer;
 	}
 
+	// Find cells that consumes another cell's output.
 	dict<Cell*, Cell*> find_parents(const pool<Cell*>& candidates)
 	{
 		dict<Cell*, Cell*> parent_of;
@@ -207,7 +212,7 @@ struct Rewriter
 		const pool<Cell*>& chain,
 		Cell* root,
 		const dict<Cell*, Cell*>& parent_of,
-		int& correction
+		int& neg_compensation
 	) {
 		pool<SigBit> chain_bits = internal_bits(chain);
 		dict<Cell*, bool> negated;
@@ -229,7 +234,7 @@ struct Rewriter
 		}
 
 		std::vector<Operand> operands;
-		correction = 0;
+		neg_compensation = 0;
 
 		for (auto cell : chain) {
 			bool cell_neg;
@@ -247,21 +252,21 @@ struct Rewriter
 			if (!overlaps(a, chain_bits)) {
 				bool neg = cell_neg;
 				operands.push_back({a, a_signed, neg});
-				if (neg) correction++;
+				if (neg) neg_compensation++;
 			}
 			if (!overlaps(b, chain_bits)) {
 				bool neg = cell_neg ^ b_sub;
 				operands.push_back({b, b_signed, neg});
-				if (neg) correction++;
+				if (neg) neg_compensation++;
 			}
 		}
 		return operands;
 	}
 
-	bool extract_macc_operands(Cell* cell, std::vector<Operand>& operands, int& correction)
+	bool extract_macc_operands(Cell* cell, std::vector<Operand>& operands, int& neg_compensation)
 	{
 		Macc macc(cell);
-		correction = 0;
+		neg_compensation = 0;
 
 		for (auto& term : macc.terms) {
 			// Bail on multiplication
@@ -269,7 +274,7 @@ struct Rewriter
 				return false;
 			operands.push_back({term.in_a, term.is_signed, term.do_subtract});
 			if (term.do_subtract)
-				correction++;
+				neg_compensation++;
 		}
 		return true;
 	}
@@ -307,6 +312,7 @@ struct Rewriter
 		int depth;
 	};
 
+	// Group ready operands into triplets and compress via full adders until two operands remain.
 	std::pair<SigSpec, SigSpec> reduce_wallace(std::vector<SigSpec>& sigs, int width, int& fa_count)
 	{
 		std::vector<DepthSig> ops;
@@ -356,7 +362,7 @@ struct Rewriter
 	void replace_with_csa_tree(
 		std::vector<Operand>& operands,
 		SigSpec result_y,
-		int correction,
+		int neg_compensation,
 		const char* desc
 	) {
 		int width = GetSize(result_y);
@@ -370,8 +376,8 @@ struct Rewriter
 			extended.push_back(s);
 		}
 
-		if (correction > 0)
-			extended.push_back(SigSpec(correction, width));
+		if (neg_compensation > 0)
+			extended.push_back(SigSpec(neg_compensation, width));
 
 		int fa_count;
 		auto [a, b] = reduce_wallace(extended, width, fa_count);
@@ -416,14 +422,12 @@ struct Rewriter
 			for (auto c : chain)
 				processed.insert(c);
 
-			int correction;
-			auto operands = extract_chain_operands(
-				chain, root, parent_of, correction);
+			int neg_compensation;
+			auto operands = extract_chain_operands(chain, root, parent_of, neg_compensation);
 			if (operands.size() < 3)
 				continue;
 
-			replace_with_csa_tree(operands, root->getPort(ID::Y),
-				correction, "Replaced add/sub chain");
+			replace_with_csa_tree(operands, root->getPort(ID::Y), neg_compensation, "Replaced add/sub chain");
 			for (auto cell : chain)
 				module->remove(cell);
 		}
@@ -433,14 +437,13 @@ struct Rewriter
 	{
 		for (auto cell : cells.macc) {
 			std::vector<Operand> operands;
-			int correction;
-			if (!extract_macc_operands(cell, operands, correction))
+			int neg_compensation;
+			if (!extract_macc_operands(cell, operands, neg_compensation))
 				continue;
 			if (operands.size() < 3)
 				continue;
 
-			replace_with_csa_tree(operands, cell->getPort(ID::Y),
-				correction, "Replaced $macc");
+			replace_with_csa_tree(operands, cell->getPort(ID::Y), neg_compensation, "Replaced $macc");
 			module->remove(cell);
 		}
 	}
@@ -458,8 +461,7 @@ void run(Module* module) {
 }
 
 struct CsaTreePass : public Pass {
-	CsaTreePass() : Pass("csa_tree",
-		"convert add/sub/macc chains to carry-save adder trees") {}
+	CsaTreePass() : Pass("csa_tree", "convert add/sub/macc chains to carry-save adder trees") {}
 
 	void help() override
 	{
