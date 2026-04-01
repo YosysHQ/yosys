@@ -259,7 +259,7 @@ select -assert-none t:$fa
 design -reset
 
 read_verilog <<EOT
-module alu_mixed_width(
+module macc_mixed_width(
 	input [7:0] a,
 	input [3:0] b,
 	input [15:0] c,
@@ -282,7 +282,7 @@ select -assert-none t:$sub
 design -reset
 
 read_verilog <<EOT
-module alu_signed(
+module macc_signed(
 	input signed [7:0] a, b, c, d,
 	output signed [9:0] y
 );
@@ -302,7 +302,7 @@ select -assert-none t:$sub
 design -reset
 
 read_verilog <<EOT
-module fir_4tap_alu(
+module fir_4tap_macc(
 	input clk,
 	input [15:0] x, c0, c1, c2, c3,
 	output reg [31:0] y
@@ -328,7 +328,7 @@ select -assert-min 1 t:$dff
 design -reset
 
 read_verilog <<EOT
-module alu_mixed_sign(
+module macc_mixed_sign(
 	input signed [7:0] a,
 	input [7:0] b,
 	input signed [7:0] c,
@@ -350,7 +350,7 @@ select -assert-none t:$sub
 design -reset
 
 read_verilog <<EOT
-module alu_wide32(
+module macc_wide32(
 	input [31:0] a, b, c, d,
 	output [31:0] y
 );
@@ -370,7 +370,7 @@ select -assert-none t:$sub
 design -reset
 
 read_verilog <<EOT
-module alu_single(
+module passthrough(
 	input [7:0] a,
 	output [7:0] y
 );
