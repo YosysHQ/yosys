@@ -1,9 +1,11 @@
-// Replaces chains of $add/$sub and $macc cells with carry-save adder trees, reducing multi-operand
-// addition to logarithmic depth. ref. paper: Zimmermann, "Architectures for Adders"
+/**
+ * Replaces chains of $add/$sub and $macc cells with carry-save adder trees
+ */
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/macc.h"
+#include "kernel/wallace_tree.h"
 
 #include <queue>
 
@@ -306,71 +308,6 @@ struct Rewriter
 		return sig;
 	}
 
-	std::pair<SigSpec, SigSpec> emit_fa(SigSpec a, SigSpec b, SigSpec c, int width)
-	{
-		SigSpec sum  = module->addWire(NEW_ID, width);
-		SigSpec cout = module->addWire(NEW_ID, width);
-
-		module->addFa(NEW_ID, a, b, c, cout, sum);
-
-		SigSpec carry;
-		carry.append(State::S0);
-		carry.append(cout.extract(0, width - 1));
-		return {sum, carry};
-	}
-
-	struct DepthSig {
-		SigSpec sig;
-		int depth;
-	};
-
-	// Group ready operands into triplets and compress via full adders until two operands remain.
-	std::pair<SigSpec, SigSpec> reduce_wallace(std::vector<SigSpec>& sigs, int width, int& fa_count)
-	{
-		std::vector<DepthSig> ops;
-		ops.reserve(sigs.size());
-		for (auto& s : sigs)
-			ops.push_back({s, 0});
-
-		fa_count = 0;
-
-		for (int level = 0; ops.size() > 2; level++) {
-			log_assert(level <= 100);
-
-			std::vector<DepthSig> ready, waiting;
-			for (auto& op : ops) {
-				if (op.depth <= level)
-					ready.push_back(op);
-				else
-					waiting.push_back(op);
-			}
-
-			if (ready.size() < 3) continue;
-
-			std::vector<DepthSig> next;
-			size_t i = 0;
-			while (i + 2 < ready.size()) {
-				auto [sum, carry] = emit_fa(ready[i].sig, ready[i + 1].sig, ready[i + 2].sig, width);
-				int d = std::max({ready[i].depth, ready[i + 1].depth,ready[i + 2].depth}) + 1;
-				next.push_back({sum, d});
-				next.push_back({carry, d});
-				fa_count++;
-				i += 3;
-			}
-			for (; i < ready.size(); i++)
-				next.push_back(ready[i]);
-			for (auto& op : waiting)
-				next.push_back(op);
-
-			ops = std::move(next);
-		}
-
-		log_assert(ops.size() == 2);
-		log("    Tree depth: %d FA levels + 1 final add\n",
-			std::max(ops[0].depth, ops[1].depth));
-		return {ops[0].sig, ops[1].sig};
-	}
-
 	void replace_with_csa_tree(
 		std::vector<Operand>& operands,
 		SigSpec result_y,
@@ -392,11 +329,9 @@ struct Rewriter
 		if (neg_compensation > 0)
 			extended.push_back(SigSpec(neg_compensation, width));
 
-		int fa_count;
-		auto [a, b] = reduce_wallace(extended, width, fa_count);
-
-		log("  %s -> %d $fa + 1 $add (%d operands, module %s)\n",
-			desc, fa_count, (int)operands.size(), log_id(module));
+		int compressor_count;
+		auto [a, b] = wallace_reduce_scheduled(module, extended, width, &compressor_count);
+		log("  %s -> %d $fa + 1 $add (%d operands, module %s)\n", desc, compressor_count, (int)operands.size(), log_id(module));
 
 		// Emit final add
 		module->addAdd(NEW_ID, a, b, result_y, false);
