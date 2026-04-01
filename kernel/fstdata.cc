@@ -236,6 +236,9 @@ void FstData::extractVarNames()
 									int array_index = std::stoi(index_str);
 									array_indices.push_back(array_index);
 								}
+							} else {
+								log_warning("Error parsing array index in : %s\n", full_name.c_str());
+								break;
 							}
 
 							// Move to next opening bracket

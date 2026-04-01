@@ -257,19 +257,19 @@ struct SimInstance
 	// Concatenates values from array elements in descending index order
 	bool setStateFromArrayHandles(Wire* wire, dict<std::vector<int>, fstHandle>& handles)
 	{
-		// Collect and sort indices in descending row-major orde
-    std::vector<std::pair<std::vector<int>, fstHandle>> sorted_elements;
-    for (auto &kv : handles) {
-        sorted_elements.push_back({kv.first, kv.second});
-    }
+		// Collect and sort indices in descending row-major order
+		std::vector<std::pair<std::vector<int>, fstHandle>> sorted_elements;
+		for (auto &kv : handles) {
+			sorted_elements.push_back({kv.first, kv.second});
+		}
 		std::sort(sorted_elements.begin(), sorted_elements.end(), std::greater<>());
-		
+
 		// Concatenate values in descending index order
-    std::string concatenated = "";
-    for (auto &elem : sorted_elements) {
-        concatenated += shared->fst->valueOf(elem.second);
-    }
-    return set_state(wire, Const::from_string(concatenated));
+		std::string concatenated = "";
+		for (auto &elem : sorted_elements) {
+			concatenated += shared->fst->valueOf(elem.second);
+		}
+		return set_state(wire, Const::from_string(concatenated));
 	}
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
