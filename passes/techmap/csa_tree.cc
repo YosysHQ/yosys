@@ -2,10 +2,10 @@
  * Replaces chains of $add/$sub and $macc cells with carry-save adder trees
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
 #include "kernel/macc.h"
+#include "kernel/sigtools.h"
 #include "kernel/wallace_tree.h"
+#include "kernel/yosys.h"
 
 #include <queue>
 
@@ -18,19 +18,19 @@ struct Operand {
 	bool negate;
 };
 
-struct Traversal
-{
+struct Traversal {
 	SigMap sigmap;
-	dict<SigBit, pool<Cell*>> bit_consumers;
+	dict<SigBit, pool<Cell *>> bit_consumers;
 	dict<SigBit, int> fanout;
-	Traversal(Module* module) : sigmap(module) {
+	Traversal(Module *module) : sigmap(module)
+	{
 		for (auto cell : module->cells())
-			for (auto& conn : cell->connections())
+			for (auto &conn : cell->connections())
 				if (cell->input(conn.first))
 					for (auto bit : sigmap(conn.second))
 						bit_consumers[bit].insert(cell);
 
-		for (auto& pair : bit_consumers)
+		for (auto &pair : bit_consumers)
 			fanout[pair.first] = pair.second.size();
 
 		for (auto wire : module->wires())
@@ -41,30 +41,20 @@ struct Traversal
 };
 
 struct Cells {
-	pool<Cell*> addsub;
-	pool<Cell*> alu;
-	pool<Cell*> macc;
+	pool<Cell *> addsub;
+	pool<Cell *> alu;
+	pool<Cell *> macc;
 
-	static bool is_addsub(Cell* cell)
+	static bool is_addsub(Cell *cell) { return cell->type == ID($add) || cell->type == ID($sub); }
+
+	static bool is_alu(Cell *cell) { return cell->type == ID($alu); }
+
+	static bool is_macc(Cell *cell) { return cell->type == ID($macc) || cell->type == ID($macc_v2); }
+
+	bool empty() { return addsub.empty() && alu.empty() && macc.empty(); }
+
+	Cells(Module *module)
 	{
-		return cell->type == ID($add) || cell->type == ID($sub);
-	}
-
-	static bool is_alu(Cell* cell)
-	{
-		return cell->type == ID($alu);
-	}
-
-	static bool is_macc(Cell* cell)
-	{
-		return cell->type == ID($macc) || cell->type == ID($macc_v2);
-	}
-
-	bool empty() {
-		return addsub.empty() && alu.empty() && macc.empty();
-	}
-
-	Cells(Module* module) {
 		for (auto cell : module->cells()) {
 			if (is_addsub(cell))
 				addsub.insert(cell);
@@ -77,16 +67,16 @@ struct Cells {
 };
 
 struct AluInfo {
-	Cells& cells;
-	Traversal& traversal;
-	bool is_subtract(Cell* cell)
+	Cells &cells;
+	Traversal &traversal;
+	bool is_subtract(Cell *cell)
 	{
 		SigSpec bi = traversal.sigmap(cell->getPort(ID::BI));
 		SigSpec ci = traversal.sigmap(cell->getPort(ID::CI));
 		return GetSize(bi) == 1 && bi[0] == State::S1 && GetSize(ci) == 1 && ci[0] == State::S1;
 	}
 
-	bool is_add(Cell* cell)
+	bool is_add(Cell *cell)
 	{
 		SigSpec bi = traversal.sigmap(cell->getPort(ID::BI));
 		SigSpec ci = traversal.sigmap(cell->getPort(ID::CI));
@@ -95,7 +85,7 @@ struct AluInfo {
 
 	// Chainable cells are adds/subs with no carry usage, connected chainable
 	// cells form chains that can be replaced with CSA trees.
-	bool is_chainable(Cell* cell)
+	bool is_chainable(Cell *cell)
 	{
 		if (!(is_add(cell) || is_subtract(cell)))
 			return false;
@@ -111,25 +101,24 @@ struct AluInfo {
 	}
 };
 
-struct Rewriter
-{
-	Module* module;
-	Cells& cells;
+struct Rewriter {
+	Module *module;
+	Cells &cells;
 	Traversal traversal;
 	AluInfo alu_info;
 
-	Rewriter(Module* module, Cells& cells) : module(module), cells(cells), traversal(module), alu_info{cells, traversal} {}
+	Rewriter(Module *module, Cells &cells) : module(module), cells(cells), traversal(module), alu_info{cells, traversal} {}
 
-	Cell* sole_chainable_consumer(SigSpec sig, const pool<Cell*>& candidates)
+	Cell *sole_chainable_consumer(SigSpec sig, const pool<Cell *> &candidates)
 	{
-		Cell* consumer = nullptr;
+		Cell *consumer = nullptr;
 		for (auto bit : sig) {
 			if (!traversal.fanout.count(bit) || traversal.fanout[bit] != 1)
 				return nullptr;
 			if (!traversal.bit_consumers.count(bit) || traversal.bit_consumers[bit].size() != 1)
 				return nullptr;
 
-			Cell* c = *traversal.bit_consumers[bit].begin();
+			Cell *c = *traversal.bit_consumers[bit].begin();
 			if (!candidates.count(c))
 				return nullptr;
 
@@ -142,36 +131,35 @@ struct Rewriter
 	}
 
 	// Find cells that consume another cell's output.
-	dict<Cell*, Cell*> find_parents(const pool<Cell*>& candidates)
+	dict<Cell *, Cell *> find_parents(const pool<Cell *> &candidates)
 	{
-		dict<Cell*, Cell*> parent_of;
+		dict<Cell *, Cell *> parent_of;
 		for (auto cell : candidates) {
-			Cell* consumer = sole_chainable_consumer(
-				traversal.sigmap(cell->getPort(ID::Y)), candidates);
+			Cell *consumer = sole_chainable_consumer(traversal.sigmap(cell->getPort(ID::Y)), candidates);
 			if (consumer && consumer != cell)
 				parent_of[cell] = consumer;
 		}
 		return parent_of;
 	}
 
-	std::pair<dict<Cell*, pool<Cell*>>, pool<Cell*>> invert_parent_map(const dict<Cell*, Cell*>& parent_of)
+	std::pair<dict<Cell *, pool<Cell *>>, pool<Cell *>> invert_parent_map(const dict<Cell *, Cell *> &parent_of)
 	{
-		dict<Cell*, pool<Cell*>> children_of;
-		pool<Cell*> has_parent;
-		for (auto& [child, parent] : parent_of) {
+		dict<Cell *, pool<Cell *>> children_of;
+		pool<Cell *> has_parent;
+		for (auto &[child, parent] : parent_of) {
 			children_of[parent].insert(child);
 			has_parent.insert(child);
 		}
 		return {children_of, has_parent};
 	}
 
-	pool<Cell*> collect_chain(Cell* root, const dict<Cell*, pool<Cell*>>& children_of)
+	pool<Cell *> collect_chain(Cell *root, const dict<Cell *, pool<Cell *>> &children_of)
 	{
-		pool<Cell*> chain;
-		std::queue<Cell*> q;
+		pool<Cell *> chain;
+		std::queue<Cell *> q;
 		q.push(root);
 		while (!q.empty()) {
-			Cell* cur = q.front();
+			Cell *cur = q.front();
 			q.pop();
 			if (!chain.insert(cur).second)
 				continue;
@@ -183,7 +171,7 @@ struct Rewriter
 		return chain;
 	}
 
-	pool<SigBit> internal_bits(const pool<Cell*>& chain)
+	pool<SigBit> internal_bits(const pool<Cell *> &chain)
 	{
 		pool<SigBit> bits;
 		for (auto cell : chain)
@@ -192,7 +180,7 @@ struct Rewriter
 		return bits;
 	}
 
-	static bool overlaps(SigSpec sig, const pool<SigBit>& bits)
+	static bool overlaps(SigSpec sig, const pool<SigBit> &bits)
 	{
 		for (auto bit : sig)
 			if (bits.count(bit))
@@ -200,7 +188,7 @@ struct Rewriter
 		return false;
 	}
 
-	bool feeds_subtracted_port(Cell* child, Cell* parent)
+	bool feeds_subtracted_port(Cell *child, Cell *parent)
 	{
 		bool parent_subtracts;
 		if (parent->type == ID($sub))
@@ -213,7 +201,7 @@ struct Rewriter
 		if (!parent_subtracts)
 			return false;
 
-		SigSpec child_y  = traversal.sigmap(child->getPort(ID::Y));
+		SigSpec child_y = traversal.sigmap(child->getPort(ID::Y));
 		SigSpec parent_b = traversal.sigmap(parent->getPort(ID::B));
 		for (auto bit : child_y)
 			for (auto pbit : parent_b)
@@ -222,20 +210,18 @@ struct Rewriter
 		return false;
 	}
 
-	std::vector<Operand> extract_chain_operands(
-		const pool<Cell*>& chain,
-		Cell* root,
-		const dict<Cell*, Cell*>& parent_of,
-		int& neg_compensation
-	) {
+	std::vector<Operand> extract_chain_operands(const pool<Cell *> &chain, Cell *root, const dict<Cell *, Cell *> &parent_of,
+						    int &neg_compensation)
+	{
 		pool<SigBit> chain_bits = internal_bits(chain);
-		dict<Cell*, bool> negated;
+		dict<Cell *, bool> negated;
 		negated[root] = false;
 		{
-			std::queue<Cell*> q;
+			std::queue<Cell *> q;
 			q.push(root);
 			while (!q.empty()) {
-				Cell* cur = q.front(); q.pop();
+				Cell *cur = q.front();
+				q.pop();
 				for (auto cell : chain) {
 					if (!parent_of.count(cell) || parent_of.at(cell) != cur)
 						continue;
@@ -266,23 +252,25 @@ struct Rewriter
 			if (!overlaps(a, chain_bits)) {
 				bool neg = cell_neg;
 				operands.push_back({a, a_signed, neg});
-				if (neg) neg_compensation++;
+				if (neg)
+					neg_compensation++;
 			}
 			if (!overlaps(b, chain_bits)) {
 				bool neg = cell_neg ^ b_sub;
 				operands.push_back({b, b_signed, neg});
-				if (neg) neg_compensation++;
+				if (neg)
+					neg_compensation++;
 			}
 		}
 		return operands;
 	}
 
-	bool extract_macc_operands(Cell* cell, std::vector<Operand>& operands, int& neg_compensation)
+	bool extract_macc_operands(Cell *cell, std::vector<Operand> &operands, int &neg_compensation)
 	{
 		Macc macc(cell);
 		neg_compensation = 0;
 
-		for (auto& term : macc.terms) {
+		for (auto &term : macc.terms) {
 			// Bail on multiplication
 			if (GetSize(term.in_b) != 0)
 				return false;
@@ -308,17 +296,13 @@ struct Rewriter
 		return sig;
 	}
 
-	void replace_with_csa_tree(
-		std::vector<Operand>& operands,
-		SigSpec result_y,
-		int neg_compensation,
-		const char* desc
-	) {
+	void replace_with_csa_tree(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation, const char *desc)
+	{
 		int width = GetSize(result_y);
 		std::vector<SigSpec> extended;
 		extended.reserve(operands.size() + 1);
 
-		for (auto& op : operands) {
+		for (auto &op : operands) {
 			SigSpec s = extend_operand(op.sig, op.is_signed, width);
 			if (op.negate)
 				s = module->Not(NEW_ID, s);
@@ -339,7 +323,7 @@ struct Rewriter
 
 	void process_chains()
 	{
-		pool<Cell*> candidates;
+		pool<Cell *> candidates;
 		for (auto cell : cells.addsub)
 			candidates.insert(cell);
 		for (auto cell : cells.alu)
@@ -352,12 +336,12 @@ struct Rewriter
 		auto parent_of = find_parents(candidates);
 		auto [children_of, has_parent] = invert_parent_map(parent_of);
 
-		pool<Cell*> processed;
+		pool<Cell *> processed;
 		for (auto root : candidates) {
 			if (has_parent.count(root) || processed.count(root))
 				continue; // Not a tree root
 
-			pool<Cell*> chain = collect_chain(root, children_of);
+			pool<Cell *> chain = collect_chain(root, children_of);
 			if (chain.size() < 2)
 				continue;
 
@@ -391,13 +375,14 @@ struct Rewriter
 	}
 };
 
-void run(Module* module) {
+void run(Module *module)
+{
 	Cells cells(module);
 
 	if (cells.empty())
 		return;
 
-	Rewriter rewriter {module, cells};
+	Rewriter rewriter{module, cells};
 	rewriter.process_chains();
 	rewriter.process_maccs();
 }
@@ -421,7 +406,7 @@ struct CsaTreePass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design* design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing CSA_TREE pass.\n");
 
