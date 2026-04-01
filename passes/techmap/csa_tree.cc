@@ -91,7 +91,8 @@ struct AluInfo {
 		return GetSize(bi) == 1 && bi[0] == State::S0 && GetSize(ci) == 1 && ci[0] == State::S0;
 	}
 
-	// A cell is chainable if it's a plain add/sub with unused carries.
+	// Chainable cells are adds/subs with no carry usage, connected chainable
+	// cells form chains that can be replaced with CSA trees.
 	bool is_chainable(Cell* cell)
 	{
 		if (!(is_add(cell) || is_subtract(cell)))
@@ -138,7 +139,7 @@ struct Rewriter
 		return consumer;
 	}
 
-	// Find cells that consumes another cell's output.
+	// Find cells that consume another cell's output.
 	dict<Cell*, Cell*> find_parents(const pool<Cell*>& candidates)
 	{
 		dict<Cell*, Cell*> parent_of;
@@ -149,6 +150,17 @@ struct Rewriter
 				parent_of[cell] = consumer;
 		}
 		return parent_of;
+	}
+
+	std::pair<dict<Cell*, pool<Cell*>>, pool<Cell*>> invert_parent_map(const dict<Cell*, Cell*>& parent_of)
+	{
+		dict<Cell*, pool<Cell*>> children_of;
+		pool<Cell*> has_parent;
+		for (auto& [child, parent] : parent_of) {
+			children_of[parent].insert(child);
+			has_parent.insert(child);
+		}
+		return {children_of, has_parent};
 	}
 
 	pool<Cell*> collect_chain(Cell* root, const dict<Cell*, pool<Cell*>>& children_of)
@@ -376,6 +388,7 @@ struct Rewriter
 			extended.push_back(s);
 		}
 
+		// Add correction for negated operands (-x = ~x + 1 so 1 per negation)
 		if (neg_compensation > 0)
 			extended.push_back(SigSpec(neg_compensation, width));
 
@@ -402,13 +415,7 @@ struct Rewriter
 			return;
 
 		auto parent_of = find_parents(candidates);
-
-		dict<Cell*, pool<Cell*>> children_of;
-		pool<Cell*> has_parent;
-		for (auto& [child, parent] : parent_of) {
-			children_of[parent].insert(child);
-			has_parent.insert(child);
-		}
+		auto [children_of, has_parent] = invert_parent_map(parent_of);
 
 		pool<Cell*> processed;
 		for (auto root : candidates) {
