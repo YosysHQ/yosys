@@ -103,11 +103,11 @@ dict<int,fstHandle> FstData::getMemoryHandles(std::string name) {
 		return dict<int,fstHandle>();
 };
 
-dict<int,fstHandle> FstData::getArrayHandles(std::string name) {
+dict<std::vector<int>,fstHandle> FstData::getArrayHandles(std::string name) {
 	if (array_to_handle.find(name) != array_to_handle.end())
 		return array_to_handle[name];
 	else
-		return dict<int,fstHandle>();
+		return dict<std::vector<int>,fstHandle>();
 };
 
 static std::string remove_spaces(std::string str)
@@ -213,22 +213,41 @@ void FstData::extractVarNames()
 						}
 					}
 				} else {
-					// Handle "signal [index][bitrange]" format
+
+					// Handle "signal [i0][i1]...[iN][bitrange]" format
 					std::string full_name = h->u.var.name;
 					size_t space_pos = full_name.find(' ');
 					if (space_pos != std::string::npos) {
+
+						// Extract "[i0][i1]...[iN][bitrange]" suffix
 						std::string suffix = full_name.substr(space_pos + 1);
-						// Parse first bracket pair for array index
-						if (!suffix.empty() && suffix[0] == '[') {
-							size_t close_bracket = suffix.find(']');
-							if (close_bracket != std::string::npos) {
-								std::string index_str = suffix.substr(1, close_bracket - 1);
+
+						// Parse arbitrary number of array indices
+						size_t open = 0;
+						std::vector<int> array_indices;
+						while (open < suffix.length() && suffix[open] == '[') {
+
+							size_t close = suffix.find(']', open);
+							if (close != std::string::npos) {
+								std::string index_str = suffix.substr(open + 1, close - open - 1);
+
 								// Check it's an array index (no colon), not a bit range
 								if (index_str.find(':') == std::string::npos) {
 									int array_index = std::stoi(index_str);
-									array_to_handle[var.scope+"."+clean_name][array_index] = var.id;
+									array_indices.push_back(array_index);
 								}
+							} else {
+								log_warning("Error parsing array index in : %s\n", full_name.c_str());
+								break;
 							}
+
+							// Move to next opening bracket
+							open = close + 1;
+						}
+
+						// Add array indices to array_to_handle map if there are any
+						if (!array_indices.empty()) {
+							array_to_handle[var.scope+"."+clean_name][array_indices] = var.id;
 						}
 					}
 				}
