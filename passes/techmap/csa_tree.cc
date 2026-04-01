@@ -213,8 +213,7 @@ struct Rewriter {
 		return false;
 	}
 
-	std::vector<Operand> extract_chain_operands(const pool<Cell *> &chain, Cell *root, const dict<Cell *, Cell *> &parent_of,
-						    int &neg_compensation)
+	std::vector<Operand> extract_chain_operands(const pool<Cell *> &chain, Cell *root, const dict<Cell *, Cell *> &parent_of, int &neg_compensation)
 	{
 		pool<SigBit> chain_bits = internal_bits(chain);
 

@@ -20,7 +20,7 @@ select -assert-none t:$sub
 design -reset
 
 read_verilog <<EOT
-module alu_idempotent(
+module macc_idempotent(
 	input [15:0] a, b, c, d, e, f, g, h,
 	output [15:0] y
 );
