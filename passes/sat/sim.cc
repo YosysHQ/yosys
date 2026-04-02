@@ -1641,6 +1641,7 @@ struct SimWorker : SimShared
 
 		bool initial = true;
 		int cycle = 0;
+		uint64_t last_time = startCount;
 		log("Co-simulation from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
 		if (cycles_set) 
 			log(" for %d clock cycle(s)",numcycles);
@@ -1675,6 +1676,7 @@ struct SimWorker : SimShared
 			if (did_something)
 				update(true);
 			register_output_step(time);
+			last_time = time;
 
 			bool status = top->checkSignals();
 			if (status)
@@ -1685,7 +1687,7 @@ struct SimWorker : SimShared
 		log("Co-simulation complete: %d %s at %lu%s\n", 
 			cycle, 
 			(all_samples ? "samples" : "cycles"),
-			(unsigned long)stopCount, 
+			(unsigned long)last_time, 
 			fst->getTimescaleString());
 
 		write_output_files();
@@ -3029,7 +3031,7 @@ struct SimPass : public Pass {
 		log("        enable debug output\n");
 		log("\n");
 		log("    -log-interval <integer>\n");
-		log("        log progress every N samples (default: 0 = no logging)\n");
+		log("        log progress every N cycles (if clock is specified) or samples (otherwise). Defaults to 0 (no logging)\n");
 		log("\n");
 	}
 
