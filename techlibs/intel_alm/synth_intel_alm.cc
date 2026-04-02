@@ -225,12 +225,12 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
-			run(stringf("memory_bram -rules +/intel_alm/common/bram_%s.txt", bram_type));
+			run(stringf("memory_bram -rules +/intel_alm/common/bram_%s.txt -register", bram_type));
 			run(stringf("techmap -map +/intel_alm/common/bram_%s_map.v", bram_type));
 		}
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
-			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt", "(for Cyclone V)");
+			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt -register", "(for Cyclone V)");
 		}
 
 		if (check_label("map_ffram")) {
