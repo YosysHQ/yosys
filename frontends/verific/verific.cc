@@ -20,9 +20,11 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/json.h"
 #include "kernel/log.h"
 #include "kernel/utils.h"
 #include "libs/sha1/sha1.h"
+#include <set>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -117,6 +119,44 @@ bool verific_no_split_complex_ports; // SILIMATE: disable splitting of complex p
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
+
+static void dump_verific_file_closure(const char *output_path, Array *file_names)
+{
+	std::set<std::string> seen;
+	Json::array files_json;
+	auto add_file = [&](const char *path) {
+		if (!path) return;
+		char *abs_name = FileSystem::Convert2AbsolutePath(path, 1);
+		if (abs_name && seen.insert(abs_name).second)
+			files_json.push_back(std::string(abs_name));
+		Strings::free(abs_name); // null-safe
+	};
+
+	unsigned i;
+	char *file_name;
+	FOREACH_ARRAY_ITEM(file_names, i, file_name)
+		add_file(file_name);
+
+	MapIter mi;
+	VeriModule *veri_module;
+	FOREACH_VERILOG_MODULE(mi, veri_module)
+		add_file(LineFile::GetFileName(veri_module->Linefile()));
+
+	const Map *included_files = veri_file::GetIncludedFiles();
+	if (included_files) {
+		char *included_file;
+		verific_uintptr included_from;
+		FOREACH_MAP_ITEM(included_files, mi, &included_file, &included_from)
+			add_file(included_file);
+	}
+
+	PrettyJson json;
+	if (!json.write_to_file(output_path))
+		log_cmd_error("Cannot write file closure '%s'.\n", output_path);
+	json.begin_object();
+	json.entry_json("files", Json(files_json));
+	json.end_object();
+}
 #endif
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
@@ -3296,6 +3336,15 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		log("    verific -dump-file-closure <output.json> {-f|-F|-sv|...} <files>\n");
+		log("\n");
+		log("Analyze the given sources and write the complete set of consumed source files\n");
+		log("(including transitively included headers) as a JSON array to <output.json>.\n");
+		log("Note: -dump-file-closure must appear before the file-mode flag (-f, -F, -sv, etc.).\n");
+		log("\n");
+		log("\n");
+#endif
 		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
@@ -3662,6 +3711,7 @@ struct VerificPass : public Pass {
 
 		int argidx = 1;
 		std::string work = "work";
+		std::string dump_file_closure;
 		bool is_work_set = false;
 		(void)is_work_set;
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
@@ -3797,6 +3847,13 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-dump-file-closure") {
+			if (++argidx >= GetSize(args))
+				log_cmd_error("Missing JSON output path for -dump-file-closure.\n");
+			// Must appear before -f/-F: sets dump_file_closure which is checked after ProcessFFile
+			dump_file_closure = args[argidx++];
+		}
+
 		if (GetSize(args) > argidx && args[argidx] == "-optimization") {
 			verific_opt = true;
 			goto check_error;
@@ -4010,6 +4067,9 @@ struct VerificPass : public Pass {
 			}
 #endif
 
+			if (!dump_file_closure.empty())
+				dump_verific_file_closure(dump_file_closure.c_str(), file_names);
+
 			delete file_names;
 			verific_import_pending = true;
 			goto check_error;
@@ -4085,9 +4145,11 @@ struct VerificPass : public Pass {
 			Map map(POINTER_HASH);
 			add_modules_to_map(map, work, flag_lib);
 			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
-					verific_error_msg.clear();
-					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
+				verific_error_msg.clear();
+				log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 			}
+			if (!dump_file_closure.empty())
+				dump_verific_file_closure(dump_file_closure.c_str(), &file_names);
 			char* fn;
 			int i = 0;
 
