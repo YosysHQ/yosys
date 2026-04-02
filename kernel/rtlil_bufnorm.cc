@@ -1055,10 +1055,15 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 	}
 }
 
+static bool ignored_cell(const RTLIL::IdString& type)
+{
+	return type == ID($specify2) || type == ID($specify3) || type == ID($specrule);
+}
+
 void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
 	bool is_input_port = false;
-	if (module->sig_norm_index != nullptr && type != ID($specify2) && type != ID($specify3) && type != ID($specrule)) {
+	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
 		module->sig_norm_index->sigmap.apply(signal);
 		auto dir = port_dir(portname);
 
@@ -1094,7 +1099,7 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	}
 
 
-	if (module->sig_norm_index != nullptr) {
+	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
 		module->sig_norm_index->dirty.insert(this);
 		if (!r.second) {
 			if (is_input_port) {
