@@ -121,7 +121,7 @@ module MUX2_LUT5 (O, I0, I1, S0);
 		(S0 => O) = (486, 680);
 	endspecify
 
-  MUX2 mux2_lut5 (O, I0, I1, S0);
+  MUX2 mux2_lut5 (.O(O), .I0(I0), .I1(I1), .S0(S0));
 endmodule
 
 module MUX2_LUT6 (O, I0, I1, S0);
@@ -135,7 +135,7 @@ module MUX2_LUT6 (O, I0, I1, S0);
 		(S0 => O) = (478, 723);
 	endspecify
 
-  MUX2 mux2_lut6 (O, I0, I1, S0);
+  MUX2 mux2_lut6 (.O(O), .I0(I0), .I1(I1), .S0(S0));
 endmodule
 
 module MUX2_LUT7 (O, I0, I1, S0);
@@ -149,7 +149,7 @@ module MUX2_LUT7 (O, I0, I1, S0);
 		(S0 => O) = (478, 723);
 	endspecify
 
-  MUX2 mux2_lut7 (O, I0, I1, S0);
+  MUX2 mux2_lut7 (.O(O), .I0(I0), .I1(I1), .S0(S0));
 endmodule
 
 module MUX2_LUT8 (O, I0, I1, S0);
@@ -163,7 +163,7 @@ module MUX2_LUT8 (O, I0, I1, S0);
 		(S0 => O) = (478, 723);
 	endspecify
 
-  MUX2 mux2_lut8 (O, I0, I1, S0);
+  MUX2 mux2_lut8 (.O(O), .I0(I0), .I1(I1), .S0(S0));
 endmodule
 
 (* abc9_flop, lib_whitebox *)
