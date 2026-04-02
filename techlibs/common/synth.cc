@@ -297,8 +297,7 @@ struct SynthPass : public ScriptPass {
 				run("booth", "    (if -booth)");
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
-			if (csa || help_mode)
-				run("csa_tree", " (if -csa)");
+			run("csa_tree");
 			if (!noshare)
 				run("share", "    (unless -noshare)");
 			run("opt" + hieropt_flag);
