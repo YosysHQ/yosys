@@ -1538,7 +1538,7 @@ struct SimWorker : SimShared
 		write_output_files();
 	}
 
-	void run_cosim_fst(Module *topmod, int numcycles)
+	void run_cosim_fst(Module *topmod, int numcycles, int log_interval)
 	{
 		log_assert(top == nullptr);
 		fst = new FstData(sim_filename);
@@ -1649,8 +1649,22 @@ struct SimWorker : SimShared
 		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
 
 		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
+			
+			// Log progress every log_interval
+			if (log_interval > 0 && cycle > 0 && cycle % log_interval == 0) {
+				log("Completed %d %s at %lu%s\n", 
+					cycle, 
+					(all_samples ? "samples" : "cycles"),
+					(unsigned long)time, 
+					fst->getTimescaleString());
+			}
+
 			if (verbose)
-				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
+				log("Co-simulating %s %d [%lu%s].\n",
+					(all_samples ? "sample" : "cycle"),
+					cycle,
+					(unsigned long)time,
+					fst->getTimescaleString());
 			bool did_something = top->setInputs();
 
 			if (initial) {
@@ -1667,6 +1681,12 @@ struct SimWorker : SimShared
 				log_error("Signal difference\n");
 			cycle++;
 		});
+
+		log("Co-simulation complete: %d %s at %lu%s\n", 
+			cycle, 
+			(all_samples ? "samples" : "cycles"),
+			(unsigned long)stopCount, 
+			fst->getTimescaleString());
 
 		write_output_files();
 		delete fst;
@@ -3008,6 +3028,9 @@ struct SimPass : public Pass {
 		log("    -d\n");
 		log("        enable debug output\n");
 		log("\n");
+		log("    -log-interval <integer>\n");
+		log("        log progress every N samples (default: 0 = no logging)\n");
+		log("\n");
 	}
 
 
@@ -3021,7 +3044,7 @@ struct SimPass : public Pass {
 		SimWorker worker;
 		int numcycles = 20;
 		int cycle_width = 10;
-		int append = 0;
+		int append = 0, log_interval = 0;
 		bool start_set = false, stop_set = false, at_set = false;
 
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
@@ -3093,6 +3116,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-d") {
 				worker.debug = true;
+				continue;
+			}
+			if (args[argidx] == "-log-interval" && argidx+1 < args.size()) {
+				log_interval = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-w") {
@@ -3219,7 +3246,7 @@ struct SimPass : public Pass {
 			std::string filename_trim = file_base_name(worker.sim_filename);
 			if (filename_trim.size() > 4 && ((filename_trim.compare(filename_trim.size()-4, std::string::npos, ".fst") == 0) ||
 				filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0)) {
-				worker.run_cosim_fst(top_mod, numcycles);
+				worker.run_cosim_fst(top_mod, numcycles, log_interval);
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".aiw") == 0) {
 				if (worker.map_filename.empty())
 					log_cmd_error("For AIGER witness file map parameter is mandatory.\n");
