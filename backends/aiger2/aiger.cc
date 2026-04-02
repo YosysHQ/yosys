@@ -177,6 +177,8 @@ struct Index {
 		if (!strashing) {
 			return (static_cast<Writer*>(this))->emit_gate(a, b);
 		} else {
+			// AigMaker::node2index
+
 			if (a < b) std::swap(a, b);
 			auto pair = std::make_pair(a, b);
 
@@ -767,15 +769,15 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		// populate inputs
 		std::vector<SigBit> inputs;
 		for (auto id : top->ports) {
-		Wire *w = top->wire(id);
-		log_assert(w);
-		if (w->port_input && !w->port_output)
-		for (int i = 0; i < w->width; i++) {
-			pi_literal(SigBit(w, i)) = lit_counter;
-			inputs.push_back(SigBit(w, i));
-			lit_counter += 2;
-			ninputs++;
-		}
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_input && !w->port_output)
+				for (int i = 0; i < w->width; i++) {
+					pi_literal(SigBit(w, i)) = lit_counter;
+					inputs.push_back(SigBit(w, i));
+					lit_counter += 2;
+					ninputs++;
+				}
 		}
 
 		this->f = f;
@@ -783,27 +785,27 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		write_header();
 		// insert padding where output literals will go (once known)
 		for (auto id : top->ports) {
-		Wire *w = top->wire(id);
-		log_assert(w);
-		if (w->port_output) {
-			for (auto bit : SigSpec(w)) {
-				(void) bit;
-				char buf[16];
-				snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
-				f->write(buf, strlen(buf));
-				noutputs++;
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_output) {
+				for (auto bit : SigSpec(w)) {
+					(void) bit;
+					char buf[16];
+					snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
+					f->write(buf, strlen(buf));
+					noutputs++;
+				}
 			}
-		}
 		}
 		auto data_start = f->tellp();
 
 		// now the guts
 		std::vector<std::pair<SigBit, int>> outputs;
 		for (auto w : top->wires())
-		if (w->port_output) {
-			for (auto bit : SigSpec(w))
-				outputs.push_back({bit, eval_po(bit)});
-		}
+			if (w->port_output) {
+				for (auto bit : SigSpec(w))
+					outputs.push_back({bit, eval_po(bit)});
+			}
 		auto data_end = f->tellp();
 
 		// revisit header and the list of outputs
@@ -908,33 +910,34 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Wire *w = top->wire(id);
 			log_assert(w);
 			if (w->port_input && !w->port_output)
-			for (int i = 0; i < w->width; i++)
-				pi_literal(SigBit(w, i)) = 0;
+				for (int i = 0; i < w->width; i++)
+					pi_literal(SigBit(w, i)) = 0;
 		}
 
 		HierCursor cursor;
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-			for (auto &conn : box->connections_)
-			if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
-			for (auto bit : conn.second)
-				pi_literal(bit, &cursor) = 0;
+				for (auto &conn : box->connections_)
+					if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
+						for (auto bit : conn.second)
+							pi_literal(bit, &cursor) = 0;
 		}
 
-		for (auto w : top->wires())
-		if (w->port_output) {
-			for (auto bit : SigSpec(w))
-				(void) eval_po(bit);
+		for (auto w : top->wires()) {
+			if (w->port_output) {
+				for (auto bit : SigSpec(w))
+					(void) eval_po(bit);
+			}
 		}
 
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-			for (auto &conn : box->connections_)
-			if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
-			for (auto bit : conn.second)
-				(void) eval_po(bit);
+				for (auto &conn : box->connections_)
+					if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
+						for (auto bit : conn.second)
+							(void) eval_po(bit);
 		}
 	}
 };
