@@ -1,0 +1,377 @@
+log -header "Same direction SHL: (a << b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a << b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Same direction SHR: (a >> b) >> c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a >> b) >> c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Same direction SSHR: (a >>> b) >>> c (signed arithmetic)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire signed [7:0] x
+);
+  assign x = (a >>> b) >>> c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$sshr
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Negative case: fanout from intermediate wire prevents combining"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire [7:0] m,
+  output wire [7:0] x
+);
+  assign m = a << b;
+  assign x = m << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 2 t:$shl
+select -assert-count 0 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Triple chain: ((a << b) << c) << d"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  input wire [2:0] d,
+  output wire [7:0] x
+);
+  assign x = ((a << b) << c) << d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 2 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Mixed direction: (a << b) >> c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a << b) >> c;
+endmodule
+EOF
+check -assert
+opt_shift -combine
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$shr
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Mixed direction: (a >> b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a >> b) << c;
+endmodule
+EOF
+check -assert
+opt_shift -combine
+select -assert-count 0 t:$shl
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Cross-type same direction: $shr then $sshr"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \top
+  wire width 8 input 1 \a
+  wire width 3 input 2 \b
+  wire width 3 input 3 \c
+  wire width 8 output 4 \x
+  wire width 8 \t
+  cell $shr \shr_cell
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \a
+    connect \B \b
+    connect \Y \t
+  end
+  cell $sshr \sshr_cell
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \t
+    connect \B \c
+    connect \Y \x
+  end
+end
+EOF
+check -assert
+opt_shift -combine
+select -assert-count 1 t:$shr
+select -assert-count 0 t:$sshr
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Cross-type same direction: $sshr then $shr"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \top
+  wire width 8 input 1 \a
+  wire width 3 input 2 \b
+  wire width 3 input 3 \c
+  wire width 8 output 4 \x
+  wire width 8 \t
+  cell $sshr \sshr_cell
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \a
+    connect \B \b
+    connect \Y \t
+  end
+  cell $shr \shr_cell
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \t
+    connect \B \c
+    connect \Y \x
+  end
+end
+EOF
+check -assert
+opt_shift -combine
+select -assert-count 0 t:$shr
+select -assert-count 1 t:$sshr
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Cross-type mixed direction: $sshr then $shl"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \top
+  wire width 8 input 1 \a
+  wire width 3 input 2 \b
+  wire width 3 input 3 \c
+  wire width 8 output 4 \x
+  wire width 8 \t
+  cell $sshr \sshr_cell
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \a
+    connect \B \b
+    connect \Y \t
+  end
+  cell $shl \shl_cell
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \t
+    connect \B \c
+    connect \Y \x
+  end
+end
+EOF
+check -assert
+opt_shift -combine
+select -assert-count 0 t:$shl
+select -assert-count 1 t:$sshr
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Cross-type mixed direction: $shl then $sshr"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \top
+  wire width 8 input 1 \a
+  wire width 3 input 2 \b
+  wire width 3 input 3 \c
+  wire width 8 output 4 \x
+  wire width 8 \t
+  cell $shl \shl_cell
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \a
+    connect \B \b
+    connect \Y \t
+  end
+  cell $sshr \sshr_cell
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 8
+    connect \A \t
+    connect \B \c
+    connect \Y \x
+  end
+end
+EOF
+check -assert
+opt_shift -combine
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$sshr
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "1-bit operands: (a << b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire [2:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a << b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Constant shift amounts: (a << 3) << 2"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire [7:0] x
+);
+  assign x = (a << 3) << 2;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$add
+design -reset
+log -pop

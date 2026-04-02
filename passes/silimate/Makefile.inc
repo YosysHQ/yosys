@@ -28,6 +28,17 @@ PEEPOPT_PATTERN  = passes/silimate/peepopt_expand.pmg
 passes/silimate/peepopt_expand.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
 
+OBJS += passes/silimate/opt_shift.o
+GENFILES += passes/silimate/peepopt_shift.h
+passes/silimate/opt_shift.o: passes/silimate/peepopt_shift.h
+$(eval $(call add_extra_objs,passes/silimate/peepopt_shift.h))
+
+PEEPOPT_PATTERN  = passes/silimate/peepopt_combine_shifts.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_expand_shifts.pmg
+
+passes/silimate/peepopt_shift.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
+
 OBJS += passes/silimate/muxmode.o
 GENFILES += passes/silimate/peepopt_muxmode.h
 passes/silimate/muxmode.o: passes/silimate/peepopt_muxmode.h

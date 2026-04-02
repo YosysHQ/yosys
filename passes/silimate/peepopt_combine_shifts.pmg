@@ -1,0 +1,91 @@
+pattern combine_shifts
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Combine nested shift operations
+//
+// Same direction:
+//   (a << b) << c      ===>  a << (b + c)
+//   (a >> b) >> c      ===>  a >> (b + c)
+//   (a <<< b) <<< c    ===>  a <<< (b + c)
+//   (a >>> b) >>> c    ===>  a >>> (b + c)
+//   (a << b) <<< c     ===>  a << (b + c)
+//   (a <<< b) << c     ===>  a <<< (b + c)
+//   (a >> b) >>> c     ===>  a >> (b + c)
+//   (a >>> b) >> c     ===>  a >>> (b + c)
+//
+// Mixed direction:
+//   (a <</<< b) >>>/>> c  ===>  a <</<< (b - c)
+//   (a >>>/>> b) <</<< c  ===>  a >>>/>> (b - c)
+//
+
+state <SigSpec> inner_a inner_b inner_y outer_b outer_y
+
+match inner_shift
+	select inner_shift->type.in($shl, $shr, $sshl, $sshr)
+	set inner_a port(inner_shift, \A)
+	set inner_b port(inner_shift, \B)
+	set inner_y port(inner_shift, \Y)
+endmatch
+
+code
+	if (nusers(inner_y) != 2)
+		reject;
+endcode
+
+match outer_shift
+	select outer_shift->type.in($shl, $shr, $sshl, $sshr)
+	index <SigSpec> port(outer_shift, \A) === inner_y
+	set outer_b port(outer_shift, \B)
+	set outer_y port(outer_shift, \Y)
+endmatch
+
+code inner_a inner_b inner_y outer_b outer_y
+	bool inner_is_left = inner_shift->type.in($shl, $sshl);
+	bool outer_is_left = outer_shift->type.in($shl, $sshl);
+	bool same_direction = (inner_is_left == outer_is_left);
+
+	// Unset all ports
+	inner_shift->unsetPort(\A);
+	inner_shift->unsetPort(\B);
+	inner_shift->unsetPort(\Y);
+	outer_shift->unsetPort(\A);
+	outer_shift->unsetPort(\B);
+	outer_shift->unsetPort(\Y);
+
+	Cell *cell = outer_shift;
+
+	// Create combined shift amount
+	int combined_width = max(GetSize(inner_b), GetSize(outer_b)) + 1;
+	Wire *combined_amt = module->addWire(NEW_ID2, combined_width);
+
+	if (same_direction) {
+		// Same direction: b + c
+		module->addAdd(NEW_ID2, inner_b, outer_b, combined_amt,
+			false, cell->get_src_attribute());
+	} else {
+		// Mixed direction: b - c
+		module->addSub(NEW_ID2, inner_b, outer_b, combined_amt,
+			false, cell->get_src_attribute());
+	}
+
+	// Reuse outer shift with inner shift's type, original data, and combined amount
+	outer_shift->type = inner_shift->type;
+	outer_shift->setPort(\A, inner_a);
+	outer_shift->setPort(\B, combined_amt);
+	outer_shift->setPort(\Y, outer_y);
+	outer_shift->setParam(\A_SIGNED, inner_shift->getParam(\A_SIGNED));
+	outer_shift->fixup_parameters();
+
+	// Rename for formal
+	module->rename(outer_shift, NEW_ID2);
+
+	// Remove inner shift
+	autoremove(inner_shift);
+
+	log("combine_shifts pattern in %s: inner=%s (%s), outer=%s (%s)\n",
+		log_id(module), log_id(inner_shift), log_id(inner_shift->type),
+		log_id(outer_shift), log_id(outer_shift->type));
+	did_something = true;
+	accept;
+endcode

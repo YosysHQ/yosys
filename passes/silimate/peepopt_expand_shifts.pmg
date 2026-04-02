@@ -1,0 +1,93 @@
+pattern expand_shifts
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Expand shifts across binary operations
+//
+// y = (a OP b) << c   ===>   y = (a << c) OP (b << c)
+// y = (a OP b) >> c   ===>   y = (a >> c) OP (b >> c)
+// y = (a OP b) <<< c  ===>   y = (a <<< c) OP (b <<< c)
+// y = (a OP b) >>> c  ===>   y = (a >>> c) OP (b >>> c)
+//
+// where OP in {$and, $or, $xor, $add, $sub}
+//
+
+state <SigSpec> op_a op_b op_y  shift_amt shift_y
+
+match op_gate
+	// Select inner binary operation gate
+	select op_gate->type.in($and, $or, $xor, $add, $sub)
+	set op_a port(op_gate, \A)
+	set op_b port(op_gate, \B)
+	set op_y port(op_gate, \Y)
+endmatch
+
+code
+	// Fanout of each OP gate Y bit should be 1 (no bit-split)
+	if (nusers(op_y) != 2)
+		reject;
+endcode
+
+match shift_gate
+	// Select shift gate consuming the OP gate's output
+	select shift_gate->type.in($shl, $shr, $sshl, $sshr)
+
+	// Connection: shift gate's A input is the OP gate's output
+	index <SigSpec> port(shift_gate, \A) === op_y
+
+	set shift_amt port(shift_gate, \B)
+	set shift_y port(shift_gate, \Y)
+endmatch
+
+code op_a op_b op_y  shift_amt shift_y
+	// Unset all ports
+	shift_gate->unsetPort(\A);
+	shift_gate->unsetPort(\B);
+	shift_gate->unsetPort(\Y);
+	op_gate->unsetPort(\A);
+	op_gate->unsetPort(\B);
+	op_gate->unsetPort(\Y);
+
+	Cell *cell = shift_gate;
+
+	// Create new intermediate wires
+	Wire *new_op_a = module->addWire(NEW_ID2, GetSize(shift_y));
+	Wire *new_op_b = module->addWire(NEW_ID2, GetSize(shift_y));
+
+	// Create new shift gates: (a SHIFT c) and (b SHIFT c)
+	Cell *new_shift_a = module->addCell(NEW_ID2, shift_gate->type);
+	new_shift_a->setPort(\A, op_a);
+	new_shift_a->setPort(\B, shift_amt);
+	new_shift_a->setPort(\Y, new_op_a);
+	new_shift_a->setParam(\A_SIGNED, shift_gate->getParam(\A_SIGNED));
+	new_shift_a->setParam(\B_SIGNED, shift_gate->getParam(\B_SIGNED));
+	new_shift_a->fixup_parameters();
+	new_shift_a->set_src_attribute(cell->get_src_attribute());
+
+	Cell *new_shift_b = module->addCell(NEW_ID2, shift_gate->type);
+	new_shift_b->setPort(\A, op_b);
+	new_shift_b->setPort(\B, shift_amt);
+	new_shift_b->setPort(\Y, new_op_b);
+	new_shift_b->setParam(\A_SIGNED, shift_gate->getParam(\A_SIGNED));
+	new_shift_b->setParam(\B_SIGNED, shift_gate->getParam(\B_SIGNED));
+	new_shift_b->fixup_parameters();
+	new_shift_b->set_src_attribute(cell->get_src_attribute());
+
+	// Update OP gate to take shifted inputs and produce final output
+	op_gate->setPort(\A, new_op_a);
+	op_gate->setPort(\B, new_op_b);
+	op_gate->setPort(\Y, shift_y);
+	op_gate->fixup_parameters();
+
+	// Rename OP gate for formal
+	cell = op_gate;
+	module->rename(op_gate, NEW_ID2);
+
+	// Remove original shift gate
+	autoremove(shift_gate);
+
+	// Log, fixup, accept
+	log("expand_shifts pattern in %s: op=%s (%s), shift=%s (%s)\n", log_id(module), log_id(op_gate), log_id(op_gate->type), log_id(shift_gate), log_id(shift_gate->type));
+	did_something = true;
+	accept;
+endcode

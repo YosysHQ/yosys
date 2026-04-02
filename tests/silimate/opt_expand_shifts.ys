@@ -1,0 +1,278 @@
+log -header "SHL across AND: (a & b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a & b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHL across OR: (a | b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a | b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$or
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHL across XOR: (a ^ b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a ^ b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$xor
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHL across ADD: (a + b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHL across SUB: (a - b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a - b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$sub
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHR across AND: (a & b) >> c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a & b) >> c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "SHR across XOR: (a ^ b) >> c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a ^ b) >> c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$xor
+select -assert-count 2 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "SSHR (arithmetic right shift) across AND: signed (a & b) >>> c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [7:0] a,
+  input wire signed [7:0] b,
+  input wire [2:0] c,
+  output wire signed [7:0] x
+);
+  assign x = (a & b) >>> c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$sshr
+design -reset
+log -pop
+
+
+
+log -header "Negative case: fanout from intermediate wire prevents expansion"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] m,
+  output wire [7:0] x
+);
+  assign m = a & b;
+  assign x = m << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "1-bit operands: (a & b) << c"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a & b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "Nested: ((a | b) << c) ^ d"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  input wire [7:0] d,
+  output wire [7:0] x
+);
+  assign x = ((a | b) << c) ^ d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$xor
+select -assert-count 1 t:$or
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "Chained shifts: ((a + b) << c) << d"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  input wire [2:0] d,
+  output wire [7:0] x
+);
+  assign x = ((a + b) << c) << d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 4 t:$shl
+design -reset
+log -pop
