@@ -129,7 +129,7 @@ static void dump_verific_file_closure(const char *output_path, Array *file_names
 		char *abs_name = FileSystem::Convert2AbsolutePath(path, 1);
 		if (abs_name && seen.insert(abs_name).second)
 			files_json.push_back(std::string(abs_name));
-		Strings::free(abs_name);
+		Strings::free(abs_name); // null-safe
 	};
 
 	unsigned i;
@@ -3336,6 +3336,15 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		log("    verific -dump-file-closure <output.json> {-f|-F|-sv|...} <files>\n");
+		log("\n");
+		log("Analyze the given sources and write the complete set of consumed source files\n");
+		log("(including transitively included headers) as a JSON array to <output.json>.\n");
+		log("Note: -dump-file-closure must appear before the file-mode flag (-f, -F, -sv, etc.).\n");
+		log("\n");
+		log("\n");
+#endif
 		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
@@ -3841,6 +3850,7 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-dump-file-closure") {
 			if (++argidx >= GetSize(args))
 				log_cmd_error("Missing JSON output path for -dump-file-closure.\n");
+			// Must appear before -f/-F: sets dump_file_closure which is checked after ProcessFFile
 			dump_file_closure = args[argidx++];
 		}
 
