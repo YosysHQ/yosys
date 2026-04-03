@@ -23,9 +23,11 @@
  *
  *    4. Multi-clock-domain handling:
  *       - If both gold and gate have multiple clock domains, unmatched
- *         FFs (those not in any structural cone) are individually
- *         exposed as PI/PO pairs with the PO ANDed with a 1-bit clock
- *         guard PI for the FF's clock domain.
+ *         FFs (those not in any structural cone) are grouped by clock
+ *         domain. Each group's Q outputs are XOR-reduced into a single
+ *         bit, ANDed with the 1-bit clock guard PI for that domain,
+ *         and driven out as one shared PO. This makes the comparison
+ *         logic-based rather than name-based.
  *       - If only one module has multiple clock domains while the other
  *         has one, the pass errors out declaring the designs inequivalent.
  *       - Each unique (clock_signal, polarity) pair gets one guard PI
@@ -427,24 +429,34 @@ struct ConePartitionWorker {
 		}
 
 		// In multi-clock mode, expose unmatched FFs with clock-domain guard ANDs.
-		// These are FFs that didn't end up in any cone (no hash match). Each
-		// unmatched FF gets its own PO, and that PO is ANDed with the clock
-		// guard PI for the FF's clock domain.
+		// Instead of exposing each unmatched FF individually (which would make
+		// matching name-based), we group all unmatched FFs by clock domain and
+		// XOR-reduce their Q outputs into a single aggregate PO per domain,
+		// ANDed with the clock guard PI. This way the SAT solver compares
+		// unmatched FFs by their logic content, not by name.
 		if (multi_clock) {
-			int unmatched_gold = 0, unmatched_gate = 0;
+			dict<int, std::vector<Cell*>> gold_unmatched_by_guard, gate_unmatched_by_guard;
 			for (auto cell : gold_analysis.ff_cells) {
 				if (matched_gold_ffs.count(cell))
 					continue;
 				int guard_idx = get_ff_guard_idx(cell, gold_sigmap);
-				expose_unmatched_ff(gold_mod, cell, guard_idx);
-				unmatched_gold++;
+				gold_unmatched_by_guard[guard_idx].push_back(cell);
 			}
 			for (auto cell : gate_analysis.ff_cells) {
 				if (matched_gate_ffs.count(cell))
 					continue;
 				int guard_idx = get_ff_guard_idx(cell, gate_sigmap);
-				expose_unmatched_ff(gate_mod, cell, guard_idx);
-				unmatched_gate++;
+				gate_unmatched_by_guard[guard_idx].push_back(cell);
+			}
+
+			int unmatched_gold = 0, unmatched_gate = 0;
+			for (auto &[guard_idx, cells] : gold_unmatched_by_guard) {
+				expose_unmatched_ff_group(gold_mod, cells, guard_idx);
+				unmatched_gold += (int)cells.size();
+			}
+			for (auto &[guard_idx, cells] : gate_unmatched_by_guard) {
+				expose_unmatched_ff_group(gate_mod, cells, guard_idx);
+				unmatched_gate += (int)cells.size();
 			}
 			vlog("Multi-clock: guarded %d unmatched gold FFs, %d unmatched gate FFs.\n",
 				unmatched_gold, unmatched_gate);
@@ -533,56 +545,100 @@ private:
 		}
 	}
 
-	// Expose a single unmatched FF (one not in any cone) as its own PI/PO pair,
-	// with the PO ANDed with the clock-domain guard PI. This ensures the SAT
-	// solver sees the FF's domain even though no structural cone was created.
-	void expose_unmatched_ff(Module *mod, Cell *cell, int guard_idx)
+	// Expose all unmatched FFs in a single clock domain as one aggregate PO.
+	// Each FF's Q is redirected to an internal wire and a PI replaces it for
+	// downstream consumers. All the internal Q wires are XOR-reduced into a
+	// single 1-bit signal, ANDed with the clock guard PI, and driven out as
+	// one shared PO. This makes the comparison logic-based rather than
+	// name-based across gold/gate.
+	void expose_unmatched_ff_group(Module *mod, const std::vector<Cell*> &cells, int guard_idx)
 	{
-		SigSpec old_q = cell->getPort(ID::Q);
-		int q_width = GetSize(old_q);
-		if (q_width == 0)
+		if (cells.empty())
 			return;
 
-		std::string ff_name = cell->name.str().substr(1);
-		std::string pi_name = stringf("\\uff_%s_pi", ff_name.c_str());
-		std::string po_name = stringf("\\uff_%s_po", ff_name.c_str());
+		std::string prefix = stringf("\\uff_domain_%d", guard_idx >= 0 ? guard_idx : 0);
+		std::string po_name = prefix + "_po";
 
-		if (mod->wire(pi_name) || mod->wire(po_name))
+		if (mod->wire(po_name))
 			return;
 
-		Wire *pi_wire = mod->addWire(pi_name, q_width);
-		pi_wire->port_input = true;
+		// Disconnect each FF's Q, create a PI replacement, and collect
+		// internal Q wires for the reduction.
+		std::vector<Wire*> q_internals;
+		int ff_idx = 0;
+		for (auto cell : cells) {
+			SigSpec old_q = cell->getPort(ID::Q);
+			int q_width = GetSize(old_q);
+			if (q_width == 0)
+				continue;
 
-		Wire *po_wire = mod->addWire(po_name, q_width);
+			std::string pi_name = stringf("%s_ff%d_pi", prefix.c_str(), ff_idx);
+			std::string q_int_name = stringf("%s_ff%d_q", prefix.c_str(), ff_idx);
+
+			if (mod->wire(pi_name))
+				continue;
+
+			Wire *pi_wire = mod->addWire(pi_name, q_width);
+			pi_wire->port_input = true;
+
+			Wire *q_int = mod->addWire(q_int_name, q_width);
+
+			cell->setPort(ID::Q, SigSpec(q_int));
+			mod->connect(old_q, SigSpec(pi_wire));
+
+			q_internals.push_back(q_int);
+			total_pis++;
+
+			if (verbose) {
+				vlog("  Unmatched FF %s in %s: PI %s (width %d) [guard=%d].\n",
+					cell->name.c_str(), mod->name.c_str(),
+					pi_name.c_str(), q_width, guard_idx);
+			}
+			ff_idx++;
+		}
+
+		if (q_internals.empty())
+			return;
+
+		// XOR-reduce all internal Q bits down to a single bit.
+		SigSpec all_bits;
+		for (auto w : q_internals)
+			for (int i = 0; i < w->width; i++)
+				all_bits.append(SigBit(w, i));
+
+		SigBit reduced;
+		if (GetSize(all_bits) == 1) {
+			reduced = all_bits[0];
+		} else {
+			SigBit acc = all_bits[0];
+			for (int i = 1; i < GetSize(all_bits); i++) {
+				Wire *tmp = mod->addWire(
+					stringf("%s_xor_%d", prefix.c_str(), i), 1);
+				mod->addXor(stringf("%s_xor_%d_cell", prefix.c_str(), i),
+					    acc, all_bits[i], SigBit(tmp, 0));
+				acc = SigBit(tmp, 0);
+			}
+			reduced = acc;
+		}
+
+		Wire *po_wire = mod->addWire(po_name, 1);
 		po_wire->port_output = true;
-
-		std::string q_int_name = stringf("\\uff_%s_q", ff_name.c_str());
-		Wire *q_int = mod->addWire(q_int_name, q_width);
-
-		cell->setPort(ID::Q, SigSpec(q_int));
-		mod->connect(old_q, SigSpec(pi_wire));
 
 		if (guard_idx >= 0) {
 			Wire *guard_pi = get_or_create_guard_pi(mod, guard_idx);
-			Wire *guarded = mod->addWire(
-				stringf("\\uff_%s_guarded", ff_name.c_str()), q_width);
-			SigSpec guard_bits;
-			for (int i = 0; i < q_width; i++)
-				guard_bits.append(SigBit(guard_pi, 0));
-			mod->addAnd(stringf("\\uff_%s_clkand", ff_name.c_str()),
-				    SigSpec(q_int), guard_bits, SigSpec(guarded));
+			Wire *guarded = mod->addWire(prefix + "_guarded", 1);
+			mod->addAnd(prefix + "_clkand",
+				    reduced, SigBit(guard_pi, 0), SigBit(guarded, 0));
 			mod->connect(SigSpec(po_wire), SigSpec(guarded));
 		} else {
-			mod->connect(SigSpec(po_wire), SigSpec(q_int));
+			mod->connect(SigBit(po_wire, 0), reduced);
 		}
 
-		total_pis++;
 		total_pos++;
 
 		if (verbose) {
-			vlog("  Unmatched FF %s in %s: PI %s, PO %s (width %d) [guard=%d].\n",
-				cell->name.c_str(), mod->name.c_str(),
-				pi_name.c_str(), po_name.c_str(), q_width, guard_idx);
+			vlog("  Unmatched FF group [guard=%d] in %s: %d FFs -> PO %s (1-bit XOR-reduced).\n",
+				guard_idx, mod->name.c_str(), (int)cells.size(), po_name.c_str());
 		}
 	}
 
@@ -628,12 +684,12 @@ struct ConePartitionPass : public Pass {
 		log("       A design cannot gain/lose clock domains and still be equivalent.\n");
 		log("\n");
 		log("    3. Both modules have multiple clock domains: after creating cones\n");
-		log("       for structurally matched FFs (as above), every UNMATCHED FF\n");
-		log("       (one that did not belong to any cone) is individually exposed\n");
-		log("       as its own PI/PO pair. The PO is ANDed with a 1-bit clock-\n");
-		log("       domain guard PI (clkguard_N) for the FF's domain. This ensures\n");
-		log("       the downstream SAT solver treats FFs in different domains as\n");
-		log("       distinguishable even after clkmerge unifies clock signals.\n");
+		log("       for structurally matched FFs (as above), unmatched FFs are\n");
+		log("       grouped by clock domain. Each group's Q outputs are XOR-\n");
+		log("       reduced into a single bit, ANDed with the 1-bit clock-domain\n");
+		log("       guard PI (clkguard_N), and driven out as one shared PO per\n");
+		log("       domain. This makes the comparison logic-based rather than\n");
+		log("       name-based across gold/gate.\n");
 		log("\n");
 		log("    -v\n");
 		log("        verbose output: log each created port\n");
