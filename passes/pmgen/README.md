@@ -158,7 +158,7 @@ in `select` lines.
 
 Index lines are using the `index <type> expr1 === expr2` syntax.  `expr1` is
 evaluated during matcher initialization and the same restrictions apply as for
-`select` expressions. `expr2` is evaluated when the match is calulated. It is a
+`select` expressions. `expr2` is evaluated when the match is calculated. It is a
 function of any state variables assigned to by previous blocks. Both expression
 are converted to the given type and compared for equality. Only cells for which
 all `index` statements in the block pass are considered by the match.
