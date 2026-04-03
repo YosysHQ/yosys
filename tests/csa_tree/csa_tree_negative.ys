@@ -1,0 +1,77 @@
+read_verilog <<EOT
+module add2(
+	input [7:0] a, b,
+	output [7:0] y
+);
+	assign y = a + b;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-none t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add_fanout(
+	input [7:0] a, b, c,
+	output [7:0] mid, y
+);
+	wire [7:0] ab = a + b;
+	assign mid = ab;
+	assign y = ab + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-none t:$fa
+design -reset
+
+read_verilog <<EOT
+module sub2(
+	input [7:0] a, b,
+	output [7:0] y
+);
+	assign y = a - b;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-none t:$fa
+select -assert-count 1 t:$sub
+design -reset
+
+read_verilog <<EOT
+module add_multi_const(
+	input [7:0] x,
+	output [7:0] y
+);
+	assign y = 8'd1 + 8'd2 + 8'd3 + x;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-none t:$fa
+select -assert-max 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add_partial(
+	input [7:0] a, b, c, d, e,
+	output [7:0] mid, y
+);
+	wire [7:0] ab = a + b;
+	assign mid = ab;
+	assign y = ab + c + d + e;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+csa_tree
+select -assert-count 2 t:$fa
+select -assert-count 2 t:$add
+design -reset
