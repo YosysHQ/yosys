@@ -177,6 +177,8 @@ struct Index {
 		if (!strashing) {
 			return (static_cast<Writer*>(this))->emit_gate(a, b);
 		} else {
+			// AigMaker::node2index
+
 			if (a < b) std::swap(a, b);
 			auto pair = std::make_pair(a, b);
 
@@ -197,7 +199,9 @@ struct Index {
 
 	Lit OR(Lit a, Lit b)
 	{
-		return NOT(AND(NOT(a), NOT(b)));
+		Lit not_a = NOT(a);
+		Lit not_b = NOT(b);
+		return NOT(AND(not_a, not_b));
 	}
 
 	Lit MUX(Lit a, Lit b, Lit s)
@@ -211,17 +215,24 @@ struct Index {
 				return b;
 		}
 
-		return OR(AND(a, NOT(s)), AND(b, s));
+		Lit not_s = NOT(s);
+		Lit a_active = AND(a, not_s);
+		Lit b_active = AND(b, s);
+		return OR(a_active, b_active);
 	}
 
 	Lit XOR(Lit a, Lit b)
 	{
-		return OR(AND(a, NOT(b)), AND(NOT(a), b));
+		Lit not_a = NOT(a);
+		Lit not_b = NOT(b);
+		Lit a_and_not_b = AND(a, not_b);
+		Lit not_a_and_b = AND(not_a, b);
+		return OR(a_and_not_b, not_a_and_b);
 	}
 
 	Lit XNOR(Lit a, Lit b)
 	{
-		return NOT(OR(AND(a, NOT(b)), AND(NOT(a), b)));
+		return NOT(XOR(a, b));
 	}
 
 	Lit CARRY(Lit a, Lit b, Lit c)
@@ -233,7 +244,10 @@ struct Index {
 				return AND(a, b);
 			}
 		}
-		return OR(AND(a, b), AND(c, OR(a, b)));
+		Lit a_or_b = OR(a, b);
+		Lit a_or_b_and_c = AND(c, a_or_b);
+		Lit a_and_b = AND(a, b);
+		return OR(a_and_b, a_or_b_and_c);
 	}
 
 	Lit REDUCE(std::vector<Lit> lits, bool op_xor=false)
@@ -381,7 +395,7 @@ struct Index {
 				} else if (cell->type.in(ID($xor), ID($_XOR_))) {
 					return XOR(a, b);
 				} else if (cell->type.in(ID($xnor), ID($_XNOR_))) {
-					return NOT(XOR(a, b));
+					return XNOR(a, b);
 				} else if (cell->type.in(ID($_ANDNOT_))) {
 					return AND(a, NOT(b));
 				} else if (cell->type.in(ID($_ORNOT_))) {
@@ -401,7 +415,9 @@ struct Index {
 					if (oport == ID::Y) {
 						return XOR(ab, c);
 					} else /* oport == ID::X */ {
-						return OR(AND(a, b), AND(c, ab));
+						Lit a_and_b = AND(a, b);
+						Lit c_and_ab = AND(c, ab);
+						return OR(a_and_b, c_and_ab);
 					}
 				} else if (cell->type.in(ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_))) {
 					Lit c, d;
@@ -412,10 +428,15 @@ struct Index {
 					else
 						d = cell->type == ID($_AOI3_) ? CTRUE : CFALSE;
 
-					if (/* aoi */ cell->type.in(ID($_AOI3_), ID($_AOI4_)))
-						return NOT(OR(AND(a, b), AND(c, d)));
-					else
-						return NOT(AND(OR(a, b), OR(c, d)));
+					if (/* aoi */ cell->type.in(ID($_AOI3_), ID($_AOI4_))) {
+						Lit a_and_b = AND(a, b);
+						Lit c_and_d = AND(c, d);
+						return NOT(OR(a_and_b, c_and_d));
+					} else {
+						Lit a_or_b = OR(a, b);
+						Lit c_or_d = OR(c, d);
+						return NOT(AND(a_or_b, c_or_d));
+					}
 				} else {
 					log_abort();
 				}
@@ -436,7 +457,11 @@ struct Index {
 				sels.push_back(NOT(s));
 			}
 
-			return OR(AND(REDUCE(sels), a), NOT(REDUCE(bar)));
+			Lit reduce_sels = REDUCE(sels);
+			Lit reduce_sels_and_a = AND(reduce_sels, a);
+			Lit reduce_bar = NOT(REDUCE(bar));
+
+			return OR(reduce_sels_and_a, reduce_bar);
 		} else if (cell->type == ID($bmux)) {
 			SigSpec aport = cell->getPort(ID::A);
 			SigSpec sport = cell->getPort(ID::S);
@@ -744,15 +769,15 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		// populate inputs
 		std::vector<SigBit> inputs;
 		for (auto id : top->ports) {
-		Wire *w = top->wire(id);
-		log_assert(w);
-		if (w->port_input && !w->port_output)
-		for (int i = 0; i < w->width; i++) {
-			pi_literal(SigBit(w, i)) = lit_counter;
-			inputs.push_back(SigBit(w, i));
-			lit_counter += 2;
-			ninputs++;
-		}
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_input && !w->port_output)
+				for (int i = 0; i < w->width; i++) {
+					pi_literal(SigBit(w, i)) = lit_counter;
+					inputs.push_back(SigBit(w, i));
+					lit_counter += 2;
+					ninputs++;
+				}
 		}
 
 		this->f = f;
@@ -760,27 +785,27 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		write_header();
 		// insert padding where output literals will go (once known)
 		for (auto id : top->ports) {
-		Wire *w = top->wire(id);
-		log_assert(w);
-		if (w->port_output) {
-			for (auto bit : SigSpec(w)) {
-				(void) bit;
-				char buf[16];
-				snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
-				f->write(buf, strlen(buf));
-				noutputs++;
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_output) {
+				for (auto bit : SigSpec(w)) {
+					(void) bit;
+					char buf[16];
+					snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
+					f->write(buf, strlen(buf));
+					noutputs++;
+				}
 			}
-		}
 		}
 		auto data_start = f->tellp();
 
 		// now the guts
 		std::vector<std::pair<SigBit, int>> outputs;
 		for (auto w : top->wires())
-		if (w->port_output) {
-			for (auto bit : SigSpec(w))
-				outputs.push_back({bit, eval_po(bit)});
-		}
+			if (w->port_output) {
+				for (auto bit : SigSpec(w))
+					outputs.push_back({bit, eval_po(bit)});
+			}
 		auto data_end = f->tellp();
 
 		// revisit header and the list of outputs
@@ -885,33 +910,34 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Wire *w = top->wire(id);
 			log_assert(w);
 			if (w->port_input && !w->port_output)
-			for (int i = 0; i < w->width; i++)
-				pi_literal(SigBit(w, i)) = 0;
+				for (int i = 0; i < w->width; i++)
+					pi_literal(SigBit(w, i)) = 0;
 		}
 
 		HierCursor cursor;
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-			for (auto &conn : box->connections_)
-			if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
-			for (auto bit : conn.second)
-				pi_literal(bit, &cursor) = 0;
+				for (auto &conn : box->connections_)
+					if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
+						for (auto bit : conn.second)
+							pi_literal(bit, &cursor) = 0;
 		}
 
-		for (auto w : top->wires())
-		if (w->port_output) {
-			for (auto bit : SigSpec(w))
-				(void) eval_po(bit);
+		for (auto w : top->wires()) {
+			if (w->port_output) {
+				for (auto bit : SigSpec(w))
+					(void) eval_po(bit);
+			}
 		}
 
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-			for (auto &conn : box->connections_)
-			if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
-			for (auto bit : conn.second)
-				(void) eval_po(bit);
+				for (auto &conn : box->connections_)
+					if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
+						for (auto bit : conn.second)
+							(void) eval_po(bit);
 		}
 	}
 };

@@ -66,14 +66,7 @@ struct AigMaker
 	Cell *cell;
 	idict<AigNode> aig_indices;
 
-	int the_true_node;
-	int the_false_node;
-
-	AigMaker(Aig *aig, Cell *cell) : aig(aig), cell(cell)
-	{
-		the_true_node = -1;
-		the_false_node = -1;
-	}
+	AigMaker(Aig *aig, Cell *cell) : aig(aig), cell(cell) {}
 
 	int node2index(const AigNode &node)
 	{
