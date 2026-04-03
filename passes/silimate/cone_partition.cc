@@ -436,16 +436,14 @@ struct ConePartitionWorker {
 				if (matched_gold_ffs.count(cell))
 					continue;
 				int guard_idx = get_ff_guard_idx(cell, gold_sigmap);
-				expose_unmatched_ff(gold_mod, cell, cone_idx, guard_idx);
-				cone_idx++;
+				expose_unmatched_ff(gold_mod, cell, guard_idx);
 				unmatched_gold++;
 			}
 			for (auto cell : gate_analysis.ff_cells) {
 				if (matched_gate_ffs.count(cell))
 					continue;
 				int guard_idx = get_ff_guard_idx(cell, gate_sigmap);
-				expose_unmatched_ff(gate_mod, cell, cone_idx, guard_idx);
-				cone_idx++;
+				expose_unmatched_ff(gate_mod, cell, guard_idx);
 				unmatched_gate++;
 			}
 			vlog("Multi-clock: guarded %d unmatched gold FFs, %d unmatched gate FFs.\n",
@@ -538,16 +536,16 @@ private:
 	// Expose a single unmatched FF (one not in any cone) as its own PI/PO pair,
 	// with the PO ANDed with the clock-domain guard PI. This ensures the SAT
 	// solver sees the FF's domain even though no structural cone was created.
-	void expose_unmatched_ff(Module *mod, Cell *cell, int cone_idx,
-				 int guard_idx)
+	void expose_unmatched_ff(Module *mod, Cell *cell, int guard_idx)
 	{
 		SigSpec old_q = cell->getPort(ID::Q);
 		int q_width = GetSize(old_q);
 		if (q_width == 0)
 			return;
 
-		std::string pi_name = stringf("\\ucone_%d_ff_pi", cone_idx);
-		std::string po_name = stringf("\\ucone_%d_po", cone_idx);
+		std::string ff_name = cell->name.str().substr(1);
+		std::string pi_name = stringf("\\uff_%s_pi", ff_name.c_str());
+		std::string po_name = stringf("\\uff_%s_po", ff_name.c_str());
 
 		if (mod->wire(pi_name) || mod->wire(po_name))
 			return;
@@ -558,7 +556,7 @@ private:
 		Wire *po_wire = mod->addWire(po_name, q_width);
 		po_wire->port_output = true;
 
-		std::string q_int_name = stringf("\\ucone_%d_q", cone_idx);
+		std::string q_int_name = stringf("\\uff_%s_q", ff_name.c_str());
 		Wire *q_int = mod->addWire(q_int_name, q_width);
 
 		cell->setPort(ID::Q, SigSpec(q_int));
@@ -567,11 +565,11 @@ private:
 		if (guard_idx >= 0) {
 			Wire *guard_pi = get_or_create_guard_pi(mod, guard_idx);
 			Wire *guarded = mod->addWire(
-				stringf("\\ucone_%d_guarded", cone_idx), q_width);
+				stringf("\\uff_%s_guarded", ff_name.c_str()), q_width);
 			SigSpec guard_bits;
 			for (int i = 0; i < q_width; i++)
 				guard_bits.append(SigBit(guard_pi, 0));
-			mod->addAnd(stringf("\\ucone_%d_clkand", cone_idx),
+			mod->addAnd(stringf("\\uff_%s_clkand", ff_name.c_str()),
 				    SigSpec(q_int), guard_bits, SigSpec(guarded));
 			mod->connect(SigSpec(po_wire), SigSpec(guarded));
 		} else {
