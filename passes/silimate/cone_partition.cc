@@ -556,7 +556,9 @@ private:
 		if (cells.empty())
 			return;
 
-		std::string prefix = stringf("\\uff_domain_%d", guard_idx >= 0 ? guard_idx : 0);
+		std::string prefix = guard_idx >= 0
+			? stringf("\\uff_domain_%d", guard_idx)
+			: std::string("\\uff_domain_unclocked");
 		std::string po_name = prefix + "_po";
 
 		if (mod->wire(po_name))
@@ -569,14 +571,18 @@ private:
 		for (auto cell : cells) {
 			SigSpec old_q = cell->getPort(ID::Q);
 			int q_width = GetSize(old_q);
-			if (q_width == 0)
+			if (q_width == 0) {
+				ff_idx++;
 				continue;
+			}
 
 			std::string pi_name = stringf("%s_ff%d_pi", prefix.c_str(), ff_idx);
 			std::string q_int_name = stringf("%s_ff%d_q", prefix.c_str(), ff_idx);
 
-			if (mod->wire(pi_name))
+			if (mod->wire(pi_name)) {
+				ff_idx++;
 				continue;
+			}
 
 			Wire *pi_wire = mod->addWire(pi_name, q_width);
 			pi_wire->port_input = true;
