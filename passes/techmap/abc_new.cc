@@ -18,7 +18,7 @@
  */
 
 #include "kernel/register.h"
-#include "kernel/rtlil.h"
+#include "kernel/yosys_common.h"
 #include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
@@ -27,7 +27,8 @@ PRIVATE_NAMESPACE_BEGIN
 std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules)
 {
 	std::set<Module *> modules_set(modules.begin(), modules.end());
-	TopoSort<Module*> sort;
+	using Order = IdString::compare_ptr_by_name<RTLIL::NamedObject>;
+	TopoSort<Module*, Order> sort;
 
 	for (auto m : modules) {
 		sort.node(m);
