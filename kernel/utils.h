@@ -131,6 +131,8 @@ public:
 
 template <typename T, typename C = std::less<T>> class TopoSort
 {
+	static_assert(!(std::is_pointer<T>::value && std::is_same<C, std::less<T>>::value),
+			"std::less is run-to-run unstable for pointers");
 public:
 	// We use this ordering of the edges in the adjacency matrix for
 	// exact compatibility with an older implementation.
