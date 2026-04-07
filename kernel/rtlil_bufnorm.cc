@@ -48,6 +48,10 @@ static void buf_norm_seed_queues(RTLIL::Module *module)
 
 typedef std::pair<Cell*, IdString> cell_port_t;
 
+// Since this is kernel code, we only log with yosys_xtrace set to not get
+// in the way when using `debug` to debug specific passes.q
+#define xlog(...) do { if (yosys_xtrace) log("#X [bufnorm] " __VA_ARGS__); } while (0)
+
 struct RTLIL::SigNormIndex
 {
 	SigNormIndex(RTLIL::Module *module) : module(module) {}
@@ -316,6 +320,7 @@ void RTLIL::Design::sigNormalize(bool enable)
 			return;
 
 
+		xlog("leaving signorm\n");
 		for (auto module : modules()) {
 			module->connections();
 			if (module->sig_norm_index != nullptr) {
@@ -344,8 +349,7 @@ void RTLIL::Design::sigNormalize(bool enable)
 
 	if (!flagSigNormalized)
 	{
-
-
+		xlog("entering signorm\n");
 		flagSigNormalized = true;
 	}
 
@@ -508,9 +512,6 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 
 void RTLIL::Module::bufNormalize()
 {
-	// Since this is kernel code, we only log with yosys_xtrace set to not get
-	// in the way when using `debug` to debug specific passes.q
-#define xlog(...) do { if (yosys_xtrace) log("#X [bufnorm] " __VA_ARGS__); } while (0)
 
 	if (!design->flagBufferedNormalized)
 		return;
