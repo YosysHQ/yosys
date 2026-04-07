@@ -1204,4 +1204,25 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 
 }
 
+void RTLIL::Design::add(RTLIL::Module *module)
+{
+	log_assert(modules_.count(module->name) == 0);
+	log_assert(refcount_modules_ == 0);
+	modules_[module->name] = module;
+	module->design = this;
+
+	for (auto mon : monitors)
+		mon->notify_module_add(module);
+
+	if (yosys_xtrace) {
+		log("#X# New Module: %s\n", log_id(module));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+	if (flagSigNormalized) {
+		module->sigNormalize();
+	}
+
+}
+
 YOSYS_NAMESPACE_END
