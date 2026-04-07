@@ -1137,22 +1137,6 @@ RTLIL::Module *RTLIL::Design::top_module() const
 	return module_count == 1 ? module : nullptr;
 }
 
-void RTLIL::Design::add(RTLIL::Module *module)
-{
-	log_assert(modules_.count(module->name) == 0);
-	log_assert(refcount_modules_ == 0);
-	modules_[module->name] = module;
-	module->design = this;
-
-	for (auto mon : monitors)
-		mon->notify_module_add(module);
-
-	if (yosys_xtrace) {
-		log("#X# New Module: %s\n", log_id(module));
-		log_backtrace("-X- ", yosys_xtrace-1);
-	}
-}
-
 void RTLIL::Design::add(RTLIL::Binding *binding)
 {
 	log_assert(binding != nullptr);
