@@ -1229,6 +1229,10 @@ void RTLIL::Design::add(RTLIL::Module *module)
 		buf_norm_seed_queues(module);
 		module->bufNormalize();
 	}
+
+	if (flagSigNormalized) {
+		module->sigNormalize();
+	}
 }
 
 YOSYS_NAMESPACE_END
