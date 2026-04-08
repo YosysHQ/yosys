@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 uint32_t read_be32(std::istream &f) {
 	return ((uint32_t) f.get() << 24) |
-		((uint32_t) f.get() << 16) | 
+		((uint32_t) f.get() << 16) |
 		((uint32_t) f.get() << 8) | (uint32_t) f.get();
 }
 
@@ -80,9 +80,9 @@ struct Xaiger2Frontend : public Frontend {
 		extra_args(f, filename, args, argidx, true);
 
 		if (map_filename.empty())
-			log_error("A '-map2' argument required\n");
+			log_error("A '-map2' argument is required\n");
 		if (module_name.empty())
-			log_error("A '-module_name' argument required\n");
+			log_error("A '-module_name' argument is required\n");
 
 		Module *module = design->module(module_name);
 		if (!module)
@@ -128,10 +128,10 @@ struct Xaiger2Frontend : public Frontend {
 				int woffset;
 				std::string name;
 				if (!(map_file >> pi_idx >> woffset >> name))
-					log_error("Bad map file (1)\n");
+					log_error("Bad map file: couldn't read 'pi' line\n");
 				int lit = (2 * pi_idx) + 2;
 				if (lit < 0 || lit >= (int) bits.size())
-					log_error("Bad map file (2)\n");
+					log_error("Bad map file: primary input literal out of range\n");
 				Wire *w = module->wire(name);
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
@@ -141,9 +141,9 @@ struct Xaiger2Frontend : public Frontend {
 				int box_seq;
 				std::string name;
 				if (!(map_file >> box_seq >> name))
-					log_error("Bad map file (20)\n");
+					log_error("Bad map file: couldn't read 'box' line\n");
 				if (box_seq < 0)
-					log_error("Bad map file (21)\n");
+					log_error("Bad map file: box out of range\n");
 
 				Cell *box = module->cell(RTLIL::escape_id(name));
 				if (!box)
@@ -158,7 +158,7 @@ struct Xaiger2Frontend : public Frontend {
 				}
 
 				if (!def)
-					log_error("Bad map file (22)\n");
+					log_error("Bad map file: no module found for box type '%s'\n", log_id(box->type));
 
 				if (box_seq >= (int) boxes.size()) {
 					boxes.resize(box_seq + 1);
@@ -403,15 +403,15 @@ struct Xaiger2Frontend : public Frontend {
 				int woffset;
 				std::string name;
 				if (!(map_file >> po_idx >> woffset >> name))
-					log_error("Bad map file (3)\n");
+					log_error("Bad map file: couldn't read 'po' line\n");
 				po_idx += co_counter;
 				if (po_idx < 0 || po_idx >= (int) outputs.size())
-					log_error("Bad map file (4)\n");
+					log_error("Bad map file: primary output index out of range\n");
 				int lit = outputs[po_idx];
 				if (lit < 0 || lit >= (int) bits.size())
-					log_error("Bad map file (5)\n");
+					log_error("Bad map file: primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
-					log_error("Bad map file (6)\n");
+					log_error("Bad map file: primary output literal is a marker\n");
 				Wire *w = module->wire(name);
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
@@ -423,15 +423,15 @@ struct Xaiger2Frontend : public Frontend {
 				std::string box_name;
 				std::string box_port;
 				if (!(map_file >> po_idx >> poffset >> box_name >> box_port))
-					log_error("Bad map file (7)\n");
+					log_error("Bad map file: couldn't read 'pseudopo' line\n");
 				po_idx += co_counter;
 				if (po_idx < 0 || po_idx >= (int) outputs.size())
-					log_error("Bad map file (8)\n");
+					log_error("Bad map file: pseudo primary output index out of range\n");
 				int lit = outputs[po_idx];
 				if (lit < 0 || lit >= (int) bits.size())
-					log_error("Bad map file (9)\n");
+					log_error("Bad map file: pseudo primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
-					log_error("Bad map file (10)\n");
+					log_error("Bad map file: pseudo primary output literal is a marker\n");
 				Cell *cell = module->cell(box_name);
 				if (!cell || !cell->hasPort(box_port))
 					log_error("Map file references non-existent box port %s/%s\n",
