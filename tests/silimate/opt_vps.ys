@@ -128,6 +128,9 @@ opt_vps; opt_clean
 
 select -assert-none t:$pmux
 select -assert-none t:$reduce_or
+select -assert-count 8 t:$eq
+select -assert-count 8 t:$and
+select -assert-count 8 t:$mux
 select -assert-count 1 t:$dff
 design -reset
 log -pop
