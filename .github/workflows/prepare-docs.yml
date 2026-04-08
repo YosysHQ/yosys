@@ -18,14 +18,15 @@ jobs:
       docs_export: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
     steps:
       - id: skip_check
-        if: ${{ github.event_name != 'merge_group' }}
         uses: fkirc/skip-duplicate-actions@v5
         with:
           paths_ignore: '["**/README.md"]'
           # don't cancel in case we're updating docs
           cancel_others: 'false'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: ${{ env.docs_export && 'never' || 'same_content_newer'}}
+          # push filtering means we only want to skip duplicates for PRs
+          do_not_skip: '["workflow_dispatch", "merge_group", "push"]'
+          concurrent_skipping: 'same_content_newer'
+
       - id: docs_var
         run: echo "docs_export=${docs_export}" >> $GITHUB_OUTPUT
 
@@ -90,7 +91,7 @@ jobs:
           make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
 
       - name: Trigger RTDs build
-        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/Yosys' }}
+        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/yosys' }}
         uses: dfm/rtds-action@v1.1.0
         with:
           webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}

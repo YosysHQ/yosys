@@ -114,7 +114,7 @@ jobs:
           path: ./wheelhouse/*.whl
   upload_wheels:
     name: Upload Wheels
-    if: (github.repository == 'YosysHQ/Yosys') && (github.event_name == 'workflow_dispatch')
+    if: (github.repository == 'YosysHQ/yosys') && (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
