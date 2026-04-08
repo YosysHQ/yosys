@@ -24,8 +24,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-// Normalize scope path: replace '/' with '.' and remove leading '.'
-// This allows supporting both Verdi-style (/top/module) and Yosys-style (top.module) scope paths
+// Normalize scope path: replace '/' with '.' and remove leading and trailing '.'
 inline std::string normalize_scope(std::string scope)
 {
 	if (scope.empty())
@@ -33,13 +32,19 @@ inline std::string normalize_scope(std::string scope)
 	
 	// Replace all '/' with '.'
 	for (size_t i = 0; i < scope.length(); i++) {
-		if (scope[i] == '/')
+		if (scope[i] == '/') {
+			if (i > 0 && scope[i-1] == '\\') continue; // skip escaped '/'
 			scope[i] = '.';
+		}
 	}
 	
 	// Remove leading '.' if present
 	if (scope[0] == '.')
 		scope = scope.substr(1);
+
+	// Remove trailing '.' if present (from a trailing '/')
+	if (!scope.empty() && scope.back() == '.')
+		scope = scope.substr(0, scope.size() - 1);
 	
 	return scope;
 }
