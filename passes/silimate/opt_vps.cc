@@ -183,6 +183,9 @@ struct OptVpsWorker
 		Cell *drv = bit_drivers.at(b, nullptr);
 		if (!drv) return 0;
 
+		if (!drv->hasPort(ID::Y) || !drv->hasPort(ID::A))
+			return 0;
+
 		int bit_pos = -1;
 		SigSpec dy = drv->getPort(ID::Y);
 		for (int j = 0; j < GetSize(dy); j++)
