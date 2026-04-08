@@ -8,7 +8,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-none t:$fa
 select -assert-count 1 t:$add
 design -reset
@@ -25,7 +25,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-none t:$fa
 design -reset
 
@@ -39,7 +39,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-none t:$fa
 select -assert-count 1 t:$sub
 design -reset
@@ -54,7 +54,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-none t:$fa
 select -assert-max 1 t:$add
 design -reset
@@ -71,7 +71,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 2 t:$fa
 select -assert-count 2 t:$add
 design -reset

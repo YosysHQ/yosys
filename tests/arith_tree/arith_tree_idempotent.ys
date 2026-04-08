@@ -9,11 +9,11 @@ EOT
 hierarchy -auto-top
 proc
 
-csa_tree
+arith_tree
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 
-csa_tree
+arith_tree
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 select -assert-none t:$sub
@@ -32,13 +32,13 @@ proc
 alumacc
 opt_clean
 
-csa_tree
+arith_tree
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 select -assert-none t:$sub
 select -assert-none t:$alu
 
-csa_tree
+arith_tree
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 select -assert-none t:$sub

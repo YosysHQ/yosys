@@ -8,7 +8,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
 design -reset
@@ -23,7 +23,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
 design -reset
@@ -38,7 +38,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
 design -reset
@@ -55,7 +55,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 14 t:$fa
 select -assert-count 1 t:$add
 design -reset
@@ -76,7 +76,7 @@ endmodule
 EOT
 hierarchy -auto-top
 select -assert-count 2 t:$alu
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
@@ -102,7 +102,7 @@ endmodule
 EOT
 hierarchy -auto-top
 select -assert-count 3 t:$alu
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
@@ -131,7 +131,7 @@ endmodule
 EOT
 hierarchy -auto-top
 select -assert-count 4 t:$alu
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
@@ -151,7 +151,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
@@ -170,7 +170,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
@@ -189,7 +189,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
