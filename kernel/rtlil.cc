@@ -2725,7 +2725,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	new_mod->avail_parameters = avail_parameters;
 	new_mod->parameter_default_values = parameter_default_values;
 
-	for (auto &conn : connections_)
+	for (auto &conn : connections())
 		new_mod->connect(conn);
 
 	for (auto &attr : attributes)
