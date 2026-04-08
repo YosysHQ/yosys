@@ -90,7 +90,7 @@ jobs:
           make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
 
       - name: Trigger RTDs build
-        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/Yosys' }}
+        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/yosys' }}
         uses: dfm/rtds-action@v1.1.0
         with:
           webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
