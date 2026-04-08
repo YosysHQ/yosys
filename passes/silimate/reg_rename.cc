@@ -20,6 +20,7 @@
 
 #include "kernel/fstdata.h"
 #include "kernel/yosys.h"
+#include "passes/silimate/reg_rename.h"
 #include <regex>
 
 USING_YOSYS_NAMESPACE
@@ -187,7 +188,7 @@ struct RegRenamePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-scope" && argidx + 1 < args.size()) {
-				scope = args[++argidx];
+				scope = normalize_scope(args[++argidx]);
 				continue;
 			}
 			break;

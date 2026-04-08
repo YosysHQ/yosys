@@ -26,6 +26,7 @@
 #include "kernel/yw.h"
 #include "kernel/json.h"
 #include "kernel/fmt.h"
+#include "passes/silimate/reg_rename.h"
 
 #include <ctime>
 #include <sstream>
@@ -3161,7 +3162,7 @@ struct SimPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
-				worker.scope = args[++argidx];
+				worker.scope = normalize_scope(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-start" && argidx+1 < args.size()) {
@@ -3335,7 +3336,7 @@ struct Fst2TbPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
-				worker.scope = args[++argidx];
+				worker.scope = normalize_scope(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-start" && argidx+1 < args.size()) {
