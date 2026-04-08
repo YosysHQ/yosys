@@ -157,3 +157,85 @@ select -assert-count 1 t:$dff
 design -reset
 log -pop
 
+# =============================================================================
+# Test 7: SAT equivalence — VPS read vs right-shift reference
+# Proves opt_vps produces a logically equivalent circuit to a hand-written
+# right-shift for a 256-bit register with 32-bit read window.
+# =============================================================================
+log -header "SAT equivalence: VPS read vs right-shift ref"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_read.sv
+verific -import opt_vps_read
+proc; opt_clean
+opt_vps; opt_clean
+rename opt_vps_read gate
+
+read -sv opt_vps_read_ref.sv
+verific -import opt_vps_read
+proc; opt_clean
+rename opt_vps_read gold
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 8: SAT self-equivalence — VPS read before vs after opt_vps
+# Proves opt_vps does not change the functional behavior for VPS reads.
+# =============================================================================
+log -header "SAT self-equivalence: VPS read before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_read.sv
+verific -import opt_vps_read
+proc; opt_clean
+rename opt_vps_read gold
+
+read -sv opt_vps_read.sv
+verific -import opt_vps_read
+proc; opt_clean
+opt_vps; opt_clean
+rename opt_vps_read gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 9: Cell count verification — VPS read
+# After opt_vps, the $pmux should be replaced with a $shr.
+# =============================================================================
+log -header "Cell counts: VPS read post-opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_read.sv
+verific -import opt_vps_read
+proc; opt_clean
+opt_vps; opt_clean
+
+select -assert-none t:$pmux
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$mux
+design -reset
+log -pop
+
+
