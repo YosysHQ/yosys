@@ -67,8 +67,8 @@ struct SynthPass : public ScriptPass {
 		log("    -booth\n");
 		log("        run the booth pass to map $mul to Booth encoded multipliers\n");
 		log("\n");
-		log("    -csa\n");
-		log("        run the csa_tree pass to convert $add/$sub chains and $macc cells to\n");
+		log("    -arith_tree\n");
+		log("        run the arith_tree pass to convert $add/$sub chains and $macc cells to\n");
 		log("        carry-save adder trees.\n");
 		log("\n");
 		log("    -noalumacc\n");
@@ -112,7 +112,7 @@ struct SynthPass : public ScriptPass {
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, csa, hieropt, relative_share;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, arith_tree, hieropt, relative_share;
 	int lut;
 	std::vector<std::string> techmap_maps;
 
@@ -131,7 +131,7 @@ struct SynthPass : public ScriptPass {
 		noshare = false;
 		flowmap = false;
 		booth = false;
-		csa = false;
+		arith_tree = false;
 		hieropt = false;
 		relative_share = false;
 		abc = "abc";
@@ -192,8 +192,8 @@ struct SynthPass : public ScriptPass {
 				booth = true;
 				continue;
 			}
-			if (args[argidx] == "-csa") {
-				csa = true;
+			if (args[argidx] == "-arith_tree") {
+				arith_tree = true;
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
@@ -297,8 +297,8 @@ struct SynthPass : public ScriptPass {
 				run("booth", "    (if -booth)");
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
-			if (csa || help_mode)
-				run("csa_tree", " (if -csa)");
+			if (arith_tree || help_mode)
+				run("arith_tree", " (if -arith_tree)");
 			if (!noshare)
 				run("share", "    (unless -noshare)");
 			run("opt" + hieropt_flag);

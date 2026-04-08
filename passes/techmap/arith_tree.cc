@@ -297,7 +297,7 @@ struct Rewriter {
 		return sig;
 	}
 
-	void replace_with_csa_tree(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation, const char *desc)
+	void replace_with_carry_save_tree(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation, const char *desc)
 	{
 		int width = GetSize(result_y);
 		std::vector<SigSpec> extended;
@@ -354,7 +354,7 @@ struct Rewriter {
 			if (operands.size() < 3)
 				continue;
 
-			replace_with_csa_tree(operands, root->getPort(ID::Y), neg_compensation, "Replaced add/sub chain");
+			replace_with_carry_save_tree(operands, root->getPort(ID::Y), neg_compensation, "Replaced add/sub chain");
 			for (auto cell : chain)
 				module->remove(cell);
 		}
@@ -370,7 +370,7 @@ struct Rewriter {
 			if (operands.size() < 3)
 				continue;
 
-			replace_with_csa_tree(operands, cell->getPort(ID::Y), neg_compensation, "Replaced $macc");
+			replace_with_carry_save_tree(operands, cell->getPort(ID::Y), neg_compensation, "Replaced $macc");
 			module->remove(cell);
 		}
 	}
@@ -388,14 +388,14 @@ void run(Module *module)
 	rewriter.process_maccs();
 }
 
-struct CsaTreePass : public Pass {
-	CsaTreePass() : Pass("csa_tree", "convert add/sub/macc chains to carry-save adder trees") {}
+struct ArithTreePass : public Pass {
+	ArithTreePass() : Pass("arith_tree", "convert add/sub/macc chains to carry-save adder trees") {}
 
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    csa_tree [selection]\n");
+		log("    arith_tree [selection]\n");
 		log("\n");
 		log("This pass replaces chains of $add/$sub cells, $alu cells (with constant\n");
 		log("BI/CI), and $macc/$macc_v2 cells (without multiplications) with carry-save\n");
@@ -409,7 +409,7 @@ struct CsaTreePass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing CSA_TREE pass.\n");
+		log_header(design, "Executing ARITH_TREE pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -420,6 +420,6 @@ struct CsaTreePass : public Pass {
 			run(module);
 		}
 	}
-} CsaTreePass;
+} ArithTreePass;
 
 PRIVATE_NAMESPACE_END

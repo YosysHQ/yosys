@@ -10,7 +10,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt csa_tree
+equiv_opt arith_tree
 design -load postopt
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
@@ -28,7 +28,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt csa_tree
+equiv_opt arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
@@ -46,7 +46,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt csa_tree
+equiv_opt arith_tree
 design -load postopt
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
@@ -64,7 +64,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt csa_tree
+equiv_opt arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
@@ -82,7 +82,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt csa_tree
+equiv_opt arith_tree
 design -load postopt
 select -assert-min 1 t:$fa
 select -assert-count 1 t:$add
@@ -100,7 +100,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt csa_tree
+equiv_opt arith_tree
 design -load postopt
 select -assert-min 1 t:$fa
 select -assert-count 1 t:$add

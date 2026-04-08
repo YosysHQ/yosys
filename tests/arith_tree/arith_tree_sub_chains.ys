@@ -8,7 +8,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 select -assert-count 1 t:$not
@@ -25,7 +25,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
 select -assert-count 1 t:$not
@@ -42,7 +42,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
 select -assert-count 3 t:$not
@@ -59,7 +59,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 4 t:$fa
 select -assert-count 1 t:$add
 select -assert-count 2 t:$not
@@ -76,7 +76,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
 select -assert-count 2 t:$not
@@ -94,7 +94,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-csa_tree
+arith_tree
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
 select -assert-count 1 t:$not
@@ -113,7 +113,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt_clean
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
@@ -133,7 +133,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt_clean
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
@@ -153,7 +153,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt_clean
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
@@ -173,7 +173,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt_clean
-csa_tree
+arith_tree
 opt_clean
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
@@ -193,7 +193,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-csa_tree
+arith_tree
 opt_clean
 select -assert-none t:$macc t:$macc_v2 %u
 select -assert-min 1 t:$fa
@@ -212,7 +212,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-csa_tree
+arith_tree
 opt_clean
 select -assert-none t:$macc t:$macc_v2 %u
 select -assert-min 1 t:$fa
@@ -232,7 +232,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-csa_tree
+arith_tree
 opt_clean
 select -assert-none t:$macc t:$macc_v2 %u
 select -assert-count 4 t:$fa
