@@ -147,6 +147,19 @@ struct SplitcellsWorker
 			if (GetSize(outsig) <= 1) return 0;
 			int width = GetSize(outsig);
 
+			// Compute user-facing bit index from the wire connected to Q
+			SigSpec raw_q = cell->getPort(ID::Q);
+			auto user_index = [&](int idx) -> int {
+				if (idx < GetSize(raw_q) && raw_q[idx].is_wire()) {
+					Wire *w = raw_q[idx].wire;
+					if (w->upto)
+						return w->start_offset + w->width - 1 - raw_q[idx].offset;
+					else
+						return w->start_offset + raw_q[idx].offset;
+				}
+				return idx;
+			};
+
 			std::vector<int> slices;
 			slices.push_back(0);
 
@@ -168,6 +181,9 @@ struct SplitcellsWorker
 			{
 				int slice_msb = slices[i]-1;
 				int slice_lsb = slices[i-1];
+				int name_lsb = user_index(slice_lsb);
+				int name_msb = user_index(slice_msb);
+				if (name_lsb > name_msb) std::swap(name_lsb, name_msb);
 
 				std::string base_name = cell->name.str();
 				IdString slice_name;
@@ -178,11 +194,11 @@ struct SplitcellsWorker
 						base_name = base_name.substr(0, bracket_pos);
 					}
 					slice_name = module->uniquify(base_name + stringf(
-						"%c%d%c", format[0], slice_lsb, format[1]));
+						"%c%d%c", format[0], name_lsb, format[1]));
 				} else {
-					slice_name = module->uniquify(base_name + (slice_msb == slice_lsb ?
-						stringf("%c%d%c", format[0], slice_lsb, format[1]) :
-						stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1])));
+					slice_name = module->uniquify(base_name + (name_msb == name_lsb ?
+						stringf("%c%d%c", format[0], name_lsb, format[1]) :
+						stringf("%c%d%c%d%c", format[0], name_msb, format[2], name_lsb, format[1])));
 				}
 
 				Cell *slice = module->addCell(slice_name, cell);

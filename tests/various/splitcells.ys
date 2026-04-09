@@ -1,0 +1,90 @@
+# Test 1: Basic splitcells blast on a zero-base register [5:0]
+# Cell names should use indices 0..5
+
+read_verilog <<EOT
+module test_zero_base (
+  input clk,
+  input [5:0] d,
+  output reg [5:0] q
+);
+  always @(posedge clk) q <= d;
+endmodule
+EOT
+proc
+splitcells -blast -format []:
+
+select -assert-count 6 t:$dff
+select -assert-count 1 c:*[0]
+select -assert-count 1 c:*[5]
+select -assert-none c:*[6]
+
+design -reset
+
+# Test 2: splitcells blast on a non-zero base register [22:17]
+# Cell names must use user-facing indices 17..22, not 0..5
+
+read_verilog <<EOT
+module test_nonzero_base (
+  input clk,
+  input [22:17] d,
+  output reg [22:17] q
+);
+  always @(posedge clk) q <= d;
+endmodule
+EOT
+proc
+splitcells -blast -format []:
+
+select -assert-count 6 t:$dff
+select -assert-count 1 c:*[17]
+select -assert-count 1 c:*[18]
+select -assert-count 1 c:*[19]
+select -assert-count 1 c:*[20]
+select -assert-count 1 c:*[21]
+select -assert-count 1 c:*[22]
+
+design -reset
+
+# Test 3: splitcells blast with offset=1 register [8:1]
+# Cell names should use indices 1..8, not 0..7
+
+read_verilog <<EOT
+module test_offset_one (
+  input clk,
+  input [8:1] d,
+  output reg [8:1] q
+);
+  always @(posedge clk) q <= d;
+endmodule
+EOT
+proc
+splitcells -blast -format []:
+
+select -assert-count 8 t:$dff
+select -assert-count 1 c:*[1]
+select -assert-count 1 c:*[8]
+
+design -reset
+
+# Test 4: splitcells non-blast with non-zero base and divergent fanout
+# Slice range names should use user-facing indices (e.g. [22:20], [19:17])
+
+read_verilog <<EOT
+module test_nonblast_nonzero (
+  input clk,
+  input [22:17] d,
+  output reg [22:17] q,
+  output [2:0] lo,
+  output [2:0] hi
+);
+  always @(posedge clk) q <= d;
+  assign lo = q[19:17];
+  assign hi = q[22:20];
+endmodule
+EOT
+proc
+splitcells -format []:
+
+select -assert-count 2 t:$dff
+select -assert-count 1 c:*[19:17]
+select -assert-count 1 c:*[22:20]
