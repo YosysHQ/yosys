@@ -359,6 +359,8 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
+			design->flagSigNormalized = false;
+
 			for (auto mod : design->modules().to_vector())
 				design->remove(mod);
 
@@ -380,6 +382,7 @@ struct DesignPass : public Pass {
 		{
 			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
 
+			design->flagSigNormalized = saved_design->flagSigNormalized;
 			for (auto mod : saved_design->modules())
 				design->add(mod->clone());
 
