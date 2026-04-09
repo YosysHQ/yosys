@@ -232,7 +232,6 @@ private:
 	}
 	void run_worker(int thread_num);
 
-	std::unique_ptr<ThreadPool> thread_pool;
 	std::function<void(const RunCtx &)> *current_work = nullptr;
 	// Keeps a correct count even when threads are exiting.
 	int num_worker_threads_;
@@ -291,6 +290,10 @@ private:
 		done_workers.store(0, std::memory_order_relaxed);
 	}
 #endif
+	// Ensure `thread_pool` is destroyed before any other members,
+	// forcing all threads to be joined before destroying the
+	// members (e.g. workers_to_main_signal_mutex) they might be using.
+	std::unique_ptr<ThreadPool> thread_pool;
 };
 
 template <class T>
