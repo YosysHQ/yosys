@@ -2,16 +2,25 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.63 .. Yosys 0.64-dev
+Yosys 0.64 .. Yosys 0.65-dev
 --------------------------
+
+Yosys 0.63 .. Yosys 0.64
+--------------------------
+ * New commands and options
+    - Added "synth_analogdevices" pass to support synthesis
+      for Analog Devices FPGAs.
 
  * Various
     - Removed rarely-used options from ABC/ABC9.
+       - Removed "-S" option from "abc" pass.
+       - Removed "-fast" option from "abc9" and "abc9_exe".
        - Calls to "abc -g AND -fast" to map logic to
          AND-Inverter Graph form should be replaced with
          "aigmap".
        - The above change was made to SBY, so we recommend
          updating it.
+    - Added hardware latch support for Gowin FPGAs.
 
 Yosys 0.62 .. Yosys 0.63
 --------------------------
