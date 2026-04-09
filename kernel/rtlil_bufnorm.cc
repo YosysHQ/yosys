@@ -112,9 +112,12 @@ struct RTLIL::SigNormIndex
 
 	void setup_driven_wires() {
 		for (auto cell : module->cells()) {
+			xlog("setup_driven_wires cell %s %s\n", cell->type, cell->name);
 			for (auto &[port, sig] : cell->connections_) {
+				xlog("\t%s = %s\n", port, log_signal(sig));
 				if (cell->port_dir(port) == RTLIL::PD_INPUT)
 					continue;
+				xlog("%s is not an input in design %p\n", port, module->design);
 				if (sig.is_wire()) {
 					Wire * wire = sig.as_wire();
 
@@ -131,6 +134,7 @@ struct RTLIL::SigNormIndex
 				wire->driverCell_ = cell;
 				wire->driverPort_ = port;
 
+				xlog("therefore connect port %s %s %s\n", port, log_signal(sig), wire->name);
 				module->connect(sig, wire);
 				sig = wire;
 			}
@@ -193,6 +197,7 @@ struct RTLIL::SigNormIndex
 
 			if (!connect_lhs.empty()) {
 				Cell *cell = module->addCell(NEW_ID, ID($connect));
+				xlog("add connect (1) %s\n", cell->name);
 				cell->setParam(ID::WIDTH, GetSize(connect_lhs));
 				cell->setPort(ID::A, std::move(connect_lhs));
 				cell->setPort(ID::B, std::move(connect_rhs));
