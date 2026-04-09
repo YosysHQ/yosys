@@ -456,21 +456,22 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 		if (wire->attributes.count(ID::single_bit_vector))
 			range = stringf(" [%d:%d]", wire->start_offset, wire->start_offset);
 	}
+	std::string sign = wire->is_signed ? " signed" : "";
 	if (wire->port_input && !wire->port_output)
-		f << stringf("%s" "input%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "input%s%s %s;\n", indent, sign, range, id(wire->name));
 	if (!wire->port_input && wire->port_output)
-		f << stringf("%s" "output%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "output%s%s %s;\n", indent, sign, range, id(wire->name));
 	if (wire->port_input && wire->port_output)
-		f << stringf("%s" "inout%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "inout%s%s %s;\n", indent, sign, range, id(wire->name));
 	if (reg_wires.count(wire->name)) {
-		f << stringf("%s" "reg%s %s", indent, range, id(wire->name));
+		f << stringf("%s" "reg%s%s %s", indent, sign, range, id(wire->name));
 		if (wire->attributes.count(ID::init)) {
 			f << stringf(" = ");
 			dump_const(f, wire->attributes.at(ID::init));
 		}
 		f << stringf(";\n");
 	} else
-		f << stringf("%s" "wire%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "wire%s%s %s;\n", indent, sign, range, id(wire->name));
 #endif
 }
 
