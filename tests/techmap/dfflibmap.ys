@@ -97,3 +97,14 @@ select -assert-count 1 t:dffe
 # but we have to invert it because the CLEAR pin is active low.
 # ff2.CLEAR = !R
 select -assert-count 1 c:ff2 %x:+[CLEAR] %ci t:$_NOT_ %i
+
+# Test that dfflibmap respects selection and doesn't run dfflegalize on unselected modules
+design -load orig
+copy top top_unmapped
+dfflibmap -liberty dfflibmap.lib top
+# top should be mapped
+select -module top -assert-count 1 t:dffn
+# top_unmapped should have no mapped cells
+select -module top_unmapped -assert-none t:dffn
+select -module top_unmapped -assert-none t:dffe
+select -module top_unmapped -assert-none t:dffsr
