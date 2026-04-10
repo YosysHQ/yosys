@@ -11,6 +11,7 @@ OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/reg_rename.o
 OBJS += passes/silimate/infer_ce.o
+OBJS += passes/silimate/report_fanout.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitlarge.o
 OBJS += passes/silimate/splitnetlist.o
