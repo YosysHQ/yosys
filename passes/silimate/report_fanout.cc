@@ -17,6 +17,7 @@
  *
  */
 
+#include <memory>
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
@@ -249,9 +250,9 @@ struct ReportFanoutPass : public Pass {
 				log_cmd_error("Missing required -limit option (must be a non-negative integer).\n");
 
 		// Open output file if requested
-		FILE *f = nullptr;
+		std::unique_ptr<FILE, decltype(&fclose)> f(nullptr, &fclose);
 		if (!filename.empty()) {
-			f = fopen(filename.c_str(), "w");
+			f.reset(fopen(filename.c_str(), "w"));
 			if (!f)
 				log_cmd_error("Cannot open file '%s' for writing.\n", filename.c_str());
 		}
@@ -261,11 +262,8 @@ struct ReportFanoutPass : public Pass {
 		{
 			log("Analyzing fanout for module %s...\n", log_id(module));
 			ReportFanoutWorker worker(module, skip_clk_rst);
-			worker.report(limit, f);
+			worker.report(limit, f.get());
 		}
-
-		if (f)
-			fclose(f);
 	}
 } ReportFanoutPass;
 
