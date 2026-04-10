@@ -226,7 +226,11 @@ struct ReportFanoutPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-limit" && argidx + 1 < args.size()) {
-				limit = std::stoi(args[++argidx]);
+				try {
+					limit = std::stoi(args[++argidx]);
+				} catch (...) {
+					log_cmd_error("Invalid value for -limit: '%s'. Expected an integer.\n", args[argidx].c_str());
+				}
 				continue;
 			}
 			if (args[argidx] == "-file" && argidx + 1 < args.size()) {
