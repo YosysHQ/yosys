@@ -245,8 +245,8 @@ struct ReportFanoutPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (limit < 0)
-			log_cmd_error("Missing required -limit option.\n");
+			if (limit < 0)
+				log_cmd_error("Missing required -limit option (must be a non-negative integer).\n");
 
 		// Open output file if requested
 		FILE *f = nullptr;
