@@ -570,7 +570,7 @@ public:
 	// Call this for each shard to implement parallel destruction. For very large `ShardedHashtable`s,
 	// deleting all elements of all shards on a single thread can be a performance bottleneck.
 	void clear(const ThreadIndex &shard) {
-		AccumulatedValueEquality equality = shards[0].key_eq();
+		AccumulatedValueEquality equality = shards[shard.thread_num].key_eq();
 		shards[shard.thread_num] = Shard(0, AccumulatedValueHashOp(), equality);
 	}
 private:
