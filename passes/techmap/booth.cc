@@ -58,6 +58,7 @@ synth -top my_design -booth
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
+#include "kernel/wallace_tree.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -317,36 +318,6 @@ struct BoothPassWorker {
 		}
 	}
 
-	SigSig WallaceSum(int width, std::vector<SigSpec> summands)
-	{
-		for (auto &s : summands)
-			s.extend_u0(width);
-
-		while (summands.size() > 2) {
-			std::vector<SigSpec> new_summands;
-			int i;
-			for (i = 0; i < (int) summands.size() - 2; i += 3) {
-				SigSpec x = module->addWire(NEW_ID, width);
-				SigSpec y = module->addWire(NEW_ID, width);
-				BuildBitwiseFa(module, NEW_ID.str(), summands[i], summands[i + 1],
-					       summands[i + 2], x, y);
-				new_summands.push_back(y);
-				new_summands.push_back({x.extract(0, width - 1), State::S0});
-			}
-
-			new_summands.insert(new_summands.begin(), summands.begin() + i, summands.end());
-
-			std::swap(summands, new_summands);
-		}
-
-		if (!summands.size())
-			return SigSig(SigSpec(width, State::S0), SigSpec(width, State::S0));
-		else if (summands.size() == 1)
-			return SigSig(summands[0], SigSpec(width, State::S0));
-		else
-			return SigSig(summands[0], summands[1]);
-	}
-
 	/*
 	  Build Multiplier.
 	  -------------------------
@@ -415,16 +386,16 @@ struct BoothPassWorker {
 		// Later on yosys will clean up unused constants
 		//  DebugDumpAlignPP(aligned_pp);
 
-		SigSig wtree_sum = WallaceSum(z_sz, aligned_pp);
+		auto [wtree_a, wtree_b] = wallace_reduce_scheduled(module, aligned_pp, z_sz);
 
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
 		// Build the CPA to do the final accumulation.
-		log_assert(wtree_sum.second[0] == State::S0);
+		log_assert(wtree_b[0] == State::S0);
 		if (mapped_cpa)
-			BuildCPA(module, wtree_sum.first, {State::S0, wtree_sum.second.extract_end(1)}, Z);
+			BuildCPA(module, wtree_a, wtree_b, Z);
 		else
-			module->addAdd(NEW_ID, wtree_sum.first, {wtree_sum.second.extract_end(1), State::S0}, Z);
+			module->addAdd(NEW_ID, wtree_a, wtree_b, Z);
 	}
 
 	/*
