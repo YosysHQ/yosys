@@ -337,27 +337,28 @@ struct Rewriter {
 		auto parent_of = find_parents(candidates);
 		auto [children_of, has_parent] = invert_parent_map(parent_of);
 
-		pool<Cell *> processed;
+		pool<Cell *> to_remove;
 		for (auto root : candidates) {
-			if (has_parent.count(root) || processed.count(root))
+			if (has_parent.count(root) || to_remove.count(root))
 				continue; // Not a tree root
 
 			pool<Cell *> chain = collect_chain(root, children_of);
 			if (chain.size() < 2)
 				continue;
 
-			for (auto c : chain)
-				processed.insert(c);
-
 			int neg_compensation;
 			auto operands = extract_chain_operands(chain, root, parent_of, neg_compensation);
 			if (operands.size() < 3)
 				continue;
 
+			for (auto c : chain)
+				to_remove.insert(c);
+
 			replace_with_carry_save_tree(operands, root->getPort(ID::Y), neg_compensation, "Replaced add/sub chain");
-			for (auto cell : chain)
-				module->remove(cell);
 		}
+
+		for (auto cell : to_remove)
+			module->remove(cell);
 	}
 
 	void process_maccs()
