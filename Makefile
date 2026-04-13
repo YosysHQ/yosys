@@ -953,6 +953,7 @@ MK_TEST_DIRS += tests/verilog
 
 # Tests that don't generate .mk
 SH_TEST_DIRS =
+SH_TEST_DIRS += tests/arith_tree
 SH_TEST_DIRS += tests/simple
 SH_TEST_DIRS += tests/simple_abc9
 SH_TEST_DIRS += tests/hana
