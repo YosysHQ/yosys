@@ -101,11 +101,12 @@ struct PeepoptPass : public Pass {
 		{
 			did_something = true;
 
+			SigMap sigmap(module);
 			while (did_something)
 			{
 				did_something = false;
 
-				peepopt_pm pm(module);
+				peepopt_pm pm(module, &sigmap);
 
 				pm.setup(module->selected_cells());
 
