@@ -85,7 +85,8 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 			if (timeout++ > 10000)
 				log_error("pmgen generator is stuck: 10000 iterations with no matching module generated.\n");
 
-			pm matcher(mod, mod->cells());
+			SigMap sigmap(mod);
+			pm matcher(mod, &sigmap, mod->cells());
 
 			matcher.rng(1);
 			matcher.rngseed += modcnt;

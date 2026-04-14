@@ -89,7 +89,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		auto f = [&pm, cell](SigSpec &A, Cell *ff, IdString ceport, IdString rstport, IdString bypass) {
 			// input/output ports
 			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
 
 			if (!A.empty())
 				A.replace(Q, D);
@@ -206,7 +206,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 		auto f = [&pm, cell](SigSpec &A, Cell *ff, IdString ceport, IdString rstport, IdString bypass) {
 			// input/output ports
 			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
@@ -318,8 +318,11 @@ struct MicrochipDspPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO deduplicate all this noise with xilinx_dsp.cc
+
 		for (auto module : design->selected_modules()) {
 
+			SigMap sigmap(module);
 			if (design->scratchpad_get_bool("microchip_dsp.multonly"))
 				continue;
 
@@ -333,7 +336,7 @@ struct MicrochipDspPass : public Pass {
 				//   check for an accumulator pattern based on whether
 				//   a post-adder and PREG are both present AND
 				//   if PREG feeds into this post-adder.
-				microchip_dsp_pm pm(module, module->selected_cells());
+				microchip_dsp_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_microchip_dsp_pack(microchip_dsp_pack);
 			}
 
@@ -346,13 +349,13 @@ struct MicrochipDspPass : public Pass {
 			//   PREG of an upstream DSP that had not been visited
 			//   yet
 			{
-				microchip_dsp_CREG_pm pm(module, module->selected_cells());
+				microchip_dsp_CREG_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_microchip_dsp_packC(microchip_dsp_packC);
 			}
 
 			// Lastly, identify and utilise PCOUT -> PCIN chains
 			{
-				microchip_dsp_cascade_pm pm(module, module->selected_cells());
+				microchip_dsp_cascade_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_microchip_dsp_cascade();
 			}
 		}
