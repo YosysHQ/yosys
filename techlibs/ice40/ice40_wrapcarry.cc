@@ -48,7 +48,7 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 
 	cell->setPort(ID(I0), st.lut->getPort(ID(I0)));
 	auto I3 = st.lut->getPort(ID(I3));
-	if (pm.sigmap(CI) == pm.sigmap(I3)) {
+	if ((*pm.sigmap)(CI) == (*pm.sigmap)(I3)) {
 		cell->setParam(ID(I3_IS_CI), State::S1);
 		I3 = State::Sx;
 	}
@@ -112,9 +112,10 @@ struct Ice40WrapCarryPass : public Pass {
 		design->sigNormalize(false);
 
 		for (auto module : design->selected_modules()) {
-			if (!unwrap)
-				ice40_wrapcarry_pm(module, module->selected_cells()).run_ice40_wrapcarry(create_ice40_wrapcarry);
-			else {
+			if (!unwrap) {
+				SigMap sigmap(module);
+				ice40_wrapcarry_pm(module, &sigmap, module->selected_cells()).run_ice40_wrapcarry(create_ice40_wrapcarry);
+			} else {
 				for (auto cell : module->selected_cells()) {
 					if (cell->type != ID($__ICE40_CARRY_WRAPPER))
 						continue;
