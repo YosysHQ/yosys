@@ -388,10 +388,10 @@ match ff
 endmatch
 
 code
-	if (clk != SigBit() && sigmap(port(ff, \CLK)[0]) != clk)
+	if (clk != SigBit() && (*sigmap)(port(ff, \CLK)[0]) != clk)
 		reject;
 
-	for (auto bit : sigmap(port(ff, \Q))) {
+	for (auto bit : (*sigmap)(port(ff, \Q))) {
 		if (!bit.wire)
 			continue;
 		auto it = bit.wire->attributes.find(\init);
@@ -406,7 +406,7 @@ code
 
 	dff = ff;
 	dffD = port(ff, \D);
-	dffclk = sigmap(port(ff, \CLK)[0]);
+	dffclk = (*sigmap)(port(ff, \CLK)[0]);
 endcode
 
 subpattern out_ff
@@ -425,10 +425,10 @@ match ff
 endmatch
 
 code
-	if (clk != SigBit() && sigmap(port(ff, \CLK)[0]) != clk)
+	if (clk != SigBit() && (*sigmap)(port(ff, \CLK)[0]) != clk)
 		reject;
 
-	for (auto bit : sigmap(port(ff, \Q))) {
+	for (auto bit : (*sigmap)(port(ff, \Q))) {
 		if (!bit.wire)
 			continue;
 		auto it = bit.wire->attributes.find(\init);
@@ -443,5 +443,5 @@ code
 
 	dff = ff;
 	dffQ = port(ff, \Q);
-	dffclk = sigmap(port(ff, \CLK)[0]);
+	dffclk = (*sigmap)(port(ff, \CLK)[0]);
 endcode
