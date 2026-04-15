@@ -753,6 +753,16 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == PRIM_PULLUP) {
+		module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S1);
+		return true;
+	}
+
+	if (inst->Type() == PRIM_PULLDOWN) {
+		module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S0);
+		return true;
+	}
+
 	if (inst->Type() == PRIM_MUX) {
 		module->addMuxGate(inst_name, net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 		return true;
@@ -886,6 +896,16 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	if (inst->Type() == PRIM_INV) {
 		cell = module->addNot(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
+		return true;
+	}
+
+	if (inst->Type() == PRIM_PULLUP) {
+		module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S1);
+		return true;
+	}
+
+	if (inst->Type() == PRIM_PULLDOWN) {
+		module->connect(net_map_at(inst->GetOutput()), RTLIL::State::S0);
 		return true;
 	}
 
