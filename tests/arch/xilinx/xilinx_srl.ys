@@ -1,6 +1,10 @@
-read_verilog xilinx_srl.v
+read_verilog -icells xilinx_srl.v
 design -save read
-
+blackbox
+select =*
+design -save boxes
+design -reset
+design -load read
 design -copy-to model $__XILINX_SHREG_
 hierarchy -top xilinx_srl_static_test
 prep
@@ -35,12 +39,12 @@ sat -verify -prove-asserts -show-ports -seq 5 miter
 ##########
 
 design -load read
-design -copy-to model $__XILINX_SHREG_
 hierarchy -top xilinx_srl_variable_test
 prep
 design -save gold
 
 xilinx_srl -variable
+design -copy-from boxes =$__XILINX_SHREG_
 opt
 
 #stat
@@ -54,7 +58,7 @@ design -stash gate
 
 design -import gold -as gold
 design -import gate -as gate
-design -copy-from model -as $__XILINX_SHREG_ \$__XILINX_SHREG_
+design -copy-from model -as gate.$__XILINX_SHREG_ \$__XILINX_SHREG_
 prep
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
