@@ -411,6 +411,7 @@ struct FlattenPass : public Pass {
 		extra_args(args, argidx, design);
 
 		bool was_signormed = design->flagSigNormalized;
+		design->sigNormalize(false);
 
 		RTLIL::Module *top = nullptr;
 		if (design->full_selection())
