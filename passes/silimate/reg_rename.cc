@@ -29,12 +29,13 @@ PRIVATE_NAMESPACE_BEGIN
 struct RegRenameInstance {
 	std::string vcd_scope;
 	Module *module;
+	bool debug;
 	dict<Cell*, RegRenameInstance *> children;
 
 	// Constructor
 	// When constructing, it will recursively build the
 	// module hierarchy with correct VCD scope mapping
-	RegRenameInstance(std::string scope, Module *mod) : vcd_scope(scope), module(mod)
+	RegRenameInstance(std::string scope, Module *mod, bool dbg = false) : vcd_scope(scope), module(mod), debug(dbg)
 	{
 		// Loop through all cells in the module
 		for (auto cell : module->cells()) {
@@ -45,7 +46,7 @@ struct RegRenameInstance {
 			// Construct the child's scope in VCD format,
 			// which is the parent scope plus the instance name
 			std::string child_scope = vcd_scope + "." + RTLIL::unescape_id(cell->name);
-			children[cell] = new RegRenameInstance(child_scope, child);
+			children[cell] = new RegRenameInstance(child_scope, child, debug);
 		}
 	}
 
@@ -60,7 +61,10 @@ struct RegRenameInstance {
 	// and renames to allow for correct register annotation
 	void process_registers(dict<std::pair<std::string, std::string>, int> &vcd_reg_widths)
 	{
-		std::regex reg_regex("(.*)_reg(?:\\[(\\d+)\\])?$");
+		if (debug)
+			log("Processing registers in scope: %s (module: %s)\n", 
+					vcd_scope.c_str(), log_id(module->name));
+
 		pool<Wire *> wiresToRemove;
 
 		// Loop through all cells in the module
@@ -71,75 +75,87 @@ struct RegRenameInstance {
 				continue;
 			}
 
-			// Extract the register name from the cell name
-			std::smatch match;
-			std::string name = cell->name.c_str();
-			if (!std::regex_match(name, match, reg_regex)) {
-				log_warning("Unable to extract register name from cell %s\n", name.c_str());
-				continue;
-			}
+			// We know it is a reg with _reg suffix with all brackets removed
+			std::string searchName = cell->name.c_str();
+			if (auto pos = searchName.find('['); pos != std::string::npos)
+				searchName.erase(pos);
 
-			// Register name
-			std::string baseName = RTLIL::unescape_id(match[1].str());
-			bool isMultiBit = match.size() > 2 && match[2].matched;
+			// If register name with no brackets ends with _reg, we can process it
+			size_t reg_pos = searchName.find("_reg");
+			if (reg_pos != std::string::npos && reg_pos == searchName.size() - 4) {
 
-			for (auto conn : cell->connections()) {
+				// Remove "_reg" to get the target wire specification
+				std::string cellName = cell->name.c_str();
+				cellName.erase(reg_pos, 4);
 
-				// Rename wires from the register output
-				if (conn.first == ID::Q && conn.second.is_wire()) {
+				// Index comes from the right-most brackets
+				std::string wireName;
+				int bitIndex = 0;
+				size_t last_open = cellName.rfind('[');
+				size_t last_close = cellName.rfind(']');
+				if (last_open != std::string::npos && last_close != std::string::npos && last_close > last_open) {
+						wireName = cellName.substr(0, last_open);
+						bitIndex = std::stoi(cellName.substr(last_open + 1, last_close - last_open - 1));
+				} else {
+						wireName = cellName;
+						bitIndex = 0;
+				}
+
+				// Process Q output connection for the cell
+				for (auto &conn : cell->connections()) {
+					if (conn.first != ID::Q || !conn.second.is_wire()) continue;
+
 					Wire *oldWire = conn.second.as_wire();
+					if (oldWire->port_input || oldWire->port_output) continue;
 
-					// Skip wires that are inputs or outputs
-					if (oldWire->port_input || oldWire->port_output)
+					// Lookup wire width from VCD
+					int wireWidth = vcd_reg_widths[{vcd_scope, wireName}];
+					if (wireWidth == 0) {
+						if (debug)
+							log("Wire '%s' not found in VCD scope '%s' (cell: %s)\n",
+								wireName.c_str(), vcd_scope.c_str(), cellName.c_str());
 						continue;
-
-					// If the register is multi-bit, we must create a new wire
-					if (isMultiBit) {
-						int index = std::stoi(match[2].str());
-
-						// Lookup the original register width using the VCD scope
-						// and netlist-extracted register name
-						int origRegWidth = vcd_reg_widths[{vcd_scope, baseName}];
-						if (origRegWidth == 0) { // if not found, log a warning and skip
-							log_debug("Register '%s' with extracted name '%s' in scope '%s' not found in VCD\n",
-								    cell->name.c_str(), baseName.c_str(), vcd_scope.c_str());
-							continue;
-						}
-
-						// Create a new wire for the multi-bit register if it doesn't exist already
-						Wire *newWire = module->wire(RTLIL::escape_id(baseName));
-						if (newWire == nullptr) {
-							log_debug("Creating wire %s[%d:0] in scope %s\n", baseName.c_str(), origRegWidth - 1,
-							    vcd_scope.c_str());
-							newWire = module->addWire(RTLIL::escape_id(baseName), origRegWidth);
-						}
-
-						// Check if the bit index exceeds the actual wire width before creating SigSpec
-						if (index >= newWire->width) {
-							log_warning("Register bit index %d exceeds wire width %d for '%s' in scope '%s'. Skipping.\n",
-								index, newWire->width, baseName.c_str(), vcd_scope.c_str());
-							continue;
-						}
-
-						// Log the connection of the new wire to the register
-						log_debug("Connecting register wire %s[%d] to bit %d of %s in module %s\n",
-							newWire->name.c_str(), index, index, log_id(newWire), log_id(module));
-
-						// Replace old connection with a new one even at the input ports of subsequent cells from the register output
-						auto rewriter = [&](SigSpec &sig) { sig.replace(SigBit(oldWire), SigSpec(newWire, index, 1)); };
-						module->rewrite_sigspecs(rewriter);
-
-						// Add the old wires to the list of wires to delete after processing
-						wiresToRemove.insert(oldWire);
-					} else {
-						// Single-bit register rename
-						IdString target_name = RTLIL::escape_id(baseName);
-						if (oldWire->name != target_name && !module->wire(target_name)) {
-							log_debug("Renaming %s to %s in scope %s\n", oldWire->name.c_str(), target_name.c_str(),
-							    vcd_scope.c_str());
-							module->rename(oldWire, target_name);
-						}
 					}
+
+					// Validate bit index
+					if (bitIndex >= wireWidth) {
+							log_warning("Bit index %d exceeds wire width %d for '%s'\n",
+													bitIndex, wireWidth, wireName.c_str());
+							continue;
+					}
+
+					IdString wireId = RTLIL::escape_id(wireName);
+
+					// Single-bit wire requires only simple renaming
+					if (wireWidth == 1 && bitIndex == 0) {
+							if (oldWire->name != wireId && !module->wire(wireId)) {
+									if (debug)
+										log("Renaming %s to %s\n", log_id(oldWire), wireName.c_str());
+									module->rename(oldWire, wireId);
+							}
+							continue;
+					}
+
+					// Multi-bit wire requires creating a new wire and rewiring connections
+					Wire *targetWire = module->wire(wireId);
+				
+					if (!targetWire) {
+						if (debug)
+							log("Creating wire %s[%d:0] in scope %s\n", 
+									wireName.c_str(), wireWidth - 1, vcd_scope.c_str());
+						targetWire = module->addWire(wireId, wireWidth);
+					}
+				
+					if (debug)
+						log("Connecting %s to %s[%d]\n", 
+								log_id(oldWire), wireName.c_str(), bitIndex);
+				
+					auto rewriter = [&](SigSpec &sig) { 
+						sig.replace(SigBit(oldWire), SigSpec(targetWire, bitIndex, 1)); 
+					};
+					module->rewrite_sigspecs(rewriter);
+					
+					wiresToRemove.insert(oldWire);
 				}
 			}
 		}
@@ -173,6 +189,9 @@ struct RegRenamePass : public Pass {
 		log("    -scope <scope>\n");
 		log("        scope to process in vcd file\n");
 		log("\n");
+		log("    -d\n");
+		log("        enable debug output\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -181,6 +200,7 @@ struct RegRenamePass : public Pass {
 		// Argument parsing
 		std::string vcd_filename;
 		std::string scope;
+		bool debug = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-vcd" && argidx + 1 < args.size()) {
@@ -189,6 +209,10 @@ struct RegRenamePass : public Pass {
 			}
 			if (args[argidx] == "-scope" && argidx + 1 < args.size()) {
 				scope = normalize_scope(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-d") {
+				debug = true;
 				continue;
 			}
 			break;
@@ -220,14 +244,15 @@ struct RegRenamePass : public Pass {
 						std::string reg_name = var.name;
 
 						// Remove bracket notation if present to preserve register name
-						if (auto pos = reg_name.find('['); pos != std::string::npos)
+						if (auto pos = reg_name.rfind('['); pos != std::string::npos)
 							reg_name.erase(pos);
 
 						// Map the register's vcd scope and name to
 						// its original width for later lookup.
 						vcd_reg_widths[{reg_vcd_scope, reg_name}] = var.width;
-						log_debug("Found register '%s' in scope '%s' with width %d\n",
-							reg_name.c_str(), reg_vcd_scope.c_str(), var.width);
+						if (debug)
+							log("Found register '%s' in scope '%s' with width %d\n",
+								reg_name.c_str(), reg_vcd_scope.c_str(), var.width);
 					}
 				}
 				log("Extracted %d register widths from VCD\n", GetSize(vcd_reg_widths));
@@ -243,7 +268,7 @@ struct RegRenamePass : public Pass {
 		log("Building hierarchy from scope: %s\n", scope.c_str());
 
 		// Build hierarchy and process register renamings
-		RegRenameInstance *root = new RegRenameInstance(scope, topmod);
+		RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
 		root->process_all(vcd_reg_widths);
 		delete root;
 
