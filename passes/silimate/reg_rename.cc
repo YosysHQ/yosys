@@ -109,11 +109,12 @@ struct RegRenameInstance {
 					if (oldWire->port_input || oldWire->port_output) continue;
 
 					// Lookup wire width from VCD
-					int wireWidth = vcd_reg_widths[{vcd_scope, wireName}];
+					std::string regName = RTLIL::unescape_id(wireName);
+					int wireWidth = vcd_reg_widths[{vcd_scope, regName}];
 					if (wireWidth == 0) {
 						if (debug)
-							log("Wire '%s' not found in VCD scope '%s' (cell: %s)\n",
-								wireName.c_str(), vcd_scope.c_str(), cellName.c_str());
+							log("Register '%s' not found in VCD scope '%s' (cell: %s)\n",
+								regName.c_str(), vcd_scope.c_str(), cellName.c_str());
 						continue;
 					}
 
@@ -249,6 +250,7 @@ struct RegRenamePass : public Pass {
 
 						// Map the register's vcd scope and name to
 						// its original width for later lookup.
+						reg_name = RTLIL::unescape_id(reg_name);
 						vcd_reg_widths[{reg_vcd_scope, reg_name}] = var.width;
 						if (debug)
 							log("Found register '%s' in scope '%s' with width %d\n",
