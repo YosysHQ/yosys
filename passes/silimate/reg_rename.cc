@@ -81,7 +81,7 @@ struct RegRenameInstance {
 				searchName.erase(pos);
 
 			// If register name with no brackets ends with _reg, we can process it
-			size_t reg_pos = searchName.find("_reg");
+			size_t reg_pos = searchName.rfind("_reg");
 			if (reg_pos != std::string::npos && reg_pos == searchName.size() - 4) {
 
 				// Remove "_reg" to get the target wire specification
