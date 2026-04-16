@@ -622,7 +622,7 @@ else
 VERIFIC_LIB_OS_SUFFIX = linux
 
 $(VERIFIC_DIR)/_override_syms.txt: $(VERIFIC_SILIMATE_OBJS)
-	$(Q) nm -g --defined-only $^ | awk '{print $$NF}' | sort -u > $@
+	$(Q) nm -g --defined-only $^ | awk '$$2 ~ /^[TDBR]$$/ {print $$NF}' | sort -u > $@
 
 $(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux.raw.a $(VERIFIC_DIR)/_override_syms.txt
 	$(Q) cp $< $@
