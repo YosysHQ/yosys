@@ -275,7 +275,7 @@ end else if (OPTION_MODE == "FULL") begin
 		.DIADI(DI[31:0]),
 		.DIBDI(PORT_W_WIDTH == 72 ? DI[63:32] : DI[31:0]),
 		.DIPADIP(DIP[3:0]),
-		.DIPBDIP(PORT_W_WIDTH == 71 ? DIP[7:4] : DIP[3:0]),
+		.DIPBDIP(PORT_W_WIDTH == 72 ? DIP[7:4] : DIP[3:0]),
 	);
 end
 
