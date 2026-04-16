@@ -165,7 +165,7 @@ struct RegRenameInstance {
 					for (int i = 0; i < GetSize(oldWire); i++)
 						bit_map[SigBit(oldWire, i)] = SigBit(targetWire, bitIndex + i);
 
-					removeWireCache.insert(oldWire);
+					wireRemoveCache.insert(oldWire);
 				}
 			}
 		}
@@ -183,7 +183,7 @@ struct RegRenameInstance {
 		}
 
 		// Delete the old unused wires
-		module->remove(removeWireCache);
+		module->remove(wireRemoveCache);
 	}
 
 	void process_all(dict<std::pair<std::string, std::string>, int> &vcd_reg_widths)
