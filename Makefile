@@ -578,8 +578,11 @@ else
 LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
 
-# Silimate extension override objects: compile .cpp files and patch pre-compiled
-# archives to localize overridden symbols, producing .a from .raw.a
+# Silimate extension override objects: compile .cpp files. On macOS we patch the
+# pre-compiled archives (from .raw.a originals) to localize overridden symbols,
+# since the macOS linker doesn't support --allow-multiple-definition. On Linux
+# we just copy .raw.a to .a and rely on --allow-multiple-definition so override
+# .o definitions (linked before the archives) take precedence.
 ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
 
 $(VERIFIC_DIR)/database/DBSilimate.o: $(VERIFIC_DIR)/database/DBSilimate.cpp
@@ -620,29 +623,13 @@ $(VERIFIC_DIR)/verilog/verilog-mac.a: $(VERIFIC_DIR)/verilog/verilog-mac.raw.a $
 
 else
 VERIFIC_LIB_OS_SUFFIX = linux
+LINKFLAGS += -Wl,--allow-multiple-definition
 
-$(VERIFIC_DIR)/_override_syms.txt: $(VERIFIC_SILIMATE_OBJS)
-	$(Q) nm -g --defined-only $^ | awk '$$2 ~ /^[TDBR]$$/ {print $$NF}' | sort -u > $@
-
-$(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux.raw.a $(VERIFIC_DIR)/_override_syms.txt
+$(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux.raw.a
 	$(Q) cp $< $@
-	$(Q) mkdir -p $@_patch_tmp
-	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
-		for o in *.o; do \
-			objcopy --weaken-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
-		done
-	$(Q) ar rcs $@ $@_patch_tmp/*.o
-	$(Q) rm -rf $@_patch_tmp
 
-$(VERIFIC_DIR)/verilog/verilog-linux.a: $(VERIFIC_DIR)/verilog/verilog-linux.raw.a $(VERIFIC_DIR)/_override_syms.txt
+$(VERIFIC_DIR)/verilog/verilog-linux.a: $(VERIFIC_DIR)/verilog/verilog-linux.raw.a
 	$(Q) cp $< $@
-	$(Q) mkdir -p $@_patch_tmp
-	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
-		for o in *.o; do \
-			objcopy --weaken-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
-		done
-	$(Q) ar rcs $@ $@_patch_tmp/*.o
-	$(Q) rm -rf $@_patch_tmp
 
 endif
 
