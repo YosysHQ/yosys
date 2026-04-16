@@ -629,7 +629,7 @@ $(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux
 	$(Q) mkdir -p $@_patch_tmp
 	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
 		for o in *.o; do \
-			objcopy --localize-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
+			objcopy --weaken-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
 		done
 	$(Q) ar rcs $@ $@_patch_tmp/*.o
 	$(Q) rm -rf $@_patch_tmp
@@ -639,7 +639,7 @@ $(VERIFIC_DIR)/verilog/verilog-linux.a: $(VERIFIC_DIR)/verilog/verilog-linux.raw
 	$(Q) mkdir -p $@_patch_tmp
 	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
 		for o in *.o; do \
-			objcopy --localize-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
+			objcopy --weaken-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
 		done
 	$(Q) ar rcs $@ $@_patch_tmp/*.o
 	$(Q) rm -rf $@_patch_tmp
