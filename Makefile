@@ -17,7 +17,7 @@ ENABLE_GHDL := 0
 ENABLE_SLANG := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
-ENABLE_VERIFIC_VHDL := 0
+ENABLE_VERIFIC_VHDL := 1
 ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_SILIMATE_EXTENSIONS := 1
 ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
@@ -515,7 +515,7 @@ endif
 LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= ./verific
-VERIFIC_COMPONENTS ?= database util containers
+VERIFIC_COMPONENTS ?= database util containers pct
 ifeq ($(ENABLE_VERIFIC_HIER_TREE),1)
 VERIFIC_COMPONENTS += hier_tree
 CXXFLAGS += -DVERIFIC_HIER_TREE_SUPPORT
@@ -553,8 +553,11 @@ VERIFIC_COMPONENTS += hdl_file_sort verilog_nl
 VERIFIC_COMPONENTS += commands upf
 CXXFLAGS += -DVERIFIC_UPF_SUPPORT
 endif
+VERIFIC_SILIMATE_OBJS =
 ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
 CXXFLAGS += -DSILIMATE_VERIFIC_EXTENSIONS
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/database/DBSilimate.o
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/VeriSilimate.o
 endif
 ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
@@ -574,6 +577,79 @@ LIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_C
 else
 LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
+
+# Silimate extension override objects: compile .cpp files and patch pre-compiled
+# archives to localize overridden symbols, producing .a from .raw.a
+ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
+
+$(VERIFIC_DIR)/database/DBSilimate.o: $(VERIFIC_DIR)/database/DBSilimate.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/verilog/VeriSilimate.o: $(VERIFIC_DIR)/verilog/VeriSilimate.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+ifeq ($(OS), Darwin)
+VERIFIC_LIB_OS_SUFFIX = mac
+
+$(VERIFIC_DIR)/_override_syms.txt: $(VERIFIC_SILIMATE_OBJS)
+	$(Q) nm -gjU $^ | grep '^_' | sort -u > $@
+
+$(VERIFIC_DIR)/database/database-mac.a: $(VERIFIC_DIR)/database/database-mac.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			nm -gjU "$$o" 2>/dev/null | grep -Fx -f $(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt > "$$o.syms" 2>/dev/null; \
+			if [ -s "$$o.syms" ]; then nmedit -R "$$o.syms" "$$o"; fi; \
+			rm -f "$$o.syms"; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+$(VERIFIC_DIR)/verilog/verilog-mac.a: $(VERIFIC_DIR)/verilog/verilog-mac.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			nm -gjU "$$o" 2>/dev/null | grep -Fx -f $(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt > "$$o.syms" 2>/dev/null; \
+			if [ -s "$$o.syms" ]; then nmedit -R "$$o.syms" "$$o"; fi; \
+			rm -f "$$o.syms"; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+else
+VERIFIC_LIB_OS_SUFFIX = linux
+
+$(VERIFIC_DIR)/_override_syms.txt: $(VERIFIC_SILIMATE_OBJS)
+	$(Q) nm -g --defined-only $^ | awk '{print $$NF}' | sort -u > $@
+
+$(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			objcopy --localize-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+$(VERIFIC_DIR)/verilog/verilog-linux.a: $(VERIFIC_DIR)/verilog/verilog-linux.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			objcopy --localize-symbols=$(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt "$$o" 2>/dev/null || true; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+endif
+
+VERIFIC_PATCHED_ARCHIVES = $(VERIFIC_DIR)/database/database-$(VERIFIC_LIB_OS_SUFFIX).a $(VERIFIC_DIR)/verilog/verilog-$(VERIFIC_LIB_OS_SUFFIX).a
+
+endif # ENABLE_VERIFIC_SILIMATE_EXTENSIONS
+
 endif
 
 ifeq ($(ENABLE_CCACHE),1)
@@ -823,14 +899,14 @@ share: $(EXTRA_TARGETS)
 	@echo "  Share directory created."
 	@echo ""
 
-$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
+$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS) $(VERIFIC_SILIMATE_OBJS) $(VERIFIC_PATCHED_ARCHIVES)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(VERIFIC_SILIMATE_OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
 
-libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+libyosys.so: $(filter-out kernel/driver.o,$(OBJS)) $(VERIFIC_SILIMATE_OBJS) $(VERIFIC_PATCHED_ARCHIVES)
 ifeq ($(OS), Darwin)
-	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,libyosys.so $(LINKFLAGS) $(filter-out kernel/driver.o,$(OBJS)) $(VERIFIC_SILIMATE_OBJS) $(LIBS) $(LIBS_VERIFIC)
 else
-	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LINKFLAGS) $(filter-out kernel/driver.o,$(OBJS)) $(VERIFIC_SILIMATE_OBJS) $(LIBS) $(LIBS_VERIFIC)
 endif
 
 libyosys.a: $(filter-out kernel/driver.o,$(OBJS))

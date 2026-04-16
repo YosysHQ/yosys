@@ -1,0 +1,5 @@
+logger -expect warning "import_warning_operator.vhd:[0-9]+.[0-9]+-[0-9]+.[0-9]+: Unsupported Verific operator: nor_4 \(fallback to gate level implementation provided by verific\)" 1
+verific -vhdl import_warning_operator.vhd
+verific -import top
+logger -check-expected
+design -reset
