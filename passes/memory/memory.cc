@@ -31,7 +31,7 @@ struct MemoryPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory [-norom] [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-no-rw-check] [-bram <bram_rules>] [-bram-register <bram_rules>] [selection]\n");
+		log("    memory [-norom] [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-no-rw-check] [-bram <bram_rules>] [selection]\n");
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
@@ -47,7 +47,6 @@ struct MemoryPass : public Pass {
 		log("    opt_clean\n");
 		log("    memory_collect\n");
 		log("    memory_bram -rules <bram_rules>     (when called with -bram)\n");
-		log("    memory_bram -rules <bram_rules> -register (when called with -bram-register)\n");
 		log("    memory_map                          (skipped if called with -nomap)\n");
 		log("\n");
 		log("This converts memories to word-wide DFFs and address decoders\n");
@@ -60,7 +59,6 @@ struct MemoryPass : public Pass {
 		bool flag_nomap = false;
 		bool flag_nordff = false;
 		bool flag_memx = false;
-		bool flag_register = false;
 		string memory_dff_opts;
 		string memory_bram_opts;
 		string memory_share_opts;
@@ -99,11 +97,8 @@ struct MemoryPass : public Pass {
 				memory_dff_opts += " -no-rw-check";
 				continue;
 			}
-			if (argidx+1 < args.size() && (args[argidx] == "-bram" || args[argidx] == "-bram-register")) {
-				if (args[argidx] == "-bram-register")
-					memory_bram_opts += " -rules " + args[++argidx] + " -register";
-				else
-					memory_bram_opts += " -rules " + args[++argidx];
+			if (argidx+1 < args.size() && args[argidx] == "-bram") {
+				memory_bram_opts += " -rules " + args[++argidx];
 				continue;
 			}
 			break;
