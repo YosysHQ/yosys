@@ -225,7 +225,7 @@ struct RegRenamePass : public Pass {
 		if (!topmod)
 			log_error("No top module found!\n");
 
-		// Extract pre-optimization register widths from VCD file
+		// Extract pre-optimization signal widths from VCD file
 		dict<std::pair<std::string, std::string>, int> vcd_reg_widths;
 		if (!vcd_filename.empty()) {
 			log("Reading VCD file: %s\n", vcd_filename.c_str());
@@ -239,25 +239,25 @@ struct RegRenamePass : public Pass {
 					}
 				}
 				log("Using scope: \"%s\"\n", scope.c_str());
+
+				// Extract all signals from the VCD file (registers can be 'reg' or 'wire' in VCDs)
 				for (auto &var : fst.getVars()) {
-					if (var.is_reg) {
-						std::string reg_vcd_scope = var.scope;
-						std::string reg_name = var.name;
+					std::string vcd_scope = var.scope;
+					std::string signal_name = var.name;
 
-						// Remove bracket notation if present to preserve register name
-						if (auto pos = reg_name.rfind('['); pos != std::string::npos)
-							reg_name.erase(pos);
+					// Remove bracket notation if present to preserve register name
+					if (auto pos = signal_name.rfind('['); pos != std::string::npos)
+						signal_name.erase(pos);
 
-						// Map the register's vcd scope and name to
-						// its original width for later lookup.
-						reg_name = RTLIL::unescape_id(reg_name);
-						vcd_reg_widths[{reg_vcd_scope, reg_name}] = var.width;
-						if (debug)
-							log("Found register '%s' in scope '%s' with width %d\n",
-								reg_name.c_str(), reg_vcd_scope.c_str(), var.width);
-					}
+					// Map the register's vcd scope and name to
+					// its original width for later lookup.
+					signal_name = RTLIL::unescape_id(signal_name);
+					vcd_reg_widths[{vcd_scope, signal_name}] = var.width;
+					if (debug)
+						log("Found signal '%s' in scope '%s' with width %d\n",
+							signal_name.c_str(), vcd_scope.c_str(), var.width);
 				}
-				log("Extracted %d register widths from VCD\n", GetSize(vcd_reg_widths));
+				log("Extracted %d signal widths from VCD\n", GetSize(vcd_reg_widths));
 			} catch (const std::exception &e) {
 				log_error("Failed to read VCD file '%s': %s\n", 
 					vcd_filename.c_str(), e.what());
