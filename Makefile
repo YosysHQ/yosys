@@ -777,6 +777,7 @@ OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/clockgate.o
+OBJS += passes/techmap/dfflegalize.o
 OBJS += passes/techmap/dffunmap.o
 OBJS += passes/techmap/zinit.o
 
