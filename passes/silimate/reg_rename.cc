@@ -67,9 +67,13 @@ struct RegRenameInstance {
 			log("Processing registers in %s\n", 
 					log_id(module->name));
 		
-		// List of wires to remove after processing
-		pool<Wire *> wiresToRemove;
+		// Map of old bits to new bits of a renamed reg wire
+		dict<SigBit, SigBit> bit_map;
 
+		// Caches of target wires and wires to remove
+		dict<IdString, Wire*> targetWireCache;
+		pool<Wire *> wireRemoveCache;
+		
 		// Loop through all cells in the module
 		for (auto cell : module->cells()) {
 
@@ -122,48 +126,64 @@ struct RegRenameInstance {
 
 					// Validate bit index
 					if (bitIndex >= wireWidth) {
-							log_warning("Bit index %d exceeds wire width %d for '%s'\n",
-													bitIndex, wireWidth, wireName.c_str());
-							continue;
+						log_warning("Bit index %d exceeds wire width %d for '%s'\n",
+												bitIndex, wireWidth, wireName.c_str());
+						continue;
 					}
 
 					IdString wireId = RTLIL::escape_id(wireName);
 
-					// Single-bit wire requires only simple renaming
-					if (wireWidth == 1 && bitIndex == 0) {
-							if (oldWire->name != wireId && !module->wire(wireId)) {
-									if (debug)
-										log("Renaming %s to %s\n", log_id(oldWire), wireName.c_str());
-									module->rename(oldWire, wireId);
-							}
-							continue;
+					// Find or create the target wire of the correct VCD-derived width
+					Wire *targetWire = nullptr;
+
+					// Check if the target wire was already created
+					auto cache_it = targetWireCache.find(wireId);
+					if (cache_it != targetWireCache.end()) {
+						targetWire = cache_it->second;
+					} else {
+
+						// If the cache misses, create the target wire
+						targetWire = module->wire(wireId);
+						if (!targetWire) {
+							if (debug)
+								log("Creating wire %s[%d:0] in scope %s\n", 
+										wireName.c_str(), wireWidth - 1, vcd_scope.c_str());
+							targetWire = module->addWire(wireId, wireWidth);
+						}
+						targetWireCache[wireId] = targetWire;
 					}
 
-					// Multi-bit wire requires creating a new wire and rewiring connections
-					Wire *targetWire = module->wire(wireId);
-				
-					if (!targetWire) {
-						if (debug)
-							log("Creating wire %s[%d:0] in scope %s\n", 
-									wireName.c_str(), wireWidth - 1, vcd_scope.c_str());
-						targetWire = module->addWire(wireId, wireWidth);
-					}
-				
+					// Skip self-mapping (e.g. oldWire is already the target wire)
+					if (targetWire == oldWire)
+						continue;
+
 					if (debug)
 						log("Connecting %s to %s[%d]\n", 
 								log_id(oldWire), wireName.c_str(), bitIndex);
-				
-					auto rewriter = [&](SigSpec &sig) { 
-						sig.replace(SigBit(oldWire), SigSpec(targetWire, bitIndex, 1)); 
-					};
-					module->rewrite_sigspecs(rewriter);
-					
-					wiresToRemove.insert(oldWire);
+
+					// Record the mapping for each bit of the old wire to the target wire
+					for (int i = 0; i < GetSize(oldWire); i++)
+						bit_map[SigBit(oldWire, i)] = SigBit(targetWire, bitIndex + i);
+
+					removeWireCache.insert(oldWire);
 				}
 			}
 		}
+
+		// Apply all bit-level rewrites in a single pass over the module.
+		if (!bit_map.empty()) {
+			auto rewriter = [&](SigSpec &sig) {
+				for (int i = 0; i < GetSize(sig); i++) {
+					auto it = bit_map.find(sig[i]);
+					if (it != bit_map.end())
+						sig.replace(i, SigSpec(it->second));
+				}
+			};
+			module->rewrite_sigspecs(rewriter);
+		}
+
 		// Delete the old unused wires
-		module->remove(wiresToRemove);
+		module->remove(removeWireCache);
 	}
 
 	void process_all(dict<std::pair<std::string, std::string>, int> &vcd_reg_widths)
