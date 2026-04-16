@@ -21,7 +21,6 @@
 #include "kernel/fstdata.h"
 #include "kernel/yosys.h"
 #include "passes/silimate/reg_rename.h"
-#include <regex>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -64,7 +63,11 @@ struct RegRenameInstance {
 		if (debug)
 			log("Processing registers in scope: %s (module: %s)\n", 
 					vcd_scope.c_str(), log_id(module->name));
-
+		else
+			log("Processing registers in %s\n", 
+					log_id(module->name));
+		
+		// List of wires to remove after processing
 		pool<Wire *> wiresToRemove;
 
 		// Loop through all cells in the module
@@ -112,9 +115,8 @@ struct RegRenameInstance {
 					std::string regName = RTLIL::unescape_id(wireName);
 					int wireWidth = vcd_reg_widths[{vcd_scope, regName}];
 					if (wireWidth == 0) {
-						if (debug)
-							log("Register '%s' not found in VCD scope '%s' (cell: %s)\n",
-								regName.c_str(), vcd_scope.c_str(), cellName.c_str());
+						log_warning("Unable to find matching register %s in VCD for cell %s in scope %s\n",
+							regName.c_str(), cellName.c_str(), vcd_scope.c_str());
 						continue;
 					}
 
