@@ -161,6 +161,9 @@ struct SimInstance
 	pool<IdString> dirty_memories;
 	pool<SimInstance*> dirty_children;
 
+	// All wires that drive FF Q outputs
+	pool<Wire*> register_wires;
+
 	struct ff_state_t
 	{
 		Const past_d;
@@ -1082,6 +1085,23 @@ struct SimInstance
 			child.second->register_signals(id);
 	}
 
+	void build_registers()
+	{
+		for (auto cell : module->cells())
+		{
+			if (!cell->is_builtin_ff())
+				continue;
+			FfData ff_data(nullptr, cell);
+			SigSpec q = sigmap(ff_data.sig_q);
+			for (auto bit : q) {
+				if (bit.wire != nullptr)
+					register_wires.insert(bit.wire);
+			}
+		}
+		for (auto child : children)
+			child.second->build_registers();
+	}
+
 	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, int, Wire*, int, bool)> register_signal)
 	{
 		int exit_scopes = 1;
@@ -1255,6 +1275,50 @@ struct SimInstance
 		return did_something;
 	}
 
+	bool setRegisters(uint64_t time)
+	{
+		bool did_something = false;
+		for (auto &item : fst_handles) {
+			if (item.second == 0) continue;
+			if (register_wires.count(item.first) == 0) continue;
+			Wire *wire = item.first;
+			Const vcd_val = Const::from_string(shared->fst->valueOf(item.second));
+			Const sim_val = get_state(wire);
+			if (sim_val != vcd_val) {
+				if (debug)
+					log_warning("Register mismatch at time %lu%s for %s.%s: "
+											"sim=%s vcd=%s, overwriting...\n",
+											(unsigned long)time,
+											shared->fst->getTimescaleString(),
+											scope.c_str(), log_id(wire->name),
+											log_signal(sim_val), log_signal(vcd_val));
+			}
+			did_something |= set_state(wire, vcd_val);
+		}
+		for (auto &item : fst_array_handles) {
+			if (register_wires.count(item.first) == 0) continue;
+			did_something |= setStateFromArrayHandles(item.first, item.second);
+		}
+		for (auto child : children)
+			did_something |= child.second->setRegisters(time);
+		return did_something;
+	}
+
+	// Useful for debug
+	void dumpRegisters(uint64_t time)
+	{
+		for (auto &item : fst_handles) {
+			if (item.second == 0) continue;
+			if (register_wires.count(item.first) == 0) continue;
+			log("Register %s.%s at time %lu%s: %s\n",
+			    scope.c_str(), log_id(item.first->name),
+			    (unsigned long)time, shared->fst->getTimescaleString(),
+			    shared->fst->valueOf(item.second).c_str());
+		}
+		for (auto child : children)
+			child.second->dumpRegisters(time);
+	}
+
 	void addAdditionalInputs()
 	{
 		for (auto cell : module->cells())
@@ -1385,6 +1449,7 @@ struct SimWorker : SimShared
 	{
 		next_output_id = 1;
 		top->register_signals(top->shared->next_output_id);
+		top->build_registers();
 	}
 
 	void register_output_step(int t)
@@ -1676,6 +1741,11 @@ struct SimWorker : SimShared
 			}
 			if (did_something)
 				update(true);
+
+			// Override register state from VCD every cycle
+			if (top->setRegisters(time))
+				update(true);
+
 			register_output_step(time);
 			last_time = time;
 
