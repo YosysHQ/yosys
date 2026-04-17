@@ -1431,6 +1431,7 @@ struct SimWorker : SimShared
 	std::string map_filename;
 	std::string summary_filename;
 	std::string scope;
+	bool reg_overwrite = false;
 
 	~SimWorker()
 	{
@@ -1736,7 +1737,7 @@ struct SimWorker : SimShared
 				update(true);
 
 			// Override register state from VCD every cycle
-			if (top->setRegisters(time))
+			if (reg_overwrite && top->setRegisters(time))
 				update(true);
 
 			register_output_step(time);
@@ -3097,6 +3098,9 @@ struct SimPass : public Pass {
 		log("    -log-interval <integer>\n");
 		log("        log progress every N cycles (if clock is specified) or samples (otherwise). Defaults to 0 (no logging)\n");
 		log("\n");
+		log("    -reg\n");
+		log("        overwrite register state from VCD file every cycle\n");
+		log("\n");
 	}
 
 
@@ -3112,7 +3116,7 @@ struct SimPass : public Pass {
 		int cycle_width = 10;
 		int append = 0, log_interval = 0;
 		bool start_set = false, stop_set = false, at_set = false;
-
+		bool reg_overwrite = false;
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
 
 		size_t argidx;
@@ -3284,6 +3288,10 @@ struct SimPass : public Pass {
 				worker.outputfiles.emplace_back(std::unique_ptr<AnnotateActivity>(new AnnotateActivity(&worker)));
 				continue;
 			}
+			if (args[argidx] == "-reg") {
+				reg_overwrite = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -3306,6 +3314,7 @@ struct SimPass : public Pass {
 			top_mod = mods.front();
 		}
 
+		worker.reg_overwrite = reg_overwrite;
 		if (worker.sim_filename.empty())
 			worker.run(top_mod, cycle_width, numcycles);
 		else {
