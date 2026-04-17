@@ -1087,17 +1087,21 @@ struct SimInstance
 
 	void build_registers()
 	{
+		// Loop over all cells
 		for (auto cell : module->cells())
 		{
+			// Skip non-flip-flops
 			if (!cell->is_builtin_ff())
 				continue;
 			FfData ff_data(nullptr, cell);
 			SigSpec q = sigmap(ff_data.sig_q);
+			// Insert all wires from FF Q outputs
 			for (auto bit : q) {
 				if (bit.wire != nullptr)
 					register_wires.insert(bit.wire);
 			}
 		}
+		// Recursively build registers for all child modules
 		for (auto child : children)
 			child.second->build_registers();
 	}
@@ -1279,9 +1283,10 @@ struct SimInstance
 	{
 		bool did_something = false;
 		for (auto &item : fst_handles) {
-			if (item.second == 0) continue;
-			if (register_wires.count(item.first) == 0) continue;
+			if (item.second == 0) continue; // skip signals that aren't found
+			if (register_wires.count(item.first) == 0) continue; // skip non-registers
 			Wire *wire = item.first;
+			// Extract wire value from simulation and VCD ground truth
 			Const vcd_val = Const::from_string(shared->fst->valueOf(item.second));
 			Const sim_val = get_state(wire);
 			if (sim_val != vcd_val) {
@@ -1293,30 +1298,18 @@ struct SimInstance
 											scope.c_str(), log_id(wire->name),
 											log_signal(sim_val), log_signal(vcd_val));
 			}
+			// Overwrite simulation register state with the ground truth
 			did_something |= set_state(wire, vcd_val);
 		}
+		// Handles multi-dimensional registers
 		for (auto &item : fst_array_handles) {
 			if (register_wires.count(item.first) == 0) continue;
 			did_something |= setStateFromArrayHandles(item.first, item.second);
 		}
+		// Apply to all child modules
 		for (auto child : children)
 			did_something |= child.second->setRegisters(time);
 		return did_something;
-	}
-
-	// Useful for debug
-	void dumpRegisters(uint64_t time)
-	{
-		for (auto &item : fst_handles) {
-			if (item.second == 0) continue;
-			if (register_wires.count(item.first) == 0) continue;
-			log("Register %s.%s at time %lu%s: %s\n",
-			    scope.c_str(), log_id(item.first->name),
-			    (unsigned long)time, shared->fst->getTimescaleString(),
-			    shared->fst->valueOf(item.second).c_str());
-		}
-		for (auto child : children)
-			child.second->dumpRegisters(time);
 	}
 
 	void addAdditionalInputs()
