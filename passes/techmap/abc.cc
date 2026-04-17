@@ -63,10 +63,12 @@
 #  include <fcntl.h>
 #  include <spawn.h>
 #  include <sys/wait.h>
+#  include <sys/stat.h>
 #endif
 #ifndef _WIN32
 #  include <unistd.h>
 #  include <dirent.h>
+#  include <sys/stat.h>
 #endif
 
 #include "frontends/blif/blifparse.h"
@@ -278,6 +280,80 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 struct AbcProcess {};
 #endif
 
+std::string convert_liberty_files_to_merged_scl(const std::vector<std::string> &liberty_files, const std::string &abc_exe) {
+	if (liberty_files.empty())
+		return "";
+
+	// Sort filenames to ensure consistent hash regardless of order
+	std::vector<std::string> sorted_files = liberty_files;
+	std::sort(sorted_files.begin(), sorted_files.end());
+	std::string hash_input;
+	time_t newest_mtime = 0;
+
+	for (const std::string &liberty_file : sorted_files) {
+		struct stat liberty_stat;
+		if (stat(liberty_file.c_str(), &liberty_stat) != 0) {
+			log_error("Cannot stat Liberty file: %s\n", liberty_file.c_str());
+			return "";
+		}
+		hash_input += liberty_file + "|";
+		if (liberty_stat.st_mtime > newest_mtime)
+			newest_mtime = liberty_stat.st_mtime;
+	}
+
+	// scl filename
+	std::string first_dir;
+	size_t last_slash = liberty_files[0].find_last_of("/\\");
+	unsigned int hash = 0;
+
+	if (last_slash == std::string::npos) {
+		first_dir = ".";
+	} else {
+		first_dir = liberty_files[0].substr(0, last_slash);
+	}
+
+	for (char c : hash_input)
+		hash = hash * 31 + c;
+
+	std::string merged_scl = stringf("%s/.yosys_merged_%08x.scl", first_dir.c_str(), hash);
+	bool need_convert = true;
+	struct stat scl_stat;
+
+	// Check if merged SCL exists and is newer than all liberty files
+	if (stat(merged_scl.c_str(), &scl_stat) == 0) {
+		if (scl_stat.st_mtime >= newest_mtime) {
+			log("ABC: Using cached merged SCL: %s (%zu files)\n", merged_scl.c_str(), liberty_files.size());
+			need_convert = false;
+		}
+	}
+
+	if (need_convert) {
+		// read_lib file1 ; read_lib -m file2 ; ... ; write_scl merged.scl
+		std::string abc_script;
+		bool first = true;
+
+		for (const std::string &liberty_file : liberty_files) {
+			abc_script += stringf("read_lib %s-w \\\"%s\\\" ; ", first ? "" : "-m ", liberty_file.c_str());
+			first = false;
+		}
+
+		abc_script += stringf("write_scl \\\"%s\\\"", merged_scl.c_str());
+		std::string cmd = stringf("\"%s\" -c \"%s\" 2>&1", abc_exe.c_str(), abc_script.c_str());
+		std::string abc_output;
+		int ret = run_command(cmd, [&abc_output](const std::string &line) { abc_output += line + "\n"; });
+
+		if (ret != 0) {
+			log_warning("ABC: Merged scl conversion failed, falling back to Liberty format\n");
+			if (!abc_output.empty()) {
+				log("ABC conversion output:\n%s", abc_output.c_str());
+			}
+			return "";
+		}
+	}
+
+	return merged_scl;
+}
+
 using AbcSigMap = SigValMap<AbcSigVal>;
 
 // Used by off-main-threads. Contains no direct or indirect access to RTLIL.
@@ -290,6 +366,8 @@ struct RunAbcState {
 	bool err = false;
 	DeferredLogs logs;
 	dict<int, std::string> pi_map, po_map;
+	std::string abc_script;
+	std::string dont_use_args;
 
 	RunAbcState(const AbcConfig &config) : config(config) {}
 	void run(ConcurrentStack<AbcProcess> &process_pool);
@@ -1014,87 +1092,95 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(run_abc.per_run_tempdir_name, config.global_tempdir_name, run_abc.per_run_tempdir_name, config.show_tempdir).c_str());
 
-	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.per_run_tempdir_name);
+	run_abc.abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.per_run_tempdir_name);
 
 	if (!config.liberty_files.empty() || !config.genlib_files.empty()) {
-		std::string dont_use_args;
+		run_abc.dont_use_args = "";
 		for (std::string dont_use_cell : config.dont_use_cells) {
-			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
+			run_abc.dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
-		bool first_lib = true;
-		for (std::string liberty_file : config.liberty_files) {
-			abc_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
-			first_lib = false;
+
+		std::string merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, config.exe_file);
+		if (!merged_scl.empty()) {
+			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
+		} else {
+			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			bool first_lib = true;
+			for (std::string liberty_file : config.liberty_files) {
+				run_abc.abc_script += stringf("read_lib %s %s -w \"%s\" ; ", run_abc.dont_use_args, first_lib ? "" : "-m", liberty_file);
+				first_lib = false;
+			}
 		}
+
 		for (std::string liberty_file : config.genlib_files)
-			abc_script += stringf("read_library \"%s\"; ", liberty_file);
+			run_abc.abc_script += stringf("read_library \"%s\"; ", liberty_file);
 		if (!config.constr_file.empty())
-			abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file);
+			run_abc.abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file);
 	} else
 	if (!config.lut_costs.empty())
-		abc_script += stringf("read_lut %s/lutdefs.txt; ", config.global_tempdir_name);
+		run_abc.abc_script += stringf("read_lut %s/lutdefs.txt; ", config.global_tempdir_name);
 	else
-		abc_script += stringf("read_library %s/stdcells.genlib; ", config.global_tempdir_name);
+		run_abc.abc_script += stringf("read_library %s/stdcells.genlib; ", config.global_tempdir_name);
 
 	if (!config.script_file.empty()) {
 		const std::string &script_file = config.script_file;
 		if (script_file[0] == '+') {
 			for (size_t i = 1; i < script_file.size(); i++)
 				if (script_file[i] == '\'')
-					abc_script += "'\\''";
+					run_abc.abc_script += "'\\''";
 				else if (script_file[i] == ',')
-					abc_script += " ";
+					run_abc.abc_script += " ";
 				else
-					abc_script += script_file[i];
+					run_abc.abc_script += script_file[i];
 		} else
-			abc_script += stringf("source %s", script_file);
+			run_abc.abc_script += stringf("source %s", script_file);
 	} else if (!config.lut_costs.empty()) {
 		bool all_luts_cost_same = true;
 		for (int this_cost : config.lut_costs)
 			if (this_cost != config.lut_costs.front())
 				all_luts_cost_same = false;
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
+		run_abc.abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !config.fast_mode)
-			abc_script += "; lutpack -S 1";
+			run_abc.abc_script += "; lutpack -S 1";
 	} else if (!config.liberty_files.empty() || !config.genlib_files.empty())
-		abc_script += config.constr_file.empty() ?
+		run_abc.abc_script += config.constr_file.empty() ?
 			(config.fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (config.fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (config.sop_mode)
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
+		run_abc.abc_script += config.fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
+		run_abc.abc_script += config.fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
 	if (config.script_file.empty() && !config.delay_target.empty())
-		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
-			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
+		for (size_t pos = run_abc.abc_script.find("dretime;"); pos != std::string::npos; pos = run_abc.abc_script.find("dretime;", pos+1))
+			run_abc.abc_script = run_abc.abc_script.substr(0, pos) + "dretime; retime -o {D};" + run_abc.abc_script.substr(pos+8);
 
-	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
-		abc_script = abc_script.substr(0, pos) + config.delay_target + abc_script.substr(pos+3);
+	for (size_t pos = run_abc.abc_script.find("{D}"); pos != std::string::npos; pos = run_abc.abc_script.find("{D}", pos))
+		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.delay_target + run_abc.abc_script.substr(pos+3);
 
-	for (size_t pos = abc_script.find("{I}"); pos != std::string::npos; pos = abc_script.find("{I}", pos))
-		abc_script = abc_script.substr(0, pos) + config.sop_inputs + abc_script.substr(pos+3);
+	for (size_t pos = run_abc.abc_script.find("{I}"); pos != std::string::npos; pos = run_abc.abc_script.find("{I}", pos))
+		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.sop_inputs + run_abc.abc_script.substr(pos+3);
 
-	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{P}", pos))
-		abc_script = abc_script.substr(0, pos) + config.sop_products + abc_script.substr(pos+3);
+	for (size_t pos = run_abc.abc_script.find("{P}"); pos != std::string::npos; pos = run_abc.abc_script.find("{P}", pos))
+		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.sop_products + run_abc.abc_script.substr(pos+3);
 
 	if (config.abc_dress)
-		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
-	abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
-	abc_script = add_echos_to_abc_cmd(abc_script);
+		run_abc.abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
+	run_abc.abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
+	run_abc.abc_script = add_echos_to_abc_cmd(run_abc.abc_script);
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
 	if (config.is_yosys_abc())
-		abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
+		run_abc.abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
 #endif
 
-	for (size_t i = 0; i+1 < abc_script.size(); i++)
-		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
-			abc_script[i+1] = '\n';
+	for (size_t i = 0; i+1 < run_abc.abc_script.size(); i++)
+		if (run_abc.abc_script[i] == ';' && run_abc.abc_script[i+1] == ' ')
+			run_abc.abc_script[i+1] = '\n';
 
 	std::string buffer = stringf("%s/abc.script", run_abc.per_run_tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
-	fprintf(f, "%s\n", abc_script.c_str());
+	fprintf(f, "%s\n", run_abc.abc_script.c_str());
 	fclose(f);
 
 	if (dff_mode || !clk_str.empty())
@@ -1408,10 +1494,10 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 			if (std::optional<AbcProcess> process_opt = process_pool.try_pop_back()) {
 				process = std::move(process_opt.value());
 			} else if (std::optional<AbcProcess> process_opt = spawn_abc(config.exe_file.c_str(), logs)) {
-				process = std::move(process_opt.value());
-			} else {
-				return;
-			}
+					process = std::move(process_opt.value());
+				} else {
+					return;
+				}
 			std::string cmd = stringf(
 					"empty\n"
 					"source %s\n", tmp_script_name);
