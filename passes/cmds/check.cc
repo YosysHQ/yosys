@@ -276,6 +276,9 @@ struct CheckPass : public Pass {
 						int count_b = wire_drivers_count[sig_b[i]];
 						wire_drivers_count[sig_a[i]] += count_b;
 						wire_drivers_count[sig_b[i]] += count_a;
+						// Guarantee default constructed members if missing
+						(void)wire_drivers[sig_a[i]];
+						(void)wire_drivers[sig_b[i]];
 						auto& drivers_a = wire_drivers[sig_a[i]];
 						auto& drivers_b = wire_drivers[sig_b[i]];
 						vector<string> drivers;
