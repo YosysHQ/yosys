@@ -4862,8 +4862,10 @@ void AstNode::add_to_module_fast_lookup(dict<std::string, AstNode*>& module_fast
 dict<std::string, AstNode*> AstNode::generate_module_fast_lookup_for_genblock_expansion()
 {
 	dict<std::string, AstNode*> module_fast_lookup;
-	for (auto& node : current_ast_mod->children) {
-		add_to_module_fast_lookup(module_fast_lookup, node.get());
+	if (current_ast_mod) {
+		for (auto& node : current_ast_mod->children) {
+			add_to_module_fast_lookup(module_fast_lookup, node.get());
+		}
 	}
 	return module_fast_lookup;
 }
