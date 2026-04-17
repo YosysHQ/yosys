@@ -288,3 +288,226 @@ select -module dffe_11 -assert-count 1 t:\\pos_big
 # falling edge ICGs
 select -module dffe_00 -assert-count 1 t:\\neg_big
 select -module dffe_01 -assert-count 1 t:\\neg_big
+
+#------------------------------------------------------------------------------
+
+# Regression: 16-way sdffe coverage with optional ICG SRST port.
+# Naming: sdffe_<clk><en><srst><prio>
+#   clk:  0=negedge 1=posedge
+#   en:   0=~en 1=en
+#   srst: 0=active-low (!rst_n) 1=active-high (rst)
+#   prio: 0=srst over ce 1=ce over srst
+design -reset
+read_verilog << EOT
+
+module sdffe_0000(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (!rst_n) q <= 1'b0;
+		else if (~en) q <= d;
+	end
+endmodule
+
+module sdffe_0001(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (~en) q <= d;
+		else if (!rst_n) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_0010(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (rst) q <= 1'b0;
+		else if (~en) q <= d;
+	end
+endmodule
+
+module sdffe_0011(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (~en) q <= d;
+		else if (rst) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_0100(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (!rst_n) q <= 1'b0;
+		else if (en) q <= d;
+	end
+endmodule
+
+module sdffe_0101(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (en) q <= d;
+		else if (!rst_n) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_0110(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (rst) q <= 1'b0;
+		else if (en) q <= d;
+	end
+endmodule
+
+module sdffe_0111(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(negedge clk) begin
+		if (en) q <= d;
+		else if (rst) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_1000(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (!rst_n) q <= 1'b0;
+		else if (~en) q <= d;
+	end
+endmodule
+
+module sdffe_1001(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (~en) q <= d;
+		else if (!rst_n) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_1010(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (rst) q <= 1'b0;
+		else if (~en) q <= d;
+	end
+endmodule
+
+module sdffe_1011(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (~en) q <= d;
+		else if (rst) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_1100(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (!rst_n) q <= 1'b0;
+		else if (en) q <= d;
+	end
+endmodule
+
+module sdffe_1101(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (en) q <= d;
+		else if (!rst_n) q <= 1'b0;
+	end
+endmodule
+
+module sdffe_1110(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (rst) q <= 1'b0;
+		else if (en) q <= d;
+	end
+endmodule
+
+module sdffe_1111(input clk, input en, input rst, input rst_n, input d, output reg q);
+	always @(posedge clk) begin
+		if (en) q <= d;
+		else if (rst) q <= 1'b0;
+	end
+endmodule
+
+EOT
+
+proc
+opt
+design -save before_sdffe_16
+
+# -pos should only gate posedge variants (clk=1xxx)
+clockgate -pos pdk_icg_rst ce:clkin:clkout:rstn
+select -module sdffe_0000 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0001 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0010 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0011 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0100 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0101 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0110 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_0111 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1000 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1001 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1010 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1011 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1100 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1101 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1110 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1111 -assert-count 1 t:\\pdk_icg_rst
+
+# -neg should only gate negedge variants (clk=0xxx)
+design -load before_sdffe_16
+clockgate -neg pdk_icg_rst ce:clkin:clkout:rstn
+select -module sdffe_0000 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0001 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0010 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0011 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0100 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0101 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0110 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_0111 -assert-count 1 t:\\pdk_icg_rst
+select -module sdffe_1000 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1001 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1010 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1011 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1100 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1101 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1110 -assert-count 0 t:\\pdk_icg_rst
+select -module sdffe_1111 -assert-count 0 t:\\pdk_icg_rst
+
+#------------------------------------------------------------------------------
+
+# Dedicated srst-aware ICGs are used for sdffe. Without SRST-capable ICGs, sdffe are skipped.
+design -reset
+read_verilog << EOT
+
+module mix_pos(input clk, input en, input rst_n, input d, output reg q_dffe, output reg q_sdffe);
+	always @(posedge clk) begin
+		if (en)
+			q_dffe <= d;
+	end
+	always @(posedge clk) begin
+		if (!rst_n)
+			q_sdffe <= 1'b0;
+		else if (en)
+			q_sdffe <= d;
+	end
+endmodule
+
+module mix_neg(input clk, input en, input rst_n, input d, output reg q_dffe, output reg q_sdffe);
+	always @(negedge clk) begin
+		if (en)
+			q_dffe <= d;
+	end
+	always @(negedge clk) begin
+		if (!rst_n)
+			q_sdffe <= 1'b0;
+		else if (en)
+			q_sdffe <= d;
+	end
+endmodule
+
+EOT
+
+proc
+opt
+design -save before_srst_icg_select
+
+clockgate -pos pdk_icg ce:clkin:clkout -pos_srst pdk_icg_rst ce:clkin:clkout:rstn -neg npdk_icg ce:clkin:clkout -neg_srst npdk_icg_rst ce:clkin:clkout:rstn
+select -module mix_pos -assert-count 1 t:\\pdk_icg
+select -module mix_pos -assert-count 1 t:\\pdk_icg_rst
+select -module mix_pos -assert-count 0 t:\\npdk_icg
+select -module mix_pos -assert-count 0 t:\\npdk_icg_rst
+select -module mix_neg -assert-count 0 t:\\pdk_icg
+select -module mix_neg -assert-count 0 t:\\pdk_icg_rst
+select -module mix_neg -assert-count 1 t:\\npdk_icg
+select -module mix_neg -assert-count 1 t:\\npdk_icg_rst
+
+design -load before_srst_icg_select
+clockgate -pos pdk_icg ce:clkin:clkout -neg npdk_icg ce:clkin:clkout
+select -module mix_pos -assert-count 1 t:\\pdk_icg
+select -module mix_pos -assert-count 0 t:\\pdk_icg_rst
+select -module mix_neg -assert-count 1 t:\\npdk_icg
+select -module mix_neg -assert-count 0 t:\\npdk_icg_rst

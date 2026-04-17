@@ -12,6 +12,7 @@ struct ClockGateCell {
 	IdString ce_pin;
 	IdString clk_in_pin;
 	IdString clk_out_pin;
+	IdString srst_pin;
 	std::vector<IdString> tie_lo_pins;
 };
 
@@ -26,8 +27,11 @@ ClockGateCell icg_from_arg(std::string& name, std::string& str) {
 	if (pos2 == std::string::npos)
 		log_cmd_error("Not enough ports in descriptor string");
 	size_t pos3 = str.find(delimiter, pos2 + 1);
-	if (pos3 != std::string::npos)
-		log_cmd_error("Too many ports in descriptor string");
+	if (pos3 != std::string::npos) {
+		size_t pos4 = str.find(delimiter, pos3 + 1);
+		if (pos4 != std::string::npos)
+			log_cmd_error("Too many ports in descriptor string");
+	}
 
 	std::string ce = str.substr(0, pos1);
 	c.ce_pin = RTLIL::escape_id(ce);
@@ -36,7 +40,14 @@ ClockGateCell icg_from_arg(std::string& name, std::string& str) {
 	c.clk_in_pin = RTLIL::escape_id(clk_in);
 
 	std::string clk_out = str.substr(pos2 + 1, str.size() - (pos2 + 1));
+	if (pos3 != std::string::npos)
+		clk_out = str.substr(pos2 + 1, pos3 - (pos2 + 1));
 	c.clk_out_pin = RTLIL::escape_id(clk_out);
+
+	if (pos3 != std::string::npos) {
+		std::string srst = str.substr(pos3 + 1, str.size() - (pos3 + 1));
+		c.srst_pin = RTLIL::escape_id(srst);
+	}
 	return c;
 }
 
@@ -202,12 +213,27 @@ struct ClockgatePass : public Pass {
 		log("        removed and a gated clock will be created by the\n");
 		log("        user-specified <celltype> ICG (integrated clock gating)\n");
 		log("        cell with ports named <ce>, <clk>, <gclk>.\n");
+		log("        Use <ce>:<clk>:<gclk>:<srst> to also connect FF sync reset\n");
+		log("        to a wrapper cell input (eg. to keep gated clock active\n");
+		log("        while sync reset is asserted).\n");
+		log("        The ICG's clock enable pin must be active high.\n");
+		log("    -pos_srst <celltype> <ce>:<clk>:<gclk>[:<srst>]\n");
+		log("        If specified, rising-edge FFs with synchronous reset will\n");
+		log("        use this ICG. If omitted, synchronous-reset FFs are skipped\n");
+		log("        unless -pos itself includes an explicit <srst> port.\n");
 		log("        The ICG's clock enable pin must be active high.\n");
 		log("    -neg <celltype> <ce>:<clk>:<gclk>\n");
 		log("        If specified, falling-edge FFs will have CE inputs\n");
 		log("        removed and a gated clock will be created by the\n");
 		log("        user-specified <celltype> ICG (integrated clock gating)\n");
 		log("        cell with ports named <ce>, <clk>, <gclk>.\n");
+		log("        Use <ce>:<clk>:<gclk>:<srst> to also connect FF sync reset\n");
+		log("        to a wrapper cell input.\n");
+		log("        The ICG's clock enable pin must be active high.\n");
+		log("    -neg_srst <celltype> <ce>:<clk>:<gclk>[:<srst>]\n");
+		log("        If specified, falling-edge FFs with synchronous reset will\n");
+		log("        use this ICG. If omitted, synchronous-reset FFs are skipped\n");
+		log("        unless -neg itself includes an explicit <srst> port.\n");
 		log("        The ICG's clock enable pin must be active high.\n");
 		log("    -liberty <filename>\n");
 		log("        If specified, ICGs will be selected from the liberty files\n");
@@ -222,6 +248,11 @@ struct ClockgatePass : public Pass {
 		log("        Intended for DFT scan-enable pins.\n");
 		log("    -min_net_size <n>\n");
 		log("        Only transform sets of at least <n> eligible FFs.\n");
+		log("    -allow_srst_nonport\n");
+		log("        Allow FF synchronous reset expressions that are not direct\n");
+		log("        module input ports to drive ICG <srst> pins. This can be\n");
+		log("        unsafe when optimization has merged non-reset controls into\n");
+		log("        reset logic. By default such FFs are skipped conservatively.\n");
 		log("        \n");
 	}
 
@@ -232,18 +263,25 @@ struct ClockgatePass : public Pass {
 		SigBit clk_bit;
 		// Original clock enable into enabled FF
 		SigBit ce_bit;
+		// Optional sync reset into enabled FF
+		SigBit srst_bit;
 		bool pol_clk;
 		bool pol_ce;
+		bool has_srst;
+		bool pol_srst;
 		[[nodiscard]] Hasher hash_into(Hasher h) const {
-			auto t = std::make_tuple(clk_bit, ce_bit, pol_clk, pol_ce);
+			auto t = std::make_tuple(clk_bit, ce_bit, srst_bit, pol_clk, pol_ce, has_srst, pol_srst);
 			h.eat(t);
 			return h;
 		}
 		bool operator==(const ClkNetInfo& other) const {
 			return (clk_bit == other.clk_bit) &&
 			       (ce_bit == other.ce_bit) &&
+			       (srst_bit == other.srst_bit) &&
 			       (pol_clk == other.pol_clk) &&
-			       (pol_ce == other.pol_ce);
+			       (pol_ce == other.pol_ce) &&
+			       (has_srst == other.has_srst) &&
+			       (pol_srst == other.pol_srst);
 		}
 	};
 
@@ -257,7 +295,8 @@ struct ClockgatePass : public Pass {
 	ClkNetInfo clk_info_from_ff(FfData& ff) {
 		SigBit clk = ff.sig_clk[0];
 		SigBit ce = ff.sig_ce[0];
-		ClkNetInfo info{clk, ce, ff.pol_clk, ff.pol_ce};
+		SigBit srst = ff.has_srst ? ff.sig_srst[0] : RTLIL::State::Sx;
+		ClkNetInfo info{clk, ce, srst, ff.pol_clk, ff.pol_ce, ff.has_srst, ff.pol_srst};
 		return info;
 	}
 
@@ -265,11 +304,14 @@ struct ClockgatePass : public Pass {
 		log_header(design, "Executing CLOCK_GATE pass (extract clock gating out of flip flops).\n");
 
 		std::optional<ClockGateCell> pos_icg_desc;
+		std::optional<ClockGateCell> pos_srst_icg_desc;
 		std::optional<ClockGateCell> neg_icg_desc;
+		std::optional<ClockGateCell> neg_srst_icg_desc;
 		std::vector<std::string> tie_lo_pins;
 		std::vector<std::string> liberty_files;
 		std::vector<std::string> dont_use_cells;
 		int min_net_size = 0;
+		bool allow_srst_nonport = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -279,10 +321,22 @@ struct ClockgatePass : public Pass {
 				pos_icg_desc = icg_from_arg(name, rest);
 				continue;
 			}
+			if (args[argidx] == "-pos_srst" && argidx+2 < args.size()) {
+				auto name = args[++argidx];
+				auto rest = args[++argidx];
+				pos_srst_icg_desc = icg_from_arg(name, rest);
+				continue;
+			}
 			if (args[argidx] == "-neg" && argidx+2 < args.size()) {
 				auto name = args[++argidx];
 				auto rest = args[++argidx];
 				neg_icg_desc = icg_from_arg(name, rest);
+				continue;
+			}
+			if (args[argidx] == "-neg_srst" && argidx+2 < args.size()) {
+				auto name = args[++argidx];
+				auto rest = args[++argidx];
+				neg_srst_icg_desc = icg_from_arg(name, rest);
 				continue;
 			}
 			if (args[argidx] == "-tie_lo" && argidx+1 < args.size()) {
@@ -299,6 +353,10 @@ struct ClockgatePass : public Pass {
 			}
 			if (args[argidx] == "-min_net_size" && argidx+1 < args.size()) {
 				min_net_size = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-allow_srst_nonport") {
+				allow_srst_nonport = true;
 				continue;
 			}
 			break;
@@ -318,8 +376,12 @@ struct ClockgatePass : public Pass {
 			for (auto pin : tie_lo_pins) {
 				if (pos_icg_desc)
 					pos_icg_desc->tie_lo_pins.push_back(pin);
+				if (pos_srst_icg_desc)
+					pos_srst_icg_desc->tie_lo_pins.push_back(pin);
 				if (neg_icg_desc)
 					neg_icg_desc->tie_lo_pins.push_back(pin);
+				if (neg_srst_icg_desc)
+					neg_srst_icg_desc->tie_lo_pins.push_back(pin);
 			}
 		}
 
@@ -329,6 +391,8 @@ struct ClockgatePass : public Pass {
 		dict<ClkNetInfo, GClkNetInfo> clk_nets;
 
 		int gated_flop_count = 0;
+		int srst_ff_count = 0;
+		int srst_skipped_nonport_count = 0;
 		for (auto module : design->selected_unboxed_whole_modules()) {
 			for (auto cell : module->cells()) {
 				if (!cell->is_builtin_ff())
@@ -341,6 +405,21 @@ struct ClockgatePass : public Pass {
 						continue;
 					if (!ff.sig_clk[0].is_wire() || !ff.sig_ce[0].is_wire())
 						continue;
+					if (ff.has_srst) {
+						srst_ff_count++;
+						if (!ff.sig_srst.is_bit())
+							continue;
+						if (!ff.sig_srst[0].is_wire())
+							continue;
+						// Be conservative for srst-aware gating: only treat direct module
+						// input wires as reset controls. Optimized mixed expressions (e.g.
+						// ld | ~rst) can be functionally valid for an FF but unsafe as an
+						// ICG reset pin.
+						if (!allow_srst_nonport && !ff.sig_srst[0].wire->port_input) {
+							srst_skipped_nonport_count++;
+							continue;
+						}
+					}
 
 					ce_ffs.insert(cell);
 
@@ -361,10 +440,25 @@ struct ClockgatePass : public Pass {
 
 				std::optional<ClockGateCell> matching_icg_desc;
 
-				if (pos_icg_desc && clk.pol_clk)
-					matching_icg_desc = pos_icg_desc;
-				else if (neg_icg_desc && !clk.pol_clk)
-					matching_icg_desc = neg_icg_desc;
+				if (clk.pol_clk) {
+					if (clk.has_srst) {
+						if (pos_srst_icg_desc)
+							matching_icg_desc = pos_srst_icg_desc;
+						else if (pos_icg_desc && !pos_icg_desc->srst_pin.empty())
+							matching_icg_desc = pos_icg_desc;
+					} else if (pos_icg_desc) {
+						matching_icg_desc = pos_icg_desc;
+					}
+				} else {
+					if (clk.has_srst) {
+						if (neg_srst_icg_desc)
+							matching_icg_desc = neg_srst_icg_desc;
+						else if (neg_icg_desc && !neg_icg_desc->srst_pin.empty())
+							matching_icg_desc = neg_icg_desc;
+					} else if (neg_icg_desc) {
+						matching_icg_desc = neg_icg_desc;
+					}
+				}
 
 				if (!matching_icg_desc)
 					continue;
@@ -372,6 +466,8 @@ struct ClockgatePass : public Pass {
 				Cell* icg = module->addCell(NEW_ID, matching_icg_desc->name);
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
+				if (!matching_icg_desc->srst_pin.empty() && clk.has_srst)
+					icg->setPort(matching_icg_desc->srst_pin, clk.srst_bit);
 				gclk.new_net = module->addWire(NEW_ID);
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
@@ -410,6 +506,8 @@ struct ClockgatePass : public Pass {
 		}
 
 		log("Converted %d FFs.\n", gated_flop_count);
+		if (srst_ff_count > 0 && !allow_srst_nonport)
+			log("Skipped %d FFs with non-port synchronous reset expressions while considering clock gating. Use -allow_srst_nonport to override.\n", srst_skipped_nonport_count);
     }
 } ClockgatePass;
 
