@@ -1285,7 +1285,7 @@ struct SimInstance
 			Const vcd_val = Const::from_string(shared->fst->valueOf(item.second));
 			Const sim_val = get_state(wire);
 			if (sim_val != vcd_val) {
-				if (debug)
+				if (shared->debug)
 					log_warning("Register mismatch at time %lu%s for %s.%s: "
 											"sim=%s vcd=%s, overwriting...\n",
 											(unsigned long)time,
