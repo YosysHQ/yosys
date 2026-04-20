@@ -202,22 +202,19 @@ struct SplitcellsWorker
 							Wire *w = raw_q[slice_lsb].wire;
 							std::string wire_name = w->name.str();
 
-							// Extract bit offset from the wire (ex: 0)
-							int bit_offset = user_index(slice_lsb);
-
 							// Concatenate wire index (ex: \Memory[0] -> [0]) to the bit offset (ex: [0][bit])
 							size_t bracket_pos = wire_name.find('[');
 							if (bracket_pos != std::string::npos) {
 									wire_indices = wire_name.substr(bracket_pos) + stringf(
-										"%c%d%c", format[0], bit_offset, format[1]);
+										"%c%d%c", format[0], slice_lsb, format[1]);
 							} else { // no brackets, so no concatenation
 									wire_indices = stringf(
-										"%c%d%c", format[0], bit_offset, format[1]);
+										"%c%d%c", format[0], slice_lsb, format[1]);
 							}
 					} else {
 							// Fallback
 							wire_indices = stringf(
-								"%c%d%c", format[0], name_lsb, format[1]);
+								"%c%d%c", format[0], slice_lsb, format[1]);
 					}
 					// Construct uniquified name by concatenating the base name with the wire indices
 					slice_name = module->uniquify(base_name + wire_indices);
