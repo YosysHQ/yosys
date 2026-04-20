@@ -1349,7 +1349,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 	logs.log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, GetSize(signal_list), count_input, count_output);
 	if (count_output == 0) {
-		log("Don't call ABC as there is nothing to map.\n");
+		logs.log("Don't call ABC as there is nothing to map.\n");
 		return;
 	}
 	int ret;
@@ -1363,7 +1363,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", per_run_tempdir_name);
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
-			log_error("ABC: cannot open a temporary file for output redirection");
+			logs.log_error("ABC: cannot open a temporary file for output redirection");
 		fflush(stdout);
 		fflush(stderr);
 		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
