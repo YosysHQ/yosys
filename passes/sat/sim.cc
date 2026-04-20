@@ -1200,10 +1200,6 @@ struct SimInstance
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
 		}
-		// Handle multi-dimensional arrays by concatenating array elements
-		for(auto &item : fst_array_handles) {
-			did_something |= setStateFromArrayHandles(item.first, item.second);
-		}
 		for (auto cell : module->cells())
 		{
 			if (cell->is_mem_cell()) {
@@ -1252,10 +1248,6 @@ struct SimInstance
 		for(auto &item : fst_inputs) {
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
-		}
-		// Handle multi-dimensional array inputs by concatenating array elements
-		for(auto &item : fst_array_inputs) {
-			did_something |= setStateFromArrayHandles(item.first, item.second);
 		}
 		for (auto child : children)
 			did_something |= child.second->setInputs();
