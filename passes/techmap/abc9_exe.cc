@@ -183,7 +183,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
 
-		std::string merged_scl = convert_liberty_files_to_merged_scl(liberty_files, exe_file);
+		std::string merged_scl = convert_liberty_files_to_merged_scl(liberty_files, dont_use_args, exe_file);
 		if (!merged_scl.empty()) {
 			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
 		} else {
