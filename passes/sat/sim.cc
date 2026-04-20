@@ -1263,11 +1263,6 @@ struct SimInstance
 			// Overwrite simulation register state with the ground truth
 			did_something |= set_state(wire, vcd_val);
 		}
-		// Handles multi-dimensional registers
-		for (auto &item : fst_array_handles) {
-			if (register_wires.count(item.first) == 0) continue;
-			did_something |= setStateFromArrayHandles(item.first, item.second);
-		}
 		// Apply to all child modules
 		for (auto child : children)
 			did_something |= child.second->setRegisters(time);
