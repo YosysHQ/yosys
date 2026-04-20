@@ -121,54 +121,13 @@ void FstData::extractVarNames()
 	struct fstHier *h;
 	std::string fst_scope_name;
 
-	// Track nested fork scopes using a stack to handle nested packed structs
-	// Begins with outmost scope and ends with innermost scope
-	// Scopes are not normalized on the stack
-	std::vector<std::string> fork_scope_stack;
-
-	// Start fork handles after the maximum real handle from FST file to avoid collisions
-	fstHandle next_fork_handle = fstReaderGetMaxHandle(ctx) + 1;
-
-	// Map of fork scopes to their members, which are all normalized
-	std::map<std::string, std::vector<fstHandle>> fork_scopes;
-
 	while ((h = fstReaderIterateHier(ctx))) {
 		switch (h->htyp) {
 			case FST_HT_SCOPE: {
 				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
-
-				// Fork scopes are identified by FST_ST_VCD_FORK and are pushed onto the stack
-				if (h->u.scope.typ == FST_ST_VCD_FORK) {
-					fork_scope_stack.push_back(fst_scope_name);
-					// Create new vector that contains struct members
-					normalize_brackets(fst_scope_name);
-					fork_scopes[fst_scope_name] = std::vector<fstHandle>();
-				}
 				break;
 			}
 			case FST_HT_UPSCOPE: {
-				if (!fork_scope_stack.empty() && fork_scope_stack.back() == fst_scope_name) {
-					// Assign a unique handle to this fork scope and increment for future forks
-					fstHandle fork_handle = next_fork_handle++;
-
-					// Map normalized scope name to the handle for future lookups via getHandle()
-					normalize_brackets(fst_scope_name);
-					name_to_handle[fst_scope_name] = fork_handle;
-
-					// Copy the extracted members of the fork scope to the fork scope members map
-					// for value lookups in valueOf()
-					fork_scope_members[fork_handle] = fork_scopes[fst_scope_name];
-
-					// If this is a nested fork scope, add its handle to the parent fork scope
-					if (fork_scope_stack.size() > 1) {
-						std::string parent_fork = fork_scope_stack[fork_scope_stack.size() - 2];
-						normalize_brackets(parent_fork);
-						fork_scopes[parent_fork].push_back(fork_handle);
-					}
-
-					// Pop this fork scope from the stack
-					fork_scope_stack.pop_back();
-				}
 				fst_scope_name = fstReaderPopScope(ctx);
 				break;
 			}
@@ -184,13 +143,6 @@ void FstData::extractVarNames()
 				vars.push_back(var);
 				if (!var.is_alias)
 					handle_to_var[h->u.var.handle] = var;
-
-				// Add variable to the innermost fork scope in the fork scope stack
-				if (!fork_scope_stack.empty()) {
-					std::string current_fork = fork_scope_stack.back();
-					normalize_brackets(current_fork);
-					fork_scopes[current_fork].push_back(h->u.var.handle);
-				}
 
 				std::string clean_name;
 				bool has_space = false;
@@ -375,51 +327,6 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 
 std::string FstData::valueOf(fstHandle signal)
 {
-	// Check if this is a fork scope (struct)
-	auto it = fork_scope_members.find(signal);
-	if (it != fork_scope_members.end()) {
-		std::string result;
-		const std::vector<fstHandle>& members = it->second;
-
-		// Iterate over members of the struct to get concatenated value.
-		// The first declared member is MSB in SystemVerilog packed structs
-		for (auto m = members.begin(); m != members.end(); m++) {
-			fstHandle member = *m;
-			std::string member_val;
-			
-			// Check if this member is itself a nested fork scope (struct)
-			if (fork_scope_members.find(member) != fork_scope_members.end()) {
-				// Recursively get the value of the nested struct
-				member_val = valueOf(member);
-			} else {
-				// Regular variable - look up in past_data
-				int expected_width = 0;
-
-				// Get the declared width of this member
-				if (handle_to_var.find(member) != handle_to_var.end()) {
-					expected_width = handle_to_var[member].width;
-				}
-				// Get the current value of the member
-				if (past_data.find(member) != past_data.end()) {
-					member_val = past_data[member];
-					// Pad with zeros to the expected width of the member
-					if (expected_width > 0 && (int)member_val.length() < expected_width) {
-						member_val = std::string(expected_width - member_val.length(), '0') + member_val;
-					}
-				} else if (expected_width > 0) {
-					// No value yet, use X to pad
-					member_val = std::string(expected_width, 'x');
-				} else { // fallback to X
-					member_val = "x";
-				}
-			}
-			// Concatenate the member value to the overall struct value
-			result += member_val;
-		}
-		return result;
-	}
-	
-	// Normal signal handling
 	if (past_data.find(signal) == past_data.end()) {
 		return std::string(handle_to_var[signal].width, 'x');
 	}
@@ -428,21 +335,10 @@ std::string FstData::valueOf(fstHandle signal)
 
 int FstData::getWidth(fstHandle signal)
 {
-	// Check if signal is a fork scope (struct)
-	if (fork_scope_members.count(signal)) {
-		// Sum the widths of all members of the fork scope, which may be forks themselves
-		int width = 0;
-		for (fstHandle member : fork_scope_members[signal]) {
-			width += getWidth(member);
-		}
-		return width;
-	}
-
 	if (handle_to_var.count(signal)) {
 		return handle_to_var[signal].width;
 	}
-	
-	// Signal not found
+
 	log_warning("Signal %d was not extracted from file...\n", signal);
 	return 0;
 }
