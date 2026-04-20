@@ -2217,6 +2217,231 @@ skip_alu_split:
 					goto next_cell;
 				}
 			}
+
+			// SILIMATE: Generalized MSB-comparison rule. Recognize the pattern
+			// `(unsigned X < {sig, k zero bits})` (and its $ge / $gt / $le siblings)
+			// where X is provably bounded by 2^k - 1 (i.e., its bits at positions
+			// >= k are constant zero or absent due to a narrower port width).
+			// This catches comparators that survive after lowering has stripped
+			// the original `(signed X < 0)` signedness annotation.
+			//
+			// Identities (all unsigned, X bounded by 2^k - 1):
+			//   $lt(X, {msb, k'b0}) -> Y =  msb
+			//   $ge(X, {msb, k'b0}) -> Y = !msb
+			//   $gt({msb, k'b0}, X) -> Y =  msb
+			//   $le({msb, k'b0}, X) -> Y = !msb
+			{
+				IdString cmp = cell->type;
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_b = cell->getPort(ID::B);
+				int a_width = cell->parameters[ID::A_WIDTH].as_int();
+				int b_width = cell->parameters[ID::B_WIDTH].as_int();
+				bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
+				bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
+
+				// Only handle unsigned comparisons; signed sign-extension changes the bound.
+				if (!a_signed && !b_signed)
+				{
+					// Detect SigSpec of the form {msb_bit, k_zero_bits} where msb_bit is a
+					// non-constant signal bit. Returns (matched, msb_bit, k).
+					auto detect_msb_zeros = [](const SigSpec &s, int width) -> std::tuple<bool, SigBit, int> {
+						if (width < 1)
+							return std::make_tuple(false, SigBit(), 0);
+						for (int i = 0; i < width - 1; i++) {
+							if (s[i] != RTLIL::State::S0)
+								return std::make_tuple(false, SigBit(), 0);
+						}
+						SigBit msb = s[width - 1];
+						if (msb.wire == nullptr)
+							return std::make_tuple(false, SigBit(), 0);
+						return std::make_tuple(true, msb, width - 1);
+					};
+
+					// Check if SigSpec value (unsigned, within its declared width) is
+					// bounded by 2^k - 1, i.e., bits at positions [k, width) are all
+					// constant zero. Bits beyond `width` (if comparison is wider) are
+					// implicit unsigned zero-extension and therefore zero too.
+					auto is_bounded_by_2_pow_k = [](const SigSpec &s, int width, int k) -> bool {
+						for (int i = k; i < width; i++) {
+							if (s[i] != RTLIL::State::S0)
+								return false;
+						}
+						return true;
+					};
+
+					auto emit_replace = [&](SigBit y_bit, bool inverted, const std::string &condition) {
+						std::string replacement = inverted ? "!Y" : "Y";
+						log_debug("Replacing %s cell `%s' (implementing %s) with %s.\n",
+							log_id(cell->type), log_id(cell), condition.c_str(), replacement.c_str());
+						if (inverted) {
+							// SILIMATE: Preserve original cell name on the replacement $logic_not.
+							RTLIL::IdString cell_name = cell->name;
+							module->rename(cell->name, NEW_ID);
+							module->addLogicNot(cell_name, y_bit, cell->getPort(ID::Y), false, cell->get_src_attribute());
+						} else {
+							SigSpec replace_sig(RTLIL::State::S0, GetSize(cell->getPort(ID::Y)));
+							replace_sig[0] = y_bit;
+							module->connect(cell->getPort(ID::Y), replace_sig);
+						}
+						module->remove(cell);
+						did_something = true;
+					};
+
+					// Case 1: structured operand on the B side, free operand on A.
+					if (cmp == ID($lt) || cmp == ID($ge)) {
+						bool m;
+						SigBit msb;
+						int k;
+						std::tie(m, msb, k) = detect_msb_zeros(sig_b, b_width);
+						if (m && is_bounded_by_2_pow_k(sig_a, a_width, k)) {
+							std::string cond = stringf("unsigned X %s {Y, %d'b0}",
+									cmp == ID($lt) ? "<" : ">=", k);
+							emit_replace(msb, /*inverted=*/cmp == ID($ge), cond);
+							goto next_cell;
+						}
+					}
+
+					// Case 2: structured operand on the A side, free operand on B.
+					if (cmp == ID($gt) || cmp == ID($le)) {
+						bool m;
+						SigBit msb;
+						int k;
+						std::tie(m, msb, k) = detect_msb_zeros(sig_a, a_width);
+						if (m && is_bounded_by_2_pow_k(sig_b, b_width, k)) {
+							std::string cond = stringf("unsigned {Y, %d'b0} %s X", k,
+									cmp == ID($gt) ? ">" : "<=");
+							emit_replace(msb, /*inverted=*/cmp == ID($le), cond);
+							goto next_cell;
+						}
+					}
+				}
+			}
+
+			// SILIMATE: Recognize the lowered form of `(signed X < -1)` after
+			// signedness has been stripped. Verific lowers it to:
+			//   $lt(unsigned A, unsigned B) with A_WIDTH == B_WIDTH = N >= 2,
+			//     A = {1'b1,    X[N-2:0]}        (MSB forced to 1)
+			//     B = {X[N-1], (N-1)'b1   }      (low N-1 bits forced to 1)
+			//   where X is one coherent N-bit slice of a single wire.
+			//
+			// Truth table:
+			//   X[N-1] == 0 -> A >= 2^(N-1) > B = 2^(N-1)-1, so A < B = 0
+			//   X[N-1] == 1 -> A = 2^(N-1) + X[N-2:0], B = 2^N - 1,
+			//                  A < B  iff  X[N-2:0] != all 1s
+			//
+			// So Y = X[N-1] AND ~&X[N-2:0]
+			//      = X[N-1] AND |~X[N-2:0]    (the "reduce_or" form)
+			//
+			// Mirror cases:
+			//   $gt(A, B) == $lt(B, A)               -> swap operands
+			//   $ge(A, B) == !$lt(A, B)              -> invert output
+			//   $le(A, B) == !$gt(A, B) == !$lt(B,A) -> swap + invert
+			{
+				IdString cmp = cell->type;
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_b = cell->getPort(ID::B);
+				int a_width = cell->parameters[ID::A_WIDTH].as_int();
+				int b_width = cell->parameters[ID::B_WIDTH].as_int();
+				bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
+				bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
+
+				if (!a_signed && !b_signed && a_width == b_width && a_width >= 2)
+				{
+					int N = a_width;
+
+					// Try to match: lo = {1'b1, X[N-2:0]}, hi = {X[N-1], (N-1)'b1}.
+					// On success returns (msb_bit, x_low_sigspec) with x_low = X[N-2:0].
+					auto try_match_lt_neg1 =
+						[&](const SigSpec &lo, const SigSpec &hi) -> std::tuple<bool, SigBit, SigSpec> {
+							if (lo[N - 1] != RTLIL::State::S1)
+								return std::make_tuple(false, SigBit(), SigSpec());
+							for (int i = 0; i < N - 1; i++) {
+								if (hi[i] != RTLIL::State::S1)
+									return std::make_tuple(false, SigBit(), SigSpec());
+							}
+							SigBit msb = hi[N - 1];
+							if (msb.wire == nullptr)
+								return std::make_tuple(false, SigBit(), SigSpec());
+							int base = msb.offset - (N - 1);
+							if (base < 0)
+								return std::make_tuple(false, SigBit(), SigSpec());
+							for (int i = 0; i < N - 1; i++) {
+								SigBit b = lo[i];
+								if (b.wire != msb.wire)
+									return std::make_tuple(false, SigBit(), SigSpec());
+								if (b.offset != base + i)
+									return std::make_tuple(false, SigBit(), SigSpec());
+							}
+							SigSpec x_low(msb.wire, base, N - 1);
+							return std::make_tuple(true, msb, x_low);
+						};
+
+					auto emit_lt_neg1 = [&](SigBit msb, SigSpec x_low, bool inverted,
+								const std::string &condition) {
+						std::string replacement = inverted
+							? "!(X[N-1] && !&X[N-2:0])"
+							: "X[N-1] && !&X[N-2:0]";
+						log_debug("Replacing %s cell `%s' (implementing %s) with %s.\n",
+							log_id(cell->type), log_id(cell), condition.c_str(),
+							replacement.c_str());
+
+						// SILIMATE: Preserve original cell name on the kept replacement
+						// cell, and derive intermediate wire/cell names from it via
+						// NEW_ID3_SUFFIX so the resulting netlist stays readable.
+						RTLIL::IdString cell_name = cell->name;
+						module->rename(cell->name, NEW_ID);
+						std::string src = cell->get_src_attribute();
+
+						// reduce_and(X[N-2:0]) -> w_red
+						Wire *w_red = module->addWire(NEW_ID3_SUFFIX("ry"));
+						module->addReduceAnd(NEW_ID3_SUFFIX("r"), x_low, w_red,
+								false, src);
+						// !reduce_and(...) -> w_some_zero
+						Wire *w_some_zero = module->addWire(NEW_ID3_SUFFIX("ny"));
+						module->addLogicNot(NEW_ID3_SUFFIX("n"), SigSpec(w_red),
+								SigSpec(w_some_zero), false, src);
+						// X[N-1] AND w_some_zero -> result
+						if (inverted) {
+							Wire *w_and = module->addWire(NEW_ID3_SUFFIX("ay"));
+							module->addAnd(NEW_ID3_SUFFIX("a"), SigSpec(msb),
+									SigSpec(w_some_zero), SigSpec(w_and), false, src);
+							module->addLogicNot(cell_name, SigSpec(w_and),
+									cell->getPort(ID::Y), false, src);
+						} else {
+							module->addAnd(cell_name, SigSpec(msb), SigSpec(w_some_zero),
+									cell->getPort(ID::Y), false, src);
+						}
+						module->remove(cell);
+						did_something = true;
+					};
+
+					if (cmp == ID($lt) || cmp == ID($ge)) {
+						bool m;
+						SigBit msb;
+						SigSpec x_low;
+						std::tie(m, msb, x_low) = try_match_lt_neg1(sig_a, sig_b);
+						if (m) {
+							std::string cond = stringf("unsigned X %s -1 (signed-stripped)",
+									cmp == ID($lt) ? "<" : ">=");
+							emit_lt_neg1(msb, x_low, /*inverted=*/cmp == ID($ge), cond);
+							goto next_cell;
+						}
+					}
+
+					if (cmp == ID($gt) || cmp == ID($le)) {
+						bool m;
+						SigBit msb;
+						SigSpec x_low;
+						std::tie(m, msb, x_low) = try_match_lt_neg1(sig_b, sig_a);
+						if (m) {
+							std::string cond = stringf("-1 %s unsigned X (signed-stripped)",
+									cmp == ID($gt) ? ">" : "<=");
+							emit_lt_neg1(msb, x_low, /*inverted=*/cmp == ID($le), cond);
+							goto next_cell;
+						}
+					}
+				}
+			}
 		}
 
 	next_cell:;
