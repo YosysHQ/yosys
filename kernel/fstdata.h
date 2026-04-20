@@ -55,7 +55,6 @@ class FstData
 	std::string valueOf(fstHandle signal);
 	fstHandle getHandle(std::string name);
 	dict<int,fstHandle> getMemoryHandles(std::string name);
-	dict<std::vector<int>,fstHandle> getArrayHandles(std::string name);
 	double getTimescale() { return timescale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
 	int getWidth(fstHandle signal);

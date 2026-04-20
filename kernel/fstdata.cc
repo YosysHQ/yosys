@@ -320,10 +320,10 @@ std::string FstData::autoScope(Module *topmod) {
 	// Track number of exact matches for each scope, adding to results if all match
 	std::vector<std::string> results;
 	for (const auto &scope_candidate : candidate_scopes) {
-    int matches = 0;
+		int matches = 0;
 
 		// Loop through all top-level ports
-    for (auto &port : top2widths) {
+		for (auto &port : top2widths) {
 			const std::string &port_name = port.first;
 			int port_width = port.second;
 			std::string key = scope_candidate + "." + port_name;
@@ -333,10 +333,10 @@ std::string FstData::autoScope(Module *topmod) {
 			if (it != name_to_handle.end() && getWidth(it->second) == port_width) {
 				matches++;
 			}
-    }
+		}
 
 		// If all ports match, add to results
-    if (matches == GetSize(top2widths)) {
+		if (matches == GetSize(top2widths)) {
 			results.push_back(scope_candidate);
 		}
 	}
