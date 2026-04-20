@@ -311,9 +311,11 @@ struct RegRenamePass : public Pass {
 					int msb = 0;
 					int lsb = 0;
 					size_t colon_pos = signal_bits.find(':');
-					if (colon_pos != std::string::npos) {
+					if (colon_pos != std::string::npos) { // range case
 							msb = std::stoi(signal_bits.substr(1, colon_pos - 1));
 							lsb = std::stoi(signal_bits.substr(colon_pos + 1));
+					} else if (!signal_bits.empty()) { // single index case
+						msb = lsb = std::stoi(signal_bits.substr(1));
 					}
 					int width  = var.width;
 					int offset = std::min(msb, lsb);
