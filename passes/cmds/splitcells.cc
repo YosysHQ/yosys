@@ -218,7 +218,7 @@ struct SplitcellsWorker
 					} else {
 							// Fallback
 							wire_indices = stringf(
-								"%c%d%c", format[0], slice_lsb, format[1]);
+								"%c%d%c", format[0], name_lsb, format[1]);
 					}
 					// Construct uniquified name by concatenating the base name with the wire indices
 					slice_name = module->uniquify(base_name + wire_indices);
