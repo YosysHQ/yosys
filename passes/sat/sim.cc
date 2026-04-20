@@ -228,35 +228,6 @@ struct SimInstance
 	dict<Wire*, fstHandle> fst_inputs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
 
-	// For multi-dimensional arrays
-	dict<Wire*, dict<std::vector<int>,fstHandle>> fst_array_handles;
-	dict<Wire*, dict<std::vector<int>,fstHandle>> fst_array_inputs;
-
-	// Helper function to detect and retrieve array element handles
-	// Returns non-empty dict if wire is a multi-dimensional array split in VCD
-	dict<std::vector<int>, fstHandle> tryGetArrayHandles(FstData* fst, const std::string& scope, Wire* wire)
-	{
-		std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
-		dict<std::vector<int>, fstHandle> array_handles = fst->getArrayHandles(wire_name);
-		
-		if (!array_handles.empty()) {
-			int total_width = 0;
-			for (auto &pair : array_handles) {
-				total_width += fst->getWidth(pair.second);
-			}
-			if (total_width == wire->width) {
-				if (shared->debug) {
-					log("Found %zu array elements for wire %s, total width: %d\n",
-						array_handles.size(), wire_name.c_str(), total_width);
-				}
-				return array_handles;
-			}
-			log_warning("Array wire '%s' found in VCD (total width %d) but does not match Yosys wire width %d; skipping.\n",
-        wire_name.c_str(), total_width, wire->width);
-		}
-		return dict<std::vector<int>, fstHandle>();
-	}
-
 	// Helper function to set wire state from array element handles
 	// Concatenates values from array elements in descending index order
 	bool setStateFromArrayHandles(Wire* wire, dict<std::vector<int>, fstHandle>& handles)
@@ -307,16 +278,11 @@ struct SimInstance
 				}
 			}
 
-			// Populate fst_handles and fst_array_handles for signal lookups
+			// Populate fst_handles for signal lookups
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				
-				// Try to get array element handles if this is a multi-dimensional array
-				dict<std::vector<int>, fstHandle> array_handles = tryGetArrayHandles(shared->fst, scope, wire);
-				if (!array_handles.empty()) {
-					// Must be an array, store in fst_array_handles
-					fst_array_handles[wire] = array_handles;
-				} else if (id != 0) {
+				if (id != 0) {
 					// Case of a regular wire/reg
 					fst_handles[wire] = id;
 					if (shared->debug) {
@@ -1258,10 +1224,6 @@ struct SimInstance
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
 		}
-		// Handle multi-dimensional arrays by concatenating array elements
-		for(auto &item : fst_array_handles) {
-			did_something |= setStateFromArrayHandles(item.first, item.second);
-		}
 		for (auto cell : module->cells())
 		{
 			if (cell->is_mem_cell()) {
@@ -1301,11 +1263,6 @@ struct SimInstance
 			// Overwrite simulation register state with the ground truth
 			did_something |= set_state(wire, vcd_val);
 		}
-		// Handles multi-dimensional registers
-		for (auto &item : fst_array_handles) {
-			if (register_wires.count(item.first) == 0) continue;
-			did_something |= setStateFromArrayHandles(item.first, item.second);
-		}
 		// Apply to all child modules
 		for (auto child : children)
 			did_something |= child.second->setRegisters(time);
@@ -1343,10 +1300,6 @@ struct SimInstance
 		for(auto &item : fst_inputs) {
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
-		}
-		// Handle multi-dimensional array inputs by concatenating array elements
-		for(auto &item : fst_array_inputs) {
-			did_something |= setStateFromArrayHandles(item.first, item.second);
 		}
 		for (auto child : children)
 			did_something |= child.second->setInputs();
@@ -1646,16 +1599,10 @@ struct SimWorker : SimShared
 
 		for (auto wire : topmod->wires()) {
 
-			// Populate fst_inputs and fst_array_inputs for input ports
+			// Populate fst_inputs for input ports
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-				
-				// Try to get array element handles if this is a multi-dimensional array
-				dict<std::vector<int>, fstHandle> array_handles = top->tryGetArrayHandles(fst, scope, wire);
-				if (!array_handles.empty()) {
-					// Must be an array, store in fst_array_inputs
-					top->fst_array_inputs[wire] = array_handles;
-				} else if (id != 0) {
+				if (id != 0) {
 					// Case of a regular wire/reg
 					top->fst_inputs[wire] = id;
 				} else {
