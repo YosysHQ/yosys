@@ -471,17 +471,30 @@ struct TclPass : public Pass {
 
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__)
+#if defined(__linux__) || defined(__CYGWIN__) || defined(__gnu_hurd__)
 std::string proc_self_dirname()
 {
-	char path[PATH_MAX];
-	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
+	std::string path(4096, '\0');
+	ssize_t buflen = -1;
+	// Double until sucess, while avoiding endless loop.  Give up
+	// when symlink is longer than 4096*(2^30) = 4398046511104
+	// bytes.
+	for (int tries = 30; 0 < tries; tries--) {
+		buflen = readlink("/proc/self/exe", path.data(), path.size());
+		if (buflen < (ssize_t)path.size())
+			break;
+		else
+			path.resize(path.size() * 2);
+	}
 	if (buflen < 0) {
 		log_error("readlink(\"/proc/self/exe\") failed: %s\n", strerror(errno));
+		path.resize(0);
+	} else {
+		while (buflen > 0 && path[buflen-1] != '/')
+			buflen--;
+		path.resize(buflen);
 	}
-	while (buflen > 0 && path[buflen-1] != '/')
-		buflen--;
-	return std::string(path, buflen);
+	return path;
 }
 #elif defined(__FreeBSD__) || defined(__NetBSD__)
 std::string proc_self_dirname()
