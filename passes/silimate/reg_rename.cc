@@ -25,6 +25,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Struct stores the width and index offset of a register in VCD file.
 struct RegInfo {
 	int width = 0;
 	int offset = 0;
@@ -169,7 +170,6 @@ struct RegRenameInstance {
 					if (targetWire == oldWire)
 						continue;
 
-					// Record the mapping for each bit of the old wire to the target wire.
 					int normalizedIndex = bitIndex - wireOffset;
 
 					// Check for conflicts with other cells (multiple drivers guard)
@@ -186,10 +186,12 @@ struct RegRenameInstance {
 						continue;
 					}
 
-					// Record the mapping for each bit of the old wire to the target wire.
+					// Create the new connection.
 					if (debug)
 						log("Connecting %s to %s[%d]\n", 
 								log_id(oldWire), wireName.c_str(), bitIndex);
+
+					// Record the mapping for each bit of the old wire to the target wire.
 					for (int i = 0; i < GetSize(oldWire); i++) {
 						SigBit target(targetWire, normalizedIndex + i);
 						bit_map[SigBit(oldWire, i)] = target;
