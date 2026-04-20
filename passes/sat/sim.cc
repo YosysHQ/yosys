@@ -1192,7 +1192,6 @@ struct SimInstance
 			child.second->register_output_step_values(data);
 	}
 
-
 	bool setInitState()
 	{
 		bool did_something = false;
