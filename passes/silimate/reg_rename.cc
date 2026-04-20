@@ -25,6 +25,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Struct stores the width and index offset of a register in VCD file.
+struct RegInfo {
+	int width = 0;
+	int offset = 0;
+};
+
 struct RegRenameInstance {
 	std::string vcd_scope;
 	Module *module;
@@ -58,7 +64,7 @@ struct RegRenameInstance {
 
 	// Processes registers in a given module hierarchy
 	// and renames to allow for correct register annotation
-	void process_registers(dict<std::pair<std::string, std::string>, int> &vcd_reg_widths)
+	void process_registers(dict<std::pair<std::string, std::string>, RegInfo> &vcd_reg_widths)
 	{
 		if (debug)
 			log("Processing registers in scope: %s (module: %s)\n", 
@@ -69,6 +75,7 @@ struct RegRenameInstance {
 		
 		// Map of old bits to new bits of a renamed reg wire
 		dict<SigBit, SigBit> bit_map;
+		pool<SigBit> claimed_bits;
 
 		// Caches of target wires and wires to remove
 		dict<IdString, Wire*> targetWireCache;
@@ -115,9 +122,12 @@ struct RegRenameInstance {
 					Wire *oldWire = conn.second.as_wire();
 					if (oldWire->port_input || oldWire->port_output) continue;
 
-					// Lookup wire width from VCD
+					// Lookup wire information from VCD
 					std::string regName = RTLIL::unescape_id(wireName);
-					int wireWidth = vcd_reg_widths[{vcd_scope, regName}];
+					RegInfo regInfo = vcd_reg_widths[{vcd_scope, regName}];
+
+					int wireWidth = regInfo.width;
+					int wireOffset = regInfo.offset;
 					if (wireWidth == 0) {
 						log_warning("Unable to find matching register %s in VCD for cell %s in scope %s\n",
 							regName.c_str(), cellName.c_str(), vcd_scope.c_str());
@@ -125,9 +135,11 @@ struct RegRenameInstance {
 					}
 
 					// Validate bit index
-					if (bitIndex >= wireWidth) {
-						log_warning("Bit index %d exceeds wire width %d for '%s'\n",
-												bitIndex, wireWidth, wireName.c_str());
+					int maxIndex = wireOffset + wireWidth - 1;
+					int minIndex = wireOffset;
+					if (bitIndex < minIndex || bitIndex > maxIndex) {
+						log_warning("Bit index %d is invalid for wire indices [%d:%d] for '%s'\n",
+												bitIndex, maxIndex, minIndex, wireName.c_str());
 						continue;
 					}
 
@@ -146,9 +158,10 @@ struct RegRenameInstance {
 						targetWire = module->wire(wireId);
 						if (!targetWire) {
 							if (debug)
-								log("Creating wire %s[%d:0] in scope %s\n", 
-										wireName.c_str(), wireWidth - 1, vcd_scope.c_str());
+								log("Creating wire %s[%d:%d] in scope %s\n", 
+										wireName.c_str(), maxIndex, minIndex, vcd_scope.c_str());
 							targetWire = module->addWire(wireId, wireWidth);
+							targetWire->start_offset = wireOffset;
 						}
 						targetWireCache[wireId] = targetWire;
 					}
@@ -157,14 +170,33 @@ struct RegRenameInstance {
 					if (targetWire == oldWire)
 						continue;
 
+					int normalizedIndex = bitIndex - wireOffset;
+
+					// Check for conflicts with other cells (multiple drivers guard)
+					bool conflict = false;
+					for (int i = 0; i < GetSize(oldWire); i++) {
+						if (claimed_bits.count(SigBit(targetWire, normalizedIndex + i))) {
+							conflict = true;
+							break;
+						}
+					}
+					if (conflict) {
+						log_warning("Skipping cell %s: target %s[%d] already driven by another cell\n",
+							log_id(cell->name), wireName.c_str(), bitIndex);
+						continue;
+					}
+
+					// Create the new connection.
 					if (debug)
 						log("Connecting %s to %s[%d]\n", 
 								log_id(oldWire), wireName.c_str(), bitIndex);
 
-					// Record the mapping for each bit of the old wire to the target wire
-					for (int i = 0; i < GetSize(oldWire); i++)
-						bit_map[SigBit(oldWire, i)] = SigBit(targetWire, bitIndex + i);
-
+					// Record the mapping for each bit of the old wire to the target wire.
+					for (int i = 0; i < GetSize(oldWire); i++) {
+						SigBit target(targetWire, normalizedIndex + i);
+						bit_map[SigBit(oldWire, i)] = target;
+						claimed_bits.insert(target);
+					}
 					wireRemoveCache.insert(oldWire);
 				}
 			}
@@ -186,7 +218,7 @@ struct RegRenameInstance {
 		module->remove(wireRemoveCache);
 	}
 
-	void process_all(dict<std::pair<std::string, std::string>, int> &vcd_reg_widths)
+	void process_all(dict<std::pair<std::string, std::string>, RegInfo> &vcd_reg_widths)
 	{
 		process_registers(vcd_reg_widths);
 		for (auto &it : children)
@@ -248,7 +280,7 @@ struct RegRenamePass : public Pass {
 			log_error("No top module found!\n");
 
 		// Extract pre-optimization signal widths from VCD file
-		dict<std::pair<std::string, std::string>, int> vcd_reg_widths;
+		dict<std::pair<std::string, std::string>, RegInfo> vcd_reg_widths;
 		if (!vcd_filename.empty()) {
 			log("Reading VCD file: %s\n", vcd_filename.c_str());
 			try {
@@ -266,18 +298,36 @@ struct RegRenamePass : public Pass {
 				for (auto &var : fst.getVars()) {
 					std::string vcd_scope = var.scope;
 					std::string signal_name = var.name;
+					std::string signal_bits = "";
 
-					// Remove bracket notation if present to preserve register name
-					if (auto pos = signal_name.rfind('['); pos != std::string::npos)
-						signal_name.erase(pos);
+					// Use the bracket notation to extract the bit range and construct true reg name.
+					size_t bit_pos = signal_name.rfind('[');
+					if (bit_pos != std::string::npos) {
+						signal_bits = signal_name.substr(bit_pos);
+						signal_name.erase(bit_pos);
+					}
+
+					// Extract the LSB and MSB indices if present.
+					int msb = 0;
+					int lsb = 0;
+					size_t colon_pos = signal_bits.find(':');
+					if (colon_pos != std::string::npos) { // range case
+							msb = std::stoi(signal_bits.substr(1, colon_pos - 1));
+							lsb = std::stoi(signal_bits.substr(colon_pos + 1));
+					} else if (!signal_bits.empty()) { // single index case
+						msb = lsb = std::stoi(signal_bits.substr(1));
+					}
+					int width  = var.width;
+					int offset = std::min(msb, lsb);
 
 					// Map the register's vcd scope and name to
-					// its original width for later lookup.
+					// its original width and offset for later lookup.
 					signal_name = RTLIL::unescape_id(signal_name);
-					vcd_reg_widths[{vcd_scope, signal_name}] = var.width;
+					vcd_reg_widths[{vcd_scope, signal_name}] = {width, offset};
 					if (debug)
-						log("Found signal '%s' in scope '%s' with width %d\n",
-							signal_name.c_str(), vcd_scope.c_str(), var.width);
+						log("Found signal '%s' in scope '%s' with range [%d:%d] (width %d)\n",
+							signal_name.c_str(), vcd_scope.c_str(),
+							offset + width - 1, offset, width);
 				}
 				log("Extracted %d signal widths from VCD\n", GetSize(vcd_reg_widths));
 			} catch (const std::exception &e) {
