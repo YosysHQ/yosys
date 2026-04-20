@@ -74,6 +74,7 @@ struct RegRenameInstance {
 		
 		// Map of old bits to new bits of a renamed reg wire
 		dict<SigBit, SigBit> bit_map;
+		pool<SigBit> claimed_bits;
 
 		// Caches of target wires and wires to remove
 		dict<IdString, Wire*> targetWireCache;
@@ -168,15 +169,32 @@ struct RegRenameInstance {
 					if (targetWire == oldWire)
 						continue;
 
+					// Record the mapping for each bit of the old wire to the target wire.
+					int normalizedIndex = bitIndex - wireOffset;
+
+					// Check for conflicts with other cells (multiple drivers guard)
+					bool conflict = false;
+					for (int i = 0; i < GetSize(oldWire); i++) {
+						if (claimed_bits.count(SigBit(targetWire, normalizedIndex + i))) {
+							conflict = true;
+							break;
+						}
+					}
+					if (conflict) {
+						log_warning("Skipping cell %s: target %s[%d] already driven by another cell\n",
+							log_id(cell->name), wireName.c_str(), bitIndex);
+						continue;
+					}
+
+					// Record the mapping for each bit of the old wire to the target wire.
 					if (debug)
 						log("Connecting %s to %s[%d]\n", 
 								log_id(oldWire), wireName.c_str(), bitIndex);
-
-					// Record the mapping for each bit of the old wire to the target wire.
-					// Translate HDL bit index to RTLIL (0-based) index by subtracting wireOffset.
-					int normalizedIndex = bitIndex - wireOffset;
-					for (int i = 0; i < GetSize(oldWire); i++)
-						bit_map[SigBit(oldWire, i)] = SigBit(targetWire, normalizedIndex + i);
+					for (int i = 0; i < GetSize(oldWire); i++) {
+						SigBit target(targetWire, normalizedIndex + i);
+						bit_map[SigBit(oldWire, i)] = target;
+						claimed_bits.insert(target);
+					}
 					wireRemoveCache.insert(oldWire);
 				}
 			}
