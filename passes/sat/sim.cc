@@ -161,6 +161,9 @@ struct SimInstance
 	pool<IdString> dirty_memories;
 	pool<SimInstance*> dirty_children;
 
+	// All wires that drive FF Q outputs
+	pool<Wire*> register_wires;
+
 	struct ff_state_t
 	{
 		Const past_d;
@@ -1082,6 +1085,27 @@ struct SimInstance
 			child.second->register_signals(id);
 	}
 
+	void build_registers()
+	{
+		// Loop over all cells
+		for (auto cell : module->cells())
+		{
+			// Skip non-flip-flops
+			if (!cell->is_builtin_ff())
+				continue;
+			FfData ff_data(nullptr, cell);
+			SigSpec q = sigmap(ff_data.sig_q);
+			// Insert all wires from FF Q outputs
+			for (auto bit : q) {
+				if (bit.wire != nullptr)
+					register_wires.insert(bit.wire);
+			}
+		}
+		// Recursively build registers for all child modules
+		for (auto child : children)
+			child.second->build_registers();
+	}
+
 	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, int, Wire*, int, bool)> register_signal)
 	{
 		int exit_scopes = 1;
@@ -1255,6 +1279,39 @@ struct SimInstance
 		return did_something;
 	}
 
+	bool setRegisters(uint64_t time)
+	{
+		bool did_something = false;
+		for (auto &item : fst_handles) {
+			if (item.second == 0) continue; // skip signals that aren't found
+			if (register_wires.count(item.first) == 0) continue; // skip non-registers
+			Wire *wire = item.first;
+			// Extract wire value from simulation and VCD ground truth
+			Const vcd_val = Const::from_string(shared->fst->valueOf(item.second));
+			Const sim_val = get_state(wire);
+			if (sim_val != vcd_val) {
+				if (shared->debug)
+					log_warning("Register mismatch at time %lu%s for %s.%s: "
+											"sim=%s vcd=%s, overwriting...\n",
+											(unsigned long)time,
+											shared->fst->getTimescaleString(),
+											scope.c_str(), log_id(wire->name),
+											log_signal(sim_val), log_signal(vcd_val));
+			}
+			// Overwrite simulation register state with the ground truth
+			did_something |= set_state(wire, vcd_val);
+		}
+		// Handles multi-dimensional registers
+		for (auto &item : fst_array_handles) {
+			if (register_wires.count(item.first) == 0) continue;
+			did_something |= setStateFromArrayHandles(item.first, item.second);
+		}
+		// Apply to all child modules
+		for (auto child : children)
+			did_something |= child.second->setRegisters(time);
+		return did_something;
+	}
+
 	void addAdditionalInputs()
 	{
 		for (auto cell : module->cells())
@@ -1374,6 +1431,7 @@ struct SimWorker : SimShared
 	std::string map_filename;
 	std::string summary_filename;
 	std::string scope;
+	bool reg_overwrite = false;
 
 	~SimWorker()
 	{
@@ -1385,6 +1443,7 @@ struct SimWorker : SimShared
 	{
 		next_output_id = 1;
 		top->register_signals(top->shared->next_output_id);
+		top->build_registers();
 	}
 
 	void register_output_step(int t)
@@ -1676,6 +1735,11 @@ struct SimWorker : SimShared
 			}
 			if (did_something)
 				update(true);
+
+			// Override register state from VCD every cycle
+			if (reg_overwrite && top->setRegisters(time))
+				update(true);
+
 			register_output_step(time);
 			last_time = time;
 
@@ -3034,6 +3098,9 @@ struct SimPass : public Pass {
 		log("    -log-interval <integer>\n");
 		log("        log progress every N cycles (if clock is specified) or samples (otherwise). Defaults to 0 (no logging)\n");
 		log("\n");
+		log("    -reg\n");
+		log("        overwrite register state from VCD file every cycle\n");
+		log("\n");
 	}
 
 
@@ -3049,7 +3116,7 @@ struct SimPass : public Pass {
 		int cycle_width = 10;
 		int append = 0, log_interval = 0;
 		bool start_set = false, stop_set = false, at_set = false;
-
+		bool reg_overwrite = false;
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
 
 		size_t argidx;
@@ -3221,6 +3288,10 @@ struct SimPass : public Pass {
 				worker.outputfiles.emplace_back(std::unique_ptr<AnnotateActivity>(new AnnotateActivity(&worker)));
 				continue;
 			}
+			if (args[argidx] == "-reg") {
+				reg_overwrite = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -3243,6 +3314,7 @@ struct SimPass : public Pass {
 			top_mod = mods.front();
 		}
 
+		worker.reg_overwrite = reg_overwrite;
 		if (worker.sim_filename.empty())
 			worker.run(top_mod, cycle_width, numcycles);
 		else {
