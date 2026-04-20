@@ -345,8 +345,6 @@ int FstData::getWidth(fstHandle signal)
 
 // Auto-discover scope from FST by finding the top module
 std::string FstData::autoScope(Module *topmod) {
-
-	log("Auto-discovering scopes from %d candidates...\n", GetSize(name_to_handle));
 	std::string top = RTLIL::unescape_id(topmod->name);
 	std::string scope = "";
 
@@ -359,41 +357,44 @@ std::string FstData::autoScope(Module *topmod) {
 	}
 	log("Extracted %d ports from module '%s'\n", GetSize(top2widths), top.c_str());
 
-	// For each scope, track the number of matching ports
-	dict<std::string, int> scopes2matches;
 
-	// Use name_to_handle to get all signals from the FST file
+	// Extract list of candidate scopes from name_to_handle
+	pool<std::string> candidate_scopes;
 	for (auto entry : name_to_handle) {
 		std::string name = entry.first;
-		fstHandle handle = entry.second;
-
-		// Extract signal name and scope using '.'
-		// Signal names of form '{scope}.signal_name' with scope potentially
-		// having zero to multiple '.'
 		size_t last_dot = name.find_last_of('.');
-		if (last_dot != std::string::npos) { // no '.' means no scope/signal extraction is possible
+		if (last_dot != std::string::npos) {
 			std::string scope = name.substr(0, last_dot);
-			std::string signal_name = name.substr(last_dot + 1);
-
-			// Check that signal is in the top module and width matches
-			if (top2widths.count(signal_name)) {
-				int signal_width = getWidth(handle);
-				if (signal_width == top2widths[signal_name]) {
-					scopes2matches[scope]++;
-				}
-			}
+			candidate_scopes.insert(scope);
 		}
 	}
+	log("Auto-discovering scopes from %d candidates...\n", GetSize(candidate_scopes));
 
-	// Find scopes with exact matches and add to array
+	// Track number of exact matches for each scope, adding to results if all match
 	std::vector<std::string> results;
-	for (const auto& entry : scopes2matches) {
-		int num_matches = entry.second;
-		if (num_matches == GetSize(top2widths)) {
-			std::string scope = entry.first;
-			results.push_back(scope);
+	for (const auto &scope_candidate : candidate_scopes) {
+    int matches = 0;
+
+		// Loop through all top-level ports
+    for (auto &port : top2widths) {
+			const std::string &port_name = port.first;
+			int port_width = port.second;
+			std::string key = scope_candidate + "." + port_name;
+			auto it = name_to_handle.find(key);
+
+			// Check the signal exists and has correct width to determine a match
+			if (it != name_to_handle.end() && getWidth(it->second) == port_width) {
+				matches++;
+			}
+    }
+
+		// If all ports match, add to results
+    if (matches == GetSize(top2widths)) {
+			results.push_back(scope_candidate);
 		}
 	}
+
+	// Logging results
 	if (results.empty()) {
 		log_warning("Could not auto-discover scope for module '%s'...\n", 
 			top.c_str());
