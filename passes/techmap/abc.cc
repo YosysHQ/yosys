@@ -1027,7 +1027,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 			run_abc.dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
 
-		std::string merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, config.exe_file);
+		std::string merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, run_abc.dont_use_args, config.exe_file);
 		if (!merged_scl.empty()) {
 			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
 		} else {
