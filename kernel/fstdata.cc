@@ -103,13 +103,6 @@ dict<int,fstHandle> FstData::getMemoryHandles(std::string name) {
 		return dict<int,fstHandle>();
 };
 
-dict<std::vector<int>,fstHandle> FstData::getArrayHandles(std::string name) {
-	if (array_to_handle.find(name) != array_to_handle.end())
-		return array_to_handle[name];
-	else
-		return dict<std::vector<int>,fstHandle>();
-};
-
 static std::string remove_spaces(std::string str)
 {
 	str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
@@ -144,63 +137,17 @@ void FstData::extractVarNames()
 				if (!var.is_alias)
 					handle_to_var[h->u.var.handle] = var;
 
-				std::string clean_name;
-				bool has_space = false;
-				for(size_t i=0;i<strlen(h->u.var.name);i++) 
-				{
-					char c = h->u.var.name[i];
-					if(c==' ') { has_space = true; break; }
-					clean_name += c;
-				}
-				if (clean_name[0]=='\\')
-					clean_name = clean_name.substr(1);
+				std::string clean_name = var.name;
+				if (!clean_name.empty() && clean_name[0] == '\\')
+				clean_name = clean_name.substr(1);
 
-				// Strip bit ranges like [4:0] from the end (only if no space)
-				if (!has_space) {
-					size_t pos = clean_name.find_last_of("[");
-					if (pos != std::string::npos) {
-						std::string index_or_range = clean_name.substr(pos+1);
-						if (index_or_range.find(":") != std::string::npos) {
-							clean_name = clean_name.substr(0,pos);
-						}
-					}
-				} else {
-
-					// Handle "signal [i0][i1]...[iN][bitrange]" format
-					std::string full_name = h->u.var.name;
-					size_t space_pos = full_name.find(' ');
-					if (space_pos != std::string::npos) {
-
-						// Extract "[i0][i1]...[iN][bitrange]" suffix
-						std::string suffix = full_name.substr(space_pos + 1);
-
-						// Parse arbitrary number of array indices
-						size_t open = 0;
-						std::vector<int> array_indices;
-						while (open < suffix.length() && suffix[open] == '[') {
-
-							size_t close = suffix.find(']', open);
-							if (close != std::string::npos) {
-								std::string index_str = suffix.substr(open + 1, close - open - 1);
-
-								// Check it's an array index (no colon), not a bit range
-								if (index_str.find(':') == std::string::npos) {
-									int array_index = std::stoi(index_str);
-									array_indices.push_back(array_index);
-								}
-							} else {
-								log_warning("Error parsing array index in : %s\n", full_name.c_str());
-								break;
-							}
-
-							// Move to next opening bracket
-							open = close + 1;
-						}
-
-						// Add array indices to array_to_handle map if there are any
-						if (!array_indices.empty()) {
-							array_to_handle[var.scope+"."+clean_name][array_indices] = var.id;
-						}
+				// Strip trailing bit range [N:M] if present
+				if (!clean_name.empty() && clean_name.back() == ']') {
+					size_t open = clean_name.rfind('[');
+					if (open != std::string::npos) {
+						std::string inner = clean_name.substr(open + 1, clean_name.size() - open - 2);
+						if (inner.find(':') != std::string::npos)
+							clean_name.erase(open);
 					}
 				}
 

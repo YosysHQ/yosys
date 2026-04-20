@@ -68,7 +68,6 @@ private:
 	std::map<fstHandle, FstVar> handle_to_var;
 	std::map<std::string, fstHandle> name_to_handle;
 	std::map<std::string, dict<int, fstHandle>> memory_to_handle;
-	std::map<std::string, dict<std::vector<int>, fstHandle>> array_to_handle;
 	std::map<fstHandle, std::string> last_data;
 	uint64_t last_time;
 	std::map<fstHandle, std::string> past_data;
