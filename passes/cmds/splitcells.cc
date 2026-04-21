@@ -211,9 +211,9 @@ struct SplitcellsWorker
 							if (bracket_pos != std::string::npos) {
 									wire_indices = wire_name.substr(bracket_pos) + stringf(
 										"%c%d%c", format[0], bit_offset, format[1]);
-							} else { // no brackets, so no concatenation using wire, use slice_lsb instead
+							} else { // no brackets, so no concatenation using wire, use slice_lsb + name_lsb offset instead
 									wire_indices = stringf(
-										"%c%d%c", format[0], slice_lsb, format[1]);
+										"%c%d%c", format[0], slice_lsb + name_lsb, format[1]);
 							}
 					} else {
 							// Fallback
