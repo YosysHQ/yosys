@@ -463,6 +463,10 @@ struct XpropWorker
 			return;
 		}
 
+		if (cell->type.in(ID($scopeinfo))) {
+			return;
+		}
+
 		log_warning("Unhandled cell %s (%s) during maybe-x marking\n", log_id(cell), log_id(cell->type));
 		mark_outputs_maybe_x(cell);
 	}
