@@ -2619,21 +2619,26 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			input_error("Right hand side of 1st expression of %s for-loop is not constant!\n", loop_type_str);
 
 		auto resolved = current_scope.at(init_ast->children[0]->str);
-		if (resolved->range_valid) {
-			int const_size = varbuf->range_left - varbuf->range_right;
-			int resolved_size = resolved->range_left - resolved->range_right;
-			if (const_size < resolved_size) {
-				for (int i = const_size; i < resolved_size; i++)
-					varbuf->bits.push_back(resolved->is_signed ? varbuf->bits.back() : State::S0);
-				varbuf->range_left = resolved->range_left;
-				varbuf->range_right = resolved->range_right;
-				varbuf->range_swapped = resolved->range_swapped;
-				varbuf->range_valid = resolved->range_valid;
+		auto apply_loop_var_type = [&resolved](std::unique_ptr<AstNode> &value) {
+			if (resolved->range_valid) {
+				int const_size = value->range_left - value->range_right;
+				int resolved_size = resolved->range_left - resolved->range_right;
+				if (const_size < resolved_size) {
+					for (int i = const_size; i < resolved_size; i++)
+						value->bits.push_back(resolved->is_signed ? value->bits.back() : State::S0);
+					value->range_left = resolved->range_left;
+					value->range_right = resolved->range_right;
+					value->range_swapped = resolved->range_swapped;
+					value->range_valid = resolved->range_valid;
+				}
 			}
-		}
+			value->is_signed = resolved->is_signed;
+		};
+		apply_loop_var_type(varbuf);
 
 		varbuf = std::make_unique<AstNode>(location, AST_LOCALPARAM, std::move(varbuf));
 		varbuf->str = init_ast->children[0]->str;
+		varbuf->is_signed = resolved->is_signed;
 
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
 		current_scope[varbuf->str] = varbuf.get();
@@ -2708,6 +2713,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (buf->type != AST_CONSTANT)
 				input_error("Right hand side of 3rd expression of %s for-loop is not constant (%s)!\n", loop_type_str, type2str(buf->type));
 
+			apply_loop_var_type(buf);
 			varbuf->children[0] = std::move(buf);
 		}
 
