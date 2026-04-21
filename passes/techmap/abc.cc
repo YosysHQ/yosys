@@ -125,6 +125,7 @@ struct AbcConfig
 	std::vector<std::string> liberty_files;
 	std::vector<std::string> genlib_files;
 	std::string constr_file;
+	std::string abc_liberty_args;
 	vector<int> lut_costs;
 	std::string delay_target;
 	std::string sop_inputs;
@@ -1023,7 +1024,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		}
 		bool first_lib = true;
 		for (std::string liberty_file : config.liberty_files) {
-			abc_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
+			abc_script += stringf("read_lib %s %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", config.abc_liberty_args, liberty_file);
 			first_lib = false;
 		}
 		for (std::string liberty_file : config.genlib_files)
@@ -2019,6 +2020,10 @@ struct AbcPass : public Pass {
 		log("        preserve naming by an equivalence check between the original and\n");
 		log("        post-ABC netlists (experimental).\n");
 		log("\n");
+		log("    -liberty_args <string>\n");
+		log("        when -liberty is used, also pass the specified arguments to ABC\n");
+		log("        command \"read_lib\". Example: -liberty_args \"-G 250\"\n");
+		log("\n");
 		log("When no target cell library is specified the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
 		log("\n");
@@ -2199,6 +2204,14 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-markgroups") {
 				config.markgroups = true;
+				continue;
+			}
+			if (arg == "-liberty_args" && argidx+1 < args.size()) {
+				config.abc_liberty_args = args[++argidx];
+				if (!config.abc_liberty_args.empty()) {
+					if (config.abc_liberty_args[0] == '\"' && config.abc_liberty_args.back() == '\"')
+						config.abc_liberty_args = config.abc_liberty_args.substr(1, config.abc_liberty_args.size() - 2);
+				}
 				continue;
 			}
 			break;
