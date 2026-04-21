@@ -135,7 +135,8 @@ struct RTLIL::SigNormIndex
 				wire->driverPort_ = port;
 
 				xlog("therefore connect port %s %s %s\n", port, log_signal(sig), wire->name);
-				module->connect(sig, wire);
+				// This orientation bias is potentially dangerous elsewhere
+				module->connect(wire, sig);
 				sig = wire;
 			}
 		}
