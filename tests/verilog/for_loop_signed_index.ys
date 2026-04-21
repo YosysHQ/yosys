@@ -1,0 +1,56 @@
+# Regression test: when procedural for-loops are unrolled, the constant
+# replacement for the loop variable must keep the variable's declared
+# signedness.
+
+read_verilog <<EOT
+module signed_index(input signed a, output reg y);
+  reg signed i;
+
+  always @*
+    for (i = 1'h0; i < 1'h1; i = i + 1'h1)
+      y = a <= i;
+endmodule
+
+EOT
+
+hierarchy -top signed_index
+proc
+sat -set a 1 -prove y 1 -verify
+
+design -reset
+
+# This loop runs more than once. The final assignment to y happens after the
+# step expression has recomputed i, so it fails unless the stepped value is
+# retagged with the loop variable's signedness too.
+read_verilog <<EOT
+module signed_index_after_step(input signed a, output reg y);
+  reg signed [1:0] i;
+
+  always @* begin
+    y = 1'b0;
+    for (i = -2'sd1; i < 2'sd1; i = i + 1'h1)
+      y = a <= i;
+  end
+endmodule
+EOT
+
+hierarchy -top signed_index_after_step
+proc
+sat -set a 1 -prove y 1 -verify
+
+design -reset
+
+# Control: `a` signed but `i` unsigned, so comparison should be unsigned.
+read_verilog <<EOT
+module unsigned_index(input signed a, output reg y);
+  reg i;
+
+  always @*
+    for (i = 1'h0; i < 1'h1; i = i + 1'h1)
+      y = a <= i;
+endmodule
+EOT
+
+hierarchy -top unsigned_index
+proc
+sat -set a 1 -prove y 0 -verify
