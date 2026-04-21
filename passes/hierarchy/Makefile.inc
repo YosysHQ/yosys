@@ -5,3 +5,4 @@ OBJS += passes/hierarchy/uniquify.o
 OBJS += passes/hierarchy/submod.o
 OBJS += passes/hierarchy/keep_hierarchy.o
 
+include $(YOSYS_SRC)/passes/hierarchy/util/Makefile.inc
