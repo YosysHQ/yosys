@@ -177,6 +177,7 @@ struct SplitcellsWorker
 			slices.push_back(GetSize(outsig));
 
 			log_debug("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			int wire_offset = user_index(0);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;
@@ -184,10 +185,8 @@ struct SplitcellsWorker
 				int name_lsb = user_index(slice_lsb);
 				int name_msb = user_index(slice_msb);
 				if (name_lsb > name_msb) std::swap(name_lsb, name_msb);
-
 				std::string base_name = cell->name.str();
 				IdString slice_name;
-
 				if (blast) {
 					// Strip existing brackets from cell name
 					size_t bracket_pos = base_name.find('[');
@@ -213,7 +212,7 @@ struct SplitcellsWorker
 										"%c%d%c", format[0], bit_offset, format[1]);
 							} else { // no brackets, so no concatenation using wire, use slice_lsb + name_lsb offset instead
 									wire_indices = stringf(
-										"%c%d%c", format[0], slice_lsb + name_lsb, format[1]);
+										"%c%d%c", format[0], slice_lsb + wire_offset, format[1]);
 							}
 					} else {
 							// Fallback
