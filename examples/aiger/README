@@ -14,7 +14,7 @@ in the PATH. E.g. extract the release to /usr/local/libexec/super_prove
 and then create a /usr/local/bin/super_prove file with the following
 contents (and "chmod +x" that file):
 
-	#!/bin/bash
+	#!/usr/bin/env bash
 	exec /usr/local/libexec/super_prove/bin/super_prove.sh "$@"
 
 The "demo.sh" script also expects the "z3" SMT2 solver in the PATH for

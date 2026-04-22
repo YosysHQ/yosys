@@ -54,6 +54,6 @@ def create_tests():
         "rm -f aigmap.err"
     ]))
 
-extra = [ f"ABC ?= {gen_tests_makefile.yosys_basedir}/yosys-abc", "SHELL := /bin/bash" ]
+extra = [ f"ABC ?= {gen_tests_makefile.yosys_basedir}/yosys-abc", "SHELL := /usr/bin/env bash" ]
 
 gen_tests_makefile.generate_custom(create_tests, extra)
