@@ -84,4 +84,85 @@ module top;
         assert(pt_o[0] == 1'b0);
         assert(pt_o[1] == 1'b1);
     end
+
+    // Test 9: Positional assignment pattern on a whole unpacked array
+    // Covers the parser and continuous assignment expansion path for `'{...}.
+    wire ap_table [1];
+    wire ap_i = 1'b0;
+    wire ap_out;
+    assign ap_table = '{1'h1};
+    assign ap_out = ap_table[ap_i > 1'h0 ? 1'h0 : ap_i];
+    always_comb begin
+        assert(ap_out == 1'b1);
+    end
+
+    // Test 10: Positional assignment pattern preserves left-to-right element order.
+    wire ap_order [2];
+    assign ap_order = '{1'b0, 1'b1};
+    always_comb begin
+        assert(ap_order[0] == 1'b0);
+        assert(ap_order[1] == 1'b1);
+    end
+
+    function automatic logic ap_identity(input logic value);
+        ap_identity = value;
+    endfunction
+
+    // Test 11: The first assignment pattern element is a runtime expression.
+    wire ap_runtime_in = 1'b1;
+    wire ap_runtime [2];
+    assign ap_runtime = '{ap_identity(ap_runtime_in), 1'b0};
+    always_comb begin
+        assert(ap_runtime[0] == 1'b1);
+        assert(ap_runtime[1] == 1'b0);
+    end
+
+    // Test 12: Nested positional assignment pattern on a multidimensional array.
+    wire ap_nested [2][2];
+    assign ap_nested = '{'{1'b1, 1'b0}, '{1'b0, 1'b1}};
+    always_comb begin
+        assert(ap_nested[0][0] == 1'b1);
+        assert(ap_nested[0][1] == 1'b0);
+        assert(ap_nested[1][0] == 1'b0);
+        assert(ap_nested[1][1] == 1'b1);
+    end
+
+    // Test 13: Multidimensional assignment pattern with row expressions.
+    wire ap_row0 [2];
+    wire ap_row1 [2];
+    wire ap_rows [2][2];
+    assign ap_row0 = '{1'b1, 1'b0};
+    assign ap_row1 = '{1'b0, 1'b1};
+    assign ap_rows = '{ap_row0, ap_row1};
+    always_comb begin
+        assert(ap_rows[0][0] == 1'b1);
+        assert(ap_rows[0][1] == 1'b0);
+        assert(ap_rows[1][0] == 1'b0);
+        assert(ap_rows[1][1] == 1'b1);
+    end
+
+    // Test 14: Procedural blocking assignment pattern preserves RHS values.
+    logic ap_swap [2];
+    always_comb begin
+        ap_swap[0] = 1'b0;
+        ap_swap[1] = 1'b1;
+        ap_swap = '{ap_swap[1], ap_swap[0]};
+
+        assert(ap_swap[0] == 1'b1);
+        assert(ap_swap[1] == 1'b0);
+    end
+
+    // Test 15: Assignment pattern elements use the target element width context.
+    logic [4:0] ap_width_ctx [1];
+    assign ap_width_ctx = '{4'hf + 4'h1};
+    always_comb begin
+        assert(ap_width_ctx[0] == 5'h10);
+    end
+
+    // Test 16: Nested assignment pattern elements also use the target element width context.
+    logic [4:0] ap_nested_width_ctx [1][1];
+    assign ap_nested_width_ctx = '{'{4'hf + 4'h1}};
+    always_comb begin
+        assert(ap_nested_width_ctx[0][0] == 5'h10);
+    end
 endmodule
