@@ -3223,9 +3223,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 			log("    Running post-elaboration for %s.\n", it->first.c_str());
 			nl->PostElaborationProcess();
-
-			log("    Running operator optimization for %s.\n", it->first.c_str());
-			nl->OperatorOptimization();
 		}
 
 		if (nl_done.count(it->first) == 0) {
