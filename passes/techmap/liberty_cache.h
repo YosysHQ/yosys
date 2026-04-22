@@ -88,13 +88,13 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 			if (!abc_output.empty()) {
 				log("ABC conversion output:\n%s", abc_output.c_str());
 			}
-			unlink(temp_scl.c_str());
+			remove(temp_scl.c_str());
 			return "";
 		}
 
 		if (rename(temp_scl.c_str(), merged_scl.c_str()) != 0) {
 			log_warning("ABC: Failed to rename %s to %s, falling back to liberty format\n", temp_scl.c_str(), merged_scl.c_str());
-			unlink(temp_scl.c_str());
+			remove(temp_scl.c_str());
 			return "";
 		}
 	}
