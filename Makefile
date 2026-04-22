@@ -559,6 +559,13 @@ CXXFLAGS += -DSILIMATE_VERIFIC_EXTENSIONS
 VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/database/DBSilimate.o
 VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/VeriSilimate.o
 VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/util/UtilSilimate.o
+# Override flex/bison-generated parser/lexer so local edits to
+# verific/verilog/verilog.l and verific/verilog/verilog.y are reflected in
+# the linked yosys binary. Without these, the precompiled veri_lex.o and
+# veri_yacc.o inside verilog-{mac,linux}.raw.a win and edits silently have
+# no effect.
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/veri_yacc.o
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/veri_lex.o
 endif
 ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
@@ -586,13 +593,40 @@ endif
 # .o definitions (linked before the archives) take precedence.
 ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
 
-$(VERIFIC_DIR)/database/DBSilimate.o: $(VERIFIC_DIR)/database/DBSilimate.cpp
+# Bison emits both veri_yacc.cpp and veri_yacc.h from a single invocation.
+# Make < 4.3 (e.g. macOS GNU Make 3.81) treats a multi-target rule as two
+# independent rules, so we declare veri_yacc.h as the canonical generated
+# target and give veri_yacc.cpp an empty rule that just depends on it. This
+# guarantees a single bison run and proper dependency tracking.
+$(VERIFIC_DIR)/verilog/veri_yacc.h: $(VERIFIC_DIR)/verilog/verilog.y
+	$(P) cd $(VERIFIC_DIR)/verilog && bison -l -p veri --defines=veri_yacc.h -o veri_yacc.cpp verilog.y
+
+$(VERIFIC_DIR)/verilog/veri_yacc.cpp: $(VERIFIC_DIR)/verilog/veri_yacc.h ;
+
+$(VERIFIC_DIR)/verilog/veri_lex.cpp: $(VERIFIC_DIR)/verilog/verilog.l
+	$(P) cd $(VERIFIC_DIR)/verilog && flex -Pveri -L -overi_lex.cpp verilog.l
+
+# The Silimate .cpp files (and the flex/bison outputs) include veri_tokens.h
+# transitively, which pulls in veri_yacc.h. Token IDs are baked into the
+# compiled .o files, so they must be rebuilt whenever veri_yacc.h changes,
+# even if the .cpp source itself is untouched. Without this dependency,
+# editing only verilog.y silently leaves veri_lex.o (and the others)
+# holding stale token IDs that no longer match the regenerated veri_yacc.o,
+# which manifests as "my overrides in verilog.y/verilog.l aren't showing
+# up". $(CXXFLAGS) already contains -I for the verific component dirs.
+$(VERIFIC_DIR)/verilog/veri_yacc.o: $(VERIFIC_DIR)/verilog/veri_yacc.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
 	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
 
-$(VERIFIC_DIR)/verilog/VeriSilimate.o: $(VERIFIC_DIR)/verilog/VeriSilimate.cpp
+$(VERIFIC_DIR)/verilog/veri_lex.o: $(VERIFIC_DIR)/verilog/veri_lex.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
 	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
 
-$(VERIFIC_DIR)/util/UtilSilimate.o: $(VERIFIC_DIR)/util/UtilSilimate.cpp
+$(VERIFIC_DIR)/database/DBSilimate.o: $(VERIFIC_DIR)/database/DBSilimate.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/verilog/VeriSilimate.o: $(VERIFIC_DIR)/verilog/VeriSilimate.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/util/UtilSilimate.o: $(VERIFIC_DIR)/util/UtilSilimate.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
 	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
 
 ifeq ($(OS), Darwin)
@@ -1301,6 +1335,15 @@ clean: clean-py clean-unit-test
 	rm -rf share
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc
+ifeq ($(ENABLE_VERIFIC),1)
+ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
+	rm -f $(VERIFIC_SILIMATE_OBJS) $(VERIFIC_DIR)/_override_syms.txt
+	rm -f $(VERIFIC_PATCHED_ARCHIVES)
+	rm -rf $(addsuffix _patch_tmp,$(VERIFIC_PATCHED_ARCHIVES))
+	rm -f $(VERIFIC_DIR)/verilog/veri_lex.cpp
+	rm -f $(VERIFIC_DIR)/verilog/veri_yacc.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
+endif
+endif
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
