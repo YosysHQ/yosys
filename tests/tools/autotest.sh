@@ -235,6 +235,7 @@ do
 				echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
 			fi
 		fi
+		sed -e "s,^,${bn}: ," ${bn}.err
 		$keeprunning || exit 1
 	fi
 done
