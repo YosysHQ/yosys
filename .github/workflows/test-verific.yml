@@ -78,7 +78,7 @@ jobs:
       - name: Run Verific specific Yosys tests
         run: |
           make -C tests/sva
-          cd tests/svtypes && bash run-test.sh
+          make -C tests/svtypes
 
       - name: Run SBY tests
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}

@@ -9,3 +9,4 @@
 /temp
 /smtlib2_module.smt2
 /smtlib2_module-filtered.smt2
+/*.aig

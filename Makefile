@@ -918,111 +918,15 @@ else
 ABCOPT=""
 endif
 
-# Tests that generate .mk with tests/gen-tests-makefile.sh
-MK_TEST_DIRS =
-MK_TEST_DIRS += tests/arch/analogdevices
-MK_TEST_DIRS += tests/arch/anlogic
-MK_TEST_DIRS += tests/arch/ecp5
-MK_TEST_DIRS += tests/arch/efinix
-MK_TEST_DIRS += tests/arch/gatemate
-MK_TEST_DIRS += tests/arch/gowin
-MK_TEST_DIRS += tests/arch/ice40
-MK_TEST_DIRS += tests/arch/intel_alm
-MK_TEST_DIRS += tests/arch/machxo2
-MK_TEST_DIRS += tests/arch/microchip
-MK_TEST_DIRS += tests/arch/nanoxplore
-MK_TEST_DIRS += tests/arch/nexus
-MK_TEST_DIRS += tests/arch/quicklogic/pp3
-MK_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
-MK_TEST_DIRS += tests/arch/xilinx
-MK_TEST_DIRS += tests/bugpoint
-MK_TEST_DIRS += tests/opt
-MK_TEST_DIRS += tests/sat
-MK_TEST_DIRS += tests/sdc
-MK_TEST_DIRS += tests/sim
-MK_TEST_DIRS += tests/svtypes
-MK_TEST_DIRS += tests/techmap
-MK_TEST_DIRS += tests/various
-MK_TEST_DIRS += tests/rtlil
-ifeq ($(ENABLE_VERIFIC),1)
-ifneq ($(YOSYS_NOVERIFIC),1)
-MK_TEST_DIRS += tests/verific
-endif
-endif
-MK_TEST_DIRS += tests/verilog
-
-# Tests that don't generate .mk
-SH_TEST_DIRS =
-SH_TEST_DIRS += tests/arith_tree
-SH_TEST_DIRS += tests/simple
-SH_TEST_DIRS += tests/simple_abc9
-SH_TEST_DIRS += tests/hana
-SH_TEST_DIRS += tests/asicworld
-# SH_TEST_DIRS += tests/realmath
-SH_TEST_DIRS += tests/share
-SH_TEST_DIRS += tests/opt_share
-SH_TEST_DIRS += tests/fsm
-SH_TEST_DIRS += tests/memlib
-SH_TEST_DIRS += tests/bram
-SH_TEST_DIRS += tests/svinterfaces
-SH_TEST_DIRS += tests/xprop
-SH_TEST_DIRS += tests/select
-SH_TEST_DIRS += tests/peepopt
-SH_TEST_DIRS += tests/proc
-SH_TEST_DIRS += tests/blif
-SH_TEST_DIRS += tests/arch
-SH_TEST_DIRS += tests/rpc
-SH_TEST_DIRS += tests/memfile
-SH_TEST_DIRS += tests/fmt
-SH_TEST_DIRS += tests/cxxrtl
-SH_TEST_DIRS += tests/liberty
-ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-SH_TEST_DIRS += tests/functional
-endif
-
-# Tests that don't generate .mk and need special args
-SH_ABC_TEST_DIRS =
-SH_ABC_TEST_DIRS += tests/memories
-SH_ABC_TEST_DIRS += tests/aiger
-SH_ABC_TEST_DIRS += tests/alumacc
-
-# seed-tests/ is a dummy string, not a directory
-.PHONY: seed-tests
-seed-tests: $(SH_TEST_DIRS:%=seed-tests/%)
-.PHONY: seed-tests/%
-seed-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && bash run-test.sh $(SEEDOPT)
-	+@echo "...passed tests in $*"
-
-# abcopt-tests/ is a dummy string, not a directory
-.PHONY: abcopt-tests
-abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-tests/%)
-abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
-	+@echo "...passed tests in $*"
-
-# makefile-tests/ is a dummy string, not a directory
-.PHONY: makefile-tests
-makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
-# this target actually emits .mk files
-%.mk:
-	+cd $(dir $*) && bash run-test.sh
-# this one spawns submake on each
-makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
-	$(MAKE) -C $* -f run-test.mk
-	+@echo "...passed tests in $*"
-
 test: vanilla-test unit-test
 
-vanilla-test: makefile-tests abcopt-tests seed-tests
-	@echo ""
-	@echo "  Passed \"make vanilla-test\"."
-ifeq ($(ENABLE_VERIFIC),1)
-ifeq ($(YOSYS_NOVERIFIC),1)
-	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
-endif
-endif
-	@echo ""
+.PHONY: vanilla-test
+
+vanilla-test: $(TARGETS) $(EXTRA_TARGETS)
+	@$(MAKE) -C tests vanilla-test \
+	$(if $(ENABLE_VERIFIC),ENABLE_VERIFIC=$(ENABLE_VERIFIC)) \
+	$(if $(YOSYS_NOVERIFIC),YOSYS_NOVERIFIC=$(YOSYS_NOVERIFIC)) \
+	SEEDOPT=$(SEEDOPT) ABCOPT=$(ABCOPT)
 
 VALGRIND ?= valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 
@@ -1188,16 +1092,8 @@ clean: clean-py clean-unit-test
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
-	rm -rf tests/asicworld/*.out tests/asicworld/*.log
-	rm -rf tests/hana/*.out tests/hana/*.log
-	rm -rf tests/simple/*.out tests/simple/*.log
-	rm -rf tests/memories/*.out tests/memories/*.log tests/memories/*.dmp
-	rm -rf tests/sat/*.log tests/techmap/*.log tests/various/*.log
-	rm -rf tests/bram/temp tests/fsm/temp tests/realmath/temp tests/share/temp tests/smv/temp tests/various/temp
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
-	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
-	rm -f  tests/tools/cmp_tbdata
-	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
+	-$(MAKE) -C $(YOSYS_SRC)/tests clean
 	-$(MAKE) -C $(YOSYS_SRC)/docs clean
 	rm -rf docs/util/__pycache__
 	rm -f libyosys.so
