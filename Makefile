@@ -558,6 +558,7 @@ ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
 CXXFLAGS += -DSILIMATE_VERIFIC_EXTENSIONS
 VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/database/DBSilimate.o
 VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/VeriSilimate.o
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/util/UtilSilimate.o
 endif
 ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
@@ -591,6 +592,9 @@ $(VERIFIC_DIR)/database/DBSilimate.o: $(VERIFIC_DIR)/database/DBSilimate.cpp
 $(VERIFIC_DIR)/verilog/VeriSilimate.o: $(VERIFIC_DIR)/verilog/VeriSilimate.cpp
 	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
 
+$(VERIFIC_DIR)/util/UtilSilimate.o: $(VERIFIC_DIR)/util/UtilSilimate.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
 ifeq ($(OS), Darwin)
 VERIFIC_LIB_OS_SUFFIX = mac
 
@@ -621,6 +625,18 @@ $(VERIFIC_DIR)/verilog/verilog-mac.a: $(VERIFIC_DIR)/verilog/verilog-mac.raw.a $
 	$(Q) ar rcs $@ $@_patch_tmp/*.o
 	$(Q) rm -rf $@_patch_tmp
 
+$(VERIFIC_DIR)/util/util-mac.a: $(VERIFIC_DIR)/util/util-mac.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			nm -gjU "$$o" 2>/dev/null | grep -Fx -f $(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt > "$$o.syms" 2>/dev/null; \
+			if [ -s "$$o.syms" ]; then nmedit -R "$$o.syms" "$$o"; fi; \
+			rm -f "$$o.syms"; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
 else
 VERIFIC_LIB_OS_SUFFIX = linux
 LINKFLAGS += -Wl,--allow-multiple-definition
@@ -631,9 +647,15 @@ $(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux
 $(VERIFIC_DIR)/verilog/verilog-linux.a: $(VERIFIC_DIR)/verilog/verilog-linux.raw.a
 	$(Q) cp $< $@
 
+$(VERIFIC_DIR)/util/util-linux.a: $(VERIFIC_DIR)/util/util-linux.raw.a
+	$(Q) cp $< $@
+
 endif
 
-VERIFIC_PATCHED_ARCHIVES = $(VERIFIC_DIR)/database/database-$(VERIFIC_LIB_OS_SUFFIX).a $(VERIFIC_DIR)/verilog/verilog-$(VERIFIC_LIB_OS_SUFFIX).a
+VERIFIC_PATCHED_ARCHIVES = \
+	$(VERIFIC_DIR)/database/database-$(VERIFIC_LIB_OS_SUFFIX).a \
+	$(VERIFIC_DIR)/verilog/verilog-$(VERIFIC_LIB_OS_SUFFIX).a \
+	$(VERIFIC_DIR)/util/util-$(VERIFIC_LIB_OS_SUFFIX).a
 
 endif # ENABLE_VERIFIC_SILIMATE_EXTENSIONS
 
