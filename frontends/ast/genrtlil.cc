@@ -798,7 +798,7 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		case AST_ASSIGN:
-			ast->input_error("Found continous assignment in always/initial block!\n");
+			ast->input_error("Found continuous assignment in always/initial block!\n");
 			break;
 
 		case AST_PARAMETER:
