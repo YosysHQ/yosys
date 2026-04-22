@@ -17,6 +17,9 @@ YOSYS_NAMESPACE_BEGIN
  *
  * Return: Path to merged SCL cache file, or empty string if conversion fails
  */
+#if defined(YOSYS_LINK_ABC)
+inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::string> &, const std::string &, const std::string &) { return ""; }
+#else
 inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::string> &liberty_files, const std::string &dont_use_args, const std::string &abc_exe)
 {
 	if (liberty_files.empty())
@@ -101,6 +104,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 
 	return merged_scl;
 }
+#endif
 
 YOSYS_NAMESPACE_END
 
