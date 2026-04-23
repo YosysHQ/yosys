@@ -12,7 +12,7 @@ You'd better to write a simple script, like this one (assuming the top module
 is top):
 
 ----------- run_yosys.sh --------------
-#!/bin/sh
+#!/usr/bin/env sh
 
 set -e
 

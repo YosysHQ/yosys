@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 set -e
 yosys run_yosys.ys
 edif2ngd example.edif
