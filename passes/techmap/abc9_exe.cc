@@ -24,6 +24,7 @@
 
 #include "kernel/register.h"
 #include "kernel/log.h"
+#include "liberty_cache.h"
 
 #ifndef _WIN32
 #  include <unistd.h>
@@ -181,11 +182,19 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		for (std::string dont_use_cell : dont_use_cells) {
 			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
-		bool first_lib = true;
-		for (std::string liberty_file : liberty_files) {
-			abc9_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
-			first_lib = false;
+
+		std::string merged_scl = convert_liberty_files_to_merged_scl(liberty_files, dont_use_args, exe_file);
+		if (!merged_scl.empty()) {
+			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
+		} else {
+			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			bool first_lib = true;
+			for (std::string liberty_file : liberty_files) {
+				abc9_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
+				first_lib = false;
+			}
 		}
+
 		if (!constr_file.empty())
 			abc9_script += stringf("read_constr -v \"%s\"; ", constr_file);
 	} else if (!genlib_files.empty()) {
@@ -210,6 +219,8 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		} else
 			abc9_script += stringf("source %s", script_file);
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
+		abc9_script += RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
+	} else if (!liberty_files.empty() || !genlib_files.empty()) {
 		abc9_script += RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
 	} else
 		log_abort();
