@@ -122,8 +122,11 @@ namespace RTLIL
 	struct Binding;
 	struct IdString;
 	struct OwningIdString;
+	struct StaticIdString;
+	struct SigNormIndex;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
+	struct PortBit;
 };
 
 struct RTLIL::IdString
@@ -1890,7 +1893,9 @@ struct RTLIL::Design
 	dict<std::string, std::string> scratchpad;
 
 	bool flagBufferedNormalized = false;
+	bool flagSigNormalized = false;
 	void bufNormalize(bool enable=true);
+	void sigNormalize(bool enable=true);
 
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
@@ -2051,6 +2056,10 @@ struct RTLIL::Design
 
 struct RTLIL::Module : public RTLIL::NamedObject
 {
+	friend struct RTLIL::SigNormIndex;
+	friend struct RTLIL::Cell;
+	friend struct RTLIL::Design;
+
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
@@ -2108,6 +2117,19 @@ public:
 	pool<RTLIL::Cell *> pending_deleted_cells;
 	dict<RTLIL::Wire *, pool<RTLIL::Cell *>> buf_norm_connect_index;
 	void bufNormalize();
+	void dump_sigmap();
+
+protected:
+	SigNormIndex *sig_norm_index = nullptr;
+	void clear_sig_norm_index();
+	int timestamp_ = 0;
+public:
+	void sigNormalize();
+
+	int timestamp() const { return timestamp_; }
+	int next_timestamp();
+	std::vector<Cell *> dirty_cells(int starting_from);
+	const pool<PortBit> &fanout(SigBit bit);
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -2428,6 +2450,7 @@ struct RTLIL::Wire : public RTLIL::NamedObject
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
+	friend struct RTLIL::SigNormIndex;
 	Wire();
 	~Wire();
 
@@ -2625,6 +2648,33 @@ public:
 	std::string to_rtlil_str() const;
 };
 
+struct RTLIL::PortBit
+{
+	RTLIL::Cell *cell;
+	RTLIL::IdString port;
+	int offset;
+	PortBit(Cell* c, IdString p, int o) : cell(c), port(p), offset(o) {}
+
+	bool operator<(const PortBit &other) const {
+		if (cell != other.cell)
+			return cell < other.cell;
+		if (port != other.port)
+			return port < other.port;
+		return offset < other.offset;
+	}
+
+	bool operator==(const PortBit &other) const {
+		return cell == other.cell && port == other.port && offset == other.offset;
+	}
+
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		h.eat(cell->name);
+		h.eat(port);
+		h.eat(offset);
+		return h;
+	}
+};
+
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
@@ -2689,6 +2739,7 @@ inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
 template<typename T>
 void RTLIL::Module::rewrite_sigspecs(T &functor)
 {
+	log_assert(sig_norm_index == nullptr);
 	for (auto &it : cells_)
 		it.second->rewrite_sigspecs(functor);
 	for (auto &it : processes)
@@ -2702,6 +2753,7 @@ void RTLIL::Module::rewrite_sigspecs(T &functor)
 template<typename T>
 void RTLIL::Module::rewrite_sigspecs2(T &functor)
 {
+	log_assert(sig_norm_index == nullptr);
 	for (auto &it : cells_)
 		it.second->rewrite_sigspecs2(functor);
 	for (auto &it : processes)

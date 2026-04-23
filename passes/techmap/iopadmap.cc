@@ -186,6 +186,9 @@ struct IopadmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (!inpad_portname_pad.empty())
 			ignore.insert(make_pair(RTLIL::escape_id(inpad_celltype), RTLIL::escape_id(inpad_portname_pad)));
 		if (!outpad_portname_pad.empty())

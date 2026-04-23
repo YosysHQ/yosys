@@ -145,6 +145,9 @@ struct SplitnetsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
+
 		// module_ports_db[module_name][old_port_name] = new_port_name_list
 		dict<IdString, dict<IdString, vector<IdString>>> module_ports_db;
 

@@ -143,8 +143,9 @@ struct EquivMiterWorker
 		for (auto w :  miter_wires)
 			miter_module->addWire(w->name, w->width);
 		for (auto c :  miter_cells) {
-			miter_module->addCell(c->name, c);
-			auto mc = miter_module->cell(c->name);
+			if (c->type == ID($input_port))
+				continue;
+			auto mc = miter_module->addCell(c->name, c);
 			for (auto &conn : mc->connections())
 				mc->setPort(conn.first, sigmap(conn.second));
 		}
@@ -318,6 +319,9 @@ struct EquivMiterPass : public Pass {
 
 		worker.miter_name = RTLIL::escape_id(args[argidx++]);
 		extra_args(args, argidx, design);
+
+		// TODO disable signorm due to rewrite_sigspecs assert
+		design->sigNormalize(false);
 
 		if (design->module(worker.miter_name))
 			log_cmd_error("Miter module %s already exists.\n", log_id(worker.miter_name));

@@ -27,7 +27,7 @@ sat -verify -prove-asserts -show-ports -enable_undef miter2
 
 cd coarse_keepdc
 opt_expr -keepdc
-select -assert-count 1 c:*
+select -assert-count 1 c:* t:$input_port %d
 
 cd fine_keepdc
 simplemap

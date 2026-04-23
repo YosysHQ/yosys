@@ -64,18 +64,61 @@ static Cell* addDsp(Module *module) {
 	return cell;
 }
 
-void xilinx_simd_pack(Module *module, const std::vector<Cell*> &selected_cells)
+SigPool simd_signals(Module *module, SigMap* sigmap)
+{
+	SigPool simd_signals;
+	// Mark representatives of wires that have the attribute
+	for (auto wire : module->wires()) {
+		SigSpec reps = (*sigmap)(wire);
+		log_assert(reps.size() == wire->width);
+		for (int i = 0; i < reps.size(); i++) {
+			auto bit = reps[i];
+			auto src_bit = SigBit(wire, i);
+			if (src_bit.is_wire() && src_bit.wire->has_attribute(ID::use_dsp)) {
+				if (src_bit.wire->get_strpool_attribute(ID::use_dsp).count("simd")) {
+					simd_signals.add(bit);
+				}
+			}
+		}
+	}
+	// Also mark all aliases of those representatives
+	for (auto wire : module->wires()) {
+		SigSpec reps = (*sigmap)(wire);
+		log_assert(reps.size() == wire->width);
+		for (int i = 0; i < reps.size(); i++) {
+			auto bit = reps[i];
+			auto src_bit = SigBit(wire, i);
+			if (simd_signals.check(bit)) {
+				simd_signals.add(src_bit);
+			}
+		}
+	}
+	// This seems silly, but that's generalized RTLIL for you!
+	return simd_signals;
+}
+
+bool is_allowed(SigSpec& sig, SigPool& allowed_bits)
+{
+	for (auto bit : sig.bits()) {
+		if (!allowed_bits.check(bit)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &selected_cells)
 {
 	std::deque<Cell*> simd12_add, simd12_sub;
 	std::deque<Cell*> simd24_add, simd24_sub;
+
+	SigPool simds = simd_signals(module, sigmap);
 
 	for (auto cell : selected_cells) {
 		if (!cell->type.in(ID($add), ID($sub)))
 			continue;
 		SigSpec Y = cell->getPort(ID::Y);
-		if (!Y.is_chunk())
-			continue;
-		if (!Y.as_chunk().wire->get_strpool_attribute(ID(use_dsp)).count("simd"))
+		if (!is_allowed(Y, simds))
 			continue;
 		if (GetSize(Y) > 25)
 			continue;
@@ -372,7 +415,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
 			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
@@ -559,7 +602,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 
 		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
 			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
@@ -682,7 +725,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 
 		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
 			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
@@ -801,19 +844,20 @@ struct XilinxDspPass : public Pass {
 			if (design->scratchpad_get_bool("xilinx_dsp.multonly"))
 				continue;
 
+			SigMap sigmap(module);
 			// Experimental feature: pack $add/$sub cells with
 			//   (* use_dsp48="simd" *) into DSP48E1's using its
 			//   SIMD feature
 			if (family == "xc7")
-				xilinx_simd_pack(module, module->selected_cells());
+				xilinx_simd_pack(module, &sigmap, module->selected_cells());
 
 			// Match for all features ([ABDMP][12]?REG, pre-adder,
 			// post-adder, pattern detector, etc.) except for CREG
 			if (family == "xc7") {
-				xilinx_dsp_pm pm(module, module->selected_cells());
+				xilinx_dsp_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_xilinx_dsp_pack(xilinx_dsp_pack);
 			} else if (family == "xc6s" || family == "xc3sda") {
-				xilinx_dsp48a_pm pm(module, module->selected_cells());
+				xilinx_dsp48a_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_xilinx_dsp48a_pack(xilinx_dsp48a_pack);
 			}
 			// Separating out CREG packing is necessary since there
@@ -825,14 +869,14 @@ struct XilinxDspPass : public Pass {
 			//   PREG of an upstream DSP that had not been visited
 			//   yet
 			{
-				xilinx_dsp_CREG_pm pm(module, module->selected_cells());
+				xilinx_dsp_CREG_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_xilinx_dsp_packC(xilinx_dsp_packC);
 			}
 			// Lastly, identify and utilise PCOUT -> PCIN,
 			//   ACOUT -> ACIN, and BCOUT-> BCIN dedicated cascade
 			//   chains
 			{
-				xilinx_dsp_cascade_pm pm(module, module->selected_cells());
+				xilinx_dsp_cascade_pm pm(module, &sigmap, module->selected_cells());
 				pm.run_xilinx_dsp_cascade();
 			}
 		}
