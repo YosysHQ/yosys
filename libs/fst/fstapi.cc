@@ -4552,7 +4552,7 @@ int fstReaderInit(struct fstReaderContext *xc)
                    /*
                     * Yosys patch: Fix double endian check for i386 targets built in modern gcc
                     */
-                    xc->double_endian_match = (dcheck == (double)FST_DOUBLE_ENDTEST);
+                    xc->double_endian_match = ((double)dcheck == (double)FST_DOUBLE_ENDTEST);
                     if (!xc->double_endian_match) {
                         union
                         {

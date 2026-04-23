@@ -53,7 +53,7 @@ static const std::map<std::string, int> g_units =
 	{ "zs", -21 },
 };
 
-static double stringToTime(std::string str)
+static long double stringToTime(std::string str)
 {
 	if (str=="END") return -1;
 
@@ -66,7 +66,7 @@ static double stringToTime(std::string str)
 	if (value < 0)
 		log_error("Time value '%s' must be positive\n", str);
 
-	return value * pow(10.0, g_units.at(endptr));
+	return value * powl(10.0, g_units.at(endptr));
 }
 
 struct SimWorker;
@@ -110,8 +110,8 @@ struct SimShared
 	bool hdlname = false;
 	int rstlen = 1;
 	FstData *fst = nullptr;
-	double start_time = 0;
-	double stop_time = -1;
+	long double start_time = 0;
+	long double stop_time = -1;
 	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
 	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
