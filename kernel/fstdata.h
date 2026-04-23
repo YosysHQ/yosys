@@ -69,7 +69,7 @@ private:
 	uint64_t last_time;
 	std::map<fstHandle, std::string> past_data;
 	uint64_t past_time;
-	int scale;
+	int scale; // exponent of 10, e.g. -6 = us, -9 = ns
 	std::string timescale_str;
 	uint64_t start_time;
 	uint64_t end_time;

@@ -55,7 +55,7 @@ static const std::map<std::string, int> g_units =
 
 struct scaled_time {
 	uint64_t time;
-	int scale;
+	int scale; // exponent of 10, e.g. -6 = us, -9 = ns
 	bool end;
 };
 
