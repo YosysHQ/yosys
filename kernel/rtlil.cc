@@ -5272,25 +5272,9 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 	log_assert(length >= 0);
 	log_assert(offset + length <= size());
 
-	SigSpec extracted;
-	Chunks cs = chunks();
-	auto it = cs.begin();
-	for (; offset; offset -= it->width, ++it) {
-		if (offset < it->width) {
-			int chunk_length = min(it->width - offset, length);
-			extracted.append(it->extract(offset, chunk_length));
-			length -= chunk_length;
-			++it;
-			break;
-		}
-	}
-	for (; length; length -= it->width, ++it) {
-		if (length >= it->width) {
-			extracted.append(*it);
-		} else {
-			extracted.append(it->extract(0, length));
-			break;
-		}
+	std::vector<SigBit> extracted;
+	for (int i = offset; i < offset + length; i++) {
+		extracted.push_back((*this)[i]);
 	}
 	return extracted;
 }
