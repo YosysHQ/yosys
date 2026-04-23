@@ -1400,6 +1400,9 @@ struct RTLIL::SigSpecConstIterator
 struct RTLIL::SigSpec
 {
 private:
+	friend class SigSpecRepTest;
+	FRIEND_TEST(SigSpecRepTest, ExtractWires);
+	FRIEND_TEST(SigSpecRepTest, ExtractConsts);
 	enum Representation : char {
 		CHUNK,
 		BITS,

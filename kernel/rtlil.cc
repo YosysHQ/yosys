@@ -5273,9 +5273,31 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 	log_assert(offset + length <= size());
 
 	std::vector<SigBit> extracted;
+	SigBit first;
+	bool is_packing = true;
 	for (int i = offset; i < offset + length; i++) {
-		extracted.push_back((*this)[i]);
+		bool was_packing_before = is_packing;
+		SigBit bit = (*this)[i];
+		if (i == offset) {
+			first = bit;
+			if (!bit.wire)
+				is_packing = false;
+		} else {
+			if (bit.wire != first.wire)
+				is_packing = false;
+			if (bit.wire)
+				if (bit.offset != first.offset + (i - offset))
+					is_packing = false;
+		}
+		if (was_packing_before && !is_packing)
+			for (int j = offset; j < i; j++)
+				extracted.push_back((*this)[j]);
+		if (!is_packing)
+			extracted.push_back((*this)[i]);
 	}
+	if (is_packing)
+		return SigChunk(first.wire, first.offset, length);
+
 	return extracted;
 }
 
