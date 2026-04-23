@@ -35,12 +35,6 @@
 #define ABC_COMMAND_SOP "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
-#define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
-#define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
-#define ABC_FAST_COMMAND_LUT "strash; dretime; if"
-#define ABC_FAST_COMMAND_SOP "strash; dretime; cover {I} {P}"
-#define ABC_FAST_COMMAND_DFL "strash; dretime; map"
-
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/newcelltypes.h"
@@ -132,7 +126,6 @@ struct AbcConfig
 	std::vector<std::string> dont_use_cells;
 	bool cleanup = true;
 	bool keepff = false;
-	bool fast_mode = false;
 	bool show_tempdir = false;
 	bool sop_mode = false;
 	bool abc_dress = false;
@@ -1053,16 +1046,15 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		for (int this_cost : config.lut_costs)
 			if (this_cost != config.lut_costs.front())
 				all_luts_cost_same = false;
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
-		if (all_luts_cost_same && !config.fast_mode)
+		abc_script += ABC_COMMAND_LUT;
+		if (all_luts_cost_same)
 			abc_script += "; lutpack -S 1";
 	} else if (!config.liberty_files.empty() || !config.genlib_files.empty())
-		abc_script += config.constr_file.empty() ?
-			(config.fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (config.fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
+		abc_script += config.constr_file.empty() ? ABC_COMMAND_LIB : ABC_COMMAND_CTR;
 	else if (config.sop_mode)
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
+		abc_script += ABC_COMMAND_SOP;
 	else
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
+		abc_script += ABC_COMMAND_DFL;
 
 	if (config.script_file.empty() && !config.delay_target.empty())
 		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
@@ -1887,25 +1879,6 @@ struct AbcPass : public Pass {
 		log("        otherwise:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL));
 		log("\n");
-		log("    -fast\n");
-		log("        use different default scripts that are slightly faster (at the cost\n");
-		log("        of output quality):\n");
-		log("\n");
-		log("        for -liberty/-genlib without -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LIB));
-		log("\n");
-		log("        for -liberty/-genlib with -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_CTR));
-		log("\n");
-		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT));
-		log("\n");
-		log("        for -sop:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_SOP));
-		log("\n");
-		log("        otherwise:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_DFL));
-		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
 		log("        file format).\n");
@@ -2063,7 +2036,6 @@ struct AbcPass : public Pass {
 		config.abc_dress = design->scratchpad_get_bool("abc.dress", false);
 		g_arg = design->scratchpad_get_string("abc.g", g_arg);
 
-		config.fast_mode = design->scratchpad_get_bool("abc.fast", false);
 		bool dff_mode = design->scratchpad_get_bool("abc.dff", false);
 		std::string clk_str;
 		if (design->scratchpad.count("abc.clk")) {
@@ -2170,10 +2142,6 @@ struct AbcPass : public Pass {
 				g_arg = args[++argidx];
 				g_argidx = argidx;
 				g_arg_from_cmd = true;
-				continue;
-			}
-			if (arg == "-fast") {
-				config.fast_mode = true;
 				continue;
 			}
 			if (arg == "-dff") {
