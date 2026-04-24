@@ -25,9 +25,11 @@ firrtl2verilog=""
 xfirrtl="../xfirrtl"
 abcprog="$toolsdir/../../yosys-abc"
 
+exec {lock}<"$toolsdir"; flock "$lock" 1>&2
 if [ ! -f "$toolsdir/cmp_tbdata" -o "$toolsdir/cmp_tbdata.c" -nt "$toolsdir/cmp_tbdata" ]; then
 	( set -ex; ${CXX:-g++} -Wall -o "$toolsdir/cmp_tbdata" "$toolsdir/cmp_tbdata.c"; ) || exit 1
 fi
+flock -u "$lock"; exec {lock}>&-
 
 while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do
 	case "$opt" in
