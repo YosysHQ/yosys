@@ -439,11 +439,14 @@ class dict {
 		hashtable.clear();
 		hashtable.resize(hashtable_size(entries.capacity() * hashtable_size_factor), -1);
 
-		for (int i = 0; i < int(entries.size()); i++) {
-			do_assert(-1 <= entries[i].next && entries[i].next < int(entries.size()));
-			Hasher::hash_t hash = do_hash(entries[i].udata.first);
-			entries[i].next = hashtable[hash];
-			hashtable[hash] = i;
+		entry_t *entries_data = entries.data();
+		int *hashtable_data = hashtable.data();
+		const int n = int(entries.size());
+		for (int i = 0; i < n; i++) {
+			do_assert(-1 <= entries_data[i].next && entries_data[i].next < n);
+			Hasher::hash_t hash = do_hash(entries_data[i].udata.first);
+			entries_data[i].next = hashtable_data[hash];
+			hashtable_data[hash] = i;
 		}
 	}
 
@@ -454,11 +457,12 @@ class dict {
 			return 0;
 
 		entry_t *entries_data = entries.data();
-		int k = hashtable[hash];
+		int *hashtable_data = hashtable.data();
+		int k = hashtable_data[hash];
 		do_assert(0 <= k && k < int(entries.size()));
 
 		if (k == index) {
-			hashtable[hash] = entries_data[index].next;
+			hashtable_data[hash] = entries_data[index].next;
 		} else {
 			while (entries_data[k].next != index) {
 				k = entries_data[k].next;
@@ -473,11 +477,11 @@ class dict {
 		{
 			Hasher::hash_t back_hash = do_hash(entries_data[back_idx].udata.first);
 
-			k = hashtable[back_hash];
+			k = hashtable_data[back_hash];
 			do_assert(0 <= k && k < int(entries.size()));
 
 			if (k == back_idx) {
-				hashtable[back_hash] = index;
+				hashtable_data[back_hash] = index;
 			} else {
 				while (entries_data[k].next != back_idx) {
 					k = entries_data[k].next;
@@ -919,11 +923,14 @@ protected:
 		hashtable.clear();
 		hashtable.resize(hashtable_size(entries.capacity() * hashtable_size_factor), -1);
 
-		for (int i = 0; i < int(entries.size()); i++) {
-			do_assert(-1 <= entries[i].next && entries[i].next < int(entries.size()));
-			Hasher::hash_t hash = do_hash(entries[i].udata);
-			entries[i].next = hashtable[hash];
-			hashtable[hash] = i;
+		entry_t *entries_data = entries.data();
+		int *hashtable_data = hashtable.data();
+		const int n = int(entries.size());
+		for (int i = 0; i < n; i++) {
+			do_assert(-1 <= entries_data[i].next && entries_data[i].next < n);
+			Hasher::hash_t hash = do_hash(entries_data[i].udata);
+			entries_data[i].next = hashtable_data[hash];
+			hashtable_data[hash] = i;
 		}
 	}
 
@@ -934,9 +941,10 @@ protected:
 			return 0;
 
 		entry_t *entries_data = entries.data();
-		int k = hashtable[hash];
+		int *hashtable_data = hashtable.data();
+		int k = hashtable_data[hash];
 		if (k == index) {
-			hashtable[hash] = entries_data[index].next;
+			hashtable_data[hash] = entries_data[index].next;
 		} else {
 			while (entries_data[k].next != index) {
 				k = entries_data[k].next;
@@ -951,9 +959,9 @@ protected:
 		{
 			Hasher::hash_t back_hash = do_hash(entries_data[back_idx].udata);
 
-			k = hashtable[back_hash];
+			k = hashtable_data[back_hash];
 			if (k == back_idx) {
-				hashtable[back_hash] = index;
+				hashtable_data[back_hash] = index;
 			} else {
 				while (entries_data[k].next != back_idx) {
 					k = entries_data[k].next;
