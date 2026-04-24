@@ -1401,8 +1401,7 @@ struct RTLIL::SigSpec
 {
 private:
 	friend class SigSpecRepTest;
-	FRIEND_TEST(SigSpecRepTest, ExtractWires);
-	FRIEND_TEST(SigSpecRepTest, ExtractConsts);
+	FRIEND_TEST(SigSpecRepTest, Extract);
 	enum Representation : char {
 		CHUNK,
 		BITS,
