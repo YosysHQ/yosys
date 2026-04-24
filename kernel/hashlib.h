@@ -453,24 +453,25 @@ class dict {
 		if (hashtable.empty() || index < 0)
 			return 0;
 
+		entry_t *entries_data = entries.data();
 		int k = hashtable[hash];
 		do_assert(0 <= k && k < int(entries.size()));
 
 		if (k == index) {
-			hashtable[hash] = entries[index].next;
+			hashtable[hash] = entries_data[index].next;
 		} else {
-			while (entries[k].next != index) {
-				k = entries[k].next;
+			while (entries_data[k].next != index) {
+				k = entries_data[k].next;
 				do_assert(0 <= k && k < int(entries.size()));
 			}
-			entries[k].next = entries[index].next;
+			entries_data[k].next = entries_data[index].next;
 		}
 
 		int back_idx = entries.size()-1;
 
 		if (index != back_idx)
 		{
-			Hasher::hash_t back_hash = do_hash(entries[back_idx].udata.first);
+			Hasher::hash_t back_hash = do_hash(entries_data[back_idx].udata.first);
 
 			k = hashtable[back_hash];
 			do_assert(0 <= k && k < int(entries.size()));
@@ -478,14 +479,14 @@ class dict {
 			if (k == back_idx) {
 				hashtable[back_hash] = index;
 			} else {
-				while (entries[k].next != back_idx) {
-					k = entries[k].next;
+				while (entries_data[k].next != back_idx) {
+					k = entries_data[k].next;
 					do_assert(0 <= k && k < int(entries.size()));
 				}
-				entries[k].next = index;
+				entries_data[k].next = index;
 			}
 
-			entries[index] = std::move(entries[back_idx]);
+			entries_data[index] = std::move(entries_data[back_idx]);
 		}
 
 		entries.pop_back();
@@ -932,35 +933,36 @@ protected:
 		if (hashtable.empty() || index < 0)
 			return 0;
 
+		entry_t *entries_data = entries.data();
 		int k = hashtable[hash];
 		if (k == index) {
-			hashtable[hash] = entries[index].next;
+			hashtable[hash] = entries_data[index].next;
 		} else {
-			while (entries[k].next != index) {
-				k = entries[k].next;
+			while (entries_data[k].next != index) {
+				k = entries_data[k].next;
 				do_assert(0 <= k && k < int(entries.size()));
 			}
-			entries[k].next = entries[index].next;
+			entries_data[k].next = entries_data[index].next;
 		}
 
 		int back_idx = entries.size()-1;
 
 		if (index != back_idx)
 		{
-			Hasher::hash_t back_hash = do_hash(entries[back_idx].udata);
+			Hasher::hash_t back_hash = do_hash(entries_data[back_idx].udata);
 
 			k = hashtable[back_hash];
 			if (k == back_idx) {
 				hashtable[back_hash] = index;
 			} else {
-				while (entries[k].next != back_idx) {
-					k = entries[k].next;
+				while (entries_data[k].next != back_idx) {
+					k = entries_data[k].next;
 					do_assert(0 <= k && k < int(entries.size()));
 				}
-				entries[k].next = index;
+				entries_data[k].next = index;
 			}
 
-			entries[index] = std::move(entries[back_idx]);
+			entries_data[index] = std::move(entries_data[back_idx]);
 		}
 
 		entries.pop_back();
