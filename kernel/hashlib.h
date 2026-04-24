@@ -512,9 +512,10 @@ class dict {
 	int do_lookup_internal(const K &key, Hasher::hash_t hash) const
 	{
 		int index = hashtable[hash];
+		const entry_t *entries_data = entries.data();
 
-		while (index >= 0 && !ops.cmp(entries[index].udata.first, key)) {
-			index = entries[index].next;
+		while (index >= 0 && !ops.cmp(entries_data[index].udata.first, key)) {
+			index = entries_data[index].next;
 			do_assert(-1 <= index && index < int(entries.size()));
 		}
 
@@ -986,9 +987,10 @@ protected:
 	int do_lookup_internal(const K &key, Hasher::hash_t hash) const
 	{
 		int index = hashtable[hash];
+		const entry_t *entries_data = entries.data();
 
-		while (index >= 0 && !ops.cmp(entries[index].udata, key)) {
-			index = entries[index].next;
+		while (index >= 0 && !ops.cmp(entries_data[index].udata, key)) {
+			index = entries_data[index].next;
 			do_assert(-1 <= index && index < int(entries.size()));
 		}
 
