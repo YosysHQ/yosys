@@ -418,12 +418,12 @@ class dict {
 	std::vector<entry_t> entries;
 	OPS ops;
 
-#ifdef NDEBUG
-	static inline void do_assert(bool) { }
-#else
+#if defined(YOSYS_HASHLIB_DEBUG) && !defined(NDEBUG)
 	static inline void do_assert(bool cond) {
 		if (!cond) throw std::runtime_error("dict<> assert failed.");
 	}
+#else
+	static inline void do_assert(bool) { }
 #endif
 
 	Hasher::hash_t do_hash(const K &key) const
@@ -902,12 +902,12 @@ protected:
 	std::vector<entry_t> entries;
 	OPS ops;
 
-#ifdef NDEBUG
-	static inline void do_assert(bool) { }
-#else
+#if defined(YOSYS_HASHLIB_DEBUG) && !defined(NDEBUG)
 	static inline void do_assert(bool cond) {
 		if (!cond) throw std::runtime_error("pool<> assert failed.");
 	}
+#else
+	static inline void do_assert(bool) { }
 #endif
 
 	Hasher::hash_t do_hash(const K &key) const
