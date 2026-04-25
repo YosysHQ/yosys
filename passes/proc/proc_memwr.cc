@@ -100,6 +100,9 @@ struct ProcMemWrPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->all_selected_modules()) {
+			auto procs = mod->selected_processes();
+			if (procs.empty())
+				continue;
 			dict<IdString, int> next_port_id;
 			for (auto cell : mod->cells()) {
 				if (cell->type.in(ID($memwr), ID($memwr_v2))) {
@@ -110,7 +113,7 @@ struct ProcMemWrPass : public Pass {
 						next_port_id[memid] = port_id + 1;
 				}
 			}
-			for (auto proc : mod->selected_processes())
+			for (auto proc : procs)
 				proc_memwr(mod, proc, next_port_id);
 		}
 	}
