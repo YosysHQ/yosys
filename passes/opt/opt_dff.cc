@@ -982,6 +982,19 @@ struct OptDffPass : public Pass {
 
 		bool did_something = false;
 		for (auto mod : design->selected_modules()) {
+			// Early bail-out: if there are no selected built-in FFs, the
+			// OptDffWorker constructor's O(N) walk over wires/cells/conns
+			// (to build bitusers + bit2mux) is pure waste, and both run()
+			// and run_constbits() are no-ops. This is the common case in
+			// FF-free combinational netlists like wide_opt_chain.
+			bool has_dff = false;
+			for (auto cell : mod->cells())
+				if (cell->is_builtin_ff() && mod->design->selected(mod, cell)) {
+					has_dff = true;
+					break;
+				}
+			if (!has_dff)
+				continue;
 			OptDffWorker worker(opt, mod);
 			if (worker.run())
 				did_something = true;
