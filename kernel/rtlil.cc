@@ -4627,7 +4627,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Const &&value)
 {
 	if (GetSize(value) != 0) {
 		rep_ = CHUNK;
-		new (&chunk_) RTLIL::SigChunk(value);
+		new (&chunk_) RTLIL::SigChunk(std::move(value));
 	} else {
 		init_empty_bits();
 	}
@@ -4649,7 +4649,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigChunk &&chunk)
 {
 	if (chunk.width != 0) {
 		rep_ = CHUNK;
-		new (&chunk_) RTLIL::SigChunk(chunk);
+		new (&chunk_) RTLIL::SigChunk(std::move(chunk));
 	} else {
 		init_empty_bits();
 	}
