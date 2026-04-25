@@ -45,7 +45,12 @@
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
 
-static std::list<std::string> output_code;
+// output_code accumulates the preprocessor's emitted text. Switched from
+// std::list<std::string> to a single std::string: every token push_back used
+// to allocate a list node + a std::string, and at the end the entire list was
+// concatenated into one string anyway. Direct accumulation is one allocation
+// (with amortized exponential growth) instead of N.
+static std::string output_code;
 static std::list<std::string> input_buffer;
 static size_t input_buffer_charp;
 
@@ -109,7 +114,7 @@ static std::string next_token(bool pass_newline = false)
 	token += ch;
 	if (ch == '\n') {
 		if (pass_newline) {
-			output_code.push_back(token);
+			output_code += token;
 			return "";
 		}
 		return token;
@@ -855,7 +860,7 @@ frontend_verilog_preproc(std::istream                 &f,
 
 		if (ifdef_fail_level > 0) {
 			if (tok == "\n")
-				output_code.push_back(tok);
+				output_code += tok;
 			continue;
 		}
 
@@ -909,7 +914,7 @@ frontend_verilog_preproc(std::istream                 &f,
 				}
 			}
 			if (ff.fail()) {
-				output_code.push_back("`file_notfound " + fn);
+				output_code += "`file_notfound " + fn;
 			} else {
 				input_file(ff, fixed_fn);
 				yosys_input_files.insert(fixed_fn);
@@ -922,14 +927,14 @@ frontend_verilog_preproc(std::istream                 &f,
 			std::string fn = next_token(true);
 			if (!fn.empty() && fn.front() == '"' && fn.back() == '"')
 				fn = fn.substr(1, fn.size()-2);
-			output_code.push_back(tok + " \"" + fn + "\"");
+			output_code += tok + " \"" + fn + "\"";
 			filename_stack.push_back(filename);
 			filename = fn;
 			continue;
 		}
 
 		if (tok == "`file_pop") {
-			output_code.push_back(tok);
+			output_code += tok;
 			filename = filename_stack.back();
 			filename_stack.pop_back();
 			continue;
@@ -978,17 +983,14 @@ frontend_verilog_preproc(std::istream                 &f,
 		if (try_expand_macro(defines, macro_arg_stack, tok))
 			continue;
 
-		output_code.push_back(tok);
+		output_code += tok;
 	}
 
 	if (ifdef_fail_level > 0 || ifdef_pass_level > 0) {
 		log_error("Unterminated preprocessor conditional!\n");
 	}
 
-	std::string output;
-	for (auto &str : output_code)
-		output += str;
-
+	std::string output = std::move(output_code);
 	output_code.clear();
 	input_buffer.clear();
 	input_buffer_charp = 0;
