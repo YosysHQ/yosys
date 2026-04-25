@@ -417,6 +417,9 @@ class dict {
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
 	OPS ops;
+	// Precomputed reciprocal for fast modulo (Lemire 2018). Updated on
+	// every do_rehash; equals ~uint64_t(0) / hashtable.size() + 1.
+	uint64_t hashtable_modulo_magic = 0;
 
 #if defined(YOSYS_HASHLIB_DEBUG) && !defined(NDEBUG)
 	static inline void do_assert(bool cond) {
@@ -426,11 +429,20 @@ class dict {
 	static inline void do_assert(bool) { }
 #endif
 
+	// fastmod_u32 returns a % d using a precomputed magic number.
+	// Branchless and ~5x faster than `%` on a runtime-variable divisor.
+	static inline uint32_t fastmod_u32(uint32_t a, uint64_t M, uint32_t d) {
+		__uint128_t lowbits = (__uint128_t)M * a;
+		return (uint32_t)(((__uint128_t)(uint64_t)lowbits * d) >> 64);
+	}
+
 	Hasher::hash_t do_hash(const K &key) const
 	{
 		Hasher::hash_t hash = 0;
-		if (!hashtable.empty())
-			hash = ops.hash(key).yield() % (unsigned int)(hashtable.size());
+		if (!hashtable.empty()) {
+			uint32_t raw = (uint32_t)ops.hash(key).yield();
+			hash = (Hasher::hash_t)fastmod_u32(raw, hashtable_modulo_magic, (uint32_t)hashtable.size());
+		}
 		return hash;
 	}
 
@@ -438,6 +450,12 @@ class dict {
 	{
 		hashtable.clear();
 		hashtable.resize(hashtable_size(entries.capacity() * hashtable_size_factor), -1);
+		// Avoid division-by-zero when do_rehash is called with an empty table.
+		// do_hash gates on !hashtable.empty() so the magic value is unused in
+		// that case, but we still need to leave it well-defined.
+		hashtable_modulo_magic = hashtable.empty()
+			? 0
+			: (~uint64_t(0) / (uint32_t)hashtable.size() + 1);
 
 		entry_t *entries_data = entries.data();
 		int *hashtable_data = hashtable.data();
@@ -907,6 +925,7 @@ protected:
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
 	OPS ops;
+	uint64_t hashtable_modulo_magic = 0;
 
 #if defined(YOSYS_HASHLIB_DEBUG) && !defined(NDEBUG)
 	static inline void do_assert(bool cond) {
@@ -916,11 +935,18 @@ protected:
 	static inline void do_assert(bool) { }
 #endif
 
+	static inline uint32_t fastmod_u32(uint32_t a, uint64_t M, uint32_t d) {
+		__uint128_t lowbits = (__uint128_t)M * a;
+		return (uint32_t)(((__uint128_t)(uint64_t)lowbits * d) >> 64);
+	}
+
 	Hasher::hash_t do_hash(const K &key) const
 	{
 		Hasher::hash_t hash = 0;
-		if (!hashtable.empty())
-			hash = ops.hash(key).yield() % (unsigned int)(hashtable.size());
+		if (!hashtable.empty()) {
+			uint32_t raw = (uint32_t)ops.hash(key).yield();
+			hash = (Hasher::hash_t)fastmod_u32(raw, hashtable_modulo_magic, (uint32_t)hashtable.size());
+		}
 		return hash;
 	}
 
@@ -928,6 +954,12 @@ protected:
 	{
 		hashtable.clear();
 		hashtable.resize(hashtable_size(entries.capacity() * hashtable_size_factor), -1);
+		// Avoid division-by-zero when do_rehash is called with an empty table.
+		// do_hash gates on !hashtable.empty() so the magic value is unused in
+		// that case, but we still need to leave it well-defined.
+		hashtable_modulo_magic = hashtable.empty()
+			? 0
+			: (~uint64_t(0) / (uint32_t)hashtable.size() + 1);
 
 		entry_t *entries_data = entries.data();
 		int *hashtable_data = hashtable.data();
