@@ -17,7 +17,7 @@ ENABLE_GHDL := 0
 ENABLE_SLANG := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
-ENABLE_VERIFIC_VHDL := 0
+ENABLE_VERIFIC_VHDL := 1
 ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_SILIMATE_EXTENSIONS := 1
 ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
@@ -515,7 +515,7 @@ endif
 LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= ./verific
-VERIFIC_COMPONENTS ?= database util containers
+VERIFIC_COMPONENTS ?= database util containers pct
 ifeq ($(ENABLE_VERIFIC_HIER_TREE),1)
 VERIFIC_COMPONENTS += hier_tree
 CXXFLAGS += -DVERIFIC_HIER_TREE_SUPPORT
@@ -553,8 +553,19 @@ VERIFIC_COMPONENTS += hdl_file_sort verilog_nl
 VERIFIC_COMPONENTS += commands upf
 CXXFLAGS += -DVERIFIC_UPF_SUPPORT
 endif
+VERIFIC_SILIMATE_OBJS =
 ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
 CXXFLAGS += -DSILIMATE_VERIFIC_EXTENSIONS
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/database/DBSilimate.o
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/VeriSilimate.o
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/util/UtilSilimate.o
+# Override flex/bison-generated parser/lexer so local edits to
+# verific/verilog/verilog.l and verific/verilog/verilog.y are reflected in
+# the linked yosys binary. Without these, the precompiled veri_lex.o and
+# veri_yacc.o inside verilog-{mac,linux}.raw.a win and edits silently have
+# no effect.
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/veri_yacc.o
+VERIFIC_SILIMATE_OBJS += $(VERIFIC_DIR)/verilog/veri_lex.o
 endif
 ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
@@ -574,6 +585,119 @@ LIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_C
 else
 LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
+
+# Silimate extension override objects: compile .cpp files. On macOS we patch the
+# pre-compiled archives (from .raw.a originals) to localize overridden symbols,
+# since the macOS linker doesn't support --allow-multiple-definition. On Linux
+# we just copy .raw.a to .a and rely on --allow-multiple-definition so override
+# .o definitions (linked before the archives) take precedence.
+ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
+
+# Bison emits both veri_yacc.cpp and veri_yacc.h from a single invocation.
+# We pick veri_yacc.cpp as the canonical generated target because it is
+# gitignored (verific/.gitignore) and therefore always missing on a fresh
+# checkout - which guarantees the bison rule fires. veri_yacc.h is
+# committed to the verific repo so it always exists with an up-to-date
+# mtime, which means making it the canonical target would silently skip
+# bison and leave the gitignored veri_yacc.cpp missing on the next compile.
+# Anything that conceptually depends on the regenerated veri_yacc.h's
+# contents instead depends on veri_yacc.cpp here, since both are generated
+# atomically by the single bison invocation.
+$(VERIFIC_DIR)/verilog/veri_yacc.cpp: $(VERIFIC_DIR)/verilog/verilog.y
+	$(P) cd $(VERIFIC_DIR)/verilog && bison -l -p veri --defines=veri_yacc.h -o veri_yacc.cpp verilog.y
+
+$(VERIFIC_DIR)/verilog/veri_lex.cpp: $(VERIFIC_DIR)/verilog/verilog.l
+	$(P) cd $(VERIFIC_DIR)/verilog && flex -Pveri -L -overi_lex.cpp verilog.l
+
+# The Silimate .cpp files (and the flex/bison outputs) include veri_tokens.h
+# transitively, which pulls in veri_yacc.h. Token IDs are baked into the
+# compiled .o files, so they must be rebuilt whenever veri_yacc.h changes,
+# even if the .cpp source itself is untouched. We track that via a
+# dependency on veri_yacc.cpp (which is regenerated together with the
+# header). Without this dependency, editing only verilog.y silently leaves
+# veri_lex.o (and the others) holding stale token IDs that no longer match
+# the regenerated veri_yacc.o, which manifests as "my overrides in
+# verilog.y/verilog.l aren't showing up". $(CXXFLAGS) already contains -I
+# for the verific component dirs.
+$(VERIFIC_DIR)/verilog/veri_yacc.o: $(VERIFIC_DIR)/verilog/veri_yacc.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/verilog/veri_lex.o: $(VERIFIC_DIR)/verilog/veri_lex.cpp $(VERIFIC_DIR)/verilog/veri_yacc.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/database/DBSilimate.o: $(VERIFIC_DIR)/database/DBSilimate.cpp $(VERIFIC_DIR)/verilog/veri_yacc.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/verilog/VeriSilimate.o: $(VERIFIC_DIR)/verilog/VeriSilimate.cpp $(VERIFIC_DIR)/verilog/veri_yacc.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+$(VERIFIC_DIR)/util/UtilSilimate.o: $(VERIFIC_DIR)/util/UtilSilimate.cpp $(VERIFIC_DIR)/verilog/veri_yacc.cpp
+	$(P) $(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+ifeq ($(OS), Darwin)
+VERIFIC_LIB_OS_SUFFIX = mac
+
+$(VERIFIC_DIR)/_override_syms.txt: $(VERIFIC_SILIMATE_OBJS)
+	$(Q) nm -gjU $^ | grep '^_' | sort -u > $@
+
+$(VERIFIC_DIR)/database/database-mac.a: $(VERIFIC_DIR)/database/database-mac.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			nm -gjU "$$o" 2>/dev/null | grep -Fx -f $(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt > "$$o.syms" 2>/dev/null; \
+			if [ -s "$$o.syms" ]; then nmedit -R "$$o.syms" "$$o"; fi; \
+			rm -f "$$o.syms"; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+$(VERIFIC_DIR)/verilog/verilog-mac.a: $(VERIFIC_DIR)/verilog/verilog-mac.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			nm -gjU "$$o" 2>/dev/null | grep -Fx -f $(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt > "$$o.syms" 2>/dev/null; \
+			if [ -s "$$o.syms" ]; then nmedit -R "$$o.syms" "$$o"; fi; \
+			rm -f "$$o.syms"; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+$(VERIFIC_DIR)/util/util-mac.a: $(VERIFIC_DIR)/util/util-mac.raw.a $(VERIFIC_DIR)/_override_syms.txt
+	$(Q) cp $< $@
+	$(Q) mkdir -p $@_patch_tmp
+	$(Q) cd $@_patch_tmp && ar x $(CURDIR)/$@ && \
+		for o in *.o; do \
+			nm -gjU "$$o" 2>/dev/null | grep -Fx -f $(CURDIR)/$(VERIFIC_DIR)/_override_syms.txt > "$$o.syms" 2>/dev/null; \
+			if [ -s "$$o.syms" ]; then nmedit -R "$$o.syms" "$$o"; fi; \
+			rm -f "$$o.syms"; \
+		done
+	$(Q) ar rcs $@ $@_patch_tmp/*.o
+	$(Q) rm -rf $@_patch_tmp
+
+else
+VERIFIC_LIB_OS_SUFFIX = linux
+LINKFLAGS += -Wl,--allow-multiple-definition
+
+$(VERIFIC_DIR)/database/database-linux.a: $(VERIFIC_DIR)/database/database-linux.raw.a
+	$(Q) cp $< $@
+
+$(VERIFIC_DIR)/verilog/verilog-linux.a: $(VERIFIC_DIR)/verilog/verilog-linux.raw.a
+	$(Q) cp $< $@
+
+$(VERIFIC_DIR)/util/util-linux.a: $(VERIFIC_DIR)/util/util-linux.raw.a
+	$(Q) cp $< $@
+
+endif
+
+VERIFIC_PATCHED_ARCHIVES = \
+	$(VERIFIC_DIR)/database/database-$(VERIFIC_LIB_OS_SUFFIX).a \
+	$(VERIFIC_DIR)/verilog/verilog-$(VERIFIC_LIB_OS_SUFFIX).a \
+	$(VERIFIC_DIR)/util/util-$(VERIFIC_LIB_OS_SUFFIX).a
+
+endif # ENABLE_VERIFIC_SILIMATE_EXTENSIONS
+
 endif
 
 ifeq ($(ENABLE_CCACHE),1)
@@ -823,14 +947,14 @@ share: $(EXTRA_TARGETS)
 	@echo "  Share directory created."
 	@echo ""
 
-$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
+$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS) $(VERIFIC_SILIMATE_OBJS) $(VERIFIC_PATCHED_ARCHIVES)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(VERIFIC_SILIMATE_OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
 
-libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+libyosys.so: $(filter-out kernel/driver.o,$(OBJS)) $(VERIFIC_SILIMATE_OBJS) $(VERIFIC_PATCHED_ARCHIVES)
 ifeq ($(OS), Darwin)
-	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,libyosys.so $(LINKFLAGS) $(filter-out kernel/driver.o,$(OBJS)) $(VERIFIC_SILIMATE_OBJS) $(LIBS) $(LIBS_VERIFIC)
 else
-	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LINKFLAGS) $(filter-out kernel/driver.o,$(OBJS)) $(VERIFIC_SILIMATE_OBJS) $(LIBS) $(LIBS_VERIFIC)
 endif
 
 libyosys.a: $(filter-out kernel/driver.o,$(OBJS))
@@ -1216,6 +1340,15 @@ clean: clean-py clean-unit-test
 	rm -rf share
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc
+ifeq ($(ENABLE_VERIFIC),1)
+ifeq ($(ENABLE_VERIFIC_SILIMATE_EXTENSIONS),1)
+	rm -f $(VERIFIC_SILIMATE_OBJS) $(VERIFIC_DIR)/_override_syms.txt
+	rm -f $(VERIFIC_PATCHED_ARCHIVES)
+	rm -rf $(addsuffix _patch_tmp,$(VERIFIC_PATCHED_ARCHIVES))
+	rm -f $(VERIFIC_DIR)/verilog/veri_lex.cpp
+	rm -f $(VERIFIC_DIR)/verilog/veri_yacc.cpp $(VERIFIC_DIR)/verilog/veri_yacc.h
+endif
+endif
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
