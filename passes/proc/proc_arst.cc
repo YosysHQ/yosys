@@ -289,8 +289,13 @@ struct ProcArstPass : public Pass {
 		pool<Wire*> delete_initattr_wires;
 
 		for (auto mod : design->all_selected_modules()) {
+			// SigMap(mod) walks all module connections; skip when there
+			// are no processes to feed proc_arst().
+			auto procs = mod->selected_processes();
+			if (procs.empty())
+				continue;
 			SigMap assign_map(mod);
-			for (auto proc : mod->selected_processes()) {
+			for (auto proc : procs) {
 				proc_arst(mod, proc, assign_map);
 				if (global_arst.empty() || mod->wire(global_arst) == nullptr)
 					continue;

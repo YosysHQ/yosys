@@ -128,8 +128,11 @@ struct ProcPrunePass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->all_selected_modules()) {
+			auto procs = mod->selected_processes();
+			if (procs.empty())
+				continue;
 			PruneWorker worker(mod);
-			for (auto proc : mod->selected_processes())
+			for (auto proc : procs)
 				worker.do_process(proc);
 			total_removed_count += worker.removed_count;
 			total_promoted_count += worker.promoted_count;

@@ -464,8 +464,18 @@ struct ProcDlatchPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->all_selected_modules()) {
+			// proc_dlatch_db_t's constructor walks every cell + every
+			// connection + every wire to build mux_drivers + mux_srcbits
+			// + sigusers — O(N * conns) work. If the module has no selected
+			// processes there's nothing for proc_dlatch() to consume from
+			// the DB, so skip the build entirely. This is a 60k-cell-walk
+			// per module on `many_equiv_cells` inputs (continuous assigns,
+			// no `always` blocks → no processes here at all).
+			auto procs = mod->selected_processes();
+			if (procs.empty())
+				continue;
 			proc_dlatch_db_t db(mod);
-			for (auto proc : mod->selected_processes())
+			for (auto proc : procs)
 				proc_dlatch(db, proc);
 			db.fixup_muxes();
 		}
