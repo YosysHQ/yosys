@@ -864,6 +864,7 @@ public:
 	{
 		hashtable.swap(other.hashtable);
 		entries.swap(other.entries);
+		std::swap(hashtable_modulo_magic, other.hashtable_modulo_magic);
 	}
 
 	bool operator==(const dict &other) const {
@@ -895,7 +896,7 @@ public:
 	void reserve(size_t n) { entries.reserve(n); }
 	size_t size() const { return entries.size(); }
 	bool empty() const { return entries.empty(); }
-	void clear() { hashtable.clear(); entries.clear(); }
+	void clear() { hashtable.clear(); entries.clear(); hashtable_modulo_magic = 0; }
 
 	iterator begin() { return iterator(this, int(entries.size())-1); }
 	iterator element(int n) { return iterator(this, int(entries.size())-1-n); }
@@ -1275,6 +1276,7 @@ public:
 	{
 		hashtable.swap(other.hashtable);
 		entries.swap(other.entries);
+		std::swap(hashtable_modulo_magic, other.hashtable_modulo_magic);
 	}
 
 	bool operator==(const pool &other) const {
@@ -1301,7 +1303,7 @@ public:
 	void reserve(size_t n) { entries.reserve(n); }
 	size_t size() const { return entries.size(); }
 	bool empty() const { return entries.empty(); }
-	void clear() { hashtable.clear(); entries.clear(); }
+	void clear() { hashtable.clear(); entries.clear(); hashtable_modulo_magic = 0; }
 
 	iterator begin() { return iterator(this, int(entries.size())-1); }
 	iterator element(int n) { return iterator(this, int(entries.size())-1-n); }
