@@ -442,7 +442,10 @@ class dict {
 		entry_t *entries_data = entries.data();
 		int *hashtable_data = hashtable.data();
 		const int n = int(entries.size());
+		const int prefetch_dist = 8;
 		for (int i = 0; i < n; i++) {
+			if (i + prefetch_dist < n)
+				__builtin_prefetch(&entries_data[i + prefetch_dist]);
 			do_assert(-1 <= entries_data[i].next && entries_data[i].next < n);
 			Hasher::hash_t hash = do_hash(entries_data[i].udata.first);
 			entries_data[i].next = hashtable_data[hash];
@@ -926,7 +929,10 @@ protected:
 		entry_t *entries_data = entries.data();
 		int *hashtable_data = hashtable.data();
 		const int n = int(entries.size());
+		const int prefetch_dist = 8;
 		for (int i = 0; i < n; i++) {
+			if (i + prefetch_dist < n)
+				__builtin_prefetch(&entries_data[i + prefetch_dist]);
 			do_assert(-1 <= entries_data[i].next && entries_data[i].next < n);
 			Hasher::hash_t hash = do_hash(entries_data[i].udata);
 			entries_data[i].next = hashtable_data[hash];
