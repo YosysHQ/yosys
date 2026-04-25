@@ -1626,13 +1626,15 @@ public:
 	// uses this to read via the const path while still letting the caller
 	// observe a SigBit&; the iterator detects mutations and flushes them
 	// back to the SigSpec on advance/comparison.
+	// NOTE: caller is responsible for `0 <= index < size()` — the iterator
+	// only dereferences valid positions, so bypassing the bounds check is safe.
 	inline RTLIL::SigBit read_at(int index) const {
 		if (rep_ == CHUNK) {
 			if (chunk_.wire)
 				return RTLIL::SigBit(chunk_.wire, chunk_.offset + index);
 			return RTLIL::SigBit(chunk_.data[index]);
 		}
-		return bits_.at(index);
+		return bits_[index];
 	}
 	inline RTLIL::SigBit operator[](int index) const {
 		if (rep_ == CHUNK) {
