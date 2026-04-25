@@ -788,6 +788,22 @@ frontend_verilog_preproc(std::istream                 &f,
 		std::string tok = next_token();
 		// printf("token: >>%s<<\n", tok != "\n" ? tok.c_str() : "NEWLINE");
 
+		// Fast path: every preprocessor directive starts with '`'. For
+		// the overwhelming majority of tokens (identifiers, operators,
+		// whitespace, newlines), skip the directive comparison chain and
+		// the macro-expansion attempt (which does a dict lookup keyed on
+		// the token even when no macros are defined). This shaves time
+		// off flat verilog inputs with no `define / `ifdef in sight.
+		if (tok.empty() || tok[0] != '`') {
+			if (ifdef_fail_level > 0) {
+				if (tok == "\n")
+					output_code += tok;
+				continue;
+			}
+			output_code += tok;
+			continue;
+		}
+
 		if (tok == "`endif") {
 			if (ifdef_fail_level > 0)
 				ifdef_fail_level--;
