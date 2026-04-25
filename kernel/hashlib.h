@@ -523,7 +523,10 @@ class dict {
 		const entry_t *entries_data = entries.data();
 
 		while (index >= 0 && !ops.cmp(entries_data[index].udata.first, key)) {
-			index = entries_data[index].next;
+			int next = entries_data[index].next;
+			if (next >= 0)
+				__builtin_prefetch(&entries_data[next]);
+			index = next;
 			do_assert(-1 <= index && index < int(entries.size()));
 		}
 
@@ -1006,7 +1009,10 @@ protected:
 		const entry_t *entries_data = entries.data();
 
 		while (index >= 0 && !ops.cmp(entries_data[index].udata, key)) {
-			index = entries_data[index].next;
+			int next = entries_data[index].next;
+			if (next >= 0)
+				__builtin_prefetch(&entries_data[next]);
+			index = next;
 			do_assert(-1 <= index && index < int(entries.size()));
 		}
 
