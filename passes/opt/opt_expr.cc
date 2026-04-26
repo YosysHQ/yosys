@@ -508,12 +508,24 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	for (auto &p : evaluable_cells) {
 		Cell *cell = p.first;
 		const int r_index = p.second;
+		// Cheap consecutive-bit producer dedupe: in a multi-bit input
+		// port whose bits all come from the same upstream cell we'd
+		// otherwise insert the same edge into the TopoSort std::set
+		// repeatedly. Track the last seen producer index per port.
 		for (auto &conn : cell->connections())
-		if (yosys_celltypes.cell_input(cell->type, conn.first))
-		for (auto bit : assign_map(conn.second)) {
-			auto it = outbit_to_idx.find(bit);
-			if (it != outbit_to_idx.end())
-				cells.edge(it->second, r_index);
+		if (yosys_celltypes.cell_input(cell->type, conn.first)) {
+			int last_idx = -1;
+			for (auto bit : assign_map(conn.second)) {
+				auto it = outbit_to_idx.find(bit);
+				if (it != outbit_to_idx.end()) {
+					if (it->second != last_idx) {
+						cells.edge(it->second, r_index);
+						last_idx = it->second;
+					}
+				} else {
+					last_idx = -1;
+				}
+			}
 		}
 	}
 
