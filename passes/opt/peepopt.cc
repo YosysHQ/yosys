@@ -97,8 +97,22 @@ struct PeepoptPass : public Pass {
 		// 2x implies there is a constant shift larger than the input-data which should be extremely rare
 		shiftadd_max_ratio = design->scratchpad_get_int("peepopt.shiftadd.max_data_multiple", 2);
 
+		// Cross-execute() no-op cache.
+		struct PeepoptNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, PeepoptNoopCache> noop_cache;
+
 		for (auto module : design->selected_modules())
 		{
+			auto noop_it = noop_cache.find(module);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == module->generation &&
+					!noop_it->second.last_did_something)
+				continue;
+
+			uint64_t gen_before = module->generation;
 			did_something = true;
 
 			while (did_something)
@@ -119,6 +133,8 @@ struct PeepoptPass : public Pass {
 					pm.run_muldiv_c();
 				}
 			}
+
+			noop_cache[module] = {module->generation, module->generation != gen_before};
 		}
 	}
 } PeepoptPass;

@@ -571,10 +571,28 @@ struct WreducePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Cross-execute() no-op cache. Skip the per-cell walk + worker
+		// when the module is unchanged since a prior call that did
+		// nothing. Per-module did_something is detected via the
+		// generation counter — every setPort/setParam/connect bumps it.
+		struct WreduceNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, WreduceNoopCache> noop_cache;
+
 		for (auto module : design->selected_modules())
 		{
 			if (module->has_processes_warn())
 				continue;
+
+			auto noop_it = noop_cache.find(module);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == module->generation &&
+					!noop_it->second.last_did_something)
+				continue;
+
+			uint64_t gen_before = module->generation;
 
 			for (auto c : module->selected_cells())
 			{
@@ -645,6 +663,8 @@ struct WreducePass : public Pass {
 
 			WreduceWorker worker(&config, module);
 			worker.run();
+
+			noop_cache[module] = {module->generation, module->generation != gen_before};
 		}
 	}
 } WreducePass;
