@@ -409,10 +409,32 @@ struct ReplaceConstCellsCache {
 	std::vector<RTLIL::Cell*> sorted;     // cached TopoSort.sorted result
 	pool<RTLIL::Cell*> all_cells;         // ALL module->cells() at build time
 	bool valid = false;
+	// Track did_something at the end of the previous call AND the
+	// consume_x value used. If both match (same consume_x, last call
+	// was a no-op) AND cache is reused (sig + cell-set match), this
+	// call is guaranteed to be a no-op too — skip the entire pipeline,
+	// not just the toposort build.
+	bool last_did_nothing[2] = {false, false};
 };
 
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceConstCellsCache &cache, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
 {
+	// No-op fast path: if the cached toposort is still valid (same
+	// (cells.size, connections.size) and exact same set of live cell
+	// pointers — catches add+remove net-zero) AND the previous call
+	// with this consume_x leg returned did_something=false, we know
+	// this call would do nothing too. Skip SigMap, invert_map walk,
+	// !noclkinv walk, and sorted-cell loop entirely.
+	auto early_cur_sig = std::make_pair(module->cells().size(), module->connections().size());
+	if (cache.valid && cache.last_did_nothing[(int)consume_x] && cache.sig == early_cur_sig) {
+		bool ok = true;
+		for (auto cell : module->cells()) {
+			if (!cache.all_cells.count(cell)) { ok = false; break; }
+		}
+		if (ok)
+			return;
+	}
+
 	SigMap assign_map(module);
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
@@ -581,6 +603,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceCo
 			cache.all_cells.insert(c);
 		cache.sig = cur_sig;
 		cache.valid = true;
+		// New cache invalidates "last call did nothing" for both
+		// consume_x values: structure changed, future no-op claims
+		// must be re-established by a fresh no-op call.
+		cache.last_did_nothing[0] = false;
+		cache.last_did_nothing[1] = false;
 	}
 
 	for (auto cell : cache.sorted)
@@ -2256,6 +2283,21 @@ skip_alu_split:
 #undef ACTION_DO_Y
 #undef FOLD_1ARG_CELL
 #undef FOLD_2ARG_CELL
+	}
+	// Record whether this consume_x leg was a no-op so the next call
+	// with the same consume_x can skip everything if the module hasn't
+	// changed in the meantime. Any work invalidates BOTH legs (a
+	// fresh opportunity for one consume_x leg may apply to the other).
+	if (did_something) {
+		cache.last_did_nothing[0] = false;
+		cache.last_did_nothing[1] = false;
+		// did_something can also signal in-place mods that change
+		// neither cell count nor connection count (cell type / param
+		// flips). The cached toposort is still structurally valid
+		// (cells + ports unchanged), but the "would be no-op next
+		// time" claim is now false.
+	} else {
+		cache.last_did_nothing[(int)consume_x] = true;
 	}
 }
 
