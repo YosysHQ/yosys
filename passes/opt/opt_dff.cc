@@ -998,8 +998,30 @@ struct OptDffPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Cross-execute() no-op cache. Each entry holds the
+		// module->generation observed at the END of a previous call
+		// AND whether that call did any work. If we re-enter with the
+		// same generation (no other pass modified the module since)
+		// AND the previous call did nothing, the OptDffWorker
+		// constructor would just rebuild bitusers/bit2mux and find
+		// nothing to do — skip the whole call. The Module* key is
+		// safe to use across `design -reset` because new Modules
+		// always get fresh generation values from the global counter.
+		struct DffNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, DffNoopCache> noop_cache;
+
 		bool did_something = false;
 		for (auto mod : design->selected_modules()) {
+			// Cross-call no-op fast path.
+			auto noop_it = noop_cache.find(mod);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == mod->generation &&
+					!noop_it->second.last_did_something) {
+				continue;
+			}
 			// Early bail-out: if there are no selected built-in FFs, the
 			// OptDffWorker constructor's O(N) walk over wires/cells/conns
 			// (to build bitusers + bit2mux) is pure waste, and both run()
@@ -1011,13 +1033,21 @@ struct OptDffPass : public Pass {
 					has_dff = true;
 					break;
 				}
-			if (!has_dff)
+			if (!has_dff) {
+				noop_cache[mod] = {mod->generation, false};
 				continue;
+			}
 			OptDffWorker worker(opt, mod);
+			bool mod_did_something = false;
 			if (worker.run())
-				did_something = true;
+				mod_did_something = true;
 			if (worker.run_constbits())
+				mod_did_something = true;
+			if (mod_did_something)
 				did_something = true;
+			// Record state AFTER the work. The generation has been
+			// bumped by every replace_cell / setPort done during run().
+			noop_cache[mod] = {mod->generation, mod_did_something};
 		}
 
 		if (did_something)

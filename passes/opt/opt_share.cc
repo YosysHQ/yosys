@@ -358,7 +358,29 @@ struct OptSharePass : public Pass {
 		log_header(design, "Executing OPT_SHARE pass.\n");
 
 		extra_args(args, 1, design);
+
+		// Cross-execute() no-op cache. Same pattern as opt_dff —
+		// keyed on (Module*, generation, last_did_something). Skip
+		// the SigMap + bit_users walk if a previous call returned
+		// no work AND nothing has mutated the module since.
+		struct ShareNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, ShareNoopCache> noop_cache;
+
 		for (auto module : design->selected_modules()) {
+			// Cross-call no-op fast path.
+			auto noop_it = noop_cache.find(module);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == module->generation &&
+					!noop_it->second.last_did_something)
+				continue;
+
+			// Snapshot did_something at entry to detect whether this
+			// module's processing made any change.
+			bool ds_before = design->scratchpad_get_bool("opt.did_something");
+
 			// Early bail-out: if no cell in this module is supported by
 			// opt_share, the SigMap + bit_users walk over all cells and
 			// connections is wasted. cell_supported() catches $alu and the
@@ -369,8 +391,10 @@ struct OptSharePass : public Pass {
 					any_supported = true;
 					break;
 				}
-			if (!any_supported)
+			if (!any_supported) {
+				noop_cache[module] = {module->generation, false};
 				continue;
+			}
 
 			SigMap sigmap(module);
 
@@ -418,8 +442,10 @@ struct OptSharePass : public Pass {
 				}
 			}
 
-			if (!any_shared_operands)
+			if (!any_shared_operands) {
+				noop_cache[module] = {module->generation, false};
 				continue;
+			}
 
 			// Operator outputs need to be exclusively connected to the $mux inputs in order to be mergeable. Hence we count to
 			// how many points are operator output bits connected.
@@ -580,6 +606,13 @@ struct OptSharePass : public Pass {
 
 				merge_operators(module, shared.mux, shared.ports, shared.shared_operand, sigmap);
 			}
+
+			// Record cache state for next call. Compare did_something
+			// vs the snapshot at entry to determine whether THIS module
+			// did any work.
+			bool ds_after = design->scratchpad_get_bool("opt.did_something");
+			bool mod_did_something = ds_after && !ds_before;
+			noop_cache[module] = {module->generation, mod_did_something};
 		}
 	}
 
