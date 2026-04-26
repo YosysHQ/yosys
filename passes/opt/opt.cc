@@ -173,20 +173,66 @@ struct OptPass : public Pass {
 		{
 			Pass::call(design, "opt_expr" + opt_expr_args);
 			Pass::call(design, "opt_merge -nomux" + opt_merge_args);
-			while (1) {
+
+			// Per-sub-pass change tracking for early-exit. Each sub-pass
+			// resets the scratchpad flag and we read it after the call,
+			// so we know exactly which passes did something this iter.
+			// In the typical 2-iteration convergence case, the second
+			// iteration runs every sub-pass just to confirm nothing
+			// changed. If the early-running sub-passes (muxtree, reduce,
+			// merge) all returned no-op AND last iteration's heavy
+			// passes (share, dff) also did nothing, we can break out
+			// without paying for opt_share + opt_dff + opt_clean +
+			// opt_expr in the current iteration. Heavy passes won't
+			// find anything new if (a) their inputs didn't change this
+			// iter and (b) they themselves found nothing last iter.
+			auto run = [&](const std::string &cmd) -> bool {
 				design->scratchpad_unset("opt.did_something");
-				Pass::call(design, "opt_muxtree");
-				Pass::call(design, "opt_reduce" + opt_reduce_args);
-				Pass::call(design, "opt_merge" + opt_merge_args);
+				Pass::call(design, cmd);
+				return design->scratchpad_get_bool("opt.did_something");
+			};
+			// Track only the *change-making* heavy passes across iterations.
+			// opt_clean / opt_expr report did_something for cleanup work
+			// (removing intermediate wires, folding constants) which is not
+			// a semantic design change — including them would never let us
+			// early-exit. The real "is the design still evolving?" signal
+			// is whether opt_share or opt_dff (or any early pass) found
+			// real opportunities last iter.
+			bool prev_share_changed = true;
+			bool prev_dff_changed = true;
+			while (1) {
+				bool muxtree_changed = run("opt_muxtree");
+				bool reduce_changed = run("opt_reduce" + opt_reduce_args);
+				bool merge_changed = run("opt_merge" + opt_merge_args);
+				bool early_changed = muxtree_changed || reduce_changed || merge_changed;
+
+				// Early-exit: if no early-pass change AND the heavy
+				// passes (share, dff) found nothing in the previous
+				// iteration, then this iteration's heavy passes will
+				// also find nothing (their inputs haven't moved). Skip
+				// opt_share + opt_dff + opt_clean + opt_expr for this
+				// iter and break out of the loop.
+				if (!early_changed && !prev_share_changed && !prev_dff_changed) {
+					design->scratchpad_set_bool("opt.did_something", false);
+					break;
+				}
+
+				bool share_changed = false;
 				if (opt_share)
-					Pass::call(design, "opt_share");
+					share_changed = run("opt_share");
+				bool dff_changed = false;
 				if (!noff_mode)
-					Pass::call(design, "opt_dff" + opt_dff_args);
+					dff_changed = run("opt_dff" + opt_dff_args);
 				if (hier_mode)
 					Pass::call(design, "opt_hier");
-				Pass::call(design, "opt_clean" + opt_clean_args);
-				Pass::call(design, "opt_expr" + opt_expr_args);
-				if (design->scratchpad_get_bool("opt.did_something") == false)
+				bool clean_changed = run("opt_clean" + opt_clean_args);
+				bool expr_changed = run("opt_expr" + opt_expr_args);
+
+				bool any_changed = early_changed || share_changed || dff_changed
+						|| clean_changed || expr_changed;
+				prev_share_changed = share_changed;
+				prev_dff_changed = dff_changed;
+				if (!any_changed)
 					break;
 				log_header(design, "Rerunning OPT passes. (Maybe there is more to do..)\n");
 			}

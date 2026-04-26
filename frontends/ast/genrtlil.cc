@@ -53,7 +53,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
-	if (gen_attributes)
+	if (gen_attributes && !that->attributes.empty())
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
@@ -85,7 +85,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
-	if (that != nullptr)
+	if (that != nullptr && !that->attributes.empty())
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
@@ -112,11 +112,12 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
-	for (auto &attr : that->attributes) {
-		if (attr.second->type != AST_CONSTANT)
-			that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-		cell->attributes[attr.first] = attr.second->asAttrConst();
-	}
+	if (!that->attributes.empty())
+		for (auto &attr : that->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
+			cell->attributes[attr.first] = attr.second->asAttrConst();
+		}
 
 	cell->parameters[ID::A_SIGNED] = RTLIL::Const(that->children[0]->is_signed);
 	cell->parameters[ID::B_SIGNED] = RTLIL::Const(that->children[1]->is_signed);
@@ -147,11 +148,12 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
-	for (auto &attr : that->attributes) {
-		if (attr.second->type != AST_CONSTANT)
-			that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-		cell->attributes[attr.first] = attr.second->asAttrConst();
-	}
+	if (!that->attributes.empty())
+		for (auto &attr : that->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
+			cell->attributes[attr.first] = attr.second->asAttrConst();
+		}
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(left.size());
 
@@ -1636,11 +1638,20 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
-			else if ((id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
-				RTLIL::Wire *current_wire = current_module->wire(str);
-				if (current_wire->get_bool_attribute(ID::is_interface))
+			else if (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) {
+				// Single dict lookup instead of count() + wire() + wires_[str]
+				// (the original did three keyed-by-`str` hash hits per
+				// AST_IDENTIFIER, called once per signal reference during
+				// genrtlil — visible in profile of flat verilog inputs).
+				auto wit = current_module->wires_.find(str);
+				if (wit != current_module->wires_.end()) {
+					RTLIL::Wire *current_wire = wit->second;
+					if (current_wire->get_bool_attribute(ID::is_interface))
+						is_interface = true;
+					wire = current_wire;
+				} else {
 					is_interface = true;
-				// Ignore
+				}
 			}
 			// If an identifier is found that is not already known, assume that it is an interface:
 			else if (1) { // FIXME: Check if sv_mode first?
@@ -1666,7 +1677,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				return dummy_wire;
 			}
 
-			wire = current_module->wires_[str];
+			// `wire` was set above when found via wires_.find(); fall back
+			// for the (now unreachable) other branches.
+			if (wire == nullptr)
+				wire = current_module->wires_[str];
 			chunk.wire = wire;
 			chunk.width = wire->width;
 			chunk.offset = 0;

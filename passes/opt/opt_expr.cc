@@ -392,25 +392,77 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 	return -1;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
-{
-	SigMap assign_map(module);
-	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
+// Per-call cache for replace_const_cells, scoped to a single OptExprPass
+// execute() invocation (passed by reference). The TopoSort BUILD is the
+// dominant per-call setup cost on big modules; reusing it across the
+// inner do/while iterations when no cells were added/removed and no
+// new module->connect calls happened skips the rebuild entirely.
+//
+// Invalidation: changes in module->cells().size() OR
+// module->connections().size() catch the common cases (cell removed, new
+// connect added). To catch the trickier "added one cell + removed one
+// cell" net-zero case (e.g. opt_expr.cc:2205 addLogicNot followed by
+// remove), we additionally store the set of cell pointers and verify
+// every cached pointer is still in module->cells() before reuse.
+struct ReplaceConstCellsCache {
+	std::pair<size_t, size_t> sig{0, 0};  // (cells.size(), connections.size())
+	std::vector<RTLIL::Cell*> sorted;     // cached TopoSort.sorted result
+	pool<RTLIL::Cell*> all_cells;         // ALL module->cells() at build time
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;  // cached invert_map walk
+	bool valid = false;
+	// Track did_something at the end of the previous call AND the
+	// consume_x value used. If both match (same consume_x, last call
+	// was a no-op) AND cache is reused (sig + cell-set match), this
+	// call is guaranteed to be a no-op too — skip the entire pipeline,
+	// not just the toposort build.
+	bool last_did_nothing[2] = {false, false};
+};
 
-	for (auto cell : module->cells()) {
-		if (design->selected(module, cell) && cell->type[0] == '$') {
-			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
-					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
-				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
-			if (cell->type.in(ID($mux), ID($_MUX_)) &&
-					cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))
-				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::S));
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceConstCellsCache &cache, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
+{
+	// Validate cache once up front: (cells.size, connections.size)
+	// matches AND every live cell pointer is in the cached set. The
+	// resulting `cache_reusable` flag is used both for the no-op
+	// fast-path here and for the toposort/invert_map reuse later.
+	auto cur_sig = std::make_pair(module->cells().size(), module->connections().size());
+	bool cache_reusable = cache.valid && cache.sig == cur_sig;
+	if (cache_reusable) {
+		for (auto cell : module->cells()) {
+			if (!cache.all_cells.count(cell)) { cache_reusable = false; break; }
 		}
 	}
+	// No-op fast path: cache is reusable AND previous call with this
+	// consume_x leg was a no-op. Module is unchanged, same consume_x
+	// processing → guaranteed no work. Skip everything.
+	if (cache_reusable && cache.last_did_nothing[(int)consume_x])
+		return;
+
+	SigMap assign_map(module);
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map_local;
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> *invert_map_ptr;
+	if (cache_reusable) {
+		// invert_map depends on the same ($_NOT_/$mux) cells whose
+		// presence the cache validated — reuse it.
+		invert_map_ptr = &cache.invert_map;
+	} else {
+		for (auto cell : module->cells()) {
+			if (design->selected(module, cell) && cell->type[0] == '$') {
+				if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
+						GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
+					invert_map_local[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
+				if (cell->type.in(ID($mux), ID($_MUX_)) &&
+						cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))
+					invert_map_local[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::S));
+			}
+		}
+		invert_map_ptr = &invert_map_local;
+	}
+	auto &invert_map = *invert_map_ptr;
 
 	if (!noclkinv)
 	for (auto cell : module->cells())
-	if (design->selected(module, cell)) {
+	if ((StaticCellTypes::categories.is_ff(cell->type) || StaticCellTypes::categories.is_mem_noff(cell->type))
+			&& design->selected(module, cell)) {
 		if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
 			handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
 
@@ -486,35 +538,77 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map, invert_map);
 	}
 
-	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-	dict<RTLIL::SigBit, Cell*> outbit_to_cell;
+	// Reuse the TopoSort across calls in this execute() when no cells
+	// have been added or removed AND no new module->connect calls have
+	// happened. In-place cell mutations don't invalidate it (cell
+	// pointers + port directions stay the same).
+	//
+	// (cells.size, connections.size) catches the common cases. Add+
+	// remove may net-zero through cells.size though (e.g.
+	// addLogicNot+remove around line 2205), so when sizes match we
+	// also verify the SET of live cell pointers in module->cells()
+	// equals the cached set — any divergence triggers a rebuild.
+	if (cache_reusable) {
+		// Reuse cached sort order. The cached cell pointers are all
+		// still live (verified above) so the iteration below is safe.
+	} else {
+		// Build TopoSort from scratch.
+		TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
+		dict<RTLIL::SigBit, int> outbit_to_idx;
+		std::vector<std::pair<Cell*, int>> evaluable_cells;
 
-	for (auto cell : module->cells())
-	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
-		for (auto &conn : cell->connections())
-		if (yosys_celltypes.cell_output(cell->type, conn.first))
-		for (auto bit : assign_map(conn.second))
-			outbit_to_cell[bit] = cell;
-		cells.node(cell);
+		for (auto cell : module->cells()) {
+			if (!design->selected(module, cell)) continue;
+			if (!yosys_celltypes.cell_evaluable(cell->type)) continue;
+			const int idx = cells.node(cell);
+			evaluable_cells.emplace_back(cell, idx);
+			for (auto &conn : cell->connections())
+			if (yosys_celltypes.cell_output(cell->type, conn.first))
+			for (auto bit : assign_map(conn.second))
+				outbit_to_idx[bit] = idx;
+		}
+
+		for (auto &p : evaluable_cells) {
+			Cell *cell = p.first;
+			const int r_index = p.second;
+			// Cheap consecutive-bit producer dedupe.
+			for (auto &conn : cell->connections())
+			if (yosys_celltypes.cell_input(cell->type, conn.first)) {
+				int last_idx = -1;
+				for (auto bit : assign_map(conn.second)) {
+					auto it = outbit_to_idx.find(bit);
+					if (it != outbit_to_idx.end()) {
+						if (it->second != last_idx) {
+							cells.edge(it->second, r_index);
+							last_idx = it->second;
+						}
+					} else {
+						last_idx = -1;
+					}
+				}
+			}
+		}
+
+		if (!cells.sort()) {
+			log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
+		}
+
+		cache.sorted = std::move(cells.sorted);
+		cache.all_cells.clear();
+		cache.all_cells.reserve(module->cells().size());
+		for (auto c : module->cells())
+			cache.all_cells.insert(c);
+		cache.invert_map = invert_map_local;  // freshly-built, save it too
+		cache.sig = cur_sig;
+		cache.valid = true;
+		// New cache invalidates "last call did nothing" for both
+		// consume_x values: structure changed, future no-op claims
+		// must be re-established by a fresh no-op call.
+		cache.last_did_nothing[0] = false;
+		cache.last_did_nothing[1] = false;
 	}
 
-	for (auto cell : module->cells())
-	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
-		const int r_index = cells.node(cell);
-		for (auto &conn : cell->connections())
-		if (yosys_celltypes.cell_input(cell->type, conn.first))
-		for (auto bit : assign_map(conn.second))
-		if (outbit_to_cell.count(bit))
-			cells.edge(cells.node(outbit_to_cell.at(bit)), r_index);
-	}
-
-	if (!cells.sort()) {
-		// There might be a combinational loop, or there might be constants on the output of cells. 'check' may find out more.
-		// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
-		log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
-	}
-
-	for (auto cell : cells.sorted)
+	for (auto cell : cache.sorted)
 	{
 #define ACTION_DO(_p_, _s_) do { replace_cell(assign_map, module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO(ID::Y, RTLIL::SigSpec(RTLIL::State::S ## _v_))
@@ -2188,6 +2282,21 @@ skip_alu_split:
 #undef FOLD_1ARG_CELL
 #undef FOLD_2ARG_CELL
 	}
+	// Record whether this consume_x leg was a no-op so the next call
+	// with the same consume_x can skip everything if the module hasn't
+	// changed in the meantime. Any work invalidates BOTH legs (a
+	// fresh opportunity for one consume_x leg may apply to the other).
+	if (did_something) {
+		cache.last_did_nothing[0] = false;
+		cache.last_did_nothing[1] = false;
+		// did_something can also signal in-place mods that change
+		// neither cell count nor connection count (cell type / param
+		// flips). The cached toposort is still structurally valid
+		// (cells + ports unchanged), but the "would be no-op next
+		// time" claim is now false.
+	} else {
+		cache.last_did_nothing[(int)consume_x] = true;
+	}
 }
 
 void replace_const_connections(RTLIL::Module *module) {
@@ -2304,15 +2413,16 @@ struct OptExprPass : public Pass {
 					design->scratchpad_set_bool("opt.did_something", true);
 			}
 
+			ReplaceConstCellsCache rcc_cache;
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
+					replace_const_cells(design, module, rcc_cache, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
 					if (did_something)
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
 				if (!keepdc)
-					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
+					replace_const_cells(design, module, rcc_cache, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);

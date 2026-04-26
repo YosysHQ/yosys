@@ -649,13 +649,28 @@ struct OptReducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
-		for (auto module : design->selected_modules())
+		for (auto module : design->selected_modules()) {
+			// Quick scan: if the module has none of the cell types
+			// opt_reduce operates on ($mux/$pmux/$bmux/$demux/$reduce_or/
+			// $reduce_and), the worker would build SigPool/SigMap and walk
+			// every cell only to find nothing to do. Bail before that work.
+			bool has_target = false;
+			for (auto &cell_it : module->cells_) {
+				if (cell_it.second->type.in(ID($mux), ID($pmux), ID($bmux), ID($demux),
+						ID($reduce_or), ID($reduce_and))) {
+					has_target = true;
+					break;
+				}
+			}
+			if (!has_target)
+				continue;
 			while (1) {
 				OptReduceWorker worker(design, module, do_fine);
 				total_count += worker.total_count;
 				if (worker.total_count == 0)
 					break;
 			}
+		}
 
 		if (total_count)
 			design->scratchpad_set_bool("opt.did_something", true);

@@ -359,6 +359,19 @@ struct OptSharePass : public Pass {
 
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules()) {
+			// Early bail-out: if no cell in this module is supported by
+			// opt_share, the SigMap + bit_users walk over all cells and
+			// connections is wasted. cell_supported() catches $alu and the
+			// arith/logic/relational families this pass operates on.
+			bool any_supported = false;
+			for (auto cell : module->selected_cells())
+				if (cell_supported(cell)) {
+					any_supported = true;
+					break;
+				}
+			if (!any_supported)
+				continue;
+
 			SigMap sigmap(module);
 
 			dict<RTLIL::SigBit, int> bit_users;

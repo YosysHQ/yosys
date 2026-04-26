@@ -4627,7 +4627,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Const &&value)
 {
 	if (GetSize(value) != 0) {
 		rep_ = CHUNK;
-		new (&chunk_) RTLIL::SigChunk(value);
+		new (&chunk_) RTLIL::SigChunk(std::move(value));
 	} else {
 		init_empty_bits();
 	}
@@ -4649,7 +4649,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigChunk &&chunk)
 {
 	if (chunk.width != 0) {
 		rep_ = CHUNK;
-		new (&chunk_) RTLIL::SigChunk(chunk);
+		new (&chunk_) RTLIL::SigChunk(std::move(chunk));
 	} else {
 		init_empty_bits();
 	}
@@ -4816,7 +4816,23 @@ void RTLIL::SigSpec::try_repack()
 	int bits_size = GetSize(bits_);
 	if (bits_size == 0)
 		return;
-	if (bits_[0].is_wire()) {
+
+	// Cheap pre-check: a successful repack requires that bits_[0] and
+	// bits_[bits_size-1] either both be from the same wire (with the right
+	// offset delta) or both be constants. If neither holds, the O(N) walk
+	// below would only confirm "no repack possible" — skip it.
+	const SigBit &first = bits_[0];
+	const SigBit &last = bits_[bits_size - 1];
+	if (first.is_wire()) {
+		if (last.wire != first.wire ||
+				last.offset != first.offset + (bits_size - 1))
+			return;
+	} else {
+		if (last.is_wire())
+			return;
+	}
+
+	if (first.is_wire()) {
 		for (int i = 1; i < bits_size; i++)
 			if (bits_[0].wire != bits_[i].wire || bits_[0].offset + i != bits_[i].offset)
 				return;

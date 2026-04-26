@@ -1372,11 +1372,23 @@ struct RTLIL::SigSpecIterator
 
 	RTLIL::SigSpec *sig_p;
 	int index;
+	// Write-back cache. operator* loads the bit via the const path (no
+	// unpack) into `cache` and snapshots `original`. On advance/comparison,
+	// if cache != original the caller mutated the bit (via either
+	// `bit = X` or member-level writes such as `bit.wire = X`) and we
+	// flush that one bit back through unpack. Common-case read-only loops
+	// never trigger an unpack — previously `for (auto &b : sig)` ran
+	// inline_unpack() on every iteration via operator[], which dominated
+	// allocator pressure on synth-heavy workloads.
+	mutable RTLIL::SigBit cache;
+	mutable RTLIL::SigBit original;
+	mutable int cached_idx;
 
 	inline RTLIL::SigBit &operator*() const;
-	inline bool operator!=(const RTLIL::SigSpecIterator &other) const { return index != other.index; }
-	inline bool operator==(const RTLIL::SigSpecIterator &other) const { return index == other.index; }
-	inline void operator++() { index++; }
+	inline bool operator!=(const RTLIL::SigSpecIterator &other) const { flush(); return index != other.index; }
+	inline bool operator==(const RTLIL::SigSpecIterator &other) const { flush(); return index == other.index; }
+	inline void operator++() { flush(); index++; }
+	inline void flush() const;
 };
 
 struct RTLIL::SigSpecConstIterator
@@ -1464,6 +1476,7 @@ private:
 			bits_.~vector();
 	}
 	friend struct Chunks;
+	friend struct SigSpecIterator;
 
 public:
 	SigSpec() { init_empty_bits(); }
@@ -1611,6 +1624,20 @@ public:
 	inline bool empty() const { return size() == 0; };
 
 	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_.clear(); return bits_.at(index); }
+	// Read-only bit access that never triggers an unpack. SigSpecIterator
+	// uses this to read via the const path while still letting the caller
+	// observe a SigBit&; the iterator detects mutations and flushes them
+	// back to the SigSpec on advance/comparison.
+	// NOTE: caller is responsible for `0 <= index < size()` — the iterator
+	// only dereferences valid positions, so bypassing the bounds check is safe.
+	inline RTLIL::SigBit read_at(int index) const {
+		if (rep_ == CHUNK) {
+			if (chunk_.wire)
+				return RTLIL::SigBit(chunk_.wire, chunk_.offset + index);
+			return RTLIL::SigBit(chunk_.data[index]);
+		}
+		return bits_[index];
+	}
 	inline RTLIL::SigBit operator[](int index) const {
 		if (rep_ == CHUNK) {
 			if (index < 0 || index >= chunk_.width)
@@ -1622,8 +1649,8 @@ public:
 		return bits_.at(index);
 	}
 
-	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = size(); return it; }
+	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; it.cached_idx = -1; return it; }
+	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = size(); it.cached_idx = -1; return it; }
 
 	inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
 	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = size(); return it; }
@@ -2674,7 +2701,26 @@ inline Hasher RTLIL::SigBit::hash_top() const {
 }
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
-	return (*sig_p)[index];
+	if (cached_idx != index) {
+		flush();
+		cache = sig_p->read_at(index);
+		original = cache;
+		cached_idx = index;
+	}
+	return cache;
+}
+
+inline void RTLIL::SigSpecIterator::flush() const {
+	if (cached_idx < 0)
+		return;
+	// If the caller mutated the cached bit, write it back. Comparing
+	// against the original snapshot avoids re-reading from sig_p.
+	if (!(cache == original)) {
+		sig_p->inline_unpack();
+		sig_p->bits_[cached_idx] = cache;
+		sig_p->hash_.clear();
+	}
+	cached_idx = -1;
 }
 
 inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() {

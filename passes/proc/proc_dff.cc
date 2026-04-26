@@ -307,8 +307,13 @@ struct ProcDffPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->all_selected_modules()) {
+			// ConstEval(mod) walks all cells/connections to seed the
+			// evaluator; skip if the module has no selected processes.
+			auto procs = mod->selected_processes();
+			if (procs.empty())
+				continue;
 			ConstEval ce(mod);
-			for (auto proc : mod->selected_processes())
+			for (auto proc : procs)
 				proc_dff(mod, proc, ce);
 		}
 	}

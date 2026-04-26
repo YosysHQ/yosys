@@ -614,6 +614,18 @@ struct OptMuxtreePass : public Pass {
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
 				continue;
+			// Quick scan for any mux cell before paying for the worker's
+			// O(N) cell walk + assign_map construction. The worker already
+			// bails internally on empty mux2info, but only after building
+			// the rest of the data structures.
+			bool has_mux = false;
+			for (auto cell : module->cells())
+				if (cell->type.in(ID($mux), ID($pmux))) {
+					has_mux = true;
+					break;
+				}
+			if (!has_mux)
+				continue;
 			OptMuxtreeWorker worker(design, module);
 			total_count += worker.removed_count;
 		}
