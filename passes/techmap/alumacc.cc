@@ -602,11 +602,46 @@ struct AlumaccPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->selected_modules())
-			if (!mod->has_processes_warn()) {
-				AlumaccWorker worker(mod);
-				worker.run();
+		// Cross-execute() no-op cache (same pattern as opt_dff/share/etc).
+		struct AlumaccNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, AlumaccNoopCache> noop_cache;
+
+		for (auto mod : design->selected_modules()) {
+			if (mod->has_processes_warn())
+				continue;
+
+			auto noop_it = noop_cache.find(mod);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == mod->generation &&
+					!noop_it->second.last_did_something)
+				continue;
+
+			// Quick scan: if the module has no arith/cmp cells the
+			// AlumaccWorker (which builds bit_users via two SigMap-applied
+			// walks over wires + cells, then walks selected_cells looking
+			// for $pos/$neg/$add/$sub/$mul/$lt/$le/$ge/$gt/$eq/$eqx/$ne/$nex)
+			// is pure waste.
+			bool has_target = false;
+			for (auto cell : mod->cells())
+				if (cell->type.in(ID($pos), ID($neg), ID($add), ID($sub), ID($mul),
+						ID($lt), ID($le), ID($ge), ID($gt),
+						ID($eq), ID($eqx), ID($ne), ID($nex))) {
+					has_target = true;
+					break;
+				}
+			if (!has_target) {
+				noop_cache[mod] = {mod->generation, false};
+				continue;
 			}
+
+			uint64_t gen_before = mod->generation;
+			AlumaccWorker worker(mod);
+			worker.run();
+			noop_cache[mod] = {mod->generation, mod->generation != gen_before};
+		}
 	}
 } AlumaccPass;
 
