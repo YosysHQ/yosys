@@ -408,6 +408,7 @@ struct ReplaceConstCellsCache {
 	std::pair<size_t, size_t> sig{0, 0};  // (cells.size(), connections.size())
 	std::vector<RTLIL::Cell*> sorted;     // cached TopoSort.sorted result
 	pool<RTLIL::Cell*> all_cells;         // ALL module->cells() at build time
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;  // cached invert_map walk
 	bool valid = false;
 	// Track did_something at the end of the previous call AND the
 	// consume_x value used. If both match (same consume_x, last call
@@ -419,35 +420,44 @@ struct ReplaceConstCellsCache {
 
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceConstCellsCache &cache, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
 {
-	// No-op fast path: if the cached toposort is still valid (same
-	// (cells.size, connections.size) and exact same set of live cell
-	// pointers — catches add+remove net-zero) AND the previous call
-	// with this consume_x leg returned did_something=false, we know
-	// this call would do nothing too. Skip SigMap, invert_map walk,
-	// !noclkinv walk, and sorted-cell loop entirely.
-	auto early_cur_sig = std::make_pair(module->cells().size(), module->connections().size());
-	if (cache.valid && cache.last_did_nothing[(int)consume_x] && cache.sig == early_cur_sig) {
-		bool ok = true;
+	// Validate cache once up front: (cells.size, connections.size)
+	// matches AND every live cell pointer is in the cached set. The
+	// resulting `cache_reusable` flag is used both for the no-op
+	// fast-path here and for the toposort/invert_map reuse later.
+	auto cur_sig = std::make_pair(module->cells().size(), module->connections().size());
+	bool cache_reusable = cache.valid && cache.sig == cur_sig;
+	if (cache_reusable) {
 		for (auto cell : module->cells()) {
-			if (!cache.all_cells.count(cell)) { ok = false; break; }
+			if (!cache.all_cells.count(cell)) { cache_reusable = false; break; }
 		}
-		if (ok)
-			return;
 	}
+	// No-op fast path: cache is reusable AND previous call with this
+	// consume_x leg was a no-op. Module is unchanged, same consume_x
+	// processing → guaranteed no work. Skip everything.
+	if (cache_reusable && cache.last_did_nothing[(int)consume_x])
+		return;
 
 	SigMap assign_map(module);
-	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
-
-	for (auto cell : module->cells()) {
-		if (design->selected(module, cell) && cell->type[0] == '$') {
-			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
-					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
-				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
-			if (cell->type.in(ID($mux), ID($_MUX_)) &&
-					cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))
-				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::S));
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map_local;
+	dict<RTLIL::SigSpec, RTLIL::SigSpec> *invert_map_ptr;
+	if (cache_reusable) {
+		// invert_map depends on the same ($_NOT_/$mux) cells whose
+		// presence the cache validated — reuse it.
+		invert_map_ptr = &cache.invert_map;
+	} else {
+		for (auto cell : module->cells()) {
+			if (design->selected(module, cell) && cell->type[0] == '$') {
+				if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
+						GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
+					invert_map_local[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
+				if (cell->type.in(ID($mux), ID($_MUX_)) &&
+						cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))
+					invert_map_local[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::S));
+			}
 		}
+		invert_map_ptr = &invert_map_local;
 	}
+	auto &invert_map = *invert_map_ptr;
 
 	if (!noclkinv)
 	for (auto cell : module->cells())
@@ -538,20 +548,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceCo
 	// addLogicNot+remove around line 2205), so when sizes match we
 	// also verify the SET of live cell pointers in module->cells()
 	// equals the cached set — any divergence triggers a rebuild.
-	auto cur_sig = std::make_pair(module->cells().size(), module->connections().size());
-	bool reuse = cache.valid && cache.sig == cur_sig;
-	if (reuse) {
-		// sizes match — but add+remove may have left them stable while
-		// swapping a cached cell for a new one. Iterate live cells; if
-		// any pointer isn't in our set, the cache is stale.
-		for (auto cell : module->cells()) {
-			if (!cache.all_cells.count(cell)) {
-				reuse = false;
-				break;
-			}
-		}
-	}
-	if (reuse) {
+	if (cache_reusable) {
 		// Reuse cached sort order. The cached cell pointers are all
 		// still live (verified above) so the iteration below is safe.
 	} else {
@@ -601,6 +598,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceCo
 		cache.all_cells.reserve(module->cells().size());
 		for (auto c : module->cells())
 			cache.all_cells.insert(c);
+		cache.invert_map = invert_map_local;  // freshly-built, save it too
 		cache.sig = cur_sig;
 		cache.valid = true;
 		// New cache invalidates "last call did nothing" for both
