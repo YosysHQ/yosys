@@ -410,7 +410,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 	if (!noclkinv)
 	for (auto cell : module->cells())
-	if (design->selected(module, cell)) {
+	if ((StaticCellTypes::categories.is_ff(cell->type) || StaticCellTypes::categories.is_mem_noff(cell->type))
+			&& design->selected(module, cell)) {
 		if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
 			handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
 
@@ -487,25 +488,33 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	}
 
 	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-	dict<RTLIL::SigBit, Cell*> outbit_to_cell;
+	// Store TopoSort indices directly (skip a second std::map lookup per
+	// edge), and remember each evaluable cell's index so the edge pass
+	// doesn't rewalk module->cells() and re-filter.
+	dict<RTLIL::SigBit, int> outbit_to_idx;
+	std::vector<std::pair<Cell*, int>> evaluable_cells;
 
-	for (auto cell : module->cells())
-	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
+	for (auto cell : module->cells()) {
+		if (!design->selected(module, cell)) continue;
+		if (!yosys_celltypes.cell_evaluable(cell->type)) continue;
+		const int idx = cells.node(cell);
+		evaluable_cells.emplace_back(cell, idx);
 		for (auto &conn : cell->connections())
 		if (yosys_celltypes.cell_output(cell->type, conn.first))
 		for (auto bit : assign_map(conn.second))
-			outbit_to_cell[bit] = cell;
-		cells.node(cell);
+			outbit_to_idx[bit] = idx;
 	}
 
-	for (auto cell : module->cells())
-	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
-		const int r_index = cells.node(cell);
+	for (auto &p : evaluable_cells) {
+		Cell *cell = p.first;
+		const int r_index = p.second;
 		for (auto &conn : cell->connections())
 		if (yosys_celltypes.cell_input(cell->type, conn.first))
-		for (auto bit : assign_map(conn.second))
-		if (outbit_to_cell.count(bit))
-			cells.edge(cells.node(outbit_to_cell.at(bit)), r_index);
+		for (auto bit : assign_map(conn.second)) {
+			auto it = outbit_to_idx.find(bit);
+			if (it != outbit_to_idx.end())
+				cells.edge(it->second, r_index);
+		}
 	}
 
 	if (!cells.sort()) {
