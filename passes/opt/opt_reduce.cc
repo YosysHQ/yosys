@@ -651,8 +651,20 @@ struct OptReducePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Cross-execute() no-op cache (same pattern as opt_dff/opt_share/opt_muxtree).
+		struct ReduceNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, ReduceNoopCache> noop_cache;
+
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
+			auto noop_it = noop_cache.find(module);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == module->generation &&
+					!noop_it->second.last_did_something)
+				continue;
 			// Quick scan: if the module has none of the cell types
 			// opt_reduce operates on ($mux/$pmux/$bmux/$demux/$reduce_or/
 			// $reduce_and), the worker would build SigPool/SigMap and walk
@@ -665,14 +677,19 @@ struct OptReducePass : public Pass {
 					break;
 				}
 			}
-			if (!has_target)
+			if (!has_target) {
+				noop_cache[module] = {module->generation, false};
 				continue;
+			}
+			int mod_count = 0;
 			while (1) {
 				OptReduceWorker worker(design, module, do_fine);
 				total_count += worker.total_count;
+				mod_count += worker.total_count;
 				if (worker.total_count == 0)
 					break;
 			}
+			noop_cache[module] = {module->generation, mod_count > 0};
 		}
 
 		if (total_count)

@@ -60,6 +60,22 @@ struct OptCleanPass : public Pass {
 		log("        also remove internal nets if they have a public name\n");
 		log("\n");
 	}
+	// Cross-execute() no-op cache. Skip rmunused_module entirely if the
+	// module is unchanged since a prior call that found nothing to
+	// remove. The setup cost of a single rmunused_module call is
+	// substantial (~20-40ms on picorv32_x4) — building the parallel
+	// AnalysisContext, exploring cell connectivity, and running
+	// rmunused_module_signals which clears + rebuilds module->connections_
+	// every iter. Worth caching.
+	struct CleanNoopCache {
+		uint64_t generation;
+		bool last_did_something;
+	};
+	static std::map<RTLIL::Module*, CleanNoopCache> &noop_cache_storage() {
+		static std::map<RTLIL::Module*, CleanNoopCache> instance;
+		return instance;
+	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
@@ -78,13 +94,33 @@ struct OptCleanPass : public Pass {
 		extra_args(args, argidx, design);
 
 		{
+			auto &noop_cache = noop_cache_storage();
 			std::vector<RTLIL::Module*> selected_modules;
-			for (auto module : design->selected_whole_modules_warn())
-				if (!module->has_processes_warn())
-					selected_modules.push_back(module);
+			for (auto module : design->selected_whole_modules_warn()) {
+				if (module->has_processes_warn())
+					continue;
+				auto noop_it = noop_cache.find(module);
+				if (noop_it != noop_cache.end() &&
+						noop_it->second.generation == module->generation &&
+						!noop_it->second.last_did_something)
+					continue;
+				selected_modules.push_back(module);
+			}
 			CleanRunContext clean_ctx(design, selected_modules, {purge_mode, true});
-			for (auto module : selected_modules)
+			// Per-module did_something tracking via the module's
+			// generation counter: it bumps on every cell/wire removal
+			// inside rmunused_module, so a stable generation across
+			// the call means no work was done.
+			bool any_did_something = design->scratchpad_get_bool("opt.did_something");
+			for (auto module : selected_modules) {
+				uint64_t gen_before = module->generation;
 				rmunused_module(module, true, clean_ctx);
+				bool mod_did_something = module->generation != gen_before;
+				noop_cache[module] = {module->generation, mod_did_something};
+				if (mod_did_something)
+					any_did_something = true;
+			}
+			(void)any_did_something;  // already reflected in scratchpad by rmunused_module
 			clean_ctx.stats.log();
 
 			design->optimize();
@@ -129,13 +165,28 @@ struct CleanPass : public Pass {
 		extra_args(args, argidx, design);
 
 		{
+			// Same no-op cache as OptCleanPass — they share rmunused_module
+			// semantics. Use the OptCleanPass storage so back-to-back
+			// `clean` and `opt_clean` calls share state.
+			auto &noop_cache = OptCleanPass::noop_cache_storage();
 			std::vector<RTLIL::Module*> selected_modules;
-			for (auto module : design->selected_unboxed_whole_modules())
-				if (!module->has_processes())
-					selected_modules.push_back(module);
+			for (auto module : design->selected_unboxed_whole_modules()) {
+				if (module->has_processes())
+					continue;
+				auto noop_it = noop_cache.find(module);
+				if (noop_it != noop_cache.end() &&
+						noop_it->second.generation == module->generation &&
+						!noop_it->second.last_did_something)
+					continue;
+				selected_modules.push_back(module);
+			}
 			CleanRunContext clean_ctx(design, selected_modules, {purge_mode, ys_debug()});
-			for (auto module : selected_modules)
+			for (auto module : selected_modules) {
+				uint64_t gen_before = module->generation;
 				rmunused_module(module, true, clean_ctx);
+				bool mod_did_something = module->generation != gen_before;
+				noop_cache[module] = {module->generation, mod_did_something};
+			}
 
 			log_suppressed();
 			clean_ctx.stats.log();

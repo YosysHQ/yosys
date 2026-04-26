@@ -606,9 +606,25 @@ struct OptMuxtreePass : public Pass {
 		log_header(design, "Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
 		extra_args(args, 1, design);
 
+		// Cross-execute() no-op cache. Skip the per-module worker
+		// (which builds bit2info + mux2info via two cell walks) when
+		// the module is unchanged since a prior call that found
+		// nothing to remove. Module* is a safe key — pointer reuse
+		// after design -reset gets a fresh generation value.
+		struct MuxtreeNoopCache {
+			uint64_t generation;
+			bool last_did_something;
+		};
+		static std::map<RTLIL::Module*, MuxtreeNoopCache> noop_cache;
+
 		int total_count = 0;
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
+				continue;
+			auto noop_it = noop_cache.find(module);
+			if (noop_it != noop_cache.end() &&
+					noop_it->second.generation == module->generation &&
+					!noop_it->second.last_did_something)
 				continue;
 			// Quick scan for any mux cell before paying for the worker's
 			// O(N) cell walk + assign_map construction. The worker already
@@ -620,10 +636,13 @@ struct OptMuxtreePass : public Pass {
 					has_mux = true;
 					break;
 				}
-			if (!has_mux)
+			if (!has_mux) {
+				noop_cache[module] = {module->generation, false};
 				continue;
+			}
 			OptMuxtreeWorker worker(design, module);
 			total_count += worker.removed_count;
+			noop_cache[module] = {module->generation, worker.removed_count > 0};
 		}
 		if (total_count)
 			design->scratchpad_set_bool("opt.did_something", true);
