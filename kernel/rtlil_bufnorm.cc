@@ -533,6 +533,11 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 
 	if (conn_it != connections_.end())
 	{
+		// Cell port mutations affect any per-Module cache that indexes
+		// off cell connectivity. Bump the module's generation.
+		if (module)
+			module->bump_generation();
+
 		for (auto mon : module->monitors)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
@@ -592,6 +597,11 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	auto conn_it = r.first;
 	if (!r.second && conn_it->second == signal)
 		return;
+
+	// Cell port mutations affect any per-Module cache that indexes
+	// off cell connectivity. Bump the module's generation.
+	if (module)
+		module->bump_generation();
 
 	for (auto mon : module->monitors)
 		mon->notify_connect(this, conn_it->first, conn_it->second, signal);

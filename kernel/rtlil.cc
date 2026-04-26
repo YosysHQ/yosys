@@ -1511,6 +1511,14 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 	return result;
 }
 
+// Process-wide monotonic counter for Module::generation. Single-threaded use.
+static uint64_t module_generation_global = 0;
+
+void RTLIL::Module::bump_generation()
+{
+	generation = ++module_generation_global;
+}
+
 RTLIL::Module::Module()
 {
 	static unsigned int hashidx_count = 123456789;
@@ -1520,6 +1528,7 @@ RTLIL::Module::Module()
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
+	generation = ++module_generation_global;
 
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
@@ -2878,6 +2887,7 @@ void RTLIL::Module::add(RTLIL::Wire *wire)
 	log_assert(refcount_wires_ == 0);
 	wires_[wire->name] = wire;
 	wire->module = this;
+	bump_generation();
 }
 
 void RTLIL::Module::add(RTLIL::Cell *cell)
@@ -2887,6 +2897,7 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	log_assert(refcount_cells_ == 0);
 	cells_[cell->name] = cell;
 	cell->module = this;
+	bump_generation();
 }
 
 void RTLIL::Module::add(RTLIL::Process *process)
@@ -2895,6 +2906,7 @@ void RTLIL::Module::add(RTLIL::Process *process)
 	log_assert(count_id(process->name) == 0);
 	processes[process->name] = process;
 	process->module = this;
+	bump_generation();
 }
 
 void RTLIL::Module::add(RTLIL::Binding *binding)
@@ -2946,6 +2958,7 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		wires_.erase(it->name);
 		delete it;
 	}
+	bump_generation();
 }
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
@@ -2963,6 +2976,7 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	} else {
 		delete cell;
 	}
+	bump_generation();
 }
 
 void RTLIL::Module::remove(RTLIL::Memory *memory)
@@ -2970,6 +2984,7 @@ void RTLIL::Module::remove(RTLIL::Memory *memory)
 	log_assert(memories.count(memory->name) != 0);
 	memories.erase(memory->name);
 	delete memory;
+	bump_generation();
 }
 
 void RTLIL::Module::remove(RTLIL::Process *process)
@@ -2977,6 +2992,7 @@ void RTLIL::Module::remove(RTLIL::Process *process)
 	log_assert(processes.count(process->name) != 0);
 	processes.erase(process->name);
 	delete process;
+	bump_generation();
 }
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
@@ -3101,6 +3117,7 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 
 	log_assert(GetSize(conn.first) == GetSize(conn.second));
 	connections_.push_back(conn);
+	bump_generation();
 }
 
 void RTLIL::Module::connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs)
@@ -3125,6 +3142,7 @@ void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
 	}
 
 	connections_ = new_conn;
+	bump_generation();
 }
 
 const std::vector<RTLIL::SigSig> &RTLIL::Module::connections() const

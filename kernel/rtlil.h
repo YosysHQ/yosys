@@ -2087,6 +2087,15 @@ protected:
 	void add(RTLIL::Process *process);
 
 public:
+	// Process-wide monotonic generation counter. Bumped on every
+	// structural mutation. Caches across pass invocations key off this
+	// value: a cache is valid iff the cached `generation` equals the
+	// module's current `generation`. Pulled from a global counter so
+	// values are unique even when a Module is destroyed and a new one
+	// is allocated at the same address (`design -reset` workflows).
+	uint64_t generation = 0;
+	void bump_generation();
+
 	RTLIL::Design *design;
 	pool<RTLIL::Monitor*> monitors;
 

@@ -398,21 +398,20 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 // inner do/while iterations when no cells were added/removed and no
 // new module->connect calls happened skips the rebuild entirely.
 //
-// Invalidation: changes in module->cells().size() OR
-// module->connections().size() catch the common cases (cell removed, new
-// connect added). To catch the trickier "added one cell + removed one
-// cell" net-zero case (e.g. opt_expr.cc:2205 addLogicNot followed by
-// remove), we additionally store the set of cell pointers and verify
-// every cached pointer is still in module->cells() before reuse.
+// Invalidation: keyed off RTLIL::Module::generation, a process-wide
+// monotonic counter bumped on every cell/wire/connection add/remove
+// AND every Cell::setPort/unsetPort. A simple equality check replaces
+// the previous (cells.size, connections.size) signature plus
+// O(N_cells) iteration to detect add+remove net-zero — the counter
+// catches all of those cheaply.
 struct ReplaceConstCellsCache {
-	std::pair<size_t, size_t> sig{0, 0};  // (cells.size(), connections.size())
+	uint64_t generation = 0;
 	std::vector<RTLIL::Cell*> sorted;     // cached TopoSort.sorted result
-	pool<RTLIL::Cell*> all_cells;         // ALL module->cells() at build time
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;  // cached invert_map walk
 	bool valid = false;
 	// Track did_something at the end of the previous call AND the
 	// consume_x value used. If both match (same consume_x, last call
-	// was a no-op) AND cache is reused (sig + cell-set match), this
+	// was a no-op) AND cache is reused (generation match), this
 	// call is guaranteed to be a no-op too — skip the entire pipeline,
 	// not just the toposort build.
 	bool last_did_nothing[2] = {false, false};
@@ -420,17 +419,10 @@ struct ReplaceConstCellsCache {
 
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceConstCellsCache &cache, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
 {
-	// Validate cache once up front: (cells.size, connections.size)
-	// matches AND every live cell pointer is in the cached set. The
-	// resulting `cache_reusable` flag is used both for the no-op
-	// fast-path here and for the toposort/invert_map reuse later.
-	auto cur_sig = std::make_pair(module->cells().size(), module->connections().size());
-	bool cache_reusable = cache.valid && cache.sig == cur_sig;
-	if (cache_reusable) {
-		for (auto cell : module->cells()) {
-			if (!cache.all_cells.count(cell)) { cache_reusable = false; break; }
-		}
-	}
+	// Validate cache by comparing the module's generation counter.
+	// O(1) — the counter is bumped on every structural mutation
+	// (add/remove cell/wire/process/connection AND Cell::setPort).
+	bool cache_reusable = cache.valid && cache.generation == module->generation;
 	// No-op fast path: cache is reusable AND previous call with this
 	// consume_x leg was a no-op. Module is unchanged, same consume_x
 	// processing → guaranteed no work. Skip everything.
@@ -538,19 +530,14 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceCo
 		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map, invert_map);
 	}
 
-	// Reuse the TopoSort across calls in this execute() when no cells
-	// have been added or removed AND no new module->connect calls have
-	// happened. In-place cell mutations don't invalidate it (cell
-	// pointers + port directions stay the same).
-	//
-	// (cells.size, connections.size) catches the common cases. Add+
-	// remove may net-zero through cells.size though (e.g.
-	// addLogicNot+remove around line 2205), so when sizes match we
-	// also verify the SET of live cell pointers in module->cells()
-	// equals the cached set — any divergence triggers a rebuild.
+	// Reuse the TopoSort across calls in this execute() when the
+	// module's generation counter is unchanged. The counter is bumped
+	// on every structural mutation (cell/wire add/remove, connect,
+	// Cell::setPort/unsetPort), so reuse is only safe when nothing
+	// the toposort depends on has changed.
 	if (cache_reusable) {
 		// Reuse cached sort order. The cached cell pointers are all
-		// still live (verified above) so the iteration below is safe.
+		// still live (counter check above guarantees no removals).
 	} else {
 		// Build TopoSort from scratch.
 		TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
@@ -594,12 +581,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, ReplaceCo
 		}
 
 		cache.sorted = std::move(cells.sorted);
-		cache.all_cells.clear();
-		cache.all_cells.reserve(module->cells().size());
-		for (auto c : module->cells())
-			cache.all_cells.insert(c);
 		cache.invert_map = invert_map_local;  // freshly-built, save it too
-		cache.sig = cur_sig;
+		cache.generation = module->generation;
 		cache.valid = true;
 		// New cache invalidates "last call did nothing" for both
 		// consume_x values: structure changed, future no-op claims
