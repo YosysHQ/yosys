@@ -115,24 +115,42 @@ struct OptDffWorker
 		// Gathering two kinds of information here for every sigmapped SigBit:
 		// - bitusers: how many users it has (muxes will only be merged into FFs if the FF is the only user)
 		// - bit2mux: the mux cell and bit index that drives it, if any
-
-		for (auto wire : module->wires())
-			if (wire->port_output)
-				for (auto bit : sigmap(wire))
-					bitusers[bit]++;
-
-		for (auto cell : module->cells()) {
+		//
+		// Both are only used by the FF<->mux merge paths (try_merge_srst,
+		// try_merge_ce, find_muxtree_feedback_patterns). If the module has
+		// no $mux/$pmux/$_MUX_ cells at all, those paths can't fire and
+		// the per-cell walk to populate the maps is pure waste — visible
+		// on post-techmap netlists where most muxes have already been
+		// expanded into gates and on synth flows that map to non-mux
+		// cells. Quick scan first.
+		bool has_mux = false;
+		for (auto cell : module->cells())
 			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
-				RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-				for (int i = 0; i < GetSize(sig_y); i++)
-					bit2mux[sig_y[i]] = cell_int_t(cell, i);
+				has_mux = true;
+				break;
 			}
 
-			for (auto conn : cell->connections()) {
-				bool is_output = cell->output(conn.first);
-				if (!is_output || !cell->known())
-					for (auto bit : sigmap(conn.second))
+		if (has_mux) {
+			for (auto wire : module->wires())
+				if (wire->port_output)
+					for (auto bit : sigmap(wire))
 						bitusers[bit]++;
+		}
+
+		for (auto cell : module->cells()) {
+			if (has_mux) {
+				if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
+					RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+					for (int i = 0; i < GetSize(sig_y); i++)
+						bit2mux[sig_y[i]] = cell_int_t(cell, i);
+				}
+
+				for (auto conn : cell->connections()) {
+					bool is_output = cell->output(conn.first);
+					if (!is_output || !cell->known())
+						for (auto bit : sigmap(conn.second))
+							bitusers[bit]++;
+				}
 			}
 
 			if (module->design->selected(module, cell) && cell->is_builtin_ff())
