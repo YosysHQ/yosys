@@ -53,9 +53,23 @@ static const std::map<std::string, int> g_units =
 	{ "zs", -21 },
 };
 
-static double stringToTime(std::string str)
+struct scaled_time {
+	uint64_t time;
+	int scale; // exponent of 10, e.g. -6 = us, -9 = ns
+	bool end;
+};
+
+static uint64_t pow10(int n)
 {
-	if (str=="END") return -1;
+	int r = 1;
+	while (n--)
+		r *= 10;
+	return r;
+}
+
+static scaled_time stringToTime(std::string str)
+{
+	if (str=="END") return {1, 0, true};
 
 	char *endptr;
 	long value = strtol(str.c_str(), &endptr, 10);
@@ -66,7 +80,7 @@ static double stringToTime(std::string str)
 	if (value < 0)
 		log_error("Time value '%s' must be positive\n", str);
 
-	return value * pow(10.0, g_units.at(endptr));
+	return {(unsigned long)value, g_units.at(endptr), false};
 }
 
 struct SimWorker;
@@ -110,8 +124,8 @@ struct SimShared
 	bool hdlname = false;
 	int rstlen = 1;
 	FstData *fst = nullptr;
-	double start_time = 0;
-	double stop_time = -1;
+	scaled_time start_time = {0, 0, false};
+	scaled_time stop_time = {1, 0, true};
 	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
 	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
@@ -1514,27 +1528,27 @@ struct SimWorker : SimShared
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
-		if (start_time==0) {
-			if (start_time < fst->getStartTime())
+		if (start_time.time == 0) {
+			if (start_time.time < fst->getStartTime())
 				log_warning("Start time is before simulation file start time\n");
 			startCount = fst->getStartTime();
-		} else if (start_time==-1) 
+		} else if (start_time.end) 
 			startCount = fst->getEndTime();
 		else {
-			startCount = start_time / fst->getTimescale();
+			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
 			if (startCount > fst->getEndTime()) {
 				startCount = fst->getEndTime();
 				log_warning("Start time is after simulation file end time\n");
 			}
 		}
-		if (stop_time==0) {
-			if (stop_time < fst->getStartTime())
+		if (stop_time.time == 0) {
+			if (stop_time.time < fst->getStartTime())
 				log_warning("Stop time is before simulation file start time\n");
 			stopCount = fst->getStartTime();
-		} else if (stop_time==-1) 
+		} else if (stop_time.end) 
 			stopCount = fst->getEndTime();
 		else {
-			stopCount = stop_time / fst->getTimescale();
+			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
 			if (stopCount > fst->getEndTime()) {
 				stopCount = fst->getEndTime();
 				log_warning("Stop time is after simulation file end time\n");
@@ -2174,27 +2188,27 @@ struct SimWorker : SimShared
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
-		if (start_time==0) {
-			if (start_time < fst->getStartTime())
+		if (start_time.time == 0) {
+			if (start_time.time < fst->getStartTime())
 				log_warning("Start time is before simulation file start time\n");
 			startCount = fst->getStartTime();
-		} else if (start_time==-1) 
+		} else if (start_time.end) 
 			startCount = fst->getEndTime();
 		else {
-			startCount = start_time / fst->getTimescale();
+			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
 			if (startCount > fst->getEndTime()) {
 				startCount = fst->getEndTime();
 				log_warning("Start time is after simulation file end time\n");
 			}
 		}
-		if (stop_time==0) {
-			if (stop_time < fst->getStartTime())
+		if (stop_time.time == 0) {
+			if (stop_time.time < fst->getStartTime())
 				log_warning("Stop time is before simulation file start time\n");
 			stopCount = fst->getStartTime();
-		} else if (stop_time==-1) 
+		} else if (stop_time.end) 
 			stopCount = fst->getEndTime();
 		else {
-			stopCount = stop_time / fst->getTimescale();
+			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
 			if (stopCount > fst->getEndTime()) {
 				stopCount = fst->getEndTime();
 				log_warning("Stop time is after simulation file end time\n");
