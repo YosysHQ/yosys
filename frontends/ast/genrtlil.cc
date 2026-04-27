@@ -47,10 +47,11 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width
 {
 	IdString name = stringf("%s$%s:%d$%d", type, RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	set_src_attr(cell, that);
+	std::string src_str = that->loc_string();
+	set_src_attr(cell, src_str);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	set_src_attr(wire, that);
+	set_src_attr(wire, src_str);
 	wire->is_signed = that->is_signed;
 
 	if (gen_attributes && !that->attributes.empty())
@@ -79,10 +80,11 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 
 	IdString name = stringf("$extend$%s:%d$%d", RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
-	set_src_attr(cell, that);
+	std::string src_str = that->loc_string();
+	set_src_attr(cell, src_str);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", width);
-	set_src_attr(wire, that);
+	set_src_attr(wire, src_str);
 	wire->is_signed = that->is_signed;
 
 	if (that != nullptr && !that->attributes.empty())
@@ -106,10 +108,11 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width
 {
 	IdString name = stringf("%s$%s:%d$%d", type, RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	set_src_attr(cell, that);
+	std::string src_str = that->loc_string();
+	set_src_attr(cell, src_str);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	set_src_attr(wire, that);
+	set_src_attr(wire, src_str);
 	wire->is_signed = that->is_signed;
 
 	if (!that->attributes.empty())
@@ -142,10 +145,11 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	sstr << "$ternary$" << RTLIL::encode_filename(*that->location.begin.filename) << ":" << that->location.begin.line << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
-	set_src_attr(cell, that);
+	std::string src_str = that->loc_string();
+	set_src_attr(cell, src_str);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
-	set_src_attr(wire, that);
+	set_src_attr(wire, src_str);
 	wire->is_signed = that->is_signed;
 
 	if (!that->attributes.empty())

@@ -1098,6 +1098,11 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 	obj->attributes[ID::src] = ast->loc_string();
 }
 
+void AST::set_src_attr(RTLIL::AttrObject *obj, const std::string &src)
+{
+	obj->attributes[ID::src] = src;
+}
+
 static bool param_has_no_default(const AstNode* param) {
 	const auto &children = param->children;
 	log_assert(param->type == AST_PARAMETER);

@@ -797,10 +797,11 @@ namespace RTLIL {
 
 	static inline std::string encode_filename(const std::string &filename)
 	{
-		std::stringstream val;
+		// Fast path: skip stringstream construction when filename is plain ASCII.
 		if (!std::any_of(filename.begin(), filename.end(), [](char c) {
 			return static_cast<unsigned char>(c) < 33 || static_cast<unsigned char>(c) > 126;
 		})) return filename;
+		std::stringstream val;
 		for (unsigned char const c : filename) {
 			if (c < 33 || c > 126)
 				val << stringf("$%02x", c);

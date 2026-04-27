@@ -428,6 +428,7 @@ namespace AST
 
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
+	void set_src_attr(RTLIL::AttrObject *obj, const std::string &src);
 
 	// generate standard $paramod... derived module name; parameters should be
 	// in the order they are declared in the instantiated module
