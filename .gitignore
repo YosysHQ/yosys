@@ -52,6 +52,18 @@
 /result
 /dist
 
+# perf benchmark outputs (synthetic generators, JSON results, scratch logs)
+/benchmark-results/
+/libyosys_exe.a
+/yosys-loop*.exe
+/tests/tools/cmp_tbdata.exe
+
+# leftover artifacts from tests/various/async.sh when iverilog is unavailable
+/tests/various/async_???.v
+
+# Claude Code local project state
+/.claude/
+
 # pyosys
 /kernel/*.pyh
 /kernel/python_wrappers.cc
