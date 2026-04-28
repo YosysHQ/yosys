@@ -3925,18 +3925,12 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		if (GetSize(args) > argidx && args[argidx] == "-delete_module") {
-			string lib = "work";
+		if (GetSize(args) > argidx && args[argidx] == "-unignore_module") {
 			Set *ignored = veri_file::GetIgnoredModuleSet();
 			for (argidx++; argidx < GetSize(args); argidx++) {
-				if (args[argidx] == "-work" && argidx+1 < GetSize(args)) {
-					lib = args[++argidx];
-					continue;
-				}
 				const char *name = args[argidx].c_str();
 				if (ignored)
 					ignored->Remove(name);
-				veri_file::RemoveModule(name, lib.c_str());
 			}
 			goto check_error;
 		}
