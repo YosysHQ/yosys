@@ -3928,7 +3928,7 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-unignore_module") {
 			Set *ignored = veri_file::GetIgnoredModuleSet();
 			for (argidx++; argidx < GetSize(args); argidx++) {
-				string name = args[argidx].c_str();
+				const char *name = args[argidx].c_str();
 				if (ignored)
 					ignored->Remove(name);
 			}
