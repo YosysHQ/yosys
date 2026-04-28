@@ -47,7 +47,7 @@ USING_YOSYS_NAMESPACE
 
 #include "Array.h"
 #include "RuntimeFlags.h"
-#include "Set.h" 
+#include "Set.h"
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 #include "hier_tree.h"
 #endif
