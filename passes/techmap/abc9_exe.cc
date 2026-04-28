@@ -186,7 +186,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		std::string merged_scl = convert_liberty_files_to_merged_scl(liberty_files, dont_use_args, exe_file);
 		if (!merged_scl.empty()) {
 			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
-		} else {
+		} else if(!liberty_files.empty()) {
 			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
 			bool first_lib = true;
 			for (std::string liberty_file : liberty_files) {
