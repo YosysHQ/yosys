@@ -128,7 +128,7 @@ struct RegRenameInstance {
 
 					int wireWidth = regInfo.width;
 					int wireOffset = regInfo.offset;
-					if (wireWidth == 0 && regName.find("_reg") != std::string::npos) {
+					if (wireWidth == 0) {
 						log_warning("Unable to find matching register %s in VCD for cell %s in scope %s\n",
 							regName.c_str(), cellName.c_str(), vcd_scope.c_str());
 						continue;
