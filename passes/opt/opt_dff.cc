@@ -1095,7 +1095,7 @@ struct OptDffWorker
 				if (ff.has_srst) {
 					int srst = qcsat.importSigBit(ff.sig_srst);
 					if (!ff.pol_srst) srst = qcsat.ez->NOT(srst);
-					n = sat_mux(qcsat,srst, sat_const(qcsat, ff.val_srst[eb.idx]), n);
+					n = sat_mux(qcsat, srst, sat_const(qcsat, ff.val_srst[eb.idx]), n);
 				}
 
 				n_lit[idx] = n;
@@ -1226,7 +1226,7 @@ struct OptDffPass : public Pass {
 		log("    -simple-dffe\n");
 		log("        only enables clock enable recognition transform for obvious cases\n");
 		log("\n");
-		log("    -sat AAA\n");
+		log("    -sat\n");
 		log("        additionally invoke SAT solver to detect and remove flip-flops (with\n");
 		log("        non-constant inputs) that can also be replaced with a constant driver\n");
 		log("\n");
