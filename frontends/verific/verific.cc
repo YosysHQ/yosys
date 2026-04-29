@@ -47,6 +47,7 @@ USING_YOSYS_NAMESPACE
 
 #include "Array.h"
 #include "RuntimeFlags.h"
+#include "Set.h"
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 #include "hier_tree.h"
 #endif
@@ -3920,6 +3921,16 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				string name = args[argidx];
 				veri_file::AddToIgnoredParsedModuleNames(name.c_str());
+			}
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-unignore_module") {
+			Set *ignored = veri_file::GetIgnoredModuleSet();
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				const char *name = args[argidx].c_str();
+				if (ignored)
+					ignored->Remove(name);
 			}
 			goto check_error;
 		}
