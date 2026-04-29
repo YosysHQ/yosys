@@ -108,11 +108,19 @@ struct RegRenameInstance {
 				size_t last_open = cellName.rfind('[');
 				size_t last_close = cellName.rfind(']');
 				if (last_open != std::string::npos && last_close != std::string::npos && last_close > last_open) {
-						wireName = cellName.substr(0, last_open);
-						bitIndex = std::stoi(cellName.substr(last_open + 1, last_close - last_open - 1));
+
+						// Check that bracket content is just a single bit index
+						std::string inner = cellName.substr(last_open + 1, last_close - last_open - 1);
+						if (!inner.empty() && inner.find_first_not_of("0123456789") == std::string::npos) {
+							wireName = cellName.substr(0, last_open);
+							bitIndex = std::stoi(inner);
+						} else {
+							wireName = cellName;
+							bitIndex = 0;
+						}
 				} else {
-						wireName = cellName;
-						bitIndex = 0;
+					wireName = cellName;
+					bitIndex = 0;
 				}
 
 				// Process Q output connection for the cell
@@ -301,10 +309,17 @@ struct RegRenamePass : public Pass {
 					std::string signal_bits = "";
 
 					// Use the bracket notation to extract the bit range and construct true reg name.
-					size_t bit_pos = signal_name.rfind('[');
-					if (bit_pos != std::string::npos) {
-						signal_bits = signal_name.substr(bit_pos);
-						signal_name.erase(bit_pos);
+					if (!signal_name.empty() && signal_name.back() == ']') {
+						size_t open = signal_name.rfind('[');
+						if (open != std::string::npos) {
+							std::string inner = signal_name.substr(open + 1,
+																										signal_name.size() - open - 2);
+							// Check for alphabetical characters since they can be contained in brackets in a wire name.
+							if (!inner.empty() && inner.find_first_not_of("0123456789:") == std::string::npos) {
+								signal_bits = signal_name.substr(open);
+								signal_name.erase(open);
+							}
+						}
 					}
 
 					// Extract the LSB and MSB indices if present.
