@@ -188,9 +188,17 @@ struct SplitcellsWorker
 				std::string base_name = cell->name.str();
 				IdString slice_name;
 				if (blast) {
-					// Strip existing brackets from cell name
-					size_t bracket_pos = base_name.find('[');
+					// Strip existing '[' or '.' from cell name
+					size_t bracket_pos = base_name.find_first_of("[.");
+					bool strip_reg = false;
 					if (bracket_pos != std::string::npos) {
+
+						// Check if we will strip off _reg suffix from base name
+						size_t reg_pos = base_name.rfind("_reg");
+						if (reg_pos != std::string::npos && reg_pos > bracket_pos) {
+							base_name = base_name.substr(0, reg_pos);
+							strip_reg = true;
+						}
 						base_name = base_name.substr(0, bracket_pos);
 					}
 
@@ -198,19 +206,19 @@ struct SplitcellsWorker
 					std::string wire_indices;
 					if (slice_lsb < GetSize(raw_q) && raw_q[slice_lsb].is_wire()) {
 
-							// Extract wire name (ex: \Memory[0])
+							// Extract wire name (ex: \Memory[0] or \Memory.attr)
 							Wire *w = raw_q[slice_lsb].wire;
 							std::string wire_name = w->name.str();
 
 							// Extract bit offset from the wire (ex: 0)
 							int bit_offset = user_index(slice_lsb);
 
-							// Concatenate wire index (ex: \Memory[0] -> [0]) to the bit offset (ex: [0][bit])
-							size_t bracket_pos = wire_name.find('[');
+							// Concatenate struct attribute or wire index (ex: \Memory[0] -> [0]) to the bit offset
+							size_t bracket_pos = wire_name.find_first_of("[.");
 							if (bracket_pos != std::string::npos) {
-									wire_indices = wire_name.substr(bracket_pos) + stringf(
+									wire_indices = wire_name.substr(bracket_pos) + (strip_reg ? "_reg" : "") + stringf(
 										"%c%d%c", format[0], bit_offset, format[1]);
-							} else { // no brackets, so no concatenation using wire, use slice_lsb + name_lsb offset instead
+							} else { // no '[' or '.', so no concatenation using wire, use slice_lsb + name_lsb offset instead
 									wire_indices = stringf(
 										"%c%d%c", format[0], slice_lsb + wire_offset, format[1]);
 							}

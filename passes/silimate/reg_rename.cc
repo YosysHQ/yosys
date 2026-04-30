@@ -64,7 +64,7 @@ struct RegRenameInstance {
 
 	// Processes registers in a given module hierarchy
 	// and renames to allow for correct register annotation
-	void process_registers(dict<std::pair<std::string, std::string>, RegInfo> &vcd_reg_widths)
+	void process_registers(dict<std::string, RegInfo> &vcd_reg_widths)
 	{
 		if (debug)
 			log("Processing registers in scope: %s (module: %s)\n", 
@@ -103,16 +103,17 @@ struct RegRenameInstance {
 				cellName.erase(reg_pos, 4);
 
 				// Index comes from the right-most brackets
-				std::string wireName;
+				std::string wireName = cellName;
 				int bitIndex = 0;
 				size_t last_open = cellName.rfind('[');
 				size_t last_close = cellName.rfind(']');
 				if (last_open != std::string::npos && last_close != std::string::npos && last_close > last_open) {
+					// Validate bracket content is just a single bit slice
+					std::string inner = cellName.substr(last_open + 1, last_close - last_open - 1);
+					if (!inner.empty() && inner.find_first_not_of("0123456789") == std::string::npos) {
 						wireName = cellName.substr(0, last_open);
-						bitIndex = std::stoi(cellName.substr(last_open + 1, last_close - last_open - 1));
-				} else {
-						wireName = cellName;
-						bitIndex = 0;
+						bitIndex = std::stoi(inner);
+					}
 				}
 
 				// Process Q output connection for the cell
@@ -124,7 +125,7 @@ struct RegRenameInstance {
 
 					// Lookup wire information from VCD
 					std::string regName = RTLIL::unescape_id(wireName);
-					RegInfo regInfo = vcd_reg_widths[{vcd_scope, regName}];
+					RegInfo regInfo = vcd_reg_widths[vcd_scope + "." + regName];
 
 					int wireWidth = regInfo.width;
 					int wireOffset = regInfo.offset;
@@ -218,7 +219,7 @@ struct RegRenameInstance {
 		module->remove(wireRemoveCache);
 	}
 
-	void process_all(dict<std::pair<std::string, std::string>, RegInfo> &vcd_reg_widths)
+	void process_all(dict<std::string, RegInfo> &vcd_reg_widths)
 	{
 		process_registers(vcd_reg_widths);
 		for (auto &it : children)
@@ -280,7 +281,7 @@ struct RegRenamePass : public Pass {
 			log_error("No top module found!\n");
 
 		// Extract pre-optimization signal widths from VCD file
-		dict<std::pair<std::string, std::string>, RegInfo> vcd_reg_widths;
+		dict<std::string, RegInfo> vcd_reg_widths;
 		if (!vcd_filename.empty()) {
 			log("Reading VCD file: %s\n", vcd_filename.c_str());
 			try {
@@ -301,10 +302,12 @@ struct RegRenamePass : public Pass {
 					std::string signal_bits = "";
 
 					// Use the bracket notation to extract the bit range and construct true reg name.
-					size_t bit_pos = signal_name.rfind('[');
-					if (bit_pos != std::string::npos) {
-						signal_bits = signal_name.substr(bit_pos);
-						signal_name.erase(bit_pos);
+					if (!signal_name.empty() && signal_name.back() == ']') {
+						size_t open = signal_name.rfind('[');
+						if (open != std::string::npos) {
+							signal_bits = signal_name.substr(open);
+							signal_name.erase(open);
+						}
 					}
 
 					// Extract the LSB and MSB indices if present.
@@ -323,7 +326,7 @@ struct RegRenamePass : public Pass {
 					// Map the register's vcd scope and name to
 					// its original width and offset for later lookup.
 					signal_name = RTLIL::unescape_id(signal_name);
-					vcd_reg_widths[{vcd_scope, signal_name}] = {width, offset};
+					vcd_reg_widths[vcd_scope + "." + signal_name] = {width, offset};
 					if (debug)
 						log("Found signal '%s' in scope '%s' with range [%d:%d] (width %d)\n",
 							signal_name.c_str(), vcd_scope.c_str(),
