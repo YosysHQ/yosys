@@ -188,8 +188,8 @@ struct SplitcellsWorker
 				std::string base_name = cell->name.str();
 				IdString slice_name;
 				if (blast) {
-					// Strip existing brackets from cell name
-					size_t bracket_pos = base_name.find('[');
+					// Strip existing '[' or '.' from cell name
+					size_t bracket_pos = base_name.find_first_of('[.');
 					if (bracket_pos != std::string::npos) {
 						base_name = base_name.substr(0, bracket_pos);
 					}
@@ -205,12 +205,12 @@ struct SplitcellsWorker
 							// Extract bit offset from the wire (ex: 0)
 							int bit_offset = user_index(slice_lsb);
 
-							// Concatenate wire index (ex: \Memory[0] -> [0]) to the bit offset (ex: [0][bit])
-							size_t bracket_pos = wire_name.find('[');
+							// Concatenate struct attribute or wire index (ex: \Memory[0] -> [0]) to the bit offset
+							size_t bracket_pos = wire_name.find_first_of('[.');
 							if (bracket_pos != std::string::npos) {
 									wire_indices = wire_name.substr(bracket_pos) + stringf(
 										"%c%d%c", format[0], bit_offset, format[1]);
-							} else { // no brackets, so no concatenation using wire, use slice_lsb + name_lsb offset instead
+							} else { // no '[' or '.', so no concatenation using wire, use slice_lsb + name_lsb offset instead
 									wire_indices = stringf(
 										"%c%d%c", format[0], slice_lsb + wire_offset, format[1]);
 							}
