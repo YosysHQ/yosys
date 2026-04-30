@@ -262,7 +262,10 @@ namespace AST
 		bool simplify(bool const_fold, int stage, int width_hint, bool sign_hint);
 		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		std::unique_ptr<AstNode> readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
+		dict<std::string, AstNode*> generate_module_fast_lookup_for_genblock_expansion();
+		void add_to_module_fast_lookup(dict<std::string, AstNode*>& module_fast_lookup, AstNode* node);
 		void expand_genblock(const std::string &prefix);
+		void expand_genblock(const std::string &prefix, dict<std::string, AstNode*>& module_fast_lookup);
 		void label_genblks(std::set<std::string>& existing, int &counter);
 		void mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
 				dict<AstNode*, uint32_t> &mem2reg_flags, dict<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);

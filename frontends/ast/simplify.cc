@@ -2616,7 +2616,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					current_block->children[current_block_idx].get() != current_block_child)
 				current_block_idx++;
 		}
-
+		dict<std::string, AstNode*> module_fast_lookup = current_ast_mod->generate_module_fast_lookup_for_genblock_expansion();
 		while (1)
 		{
 			// eval 2nd expression
@@ -2652,13 +2652,15 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				local_index->str = "\\" + local_index->str.substr(pos + 1);
 			local_index->str = prefix_id(prefix, local_index->str);
 			current_scope[local_index->str] = local_index.get();
+			add_to_module_fast_lookup(module_fast_lookup, local_index.get());
 			current_ast_mod->children.push_back(std::move(local_index));
 
-			buf->expand_genblock(prefix);
+			buf->expand_genblock(prefix, module_fast_lookup);
 
 			if (type == AST_GENFOR) {
 				for (size_t i = 0; i < buf->children.size(); i++) {
 					buf->children[i]->simplify(const_fold, stage, -1, false);
+					add_to_module_fast_lookup(module_fast_lookup, buf->children[i].get());
 					current_ast_mod->children.push_back(std::move(buf->children[i]));
 				}
 			} else {
@@ -4826,10 +4828,58 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 	return block;
 }
 
+void AstNode::add_to_module_fast_lookup(dict<std::string, AstNode*>& module_fast_lookup, AstNode* node)
+{
+	if (node == nullptr){
+		return;
+	}
+
+	switch (node->type) {
+	case AST_PARAMETER:
+	case AST_LOCALPARAM:
+	case AST_WIRE:
+	case AST_AUTOWIRE:
+	case AST_GENVAR:
+	case AST_MEMORY:
+	case AST_FUNCTION:
+	case AST_TASK:
+	case AST_DPI_FUNCTION:
+		module_fast_lookup[node->str] = node;
+		break;
+	case AST_ENUM:
+	  module_fast_lookup[node->str] = node;
+		current_scope[node->str] = node;
+		for (auto& enum_node : node->children) {
+			log_assert(enum_node->type == AST_ENUM_ITEM);
+			module_fast_lookup[enum_node->str] = enum_node.get();
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+dict<std::string, AstNode*> AstNode::generate_module_fast_lookup_for_genblock_expansion()
+{
+	dict<std::string, AstNode*> module_fast_lookup;
+	AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
+	log_assert(current_scope_ast);
+	for (auto& node : current_scope_ast->children) {
+		add_to_module_fast_lookup(module_fast_lookup, node.get());
+	}
+	return module_fast_lookup;
+}
+
+void AstNode::expand_genblock(const std::string &prefix)
+{
+	dict<std::string, AstNode*> module_fast_lookup = generate_module_fast_lookup_for_genblock_expansion();
+	expand_genblock(prefix, module_fast_lookup);
+}
+
 // annotate the names of all wires and other named objects in a named generate
 // or procedural block; nested blocks are themselves annotated such that the
 // prefix is carried forward, but resolution of their children is deferred
-void AstNode::expand_genblock(const std::string &prefix)
+void AstNode::expand_genblock(const std::string &prefix, dict<std::string, AstNode*>& module_fast_lookup)
 {
 	if (type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE || type == AST_PREFIX) {
 		log_assert(!str.empty());
@@ -4954,36 +5004,10 @@ void AstNode::expand_genblock(const std::string &prefix)
 						}
 					}
 					if (current_scope.count(identifier_str) == 0) {
-						AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
-						for (auto& node : current_scope_ast->children) {
-							switch (node->type) {
-							case AST_PARAMETER:
-							case AST_LOCALPARAM:
-							case AST_WIRE:
-							case AST_AUTOWIRE:
-							case AST_GENVAR:
-							case AST_MEMORY:
-							case AST_FUNCTION:
-							case AST_TASK:
-							case AST_DPI_FUNCTION:
-								if (prefix_id(new_prefix, identifier_str) == node->str) {
-									is_resolved = true;
-									current_scope[node->str] = node.get();
-								}
-								break;
-							case AST_ENUM:
-								current_scope[node->str] = node.get();
-								for (auto& enum_node : node->children) {
-									log_assert(enum_node->type==AST_ENUM_ITEM);
-									if (prefix_id(new_prefix, identifier_str) == enum_node->str) {
-										is_resolved = true;
-										current_scope[enum_node->str] = enum_node.get();
-									}
-								}
-								break;
-							default:
-								break;
-							}
+						std::string new_name = prefix_id(new_prefix, identifier_str);
+						if (module_fast_lookup.count(new_name)) {
+							current_scope[new_name] = module_fast_lookup[new_name];
+							is_resolved = true;
 						}
 					}
 				}
@@ -5012,7 +5036,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 		// then restore the previous string
 		if (type == AST_PREFIX && i == 1) {
 			std::string backup_scope_name = child->str;
-			child->expand_genblock(prefix);
+			child->expand_genblock(prefix, module_fast_lookup);
 			child->str = backup_scope_name;
 			continue;
 		}
@@ -5023,7 +5047,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 		if ((child->type == AST_GENBLOCK || child->type == AST_BLOCK) && !child->str.empty())
 			continue;
 
-		child->expand_genblock(prefix);
+		child->expand_genblock(prefix, module_fast_lookup);
 	}
 }
 
