@@ -2814,7 +2814,22 @@ struct VerificExtNets
 			cursor = ((Instance*)cursor->GetReferences()->GetLast())->Owner();
 		}
 
-		log_error("No common ancestor found between %s and %s.\n", get_full_netlist_name(A), get_full_netlist_name(B));
+		return nullptr;
+	}
+
+	Net *localize_external_package_net(Netlist *nl, Net *net, Port *port)
+	{
+		string name = stringf("___extnets_%d", portname_cnt++);
+		Net *new_net = new Net(name.c_str());
+		nl->Add(new_net);
+
+		if (!port->IsInput())
+			log_warning("Localizing external package/global net reference '%s.%s' on %s.%s; "
+					"writes to the package/global object are not propagated.\n",
+					get_full_netlist_name(net->Owner()).c_str(), net->Name(),
+					get_full_netlist_name(nl).c_str(), port->Name());
+
+		return new_net;
 	}
 
 	void run(Netlist *nl)
@@ -2846,6 +2861,14 @@ struct VerificExtNets
 				log(" external net owner: %s\n", get_full_netlist_name(ext_nl));
 
 			Netlist *ca_nl = find_common_ancestor(nl, ext_nl);
+
+			if (ca_nl == nullptr) {
+				Net *new_net = localize_external_package_net(nl, net, port);
+				if (verific_verbose)
+					log(" localized external package/global net: %s\n", new_net->Name());
+				todo_connect.push_back(tuple<Instance*, Port*, Net*>(inst, port, new_net));
+				continue;
+			}
 
 			if (verific_verbose)
 				log(" common ancestor: %s\n", get_full_netlist_name(ca_nl));
