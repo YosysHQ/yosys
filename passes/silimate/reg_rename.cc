@@ -103,18 +103,17 @@ struct RegRenameInstance {
 				cellName.erase(reg_pos, 4);
 
 				// Index comes from the right-most brackets
-				std::string wireName;
+				std::string wireName = cellName;
 				int bitIndex = 0;
 				size_t last_open = cellName.rfind('[');
 				size_t last_close = cellName.rfind(']');
 				if (last_open != std::string::npos && last_close != std::string::npos && last_close > last_open) {
-					// Check that bracket content is just a single bit index
+					// Validate bracket content is just a single bit slice
 					std::string inner = cellName.substr(last_open + 1, last_close - last_open - 1);
-					wireName = cellName.substr(0, last_open);
-					bitIndex = std::stoi(inner);
-				} else {
-					wireName = cellName;
-					bitIndex = 0;
+					if (!inner.empty() && inner.find_first_not_of("0123456789") == std::string::npos) {
+						wireName = cellName.substr(0, last_open);
+						bitIndex = std::stoi(inner);
+					}
 				}
 
 				// Process Q output connection for the cell
