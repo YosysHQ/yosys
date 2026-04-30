@@ -305,7 +305,6 @@ struct RegRenamePass : public Pass {
 					if (!signal_name.empty() && signal_name.back() == ']') {
 						size_t open = signal_name.rfind('[');
 						if (open != std::string::npos) {
-							std::string inner = signal_name.substr(open + 1, signal_name.size() - open - 2);
 							signal_bits = signal_name.substr(open);
 							signal_name.erase(open);
 						}

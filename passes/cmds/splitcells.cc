@@ -194,7 +194,7 @@ struct SplitcellsWorker
 					if (bracket_pos != std::string::npos) {
 
 						// Check if we will strip off _reg suffix from base name
-						size_t reg_pos = base_name.find("_reg");
+						size_t reg_pos = base_name.rfind("_reg");
 						if (reg_pos != std::string::npos && reg_pos > bracket_pos) {
 							base_name = base_name.substr(0, reg_pos);
 							strip_reg = true;
