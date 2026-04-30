@@ -2817,6 +2817,11 @@ struct VerificExtNets
 		return nullptr;
 	}
 
+	// Handles the case where a net belongs to an external package or global scope
+	// (i.e., there is no common ancestor in the design hierarchy). Creates a fresh
+	// local net in `nl` and disconnects it from the original package/global net.
+	// For input ports the new net will be undriven; for output ports, writes will
+	// not be propagated back to the package/global object.
 	Net *localize_external_package_net(Netlist *nl, Net *net, Port *port)
 	{
 		string name = stringf("___extnets_%d", portname_cnt++);
