@@ -216,7 +216,7 @@ struct SplitcellsWorker
 							// Concatenate struct attribute or wire index (ex: \Memory[0] -> [0]) to the bit offset
 							size_t bracket_pos = wire_name.find_first_of("[.");
 							if (bracket_pos != std::string::npos) {
-									wire_indices = wire_name.substr(bracket_pos) + (strip_reg ? "" : "_reg") + stringf(
+									wire_indices = wire_name.substr(bracket_pos) + (strip_reg ? "_reg" : "") + stringf(
 										"%c%d%c", format[0], bit_offset, format[1]);
 							} else { // no '[' or '.', so no concatenation using wire, use slice_lsb + name_lsb offset instead
 									wire_indices = stringf(
