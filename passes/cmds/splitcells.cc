@@ -193,7 +193,7 @@ struct SplitcellsWorker
 					bool strip_reg = false;
 					if (bracket_pos != std::string::npos) {
 
-						// Check if we will strip off _reg suffix
+						// Check if we will strip off _reg suffix from base name
 						size_t reg_pos = base_name.find("_reg");
 						if (reg_pos != std::string::npos && reg_pos > bracket_pos) {
 							base_name = base_name.substr(0, reg_pos);
@@ -206,7 +206,7 @@ struct SplitcellsWorker
 					std::string wire_indices;
 					if (slice_lsb < GetSize(raw_q) && raw_q[slice_lsb].is_wire()) {
 
-							// Extract wire name (ex: \Memory[0])
+							// Extract wire name (ex: \Memory[0] or \Memory.attr)
 							Wire *w = raw_q[slice_lsb].wire;
 							std::string wire_name = w->name.str();
 
