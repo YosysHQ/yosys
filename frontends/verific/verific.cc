@@ -2823,7 +2823,12 @@ struct VerificExtNets
 		Net *new_net = new Net(name.c_str());
 		nl->Add(new_net);
 
-		if (!port->IsInput())
+		if (port->IsInput())
+			log_warning("Localizing external package/global net reference '%s.%s' on %s.%s; "
+					"reads from the package/global object will return an undriven (floating) value.\n",
+					get_full_netlist_name(net->Owner()).c_str(), net->Name(),
+					get_full_netlist_name(nl).c_str(), port->Name());
+		else
 			log_warning("Localizing external package/global net reference '%s.%s' on %s.%s; "
 					"writes to the package/global object are not propagated.\n",
 					get_full_netlist_name(net->Owner()).c_str(), net->Name(),
