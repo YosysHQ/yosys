@@ -64,7 +64,7 @@ struct RegRenameInstance {
 
 	// Processes registers in a given module hierarchy
 	// and renames to allow for correct register annotation
-	void process_registers(dict<std::pair<std::string, std::string>, RegInfo> &vcd_reg_widths)
+	void process_registers(dict<std::string, RegInfo> &vcd_reg_widths)
 	{
 		if (debug)
 			log("Processing registers in scope: %s (module: %s)\n", 
@@ -125,7 +125,7 @@ struct RegRenameInstance {
 
 					// Lookup wire information from VCD
 					std::string regName = RTLIL::unescape_id(wireName);
-					RegInfo regInfo = vcd_reg_widths[{vcd_scope, regName}];
+					RegInfo regInfo = vcd_reg_widths[vcd_scope + "." + regName];
 
 					int wireWidth = regInfo.width;
 					int wireOffset = regInfo.offset;
@@ -219,7 +219,7 @@ struct RegRenameInstance {
 		module->remove(wireRemoveCache);
 	}
 
-	void process_all(dict<std::pair<std::string, std::string>, RegInfo> &vcd_reg_widths)
+	void process_all(dict<std::string, RegInfo> &vcd_reg_widths)
 	{
 		process_registers(vcd_reg_widths);
 		for (auto &it : children)
@@ -281,7 +281,7 @@ struct RegRenamePass : public Pass {
 			log_error("No top module found!\n");
 
 		// Extract pre-optimization signal widths from VCD file
-		dict<std::pair<std::string, std::string>, RegInfo> vcd_reg_widths;
+		dict<std::string, RegInfo> vcd_reg_widths;
 		if (!vcd_filename.empty()) {
 			log("Reading VCD file: %s\n", vcd_filename.c_str());
 			try {
@@ -327,7 +327,7 @@ struct RegRenamePass : public Pass {
 					// Map the register's vcd scope and name to
 					// its original width and offset for later lookup.
 					signal_name = RTLIL::unescape_id(signal_name);
-					vcd_reg_widths[{vcd_scope, signal_name}] = {width, offset};
+					vcd_reg_widths[vcd_scope + "." + signal_name] = {width, offset};
 					if (debug)
 						log("Found signal '%s' in scope '%s' with range [%d:%d] (width %d)\n",
 							signal_name.c_str(), vcd_scope.c_str(),
