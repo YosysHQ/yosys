@@ -30,6 +30,9 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #endif
+#if defined(__wasm)
+#include <wasi/libc.h>
+#endif
 
 #ifdef YOSYS_LINK_ABC
 namespace abc {
@@ -296,7 +299,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 	FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 #if defined(__wasm)
-#define fd_renumber(from, to) (void)__wasi_fd_renumber(from, to)
+#define fd_renumber(from, to) (void)__wasilibc_fd_renumber(from, to)
 #else
 #define fd_renumber(from, to) dup2(from, to)
 #endif

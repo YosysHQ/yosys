@@ -70,6 +70,9 @@
 #  include <dirent.h>
 #  include <sys/stat.h>
 #endif
+#if defined(__wasm)
+#include <wasi/libc.h>
+#endif
 
 #include "frontends/blif/blifparse.h"
 #include "liberty_cache.h"
@@ -1382,7 +1385,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 		FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 #if defined(__wasm)
-#define fd_renumber(from, to) (void)__wasi_fd_renumber(from, to)
+#define fd_renumber(from, to) (void)__wasilibc_fd_renumber(from, to)
 #else
 #define fd_renumber(from, to) dup2(from, to)
 #endif
