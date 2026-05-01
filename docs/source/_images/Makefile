@@ -33,7 +33,7 @@ TEX_FILES := $(shell find . -name *.tex)
 all_tex: $(TEX_FILES:.tex=.pdf) $(TEX_FILES:.tex=.svg)
 
 %.pdf: %.dot
-	$(FAKETIME) dot -Tpdf -o $@ $<
+	$(FAKETIME) dot -Tpdf -Gsize="9x15!" -o $@ $<
 
 %.pdf: %.tex
 	cd $(@D) && $(FAKETIME) pdflatex $(<F) --interaction=nonstopmode
