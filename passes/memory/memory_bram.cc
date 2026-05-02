@@ -125,6 +125,55 @@ struct rules_t
 					variant_params[stringf("\\CFG_CLKPOL_%c", 'A' + i)] = clkpol[i];
 			}
 		}
+
+		void load_blackbox(Design* design) const
+		{
+			auto portinfos = make_portinfos();
+			int clocks_max = 0;
+			for (auto &pi : portinfos)
+				clocks_max = max(clocks_max, pi.clocks);
+
+			pool<std::pair<IdString, int>> inputs;
+			pool<std::pair<IdString, int>> outputs;
+			for (auto &pi : portinfos)
+			{
+				string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
+				const char *pf = prefix.c_str();
+				if (pi.clocks) {
+					std::string name = stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1);
+					inputs.insert(std::make_pair(name, 1));
+				}
+				inputs.insert(std::make_pair(stringf("\\%sADDR", pf), abits));
+				std::string dname = stringf("\\%sDATA", pf);
+				if (pi.wrmode) {
+					inputs.insert(std::make_pair(dname, dbits));
+				} else {
+					outputs.insert(std::make_pair(dname, dbits));
+				}
+				if (pi.enable) {
+					std::string name = stringf("\\%sEN", pf);
+					inputs.insert(std::make_pair(name, 1));
+				}
+			}
+
+			log_debug("setting up %s\n", name);
+			Module* mod = design->addModule(name);
+			mod->set_bool_attribute(ID::blackbox);
+
+			for (auto [name, width] : inputs)
+			{
+				log_debug("input %s width %d\n", name, width);
+				mod->addWire(name, width)->port_input = true;
+			}
+
+			for (auto [name, width] : outputs)
+			{
+				log_debug("output %s width %d\n", name, width);
+				mod->addWire(name, width)->port_output = true;
+			}
+
+			mod->fixup_ports();
+		}
 	};
 
 	struct match_t {
@@ -160,6 +209,19 @@ struct rules_t
 	vector<string> labels;
 	int linecount;
 
+	void load_blackboxes(Design* design) const
+	{
+		for (auto& [_, variants] : brams)
+		{
+			for (const bram_t& bram : variants)
+			{
+				if (design->module(bram.name))
+					continue;
+
+				bram.load_blackbox(design);
+			}
+		}
+	}
 	void syntax_error()
 	{
 		if (tokens.empty())
@@ -1314,6 +1376,7 @@ struct MemoryBramPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-rules" && argidx+1 < args.size()) {
 				rules.parse(args[++argidx]);
+				rules.load_blackboxes(design);
 				continue;
 			}
 			break;

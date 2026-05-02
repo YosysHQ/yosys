@@ -237,11 +237,15 @@ struct XilinxSrlPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (!fixed && !variable)
 			log_cmd_error("'-fixed' and/or '-variable' must be specified.\n");
 
 		for (auto module : design->selected_modules()) {
-			auto pm = xilinx_srl_pm(module, module->selected_cells());
+			SigMap sigmap(module);
+			auto pm = xilinx_srl_pm(module, &sigmap, module->selected_cells());
 			pm.ud_fixed.minlen = minlen;
 			pm.ud_variable.minlen = minlen;
 

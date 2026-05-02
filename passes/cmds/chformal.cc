@@ -218,6 +218,9 @@ struct ChformalPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (constr_types.empty()) {
 			constr_types.insert(ID($assert));
 			constr_types.insert(ID($assume));
