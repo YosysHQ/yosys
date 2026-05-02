@@ -27,9 +27,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct BoundaryConeWorker {
 	Module *child, *parent;
-	Cell *instance;
 	SigMap child_sigmap;
 	int max_cells;
+	int max_bits;
 
 	dict<SigBit, Cell*> bit_driver;
 	dict<SigBit, SigBit> input_map;
@@ -39,10 +39,11 @@ struct BoundaryConeWorker {
 	std::vector<Cell*> created_cells;
 	pool<Cell*> active_cells;
 	int copied_cell_count = 0;
+	int materialized_bit_count = 0;
 	bool failed = false;
 
-	BoundaryConeWorker(Module *child, Module *parent, Cell *instance, int max_cells)
-		: child(child), parent(parent), instance(instance), child_sigmap(child), max_cells(max_cells)
+	BoundaryConeWorker(Module *child, Module *parent, Cell *instance, int max_cells, int max_bits)
+		: child(child), parent(parent), child_sigmap(child), max_cells(max_cells), max_bits(max_bits)
 	{
 		for (auto wire : child->wires()) {
 			if (!wire->port_input || wire->port_output)
@@ -50,6 +51,10 @@ struct BoundaryConeWorker {
 			if (!instance->connections_.count(wire->name))
 				continue;
 			SigSpec conn = instance->connections_.at(wire->name);
+			if (GetSize(conn) != wire->width) {
+				failed = true;
+				continue;
+			}
 			for (int i = 0; i < wire->width; i++)
 				input_map[child_sigmap(SigBit(wire, i))] = conn[i];
 		}
@@ -70,8 +75,15 @@ struct BoundaryConeWorker {
 	SigSpec materialize(SigSpec sig)
 	{
 		SigSpec result;
-		for (auto bit : sig)
+		for (auto bit : sig) {
+			if (++materialized_bit_count > max_bits) {
+				failed = true;
+				break;
+			}
 			result.append(materialize(bit));
+			if (failed)
+				break;
+		}
 		return result;
 	}
 
@@ -166,6 +178,7 @@ struct BoundaryConeWorker {
 		copied_cells.clear();
 		copied_bits.clear();
 		copied_cell_count = 0;
+		materialized_bit_count = 0;
 	}
 };
 
@@ -175,6 +188,54 @@ static bool protected_module(Module *module)
 			module->get_bool_attribute(ID::keep) ||
 			module->get_bool_attribute(ID::keep_hierarchy);
 }
+
+struct ParentUsage {
+	Design *design;
+	SigMap sigmap;
+	SigPool used;
+
+	ParentUsage(Module *module, Design *design) : design(design), sigmap(module)
+	{
+		auto count_usage = [&](const SigSpec &signal) {
+			for (auto bit : signal)
+				used.add(sigmap(bit));
+		};
+
+		for (auto wire : module->wires()) {
+			if (wire->port_output)
+				count_usage(wire);
+		}
+
+		for (auto [_, process] : module->processes)
+			process->rewrite_sigspecs(count_usage);
+
+		for (auto cell : module->cells()) {
+			Module *cell_module = design->module(cell->type);
+			for (auto &conn : cell->connections()) {
+				if (yosys_celltypes.cell_known(cell->type)) {
+					if (yosys_celltypes.cell_input(cell->type, conn.first))
+						count_usage(conn.second);
+					continue;
+				}
+
+				if (cell_module != nullptr) {
+					Wire *port = cell_module->wire(conn.first);
+					if (port != nullptr && port->port_input)
+						count_usage(conn.second);
+					continue;
+				}
+
+				// Unknown cells may observe any connection.
+				count_usage(conn.second);
+			}
+		}
+	}
+
+	bool check(SigBit bit)
+	{
+		return bit.is_wire() && used.check(sigmap(bit));
+	}
+};
 
 struct OptBoundaryPass : Pass {
 	OptBoundaryPass() : Pass("opt_boundary", "perform conservative parent-side cross-boundary cone optimization") {}
@@ -194,6 +255,9 @@ struct OptBoundaryPass : Pass {
 		log("    -max_cells <N>\n");
 		log("        maximum number of child cells to copy for one output bit. Default: 8.\n");
 		log("\n");
+		log("    -max_bits <N>\n");
+		log("        maximum number of child cone bits to inspect for one output bit. Default: 4096.\n");
+		log("\n");
 		log("    -no_disconnect\n");
 		log("        copy eligible cones into the parent but leave instance output ports\n");
 		log("        connected to their original nets.\n");
@@ -205,11 +269,16 @@ struct OptBoundaryPass : Pass {
 		log_header(design, "Executing OPT_BOUNDARY pass.\n");
 
 		int max_cells = 8;
+		int max_bits = 4096;
 		bool no_disconnect = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-max_cells" && argidx + 1 < args.size()) {
 				max_cells = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-max_bits" && argidx + 1 < args.size()) {
+				max_bits = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-no_disconnect") {
@@ -222,19 +291,35 @@ struct OptBoundaryPass : Pass {
 
 		if (max_cells < 1)
 			log_cmd_error("The -max_cells value must be positive.\n");
+		if (max_bits < 1)
+			log_cmd_error("The -max_bits value must be positive.\n");
 
 		bool did_something = false;
 		for (auto parent : design->selected_modules(RTLIL::SELECT_WHOLE_ONLY, RTLIL::SB_UNBOXED_CMDERR)) {
-			if (protected_module(parent))
+			if (protected_module(parent)) {
+				log_debug("opt_boundary: skipping protected parent module %s\n", log_id(parent));
 				continue;
+			}
+
+			ParentUsage parent_usage(parent, design);
 
 			for (auto instance : parent->cells().to_vector()) {
-				if (instance->has_keep_attr())
+				if (instance->has_keep_attr()) {
+					log_debug("opt_boundary: skipping kept instance %s in %s\n", log_id(instance), log_id(parent));
 					continue;
+				}
 
 				Module *child = design->module(instance->type);
-				if (child == nullptr || protected_module(child))
+				if (child == nullptr) {
+					log_debug("opt_boundary: skipping non-module cell %s (type %s) in %s\n",
+							log_id(instance), log_id(instance->type), log_id(parent));
 					continue;
+				}
+				if (protected_module(child)) {
+					log_debug("opt_boundary: skipping protected child module %s for instance %s in %s\n",
+							log_id(child), log_id(instance), log_id(parent));
+					continue;
+				}
 
 				for (auto &conn : instance->connections_) {
 					Wire *port = child->wire(conn.first);
@@ -246,18 +331,43 @@ struct OptBoundaryPass : Pass {
 
 					SigSpec new_conn = conn.second;
 					bool changed_port = false;
+					log_debug("opt_boundary: checking output port %s (%d bits) on instance %s in %s\n",
+							log_id(conn.first), port->width, log_id(instance), log_id(parent));
 					for (int i = 0; i < port->width; i++) {
-						if (!conn.second[i].is_wire())
+						if (!conn.second[i].is_wire()) {
+							log_debug("opt_boundary: skipping %s[%d] on %s because parent connection is constant\n",
+									log_id(port), i, log_id(instance));
 							continue;
+						}
+						if (!parent_usage.check(conn.second[i])) {
+							log_debug("opt_boundary: skipping %s[%d] on %s because parent net %s is unobserved\n",
+									log_id(port), i, log_id(instance), log_signal(conn.second[i]));
+							continue;
+						}
 
-						BoundaryConeWorker worker(child, parent, instance, max_cells);
+						BoundaryConeWorker worker(child, parent, instance, max_cells, max_bits);
 						SigBit replacement = worker.materialize(SigBit(port, i));
 						if (worker.failed) {
+							log_debug("opt_boundary: failed to materialize %s[%d] of instance %s after inspecting %d bits; rolling back\n",
+									log_id(port), i, log_id(instance), worker.materialized_bit_count);
 							worker.rollback();
 							continue;
 						}
 						if (replacement == conn.second[i]) {
+							log_debug("opt_boundary: skipping %s[%d] on %s because replacement is identical\n",
+									log_id(port), i, log_id(instance));
 							worker.rollback();
+							continue;
+						}
+						if (parent_usage.sigmap(replacement) == parent_usage.sigmap(conn.second[i])) {
+							log_debug("opt_boundary: skipping %s[%d] on %s because replacement is already equivalent in parent\n",
+									log_id(port), i, log_id(instance));
+							worker.rollback();
+							continue;
+						}
+						if (no_disconnect && worker.copied_cell_count == 0) {
+							log_debug("opt_boundary: skipping zero-cell bypass for %s[%d] on %s in -no_disconnect mode\n",
+									log_id(port), i, log_id(instance));
 							continue;
 						}
 

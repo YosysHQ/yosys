@@ -135,6 +135,32 @@ select -assert-count 1 top/t:m
 design -reset
 log -pop
 
+log -header "Honor max_bits limit on wide cone"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input [15:0] a, input [15:0] b, output y);
+  assign y = ^(a & b);
+endmodule
+
+module top(input [15:0] a, input [15:0] b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary -max_bits 8
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+select -assert-count 0 top/t:$reduce_xor
+check -assert
+
+design -reset
+log -pop
+
 log -header "Rollback failed copy leaves no parent temporaries"
 log -push
 design -reset
@@ -821,6 +847,62 @@ rename -hide
 equiv_make gold gate equiv
 equiv_simple equiv
 equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Repeated run skips already bypassed unobserved output"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input clk, input a, input b, output [1:0] y);
+  reg q;
+  always @(posedge clk)
+    q <= a;
+  assign y[0] = a & b;
+  assign y[1] = q;
+endmodule
+
+module top(input clk, input a, input b, output [1:0] y);
+  m u(.clk(clk), .a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+select -assert-count 1 top/t:$and
+scratchpad -set opt.did_something false
+opt_boundary
+scratchpad -assert opt.did_something false
+select -assert-count 1 top/t:$and
+check -assert
+
+design -reset
+log -pop
+
+log -header "Copy only mode ignores zero-cell aliases"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, output y);
+  assign y = a;
+endmodule
+
+module top(input a, output y);
+  m u(.a(a), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+scratchpad -set opt.did_something false
+opt_boundary -no_disconnect
+scratchpad -assert opt.did_something false
+select -assert-count 1 top/t:m
+check -assert
 
 design -reset
 log -pop
