@@ -291,18 +291,19 @@ ifeq ($(WASI_SDK),)
 CXX = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
-WASIFLAGS := -target wasm32-wasi $(WASIFLAGS)
+WASIFLAGS := -target wasm32-wasip1 $(WASIFLAGS)
 else
 CXX = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 endif
-CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) $(OPT_LEVEL) -D_WASI_EMULATED_PROCESS_CLOCKS $(filter-out -fPIC,$(CXXFLAGS))
-LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS))
+CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) $(OPT_LEVEL) -D_WASI_EMULATED_PROCESS_CLOCKS -fwasm-exceptions -mllvm -wasm-use-legacy-eh=false $(filter-out -fPIC,$(CXXFLAGS))
+LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS)) -fwasm-exceptions -lunwind
 LIBS := -lwasi-emulated-process-clocks $(filter-out -lrt,$(LIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
 ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -D_WASI_EMULATED_PROCESS_CLOCKS -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT"
 ABCMKARGS += OPTFLAGS="-Os"
+LTOFLAGS =
 EXE = .wasm
 
 DISABLE_SPAWN := 1
