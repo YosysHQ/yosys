@@ -1,0 +1,851 @@
+###################################################################
+# Boundary optimization test cases
+###################################################################
+
+log -header "Copy simple child cone into parent"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+check -assert
+
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:$and
+select -assert-count 0 top/t:m
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+design -load gate
+opt_clean
+select -assert-count 1 top/t:$and
+select -assert-count 0 top/t:m
+
+design -reset
+log -pop
+
+log -header "Partially bypass multi-bit output when one bit cannot be copied"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input clk, input a, input b, output [1:0] y);
+  reg q;
+  always @(posedge clk)
+    q <= a;
+  assign y[0] = a & b;
+  assign y[1] = q;
+endmodule
+
+module top(input clk, input a, input b, output [1:0] y);
+  m u(.clk(clk), .a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 1 top/t:$and
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Ignore cone that depends on inout port"
+log -push
+design -reset
+read_verilog <<EOF
+module m(inout p, output y);
+  assign y = p;
+endmodule
+
+module top(inout p, output y);
+  m u(.p(p), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+
+design -reset
+log -pop
+
+log -header "Leave memory read cone intact"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input [1:0] addr, output y);
+  reg [0:0] mem [0:3];
+  assign y = mem[addr];
+endmodule
+
+module top(input [1:0] addr, output y);
+  m u(.addr(addr), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+
+design -reset
+log -pop
+
+log -header "Rollback failed copy leaves no parent temporaries"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, input c, input d, output y);
+  assign y = ((a & b) ^ c) | d;
+endmodule
+
+module top(input a, input b, input c, input d, output y);
+  m u(.a(a), .b(b), .c(c), .d(d), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary -max_cells 2
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+select -assert-count 0 top/t:$xor
+select -assert-count 0 top/t:$or
+check -assert
+
+design -reset
+log -pop
+
+log -header "Copy only mode leaves instance output connected"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary -no_disconnect
+select -assert-count 1 top/t:m
+select -assert-count 1 top/t:$and
+check -assert
+
+design -reset
+log -pop
+
+log -header "Bypass constant child output"
+log -push
+design -reset
+read_verilog <<EOF
+module m(output y);
+  assign y = 1'b1;
+endmodule
+
+module top(output y);
+  m u(.y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:m
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Copy through sliced and concatenated port connections"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input [3:0] i, output [1:0] y);
+  assign y = {i[0] ^ i[3], i[1] & i[2]};
+endmodule
+
+module top(input [3:0] a, output [7:0] y);
+  assign y[3:0] = a;
+  assign y[7:6] = 2'b10;
+  m u(.i({a[0], a[3], a[1], a[2]}), .y(y[5:4]));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:m
+select -assert-count 1 top/t:$and
+select -assert-count 1 top/t:$xor
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Copy shared internal cone feeding multiple outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, input c, input d, output y, output z);
+  wire t = a & b;
+  assign y = t ^ c;
+  assign z = t | d;
+endmodule
+
+module top(input a, input b, input c, input d, output y, output z);
+  m u(.a(a), .b(b), .c(c), .d(d), .y(y), .z(z));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:m
+select -assert-any top/t:$and
+select -assert-count 1 top/t:$xor
+select -assert-count 1 top/t:$or
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Keep protected module boundary intact"
+log -push
+design -reset
+read_verilog <<EOF
+(* keep *)
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Keep protected parent boundary intact"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+(* keep *)
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Only selected parent modules are optimized"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top_keep(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+
+module top_opt(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_boundary top_opt
+opt_clean
+select -assert-count 1 top_keep/t:m
+select -assert-count 0 top_keep/t:$and
+select -assert-count 0 top_opt/t:m
+select -assert-count 1 top_opt/t:$and
+
+design -reset
+log -pop
+
+log -header "Copy cone from parameterized child module"
+log -push
+design -reset
+read_verilog <<EOF
+module m #(parameter WIDTH = 4) (input [WIDTH-1:0] a, input [WIDTH-1:0] b, output [WIDTH-1:0] y);
+  assign y = a & b;
+endmodule
+
+module top(input [7:0] a, input [7:0] b, output [7:0] y);
+  m #(.WIDTH(8)) u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:m
+select -assert-any top/t:$and
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Stress generated instances with vector cones"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input [3:0] a, input [3:0] b, input [3:0] c, input [3:0] d, output [3:0] y);
+  assign y = ((a & b) ^ c) | d;
+endmodule
+
+module top(input [31:0] a, input [31:0] b, input [31:0] c, input [31:0] d, output [31:0] y);
+  genvar i;
+  generate
+    for (i = 0; i < 8; i = i + 1) begin : gen
+      m u(
+        .a(a[i*4 +: 4]),
+        .b(b[i*4 +: 4]),
+        .c(c[i*4 +: 4]),
+        .d(d[i*4 +: 4]),
+        .y(y[i*4 +: 4])
+      );
+    end
+  endgenerate
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary -max_cells 3
+opt_clean
+select -assert-count 0 top/t:m
+select -assert-any top/t:$and
+select -assert-any top/t:$xor
+select -assert-any top/t:$or
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Bypass direct child input to output"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, output y);
+  assign y = a;
+endmodule
+
+module top(input a, output y);
+  m u(.a(a), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:m
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Copy multi-bit vector cone"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input [3:0] a, input [3:0] b, input [3:0] c, output [3:0] y);
+  assign y = (a & b) ^ c;
+endmodule
+
+module top(input [3:0] a, input [3:0] b, input [3:0] c, output [3:0] y);
+  m u(.a(a), .b(b), .c(c), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:m
+select -assert-any top/t:$and
+select -assert-any top/t:$xor
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Copy independent cones from two instances of one module type"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a0, input b0, input a1, input b1, output y0, output y1);
+  m u0(.a(a0), .b(b0), .y(y0));
+  m u1(.a(a1), .b(b1), .y(y1));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 2 top/t:$and
+select -assert-count 0 top/t:m
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Honor max_cells limit"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, input c, input d, output y);
+  assign y = ((a & b) ^ c) | d;
+endmodule
+
+module top(input a, input b, input c, input d, output y);
+  m u(.a(a), .b(b), .c(c), .d(d), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary -max_cells 2
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+select -assert-count 0 top/t:$xor
+select -assert-count 0 top/t:$or
+
+design -reset
+log -pop
+
+log -header "Copy deeper cone when max_cells allows it"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, input c, input d, output y);
+  assign y = ((a & b) ^ c) | d;
+endmodule
+
+module top(input a, input b, input c, input d, output y);
+  m u(.a(a), .b(b), .c(c), .d(d), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary -max_cells 3
+opt_clean
+select -assert-count 0 top/t:m
+select -assert-count 1 top/t:$and
+select -assert-count 1 top/t:$xor
+select -assert-count 1 top/t:$or
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Leave blackbox boundary intact"
+log -push
+design -reset
+read_verilog <<EOF
+(* blackbox *)
+module m(input a, input b, output y);
+endmodule
+
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Leave kept instance boundary intact"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a, input b, output y);
+  (* keep *) m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Leave cone with kept internal cell intact"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module m(input a, input b, output y);
+  (* keep *) \$and #(
+    .A_SIGNED(1'b0),
+    .B_SIGNED(1'b0),
+    .A_WIDTH(1),
+    .B_WIDTH(1),
+    .Y_WIDTH(1)
+  ) kept_and (
+    .A(a),
+    .B(b),
+    .Y(y)
+  );
+endmodule
+
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Leave cone with missing input connection intact"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a, output y);
+  m u(.a(a), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Leave sequential cone intact"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input clk, input d, output y);
+  reg q;
+  always @(posedge clk)
+    q <= d;
+  assign y = q & d;
+endmodule
+
+module top(input clk, input d, output y);
+  m u(.clk(clk), .d(d), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 0 top/t:$and
+
+design -reset
+log -pop
+
+log -header "Partially bypass one output while preserving live instance"
+log -push
+design -reset
+read_verilog <<EOF
+module m(input clk, input a, input b, output y, output q);
+  reg q_r;
+  always @(posedge clk)
+    q_r <= a;
+  assign q = q_r;
+  assign y = a & b;
+endmodule
+
+module top(input clk, input a, input b, output y, output q);
+  m u(.clk(clk), .a(a), .b(b), .y(y), .q(q));
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_expr
+opt_clean
+design -save start
+flatten
+design -save gold
+design -load start
+opt_boundary
+opt_clean
+select -assert-count 1 top/t:m
+select -assert-count 1 top/t:$and
+flatten
+design -save gate
+
+design -reset
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+
+design -reset
+log -pop
+
+log -header "Keep protected child boundary intact"
+log -push
+design -reset
+read_verilog <<EOF
+(* keep_hierarchy *)
+module m(input a, input b, output y);
+  assign y = a & b;
+endmodule
+
+module top(input a, input b, output y);
+  m u(.a(a), .b(b), .y(y));
+endmodule
+EOF
+hierarchy -top top
+proc
+check -assert
+
+opt_boundary
+opt_clean
+select -assert-count 0 top/t:$and
+select -assert-count 1 top/t:m
+
+design -reset
+log -pop
