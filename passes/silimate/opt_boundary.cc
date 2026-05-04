@@ -184,7 +184,8 @@ struct BoundaryConeWorker {
 
 static bool protected_module(Module *module)
 {
-	return module->get_blackbox_attribute() ||
+	return RTLIL::unescape_id(module->name).compare(0, 2, "DW") == 0 ||
+			module->get_blackbox_attribute() ||
 			module->get_bool_attribute(ID::keep) ||
 			module->get_bool_attribute(ID::keep_hierarchy);
 }

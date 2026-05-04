@@ -24,6 +24,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static bool is_dw_module(Module *module)
+{
+	return RTLIL::unescape_id(module->name).compare(0, 2, "DW") == 0;
+}
+
 // Used to propagate information out of a module
 struct ModuleIndex {
 	Module *module;
@@ -439,7 +444,7 @@ struct OptHierPass : Pass {
 
 		dict<IdString, UsageData> usage_datas;
 		for (auto module : d->selected_modules(RTLIL::SELECT_WHOLE_ONLY, RTLIL::SB_UNBOXED_CMDERR)) {
-			if (module->get_bool_attribute(ID::top))
+			if (module->get_bool_attribute(ID::top) || is_dw_module(module))
 				continue;
 
 			log_debug("Starting usage data for %s\n", log_id(module));
@@ -457,6 +462,11 @@ struct OptHierPass : Pass {
 
 		bool did_something = false;
 		for (auto module : d->selected_modules(RTLIL::SELECT_WHOLE_ONLY, RTLIL::SB_UNBOXED_CMDERR)) {
+			if (is_dw_module(module)) {
+				log_debug("Skipping DW module %s\n", log_id(module));
+				continue;
+			}
+
 			ModuleIndex &parent_index = indices.at(module->name);
 
 			if (usage_datas.count(module->name)) {
@@ -465,7 +475,8 @@ struct OptHierPass : Pass {
 			}
 
 			for (auto cell : module->cells()) {
-				if (indices.count(cell->type)) {
+				Module *child = d->module(cell->type);
+				if (child != nullptr && !is_dw_module(child) && indices.count(cell->type)) {
 					log_debug("Applying changes to instance %s of %s in %s\n", log_id(cell), log_id(cell->type), log_id(module));
 					did_something |= indices.at(cell->type).apply_changes(parent_index, cell);
 				}
