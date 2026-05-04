@@ -36,7 +36,6 @@ struct ShareWorkerConfig
 {
 	int limit;
 	size_t pattern_limit;
-	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
 	StaticCellTypes::Categories::Category generic_uni_ops, generic_bin_ops, generic_cbin_ops, generic_other_ops;
@@ -362,11 +361,6 @@ struct ShareWorker
 			if (0)
 		not_a_muxed_cell:
 				continue;
-
-			if (config.opt_force) {
-				shareable_cells.insert(cell);
-				continue;
-			}
 
 			if (cell->type.in(ID($memrd), ID($memrd_v2))) {
 				if (cell->parameters.at(ID::CLK_ENABLE).as_bool())
@@ -1509,14 +1503,6 @@ struct SharePass : public Pass {
 		log("This pass merges shareable resources into a single resource. A SAT solver\n");
 		log("is used to determine if two resources are share-able.\n");
 		log("\n");
-		log("  -force\n");
-		log("    Per default the selection of cells that is considered for sharing is\n");
-		log("    narrowed using a list of cell types. With this option all selected\n");
-		log("    cells are considered for resource sharing.\n");
-		log("\n");
-		log("    IMPORTANT NOTE: If the -all option is used then no cells with internal\n");
-		log("    state must be selected!\n");
-		log("\n");
 		log("  -aggressive\n");
 		log("    Per default some heuristics are used to reduce the number of cells\n");
 		log("    considered for resource sharing to only large resources. This options\n");
@@ -1543,7 +1529,6 @@ struct SharePass : public Pass {
 
 		config.limit = -1;
 		config.pattern_limit = design->scratchpad_get_int("share.pattern_limit", 1000);
-		config.opt_force = false;
 		config.opt_aggressive = false;
 		config.opt_fast = false;
 
@@ -1591,10 +1576,6 @@ struct SharePass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-force") {
-				config.opt_force = true;
-				continue;
-			}
 			if (args[argidx] == "-aggressive") {
 				config.opt_aggressive = true;
 				continue;
