@@ -27,6 +27,12 @@ TEST(BitpatternTest, has)
     // 01a is not covered by 011
     EXPECT_FALSE(BitPatternPool(_011).has_all(_01a));
     EXPECT_FALSE(BitPatternPool(_111).has_all(_01a));
+    // test mutating and analysis effort limits
+    auto pool = BitPatternPool(3);
+    pool.limit = 4;
+    EXPECT_EQ(pool.take(_111), TakeResult::TRUE);
+    EXPECT_EQ(pool.take(_111), TakeResult::FALSE);
+    EXPECT_EQ(pool.take(_01a), TakeResult::TOO_BIG);
 }
 
 YOSYS_NAMESPACE_END

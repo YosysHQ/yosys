@@ -54,12 +54,14 @@ struct FullyDefinedPool
 		: max_patterns{signal.size() >= 32 ? 0ul : 1ul << signal.size()}
 	{}
 
-	bool take(RTLIL::SigSpec sig)
+	// Yes, we never return TOO_BIG, since FullyDefinedPool::max_patterns
+	// and BitPatternPool::limits are different concepts
+	TakeResult take(RTLIL::SigSpec sig)
 	{
 		if (default_reached || patterns.count(sig))
-			return false;
+			return FALSE;
 		patterns.insert(sig);
-		return true;
+		return TRUE;
 	}
 
 	void take_all()
@@ -81,20 +83,24 @@ struct FullyDefinedPool
 void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter);
 
 template <class Pool>
-static void proc_rmdead_impl(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
+static void proc_rmdead_impl(Pool& pool, RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
 {
-	Pool pool(sw->signal);
-
+	bool is_too_big = false;
 	for (size_t i = 0; i < sw->cases.size(); i++)
 	{
 		bool is_default = GetSize(sw->cases[i]->compare) == 0 && (!pool.empty() || GetSize(sw->signal) == 0);
-
-		for (size_t j = 0; j < sw->cases[i]->compare.size(); j++) {
-			RTLIL::SigSpec sig = sw->cases[i]->compare[j];
-			if (!sig.is_fully_const())
-				continue;
-			if (!pool.take(sig))
-				sw->cases[i]->compare.erase(sw->cases[i]->compare.begin() + (j--));
+		if (!is_too_big) {
+			for (size_t j = 0; j < sw->cases[i]->compare.size(); j++) {
+				RTLIL::SigSpec sig = sw->cases[i]->compare[j];
+				if (!sig.is_fully_const())
+					continue;
+				auto res = pool.take(sig);
+				if (res == TakeResult::TOO_BIG) {
+					is_too_big = true; // Skip the rest of the analysis
+				}
+				if (res == TakeResult::FALSE)
+					sw->cases[i]->compare.erase(sw->cases[i]->compare.begin() + (j--));
+			}
 		}
 
 		if (!is_default) {
@@ -104,8 +110,6 @@ static void proc_rmdead_impl(RTLIL::SwitchRule *sw, int &counter, int &full_case
 				counter++;
 				continue;
 			}
-			// if (pool.empty())
-			// 	sw->cases[i]->compare.clear();
 		}
 
 		for (auto switch_it : sw->cases[i]->switches)
@@ -123,10 +127,14 @@ static void proc_rmdead_impl(RTLIL::SwitchRule *sw, int &counter, int &full_case
 
 void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
 {
-	if (can_use_fully_defined_pool(sw))
-		proc_rmdead_impl<FullyDefinedPool>(sw, counter, full_case_counter);
-	else
-		proc_rmdead_impl<BitPatternPool>(sw, counter, full_case_counter);
+	if (can_use_fully_defined_pool(sw)) {
+		auto pool = FullyDefinedPool(sw->signal);
+		proc_rmdead_impl<FullyDefinedPool>(pool, sw, counter, full_case_counter);
+	}	else {
+		auto pool = BitPatternPool(sw->signal);
+		pool.limit = 100000;
+		proc_rmdead_impl<BitPatternPool>(pool, sw, counter, full_case_counter);
+	}
 }
 
 struct ProcRmdeadPass : public Pass {

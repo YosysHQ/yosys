@@ -25,6 +25,12 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+enum TakeResult {
+	FALSE,
+	TRUE,
+	TOO_BIG
+};
+
 /**
  * This file implements BitPatternPool for efficiently storing and querying
  * sets of fixed-width 2-valued logic constants compressed as "bit patterns".
@@ -39,6 +45,7 @@ YOSYS_NAMESPACE_BEGIN
  */
 struct BitPatternPool
 {
+	size_t limit = SIZE_MAX;
 	int width;
 	struct bits_t {
 		std::vector<RTLIL::State> bitdata;
@@ -167,9 +174,10 @@ struct BitPatternPool
 	 * Taking 011 out of pool({01a}) -> pool({010}), returns true.
 	 * Taking 011 out of pool({010}) does nothing, returns false.
 	 */
-	bool take(RTLIL::SigSpec sig)
+	[[nodiscard]]
+	TakeResult take(RTLIL::SigSpec sig)
 	{
-		bool status = false;
+		TakeResult status = FALSE;
 		bits_t bits = sig2bits(sig);
 		for (auto it = database.begin(); it != database.end();)
 			if (match(*it, bits)) {
@@ -180,12 +188,15 @@ struct BitPatternPool
 					new_pattern.bitdata = it->bitdata;
 					new_pattern[i] = bits[i] == RTLIL::State::S1 ? RTLIL::State::S0 : RTLIL::State::S1;
 					database.insert(new_pattern);
+					if (database.size() > limit)
+						return TOO_BIG;
 				}
 				it = database.erase(it);
-				status = true;
+				status = TRUE;
 				continue;
 			} else
 				++it;
+
 		return status;
 	}
 

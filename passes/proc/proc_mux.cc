@@ -383,7 +383,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 					if (!pat.is_fully_const())
 						extra_group_for_next_case = true;
 					else if (!ifxmode)
-						pool.take(pat);
+						log_assert(pool.take(pat) != TakeResult::TOO_BIG);
 			}
 		}
 
