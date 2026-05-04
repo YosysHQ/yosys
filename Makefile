@@ -968,14 +968,14 @@ install-dev: $(PROGRAM_PREFIX)yosys-config share
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so libyosys.a,$(TARGETS)) $(DESTDIR)$(BINDIR)
-ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
-	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys; fi
+ifneq ($(filter $(PROGRAM_PREFIX)yosys$(EXE),$(TARGETS)),)
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys$(EXE); fi
 endif
-ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc,$(TARGETS)),)
-	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc; fi
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc$(EXE),$(TARGETS)),)
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc$(EXE); fi
 endif
-ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
-	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib; fi
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib$(EXE),$(TARGETS)),)
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib$(EXE); fi
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
