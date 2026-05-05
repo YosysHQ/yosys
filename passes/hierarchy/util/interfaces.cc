@@ -147,6 +147,17 @@ RTLIL::Module *get_module(RTLIL::Design				  &design,
 	return nullptr;
 }
 
+std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used_modules(Design* design, Module* top_mod) {
+	std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used;
+	if (top_mod != NULL) {
+		log_header(design, "Analyzing design hierarchy..\n");
+		mark_used(design, used, top_mod, 0);
+	} else {
+		for (auto mod : design->modules())
+			used.insert(mod);
+	}
+	return used;
+}
 
 void expand_all_interfaces(Design* design, Module* top_mod, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs) {
 	bool did_something = true;
@@ -154,20 +165,10 @@ void expand_all_interfaces(Design* design, Module* top_mod, bool flag_check, boo
 	{
 		did_something = false;
 
-		std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used_modules;
-		if (top_mod != NULL) {
-			log_header(design, "Analyzing design hierarchy..\n");
-			mark_used(design, used_modules, top_mod, 0);
-		} else {
-			for (auto mod : design->modules())
-				used_modules.insert(mod);
-		}
-
-		for (auto module : used_modules) {
+		for (auto module : used_modules(design, top_mod)) {
 			if (expand_module(design, module, flag_check, flag_simcheck, flag_smtcheck, libdirs))
 				did_something = true;
 		}
-
 
 		// The top module might have changed if interface instances have been detected in it:
 		RTLIL::Module *tmp_top_mod = check_if_top_has_changed(design, top_mod);
