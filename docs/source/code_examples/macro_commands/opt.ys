@@ -10,6 +10,7 @@ do
     opt_share  (-full only)
     opt_dff  (except when called with -noff)
     opt_hier (-hier only)
+    opt_boundary (-boundary only)
     opt_clean
     opt_expr
 while <changed design>
