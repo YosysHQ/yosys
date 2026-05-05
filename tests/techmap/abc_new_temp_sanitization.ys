@@ -1,0 +1,11 @@
+read_verilog <<EOT
+module top(input a, input b, output y);
+	assign y = a | b;
+endmodule
+EOT
+hierarchy -check -top top
+proc; opt -fast
+
+logger -expect log " /tmp/" 2
+abc_new -script "+&scorr;&sweep;&dc2;&dch,-f;&nf,{D}" -liberty ../../examples/cmos/cmos_cells.lib
+
