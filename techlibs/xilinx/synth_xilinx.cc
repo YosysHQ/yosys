@@ -355,8 +355,10 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("prepare")) {
 			run("proc");
-			if (flatten || help_mode)
+			if (flatten || help_mode) {
+				run("check");
 				run("flatten", "(with '-flatten')");
+			}
 			if (active_design)
 				active_design->scratchpad_unset("tribuf.added_something");
 			run("tribuf -logic");
@@ -637,8 +639,10 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef -noclkinv");
-			if (flatten_before_abc)
+			if (flatten_before_abc) {
+				run("check");
 				run("flatten");
+			}
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
 			else if (abc9) {

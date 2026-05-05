@@ -210,6 +210,7 @@ struct SynthGateMatePass : public ScriptPass
 		{
 			run("proc");
 			if (!noflatten) {
+				run("check");
 				run("flatten");
 			}
 			run("tribuf -logic");
