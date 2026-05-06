@@ -277,8 +277,10 @@ struct SynthPass : public ScriptPass {
 
 		if (check_label("coarse")) {
 			run("proc");
-			if (flatten || help_mode)
+			if (flatten || help_mode) {
+				run("check");
 				run("flatten", "  (if -flatten)");
+			}
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
