@@ -251,6 +251,7 @@ struct RTLIL::SigNormIndex
 	}
 
 	void restore_connections() {
+		int64_t start = PerformanceTimer::query();
 		flush_connections();
 		pool<Wire *> wires;
 		for (auto const &bit : sigmap.database)
@@ -278,6 +279,11 @@ struct RTLIL::SigNormIndex
 		}
 
 		restored_connections = module->connections_.size();
+
+		int64_t time_ns = PerformanceTimer::query() - start;
+		Pass::subtract_from_current_runtime_ns(time_ns);
+		signorm_restore_ns += time_ns;
+		++signorm_restore_count;
 	}
 };
 
@@ -318,6 +324,10 @@ void RTLIL::Design::bufNormalize(bool enable)
 		module->bufNormalize();
 }
 
+int64_t signorm_ns;
+int signorm_count;
+int64_t signorm_restore_ns;
+int signorm_restore_count;
 void RTLIL::Design::sigNormalize(bool enable)
 {
 	if (!enable)
@@ -359,8 +369,13 @@ void RTLIL::Design::sigNormalize(bool enable)
 		flagSigNormalized = true;
 	}
 
+	int64_t start = PerformanceTimer::query();
 	for (auto module : modules())
 		module->sigNormalize();
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	signorm_ns += time_ns;
+	++signorm_count;
 }
 
 void RTLIL::Module::sigNormalize()
