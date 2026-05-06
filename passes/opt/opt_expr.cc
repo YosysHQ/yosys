@@ -303,19 +303,43 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	return true;
 }
 
-void handle_polarity_inv(Cell *cell, IdString port, IdString param, const SigMap &assign_map, const dict<RTLIL::SigSpec, RTLIL::SigSpec> &invert_map)
+std::optional<SigBit> get_inverted_raw(SigBit s)
 {
-	SigSpec sig = assign_map(cell->getPort(port));
-	if (invert_map.count(sig)) {
+	if (!s.is_wire() || !s.wire->known_driver())
+		return std::nullopt;
+	Cell* cell = s.wire->driverCell();
+	if (!cell->type.in(ID($_NOT_), ID($not), ID($logic_not)))
+		return std::nullopt;
+	if (GetSize(cell->getPort(ID::A)) != 1 || GetSize(cell->getPort(ID::Y)) != 1)
+		return std::nullopt;
+	return cell->getPort(ID::A);
+}
+
+std::optional<SigBit> get_inverted(SigBit s, const SigMap &assign_map)
+{
+	if (auto inv_a = get_inverted_raw(assign_map(s)))
+		return assign_map(*inv_a);
+	else
+		return std::nullopt;
+}
+
+void handle_polarity_inv(Cell *cell, IdString port, IdString param, const SigMap &assign_map)
+{
+	SigSpec raw = cell->getPort(port);
+	if (raw.size() != 1)
+		return;
+	SigBit sig = assign_map(raw);
+	if (auto inv_a = get_inverted_raw(sig)) {
+		SigBit new_sig = assign_map(*inv_a);
 		log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
 				log_id(port), log_id(cell->type), log_id(cell), log_id(cell->module),
-				log_signal(sig), log_signal(invert_map.at(sig)));
-		cell->setPort(port, (invert_map.at(sig)));
+				log_signal(sig), log_signal(new_sig));
+		cell->setPort(port, new_sig);
 		cell->setParam(param, !cell->getParam(param).as_bool());
 	}
 }
 
-void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdString port, const SigMap &assign_map, const dict<RTLIL::SigSpec, RTLIL::SigSpec> &invert_map)
+void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdString port, const SigMap &assign_map)
 {
 	log_assert(GetSize(type1) == GetSize(type2));
 	string cell_type = cell->type.str();
@@ -335,11 +359,12 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdStrin
 
 	if (cell->type.in(type1, type2)) {
 		SigSpec sig = assign_map(cell->getPort(port));
-		if (invert_map.count(sig)) {
+		if (auto inv_a = get_inverted_raw(sig)) {
+			SigSpec new_sig = assign_map(*inv_a);
 			log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
 					log_id(port), log_id(cell->type), log_id(cell), log_id(cell->module),
-					log_signal(sig), log_signal(invert_map.at(sig)));
-			cell->setPort(port, (invert_map.at(sig)));
+					log_signal(sig), log_signal(new_sig));
+			cell->setPort(port, new_sig);
 			cell->type = cell->type == type1 ? type2 : type1;
 		}
 	}
@@ -395,99 +420,85 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv, int timestamp=INT_MIN)
 {
 	SigMap assign_map; //(module);
-	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
-
 
 	auto dirty_cells = module->dirty_cells(timestamp);
-
-	// TODO this could be cheaper
-	for (auto cell : module->cells()) {
-		if (design->selected(module, cell) && cell->type[0] == '$') {
-			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
-					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
-				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
-			if (cell->type.in(ID($mux), ID($_MUX_)) &&
-					cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))
-				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::S));
-		}
-	}
 
 	if (!noclkinv)
 	for (auto cell : dirty_cells)
 	if (design->selected(module, cell)) {
 		if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
-			handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
+			handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map);
 
 		if (cell->type.in(ID($sr), ID($dffsr), ID($dffsre), ID($dlatchsr))) {
-			handle_polarity_inv(cell, ID::SET, ID::SET_POLARITY, assign_map, invert_map);
-			handle_polarity_inv(cell, ID::CLR, ID::CLR_POLARITY, assign_map, invert_map);
+			handle_polarity_inv(cell, ID::SET, ID::SET_POLARITY, assign_map);
+			handle_polarity_inv(cell, ID::CLR, ID::CLR_POLARITY, assign_map);
 		}
 
 		if (cell->type.in(ID($adff), ID($adffe), ID($adlatch)))
-			handle_polarity_inv(cell, ID::ARST, ID::ARST_POLARITY, assign_map, invert_map);
+			handle_polarity_inv(cell, ID::ARST, ID::ARST_POLARITY, assign_map);
 
 		if (cell->type.in(ID($aldff), ID($aldffe)))
-			handle_polarity_inv(cell, ID::ALOAD, ID::ALOAD_POLARITY, assign_map, invert_map);
+			handle_polarity_inv(cell, ID::ALOAD, ID::ALOAD_POLARITY, assign_map);
 
 		if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce)))
-			handle_polarity_inv(cell, ID::SRST, ID::SRST_POLARITY, assign_map, invert_map);
+			handle_polarity_inv(cell, ID::SRST, ID::SRST_POLARITY, assign_map);
 
 		if (cell->type.in(ID($dffe), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr)))
-			handle_polarity_inv(cell, ID::EN, ID::EN_POLARITY, assign_map, invert_map);
+			handle_polarity_inv(cell, ID::EN, ID::EN_POLARITY, assign_map);
 
 		if (!StaticCellTypes::Compat::stdcells_mem(cell->type))
 			continue;
 
-		handle_clkpol_celltype_swap(cell, "$_SR_N?_", "$_SR_P?_", ID::S, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_SR_?N_", "$_SR_?P_", ID::R, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_SR_N?_", "$_SR_P?_", ID::S, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_SR_?N_", "$_SR_?P_", ID::R, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DFF_N_", "$_DFF_P_", ID::C, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DFF_N_", "$_DFF_P_", ID::C, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DFFE_N?_", "$_DFFE_P?_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFE_?N_", "$_DFFE_?P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFE_N?_", "$_DFFE_P?_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFE_?N_", "$_DFFE_?P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DFF_N??_", "$_DFF_P??_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFF_?N?_", "$_DFF_?P?_", ID::R, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DFF_N??_", "$_DFF_P??_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFF_?N?_", "$_DFF_?P?_", ID::R, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DFFE_N???_", "$_DFFE_P???_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFE_?N??_", "$_DFFE_?P??_", ID::R, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFE_???N_", "$_DFFE_???P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFE_N???_", "$_DFFE_P???_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFE_?N??_", "$_DFFE_?P??_", ID::R, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFE_???N_", "$_DFFE_???P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_SDFF_N??_", "$_SDFF_P??_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_SDFF_?N?_", "$_SDFF_?P?_", ID::R, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFF_N??_", "$_SDFF_P??_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFF_?N?_", "$_SDFF_?P?_", ID::R, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_SDFFE_N???_", "$_SDFFE_P???_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_SDFFE_?N??_", "$_SDFFE_?P??_", ID::R, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_SDFFE_???N_", "$_SDFFE_???P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFFE_N???_", "$_SDFFE_P???_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFFE_?N??_", "$_SDFFE_?P??_", ID::R, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFFE_???N_", "$_SDFFE_???P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_SDFFCE_N???_", "$_SDFFCE_P???_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_SDFFCE_?N??_", "$_SDFFCE_?P??_", ID::R, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_SDFFCE_???N_", "$_SDFFCE_???P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFFCE_N???_", "$_SDFFCE_P???_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFFCE_?N??_", "$_SDFFCE_?P??_", ID::R, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_SDFFCE_???N_", "$_SDFFCE_???P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_ALDFF_N?_", "$_ALDFF_P?_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_ALDFF_?N_", "$_ALDFF_?P_", ID::L, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_ALDFF_N?_", "$_ALDFF_P?_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_ALDFF_?N_", "$_ALDFF_?P_", ID::L, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_ALDFFE_N??_", "$_ALDFFE_P??_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_ALDFFE_?N?_", "$_ALDFFE_?P?_", ID::L, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_ALDFFE_??N_", "$_ALDFFE_??P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_ALDFFE_N??_", "$_ALDFFE_P??_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_ALDFFE_?N?_", "$_ALDFFE_?P?_", ID::L, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_ALDFFE_??N_", "$_ALDFFE_??P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DFFSR_N??_", "$_DFFSR_P??_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFSR_?N?_", "$_DFFSR_?P?_", ID::S, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFSR_??N_", "$_DFFSR_??P_", ID::R, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSR_N??_", "$_DFFSR_P??_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSR_?N?_", "$_DFFSR_?P?_", ID::S, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSR_??N_", "$_DFFSR_??P_", ID::R, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DFFSRE_N???_", "$_DFFSRE_P???_", ID::C, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFSRE_?N??_", "$_DFFSRE_?P??_", ID::S, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFSRE_??N?_", "$_DFFSRE_??P?_", ID::R, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DFFSRE_???N_", "$_DFFSRE_???P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSRE_N???_", "$_DFFSRE_P???_", ID::C, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSRE_?N??_", "$_DFFSRE_?P??_", ID::S, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSRE_??N?_", "$_DFFSRE_??P?_", ID::R, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DFFSRE_???N_", "$_DFFSRE_???P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DLATCH_N_", "$_DLATCH_P_", ID::E, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DLATCH_N_", "$_DLATCH_P_", ID::E, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DLATCH_N??_", "$_DLATCH_P??_", ID::E, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DLATCH_?N?_", "$_DLATCH_?P?_", ID::R, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DLATCH_N??_", "$_DLATCH_P??_", ID::E, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DLATCH_?N?_", "$_DLATCH_?P?_", ID::R, assign_map);
 
-		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_N??_", "$_DLATCHSR_P??_", ID::E, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_?N?_", "$_DLATCHSR_?P?_", ID::S, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map, invert_map);
+		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_N??_", "$_DLATCHSR_P??_", ID::E, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_?N?_", "$_DLATCHSR_?P?_", ID::S, assign_map);
+		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map);
 	}
 
 	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
@@ -554,8 +565,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			for (auto bit : input_bits) {
 				if (bit.wire) {
-					if (invert_map.count(bit) && input_bits.count(invert_map.at(bit)))
-						found_inv = true;
+					if (auto inv_a = get_inverted(bit, assign_map)) {
+						if (input_bits.count(*inv_a)) {
+							found_inv = true;
+						}
+					}
 					if (non_const_input != State::Sm)
 						many_conconst = true;
 					non_const_input = many_conconst ? State::Sm : bit;
@@ -1062,20 +1076,23 @@ skip_fine_alu:
 			}
 		}
 
-		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && GetSize(cell->getPort(ID::Y)) == 1 &&
-				invert_map.count(assign_map(cell->getPort(ID::A))) != 0) {
-			replace_cell(assign_map, module, cell, "double_invert", ID::Y, invert_map.at(assign_map(cell->getPort(ID::A))));
-			goto next_cell;
+		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && GetSize(cell->getPort(ID::Y)) == 1 && GetSize(cell->getPort(ID::A)) == 1) {
+			if (auto inv_a = get_inverted(cell->getPort(ID::A), assign_map)) {
+				replace_cell(assign_map, module, cell, "double_invert", ID::Y, *inv_a);
+				goto next_cell;
+			}
 		}
 
-		if (cell->type.in(ID($_MUX_), ID($mux)) && invert_map.count(assign_map(cell->getPort(ID::S))) != 0) {
-			log_debug("Optimizing away select inverter for %s cell `%s' in module `%s'.\n", log_id(cell->type), log_id(cell), log_id(module));
-			RTLIL::SigSpec tmp = cell->getPort(ID::A);
-			cell->setPort(ID::A, cell->getPort(ID::B));
-			cell->setPort(ID::B, tmp);
-			cell->setPort(ID::S, invert_map.at(assign_map(cell->getPort(ID::S))));
-			did_something = true;
-			goto next_cell;
+		if (cell->type.in(ID($_MUX_), ID($mux))) {
+			if (auto inv_a = get_inverted(cell->getPort(ID::S), assign_map)) {
+				log_debug("Optimizing away select inverter for %s cell `%s' in module `%s'.\n", log_id(cell->type), log_id(cell), log_id(module));
+				RTLIL::SigSpec tmp = cell->getPort(ID::A);
+				cell->setPort(ID::A, cell->getPort(ID::B));
+				cell->setPort(ID::B, tmp);
+				cell->setPort(ID::S, *inv_a);
+				did_something = true;
+				goto next_cell;
+			}
 		}
 
 		if (cell->type == ID($_NOT_)) {
