@@ -32,7 +32,25 @@ namespace Hierarchy {
 		DRIVEN
 	};
 
-	static SigDirection get_signal_direction(Module *module, const SigSpec &sig, SigMap &sigmap) {
+	static void build_driven_signals_index(Module *module, SigMap &sigmap, SigPool &driven_signals) {
+		for (auto cell : module->cells()) {
+			for (auto &conn : cell->connections()) {
+				if (cell->output(conn.first)) {
+					SigSpec sig = sigmap(conn.second);
+					driven_signals.add(sig);
+				}
+			}
+		}
+
+		for (auto &conn : module->connections()) {
+			if (conn.second.is_fully_const()) {
+				SigSpec lhs = sigmap(conn.first);
+				driven_signals.add(lhs);
+			}
+		}
+	}
+
+	static SigDirection get_signal_direction(const SigSpec &sig, SigMap &sigmap, const SigPool &driven_signals) {
 		if (sig.is_fully_const())
 			return SigDirection::DRIVEN;
 
@@ -52,27 +70,12 @@ namespace Hierarchy {
 				} else if (w->port_output) {
 					has_output = true;
 				} else {
-					bool is_driven = false;
-					SigSpec chunk_as_sig(chunk);
-
-					for (auto cell : module->cells()) {
-						for (auto &conn : cell->connections()) {
-							if (cell->output(conn.first)) {
-								SigSpec output_sig = sigmap(conn.second);
-								SigSpec mapped_chunk = sigmap(chunk_as_sig);
-								if (output_sig.extract(mapped_chunk).size() > 0) {
-									is_driven = true;
-									break;
-								}
-							}
-						}
-
-						if (is_driven) break;
-					}
-					if (is_driven)
+					SigSpec chunk_sig = sigmap(SigSpec(chunk));
+					if (driven_signals.check_any(chunk_sig)) {
 						has_driven = true;
-					else
+					} else {
 						has_unknown = true;
+					}
 				}
 			}
 		}
@@ -174,6 +177,9 @@ namespace Hierarchy {
 			pool<Cell*> cells_to_remove;
 			vector<SigSig> new_connections;
 			SigMap sigmap(module);
+			SigPool driven_signals;
+
+			build_driven_signals_index(module, sigmap, driven_signals);
 
 			for (auto cell : module->cells())
 			{
@@ -189,8 +195,8 @@ namespace Hierarchy {
 				if (sig_a.size() == 0 || sig_b.size() == 0)
 					continue;
 
-				SigDirection dir_a = get_signal_direction(module, sig_a, sigmap);
-				SigDirection dir_b = get_signal_direction(module, sig_b, sigmap);
+				SigDirection dir_a = get_signal_direction(sig_a, sigmap, driven_signals);
+				SigDirection dir_b = get_signal_direction(sig_b, sigmap, driven_signals);
 
 				SigSpec driver, driven;
 				bool can_resolve = false;
