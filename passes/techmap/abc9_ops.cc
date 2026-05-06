@@ -1652,7 +1652,7 @@ static void replace_zbufs(Design *design)
 				if (sig[i] == State::Sz) {
 					Wire *w = mod->addWire(NEW_ID);
 					Cell *ud = mod->addCell(NEW_ID, ID($tribuf));
-					ud->set_bool_attribute(ID(aiger2_zbuf));
+					ud->set_bool_attribute(ID::aiger2_zbuf);
 					ud->setParam(ID::WIDTH, 1);
 					ud->setPort(ID::Y, w);
 					ud->setPort(ID::EN, State::S0);
