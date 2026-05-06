@@ -29,7 +29,8 @@ namespace Hierarchy {
 		INPUT,
 		OUTPUT,
 		INOUT,
-		DRIVEN
+		DRIVEN,
+		CONFLICT
 	};
 
 	static void build_driven_signals_index(Module *module, SigMap &sigmap, SigPool &driven_signals) {
@@ -62,6 +63,7 @@ namespace Hierarchy {
 		for (auto &chunk : sig.chunks()) {
 			if (chunk.is_wire()) {
 				Wire *w = chunk.wire;
+
 				if (w->port_input && w->port_output) {
 					has_input = true;
 					has_output = true;
@@ -71,19 +73,26 @@ namespace Hierarchy {
 					has_output = true;
 				} else {
 					SigSpec chunk_sig = sigmap(SigSpec(chunk));
+
 					if (driven_signals.check_any(chunk_sig)) {
 						has_driven = true;
 					} else {
 						has_unknown = true;
 					}
 				}
+			} else {
+				has_driven = true;
 			}
 		}
 
+		if (has_input && has_driven)
+			return SigDirection::CONFLICT;
 		if (has_input && has_output)
 			return SigDirection::INOUT;
-		if (has_output || has_driven)
+		if (has_output)
 			return SigDirection::OUTPUT;
+		if (has_driven)
+			return SigDirection::DRIVEN;
 		if (has_input)
 			return SigDirection::INPUT;
 		if (has_unknown)
@@ -197,6 +206,9 @@ namespace Hierarchy {
 
 				SigDirection dir_a = get_signal_direction(sig_a, sigmap, driven_signals);
 				SigDirection dir_b = get_signal_direction(sig_b, sigmap, driven_signals);
+
+				if (dir_a == SigDirection::CONFLICT || dir_b == SigDirection::CONFLICT)
+					continue;
 
 				SigSpec driver, driven;
 				bool can_resolve = false;
