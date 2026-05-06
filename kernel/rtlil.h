@@ -129,6 +129,12 @@ namespace RTLIL
 	struct PortBit;
 };
 
+// TODO clean up?
+extern int64_t signorm_ns;
+extern int signorm_count;
+extern int64_t signorm_restore_ns;
+extern int signorm_restore_count;
+
 struct RTLIL::IdString
 {
 	struct Storage {
