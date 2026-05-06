@@ -27,6 +27,7 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace Hierarchy {
 	void check_and_adjust_ports(Module* module, std::set<Module*>& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific);
+	bool resolve_connect_directionality(Module* module);
 };
 
 YOSYS_NAMESPACE_END

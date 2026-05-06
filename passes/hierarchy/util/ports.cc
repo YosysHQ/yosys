@@ -100,5 +100,60 @@ namespace Hierarchy {
 		}
 	}
 
+	bool resolve_connect_directionality(Module* module) {
+		pool<Cell*> cells_to_remove;
+		vector<SigSig> new_connections;
+
+		for (auto cell : module->cells())
+		{
+			if (cell->type != ID($connect))
+				continue;
+
+			if (cell->has_keep_attr())
+				continue;
+
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_b = cell->getPort(ID::B);
+
+			// TODO
+			if (!sig_a.is_wire() || !sig_b.is_wire())
+				continue;
+
+			Wire *wire_a = sig_a.as_wire();
+			Wire *wire_b = sig_b.as_wire();
+
+			bool a_is_input = wire_a->port_input && !wire_a->port_output;
+			bool a_is_output = wire_a->port_output && !wire_a->port_input;
+			bool b_is_input = wire_b->port_input && !wire_b->port_output;
+			bool b_is_output = wire_b->port_output && !wire_b->port_input;
+
+			SigSpec driver, driven;
+
+			if (a_is_output && b_is_input) {
+				driver = sig_a;
+				driven = sig_b;
+			} else if (a_is_input && b_is_output) {
+				driver = sig_b;
+				driven = sig_a;
+			} else {
+				continue;
+			}
+
+			log_debug("Resolving $connect %s: %s <- %s\n", log_id(cell), log_signal(driven), log_signal(driver));
+
+			new_connections.push_back({driven, driver});
+			cells_to_remove.insert(cell);
+		}
+
+		// Apply the changes
+		for (auto &conn : new_connections)
+			module->connect(conn);
+
+		for (auto cell : cells_to_remove)
+			module->remove(cell);
+
+		return !cells_to_remove.empty();
+	}
+
 };
 YOSYS_NAMESPACE_END
