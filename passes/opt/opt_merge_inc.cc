@@ -21,7 +21,7 @@
 #include "kernel/ffinit.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "libs/sha1/sha1.h"
 #include "passes/opt/opt_merge_common.h"
 #include <stdlib.h>
@@ -36,6 +36,31 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 using OptMergeCommon::CellHasher;
+using MergeableTypes = StaticCellTypes::Categories::Category;
+
+// setup_internals + setup_internals_mem + setup_stdcells + setup_stdcells_mem,
+// minus a fixed set of cells we never want to merge. setup_internals_anyinit
+// is intentionally not included, so $anyinit stays excluded
+static constexpr MergeableTypes build_mergeable_types(bool nomux) {
+	auto c = StaticCellTypes::categories.is_known;
+	c.set_id(ID($anyinit), false);
+	c.set_id(ID($tribuf), false);
+	c.set_id(ID($_TBUF_), false);
+	c.set_id(ID($anyseq), false);
+	c.set_id(ID($anyconst), false);
+	c.set_id(ID($allseq), false);
+	c.set_id(ID($allconst), false);
+	c.set_id(ID($connect), false);
+	c.set_id(ID($input_port), false);
+	if (nomux) {
+		c.set_id(ID($mux), false);
+		c.set_id(ID($pmux), false);
+	}
+	return c;
+}
+
+static constexpr MergeableTypes mergeable_with_mux = build_mergeable_types(false);
+static constexpr MergeableTypes mergeable_without_mux = build_mergeable_types(true);
 
 struct OptMergeIncWorker
 {
@@ -45,33 +70,15 @@ struct OptMergeIncWorker
 	FfInitVals initvals;
 	bool mode_share_all;
 
-	CellTypes ct;
+	const MergeableTypes &ct;
 	int total_count;
 	CellHasher hasher;
 
-	OptMergeIncWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
-		design(design), module(module), mode_share_all(mode_share_all),
+	OptMergeIncWorker(RTLIL::Design *design, RTLIL::Module *module, const MergeableTypes &ct, bool mode_share_all, bool mode_keepdc) :
+		design(design), module(module), mode_share_all(mode_share_all), ct(ct),
 		hasher(assign_map, initvals, /*apply_sigmap=*/false)
 	{
 		total_count = 0;
-		ct.setup_internals();
-		ct.setup_internals_mem();
-		ct.setup_stdcells();
-		ct.setup_stdcells_mem();
-
-		if (mode_nomux) {
-			ct.cell_types.erase(ID($mux));
-			ct.cell_types.erase(ID($pmux));
-		}
-
-		ct.cell_types.erase(ID($tribuf));
-		ct.cell_types.erase(ID($_TBUF_));
-		ct.cell_types.erase(ID($anyseq));
-		ct.cell_types.erase(ID($anyconst));
-		ct.cell_types.erase(ID($allseq));
-		ct.cell_types.erase(ID($allconst));
-		ct.cell_types.erase(ID($connect));
-		ct.cell_types.erase(ID($input_port));
 
 		log("Finding identical cells in module `%s'.\n", module->name);
 		assign_map.set(module);
@@ -162,7 +169,7 @@ struct OptMergeIncWorker
 						continue;
 					if (!cell->known())
 						continue;
-					if (!mode_share_all && !ct.cell_known(cell->type))
+					if (!mode_share_all && !ct(cell->type))
 						continue;
 
 					cells.push_back(cell);
@@ -191,7 +198,7 @@ struct OptMergeIncWorker
 						continue;
 					if (!cell->known())
 						continue;
-					if (!mode_share_all && !ct.cell_known(cell->type))
+					if (!mode_share_all && !ct(cell->type))
 						continue;
 
 
@@ -418,9 +425,11 @@ struct OptMergeIncPass : public Pass {
 
 		design->sigNormalize(true);
 
+		const MergeableTypes &ct = mode_nomux ? mergeable_without_mux : mergeable_with_mux;
+
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			OptMergeIncWorker worker(design, module, mode_nomux, mode_share_all, mode_keepdc);
+			OptMergeIncWorker worker(design, module, ct, mode_share_all, mode_keepdc);
 			total_count += worker.total_count;
 		}
 
