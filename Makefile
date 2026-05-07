@@ -1117,6 +1117,7 @@ coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
 	rm -rf coverage.info coverage_html
 	lcov --capture -d . --no-external -o coverage.info
+	lcov --remove coverage.info '*/tests/various/*' '*/libs/*' -o coverage.info --ignore-errors unused
 	genhtml coverage.info --output-directory coverage_html
 
 clean_coverage:
