@@ -128,6 +128,8 @@ struct SimShared
 	bool serious_asserts = false;
 	bool fst_noinit = false;
 	bool initstate = true;
+	// when true, top SimInstance does not recurse into child instances
+	bool blackbox_children = false;
 };
 
 void zinit(Const &v)
@@ -309,6 +311,13 @@ struct SimInstance
 						in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->name)[i]));
 				}
 			}
+
+			// With -bb, cut the input side of every non-top instance's boundary by sourcing port_input wires from VCD
+			if (shared->blackbox_children && shared->fst && parent != nullptr && wire->port_input) {
+				auto it = fst_handles.find(wire);
+				if (it != fst_handles.end())
+					fst_inputs[wire] = it->second;
+			}
 		}
 
 		memories = Mem::get_all_memories(module);
@@ -330,6 +339,20 @@ struct SimInstance
 
 			if (mod != nullptr) {
 				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
+			}
+
+			// With -bb, cut the child-output side of the boundary by sourcing each parent-side wire from VCD
+			if (mod != nullptr && shared->blackbox_children && shared->fst) {
+				for (auto &conn : cell->connections()) {
+					Wire *port = mod->wire(conn.first);
+					if (!port || !port->port_output) continue;
+					for (auto bit : sigmap(conn.second)) {
+						if (bit.wire == nullptr) continue;
+						auto it = fst_handles.find(bit.wire);
+						if (it != fst_handles.end())
+							fst_inputs[bit.wire] = it->second;
+					}
+				}
 			}
 
 			for (auto &port : cell->connections()) {
@@ -479,7 +502,7 @@ struct SimInstance
 		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)
-			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i]) {
+			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i] && ) {
 				state_nets.at(sig[i]) = value[i];
 				dirty_bits.insert(sig[i]);
 				did_something = true;
@@ -559,11 +582,14 @@ struct SimInstance
 		if (children.count(cell))
 		{
 			auto child = children.at(cell);
-			for (auto &conn: cell->connections())
-				if (cell->input(conn.first) && GetSize(conn.second)) {
-					Const value = get_state(conn.second);
-					child->set_state(child->module->wire(conn.first), value);
-				}
+			// Under -bb the child's input ports are VCD-driven; skip the parent->child copy that would overwrite them
+			if (!shared->blackbox_children) {
+				for (auto &conn: cell->connections())
+					if (cell->input(conn.first) && GetSize(conn.second)) {
+						Const value = get_state(conn.second);
+						child->set_state(child->module->wire(conn.first), value);
+					}
+			}
 			dirty_children.insert(child);
 			return;
 		}
@@ -667,6 +693,11 @@ struct SimInstance
 
 		queue_cells.swap(dirty_cells);
 
+		// Under -bb the parent never dirties its children, so seed every child to keep the recursion alive
+		if (shared->blackbox_children)
+			for (auto &it : children)
+				dirty_children.insert(it.second);
+
 		while (1)
 		{
 			for (auto bit : dirty_bits)
@@ -695,11 +726,13 @@ struct SimInstance
 				update_memory(memid);
 			dirty_memories.clear();
 
-			for (auto wire : queue_outports)
-				if (instance->hasPort(wire->name)) {
-					Const value = get_state(wire);
-					parent->set_state(instance->getPort(wire->name), value);
-				}
+			// Under -bb the parent's wire is VCD-driven; skip the push-up that would overwrite it
+			if (!shared->blackbox_children)
+				for (auto wire : queue_outports)
+					if (instance->hasPort(wire->name)) {
+						Const value = get_state(wire);
+						parent->set_state(instance->getPort(wire->name), value);
+					}
 
 			queue_outports.clear();
 
@@ -3048,6 +3081,10 @@ struct SimPass : public Pass {
 		log("    -reg\n");
 		log("        overwrite register state from VCD file every cycle\n");
 		log("\n");
+		log("    -bb\n");
+		log("        cut every parent<->child boundary in the hierarchy and source both sides from the FST\n");
+		log("        (each instance simulates its own logic only; boundary signals come from VCD)\n");
+		log("\n");
 	}
 
 
@@ -3237,6 +3274,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-reg") {
 				reg_overwrite = true;
+				continue;
+			}
+			if (args[argidx] == "-bb") {
+				worker.blackbox_children = true;
 				continue;
 			}
 			break;
