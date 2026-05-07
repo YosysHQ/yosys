@@ -1038,7 +1038,11 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		if (!merged_scl.empty()) {
 			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
 		} else if(!config.liberty_files.empty()) {
-			log_warning("ABC: Merged scl conversion failed, or abc_liberty_args provided, using liberty format\n");
+			if (!config.abc_liberty_args.empty()) {
+				log("ABC: abc_liberty_args provided, using liberty format\n");
+			} else {
+				log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			}
 			bool first_lib = true;
 			for (std::string liberty_file : config.liberty_files) {
 				run_abc.abc_script += stringf("read_lib %s %s %s -w \"%s\" ; ", run_abc.dont_use_args, first_lib ? "" : "-m", config.abc_liberty_args, liberty_file);
