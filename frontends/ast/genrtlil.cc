@@ -1212,6 +1212,15 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		sign_hint = false;
 		break;
 
+	case AST_ASSIGN_PATTERN:
+		for (auto& child : children) {
+			sub_width_hint = 0;
+			sub_sign_hint = true;
+			child->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
+		}
+		sign_hint = false;
+		break;
+
 	case AST_NEG:
 	case AST_BIT_NOT:
 	case AST_POS:
@@ -1823,6 +1832,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			is_signed = false;
 			return sig;
 		}
+
+	case AST_ASSIGN_PATTERN:
+		input_error("Assignment pattern is only supported for whole unpacked array assignments.\n");
 
 	// generate cells for unary operations: $not, $pos, $neg
 	if (0) { case AST_BIT_NOT: type_name = ID($not); }
