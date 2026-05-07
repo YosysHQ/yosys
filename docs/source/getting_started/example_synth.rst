@@ -291,7 +291,10 @@ In `synth_ice40` we get these:
    :name: synth_flatten
    :caption: ``flatten`` section
 
-First off is `flatten`.  Flattening the design like this can allow for
+We start by runnning `check`.  This doesn't affect the design, but it can
+identify a few obvious problems which will cause errors later.  Calling it here
+lets us fail faster rather than wasting time on something we know is impossible.
+Next up is `flatten`.  Flattening the design like this can allow for
 optimizations between modules which would otherwise be missed.  Let's run
 :yoscrypt:`flatten;;` on our design.
 
@@ -363,17 +366,14 @@ In the iCE40 flow, we start with the following commands:
    :caption: ``coarse`` section (part 1)
    :name: synth_coarse1
 
-We've already come across `opt_expr`, and `opt_clean` is the same as `clean` but
-with more verbose output.  The `check` pass identifies a few obvious problems
-which will cause errors later.  Calling it here lets us fail faster rather than
-wasting time on something we know is impossible.
-
-Next up is :yoscrypt:`opt -nodffe -nosdff` performing a set of simple
-optimizations on the design.  This command also ensures that only a specific
-subset of FF types are included, in preparation for the next command:
-:cmd:title:`fsm`.  Both `opt` and `fsm` are macro commands which are explored in
-more detail in :doc:`/using_yosys/synthesis/opt` and
-:doc:`/using_yosys/synthesis/fsm` respectively.
+We've already come across `opt_expr` and `check`, and `opt_clean` is the same as
+`clean` but with more verbose output.  Next up is :yoscrypt:`opt -nodffe
+-nosdff` performing a set of simple optimizations on the design.  This command
+also ensures that only a specific subset of FF types are included, in
+preparation for the next command: :cmd:title:`fsm`.  Both `opt` and `fsm` are
+macro commands which are explored in more detail in
+:doc:`/using_yosys/synthesis/opt` and :doc:`/using_yosys/synthesis/fsm`
+respectively.
 
 Up until now, the data path for ``rdata`` has remained the same since
 :ref:`rdata_flat`.  However the next call to `opt` does cause a change.
