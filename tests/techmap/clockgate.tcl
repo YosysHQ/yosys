@@ -1,5 +1,6 @@
 yosys -import
 read_verilog clockgate.v
+read_verilog ../sim/sdffe.v
 yosys proc
 opt
 
@@ -193,6 +194,9 @@ select -module dffe_11 -assert-count 0 t:\\neg_small_tielo
 # is assumed to have an active-high EN
 select -module dffe_10 -assert-count 1 t:\$_NOT_
 select -module dffe_11 -assert-count 0 t:\$_NOT_
+
+# $sdffe is not gated
+select -module sdffe -assert-count 0 sdffe t:* t:\$sdffe %d
 
 #------------------------------------------------------------------------------
 
