@@ -1,53 +1,6 @@
-read_verilog << EOT
-
-module dffe_00( input clk, en,
-			input d1, output reg q1,
-		);
-	always @( negedge clk ) begin
-		if ( ~en )
-			q1 <= d1;
-	end
-endmodule
-
-module dffe_01( input clk, en,
-			input d1, output reg q1,
-		);
-	always @( negedge clk ) begin
-		if ( en )
-			q1 <= d1;
-	end
-endmodule
-
-module dffe_10( input clk, en,
-			input d1, output reg q1,
-		);
-	always @( posedge clk ) begin
-		if ( ~en )
-			q1 <= d1;
-	end
-endmodule
-
-module dffe_11( input clk, en,
-			input d1, output reg q1,
-		);
-	always @( posedge clk ) begin
-		if ( en )
-			q1 <= d1;
-	end
-endmodule
-
-module dffe_wide_11( input clk, en,
-			input [3:0] d1, output reg [3:0] q1,
-		);
-	always @( posedge clk ) begin
-		if ( en )
-			q1 <= d1;
-	end
-endmodule
-
-EOT
-
-proc
+yosys -import
+read_verilog clockgate.v
+yosys proc
 opt
 
 design -save before
@@ -128,41 +81,7 @@ select -module dffe_11 -assert-count 0 t:\\pdk_icg
 #------------------------------------------------------------------------------
 
 design -reset
-read_rtlil << EOT
-
-module \bad1
-  wire input 1 \clk
-  wire input 3 \d1
-  wire input 2 \en
-  wire output 4 \q1
-  cell $dffe $auto$ff.cc:266:slice$27
-    parameter \CLK_POLARITY 1
-    parameter \EN_POLARITY 1
-    parameter \WIDTH 1
-    connect \CLK \clk
-    connect \D \d1
-    connect \EN 1'1
-    connect \Q \q1
-  end
-end
-
-module \bad2
-  wire input 1 \clk
-  wire input 3 \d1
-  wire input 2 \en
-  wire output 4 \q1
-  cell $dffe $auto$ff.cc:266:slice$27
-    parameter \CLK_POLARITY 1
-    parameter \EN_POLARITY 1
-    parameter \WIDTH 1
-    connect \CLK 1'1
-    connect \D \d1
-    connect \EN \en
-    connect \Q \q1
-  end
-end
-
-EOT
+read_rtlil clockgate_bad.il
 
 # Check we don't choke on constants
 clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
@@ -173,19 +92,8 @@ select -module bad2 -assert-count 0 t:\\pdk_icg
 
 # Regression test: EN is a bit from a multi-bit wire
 design -reset
-read_verilog << EOT
-module dffe_wide_11( input clk, input [1:0] en,
-			input [3:0] d1, output reg [3:0] q1,
-		);
-	always @( posedge clk ) begin
-		if ( en[0] )
-			q1 <= d1;
-	end
-endmodule
-
-EOT
-
-proc
+read_verilog clockgate_wide.v
+yosys proc
 opt
 
 clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
@@ -193,8 +101,18 @@ select -assert-count 1 t:\\pdk_icg
 
 #------------------------------------------------------------------------------
 
-design -load before
-clockgate -liberty c*ckgate.lib
+design -reset
+read_liberty c*ckgate.lib
+design -save map
+foreach mod {dffe_00 dffe_01 dffe_10 dffe_11} {
+    design -load before
+    hierarchy -top $mod
+    read_liberty -lib c*ckgate.lib
+    equiv_opt -map %map -multiclock clockgate -liberty c*ckgate.lib
+    design -load postopt
+    design -copy-to final $mod
+}
+design -load final
 
 # rising edge ICGs
 select -module dffe_00 -assert-count 0 t:\\pos_small

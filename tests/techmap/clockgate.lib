@@ -6,6 +6,7 @@ library(test) {
         pin (GCLK) {
             clock_gate_out_pin : true;
             direction : output;
+            function : "CLK&CE";
         }
         pin (CLK) {
             clock_gate_clock_pin : true;
@@ -26,6 +27,7 @@ library(test) {
         pin (GCLK) {
             clock_gate_out_pin : true;
             direction : output;
+            function : "CLK&CE";
         }
         pin (CLK) {
             clock_gate_clock_pin : true;
@@ -42,6 +44,7 @@ library(test) {
         pin (GCLK) {
             clock_gate_out_pin : true;
             direction : output;
+            function : "CLK&CE";
         }
         pin (CLK) {
             clock_gate_clock_pin : true;
@@ -58,6 +61,7 @@ library(test) {
         pin (GCLK) {
             clock_gate_out_pin : true;
             direction : output;
+            function : "CLK|!CE";
         }
         pin (CLK) {
             clock_gate_clock_pin : true;
@@ -74,6 +78,7 @@ library(test) {
         pin (GCLK) {
             clock_gate_out_pin : true;
             direction : output;
+            function : "CLK|!CE";
         }
         pin (CLK) {
             clock_gate_clock_pin : true;
@@ -94,6 +99,7 @@ library(test) {
         pin (GCLK) {
             clock_gate_out_pin : true;
             direction : output;
+            function : "CLK|!CE";
         }
         pin (CLK) {
             clock_gate_clock_pin : true;
