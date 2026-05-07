@@ -128,7 +128,6 @@ struct SimShared
 	bool serious_asserts = false;
 	bool fst_noinit = false;
 	bool initstate = true;
-	// when true, top SimInstance does not recurse into child instances
 	bool blackbox_children = false;
 };
 
@@ -312,7 +311,7 @@ struct SimInstance
 				}
 			}
 
-			// With -bb, cut the input side of every non-top instance's boundary by sourcing port_input wires from VCD
+			// With -bb, source port_input wires from VCD
 			if (shared->blackbox_children && shared->fst && parent != nullptr && wire->port_input) {
 				auto it = fst_handles.find(wire);
 				if (it != fst_handles.end())
@@ -341,7 +340,7 @@ struct SimInstance
 				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
 			}
 
-			// With -bb, cut the child-output side of the boundary by sourcing each parent-side wire from VCD
+			// With -bb, source each parent-side child-output wire from VCD
 			if (mod != nullptr && shared->blackbox_children && shared->fst) {
 				for (auto &conn : cell->connections()) {
 					Wire *port = mod->wire(conn.first);
@@ -502,7 +501,7 @@ struct SimInstance
 		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)
-			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i] && ) {
+			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i]) {
 				state_nets.at(sig[i]) = value[i];
 				dirty_bits.insert(sig[i]);
 				did_something = true;
@@ -582,7 +581,7 @@ struct SimInstance
 		if (children.count(cell))
 		{
 			auto child = children.at(cell);
-			// Under -bb the child's input ports are VCD-driven; skip the parent->child copy that would overwrite them
+			// With -bb, skip the parent->child copy that would overwrite child's input ports
 			if (!shared->blackbox_children) {
 				for (auto &conn: cell->connections())
 					if (cell->input(conn.first) && GetSize(conn.second)) {
@@ -693,7 +692,7 @@ struct SimInstance
 
 		queue_cells.swap(dirty_cells);
 
-		// Under -bb the parent never dirties its children, so seed every child to keep the recursion alive
+		// With -bb, the parent never dirties its children, so add children to the queue manually
 		if (shared->blackbox_children)
 			for (auto &it : children)
 				dirty_children.insert(it.second);
@@ -726,7 +725,7 @@ struct SimInstance
 				update_memory(memid);
 			dirty_memories.clear();
 
-			// Under -bb the parent's wire is VCD-driven; skip the push-up that would overwrite it
+			// With -bb, skip pushing up parent's wire that would overwrite it
 			if (!shared->blackbox_children)
 				for (auto wire : queue_outports)
 					if (instance->hasPort(wire->name)) {
