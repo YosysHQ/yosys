@@ -24,10 +24,14 @@
 
 #include "kernel/register.h"
 #include "kernel/log.h"
+#include "liberty_cache.h"
 
 #ifndef _WIN32
 #  include <unistd.h>
 #  include <dirent.h>
+#endif
+#if defined(__wasm)
+#include <wasi/libc.h>
 #endif
 
 #ifdef YOSYS_LINK_ABC
@@ -165,7 +169,7 @@ struct abc9_output_filter
 };
 
 void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe_file,
-		vector<int> lut_costs, bool dff_mode, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
+		vector<int> lut_costs, bool dff_mode, std::string delay_target,
 		bool show_tempdir, std::string box_file, std::string lut_file,
 		std::vector<std::string> liberty_files, std::string wire_delay, std::string tempdir_name,
 		std::string constr_file, std::vector<std::string> dont_use_cells, std::vector<std::string> genlib_files)
@@ -181,11 +185,19 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		for (std::string dont_use_cell : dont_use_cells) {
 			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
-		bool first_lib = true;
-		for (std::string liberty_file : liberty_files) {
-			abc9_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
-			first_lib = false;
+
+		std::string merged_scl = convert_liberty_files_to_merged_scl(liberty_files, dont_use_args, exe_file);
+		if (!merged_scl.empty()) {
+			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
+		} else if(!liberty_files.empty()) {
+			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			bool first_lib = true;
+			for (std::string liberty_file : liberty_files) {
+				abc9_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
+				first_lib = false;
+			}
 		}
+
 		if (!constr_file.empty())
 			abc9_script += stringf("read_constr -v \"%s\"; ", constr_file);
 	} else if (!genlib_files.empty()) {
@@ -210,25 +222,17 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		} else
 			abc9_script += stringf("source %s", script_file);
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
-		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)
-			: RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
+		abc9_script += RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
+	} else if (!liberty_files.empty() || !genlib_files.empty()) {
+		abc9_script += RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
 	} else
 		log_abort();
 
 	for (size_t pos = abc9_script.find("{D}"); pos != std::string::npos; pos = abc9_script.find("{D}", pos))
 		abc9_script = abc9_script.substr(0, pos) + delay_target + abc9_script.substr(pos+3);
 
-	//for (size_t pos = abc9_script.find("{S}"); pos != std::string::npos; pos = abc9_script.find("{S}", pos))
-	//	abc9_script = abc9_script.substr(0, pos) + lutin_shared + abc9_script.substr(pos+3);
-
 	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
 		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
-
-	std::string C;
-	if (design->scratchpad.count("abc9.if.C"))
-		C = "-C " + design->scratchpad_get_string("abc9.if.C");
-	for (size_t pos = abc9_script.find("{C}"); pos != std::string::npos; pos = abc9_script.find("{C}", pos))
-		abc9_script = abc9_script.substr(0, pos) + C + abc9_script.substr(pos+3);
 
 	std::string R;
 	if (design->scratchpad.count("abc9.if.R"))
@@ -295,7 +299,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 	FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 #if defined(__wasm)
-#define fd_renumber(from, to) (void)__wasi_fd_renumber(from, to)
+#define fd_renumber(from, to) (void)__wasilibc_fd_renumber(from, to)
 #else
 #define fd_renumber(from, to) dup2(from, to)
 #endif
@@ -368,11 +372,6 @@ struct Abc9ExePass : public Pass {
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)));
-		log("\n");
-		log("    -fast\n");
-		log("        use different default scripts that are slightly faster (at the cost\n");
-		log("        of output quality):\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)));
 		log("\n");
 		log("    -constr <file>\n");
 		log("        pass this file with timing constraints to ABC.\n");
@@ -453,9 +452,9 @@ struct Abc9ExePass : public Pass {
 		std::string exe_file = yosys_abc_executable;
 		std::string script_file, clk_str, box_file, lut_file, constr_file;
 		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
-		std::string delay_target, lutin_shared = "-S 1", wire_delay;
+		std::string delay_target, wire_delay;
 		std::string tempdir_name;
-		bool fast_mode = false, dff_mode = false;
+		bool dff_mode = false;
 		bool show_tempdir = false;
 		vector<int> lut_costs;
 
@@ -472,7 +471,6 @@ struct Abc9ExePass : public Pass {
 		}
 		lut_arg = design->scratchpad_get_string("abc9.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc9.luts", luts_arg);
-		fast_mode = design->scratchpad_get_bool("abc9.fast", fast_mode);
 		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		show_tempdir = design->scratchpad_get_bool("abc9.showtmp", show_tempdir);
 		box_file = design->scratchpad_get_string("abc9.box", box_file);
@@ -504,20 +502,12 @@ struct Abc9ExePass : public Pass {
 				delay_target = "-D " + args[++argidx];
 				continue;
 			}
-			//if (arg == "-S" && argidx+1 < args.size()) {
-			//	lutin_shared = "-S " + args[++argidx];
-			//	continue;
-			//}
 			if (arg == "-lut" && argidx+1 < args.size()) {
 				lut_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
-				lut_arg = args[++argidx];
-				continue;
-			}
-			if (arg == "-fast") {
-				fast_mode = true;
+				luts_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-dff") {
@@ -622,7 +612,7 @@ struct Abc9ExePass : public Pass {
 			log_cmd_error("abc9_exe '-genlib' is incompatible with '-dont_use'.\n");
 
 		abc9_module(design, script_file, exe_file, lut_costs, dff_mode,
-				delay_target, lutin_shared, fast_mode, show_tempdir,
+				delay_target, show_tempdir,
 				box_file, lut_file, liberty_files, wire_delay, tempdir_name,
 				constr_file, dont_use_cells, genlib_files);
 	}

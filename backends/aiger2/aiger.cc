@@ -21,9 +21,12 @@
 //  - gracefully handling inout ports (an error message probably)
 //  - undriven wires
 //  - zero-width operands
+//  - decide how to unify this with cellaigs
+//  - break up Index into something smaller
+//  - (C++20) remove snprintf-into-std::ostream weirdness
 
 #include "kernel/register.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/rtlil.h"
 
 USING_YOSYS_NAMESPACE
@@ -45,8 +48,22 @@ PRIVATE_NAMESPACE_BEGIN
 // TODO
 //#define ARITH_OPS ID($add), ID($sub), ID($neg)
 
-#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, \
-				  ID($pmux), ID($bmux) /*, ARITH_OPS*/
+static constexpr auto known_ops = []() constexpr {
+	StaticCellTypes::Categories::Category c{};
+	for (auto id : {BITWISE_OPS})
+		c.set_id(id);
+	for (auto id : {REDUCE_OPS})
+		c.set_id(id);
+	for (auto id : {LOGIC_OPS})
+		c.set_id(id);
+	for (auto id : {GATE_OPS})
+		c.set_id(id);
+	for (auto id : {CMP_OPS})
+		c.set_id(id);
+	for (auto id : {ID($pos), ID($pmux), ID($bmux)})
+		c.set_id(id);
+	return c;
+}();
 
 template<typename Writer, typename Lit, Lit CFALSE, Lit CTRUE>
 struct Index {
@@ -92,7 +109,7 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (cell->type.in(KNOWN_OPS) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
+			if (known_ops(cell->type) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
 				continue;
 
 			Module *submodule = m->design->module(cell->type);
@@ -104,7 +121,7 @@ struct Index {
 				pos += index_module(submodule);
 			} else {
 				if (allow_blackboxes) {
-					info.found_blackboxes.insert(cell);	
+					info.found_blackboxes.insert(cell);
 				} else {
 					// Even if we don't allow blackboxes these might still be
 					// present outside of any traversed input cones, so we
@@ -163,6 +180,11 @@ struct Index {
 		if (!strashing) {
 			return (static_cast<Writer*>(this))->emit_gate(a, b);
 		} else {
+			// AigMaker::node2index
+
+			// In XAIGER, the ordering of inputs is used to distinguish between AND
+			// and XOR gates. AND gates have their first input literal be larger
+			// than their second, and vice-versa for XORs.
 			if (a < b) std::swap(a, b);
 			auto pair = std::make_pair(a, b);
 
@@ -183,7 +205,9 @@ struct Index {
 
 	Lit OR(Lit a, Lit b)
 	{
-		return NOT(AND(NOT(a), NOT(b)));
+		Lit not_a = NOT(a);
+		Lit not_b = NOT(b);
+		return NOT(AND(not_a, not_b));
 	}
 
 	Lit MUX(Lit a, Lit b, Lit s)
@@ -197,17 +221,24 @@ struct Index {
 				return b;
 		}
 
-		return OR(AND(a, NOT(s)), AND(b, s));
+		Lit not_s = NOT(s);
+		Lit a_active = AND(a, not_s);
+		Lit b_active = AND(b, s);
+		return OR(a_active, b_active);
 	}
 
 	Lit XOR(Lit a, Lit b)
 	{
-		return OR(AND(a, NOT(b)), AND(NOT(a), b));
+		Lit not_a = NOT(a);
+		Lit not_b = NOT(b);
+		Lit a_and_not_b = AND(a, not_b);
+		Lit not_a_and_b = AND(not_a, b);
+		return OR(a_and_not_b, not_a_and_b);
 	}
 
 	Lit XNOR(Lit a, Lit b)
 	{
-		return NOT(OR(AND(a, NOT(b)), AND(NOT(a), b)));
+		return NOT(XOR(a, b));
 	}
 
 	Lit CARRY(Lit a, Lit b, Lit c)
@@ -219,7 +250,10 @@ struct Index {
 				return AND(a, b);
 			}
 		}
-		return OR(AND(a, b), AND(c, OR(a, b)));
+		Lit a_or_b = OR(a, b);
+		Lit a_or_b_and_c = AND(c, a_or_b);
+		Lit a_and_b = AND(a, b);
+		return OR(a_and_b, a_or_b_and_c);
 	}
 
 	Lit REDUCE(std::vector<Lit> lits, bool op_xor=false)
@@ -269,7 +303,7 @@ struct Index {
 			} else if (cell->type.in(ID($lt), ID($le), ID($gt), ID($ge))) {
 				if (cell->type.in(ID($gt), ID($ge)))
 					std::swap(aport, bport);
-				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE; 
+				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE;
 				Lit a = Writer::EMPTY_LIT;
 				Lit b = Writer::EMPTY_LIT;
 				// TODO: this might not be the most economic structure; revisit at a later date
@@ -367,7 +401,7 @@ struct Index {
 				} else if (cell->type.in(ID($xor), ID($_XOR_))) {
 					return XOR(a, b);
 				} else if (cell->type.in(ID($xnor), ID($_XNOR_))) {
-					return NOT(XOR(a, b));
+					return XNOR(a, b);
 				} else if (cell->type.in(ID($_ANDNOT_))) {
 					return AND(a, NOT(b));
 				} else if (cell->type.in(ID($_ORNOT_))) {
@@ -387,7 +421,9 @@ struct Index {
 					if (oport == ID::Y) {
 						return XOR(ab, c);
 					} else /* oport == ID::X */ {
-						return OR(AND(a, b), AND(c, ab));
+						Lit a_and_b = AND(a, b);
+						Lit c_and_ab = AND(c, ab);
+						return OR(a_and_b, c_and_ab);
 					}
 				} else if (cell->type.in(ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_))) {
 					Lit c, d;
@@ -398,10 +434,15 @@ struct Index {
 					else
 						d = cell->type == ID($_AOI3_) ? CTRUE : CFALSE;
 
-					if (/* aoi */ cell->type.in(ID($_AOI3_), ID($_AOI4_)))
-						return NOT(OR(AND(a, b), AND(c, d)));
-					else
-						return NOT(AND(OR(a, b), OR(c, d)));
+					if (/* aoi */ cell->type.in(ID($_AOI3_), ID($_AOI4_))) {
+						Lit a_and_b = AND(a, b);
+						Lit c_and_d = AND(c, d);
+						return NOT(OR(a_and_b, c_and_d));
+					} else {
+						Lit a_or_b = OR(a, b);
+						Lit c_or_d = OR(c, d);
+						return NOT(AND(a_or_b, c_or_d));
+					}
 				} else {
 					log_abort();
 				}
@@ -422,7 +463,11 @@ struct Index {
 				sels.push_back(NOT(s));
 			}
 
-			return OR(AND(REDUCE(sels), a), NOT(REDUCE(bar)));
+			Lit reduce_sels = REDUCE(sels);
+			Lit reduce_sels_and_a = AND(reduce_sels, a);
+			Lit reduce_bar = NOT(REDUCE(bar));
+
+			return OR(reduce_sels_and_a, reduce_bar);
 		} else if (cell->type == ID($bmux)) {
 			SigSpec aport = cell->getPort(ID::A);
 			SigSpec sport = cell->getPort(ID::S);
@@ -492,7 +537,7 @@ struct Index {
 			Design *design = index.design;
 			auto &minfo = leaf_minfo(index);
 			if (!minfo.suboffsets.count(cell))
-				log_error("Reached unsupport cell %s (%s in %s)\n", log_id(cell->type), log_id(cell), log_id(cell->module));
+				log_error("Reached unsupported cell %s (%s in %s)\n", log_id(cell->type), log_id(cell), log_id(cell->module));
 			Module *def = design->module(cell->type);
 			log_assert(def);
 			levels.push_back(Level(index.modules.at(def), cell));
@@ -511,13 +556,13 @@ struct Index {
 		{
 			std::string ret;
 			bool first = true;
-			for (auto pair : levels) {
+			for (auto [minfo, cell] : levels) {
 				if (!first)
 					ret += ".";
-				if (!pair.second)
-					ret += RTLIL::unescape_id(pair.first.module->name);
+				if (!cell)
+					ret += RTLIL::unescape_id(minfo.module->name);
 				else
-					ret += RTLIL::unescape_id(pair.second->name);
+					ret += RTLIL::unescape_id(cell->name);
 				first = false;
 			}
 			return ret;
@@ -526,8 +571,8 @@ struct Index {
 		int hash() const
 		{
 			int hash = 0;
-			for (auto pair : levels)
-				hash += (uintptr_t) pair.second;
+			for (auto [_, cell] : levels)
+				hash += (uintptr_t) cell;
 			return hash;
 		}
 
@@ -536,9 +581,12 @@ struct Index {
 			if (levels.size() != other.levels.size())
 				return false;
 
-			for (int i = 0; i < levels.size(); i++)
-				if (levels[i].second != other.levels[i].second)
+			for (int i = 0; i < levels.size(); i++) {
+				auto* cell = levels[i].second;
+				auto* other_cell = other.levels[i].second;
+				if (cell != other_cell)
 					return false;
+			}
 
 			return true;
 		}
@@ -579,7 +627,7 @@ struct Index {
 			// an output of a cell
 			Cell *driver = bit.wire->driverCell();
 
-			if (driver->type.in(KNOWN_OPS)) {
+			if (known_ops(driver->type)) {
 				ret = impl_op(cursor, driver, bit.wire->driverPort(), bit.offset);
 			} else {
 				Module *def = cursor.enter(*this, driver);
@@ -701,6 +749,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		nands++;
 		lit_counter += 2;
 
+		// In XAIGER, the ordering of inputs is used to distinguish between AND
+		// and XOR gates. AND gates have their first input literal be larger
+		// than their second, and vice-versa for XORs.
 		if (a < b) std::swap(a, b);
 		encode(out - a);
 		encode(a - b);
@@ -717,7 +768,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		log_assert(lit_counter == (Lit) (ninputs + nlatches + nands) * 2 + 2);
 
 		char buf[128];
-		snprintf(buf, sizeof(buf) - 1, "aig %08d %08d %08d %08d %08d\n",
+		snprintf(buf, sizeof(buf), "aig %08d %08d %08d %08d %08d\n",
 				 ninputs + nlatches + nands, ninputs, nlatches, noutputs, nands);
 		f->write(buf, strlen(buf));
 	}
@@ -730,15 +781,16 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		// populate inputs
 		std::vector<SigBit> inputs;
 		for (auto id : top->ports) {
-		Wire *w = top->wire(id);
-		log_assert(w);
-		if (w->port_input && !w->port_output)
-		for (int i = 0; i < w->width; i++) {
-			pi_literal(SigBit(w, i)) = lit_counter;
-			inputs.push_back(SigBit(w, i));
-			lit_counter += 2;
-			ninputs++;
-		}
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_input && !w->port_output)
+				for (int i = 0; i < w->width; i++) {
+					auto bit = SigBit(w, i);
+					pi_literal(bit) = lit_counter;
+					inputs.push_back(bit);
+					lit_counter += 2;
+					ninputs++;
+				}
 		}
 
 		this->f = f;
@@ -746,35 +798,38 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		write_header();
 		// insert padding where output literals will go (once known)
 		for (auto id : top->ports) {
-		Wire *w = top->wire(id);
-		log_assert(w);
-		if (w->port_output) {
-			for (auto bit : SigSpec(w)) {
-				(void) bit;
-				char buf[16];
-				snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
-				f->write(buf, strlen(buf));
-				noutputs++;
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_output) {
+				for (auto bit : SigSpec(w)) {
+					(void) bit;
+					char buf[16];
+					snprintf(buf, sizeof(buf), "%08d\n", 0);
+					f->write(buf, strlen(buf));
+					noutputs++;
+				}
 			}
-		}
 		}
 		auto data_start = f->tellp();
 
 		// now the guts
 		std::vector<std::pair<SigBit, int>> outputs;
 		for (auto w : top->wires())
-		if (w->port_output) {
-			for (auto bit : SigSpec(w))
-				outputs.push_back({bit, eval_po(bit)});
-		}
+			if (w->port_output) {
+				for (auto bit : SigSpec(w))
+					// Each call to eval_po eventually reaches emit_gate and
+					// encode which writes to f.
+					outputs.push_back({bit, eval_po(bit)});
+			}
+
 		auto data_end = f->tellp();
 
 		// revisit header and the list of outputs
 		f->seekp(file_start);
 		write_header();
-		for (auto pair : outputs) {
+		for (auto [_, po] : outputs) {
 			char buf[16];
-			snprintf(buf, sizeof(buf) - 1, "%08d\n", pair.second);
+			snprintf(buf, sizeof(buf), "%08d\n", po);
 			f->write(buf, strlen(buf));
 		}
 		// double check we arrived at the same offset for the
@@ -783,12 +838,13 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 
 		f->seekp(data_end);
 		int i = 0;
-		for (auto pair : outputs) {
-			if (SigSpec(pair.first).is_wire()) {
+		for (auto [bit, _] : outputs) {
+			if (SigSpec(bit).is_wire()) {
+				// primary output symbol
 				char buf[32];
-				snprintf(buf, sizeof(buf) - 1, "o%d ", i);
+				snprintf(buf, sizeof(buf), "o%d ", i);
 				f->write(buf, strlen(buf));
-				std::string name = RTLIL::unescape_id(pair.first.wire->name);
+				std::string name = RTLIL::unescape_id(bit.wire->name);
 				f->write(name.data(), name.size());
 				f->put('\n');
 			}
@@ -797,8 +853,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		i = 0;
 		for (auto bit : inputs) {
 			if (SigSpec(bit).is_wire()) {
+				// primary input symbol
 				char buf[32];
-				snprintf(buf, sizeof(buf) - 1, "i%d ", i);
+				snprintf(buf, sizeof(buf), "i%d ", i);
 				f->write(buf, strlen(buf));
 				std::string name = RTLIL::unescape_id(bit.wire->name);
 				f->write(name.data(), name.size());
@@ -871,33 +928,34 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Wire *w = top->wire(id);
 			log_assert(w);
 			if (w->port_input && !w->port_output)
-			for (int i = 0; i < w->width; i++)
-				pi_literal(SigBit(w, i)) = 0;
+				for (int i = 0; i < w->width; i++)
+					pi_literal(SigBit(w, i)) = 0;
 		}
 
 		HierCursor cursor;
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-			for (auto &conn : box->connections_)
-			if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
-			for (auto bit : conn.second)
-				pi_literal(bit, &cursor) = 0;
+				for (auto &conn : box->connections_)
+					if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
+						for (auto bit : conn.second)
+							pi_literal(bit, &cursor) = 0;
 		}
 
-		for (auto w : top->wires())
-		if (w->port_output) {
-			for (auto bit : SigSpec(w))
-				(void) eval_po(bit);
+		for (auto w : top->wires()) {
+			if (w->port_output) {
+				for (auto bit : SigSpec(w))
+					(void) eval_po(bit);
+			}
 		}
 
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-			for (auto &conn : box->connections_)
-			if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
-			for (auto bit : conn.second)
-				(void) eval_po(bit);
+				for (auto &conn : box->connections_)
+					if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
+						for (auto bit : conn.second)
+							(void) eval_po(bit);
 		}
 	}
 };
@@ -916,15 +974,15 @@ struct XAigerWriter : AigerWriter {
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
 
-    // * The aiger output port sequence is COs (inputs to modeled boxes),
-    //   inputs to opaque boxes, then module outputs. COs going first is
-    //   required by abc.
-    // * proper_pos_counter counts ports which follow after COs
-    // * The mapping file `pseudopo` and `po` statements use indexing relative
-    //   to the first port following COs.
-    // * If a module output is directly driven by an opaque box, the emission
-    //   of the po statement in the mapping file is skipped. This is done to
-    //   aid re-integration of the mapped result.
+	// * The aiger output port sequence is COs (inputs to modeled boxes),
+	//   inputs to opaque boxes, then module outputs. COs going first is
+	//   required by abc.
+	// * proper_pos_counter counts ports which follow after COs
+	// * The mapping file `pseudopo` and `po` statements use indexing relative
+	//   to the first port following COs.
+	// * If a module output is directly driven by an opaque box, the emission
+	//   of the po statement in the mapping file is skipped. This is done to
+	//   aid re-integration of the mapped result.
 	int proper_pos_counter = 0;
 
 	pool<SigBit> driven_by_opaque_box;
@@ -1202,29 +1260,29 @@ struct XAigerWriter : AigerWriter {
 		reset_counters();
 
 		for (auto w : top->wires())
-		if (w->port_input && !w->port_output)
-		for (int i = 0; i < w->width; i++)
-			ensure_pi(SigBit(w, i));
+			if (w->port_input && !w->port_output)
+				for (int i = 0; i < w->width; i++)
+					ensure_pi(SigBit(w, i));
 
 		int proper_po_num = 0;
 		for (auto w : top->wires())
-		if (w->port_output)
-			proper_po_num += w->width;
+			if (w->port_output)
+				proper_po_num += w->width;
 
 		prep_boxes(proper_po_num);
 		for (auto w : top->wires())
-		if (w->port_output)
-		for (int i = 0; i < w->width; i++) {
-			// When a module output is directly driven by an opaque box, we
-			// don't emit it to the mapping file to aid re-integration, but we
-			// do emit a proper PO.
-			if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
-				map_file << "po " << proper_pos_counter << " " << i
-							<< " " << w->name.c_str() << "\n";
-			}
-			proper_pos_counter++;
-			pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
-		}
+			if (w->port_output)
+				for (int i = 0; i < w->width; i++) {
+					// When a module output is directly driven by an opaque box, we
+					// don't emit it to the mapping file to aid re-integration, but we
+					// do emit a proper PO.
+					if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
+						map_file << "po " << proper_pos_counter << " " << i
+									<< " " << w->name.c_str() << "\n";
+					}
+					proper_pos_counter++;
+					pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
+				}
 
 		this->f = f;
 		// start with the header
@@ -1234,7 +1292,7 @@ struct XAigerWriter : AigerWriter {
 		// insert padding where output literals will go (once known)
 		for (auto _ : pos) {
 			char buf[16];
-			snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
+			snprintf(buf, sizeof(buf), "%08d\n", 0);
 			f->write(buf, strlen(buf));
 		}
 		auto data_start = f->tellp();
@@ -1251,35 +1309,36 @@ struct XAigerWriter : AigerWriter {
 		write_header();
 		for (auto lit : outlits) {
 			char buf[16];
-			snprintf(buf, sizeof(buf) - 1, "%08d\n", lit);
+			snprintf(buf, sizeof(buf), "%08d\n", lit);
 			f->write(buf, strlen(buf));
 		}
 		// double check we arrived at the same offset for the
 		// main data section
 		log_assert(data_start == f->tellp());
 
-		// extensions
+		// XAIGER extensions
 		f->seekp(0, std::ios::end);
 
-		f->put('c');
+		f->put('c');	// 'c': comment (marks beginning of extensions)
 
 		// insert empty 'r' and 's' sections (abc crashes if we provide 'a' without those)
-		f->put('r');
-		write_be32(*f, 4);
-		write_be32(*f, 0);
-		f->put('s');
-		write_be32(*f, 4);
-		write_be32(*f, 0);
+		f->put('r'); // 'r': register classes
+		write_be32(*f, 4); // length in bytes
+		write_be32(*f, 0); // no register classes
 
-		f->put('h');
+		f->put('s'); // 's': register initial values
+		write_be32(*f, 4); // length in bytes
+		write_be32(*f, 0); // no register initial values
+
+		f->put('h'); // 'h': hierarchy information
 		// TODO: get rid of std::string copy
 		std::string h_buffer_str = h_buffer.str();
-		write_be32(*f, h_buffer_str.size());
-		f->write(h_buffer_str.data(), h_buffer_str.size());
+		write_be32(*f, h_buffer_str.size()); // length in bytes
+		f->write(h_buffer_str.data(), h_buffer_str.size()); // data
 
 #if 1
-		f->put('a');
-		write_be32(*f, 0); // size to be filled later
+		f->put('a'); // 'a': additional AIG (used for holes)
+		write_be32(*f, 0); // length in bytes (to be filled later)
 		auto holes_aiger_start = f->tellp();
 		{
 			AigerWriter holes_writer;
@@ -1291,7 +1350,7 @@ struct XAigerWriter : AigerWriter {
 		auto holes_aiger_size = f->tellp() - holes_aiger_start;
 		f->seekp(holes_aiger_start, std::ios::beg);
 		f->seekp(-4, std::ios::cur);
-		write_be32(*f, holes_aiger_size);
+		write_be32(*f, holes_aiger_size); // length in bytes
 #endif
 		f->seekp(0, std::ios::end);
 
@@ -1331,41 +1390,50 @@ struct Aiger2Backend : Backend {
 		log("        perform structural hashing while writing\n");
 		log("\n");
 		log("    -flatten\n");
-        log("        allow descending into submodules and write a flattened view of the design\n");
-        log("        hierarchy starting at the selected top\n");
-        log("\n");
+		log("        allow descending into submodules and write a flattened view of the design\n");
+		log("        hierarchy starting at the selected top\n");
+		log("\n");
 		log("This command is able to ingest all combinational cells except for:\n");
 		log("\n");
-		pool<IdString> supported = {KNOWN_OPS};
-		CellTypes ct;
-		ct.setup_internals_eval();
 		log("    ");
 		int col = 0;
-		for (auto pair : ct.cell_types)
-		if (!supported.count(pair.first)) {
-			if (col + pair.first.size() + 2 > 72) {
+		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
+			auto &cell = StaticCellTypes::builder.cells[i];
+			if (!cell.features.is_evaluable)
+				continue;
+			if (cell.features.is_stdcell)
+				continue;
+			if (known_ops(cell.type))
+				continue;
+			std::string name = log_id(cell.type);
+			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
 			}
-			col += pair.first.size() + 2;
-			log("%s, ", log_id(pair.first));
+			col += name.size() + 2;
+			log("%s, ", name.c_str());
 		}
 		log("\n");
 		log("\n");
 		log("And all combinational gates except for:\n");
 		log("\n");
-		CellTypes ct2;
-		ct2.setup_stdcells();
 		log("    ");
 		col = 0;
-		for (auto pair : ct2.cell_types)
-		if (!supported.count(pair.first)) {
-			if (col + pair.first.size() + 2 > 72) {
+		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
+			auto &cell = StaticCellTypes::builder.cells[i];
+			if (!cell.features.is_evaluable)
+				continue;
+			if (!cell.features.is_stdcell)
+				continue;
+			if (known_ops(cell.type))
+				continue;
+			std::string name = log_id(cell.type);
+			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
 			}
-			col += pair.first.size() + 2;
-			log("%s, ", log_id(pair.first));
+			col += name.size() + 2;
+			log("%s, ", name.c_str());
 		}
 		log("\n");
 	}
@@ -1423,20 +1491,20 @@ struct XAiger2Backend : Backend {
 		log("        perform structural hashing while writing\n");
 		log("\n");
 		log("    -flatten\n");
-        log("        allow descending into submodules and write a flattened view of the design\n");
-        log("        hierarchy starting at the selected top\n");
-        log("\n");
-        log("    -mapping_prep\n");
-        log("        after the file is written, prepare the module for reintegration of\n");
-        log("        a mapping in a subsequent command. all cells which are not blackboxed nor\n");
-        log("        whiteboxed are removed from the design as well as all wires which only\n");
-        log("        connect to removed cells\n");
-        log("        (conflicts with -flatten)\n");
-        log("\n");
-        log("    -map2 <file>\n");
-        log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
-        log("        reintegrate a mapping\n");
-        log("        (conflicts with -flatten)\n");
+		log("        allow descending into submodules and write a flattened view of the design\n");
+		log("        hierarchy starting at the selected top\n");
+		log("\n");
+		log("    -mapping_prep\n");
+		log("        after the file is written, prepare the module for reintegration of\n");
+		log("        a mapping in a subsequent command. all cells which are not blackboxed nor\n");
+		log("        whiteboxed are removed from the design as well as all wires which only\n");
+		log("        connect to removed cells\n");
+		log("        (conflicts with -flatten)\n");
+		log("\n");
+		log("    -map2 <file>\n");
+		log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
+		log("        reintegrate a mapping\n");
+		log("        (conflicts with -flatten)\n");
 		log("\n");
 	}
 

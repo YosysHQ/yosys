@@ -428,7 +428,7 @@ struct EquivSimplePass : public Pass {
 		log("\n");
 		log("This command tries to prove $equiv cells using a simple direct SAT approach.\n");
 		log("\n");
-		EquivSimpleConfig::help("1");
+		log("%s", EquivSimpleConfig::help("1"));
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) override

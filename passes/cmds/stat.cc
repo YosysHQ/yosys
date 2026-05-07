@@ -561,7 +561,7 @@ struct statdata_t {
 			}
 		}
 
-		if (tech == "xilinx") {
+		if (tech == "xilinx" || tech == "analogdevices") {
 			log("\n");
 			log("   Estimated number of LCs: %10u\n", estimate_xilinx_lc());
 		}
@@ -628,7 +628,7 @@ struct statdata_t {
 					first_line = false;
 				}
 			log("\n      }\n");
-			if (tech == "xilinx") {
+			if (tech == "xilinx" || tech == "analogdevices") {
 				log("         \"estimated_num_lc\": %u,\n", estimate_xilinx_lc());
 			}
 			if (tech == "cmos") {
@@ -710,7 +710,7 @@ struct statdata_t {
 				log("\n");
 				log("         }");
 			}
-			if (tech == "xilinx") {
+			if (tech == "xilinx" || tech == "analogdevices") {
 				log(",\n");
 				log("         \"estimated_num_lc\": %u", estimate_xilinx_lc());
 			}
@@ -908,7 +908,7 @@ struct StatPass : public Pass {
 		log("\n");
 		log("    -tech <technology>\n");
 		log("        print area estimate for the specified technology. Currently supported\n");
-		log("        values for <technology>: xilinx, cmos\n");
+		log("        values for <technology>: xilinx, analogdevices, cmos\n");
 		log("\n");
 		log("    -width\n");
 		log("        annotate internal cell types with their word width.\n");
@@ -968,7 +968,7 @@ struct StatPass : public Pass {
 		if (!json_mode)
 			log_header(design, "Printing statistics.\n");
 
-		if (techname != "" && techname != "xilinx" && techname != "cmos" && !json_mode)
+		if (techname != "" && techname != "xilinx" && techname != "analogdevices" && techname != "cmos" && !json_mode)
 			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
 		if (json_mode) {

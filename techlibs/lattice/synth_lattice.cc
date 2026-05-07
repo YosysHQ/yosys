@@ -402,8 +402,10 @@ struct SynthLatticePass : public ScriptPass
 		if (check_label("coarse"))
 		{
 			run("proc");
-			if (flatten || help_mode)
+			if (flatten || help_mode) {
+				run("check");
 				run("flatten");
+			}
 			run("tribuf -logic");
 			run("deminout");
 			run("opt_expr");

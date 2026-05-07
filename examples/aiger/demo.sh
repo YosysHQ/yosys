@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 yosys -p '
 	read_verilog -formal demo.v

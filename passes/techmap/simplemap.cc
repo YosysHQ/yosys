@@ -438,6 +438,48 @@ void simplemap_ff(RTLIL::Module *, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_pmux(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+	RTLIL::SigSpec sig_b = cell->getPort(ID::B);
+	RTLIL::SigSpec sig_s = cell->getPort(ID::S);
+	RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
+
+	int width = GetSize(sig_a);
+	int s_width = GetSize(sig_s);
+
+	// Implement: |S
+	RTLIL::SigSpec any_s = sig_s;
+	logic_reduce(module, any_s, cell);
+
+	for (int i = 0; i < width; i++) {
+		RTLIL::SigSpec b_and_bits;
+
+		// Implement: B_AND_BITS = B_AND_S[WIDTH*j+i]
+		for (int j = 0; j < s_width; j++) {
+			RTLIL::Cell *and_gate = module->addCell(NEW_ID, ID($_AND_));
+			transfer_src(and_gate, cell);
+			and_gate->setPort(ID::A, sig_b[j * width + i]);
+			and_gate->setPort(ID::B, sig_s[j]);
+
+			RTLIL::SigSpec and_y = module->addWire(NEW_ID, 1);
+			and_gate->setPort(ID::Y, and_y);
+			b_and_bits.append(and_y);
+		}
+
+		// Implement: Y_B[i] = |B_AND_BITS
+		logic_reduce(module, b_and_bits, cell);
+
+		// Implement: Y[i] = |S ? Y_B[i] : A[i]
+		RTLIL::Cell *mux_gate = module->addCell(NEW_ID, ID($_MUX_));
+		transfer_src(mux_gate, cell);
+		mux_gate->setPort(ID::A, sig_a[i]);
+		mux_gate->setPort(ID::B, b_and_bits);
+		mux_gate->setPort(ID::S, any_s);
+		mux_gate->setPort(ID::Y, sig_y[i]);
+	}
+}
+
 void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
 {
 	mappers[ID($not)]         = simplemap_not;
@@ -461,6 +503,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($ne)]          = simplemap_eqne;
 	mappers[ID($nex)]         = simplemap_eqne;
 	mappers[ID($mux)]         = simplemap_mux;
+	mappers[ID($pmux)]        = simplemap_pmux;
 	mappers[ID($bwmux)]       = simplemap_bwmux;
 	mappers[ID($tribuf)]      = simplemap_tribuf;
 	mappers[ID($bmux)]        = simplemap_bmux;
@@ -515,7 +558,7 @@ struct SimplemapPass : public Pass {
 		log("\n");
 		log("  $not, $pos, $and, $or, $xor, $xnor\n");
 		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
-		log("  $logic_not, $logic_and, $logic_or, $mux, $tribuf\n");
+		log("  $logic_not, $logic_and, $logic_or, $mux, $pmux, $tribuf\n");
 		log("  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $aldff, $aldffe, $sdff,\n");
 		log("  $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr\n");
 		log("\n");

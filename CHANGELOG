@@ -2,8 +2,40 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.62 .. Yosys 0.63-dev
+Yosys 0.64 .. Yosys 0.65-dev
 --------------------------
+
+Yosys 0.63 .. Yosys 0.64
+--------------------------
+ * New commands and options
+    - Added "synth_analogdevices" pass to support synthesis
+      for Analog Devices FPGAs.
+
+ * Various
+    - Removed rarely-used options from ABC/ABC9.
+       - Removed "-S" option from "abc" pass.
+       - Removed "-fast" option from "abc9" and "abc9_exe".
+       - Calls to "abc -g AND -fast" to map logic to
+         AND-Inverter Graph form should be replaced with
+         "aigmap".
+       - The above change was made to SBY, so we recommend
+         updating it.
+    - Added hardware latch support for Gowin FPGAs.
+
+Yosys 0.62 .. Yosys 0.63
+--------------------------
+ * Various
+    - Added DSP inference for Gowin GW1N and GW2A.
+    - Added support for subtract in preadder for Xilinx arch.
+    - Added infrastructure to run a sat solver as a command.
+
+ * New commands and options
+    - Added "-ignore-unknown-cells" option to "equiv_induct"
+      and "equiv_simple" pass.
+    - Added "-force-params" option to "memory_libmap" pass.
+    - Added "-select-solver" option to "sat" pass.
+    - Added "-default_params" option to "write_verilog" pass.
+    - Added "-nodsp" option to "synth_gowin" pass.
 
 Yosys 0.61 .. Yosys 0.62
 --------------------------

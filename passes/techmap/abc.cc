@@ -43,7 +43,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
 #include "kernel/cost.h"
@@ -63,13 +63,19 @@
 #  include <fcntl.h>
 #  include <spawn.h>
 #  include <sys/wait.h>
+#  include <sys/stat.h>
 #endif
 #ifndef _WIN32
 #  include <unistd.h>
 #  include <dirent.h>
+#  include <sys/stat.h>
+#endif
+#if defined(__wasm)
+#include <wasi/libc.h>
 #endif
 
 #include "frontends/blif/blifparse.h"
+#include "liberty_cache.h"
 
 #ifdef YOSYS_LINK_ABC
 namespace abc {
@@ -130,7 +136,6 @@ struct AbcConfig
 	std::string delay_target;
 	std::string sop_inputs;
 	std::string sop_products;
-	std::string lutin_shared;
 	std::vector<std::string> dont_use_cells;
 	bool cleanup = true;
 	bool keepff = false;
@@ -292,6 +297,8 @@ struct RunAbcState {
 	bool err = false;
 	DeferredLogs logs;
 	dict<int, std::string> pi_map, po_map;
+	std::string abc_script;
+	std::string dont_use_args;
 
 	RunAbcState(const AbcConfig &config) : config(config) {}
 	void run(ConcurrentStack<AbcProcess> &process_pool);
@@ -1016,89 +1023,95 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(run_abc.per_run_tempdir_name, config.global_tempdir_name, run_abc.per_run_tempdir_name, config.show_tempdir).c_str());
 
-	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.per_run_tempdir_name);
+	run_abc.abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.per_run_tempdir_name);
 
 	if (!config.liberty_files.empty() || !config.genlib_files.empty()) {
-		std::string dont_use_args;
+		run_abc.dont_use_args = "";
 		for (std::string dont_use_cell : config.dont_use_cells) {
-			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
+			run_abc.dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
-		bool first_lib = true;
-		for (std::string liberty_file : config.liberty_files) {
-			abc_script += stringf("read_lib %s %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", config.abc_liberty_args, liberty_file);
-			first_lib = false;
+
+		std::string merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, run_abc.dont_use_args, config.exe_file);
+		if (!merged_scl.empty()) {
+			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
+		} else if(!config.liberty_files.empty()) {
+			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			bool first_lib = true;
+			for (std::string liberty_file : config.liberty_files) {
+				run_abc.abc_script += stringf("read_lib %s %s %s -w \"%s\" ; ", run_abc.dont_use_args, first_lib ? "" : "-m", config.abc_liberty_args, liberty_file);
+				first_lib = false;
+			}
 		}
+
 		for (std::string liberty_file : config.genlib_files)
-			abc_script += stringf("read_library \"%s\"; ", liberty_file);
+			run_abc.abc_script += stringf("read_library \"%s\"; ", liberty_file);
 		if (!config.constr_file.empty())
-			abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file);
+			run_abc.abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file);
 	} else
 	if (!config.lut_costs.empty())
-		abc_script += stringf("read_lut %s/lutdefs.txt; ", config.global_tempdir_name);
+		run_abc.abc_script += stringf("read_lut %s/lutdefs.txt; ", config.global_tempdir_name);
 	else
-		abc_script += stringf("read_library %s/stdcells.genlib; ", config.global_tempdir_name);
+		run_abc.abc_script += stringf("read_library %s/stdcells.genlib; ", config.global_tempdir_name);
 
 	if (!config.script_file.empty()) {
 		const std::string &script_file = config.script_file;
 		if (script_file[0] == '+') {
 			for (size_t i = 1; i < script_file.size(); i++)
 				if (script_file[i] == '\'')
-					abc_script += "'\\''";
+					run_abc.abc_script += "'\\''";
 				else if (script_file[i] == ',')
-					abc_script += " ";
+					run_abc.abc_script += " ";
 				else
-					abc_script += script_file[i];
+					run_abc.abc_script += script_file[i];
 		} else
-			abc_script += stringf("source %s", script_file);
+			run_abc.abc_script += stringf("source %s", script_file);
 	} else if (!config.lut_costs.empty()) {
 		bool all_luts_cost_same = true;
 		for (int this_cost : config.lut_costs)
 			if (this_cost != config.lut_costs.front())
 				all_luts_cost_same = false;
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
+		run_abc.abc_script += config.fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !config.fast_mode)
-			abc_script += "; lutpack {S}";
+			run_abc.abc_script += "; lutpack -S 1";
 	} else if (!config.liberty_files.empty() || !config.genlib_files.empty())
-		abc_script += config.constr_file.empty() ?
+		run_abc.abc_script += config.constr_file.empty() ?
 			(config.fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (config.fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (config.sop_mode)
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
+		run_abc.abc_script += config.fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
-		abc_script += config.fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
+		run_abc.abc_script += config.fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
 	if (config.script_file.empty() && !config.delay_target.empty())
-		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
-			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
+		for (size_t pos = run_abc.abc_script.find("dretime;"); pos != std::string::npos; pos = run_abc.abc_script.find("dretime;", pos+1))
+			run_abc.abc_script = run_abc.abc_script.substr(0, pos) + "dretime; retime -o {D};" + run_abc.abc_script.substr(pos+8);
 
-	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
-		abc_script = abc_script.substr(0, pos) + config.delay_target + abc_script.substr(pos+3);
+	for (size_t pos = run_abc.abc_script.find("{D}"); pos != std::string::npos; pos = run_abc.abc_script.find("{D}", pos))
+		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.delay_target + run_abc.abc_script.substr(pos+3);
 
-	for (size_t pos = abc_script.find("{I}"); pos != std::string::npos; pos = abc_script.find("{I}", pos))
-		abc_script = abc_script.substr(0, pos) + config.sop_inputs + abc_script.substr(pos+3);
+	for (size_t pos = run_abc.abc_script.find("{I}"); pos != std::string::npos; pos = run_abc.abc_script.find("{I}", pos))
+		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.sop_inputs + run_abc.abc_script.substr(pos+3);
 
-	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{P}", pos))
-		abc_script = abc_script.substr(0, pos) + config.sop_products + abc_script.substr(pos+3);
+	for (size_t pos = run_abc.abc_script.find("{P}"); pos != std::string::npos; pos = run_abc.abc_script.find("{P}", pos))
+		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.sop_products + run_abc.abc_script.substr(pos+3);
 
-	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
-		abc_script = abc_script.substr(0, pos) + config.lutin_shared + abc_script.substr(pos+3);
 	if (config.abc_dress)
-		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
-	abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
-	abc_script = add_echos_to_abc_cmd(abc_script);
+		run_abc.abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
+	run_abc.abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
+	run_abc.abc_script = add_echos_to_abc_cmd(run_abc.abc_script);
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
 	if (config.is_yosys_abc())
-		abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
+		run_abc.abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
 #endif
 
-	for (size_t i = 0; i+1 < abc_script.size(); i++)
-		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
-			abc_script[i+1] = '\n';
+	for (size_t i = 0; i+1 < run_abc.abc_script.size(); i++)
+		if (run_abc.abc_script[i] == ';' && run_abc.abc_script[i+1] == ' ')
+			run_abc.abc_script[i+1] = '\n';
 
 	std::string buffer = stringf("%s/abc.script", run_abc.per_run_tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
-	fprintf(f, "%s\n", abc_script.c_str());
+	fprintf(f, "%s\n", run_abc.abc_script.c_str());
 	fclose(f);
 
 	if (dff_mode || !clk_str.empty())
@@ -1353,7 +1366,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 	logs.log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, GetSize(signal_list), count_input, count_output);
 	if (count_output == 0) {
-		log("Don't call ABC as there is nothing to map.\n");
+		logs.log("Don't call ABC as there is nothing to map.\n");
 		return;
 	}
 	int ret;
@@ -1367,13 +1380,13 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", per_run_tempdir_name);
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
-			log_error("ABC: cannot open a temporary file for output redirection");
+			logs.log_error("ABC: cannot open a temporary file for output redirection");
 		fflush(stdout);
 		fflush(stderr);
 		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 		FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
 #if defined(__wasm)
-#define fd_renumber(from, to) (void)__wasi_fd_renumber(from, to)
+#define fd_renumber(from, to) (void)__wasilibc_fd_renumber(from, to)
 #else
 #define fd_renumber(from, to) dup2(from, to)
 #endif
@@ -1412,10 +1425,10 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 			if (std::optional<AbcProcess> process_opt = process_pool.try_pop_back()) {
 				process = std::move(process_opt.value());
 			} else if (std::optional<AbcProcess> process_opt = spawn_abc(config.exe_file.c_str(), logs)) {
-				process = std::move(process_opt.value());
-			} else {
-				return;
-			}
+					process = std::move(process_opt.value());
+				} else {
+					return;
+				}
 			std::string cmd = stringf(
 					"empty\n"
 					"source %s\n", tmp_script_name);
@@ -1880,7 +1893,7 @@ struct AbcPass : public Pass {
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR));
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack {S}"));
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1"));
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
@@ -1947,10 +1960,6 @@ struct AbcPass : public Pass {
 		log("    -P <num>\n");
 		log("        maximum number of SOP products.\n");
 		log("        (replaces {P} in the default scripts above)\n");
-		log("\n");
-		log("    -S <num>\n");
-		log("        maximum number of LUT inputs shared.\n");
-		log("        (replaces {S} in the default scripts above, default: -S 1)\n");
 		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
@@ -2066,11 +2075,6 @@ struct AbcPass : public Pass {
 		if (design->scratchpad.count("abc.P")) {
 			config.sop_products = "-P " + design->scratchpad_get_string("abc.P");
 		}
-		if (design->scratchpad.count("abc.S")) {
-			config.lutin_shared = "-S " + design->scratchpad_get_string("abc.S");
-		} else {
-			config.lutin_shared = "-S 1";
-		}
 		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
 		config.sop_mode = design->scratchpad_get_bool("abc.sop", false);
@@ -2151,10 +2155,6 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-P" && argidx+1 < args.size()) {
 				config.sop_products = "-P " + args[++argidx];
-				continue;
-			}
-			if (arg == "-S" && argidx+1 < args.size()) {
-				config.lutin_shared = "-S " + args[++argidx];
 				continue;
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
@@ -2468,7 +2468,7 @@ struct AbcPass : public Pass {
 				continue;
 			}
 
-			CellTypes ct(design);
+			NewCellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
 			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());

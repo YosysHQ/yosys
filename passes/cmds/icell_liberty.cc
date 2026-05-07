@@ -1,5 +1,6 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/ff.h"
 
 USING_YOSYS_NAMESPACE
@@ -123,7 +124,7 @@ struct LibertyStubber {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(base_name))
+		if (StaticCellTypes::categories.is_ff(base_name))
 			return liberty_flop(base, derived, f);
 
 		auto& base_type = ct.cell_types[base_name];

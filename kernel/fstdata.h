@@ -55,7 +55,7 @@ class FstData
 	std::string valueOf(fstHandle signal);
 	fstHandle getHandle(std::string name);
 	dict<int,fstHandle> getMemoryHandles(std::string name);
-	double getTimescale() { return timescale; }
+	int getScale() { return scale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
 private:
 	void extractVarNames();
@@ -69,7 +69,7 @@ private:
 	uint64_t last_time;
 	std::map<fstHandle, std::string> past_data;
 	uint64_t past_time;
-	double timescale;
+	int scale; // exponent of 10, e.g. -6 = us, -9 = ns
 	std::string timescale_str;
 	uint64_t start_time;
 	uint64_t end_time;

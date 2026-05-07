@@ -18,8 +18,8 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "kernel/newcelltypes.h"
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -92,7 +92,7 @@ const char* yosys_maybe_version() {
 }
 
 RTLIL::Design *yosys_design = NULL;
-CellTypes yosys_celltypes;
+NewCellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
@@ -262,7 +262,7 @@ void yosys_setup()
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
-	yosys_celltypes.setup();
+	yosys_celltypes.static_cell_types = StaticCellTypes::categories.is_known;
 	log_push();
 }
 
@@ -290,8 +290,6 @@ void yosys_shutdown()
 			fclose(f);
 	log_errfile = NULL;
 	log_files.clear();
-
-	yosys_celltypes.clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {
@@ -473,17 +471,30 @@ struct TclPass : public Pass {
 
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__)
+#if defined(__linux__) || defined(__CYGWIN__) || defined(__gnu_hurd__)
 std::string proc_self_dirname()
 {
-	char path[PATH_MAX];
-	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
+	std::string path(4096, '\0');
+	ssize_t buflen = -1;
+	// Double until sucess, while avoiding endless loop.  Give up
+	// when symlink is longer than 4096*(2^30) = 4398046511104
+	// bytes.
+	for (int tries = 30; 0 < tries; tries--) {
+		buflen = readlink("/proc/self/exe", path.data(), path.size());
+		if (buflen < (ssize_t)path.size())
+			break;
+		else
+			path.resize(path.size() * 2);
+	}
 	if (buflen < 0) {
 		log_error("readlink(\"/proc/self/exe\") failed: %s\n", strerror(errno));
+		path.resize(0);
+	} else {
+		while (buflen > 0 && path[buflen-1] != '/')
+			buflen--;
+		path.resize(buflen);
 	}
-	while (buflen > 0 && path[buflen-1] != '/')
-		buflen--;
-	return std::string(path, buflen);
+	return path;
 }
 #elif defined(__FreeBSD__) || defined(__NetBSD__)
 std::string proc_self_dirname()

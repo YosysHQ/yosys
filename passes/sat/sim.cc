@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/mem.h"
 #include "kernel/fstdata.h"
 #include "kernel/ff.h"
@@ -52,9 +53,23 @@ static const std::map<std::string, int> g_units =
 	{ "zs", -21 },
 };
 
-static double stringToTime(std::string str)
+struct scaled_time {
+	uint64_t time;
+	int scale; // exponent of 10, e.g. -6 = us, -9 = ns
+	bool end;
+};
+
+static uint64_t pow10(int n)
 {
-	if (str=="END") return -1;
+	int r = 1;
+	while (n--)
+		r *= 10;
+	return r;
+}
+
+static scaled_time stringToTime(std::string str)
+{
+	if (str=="END") return {1, 0, true};
 
 	char *endptr;
 	long value = strtol(str.c_str(), &endptr, 10);
@@ -65,7 +80,7 @@ static double stringToTime(std::string str)
 	if (value < 0)
 		log_error("Time value '%s' must be positive\n", str);
 
-	return value * pow(10.0, g_units.at(endptr));
+	return {(unsigned long)value, g_units.at(endptr), false};
 }
 
 struct SimWorker;
@@ -109,8 +124,8 @@ struct SimShared
 	bool hdlname = false;
 	int rstlen = 1;
 	FstData *fst = nullptr;
-	double start_time = 0;
-	double stop_time = -1;
+	scaled_time start_time = {0, 0, false};
+	scaled_time stop_time = {1, 0, true};
 	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
 	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
@@ -215,7 +230,13 @@ struct SimInstance
 
 	std::vector<Mem> memories;
 
-	dict<Wire*, pair<int, Const>> signal_database;
+	struct signal_entry_t {
+		int id;
+		Const last_value;
+		SigSpec mapped_sig;
+	};
+
+	dict<Wire*, signal_entry_t> signal_database;
 	dict<IdString, std::map<int, pair<int, Const>>> trace_mem_database;
 	dict<std::pair<IdString, int>, Const> trace_mem_init_database;
 	dict<Wire*, fstHandle> fst_handles;
@@ -412,11 +433,11 @@ struct SimInstance
 		return result;
 	}
 
-	Const get_state(SigSpec sig)
+	Const get_state_mapped(const SigSpec &mapped_sig)
 	{
-		Const::Builder builder(GetSize(sig));
+		Const::Builder builder(GetSize(mapped_sig));
 
-		for (auto bit : sigmap(sig))
+		for (auto bit : mapped_sig)
 			if (bit.wire == nullptr)
 				builder.push_back(bit.data);
 			else if (state_nets.count(bit))
@@ -424,7 +445,12 @@ struct SimInstance
 			else
 				builder.push_back(State::Sz);
 
-		Const value = builder.build();
+		return builder.build();
+	}
+
+	Const get_state(SigSpec sig)
+	{
+		Const value = get_state_mapped(sigmap(sig));
 		if (shared->debug)
 			log("[%s] get %s: %s\n", hiername(), log_signal(sig), log_signal(value));
 		return value;
@@ -990,7 +1016,7 @@ struct SimInstance
 			if (shared->hide_internal && wire->name[0] == '$')
 				continue;
 
-			signal_database[wire] = make_pair(id, Const());
+			signal_database[wire] = {id, Const(), sigmap(wire)};
 			id++;
 		}
 
@@ -1031,11 +1057,11 @@ struct SimInstance
 				hdlname.pop_back();
 				for (auto name : hdlname)
 					enter_scope("\\" + name);
-				register_signal(signal_name.c_str(), GetSize(signal.first), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				register_signal(signal_name.c_str(), GetSize(signal.first), signal.first, signal.second.id, registers.count(signal.first)!=0);
 				for (auto name : hdlname)
 					exit_scope();
 			} else
-				register_signal(log_id(signal.first->name), GetSize(signal.first), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				register_signal(log_id(signal.first->name), GetSize(signal.first), signal.first, signal.second.id, registers.count(signal.first)!=0);
 		}
 
 		for (auto &trace_mem : trace_mem_database)
@@ -1107,15 +1133,14 @@ struct SimInstance
 	{
 		for (auto &it : signal_database)
 		{
-			Wire *wire = it.first;
-			Const value = get_state(wire);
-			int id = it.second.first;
+			signal_entry_t &entry = it.second;
+			Const value = get_state_mapped(entry.mapped_sig);
 
-			if (it.second.second == value)
+			if (entry.last_value == value)
 				continue;
 
-			it.second.second = value;
-			data->emplace(id, value);
+			entry.last_value = value;
+			data->emplace(entry.id, value);
 		}
 
 		for (auto &trace_mem : trace_mem_database)
@@ -1234,6 +1259,10 @@ struct SimInstance
 
 	bool checkSignals()
 	{
+		// No checks performed when using stimulus
+		if (shared->sim_mode == SimulationMode::sim)
+			return false;
+
 		bool retVal = false;
 		for(auto &item : fst_handles) {
 			if (item.second==0) continue; // Ignore signals not found
@@ -1243,9 +1272,7 @@ struct SimInstance
 				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope, log_id(item.first));
 				continue;
 			}
-			if (shared->sim_mode == SimulationMode::sim) {
-				// No checks performed when using stimulus
-			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
+			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
 						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
@@ -1501,27 +1528,27 @@ struct SimWorker : SimShared
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
-		if (start_time==0) {
-			if (start_time < fst->getStartTime())
+		if (start_time.time == 0) {
+			if (start_time.time < fst->getStartTime())
 				log_warning("Start time is before simulation file start time\n");
 			startCount = fst->getStartTime();
-		} else if (start_time==-1) 
+		} else if (start_time.end) 
 			startCount = fst->getEndTime();
 		else {
-			startCount = start_time / fst->getTimescale();
+			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
 			if (startCount > fst->getEndTime()) {
 				startCount = fst->getEndTime();
 				log_warning("Start time is after simulation file end time\n");
 			}
 		}
-		if (stop_time==0) {
-			if (stop_time < fst->getStartTime())
+		if (stop_time.time == 0) {
+			if (stop_time.time < fst->getStartTime())
 				log_warning("Stop time is before simulation file start time\n");
 			stopCount = fst->getStartTime();
-		} else if (stop_time==-1) 
+		} else if (stop_time.end) 
 			stopCount = fst->getEndTime();
 		else {
-			stopCount = stop_time / fst->getTimescale();
+			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
 			if (stopCount > fst->getEndTime()) {
 				stopCount = fst->getEndTime();
 				log_warning("Stop time is after simulation file end time\n");
@@ -2161,27 +2188,27 @@ struct SimWorker : SimShared
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
-		if (start_time==0) {
-			if (start_time < fst->getStartTime())
+		if (start_time.time == 0) {
+			if (start_time.time < fst->getStartTime())
 				log_warning("Start time is before simulation file start time\n");
 			startCount = fst->getStartTime();
-		} else if (start_time==-1) 
+		} else if (start_time.end) 
 			startCount = fst->getEndTime();
 		else {
-			startCount = start_time / fst->getTimescale();
+			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
 			if (startCount > fst->getEndTime()) {
 				startCount = fst->getEndTime();
 				log_warning("Start time is after simulation file end time\n");
 			}
 		}
-		if (stop_time==0) {
-			if (stop_time < fst->getStartTime())
+		if (stop_time.time == 0) {
+			if (stop_time.time < fst->getStartTime())
 				log_warning("Stop time is before simulation file start time\n");
 			stopCount = fst->getStartTime();
-		} else if (stop_time==-1) 
+		} else if (stop_time.end) 
 			stopCount = fst->getEndTime();
 		else {
-			stopCount = stop_time / fst->getTimescale();
+			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
 			if (stopCount > fst->getEndTime()) {
 				stopCount = fst->getEndTime();
 				log_warning("Stop time is after simulation file end time\n");

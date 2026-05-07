@@ -57,4 +57,4 @@ endmodule
 EOF
 
 logger -expect error "Malformed design" 1
-abc_new -script abc_speed_gia_only.script -liberty ../../tests/liberty/normal.lib -liberty ../../tests/liberty/dff.lib
+abc_new -liberty ../../tests/liberty/normal.lib -liberty ../../tests/liberty/dff.lib
