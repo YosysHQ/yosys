@@ -1031,11 +1031,14 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 			run_abc.dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
 
-		std::string merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, run_abc.dont_use_args, config.exe_file);
+		std::string merged_scl;
+		if (config.abc_liberty_args.empty()) {
+			merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, run_abc.dont_use_args, config.exe_file);
+		}
 		if (!merged_scl.empty()) {
 			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
 		} else if(!config.liberty_files.empty()) {
-			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			log_warning("ABC: Merged scl conversion failed, or abc_liberty_args provided, using liberty format\n");
 			bool first_lib = true;
 			for (std::string liberty_file : config.liberty_files) {
 				run_abc.abc_script += stringf("read_lib %s %s %s -w \"%s\" ; ", run_abc.dont_use_args, first_lib ? "" : "-m", config.abc_liberty_args, liberty_file);
