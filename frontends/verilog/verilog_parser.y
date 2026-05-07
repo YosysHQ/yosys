@@ -546,7 +546,7 @@
 %token TOK_z "'z'"
 
 %type <ast_t> range range_or_multirange non_opt_range non_opt_multirange
-%type <ast_t> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
+%type <ast_t> wire_type expr basic_expr concat_list assignment_pattern_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string_t> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string_t> type_name
 %type <ast_t> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
@@ -3349,6 +3349,11 @@ basic_expr:
 	TOK_LCURL concat_list TOK_RCURL {
 		$$ = std::move($2);
 	} |
+	OP_CAST TOK_LCURL assignment_pattern_list optional_comma TOK_RCURL {
+		if (!mode->sv)
+			err_at_loc(@1, "Assignment patterns are only supported in SystemVerilog mode.");
+		$$ = std::move($3);
+	} |
 	TOK_LCURL expr TOK_LCURL concat_list TOK_RCURL TOK_RCURL {
 		$$ = std::make_unique<AstNode>(@$, AST_REPLICATE, std::move($2), std::move($4));
 	} |
@@ -3578,6 +3583,16 @@ concat_list:
 	expr TOK_COMMA concat_list {
 		$$ = std::move($3);
 		$$->children.push_back(std::move($1));
+	};
+
+assignment_pattern_list:
+	expr {
+		$$ = std::make_unique<AstNode>(@$, AST_ASSIGN_PATTERN);
+		$$->children.push_back(std::move($1));
+	} |
+	assignment_pattern_list TOK_COMMA expr {
+		$$ = std::move($1);
+		$$->children.push_back(std::move($3));
 	};
 
 integral_number:
