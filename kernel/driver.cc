@@ -712,6 +712,10 @@ int main(int argc, char **argv)
 			total_ns += gc_ns;
 			timedat.insert(make_tuple(gc_ns,
 					RTLIL::OwningIdString::garbage_collection_count(), "id_gc"));
+			total_ns += signorm_ns;
+			timedat.insert(make_tuple(signorm_ns, signorm_count, "signorm"));
+			total_ns += signorm_restore_ns;
+			timedat.insert(make_tuple(signorm_restore_ns, signorm_restore_count, "signorm_restore"));
 		}
 
 		if (timing_details)

@@ -28,6 +28,248 @@
 YOSYS_NAMESPACE_BEGIN
 
 
+typedef std::pair<Cell*, IdString> cell_port_t;
+
+// Since this is kernel code, we only log with yosys_xtrace set to not get
+// in the way when using `debug` to debug specific passes.q
+#define xlog(...) do { if (yosys_xtrace) log("#X [bufnorm] " __VA_ARGS__); } while (0)
+
+struct RTLIL::SigNormIndex
+{
+	SigNormIndex(RTLIL::Module *module) : module(module) {}
+	RTLIL::Module *module;
+
+	SigMap sigmap;
+	size_t restored_connections = 0;
+
+	dict<SigBit, pool<PortBit>> fanout;
+
+	pool<SigBit> newly_driven;
+
+	dict<Cell *, int> cell_timestamps;
+	dict<int, pool<Cell *>> timestamp_cells;
+	pool<Cell *> dirty;
+
+	void setup() {
+		module->fixup_ports();
+		setup_module_inputs();
+		setup_driven_wires();
+		setup_fanout();
+	}
+
+	void dump_sigmap() {
+		for (auto [name, wire] : module->wires_) { 
+			log_debug("wire %s %p %s\n", name, wire, wire->name);
+			SigSpec ss(wire);
+			log_debug("ss %s\n", log_signal(ss));
+			sigmap(ss);
+			log_debug("sigmapped %s\n", log_signal(ss));
+		}
+		for (auto [lhs, rhs] : module->connections_) {
+			log_debug("connection %s %s\n", log_signal(lhs), log_signal(rhs));
+		}
+	}
+
+	void normalize() {
+		flush_connections();
+		flush_newly_driven();
+	}
+
+	void setup_module_inputs() {
+		std::vector<Cell *> cells_to_remove;
+		dict<Wire *, Cell *> input_port_cells;
+
+		for (auto cell : module->cells()) {
+			if (cell->type != ID($input_port))
+				continue;
+
+			auto const &sig_y = cell->getPort(ID::Y);
+			Wire *wire;
+			if (sig_y.is_wire() && (wire = sig_y.as_wire())->port_input && !wire->port_output && !input_port_cells.count(wire))
+				input_port_cells.emplace(wire, cell);
+			else
+				cells_to_remove.push_back(cell);
+
+		}
+		for (auto cell : cells_to_remove)
+			module->remove(cell);
+
+		for (auto portname : module->ports) {
+			Wire *wire = module->wire(portname);
+			if (wire->port_input && !wire->port_output && !input_port_cells.count(wire)) {
+				Cell *cell = module->addCell(NEW_ID, ID($input_port));
+				cell->setParam(ID::WIDTH, GetSize(wire));
+				cell->setPort(ID::Y, wire);
+				input_port_cells.emplace(wire, cell);
+			}
+		}
+
+		for (auto [wire, cell] : input_port_cells) {
+			wire->driverCell_ = cell;
+			wire->driverPort_ = ID::Y;
+		}
+	}
+
+	void setup_driven_wires() {
+		for (auto cell : module->cells()) {
+			xlog("setup_driven_wires cell %s %s\n", cell->type, cell->name);
+			for (auto &[port, sig] : cell->connections_) {
+				xlog("\t%s = %s\n", port, log_signal(sig));
+				if (cell->port_dir(port) == RTLIL::PD_INPUT)
+					continue;
+				xlog("%s is not an input in design %p\n", port, module->design);
+				if (sig.is_wire()) {
+					Wire * wire = sig.as_wire();
+
+					if (wire->driverCell_ == cell && wire->driverPort_ == port)
+						continue;
+					if (wire->driverCell_ == nullptr) {
+						wire->driverCell_ = cell;
+						wire->driverPort_ = port;
+						continue;
+					}
+				}
+
+				Wire *wire = module->addWire(NEW_ID, GetSize(sig));
+				wire->driverCell_ = cell;
+				wire->driverPort_ = port;
+
+				xlog("therefore connect port %s %s %s\n", port, log_signal(sig), wire->name);
+				// This orientation bias is potentially dangerous elsewhere
+				module->connect(wire, sig);
+				sig = wire;
+			}
+		}
+	}
+
+
+	void setup_fanout() {
+		for (auto cell : module->cells()) {
+			for (auto &[port, sig] : cell->connections_) {
+				if (cell->port_dir(port) != RTLIL::PD_INPUT)
+					continue;
+				int i = 0;
+				for (auto bit : sig)
+					if (bit.is_wire())
+						fanout[bit].insert(PortBit(cell, port, i++));
+			}
+		}
+	}
+
+	void flush_connections() {
+		std::vector<SigBit> connect_lhs;
+		std::vector<SigBit> connect_rhs;
+
+		auto begin = module->connections_.begin() + restored_connections;
+		auto end = module->connections_.end();
+
+		for (auto it = begin; it != end; ++it) {
+			auto &[lhs, rhs] = *it;
+			sigmap.apply(lhs);
+			sigmap.apply(rhs);
+			auto rhs_bits = rhs.bits().begin();
+
+			connect_lhs.clear();
+			connect_rhs.clear();
+
+			for (auto l : lhs.bits()) {
+				auto r = *rhs_bits;
+				++rhs_bits;
+				if (l == r)
+					continue;
+				// TODO figure out what should happen with 'z
+				bool l_driven = !l.is_wire() || l.wire->known_driver();
+				bool r_driven = !r.is_wire() || r.wire->known_driver();
+				if (l_driven && r_driven) {
+					connect_lhs.push_back(l);
+					connect_rhs.push_back(r);
+					continue;
+				}
+
+				sigmap.add(l, r);
+				if (l_driven) {
+					sigmap.database.promote(l);
+					newly_driven.insert(r);
+				} else {
+					sigmap.database.promote(r);
+					newly_driven.insert(l);
+				}
+			}
+
+			if (!connect_lhs.empty()) {
+				Cell *cell = module->addCell(NEW_ID, ID($connect));
+				xlog("add connect (1) %s\n", cell->name);
+				cell->setParam(ID::WIDTH, GetSize(connect_lhs));
+				cell->setPort(ID::A, std::move(connect_lhs));
+				cell->setPort(ID::B, std::move(connect_rhs));
+			}
+		}
+
+		module->connections_.clear();
+		restored_connections = 0;
+	}
+
+	void flush_newly_driven() {
+		pool<cell_port_t> ports_to_normalize;
+		SigSpec tmp;
+
+		while (!newly_driven.empty()) {
+			SigBit current = newly_driven.pop();
+
+			auto found = fanout.find(current);
+			if (found == fanout.end())
+				continue;
+
+			ports_to_normalize.clear();
+
+			for (auto const &portbit : found->second)
+				ports_to_normalize.emplace(portbit.cell, portbit.port);
+
+			for (auto const &[cell, port] : ports_to_normalize) {
+				tmp = cell->getPort(port);
+				cell->setPort(port, tmp);
+			}
+		}
+	}
+
+	void restore_connections() {
+		int64_t start = PerformanceTimer::query();
+		flush_connections();
+		pool<Wire *> wires;
+		for (auto const &bit : sigmap.database)
+			if (bit.is_wire())
+				wires.insert(bit.wire);
+
+
+		std::vector<SigBit> connect_lhs;
+		std::vector<SigBit> connect_rhs;
+
+		for (auto wire : wires) {
+			connect_lhs.clear();
+			connect_rhs.clear();
+			for (int i = 0; i < GetSize(wire); ++i) {
+				SigBit l = SigBit(wire, i);
+				SigBit r = sigmap(l);
+				if (l == r)
+					continue;
+				connect_lhs.push_back(l);
+				connect_rhs.push_back(r);
+			}
+
+			if (!connect_lhs.empty())
+				module->connections_.emplace_back(std::move(connect_lhs), std::move(connect_rhs));
+		}
+
+		restored_connections = module->connections_.size();
+
+		int64_t time_ns = PerformanceTimer::query() - start;
+		Pass::subtract_from_current_runtime_ns(time_ns);
+		signorm_restore_ns += time_ns;
+		++signorm_restore_count;
+	}
+};
+
+
 void RTLIL::Design::bufNormalize(bool enable)
 {
 	if (!enable)
@@ -49,6 +291,8 @@ void RTLIL::Design::bufNormalize(bool enable)
 		flagBufferedNormalized = false;
 		return;
 	}
+
+	log_assert(!flagSigNormalized);
 
 	if (!flagBufferedNormalized)
 	{
@@ -78,19 +322,215 @@ void RTLIL::Design::bufNormalize(bool enable)
 		module->bufNormalize();
 }
 
-struct bit_drive_data_t {
-	int drivers = 0;
-	int inout = 0;
-	int users = 0;
-};
+int64_t signorm_ns;
+int signorm_count;
+int64_t signorm_restore_ns;
+int signorm_restore_count;
+void RTLIL::Design::sigNormalize(bool enable)
+{
+	if (!enable)
+	{
+		if (!flagSigNormalized)
+			return;
 
-typedef ModWalker::PortBit PortBit;
+
+		xlog("leaving signorm\n");
+		for (auto module : modules()) {
+			module->connections();
+			if (module->sig_norm_index != nullptr) {
+				delete module->sig_norm_index;
+				module->sig_norm_index = nullptr;
+			}
+
+			for (auto wire : module->wires()) {
+				wire->driverCell_ = nullptr;
+				wire->driverPort_ = IdString();
+			}
+
+			// TODO inefficient?
+			std::vector<Cell*> cells_snapshot = module->cells();
+			for (auto cell : cells_snapshot) {
+				if (cell->type == ID($input_port))
+					module->remove(cell);
+			}
+		}
+
+		flagSigNormalized = false;
+		return;
+	}
+
+	log_assert(!flagBufferedNormalized);
+
+	if (!flagSigNormalized)
+	{
+		xlog("entering signorm\n");
+		flagSigNormalized = true;
+	}
+
+	int64_t start = PerformanceTimer::query();
+	for (auto module : modules())
+		module->sigNormalize();
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	signorm_ns += time_ns;
+	++signorm_count;
+}
+
+void RTLIL::Module::sigNormalize()
+{
+	log_assert(design->flagSigNormalized);
+
+	if (sig_norm_index == nullptr) {
+		auto new_index = new RTLIL::SigNormIndex(this);
+		new_index->setup();
+		sig_norm_index = new_index;
+	}
+
+	sig_norm_index->normalize();
+
+}
+
+void RTLIL::Module::dump_sigmap()
+{
+	if (sig_norm_index != nullptr)
+		sig_norm_index->dump_sigmap();
+}
+
+void RTLIL::Module::clear_sig_norm_index()
+{
+	if (sig_norm_index == nullptr)
+		return;
+	delete sig_norm_index;
+}
+
+
+const std::vector<RTLIL::SigSig> &RTLIL::Module::connections() const
+{
+	if (sig_norm_index != nullptr)
+		sig_norm_index->restore_connections();
+	return connections_;
+}
+
+void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
+{
+	if (sig_norm_index != nullptr) {
+		sig_norm_index->restore_connections();
+		sig_norm_index->restored_connections = 0;
+		// TODO clear the sigmap as well?
+	}
+	for (auto mon : monitors)
+		mon->notify_connect(this, new_conn);
+
+	if (design)
+		for (auto mon : design->monitors)
+			mon->notify_connect(this, new_conn);
+
+	if (yosys_xtrace) {
+		log("#X# New connections vector in %s:\n", log_id(this));
+		for (auto &conn: new_conn)
+			log("#X#    %s = %s (%d bits)\n", log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+	connections_ = new_conn;
+}
+
+
+int RTLIL::Module::next_timestamp()
+{
+	int old = timestamp_;
+	int current = timestamp_ = old + 1;
+
+	if (sig_norm_index != nullptr) {
+		sigNormalize();
+		for (auto cell : sig_norm_index->dirty) {
+			auto [found, inserted] = sig_norm_index->cell_timestamps.emplace(cell, old);
+			if (!inserted) {
+				log_assert(found->second != old);
+				auto found_cells = sig_norm_index->timestamp_cells.find(found->second);
+				log_assert(found_cells != sig_norm_index->timestamp_cells.end());
+				bool erased = found_cells->second.erase(cell);
+				log_assert(erased);
+				if (found_cells->second.empty())
+					sig_norm_index->timestamp_cells.erase(found_cells);
+				found->second = old;
+			}
+		}
+		sig_norm_index->timestamp_cells[old] = std::move(sig_norm_index->dirty);
+		sig_norm_index->dirty.clear();
+	}
+
+
+	return current;
+}
+
+
+std::vector<Cell *> RTLIL::Module::dirty_cells(int starting_from)
+{
+	sigNormalize();
+	std::vector<Cell *> result;
+	if (starting_from == INT_MIN) {
+		result.reserve(cells_.size());
+		for (auto cell : cells())
+			result.push_back(cell);
+		return result;
+	}
+
+	for (int i = starting_from; i < timestamp_; ++i) {
+		auto found = sig_norm_index->timestamp_cells.find(i);
+		if (found != sig_norm_index->timestamp_cells.end())
+			for (auto cell : found->second)
+				result.push_back(cell);
+	}
+	if (starting_from <= timestamp_)
+		for (auto cell : sig_norm_index->dirty)
+			result.push_back(cell);
+
+	return result;
+}
+
+const pool<RTLIL::PortBit> &RTLIL::Module::fanout(SigBit bit) {
+	log_assert(sig_norm_index != nullptr);
+	auto found = sig_norm_index->fanout.find(bit);
+	static pool<RTLIL::PortBit> empty;
+	if (found == sig_norm_index->fanout.end())
+		return empty;
+	return found->second;
+}
+
+void RTLIL::Module::remove(RTLIL::Cell *cell)
+{
+	while (!cell->connections_.empty())
+		cell->unsetPort(cell->connections_.begin()->first);
+
+	log_assert(cells_.count(cell->name) != 0);
+	log_assert(refcount_cells_ == 0);
+	cells_.erase(cell->name);
+	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
+		cell->type.clear();
+		cell->name.clear();
+		pending_deleted_cells.insert(cell);
+	} else {
+		if (sig_norm_index != nullptr) {
+			auto found = sig_norm_index->cell_timestamps.find(cell);
+			if (found != sig_norm_index->cell_timestamps.end()) {
+				auto found_cells = sig_norm_index->timestamp_cells.find(found->second);
+				log_assert(found_cells != sig_norm_index->timestamp_cells.end());
+				bool erased = found_cells->second.erase(cell);
+				log_assert(erased);
+				if (found_cells->second.empty())
+					sig_norm_index->timestamp_cells.erase(found_cells);
+				sig_norm_index->cell_timestamps.erase(found);
+			}
+			sig_norm_index->dirty.erase(cell);
+		}
+		delete cell;
+	}
+}
+
 
 void RTLIL::Module::bufNormalize()
 {
-	// Since this is kernel code, we only log with yosys_xtrace set to not get
-	// in the way when using `debug` to debug specific passes.q
-#define xlog(...) do { if (yosys_xtrace) log("#X [bufnorm] " __VA_ARGS__); } while (0)
 
 	if (!design->flagBufferedNormalized)
 		return;
@@ -545,6 +985,55 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
+		if (module->sig_norm_index != nullptr) {
+			module->sig_norm_index->dirty.insert(this);
+			bool is_input_port = port_dir(portname) == RTLIL::PD_INPUT;
+			if (is_input_port) {
+				auto &fanout = module->sig_norm_index->fanout;
+				int counter = 0;
+				for (auto bit : conn_it->second) {
+					if (!bit.is_wire())
+						continue;
+					int i = counter++;
+					auto found = fanout.find(bit);
+					log_assert(found != fanout.end());
+					int erased = found->second.erase(PortBit(this, portname, i));
+					log_assert(erased);
+					if (found->second.empty())
+						fanout.erase(found);
+				}
+			} else if (GetSize(conn_it->second)) {
+				Wire *w = conn_it->second.as_wire();
+				log_assert(w->driverCell_ == this);
+				log_assert(w->driverPort_ == portname);
+				w->driverCell_ = nullptr;
+				w->driverPort_ = IdString();
+			}
+			// bool clear_fanout = true;
+			// if (conn_it->second.is_wire()) {
+			// 	Wire *w = conn_it->second.as_wire();
+			// 	if (w->driverCell_ == this && w->driverPort_ == portname) {
+			// 		w->driverCell_ = nullptr;
+			// 		w->driverPort_ = IdString();
+			// 		clear_fanout = false;
+			// 	}
+			// }
+
+			// if (clear_fanout) {
+			// 	auto &fanout = module->sig_norm_index->fanout;
+			// 	int counter = 0;
+			// 	for (auto bit : conn_it->second) {
+			// 		int i = counter++;
+			// 		auto found = fanout.find(bit);
+			// 		log_assert(found != fanout.end());
+			// 		int erased = found->second.erase(PortBit(this, portname, i));
+			// 		log_assert(erased);
+			// 		if (found->second.empty())
+			// 			fanout.erase(found);
+			// 	}
+			// }
+		}
+
 		if (module->design && module->design->flagBufferedNormalized) {
 			if (conn_it->second.is_wire()) {
 				Wire *w = conn_it->second.as_wire();
@@ -586,8 +1075,32 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 	}
 }
 
+static bool ignored_cell(const RTLIL::IdString& type)
+{
+	return type == ID($specify2) || type == ID($specify3) || type == ID($specrule);
+}
+
 void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
+	bool is_input_port = false;
+	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
+		module->sig_norm_index->sigmap.apply(signal);
+		auto dir = port_dir(portname);
+
+		if (dir == RTLIL::PD_INPUT) {
+			is_input_port = true;
+		} else {
+			Wire *wire = nullptr;
+			if (signal.is_wire() && (wire = signal.as_wire())->driverCell_ != nullptr)
+				wire = nullptr;
+			if (wire == nullptr) {
+				wire = module->addWire(NEW_ID, GetSize(signal));
+				module->connect(signal, wire);
+				signal = wire;
+			}
+		}
+	}
+
 	auto r = connections_.insert(portname);
 	auto conn_it = r.first;
 	if (!r.second && conn_it->second == signal)
@@ -603,6 +1116,48 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	if (yosys_xtrace) {
 		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+
+	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
+		module->sig_norm_index->dirty.insert(this);
+		if (!r.second) {
+			if (is_input_port) {
+				auto &fanout = module->sig_norm_index->fanout;
+				int counter = 0;
+				for (auto bit : conn_it->second) {
+					if (!bit.is_wire())
+						continue;
+					int i = counter++;
+					auto found = fanout.find(bit);
+					log_assert(found != fanout.end());
+					int erased = found->second.erase(PortBit(this, portname, i));
+					log_assert(erased);
+					if (found->second.empty())
+						fanout.erase(found);
+				}
+			} else {
+				Wire *w = conn_it->second.as_wire();
+				log_assert(w->driverCell_ == this);
+				log_assert(w->driverPort_ == portname);
+				w->driverCell_ = nullptr;
+				w->driverPort_ = IdString();
+			}
+		}
+
+		if (is_input_port) {
+			auto &fanout = module->sig_norm_index->fanout;
+			int i = 0;
+			for (auto bit : signal)
+				if (bit.is_wire())
+					fanout[bit].insert(PortBit(this, portname, i++));
+		} else if (GetSize(signal)) {
+			Wire *w = signal.as_wire();
+			log_assert(w->driverCell_ == nullptr);
+			log_assert(w->driverPort_.empty());
+			w->driverCell_ = this;
+			w->driverPort_ = portname;
+		}
 	}
 
 	if (module->design && module->design->flagBufferedNormalized)
@@ -667,6 +1222,27 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 		}
 	}
 	conn_it->second = std::move(signal);
+
+}
+
+void RTLIL::Design::add(RTLIL::Module *module)
+{
+	log_assert(modules_.count(module->name) == 0);
+	log_assert(refcount_modules_ == 0);
+	modules_[module->name] = module;
+	module->design = this;
+
+	for (auto mon : monitors)
+		mon->notify_module_add(module);
+
+	if (yosys_xtrace) {
+		log("#X# New Module: %s\n", log_id(module));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+	if (flagSigNormalized) {
+		module->sigNormalize();
+	}
 
 }
 

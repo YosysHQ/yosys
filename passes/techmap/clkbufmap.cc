@@ -110,6 +110,9 @@ struct ClkbufmapPass : public Pass {
 			extra_args(args, argidx, design);
 		}
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (buf_celltype.empty() && inpad_celltype.empty())
 			log_error("Either the -buf option or -inpad option is required.\n");
 

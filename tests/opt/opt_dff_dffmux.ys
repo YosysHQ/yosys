@@ -9,7 +9,7 @@ proc
 equiv_opt -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
-select -assert-count 0 t:$dffe %% t:* %D
+select -assert-count 0 t:$dffe %% t:* %D t:$input_port %d
 
 ####################
 
@@ -25,7 +25,7 @@ equiv_opt -assert opt
 design -load postopt
 wreduce
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
-select -assert-count 0 t:$dffe %% t:* %D
+select -assert-count 0 t:$dffe %% t:* %D t:$input_port %d
 
 ###################
 
@@ -40,7 +40,7 @@ proc
 equiv_opt -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
-select -assert-count 0 t:$dffe %% t:* %D
+select -assert-count 0 t:$dffe %% t:* %D t:$input_port %d
 
 ###################
 
@@ -54,8 +54,9 @@ EOT
 proc
 equiv_opt -assert opt
 design -load postopt
+dump
 select -assert-count 1 t:$dffe r:WIDTH=4 %i
-select -assert-count 0 t:$dffe %% t:* %D
+select -assert-count 0 t:$dffe %% t:* %D t:$input_port %d
 
 ####################
 
@@ -71,7 +72,7 @@ equiv_opt -assert opt
 design -load postopt
 wreduce
 select -assert-count 1 t:$sdffe r:WIDTH=2 %i
-select -assert-count 0 t:$sdffe %% t:* %D
+select -assert-count 0 t:$sdffe %% t:* %D t:$input_port %d
 
 ####################
 
@@ -90,7 +91,7 @@ equiv_opt -assert opt
 design -load postopt
 wreduce
 select -assert-count 1 t:$sdffe r:WIDTH=2 %i
-select -assert-count 0 t:$sdffe %% t:* %D
+select -assert-count 0 t:$sdffe %% t:* %D t:$input_port %d
 
 ####################
 
@@ -126,4 +127,4 @@ sat -tempinduct -verify -prove-asserts -show-ports miter
 
 design -load gate
 select -assert-count 1 t:$sdffe r:WIDTH=3 %i
-select -assert-count 0 t:$sdffe %% t:* %D
+select -assert-count 0 t:$sdffe %% t:* %D t:$input_port %d

@@ -265,6 +265,8 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 	unsigned int changed = 0;
 	std::vector<Cell*> cells_snapshot = mod->cells();
 	for (auto cell : cells_snapshot) {
+		if (cell->type == ID($input_port))
+			continue;
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first)) {
 				std::set<int> offsets_to_abstract;
@@ -462,6 +464,8 @@ struct AbstractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
 		if (enable != Enable::Always) {
 			if (mode == Mode::Initial)
 				log_cmd_error("Conditional initial value abstraction is not supported\n");

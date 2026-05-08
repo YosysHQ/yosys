@@ -79,6 +79,9 @@ struct CutpointPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
 		if (flag_blackbox) {
 			if (!design->full_selection())
 				log_cmd_error("This command only operates on fully selected designs!\n");

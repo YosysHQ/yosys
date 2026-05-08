@@ -257,6 +257,9 @@ struct CheckPass : public Pass {
 			pool<Cell *> coarsened_cells;
 			for (auto cell : module->cells())
 			{
+				if (cell->type == ID($input_port))
+					continue;
+
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
 					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
 					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
@@ -264,6 +267,30 @@ struct CheckPass : public Pass {
 				cell_allowed:;
 				}
 
+				if (cell->type == ID($connect)) {
+					// Inefficient, but rare case in sane design
+					auto sig_a = cell->getPort(ID::A);
+					auto sig_b = cell->getPort(ID::B);
+					for (int i = 0; i < sig_a.size(); i++) {
+						int count_a = wire_drivers_count[sig_a[i]];
+						int count_b = wire_drivers_count[sig_b[i]];
+						wire_drivers_count[sig_a[i]] += count_b;
+						wire_drivers_count[sig_b[i]] += count_a;
+						// Guarantee default constructed members if missing
+						(void)wire_drivers[sig_a[i]];
+						(void)wire_drivers[sig_b[i]];
+						auto& drivers_a = wire_drivers[sig_a[i]];
+						auto& drivers_b = wire_drivers[sig_b[i]];
+						vector<string> drivers;
+						drivers.reserve(std::max(drivers_a.size(), drivers_b.size()));
+						for (auto driver : drivers_a)
+							drivers.push_back(driver);
+						for (auto driver : drivers_b)
+							drivers.push_back(driver);
+						drivers_a = drivers;
+						drivers_b = drivers;
+					}
+				}
 				for (auto &conn : cell->connections()) {
 					bool input = cell->input(conn.first);
 					bool output = cell->output(conn.first);
