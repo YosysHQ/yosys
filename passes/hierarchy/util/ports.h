@@ -26,6 +26,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 namespace Hierarchy {
+	std::pair<Module*, bool> derive_blackbox_dynports(Module* module, Cell* cell, Design* design, std::set<Module*>& blackbox_derivatives);
 	void check_and_adjust_ports(Module* module, std::set<Module*>& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific);
 	bool resolve_connect_directionality(Module* module);
 };

@@ -75,8 +75,8 @@ namespace Hierarchy {
 
 					if (keep_positionals) {
 						bool found_positionals = false;
-						for (auto &conn : cell->connections())
-							if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9')
+						for (const auto& [port, sig] : cell->connections())
+							if (port[0] == '$' && '0' <= port[1] && port[1] <= '9')
 								found_positionals = true;
 						if (found_positionals)
 							continue;
@@ -109,15 +109,10 @@ namespace Hierarchy {
 					RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 
 		// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
-		if (submod->get_blackbox_attribute() && !cell->parameters.empty() && submod->get_bool_attribute(ID::dynports)) {
-			IdString new_m_name = submod->derive(design, cell->parameters, true);
-			if (new_m_name.empty())
-				return;
-			if (new_m_name != submod->name) {
-				submod = design->module(new_m_name);
-				blackbox_derivatives.insert(submod);
-			}
-		}
+		auto [derived_submod, boxed_params] = derive_blackbox_dynports(submod, cell, design, blackbox_derivatives);
+		if (derived_submod == nullptr)
+			return;
+		submod = derived_submod;
 
 		auto old_connections = cell->connections();
 		for (auto wire : submod->wires()) {
@@ -197,15 +192,15 @@ namespace Hierarchy {
 			if (!cell->known())
 				continue;
 
-			for (auto &conn : cell->connections())
+			for (const auto& [port, sig] : cell->connections())
 			{
-				if (!cell->output(conn.first))
+				if (!cell->output(port))
 					continue;
 
 				SigSpec new_sig;
 				bool update_port = false;
 
-				for (auto c : conn.second.chunks())
+				for (auto c : sig.chunks())
 				{
 					Wire *w = c.wire;
 
@@ -219,18 +214,18 @@ namespace Hierarchy {
 					update_port = true;
 
 					if (wand_map.count(w)) {
-						SigSpec sig = SigSpec(State::S1, GetSize(w));
-						sig.replace(c.offset, t);
-						wand_map.at(w).append(sig);
+						SigSpec mapped_sig = SigSpec(State::S1, GetSize(w));
+						mapped_sig.replace(c.offset, t);
+						wand_map.at(w).append(mapped_sig);
 					} else {
-						SigSpec sig = SigSpec(State::S0, GetSize(w));
-						sig.replace(c.offset, t);
-						wor_map.at(w).append(sig);
+						SigSpec mapped_sig = SigSpec(State::S0, GetSize(w));
+						mapped_sig.replace(c.offset, t);
+						wor_map.at(w).append(mapped_sig);
 					}
 				}
 
 				if (update_port)
-					cell->setPort(conn.first, new_sig);
+					cell->setPort(port, new_sig);
 			}
 		}
 
