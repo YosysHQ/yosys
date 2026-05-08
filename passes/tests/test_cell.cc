@@ -596,20 +596,20 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		for (auto port : gold_mod->ports) {
 			RTLIL::Wire *wire = gold_mod->wire(port);
 			if (wire->port_input)
-				vlog_file << stringf("  reg [%d:0] %s;\n", GetSize(wire)-1, log_id(wire));
+				vlog_file << stringf("  reg [%d:0] %s;\n", GetSize(wire)-1, wire);
 			else
-				vlog_file << stringf("  wire [%d:0] %s_expr, %s_noexpr;\n", GetSize(wire)-1, log_id(wire), log_id(wire));
+				vlog_file << stringf("  wire [%d:0] %s_expr, %s_noexpr;\n", GetSize(wire)-1, wire, wire);
 		}
 
 		vlog_file << stringf("  %s_expr uut_expr(", uut_name);
 		for (int i = 0; i < GetSize(gold_mod->ports); i++)
-			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", gold_mod->ports[i].unescape(), gold_mod->ports[i].unescape(),
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
 		vlog_file << stringf(");\n");
 
 		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name);
 		for (int i = 0; i < GetSize(gold_mod->ports); i++)
-			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", log_id(gold_mod->ports[i]), log_id(gold_mod->ports[i]),
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", gold_mod->ports[i].unescape(), gold_mod->ports[i].unescape(),
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
 		vlog_file << stringf(");\n");
 
@@ -654,7 +654,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			}
 
 			if (verbose)
-				log("%s: %s\n", log_id(gold_wire), log_signal(in_value));
+				log("%s: %s\n", gold_wire, log_signal(in_value));
 
 			in_sig.append(gold_wire);
 			in_val.append(in_value);
@@ -663,10 +663,10 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			gate_ce.set(gate_wire, in_value);
 
 			if (vlog_file.is_open() && GetSize(in_value) > 0) {
-				vlog_file << stringf("      %s = 'b%s;\n", log_id(gold_wire), in_value.as_string());
+				vlog_file << stringf("      %s = 'b%s;\n", gold_wire, in_value.as_string());
 				if (!vlog_pattern_info.empty())
 					vlog_pattern_info += " ";
-				vlog_pattern_info += stringf("%s=%s", log_id(gold_wire), log_signal(in_value));
+				vlog_pattern_info += stringf("%s=%s", gold_wire, log_signal(in_value));
 			}
 		}
 
@@ -690,10 +690,10 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			RTLIL::SigSpec gate_outval(gate_wire);
 
 			if (!gold_ce.eval(gold_outval))
-				log_error("Failed to eval %s in gold module.\n", log_id(gold_wire));
+				log_error("Failed to eval %s in gold module.\n", gold_wire);
 
 			if (!gate_ce.eval(gate_outval))
-				log_error("Failed to eval %s in gate module.\n", log_id(gate_wire));
+				log_error("Failed to eval %s in gate module.\n", gate_wire);
 
 			bool gold_gate_mismatch = false;
 			for (int i = 0; i < GetSize(gold_wire); i++) {
@@ -706,19 +706,19 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			}
 
 			if (gold_gate_mismatch)
-				log_error("Mismatch in output %s: gold:%s != gate:%s\n", log_id(gate_wire), log_signal(gold_outval), log_signal(gate_outval));
+				log_error("Mismatch in output %s: gold:%s != gate:%s\n", gate_wire, log_signal(gold_outval), log_signal(gate_outval));
 
 			if (verbose)
-				log("%s: %s\n", log_id(gold_wire), log_signal(gold_outval));
+				log("%s: %s\n", gold_wire, log_signal(gold_outval));
 
 			out_sig.append(gold_wire);
 			out_val.append(gold_outval);
 
 			if (vlog_file.is_open()) {
 				vlog_file << stringf("      $display(\"[%s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
-						vlog_pattern_info.c_str(), log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string().c_str(), log_id(gold_wire), log_id(gold_wire));
-				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string());
-				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", log_id(gold_wire), GetSize(gold_outval), gold_outval.as_string());
+						vlog_pattern_info.c_str(), gold_wire, GetSize(gold_outval), gold_outval.as_string().c_str(), gold_wire, gold_wire);
+				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", gold_wire, GetSize(gold_outval), gold_outval.as_string());
+				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", gold_wire, GetSize(gold_outval), gold_outval.as_string());
 			}
 		}
 
@@ -1102,10 +1102,10 @@ struct TestCellPass : public Pass {
 				int charcount = 100;
 				for (auto &it : cell_types) {
 					if (charcount > 60) {
-						cell_type_list += stringf("\n%s", + log_id(it.first));
+						cell_type_list += stringf("\n%s", it.first.unescape());
 						charcount = 0;
 					} else
-						cell_type_list += stringf(" %s", log_id(it.first));
+						cell_type_list += stringf(" %s", it.first.unescape());
 					charcount += GetSize(it.first);
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",

@@ -289,7 +289,7 @@ struct ExtractFaWorker
 
 	void run()
 	{
-		log("Extracting full/half adders from %s:\n", log_id(module));
+		log("Extracting full/half adders from %s:\n", module);
 
 		for (auto it : driver)
 		{
@@ -381,7 +381,7 @@ struct ExtractFaWorker
 					auto &fa = facache.at(fakey);
 					X = get<0>(fa);
 					Y = get<1>(fa);
-					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+					log("      Reusing $fa cell %s.\n", get<2>(fa));
 				}
 				else
 				if (facache.count(fakey_inv))
@@ -390,14 +390,14 @@ struct ExtractFaWorker
 					invert_xy = true;
 					X = get<0>(fa);
 					Y = get<1>(fa);
-					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+					log("      Reusing $fa cell %s.\n", get<2>(fa));
 				}
 				else
 				{
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
 					cell->setParam(ID::WIDTH, 1);
 
-					log("      Created $fa cell %s.\n", log_id(cell));
+					log("      Created $fa cell %s.\n", cell);
 
 					cell->setPort(ID::A, f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
 					cell->setPort(ID::B, f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
@@ -488,7 +488,7 @@ struct ExtractFaWorker
 					auto &fa = facache.at(fakey);
 					X = get<0>(fa);
 					Y = get<1>(fa);
-					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+					log("      Reusing $fa cell %s.\n", get<2>(fa));
 				}
 				else
 				if (facache.count(fakey_inv))
@@ -497,14 +497,14 @@ struct ExtractFaWorker
 					invert_xy = true;
 					X = get<0>(fa);
 					Y = get<1>(fa);
-					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
+					log("      Reusing $fa cell %s.\n", get<2>(fa));
 				}
 				else
 				{
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
 					cell->setParam(ID::WIDTH, 1);
 
-					log("      Created $fa cell %s.\n", log_id(cell));
+					log("      Created $fa cell %s.\n", cell);
 
 					cell->setPort(ID::A, f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
 					cell->setPort(ID::B, f2i.inv_b ? module->NotGate(NEW_ID, B) : B);

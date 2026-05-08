@@ -1492,7 +1492,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				const RTLIL::Wire *ref = module->wire(port_name);
 				if (ref == nullptr)
 					input_error("Cell instance refers to port %s which does not exist in module %s!.\n",
-							log_id(port_name), log_id(module->name));
+							port_name.unescape(), module->name.unescape());
 
 				// select the argument, if present
 				log_assert(child->children.size() <= 1);

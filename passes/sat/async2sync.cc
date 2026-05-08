@@ -91,7 +91,7 @@ struct Async2syncPass : public Pass {
 					int trg_width = cell->getParam(ID(TRG_WIDTH)).as_int();
 
 					if (trg_width > 1)
-						log_error("$check cell %s with TRG_WIDTH > 1 is not support by async2sync, use clk2fflogic.\n", log_id(cell));
+						log_error("$check cell %s with TRG_WIDTH > 1 is not support by async2sync, use clk2fflogic.\n", cell);
 
 					if (trg_width == 0) {
 						if (initstate == State::S0)
@@ -147,7 +147,7 @@ struct Async2syncPass : public Pass {
 						ff.unmap_ce_srst();
 
 						log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
+								module, cell, cell->type.unescape(),
 								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						initvals.remove_init(ff.sig_q);
@@ -212,7 +212,7 @@ struct Async2syncPass : public Pass {
 						ff.unmap_ce_srst();
 
 						log("Replacing %s.%s (%s): ALOAD=%s, AD=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
+								module, cell, cell->type,
 								log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						initvals.remove_init(ff.sig_q);
@@ -245,7 +245,7 @@ struct Async2syncPass : public Pass {
 						ff.unmap_srst();
 
 						log("Replacing %s.%s (%s): ARST=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
+								module, cell, cell->type.unescape(),
 								log_signal(ff.sig_arst), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						initvals.remove_init(ff.sig_q);
@@ -279,7 +279,7 @@ struct Async2syncPass : public Pass {
 				{
 					// Latch.
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-							log_id(module), log_id(cell), log_id(cell->type),
+							module, cell, cell->type.unescape(),
 							log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
 
 					initvals.remove_init(ff.sig_q);

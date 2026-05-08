@@ -216,7 +216,7 @@ struct ProcCleanPass : public Pass {
 				if (proc->syncs.size() == 0 && proc->root_case.switches.size() == 0 &&
 						proc->root_case.actions.size() == 0) {
 					if (!quiet)
-						log("Removing empty process `%s.%s'.\n", log_id(mod), proc->name);
+						log("Removing empty process `%s.%s'.\n", mod, proc->name);
 					delme.push_back(proc);
 				}
 			}

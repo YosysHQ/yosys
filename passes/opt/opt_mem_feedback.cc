@@ -163,7 +163,7 @@ struct OptMemFeedbackWorker
 		{
 			auto &port = mem.wr_ports[i];
 
-			log("  Analyzing %s.%s write port %d.\n", log_id(module), log_id(mem.memid), i);
+			log("  Analyzing %s.%s write port %d.\n", module, mem.memid.unescape(), i);
 
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
@@ -232,7 +232,7 @@ struct OptMemFeedbackWorker
 
 		// Okay, let's do it.
 
-		log("Populating enable bits on write ports of memory %s.%s with async read feedback:\n", log_id(module), log_id(mem.memid));
+		log("Populating enable bits on write ports of memory %s.%s with async read feedback:\n", module, mem.memid.unescape());
 
 		// If a write port has a feedback path that we're about to bypass,
 		// but also has priority over some other write port, the feedback

@@ -31,13 +31,13 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 {
 	auto &st = pm.st_microchip_dsp_pack;
 
-	log("Analysing %s.%s for Microchip MACC_PA packing.\n", log_id(pm.module), log_id(st.dsp));
+	log("Analysing %s.%s for Microchip MACC_PA packing.\n", pm.module, st.dsp);
 
 	Cell *cell = st.dsp;
 	// pack pre-adder
 	if (st.preAdderStatic) {
 		SigSpec &pasub = cell->connections_.at(ID(PASUB));
-		log("  static PASUB preadder %s (%s)\n", log_id(st.preAdderStatic), log_id(st.preAdderStatic->type));
+		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, st.preAdderStatic->type.unescape());
 		bool D_SIGNED = st.preAdderStatic->getParam(ID::B_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdderStatic->getParam(ID::A_SIGNED).as_bool();
 		st.sigB.extend_u0(18, B_SIGNED);
@@ -60,7 +60,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 	}
 	// pack post-adder
 	if (st.postAdderStatic) {
-		log("  postadder %s (%s)\n", log_id(st.postAdderStatic), log_id(st.postAdderStatic->type));
+		log("  postadder %s (%s)\n", st.postAdderStatic, st.postAdderStatic->type.unescape());
 		SigSpec &sub = cell->connections_.at(ID(SUB));
 		// Post-adder in MACC_PA also supports subtraction
 		//   Determines the sign of the output from the multiplier.
@@ -171,13 +171,13 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		log("  clock: %s (%s)\n", log_signal(st.clock), "posedge");
 
 		if (st.ffA)
-			log(" \t ffA:%s\n", log_id(st.ffA));
+			log(" \t ffA:%s\n", st.ffA);
 		if (st.ffB)
-			log(" \t ffB:%s\n", log_id(st.ffB));
+			log(" \t ffB:%s\n", st.ffB);
 		if (st.ffD)
-			log(" \t ffD:%s\n", log_id(st.ffD));
+			log(" \t ffD:%s\n", st.ffD);
 		if (st.ffP)
-			log(" \t ffP:%s\n", log_id(st.ffP));
+			log(" \t ffP:%s\n", st.ffP);
 	}
 	log("\n");
 
@@ -194,7 +194,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 {
 	auto &st = pm.st_microchip_dsp_packC;
 
-	log_debug("Analysing %s.%s for Microchip DSP packing (REG_C).\n", log_id(pm.module), log_id(st.dsp));
+	log_debug("Analysing %s.%s for Microchip DSP packing (REG_C).\n", pm.module, st.dsp);
 	log_debug("ffC:        %s\n", log_id(st.ffC, "--"));
 
 	Cell *cell = st.dsp;
@@ -264,7 +264,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");
 
 		if (st.ffC)
-			log(" ffC:%s", log_id(st.ffC));
+			log(" ffC:%s", st.ffC);
 		log("\n");
 	}
 

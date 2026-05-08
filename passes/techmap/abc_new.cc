@@ -178,7 +178,7 @@ struct AbcNewPass : public ScriptPass {
 					tmpdir = make_temp_dir(tmpdir);
 					modname = mod->name.str();
 					exe_options = abc_exe_options;
-					log_header(active_design, "Mapping module '%s'.\n", log_id(mod));
+					log_header(active_design, "Mapping module '%s'.\n", mod);
 					log_push();
 					active_design->select(mod);
 				}

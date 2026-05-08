@@ -2427,7 +2427,7 @@ struct AbcPass : public Pass {
 		for (auto mod : design->selected_modules())
 		{
 			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
+				log("Skipping module %s as it contains processes.\n", mod);
 				continue;
 			}
 

@@ -645,16 +645,16 @@ struct ShowWorker
 			module = mod;
 			if (design->selected_whole_module(module->name)) {
 				if (module->get_blackbox_attribute()) {
-					// log("Skipping blackbox module %s.\n", log_id(module->name));
+						//log("Skipping blackbox module %s.\n", module->name.unescape());
 					continue;
 				} else
 				if (module->cells().size() == 0 && module->connections().empty() && module->processes.empty()) {
-					log("Skipping empty module %s.\n", log_id(module->name));
+					log("Skipping empty module %s.\n", module->name.unescape());
 					continue;
 				} else
-					log("Dumping module %s to page %d.\n", log_id(module->name), ++page_counter);
+					log("Dumping module %s to page %d.\n", module->name.unescape(), ++page_counter);
 			} else
-				log("Dumping selected parts of module %s to page %d.\n", log_id(module->name), ++page_counter);
+				log("Dumping selected parts of module %s to page %d.\n", module->name.unescape(), ++page_counter);
 			handle_module();
 		}
 	}

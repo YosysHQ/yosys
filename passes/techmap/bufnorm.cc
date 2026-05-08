@@ -249,7 +249,7 @@ struct BufnormPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			log("Buffer-normalizing module %s.\n", log_id(module));
+			log("Buffer-normalizing module %s.\n", module);
 
 			SigMap sigmap(module);
 			module->new_connections({});
@@ -293,7 +293,7 @@ struct BufnormPass : public Pass {
 					bit2wires[keybit].insert(wire);
 
 				if (wire->port_input) {
-					log("  primary input: %s\n", log_id(wire));
+					log("  primary input: %s\n", wire);
 					for (auto bit : SigSpec(wire))
 						mapped_bits[sigmap(bit)] = bit;
 				} else {
@@ -392,7 +392,7 @@ struct BufnormPass : public Pass {
 
 					if (w->name.isPublic())
 						log("  directly driven by cell %s port %s: %s\n",
-								log_id(cell), log_id(conn.first), log_id(w));
+								cell, conn.first.unescape(), w);
 
 					for (auto bit : SigSpec(w))
 						mapped_bits[sigmap(bit)] = bit;
@@ -502,7 +502,7 @@ struct BufnormPass : public Pass {
 
 					if (conn.second != newsig) {
 						log("  fixing input signal on cell %s port %s: %s\n",
-								log_id(cell), log_id(conn.first), log_signal(newsig));
+								cell, conn.first.unescape(), newsig);
 						cell->setPort(conn.first, newsig);
 						count_updated_cellports++;
 					}

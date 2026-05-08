@@ -250,11 +250,11 @@ struct SimInstance
 
 		if (module->get_blackbox_attribute(true))
 			log_error("Cannot simulate blackbox module %s (instantiated at %s).\n",
-					  log_id(module->name), hiername().c_str());
+					  module->name.unescape(), hiername().c_str());
 
 		if (module->has_processes())
 			log_error("Found processes in simulation hierarchy (in module %s at %s). Run 'proc' first.\n",
-					  log_id(module), hiername().c_str());
+					  module, hiername().c_str());
 
 		if (parent) {
 			log_assert(parent->children.count(instance) == 0);
@@ -413,9 +413,9 @@ struct SimInstance
 	std::string hiername() const
 	{
 		if (instance != nullptr)
-			return parent->hiername() + "." + log_id(instance->name);
+			return parent->hiername() + "." + instance->name.unescape();
 
-		return log_id(module->name);
+		return module->name.unescape();
 	}
 
 	vector<std::string> witness_full_path() const
@@ -520,7 +520,7 @@ struct SimInstance
 	{
 		auto &state = mem_database[memid];
 		if (offset >= state.mem->size * state.mem->width)
-			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
+			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, memid.unescape());
 		if (state.data[offset] != data) {
 			state.data.set(offset, data);
 			dirty_memories.insert(memid);
@@ -573,7 +573,7 @@ struct SimInstance
 			if (has_y) sig_y = cell->getPort(ID::Y);
 
 			if (shared->debug)
-				log("[%s] eval %s (%s)\n", hiername(), log_id(cell), log_id(cell->type));
+				log("[%s] eval %s (%s)\n", hiername(), cell, cell->type.unescape());
 
 			bool err = false;
 			RTLIL::Const eval_state;
@@ -593,7 +593,7 @@ struct SimInstance
 				err = true;
 
 			if (err)
-				log_warning("Unsupported evaluable cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+				log_warning("Unsupported evaluable cell type: %s (%s.%s)\n", cell->type.unescape(), module, cell);
 			else
 				set_state(sig_y, eval_state);
 			return;
@@ -602,7 +602,7 @@ struct SimInstance
 		if (cell->type == ID($print))
 			return;
 
-		log_error("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+		log_error("Unsupported cell type: %s (%s.%s)\n", cell->type.unescape(), module, cell);
 	}
 
 	void update_memory(IdString id) {
@@ -616,7 +616,7 @@ struct SimInstance
 			Const data = Const(State::Sx, mem.width << port.wide_log2);
 
 			if (port.clk_enable)
-				log_error("Memory %s.%s has clocked read ports. Run 'memory_nordff' to transform the circuit to remove those.\n", log_id(module), log_id(mem.memid));
+				log_error("Memory %s.%s has clocked read ports. Run 'memory_nordff' to transform the circuit to remove those.\n", module, mem.memid.unescape());
 
 			if (addr.is_fully_def()) {
 				int addr_int = addr.as_int();
@@ -819,14 +819,14 @@ struct SimInstance
 		log_assert(cell->module == module);
 		bool has_src = cell->has_attribute(ID::src);
 		log("%s %s%s\n", opening_verbiage,
-			log_id(cell), has_src ? " at" : "");
+			cell, has_src ? " at" : "");
 		log_source(cell);
 
 		struct SimInstance *sim = this;
 		while (sim->instance) {
 			has_src = sim->instance->has_attribute(ID::src);
-			log("  in instance %s of module %s%s\n", log_id(sim->instance),
-				log_id(sim->instance->type), has_src ? " at" : "");
+			log("  in instance %s of module %s%s\n", sim->instance,
+				sim->instance->type.unescape(), has_src ? " at" : "");
 			log_source(sim->instance);
 			sim = sim->parent;
 		}
@@ -927,7 +927,7 @@ struct SimInstance
 		{
 			for (auto cell : formal_database)
 			{
-				string label = log_id(cell);
+				string label = cell->name.unescape();
 				if (cell->attributes.count(ID::src))
 					label = cell->attributes.at(ID::src).decode_string();
 
@@ -939,17 +939,17 @@ struct SimInstance
 				}
 
 				if (cell->type == ID($cover) && en == State::S1 && a == State::S1)
-					log("Cover %s.%s (%s) reached.\n", hiername(), log_id(cell), label);
+					log("Cover %s.%s (%s) reached.\n", hiername(), cell, label);
 
 				if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
-					log("Assumption %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
+					log("Assumption %s.%s (%s) failed.\n", hiername(), cell, label);
 
 				if (cell->type == ID($assert) && en == State::S1 && a != State::S1) {
 					log_cell_w_hierarchy("Failed assertion", cell);
 					if (shared->serious_asserts)
-						log_error("Assertion %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
+						log_error("Assertion %s.%s (%s) failed.\n", hiername(), cell, label);
 					else
-						log_warning("Assertion %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
+						log_warning("Assertion %s.%s (%s) failed.\n", hiername(), cell, label);
 				}
 			}
 		}
@@ -970,7 +970,7 @@ struct SimInstance
 	{
 		if (!ff_database.empty() || !mem_database.empty()) {
 			if (wbmods.count(module))
-				log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'uniquify'.)\n", hiername(), log_id(module));
+				log_error("Instance %s of module %s is not unique: Writeback not possible. (Fix by running 'uniquify'.)\n", hiername(), module);
 			wbmods.insert(module);
 		}
 
@@ -1061,7 +1061,7 @@ struct SimInstance
 				for (auto name : hdlname)
 					exit_scope();
 			} else
-				register_signal(log_id(signal.first->name), GetSize(signal.first), signal.first, signal.second.id, registers.count(signal.first)!=0);
+				register_signal(signal.first->name.unescape().c_str(), GetSize(signal.first), signal.first, signal.second.id, registers.count(signal.first)!=0);
 		}
 
 		for (auto &trace_mem : trace_mem_database)
@@ -1082,7 +1082,7 @@ struct SimInstance
 				for (auto name : hdlname)
 					enter_scope("\\" + name);
 			} else {
-				signal_name = log_id(memid);
+				signal_name = memid.unescape();
 			}
 
 			for (auto &trace_index : trace_mem.second) {
@@ -1269,13 +1269,13 @@ struct SimInstance
 			Const fst_val = Const::from_string(shared->fst->valueOf(item.second));
 			Const sim_val = get_state(item.first);
 			if (sim_val.size()!=fst_val.size()) {
-				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope, log_id(item.first));
+				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope, item.first);
 				continue;
 			}
 			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
@@ -1283,14 +1283,14 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
 				for(int i=0;i<sim_val.size();i++) {
 					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
 				}
 			} else {
 				if (fst_val!=sim_val) {
-					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, item.first, log_signal(fst_val), log_signal(sim_val));
 					retVal = true;
 				}
 			}
@@ -1409,7 +1409,7 @@ struct SimWorker : SimShared
 			Wire *w = top->module->wire(portname);
 
 			if (w == nullptr)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 
 			top->set_state(w, value);
 		}
@@ -1492,24 +1492,24 @@ struct SimWorker : SimShared
 		{
 			Wire *w = topmod->wire(portname);
 			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
 		}
 		for (auto portname : clockn)
 		{
 			Wire *w = topmod->wire(portname);
 			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
 		}
 
@@ -1630,7 +1630,7 @@ struct SimWorker : SimShared
 				escaped_s = RTLIL::escape_id(cell_name(symbol));
 				Cell *c = topmod->cell(escaped_s);
 				if (!c)
-					log_warning("Wire/cell %s not present in module %s\n",symbol,log_id(topmod));
+					log_warning("Wire/cell %s not present in module %s\n",symbol,topmod);
 
 				if (c->is_mem_cell()) {
 					std::string memid = c->parameters.at(ID::MEMID).decode_string();
@@ -1829,7 +1829,7 @@ struct SimWorker : SimShared
 						if (!w) {
 							Cell *c = topmod->cell(escaped_s);
 							if (!c)
-								log_warning("Wire/cell %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
+								log_warning("Wire/cell %s not present in module %s\n",escaped_s.unescape(),topmod);
 							else if (c->type.in(ID($anyconst), ID($anyseq))) {
 								SigSpec sig_y= c->getPort(ID::Y);
 								if ((int)parts[1].size() != GetSize(sig_y))
@@ -1844,9 +1844,9 @@ struct SimWorker : SimShared
 					} else {
 						Cell *c = topmod->cell(escaped_s);
 						if (!c)
-							log_error("Cell %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
+							log_error("Cell %s not present in module %s\n",escaped_s.unescape(),topmod);
 						if (!c->is_mem_cell())
-							log_error("Cell %s is not memory cell in module %s\n",log_id(escaped_s),log_id(topmod));
+							log_error("Cell %s is not memory cell in module %s\n",escaped_s.unescape(),topmod);
 						
 						Const addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
 						Const data = Const::from_string(parts[2]);
@@ -2077,13 +2077,13 @@ struct SimWorker : SimShared
 		json.entry("version", "Yosys sim summary");
 		json.entry("generator", yosys_maybe_version());
 		json.entry("steps", step);
-		json.entry("top", log_id(top->module->name));
+		json.entry("top", top->module->name.unescape());
 		json.name("assertions");
 		json.begin_array();
 		for (auto &assertion : triggered_assertions) {
 			json.begin_object();
 			json.entry("step", assertion.step);
-			json.entry("type", log_id(assertion.cell->type));
+			json.entry("type", assertion.cell->type.unescape());
 			json.entry("path", assertion.instance->witness_full_path(assertion.cell));
 			auto src = assertion.cell->get_string_attribute(ID::src);
 			if (!src.empty()) {
@@ -2148,12 +2148,12 @@ struct SimWorker : SimShared
 		{
 			Wire *w = topmod->wire(portname);
 			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
 			clocks[w] = id;
 		}
@@ -2161,12 +2161,12 @@ struct SimWorker : SimShared
 		{
 			Wire *w = topmod->wire(portname);
 			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
+				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
 			clocks[w] = id;
 		}
@@ -2359,7 +2359,7 @@ struct VCDWriter : public OutputWriter
 			vcdfile << stringf("$timescale %s $end\n", worker->timescale);
 
 		worker->top->write_output_header(
-			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
+			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", name.unescape()); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
 			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
@@ -2425,7 +2425,7 @@ struct FSTWriter : public OutputWriter
 		fstWriterSetRepackOnClose(fstfile, 1);
 	   
 	   	worker->top->write_output_header(
-			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
+			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",name.unescape()).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
 			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
@@ -2488,7 +2488,7 @@ struct AIWWriter : public OutputWriter
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			Wire *w = worker->top->module->wire(escaped_s);
 			if (!w)
-				log_error("Wire %s not present in module %s\n",log_id(escaped_s),log_id(worker->top->module));
+				log_error("Wire %s not present in module %s\n",escaped_s.unescape(),worker->top->module);
 			if (index < w->start_offset || index > w->start_offset + w->width)
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {

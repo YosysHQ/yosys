@@ -159,7 +159,7 @@ struct EquivMakeWorker
 
 			if (encdata.count(id))
 			{
-				log("Creating encoder/decoder for signal %s.\n", log_id(id));
+				log("Creating encoder/decoder for signal %s.\n", id.unescape());
 
 				Wire *dec_wire = equiv_mod->addWire(id.str() + "_decoded", gold_wire->width);
 				Wire *enc_wire = equiv_mod->addWire(id.str() + "_encoded", gate_wire->width);
@@ -226,15 +226,15 @@ struct EquivMakeWorker
 
 			if (gold_wire == nullptr || gate_wire == nullptr || gold_wire->width != gate_wire->width) {
 				if (gold_wire && gold_wire->port_id)
-					log_error("Can't match gold port `%s' to a gate port.\n", log_id(gold_wire));
+					log_error("Can't match gold port `%s' to a gate port.\n", gold_wire);
 				if (gate_wire && gate_wire->port_id)
-					log_error("Can't match gate port `%s' to a gold port.\n", log_id(gate_wire));
+					log_error("Can't match gate port `%s' to a gold port.\n", gate_wire);
 				continue;
 			}
 
 			log("Presumably equivalent wires: %s (%s), %s (%s) -> %s\n",
-					log_id(gold_wire), log_signal(assign_map(gold_wire)),
-					log_id(gate_wire), log_signal(assign_map(gate_wire)), log_id(id));
+					gold_wire, log_signal(assign_map(gold_wire)),
+					gate_wire, log_signal(assign_map(gate_wire)), id.unescape());
 
 			if (gold_wire->port_output || gate_wire->port_output)
 			{
@@ -313,7 +313,7 @@ struct EquivMakeWorker
 						new_sig[i] = old_sig[i];
 				if (old_sig != new_sig) {
 					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							log_id(conn.first), log_id(c), log_id(c->type),
+							conn.first.unescape(), c, c->type.unescape(),
 							log_signal(old_sig), log_signal(new_sig));
 					c->setPort(conn.first, new_sig);
 				}
@@ -344,7 +344,7 @@ struct EquivMakeWorker
 					goto try_next_cell_name;
 
 			log("Presumably equivalent cells: %s %s (%s) -> %s\n",
-					log_id(gold_cell), log_id(gate_cell), log_id(gold_cell->type), log_id(id));
+					gold_cell, gate_cell, gold_cell->type.unescape(), id.unescape());
 
 			for (auto gold_conn : gold_cell->connections())
 			{

@@ -80,7 +80,7 @@ struct MemoryShareWorker
 		if (GetSize(mem.rd_ports) <= 1)
 			return false;
 
-		log("Consolidating read ports of memory %s.%s by address:\n", log_id(module), log_id(mem.memid));
+		log("Consolidating read ports of memory %s.%s by address:\n", module, mem.memid.unescape());
 
 		bool changed = false;
 		int abits = 0;
@@ -197,7 +197,7 @@ struct MemoryShareWorker
 		if (GetSize(mem.wr_ports) <= 1)
 			return false;
 
-		log("Consolidating write ports of memory %s.%s by address:\n", log_id(module), log_id(mem.memid));
+		log("Consolidating write ports of memory %s.%s by address:\n", module, mem.memid.unescape());
 
 		bool changed = false;
 		int abits = 0;
@@ -316,7 +316,7 @@ struct MemoryShareWorker
 		if (eligible_ports.size() <= 1)
 			return;
 
-		log("Consolidating write ports of memory %s.%s using sat-based resource sharing:\n", log_id(module), log_id(mem.memid));
+		log("Consolidating write ports of memory %s.%s using sat-based resource sharing:\n", module, mem.memid.unescape());
 
 		// Group eligible ports by clock domain and width.
 

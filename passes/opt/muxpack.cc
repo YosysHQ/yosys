@@ -193,7 +193,7 @@ struct MuxpackWorker
 	{
 		for (auto cell : candidate_cells)
 		{
-			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
+			log_debug("Considering %s (%s)\n", cell, cell->type.unescape());
 
 			SigSpec a_sig = sigmap(cell->getPort(ID::A));
 			if (cell->type == ID($mux)) {
@@ -273,7 +273,7 @@ struct MuxpackWorker
 			Cell *last_cell = chain[cursor+cases-1];
 
 			log("Converting %s.%s ... %s.%s to a pmux with %d cases.\n",
-				log_id(module), log_id(first_cell), log_id(module), log_id(last_cell), cases);
+				module, first_cell, module, last_cell, cases);
 
 			mux_count += cases;
 			pmux_count += 1;

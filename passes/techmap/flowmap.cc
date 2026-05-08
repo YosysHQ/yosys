@@ -598,7 +598,7 @@ struct FlowmapWorker
 				continue;
 
 			if (!cell->known())
-				log_error("Cell %s (%s.%s) is unknown.\n", cell->type, log_id(module), log_id(cell));
+				log_error("Cell %s (%s.%s) is unknown.\n", cell->type, module, cell);
 
 			pool<RTLIL::SigBit> fanout;
 			for (auto conn : cell->connections())
@@ -636,7 +636,7 @@ struct FlowmapWorker
 
 			if (fanin > order)
 				log_error("Cell %s (%s.%s) with fan-in %d cannot be mapped to a %d-LUT.\n",
-				          cell->type.c_str(), log_id(module), log_id(cell), fanin, order);
+				          cell->type.c_str(), module, cell, fanin, order);
 
 			gate_count++;
 			gate_area += 1 << fanin;
@@ -1356,14 +1356,14 @@ struct FlowmapWorker
 				auto origin = node_origins[node];
 				if (origin.cell->getPort(origin.port).size() == 1)
 					log("Packing %s.%s.%s (%s).\n",
-					    log_id(module), log_id(origin.cell), origin.port.c_str(), log_signal(node));
+					    module, origin.cell, origin.port.c_str(), log_signal(node));
 				else
 					log("Packing %s.%s.%s [%d] (%s).\n",
-					    log_id(module), log_id(origin.cell), origin.port.c_str(), origin.offset, log_signal(node));
+					    module, origin.cell, origin.port.c_str(), origin.offset, log_signal(node));
 			}
 			else
 			{
-				log("Packing %s.%s.\n", log_id(module), log_signal(node));
+				log("Packing %s.%s.\n", module, log_signal(node));
 			}
 
 			for (auto gate_node : lut_gates[node])
@@ -1376,10 +1376,10 @@ struct FlowmapWorker
 				auto gate_origin = node_origins[gate_node];
 				if (gate_origin.cell->getPort(gate_origin.port).size() == 1)
 					log("  Packing %s.%s.%s (%s).\n",
-					    log_id(module), log_id(gate_origin.cell), gate_origin.port.c_str(), log_signal(gate_node));
+					    module, gate_origin.cell, gate_origin.port.c_str(), log_signal(gate_node));
 				else
 					log("  Packing %s.%s.%s [%d] (%s).\n",
-					    log_id(module), log_id(gate_origin.cell), gate_origin.port.c_str(), gate_origin.offset, log_signal(gate_node));
+					    module, gate_origin.cell, gate_origin.port.c_str(), gate_origin.offset, log_signal(gate_node));
 			}
 
 			vector<RTLIL::SigBit> input_nodes(lut_edges_bw[node].begin(), lut_edges_bw[node].end());
@@ -1423,9 +1423,9 @@ struct FlowmapWorker
 			lut_area += lut_table.size();
 
 			if ((int)input_nodes.size() >= minlut)
-				log("  Packed into a %d-LUT %s.%s.\n", GetSize(input_nodes), log_id(module), log_id(lut));
+				log("  Packed into a %d-LUT %s.%s.\n", GetSize(input_nodes), module, lut);
 			else
-				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", GetSize(input_nodes), log_id(module), log_id(lut), minlut);
+				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", GetSize(input_nodes), module, lut, minlut);
 		}
 
 		for (auto node : mapped_nodes)

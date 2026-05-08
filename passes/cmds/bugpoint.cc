@@ -212,7 +212,7 @@ struct BugpointPass : public Pass {
 
 				if (index++ == seed)
 				{
-					log_header(design, "Trying to remove module %s.\n", log_id(module));
+					log_header(design, "Trying to remove module %s.\n", module);
 					removed_module = module;
 					break;
 				}
@@ -242,7 +242,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log_header(design, "Trying to remove module port %s.\n", log_id(wire));
+						log_header(design, "Trying to remove module port %s.\n", wire);
 						wire->port_input = wire->port_output = false;
 						mod->fixup_ports();
 						return design_copy;
@@ -265,7 +265,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log_header(design, "Trying to remove cell %s.%s.\n", log_id(mod), log_id(cell));
+						log_header(design, "Trying to remove cell %s.%s.\n", mod, cell);
 						removed_cell = cell;
 						break;
 					}
@@ -296,7 +296,7 @@ struct BugpointPass : public Pass {
 
 						if (index++ == seed)
 						{
-							log_header(design, "Trying to remove cell port %s.%s.%s.\n", log_id(mod), log_id(cell), log_id(it.first));
+							log_header(design, "Trying to remove cell port %s.%s.%s.\n", mod, cell, it.first.unescape());
 							RTLIL::SigSpec port_x(State::Sx, port.size());
 							cell->unsetPort(it.first);
 							cell->setPort(it.first, port_x);
@@ -305,7 +305,7 @@ struct BugpointPass : public Pass {
 
 						if (!stage2 && (cell->input(it.first) || cell->output(it.first)) && index++ == seed)
 						{
-							log_header(design, "Trying to expose cell port %s.%s.%s as module port.\n", log_id(mod), log_id(cell), log_id(it.first));
+							log_header(design, "Trying to expose cell port %s.%s.%s as module port.\n", mod, cell, it.first.unescape());
 							RTLIL::Wire *wire = mod->addWire(NEW_ID, port.size());
 							wire->set_bool_attribute(ID($bugpoint));
 							wire->port_input = cell->input(it.first);
@@ -334,7 +334,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log_header(design, "Trying to remove process %s.%s.\n", log_id(mod), log_id(process.first));
+						log_header(design, "Trying to remove process %s.%s.\n", mod, process.first.unescape());
 						removed_process = process.second;
 						break;
 					}
@@ -363,7 +363,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), log_id(mod), log_id(pr.first));
+								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), mod, pr.first.unescape());
 								cs->actions.erase(it);
 								return design_copy;
 							}
@@ -389,7 +389,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), log_id(mod), log_id(pr.first));
+								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), mod, pr.first.unescape());
 								sy->actions.erase(it);
 								return design_copy;
 							}
@@ -399,7 +399,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove sync %s memwr %s %s %s %s in %s.%s.\n", log_signal(sy->signal), log_id(it->memid), log_signal(it->address), log_signal(it->data), log_signal(it->enable), log_id(mod), log_id(pr.first));
+								log_header(design, "Trying to remove sync %s memwr %s %s %s %s in %s.%s.\n", log_signal(sy->signal), it->memid.unescape(), log_signal(it->address), log_signal(it->data), log_signal(it->enable), mod, pr.first.unescape());
 								sy->mem_write_actions.erase(it);
 								// Remove the bit for removed action from other actions' priority masks.
 								for (auto it2 = sy->mem_write_actions.begin(); it2 != sy->mem_write_actions.end(); ++it2) {
@@ -437,7 +437,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log_header(design, "Trying to remove wire %s.%s.\n", log_id(mod), log_id(wire));
+						log_header(design, "Trying to remove wire %s.%s.\n", mod, wire);
 						removed_wire = wire;
 						break;
 					}

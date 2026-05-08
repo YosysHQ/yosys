@@ -86,7 +86,7 @@ struct Xaiger2Frontend : public Frontend {
 
 		Module *module = design->module(module_name);
 		if (!module)
-			log_error("Module '%s' not found\n", log_id(module_name));
+			log_error("Module '%s' not found\n", module_name.unescape());
 
 		std::ifstream map_file;
 		map_file.open(map_filename);
@@ -158,7 +158,7 @@ struct Xaiger2Frontend : public Frontend {
 				}
 
 				if (!def)
-					log_error("Bad map file: no module found for box type '%s'\n", log_id(box->type));
+					log_error("Bad map file: no module found for box type '%s'\n", box->type.unescape());
 
 				if (box_seq >= (int) boxes.size()) {
 					boxes.resize(box_seq + 1);
@@ -276,9 +276,9 @@ struct Xaiger2Frontend : public Frontend {
 					uint32_t nins = read_be32(*f);
 					for (uint32_t j = 0; j < nins; j++)
 						cell.ins.push_back(read_idstring(*f));
-					log_debug("M: Cell %s (out %s, ins", log_id(cell.type), log_id(cell.out));
+					log_debug("M: Cell %s (out %s, ins", cell.type.unescape(), cell.out.unescape());
 					for (auto in : cell.ins)
-						log_debug(" %s", log_id(in));
+						log_debug(" %s", in.unescape());
 					log_debug(")\n");
 				}
 

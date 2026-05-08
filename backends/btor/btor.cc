@@ -119,7 +119,7 @@ struct BtorWorker
 	template<typename T>
 	string getinfo(T *obj, bool srcsym = false)
 	{
-		string infostr = log_id(obj);
+		string infostr = obj->name.unescape();
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
 		if (obj->attributes.count(ID::src)) {
 			string src = obj->attributes.at(ID::src).decode_string().c_str();
@@ -243,12 +243,12 @@ struct BtorWorker
 		if (cell_recursion_guard.count(cell)) {
 			string cell_list;
 			for (auto c : cell_recursion_guard)
-				cell_list += stringf("\n    %s", log_id(c));
-			log_error("Found topological loop while processing cell %s. Active cells:%s\n", log_id(cell), cell_list);
+				cell_list += stringf("\n    %s", c);
+			log_error("Found topological loop while processing cell %s. Active cells:%s\n", cell, cell_list);
 		}
 
 		cell_recursion_guard.insert(cell);
-		btorf_push(log_id(cell));
+		btorf_push(cell->name.unescape());
 
 		if (cell->type.in(ID($add), ID($sub), ID($mul), ID($and), ID($or), ID($xor), ID($xnor), ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
 				ID($concat), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_)))
@@ -726,7 +726,7 @@ struct BtorWorker
 			if (symbol.empty() || (!print_internal_names && symbol[0] == '$'))
 				btorf("%d state %d\n", nid, sid);
 			else
-				btorf("%d state %d %s\n", nid, sid, log_id(symbol));
+				btorf("%d state %d %s\n", nid, sid, symbol.unescape());
 
 			if (cell->get_bool_attribute(ID(clk2fflogic)))
 				ywmap_state(cell->getPort(ID::D)); // For a clk2fflogic FF the named signal is the D input not the Q output
@@ -804,12 +804,12 @@ struct BtorWorker
 
 			if (asyncwr && syncwr)
 				log_error("Memory %s.%s has mixed async/sync write ports.\n",
-						log_id(module), log_id(mem->memid));
+						module, mem->memid.unescape());
 
 			for (auto &port : mem->rd_ports) {
 				if (port.clk_enable)
 					log_error("Memory %s.%s has sync read ports.  Please use memory_nordff to convert them first.\n",
-							log_id(module), log_id(mem->memid));
+							module, mem->memid.unescape());
 			}
 
 			int data_sid = get_bv_sid(mem->width);
@@ -871,7 +871,7 @@ struct BtorWorker
 			if (mem->memid[0] == '$')
 				btorf("%d state %d\n", nid, sid);
 			else
-				btorf("%d state %d %s\n", nid, sid, log_id(mem->memid));
+				btorf("%d state %d %s\n", nid, sid, mem->memid.unescape());
 
 			ywmap_state(cell);
 
@@ -948,21 +948,20 @@ struct BtorWorker
 
 		if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_btor`.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type.unescape(), module, cell);
 		}
 		if (cell->type.in(ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF" || cell->type.str().substr(0, 7) == "$_ALDFF") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_btor`.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type.unescape(), module, cell);
 		}
 		if (cell->type.in(ID($sr), ID($dlatch), ID($adlatch), ID($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_btor`.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type.unescape(), module, cell);
 		}
 		log_error("Unsupported cell type %s for cell %s.%s.\n",
-				log_id(cell->type), log_id(module), log_id(cell));
-
+				cell->type.unescape(), module, cell);
 	okay:
-		btorf_pop(log_id(cell));
+		btorf_pop(cell->name.unescape());
 		cell_recursion_guard.erase(cell);
 	}
 
@@ -1167,7 +1166,7 @@ struct BtorWorker
 			f(f), sigmap(module), module(module), verbose(verbose), single_bad(single_bad), cover_mode(cover_mode), print_internal_names(print_internal_names), info_filename(info_filename)
 	{
 		if (!info_filename.empty())
-			infof("name %s\n", log_id(module));
+			infof("name %s\n", module);
 
 		if (!ywmap_filename.empty())
 			ywmap_json.write_to_file(ywmap_filename);
@@ -1257,19 +1256,19 @@ struct BtorWorker
 			if (!wire->port_id || !wire->port_output)
 				continue;
 
-			btorf_push(stringf("output %s", log_id(wire)));
+			btorf_push(stringf("output %s", wire));
 
 			int nid = get_sig_nid(wire);
 			btorf("%d output %d%s\n", next_nid++, nid, getinfo(wire));
 
-			btorf_pop(stringf("output %s", log_id(wire)));
+			btorf_pop(stringf("output %s", wire));
 		}
 
 		for (auto cell : module->cells())
 		{
 			if (cell->type == ID($assume))
 			{
-				btorf_push(log_id(cell));
+				btorf_push(cell->name.unescape());
 
 				int sid = get_bv_sid(1);
 				int nid_a = get_sig_nid(cell->getPort(ID::A));
@@ -1284,12 +1283,12 @@ struct BtorWorker
 
 				if (ywmap_json.active()) ywmap_assumes.emplace_back(cell);
 
-				btorf_pop(log_id(cell));
+				btorf_pop(cell->name.unescape());
 			}
 
 			if (cell->type == ID($assert))
 			{
-				btorf_push(log_id(cell));
+				btorf_push(cell->name.unescape());
 
 				int sid = get_bv_sid(1);
 				int nid_a = get_sig_nid(cell->getPort(ID::A));
@@ -1313,12 +1312,12 @@ struct BtorWorker
 					}
 				}
 
-				btorf_pop(log_id(cell));
+				btorf_pop(cell->name.unescape());
 			}
 
 			if (cell->type == ID($cover) && cover_mode)
 			{
-				btorf_push(log_id(cell));
+				btorf_push(cell->name.unescape());
 
 				int sid = get_bv_sid(1);
 				int nid_a = get_sig_nid(cell->getPort(ID::A));
@@ -1334,7 +1333,7 @@ struct BtorWorker
 					btorf("%d bad %d%s\n", nid, nid_en_and_a, getinfo(cell, true));
 				}
 
-				btorf_pop(log_id(cell));
+				btorf_pop(cell->name.unescape());
 			}
 		}
 
@@ -1343,7 +1342,7 @@ struct BtorWorker
 			if (wire->port_id || wire->name[0] == '$')
 				continue;
 
-			btorf_push(stringf("wire %s", log_id(wire)));
+			btorf_push(stringf("wire %s", wire));
 
 			int sid = get_bv_sid(GetSize(wire));
 			int nid = get_sig_nid(sigmap(wire));
@@ -1356,7 +1355,7 @@ struct BtorWorker
 			if (info_clocks.count(nid))
 				info_clocks[this_nid] |= info_clocks[nid];
 
-			btorf_pop(stringf("wire %s", log_id(wire)));
+			btorf_pop(stringf("wire %s", wire));
 			continue;
 		}
 
@@ -1370,14 +1369,14 @@ struct BtorWorker
 				int nid = it.first;
 				Cell *cell = it.second;
 
-				btorf_push(stringf("next %s", log_id(cell)));
+				btorf_push(stringf("next %s", cell));
 
 				SigSpec sig = sigmap(cell->getPort(ID::D));
 				int nid_q = get_sig_nid(sig);
 				int sid = get_bv_sid(GetSize(sig));
 				btorf("%d next %d %d %d%s\n", next_nid++, sid, nid, nid_q, getinfo(cell));
 
-				btorf_pop(stringf("next %s", log_id(cell)));
+				btorf_pop(stringf("next %s", cell));
 			}
 
 			vector<pair<int, Mem*>> mtodo;
@@ -1388,7 +1387,7 @@ struct BtorWorker
 				int nid = it.first;
 				Mem *mem = it.second;
 
-				btorf_push(stringf("next %s", log_id(mem->memid)));
+				btorf_push(stringf("next %s", mem->memid.unescape()));
 
 				int abits = ceil_log2(mem->size);
 
@@ -1436,7 +1435,7 @@ struct BtorWorker
 				int nid2 = next_nid++;
 				btorf("%d next %d %d %d%s\n", nid2, sid, nid, nid_head, (mem->cell ? getinfo(mem->cell) : getinfo(mem->mem)));
 
-				btorf_pop(stringf("next %s", log_id(mem->memid)));
+				btorf_pop(stringf("next %s", mem->memid.unescape()));
 			}
 		}
 
@@ -1630,7 +1629,7 @@ struct BtorBackend : public Backend {
 			log_cmd_error("No top module found.\n");
 
 		*f << stringf("; BTOR description generated by %s for module %s.\n",
-				yosys_maybe_version(), log_id(topmod));
+				yosys_maybe_version(), topmod);
 
 		BtorWorker(*f, topmod, verbose, single_bad, cover_mode, print_internal_names, info_filename, ywmap_filename);
 

@@ -71,7 +71,7 @@ struct UniquifyPass : public Pass {
 				for (auto cell : module->selected_cells())
 				{
 					Module *tmod = design->module(cell->type);
-					IdString newname = module->name.str() + "." + log_id(cell->name);
+					IdString newname = module->name.str() + "." + cell->name.unescape();
 
 					if (tmod == nullptr)
 						continue;
@@ -82,14 +82,14 @@ struct UniquifyPass : public Pass {
 					if (tmod->get_bool_attribute(ID::unique) && newname == tmod->name)
 						continue;
 
-					log("Creating module %s from %s.\n", log_id(newname), log_id(tmod));
+					log("Creating module %s from %s.\n", newname.unescape(), tmod);
 
 					auto smod = tmod->clone();
 					smod->name = newname;
 					cell->type = newname;
 					smod->set_bool_attribute(ID::unique);
 					if (smod->attributes.count(ID::hdlname) == 0)
-						smod->attributes[ID::hdlname] = string(log_id(tmod->name));
+						smod->attributes[ID::hdlname] = string(tmod->name.unescape());
 					design->add(smod);
 
 					did_something = true;

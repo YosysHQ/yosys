@@ -266,7 +266,7 @@ struct DesignPass : public Pass {
 
 			for (auto mod : copy_src_modules)
 			{
-				log("Importing %s as %s.\n", log_id(mod), log_id(prefix));
+				log("Importing %s as %s.\n", mod, prefix);
 
 				RTLIL::Module *t = mod->clone();
 				t->name = prefix;
@@ -295,7 +295,7 @@ struct DesignPass : public Pass {
 					{
 						std::string trg_name = prefix + "." + (cell->type.c_str() + (*cell->type.c_str() == '\\'));
 
-						log("Importing %s as %s.\n", log_id(fmod), log_id(trg_name));
+						log("Importing %s as %s.\n", fmod, trg_name);
 
 						if (copy_to_design->module(trg_name) != nullptr)
 							copy_to_design->remove(copy_to_design->module(trg_name));

@@ -37,7 +37,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	RTLIL::Cell *cell_to_rename = module->cell(from_name);
 
 	if (wire_to_rename != nullptr) {
-		log("Renaming wire %s to %s in module %s.\n", log_id(wire_to_rename), log_id(to_name), log_id(module));
+		log("Renaming wire %s to %s in module %s.\n", wire_to_rename, to_name, module);
 		module->rename(wire_to_rename, to_name);
 		if (wire_to_rename->port_id || flag_output) {
 			if (flag_output)
@@ -50,7 +50,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	if (cell_to_rename != nullptr) {
 		if (flag_output)
 			log_cmd_error("Called with -output but the specified object is a cell.\n");
-		log("Renaming cell %s to %s in module %s.\n", log_id(cell_to_rename), log_id(to_name), log_id(module));
+		log("Renaming cell %s to %s in module %s.\n", cell_to_rename, to_name, module);
 		module->rename(cell_to_rename, to_name);
 		return;
 	}
@@ -518,7 +518,7 @@ struct RenamePass : public Pass {
 			if (module == nullptr)
 				log_cmd_error("No top module found!\n");
 
-			log("Renaming module %s to %s.\n", log_id(module), log_id(new_name));
+			log("Renaming module %s to %s.\n", module, new_name.unescape());
 			design->rename(module, new_name);
 		}
 		else
@@ -532,7 +532,7 @@ struct RenamePass : public Pass {
 			for (auto module : design->selected_modules())
 			{
 				if (module->memories.size() != 0 || module->processes.size() != 0) {
-					log_warning("Skipping module %s with unprocessed memories or processes\n", log_id(module));
+					log_warning("Skipping module %s with unprocessed memories or processes\n", module);
 					continue;
 				}
 

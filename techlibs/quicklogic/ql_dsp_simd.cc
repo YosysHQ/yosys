@@ -150,13 +150,13 @@ struct QlDspSimdPass : public Pass {
 					// Create the new cell
 					Cell *simd = module->addCell(NEW_ID, m_SimdDspType);
 
-					log(" SIMD: %s (%s) + %s (%s) => %s (%s)\n", log_id(dsp_a), log_id(dsp_a->type),
-						log_id(dsp_b), log_id(dsp_b->type), log_id(simd), log_id(simd->type));
+					log(" SIMD: %s (%s) + %s (%s) => %s (%s)\n", dsp_a, dsp_a->type.unescape(),
+						dsp_b, dsp_b->type.unescape(), simd, simd->type.unescape());
 
 					// Check if the target cell is known (important to know
 					// its port widths)
 					if (!simd->known())
-						log_error(" The target cell type '%s' is not known!", log_id(simd));
+						log_error(" The target cell type '%s' is not known!", simd);
 
 					// Connect common ports
 					for (const auto &it : m_DspCfgPorts)

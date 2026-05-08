@@ -467,7 +467,7 @@ struct XpropWorker
 			return;
 		}
 
-		log_warning("Unhandled cell %s (%s) during maybe-x marking\n", log_id(cell), log_id(cell->type));
+		log_warning("Unhandled cell %s (%s) during maybe-x marking\n", cell, cell->type.unescape());
 		mark_outputs_maybe_x(cell);
 	}
 
@@ -862,7 +862,7 @@ struct XpropWorker
 
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {
 				if (ff.has_clk && maybe_x(ff.sig_clk)) {
-					log_warning("Only non-x CLK inputs are currently supported for %s (%s)\n", log_id(cell), log_id(cell->type));
+					log_warning("Only non-x CLK inputs are currently supported for %s (%s)\n", cell, cell->type.unescape());
 				} else {
 					auto init_q = ff.val_init;
 					auto init_q_is_1 = init_q;
@@ -907,7 +907,7 @@ struct XpropWorker
 					return;
 				}
 			} else {
-				log_warning("Unhandled FF-cell %s (%s), consider running clk2fflogic, async2sync and/or dffunmap\n", log_id(cell), log_id(cell->type));
+				log_warning("Unhandled FF-cell %s (%s), consider running clk2fflogic, async2sync and/or dffunmap\n", cell, cell->type.unescape());
 			}
 		}
 
@@ -964,9 +964,9 @@ struct XpropWorker
 			log("Running 'demuxmap' preserves x-propagation and can be run before 'xprop'.\n");
 
 		if (options.required)
-			log_error("Unhandled cell %s (%s)\n", log_id(cell), log_id(cell->type));
+			log_error("Unhandled cell %s (%s)\n", cell, cell->type.unescape());
 		else
-			log_warning("Unhandled cell %s (%s)\n", log_id(cell), log_id(cell->type));
+			log_warning("Unhandled cell %s (%s)\n", cell, cell->type.unescape());
 	}
 
 	void split_ports()
@@ -980,7 +980,7 @@ struct XpropWorker
 			auto wire = module->wire(port);
 			if (module->design->selected(module, wire)) {
 				if (wire->port_input == wire->port_output) {
-					log_warning("Port %s not an input or an output port which is not supported by xprop\n", log_id(wire));
+					log_warning("Port %s not an input or an output port which is not supported by xprop\n", wire);
 				} else if ((options.split_inputs && !options.assume_def_inputs && wire->port_input) || (options.split_outputs && wire->port_output)) {
 					auto port_d = module->uniquify(stringf("%s_d", port));
 					auto port_x = module->uniquify(stringf("%s_x", port));

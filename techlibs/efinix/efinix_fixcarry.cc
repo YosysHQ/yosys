@@ -65,7 +65,7 @@ static void fix_carry_chain(Module *module)
 				continue;
 
 			adders_to_fix_cells.push_back(cell);
-			log("Found %s cell named %s with invalid CI signal.\n", log_id(cell->type), log_id(cell));
+			log("Found %s cell named %s with invalid CI signal.\n", cell->type.unescape(), cell);
 		}
 	}
 
@@ -74,7 +74,7 @@ static void fix_carry_chain(Module *module)
 		SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
-		log("Fixing %s cell named %s breaking carry chain.\n", log_id(cell->type), log_id(cell));
+		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescape(), cell);
 		Cell *c = module->addCell(NEW_ID, ID(EFX_ADD));
 		SigBit new_bit = module->addWire(NEW_ID);
 		c->setParam(ID(I0_POLARITY), State::S1);

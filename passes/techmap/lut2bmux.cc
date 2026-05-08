@@ -49,7 +49,7 @@ struct Lut2BmuxPass : public Pass {
 				cell->setPort(ID::A, cell->getParam(ID::LUT));
 				cell->unsetParam(ID::LUT);
 				cell->fixup_parameters();
-				log("Converted %s.%s to BMUX cell.\n", log_id(module), log_id(cell));
+				log("Converted %s.%s to BMUX cell.\n", module, cell);
 			}
 		}
 	}
