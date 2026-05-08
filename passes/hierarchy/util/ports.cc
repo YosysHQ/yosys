@@ -24,6 +24,29 @@
 YOSYS_NAMESPACE_BEGIN
 namespace Hierarchy {
 
+	std::pair<Module*, bool> derive_blackbox_dynports(Module* module, Cell* cell, Design* design, ModuleSet& blackbox_derivatives) {
+		bool boxed_params = false;
+
+		if (!module->get_blackbox_attribute() || cell->parameters.empty()) {
+			return {module, boxed_params};
+		}
+
+		if (module->get_bool_attribute(ID::dynports)) {
+			IdString new_m_ref = module->derive(design, cell->parameters, true);
+
+			if (new_m_ref == IdString{})
+				return {nullptr, boxed_params};
+			if (new_m_ref != module->name) {
+				module = design->module(new_m_ref);
+				blackbox_derivatives.insert(module);
+			}
+		} else {
+			boxed_params = true;
+		}
+
+		return {module, boxed_params};
+	}
+
 	void check_and_adjust_ports(Module* module, ModuleSet& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific) {
 		Design* design = module->design;
 
@@ -34,68 +57,58 @@ namespace Hierarchy {
 			if (m == nullptr)
 				continue;
 
-			bool boxed_params = false;
-			if (m->get_blackbox_attribute() && !cell->parameters.empty()) {
-				if (m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_ref = m->derive(design, cell->parameters, true);
-					if (new_m_ref == IdString{})
-						continue;
-					if (new_m_ref != m->name) {
-						m = design->module(new_m_ref);
-						blackbox_derivatives.insert(m);
-					}
-				} else {
-					boxed_params = true;
-				}
-			}
+			auto [derived_m, boxed_params] = derive_blackbox_dynports(m, cell, design, blackbox_derivatives);
+			if (derived_m == nullptr)
+				continue;
+			m = derived_m;
 
-			for (auto &conn : cell->connections())
+			for (const auto& [port, sig] : cell->connections())
 			{
-				Wire *w = m->wire(conn.first);
+				Wire *w = m->wire(port);
 
 				if (w == nullptr || w->port_id == 0)
 					continue;
 
-				if (GetSize(conn.second) == 0)
+				if (GetSize(sig) == 0)
 					continue;
 
-				SigSpec sig = conn.second;
+				SigSpec conn_sig = sig;
 
-				bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(conn.second);
+				bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(sig);
 				if (resize_widths && top_is_from_verific && boxed_params)
-					log_debug("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
-							module, cell, PooledName(design, conn.first).unescape()
+					log_debug("Ignoring width mismatch on %s.%s.%s from verific\n",
+							module, cell, PooledName(design, port).unescape()
 					);
 				else if (resize_widths) {
-					if (GetSize(w) < GetSize(conn.second))
+					if (GetSize(w) < GetSize(sig))
 					{
-						int n = GetSize(conn.second) - GetSize(w);
+						int n = GetSize(sig) - GetSize(w);
 						if (!w->port_input && w->port_output)
 						{
-							RTLIL::SigSpec out = sig.extract(0, GetSize(w));
-							out.extend_u0(GetSize(sig), w->is_signed);
-							module->connect(sig.extract(GetSize(w), n), out.extract(GetSize(w), n));
+							RTLIL::SigSpec out = conn_sig.extract(0, GetSize(w));
+							out.extend_u0(GetSize(conn_sig), w->is_signed);
+							module->connect(conn_sig.extract(GetSize(w), n), out.extract(GetSize(w), n));
 						}
-						sig.remove(GetSize(w), n);
+						conn_sig.remove(GetSize(w), n);
 					}
 					else
 					{
-						int n = GetSize(w) - GetSize(conn.second);
+						int n = GetSize(w) - GetSize(sig);
 						if (w->port_input && !w->port_output)
-							sig.extend_u0(GetSize(w), sig.is_wire() && sig.as_wire()->is_signed);
+							conn_sig.extend_u0(GetSize(w), conn_sig.is_wire() && conn_sig.as_wire()->is_signed);
 						else
-							sig.append(module->addWire(NEW_ID, n));
+							conn_sig.append(module->addWire(NEW_ID, n));
 					}
 
-					if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
+					if (!sig.is_fully_const() || !w->port_input || w->port_output)
 						log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", module, cell,
-								PooledName(design, conn.first).unescape(), GetSize(conn.second), GetSize(sig));
-					cell->setPort(conn.first, sig);
+								PooledName(design, port).unescape(), GetSize(sig), GetSize(conn_sig));
+					cell->setPort(port, conn_sig);
 				}
 
-				if (w->port_output && !w->port_input && sig.has_const())
+				if (w->port_output && !w->port_input && conn_sig.has_const())
 					log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
-							module, cell, PooledName(design, conn.first).unescape(), cell->type.unescape(), log_signal(sig));
+							module, cell, PooledName(design, port).unescape(), cell->type.unescape(), log_signal(conn_sig));
 			}
 		}
 	}
