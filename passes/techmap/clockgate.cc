@@ -187,30 +187,33 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	return std::make_pair(pos, neg);
 }
 
-static double return_default_activity(IdString attr) {
+static double get_cell_activity(Cell *cell, IdString pin, IdString attr) {
+	const char *name = pin.c_str();
+	if (name[0] == '\\') name++; // remove any backslash prefix
+	std::string prefix = std::string(name) + "="; // prefix for pin (A=0.5)
+
+	// Full string attribute value from the cell.
+	std::string attribute = cell->get_string_attribute(attr);
+	std::istringstream iss(attribute);
+	for (std::string tok; iss >> tok; )
+		if (tok.compare(0, prefix.size(), prefix) == 0)
+			return atof(tok.c_str() + prefix.size());
+
+	// Unable to find any corresponding value, return default
 	return (attr == ID($DUTY)) ? 1.0 : 0.0;
 }
 
-// Returns the activity/duty of a bit for a given signal.
-static double get_bit_activity(SigMap &sigmap, SigBit bit, IdString attr) {
-	SigBit sigbit = sigmap(bit);
-
-	// Special case for constants
-	if (bit == State::S1) return return_default_activity(attr);
-	if (bit == State::S0) return 0.0;
-
-	// Special case for undefined wires
-	if (!sigbit.wire) return return_default_activity(attr);
-
-	// Get the activity/duty from the wire's string attribute
-	std::istringstream iss(sigbit.wire->get_string_attribute(attr));
-	std::string tok;
-	for (int i = 0; i <= sigbit.offset; i++) {
-		if (i == sigbit.offset) return atof(tok.c_str()); // found activity/duty for the bit
+static void update_ff_activity_attr(Cell *cell, IdString attr_key, double new_clk_value) {
+	std::string out;
+	std::istringstream iss(cell->get_string_attribute(attr_key));
+	for (std::string tok; iss >> tok; ) {
+		if (tok.compare(0, 3, "EN=") == 0) continue; // remove EN from attribute
+		if (tok.compare(0, 4, "CLK=") == 0)
+			out += stringf("CLK=%f ", new_clk_value); // Update CLK value
+		else
+			out += tok + " "; // All other values remain unchanged
 	}
-
-	// Case that activity/duty not found
-	return return_default_activity(attr);
+	cell->set_string_attribute(attr_key, out);
 }
 
 struct ClockgatePass : public Pass {
@@ -293,6 +296,12 @@ struct ClockgatePass : public Pass {
 		int src_count = 0;
 		// Total sum of disabled FFs on a clock net
 		double en_disabled_sum = 0;
+		// Used to set activity/duty attributes of the gated clock net
+		bool activity_set = false;
+		double gclk_duty = 0.0;
+		double gclk_ackt = 0.0;
+		// FF on the clock net used to read activity/duty attributes
+		Cell* representative_ff = nullptr;
 	};
 
 	ClkNetInfo clk_info_from_ff(FfData& ff) {
@@ -411,10 +420,12 @@ struct ClockgatePass : public Pass {
 					// Gated clock info
 					auto &gclk_info = clk_nets[info];
 					gclk_info.net_size++;
+					if (!gclk_info.representative_ff)
+						gclk_info.representative_ff = cell;
 					if (use_disabled_threshold) {
 
 						// Calculate the duty cycle of the enable signal.
-						double ce_duty = get_bit_activity(sigmap, info.ce_bit, ID($DUTY));
+						double ce_duty = get_cell_activity(cell, ID(EN), ID($DUTY));
 						double ce_active_frac = info.pol_ce ? ce_duty : (1.0 - ce_duty);
 
 						// Fraction of time this FF is disabled (CE not asserted).
@@ -453,23 +464,30 @@ struct ClockgatePass : public Pass {
 
 				// If disabled threshold is used, calculate the activity/duty of the gated clock.
 				if (use_disabled_threshold) {
-					double clk_duty = get_bit_activity(sigmap, clk.clk_bit, ID($DUTY));
-					double ce_duty = get_bit_activity(sigmap, clk.ce_bit, ID($DUTY));
-					double clk_activity = get_bit_activity(sigmap, clk.clk_bit, ID($ACKT));
-					double ce_activity = get_bit_activity(sigmap, clk.ce_bit, ID($ACKT));
+					Cell* rep = gclk.representative_ff;
+					double clk_duty = get_cell_activity(rep, ID(CLK), ID($DUTY));
+					double ce_duty = get_cell_activity(rep, ID(EN), ID($DUTY));
+					double clk_activity = get_cell_activity(rep, ID(CLK), ID($ACKT));
+					double ce_activity = get_cell_activity(rep, ID(EN), ID($ACKT));
+					double ce_active_frac = clk.pol_ce ? ce_duty : (1.0 - ce_duty);
 
 					// Calculate the duty and activity of the gated clock.
-					double gclk_duty = clk_duty * ce_duty;
+					double gclk_duty = clk_duty * ce_active_frac;
 					double gclk_ackt = clk_activity * ce_activity;
 
-					// Set new activity/duty attributes
-					gclk.new_net->set_string_attribute(ID($DUTY),
-						stringf("%f", gclk_duty));
-					gclk.new_net->set_string_attribute(ID($ACKT),
-						stringf("%f", gclk_ackt));
-
-					// Set fanout to 1 for the ICG
+					// Set cell attributes for the new ICG
 					icg->set_string_attribute(ID($FANOUT), "1");
+					icg->set_string_attribute(ID($ACKT),
+						stringf("CLK=%f EN=%f SE=0.0 GCLK=%f",
+										clk_activity, ce_activity, gclk_ackt));
+					icg->set_string_attribute(ID($DUTY),
+						stringf("CLK=%f EN=%f SE=0.0 GCLK=%f",
+										clk_duty, ce_duty, gclk_duty));
+					
+					// Set for use in FF annotation
+					gclk.gclk_duty = gclk_duty;
+					gclk.gclk_ackt = gclk_ackt;
+					gclk.activity_set = true;
 				}
 
 				gclk.icg_cell = icg;
@@ -529,6 +547,13 @@ struct ClockgatePass : public Pass {
 				// Rebuild the flop
 				Cell *new_ff = ff.emit();
 				new_ff->set_bool_attribute(ID::is_clock_gated);
+
+				// Update the flop with new activity/duty attributes
+				if (it->second.activity_set) {
+					auto &g = it->second;
+					update_ff_activity_attr(new_ff, ID($DUTY), g.gclk_duty);
+					update_ff_activity_attr(new_ff, ID($ACKT), g.gclk_ackt);
+				}
 
 				gated_flop_count++;
 			}
