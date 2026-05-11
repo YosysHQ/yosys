@@ -310,7 +310,7 @@ The port clock is always provided on the memory cell as `PORT_<name>_CLK` signal
 (even if it is also shared).  Shared clocks are also provided as `CLK_<shared_name>`
 signals.
 
-For `anyedge` clocks, the cell gets a `PORT_<name>_CLKPOL` parameter that is set
+For `anyedge` clocks, the cell gets a `PORT_<name>_CLK_POL` parameter that is set
 to 1 for `posedge` clocks and 0 for `negedge` clocks.  If the clock is shared,
 the same information will also be provided as `CLK_<shared_name>_POL` parameter.
 
