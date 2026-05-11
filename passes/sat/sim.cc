@@ -658,8 +658,11 @@ struct SimInstance
 		if (cell->type == ID($print))
 			return;
 
-		if (shared->blackbox_children)
-			return;
+		if (shared->blackbox_children) {
+			Module *m = module->design->module(cell->type);
+			if (m && (m->get_blackbox_attribute(true) || shared->instance_root_modules.count(m->name)))
+				return;
+		}
 
 		log_error("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 	}
@@ -1446,12 +1449,12 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void register_output_step(int t)
+	void register_output_step(int time)
 	{
 		std::map<int,Const> data;
-		for (auto top : tops)
-			top->register_output_step_values(&data);
-		output_data.emplace_back(t, data);
+		for (auto t : tops)
+			t->register_output_step_values(&data);
+		output_data.emplace_back(time, data);
 	}
 
 	void write_output_files()
@@ -1475,8 +1478,8 @@ struct SimWorker : SimShared
 
 		if (writeback) {
 			pool<Module*> wbmods;
-			for (auto top : tops)
-				top->writeback(wbmods);
+			for (auto t : tops)
+				t->writeback(wbmods);
 		}
 	}
 
@@ -1484,49 +1487,49 @@ struct SimWorker : SimShared
 	{
 		if (gclk)
 			step += 1;
-		
-		for (auto top : tops) {
+
+		for (auto t : tops) {
 			while (1)
 			{
 				if (debug)
 					log("\n-- ph1 --\n");
 
-				top->update_ph1();
+				t->update_ph1();
 
 				if (debug)
 					log("\n-- ph2 --\n");
 
-				if (!top->update_ph2(gclk))
+				if (!t->update_ph2(gclk))
 					break;
 			}
 
 			if (debug)
 				log("\n-- ph3 --\n");
 
-			top->update_ph3(gclk);
+			t->update_ph3(gclk);
 		}
 	}
 
 	void initialize_stable_past()
 	{
-		for (auto top : tops) {
+		for (auto t : tops) {
 			while (1)
 			{
 				if (debug)
 					log("\n-- ph1 (initialize) --\n");
 
-				top->update_ph1();
+				t->update_ph1();
 
 				if (debug)
 					log("\n-- ph2 (initialize) --\n");
 
-				if (!top->update_ph2(false, true))
+				if (!t->update_ph2(false, true))
 					break;
 			}
 
 			if (debug)
 				log("\n-- ph3 (initialize) --\n");
-			top->update_ph3(true);
+			t->update_ph3(true);
 		}
 	}
 
@@ -1547,7 +1550,7 @@ struct SimWorker : SimShared
 	{
 		log_assert(tops.empty());
 		tops.push_back(new SimInstance(this, scope, topmod));
-		top = tops.back();
+		top = tops.front();
 		register_signals();
 
 		if (debug)
@@ -1640,7 +1643,7 @@ struct SimWorker : SimShared
 			log("Using scope: \"%s\"\n", scope.c_str());
 
 			tops.push_back(new SimInstance(this, scope, topmod));
-			top = tops.back();
+			top = tops.front();
 
 			for (auto portname : clock)
 			{
@@ -1748,11 +1751,13 @@ struct SimWorker : SimShared
 					fst->getTimescaleString());
 			// Apply per-cycle FST values to every root
 			bool did_something = false;
-			for (auto t : tops) if (t->setInputs()) did_something = true;
+			for (auto t : tops)
+				did_something |= t->setInputs();
 
 			if (initial) {
 				if (!fst_noinit)
-					for (auto t : tops) if (t->setInitState()) did_something = true;
+					for (auto t : tops)
+						did_something |= t->setInitState();
 				initialize_stable_past();
 				initial = false;
 			}
@@ -1762,7 +1767,8 @@ struct SimWorker : SimShared
 			// Override register state from VCD every cycle
 			if (reg_overwrite) {
 				bool diverged = false;
-				for (auto t : tops) if (t->setRegisters(time)) diverged = true;
+				for (auto t : tops)
+					diverged |= t->setRegisters(time);
 				if (diverged) update(true);
 			}
 
@@ -1770,8 +1776,10 @@ struct SimWorker : SimShared
 			last_time = time;
 
 			bool status = false;
-			for (auto t : tops) status |= t->checkSignals();
-			if (status) log_error("Signal difference\n");
+			for (auto t : tops)
+				status |= t->checkSignals();
+			if (status)
+				log_error("Signal difference\n");
 			cycle++;
 		});
 
@@ -1808,7 +1816,7 @@ struct SimWorker : SimShared
 			log_error("For multiclock witness there should be no clock signal.\n");
 
 		tops.push_back(new SimInstance(this, scope, topmod));
-		top = tops.back();
+		top = tops.front();
 		register_signals();
 
 		std::ifstream mf(map_filename);
@@ -1963,7 +1971,7 @@ struct SimWorker : SimShared
 		int state = 0;
 		int cycle = 0;
 		tops.push_back(new SimInstance(this, scope, topmod));
-		top = tops.back();
+		top = tops.front();
 		register_signals();
 		int prev_cycle = 0;
 		int curr_cycle = 0;
@@ -2214,7 +2222,7 @@ struct SimWorker : SimShared
 		ReadWitness yw(sim_filename);
 
 		tops.push_back(new SimInstance(this, scope, topmod));
-		top = tops.back();
+		top = tops.front();
 		register_signals();
 
 		YwHierarchy hierarchy = prepare_yw_hierarchy(yw);
@@ -2556,7 +2564,7 @@ struct VCDWriter : public OutputWriter
 			vcdfile << stringf("$timescale 1%s $end\n", worker->timescale);
 
 		// VCD writer emits one root subtree per top
-		for (auto top : worker->tops) top->write_output_header(
+		for (auto t : worker->tops) t->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
 			[this,&use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
@@ -2750,10 +2758,10 @@ struct AnnotateActivity : public OutputWriter {
 		double frequency = 1.0 / clk_period;
 		std::stringstream ss;
 		ss << std::setprecision(4) << real_timescale;
-		for (auto top : worker->tops) {
-			top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
-			top->module->set_string_attribute("$DURATION", std::to_string(max_time));
-			top->module->set_string_attribute("$TIMESCALE", ss.str());
+		for (auto t : worker->tops) {
+			t->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
+			t->module->set_string_attribute("$DURATION", std::to_string(max_time));
+			t->module->set_string_attribute("$TIMESCALE", ss.str());
 		}
 		if (worker->debug) {
 			log_debug("Max time: %d", max_time);
@@ -2764,7 +2772,7 @@ struct AnnotateActivity : public OutputWriter {
 		double totalDuty = 0.0f;
 
 		// TODO make this debug code less messy and more readable.
-		for (auto top : worker->tops) top->write_output_header(
+		for (auto t : worker->tops) t->write_output_header(
 		  [&](IdString name) {
 			  if (worker->debug)
 				  log_debug("module %s", log_id(name));
@@ -2852,8 +2860,8 @@ struct FSTWriter : public OutputWriter
 
 		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
 		fstWriterSetRepackOnClose(fstfile, 1);
-	   
-		for (auto top : worker->tops) top->write_output_header(
+
+		for (auto t : worker->tops) t->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
 			[this,&use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
@@ -3347,7 +3355,9 @@ struct SimPass : public Pass {
 				worker.blackbox_children = true;
 				continue;
 			}
-			// -instance <module>:<scope>: register a multi-root spec; resolved to Module* below
+			// -instance <module>:<scope>: register a multi-root spec; resolved to Module* below.
+			// Split on the last ':' so that hierarchical scopes (which use '.' as separator)
+			// are kept intact in the scope half.
 			if (args[argidx] == "-instance" && argidx+1 < args.size()) {
 				std::string spec = args[++argidx];
 				size_t pos = spec.find_last_of(':');
