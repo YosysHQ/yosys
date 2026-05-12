@@ -200,6 +200,8 @@ static double get_cell_activity(Cell *cell, IdString pin, IdString attr) {
 			return atof(tok.c_str() + prefix.size());
 
 	// Unable to find any corresponding value, return default
+	log_warning("Unable to find attribute %s on pin %s on cell %s",
+		attr.c_str(), pin.c_str(), cell->name.c_str());
 	return (attr == ID($DUTY)) ? 1.0 : 0.0;
 }
 
@@ -472,7 +474,7 @@ struct ClockgatePass : public Pass {
 
 					// Calculate the duty and activity of the gated clock.
 					double gclk_duty = clk_duty * ce_active_frac;
-					double gclk_ackt = clk_activity * ce_activity;
+					double gclk_ackt = clk_activity * ce_active_frac;
 
 					// Set cell attributes for the new ICG
 					icg->set_string_attribute(ID($FANOUT), "1");
