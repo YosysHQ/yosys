@@ -1,3 +1,4 @@
+#include "kernel/yosys_config.h"
 #ifdef YOSYS_ENABLE_TCL
 
 #include "kernel/register.h"

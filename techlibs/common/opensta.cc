@@ -5,7 +5,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 struct OpenstaPass : public Pass
 {
 	OpenstaPass() : Pass("opensta", "run OpenSTA") { }

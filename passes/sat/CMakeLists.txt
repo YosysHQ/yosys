@@ -1,0 +1,74 @@
+yosys_pass(sat
+	sat.cc
+)
+yosys_pass(freduce
+	freduce.cc
+)
+yosys_pass(eval
+	eval.cc
+)
+yosys_pass(sim
+	sim.cc
+	REQUIRES
+		fstdata
+	PROVIDES
+		fst2tb
+)
+yosys_pass(miter
+	miter.cc
+	REQUIRES
+		flatten
+		opt_expr
+)
+yosys_pass(expose
+	expose.cc
+)
+yosys_pass(assertpmux
+	assertpmux.cc
+)
+yosys_pass(clk2fflogic
+	clk2fflogic.cc
+	REQUIRES
+		chformal
+		peepopt
+)
+yosys_pass(async2sync
+	async2sync.cc
+	REQUIRES
+		chformal
+)
+yosys_pass(formalff
+	formalff.cc
+)
+yosys_pass(supercover
+	supercover.cc
+)
+yosys_pass(fmcombine
+	fmcombine.cc
+)
+yosys_pass(mutate
+	mutate.cc
+)
+yosys_pass(cutpoint
+	cutpoint.cc
+)
+yosys_pass(fminit
+	fminit.cc
+)
+yosys_pass(recover_names
+	recover_names.cc
+	REQUIRES
+		flatten
+)
+yosys_pass(qbfsat
+	qbfsat.cc
+	REQUIRES
+		abc
+		opt
+		techmap
+	ENABLE_IF
+		YOSYS_ENABLE_SPAWN
+)
+yosys_pass(synthprop
+	synthprop.cc
+)

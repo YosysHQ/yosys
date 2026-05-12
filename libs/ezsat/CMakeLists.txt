@@ -1,0 +1,16 @@
+yosys_core(ezsat
+	ezsat.cc
+	ezsat.h
+	ezminisat.cc
+	ezminisat.h
+	ezcmdline.cc
+	ezcmdline.h
+	REQUIRES
+		minisat
+	DATA_DIR
+		include/libs/ezsat
+	DATA_FILES
+		ezsat.h
+		ezminisat.h
+		ezcmdline.h
+)
