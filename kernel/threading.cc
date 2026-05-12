@@ -45,9 +45,12 @@ int ThreadPool::pool_size(int reserved_cores, int max_worker_threads)
 #ifdef YOSYS_ENABLE_THREADS
 	int available_threads = std::min<int>(std::thread::hardware_concurrency(), get_max_threads());
 	int num_threads = std::min(available_threads - reserved_cores, max_worker_threads);
-        return std::max(0, num_threads);
+	return std::max(0, num_threads);
 #else
-        return 0;
+	(void)reserved_cores;
+	(void)max_worker_threads;
+	(void)get_max_threads();
+	return 0;
 #endif
 }
 
@@ -146,6 +149,8 @@ void ParallelDispatchThreadPool::run_worker(int thread_num)
 		signal_worker_done();
 	}
 	signal_worker_done();
+#else
+	(void)current_work;
 #endif
 }
 

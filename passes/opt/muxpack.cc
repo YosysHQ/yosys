@@ -263,7 +263,6 @@ struct MuxpackWorker
 			int cases = GetSize(chain) - cursor;
 
 			Cell *first_cell = chain[cursor];
-			dict<int, SigBit> taps_dict;
 
 			if (cases < 2) {
 				cursor++;

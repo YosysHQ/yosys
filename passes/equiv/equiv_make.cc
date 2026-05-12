@@ -79,6 +79,7 @@ struct EquivMakeWorker
 
 				if (token == ".fsm") {
 					IdString modname = RTLIL::escape_id(next_token(line));
+					(void)modname;
 					IdString signame = RTLIL::escape_id(next_token(line));
 					if (encdata.count(signame))
 						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", signame, fn);
