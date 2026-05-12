@@ -3,6 +3,7 @@
 #include "kernel/gzip.h"
 #include "libparse.h"
 #include <optional>
+#include <sstream>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -186,6 +187,38 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	return std::make_pair(pos, neg);
 }
 
+static double get_cell_activity(Cell *cell, IdString pin, IdString attr) {
+	const char *name = pin.c_str();
+	if (name[0] == '\\') name++; // remove any backslash prefix
+	std::string prefix = std::string(name) + "="; // prefix for pin (A=0.5)
+
+	// Full string attribute value from the cell.
+	std::string attribute = cell->get_string_attribute(attr);
+	std::istringstream iss(attribute);
+	for (std::string tok; iss >> tok; )
+		if (tok.compare(0, prefix.size(), prefix) == 0)
+			return atof(tok.c_str() + prefix.size());
+
+	// Unable to find any corresponding value, return default
+	log_warning("Unable to find attribute %s on pin %s on cell %s",
+		attr.c_str(), pin.c_str(), cell->name.c_str());
+	return (attr == ID($DUTY)) ? 1.0 : 0.0;
+}
+
+static void update_ff_activity_attr(Cell *cell, IdString attr_key, double new_clk_value) {
+	std::string out;
+	std::istringstream iss(cell->get_string_attribute(attr_key));
+	for (std::string tok; iss >> tok; ) {
+		if (tok.compare(0, 3, "EN=") == 0) continue; // remove EN from attribute
+		if (!out.empty()) out += " ";
+		if (tok.compare(0, 4, "CLK=") == 0)
+			out += stringf("CLK=%f", new_clk_value); // Update CLK value
+		else
+			out += tok; // All other values remain unchanged
+	}
+	cell->set_string_attribute(attr_key, out);
+}
+
 struct ClockgatePass : public Pass {
 	ClockgatePass() : Pass("clockgate", "extract clock gating out of flip flops") { }
 	void help() override {
@@ -222,6 +255,8 @@ struct ClockgatePass : public Pass {
 		log("        Intended for DFT scan-enable pins.\n");
 		log("    -min_net_size <n>\n");
 		log("        Only transform sets of at least <n> eligible FFs.\n");
+		log("    -min_disabled_threshold <f>\n");
+		log("        Only transform sets of FFs where the total sum of disabled FFs is greater than <f>.\n");
 		log("    -max_src <n>\n");
 		log("        Maximum number of src attributes to copy to ICG cells (default: unlimited).\n");
 		log("    -word\n");
@@ -262,6 +297,14 @@ struct ClockgatePass : public Pass {
 		Cell* ce_not_cell = nullptr;
 		// Count of src attributes added
 		int src_count = 0;
+		// Total sum of disabled FFs on a clock net
+		double en_disabled_sum = 0;
+		// Used to set activity/duty attributes of the gated clock net
+		bool activity_set = false;
+		double gclk_duty = 0.0;
+		double gclk_ackt = 0.0;
+		// FF on the clock net used to read activity/duty attributes
+		Cell* representative_ff = nullptr;
 	};
 
 	ClkNetInfo clk_info_from_ff(FfData& ff) {
@@ -280,9 +323,10 @@ struct ClockgatePass : public Pass {
 		std::vector<std::string> liberty_files;
 		std::vector<std::string> dont_use_cells;
 		int min_net_size = 0;
+		double min_disabled_threshold = -1;
+		bool use_disabled_threshold = false;
 		int max_src = -1;
 		bool word_level = false;
-
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-pos" && argidx+2 < args.size()) {
@@ -311,6 +355,11 @@ struct ClockgatePass : public Pass {
 			}
 			if (args[argidx] == "-min_net_size" && argidx+1 < args.size()) {
 				min_net_size = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-min_disabled_threshold" && argidx+1 < args.size()) {
+				min_disabled_threshold = atof(args[++argidx].c_str());
+				use_disabled_threshold = true;
 				continue;
 			}
 			if (args[argidx] == "-max_src" && argidx+1 < args.size()) {
@@ -368,7 +417,22 @@ struct ClockgatePass : public Pass {
 					auto it = clk_nets.find(info);
 					if (it == clk_nets.end())
 						clk_nets[info] = GClkNetInfo();
-					clk_nets[info].net_size++;
+
+					// Gated clock info
+					auto &gclk_info = clk_nets[info];
+					gclk_info.net_size++;
+					if (!gclk_info.representative_ff)
+						gclk_info.representative_ff = cell;
+					if (use_disabled_threshold) {
+
+						// Calculate the duty cycle of the enable signal.
+						double ce_duty = get_cell_activity(cell, ID(EN), ID($DUTY));
+						double ce_active_frac = info.pol_ce ? ce_duty : (1.0 - ce_duty);
+
+						// Fraction of time this FF is disabled (CE not asserted).
+						double disabled_frac = 1.0 - ce_active_frac;
+						gclk_info.en_disabled_sum += disabled_frac;
+					}
 				}
 			}
 
@@ -376,11 +440,14 @@ struct ClockgatePass : public Pass {
 				auto& clk = clk_net.first;
 				auto& gclk = clk_net.second;
 
-				if (gclk.net_size < min_net_size)
+				// Check if the clock net qualifies for clock gating.
+				bool qualifies = use_disabled_threshold
+					? (gclk.en_disabled_sum >= min_disabled_threshold)
+					: (gclk.net_size >= min_net_size);
+				if (!qualifies)
 					continue;
 
 				std::optional<ClockGateCell> matching_icg_desc;
-
 				if (pos_icg_desc && clk.pol_clk)
 					matching_icg_desc = pos_icg_desc;
 				else if (neg_icg_desc && !clk.pol_clk)
@@ -389,11 +456,41 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
+				// Create ICG cell
 				Cell* cell = *ce_ffs.begin();
 				Cell* icg = module->addCell(NEW_ID2_SUFFIX("icg"), matching_icg_desc->name);
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_ID2_SUFFIX("gclk"));
+
+				// If disabled threshold is used, calculate the activity/duty of the gated clock.
+				if (use_disabled_threshold) {
+					Cell* rep = gclk.representative_ff;
+					double clk_duty = get_cell_activity(rep, ID(CLK), ID($DUTY));
+					double ce_duty = get_cell_activity(rep, ID(EN), ID($DUTY));
+					double clk_activity = get_cell_activity(rep, ID(CLK), ID($ACKT));
+					double ce_activity = get_cell_activity(rep, ID(EN), ID($ACKT));
+					double ce_active_frac = clk.pol_ce ? ce_duty : (1.0 - ce_duty);
+
+					// Calculate the duty and activity of the gated clock.
+					double gclk_duty = clk_duty * ce_active_frac;
+					double gclk_ackt = clk_activity * ce_active_frac;
+
+					// Set cell attributes for the new ICG
+					icg->set_string_attribute(ID($FANOUT), "1");
+					icg->set_string_attribute(ID($ACKT),
+						stringf("CLK=%f EN=%f SE=0.0 GCLK=%f",
+										clk_activity, ce_activity, gclk_ackt));
+					icg->set_string_attribute(ID($DUTY),
+						stringf("CLK=%f EN=%f SE=0.0 GCLK=%f",
+										clk_duty, ce_duty, gclk_duty));
+					
+					// Set for use in FF annotation
+					gclk.gclk_duty = gclk_duty;
+					gclk.gclk_ackt = gclk_ackt;
+					gclk.activity_set = true;
+				}
+
 				gclk.icg_cell = icg;
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
@@ -417,6 +514,10 @@ struct ClockgatePass : public Pass {
 					}
 					gclk.ce_not_cell = ce_not;
 					icg->setPort(matching_icg_desc->ce_pin, ce_not_wire);
+
+					if (use_disabled_threshold) { // set fanout of CE inverter
+						ce_not->set_string_attribute(ID($FANOUT), "1");
+					}
 				}
 			}
 
@@ -448,13 +549,20 @@ struct ClockgatePass : public Pass {
 				Cell *new_ff = ff.emit();
 				new_ff->set_bool_attribute(ID::is_clock_gated);
 
+				// Update the flop with new activity/duty attributes
+				if (it->second.activity_set) {
+					auto &g = it->second;
+					update_ff_activity_attr(new_ff, ID($DUTY), g.gclk_duty);
+					update_ff_activity_attr(new_ff, ID($ACKT), g.gclk_ackt);
+				}
+
 				gated_flop_count++;
 			}
 			ce_ffs.clear();
 			clk_nets.clear();
 		}
 
-		log("Converted %d FFs.\n", gated_flop_count);
+		log("Converted %d FFs using %s.\n", gated_flop_count, use_disabled_threshold ? "disabled threshold" : "net size");
     }
 } ClockgatePass;
 
