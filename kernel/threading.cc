@@ -66,11 +66,11 @@ ThreadPool::ThreadPool(int pool_size, std::function<void(int)> b)
 	: body(std::move(b))
 {
 #ifdef YOSYS_ENABLE_THREADS
-        threads.reserve(pool_size);
-        for (int i = 0; i < pool_size; i++)
-                threads.emplace_back([i, this]{ body(i); });
+	threads.reserve(pool_size);
+	for (int i = 0; i < pool_size; i++)
+		threads.emplace_back([i, this]{ body(i); });
 #else
-        (void)pool_size;
+	(void)pool_size;
 #endif
 }
 
