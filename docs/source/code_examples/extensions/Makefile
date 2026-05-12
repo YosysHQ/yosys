@@ -7,11 +7,8 @@ all: dots examples
 dots: test1.dot my_cmd.so
 examples: test0.log test1.log test2.log my_cmd.so
 
-CXXFLAGS=$(shell $(YOSYS)-config --cxxflags)
-DATDIR=$(shell $(YOSYS)-config --datdir)
-
 my_cmd.so: my_cmd.cc
-	$(YOSYS)-config --exec --cxx $(subst $(DATDIR),../../../../share,$(CXXFLAGS)) --ldflags -o my_cmd.so -shared my_cmd.cc --ldlibs
+	$(YOSYS)-config --exec --cxx --cxxflags --ldflags -o my_cmd.so -shared my_cmd.cc --ldlibs
 
 test0.log: my_cmd.so
 	$(YOSYS) -QTl test0.log_new -m ./my_cmd.so -p 'my_cmd foo bar' -f verilog absval_ref.v

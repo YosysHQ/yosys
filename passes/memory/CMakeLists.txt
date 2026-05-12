@@ -1,0 +1,59 @@
+yosys_core(memlib
+	memlib.cc
+	memlib.h
+)
+
+function(yosys_memory_pass)
+  yosys_pass(${ARGV} REQUIRES memlib)
+endfunction()
+
+yosys_memory_pass(memory_dff
+	memory_dff.cc
+)
+yosys_memory_pass(memory_share
+	memory_share.cc
+)
+yosys_memory_pass(memory_collect
+	memory_collect.cc
+)
+yosys_memory_pass(memory_unpack
+	memory_unpack.cc
+)
+yosys_memory_pass(memory_bram
+	memory_bram.cc
+)
+yosys_memory_pass(memory_map
+	memory_map.cc
+)
+yosys_memory_pass(memory_memx
+	memory_memx.cc
+)
+yosys_memory_pass(memory_nordff
+	memory_nordff.cc
+)
+yosys_memory_pass(memory_narrow
+	memory_narrow.cc
+)
+yosys_memory_pass(memory_libmap
+	memory_libmap.cc
+)
+yosys_memory_pass(memory_bmux2rom
+	memory_bmux2rom.cc
+)
+
+yosys_pass(memory
+	memory.cc
+	REQUIRES
+		memory_bmux2rom
+		memory_bram
+		memory_collect
+		memory_dff
+		memory_map
+		memory_memx
+		memory_share
+		opt_clean
+		opt_mem
+		opt_mem_feedback
+		opt_mem_priority
+		opt_mem_widen
+)

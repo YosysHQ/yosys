@@ -1,0 +1,76 @@
+pmgen_command(microchip_dsp
+	microchip_dsp.pmg
+)
+pmgen_command(microchip_dsp_cascade
+	microchip_dsp_cascade.pmg
+)
+pmgen_command(microchip_dsp_CREG
+	microchip_dsp_CREG.pmg
+)
+yosys_pass(microchip_dffopt
+	microchip_dffopt.cc
+)
+yosys_pass(microchip_dsp
+	microchip_dsp.cc
+	${PMGEN_microchip_dsp_OUTPUT}
+	${PMGEN_microchip_dsp_cascade_OUTPUT}
+	${PMGEN_microchip_dsp_CREG_OUTPUT}
+)
+
+yosys_pass(synth_microchip
+	synth_microchip.cc
+	REQUIRES
+		abc
+		alumacc
+		attrmap
+		blackbox
+		check
+		chtype
+		clean
+		clkbufmap
+		deminout
+		dfflegalize
+		extract_reduce
+		flatten
+		fsm
+		hierarchy
+		iopadmap
+		memory
+		memory_dff
+		memory_libmap
+		memory_map
+		microchip_dffopt
+		microchip_dsp
+		muxcover
+		opt
+		opt_clean
+		opt_expr
+		peepopt
+		proc
+		read_verilog
+		select
+		setattr
+		share
+		simplemap
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_blif
+		write_edif
+		write_verilog
+		zinit
+	DATA_DIR
+		microchip
+	DATA_FILES
+		arith_map.v
+		cells_map.v
+		cells_sim.v
+		polarfire_dsp_map.v
+
+		brams_defs.vh
+		LSRAM_map.v
+		LSRAM.txt
+		uSRAM_map.v
+		uSRAM.txt
+)

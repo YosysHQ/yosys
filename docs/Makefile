@@ -252,10 +252,37 @@ images:
 	$(MAKE) -C source/_images
 	$(MAKE) -C source/_images convert
 
+BUILD_DIR ?= ..
+BUILD_CMD := $(BUILD_DIR)/$(PROGRAM_PREFIX)
+
+.PHONY: extract
+extract:
+	mkdir -p source/generated
+	$(BUILD_CMD)yosys -q -p 'help -dump-cmds-json source/generated/cmds.json'
+	$(BUILD_CMD)yosys -q -p 'help -dump-cells-json source/generated/cells.json'
+
+	cp ../passes/cmds/chformal.cc source/generated/
+	$(BUILD_CMD)yosys -qQT -h 'chformal' -l source/generated/chformal.log
+
+	mkdir -p source/generated/functional
+	cp ../backends/functional/smtlib.cc source/generated/functional/
+	-cd .. && diff -U 20 backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc \
+		> docs/source/generated/functional/rosette.diff
+
+	$(BUILD_CMD)yosys --help >source/generated/yosys
+	$(BUILD_CMD)yosys-smtbmc --help >source/generated/yosys-smtbmc
+	$(BUILD_CMD)yosys-witness --help >source/generated/yosys-witness
+	$(BUILD_CMD)yosys-config --help >source/generated/yosys-config
+	-$(BUILD_CMD)yosys-filterlib --help 2>source/generated/yosys-filterlib
+ifeq ($(ABCEXTERNAL),)
+	-$(BUILD_CMD)yosys-abc --help 2>source/generated/yosys-abc
+endif
+
 .PHONY: gen
 gen:
 	$(MAKE) examples
 	$(MAKE) images
+	$(MAKE) extract
 
 .PHONY: reqs
 reqs:
