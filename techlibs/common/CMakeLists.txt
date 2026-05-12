@@ -1,0 +1,87 @@
+if (YOSYS_ENABLE_ABC)
+	set(abc_requires abc abc9)
+endif()
+yosys_pass(synth
+	synth.cc
+	DEFINITIONS
+		$<$<BOOL:${YOSYS_ENABLE_ABC}>:-DYOSYS_ENABLE_ABC>
+	REQUIRES
+		${abc_requires}
+		alumacc
+		arith_tree
+		booth
+		check
+		clean
+		flatten
+		flowmap
+		fsm
+		hierarchy
+		memory
+		memory_map
+		opt
+		opt_clean
+		opt_expr
+		peepopt
+		proc
+		share
+		stat
+		techmap
+		wreduce
+	DATA_FILES
+		simlib.v
+		simcells.v
+		techmap.v
+		smtmap.v
+		pmux2mux.v
+		adff2dff.v
+		dff2ff.v
+		gate2lut.v
+		cmp2lut.v
+		mul2dsp.v
+		abc9_model.v
+		abc9_map.v
+		abc9_unmap.v
+		cmp2lcu.v
+		cmp2softlogic.v
+
+		choices/kogge-stone.v
+		choices/han-carlson.v
+		choices/sklansky.v
+)
+
+yosys_pass(prep
+	prep.cc
+	REQUIRES
+		check
+		flatten
+		future
+		hierarchy
+		memory_collect
+		memory_dff
+		memory_memx
+		opt
+		opt_clean
+		opt_expr
+		proc
+		sort
+		stat
+		wreduce
+)
+
+yosys_pass(opensta
+	opensta.cc
+)
+
+yosys_pass(sdc_expand
+	sdc_expand.cc
+	REQUIRES
+		chtype
+		design
+		hierarchy
+		icell_liberty
+		memory
+		opensta
+		proc
+		read_verilog
+		write_verilog
+)

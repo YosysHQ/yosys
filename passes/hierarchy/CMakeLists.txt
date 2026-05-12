@@ -1,0 +1,20 @@
+yosys_pass(flatten
+  flatten.cc
+)
+yosys_pass(hierarchy
+	hierarchy.cc
+	REQUIRES
+		read_rtlil
+		read_verilog
+)
+yosys_pass(keep_hierarchy
+	keep_hierarchy.cc
+)
+yosys_pass(submod
+	submod.cc
+	REQUIRES
+		opt_clean
+)
+yosys_pass(uniquify
+	uniquify.cc
+)

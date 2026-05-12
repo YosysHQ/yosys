@@ -1,0 +1,19 @@
+yosys_pass(synth_easic
+	synth_easic.cc
+	REQUIRES
+		abc
+		blackbox
+		check
+		dfflibmap
+		flatten
+		hierarchy
+		memory_map
+		opt
+		opt_clean
+		proc
+		read_liberty
+		stat
+		synth
+		techmap
+		write_verilog
+)

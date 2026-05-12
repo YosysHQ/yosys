@@ -29,7 +29,7 @@ static std::string file_base_name(std::string const & path)
 
 FstData::FstData(std::string filename) : ctx(nullptr)
 {
-	#if !defined(YOSYS_DISABLE_SPAWN)
+	#if defined(YOSYS_ENABLE_SPAWN)
 	std::string filename_trim = file_base_name(filename);
 	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
 		filename_trim.erase(filename_trim.size()-4);
@@ -87,18 +87,18 @@ static void normalize_brackets(std::string &str)
 	}
 }
 
-fstHandle FstData::getHandle(std::string name) { 
+fstHandle FstData::getHandle(std::string name) {
 	normalize_brackets(name);
 	if (name_to_handle.find(name) != name_to_handle.end())
 		return name_to_handle[name];
-	else 
+	else
 		return 0;
 };
 
-dict<int,fstHandle> FstData::getMemoryHandles(std::string name) { 
+dict<int,fstHandle> FstData::getMemoryHandles(std::string name) {
 	if (memory_to_handle.find(name) != memory_to_handle.end())
 		return memory_to_handle[name];
-	else 
+	else
 		return dict<int,fstHandle>();
 };
 
@@ -137,7 +137,7 @@ void FstData::extractVarNames()
 					handle_to_var[h->u.var.handle] = var;
 				std::string clean_name;
 				bool has_space = false;
-				for(size_t i=0;i<strlen(h->u.var.name);i++) 
+				for(size_t i=0;i<strlen(h->u.var.name);i++)
 				{
 					char c = h->u.var.name[i];
 					if(c==' ') { has_space = true; break; }
@@ -210,7 +210,7 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 	bool is_clock = false;
 	if (!all_samples) {
 		for(auto &s : clk_signals) {
-			if (s==pnt_facidx)  { 
+			if (s==pnt_facidx)  {
 				is_clock=true;
 				break;
 			}

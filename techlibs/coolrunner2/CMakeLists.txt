@@ -1,0 +1,42 @@
+yosys_pass(coolrunner2_sop
+	coolrunner2_sop.cc
+)
+yosys_pass(coolrunner2_fixup
+	coolrunner2_fixup.cc
+)
+
+yosys_pass(synth_coolrunner2
+	synth_coolrunner2.cc
+	REQUIRES
+		abc
+		attrmvcp
+		blackbox
+		check
+		clean
+		coolrunner2_fixup
+		coolrunner2_sop
+		dffinit
+		dfflibmap
+		extract
+		extract_counter
+		flatten
+		hierarchy
+		iopadmap
+		opt
+		proc
+		read_verilog
+		splitnets
+		stat
+		synth
+		techmap
+		tribuf
+		write_json
+	DATA_DIR
+		coolrunner2
+	DATA_FILES
+		cells_latch.v
+		cells_sim.v
+		cells_counter_map.v
+		tff_extract.v
+		xc2_dff.lib
+)

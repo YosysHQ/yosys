@@ -130,6 +130,8 @@ global_denylist = frozenset(
         ## function pointers
         "log_error_atexit",
         "log_verific_callback",
+        # incomplete type
+        "yosys_get_tcl_interp",
     }
 )
 pyosys_headers = [
@@ -322,9 +324,9 @@ class PyosysWrapperGenerator(object):
         self.class_registry: Dict[str, Tuple[ClassScope, PyosysClass]] = {}
 
     # entry point
-    def generate(self):
+    def generate(self, build_dir):
         tpl = __file_dir__ / "wrappers_tpl.cc"
-        preprocessor_opts = self.make_preprocessor_options()
+        preprocessor_opts = self.make_preprocessor_options(build_dir)
         with open(tpl, encoding="utf8") as f:
             do_line_directive = True
             for i, line in enumerate(f):
@@ -373,15 +375,19 @@ class PyosysWrapperGenerator(object):
         print(f"}}", file=self.f_inc)
 
     # helpers
-    def make_preprocessor_options(self):
+    def make_preprocessor_options(self, build_dir):
         py_include = get_paths()["include"]
-        preprocessor_bin = shutil.which("clang++") or "g++"
+        cxx_bin = os.getenv("CXX") or shutil.which("clang++") or "c++"
+        if ccache := os.getenv("CCACHE"):
+            compiler = [ccache, cxx_bin]
+        else:
+            compiler = [cxx_bin]
         cxx_std = os.getenv("CXX_STD", "c++17")
         return ParserOptions(
             preprocessor=make_gcc_preprocessor(
                 defines=["_YOSYS_", "YOSYS_ENABLE_PYTHON"],
-                gcc_args=[preprocessor_bin, "-fsyntax-only", f"-std={cxx_std}"],
-                include_paths=[str(__yosys_root__), py_include, pybind11.get_include()],
+                gcc_args=[*compiler, f"-std={cxx_std}", "-fsyntax-only"],
+                include_paths=[str(__yosys_root__), py_include, pybind11.get_include(), build_dir],
             ),
         )
 
@@ -819,28 +825,23 @@ keyword_aliases = {
 }
 
 
-def print_includes():
-    for header in pyosys_headers:
-        print(header.name)
-
-
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--debug", default=0, type=int)
+    ap.add_argument("--build-dir", default=".", type=str)
     group = ap.add_mutually_exclusive_group(required=True)
-    group.add_argument("--print-includes", action="store_true")
     group.add_argument("output", nargs="?")
     ns = ap.parse_args()
-    if ns.print_includes:
-        print_includes()
-        exit(0)
-
+    build_dir = Path(ns.build_dir)
     out_path = Path(ns.output)
     out_inc = out_path.parent / (out_path.stem + ".inc.cc")
-    with open(out_path, "w", encoding="utf8") as f, open(
-        out_inc, "w", encoding="utf8"
-    ) as inc_f:
+    out_dep = out_path.parent / (out_path.name + ".d")
+    with (open(out_path, "w", encoding="utf8") as f,
+          open(out_inc,  "w", encoding="utf8") as inc_f,
+          open(out_dep,  "w", encoding="utf8") as dep_f):
         generator = PyosysWrapperGenerator(
             from_headers=pyosys_headers, wrapper_stream=f, header_stream=inc_f
         )
-        generator.generate()
+        generator.generate(ns.build_dir)
+        for header in pyosys_headers:
+            print(f"{out_path} {out_inc}: {__yosys_root__ / header.name}", file=dep_f)

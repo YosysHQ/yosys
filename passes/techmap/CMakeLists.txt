@@ -1,0 +1,224 @@
+yosys_core(libparse
+	libparse.cc
+	libparse.h
+	DATA_DIR
+		include/passes/techmap
+	DATA_FILES
+		libparse.h
+)
+
+yosys_pass(techmap
+	techmap.cc
+	REQUIRES
+		maccmap
+		proc
+		read_rtlil
+		read_verilog
+		sha1
+		simplemap
+)
+yosys_pass(simplemap
+	simplemap.cc
+)
+yosys_pass(dfflibmap
+	dfflibmap.cc
+	REQUIRES
+		dfflegalize
+		libparse
+)
+yosys_pass(maccmap
+	maccmap.cc
+)
+yosys_pass(booth
+	booth.cc
+)
+yosys_pass(libcache
+	libcache.cc
+	REQUIRES
+		libparse
+)
+
+set(abc_definitions
+	"$<$<BOOL:${YOSYS_ABC_EXECUTABLE}>:-DABCEXTERNAL=\"${YOSYS_ABC_EXECUTABLE}\">"
+	$<${YOSYS_LINK_ABC}:-DYOSYS_LINK_ABC>
+)
+yosys_pass(abc
+	abc.cc
+	DEFINITIONS
+		${abc_definitions}
+	LIBRARIES
+		$<${YOSYS_LINK_ABC}:libyosys-abc>
+	REQUIRES
+		read_blif
+	ENABLE_IF
+		YOSYS_ENABLE_ABC
+)
+yosys_pass(abc9_exe
+	abc9_exe.cc
+	DEFINITIONS
+		${abc_definitions}
+	LIBRARIES
+		$<${YOSYS_LINK_ABC}:libyosys-abc>
+	ENABLE_IF
+		YOSYS_ENABLE_ABC
+)
+yosys_pass(abc9_ops
+	abc9_ops.cc
+	REQUIRES
+		proc
+)
+yosys_pass(abc9
+	abc9.cc
+	DEFINITIONS
+		${abc_definitions}
+	REQUIRES
+		abc9_exe
+		abc9_ops
+		aigmap
+		delete
+		design
+		opt
+		portarcs
+		read_verilog
+		scc
+		select
+		setattr
+		submod
+		techmap
+		wbflip
+)
+yosys_pass(abc_new
+	abc_new.cc
+	REQUIRES
+		abc9_exe
+		abc9_ops
+		box_derive
+		read_xaiger2
+		write_xaiger2
+)
+
+yosys_pass(iopadmap
+	iopadmap.cc
+)
+yosys_pass(clkbufmap
+	clkbufmap.cc
+)
+yosys_pass(hilomap
+	hilomap.cc
+)
+yosys_pass(extract
+	extract.cc
+	REQUIRES
+		opt_clean
+		proc
+		read_rtlil
+		read_verilog
+		subcircuit
+		write_rtlil
+)
+yosys_pass(extract_fa
+	extract_fa.cc
+)
+yosys_pass(extract_counter
+	extract_counter.cc
+)
+yosys_pass(extract_reduce
+	extract_reduce.cc
+)
+yosys_pass(alumacc
+	alumacc.cc
+)
+yosys_pass(dffinit
+	dffinit.cc
+)
+yosys_pass(pmuxtree
+	pmuxtree.cc
+)
+yosys_pass(bmuxmap
+	bmuxmap.cc
+)
+yosys_pass(demuxmap
+	demuxmap.cc
+)
+yosys_pass(bwmuxmap
+	bwmuxmap.cc
+)
+yosys_pass(muxcover
+	muxcover.cc
+)
+yosys_pass(aigmap
+	aigmap.cc
+)
+yosys_pass(tribuf
+	tribuf.cc
+)
+yosys_pass(lut2mux
+	lut2mux.cc
+)
+yosys_pass(lut2bmux
+	lut2bmux.cc
+)
+yosys_pass(nlutmap
+	nlutmap.cc
+	REQUIRES
+		abc
+		lut2mux
+		opt_clean
+)
+yosys_pass(shregmap
+	shregmap.cc
+)
+yosys_pass(deminout
+	deminout.cc
+)
+yosys_pass(insbuf
+	insbuf.cc
+)
+yosys_pass(bufnorm
+	bufnorm.cc
+)
+yosys_pass(attrmvcp
+	attrmvcp.cc
+)
+yosys_pass(attrmap
+	attrmap.cc
+	PROVIDES
+		paramap
+)
+yosys_pass(zinit
+	zinit.cc
+)
+yosys_pass(dfflegalize
+	dfflegalize.cc
+)
+yosys_pass(dffunmap
+	dffunmap.cc
+)
+yosys_pass(flowmap
+	flowmap.cc
+)
+yosys_pass(extractinv
+	extractinv.cc
+)
+yosys_pass(cellmatch
+	cellmatch.cc
+)
+yosys_pass(clockgate
+	clockgate.cc
+	REQUIRES
+		libparse
+)
+yosys_pass(constmap
+	constmap.cc
+)
+yosys_pass(arith_tree
+	arith_tree.cc
+)
+
+if (YOSYS_ENABLE_SPAWN)
+	yosys_cxx_executable(yosys-filterlib
+		OUTPUT_NAME yosys-filterlib
+	)
+	target_sources(yosys-filterlib PRIVATE filterlib.cc)
+	target_link_libraries(yosys-filterlib PRIVATE yosys_common)
+endif()

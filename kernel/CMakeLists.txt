@@ -1,0 +1,185 @@
+yosys_version_file(version.cc.in version.cc)
+
+block()
+	configure_file(yosys_config.h.in yosys_config.h @ONLY)
+endblock()
+
+set(cellhelp_sources)
+foreach (library simlib simcells)
+	add_custom_command(
+		DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/cellhelp.py ${CMAKE_SOURCE_DIR}/techlibs/common/${library}.v
+		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${library}_help.inc
+		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/cellhelp.py
+			${CMAKE_SOURCE_DIR}/techlibs/common/${library}.v
+			> ${CMAKE_CURRENT_BINARY_DIR}/${library}_help.inc
+		VERBATIM
+	)
+	list(APPEND cellhelp_sources ${CMAKE_CURRENT_BINARY_DIR}/${library}_help.inc)
+endforeach()
+
+yosys_core(kernel
+	binding.cc
+	binding.h
+	bitpattern.h
+	calc.cc
+	cellaigs.cc
+	cellaigs.h
+	celledges.cc
+	celledges.h
+	celltypes.h
+	compute_graph.h
+	consteval.h
+	constids.inc
+	cost.cc
+	cost.h
+	drivertools.cc
+	drivertools.h
+	ff.cc
+	ff.h
+	ffinit.h
+	ffmerge.cc
+	ffmerge.h
+	fmt.cc
+	fmt.h
+	functional.cc
+	functional.h
+	gzip.cc
+	gzip.h
+	hashlib.h
+	io.cc
+	io.h
+	json.cc
+	json.h
+	log.cc
+	log.h
+	log_help.cc
+	log_help.h
+	macc.h
+	mem.cc
+	mem.h
+	modtools.h
+	newcelltypes.h
+	pattern.h
+	qcsat.cc
+	qcsat.h
+	register.cc
+	register.h
+	${cellhelp_sources}
+	rtlil_bufnorm.cc
+	rtlil.cc
+	rtlil.h
+	satgen.cc
+	satgen.h
+	scopeinfo.cc
+	scopeinfo.h
+	sexpr.cc
+	sexpr.h
+	sigtools.h
+	tclapi.cc
+	threading.cc
+	threading.h
+	timinginfo.h
+	topo_scc.h
+	utils.h
+	version.cc
+	wallace_tree.h
+	yosys.cc
+	yosys_common.h
+	yosys_config.h
+	yosys.h
+	yw.cc
+	yw.h
+	INCLUDE_DIRS
+		${pybind11_INCLUDE_DIR}
+	LIBRARIES
+		cxxopts
+		$<${YOSYS_ENABLE_PLUGINS}:${Dlfcn_LIBRARIES}>
+		$<${YOSYS_ENABLE_ZLIB}:PkgConfig::zlib>
+		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
+		$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
+		$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
+		$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+	REQUIRES
+		bigint
+		ezsat
+		json11
+		sha1
+	PROVIDES
+		help
+		echo
+		license
+		tcl
+		shell
+		history
+		script
+	DATA_DIR
+		include/kernel
+	DATA_FILES
+		binding.h
+		bitpattern.h
+		cellaigs.h
+		celledges.h
+		celltypes.h
+		newcelltypes.h
+		consteval.h
+		constids.inc
+		cost.h
+		drivertools.h
+		ff.h
+		ffinit.h
+		ffmerge.h
+		fmt.h
+		gzip.h
+		hashlib.h
+		io.h
+		json.h
+		log.h
+		macc.h
+		modtools.h
+		mem.h
+		qcsat.h
+		register.h
+		rtlil.h
+		satgen.h
+		scopeinfo.h
+		sexpr.h
+		sigtools.h
+		threading.h
+		timinginfo.h
+		utils.h
+		yosys.h
+		yosys_common.h
+		yw.h
+	DATA_EXPLICIT
+		yosys_config.h ${CMAKE_CURRENT_BINARY_DIR}/yosys_config.h
+	ESSENTIAL
+)
+set_source_files_properties(
+	yosys.cc
+	PROPERTIES
+		COMPILE_DEFINITIONS "$<$<BOOL:${YOSYS_ABC_EXECUTABLE}>:-DABCEXTERNAL=\"${YOSYS_ABC_EXECUTABLE}\">"
+)
+
+yosys_core(fstdata
+	fstdata.cc
+	fstdata.h
+	REQUIRES
+		fst
+	DATA_DIR
+		include/kernel
+	DATA_FILES
+		fstdata.h
+)
+
+yosys_core(driver
+	driver.cc
+	INCLUDE_DIRS
+		${pybind11_INCLUDE_DIR}
+	LIBRARIES
+		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
+		$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
+		$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
+		$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+	REQUIRES
+		essentials
+)

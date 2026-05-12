@@ -1,0 +1,20 @@
+#ifndef YOSYS_CONFIG_H
+#define YOSYS_CONFIG_H
+
+// Installation parameters
+#define YOSYS_PROGRAM_PREFIX "@YOSYS_PROGRAM_PREFIX@"
+#define YOSYS_DATDIR "@YOSYS_INSTALL_DATADIR@"
+
+// Feature toggles
+#cmakedefine YOSYS_ENABLE_GLOB
+#cmakedefine YOSYS_ENABLE_SPAWN
+#cmakedefine YOSYS_ENABLE_THREADS
+#cmakedefine YOSYS_ENABLE_DLOPEN
+#cmakedefine YOSYS_ENABLE_ZLIB
+#cmakedefine YOSYS_ENABLE_PLUGINS
+#cmakedefine YOSYS_ENABLE_READLINE
+#cmakedefine YOSYS_ENABLE_EDITLINE
+#cmakedefine YOSYS_ENABLE_TCL
+#cmakedefine YOSYS_ENABLE_PYTHON
+
+#endif

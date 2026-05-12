@@ -1,0 +1,9 @@
+yosys_pass(sdc
+	sdc.cc
+	LIBRARIES
+		$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
+	DATA_DIR
+		sdc
+	DATA_FILES
+		graph-stubs.sdc
+)

@@ -1,0 +1,65 @@
+yosys_pass(synth_analogdevices
+	synth_analogdevices.cc
+	REQUIRES
+		abc
+		alumacc
+		blackbox
+		check
+		chtype
+		clean
+		delete
+		deminout
+		dfflegalize
+		flatten
+		fsm
+		hierarchy
+		iopadmap
+		memory
+		memory_dff
+		memory_libmap
+		memory_map
+		muxcover
+		muxpack
+		opt
+		opt_clean
+		opt_expr
+		opt_lut_ins
+		peepopt
+		pmux2shiftx
+		proc
+		read_verilog
+		select
+		setattr
+		share
+		simplemap
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_edif
+		xilinx_dffopt
+		xilinx_dsp
+		xilinx_srl
+		zinit
+	DATA_DIR
+		analogdevices
+	DATA_FILES
+		cells_map.v
+		cells_sim.v
+
+		lutrams.txt
+		lutrams_map.v
+
+		brams_defs.vh
+
+		brams.txt
+		brams_map.v
+
+		arith_map.v
+		ff_map.v
+		lut_map.v
+		mux_map.v
+		dsp_map.v
+
+		abc9_model.v
+)

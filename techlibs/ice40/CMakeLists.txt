@@ -1,0 +1,84 @@
+yosys_pass(ice40_braminit
+	ice40_braminit.cc
+)
+yosys_pass(ice40_opt
+	ice40_opt.cc
+	REQUIRES
+		opt_expr
+		opt_merge
+		opt_dff
+		opt_clean
+)
+pmgen_command(ice40_dsp
+	ice40_dsp.pmg
+)
+yosys_pass(ice40_dsp
+	ice40_dsp.cc
+	${PMGEN_ice40_dsp_OUTPUT}
+)
+pmgen_command(ice40_wrapcarry
+	ice40_wrapcarry.pmg
+)
+yosys_pass(ice40_wrapcarry
+	ice40_wrapcarry.cc
+	${PMGEN_ice40_wrapcarry_OUTPUT}
+)
+
+yosys_pass(synth_ice40
+	synth_ice40.cc
+	REQUIRES
+		abc
+		abc9
+		alumacc
+		autoname
+		blackbox
+		check
+		chtype
+		clean
+		deminout
+		dfflegalize
+		flatten
+		flowmap
+		fsm
+		hierarchy
+		ice40_braminit
+		ice40_dsp
+		ice40_opt
+		ice40_wrapcarry
+		memory
+		memory_dff
+		memory_libmap
+		memory_map
+		opt
+		opt_clean
+		opt_expr
+		opt_lut
+		peepopt
+		proc
+		read_verilog
+		select
+		setattr
+		share
+		simplemap
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_blif
+		write_edif
+		write_json
+	DATA_DIR
+		ice40
+	DATA_FILES
+		arith_map.v
+		cells_map.v
+		ff_map.v
+		cells_sim.v
+		latches_map.v
+		brams.txt
+		brams_map.v
+		spram.txt
+		spram_map.v
+		dsp_map.v
+		abc9_model.v
+)

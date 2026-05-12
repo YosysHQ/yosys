@@ -1,14 +1,14 @@
 #include <deque>
 
+#include "kernel/yosys_common.h"
+#include "kernel/log.h"
+#include "kernel/utils.h"
+
 #ifdef YOSYS_ENABLE_THREADS
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #endif
-
-#include "kernel/yosys_common.h"
-#include "kernel/log.h"
-#include "kernel/utils.h"
 
 #ifndef YOSYS_THREADING_H
 #define YOSYS_THREADING_H

@@ -1,0 +1,45 @@
+yosys_pass(anlogic_eqn
+	anlogic_eqn.cc
+)
+yosys_pass(anlogic_fixcarry
+	anlogic_fixcarry.cc
+)
+
+yosys_pass(synth_anlogic
+	synth_anlogic.cc
+	REQUIRES
+		abc
+		anlogic_eqn
+		anlogic_fixcarry
+		blackbox
+		check
+		clean
+		deminout
+		dfflegalize
+		flatten
+		hierarchy
+		memory_libmap
+		memory_map
+		opt
+		opt_expr
+		proc
+		read_verilog
+		simplemap
+		stat
+		synth
+		techmap
+		tribuf
+		write_edif
+		write_json
+	DATA_DIR
+		anlogic
+	DATA_FILES
+		cells_map.v
+		arith_map.v
+		cells_sim.v
+		eagle_bb.v
+		lutrams.txt
+		lutrams_map.v
+		brams.txt
+		brams_map.v
+)

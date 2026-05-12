@@ -1,0 +1,42 @@
+yosys_pass(greenpak4_dffinv
+	greenpak4_dffinv.cc
+)
+
+yosys_pass(synth_greenpak4
+	synth_greenpak4.cc
+	REQUIRES
+		abc
+		attrmvcp
+		blackbox
+		check
+		clean
+		dffinit
+		dfflibmap
+		extract_counter
+		flatten
+		greenpak4_dffinv
+		hierarchy
+		iopadmap
+		memory_map
+		nlutmap
+		opt
+		proc
+		read_verilog
+		shregmap
+		stat
+		synth
+		techmap
+		tribuf
+		write_json
+	DATA_DIR
+		greenpak4
+	DATA_FILES
+		cells_blackbox.v
+		cells_latch.v
+		cells_map.v
+		cells_sim.v
+		cells_sim_ams.v
+		cells_sim_digital.v
+		cells_sim_wip.v
+		gp_dff.lib
+)

@@ -442,7 +442,7 @@ struct ShowWorker
 						id2num(wire->name), shape.c_str(), is_borderless? " margin=0, width=0" : "",  findLabel(wire->name.str()),
 						is_borderless
 						    ? "color=\"none\", fontcolor=\"black\""
-							: nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(), 
+							: nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(),
 						src_href.c_str());
 				if (wire->port_input)
 					all_sources.insert(stringf("n%d", id2num(wire->name)));
@@ -770,7 +770,7 @@ struct ShowPass : public Pass {
 		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
 		std::vector<std::pair<std::string, RTLIL::Selection>> label_selections;
 
-#if defined(_WIN32) || defined(YOSYS_DISABLE_SPAWN)
+#if defined(_WIN32) || !defined(YOSYS_ENABLE_SPAWN)
 		std::string format = "dot";
 		std::string prefix = "show";
 #else
@@ -948,13 +948,13 @@ struct ShowPass : public Pass {
 			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
 			log("Exec: %s\n", cmd);
-			#if !defined(YOSYS_DISABLE_SPAWN)
+			#if defined(YOSYS_ENABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
 			#endif
 		}
 
-		#if defined(YOSYS_DISABLE_SPAWN)
+		#if !defined(YOSYS_ENABLE_SPAWN)
 			log_assert(viewer_exe.empty() && !format.empty());
 		#else
 		if (viewer_exe != "none") {

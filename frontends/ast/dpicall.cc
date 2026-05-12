@@ -19,7 +19,7 @@
 
 #include "ast.h"
 
-#ifdef YOSYS_ENABLE_PLUGINS
+#ifdef YOSYS_ENABLE_LIBFFI
 
 #include <dlfcn.h>
 #include <ffi.h>
@@ -149,7 +149,7 @@ std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType loc, const std::string
 
 YOSYS_NAMESPACE_END
 
-#else /* YOSYS_ENABLE_PLUGINS */
+#else /* YOSYS_ENABLE_LIBFFI */
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -160,5 +160,5 @@ std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType, const std::string&, c
 
 YOSYS_NAMESPACE_END
 
-#endif /* YOSYS_ENABLE_PLUGINS */
+#endif /* YOSYS_ENABLE_LIBFFI */
 

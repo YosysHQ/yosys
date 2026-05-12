@@ -1,0 +1,128 @@
+configurations:
+- wasi/clang - prelim
+- wasi/clang/threads - crash
+- wasi/clang/lto?
+- linux/gcc/glibc - ok
+- linux/gcc/glibc/plugin - ok
+- linux/gcc/glibc/static - ok
+- linux/gcc/musl - ok
+- linux/gcc/verific
+- linux/clang - ok
+- linux/clang/thinlto
+- linux/clang/verific
+- linux/clang/musl - ok
+- windows/mingw - ok
+- windows/mingw/plugin - ok
+- windows/msys32
+- windows/msys64 - ok
+- windows/msvc? - no
+- windows/clang?
+- windows/mxe?
+- macos/clang/homebrew
+- macos/clang/homebrew/plugin
+- macos/clang/homebrew/verific
+- macos/clang/macports
+- freebsd/clang
+- freebsd/clang/plugin
+- openbsd/clang
+- openbsd/clang/plugin
+- netbsd/*
+- haiku/*
+
+to do:
+- platforms
+	- windows support (yosys `-DYOSYS_WIN32_UNIX_DIR`)
+	- darwin support (soname?)
+- sanitizer: address memory undefined cfi
+	- clang/`-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)`
+	- msan/`-fPIE -fsanitize-memory-track-origins`
+	- cfi/`-flto` (overriding normal lto config)
+- verific
+- check-git-abc
+- update docs build system
+- update docs themselves
+- export cmake configs
+- port yosys-slang as a test
+
+configs:
+- ENABLE_TCL - YOSYS_WITHOUT_TCL
+- ENABLE_ABC - YOSYS_WITHOUT_ABC
+- ENABLE_GLOB - rm (auto)
+- ENABLE_PLUGINS - YOSYS_WITHOUT_LIBFFI
+- ENABLE_READLINE - YOSYS_WITHOUT_READLINE
+- ENABLE_EDITLINE - YOSYS_WITHOUT_EDITLINE
+- ENABLE_GHDL - rm
+- ENABLE_VERIFIC - ?
+- ENABLE_VERIFIC_SYSTEMVERILOG - ?
+- ENABLE_VERIFIC_VHDL - ?
+- ENABLE_VERIFIC_HIER_TREE - ?
+- ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS - ?
+- ENABLE_VERIFIC_EDIF - ?
+- ENABLE_VERIFIC_LIBERTY - ?
+- ENABLE_LIBYOSYS - YOSYS_INSTALL_LIBRARY
+- ENABLE_LIBYOSYS_STATIC - BUILD_SHARED_LIBS
+- ENABLE_ZLIB - YOSYS_WITHOUT_ZLIB
+- ENABLE_HELP_SOURCE
+- ENABLE_PYOSYS - YOSYS_WITH_PYTHON
+- PYOSYS_USE_UV - rm (auto)
+- ENABLE_GCOV - YOSYS_ENABLE_COVERAGE
+- ENABLE_GPROF - YOSYS_ENABLE_PROFILING
+- ENABLE_DEBUG - CMAKE_BUILD_TYPE=Debug
+- ENABLE_LTO - CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+- ENABLE_CCACHE - YOSYS_COMPILER_LAUNCHER=ccache
+- ENABLE_SCCACHE - YOSYS_COMPILER_LAUNCHER=sccache
+- ENABLE_FUNCTIONAL_TESTS
+- LINK_CURSES - rm (auto)
+- LINK_TERMCAP - rm (auto)
+- LINK_ABC - YOSYS_ABC_EXECUTABLE=INTEGRATED-NOTFOUND
+- DISABLE_SPAWN - rm (auto)
+- ENABLE_THREADS - rm (auto)
+- DISABLE_ABC_THREADS - auto
+
+testing strategy:
+- `sh ../misc/cmake/check_missing_depends.sh` - OK
+- `diff share/ build/share/` - OK
+- `ctest --test-dir tests/unit/` - OK
+
+maybe revert:
+- `yosys-config --cxxflags` no longer leaks `-std=...`, `-gsplit-dwarf`, `-O3`, `-Werror`, etc
+  - this is potentially a breaking change, but i want to note that anybody with non-trivial plugin needs had to work around this honestly broken behavior for many years now
+- `yosys-config --cxxflags` no longer has `-DYOSYS_ENABLE_*` definitions (they are in `kernel/yosys_config.h`)
+  - also potentially a breaking change but those don't seem all that useful for the most part
+  - could be solved with `-include` cxxopt to force pull in `kernel/yosys_config.h`?
+
+moderate changes:
+- positive options for 'default-on' features like `ENABLE_READLINE` are replaced with negative options like `WITHOUT_READLINE`
+  - rationale: most users will want to build with every autodetected library without opting in, and most users who lack some obscure library for they don't care about would not want to receive an error because of it. the minority which wants to avoid linking to usable and present libraries can opt out explicitly
+  - alternatives: need a three-state readline switch: force on, force off, don't care. this is quite awkward to implement for every feature we need, but can be done with a custom module
+  - drawbacks of not picking an alternative: it's hard to positively assert that a feature was turned on (but might be less bad ergonomically than the three-state switch..?)
+- exact options returned by `yosys-config` have changed significantly and not in a way that can be reasonably reverted
+- the method to make a "built-in" GHDL build has been removed because it will require GHDL plugin changes
+
+small changes:
+- compiler identification has slightly different format
+- git origin information no longer privileges github by hiding the domain
+- new `yosys_config.h.in` template, for configuration defines
+- new `#define YOSYS_ENABLE_LIBFFI` (plugins just need dlopen, dpicall needs dlopen+libffi)
+- explicit linking to curses/termcap dropped (readline/editline *should* pull this in via pkgconfig)
+- `yosys-config --cxx` no longer remembers that you used ccache when building yosys
+- stripping is not done unconditionally during installation but requires `cmake --install build --strip`
+- pyosys generator now doesn't generate invalid code for Tcl+Python build
+- `uv` is no longer a hard-dep the moment you turn on pyosys, but is used opportunistically
+
+tiny changes:
+- version.cc is generated in a different way
+- cellhelp generation has been moved from passes/techmap/ to kernel/
+- smt2 python files have slightly different substitutions
+- gatemate lut tree library generator uses different output path
+- `-DYOSYS_PROGRAM_PREFIX` always defined, `#ifdef`s removed
+- `-DYOSYS_DATDIR` always defined, `#ifdef`s removed
+- `-DYOSYS_SRC` for log.cc removed (unused)
+- `-DYOSYS_VERSION`&c removed internally (unused), kept for export
+- pyosys generator now produces a `*.d` depfile (+ a few more adjustments)
+- ENABLE_LIBYOSYS_STATIC replaced with `-DBUILD_SHARED_LIBS=OFF`
+- ENABLE_CCACHE replaced with `-DYOSYS_COMPILER_LAUNCHER=ccache`
+- ENABLE_SCCACHE replaced with `-DYOSYS_COMPILER_LAUNCHER=sccache`
+- enabling "linked-in ABC" is now `-DYOSYS_ABC_EXECUTABLE=INTEGRATED-NOTFOUND`
+- ENABLE_LTO replaced with `-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON`
+- replaced `-DYOSYS_DISABLE_SPAWN` with `#define YOSYS_ENABLE_SPAWN` for consistency

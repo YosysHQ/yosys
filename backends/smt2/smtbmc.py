@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!@PYTHON_SHEBANG@
 #
 # yosys -- Yosys Open SYnthesis Suite
 #
@@ -18,7 +18,7 @@
 #
 
 import os, sys, getopt, re, bisect, json
-##yosys-sys-path##
+sys.path += [os.path.dirname(os.path.realpath(__file__)) + p for p in ["/share/python3", "/../share/@YOSYS_PROGRAM_PREFIX@yosys/python3"]]
 from smtio import SmtIo, SmtOpts, MkVcd
 from ywio import ReadWitness, WriteWitness, WitnessValues
 from collections import defaultdict
