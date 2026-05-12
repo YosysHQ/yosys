@@ -208,10 +208,11 @@ static void update_ff_activity_attr(Cell *cell, IdString attr_key, double new_cl
 	std::istringstream iss(cell->get_string_attribute(attr_key));
 	for (std::string tok; iss >> tok; ) {
 		if (tok.compare(0, 3, "EN=") == 0) continue; // remove EN from attribute
+		if (!out.empty()) out += " ";
 		if (tok.compare(0, 4, "CLK=") == 0)
-			out += stringf("CLK=%f ", new_clk_value); // Update CLK value
+			out += stringf("CLK=%f", new_clk_value); // Update CLK value
 		else
-			out += tok + " "; // All other values remain unchanged
+			out += tok; // All other values remain unchanged
 	}
 	cell->set_string_attribute(attr_key, out);
 }
