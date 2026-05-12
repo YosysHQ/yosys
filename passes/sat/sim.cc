@@ -312,13 +312,6 @@ struct SimInstance
 						in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->name)[i]));
 				}
 			}
-
-			// With -bb, source port_input wires from VCD
-			if (shared->blackbox_children && shared->fst && parent != nullptr && wire->port_input) {
-				auto it = fst_handles.find(wire);
-				if (it != fst_handles.end())
-					fst_inputs[wire] = it->second;
-			}
 		}
 
 		memories = Mem::get_all_memories(module);
@@ -338,9 +331,10 @@ struct SimInstance
 		{
 			Module *mod = module->design->module(cell->type);
 
-			// Skip recursion into blackbox children, and into cells whose type is also a multi-root top
+			// In -bb mode every parent<->child boundary is a cut, so don't recurse at all.
 			if (mod != nullptr && !mod->get_blackbox_attribute(true)
-					&& !shared->instance_root_modules.count(mod->name)) {
+					&& !shared->instance_root_modules.count(mod->name)
+					&& !shared->blackbox_children) {
 				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
 			}
 
@@ -585,14 +579,11 @@ struct SimInstance
 		if (children.count(cell))
 		{
 			auto child = children.at(cell);
-			// With -bb, skip the parent->child copy that would overwrite child's input ports
-			if (!shared->blackbox_children) {
-				for (auto &conn: cell->connections())
-					if (cell->input(conn.first) && GetSize(conn.second)) {
-						Const value = get_state(conn.second);
-						child->set_state(child->module->wire(conn.first), value);
-					}
-			}
+			for (auto &conn: cell->connections())
+				if (cell->input(conn.first) && GetSize(conn.second)) {
+					Const value = get_state(conn.second);
+					child->set_state(child->module->wire(conn.first), value);
+				}
 			dirty_children.insert(child);
 			return;
 		}
@@ -658,9 +649,10 @@ struct SimInstance
 		if (cell->type == ID($print))
 			return;
 
+		// If the cell is a blackbox child of an instance root module, skip it
 		if (shared->blackbox_children) {
 			Module *m = module->design->module(cell->type);
-			if (m && (m->get_blackbox_attribute(true) || shared->instance_root_modules.count(m->name)))
+			if (m)
 				return;
 		}
 
@@ -702,11 +694,6 @@ struct SimInstance
 
 		queue_cells.swap(dirty_cells);
 
-		// With -bb, the parent never dirties its children, so add children to the queue manually
-		if (shared->blackbox_children)
-			for (auto &it : children)
-				dirty_children.insert(it.second);
-
 		while (1)
 		{
 			for (auto bit : dirty_bits)
@@ -735,13 +722,11 @@ struct SimInstance
 				update_memory(memid);
 			dirty_memories.clear();
 
-			// With -bb, skip pushing up parent's wire that would overwrite it
-			if (!shared->blackbox_children)
-				for (auto wire : queue_outports)
-					if (instance->hasPort(wire->name)) {
-						Const value = get_state(wire);
-						parent->set_state(instance->getPort(wire->name), value);
-					}
+			for (auto wire : queue_outports)
+				if (instance->hasPort(wire->name)) {
+					Const value = get_state(wire);
+					parent->set_state(instance->getPort(wire->name), value);
+				}
 
 			queue_outports.clear();
 
