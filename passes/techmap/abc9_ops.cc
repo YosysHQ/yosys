@@ -97,7 +97,6 @@ void check(RTLIL::Design *design, bool dff_mode)
 			ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_),
 			ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
 		};
-		pool<IdString> processed;
 		for (auto module : design->selected_modules())
 			for (auto cell : module->cells()) {
 				auto inst_module = design->module(cell->type);
