@@ -649,10 +649,11 @@ struct SimInstance
 		if (cell->type == ID($print))
 			return;
 
-		// If the cell is a blackbox child of an instance root module, skip it
+		// In -bb mode every hierarchical cell is a cut boundary. Its outputs were already sourced from the FST.
+		// Don't log error for these cells.
 		if (shared->blackbox_children) {
 			Module *mod = module->design->module(cell->type);
-			if (mod && shared->instance_root_modules.count(mod->name))
+			if (mod)
 				return;
 		}
 
