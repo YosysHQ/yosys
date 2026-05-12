@@ -652,7 +652,7 @@ struct SimInstance
 		// If the cell is a blackbox child of an instance root module, skip it
 		if (shared->blackbox_children) {
 			Module *mod = module->design->module(cell->type);
-			if (shared->instance_root_modules.count(mod->name))
+			if (mod && shared->instance_root_modules.count(mod->name))
 				return;
 		}
 
