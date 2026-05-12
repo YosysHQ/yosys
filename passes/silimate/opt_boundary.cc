@@ -270,7 +270,7 @@ struct OptBoundaryPass : Pass {
 		log_header(design, "Executing OPT_BOUNDARY pass.\n");
 
 		int max_cells = 8;
-		int max_bits = 16384;
+		int max_bits = 4096;
 		bool no_disconnect = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
