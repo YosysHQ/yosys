@@ -651,8 +651,8 @@ struct SimInstance
 
 		// If the cell is a blackbox child of an instance root module, skip it
 		if (shared->blackbox_children) {
-			Module *m = module->design->module(cell->type);
-			if (m)
+			Module *mod = module->design->module(cell->type);
+			if (shared->instance_root_modules.count(mod->name))
 				return;
 		}
 
@@ -1614,7 +1614,7 @@ struct SimWorker : SimShared
 					fstHandle id = fst->getHandle(iscope + "." + RTLIL::unescape_id(wire->name));
 					if (id == 0) {
 						log_error("Can't find port '%s' on module '%s' in FST.\n",
-							(iscope + "." + RTLIL::unescape_id(wire->name)).c_str(), RTLIL::unescape_id(m->name).c_str());
+							(iscope + "." + RTLIL::unescape_id(wire->name)).c_str(), log_id(m));
 					}
 					t->fst_inputs[wire] = id;
 				}
