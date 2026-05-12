@@ -45,9 +45,9 @@ int ThreadPool::pool_size(int reserved_cores, int max_worker_threads)
 #ifdef YOSYS_ENABLE_THREADS
 	int available_threads = std::min<int>(std::thread::hardware_concurrency(), get_max_threads());
 	int num_threads = std::min(available_threads - reserved_cores, max_worker_threads);
-        return std::max(0, num_threads);
+	return std::max(0, num_threads);
 #else
-        return 0;
+	return 0;
 #endif
 }
 
@@ -63,11 +63,11 @@ ThreadPool::ThreadPool(int pool_size, std::function<void(int)> b)
 	: body(std::move(b))
 {
 #ifdef YOSYS_ENABLE_THREADS
-        threads.reserve(pool_size);
-        for (int i = 0; i < pool_size; i++)
-                threads.emplace_back([i, this]{ body(i); });
+	threads.reserve(pool_size);
+	for (int i = 0; i < pool_size; i++)
+		threads.emplace_back([i, this]{ body(i); });
 #else
-        (void)pool_size;
+	(void)pool_size;
 #endif
 }
 
