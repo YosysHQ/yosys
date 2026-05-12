@@ -41,6 +41,13 @@ struct setunset_t
 			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
 				log_cmd_error("Can't decode value '%s'!\n", set_value);
 			value = sig_value.as_const();
+
+			if (!set_value.empty() && set_value.find('\'') == std::string::npos) {
+				size_t start = (set_value[0] == '-' || set_value[0] == '+') ? 1 : 0;
+				if (start < set_value.size() && std::all_of(set_value.begin() + start, set_value.end(), ::isdigit)) {
+					value.flags |= RTLIL::CONST_FLAG_SIGNED;
+				}
+			}
 		}
 	}
 };
