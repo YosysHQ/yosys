@@ -240,11 +240,11 @@ struct HierarchyPass : public Pass {
 		if ((flag_simcheck || flag_smtcheck) && top_mod == nullptr)
 				log_error("Design has no top module.\n");
 
-		expand_all_interfaces(design, top_mod, flag_check, flag_simcheck, flag_smtcheck, libdirs);
+		Hierarchy::ConnectAccumulator connect_acc;
+		expand_all_interfaces(design, top_mod, flag_check, flag_simcheck, flag_smtcheck, libdirs, &connect_acc);
 
 		log_header(design, "Resolving $connect directionality..\n");
-		for (auto module : design->modules())
-			resolve_connect_directionality(module);
+		Hierarchy::resolve_acc_connects(design, connect_acc);
 
 		if (top_mod != NULL) {
 			log_header(design, "Analyzing design hierarchy..\n");

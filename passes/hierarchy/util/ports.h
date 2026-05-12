@@ -23,13 +23,14 @@
 
 #include "kernel/yosys.h"
 #include "passes/hierarchy/util/misc.h"
+#include "passes/hierarchy/util/interfaces.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 namespace Hierarchy {
 	std::pair<Module*, bool> derive_blackbox_dynports(Module* module, Cell* cell, Design* design, ModuleSet& blackbox_derivatives);
 	void check_and_adjust_ports(Module* module, ModuleSet& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific);
-	bool resolve_connect_directionality(Module* module);
+	void resolve_acc_connects(Design* design, const ConnectAccumulator& connect_acc);
 };
 
 YOSYS_NAMESPACE_END

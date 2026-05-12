@@ -26,8 +26,23 @@
 YOSYS_NAMESPACE_BEGIN
 namespace Hierarchy {
 
-void expand_all_interfaces(Design* design, Module*& top_mod, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs);
-bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs);
+struct ConnectAccumulator {
+	dict<IdString, pool<IdString>> module_connect_cells;
+
+	// Collect a $connect cell during hierarchy traversal
+	void collect(Module* module, Cell* cell) {
+		if (cell->type == ID($connect) && !cell->has_keep_attr()) {
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_b = cell->getPort(ID::B);
+			if (sig_a.size() > 0 && sig_b.size() > 0) {
+				module_connect_cells[module->name].insert(cell->name);
+			}
+		}
+	}
+};
+
+void expand_all_interfaces(Design* design, Module*& top_mod, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs, ConnectAccumulator* connect_acc);
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs, ConnectAccumulator* connect_acc);
 
 // For expanding a module's interface connections
 struct IFModExpander
