@@ -1,0 +1,24 @@
+yosys_core(minisat
+  Alg.h
+  Alloc.h
+  Dimacs.h
+  Heap.h
+  IntMap.h
+  IntTypes.h
+  Map.h
+  Options.cc
+  Options.h
+  ParseUtils.h
+  Queue.h
+  Rnd.h
+  SimpSolver.cc
+  SimpSolver.h
+  Solver.cc
+  Solver.h
+  SolverTypes.h
+  Sort.h
+  System.cc
+  System.h
+  Vec.h
+  XAlloc.h
+)

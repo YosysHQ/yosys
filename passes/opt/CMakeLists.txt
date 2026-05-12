@@ -1,0 +1,96 @@
+add_subdirectory(opt_clean)
+
+yosys_pass(opt_merge
+	opt_merge.cc
+)
+yosys_pass(opt_mem_widen
+	opt_mem_widen.cc
+)
+yosys_pass(opt_muxtree
+	opt_muxtree.cc
+)
+yosys_pass(opt_reduce
+	opt_reduce.cc
+)
+yosys_pass(opt_dff
+	opt_dff.cc
+	REQUIRES
+		simplemap
+)
+yosys_pass(opt_share
+	opt_share.cc
+)
+yosys_pass(opt_expr
+	opt_expr.cc
+)
+yosys_pass(opt_hier
+	opt_hier.cc
+)
+yosys_pass(opt
+	opt.cc
+	REQUIRES
+		opt_clean
+		opt_dff
+		opt_expr
+		opt_hier
+		opt_merge
+		opt_muxtree
+		opt_reduce
+		opt_share
+)
+
+yosys_pass(opt_mem
+	opt_mem.cc
+)
+yosys_pass(opt_mem_feedback
+	opt_mem_feedback.cc
+)
+yosys_pass(opt_mem_priority
+	opt_mem_priority.cc
+)
+
+yosys_pass(share
+	share.cc
+)
+yosys_pass(wreduce
+	wreduce.cc
+)
+yosys_pass(opt_demorgan
+	opt_demorgan.cc
+)
+yosys_pass(rmports
+	rmports.cc
+)
+yosys_pass(opt_lut
+	opt_lut.cc
+)
+yosys_pass(opt_lut_ins
+	opt_lut_ins.cc
+)
+yosys_pass(opt_ffinv
+	opt_ffinv.cc
+)
+yosys_pass(pmux2shiftx
+	pmux2shiftx.cc
+)
+yosys_pass(muxpack
+	muxpack.cc
+)
+yosys_pass(opt_balance_tree
+	opt_balance_tree.cc
+)
+
+pmgen_command(peepopt
+	peepopt_shiftmul_right.pmg
+	peepopt_shiftmul_left.pmg
+	peepopt_shiftadd.pmg
+	peepopt_muldiv.pmg
+	peepopt_muldiv_c.pmg
+	peepopt_formal_clockgateff.pmg
+	PREFIX
+		peepopt
+)
+yosys_pass(peepopt
+	peepopt.cc
+	${PMGEN_peepopt_OUTPUT}
+)

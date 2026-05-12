@@ -1,0 +1,213 @@
+add_subdirectory(sdc)
+
+yosys_pass(exec
+	exec.cc
+	ENABLE_IF
+		YOSYS_ENABLE_SPAWN
+)
+yosys_pass(add
+	add.cc
+)
+yosys_pass(delete
+	delete.cc
+)
+yosys_pass(design
+	design.cc
+  ESSENTIAL
+)
+yosys_pass(design_equal
+	design_equal.cc
+)
+yosys_pass(select
+	select.cc
+	PROVIDES
+		cd
+		ls
+  ESSENTIAL
+)
+yosys_pass(show
+	show.cc
+	LIBRARIES
+		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
+		$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
+	REQUIRES
+		read_rtlil
+		read_verilog
+)
+yosys_pass(viz
+	viz.cc
+)
+yosys_pass(rename
+	rename.cc
+	REQUIRES
+		write_verilog
+)
+yosys_pass(autoname
+	autoname.cc
+)
+yosys_pass(connect
+	connect.cc
+)
+yosys_pass(scatter
+	scatter.cc
+)
+yosys_pass(setundef
+	setundef.cc
+)
+yosys_pass(splitnets
+	splitnets.cc
+)
+yosys_pass(splitcells
+	splitcells.cc
+)
+yosys_pass(stat
+	stat.cc
+	REQUIRES
+		libparse
+)
+yosys_pass(internal_stats
+	internal_stats.cc
+	REQUIRES
+		libparse
+)
+yosys_pass(setattr
+	setattr.cc
+	PROVIDES
+		wbflip
+		setparam
+		chparam
+)
+yosys_pass(copy
+	copy.cc
+)
+yosys_pass(splice
+	splice.cc
+)
+yosys_pass(scc
+	scc.cc
+)
+yosys_pass(glift
+	glift.cc
+)
+yosys_pass(torder
+	torder.cc
+)
+yosys_pass(logcmd
+	logcmd.cc
+)
+yosys_pass(tee
+	tee.cc
+)
+yosys_pass(write_file
+	write_file.cc
+)
+yosys_pass(connwrappers
+	connwrappers.cc
+)
+yosys_pass(trace
+	trace.cc
+	PROVIDES
+		debug
+)
+yosys_pass(plugin
+	plugin.cc
+	INCLUDE_DIRS
+		${pybind11_INCLUDE_DIR}
+	LIBRARIES
+		$<${YOSYS_ENABLE_PLUGINS}:${Dlfcn_LIBRARIES}>
+		$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+	ESSENTIAL
+)
+yosys_pass(check
+	check.cc
+)
+yosys_pass(edgetypes
+	edgetypes.cc
+)
+yosys_pass(portlist
+	portlist.cc
+)
+yosys_pass(chformal
+	chformal.cc
+)
+yosys_pass(chtype
+	chtype.cc
+)
+yosys_pass(blackbox
+	blackbox.cc
+)
+yosys_pass(ltp
+	ltp.cc
+)
+yosys_pass(linux_perf
+	linux_perf.cc
+)
+yosys_pass(bugpoint
+	bugpoint.cc
+	REQUIRES
+		proc_clean
+		opt_clean
+		design
+	ENABLE_IF
+		YOSYS_ENABLE_SPAWN
+)
+yosys_pass(scratchpad
+	scratchpad.cc
+)
+yosys_pass(logger
+	logger.cc
+)
+yosys_pass(printattrs
+	printattrs.cc
+)
+yosys_pass(sta
+	sta.cc
+)
+yosys_pass(clean_zerowidth
+	clean_zerowidth.cc
+)
+yosys_pass(xprop
+	xprop.cc
+	REQUIRES
+		bmuxmap
+		demuxmap
+)
+yosys_pass(dft_tag
+	dft_tag.cc
+)
+yosys_pass(future
+	future.cc
+)
+yosys_pass(box_derive
+	box_derive.cc
+)
+yosys_pass(example_dt
+	example_dt.cc
+)
+yosys_pass(portarcs
+	portarcs.cc
+)
+yosys_pass(wrapcell
+	wrapcell.cc
+)
+yosys_pass(setenv
+	setenv.cc
+)
+yosys_pass(abstract
+	abstract.cc
+)
+yosys_pass(test_select
+	test_select.cc
+)
+yosys_pass(timeest
+	timeest.cc
+)
+yosys_pass(linecoverage
+	linecoverage.cc
+)
+yosys_pass(sort
+	sort.cc
+)
+yosys_pass(icell_liberty
+	icell_liberty.cc
+)

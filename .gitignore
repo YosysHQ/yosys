@@ -49,7 +49,9 @@
 /tests/unit/objtest/
 /tests/ystests
 /build
+/build-*
 /result
+/result-*
 /dist
 
 # pyosys
@@ -86,3 +88,5 @@ __pycache__
 /qtcreator.creator
 /qtcreator.creator.user
 /compile_commands.json
+/.direnv
+/.envrc

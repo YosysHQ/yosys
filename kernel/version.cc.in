@@ -1,0 +1,4 @@
+namespace Yosys {
+	const char *yosys_version_str = "@YOSYS_BUILD_INFO@";
+	const char *yosys_git_hash_str = "@YOSYS_CHECKOUT_INFO@";
+}

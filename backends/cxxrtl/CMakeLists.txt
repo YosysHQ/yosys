@@ -1,0 +1,19 @@
+yosys_backend(cxxrtl
+  cxxrtl_backend.cc
+	DATA_DIR
+		include/backends/cxxrtl
+	DATA_FILES
+		runtime/README.txt
+		runtime/cxxrtl/cxxrtl.h
+		runtime/cxxrtl/cxxrtl_vcd.h
+		runtime/cxxrtl/cxxrtl_time.h
+		runtime/cxxrtl/cxxrtl_replay.h
+		runtime/cxxrtl/capi/cxxrtl_capi.cc
+		runtime/cxxrtl/capi/cxxrtl_capi.h
+		runtime/cxxrtl/capi/cxxrtl_capi_vcd.cc
+		runtime/cxxrtl/capi/cxxrtl_capi_vcd.h
+	REQUIRES
+		hierarchy
+		flatten
+		proc
+)
