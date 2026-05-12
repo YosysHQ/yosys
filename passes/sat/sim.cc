@@ -1602,6 +1602,10 @@ struct SimWorker : SimShared
 
 		// Multi-root mode: instance_modules was resolved in execute() alongside instance_specs
 		if (!instance_modules.empty()) {
+			// In multi-root mode, each instance has its own clock pin and we drive every port_input
+			// from FST, so we can't honor user-supplied clock names here.
+			if (!clock.empty() || !clockn.empty())
+				log_warning("-clock/-clockn are ignored with -instance; clocks are driven directly from the FST sample stream.\n");
 			for (size_t i = 0; i < instance_modules.size(); i++) {
 				const std::string &iscope = instance_specs[i].second;
 				Module *m = instance_modules[i];
