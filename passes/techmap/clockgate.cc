@@ -397,8 +397,6 @@ struct ClockgatePass : public Pass {
 
 		int gated_flop_count = 0;
 		for (auto module : design->selected_unboxed_whole_modules()) {
-			SigMap sigmap(module);
-
 			for (auto cell : module->cells()) {
 				if (!cell->is_builtin_ff())
 					continue;
