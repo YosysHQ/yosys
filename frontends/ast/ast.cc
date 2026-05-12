@@ -1875,8 +1875,13 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 			child->children[0]->realvalue = std::stod(it->second.decode_string());
 		} else if ((it->second.flags & RTLIL::CONST_FLAG_STRING) != 0)
 			child->children[0] = AstNode::mkconst_str(loc, it->second.decode_string());
-		else
-			child->children[0] = AstNode::mkconst_bits(loc, it->second.to_bits(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0, (it->second.flags & RTLIL::CONST_FLAG_UNSIZED) != 0);
+		else {
+			bool is_signed = child->is_signed;
+			if (!is_signed && !child->children.empty() && child->children[0] && child->children[0]->type == AST_CONSTANT)
+				is_signed = child->children[0]->is_signed;
+			is_signed = is_signed || ((it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+			child->children[0] = AstNode::mkconst_bits(loc, it->second.to_bits(), is_signed, (it->second.flags & RTLIL::CONST_FLAG_UNSIZED) != 0);
+		}
 		rewritten.insert(it->first);
 	}
 
