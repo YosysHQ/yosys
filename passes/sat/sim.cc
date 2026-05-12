@@ -1612,7 +1612,11 @@ struct SimWorker : SimShared
 				for (auto wire : m->wires()) {
 					if (!wire->port_input) continue;
 					fstHandle id = fst->getHandle(iscope + "." + RTLIL::unescape_id(wire->name));
-					if (id != 0) t->fst_inputs[wire] = id;
+					if (id == 0) {
+						log_error("Can't find port '%s' on module '%s' in FST.\n",
+							(iscope + "." + RTLIL::unescape_id(wire->name)).c_str(), RTLIL::unescape_id(m->name).c_str());
+					}
+					t->fst_inputs[wire] = id;
 				}
 				t->addAdditionalInputs();
 			}
