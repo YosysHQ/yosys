@@ -21,6 +21,7 @@
 #include "kernel/yosys_common.h"
 #include "passes/hierarchy/util/verilog.h"
 #include "passes/hierarchy/util/positionals.h"
+#include "passes/hierarchy/util/ports.h"
 
 PRIVATE_NAMESPACE_BEGIN
 USING_YOSYS_NAMESPACE
@@ -74,8 +75,8 @@ namespace Hierarchy {
 
 					if (keep_positionals) {
 						bool found_positionals = false;
-						for (auto &conn : cell->connections())
-							if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9')
+						for (const auto& [port, sig] : cell->connections())
+							if (port[0] == '$' && '0' <= port[1] && port[1] <= '9')
 								found_positionals = true;
 						if (found_positionals)
 							continue;
@@ -88,7 +89,10 @@ namespace Hierarchy {
 		}
 
 		for (auto module : design_modules)
-			resolve_wand_wor(module, blackbox_derivatives, keep_portwidths, top_is_from_verific);
+			resolve_wand_wor(module);
+
+		for (auto module : design_modules)
+			check_and_adjust_ports(module, blackbox_derivatives, keep_portwidths, top_is_from_verific);
 
 		for (auto module : blackbox_derivatives)
 			design->remove(module);
@@ -105,15 +109,10 @@ namespace Hierarchy {
 					RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 
 		// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
-		if (submod->get_blackbox_attribute() && !cell->parameters.empty() && submod->get_bool_attribute(ID::dynports)) {
-			IdString new_m_name = submod->derive(design, cell->parameters, true);
-			if (new_m_name.empty())
-				return;
-			if (new_m_name != submod->name) {
-				submod = design->module(new_m_name);
-				blackbox_derivatives.insert(submod);
-			}
-		}
+		auto [derived_submod, boxed_params] = derive_blackbox_dynports(submod, cell, design, blackbox_derivatives);
+		if (derived_submod == nullptr)
+			return;
+		submod = derived_submod;
 
 		auto old_connections = cell->connections();
 		for (auto wire : submod->wires()) {
@@ -141,8 +140,7 @@ namespace Hierarchy {
 		cell->attributes.erase(ID::wildcard_port_conns);
 	}
 
-	void resolve_wand_wor(Module* module, std::set<Module*>& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific) {
-		Design* design = module->design;
+	void resolve_wand_wor(Module* module) {
 		pool<Wire*> wand_wor_index;
 		dict<Wire*, SigSpec> wand_map, wor_map;
 		vector<SigSig> new_connections;
@@ -194,15 +192,15 @@ namespace Hierarchy {
 			if (!cell->known())
 				continue;
 
-			for (auto &conn : cell->connections())
+			for (const auto& [port, sig] : cell->connections())
 			{
-				if (!cell->output(conn.first))
+				if (!cell->output(port))
 					continue;
 
 				SigSpec new_sig;
 				bool update_port = false;
 
-				for (auto c : conn.second.chunks())
+				for (auto c : sig.chunks())
 				{
 					Wire *w = c.wire;
 
@@ -216,18 +214,18 @@ namespace Hierarchy {
 					update_port = true;
 
 					if (wand_map.count(w)) {
-						SigSpec sig = SigSpec(State::S1, GetSize(w));
-						sig.replace(c.offset, t);
-						wand_map.at(w).append(sig);
+						SigSpec mapped_sig = SigSpec(State::S1, GetSize(w));
+						mapped_sig.replace(c.offset, t);
+						wand_map.at(w).append(mapped_sig);
 					} else {
-						SigSpec sig = SigSpec(State::S0, GetSize(w));
-						sig.replace(c.offset, t);
-						wor_map.at(w).append(sig);
+						SigSpec mapped_sig = SigSpec(State::S0, GetSize(w));
+						mapped_sig.replace(c.offset, t);
+						wor_map.at(w).append(mapped_sig);
 					}
 				}
 
 				if (update_port)
-					cell->setPort(conn.first, new_sig);
+					cell->setPort(port, new_sig);
 			}
 		}
 
@@ -257,77 +255,6 @@ namespace Hierarchy {
 			module->connect(w, s);
 		}
 
-		for (auto cell : module->cells())
-		{
-			Module *m = design->module(cell->type);
-
-			if (m == nullptr)
-				continue;
-
-			bool boxed_params = false;
-			if (m->get_blackbox_attribute() && !cell->parameters.empty()) {
-				if (m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
-					if (new_m_name.empty())
-						continue;
-					if (new_m_name != m->name) {
-						m = design->module(new_m_name);
-						blackbox_derivatives.insert(m);
-					}
-				} else {
-					boxed_params = true;
-				}
-			}
-
-			for (auto &conn : cell->connections())
-			{
-				Wire *w = m->wire(conn.first);
-
-				if (w == nullptr || w->port_id == 0)
-					continue;
-
-				if (GetSize(conn.second) == 0)
-					continue;
-
-				SigSpec sig = conn.second;
-
-				bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(conn.second);
-				if (resize_widths && top_is_from_verific && boxed_params)
-					log_debug("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
-							log_id(module), log_id(cell), log_id(conn.first)
-					);
-				else if (resize_widths) {
-					if (GetSize(w) < GetSize(conn.second))
-					{
-						int n = GetSize(conn.second) - GetSize(w);
-						if (!w->port_input && w->port_output)
-						{
-							RTLIL::SigSpec out = sig.extract(0, GetSize(w));
-							out.extend_u0(GetSize(sig), w->is_signed);
-							module->connect(sig.extract(GetSize(w), n), out.extract(GetSize(w), n));
-						}
-						sig.remove(GetSize(w), n);
-					}
-					else
-					{
-						int n = GetSize(w) - GetSize(conn.second);
-						if (w->port_input && !w->port_output)
-							sig.extend_u0(GetSize(w), sig.is_wire() && sig.as_wire()->is_signed);
-						else
-							sig.append(module->addWire(NEW_ID, n));
-					}
-
-					if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
-						log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", log_id(module), log_id(cell),
-								log_id(conn.first), GetSize(conn.second), GetSize(sig));
-					cell->setPort(conn.first, sig);
-				}
-
-				if (w->port_output && !w->port_input && sig.has_const())
-					log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
-							log_id(module), log_id(cell), log_id(conn.first), log_id(cell->type), log_signal(sig));
-			}
-		}
 	}
 	void check_supported_formal(Design* design) {
 		for (auto mod : design->modules()) {

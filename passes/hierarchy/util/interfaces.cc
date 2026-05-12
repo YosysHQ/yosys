@@ -172,14 +172,14 @@ void delete_marked_modules(Design* design) {
 	}
 }
 
-void expand_all_interfaces(Design* design, Module*& top_mod, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs) {
+void expand_all_interfaces(Design* design, Module*& top_mod, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs, ConnectAccumulator* connect_acc) {
 	bool did_something = true;
 	while (did_something)
 	{
 		did_something = false;
 
 		for (auto module : used_modules(design, top_mod)) {
-			if (expand_module(design, module, flag_check, flag_simcheck, flag_smtcheck, libdirs))
+			if (expand_module(design, module, flag_check, flag_simcheck, flag_smtcheck, libdirs, connect_acc))
 				did_something = true;
 		}
 
@@ -246,7 +246,7 @@ struct CellArrays {
 	}
 };
 
-bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, bool flag_smtcheck, const std::vector<std::string> &libdirs, ConnectAccumulator* connect_acc)
 {
 	bool did_something = false;
 	CellArrays cell_arrays;
@@ -264,6 +264,8 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 	}
 	IFModExpander if_mod_expander(*design, *module);
 	for (auto cell : module->cells()) {
+		if (connect_acc)
+			connect_acc->collect(module, cell);
 		if (auto unarrayed_type = cell_arrays.trim_and_register(cell))
 			cell->type = *unarrayed_type;
 

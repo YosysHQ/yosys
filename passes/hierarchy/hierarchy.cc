@@ -26,6 +26,7 @@
 #include "passes/hierarchy/util/positionals.h"
 #include "passes/hierarchy/util/verilog.h"
 #include "passes/hierarchy/util/generate.h"
+#include "passes/hierarchy/util/ports.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -239,7 +240,11 @@ struct HierarchyPass : public Pass {
 		if ((flag_simcheck || flag_smtcheck) && top_mod == nullptr)
 				log_error("Design has no top module.\n");
 
-		expand_all_interfaces(design, top_mod, flag_check, flag_simcheck, flag_smtcheck, libdirs);
+		Hierarchy::ConnectAccumulator connect_acc;
+		expand_all_interfaces(design, top_mod, flag_check, flag_simcheck, flag_smtcheck, libdirs, &connect_acc);
+
+		log_header(design, "Resolving $connect directionality..\n");
+		Hierarchy::resolve_acc_connects(design, connect_acc);
 
 		if (top_mod != NULL) {
 			log_header(design, "Analyzing design hierarchy..\n");

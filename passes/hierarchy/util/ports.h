@@ -18,20 +18,20 @@
  *
  */
 
-#ifndef HIERARCHY_VERILOG_H
-#define HIERARCHY_VERILOG_H
+#ifndef HIERARCHY_PORTS_H
+#define HIERARCHY_PORTS_H
 
 #include "kernel/yosys.h"
+#include "passes/hierarchy/util/interfaces.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 namespace Hierarchy {
-    void resolve_verilog(Design* design, bool nodefaults, bool keep_positionals, bool keep_portwidths, bool top_is_from_verific);
-    void resolve_wildcards(Cell* cell, std::set<Module*>& blackbox_derivatives, bool nodefaults, dict<IdString, dict<IdString, Const>>& defaults_db);
-    void resolve_wand_wor(Module* module);
-    void check_supported_formal(Design* design);
+	std::pair<Module*, bool> derive_blackbox_dynports(Module* module, Cell* cell, Design* design, std::set<Module*>& blackbox_derivatives);
+	void check_and_adjust_ports(Module* module, std::set<Module*>& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific);
+	void resolve_acc_connects(Design* design, const ConnectAccumulator& connect_acc);
 };
 
 YOSYS_NAMESPACE_END
 
-#endif /* HIERARCHY_VERILOG_H */
+#endif /* HIERARCHY_PORTS_H */
