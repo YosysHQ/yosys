@@ -20,6 +20,7 @@
 
 #include "kernel/yosys_common.h"
 #include "passes/hierarchy/util/ports.h"
+#include "passes/hierarchy/util/interfaces.h"
 #include "kernel/sigtools.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -190,87 +191,92 @@ namespace Hierarchy {
 		}
 	}
 
-	bool resolve_connect_directionality(Module* module) {
-		bool did_something = false;
-		int iteration = 0;
+	void resolve_acc_connects(Design* design, const ConnectAccumulator& connect_acc) {
+		std::vector<IdString> sorted_module_names;
+		for (const auto& [mod_name, cell_names] : connect_acc.module_connect_cells)
+			sorted_module_names.push_back(mod_name);
+		std::sort(sorted_module_names.begin(), sorted_module_names.end());
 
-		while (true) {
-			iteration++;
-			pool<Cell*> cells_to_remove;
-			vector<SigSig> new_connections;
-			SigMap sigmap(module);
-			SigPool driven_signals;
+		for (auto mod_name : sorted_module_names) {
+			Module* module = design->module(mod_name);
+			if (!module)
+				continue;
 
-			build_driven_signals_index(module, sigmap, driven_signals);
+			const pool<IdString>& cell_names = connect_acc.module_connect_cells.at(mod_name);
+			pool<IdString> remaining_cell_names = cell_names;
+			int iteration = 0;
 
-			for (auto cell : module->cells())
-			{
-				if (cell->type != ID($connect))
-					continue;
+			while (true) {
+				iteration++;
+				pool<Cell*> cells_to_remove;
+				vector<SigSig> new_connections;
+				SigMap sigmap(module);
+				SigPool driven_signals;
 
-				if (cell->has_keep_attr())
-					continue;
+				build_driven_signals_index(module, sigmap, driven_signals);
 
-				SigSpec sig_a = cell->getPort(ID::A);
-				SigSpec sig_b = cell->getPort(ID::B);
+				for (auto cell_name : remaining_cell_names) {
+					Cell* cell = module->cell(cell_name);
+					if (!cell || cell->type != ID($connect) || cell->has_keep_attr())
+						continue;
 
-				if (sig_a.size() == 0 || sig_b.size() == 0)
-					continue;
+					SigSpec sig_a = cell->getPort(ID::A);
+					SigSpec sig_b = cell->getPort(ID::B);
 
-				SigDirection dir_a = get_signal_direction(sig_a, sigmap, driven_signals);
-				SigDirection dir_b = get_signal_direction(sig_b, sigmap, driven_signals);
+					if (sig_a.size() == 0 || sig_b.size() == 0)
+						continue;
 
-				if (dir_a == SigDirection::CONFLICT || dir_b == SigDirection::CONFLICT)
-					continue;
+					SigDirection dir_a = get_signal_direction(sig_a, sigmap, driven_signals);
+					SigDirection dir_b = get_signal_direction(sig_b, sigmap, driven_signals);
 
-				SigSpec driver, driven;
-				bool can_resolve = false;
+					if (dir_a == SigDirection::CONFLICT || dir_b == SigDirection::CONFLICT)
+						continue;
 
-				if ((dir_a == SigDirection::OUTPUT || dir_a == SigDirection::DRIVEN) && dir_b == SigDirection::INPUT) {
-					driver = sig_a;
-					driven = sig_b;
-					can_resolve = true;
+					SigSpec driver, driven;
+					bool can_resolve = false;
+
+					if ((dir_a == SigDirection::OUTPUT || dir_a == SigDirection::DRIVEN) && dir_b == SigDirection::INPUT) {
+						driver = sig_a;
+						driven = sig_b;
+						can_resolve = true;
+					}
+					else if (dir_a == SigDirection::INPUT && (dir_b == SigDirection::OUTPUT || dir_b == SigDirection::DRIVEN)) {
+						driver = sig_b;
+						driven = sig_a;
+						can_resolve = true;
+					}
+					else if (dir_a == SigDirection::DRIVEN && dir_b == SigDirection::UNKNOWN) {
+						driver = sig_a;
+						driven = sig_b;
+						can_resolve = true;
+					}
+					else if (dir_a == SigDirection::UNKNOWN && dir_b == SigDirection::DRIVEN) {
+						driver = sig_b;
+						driven = sig_a;
+						can_resolve = true;
+					}
+
+					if (can_resolve) {
+						log_debug("Resolving $connect %s: %s <- %s\n", log_id(cell), log_signal(driven), log_signal(driver));
+						new_connections.push_back({driven, driver});
+						cells_to_remove.insert(cell);
+					}
 				}
-				else if (dir_a == SigDirection::INPUT && (dir_b == SigDirection::OUTPUT || dir_b == SigDirection::DRIVEN)) {
-					driver = sig_b;
-					driven = sig_a;
-					can_resolve = true;
-				}
-				else if (dir_a == SigDirection::DRIVEN && dir_b == SigDirection::UNKNOWN) {
-					driver = sig_a;
-					driven = sig_b;
-					can_resolve = true;
-				}
-				else if (dir_a == SigDirection::UNKNOWN && dir_b == SigDirection::DRIVEN) {
-					driver = sig_b;
-					driven = sig_a;
-					can_resolve = true;
-				}
-				else {
-					continue;
+
+				for (auto &conn : new_connections)
+					module->connect(conn);
+
+				for (auto cell : cells_to_remove) {
+					remaining_cell_names.erase(cell->name);
+					module->remove(cell);
 				}
 
-				if (can_resolve) {
-					log_debug("Resolving $connect %s: %s <- %s\n", log_id(cell), log_signal(driven), log_signal(driver));
-					new_connections.push_back({driven, driver});
-					cells_to_remove.insert(cell);
-				}
+				if (cells_to_remove.empty())
+					break;
+
+				log_debug("$connect res iteration %d: resolved %d cells\n", iteration, GetSize(cells_to_remove));
 			}
-
-			for (auto &conn : new_connections)
-				module->connect(conn);
-
-			for (auto cell : cells_to_remove)
-				module->remove(cell);
-
-			if (cells_to_remove.empty())
-				break;
-
-			did_something = true;
-			log_debug("$connect res iteration %d: resolved %d cells\n", iteration, GetSize(cells_to_remove));
 		}
-
-		return did_something;
 	}
 };
 
