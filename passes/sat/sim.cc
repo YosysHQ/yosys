@@ -128,6 +128,9 @@ struct SimShared
 	bool serious_asserts = false;
 	bool fst_noinit = false;
 	bool initstate = true;
+	bool blackbox_children = false;
+	pool<IdString> instance_root_modules;
+	double clk_period_override = 0.0;
 };
 
 void zinit(Const &v)
@@ -328,8 +331,25 @@ struct SimInstance
 		{
 			Module *mod = module->design->module(cell->type);
 
-			if (mod != nullptr) {
+			// In -bb mode every parent<->child boundary is a cut, so don't recurse at all.
+			if (mod != nullptr && !mod->get_blackbox_attribute(true)
+					&& !shared->instance_root_modules.count(mod->name)
+					&& !shared->blackbox_children) {
 				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
+			}
+
+			// With -bb, source each parent-side child-output wire from VCD
+			if (mod != nullptr && shared->blackbox_children && shared->fst) {
+				for (auto &conn : cell->connections()) {
+					Wire *port = mod->wire(conn.first);
+					if (!port || !port->port_output) continue;
+					for (auto bit : sigmap(conn.second)) {
+						if (bit.wire == nullptr) continue;
+						auto it = fst_handles.find(bit.wire);
+						if (it != fst_handles.end())
+							fst_inputs[bit.wire] = it->second;
+					}
+				}
 			}
 
 			for (auto &port : cell->connections()) {
@@ -628,6 +648,13 @@ struct SimInstance
 
 		if (cell->type == ID($print))
 			return;
+
+		// If the cell is a blackbox child of an instance root module, skip it
+		if (shared->blackbox_children) {
+			Module *mod = module->design->module(cell->type);
+			if (mod && shared->instance_root_modules.count(mod->name))
+				return;
+		}
 
 		log_error("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 	}
@@ -1377,7 +1404,13 @@ struct SimInstance
 
 struct SimWorker : SimShared
 {
+	std::vector<SimInstance *> tops;
+	// Convenience alias kept in sync with tops.front()
 	SimInstance *top = nullptr;
+	// instance entries: (module name, VCD scope)
+	std::vector<std::pair<std::string, std::string>> instance_specs;
+	// Resolved Module* per instance_specs entry
+	std::vector<RTLIL::Module *> instance_modules;
 	pool<IdString> clock, clockn, reset, resetn;
 	std::string timescale;
 	std::string sim_filename;
@@ -1389,21 +1422,24 @@ struct SimWorker : SimShared
 	~SimWorker()
 	{
 		outputfiles.clear();
-		delete top;
+		for (auto t : tops) delete t;
 	}
 
 	void register_signals()
 	{
 		next_output_id = 1;
-		top->register_signals(top->shared->next_output_id);
-		top->build_registers();
+		for (auto t : tops) {
+			t->register_signals(t->shared->next_output_id);
+			t->build_registers();
+		}
 	}
 
-	void register_output_step(int t)
+	void register_output_step(int time)
 	{
 		std::map<int,Const> data;
-		top->register_output_step_values(&data);
-		output_data.emplace_back(t, data);
+		for (auto t : tops)
+			t->register_output_step_values(&data);
+		output_data.emplace_back(time, data);
 	}
 
 	void write_output_files()
@@ -1424,10 +1460,11 @@ struct SimWorker : SimShared
 		}
 		for(auto& writer : outputfiles)
 			writer->write(use_signal);
-		
+
 		if (writeback) {
 			pool<Module*> wbmods;
-			top->writeback(wbmods);
+			for (auto t : tops)
+				t->writeback(wbmods);
 		}
 	}
 
@@ -1436,46 +1473,49 @@ struct SimWorker : SimShared
 		if (gclk)
 			step += 1;
 
-		while (1)
-		{
+		for (auto t : tops) {
+			while (1)
+			{
+				if (debug)
+					log("\n-- ph1 --\n");
+
+				t->update_ph1();
+
+				if (debug)
+					log("\n-- ph2 --\n");
+
+				if (!t->update_ph2(gclk))
+					break;
+			}
+
 			if (debug)
-				log("\n-- ph1 --\n");
+				log("\n-- ph3 --\n");
 
-			top->update_ph1();
-
-			if (debug)
-				log("\n-- ph2 --\n");
-
-			if (!top->update_ph2(gclk))
-				break;
+			t->update_ph3(gclk);
 		}
-
-		if (debug)
-			log("\n-- ph3 --\n");
-
-		top->update_ph3(gclk);
 	}
 
 	void initialize_stable_past()
 	{
+		for (auto t : tops) {
+			while (1)
+			{
+				if (debug)
+					log("\n-- ph1 (initialize) --\n");
 
-		while (1)
-		{
+				t->update_ph1();
+
+				if (debug)
+					log("\n-- ph2 (initialize) --\n");
+
+				if (!t->update_ph2(false, true))
+					break;
+			}
+
 			if (debug)
-				log("\n-- ph1 (initialize) --\n");
-
-			top->update_ph1();
-
-			if (debug)
-				log("\n-- ph2 (initialize) --\n");
-
-			if (!top->update_ph2(false, true))
-				break;
+				log("\n-- ph3 (initialize) --\n");
+			t->update_ph3(true);
 		}
-
-		if (debug)
-			log("\n-- ph3 (initialize) --\n");
-		top->update_ph3(true);
 	}
 
 	void set_inports(pool<IdString> ports, State value)
@@ -1493,8 +1533,9 @@ struct SimWorker : SimShared
 
 	void run(Module *topmod, int cycle_width, int numcycles)
 	{
-		log_assert(top == nullptr);
-		top = new SimInstance(this, scope, topmod);
+		log_assert(tops.empty());
+		tops.push_back(new SimInstance(this, scope, topmod));
+		top = tops.front();
 		register_signals();
 
 		if (debug)
@@ -1553,66 +1594,94 @@ struct SimWorker : SimShared
 
 	void run_cosim_fst(Module *topmod, int numcycles, int log_interval)
 	{
-		log_assert(top == nullptr);
+		log_assert(tops.empty());
 		fst = new FstData(sim_filename);
 		timescale = fst->getTimescaleString();
-		if (scope.empty()) {
-			scope = fst->autoScope(topmod);
-			if (scope.empty()) {
-				log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
-					RTLIL::unescape_id(topmod->name).c_str());
-			}
-		}
-		log("Using scope: \"%s\"\n", scope.c_str());
-
-		top = new SimInstance(this, scope, topmod);
-		register_signals();
 
 		std::vector<fstHandle> fst_clock;
 
-		for (auto portname : clock)
-		{
-			Wire *w = topmod->wire(portname);
-			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
-			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
-			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
-			fst_clock.push_back(id);
-		}
-		for (auto portname : clockn)
-		{
-			Wire *w = topmod->wire(portname);
-			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
-			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
-			if (id==0)
-				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
-			fst_clock.push_back(id);
-		}
-
-		SigMap sigmap(topmod);
-
-		for (auto wire : topmod->wires()) {
-
-			// Populate fst_inputs for input ports
-			if (wire->port_input) {
-				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-				if (id != 0) {
-					// Case of a regular wire/reg
-					top->fst_inputs[wire] = id;
-				} else {
-					// Not found
-					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
+		// Multi-root mode: instance_modules was resolved in execute() alongside instance_specs
+		if (!instance_modules.empty()) {
+			// In multi-root mode, each instance has its own clock pin and we drive every port_input
+			// from FST, so we can't honor user-supplied clock names here.
+			if (!clock.empty() || !clockn.empty())
+				log_warning("-clock/-clockn are ignored with -instance; clocks are driven directly from the FST sample stream.\n");
+			for (size_t i = 0; i < instance_modules.size(); i++) {
+				const std::string &iscope = instance_specs[i].second;
+				Module *m = instance_modules[i];
+				log("Using -instance %s at scope \"%s\"\n", instance_specs[i].first.c_str(), iscope.c_str());
+				SimInstance *t = new SimInstance(this, iscope, m);
+				tops.push_back(t);
+				// Drive every port_input from the FST
+				for (auto wire : m->wires()) {
+					if (!wire->port_input) continue;
+					fstHandle id = fst->getHandle(iscope + "." + RTLIL::unescape_id(wire->name));
+					if (id == 0) {
+						log_error("Can't find port '%s' on module '%s' in FST.\n",
+							(iscope + "." + RTLIL::unescape_id(wire->name)).c_str(), log_id(m));
+					}
+					t->fst_inputs[wire] = id;
+				}
+				t->addAdditionalInputs();
+			}
+			top = tops.front();
+		} else {
+			if (scope.empty()) {
+				scope = fst->autoScope(topmod);
+				if (scope.empty()) {
+					log_error("No scope found for module '%s'. Please specify -scope explicitly.\n",
+						RTLIL::unescape_id(topmod->name).c_str());
 				}
 			}
+			log("Using scope: \"%s\"\n", scope.c_str());
+
+			tops.push_back(new SimInstance(this, scope, topmod));
+			top = tops.front();
+
+			for (auto portname : clock)
+			{
+				Wire *w = topmod->wire(portname);
+				if (!w)
+					log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				if (!w->port_input)
+					log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+				if (id==0)
+					log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
+				fst_clock.push_back(id);
+			}
+			for (auto portname : clockn)
+			{
+				Wire *w = topmod->wire(portname);
+				if (!w)
+					log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				if (!w->port_input)
+					log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+				if (id==0)
+					log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
+				fst_clock.push_back(id);
+			}
+
+			for (auto wire : topmod->wires()) {
+
+				// Populate fst_inputs for input ports
+				if (wire->port_input) {
+					fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+					if (id != 0) {
+						// Case of a regular wire/reg
+						top->fst_inputs[wire] = id;
+					} else {
+						// Not found
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
+					}
+				}
+			}
+
+			top->addAdditionalInputs();
 		}
 
-		top->addAdditionalInputs();
+		register_signals();
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
@@ -1673,10 +1742,15 @@ struct SimWorker : SimShared
 					cycle,
 					(unsigned long)time,
 					fst->getTimescaleString());
-			bool did_something = top->setInputs();
+			// Apply per-cycle FST values to every root
+			bool did_something = false;
+			for (auto t : tops)
+				did_something |= t->setInputs();
 
 			if (initial) {
-				if (!fst_noinit) did_something |= top->setInitState();
+				if (!fst_noinit)
+					for (auto t : tops)
+						did_something |= t->setInitState();
 				initialize_stable_past();
 				initial = false;
 			}
@@ -1684,13 +1758,19 @@ struct SimWorker : SimShared
 				update(true);
 
 			// Override register state from VCD every cycle
-			if (reg_overwrite && top->setRegisters(time))
-				update(true);
+			if (reg_overwrite) {
+				bool diverged = false;
+				for (auto t : tops)
+					diverged |= t->setRegisters(time);
+				if (diverged) update(true);
+			}
 
 			register_output_step(time);
 			last_time = time;
 
-			bool status = top->checkSignals();
+			bool status = false;
+			for (auto t : tops)
+				status |= t->checkSignals();
 			if (status)
 				log_error("Signal difference\n");
 			cycle++;
@@ -1722,13 +1802,14 @@ struct SimWorker : SimShared
 
 	void run_cosim_aiger_witness(Module *topmod, int cycle_width)
 	{
-		log_assert(top == nullptr);
+		log_assert(tops.empty());
 		if (!multiclock && (clock.size()+clockn.size())==0)
 			log_error("Clock signal must be specified.\n");
 		if (multiclock && (clock.size()+clockn.size())>0)
 			log_error("For multiclock witness there should be no clock signal.\n");
 
-		top = new SimInstance(this, scope, topmod);
+		tops.push_back(new SimInstance(this, scope, topmod));
+		top = tops.front();
 		register_signals();
 
 		std::ifstream mf(map_filename);
@@ -1870,7 +1951,7 @@ struct SimWorker : SimShared
 
 	void run_cosim_btor2_witness(Module *topmod, int cycle_width)
 	{
-		log_assert(top == nullptr);
+		log_assert(tops.empty());
 		if (!multiclock && (clock.size()+clockn.size())==0)
 			log_error("Clock signal must be specified.\n");
 		if (multiclock && (clock.size()+clockn.size())>0)
@@ -1882,7 +1963,8 @@ struct SimWorker : SimShared
 
 		int state = 0;
 		int cycle = 0;
-		top = new SimInstance(this, scope, topmod);
+		tops.push_back(new SimInstance(this, scope, topmod));
+		top = tops.front();
 		register_signals();
 		int prev_cycle = 0;
 		int curr_cycle = 0;
@@ -2132,7 +2214,8 @@ struct SimWorker : SimShared
 
 		ReadWitness yw(sim_filename);
 
-		top = new SimInstance(this, scope, topmod);
+		tops.push_back(new SimInstance(this, scope, topmod));
+		top = tops.front();
 		register_signals();
 
 		YwHierarchy hierarchy = prepare_yw_hierarchy(yw);
@@ -2263,9 +2346,9 @@ struct SimWorker : SimShared
 		{
 			Wire *w = topmod->wire(portname);
 			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(topmod));
 			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(topmod));
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
@@ -2276,9 +2359,9 @@ struct SimWorker : SimShared
 		{
 			Wire *w = topmod->wire(portname);
 			if (!w)
-				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(topmod));
 			if (!w->port_input)
-				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(topmod));
 			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, log_id(portname));
@@ -2473,7 +2556,8 @@ struct VCDWriter : public OutputWriter
 		if (!worker->timescale.empty())
 			vcdfile << stringf("$timescale 1%s $end\n", worker->timescale);
 
-		worker->top->write_output_header(
+		// VCD writer emits one root subtree per top
+		for (auto t : worker->tops) t->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
 			[this,&use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
@@ -2647,24 +2731,31 @@ struct AnnotateActivity : public OutputWriter {
 			log_debug("Timescale %e seconds extracted from converted VCD file", real_timescale);
 		}
 
-		// Compute clock period, find the highest toggling signal and compute its average period
+		// Compute clock period: prefer the user override (-clk-period), else auto-detect
+		// from the highest-toggling signal
 		double clk_period;
-		SignalActivityDataMap::iterator itr = dataMap.find(clk);
-		if (itr == dataMap.end()) { // if clock signal can't be identified, set frequency to 1GHz
-			log_warning("Clock signal not found, setting frequency to 1GHz...\n");
-			clk_period = 1.0 / 1.0e9;
+		if (worker->clk_period_override > 0) {
+			clk_period = worker->clk_period_override;
 		} else {
-			std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
-			clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
+			SignalActivityDataMap::iterator itr = dataMap.find(clk);
+			if (itr == dataMap.end()) { // if clock signal can't be identified, set frequency to 1GHz
+				log_warning("Clock signal not found, setting frequency to 1GHz...\n");
+				clk_period = 1.0 / 1.0e9;
+			} else {
+				std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
+				clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
+			}
 		}
 		log_flush();
 
 		double frequency = 1.0 / clk_period;
-		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
-		worker->top->module->set_string_attribute("$DURATION", std::to_string(max_time));
 		std::stringstream ss;
 		ss << std::setprecision(4) << real_timescale;
-		worker->top->module->set_string_attribute("$TIMESCALE", ss.str());
+		for (auto t : worker->tops) {
+			t->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
+			t->module->set_string_attribute("$DURATION", std::to_string(max_time));
+			t->module->set_string_attribute("$TIMESCALE", ss.str());
+		}
 		if (worker->debug) {
 			log_debug("Max time: %d", max_time);
 			log_debug("Clock period: %f", clk_period);
@@ -2674,7 +2765,7 @@ struct AnnotateActivity : public OutputWriter {
 		double totalDuty = 0.0f;
 
 		// TODO make this debug code less messy and more readable.
-		worker->top->write_output_header(
+		for (auto t : worker->tops) t->write_output_header(
 		  [&](IdString name) {
 			  if (worker->debug)
 				  log_debug("module %s", log_id(name));
@@ -2762,8 +2853,8 @@ struct FSTWriter : public OutputWriter
 
 		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
 		fstWriterSetRepackOnClose(fstfile, 1);
-	   
-	   	worker->top->write_output_header(
+
+		for (auto t : worker->tops) t->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
 			[this,&use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
@@ -3048,6 +3139,20 @@ struct SimPass : public Pass {
 		log("    -reg\n");
 		log("        overwrite register state from VCD file every cycle\n");
 		log("\n");
+		log("    -bb\n");
+		log("        cut every parent<->child boundary in the hierarchy and source both sides from the FST\n");
+		log("        (each instance simulates its own logic only; boundary signals come from VCD)\n");
+		log("\n");
+		log("    -instance <module_name>:<scope>\n");
+		log("        repeatable; each entry roots a SimInstance at the named module with the given\n");
+		log("        VCD scope. Skips traversal from design top; combine with -bb so each root simulates\n");
+		log("        only its own logic with all boundaries sourced from the FST.\n");
+		log("\n");
+		log("    -clk-period <seconds>\n");
+		log("        override the activity-factor clock period (default: auto-detect from highest-\n");
+		log("        toggling signal). Useful when each parallel worker sees only a partial design and\n");
+		log("        the local highest-toggling signal isn't the system clock.\n");
+		log("\n");
 	}
 
 
@@ -3239,6 +3344,28 @@ struct SimPass : public Pass {
 				reg_overwrite = true;
 				continue;
 			}
+			if (args[argidx] == "-bb") {
+				worker.blackbox_children = true;
+				continue;
+			}
+			// -instance <module>:<scope>: register a multi-root spec; resolved to Module* below.
+			// Split on the last ':' so that hierarchical scopes (which use '.' as separator)
+			// are kept intact in the scope half.
+			if (args[argidx] == "-instance" && argidx+1 < args.size()) {
+				std::string spec = args[++argidx];
+				size_t pos = spec.find_last_of(':');
+				if (pos == std::string::npos)
+					log_cmd_error("-instance expects '<module>:<scope>' (got '%s')\n", spec.c_str());
+				worker.instance_specs.emplace_back(spec.substr(0, pos), spec.substr(pos + 1));
+				continue;
+			}
+			// -clk-period <seconds>: bypass the highest-toggling-signal heuristic
+			if (args[argidx] == "-clk-period" && argidx+1 < args.size()) {
+				worker.clk_period_override = atof(args[++argidx].c_str());
+				if (worker.clk_period_override <= 0)
+					log_cmd_error("-clk-period expects a positive number of seconds.\n");
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -3249,7 +3376,16 @@ struct SimPass : public Pass {
 
 		Module *top_mod = nullptr;
 
-		if (design->full_selection()) {
+		// Resolve every -instance module
+		if (!worker.instance_specs.empty()) {
+			for (auto &spec : worker.instance_specs) {
+				Module *m = design->module(RTLIL::escape_id(spec.first));
+				if (!m)
+					log_cmd_error("Module '%s' (from -instance) not found in design.\n", spec.first.c_str());
+				worker.instance_modules.push_back(m);
+				worker.instance_root_modules.insert(m->name);
+			}
+		} else if (design->full_selection()) {
 			top_mod = design->top_module();
 
 			if (!top_mod)
@@ -3262,6 +3398,9 @@ struct SimPass : public Pass {
 		}
 
 		worker.reg_overwrite = reg_overwrite;
+		// Multi-root (-instance) is only supported in FST/VCD cosim
+		if (!worker.instance_specs.empty() && worker.sim_filename.empty())
+			log_cmd_error("-instance requires FST/VCD cosim (-r <file.vcd|.fst>).\n");
 		if (worker.sim_filename.empty())
 			worker.run(top_mod, cycle_width, numcycles);
 		else {
