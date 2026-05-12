@@ -986,13 +986,7 @@ struct HierarchyPass : public Pass {
 					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
 						log_cmd_error("Can't decode value '%s'!\n", para.second);
 					RTLIL::Const c = sig_value.as_const();
-
-					if (!para.second.empty() && para.second.find('\'') == std::string::npos) {
-						size_t start = (para.second[0] == '-' || para.second[0] == '+') ? 1 : 0;
-						if (start < para.second.size() && std::all_of(para.second.begin() + start, para.second.end(), ::isdigit))
-							c.flags |= RTLIL::CONST_FLAG_SIGNED;
-					}
-
+					c.tag_bare_integer_const(para.second);
 					top_parameters[RTLIL::escape_id(para.first)] = c;
 				}
 			}
@@ -1082,13 +1076,7 @@ struct HierarchyPass : public Pass {
 				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
 					log_cmd_error("Can't decode value '%s'!\n", para.second);
 				RTLIL::Const c = sig_value.as_const();
-
-				if (!para.second.empty() && para.second.find('\'') == std::string::npos) {
-					size_t start = (para.second[0] == '-' || para.second[0] == '+') ? 1 : 0;
-					if (start < para.second.size() && std::all_of(para.second.begin() + start, para.second.end(), ::isdigit))
-						c.flags |= RTLIL::CONST_FLAG_SIGNED;
-				}
-
+				c.tag_bare_integer_const(para.second);
 				top_parameters[RTLIL::escape_id(para.first)] = c;
 			}
 
