@@ -82,19 +82,19 @@ jobs:
           $CXX --version
 
       # minimum standard
-      - name: Build C++17
-        shell: bash
-        run: |
-          make config-$CC_SHORT
-          make -j$procs CXXSTD=c++17 compile-only
-
-      # maximum standard, only on newest compilers
       - name: Build C++20
-        if: ${{ matrix.compiler == 'clang-19' || matrix.compiler == 'gcc-14' }}
         shell: bash
         run: |
           make config-$CC_SHORT
           make -j$procs CXXSTD=c++20 compile-only
+
+      # maximum standard, only on newest compilers
+      - name: Build C++26
+        if: ${{ matrix.compiler == 'clang-19' || matrix.compiler == 'gcc-14' }}
+        shell: bash
+        run: |
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=c++26 compile-only
 
   test-compile-result:
     runs-on: ubuntu-latest
