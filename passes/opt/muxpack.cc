@@ -150,6 +150,7 @@ struct MuxpackWorker
 			}
 		}
 
+		std::vector<Cell*> mux_cells;
 		for (auto cell : module->cells())
 		{
 			if (cell->type.in(ID($mux), ID($pmux)) && !cell->get_bool_attribute(ID::keep))
@@ -179,6 +180,7 @@ struct MuxpackWorker
 				}
 
 				sig_chain_prev[y_sig] = cell;
+				mux_cells.push_back(cell);
 				continue;
 			}
 
@@ -186,6 +188,30 @@ struct MuxpackWorker
 				if (cell->input(conn.first))
 					for (auto bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
+		}
+
+		// A port can serve as a chain link only if its full sigspec matches
+		// some chain producer's Y. Bits used by any other input port
+		// have non-chain users.
+		for (auto cell : mux_cells)
+		{
+			SigSpec a_sig = sigmap(cell->getPort(ID::A));
+			SigSpec b_sig;
+			if (cell->type == ID($mux))
+				b_sig = sigmap(cell->getPort(ID::B));
+			SigSpec s_sig = sigmap(cell->getPort(ID::S));
+
+			bool a_is_chain_link = sig_chain_prev.count(a_sig);
+			bool b_is_chain_link = !b_sig.empty() && sig_chain_prev.count(b_sig);
+
+			if (!a_is_chain_link)
+				for (auto bit : a_sig)
+					sigbit_with_non_chain_users.insert(bit);
+			if (!b_is_chain_link)
+				for (auto bit : b_sig)
+					sigbit_with_non_chain_users.insert(bit);
+			for (auto bit : s_sig)
+				sigbit_with_non_chain_users.insert(bit);
 		}
 	}
 
