@@ -376,7 +376,7 @@ class PyosysWrapperGenerator(object):
     def make_preprocessor_options(self):
         py_include = get_paths()["include"]
         preprocessor_bin = shutil.which("clang++") or "g++"
-        cxx_std = os.getenv("CXX_STD", "c++17")
+        cxx_std = os.getenv("CXX_STD", "c++20")
         return ParserOptions(
             preprocessor=make_gcc_preprocessor(
                 defines=["_YOSYS_", "YOSYS_ENABLE_PYTHON"],
