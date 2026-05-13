@@ -1091,6 +1091,8 @@ public:
 	// over/underflow, otherwise the max/min value for int depending on the sign.
 	int as_int_saturating(bool is_signed = false) const;
 
+	void tag_bare_integer_const(const std::string &value);
+
 	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
