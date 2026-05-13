@@ -1104,62 +1104,76 @@ struct OptDffWorker
 
 		qcsat.prepare();
 		bool any_change = false;
-		bool changed = true;
+		std::vector<int> worklist;
+		std::vector<bool> in_worklist(GetSize(classes), true);
 
-		// Bit = class rep, split classes whenever two next states differ
-		while (changed) {
-			changed = false;
-			int joint = qcsat.ez->CONST_TRUE;
+		for (int i = 0; i < GetSize(classes); i++) {
+			worklist.push_back(i);
+		}
 
-			for (auto &cls : classes) {
-				int rep = cls[0];
-				for (int k = 1; k < GetSize(cls); k++)
-					joint = qcsat.ez->AND(joint, qcsat.ez->IFF(q_lit[rep], q_lit[cls[k]]));
+		while (!worklist.empty()) {
+			int cls_idx = worklist.back();
+			worklist.pop_back();
+			in_worklist[cls_idx] = false;
+
+			auto &cls = classes[cls_idx];
+			if (GetSize(cls) < 2) continue;
+
+			std::vector<int> assumptions;
+			for (auto &c : classes) {
+				if (GetSize(c) < 2) continue;
+				int rep = c[0];
+				for (int k = 1; k < GetSize(c); k++) {
+					assumptions.push_back(qcsat.ez->IFF(q_lit[rep], q_lit[c[k]]));
+				}
 			}
 
-			std::vector<std::vector<int>> new_classes;
-			new_classes.reserve(classes.size());
+			// Split at counterexamples
+			int rep = cls[0];
+			for (int i = 1; i < GetSize(cls); i++) {
+				// Trivially eqivalent
+				if (n_lit[rep] == n_lit[cls[i]])
+					continue;
 
-			for (auto &cls : classes) {
-				std::vector<std::vector<int>> subs;
+				int query = qcsat.ez->NOT(qcsat.ez->IFF(n_lit[rep], n_lit[cls[i]]));
+				std::vector<int> modelExprs;
+
 				for (int b : cls) {
-					bool placed = false;
-
-					// Identical literal - trivially eq
-					for (auto &sub : subs) {
-						if (n_lit[sub[0]] == n_lit[b]) {
-							sub.push_back(b);
-							placed = true;
-							break;
-						}
-					}
-
-					if (placed) continue;
-
-					for (auto &sub : subs) {
-						int rep = sub[0];
-						int query = qcsat.ez->NOT(qcsat.ez->IFF(n_lit[rep], n_lit[b]));
-						if (!qcsat.ez->solve(joint, query)) {
-							sub.push_back(b);
-							placed = true;
-							break;
-						}
-					}
-
-					if (!placed)
-						subs.push_back({b});
+					modelExprs.push_back(n_lit[b]);
 				}
 
-				if (GetSize(subs) > 1)
-					changed = true;
-				for (auto &sub : subs)
-					if (GetSize(sub) >= 2)
-						new_classes.push_back(std::move(sub));
-			}
+				std::vector<bool> modelVals;
+				assumptions.push_back(query);
+				
+				if (qcsat.ez->solve(modelExprs, modelVals, assumptions)) {
+					// SAT -> partition entire class
+					std::vector<int> sub0;
+					std::vector<int> sub1;
 
-			classes = std::move(new_classes);
-			if (changed)
-				any_change = true;
+					for (size_t b_idx = 0; b_idx < cls.size(); b_idx++) {
+						if (modelVals[b_idx])
+							sub1.push_back(cls[b_idx]);
+						else
+							sub0.push_back(cls[b_idx]);
+					}
+
+					classes[cls_idx] = std::move(sub0);
+					classes.push_back(std::move(sub1));
+					in_worklist.push_back(false);
+
+					// Partition was split -> the induction hypo weakened
+					for (int j = 0; j < GetSize(classes); j++) {
+						if (GetSize(classes[j]) >= 2 && !in_worklist[j]) {
+							worklist.push_back(j);
+							in_worklist[j] = true;
+						}
+					}
+
+					break; // Process new splits
+				}
+
+				assumptions.pop_back(); // Remove query for the next pairwise check if UNSAT
+			}
 		}
 
 		if (classes.empty())
@@ -1169,7 +1183,10 @@ struct OptDffWorker
 
 		// Drive every non-rep Q from its class rep, drop merged bits from their FFs
 		for (auto &cls : classes) {
+			if (GetSize(cls) < 2)
+				continue;
 			SigBit rep_q = bits[cls[0]].q;
+			any_change = true;
 			for (int k = 1; k < GetSize(cls); k++) {
 				const EqBit &eb = bits[cls[k]];
 				initvals.remove_init(eb.q);
@@ -1197,7 +1214,7 @@ struct OptDffWorker
 			}
 		}
 
-		return true;
+		return any_change;
 	}
 };
 
