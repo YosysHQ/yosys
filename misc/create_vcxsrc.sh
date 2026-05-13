@@ -25,6 +25,7 @@ if [ -f "/usr/include/FlexLexer.h" ] ; then
 	cp /usr/include/FlexLexer.h libs/flex/FlexLexer.h
 	ls libs/flex/*.h >> ../../srcfiles.txt
 fi
+sed -i '\#libs/../kernel/yosys.h#d' ../../srcfiles.txt
 
 popd
 {
