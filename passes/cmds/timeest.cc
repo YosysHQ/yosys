@@ -100,7 +100,7 @@ struct EstimateSta {
 								log_id(cell), log_id(cell->type));
 					continue;
 				}
-				if (ff.sig_clk != clk)
+				if (!clk || ff.sig_clk.as_bit() != *clk)
 					continue;
 				launch.append(ff.sig_q);
 				sample.append(ff.sig_d);
@@ -144,12 +144,12 @@ struct EstimateSta {
 					log_error("Unsupported async memory port '%s'\n", log_id(rd.cell));
 					continue;
 				}
-				if (sigmap(rd.clk) != clk)
+				if (!clk || sigmap(rd.clk).as_bit() != *clk)
 					continue;
 				add_seq(rd.cell, rd.data, {rd.addr, rd.srst, rd.en});
 			}
 			for (auto &wr : mem.wr_ports) {
-				if (sigmap(wr.clk) != clk)
+				if (!clk || sigmap(wr.clk).as_bit() != *clk)
 					continue;
 				add_seq(wr.cell, {}, {wr.en, wr.addr, wr.data});
 			}
