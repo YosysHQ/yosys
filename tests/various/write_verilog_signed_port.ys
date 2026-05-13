@@ -1,0 +1,33 @@
+# Roundtrip a module with `signed` ports / wires through read_verilog
+# and write_verilog and verify the `signed` keyword survives.  Before
+# the fix, write_verilog silently dropped `signed` on every wire / port
+# declaration, even though wire->is_signed was tracked correctly
+# through the RTLIL.  The IEEE 1364-2001 grammar (Annex A.2.1.2 /
+# A.2.1.3) allows `signed` after the direction / net-type, which is
+# the dialect write_verilog targets by default.
+
+! mkdir -p temp
+read_verilog <<EOT
+module top(
+    input  signed [9:0]  in,
+    input  signed        s_in,
+    output signed [31:0] o,
+    output signed        s_o
+);
+    wire signed [15:0] w;
+    assign w   = in;
+    assign o   = w;
+    assign s_o = s_in;
+endmodule
+EOT
+
+write_verilog -noattr temp/write_verilog_signed_port.v
+
+# Each `signed` declaration must round-trip exactly.  Use a non-greedy
+# grep on the relevant slices (input / output / wire) so any drift
+# in the surrounding formatting doesn't mask the bug.
+! grep -E '^\s*input  *signed *\[9:0\] +in;'   temp/write_verilog_signed_port.v
+! grep -E '^\s*input  *signed +s_in;'          temp/write_verilog_signed_port.v
+! grep -E '^\s*output  *signed *\[31:0\] +o;'  temp/write_verilog_signed_port.v
+! grep -E '^\s*output  *signed +s_o;'          temp/write_verilog_signed_port.v
+! grep -E '^\s*wire  *signed *\[15:0\] +w;'    temp/write_verilog_signed_port.v
