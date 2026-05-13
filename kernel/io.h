@@ -441,7 +441,8 @@ public:
 private:
 	std::string_view fmt;
 	bool has_escapes = false;
-	FoundFormatSpec specs[sizeof...(Args)] = {};
+	// Making array at least size of one to make MSVC happy and strict to standards 
+	FoundFormatSpec specs[sizeof...(Args) ? sizeof...(Args) : 1] = {};
 };
 
 template <typename T> struct WrapType { using type = T; };
