@@ -85,7 +85,7 @@ jobs:
       - name: Fix clang-10 toolchain
         if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-10'
         run: |
-          echo "CXXFLAGS=--gcc-toolchain=/usr/lib/gcc/x86_64-linux-gnu/10 -stdlib=libstdc++" >> $GITHUB_ENV
+          echo "CXXFLAGS=--gcc-toolchain=/usr" >> $GITHUB_ENV
 
       # minimum standard
       - name: Build C++20
