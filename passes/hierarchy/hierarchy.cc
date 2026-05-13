@@ -985,7 +985,9 @@ struct HierarchyPass : public Pass {
 					SigSpec sig_value;
 					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
 						log_cmd_error("Can't decode value '%s'!\n", para.second);
-					top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+					RTLIL::Const c = sig_value.as_const();
+					c.tag_bare_integer_const(para.second);
+					top_parameters[RTLIL::escape_id(para.first)] = c;
 				}
 			}
 
@@ -1073,7 +1075,9 @@ struct HierarchyPass : public Pass {
 				SigSpec sig_value;
 				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
 					log_cmd_error("Can't decode value '%s'!\n", para.second);
-				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+				RTLIL::Const c = sig_value.as_const();
+				c.tag_bare_integer_const(para.second);
+				top_parameters[RTLIL::escape_id(para.first)] = c;
 			}
 
 			top_mod = design->module(top_mod->derive(design, top_parameters));
