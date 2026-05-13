@@ -664,6 +664,7 @@ int main(int argc, char **argv)
 
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);
+		(void)wall_clock_start;
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
