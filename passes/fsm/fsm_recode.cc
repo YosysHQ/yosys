@@ -96,7 +96,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		log_error("FSM encoding `%s' is not supported!\n", encoding);
 
 	if (encfile)
-		fprintf(encfile, ".fsm %s %s\n", module, RTLIL::unescape_id(cell->parameters[ID::NAME].decode_string()).c_str());
+		fprintf(encfile, ".fsm %s %s\n", module->name.unescape().c_str(), RTLIL::unescape_id(cell->parameters[ID::NAME].decode_string()).c_str());
 
 	int state_idx_counter = fsm_data.reset_state >= 0 ? 1 : 0;
 	for (int i = 0; i < int(fsm_data.state_table.size()); i++)
