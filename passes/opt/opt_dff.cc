@@ -919,6 +919,303 @@ struct OptDffWorker
 
 		return did_something;
 	}
+
+	struct EqBit {
+		Cell *cell;
+		int idx;
+		SigBit q;
+	};
+
+	struct SigKey {
+		enum Flag : uint16_t {
+			InitOne     = 1u << 0,
+			InitX       = 1u << 1,
+			PolClk      = 1u << 2,
+			PolCe       = 1u << 3,
+			PolSrst     = 1u << 4,
+			PolArst     = 1u << 5,
+			PolAload    = 1u << 6,
+			PolClr      = 1u << 7,
+			PolSet      = 1u << 8,
+			CeOverSrst  = 1u << 9,
+		};
+
+		SigBit clk, ce, srst, arst, aload, clr, set;
+		IdString cell_type;  // for SR
+		uint16_t flags;
+
+		bool operator==(const SigKey &o) const {
+			return flags == o.flags && clk == o.clk && ce == o.ce && srst == o.srst && arst == o.arst 
+				&& aload == o.aload && clr == o.clr && set == o.set && cell_type == o.cell_type;
+		}
+
+		Hasher hash_into(Hasher h) const {
+			h.eat(flags);
+			h.eat(clk);
+			h.eat(ce);
+			h.eat(srst);
+			h.eat(arst);
+			h.eat(aload);
+			h.eat(clr);
+			h.eat(set);
+			h.eat(cell_type);
+			return h;
+		}
+	};
+
+	bool is_def(State s) {
+		return s == State::S0 || s == State::S1;
+	}
+
+	int sat_mux(QuickConeSat &qcsat, int s, int a, int b) {
+		return qcsat.ez->OR(qcsat.ez->AND(s, a), qcsat.ez->AND(qcsat.ez->NOT(s), b));
+	}
+
+	int sat_const(QuickConeSat &qcsat, State v) {
+		return v == State::S1 ? qcsat.ez->CONST_TRUE : qcsat.ez->CONST_FALSE;
+	}
+
+	bool run_eqbits()
+	{
+		std::vector<EqBit> bits;
+		std::vector<SigKey> keys;
+		dict<Cell*, FfData> ff_for_cell;
+
+		// Collect FF bits eligible for merging
+		for (auto cell : module->selected_cells()) {
+			if (!cell->is_builtin_ff())
+				continue;
+
+			FfData ff(&initvals, cell);
+			if (!ff.has_clk && !ff.has_gclk)
+				continue;
+
+			ff_for_cell.emplace(cell, ff);
+
+			for (int i = 0; i < ff.width; i++) {
+				// X value
+				if (ff.has_srst && !is_def(ff.val_srst[i])) continue;
+				if (ff.has_arst && !is_def(ff.val_arst[i])) continue;
+
+				// Missing anchor
+				bool def_init = is_def(ff.val_init[i]);
+				if (!def_init && !ff.has_srst && !ff.has_arst)
+					continue;
+
+				SigKey k = {};
+
+				// Flags
+				if (def_init && ff.val_init[i] == State::S1)
+					k.flags |= SigKey::InitOne;
+				else if (!def_init)
+					k.flags |= SigKey::InitX;
+
+				if (ff.has_clk) {
+					k.clk = ff.sig_clk;
+					if (ff.pol_clk) k.flags |= SigKey::PolClk;
+				}
+				if (ff.has_ce) {
+					k.ce = ff.sig_ce;
+					if (ff.pol_ce) k.flags |= SigKey::PolCe;
+				}
+				if (ff.has_srst) {
+					k.srst = ff.sig_srst;
+					if (ff.pol_srst) k.flags |= SigKey::PolSrst;
+					if (ff.ce_over_srst) k.flags |= SigKey::CeOverSrst;
+				}
+				if (ff.has_arst) {
+					k.arst = ff.sig_arst;
+					if (ff.pol_arst) k.flags |= SigKey::PolArst;
+				}
+				if (ff.has_aload) {
+					k.aload = ff.sig_aload;
+					if (ff.pol_aload) k.flags |= SigKey::PolAload;
+				}
+				if (ff.has_sr) {
+					k.clr = ff.sig_clr[i];
+					k.set = ff.sig_set[i];
+					k.cell_type = cell->type;
+					if (ff.pol_clr) k.flags |= SigKey::PolClr;
+					if (ff.pol_set) k.flags |= SigKey::PolSet;
+				}
+
+				bits.push_back({cell, i, ff.sig_q[i]});
+				keys.push_back(k);
+			}
+		}
+
+		if (GetSize(bits) < 2)
+			return false;
+
+		// Group bits by control signature
+		dict<SigKey, std::vector<int>> buckets;
+		for (int i = 0; i < GetSize(bits); i++)
+			buckets[keys[i]].push_back(i);
+
+		std::vector<std::vector<int>> classes;
+		classes.reserve(GetSize(buckets));
+		for (auto &kv : buckets)
+			if (GetSize(kv.second) >= 2)
+				classes.push_back(std::move(kv.second));
+
+		if (classes.empty())
+			return false;
+
+		ModWalker modwalker(module->design, module);
+		QuickConeSat qcsat(modwalker);
+		std::vector<int> q_lit(bits.size(), -1);
+		std::vector<int> n_lit(bits.size(), -1);
+
+		// Per candidate SAT for its next state, model difference
+		for (auto &cls : classes) {
+			for (int idx : cls) {
+				const EqBit &eb = bits[idx];
+				const FfData &ff = ff_for_cell.at(eb.cell);
+				q_lit[idx] = qcsat.importSigBit(eb.q);
+				int n = qcsat.importSigBit(ff.sig_d[eb.idx]);
+
+				if (ff.has_aload) {
+					int al = qcsat.importSigBit(ff.sig_aload);
+					if (!ff.pol_aload) al = qcsat.ez->NOT(al);
+					int ad = qcsat.importSigBit(ff.sig_ad[eb.idx]);
+					n = sat_mux(qcsat, al, ad, n);
+				}
+				if (ff.has_arst) {
+					int ar = qcsat.importSigBit(ff.sig_arst);
+					if (!ff.pol_arst) ar = qcsat.ez->NOT(ar);
+					n = sat_mux(qcsat, ar, sat_const(qcsat, ff.val_arst[eb.idx]), n);
+				}
+				if (ff.has_sr) {
+					int clr = qcsat.importSigBit(ff.sig_clr[eb.idx]);
+					if (!ff.pol_clr) clr = qcsat.ez->NOT(clr);
+					int set = qcsat.importSigBit(ff.sig_set[eb.idx]);
+					if (!ff.pol_set) set = qcsat.ez->NOT(set);
+					n = qcsat.ez->AND(qcsat.ez->NOT(clr), qcsat.ez->OR(set, n));
+				}
+				if (ff.has_srst) {
+					int srst = qcsat.importSigBit(ff.sig_srst);
+					if (!ff.pol_srst) srst = qcsat.ez->NOT(srst);
+					n = sat_mux(qcsat, srst, sat_const(qcsat, ff.val_srst[eb.idx]), n);
+				}
+
+				n_lit[idx] = n;
+			}
+		}
+
+		qcsat.prepare();
+		bool any_change = false;
+		std::vector<int> worklist;
+		std::vector<bool> in_worklist(GetSize(classes), true);
+
+		for (int i = 0; i < GetSize(classes); i++) {
+			worklist.push_back(i);
+		}
+
+		while (!worklist.empty()) {
+			int cls_idx = worklist.back();
+			worklist.pop_back();
+			in_worklist[cls_idx] = false;
+
+			auto &cls = classes[cls_idx];
+			if (GetSize(cls) < 2) continue;
+
+			std::vector<int> assumptions;
+			for (auto &c : classes) {
+				if (GetSize(c) < 2) continue;
+				int rep = c[0];
+				for (int k = 1; k < GetSize(c); k++) {
+					assumptions.push_back(qcsat.ez->IFF(q_lit[rep], q_lit[c[k]]));
+				}
+			}
+
+			// Split at counterexamples
+			int rep = cls[0];
+			for (int i = 1; i < GetSize(cls); i++) {
+				// Trivially eqivalent
+				if (n_lit[rep] == n_lit[cls[i]])
+					continue;
+
+				int query = qcsat.ez->NOT(qcsat.ez->IFF(n_lit[rep], n_lit[cls[i]]));
+				std::vector<int> modelExprs;
+
+				for (int b : cls) {
+					modelExprs.push_back(n_lit[b]);
+				}
+
+				std::vector<bool> modelVals;
+				assumptions.push_back(query);
+				
+				if (qcsat.ez->solve(modelExprs, modelVals, assumptions)) {
+					// SAT -> partition entire class
+					std::vector<int> sub0;
+					std::vector<int> sub1;
+
+					for (size_t b_idx = 0; b_idx < cls.size(); b_idx++) {
+						if (modelVals[b_idx])
+							sub1.push_back(cls[b_idx]);
+						else
+							sub0.push_back(cls[b_idx]);
+					}
+
+					classes[cls_idx] = std::move(sub0);
+					classes.push_back(std::move(sub1));
+					in_worklist.push_back(false);
+
+					// Partition was split -> the induction hypo weakened
+					for (int j = 0; j < GetSize(classes); j++) {
+						if (GetSize(classes[j]) >= 2 && !in_worklist[j]) {
+							worklist.push_back(j);
+							in_worklist[j] = true;
+						}
+					}
+
+					break; // Process new splits
+				}
+
+				assumptions.pop_back(); // Remove query for the next pairwise check if UNSAT
+			}
+		}
+
+		if (classes.empty())
+			return any_change;
+
+		dict<Cell *, std::set<int>> remove_bits;
+
+		// Drive every non-rep Q from its class rep, drop merged bits from their FFs
+		for (auto &cls : classes) {
+			if (GetSize(cls) < 2)
+				continue;
+			SigBit rep_q = bits[cls[0]].q;
+			any_change = true;
+			for (int k = 1; k < GetSize(cls); k++) {
+				const EqBit &eb = bits[cls[k]];
+				initvals.remove_init(eb.q);
+				module->connect(eb.q, rep_q);
+				remove_bits[eb.cell].insert(eb.idx);
+			}
+		}
+
+		for (auto &kv : remove_bits) {
+			Cell *cell = kv.first;
+			const std::set<int> &drop = kv.second;
+			FfData &ff = ff_for_cell.at(cell);
+			std::vector<int> keep;
+
+			for (int i = 0; i < ff.width; i++)
+				if (!drop.count(i))
+					keep.push_back(i);
+
+			if (keep.empty()) {
+				module->remove(cell);
+			} else {
+				FfData new_ff = ff.slice(keep);
+				new_ff.cell = cell;
+				new_ff.emit();
+			}
+		}
+
+		return any_change;
+	}
 };
 
 struct OptDffPass : public Pass {
@@ -986,6 +1283,8 @@ struct OptDffPass : public Pass {
 			if (worker.run())
 				did_something = true;
 			if (worker.run_constbits())
+				did_something = true;
+			if (opt.sat && worker.run_eqbits())
 				did_something = true;
 		}
 
