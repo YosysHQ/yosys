@@ -2,6 +2,7 @@ ram block $__GOWIN_SP_ {
 	abits 14;
 	widths 1 2 4 9 18 36 per_port;
 	cost 128;
+	byte 9;
 	init no_undef;
 	port srsw "A" {
 		clock posedge;
@@ -24,6 +25,7 @@ ram block $__GOWIN_SP_ {
 				rdwr old;
 			}
 		}
+		wrbe_separate;
 	}
 }
 
@@ -31,6 +33,7 @@ ram block $__GOWIN_DP_ {
 	abits 14;
 	widths 1 2 4 9 18 per_port;
 	cost 128;
+	byte 9;
 	init no_undef;
 	port srsw "A" "B" {
 		clock posedge;
@@ -48,11 +51,7 @@ ram block $__GOWIN_DP_ {
 		portoption "WRITE_MODE" 1 {
 			rdwr new;
 		}
-		ifndef gw5a {
-			portoption "WRITE_MODE" 2 {
-				rdwr old;
-			}
-		}
+		wrbe_separate;
 	}
 }
 
@@ -60,6 +59,7 @@ ram block $__GOWIN_SDP_ {
 	abits 14;
 	widths 1 2 4 9 18 36 per_port;
 	cost 128;
+	byte 9;
 	init no_undef;
 	port sr "R" {
 		clock posedge;
@@ -75,5 +75,6 @@ ram block $__GOWIN_SDP_ {
 	port sw "W" {
 		clock posedge;
 		clken;
+		wrbe_separate;
 	}
 }

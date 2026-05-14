@@ -1,0 +1,22 @@
+logger -expect error "Second design missing module top_renamed" 1
+
+read_rtlil <<EOT
+module \top
+  wire width 1 input 1 \a
+  wire width 1 output 2 \y
+  connect \y \a
+end
+EOT
+
+design -save golden
+
+design -reset
+read_rtlil <<EOT
+module \top_renamed
+  wire width 1 input 1 \a
+  wire width 1 output 2 \y
+  connect \y \a
+end
+EOT
+
+design_equal golden

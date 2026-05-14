@@ -55,6 +55,12 @@ namespace hashlib {
  * instead of pointers.
  */
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define HASHLIB_ATTRIBUTE_WARN_UNUSED __attribute__((warn_unused))
+#else
+#  define HASHLIB_ATTRIBUTE_WARN_UNUSED
+#endif
+
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
@@ -402,7 +408,7 @@ private:
 };
 
 template<typename K, typename T, typename OPS>
-class dict {
+class HASHLIB_ATTRIBUTE_WARN_UNUSED dict {
 	struct entry_t
 	{
 		std::pair<K, T> udata;
@@ -877,7 +883,7 @@ public:
 };
 
 template<typename K, typename OPS>
-class pool
+class HASHLIB_ATTRIBUTE_WARN_UNUSED pool
 {
 	template<typename, int, typename> friend class idict;
 
@@ -1257,7 +1263,7 @@ public:
 };
 
 template<typename K, int offset, typename OPS>
-class idict
+class HASHLIB_ATTRIBUTE_WARN_UNUSED idict
 {
 	pool<K, OPS> database;
 
@@ -1321,6 +1327,12 @@ public:
 		return i < 0 ? 0 : 1;
 	}
 
+	int lookup(const K &key) const
+	{
+		Hasher::hash_t hash = database.do_hash(key);
+		return database.do_lookup_no_rehash(key, hash);
+	}
+
 	void expect(const K &key, int i)
 	{
 		int j = (*this)(key);
@@ -1354,7 +1366,7 @@ public:
  * i-prefixed methods operate on indices in parents
 */
 template<typename K, typename OPS>
-class mfp
+class HASHLIB_ATTRIBUTE_WARN_UNUSED mfp
 {
 	idict<K, 0, OPS> database;
 	class AtomicParent {

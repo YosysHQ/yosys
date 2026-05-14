@@ -1,12 +1,18 @@
 name: Build docs artifact with Verific
 
-on: [push, pull_request]
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [ main, "docs-preview/**", "docs-preview*" ]
+    tags: [ "*" ]
+  workflow_dispatch:
 
 jobs:
   check_docs_rebuild:
     runs-on: ubuntu-latest
     outputs:
-      skip_check: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: ${{ steps.set_output.outputs.should_skip }}
       docs_export: ${{ steps.docs_var.outputs.docs_export }}
     env:
       docs_export: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
@@ -17,16 +23,26 @@ jobs:
           paths_ignore: '["**/README.md"]'
           # don't cancel in case we're updating docs
           cancel_others: 'false'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: ${{ env.docs_export && 'never' || 'same_content_newer'}}
+          # push filtering means we only want to skip duplicates for PRs
+          do_not_skip: '["workflow_dispatch", "merge_group", "push"]'
+          concurrent_skipping: 'same_content_newer'
+
       - id: docs_var
         run: echo "docs_export=${docs_export}" >> $GITHUB_OUTPUT
+
+      - id: set_output
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
+          fi
 
   prepare-docs:
     # docs builds are needed for anything on main, any tagged versions, and any tag
     # or branch starting with docs-preview
     needs: check_docs_rebuild
-    if: ${{ needs.check_docs_rebuild.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    if: ${{ needs.check_docs_rebuild.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
@@ -75,7 +91,7 @@ jobs:
           make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
 
       - name: Trigger RTDs build
-        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' }}
+        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/yosys' }}
         uses: dfm/rtds-action@v1.1.0
         with:
           webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}

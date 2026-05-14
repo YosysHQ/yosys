@@ -78,7 +78,6 @@ struct DffunmapPass : public Pass {
 					continue;
 
 				FfData ff(&initvals, cell);
-				IdString name = cell->name;
 
 				if (!ff.has_clk)
 					continue;

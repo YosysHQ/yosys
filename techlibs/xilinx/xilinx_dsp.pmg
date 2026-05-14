@@ -6,6 +6,8 @@
 //        If ADREG matched, treat 'A' input as input of ADREG
 //   ( 3) Match the driver of the 'A' and 'D' inputs for a possible $add cell
 //       (pre-adder)
+// 	 (3.1) Match the driver of the 'A' and 'D' inputs for a possible $sub cell
+//         (pre-adder)
 //   ( 4) If pre-adder was present, find match 'A' input for A2REG
 //        If pre-adder was not present, move ADREG to A2REG
 //        If A2REG, then match 'A' input for A1REG
@@ -152,13 +154,41 @@ code sigA sigD
 	}
 endcode
 
+// (3.1) Match the driver of the 'A' and 'D' inputs for a possible $sub cell
+//     (pre-adder)
+match preSub
+	if sigD.empty() || sigD.is_fully_zero()
+	// Ensure that preAdder not already used
+	if param(dsp, \USE_DPORT).decode_string() == "FALSE"
+	if port(dsp, \INMODE, Const(0, 5)).is_fully_zero()
+
+	select preSub->type.in($sub)
+	// Output has to be 25 bits or less
+	select GetSize(port(preSub, \Y)) <= 25
+	select nusers(port(preSub, \Y)) == 2
+	// D port has to be 25 bits or less
+	select GetSize(port(preSub, \A)) <= 25
+	// A port has to be 30 bits or less
+	select GetSize(port(preSub, \B)) <= 30
+	index <SigSpec> port(preSub, \Y) === sigA
+
+	optional
+endmatch
+
+code sigA sigD
+	if (preSub) {
+		sigD = port(preSub, \A);
+		sigA = port(preSub, \B);
+	}
+endcode
+
 // (4) If pre-adder was present, find match 'A' input for A2REG
 //     If pre-adder was not present, move ADREG to A2REG
 //     Then match 'A' input for A1REG
 code argQ ffAD sigA clock ffA2 ffA1
 	// Only search for ffA2 if there was a pre-adder
 	//   (otherwise ffA2 would have been matched as ffAD)
-	if (preAdd) {
+	if (preAdd || preSub) {
 		if (param(dsp, \AREG).as_int() == 0) {
 			argQ = sigA;
 			subpattern(in_dffe);

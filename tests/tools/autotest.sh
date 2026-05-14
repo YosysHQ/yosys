@@ -25,9 +25,11 @@ firrtl2verilog=""
 xfirrtl="../xfirrtl"
 abcprog="$toolsdir/../../yosys-abc"
 
+exec {lock}<"$toolsdir"; flock "$lock" 1>&2
 if [ ! -f "$toolsdir/cmp_tbdata" -o "$toolsdir/cmp_tbdata.c" -nt "$toolsdir/cmp_tbdata" ]; then
-	( set -ex; ${CXX:-g++} -Wall -o "$toolsdir/cmp_tbdata" "$toolsdir/cmp_tbdata.c"; ) || exit 1
+	( set -ex; ${CXX:-g++} -Wall ${CPPFLAGS} ${CXXFLAGS:-} -o "$toolsdir/cmp_tbdata" "$toolsdir/cmp_tbdata.c"; ) || exit 1
 fi
+flock -u "$lock"; exec {lock}>&-
 
 while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do
 	case "$opt" in
@@ -148,7 +150,7 @@ do
 
 		rm -f ${bn}_ref.fir
 		if [[ "$ext" == "v" ]]; then
-			egrep -v '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
+			grep -Ev '^\s*`timescale' ../$fn > ${bn}_ref.${ext}
 		elif [[ "$ext" == "aig" ]] || [[ "$ext" == "aag" ]]; then
 			$abcprog -c "read_aiger ../${fn}; write ${bn}_ref.${refext}"
 		else
@@ -235,6 +237,7 @@ do
 				echo "Note: Make sure that 'iverilog' is an up-to-date git checkout of Icarus Verilog."
 			fi
 		fi
+		sed -e "s,^,${bn}: ," ${bn}.err
 		$keeprunning || exit 1
 	fi
 done

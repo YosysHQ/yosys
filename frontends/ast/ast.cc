@@ -100,6 +100,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_CAST_SIZE)
 	X(AST_CONCAT)
 	X(AST_REPLICATE)
+	X(AST_ASSIGN_PATTERN)
 	X(AST_BIT_NOT)
 	X(AST_BIT_AND)
 	X(AST_BIT_OR)
@@ -694,6 +695,16 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		fprintf(f, "{");
 		children[1]->dumpVlog(f, "");
 		fprintf(f, "}}");
+		break;
+
+	case AST_ASSIGN_PATTERN:
+		fprintf(f, "'{");
+		for (int i = 0; i < GetSize(children); i++) {
+			if (i != 0)
+				fprintf(f, ", ");
+			children[i]->dumpVlog(f, "");
+		}
+		fprintf(f, "}");
 		break;
 
 	if (0) { case AST_BIT_NOT:     txt = "~";  }

@@ -1,22 +1,20 @@
 name: Build and run tests with Verific (Linux)
 
 on:
-  # always test main
-  push:
-    branches:
-      - main
-  # test PRs
   pull_request:
-  # allow triggering tests, ignores skip check
+  merge_group:
+  #push:
+  #  branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  pre-job:
+  pre_job:
     runs-on: ubuntu-latest
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: ${{ steps.set_output.outputs.should_skip }}
     steps:
       - id: skip_check
+        if: ${{ github.event_name != 'merge_group' }}
         uses: fkirc/skip-duplicate-actions@v5
         with:
           # don't run on documentation changes
@@ -25,9 +23,17 @@ jobs:
           # but never cancel main
           cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
+      - id: set_output
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
+          fi
+
   test-verific:
-    needs: pre-job
-    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
@@ -67,26 +73,21 @@ jobs:
 
       - name: Run Yosys tests
         run: |
-          make -j$procs test
+          make -j$procs vanilla-test
 
       - name: Run Verific specific Yosys tests
         run: |
           make -C tests/sva
-          cd tests/svtypes && bash run-test.sh
+          make -C tests/svtypes
 
       - name: Run SBY tests
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
           make -C sby run_ci
 
-      - name: Run unit tests
-        shell: bash
-        run: |
-          make -j$procs unit-test ENABLE_LTO=1 ENABLE_LIBYOSYS=1
-
   test-pyosys:
-    needs: pre-job
-    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
@@ -122,3 +123,20 @@ jobs:
         run: |
           export PYTHONPATH=${GITHUB_WORKSPACE}/.local/usr/lib/python3/site-packages:$PYTHONPATH
           python3 tests/pyosys/run_tests.py
+
+  test-verific-result:
+    runs-on: ubuntu-latest
+    needs:
+      - test-verific
+      - test-pyosys
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "Needs results: ${{ join(needs.*.result, ',') }}"
+          if [[ "${{ join(needs.*.result, ',') }}" == *failure* ]] || \
+            [[ "${{ join(needs.*.result, ',') }}" == *cancelled* ]]; then
+            echo "Some jobs failed or were cancelled"
+            exit 1
+          fi
+      - run: echo "All good"

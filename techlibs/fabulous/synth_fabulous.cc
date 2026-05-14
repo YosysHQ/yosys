@@ -286,6 +286,7 @@ struct SynthPass : public ScriptPass
 		if (check_label("flatten", "(unless -noflatten)"))
 		{
 			if (flatten) {
+				run("check");
 				run("flatten");
 				run("tribuf -logic");
 				run("deminout");

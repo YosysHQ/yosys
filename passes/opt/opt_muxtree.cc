@@ -21,11 +21,9 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
+#include <cstddef>
 #include <stdlib.h>
 #include <stdio.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <set>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -64,7 +62,7 @@ struct OptMuxtreeWorker
 	RTLIL::Module *module;
 	SigMap assign_map;
 	int removed_count;
-	int glob_evals_left = 10000000;
+	int glob_evals_left = 10'000'000;
 
 	struct bitinfo_t {
 		// Is bit directly used by non-mux cells or ports?
@@ -128,7 +126,7 @@ struct OptMuxtreeWorker
 		// In case of $pmux, port B is multiple slices, concatenated, one per bit of port S
 		for (int i = 0; i < GetSize(sig_s); i++) {
 			RTLIL::SigSpec sig = sig_b.extract(i*GetSize(sig_a), GetSize(sig_a));
-			RTLIL::SigSpec ctrl_sig = assign_map(sig_s.extract(i, 1));
+			RTLIL::SigSpec ctrl_sig = assign_map(SigSpec{sig_s[i]});
 			portinfo_t portinfo = used_port_bit(sig, this_mux_idx);
 			portinfo.ctrl_sig = sig2bits(ctrl_sig, false).front();
 			portinfo.const_activated = ctrl_sig.is_fully_const() && ctrl_sig.as_bool();
@@ -342,14 +340,21 @@ struct OptMuxtreeWorker
 		// The payload is a reference counter used to manage the list
 		// When it is non-zero, the signal in known to be inactive
 		// When it reaches zero, the map element is removed
-		std::unordered_map<int, int> known_inactive;
+		std::vector<int> known_inactive;
 
 		// database of known active signals
-		std::unordered_map<int, int> known_active;
+		std::vector<int> known_active;
 
 		// this is just used to keep track of visited muxes in order to prohibit
 		// endless recursion in mux loops
-		std::unordered_set<int> visited_muxes;
+		std::vector<bool> visited_muxes;
+
+		// Initialize with the maximum possible sizes
+		knowledge_t(int num_bits, int num_muxes) {
+			known_inactive.assign(num_bits, 0);
+			known_active.assign(num_bits, 0);
+			visited_muxes.assign(num_muxes, false);
+		}
 	};
 
 	static void activate_port(knowledge_t &knowledge, int port_idx, const muxinfo_t &muxinfo) {
@@ -366,11 +371,10 @@ struct OptMuxtreeWorker
 	}
 
 	static void deactivate_port(knowledge_t &knowledge, int port_idx, const muxinfo_t &muxinfo) {
-		auto unlearn = [](std::unordered_map<int, int>& knowns, int i) {
-			auto it = knowns.find(i);
-			if (it != knowns.end())
-				if (--it->second == 0)
-					knowns.erase(it);
+		auto unlearn = [](std::vector<int>& knowns, int bit_idx) {
+			if (knowns[bit_idx] > 0) {
+				--knowns[bit_idx];
+			}
 		};
 
 		if (port_idx < GetSize(muxinfo.ports)-1 && !muxinfo.ports[port_idx].const_activated)
@@ -418,9 +422,9 @@ struct OptMuxtreeWorker
 
 		vector<int> input_mux_queue;
 		for (int m : muxinfo.ports[port_idx].input_muxes) {
-			if (knowledge.visited_muxes.count(m))
+			if (knowledge.visited_muxes[m])
 				continue;
-			knowledge.visited_muxes.insert(m);
+			knowledge.visited_muxes[m] = true;
 			input_mux_queue.push_back(m);
 		}
 		for (int m : input_mux_queue) {
@@ -453,7 +457,7 @@ struct OptMuxtreeWorker
 		// Allow revisiting input muxes, since evaluating other ports should
 		// revisit these input muxes with different activation assumptions
 		for (int m : input_mux_queue)
-			knowledge.visited_muxes.erase(m);
+			knowledge.visited_muxes[m] = false;
 
 		// Undo our assumptions that the port is active
 		deactivate_port(knowledge, port_idx, muxinfo);
@@ -475,11 +479,11 @@ struct OptMuxtreeWorker
 		vector<int> bits = sig2bits(sig, false);
 		for (int i = 0; i < GetSize(bits); i++) {
 			if (bits[i] >= 0) {
-				if (knowledge.known_inactive.count(bits[i]) > 0) {
+				if (knowledge.known_inactive[bits[i]] > 0) {
 					sig[i] = State::S0;
 					did_something = true;
 				} else
-				if (knowledge.known_active.count(bits[i]) > 0) {
+				if (knowledge.known_active[bits[i]] > 0) {
 					sig[i] = State::S1;
 					did_something = true;
 				}
@@ -552,7 +556,7 @@ struct OptMuxtreeWorker
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 			if (portinfo.const_deactivated)
 				continue;
-			if (knowledge.known_active.count(portinfo.ctrl_sig) > 0) {
+			if (knowledge.known_active[portinfo.ctrl_sig] > 0) {
 				eval_mux_port(knowledge, mux_idx, port_idx, limits);
 				return;
 			}
@@ -566,7 +570,7 @@ struct OptMuxtreeWorker
 			if (portinfo.const_deactivated)
 				continue;
 			if (port_idx < GetSize(muxinfo.ports)-1)
-				if (knowledge.known_inactive.count(portinfo.ctrl_sig) > 0)
+				if (knowledge.known_inactive[portinfo.ctrl_sig] > 0)
 					continue;
 			eval_mux_port(knowledge, mux_idx, port_idx, limits);
 
@@ -578,8 +582,8 @@ struct OptMuxtreeWorker
 	void eval_root_mux(int mux_idx)
 	{
 		log_assert(glob_evals_left > 0);
-		knowledge_t knowledge;
-		knowledge.visited_muxes.insert(mux_idx);
+		knowledge_t knowledge(GetSize(bit2info), GetSize(mux2info));
+		knowledge.visited_muxes[mux_idx] = true;
 		limits_t limits = {};
 		limits.do_mark_ports_observable = root_enable_muxes.at(mux_idx);
 		eval_mux(knowledge, mux_idx, limits);

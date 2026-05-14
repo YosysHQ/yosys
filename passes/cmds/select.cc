@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/sigtools.h"
 #include "kernel/log_help.h"
 
@@ -488,7 +488,7 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, const std::string
 	}
 }
 
-static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, CellTypes &ct, bool eval_only)
+static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, NewCellTypes &ct, bool eval_only)
 {
 	int sel_objects = 0;
 	bool is_input, is_output;
@@ -564,13 +564,13 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 	std::vector<expand_rule_t> rules;
 	std::set<RTLIL::IdString> limits;
 
-	CellTypes ct;
+	NewCellTypes ct;
 
 	if (mode != 'x')
 		ct.setup(design);
 
 	if (pos < int(arg.size()) && arg[pos] == '*') {
-		levels = 1000000;
+		levels = 1'000'000;
 		pos++;
 	} else
 	if (pos < int(arg.size()) && '0' <= arg[pos] && arg[pos] <= '9') {

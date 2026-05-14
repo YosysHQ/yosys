@@ -37,7 +37,7 @@ struct ScratchpadPass : public Pass {
 		log("\n");
 		log("    scratchpad [options]\n");
 		log("\n");
-		log("This pass allows to read and modify values from the scratchpad of the current\n");
+		log("This pass allows reading and modifying values from the scratchpad of the current\n");
 		log("design. Options:\n");
 		log("\n");
 		log("    -get <identifier>\n");

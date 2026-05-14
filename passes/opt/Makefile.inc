@@ -9,7 +9,6 @@ OBJS += passes/opt/opt_muxtree.o
 OBJS += passes/opt/opt_reduce.o
 OBJS += passes/opt/opt_dff.o
 OBJS += passes/opt/opt_share.o
-OBJS += passes/opt/opt_clean.o
 OBJS += passes/opt/opt_expr.o
 OBJS += passes/opt/opt_hier.o
 
@@ -23,6 +22,7 @@ OBJS += passes/opt/opt_lut_ins.o
 OBJS += passes/opt/opt_ffinv.o
 OBJS += passes/opt/pmux2shiftx.o
 OBJS += passes/opt/muxpack.o
+OBJS += passes/opt/opt_balance_tree.o
 
 OBJS += passes/opt/peepopt.o
 GENFILES += passes/opt/peepopt_pm.h
@@ -39,3 +39,5 @@ PEEPOPT_PATTERN += passes/opt/peepopt_formal_clockgateff.pmg
 passes/opt/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
 endif
+
+include $(YOSYS_SRC)/passes/opt/opt_clean/Makefile.inc

@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/log_help.h"

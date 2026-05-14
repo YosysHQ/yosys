@@ -39,7 +39,8 @@ struct OptLutInsPass : public Pass {
 		log("\n");
 		log("    -tech <technology>\n");
 		log("        Instead of generic $lut cells, operate on LUT cells specific\n");
-		log("        to the given technology.  Valid values are: xilinx, lattice, gowin.\n");
+		log("        to the given technology.  Valid values are: xilinx, lattice,\n");
+		log("        gowin, analogdevices.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -58,7 +59,7 @@ struct OptLutInsPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (techname != "" && techname != "xilinx" && techname != "lattice" && techname != "ecp5" && techname != "gowin")
+		if (techname != "" && techname != "xilinx" && techname != "lattice" && techname != "analogdevices" && techname != "gowin")
 			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
 		for (auto module : design->selected_modules())
@@ -81,7 +82,7 @@ struct OptLutInsPass : public Pass {
 					inputs = cell->getPort(ID::A);
 					output = cell->getPort(ID::Y);
 					lut = cell->getParam(ID::LUT);
-				} else if (techname == "xilinx" || techname == "gowin") {
+				} else if (techname == "xilinx" || techname == "gowin" || techname == "analogdevices") {
 					if (cell->type == ID(LUT1)) {
 						inputs = {
 							cell->getPort(ID(I0)),
@@ -126,11 +127,11 @@ struct OptLutInsPass : public Pass {
 						continue;
 					}
 					lut = cell->getParam(ID::INIT);
-					if (techname == "xilinx")
+					if (techname == "xilinx" || techname == "analogdevices")
 						output = cell->getPort(ID::O);
 					else
 						output = cell->getPort(ID::F);
-				} else if (techname == "lattice" || techname == "ecp5") {
+				} else if (techname == "lattice") {
 					if (cell->type == ID(LUT4)) {
 						inputs = {
 							cell->getPort(ID::A),
@@ -236,7 +237,7 @@ struct OptLutInsPass : public Pass {
 					} else {
 						// xilinx, gowin
 						cell->setParam(ID::INIT, new_lut);
-						if (techname == "xilinx")
+						if (techname == "xilinx" || techname == "analogdevices")
 							log_assert(GetSize(new_inputs) <= 6);
 						else
 							log_assert(GetSize(new_inputs) <= 4);

@@ -421,13 +421,12 @@ struct OptLutWorker
 					}
 
 					RTLIL::Cell *lutM, *lutR;
-					pool<SigBit> lutM_inputs, lutR_inputs;
+					pool<SigBit> lutR_inputs;
 					pool<int> lutM_dlogic_inputs;
 					if (combine == COMBINE_A)
 					{
 						log_debug("  Combining LUTs into cell A.\n");
 						lutM = lutA;
-						lutM_inputs = lutA_inputs;
 						lutM_dlogic_inputs = lutA_dlogic_inputs;
 						lutR = lutB;
 						lutR_inputs = lutB_inputs;
@@ -436,7 +435,6 @@ struct OptLutWorker
 					{
 						log_debug("  Combining LUTs into cell B.\n");
 						lutM = lutB;
-						lutM_inputs = lutB_inputs;
 						lutM_dlogic_inputs = lutB_dlogic_inputs;
 						lutR = lutA;
 						lutR_inputs = lutA_inputs;

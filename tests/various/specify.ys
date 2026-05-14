@@ -43,7 +43,7 @@ select n:C_* -assert-count 2
 equiv_make gold gate equiv
 hierarchy -top equiv
 equiv_struct
-equiv_induct -seq 5
+equiv_induct -ignore-unknown-cells -seq 5
 equiv_status -assert
 design -reset
 
@@ -57,7 +57,7 @@ select n:B_* -assert-count 2
 equiv_make gold gate equiv
 hierarchy -top equiv
 equiv_struct
-equiv_induct -seq 5
+equiv_induct -ignore-unknown-cells -seq 5
 equiv_status -assert
 design -reset
 

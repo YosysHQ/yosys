@@ -1,0 +1,14 @@
+# Test debug -on/-off modes
+
+design -reset
+
+read_verilog <<EOT
+module top(input a, input b, output y);
+    assign y = a & b;
+endmodule
+EOT
+
+debug -on
+hierarchy
+select -assert-count 1 t:$and
+debug -off

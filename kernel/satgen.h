@@ -59,6 +59,7 @@ struct SatSolver
 
 struct ezSatPtr : public std::unique_ptr<ezSAT> {
 	ezSatPtr() : unique_ptr<ezSAT>(yosys_satsolver->create()) { }
+	explicit ezSatPtr(SatSolver *solver) : unique_ptr<ezSAT>((solver ? solver : yosys_satsolver)->create()) { }
 };
 
 struct SatGen
@@ -291,6 +292,8 @@ struct SatGen
 
 	bool importCell(RTLIL::Cell *cell, int timestep = -1);
 };
+
+void report_missing_model(bool warn_only, RTLIL::Cell* cell);
 
 YOSYS_NAMESPACE_END
 

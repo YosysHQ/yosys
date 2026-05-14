@@ -1,0 +1,10 @@
+read_rtlil << EOT
+module \test
+  wire \wire_a
+  wire \wire_f
+  connect \wire_f \wire_a
+end
+EOT
+
+opt_clean
+select -assert-count 0 */*

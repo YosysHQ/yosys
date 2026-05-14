@@ -1246,14 +1246,14 @@ struct FlowmapWorker
 				}
 			}
 			log("  Breaking LUT %s to %s LUT %s (potential %d).\n",
-			    log_signal(breaking_lut), lut_nodes[breaking_gate] ? "reuse" : "extract", log_signal(breaking_gate), best_potential);
+				log_signal(breaking_lut), lut_nodes[breaking_gate] ? "reuse" : "extract", log_signal(breaking_gate), best_potential);
 
 			if (debug_relax)
 				log("    Removing breaking gate %s from LUT.\n", log_signal(breaking_gate));
 			lut_gates[breaking_lut].erase(breaking_gate);
 
 			auto cut_inputs = cut_lut_at_gate(breaking_lut, breaking_gate);
-			pool<RTLIL::SigBit> gate_inputs = cut_inputs.first, other_inputs = cut_inputs.second;
+			pool<RTLIL::SigBit> gate_inputs = cut_inputs.first;
 
 			pool<RTLIL::SigBit> worklist = lut_gates[breaking_lut];
 			pool<RTLIL::SigBit> elim_gates = gate_inputs;

@@ -4,10 +4,10 @@ UNAME_S := $(shell uname -s)
 GTEST_PREFIX := $(shell brew --prefix googletest 2>/dev/null)
 ifeq ($(GTEST_PREFIX),)
   GTEST_CXXFLAGS :=
-  GTEST_LDFLAGS := -lgtest -lgtest_main
+  GTEST_LDFLAGS := -lgtest -lgmock -lgtest_main
 else
   GTEST_CXXFLAGS := -I$(GTEST_PREFIX)/include
-  GTEST_LDFLAGS := -L$(GTEST_PREFIX)/lib -lgtest -lgtest_main
+  GTEST_LDFLAGS := -L$(GTEST_PREFIX)/lib -lgtest -lgmock -lgtest_main
 endif
 
 ifeq ($(UNAME_S),Darwin)
@@ -18,10 +18,11 @@ endif
 
 EXTRAFLAGS := -lyosys -pthread
 
-OBJTEST := objtest
-BINTEST := bintest
+MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+OBJTEST := $(MAKEFILE_DIR)objtest
+BINTEST := $(MAKEFILE_DIR)bintest
 
-ALLTESTFILE := $(shell find . -name '*Test.cc' | sed 's|^\./||' | tr '\n' ' ')
+ALLTESTFILE := $(shell cd $(MAKEFILE_DIR) && find . -name '*Test.cc' | sed 's|^\./||' | tr '\n' ' ')
 TESTDIRS := $(sort $(dir $(ALLTESTFILE)))
 TESTS := $(addprefix $(BINTEST)/, $(basename $(ALLTESTFILE:%Test.cc=%Test.o)))
 
@@ -34,7 +35,7 @@ $(BINTEST)/%: $(OBJTEST)/%.o | prepare
 	$(CXX) -L$(ROOTPATH) $(RPATH) $(LINKFLAGS) -o $@ $^ $(LIBS) \
 		$(GTEST_LDFLAGS) $(EXTRAFLAGS)
 
-$(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc | prepare
+$(OBJTEST)/%.o: $(MAKEFILE_DIR)/%.cc | prepare
 	$(CXX) -o $@ -c -I$(ROOTPATH) $(CPPFLAGS) $(CXXFLAGS) $(GTEST_CXXFLAGS) $^
 
 .PHONY: prepare run-tests clean

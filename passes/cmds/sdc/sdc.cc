@@ -165,7 +165,12 @@ struct SdcObjects {
 		if (!top)
 			log_error("Top module couldn't be determined. Check 'top' attribute usage");
 		for (auto port : top->ports) {
-			design_ports.push_back(std::make_pair(port.str().substr(1), top->wire(port)));
+			RTLIL::Wire *wire = top->wire(port);
+			if (!wire) {
+				// This should not be possible. See https://github.com/YosysHQ/yosys/pull/5594#issue-3791198573
+				log_error("Port %s doesn't exist", log_id(port));
+			}
+			design_ports.push_back(std::make_pair(port.str().substr(1), wire));
 		}
 		std::list<std::string> hierarchy{};
 		sniff_module(hierarchy, top);

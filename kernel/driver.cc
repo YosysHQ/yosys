@@ -23,6 +23,7 @@
 #define CXXOPTS_VECTOR_DELIMITER '\0'
 #include "libs/cxxopts/include/cxxopts.hpp"
 #include <iostream>
+#include <chrono>
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -143,19 +144,6 @@ int yosys_history_offset = 0;
 std::string yosys_history_file;
 #endif
 
-#if defined(__wasm)
-extern "C" {
-	// FIXME: WASI does not currently support exceptions.
-	void* __cxa_allocate_exception(size_t thrown_size) throw() {
-		return malloc(thrown_size);
-	}
-	bool __cxa_uncaught_exception() throw();
-	void __cxa_throw(void* thrown_exception, struct std::type_info * tinfo, void (*dest)(void*)) {
-		std::terminate();
-	}
-}
-#endif
-
 void yosys_atexit()
 {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
@@ -195,6 +183,7 @@ namespace Yosys {
 
 int main(int argc, char **argv)
 {
+	auto wall_clock_start = std::chrono::steady_clock::now();
 	std::string frontend_command = "auto";
 	std::string backend_command = "auto";
 	std::vector<std::string> vlog_defines;
@@ -675,6 +664,7 @@ int main(int argc, char **argv)
 
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);
+		(void)wall_clock_start;
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
@@ -700,8 +690,11 @@ int main(int argc, char **argv)
 		meminfo = stringf(", MEM: %.2f MB peak",
 				ru_buffer.ru_maxrss / (1024.0 * 1024.0));
 #endif
-		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash,
-				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+		double wall_seconds = std::chrono::duration<double>(
+				std::chrono::steady_clock::now() - wall_clock_start).count();
+
+		log("End of script. Logfile hash: %s%stime: %.2fs, user: %.2fs, system: %.2fs%s\n", hash,
+				stats_divider.c_str(), wall_seconds, ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
 		log("%s\n", yosys_maybe_version());
