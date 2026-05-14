@@ -31,13 +31,13 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	to_name = RTLIL::escape_id(to_name);
 
 	if (module->count_id(to_name))
-		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name, module->name);
+		log_cmd_error("There is already an object `%s' in module `%s'.\n", RTLIL::unescape_id(to_name), module->name);
 
 	RTLIL::Wire *wire_to_rename = module->wire(from_name);
 	RTLIL::Cell *cell_to_rename = module->cell(from_name);
 
 	if (wire_to_rename != nullptr) {
-		log("Renaming wire %s to %s in module %s.\n", wire_to_rename, to_name, module);
+		log("Renaming wire %s to %s in module %s.\n", wire_to_rename, RTLIL::unescape_id(to_name), module);
 		module->rename(wire_to_rename, to_name);
 		if (wire_to_rename->port_id || flag_output) {
 			if (flag_output)
@@ -50,12 +50,12 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	if (cell_to_rename != nullptr) {
 		if (flag_output)
 			log_cmd_error("Called with -output but the specified object is a cell.\n");
-		log("Renaming cell %s to %s in module %s.\n", cell_to_rename, to_name, module);
+		log("Renaming cell %s to %s in module %s.\n", cell_to_rename, RTLIL::unescape_id(to_name), module);
 		module->rename(cell_to_rename, to_name);
 		return;
 	}
 
-	log_cmd_error("Object `%s' not found!\n", from_name);
+	log_cmd_error("Object `%s' not found!\n", RTLIL::unescape_id(from_name));
 }
 
 static std::string derive_name_from_src(const std::string &src, int counter)

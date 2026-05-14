@@ -1265,7 +1265,7 @@ struct TechmapPass : public Pass {
 			i.second.sort(RTLIL::sort_by_id_str());
 			std::string maps = "";
 			for (auto &map : i.second)
-				maps += stringf(" %s", map);
+				maps += stringf(" %s", map.unescape());
 			log_debug("    %s:%s\n", i.first.unescape(), maps);
 		}
 		log_debug("\n");

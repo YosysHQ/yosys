@@ -1584,7 +1584,7 @@ bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
 			continue;
 		if (design->module(modname) || design->module("$abstract" + modname)) {
 			log("Reprocessing module %s because instantiated module %s has become available.\n",
-					name.unescape(), modname);
+					name.unescape(), RTLIL::unescape_id(modname));
 			loadconfig();
 			process_and_replace_module(design, this, ast.get(), NULL);
 			return true;
