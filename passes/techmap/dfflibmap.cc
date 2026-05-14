@@ -694,6 +694,8 @@ struct DfflibmapPass : public Pass {
 			for (auto it : cell_mappings)
 				dfflegalize_cmd += stringf(" -cell %s 01", it.first);
 			dfflegalize_cmd += " t:$_DFF* t:$_SDFF*";
+			for (auto module : design->selected_modules())
+				dfflegalize_cmd += " " + module -> name.str();
 			if (info_mode) {
 				log("dfflegalize command line: %s\n", dfflegalize_cmd);
 			} else {
