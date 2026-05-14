@@ -13,13 +13,13 @@ struct TestPatchPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		(void) args;
-		RTLIL::Patch patcher;
 		design->bufNormalize();
 		for (auto module : design->selected_modules()) {
-			patcher.mod = module;
-			patcher.map = SigMap(module);
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($add)) {
+					RTLIL::Patch patcher;
+					patcher.mod = module;
+					patcher.map = SigMap(module);
 					RTLIL::Cell* sub = patcher.addCell(NEW_ID, ID($sub));
 					sub->connections_ = cell->connections();
 					sub->parameters = cell->parameters;

@@ -19,8 +19,9 @@ protected:
 public:
 	Module *mod;
 	SigMap map;
-	vector<Wire> wires_;
-	vector<Cell> cells_;
+	vector<std::unique_ptr<Wire>> wires_;
+	vector<std::unique_ptr<Cell>> cells_;
+	Cell* root;
 
 	vector<RTLIL::SigSig> connections_;
 
