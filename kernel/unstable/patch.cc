@@ -17,10 +17,12 @@ using namespace RTLIL;
 template class CellAdderMixin<Patch>;
 
 Cell* Patch::addCell(IdString name, IdString type) {
-	auto& cell = cells_.emplace_back(Cell::ConstructToken{});
-	cell.name = std::move(name);
-	cell.type = type;
-	return &cell;
+	cells_.emplace(cells_.end(), std::make_unique<Cell>(Cell::ConstructToken{}));
+
+	Cell* cell = cells_.back().get();
+	cell->name = std::move(name);
+	cell->type = type;
+	return cell;
 }
 
 Wire* Patch::addWire(IdString name, int width) {
@@ -32,10 +34,10 @@ Wire* Patch::addWire(IdString name, int width) {
 
 void Patch::patch() {
 	for (auto& cell: cells_) {
-		Cell* new_cell = mod->addCell(cell.name, &cell);
+		Cell* new_cell = mod->addCell(cell->name, cell->type);
 		for (auto [port_name, sig] : new_cell->connections()) {
-			log_assert(yosys_celltypes.cell_known(cell.type));
-			auto dir = cell.port_dir(port_name);
+			log_assert(yosys_celltypes.cell_known(cell->type));
+			auto dir = cell->port_dir(port_name);
 			if (dir == PD_OUTPUT || dir == PD_INOUT) {
 				for (auto chunk : sig.chunks()) {
 					log_assert(chunk.is_wire());
