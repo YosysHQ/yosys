@@ -195,7 +195,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 	auto &st = pm.st_microchip_dsp_packC;
 
 	log_debug("Analysing %s.%s for Microchip DSP packing (REG_C).\n", pm.module, st.dsp);
-	log_debug("ffC:        %s\n", log_id(st.ffC, "--"));
+	log_debug("ffC:        %s\n", st.ffC ? st.ffC->name.unescape() : "--");
 
 	Cell *cell = st.dsp;
 

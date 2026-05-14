@@ -31,8 +31,8 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 
 #if 0
 	log("\n");
-	log("carry: %s\n", log_id(st.carry, "--"));
-	log("lut:   %s\n", log_id(st.lut, "--"));
+	log("carry: %s\n", st.carry ? st.carry->name.unescape() : "--");
+	log("lut:   %s\n", st.lut ? st.lut->name.unescape() : "--");
 #endif
 
 	log("  replacing SB_LUT + SB_CARRY with $__ICE40_CARRY_WRAPPER cell.\n");

@@ -31,15 +31,15 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	log("Checking %s.%s for iCE40 DSP inference.\n", pm.module, st.mul);
 
-	log_debug("ffA:    %s\n", log_id(st.ffA, "--"));
-	log_debug("ffB:    %s\n", log_id(st.ffB, "--"));
-	log_debug("ffCD:   %s\n", log_id(st.ffCD, "--"));
-	log_debug("mul:    %s\n", log_id(st.mul, "--"));
-	log_debug("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
-	log_debug("ffH:    %s\n", log_id(st.ffH, "--"));
-	log_debug("add:    %s\n", log_id(st.add, "--"));
-	log_debug("mux:    %s\n", log_id(st.mux, "--"));
-	log_debug("ffO:    %s\n", log_id(st.ffO, "--"));
+	log_debug("ffA:    %s\n", st.ffA ? st.ffA->name.unescape() : "--");
+	log_debug("ffB:    %s\n", st.ffB ? st.ffB->name.unescape() : "--");
+	log_debug("ffCD:   %s\n", st.ffCD ? st.ffCD->name.unescape() : "--");
+	log_debug("mul:    %s\n", st.mul ? st.mul->name.unescape() : "--");
+	log_debug("ffFJKG: %s\n", st.ffFJKG ? st.ffFJKG->name.unescape() : "--");
+	log_debug("ffH:    %s\n", st.ffH ? st.ffH->name.unescape() : "--");
+	log_debug("add:    %s\n", st.add ? st.add->name.unescape() : "--");
+	log_debug("mux:    %s\n", st.mux ? st.mux->name.unescape() : "--");
+	log_debug("ffO:    %s\n", st.ffO ? st.ffO->name.unescape() : "--");
 	log_debug("\n");
 
 	if (GetSize(st.sigA) > 16) {

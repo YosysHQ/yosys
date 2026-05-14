@@ -262,20 +262,20 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", pm.module, st.dsp);
 
-	log_debug("preAdd:     %s\n", log_id(st.preAdd, "--"));
-	log_debug("preSub:     %s\n", log_id(st.preSub, "--"));
-	log_debug("ffAD:       %s\n", log_id(st.ffAD, "--"));
-	log_debug("ffA2:       %s\n", log_id(st.ffA2, "--"));
-	log_debug("ffA1:       %s\n", log_id(st.ffA1, "--"));
-	log_debug("ffB2:       %s\n", log_id(st.ffB2, "--"));
-	log_debug("ffB1:       %s\n", log_id(st.ffB1, "--"));
-	log_debug("ffD:        %s\n", log_id(st.ffD, "--"));
-	log_debug("dsp:        %s\n", log_id(st.dsp, "--"));
-	log_debug("ffM:        %s\n", log_id(st.ffM, "--"));
-	log_debug("postAdd:    %s\n", log_id(st.postAdd, "--"));
-	log_debug("postAddMux: %s\n", log_id(st.postAddMux, "--"));
-	log_debug("ffP:        %s\n", log_id(st.ffP, "--"));
-	log_debug("overflow:   %s\n", log_id(st.overflow, "--"));
+	log_debug("preAdd:     %s\n", st.preAdd ? st.preAdd->name.unescape() : "--");
+	log_debug("preSub:     %s\n", st.preSub ? st.preSub->name.unescape() : "--");
+	log_debug("ffAD:       %s\n", st.ffAD ? st.ffAD->name.unescape() : "--");
+	log_debug("ffA2:       %s\n", st.ffA2 ? st.ffA2->name.unescape() : "--");
+	log_debug("ffA1:       %s\n", st.ffA1 ? st.ffA1->name.unescape() : "--");
+	log_debug("ffB2:       %s\n", st.ffB2 ? st.ffB2->name.unescape() : "--");
+	log_debug("ffB1:       %s\n", st.ffB1 ? st.ffB1->name.unescape() : "--");
+	log_debug("ffD:        %s\n", st.ffD ? st.ffD->name.unescape() : "--");
+	log_debug("dsp:        %s\n", st.dsp ? st.dsp->name.unescape() : "--");
+	log_debug("ffM:        %s\n", st.ffM ? st.ffM->name.unescape() : "--");
+	log_debug("postAdd:    %s\n", st.postAdd ? st.postAdd->name.unescape() : "--");
+	log_debug("postAddMux: %s\n", st.postAddMux ? st.postAddMux->name.unescape() : "--");
+	log_debug("ffP:        %s\n", st.ffP ? st.ffP->name.unescape() : "--");
+	log_debug("overflow:   %s\n", st.overflow ? st.overflow->name.unescape() : "--");
 
 	Cell *cell = st.dsp;
 
@@ -495,17 +495,17 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 
 	log("Analysing %s.%s for Xilinx DSP48A/DSP48A1 packing.\n", pm.module, st.dsp);
 
-	log_debug("preAdd:     %s\n", log_id(st.preAdd, "--"));
-	log_debug("ffA1:       %s\n", log_id(st.ffA1, "--"));
-	log_debug("ffA0:       %s\n", log_id(st.ffA0, "--"));
-	log_debug("ffB1:       %s\n", log_id(st.ffB1, "--"));
-	log_debug("ffB0:       %s\n", log_id(st.ffB0, "--"));
-	log_debug("ffD:        %s\n", log_id(st.ffD, "--"));
-	log_debug("dsp:        %s\n", log_id(st.dsp, "--"));
-	log_debug("ffM:        %s\n", log_id(st.ffM, "--"));
-	log_debug("postAdd:    %s\n", log_id(st.postAdd, "--"));
-	log_debug("postAddMux: %s\n", log_id(st.postAddMux, "--"));
-	log_debug("ffP:        %s\n", log_id(st.ffP, "--"));
+	log_debug("preAdd:     %s\n", st.preAdd ? st.preAdd->name.unescape() : "--");
+	log_debug("ffA1:       %s\n", st.ffA1 ? st.ffA1->name.unescape() : "--");
+	log_debug("ffA0:       %s\n", st.ffA0 ? st.ffA0->name.unescape() : "--");
+	log_debug("ffB1:       %s\n", st.ffB1 ? st.ffB1->name.unescape() : "--");
+	log_debug("ffB0:       %s\n", st.ffB0 ? st.ffB0->name.unescape() : "--");
+	log_debug("ffD:        %s\n", st.ffD ? st.ffD->name.unescape() : "--");
+	log_debug("dsp:        %s\n", st.dsp ? st.dsp->name.unescape() : "--");
+	log_debug("ffM:        %s\n", st.ffM ? st.ffM->name.unescape() : "--");
+	log_debug("postAdd:    %s\n", st.postAdd ? st.postAdd->name.unescape() : "--");
+	log_debug("postAddMux: %s\n", st.postAddMux ? st.postAddMux->name.unescape() : "--");
+	log_debug("ffP:        %s\n", st.ffP ? st.ffP->name.unescape() : "--");
 
 	Cell *cell = st.dsp;
 	SigSpec &opmode = cell->connections_.at(ID(OPMODE));
@@ -672,7 +672,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 	auto &st = pm.st_xilinx_dsp_packC;
 
 	log_debug("Analysing %s.%s for Xilinx DSP packing (CREG).\n", pm.module, st.dsp);
-	log_debug("ffC:        %s\n", log_id(st.ffC, "--"));
+	log_debug("ffC:        %s\n", st.ffC ? st.ffC->name.unescape() : "--");
 
 	Cell *cell = st.dsp;
 
