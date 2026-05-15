@@ -84,7 +84,7 @@ struct EquivInductWorker : public EquivWorker<>
 
 	void run()
 	{
-		log("Found %d unproven $equiv cells in module %s:\n", GetSize(workset), log_id(module));
+		log("Found %d unproven $equiv cells in module %s:\n", GetSize(workset), module);
 
 		if (satgen.model_undef) {
 			for (auto cell : cells)
@@ -217,7 +217,7 @@ struct EquivInductPass : public Pass {
 				}
 
 			if (unproven_equiv_cells.empty()) {
-				log("No selected unproven $equiv cells found in %s.\n", log_id(module));
+				log("No selected unproven $equiv cells found in %s.\n", module);
 				continue;
 			}
 

@@ -1,2 +1,4 @@
 read_blif gatesi.blif
 write_blif -gatesi gatesi.blif.out
+! tail -n +2 gatesi.blif.out > gatesi.blif.out.tmp && mv gatesi.blif.out.tmp gatesi.blif.out
+! diff gatesi.blif.out gatesi.blif.ok

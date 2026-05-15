@@ -284,7 +284,7 @@ struct ShregmapWorker
 			Cell *last_cell = chain[cursor+depth-1];
 
 			log("Converting %s.%s ... %s.%s to a shift register with depth %d.\n",
-				log_id(module), log_id(first_cell), log_id(module), log_id(last_cell), depth);
+				module, first_cell, module, last_cell, depth);
 
 			dff_count += depth;
 			shreg_count += 1;

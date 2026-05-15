@@ -50,6 +50,17 @@ struct AbcNewPass : public ScriptPass {
 		experimental();
 	}
 
+	void on_register() override
+	{
+		RTLIL::constpad["abc_new.script.speed"] = "+&st; &dch -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf";
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -110,6 +121,11 @@ struct AbcNewPass : public ScriptPass {
 		}
 		extra_args(args, argidx, d);
 
+		// If no script provided, use a default.
+		if (abc_exe_options.find("-script") == std::string::npos) {
+			d->scratchpad_set_string("abc9.script", RTLIL::constpad["abc_new.script.speed"]);
+		}
+
 		log_header(d, "Executing ABC_NEW pass.\n");
 		log_push();
 		run_script(d, run_from, run_to);
@@ -162,7 +178,7 @@ struct AbcNewPass : public ScriptPass {
 					tmpdir = make_temp_dir(tmpdir);
 					modname = mod->name.str();
 					exe_options = abc_exe_options;
-					log_header(active_design, "Mapping module '%s'.\n", log_id(mod));
+					log_header(active_design, "Mapping module '%s'.\n", mod);
 					log_push();
 					active_design->select(mod);
 				}

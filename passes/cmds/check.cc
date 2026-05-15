@@ -117,7 +117,7 @@ struct CheckPass : public Pass {
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
-			log("Checking module %s...\n", log_id(module));
+			log("Checking module %s...\n", module);
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
@@ -133,7 +133,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
-										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
 
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
@@ -154,7 +154,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
-										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -259,7 +259,7 @@ struct CheckPass : public Pass {
 			{
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
 					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
-					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
+					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescape());
 					counter++;
 				cell_allowed:;
 				}
@@ -275,10 +275,10 @@ struct CheckPass : public Pass {
 						if (input && bit.wire)
 							used_wires.insert(bit);
 						if (output && !input && bit.wire)
-							wire_drivers_count[bit]++;
+						wire_drivers_count[bit]++;
 						if (output && (bit.wire || !input))
-							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", log_id(conn.first), i,
-																log_id(cell), log_id(cell->type)));
+							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", conn.first.unescape(), i,
+																cell, cell->type.unescape()));
 						if (output)
 							driver_cells[bit] = cell;
 					}
@@ -298,7 +298,7 @@ struct CheckPass : public Pass {
 					SigSpec sig = sigmap(wire);
 					for (int i = 0; i < GetSize(sig); i++)
 						if (sig[i].wire || !wire->port_output)
-							wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
+							wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", wire, i));
 				}
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
@@ -312,7 +312,7 @@ struct CheckPass : public Pass {
 						if (initval[i] == State::S0 || initval[i] == State::S1)
 							init_bits.insert(sigmap(SigBit(wire, i)));
 					if (noinit) {
-						log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire));
+						log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", module, wire);
 						counter++;
 					}
 				}
@@ -329,7 +329,7 @@ struct CheckPass : public Pass {
 
 			for (auto it : wire_drivers)
 				if (wire_drivers_count[it.first] > 1) {
-					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
+					string message = stringf("multiple conflicting drivers for %s.%s:\n", module, log_signal(it.first));
 					for (auto str : it.second)
 						message += stringf("    %s\n", str);
 					log_warning("%s", message);
@@ -338,13 +338,13 @@ struct CheckPass : public Pass {
 
 			for (auto bit : used_wires)
 				if (!wire_drivers.count(bit)) {
-					log_warning("Wire %s.%s is used but has no driver.\n", log_id(module), log_signal(bit));
+					log_warning("Wire %s.%s is used but has no driver.\n", module, log_signal(bit));
 					counter++;
 				}
 
 			topo.sort();
 			for (auto &loop : topo.loops) {
-				string message = stringf("found logic loop in module %s:\n", log_id(module));
+				string message = stringf("found logic loop in module %s:\n", module);
 
 				// `loop` only contains wire bits, or an occasional special helper node for cells for
 				// which we have done the edges fallback. The cell and its ports that led to an edge are
@@ -378,8 +378,8 @@ struct CheckPass : public Pass {
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("      %s[%d] --> %s[%d]\n", log_id(from_port), from_bit,
-												   log_id(to_port), to_bit);
+								message += stringf("      %s[%d] --> %s[%d]\n", from_port.unescape(), from_bit,
+												   to_port.unescape(), to_bit);
 							if (nhits == HITS_LIMIT)
 								message += "      ...\n";
 						}
@@ -397,7 +397,7 @@ struct CheckPass : public Pass {
 						driver_src = stringf(" source: %s", src_attr);
 					}
 
-					message += stringf("    cell %s (%s)%s\n", log_id(driver), log_id(driver->type), driver_src);
+					message += stringf("    cell %s (%s)%s\n", driver, driver->type.unescape(), driver_src);
 
 					if (!coarsened_cells.count(driver)) {						
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);
@@ -437,7 +437,7 @@ struct CheckPass : public Pass {
 				init_sig.sort_and_unify();
 
 				for (auto chunk : init_sig.chunks()) {
-					log_warning("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", log_id(module), log_signal(chunk));
+					log_warning("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", module, log_signal(chunk));
 					counter++;
 				}
 			}

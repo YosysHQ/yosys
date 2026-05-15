@@ -60,7 +60,7 @@ struct MemoryMemxPass : public Pass {
 			{
 				if (port.clk_enable)
 					log_error("Memory %s.%s has a synchronous read port.  Synchronous read ports are not supported by memory_memx!\n",
-							log_id(module), log_id(mem.memid));
+							module, mem.memid.unescape());
 
 				SigSpec addr_ok = make_addr_check(mem, port.addr);
 				Wire *raw_rdata = module->addWire(NEW_ID, GetSize(port.data));

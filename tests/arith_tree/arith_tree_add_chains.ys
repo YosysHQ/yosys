@@ -1,0 +1,197 @@
+read_verilog <<EOT
+module add3(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree
+select -assert-count 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add5(
+	input [11:0] a, b, c, d, e,
+	output [11:0] y
+);
+	assign y = a + b + c + d + e;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add8(
+	input [15:0] a, b, c, d, e, f, g, h,
+	output [15:0] y
+);
+	assign y = a + b + c + d + e + f + g + h;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree
+select -assert-count 6 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module add16(
+	input [15:0] a0, a1, a2, a3, a4, a5, a6, a7,
+	input [15:0] a8, a9, a10, a11, a12, a13, a14, a15,
+	output [15:0] y
+);
+	assign y = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7
+	+ a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree
+select -assert-count 14 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog -icells <<EOT
+module alu_add3(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	wire [7:0] tmp, x1, x2, co1, co2;
+	// a + b
+	$alu #(.A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(8), .A_SIGNED(0), .B_SIGNED(0))
+		alu1 (.A(a), .B(b), .BI(1'b0), .CI(1'b0), .Y(tmp), .X(x1), .CO(co1));
+	// tmp + c
+	$alu #(.A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(8), .A_SIGNED(0), .B_SIGNED(0))
+		alu2 (.A(tmp), .B(c), .BI(1'b0), .CI(1'b0), .Y(y), .X(x2), .CO(co2));
+endmodule
+EOT
+hierarchy -auto-top
+select -assert-count 2 t:$alu
+arith_tree
+opt_clean
+select -assert-count 1 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+design -reset
+
+read_verilog -icells <<EOT
+module alu_add4(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	wire [7:0] tmp1, tmp2, x1, x2, x3, co1, co2, co3;
+	// a + b
+	$alu #(.A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(8), .A_SIGNED(0), .B_SIGNED(0))
+		alu1 (.A(a), .B(b), .BI(1'b0), .CI(1'b0), .Y(tmp1), .X(x1), .CO(co1));
+	// c + d
+	$alu #(.A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(8), .A_SIGNED(0), .B_SIGNED(0))
+		alu2 (.A(c), .B(d), .BI(1'b0), .CI(1'b0), .Y(tmp2), .X(x2), .CO(co2));
+	// tmp1 + tmp2
+	$alu #(.A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(8), .A_SIGNED(0), .B_SIGNED(0))
+		alu3 (.A(tmp1), .B(tmp2), .BI(1'b0), .CI(1'b0), .Y(y), .X(x3), .CO(co3));
+endmodule
+EOT
+hierarchy -auto-top
+select -assert-count 3 t:$alu
+arith_tree
+opt_clean
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+design -reset
+
+read_verilog -icells <<EOT
+module alu_add5(
+	input [11:0] a, b, c, d, e,
+	output [11:0] y
+);
+	wire [11:0] tmp1, tmp2, tmp3, x1, x2, x3, x4, co1, co2, co3, co4;
+	// a + b
+	$alu #(.A_WIDTH(12), .B_WIDTH(12), .Y_WIDTH(12), .A_SIGNED(0), .B_SIGNED(0))
+		alu1 (.A(a), .B(b), .BI(1'b0), .CI(1'b0), .Y(tmp1), .X(x1), .CO(co1));
+	// c + d
+	$alu #(.A_WIDTH(12), .B_WIDTH(12), .Y_WIDTH(12), .A_SIGNED(0), .B_SIGNED(0))
+		alu2 (.A(c), .B(d), .BI(1'b0), .CI(1'b0), .Y(tmp2), .X(x2), .CO(co2));
+	// tmp1 + tmp2
+	$alu #(.A_WIDTH(12), .B_WIDTH(12), .Y_WIDTH(12), .A_SIGNED(0), .B_SIGNED(0))
+		alu3 (.A(tmp1), .B(tmp2), .BI(1'b0), .CI(1'b0), .Y(tmp3), .X(x3), .CO(co3));
+	// tmp3 + e
+	$alu #(.A_WIDTH(12), .B_WIDTH(12), .Y_WIDTH(12), .A_SIGNED(0), .B_SIGNED(0))
+		alu4 (.A(tmp3), .B(e), .BI(1'b0), .CI(1'b0), .Y(y), .X(x4), .CO(co4));
+endmodule
+EOT
+hierarchy -auto-top
+select -assert-count 4 t:$alu
+arith_tree
+opt_clean
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$alu
+design -reset
+
+# Test $macc cells (alumacc+opt output)
+read_verilog <<EOT
+module macc_add3(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+arith_tree
+opt_clean
+select -assert-count 1 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$macc t:$macc_v2 %u
+design -reset
+
+read_verilog <<EOT
+module macc_add5(
+	input [11:0] a, b, c, d, e,
+	output [11:0] y
+);
+	assign y = a + b + c + d + e;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+arith_tree
+opt_clean
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$macc t:$macc_v2 %u
+design -reset
+
+read_verilog <<EOT
+module macc_add8(
+	input [15:0] a, b, c, d, e, f, g, h,
+	output [15:0] y
+);
+	assign y = a + b + c + d + e + f + g + h;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+arith_tree
+opt_clean
+select -assert-count 6 t:$fa
+select -assert-count 1 t:$add
+select -assert-none t:$macc t:$macc_v2 %u
+design -reset

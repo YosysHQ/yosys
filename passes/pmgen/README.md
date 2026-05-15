@@ -34,8 +34,8 @@ for the pattern`<pattern_name>` and calls the callback function for each found
 match:
 
     pm.run_foobar([&](){
-        log("found matching 'foo' cell: %s\n", log_id(pm.st.foo));
-        log("          with 'bar' cell: %s\n", log_id(pm.st.bar));
+        log("found matching 'foo' cell: %s\n", pm.st.foo);
+        log("          with 'bar' cell: %s\n", pm.st.bar);
     });
 
 The `.pmg` file declares matcher state variables that are accessible via the
@@ -158,7 +158,7 @@ in `select` lines.
 
 Index lines are using the `index <type> expr1 === expr2` syntax.  `expr1` is
 evaluated during matcher initialization and the same restrictions apply as for
-`select` expressions. `expr2` is evaluated when the match is calulated. It is a
+`select` expressions. `expr2` is evaluated when the match is calculated. It is a
 function of any state variables assigned to by previous blocks. Both expression
 are converted to the given type and compared for equality. Only cells for which
 all `index` statements in the block pass are considered by the match.

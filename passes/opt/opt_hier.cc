@@ -101,7 +101,7 @@ struct ModuleIndex {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  log_id(port_name), log_id(instantiation), log_id(module));
+						  port_name.unescape(), instantiation, module);
 			}
 
 			if (port->port_input && port->port_output) {
@@ -145,12 +145,12 @@ struct ModuleIndex {
 
 			if (nunused > 0) {
 				log("Disconnected %d input bits of instance '%s' (type '%s') in '%s'\n",
-					nunused, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
+					nunused, instantiation, instantiation->type.unescape(), parent.module);
 				changed = true;
 			}
 			if (nconstants > 0) {
 				log("Substituting constant for %d output bits of instance '%s' (type '%s') in '%s'\n",
-					nconstants, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
+					nconstants, instantiation, instantiation->type.unescape(), parent.module);
 				changed = true;
 			}
 		}
@@ -189,7 +189,7 @@ struct ModuleIndex {
 
 		if (ntie_togethers > 0) {
 			log("Replacing %d output bits with tie-togethers on instance '%s' of '%s' in '%s'\n",
-				ntie_togethers, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
+				ntie_togethers, instantiation, instantiation->type.unescape(), parent.module);
 			changed = true;
 		}
 
@@ -290,7 +290,7 @@ struct UsageData {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  log_id(port_name), log_id(instance), log_id(module));
+						  port_name.unescape(), instance, module);
 			}
 
 			if (port->port_input && port->port_output) {
@@ -347,7 +347,7 @@ struct UsageData {
 		};
 		module->rewrite_sigspecs(disconnect_rewrite);
 		for (auto chunk : disconnect_outputs.chunks()) {
-			log("Disconnected unused output terminal '%s' in module '%s'\n", log_signal(chunk), log_id(module));
+			log("Disconnected unused output terminal '%s' in module '%s'\n", log_signal(chunk), module);
 			did_something = true;
 			module->connect(chunk, SigSpec(RTLIL::Sx, chunk.size()));
 		}
@@ -368,7 +368,7 @@ struct UsageData {
 			SigSpec const_ = chunk;
 			const_.replace(constant_inputs);
 			log("Substituting constant %s for input terminal '%s' in module '%s'\n",
-				log_signal(const_), log_signal(chunk), log_id(module));
+				log_signal(const_), log_signal(chunk), module);
 		}
 
 		// Propagate tied-together inputs
@@ -397,7 +397,7 @@ struct UsageData {
 		module->rewrite_sigspecs(ties_rewrite);
 		if (applied_ties.size()) {
 			log("Replacing %zu input terminal bits with tie-togethers in module '%s'\n",
-					applied_ties.size(), log_id(module));
+					applied_ties.size(), module);
 		}
 		return did_something;
 	}
@@ -433,7 +433,7 @@ struct OptHierPass : Pass {
 
 		dict<IdString, ModuleIndex> indices;
 		for (auto module : d->modules()) {
-			log_debug("Building index for %s\n", log_id(module));
+			log_debug("Building index for %s\n", module);
 			indices.emplace(module->name, ModuleIndex(module));
 		}
 
@@ -442,14 +442,14 @@ struct OptHierPass : Pass {
 			if (module->get_bool_attribute(ID::top))
 				continue;
 
-			log_debug("Starting usage data for %s\n", log_id(module));
+			log_debug("Starting usage data for %s\n", module);
 			usage_datas.emplace(module->name, UsageData(module));
 		}
 
 		for (auto module : d->modules()) {
 			for (auto cell : module->cells()) {
 				if (usage_datas.count(cell->type)) {
-					log_debug("Account for instance %s of %s in %s\n", log_id(cell), log_id(cell->type), log_id(module));
+					log_debug("Account for instance %s of %s in %s\n", cell, cell->type.unescape(), module);
 					usage_datas.at(cell->type).refine(cell, indices.at(module->name));
 				}
 			}
@@ -460,13 +460,13 @@ struct OptHierPass : Pass {
 			ModuleIndex &parent_index = indices.at(module->name);
 
 			if (usage_datas.count(module->name)) {
-				log_debug("Applying usage data changes to %s\n", log_id(module));
+				log_debug("Applying usage data changes to %s\n", module);
 				did_something |= usage_datas.at(module->name).apply_changes(parent_index);
 			}
 
 			for (auto cell : module->cells()) {
 				if (indices.count(cell->type)) {
-					log_debug("Applying changes to instance %s of %s in %s\n", log_id(cell), log_id(cell->type), log_id(module));
+					log_debug("Applying changes to instance %s of %s in %s\n", cell, cell->type.unescape(), module);
 					did_something |= indices.at(cell->type).apply_changes(parent_index, cell);
 				}
 			}

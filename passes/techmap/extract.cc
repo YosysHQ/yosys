@@ -155,12 +155,12 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	std::map<RTLIL::SigBit, bit_ref_t> sig_bit_ref;
 
 	if (sel && !sel->selected(mod)) {
-		log("  Skipping module %s as it is not selected.\n", log_id(mod->name));
+		log("  Skipping module %s as it is not selected.\n", mod->name.unescape());
 		return false;
 	}
 
 	if (mod->processes.size() > 0) {
-		log("  Skipping module %s as it contains unprocessed processes.\n", log_id(mod->name));
+		log("  Skipping module %s as it contains unprocessed processes.\n", mod->name.unescape());
 		return false;
 	}
 
@@ -674,7 +674,7 @@ struct ExtractPass : public Pass {
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);
-					log("  new cell: %s\n", log_id(new_cell->name));
+					log("  new cell: %s\n", new_cell->name.unescape());
 				}
 			}
 		}
@@ -691,12 +691,12 @@ struct ExtractPass : public Pass {
 			for (auto &result: results)
 			{
 				log("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
-				log("  primary match in %s:", log_id(haystack_map.at(result.graphId)->name));
+				log("  primary match in %s:", haystack_map.at(result.graphId)->name.unescape());
 				for (auto &node : result.nodes)
 					log(" %s", RTLIL::unescape_id(node.nodeId));
 				log("\n");
 				for (auto &it : result.matchesPerGraph)
-					log("  matches in %s: %d\n", log_id(haystack_map.at(it.first)->name), it.second);
+					log("  matches in %s: %d\n", haystack_map.at(it.first)->name.unescape(), it.second);
 
 				RTLIL::Module *mod = haystack_map.at(result.graphId);
 				std::set<RTLIL::Cell*> cells;
@@ -716,7 +716,7 @@ struct ExtractPass : public Pass {
 				}
 
 				RTLIL::Module *newMod = new RTLIL::Module;
-				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, log_id(haystack_map.at(result.graphId)->name), result.totalMatchesAfterLimits);
+				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits);
 				map->add(newMod);
 
 				for (auto wire : wires) {

@@ -251,7 +251,7 @@ CxxrtlPortType cxxrtl_port_type(RTLIL::Module *module, RTLIL::IdString port)
 	bool is_sync = output_wire->get_bool_attribute(ID(cxxrtl_sync));
 	if (is_comb && is_sync)
 		log_cmd_error("Port `%s.%s' is marked as both `cxxrtl_comb` and `cxxrtl_sync`.\n",
-		              log_id(module), log_signal(output_wire));
+		              module, log_signal(output_wire));
 	else if (is_comb)
 		return CxxrtlPortType::COMB;
 	else if (is_sync)
@@ -851,7 +851,7 @@ struct CxxrtlWorker {
 			return {};
 
 		if (!(module->attributes.at(ID(cxxrtl_template)).flags & RTLIL::CONST_FLAG_STRING))
-			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", log_id(module));
+			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", module);
 
 		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl_template)), " \t");
 		for (const auto &param_name : param_names) {
@@ -861,7 +861,7 @@ struct CxxrtlWorker {
 			if (!isupper(param_name[0]))
 				log_cmd_error("Attribute `cxxrtl_template' of module `%s' includes a parameter `%s', "
 				              "which does not start with an uppercase letter.\n",
-				              log_id(module), param_name.c_str());
+				              module, param_name.c_str());
 		}
 		return param_names;
 	}
@@ -907,12 +907,12 @@ struct CxxrtlWorker {
 			RTLIL::IdString id_param_name = '\\' + param_name;
 			if (!cell->hasParam(id_param_name))
 				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
-				              log_id(cell->module), log_id(cell), param_name.c_str(), log_id(cell_module));
+				              cell->module, cell, param_name.c_str(), cell_module);
 			RTLIL::Const param_value = cell->getParam(id_param_name);
 			if (((param_value.flags & ~RTLIL::CONST_FLAG_SIGNED) != 0) || param_value.as_int() < 0)
 				log_cmd_error("Parameter `%s' of cell `%s.%s', which is required by the templated module `%s', "
 				              "is not a positive integer.\n",
-				              param_name.c_str(), log_id(cell->module), log_id(cell), log_id(cell_module));
+				              param_name.c_str(), cell->module, cell, cell_module);
 			params += std::to_string(cell->getParam(id_param_name).as_int());
 		}
 		params += ">";
@@ -2576,7 +2576,7 @@ struct CxxrtlWorker {
 			}
 		dec_indent();
 
-		log_debug("Debug information statistics for module `%s':\n", log_id(module));
+		log_debug("Debug information statistics for module `%s':\n", module);
 		log_debug("  Scopes: %zu", count_scopes);
 		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
 		log_debug("    Member wires: %zu, of which:\n", count_member_wires);
@@ -2940,7 +2940,7 @@ struct CxxrtlWorker {
 						RTLIL::Const edge_attr = wire->attributes[ID(cxxrtl_edge)];
 						if (!(edge_attr.flags & RTLIL::CONST_FLAG_STRING) || (int)edge_attr.decode_string().size() != GetSize(wire))
 							log_cmd_error("Attribute `cxxrtl_edge' of port `%s.%s' is not a string with one character per bit.\n",
-							              log_id(module), log_signal(wire));
+							              module, log_signal(wire));
 
 						std::string edges = wire->get_string_attribute(ID(cxxrtl_edge));
 						for (int i = 0; i < GetSize(wire); i++) {
@@ -2953,7 +2953,7 @@ struct CxxrtlWorker {
 								default:
 									log_cmd_error("Attribute `cxxrtl_edge' of port `%s.%s' contains specifiers "
 									              "other than '-', 'p', 'n', or 'a'.\n",
-										log_id(module), log_signal(wire));
+										module, log_signal(wire));
 							}
 						}
 					}
@@ -2978,7 +2978,7 @@ struct CxxrtlWorker {
 
 			for (auto cell : module->cells()) {
 				if (!cell->known())
-					log_cmd_error("Unknown cell `%s'.\n", log_id(cell->type));
+					log_cmd_error("Unknown cell `%s'.\n", cell->type.unescape());
 
 				if (cell->is_mem_cell())
 					continue;
@@ -2987,7 +2987,7 @@ struct CxxrtlWorker {
 				if (cell_module &&
 				    cell_module->get_blackbox_attribute() &&
 				    !cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
-					log_cmd_error("External blackbox cell `%s' is not marked as a CXXRTL blackbox.\n", log_id(cell->type));
+					log_cmd_error("External blackbox cell `%s' is not marked as a CXXRTL blackbox.\n", cell->type.unescape());
 
 				if (cell_module &&
 				    cell_module->get_bool_attribute(ID(cxxrtl_blackbox)) &&
@@ -3116,9 +3116,9 @@ struct CxxrtlWorker {
 			}
 			if (!feedback_wires.empty()) {
 				has_feedback_arcs = true;
-				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
+				log("Module `%s' contains feedback arcs through wires:\n", module);
 				for (auto wire : feedback_wires)
-					log("  %s\n", log_id(wire));
+					log("  %s\n", wire);
 			}
 
 			// Conservatively assign wire types. Assignment of types BUFFERED and MEMBER is final, but assignment
@@ -3189,7 +3189,7 @@ struct CxxrtlWorker {
 				if (wire->name.isPublic() && !inline_public) continue;
 				if (flow.is_inlinable(wire, live_wires[wire])) {
 					if (flow.wire_comb_defs[wire].size() > 1)
-						log_cmd_error("Wire %s.%s has multiple drivers!\n", log_id(module), log_id(wire));
+						log_cmd_error("Wire %s.%s has multiple drivers!\n", module, wire);
 					log_assert(flow.wire_comb_defs[wire].size() == 1);
 					FlowGraph::Node *node = *flow.wire_comb_defs[wire].begin();
 					switch (node->type) {
@@ -3237,9 +3237,9 @@ struct CxxrtlWorker {
 					buffered_comb_wires.insert(wire);
 			if (!buffered_comb_wires.empty()) {
 				has_buffered_comb_wires = true;
-				log("Module `%s' contains buffered combinatorial wires:\n", log_id(module));
+				log("Module `%s' contains buffered combinatorial wires:\n", module);
 				for (auto wire : buffered_comb_wires)
-					log("  %s\n", log_id(wire));
+					log("  %s\n", wire);
 			}
 
 			// Record whether eval() requires only one delta cycle in this module.

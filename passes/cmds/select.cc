@@ -1817,7 +1817,7 @@ struct LsPass : public Pass {
 				log("\n%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 				for (auto id : matches)
-					log("  %s%s\n", log_id(id), design->selected_whole_module(design->module(id)) ? "" : "*");
+					log("  %s%s\n", id.unescape(), design->selected_whole_module(design->module(id)) ? "" : "*");
 			}
 		}
 		else

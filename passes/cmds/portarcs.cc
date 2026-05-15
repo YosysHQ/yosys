@@ -107,7 +107,7 @@ struct PortarcsPass : Pass {
 				log_assert(w->port_input || w->port_output);
 				if (w->port_input && w->port_output) {
 					log_warning("Module '%s' with ambiguous direction on port %s ignored.\n",
-								log_id(m), log_id(w));
+								m, w);
 					ambiguous_ports = true;
 					break;
 				}
@@ -128,7 +128,7 @@ struct PortarcsPass : Pass {
 				if (!cell->type.in(ID($buf), ID($input_port), ID($connect), ID($tribuf))) {
 					auto tdata = tinfo.find(cell->type);
 					if (tdata == tinfo.end())
-						log_cmd_error("Missing timing data for module '%s'.\n", log_id(cell->type));
+						log_cmd_error("Missing timing data for module '%s'.\n", cell->type.unescape());
 					for (auto [edge, delay] : tdata->second.comb) {
 						auto from = edge.first.get_connection(cell);
 						auto to = edge.second.get_connection(cell);
@@ -141,7 +141,7 @@ struct PortarcsPass : Pass {
 				}
 
 				if (!sort.sort())
-					log_error("Failed to sort instances in module %s.\n", log_id(m));
+					log_error("Failed to sort instances in module %s.\n", m);
 
 				ordering = sort.sorted;
 			}

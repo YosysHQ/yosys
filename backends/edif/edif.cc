@@ -207,9 +207,9 @@ struct EdifBackend : public Backend {
 				top_module_name = module->name.str();
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", log_id(module->name));
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", module->name.unescape());
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", log_id(module->name));
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", module->name.unescape());
 
 			for (auto cell : module->cells())
 			{
@@ -317,12 +317,12 @@ struct EdifBackend : public Backend {
 				for (auto &dep : it.second)
 					if (module_deps.count(dep) > 0)
 						goto not_ready_yet;
-				// log("Next in topological sort: %s\n", log_id(it.first->name));
+				// log("Next in topological sort: %s\n", it.first->name.unescape());
 				sorted_modules.push_back(it.first);
 			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
-				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", log_id(module_deps.begin()->first->name));
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first->name.unescape());
 			while (sorted_modules_idx < sorted_modules.size())
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}
@@ -486,7 +486,7 @@ struct EdifBackend : public Backend {
 					for (int i = 0; i < GetSize(sig); i++)
 						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
-									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
+									i, module, cell, p.first.unescape(), log_signal(sig[i]));
 						else {
 							int member_idx = lsbidx ? i : GetSize(sig)-i-1;
 							auto m = design->module(cell->type);

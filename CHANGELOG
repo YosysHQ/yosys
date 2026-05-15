@@ -2,8 +2,19 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.64 .. Yosys 0.65-dev
+Yosys 0.65 .. Yosys 0.66-dev
 --------------------------
+
+Yosys 0.64 .. Yosys 0.65
+--------------------------
+ * New commands and options
+    - Added "arith_tree" pass to convert add/sub/macc chains
+      to carry-save adder trees.
+    - Removed "-force" option from "share" pass.
+
+ * Various
+    - read_verilog: support positional assignment patterns
+      for unpacked arrays.
 
 Yosys 0.63 .. Yosys 0.64
 --------------------------

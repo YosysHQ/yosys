@@ -65,7 +65,7 @@ struct OptMemWidenPass : public Pass {
 						factor_log2 = port.wide_log2;
 				if (factor_log2 == 0)
 					continue;
-				log("Widening base width of memory %s in module %s by factor %d.\n", log_id(mem.memid), log_id(module->name), 1 << factor_log2);
+				log("Widening base width of memory %s in module %s by factor %d.\n", mem.memid.unescape(), module->name.unescape(), 1 << factor_log2);
 				total_count++;
 				// The inits are too messy to expand one-by-one, for they may
 				// collide with one another after expansion.  Just hit it with

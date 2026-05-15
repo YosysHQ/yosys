@@ -5,7 +5,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 // Test fixture with helper functions
-class SigSpecRemove2Test : public ::testing::Test {
+class SigSpecRepTest : public ::testing::Test {
 protected:
 	Design* d;
 	Module* m;
@@ -64,7 +64,7 @@ protected:
 	}
 };
 
-TEST_F(SigSpecRemove2Test, WithSigSpecPattern)
+TEST_F(SigSpecRepTest, WithSigSpecPattern)
 {
 	auto wires = createWires(4);
 	SigSpec sig = wiresAsSigSpec(wires);
@@ -84,7 +84,7 @@ TEST_F(SigSpecRemove2Test, WithSigSpecPattern)
 	EXPECT_EQ(sig, expected);
 }
 
-TEST_F(SigSpecRemove2Test, WithPoolPattern)
+TEST_F(SigSpecRepTest, WithPoolPattern)
 {
 	auto wires = createWires(3);
 	SigSpec sig = wiresAsSigSpec(wires);
@@ -103,7 +103,7 @@ TEST_F(SigSpecRemove2Test, WithPoolPattern)
 	EXPECT_EQ(sig, expected);
 }
 
-TEST_F(SigSpecRemove2Test, WithSetPattern)
+TEST_F(SigSpecRepTest, WithSetPattern)
 {
 	auto wires = createWires(3);
 	SigSpec sig = wiresAsSigSpec(wires);
@@ -122,7 +122,7 @@ TEST_F(SigSpecRemove2Test, WithSetPattern)
 	EXPECT_EQ(sig, expected);
 }
 
-TEST_F(SigSpecRemove2Test, ManyElements)
+TEST_F(SigSpecRepTest, ManyElements)
 {
 	const int num_wires = 100;
 	auto wires = createWires(num_wires);
@@ -146,7 +146,7 @@ TEST_F(SigSpecRemove2Test, ManyElements)
 }
 
 // Test remove2 with very large dataset to check scaling
-TEST_F(SigSpecRemove2Test, VeryLargeScalingTest)
+TEST_F(SigSpecRepTest, VeryLargeScalingTest)
 {
 	const int num_wires = 50000;
 	auto wires = createWires(num_wires);
@@ -173,7 +173,7 @@ TEST_F(SigSpecRemove2Test, VeryLargeScalingTest)
 }
 
 // Test multiple sequential removals (simulates removeSignalFromCaseTree)
-TEST_F(SigSpecRemove2Test, MultipleSequentialRemovals)
+TEST_F(SigSpecRepTest, MultipleSequentialRemovals)
 {
 	const int num_wires = 512;
 	auto wires = createWires(num_wires);
@@ -204,7 +204,7 @@ TEST_F(SigSpecRemove2Test, MultipleSequentialRemovals)
 }
 
 // Test remove2 with very large dataset to check scaling
-TEST_F(SigSpecRemove2Test, PoolOverloadLargeDataset)
+TEST_F(SigSpecRepTest, PoolOverloadLargeDataset)
 {
 	const int num_wires = 50000;
 	auto wires = createWires(num_wires, 1);
@@ -228,7 +228,7 @@ TEST_F(SigSpecRemove2Test, PoolOverloadLargeDataset)
 }
 
 // Test set overload (same perf characteristics as pool)
-TEST_F(SigSpecRemove2Test, SetOverloadLargeDataset)
+TEST_F(SigSpecRepTest, SetOverloadLargeDataset)
 {
 	const int num_wires = 50000;
 	auto wires = createWires(num_wires, 1);
@@ -252,7 +252,7 @@ TEST_F(SigSpecRemove2Test, SetOverloadLargeDataset)
 }
 
 // Worst case: remove almost all elements
-TEST_F(SigSpecRemove2Test, RemoveAlmostAllElements)
+TEST_F(SigSpecRepTest, RemoveAlmostAllElements)
 {
 	const int num_wires = 10000;
 	auto wires = createWires(num_wires, 1);
@@ -269,7 +269,7 @@ TEST_F(SigSpecRemove2Test, RemoveAlmostAllElements)
 	EXPECT_EQ(sig[0].wire, wires[num_wires - 1]);
 }
 
-TEST_F(SigSpecRemove2Test, EmptyPattern)
+TEST_F(SigSpecRepTest, EmptyPattern)
 {
 	auto wires = createWires(1);
 	SigSpec sig(wires[0]);
@@ -285,7 +285,7 @@ TEST_F(SigSpecRemove2Test, EmptyPattern)
 }
 
 // Test that NULL wire bits (constants) are not removed
-TEST_F(SigSpecRemove2Test, NullWireBitsStay)
+TEST_F(SigSpecRepTest, NullWireBitsStay)
 {
 	auto wires = createWires(1);
 	SigSpec sig;
@@ -309,7 +309,7 @@ TEST_F(SigSpecRemove2Test, NullWireBitsStay)
 	EXPECT_EQ(sig, expected);
 }
 
-TEST_F(SigSpecRemove2Test, PartialBitRemoval)
+TEST_F(SigSpecRepTest, PartialBitRemoval)
 {
 	Wire* w = m->addWire("$w1", 8);
 	SigSpec sig(w);

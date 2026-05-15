@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Dummy SAT solver for ezCmdlineSAT tests.
 # Accepts exactly two CNF shapes:
 #  - SAT:   p cnf 1 1; clause: "1 0"  -> exits 10 with v 1

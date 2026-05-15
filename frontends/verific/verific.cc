@@ -1392,13 +1392,13 @@ void VerificImporter::merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBi
 			RTLIL::Cell *new_ff = module->addDff(NEW_ID, clock, sig_d, sig_q, clock_pol);
 
 			if (verific_verbose)
-				log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), log_id(new_ff));
+				log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), new_ff);
 
 			for (int i = 0; i < GetSize(sig_d); i++)
 				for (auto old_ff : dbits_db[sig_d[i]])
 				{
 					if (verific_verbose)
-						log("    replacing old ff %s on bit %d.\n", log_id(old_ff), i);
+						log("    replacing old ff %s on bit %d.\n", old_ff, i);
 
 					SigBit old_q = old_ff->getPort(ID::Q);
 					SigBit new_q = sig_q[i];
@@ -1736,7 +1736,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : new_verific_id(net));
 
 		if (verific_verbose)
-			log("  importing net %s as %s.\n", net->Name(), log_id(wire_name));
+			log("  importing net %s as %s.\n", net->Name(), wire_name.unescape());
 
 		RTLIL::Wire *wire = module->addWire(wire_name);
 		import_attributes(wire->attributes, net, nl, 1);
@@ -1760,7 +1760,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(netbus->Name()) : new_verific_id(netbus));
 
 			if (verific_verbose)
-				log("  importing netbus %s as %s.\n", netbus->Name(), log_id(wire_name));
+				log("  importing netbus %s as %s.\n", netbus->Name(), wire_name.unescape());
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
@@ -1894,7 +1894,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : new_verific_id(inst));
 
 		if (verific_verbose)
-			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
+			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), inst_name.unescape());
 
 		if (mode_verific)
 			goto import_verific_cells;
@@ -2258,7 +2258,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		for (auto &it : cell_port_conns) {
 			if (verific_verbose)
-				log("      .%s(%s)\n", log_id(it.first), log_signal(it.second));
+				log("      .%s(%s)\n", it.first.unescape(), log_signal(it.second));
 			cell->setPort(it.first, it.second);
 		}
 	}

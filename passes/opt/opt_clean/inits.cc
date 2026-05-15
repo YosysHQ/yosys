@@ -109,7 +109,7 @@ bool remove_redundant_inits(ShardedVector<RTLIL::Wire*> wires, bool verbose) {
 	bool did_something = false;
 	for (RTLIL::Wire *wire : wires) {
 		if (verbose)
-			log_debug("  removing redundant init attribute on %s.\n", log_id(wire));
+			log_debug("  removing redundant init attribute on %s.\n", wire);
 		wire->attributes.erase(ID::init);
 		did_something = true;
 	}

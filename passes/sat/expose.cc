@@ -210,7 +210,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width = 1)
 {
 	if (module->count_id(name))
-		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n", log_id(name));
+		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n", name.unescape());
 	return module->addWire(name, width);
 }
 
@@ -673,7 +673,7 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto cell : delete_cells) {
-					log("Removing cell: %s/%s (%s)\n", log_id(module), log_id(cell), log_id(cell->type));
+					log("Removing cell: %s/%s (%s)\n", module, cell, cell->type.unescape());
 					module->remove(cell);
 				}
 			}

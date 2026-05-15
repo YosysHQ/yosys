@@ -212,8 +212,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("prepare")) {
 			run("proc");
-			if (flatten)
+			if (flatten) {
+				run("check");
 				run("flatten", "(unless -noflatten)");
+			}
 			if (help_mode || family == "pp3") {
 				run("tribuf -logic", "                   (for pp3)");
 			}

@@ -78,7 +78,7 @@ struct HierDirtyFlags
 		for (Cell *cell : module->cells()) {
 			Module *mod = module->design->module(cell->type);
 			if (mod) children[cell->name] = new HierDirtyFlags(mod, cell->name, this,
-					prefix + cid(cell->name) + ".", log_prefix + "." + prefix + log_id(cell->name));
+					prefix + cid(cell->name) + ".", log_prefix + "." + prefix + cell->name.unescape());
 		}
 	}
 
@@ -354,23 +354,23 @@ struct SimplecWorker
 		struct_declarations.push_back("  // Input Ports");
 		for (Wire *w : mod->wires())
 			if (w->port_input)
-				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), log_id(w)));
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), w));
 
 		struct_declarations.push_back("");
 		struct_declarations.push_back("  // Output Ports");
 		for (Wire *w : mod->wires())
 			if (!w->port_input && w->port_output)
-				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), log_id(w)));
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), w));
 
 		struct_declarations.push_back("");
 		struct_declarations.push_back("  // Internal Wires");
 		for (Wire *w : mod->wires())
 			if (!w->port_input && !w->port_output)
-				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), log_id(w)));
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), w));
 
 		for (Cell *c : mod->cells())
 			if (design->module(c->type))
-				struct_declarations.push_back(stringf("  struct %s_state_t %s; // %s", cid(c->type), cid(c->name), log_id(c)));
+				struct_declarations.push_back(stringf("  struct %s_state_t %s; // %s", cid(c->type), cid(c->name), c));
 
 		struct_declarations.push_back(stringf("};"));
 		struct_declarations.push_back("#endif");
@@ -391,7 +391,7 @@ struct SimplecWorker
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
-					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
+					stringf(" // %s (%s)", cell, cell->type.unescape()));
 
 			work->set_dirty(y);
 			return;
@@ -418,7 +418,7 @@ struct SimplecWorker
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
-					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
+					stringf(" // %s (%s)", cell, cell->type.unescape()));
 
 			work->set_dirty(y);
 			return;
@@ -441,7 +441,7 @@ struct SimplecWorker
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
-					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
+					stringf(" // %s (%s)", cell, cell->type.unescape()));
 
 			work->set_dirty(y);
 			return;
@@ -466,7 +466,7 @@ struct SimplecWorker
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
-					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
+					stringf(" // %s (%s)", cell, cell->type.unescape()));
 
 			work->set_dirty(y);
 			return;
@@ -490,13 +490,13 @@ struct SimplecWorker
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
-					stringf(" // %s (%s)", log_id(cell), log_id(cell->type)));
+					stringf(" // %s (%s)", cell, cell->type.unescape()));
 
 			work->set_dirty(y);
 			return;
 		}
 
-		log_error("No C model for %s available at the moment (FIXME).\n", log_id(cell->type));
+		log_error("No C model for %s available at the moment (FIXME).\n", cell->type.unescape());
 	}
 
 	void eval_dirty(HierDirtyFlags *work)
@@ -517,7 +517,7 @@ struct SimplecWorker
 						if (chunk.wire == nullptr)
 							continue;
 						if (verbose)
-							log("    Propagating %s.%s[%d:%d].\n", work->log_prefix, log_id(chunk.wire), chunk.offset+chunk.width-1, chunk.offset);
+							log("    Propagating %s.%s[%d:%d].\n", work->log_prefix, chunk.wire, chunk.offset+chunk.width-1, chunk.offset);
 						funct_declarations.push_back(stringf("  // Updated signal in %s: %s", work->log_prefix, log_signal(chunk)));
 					}
 
@@ -539,8 +539,8 @@ struct SimplecWorker
 								work->parent->set_dirty(parent_bit);
 
 								if (verbose)
-									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix, log_id(bit.wire), bit.offset,
-											work->parent->log_prefix.c_str(), log_id(parent_bit.wire), parent_bit.offset);
+									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix, bit.wire, bit.offset,
+											work->parent->log_prefix.c_str(), parent_bit.wire, parent_bit.offset);
 							}
 
 						for (auto &port : bit2cell[work->module][bit])
@@ -556,12 +556,12 @@ struct SimplecWorker
 								child->set_dirty(child_bit);
 
 								if (verbose)
-									log("      Propagating %s.%s[%d] -> %s.%s.%s[%d].\n", work->log_prefix, log_id(bit.wire), bit.offset,
-											work->log_prefix.c_str(), log_id(std::get<0>(port)), log_id(child_bit.wire), child_bit.offset);
+									log("      Propagating %s.%s[%d] -> %s.%s.%s[%d].\n", work->log_prefix, bit.wire, bit.offset,
+											work->log_prefix.c_str(), std::get<0>(port), child_bit.wire, child_bit.offset);
 							} else {
 								if (verbose)
-									log("      Marking cell %s.%s (via %s.%s[%d]).\n", work->log_prefix, log_id(std::get<0>(port)),
-											work->log_prefix.c_str(), log_id(bit.wire), bit.offset);
+									log("      Marking cell %s.%s (via %s.%s[%d]).\n", work->log_prefix, std::get<0>(port),
+											work->log_prefix.c_str(), bit.wire, bit.offset);
 								work->set_dirty(std::get<0>(port));
 							}
 						}
@@ -576,10 +576,10 @@ struct SimplecWorker
 						if (cell == nullptr || topoidx.at(cell) < topoidx.at(c))
 							cell = c;
 
-					string hiername = work->log_prefix + "." + log_id(cell);
+					string hiername = work->log_prefix + "." + cell->name.unescape();
 
 					if (verbose)
-						log("    Evaluating %s (%s, best of %d).\n", hiername, log_id(cell->type), GetSize(work->dirty_cells));
+						log("    Evaluating %s (%s, best of %d).\n", hiername, cell->type.unescape(), GetSize(work->dirty_cells));
 
 					if (activated_cells.count(hiername))
 						reactivated_cells.insert(hiername);
@@ -618,8 +618,8 @@ struct SimplecWorker
 
 			if (verbose)
 				log("  Propagating alias %s.%s[%d] -> %s.%s[%d].\n",
-						work->log_prefix.c_str(), log_id(canonical_bit.wire), canonical_bit.offset,
-						work->log_prefix.c_str(), log_id(bit.wire), bit.offset);
+						work->log_prefix.c_str(), canonical_bit.wire, canonical_bit.offset,
+						work->log_prefix.c_str(), bit.wire, bit.offset);
 		}
 
 		work->sticky_dirty_bits.clear();
@@ -716,7 +716,7 @@ struct SimplecWorker
 	{
 		create_module_struct(mod);
 
-		HierDirtyFlags work(mod, IdString(), nullptr, "state->", log_id(mod->name));
+		HierDirtyFlags work(mod, IdString(), nullptr, "state->", mod->name.unescape());
 
 		make_init_func(&work);
 		make_eval_func(&work);

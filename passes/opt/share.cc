@@ -36,7 +36,6 @@ struct ShareWorkerConfig
 {
 	int limit;
 	size_t pattern_limit;
-	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
 	StaticCellTypes::Categories::Category generic_uni_ops, generic_bin_ops, generic_cbin_ops, generic_other_ops;
@@ -362,11 +361,6 @@ struct ShareWorker
 			if (0)
 		not_a_muxed_cell:
 				continue;
-
-			if (config.opt_force) {
-				shareable_cells.insert(cell);
-				continue;
-			}
 
 			if (cell->type.in(ID($memrd), ID($memrd_v2))) {
 				if (cell->parameters.at(ID::CLK_ENABLE).as_bool())
@@ -964,7 +958,7 @@ struct ShareWorker
 
 		optimize_activation_patterns(activation_patterns_cache[cell]);
 		if (activation_patterns_cache[cell].empty()) {
-			log("%sFound cell that is never activated: %s\n", indent, log_id(cell));
+			log("%sFound cell that is never activated: %s\n", indent, cell);
 			RTLIL::SigSpec cell_outputs = modwalker.cell_outputs[cell];
 			module->connect(RTLIL::SigSig(cell_outputs, RTLIL::SigSpec(RTLIL::State::Sx, cell_outputs.size())));
 			cells_to_remove.insert(cell);
@@ -1129,7 +1123,7 @@ struct ShareWorker
 			for (auto &loop : toposort.loops) {
 				log("### loop ###\n");
 				for (auto &c : loop)
-					log("%s (%s)\n", log_id(c), log_id(c->type));
+					log("%s (%s)\n", c, c->type.unescape());
 			}
 
 		return found_scc;
@@ -1246,14 +1240,14 @@ struct ShareWorker
 			return;
 
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
-				GetSize(shareable_cells), log_id(module));
+				GetSize(shareable_cells), module);
 
 		while (!shareable_cells.empty() && config.limit != 0)
 		{
 			RTLIL::Cell *cell = *shareable_cells.begin();
 			shareable_cells.erase(cell);
 
-			log("  Analyzing resource sharing options for %s (%s):\n", log_id(cell), log_id(cell->type));
+			log("  Analyzing resource sharing options for %s (%s):\n", cell, cell->type.unescape());
 
 			const pool<ssc_pair_t> &cell_activation_patterns = find_cell_activation_patterns(cell, "    ");
 			RTLIL::SigSpec cell_activation_signals = bits_from_activation_patterns(cell_activation_patterns);
@@ -1281,12 +1275,12 @@ struct ShareWorker
 
 			log("    Found %d candidates:", GetSize(candidates));
 			for (auto c : candidates)
-				log(" %s", log_id(c));
+				log(" %s", c);
 			log("\n");
 
 			for (auto other_cell : candidates)
 			{
-				log("    Analyzing resource sharing with %s (%s):\n", log_id(other_cell), log_id(other_cell->type));
+				log("    Analyzing resource sharing with %s (%s):\n", other_cell, other_cell->type.unescape());
 
 				const pool<ssc_pair_t> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell, "      ");
 				RTLIL::SigSpec other_cell_activation_signals = bits_from_activation_patterns(other_cell_activation_patterns);
@@ -1338,13 +1332,13 @@ struct ShareWorker
 				RTLIL::SigSpec all_ctrl_signals;
 
 				for (auto &p : filtered_cell_activation_patterns) {
-					log("      Activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
+					log("      Activation pattern for cell %s: %s = %s\n", cell, log_signal(p.first), log_signal(p.second));
 					cell_active.push_back(qcsat.ez->vec_eq(qcsat.importSig(p.first), qcsat.importSig(p.second)));
 					all_ctrl_signals.append(p.first);
 				}
 
 				for (auto &p : filtered_other_cell_activation_patterns) {
-					log("      Activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
+					log("      Activation pattern for cell %s: %s = %s\n", other_cell, log_signal(p.first), log_signal(p.second));
 					other_cell_active.push_back(qcsat.ez->vec_eq(qcsat.importSig(p.first), qcsat.importSig(p.second)));
 					all_ctrl_signals.append(p.first);
 				}
@@ -1355,13 +1349,13 @@ struct ShareWorker
 				qcsat.prepare();
 
 				if (!qcsat.ez->solve(sub1)) {
-					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(cell));
+					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", cell);
 					cells_to_remove.insert(cell);
 					break;
 				}
 
 				if (!qcsat.ez->solve(sub2)) {
-					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(other_cell));
+					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", other_cell);
 					cells_to_remove.insert(other_cell);
 					shareable_cells.erase(other_cell);
 					continue;
@@ -1397,20 +1391,20 @@ struct ShareWorker
 
 					if (restrict_activation_patterns(optimized_cell_activation_patterns, optimized_other_cell_activation_patterns)) {
 						for (auto &p : optimized_cell_activation_patterns)
-							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
+							log("      Simplified activation pattern for cell %s: %s = %s\n", cell, log_signal(p.first), log_signal(p.second));
 
 						for (auto &p : optimized_other_cell_activation_patterns)
-							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
+							log("      Simplified activation pattern for cell %s: %s = %s\n", other_cell, log_signal(p.first), log_signal(p.second));
 					}
 				}
 
 				if (find_in_input_cone(cell, other_cell)) {
-					log("      Sharing not possible: %s is in input cone of %s.\n", log_id(other_cell), log_id(cell));
+					log("      Sharing not possible: %s is in input cone of %s.\n", other_cell, cell);
 					continue;
 				}
 
 				if (find_in_input_cone(other_cell, cell)) {
-					log("      Sharing not possible: %s is in input cone of %s.\n", log_id(cell), log_id(other_cell));
+					log("      Sharing not possible: %s is in input cone of %s.\n", cell, other_cell);
 					continue;
 				}
 
@@ -1430,14 +1424,14 @@ struct ShareWorker
 				if (cell_select_score <= other_cell_select_score) {
 					RTLIL::SigSpec act = make_cell_activation_logic(optimized_cell_activation_patterns, supercell_aux);
 					supercell = make_supercell(cell, other_cell, act, supercell_aux);
-					log("      Activation signal for %s: %s\n", log_id(cell), log_signal(act));
+					log("      Activation signal for %s: %s\n", cell, log_signal(act));
 				} else {
 					RTLIL::SigSpec act = make_cell_activation_logic(optimized_other_cell_activation_patterns, supercell_aux);
 					supercell = make_supercell(other_cell, cell, act, supercell_aux);
-					log("      Activation signal for %s: %s\n", log_id(other_cell), log_signal(act));
+					log("      Activation signal for %s: %s\n", other_cell, log_signal(act));
 				}
 
-				log("      New cell: %s (%s)\n", log_id(supercell), log_id(supercell->type));
+				log("      New cell: %s (%s)\n", supercell, supercell->type.unescape());
 
 				cells_to_remove.insert(cell);
 				cells_to_remove.insert(other_cell);
@@ -1482,9 +1476,9 @@ struct ShareWorker
 		}
 
 		if (!cells_to_remove.empty()) {
-			log("Removing %d cells in module %s:\n", GetSize(cells_to_remove), log_id(module));
+			log("Removing %d cells in module %s:\n", GetSize(cells_to_remove), module);
 			for (auto c : cells_to_remove) {
-				log("  Removing cell %s (%s).\n", log_id(c), log_id(c->type));
+				log("  Removing cell %s (%s).\n", c, c->type.unescape());
 				remove_cell(c);
 			}
 		}
@@ -1508,14 +1502,6 @@ struct SharePass : public Pass {
 		log("\n");
 		log("This pass merges shareable resources into a single resource. A SAT solver\n");
 		log("is used to determine if two resources are share-able.\n");
-		log("\n");
-		log("  -force\n");
-		log("    Per default the selection of cells that is considered for sharing is\n");
-		log("    narrowed using a list of cell types. With this option all selected\n");
-		log("    cells are considered for resource sharing.\n");
-		log("\n");
-		log("    IMPORTANT NOTE: If the -all option is used then no cells with internal\n");
-		log("    state must be selected!\n");
 		log("\n");
 		log("  -aggressive\n");
 		log("    Per default some heuristics are used to reduce the number of cells\n");
@@ -1543,7 +1529,6 @@ struct SharePass : public Pass {
 
 		config.limit = -1;
 		config.pattern_limit = design->scratchpad_get_int("share.pattern_limit", 1000);
-		config.opt_force = false;
 		config.opt_aggressive = false;
 		config.opt_fast = false;
 
@@ -1591,10 +1576,6 @@ struct SharePass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-force") {
-				config.opt_force = true;
-				continue;
-			}
 			if (args[argidx] == "-aggressive") {
 				config.opt_aggressive = true;
 				continue;

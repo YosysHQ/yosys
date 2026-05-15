@@ -44,7 +44,7 @@ endmatch
 
 code
 	log("replacing clock gate pattern in %s with ff: latch=%s, and=%s\n",
-		log_id(module), log_id(latch), log_id(and_gate));
+		module, latch, and_gate);
 
 	// Add a flip-flop and rewire the AND gate to use the output of this flop
 	// instead of the latch. We don't delete the latch in case its output is

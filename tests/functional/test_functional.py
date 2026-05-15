@@ -21,7 +21,7 @@ def yosys(script):
     run([base_path / 'yosys', '-Q', '-p', script])
 
 def compile_cpp(in_path, out_path, args):
-    run(['g++', '-g', '-std=c++17'] + args + [str(in_path), '-o', str(out_path)])
+    run(['g++', '-g', '-std=c++20'] + args + [str(in_path), '-o', str(out_path)])
 
 def yosys_synth(verilog_file, rtlil_file):
     yosys(f"read_verilog {quote(verilog_file)} ; prep ; setundef -undriven -undef ; write_rtlil {quote(rtlil_file)}")

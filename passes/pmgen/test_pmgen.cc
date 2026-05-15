@@ -37,7 +37,7 @@ void reduce_chain(test_pmgen_pm &pm)
 	if (ud.longest_chain.empty())
 		return;
 
-	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
+	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), st.first->type.unescape());
 
 	SigSpec A;
 	SigSpec Y = ud.longest_chain.front().first->getPort(ID::Y);
@@ -51,7 +51,7 @@ void reduce_chain(test_pmgen_pm &pm)
 		} else {
 			A.append(cell->getPort(it.second == ID::A ? ID::B : ID::A));
 		}
-		log("    %s\n", log_id(cell));
+		log("    %s\n", cell);
 		pm.autoremove(cell);
 	}
 
@@ -66,7 +66,7 @@ void reduce_chain(test_pmgen_pm &pm)
 	else
 		log_abort();
 
-	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
 void reduce_tree(test_pmgen_pm &pm)
@@ -81,8 +81,8 @@ void reduce_tree(test_pmgen_pm &pm)
 	SigSpec Y = st.first->getPort(ID::Y);
 	pm.autoremove(st.first);
 
-	log("Found %s tree with %d leaves for %s (%s).\n", log_id(st.first->type),
-			GetSize(A), log_signal(Y), log_id(st.first));
+	log("Found %s tree with %d leaves for %s (%s).\n", st.first->type.unescape(),
+			GetSize(A), log_signal(Y), st.first);
 
 	Cell *c;
 
@@ -95,7 +95,7 @@ void reduce_tree(test_pmgen_pm &pm)
 	else
 		log_abort();
 
-	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
 void opt_eqpmux(test_pmgen_pm &pm)
@@ -109,11 +109,11 @@ void opt_eqpmux(test_pmgen_pm &pm)
 	SigSpec NE = st.pmux->getPort(ID::B).extract(st.pmux_slice_ne*width, width);
 
 	log("Found eqpmux circuit driving %s (eq=%s, ne=%s, pmux=%s).\n",
-			log_signal(Y), log_id(st.eq), log_id(st.ne), log_id(st.pmux));
+			log_signal(Y), st.eq, st.ne, st.pmux);
 
 	pm.autoremove(st.pmux);
 	Cell *c = pm.module->addMux(NEW_ID, NE, EQ, st.eq->getPort(ID::Y), Y);
-	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
 struct TestPmgenPass : public Pass {

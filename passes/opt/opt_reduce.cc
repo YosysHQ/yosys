@@ -110,22 +110,20 @@ struct OptReduceWorker
 		RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
 
 		RTLIL::SigSpec new_sig_b, new_sig_s;
-		pool<RTLIL::SigSpec> handled_sig;
+		dict<RTLIL::SigSpec, std::vector<RTLIL::SigBit>> grouped_b_to_s;
 
-		handled_sig.insert(sig_a);
-		for (int i = 0; i < sig_s.size(); i++)
-		{
-			RTLIL::SigSpec this_b = sig_b.extract(i*sig_a.size(), sig_a.size());
-			if (handled_sig.count(this_b) > 0)
-				continue;
-
-			RTLIL::SigSpec this_s = sig_s.extract(i, 1);
-			for (int j = i+1; j < sig_s.size(); j++) {
-				RTLIL::SigSpec that_b = sig_b.extract(j*sig_a.size(), sig_a.size());
-				if (this_b == that_b)
-					this_s.append(sig_s.extract(j, 1));
+		int port_width = sig_a.size();
+		for (int i = 0; i < sig_s.size(); i++) {
+			RTLIL::SigSpec this_b = sig_b.extract(i*port_width, port_width);
+			if (grouped_b_to_s.count(this_b)) {
+				grouped_b_to_s[this_b].push_back(sig_s[i]);
+			} else {
+				grouped_b_to_s[this_b] = {sig_s[i]};
 			}
+		}
 
+		for (auto &[this_b, this_s_bit] : grouped_b_to_s) {
+			RTLIL::SigSpec this_s{this_s_bit};
 			if (this_s.size() > 1)
 			{
 				RTLIL::Cell *reduce_or_cell = module->addCell(NEW_ID, ID($reduce_or));
@@ -141,7 +139,6 @@ struct OptReduceWorker
 
 			new_sig_b.append(this_b);
 			new_sig_s.append(this_s);
-			handled_sig.insert(this_b);
 		}
 
 		if (new_sig_s.size() == 0)

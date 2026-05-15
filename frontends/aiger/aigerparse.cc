@@ -224,7 +224,7 @@ AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString
 	module = new RTLIL::Module;
 	module->name = module_name;
 	if (design->module(module->name))
-		log_error("Duplicate definition of module %s!\n", log_id(module->name));
+		log_error("Duplicate definition of module %s!\n", module->name.unescape());
 }
 
 void AigerReader::parse_aiger()
@@ -821,7 +821,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = inputs[variable];
 				log_assert(wire);
 				log_assert(wire->port_input);
-				log_debug("Renaming input %s", log_id(wire));
+				log_debug("Renaming input %s", wire);
 
 				RTLIL::Wire *existing = nullptr;
 				if (index == 0) {
@@ -835,7 +835,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", log_id(escaped_s));
+					log_debug(" -> %s\n", escaped_s.unescape());
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -846,7 +846,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug(" -> %s\n", log_id(indexed_name));
+					log_debug(" -> %s\n", indexed_name.unescape());
 				}
 
 				if (wideports && !existing) {
@@ -866,7 +866,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Renaming output %s", log_id(wire));
+				log_debug("Renaming output %s", wire);
 
 				RTLIL::Wire *existing;
 				if (index == 0) {
@@ -882,7 +882,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug(" -> %s\n", log_id(escaped_s));
+					log_debug(" -> %s\n", escaped_s.unescape());
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -894,7 +894,7 @@ void AigerReader::post_process()
 						existing->port_output = true;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", log_id(indexed_name));
+					log_debug(" -> %s\n", indexed_name.unescape());
 				}
 
 				if (wideports && !existing) {
@@ -912,7 +912,7 @@ void AigerReader::post_process()
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$box%d", variable));
 				if (!cell)
-					log_debug("Box %d (%s) no longer exists.\n", variable, log_id(escaped_s));
+					log_debug("Box %d (%s) no longer exists.\n", variable, escaped_s.unescape());
 				else
 					module->rename(cell, escaped_s);
 			}

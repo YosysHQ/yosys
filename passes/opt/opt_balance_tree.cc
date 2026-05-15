@@ -279,7 +279,7 @@ struct OptBalanceTreeWorker {
 					if (inner_cells)
 					{
 						// Create a tree
-						log_debug("  Creating tree for %s with %d sources and %d inner cells...\n", log_id(head_cell), GetSize(sources), inner_cells);
+						log_debug("  Creating tree for %s with %d sources and %d inner cells...\n", head_cell, GetSize(sources), inner_cells);
 						
 						// Build a vector of all source signals
 						vector<SigSpec> source_signals;
@@ -369,7 +369,7 @@ struct OptBalanceTreePass : public Pass {
 
 		// Log stats
 		for (auto cell_type : cell_types)
-			log("Converted %d %s cells into trees.\n", cell_count[cell_type], log_id(cell_type));
+			log("Converted %d %s cells into trees.\n", cell_count[cell_type], cell_type.unescape());
 
 		// Clean up
 		Yosys::run_pass("clean -purge");

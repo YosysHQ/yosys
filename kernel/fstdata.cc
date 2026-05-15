@@ -45,8 +45,7 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
 		log_error("Error opening '%s' as FST file\n", filename);
-	int scale = (int)fstReaderGetTimescale(ctx);	
-	timescale = pow(10.0, scale);
+	scale = (int)fstReaderGetTimescale(ctx);
 	timescale_str = "";
 	int unit = 0;
 	int zeros = 0;

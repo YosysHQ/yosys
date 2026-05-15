@@ -471,17 +471,30 @@ struct TclPass : public Pass {
 
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__)
+#if defined(__linux__) || defined(__CYGWIN__) || defined(__gnu_hurd__)
 std::string proc_self_dirname()
 {
-	char path[PATH_MAX];
-	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
+	std::string path(4096, '\0');
+	ssize_t buflen = -1;
+	// Double until sucess, while avoiding endless loop.  Give up
+	// when symlink is longer than 4096*(2^30) = 4398046511104
+	// bytes.
+	for (int tries = 30; 0 < tries; tries--) {
+		buflen = readlink("/proc/self/exe", path.data(), path.size());
+		if (buflen < (ssize_t)path.size())
+			break;
+		else
+			path.resize(path.size() * 2);
+	}
 	if (buflen < 0) {
 		log_error("readlink(\"/proc/self/exe\") failed: %s\n", strerror(errno));
+		path.resize(0);
+	} else {
+		while (buflen > 0 && path[buflen-1] != '/')
+			buflen--;
+		path.resize(buflen);
 	}
-	while (buflen > 0 && path[buflen-1] != '/')
-		buflen--;
-	return std::string(path, buflen);
+	return path;
 }
 #elif defined(__FreeBSD__) || defined(__NetBSD__)
 std::string proc_self_dirname()
@@ -941,7 +954,7 @@ static char *readline_obj_generator(const char *text, int state)
 		{
 			for (auto mod : design->modules())
 				if (RTLIL::unescape_id(mod->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(mod->name)));
+					obj_names.push_back(strdup(mod->name.unescape().c_str()));
 		}
 		else if (design->module(design->selected_active_module) != nullptr)
 		{
@@ -949,19 +962,19 @@ static char *readline_obj_generator(const char *text, int state)
 
 			for (auto w : module->wires())
 				if (RTLIL::unescape_id(w->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(w->name)));
+					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(it.first)));
+					obj_names.push_back(strdup(it.first.unescape().c_str()));
 
 			for (auto cell : module->cells())
 				if (RTLIL::unescape_id(cell->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(cell->name)));
+					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
 			for (auto &it : module->processes)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(it.first)));
+					obj_names.push_back(strdup(it.first.unescape().c_str()));
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());
@@ -1166,7 +1179,7 @@ struct ScriptCmdPass : public Pass {
 					if (!mod->selected(w))
 						continue;
 					if (!c.second.is_fully_const())
-						log_error("RHS of selected wire %s.%s is not constant.\n", log_id(mod), log_id(w));
+						log_error("RHS of selected wire %s.%s is not constant.\n", mod, w);
 					auto v = c.second.as_const();
 					Pass::call_on_module(design, mod, v.decode_string());
 				}

@@ -6,7 +6,7 @@ body:
     attributes:
       value: >
 
-        Learn more [here](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/contributing.html#reporting-bugs) about how to report bugs. We fix well-reported bugs the fastest.
+        Learn more in our [Reporting bugs](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/contributing.html#reporting-bugs) docs section. We fix well-reported bugs the fastest.
 
         If you have a general question, please ask it on the [Discourse forum](https://yosyshq.discourse.group/).
 

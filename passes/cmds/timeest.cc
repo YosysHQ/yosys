@@ -83,7 +83,7 @@ struct EstimateSta {
 
 	void run()
 	{
-		log("\nModule %s\n", log_id(m));
+		log("\nModule %s\n", m);
 		if (clk.has_value())
 			log("Domain %s\n", log_signal(*clk));
 
@@ -97,10 +97,10 @@ struct EstimateSta {
 				FfData ff(nullptr, cell);
 				if (!ff.has_clk) {
 					log_warning("Ignoring unsupported storage element '%s' (%s)\n",
-								log_id(cell), log_id(cell->type));
+								cell, cell->type.unescape());
 					continue;
 				}
-				if (ff.sig_clk != clk)
+				if (!clk || ff.sig_clk.as_bit() != *clk)
 					continue;
 				launch.append(ff.sig_q);
 				sample.append(ff.sig_d);
@@ -121,7 +121,7 @@ struct EstimateSta {
 					aigs.emplace(fingerprint, Aig(cell));
 					if (aigs.at(fingerprint).name.empty()) {
 						log_error("Unsupported cell '%s' in module '%s'",
-								  log_id(cell->type), log_id(m));
+								  cell->type.unescape(), m);
 					}					
 				}
 
@@ -141,15 +141,15 @@ struct EstimateSta {
 		for (auto &mem : Mem::get_all_memories(m)) {
 			for (auto &rd : mem.rd_ports) {
 				if (!rd.clk_enable) {
-					log_error("Unsupported async memory port '%s'\n", log_id(rd.cell));
+					log_error("Unsupported async memory port '%s'\n", rd.cell);
 					continue;
 				}
-				if (sigmap(rd.clk) != clk)
+				if (!clk || sigmap(rd.clk).as_bit() != *clk)
 					continue;
 				add_seq(rd.cell, rd.data, {rd.addr, rd.srst, rd.en});
 			}
 			for (auto &wr : mem.wr_ports) {
-				if (sigmap(wr.clk) != clk)
+				if (!clk || sigmap(wr.clk).as_bit() != *clk)
 					continue;
 				add_seq(wr.cell, {}, {wr.en, wr.addr, wr.data});
 			}
@@ -165,7 +165,7 @@ struct EstimateSta {
 				} else if (port->port_output && !port->port_input) {
 					all_outputs.append(port);
 				} else if (port->port_output && port->port_input) {
-					log_warning("Ignoring bi-directional port %s\n", log_id(port));
+					log_warning("Ignoring bi-directional port %s\n", port);
 				}
 			}
 			add_seq(nullptr, all_inputs, all_outputs);
@@ -216,7 +216,7 @@ struct EstimateSta {
 		}
 
 		if (!topo.sort())
-			log_error("Module '%s' contains combinational loops", log_id(m));
+			log_error("Module '%s' contains combinational loops", m);
 		
 		// now we determine how long it takes for signals to stabilize
 		
@@ -342,7 +342,7 @@ struct EstimateSta {
 						std::string src_attr = cell->get_src_attribute();
 						cell_src = stringf(" source: %s", src_attr);
 					}
-					log("    cell %s (%s)%s\n", log_id(cell), log_id(cell->type), cell_src);
+					log("    cell %s (%s)%s\n", cell, cell->type.unescape(), cell_src);
 					printed.insert(cell);
 				}
 			} else {
@@ -425,7 +425,7 @@ struct TimeestPass : Pass {
 
 			if (clk_domain_specified) {
 				if (!m->wire(RTLIL::escape_id(clk_name))) {
-					log_warning("No domain '%s' in module %s\n", clk_name.c_str(), log_id(m));
+					log_warning("No domain '%s' in module %s\n", clk_name.c_str(), m);
 					continue;
 				}
 

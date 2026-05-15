@@ -83,7 +83,7 @@ static void run_ice40_opts(Module *module)
 				module->connect(cell->getPort(ID::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
-						log_id(module), log_id(cell), log_signal(replacement_output));
+						module, cell, log_signal(replacement_output));
 				module->remove(cell);
 			}
 			continue;
@@ -137,7 +137,7 @@ static void run_ice40_opts(Module *module)
 				module->connect(cell->getPort(ID::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
-						log_id(module), log_id(cell), log_signal(replacement_output));
+						module, cell, log_signal(replacement_output));
 				cell->type = ID($lut);
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
 				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
@@ -175,7 +175,7 @@ static void run_ice40_opts(Module *module)
 
 	remap_lut:
 		module->design->scratchpad_set_bool("opt.did_something", true);
-		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", log_id(module), log_id(cell));
+		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", module, cell);
 
 		cell->type = ID($lut);
 		cell->setParam(ID::WIDTH, 4);

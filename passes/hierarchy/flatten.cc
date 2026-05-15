@@ -149,7 +149,7 @@ struct FlattenWorker
 					hier_wire->attributes.erase(ID::hierconn);
 					if (GetSize(hier_wire) < GetSize(tpl_wire)) {
 						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n",
-							log_id(module), log_id(hier_wire), log_id(tpl), log_id(tpl_wire), log_id(module), log_id(cell));
+							module, hier_wire, tpl, tpl_wire, module, cell);
 						hier_wire->width = GetSize(tpl_wire);
 					}
 					new_wire = hier_wire;
@@ -261,7 +261,7 @@ struct FlattenWorker
 
 			if (sigmap(new_conn.first).has_const())
 				log_error("Cell port %s.%s.%s is driving constant bits: %s <= %s\n",
-					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
+					module, cell, port_it.first.unescape(), log_signal(new_conn.first), log_signal(new_conn.second));
 
 			module->connect(new_conn);
 			sigmap.add(new_conn.first, new_conn.second);
@@ -316,12 +316,12 @@ struct FlattenWorker
 				continue;
 
 			if (cell->get_bool_attribute(ID::keep_hierarchy) || tpl->get_bool_attribute(ID::keep_hierarchy)) {
-				log("Keeping %s.%s (found keep_hierarchy attribute).\n", log_id(module), log_id(cell));
+				log("Keeping %s.%s (found keep_hierarchy attribute).\n", module, cell);
 				used_modules.insert(tpl);
 				continue;
 			}
 
-			log_debug("Flattening %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
+			log_debug("Flattening %s.%s (%s).\n", module, cell, cell->type.unescape());
 			// If a design is fully selected and has a top module defined, topological sorting ensures that all cells
 			// added during flattening are black boxes, and flattening is finished in one pass. However, when flattening
 			// individual modules, this isn't the case, and the newly added cells might have to be flattened further.
@@ -443,7 +443,7 @@ struct FlattenPass : public Pass {
 		if (cleanup && top != nullptr)
 			for (auto module : design->modules().to_vector())
 				if (!used_modules[module] && !module->get_blackbox_attribute(worker.ignore_wb)) {
-					log("Deleting now unused module %s.\n", log_id(module));
+					log("Deleting now unused module %s.\n", module);
 					design->remove(module);
 				}
 

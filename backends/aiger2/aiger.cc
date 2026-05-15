@@ -21,6 +21,9 @@
 //  - gracefully handling inout ports (an error message probably)
 //  - undriven wires
 //  - zero-width operands
+//  - decide how to unify this with cellaigs
+//  - break up Index into something smaller
+//  - (C++20) remove snprintf-into-std::ostream weirdness
 
 #include "kernel/register.h"
 #include "kernel/newcelltypes.h"
@@ -129,7 +132,7 @@ struct Index {
 						continue;
 					if (!submodule || submodule->get_blackbox_attribute())
 						log_error("Unsupported cell type: %s (%s in %s)\n",
-								  log_id(cell->type), log_id(cell), log_id(m));
+								  cell->type.unescape(), cell, m);
 				}
 			}
 		}
@@ -179,6 +182,9 @@ struct Index {
 		} else {
 			// AigMaker::node2index
 
+			// In XAIGER, the ordering of inputs is used to distinguish between AND
+			// and XOR gates. AND gates have their first input literal be larger
+			// than their second, and vice-versa for XORs.
 			if (a < b) std::swap(a, b);
 			auto pair = std::make_pair(a, b);
 
@@ -531,7 +537,7 @@ struct Index {
 			Design *design = index.design;
 			auto &minfo = leaf_minfo(index);
 			if (!minfo.suboffsets.count(cell))
-				log_error("Reached unsupport cell %s (%s in %s)\n", log_id(cell->type), log_id(cell), log_id(cell->module));
+				log_error("Reached unsupported cell %s (%s in %s)\n", cell->type.unescape(), cell, cell->module);
 			Module *def = design->module(cell->type);
 			log_assert(def);
 			levels.push_back(Level(index.modules.at(def), cell));
@@ -550,13 +556,13 @@ struct Index {
 		{
 			std::string ret;
 			bool first = true;
-			for (auto pair : levels) {
+			for (auto [minfo, cell] : levels) {
 				if (!first)
 					ret += ".";
-				if (!pair.second)
-					ret += RTLIL::unescape_id(pair.first.module->name);
+				if (!cell)
+					ret += RTLIL::unescape_id(minfo.module->name);
 				else
-					ret += RTLIL::unescape_id(pair.second->name);
+					ret += RTLIL::unescape_id(cell->name);
 				first = false;
 			}
 			return ret;
@@ -565,8 +571,8 @@ struct Index {
 		int hash() const
 		{
 			int hash = 0;
-			for (auto pair : levels)
-				hash += (uintptr_t) pair.second;
+			for (auto [_, cell] : levels)
+				hash += (uintptr_t) cell;
 			return hash;
 		}
 
@@ -575,9 +581,12 @@ struct Index {
 			if (levels.size() != other.levels.size())
 				return false;
 
-			for (int i = 0; i < levels.size(); i++)
-				if (levels[i].second != other.levels[i].second)
+			for (int i = 0; i < levels.size(); i++) {
+				auto* cell = levels[i].second;
+				auto* other_cell = other.levels[i].second;
+				if (cell != other_cell)
 					return false;
+			}
 
 			return true;
 		}
@@ -627,10 +636,10 @@ struct Index {
 					Wire *w = def->wire(portname);
 					if (!w)
 						log_error("Output port %s on instance %s of %s doesn't exist\n",
-								  log_id(portname), log_id(driver), log_id(def));
+								  portname.unescape(), driver, def);
 					if (bit.offset >= w->width)
 						log_error("Bit position %d of output port %s on instance %s of %s is out of range (port has width %d)\n",
-								  bit.offset, log_id(portname), log_id(driver), log_id(def), w->width);
+								  bit.offset, portname.unescape(), driver, def, w->width);
 					ret = visit(cursor, SigBit(w, bit.offset));
 				}
 				cursor.exit(*this);
@@ -646,11 +655,11 @@ struct Index {
 				IdString portname = bit.wire->name;
 				if (!instance->hasPort(portname))
 					log_error("Input port %s on instance %s of %s unconnected\n",
-							  log_id(portname), log_id(instance), log_id(instance->type));
+							  portname.unescape(), instance, instance->type);
 				auto &port = instance->getPort(portname);
 				if (bit.offset >= port.size())
 					log_error("Bit %d of input port %s on instance %s of %s unconnected\n",
-							  bit.offset, log_id(portname), log_id(instance), log_id(instance->type));
+							  bit.offset, portname.unescape(), instance, instance->type.unescape());
 				ret = visit(cursor, port[bit.offset]);
 			}
 			cursor.enter(*this, instance);
@@ -740,6 +749,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		nands++;
 		lit_counter += 2;
 
+		// In XAIGER, the ordering of inputs is used to distinguish between AND
+		// and XOR gates. AND gates have their first input literal be larger
+		// than their second, and vice-versa for XORs.
 		if (a < b) std::swap(a, b);
 		encode(out - a);
 		encode(a - b);
@@ -756,7 +768,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		log_assert(lit_counter == (Lit) (ninputs + nlatches + nands) * 2 + 2);
 
 		char buf[128];
-		snprintf(buf, sizeof(buf) - 1, "aig %08d %08d %08d %08d %08d\n",
+		snprintf(buf, sizeof(buf), "aig %08d %08d %08d %08d %08d\n",
 				 ninputs + nlatches + nands, ninputs, nlatches, noutputs, nands);
 		f->write(buf, strlen(buf));
 	}
@@ -773,8 +785,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 			log_assert(w);
 			if (w->port_input && !w->port_output)
 				for (int i = 0; i < w->width; i++) {
-					pi_literal(SigBit(w, i)) = lit_counter;
-					inputs.push_back(SigBit(w, i));
+					auto bit = SigBit(w, i);
+					pi_literal(bit) = lit_counter;
+					inputs.push_back(bit);
 					lit_counter += 2;
 					ninputs++;
 				}
@@ -791,7 +804,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				for (auto bit : SigSpec(w)) {
 					(void) bit;
 					char buf[16];
-					snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
+					snprintf(buf, sizeof(buf), "%08d\n", 0);
 					f->write(buf, strlen(buf));
 					noutputs++;
 				}
@@ -804,16 +817,19 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		for (auto w : top->wires())
 			if (w->port_output) {
 				for (auto bit : SigSpec(w))
+					// Each call to eval_po eventually reaches emit_gate and
+					// encode which writes to f.
 					outputs.push_back({bit, eval_po(bit)});
 			}
+
 		auto data_end = f->tellp();
 
 		// revisit header and the list of outputs
 		f->seekp(file_start);
 		write_header();
-		for (auto pair : outputs) {
+		for (auto [_, po] : outputs) {
 			char buf[16];
-			snprintf(buf, sizeof(buf) - 1, "%08d\n", pair.second);
+			snprintf(buf, sizeof(buf), "%08d\n", po);
 			f->write(buf, strlen(buf));
 		}
 		// double check we arrived at the same offset for the
@@ -822,12 +838,13 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 
 		f->seekp(data_end);
 		int i = 0;
-		for (auto pair : outputs) {
-			if (SigSpec(pair.first).is_wire()) {
+		for (auto [bit, _] : outputs) {
+			if (SigSpec(bit).is_wire()) {
+				// primary output symbol
 				char buf[32];
-				snprintf(buf, sizeof(buf) - 1, "o%d ", i);
+				snprintf(buf, sizeof(buf), "o%d ", i);
 				f->write(buf, strlen(buf));
-				std::string name = RTLIL::unescape_id(pair.first.wire->name);
+				std::string name = RTLIL::unescape_id(bit.wire->name);
 				f->write(name.data(), name.size());
 				f->put('\n');
 			}
@@ -836,8 +853,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		i = 0;
 		for (auto bit : inputs) {
 			if (SigSpec(bit).is_wire()) {
+				// primary input symbol
 				char buf[32];
-				snprintf(buf, sizeof(buf) - 1, "i%d ", i);
+				snprintf(buf, sizeof(buf), "i%d ", i);
 				f->write(buf, strlen(buf));
 				std::string name = RTLIL::unescape_id(bit.wire->name);
 				f->write(name.data(), name.size());
@@ -1030,7 +1048,7 @@ struct XAigerWriter : AigerWriter {
 			} else if (!is_input && !inputs) {
 				for (auto &bit : conn.second) {
 					if (!bit.wire || (bit.wire->port_input && !bit.wire->port_output))
-						log_error("Bad connection %s/%s ~ %s\n", log_id(box), log_id(conn.first), log_signal(conn.second));
+						log_error("Bad connection %s/%s ~ %s\n", box, conn.first.unescape(), log_signal(conn.second));
 
 
 					ensure_pi(bit, cursor);
@@ -1055,9 +1073,9 @@ struct XAigerWriter : AigerWriter {
 	void prep_boxes(int pending_pos_num)
 	{
 		XAigerAnalysis analysis;
-		log_debug("preforming analysis on '%s'\n", log_id(top));
+		log_debug("preforming analysis on '%s'\n", top);
 		analysis.analyze(top);
-		log_debug("analysis on '%s' done\n", log_id(top));
+		log_debug("analysis on '%s' done\n", top);
 
 		// boxes which have timing data, maybe a whitebox model
 		std::vector<std::tuple<HierCursor, Cell *, Module *>> nonopaque_boxes;
@@ -1071,7 +1089,7 @@ struct XAigerWriter : AigerWriter {
 			for (auto box : minfo.found_blackboxes) {
 				log_debug(" - %s.%s (type %s): ", cursor.path(),
 						  RTLIL::unescape_id(box->name),
-						  log_id(box->type));
+						  box->type.unescape());
 
 				Module *box_module = design->module(box->type), *box_derived;
 
@@ -1140,7 +1158,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_warning("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
-										log_id(port_id), i, log_id(box), log_id(box->type));
+										port_id.unescape(), i, box, box->type.unescape());
 							bit = RTLIL::Sx;
 						}
 
@@ -1175,7 +1193,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_warning("connection on port %s[%d] of instance %s (type %s) missing\n",
-										log_id(port_id), i, log_id(box), log_id(box->type));
+										port_id.unescape(), i, box, box->type.unescape());
 							pad_pi();
 							continue;
 						}
@@ -1192,7 +1210,7 @@ struct XAigerWriter : AigerWriter {
 					holes_wb->setPort(port_id, w);
 				} else {
 					log_error("Ambiguous port direction on %s/%s\n",
-							  log_id(box->type), log_id(port_id));
+							  box->type.unescape(), port_id.unescape());
 				}
 			}
 		}
@@ -1242,29 +1260,29 @@ struct XAigerWriter : AigerWriter {
 		reset_counters();
 
 		for (auto w : top->wires())
-		if (w->port_input && !w->port_output)
-		for (int i = 0; i < w->width; i++)
-			ensure_pi(SigBit(w, i));
+			if (w->port_input && !w->port_output)
+				for (int i = 0; i < w->width; i++)
+					ensure_pi(SigBit(w, i));
 
 		int proper_po_num = 0;
 		for (auto w : top->wires())
-		if (w->port_output)
-			proper_po_num += w->width;
+			if (w->port_output)
+				proper_po_num += w->width;
 
 		prep_boxes(proper_po_num);
 		for (auto w : top->wires())
-		if (w->port_output)
-		for (int i = 0; i < w->width; i++) {
-			// When a module output is directly driven by an opaque box, we
-			// don't emit it to the mapping file to aid re-integration, but we
-			// do emit a proper PO.
-			if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
-				map_file << "po " << proper_pos_counter << " " << i
-							<< " " << w->name.c_str() << "\n";
-			}
-			proper_pos_counter++;
-			pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
-		}
+			if (w->port_output)
+				for (int i = 0; i < w->width; i++) {
+					// When a module output is directly driven by an opaque box, we
+					// don't emit it to the mapping file to aid re-integration, but we
+					// do emit a proper PO.
+					if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
+						map_file << "po " << proper_pos_counter << " " << i
+									<< " " << w->name.c_str() << "\n";
+					}
+					proper_pos_counter++;
+					pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
+				}
 
 		this->f = f;
 		// start with the header
@@ -1274,7 +1292,7 @@ struct XAigerWriter : AigerWriter {
 		// insert padding where output literals will go (once known)
 		for (auto _ : pos) {
 			char buf[16];
-			snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
+			snprintf(buf, sizeof(buf), "%08d\n", 0);
 			f->write(buf, strlen(buf));
 		}
 		auto data_start = f->tellp();
@@ -1291,35 +1309,36 @@ struct XAigerWriter : AigerWriter {
 		write_header();
 		for (auto lit : outlits) {
 			char buf[16];
-			snprintf(buf, sizeof(buf) - 1, "%08d\n", lit);
+			snprintf(buf, sizeof(buf), "%08d\n", lit);
 			f->write(buf, strlen(buf));
 		}
 		// double check we arrived at the same offset for the
 		// main data section
 		log_assert(data_start == f->tellp());
 
-		// extensions
+		// XAIGER extensions
 		f->seekp(0, std::ios::end);
 
-		f->put('c');
+		f->put('c');	// 'c': comment (marks beginning of extensions)
 
 		// insert empty 'r' and 's' sections (abc crashes if we provide 'a' without those)
-		f->put('r');
-		write_be32(*f, 4);
-		write_be32(*f, 0);
-		f->put('s');
-		write_be32(*f, 4);
-		write_be32(*f, 0);
+		f->put('r'); // 'r': register classes
+		write_be32(*f, 4); // length in bytes
+		write_be32(*f, 0); // no register classes
 
-		f->put('h');
+		f->put('s'); // 's': register initial values
+		write_be32(*f, 4); // length in bytes
+		write_be32(*f, 0); // no register initial values
+
+		f->put('h'); // 'h': hierarchy information
 		// TODO: get rid of std::string copy
 		std::string h_buffer_str = h_buffer.str();
-		write_be32(*f, h_buffer_str.size());
-		f->write(h_buffer_str.data(), h_buffer_str.size());
+		write_be32(*f, h_buffer_str.size()); // length in bytes
+		f->write(h_buffer_str.data(), h_buffer_str.size()); // data
 
 #if 1
-		f->put('a');
-		write_be32(*f, 0); // size to be filled later
+		f->put('a'); // 'a': additional AIG (used for holes)
+		write_be32(*f, 0); // length in bytes (to be filled later)
 		auto holes_aiger_start = f->tellp();
 		{
 			AigerWriter holes_writer;
@@ -1331,7 +1350,7 @@ struct XAigerWriter : AigerWriter {
 		auto holes_aiger_size = f->tellp() - holes_aiger_start;
 		f->seekp(holes_aiger_start, std::ios::beg);
 		f->seekp(-4, std::ios::cur);
-		write_be32(*f, holes_aiger_size);
+		write_be32(*f, holes_aiger_size); // length in bytes
 #endif
 		f->seekp(0, std::ios::end);
 
@@ -1386,7 +1405,7 @@ struct Aiger2Backend : Backend {
 				continue;
 			if (known_ops(cell.type))
 				continue;
-			std::string name = log_id(cell.type);
+			std::string name = cell.type.unescape();
 			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
@@ -1408,7 +1427,7 @@ struct Aiger2Backend : Backend {
 				continue;
 			if (known_ops(cell.type))
 				continue;
-			std::string name = log_id(cell.type);
+			std::string name = cell.type.unescape();
 			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;

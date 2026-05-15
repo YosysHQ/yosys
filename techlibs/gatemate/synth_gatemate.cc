@@ -69,13 +69,17 @@ struct SynthGateMatePass : public ScriptPass
 		log("        do not use CC_MX{8,4} multiplexer cells in output netlist.\n");
 		log("\n");
 		log("    -luttree\n");
-		log("        use new LUT tree mapping approach (EXPERIMENTAL).\n");
+		log("        use LUT tree mapping for output to nextpnr. Do not use this if targeting\n");
+		log("        legacy p_r.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with '-dff -D 1' options\n");
+		log("\n");
+		log("    -abc_new\n");
+		log("        use 'abc_new' instead of 'abc' for mapping. (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -noiopad\n");
 		log("        disable I/O buffer insertion (useful for hierarchical or \n");
@@ -90,7 +94,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf;
+	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf, abc_new;
 
 	void clear_flags() override
 	{
@@ -108,6 +112,7 @@ struct SynthGateMatePass : public ScriptPass
 		retime = false;
 		noiopad = false;
 		noclkbuf = false;
+		abc_new = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -182,6 +187,10 @@ struct SynthGateMatePass : public ScriptPass
 				noclkbuf = true;
 				continue;
 			}
+			if (args[argidx] == "-abc_new") {
+				abc_new = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -210,6 +219,7 @@ struct SynthGateMatePass : public ScriptPass
 		{
 			run("proc");
 			if (!noflatten) {
+				run("check");
 				run("flatten");
 			}
 			run("tribuf -logic");
@@ -312,7 +322,11 @@ struct SynthGateMatePass : public ScriptPass
 				if (dff) {
 					abc_args += " -dff";
 				}
-				run("abc " + abc_args, "(with -luttree)");
+				if (abc_new) {
+					run("abc_new " + abc_args, "(with -luttree and -abc_new)");
+				} else {
+					run("abc " + abc_args, "(with -luttree, without -abc_new)");
+				}
 				run("techmap -map +/gatemate/lut_tree_map.v", "(with -luttree)");
 				run("gatemate_foldinv", "(with -luttree)");
 				run("techmap -map +/gatemate/inv_map.v", "(with -luttree)");

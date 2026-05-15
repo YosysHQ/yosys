@@ -132,7 +132,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 
 	if (wire->width <= 1) {
 		if (has_fsm_encoding_attr) {
-			log_warning("Removing fsm_encoding attribute from 1-bit net: %s.%s\n", log_id(wire->module), log_id(wire));
+			log_warning("Removing fsm_encoding attribute from 1-bit net: %s.%s\n", wire->module, wire);
 			wire->attributes.erase(ID::fsm_encoding);
 		}
 		return;
@@ -230,23 +230,23 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 			warnings.push_back("FSM seems to be self-resetting. Possible simulation-synthesis mismatch!\n");
 
 		if (!warnings.empty()) {
-			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", log_id(wire->module), log_id(wire));
+			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", wire->module, wire);
 			for (auto w : warnings) warnmsg += "    " + w;
 			log_warning("%s", warnmsg);
 		} else {
-			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire));
+			log("FSM state register %s.%s already has fsm_encoding attribute.\n", wire->module, wire);
 		}
 	}
 	else
 	if (looks_like_state_reg && looks_like_good_state_reg && !has_init_attr && !is_module_port && !is_self_resetting)
 	{
-		log("Found FSM state register %s.%s.\n", log_id(wire->module), log_id(wire));
+		log("Found FSM state register %s.%s.\n", wire->module, wire);
 		wire->attributes[ID::fsm_encoding] = RTLIL::Const("auto");
 	}
 	else
 	if (looks_like_state_reg)
 	{
-		log("Not marking %s.%s as FSM state register:\n", log_id(wire->module), log_id(wire));
+		log("Not marking %s.%s as FSM state register:\n", wire->module, wire);
 
 		if (is_module_port)
 			log("    Register is connected to module port.\n");

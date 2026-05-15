@@ -156,6 +156,7 @@ struct SynthAnlogicPass : public ScriptPass
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
 			run("proc");
+			run("check");
 			run("flatten");
 			run("tribuf -logic");
 			run("deminout");

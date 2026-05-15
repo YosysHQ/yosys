@@ -798,7 +798,7 @@ struct AST_INTERNAL::ProcessGenerator
 			break;
 
 		case AST_ASSIGN:
-			ast->input_error("Found continous assignment in always/initial block!\n");
+			ast->input_error("Found continuous assignment in always/initial block!\n");
 			break;
 
 		case AST_PARAMETER:
@@ -1209,6 +1209,15 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			input_error("Left operand of replicate expression is not constant!\n");
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
 		width_hint = max(width_hint, children[0]->bitsAsConst().as_int() * sub_width_hint);
+		sign_hint = false;
+		break;
+
+	case AST_ASSIGN_PATTERN:
+		for (auto& child : children) {
+			sub_width_hint = 0;
+			sub_sign_hint = true;
+			child->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
+		}
 		sign_hint = false;
 		break;
 
@@ -1824,6 +1833,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			return sig;
 		}
 
+	case AST_ASSIGN_PATTERN:
+		input_error("Assignment pattern is only supported for whole unpacked array assignments.\n");
+
 	// generate cells for unary operations: $not, $pos, $neg
 	if (0) { case AST_BIT_NOT: type_name = ID($not); }
 	if (0) { case AST_POS:     type_name = ID($pos); }
@@ -2185,10 +2197,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
 						log_file_warning(*location.begin.filename, location.begin.line, "Replacing floating point parameter %s.%s = %f with string.\n",
-								log_id(cell), log_id(paraname), value->realvalue);
+								cell, paraname.unescape(), value->realvalue);
 					else if (value->type != AST_CONSTANT)
 						input_error("Parameter %s.%s with non-constant value!\n",
-								log_id(cell), log_id(paraname));
+								cell, paraname.unescape());
 					cell->parameters[paraname] = value->asParaConst();
 					continue;
 				}
