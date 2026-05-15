@@ -60,20 +60,20 @@ struct SynthPropWorker
 
 void SynthPropWorker::tracing(RTLIL::Module *mod, int depth, TrackingData &tracing_data, std::string hier_path)
 {
-	log("%*sTracing in module %s..\n", 2*depth, "", log_id(mod));
+	log("%*sTracing in module %s..\n", 2*depth, "", mod);
 	tracing_data[mod] = TrackingItem();
 	int cnt = 0;
 	for (auto cell : mod->cells()) {
 		if (cell->type == ID($assert)) {
-			log("%*sFound assert %s..\n", 2*(depth+1), "", log_id(cell));
+			log("%*sFound assert %s..\n", 2*(depth+1), "", cell);
 			tracing_data[mod].assertion_cells.emplace(cell);
 			if (!or_outputs) {
-				tracing_data[mod].names.push_back(hier_path + "." + log_id(cell));
+				tracing_data[mod].names.push_back(hier_path + "." + cell->name.unescape());
 			}
 			cnt++;
 		}
 		else if (RTLIL::Module *submod = design->module(cell->type)) {
-			tracing(submod, depth+1, tracing_data, hier_path + "." + log_id(cell));
+			tracing(submod, depth+1, tracing_data, hier_path + "." + cell->name.unescape());
 			if (!or_outputs) {
 				for (size_t i = 0; i < tracing_data[submod].names.size(); i++)
 					tracing_data[mod].names.push_back(tracing_data[submod].names[i]);
@@ -93,7 +93,7 @@ void SynthPropWorker::run()
 		log_error("Module is not TOP module\n");
 
 	TrackingData tracing_data;
-	tracing(module, 0, tracing_data, log_id(module->name));
+	tracing(module, 0, tracing_data, module->name.unescape());
 
 	for (auto &data : tracing_data) {
 		if (data.second.names.size() == 0) continue;

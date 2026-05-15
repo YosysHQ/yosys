@@ -149,7 +149,7 @@ struct SpliceWorker
 
 	void run()
 	{
-		log("Splicing signals in module %s:\n", log_id(module->name));
+		log("Splicing signals in module %s:\n", module->name.unescape());
 
 		driven_bits.push_back(RTLIL::State::Sm);
 		driven_bits.push_back(RTLIL::State::Sm);

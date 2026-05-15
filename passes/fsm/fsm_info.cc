@@ -50,7 +50,7 @@ struct FsmInfoPass : public Pass {
 			for (auto cell : mod->selected_cells())
 				if (cell->type == ID($fsm)) {
 					log("\n");
-					log("FSM `%s' from module `%s':\n", log_id(cell), log_id(mod));
+					log("FSM `%s' from module `%s':\n", cell, mod);
 					FsmData fsm_data;
 					fsm_data.copy_from_cell(cell);
 					fsm_data.log_info(cell);

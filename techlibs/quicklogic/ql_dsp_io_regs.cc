@@ -83,19 +83,19 @@ struct QlDspIORegs : public Pass {
 			for (auto cfg_port : {ID(register_inputs), ID(output_select)})
 			if (!cell->hasPort(cfg_port) || !sigmap(cell->getPort(cfg_port)).is_fully_const())
 				log_error("Missing or non-constant '%s' port on DSP cell %s\n",
-						  log_id(cfg_port), log_id(cell));
+						  cfg_port, cell);
 			int reg_in_i = sigmap(cell->getPort(ID(register_inputs))).as_int();
 			int out_sel_i = sigmap(cell->getPort(ID(output_select))).as_int();
 
 			// Get the feedback port
 			if (!cell->hasPort(ID(feedback)))
-				log_error("Missing 'feedback' port on %s", log_id(cell));
+				log_error("Missing 'feedback' port on %s", cell);
 			SigSpec feedback = sigmap(cell->getPort(ID(feedback)));
 
 			// Check the top two bits on 'feedback' to be constant zero.
 			// That's what we are expecting from inference.
 			if (feedback.extract(1, 2) != SigSpec(0, 2))
-				log_error("Unexpected feedback configuration on %s\n", log_id(cell));
+				log_error("Unexpected feedback configuration on %s\n", cell);
 
 			// Build new type name
 			std::string new_type = "\\QL_DSP2_MULT";

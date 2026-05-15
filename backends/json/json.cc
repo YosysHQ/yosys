@@ -152,7 +152,7 @@ struct JsonWriter
 		sigidcounter = 2;
 
 		if (module->has_processes()) {
-			log_error("Module %s contains processes, which are not supported by JSON backend (run `proc` first).\n", log_id(module));
+			log_error("Module %s contains processes, which are not supported by JSON backend (run `proc` first).\n", module);
 		}
 
 		f << stringf("    %s: {\n", get_name(module->name));
@@ -316,13 +316,13 @@ struct JsonWriter
 					f << stringf("      /* %3d */ [ ", node_idx);
 					if (node.portbit >= 0)
 						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
-								log_id(node.portname), node.portbit);
+								node.portname.unescape(), node.portbit);
 					else if (node.left_parent < 0 && node.right_parent < 0)
 						f << stringf("\"%s\"", node.inverter ? "true" : "false");
 					else
 						f << stringf("\"%s\", %d, %d", node.inverter ? "nand" : "and", node.left_parent, node.right_parent);
 					for (auto &op : node.outports)
-						f << stringf(", \"%s\", %d", log_id(op.first), op.second);
+						f << stringf(", \"%s\", %d", op.first.unescape(), op.second);
 					f << stringf(" ]");
 					node_idx++;
 				}

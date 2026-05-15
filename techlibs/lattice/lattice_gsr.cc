@@ -57,7 +57,7 @@ struct LatticeGsrPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			log("Handling GSR in %s.\n", log_id(module));
+			log("Handling GSR in %s.\n", module);
 
 			SigMap sigmap(module);
 
@@ -69,11 +69,11 @@ struct LatticeGsrPass : public Pass {
 				if (cell->type != ID(GSR) && cell->type != ID(SGSR))
 					continue;
 				if (found_gsr)
-					log_error("Found more than one GSR or SGSR cell in module %s.\n", log_id(module));
+					log_error("Found more than one GSR or SGSR cell in module %s.\n", module);
 				found_gsr = true;
 				SigSpec sig_gsr = cell->getPort(ID(GSR));
 				if (GetSize(sig_gsr) < 1)
-					log_error("GSR cell %s has disconnected GSR input.\n", log_id(cell));
+					log_error("GSR cell %s has disconnected GSR input.\n", cell);
 				gsr = sigmap(sig_gsr[0]);
 			}
 
@@ -97,7 +97,7 @@ struct LatticeGsrPass : public Pass {
 			// For finding active low FF inputs
 			pool<SigBit> inverted_gsr;
 
-			log_debug("GSR net in module %s is %s.\n", log_id(module), log_signal(gsr));
+			log_debug("GSR net in module %s is %s.\n", module, log_signal(gsr));
 			for (auto cell : module->selected_cells())
 			{
 				if (cell->type != ID($_NOT_))

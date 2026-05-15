@@ -175,7 +175,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				obj_attributes = &module->attributes;
 				obj_parameters = nullptr;
 				if (design->module(module->name))
-					log_error("Duplicate definition of module %s in line %d!\n", log_id(module->name), line_count);
+					log_error("Duplicate definition of module %s in line %d!\n", module->name.unescape(), line_count);
 				design->add(module);
 				continue;
 			}

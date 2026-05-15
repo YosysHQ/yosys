@@ -67,17 +67,17 @@ struct EquivStatusPass : public Pass {
 				}
 
 			if (unproven_equiv_cells.empty() && !proven_equiv_cells) {
-				log("No $equiv cells found in %s.\n", log_id(module));
+				log("No $equiv cells found in %s.\n", module);
 				continue;
 			}
 
-			log("Found %d $equiv cells in %s:\n", GetSize(unproven_equiv_cells) + proven_equiv_cells, log_id(module));
+			log("Found %d $equiv cells in %s:\n", GetSize(unproven_equiv_cells) + proven_equiv_cells, module);
 			log("  Of those cells %d are proven and %d are unproven.\n", proven_equiv_cells, GetSize(unproven_equiv_cells));
 			if (unproven_equiv_cells.empty()) {
 				log("  Equivalence successfully proven!\n");
 			} else {
 				for (auto cell : unproven_equiv_cells)
-					log("  Unproven $equiv %s: %s %s\n", log_id(cell), log_signal(cell->getPort(ID::A)), log_signal(cell->getPort(ID::B)));
+					log("  Unproven $equiv %s: %s %s\n", cell, log_signal(cell->getPort(ID::A)), log_signal(cell->getPort(ID::B)));
 			}
 
 			unproven_count += GetSize(unproven_equiv_cells);

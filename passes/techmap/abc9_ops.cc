@@ -48,7 +48,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 			auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), m->name));
 			if (!r.second)
 				log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-						log_id(m), id, log_id(r.first->second));
+						m, id, r.first->second.unescape());
 		}
 
 		// Make carry in the last PI, and carry out the last PO
@@ -60,21 +60,21 @@ void check(RTLIL::Design *design, bool dff_mode)
 			if (w->get_bool_attribute(ID::abc9_carry)) {
 				if (w->port_input) {
 					if (carry_in != IdString())
-						log_error("Module '%s' contains more than one (* abc9_carry *) input port.\n", log_id(m));
+						log_error("Module '%s' contains more than one (* abc9_carry *) input port.\n", m);
 					carry_in = port_name;
 				}
 				if (w->port_output) {
 					if (carry_out != IdString())
-						log_error("Module '%s' contains more than one (* abc9_carry *) output port.\n", log_id(m));
+						log_error("Module '%s' contains more than one (* abc9_carry *) output port.\n", m);
 					carry_out = port_name;
 				}
 			}
 		}
 
 		if (carry_in != IdString() && carry_out == IdString())
-			log_error("Module '%s' contains an (* abc9_carry *) input port but no output port.\n", log_id(m));
+			log_error("Module '%s' contains an (* abc9_carry *) input port but no output port.\n", m);
 		if (carry_in == IdString() && carry_out != IdString())
-			log_error("Module '%s' contains an (* abc9_carry *) output port but no input port.\n", log_id(m));
+			log_error("Module '%s' contains an (* abc9_carry *) output port but no input port.\n", m);
 
 		if (flop) {
 			int num_outputs = 0;
@@ -83,7 +83,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 				if (wire->port_output) num_outputs++;
 			}
 			if (num_outputs != 1)
-				log_error("Module '%s' with (* abc9_flop *) has %d outputs (expect 1).\n", log_id(m), num_outputs);
+				log_error("Module '%s' with (* abc9_flop *) has %d outputs (expect 1).\n", m, num_outputs);
 		}
 	}
 
@@ -120,7 +120,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 				if (!derived_module->get_bool_attribute(ID::abc9_flop))
 					continue;
 				if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
-					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", log_id(derived_type));
+					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", derived_type.unescape());
 
 				if (derived_module->has_processes())
 					Pass::call_on_module(design, derived_module, "proc -noopt");
@@ -129,20 +129,20 @@ void check(RTLIL::Design *design, bool dff_mode)
 				for (auto derived_cell : derived_module->cells()) {
 					if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
 						if (found)
-							log_error("Whitebox '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
+							log_error("Whitebox '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", derived_module);
 						found = true;
 
 						SigBit Q = derived_cell->getPort(ID::Q);
 						log_assert(GetSize(Q.wire) == 1);
 
 						if (!Q.wire->port_output)
-							log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell where its 'Q' port does not drive a module output.\n", log_id(derived_module), log_id(derived_cell->type));
+							log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell where its 'Q' port does not drive a module output.\n", derived_module, derived_cell->type.unescape());
 
 						Const init = Q.wire->attributes.at(ID::init, State::Sx);
 						log_assert(GetSize(init) == 1);
 					}
 					else if (unsupported.count(derived_cell->type))
-						log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
+						log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", derived_module, derived_cell->type.unescape());
 				}
 			}
 	}
@@ -216,7 +216,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							// Block sequential synthesis on cells with (* init *) != 1'b0
 							//   because ABC9 doesn't support them
 							if (init != State::S0) {
-								log_warning("Whitebox '%s' with (* abc9_flop *) contains a %s cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
+								log_warning("Whitebox '%s' with (* abc9_flop *) contains a %s cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox.\n", derived_module, derived_cell->type.unescape());
 								derived_module->set_bool_attribute(ID::abc9_flop, false);
 							}
 							break;
@@ -473,7 +473,7 @@ void prep_dff(RTLIL::Design *design)
 				// be instantiating the derived module which will have had any parameters constant-propagated.
 				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 				// Please file a bug report!
-				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", log_id(cell->name), log_id(cell->type));
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->name.unescape(), cell->type.unescape());
 			}
 			modules_sel.select(inst_module);
 		}
@@ -620,7 +620,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 	std::vector<Cell*> cells;
 	for (auto module : design->selected_modules()) {
 		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes.\n", log_id(module));
+			log("Skipping module %s as it contains processes.\n", module);
 			continue;
 		}
 
@@ -668,7 +668,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			auto port_wire = inst_module->wire(i.first.name);
 			if (!port_wire)
 				log_error("Port %s in cell %s (type %s) from module %s does not actually exist",
-						log_id(i.first.name), log_id(cell), log_id(cell->type), log_id(module));
+						i.first.name.unescape(), cell, cell->type.unescape(), module);
 			log_assert(port_wire->port_input);
 
 			auto d = i.second.first;
@@ -687,7 +687,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			if (ys_debug(1)) {
 				static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 				if (seen.emplace(cell->type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
-						log_id(cell->type), log_id(i.first.name), offset, d);
+						cell->type.unescape(), i.first.name.unescape(), offset, d);
 			}
 #endif
 			auto r = box_cache.insert(d);
@@ -847,7 +847,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			for (auto cell_name : it) {
 				auto cell = module->cell(cell_name);
 				log_assert(cell);
-				log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute());
+				log("\t%s (%s @ %s)\n", cell, cell->type.unescape(), cell->get_src_attribute());
 			}
 		}
 	}
@@ -881,7 +881,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			// be instantiating the derived module which will have had any parameters constant-propagated.
 			// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 			// Please file a bug report!
-			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", log_id(cell_name), log_id(cell->type));
+			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", cell_name.unescape(), cell->type.unescape());
 		}
 		log_assert(box_module->get_blackbox_attribute());
 
@@ -916,7 +916,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 						}
 					}
 					else if (w->port_output)
-						conn = holes_module->addWire(stringf("%s.%s", cell->type, log_id(port_name)), GetSize(w));
+						conn = holes_module->addWire(stringf("%s.%s", cell->type, port_name.unescape()), GetSize(w));
 				}
 			}
 			else // box_module is a blackbox
@@ -928,7 +928,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			log_assert(w);
 			if (!w->port_output)
 				continue;
-			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, log_id(port_name)), GetSize(w));
+			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, port_name.unescape()), GetSize(w));
 			holes_wire->port_output = true;
 			holes_wire->port_id = port_id++;
 			holes_module->ports.push_back(holes_wire->name);
@@ -964,12 +964,12 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 			if (o == TimingInfo::NameBit())
 				o = d;
 			else if (o != d)
-				log_error("Module '%s' with (* abc9_lut *) has more than one output.\n", log_id(module));
+				log_error("Module '%s' with (* abc9_lut *) has more than one output.\n", module);
 			delays.push_back(i.second);
 		}
 
 		if (GetSize(delays) == 0)
-			log_error("Module '%s' with (* abc9_lut *) has no specify entries.\n", log_id(module));
+			log_error("Module '%s' with (* abc9_lut *) has no specify entries.\n", module);
 		if (maxlut && GetSize(delays) > maxlut)
 			continue;
 		// ABC requires non-decreasing LUT input delays
@@ -980,9 +980,9 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		auto r = table.emplace(K, entry);
 		if (!r.second) {
 			if (r.first->second.area != entry.area)
-				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", log_id(module), log_id(r.first->second.name));
+				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", module, r.first->second.name.unescape());
 			if (r.first->second.delays != entry.delays)
-				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", log_id(module), log_id(r.first->second.name));
+				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", module, r.first->second.name.unescape());
 		}
 	}
 
@@ -1001,7 +1001,7 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		ss << std::endl;
 	}
 	for (const auto &i : table) {
-		ss << "# " << log_id(i.second.name) << std::endl;
+		ss << "# " << i.second.name.unescape() << std::endl;
 		ss << i.first << " " << i.second.area;
 		for (const auto &j : i.second.delays)
 			ss << " " << j;
@@ -1045,7 +1045,7 @@ void prep_box(RTLIL::Design *design)
 			}
 			log_assert(num_outputs == 1);
 
-			ss << log_id(module) << " " << r.first->second.as_int();
+			ss << module->name.unescape() << " " << r.first->second.as_int();
 			log_assert(module->get_bool_attribute(ID::whitebox));
 			ss << " " << "1";
 			ss << " " << num_inputs << " " << num_outputs << std::endl;
@@ -1060,13 +1060,13 @@ void prep_box(RTLIL::Design *design)
 					first = false;
 				else
 					ss << " ";
-				ss << log_id(wire);
+				ss << wire->name.unescape();
 			}
 			ss << std::endl;
 
 			auto &t = timing.setup_module(module).required;
 			if (t.empty())
-				log_error("Module '%s' with (* abc9_flop *) has no clk-to-q timing (and thus no connectivity) information.\n", log_id(module));
+				log_error("Module '%s' with (* abc9_flop *) has no clk-to-q timing (and thus no connectivity) information.\n", module);
 
 			first = true;
 			for (auto port_name : module->ports) {
@@ -1088,8 +1088,8 @@ void prep_box(RTLIL::Design *design)
 #ifndef NDEBUG
 					if (ys_debug(1)) {
 						static std::set<std::pair<IdString,IdString>> seen;
-						if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
-								log_id(port_name), it->second.first);
+						if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", module,
+								port_name.unescape(), it->second.first);
 					}
 #endif
 				}
@@ -1134,7 +1134,7 @@ void prep_box(RTLIL::Design *design)
 						outputs.emplace_back(wire, i);
 			}
 
-			ss << log_id(module) << " " << module->attributes.at(ID::abc9_box_id).as_int();
+			ss << module->name.unescape() << " " << module->attributes.at(ID::abc9_box_id).as_int();
 			bool has_model = module->get_bool_attribute(ID::whitebox) || !module->get_bool_attribute(ID::blackbox);
 			ss << " " << (has_model ? "1" : "0");
 			ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
@@ -1147,15 +1147,15 @@ void prep_box(RTLIL::Design *design)
 				else
 					ss << " ";
 				if (GetSize(i.wire) == 1)
-					ss << log_id(i.wire);
+					ss << i.wire->name.unescape();
 				else
-					ss << log_id(i.wire) << "[" << i.offset << "]";
+					ss << i.wire->name.unescape() << "[" << i.offset << "]";
 			}
 			ss << std::endl;
 
 			auto &t = timing.setup_module(module);
 			if (t.comb.empty() && !outputs.empty() && !inputs.empty()) {
-				log_error("Module '%s' with (* abc9_box *) has no timing (and thus no connectivity) information.\n", log_id(module));
+				log_error("Module '%s' with (* abc9_box *) has no timing (and thus no connectivity) information.\n", module);
 			}
 
 			for (const auto &o : outputs) {
@@ -1173,9 +1173,9 @@ void prep_box(RTLIL::Design *design)
 				}
 				ss << " # ";
 				if (GetSize(o.wire) == 1)
-					ss << log_id(o.wire);
+					ss << o.wire->name.unescape();
 				else
-					ss << log_id(o.wire) << "[" << o.offset << "]";
+					ss << o.wire->name.unescape() << "[" << o.offset << "]";
 				ss << std::endl;
 			}
 			ss << std::endl;
@@ -1205,7 +1205,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name));
 	if (mapped_mod == NULL)
-		log_error("ABC output file does not contain a module `%s$abc'.\n", log_id(module));
+		log_error("ABC output file does not contain a module `%s$abc'.\n", module);
 
 	for (auto w : mapped_mod->wires()) {
 		auto nw = module->addWire(remap_name(w->name), GetSize(w));
@@ -1386,7 +1386,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		else {
 			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name);
 			if (!existing_cell)
-				log_error("Cannot find existing box cell with name '%s' in original design.\n", log_id(mapped_cell));
+				log_error("Cannot find existing box cell with name '%s' in original design.\n", mapped_cell);
 
 			if (existing_cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY=")) {
 				SigBit I = mapped_cell->getPort(ID(i));
@@ -1923,12 +1923,12 @@ struct Abc9OpsPass : public Pass {
 
 		for (auto mod : design->selected_modules()) {
 			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
+				log("Skipping module %s as it contains processes.\n", mod);
 				continue;
 			}
 
 			if (!design->selected_whole_module(mod))
-				log_error("Can't handle partially selected module %s!\n", log_id(mod));
+				log_error("Can't handle partially selected module %s!\n", mod);
 
 			if (!write_lut_dst.empty())
 				write_lut(mod, write_lut_dst);

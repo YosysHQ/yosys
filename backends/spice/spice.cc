@@ -82,7 +82,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 		if (design->module(cell->type) == nullptr)
 		{
 			log_warning("no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type.unescape(), module, cell);
 			for (auto &conn : cell->connections()) {
 				RTLIL::SigSpec sig = sigmap(conn.second);
 				port_sigs.push_back(sig);
@@ -224,9 +224,9 @@ struct SpiceBackend : public Backend {
 				continue;
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in SPICE backend!\n", log_id(module));
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in SPICE backend!\n", module);
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in SPICE backend!\n", log_id(module));
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in SPICE backend!\n", module);
 
 			if (module->name == RTLIL::escape_id(top_module_name)) {
 				top_module = module;

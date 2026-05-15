@@ -156,7 +156,7 @@ struct AlumaccWorker
 			if (!cell->type.in(ID($pos), ID($neg), ID($add), ID($sub), ID($mul)))
 				continue;
 
-			log("  creating $macc model for %s (%s).\n", log_id(cell), log_id(cell->type));
+			log("  creating $macc model for %s (%s).\n", cell, cell->type.unescape());
 
 			maccnode_t *n = new maccnode_t;
 			Macc::term_t new_term;
@@ -267,7 +267,7 @@ struct AlumaccWorker
 					if (GetSize(other_n->y) != GetSize(n->y) && macc_may_overflow(other_n->macc, GetSize(other_n->y), port.is_signed))
 						continue;
 
-					log("  merging $macc model for %s into %s.\n", log_id(other_n->cell), log_id(n->cell));
+					log("  merging $macc model for %s into %s.\n", other_n->cell, n->cell);
 
 					bool do_subtract = port.do_subtract;
 					for (int j = 0; j < GetSize(other_n->macc.terms); j++) {
@@ -351,7 +351,7 @@ struct AlumaccWorker
 			if (!subtract_b && B < A && GetSize(B))
 				std::swap(A, B);
 
-			log("  creating $alu model for $macc %s.\n", log_id(n->cell));
+			log("  creating $alu model for $macc %s.\n", n->cell);
 
 			alunode = new alunode_t;
 			alunode->cells.push_back(n->cell);
@@ -383,7 +383,7 @@ struct AlumaccWorker
 
 			macc_counter++;
 
-			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
+			log("  creating $macc cell for %s: %s\n", n->cell, cell);
 
 			cell->set_src_attribute(n->cell->get_src_attribute());
 
@@ -412,7 +412,7 @@ struct AlumaccWorker
 
 		for (auto cell : lge_cells)
 		{
-			log("  creating $alu model for %s (%s):", log_id(cell), log_id(cell->type));
+			log("  creating $alu model for %s (%s):", cell, cell->type.unescape());
 
 			bool cmp_less = cell->type.in(ID($lt), ID($le));
 			bool cmp_equal = cell->type.in(ID($le), ID($ge));
@@ -451,7 +451,7 @@ struct AlumaccWorker
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
 				log(" new $alu\n");
 			} else {
-				log(" merged with %s.\n", log_id(n->cells.front()));
+				log(" merged with %s.\n", n->cells.front());
 			}
 
 			n->cells.push_back(cell);
@@ -484,7 +484,7 @@ struct AlumaccWorker
 			}
 
 			if (n != nullptr) {
-				log("  creating $alu model for %s (%s): merged with %s.\n", log_id(cell), log_id(cell->type), log_id(n->cells.front()));
+				log("  creating $alu model for %s (%s): merged with %s.\n", cell, cell->type.unescape(), n->cells.front());
 				n->cells.push_back(cell);
 				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, false, Y));
 			}
@@ -503,8 +503,8 @@ struct AlumaccWorker
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
-					log("%s%s", i ? ", ": "", log_id(n->cells[i]));
-				log(": %s\n", log_id(n->alu_cell));
+					log("%s%s", i ? ", ": "", n->cells[i]);
+				log(": %s\n", n->alu_cell);
 
 				goto delete_node;
 			}
@@ -514,8 +514,8 @@ struct AlumaccWorker
 
 			log("  creating $alu cell for ");
 			for (int i = 0; i < GetSize(n->cells); i++)
-				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
-			log(": %s\n", log_id(n->alu_cell));
+				log("%s%s", i ? ", ": "", n->cells[i]);
+			log(": %s\n", n->alu_cell);
 
 			if (n->cells.size() > 0)
 				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());
@@ -562,7 +562,7 @@ struct AlumaccWorker
 
 	void run()
 	{
-		log("Extracting $alu and $macc cells in module %s:\n", log_id(module));
+		log("Extracting $alu and $macc cells in module %s:\n", module);
 
 		count_bit_users();
 		extract_macc();

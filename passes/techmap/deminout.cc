@@ -126,7 +126,7 @@ struct DeminoutPass : public Pass {
 						}
 
 						if (new_input != new_output) {
-							log("Demoting inout port %s.%s to %s.\n", log_id(module), log_id(wire), new_input ? "input" : "output");
+							log("Demoting inout port %s.%s to %s.\n", module, wire, new_input ? "input" : "output");
 							wire->port_input = new_input;
 							wire->port_output = new_output;
 							keep_running = true;

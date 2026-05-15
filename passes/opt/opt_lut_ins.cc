@@ -64,7 +64,7 @@ struct OptLutInsPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			log("Optimizing LUTs in %s.\n", log_id(module));
+			log("Optimizing LUTs in %s.\n", module);
 
 			std::vector<Cell *> remove_cells;
 			// Gather LUTs.
@@ -181,7 +181,7 @@ struct OptLutInsPass : public Pass {
 				}
 				if (!doit)
 					continue;
-				log("  Optimizing lut %s (%d -> %d)\n", log_id(cell), GetSize(inputs), GetSize(new_inputs));
+				log("  Optimizing lut %s (%d -> %d)\n", cell, GetSize(inputs), GetSize(new_inputs));
 				if (techname == "lattice" || techname == "ecp5") {
 					// Pad the LUT to 4 inputs, adding consts from the front.
 					int extra = 4 - GetSize(new_inputs);

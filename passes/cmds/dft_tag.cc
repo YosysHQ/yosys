@@ -98,7 +98,7 @@ struct DftTagWorker {
 		}
 
 		for (auto cell : overwrite_cells) {
-			log_debug("Applying $overwrite_tag %s for signal %s\n", log_id(cell->name), log_signal(cell->getPort(ID::A)));
+			log_debug("Applying $overwrite_tag %s for signal %s\n", cell->name.unescape(), log_signal(cell->getPort(ID::A)));
 			SigSpec orig_signal = cell->getPort(ID::A);
 			SigSpec interposed_signal = divert_users(orig_signal);
 			auto *set_tag_cell = module->addSetTag(NEW_ID, cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(ID::SET), cell->getPort(ID::CLR), interposed_signal);
@@ -470,9 +470,9 @@ struct DftTagWorker {
 		if (!warned_cells.insert(cell).second)
 			return;
 		if (cell->type.isPublic())
-			log_warning("Unhandled cell %s (%s) during tag propagation\n", log_id(cell), log_id(cell->type));
+			log_warning("Unhandled cell %s (%s) during tag propagation\n", cell, cell->type.unescape());
 		else
-			log_debug("Unhandled cell %s (%s) during tag propagation\n", log_id(cell), log_id(cell->type));
+			log_debug("Unhandled cell %s (%s) during tag propagation\n", cell, cell->type.unescape());
 	}
 
 	void process_cell(IdString tag, Cell *cell)
@@ -691,7 +691,7 @@ struct DftTagWorker {
 			// TODO handle some more variants
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {
 				if (ff.has_clk && !tags(ff.sig_clk).empty())
-					log_warning("Tags on CLK input ignored for %s (%s)\n", log_id(cell), log_id(cell->type));
+					log_warning("Tags on CLK input ignored for %s (%s)\n", cell, cell->type.unescape());
 
 				int width = ff.width;
 
@@ -709,7 +709,7 @@ struct DftTagWorker {
 				emit_tag_signal(tag, sig_q, ff.sig_q);
 				return;
 			} else {
-				log_warning("Unhandled FF-cell %s (%s), consider running clk2fflogic, async2sync and/or dffunmap\n", log_id(cell), log_id(cell->type));
+				log_warning("Unhandled FF-cell %s (%s), consider running clk2fflogic, async2sync and/or dffunmap\n", cell, cell->type.unescape());
 
 				// For unhandled FFs, the default propagation would cause combinational loops
 				emit_tag_signal(tag, ff.sig_q, Const(0, ff.width));
@@ -739,7 +739,7 @@ struct DftTagWorker {
 		// which is an over-approximation (unless the cell is a module that
 		// generates tags itself in which case it could be arbitrary).
 		if (warned_cells.insert(cell).second)
-			log_warning("Unhandled cell %s (%s) while emitting tag signals\n", log_id(cell), log_id(cell->type));
+			log_warning("Unhandled cell %s (%s) while emitting tag signals\n", cell, cell->type.unescape());
 	}
 
 	void emit_tags()

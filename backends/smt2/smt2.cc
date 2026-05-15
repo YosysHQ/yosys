@@ -60,7 +60,7 @@ struct Smt2Worker
 	const char *get_id(IdString n)
 	{
 		if (ids.count(n) == 0) {
-			std::string str = log_id(n);
+			std::string str = n.unescape();
 			for (int i = 0; i < GetSize(str); i++) {
 				if (str[i] == '\\')
 					str[i] = '/';
@@ -207,7 +207,7 @@ struct Smt2Worker
 				}
 			else if (is_output || !is_input)
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
-						log_id(conn.first), log_id(module), log_id(cell), log_id(cell->type));
+						conn.first.unescape(), module, cell, cell->type.unescape());
 
 			if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)) && conn.first.in(ID::CLK, ID::C))
 			{
@@ -448,7 +448,7 @@ struct Smt2Worker
 		}
 
 		if (verbose)
-			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", log_id(cell));
+			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 		decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
 				get_id(module), idcounter, get_id(module), processed_expr.c_str(), log_signal(bit)));
@@ -498,7 +498,7 @@ struct Smt2Worker
 			processed_expr = stringf("((_ extract %d 0) %s)", GetSize(sig_y)-1, processed_expr);
 
 		if (verbose)
-			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", log_id(cell));
+			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 		if (type == 'b') {
 			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
@@ -529,7 +529,7 @@ struct Smt2Worker
 				processed_expr += ch;
 
 		if (verbose)
-			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", log_id(cell));
+			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 		decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
 				get_id(module), idcounter, get_id(module), processed_expr.c_str(), log_signal(sig_y)));
@@ -541,7 +541,7 @@ struct Smt2Worker
 	{
 		if (verbose)
 			log("%*s=> export_cell %s (%s) [%s]\n", 2+2*GetSize(recursive_cells), "",
-					log_id(cell), log_id(cell->type), exported_cells.count(cell) ? "old" : "new");
+					cell, cell->type.unescape(), exported_cells.count(cell) ? "old" : "new");
 
 		if (recursive_cells.count(cell))
 			log_error("Found logic loop in module %s! See cell %s.\n", get_id(module), get_id(cell));
@@ -750,7 +750,7 @@ struct Smt2Worker
 							get_bv(sig_b.extract(i*width, width)).c_str(), processed_expr.c_str());
 
 				if (verbose)
-					log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", log_id(cell));
+					log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 				RTLIL::SigSpec sig = sigmap(cell->getPort(ID::Y));
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
@@ -786,9 +786,9 @@ struct Smt2Worker
 					has_async_wr = true;
 			}
 			if (has_async_wr && has_sync_wr)
-				log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", log_id(cell), log_id(module));
+				log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", cell, module);
 
-			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", get_id(mem->memid), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", mem->memid.unescape(), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
 			decls.push_back(witness_memory(get_id(mem->memid), cell, mem));
 
 			string memstate;
@@ -813,7 +813,7 @@ struct Smt2Worker
 
 					if (port.clk_enable)
 						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), log_id(mem->memid), log_id(module));
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), mem->memid.unescape(), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
@@ -857,7 +857,7 @@ struct Smt2Worker
 
 					if (port.clk_enable)
 						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), log_id(mem->memid), log_id(module));
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), mem->memid.unescape(), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
@@ -928,30 +928,30 @@ struct Smt2Worker
 
 		if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smt2`.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type.unescape(), module, cell);
 		}
 		if (cell->type.in(ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF" || cell->type.str().substr(0, 7) == "$_ALDFF") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_smt2`.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type.unescape(), module, cell);
 		}
 		if (cell->type.in(ID($sr), ID($dlatch), ID($adlatch), ID($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_smt2`.\n",
-					log_id(cell->type), log_id(module), log_id(cell));
+					cell->type, module, cell);
 		}
 		log_error("Unsupported cell type %s for cell %s.%s.\n",
-				log_id(cell->type), log_id(module), log_id(cell));
+				cell->type, module, cell);
 	}
 
 	void verify_smtlib2_module()
 	{
 		if (!module->get_blackbox_attribute())
-			log_error("Module %s with smtlib2_module attribute must also have blackbox attribute.\n", log_id(module));
+			log_error("Module %s with smtlib2_module attribute must also have blackbox attribute.\n", module);
 		if (module->cells().size() > 0)
-			log_error("Module %s with smtlib2_module attribute must not have any cells inside it.\n", log_id(module));
+			log_error("Module %s with smtlib2_module attribute must not have any cells inside it.\n", module);
 		for (auto wire : module->wires())
 			if (!wire->port_id)
-				log_error("Wire %s.%s must be input or output since module has smtlib2_module attribute.\n", log_id(module),
-					  log_id(wire));
+				log_error("Wire %s.%s must be input or output since module has smtlib2_module attribute.\n", module,
+					  wire);
 	}
 
 	void run()
@@ -991,8 +991,8 @@ struct Smt2Worker
 			}
 			bool is_smtlib2_comb_expr = wire->has_attribute(ID::smtlib2_comb_expr);
 			if (is_smtlib2_comb_expr && !is_smtlib2_module)
-				log_error("smtlib2_comb_expr is only valid in a module with the smtlib2_module attribute: wire %s.%s", log_id(module),
-					  log_id(wire));
+				log_error("smtlib2_comb_expr is only valid in a module with the smtlib2_module attribute: wire %s.%s", module,
+					  wire);
 			if (wire->port_id || is_register || contains_clock || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic())) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				std::vector<std::string> comments;
@@ -1023,10 +1023,10 @@ struct Smt2Worker
 					smtlib2_comb_expr =
 					  "(let (\n" + smtlib2_inputs + ")\n" + wire->get_string_attribute(ID::smtlib2_comb_expr) + "\n)";
 					if (wire->port_input || !wire->port_output)
-						log_error("smtlib2_comb_expr is only valid on output: wire %s.%s", log_id(module), log_id(wire));
+						log_error("smtlib2_comb_expr is only valid on output: wire %s.%s", module, wire);
 					if (!bvmode && GetSize(sig) > 1)
 						log_error("smtlib2_comb_expr is unsupported on multi-bit wires when -nobv is specified: wire %s.%s",
-							  log_id(module), log_id(wire));
+							  module, wire);
 
 					comments.push_back(witness_signal("blackbox", wire->width, 0, get_id(wire), -1, wire));
 				}
@@ -1075,7 +1075,7 @@ struct Smt2Worker
 			if (wire->attributes.count(ID::init)) {
 				if (is_smtlib2_module)
 					log_error("init attribute not allowed on wires in module with smtlib2_module attribute: wire %s.%s",
-						  log_id(module), log_id(wire));
+						  module, wire);
 
 				RTLIL::SigSpec sig = sigmap(wire);
 				Const val = wire->attributes.at(ID::init);
@@ -1381,7 +1381,7 @@ struct Smt2Worker
 			}
 		}
 
-		if (verbose) log("=> finalizing SMT2 representation of %s.\n", log_id(module));
+		if (verbose) log("=> finalizing SMT2 representation of %s.\n", module);
 
 		for (auto c : hiercells) {
 			assert_list.push_back(stringf("(|%s_a| (|%s_h %s| state))", get_id(c->type), get_id(module), get_id(c->name)));
@@ -1867,12 +1867,12 @@ struct Smt2Backend : public Backend {
 				for (auto &dep : it.second)
 					if (module_deps.count(dep) > 0)
 						goto not_ready_yet;
-				// log("Next in topological sort: %s\n", log_id(it.first->name));
+				// log("Next in topological sort: %s\n", it.first->name.unescape());
 				sorted_modules.push_back(it.first);
 			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
-				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", log_id(module_deps.begin()->first->name));
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first->name.unescape());
 			while (sorted_modules_idx < sorted_modules.size())
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}
@@ -1902,7 +1902,7 @@ struct Smt2Backend : public Backend {
 			if (module->has_processes_warn())
 				continue;
 
-			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
+			log("Creating SMT-LIBv2 representation of module %s.\n", module);
 
 			Smt2Worker worker(module, bvmode, memmode, wiresmode, verbose, statebv, statedt, forallmode, mod_stbv_width, mod_clk_cache);
 			worker.run();

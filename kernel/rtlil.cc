@@ -1226,7 +1226,7 @@ void RTLIL::Design::add(RTLIL::Module *module)
 		mon->notify_module_add(module);
 
 	if (yosys_xtrace) {
-		log("#X# New Module: %s\n", log_id(module));
+		log("#X# New Module: %s\n", module);
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 }
@@ -1252,7 +1252,7 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 		mon->notify_module_add(module);
 
 	if (yosys_xtrace) {
-		log("#X# New Module: %s\n", log_id(module));
+		log("#X# New Module: %s\n", module);
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -1330,7 +1330,7 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 		mon->notify_module_del(module);
 
 	if (yosys_xtrace) {
-		log("#X# Remove Module: %s\n", log_id(module));
+		log("#X# Remove Module: %s\n", module);
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -1472,22 +1472,22 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 				switch (boxes)
 				{
 				case RTLIL::SB_UNBOXED_WARN:
-					log_warning("Ignoring boxed module %s.\n", log_id(it.first));
+					log_warning("Ignoring boxed module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_EXCL_BB_WARN:
-					log_warning("Ignoring blackbox module %s.\n", log_id(it.first));
+					log_warning("Ignoring blackbox module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_UNBOXED_ERR:
-					log_error("Unsupported boxed module %s.\n", log_id(it.first));
+					log_error("Unsupported boxed module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_EXCL_BB_ERR:
-					log_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					log_error("Unsupported blackbox module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_UNBOXED_CMDERR:
-					log_cmd_error("Unsupported boxed module %s.\n", log_id(it.first));
+					log_cmd_error("Unsupported boxed module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_EXCL_BB_CMDERR:
-					log_cmd_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					log_cmd_error("Unsupported blackbox module %s.\n", it.first.unescape());
 					break;
 				default:
 					break;
@@ -1496,13 +1496,13 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 			switch(partials)
 			{
 			case RTLIL::SELECT_WHOLE_WARN:
-				log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+				log_warning("Ignoring partially selected module %s.\n", it.first.unescape());
 				break;
 			case RTLIL::SELECT_WHOLE_ERR:
-				log_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				log_error("Unsupported partially selected module %s.\n", it.first.unescape());
 				break;
 			case RTLIL::SELECT_WHOLE_CMDERR:
-				log_cmd_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				log_cmd_error("Unsupported partially selected module %s.\n", it.first.unescape());
 				break;
 			default:
 				break;
@@ -2796,14 +2796,14 @@ bool RTLIL::Module::has_processes() const
 bool RTLIL::Module::has_memories_warn() const
 {
 	if (!memories.empty())
-		log_warning("Ignoring module %s because it contains memories (run 'memory' command first).\n", log_id(this));
+		log_warning("Ignoring module %s because it contains memories (run 'memory' command first).\n", this);
 	return !memories.empty();
 }
 
 bool RTLIL::Module::has_processes_warn() const
 {
 	if (!processes.empty())
-		log_warning("Ignoring module %s because it contains processes (run 'proc' command first).\n", log_id(this));
+		log_warning("Ignoring module %s because it contains processes (run 'proc' command first).\n", this);
 	return !processes.empty();
 }
 
@@ -3095,7 +3095,7 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 	}
 
 	if (yosys_xtrace) {
-		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", log_id(this), log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
+		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", this, log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -3118,7 +3118,7 @@ void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
 			mon->notify_connect(this, new_conn);
 
 	if (yosys_xtrace) {
-		log("#X# New connections vector in %s:\n", log_id(this));
+		log("#X# New connections vector in %s:\n", this);
 		for (auto &conn: new_conn)
 			log("#X#    %s = %s (%d bits)\n", log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
 		log_backtrace("-X- ", yosys_xtrace-1);

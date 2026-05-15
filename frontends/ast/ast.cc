@@ -1544,7 +1544,7 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 	for (auto w : intfmodule->wires()){
 		auto loc = module_ast->location;
 		auto wire = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, AstNode::mkconst_int(loc, w->width -1, true), AstNode::mkconst_int(loc, 0, true)));
-		std::string origname = log_id(w->name);
+		std::string origname = w->name.unescape();
 		std::string newname = intfname + "." + origname;
 		wire->str = newname;
 		if (modport != NULL) {
@@ -1584,7 +1584,7 @@ bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
 			continue;
 		if (design->module(modname) || design->module("$abstract" + modname)) {
 			log("Reprocessing module %s because instantiated module %s has become available.\n",
-					log_id(name), log_id(modname));
+					name.unescape(), RTLIL::unescape_id(modname));
 			loadconfig();
 			process_and_replace_module(design, this, ast.get(), NULL);
 			return true;
@@ -1606,7 +1606,7 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 		RTLIL::Module *intfmodule = intf.second;
 		for (auto w : intfmodule->wires()){
 			auto wire = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, AstNode::mkconst_int(loc, w->width -1, true), AstNode::mkconst_int(loc, 0, true)));
-			std::string newname = log_id(w->name);
+			std::string newname = w->name.unescape();
 			newname = intfname + "." + newname;
 			wire->str = newname;
 			new_ast->children.push_back(std::move(wire));
@@ -1679,7 +1679,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 	bool has_interfaces = false;
 	for(auto &intf : interfaces) {
-		interf_info += log_id(intf.second->name);
+		interf_info += intf.second->name.unescape();
 		has_interfaces = true;
 	}
 
@@ -1735,7 +1735,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 				new_subcell->set_bool_attribute(ID::is_interface);
 			}
 			else {
-				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname);
+				log_error("No port with matching name found (%s) in %s. Stopping\n", intf.first, modname);
 			}
 		}
 

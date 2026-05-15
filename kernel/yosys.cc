@@ -954,7 +954,7 @@ static char *readline_obj_generator(const char *text, int state)
 		{
 			for (auto mod : design->modules())
 				if (RTLIL::unescape_id(mod->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(mod->name)));
+					obj_names.push_back(strdup(mod->name.unescape().c_str()));
 		}
 		else if (design->module(design->selected_active_module) != nullptr)
 		{
@@ -962,19 +962,19 @@ static char *readline_obj_generator(const char *text, int state)
 
 			for (auto w : module->wires())
 				if (RTLIL::unescape_id(w->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(w->name)));
+					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(it.first)));
+					obj_names.push_back(strdup(it.first.unescape().c_str()));
 
 			for (auto cell : module->cells())
 				if (RTLIL::unescape_id(cell->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(cell->name)));
+					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
 			for (auto &it : module->processes)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(it.first)));
+					obj_names.push_back(strdup(it.first.unescape().c_str()));
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());
@@ -1179,7 +1179,7 @@ struct ScriptCmdPass : public Pass {
 					if (!mod->selected(w))
 						continue;
 					if (!c.second.is_fully_const())
-						log_error("RHS of selected wire %s.%s is not constant.\n", log_id(mod), log_id(w));
+						log_error("RHS of selected wire %s.%s is not constant.\n", mod, w);
 					auto v = c.second.as_const();
 					Pass::call_on_module(design, mod, v.decode_string());
 				}

@@ -2388,7 +2388,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		log_warning("Module %s contains RTLIL processes with sync rules. Such RTLIL "
 				"processes can't always be mapped directly to Verilog always blocks. "
 				"unintended changes in simulation behavior are possible! Use \"proc\" "
-				"to convert processes to logic networks and registers.\n", log_id(module));
+				"to convert processes to logic networks and registers.\n", module);
 
 	f << stringf("\n");
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
@@ -2714,7 +2714,7 @@ struct VerilogBackend : public Backend {
 				continue;
 			if (selected && !design->selected_whole_module(module->name)) {
 				if (design->selected_module(module->name))
-					log_cmd_error("Can't handle partially selected module %s!\n", log_id(module->name));
+					log_cmd_error("Can't handle partially selected module %s!\n", module->name.unescape());
 				continue;
 			}
 			log("Dumping module `%s'.\n", module->name);

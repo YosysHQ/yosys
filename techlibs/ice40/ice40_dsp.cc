@@ -29,17 +29,17 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 {
 	auto &st = pm.st_ice40_dsp;
 
-	log("Checking %s.%s for iCE40 DSP inference.\n", log_id(pm.module), log_id(st.mul));
+	log("Checking %s.%s for iCE40 DSP inference.\n", pm.module, st.mul);
 
-	log_debug("ffA:    %s\n", log_id(st.ffA, "--"));
-	log_debug("ffB:    %s\n", log_id(st.ffB, "--"));
-	log_debug("ffCD:   %s\n", log_id(st.ffCD, "--"));
-	log_debug("mul:    %s\n", log_id(st.mul, "--"));
-	log_debug("ffFJKG: %s\n", log_id(st.ffFJKG, "--"));
-	log_debug("ffH:    %s\n", log_id(st.ffH, "--"));
-	log_debug("add:    %s\n", log_id(st.add, "--"));
-	log_debug("mux:    %s\n", log_id(st.mux, "--"));
-	log_debug("ffO:    %s\n", log_id(st.ffO, "--"));
+	log_debug("ffA:    %s\n", st.ffA ? st.ffA->name.unescape() : "--");
+	log_debug("ffB:    %s\n", st.ffB ? st.ffB->name.unescape() : "--");
+	log_debug("ffCD:   %s\n", st.ffCD ? st.ffCD->name.unescape() : "--");
+	log_debug("mul:    %s\n", st.mul ? st.mul->name.unescape() : "--");
+	log_debug("ffFJKG: %s\n", st.ffFJKG ? st.ffFJKG->name.unescape() : "--");
+	log_debug("ffH:    %s\n", st.ffH ? st.ffH->name.unescape() : "--");
+	log_debug("add:    %s\n", st.add ? st.add->name.unescape() : "--");
+	log_debug("mux:    %s\n", st.mux ? st.mux->name.unescape() : "--");
+	log_debug("ffO:    %s\n", st.ffO ? st.ffO->name.unescape() : "--");
 	log_debug("\n");
 
 	if (GetSize(st.sigA) > 16) {
@@ -64,7 +64,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	Cell *cell = st.mul;
 	if (cell->type == ID($mul)) {
-		log("  replacing %s with SB_MAC16 cell.\n", log_id(st.mul->type));
+		log("  replacing %s with SB_MAC16 cell.\n", st.mul->type.unescape());
 
 		cell = pm.module->addCell(NEW_ID, ID(SB_MAC16));
 		pm.module->swap_names(cell, st.mul);
@@ -135,22 +135,22 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		log("  clock: %s (%s)", log_signal(st.clock), st.clock_pol ? "posedge" : "negedge");
 
 		if (st.ffA)
-			log(" ffA:%s", log_id(st.ffA));
+			log(" ffA:%s", st.ffA);
 
 		if (st.ffB)
-			log(" ffB:%s", log_id(st.ffB));
+			log(" ffB:%s", st.ffB);
 
 		if (st.ffCD)
-			log(" ffCD:%s", log_id(st.ffCD));
+			log(" ffCD:%s", st.ffCD);
 
 		if (st.ffFJKG)
-			log(" ffFJKG:%s", log_id(st.ffFJKG));
+			log(" ffFJKG:%s", st.ffFJKG);
 
 		if (st.ffH)
-			log(" ffH:%s", log_id(st.ffH));
+			log(" ffH:%s", st.ffH);
 
 		if (st.ffO)
-			log(" ffO:%s", log_id(st.ffO));
+			log(" ffO:%s", st.ffO);
 
 		log("\n");
 	}
@@ -196,9 +196,9 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	if (st.add) {
 		accum = (st.ffO && st.add->getPort(st.addAB == ID::A ? ID::B : ID::A) == st.sigO);
 		if (accum)
-			log("  accumulator %s (%s)\n", log_id(st.add), log_id(st.add->type));
+			log("  accumulator %s (%s)\n", st.add, st.add->type.unescape());
 		else
-			log("  adder %s (%s)\n", log_id(st.add), log_id(st.add->type));
+			log("  adder %s (%s)\n", st.add, st.add->type.unescape());
 		cell->setPort(ID(ADDSUBTOP), st.add->type == ID($add) ? State::S0 : State::S1);
 		cell->setPort(ID(ADDSUBBOT), st.add->type == ID($add) ? State::S0 : State::S1);
 	} else {

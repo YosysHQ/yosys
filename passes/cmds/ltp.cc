@@ -90,7 +90,7 @@ struct LtpWorker
 			return;
 
 		if (busy.count(bit) > 0) {
-			log_warning("Detected loop at %s in %s\n", log_signal(bit), log_id(module));
+			log_warning("Detected loop at %s in %s\n", log_signal(bit), module);
 			return;
 		}
 
@@ -117,7 +117,7 @@ struct LtpWorker
 		auto &bitinfo = bits.at(bit);
 		if (get<2>(bitinfo)) {
 			printpath(get<1>(bitinfo));
-			log("%5d: %s (via %s)\n", get<0>(bitinfo), log_signal(bit), log_id(get<2>(bitinfo)));
+			log("%5d: %s (via %s)\n", get<0>(bitinfo), log_signal(bit), get<2>(bitinfo));
 		} else {
 			log("%5d: %s\n", get<0>(bitinfo), log_signal(bit));
 		}
@@ -130,13 +130,13 @@ struct LtpWorker
 				runner(it.first, 0, State::Sx, nullptr);
 
 		log("\n");
-		log("Longest topological path in %s (length=%d):\n", log_id(module), maxlvl);
+		log("Longest topological path in %s (length=%d):\n", module, maxlvl);
 
 		if (maxlvl >= 0)
 			printpath(maxbit);
 
 		if (bit2ff.count(maxbit))
-			log("%5s: %s (via %s)\n", "ff", log_signal(get<0>(bit2ff.at(maxbit))), log_id(get<1>(bit2ff.at(maxbit))));
+			log("%5s: %s (via %s)\n", "ff", log_signal(get<0>(bit2ff.at(maxbit))), get<1>(bit2ff.at(maxbit)));
 	}
 };
 

@@ -390,7 +390,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 				if (verbose) {
 					printed_pmux_header = true;
-					log("Inspecting $pmux cell %s/%s.\n", log_id(module), log_id(cell));
+					log("Inspecting $pmux cell %s/%s.\n", module, cell);
 					log("  data width: %d (next power-of-2 = %d, log2 = %d)\n", width, extwidth, width_bits);
 				}
 
@@ -441,7 +441,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					if (!printed_pmux_header) {
 						printed_pmux_header = true;
-						log("Inspecting $pmux cell %s/%s.\n", log_id(module), log_id(cell));
+						log("Inspecting $pmux cell %s/%s.\n", module, cell);
 						log("  data width: %d (next power-of-2 = %d, log2 = %d)\n", width, extwidth, width_bits);
 					}
 
@@ -714,7 +714,7 @@ struct Pmux2ShiftxPass : public Pass {
 					Cell *c = module->addShiftx(NEW_ID, data, shifted_cmp, outsig, false, src);
 					updated_S.append(en);
 					updated_B.append(outsig);
-					log("    created $shiftx cell %s.\n", log_id(c));
+					log("    created $shiftx cell %s.\n", c);
 
 					// remove this sig and continue with the next block
 					seldb.erase(sig);
@@ -799,7 +799,7 @@ struct OnehotPass : public Pass {
 					continue;
 
 				if (verbose)
-					log("Checking $eq(%s, %s) cell %s/%s.\n", log_signal(A), log_signal(B), log_id(module), log_id(cell));
+					log("Checking $eq(%s, %s) cell %s/%s.\n", log_signal(A), log_signal(B), module, cell);
 
 				if (!onehot_db.query(A)) {
 					if (verbose)
@@ -831,7 +831,7 @@ struct OnehotPass : public Pass {
 					if (verbose)
 						log("  replacing with constant 0 driver.\n");
 					else
-						log("Replacing one-hot $eq(%s, %s) cell %s/%s with constant 0 driver.\n", log_signal(A), log_signal(B), log_id(module), log_id(cell));
+						log("Replacing one-hot $eq(%s, %s) cell %s/%s with constant 0 driver.\n", log_signal(A), log_signal(B), module, cell);
 					module->connect(Y, SigSpec(1, GetSize(Y)));
 				}
 				else
@@ -840,7 +840,7 @@ struct OnehotPass : public Pass {
 					if (verbose)
 						log("  replacing with signal %s.\n", log_signal(sig));
 					else
-						log("Replacing one-hot $eq(%s, %s) cell %s/%s with signal %s.\n",log_signal(A), log_signal(B), log_id(module), log_id(cell), log_signal(sig));
+						log("Replacing one-hot $eq(%s, %s) cell %s/%s with signal %s.\n",log_signal(A), log_signal(B), module, cell, log_signal(sig));
 					sig.extend_u0(GetSize(Y));
 					module->connect(Y, sig);
 				}

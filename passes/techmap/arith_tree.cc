@@ -316,7 +316,7 @@ struct Rewriter {
 
 		int compressor_count;
 		auto [a, b] = wallace_reduce_scheduled(module, extended, width, &compressor_count);
-		log("  %s -> %d $fa + 1 $add (%d operands, module %s)\n", desc, compressor_count, (int)operands.size(), log_id(module));
+		log("  %s -> %d $fa + 1 $add (%d operands, module %s)\n", desc, compressor_count, (int)operands.size(), module);
 
 		// Emit final add
 		module->addAdd(NEW_ID, a, b, result_y, false);

@@ -122,7 +122,7 @@ struct ConnectPass : public Pass {
 		RTLIL::Module *module = nullptr;
 		for (auto mod : design->selected_modules()) {
 			if (module != nullptr)
-				log_cmd_error("Multiple modules selected: %s, %s\n", log_id(module->name), log_id(mod->name));
+				log_cmd_error("Multiple modules selected: %s, %s\n", module->name.unescape(), mod->name.unescape());
 			module = mod;
 		}
 		if (module == nullptr)

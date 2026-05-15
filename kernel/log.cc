@@ -586,7 +586,7 @@ void log_flush()
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {
-	log("%s", log_id(v));
+	log("%s", v.unescape());
 }
 
 void log_dump_val_worker(RTLIL::SigSpec v) {

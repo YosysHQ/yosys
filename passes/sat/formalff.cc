@@ -402,7 +402,7 @@ struct PropagateWorker
 					sigmap.apply(bit);
 					if (replaced_clk_bits.count(bit))
 						log_error("derived signal %s driven by %s (%s) from module %s is used as clock, derived clocks are only supported with clk2fflogic.\n",
-								log_signal(bit), log_id(cell->name), log_id(cell->type), log_id(module));
+								log_signal(bit), cell->name.unescape(), cell->type.unescape(), module);
 				}
 			}
 		}
@@ -436,7 +436,7 @@ struct PropagateWorker
 		if (it != replaced_clk_bits.end()) {
 			if (it->second != polarity)
 				log_error("signal %s from module %s is used as clock with different polarities, run clk2fflogic instead.\n",
-						log_signal(bit), log_id(module));
+						log_signal(bit), module);
 			return;
 		}
 
@@ -659,7 +659,7 @@ struct FormalFfPass : public Pass {
 					// XXX $check $print
 				}
 
-				log_debug("%s has %d clk bits\n", log_id(module), GetSize(clk_bits));
+				log_debug("%s has %d clk bits\n", module, GetSize(clk_bits));
 
 				for (auto port : module->ports) {
 					Wire *wire = module->wire(port);
@@ -675,7 +675,7 @@ struct FormalFfPass : public Pass {
 						}
 					}
 				}
-				log_debug("%s has %d non-input clk bits\n", log_id(module), GetSize(clk_bits));
+				log_debug("%s has %d non-input clk bits\n", module, GetSize(clk_bits));
 
 				if (clk_bits.empty())
 					continue;
@@ -687,21 +687,21 @@ struct FormalFfPass : public Pass {
 					vector<Cell *> &clocked_cells = clk_bit.second;
 
 					if (!clk.is_wire()) {
-						log_debug("constant clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						log_debug("constant clk bit %s.%s\n", module, log_signal(SigSpec(clk)));
 						continue;
 					}
 					if (input_bits.count(clk)) {
-						log_debug("input clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						log_debug("input clk bit %s.%s\n", module, log_signal(SigSpec(clk)));
 						continue;
 					}
 					auto found = modwalker.signal_drivers.find(clk);
 					if (found == modwalker.signal_drivers.end() || found->second.empty()) {
-						log_debug("undriven clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						log_debug("undriven clk bit %s.%s\n", module, log_signal(SigSpec(clk)));
 						continue;
 					}
 
 					if (found->second.size() > 1) {
-						log_debug("multiple drivers for clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						log_debug("multiple drivers for clk bit %s.%s\n", module, log_signal(SigSpec(clk)));
 						continue;
 					}
 
@@ -711,9 +711,9 @@ struct FormalFfPass : public Pass {
 					  pol_clk ? driver.cell->type.in(ID($and), ID($_AND_)) : driver.cell->type.in(ID($or), ID($_OR_));
 
 					if (!is_gate) {
-						log_debug("unsupported gating logic %s.%s (%s) for clock %s %s.%s\n", log_id(module),
-							  log_id(driver.cell), log_id(driver.cell->type), pol_clk ? "posedge" : "negedge",
-							  log_id(module), log_signal(SigSpec(clk)));
+						log_debug("unsupported gating logic %s.%s (%s) for clock %s %s.%s\n", module,
+							  driver.cell, driver.cell->type.unescape(), pol_clk ? "posedge" : "negedge",
+							  module, log_signal(SigSpec(clk)));
 
 						continue;
 					}
@@ -724,28 +724,28 @@ struct FormalFfPass : public Pass {
 					for (int i = 0; i < 2; i++) {
 						std::swap(gate_clock, gate_enable);
 
-						log_debug("clock %s.%s for gated clk bit %s.%s\n", log_id(module), log_signal(SigSpec(gate_clock)),
-							  log_id(module), log_signal(SigSpec(clk)));
-						log_debug("enable %s.%s for gated clk bit %s.%s\n", log_id(module), log_signal(SigSpec(gate_enable)),
-							  log_id(module), log_signal(SigSpec(clk)));
+						log_debug("clock %s.%s for gated clk bit %s.%s\n", module, log_signal(SigSpec(gate_clock)),
+							  module, log_signal(SigSpec(clk)));
+						log_debug("enable %s.%s for gated clk bit %s.%s\n", module, log_signal(SigSpec(gate_enable)),
+							  module, log_signal(SigSpec(clk)));
 
 						found = modwalker.signal_drivers.find(gate_enable);
 						if (found == modwalker.signal_drivers.end() || found->second.empty()) {
-							log_debug("undriven gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
-								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
+							log_debug("undriven gate enable %s.%s of gated clk bit %s.%s\n", module,
+								  log_signal(SigSpec(gate_enable)), module, log_signal(SigSpec(clk)));
 							continue;
 						}
 						if (found->second.size() > 1) {
-							log_debug("multiple drivers for gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
-								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
+							log_debug("multiple drivers for gate enable %s.%s of gated clk bit %s.%s\n", module,
+								  log_signal(SigSpec(gate_enable)), module, log_signal(SigSpec(clk)));
 							continue;
 						}
 
 						auto gate_driver = *found->second.begin();
 
 						if (!gate_driver.cell->is_builtin_ff()) {
-							log_debug("non FF driver for gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
-								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
+							log_debug("non FF driver for gate enable %s.%s of gated clk bit %s.%s\n", module,
+								  log_signal(SigSpec(gate_enable)), module, log_signal(SigSpec(clk)));
 							continue;
 						}
 
@@ -753,8 +753,8 @@ struct FormalFfPass : public Pass {
 						if (ff.has_gclk || ff.has_ce || ff.has_sr || ff.has_srst || ff.has_arst || (ff.has_aload && ff.has_clk)) {
 							log_debug(
 							  "FF driver for gate enable %s.%s of gated clk bit %s.%s has incompatible type: %s\n",
-							  log_id(module), log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)),
-							  log_id(gate_driver.cell->type));
+							  module, log_signal(SigSpec(gate_enable)), module, log_signal(SigSpec(clk)),
+							  gate_driver.cell->type.unescape());
 							continue;
 						}
 
@@ -770,8 +770,8 @@ struct FormalFfPass : public Pass {
 						if (!ff.has_clk || sigmap(ff.sig_clk) != gate_clock || ff.pol_clk != pol_clk) {
 							log_debug("FF driver for gate enable %s.%s of gated clk bit %s.%s has incompatible clocking: "
 								  "%s %s.%s\n",
-								  log_id(module), log_signal(SigSpec(gate_enable)), log_id(module),
-								  log_signal(SigSpec(clk)), ff.pol_clk ? "posedge" : "negedge", log_id(module),
+								  module, log_signal(SigSpec(gate_enable)), module,
+								  log_signal(SigSpec(clk)), ff.pol_clk ? "posedge" : "negedge", module,
 								  log_signal(SigSpec(ff.sig_clk)));
 							continue;
 						}
@@ -781,8 +781,8 @@ struct FormalFfPass : public Pass {
 						log_debug("found clock gate, rewriting %d cells\n", GetSize(clocked_cells));
 
 						for (auto clocked_cell : clocked_cells) {
-							log_debug("rewriting cell %s.%s (%s)\n", log_id(module), log_id(clocked_cell),
-								  log_id(clocked_cell->type));
+							log_debug("rewriting cell %s.%s (%s)\n", module, clocked_cell,
+								  clocked_cell->type.unescape());
 
 							if (clocked_cell->is_builtin_ff()) {
 
@@ -855,7 +855,7 @@ struct FormalFfPass : public Pass {
 
 						if (ff.val_init != before) {
 							log("Setting unused undefined initial value of %s.%s (%s) from %s to %s\n",
-									log_id(module), log_id(cell), log_id(cell->type),
+									module, cell, cell->type.unescape(),
 									log_const(before), log_const(ff.val_init));
 							worker.initvals.set_init(ff.sig_q, ff.val_init);
 						}
@@ -892,10 +892,10 @@ struct FormalFfPass : public Pass {
 				if (flag_clk2ff && ff.has_clk) {
 					if (ff.sig_clk.is_fully_const())
 						log_error("Const CLK on %s (%s) from module %s, run async2sync first.\n",
-								log_id(cell), log_id(cell->type), log_id(module));
+								cell, cell->type, module);
 					if (ff.has_aload || ff.has_arst || ff.has_sr)
 						log_error("Async inputs on %s (%s) from module %s, run async2sync first.\n",
-								log_id(cell), log_id(cell->type), log_id(module));
+								cell, cell->type.unescape(), module);
 
 					auto clk_wire = ff.sig_clk.is_wire() ? ff.sig_clk.as_wire() : nullptr;
 
@@ -912,7 +912,7 @@ struct FormalFfPass : public Pass {
 
 					if (!attr.empty() && attr != clk_polarity)
 						log_error("CLK %s on %s (%s) from module %s also used with opposite polarity, run clk2fflogic instead.\n",
-								log_id(clk_wire), log_id(cell), log_id(cell->type), log_id(module));
+								clk_wire, cell, cell->type.unescape(), module);
 
 					attr = clk_polarity;
 					clk_wire->set_bool_attribute(ID::keep);

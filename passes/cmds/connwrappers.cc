@@ -134,8 +134,8 @@ struct ConnwrappersWorker
 				}
 
 				if (old_sig.size())
-					log("Connected extended bits of %s.%s:%s: %s -> %s\n", log_id(module->name), log_id(cell->name),
-							log_id(conn.first), log_signal(old_sig), log_signal(conn.second));
+					log("Connected extended bits of %s.%s:%s: %s -> %s\n", module->name.unescape(), cell->name.unescape(),
+							conn.first.unescape(), log_signal(old_sig), log_signal(conn.second));
 			}
 		}
 	}

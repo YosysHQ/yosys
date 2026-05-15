@@ -663,15 +663,15 @@ namespace {
 				auto addr = cell->getPort(ID::ADDR);
 				auto data = cell->getPort(ID::DATA);
 				if (!addr.is_fully_const())
-					log_error("Non-constant address %s in memory initialization %s.\n", log_signal(addr), log_id(cell));
+					log_error("Non-constant address %s in memory initialization %s.\n", log_signal(addr), cell);
 				if (!data.is_fully_const())
-					log_error("Non-constant data %s in memory initialization %s.\n", log_signal(data), log_id(cell));
+					log_error("Non-constant data %s in memory initialization %s.\n", log_signal(data), cell);
 				init.addr = addr.as_const();
 				init.data = data.as_const();
 				if (cell->type == ID($meminit_v2)) {
 					auto en = cell->getPort(ID::EN);
 					if (!en.is_fully_const())
-						log_error("Non-constant enable %s in memory initialization %s.\n", log_signal(en), log_id(cell));
+						log_error("Non-constant enable %s in memory initialization %s.\n", log_signal(en), cell);
 					init.en = en.as_const();
 				} else {
 					init.en = RTLIL::Const(State::S1, mem->width);
@@ -1022,7 +1022,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 	if (c)
 		log("Extracted %s FF from read port %d of %s.%s: %s\n", trans_use_addr ? "addr" : "data",
-			idx, log_id(module), log_id(memid), log_id(c));
+			idx, module, memid.unescape(), c);
 
 	port.en = State::S1;
 	port.clk = State::S0;

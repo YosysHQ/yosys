@@ -131,7 +131,7 @@ struct XilinxDffOptPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			log("Optimizing FFs in %s.\n", log_id(module));
+			log("Optimizing FFs in %s.\n", module);
 
 			SigMap sigmap(module);
 			dict<SigBit, pair<LutData, Cell *>> bit_to_lut;
@@ -305,7 +305,7 @@ unmap:
 				if (worthy_post_r) ports += " + R";
 				if (worthy_post_s) ports += " + S";
 				if (worthy_post_ce) ports += " + CE";
-				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports, log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
+				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports, cell, sig_Q.wire, GetSize(lut_d.second), GetSize(final_lut.second));
 
 				// Okay, we're doing it.  Unmap ports.
 				if (worthy_post_r) {

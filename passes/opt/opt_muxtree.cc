@@ -229,7 +229,7 @@ struct OptMuxtreeWorker
 
 		for (int mux_idx = 0; mux_idx < GetSize(root_muxes); mux_idx++)
 			if (root_muxes.at(mux_idx)) {
-				log_debug("    Root of a mux tree: %s%s\n", log_id(mux2info[mux_idx].cell), root_enable_muxes.at(mux_idx) ? " (pure)" : "");
+				log_debug("    Root of a mux tree: %s%s\n", mux2info[mux_idx].cell, root_enable_muxes.at(mux_idx) ? " (pure)" : "");
 				root_mux_rerun.erase(mux_idx);
 				eval_root_mux(mux_idx);
 				if (glob_evals_left == 0) {
@@ -240,7 +240,7 @@ struct OptMuxtreeWorker
 
 		while (!root_mux_rerun.empty()) {
 			int mux_idx = *root_mux_rerun.begin();
-			log_debug("    Root of a mux tree: %s (rerun as non-pure)\n", log_id(mux2info[mux_idx].cell));
+			log_debug("    Root of a mux tree: %s (rerun as non-pure)\n", mux2info[mux_idx].cell);
 			log_assert(root_enable_muxes.at(mux_idx));
 			root_mux_rerun.erase(mux_idx);
 			eval_root_mux(mux_idx);
@@ -437,7 +437,7 @@ struct OptMuxtreeWorker
 					// Ran out of subtree depth, re-eval this input tree in the next re-run
 					root_mux_rerun.insert(m);
 					root_enable_muxes.at(m) = true;
-					log_debug("      Removing pure flag from root mux %s.\n", log_id(mux2info[m].cell));
+					log_debug("      Removing pure flag from root mux %s.\n", mux2info[m].cell);
 				} else {
 					auto new_limits = limits.subtree();
 					// Since our knowledge includes assumption,
@@ -517,8 +517,8 @@ struct OptMuxtreeWorker
 		}
 
 		if (did_something) {
-			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", log_id(portname),
-					log_id(muxinfo.cell), log_signal(muxinfo.cell->getPort(portname)), log_signal(sig));
+			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", portname.unescape(),
+					muxinfo.cell, log_signal(muxinfo.cell->getPort(portname)), log_signal(sig));
 			muxinfo.cell->setPort(portname, sig);
 		}
 	}
@@ -530,7 +530,7 @@ struct OptMuxtreeWorker
 		glob_evals_left--;
 
 		muxinfo_t &muxinfo = mux2info[mux_idx];
-		log_debug("\t\teval %s (replace %d enable %d)\n", log_id(muxinfo.cell), limits.do_replace_known, limits.do_mark_ports_observable);
+		log_debug("\t\teval %s (replace %d enable %d)\n", muxinfo.cell, limits.do_replace_known, limits.do_mark_ports_observable);
 
 		// set input ports to constants if we find known active or inactive signals
 		if (limits.do_replace_known) {

@@ -48,7 +48,7 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 				for (auto bit : conn.second)
 					if (bit.wire != nullptr && bit.wire->name[0] != '$') {
 						if (suffix.empty())
-							suffix = stringf("_%s_%s", log_id(cell->type), log_id(conn.first));
+							suffix = stringf("_%s_%s", cell->type.unescape(), conn.first.unescape());
 						name_proposal proposed_name(
 							bit.wire->name.str() + suffix,
 							cell->output(conn.first) ? 0 : wire_score.at(bit.wire)
@@ -66,7 +66,7 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 				for (auto bit : conn.second)
 					if (bit.wire != nullptr && bit.wire->name[0] == '$' && !bit.wire->port_id) {
 						if (suffix.empty())
-							suffix = stringf("_%s", log_id(conn.first));
+							suffix = stringf("_%s", conn.first.unescape());
 						name_proposal proposed_name(
 							cell->name.str() + suffix,
 							cell->output(conn.first) ? 0 : wire_score.at(bit.wire)
@@ -90,7 +90,7 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 		if (best_name < it.second)
 			continue;
 		IdString n = module->uniquify(IdString(it.second.name));
-		log_debug("Rename cell %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
+		log_debug("Rename cell %s in %s to %s.\n", it.first, module, n.unescape());
 		module->rename(it.first, n);
 		count++;
 	}
@@ -99,7 +99,7 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 		if (best_name < it.second)
 			continue;
 		IdString n = module->uniquify(IdString(it.second.name));
-		log_debug("Rename wire %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
+		log_debug("Rename wire %s in %s to %s.\n", it.first, module, n.unescape());
 		module->rename(it.first, n);
 		count++;
 	}
@@ -151,7 +151,7 @@ struct AutonamePass : public Pass {
 				count += n;
 			}
 			if (count > 0)
-				log("Renamed %d objects in module %s (%d iterations).\n", count, log_id(module), iter);
+				log("Renamed %d objects in module %s (%d iterations).\n", count, module, iter);
 		}
 	}
 } AutonamePass;

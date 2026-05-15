@@ -224,7 +224,7 @@ struct BoothPassWorker {
 				macc.from_cell(cell);
 
 				if (!macc.is_simple_product()) {
-					log_debug("Not mapping cell %s: not a simple macc cell\n", log_id(cell));
+					log_debug("Not mapping cell %s: not a simple macc cell\n", cell);
 					continue;
 				}
 
@@ -240,11 +240,11 @@ struct BoothPassWorker {
 
 			if (x_sz < 4 || y_sz < 4 || z_sz < 8) {
 				log_debug("Not mapping cell %s sized at %dx%x, %x: size below threshold\n",
-					  log_id(cell), x_sz, y_sz, z_sz);
+					  cell, x_sz, y_sz, z_sz);
 				continue;
 			}
 
-			log("Mapping cell %s to %s Booth multiplier\n", log_id(cell), is_signed ? "signed" : "unsigned");
+			log("Mapping cell %s to %s Booth multiplier\n", cell, is_signed ? "signed" : "unsigned");
 
 			// To simplify the generator size the arguments
 			// to be the same. Then allow logic synthesis to

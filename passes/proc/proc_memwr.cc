@@ -75,7 +75,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 				cell->setParam(ID::CLK_ENABLE, State::S1);
 				cell->setParam(ID::CLK_POLARITY, State::S0);
 			} else {
-				log_error("process memory write with unsupported sync type in %s.%s", log_id(mod), log_id(proc));
+				log_error("process memory write with unsupported sync type in %s.%s", mod, proc);
 			}
 		}
 		sr->mem_write_actions.clear();

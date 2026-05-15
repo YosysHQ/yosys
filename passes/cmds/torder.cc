@@ -74,7 +74,7 @@ struct TorderPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			log("module %s\n", log_id(module));
+			log("module %s\n", module);
 
 			SigMap sigmap(module);
 			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
@@ -116,12 +116,12 @@ struct TorderPass : public Pass {
 			for (auto &it : toposort.loops) {
 				log("  loop");
 				for (auto cell : it)
-					log(" %s", log_id(cell));
+					log(" %s", cell);
 				log("\n");
 			}
 
 			for (auto cell : toposort.sorted)
-					log("  cell %s\n", log_id(cell));
+					log("  cell %s\n", cell);
 		}
 	}
 } TorderPass;

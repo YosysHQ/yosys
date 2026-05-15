@@ -83,7 +83,7 @@ struct InsbufPass : public Pass {
 					if (!lhs.wire || !design->selected(module, lhs.wire)) {
 						new_conn.first.append(lhs);
 						new_conn.second.append(rhs);
-						log("Skip %s: %s -> %s\n", log_id(module), log_signal(rhs), log_signal(lhs));
+						log("Skip %s: %s -> %s\n", module, log_signal(rhs), log_signal(lhs));
 						continue;
 					}
 
@@ -98,7 +98,7 @@ struct InsbufPass : public Pass {
 					cell->setPort(in_portname, rhs);
 					cell->setPort(out_portname, lhs);
 
-					log("Add %s/%s: %s -> %s\n", log_id(module), log_id(cell), log_signal(rhs), log_signal(lhs));
+					log("Add %s/%s: %s -> %s\n", module, cell, log_signal(rhs), log_signal(lhs));
 					bufcells.insert(cell);
 				}
 
@@ -115,8 +115,8 @@ struct InsbufPass : public Pass {
 							auto s = sigmap(port.second);
 							if (s == port.second)
 								continue;
-							log("Rewrite %s/%s/%s: %s -> %s\n", log_id(module), log_id(cell),
-									log_id(port.first), log_signal(port.second), log_signal(s));
+							log("Rewrite %s/%s/%s: %s -> %s\n", module, cell,
+									port.first.unescape(), log_signal(port.second), log_signal(s));
 							cell->setPort(port.first, s);
 						}
 				}

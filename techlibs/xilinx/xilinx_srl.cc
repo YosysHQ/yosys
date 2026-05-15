@@ -30,11 +30,11 @@ void run_fixed(xilinx_srl_pm &pm)
 {
 	auto &st = pm.st_fixed;
 	auto &ud = pm.ud_fixed;
-	log("Found fixed chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
+	log("Found fixed chain of length %d (%s):\n", GetSize(ud.longest_chain), st.first->type.unescape());
 
 	SigSpec initval;
 	for (auto cell : ud.longest_chain) {
-		log_debug("    %s\n", log_id(cell));
+		log_debug("    %s\n", cell);
 		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
 			SigBit Q = cell->getPort(ID::Q);
 			log_assert(Q.wire);
@@ -100,7 +100,7 @@ void run_fixed(xilinx_srl_pm &pm)
 	else
 		log_abort();
 
-	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
 void run_variable(xilinx_srl_pm &pm)
@@ -108,13 +108,13 @@ void run_variable(xilinx_srl_pm &pm)
 	auto &st = pm.st_variable;
 	auto &ud = pm.ud_variable;
 
-	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), log_id(st.first->type));
+	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), st.first->type.unescape());
 
 	SigSpec initval;
 	for (const auto &i : ud.chain) {
 		auto cell = i.first;
 		auto slice = i.second;
-		log_debug("    %s\n", log_id(cell));
+		log_debug("    %s\n", cell);
 		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
 			SigBit Q = cell->getPort(ID::Q)[slice];
 			log_assert(Q.wire);
@@ -181,7 +181,7 @@ void run_variable(xilinx_srl_pm &pm)
 	else
 		log_abort();
 
-	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
+	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
 struct XilinxSrlPass : public Pass {

@@ -1395,9 +1395,9 @@ void report_missing_model(bool warn_only, RTLIL::Cell* cell)
 {
 	std::string s;
 	if (cell->is_builtin_ff())
-		s = stringf("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
+		s = stringf("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", cell, cell->type.unescape());
 	else
-		s = stringf("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+		s = stringf("No SAT model available for cell %s (%s).\n", cell, cell->type.unescape());
 
 	if (warn_only) {
 		log_formatted_warning_noprefix(s);

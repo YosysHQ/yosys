@@ -197,6 +197,28 @@ check_format(std::string_view fmt, int fmt_start, bool *has_escapes, FoundFormat
 	ensure_no_format_spec(fmt, fmt_start, has_escapes);
 }
 
+template <class T>
+static auto has_name_member_imp(int)
+	-> decltype(static_cast<const RTLIL::IdString>(std::declval<T>().name), std::true_type{});
+
+template <class T>
+static auto has_name_member_imp(long) 
+	-> std::false_type;
+
+template <class T>
+struct has_name_member : decltype(has_name_member_imp<T>(0)){};
+
+template <class T>
+static auto ptr_has_name_member_imp(int)
+	-> decltype(static_cast<const RTLIL::IdString>(std::declval<T>()->name), std::true_type{});
+
+template <class T>
+static auto ptr_has_name_member_imp(long) 
+	-> std::false_type;
+
+template <class T>
+struct ptr_has_name_member : decltype(ptr_has_name_member_imp<T>(0)){};
+
 // Check that the format string `fmt.substr(fmt_start)` is valid for the given type arguments.
 // Fills `specs` with the FoundFormatSpecs found in the format string.
 // `int_args_consumed` is the number of int arguments already consumed to satisfy the
@@ -245,7 +267,9 @@ constexpr void check_format(std::string_view fmt, int fmt_start, bool *has_escap
 		if constexpr (!std::is_convertible_v<Arg, const char *> &&
 		        !std::is_convertible_v<Arg, const std::string &> &&
 			!std::is_convertible_v<Arg, const std::string_view &> &&
-			!std::is_convertible_v<Arg, const RTLIL::IdString &>) {
+			!std::is_convertible_v<Arg, const RTLIL::IdString &> &&
+			!has_name_member<Arg>() &&
+			!ptr_has_name_member<Arg>()) {
 			YOSYS_ABORT("Expected type convertible to char *");
 		}
 		*specs = found;
@@ -341,6 +365,16 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 		if constexpr (std::is_convertible_v<Arg, const RTLIL::IdString &>) {
 			const RTLIL::IdString &s = arg;
 			format_emit_idstring(result, spec, dynamic_ints, num_dynamic_ints, s);
+			return;
+		}
+		if constexpr (has_name_member<Arg>()) {
+			const std::string &s = arg.name.unescape();
+			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s);
+			return;
+		}
+		if constexpr (ptr_has_name_member<Arg>()) {
+			const std::string &s = arg->name.unescape();
+			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s);
 			return;
 		}
 		break;

@@ -154,10 +154,10 @@ struct ProcRmdeadPass : public Pass {
 					proc_rmdead(switch_it, counter, full_case_counter);
 				if (counter > 0)
 					log("Removed %d dead cases from process %s in module %s.\n", counter,
-							log_id(proc), log_id(mod));
+							proc, mod);
 				if (full_case_counter > 0)
 					log("Marked %d switch rules as full_case in process %s in module %s.\n",
-							full_case_counter, log_id(proc), log_id(mod));
+							full_case_counter, proc, mod);
 				total_counter += counter;
 			}
 		}

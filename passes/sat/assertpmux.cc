@@ -148,7 +148,7 @@ struct AssertpmuxWorker
 
 	void run(Cell *pmux)
 	{
-		log("Adding assert for $pmux cell %s.%s.\n", log_id(module), log_id(pmux));
+		log("Adding assert for $pmux cell %s.%s.\n", module, pmux);
 
 		int swidth = pmux->getParam(ID::S_WIDTH).as_int();
 		int cntbits = ceil_log2(swidth+1);
