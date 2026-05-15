@@ -4,7 +4,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "pmgen/rf_new_dsp.h"
+#include "rf_new_dsp_pm.h"
 
 void swapinput(RTLIL::SigSpec &sigA, RTLIL::SigSpec &sigB) {
   if (GetSize(sigA) < GetSize(sigB)) {

@@ -4,7 +4,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "pmgen/rf_dsp_mad.h"
+#include "rf_dsp_mad_pm.h"
 
 static void create_rf_mad_dsp(rf_dsp_mad_pm &pm) {
   auto &st = pm.st_rf_dsp_mad;

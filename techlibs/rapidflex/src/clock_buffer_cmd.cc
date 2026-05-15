@@ -104,9 +104,9 @@ struct InsertClockBuffer : public Pass {
   void rewire_subckt(RTLIL::Module *module, RTLIL::Cell *cell,
                      RTLIL::IdString id_name, std::string C_input) {
     std::string C_output = C_input + "_ckbuf";
-    if (!module->wire("\\" + C_output)) {
-      auto output_wire = module->addWire("\\" + C_output, 1);
-    }
+//    if (!module->wire("\\" + C_output)) {
+//      auto output_wire = module->addWire("\\" + C_output, 1);
+//    }
     /* connect new ckbuf to the subckt */
     cell->unsetPort(id_name); // unsetPort("C")
     cell->setPort(id_name, module->wire("\\" + C_output));
@@ -186,7 +186,7 @@ struct InsertClockBuffer : public Pass {
   representing internally generated signals. When such a signal is found, it
   invokes rewire_subckt.*/
   std::set<std::string>
-  find_internal_clk_r_signal(RTLIL::Module *module, RTLIL::Design *design,
+  find_internal_clk_r_signal(RTLIL::Module *module,
                              std::map<std::string, std::string> &ckbuf_type) {
     std::set<std::string> ckbuf_info;
     /*get input ports of the top module*/
@@ -528,7 +528,7 @@ struct InsertClockBuffer : public Pass {
       if (module->name == RTLIL::escape_id(top_module_name)) {
         std::map<std::string, std::string> ckbuf_type;
         std::set<std::string> ckbuf_info =
-            find_internal_clk_r_signal(module, design, ckbuf_type);
+            find_internal_clk_r_signal(module, ckbuf_type);
         /*insert ckbuf and rewire dff */
         insert_ckbuf(module, ckbuf_info);
 
