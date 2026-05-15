@@ -136,7 +136,7 @@ struct PrintVisitor : DefaultVisitor<std::string> {
 
 std::string Node::to_string()
 {
-	return to_string([](Node n) { return RTLIL::unescape_id(n.name()); });
+	return to_string([](Node n) { return n.name().unescape(); });
 }
 
 std::string Node::to_string(std::function<std::string(Node)> np)
@@ -677,7 +677,7 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(wire_chunk));
-							check_undriven(driver, RTLIL::unescape_id(wire_chunk.wire->name));
+							check_undriven(driver, wire_chunk.wire->name.unescape());
 							Node node = enqueue(driver);
 							factory.suggest_name(node, wire_chunk.wire->name);
 							factory.update_pending(pending, node);
@@ -695,7 +695,7 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(port_chunk));
-							check_undriven(driver, RTLIL::unescape_id(port_chunk.cell->name) + " port " + RTLIL::unescape_id(port_chunk.port));
+							check_undriven(driver, port_chunk.cell->name.unescape() + " port " + port_chunk.port.unescape());
 							factory.update_pending(pending, enqueue(driver));
 						}
 					} else {
@@ -744,7 +744,7 @@ void IR::topological_sort() {
             log_warning("Combinational loop:\n");
             for (int *i = begin; i != end; ++i) {
 				Node node(_graph[*i]);
-                log("- %s = %s\n", RTLIL::unescape_id(node.name()), node.to_string());
+                log("- %s = %s\n", node.name().unescape(), node.to_string());
 			}
             log("\n");
             scc = true;

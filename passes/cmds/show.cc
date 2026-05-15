@@ -549,7 +549,7 @@ struct ShowWorker
 				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
-			std::string proc_src = RTLIL::unescape_id(proc->name);
+			std::string proc_src = proc->name.unescape();
 			if (proc->attributes.count(ID::src) > 0)
 				proc_src = proc->attributes.at(ID::src).decode_string();
 			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\", %s];\n", pidx, findLabel(proc->name.str()), proc_src.c_str(), findColor(proc->name).c_str());
