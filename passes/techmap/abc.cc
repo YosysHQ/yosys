@@ -1935,8 +1935,10 @@ struct AbcPass : public Pass {
 		log("        file format).\n");
 		log("\n");
 		log("    -dont_use <cell_name>\n");
-		log("        generate netlists for the specified cell library (using the liberty\n");
-		log("        file format).\n");
+		log("        avoid usage of the technology cell <cell_name> when mapping the design.\n");
+		log("        this option can be used multiple times with different cell names and\n");
+		log("        supports simple glob patterns in the cell name.\n");
+		log("        only supported with Liberty cell libraries.\n");
 		log("\n");
 		log("    -genlib <file>\n");
 		log("        generate netlists for the specified cell library (using the SIS Genlib\n");
