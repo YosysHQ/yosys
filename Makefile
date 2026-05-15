@@ -1120,7 +1120,7 @@ coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
 	rm -rf coverage_html
 	llvm-profdata merge -sparse coverage/coverage_*.profraw -o yosys.profdata
-	llvm-cov show ./$(PROGRAM_PREFIX)yosys -instr-profile=yosys.profdata -format=html -output-dir=coverage_html --compilation-dir=. -ignore-filename-regex='(^|.*/)Verific/.*|(^|.*/)libs/.*'
+	llvm-cov show ./$(PROGRAM_PREFIX)yosys -instr-profile=yosys.profdata -format=html -output-dir=coverage_html --compilation-dir=. -ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*'
 
 clean_coverage:
 	rm -rf coverage
