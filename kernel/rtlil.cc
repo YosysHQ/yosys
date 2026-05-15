@@ -1579,7 +1579,7 @@ void RTLIL::Module::makeblackbox()
 
 void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<RTLIL::IdString, RTLIL::Module *> &)
 {
-	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", id2cstr(name));
+	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", name.unescape());
 }
 
 bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
@@ -1591,7 +1591,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 {
 	if (mayfail)
 		return RTLIL::IdString();
-	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
 }
 
 
@@ -1599,7 +1599,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 {
 	if (mayfail)
 		return RTLIL::IdString();
-	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
 }
 
 size_t RTLIL::Module::count_id(RTLIL::IdString id)
