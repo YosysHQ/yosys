@@ -502,7 +502,7 @@ struct BufnormPass : public Pass {
 
 					if (conn.second != newsig) {
 						log("  fixing input signal on cell %s port %s: %s\n",
-								cell, conn.first.unescape(), newsig);
+								cell, conn.first.unescape(), log_signal(newsig));
 						cell->setPort(conn.first, newsig);
 						count_updated_cellports++;
 					}
