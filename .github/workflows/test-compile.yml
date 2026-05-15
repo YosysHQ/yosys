@@ -52,10 +52,10 @@ jobs:
         include:
           # macOS x86
           - os: macos-15-intel
-            compiler: 'clang-19'
+            compiler: 'clang-22'
           # macOS arm
           - os: macos-latest
-            compiler: 'clang-19'
+            compiler: 'clang-22'
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -96,7 +96,7 @@ jobs:
 
       # maximum standard, only on newest compilers
       - name: Build C++26
-        if: ${{ matrix.compiler == 'clang-19' || matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-15' }}
+        if: ${{ matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-15' }}
         shell: bash
         run: |
           make config-$CC_SHORT
