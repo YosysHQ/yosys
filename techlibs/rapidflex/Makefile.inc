@@ -2,7 +2,7 @@
 techlibs/rapidflex/alkaidC/cell_sim_pcnt.v: techlibs/rapidflex/util/pcnt_cell_sim_gen.py
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $^ --file $@
 
-CXXFLAGS += -Itechlibs/rapidflex/src/pugixml.hpp
+CXXFLAGS += -Itechlibs/rapidflex/src/
 OBJS += techlibs/rapidflex/src/pugixml.o
 OBJS += techlibs/rapidflex/src/synth_rapidflex.o
 OBJS += techlibs/rapidflex/src/clock_buffer_cmd.o
