@@ -50,7 +50,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		if (cell->type.begins_with("$") && !cell->type.begins_with("$__"))
 			continue;
 		for (auto &pattern : celltypes)
-			if (patmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str()))
+			if (patmatch(pattern.c_str(), cell->type.unescape().c_str()))
 				found_celltypes.insert(cell->type);
 	}
 
@@ -100,7 +100,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		while (portnames.size() > 0) {
 			RTLIL::IdString portname = *portnames.begin();
 			for (auto &decl : portdecls)
-				if (decl.index == 0 && patmatch(decl.portname.c_str(), RTLIL::unescape_id(portname).c_str())) {
+				if (decl.index == 0 && patmatch(decl.portname.c_str(), portname.unescape().c_str())) {
 					generate_port_decl_t d = decl;
 					d.portname = portname.str();
 					d.index = *indices.begin();
@@ -397,7 +397,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 			};
 
 		for (auto &ext : extensions_list) {
-			std::string filename = dir + "/" + RTLIL::unescape_id(cell.type) + ext.first;
+			std::string filename = dir + "/" + cell.type.unescape() + ext.first;
 			if (!check_file_exists(filename))
 				continue;
 

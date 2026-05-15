@@ -76,7 +76,7 @@ struct JsonWriter
 
 	string get_name(IdString name)
 	{
-		return get_string(RTLIL::unescape_id(name));
+		return get_string(name.unescape());
 	}
 
 	string get_bits(SigSpec sig)

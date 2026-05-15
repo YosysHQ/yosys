@@ -30,7 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 static string spice_id2str(IdString id)
 {
 	static const char *escape_chars = "$\\[]()<>=";
-	string s = RTLIL::unescape_id(id);
+	string s = id.unescape();
 
 	for (auto &ch : s)
 		if (strchr(escape_chars, ch) != nullptr) ch = '_';

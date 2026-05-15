@@ -143,7 +143,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	{
 		if (gold_cross_ports.count(gold_wire))
 		{
-			SigSpec w = miter_module->addWire("\\cross_" + RTLIL::unescape_id(gold_wire->name), gold_wire->width);
+			SigSpec w = miter_module->addWire("\\cross_" + gold_wire->name.unescape(), gold_wire->width);
 			gold_cell->setPort(gold_wire->name, w);
 			if (flag_ignore_gold_x) {
 				RTLIL::SigSpec w_x = miter_module->addWire(NEW_ID, GetSize(w));
@@ -159,7 +159,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 
 		if (gold_wire->port_input)
 		{
-			RTLIL::Wire *w = miter_module->addWire("\\in_" + RTLIL::unescape_id(gold_wire->name), gold_wire->width);
+			RTLIL::Wire *w = miter_module->addWire("\\in_" + gold_wire->name.unescape(), gold_wire->width);
 			w->port_input = true;
 
 			gold_cell->setPort(gold_wire->name, w);
@@ -168,10 +168,10 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 
 		if (gold_wire->port_output)
 		{
-			RTLIL::Wire *w_gold = miter_module->addWire("\\gold_" + RTLIL::unescape_id(gold_wire->name), gold_wire->width);
+			RTLIL::Wire *w_gold = miter_module->addWire("\\gold_" + gold_wire->name.unescape(), gold_wire->width);
 			w_gold->port_output = flag_make_outputs;
 
-			RTLIL::Wire *w_gate = miter_module->addWire("\\gate_" + RTLIL::unescape_id(gold_wire->name), gold_wire->width);
+			RTLIL::Wire *w_gate = miter_module->addWire("\\gate_" + gold_wire->name.unescape(), gold_wire->width);
 			w_gate->port_output = flag_make_outputs;
 
 			gold_cell->setPort(gold_wire->name, w_gold);
@@ -244,7 +244,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 
 			if (flag_make_outcmp)
 			{
-				RTLIL::Wire *w_cmp = miter_module->addWire("\\cmp_" + RTLIL::unescape_id(gold_wire->name));
+				RTLIL::Wire *w_cmp = miter_module->addWire("\\cmp_" + gold_wire->name.unescape());
 				w_cmp->port_output = true;
 				miter_module->connect(RTLIL::SigSig(w_cmp, this_condition));
 			}
@@ -252,7 +252,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 			if (flag_make_cover)
 			{
 				auto cover_condition = miter_module->Not(NEW_ID, this_condition);
-				miter_module->addCover("\\cover_" + RTLIL::unescape_id(gold_wire->name), cover_condition, State::S1);
+				miter_module->addCover("\\cover_" + gold_wire->name.unescape(), cover_condition, State::S1);
 			}
 
 			all_conditions.append(this_condition);

@@ -588,7 +588,7 @@ namespace Functional {
 			_used_names.insert(std::move(name));
 		}
 		std::string unique_name(IdString suggestion) {
-			std::string str = RTLIL::unescape_id(suggestion);
+			std::string str = suggestion.unescape();
 			for(size_t i = 0; i < str.size(); i++)
 				if(!is_character_legal(str[i], i))
 					str[i] = substitution_character;

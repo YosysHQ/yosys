@@ -244,7 +244,7 @@ struct PortarcsPass : Pass {
 
 			if (draw_mode) {
 				auto bit_str = [](SigBit bit) {
-					return stringf("%s%d", RTLIL::unescape_id(bit.wire->name.str()), bit.offset);
+					return stringf("%s%d", bit.wire, bit.offset);
 				};
 
 				std::vector<std::string> headings;

@@ -953,7 +953,7 @@ static char *readline_obj_generator(const char *text, int state)
 		if (design->selected_active_module.empty())
 		{
 			for (auto mod : design->modules())
-				if (RTLIL::unescape_id(mod->name).compare(0, len, text) == 0)
+				if (mod->name.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(mod->name.unescape().c_str()));
 		}
 		else if (design->module(design->selected_active_module) != nullptr)
@@ -961,19 +961,19 @@ static char *readline_obj_generator(const char *text, int state)
 			RTLIL::Module *module = design->module(design->selected_active_module);
 
 			for (auto w : module->wires())
-				if (RTLIL::unescape_id(w->name).compare(0, len, text) == 0)
+				if (w->name.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
+				if (it.first.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(it.first.unescape().c_str()));
 
 			for (auto cell : module->cells())
-				if (RTLIL::unescape_id(cell->name).compare(0, len, text) == 0)
+				if (cell->name.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
 			for (auto &it : module->processes)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
+				if (it.first.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(it.first.unescape().c_str()));
 		}
 

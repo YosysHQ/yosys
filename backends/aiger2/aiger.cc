@@ -560,9 +560,9 @@ struct Index {
 				if (!first)
 					ret += ".";
 				if (!cell)
-					ret += RTLIL::unescape_id(minfo.module->name);
+					ret += minfo.module->name.unescape();
 				else
-					ret += RTLIL::unescape_id(cell->name);
+					ret += cell->name.unescape();
 				first = false;
 			}
 			return ret;
@@ -844,7 +844,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				char buf[32];
 				snprintf(buf, sizeof(buf), "o%d ", i);
 				f->write(buf, strlen(buf));
-				std::string name = RTLIL::unescape_id(bit.wire->name);
+				std::string name = bit.wire->name.unescape();
 				f->write(name.data(), name.size());
 				f->put('\n');
 			}
@@ -857,7 +857,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				char buf[32];
 				snprintf(buf, sizeof(buf), "i%d ", i);
 				f->write(buf, strlen(buf));
-				std::string name = RTLIL::unescape_id(bit.wire->name);
+				std::string name = bit.wire->name.unescape();
 				f->write(name.data(), name.size());
 				f->put('\n');
 			}
@@ -1088,7 +1088,7 @@ struct XAigerWriter : AigerWriter {
 
 			for (auto box : minfo.found_blackboxes) {
 				log_debug(" - %s.%s (type %s): ", cursor.path(),
-						  RTLIL::unescape_id(box->name),
+						  box,
 						  box->type.unescape());
 
 				Module *box_module = design->module(box->type), *box_derived;

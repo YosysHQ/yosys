@@ -91,7 +91,7 @@ struct JnyWriter
         {
             _cells.clear();
             for (auto cell : mod->cells()) {
-                const auto cell_type = escape_string(RTLIL::unescape_id(cell->type));
+                const auto cell_type = escape_string(cell->type.unescape());
 
                 if (_cells.find(cell_type) == _cells.end())
                     _cells.emplace(cell_type, std::vector<Cell*>());
@@ -214,7 +214,7 @@ struct JnyWriter
     void write_cell_conn(const std::pair<RTLIL::IdString, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
         f << _indent << "  {\n";
-        f << _indent << "    \"name\": \"" << escape_string(RTLIL::unescape_id(sig.first)) << "\",\n";
+        f << _indent << "    \"name\": \"" << escape_string(sig.first.unescape()) << "\",\n";
         f << _indent << "    \"signals\": [\n";
 
         write_sigspec(sig.second, indent_level + 2);
@@ -232,7 +232,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         f << _indent << "{\n";
-        f << stringf("  %s\"name\": \"%s\",\n", _indent, escape_string(RTLIL::unescape_id(mod->name)));
+        f << stringf("  %s\"name\": \"%s\",\n", _indent, escape_string(mod->name.unescape()));
         f << _indent << "  \"cell_sorts\": [\n";
 
         bool first_sort{true};
@@ -280,7 +280,7 @@ struct JnyWriter
                 f << ",\n";
 
             f << _indent << "  {\n";
-            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(RTLIL::unescape_id(con.first)));
+            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(con.first.unescape()));
             f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
@@ -351,10 +351,10 @@ struct JnyWriter
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s\"%s\": ", _indent, escape_string(RTLIL::unescape_id(param.first)));
+                f << stringf("  %s\"%s\": ", _indent, escape_string(param.first.unescape()));
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s\"%s\": true", _indent, escape_string(RTLIL::unescape_id(param.first)));
+                f << stringf("  %s\"%s\": true", _indent, escape_string(param.first.unescape()));
             }
 
             first_param = false;
@@ -366,7 +366,7 @@ struct JnyWriter
         log_assert(cell != nullptr);
 
         f << _indent << "  {\n";
-        f << stringf("    %s\"name\": \"%s\"", _indent, escape_string(RTLIL::unescape_id(cell->name)));
+        f << stringf("    %s\"name\": \"%s\"", _indent, escape_string(cell->name.unescape()));
 
         if (_include_connections) {
             f << ",\n" << _indent << "    \"connections\": [\n";

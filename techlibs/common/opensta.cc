@@ -98,7 +98,7 @@ struct OpenstaPass : public Pass
 
 		f_script << "read_verilog " << verilog_filename << "\n";
 		f_script << "read_lib " << liberty_filename << "\n";
-		f_script << "link_design " << RTLIL::unescape_id(top_mod->name) << "\n";
+		f_script << "link_design " << top_mod->name.unescape() << "\n";
 		f_script << "read_sdc " << sdc_filename << "\n";
 		f_script << "write_sdc " << sdc_expanded_filename << "\n";
 		f_script.close();

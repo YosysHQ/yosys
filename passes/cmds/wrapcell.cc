@@ -227,7 +227,7 @@ struct WrapcellPass : Pass {
 				if (!unused_outputs.empty()) {
 					context.unused_outputs += "_unused";
 					for (auto chunk : collect_chunks(unused_outputs))
-						context.unused_outputs += "_" + RTLIL::unescape_id(chunk.format(cell));
+						context.unused_outputs += "_" + chunk.format(cell).unescape();
 				}
 
 				std::optional<std::string> unescaped_name = format_with_params(name_fmt, cell->parameters, context);

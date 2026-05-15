@@ -41,14 +41,14 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 			expr[id_len] == '_' || expr[id_len] == '[' || expr[id_len] == ']') id_len++;
 
 	if (id_len == 0)
-		log_error("Expected identifier at `%s' in %s.\n", expr, RTLIL::unescape_id(module->name));
+		log_error("Expected identifier at `%s' in %s.\n", expr, module);
 
 	if (id_len == 1 && (*expr == '0' || *expr == '1'))
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
 	if (!module->wires_.count(id))
-		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), RTLIL::unescape_id(module->name));
+		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), module);
 
 	expr += id_len;
 	return module->wires_.at(id);
@@ -175,7 +175,7 @@ static RTLIL::SigSpec parse_func_expr(RTLIL::Module *module, const char *expr)
 #endif
 
 	if (stack.size() != 1 || stack.back().type != 3)
-		log_error("Parser error in function expr `%s'in %s.\n", orig_expr, RTLIL::unescape_id(module->name));
+		log_error("Parser error in function expr `%s'in %s.\n", orig_expr, module);
 
 	return stack.back().sig;
 }
@@ -211,7 +211,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec clk_sig, data_sig, clear_sig, preset_sig;
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
-	const std::string name = RTLIL::unescape_id(module->name);
+	const std::string name = module->name.unescape();
 
 	std::optional<char> clear_preset_var1;
 	std::optional<char> clear_preset_var2;
@@ -339,9 +339,9 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 
 	if (enable_sig.size() == 0 || data_sig.size() == 0) {
 		if (!flag_ignore_miss_data_latch)
-			log_error("Latch cell %s has no data_in and/or enable attribute.\n", RTLIL::unescape_id(module->name));
+			log_error("Latch cell %s has no data_in and/or enable attribute.\n", module);
 		else
-			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", RTLIL::unescape_id(module->name));
+			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", module);
 
 		return false;
 	}
@@ -632,9 +632,9 @@ struct LibertyFrontend : public Frontend {
 					{
 						if (!flag_ignore_miss_dir)
 						{
-							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0), RTLIL::unescape_id(module->name));
+							log_error("Missing or invalid direction for pin %s on cell %s.\n", node->args.at(0), module);
 						} else {
-							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", RTLIL::unescape_id(module->name), node->args.at(0));
+							log("Ignoring cell %s with missing or invalid direction for pin %s.\n", module, node->args.at(0));
 							delete module;
 							goto skip_cell;
 						}
@@ -646,7 +646,7 @@ struct LibertyFrontend : public Frontend {
 				if (node->id == "bus" && node->args.size() == 1)
 				{
 					if (flag_ignore_buses) {
-						log("Ignoring cell %s with a bus interface %s.\n", RTLIL::unescape_id(module->name), node->args.at(0));
+						log("Ignoring cell %s with a bus interface %s.\n", module, node->args.at(0));
 						delete module;
 						goto skip_cell;
 					}
@@ -663,7 +663,7 @@ struct LibertyFrontend : public Frontend {
 					}
 
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
-						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0), RTLIL::unescape_id(module->name));
+						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0), module);
 
 					simple_comb_cell = false;
 
@@ -758,9 +758,9 @@ struct LibertyFrontend : public Frontend {
 						if (dir->value != "inout") { // allow inout with missing function, can be used for power pins
 							if (!flag_ignore_miss_func)
 							{
-								log_error("Missing function on output %s of cell %s.\n", RTLIL::unescape_id(wire->name), RTLIL::unescape_id(module->name));
+								log_error("Missing function on output %s of cell %s.\n", wire, module);
 							} else {
-								log("Ignoring cell %s with missing function on output %s.\n", RTLIL::unescape_id(module->name), RTLIL::unescape_id(wire->name));
+								log("Ignoring cell %s with missing function on output %s.\n", module, wire);
 								delete module;
 								goto skip_cell;
 							}

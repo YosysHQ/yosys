@@ -71,10 +71,10 @@ struct LibertyStubber {
 		std::sort(sorted_ports.begin(), sorted_ports.end(), cmp);
 		std::string clock_pin_name = "";
 		for (auto x : sorted_ports) {
-			std::string port_name = RTLIL::unescape_id(x);
+			std::string port_name = x.unescape();
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
-			f << "\t\tpin (" << RTLIL::unescape_id(x.str()) << ") {\n";
+			f << "\t\tpin (" << x.unescape() << ") {\n";
 			if (is_input && !is_output) {
 				i.item("direction", "input");
 			} else if (!is_input && is_output) {
@@ -132,7 +132,7 @@ struct LibertyStubber {
 		for (auto x : derived->ports) {
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
-			f << "\t\tpin (" << RTLIL::unescape_id(x.str()) << ") {\n";
+			f << "\t\tpin (" << x.unescape() << ") {\n";
 			if (is_input && !is_output) {
 				f << "\t\t\tdirection : input;\n";
 			} else if (!is_input && is_output) {

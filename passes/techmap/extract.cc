@@ -626,7 +626,7 @@ struct ExtractPass : public Pass {
 		if (!mine_mode)
 			for (auto module : map->modules()) {
 				SubCircuit::Graph mod_graph;
-				std::string graph_name = "needle_" + RTLIL::unescape_id(module->name);
+				std::string graph_name = "needle_" + module->name.unescape();
 				log("Creating needle graph %s.\n", graph_name);
 				if (module2graph(mod_graph, module, constports)) {
 					solver.addGraph(graph_name, mod_graph);
@@ -637,7 +637,7 @@ struct ExtractPass : public Pass {
 
 		for (auto module : design->modules()) {
 			SubCircuit::Graph mod_graph;
-			std::string graph_name = "haystack_" + RTLIL::unescape_id(module->name);
+			std::string graph_name = "haystack_" + module->name.unescape();
 			log("Creating haystack graph %s.\n", graph_name);
 			if (module2graph(mod_graph, module, constports, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : nullptr)) {
 				solver.addGraph(graph_name, mod_graph);
@@ -654,8 +654,8 @@ struct ExtractPass : public Pass {
 
 			for (auto needle : needle_list)
 			for (auto &haystack_it : haystack_map) {
-				log("Solving for %s in %s.\n", ("needle_" + RTLIL::unescape_id(needle->name)), haystack_it.first);
-				solver.solve(results, "needle_" + RTLIL::unescape_id(needle->name), haystack_it.first, false);
+				log("Solving for %s in %s.\n", ("needle_" + needle->name.unescape()), haystack_it.first);
+				solver.solve(results, "needle_" + needle->name.unescape(), haystack_it.first, false);
 			}
 			log("Found %d matches.\n", GetSize(results));
 

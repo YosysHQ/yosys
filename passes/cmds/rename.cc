@@ -621,7 +621,7 @@ struct RenamePass : public Pass {
 
 				RTLIL::Module *module_to_rename = nullptr;
 				for (auto module : design->modules())
-					if (module->name == from_name || RTLIL::unescape_id(module->name) == from_name) {
+					if (module->name == from_name || module->name.unescape() == from_name) {
 						module_to_rename = module;
 						break;
 					}

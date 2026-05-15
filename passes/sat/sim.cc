@@ -275,9 +275,9 @@ struct SimInstance
 			}
 
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
-				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				fstHandle id = shared->fst->getHandle(scope + "." + wire->name.unescape());
 				if (id==0 && wire->name.isPublic())
-					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
+					log_warning("Unable to find wire %s in input file.\n", (scope + "." + wire->name.unescape()));
 				fst_handles[wire] = id;
 			}
 
@@ -316,7 +316,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + cell->name.unescape(), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
@@ -1209,7 +1209,7 @@ struct SimInstance
 						}
 					}
 					if (!found)
-						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(sig_y.as_wire()->name)));
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + sig_y.as_wire()->name.unescape()));
 				}
 			}
 		}
@@ -1495,7 +1495,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			fstHandle id = fst->getHandle(scope + "." + portname.unescape());
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
@@ -1507,7 +1507,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			fstHandle id = fst->getHandle(scope + "." + portname.unescape());
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
@@ -1517,9 +1517,9 @@ struct SimWorker : SimShared
 
 		for (auto wire : topmod->wires()) {
 			if (wire->port_input) {
-				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				fstHandle id = fst->getHandle(scope + "." + wire->name.unescape());
 				if (id==0)
-					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
+					log_error("Unable to find required '%s' signal in file\n",(scope + "." + wire->name.unescape()));
 				top->fst_inputs[wire] = id;
 			}
 		}
@@ -2114,12 +2114,12 @@ struct SimWorker : SimShared
 		std::stringstream f;
 
 		if (wire->width==1)
-			f << stringf("%s", RTLIL::unescape_id(wire->name));
+			f << stringf("%s", wire);
 		else
 			if (wire->upto)
-				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, RTLIL::unescape_id(wire->name));
+				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, wire);
 			else
-				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, RTLIL::unescape_id(wire->name));
+				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, wire);
 		return f.str();
 	}
 
@@ -2127,7 +2127,7 @@ struct SimWorker : SimShared
 	{
 		std::stringstream f;
 		for(auto item=signals.begin();item!=signals.end();item++)
-			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name));
+			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), item->first);
 		return f.str();
 	}
 
@@ -2151,7 +2151,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			fstHandle id = fst->getHandle(scope + "." + portname.unescape());
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
@@ -2164,7 +2164,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", portname.unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", portname.unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			fstHandle id = fst->getHandle(scope + "." + portname.unescape());
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, portname.unescape());
 			fst_clock.push_back(id);
@@ -2176,9 +2176,9 @@ struct SimWorker : SimShared
 		std::map<Wire*,fstHandle> outputs;
 
 		for (auto wire : topmod->wires()) {
-			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+			fstHandle id = fst->getHandle(scope + "." + wire->name.unescape());
 			if (id==0 && (wire->port_input || wire->port_output))
-				log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
+				log_error("Unable to find required '%s' signal in file\n",(scope + "." + wire->name.unescape()));
 			if (wire->port_input)
 				if (clocks.find(wire)==clocks.end())
 					inputs[wire] = id;
@@ -2244,13 +2244,13 @@ struct SimWorker : SimShared
 		}
 		int data_len = clk_len + inputs_len + outputs_len + 32;
 		f << "\n";
-		f << stringf("\t%s uut(",RTLIL::unescape_id(topmod->name));
+		f << stringf("\t%s uut(",topmod);
 		for(auto item=clocks.begin();item!=clocks.end();item++)
-			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name), RTLIL::unescape_id(item->first->name));
+			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), item->first, item->first);
 		for(auto &item : inputs)
-			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name), RTLIL::unescape_id(item.first->name));
+			f << stringf(",.%s(%s)", item.first, item.first);
 		for(auto &item : outputs)
-			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name), RTLIL::unescape_id(item.first->name));
+			f << stringf(",.%s(%s)", item.first, item.first);
 		f << ");\n";
 		f << "\n";
 		f << "\tinteger i;\n";
