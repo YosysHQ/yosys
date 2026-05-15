@@ -767,7 +767,7 @@ struct FormalFfPass : public Pass {
 							ff.sig_d = ff.sig_ad;
 						}
 
-						if (!ff.has_clk || sigmap(ff.sig_clk) != gate_clock || ff.pol_clk != pol_clk) {
+						if (!ff.has_clk || sigmap(ff.sig_clk).as_bit() != gate_clock || ff.pol_clk != pol_clk) {
 							log_debug("FF driver for gate enable %s.%s of gated clk bit %s.%s has incompatible clocking: "
 								  "%s %s.%s\n",
 								  module, log_signal(SigSpec(gate_enable)), module,
@@ -798,7 +798,7 @@ struct FormalFfPass : public Pass {
 								auto &mem = memories.at(clocked_cell->name);
 								bool changed = false;
 								for (auto &rd_port : mem.rd_ports) {
-									if (rd_port.clk_enable && rd_port.clk == clk && rd_port.clk_polarity == pol_clk) {
+									if (rd_port.clk_enable && rd_port.clk.as_bit() == clk && rd_port.clk_polarity == pol_clk) {
 										log_debug("patching rd port\n");
 										changed = true;
 										rd_port.clk = gate_clock;
@@ -808,7 +808,7 @@ struct FormalFfPass : public Pass {
 									}
 								}
 								for (auto &wr_port : mem.wr_ports) {
-									if (wr_port.clk_enable && wr_port.clk == clk && wr_port.clk_polarity == pol_clk) {
+									if (wr_port.clk_enable && wr_port.clk.as_bit() == clk && wr_port.clk_polarity == pol_clk) {
 										log_debug("patching wr port\n");
 										changed = true;
 										wr_port.clk = gate_clock;

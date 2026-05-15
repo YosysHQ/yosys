@@ -44,18 +44,18 @@ jobs:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-10'
-          - 'gcc-10'
+          - 'clang-14'
+          - 'gcc-11'
           # newest, make sure to update maximum standard step to match
-          - 'clang-19'
-          - 'gcc-14'
+          - 'clang-22'
+          - 'gcc-15'
         include:
           # macOS x86
           - os: macos-15-intel
-            compiler: 'clang-19'
+            compiler: 'clang-22'
           # macOS arm
           - os: macos-latest
-            compiler: 'clang-19'
+            compiler: 'clang-22'
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -74,6 +74,7 @@ jobs:
         uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
+          gcc: ${{ (matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14') && '12' || '' }}
 
       - name: Tool versions
         shell: bash
@@ -81,20 +82,25 @@ jobs:
           $CC --version
           $CXX --version
 
-      # minimum standard
-      - name: Build C++17
-        shell: bash
+      - name: Fix clang-14 toolchain
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14'
         run: |
-          make config-$CC_SHORT
-          make -j$procs CXXSTD=c++17 compile-only
+          echo 'CXXFLAGS=--gcc-toolchain=/usr -isystem /usr/include/c++/12 -isystem /usr/include/x86_64-linux-gnu/c++/12' >> $GITHUB_ENV
 
-      # maximum standard, only on newest compilers
+      # minimum standard
       - name: Build C++20
-        if: ${{ matrix.compiler == 'clang-19' || matrix.compiler == 'gcc-14' }}
         shell: bash
         run: |
           make config-$CC_SHORT
           make -j$procs CXXSTD=c++20 compile-only
+
+      # maximum standard, only on newest compilers
+      - name: Build C++26
+        if: ${{ matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-15' }}
+        shell: bash
+        run: |
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=c++26 compile-only
 
   test-compile-result:
     runs-on: ubuntu-latest

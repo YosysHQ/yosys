@@ -103,7 +103,7 @@ VPATH := $(YOSYS_SRC)
 # Unit test
 UNITESTPATH := $(YOSYS_SRC)/tests/unit
 
-export CXXSTD ?= c++17
+export CXXSTD ?= c++20
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror=unused -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
@@ -1142,7 +1142,7 @@ vcxsrc: $(GENFILES) $(EXTRA_TARGETS) kernel/version_$(GIT_REV).cc
 	rm -rf $(VCX_DIR_NAME){,.zip}
 	cp -f kernel/version_$(GIT_REV).cc kernel/version.cc
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
-		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
+		echo "Analyse: $$f" >&2; cpp -std=c++20 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
 	echo "libs/fst/fst_win_unistd.h" >> srcfiles.txt
 	echo "kernel/version.cc" >> srcfiles.txt
 	bash misc/create_vcxsrc.sh $(VCX_DIR_NAME) $(YOSYS_VER)

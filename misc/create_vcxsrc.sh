@@ -25,6 +25,7 @@ if [ -f "/usr/include/FlexLexer.h" ] ; then
 	cp /usr/include/FlexLexer.h libs/flex/FlexLexer.h
 	ls libs/flex/*.h >> ../../srcfiles.txt
 fi
+sed -i '\#libs/../kernel/yosys.h#d' ../../srcfiles.txt
 
 popd
 {
@@ -35,7 +36,7 @@ popd
 	tail -n +$((n+1)) "$vcxsrc"/YosysVS/YosysVS.vcxproj
 } > "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 
-sed -i 's,</AdditionalIncludeDirectories>,</AdditionalIncludeDirectories>\n      <LanguageStandard>stdcpp17</LanguageStandard>\n      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
+sed -i 's,</AdditionalIncludeDirectories>,</AdditionalIncludeDirectories>\n      <LanguageStandard>stdcpp20</LanguageStandard>\n      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 sed -i 's,<PreprocessorDefinitions>,<PreprocessorDefinitions>YOSYS_ENABLE_THREADS;,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 if [ -f "/usr/include/FlexLexer.h" ] ; then
 	sed -i 's,</AdditionalIncludeDirectories>,;..\\yosys\\libs\\flex</AdditionalIncludeDirectories>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
