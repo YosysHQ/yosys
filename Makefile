@@ -456,8 +456,11 @@ endif
 endif
 
 ifeq ($(ENABLE_GCOV),1)
-CXXFLAGS += --coverage
-LINKFLAGS += --coverage
+LLVM_PROFILE_FILE ?= $(realpath $(YOSYS_SRC))/coverage/coverage_%p.profraw
+export LLVM_PROFILE_FILE
+export LLVM_PROFILE_FILE_BUFFER_SIZE=0
+CXXFLAGS += -fprofile-instr-generate -fcoverage-mapping
+LINKFLAGS+= -fprofile-instr-generate
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -1115,12 +1118,13 @@ mrproper: clean
 
 coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
-	rm -rf coverage.info coverage_html
-	lcov --capture -d . --no-external -o coverage.info
-	genhtml coverage.info --output-directory coverage_html
+	rm -rf coverage_html
+	llvm-profdata merge -sparse coverage/coverage_*.profraw -o yosys.profdata
+	llvm-cov show ./$(PROGRAM_PREFIX)yosys -instr-profile=yosys.profdata -format=html -output-dir=coverage_html --compilation-dir=. -ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*'
 
 clean_coverage:
-	find . -name "*.gcda" -type f -delete
+	rm -rf coverage
+	rm -f yosys.profdata
 
 FUNC_KERNEL := functional.cc functional.h sexpr.cc sexpr.h compute_graph.h
 FUNC_INCLUDES := $(addprefix --include *,functional/* $(FUNC_KERNEL))
@@ -1182,7 +1186,7 @@ config-msys2-64: clean
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
 
 config-gcov: clean
-	echo 'CONFIG := gcc' > Makefile.conf
+	echo 'CONFIG := clang' > Makefile.conf
 	echo 'ENABLE_GCOV := 1' >> Makefile.conf
 	echo 'ENABLE_DEBUG := 1' >> Makefile.conf
 

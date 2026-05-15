@@ -44,10 +44,18 @@ jobs:
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
+          mkdir -p "${GITHUB_WORKSPACE}/coverage"
+          echo "LLVM_PROFILE_FILE=${GITHUB_WORKSPACE}/coverage/coverage_%p.profraw" >> $GITHUB_ENV
+          echo "LLVM_PROFILE_FILE_BUFFER_SIZE=0" >> $GITHUB_ENV
+
+      - name: Skip generating files
+        if: ${{ github.event_name != 'merge_group' && github.event_name != 'workflow_dispatch' }}
+        run: |
+          echo "LLVM_PROFILE_FILE=/dev/null" >> $GITHUB_ENV
 
       - name: Build Yosys
         run: |
-          make config-clang
+          make config-gcov
           echo "ENABLE_VERIFIC := 1" >> Makefile.conf
           echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
           echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
@@ -84,6 +92,31 @@ jobs:
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
           make -C sby run_ci
+
+      - name: Run coverage
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          make coverage
+          make clean_coverage
+
+      - name: Push coverage
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          git clone https://x-access-token:${{ secrets.REPORTS_TOKEN }}@github.com/YosysHQ/reports.git out
+          rm -rf out/coverage/main
+          mkdir -p out/coverage/main
+          cp -r coverage_html/* out/coverage/main/
+          cd out
+          # find . -name "*.html" -type f -print0 | xargs -0 sed -i -z 's#\(<td class="headerItem">Date:</td>[[:space:]]*<td class="headerValue">\)[^<]*\(</td>\)#\1\2#g'
+          git config user.name "yosyshq-ci"
+          git config user.email "105224853+yosyshq-ci@users.noreply.github.com"
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Update coverage"
+            git push
+          else
+            echo "No changes to commit"
+          fi
 
   test-pyosys:
     needs: pre_job
