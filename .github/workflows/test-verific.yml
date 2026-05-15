@@ -44,6 +44,14 @@ jobs:
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
+          mkdir -p "${GITHUB_WORKSPACE}/coverage"
+          echo "LLVM_PROFILE_FILE=${GITHUB_WORKSPACE}/coverage/coverage_%p.profraw" >> $GITHUB_ENV
+          echo "LLVM_PROFILE_FILE_BUFFER_SIZE=0" >> $GITHUB_ENV
+
+      - name: Skip generating files
+        if: ${{ github.event_name != 'merge_group' && github.event_name != 'workflow_dispatch' }}
+        run: |
+          echo "LLVM_PROFILE_FILE=/dev/null" >> $GITHUB_ENV
 
       - name: Build Yosys
         run: |
@@ -89,6 +97,7 @@ jobs:
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
           make coverage
+          make clean_coverage
 
       - name: Push coverage
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
