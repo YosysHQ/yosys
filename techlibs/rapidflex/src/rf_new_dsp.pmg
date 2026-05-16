@@ -1,0 +1,478 @@
+pattern rf_new_dsp
+
+state <SigBit> clock
+state <SigSpec> sigA1 sigA2 sigA3 sigA4
+state <SigSpec> sigB1 sigB2 sigB3 sigB4
+state <SigSpec> sigD sigY sigY2 sigM
+
+state <Cell*> ffA1 ffA2 ffA3 ffA4
+state <Cell*> ffB1 ffB2 ffB3 ffB4
+state <Cell*> ffD
+state <Cell*> ffM1 ffM2 ffM3 ffM4
+state <Cell*> ffY1 ffY2 ffY3 ffY4 ffMY
+state <Cell*> postAdd1 postAdd2 postAdd3 postAdd4
+state <Cell*> mul2 mul3 mul4
+
+state <bool> multiout2 multiout3 dinput y_signed y2_signed
+state <int> level
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD argA argM
+udata <SigSpec> dffD dffQ addD addY
+udata <SigBit> dffclock
+udata <Cell*> dff postadder multiplier
+state <IdString> postAddAB
+
+// (1) match multiplier 1
+match mul1
+	select mul1->type.in($mul)
+endmatch
+
+code sigA1 sigB1 sigY multiout2 multiout3 dinput y_signed y2_signed level 
+	sigA1 = port(mul1, \A);
+	sigB1 = port(mul1, \B);
+	sigY = port(mul1, \Y);
+	multiout2 = false;
+	multiout3 = false;
+	y_signed = param(mul1, \A_SIGNED).as_bool();
+	dinput = false;
+	level = 1;
+endcode
+
+// (2) Match A input register 1
+code argQ ffA1 sigA1 clock
+	argQ = sigA1;
+	subpattern(in_dffe);
+	if (dff) {
+		ffA1 = dff;
+		clock = dffclock;
+		sigA1 = dffD;
+	}
+endcode
+
+// (3) Match B input register 1
+code argQ ffB1 sigB1 clock
+	argQ = sigB1;
+	subpattern(in_dffe);
+	if (dff) {
+		ffB1 = dff;
+		clock = dffclock;
+		sigB1 = dffD;
+	}
+endcode
+
+// (4) Match mul output register 1
+code argD ffM1 sigY clock
+	argD = sigY;
+	subpattern(out_dffe);
+	if (dff) {
+		ffM1 = dff;
+		clock = dffclock;
+		sigY = dffQ;
+	}
+endcode
+
+// (5) Match post adder 1
+code argA postAdd1 sigY sigD y_signed
+	argA = sigY;
+	subpattern(post_add);
+	if(postadder) {
+		postAdd1 = postadder;
+		sigY = addY;
+		sigD = addD;
+		y_signed = param(postAdd1, \A_SIGNED).as_bool();
+	}
+endcode
+
+// (6) Match D input register
+code argQ ffD sigD clock
+	argQ = sigD;
+	subpattern(in_dffe);
+	if (dff) {
+		ffD = dff;
+		clock = dffclock;
+		sigD = dffD;
+	}
+endcode
+
+// (6-1) Match multiplier 4 
+code argM mul4 sigA4 sigB4 sigD level dinput
+	argM = sigD;
+	subpattern(more_mult);
+	if (multiplier) {
+		mul4 = multiplier;
+		sigA4 = port(mul4, \A);
+		sigB4 = port(mul4, \B);
+		level += 1;
+	}
+	else if(postAdd1)
+	{
+		dinput = true;
+	}
+endcode
+
+// (7) Match mac output register 1
+code argD ffY1 sigY clock
+	argD = sigY;
+	subpattern(out_dffe);
+	if (dff) {
+		ffY1 = dff;
+		clock = dffclock;
+		sigY = dffQ;
+	}
+endcode
+
+// (8) Match post adder 2
+code argA postAdd2 sigM sigY sigD y_signed
+	argA = sigY;
+	subpattern(post_add);
+	if(postadder) {
+		postAdd2 = postadder;
+		sigY = addY;
+		sigM = addD;
+		y_signed = param(postAdd2, \A_SIGNED).as_bool();
+	}
+endcode
+
+// (9) Match mul output register 2
+code argQ ffM2 sigM clock
+	argQ = sigM;
+	subpattern(in_dffe);
+	if (dff) {
+		ffM2 = dff;
+		clock = dffclock;
+		sigM = dffD;
+	}
+endcode
+
+// (10) match multiplier 2
+code argM mul2 sigA2 sigB2 sigM level
+	argM = sigM;
+	subpattern(more_mult);
+	if (multiplier) {
+		mul2 = multiplier;
+		sigA2 = port(mul2, \A);
+		sigB2 = port(mul2, \B);
+		level += 1;
+	}
+	sigM.remove(0, GetSize(sigM));
+endcode
+
+// (11) Match A input register 2
+code argQ ffA2 sigA2 clock
+	argQ = sigA2;
+	subpattern(in_dffe);
+	if (dff) {
+		ffA2 = dff;
+		clock = dffclock;
+		sigA2 = dffD;
+	}
+endcode
+
+// (12) Match B input register 2
+code argQ ffB2 sigB2 clock
+	argQ = sigB2;
+	subpattern(in_dffe);
+	if (dff) {
+		ffB2 = dff;
+		clock = dffclock;
+		sigB2 = dffD;
+	}
+endcode
+
+// (13) Match mac output register 2
+code argD ffY2 sigY clock
+	argD = sigY;
+	subpattern(out_dffe);
+	if (dff) {
+		ffY2 = dff;
+		clock = dffclock;
+		sigY = dffQ;
+	}
+endcode
+
+// (14) Match post adder 3
+code argA postAdd3 sigM sigY sigD y_signed
+	argA = sigY;
+	subpattern(post_add);
+	if(postadder) {
+		postAdd3 = postadder;
+		sigY = addY;
+		sigM = addD;
+		y_signed = param(postAdd3, \A_SIGNED).as_bool();
+	}
+endcode
+
+// (15) Match mul output register 3
+code argQ ffM3 sigM clock
+	argQ = sigM;
+	subpattern(in_dffe);
+	if (dff) {
+		ffM3 = dff;
+		clock = dffclock;
+		sigM = dffD;
+	}
+endcode
+
+// (16) match multiplier 3
+code argM mul3 sigA3 sigB3 level sigM
+	argM = sigM;
+	subpattern(more_mult);
+	if (multiplier) {
+		mul3 = multiplier;
+		sigA3 = port(mul3, \A);
+		sigB3 = port(mul3, \B);
+		level += 1;
+	}
+	sigM.remove(0, GetSize(sigM));
+endcode
+
+// (17) Match A input register 3
+code argQ ffA3 sigA3 clock
+	argQ = sigA3;
+	subpattern(in_dffe);
+	if (dff) {
+		ffA3 = dff;
+		clock = dffclock;
+		sigA3 = dffD;
+	}
+endcode
+
+// (18) Match B input register 3
+code argQ ffB3 sigB3 clock
+	argQ = sigB3;
+	subpattern(in_dffe);
+	if (dff) {
+		ffB3 = dff;
+		clock = dffclock;
+		sigB3 = dffD;
+	}
+endcode
+
+// (19) Match mac output register 3
+code argD ffY3 sigY clock
+	argD = sigY;
+	subpattern(out_dffe);
+	if (dff) {
+		ffY3 = dff;
+		clock = dffclock;
+		sigY = dffQ;
+	}
+endcode
+
+// (20) Match post adder 4
+code argA postAdd4 sigM sigY sigD y_signed
+	argA = sigY;
+	subpattern(post_add);
+	if(postadder) {
+		postAdd4 = postadder;
+		sigY = addY;
+		sigM = addD;
+		y_signed = param(postAdd4, \A_SIGNED).as_bool();
+	}
+endcode
+
+// (21) Match mul output register 4
+code argQ ffM4 sigM clock
+	argQ = sigM;
+	subpattern(in_dffe);
+	if (dff) {
+		ffM4 = dff;
+		clock = dffclock;
+		sigM = dffD;
+	}
+endcode
+
+// (22) match multiplier 4
+code argM mul4 sigA4 sigB4 level sigM
+	argM = sigM;
+	if(!mul4)
+	{
+		subpattern(more_mult);
+		if (multiplier) {
+			mul4 = multiplier;
+			sigA4 = port(mul4, \A);
+			sigB4 = port(mul4, \B);
+			level += 1;
+		}
+	}
+	sigM.remove(0, GetSize(sigM));
+endcode
+
+// (23) Match A input register 4
+code argQ ffA4 sigA4 clock
+	argQ = sigA4;
+	subpattern(in_dffe);
+	if (dff) {
+		ffA4 = dff;
+		clock = dffclock;
+		sigA4 = dffD;
+	}
+endcode
+
+// (24) Match B input register 4
+code argQ ffB4 sigB4 clock
+	argQ = sigB4;
+	subpattern(in_dffe);
+	if (dff) {
+		ffB4 = dff;
+		clock = dffclock;
+		sigB4 = dffD;
+	}
+endcode
+
+// (25) Match mac output register 4
+code argD ffY4 sigY clock
+	argD = sigY;
+	subpattern(out_dffe);
+	if (dff) {
+		ffY4 = dff;
+		clock = dffclock;
+		sigY = dffQ;
+	}
+endcode
+
+code
+	accept;
+endcode
+
+// #######################
+
+// Subpattern for matching against input registers
+
+subpattern in_dffe
+arg argQ clock
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks())
+    {
+		// Abandon matches when 'Q' is a constant
+		if (!c.wire)
+			reject;
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe, $adff, $adffe)
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ) 
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ 
+
+	filter clock == SigBit() || port(ff, \CLK) == clock
+endmatch
+
+code argQ
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	SigSpec D = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, D);  //to.replace(pattern, with). 'to' become 'with' according 'pattern'
+endcode
+
+// #######################
+
+// Subpattern for matching output registers
+
+subpattern out_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argD.chunks())
+		// Abandon matches when 'D' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+
+	filter clock == SigBit() || port(ff, \CLK) == clock
+endmatch
+
+code argQ
+	SigSpec D = port(ff, \D);
+	SigSpec Q = port(ff, \Q);
+	argQ = argD;
+	argQ.replace(D, Q);
+
+	dff = ff;
+	dffQ = argQ;
+	dffclock = port(ff, \CLK);
+endcode
+
+// #######################
+
+// Subpattern for matching post adder
+
+subpattern post_add
+arg argA
+
+code
+	postadder = nullptr;
+endcode
+
+match adder
+	select adder->type.in($add)
+	choice <IdString> AB {\A, \B}
+	select nusers(port(adder, AB)) == 2
+
+	index <SigBit> port(adder, AB)[0] === argA[0]
+	filter GetSize(port(adder, AB)) >= GetSize(argA)
+	filter port(adder, AB).extract(0, GetSize(argA)) == argA
+
+	set postAddAB AB
+endmatch
+
+code argA
+	SigSpec A = port(adder, postAddAB);
+	SigSpec D = port(adder, postAddAB == \A ? \B : \A);
+	SigSpec Y = port(adder, \Y);
+
+	postadder = adder;
+
+	addY = argA;
+	addY.replace(A, Y);
+
+	addD = D;
+endcode
+
+// #######################
+
+// Subpattern for matching multiplier
+
+subpattern more_mult
+arg argM
+
+code
+	multiplier = nullptr;
+endcode
+
+match mult
+	select mult->type.in($mul)
+	filter GetSize(port(mult, \Y)) <= GetSize(argM)
+	filter port(mult, \Y) == argM.extract(0, GetSize(port(mult, \Y)))
+endmatch
+
+code
+	multiplier = mult;
+endcode
