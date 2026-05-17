@@ -788,7 +788,7 @@ struct Smt2Worker
 			if (has_async_wr && has_sync_wr)
 				log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", cell, module);
 
-			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", mem->memid.unescape(), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", get_id(mem->memid), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
 			decls.push_back(witness_memory(get_id(mem->memid), cell, mem));
 
 			string memstate;
