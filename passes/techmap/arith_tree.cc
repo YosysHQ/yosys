@@ -276,19 +276,16 @@ struct ArithTreeWorker {
 
 		for (auto &term : macc.terms) {
 			if (GetSize(term.in_b) != 0) {
-				// TODO: Baugh-Wooley sign extension for mixed sign and sign*sign cases, don't bail out to non-FMA
 				if (!opt.fma_fusion)
-					return false;
-				if (term.is_signed || !CompressorTree::supports_signedness(term.is_signed, term.is_signed))
 					return false;
 
 				// Preserve term as a multiplicative operand which is expanded into partial products
 				Operand op;
 				op.sig = term.in_a;
-				op.is_signed = false;
+				op.is_signed = term.is_signed;
 				op.negate = term.do_subtract;
 				op.factor_b = term.in_b;
-				op.factor_b_signed = false;
+				op.factor_b_signed = term.is_signed;
 				operands.push_back(op);
 				continue;
 			}
@@ -313,22 +310,22 @@ struct ArithTreeWorker {
 					s = module->Not(NEW_ID, s);
 				pool.push_back({s, 0});
 			} else {
-				// Multiplicative operand
-				// TODO: Negate product instead of factor
-				auto pps =
-				  CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
+				// Multiplicative operand.
+				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
 
-				if (op.negate) {
-					for (auto &pp : pps) {
-						SigSpec inv = module->addWire(NEW_ID, width);
-						module->addNot(NEW_ID, pp.sig, inv);
-						pp.sig = inv;
-						neg_compensation++;
-					}
+				if (!op.negate) {
+					for (auto &pp : pps)
+						pool.push_back(pp);
+					continue;
 				}
 
-				for (auto &pp : pps)
-					pool.push_back(pp);
+				auto [a_red, b_red] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy);
+				SigSpec product = module->addWire(NEW_ID, width);
+				module->addAdd(NEW_ID, a_red, b_red, product, false);
+				SigSpec neg = module->addWire(NEW_ID, width);
+				module->addNot(NEW_ID, product, neg);
+				pool.push_back({neg, 0});
+				neg_compensation++;
 			}
 		}
 
@@ -380,7 +377,7 @@ struct ArithTreeWorker {
 	bool any_operand_signed(const std::vector<Operand> &operands)
 	{
 		for (auto &op : operands)
-			if (op.is_signed)
+			if (op.is_signed || op.factor_b_signed)
 				return true;
 		return false;
 	}

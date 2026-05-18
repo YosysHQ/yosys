@@ -113,10 +113,6 @@ inline SigSpec normalize_to_width(SigSpec sig, bool is_signed, int width)
 	return sig;
 }
 
-inline bool supports_signedness(bool a_signed, bool b_signed) {
-	return !(a_signed || b_signed);
-}
-
 /**
  * generate_partial_products() - Generate partial products for FMA concat
  * @module:The Yosys module to which the compressors will be added
@@ -126,15 +122,13 @@ inline bool supports_signedness(bool a_signed, bool b_signed) {
  * @b_signed: Whether signal B is signed
  * @width: Target width
  *
- * Return: Radix-2 partial product matrix as a set of depth-0 vectors
+ * Return: Partial-product matrix as a set of depth-0 vectors
  */
 inline std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSpec b, bool a_signed, bool b_signed, int width) {
-	// TODO: Baugh-Wooley sign extension for mixed sign and sign*sign cases, don't bail out to non-FMA
-	log_assert(supports_signedness(a_signed, b_signed) && "CompressorTree::generate_partial_products: signed inputs unsupported");
-
 	int width_a = GetSize(a);
+	int width_b = GetSize(b);
 	std::vector<DepthSig> products;
-	products.reserve(width_a);
+	products.reserve(width_a + 3);
 
 	for (int i = 0; i < width_a; i++) {
 		SigBit ai = a[i];
@@ -144,13 +138,61 @@ inline std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a
 		b_shifted.append(b);
 		b_shifted = normalize_to_width(b_shifted, false, width);
 
-		// product = b_shifted & replicate(a[i], width)
+		// row = b_shifted & replicate(a[i], width)
 		SigSpec ai_rep = SigSpec(ai, width);
-		SigSpec product = module->addWire(NEW_ID, width);
-		module->addAnd(NEW_ID, b_shifted, ai_rep, product);
+		SigSpec row = module->addWire(NEW_ID, width);
+		module->addAnd(NEW_ID, b_shifted, ai_rep, row);
 
-		products.push_back({product, 0});
+		// Apply Modified Baugh-Wooley inversions for this row
+		bool row_is_bottom = (i == width_a - 1);
+		bool any_inversion = (row_is_bottom && b_signed) || a_signed;
+
+		if (any_inversion) {
+			std::vector<RTLIL::State> mask(width, RTLIL::State::S0);
+
+			for (int j = 0; j < width_b; j++) {
+				int col = i + j;
+				if (col < 0 || col >= width)
+					continue;
+				bool col_is_right = (j == width_b - 1);
+				// Flip masks
+				bool invert = (row_is_bottom && b_signed) ^ (col_is_right && a_signed);
+				if (invert)
+					mask[col] = RTLIL::State::S1;
+			}
+
+			// Skip the xor entirely if the mask is all zeroes
+			bool nonzero = false;
+			for (auto s : mask)
+				if (s == RTLIL::State::S1) {
+					nonzero = true;
+					break;
+				}
+			if (nonzero) {
+				SigSpec inverted = module->addWire(NEW_ID, width);
+				module->addXor(NEW_ID, row, SigSpec(RTLIL::Const(mask)), inverted);
+				row = inverted;
+			}
+		}
+
+		products.push_back({row, 0});
 	}
+
+	// Correction constants
+	auto push_one_at = [&](int col) {
+		if (col < 0 || col >= width) 
+			return;
+		std::vector<RTLIL::State> v(width, RTLIL::State::S0);
+		v[col] = RTLIL::State::S1;
+		products.push_back({SigSpec(RTLIL::Const(v)), 0});
+	};
+
+	if (b_signed)
+		push_one_at(width_a - 1);
+	if (a_signed)
+		push_one_at(width_b - 1);
+	if (a_signed || b_signed)
+		push_one_at(width_a + width_b - 1);
 
 	return products;
 }
