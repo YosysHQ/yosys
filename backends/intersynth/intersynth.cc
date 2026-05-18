@@ -41,7 +41,7 @@ static std::string netname(std::set<std::string> &conntypes_code, std::set<std::
 		return stringf("CONST_%d_0x%x", sig.size(), sig.as_int());
 	}
 
-	return RTLIL::unescape_id(sig.as_wire()->name);
+	return sig.as_wire()->name.unescape();
 }
 
 struct IntersynthBackend : public Backend {

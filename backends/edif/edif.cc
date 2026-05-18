@@ -30,9 +30,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true)
-#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br)
-#define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false)
+#define EDIF_DEF(_id) edif_names(_id.unescape(), true)
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(_id.unescape(), true, _ren, _bl, _br)
+#define EDIF_REF(_id) edif_names(_id.unescape(), false)
+#define EDIF_DEF_STR(_id) edif_names(RTLIL::unescape_id(_id), true)
+#define EDIF_REF_STR(_id) edif_names(RTLIL::unescape_id(_id), false)
 
 struct EdifNames
 {
@@ -227,7 +229,7 @@ struct EdifBackend : public Backend {
 		if (top_module_name.empty())
 			log_error("No module found in design!\n");
 
-		*f << stringf("(edif %s\n", EDIF_DEF(top_module_name));
+		*f << stringf("(edif %s\n", EDIF_DEF_STR(top_module_name));
 		*f << stringf("  (edifVersion 2 0 0)\n");
 		*f << stringf("  (edifLevel 0)\n");
 		*f << stringf("  (keywordMap (keywordLevel 0))\n");
@@ -534,7 +536,7 @@ struct EdifBackend : public Backend {
 						if (netname[i] == ' ' || netname[i] == '\\')
 							netname.erase(netname.begin() + i--);
 				}
-				*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
+				*f << stringf("          (net %s (joined\n", EDIF_DEF_STR(netname));
 				for (auto &ref : it.second)
 					*f << stringf("              %s\n", ref.first);
 				if (sig.wire == NULL) {
@@ -572,7 +574,7 @@ struct EdifBackend : public Backend {
 
 					if (keepmode)
 					{
-						*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
+						*f << stringf("          (net %s (joined\n", EDIF_DEF_STR(netname));
 
 						auto &refs = net_join_db.at(mapped_sig);
 						for (auto &ref : refs)
@@ -588,7 +590,7 @@ struct EdifBackend : public Backend {
 					}
 					else
 					{
-						log_warning("Ignoring conflicting 'keep' property on net %s. Use -keep to generate the extra net nevertheless.\n", EDIF_DEF(netname));
+						log_warning("Ignoring conflicting 'keep' property on net %s. Use -keep to generate the extra net nevertheless.\n", EDIF_DEF_STR(netname));
 					}
 				}
 			}
@@ -599,8 +601,8 @@ struct EdifBackend : public Backend {
 		}
 		*f << stringf("  )\n");
 
-		*f << stringf("  (design %s\n", EDIF_DEF(top_module_name));
-		*f << stringf("    (cellRef %s (libraryRef DESIGN))\n", EDIF_REF(top_module_name));
+		*f << stringf("  (design %s\n", EDIF_DEF_STR(top_module_name));
+		*f << stringf("    (cellRef %s (libraryRef DESIGN))\n", EDIF_REF_STR(top_module_name));
 		*f << stringf("  )\n");
 
 		*f << stringf(")\n");

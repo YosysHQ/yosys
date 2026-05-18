@@ -1565,7 +1565,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 	{
 		if (builtin_lib)
 		{
-			cell_stats[RTLIL::unescape_id(c->type)]++;
+			cell_stats[c->type.unescape()]++;
 			if (c->type.in(ID(ZERO), ID(ONE))) {
 				RTLIL::SigSig conn;
 				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
@@ -1706,7 +1706,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			}
 		}
 		else
-			cell_stats[RTLIL::unescape_id(c->type)]++;
+			cell_stats[c->type.unescape()]++;
 
 		if (c->type.in(ID(_const0_), ID(_const1_))) {
 			RTLIL::SigSig conn;
