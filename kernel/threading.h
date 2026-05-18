@@ -20,8 +20,8 @@ YOSYS_NAMESPACE_BEGIN
 #ifdef YOSYS_ENABLE_THREADS
 using Mutex = std::mutex;
 using CondVar = std::condition_variable;
-template <class M> using UniqueLock = std::unique_lock<M>;
-template <class M> using LockGuard = std::lock_guard<M>;
+using UniqueLock = std::unique_lock<Mutex>;
+using LockGuard = std::lock_guard<Mutex>;
 #else
 struct Mutex {
 	void lock() {}
@@ -34,11 +34,11 @@ struct CondVar {
 	void notify_one() {}
 	void notify_all() {}
 };
-template <class M> struct UniqueLock {
-	UniqueLock(M &) {}
+struct UniqueLock {
+	UniqueLock(Mutex &) {}
 };
-template <class M> struct LockGuard {
-	LockGuard(M &) {}
+struct LockGuard {
+	LockGuard(Mutex &) {}
 };
 #endif
 
@@ -54,7 +54,7 @@ public:
 	// Push an element into the queue. If it's at capacity, block until there is room.
 	void push_back(T t)
 	{
-		UniqueLock<Mutex> lock(mutex);
+		UniqueLock lock(mutex);
 		not_full_condition.wait(lock, [this] { return static_cast<int>(contents.size()) < capacity; });
 		if (contents.empty())
 			not_empty_condition.notify_one();
@@ -66,7 +66,7 @@ public:
 	// Signal that no more elements will be produced. `pop_front()` will return nullopt.
 	void close()
 	{
-		UniqueLock<Mutex> lock(mutex);
+		UniqueLock lock(mutex);
 		not_empty_condition.notify_all();
 		closed = true;
 	}
@@ -85,7 +85,7 @@ public:
 private:
 	std::optional<T> pop_front_internal(bool wait)
 	{
-		UniqueLock<Mutex> lock(mutex);
+		UniqueLock lock(mutex);
 		if (wait) {
 			not_empty_condition.wait(lock, [this] { return !contents.empty() || closed; });
 		}
@@ -262,7 +262,7 @@ private:
 	CondVar main_to_workers_signal_cv;
 	std::vector<uint8_t> main_to_workers_signal;
 	void signal_workers_start() {
-		UniqueLock<Mutex> lock(main_to_workers_signal_mutex);
+		UniqueLock lock(main_to_workers_signal_mutex);
 		int num_active_worker_threads = num_active_worker_threads_.load(std::memory_order_relaxed);
 		std::fill(main_to_workers_signal.begin(), main_to_workers_signal.begin() + num_active_worker_threads, 1);
 		// When `num_active_worker_threads_` is small compared to `num_worker_threads_`, we have a "thundering herd"
@@ -270,7 +270,7 @@ private:
 		main_to_workers_signal_cv.notify_all();
 	}
 	void worker_wait_for_start(int thread_num) {
-		UniqueLock<Mutex> lock(main_to_workers_signal_mutex);
+		UniqueLock lock(main_to_workers_signal_mutex);
 		main_to_workers_signal_cv.wait(lock, [this, thread_num] { return main_to_workers_signal[thread_num] > 0; });
 		main_to_workers_signal[thread_num] = 0;
 	}
@@ -286,12 +286,12 @@ private:
 		int num_active_worker_threads = num_active_worker_threads_.load(std::memory_order_relaxed);
 		int d = done_workers.fetch_add(1, std::memory_order_release);
 		if (d + 1 == num_active_worker_threads) {
-			UniqueLock<Mutex> lock(workers_to_main_signal_mutex);
+			UniqueLock lock(workers_to_main_signal_mutex);
 			workers_to_main_signal_cv.notify_all();
 		}
 	}
 	void wait_for_workers_done() {
-		UniqueLock<Mutex> lock(workers_to_main_signal_mutex);
+		UniqueLock lock(workers_to_main_signal_mutex);
 		workers_to_main_signal_cv.wait(lock, [this] {
 			int num_active_worker_threads = num_active_worker_threads_.load(std::memory_order_relaxed);
 			return done_workers.load(std::memory_order_acquire) == num_active_worker_threads;
@@ -309,11 +309,11 @@ class ConcurrentStack
 {
 public:
 	void push_back(T &&t) {
-		LockGuard<Mutex> lock(mutex);
+		LockGuard lock(mutex);
 		contents.push_back(std::move(t));
 	}
 	std::optional<T> try_pop_back() {
-		LockGuard<Mutex> lock(mutex);
+		LockGuard lock(mutex);
 		if (contents.empty())
 			return std::nullopt;
 		T result = std::move(contents.back());
@@ -598,12 +598,12 @@ public:
 			return;
 		bool was_empty;
 		{
-			UniqueLock<Mutex> lock(thread_state.batches_lock);
+			UniqueLock lock(thread_state.batches_lock);
 			was_empty = thread_state.batches.empty();
 			thread_state.batches.push_back(std::move(thread_state.next_batch));
 		}
 		if (was_empty) {
-			UniqueLock<Mutex> lock(waiters_lock);
+			UniqueLock lock(waiters_lock);
 			if (num_waiters > 0) {
 				waiters_cv.notify_one();
 			}
@@ -619,7 +619,7 @@ public:
 			return std::move(thread_state.next_batch);
 		// Empty our own work queue first.
 		{
-			UniqueLock<Mutex> lock(thread_state.batches_lock);
+			UniqueLock lock(thread_state.batches_lock);
 			if (!thread_state.batches.empty()) {
 				std::vector<T> batch = std::move(thread_state.batches.back());
 				thread_state.batches.pop_back();
@@ -638,7 +638,7 @@ public:
 			// num_waiters and wait, so num_waiters == num_threads()
 			// will become true. In single-threaded builds, num_threads() is 1,
 			// so we always terminate on the first iteration.
-			UniqueLock<Mutex> lock(waiters_lock);
+			UniqueLock lock(waiters_lock);
 			++num_waiters;
 			if (num_waiters == num_threads()) {
 				waiters_cv.notify_all();
@@ -657,7 +657,7 @@ private:
 		for (int i = 1; i < num_threads(); i++) {
 			int other_thread_num = (thread.thread_num + i) % num_threads();
 			ThreadState &other_thread_state = thread_states[other_thread_num];
-			UniqueLock<Mutex> lock(other_thread_state.batches_lock);
+			UniqueLock lock(other_thread_state.batches_lock);
 			if (!other_thread_state.batches.empty()) {
 				std::vector<T> batch = std::move(other_thread_state.batches.front());
 				other_thread_state.batches.pop_front();
