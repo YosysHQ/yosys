@@ -275,7 +275,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         bool first_port{true};
-        for (auto con : port_cell->connections()) {
+        for (auto& con : port_cell->connections()) {
             if (!first_port)
                 f << ",\n";
 
