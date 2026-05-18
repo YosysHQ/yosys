@@ -217,6 +217,26 @@ alumacc
 opt
 arith_tree
 opt_clean
+select -assert-none t:$macc t:$macc_v2 %u
+select -assert-none t:$mul
+select -assert-count 7 t:$fa
+select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+design -reset
+
+read_verilog <<EOT
+module macc_mul_nofma(
+	input [7:0] a, b, c,
+	output [15:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+arith_tree -no-fma
+opt_clean
 select -assert-none t:$fa
 select -assert-min 1 t:$macc t:$macc_v2 %u
 design -reset
@@ -401,6 +421,26 @@ proc
 alumacc
 opt
 arith_tree
+opt_clean
+select -assert-none t:$macc t:$macc_v2 %u
+select -assert-none t:$mul
+select -assert-count 8 t:$fa
+select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+design -reset
+
+read_verilog <<EOT
+module macc_mul_survives_nofma(
+	input [7:0] a, b, c, d,
+	output [15:0] y
+);
+	assign y = a * b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+arith_tree -no-fma
 opt_clean
 select -assert-none t:$fa
 select -assert-min 1 t:$macc t:$macc_v2 %u
