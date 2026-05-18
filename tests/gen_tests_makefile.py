@@ -94,6 +94,9 @@ def generate_tests(argv, cmds):
 
 def print_header(extra=None):
     print(f"include {common_mk}")
+    print(f"ifneq ($(wildcard {yosys_basedir}/Makefile.conf),)")
+    print(f"include {yosys_basedir}/Makefile.conf")
+    print(f"endif")
     print(f"YOSYS ?= {yosys_basedir}/yosys")
     print("")
     print("export YOSYS_MAX_THREADS := 4")
