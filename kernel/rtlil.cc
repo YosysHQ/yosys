@@ -22,6 +22,7 @@
 #include "kernel/newcelltypes.h"
 #include "kernel/binding.h"
 #include "kernel/sigtools.h"
+#include "kernel/unstable/patch.h"
 #include "kernel/threading.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
@@ -5945,5 +5946,6 @@ std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
 #endif
 
 template class CellAdderMixin<RTLIL::Module>;
+template class CellAdderMixin<RTLIL::Patch>;
 
 YOSYS_NAMESPACE_END
