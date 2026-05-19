@@ -29,7 +29,7 @@ public:
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	const std::vector<RTLIL::SigSig> &connections() const;
 
-	void patch();
+	void patch(Cell* old_cell, Cell* new_cell);
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
