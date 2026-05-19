@@ -72,6 +72,8 @@ INSTALL_SUDO :=
 ifneq ($(filter MINGW%,$(OS)),)
 OS := MINGW
 endif
+TCLSH ?= tcl
+
 
 ifneq ($(wildcard Makefile.conf),)
 include Makefile.conf
@@ -438,7 +440,7 @@ endif
 
 
 ifeq ($(ENABLE_TCL),1)
-TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
+TCL_VERSION ?= tcl$(shell bash -c $(TCLSH)" <(echo 'puts [info tclversion]')")
 ifeq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD))
 # BSDs usually use tcl8.6, but the lib is named "libtcl86"
 TCL_INCLUDE ?= /usr/local/include/$(TCL_VERSION)
