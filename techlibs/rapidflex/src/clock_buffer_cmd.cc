@@ -1,4 +1,4 @@
-#include <algorithm>
+﻿#include <algorithm>
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -10,7 +10,6 @@
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
-#include "pugixml.hpp"
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -223,12 +222,41 @@ struct InsertClockBuffer : public Pass {
     }
   }
 
+  static std::string xml_escape(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+      switch (c) {
+      case '&':
+        out += "&amp;";
+        break;
+      case '"':
+        out += "&quot;";
+        break;
+      case '<':
+        out += "&lt;";
+        break;
+      case '>':
+        out += "&gt;";
+        break;
+      default:
+        out += c;
+        break;
+      }
+    }
+    return out;
+  }
+
   /*This function is for generating cell map file*/
   void generate_cell_map(const char *fname,
                          const std::set<std::string> &ckbuf_info,
                          const std::map<std::string, std::string> &ckbuf_type) {
-    pugi::xml_document out_xml;
-    pugi::xml_node root_node = out_xml.append_child("ckbuf_cell_map");
+    FILE *f = fopen(fname, "w");
+    if (f == nullptr)
+      log_error("Can't open file `%s` for writing.\n", fname);
+
+    fprintf(f, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    fprintf(f, "<ckbuf_cell_map>\n");
     for (const std::string &ckbuf : ckbuf_info) {
       std::string in = ckbuf;
       std::string out = ckbuf + "_ckbuf";
@@ -241,12 +269,12 @@ struct InsertClockBuffer : public Pass {
         log_error("No port type defined for ckbuf %s \n", out.c_str());
       }
 
-      pugi::xml_node ckbuf_node = root_node.append_child("ckbuf");
-      ckbuf_node.append_attribute("input_net") = in.c_str();
-      ckbuf_node.append_attribute("cell") = out.c_str();
-      ckbuf_node.append_attribute("type") = type.c_str();
+      fprintf(f, "  <ckbuf input_net=\"%s\" cell=\"%s\" type=\"%s\"/>\n",
+              xml_escape(in).c_str(), xml_escape(out).c_str(),
+              xml_escape(type).c_str());
     }
-    out_xml.save_file(fname);
+    fprintf(f, "</ckbuf_cell_map>\n");
+    fclose(f);
     log("cell map is stored in file %s \n", fname);
   }
   void rewire_lut_primitive(RTLIL::Cell *cell,

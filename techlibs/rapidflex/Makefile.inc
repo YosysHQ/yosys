@@ -1,9 +1,8 @@
-# cell lib generation
+﻿# cell lib generation
 techlibs/rapidflex/alkaidC/cell_sim_pcnt.v: techlibs/rapidflex/util/pcnt_cell_sim_gen.py
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $^ --file $@
 
 CXXFLAGS += -Itechlibs/rapidflex/src/
-OBJS += techlibs/rapidflex/src/pugixml.o
 OBJS += techlibs/rapidflex/src/synth_rapidflex.o
 OBJS += techlibs/rapidflex/src/clock_buffer_cmd.o
 
@@ -26,7 +25,6 @@ $(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/
 $(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/cell_sim_arith.v))
 $(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/cell_sim_ccb.v))
 $(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/cell_sim_ff.v))
-$(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/cell_sim_pcnt.v))
 $(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/cell_sim.v))
 $(eval $(call add_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/dff_map.v))
 $(eval $(call add_gen_share_file,share/rapidflex/alkaidC,techlibs/rapidflex/alkaidC/cell_sim_pcnt.v))

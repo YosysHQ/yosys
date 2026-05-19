@@ -16,7 +16,7 @@ error_codes = {"SUCCESS": 0, "ERROR": 1, "FILE_ERROR": 3}
 #####################################################################
 # Initialize logger
 #####################################################################
-logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.ERROR)
 
 
 def generate_file_header(f0):
