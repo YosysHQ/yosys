@@ -353,6 +353,7 @@ struct ArithTreeWorker {
 
 	void emit_elarith_macro(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation, bool any_signed, const char *desc)
 	{
+		// Multi operand
 		int width = GetSize(result_y);
 		auto pool = build_operand_pool(operands, width, neg_compensation);
 

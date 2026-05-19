@@ -47,7 +47,6 @@ enum class FinalAdder {
 	DEFAULT,         // emit $add and let downstream techmap pick
 	RIPPLE,          // emit $add with explicit narrow hint
 	PARALLEL_PREFIX, // emit $add with PARALLEL_PREFIX
-	ELARITH_FAST,    // black-box instance of \AddCfast
 	ELARITH_MOP_CSV, // black-box instance of \AddMopCsv
 };
 
@@ -328,19 +327,6 @@ inline Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, F
 			c->set_string_attribute(ID(adder_arch), "parallel_prefix");
 			return c;
 		}
-		case FinalAdder::ELARITH_FAST: {
-			Cell *c = module->addCell(NEW_ID, IdString("\\AddCfast"));
-			int w = GetSize(y);
-			c->setParam(IdString("\\WIDTH"), w);
-			c->setParam(IdString("\\SPEED"), Const("fast"));
-			c->setParam(IdString("\\SIGNED"), any_signed ? 1 : 0);
-			c->setPort(IdString("\\A"), a);
-			c->setPort(IdString("\\B"), b);
-			c->setPort(IdString("\\Cin"), State::S0);
-			c->setPort(IdString("\\Sum"), y);
-			c->setPort(IdString("\\Cout"), module->addWire(NEW_ID));
-			return c;
-		}
 		case FinalAdder::ELARITH_MOP_CSV: {
 			Cell *c = module->addCell(NEW_ID, IdString("\\AddMopCsv"));
 			int w = GetSize(y);
@@ -361,7 +347,6 @@ inline FinalAdder pick_final_adder(int width, FinalMode mode) {
 	switch (mode) {
 		case FinalMode::RIPPLE:  return FinalAdder::RIPPLE;
 		case FinalMode::PREFIX:  return FinalAdder::PARALLEL_PREFIX;
-		case FinalMode::ELARITH: return FinalAdder::ELARITH_FAST;
 		case FinalMode::AUTO:
 		default:                 return (width < RIPPLE_PREFIX_THRESHOLD) ? FinalAdder::DEFAULT : FinalAdder::PARALLEL_PREFIX;
 	}
