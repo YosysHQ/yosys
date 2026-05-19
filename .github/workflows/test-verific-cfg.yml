@@ -1,0 +1,109 @@
+name: Build various Verific configurations
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-verific-cfg:
+    if: github.repository_owner == 'YosysHQ'
+    runs-on: [self-hosted, linux, x64, fast]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: verific [SV]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: verific [VHDL]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: verific [SV + VHDL]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: verific [SV + HIER]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: verific [VHDL + HIER]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: verific [SV + VHDL + HIER]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs
+
+      - name: verific [SV + VHDL + HIER + EDIF + LIBERTY]
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs

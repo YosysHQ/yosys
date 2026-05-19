@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/threading.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -35,32 +36,53 @@ struct FfInitVals
 		sigmap = sigmap_;
 		initbits.clear();
 		for (auto wire : module->wires())
+			if (wire->attributes.count(ID::init))
+				process_wire(wire);
+	}
+
+	void process_wire(RTLIL::Wire *wire)
+	{
+		SigSpec wirebits = (*sigmap)(wire);
+		Const initval = wire->attributes.at(ID::init);
+
+		for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
 		{
-			if (wire->attributes.count(ID::init) == 0)
+			SigBit bit = wirebits[i];
+			State val = initval[i];
+
+			if (val != State::S0 && val != State::S1 && bit.wire != nullptr)
 				continue;
 
-			SigSpec wirebits = (*sigmap)(wire);
-			Const initval = wire->attributes.at(ID::init);
-
-			for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
-			{
-				SigBit bit = wirebits[i];
-				State val = initval[i];
-
-				if (val != State::S0 && val != State::S1 && bit.wire != nullptr)
-					continue;
-
-				if (initbits.count(bit)) {
-					if (initbits.at(bit).first != val)
-						log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
-								log_signal(bit), log_signal(SigBit(wire, i)),
-								log_signal(val), log_signal(initbits.at(bit).first));
-					continue;
-				}
-
-				initbits[bit] = std::make_pair(val,SigBit(wire,i));
+			if (initbits.count(bit)) {
+				if (initbits.at(bit).first != val)
+					log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
+							log_signal(bit), log_signal(SigBit(wire, i)),
+							log_signal(val), log_signal(initbits.at(bit).first));
+				continue;
 			}
+
+			initbits[bit] = std::make_pair(val,SigBit(wire,i));
 		}
+	}
+
+	void set_parallel(const SigMapView *sigmap_, ParallelDispatchThreadPool &thread_pool, RTLIL::Module *module)
+	{
+		sigmap = sigmap_;
+		initbits.clear();
+
+		const RTLIL::Module *const_module = module;
+		ParallelDispatchThreadPool::Subpool subpool(thread_pool, ThreadPool::work_pool_size(0, module->wires_size(), 1000));
+		ShardedVector<RTLIL::Wire*> init_wires(subpool);
+		subpool.run([const_module, &init_wires](const ParallelDispatchThreadPool::RunCtx &ctx) {
+			for (int i : ctx.item_range(const_module->wires_size())) {
+				RTLIL::Wire *wire = const_module->wire_at(i);
+				if (wire->attributes.count(ID::init))
+					init_wires.insert(ctx, wire);
+			}
+		});
+
+		for (RTLIL::Wire *wire : init_wires)
+			process_wire(wire);
 	}
 
 	RTLIL::State operator()(RTLIL::SigBit bit) const

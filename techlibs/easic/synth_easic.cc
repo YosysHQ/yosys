@@ -142,6 +142,7 @@ struct SynthEasicPass : public ScriptPass
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
 			run("proc");
+			run("check");
 			run("flatten");
 		}
 

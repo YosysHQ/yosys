@@ -1,0 +1,104 @@
+#   Automatic reg as intermediate value in always @(*)
+#   The result must be provably equivalent to the direct expression.
+#   No latch or DFF must be created for tmp.
+design -reset
+read_verilog -sv <<EOF
+module t1(input a, b, c, output reg y);
+    always @(*) begin : blk
+        automatic reg tmp;
+        tmp = a ^ b;
+        if (c) tmp = tmp & a;
+        y = tmp;
+    end
+    // equivalent to: y = c ? ((a^b)&a) : (a^b)
+    assert property (y === (c ? ((a ^ b) & a) : (a ^ b)));
+endmodule
+EOF
+proc
+async2sync
+# no state elements for tmp
+select -assert-none t:$dff t:$dlatch %%
+sat -verify -prove-asserts -show-all
+
+#   automatic logic in always_comb with chained computation
+#   Two automatic intermediates used in sequence; result must match
+#   the direct expression.  No latch/DFF.
+design -reset
+read_verilog -sv <<EOF
+module t2(input [3:0] a, b, input sel, output reg [3:0] y, output reg co);
+    always_comb begin : blk
+        automatic reg [4:0] sum;
+        automatic reg [3:0] pick;
+        sum  = {1'b0, a} + {1'b0, b};
+        pick = sel ? sum[3:0] : (a & b);
+        y  = pick;
+        co = sum[4];
+    end
+    assert property (y  === (sel ? ((a + b) & 4'hf) : (a & b)));
+    assert property (co === (((5'(a) + 5'(b)) >> 4) & 1'b1));
+endmodule
+EOF
+proc
+async2sync
+select -assert-none t:$dff t:$dlatch %%
+sat -verify -prove-asserts -show-all
+
+#   automatic in a clocked block — only the explicitly registered
+#   output (result) must get a DFF; the automatic temp must not.
+design -reset
+read_verilog -sv <<EOF
+module t3(input clk, rst, input [7:0] data, output reg [7:0] result);
+    always @(posedge clk) begin : compute
+        automatic reg [7:0] tmp;
+        tmp = data ^ 8'hA5;
+        if (rst)
+            result <= 8'h00;
+        else
+            result <= tmp;
+    end
+endmodule
+EOF
+proc
+# Exactly one DFF (for result), zero latches, no DFF for tmp
+select -assert-count 1 t:$dff %%
+select -assert-none t:$dlatch %%
+
+#   automatic integer in named block — ensure integer-width
+#   automatic variables work and produce no state elements.
+design -reset
+read_verilog -sv <<EOF
+module t4(input [7:0] a, b, input sub, output reg [7:0] y);
+    always @(*) begin : arith
+        automatic integer acc;
+        if (sub)
+            acc = $signed(a) - $signed(b);
+        else
+            acc = $signed(a) + $signed(b);
+        y = acc[7:0];
+    end
+    assert property (y === (sub ? (a - b) : (a + b)));
+endmodule
+EOF
+proc
+async2sync
+select -assert-none t:$dff t:$dlatch %%
+sat -verify -prove-asserts -show-all
+
+#   automatic variable not assigned on all paths (X semantics)
+#   With 'automatic', tmp holds no previous state; the undriven path
+#   produces X, not the old register value.  After proc, no latch may be
+#   inferred for tmp.
+design -reset
+read_verilog -sv <<EOF
+module t5(input en, d, output reg q);
+    always @(*) begin : blk
+        automatic reg tmp;
+        if (en) tmp = d;
+        // tmp is X when en==0: automatic means no state retention
+        q = tmp;
+    end
+endmodule
+EOF
+proc
+# No latch for tmp — X propagates instead of old value
+select -assert-none t:$dff t:$dlatch %%

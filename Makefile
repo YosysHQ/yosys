@@ -103,8 +103,8 @@ VPATH := $(YOSYS_SRC)
 # Unit test
 UNITESTPATH := $(YOSYS_SRC)/tests/unit
 
-export CXXSTD ?= c++17
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
+export CXXSTD ?= c++20
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror=unused -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
 PLUGIN_LIBS :=
@@ -161,7 +161,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.62
+YOSYS_VER := 0.65
 
 ifneq (, $(shell command -v git 2>/dev/null))
 ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
@@ -291,18 +291,19 @@ ifeq ($(WASI_SDK),)
 CXX = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
-WASIFLAGS := -target wasm32-wasi $(WASIFLAGS)
+WASIFLAGS := -target wasm32-wasip1 $(WASIFLAGS)
 else
 CXX = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 endif
-CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) $(OPT_LEVEL) -D_WASI_EMULATED_PROCESS_CLOCKS $(filter-out -fPIC,$(CXXFLAGS))
-LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS))
+CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) $(OPT_LEVEL) -D_WASI_EMULATED_PROCESS_CLOCKS -fwasm-exceptions -mllvm -wasm-use-legacy-eh=false $(filter-out -fPIC,$(CXXFLAGS))
+LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS)) -fwasm-exceptions -lunwind
 LIBS := -lwasi-emulated-process-clocks $(filter-out -lrt,$(LIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
 ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -D_WASI_EMULATED_PROCESS_CLOCKS -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT"
 ABCMKARGS += OPTFLAGS="-Os"
+LTOFLAGS =
 EXE = .wasm
 
 DISABLE_SPAWN := 1
@@ -455,8 +456,11 @@ endif
 endif
 
 ifeq ($(ENABLE_GCOV),1)
-CXXFLAGS += --coverage
-LINKFLAGS += --coverage
+LLVM_PROFILE_FILE ?= $(realpath $(YOSYS_SRC))/coverage/coverage_%p.profraw
+export LLVM_PROFILE_FILE
+export LLVM_PROFILE_FILE_BUFFER_SIZE=0
+CXXFLAGS += -fprofile-instr-generate -fcoverage-mapping
+LINKFLAGS+= -fprofile-instr-generate
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -613,6 +617,7 @@ $(eval $(call add_include_file,kernel/bitpattern.h))
 $(eval $(call add_include_file,kernel/cellaigs.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
+$(eval $(call add_include_file,kernel/newcelltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/cost.h))
@@ -917,109 +922,15 @@ else
 ABCOPT=""
 endif
 
-# Tests that generate .mk with tests/gen-tests-makefile.sh
-MK_TEST_DIRS =
-MK_TEST_DIRS += tests/arch/anlogic
-MK_TEST_DIRS += tests/arch/ecp5
-MK_TEST_DIRS += tests/arch/efinix
-MK_TEST_DIRS += tests/arch/gatemate
-MK_TEST_DIRS += tests/arch/gowin
-MK_TEST_DIRS += tests/arch/ice40
-MK_TEST_DIRS += tests/arch/intel_alm
-MK_TEST_DIRS += tests/arch/machxo2
-MK_TEST_DIRS += tests/arch/microchip
-MK_TEST_DIRS += tests/arch/nanoxplore
-MK_TEST_DIRS += tests/arch/nexus
-MK_TEST_DIRS += tests/arch/quicklogic/pp3
-MK_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
-MK_TEST_DIRS += tests/arch/xilinx
-MK_TEST_DIRS += tests/bugpoint
-MK_TEST_DIRS += tests/opt
-MK_TEST_DIRS += tests/sat
-MK_TEST_DIRS += tests/sdc
-MK_TEST_DIRS += tests/sim
-MK_TEST_DIRS += tests/svtypes
-MK_TEST_DIRS += tests/techmap
-MK_TEST_DIRS += tests/various
-MK_TEST_DIRS += tests/rtlil
-ifeq ($(ENABLE_VERIFIC),1)
-ifneq ($(YOSYS_NOVERIFIC),1)
-MK_TEST_DIRS += tests/verific
-endif
-endif
-MK_TEST_DIRS += tests/verilog
-
-# Tests that don't generate .mk
-SH_TEST_DIRS =
-SH_TEST_DIRS += tests/simple
-SH_TEST_DIRS += tests/simple_abc9
-SH_TEST_DIRS += tests/hana
-SH_TEST_DIRS += tests/asicworld
-# SH_TEST_DIRS += tests/realmath
-SH_TEST_DIRS += tests/share
-SH_TEST_DIRS += tests/opt_share
-SH_TEST_DIRS += tests/fsm
-SH_TEST_DIRS += tests/memlib
-SH_TEST_DIRS += tests/bram
-SH_TEST_DIRS += tests/svinterfaces
-SH_TEST_DIRS += tests/xprop
-SH_TEST_DIRS += tests/select
-SH_TEST_DIRS += tests/peepopt
-SH_TEST_DIRS += tests/proc
-SH_TEST_DIRS += tests/blif
-SH_TEST_DIRS += tests/arch
-SH_TEST_DIRS += tests/rpc
-SH_TEST_DIRS += tests/memfile
-SH_TEST_DIRS += tests/fmt
-SH_TEST_DIRS += tests/cxxrtl
-SH_TEST_DIRS += tests/liberty
-ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-SH_TEST_DIRS += tests/functional
-endif
-
-# Tests that don't generate .mk and need special args
-SH_ABC_TEST_DIRS =
-SH_ABC_TEST_DIRS += tests/memories
-SH_ABC_TEST_DIRS += tests/aiger
-SH_ABC_TEST_DIRS += tests/alumacc
-
-# seed-tests/ is a dummy string, not a directory
-.PHONY: seed-tests
-seed-tests: $(SH_TEST_DIRS:%=seed-tests/%)
-.PHONY: seed-tests/%
-seed-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && bash run-test.sh $(SEEDOPT)
-	+@echo "...passed tests in $*"
-
-# abcopt-tests/ is a dummy string, not a directory
-.PHONY: abcopt-tests
-abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-tests/%)
-abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
-	+@echo "...passed tests in $*"
-
-# makefile-tests/ is a dummy string, not a directory
-.PHONY: makefile-tests
-makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
-# this target actually emits .mk files
-%.mk:
-	+cd $(dir $*) && bash run-test.sh
-# this one spawns submake on each
-makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
-	$(MAKE) -C $* -f run-test.mk
-	+@echo "...passed tests in $*"
-
 test: vanilla-test unit-test
 
-vanilla-test: makefile-tests abcopt-tests seed-tests
-	@echo ""
-	@echo "  Passed \"make vanilla-test\"."
-ifeq ($(ENABLE_VERIFIC),1)
-ifeq ($(YOSYS_NOVERIFIC),1)
-	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
-endif
-endif
-	@echo ""
+.PHONY: vanilla-test
+
+vanilla-test: $(TARGETS) $(EXTRA_TARGETS)
+	@$(MAKE) -C tests vanilla-test \
+	$(if $(ENABLE_VERIFIC),ENABLE_VERIFIC=$(ENABLE_VERIFIC)) \
+	$(if $(YOSYS_NOVERIFIC),YOSYS_NOVERIFIC=$(YOSYS_NOVERIFIC)) \
+	SEEDOPT=$(SEEDOPT) ABCOPT=$(ABCOPT)
 
 VALGRIND ?= valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 
@@ -1060,14 +971,14 @@ install-dev: $(PROGRAM_PREFIX)yosys-config share
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so libyosys.a,$(TARGETS)) $(DESTDIR)$(BINDIR)
-ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
-	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys; fi
+ifneq ($(filter $(PROGRAM_PREFIX)yosys$(EXE),$(TARGETS)),)
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys$(EXE); fi
 endif
-ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc,$(TARGETS)),)
-	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc; fi
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc$(EXE),$(TARGETS)),)
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc$(EXE); fi
 endif
-ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
-	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib; fi
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib$(EXE),$(TARGETS)),)
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib$(EXE); fi
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
@@ -1185,16 +1096,8 @@ clean: clean-py clean-unit-test
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
-	rm -rf tests/asicworld/*.out tests/asicworld/*.log
-	rm -rf tests/hana/*.out tests/hana/*.log
-	rm -rf tests/simple/*.out tests/simple/*.log
-	rm -rf tests/memories/*.out tests/memories/*.log tests/memories/*.dmp
-	rm -rf tests/sat/*.log tests/techmap/*.log tests/various/*.log
-	rm -rf tests/bram/temp tests/fsm/temp tests/realmath/temp tests/share/temp tests/smv/temp tests/various/temp
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
-	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
-	rm -f  tests/tools/cmp_tbdata
-	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
+	-$(MAKE) -C $(YOSYS_SRC)/tests clean
 	-$(MAKE) -C $(YOSYS_SRC)/docs clean
 	rm -rf docs/util/__pycache__
 	rm -f libyosys.so
@@ -1215,12 +1118,13 @@ mrproper: clean
 
 coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
-	rm -rf coverage.info coverage_html
-	lcov --capture -d . --no-external -o coverage.info
-	genhtml coverage.info --output-directory coverage_html
+	rm -rf coverage_html
+	llvm-profdata merge -sparse coverage/coverage_*.profraw -o yosys.profdata
+	llvm-cov show ./$(PROGRAM_PREFIX)yosys -instr-profile=yosys.profdata -format=html -output-dir=coverage_html --compilation-dir=. -ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*'
 
 clean_coverage:
-	find . -name "*.gcda" -type f -delete
+	rm -rf coverage
+	rm -f yosys.profdata
 
 FUNC_KERNEL := functional.cc functional.h sexpr.cc sexpr.h compute_graph.h
 FUNC_INCLUDES := $(addprefix --include *,functional/* $(FUNC_KERNEL))
@@ -1242,7 +1146,7 @@ vcxsrc: $(GENFILES) $(EXTRA_TARGETS) kernel/version_$(GIT_REV).cc
 	rm -rf $(VCX_DIR_NAME){,.zip}
 	cp -f kernel/version_$(GIT_REV).cc kernel/version.cc
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
-		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
+		echo "Analyse: $$f" >&2; cpp -std=c++20 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
 	echo "libs/fst/fst_win_unistd.h" >> srcfiles.txt
 	echo "kernel/version.cc" >> srcfiles.txt
 	bash misc/create_vcxsrc.sh $(VCX_DIR_NAME) $(YOSYS_VER)
@@ -1282,7 +1186,7 @@ config-msys2-64: clean
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
 
 config-gcov: clean
-	echo 'CONFIG := gcc' > Makefile.conf
+	echo 'CONFIG := clang' > Makefile.conf
 	echo 'ENABLE_GCOV := 1' >> Makefile.conf
 	echo 'ENABLE_DEBUG := 1' >> Makefile.conf
 

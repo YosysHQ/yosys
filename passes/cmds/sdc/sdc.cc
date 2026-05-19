@@ -168,7 +168,7 @@ struct SdcObjects {
 			RTLIL::Wire *wire = top->wire(port);
 			if (!wire) {
 				// This should not be possible. See https://github.com/YosysHQ/yosys/pull/5594#issue-3791198573
-				log_error("Port %s doesn't exist", log_id(port));
+				log_error("Port %s doesn't exist", port.unescape());
 			}
 			design_ports.push_back(std::make_pair(port.str().substr(1), wire));
 		}

@@ -438,7 +438,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
 			else
 				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), log_id(cell));
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
 		}
 
 		offset += width;

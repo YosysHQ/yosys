@@ -17,7 +17,8 @@ design -save gold
 abc9 -lut 4
 
 design -load gold
-abc9 -lut 4 -fast
+scratchpad -copy abc9.script.default.fast abc9.script
+abc9 -lut 4
 
 design -load gold
 scratchpad -copy abc9.script.default.area abc9.script

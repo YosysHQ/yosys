@@ -1,0 +1,32 @@
+# Test that setundef -zero respects wire selection: only selected wire is changed
+read_verilog <<EOT
+module test;
+    wire a = 1'bx;
+    wire b = 1'bx;
+endmodule
+EOT
+setundef -zero w:a
+sat -prove a 0
+sat -enable_undef -prove b 0 -falsify
+design -reset
+
+# Test that setundef -undriven -zero respects wire selection
+read_verilog setundef_selection_undriven.v
+setundef -undriven -zero w:b
+sat -prove b 0
+sat -enable_undef -prove a 0 -falsify
+design -reset
+
+# Test that setundef -init respects cell selection: only selected FF gets init set
+read_rtlil setundef_selection_ff.il
+setundef -init -zero c:myff_a
+select -assert-count 1 w:* a:init %i
+select -assert-count 0 w:b a:init %i
+design -reset
+
+# Test that setundef -init works with wire selection
+read_rtlil setundef_selection_ff.il
+setundef -init -zero w:a
+select -assert-count 1 w:* a:init %i
+select -assert-count 0 w:b a:init %i
+design -reset

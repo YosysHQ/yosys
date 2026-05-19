@@ -1,5 +1,6 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/ff.h"
 
 USING_YOSYS_NAMESPACE
@@ -70,10 +71,10 @@ struct LibertyStubber {
 		std::sort(sorted_ports.begin(), sorted_ports.end(), cmp);
 		std::string clock_pin_name = "";
 		for (auto x : sorted_ports) {
-			std::string port_name = RTLIL::unescape_id(x);
+			std::string port_name = x.unescape();
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
-			f << "\t\tpin (" << RTLIL::unescape_id(x.str()) << ") {\n";
+			f << "\t\tpin (" << x.unescape() << ") {\n";
 			if (is_input && !is_output) {
 				i.item("direction", "input");
 			} else if (!is_input && is_output) {
@@ -123,7 +124,7 @@ struct LibertyStubber {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(base_name))
+		if (StaticCellTypes::categories.is_ff(base_name))
 			return liberty_flop(base, derived, f);
 
 		auto& base_type = ct.cell_types[base_name];
@@ -131,7 +132,7 @@ struct LibertyStubber {
 		for (auto x : derived->ports) {
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
-			f << "\t\tpin (" << RTLIL::unescape_id(x.str()) << ") {\n";
+			f << "\t\tpin (" << x.unescape() << ") {\n";
 			if (is_input && !is_output) {
 				f << "\t\t\tdirection : input;\n";
 			} else if (!is_input && is_output) {

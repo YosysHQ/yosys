@@ -120,10 +120,10 @@
 #  define YS_MAYBE_UNUSED
 #endif
 
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
 #  define YS_FALLTHROUGH [[fallthrough]];
 #else
-#  error "C++17 or later compatible compiler is required"
+#  error "C++20 or later compatible compiler is required"
 #endif
 
 #if defined(__has_cpp_attribute) && __has_cpp_attribute(gnu::cold)

@@ -32,7 +32,7 @@ code
 		val_y.extend_u0(GetSize(div_y), param(div, \A_SIGNED).as_bool());
 
 	did_something = true;
-	log("muldiv pattern in %s: mul=%s, div=%s\n", log_id(module), log_id(mul), log_id(div));
+	log("muldiv pattern in %s: mul=%s, div=%s\n", module, mul, div);
 	module->connect(div_y, val_y);
 	autoremove(div);
 	accept;

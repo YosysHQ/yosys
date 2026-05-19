@@ -112,7 +112,7 @@ code
 
 	did_something = true;
 	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
-			log_id(module), log_id(shift), log_id(add), offset);
+			module, shift, add, offset);
 
 	SigSpec new_a;
 	if(offset<0) {

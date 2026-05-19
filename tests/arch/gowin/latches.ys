@@ -1,0 +1,25 @@
+read_verilog ../common/latches.v
+design -save read
+
+hierarchy -top latchp
+proc
+equiv_opt -async2sync -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchp # Constrain all select calls below inside the top module
+select -assert-count 1 t:DL
+select -assert-count 3 t:IBUF
+select -assert-count 1 t:OBUF
+
+select -assert-none t:DL t:IBUF t:OBUF %% t:* %D
+
+design -load read
+hierarchy -top latchn
+proc
+equiv_opt -async2sync -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchn # Constrain all select calls below inside the top module
+select -assert-count 1 t:DLN
+select -assert-count 3 t:IBUF
+select -assert-count 1 t:OBUF
+
+select -assert-none t:DLN t:IBUF t:OBUF %% t:* %D

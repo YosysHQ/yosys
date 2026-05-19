@@ -3,9 +3,9 @@ Symbolic model checking
 
 .. todo:: check text context
 
-.. note:: 
-    
-    While it is possible to perform model checking directly in Yosys, it 
+.. note::
+
+    While it is possible to perform model checking directly in Yosys, it
     is highly recommended to use SBY or EQY for formal hardware verification.
 
 Symbolic Model Checking (SMC) is used to formally prove that a circuit has (or
@@ -117,3 +117,32 @@ Result with fixed :file:`axis_master.v`:
 
     Solving problem with 159144 variables and 441626 clauses..
     SAT proof finished - no model found: SUCCESS!
+
+Witness framework and per-property tracking
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using AIGER-based formal verification flows (such as the ``abc`` engine in
+SBY), Yosys provides infrastructure for tracking individual formal
+properties through the verification pipeline.
+
+The `rename -witness` pass assigns public names to all cells that participate in
+the witness framework:
+
+- Witness signal cells: `$anyconst`, `$anyseq`, `$anyinit`,
+  `$allconst`, `$allseq`
+- Formal property cells: `$assert`, `$assume`, `$cover`, `$live`,
+  `$fair`, `$check`
+
+These public names allow downstream tools to refer to individual properties by
+their hierarchical path rather than by anonymous internal identifiers.
+
+The `write_aiger -ywmap` option generates a map file for conversion to and from
+Yosys witness traces, and also allows for mapping AIGER bad-state properties and
+invariant constraints back to individual formal properties by name. This enables
+features like per-property pass/fail reporting (e.g. ``abc pdr`` with
+``--keep-going`` mode).
+
+The `write_smt2` backend similarly uses the public witness names when emitting
+SMT2 comments. Cells whose ``hdlname`` attribute contains the ``_witness_``
+marker are treated as having private names for comment purposes, keeping solver
+output clean.

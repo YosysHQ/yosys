@@ -1,13 +1,18 @@
 name: Create source archive with vendored dependencies
 
-on: [push, workflow_dispatch]
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   vendor-sources:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: 'recursive'
           persist-credentials: false
@@ -27,7 +32,7 @@ jobs:
           gzip yosys-src-vendored.tar
 
       - name: Store tarball artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vendored-sources
           path: yosys-src-vendored.tar.gz

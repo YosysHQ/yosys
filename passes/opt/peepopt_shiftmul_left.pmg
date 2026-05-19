@@ -99,7 +99,7 @@ code
 	}
 
 	did_something = true;
-	log("left shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
+	log("left shiftmul pattern in %s: shift=%s, mul=%s\n", module, shift, mul);
 
 	int const_factor = mul_const.as_int();
 	int new_const_factor = 1 << factor_bits;

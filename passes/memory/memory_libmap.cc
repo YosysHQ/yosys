@@ -204,7 +204,7 @@ struct MemMapping {
 			if (!check_init(rdef))
 				continue;
 			if (rdef.prune_rom && mem.wr_ports.empty()) {
-				log_debug("memory %s.%s: rejecting mapping to %s: ROM mapping disabled (prune_rom set)\n", log_id(mem.module->name), log_id(mem.memid), log_id(rdef.id));
+				log_debug("memory %s.%s: rejecting mapping to %s: ROM mapping disabled (prune_rom set)\n", mem.module->name.unescape(), mem.memid.unescape(), rdef.id.unescape());
 				continue;
 			}
 			MemConfig cfg;
@@ -323,7 +323,7 @@ struct MemMapping {
 
 	void log_reject(const Ram &ram, std::string message) {
 		if(ys_debug(1)) {
-			rejected_cfg_debug_msgs += stringf("can't map to to %s: ", log_id(ram.id));
+			rejected_cfg_debug_msgs += stringf("can't map to to %s: ", ram.id.unescape());
 			rejected_cfg_debug_msgs += message;
 			rejected_cfg_debug_msgs += "\n";
 		}
@@ -338,7 +338,7 @@ struct MemMapping {
 				rejected_cfg_debug_msgs += portname;
 				first = false;
 			}
-			rejected_cfg_debug_msgs += stringf("] of %s: ", log_id(ram.id));
+			rejected_cfg_debug_msgs += stringf("] of %s: ", ram.id.unescape());
 			rejected_cfg_debug_msgs += message;
 			rejected_cfg_debug_msgs += "\n";
 		}
@@ -361,7 +361,7 @@ struct MemMapping {
 				rejected_cfg_debug_msgs += portname;
 				first = false;
 			}
-			rejected_cfg_debug_msgs += stringf("] of %s: ", log_id(ram.id));
+			rejected_cfg_debug_msgs += stringf("] of %s: ", ram.id.unescape());
 			rejected_cfg_debug_msgs += message;
 			rejected_cfg_debug_msgs += "\n";
 		}
@@ -380,7 +380,7 @@ void MemMapping::dump_configs(int stage) {
 		default:
 			abort();
 	}
-	log_debug("Memory %s.%s mapping candidates (%s):\n", log_id(mem.module->name), log_id(mem.memid), stage_name);
+	log_debug("Memory %s.%s mapping candidates (%s):\n", mem.module->name.unescape(), mem.memid.unescape(), stage_name);
 	if (logic_ok) {
 		log_debug("- logic fallback\n");
 		log_debug("  - cost: %f\n", logic_cost);
@@ -391,7 +391,7 @@ void MemMapping::dump_configs(int stage) {
 }
 
 void MemMapping::dump_config(MemConfig &cfg) {
-	log_debug("- %s:\n", log_id(cfg.def->id));
+	log_debug("- %s:\n", cfg.def->id.unescape());
 	for (auto &it: cfg.def->options)
 		log_debug("  - option %s %s\n", it.first, log_const(it.second));
 	log_debug("  - emulation score: %d\n", cfg.score_emu);
@@ -527,7 +527,7 @@ void MemMapping::determine_style() {
 	auto find_attr = search_for_attribute(mem, ID::lram);
 	if (find_attr.first && find_attr.second.as_bool()) {
 		kind = RamKind::Huge;
-		log("found attribute 'lram' on memory %s.%s, forced mapping to huge RAM\n", log_id(mem.module->name), log_id(mem.memid));
+		log("found attribute 'lram' on memory %s.%s, forced mapping to huge RAM\n", mem.module->name.unescape(), mem.memid.unescape());
 		return;
 	}
 	for (auto attr: {ID::ram_block, ID::rom_block, ID::ram_style, ID::rom_style, ID::ramstyle, ID::romstyle, ID::syn_ramstyle, ID::syn_romstyle}) {
@@ -536,7 +536,7 @@ void MemMapping::determine_style() {
 			Const val = find_attr.second;
 			if (val == 1) {
 				kind = RamKind::NotLogic;
-				log("found attribute '%s = 1' on memory %s.%s, disabled mapping to FF\n", log_id(attr), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = 1' on memory %s.%s, disabled mapping to FF\n", attr.unescape(), mem.module->name.unescape(), mem.memid.unescape());
 				return;
 			}
 			std::string val_s = val.decode_string();
@@ -549,20 +549,20 @@ void MemMapping::determine_style() {
 				// Nothing.
 			} else if (val_s == "logic" || val_s == "registers") {
 				kind = RamKind::Logic;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", attr.unescape(), val_s, mem.module->name.unescape(), mem.memid.unescape());
 			} else if (val_s == "distributed") {
 				kind = RamKind::Distributed;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", attr.unescape(), val_s, mem.module->name.unescape(), mem.memid.unescape());
 			} else if (val_s == "block" || val_s == "block_ram" || val_s == "ebr") {
 				kind = RamKind::Block;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", attr.unescape(), val_s, mem.module->name.unescape(), mem.memid.unescape());
 			} else if (val_s == "huge" || val_s == "ultra") {
 				kind = RamKind::Huge;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", attr.unescape(), val_s, mem.module->name.unescape(), mem.memid.unescape());
 			} else {
 				kind = RamKind::NotLogic;
 				style = val_s;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid), val_s);
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", attr.unescape(), val_s, mem.module->name.unescape(), mem.memid.unescape(), val_s);
 			}
 			return;
 		}
@@ -1991,7 +1991,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 }
 
 void MemMapping::emit(const MemConfig &cfg) {
-	log("mapping memory %s.%s via %s\n", log_id(mem.module->name), log_id(mem.memid), log_id(cfg.def->id));
+	log("mapping memory %s.%s via %s\n", mem.module->name.unescape(), mem.memid.unescape(), cfg.def->id.unescape());
 	// First, handle emulations.
 	if (cfg.emu_read_first)
 		mem.emulate_read_first(&worker.initvals);
@@ -2252,9 +2252,9 @@ struct MemoryLibMapPass : public Pass {
 				int best = map.logic_cost;
 				if (!map.logic_ok) {
 					if (map.cfgs.empty()) {
-						log_debug("Rejected candidates for mapping memory %s.%s:\n", log_id(module->name), log_id(mem.memid));
+						log_debug("Rejected candidates for mapping memory %s.%s:\n", module->name.unescape(), mem.memid.unescape());
 						log_debug("%s", map.rejected_cfg_debug_msgs);
-						log_error("no valid mapping found for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
+						log_error("no valid mapping found for memory %s.%s\n", module->name.unescape(), mem.memid.unescape());
 					}
 					idx = 0;
 					best = map.cfgs[0].cost;
@@ -2266,7 +2266,7 @@ struct MemoryLibMapPass : public Pass {
 					}
 				}
 				if (idx == -1) {
-					log("using FF mapping for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
+					log("using FF mapping for memory %s.%s\n", module->name.unescape(), mem.memid.unescape());
 				} else {
 					map.emit(map.cfgs[idx]);
 					// Rebuild indices after modifying module

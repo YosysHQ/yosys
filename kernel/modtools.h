@@ -23,6 +23,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -177,8 +178,8 @@ struct ModIndex : public RTLIL::Monitor
 
 			return false;
 		}
-		return true;
 #endif
+		return true;
 	}
 
 	void check()
@@ -319,8 +320,8 @@ struct ModIndex : public RTLIL::Monitor
 			if (it.second.is_output)
 				log("  PRIMARY OUTPUT\n");
 			for (auto &port : it.second.ports)
-				log("  PORT: %s.%s[%d] (%s)\n", log_id(port.cell),
-						log_id(port.port), port.offset, log_id(port.cell->type));
+				log("  PORT: %s.%s[%d] (%s)\n", port.cell,
+						port.port.unescape(), port.offset, port.cell->type.unescape());
 		}
 	}
 };
@@ -357,7 +358,7 @@ struct ModWalker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
-	CellTypes ct;
+	NewCellTypes ct;
 	SigMap sigmap;
 
 	dict<RTLIL::SigBit, pool<PortBit>> signal_drivers;

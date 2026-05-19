@@ -18,7 +18,7 @@
  */
 
 #include "kernel/register.h"
-#include "kernel/rtlil.h"
+#include "kernel/yosys_common.h"
 #include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
@@ -27,7 +27,8 @@ PRIVATE_NAMESPACE_BEGIN
 std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules)
 {
 	std::set<Module *> modules_set(modules.begin(), modules.end());
-	TopoSort<Module*> sort;
+	using Order = IdString::compare_ptr_by_name<RTLIL::NamedObject>;
+	TopoSort<Module*, Order> sort;
 
 	for (auto m : modules) {
 		sort.node(m);
@@ -47,6 +48,17 @@ struct AbcNewPass : public ScriptPass {
 	AbcNewPass() : ScriptPass("abc_new", "(experimental) use ABC for SC technology mapping (new)")
 	{
 		experimental();
+	}
+
+	void on_register() override
+	{
+		RTLIL::constpad["abc_new.script.speed"] = "+&st; &dch -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf; &st; &syn2; &if -g -K 6; &synch2 -r;" \
+			"&nf";
 	}
 
 	void help() override
@@ -109,6 +121,11 @@ struct AbcNewPass : public ScriptPass {
 		}
 		extra_args(args, argidx, d);
 
+		// If no script provided, use a default.
+		if (abc_exe_options.find("-script") == std::string::npos) {
+			d->scratchpad_set_string("abc9.script", RTLIL::constpad["abc_new.script.speed"]);
+		}
+
 		log_header(d, "Executing ABC_NEW pass.\n");
 		log_push();
 		run_script(d, run_from, run_to);
@@ -161,7 +178,7 @@ struct AbcNewPass : public ScriptPass {
 					tmpdir = make_temp_dir(tmpdir);
 					modname = mod->name.str();
 					exe_options = abc_exe_options;
-					log_header(active_design, "Mapping module '%s'.\n", log_id(mod));
+					log_header(active_design, "Mapping module '%s'.\n", mod);
 					log_push();
 					active_design->select(mod);
 				}

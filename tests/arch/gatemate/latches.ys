@@ -27,3 +27,23 @@ cd latchsr # Constrain all select calls below inside the top module
 select -assert-count 1 t:CC_DLT
 select -assert-max 2 t:CC_LUT3
 select -assert-none t:CC_DLT t:CC_LUT3 %% t:* %D
+
+design -load read
+hierarchy -top latchsr
+proc
+equiv_opt -async2sync -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad -luttree # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchsr # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_DLT
+select -assert-max 2 t:CC_L2T4
+select -assert-none t:CC_DLT t:CC_L2T4 %% t:* %D
+
+design -load read
+hierarchy -top latchsr
+proc
+equiv_opt -async2sync -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad -luttree -abc_new # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd latchsr # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_DLT
+select -assert-max 2 t:CC_L2T4
+select -assert-none t:CC_DLT t:CC_L2T4 %% t:* %D

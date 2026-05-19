@@ -268,7 +268,7 @@ struct XAigerWriter
 					if (ys_debug(1)) {
 						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 						if (seen.emplace(inst_module->name, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
-								log_id(cell->type), log_id(i.first.name), offset, d);
+								cell->type.unescape(), i.first.name.unescape(), offset, d);
 					}
 #endif
 					arrival_times[rhs[offset]] = d;
@@ -285,7 +285,7 @@ struct XAigerWriter
 				auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
 				auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
 				if (!is_input && !is_output)
-					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
+					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", c.first.unescape(), cell, cell->type.unescape());
 
 				if (is_input)
 					for (auto b : c.second) {
@@ -303,7 +303,7 @@ struct XAigerWriter
 					}
 			}
 
-			//log_warning("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+			//log_warning("Unsupported cell type: %s (%s)\n", cell->type.unescape(), cell);
 		}
 
 		dict<IdString, std::vector<IdString>> box_ports;
@@ -325,12 +325,12 @@ struct XAigerWriter
 					if (w->get_bool_attribute(ID::abc9_carry)) {
 						if (w->port_input) {
 							if (carry_in != IdString())
-								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(box_module));
+								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", box_module);
 							carry_in = port_name;
 						}
 						if (w->port_output) {
 							if (carry_out != IdString())
-								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", log_id(box_module));
+								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", box_module);
 							carry_out = port_name;
 						}
 					}
@@ -339,9 +339,9 @@ struct XAigerWriter
 				}
 
 				if (carry_in != IdString() && carry_out == IdString())
-					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(box_module));
+					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", box_module);
 				if (carry_in == IdString() && carry_out != IdString())
-					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(box_module));
+					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", box_module);
 				if (carry_in != IdString()) {
 					r.first->second.push_back(carry_in);
 					r.first->second.push_back(carry_out);
@@ -612,7 +612,7 @@ struct XAigerWriter
 				write_r_buffer(mergeability);
 
 				State init = init_map.at(q, State::Sx);
-				log_debug("Cell '%s' (type %s) has (* init *) value '%s'.\n", log_id(cell), log_id(cell->type), log_signal(init));
+				log_debug("Cell '%s' (type %s) has (* init *) value '%s'.\n", cell, cell->type.unescape(), log_signal(init));
 				if (init == State::S1)
 					write_s_buffer(1);
 				else if (init == State::S0)
@@ -692,12 +692,12 @@ struct XAigerWriter
 				if (input_bits.count(b)) {
 					int a = aig_map.at(b);
 					log_assert((a & 1) == 0);
-					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i, log_id(wire));
+					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i, wire);
 				}
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i, log_id(wire));
+					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i, wire);
 				}
 			}
 		}
@@ -709,7 +709,7 @@ struct XAigerWriter
 
 		int box_count = 0;
 		for (auto cell : box_list)
-			f << stringf("box %d %d %s\n", box_count++, 0, log_id(cell->name));
+			f << stringf("box %d %d %s\n", box_count++, 0, cell->name.unescape());
 
 		output_lines.sort();
 		for (auto &it : output_lines)
@@ -774,12 +774,12 @@ struct XAigerBackend : public Backend {
 			log_error("Can't find top module in current design!\n");
 
 		if (!design->selected_whole_module(top_module))
-			log_cmd_error("Can't handle partially selected module %s!\n", log_id(top_module));
+			log_cmd_error("Can't handle partially selected module %s!\n", top_module);
 
 		if (!top_module->processes.empty())
-			log_error("Found unmapped processes in module %s: unmapped processes are not supported in XAIGER backend!\n", log_id(top_module));
+			log_error("Found unmapped processes in module %s: unmapped processes are not supported in XAIGER backend!\n", top_module);
 		if (!top_module->memories.empty())
-			log_error("Found unmapped memories in module %s: unmapped memories are not supported in XAIGER backend!\n", log_id(top_module));
+			log_error("Found unmapped memories in module %s: unmapped memories are not supported in XAIGER backend!\n", top_module);
 
 		XAigerWriter writer(top_module, dff_mode);
 		writer.write_aiger(*f, ascii_mode);

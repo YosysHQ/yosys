@@ -121,7 +121,7 @@ struct OptLutWorker
 				SigSpec lut_input = cell->getPort(ID::A);
 				int lut_arity = 0;
 
-				log_debug("Found $lut\\WIDTH=%d cell %s.%s.\n", lut_width, log_id(module), log_id(cell));
+				log_debug("Found $lut\\WIDTH=%d cell %s.%s.\n", lut_width, module, cell);
 				luts.insert(cell);
 
 				// First, find all dedicated logic we're connected to. This results in an overapproximation
@@ -162,7 +162,7 @@ struct OptLutWorker
 					{
 						if (lut_width <= dlogic_conn.first)
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, module, lut_dlogic.second);
 							log_debug("    LUT input A[%d] not present.\n", dlogic_conn.first);
 							legal = false;
 							break;
@@ -173,7 +173,7 @@ struct OptLutWorker
 
 						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)[0]))
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, module, lut_dlogic.second);
 							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type, dlogic_conn.second, log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
 							legal = false;
 							break;
@@ -182,7 +182,7 @@ struct OptLutWorker
 
 					if (legal)
 					{
-						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
+						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type, module, lut_dlogic.second);
 						lut_legal_dlogics.insert(lut_dlogic);
 						for (auto &dlogic_conn : dlogic_map)
 							lut_dlogic_inputs.insert(dlogic_conn.first);
@@ -258,7 +258,7 @@ struct OptLutWorker
 
 			if (const0_match || const1_match || input_match != -1)
 			{
-				log_debug("Found redundant cell %s.%s.\n", log_id(module), log_id(lut));
+				log_debug("Found redundant cell %s.%s.\n", module, lut);
 
 				SigBit value;
 				if (const0_match)
@@ -341,7 +341,7 @@ struct OptLutWorker
 					int lutB_arity = luts_arity[lutB];
 					pool<int> &lutB_dlogic_inputs = luts_dlogic_inputs[lutB];
 
-					log_debug("Found %s.%s (cell A) feeding %s.%s (cell B).\n", log_id(module), log_id(lutA), log_id(module), log_id(lutB));
+					log_debug("Found %s.%s (cell A) feeding %s.%s (cell B).\n", module, lutA, module, lutB);
 
 					if (index.query_is_output(lutA->getPort(ID::Y)))
 					{
@@ -421,13 +421,12 @@ struct OptLutWorker
 					}
 
 					RTLIL::Cell *lutM, *lutR;
-					pool<SigBit> lutM_inputs, lutR_inputs;
+					pool<SigBit> lutR_inputs;
 					pool<int> lutM_dlogic_inputs;
 					if (combine == COMBINE_A)
 					{
 						log_debug("  Combining LUTs into cell A.\n");
 						lutM = lutA;
-						lutM_inputs = lutA_inputs;
 						lutM_dlogic_inputs = lutA_dlogic_inputs;
 						lutR = lutB;
 						lutR_inputs = lutB_inputs;
@@ -436,7 +435,6 @@ struct OptLutWorker
 					{
 						log_debug("  Combining LUTs into cell B.\n");
 						lutM = lutB;
-						lutM_inputs = lutB_inputs;
 						lutM_dlogic_inputs = lutB_dlogic_inputs;
 						lutR = lutA;
 						lutR_inputs = lutA_inputs;

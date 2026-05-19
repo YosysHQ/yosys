@@ -67,7 +67,7 @@ struct Slice {
 	int wire_offset(RTLIL::Wire *wire, int index) const {
 		int rtl_offset = indices == RtlilSlice ? index : wire->from_hdl_index(index);
 		if (rtl_offset < 0 || rtl_offset >= wire->width) {
-			log_error("Slice %s is out of bounds for wire %s in module %s", to_string(), log_id(wire), log_id(wire->module));
+			log_error("Slice %s is out of bounds for wire %s in module %s", to_string(), wire, wire->module);
 		}
 		return rtl_offset;
 	}
@@ -187,7 +187,7 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 		for (int i = 0; i < GetSize(ff.sig_q); i++) {
 			SigBit bit = ff.sig_q[i];
 			if (selected_reps.count(sigmap(bit))) {
-				log_debug("Abstracting state for %s.Q[%i] in module %s due to selections:\n", log_id(ff.cell), i, log_id(mod));
+				log_debug("Abstracting state for %s.Q[%i] in module %s due to selections:\n", ff.cell, i, mod);
 				explain_selections(selected_reps.at(sigmap(bit)));
 				offsets_to_abstract.insert(i);
 			}
@@ -271,7 +271,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 				for (int i = 0; i < conn.second.size(); i++) {
 					if (selected_reps.count(sigmap(conn.second[i]))) {
 						log_debug("Abstracting value for %s.%s[%i] in module %s due to selections:\n",
-							log_id(cell), log_id(conn.first), i, log_id(mod));
+							cell, conn.first.unescape(), i, mod);
 						explain_selections(selected_reps.at(sigmap(conn.second[i])));
 						offsets_to_abstract.insert(i);
 					}
@@ -289,7 +289,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 			for (auto bit : SigSpec(wire))
 				if (selected_reps.count(sigmap(bit))) {
 					log_debug("Abstracting value for module input port bit %s in module %s due to selections:\n",
-						log_signal(bit), log_id(mod));
+						log_signal(bit), mod);
 					explain_selections(selected_reps.at(sigmap(bit)));
 					offsets_to_abstract.insert(bit.offset);
 				}

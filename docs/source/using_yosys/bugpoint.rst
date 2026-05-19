@@ -293,7 +293,7 @@ is still valid.
    :caption: Example test.sh for C-Reduce
    :name: egtest
 
-   #!/bin/bash
+   #!/usr/bin/env bash
    verilator --lint-only test.v &&/
    yosys -p 'logger -expect error "unsupported" 1; read_verilog test.v'
 
@@ -333,7 +333,7 @@ an input argument: ``sv-bugpoint outDir/ test.sh test.v``
 .. code-block:: bash
    :caption: Example test.sh for sv-bugpoint
 
-   #!/bin/bash
+   #!/usr/bin/env bash
    verilator --lint-only $1 &&/
    yosys -p "logger -expect error \"unsupported\" 1; read_verilog $1"
 
