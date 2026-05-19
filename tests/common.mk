@@ -1,6 +1,7 @@
 ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 BUILD_DIR ?= $(ROOT_DIR)/..
 
+SBY   ?= sby
 YOSYS ?= $(BUILD_DIR)/yosys
 ABC   ?= $(BUILD_DIR)/yosys-abc
 YOSYS_FILTERLIB ?= $(BUILD_DIR)/yosys-filterlib
@@ -12,6 +13,7 @@ export YOSYS
 export YOSYS_CONFIG
 export YOSYS_SMTBMC
 export ABC
+export SBY
 export YOSYS_MAX_THREADS
 
 all:
