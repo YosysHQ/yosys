@@ -72,7 +72,7 @@ INSTALL_SUDO :=
 ifneq ($(filter MINGW%,$(OS)),)
 OS := MINGW
 endif
-TCLSH ?= tcl
+TCLSH ?= tclsh
 
 
 ifneq ($(wildcard Makefile.conf),)
