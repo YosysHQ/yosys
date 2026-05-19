@@ -1113,23 +1113,21 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	if (!r.second && conn_it->second == signal)
 		return;
 
-	if (!module)
-		return;
-
-	for (auto mon : module->monitors)
-		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-	if (module->design)
-		for (auto mon : module->design->monitors)
+	if (module) {
+		for (auto mon : module->monitors)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
+		if (module->design)
+			for (auto mon : module->design->monitors)
+				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
+	}
+
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module, this, portname.unescape(), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module ? this->module : "PATCH", this, portname.unescape(), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
-
-	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
+	if (module && module->sig_norm_index != nullptr && !ignored_cell(type)) {
 		module->sig_norm_index->dirty.insert(this);
 		if (!r.second) {
 			if (is_input_port) {
@@ -1172,7 +1170,7 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 		}
 	}
 
-	if (module->design && module->design->flagBufferedNormalized)
+	if (module && module->design && module->design->flagBufferedNormalized)
 	{
 		// We eagerly clear a driver that got disconnected by changing this port connection
 		if (conn_it->second.is_wire()) {
