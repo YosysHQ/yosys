@@ -17,17 +17,24 @@ struct TestPatchPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($add)) {
+					Cell* add = cell;
+					log_assert(add->getPort(ID::B).is_wire());
+					log_assert(add->getPort(ID::B).known_driver());
+					auto neg = add->getPort(ID::B).as_wire()->driverCell();
+					log_assert(neg->type == ID($not));
+
+
 					RTLIL::Patch patcher;
 					patcher.mod = module;
 					patcher.map = SigMap(module);
-					RTLIL::Cell* sub = patcher.addCell(NEW_ID, ID($sub));
-					// sub->connections_ = cell->connections();
-					sub->parameters = cell->parameters;
-					sub->connections_[ID::A] = cell->getPort(ID::A);
-					sub->connections_[ID::B] = cell->getPort(ID::B);
-					sub->connections_[ID::Y] = cell->getPort(ID::Y);
-					log_cell(sub);
-					patcher.patch(cell, sub);
+					auto new_cell = patcher.addNeg(NEW_ID, patcher.Sub(NEW_ID, neg->getPort(ID::A), cell->getPort(ID::A)), SigSpec());
+					// // sub->connections_ = cell->connections();
+					// sub->parameters = add->parameters;
+					// sub->connections_[ID::A] = add->getPort(ID::A);
+					// sub->connections_[ID::B] = add->getPort(ID::B);
+					// sub->connections_[ID::Y] = add->getPort(ID::Y);
+					log_cell(new_cell);
+					patcher.patch(add, new_cell);
 				}
 			}
 		}
