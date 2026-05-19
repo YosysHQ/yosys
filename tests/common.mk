@@ -5,10 +5,12 @@ YOSYS ?= $(BUILD_DIR)/yosys
 ABC   ?= $(BUILD_DIR)/yosys-abc
 YOSYS_FILTERLIB ?= $(BUILD_DIR)/yosys-filterlib
 YOSYS_CONFIG ?= $(BUILD_DIR)/yosys-config
+YOSYS_MAX_THREADS ?= 4
 
 export YOSYS
 export YOSYS_CONFIG
 export ABC
+export YOSYS_MAX_THREADS
 
 all:
 
