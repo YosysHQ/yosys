@@ -429,7 +429,7 @@ struct SimInstance
 
 		Const value = builder.build();
 		if (shared->debug)
-			log("[%s] get %s: %s\n", hiername(), log_signal(sig, true), log_signal(value, true));
+			log("[%s] get %s: %s\n", hiername(), log_signal(sig), log_signal(value, true));
 		return value;
 	}
 
@@ -448,7 +448,7 @@ struct SimInstance
 			}
 
 		if (shared->debug)
-			log("[%s] set %s: %s\n", hiername(), log_signal(sig, true), log_signal(value, true));
+			log("[%s] set %s: %s\n", hiername(), log_signal(sig), log_signal(value, true));
 		return did_something;
 	}
 
@@ -1201,7 +1201,7 @@ struct SimInstance
 	// 3) module has no processes (sim enforces proc-lowered input before this point).
 	// 4) sigmap is valid for per-bit queries on this instance.
 	// 5) shared->fst is active, i.e. this is called from FST/VCD replay flow.
-	int checkUndrivenReplaySignals()
+	int checkUndrivenReplaySignals(bool &any_undriven_found)
 	{
 		int issue_count = 0;
 		bool has_replay_candidates = false;
@@ -1231,14 +1231,14 @@ struct SimInstance
 					continue;
 
 				issue_count++;
+				any_undriven_found = true;
 				std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
-				log_warning("Input trace contains undriven signal `%s` (%s); values for this signal are not replayed from FST/VCD input.\n",
-						wire_name.c_str(), log_signal(undriven, true));
+				log_warning("Input trace contains undriven signal `%s` (%s).\n", wire_name.c_str(), log_signal(undriven));
 			}
 		}
 
 		for (auto child : children)
-			issue_count += child.second->checkUndrivenReplaySignals();
+			issue_count += child.second->checkUndrivenReplaySignals(any_undriven_found);
 
 		return issue_count;
 	}
@@ -1550,7 +1550,10 @@ struct SimWorker : SimShared
 
 		top->addAdditionalInputs();
 		if (undriven_check) {
-			int issue_count = top->checkUndrivenReplaySignals();
+			bool any_undriven_found = false;
+			int issue_count = top->checkUndrivenReplaySignals(any_undriven_found);
+			if (any_undriven_found)
+				log_warning("Values for the undriven signal(s) listed above are not replayed from FST/VCD input.\n");
 			if (issue_count > 0 && !undriven_warning)
 				log_cmd_error("Found %d undriven signal%s in the replay trace. Use -undriven-warn to continue or -no-undriven-check to disable this check.\n",
 						issue_count, issue_count == 1 ? "" : "s");
