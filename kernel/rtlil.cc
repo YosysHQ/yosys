@@ -963,7 +963,7 @@ string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 	return value;
 }
 
-void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
+std::string RTLIL::AttrObject::strpool_attribute_to_str(const pool<string> &data)
 {
 	string attrval;
 	for (const auto &s : data) {
@@ -971,7 +971,12 @@ void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<str
 			attrval += "|";
 		attrval += s;
 	}
-	set_string_attribute(id, attrval);
+	return attrval;
+}
+
+void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
+{
+	set_string_attribute(id, strpool_attribute_to_str(data));
 }
 
 void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<string> &data)

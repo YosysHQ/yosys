@@ -1285,6 +1285,7 @@ struct RTLIL::AttrObject
 	void set_string_attribute(RTLIL::IdString  id, string value);
 	string get_string_attribute(RTLIL::IdString id) const;
 
+	static std::string strpool_attribute_to_str(const pool<string> &data);
 	void set_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
 	void add_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
