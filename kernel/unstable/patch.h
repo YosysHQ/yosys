@@ -11,6 +11,10 @@ struct RTLIL::Patch final : public CellAdderMixin<RTLIL::Patch>
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
+private:
+	void collect_src(Cell* old_cell);
+	void gc(Cell* old_cell);
+
 protected:
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
@@ -18,12 +22,14 @@ protected:
 
 public:
 	Module *mod;
-	SigMap map;
+	// SigMap map;
 	vector<std::unique_ptr<Wire>> wires_;
 	vector<std::unique_ptr<Cell>> cells_;
 	Cell* root;
+	pool<Wire*> leaves;
 
-	vector<RTLIL::SigSig> connections_;
+	// vector<RTLIL::SigSig> connections_;
+	pool<string> src;
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);

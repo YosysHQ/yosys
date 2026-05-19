@@ -54,7 +54,54 @@ RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *othe
 	return wire;
 }
 
+void Patch::collect_src(Cell* old_cell) {
+	src.insert(old_cell->get_src_attribute());
+	log("collect %s\n", old_cell->name);
+	std::vector<Cell*> inputs = {};
+	for (auto [port_name, sig] : old_cell->connections()) {
+		auto dir = old_cell->port_dir(port_name);
+		log_assert(dir != PD_UNKNOWN);
+		log_assert(!sig.size() || sig.is_wire());
+		if (dir == PD_INPUT || dir == PD_INOUT) {
+			Wire* in_wire = sig.as_wire();
+			if (!leaves.count(in_wire))
+				inputs.push_back(in_wire->driverCell());
+		}
+	}
+	for (auto input : inputs)
+		collect_src(input);
+}
+
+void Patch::gc(Cell* old_cell) {
+	log("gc %s\n", old_cell->name);
+	std::vector<Cell*> inputs = {};
+	for (auto [port_name, sig] : old_cell->connections()) {
+		auto dir = old_cell->port_dir(port_name);
+		log_assert(dir != PD_UNKNOWN);
+		log_assert(!sig.size() || sig.is_wire());
+		if (dir == PD_OUTPUT || dir == PD_INOUT) {
+			if (sig.size()) {
+				for (auto bit : sig) {
+					// Reject GC if used
+					if (!mod->fanout(bit).empty())
+						return;
+				}
+			}
+		}
+		if (dir == PD_INPUT || dir == PD_INOUT) {
+			Wire* in_wire = sig.as_wire();
+			if (!leaves.count(in_wire))
+				inputs.push_back(in_wire->driverCell());
+		}
+	}
+	for (auto input : inputs)
+		gc(input);
+}
+
 void Patch::patch(Cell* old_cell, Cell* new_cell) {
+	log_assert(!leaves.empty());
+	collect_src(old_cell);
+	std::string src_str = AttrObject::strpool_attribute_to_str(src);
 	for (auto& wire: wires_) {
 		wire->module = mod;
 		Wire* raw = wire.release();
@@ -64,6 +111,7 @@ void Patch::patch(Cell* old_cell, Cell* new_cell) {
 	log_cell(old_cell);
 	for (auto& cell: cells_) {
 		log_cell(cell.get());
+		cell->set_src_attribute(src_str);
 		Cell* raw = cell.release();
 		mod->cells_[raw->name] = raw;
 		for (auto [port_name, sig] : raw->connections()) {
@@ -91,6 +139,7 @@ void Patch::patch(Cell* old_cell, Cell* new_cell) {
 		raw->fixup_parameters();
 	}
 	log_module(mod, "");
+	gc(old_cell);
 }
 
 

@@ -24,13 +24,14 @@ struct TestPatchPass : public Pass {
 					log_assert(neg->type == ID($not));
 					RTLIL::Patch patcher;
 					patcher.mod = module;
-					patcher.map = SigMap(module);
 					auto sub = patcher.addSub(NEW_ID,
 						neg->getPort(ID::A),
-						cell->getPort(ID::A),
+						add->getPort(ID::A),
 						patcher.addWire(NEW_ID, cell->getPort(ID::A).size()));
 					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(ID::Y), SigSpec());
 					log_cell(new_cell);
+					patcher.leaves.insert(neg->getPort(ID::A).as_wire());
+					patcher.leaves.insert(add->getPort(ID::A).as_wire());
 					patcher.patch(add, new_cell);
 				}
 			}
