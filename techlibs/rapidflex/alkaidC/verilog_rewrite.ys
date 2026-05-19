@@ -1,0 +1,41 @@
+# Yosys synthesis script for ${TOP_MODULE}
+# Read verilog files
+read_verilog ${READ_VERILOG_OPTIONS} ${VERILOG_FILES}
+
+# Technology mapping
+hierarchy -top ${TOP_MODULE}
+proc
+techmap -D NO_LUT -map +/adff2dff.v
+
+# Synthesis
+flatten
+opt_expr
+opt_clean
+check
+opt -nodffe -nosdff
+fsm
+opt -nodffe -nosdff
+wreduce
+peepopt
+opt_clean
+opt -nodffe -nosdff
+memory -nomap
+opt_clean
+opt -fast -full -nodffe -nosdff
+memory_map
+opt -full -nodffe -nosdff
+techmap
+opt -fast -nodffe -nosdff
+clean
+
+clean
+
+# LUT mapping
+abc -lut ${LUT_SIZE}
+
+# Check
+synth -run check
+
+# Clean and output blif
+opt_clean -purge
+write_verilog ${OUTPUT_VERILOG}

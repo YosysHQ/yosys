@@ -1,0 +1,128 @@
+# Yosys synthesis script for ${TOP_MODULE}
+
+#########################
+# Parse input files
+#########################
+# Read verilog files
+read_verilog ${READ_VERILOG_OPTIONS} ${VERILOG_FILES}
+# Read technology library
+read_verilog -lib -specify ${YOSYS_CELL_SIM_VERILOG}
+
+#########################
+# Prepare for synthesis
+#########################
+# Identify top module from hierarchy
+hierarchy -check -top ${TOP_MODULE}
+# - Convert process blocks to AST
+proc
+# Flatten all the gates/primitives
+flatten
+# Identify tri-state buffers from 'z' signal in AST
+# with follow-up optimizations to clean up AST
+tribuf -logic
+opt_expr
+opt_clean
+# demote inout ports to input or output port
+# with follow-up optimizations to clean up AST
+deminout
+opt -nodffe 
+
+opt_expr
+opt_clean
+check
+opt -nodffe
+wreduce -keepdc
+peepopt
+pmuxtree
+opt_clean
+
+########################
+# Map multipliers
+# Inspired from synth_xilinx.cc
+#########################
+# Avoid merging any registers into DSP, reserve memory port registers first
+#memory_dff
+#wreduce t:$mul
+#techmap -map +/mul2dsp.v -map ${YOSYS_DSP_MAP_VERILOG} ${YOSYS_DSP_MAP_PARAMETERS}
+#select a:mul2dsp
+#setattr -unset mul2dsp
+#opt_expr -fine
+#wreduce
+#select -clear
+#chtype -set $mul t:$__soft_mul# Extract arithmetic functions
+
+#########################
+# Run coarse synthesis
+#########################
+# Run a tech map with default library
+alumacc
+#techmap -map +/techmap.v -map ${YOSYS_ADDER_MAP_VERILOG}
+#opt -fast -nodffe
+#opt_expr
+#opt_merge
+#opt_clean
+#opt -nodffe
+#share
+#opt -nodffe
+#fsm
+# Run a quick follow-up optimization to sweep out unused nets/signals
+#opt -fast -nodffe
+opt
+# Optimize any memory cells by merging share-able ports and collecting all the ports belonging to memorcy cells  
+memory -nomap
+opt_clean
+
+#########################
+# Map logics to BRAMs
+#########################
+#memory_bram -rules ${YOSYS_BRAM_MAP_RULES}
+#techmap -map ${YOSYS_BRAM_MAP_VERILOG}
+#opt -fast -mux_undef -undriven -fine -nodffe
+#memory_map
+#opt -undriven -fine -nodffe
+
+########################
+# Map Adders  
+techmap -map +/techmap.v -map ${YOSYS_ADDER_MAP_VERILOG}
+opt -fast -nodffe
+opt_expr
+opt_merge
+opt_clean
+opt -nodffe
+
+#########################
+# Map flip-flops
+#########################
+memory
+dfflegalize -cell $_DFF_?_ 01 -cell $_DFF_???_ 01 -cell $_SDFF_???_ 01 
+techmap -map +/techmap.v -map ${YOSYS_DFF_MAP_VERILOG}
+dfflegalize -cell $_DFF_?_ 01 -cell $_DFF_???_ 01 -cell $_SDFF_???_ 01 
+techmap -map +/techmap.v -map ${YOSYS_DFF_MAP_VERILOG}
+opt_expr -mux_undef
+simplemap
+opt_expr
+opt_merge
+opt_dff -nodffe
+opt_clean
+opt -nodffe
+
+#########################
+# Map LUTs
+#########################
+abc -lut ${LUT_SIZE}
+# Map dff again since ABC may generate some new FFs
+techmap -map ${YOSYS_DFF_MAP_VERILOG}
+techmap -map ${YOSYS_ADDER_MAP_VERILOG}
+
+#########################
+# Check and show statisitics
+#########################
+hierarchy -check
+stat
+
+#########################
+# Output netlists
+#########################
+opt_clean -purge
+write_blif ${OUTPUT_BLIF}
+write_verilog ${TOP_MODULE}_post_synth.v
