@@ -37,6 +37,7 @@ Wire* Patch::addWire(IdString name, int width) {
 
 // TODO code golf
 
+
 RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
 {
 	RTLIL::Wire *wire = addWire(std::move(name));
@@ -76,6 +77,7 @@ void Patch::patch(Cell* old_cell, Cell* new_cell) {
 			if (raw == new_cell)
 				if (dir == PD_OUTPUT || dir == PD_INOUT) {
 					// RAUW
+					// TODO optimized implementation for signorm fanout transfer?
 					old_cell->setPort(port_name, mod->addWire(NEW_ID, sig.size()));
 					new_cell->setPort(port_name, sig);
 					auto* wire = sig.as_wire();

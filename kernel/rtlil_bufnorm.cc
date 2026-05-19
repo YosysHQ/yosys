@@ -1090,7 +1090,7 @@ static bool ignored_cell(const RTLIL::IdString& type)
 void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
 	bool is_input_port = false;
-	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
+	if (module && module->sig_norm_index != nullptr && !ignored_cell(type)) {
 		module->sig_norm_index->sigmap.apply(signal);
 		auto dir = port_dir(portname);
 
@@ -1111,6 +1111,9 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	auto r = connections_.insert(portname);
 	auto conn_it = r.first;
 	if (!r.second && conn_it->second == signal)
+		return;
+
+	if (!module)
 		return;
 
 	for (auto mon : module->monitors)
