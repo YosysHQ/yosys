@@ -59,7 +59,7 @@ generate_sby() {
 
 if [ -f $prefix.ys ]; then
 	set -x
-	$PWD/../../yosys -q -e "Assert .* failed." -s $prefix.ys
+	${YOSYS} -q -e "Assert .* failed." -s $prefix.ys
 elif [ -f $prefix.sv ]; then
 	generate_sby pass > ${prefix}_pass.sby
 	generate_sby fail > ${prefix}_fail.sby
@@ -67,8 +67,8 @@ elif [ -f $prefix.sv ]; then
 	# Check that SBY is up to date enough for this yosys version
 	if sby --help | grep -q -e '--status'; then
 		set -x
-		sby --yosys $PWD/../../yosys -f ${prefix}_pass.sby
-		sby --yosys $PWD/../../yosys -f ${prefix}_fail.sby
+		sby --yosys ${YOSYS} -f ${prefix}_pass.sby
+		sby --yosys ${YOSYS} -f ${prefix}_fail.sby
 	else
 		echo "sva test '${prefix}' requires an up to date SBY, skipping"
 	fi
@@ -78,7 +78,7 @@ else
 	# Check that SBY is up to date enough for this yosys version
 	if sby --help | grep -q -e '--status'; then
 		set -x
-		sby --yosys $PWD/../../yosys -f ${prefix}.sby
+		sby --yosys ${YOSYS} -f ${prefix}.sby
 	else
 		echo "sva test '${prefix}' requires an up to date SBY, skipping"
 	fi

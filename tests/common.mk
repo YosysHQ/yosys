@@ -1,3 +1,15 @@
+ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+BUILD_DIR ?= $(ROOT_DIR)/..
+
+YOSYS ?= $(BUILD_DIR)/yosys
+ABC   ?= $(BUILD_DIR)/yosys-abc
+YOSYS_FILTERLIB ?= $(BUILD_DIR)/yosys-filterlib
+YOSYS_CONFIG ?= $(BUILD_DIR)/yosys-config
+
+export YOSYS
+export YOSYS_CONFIG
+export ABC
+
 all:
 
 ifndef OVERRIDE_MAIN
