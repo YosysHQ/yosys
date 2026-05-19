@@ -23,6 +23,7 @@ Cell* Patch::addCell(IdString name, IdString type) {
 	Cell* cell = cells_.back().get();
 	cell->name = name;
 	cell->type = type;
+	cell->module = nullptr;
 	return cell;
 }
 
@@ -32,6 +33,7 @@ Wire* Patch::addWire(IdString name, int width) {
 	Wire* wire = wires_.back().get();
 	wire->name = name;
 	wire->width = width;
+	wire->module = nullptr;
 	return wire;
 }
 
@@ -54,53 +56,39 @@ RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *othe
 
 void Patch::patch(Cell* old_cell, Cell* new_cell) {
 	for (auto& wire: wires_) {
+		wire->module = mod;
 		Wire* raw = wire.release();
 		mod->wires_[raw->name] = raw;
-	}
-	pool<Cell*> patch_cells;
-	for (auto& cell: cells_) {
-		patch_cells.insert(cell.get());
 	}
 	log("patching:\n");
 	log_cell(old_cell);
 	for (auto& cell: cells_) {
-		log("with:\n");
 		log_cell(cell.get());
-		log("ptr %p\n", cell.get());
 		Cell* raw = cell.release();
-		log("ptr2 %p\n", raw);
 		mod->cells_[raw->name] = raw;
-		raw->module = mod;
 		for (auto [port_name, sig] : raw->connections()) {
 			auto dir = raw->port_dir(port_name);
 			log_assert(dir != PD_UNKNOWN);
-			if (raw == new_cell)
-				if (dir == PD_OUTPUT || dir == PD_INOUT) {
+			if (dir == PD_OUTPUT || dir == PD_INOUT) {
+				SigSpec sig_to_fix = sig;
+				if (raw == new_cell) {
 					// RAUW
-					// TODO optimized implementation for signorm fanout transfer?
-					old_cell->setPort(port_name, mod->addWire(NEW_ID, sig.size()));
-					new_cell->setPort(port_name, sig);
-					auto* wire = sig.as_wire();
-					wire->driverCell_ = new_cell;
+					// TODO optimized implementation for signorm fanout transfer that avoids expensive(?) setPort?
+					auto yoink = old_cell->getPort(port_name);
+					log(">>>> RAUW %s to %s\n", port_name, log_signal(yoink));
+					new_cell->setPort(port_name, yoink);
+					old_cell->setPort(port_name, mod->addWire(NEW_ID, yoink.size()));
+					sig_to_fix = yoink;
+				}
+				if (sig_to_fix.size()) {
+					auto* wire = sig_to_fix.as_wire();
+					wire->driverCell_ = raw;
 					wire->driverPort_ = port_name;
 				}
-				// } else {
-				// 	new_cell->setPort(port_name, sig); // map?
-					// for (auto chunk : map(sig).chunks()) {
-					// 	if (chunk.size() == 0)
-					// 		continue;
-					// 	log_assert(chunk.is_wire());
-					// 	auto* wire = chunk.wire;
-					// 	// TODO Use roots instead?
-					// 	if (patch_cells.count(wire->driverCell_)) {
-					// 		// How do we handle this?
-					// 		log_assert(false);
-					// 	} else {
-					// 		// mod->sig_norm_index
-
-					// 	}
-					// }
+			}
 		}
+		raw->module = mod;
+		raw->fixup_parameters();
 	}
 	log_module(mod, "");
 }

@@ -20,19 +20,16 @@ struct TestPatchPass : public Pass {
 					Cell* add = cell;
 					log_assert(add->getPort(ID::B).is_wire());
 					log_assert(add->getPort(ID::B).known_driver());
-					auto neg = add->getPort(ID::B).as_wire()->driverCell();
+					auto neg = add->getPort(ID::B)[0].wire->driverCell();
 					log_assert(neg->type == ID($not));
-
-
 					RTLIL::Patch patcher;
 					patcher.mod = module;
 					patcher.map = SigMap(module);
-					auto new_cell = patcher.addNeg(NEW_ID, patcher.Sub(NEW_ID, neg->getPort(ID::A), cell->getPort(ID::A)), SigSpec());
-					// // sub->connections_ = cell->connections();
-					// sub->parameters = add->parameters;
-					// sub->connections_[ID::A] = add->getPort(ID::A);
-					// sub->connections_[ID::B] = add->getPort(ID::B);
-					// sub->connections_[ID::Y] = add->getPort(ID::Y);
+					auto sub = patcher.addSub(NEW_ID,
+						neg->getPort(ID::A),
+						cell->getPort(ID::A),
+						patcher.addWire(NEW_ID, cell->getPort(ID::A).size()));
+					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(ID::Y), SigSpec());
 					log_cell(new_cell);
 					patcher.patch(add, new_cell);
 				}
