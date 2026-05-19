@@ -27,13 +27,35 @@ Cell* Patch::addCell(IdString name, IdString type) {
 }
 
 Wire* Patch::addWire(IdString name, int width) {
-	(void)name;
-	(void)width;
-	log_assert(false);
-	return nullptr;
+	wires_.push_back(std::make_unique<Wire>(Wire::ConstructToken{}));
+
+	Wire* wire = wires_.back().get();
+	wire->name = name;
+	wire->width = width;
+	return wire;
+}
+
+// TODO code golf
+
+RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
+{
+	RTLIL::Wire *wire = addWire(std::move(name));
+	wire->width = other->width;
+	wire->start_offset = other->start_offset;
+	wire->port_id = other->port_id;
+	wire->port_input = other->port_input;
+	wire->port_output = other->port_output;
+	wire->upto = other->upto;
+	wire->is_signed = other->is_signed;
+	wire->attributes = other->attributes;
+	return wire;
 }
 
 void Patch::patch(Cell* old_cell, Cell* new_cell) {
+	for (auto& wire: wires_) {
+		Wire* raw = wire.release();
+		mod->wires_[raw->name] = raw;
+	}
 	pool<Cell*> patch_cells;
 	for (auto& cell: cells_) {
 		patch_cells.insert(cell.get());
