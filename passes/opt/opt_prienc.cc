@@ -173,20 +173,11 @@ struct OptPriEncWorker {
 	// Wires with a valid power-of-2-friendly width are preferred but we let
 	// the fingerprint be the final arbiter.
 	vector<Wire*> find_candidate_Ts(Wire* S_wire,
-	                                const pool<Cell*>& cone_cells,
-	                                const pool<SigBit>& leaf_bits) {
-		pool<SigBit> cone_bits = leaf_bits;
-		for (Cell* c : cone_cells) {
-			for (auto& conn : c->connections()) {
-				if (!c->output(conn.first)) continue;
-				for (auto bit : sigmap(conn.second))
-					if (bit.wire) cone_bits.insert(bit);
-			}
-		}
+	                                const pool<SigBit>& cone_bits,
+	                                const vector<Wire*>& possible_Ts) {
 		vector<Wire*> out;
-		for (Wire* w : module->wires()) {
+		for (Wire* w : possible_Ts) {
 			if (w == S_wire) continue;
-			if (w->width < min_input_width || w->width > max_input_width) continue;
 			bool all_in = true;
 			for (auto bit : sigmap(SigSpec(w))) {
 				if (!cone_bits.count(bit)) { all_in = false; break; }
@@ -403,8 +394,39 @@ struct OptPriEncWorker {
 		IdString out_port;
 	};
 
+	bool get_sole_whole_wire_driver(Wire* S_wire, Cell*& sole_driver, IdString& out_port) {
+		SigSpec S_sig = sigmap(SigSpec(S_wire));
+		pool<Cell*> drivers;
+		for (auto bit : S_sig) {
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) return false;
+			drivers.insert(it->second);
+		}
+		if (GetSize(drivers) != 1) return false;
+		sole_driver = *drivers.begin();
+
+		SigSpec out_sig;
+		for (auto& conn : sole_driver->connections()) {
+			if (sole_driver->output(conn.first)) {
+				out_port = conn.first;
+				out_sig = sigmap(conn.second);
+				break;
+			}
+		}
+		return out_sig == S_sig;
+	}
+
 	void run() {
 		vector<Wire*> wires_snapshot(module->wires().begin(), module->wires().end());
+		dict<int, vector<Wire*>> possible_Ts_by_Wbits;
+		for (Wire* w : wires_snapshot) {
+			if (w->width < min_input_width || w->width > max_input_width) continue;
+			int W_full = clog2_int(w->width + 1);
+			int W_short = clog2_int(w->width);
+			possible_Ts_by_Wbits[W_full].push_back(w);
+			if (W_short != W_full)
+				possible_Ts_by_Wbits[W_short].push_back(w);
+		}
 
 		// Stage 1: build candidate set with cones, filter by driver/width.
 		vector<Candidate> candidates;
@@ -414,30 +436,14 @@ struct OptPriEncWorker {
 			int Wbits = S_wire->width;
 			if (Wbits < 2 || Wbits > max_W) continue;
 
+			Cell* sole_driver = nullptr;
+			IdString out_port;
+			if (!get_sole_whole_wire_driver(S_wire, sole_driver, out_port)) continue;
+
 			pool<Cell*> cone_cells;
 			pool<SigBit> leaf_bits;
 			if (!get_cone(SigSpec(S_wire), cone_cells, leaf_bits)) continue;
 			if (cone_cells.empty()) continue;
-
-			SigSpec S_sig = sigmap(SigSpec(S_wire));
-			pool<Cell*> drivers;
-			for (auto bit : S_sig) {
-				auto it = bit_to_driver.find(bit);
-				if (it == bit_to_driver.end()) { drivers.clear(); break; }
-				drivers.insert(it->second);
-			}
-			if (GetSize(drivers) != 1) continue;
-			Cell* sole_driver = *drivers.begin();
-			IdString out_port;
-			SigSpec out_sig;
-			for (auto& conn : sole_driver->connections()) {
-				if (sole_driver->output(conn.first)) {
-					out_port = conn.first;
-					out_sig = sigmap(conn.second);
-					break;
-				}
-			}
-			if (out_sig != S_sig) continue;
 
 			pool<SigBit> cone_bits = leaf_bits;
 			for (Cell* c : cone_cells) {
@@ -477,13 +483,11 @@ struct OptPriEncWorker {
 			int Wbits = cand.S_wire->width;
 			SigSpec S_sig = sigmap(SigSpec(cand.S_wire));
 
-			vector<Wire*> Ts = find_candidate_Ts(cand.S_wire, cand.cone_cells, cand.leaf_bits);
+			auto possible_Ts_it = possible_Ts_by_Wbits.find(Wbits);
+			if (possible_Ts_it == possible_Ts_by_Wbits.end()) continue;
+			vector<Wire*> Ts = find_candidate_Ts(cand.S_wire, cand.cone_bits, possible_Ts_it->second);
 			for (Wire* T_wire : Ts) {
 				int N = T_wire->width;
-				int W_full = clog2_int(N + 1);
-				int W_short = clog2_int(N);
-				if (Wbits != W_full && Wbits != W_short) continue;
-
 				SigSpec T_sig = sigmap(SigSpec(T_wire));
 				PEVariant variant = fingerprint(T_sig, S_sig, N, Wbits);
 				if (variant == PEVariant::NONE) continue;
