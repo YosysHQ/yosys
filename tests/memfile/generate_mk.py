@@ -40,19 +40,19 @@ def create_tests():
 
     gen_tests_makefile.generate_cmd_test("child_content1", [
         f"{setup}",
-        'cd temp && ../$(YOSYS) -qp "read_verilog -defer ../memory.v; '
+        'cd temp && $(YOSYS) -qp "read_verilog -defer ../memory.v; '
         'chparam -set MEMFILE \\"content1.dat\\" memory"'
     ])
 
     gen_tests_makefile.generate_cmd_test("child_content2_temp", [
         f"{setup}",
-        'cd temp && ../$(YOSYS) -qp "read_verilog -defer ../memory.v; '
+        'cd temp && $(YOSYS) -qp "read_verilog -defer ../memory.v; '
         'chparam -set MEMFILE \\"temp/content2.dat\\" memory"'
     ])
 
     gen_tests_makefile.generate_cmd_test("child_content2_direct", [
         f"{setup}",
-        'cd temp && ../$(YOSYS) -qp "read_verilog -defer ../memory.v; '
+        'cd temp && $(YOSYS) -qp "read_verilog -defer ../memory.v; '
         'chparam -set MEMFILE \\"temp/content2.dat\\" memory"'
     ])
 
