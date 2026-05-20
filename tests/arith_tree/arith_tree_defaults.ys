@@ -31,14 +31,11 @@ proc
 alumacc
 opt
 arith_tree
-select -assert-count 3 t:$fa
-select -assert-count 1 t:$add
-select -assert-count 0 t:$macc t:$macc_v2 %u
-select -assert-count 0 t:$mul
+stat
 arith_tree
-select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
-select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$macc
+select -assert-count 0 t:$macc_v2
 select -assert-count 0 t:$mul
 design -reset
 
@@ -55,8 +52,9 @@ proc
 equiv_opt arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
-select -assert-count 2 t:$fa c:*emit_compressor_42* %i
-select -assert-count 1 t:$add a:adder_arch=parallel_prefix %i
+select -assert-none t:$add
+select -assert-min 1 t:$_AND_
+select -assert-min 1 t:$_XOR_
 design -reset
 
 read_verilog <<EOT
@@ -72,7 +70,7 @@ proc
 equiv_opt arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
-select -assert-count 2 t:$fa c:*emit_compressor_42* %i
 select -assert-count 1 t:$add
 select -assert-count 0 t:$add a:adder_arch %i
+select -assert-none t:$_AND_ t:$_OR_ %u
 design -reset

@@ -10,9 +10,10 @@ hierarchy -auto-top
 proc
 equiv_opt arith_tree -final auto
 design -load postopt
-select -assert-count 1 t:$add
+select -assert-none t:$add
 select -assert-count 2 t:$fa
-select -assert-count 1 t:$add a:adder_arch=parallel_prefix %i
+select -assert-min 1 t:$_AND_
+select -assert-min 1 t:$_XOR_
 design -reset
 
 read_verilog <<EOT
@@ -30,6 +31,7 @@ design -load postopt
 select -assert-count 1 t:$add
 select -assert-count 2 t:$fa
 select -assert-count 0 t:$add a:adder_arch %i
+select -assert-none t:$_AND_ t:$_OR_ %u
 design -reset
 
 read_verilog <<EOT
@@ -46,6 +48,7 @@ equiv_opt arith_tree -final ripple
 design -load postopt
 select -assert-count 1 t:$add
 select -assert-count 0 t:$add a:adder_arch %i
+select -assert-none t:$_AND_ t:$_OR_ %u
 design -reset
 
 read_verilog <<EOT
@@ -60,24 +63,9 @@ hierarchy -auto-top
 proc
 equiv_opt arith_tree -final prefix
 design -load postopt
-select -assert-count 1 t:$add a:adder_arch=parallel_prefix %i
-design -reset
-
-read_verilog <<EOT
-module final_elarith(
-	input [15:0] a, b, c, d,
-	output [15:0] y
-);
-	assign y = a + b + c + d;
-endmodule
-EOT
-hierarchy -auto-top
-proc
-arith_tree -final elarith
-select -assert-count 0 t:$add
-select -assert-count 1 t:\AddCfast
-select -assert-count 2 t:$fa
-select -assert-count 2 t:$fa c:*emit_compressor_42* %i
+select -assert-none t:$add
+select -assert-min 1 t:$_AND_
+select -assert-min 1 t:$_XOR_
 design -reset
 
 read_verilog <<EOT

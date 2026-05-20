@@ -306,6 +306,87 @@ inline std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<
 }
 
 /**
+ * emit_kogge_stone() - Emit a Kogge-Stone parallel-prefix adder
+ * @module: The Yosys module to which the gates will be added
+ * @a: Signal A
+ * @b: Signal B
+ * @y: Signal Y = (A + B) mod 2^W
+ */
+inline void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y)
+{
+	int width = GetSize(y);
+	log_assert(GetSize(a) == width);
+	log_assert(GetSize(b) == width);
+
+	if (width == 0)
+		return;
+
+	if (width == 1) {
+		module->addXorGate(NEW_ID, a[0], b[0], y[0]);
+		return;
+	}
+
+	// Bit level gen and prop
+	std::vector<SigBit> g_pre(width), p_pre(width);
+	for (int i = 0; i < width; i++) {
+		SigBit gi = module->addWire(NEW_ID);
+		SigBit pi = module->addWire(NEW_ID);
+		module->addAndGate(NEW_ID, a[i], b[i], gi);
+		module->addXorGate(NEW_ID, a[i], b[i], pi);
+		g_pre[i] = gi;
+		p_pre[i] = pi;
+	}
+
+	// Propagate (g, p) through ceil(log2 W) levels
+	std::vector<SigBit> g = g_pre;
+	std::vector<SigBit> p = p_pre;
+	int num_levels = 0;
+
+	while ((1 << num_levels) < width)
+		num_levels++;
+
+	for (int k = 1; k <= num_levels; k++) {
+		int s = 1 << (k - 1);
+		std::vector<SigBit> g_next(width), p_next(width);
+		for (int i = 0; i < width; i++) {
+			if (i < s) {
+				// Nothing to do
+				g_next[i] = g[i];
+				p_next[i] = p[i];
+			} else {
+				// g_i^k = g_i | (p_i & g_(i-s))
+				SigBit and_pg = module->addWire(NEW_ID);
+				module->addAndGate(NEW_ID, p[i], g[i - s], and_pg);
+				SigBit gnew = module->addWire(NEW_ID);
+				module->addOrGate(NEW_ID, g[i], and_pg, gnew);
+				g_next[i] = gnew;
+
+				// p_i^k = p_i & p_(i-s)
+				if (k < num_levels) {
+					SigBit pnew = module->addWire(NEW_ID);
+					module->addAndGate(NEW_ID, p[i], p[i - s], pnew);
+					p_next[i] = pnew;
+				} else {
+					// Skip last level
+					p_next[i] = State::Sx;
+				}
+			}
+		}
+
+		g = std::move(g_next);
+		p = std::move(p_next);
+	}
+
+	// Sum layer, g[i] is COUT of bit i
+	// With CIN 0:
+	//   sum[0] = p_pre[0]
+	//   sum[i] = p_pre[i] ^ g[i-1] ...
+	module->connect(y[0], p_pre[0]);
+	for (int i = 1; i < width; i++)
+		module->addXorGate(NEW_ID, p_pre[i], g[i - 1], y[i]);
+}
+
+/**
  * emit_final_adder() - Emit the final carry-propagate addition between the two reduced vectors
  * @module:The Yosys module to which the compressors will be added
  * @a: Signal A
@@ -323,9 +404,8 @@ inline Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, F
 			return module->addAdd(NEW_ID, a, b, y, false);
 		}
 		case FinalAdder::PARALLEL_PREFIX: {
-			Cell *c = module->addAdd(NEW_ID, a, b, y,false);
-			c->set_string_attribute(ID(adder_arch), "parallel_prefix");
-			return c;
+			emit_kogge_stone(module, a, b, y);
+			return nullptr;
 		}
 		case FinalAdder::ELARITH_MOP_CSV: {
 			Cell *c = module->addCell(NEW_ID, IdString("\\AddMopCsv"));
@@ -347,6 +427,7 @@ inline FinalAdder pick_final_adder(int width, FinalMode mode) {
 	switch (mode) {
 		case FinalMode::RIPPLE:  return FinalAdder::RIPPLE;
 		case FinalMode::PREFIX:  return FinalAdder::PARALLEL_PREFIX;
+		case FinalMode::ELARITH: return FinalAdder::ELARITH_MOP_CSV;
 		case FinalMode::AUTO:
 		default:                 return (width < RIPPLE_PREFIX_THRESHOLD) ? FinalAdder::DEFAULT : FinalAdder::PARALLEL_PREFIX;
 	}

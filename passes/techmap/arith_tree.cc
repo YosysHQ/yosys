@@ -479,10 +479,6 @@ struct ArithTreePass : public Pass {
 		log("\n");
 		log("    -final <auto|ripple|prefix|elarith>\n");
 		log("        Selects the architecture used for the final two-vector add.\n");
-		log("        'auto' (default) emits a ripple-style $add for narrow widths\n");
-		log("        (< 16 bits) and a parallel prefix hinted $add for wider ones.\n");
-		log("        'elarith' emits an \\AddCfast black-box from the ELArith\n");
-		log("        library; the surrounding flow must provide that module.\n");
 		log("\n");
 		log("    -no-fma\n");
 		log("        Disable fused multiply-add expansion in $macc cells\n");
