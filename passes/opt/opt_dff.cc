@@ -41,6 +41,7 @@ struct OptDffOptions
 	bool simple_dffe;
 	bool sat;
 	bool keepdc;
+	bool eqbits;
 };
 
 struct OptDffWorker
@@ -977,6 +978,10 @@ struct OptDffWorker
 
 	bool run_eqbits()
 	{
+		if(!opt.eqbits) {
+			return false;
+		}
+
 		std::vector<EqBit> bits;
 		std::vector<SigKey> keys;
 		dict<Cell*, FfData> ff_for_cell;
@@ -1253,6 +1258,11 @@ struct OptDffPass : public Pass {
 		log("        all result bits to be set to x. this behavior changes when 'a+0' is\n");
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
 		log("\n");
+		log("    -eqbits\n");
+		log("        finds groups of flip flop bits provably holding always-equal values\n");
+		log("        across cycles and collapses each group to a single bit, potentially\n");
+		log("        reducing the number of required flip flops.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -1265,6 +1275,7 @@ struct OptDffPass : public Pass {
 		opt.simple_dffe = false;
 		opt.keepdc = false;
 		opt.sat = false;
+		opt.eqbits = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1273,6 +1284,7 @@ struct OptDffPass : public Pass {
 			if (args[argidx] == "-simple-dffe") { opt.simple_dffe = true; continue; }
 			if (args[argidx] == "-keepdc") { opt.keepdc = true; continue; }
 			if (args[argidx] == "-sat") { opt.sat = true; continue; }
+			if (args[argidx] == "-eqbits") { opt.eqbits = true; continue; }
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1284,7 +1296,7 @@ struct OptDffPass : public Pass {
 				did_something = true;
 			if (worker.run_constbits())
 				did_something = true;
-			if (opt.sat && worker.run_eqbits())
+			if (worker.run_eqbits())
 				did_something = true;
 		}
 
