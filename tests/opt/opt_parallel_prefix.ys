@@ -1,0 +1,745 @@
+# Tests for opt_parallel_prefix
+#
+# Notation:
+#   N = number of leaves in the prefix chain (so N-1 cells originally)
+#   For full-demand chains (all intermediates as port outputs), expected
+#   network cell counts and depths per topology are:
+#     Kogge-Stone : cells = sum_{l=0..ceil(log2 N)-1} (N - 2^l), depth = ceil(log2 N)
+#     Sklansky    : cells = sum_{l=0..ceil(log2 N)-1} (N - 2^l rounded up to half-block boundaries)
+#                   depth = ceil(log2 N)
+#     Brent-Kung  : cells ~= 2N - log2(N) - 2 (power-of-2 N), depth = 2*ceil(log2 N) - 2
+#     Han-Carlson : cells ~= N/2 * log2(N) (power-of-2 N), depth = ceil(log2 N) + 1
+
+# ============================================================================
+# Group A: Basic correctness for each supported op (equiv only)
+# ============================================================================
+
+# Test A1: 4-input AND prefix chain
+log -header "A1: 4-input AND prefix chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire y1, y2, y3
+);
+  assign y1 = a & b;
+  assign y2 = y1 & c;
+  assign y3 = y2 & d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+# Kogge-Stone N=4: cells = 5, depth = 2
+select t:$and -assert-count 5
+# All cells reachable from outputs within 2 cell-layers (= depth <= 2)
+select o:* %ci2 %ci2 t:$and %i -assert-count 5
+design -reset
+log -pop
+
+# Test A2: 4-input OR prefix chain
+log -header "A2: 4-input OR prefix chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire y1, y2, y3
+);
+  assign y1 = a | b;
+  assign y2 = y1 | c;
+  assign y3 = y2 | d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+select t:$or -assert-count 5
+design -reset
+log -pop
+
+# Test A3: 4-input XOR prefix chain
+log -header "A3: 4-input XOR prefix chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire y1, y2, y3
+);
+  assign y1 = a ^ b;
+  assign y2 = y1 ^ c;
+  assign y3 = y2 ^ d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+select t:$xor -assert-count 5
+design -reset
+log -pop
+
+# Test A4: 4-input ADD prefix chain (4-bit operands)
+log -header "A4: 4-input ADD prefix chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3,
+  output wire [5:0] y1, y2, y3
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+select t:$add -assert-count 5
+design -reset
+log -pop
+
+# Test A5: 4-input MUL prefix chain (structural check only -- SAT-based equiv
+# on multipliers is impractical, like opt_balance_tree.ys we skip equiv_opt
+# for $mul chains)
+log -header "A5: 4-input MUL prefix chain (structural)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [1:0] x0, x1, x2, x3,
+  output wire [3:0] y1,
+  output wire [5:0] y2,
+  output wire [7:0] y3
+);
+  assign y1 = x0 * x1;
+  assign y2 = y1 * x2;
+  assign y3 = y2 * x3;
+endmodule
+EOF
+check -assert
+proc
+opt_clean
+select -assert-count 3 t:$mul
+opt_parallel_prefix
+# Kogge-Stone N=4: 5 cells
+select t:$mul -assert-count 5
+select o:* %ci2 %ci2 t:$mul %i -assert-count 5
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group B: Structural depth checks (default Kogge-Stone)
+# ============================================================================
+
+# Test B1: 8-leaf 1-bit ADD chain, KS expects depth 3, cells = 17
+log -header "B1: 8-leaf ADD chain (KS depth 3, 17 cells)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  output wire [4:0] y1,
+  output wire [5:0] y2, y3,
+  output wire [6:0] y4, y5, y6, y7
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+  assign y4 = y3 + x4;
+  assign y5 = y4 + x5;
+  assign y6 = y5 + x6;
+  assign y7 = y6 + x7;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+select t:$add -assert-count 17
+# Depth = 3, so 3 layers of fanin (each %ci2 is one cell-layer)
+select o:* %ci2 %ci2 %ci2 t:$add %i -assert-count 17
+design -reset
+log -pop
+
+# Test B2: 16-leaf AND chain, KS expects depth 4
+log -header "B2: 16-leaf AND chain (KS depth 4)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  output wire [14:0] y
+);
+  assign y[0]  = x[0]  & x[1];
+  assign y[1]  = y[0]  & x[2];
+  assign y[2]  = y[1]  & x[3];
+  assign y[3]  = y[2]  & x[4];
+  assign y[4]  = y[3]  & x[5];
+  assign y[5]  = y[4]  & x[6];
+  assign y[6]  = y[5]  & x[7];
+  assign y[7]  = y[6]  & x[8];
+  assign y[8]  = y[7]  & x[9];
+  assign y[9]  = y[8]  & x[10];
+  assign y[10] = y[9]  & x[11];
+  assign y[11] = y[10] & x[12];
+  assign y[12] = y[11] & x[13];
+  assign y[13] = y[12] & x[14];
+  assign y[14] = y[13] & x[15];
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+# KS for N=16: 16*4 - 16 + 1 = 49 cells, depth 4
+select t:$and -assert-count 49
+select o:* %ci2 %ci2 %ci2 %ci2 t:$and %i -assert-count 49
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group C: Topology selection - same 8-leaf chain, four topologies
+# ============================================================================
+
+# Test C1: Kogge-Stone explicit
+log -header "C1: 8-leaf ADD, -kogge-stone"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  output wire [4:0] y1, output wire [5:0] y2, y3,
+  output wire [6:0] y4, y5, y6, y7
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+  assign y4 = y3 + x4;
+  assign y5 = y4 + x5;
+  assign y6 = y5 + x6;
+  assign y7 = y6 + x7;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix -kogge-stone
+design -load postopt
+select t:$add -assert-count 17
+select o:* %ci2 %ci2 %ci2 t:$add %i -assert-count 17
+design -reset
+log -pop
+
+# Test C2: Sklansky
+log -header "C2: 8-leaf ADD, -sklansky (depth 3, 12 cells)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  output wire [4:0] y1, output wire [5:0] y2, y3,
+  output wire [6:0] y4, y5, y6, y7
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+  assign y4 = y3 + x4;
+  assign y5 = y4 + x5;
+  assign y6 = y5 + x6;
+  assign y7 = y6 + x7;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix -sklansky
+design -load postopt
+select t:$add -assert-count 12
+select o:* %ci2 %ci2 %ci2 t:$add %i -assert-count 12
+design -reset
+log -pop
+
+# Test C3: Brent-Kung
+log -header "C3: 8-leaf ADD, -brent-kung (depth 4, 11 cells)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  output wire [4:0] y1, output wire [5:0] y2, y3,
+  output wire [6:0] y4, y5, y6, y7
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+  assign y4 = y3 + x4;
+  assign y5 = y4 + x5;
+  assign y6 = y5 + x6;
+  assign y7 = y6 + x7;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix -brent-kung
+design -load postopt
+select t:$add -assert-count 11
+# BK depth for N=8 is 4
+select o:* %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 11
+design -reset
+log -pop
+
+# Test C4: Han-Carlson
+log -header "C4: 8-leaf ADD, -han-carlson (depth 4, 12 cells)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  output wire [4:0] y1, output wire [5:0] y2, y3,
+  output wire [6:0] y4, y5, y6, y7
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+  assign y4 = y3 + x4;
+  assign y5 = y4 + x5;
+  assign y6 = y5 + x6;
+  assign y7 = y6 + x7;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix -han-carlson
+design -load postopt
+select t:$add -assert-count 12
+select o:* %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 12
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group D: User's 24-output case (24-leaf 4-bit ADD prefix chain)
+# ============================================================================
+
+log -header "D1: 24-leaf 4-bit ADD prefix chain (KS default, structural)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [95:0] x,
+  output wire [8:0] y1, y2, y3, y4, y5, y6, y7, y8,
+  output wire [8:0] y9, y10, y11, y12, y13, y14, y15, y16,
+  output wire [8:0] y17, y18, y19, y20, y21, y22, y23
+);
+  assign y1  = x[3:0]   + x[7:4];
+  assign y2  = y1       + x[11:8];
+  assign y3  = y2       + x[15:12];
+  assign y4  = y3       + x[19:16];
+  assign y5  = y4       + x[23:20];
+  assign y6  = y5       + x[27:24];
+  assign y7  = y6       + x[31:28];
+  assign y8  = y7       + x[35:32];
+  assign y9  = y8       + x[39:36];
+  assign y10 = y9       + x[43:40];
+  assign y11 = y10      + x[47:44];
+  assign y12 = y11      + x[51:48];
+  assign y13 = y12      + x[55:52];
+  assign y14 = y13      + x[59:56];
+  assign y15 = y14      + x[63:60];
+  assign y16 = y15      + x[67:64];
+  assign y17 = y16      + x[71:68];
+  assign y18 = y17      + x[75:72];
+  assign y19 = y18      + x[79:76];
+  assign y20 = y19      + x[83:80];
+  assign y21 = y20      + x[87:84];
+  assign y22 = y21      + x[91:88];
+  assign y23 = y22      + x[95:92];
+endmodule
+EOF
+check -assert
+proc
+opt_clean
+# Before pass: 23 adders in a chain
+select -assert-count 23 t:$add
+opt_parallel_prefix
+# KS for N=24: depth = ceil(log2 24) = 5
+# Cells = sum_{l=0..4} (24 - 2^l) = 23 + 22 + 20 + 16 + 8 = 89
+select t:$add -assert-count 89
+# All cells reachable from outputs within 5 cell-layers
+select o:* %ci2 %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 89
+# Confirm depth is exactly 5: 4 cell-layers do NOT cover all 89
+select o:* %ci2 %ci2 %ci2 %ci2 t:$add %i %% t:$add %D -assert-min 1
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group E: Partial demand patterns
+# ============================================================================
+
+# Test E1: 8-leaf ADD chain, only y3 and y7 demanded
+log -header "E1: 8-leaf ADD, only y3 and y7 demanded"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  output wire [5:0] y3,
+  output wire [6:0] y7
+);
+  wire [4:0] a1 = x0 + x1;
+  wire [5:0] a2 = a1 + x2;
+  wire [5:0] a3 = a2 + x3;
+  wire [6:0] a4 = a3 + x4;
+  wire [6:0] a5 = a4 + x5;
+  wire [6:0] a6 = a5 + x6;
+  wire [6:0] a7 = a6 + x7;
+  assign y3 = a3;
+  assign y7 = a7;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test E2: 8-leaf ADD chain where an intermediate also feeds a mux
+log -header "E2: 8-leaf ADD, intermediate y3 feeds mux"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3, x4, x5, x6, x7,
+  input wire sel,
+  output wire [5:0] y3,
+  output wire [6:0] y7,
+  output wire [5:0] m_out
+);
+  wire [4:0] a1 = x0 + x1;
+  wire [5:0] a2 = a1 + x2;
+  wire [5:0] a3 = a2 + x3;
+  wire [6:0] a4 = a3 + x4;
+  wire [6:0] a5 = a4 + x5;
+  wire [6:0] a6 = a5 + x6;
+  wire [6:0] a7 = a6 + x7;
+  assign y3 = a3;
+  assign y7 = a7;
+  assign m_out = sel ? a3 : a2;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group F: Width and signedness
+# ============================================================================
+
+# Test F1: ADD chain with bit-split output port (matches Test 11 of opt_balance_tree.ys)
+log -header "F1: ADD chain with bit-split output port"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire [8:0] x
+);
+  assign x[1:0] = a + b;
+  assign x[4:2] = x[1:0] + c;
+  assign x[8:5] = x[4:2] + d;
+endmodule
+EOF
+check -assert
+proc
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test F2: signed adder chain
+log -header "F2: signed ADD chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [3:0] x0, x1, x2, x3,
+  output wire signed [5:0] y1, y2, y3
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 + x2;
+  assign y3 = y2 + x3;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test F3: mixed signed/unsigned chain - pass should NOT touch it
+log -header "F3: mixed signed/unsigned chain (no-op expected)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [3:0] s0, s1,
+  input wire [3:0] u0, u1,
+  output wire signed [5:0] y
+);
+  wire signed [4:0] t1 = s0 + s1;
+  wire signed [4:0] t2 = t1 + u0;
+  assign y = t2 + u1;
+endmodule
+EOF
+check -assert
+# After running the pass, the original 3 $add cells should still be there
+# (chain rejected because signedness flips between cells).
+proc
+opt_clean
+select -assert-count 3 t:$add
+opt_parallel_prefix
+select -assert-count 3 t:$add
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group G: Negative / no-op cases
+# ============================================================================
+
+# Test G1: K=1 chain - pass must leave it alone
+log -header "G1: single-demand chain - no-op"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3,
+  output wire [5:0] y
+);
+  assign y = x0 + x1 + x2 + x3;
+endmodule
+EOF
+check -assert
+proc
+opt_clean
+select -assert-count 3 t:$add
+opt_parallel_prefix
+select -assert-count 3 t:$add
+design -reset
+log -pop
+
+# Test G2: chain of length 2 (just 1 cell) - no-op (less than 2 demand points)
+log -header "G2: chain of length 2 - no-op"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1,
+  output wire [4:0] y
+);
+  assign y = x0 + x1;
+endmodule
+EOF
+check -assert
+proc
+opt_clean
+select -assert-count 1 t:$add
+opt_parallel_prefix
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+# Test G3: pre-existing balanced tree (not a chain) - no-op
+log -header "G3: pre-existing balanced tree - no-op"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3,
+  output wire [5:0] y
+);
+  wire [4:0] s01 = x0 + x1;
+  wire [4:0] s23 = x2 + x3;
+  assign y = s01 + s23;
+endmodule
+EOF
+check -assert
+proc
+opt_clean
+select -assert-count 3 t:$add
+opt_parallel_prefix
+select -assert-count 3 t:$add
+design -reset
+log -pop
+
+# Test G4: chain with mixed $add and $sub - pass should not rebuild
+log -header "G4: mixed $add/$sub chain - no-op"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] x0, x1, x2, x3,
+  output wire [5:0] y1, y2, y3
+);
+  assign y1 = x0 + x1;
+  assign y2 = y1 - x2;
+  assign y3 = y2 + x3;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -load postopt
+# At least one $sub remains; the chain was not rebuilt as a homogeneous prefix.
+select -assert-min 1 t:$sub
+design -reset
+log -pop
+
+
+# ============================================================================
+# Group H: Replay of opt_balance_tree.ys cases - equivalence only
+#   The structural shapes the original pass produced are not replicated here;
+#   we only assert that opt_parallel_prefix produces an equivalent circuit on
+#   the same RTL.
+# ============================================================================
+
+# Test H1: replay of Test 2 - AND chain with intermediate outputs
+log -header "H1: replay balance_tree Test 2 (AND chain with intermediate outputs)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire x, y, z
+);
+  assign x = a & b;
+  assign y = x & c;
+  assign z = y & d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test H2: replay of Test 4 - AND chain to a word output
+log -header "H2: replay balance_tree Test 4 (AND chain to word output)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire [2:0] x
+);
+  assign x[0] = a & b;
+  assign x[1] = x[0] & c;
+  assign x[2] = x[1] & d;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test H3: replay of Test 5 - AND chain to word output with extra fanout
+log -header "H3: replay balance_tree Test 5 (AND chain word output + extra fanout)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire [2:0] x,
+  output wire y
+);
+  assign x[0] = a & b;
+  assign x[1] = x[0] & c;
+  assign x[2] = x[1] & d;
+  assign y = x[1];
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test H4: replay of Test 9 - ADD chain with intermediate outputs
+log -header "H4: replay balance_tree Test 9 (ADD chain with intermediate outputs)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire [1:0] x,
+  output wire [2:0] y,
+  output wire [3:0] z
+);
+  assign x = a + b;
+  assign y = x + c;
+  assign z = y + d;
+endmodule
+EOF
+check -assert
+proc
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test H5: replay of Test 11 - ADD chain to a word out port (bit-split)
+log -header "H5: replay balance_tree Test 11 (ADD chain bit-split output)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire [8:0] x
+);
+  assign x[1:0] = a + b;
+  assign x[4:2] = x[1:0] + c;
+  assign x[8:5] = x[4:2] + d;
+endmodule
+EOF
+check -assert
+proc
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test H6: replay of Test 12 - ADD chain to word port with extra fanout
+log -header "H6: replay balance_tree Test 12 (ADD chain word port + extra fanout)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  output wire [8:0] x,
+  output wire y
+);
+  assign x[1:0] = a + b;
+  assign x[4:2] = x[1:0] + c;
+  assign x[8:5] = x[4:2] + d;
+  assign y = x[4];
+endmodule
+EOF
+check -assert
+proc
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop
+
+# Test H7: replay of Test 15 - mixed signed/unsigned widths reduce to one output
+log -header "H7: replay balance_tree Test 15 (mixed widths, single output)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  input wire signed [4:0] b,
+  input wire [2:0] c,
+  input wire signed [3:0] d,
+  input wire [1:0] e,
+  input wire signed [2:0] f,
+  output wire signed [7:0] x
+);
+  assign x = a + b + c + d + e + f;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_parallel_prefix
+design -reset
+log -pop

@@ -23,6 +23,8 @@ OBJS += passes/opt/opt_ffinv.o
 OBJS += passes/opt/pmux2shiftx.o
 OBJS += passes/opt/muxpack.o
 OBJS += passes/opt/opt_balance_tree.o
+OBJS += passes/opt/opt_parallel_prefix.o
+OBJS += passes/opt/opt_prienc.o
 
 OBJS += passes/opt/peepopt.o
 GENFILES += passes/opt/peepopt_pm.h
