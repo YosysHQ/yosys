@@ -57,6 +57,9 @@ struct PeepoptPass : public Pass {
 		log("\n");
 		log("   * muldiv_c - Replace (A*B)/C with A*(B/C) when C is a const divisible by B.\n");
 		log("\n");
+		log("   * modshr_onehot - Replace a%%(mbase>>shiftamt) with a&((mbase-1)>>shiftamt)\n");
+		log("                     when mbase is a constant one-hot signal.\n");
+		log("\n");
 		log("   * shiftmul - Replace A>>(B*C) with A'>>(B<<K) where C and K are constants\n");
 		log("                and A' is derived from A by appropriately inserting padding\n");
 		log("                into the signal. (right variant)\n");
@@ -124,13 +127,14 @@ struct PeepoptPass : public Pass {
 				if (formalclk) {
 					pm.run_formal_clockgateff();
 				} else {
-					pm.run_shiftadd();
-					pm.run_shiftmul_right();
-					pm.run_shiftmul_left();
-					pm.run_muldiv();
-					pm.run_muldiv_c();
-					pm.run_addsub_c();
-					pm.run_sub_neg();
+				pm.run_shiftadd();
+				pm.run_shiftmul_right();
+				pm.run_shiftmul_left();
+				pm.run_muldiv();
+				pm.run_muldiv_c();
+				pm.run_modshr_onehot();
+				pm.run_addsub_c();
+				pm.run_sub_neg();
 					if (muxorder)
 						pm.run_muxorder();
 				}

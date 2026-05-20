@@ -1,0 +1,338 @@
+log -header "Positive: mbase MSB one-hot (8'b1000_0000), shiftamt 3 bits"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [11:0] a,
+	input  [2:0]  shiftamt,
+	output [11:0] y
+);
+	localparam [7:0] MBASE = 8'b1000_0000;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: mbase non-MSB one-hot (8'b0010_0000)"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [11:0] a,
+	input  [1:0]  shiftamt,
+	output [11:0] y
+);
+	localparam [7:0] MBASE = 8'b0010_0000;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: shiftamt clog2(N) bits, divisor never zero (mbase = 1<<(N-1))"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [15:0] a,
+	input  [3:0]  shiftamt,
+	output [15:0] y
+);
+	localparam [15:0] MBASE = 16'h8000;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: low-position one-hot, shiftamt bounded so divisor != 0"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [7:0] a,
+	input        shiftamt,
+	output [7:0] y
+);
+	localparam [7:0] MBASE = 8'b0000_0010;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: wider mbase than a, shiftamt sized so divisor != 0"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [3:0]  a,
+	input  [1:0]  shiftamt,
+	output [3:0]  y
+);
+	localparam [7:0] MBASE = 8'b0001_0000;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: \$shr A_SIGNED=1 (signed parameter), Y wider than mod->B"
+log -push
+design -reset
+read_verilog -sv <<EOT
+module top(
+	input  [11:0] a,
+	input  [1:0]  shiftamt,
+	output [11:0] y
+);
+	// FIFO_DEPTH is inferred as a signed integer parameter, so the
+	// synthesized \$shr cell ends up with A_SIGNED=1 even though the
+	// value is positive. Verilog also widens the shifter Y to 32 bits;
+	// only the low bits feed the modulo. shiftamt range 0..3 keeps
+	// (FIFO_DEPTH >> shiftamt) in {32,16,8,4} -- never zero.
+	parameter FIFO_DEPTH = 32;
+	wire [5:0] divisor = FIFO_DEPTH >> shiftamt;
+	assign y = a % divisor;
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: shared shifter Y fans out to many \$mod cells (generate loop)"
+log -push
+design -reset
+read_verilog -sv <<EOT
+module top(
+	input  [11:0] a0, a1, a2, a3,
+	input  [1:0]  shiftamt,
+	output [11:0] y0, y1, y2, y3
+);
+	parameter FIFO_DEPTH = 32;
+	wire [5:0] divisor = FIFO_DEPTH >> shiftamt;
+	assign y0 = a0 % divisor;
+	assign y1 = a1 % divisor;
+	assign y2 = a2 % divisor;
+	assign y3 = a3 % divisor;
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 4 t:$and
+# 4 mask shifters + 1 original (still drives the shared divisor wire
+# whose remaining bits may be dead). opt_clean keeps the original
+# while any of its Y bits has a name attached; check >= 4 shifters.
+select -assert-min 4 t:$shr
+design -reset
+log -pop
+
+
+log -header "Positive: rewrite still applied even when divisor can be 0; assert via peepopt only"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [7:0] a,
+	input  [2:0] shiftamt,
+	output [7:0] y
+);
+	localparam [7:0] MBASE = 8'b0000_0001;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+peepopt
+opt_clean
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+log -header "Negative: mbase is NOT one-hot (8'b0011_0000)"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [11:0] a,
+	input  [2:0]  shiftamt,
+	output [11:0] y
+);
+	localparam [7:0] MBASE = 8'b0011_0000;
+	assign y = a % (MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mod
+select -assert-count 0 t:$and
+design -reset
+log -pop
+
+
+log -header "Negative: mbase is a wire (not constant) -- pattern must not match"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [11:0] a,
+	input  [7:0]  mbase,
+	input  [2:0]  shiftamt,
+	output [11:0] y
+);
+	assign y = a % (mbase >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mod
+design -reset
+log -pop
+
+
+log -header "Negative: signed dividend (A_SIGNED=1 on $mod)"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  signed [11:0] a,
+	input         [2:0]  shiftamt,
+	output signed [11:0] y
+);
+	localparam signed [7:0] MBASE = 8'b0010_0000;
+	assign y = a % $signed(MBASE >> shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mod
+design -reset
+log -pop
+
+
+log -header "Negative: shifter is $shl (left shift) -- not the right pattern"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [11:0] a,
+	input  [2:0]  shiftamt,
+	output [11:0] y
+);
+	localparam [7:0] MBASE = 8'b0000_0001;
+	assign y = a % (MBASE << shiftamt);
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mod
+design -reset
+log -pop
+
+
+log -header "Positive: shifter Y also drives an external probe (extra fanout OK)"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input  [11:0] a,
+	input  [1:0]  shiftamt,
+	output [11:0] y,
+	output [7:0]  probe
+);
+	localparam [7:0] MBASE = 8'b0010_0000;
+	wire [7:0] divisor = MBASE >> shiftamt;
+	assign y     = a % divisor;
+	assign probe = divisor;
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+opt_clean
+# The original $shr must be preserved because it drives \probe; the
+# rewrite only retargets the $mod, replacing it with $and + a new mask
+# shifter.
+select -assert-count 0 t:$mod
+select -assert-count 1 t:$and
+select -assert-count 2 t:$shr
+design -reset
+log -pop
+
+
+log -header "Negative: B_SIGNED=1 on $mod with one-hot at MSB of mbase"
+log -push
+design -reset
+read_verilog <<EOT
+module top(
+	input         [11:0] a,
+	input         [2:0]  shiftamt,
+	output        [11:0] y
+);
+	wire signed [7:0] divisor = $signed(8'b1000_0000) >>> shiftamt;
+	assign y = a % divisor;
+endmodule
+EOT
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mod
+design -reset
+log -pop

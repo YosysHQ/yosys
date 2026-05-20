@@ -1,0 +1,123 @@
+pattern modshr_onehot
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Rewrite unsigned modulo by a right-shifted constant one-hot into a
+// bitwise mask:
+//
+//   y = a % (mbase >> shiftamt)   ===>   y = a & ((mbase - 1) >> shiftamt)
+//
+// where `mbase` is a fully-constant one-hot signal. This eliminates a
+// variable divider, replacing it with a single constant-A right shift
+// and a bitwise AND.
+//
+// Correctness:
+//   Because `mbase = 1 << B` for some constant bit index B,
+//   `mbase >> shiftamt` is always either a power of two or zero.
+//   For unsigned operands, `a % 2^k = a & (2^k - 1)`, and
+//   `(mbase - 1) >> shiftamt` is exactly the lower-k-bits mask.
+//   When `shiftamt > B` the original `a % 0` is undefined (Yosys
+//   `const_mod` returns Sx); the rewrite yields `a & 0 = 0`, which is
+//   a legal refinement of Sx.
+//
+// We match $mod first and then look for a $shr/$shiftx whose Y's
+// lower bits drive mod->B. This is critical because Verilog often
+// infers the shifter as 32 bits wide (signed integer parameters) and
+// only the lower bits actually feed the modulo.
+//
+
+state <SigSpec> mod_b
+state <int>     mod_b_width
+state <Const>   mbase_const
+state <int>     onehot_pos
+
+match mod
+	select mod->type.in($mod, $modfloor)
+	// Signed modulo has different semantics for negative dividends;
+	// the bitmask identity holds only for unsigned a.
+	filter !param(mod, \A_SIGNED).as_bool()
+endmatch
+
+code mod_b mod_b_width
+	mod_b       = port(mod, \B);
+	mod_b_width = GetSize(mod_b);
+endcode
+
+match shift
+	// $shr / $shiftx perform logical operations regardless of A_SIGNED,
+	// so we accept any A_SIGNED. $sshr is excluded because with
+	// A_SIGNED=1 and a one-hot at the MSB it would sign-extend with
+	// 1s, breaking the power-of-two assumption.
+	select shift->type.in($shr, $shiftx)
+	// B_SIGNED must be false so shiftamt is non-negative; for $shiftx
+	// in particular a negative B would shift left, invalidating the
+	// rewrite.
+	filter !param(shift, \B_SIGNED).as_bool()
+	// A must be a constant one-hot signal.
+	filter port(shift, \A).is_fully_const()
+	filter port(shift, \A).is_onehot()
+	// shift->Y must be at least as wide as mod->B (we look at its low
+	// bits only), and the lower `mod_b_width` bits of Y must exactly
+	// equal mod->B. The shifter output is allowed to fan out to many
+	// $mod cells (each one is rewritten independently); we do not
+	// constrain nusers here.
+	filter GetSize(port(shift, \Y)) >= mod_b_width
+	filter port(shift, \Y).extract(0, mod_b_width) == mod_b
+endmatch
+
+code mbase_const onehot_pos
+	mbase_const = port(shift, \A).as_const();
+	mbase_const.is_onehot(&onehot_pos);
+endcode
+
+code
+{
+	// If mod sees B as signed, the divisor bit pattern must encode a
+	// non-negative value; reject when the one-hot bit sits at the MSB
+	// of mbase (which would make it negative).
+	if (param(mod, \B_SIGNED).as_bool() && onehot_pos == GetSize(mbase_const) - 1)
+		reject;
+
+	// Build mask_const = mbase - 1: bits [onehot_pos-1:0] = 1, rest = 0.
+	Const mask_const(State::S0, GetSize(mbase_const));
+	for (int i = 0; i < onehot_pos; i++)
+		mask_const.set(i, State::S1);
+
+	// `cell` is read by NEW_ID2_SUFFIX (kernel/yosys_common.h:321);
+	// use the soon-to-be-converted $mod as the naming parent so the
+	// new mask wire and shifter inherit a stable, debuggable name.
+	Cell *cell = mod;
+
+	// New shifter producing shifted_mask = mask_const >> shiftamt,
+	// of the same type as the original shift but width-trimmed to
+	// match mod->B.
+	Wire *shifted_mask = module->addWire(NEW_ID2_SUFFIX("mask"), mod_b_width);
+	Cell *new_shift = module->addCell(NEW_ID2_SUFFIX("maskshift"), shift->type);
+	new_shift->setPort(\A, mask_const);
+	new_shift->setPort(\B, port(shift, \B));
+	new_shift->setPort(\Y, shifted_mask);
+	new_shift->setParam(\A_SIGNED, false);
+	new_shift->setParam(\B_SIGNED, false);
+	new_shift->fixup_parameters();
+	new_shift->set_src_attribute(mod->get_src_attribute());
+
+	// Convert $mod -> $and in place: keep A and Y, retarget B to the
+	// new shifted_mask wire, and refresh widths.
+	mod->type = $and;
+	mod->setPort(\B, shifted_mask);
+	mod->setParam(\B_SIGNED, false);
+	mod->fixup_parameters();
+	module->rename(mod, NEW_ID2_SUFFIX("modmask"));
+
+	// Do NOT autoremove(shift): a single shifter often fans out to
+	// many $mod cells (e.g. inside a generate loop), and autoremove
+	// blacklists the cell, preventing further matches for siblings.
+	// Leave shift in place -- opt_clean will prune it later if all
+	// of its Y bits have become dead.
+
+	log("modshr_onehot pattern in %s: shift=%s, mod=%s\n",
+		log_id(module), log_id(shift), log_id(mod));
+	did_something = true;
+	accept;
+}
+endcode
