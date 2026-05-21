@@ -548,6 +548,7 @@ struct ClockgatePass : public Pass {
 				// Rebuild the flop
 				Cell *new_ff = ff.emit();
 				new_ff->set_bool_attribute(ID::is_clock_gated);
+				new_ff->set_string_attribute(ID(preqorsor_icg), it->second.icg_cell->name.str());
 
 				// Update the flop with new activity/duty attributes
 				if (it->second.activity_set) {
