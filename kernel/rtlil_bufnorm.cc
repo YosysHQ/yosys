@@ -498,6 +498,11 @@ const pool<RTLIL::PortBit> &RTLIL::Module::fanout(SigBit bit) {
 	return found->second;
 }
 
+const dict<RTLIL::SigBit, pool<RTLIL::PortBit>> &RTLIL::Module::signorm_fanout() const {
+	log_assert(sig_norm_index != nullptr);
+	return sig_norm_index->fanout;
+}
+
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
 	while (!cell->connections_.empty())
