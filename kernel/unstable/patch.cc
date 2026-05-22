@@ -118,24 +118,17 @@ void Patch::patch(Cell* old_cell, Cell* new_cell) {
 			auto dir = raw->port_dir(port_name);
 			log_assert(dir != PD_UNKNOWN);
 			if (dir == PD_OUTPUT || dir == PD_INOUT) {
-				SigSpec sig_to_fix = sig;
 				if (raw == new_cell) {
 					// RAUW
-					// TODO optimized implementation for signorm fanout transfer that avoids expensive(?) setPort?
 					auto yoink = old_cell->getPort(port_name);
 					log(">>>> RAUW %s to %s\n", port_name, log_signal(yoink));
 					new_cell->setPort(port_name, yoink);
 					old_cell->setPort(port_name, mod->addWire(NEW_ID, yoink.size()));
-					sig_to_fix = yoink;
-				}
-				if (sig_to_fix.size()) {
-					auto* wire = sig_to_fix.as_wire();
-					wire->driverCell_ = raw;
-					wire->driverPort_ = port_name;
 				}
 			}
 		}
 		raw->module = mod;
+		raw->initIndex();
 		raw->fixup_parameters();
 	}
 	log_module(mod, "");
