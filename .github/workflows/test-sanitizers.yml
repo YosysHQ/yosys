@@ -38,7 +38,7 @@ jobs:
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
-      ASAN_OPTIONS: halt_on_error=1
+      ASAN_OPTIONS: halt_on_error=1 detect_container_overflow=0
       UBSAN_OPTIONS: halt_on_error=1
     strategy:
       matrix:
@@ -63,18 +63,20 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          make config-$CC
-          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          make -j$procs
+          rm -rf build
+          cmake -B build . \
+                -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE=${{ matrix.sanitizer }}
+          cmake --build build -j$procs
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs vanilla-test TARGETS= EXTRA_TARGETS=
+          make -C tests -j$procs vanilla-test
 
       - name: Report errors
         if: ${{ failure() }}

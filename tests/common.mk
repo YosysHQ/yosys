@@ -1,20 +1,32 @@
 ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-BUILD_DIR ?= $(ROOT_DIR)/..
+BUILD_DIR ?= $(realpath $(ROOT_DIR)/../build)
+BUILD_CMD := $(BUILD_DIR)/$(PROGRAM_PREFIX)
+SRC_DIR := $(realpath $(ROOT_DIR)/..)
 
-SBY   ?= sby
-YOSYS ?= $(BUILD_DIR)/yosys
-ABC   ?= $(BUILD_DIR)/yosys-abc
-YOSYS_FILTERLIB ?= $(BUILD_DIR)/yosys-filterlib
-YOSYS_CONFIG ?= $(BUILD_DIR)/yosys-config
-YOSYS_SMTBMC ?= $(BUILD_DIR)/yosys-smtbmc
+SBY ?= sby
+ABC ?= $(BUILD_CMD)yosys-abc
+YOSYS ?= $(BUILD_CMD)yosys
+YOSYS_CONFIG ?= $(BUILD_CMD)yosys-config
+YOSYS_FILTERLIB ?= $(BUILD_CMD)yosys-filterlib
+YOSYS_SMTBMC ?= $(BUILD_CMD)yosys-smtbmc
+YOSYS_WITNESS ?= @$(BUILD_CMD)yosys-witness
 YOSYS_MAX_THREADS ?= 4
+COVERAGE_DIR ?= $(realpath $(ROOT_DIR)/..)/coverage
+COVERAGE_HTML ?= $(realpath $(ROOT_DIR)/..)/coverage_html
+LLVM_PROFILE_FILE ?= $(COVERAGE_DIR)/coverage_%p.profraw
+VERIFIC_DIR ?= /usr/local/src/verific_lib
 
+export BUILD_DIR
+export SBY
+export ABC
 export YOSYS
 export YOSYS_CONFIG
+export YOSYS_FILTERLIB
 export YOSYS_SMTBMC
-export ABC
-export SBY
+export YOSYS_WITNESS
 export YOSYS_MAX_THREADS
+export LLVM_PROFILE_FILE
+export LLVM_PROFILE_FILE_BUFFER_SIZE=0
 
 all:
 

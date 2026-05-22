@@ -57,19 +57,20 @@ jobs:
 
       - name: Build Yosys
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_ENABLE_HELP_SOURCE ON CACHE BOOL "")' >> Configuration.cmake
+
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: Prepare docs
         shell: bash
         run:
-          make docs/prep -j$procs TARGETS= EXTRA_TARGETS=
+          cmake --build build --target docs-prepare -j$procs
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -83,12 +84,12 @@ jobs:
       - name: Install doc prereqs
         shell: bash
         run: |
-          make docs/reqs
+          make -C docs reqs
 
       - name: Test build docs
         shell: bash
         run: |
-          make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
+          cmake --build build --target docs-html -j$procs
 
       - name: Trigger RTDs build
         if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/yosys' }}

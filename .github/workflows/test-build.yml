@@ -82,21 +82,20 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          mkdir build
-          cd build
-          make -f ../Makefile config-$CC
-          make -f ../Makefile -j$procs
-          make -f ../Makefile unit-test -j$procs
+          rm -rf build
+          cmake -B build . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$procs
+          ctest --test-dir build/tests/unit
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Compress build
         shell: bash
         run: |
           cd build
-          tar -cvf ../build.tar share/ yosys yosys-* libyosys.so
+          tar -cvf ../build.tar share/ yosys yosys-*
 
       - name: Store build artifact
         uses: actions/upload-artifact@v7
@@ -136,17 +135,18 @@ jobs:
 
       - name: Uncompress build
         shell: bash
-        run:
-          tar -xvf build.tar
+        run: |
+          mkdir -p build
+          tar -xvf build.tar -C build
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs vanilla-test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+          make -C tests -j$procs vanilla-test
 
       - name: Report errors
         if: ${{ failure() }}
@@ -198,8 +198,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: [build-yosys, pre_docs_job]
     if: needs.pre_docs_job.outputs.should_skip != 'true'
-    env:
-      CC: clang
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -224,12 +222,13 @@ jobs:
 
       - name: Uncompress build
         shell: bash
-        run:
-          tar -xvf build.tar
+        run: |
+          mkdir -p build
+          tar -xvf build.tar -C build
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Run tests
         shell: bash
@@ -258,20 +257,24 @@ jobs:
 
       - name: Build Yosys
         run: |
-          make config-clang
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_ENABLE_HELP_SOURCE ON CACHE BOOL "")' >> Configuration.cmake
+
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: Install doc prereqs
         shell: bash
         run: |
-          make docs/reqs
+          make -C docs reqs
 
       - name: Build docs
         shell: bash
         run: |
-          make docs DOC_TARGET=${{ matrix.docs-target }} -j$procs
+          cmake --build build --target docs-${{ matrix.docs-target }} -j$procs
 
       - name: Store docs build artifact
         uses: actions/upload-artifact@v4
