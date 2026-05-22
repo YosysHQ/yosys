@@ -233,7 +233,7 @@ struct SynthRapidFlexPass : public ScriptPass {
     /* Force to enable/disable options upon device limits */
     if (family == ALKDL_DNAME || family == ALKDC_DNAME) {
       if (!nodsp) {
-        log_warning("Force to disable dsp inference as the selected device "
+        log_warning("Disabling DSP inference as the selected device "
                     "does not contain dedicated resources\n");
         nodsp = true;
       }
