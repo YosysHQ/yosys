@@ -1574,7 +1574,7 @@ def create_tests():
         for lib in t.libs:
             libs_args += f" -l memlib_{lib}.v"
         cmd = (
-            f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} "
+            f"../tools/autotest.sh -G -j ${{SEEDOPT}} -Y ${{YOSYS}} "
             f"-p 'script ../t_{t.name}.ys'"
             f"{libs_args} "
             f"t_{t.name}.v || (cat t_{t.name}.err; exit 1)"

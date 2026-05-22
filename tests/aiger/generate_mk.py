@@ -55,11 +55,6 @@ def create_tests():
     ]))
 
 extra = [
-    "ifneq ($(ABCEXTERNAL),)",
-    "ABC ?= $(ABCEXTERNAL)",
-    "else",
-    f"ABC ?= {gen_tests_makefile.yosys_basedir}/yosys-abc",
-    "endif",
     "SHELL := /usr/bin/env bash",
 ]
 

@@ -1,3 +1,5 @@
+OVERRIDE_MAIN=1
+include ../common.mk
 
 TESTS = $(sort $(basename $(wildcard *.sv)) $(basename $(wildcard *.vhd)))
 

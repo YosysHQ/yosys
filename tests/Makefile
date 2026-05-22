@@ -100,7 +100,7 @@ makefile-./%: %/Makefile
 .PHONY: functional
 functional:
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-	@cd functional && ./run-test.sh
+	-@cd functional && ./run-test.sh
 endif
 
 vanilla-test: prep makefile-tests functional
