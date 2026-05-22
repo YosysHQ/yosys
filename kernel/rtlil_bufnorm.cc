@@ -149,9 +149,11 @@ struct RTLIL::SigNormIndex
 				if (cell->port_dir(port) != RTLIL::PD_INPUT)
 					continue;
 				int i = 0;
-				for (auto bit : sig)
+				for (auto bit : sig) {
 					if (bit.is_wire())
-						fanout[bit].insert(PortBit(cell, port, i++));
+						fanout[bit].insert(PortBit(cell, port, i));
+					i++;
+				}
 			}
 		}
 	}
@@ -995,17 +997,17 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 			bool is_input_port = port_dir(portname) == RTLIL::PD_INPUT;
 			if (is_input_port) {
 				auto &fanout = module->sig_norm_index->fanout;
-				int counter = 0;
+				int i = 0;
 				for (auto bit : conn_it->second) {
-					if (!bit.is_wire())
-						continue;
-					int i = counter++;
-					auto found = fanout.find(bit);
-					log_assert(found != fanout.end());
-					int erased = found->second.erase(PortBit(this, portname, i));
-					log_assert(erased);
-					if (found->second.empty())
-						fanout.erase(found);
+					if (bit.is_wire()) {
+						auto found = fanout.find(bit);
+						log_assert(found != fanout.end());
+						int erased = found->second.erase(PortBit(this, portname, i));
+						log_assert(erased);
+						if (found->second.empty())
+							fanout.erase(found);
+					}
+					i++;
 				}
 			} else if (GetSize(conn_it->second)) {
 				Wire *w = conn_it->second.as_wire();
@@ -1129,17 +1131,17 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 		if (!r.second) {
 			if (is_input_port) {
 				auto &fanout = module->sig_norm_index->fanout;
-				int counter = 0;
+				int i = 0;
 				for (auto bit : conn_it->second) {
-					if (!bit.is_wire())
-						continue;
-					int i = counter++;
-					auto found = fanout.find(bit);
-					log_assert(found != fanout.end());
-					int erased = found->second.erase(PortBit(this, portname, i));
-					log_assert(erased);
-					if (found->second.empty())
-						fanout.erase(found);
+					if (bit.is_wire()) {
+						auto found = fanout.find(bit);
+						log_assert(found != fanout.end());
+						int erased = found->second.erase(PortBit(this, portname, i));
+						log_assert(erased);
+						if (found->second.empty())
+							fanout.erase(found);
+					}
+					i++;
 				}
 			} else {
 				Wire *w = conn_it->second.as_wire();
@@ -1153,9 +1155,11 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 		if (is_input_port) {
 			auto &fanout = module->sig_norm_index->fanout;
 			int i = 0;
-			for (auto bit : signal)
+			for (auto bit : signal) {
 				if (bit.is_wire())
-					fanout[bit].insert(PortBit(this, portname, i++));
+					fanout[bit].insert(PortBit(this, portname, i));
+				i++;
+			}
 		} else if (GetSize(signal)) {
 			Wire *w = signal.as_wire();
 			log_assert(w->driverCell_ == nullptr);
