@@ -233,19 +233,19 @@ struct SynthRapidFlexPass : public ScriptPass {
     /* Force to enable/disable options upon device limits */
     if (family == ALKDL_DNAME || family == ALKDC_DNAME) {
       if (!nodsp) {
-        log_warning("Force to disable dsp inference as the selected device "
+        log_warning("Disabling DSP inference as the selected device "
                     "does not contain dedicated resources\n");
         nodsp = true;
       }
       if (inferBram) {
-        log_warning("Force to disable RAM inference as the selected device "
+        log_warning("Disabling RAM inference as the selected device "
                     "does not contain dedicated resources\n");
         inferBram = false;
       }
     }
     /* By default, no opt should be enabled. Throw a warning if not */
     if (no_opt) {
-      log_warning("Force to disable any optimization, which may cast an "
+      log_warning("Disabling optimization, which may have a "
                   "negative impact on QoR\n");
     }
     if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
