@@ -28,6 +28,92 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+int check_signorm_cell(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	int counter = 0;
+	for (auto &conn : cell->connections()) {
+		if (cell->port_dir(conn.first) == RTLIL::PD_INPUT) {
+			int i = 0;
+			for (auto bit : conn.second) {
+				if (bit.is_wire() && !module->fanout(bit).count(RTLIL::PortBit(cell, conn.first, i)))
+					log_warning("sigNorm: fanout index missing entry for cell %s.%s port %s bit %d\n",
+						log_id(module), log_id(cell), log_id(conn.first), i), counter++;
+				++i;
+			}
+		} else if (!conn.second.empty()) {
+			if (!conn.second.is_wire()) {
+				log_warning("sigNorm: cell %s.%s port %s output is not a full wire: %s\n",
+					log_id(module), log_id(cell), log_id(conn.first), log_signal(conn.second));
+				counter++;
+			} else {
+				Wire *w = conn.second.as_wire();
+				if (!w->known_driver())
+					log_warning("sigNorm: cell %s.%s port %s drives wire %s but wire has no driverCell_ set\n",
+						log_id(module), log_id(cell), log_id(conn.first), log_id(w)), counter++;
+				else if (w->driverCell() != cell || w->driverPort() != conn.first)
+					log_warning("sigNorm: wire %s.%s driverCell_/driverPort_ mismatch: recorded driver is cell %s port %s, but cell %s port %s also drives it\n",
+						log_id(module), log_id(w),
+						log_id(w->driverCell()), log_id(w->driverPort()),
+						log_id(cell), log_id(conn.first)), counter++;
+			}
+		}
+	}
+	return counter;
+}
+
+int check_signorm_wire(RTLIL::Module *module, RTLIL::Wire *wire)
+{
+	int counter = 0;
+	if (wire->known_driver()) {
+		Cell *driver = wire->driverCell();
+		IdString dport = wire->driverPort();
+		if (!driver->hasPort(dport)) {
+			log_warning("sigNorm: wire %s.%s driverPort_ %s does not exist on driverCell_ %s\n",
+				log_id(module), log_id(wire), log_id(dport), log_id(driver));
+			counter++;
+		} else {
+			const SigSpec &dsig = driver->getPort(dport);
+			if (!dsig.is_wire() || dsig.as_wire() != wire)
+				log_warning("sigNorm: wire %s.%s driverCell_ %s port %s does not connect back to this wire\n",
+					log_id(module), log_id(wire), log_id(driver), log_id(dport)), counter++;
+			if (wire->port_input && !wire->port_output && driver->type != ID($input_port))
+				log_warning("sigNorm: module input wire %s.%s is driven by non-$input_port cell %s of type %s\n",
+					log_id(module), log_id(wire), log_id(driver), log_id(driver->type)), counter++;
+		}
+	} else if (wire->port_input && !wire->port_output) {
+		log_warning("sigNorm: module input wire %s.%s has no driverCell_ set\n",
+			log_id(module), log_id(wire));
+		counter++;
+	}
+	return counter;
+}
+
+int check_signorm_fanout(RTLIL::Module *module)
+{
+	int counter = 0;
+	for (auto &[bit, portbits] : module->signorm_fanout()) {
+		for (auto &pb : portbits) {
+			if (!pb.cell->hasPort(pb.port)) {
+				log_warning("sigNorm: fanout entry for %s points to non-existent port %s on cell %s.%s\n",
+					log_signal(bit), log_id(pb.port), log_id(module), log_id(pb.cell));
+				counter++;
+				continue;
+			}
+			const SigSpec &fsig = pb.cell->getPort(pb.port);
+			if (pb.offset < 0 || pb.offset >= fsig.size()) {
+				log_warning("sigNorm: fanout entry for %s has out-of-bounds offset %d for cell %s.%s port %s (width %d)\n",
+					log_signal(bit), pb.offset, log_id(module), log_id(pb.cell), log_id(pb.port), fsig.size());
+				counter++;
+				continue;
+			}
+			if (fsig[pb.offset] != bit)
+				log_warning("sigNorm: fanout entry mismatch: expected %s at offset %d of cell %s.%s port %s, found %s\n",
+					log_signal(bit), pb.offset, log_id(module), log_id(pb.cell), log_id(pb.port), log_signal(fsig[pb.offset])), counter++;
+		}
+	}
+	return counter;
+}
+
 struct CheckPass : public Pass {
 	CheckPass() : Pass("check", "check for obvious problems in the design") { }
 	bool formatted_help() override {
@@ -358,6 +444,9 @@ struct CheckPass : public Pass {
 					if (!edges_db.add_edges_from_cell(cell))
 						coarsened_cells.insert(cell);
 				}
+
+				if (design->flagSigNormalized)
+					counter += check_signorm_cell(module, cell);
 			}
 
 			pool<SigBit> init_bits;
@@ -385,6 +474,9 @@ struct CheckPass : public Pass {
 						counter++;
 					}
 				}
+
+				if (design->flagSigNormalized)
+					counter += check_signorm_wire(module, wire);
 			}
 
 			for (auto state : {State::S0, State::S1, State::Sx})
@@ -510,6 +602,9 @@ struct CheckPass : public Pass {
 					counter++;
 				}
 			}
+
+			if (design->flagSigNormalized)
+				counter += check_signorm_fanout(module);
 		}
 
 		log("Found and reported %d problems.\n", counter);
