@@ -238,7 +238,7 @@ struct SynthRapidFlexPass : public ScriptPass {
         nodsp = true;
       }
       if (inferBram) {
-        log_warning("Force to disable RAM inference as the selected device "
+        log_warning("Disabling RAM inference as the selected device "
                     "does not contain dedicated resources\n");
         inferBram = false;
       }
