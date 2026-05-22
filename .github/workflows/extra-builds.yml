@@ -31,9 +31,9 @@ jobs:
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
 
-  vs-prep:
-    name: Prepare Visual Studio build
-    runs-on: ubuntu-latest
+  vs-build:
+    name: Visual Studio build
+    runs-on: windows-latest
     needs: [pre_job]
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
@@ -41,31 +41,31 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
-      - run: sudo apt-get install libfl-dev
-      - name: Build
-        run: make vcxsrc YOSYS_COMPILER="Visual Studio" VCX_DIR_NAME=yosys-win32-vcxsrc-latest
-      - uses: actions/upload-artifact@v7
-        with:
-          name: vcxsrc
-          path: yosys-win32-vcxsrc-latest.zip
 
-  vs-build:
-    name: Visual Studio build
-    runs-on: windows-latest
-    needs: [vs-prep, pre_job]
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: vcxsrc
-          path: .
-      - name: unzip
-        run: unzip yosys-win32-vcxsrc-latest.zip
-      - name: setup-msbuild
-        uses: microsoft/setup-msbuild@v2
-      - name: MSBuild
-        working-directory: yosys-win32-vcxsrc-latest
-        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.26100.0
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install flex/bison
+        shell: pwsh
+        run: |
+          choco install winflexbison3 --no-progress
+
+          # Make tools visible to CMake
+          echo "C:\Program Files (x86)\GnuWin32\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
+          echo "C:\ProgramData\chocolatey\lib\winflexbison3\tools" | Out-File -Append -FilePath $env:GITHUB_PATH
+
+      - name: Configure CMake
+        run: >
+          cmake -S . -B build
+          -A x64
+          -DCMAKE_BUILD_TYPE=Release
+          -DYOSYS_WITHOUT_ABC=ON
+
+      - name: Build
+        run: >
+          cmake --build build
+          --config Release
+          --parallel
 
   wasi-build:
     name: WASI build
@@ -79,10 +79,11 @@ jobs:
           persist-credentials: false
       - name: Build
         run: |
-          WASI_SDK=wasi-sdk-33.0-x86_64-linux
-          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-33/wasi-sdk-33.0-x86_64-linux.tar.gz
+          WASI_VER=33
+          WASI_SDK=wasi-sdk-${WASI_VER}.0-x86_64-linux
+          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VER}/${WASI_SDK}.tar.gz
           if ! [ -d ${WASI_SDK} ]; then curl -L ${WASI_SDK_URL} | tar xzf -; fi
-
+          WASI_SDK_PATH=$(pwd)/${WASI_SDK}
           FLEX_VER=2.6.4
           FLEX=flex-${FLEX_VER}
           FLEX_URL=https://github.com/westes/flex/releases/download/v${FLEX_VER}/${FLEX}.tar.gz
@@ -94,24 +95,9 @@ jobs:
             make &&
             make install)
 
-          mkdir -p build
-          cat > build/Makefile.conf <<END
-          export PATH := $(pwd)/${WASI_SDK}/bin:$(pwd)/flex-prefix/bin:${PATH}
-          WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
-
-          CONFIG := wasi
-          PREFIX := /
-
-          ENABLE_TCL := 0
-          ENABLE_READLINE := 0
-          ENABLE_PLUGINS := 0
-          ENABLE_ZLIB := 0
-
-          CXXFLAGS += -I$(pwd)/flex-prefix/include
-          LINKFLAGS += -Wl,-z,stack-size=8388608 -Wl,--stack-first -Wl,--strip-all
-          END
-
-          make -C build -f ../Makefile CXX=clang -j$(nproc)
+          export PATH=${WASI_SDK_PATH}/bin:$(pwd)/flex-prefix/bin:${PATH}
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release .
+          cmake --build build -j$(nproc)
 
   nix-build:
     name: "Build nix flake"

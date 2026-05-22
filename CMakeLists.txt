@@ -97,7 +97,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O2 /DEBUG")
 	set(CMAKE_CXX_FLAGS_MINSIZEREL "/Os")
 	add_compile_options(/Zc:__cplusplus)
-	add_definitions(
+	add_compile_definitions(
 		_CRT_NONSTDC_NO_DEPRECATE
 		_CRT_SECURE_NO_WARNINGS
 	)
@@ -480,20 +480,55 @@ if (YOSYS_INSTALL_DRIVER OR YOSYS_INSTALL_LIBRARY)
 	yosys_config_script(INSTALL)
 endif()
 
+# Configuration for Makefile-based steps.
+# (The use of `${makefile_vars}` in `add_custom_{target,command}()` adds dependencies for
+# all of the targets specified via `$<TARGET_FILE:tgt>`.)
+set(makefile_vars
+	BUILD_DIR=${CMAKE_BINARY_DIR}
+	PROGRAM_PREFIX=${YOSYS_PROGRAM_PREFIX}
+	ABC=$<IF:$<TARGET_EXISTS:yosys-abc>,$<TARGET_FILE:yosys-abc>,${YOSYS_ABC_EXECUTABLE}>
+	YOSYS=$<TARGET_FILE:yosys>
+	YOSYS_CONFIG=${CMAKE_BINARY_DIR}/yosys-config
+	YOSYS_FILTERLIB=$<$<TARGET_EXISTS:yosys-filterlib>:$<TARGET_FILE:yosys-filterlib>>
+	YOSYS_SMTBMC=${CMAKE_BINARY_DIR}/yosys-smtbmc
+	YOSYS_WITNESS=${CMAKE_BINARY_DIR}/yosys-witness
+)
+set(makefile_depends
+	# abc is implied via $<TARGET_FILE>
+	# yosys is implied via $<TARGET_FILE>
+	# yosys-filterlib is implied via $<TARGET_FILE>
+	$<$<TARGET_EXISTS:yosys-smtbmc>:yosys-smtbmc>
+	$<$<TARGET_EXISTS:yosys-witness>:yosys-witness>
+)
+
 # Tests.
 add_subdirectory(tests/unit)
-# TODO(cmake): other tests
+
+add_custom_target(test-unit
+    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir tests/unit --output-on-failure
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+add_custom_target(test-vanilla
+	COMMAND make vanilla-test ${makefile_vars}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
+	DEPENDS ${makefile_depends}
+)
+
+add_custom_target(test
+    DEPENDS test-unit test-vanilla
+)
 
 # Docs.
 add_custom_target(docs-prepare
-	COMMAND make -C ${CMAKE_SOURCE_DIR}/docs gen
-		BUILD_DIR=${CMAKE_BINARY_DIR}
-		PROGRAM_PREFIX=${YOSYS_PROGRAM_PREFIX}
-		YOSYS=$<TARGET_FILE:yosys>
+	COMMAND make gen ${makefile_vars}
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
+	DEPENDS ${makefile_depends}
 )
 foreach (format html latexpdf)
 	add_custom_target(docs-${format}
-		COMMAND make -C ${CMAKE_SOURCE_DIR}/docs ${format}
+		COMMAND make ${format}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
 		DEPENDS docs-prepare
 	)
 endforeach()

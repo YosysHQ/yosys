@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import os
 
 # basic logging setup
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +18,7 @@ THIS_FILE = (TESTS_DIR / "macro_commands.py").relative_to(ROOT_DIR)
 MACRO_SOURCE = TESTS_DIR.parent / "source" / "code_examples" / "macro_commands"
 assert MACRO_SOURCE.exists(), f"can't find macro_commands in {MACRO_SOURCE}"
 
-YOSYS = ROOT_DIR / "yosys"
+YOSYS = Path(os.environ.get("YOSYS", ROOT_DIR / "yosys"))
 assert YOSYS.exists(), f"can't find yosys executable in {YOSYS}"
 
 raise_error = False

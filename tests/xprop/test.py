@@ -122,7 +122,7 @@ def vcdextract(signals, on_change, file, output, limit=None):
             print(*values[:len(signals)], file=output)
 
 
-share = Path(__file__).parent / ".." / ".." / "share"
+share = Path(os.environ.get("BUILD_DIR", "../..")) / "share"
 
 simlibs = [str(share / "simlib.v"), str(share / "simcells.v")]
 
