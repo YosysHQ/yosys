@@ -1123,7 +1123,7 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	}
 
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module ? this->module : "PATCH", this, portname.unescape(), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module ? this->module->name.unescape() : "PATCH", this, portname.unescape(), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
