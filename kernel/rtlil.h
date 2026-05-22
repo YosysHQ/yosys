@@ -2146,6 +2146,15 @@ private:
 	struct ConstructToken { explicit ConstructToken() = default; };
 	friend struct RTLIL::Module;
 	friend struct RTLIL::Patch;
+
+	// Push existing port connections into signorm/bufnorm indices after module assignment.
+	// Assumes signals are already in normalized form.
+	void initIndex();
+
+	// Signorm index helpers (used by setPort/unsetPort/initIndex)
+	void signorm_index_remove(RTLIL::IdString portname, const RTLIL::SigSpec &old_signal, bool is_input);
+	void signorm_index_add(RTLIL::IdString portname, const RTLIL::SigSpec &new_signal, bool is_input);
+	bool bufnorm_handle_setPort(RTLIL::IdString portname, RTLIL::SigSpec &signal, dict<RTLIL::IdString, RTLIL::SigSpec>::iterator conn_it);
 public:
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
