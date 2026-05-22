@@ -2144,6 +2144,7 @@ public:
 	int next_timestamp();
 	std::vector<Cell *> dirty_cells(int starting_from);
 	const pool<PortBit> &fanout(SigBit bit);
+	const dict<SigBit, pool<PortBit>> &signorm_fanout() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
