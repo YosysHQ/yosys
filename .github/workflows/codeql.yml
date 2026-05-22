@@ -29,7 +29,13 @@ jobs:
         queries: security-extended,security-and-quality
 
     - name: Build
-      run: make yosys -j6
+      run: |
+        rm -rf build Configuration.cmake
+        echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+        echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+
+        cmake -C Configuration.cmake -B build .
+        cmake --build build -j6
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

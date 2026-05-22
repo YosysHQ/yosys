@@ -37,7 +37,6 @@ jobs:
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     env:
       CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
-      CC_SHORT: ${{ startsWith(matrix.compiler, 'gcc') && 'gcc' || 'clang' }}
     strategy:
       matrix:
         os:
@@ -91,16 +90,18 @@ jobs:
       - name: Build C++20
         shell: bash
         run: |
-          make config-$CC_SHORT
-          make -j$procs CXXSTD=c++20 compile-only
+          rm -rf build
+          cmake -B build -DCMAKE_CXX_STANDARD=20 . --fresh
+          cmake --build build --target yosys -j$procs
 
       # maximum standard, only on newest compilers
       - name: Build C++26
         if: ${{ matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-15' }}
         shell: bash
         run: |
-          make config-$CC_SHORT
-          make -j$procs CXXSTD=c++26 compile-only
+          rm -rf build
+          cmake -B build -DCMAKE_CXX_STANDARD=26 . --fresh
+          cmake --build build --target yosys -j$procs
 
   test-compile-result:
     runs-on: ubuntu-latest
