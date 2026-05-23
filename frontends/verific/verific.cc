@@ -109,6 +109,7 @@ int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
 int verific_sva_fsm_limit;
+bool verific_opt = false;  // enable Verific optimizations
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
@@ -3071,6 +3072,18 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	while (!nl_todo.empty()) {
 		auto it = nl_todo.begin();
 		Netlist *nl = it->second;
+
+		// use Verific optimizations
+		if (verific_opt) {
+			log("  Running Verific optimizations for %s.\n", it->first.c_str());
+
+			log("    Running post-elaboration for %s.\n", it->first.c_str());
+			nl->PostElaborationProcess();
+
+			log("    Running operator optimization for %s.\n", it->first.c_str());
+			nl->OperatorOptimization();
+		}
+
 		if (nl_done.count(it->first) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false, false);
 			nl_done[it->first] = it->second;
@@ -3695,6 +3708,11 @@ struct VerificPass : public Pass {
 			}
 #endif
 			break;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-optimization") {
+			verific_opt = true;
+			goto check_error;
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
