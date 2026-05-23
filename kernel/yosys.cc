@@ -537,25 +537,17 @@ std::string proc_self_dirname()
 std::string proc_self_dirname()
 {
 	int i = 0;
-#  ifdef __MINGW32__
 	char longpath[MAX_PATH + 1];
 	char shortpath[MAX_PATH + 1];
-#  else
-	WCHAR longpath[MAX_PATH + 1];
-	TCHAR shortpath[MAX_PATH + 1];
-#  endif
-	if (!GetModuleFileName(0, longpath, MAX_PATH+1))
+	if (!GetModuleFileNameA(0, longpath, MAX_PATH+1))
 		log_error("GetModuleFileName() failed.\n");
-	if (!GetShortPathName(longpath, shortpath, MAX_PATH+1))
+	if (!GetShortPathNameA(longpath, shortpath, MAX_PATH+1))
 		log_error("GetShortPathName() failed.\n");
 	while (shortpath[i] != 0)
 		i++;
 	while (i > 0 && shortpath[i-1] != '/' && shortpath[i-1] != '\\')
 		shortpath[--i] = 0;
-	std::string path;
-	for (i = 0; shortpath[i]; i++)
-		path += char(shortpath[i]);
-	return path;
+	return shortpath;
 }
 #elif defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_self_dirname()
