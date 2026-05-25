@@ -26,6 +26,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
+#include "kernel/bitsim.h"
 #include "kernel/pattern.h"
 #include "passes/techmap/simplemap.h"
 #include <stdio.h>
@@ -1067,6 +1068,67 @@ struct OptDffWorker
 			return false;
 
 		ModWalker modwalker(module->design, module);
+		BitSim sim(module, sigmap, modwalker);
+		
+		// Simulation prepass
+		// Assume same class
+		for (auto &cls : classes) {
+			uint64_t class_q_val = sim.xorshift64();
+			for (int idx : cls) {
+				sim.sim_vals[sigmap(bits[idx].q)] = class_q_val;
+			}
+		}
+
+		std::vector<std::vector<int>> refined_classes;
+
+		for (auto &cls : classes) {
+			dict<uint64_t, std::vector<int>> sim_buckets;
+			for (int idx : cls) {
+				const EqBit &eb = bits[idx];
+				const FfData &ff = ff_for_cell.at(eb.cell);
+				
+				uint64_t n_val = sim.eval_bit(ff.sig_d[eb.idx]);
+				
+				if (ff.has_aload) {
+					uint64_t al = sim.eval_bit(ff.sig_aload);
+					if (!ff.pol_aload) al = ~al;
+					uint64_t ad = sim.eval_bit(ff.sig_ad[eb.idx]);
+					n_val = (n_val & ~al) | (ad & al);
+				}
+				if (ff.has_arst) {
+					uint64_t ar = sim.eval_bit(ff.sig_arst);
+					if (!ff.pol_arst) ar = ~ar;
+					uint64_t ar_val = (ff.val_arst[eb.idx] == State::S1) ? ~0ULL : 0ULL;
+					n_val = (n_val & ~ar) | (ar_val & ar);
+				}
+				if (ff.has_sr) {
+					uint64_t clr = sim.eval_bit(ff.sig_clr[eb.idx]);
+					if (!ff.pol_clr) clr = ~clr;
+					uint64_t set = sim.eval_bit(ff.sig_set[eb.idx]);
+					if (!ff.pol_set) set = ~set;
+					n_val = ~clr & (set | n_val);
+				}
+				if (ff.has_srst) {
+					uint64_t srst = sim.eval_bit(ff.sig_srst);
+					if (!ff.pol_srst) srst = ~srst;
+					uint64_t srst_val = (ff.val_srst[eb.idx] == State::S1) ? ~0ULL : 0ULL;
+					n_val = (n_val & ~srst) | (srst_val & srst);
+				}
+
+				sim_buckets[n_val].push_back(idx);
+			}
+
+			for (auto &kv : sim_buckets) {
+				if (GetSize(kv.second) >= 2) {
+					refined_classes.push_back(std::move(kv.second));
+				}
+			}
+		}
+
+		classes = std::move(refined_classes);
+		if (classes.empty())
+			return false;
+
 		QuickConeSat qcsat(modwalker);
 		std::vector<int> q_lit(bits.size(), -1);
 		std::vector<int> n_lit(bits.size(), -1);
@@ -1136,7 +1198,7 @@ struct OptDffWorker
 			// Split at counterexamples
 			int rep = cls[0];
 			for (int i = 1; i < GetSize(cls); i++) {
-				// Trivially eqivalent
+				// Trivially equivalent
 				if (n_lit[rep] == n_lit[cls[i]])
 					continue;
 
