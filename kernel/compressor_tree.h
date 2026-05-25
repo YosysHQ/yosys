@@ -47,14 +47,12 @@ enum class FinalAdder {
 	DEFAULT,         // emit $add and let downstream techmap pick
 	RIPPLE,          // emit $add with explicit narrow hint
 	PARALLEL_PREFIX, // emit $add with PARALLEL_PREFIX
-	ELARITH_MOP_CSV, // black-box instance of \AddMopCsv
 };
 
 enum class FinalMode {
 	AUTO,
 	RIPPLE,
 	PREFIX,
-	ELARITH
 };
 
 inline std::pair<SigSpec, SigSpec> emit_compressor_32(Module *module, SigSpec a, SigSpec b, SigSpec c, int width)
@@ -393,11 +391,10 @@ inline void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y)
  * @b: Signal B
  * @y: Signal Y
  * @choice: Adder type to instantiate
- * @any_signed: Signed info for library macros
  *
  * Return: Cell* of the emitted instance
  */
-inline Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdder choice, bool any_signed) {
+inline Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdder choice) {
 	switch (choice) {
 		case FinalAdder::DEFAULT:
 		case FinalAdder::RIPPLE: {
@@ -406,17 +403,6 @@ inline Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, F
 		case FinalAdder::PARALLEL_PREFIX: {
 			emit_kogge_stone(module, a, b, y);
 			return nullptr;
-		}
-		case FinalAdder::ELARITH_MOP_CSV: {
-			Cell *c = module->addCell(NEW_ID, IdString("\\AddMopCsv"));
-			int w = GetSize(y);
-			c->setParam(IdString("\\WIDTH"), w);
-			c->setParam(IdString("\\NUM_OPERANDS"), 2);
-			c->setParam(IdString("\\SIGNED"), any_signed ? 1 : 0);
-			c->setParam(IdString("\\SPEED"), Const("fast"));
-			c->setPort(IdString("\\Operands"), {a, b});
-			c->setPort(IdString("\\Sum"), y);
-			return c;
 		}
 	}
 	log_assert(false && "CompressorTree::emit_final_adder: invalid choice");
@@ -427,7 +413,6 @@ inline FinalAdder pick_final_adder(int width, FinalMode mode) {
 	switch (mode) {
 		case FinalMode::RIPPLE:  return FinalAdder::RIPPLE;
 		case FinalMode::PREFIX:  return FinalAdder::PARALLEL_PREFIX;
-		case FinalMode::ELARITH: return FinalAdder::ELARITH_MOP_CSV;
 		case FinalMode::AUTO:
 		default:                 return (width < RIPPLE_PREFIX_THRESHOLD) ? FinalAdder::DEFAULT : FinalAdder::PARALLEL_PREFIX;
 	}

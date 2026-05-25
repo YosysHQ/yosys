@@ -21,7 +21,6 @@ struct ArithTreeOptions {
 	CompressorTree::Strategy strategy = CompressorTree::Strategy::PREFER_42;
 	CompressorTree::FinalMode final_mode = CompressorTree::FinalMode::AUTO;
 	bool fma_fusion = true;
-	bool elarith_macro = false;
 };
 
 struct ArithTreeWorker {
@@ -335,52 +334,13 @@ struct ArithTreeWorker {
 		return pool;
 	}
 
-	void emit_tree(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation, bool any_signed, const char *desc)
+	void emit_tree(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation)
 	{
 		int width = GetSize(result_y);
-
-		if (opt.elarith_macro) {
-			// Bypass the compressor
-			emit_elarith_macro(operands, result_y, neg_compensation, any_signed, desc);
-			return;
-		}
-
 		auto pool = build_operand_pool(operands, width, neg_compensation);
 		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy);
 		auto final_choice = CompressorTree::pick_final_adder(width, opt.final_mode);
-		CompressorTree::emit_final_adder(module, a, b, result_y, final_choice, any_signed);
-	}
-
-	void emit_elarith_macro(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation, bool any_signed, const char *desc)
-	{
-		// Multi operand
-		int width = GetSize(result_y);
-		auto pool = build_operand_pool(operands, width, neg_compensation);
-
-		log("  arith_tree::elarith: %s -> \\AddMopCsv macro, %d operands, width %d (module %s)\n", desc, (int)pool.size(), width, log_id(module));
-
-		// Pack all operands
-		SigSpec flat;
-		for (auto &dp : pool) {
-			SigSpec ext = CompressorTree::normalize_to_width(dp.sig, false, width);
-			flat.append(ext);
-		}
-
-		Cell *c = module->addCell(NEW_ID, IdString("\\AddMopCsv"));
-		c->setParam(IdString("\\WIDTH"), width);
-		c->setParam(IdString("\\NUM_OPERANDS"), (int)pool.size());
-		c->setParam(IdString("\\SIGNED"), any_signed ? 1 : 0);
-		c->setParam(IdString("\\SPEED"), Const("fast"));
-		c->setPort(IdString("\\Operands"), flat);
-		c->setPort(IdString("\\Sum"), result_y);
-	}
-
-	bool any_operand_signed(const std::vector<Operand> &operands)
-	{
-		for (auto &op : operands)
-			if (op.is_signed || op.factor_b_signed)
-				return true;
-		return false;
+		CompressorTree::emit_final_adder(module, a, b, result_y, final_choice);
 	}
 
 	void process_chains()
@@ -415,7 +375,7 @@ struct ArithTreeWorker {
 			for (auto c : chain)
 				to_remove.insert(c);
 
-			emit_tree(operands, root->getPort(ID::Y), neg_compensation, any_operand_signed(operands), "Replaced $add/$sub chain");
+			emit_tree(operands, root->getPort(ID::Y), neg_compensation);
 		}
 
 		for (auto cell : to_remove)
@@ -442,7 +402,7 @@ struct ArithTreeWorker {
 			if (!has_mul && operands.size() < 3)
 				continue;
 
-			emit_tree(operands, cell->getPort(ID::Y), neg_compensation, any_operand_signed(operands), has_mul ? "Replaced $macc (FMA)" : "Replaced $macc");
+			emit_tree(operands, cell->getPort(ID::Y), neg_compensation);
 			to_remove.insert(cell);
 		}
 		for (auto cell : to_remove)
@@ -477,16 +437,11 @@ struct ArithTreePass : public Pass {
 		log("        '42' (the default) prefers 4:2 compressor groupings, with\n");
 		log("        fallback to 3:2 compressors for residuals\n");
 		log("\n");
-		log("    -final <auto|ripple|prefix|elarith>\n");
+		log("    -final <auto|ripple|prefix>\n");
 		log("        Selects the architecture used for the final two-vector add.\n");
 		log("\n");
 		log("    -no-fma\n");
 		log("        Disable fused multiply-add expansion in $macc cells\n");
-		log("\n");
-		log("    -elarith-macro\n");
-		log("        Replace each detected chain with a single \\AddMopCsv black-box\n");
-		log("        instance instead of expanding it into $fa cells. The downstream\n");
-		log("        flow must provide an \\AddMopCsv implementation\n");
 		log("\n");
 		log("The default behaviour delivers 4:2 compression, FMA fusion, and a\n");
 		log("width-adaptive final adder\n");
@@ -514,16 +469,11 @@ struct ArithTreePass : public Pass {
 				if (v == "auto") { opt.final_mode = CompressorTree::FinalMode::AUTO; }
 				else if (v == "ripple") { opt.final_mode = CompressorTree::FinalMode::RIPPLE; }
 				else if (v == "prefix") { opt.final_mode = CompressorTree::FinalMode::PREFIX; }
-				else if (v == "elarith") { opt.final_mode = CompressorTree::FinalMode::ELARITH; }
 				else { log_cmd_error("arith_tree: unknown -final '%s'\n", v.c_str()); }
 				continue;
 			}
 			if (arg == "-no-fma") {
 				opt.fma_fusion = false;
-				continue;
-			}
-			if (arg == "-elarith-macro") {
-				opt.elarith_macro = true;
 				continue;
 			}
 			break;
