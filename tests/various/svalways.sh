@@ -18,6 +18,20 @@ always_latch
 endmodule
 EOT
 
+# Good case: dynamic memory writes in always_latch create nosync mem2reg
+# temporaries, but only the memory words themselves should be checked for
+# latch inference.
+${YOSYS} -f "verilog -sv" -qp proc - <<EOT
+module top(input [3:0] addr, input we, input [31:0] data);
+logic [31:0] regs [0:15];
+
+always_latch
+	if (we)
+		regs[addr] = data;
+
+endmodule
+EOT
+
 # Incorrect always_comb syntax
 ((${YOSYS} -f "verilog -sv" -qp proc -|| true) <<EOT
 module top(input d, output reg q);
