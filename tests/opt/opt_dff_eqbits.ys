@@ -3,9 +3,9 @@ design -reset
 read_verilog -sv opt_dff_eqbits_small.sv
 hierarchy -top test_case
 techmap
-opt_dff -sat -eqbits
+opt_dff -sat
 synth
-opt_dff -sat -eqbits
+opt_dff -sat
 opt_clean -purge
 
 select -assert-count 2 t:$_SDFF_PN0_
@@ -17,7 +17,7 @@ hierarchy -top test_case
 prep
 design -save gold
 
-opt_dff -sat -eqbits
+opt_dff -sat
 design -save gate
 
 design -copy-from gold -as gold test_case
@@ -32,9 +32,9 @@ design -reset
 read_verilog -sv opt_dff_eqbits_large.sv
 hierarchy -top test_case
 techmap
-opt_dff -sat -eqbits
+opt_dff -sat
 synth
-opt_dff -sat -eqbits
+opt_dff -sat
 opt_clean -purge
 
 select -assert-count 6 t:$_SDFFE_PN0P_
@@ -46,7 +46,7 @@ hierarchy -top test_case
 prep
 design -save gold
 
-opt_dff -sat -eqbits
+opt_dff -sat
 design -save gate
 
 design -copy-from gold -as gold test_case

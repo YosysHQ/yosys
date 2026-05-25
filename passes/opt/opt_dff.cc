@@ -42,7 +42,6 @@ struct OptDffOptions
 	bool simple_dffe;
 	bool sat;
 	bool keepdc;
-	bool eqbits;
 };
 
 struct OptDffWorker
@@ -977,15 +976,9 @@ struct OptDffWorker
 		return v == State::S1 ? qcsat.ez->CONST_TRUE : qcsat.ez->CONST_FALSE;
 	}
 
-	bool run_eqbits()
+	std::vector<std::vector<int>> gather_initial_eq_classes(std::vector<EqBit> &bits, dict<Cell *, FfData> &ff_for_cell)
 	{
-		if(!opt.eqbits) {
-			return false;
-		}
-
-		std::vector<EqBit> bits;
 		std::vector<SigKey> keys;
-		dict<Cell*, FfData> ff_for_cell;
 
 		// Collect FF bits eligible for merging
 		for (auto cell : module->selected_cells()) {
@@ -1050,27 +1043,26 @@ struct OptDffWorker
 			}
 		}
 
-		if (GetSize(bits) < 2)
-			return false;
-
-		// Group bits by control signature
 		dict<SigKey, std::vector<int>> buckets;
 		for (int i = 0; i < GetSize(bits); i++)
 			buckets[keys[i]].push_back(i);
 
 		std::vector<std::vector<int>> classes;
-		classes.reserve(GetSize(buckets));
 		for (auto &kv : buckets)
 			if (GetSize(kv.second) >= 2)
 				classes.push_back(std::move(kv.second));
 
-		if (classes.empty())
-			return false;
+		return classes;
+	}
 
-		ModWalker modwalker(module->design, module);
+	std::vector<std::vector<int>> filter_classes_sim(
+		const std::vector<std::vector<int>> &classes,
+		const std::vector<EqBit> &bits,
+		const dict<Cell *, FfData> &ff_for_cell,
+		ModWalker &modwalker
+	) {
 		BitSim sim(module, sigmap, modwalker);
-		
-		// Simulation prepass
+
 		// Assume same class
 		for (auto &cls : classes) {
 			uint64_t class_q_val = sim.xorshift64();
@@ -1080,15 +1072,13 @@ struct OptDffWorker
 		}
 
 		std::vector<std::vector<int>> refined_classes;
-
 		for (auto &cls : classes) {
 			dict<uint64_t, std::vector<int>> sim_buckets;
 			for (int idx : cls) {
 				const EqBit &eb = bits[idx];
 				const FfData &ff = ff_for_cell.at(eb.cell);
-				
 				uint64_t n_val = sim.eval_bit(ff.sig_d[eb.idx]);
-				
+
 				if (ff.has_aload) {
 					uint64_t al = sim.eval_bit(ff.sig_aload);
 					if (!ff.pol_aload) al = ~al;
@@ -1118,17 +1108,20 @@ struct OptDffWorker
 				sim_buckets[n_val].push_back(idx);
 			}
 
-			for (auto &kv : sim_buckets) {
-				if (GetSize(kv.second) >= 2) {
+			for (auto &kv : sim_buckets)
+				if (GetSize(kv.second) >= 2)
 					refined_classes.push_back(std::move(kv.second));
-				}
-			}
 		}
 
-		classes = std::move(refined_classes);
-		if (classes.empty())
-			return false;
+		return refined_classes;
+	}
 
+	std::vector<std::vector<int>> filter_classes_sat(
+		std::vector<std::vector<int>> classes,
+		const std::vector<EqBit> &bits,
+		const dict<Cell *, FfData> &ff_for_cell,
+		ModWalker &modwalker
+	) {
 		QuickConeSat qcsat(modwalker);
 		std::vector<int> q_lit(bits.size(), -1);
 		std::vector<int> n_lit(bits.size(), -1);
@@ -1144,8 +1137,7 @@ struct OptDffWorker
 				if (ff.has_aload) {
 					int al = qcsat.importSigBit(ff.sig_aload);
 					if (!ff.pol_aload) al = qcsat.ez->NOT(al);
-					int ad = qcsat.importSigBit(ff.sig_ad[eb.idx]);
-					n = sat_mux(qcsat, al, ad, n);
+					n = sat_mux(qcsat, al, qcsat.importSigBit(ff.sig_ad[eb.idx]), n);
 				}
 				if (ff.has_arst) {
 					int ar = qcsat.importSigBit(ff.sig_arst);
@@ -1170,13 +1162,11 @@ struct OptDffWorker
 		}
 
 		qcsat.prepare();
-		bool any_change = false;
 		std::vector<int> worklist;
 		std::vector<bool> in_worklist(GetSize(classes), true);
 
-		for (int i = 0; i < GetSize(classes); i++) {
+		for (int i = 0; i < GetSize(classes); i++)
 			worklist.push_back(i);
-		}
 
 		while (!worklist.empty()) {
 			int cls_idx = worklist.back();
@@ -1190,9 +1180,8 @@ struct OptDffWorker
 			for (auto &c : classes) {
 				if (GetSize(c) < 2) continue;
 				int rep = c[0];
-				for (int k = 1; k < GetSize(c); k++) {
+				for (int k = 1; k < GetSize(c); k++)
 					assumptions.push_back(qcsat.ez->IFF(q_lit[rep], q_lit[c[k]]));
-				}
 			}
 
 			// Split at counterexamples
@@ -1204,14 +1193,12 @@ struct OptDffWorker
 
 				int query = qcsat.ez->NOT(qcsat.ez->IFF(n_lit[rep], n_lit[cls[i]]));
 				std::vector<int> modelExprs;
-
-				for (int b : cls) {
+				for (int b : cls)
 					modelExprs.push_back(n_lit[b]);
-				}
 
 				std::vector<bool> modelVals;
 				assumptions.push_back(query);
-				
+
 				if (qcsat.ez->solve(modelExprs, modelVals, assumptions)) {
 					// SAT -> partition entire class
 					std::vector<int> sub0;
@@ -1243,9 +1230,12 @@ struct OptDffWorker
 			}
 		}
 
-		if (classes.empty())
-			return any_change;
+		return classes;
+	}
 
+	bool apply_eq_merges(const std::vector<std::vector<int>> &classes, const std::vector<EqBit> &bits, dict<Cell *, FfData> &ff_for_cell)
+	{
+		bool any_change = false;
 		dict<Cell *, std::set<int>> remove_bits;
 
 		// Drive every non-rep Q from its class rep, drop merged bits from their FFs
@@ -1282,6 +1272,33 @@ struct OptDffWorker
 		}
 
 		return any_change;
+	}
+
+	bool run_eqbits()
+	{
+		if (!opt.sat)
+			return false;
+
+		std::vector<EqBit> bits;
+		dict<Cell *, FfData> ff_for_cell;
+
+		std::vector<std::vector<int>> classes = gather_initial_eq_classes(bits, ff_for_cell);
+		if (classes.empty())
+			return false;
+
+		ModWalker modwalker(module->design, module);
+
+		// Simulation prepass
+		classes = filter_classes_sim(classes, bits, ff_for_cell, modwalker);
+		if (classes.empty())
+			return false;
+
+		// SAT prove
+		classes = filter_classes_sat(std::move(classes), bits, ff_for_cell, modwalker);
+		if (classes.empty())
+			return false;
+
+		return apply_eq_merges(classes, bits, ff_for_cell);
 	}
 };
 
@@ -1320,11 +1337,6 @@ struct OptDffPass : public Pass {
 		log("        all result bits to be set to x. this behavior changes when 'a+0' is\n");
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
 		log("\n");
-		log("    -eqbits\n");
-		log("        finds groups of flip flop bits provably holding always-equal values\n");
-		log("        across cycles and collapses each group to a single bit, potentially\n");
-		log("        reducing the number of required flip flops.\n");
-		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -1337,7 +1349,6 @@ struct OptDffPass : public Pass {
 		opt.simple_dffe = false;
 		opt.keepdc = false;
 		opt.sat = false;
-		opt.eqbits = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1346,7 +1357,6 @@ struct OptDffPass : public Pass {
 			if (args[argidx] == "-simple-dffe") { opt.simple_dffe = true; continue; }
 			if (args[argidx] == "-keepdc") { opt.keepdc = true; continue; }
 			if (args[argidx] == "-sat") { opt.sat = true; continue; }
-			if (args[argidx] == "-eqbits") { opt.eqbits = true; continue; }
 			break;
 		}
 		extra_args(args, argidx, design);
