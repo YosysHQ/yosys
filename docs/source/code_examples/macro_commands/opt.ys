@@ -13,4 +13,4 @@ do
     opt_boundary (-boundary only)
     opt_clean
     opt_expr
-while <changed design in opt_dff> (up to -max_iter iterations)
+while <changed design> (up to -max_iter iterations)
