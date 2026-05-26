@@ -70,7 +70,6 @@ struct OptPass : public Pass {
 		log("        only run the specified number of iterations.\n");
 		log("        default: 20. use 0 for unlimited.\n");
 		log("\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
