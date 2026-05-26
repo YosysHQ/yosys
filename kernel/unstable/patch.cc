@@ -61,11 +61,12 @@ void Patch::collect_src(Cell* old_cell) {
 	for (auto [port_name, sig] : old_cell->connections()) {
 		auto dir = old_cell->port_dir(port_name);
 		log_assert(dir != PD_UNKNOWN);
-		log_assert(!sig.size() || sig.is_wire());
 		if (dir == PD_INPUT || dir == PD_INOUT) {
-			Wire* in_wire = sig.as_wire();
-			if (!leaves.count(in_wire))
-				inputs.push_back(in_wire->driverCell());
+			if (sig.size() && sig.is_wire()) {
+				Wire* in_wire = sig.as_wire();
+				if (!leaves.count(in_wire))
+					inputs.push_back(in_wire->driverCell());
+			}
 		}
 	}
 	for (auto input : inputs)
@@ -78,20 +79,19 @@ void Patch::gc(Cell* old_cell) {
 	for (auto [port_name, sig] : old_cell->connections()) {
 		auto dir = old_cell->port_dir(port_name);
 		log_assert(dir != PD_UNKNOWN);
-		log_assert(!sig.size() || sig.is_wire());
-		if (dir == PD_OUTPUT || dir == PD_INOUT) {
-			if (sig.size()) {
+		if (sig.size() && sig.is_wire()) {
+			if (dir == PD_OUTPUT || dir == PD_INOUT) {
 				for (auto bit : sig) {
 					// Reject GC if used
 					if (!mod->fanout(bit).empty())
 						return;
 				}
 			}
-		}
-		if (dir == PD_INPUT || dir == PD_INOUT) {
-			Wire* in_wire = sig.as_wire();
-			if (!leaves.count(in_wire))
-				inputs.push_back(in_wire->driverCell());
+			if (dir == PD_INPUT || dir == PD_INOUT) {
+				Wire* in_wire = sig.as_wire();
+				if (!leaves.count(in_wire))
+					inputs.push_back(in_wire->driverCell());
+			}
 		}
 	}
 	for (auto input : inputs)
