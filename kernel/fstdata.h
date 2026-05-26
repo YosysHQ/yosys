@@ -61,6 +61,7 @@ class FstData
 	std::string autoScope(Module *topmod);
 private:
 	void extractVarNames();
+	void registerVar(const FstVar &var);
 
 	struct fstReaderContext *ctx;
 	std::vector<FstVar> vars;
