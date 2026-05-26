@@ -94,6 +94,7 @@ void Patch::gc(Cell* old_cell) {
 			}
 		}
 	}
+	old_cell->module->remove(old_cell);
 	for (auto input : inputs)
 		gc(input);
 }
