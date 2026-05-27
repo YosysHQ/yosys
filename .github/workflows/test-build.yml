@@ -261,7 +261,6 @@ jobs:
           echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
           echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
           echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
-          echo 'set(YOSYS_ENABLE_HELP_SOURCE ON CACHE BOOL "")' >> Configuration.cmake
 
           cmake -C Configuration.cmake -B build .
           cmake --build build -j$procs

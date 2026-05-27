@@ -17,6 +17,5 @@
 #cmakedefine YOSYS_ENABLE_TCL
 #cmakedefine YOSYS_ENABLE_PYTHON
 #cmakedefine YOSYS_ENABLE_VERIFIC
-#cmakedefine YOSYS_ENABLE_HELP_SOURCE
 
 #endif
