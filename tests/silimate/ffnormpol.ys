@@ -1,0 +1,116 @@
+log -header "Normalize coarse and fine FF/latch polarities"
+log -push
+design -reset
+read_rtlil <<EOT
+module \top
+  wire input 1 \clk
+  wire input 2 \en
+  wire input 3 \arst
+  wire input 4 \srst
+  wire input 5 \aload
+  wire width 2 input 6 \set
+  wire width 2 input 7 \clr
+  wire width 2 input 8 \d
+  wire width 2 input 9 \ad
+  wire width 2 output 10 \q_dffe
+  wire width 2 output 11 \q_adffe
+  wire width 2 output 12 \q_sdffce
+  wire width 2 output 13 \q_aldffe
+  wire width 2 output 14 \q_dlatchsr
+  wire width 2 output 15 \q_sr
+  wire output 16 \q_fine
+
+  cell $dffe \dffe_neg
+    parameter \CLK_POLARITY 1'0
+    parameter \EN_POLARITY 1'0
+    parameter \WIDTH 2
+    connect \CLK \clk
+    connect \EN \en
+    connect \D \d
+    connect \Q \q_dffe
+  end
+
+  cell $adffe \adffe_neg
+    parameter \CLK_POLARITY 1'0
+    parameter \EN_POLARITY 1'0
+    parameter \ARST_POLARITY 1'0
+    parameter \ARST_VALUE 2'01
+    parameter \WIDTH 2
+    connect \CLK \clk
+    connect \EN \en
+    connect \ARST \arst
+    connect \D \d
+    connect \Q \q_adffe
+  end
+
+  cell $sdffce \sdffce_neg
+    parameter \CLK_POLARITY 1'0
+    parameter \EN_POLARITY 1'0
+    parameter \SRST_POLARITY 1'0
+    parameter \SRST_VALUE 2'10
+    parameter \WIDTH 2
+    connect \CLK \clk
+    connect \EN \en
+    connect \SRST \srst
+    connect \D \d
+    connect \Q \q_sdffce
+  end
+
+  cell $aldffe \aldffe_neg
+    parameter \CLK_POLARITY 1'0
+    parameter \EN_POLARITY 1'0
+    parameter \ALOAD_POLARITY 1'0
+    parameter \WIDTH 2
+    connect \CLK \clk
+    connect \EN \en
+    connect \ALOAD \aload
+    connect \D \d
+    connect \AD \ad
+    connect \Q \q_aldffe
+  end
+
+  cell $dlatchsr \dlatchsr_neg
+    parameter \EN_POLARITY 1'0
+    parameter \SET_POLARITY 1'0
+    parameter \CLR_POLARITY 1'0
+    parameter \WIDTH 2
+    connect \EN \aload
+    connect \SET \set
+    connect \CLR \clr
+    connect \D \d
+    connect \Q \q_dlatchsr
+  end
+
+  cell $sr \sr_neg
+    parameter \SET_POLARITY 1'0
+    parameter \CLR_POLARITY 1'0
+    parameter \WIDTH 2
+    connect \SET \set
+    connect \CLR \clr
+    connect \Q \q_sr
+  end
+
+  cell $_DFFE_NN_ \fine_dffe_neg
+    connect \C \clk
+    connect \E \en
+    connect \D \d [0]
+    connect \Q \q_fine
+  end
+end
+EOT
+
+ffnormpol
+check -assert
+
+select -assert-count 0 r:CLK_POLARITY=0
+select -assert-count 0 r:EN_POLARITY=0
+select -assert-count 0 r:ARST_POLARITY=0
+select -assert-count 0 r:SRST_POLARITY=0
+select -assert-count 0 r:ALOAD_POLARITY=0
+select -assert-count 0 r:SET_POLARITY=0
+select -assert-count 0 r:CLR_POLARITY=0
+select -assert-count 1 t:$_DFFE_PP_
+select -assert-count 7 t:$not
+
+design -reset
+log -pop
