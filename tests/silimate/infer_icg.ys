@@ -1,0 +1,188 @@
+log -header "Infer $icg from latch-based clock gate with scan enable"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top(input logic CK, EN, SE, output logic Q);
+  logic en_ff;
+  logic enable;
+
+  assign enable = EN | SE;
+
+  always_latch
+    if (!CK)
+      en_ff = enable;
+
+  assign Q = CK & en_ff;
+endmodule
+EOF
+
+hierarchy -auto-top
+proc
+opt
+select -assert-count 1 t:$dlatch
+select -assert-count 1 t:$and t:$logic_and
+select -assert-count 1 t:$or t:$logic_or
+select -assert-count 0 t:$icg
+
+infer_icg
+clean
+check -assert
+
+select -assert-count 1 t:$icg
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$and t:$logic_and
+select -assert-count 0 t:$or t:$logic_or
+design -reset
+log -pop
+
+log -header "Infer $icg from latch-based clock gate without scan enable"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top(input logic CK, EN, output logic Q);
+  logic en_ff;
+
+  always_latch
+    if (!CK)
+      en_ff = EN;
+
+  assign Q = en_ff & CK;
+endmodule
+EOF
+
+hierarchy -auto-top
+proc
+opt
+infer_icg
+clean
+check -assert
+
+select -assert-count 1 t:$icg
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$and t:$logic_and
+design -reset
+log -pop
+
+log -header "Infer $icg from active-high latch on inverted clock"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top(input logic CK, EN, SE, output logic Q);
+  logic en_ff;
+  logic enable;
+  logic nCK;
+
+  assign enable = EN | SE;
+  assign nCK = !CK;
+
+  always_latch
+    if (nCK)
+      en_ff = enable;
+
+  assign Q = CK & en_ff;
+endmodule
+EOF
+
+hierarchy -auto-top
+proc
+opt
+infer_icg
+clean
+check -assert
+
+select -assert-count 1 t:$icg
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$and t:$logic_and
+select -assert-count 0 t:$or t:$logic_or
+design -reset
+log -pop
+
+log -header "Infer $icg from active-high latch on inverted clock without scan enable"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top(input logic CK, EN, output logic Q);
+  logic en_ff;
+  logic nCK;
+
+  assign nCK = !CK;
+
+  always_latch
+    if (nCK)
+      en_ff = EN;
+
+  assign Q = CK & en_ff;
+endmodule
+EOF
+
+hierarchy -auto-top
+proc
+opt
+infer_icg
+clean
+check -assert
+
+select -assert-count 1 t:$icg
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$and t:$logic_and
+design -reset
+log -pop
+
+log -header "Infer $icg from high-idle OR clock gate"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top(input logic CK, EN, SE, output logic Q);
+  logic en_ff;
+  logic enable;
+
+  assign enable = EN | SE;
+
+  always_latch
+    if (CK)
+      en_ff = enable;
+
+  assign Q = CK | !en_ff;
+endmodule
+EOF
+
+hierarchy -auto-top
+proc
+opt
+infer_icg
+clean
+check -assert
+
+select -assert-count 1 t:$icg
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$or t:$logic_or
+design -reset
+log -pop
+
+log -header "Infer $icg from high-idle OR clock gate without scan enable"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top(input logic CK, EN, output logic Q);
+  logic en_ff;
+
+  always_latch
+    if (CK)
+      en_ff = EN;
+
+  assign Q = CK | !en_ff;
+endmodule
+EOF
+
+hierarchy -auto-top
+proc
+opt
+infer_icg
+clean
+check -assert
+
+select -assert-count 1 t:$icg
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$or t:$logic_or
+design -reset
+log -pop

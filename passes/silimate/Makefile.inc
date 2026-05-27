@@ -20,6 +20,7 @@ OBJS += passes/silimate/cone_partition.o
 OBJS += passes/silimate/clkmerge.o
 OBJS += passes/silimate/opt_boundary.o
 OBJS += passes/silimate/opt_vps.o
+OBJS += passes/silimate/infer_icg.o
 
 OBJS += passes/silimate/opt_expand.o
 GENFILES += passes/silimate/peepopt_expand.h
