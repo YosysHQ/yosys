@@ -182,7 +182,7 @@ void FstData::extractVarNames()
 					fork_parent_scope = fst_scope_name;
 					fork_name = h->u.scope.name;
 					fork_vars.clear();
-				} else if (detect_union && h->u.scope.typ == FST_ST_VCD_STRUCT) {
+				} else if (in_fork && h->u.scope.typ == FST_ST_VCD_STRUCT) {
 					// Signal that a nested $fork can not be a candidate for union struct detection.
 					log_warning("Nested $fork '%s' inside $fork '%s'; "
 						"abandoning union detection for this scope...\n",
