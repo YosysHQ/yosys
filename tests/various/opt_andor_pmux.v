@@ -2,40 +2,35 @@ module andor_pmux_basic (
 	input  [2:0] sel,
 	input  [5:0] d,
 	input        a,
-	output [1:0] y
+	output [2:0] y
 );
-	assign y = ({2{sel == 3'd1}} & d[1:0]) |
-	           ({2{sel == 3'd3}} & {d[2] & a, d[3]}) |
-	           ({2{sel == 3'd6}} & 2'b01);
+	assign y = ({3{sel == 3'd1}} & d[2:0]) |
+	           ({3{sel == 3'd3}} & {d[3] & a, d[4], d[5]}) |
+	           ({3{sel == 3'd6}} & 3'b001);
 endmodule
 
 module andor_pmux_outer_enable (
 	input  [2:0] sel,
-	input  [3:0] d,
+	input  [5:0] d,
 	input        en,
-	output [1:0] y
+	output [2:0] y
 );
-	wire [1:0] body;
+	wire [2:0] body;
 
-	assign body = ({2{sel == 3'd2}} & {1'b0, d[0]}) |
-	              ({2{sel == 3'd5}} & {d[1], d[2]}) |
-	              ({2{sel == 3'd7}} & {d[3], 1'b1});
-	assign y = {2{en}} & body;
+	assign body = ({3{sel == 3'd2}} & {1'b0, d[0], d[1]}) |
+	              ({3{sel == 3'd5}} & {d[2], d[3], d[4]}) |
+	              ({3{sel == 3'd7}} & {d[5], 1'b1, d[0]});
+	assign y = {3{en}} & body;
 endmodule
 
 module andor_pmux_duplicate (
 	input  [1:0] sel,
-	input        a,
-	input        b,
-	input        c,
-	input        d,
-	input        e,
-	input        f,
-	output [1:0] y
+	input  [11:0] d,
+	output [3:0] y
 );
-	assign y = ({2{sel == 2'd1}} & {a, b}) |
-	           ({2{sel == 2'd1}} & {c, d}) |
-	           ({2{sel == 2'd2}} & {e, f});
+	assign y = ({4{sel == 2'd1}} & d[3:0]) |
+	           ({4{sel == 2'd1}} & d[7:4]) |
+	           ({4{sel == 2'd2}} & d[11:8]);
 endmodule
 
 module andor_pmux_mixed_select_negative (
@@ -65,15 +60,15 @@ endmodule
 
 module andor_pmux_shared_subtree (
 	input  [2:0] sel,
-	input  [3:0] d,
-	input        q,
-	output       y,
-	output       z
+	input  [8:0] d,
+	input  [2:0] q,
+	output [2:0] y,
+	output [2:0] z
 );
-	wire sub = ((sel == 3'd1) & d[0]) |
-	           ((sel == 3'd3) & d[1]);
+	wire [2:0] sub = ({3{sel == 3'd1}} & d[2:0]) |
+	                 ({3{sel == 3'd3}} & d[5:3]);
 
-	assign y = sub | ((sel == 3'd6) & d[2]);
+	assign y = sub | ({3{sel == 3'd6}} & d[8:6]);
 	assign z = sub & q;
 endmodule
 
@@ -106,12 +101,12 @@ endmodule
 
 module andor_pmux_duplicate_complex (
 	input  [2:0] sel,
-	input  [8:0] d,
+	input  [11:0] d,
 	input        q,
 	input        r,
-	output [2:0] y
+	output [3:0] y
 );
-	assign y = ({3{sel == 3'd2}} & {d[0] & q, d[1], d[2]}) |
-	           ({3{sel == 3'd2}} & {d[3], d[4] & r, d[5]}) |
-	           ({3{sel == 3'd5}} & {d[6], d[7] & q, d[8] & r});
+	assign y = ({4{sel == 3'd2}} & {d[0] & q, d[1], d[2], d[3]}) |
+	           ({4{sel == 3'd2}} & {d[4], d[5] & r, d[6], d[7]}) |
+	           ({4{sel == 3'd5}} & {d[8], d[9] & q, d[10] & r, d[11]});
 endmodule

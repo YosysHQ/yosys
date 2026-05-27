@@ -1,0 +1,38 @@
+read_verilog opt_andor_pmux.v
+
+hierarchy -top mixed_vector_decode
+proc
+design -save mixed_gold
+
+opt_andor_pmux
+select -assert-count 2 t:$pmux
+
+design -stash mixed_gate
+design -copy-from mixed_gold -as gold mixed_vector_decode
+design -copy-from mixed_gate -as gate mixed_vector_decode
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-inputs -show-outputs miter
+
+design -reset
+read_verilog opt_andor_pmux.v
+
+hierarchy -top partial_vector_decode
+proc
+design -save partial_gold
+
+opt_andor_pmux
+select -assert-count 2 t:$pmux
+
+design -stash partial_gate
+design -copy-from partial_gold -as gold partial_vector_decode
+design -copy-from partial_gate -as gate partial_vector_decode
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-inputs -show-outputs miter
+
+design -reset
+read_verilog opt_andor_pmux.v
+
+hierarchy -top tiny_decode
+proc
+opt_andor_pmux
+select -assert-count 0 t:$pmux
