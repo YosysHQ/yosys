@@ -168,7 +168,7 @@ void FstData::extractVarNames()
 	std::string fst_scope_name;
 
 	/* Variables for resolving unions with $fork. */
-	bool detect_union = false;      // if we should be detecting unions with $fork
+	bool in_fork = false;           // if we are inside a $fork scope
 	std::string fork_parent_scope;  // parent scope of fork (used to resolve union location)
 	std::string fork_name;          // name of fork (used to resolve union name)
 	std::vector<FstVar> fork_vars;  // stores all variables in the fork scope
@@ -177,18 +177,10 @@ void FstData::extractVarNames()
 		switch (h->htyp) {
 			case FST_HT_SCOPE: {
 				// Handle tracking for potential union structs with $fork.
-				if (!detect_union && h->u.scope.typ == FST_ST_VCD_FORK) {
-					detect_union = true;
+				if (!in_fork && h->u.scope.typ == FST_ST_VCD_FORK) {
+					in_fork = true;
 					fork_parent_scope = fst_scope_name;
 					fork_name = h->u.scope.name;
-					fork_vars.clear();
-				} else if (in_fork && h->u.scope.typ == FST_ST_VCD_STRUCT) {
-					// Signal that a nested $fork can not be a candidate for union struct detection.
-					log_warning("Nested $fork '%s' inside $fork '%s'; "
-						"abandoning union detection for this scope...\n",
-						h->u.scope.name, fork_name.c_str());
-					for (auto &v : fork_vars) registerVar(v);
-					detect_union = false;
 					fork_vars.clear();
 				}
 				// Push the scope onto the stack to 'descend' into the hierarchy.
@@ -196,7 +188,7 @@ void FstData::extractVarNames()
 				break;
 			}
 			case FST_HT_UPSCOPE: {
-				if (detect_union) {
+				if (in_fork) {
 					// A union is detected if there are at least 2 variables in the fork scope and they all have the same fstHandle.
 					bool is_union = fork_vars.size() >= 2 &&
 							std::all_of(fork_vars.begin() + 1, fork_vars.end(),
@@ -215,7 +207,7 @@ void FstData::extractVarNames()
 								registerVar(v);
 							}
 					}
-					detect_union = false;
+					in_fork = false;
 					fork_vars.clear();
 				}
 				// Pop the scope off the stack.
@@ -232,7 +224,7 @@ void FstData::extractVarNames()
 				normalize_brackets(var.scope);
 				var.width = h->u.var.length;
 
-				if (detect_union) fork_vars.push_back(var); // store all variables in fork scope into a vector
+				if (in_fork) fork_vars.push_back(var); // store all variables in fork scope into a vector
 				else registerVar(var); // otherwise, register the variable as normal
 				break;
 			}
