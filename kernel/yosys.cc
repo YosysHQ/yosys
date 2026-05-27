@@ -228,6 +228,7 @@ PYBIND11_MODULE(pyosys, m) {
 // This should not affect using wheels as the dylib has to actually be called
 // libyosys_dummy.so for this function to be interacted with at all.
 PYBIND11_MODULE(libyosys_dummy, _) {
+	(void)_;
 	throw py::import_error("Change your import from 'import libyosys' to 'from pyosys import libyosys'.");
 }
 #endif
