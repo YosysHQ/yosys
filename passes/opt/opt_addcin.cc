@@ -23,6 +23,24 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static void merge_add_attributes(Cell *dst, const Cell *outer, const Cell *inner)
+{
+	dst->attributes = outer->attributes;
+
+	for (const auto &attr : inner->attributes)
+		if (attr.first != ID::src && !dst->attributes.count(attr.first))
+			dst->attributes[attr.first] = attr.second;
+
+	std::string outer_src = outer->get_src_attribute();
+	std::string inner_src = inner->get_src_attribute();
+	if (outer_src.empty()) {
+		if (!inner_src.empty())
+			dst->set_src_attribute(inner_src);
+	} else if (!inner_src.empty() && inner_src != outer_src) {
+		dst->set_src_attribute(outer_src + "|" + inner_src);
+	}
+}
+
 struct OptAddcinWorker
 {
 	struct Leaf {
@@ -189,7 +207,7 @@ struct OptAddcinWorker
 		Wire *wide_y_wire = module->addWire(NEW_ID2_SUFFIX("addcin_y"), rewrite.width + 1);
 		SigSpec wide_y(wide_y_wire);
 		Cell *wide_add = module->addCell(NEW_ID2_SUFFIX("addcin"), ID($add));
-		wide_add->attributes = rewrite.outer->attributes;
+		merge_add_attributes(wide_add, rewrite.outer, rewrite.inner);
 		wide_add->setPort(ID::A, wide_a);
 		wide_add->setPort(ID::B, wide_b);
 		wide_add->setPort(ID::Y, wide_y);

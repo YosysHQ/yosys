@@ -379,3 +379,45 @@ design -load postopt
 select -assert-count 3 t:$add
 design -reset
 log -pop
+
+# ============================================================================
+# Group D: Metadata preservation
+# ============================================================================
+
+# Test D1: replacement adder preserves attributes from both consumed adders.
+#
+# Shape:
+#   add_ab  : s = a + b      (* src="inner_add.v:10.1-10.8", inner_marker=1 *)
+#   add_cin : y = s + cin    (* src="outer_add.v:20.1-20.8", outer_marker=1 *)
+#
+# The replacement cell is the only remaining $add. It should keep the outer
+# cell's attributes, import inner-only metadata, and retain both source
+# locations in its merged src attribute.
+log -header "D1: merge attributes from inner and outer cells"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  (* src = "inner_add.v:10.1-10.8", inner_marker = 1 *)
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  (* src = "outer_add.v:20.1-20.8", outer_marker = 1 *)
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add a:outer_marker %i
+select -assert-count 1 t:$add a:inner_marker %i
+select -assert-count 1 t:$add a:src=*outer_add.v* %i
+select -assert-count 1 t:$add a:src=*inner_add.v* %i
+design -reset
+log -pop
