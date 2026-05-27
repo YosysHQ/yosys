@@ -240,10 +240,11 @@ struct RegRenamePass : public Pass {
 		log("\n");
 		log("    reg_rename [options]\n");
 		log("\n");
-		log("    -vcd <filename>\n");
-		log("        vcd file to extract original register width from\n");
+		log("    -waveform <filename>\n");
+		log("        waveform file (VCD or FST) to extract original register widths from.\n");
+		log("        VCD inputs are converted via the external vcd2fst tool.\n");
 		log("    -scope <scope>\n");
-		log("        scope to process in vcd file\n");
+		log("        scope to process in the waveform\n");
 		log("\n");
 		log("    -d\n");
 		log("        enable debug output\n");
@@ -254,13 +255,13 @@ struct RegRenamePass : public Pass {
 		log_header(design, "Executing reg_rename pass\n");
 
 		// Argument parsing
-		std::string vcd_filename;
+		std::string waveform_filename;
 		std::string scope;
 		bool debug = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-vcd" && argidx + 1 < args.size()) {
-				vcd_filename = args[++argidx];
+			if (args[argidx] == "-waveform" && argidx + 1 < args.size()) {
+				waveform_filename = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-scope" && argidx + 1 < args.size()) {
@@ -280,12 +281,12 @@ struct RegRenamePass : public Pass {
 		if (!topmod)
 			log_error("No top module found!\n");
 
-		// Extract pre-optimization signal widths from VCD file
+		// Extract pre-optimization signal widths from waveform file
 		dict<std::string, RegInfo> vcd_reg_widths;
-		if (!vcd_filename.empty()) {
-			log("Reading VCD file: %s\n", vcd_filename.c_str());
+		if (!waveform_filename.empty()) {
+			log("Reading waveform file: %s\n", waveform_filename.c_str());
 			try {
-				FstData fst(vcd_filename);
+				FstData fst(waveform_filename);
 				if (scope.empty()) {
 					scope = fst.autoScope(topmod);
 					if (scope.empty()) {
@@ -295,7 +296,7 @@ struct RegRenamePass : public Pass {
 				}
 				log("Using scope: \"%s\"\n", scope.c_str());
 
-				// Extract all signals from the VCD file (registers can be 'reg' or 'wire' in VCDs)
+				// Extract all signals from the waveform (registers can be 'reg' or 'wire' in VCDs)
 				for (auto &var : fst.getVars()) {
 					std::string vcd_scope = var.scope;
 					std::string signal_name = var.name;
@@ -323,7 +324,7 @@ struct RegRenamePass : public Pass {
 					int width  = var.width;
 					int offset = std::min(msb, lsb);
 
-					// Map the register's vcd scope and name to
+					// Map the register's scope and name to
 					// its original width and offset for later lookup.
 					signal_name = RTLIL::unescape_id(signal_name);
 					vcd_reg_widths[vcd_scope + "." + signal_name] = {width, offset};
@@ -332,13 +333,13 @@ struct RegRenamePass : public Pass {
 							signal_name.c_str(), vcd_scope.c_str(),
 							offset + width - 1, offset, width);
 				}
-				log("Extracted %d signal widths from VCD\n", GetSize(vcd_reg_widths));
+				log("Extracted %d signal widths from waveform\n", GetSize(vcd_reg_widths));
 			} catch (const std::exception &e) {
-				log_error("Failed to read VCD file '%s': %s\n", 
-					vcd_filename.c_str(), e.what());
+				log_error("Failed to read waveform file '%s': %s\n", 
+					waveform_filename.c_str(), e.what());
 			}
 		} else {
-			log_error("No VCD file provided. Use -vcd option.\n");
+			log_error("No waveform file provided. Use -waveform option.\n");
 		}
 
 		// STEP 2: Build hierarchy and process
