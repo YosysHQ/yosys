@@ -290,7 +290,6 @@ condition(YOSYS_ENABLE_EDITLINE editline_FOUND AND NOT YOSYS_WITHOUT_EDITLINE AN
 condition(YOSYS_ENABLE_TCL tcl_FOUND AND libtommath_FOUND AND NOT YOSYS_WITHOUT_TCL)
 condition(YOSYS_ENABLE_PYTHON Python3Embed_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
 condition(YOSYS_ENABLE_VERIFIC YOSYS_VERIFIC_DIR AND zlib_FOUND)
-condition(YOSYS_ENABLE_HELP_SOURCE NOT CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo)$")
 
 # Describe dependencies and features
 # CMake 4.0 would let us use proper conditions, but that's too new for now.
