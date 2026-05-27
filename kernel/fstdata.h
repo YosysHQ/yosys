@@ -63,7 +63,6 @@ private:
 	void extractVarNames();
 	void registerVar(const FstVar &var);
 
-	bool fork_vars_had_nested_fork = false;  // Track if nested fork was detected
 	struct fstReaderContext *ctx;
 	std::vector<FstVar> vars;
 	std::map<fstHandle, FstVar> handle_to_var;
