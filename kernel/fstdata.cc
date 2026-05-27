@@ -109,18 +109,108 @@ static std::string remove_spaces(std::string str)
 	return str;
 }
 
+void FstData::registerVar(const FstVar &var)
+{
+	vars.push_back(var);
+	if (!var.is_alias)
+		handle_to_var[var.id] = var;
+
+	std::string clean_name = var.name;
+	if (!clean_name.empty() && clean_name[0] == '\\')
+	clean_name = clean_name.substr(1);
+
+	// Strip trailing bit range [N:M] if present
+	if (!clean_name.empty() && clean_name.back() == ']') {
+		size_t open = clean_name.rfind('[');
+		if (open != std::string::npos) {
+			std::string inner = clean_name.substr(open + 1, clean_name.size() - open - 2);
+			if (inner.find(':') != std::string::npos)
+				clean_name.erase(open);
+		}
+	}
+
+	// Handle memory addresses
+	size_t pos = clean_name.find_last_of("<");
+	if (pos != std::string::npos && clean_name.back() == '>') {
+		std::string mem_cell = clean_name.substr(0, pos);
+		normalize_brackets(mem_cell);
+		std::string addr = clean_name.substr(pos+1);
+		addr.pop_back(); // remove closing bracket
+		char *endptr;
+		int mem_addr = strtol(addr.c_str(), &endptr, 16);
+		if (*endptr) {
+			log_debug("Error parsing memory address in : %s\n", clean_name);
+		} else {
+			memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
+		}
+	}
+	pos = clean_name.find_last_of("[");
+	if (pos != std::string::npos && clean_name.back() == ']') {
+		std::string mem_cell = clean_name.substr(0, pos);
+		normalize_brackets(mem_cell);
+		std::string addr = clean_name.substr(pos+1);
+		addr.pop_back(); // remove closing bracket
+		char *endptr;
+		int mem_addr = strtol(addr.c_str(), &endptr, 10);
+		if (*endptr) {
+			log_debug("Error parsing memory address in : %s\n", clean_name);
+		} else {
+			memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
+		}
+	}
+	normalize_brackets(clean_name);
+	name_to_handle[var.scope+"."+clean_name] = var.id;
+}
+
 void FstData::extractVarNames()
 {
 	struct fstHier *h;
 	std::string fst_scope_name;
 
+	/* Variables for resolving unions with $fork. */
+	bool in_fork = false;           // if we are inside a $fork scope
+	std::string fork_parent_scope;  // parent scope of fork (used to resolve union location)
+	std::string fork_name;          // name of fork (used to resolve union name)
+	std::vector<FstVar> fork_vars;  // stores all variables in the fork scope
+
 	while ((h = fstReaderIterateHier(ctx))) {
 		switch (h->htyp) {
 			case FST_HT_SCOPE: {
+				// Handle tracking for potential union structs with $fork.
+				if (!in_fork && h->u.scope.typ == FST_ST_VCD_FORK) {
+					in_fork = true;
+					fork_parent_scope = fst_scope_name;
+					fork_name = h->u.scope.name;
+					fork_vars.clear();
+				}
+				// Push the scope onto the stack to 'descend' into the hierarchy.
 				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
 				break;
 			}
 			case FST_HT_UPSCOPE: {
+				if (in_fork) {
+					// A union is detected if there are at least 2 variables in the fork scope and they all have the same fstHandle.
+					bool is_union = fork_vars.size() >= 2 &&
+							std::all_of(fork_vars.begin() + 1, fork_vars.end(),
+									[&](const FstVar &v) { return v.id == fork_vars[0].id; });
+					if (is_union) {
+							// If a union, register the fork name as the variable at the parent scope.
+							FstVar u = fork_vars[0];
+							u.name = fork_name;
+							u.scope = fork_parent_scope;
+							normalize_brackets(u.scope);
+							u.is_alias = false;
+							registerVar(u);
+					} else {
+							// If not a union, register all variables in the fork scope as normal.
+							for (auto &v : fork_vars) {
+								registerVar(v);
+							}
+					}
+					in_fork = false;
+					fork_vars.clear();
+				}
+				// Pop the scope off the stack.
 				fst_scope_name = fstReaderPopScope(ctx);
 				break;
 			}
@@ -133,61 +223,14 @@ void FstData::extractVarNames()
 				var.scope = fst_scope_name;
 				normalize_brackets(var.scope);
 				var.width = h->u.var.length;
-				vars.push_back(var);
-				if (!var.is_alias)
-					handle_to_var[h->u.var.handle] = var;
 
-				std::string clean_name = var.name;
-				if (!clean_name.empty() && clean_name[0] == '\\')
-				clean_name = clean_name.substr(1);
-
-				// Strip trailing bit range [N:M] if present
-				if (!clean_name.empty() && clean_name.back() == ']') {
-					size_t open = clean_name.rfind('[');
-					if (open != std::string::npos) {
-						std::string inner = clean_name.substr(open + 1, clean_name.size() - open - 2);
-						if (inner.find(':') != std::string::npos)
-							clean_name.erase(open);
-					}
-				}
-
-				// Handle memory addresses
-				size_t pos = clean_name.find_last_of("<");
-				if (pos != std::string::npos && clean_name.back() == '>') {
-					std::string mem_cell = clean_name.substr(0, pos);
-					normalize_brackets(mem_cell);
-					std::string addr = clean_name.substr(pos+1);
-					addr.pop_back(); // remove closing bracket
-					char *endptr;
-					int mem_addr = strtol(addr.c_str(), &endptr, 16);
-					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name);
-					} else {
-						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
-					}
-				}
-				pos = clean_name.find_last_of("[");
-				if (pos != std::string::npos && clean_name.back() == ']') {
-					std::string mem_cell = clean_name.substr(0, pos);
-					normalize_brackets(mem_cell);
-					std::string addr = clean_name.substr(pos+1);
-					addr.pop_back(); // remove closing bracket
-					char *endptr;
-					int mem_addr = strtol(addr.c_str(), &endptr, 10);
-					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name);
-					} else {
-						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
-					}
-				}
-				normalize_brackets(clean_name);
-				name_to_handle[var.scope+"."+clean_name] = h->u.var.handle;
+				if (in_fork) fork_vars.push_back(var); // store all variables in fork scope into a vector
+				else registerVar(var); // otherwise, register the variable as normal
 				break;
 			}
 		}
 	}
 }
-
 
 static void reconstruct_clb_varlen_attimes(void *user_data, uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen)
 {
