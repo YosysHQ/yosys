@@ -8,11 +8,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct RTLIL::Patch final : public CellAdderMixin<RTLIL::Patch>
 {
-	Hasher::hash_t hashidx_;
-	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
-
 private:
-	void collect_src(Cell* old_cell);
 	void gc(Cell* old_cell);
 
 protected:
@@ -20,22 +16,21 @@ protected:
 	void add(RTLIL::Cell *cell);
 	void add(RTLIL::Process *process);
 
-public:
-	Module *mod;
-	// SigMap map;
-	vector<std::unique_ptr<Wire>> wires_;
-	vector<std::unique_ptr<Cell>> cells_;
-	Cell* root;
-	pool<Wire*> leaves;
+	Cell* commit_cell(std::unique_ptr<Cell> cell);
+	Wire* commit_wire(std::unique_ptr<Wire> wire);
 
-	// vector<RTLIL::SigSig> connections_;
-	pool<string> src;
+public:
+	Module* mod;
+	SigMap* map;
+	vector<std::unique_ptr<Wire>> wires_ = {};
+	vector<std::unique_ptr<Cell>> cells_ = {};
+	pool<Wire*> leaves = {};
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	const std::vector<RTLIL::SigSig> &connections() const;
 
-	void patch(Cell* old_cell, Cell* new_cell);
+	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig);
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 

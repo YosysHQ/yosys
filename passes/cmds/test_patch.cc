@@ -15,6 +15,7 @@ struct TestPatchPass : public Pass {
 		(void) args;
 		design->sigNormalize();
 		for (auto module : design->selected_modules()) {
+			SigMap sigmap(module);
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($add)) {
 					Cell* add = cell;
@@ -22,17 +23,18 @@ struct TestPatchPass : public Pass {
 					log_assert(add->getPort(ID::B).known_driver());
 					auto neg = add->getPort(ID::B)[0].wire->driverCell();
 					log_assert(neg->type == ID($not));
-					RTLIL::Patch patcher;
-					patcher.mod = module;
+					RTLIL::Patch patcher = {{}, module, nullptr};
+					int width = cell->getPort(ID::A).size();
 					auto sub = patcher.addSub(NEW_ID,
 						neg->getPort(ID::A),
 						add->getPort(ID::A),
-						patcher.addWire(NEW_ID, cell->getPort(ID::A).size()));
-					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(ID::Y), SigSpec());
+						patcher.addWire(NEW_ID, width));
+					auto new_out_wire = patcher.addWire(NEW_ID, width);
+					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(ID::Y), new_out_wire);
 					log_cell(new_cell);
 					patcher.leaves.insert(neg->getPort(ID::A).as_wire());
 					patcher.leaves.insert(add->getPort(ID::A).as_wire());
-					patcher.patch(add, new_cell);
+					patcher.patch(add, ID::Y, new_out_wire);
 				}
 			}
 		}
