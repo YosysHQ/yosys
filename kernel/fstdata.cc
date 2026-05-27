@@ -195,25 +195,32 @@ void FstData::extractVarNames()
 				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
 				break;
 			}
-			case FST_HT_SCOPE: {
-				// Handle tracking for potential union structs with $fork.
-				if (!detect_union && h->u.scope.typ == FST_ST_VCD_FORK) {
-					detect_union = true;
-					fork_parent_scope = fst_scope_name;
-					fork_name = h->u.scope.name;
-					fork_vars.clear();
-				} else if (detect_union && h->u.scope.typ == FST_ST_VCD_FORK) {
-					// Nested $fork: abandon union detection. Warning is emitted
-					// at upscope time, only if the outer fork would have been a union.
-					for (auto &v : fork_vars) registerVar(v);
+			case FST_HT_UPSCOPE: {
+				if (detect_union) {
+					// A union is detected if there are at least 2 variables in the fork scope and they all have the same fstHandle.
+					bool is_union = fork_vars.size() >= 2 &&
+							std::all_of(fork_vars.begin() + 1, fork_vars.end(),
+									[&](const FstVar &v) { return v.id == fork_vars[0].id; });
+					if (is_union) {
+							// If a union, register the fork name as the variable at the parent scope.
+							FstVar u = fork_vars[0];
+							u.name = fork_name;
+							u.scope = fork_parent_scope;
+							normalize_brackets(u.scope);
+							u.is_alias = false;
+							registerVar(u);
+					} else {
+							// If not a union, register all variables in the fork scope as normal.
+							for (auto &v : fork_vars) {
+								registerVar(v);
+							}
+					}
 					detect_union = false;
 					fork_vars.clear();
-					fork_vars_had_nested_fork = true;
 				}
-				// Push the scope onto the stack to 'descend' into the hierarchy.
-				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
+				// Pop the scope off the stack.
+				fst_scope_name = fstReaderPopScope(ctx);
 				break;
-			}
 			}
 			case FST_HT_VAR: {
 				FstVar var;
