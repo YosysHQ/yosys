@@ -1,9 +1,6 @@
 set -e
 set -x
 
-# Don't use Python objects from previous compiles
-make clean-py
-
 # DEBUG: show python3 and python3-config outputs
 if [ "$(uname)" != "Linux" ]; then
     # https://github.com/pypa/cibuildwheel/issues/2021
