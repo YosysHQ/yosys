@@ -1,0 +1,423 @@
+# Tests for opt_addcin.
+#
+# opt_addcin recognizes a conservative two-$add, three-leaf pattern that
+# represents A + B + cin with a one-bit unsigned carry input. It rewrites the
+# two adders into one WIDTH+1 adder whose artificial LSB produces the carry into
+# the real bit 0. Each test below states the exact RTLIL shape being built and
+# why the pass should either rewrite it or leave it alone.
+
+# ============================================================================
+# Group A: Positive rewrites
+# ============================================================================
+
+# Test A1: unsigned carry on the B port of the final add.
+#
+# Shape:
+#   add_ab  : s = a + b
+#   add_cin : y = s + cin
+#
+# The intermediate and final add widths are both 4, and cin is exactly one
+# unsigned bit, so the pass should replace both adders with one 5-bit $add.
+log -header "A1: unsigned carry on final-add B port"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_addcin
+design -load preopt
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add r:Y_WIDTH=5 %i
+design -reset
+log -pop
+
+# Test A2: unsigned carry on the A port of the final add.
+#
+# Shape:
+#   add_ab  : s = a + b
+#   add_cin : y = cin + s
+#
+# This is the same arithmetic as A1 but with the outer add operands swapped.
+# The structural assertion proves the matcher is not sensitive to which final
+# add port receives the carry bit.
+log -header "A2: unsigned carry on final-add A port"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(1), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(cin), .B(s), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_addcin
+design -load preopt
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add r:Y_WIDTH=5 %i
+design -reset
+log -pop
+
+# Test A3: signed data operands with an unsigned carry input.
+#
+# Shape:
+#   add_ab  : s = signed(a) + signed(b), sign-extended to 6 bits
+#   add_cin : y = s + unsigned cin
+#
+# The pass must preserve the original operand extension behavior before it
+# appends the artificial LSBs. The final add uses unsigned parameters because
+# this repository's internal $add checker requires matching signedness on A/B;
+# since s is already 6 bits, this does not change the modulo-6-bit sum. The
+# resulting adder is 7 bits wide because the shared wrap boundary is 6 bits.
+log -header "A3: signed data operands and unsigned carry"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire signed [2:0] a,
+  input  wire signed [3:0] b,
+  input  wire              cin,
+  output wire signed [5:0] y
+);
+  wire signed [5:0] s;
+  \$add #(.A_WIDTH(3), .B_WIDTH(4), .Y_WIDTH(6), .A_SIGNED(1), .B_SIGNED(1))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(6), .B_WIDTH(1), .Y_WIDTH(6), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_addcin
+design -load preopt
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add r:Y_WIDTH=7 %i
+design -reset
+log -pop
+
+# Test A4: unsigned carry is one leaf of the inner add.
+#
+# Shape:
+#   add_acin : s = a + cin
+#   add_b    : y = s + b
+#
+# This is the same three-leaf tree as A1/A2 but with the one-bit carry leaf in
+# the inner add instead of as the final add's other operand. This covers the
+# source-order freedom needed after small-tree balancing or frontend variation.
+log -header "A4: unsigned carry inside inner add"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_acin (.A(a), .B(cin), .Y(s));
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_b (.A(s), .B(b), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_addcin
+design -load preopt
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add r:Y_WIDTH=5 %i
+design -reset
+log -pop
+
+# Test A5: unequal real operand widths.
+#
+# Shape:
+#   add_ab  : s = a[2:0] + b[5:0], zero-extended to 6 bits
+#   add_cin : y = s + cin
+#
+# The two non-carry leaves do not have the same width. The pass must extend
+# both to the shared 6-bit wrap boundary before appending the artificial LSBs,
+# producing one 7-bit widened adder.
+log -header "A5: unequal real operand widths"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [2:0] a,
+  input  wire [5:0] b,
+  input  wire       cin,
+  output wire [5:0] y
+);
+  wire [5:0] s;
+  \$add #(.A_WIDTH(3), .B_WIDTH(6), .Y_WIDTH(6), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(6), .B_WIDTH(1), .Y_WIDTH(6), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_addcin
+design -load preopt
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add r:Y_WIDTH=7 %i
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: Rejected shapes
+# ============================================================================
+
+# Test B1: multi-bit carry-like operand.
+#
+# Shape:
+#   add_ab : s = a + b
+#   add_c  : y = s + c[1:0]
+#
+# The identity only creates a carry from a single low bit. A two-bit operand is
+# a real addend, so both original adders must remain.
+log -header "B1: reject multi-bit carry operand"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire [1:0] c,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(4), .B_WIDTH(2), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_c (.A(s), .B(c), .Y(y));
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_addcin
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 2 t:$add r:Y_WIDTH=4 %i
+design -reset
+log -pop
+
+# Test B2: signed one-bit carry-like operand.
+#
+# Shape:
+#   add_ab  : s = a + b
+#   add_cin : y = s + signed(cin)
+#
+# A signed one-bit value represents 0 or -1, not a carry-in value of 0 or 1.
+# The pass must reject it and leave the two original adders intact.
+log -header "B2: reject signed one-bit carry operand"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire signed cin,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(4), .A_SIGNED(1), .B_SIGNED(1))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_addcin
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 2 t:$add r:Y_WIDTH=4 %i
+design -reset
+log -pop
+
+# Test B3: mismatched intermediate and final wrap boundaries.
+#
+# Shape:
+#   add_ab  : s[3:0] = a + b
+#   add_cin : y[4:0] = s + cin
+#
+# The first add wraps at 4 bits and the second add wraps at 5 bits. Moving to a
+# single widened add would shift that boundary, so the pass must reject it.
+log -header "B3: reject mismatched intermediate and final widths"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [4:0] y
+);
+  wire [3:0] s;
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(5), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_addcin
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 1 t:$add r:Y_WIDTH=4 %i
+select -assert-count 1 t:$add r:Y_WIDTH=5 %i
+design -reset
+log -pop
+
+# Test B4: intermediate sum has external fanout.
+#
+# Shape:
+#   add_ab  : s = a + b
+#   add_cin : y = s + cin
+#   s is also a module output
+#
+# Replacing add_ab would remove the externally visible intermediate result, so
+# the pass must reject this even though the arithmetic into y matches.
+log -header "B4: reject intermediate fanout"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [3:0] y,
+  output wire [3:0] s
+);
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_addcin
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 2 t:$add r:Y_WIDTH=4 %i
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: Interaction with add-chain balancing
+# ============================================================================
+
+# Test C1: run opt_balance_tree before opt_addcin.
+#
+# Shape:
+#   y1 = a + b
+#   y2 = y1 + c
+#   y3 = y2 + cin
+#
+# This test intentionally runs the balancing pass before opt_addcin, matching
+# the intended flow order. The chain has four leaves, so opt_addcin's
+# conservative two-add/three-leaf matcher must not consume any of the balanced
+# tree. The structural assertion checks that add-chain balancing had the chance
+# to run first and the later carry-in pass did not collapse the larger tree.
+log -header "C1: opt_balance_tree runs before opt_addcin"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire [3:0] c,
+  input  wire       cin,
+  output wire [3:0] y
+);
+  wire [3:0] y1;
+  wire [3:0] y2;
+  assign y1 = a + b;
+  assign y2 = y1 + c;
+  assign y = y2 + cin;
+endmodule
+EOF
+check -assert
+design -save orig
+opt_balance_tree -arith
+opt_addcin
+design -save postopt
+design -reset
+design -copy-from orig -as gold top
+design -copy-from postopt -as gate top
+rename -hide
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
+design -load postopt
+select -assert-count 3 t:$add
+design -reset
+log -pop
+
+# ============================================================================
+# Group D: Metadata preservation
+# ============================================================================
+
+# Test D1: replacement adder preserves attributes from both consumed adders.
+#
+# Shape:
+#   add_ab  : s = a + b      (* src="inner_add.v:10.1-10.8", inner_marker=1 *)
+#   add_cin : y = s + cin    (* src="outer_add.v:20.1-20.8", outer_marker=1 *)
+#
+# The replacement cell is the only remaining $add. It should keep the outer
+# cell's attributes, import inner-only metadata, and retain both source
+# locations in its merged src attribute.
+log -header "D1: merge attributes from inner and outer cells"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] a,
+  input  wire [3:0] b,
+  input  wire       cin,
+  output wire [3:0] y
+);
+  wire [3:0] s;
+  (* src = "inner_add.v:10.1-10.8", inner_marker = 1 *)
+  \$add #(.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_ab (.A(a), .B(b), .Y(s));
+  (* src = "outer_add.v:20.1-20.8", outer_marker = 1 *)
+  \$add #(.A_WIDTH(4), .B_WIDTH(1), .Y_WIDTH(4), .A_SIGNED(0), .B_SIGNED(0))
+    add_cin (.A(s), .B(cin), .Y(y));
+endmodule
+EOF
+check -assert
+opt_addcin
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add a:outer_marker %i
+select -assert-count 1 t:$add a:inner_marker %i
+select -assert-count 1 t:$add a:src=*outer_add.v* %i
+select -assert-count 1 t:$add a:src=*inner_add.v* %i
+design -reset
+log -pop

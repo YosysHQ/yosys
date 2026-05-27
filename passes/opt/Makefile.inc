@@ -26,6 +26,7 @@ OBJS += passes/opt/opt_andor_pmux.o
 OBJS += passes/opt/opt_balance_tree.o
 OBJS += passes/opt/opt_parallel_prefix.o
 OBJS += passes/opt/opt_prienc.o
+OBJS += passes/opt/opt_addcin.o
 
 OBJS += passes/opt/peepopt.o
 GENFILES += passes/opt/peepopt_pm.h
