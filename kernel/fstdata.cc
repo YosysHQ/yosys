@@ -214,6 +214,7 @@ void FstData::extractVarNames()
 				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
 				break;
 			}
+			}
 			case FST_HT_VAR: {
 				FstVar var;
 				var.id = h->u.var.handle;
