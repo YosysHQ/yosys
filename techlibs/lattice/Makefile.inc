@@ -1,6 +1,7 @@
 
 OBJS += techlibs/lattice/synth_lattice.o
 OBJS += techlibs/lattice/lattice_gsr.o
+OBJS += techlibs/lattice/lattice_dsp_nexus.o
 
 $(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_ff.vh))
 $(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_io.vh))
@@ -50,3 +51,10 @@ $(eval $(call add_share_file_and_rename,share/ecp5,techlibs/lattice/cells_bb_ecp
 $(eval $(call add_share_file,share/nexus,techlibs/lattice/parse_init.vh))
 $(eval $(call add_share_file_and_rename,share/nexus,techlibs/lattice/cells_sim_nexus.v,cells_sim.v))
 $(eval $(call add_share_file_and_rename,share/nexus,techlibs/lattice/cells_bb_nexus.v,cells_xtra.v))
+
+techlibs/lattice/%_pm.h: passes/pmgen/pmgen.py techlibs/lattice/%.pmg
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p $(notdir $*) $(filter-out $<,$^)
+
+GENFILES += techlibs/lattice/lattice_dsp_nexus_pm.h
+techlibs/lattice/lattice_dsp_nexus.o: techlibs/lattice/lattice_dsp_nexus_pm.h
+$(eval $(call add_extra_objs,techlibs/lattice/lattice_dsp_nexus_pm.h))
