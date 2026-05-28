@@ -23,6 +23,7 @@
 #include "kernel/newcelltypes.h"
 #include "kernel/utils.h"
 #include "kernel/log.h"
+#include "kernel/unstable/patch.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <algorithm>
@@ -621,13 +622,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				std::swap(sig_a, sig_b);
 			if (sig_b == State::S0 || sig_b == State::S1) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
-					SigSpec sig_y;
-					if (cell->type == ID($xor))
-						sig_y = (sig_b == State::S1 ? module->Not(NEW_ID, sig_a).as_bit() : sig_a);
-					else if (cell->type == ID($_XOR_))
-						sig_y = (sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
-					else log_abort();
-					replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_y);
+					if (sig_b == State::S0) {
+						replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_a);
+					} else {
+						RTLIL::Patch patcher(module, &assign_map);
+						SigSpec sig_y = cell->type == ID($xor) ? patcher.Not(NEW_ID, sig_a) : (SigSpec)patcher.NotGate(NEW_ID, sig_a);
+						int width = cell->type == ID($xor) ? cell->getParam(ID::Y_WIDTH).as_int() : 1;
+						sig_y.append(RTLIL::Const(State::S0, width-1));
+						patcher.patch(cell, ID::Y, sig_y);
+					}
 					goto next_cell;
 				}
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {

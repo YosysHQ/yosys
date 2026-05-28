@@ -1087,15 +1087,161 @@ static bool ignored_cell(const RTLIL::IdString& type)
 	return type == ID($specify2) || type == ID($specify3) || type == ID($specrule);
 }
 
+void RTLIL::Cell::signorm_index_remove(IdString portname, const SigSpec &old_signal, bool is_input)
+{
+	auto &index = *module->sig_norm_index;
+	index.dirty.insert(this);
+	if (is_input) {
+		int i = 0;
+		for (auto bit : old_signal) {
+			if (bit.is_wire()) {
+				auto found = index.fanout.find(bit);
+				log_assert(found != index.fanout.end());
+				int erased = found->second.erase(PortBit(this, portname, i));
+				log_assert(erased);
+				if (found->second.empty())
+					index.fanout.erase(found);
+			}
+			i++;
+		}
+	} else {
+		Wire *w = old_signal.as_wire();
+		log_assert(w->driverCell_ == this);
+		log_assert(w->driverPort_ == portname);
+		w->driverCell_ = nullptr;
+		w->driverPort_ = IdString();
+	}
+}
+
+void RTLIL::Cell::signorm_index_add(IdString portname, const SigSpec &new_signal, bool is_input)
+{
+	auto &index = *module->sig_norm_index;
+	index.dirty.insert(this);
+	if (is_input) {
+		int i = 0;
+		for (auto bit : new_signal) {
+			if (bit.is_wire())
+				index.fanout[bit].insert(PortBit(this, portname, i));
+			i++;
+		}
+	} else if (GetSize(new_signal)) {
+		Wire *w = new_signal.as_wire();
+		log_assert(w->driverCell_ == nullptr);
+		log_assert(w->driverPort_.empty());
+		w->driverCell_ = this;
+		w->driverPort_ = portname;
+	}
+}
+
+// Handles the bufnorm part of setPort. Updates conn_it->second and returns true if the
+// connection was stored (fast path or $connect cell). If false, caller must store signal.
+bool RTLIL::Cell::bufnorm_handle_setPort(IdString portname, SigSpec &signal, dict<IdString, SigSpec>::iterator conn_it)
+{
+	// Eagerly clear a driver that got disconnected by changing this port connection
+	if (conn_it->second.is_wire()) {
+		Wire *w = conn_it->second.as_wire();
+		if (w->driverCell_ == this && w->driverPort_ == portname) {
+			w->driverCell_ = nullptr;
+			w->driverPort_ = IdString();
+			module->buf_norm_wire_queue.insert(w);
+		}
+	}
+
+	auto dir = port_dir(portname);
+	// Fast path: connecting a full driverless wire to an output port — everything else
+	// goes through the bufnorm queues and is handled during the next bufNormalize call
+	if ((dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) && signal.is_wire()) {
+		Wire *w = signal.as_wire();
+		if (w->driverCell_ == nullptr &&
+				(w->port_input && !w->port_output) == (type == ID($input_port))) {
+			w->driverCell_ = this;
+			w->driverPort_ = portname;
+			conn_it->second = std::move(signal);
+			return true;
+		}
+	}
+
+	if (dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) {
+		module->buf_norm_cell_queue.insert(this);
+		module->buf_norm_cell_port_queue.emplace(this, portname);
+	} else {
+		for (auto &chunk : signal.chunks())
+			if (chunk.wire != nullptr && chunk.wire->driverCell_ == nullptr)
+				module->buf_norm_wire_queue.insert(chunk.wire);
+	}
+
+	if (type == ID($connect)) {
+		for (auto &[port, sig] : connections_) {
+			for (auto &chunk : sig.chunks()) {
+				if (!chunk.wire) continue;
+				auto it = module->buf_norm_connect_index.find(chunk.wire);
+				if (it == module->buf_norm_connect_index.end()) continue;
+				it->second.erase(this);
+				if (it->second.empty())
+					module->buf_norm_connect_index.erase(it);
+			}
+		}
+		conn_it->second = std::move(signal);
+		for (auto &[port, sig] : connections_) {
+			for (auto &chunk : sig.chunks()) {
+				if (!chunk.wire) continue;
+				module->buf_norm_connect_index[chunk.wire].insert(this);
+			}
+		}
+		return true;
+	}
+
+	return false;
+}
+
+// Called after the cell's module pointer has been set to push all existing port connections
+// into the signorm and bufnorm indices. Assumes signals are already in normalized form.
+void RTLIL::Cell::initIndex()
+{
+	log_assert(module != nullptr);
+	if (ignored_cell(type))
+		return;
+
+	if (module->sig_norm_index != nullptr) {
+		for (auto &[portname, signal] : connections_) {
+			bool is_input = port_dir(portname) == RTLIL::PD_INPUT;
+			signorm_index_add(portname, signal, is_input);
+		}
+	}
+
+	if (module->design && module->design->flagBufferedNormalized) {
+		for (auto &[portname, signal] : connections_) {
+			auto dir = port_dir(portname);
+			if ((dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) && signal.is_wire()) {
+				Wire *w = signal.as_wire();
+				if (w->driverCell_ == nullptr &&
+						(w->port_input && !w->port_output) == (type == ID($input_port))) {
+					w->driverCell_ = this;
+					w->driverPort_ = portname;
+					continue;
+				}
+			}
+			if (dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) {
+				module->buf_norm_cell_queue.insert(this);
+				module->buf_norm_cell_port_queue.emplace(this, portname);
+			} else {
+				for (auto &chunk : signal.chunks())
+					if (chunk.wire != nullptr && chunk.wire->driverCell_ == nullptr)
+						module->buf_norm_wire_queue.insert(chunk.wire);
+			}
+		}
+	}
+}
+
 void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 {
-	bool is_input_port = false;
-	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
+	bool is_input = false;
+	if (module && module->sig_norm_index != nullptr && !ignored_cell(type)) {
 		module->sig_norm_index->sigmap.apply(signal);
 		auto dir = port_dir(portname);
 
 		if (dir == RTLIL::PD_INPUT) {
-			is_input_port = true;
+			is_input = true;
 		} else {
 			Wire *wire = nullptr;
 			if (signal.is_wire() && (wire = signal.as_wire())->driverCell_ != nullptr)
@@ -1113,125 +1259,32 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	if (!r.second && conn_it->second == signal)
 		return;
 
-	for (auto mon : module->monitors)
-		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-	if (module->design)
-		for (auto mon : module->design->monitors)
+	if (module) {
+		for (auto mon : module->monitors)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
+		if (module->design)
+			for (auto mon : module->design->monitors)
+				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
+	}
+
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module, this, portname.unescape(), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module ? this->module->name.unescape() : "PATCH", this, portname.unescape(), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
-
-	if (module->sig_norm_index != nullptr && !ignored_cell(type)) {
-		module->sig_norm_index->dirty.insert(this);
-		if (!r.second) {
-			if (is_input_port) {
-				auto &fanout = module->sig_norm_index->fanout;
-				int i = 0;
-				for (auto bit : conn_it->second) {
-					if (bit.is_wire()) {
-						auto found = fanout.find(bit);
-						log_assert(found != fanout.end());
-						int erased = found->second.erase(PortBit(this, portname, i));
-						log_assert(erased);
-						if (found->second.empty())
-							fanout.erase(found);
-					}
-					i++;
-				}
-			} else {
-				Wire *w = conn_it->second.as_wire();
-				log_assert(w->driverCell_ == this);
-				log_assert(w->driverPort_ == portname);
-				w->driverCell_ = nullptr;
-				w->driverPort_ = IdString();
-			}
-		}
-
-		if (is_input_port) {
-			auto &fanout = module->sig_norm_index->fanout;
-			int i = 0;
-			for (auto bit : signal) {
-				if (bit.is_wire())
-					fanout[bit].insert(PortBit(this, portname, i));
-				i++;
-			}
-		} else if (GetSize(signal)) {
-			Wire *w = signal.as_wire();
-			log_assert(w->driverCell_ == nullptr);
-			log_assert(w->driverPort_.empty());
-			w->driverCell_ = this;
-			w->driverPort_ = portname;
-		}
+	if (module && module->sig_norm_index != nullptr && !ignored_cell(type)) {
+		if (!r.second)
+			signorm_index_remove(portname, conn_it->second, is_input);
+		signorm_index_add(portname, signal, is_input);
 	}
 
-	if (module->design && module->design->flagBufferedNormalized)
-	{
-		// We eagerly clear a driver that got disconnected by changing this port connection
-		if (conn_it->second.is_wire()) {
-			Wire *w = conn_it->second.as_wire();
-			if (w->driverCell_ == this && w->driverPort_ == portname) {
-				w->driverCell_ = nullptr;
-				w->driverPort_ = IdString();
-				module->buf_norm_wire_queue.insert(w);
-			}
-		}
-
-		auto dir = port_dir(portname);
-		// This is a fast path that handles connecting a full driverless wire to an output port,
-		// everything else is goes through the bufnorm queues and is handled during the next
-		// bufNormalize call
-		if ((dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) && signal.is_wire()) {
-			Wire *w = signal.as_wire();
-			if (w->driverCell_ == nullptr && (
-						(w->port_input && !w->port_output) == (type == ID($input_port)))) {
-				w->driverCell_ = this;
-				w->driverPort_ = portname;
-
-				conn_it->second = std::move(signal);
-				return;
-			}
-		}
-
-		if (dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) {
-			module->buf_norm_cell_queue.insert(this);
-			module->buf_norm_cell_port_queue.emplace(this, portname);
-		} else {
-			for (auto &chunk : signal.chunks())
-				if (chunk.wire != nullptr && chunk.wire->driverCell_ == nullptr)
-					module->buf_norm_wire_queue.insert(chunk.wire);
-		}
-
-		if (type == ID($connect)) {
-			for (auto &[port, sig] : connections_) {
-				for (auto &chunk : sig.chunks()) {
-					if (!chunk.wire)
-						continue;
-					auto it = module->buf_norm_connect_index.find(chunk.wire);
-					if (it == module->buf_norm_connect_index.end())
-						continue;
-					it->second.erase(this);
-					if (it->second.empty())
-						module->buf_norm_connect_index.erase(it);
-				}
-			}
-			conn_it->second = std::move(signal);
-			for (auto &[port, sig] : connections_) {
-				for (auto &chunk : sig.chunks()) {
-					if (!chunk.wire)
-						continue;
-					module->buf_norm_connect_index[chunk.wire].insert(this);
-				}
-			}
+	if (module && module->design && module->design->flagBufferedNormalized) {
+		if (bufnorm_handle_setPort(portname, signal, conn_it))
 			return;
-		}
 	}
-	conn_it->second = std::move(signal);
 
+	conn_it->second = std::move(signal);
 }
 
 void RTLIL::Design::add(RTLIL::Module *module)
