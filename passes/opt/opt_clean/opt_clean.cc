@@ -19,6 +19,7 @@
 
 #include "kernel/register.h"
 #include "kernel/log.h"
+#include "kernel/log_help.h"
 #include "passes/opt/opt_clean/opt_clean.h"
 
 USING_YOSYS_NAMESPACE
@@ -43,6 +44,12 @@ void rmunused_module(RTLIL::Module *module, bool rminit, CleanRunContext &clean_
 
 struct OptCleanPass : public Pass {
 	OptCleanPass() : Pass("opt_clean", "remove unused cells and wires") { }
+	bool formatted_help() override
+	{
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/opt");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -99,6 +106,12 @@ struct OptCleanPass : public Pass {
 
 struct CleanPass : public Pass {
 	CleanPass() : Pass("clean", "remove unused cells and wires") { }
+	bool formatted_help() override
+	{
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/opt");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
