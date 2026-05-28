@@ -305,8 +305,12 @@ struct RegRenamePass : public Pass {
 					if (!signal_name.empty() && signal_name.back() == ']') {
 						size_t open = signal_name.rfind('[');
 						if (open != std::string::npos) {
-							signal_bits = signal_name.substr(open);
-							signal_name.erase(open);
+							std::string inner = signal_name.substr(open + 1, signal_name.size() - open - 2);
+							// Ensure that signal_bits is not populated with non-digits
+							if (!inner.empty() && inner.find_first_not_of("0123456789:") == std::string::npos) {
+								signal_bits = signal_name.substr(open);
+								signal_name.erase(open);
+							}
 						}
 					}
 
