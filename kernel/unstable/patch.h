@@ -6,7 +6,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct RTLIL::Patch final : public CellAdderMixin<RTLIL::Patch>
+// No virtual methods — subclasses cannot be dispatched through a Patch pointer.
+struct RTLIL::Patch : public CellAdderMixin<RTLIL::Patch>
 {
 private:
 	void gc(Cell* old_cell);

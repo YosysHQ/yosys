@@ -1117,6 +1117,7 @@ void RTLIL::Cell::signorm_index_add(IdString portname, const SigSpec &new_signal
 {
 	auto &index = *module->sig_norm_index;
 	index.dirty.insert(this);
+	xlog("signorm_index_add cell %s port %s input %d signal %s\n", name, portname, is_input, log_signal(new_signal));
 	if (is_input) {
 		int i = 0;
 		for (auto bit : new_signal) {
