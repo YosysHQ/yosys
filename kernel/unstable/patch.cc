@@ -94,23 +94,29 @@ void Patch::gc(Cell* old_cell) {
 	for (auto [port_name, sig] : old_cell->connections()) {
 		auto dir = old_cell->port_dir(port_name);
 		log_assert(dir != PD_UNKNOWN);
+		// TODO only running GC through whole connections?
+		log_debug("\tport %s\n", port_name);
 		if (sig.size() && sig.is_wire()) {
 			if (dir == PD_OUTPUT || dir == PD_INOUT) {
 				for (auto bit : sig) {
 					// Reject GC if used
-					if (!mod->fanout(bit).empty())
+					if (!mod->fanout(bit).empty()) {
+						log_debug("\treject fanout\n");
 						return;
+					} else
+					 	log_debug("\tok\n");
 				}
 			}
 			if (dir == PD_INPUT || dir == PD_INOUT) {
 				Wire* in_wire = sig.as_wire();
 				log_assert(in_wire);
-				log_debug("%s\n", in_wire->name);
+				log_debug("\twire %s\n", in_wire->name);
 				if (in_wire->known_driver() && !leaves.count(in_wire))
 					inputs.push_back(in_wire->driverCell());
 			}
 		}
 	}
+	log_debug("\tremove %s\n", old_cell->name);
 	old_cell->module->remove(old_cell);
 	for (auto input : inputs)
 		gc(input);
@@ -134,7 +140,7 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 	SigSpec old_sig = old_cell->getPort(old_port);
 	log_assert(old_sig.size() == new_sig.size());
-	log_debug("patching %s %s which is %s with %s:\n", old_cell->name, old_port, log_signal(old_sig), log_signal(new_sig));
+	log("patching %s %s which is %s with %s:\n", old_cell->name, old_port, log_signal(old_sig), log_signal(new_sig));
 
 	SrcCollector collector;
 	collector.collect_src(old_sig);
@@ -147,12 +153,18 @@ void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 
 	// Inefficient
 	for (auto& cell : cells_) {
+		log_debug("cell %s\n", cell->name);
 		for (auto& [port_name, sig] : cell->connections()) {
+			log_debug("port %s\n", port_name);
 			auto dir = cell->port_dir(port_name);
 			if (dir == PD_INPUT || dir == PD_INOUT) {
-				for (auto bit : sig)
-					if (bit.is_wire() && bit.wire->module)
+				for (auto bit : sig) {
+					log("bit %s\n", log_signal(bit));
+					if (bit.is_wire() && bit.wire->module) {
 						leaves.insert(bit.wire);
+						log_debug("leaf %s\n", bit.wire->name);
+					}
+				}
 			}
 		}
 	}
@@ -167,6 +179,9 @@ void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 		commit_wire(std::move(wire));
 
 	gc(old_cell);
+	cells_.clear();
+	wires_.clear();
+	leaves.clear();
 }
 
 YOSYS_NAMESPACE_END

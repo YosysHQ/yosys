@@ -18,6 +18,7 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/newcelltypes.h"
@@ -118,21 +119,41 @@ void replace_undriven(RTLIL::Module *module, const NewCellTypes &ct)
 	}
 }
 
+void log_replace_sig(RTLIL::Module *module, RTLIL::Cell *cell,
+		const std::string &info, RTLIL::SigSpec old_sig, RTLIL::SigSpec new_sig)
+{
+	log_debug("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
+			cell->type.c_str(), cell->name.c_str(), info.c_str(),
+			module->name.c_str(), log_signal(old_sig), log_signal(new_sig));
+}
+
+void log_replace_port(RTLIL::Module *module, RTLIL::Cell *cell,
+		const std::string &info, RTLIL::IdString port, RTLIL::SigSpec new_sig)
+{
+	log_replace_sig(module, cell, info, cell->getPort(port), new_sig);
+}
+
 void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 		const std::string &info, IdString out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->getPort(out_port);
 	out_val.extend_u0(Y.size(), false);
 
-	log_debug("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
-			cell->type.c_str(), cell->name.c_str(), info.c_str(),
-			module->name.c_str(), log_signal(Y), log_signal(out_val));
+	log_replace_sig(module, cell, info, Y, out_val);
 	// log_cell(cell);
 	assign_map.add(Y, out_val);
 	module->connect(Y, out_val);
 	module->remove(cell);
 	did_something = true;
 }
+
+struct OptExprPatcher : public RTLIL::Patch {
+	using RTLIL::Patch::Patch;
+	void patch(Cell *old_cell, IdString old_port, SigSpec new_sig, const std::string &info) {
+		log_replace_port(mod, old_cell, info, old_port, new_sig);
+		RTLIL::Patch::patch(old_cell, old_port, new_sig);
+	}
+};
 
 bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc)
 {
@@ -621,18 +642,34 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
 			if (sig_b == State::S0 || sig_b == State::S1) {
+				OptExprPatcher patcher(module, &assign_map);
+				bool is_gate = cell->type.in(ID($_XOR_), ID($_XNOR_));
+				int width = is_gate ? 1 : cell->getParam(ID::Y_WIDTH).as_int();
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					if (sig_b == State::S0) {
-						replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_a);
-					} else {
-						RTLIL::Patch patcher(module, &assign_map);
-						SigSpec sig_y = cell->type == ID($xor) ? patcher.Not(NEW_ID, sig_a) : (SigSpec)patcher.NotGate(NEW_ID, sig_a);
-						int width = cell->type == ID($xor) ? cell->getParam(ID::Y_WIDTH).as_int() : 1;
+						SigSpec sig_y = sig_a;
 						sig_y.append(RTLIL::Const(State::S0, width-1));
-						patcher.patch(cell, ID::Y, sig_y);
+						// replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_y);
+						patcher.patch(cell, ID::Y, sig_y, "xor_buffer");
+					} else {
+						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
+						sig_y.append(RTLIL::Const(State::S0, width-1));
+						patcher.patch(cell, ID::Y, sig_y, "xor_buffer");
 					}
 					goto next_cell;
 				}
+				// if (cell->type.in(ID($xnor), ID($_XNOR_))) {
+				// 	if (sig_b == State::S1) {
+				// 		SigSpec sig_y = sig_a;
+				// 		sig_y.append(RTLIL::Const(State::S1, width-1));
+				// 		patcher.patch(cell, ID::Y, sig_y, "xnor_buffer");
+				// 	} else {
+				// 		SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
+				// 		sig_y.append(RTLIL::Const(State::S1, width-1));
+				// 		patcher.patch(cell, ID::Y, sig_y, "xnor_buffer");
+				// 	}
+				// 	goto next_cell;
+				// }
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					SigSpec sig_y;
 					if (cell->type == ID($xnor)) {
