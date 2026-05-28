@@ -618,11 +618,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				log_abort();
 			}
 
-			auto port_a = ID::A;
-			if (!sig_a.wire) {
+			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
-				port_a = ID::B;
-			}
 			if (sig_b == State::S0 || sig_b == State::S1) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					if (sig_b == State::S0) {
