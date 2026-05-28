@@ -15,7 +15,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct InsertClockBuffer : public Pass {
   InsertClockBuffer()
-      : Pass("insert_clock_buffer",
+      : Pass("rapidflex_insert_clock_buffer",
              "This command is to insert clock buffer into the design") {}
 
   /*utility function used by insert_ckbuff; copied from blif.cc*/
@@ -519,7 +519,7 @@ struct InsertClockBuffer : public Pass {
   }
 
   void execute(std::vector<std::string> args, RTLIL::Design *design) override {
-    log("Arguments to the command insert_clock_buffer:\n");
+    log("Arguments to the command rapidflex_insert_clock_buffer:\n");
     std::string top_module_name;
     std::string cell_map_file;
     for (size_t i = 0; i < args.size(); i++) {
@@ -576,6 +576,6 @@ struct InsertClockBuffer : public Pass {
     }
     design->check();
   }
-} Insert_clock_buffer;
+} rapidflex_insert_clock_buffer;
 
 PRIVATE_NAMESPACE_END

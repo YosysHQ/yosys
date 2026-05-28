@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright 2020-2024 RapidFlex
  */
 #include "kernel/celltypes.h"
@@ -476,8 +476,12 @@ struct SynthRapidFlexPass : public ScriptPass {
 
     if (check_label("insert_clock_buffer", "(if -insert_clock_buffer)")) {
       if (insert_clock_buffer) {
-        run(stringf("insert_clock_buffer -top %s -cell_map_file %s",
-                    top_opt.c_str(), cell_map_file.c_str()));
+        if (top_opt == "-auto-top")
+          run(stringf("rapidflex_insert_clock_buffer -cell_map_file %s",
+                      cell_map_file.c_str()));
+        else
+          run(stringf("rapidflex_insert_clock_buffer %s -cell_map_file %s",
+                      top_opt.c_str(), cell_map_file.c_str()));
       }
     }
 
