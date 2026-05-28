@@ -5,14 +5,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-/** 
-* Notes
-*
-* If we want GC, we need more indices
-* namely user count (and users?). This should be optional
-*
-*
-*/
 using namespace RTLIL;
 
 template class CellAdderMixin<Patch>;
@@ -39,7 +31,6 @@ Wire* Patch::addWire(IdString name, int width) {
 
 // TODO code golf
 
-
 RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
 {
 	RTLIL::Wire *wire = addWire(std::move(name));
@@ -54,8 +45,6 @@ RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *othe
 	return wire;
 }
 
-
-
 struct SrcCollector {
 	pool<Cell*> to_do;
 	pool<Cell*> done;
@@ -66,7 +55,7 @@ struct SrcCollector {
 			return;
 		done.insert(old_cell);
 
-		log("collect %s\n", old_cell->name);
+		log_debug("collect %s\n", old_cell->name);
 		src.insert(old_cell->get_src_attribute());
 
 		std::vector<Cell*> input_cells = {};
@@ -87,7 +76,7 @@ struct SrcCollector {
 	}
 
 	void collect_src(SigSpec old_sig) {
-		log("collect %s\n", log_signal(old_sig));
+		log_debug("collect %s\n", log_signal(old_sig));
 		for (auto bit : old_sig) {
 			if (bit.is_wire() && bit.wire->module) {
 				log_assert(bit.wire->driverCell_);
@@ -100,7 +89,7 @@ struct SrcCollector {
 };
 
 void Patch::gc(Cell* old_cell) {
-	log("gc %s\n", old_cell->name);
+	log_debug("gc %s\n", old_cell->name);
 	std::vector<Cell*> inputs = {};
 	for (auto [port_name, sig] : old_cell->connections()) {
 		auto dir = old_cell->port_dir(port_name);
