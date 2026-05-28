@@ -19,12 +19,13 @@ protected:
 	Cell* commit_cell(std::unique_ptr<Cell> cell);
 	Wire* commit_wire(std::unique_ptr<Wire> wire);
 
+	pool<Wire*> leaves = {};
+
 public:
 	Module* mod;
 	SigMap* map;
 	vector<std::unique_ptr<Wire>> wires_ = {};
 	vector<std::unique_ptr<Cell>> cells_ = {};
-	pool<Wire*> leaves = {};
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
@@ -39,6 +40,8 @@ public:
 
 	RTLIL::Cell* addDffsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src);
+
+	Patch(Module* mod, SigMap* map = nullptr) : mod(mod), map(map) {}
 };
 
 YOSYS_NAMESPACE_END

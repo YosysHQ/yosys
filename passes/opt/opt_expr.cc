@@ -628,16 +628,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (sig_b == State::S0) {
 						replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_a);
 					} else {
-						RTLIL::Patch patcher = {{}, module, &assign_map};
+						RTLIL::Patch patcher(module, &assign_map);
 						Wire* y = patcher.addWire(NEW_ID, 1);
 						Cell* new_cell = cell->type == ID($xor) ? patcher.addNot(NEW_ID, sig_a, y) : patcher.addNotGate(NEW_ID, sig_a, y);
 						SigSpec sig_y = y;
 						int width = cell->type == ID($xor) ? cell->getParam(ID::Y_WIDTH).as_int() : 1;
 						sig_y.append(RTLIL::Const(State::S0, width-1));
 						(void)new_cell;
-						for (auto chunk : cell->getPort(port_a).chunks())
-							if (chunk.wire)
-								patcher.leaves.insert(chunk.wire);
 						patcher.patch(cell, ID::Y, sig_y);
 					}
 					goto next_cell;

@@ -23,7 +23,7 @@ struct TestPatchPass : public Pass {
 					log_assert(add->getPort(ID::B).known_driver());
 					auto neg = add->getPort(ID::B)[0].wire->driverCell();
 					log_assert(neg->type == ID($not));
-					RTLIL::Patch patcher = {{}, module, nullptr};
+					RTLIL::Patch patcher(module, nullptr);
 					int width = cell->getPort(ID::A).size();
 					auto sub = patcher.addSub(NEW_ID,
 						neg->getPort(ID::A),
@@ -32,8 +32,6 @@ struct TestPatchPass : public Pass {
 					auto new_out_wire = patcher.addWire(NEW_ID, width);
 					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(ID::Y), new_out_wire);
 					log_cell(new_cell);
-					patcher.leaves.insert(neg->getPort(ID::A).as_wire());
-					patcher.leaves.insert(add->getPort(ID::A).as_wire());
 					patcher.patch(add, ID::Y, new_out_wire);
 				}
 			}
