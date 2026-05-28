@@ -156,6 +156,18 @@ void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 	if (map)
 		map->add(old_sig, new_sig);
 
+	// Inefficient
+	for (auto& cell : cells_) {
+		for (auto& [port_name, sig] : cell->connections()) {
+			auto dir = cell->port_dir(port_name);
+			if (dir == PD_INPUT || dir == PD_INOUT) {
+				for (auto bit : sig)
+					if (bit.is_wire() && bit.wire->module)
+						leaves.insert(bit.wire);
+			}
+		}
+	}
+
 	for (auto& cell: cells_) {
 		cell->set_src_attribute(src_str);
 		cell->fixup_parameters();
