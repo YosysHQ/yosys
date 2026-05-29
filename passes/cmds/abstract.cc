@@ -265,7 +265,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 	unsigned int changed = 0;
 	std::vector<Cell*> cells_snapshot = mod->cells();
 	for (auto cell : cells_snapshot) {
-		if (cell->type == ID($input_port))
+		if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
 			continue;
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first)) {

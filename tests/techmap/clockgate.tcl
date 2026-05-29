@@ -196,7 +196,7 @@ select -module dffe_10 -assert-count 1 t:\$_NOT_
 select -module dffe_11 -assert-count 0 t:\$_NOT_
 
 # $sdffe is not gated
-select -module sdffe -assert-count 0 sdffe t:* t:\$sdffe %d t:\$input_port %d
+select -module sdffe -assert-count 0 sdffe t:* t:\$sdffe %d t:\$*_port %d t:\$public %d
 
 #------------------------------------------------------------------------------
 

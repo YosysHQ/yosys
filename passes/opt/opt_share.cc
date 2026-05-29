@@ -363,10 +363,13 @@ struct OptSharePass : public Pass {
 
 			dict<RTLIL::SigBit, int> bit_users;
 
-			for (auto cell : module->cells())
+			for (auto cell : module->cells()) {
+				if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+					continue;
 				for (auto conn : cell->connections())
 					for (auto bit : conn.second)
 						bit_users[sigmap(bit)]++;
+			}
 
 			for (auto wire : module->wires())
 				if (wire->port_id != 0)

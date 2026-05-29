@@ -52,6 +52,8 @@ static constexpr MergeableTypes build_mergeable_types(bool nomux) {
 	c.set_id(ID($allconst), false);
 	c.set_id(ID($connect), false);
 	c.set_id(ID($input_port), false);
+	c.set_id(ID($output_port), false);
+	c.set_id(ID($public), false);
 	if (nomux) {
 		c.set_id(ID($mux), false);
 		c.set_id(ID($pmux), false);

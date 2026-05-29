@@ -113,6 +113,8 @@ struct CellTypes
 		setup_type(ID($future_ff), {ID::A}, {ID::Y});
 		setup_type(ID($scopeinfo), {}, {});
 		setup_type(ID($input_port), {}, {ID::Y});
+		setup_type(ID($output_port), {ID::A}, {});
+		setup_type(ID($public), {ID::A}, {});
 		setup_type(ID($connect), {ID::A, ID::B}, {});
 	}
 

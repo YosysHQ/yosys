@@ -29,11 +29,14 @@ struct Traversal {
 	dict<SigBit, int> fanout;
 	Traversal(Module *module) : sigmap(module)
 	{
-		for (auto cell : module->cells())
+		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+				continue;
 			for (auto &conn : cell->connections())
 				if (cell->input(conn.first))
 					for (auto bit : sigmap(conn.second))
 						bit_consumers[bit].insert(cell);
+		}
 
 		for (auto &pair : bit_consumers)
 			fanout[pair.first] = pair.second.size();
