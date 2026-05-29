@@ -649,7 +649,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (sig_b == State::S0) {
 						SigSpec sig_y = sig_a;
 						sig_y.append(RTLIL::Const(State::S0, width-1));
-						// replace_cell(assign_map, module, cell, "xor_buffer", ID::Y, sig_y);
 						patcher.patch(cell, ID::Y, sig_y, "xor_buffer");
 					} else {
 						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
@@ -658,29 +657,16 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 					goto next_cell;
 				}
-				// if (cell->type.in(ID($xnor), ID($_XNOR_))) {
-				// 	if (sig_b == State::S1) {
-				// 		SigSpec sig_y = sig_a;
-				// 		sig_y.append(RTLIL::Const(State::S1, width-1));
-				// 		patcher.patch(cell, ID::Y, sig_y, "xnor_buffer");
-				// 	} else {
-				// 		SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
-				// 		sig_y.append(RTLIL::Const(State::S1, width-1));
-				// 		patcher.patch(cell, ID::Y, sig_y, "xnor_buffer");
-				// 	}
-				// 	goto next_cell;
-				// }
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
-					SigSpec sig_y;
-					if (cell->type == ID($xnor)) {
-						sig_y = (sig_b == State::S1 ? sig_a : module->Not(NEW_ID, sig_a).as_bit());
-						int width = cell->getParam(ID::Y_WIDTH).as_int();
+					if (sig_b == State::S1) {
+						SigSpec sig_y = sig_a;
 						sig_y.append(RTLIL::Const(State::S1, width-1));
+						patcher.patch(cell, ID::Y, sig_y, "xnor_buffer");
+					} else {
+						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
+						sig_y.append(RTLIL::Const(State::S1, width-1));
+						patcher.patch(cell, ID::Y, sig_y, "xnor_buffer");
 					}
-					else if (cell->type == ID($_XNOR_))
-						sig_y = (sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
-					else log_abort();
-					replace_cell(assign_map, module, cell, "xnor_buffer", ID::Y, sig_y);
 					goto next_cell;
 				}
 				log_abort();
