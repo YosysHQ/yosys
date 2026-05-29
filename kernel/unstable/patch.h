@@ -10,7 +10,7 @@ YOSYS_NAMESPACE_BEGIN
 struct RTLIL::Patch : public CellAdderMixin<RTLIL::Patch>
 {
 private:
-	void gc(Cell* old_cell);
+	void gc(Cell* old_cell, bool track = false);
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -25,6 +25,7 @@ protected:
 public:
 	Module* mod;
 	SigMap* map;
+	pool<Cell*>* removed_cells = nullptr;
 	vector<std::unique_ptr<Wire>> wires_ = {};
 	vector<std::unique_ptr<Cell>> cells_ = {};
 

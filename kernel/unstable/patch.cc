@@ -88,7 +88,7 @@ struct SrcCollector {
 	}
 };
 
-void Patch::gc(Cell* old_cell) {
+void Patch::gc(Cell* old_cell, bool track) {
 	log_debug("gc %s\n", old_cell->name);
 	if (old_cell->type.in(ID($input_port), ID($output_port), ID($public)))
 		return;
@@ -119,9 +119,13 @@ void Patch::gc(Cell* old_cell) {
 		}
 	}
 	log_debug("\tremove %s\n", old_cell->name);
+	// Only track recursively-removed cells. The top-level patched cell is the
+	// caller's current iteration variable and won't be re-encountered.
+	if (track && removed_cells)
+		removed_cells->insert(old_cell);
 	old_cell->module->remove(old_cell);
 	for (auto input : inputs)
-		gc(input);
+		gc(input, /*track=*/true);
 }
 
 Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
