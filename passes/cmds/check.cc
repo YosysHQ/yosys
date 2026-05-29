@@ -468,6 +468,7 @@ struct CheckMemPass : public Pass {
 			"addressing invalid memory."
 		);
 
+		content_root->option("-non-const", "also check non-const address signals (may produce false-positives)");
 		content_root->option("-assert", "produce a runtime error if any problems are found in the current design");
 
 		return true;
@@ -476,10 +477,15 @@ struct CheckMemPass : public Pass {
 	{
 		int counter = 0;
 		bool assert_mode = false;
+		bool nonconst_mode = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-assert") {
 				assert_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-non-const") {
+				nonconst_mode = true;
 				continue;
 			}
 			break;
@@ -506,19 +512,27 @@ struct CheckMemPass : public Pass {
 					}
 				}
 
-				auto check_addr = [min_addr, max_addr, &counter, module, &mem](SigSpec &addr_sig, const char* access) {
+				auto check_addr = [min_addr, max_addr, &counter, module, &mem, &nonconst_mode](SigSpec &addr_sig, const char* access) {
 					if (addr_sig.is_fully_const()) {
 						auto addr = addr_sig.as_int();
 						if (addr < min_addr || addr > max_addr) {
 							log_warning("Mem %s.%s contains entries for addresses %d..%d but %s address %d.\n", log_id(module), log_id(mem.mem), min_addr, max_addr, access, addr);
 							counter++;
 						}
-					} else {
-						// TODO test variable addresses? may need sat solver
+					} else if (nonconst_mode) {
+						// TODO check addr_sig.has_const() for constant MSb/LSb that may change effective min/max
+						// TODO consider sat solver for variable addresses
+						int addr_sig_min = 0;
+						int addr_sig_max = (1 << addr_sig.size()) - 1;
+						if (min_addr > addr_sig_min || max_addr < addr_sig_max) {
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but has a potentially dangerous non-const input %s\n", log_id(module), log_id(mem.mem), min_addr, max_addr, log_signal(addr_sig));
+							counter++;
+						}
 					}
 				};
 
 				// TODO test ABITS and WIDTH?
+				// TODO can we limit ports via selection?
 				for (auto &rd_port : mem.rd_ports)
 					check_addr(rd_port.addr, "reads");
 				for (auto &wr_port : mem.wr_ports)
