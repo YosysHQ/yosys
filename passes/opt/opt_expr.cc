@@ -150,6 +150,7 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 struct OptExprPatcher : public RTLIL::Patch {
 	using RTLIL::Patch::Patch;
 	void patch(Cell *old_cell, IdString old_port, SigSpec new_sig, const std::string &info) {
+		new_sig.extend_u0(old_cell->getPort(old_port).size(), false);
 		log_replace_port(mod, old_cell, info, old_port, new_sig);
 		RTLIL::Patch::patch(old_cell, old_port, new_sig);
 	}
@@ -626,14 +627,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			SigBit sig_a = assign_map(cell->getPort(ID::A));
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
 			if (!keepdc && (sig_a == sig_b || sig_a == State::Sx || sig_a == State::Sz || sig_b == State::Sx || sig_b == State::Sz)) {
+				OptExprPatcher patcher(module, &assign_map);
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
-					replace_cell(assign_map, module, cell, "const_xor", ID::Y, RTLIL::State::S0);
+					patcher.patch(cell, ID::Y, RTLIL::State::S0, "const_xor");
 					goto next_cell;
 				}
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
 					int width = GetSize(cell->getPort(ID::Y));
-					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, SigSpec(RTLIL::State::S1, width));
+					patcher.patch(cell, ID::Y, SigSpec(RTLIL::State::S1, width), "const_xnor");
 					goto next_cell;
 				}
 				log_abort();
@@ -682,7 +684,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->type = ID($not);
 				did_something = true;
 			} else {
-				replace_cell(assign_map, module, cell, "unary_buffer", ID::Y, cell->getPort(ID::A));
+				OptExprPatcher patcher(module, &assign_map);
+				patcher.patch(cell, ID::Y, cell->getPort(ID::A), "unary_buffer");
 			}
 			goto next_cell;
 		}
