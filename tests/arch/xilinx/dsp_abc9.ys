@@ -37,7 +37,7 @@ verilog_defaults -add -D ALLOW_WHITEBOX_DSP48E1
 synth_xilinx -abc9
 techmap -autoproc -wb -map +/xilinx/cells_sim.v
 opt -full -fine
-select -assert-count 0 t:* t:$assert %d
+select -assert-count 0 t:* t:$assert %d t:$*_port %d t:$public %d
 sat -verify -prove-asserts
 
 

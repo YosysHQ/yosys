@@ -187,6 +187,9 @@ struct XAigerWriter
 		TimingInfo timing;
 
 		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+				continue;
+
 			if (!cell->has_keep_attr()) {
 				if (cell->type == ID($_NOT_))
 				{
