@@ -1444,30 +1444,48 @@ static std::string sha1_if_contain_spaces(std::string str)
 	return str;
 }
 
-void VerificImporter::recurse_ascii_initdata(RTLIL::Module *module, RTLIL::Memory *memory, Net *net, const char *&ascii_initdata, TypeRange *typeRange, int base_idx) {
+void VerificImporter::recurse_mem_dimensions(RTLIL::Module *module, RTLIL::Memory *memory, Net *net, const char *&ascii_initdata, int max_bits_in_addr, const RTLIL::SigSpec &prefix, TypeRange *typeRange) {
 	if (typeRange == nullptr)
 		typeRange = net->GetOrigTypeRange();
 
 	auto *nextRange = typeRange->GetNext();
-	base_idx <<= typeRange->NumBits();
 	auto left = typeRange->LeftRangeBound();
 	auto right = typeRange->RightRangeBound();
-	for (auto i = left; left < right ? i <= right : i >= right; left < right ? i++ : i--) {
-		auto next_idx = base_idx + i;
-		if (nextRange != nullptr) {
-			recurse_ascii_initdata(module, memory, net, ascii_initdata, nextRange, next_idx);
+	bool is_up = left < right;
+	for (auto i = left; is_up ? i <= right : i >= right; is_up ? i++ : i--) {
+		// TODO verific can do u64
+		auto max_bits = max_bits_in_addr - prefix.size();
+		auto next_sig = SigSpec(Const(i, typeRange->NumBits()));
+		auto extra_bits = next_sig.size() - max_bits;
+		if (extra_bits > 0) {
+			next_sig = next_sig.extract_end(extra_bits);
+			auto extra_inc = (1 << extra_bits) - 1;
+			i = is_up ? i + extra_inc : i - extra_inc;
+		}
+		next_sig.append(prefix);
+		if (nextRange != nullptr && extra_bits < 0) {
+			recurse_mem_dimensions(module, memory, net, ascii_initdata, max_bits_in_addr, next_sig, nextRange);
 		} else {
+			if (next_sig.size() != max_bits_in_addr) {
+				// TODO verific can do u64
+				log_error("Expected %d bits for addr but got %d!\n", max_bits_in_addr, next_sig.size());
+			}
 			Const initval = Const(State::Sx, memory->width);
 			bool initval_valid = false;
-			for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
-				if (*ascii_initdata == 0)
-					break;
-				if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-					initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
-					initval_valid = true;
+			if (ascii_initdata) {
+				for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
+					if (*ascii_initdata == 0)
+						break;
+					if (*ascii_initdata == '0' || *ascii_initdata == '1') {
+						initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
+						initval_valid = true;
+					}
+					ascii_initdata++;
 				}
-				ascii_initdata++;
 			}
+			if (!next_sig.convertible_to_int())
+				log_error("Address %s on RAM for identifier '%s' too wide!\n", log_signal(next_sig), net->Name());
+			auto next_idx = next_sig.as_int();
 			if (initval_valid) {
 				RTLIL::Cell *cell = module->addCell(new_verific_id(net), ID($meminit));
 				cell->parameters[ID::WORDS] = 1;
@@ -1478,6 +1496,8 @@ void VerificImporter::recurse_ascii_initdata(RTLIL::Module *module, RTLIL::Memor
 				cell->parameters[ID::WIDTH] = memory->width;
 				cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
 			}
+			memory->start_offset = min(memory->start_offset, next_idx);
+			memory->size = max(memory->size, next_idx);
 		}
 	}
 }
@@ -1690,58 +1710,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			}
 
 			int number_of_words = number_of_bits / min_bits_in_word;
-			// TODO Verific has u64 sizes
-			int size = 1 << max_bits_in_addr;
-			int min_idx = 0;
-			int max_idx = size - 1;
-
-			// attempt to infer min/max address for memory definition
-			RTLIL::SigSpec min_addr, max_addr;
-			auto typeRange = net->GetOrigTypeRange();
-			while (typeRange) {
-				auto left = typeRange->LeftRangeBound();
-				auto right = typeRange->RightRangeBound();
-				RTLIL::SigSpec min_addr_chunk(RTLIL::Const(left > right ? right : left, typeRange->NumBits()));
-				min_addr_chunk.reverse();
-				min_addr.append(min_addr_chunk);
-
-				RTLIL::SigSpec max_addr_chunk(RTLIL::Const(left > right ? left : right, typeRange->NumBits()));
-				max_addr_chunk.reverse();
-				max_addr.append(max_addr_chunk);
-
-				typeRange = typeRange->GetNext();
-			}
-			min_addr = min_addr.extract(0, max_bits_in_addr);
-			max_addr = max_addr.extract(0, max_bits_in_addr);
-			min_addr.reverse();
-			max_addr.reverse();
-
-			if (min_addr.convertible_to_int()) {
-				min_idx = min_addr.as_int();
-				if (max_addr.convertible_to_int()) {
-					max_idx = max_addr.as_int();
-				} else {
-					log_debug("Unable to set maximum index\n");
-				}
-				size = max_idx - min_idx + 1;
-			} else {
-				log_debug("Unable to set minimum index\n");
-			}
-
-			// sanity check we haven't shrunk the memory
-			log_assert(size >= number_of_words);
 
 			memory->width = min_bits_in_word;
-			memory->size = size;
-			memory->start_offset = min_idx;
-
-			// warn on oversize memories
-			// TODO consider using a minimum ratio?
-			if (size > number_of_words) {
-				float ratio = size / (float)number_of_words;
-				log_warning("RAM for identifier '%s' may be up to %.0f%% oversize due to addressing\n", net->Name(), (ratio-1)*100);
-				log_debug("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, size, min_idx, max_idx);
-			}
+			memory->size = 0;
+			memory->start_offset = INT_MAX;
 
 			const char *ascii_initdata = net->GetWideInitialValue();
 			if (ascii_initdata) {
@@ -1753,7 +1725,26 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					log_assert(*ascii_initdata == 'b');
 					ascii_initdata++;
 				}
-				recurse_ascii_initdata(module, memory, net, ascii_initdata);
+			}
+
+			// process initdata and fixup min/max address
+			auto prefix = SigSpec();
+			recurse_mem_dimensions(module, memory, net, ascii_initdata, max_bits_in_addr, prefix);
+
+			auto min_idx = memory->start_offset;
+			auto max_idx = memory->size;
+			memory->size = max_idx - min_idx + 1;
+
+			// sanity check we haven't shrunk the memory
+			if (memory->size < number_of_words)
+				log_error("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, memory->size, min_idx, max_idx);
+
+			// warn on oversize memories
+			// TODO consider using a minimum ratio?
+			if (memory->size > number_of_words) {
+				float ratio = memory->size / (float)number_of_words;
+				log_warning("RAM for identifier '%s' may be up to %.0f%% oversize due to addressing\n", net->Name(), (ratio-1)*100);
+				log_debug("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, memory->size, min_idx, max_idx);
 			}
 			continue;
 		}
