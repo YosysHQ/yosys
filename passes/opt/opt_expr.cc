@@ -133,26 +133,15 @@ void log_replace_port(RTLIL::Module *module, RTLIL::Cell *cell,
 	log_replace_sig(module, cell, info, cell->getPort(port), new_sig);
 }
 
-void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
-		const std::string &info, IdString out_port, RTLIL::SigSpec out_val)
-{
-	RTLIL::SigSpec Y = cell->getPort(out_port);
-	out_val.extend_u0(Y.size(), false);
-
-	log_replace_sig(module, cell, info, Y, out_val);
-	// log_cell(cell);
-	assign_map.add(Y, out_val);
-	module->connect(Y, out_val);
-	module->remove(cell);
-	did_something = true;
-}
-
 struct OptExprPatcher : public RTLIL::Patch {
-	using RTLIL::Patch::Patch;
+	OptExprPatcher(Module *mod, SigMap *map, pool<Cell*> *removed = nullptr) : RTLIL::Patch(mod, map) {
+		removed_cells = removed;
+	}
 	void patch(Cell *old_cell, IdString old_port, SigSpec new_sig, const std::string &info) {
 		new_sig.extend_u0(old_cell->getPort(old_port).size(), false);
 		log_replace_port(mod, old_cell, info, old_port, new_sig);
 		RTLIL::Patch::patch(old_cell, old_port, new_sig);
+		did_something = true;
 	}
 };
 
@@ -555,9 +544,12 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 	log("iterating over %d cells\n", GetSize(cells.sorted));
 
+	pool<Cell*> removed_cells;
 	for (auto cell : cells.sorted)
 	{
-#define ACTION_DO(_p_, _s_) do { replace_cell(assign_map, module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
+		if (removed_cells.count(cell))
+			continue;
+#define ACTION_DO(_p_, _s_) do { OptExprPatcher patcher(module, &assign_map, &removed_cells); patcher.patch(cell, _p_, _s_, input.as_string()); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO(ID::Y, RTLIL::SigSpec(RTLIL::State::S ## _v_))
 
 		bool detect_const_and = false;
@@ -607,17 +599,20 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 
 			if (detect_const_and && (found_zero || found_inv || (found_undef && consume_x))) {
-				replace_cell(assign_map, module, cell, "const_and", ID::Y, RTLIL::State::S0);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, RTLIL::State::S0, "const_and");
 				goto next_cell;
 			}
 
 			if (detect_const_or && (found_one || found_inv || (found_undef && consume_x))) {
-				replace_cell(assign_map, module, cell, "const_or", ID::Y, RTLIL::State::S1);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, RTLIL::State::S1, "const_or");
 				goto next_cell;
 			}
 
 			if (non_const_input != State::Sm && !found_undef) {
-				replace_cell(assign_map, module, cell, "and_or_buffer", ID::Y, non_const_input);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, non_const_input, "and_or_buffer");
 				goto next_cell;
 			}
 		}
@@ -627,7 +622,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			SigBit sig_a = assign_map(cell->getPort(ID::A));
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
 			if (!keepdc && (sig_a == sig_b || sig_a == State::Sx || sig_a == State::Sz || sig_b == State::Sx || sig_b == State::Sz)) {
-				OptExprPatcher patcher(module, &assign_map);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					patcher.patch(cell, ID::Y, RTLIL::State::S0, "const_xor");
 					goto next_cell;
@@ -644,7 +639,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
 			if (sig_b == State::S0 || sig_b == State::S1) {
-				OptExprPatcher patcher(module, &assign_map);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 				bool is_gate = cell->type.in(ID($_XOR_), ID($_XNOR_));
 				int width = is_gate ? 1 : cell->getParam(ID::Y_WIDTH).as_int();
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
@@ -684,7 +679,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cell->type = ID($not);
 				did_something = true;
 			} else {
-				OptExprPatcher patcher(module, &assign_map);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 				patcher.patch(cell, ID::Y, cell->getPort(ID::A), "unary_buffer");
 			}
 			goto next_cell;
@@ -1076,10 +1071,11 @@ skip_fine_alu:
 
 			if (0) {
 		found_the_x_bit:
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 				if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($lt), ID($le), ID($ge), ID($gt)))
-					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::State::Sx);
+					patcher.patch(cell, ID::Y, RTLIL::State::Sx, "x-bit in input");
 				else
-					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::SigSpec(RTLIL::State::Sx, GetSize(cell->getPort(ID::Y))));
+					patcher.patch(cell, ID::Y, RTLIL::SigSpec(RTLIL::State::Sx, GetSize(cell->getPort(ID::Y))), "x-bit in input");
 				goto next_cell;
 			}
 		}
@@ -1107,7 +1103,8 @@ skip_fine_alu:
 
 		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && GetSize(cell->getPort(ID::Y)) == 1 && GetSize(cell->getPort(ID::A)) == 1) {
 			if (auto inv_a = get_inverted(cell->getPort(ID::A), assign_map)) {
-				replace_cell(assign_map, module, cell, "double_invert", ID::Y, *inv_a);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, *inv_a, "double_invert");
 				goto next_cell;
 			}
 		}
@@ -1249,7 +1246,8 @@ skip_fine_alu:
 				if (a[i].wire == NULL && b[i].wire == NULL && a[i] != b[i] && a[i].data <= RTLIL::State::S1 && b[i].data <= RTLIL::State::S1) {
 					RTLIL::SigSpec new_y = RTLIL::SigSpec(cell->type.in(ID($eq), ID($eqx)) ?  RTLIL::State::S0 : RTLIL::State::S1);
 					new_y.extend_u0(cell->parameters[ID::Y_WIDTH].as_int(), false);
-					replace_cell(assign_map, module, cell, "isneq", ID::Y, new_y);
+					OptExprPatcher patcher(module, &assign_map, &removed_cells);
+					patcher.patch(cell, ID::Y, new_y, "isneq");
 					goto next_cell;
 				}
 				if (keepdc) {
@@ -1266,7 +1264,8 @@ skip_fine_alu:
 			if (new_a.size() == 0) {
 				RTLIL::SigSpec new_y = RTLIL::SigSpec(cell->type.in(ID($eq), ID($eqx)) ?  RTLIL::State::S1 : RTLIL::State::S0);
 				new_y.extend_u0(cell->parameters[ID::Y_WIDTH].as_int(), false);
-				replace_cell(assign_map, module, cell, "empty", ID::Y, new_y);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, new_y, "empty");
 				goto next_cell;
 			}
 
@@ -1480,7 +1479,8 @@ skip_identity:
 
 		if (mux_bool && cell->type.in(ID($mux), ID($_MUX_)) &&
 				cell->getPort(ID::A) == State::S0 && cell->getPort(ID::B) == State::S1) {
-			replace_cell(assign_map, module, cell, "mux_bool", ID::Y, cell->getPort(ID::S));
+			OptExprPatcher patcher(module, &assign_map, &removed_cells);
+			patcher.patch(cell, ID::Y, cell->getPort(ID::S), "mux_bool");
 			goto next_cell;
 		}
 
@@ -1546,7 +1546,8 @@ skip_identity:
 			int width = GetSize(cell->getPort(ID::A));
 			if ((cell->getPort(ID::A).is_fully_undef() && cell->getPort(ID::B).is_fully_undef()) ||
 					cell->getPort(ID::S).is_fully_undef()) {
-				replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, cell->getPort(ID::A), "mux_undef");
 				goto next_cell;
 			}
 			for (int i = 0; i < cell->getPort(ID::S).size(); i++) {
@@ -1564,11 +1565,13 @@ skip_identity:
 				new_s = new_s.extract(0, new_s.size()-1);
 			}
 			if (new_s.size() == 0) {
-				replace_cell(assign_map, module, cell, "mux_empty", ID::Y, new_a);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, new_a, "mux_empty");
 				goto next_cell;
 			}
 			if (new_a == RTLIL::SigSpec(RTLIL::State::S0) && new_b == RTLIL::SigSpec(RTLIL::State::S1)) {
-				replace_cell(assign_map, module, cell, "mux_sel01", ID::Y, new_s);
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, new_s, "mux_sel01");
 				goto next_cell;
 			}
 			if (cell->getPort(ID::S).size() != new_s.size()) {
@@ -1597,7 +1600,8 @@ skip_identity:
 				if (!conn.first.in(ID::S, ID::T, ID::U, ID::V, ID::Y))
 					undef_inputs += conn.second.is_fully_undef();
 			if (undef_inputs == num_inputs) {
-				replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, cell->getPort(ID::A), "mux_undef");
 				goto next_cell;
 			}
 		}
@@ -1611,7 +1615,8 @@ skip_identity:
 				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), dummy_arg, \
 						cell->parameters[ID::A_SIGNED].as_bool(), false, \
 						cell->parameters[ID::Y_WIDTH].as_int())); \
-				replace_cell(assign_map, module, cell, stringf("%s", log_signal(a)), ID::Y, y); \
+				OptExprPatcher patcher(module, &assign_map, &removed_cells); \
+				patcher.patch(cell, ID::Y, y, stringf("%s", log_signal(a))); \
 				goto next_cell; \
 			} \
 		}
@@ -1625,7 +1630,8 @@ skip_identity:
 						cell->parameters[ID::A_SIGNED].as_bool(), \
 						cell->parameters[ID::B_SIGNED].as_bool(), \
 						cell->parameters[ID::Y_WIDTH].as_int())); \
-				replace_cell(assign_map, module, cell, stringf("%s, %s", log_signal(a), log_signal(b)), ID::Y, y); \
+				OptExprPatcher patcher(module, &assign_map, &removed_cells); \
+				patcher.patch(cell, ID::Y, y, stringf("%s, %s", log_signal(a), log_signal(b))); \
 				goto next_cell; \
 			} \
 		}
@@ -1636,7 +1642,8 @@ skip_identity:
 			assign_map.apply(a), assign_map.apply(b); \
 			if (a.is_fully_const() && b.is_fully_const()) { \
 				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const())); \
-				replace_cell(assign_map, module, cell, stringf("%s, %s", log_signal(a), log_signal(b)), ID::Y, y); \
+				OptExprPatcher patcher(module, &assign_map, &removed_cells); \
+				patcher.patch(cell, ID::Y, y, stringf("%s, %s", log_signal(a), log_signal(b))); \
 				goto next_cell; \
 			} \
 		}
@@ -1648,7 +1655,8 @@ skip_identity:
 			assign_map.apply(a), assign_map.apply(b), assign_map.apply(s); \
 			if (a.is_fully_const() && b.is_fully_const() && s.is_fully_const()) { \
 				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const(), s.as_const())); \
-				replace_cell(assign_map, module, cell, stringf("%s, %s, %s", log_signal(a), log_signal(b), log_signal(s)), ID::Y, y); \
+				OptExprPatcher patcher(module, &assign_map, &removed_cells); \
+				patcher.patch(cell, ID::Y, y, stringf("%s, %s, %s", log_signal(a), log_signal(b), log_signal(s))); \
 				goto next_cell; \
 			} \
 		}
