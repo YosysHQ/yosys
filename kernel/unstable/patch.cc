@@ -90,7 +90,9 @@ struct SrcCollector {
 
 void Patch::gc(Cell* old_cell) {
 	log_debug("gc %s\n", old_cell->name);
-	std::vector<Cell*> inputs = {};
+	if (old_cell->type.in(ID($input_port), ID($output_port), ID($public)))
+		return;
+	pool<Cell*> inputs;
 	for (auto [port_name, sig] : old_cell->connections()) {
 		auto dir = old_cell->port_dir(port_name);
 		log_assert(dir != PD_UNKNOWN);
@@ -112,7 +114,7 @@ void Patch::gc(Cell* old_cell) {
 				log_assert(in_wire);
 				log_debug("\twire %s\n", in_wire->name);
 				if (in_wire->known_driver() && !leaves.count(in_wire))
-					inputs.push_back(in_wire->driverCell());
+					inputs.insert(in_wire->driverCell());
 			}
 		}
 	}
