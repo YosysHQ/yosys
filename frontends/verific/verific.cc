@@ -1444,6 +1444,44 @@ static std::string sha1_if_contain_spaces(std::string str)
 	return str;
 }
 
+void VerificImporter::recurse_ascii_initdata(RTLIL::Module *module, RTLIL::Memory *memory, Net *net, const char *&ascii_initdata, TypeRange *typeRange, int base_idx) {
+	if (typeRange == nullptr)
+		typeRange = net->GetOrigTypeRange();
+
+	auto *nextRange = typeRange->GetNext();
+	base_idx <<= typeRange->NumBits();
+	auto left = typeRange->LeftRangeBound();
+	auto right = typeRange->RightRangeBound();
+	for (auto i = left; left < right ? i <= right : i >= right; left < right ? i++ : i--) {
+		auto next_idx = base_idx + i;
+		if (nextRange != nullptr) {
+			recurse_ascii_initdata(module, memory, net, ascii_initdata, nextRange, next_idx);
+		} else {
+			Const initval = Const(State::Sx, memory->width);
+			bool initval_valid = false;
+			for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
+				if (*ascii_initdata == 0)
+					break;
+				if (*ascii_initdata == '0' || *ascii_initdata == '1') {
+					initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
+					initval_valid = true;
+				}
+				ascii_initdata++;
+			}
+			if (initval_valid) {
+				RTLIL::Cell *cell = module->addCell(new_verific_id(net), ID($meminit));
+				cell->parameters[ID::WORDS] = 1;
+				cell->setPort(ID::ADDR, next_idx);
+				cell->setPort(ID::DATA, initval);
+				cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
+				cell->parameters[ID::ABITS] = 32;
+				cell->parameters[ID::WIDTH] = memory->width;
+				cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
+			}
+		}
+	}
+}
+
 void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::map<std::string,Netlist*> &nl_todo, bool norename)
 {
 	std::string netlist_name = nl->GetAtt(" \\top") || is_blackbox(nl) ? nl->CellBaseName() : nl->Owner()->Name();
@@ -1715,33 +1753,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					log_assert(*ascii_initdata == 'b');
 					ascii_initdata++;
 				}
-				for (int word_idx = 0; word_idx < memory->size; word_idx++) {
-					Const initval = Const(State::Sx, memory->width);
-					bool initval_valid = false;
-					for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
-						if (*ascii_initdata == 0)
-							break;
-						if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-							initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
-							initval_valid = true;
-						}
-						ascii_initdata++;
-					}
-					if (initval_valid) {
-						RTLIL::Cell *cell = module->addCell(new_verific_id(net), ID($meminit));
-						cell->parameters[ID::WORDS] = 1;
-						// TODO non contiguous memory addressing
-						if (net->GetOrigTypeRange()->LeftRangeBound() < net->GetOrigTypeRange()->RightRangeBound())
-							cell->setPort(ID::ADDR, word_idx);
-						else
-							cell->setPort(ID::ADDR, memory->size - word_idx - 1);
-						cell->setPort(ID::DATA, initval);
-						cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
-						cell->parameters[ID::ABITS] = 32;
-						cell->parameters[ID::WIDTH] = memory->width;
-						cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
-					}
-				}
+				recurse_ascii_initdata(module, memory, net, ascii_initdata);
 			}
 			continue;
 		}

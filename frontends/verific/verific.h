@@ -66,6 +66,9 @@ struct VerificClocking {
 
 struct VerificImporter
 {
+private:
+	void recurse_ascii_initdata(RTLIL::Module *module, RTLIL::Memory *memory, Verific::Net *net, const char *&ascii_initdata, Verific::TypeRange *typeRange = nullptr, int base_idx = 0);
+public:
 	RTLIL::Module *module;
 	Verific::Netlist *netlist;
 
