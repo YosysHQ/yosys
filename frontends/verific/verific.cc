@@ -1630,22 +1630,78 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			import_attributes(memory->attributes, net, nl);
 
 			int number_of_bits = net->Size();
-			int bits_in_word = number_of_bits;
+			int min_bits_in_word = number_of_bits;
+			int max_bits_in_addr = 0;
+
+			// get the size of each memory access
 			FOREACH_PORTREF_OF_NET(net, si, pr) {
-				if (pr->GetInst()->Type() == OPER_READ_PORT) {
-					bits_in_word = min<int>(bits_in_word, pr->GetInst()->OutputSize());
-					continue;
+				auto *inst = pr->GetInst();
+				int bits_in_word;
+				if (inst->Type() == OPER_READ_PORT)
+					bits_in_word = inst->OutputSize();
+				else if (inst->Type() == OPER_WRITE_PORT || inst->Type() == OPER_CLOCKED_WRITE_PORT)
+					bits_in_word = inst->Input2Size();
+				else
+					log_error("%sVerific RamNet %s is connected to unsupported instance type %s (%s).\n", announce_src_location(inst),
+							net->Name(), inst->View()->Owner()->Name(), inst->Name());
+
+				if (bits_in_word < min_bits_in_word) {
+					min_bits_in_word = bits_in_word;
+					max_bits_in_addr = inst->Input1Size();
 				}
-				if (pr->GetInst()->Type() == OPER_WRITE_PORT || pr->GetInst()->Type() == OPER_CLOCKED_WRITE_PORT) {
-					bits_in_word = min<int>(bits_in_word, pr->GetInst()->Input2Size());
-					continue;
-				}
-				log_error("%sVerific RamNet %s is connected to unsupported instance type %s (%s).\n", announce_src_location(pr->GetInst()),
-						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
 			}
 
-			memory->width = bits_in_word;
-			memory->size = number_of_bits / bits_in_word;
+			int number_of_words = number_of_bits / min_bits_in_word;
+			// TODO Verific has u64 sizes
+			int size = 1 << max_bits_in_addr;
+			int min_idx = 0;
+			int max_idx = size - 1;
+
+			// attempt to infer min/max address for memory definition
+			RTLIL::SigSpec min_addr, max_addr;
+			auto typeRange = net->GetOrigTypeRange();
+			while (typeRange) {
+				RTLIL::SigSpec min_addr_chunk(RTLIL::Const(typeRange->RightRangeBound(), typeRange->NumBits()));
+				min_addr_chunk.reverse();
+				min_addr.append(min_addr_chunk);
+
+				RTLIL::SigSpec max_addr_chunk(RTLIL::Const(typeRange->LeftRangeBound(), typeRange->NumBits()));
+				max_addr_chunk.reverse();
+				max_addr.append(max_addr_chunk);
+
+				typeRange = typeRange->GetNext();
+			}
+			min_addr = min_addr.extract(0, max_bits_in_addr);
+			max_addr = max_addr.extract(0, max_bits_in_addr);
+			min_addr.reverse();
+			max_addr.reverse();
+
+			if (min_addr.convertible_to_int()) {
+				min_idx = min_addr.as_int();
+				if (max_addr.convertible_to_int()) {
+					max_idx = max_addr.as_int();
+				} else {
+					log_debug("Unable to set maximum index\n");
+				}
+				size = max_idx - min_idx + 1;
+			} else {
+				log_debug("Unable to set minimum index\n");
+			}
+
+			// sanity check we haven't shrunk the memory
+			log_assert(size >= number_of_words);
+
+			memory->width = min_bits_in_word;
+			memory->size = size;
+			memory->start_offset = min_idx;
+
+			// warn on oversize memories
+			// TODO consider using a minimum ratio?
+			if (size > number_of_words) {
+				float ratio = size / (float)number_of_words;
+				log_warning("RAM for identifier '%s' may be up to %.0f%% oversize due to addressing\n", net->Name(), (ratio-1)*100);
+				log_debug("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, size, min_idx, max_idx);
+			}
 
 			const char *ascii_initdata = net->GetWideInitialValue();
 			if (ascii_initdata) {
@@ -1672,6 +1728,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					if (initval_valid) {
 						RTLIL::Cell *cell = module->addCell(new_verific_id(net), ID($meminit));
 						cell->parameters[ID::WORDS] = 1;
+						// TODO non contiguous memory addressing
 						if (net->GetOrigTypeRange()->LeftRangeBound() < net->GetOrigTypeRange()->RightRangeBound())
 							cell->setPort(ID::ADDR, word_idx);
 						else
