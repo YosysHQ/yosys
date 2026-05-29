@@ -140,35 +140,29 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 	SigSpec old_sig = old_cell->getPort(old_port);
 	log_assert(old_sig.size() == new_sig.size());
-	log("patching %s %s which is %s with %s:\n", old_cell->name, old_port, log_signal(old_sig), log_signal(new_sig));
+	log_debug("patching %s %s which is %s with %s:\n", old_cell->name, old_port, log_signal(old_sig), log_signal(new_sig));
 
 	SrcCollector collector;
 	collector.collect_src(old_sig);
 	std::string src_str = AttrObject::strpool_attribute_to_str(collector.src);
 
-	old_cell->setPort(old_port, SigSpec());
-	mod->connect(old_sig, new_sig);
-	if (map)
-		map->add(old_sig, new_sig);
-
-	// Inefficient
+	// Record leaves (existing wires consumed as inputs by the new cells) so
+	// gc() stops at them. Detected via bit.wire->module being non-null:
+	// uncommitted wires belong to no module yet.
 	for (auto& cell : cells_) {
-		log_debug("cell %s\n", cell->name);
 		for (auto& [port_name, sig] : cell->connections()) {
-			log_debug("port %s\n", port_name);
 			auto dir = cell->port_dir(port_name);
 			if (dir == PD_INPUT || dir == PD_INOUT) {
 				for (auto bit : sig) {
-					log("bit %s\n", log_signal(bit));
-					if (bit.is_wire() && bit.wire->module) {
+					if (bit.is_wire() && bit.wire->module)
 						leaves.insert(bit.wire);
-						log_debug("leaf %s\n", bit.wire->name);
-					}
 				}
 			}
 		}
 	}
 
+	// Commit new cells/wires first so new_sig becomes a driven signal in the
+	// signorm index before we merge.
 	for (auto& cell: cells_) {
 		cell->set_src_attribute(src_str);
 		cell->fixup_parameters();
@@ -178,12 +172,13 @@ void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 	for (auto& wire: wires_)
 		commit_wire(std::move(wire));
 
-	// Flush pending sigmap updates (from the mod->connect above) into the
-	// fanout index so gc() sees the updated fanout for cells whose outputs
-	// were the patched wires. Without this, downstream consumers like the
-	// $output_port / $public sentinels still appear in the OLD wire's fanout
-	// instead of the new representative.
-	mod->sigNormalize();
+	// Now drop old_cell's driver so old_sig is undriven, then merge it into
+	// new_sig. connect_incremental updates sigmap and re-normalizes fanout
+	// consumers in place — no full sigNormalize needed.
+	old_cell->setPort(old_port, SigSpec());
+	if (map)
+		map->add(old_sig, new_sig);
+	mod->connect_incremental(old_sig, new_sig);
 
 	gc(old_cell);
 	cells_.clear();

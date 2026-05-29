@@ -2672,6 +2672,13 @@ public:
 	const pool<PortBit> &fanout(SigBit bit);
 	const dict<SigBit, pool<PortBit>> &signorm_fanout() const;
 
+	// Equivalent to `connect(lhs, rhs)` followed by `sigNormalize()` for the
+	// merge implied by this single connection: updates the sigmap, promotes
+	// the driven side as canonical, and re-normalizes any existing fanout
+	// consumers of the demoted side. Lets callers in signorm mode merge
+	// signals without the overhead of a full normalize.
+	void connect_incremental(const SigSpec &lhs, const SigSpec &rhs);
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
