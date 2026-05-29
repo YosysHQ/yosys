@@ -1661,11 +1661,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			RTLIL::SigSpec min_addr, max_addr;
 			auto typeRange = net->GetOrigTypeRange();
 			while (typeRange) {
-				RTLIL::SigSpec min_addr_chunk(RTLIL::Const(typeRange->RightRangeBound(), typeRange->NumBits()));
+				auto left = typeRange->LeftRangeBound();
+				auto right = typeRange->RightRangeBound();
+				RTLIL::SigSpec min_addr_chunk(RTLIL::Const(left > right ? right : left, typeRange->NumBits()));
 				min_addr_chunk.reverse();
 				min_addr.append(min_addr_chunk);
 
-				RTLIL::SigSpec max_addr_chunk(RTLIL::Const(typeRange->LeftRangeBound(), typeRange->NumBits()));
+				RTLIL::SigSpec max_addr_chunk(RTLIL::Const(left > right ? left : right, typeRange->NumBits()));
 				max_addr_chunk.reverse();
 				max_addr.append(max_addr_chunk);
 
