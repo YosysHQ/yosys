@@ -178,6 +178,13 @@ void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 	for (auto& wire: wires_)
 		commit_wire(std::move(wire));
 
+	// Flush pending sigmap updates (from the mod->connect above) into the
+	// fanout index so gc() sees the updated fanout for cells whose outputs
+	// were the patched wires. Without this, downstream consumers like the
+	// $output_port / $public sentinels still appear in the OLD wire's fanout
+	// instead of the new representative.
+	mod->sigNormalize();
+
 	gc(old_cell);
 	cells_.clear();
 	wires_.clear();

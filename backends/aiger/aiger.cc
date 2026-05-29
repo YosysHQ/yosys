@@ -337,7 +337,7 @@ struct AigerWriter
 				continue;
 			}
 
-			if (cell->type == ID($scopeinfo) || cell->type == ID($input_port))
+			if (cell->type.in(ID($scopeinfo), ID($input_port), ID($output_port), ID($public)))
 				continue;
 
 			log_error("Unsupported cell type: %s (%s)\n", cell->type.unescape(), cell);

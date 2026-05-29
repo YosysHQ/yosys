@@ -1399,7 +1399,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (cell->type == ID($scopeinfo) || cell->type == ID($input_port))
+	if (cell->type.in(ID($scopeinfo), ID($input_port), ID($output_port), ID($public)))
 	{
 		return true;
 	}

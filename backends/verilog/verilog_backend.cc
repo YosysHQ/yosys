@@ -1551,7 +1551,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == ID($input_port))
+	if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
 		return true;
 
 	if (cell->type == ID($connect))

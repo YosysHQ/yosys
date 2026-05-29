@@ -637,3 +637,21 @@ parameter WIDTH = 0;
 inout [WIDTH-1:0] Y; // This cell is just a maker, so we leave Y undriven
 
 endmodule
+
+(* techmap_celltype = "$output_port" *)
+module \$output_port (A);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A; // This cell is just a marker for module output ports
+
+endmodule
+
+(* techmap_celltype = "$public" *)
+module \$public (A);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A; // This cell is just a marker for public-named wires
+
+endmodule

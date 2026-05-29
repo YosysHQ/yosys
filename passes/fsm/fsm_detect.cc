@@ -99,6 +99,8 @@ static bool check_state_users(RTLIL::SigSpec sig)
 		RTLIL::Cell *cell = cellport.first;
 		if (muxtree_cells.count(cell) > 0)
 			continue;
+		if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+			continue;
 		if (cell->type == ID($logic_not) && assign_map(cell->getPort(ID::A)) == sig)
 			continue;
 		if (cellport.second != ID::A && cellport.second != ID::B)

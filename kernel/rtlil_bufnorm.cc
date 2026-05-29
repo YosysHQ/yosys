@@ -54,6 +54,7 @@ struct RTLIL::SigNormIndex
 		module->fixup_ports();
 		setup_module_inputs();
 		setup_driven_wires();
+		setup_module_outputs_and_publics();
 		setup_fanout();
 	}
 
@@ -107,6 +108,72 @@ struct RTLIL::SigNormIndex
 		for (auto [wire, cell] : input_port_cells) {
 			wire->driverCell_ = cell;
 			wire->driverPort_ = ID::Y;
+		}
+	}
+
+	// Creates $output_port cells consuming each pure-output module port wire
+	// and $public cells consuming each public-named wire that isn't already
+	// covered by an $input_port or $output_port. These act as fanout sentinels
+	// so local GC (e.g. in Patch) won't remove driver cells whose only purpose
+	// is to feed a port or a user-visible wire.
+	void setup_module_outputs_and_publics() {
+		std::vector<Cell *> cells_to_remove;
+		dict<Wire *, Cell *> output_port_cells;
+		dict<Wire *, Cell *> public_cells;
+
+		for (auto cell : module->cells()) {
+			if (cell->type != ID($output_port) && cell->type != ID($public))
+				continue;
+
+			auto const &sig_a = cell->getPort(ID::A);
+			Wire *wire = nullptr;
+			if (!sig_a.is_wire()) {
+				cells_to_remove.push_back(cell);
+				continue;
+			}
+			wire = sig_a.as_wire();
+
+			if (cell->type == ID($output_port)) {
+				if (wire->port_output && !wire->port_input && !output_port_cells.count(wire))
+					output_port_cells.emplace(wire, cell);
+				else
+					cells_to_remove.push_back(cell);
+			} else { // $public
+				bool is_pure_input = wire->port_input && !wire->port_output;
+				bool is_pure_output = wire->port_output && !wire->port_input;
+				if (wire->name.isPublic() && !is_pure_input && !is_pure_output && !public_cells.count(wire))
+					public_cells.emplace(wire, cell);
+				else
+					cells_to_remove.push_back(cell);
+			}
+		}
+		for (auto cell : cells_to_remove)
+			module->remove(cell);
+
+		for (auto portname : module->ports) {
+			Wire *wire = module->wire(portname);
+			if (wire->port_output && !wire->port_input && !output_port_cells.count(wire)) {
+				Cell *cell = module->addCell(NEW_ID, ID($output_port));
+				cell->setParam(ID::WIDTH, GetSize(wire));
+				cell->setPort(ID::A, wire);
+				output_port_cells.emplace(wire, cell);
+			}
+		}
+
+		for (auto &it : module->wires_) {
+			Wire *wire = it.second;
+			if (!wire->name.isPublic())
+				continue;
+			bool is_pure_input = wire->port_input && !wire->port_output;
+			bool is_pure_output = wire->port_output && !wire->port_input;
+			if (is_pure_input || is_pure_output)
+				continue;
+			if (public_cells.count(wire))
+				continue;
+			Cell *cell = module->addCell(NEW_ID, ID($public));
+			cell->setParam(ID::WIDTH, GetSize(wire));
+			cell->setPort(ID::A, wire);
+			public_cells.emplace(wire, cell);
 		}
 	}
 
@@ -352,7 +419,7 @@ void RTLIL::Design::sigNormalize(bool enable)
 			// TODO inefficient?
 			std::vector<Cell*> cells_snapshot = module->cells();
 			for (auto cell : cells_snapshot) {
-				if (cell->type == ID($input_port))
+				if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
 					module->remove(cell);
 			}
 		}

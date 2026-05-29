@@ -2550,6 +2550,12 @@ namespace {
 				check_expected();
 				return;
 			}
+			if (cell->type.in(ID($output_port), ID($public))) {
+				param(ID::WIDTH);
+				port(ID::A, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 			if (cell->type.in(ID($connect))) {
 				param(ID::WIDTH);
 				port(ID::A, param(ID::WIDTH));

@@ -50,9 +50,9 @@ bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, 
 }
 
 bool remove(ShardedVector<RTLIL::Cell*>& cells, RTLIL::Module* mod, bool verbose) {
-	// Removing $connect and $input_port doesn't count as "doing something"
-	// since they get rebuilt in signorm
-	// and don't enable further opt
+	// Removing $connect, $input_port, $output_port and $public doesn't count
+	// as "doing something" since they get rebuilt in signorm and don't enable
+	// further opt
 	bool did_something = false;
 	for (RTLIL::Cell *cell : cells) {
 		if (verbose) {
@@ -62,6 +62,12 @@ bool remove(ShardedVector<RTLIL::Cell*>& cells, RTLIL::Module* mod, bool verbose
 			} else if (cell->type == ID($input_port)) {
 				log_debug("  removing input port marker cell `%s': %s\n", cell->name,
 						log_signal(cell->getPort(ID::Y)));
+			} else if (cell->type == ID($output_port)) {
+				log_debug("  removing output port marker cell `%s': %s\n", cell->name,
+						log_signal(cell->getPort(ID::A)));
+			} else if (cell->type == ID($public)) {
+				log_debug("  removing public wire marker cell `%s': %s\n", cell->name,
+						log_signal(cell->getPort(ID::A)));
 			} else {
 				did_something = true;
 				log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
@@ -93,7 +99,7 @@ void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::S
 					std::swap(a, b);
 				new_connections.insert(ctx, {a, b});
 				delcells.insert(ctx, cell);
-			} else if (cell->type.in(ID($input_port)) && !cell->has_keep_attr()) {
+			} else if (cell->type.in(ID($input_port), ID($output_port), ID($public)) && !cell->has_keep_attr()) {
 				delcells.insert(ctx, cell);
 			}
 		}

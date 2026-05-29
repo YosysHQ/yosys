@@ -90,6 +90,8 @@ struct CellTableBuilder {
 		setup_type(ID($future_ff), {ID::A}, {ID::Y}, features);
 		setup_type(ID($scopeinfo), {}, {}, features);
 		setup_type(ID($input_port), {}, {ID::Y}, features);
+		setup_type(ID($output_port), {ID::A}, {}, features);
+		setup_type(ID($public), {ID::A}, {}, features);
 		setup_type(ID($connect), {ID::A, ID::B}, {}, features);
 	}
 	constexpr void setup_internals_eval()

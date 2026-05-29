@@ -50,6 +50,8 @@ struct ArithTreeWorker {
 	{
 		// Build traversal data
 		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+				continue;
 			for (auto &[name, sig] : cell->connections()) {
 				if (cell->input(name)) {
 					for (auto bit : sigmap(sig)) {

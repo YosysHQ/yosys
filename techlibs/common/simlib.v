@@ -3250,3 +3250,21 @@ parameter WIDTH = 0;
 inout [WIDTH-1:0] Y;
 
 endmodule
+// --------------------------------------------------------
+//* group wire
+module \$output_port (A);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+
+endmodule
+// --------------------------------------------------------
+//* group wire
+module \$public (A);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+
+endmodule

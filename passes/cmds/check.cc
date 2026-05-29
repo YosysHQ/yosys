@@ -391,7 +391,7 @@ struct CheckPass : public Pass {
 			pool<Cell *> coarsened_cells;
 			for (auto cell : module->cells())
 			{
-				if (cell->type == ID($input_port))
+				if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
 					continue;
 
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
