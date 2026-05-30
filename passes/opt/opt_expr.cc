@@ -143,9 +143,17 @@ struct OptExprPatcher : public RTLIL::Patch {
 		RTLIL::Patch::patch(old_cell, old_port, new_sig);
 		did_something = true;
 	}
+	void patch(Cell *old_cell, std::vector<std::pair<IdString, SigSpec>> ports, const std::string &info) {
+		for (auto &[port, new_sig] : ports) {
+			new_sig.extend_u0(old_cell->getPort(port).size(), false);
+			log_replace_port(mod, old_cell, info, port, new_sig);
+		}
+		RTLIL::Patch::patch(old_cell, ports);
+		did_something = true;
+	}
 };
 
-bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc)
+bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc, pool<Cell*> &removed_cells)
 {
 	IdString b_name = cell->hasPort(ID::B) ? ID::B : ID::A;
 
@@ -210,20 +218,23 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	log_debug("Replacing %s cell `%s' in module `%s' with cells using grouped bits:\n",
 			cell->type.unescape(), cell, module);
 
+	OptExprPatcher patcher(module, &sigmap, &removed_cells);
+
+	// Replacement bit for each original sig_y bit.
+	dict<SigBit, SigBit> bit_map;
+
 	for (int i = 0; i < GRP_N; i++)
 	{
 		if (grouped_bits[i].empty())
 			continue;
 
-		RTLIL::SigSpec new_y = module->addWire(NEW_ID, GetSize(grouped_bits[i]));
+		int group_size = GetSize(grouped_bits[i]);
+		RTLIL::SigSpec new_y = patcher.addWire(NEW_ID, group_size);
 		RTLIL::SigSpec new_a, new_b;
-		RTLIL::SigSig new_conn;
 
 		for (auto &it : grouped_bits[i]) {
-			for (auto &bit : it.second) {
-				new_conn.first.append(bit);
-				new_conn.second.append(new_y[new_a.size()]);
-			}
+			for (auto &bit : it.second)
+				bit_map[bit] = new_y[new_a.size()];
 			new_a.append(it.first.first);
 			new_b.append(it.first.second);
 		}
@@ -237,8 +248,14 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 				else log_abort();
 			}
 			log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(new_b), cell->type.unescape(), log_signal(new_a));
-			module->connect(new_y, new_b);
-			module->connect(new_conn);
+			// new_y becomes new_b directly: rewrite any bit_map entries pointing at new_y bits.
+			dict<SigBit, SigBit> remap;
+			for (int j = 0; j < group_size; j++)
+				remap[new_y[j]] = new_b[j];
+			for (auto &entry : bit_map) {
+				auto it = remap.find(entry.second);
+				if (it != remap.end()) entry.second = it->second;
+			}
 			continue;
 		}
 
@@ -260,9 +277,9 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 				else if (new_a[i] == State::S0 || new_a[i] == State::S1) {
 					undef_a.append(new_a[i]);
 					if (cell->type == ID($xor))
-						undef_b.append(new_a[i] == State::S1 ? module->Not(NEW_ID, new_b[i]).as_bit() : new_b[i]);
+						undef_b.append(new_a[i] == State::S1 ? patcher.Not(NEW_ID, new_b[i]).as_bit() : new_b[i]);
 					else if (cell->type == ID($xnor))
-						undef_b.append(new_a[i] == State::S1 ? new_b[i] : module->Not(NEW_ID, new_b[i]).as_bit());
+						undef_b.append(new_a[i] == State::S1 ? new_b[i] : patcher.Not(NEW_ID, new_b[i]).as_bit());
 					else log_abort();
 					undef_y.append(new_y[i]);
 				}
@@ -274,19 +291,22 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 			}
 			if (!undef_y.empty()) {
 				log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(undef_b), cell->type.unescape(), log_signal(undef_a));
-				module->connect(undef_y, undef_b);
-				if (def_y.empty()) {
-					module->connect(new_conn);
-					continue;
+				dict<SigBit, SigBit> remap;
+				for (int j = 0; j < GetSize(undef_y); j++)
+					remap[undef_y[j]] = undef_b[j];
+				for (auto &entry : bit_map) {
+					auto it = remap.find(entry.second);
+					if (it != remap.end()) entry.second = it->second;
 				}
+				if (def_y.empty())
+					continue;
 			}
 			new_a = std::move(def_a);
 			new_b = std::move(def_b);
 			new_y = std::move(def_y);
 		}
 
-
-		RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
+		RTLIL::Cell *c = patcher.addCell(NEW_ID, cell->type);
 
 		c->setPort(ID::A, new_a);
 		c->parameters[ID::A_WIDTH] = new_a.size();
@@ -300,9 +320,6 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 
 		c->setPort(ID::Y, new_y);
 		c->parameters[ID::Y_WIDTH] = GetSize(new_y);
-		c->check();
-
-		module->connect(new_conn);
 
 		log_debug("  New cell `%s': A=%s", c, log_signal(new_a));
 		if (b_name == ID::B)
@@ -310,8 +327,15 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		log_debug("\n");
 	}
 
-	module->remove(cell);
-	did_something = true;
+	// Build replacement SigSpec for cell's Y port.
+	SigSpec orig_y = cell->getPort(ID::Y);
+	SigSpec new_sig_y;
+	for (auto bit : orig_y) {
+		SigBit canon = sigmap(bit);
+		auto it = bit_map.find(canon);
+		new_sig_y.append(it != bit_map.end() ? it->second : bit);
+	}
+	patcher.patch(cell, ID::Y, new_sig_y, "group_cell_inputs");
 	return true;
 }
 
@@ -708,59 +732,64 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					std::swap(sig_a, sig_b);
 
 				RTLIL::SigSpec b_group_0, b_group_1, b_group_x;
-				RTLIL::SigSpec y_group_0, y_group_1, y_group_x;
+				// Per-i (group, position_in_group); group = -1 means leave as Sx
+				std::vector<std::pair<int, int>> origin(width, {-1, 0});
+
+				auto group_0 = cell->type == ID($xnor) ? 1 : 0;
+				auto group_1 = cell->type == ID($xnor) ? 0 : 1;
 
 				for (int i = 0; i < width; i++) {
 					auto bit_a = sig_a[i].data;
-					if (bit_a == State::S0) b_group_0.append(sig_b[i]), y_group_0.append(sig_y[i]);
-					if (bit_a == State::S1) b_group_1.append(sig_b[i]), y_group_1.append(sig_y[i]);
-					if (bit_a == State::Sx) b_group_x.append(sig_b[i]), y_group_x.append(sig_y[i]);
+					if (bit_a == State::S0) origin[i] = {group_0, b_group_0.size()}, b_group_0.append(sig_b[i]);
+					else if (bit_a == State::S1) origin[i] = {group_1, b_group_1.size()}, b_group_1.append(sig_b[i]);
+					else if (bit_a == State::Sx) origin[i] = {2, b_group_x.size()}, b_group_x.append(sig_b[i]);
 				}
 
-				if (cell->type == ID($xnor)) {
+				if (cell->type == ID($xnor))
 					std::swap(b_group_0, b_group_1);
-					std::swap(y_group_0, y_group_1);
-				}
 
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 				RTLIL::SigSpec y_new_0, y_new_1, y_new_x;
 
 				if (cell->type == ID($and)) {
-					if (!y_group_0.empty()) y_new_0 = Const(State::S0, GetSize(y_group_0));
-					if (!y_group_1.empty()) y_new_1 = b_group_1;
-					if (!y_group_x.empty()) {
+					if (!b_group_0.empty()) y_new_0 = Const(State::S0, GetSize(b_group_0));
+					if (!b_group_1.empty()) y_new_1 = b_group_1;
+					if (!b_group_x.empty()) {
 						if (keepdc)
-							y_new_x = module->And(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+							y_new_x = patcher.And(NEW_ID, Const(State::Sx, GetSize(b_group_x)), b_group_x);
 						else
-							y_new_x = Const(State::S0, GetSize(y_group_x));
+							y_new_x = Const(State::S0, GetSize(b_group_x));
 					}
 				} else if (cell->type == ID($or)) {
-					if (!y_group_0.empty()) y_new_0 = b_group_0;
-					if (!y_group_1.empty()) y_new_1 = Const(State::S1, GetSize(y_group_1));
-					if (!y_group_x.empty()) {
+					if (!b_group_0.empty()) y_new_0 = b_group_0;
+					if (!b_group_1.empty()) y_new_1 = Const(State::S1, GetSize(b_group_1));
+					if (!b_group_x.empty()) {
 						if (keepdc)
-							y_new_x = module->Or(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+							y_new_x = patcher.Or(NEW_ID, Const(State::Sx, GetSize(b_group_x)), b_group_x);
 						else
-							y_new_x = Const(State::S1, GetSize(y_group_x));
+							y_new_x = Const(State::S1, GetSize(b_group_x));
 					}
 				} else if (cell->type.in(ID($xor), ID($xnor))) {
-					if (!y_group_0.empty()) y_new_0 = b_group_0;
-					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID, b_group_1);
-					if (!y_group_x.empty()) {
+					if (!b_group_0.empty()) y_new_0 = b_group_0;
+					if (!b_group_1.empty()) y_new_1 = patcher.Not(NEW_ID, b_group_1);
+					if (!b_group_x.empty()) {
 						if (keepdc)
-							y_new_x = module->Xor(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+							y_new_x = patcher.Xor(NEW_ID, Const(State::Sx, GetSize(b_group_x)), b_group_x);
 						else // This should be fine even with keepdc, but opt_expr_xor.ys wants to keep the xor
-							y_new_x = Const(State::Sx, GetSize(y_group_x));
+							y_new_x = Const(State::Sx, GetSize(b_group_x));
 					}
 				} else {
 					log_abort();
 				}
 
-				assign_map.add(y_group_0, y_new_0); module->connect(y_group_0, y_new_0);
-				assign_map.add(y_group_1, y_new_1); module->connect(y_group_1, y_new_1);
-				assign_map.add(y_group_x, y_new_x); module->connect(y_group_x, y_new_x);
-
-				module->remove(cell);
-				did_something = true;
+				RTLIL::SigSpec new_sig_y(State::Sx, width);
+				for (int i = 0; i < width; i++) {
+					if (origin[i].first == 0) new_sig_y[i] = y_new_0[origin[i].second];
+					else if (origin[i].first == 1) new_sig_y[i] = y_new_1[origin[i].second];
+					else if (origin[i].first == 2) new_sig_y[i] = y_new_x[origin[i].second];
+					// else: bit_a was Sz / Sa / etc.; leave as Sx
+				}
+				patcher.patch(cell, ID::Y, new_sig_y, "bit_partition");
 				goto next_cell;
 			}
 		}
@@ -775,20 +804,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			if (sig_s.is_fully_def())
 			{
-				RTLIL::SigSpec a_group_0, b_group_1;
-				RTLIL::SigSpec y_group_0, y_group_1;
-				for (int i = 0; i < width; i++) {
-					if (sig_s[i].data == State::S1)
-						y_group_1.append(sig_y[i]), b_group_1.append(sig_b[i]);
-					else
-						y_group_0.append(sig_y[i]), a_group_0.append(sig_a[i]);
-				}
-
-				assign_map.add(y_group_0, a_group_0); module->connect(y_group_0, a_group_0);
-				assign_map.add(y_group_1, b_group_1); module->connect(y_group_1, b_group_1);
-
-				module->remove(cell);
-				did_something = true;
+				RTLIL::SigSpec new_sig_y(width);
+				for (int i = 0; i < width; i++)
+					new_sig_y[i] = sig_s[i].data == State::S1 ? sig_b[i] : sig_a[i];
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, new_sig_y, "bwmux_const_s");
 				goto next_cell;
 			}
 			else if (sig_a.is_fully_def() || sig_b.is_fully_def())
@@ -799,29 +819,32 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				RTLIL::SigSpec b_group_0, b_group_1;
 				RTLIL::SigSpec s_group_0, s_group_1;
-				RTLIL::SigSpec y_group_0, y_group_1;
+				std::vector<std::pair<int, int>> origin(width);
 				for (int i = 0; i < width; i++) {
-					if (sig_a[i].data == State::S1)
-						y_group_1.append(sig_y[i]), b_group_1.append(sig_b[i]), s_group_1.append(sig_s[i]);
-					else
-						y_group_0.append(sig_y[i]), b_group_0.append(sig_b[i]), s_group_0.append(sig_s[i]);
+					if (sig_a[i].data == State::S1) {
+						origin[i] = {1, b_group_1.size()};
+						b_group_1.append(sig_b[i]), s_group_1.append(sig_s[i]);
+					} else {
+						origin[i] = {0, b_group_0.size()};
+						b_group_0.append(sig_b[i]), s_group_0.append(sig_s[i]);
+					}
 				}
 
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 				RTLIL::SigSpec y_new_0, y_new_1;
 
 				if (flip) {
-					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, module->Not(NEW_ID, s_group_0));
-					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, s_group_1);
+					if (!b_group_0.empty()) y_new_0 = patcher.And(NEW_ID, b_group_0, patcher.Not(NEW_ID, s_group_0));
+					if (!b_group_1.empty()) y_new_1 = patcher.Or(NEW_ID, b_group_1, s_group_1);
 				} else {
-					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, s_group_0);
-					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, module->Not(NEW_ID, s_group_1));
+					if (!b_group_0.empty()) y_new_0 = patcher.And(NEW_ID, b_group_0, s_group_0);
+					if (!b_group_1.empty()) y_new_1 = patcher.Or(NEW_ID, b_group_1, patcher.Not(NEW_ID, s_group_1));
 				}
 
-				module->connect(y_group_0, y_new_0);
-				module->connect(y_group_1, y_new_1);
-
-				module->remove(cell);
-				did_something = true;
+				RTLIL::SigSpec new_sig_y(width);
+				for (int i = 0; i < width; i++)
+					new_sig_y[i] = origin[i].first == 1 ? y_new_1[origin[i].second] : y_new_0[origin[i].second];
+				patcher.patch(cell, ID::Y, new_sig_y, "bwmux_const_ab");
 				goto next_cell;
 			}
 		}
@@ -829,7 +852,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (do_fine)
 		{
 			if (cell->type.in(ID($not), ID($pos), ID($and), ID($or), ID($xor), ID($xnor)))
-				if (group_cell_inputs(module, cell, true, assign_map, keepdc))
+				if (group_cell_inputs(module, cell, true, assign_map, keepdc, removed_cells))
 					goto next_cell;
 
 			if (cell->type.in(ID($logic_not), ID($logic_and), ID($logic_or), ID($reduce_or), ID($reduce_and), ID($reduce_bool)))
@@ -1362,10 +1385,8 @@ skip_fine_alu:
 			log_debug("Replacing %s cell `%s' (B=%s, SHR=%d) in module `%s' with fixed wiring: %s\n",
 					cell->type.unescape(), cell, log_signal(assign_map(cell->getPort(ID::B))), shift_bits, module, log_signal(sig_y));
 
-			module->connect(cell->getPort(ID::Y), sig_y);
-			module->remove(cell);
-
-			did_something = true;
+			OptExprPatcher patcher(module, &assign_map, &removed_cells);
+			patcher.patch(cell, ID::Y, sig_y, "shift_const");
 			goto next_cell;
 		}
 
@@ -1440,23 +1461,43 @@ skip_fine_alu:
 					bool is_signed = a_signed && b_signed;
 					RTLIL::SigBit sig_ci = assign_map(cell->getPort(ID::CI));
 					int y_width = GetSize(cell->getPort(ID::Y));
+
+					OptExprPatcher patcher(module, &assign_map, &removed_cells);
+					SigSpec new_x, new_co;
+					SigSpec a_port;
+					bool a_port_signed;
+					int a_port_width;
 					if (sig_ci == State::S1) {
 						/* sub, b is 0 */
 						RTLIL::SigSpec a = cell->getPort(ID::A);
 						a.extend_u0(y_width, is_signed);
-						module->connect(cell->getPort(ID::X), module->Not(NEW_ID, a));
-						module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S1, y_width));
+						new_x = patcher.Not(NEW_ID, a);
+						new_co = RTLIL::Const(State::S1, y_width);
+						a_port = cell->getPort(ID::A);
+						a_port_signed = a_signed;
+						a_port_width = cell->getParam(ID::A_WIDTH).as_int();
 					} else {
 						/* add */
 						RTLIL::SigSpec ab = cell->getPort(identity_wrt_a ? ID::A : ID::B);
 						ab.extend_u0(y_width, is_signed);
-						module->connect(cell->getPort(ID::X), ab);
-						module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S0, y_width));
+						new_x = ab;
+						new_co = RTLIL::Const(State::S0, y_width);
+						a_port = cell->getPort(identity_wrt_a ? ID::A : ID::B);
+						a_port_signed = identity_wrt_a ? a_signed : b_signed;
+						a_port_width = cell->getParam(identity_wrt_a ? ID::A_WIDTH : ID::B_WIDTH).as_int();
 					}
-					cell->unsetPort(ID::BI);
-					cell->unsetPort(ID::CI);
-					cell->unsetPort(ID::X);
-					cell->unsetPort(ID::CO);
+
+					IdString new_type = arith_inverse ? ID($neg) : ID($pos);
+					SigSpec new_y = patcher.addWire(NEW_ID, y_width);
+					Cell *new_cell = patcher.addCell(NEW_ID, new_type);
+					new_cell->setPort(ID::A, a_port);
+					new_cell->setPort(ID::Y, new_y);
+					new_cell->setParam(ID::A_WIDTH, a_port_width);
+					new_cell->setParam(ID::A_SIGNED, a_port_signed);
+					new_cell->setParam(ID::Y_WIDTH, y_width);
+
+					patcher.patch(cell, {{ID::Y, new_y}, {ID::X, new_x}, {ID::CO, new_co}}, "alu_identity");
+					goto next_cell;
 				}
 
 				if (!identity_wrt_a) {
@@ -1746,13 +1787,25 @@ skip_identity:
 				else {
 					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n",
 							cell->name.c_str(), module->name.c_str());
-					cell->type = ID($mul);
-					cell->setPort(ID::A, Const(bit_idx, cell->parameters[ID::A_WIDTH].as_int()));
+					OptExprPatcher patcher(module, &assign_map, &removed_cells);
+					int a_width = cell->parameters[ID::A_WIDTH].as_int();
 
-					SigSpec y_wire = module->addWire(NEW_ID, y_size);
-					cell->setPort(ID::Y, y_wire);
+					SigSpec y_wire = patcher.addWire(NEW_ID, y_size);
+					Cell *mul = patcher.addCell(NEW_ID, ID($mul));
+					mul->setPort(ID::A, Const(bit_idx, a_width));
+					mul->setPort(ID::B, cell->getPort(ID::B));
+					mul->setPort(ID::Y, y_wire);
+					mul->parameters[ID::A_WIDTH] = a_width;
+					mul->parameters[ID::A_SIGNED] = 0;
+					mul->parameters[ID::B_WIDTH] = cell->parameters[ID::B_WIDTH];
+					mul->parameters[ID::B_SIGNED] = cell->parameters[ID::B_SIGNED];
+					mul->parameters[ID::Y_WIDTH] = y_size;
 
-					module->addShl(NEW_ID, Const(State::S1, 1), y_wire, sig_y);
+					SigSpec new_y = patcher.addWire(NEW_ID, y_size);
+					patcher.addShl(NEW_ID, Const(State::S1, 1), y_wire, new_y);
+
+					patcher.patch(cell, ID::Y, new_y, "pow_to_mul_shl");
+					goto next_cell;
 				}
 				did_something = true;
 				goto next_cell;
@@ -1778,10 +1831,8 @@ skip_identity:
 					log_debug("Replacing multiply-by-zero cell `%s' in module `%s' with zero-driver.\n",
 							cell->name.c_str(), module->name.c_str());
 
-					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
-					module->remove(cell);
-
-					did_something = true;
+					OptExprPatcher patcher(module, &assign_map, &removed_cells);
+					patcher.patch(cell, ID::Y, RTLIL::SigSpec(0, sig_y.size()), "mul_zero");
 					goto next_cell;
 				}
 
@@ -1825,10 +1876,8 @@ skip_identity:
 						a_zeros, b_zeros, cell->name.c_str(), module->name.c_str());
 
 				if (y_zeros >= GetSize(sig_y)) {
-					module->connect(sig_y, RTLIL::SigSpec(0, GetSize(sig_y)));
-					module->remove(cell);
-
-					did_something = true;
+					OptExprPatcher patcher(module, &assign_map, &removed_cells);
+					patcher.patch(cell, ID::Y, RTLIL::SigSpec(0, GetSize(sig_y)), "mul_low_zeros");
 					goto next_cell;
 				}
 
@@ -1865,10 +1914,8 @@ skip_identity:
 					log_debug("Replacing divide-by-zero cell `%s' in module `%s' with undef-driver.\n",
 							cell->name.c_str(), module->name.c_str());
 
-					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(State::Sx, sig_y.size())));
-					module->remove(cell);
-
-					did_something = true;
+					OptExprPatcher patcher(module, &assign_map, &removed_cells);
+					patcher.patch(cell, ID::Y, RTLIL::SigSpec(State::Sx, sig_y.size()), "div_zero");
 					goto next_cell;
 				}
 
@@ -1914,15 +1961,18 @@ skip_identity:
 						// the sign bits are those of A (except when R=0)
 						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0)
 						{
-							module->remove(cell);
+							OptExprPatcher patcher(module, &assign_map, &removed_cells);
 							SigSpec truncating = sig_a.extract(0, exp);
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, exp));
-							SigSpec extend_bit = module->And(NEW_ID, a_sign, rem_nonzero);
+							SigSpec rem_nonzero = patcher.ReduceOr(NEW_ID, sig_a.extract(0, exp));
+							SigSpec extend_bit = patcher.And(NEW_ID, a_sign, rem_nonzero);
 
 							truncating.append(extend_bit);
-							module->addPos(NEW_ID, truncating, sig_y, true);
+							SigSpec new_y = truncating;
+							new_y.extend_u0(GetSize(sig_y), true);
+							patcher.patch(cell, ID::Y, new_y, "mod_truncating");
+							goto next_cell;
 						}
 						else
 						{
@@ -1997,41 +2047,45 @@ skip_identity:
 
 			RTLIL::SigSpec sig_ci = assign_map(cell->getPort(ID::CI));
 			int prev = 0;
-			RTLIL::SigSpec sig_x = assign_map(cell->getPort(ID::X));
-			RTLIL::SigSpec sig_co = assign_map(cell->getPort(ID::CO));
+
+			OptExprPatcher patcher(module, &assign_map, &removed_cells);
+			SigSpec new_y, new_x, new_co_concat;
 
 			for (auto &p : split_points) {
 				int cur = p.first;
 				int sz = cur - prev;
 				bool last = cur == GetSize(sig_y);
 
-				RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
+				SigSpec slice_y = patcher.addWire(NEW_ID, sz);
+				SigSpec slice_x = patcher.addWire(NEW_ID, sz);
+				SigSpec slice_co = patcher.addWire(NEW_ID, sz);
+
+				RTLIL::Cell *c = patcher.addCell(NEW_ID, cell->type);
 				c->setPort(ID::A, sig_a.extract(prev, sz));
 				c->setPort(ID::B, sig_b.extract(prev, sz));
 				c->setPort(ID::BI, sig_bi);
 				c->setPort(ID::CI, sig_ci);
-				c->setPort(ID::Y, sig_y.extract(prev, sz));
-				c->setPort(ID::X, sig_x.extract(prev, sz));
-				RTLIL::SigSpec new_co = sig_co.extract(prev, sz);
-				if (p.second != State::Sx) {
-					module->connect(new_co[sz-1], p.second);
-					RTLIL::Wire *dummy = module->addWire(NEW_ID);
-					new_co[sz-1] = dummy;
-				}
-				c->setPort(ID::CO, new_co);
+				c->setPort(ID::Y, slice_y);
+				c->setPort(ID::X, slice_x);
+				c->setPort(ID::CO, slice_co);
 				c->parameters[ID::A_WIDTH] = sz;
 				c->parameters[ID::B_WIDTH] = sz;
 				c->parameters[ID::Y_WIDTH] = sz;
 				c->parameters[ID::A_SIGNED] = last ? a_signed : false;
 				c->parameters[ID::B_SIGNED] = last ? b_signed : false;
 
+				new_y.append(slice_y);
+				new_x.append(slice_x);
+				SigSpec exported_co = slice_co;
+				if (p.second != State::Sx)
+					exported_co[sz-1] = p.second;
+				new_co_concat.append(exported_co);
+
 				prev = p.first;
 				sig_ci = p.second;
 			}
 
-			module->remove(cell);
-
-			did_something = true;
+			patcher.patch(cell, {{ID::Y, new_y}, {ID::X, new_x}, {ID::CO, new_co_concat}}, "alu_split");
 			goto next_cell;
 		}
 skip_alu_split:
@@ -2139,10 +2193,8 @@ skip_alu_split:
 				log_debug("Replacing cell `%s' in module `%s' with constant driver %s.\n",
 					cell, module, log_signal(y_value));
 
-				module->connect(y_sig, y_value);
-				module->remove(cell);
-
-				did_something = true;
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
+				patcher.patch(cell, ID::Y, y_value, "eq_contradiction");
 				goto next_cell;
 			}
 
@@ -2190,7 +2242,7 @@ skip_alu_split:
 				std::string condition, replacement;
 				SigSpec replace_sig(State::S0, GetSize(cell->getPort(ID::Y)));
 				bool replace = false;
-				bool remove = false;
+				OptExprPatcher patcher(module, &assign_map, &removed_cells);
 
 				if (!is_signed)
 				{ /* unsigned */
@@ -2231,15 +2283,15 @@ skip_alu_split:
 						{
 							condition   = stringf("unsigned X<%s", log_signal(const_sig));
 							replacement = stringf("!X[%d:%d]", var_width - 1, const_bit_hot);
-							module->addLogicNot(NEW_ID, var_high_sig, cell->getPort(ID::Y));
-							remove = true;
+							replace_sig[0] = patcher.LogicNot(NEW_ID, var_high_sig).as_bit();
+							replace = true;
 						}
 						if (cmp_type == ID($ge))
 						{
 							condition   = stringf("unsigned X>=%s", log_signal(const_sig));
 							replacement = stringf("|X[%d:%d]", var_width - 1, const_bit_hot);
-							module->addReduceOr(NEW_ID, var_high_sig, cell->getPort(ID::Y));
-							remove = true;
+							replace_sig[0] = patcher.ReduceOr(NEW_ID, var_high_sig).as_bit();
+							replace = true;
 						}
 					}
 
@@ -2280,19 +2332,16 @@ skip_alu_split:
 					{
 						condition   = "signed X>=0";
 						replacement = stringf("X[%d]", var_width - 1);
-						module->addLogicNot(NEW_ID, var_sig[var_width - 1], cell->getPort(ID::Y));
-						remove = true;
+						replace_sig[0] = patcher.LogicNot(NEW_ID, var_sig[var_width - 1]).as_bit();
+						replace = true;
 					}
 				}
 
-				if (replace || remove)
+				if (replace)
 				{
 					log_debug("Replacing %s cell `%s' (implementing %s) with %s.\n",
 							cell->type.unescape(), cell, condition.c_str(), replacement.c_str());
-					if (replace)
-						module->connect(cell->getPort(ID::Y), replace_sig);
-					module->remove(cell);
-					did_something = true;
+					patcher.patch(cell, ID::Y, replace_sig, condition);
 					goto next_cell;
 				}
 			}

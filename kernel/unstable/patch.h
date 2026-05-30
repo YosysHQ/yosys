@@ -34,6 +34,7 @@ public:
 	const std::vector<RTLIL::SigSig> &connections() const;
 
 	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig);
+	void patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements);
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
