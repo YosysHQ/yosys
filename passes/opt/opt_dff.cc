@@ -23,6 +23,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/qcsat.h"
 #include "kernel/modtools.h"
+#include "kernel/utils.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -642,11 +643,9 @@ struct OptDffWorker
 
 	bool try_merge_srst(FfDataSigMapped &ff, Cell *cell, bool &changed)
 	{
-		std::map<ctrls_t, std::vector<int>> groups;
-		std::vector<int> remaining_indices;
 		Const::Builder val_srst_builder(ff.width);
 
-		for (int i = 0; i < ff.width; i++) {
+		BitGrouper<ctrls_t> grouper(ff.width, [&](int i) -> std::optional<ctrls_t> {
 			ctrls_t resets;
 			State reset_val = ff.has_srst ? ff.val_srst[i] : State::Sx;
 
@@ -678,29 +677,26 @@ struct OptDffWorker
 				}
 			}
 
-			if (!resets.empty()) {
-				if (ff.has_srst)
-					resets.insert(ctrl_t(ff.sig_srst, ff.pol_srst));
-
-				groups[resets].push_back(i);
-			} else {
-				remaining_indices.push_back(i);
-			}
-
 			val_srst_builder.push_back(reset_val);
-		}
+
+			if (resets.empty())
+				return std::nullopt;
+			if (ff.has_srst)
+				resets.insert(ctrl_t(ff.sig_srst, ff.pol_srst));
+			return resets;
+		});
 
 		Const val_srst = val_srst_builder.build();
 
-		for (auto &it : groups) {
-			FfDataSigMapped new_ff = ff.slice(it.second);
+		for (auto &g : grouper.groups()) {
+			FfDataSigMapped new_ff = ff.slice(g.indices);
 			Const::Builder new_val_srst_builder(new_ff.width);
 			for (int i = 0; i < new_ff.width; i++)
-				new_val_srst_builder.push_back(val_srst[it.second[i]]);
+				new_val_srst_builder.push_back(val_srst[g.indices[i]]);
 
 			new_ff.val_srst = new_val_srst_builder.build();
 
-			ctrl_t srst = combine_resets(it.first, ff.is_fine);
+			ctrl_t srst = combine_resets(g.key, ff.is_fine);
 			new_ff.has_srst = true;
 			new_ff.sig_srst = srst.first;
 			new_ff.pol_srst = srst.second;
@@ -716,13 +712,13 @@ struct OptDffWorker
 					log_signal(new_ff.sig_d), log_signal(new_ff.sig_q), log_signal(new_ff.val_srst));
 		}
 
-		if (remaining_indices.empty()) {
+		if (grouper.fully_grouped()) {
 			module->remove(cell);
 			return true;
 		}
 
-		if (GetSize(remaining_indices) != ff.width) {
-			ff = ff.slice(remaining_indices);
+		if ((int)grouper.remaining().size() != ff.width) {
+			ff = ff.slice(grouper.remaining());
 			ff.cell = cell;
 			changed = true;
 		}
@@ -732,10 +728,8 @@ struct OptDffWorker
 
 	bool try_merge_ce(FfDataSigMapped &ff, Cell *cell, bool &changed)
 	{
-		std::map<std::pair<patterns_t, ctrls_t>, std::vector<int>> groups;
-		std::vector<int> remaining_indices;
-
-		for (int i = 0; i < ff.width; i++) {
+		using CeKey = std::pair<patterns_t, ctrls_t>;
+		BitGrouper<CeKey> grouper(ff.width, [&](int i) -> std::optional<CeKey> {
 			ctrls_t enables;
 
 			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
@@ -762,19 +756,17 @@ struct OptDffWorker
 			if (!opt.simple_dffe)
 				patterns = find_muxtree_feedback_patterns(ff.sig_d[i], ff.sig_q[i], pattern_t());
 
-			if (!patterns.empty() || !enables.empty()) {
-				if (ff.has_ce)
-					enables.insert(ctrl_t(ff.sig_ce, ff.pol_ce));
-				simplify_patterns(patterns);
-				groups[std::make_pair(patterns, enables)].push_back(i);
-			} else {
-				remaining_indices.push_back(i);
-			}
-		}
+			if (patterns.empty() && enables.empty())
+				return std::nullopt;
+			if (ff.has_ce)
+				enables.insert(ctrl_t(ff.sig_ce, ff.pol_ce));
+			simplify_patterns(patterns);
+			return std::make_pair(patterns, enables);
+		});
 
-		for (auto &it : groups) {
-			FfDataSigMapped new_ff = ff.slice(it.second);
-			ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
+		for (auto &g : grouper.groups()) {
+			FfDataSigMapped new_ff = ff.slice(g.indices);
+			ctrl_t en = make_patterns_logic(g.key.first, g.key.second, ff.is_fine);
 
 			new_ff.has_ce = true;
 			new_ff.sig_ce = en.first;
@@ -790,13 +782,13 @@ struct OptDffWorker
 					log_signal(new_ff.sig_d), log_signal(new_ff.sig_q));
 		}
 
-		if (remaining_indices.empty()) {
+		if (grouper.fully_grouped()) {
 			module->remove(cell);
 			return true;
 		}
 
-		if (GetSize(remaining_indices) != ff.width) {
-			ff = ff.slice(remaining_indices);
+		if ((int)grouper.remaining().size() != ff.width) {
+			ff = ff.slice(grouper.remaining());
 			ff.cell = cell;
 			changed = true;
 		}

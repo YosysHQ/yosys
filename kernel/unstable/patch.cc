@@ -97,6 +97,8 @@ void Patch::gc(Cell* old_cell, bool track) {
 		auto dir = old_cell->port_dir(port_name);
 		// Unknown port direction (e.g. user module instance whose interface
 		// isn't registered): can't decide input vs output, so don't gc it.
+		// TODO: should be log_assert once PD_UNKNOWN is fixed at the source
+		// (see claude-notes.md).
 		if (dir == PD_UNKNOWN)
 			return;
 		// TODO only running GC through whole connections?

@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include <iterator>
+#include <optional>
 
 #ifndef UTILS_H
 #define UTILS_H
@@ -122,6 +123,91 @@ public:
 		while (!backup_state.empty())
 			restore();
 	}
+};
+
+
+// ---------------------------------------------------
+// BitGrouper — partition output bits by a per-bit key
+// ---------------------------------------------------
+//
+// Many passes that split a multi-bit cell or word-level FF into smaller
+// pieces share the same shape:
+//
+//   1. iterate bits of the output
+//   2. for each bit, compute a key describing where it should go (or
+//      decide it stays where it is)
+//   3. emit one piece per distinct key, covering exactly that group's bits
+//   4. either consume the un-grouped "remaining" bits as a smaller original,
+//      or report that everything was grouped.
+//
+// BitGrouper handles (1)+(2)+(3)'s bookkeeping; callers do (3)'s
+// per-group emission and (4)'s remainder handling.
+//
+// Construction is one-shot: pass a width and a `key_fn(int) -> optional<Key>`.
+// `key_fn` returning std::nullopt leaves the bit in `remaining()`.
+//
+// Group iteration order matches first appearance, so emission is
+// deterministic across runs.
+
+template<typename Key>
+class BitGrouper
+{
+public:
+	struct Group {
+		Key key;
+		std::vector<int> indices;
+
+		// True when `indices` is exactly [front, front+size). Callers can
+		// use this to pick the cheap contiguous slice op when available.
+		bool is_contiguous() const {
+			if (indices.empty())
+				return true;
+			int start = indices.front();
+			for (size_t i = 0; i < indices.size(); i++)
+				if (indices[i] != start + (int)i)
+					return false;
+			return true;
+		}
+	};
+
+	template<typename KeyFn>
+	BitGrouper(int width, KeyFn key_fn) {
+		std::map<Key, size_t> idx;
+		for (int i = 0; i < width; i++) {
+			std::optional<Key> k = key_fn(i);
+			if (!k) {
+				remaining_.push_back(i);
+				continue;
+			}
+			auto it = idx.find(*k);
+			if (it == idx.end()) {
+				idx.emplace(*k, groups_.size());
+				groups_.push_back({*k, {i}});
+			} else {
+				groups_[it->second].indices.push_back(i);
+			}
+		}
+	}
+
+	const std::vector<Group> &groups() const { return groups_; }
+	const std::vector<int> &remaining() const { return remaining_; }
+	bool fully_grouped() const { return remaining_.empty(); }
+	bool nothing_grouped() const { return groups_.empty(); }
+
+	// Pick the bits of `sig` at the group's indices. Uses contiguous-range
+	// slicing when possible.
+	static RTLIL::SigSpec extract(const RTLIL::SigSpec &sig, const Group &g) {
+		if (g.is_contiguous() && !g.indices.empty())
+			return sig.extract(g.indices.front(), (int)g.indices.size());
+		RTLIL::SigSpec out;
+		for (int i : g.indices)
+			out.append(sig[i]);
+		return out;
+	}
+
+private:
+	std::vector<Group> groups_;
+	std::vector<int> remaining_;
 };
 
 
