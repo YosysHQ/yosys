@@ -23,6 +23,7 @@
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
 #include "kernel/threading.h"
+#include "kernel/unstable/patch.h"
 #include "libs/sha1/sha1.h"
 #include "passes/opt/opt_merge_common.h"
 #include <stdlib.h>
@@ -297,6 +298,7 @@ struct OptMergeWorker
 			for (auto [remove_cell, keep_cell] : cell_ptrs)
 			{
 				log_debug("  Cell `%s' is identical to cell `%s'.\n", remove_cell->name, keep_cell->name);
+				std::vector<std::pair<RTLIL::IdString, RTLIL::SigSpec>> port_replacements;
 				for (auto &it : remove_cell->connections()) {
 					if (remove_cell->output(it.first)) {
 						RTLIL::SigSpec keep_sig = keep_cell->getPort(it.first);
@@ -305,17 +307,13 @@ struct OptMergeWorker
 						Const init = initvals(keep_sig);
 						initvals.remove_init(it.second);
 						initvals.remove_init(keep_sig);
-						module->connect(RTLIL::SigSig(it.second, keep_sig));
-						auto keep_sig_it = keep_sig.begin();
-						for (SigBit remove_sig_bit : it.second) {
-							assign_map.add(remove_sig_bit, *keep_sig_it);
-							++keep_sig_it;
-						}
 						initvals.set_init(keep_sig, init);
+						port_replacements.emplace_back(it.first, keep_sig);
 					}
 				}
 				log_debug("    Removing %s cell `%s' from module `%s'.\n", remove_cell->type, remove_cell->name, module->name);
-				module->remove(remove_cell);
+				RTLIL::Patch patcher(module, &assign_map);
+				patcher.patch(remove_cell, port_replacements, keep_cell);
 				total_count++;
 			}
 			did_something = !merged_duplicates.empty();
@@ -400,6 +398,14 @@ struct OptMergePass : public Pass {
 		ct.cell_types.erase(ID($anyconst));
 		ct.cell_types.erase(ID($allseq));
 		ct.cell_types.erase(ID($allconst));
+		// Synthetic driver cells signorm creates for module ports — must
+		// never be folded into one another, otherwise distinct ports collapse.
+		ct.cell_types.erase(ID($input_port));
+		ct.cell_types.erase(ID($output_port));
+		ct.cell_types.erase(ID($public));
+
+		// patcher.patch uses connect_incremental + fanout queries.
+		design->sigNormalize(true);
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {

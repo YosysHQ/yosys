@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/utils.h"
+#include "kernel/unstable/patch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -765,15 +766,22 @@ struct OnehotPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Patcher.gc needs module->fanout() and connect_incremental.
+		design->sigNormalize(true);
+
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
 			OnehotDatabase onehot_db(module, sigmap);
 			onehot_db.verbose = verbose_onehot;
 
+			// Track cells removed inline by patcher.gc so the outer loop
+			// (and any stale pointer accesses) can skip them.
+			pool<Cell*> removed_cells;
+
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != ID($eq))
+				if (removed_cells.count(cell) || cell->type != ID($eq))
 					continue;
 
 				SigSpec A = sigmap(cell->getPort(ID::A));
@@ -825,6 +833,7 @@ struct OnehotPass : public Pass {
 				}
 
 				SigSpec Y = cell->getPort(ID::Y);
+				SigSpec replacement;
 
 				if (not_onehot)
 				{
@@ -832,7 +841,7 @@ struct OnehotPass : public Pass {
 						log("  replacing with constant 0 driver.\n");
 					else
 						log("Replacing one-hot $eq(%s, %s) cell %s/%s with constant 0 driver.\n", log_signal(A), log_signal(B), module, cell);
-					module->connect(Y, SigSpec(1, GetSize(Y)));
+					replacement = SigSpec(1, GetSize(Y));
 				}
 				else
 				{
@@ -842,10 +851,13 @@ struct OnehotPass : public Pass {
 					else
 						log("Replacing one-hot $eq(%s, %s) cell %s/%s with signal %s.\n",log_signal(A), log_signal(B), module, cell, log_signal(sig));
 					sig.extend_u0(GetSize(Y));
-					module->connect(Y, sig);
+					replacement = sig;
 				}
 
-				module->remove(cell);
+				removed_cells.insert(cell);
+				RTLIL::Patch patcher(module, &sigmap);
+				patcher.removed_cells = &removed_cells;
+				patcher.patch(cell, ID::Y, replacement);
 			}
 		}
 	}
