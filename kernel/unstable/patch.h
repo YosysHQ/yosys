@@ -35,6 +35,13 @@ public:
 
 	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig);
 	void patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements);
+
+	// Variants for "merge old_cell into an existing keep_cell" (e.g.
+	// opt_merge): the old_cell's src attribute is collected and combined
+	// with merge_src_into's existing src, and the result is set on
+	// merge_src_into. Any new cells in cells_ also receive the combined src.
+	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig, Cell* merge_src_into);
+	void patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements, Cell* merge_src_into);
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 

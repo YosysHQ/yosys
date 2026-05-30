@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/newcelltypes.h"
+#include "kernel/unstable/patch.h"
 #include "libs/sha1/sha1.h"
 #include "passes/opt/opt_merge_common.h"
 #include <stdlib.h>
@@ -267,6 +268,7 @@ struct OptMergeIncWorker
 				did_something = true;
 				log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name, other_cell->name);
 
+				std::vector<std::pair<RTLIL::IdString, RTLIL::SigSpec>> port_replacements;
 				for (auto &[port, sig] : cell->connections()) {
 					if (cell->output(port)) {
 						// TODO why was this removed before?
@@ -274,14 +276,14 @@ struct OptMergeIncWorker
 						Const init = initvals(other_sig);
 						initvals.remove_init(sig);
 						initvals.remove_init(other_sig);
-						module->connect(sig, other_cell->getPort(port));
-						assign_map.add(sig, other_sig);
 						initvals.set_init(other_sig, init);
+						port_replacements.emplace_back(port, other_sig);
 					}
 				}
 
 				log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
-				module->remove(cell);
+				RTLIL::Patch patcher(module, &assign_map);
+				patcher.patch(cell, port_replacements, other_cell);
 				total_count++;
 				iter_count++;
 			}

@@ -149,14 +149,25 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 }
 
 void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
-	patch(old_cell, {{old_port, new_sig}});
+	patch(old_cell, {{old_port, new_sig}}, nullptr);
 }
 
 void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements) {
+	patch(old_cell, port_replacements, nullptr);
+}
+
+void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig, Cell* merge_src_into) {
+	patch(old_cell, {{old_port, new_sig}}, merge_src_into);
+}
+
+void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements, Cell* merge_src_into) {
 	std::vector<SigSpec> old_sigs;
 	for (auto &[port, new_sig] : port_replacements) {
 		SigSpec old_sig = old_cell->getPort(port);
-		log_assert(old_sig.size() == new_sig.size());
+		if (old_sig.size() != new_sig.size())
+			log_error("patch size mismatch on cell %s port %s: old %d (%s) vs new %d (%s)\n",
+					log_id(old_cell->name), log_id(port), old_sig.size(), log_signal(old_sig),
+					new_sig.size(), log_signal(new_sig));
 		log_debug("patching %s %s which is %s with %s:\n", old_cell->name, port, log_signal(old_sig), log_signal(new_sig));
 		old_sigs.push_back(old_sig);
 	}
@@ -164,6 +175,21 @@ void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>
 	SrcCollector collector;
 	for (auto &old_sig : old_sigs)
 		collector.collect_src(old_sig);
+
+	// The collector should only ever pick up old_cell — the cell whose
+	// outputs are being patched. If a future change to collect_src ever
+	// starts walking the fanout or input cone of foreign cells, this
+	// assertion fires so we notice instead of silently smearing src
+	// strings across unrelated cells.
+	for (auto *c : collector.done)
+		log_assert(c == old_cell);
+
+	// For "merge into existing cell" patches (e.g. opt_merge), also pull
+	// in the keep-cell's pre-existing src so the merged cell carries both
+	// source locations.
+	if (merge_src_into)
+		collector.src.insert(merge_src_into->get_src_attribute());
+
 	std::string src_str = AttrObject::strpool_attribute_to_str(collector.src);
 
 	// Record leaves (existing wires consumed as inputs by the new cells) so
@@ -191,6 +217,9 @@ void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>
 
 	for (auto& wire: wires_)
 		commit_wire(std::move(wire));
+
+	if (merge_src_into)
+		merge_src_into->set_src_attribute(src_str);
 
 	// Now drop old_cell's drivers so old_sigs are undriven, then merge each
 	// into its new_sig. connect_incremental updates sigmap and re-normalizes
