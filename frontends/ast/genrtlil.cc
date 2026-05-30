@@ -307,6 +307,54 @@ struct AST_INTERNAL::LookaheadRewriter
 	}
 };
 
+static bool always_star_expr_has_read(const AstNode *node);
+
+static bool always_star_lvalue_has_read(const AstNode *node)
+{
+	if (node->type == AST_IDENTIFIER) {
+		for (auto& child : node->children)
+			if (always_star_expr_has_read(child.get()))
+				return true;
+		return false;
+	}
+
+	if (node->type == AST_CONCAT) {
+		for (auto& child : node->children)
+			if (always_star_lvalue_has_read(child.get()))
+				return true;
+		return false;
+	}
+
+	for (auto& child : node->children)
+		if (always_star_expr_has_read(child.get()))
+			return true;
+
+	return false;
+}
+
+static bool always_star_expr_has_read(const AstNode *node)
+{
+	if (node->type == AST_ASSIGN_EQ || node->type == AST_ASSIGN_LE) {
+		if (!node->children.empty() && always_star_lvalue_has_read(node->children[0].get()))
+			return true;
+		for (int i = 1; i < GetSize(node->children); i++)
+			if (always_star_expr_has_read(node->children[i].get()))
+				return true;
+		return false;
+	}
+
+	if (node->type == AST_IDENTIFIER && node->id2ast) {
+		if (node->id2ast->type == AST_WIRE || node->id2ast->type == AST_AUTOWIRE || node->id2ast->type == AST_MEMORY)
+			return true;
+	}
+
+	for (auto& child : node->children)
+		if (always_star_expr_has_read(child.get()))
+			return true;
+
+	return false;
+}
+
 // helper class for converting AST always nodes to RTLIL processes
 struct AST_INTERNAL::ProcessGenerator
 {
@@ -350,10 +398,16 @@ struct AST_INTERNAL::ProcessGenerator
 		// rewrite lookahead references
 		LookaheadRewriter la_rewriter(always.get());
 
+		if (always->get_bool_attribute(ID::always_star) && !always_star_expr_has_read(always.get()))
+			log_file_warning(*always->location.begin.filename, always->location.begin.line,
+				"always @* found no sensitivities so it will never trigger in RTL simulation.\n");
+
 		// generate process and simple root case
 		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(*always->location.begin.filename), always->location.begin.line, autoidx++));
 		set_src_attr(proc, always.get());
 		for (auto &attr : always->attributes) {
+			if (attr.first == ID::always_star)
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				always->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 			proc->attributes[attr.first] = attr.second->asAttrConst();

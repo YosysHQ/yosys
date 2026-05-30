@@ -550,7 +550,7 @@
 %type <string_t> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string_t> type_name
 %type <ast_t> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
-%type <boolean_t> opt_property always_comb_or_latch always_or_always_ff
+%type <boolean_t> opt_property always_comb_or_latch always_or_always_ff always_cond
 %type <boolean_t> opt_signedness_default_signed opt_signedness_default_unsigned
 %type <integer_t> integer_atom_type integer_vector_type
 %type <al_t> attr if_attr case_attr
@@ -2461,6 +2461,8 @@ always_stmt:
 		if ($2)
 			node->attributes[ID::always_ff] = AstNode::mkconst_int(@2, 1, false);
 	} always_cond {
+		if ($4)
+			extra->ast_stack.back()->attributes[ID::always_star] = AstNode::mkconst_int(@4, 1, false);
 		(void)extra->pushChild(std::make_unique<AstNode>(@$, AST_BLOCK));
 	} behavioral_stmt {
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @6, @6);
@@ -2493,12 +2495,12 @@ always_stmt:
 	};
 
 always_cond:
-	TOK_AT TOK_LPAREN always_events TOK_RPAREN |
-	TOK_AT TOK_LPAREN TOK_ASTER TOK_RPAREN |
-	TOK_AT ATTR_BEGIN TOK_RPAREN |
-	TOK_AT TOK_LPAREN ATTR_END |
-	TOK_AT TOK_ASTER |
-	%empty;
+	TOK_AT TOK_LPAREN always_events TOK_RPAREN { $$ = false; } |
+	TOK_AT TOK_LPAREN TOK_ASTER TOK_RPAREN { $$ = true; } |
+	TOK_AT ATTR_BEGIN TOK_RPAREN { $$ = true; } |
+	TOK_AT TOK_LPAREN ATTR_END { $$ = true; } |
+	TOK_AT TOK_ASTER { $$ = true; } |
+	%empty { $$ = false; };
 
 always_events:
 	always_event |
