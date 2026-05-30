@@ -18,18 +18,9 @@
  */
 
 #include "kernel/ff.h"
+#include "kernel/unstable/patch.h"
 
 USING_YOSYS_NAMESPACE
-
-namespace {
-	// Pull the FF's src attribute so we can propagate it to intermediate
-	// cells created during unmap / conversion — otherwise downstream tools
-	// lose source provenance for the unmapped logic.
-	std::string ff_src(const FfData &ff) {
-		auto it = ff.attributes.find(ID::src);
-		return it == ff.attributes.end() ? std::string() : it->second.decode_string();
-	}
-}
 
 // sorry
 template<typename InputType, typename OutputType, typename = std::enable_if_t<std::is_base_of_v<FfTypeData, OutputType>>>
@@ -494,64 +485,65 @@ void FfData::aload_to_sr() {
 	log_assert(!has_sr);
 	has_sr = true;
 	has_aload = false;
-	std::string src = ff_src(*this);
+	RTLIL::Patch patcher(module);
 	if (!is_fine) {
 		pol_clr = false;
 		pol_set = true;
 		if (pol_aload) {
-			sig_clr = module->Mux(NEW_ID, Const(State::S1, width), sig_ad, sig_aload, src);
-			sig_set = module->Mux(NEW_ID, Const(State::S0, width), sig_ad, sig_aload, src);
+			sig_clr = patcher.Mux(NEW_ID, Const(State::S1, width), sig_ad, sig_aload);
+			sig_set = patcher.Mux(NEW_ID, Const(State::S0, width), sig_ad, sig_aload);
 		} else {
-			sig_clr = module->Mux(NEW_ID, sig_ad, Const(State::S1, width), sig_aload, src);
-			sig_set = module->Mux(NEW_ID, sig_ad, Const(State::S0, width), sig_aload, src);
+			sig_clr = patcher.Mux(NEW_ID, sig_ad, Const(State::S1, width), sig_aload);
+			sig_set = patcher.Mux(NEW_ID, sig_ad, Const(State::S0, width), sig_aload);
 		}
 	} else {
 		pol_clr = pol_aload;
 		pol_set = pol_aload;
 		if (pol_aload) {
-			sig_clr = module->AndnotGate(NEW_ID, sig_aload, sig_ad, src);
-			sig_set = module->AndGate(NEW_ID, sig_aload, sig_ad, src);
+			sig_clr = patcher.AndnotGate(NEW_ID, sig_aload, sig_ad);
+			sig_set = patcher.AndGate(NEW_ID, sig_aload, sig_ad);
 		} else {
-			sig_clr = module->OrGate(NEW_ID, sig_aload, sig_ad, src);
-			sig_set = module->OrnotGate(NEW_ID, sig_aload, sig_ad, src);
+			sig_clr = patcher.OrGate(NEW_ID, sig_aload, sig_ad);
+			sig_set = patcher.OrnotGate(NEW_ID, sig_aload, sig_ad);
 		}
 	}
+	patcher.commit_inheriting_src(cell);
 }
 
 void FfData::convert_ce_over_srst(bool val) {
 	if (!has_ce || !has_srst || ce_over_srst == val)
 		return;
-	std::string src = ff_src(*this);
+	RTLIL::Patch patcher(module);
 	if (val) {
 		// sdffe to sdffce
 		if (!is_fine) {
 			if (pol_ce) {
 				if (pol_srst) {
-					sig_ce = module->Or(NEW_ID, sig_ce, sig_srst, false, src);
+					sig_ce = patcher.Or(NEW_ID, sig_ce, sig_srst);
 				} else {
-					SigSpec tmp = module->Not(NEW_ID, sig_srst, false, src);
-					sig_ce = module->Or(NEW_ID, sig_ce, tmp, false, src);
+					SigSpec tmp = patcher.Not(NEW_ID, sig_srst);
+					sig_ce = patcher.Or(NEW_ID, sig_ce, tmp);
 				}
 			} else {
 				if (pol_srst) {
-					SigSpec tmp = module->Not(NEW_ID, sig_srst, false, src);
-					sig_ce = module->And(NEW_ID, sig_ce, tmp, false, src);
+					SigSpec tmp = patcher.Not(NEW_ID, sig_srst);
+					sig_ce = patcher.And(NEW_ID, sig_ce, tmp);
 				} else {
-					sig_ce = module->And(NEW_ID, sig_ce, sig_srst, false, src);
+					sig_ce = patcher.And(NEW_ID, sig_ce, sig_srst);
 				}
 			}
 		} else {
 			if (pol_ce) {
 				if (pol_srst) {
-					sig_ce = module->OrGate(NEW_ID, sig_ce, sig_srst, src);
+					sig_ce = patcher.OrGate(NEW_ID, sig_ce, sig_srst);
 				} else {
-					sig_ce = module->OrnotGate(NEW_ID, sig_ce, sig_srst, src);
+					sig_ce = patcher.OrnotGate(NEW_ID, sig_ce, sig_srst);
 				}
 			} else {
 				if (pol_srst) {
-					sig_ce = module->AndnotGate(NEW_ID, sig_ce, sig_srst, src);
+					sig_ce = patcher.AndnotGate(NEW_ID, sig_ce, sig_srst);
 				} else {
-					sig_ce = module->AndGate(NEW_ID, sig_ce, sig_srst, src);
+					sig_ce = patcher.AndGate(NEW_ID, sig_ce, sig_srst);
 				}
 			}
 		}
@@ -560,35 +552,36 @@ void FfData::convert_ce_over_srst(bool val) {
 		if (!is_fine) {
 			if (pol_srst) {
 				if (pol_ce) {
-					sig_srst = cell->module->And(NEW_ID, sig_srst, sig_ce, false, src);
+					sig_srst = patcher.And(NEW_ID, sig_srst, sig_ce);
 				} else {
-					SigSpec tmp = module->Not(NEW_ID, sig_ce, false, src);
-					sig_srst = cell->module->And(NEW_ID, sig_srst, tmp, false, src);
+					SigSpec tmp = patcher.Not(NEW_ID, sig_ce);
+					sig_srst = patcher.And(NEW_ID, sig_srst, tmp);
 				}
 			} else {
 				if (pol_ce) {
-					SigSpec tmp = module->Not(NEW_ID, sig_ce, false, src);
-					sig_srst = cell->module->Or(NEW_ID, sig_srst, tmp, false, src);
+					SigSpec tmp = patcher.Not(NEW_ID, sig_ce);
+					sig_srst = patcher.Or(NEW_ID, sig_srst, tmp);
 				} else {
-					sig_srst = cell->module->Or(NEW_ID, sig_srst, sig_ce, false, src);
+					sig_srst = patcher.Or(NEW_ID, sig_srst, sig_ce);
 				}
 			}
 		} else {
 			if (pol_srst) {
 				if (pol_ce) {
-					sig_srst = cell->module->AndGate(NEW_ID, sig_srst, sig_ce, src);
+					sig_srst = patcher.AndGate(NEW_ID, sig_srst, sig_ce);
 				} else {
-					sig_srst = cell->module->AndnotGate(NEW_ID, sig_srst, sig_ce, src);
+					sig_srst = patcher.AndnotGate(NEW_ID, sig_srst, sig_ce);
 				}
 			} else {
 				if (pol_ce) {
-					sig_srst = cell->module->OrnotGate(NEW_ID, sig_srst, sig_ce, src);
+					sig_srst = patcher.OrnotGate(NEW_ID, sig_srst, sig_ce);
 				} else {
-					sig_srst = cell->module->OrGate(NEW_ID, sig_srst, sig_ce, src);
+					sig_srst = patcher.OrGate(NEW_ID, sig_srst, sig_ce);
 				}
 			}
 		}
 	}
+	patcher.commit_inheriting_src(cell);
 	ce_over_srst = val;
 }
 
@@ -599,18 +592,19 @@ void FfData::unmap_ce() {
 	if (has_srst && ce_over_srst)
 		unmap_srst();
 
-	std::string src = ff_src(*this);
+	RTLIL::Patch patcher(module);
 	if (!is_fine) {
 		if (pol_ce)
-			sig_d = module->Mux(NEW_ID, sig_q, sig_d, sig_ce, src);
+			sig_d = patcher.Mux(NEW_ID, sig_q, sig_d, sig_ce);
 		else
-			sig_d = module->Mux(NEW_ID, sig_d, sig_q, sig_ce, src);
+			sig_d = patcher.Mux(NEW_ID, sig_d, sig_q, sig_ce);
 	} else {
 		if (pol_ce)
-			sig_d = module->MuxGate(NEW_ID, sig_q, sig_d, sig_ce, src);
+			sig_d = patcher.MuxGate(NEW_ID, sig_q, sig_d, sig_ce);
 		else
-			sig_d = module->MuxGate(NEW_ID, sig_d, sig_q, sig_ce, src);
+			sig_d = patcher.MuxGate(NEW_ID, sig_d, sig_q, sig_ce);
 	}
+	patcher.commit_inheriting_src(cell);
 	has_ce = false;
 }
 
@@ -620,18 +614,19 @@ void FfData::unmap_srst() {
 	if (has_ce && !ce_over_srst)
 		unmap_ce();
 
-	std::string src = ff_src(*this);
+	RTLIL::Patch patcher(module);
 	if (!is_fine) {
 		if (pol_srst)
-			sig_d = module->Mux(NEW_ID, sig_d, val_srst, sig_srst, src);
+			sig_d = patcher.Mux(NEW_ID, sig_d, val_srst, sig_srst);
 		else
-			sig_d = module->Mux(NEW_ID, val_srst, sig_d, sig_srst, src);
+			sig_d = patcher.Mux(NEW_ID, val_srst, sig_d, sig_srst);
 	} else {
 		if (pol_srst)
-			sig_d = module->MuxGate(NEW_ID, sig_d, val_srst[0], sig_srst, src);
+			sig_d = patcher.MuxGate(NEW_ID, sig_d, val_srst[0], sig_srst);
 		else
-			sig_d = module->MuxGate(NEW_ID, val_srst[0], sig_d, sig_srst, src);
+			sig_d = patcher.MuxGate(NEW_ID, val_srst[0], sig_d, sig_srst);
 	}
+	patcher.commit_inheriting_src(cell);
 	has_srst = false;
 }
 

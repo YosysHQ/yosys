@@ -45,50 +45,7 @@ RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *othe
 	return wire;
 }
 
-struct SrcCollector {
-	pool<Cell*> to_do;
-	pool<Cell*> done;
-	pool<string> src;
-
-	void collect_src(Cell* old_cell) {
-		if (done.count(old_cell))
-			return;
-		done.insert(old_cell);
-
-		log_debug("collect %s\n", old_cell->name);
-		src.insert(old_cell->get_src_attribute());
-
-		std::vector<Cell*> input_cells = {};
-		for (auto [port_name, sig] : old_cell->connections()) {
-			auto dir = old_cell->port_dir(port_name);
-			log_assert(dir != PD_UNKNOWN);
-			if (dir == PD_INPUT || dir == PD_INOUT) {
-				if (sig.size() && sig.is_wire()) {
-					Wire* in_wire = sig.as_wire();
-					if (!in_wire->module)
-						input_cells.push_back(in_wire->driverCell());
-					// if (!leaves.count(in_wire))
-				}
-			}
-		}
-		for (auto input : input_cells)
-			collect_src(input);
-	}
-
-	void collect_src(SigSpec old_sig) {
-		log_debug("collect %s\n", log_signal(old_sig));
-		for (auto bit : old_sig) {
-			if (bit.is_wire() && bit.wire->module) {
-				log_assert(bit.wire->driverCell_);
-				to_do.insert(bit.wire->driverCell_);
-			}
-		}
-		for (auto cell : to_do)
-			collect_src(cell);
-	}
-};
-
-void Patch::gc(Cell* old_cell, bool track) {
+void Patch::gc(Cell* old_cell, bool track, pool<string>* src_pool) {
 	log_debug("gc %s\n", old_cell->name);
 	if (old_cell->type.in(ID($input_port), ID($output_port), ID($public)))
 		return;
@@ -128,9 +85,14 @@ void Patch::gc(Cell* old_cell, bool track) {
 	// caller's current iteration variable and won't be re-encountered.
 	if (track && removed_cells)
 		removed_cells->insert(old_cell);
+	// The cell about to be removed contributes its src so all the cells gc'd
+	// in this patch (top-level + input cone) get merged into the new cells'
+	// src — that's the "transfer src automatically" guarantee.
+	if (src_pool)
+		src_pool->insert(old_cell->get_src_attribute());
 	old_cell->module->remove(old_cell);
 	for (auto input : inputs)
-		gc(input, /*track=*/true);
+		gc(input, /*track=*/true, src_pool);
 }
 
 Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
@@ -172,26 +134,6 @@ void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>
 		old_sigs.push_back(old_sig);
 	}
 
-	SrcCollector collector;
-	for (auto &old_sig : old_sigs)
-		collector.collect_src(old_sig);
-
-	// The collector should only ever pick up old_cell — the cell whose
-	// outputs are being patched. If a future change to collect_src ever
-	// starts walking the fanout or input cone of foreign cells, this
-	// assertion fires so we notice instead of silently smearing src
-	// strings across unrelated cells.
-	for (auto *c : collector.done)
-		log_assert(c == old_cell);
-
-	// For "merge into existing cell" patches (e.g. opt_merge), also pull
-	// in the keep-cell's pre-existing src so the merged cell carries both
-	// source locations.
-	if (merge_src_into)
-		collector.src.insert(merge_src_into->get_src_attribute());
-
-	std::string src_str = AttrObject::strpool_attribute_to_str(collector.src);
-
 	// Record leaves (existing wires consumed as inputs by the new cells) so
 	// gc() stops at them. Detected via bit.wire->module being non-null:
 	// uncommitted wires belong to no module yet.
@@ -208,18 +150,17 @@ void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>
 	}
 
 	// Commit new cells/wires first so new_sig becomes a driven signal in the
-	// signorm index before we merge.
+	// signorm index before we merge. Track raw pointers so we can update
+	// their src attribute after gc finishes collecting from removed cells.
+	std::vector<Cell*> committed_new_cells;
+	committed_new_cells.reserve(cells_.size());
 	for (auto& cell: cells_) {
-		cell->set_src_attribute(src_str);
 		cell->fixup_parameters();
-		commit_cell(std::move(cell));
+		committed_new_cells.push_back(commit_cell(std::move(cell)));
 	}
 
 	for (auto& wire: wires_)
 		commit_wire(std::move(wire));
-
-	if (merge_src_into)
-		merge_src_into->set_src_attribute(src_str);
 
 	// Now drop old_cell's drivers so old_sigs are undriven, then merge each
 	// into its new_sig. connect_incremental updates sigmap and re-normalizes
@@ -233,10 +174,37 @@ void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>
 		mod->connect_incremental(old_sigs[i], new_sig);
 	}
 
-	gc(old_cell);
+	// gc removes old_cell AND any newly-dead input-cone cells, contributing
+	// each removed cell's src into the pool. The merged-into cell (e.g. an
+	// opt_merge keep_cell) and any caller-bequeathed pool entries also get
+	// folded in here.
+	pool<string> src_pool;
+	if (merge_src_into)
+		src_pool.insert(merge_src_into->get_src_attribute());
+	gc(old_cell, /*track=*/false, &src_pool);
+
+	std::string src_str = AttrObject::strpool_attribute_to_str(src_pool);
+	for (Cell* c : committed_new_cells)
+		c->set_src_attribute(src_str);
+	if (merge_src_into)
+		merge_src_into->set_src_attribute(src_str);
+
 	cells_.clear();
 	wires_.clear();
 	leaves.clear();
+}
+
+void Patch::commit_inheriting_src(Cell* src_source) {
+	std::string src = src_source ? src_source->get_src_attribute() : std::string();
+	for (auto& cell : cells_) {
+		cell->set_src_attribute(src);
+		cell->fixup_parameters();
+		commit_cell(std::move(cell));
+	}
+	for (auto& wire : wires_)
+		commit_wire(std::move(wire));
+	cells_.clear();
+	wires_.clear();
 }
 
 YOSYS_NAMESPACE_END

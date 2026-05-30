@@ -10,7 +10,7 @@ YOSYS_NAMESPACE_BEGIN
 struct RTLIL::Patch : public CellAdderMixin<RTLIL::Patch>
 {
 private:
-	void gc(Cell* old_cell, bool track = false);
+	void gc(Cell* old_cell, bool track = false, pool<std::string>* src_pool = nullptr);
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -42,6 +42,14 @@ public:
 	// merge_src_into. Any new cells in cells_ also receive the combined src.
 	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig, Cell* merge_src_into);
 	void patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements, Cell* merge_src_into);
+
+	// Flush staged cells_ / wires_ into the module without doing any
+	// connect_incremental or gc. Each committed cell's src attribute is
+	// pulled from `src_source` (typically the cell that's being expanded /
+	// unmapped into the staged helpers, so source-location tracking carries
+	// through transparently). Pass nullptr for src_source if the staged
+	// helpers have no natural ancestor.
+	void commit_inheriting_src(Cell* src_source);
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
