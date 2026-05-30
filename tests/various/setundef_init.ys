@@ -1,0 +1,61 @@
+# Test for issue #5835: setundef -undriven should not cause conflicts
+# with init attributes on undriven wires.
+
+# Test 1: Basic case from the bug report - undriven wire with init attribute
+read_rtlil << EOT
+module \top
+    attribute \init 3
+    wire width 4 \i
+end
+EOT
+setundef -undriven -undef
+# Verify that the init attribute was removed from the undriven wire
+select -assert-count 0 w:* a:init %i
+# Verify that opt doesn't crash with "Conflicting init values" error
+opt
+design -reset
+
+# Test 2: setundef -undriven -zero with init attribute
+read_rtlil << EOT
+module \top
+    attribute \init 3
+    wire width 4 \i
+end
+EOT
+setundef -undriven -zero
+select -assert-count 0 w:* a:init %i
+opt
+design -reset
+
+# Test 3: setundef -undriven -one with init attribute
+read_rtlil << EOT
+module \top
+    attribute \init 3
+    wire width 4 \i
+end
+EOT
+setundef -undriven -one
+select -assert-count 0 w:* a:init %i
+opt
+design -reset
+
+# Test 4: Wire driven by a cell should keep its init attribute
+read_rtlil << EOT
+module \top
+    wire width 1 input 1 \clk
+    wire width 1 input 2 \d
+    attribute \init 1'0
+    wire width 1 output 3 \q
+    cell $dff \myff
+        parameter \CLK_POLARITY 1'1
+        parameter \WIDTH 1
+        connect \CLK \clk
+        connect \D \d
+        connect \Q \q
+    end
+end
+EOT
+setundef -undriven -zero
+# The init attribute should still be present since the wire is driven by a FF
+select -assert-count 1 w:* a:init %i
+design -reset
