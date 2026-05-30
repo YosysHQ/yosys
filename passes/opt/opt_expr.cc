@@ -170,10 +170,11 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	std::vector<RTLIL::SigBit> bits_a = sig_a, bits_b = sig_b, bits_y = sig_y;
 
 	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_N };
-	std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, std::set<RTLIL::SigBit>> grouped_bits[GRP_N];
-
-	for (int i = 0; i < GetSize(bits_y); i++)
-	{
+	// Two-level partition: outer key is the rewrite kind (GRP_*), inner key
+	// is the (a, b) pair that selects this bit's slot inside the new cell.
+	// Two original bits sharing (kind, a, b) collapse to the same output bit.
+	using Key = std::tuple<int, RTLIL::SigBit, RTLIL::SigBit>;
+	BitGrouper<Key> grouper(GetSize(bits_y), [&](int i) -> std::optional<Key> {
 		int group_idx = GRP_DYN;
 		RTLIL::SigBit bit_a = bits_a[i], bit_b = bits_b[i];
 
@@ -208,11 +209,16 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 				group_idx = GRP_CONST_B;
 		}
 
-		grouped_bits[group_idx][std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit_a, bit_b)].insert(bits_y[i]);
-	}
+		return std::make_tuple(group_idx, bit_a, bit_b);
+	});
 
-	for (int i = 0; i < GRP_N; i++)
-		if (GetSize(grouped_bits[i]) == GetSize(bits_y))
+	// If every original bit ended up with its own unique (a, b) slot within
+	// some single kind, splitting would just rename without shrinking.
+	int slots_per_kind[GRP_N] = {};
+	for (auto &g : grouper.groups())
+		slots_per_kind[std::get<0>(g.key)]++;
+	for (int kind = 0; kind < GRP_N; kind++)
+		if (slots_per_kind[kind] == GetSize(bits_y))
 			return false;
 
 	log_debug("Replacing %s cell `%s' in module `%s' with cells using grouped bits:\n",
@@ -223,23 +229,33 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	// Replacement bit for each original sig_y bit.
 	dict<SigBit, SigBit> bit_map;
 
-	for (int i = 0; i < GRP_N; i++)
+	// Pre-collect groups per kind, preserving BitGrouper's insertion order
+	// within each kind.
+	std::vector<const BitGrouper<Key>::Group*> per_kind[GRP_N];
+	for (auto &g : grouper.groups())
+		per_kind[std::get<0>(g.key)].push_back(&g);
+
+	for (int kind = 0; kind < GRP_N; kind++)
 	{
-		if (grouped_bits[i].empty())
+		if (per_kind[kind].empty())
 			continue;
 
-		int group_size = GetSize(grouped_bits[i]);
+		int group_size = GetSize(per_kind[kind]);
 		RTLIL::SigSpec new_y = patcher.addWire(NEW_ID, group_size);
 		RTLIL::SigSpec new_a, new_b;
 
-		for (auto &it : grouped_bits[i]) {
-			for (auto &bit : it.second)
-				bit_map[bit] = new_y[new_a.size()];
-			new_a.append(it.first.first);
-			new_b.append(it.first.second);
+		int slot = 0;
+		for (auto *g : per_kind[kind]) {
+			SigBit bit_a = std::get<1>(g->key);
+			SigBit bit_b = std::get<2>(g->key);
+			new_a.append(bit_a);
+			new_b.append(bit_b);
+			for (int i : g->indices)
+				bit_map[bits_y[i]] = new_y[slot];
+			slot++;
 		}
 
-		if (cell->type.in(ID($and), ID($or)) && i == GRP_CONST_A) {
+		if (cell->type.in(ID($and), ID($or)) && kind == GRP_CONST_A) {
 			if (!keepdc) {
 				if (cell->type == ID($and))
 					new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S0}, {State::Sz, State::S0}}, &new_b);
@@ -259,34 +275,34 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 			continue;
 		}
 
-		if (cell->type.in(ID($xor), ID($xnor)) && i == GRP_CONST_A) {
+		if (cell->type.in(ID($xor), ID($xnor)) && kind == GRP_CONST_A) {
 			SigSpec undef_a, undef_y, undef_b;
 			SigSpec def_y, def_a, def_b;
-			for (int i = 0; i < GetSize(new_y); i++) {
-				bool undef = new_a[i] == State::Sx || new_a[i] == State::Sz;
-				if (!keepdc && (undef || new_a[i] == new_b[i])) {
-					undef_a.append(new_a[i]);
+			for (int j = 0; j < GetSize(new_y); j++) {
+				bool undef = new_a[j] == State::Sx || new_a[j] == State::Sz;
+				if (!keepdc && (undef || new_a[j] == new_b[j])) {
+					undef_a.append(new_a[j]);
 					if (cell->type == ID($xor))
 						undef_b.append(State::S0);
 					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
 					else if (cell->type == ID($xnor))
 						undef_b.append(State::S1);
 					else log_abort();
-					undef_y.append(new_y[i]);
+					undef_y.append(new_y[j]);
 				}
-				else if (new_a[i] == State::S0 || new_a[i] == State::S1) {
-					undef_a.append(new_a[i]);
+				else if (new_a[j] == State::S0 || new_a[j] == State::S1) {
+					undef_a.append(new_a[j]);
 					if (cell->type == ID($xor))
-						undef_b.append(new_a[i] == State::S1 ? patcher.Not(NEW_ID, new_b[i]).as_bit() : new_b[i]);
+						undef_b.append(new_a[j] == State::S1 ? patcher.Not(NEW_ID, new_b[j]).as_bit() : new_b[j]);
 					else if (cell->type == ID($xnor))
-						undef_b.append(new_a[i] == State::S1 ? new_b[i] : patcher.Not(NEW_ID, new_b[i]).as_bit());
+						undef_b.append(new_a[j] == State::S1 ? new_b[j] : patcher.Not(NEW_ID, new_b[j]).as_bit());
 					else log_abort();
-					undef_y.append(new_y[i]);
+					undef_y.append(new_y[j]);
 				}
 				else {
-					def_a.append(new_a[i]);
-					def_b.append(new_b[i]);
-					def_y.append(new_y[i]);
+					def_a.append(new_a[j]);
+					def_b.append(new_b[j]);
+					def_y.append(new_y[j]);
 				}
 			}
 			if (!undef_y.empty()) {
