@@ -95,7 +95,10 @@ void Patch::gc(Cell* old_cell, bool track) {
 	pool<Cell*> inputs;
 	for (auto [port_name, sig] : old_cell->connections()) {
 		auto dir = old_cell->port_dir(port_name);
-		log_assert(dir != PD_UNKNOWN);
+		// Unknown port direction (e.g. user module instance whose interface
+		// isn't registered): can't decide input vs output, so don't gc it.
+		if (dir == PD_UNKNOWN)
+			return;
 		// TODO only running GC through whole connections?
 		log_debug("\tport %s\n", port_name);
 		if (sig.size() && sig.is_wire()) {
@@ -144,12 +147,21 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 }
 
 void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
-	SigSpec old_sig = old_cell->getPort(old_port);
-	log_assert(old_sig.size() == new_sig.size());
-	log_debug("patching %s %s which is %s with %s:\n", old_cell->name, old_port, log_signal(old_sig), log_signal(new_sig));
+	patch(old_cell, {{old_port, new_sig}});
+}
+
+void Patch::patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements) {
+	std::vector<SigSpec> old_sigs;
+	for (auto &[port, new_sig] : port_replacements) {
+		SigSpec old_sig = old_cell->getPort(port);
+		log_assert(old_sig.size() == new_sig.size());
+		log_debug("patching %s %s which is %s with %s:\n", old_cell->name, port, log_signal(old_sig), log_signal(new_sig));
+		old_sigs.push_back(old_sig);
+	}
 
 	SrcCollector collector;
-	collector.collect_src(old_sig);
+	for (auto &old_sig : old_sigs)
+		collector.collect_src(old_sig);
 	std::string src_str = AttrObject::strpool_attribute_to_str(collector.src);
 
 	// Record leaves (existing wires consumed as inputs by the new cells) so
@@ -178,13 +190,17 @@ void Patch::patch(Cell* old_cell, IdString old_port, SigSpec new_sig) {
 	for (auto& wire: wires_)
 		commit_wire(std::move(wire));
 
-	// Now drop old_cell's driver so old_sig is undriven, then merge it into
-	// new_sig. connect_incremental updates sigmap and re-normalizes fanout
-	// consumers in place — no full sigNormalize needed.
-	old_cell->setPort(old_port, SigSpec());
-	if (map)
-		map->add(old_sig, new_sig);
-	mod->connect_incremental(old_sig, new_sig);
+	// Now drop old_cell's drivers so old_sigs are undriven, then merge each
+	// into its new_sig. connect_incremental updates sigmap and re-normalizes
+	// fanout consumers in place — no full sigNormalize needed.
+	for (auto &[port, new_sig] : port_replacements)
+		old_cell->setPort(port, SigSpec());
+	for (size_t i = 0; i < port_replacements.size(); i++) {
+		auto &[port, new_sig] = port_replacements[i];
+		if (map)
+			map->add(old_sigs[i], new_sig);
+		mod->connect_incremental(old_sigs[i], new_sig);
+	}
 
 	gc(old_cell);
 	cells_.clear();
