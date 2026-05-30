@@ -308,6 +308,7 @@ struct AST_INTERNAL::LookaheadRewriter
 };
 
 static bool always_star_expr_has_read(const AstNode *node);
+static bool always_star_stmt_has_assignment(const AstNode *node);
 
 static bool always_star_lvalue_has_read(const AstNode *node)
 {
@@ -350,6 +351,18 @@ static bool always_star_expr_has_read(const AstNode *node)
 
 	for (auto& child : node->children)
 		if (always_star_expr_has_read(child.get()))
+			return true;
+
+	return false;
+}
+
+static bool always_star_stmt_has_assignment(const AstNode *node)
+{
+	if (node->type == AST_ASSIGN_EQ || node->type == AST_ASSIGN_LE)
+		return true;
+
+	for (auto& child : node->children)
+		if (always_star_stmt_has_assignment(child.get()))
 			return true;
 
 	return false;
@@ -398,7 +411,7 @@ struct AST_INTERNAL::ProcessGenerator
 		// rewrite lookahead references
 		LookaheadRewriter la_rewriter(always.get());
 
-		if (always->get_bool_attribute(ID::always_star) && !always_star_expr_has_read(always.get()))
+		if (always->get_bool_attribute(ID::always_star) && always_star_stmt_has_assignment(always.get()) && !always_star_expr_has_read(always.get()))
 			log_file_warning(*always->location.begin.filename, always->location.begin.line,
 				"always @* found no sensitivities so it will never trigger in RTL simulation.\n");
 

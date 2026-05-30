@@ -2461,7 +2461,7 @@ always_stmt:
 		if ($2)
 			node->attributes[ID::always_ff] = AstNode::mkconst_int(@2, 1, false);
 	} always_cond {
-		if ($4)
+		if ($4 && mode->sv)
 			extra->ast_stack.back()->attributes[ID::always_star] = AstNode::mkconst_int(@4, 1, false);
 		(void)extra->pushChild(std::make_unique<AstNode>(@$, AST_BLOCK));
 	} behavioral_stmt {

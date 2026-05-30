@@ -1,6 +1,6 @@
 logger -expect warning "always @[*] found no sensitivities so it will never trigger in RTL simulation" 1
 
-read_verilog <<EOT
+read_verilog -sv <<EOT
 module issue5916(input c, output reg o);
   reg r;
   always @* r = 0;
