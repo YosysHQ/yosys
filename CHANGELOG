@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.65 .. Yosys 0.66-dev
+Yosys 0.66 .. Yosys 0.67-dev
 --------------------------
+
+Yosys 0.65 .. Yosys 0.66
+--------------------------
+ * Various
+    - C++ compiler with C++20 support is required.
+    - Please be aware that next release will also
+      migrate to CMake build system.
+ 
+ * New commands and options
+    - Added "lattice_dsp_nexus" pass for Lattice Nexus
+      DSP inference.
+    - Added "-scopename" option to "synth_gatemate" pass
+      that is propagated to "flatten".
 
 Yosys 0.64 .. Yosys 0.65
 --------------------------
