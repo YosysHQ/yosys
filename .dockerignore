@@ -10,3 +10,4 @@ guidelines
 CodeOfConduct
 .travis
 .travis.yml
+venv

@@ -16,6 +16,7 @@
 #cmakedefine YOSYS_ENABLE_EDITLINE
 #cmakedefine YOSYS_ENABLE_TCL
 #cmakedefine YOSYS_ENABLE_PYTHON
+#cmakedefine YOSYS_ENABLE_PYTHON_INTERPRETER
 #cmakedefine YOSYS_ENABLE_VERIFIC
 
 #endif

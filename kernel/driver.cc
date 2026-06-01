@@ -38,7 +38,7 @@
 #  include <tcl.h>
 #endif
 
-#ifdef YOSYS_ENABLE_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON_INTERPRETER
 #  include <Python.h>
 #  include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -98,11 +98,11 @@ int main(int argc, char **argv)
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
-#ifdef YOSYS_ENABLE_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON_INTERPRETER
 	py::object sys = py::module_::import("sys");
 	sys.attr("path").attr("append")(proc_self_dirname());
 	sys.attr("path").attr("append")(proc_share_dirname());
-#endif
+#endif // YOSYS_ENABLE_PYTHON_INTERPRETER
 
 	if (argc == 2)
 	{
@@ -222,10 +222,10 @@ int main(int argc, char **argv)
 			cxxopts::value<std::string>(),"<tcl_scriptfile>")
 		("C,tcl-interactive", "enters TCL interactive shell mode")
 #endif // YOSYS_ENABLE_TCL
-#ifdef YOSYS_ENABLE_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON_INTERPRETER
 		("y,py-scriptfile", "execute the Python <script>",
 			cxxopts::value<std::string>(), "<script>")
-#endif // YOSYS_ENABLE_PYTHON
+#endif // YOSYS_ENABLE_PYTHON_INTERPRETER
 		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
 			cxxopts::value<std::vector<std::string>>(), "<commands>")
 		("r,top", "elaborate the specified HDL <top> module",
@@ -516,11 +516,11 @@ int main(int argc, char **argv)
 #endif
 
 	yosys_setup();
-#ifdef YOSYS_ENABLE_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON_INTERPRETER
 	py::object sys = py::module_::import("sys");
 	sys.attr("path").attr("append")(proc_self_dirname());
 	sys.attr("path").attr("append")(proc_share_dirname());
-#endif
+#endif // YOSYS_ENABLE_PYTHON_INTERPRETER
 	log_error_atexit = yosys_atexit;
 
 	for (auto &fn : plugin_filenames)
@@ -568,7 +568,7 @@ int main(int argc, char **argv)
 			log_error("Can't execute TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
 		} else if (scriptfile_python) {
-#ifdef YOSYS_ENABLE_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON_INTERPRETER
 			py::list new_argv;
 			int py_argc = special_args.size() + 1;
 			new_argv.append(scriptfile);
@@ -592,8 +592,9 @@ int main(int argc, char **argv)
 				log_error("Python interpreter encountered an exception.");
 			}
 #else
-			log_error("Can't execute Python script: this version of yosys is not built with Python support enabled.\n");
-#endif
+			log_error("Can't execute Python script: this version of yosys is"
+						" not built with the embedded Python interpreter.\n");
+#endif // YOSYS_ENABLE_PYTHON_INTERPRETER
 		} else
 			run_frontend(scriptfile, "script");
 	}

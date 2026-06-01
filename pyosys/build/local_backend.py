@@ -40,6 +40,7 @@ def compile_pyosys(cmake_options=[], parallel=os.cpu_count() or 1):
 			"-S", ".",
 			"-B", build_dir,
 			"-DYOSYS_WITH_PYTHON=ON",
+			"-DYOSYS_WITH_PYTHON_INTERPRETER=OFF",
 			"-DYOSYS_INSTALL_DRIVER=OFF",
 			"-DYOSYS_INSTALL_LIBRARY=OFF",
 			"-DYOSYS_INSTALL_PYTHON=ON",

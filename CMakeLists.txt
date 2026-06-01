@@ -50,6 +50,16 @@ option(YOSYS_WITHOUT_EDITLINE "Disable editline integration" OFF)
 option(YOSYS_WITHOUT_TCL "Disable Tcl integration" OFF)
 option(YOSYS_WITH_PYTHON "Enable Python integration" OFF)
 
+# Usually, YOSYS_WITH_PYTHON_INTERPRETER if and only if YOSYS_WITH_PYTHON
+# However, the interpreter cannot be included in wheel-only environments (e.g.
+# manylinux). This options allows it to be forced off in said environments, with
+# the stipulation that only libyosys/yosys will build successfully.
+#
+# It's only done this way because making the top-level yosys executable a
+# conditional target would complicate the CMake files significantly.
+cmake_dependent_option(YOSYS_WITH_PYTHON_INTERPRETER "Enable embedded Python interpreter. "
+	ON YOSYS_WITH_PYTHON OFF)
+
 set(YOSYS_VERIFIC_DIR "" CACHE FILEPATH "Path to the Verific source code (empty to disable)")
 set(YOSYS_VERIFIC_COMPONENTS "" CACHE STRING
 	"List of Verific components to link (empty for autodetect)")
@@ -253,11 +263,11 @@ if (tcl_FOUND)
 endif()
 
 if (YOSYS_WITH_PYTHON)
-	find_package(Python3Embed REQUIRED)
-	set_property(GLOBAL PROPERTY _CMAKE_Python3Embed_REQUIRED_VERSION "== ${Python3_VERSION}")
-	set_package_properties(Python3Embed PROPERTIES
+	find_package(Python3Module REQUIRED)
+	set_property(GLOBAL PROPERTY _CMAKE_Python3Module_REQUIRED_VERSION "== ${Python3_VERSION}")
+	set_package_properties(Python3Module PROPERTIES
 		URL "https://www.python.org/"
-		DESCRIPTION "Dynamic programming language (Embedding)"
+		DESCRIPTION "Dynamic programming language ()"
 		PURPOSE "Binding Yosys API"
 	)
 
@@ -266,6 +276,15 @@ if (YOSYS_WITH_PYTHON)
 		DESCRIPTION "Pyosys wrapper generator environment"
 		PURPOSE "Either 'uv' or 'pybind11>3,<4 cxxheaderparser'"
 	)
+	if (YOSYS_WITH_PYTHON_INTERPRETER)
+		find_package(Python3Embed REQUIRED)
+		set_property(GLOBAL PROPERTY _CMAKE_Python3Embed_REQUIRED_VERSION "== ${Python3_VERSION}")
+		set_package_properties(Python3Module PROPERTIES
+			URL "https://www.python.org/"
+			DESCRIPTION "Dynamic programming language (Embedded Interpreter)"
+			PURPOSE "Allowing the Yosys binary to run Python scripts"
+		)
+	endif()
 endif()
 
 find_package(GTest)
@@ -288,7 +307,8 @@ condition(YOSYS_ENABLE_LIBFFI Dlfcn_FOUND AND libffi_FOUND AND NOT YOSYS_WITHOUT
 condition(YOSYS_ENABLE_READLINE readline_FOUND AND NOT YOSYS_WITHOUT_READLINE)
 condition(YOSYS_ENABLE_EDITLINE editline_FOUND AND NOT YOSYS_WITHOUT_EDITLINE AND NOT YOSYS_ENABLE_READLINE)
 condition(YOSYS_ENABLE_TCL tcl_FOUND AND libtommath_FOUND AND NOT YOSYS_WITHOUT_TCL)
-condition(YOSYS_ENABLE_PYTHON Python3Embed_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
+condition(YOSYS_ENABLE_PYTHON Python3Module_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
+condition(YOSYS_ENABLE_PYTHON_INTERPRETER Python3Embed_FOUND AND YOSYS_WITH_PYTHON_INTERPRETER AND YOSYS_ENABLE_PYTHON)
 condition(YOSYS_ENABLE_VERIFIC YOSYS_VERIFIC_DIR AND zlib_FOUND)
 
 # Describe dependencies and features
@@ -303,7 +323,8 @@ add_feature_info(with_libffi YOSYS_ENABLE_LIBFFI "Verilog DPI-C foreign function
 add_feature_info(with_readline YOSYS_ENABLE_READLINE "Using readline for prompt editing and history")
 add_feature_info(with_editline YOSYS_ENABLE_EDITLINE "Using editline for prompt editing and history")
 add_feature_info(with_tcl YOSYS_ENABLE_TCL "Tcl scripting and SDC parsing")
-add_feature_info(with_python YOSYS_ENABLE_PYTHON "Python scripting and embedding")
+add_feature_info(with_python YOSYS_ENABLE_PYTHON "Python API bindings")
+add_feature_info(with_python_interpreter YOSYS_ENABLE_PYTHON_INTERPRETER "Embedded Python interpreter")
 add_feature_info(with_verific YOSYS_ENABLE_VERIFIC "Verific frontend integration")
 message(STATUS "")
 feature_summary(WHAT PACKAGES_FOUND
