@@ -170,7 +170,7 @@ ifneq (, $(shell git rev-parse --git-dir 2>/dev/null))
         YOSYS_VER := $(YOSYS_VER)+$(GIT_COMMIT_COUNT)
     endif
 else
-#    YOSYS_VER := $(YOSYS_VER)+post
+    YOSYS_VER := $(YOSYS_VER)+post
 endif
 endif
 
