@@ -255,6 +255,8 @@ struct ClockgatePass : public Pass {
 		log("        Intended for DFT scan-enable pins.\n");
 		log("    -min_net_size <n>\n");
 		log("        Only transform sets of at least <n> eligible FFs.\n");
+		log("    -min_ff_size <n>\n");
+		log("        Only transform FFs whose original (pre-split) register width, or 'ff_width' attribute\n");
 		log("    -min_disabled_threshold <f>\n");
 		log("        Only transform sets of FFs where the total sum of disabled FFs is greater than <f>.\n");
 		log("    -max_src <n>\n");
@@ -323,6 +325,8 @@ struct ClockgatePass : public Pass {
 		std::vector<std::string> liberty_files;
 		std::vector<std::string> dont_use_cells;
 		int min_net_size = 0;
+		int min_ff_size = 0;
+		bool use_ff_size_threshold = false;
 		double min_disabled_threshold = -1;
 		bool use_disabled_threshold = false;
 		int max_src = -1;
@@ -355,6 +359,11 @@ struct ClockgatePass : public Pass {
 			}
 			if (args[argidx] == "-min_net_size" && argidx+1 < args.size()) {
 				min_net_size = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-min_ff_size" && argidx+1 < args.size()) {
+				min_ff_size = atoi(args[++argidx].c_str());
+				use_ff_size_threshold = true;
 				continue;
 			}
 			if (args[argidx] == "-min_disabled_threshold" && argidx+1 < args.size()) {
@@ -411,6 +420,13 @@ struct ClockgatePass : public Pass {
 					if (!ff.sig_clk[0].is_wire() || !ff.sig_ce[0].is_wire())
 						continue;
 
+					if (use_ff_size_threshold) {
+						std::string attr = cell->get_string_attribute(ID(ff_width));
+						int orig_w = attr.empty() ? ff.width : atoi(attr.c_str());
+						if (orig_w < min_ff_size)
+							continue;
+					}
+
 					ce_ffs.insert(cell);
 
 					ClkNetInfo info = clk_info_from_ff(ff);
@@ -441,9 +457,13 @@ struct ClockgatePass : public Pass {
 				auto& gclk = clk_net.second;
 
 				// Check if the clock net qualifies for clock gating.
-				bool qualifies = use_disabled_threshold
-					? (gclk.en_disabled_sum >= min_disabled_threshold)
-					: (gclk.net_size >= min_net_size);
+				bool qualifies;
+				if (use_ff_size_threshold)
+					qualifies = (gclk.net_size >= 1);
+				else if (use_disabled_threshold)
+					qualifies = (gclk.en_disabled_sum >= min_disabled_threshold);
+				else
+					qualifies = (gclk.net_size >= min_net_size);
 				if (!qualifies)
 					continue;
 
@@ -563,7 +583,11 @@ struct ClockgatePass : public Pass {
 			clk_nets.clear();
 		}
 
-		log("Converted %d FFs using %s.\n", gated_flop_count, use_disabled_threshold ? "disabled threshold" : "net size");
+		const char *mode = use_ff_size_threshold   ? "FF width threshold"
+		                 : use_disabled_threshold  ? "disabled threshold"
+		                                           : "net size";
+
+		log("Converted %d FFs using %s.\n", gated_flop_count, mode);
     }
 } ClockgatePass;
 

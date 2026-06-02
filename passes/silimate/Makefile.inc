@@ -1,6 +1,7 @@
 
 OBJS += passes/silimate/activity.o
 OBJS += passes/silimate/annotate_cell_fanout.o
+OBJS += passes/silimate/annotate_ff_width.o
 OBJS += passes/silimate/breakreduce.o
 OBJS += passes/silimate/breaksop.o
 OBJS += passes/silimate/bus_rebuild.o
