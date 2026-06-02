@@ -283,7 +283,12 @@ struct OptMergeIncWorker
 
 				log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
 				RTLIL::Patch patcher(module, &assign_map);
-				patcher.patch(cell, port_replacements, other_cell);
+				if (port_replacements.size() == 1) {
+					patcher.patch(cell, port_replacements[0].first, port_replacements[0].second,
+							/*extras=*/{}, other_cell);
+				} else {
+					patcher.patch_ports(cell, port_replacements, /*extras=*/{}, other_cell);
+				}
 				total_count++;
 				iter_count++;
 			}

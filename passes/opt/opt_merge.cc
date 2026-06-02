@@ -313,7 +313,15 @@ struct OptMergeWorker
 				}
 				log_debug("    Removing %s cell `%s' from module `%s'.\n", remove_cell->type, remove_cell->name, module->name);
 				RTLIL::Patch patcher(module, &assign_map);
-				patcher.patch(remove_cell, port_replacements, keep_cell);
+				// Single-output cell types take the compatible Patch::patch
+				// path; multi-output types (e.g. $alu) use patch_ports,
+				// which covers all outputs and removes the cell.
+				if (port_replacements.size() == 1) {
+					patcher.patch(remove_cell, port_replacements[0].first, port_replacements[0].second,
+							/*extras=*/{}, keep_cell);
+				} else {
+					patcher.patch_ports(remove_cell, port_replacements, /*extras=*/{}, keep_cell);
+				}
 				total_count++;
 			}
 			did_something = !merged_duplicates.empty();
