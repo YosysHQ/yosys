@@ -42,9 +42,9 @@ struct AnnotateFfWidthPass : public Pass {
 
 		// Loop through all flip-flops and annotate with their width
 		int annotated = 0;
-		for (auto module : design->selected_modules()) {
-			for (auto cell : module->selected_cells()) {
-				if (!cell->is_builtin_ff())
+		for (auto module : design->modules()) {
+			for (auto cell : module->cells()) {
+				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
 				int width;
 				if (cell->hasParam(ID::WIDTH))
@@ -57,7 +57,7 @@ struct AnnotateFfWidthPass : public Pass {
 				annotated++;
 			}
 		}
-		log("Annotated %d flip-flop / latch cells.\n", annotated);
+		log("Annotated %d flip-flops.\n", annotated);
 	}
 } AnnotateFfWidthPass;
 PRIVATE_NAMESPACE_END
