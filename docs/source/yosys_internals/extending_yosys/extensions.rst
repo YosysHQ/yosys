@@ -230,8 +230,7 @@ Use ``log_error()`` to report a non-recoverable error:
 .. code:: C++
 
     if (design->modules.count(module->name) != 0)
-        log_error("A module with the name %s already exists!\n",
-                   RTLIL::id2cstr(module->name));
+        log_error("A module with the name %s already exists!\n", module);
 
 Use ``log_cmd_error()`` to report a recoverable error:
 

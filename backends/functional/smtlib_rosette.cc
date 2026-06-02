@@ -106,7 +106,7 @@ public:
 		w.open(list(name));
 		for(auto field_name : field_names) {
 			w << fn(field_name);
-			w.comment(RTLIL::unescape_id(field_name), true);
+			w.comment(field_name.unescape(), true);
 		}
 		w.close();
 	}
@@ -281,7 +281,7 @@ struct SmtrModule {
 			w.push();
 			w.open(list());
 			w.open(list("assoc-result"));
-			w << list("assoc", "\"" + RTLIL::unescape_id(input->name) + "\"", inputs_name);
+			w << list("assoc", "\"" + input->name.unescape() + "\"", inputs_name);
 			w.pop();
 			w.open(list("if", "assoc-result"));
 			w << list("cdr", "assoc-result");
@@ -298,7 +298,7 @@ struct SmtrModule {
 		w << list(*output_helper_name, outputs_name);
 		w.open(list("list"));
 		for (auto output : ir.outputs()) {
-			w << list("cons", "\"" + RTLIL::unescape_id(output->name) + "\"", output_struct.access("outputs", output->name));
+			w << list("cons", "\"" + output->name.unescape() + "\"", output_struct.access("outputs", output->name));
 		}
 		w.pop();
 	}

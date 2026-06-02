@@ -146,11 +146,11 @@ struct FunctionalTestGeneric : public Pass
             log("Dumping module `%s'.\n", module->name);
 			auto fir = Functional::IR::from_module(module);
 			for(auto node : fir)
-				std::cout << RTLIL::unescape_id(node.name()) << " = " << node.to_string([](auto n) { return RTLIL::unescape_id(n.name()); }) << "\n";
+				std::cout << node.name().unescape() << " = " << node.to_string([](auto n) { return n.name().unescape(); }) << "\n";
 			for(auto output : fir.all_outputs())
-				std::cout << RTLIL::unescape_id(output->kind) << " " << RTLIL::unescape_id(output->name) << " = " << RTLIL::unescape_id(output->value().name()) << "\n";
+				std::cout << output->kind.unescape() << " " << output->name.unescape() << " = " << output->value().name().unescape() << "\n";
 			for(auto state : fir.all_states())
-				std::cout << RTLIL::unescape_id(state->kind) << " " << RTLIL::unescape_id(state->name) << " = " << RTLIL::unescape_id(state->next_value().name()) << "\n";
+				std::cout << state->kind.unescape() << " " << state->name.unescape() << " = " << state->next_value().name().unescape() << "\n";
 		}
 	}
 } FunctionalCxxBackend;

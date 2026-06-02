@@ -1,3 +1,4 @@
+import os
 import json
 import shutil
 import subprocess
@@ -21,7 +22,7 @@ def write_smt2(tmp_path, verilog_text):
     vfile = tmp_path / "design.v"
     smt2 = tmp_path / "design.smt2"
     vfile.write_text(verilog_text)
-    run([base_path / "yosys", "-Q", "-p",
+    run([os.environ.get("YOSYS", "../../yosys"), "-Q", "-p",
          f"read_verilog {vfile}; prep -top top; write_smt2 {smt2}"])
     return smt2
 
@@ -61,7 +62,7 @@ def write_yw(yw_path, signals, bits):
 def run_smtbmc(smt2_path, yw_path):
     """Run yosys-smtbmc on the SMT2 file with a witness trace."""
     cmd = [
-        base_path / "yosys-smtbmc",
+        os.environ.get("YOSYS_SMTBMC", "../../yosys-smtbmc"),
         "-s", "z3",
         "-m", "top",
         "--check-witness",

@@ -94,9 +94,6 @@ def generate_tests(argv, cmds):
 
 def print_header(extra=None):
     print(f"include {common_mk}")
-    print(f"YOSYS ?= {yosys_basedir}/yosys")
-    print("")
-    print("export YOSYS_MAX_THREADS := 4")
     if extra:
         for line in extra:
             print(line)
@@ -125,7 +122,7 @@ def generate_custom(callback, extra=None):
             callback()
 
 def generate_autotest_file(test_file, commands):
-    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} ${{EXTRA_FLAGS}} {test_file}; \\\n{commands}"
+    cmd = f"../tools/autotest.sh -G -j ${{SEEDOPT}} -Y ${{YOSYS}} ${{EXTRA_FLAGS}} {test_file}; \\\n{commands}"
     generate_target(test_file, cmd)
 
 def generate_autotest(pattern, extra_flags, cmds=""):
