@@ -79,8 +79,9 @@ struct OptCompactPrefixWorker
 		sig = sigmap(sig);
 		if (!sig.is_fully_const())
 			return false;
+		uint64_t uvalue = (uint64_t)value;
 		for (int i = 0; i < GetSize(sig); i++) {
-			bool want = ((uint64_t)value >> i) & 1;
+			bool want = (i < 64) ? ((uvalue >> i) & 1) : (value < 0);
 			if (sig[i] != (want ? State::S1 : State::S0))
 				return false;
 		}
