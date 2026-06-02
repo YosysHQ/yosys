@@ -9,9 +9,6 @@ YOSYS_NAMESPACE_BEGIN
 // No virtual methods — subclasses cannot be dispatched through a Patch pointer.
 struct RTLIL::Patch : public CellAdderMixin<RTLIL::Patch>
 {
-private:
-	void gc(Cell* old_cell, bool track = false, pool<std::string>* src_pool = nullptr);
-
 protected:
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
@@ -20,12 +17,13 @@ protected:
 	Cell* commit_cell(std::unique_ptr<Cell> cell);
 	Wire* commit_wire(std::unique_ptr<Wire> wire);
 
-	pool<Wire*> leaves = {};
+	// Move staged cells_/wires_ into the module. Returns raw pointers to
+	// the committed new cells in insertion order.
+	std::vector<Cell*> commit_staged();
 
 public:
 	Module* mod;
 	SigMap* map;
-	pool<Cell*>* removed_cells = nullptr;
 	vector<std::unique_ptr<Wire>> wires_ = {};
 	vector<std::unique_ptr<Cell>> cells_ = {};
 
@@ -33,22 +31,36 @@ public:
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	const std::vector<RTLIL::SigSig> &connections() const;
 
-	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig);
-	void patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements);
+	// Compatible rewrite: root_cell's type has exactly one output port
+	// (asserted via kernel/newcelltypes.h). Rewires that output's signal to
+	// new_sig, auto-merges src from root_cell + each cell in `extras` (and
+	// merge_src_into if set) into every staged new cell and into
+	// merge_src_into, then removes root_cell from the module. No input-cone
+	// walk: only root_cell is removed.
+	void patch(Cell* root_cell, IdString old_port, SigSpec new_sig,
+			const std::vector<Cell*>& extras = {},
+			Cell* merge_src_into = nullptr);
 
-	// Variants for "merge old_cell into an existing keep_cell" (e.g.
-	// opt_merge): the old_cell's src attribute is collected and combined
-	// with merge_src_into's existing src, and the result is set on
-	// merge_src_into. Any new cells in cells_ also receive the combined src.
-	void patch(Cell* old_cell, IdString old_port, SigSpec new_sig, Cell* merge_src_into);
-	void patch(Cell* old_cell, const std::vector<std::pair<IdString, SigSpec>> &port_replacements, Cell* merge_src_into);
+	// Multi-output rewrite: transfer a list of output ports to a list of
+	// new sigs. Every entry in `port_replacements` must name an output port
+	// of root_cell, and the list must cover ALL of root_cell's output ports
+	// (both verified via kernel/newcelltypes.h). For each (port, new_sig)
+	// pair the original port signal is connected to new_sig at the module
+	// level. All of root_cell's ports are then unset and the cell is
+	// removed (asserted: no connections remain at the point of removal).
+	// Src is auto-merged from root_cell + extras + merge_src_into into
+	// every staged new cell and into merge_src_into.
+	void patch_ports(Cell* root_cell,
+			const std::vector<std::pair<IdString, SigSpec>>& port_replacements,
+			const std::vector<Cell*>& extras = {},
+			Cell* merge_src_into = nullptr);
 
 	// Flush staged cells_ / wires_ into the module without doing any
-	// connect_incremental or gc. Each committed cell's src attribute is
-	// pulled from `src_source` (typically the cell that's being expanded /
-	// unmapped into the staged helpers, so source-location tracking carries
-	// through transparently). Pass nullptr for src_source if the staged
-	// helpers have no natural ancestor.
+	// connect_incremental or port rewiring. Each committed cell's src
+	// attribute is pulled from `src_source` (typically the cell that's
+	// being expanded / unmapped into the staged helpers, so source-location
+	// tracking carries through transparently). Pass nullptr for src_source
+	// if the staged helpers have no natural ancestor.
 	void commit_inheriting_src(Cell* src_source);
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);

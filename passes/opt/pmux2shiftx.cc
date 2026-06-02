@@ -775,13 +775,9 @@ struct OnehotPass : public Pass {
 			OnehotDatabase onehot_db(module, sigmap);
 			onehot_db.verbose = verbose_onehot;
 
-			// Track cells removed inline by patcher.gc so the outer loop
-			// (and any stale pointer accesses) can skip them.
-			pool<Cell*> removed_cells;
-
 			for (auto cell : module->selected_cells())
 			{
-				if (removed_cells.count(cell) || cell->type != ID($eq))
+				if (cell->type != ID($eq))
 					continue;
 
 				SigSpec A = sigmap(cell->getPort(ID::A));
@@ -854,9 +850,7 @@ struct OnehotPass : public Pass {
 					replacement = sig;
 				}
 
-				removed_cells.insert(cell);
 				RTLIL::Patch patcher(module, &sigmap);
-				patcher.removed_cells = &removed_cells;
 				patcher.patch(cell, ID::Y, replacement);
 			}
 		}
