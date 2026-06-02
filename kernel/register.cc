@@ -29,6 +29,11 @@
 #include <stdio.h>
 #include <errno.h>
 
+#if !defined(__wasm)
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 #define MAX_REG_COUNT 1000
@@ -772,6 +777,11 @@ struct HelpPass : public Pass {
 		bool raise_error = false;
 		std::map<string, vector<string>> groups;
 
+#if !defined(__wasm)
+		auto this_path = fs::path(source_location::current().file_name());
+		auto source_root = this_path.parent_path().parent_path();
+#endif
+
 		json.name("cmds"); json.begin_object();
 		// iterate over commands
 		for (auto &it : pass_register) {
@@ -912,10 +922,31 @@ struct HelpPass : public Pass {
 				}
 			}
 
+			string source_file = pass->location.file_name();
+			bool has_source = source_file.compare("unknown") != 0;
+#if !defined(__wasm)
+			// fix path 
+			fs::path source_path;
+			auto no_source_group = false;
+			if (has_source) {
+				source_path = fs::path(pass->location.file_name());
+				if (source_path.is_absolute()) {
+					// using proximate instead of relative means that we
+					// still get the source path if they aren't relative
+					auto proximate_path = fs::proximate(source_path, source_root);
+					if (proximate_path == fs::weakly_canonical(proximate_path))
+						// we're only interested if it's a subpath of our root dir
+						source_path = proximate_path;
+					else
+						// don't try to group external paths
+						no_source_group = true;
+				}
+				source_file = source_path.string();
+			}
+#endif
+
 			// attempt auto group
 			if (!cmd_help.has_group()) {
-				string source_file = pass->location.file_name();
-				bool has_source = source_file.compare("unknown") != 0;
 				if (pass->internal_flag)
 					cmd_help.group = "internal";
 				else if (source_file.find("backends/") == 0 || (!has_source && name.find("read_") == 0))
@@ -923,11 +954,16 @@ struct HelpPass : public Pass {
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
 				else if (has_source) {
+#if !defined(__wasm)
+					if (source_path.has_parent_path() && !no_source_group)
+						cmd_help.group = source_path.parent_path();
+#else
 					auto last_slash = source_file.find_last_of('/');
 					if (last_slash != string::npos) {
 						auto parent_path = source_file.substr(0, last_slash);
 						cmd_help.group = parent_path;
 					}
+#endif
 				}
 				// implicit !has_source
 				else if (name.find("equiv") == 0)
@@ -955,7 +991,7 @@ struct HelpPass : public Pass {
 				json.value(content.to_json());
 			json.end_array();
 			json.entry("group", cmd_help.group);
-			json.entry("source_file", pass->location.file_name());
+			json.entry("source_file", source_file);
 			json.entry("source_line", pass->location.line());
 			json.entry("source_func", pass->location.function_name());
 			json.entry("experimental_flag", pass->experimental_flag);
