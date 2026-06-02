@@ -180,6 +180,45 @@ log -pop
 
 
 
+# Test 35
+log -header "Partial-slice downstream ADD sink does not block sliced root"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  output wire [31:0] y,
+  output wire [31:0] side
+);
+  wire [16:0] s0;
+  wire [31:0] y_int;
+
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(17), .A_SIGNED(0), .B_SIGNED(0))
+    add0 (.A(a), .B({14'b0, b[15:14]}), .Y(s0));
+  \$add #(.A_WIDTH(31), .B_WIDTH(31), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add1 (.A({s0, b[13:0]}), .B({15'b0, c}), .Y(y_int));
+  \$add #(.A_WIDTH(31), .B_WIDTH(31), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add_side (.A(y_int[31:1]), .B({15'b0, d}), .Y(side));
+
+  assign y = y_int;
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 0 c:add0 c:add1
+select -assert-count 1 c:add_side
+design -reset
+log -pop
+
+
+
 # Test 2
 log -header "AND chain with intermediate outputs"
 log -push

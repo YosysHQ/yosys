@@ -272,17 +272,38 @@ struct OptBalanceTreeWorker {
 		return true;
 	}
 
-	bool has_downstream_add_sink(Cell *cell, SlicedAddContext &ctx)
+	bool operand_contains_full_child_output(const SigSpec &sig, Cell *child)
+	{
+		SigSpec y = sigmap(child->getPort(ID::Y));
+		int width = GetSize(y);
+		for (int pos = 0; pos + width <= GetSize(sig); pos++)
+		{
+			bool found = true;
+			for (int i = 0; i < width; i++)
+				if (sig[pos + i] != y[i]) {
+					found = false;
+					break;
+				}
+			if (found)
+				return true;
+		}
+		return false;
+	}
+
+	bool has_downstream_add_sink(Cell *cell, pool<Cell*> &consumed_cells, SlicedAddContext &ctx)
 	{
 		SigSpec y = sigmap(cell->getPort(ID::Y));
 		for (auto bit : y)
 			for (auto sink : ctx.bit_to_sink[bit])
-				if (sink != cell && is_unsigned_add(sink))
-					return true;
+				if (sink != cell && !consumed_cells.count(sink) && is_unsigned_add(sink))
+					for (IdString port : {ID::A, ID::B})
+						if (operand_contains_full_child_output(sigmap(sink->getPort(port)), cell))
+							return true;
 		return false;
 	}
 
-	bool sliced_cluster_has_external_fanout(Cell *head_cell, pool<Cell*> &cluster, SlicedAddContext &ctx)
+	bool sliced_cluster_has_external_fanout(Cell *head_cell, pool<Cell*> &cluster, pool<Cell*> &consumed_cells,
+			SlicedAddContext &ctx)
 	{
 		for (auto cell : cluster)
 		{
@@ -295,7 +316,7 @@ struct OptBalanceTreeWorker {
 				if (ctx.output_port_sigs.count(bit))
 					return true;
 				for (auto sink : ctx.bit_to_sink[bit])
-					if (!cluster.count(sink))
+					if (!cluster.count(sink) && !consumed_cells.count(sink))
 						return true;
 			}
 		}
@@ -305,7 +326,8 @@ struct OptBalanceTreeWorker {
 
 	bool try_sliced_add_tree(Cell *head_cell, pool<Cell*> &consumed_cells, SlicedAddContext &ctx)
 	{
-		if (!is_unsigned_add(head_cell) || consumed_cells.count(head_cell) || has_downstream_add_sink(head_cell, ctx))
+		if (!is_unsigned_add(head_cell) || consumed_cells.count(head_cell) ||
+				has_downstream_add_sink(head_cell, consumed_cells, ctx))
 			return false;
 
 		vector<SigSpec> summands;
@@ -315,7 +337,7 @@ struct OptBalanceTreeWorker {
 			return false;
 		if (!saw_sliced_edge || GetSize(cluster) <= 1 || GetSize(summands) <= 2)
 			return false;
-		if (sliced_cluster_has_external_fanout(head_cell, cluster, ctx))
+		if (sliced_cluster_has_external_fanout(head_cell, cluster, consumed_cells, ctx))
 			return false;
 
 		log_debug("  Creating sliced add tree for %s with %d summands and %d cells...\n",
