@@ -42,8 +42,8 @@ struct AnnotateFfWidthPass : public Pass {
 
 		// Loop through all flip-flops and annotate with their width
 		int annotated = 0;
-		for (auto module : design->modules()) {
-			for (auto cell : module->cells()) {
+		for (auto module : design->selected_modules()) {
+			for (auto cell : module->selected_cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
 				int width;
