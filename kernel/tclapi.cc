@@ -206,13 +206,13 @@ bool mp_int_to_const(mp_int *a, Const &b, bool is_signed)
 		return false;
 
 	if (negative) {
-		mp_neg(a, a);
-		mp_sub_d(a, 1, a);
+		if (mp_neg(a, a) != MP_OKAY) return false;
+		if (mp_sub_d(a, 1, a) != MP_OKAY) return false;
 	}
 
 	std::vector<unsigned char> buf;
 	buf.resize(mp_unsigned_bin_size(a));
-	mp_to_unsigned_bin(a, buf.data());
+	if (mp_to_unsigned_bin(a, buf.data()) != MP_OKAY) return false;
 
 	Const::Builder b_bits(mp_count_bits(a) + is_signed);
 	for (int i = 0; i < mp_count_bits(a);) {
