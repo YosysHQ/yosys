@@ -50,7 +50,7 @@ opt_expr -fine
 # The division by zero should be removed
 select -assert-count 0 t:$div
 # No cells should be left as it's replaced with constant undef
-select -assert-none t:*
+select -assert-none t:* t:$input_port %d
 
 design -reset
 read_verilog <<EOT
@@ -64,7 +64,7 @@ design -load postopt
 # The mux should be removed completely
 select -assert-count 0 t:$mux
 # No additional cells needed - direct connection
-select -assert-none t:*
+select -assert-none t:* t:$input_port %d
 
 design -reset
 read_verilog <<EOT
@@ -110,7 +110,7 @@ design -load postopt
 # The comparison of different constants should be replaced with constant 0
 select -assert-count 0 t:$eq
 # No other cells should be present (just the constant driver)
-select -assert-none t:*
+select -assert-none t:* t:$input_port %d
 
 # opt.opt_expr.invert.double
 
@@ -131,7 +131,7 @@ design -load postopt
 opt_clean -purge
 select -assert-count 0 t:$not
 # No other cells should be present
-select -assert-none t:*
+select -assert-none t:* t:$input_port %d
 
 # opt.opt_expr.reduce_xnor_not
 

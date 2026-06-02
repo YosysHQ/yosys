@@ -8,12 +8,11 @@ copy gold fine
 
 cd coarse
 opt_expr
-select -assert-none c:*
+select -assert-none c:* t:$input_port %d
 
 cd fine
 opt_expr
-select -assert-none c:*
-
+select -assert-none c:* t:$input_port %d
 cd
 miter -equiv -flatten -make_assert -make_outputs coarse fine miter
 sat -verify -prove-asserts -show-ports miter

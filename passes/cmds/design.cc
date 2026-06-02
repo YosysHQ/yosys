@@ -338,8 +338,11 @@ struct DesignPass : public Pass {
 		{
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
-			for (auto mod : design->modules())
+			for (auto mod : design->modules()) {
+				// Triggers signorm flush if needed (hacky)
+				(void)mod->connections();
 				design_copy->add(mod->clone());
+			}
 
 			design_copy->selection_stack = design->selection_stack;
 			design_copy->selection_vars = design->selection_vars;
@@ -356,6 +359,8 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
+			design->flagSigNormalized = false;
+
 			for (auto mod : design->modules().to_vector())
 				design->remove(mod);
 
@@ -377,6 +382,7 @@ struct DesignPass : public Pass {
 		{
 			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
 
+			design->flagSigNormalized = saved_design->flagSigNormalized;
 			for (auto mod : saved_design->modules())
 				design->add(mod->clone());
 

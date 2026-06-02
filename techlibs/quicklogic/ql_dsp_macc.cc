@@ -205,8 +205,10 @@ struct QlDspMacc : public Pass {
 		}
 		extra_args(a_Args, argidx, a_Design);
 
-		for (auto module : a_Design->selected_modules())
-			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
+		for (auto module : a_Design->selected_modules()) {
+            SigMap sigmap(module);
+			ql_dsp_macc_pm(module, &sigmap, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
+        }
 	}
 
 } QlDspMacc;

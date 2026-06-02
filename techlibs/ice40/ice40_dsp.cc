@@ -311,8 +311,13 @@ struct Ice40DspPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			ice40_dsp_pm(module, module->selected_cells()).run_ice40_dsp(create_ice40_dsp);
+		// TODO Disabled signorm because swap_names breaks fanout logic
+		design->sigNormalize(false);
+
+		for (auto module : design->selected_modules()) {
+			SigMap sigmap(module);
+			ice40_dsp_pm(module, &sigmap, module->selected_cells()).run_ice40_dsp(create_ice40_dsp);
+		}
 	}
 } Ice40DspPass;
 

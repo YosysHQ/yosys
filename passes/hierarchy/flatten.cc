@@ -178,6 +178,8 @@ struct FlattenWorker
 		}
 
 		for (auto tpl_cell : tpl->cells()) {
+			if (tpl_cell->type == ID($input_port))
+				continue;
 			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell, separator), tpl_cell);
 			map_attributes(cell, new_cell, tpl_cell->name);
 			if (new_cell->has_memid()) {
@@ -408,6 +410,9 @@ struct FlattenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		bool was_signormed = design->flagSigNormalized;
+		design->sigNormalize(false);
+
 		RTLIL::Module *top = nullptr;
 		if (design->full_selection())
 			for (auto module : design->modules())
@@ -447,6 +452,11 @@ struct FlattenPass : public Pass {
 					design->remove(module);
 				}
 
+		if (was_signormed) {
+			// TODO inconvenient workaround for fanout out of sync
+			design->sigNormalize(false);
+			design->sigNormalize(true);
+		}
 		log_pop();
 	}
 } FlattenPass;
