@@ -53,10 +53,10 @@ struct AnnotateFfWidthPass : public Pass {
 			break;
 		extra_args(args, argidx, design);
 
-		// Loop through all flip-flops and annotate with their width
+		// Loop through all flip-flops in a module and annotate with their width
 		int annotated = 0;
 		for (auto module : design->selected_modules()) {
-			// Pass 1: count flip-flop cells per base name.
+			// First, count the number of flip-flops of the same base name.
 			dict<std::string, int> name_counts;
 			std::vector<std::pair<RTLIL::Cell *, std::string>> ff_cells;
 			for (auto cell : module->selected_cells()) {
@@ -66,7 +66,7 @@ struct AnnotateFfWidthPass : public Pass {
 				name_counts[base]++;
 				ff_cells.push_back({cell, base});
 			}
-			// Pass 2: annotate each flip-flop with the count for its base name.
+			// Then, annotate each flip-flop with the count for its base name.
 			for (auto &it : ff_cells) {
 				int width = name_counts[it.second];
 				it.first->set_string_attribute(ID(ff_width), std::to_string(width));
