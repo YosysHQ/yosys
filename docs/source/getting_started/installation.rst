@@ -88,10 +88,10 @@ Build prerequisites
 ^^^^^^^^^^^^^^^^^^^
 
 A C++ compiler with C++20 support is required as well as some standard tools
-such as GNU Flex, GNU Bison (>=3.8), Make, and Python (>=3.11). Some additional
-tools: readline, libffi, Tcl and zlib; are optional but enabled by default (see
-:makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
-`show` command to display schematics.
+such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.27), Make (or other CMake
+generator such as Ninja), and Python (>=3.11). Some additional tools: readline,
+libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
+Xdot are used by the `show` command to display schematics.
 
 Installing all prerequisites:
 
@@ -102,7 +102,15 @@ Installing all prerequisites:
       sudo apt-get install gawk git make python3 lld bison clang flex \
          libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
          graphviz xdot
-      curl -LsSf https://astral.sh/uv/install.sh | sh
+      sudo snap install cmake --classic
+
+.. tab:: Ubuntu 24.04
+
+   .. code:: console
+
+      sudo apt-get install gawk git cmake make python3 lld bison clang flex \
+         libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
+         graphviz xdot
 
 .. tab:: macOS 13 (with Homebrew)
 
@@ -127,6 +135,10 @@ Installing all prerequisites:
    .. note:: On FreeBSD system use gmake instead of make. To run tests use:
       ``MAKE=gmake CXX=cxx CC=cc gmake test``
 
+   .. TODO:: CMAKE_TODO
+
+      Is this still required, and (how) does it work with CMake
+
 .. tab:: Cygwin
 
    Use the following command to install all prerequisites, or select these
@@ -134,7 +146,7 @@ Installing all prerequisites:
 
    .. code:: console
 
-      setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,zlib-devel
+      setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,cmake,make,pkg-config,python3,tcl-devel,zlib-devel
 
    .. warning::
 
@@ -142,7 +154,7 @@ Installing all prerequisites:
       minimum required version of Python is 3.11.  This means that Cygwin is not
       compatible with many of the Python-based frontends.  While this does not
       currently prevent Yosys itself from working, no guarantees are made for
-      continued support.  You may also need to specify ``CXXSTD=gnu++17`` to
+      continued support.  You may also need to specify ``CXXSTD=gnu++20`` to
       resolve missing ``strdup`` function when using gcc.  It is instead
       recommended to use Windows Subsystem for Linux (WSL) and follow the
       instructions for Ubuntu.
@@ -168,52 +180,53 @@ Installing all prerequisites:
 Build configuration
 ^^^^^^^^^^^^^^^^^^^
 
-The Yosys build is based solely on Makefiles, and uses a number of variables
-which influence the build process.  The recommended method for configuring
-builds is with a ``Makefile.conf`` file in the root ``yosys`` directory. The
-following commands will clean the directory and provide an initial configuration
-file:
+The Yosys build is configured via CMake, and uses a number of variables
+which influence the build process.
+
+set one-off options with
 
 .. code:: console
 
-   make config-clang    # ..or..
-   make config-gcc
+   cmake -B build . --fresh \
+      -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 
-Check the root Makefile to see what other configuration targets are available.
-Other variables can then be added to the ``Makefile.conf`` as needed, for
-example:
+set persistent options with
 
 .. code:: console
 
-   echo "ENABLE_ZLIB := 0" >> Makefile.conf
+   vi Configuration.cmake     # ..then..
+   cmake -C Configuration.cmake -B build . --fresh
 
-Using one of these targets will set the ``CONFIG`` variable to something other
-than ``none``, and will override the environment variable for ``CXX``.  To use a
-different compiler than the default when building, use:
+e.g.
+
+.. code:: cmake
+
+   set(CMAKE_C_COMPILER clang CACHE STRING "")
+   set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")
+   set(YOSYS_WITHOUT_ZLIB ON CACHE STRING "")
+
+Once generated, build variables can be inspected and modified with:
 
 .. code:: console
 
-   make CXX=$CXX        # ..or..
-   make CXX="g++-11"
-
-.. note::
-
-   Setting the compiler in this way will prevent some other options such as
-   ``ENABLE_CCACHE`` from working as expected.
+   ccmake build              #..or..
+   vi build/CMakeCache.txt
 
 If you have clang, and (a compatible version of) ``ld.lld`` available in PATH,
 it's recommended to speed up incremental builds with lld by enabling LTO with
-``ENABLE_LTO=1``.  On macOS, LTO requires using clang from homebrew rather than
-clang from xcode.  For example:
+``CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON``.  On macOS, LTO requires using clang
+from homebrew rather than clang from xcode.  For example:
 
 .. code:: console
 
-   make ENABLE_LTO=1 CXX=$(brew --prefix)/opt/llvm/bin/clang++
+   cmake -B build . -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
+      -DCMAKE_C_COMPILER=$(brew --prefix)/opt/llvm/bin/clang \
+      -DCMAKE_CXX_COMPILER=$(brew --prefix)/opt/llvm/bin/clang++
 
 By default, building (and installing) yosys will build (and install) `ABC`_,
 using :program:`yosys-abc` as the executable name.  To use an existing ABC
-executable instead, set the ``ABCEXTERNAL`` make variable to point to the
-desired executable.
+executable instead, set the :makevar:`YOSYS_ABC_EXECUTABLE` make variable to point to
+the desired executable.
 
 Running the build system
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -222,17 +235,12 @@ From the root ``yosys`` directory, call the following commands:
 
 .. code:: console
 
-   make
-   sudo make install
+   cmake -B build . -DCMAKE_BUILD_TYPE=Release
+   cmake --build build --config Release --parallel $(nproc)
+   sudo cmake --install build --strip
 
-To use a separate (out-of-tree) build directory, provide a path to the Makefile.
-
-.. code:: console
-
-   mkdir build; cd build
-   make -f ../Makefile
-
-Out-of-tree builds require a clean source tree.
+Note that Yosys does not support in-tree builds, and if calling ``cmake`` from
+the root ``yosys`` directory the ``-B`` option must be provided.
 
 .. seealso::
 
@@ -247,6 +255,9 @@ directories:
 
 ``backends/``
    This directory contains a subdirectory for each of the backend modules.
+
+``cmake/``
+   Additional ``.cmake`` files used by CMake during build generation.
 
 ``docs/``
    Contains the source for this documentation, including images and sample code.
@@ -281,6 +292,10 @@ directories:
    example as of this writing the directory :file:`passes/hierarchy/` contains
    the code for three passes: `hierarchy`, `submod`, and `uniquify`.
 
+``pyosys/``
+   Contains the scripts and wrappers necessary for building :doc:`Pyosys
+   </using_yosys/pyosys>`.
+
 ``techlibs/``
    This directory contains simulation models and standard implementations for
    the cells from the internal cell library.
@@ -289,19 +304,28 @@ directories:
    This directory contains the suite of unit tests and regression tests used by
    Yosys.  See :doc:`/yosys_internals/extending_yosys/test_suites`.
 
-The top-level Makefile includes :file:`frontends/{*}/Makefile.inc`,
-:file:`passes/{*}/Makefile.inc` and :file:`backends/{*}/Makefile.inc`. So when
-extending Yosys it is enough to create a new directory in :file:`frontends/`,
-:file:`passes/` or :file:`backends/` with your sources and a
-:file:`Makefile.inc`. The Yosys kernel automatically detects all commands linked
-with Yosys. So it is not needed to add additional commands to a central list of
-commands.
+.. TODO:: CMAKE_TODO
 
-Good starting points for reading example source code to learn how to write
-passes are :file:`passes/opt/opt_dff.cc` and :file:`passes/opt/opt_merge.cc`.
+   - ``yosys_<pass|test_pass|frontend|backend>(<name>)`` for each pass
 
-Users of the Qt Creator IDE can generate a QT Creator project file using make
-qtcreator. Users of the Eclipse IDE can use the "Makefile Project with Existing
-Code" project type in the Eclipse "New Project" dialog (only available after the
-CDT plugin has been installed) to create an Eclipse project in order to
-programming extensions to Yosys or just browse the Yosys code base.
+      - see :file:`cmake/YosysComponent.cmake`
+
+   - if using a sub folder, add it to the parent's ``CMakeLists.txt`` with
+     ``add_subdirectory(<name>)``
+
+   The top-level Makefile includes :file:`frontends/{*}/Makefile.inc`,
+   :file:`passes/{*}/Makefile.inc` and :file:`backends/{*}/Makefile.inc`. So when
+   extending Yosys it is enough to create a new directory in :file:`frontends/`,
+   :file:`passes/` or :file:`backends/` with your sources and a
+   :file:`Makefile.inc`. The Yosys kernel automatically detects all commands linked
+   with Yosys. So it is not needed to add additional commands to a central list of
+   commands.
+
+   Good starting points for reading example source code to learn how to write
+   passes are :file:`passes/opt/opt_dff.cc` and :file:`passes/opt/opt_merge.cc`.
+
+   Users of the Qt Creator IDE can generate a QT Creator project file using make
+   qtcreator. Users of the Eclipse IDE can use the "Makefile Project with Existing
+   Code" project type in the Eclipse "New Project" dialog (only available after the
+   CDT plugin has been installed) to create an Eclipse project in order to
+   programming extensions to Yosys or just browse the Yosys code base.

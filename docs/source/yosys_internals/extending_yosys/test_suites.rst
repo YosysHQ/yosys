@@ -7,19 +7,32 @@ Running the included test suite
 -------------------------------
 
 The Yosys source comes with a test suite to avoid regressions and keep
-everything working as expected.  Tests can be run by calling ``make test`` from
-the root Yosys directory. By default, this runs vanilla and unit tests.
+everything working as expected.  Tests can be run by building the ``test``
+target from the root Yosys directory. By default, this runs vanilla and unit
+tests.
+
+.. code:: console
+
+   cmake -B build .
+   cmake --build build --target test --parallel $(nproc)
+
+.. TODO:: CMAKE_TODO
+
+   Using ``make -C <docs|tests>`` does work, but only if using default
+   :makevar:`BUILD_DIR` (``build``) and :makevar:`PROGRAM_PREFIX` (none).
 
 Vanilla tests
 ~~~~~~~~~~~~~
 
-These make up the majority of our testing coverage.
-They can be run with ``make vanilla-test`` and are based on calls to
-make subcommands (``make makefile-tests``) and shell scripts
-(``make seed-tests`` and ``make abcopt-tests``). Both use ``run-test.sh``
-files, but make-based tests only call ``tests/gen-tests-makefile.sh``
-to generate a makefile appropriate for the given directory, so only
-afterwards when make is invoked do the tests actually run.
+.. TODO:: update for test infra changes
+
+These make up the majority of our testing coverage. They can be run with the
+``test-vanilla`` CMake target, or by calling ``make vanilla-test`` from the
+``tests`` directory, and are based on calls to make subcommands (``make
+makefile-tests``) and shell scripts (``make seed-tests`` and ``make
+abcopt-tests``). Both use ``run-test.sh`` files, but make-based tests only call
+``tests/gen-tests-makefile.sh`` to generate a makefile appropriate for the given
+directory, so only afterwards when make is invoked do the tests actually run.
 
 Usually their structure looks something like this:
 you write a .ys file that gets automatically run,
@@ -45,7 +58,7 @@ Running the unit tests requires the following additional packages:
 
    No additional requirements.
 
-Unit tests can be run with ``make unit-test``.
+Unit tests can be run with the ``test-unit`` CMake target.
 
 Functional tests
 ~~~~~~~~~~~~~~~~
@@ -75,11 +88,19 @@ If you don't have one of the :ref:`getting_started/installation:CAD suite(s)`
 installed, you should also install Z3 `following their
 instructions <https://github.com/Z3Prover/z3>`_.
 
+.. TODO:: CMAKE_TODO
+
+   How does this work under CMake?  Is it only via ``make -C tests ENABLE_FUNCTIONAL_TESTS=1``
+
 Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
 ``make test`` and the functional tests will be run as well.
 
 Docs tests
 ~~~~~~~~~~
+
+.. TODO:: CMAKE_TODO
+
+   Is this available via CMake?
 
 There are some additional tests for checking examples included in the
 documentation, which can be run by calling ``make test`` from the
