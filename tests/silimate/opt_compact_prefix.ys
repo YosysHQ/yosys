@@ -1,0 +1,288 @@
+# Tests for opt_compact_prefix.
+
+log -header "Forward dense pack self-equivalence"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_pack.sv
+verific -import opt_compact_prefix_pack
+proc; opt_clean
+rename opt_compact_prefix_pack gold
+
+read -sv opt_compact_prefix_pack.sv
+verific -import opt_compact_prefix_pack
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+rename opt_compact_prefix_pack gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Forward dense pack structural rewrite"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_pack.sv
+verific -import opt_compact_prefix_pack
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$shl
+select -assert-none t:$mux
+select -assert-count 7 t:$add
+select -assert-count 8 t:$gt
+design -reset
+log -pop
+
+log -header "Reverse suffix read self-equivalence"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_sub.sv
+verific -import opt_compact_prefix_sub
+proc; opt_clean
+rename opt_compact_prefix_sub gold
+
+read -sv opt_compact_prefix_sub.sv
+verific -import opt_compact_prefix_sub
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+rename opt_compact_prefix_sub gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Reverse suffix read structural rewrite"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_sub.sv
+verific -import opt_compact_prefix_sub
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$sub
+select -assert-none t:$mux
+select -assert-min 1 t:$add
+select -assert-min 1 t:$eq
+design -reset
+log -pop
+
+log -header "Negative: unrelated mux module unchanged"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input wire sel, input wire [7:0] a, b, output wire [7:0] y);
+  assign y = sel ? a : b;
+endmodule
+EOF
+proc; opt_clean
+select -assert-count 1 t:$mux
+opt_compact_prefix
+select -assert-count 1 t:$mux
+design -reset
+log -pop
+
+log -header "Exact regression size: 32-bit forward dense pack"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_pack32.sv
+verific -import opt_compact_prefix_pack32
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$shl
+select -assert-none t:$mux
+select -assert-count 31 t:$add
+select -assert-count 32 t:$gt
+design -reset
+log -pop
+
+log -header "Exact regression size: 16-entry reverse suffix read"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_sub16.sv
+verific -import opt_compact_prefix_sub16
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$sub
+select -assert-none t:$mux
+select -assert-min 1 t:$add
+select -assert-min 1 t:$eq
+design -reset
+log -pop
+
+log -header "Reverse suffix read with add-by-minus-one decrement"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_addneg.sv
+verific -import opt_compact_prefix_addneg
+proc; opt_clean
+rename opt_compact_prefix_addneg gold
+
+read -sv opt_compact_prefix_addneg.sv
+verific -import opt_compact_prefix_addneg
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+rename opt_compact_prefix_addneg gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Max width: forward pack left unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_pack32.sv
+verific -import opt_compact_prefix_pack32
+proc; opt_clean
+select -assert-min 1 t:$shl
+opt_compact_prefix -max_width 8
+select -assert-min 1 t:$shl
+select -assert-none w:*compact*
+design -reset
+log -pop
+
+log -header "Max width: reverse suffix read left unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_sub16.sv
+verific -import opt_compact_prefix_sub16
+proc; opt_clean
+select -assert-min 1 t:$sub
+opt_compact_prefix -max_width 8
+select -assert-min 1 t:$sub
+select -assert-none w:*compact*
+design -reset
+log -pop
+
+log -header "Negative near miss: same port names passthrough"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_near_miss.sv
+verific -import opt_compact_prefix_pack_passthrough
+proc; opt_clean
+opt_compact_prefix
+select -assert-none w:*compact*
+design -reset
+log -pop
+
+log -header "Negative near miss: same port names nonzero pack init"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_near_miss.sv
+verific -import opt_compact_prefix_pack_nonzero_init
+proc; opt_clean
+opt_compact_prefix
+select -assert-none w:*compact*
+design -reset
+log -pop
+
+log -header "Negative near miss: same port names non-unit pack stride"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_near_miss.sv
+verific -import opt_compact_prefix_pack_stride2
+proc; opt_clean
+opt_compact_prefix
+select -assert-none w:*compact*
+design -reset
+log -pop
+
+log -header "Negative near miss: same port names nonzero reverse init"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_near_miss.sv
+verific -import opt_compact_prefix_sub_nonzero_init
+proc; opt_clean
+opt_compact_prefix
+select -assert-none w:*compact*
+design -reset
+log -pop
+
+log -header "Scaling: 64-bit forward pack"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_scale.sv
+verific -import opt_compact_prefix_pack64
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$shl
+select -assert-none t:$mux
+select -assert-count 63 t:$add
+select -assert-count 64 t:$gt
+design -reset
+log -pop
+
+log -header "Scaling: 128-bit forward pack with explicit max_width"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_scale.sv
+verific -import opt_compact_prefix_pack128
+proc; opt_clean
+opt_compact_prefix -max_width 128
+opt_clean
+select -assert-none t:$shl
+select -assert-none t:$mux
+select -assert-count 127 t:$add
+select -assert-count 128 t:$gt
+design -reset
+log -pop
+
+log -header "Multi-module: only matching module rewrites"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_multi.sv
+verific -import opt_compact_prefix_multi_match opt_compact_prefix_multi_keep
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none opt_compact_prefix_multi_match/t:$shl
+select -assert-none opt_compact_prefix_multi_match/t:$mux
+select -assert-count 1 opt_compact_prefix_multi_keep/t:$mux
+design -reset
+log -pop
