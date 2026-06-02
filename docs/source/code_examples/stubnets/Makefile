@@ -3,7 +3,7 @@ include ../../../common.mk
 .PHONY: all dots examples
 all: dots examples
 dots:
-examples:
+examples: test
 
 .PHONY: test
 test: stubnets.so
