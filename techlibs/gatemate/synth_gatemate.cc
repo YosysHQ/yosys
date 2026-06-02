@@ -56,6 +56,9 @@ struct SynthGateMatePass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis.\n");
 		log("\n");
+		log("    -scopename\n");
+		log("        create 'scopename' attributes when flattening the netlist.\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use CC_BRAM_20K or CC_BRAM_40K cells in output netlist.\n");
 		log("\n");
@@ -94,7 +97,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf, abc_new;
+	bool noflatten, scopename, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf, abc_new;
 
 	void clear_flags() override
 	{
@@ -102,6 +105,7 @@ struct SynthGateMatePass : public ScriptPass
 		vlog_file = "";
 		json_file = "";
 		noflatten = false;
+		scopename = false;
 		nobram = false;
 		noaddf = false;
 		nomult = false;
@@ -145,6 +149,10 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			if (args[argidx] == "-noflatten") {
 				noflatten = true;
+				continue;
+			}
+			if (args[argidx] == "-scopename") {
+				scopename = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -220,7 +228,8 @@ struct SynthGateMatePass : public ScriptPass
 			run("proc");
 			if (!noflatten) {
 				run("check");
-				run("flatten");
+				std::string flatten_args = scopename ? " -scopename" : "";
+				run("flatten" + flatten_args);
 			}
 			run("tribuf -logic");
 			run("deminout");
