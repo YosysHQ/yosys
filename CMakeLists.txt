@@ -62,6 +62,13 @@ cmake_dependent_option(YOSYS_INSTALL_PYTHON "Install Python extension module" OF
 	YOSYS_WITH_PYTHON OFF)
 set(YOSYS_INSTALL_PYTHON_SITEDIR "" CACHE STRING "Path to Python package installation directory")
 
+# This option is something of a hack to make Python wheels buildable in an environment that has
+# the `Development.Module` component, but not `Development.Embed` (e.g. cibuildwheel). It is only
+# present to be used in the wheel build and is not supported otherwise.
+cmake_dependent_option(YOSYS_BUILD_PYTHON_ONLY "Build only Pyosys components" ON
+	"NOT (YOSYS_INSTALL_DRIVER OR YOSYS_INSTALL_LIBRARY) AND YOSYS_INSTALL_PYTHON" OFF)
+mark_as_advanced(YOSYS_BUILD_PYTHON_ONLY)
+
 # Configure compiler.
 set(CMAKE_EXPORT_COMPILE_COMMANDS YES)
 
@@ -253,9 +260,9 @@ if (tcl_FOUND)
 endif()
 
 if (YOSYS_WITH_PYTHON)
-	find_package(Python3Embed REQUIRED)
-	set_property(GLOBAL PROPERTY _CMAKE_Python3Embed_REQUIRED_VERSION "== ${Python3_VERSION}")
-	set_package_properties(Python3Embed PROPERTIES
+	find_package(Python3Devel REQUIRED)
+	set_property(GLOBAL PROPERTY _CMAKE_Python3Devel_REQUIRED_VERSION "== ${Python3_VERSION}")
+	set_package_properties(Python3Devel PROPERTIES
 		URL "https://www.python.org/"
 		DESCRIPTION "Dynamic programming language (Embedding)"
 		PURPOSE "Binding Yosys API"
@@ -288,7 +295,7 @@ condition(YOSYS_ENABLE_LIBFFI Dlfcn_FOUND AND libffi_FOUND AND NOT YOSYS_WITHOUT
 condition(YOSYS_ENABLE_READLINE readline_FOUND AND NOT YOSYS_WITHOUT_READLINE)
 condition(YOSYS_ENABLE_EDITLINE editline_FOUND AND NOT YOSYS_WITHOUT_EDITLINE AND NOT YOSYS_ENABLE_READLINE)
 condition(YOSYS_ENABLE_TCL tcl_FOUND AND libtommath_FOUND AND NOT YOSYS_WITHOUT_TCL)
-condition(YOSYS_ENABLE_PYTHON Python3Embed_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
+condition(YOSYS_ENABLE_PYTHON Python3Devel_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
 condition(YOSYS_ENABLE_VERIFIC YOSYS_VERIFIC_DIR AND zlib_FOUND)
 
 # Describe dependencies and features
@@ -391,46 +398,52 @@ endif()
 
 # Compute a transitive closure of enabled components.
 yosys_expand_components(library_components essentials ${YOSYS_COMPONENTS})
-yosys_expand_components(driver_components driver ${YOSYS_COMPONENTS})
+if (NOT YOSYS_BUILD_PYTHON_ONLY)
+	yosys_expand_components(driver_components driver ${YOSYS_COMPONENTS})
+endif()
 
 # Main Yosys executable (compiler driver).
-yosys_cxx_executable(yosys
-	OUTPUT_NAME yosys
-	INSTALL_IF ${YOSYS_INSTALL_DRIVER}
-)
-yosys_link_components(yosys PRIVATE ${driver_components})
-set_property(TARGET yosys PROPERTY ENABLE_EXPORTS ON)
-if (MINGW)
-	target_link_options(yosys PRIVATE LINKER:--export-all-symbols)
-	set_target_properties(yosys PROPERTIES
-		# Final name: `yosys.exe.a` (linked to explicitly)
-		IMPORT_PREFIX ""
-		IMPORT_SUFFIX ".exe.a"
+if (NOT YOSYS_BUILD_PYTHON_ONLY)
+	yosys_cxx_executable(yosys
+		OUTPUT_NAME yosys
+		INSTALL_IF ${YOSYS_INSTALL_DRIVER}
 	)
-	if (YOSYS_INSTALL_DRIVER)
-		install(FILES ${CMAKE_BINARY_DIR}/yosys.exe.a DESTINATION ${YOSYS_INSTALL_LIBDIR})
+	yosys_link_components(yosys PRIVATE ${driver_components})
+	set_property(TARGET yosys PROPERTY ENABLE_EXPORTS ON)
+	if (MINGW)
+		target_link_options(yosys PRIVATE LINKER:--export-all-symbols)
+		set_target_properties(yosys PROPERTIES
+			# Final name: `yosys.exe.a` (linked to explicitly)
+			IMPORT_PREFIX ""
+			IMPORT_SUFFIX ".exe.a"
+		)
+		if (YOSYS_INSTALL_DRIVER)
+			install(FILES ${CMAKE_BINARY_DIR}/yosys.exe.a DESTINATION ${YOSYS_INSTALL_LIBDIR})
+		endif()
 	endif()
-endif()
 
-target_compile_options(yosys PRIVATE -fsanitize=undefined)
+	target_compile_options(yosys PRIVATE -fsanitize=undefined)
+endif()
 
 # Yosys components as a library.
-if (BUILD_SHARED_LIBS)
-	set(libyosys_type SHARED)
-else()
-	set(libyosys_type STATIC)
-endif()
-yosys_cxx_library(libyosys ${libyosys_type}
-	OUTPUT_NAME libyosys
-	INSTALL_IF ${YOSYS_INSTALL_LIBRARY}
-)
-yosys_link_components(libyosys PRIVATE ${library_components})
-add_library(Yosys::libyosys ALIAS libyosys)
-if (MINGW)
-	set_target_properties(libyosys PROPERTIES
-		# Final name: `libyosys.dll.a` (linked to via `-lyosys`)
-		IMPORT_PREFIX ""
+if (NOT YOSYS_BUILD_PYTHON_ONLY)
+	if (BUILD_SHARED_LIBS)
+		set(libyosys_type SHARED)
+	else()
+		set(libyosys_type STATIC)
+	endif()
+	yosys_cxx_library(libyosys ${libyosys_type}
+		OUTPUT_NAME libyosys
+		INSTALL_IF ${YOSYS_INSTALL_LIBRARY}
 	)
+	yosys_link_components(libyosys PRIVATE ${library_components})
+	add_library(Yosys::libyosys ALIAS libyosys)
+	if (MINGW)
+		set_target_properties(libyosys PROPERTIES
+			# Final name: `libyosys.dll.a` (linked to via `-lyosys`)
+			IMPORT_PREFIX ""
+		)
+	endif()
 endif()
 
 # Yosys data files (mainly headers and technological libraries).
@@ -500,37 +513,39 @@ set(makefile_depends
 	$<$<TARGET_EXISTS:yosys-witness>:yosys-witness>
 )
 
-# Tests.
-add_subdirectory(tests/unit)
+if (NOT YOSYS_BUILD_PYTHON_ONLY)
+	# Tests.
+	add_subdirectory(tests/unit)
 
-add_custom_target(test-unit
-    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir tests/unit --output-on-failure
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-)
-
-add_custom_target(test-vanilla
-	COMMAND make vanilla-test ${makefile_vars}
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
-	DEPENDS ${makefile_depends}
-)
-
-add_custom_target(test
-    DEPENDS test-unit test-vanilla
-)
-
-# Docs.
-add_custom_target(docs-prepare
-	COMMAND make gen ${makefile_vars}
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
-	DEPENDS ${makefile_depends}
-)
-foreach (format html latexpdf)
-	add_custom_target(docs-${format}
-		COMMAND make ${format}
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
-		DEPENDS docs-prepare
+	add_custom_target(test-unit
+		COMMAND ${CMAKE_CTEST_COMMAND} --test-dir tests/unit --output-on-failure
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 	)
-endforeach()
+
+	add_custom_target(test-vanilla
+		COMMAND make vanilla-test ${makefile_vars}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
+		DEPENDS ${makefile_depends}
+	)
+
+	add_custom_target(test
+		DEPENDS test-unit test-vanilla
+	)
+
+	# Docs.
+	add_custom_target(docs-prepare
+		COMMAND make gen ${makefile_vars}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
+		DEPENDS ${makefile_depends}
+	)
+	foreach (format html latexpdf)
+		add_custom_target(docs-${format}
+			COMMAND make ${format}
+			WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
+			DEPENDS docs-prepare
+		)
+	endforeach()
+endif()
 
 # Utilities.
 add_custom_target(print-version

@@ -39,12 +39,15 @@ def compile_pyosys(cmake_options=[], parallel=os.cpu_count() or 1):
 			"cmake",
 			"-S", ".",
 			"-B", build_dir,
+			"-DCMAKE_BUILD_TYPE=Release",
+			f"-DPython3_EXECUTABLE={sys.executable}",
 			"-DYOSYS_WITH_PYTHON=ON",
 			"-DYOSYS_INSTALL_DRIVER=OFF",
 			"-DYOSYS_INSTALL_LIBRARY=OFF",
 			"-DYOSYS_INSTALL_PYTHON=ON",
 			f"-DCMAKE_INSTALL_PREFIX={install_dir.name}",
 			f"-DYOSYS_INSTALL_PYTHON_SITEDIR=python",
+			"-DYOSYS_BUILD_PYTHON_ONLY=ON",
 			*cmake_options,
 		])
 		subprocess.check_call([

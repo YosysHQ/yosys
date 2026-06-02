@@ -115,7 +115,7 @@ yosys_pass(plugin
 		${pybind11_INCLUDE_DIR}
 	LIBRARIES
 		$<${YOSYS_ENABLE_PLUGINS}:${Dlfcn_LIBRARIES}>
-		$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+		$<${YOSYS_ENABLE_PYTHON}:Python3::Module>
 	ESSENTIAL
 )
 yosys_pass(check

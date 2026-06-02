@@ -96,7 +96,7 @@ yosys_core(kernel
 		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
 		$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
 		$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
-		$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+		$<${YOSYS_ENABLE_PYTHON}:Python3::Module>
 	REQUIRES
 		bigint
 		ezsat
@@ -172,16 +172,18 @@ yosys_core(fstdata
 		fstdata.h
 )
 
-yosys_core(driver
-	driver.cc
-	INCLUDE_DIRS
-		${pybind11_INCLUDE_DIR}
-	LIBRARIES
-		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
-		$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
-		$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
-		$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
-	REQUIRES
-		essentials
-	BOOTSTRAP
-)
+if (NOT YOSYS_BUILD_PYTHON_ONLY)
+	yosys_core(driver
+		driver.cc
+		INCLUDE_DIRS
+			${pybind11_INCLUDE_DIR}
+		LIBRARIES
+			$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
+			$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
+			$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
+			$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+		REQUIRES
+			essentials
+		BOOTSTRAP
+	)
+endif()

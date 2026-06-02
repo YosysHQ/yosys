@@ -4,8 +4,10 @@
 # whether the host interpreter has the necessary dependencies first, and if it
 # does not, fall back to using `uv`.
 
-foreach (strategy host uv fail)
-	if (strategy STREQUAL "host")
+foreach (strategy virtualenv host uv fail)
+	if (strategy STREQUAL "virtualenv")
+		set(PyosysEnv_PYTHON $ENV{VIRTUAL_ENV}/bin/python)
+	elseif (strategy STREQUAL "host")
 		set(PyosysEnv_PYTHON ${Python3_EXECUTABLE})
 	elseif (strategy STREQUAL "uv")
 		set(PyosysEnv_PYTHON uv run --no-project --with pybind11>3,<4 --with cxxheaderparser python)
