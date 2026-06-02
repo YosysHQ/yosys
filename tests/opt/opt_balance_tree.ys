@@ -42,6 +42,144 @@ log -pop
 
 
 
+# Test 31
+log -header "Sliced shifted ADD chain"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  input  wire [15:0] d,
+  input  wire [15:0] e,
+  output wire [63:0] y
+);
+  wire [16:0] s0;
+  wire [31:0] s1;
+  wire [47:0] s2;
+
+  // s0 is later embedded into a wider operand with b[13:0] below it.
+  // The sliced-add matcher should still flatten and rebalance the whole chain.
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(17), .A_SIGNED(0), .B_SIGNED(0))
+    add0 (.A(a), .B({14'b0, b[15:14]}), .Y(s0));
+  \$add #(.A_WIDTH(31), .B_WIDTH(31), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add1 (.A({s0, b[13:0]}), .B({15'b0, c}), .Y(s1));
+  \$add #(.A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(48), .A_SIGNED(0), .B_SIGNED(0))
+    add2 (.A(s1), .B({16'b0, d}), .Y(s2));
+  \$add #(.A_WIDTH(48), .B_WIDTH(48), .Y_WIDTH(64), .A_SIGNED(0), .B_SIGNED(0))
+    add3 (.A(s2), .B({32'b0, e}), .Y(y));
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 0 c:add0 c:add1 c:add2 c:add3
+select -assert-count 1 c:add3_tree_3
+design -reset
+log -pop
+
+
+
+# Test 32
+log -header "Sliced shifted ADD chain with external intermediate fanout"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  output wire [31:0] y,
+  output wire [16:0] tap
+);
+  wire [16:0] s0;
+
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(17), .A_SIGNED(0), .B_SIGNED(0))
+    add0 (.A(a), .B({14'b0, b[15:14]}), .Y(s0));
+  \$add #(.A_WIDTH(31), .B_WIDTH(31), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add1 (.A({s0, b[13:0]}), .B({15'b0, c}), .Y(y));
+
+  assign tap = s0;
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 1 c:add0
+design -reset
+log -pop
+
+
+
+# Test 33
+log -header "Signed sliced ADD chain is skipped"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire signed [15:0] a,
+  input  wire signed [15:0] b,
+  input  wire signed [15:0] c,
+  output wire signed [31:0] y
+);
+  wire signed [16:0] s0;
+
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(17), .A_SIGNED(1), .B_SIGNED(1))
+    add0 (.A(a), .B({14'b0, b[15:14]}), .Y(s0));
+  \$add #(.A_WIDTH(31), .B_WIDTH(31), .Y_WIDTH(32), .A_SIGNED(1), .B_SIGNED(1))
+    add1 (.A({s0, b[13:0]}), .B({15'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 1 c:add0
+design -reset
+log -pop
+
+
+
+# Test 34
+log -header "High-slice-only ADD dependency is skipped"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire [15:0] a,
+  input  wire [15:0] b,
+  input  wire [15:0] c,
+  output wire [31:0] y
+);
+  wire [16:0] s0;
+
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(17), .A_SIGNED(0), .B_SIGNED(0))
+    add0 (.A(a), .B({14'b0, b[15:14]}), .Y(s0));
+  \$add #(.A_WIDTH(30), .B_WIDTH(30), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add1 (.A({s0[16:1], b[13:0]}), .B({14'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 1 c:add0
+design -reset
+log -pop
+
+
+
 # Test 2
 log -header "AND chain with intermediate outputs"
 log -push
