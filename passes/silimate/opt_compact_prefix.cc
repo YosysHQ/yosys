@@ -464,7 +464,7 @@ struct OptCompactPrefixPass : public Pass
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-max_width" && argidx + 1 < args.size()) {
-				max_width = std::stoi(args[++argidx]);
+				max_width = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
