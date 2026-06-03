@@ -6,68 +6,69 @@ design -save pristine
 design -load pristine
 hierarchy -top mul18_pipe
 synth_nexus -family lifcl -top mul18_pipe
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
 select -assert-count 0 t:FD1P3*
 
 # 18x18 MULT (signed)
 design -load pristine
 hierarchy -top mul18_pipe_signed
 synth_nexus -family lifcl -top mul18_pipe_signed
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
 select -assert-count 0 t:FD1P3*
 
 # 18x18 MULT (input only)
 design -load pristine
 hierarchy -top mul18_pipe_in_only
 synth_nexus -family lifcl -top mul18_pipe_in_only
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=BYPASS
 select -assert-count 0 t:FD1P3*
 
 # 18x18 MULT (output only)
 design -load pristine
 hierarchy -top mul18_pipe_out_only
 synth_nexus -family lifcl -top mul18_pipe_out_only
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=BYPASS r:REGINPUTB=BYPASS r:REGOUTPUT=REGISTER
 select -assert-count 0 t:FD1P3*
 
 # 18x18 MULT (reset)
 design -load pristine
 hierarchy -top mul18_pipe_io_rst
 synth_nexus -family lifcl -top mul18_pipe_io_rst
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
 select -assert-count 0 t:FD1P3*
 
 # 24x24 MUL -> pipelined 36X36 MULT
 design -load pristine
 hierarchy -top mul24_io
 synth_nexus -family lifcl -top mul24_io
-select -assert-count 1 t:MULT36X36
+select -assert-count 1 t:MULT36X36 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
 select -assert-count 0 t:FD1P3*
 
 # 32x32 MUL -> pipelined 36X36 MULT
 design -load pristine
 hierarchy -top mul32_io
 synth_nexus -family lifcl -top mul32_io
-select -assert-count 1 t:MULT36X36
+select -assert-count 1 t:MULT36X36 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
 select -assert-count 0 t:FD1P3*
 
+# reject
 # DSP reg is rising-edge
 design -load pristine
 hierarchy -top mul18_negedge
 synth_nexus -family lifcl -top mul18_negedge
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=BYPASS r:REGINPUTB=BYPASS r:REGOUTPUT=BYPASS
 select -assert-min 1 t:FD1P3*
 
 # DSP reg only resets to 0
 design -load pristine
 hierarchy -top mul18_rst_nonzero
 synth_nexus -family lifcl -top mul18_rst_nonzero
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=BYPASS r:REGINPUTB=BYPASS r:REGOUTPUT=BYPASS
 select -assert-min 1 t:FD1P3*
 
 # two clocks feeding input regs -> can't share one CLK pin
 design -load pristine
 hierarchy -top mul18_two_clock
 synth_nexus -family lifcl -top mul18_two_clock
-select -assert-count 1 t:MULT18X18
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=BYPASS r:REGINPUTB=BYPASS
 select -assert-min 1 t:FD1P3*
