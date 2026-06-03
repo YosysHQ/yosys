@@ -1,57 +1,84 @@
-module \$__NX_MUL36X36 (input [35:0] A, input [35:0] B, output [71:0] Y);
+module \$__NX_MUL36X36 (input [35:0] A, input [35:0] B, input CLK, input CEA, RSTA, CEB, RSTB, CEOUT, RSTOUT, output [71:0] Y);
 
 	parameter A_WIDTH = 36;
 	parameter B_WIDTH = 36;
 	parameter Y_WIDTH = 72;
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
+	parameter REGINPUTA = "BYPASS";
+	parameter REGINPUTB = "BYPASS";
+	parameter REGOUTPUT = "BYPASS";
+	parameter RESETMODE = "SYNC";
 
 	MULT36X36 #(
-		.REGINPUTA("BYPASS"),
-		.REGINPUTB("BYPASS"),
-		.REGOUTPUT("BYPASS")
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGOUTPUT(REGOUTPUT),
+		.RESETMODE(RESETMODE)
 	) _TECHMAP_REPLACE_ (
 		.A(A), .B(B),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.CEOUT(CEOUT), .RSTOUT(RSTOUT),
 		.SIGNEDA(A_SIGNED ? 1'b1 : 1'b0),
 		.SIGNEDB(B_SIGNED ? 1'b1 : 1'b0),
 		.Z(Y)
 	);
 endmodule
 
-module \$__NX_MUL36X18 (input [35:0] A, input [17:0] B, output [53:0] Y);
+module \$__NX_MUL36X18 (input [35:0] A, input [17:0] B, input CLK, input CEA, RSTA, CEB, RSTB, CEOUT, RSTOUT, output [53:0] Y);
 
 	parameter A_WIDTH = 36;
 	parameter B_WIDTH = 18;
 	parameter Y_WIDTH = 54;
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
+	parameter REGINPUTA = "BYPASS";
+	parameter REGINPUTB = "BYPASS";
+	parameter REGOUTPUT = "BYPASS";
+	parameter RESETMODE = "SYNC";
 
 	MULT18X36 #(
-		.REGINPUTA("BYPASS"),
-		.REGINPUTB("BYPASS"),
-		.REGOUTPUT("BYPASS")
+		.REGINPUTA(REGINPUTB),
+		.REGINPUTB(REGINPUTA),
+		.REGOUTPUT(REGOUTPUT),
+		.RESETMODE(RESETMODE)
 	) _TECHMAP_REPLACE_ (
 		.A(B), .B(A),
+		.CLK(CLK),
+		.CEA(CEB), .RSTA(RSTB),
+		.CEB(CEA), .RSTB(RSTA),
+		.CEOUT(CEOUT), .RSTOUT(RSTOUT),
 		.SIGNEDA(B_SIGNED ? 1'b1 : 1'b0),
 		.SIGNEDB(A_SIGNED ? 1'b1 : 1'b0),
 		.Z(Y)
 	);
 endmodule
 
-module \$__NX_MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
+module \$__NX_MUL18X18 (input [17:0] A, input [17:0] B, input CLK, input CEA, RSTA, CEB, RSTB, CEOUT, RSTOUT, output [35:0] Y);
 
 	parameter A_WIDTH = 18;
 	parameter B_WIDTH = 18;
 	parameter Y_WIDTH = 36;
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
+	parameter REGINPUTA = "BYPASS";
+	parameter REGINPUTB = "BYPASS";
+	parameter REGOUTPUT = "BYPASS";
+	parameter RESETMODE = "SYNC";
 
 	MULT18X18 #(
-		.REGINPUTA("BYPASS"),
-		.REGINPUTB("BYPASS"),
-		.REGOUTPUT("BYPASS")
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGOUTPUT(REGOUTPUT),
+		.RESETMODE(RESETMODE)
 	) _TECHMAP_REPLACE_ (
 		.A(A), .B(B),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.CEOUT(CEOUT), .RSTOUT(RSTOUT),
 		.SIGNEDA(A_SIGNED ? 1'b1 : 1'b0),
 		.SIGNEDB(B_SIGNED ? 1'b1 : 1'b0),
 		.Z(Y)
