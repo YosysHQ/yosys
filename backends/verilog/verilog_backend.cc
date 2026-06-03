@@ -38,7 +38,7 @@ USING_YOSYS_NAMESPACE
 
 using namespace VERILOG_BACKEND;
 
-const pool<string> VERILOG_BACKEND::verilog_keywords() {
+const pool<string> &VERILOG_BACKEND::verilog_keywords() {
 	static const pool<string> res = {
 		// IEEE 1800-2017 Annex B
 		"accept_on", "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before",
