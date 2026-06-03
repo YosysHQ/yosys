@@ -161,6 +161,41 @@ if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSIO
 	message(WARNING "MinGW GCC is supported starting with version 16.0.0")
 endif()
 
+if (APPLE)
+	find_program(HOMEBREW_EXECUTABLE brew)
+	if (HOMEBREW_EXECUTABLE)
+		# Tool prefixes: prepend bin/ to PATH for keg-only build tools.
+		foreach (_pkg bison flex gettext)
+			execute_process(
+				COMMAND ${HOMEBREW_EXECUTABLE} --prefix ${_pkg}
+				OUTPUT_VARIABLE _prefix
+				OUTPUT_STRIP_TRAILING_WHITESPACE
+				RESULT_VARIABLE _rc
+				ERROR_QUIET
+			)
+			if (_rc EQUAL 0 AND IS_DIRECTORY "${_prefix}/bin")
+				set(ENV{PATH} "${_prefix}/bin:$ENV{PATH}")
+			endif()
+		endforeach()
+		# Library prefixes: prepend lib/pkgconfig/ to PKG_CONFIG_PATH.
+		foreach (_pkg libffi tcl-tk readline libedit)
+			execute_process(
+				COMMAND ${HOMEBREW_EXECUTABLE} --prefix ${_pkg}
+				OUTPUT_VARIABLE _prefix
+				OUTPUT_STRIP_TRAILING_WHITESPACE
+				RESULT_VARIABLE _rc
+				ERROR_QUIET
+			)
+			if (_rc EQUAL 0 AND IS_DIRECTORY "${_prefix}/lib/pkgconfig")
+				set(ENV{PKG_CONFIG_PATH} "${_prefix}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+			endif()
+		endforeach()
+		unset(_pkg)
+		unset(_prefix)
+		unset(_rc)
+	endif()
+endif()
+
 # Required dependencies.
 find_package(FLEX)
 set_package_properties(FLEX PROPERTIES
