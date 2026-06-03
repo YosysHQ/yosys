@@ -265,15 +265,15 @@ extract:
 
 	@mkdir -p source/generated/functional
 	@cp ../backends/functional/smtlib.cc source/generated/functional/
-	-@cd .. && diff -U 20 backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc \
+	@cd .. && diff -U 20 backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc \
 		> docs/source/generated/functional/rosette.diff || true
 
-	@$(YOSYS) --help >source/generated/yosys
+	$(YOSYS) --help | sed "s%$(BUILD_DIR)/yosys%yosys%g" - >source/generated/yosys
 	@$(YOSYS_SMTBMC) --help >source/generated/yosys-smtbmc
 	@$(YOSYS_WITNESS) --help >source/generated/yosys-witness
-	@$(YOSYS_CONFIG) --help >source/generated/yosys-config
+	@$(YOSYS_CONFIG) --help | sed "s%$(BUILD_DIR)/yosys-config%yosys-config%g" - >source/generated/yosys-config
 	@$(YOSYS_FILTERLIB) --help 2>source/generated/yosys-filterlib || true
-	@$(ABC) --help 2>source/generated/yosys-abc > /dev/null || true
+	@$(ABC) --help 2>&1 >/dev/null | sed "s%$(BUILD_DIR)/yosys-abc%yosys-abc%g" - >source/generated/yosys-abc
 
 .PHONY: gen
 gen:
