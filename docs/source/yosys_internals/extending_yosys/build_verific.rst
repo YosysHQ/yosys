@@ -64,12 +64,6 @@ edif           edif        EDIF support
 liberty        synlib      Liberty file support
 ============== =========== ===================================
 
-.. TODO:: CMAKE_TODO
-
-   ``yosys-config --cxxflags`` no longer includes the verific features, and the
-   CMakeCache.txt doesn't report auto detected :makevar:`YOSYS_VERIFIC_FEATURES`
-   - can we export these somehow?
-
 .. note::
 
    The YosysHQ specific extensions are only available with the TabbyCAD suite.

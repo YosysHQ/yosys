@@ -56,7 +56,7 @@ function(yosys_check_abc_submodule)
 	else() #
 		message(FATAL_ERROR
 			"${CMAKE_SOURCE_DIR} is not configured as a git repository, and 'abc' folder is missing.\n"
-			"If you already have ABC, set 'YOSYS_ABC_EXECUTABLE' make variable to point to ABC executable.\n"
+			"If you already have ABC, set 'YOSYS_ABC_EXECUTABLE' CMake variable to point to ABC executable.\n"
 			"Otherwise, download release archive 'yosys.tar.gz' from https://github.com/YosysHQ/yosys/releases.\n"
 			"    ('Source code' archive does not contain submodules.)\n"
 		)

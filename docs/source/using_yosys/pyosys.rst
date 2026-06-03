@@ -18,7 +18,7 @@ custom passes written in C++.
 
 .. note::
 
-   It is recommended to install ``uv`` for managing python environments:
+   It is recommended to install :program:`uv` for managing python environments:
 
    .. code:: console
 
@@ -30,10 +30,6 @@ Getting Pyosys
 Pyosys supports CPython 3.8 or higher. You can access Pyosys using one of two
 methods:
 
-.. TODO:: CMAKE_TODO
-
-   may still be pending further changes
-
 1. Compiling Yosys with the CMake flag ``-DYOSYS_WITH_PYTHON=ON``
 
    This adds the flag ``-y`` to the Yosys binary, which allows you to execute
@@ -42,9 +38,9 @@ methods:
    ``yosys -y ./my_pyosys_script.py``
 
    Do note this requires some build-time dependencies to be available to Python,
-   namely, ``pybind11`` and ``cxxheaderparser``. If available, ``uv`` will be
-   used to create an ephemeral environment with the correct versions of the
-   tools installed.
+   namely, ``pybind11`` and ``cxxheaderparser``. :program:`uv` may be used to
+   create an ephemeral environment with the correct versions of the tools
+   installed if the current python environment doesn't provide them.
 
 2. Installing the Pyosys wheels
 

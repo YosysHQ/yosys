@@ -102,26 +102,28 @@ Once generated, available build variables can be inspected and modified with
 	$ ccmake build              #..or..
 	$ vi build/CMakeCache.txt
 
-When setting one-off variables, CMake provides the `-D <var>=<value>` command line
-option. For example, disabling zlib support:
+When setting one-off variables, CMake provides the `-D <var>=<value>` command
+line option. For example, disabling zlib support:
 
 	$ cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
 
 For a more persistent configuration, we recommend creating and using a
-`CMakeUserPresets.json` file. Below is an example file which sets the default
-compiler to clang when calling `cmake --preset clang`:
+`CMakeUserPresets.json` file in the root `yosys` directory. Below is an example
+file which enables ccache and sets the default compiler to clang when calling
+`cmake --preset clang`:
 
 ```json
 {
 	"version": 1,
 	"configurePresets": [
 		{
-			"name": "clang",
+			"name": "default",
 			"binaryDir": "build",
 			"generator": "Unix Makefiles",
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "clang",
-				"CMAKE_CXX_COMPILER": "clang++"
+				"CMAKE_CXX_COMPILER": "clang++",
+				"YOSYS_COMPILER_LAUNCHER": "ccache"
 			}
 		}
 	]

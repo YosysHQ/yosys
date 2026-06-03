@@ -67,7 +67,7 @@ clone these submodules at the same time, use e.g.:
 
    As of Yosys v0.47, releases include a ``yosys.tar.gz`` file which includes
    all source code and all sub-modules in a single archive.  This can be used as
-   an alternative which does not rely on ``git``.
+   an alternative which does not rely on :program:`git`.
 
 Supported platforms
 ^^^^^^^^^^^^^^^^^^^
@@ -122,22 +122,15 @@ Installing all prerequisites:
 
    .. code:: console
 
-      sudo port install bison flex readline gawk libffi graphviz \
+      sudo port install bison cmake flex readline gawk libffi graphviz \
          pkgconfig python311 zlib tcl
 
 .. tab:: FreeBSD
 
    .. code:: console
 
-      pkg install bison flex readline gawk libffi graphviz \
+      pkg install bison cmake-core flex readline gawk libffi graphviz \
          pkgconf python311 tcl-wrapper
-
-   .. note:: On FreeBSD system use gmake instead of make. To run tests use:
-      ``MAKE=gmake CXX=cxx CC=cc gmake test``
-
-   .. TODO:: CMAKE_TODO
-
-      Is this still required, and (how) does it work with CMake
 
 .. tab:: Cygwin
 
@@ -190,32 +183,35 @@ influence the build process.  When setting one-off variables, CMake provides the
 
 .. warning::
 
-   Yosys does not support in-tree builds. If calling ``cmake`` from the root
-   ``yosys`` directory the ``-B`` option must be provided.
+   Yosys does not support in-tree builds. If calling :program:`cmake` from the
+   root ``yosys`` directory the ``-B`` option must be provided.
 
 For a more persistent configuration, we recommend creating and using a
-``CMakeUserPresets.json`` file. Below is an example file which sets the default
-compiler to clang when calling ``cmake --preset clang``:
+``CMakeUserPresets.json`` file in the root ``yosys`` directory. Below is an
+example file which enables ccache and sets the default compiler to clang when
+calling ``cmake --preset default``:
 
-.. code:: json
+.. code-block:: json
+   :caption: CMakeUserPresets.json
 
    {
       "version": 1,
       "configurePresets": [
          {
-            "name": "clang",
+            "name": "default",
             "binaryDir": "build",
             "generator": "Unix Makefiles",
             "cacheVariables": {
                "CMAKE_C_COMPILER": "clang",
-               "CMAKE_CXX_COMPILER": "clang++"
+               "CMAKE_CXX_COMPILER": "clang++",
+               "YOSYS_COMPILER_LAUNCHER": "ccache"
             }
          }
       ]
    }
 
 Once generated, available build variables can be inspected and modified with
-``ccmake`` or opening the generated ``build/CMakeCache.txt`` file:
+:program:`ccmake` or opening the generated ``build/CMakeCache.txt`` file:
 
 .. code:: console
 
@@ -233,7 +229,7 @@ from homebrew rather than clang from xcode.  For example:
       -DCMAKE_C_COMPILER=$(brew --prefix)/opt/llvm/bin/clang \
       -DCMAKE_CXX_COMPILER=$(brew --prefix)/opt/llvm/bin/clang++
 
-By default, building (and installing) yosys will build (and install) `ABC`_,
+By default, building (and installing) Yosys will build (and install) `ABC`_,
 using :program:`yosys-abc` as the executable name.  To use an existing ABC
 executable instead, set the :makevar:`YOSYS_ABC_EXECUTABLE` CMake variable to
 point to the desired executable.
@@ -329,11 +325,9 @@ directories:
    - if using a sub folder, add it to the parent's ``CMakeLists.txt`` with
      ``add_subdirectory(<name>)``
 
-   The top-level Makefile includes :file:`frontends/{*}/Makefile.inc`,
-   :file:`passes/{*}/Makefile.inc` and :file:`backends/{*}/Makefile.inc`. So when
-   extending Yosys it is enough to create a new directory in :file:`frontends/`,
-   :file:`passes/` or :file:`backends/` with your sources and a
-   :file:`Makefile.inc`. The Yosys kernel automatically detects all commands linked
+   - previous:
+
+   The Yosys kernel automatically detects all commands linked
    with Yosys. So it is not needed to add additional commands to a central list of
    commands.
 

@@ -28,11 +28,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-
-#if !defined(__wasm)
 #include <filesystem>
-namespace fs = std::filesystem;
-#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -777,10 +773,9 @@ struct HelpPass : public Pass {
 		bool raise_error = false;
 		std::map<string, vector<string>> groups;
 
-#if !defined(__wasm)
-		auto this_path = fs::path(source_location::current().file_name());
+		// get root path
+		auto this_path = std::filesystem::path(source_location::current().file_name());
 		auto source_root = this_path.parent_path().parent_path();
-#endif
 
 		json.name("cmds"); json.begin_object();
 		// iterate over commands
@@ -922,19 +917,18 @@ struct HelpPass : public Pass {
 				}
 			}
 
+			// fix path
 			string source_file = pass->location.file_name();
 			bool has_source = source_file.compare("unknown") != 0;
-#if !defined(__wasm)
-			// fix path 
-			fs::path source_path;
+			std::filesystem::path source_path;
 			auto no_source_group = false;
 			if (has_source) {
-				source_path = fs::path(pass->location.file_name());
+				source_path = std::filesystem::path(pass->location.file_name());
 				if (source_path.is_absolute()) {
 					// using proximate instead of relative means that we
 					// still get the source path if they aren't relative
-					auto proximate_path = fs::proximate(source_path, source_root);
-					if (proximate_path == fs::weakly_canonical(proximate_path))
+					auto proximate_path = std::filesystem::proximate(source_path, source_root);
+					if (proximate_path == std::filesystem::weakly_canonical(proximate_path))
 						// we're only interested if it's a subpath of our root dir
 						source_path = proximate_path;
 					else
@@ -943,7 +937,6 @@ struct HelpPass : public Pass {
 				}
 				source_file = source_path.string();
 			}
-#endif
 
 			// attempt auto group
 			if (!cmd_help.has_group()) {
@@ -954,16 +947,8 @@ struct HelpPass : public Pass {
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
 				else if (has_source) {
-#if !defined(__wasm)
 					if (source_path.has_parent_path() && !no_source_group)
 						cmd_help.group = source_path.parent_path();
-#else
-					auto last_slash = source_file.find_last_of('/');
-					if (last_slash != string::npos) {
-						auto parent_path = source_file.substr(0, last_slash);
-						cmd_help.group = parent_path;
-					}
-#endif
 				}
 				// implicit !has_source
 				else if (name.find("equiv") == 0)
