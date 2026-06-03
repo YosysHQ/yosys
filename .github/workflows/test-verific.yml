@@ -55,18 +55,19 @@ jobs:
 
       - name: Build Yosys
         run: |
-          make config-gcov
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_FUNCTIONAL_TESTS := 1" >> Makefile.conf
-          make -j$procs ENABLE_LTO=1
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_ENABLE_COVERAGE ON CACHE BOOL "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+
+          cmake -C Configuration.cmake -B build . -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/.local -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j$procs
 
       - name: Install Yosys
         run: |
-          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+          cmake --build build --target install
 
       - name: Checkout SBY
         uses: actions/checkout@v4
@@ -81,7 +82,7 @@ jobs:
 
       - name: Run Yosys tests
         run: |
-          make -j$procs vanilla-test
+          make -C tests -j$procs vanilla-test
 
       - name: Run Verific specific Yosys tests
         run: |
@@ -96,8 +97,8 @@ jobs:
       - name: Run coverage
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
-          make coverage
-          make clean_coverage
+          make -C tests coverage
+          make -C tests clean_coverage
 
       - name: Push coverage
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
@@ -138,19 +139,20 @@ jobs:
 
       - name: Build pyosys
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_PYOSYS := 1" >> Makefile.conf
-          echo "PYTHON_DESTDIR := /usr/lib/python3/site-packages" >> Makefile.conf
-          make -j$procs
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_WITH_PYTHON ON CACHE BOOL "")' >> Configuration.cmake
+          echo 'set(YOSYS_INSTALL_PYTHON ON CACHE BOOL "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build . \
+                -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/.local \
+                -DYOSYS_INSTALL_PYTHON_SITEDIR=$GITHUB_WORKSPACE/.local/usr/lib/python3/site-packages
+          cmake --build build -j$procs
 
       - name: Install pyosys
         run: |
-          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+          cmake --build build --target install
 
       - name: Run pyosys tests
         run: |

@@ -48,6 +48,7 @@ typedef ULONG ULONG_PTR;
 
 #ifdef _MSC_VER
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
+extern "C" void * _ReturnAddress(void);
 #pragma intrinsic( _ReturnAddress )
 #else
 /* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */

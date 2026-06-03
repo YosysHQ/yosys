@@ -60,7 +60,7 @@ void try_collect_garbage()
 	RTLIL::OwningIdString::collect_garbage();
 }
 
-Pass::Pass(std::string name, std::string short_help, source_location location) : 
+Pass::Pass(std::string name, std::string short_help, source_location location) :
 	pass_name(name), short_help(short_help), location(location)
 {
 	next_queued_pass = first_queued_pass;
@@ -217,7 +217,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		return;
 
 	if (tok[0] == '!') {
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 		cmd_buf = command.substr(command.find('!') + 1);
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
@@ -741,8 +741,8 @@ static void log_warning_flags(Pass *pass) {
 static struct CellHelpMessages {
 	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
-#include "techlibs/common/simlib_help.inc"
-#include "techlibs/common/simcells_help.inc"
+#include "kernel/simlib_help.inc"
+#include "kernel/simcells_help.inc"
 		cell_help.sort();
 	}
 	bool contains(string name) { return cell_help.count(get_cell_name(name)) > 0; }

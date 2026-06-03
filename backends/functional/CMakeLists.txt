@@ -1,0 +1,12 @@
+yosys_backend(functional_cxx
+  cxx.cc
+)
+yosys_backend(functional_smt2
+	smtlib.cc
+)
+yosys_backend(functional_rosette
+	smtlib_rosette.cc
+)
+yosys_test_pass(generic
+	test_generic.cc
+)

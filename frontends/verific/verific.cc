@@ -1885,9 +1885,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	pool<Instance*> sva_assumes;
 	pool<Instance*> sva_covers;
 	pool<Instance*> sva_triggers;
-#endif
-
 	pool<RTLIL::Cell*> past_ffs;
+#endif
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
@@ -2849,6 +2848,7 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 {
 	std::set<std::string> top_mod_names;
 	Array *netlists = nullptr;
+	(void)top;
 
 #ifdef VERIFIC_VHDL_SUPPORT
 	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work, 1);

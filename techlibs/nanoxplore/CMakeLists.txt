@@ -1,0 +1,68 @@
+yosys_pass(nx_carry
+	nx_carry.cc
+)
+
+yosys_pass(synth_nanoxplore
+	synth_nanoxplore.cc
+	REQUIRES
+		abc
+		alumacc
+		autoname
+		blackbox
+		check
+		clean
+		deminout
+		dfflegalize
+		flatten
+		fsm
+		hierarchy
+		iopadmap
+		memory
+		memory_libmap
+		memory_map
+		nx_carry
+		opt
+		opt_clean
+		opt_expr
+		opt_merge
+		peepopt
+		proc
+		read_verilog
+		setundef
+		share
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_json
+	DATA_DIR
+		nanoxplore
+	DATA_FILES
+		# Techmap
+		arith_map.v
+		brams_init.vh
+		brams_map.v
+		brams.txt
+		cells_bb.v
+		cells_bb_l.v
+		cells_bb_m.v
+		cells_bb_u.v
+		cells_map.v
+		cells_sim.v
+		cells_sim_l.v
+		cells_sim_m.v
+		cells_sim_u.v
+		cells_wrap.v
+		cells_wrap_l.v
+		cells_wrap_m.v
+		cells_wrap_u.v
+		io_map.v
+		latches_map.v
+		rf_init.vh
+		rf_rams_l.txt
+		rf_rams_m.txt
+		rf_rams_u.txt
+		rf_rams_map_l.v
+		rf_rams_map_m.v
+		rf_rams_map_u.v
+)
