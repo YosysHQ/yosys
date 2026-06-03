@@ -47,7 +47,7 @@ jobs:
           - 'gcc-11'
           # newest, make sure to update maximum standard step to match
           - 'clang-22'
-          - 'gcc-15'
+          - 'gcc-16'
         include:
           # macOS x86
           - os: macos-15-intel
@@ -96,7 +96,7 @@ jobs:
 
       # maximum standard, only on newest compilers
       - name: Build C++26
-        if: ${{ matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-15' }}
+        if: ${{ matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-16' }}
         shell: bash
         run: |
           rm -rf build
