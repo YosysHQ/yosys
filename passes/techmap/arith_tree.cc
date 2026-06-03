@@ -309,21 +309,22 @@ struct ArithTreeWorker {
 					s = module->Not(NEW_ID, s);
 				pool.push_back({s, 0});
 			} else {
-					// Multiplicative operand
-					auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
+				// Multiplicative operand
+				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
 
-					if (!op.negate) {
-						for (auto &pp : pps)
-							pool.push_back(pp);
-						continue;
-					}
-
-					SigSpec neg_a = module->Not(NEW_ID, op.sig);
-					auto neg_pps = CompressorTree::generate_partial_products(module, neg_a, op.factor_b, op.is_signed, op.factor_b_signed, width);
-					for (auto &pp : neg_pps)
+				if (!op.negate) {
+					for (auto &pp : pps)
 						pool.push_back(pp);
-					SigSpec b_ext = CompressorTree::normalize_to_width(op.factor_b, op.factor_b_signed, width);
-					pool.push_back({b_ext, 0});
+					continue;
+				}
+
+				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy);
+				SigSpec p = module->addWire(NEW_ID, width);
+				module->addAdd(NEW_ID, pa, pb, p, false);
+				SigSpec np = module->addWire(NEW_ID, width);
+				module->addNot(NEW_ID, p, np);
+				pool.push_back({np, 0});
+				neg_compensation++;
 			}
 		}
 
@@ -337,8 +338,9 @@ struct ArithTreeWorker {
 	{
 		int width = GetSize(result_y);
 		auto pool = build_operand_pool(operands, width, neg_compensation);
-		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy);
-		auto final_choice = CompressorTree::pick_final_adder(width, opt.final_mode);
+		int final_depth = 0;
+		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy, nullptr, &final_depth);
+		auto final_choice = CompressorTree::pick_final_adder(width, final_depth, opt.final_mode);
 		CompressorTree::emit_final_adder(module, a, b, result_y, final_choice);
 	}
 

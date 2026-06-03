@@ -133,7 +133,7 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
 	return products;
 }
 
-std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSig> operands, int width, Strategy strategy, int *compressor_count) {
+std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSig> operands, int width, Strategy strategy, int *out_compressor_count, int *out_final_depth) {
 	int levels = 0;
 	int fa_count = 0;
 	int c42_count = 0;
@@ -217,15 +217,22 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
 		levels++;
 	}
 
-	if(compressor_count)
-		*compressor_count = fa_count;
-
-	if (operands.size() == 0)
+	if(out_compressor_count)
+		*out_compressor_count = fa_count;
+	if (operands.size() == 0) {
+		if (out_final_depth)
+			*out_final_depth = 0;
 		return {SigSpec(State::S0, width), SigSpec(State::S0, width)};
-	if (operands.size() == 1)
+	}
+	if (operands.size() == 1) {
+		if (out_final_depth)
+			*out_final_depth = operands[0].depth;
 		return {operands[0].sig, SigSpec(State::S0, width)};
+	}
 
 	final_depth = std::max(operands[0].depth, operands[1].depth);
+	if (out_final_depth)
+		*out_final_depth = final_depth;
 	log_assert(operands.size() == 2);
 	log("    CompressorTree::reduce_scheduled: %d levels, %d $fa (%d as 4:2), final depth %d\n", levels, fa_count, c42_count, final_depth);
 	return {operands[0].sig, operands[1].sig};
@@ -320,12 +327,16 @@ Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdd
 	return nullptr;
 }
 
-FinalAdder pick_final_adder(int width, FinalMode mode) {
+FinalAdder pick_final_adder(int width, int final_depth, FinalMode mode) {
 	switch (mode) {
 		case FinalMode::RIPPLE:  return FinalAdder::RIPPLE;
 		case FinalMode::PREFIX:  return FinalAdder::PARALLEL_PREFIX;
 		case FinalMode::AUTO:
-		default:                 return (width < RIPPLE_PREFIX_THRESHOLD) ? FinalAdder::DEFAULT : FinalAdder::PARALLEL_PREFIX;
+		default: {
+			bool wide = width >= RIPPLE_PREFIX_THRESHOLD;
+			bool deep = final_depth >= PREFIX_DEPTH_THRESHOLD;
+			return (wide && deep) ? FinalAdder::PARALLEL_PREFIX : FinalAdder::DEFAULT;
+		}
 	}
 }
 

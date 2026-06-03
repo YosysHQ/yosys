@@ -29,8 +29,9 @@ YOSYS_NAMESPACE_BEGIN
 namespace CompressorTree
 {
 
-// Width threshold below which a ripple is preferred over parallel-prefix
+// Width and depth thresholds below which a ripple is preferred over parallel-prefix
 constexpr int RIPPLE_PREFIX_THRESHOLD = 16;
+constexpr int PREFIX_DEPTH_THRESHOLD = 5;
 
 enum class Strategy {
 	FA_ONLY,   // 3:2 compressors
@@ -80,11 +81,12 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
  * @sigs: Vector of input signals (operands) to be reduced
  * @width: Target bit-width to which all operands will be zero-extended
  * @strategy: Compression strategy to use
- * @compressor_count: Optional pointer to return the number of $fa cells emitted
+ * @out_compressor_count: Optional pointer to return the number of $fa cells emitted
+ * @out_final_depth: Optional pointer to return the final depth of the scheduled tree
  *
  * Return: The final two reduced operands, that are to be fed into an adder
  */
-std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSig> operands, int width, Strategy strategy, int *compressor_count = nullptr);
+std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSig> operands, int width, Strategy strategy, int *out_compressor_count = nullptr, int *out_final_depth = nullptr);
 
 /**
  * emit_kogge_stone() - Emit a Kogge-Stone parallel-prefix adder
@@ -107,7 +109,7 @@ void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y);
  */
 Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdder choice);
 
-FinalAdder pick_final_adder(int width, FinalMode mode);
+FinalAdder pick_final_adder(int width, int final_depth, FinalMode mode);
 
 } // namespace CompressorTree
 

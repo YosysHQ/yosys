@@ -10,10 +10,10 @@ hierarchy -auto-top
 proc
 equiv_opt arith_tree -final auto
 design -load postopt
-select -assert-none t:$add
+select -assert-count 1 t:$add
 select -assert-count 2 t:$fa
-select -assert-min 1 t:$_AND_
-select -assert-min 1 t:$_XOR_
+select -assert-none t:$_AND_
+select -assert-none 1 t:$_XOR_
 design -reset
 
 read_verilog <<EOT
