@@ -76,10 +76,10 @@ or
 	$ git submodule update --init --recursive
 
 A C++ compiler with C++20 support is required as well as some standard tools
-such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.27), Make, and Python (>=3.11).
-Some additional tools: readline, libffi, Tcl and zlib; will be used if available
-but are optional. Graphviz and Xdot are used by the `show` command to display
-schematics.
+such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.27), Make (or other CMake
+generator such as Ninja), and Python (>=3.11). Some additional tools: readline,
+libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
+Xdot are used by the `show` command to display schematics.
 
 For example on Ubuntu Linux 22.04 LTS the following commands will install all
 prerequisites for building yosys:
@@ -96,31 +96,45 @@ CMake is used for build configuration, and requires a separate build directory:
 
 	$ cmake -B build .
 
-Once generated, build variables can be inspected and modified with:
+Once generated, available build variables can be inspected and modified with
+`ccmake` or opening the generated `build/CMakeCache.txt` file:
 
 	$ ccmake build              #..or..
 	$ vi build/CMakeCache.txt
 
-one-off options with
+When setting one-off variables, CMake provides the `-D <var>=<value>` command line
+option. For example, disabling zlib support:
 
-	$ cmake -B build . --fresh \
-		-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+	$ cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
 
-set persistent options with
+For a more persistent configuration, we recommend creating and using a
+`CMakeUserPresets.json` file. Below is an example file which sets the default
+compiler to clang when calling `cmake --preset clang`:
 
-	$ vi Configuration.cmake     # ..then..
-	$ cmake -C Configuration.cmake -B build . --fresh
+```json
+{
+	"version": 1,
+	"configurePresets": [
+		{
+			"name": "clang",
+			"binaryDir": "build",
+			"generator": "Unix Makefiles",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++"
+			}
+		}
+	]
+}
+```
 
-e.g.
+Once generated, the build system can be run as follows:
 
-	set(CMAKE_C_COMPILER clang CACHE STRING "")
-	set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")
+	$ cmake --build build       #..or..
+	$ cd build
+	$ cmake --build .
 
-ALSO
-
-	$ cmake -G Ninja -B build .
-
-INSTALL
+To quickly install Yosys with the default settings:
 
 	$ cmake -B build . -DCMAKE_BUILD_TYPE=Release
 	$ cmake --build build --config Release --parallel $(nproc)

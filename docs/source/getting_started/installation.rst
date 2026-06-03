@@ -180,32 +180,42 @@ Installing all prerequisites:
 Build configuration
 ^^^^^^^^^^^^^^^^^^^
 
-The Yosys build is configured via CMake, and uses a number of variables
-which influence the build process.
-
-set one-off options with
-
-.. code:: console
-
-   cmake -B build . --fresh \
-      -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-
-set persistent options with
+The Yosys build is configured via CMake, and uses a number of variables which
+influence the build process.  When setting one-off variables, CMake provides the
+``-D <var>=<value>`` command line option. For example, disabling zlib support:
 
 .. code:: console
 
-   vi Configuration.cmake     # ..then..
-   cmake -C Configuration.cmake -B build . --fresh
+   cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
 
-e.g.
+.. warning::
 
-.. code:: cmake
+   Yosys does not support in-tree builds. If calling ``cmake`` from the root
+   ``yosys`` directory the ``-B`` option must be provided.
 
-   set(CMAKE_C_COMPILER clang CACHE STRING "")
-   set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")
-   set(YOSYS_WITHOUT_ZLIB ON CACHE STRING "")
+For a more persistent configuration, we recommend creating and using a
+``CMakeUserPresets.json`` file. Below is an example file which sets the default
+compiler to clang when calling ``cmake --preset clang``:
 
-Once generated, build variables can be inspected and modified with:
+.. code:: json
+
+   {
+      "version": 1,
+      "configurePresets": [
+         {
+            "name": "clang",
+            "binaryDir": "build",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+               "CMAKE_C_COMPILER": "clang",
+               "CMAKE_CXX_COMPILER": "clang++"
+            }
+         }
+      ]
+   }
+
+Once generated, available build variables can be inspected and modified with
+``ccmake`` or opening the generated ``build/CMakeCache.txt`` file:
 
 .. code:: console
 
@@ -225,22 +235,28 @@ from homebrew rather than clang from xcode.  For example:
 
 By default, building (and installing) yosys will build (and install) `ABC`_,
 using :program:`yosys-abc` as the executable name.  To use an existing ABC
-executable instead, set the :makevar:`YOSYS_ABC_EXECUTABLE` make variable to point to
-the desired executable.
+executable instead, set the :makevar:`YOSYS_ABC_EXECUTABLE` CMake variable to
+point to the desired executable.
 
 Running the build system
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-From the root ``yosys`` directory, call the following commands:
+To quickly install Yosys with default settings, call the following commands from
+the root ``yosys`` directory:
 
 .. code:: console
 
-   cmake -B build . -DCMAKE_BUILD_TYPE=Release
+   cmake -B build . -DCMAKE_BUILD_TYPE=Release --fresh
    cmake --build build --config Release --parallel $(nproc)
    sudo cmake --install build --strip
 
-Note that Yosys does not support in-tree builds, and if calling ``cmake`` from
-the root ``yosys`` directory the ``-B`` option must be provided.
+To use an existing configuration, use the ``--build`` option, e.g:
+
+.. code:: console
+
+   cmake -B build .
+   ccmake build              # modify configuration
+   cmake --build build
 
 .. seealso::
 
