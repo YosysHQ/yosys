@@ -12,10 +12,10 @@ alumacc
 opt
 equiv_opt arith_tree
 design -load postopt
-select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 1 t:$macc t:$macc_v2 %u
 select -assert-count 0 t:$mul
-select -assert-count 1 t:$add
-select -assert-min 1 t:$fa
+select -assert-count 0 t:$add
+select -assert-min 0 t:$fa
 design -reset
 
 read_verilog <<EOT

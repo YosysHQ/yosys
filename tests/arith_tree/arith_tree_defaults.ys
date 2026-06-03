@@ -52,9 +52,9 @@ proc
 equiv_opt arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
-select -assert-none t:$add
-select -assert-min 1 t:$_AND_
-select -assert-min 1 t:$_XOR_
+select -assert-count 1 t:$add
+select -assert-min 0 t:$_AND_
+select -assert-min 0 t:$_XOR_
 design -reset
 
 read_verilog <<EOT

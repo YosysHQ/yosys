@@ -19,7 +19,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ArithTreeOptions {
 	CompressorTree::Strategy strategy = CompressorTree::Strategy::PREFER_42;
-	CompressorTree::FinalMode final_mode = CompressorTree::FinalMode::AUTO;
+	CompressorTree::FinalMode final_mode = CompressorTree::FinalMode::RIPPLE;
 	bool fma_fusion = true;
 };
 
@@ -309,22 +309,21 @@ struct ArithTreeWorker {
 					s = module->Not(NEW_ID, s);
 				pool.push_back({s, 0});
 			} else {
-				// Multiplicative operand.
-				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
+					// Multiplicative operand
+					auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
 
-				if (!op.negate) {
-					for (auto &pp : pps)
+					if (!op.negate) {
+						for (auto &pp : pps)
+							pool.push_back(pp);
+						continue;
+					}
+
+					SigSpec neg_a = module->Not(NEW_ID, op.sig);
+					auto neg_pps = CompressorTree::generate_partial_products(module, neg_a, op.factor_b, op.is_signed, op.factor_b_signed, width);
+					for (auto &pp : neg_pps)
 						pool.push_back(pp);
-					continue;
-				}
-
-				auto [a_red, b_red] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy);
-				SigSpec product = module->addWire(NEW_ID, width);
-				module->addAdd(NEW_ID, a_red, b_red, product, false);
-				SigSpec neg = module->addWire(NEW_ID, width);
-				module->addNot(NEW_ID, product, neg);
-				pool.push_back({neg, 0});
-				neg_compensation++;
+					SigSpec b_ext = CompressorTree::normalize_to_width(op.factor_b, op.factor_b_signed, width);
+					pool.push_back({b_ext, 0});
 			}
 		}
 
@@ -392,22 +391,21 @@ struct ArithTreeWorker {
 				continue;
 			if (operands.size() < 1)
 				continue;
-			bool has_mul = false;
+			int mul_terms = 0;
 			for (auto &op : operands)
-				if (GetSize(op.factor_b) > 0) {
-					has_mul = true;
-					break;
-				}
-
+				if (GetSize(op.factor_b) > 0)
+					mul_terms++;
+			bool has_mul = (mul_terms > 0);
+			if (mul_terms == 1 && operands.size() == 1)
+				continue;
 			if (!has_mul && operands.size() < 3)
 				continue;
-
 			emit_tree(operands, cell->getPort(ID::Y), neg_compensation);
 			to_remove.insert(cell);
 		}
 		for (auto cell : to_remove)
 			module->remove(cell);
-	}
+}
 
 	void run()
 	{
