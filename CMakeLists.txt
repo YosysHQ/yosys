@@ -500,10 +500,10 @@ set(makefile_vars
 	PROGRAM_PREFIX=${YOSYS_PROGRAM_PREFIX}
 	ABC=$<IF:$<TARGET_EXISTS:yosys-abc>,$<TARGET_FILE:yosys-abc>,${YOSYS_ABC_EXECUTABLE}>
 	YOSYS=$<TARGET_FILE:yosys>
-	YOSYS_CONFIG=${CMAKE_BINARY_DIR}/yosys-config
+	YOSYS_CONFIG=${CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}yosys-config
 	YOSYS_FILTERLIB=$<$<TARGET_EXISTS:yosys-filterlib>:$<TARGET_FILE:yosys-filterlib>>
-	YOSYS_SMTBMC=${CMAKE_BINARY_DIR}/yosys-smtbmc
-	YOSYS_WITNESS=${CMAKE_BINARY_DIR}/yosys-witness
+	YOSYS_SMTBMC=${CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}yosys-smtbmc
+	YOSYS_WITNESS=${CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}yosys-witness
 )
 set(makefile_depends
 	# abc is implied via $<TARGET_FILE>
@@ -545,6 +545,11 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 			DEPENDS docs-prepare
 		)
 	endforeach()
+	add_custom_target(test-docs
+		COMMAND make test ${makefile_vars}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
+		DEPENDS ${makefile_depends}
+	)
 endif()
 
 # Utilities.
