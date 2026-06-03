@@ -32,6 +32,7 @@ $(eval $(call add_extra_objs,passes/opt/peepopt_pm.h))
 PEEPOPT_PATTERN  = passes/opt/peepopt_shiftmul_right.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_shiftmul_left.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_shiftadd.pmg
+PEEPOPT_PATTERN += passes/opt/peepopt_shiftpow2.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muldiv.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muldiv_c.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_formal_clockgateff.pmg
