@@ -453,7 +453,7 @@ endif()
 
 # Python binary extension (for using Yosys as a Python library).
 if (YOSYS_ENABLE_PYTHON)
-	yosys_cxx_library(pyosys SHARED
+	yosys_cxx_library(pyosys MODULE
 		OUTPUT_NAME pyosys
 	)
 	yosys_link_components(pyosys PRIVATE ${library_components})
@@ -473,7 +473,7 @@ if (YOSYS_ENABLE_PYTHON)
 			DESTINATION ${pyosys_install_dir}
 		)
 		install(FILES $<TARGET_FILE:pyosys>
-			RENAME libyosys${CMAKE_SHARED_LIBRARY_SUFFIX}
+			RENAME libyosys${CMAKE_SHARED_MODULE_SUFFIX}
 			DESTINATION ${pyosys_install_dir}
 		)
 		if (YOSYS_ENABLE_ABC AND YOSYS_ABC_EXECUTABLE STREQUAL "")

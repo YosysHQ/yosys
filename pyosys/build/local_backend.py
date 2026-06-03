@@ -3,6 +3,7 @@
 # 	python -m build -w -Ccmake=-DYOSYS_COMPILER_LAUNCHER=ccache
 #   pip install -Ccmake=-DYOSYS_COMPILER_LAUNCHER=ccache .
 
+import re
 import os
 import sys
 import pathlib
@@ -26,11 +27,33 @@ DIST_NAME = f"{PROJECT_NAME}-{PROJECT_VERSION}"
 # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/
 if sys.implementation.name == "cpython":
 	PYTHON_TAG = f"cp{sysconfig.get_config_var('py_version_nodot')}"
+	# freethreaded builds have an ABI flag appended, "t"
+	ABI_TAG = f"cp{sysconfig.get_config_var('py_version_nodot')}{sysconfig.get_config_var('abiflags')}"
 else:
 	raise NotImplementedError("unsupported Python implementation")
-PLATFORM_TAG = sysconfig.get_platform().replace("-", "_")
-COMPAT_TAG = f"{PYTHON_TAG}-none-{PLATFORM_TAG}"
-
+# get_platform() always returns the MACOSX_DEPLOYMENT_TARGET this intepreter is
+# configured with:
+# 	https://github.com/python/cpython/blob/494f2e3c92cc1b7774cca16fca5c7d1ff18c0de2/Lib/_osx_support.py#L504
+PLATFORM_TAG_RAW = sysconfig.get_platform()
+MACOSX_DEPLOYMENT_TARGET_FLAGS = []
+if interpreter_deployment_target := sysconfig.get_config_var("MACOSX_DEPLOYMENT_TARGET"):
+	cmake_deployment_target = interpreter_deployment_target
+	interpreter_deployment_target = tuple(int(v) for v in interpreter_deployment_target.split("."))
+	# Yosys fails to compile for anything below 10.15 because of std::filesystem
+	requested_deployment_target = tuple(int(v) for v in os.environ.get("MACOSX_DEPLOYMENT_TARGET", "10.15").split("."))
+	if requested_deployment_target > interpreter_deployment_target:
+		resolved_platform_version_string = ".".join(str(v) for v in requested_deployment_target)
+		cmake_deployment_target = resolved_platform_version_string
+		if "." not in resolved_platform_version_string:
+			# macOS 11+ need to be "bare" for MACOSX_DEPLOYMENT_TARGET but have
+			# the .0 for Python platform versions
+			resolved_platform_version_string += ".0"
+		PLATFORM_TAG_RAW = re.sub(r"(macosx)-\d+\.\d+", rf"\1-{resolved_platform_version_string}", PLATFORM_TAG_RAW)
+	MACOSX_DEPLOYMENT_TARGET_FLAGS = [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={cmake_deployment_target}"]
+# Source for these substitutions:
+# 	https://github.com/pypa/wheel/blob/197012dcb8a9da10570d6486bc1a70305861e7f2/src/wheel/_bdist_wheel.py#L351
+PLATFORM_TAG = PLATFORM_TAG_RAW.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
+COMPAT_TAG = f"{PYTHON_TAG}-{ABI_TAG}-{PLATFORM_TAG}"
 
 def compile_pyosys(cmake_options=[], parallel=os.cpu_count() or 1):
 	install_dir = tempfile.TemporaryDirectory(prefix="pyosys_install")
@@ -49,6 +72,7 @@ def compile_pyosys(cmake_options=[], parallel=os.cpu_count() or 1):
 			f"-DYOSYS_INSTALL_PYTHON_SITEDIR=python",
 			"-DYOSYS_BUILD_PYTHON_ONLY=ON",
 			*cmake_options,
+			*MACOSX_DEPLOYMENT_TARGET_FLAGS,
 		])
 		subprocess.check_call([
 			"cmake",

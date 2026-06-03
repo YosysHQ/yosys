@@ -7,7 +7,7 @@ function(yosys_gtest arg_TARGET)
 
 	set(target "gtest-${arg_TARGET}")
 	add_executable(${target} ${arg_SOURCES})
-	target_link_libraries(${target} PRIVATE GTest::gmock_main yosys_common)
+	target_link_libraries(${target} PRIVATE GTest::gmock_main yosys_common $<${YOSYS_ENABLE_PYTHON}:Python3::Python>)
 	yosys_expand_components(test_components essentials ${arg_COMPONENTS})
 	yosys_link_components(${target} PRIVATE ${test_components})
 
