@@ -180,7 +180,7 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
 				DepthSig d = ready[i + 3];
 
 				auto [sum, carry] = emit_compressor_42(module, a.sig, b.sig, c.sig, d.sig, width);
-				int dmax = std::max({a.depth, a.depth, a.depth, a.depth});
+				int dmax = std::max({a.depth, b.depth, c.depth, d.depth});
 
 				compressed.push_back({sum, dmax + 2});
 				compressed.push_back({carry, dmax + 2});
