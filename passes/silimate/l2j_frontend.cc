@@ -295,7 +295,8 @@ struct L2JFrontend : public Frontend {
 			bool is_memory = false, is_stdcell = true;
 			bool dont_touch = value_as_boolean(cell, "dont_touch", false);
 			bool dont_use = value_as_boolean(cell, "dont_use", false);
-			if (dont_touch || dont_use) {
+			bool has_cell_footprint = cell.count("cell_footprint") != 0;
+			if ((dont_touch || dont_use) && !has_cell_footprint) {
 				is_stdcell = false;
 			}
 			for_each_group(cell, [&](const json &g) {
