@@ -948,7 +948,7 @@ struct HelpPass : public Pass {
 					cmd_help.group = "frontends";
 				else if (has_source) {
 					if (source_path.has_parent_path() && !no_source_group)
-						cmd_help.group = source_path.parent_path();
+						cmd_help.group = source_path.parent_path().string();
 				}
 				// implicit !has_source
 				else if (name.find("equiv") == 0)
