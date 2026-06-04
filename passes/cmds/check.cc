@@ -23,6 +23,7 @@
 #include "kernel/newcelltypes.h"
 #include "kernel/utils.h"
 #include "kernel/log_help.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -452,5 +453,96 @@ struct CheckPass : public Pass {
 			log_error("Found %d problems in 'check -assert'.\n", counter);
 	}
 } CheckPass;
+
+struct CheckMemPass : public Pass {
+	CheckMemPass() : Pass("check_mem", "check for obvious memory problems in the design") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+
+		auto content_root = help->get_root();
+
+		content_root->usage("check_mem [selection]");
+		content_root->paragraph(
+			"This pass identifies the following problems in the current design: "
+			"addressing invalid memory."
+		);
+
+		content_root->option("-non-const", "also check non-const address signals (may produce false-positives)");
+		content_root->option("-assert", "produce a runtime error if any problems are found in the current design");
+
+		return true;
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		int counter = 0;
+		bool assert_mode = false;
+		bool nonconst_mode = false;
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-assert") {
+				assert_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-non-const") {
+				nonconst_mode = true;
+				continue;
+			}
+			break;
+		}
+
+		extra_args(args, argidx, design);
+
+		log_header(design, "Executing CHECK_MEM pass.\n");
+
+		for (auto *module : design->selected_unboxed_modules_warn()) {
+			for (auto mem : Mem::get_selected_memories(module)) {
+				int min_addr = mem.mem->start_offset;
+				int max_addr = mem.mem->size + min_addr - 1;
+				for (auto &init : mem.inits) {
+					int start = init.addr.as_int();
+					if (start < min_addr) {
+						log_warning("Mem %s.%s starts at %d but initializes address %d.\n", log_id(module), log_id(mem.mem), min_addr, start);
+						counter++;
+					}
+					int end = start + (GetSize(init.data) / mem.width) - 1;
+					if (end > max_addr) {
+						log_warning("Mem %s.%s ends at %d but initializes address %d.\n", log_id(module), log_id(mem.mem), max_addr, end);
+						counter++;
+					}
+				}
+
+				auto check_addr = [min_addr, max_addr, &counter, module, &mem, &nonconst_mode](SigSpec &addr_sig, const char* access) {
+					if (addr_sig.is_fully_const()) {
+						auto addr = addr_sig.as_int();
+						if (addr < min_addr || addr > max_addr) {
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but %s address %d.\n", log_id(module), log_id(mem.mem), min_addr, max_addr, access, addr);
+							counter++;
+						}
+					} else if (nonconst_mode) {
+						// TODO check addr_sig.has_const() for constant MSb/LSb that may change effective min/max
+						// TODO consider sat solver for variable addresses
+						int addr_sig_min = 0;
+						int addr_sig_max = (1 << addr_sig.size()) - 1;
+						if (min_addr > addr_sig_min || max_addr < addr_sig_max) {
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but has a potentially dangerous non-const input %s\n", log_id(module), log_id(mem.mem), min_addr, max_addr, log_signal(addr_sig));
+							counter++;
+						}
+					}
+				};
+
+				// TODO test ABITS and WIDTH?
+				// TODO can we limit ports via selection?
+				for (auto &rd_port : mem.rd_ports)
+					check_addr(rd_port.addr, "reads");
+				for (auto &wr_port : mem.wr_ports)
+					check_addr(wr_port.addr, "writes");
+			}
+		}
+
+		if (assert_mode && counter > 0)
+			log_error("Found %d problems in 'check_mem -assert'.\n", counter);
+	}
+} CheckMemPass;
 
 PRIVATE_NAMESPACE_END
