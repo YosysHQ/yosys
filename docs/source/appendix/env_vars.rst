@@ -14,8 +14,9 @@ Yosys environment variables
    Used for storing temporary files.
 
 ``ABC``
-   When compiling Yosys with out-of-tree ABC using :makevar:`ABCEXTERNAL`, this
-   variable can be used to override the external ABC executable.
+   When compiling Yosys with out-of-tree ABC using
+   :makevar:`YOSYS_ABC_EXECUTABLE`, this variable can be used to override the
+   external ABC executable.
 
 ``YOSYS_NOVERIFIC``
    If Yosys was built with Verific, this environment variable can be used to

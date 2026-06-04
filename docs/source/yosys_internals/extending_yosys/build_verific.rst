@@ -39,36 +39,30 @@ incorrect results.
 Compile options
 ---------------
 
-To enable Verific support ``ENABLE_VERIFIC`` has to be set to ``1`` and
-``VERIFIC_DIR`` needs to point to the location where the library is located.
+To enable Verific support, set the :makevar:`YOSYS_VERIFIC_DIR` CMake variable
+to point to the location where the library is located, e.g.
 
-============== ========================== ===============================
-Parameter      Default                    Description
-============== ========================== ===============================
-ENABLE_VERIFIC 0                          Enable compilation with Verific
-VERIFIC_DIR    /usr/local/src/verific_lib Library and headers location
-============== ========================== ===============================
+.. code-block:: console
 
-Since there are multiple Verific library builds and they can have different
-features, there are compile options to select them.
+   cmake -B build . -DYOSYS_VERIFIC_DIR="/usr/local/src/verific_lib"
 
-================================= ======= ===================================
-Parameter                         Default Description
-================================= ======= ===================================
-ENABLE_VERIFIC_SYSTEMVERILOG      1       SystemVerilog support
-ENABLE_VERIFIC_VHDL               1       VHDL support
-ENABLE_VERIFIC_HIER_TREE          1       Hierarchy tree support
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0       YosysHQ specific extensions support
-ENABLE_VERIFIC_EDIF               0       EDIF support
-ENABLE_VERIFIC_LIBERTY            0       Liberty file support
-================================= ======= ===================================
+During building, CMake will attempt to automatically detect available Verific
+library components to enable the corresponding compile-time option in Yosys.
+This can be overridden by manually setting the :makevar:`YOSYS_VERIFIC_FEATURES`
+CMake variable. This variable should contain a semi-colon separated list, e.g.
+``-DYOSYS_VERIFIC_FEATURES="systemverilog;hier_tree"``.  The table below lists
+the features available to Yosys.
 
-To find the compile options used for a given Yosys build, call ``yosys-config
---cxxflags``. This documentation was built with the following compile options:
-
-.. literalinclude:: /generated/yosys-config
-    :start-at: --cxxflags
-    :end-before: --linkflags
+============== =========== ===================================
+Feature        Directory   Description
+============== =========== ===================================
+systemverilog  verilog     SystemVerilog support
+vhdl           vhdl        VHDL support
+hier_tree      hier_tree   Hierarchy tree support
+extensions     extensions  YosysHQ specific extensions support
+edif           edif        EDIF support
+liberty        synlib      Liberty file support
+============== =========== ===================================
 
 .. note::
 
@@ -82,11 +76,10 @@ are required for the Yosys-Verific patch:
 
 * RTL elaboration with
 
-  * SystemVerilog with ``ENABLE_VERIFIC_SYSTEMVERILOG``, and/or
-  * VHDL support with ``ENABLE_VERIFIC_VHDL``.
+  * SystemVerilog with ``systemverilog``, and/or
+  * VHDL support with ``vhdl``.
 
-* Hierarchy tree support and static elaboration with
-  ``ENABLE_VERIFIC_HIER_TREE``.
+* Hierarchy tree support and static elaboration with ``hier_tree``.
 
 Please be aware that the following Verific configuration build parameter needs
 to be enabled in order to create the fully supported build:
@@ -105,11 +98,12 @@ to be enabled in order to create the fully supported build:
 Optional Verific features
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following Verific features are available with TabbyCAD and can be enabled in
-Yosys builds:
+The following Verific features are available with TabbyCAD and will be
+automatically enabled in Yosys builds if the listed directory is included in the
+:makevar:`YOSYS_VERIFIC_DIR`:
 
-* EDIF support with ``ENABLE_VERIFIC_EDIF``, and
-* Liberty file support with ``ENABLE_VERIFIC_LIBERTY``.
+* EDIF support with ``edif`` directory, and
+* Liberty file support with ``synlib`` directory.
 
 Partially supported builds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,32 +118,18 @@ lists a series of build configurations which are possible, but only provide a
 limited subset of features.  Please note that support is limited without YosysHQ
 specific extensions of Verific library.
 
-Configuration values:
-  a. ``ENABLE_VERIFIC_SYSTEMVERILOG``
-  b. ``ENABLE_VERIFIC_VHDL``
-  c. ``ENABLE_VERIFIC_HIER_TREE``
-  d. ``ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS``
-
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-|                                                                          | Configuration values  |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-| Features                                                                 |   a |   b |   c |   d |
-+==========================================================================+=====+=====+=====+=====+
-| SystemVerilog + RTL elaboration                                          |   1 |   0 |   0 |   0 |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-| VHDL + RTL elaboration                                                   |   0 |   1 |   0 |   0 |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-| SystemVerilog + VHDL + RTL elaboration                                   |   1 |   1 |   0 |   0 |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-| SystemVerilog + RTL elaboration + Static elaboration + Hier tree         |   1 |   0 |   1 |   0 |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-| VHDL + RTL elaboration + Static elaboration + Hier tree                  |   0 |   1 |   1 |   0 |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
-| SystemVerilog + VHDL + RTL elaboration + Static elaboration + Hier tree  |   1 |   1 |   1 |   0 |
-+--------------------------------------------------------------------------+-----+-----+-----+-----+
+======================================================================= =================================
+Features                                                                :makevar:`YOSYS_VERIFIC_FEATURES`
+======================================================================= =================================
+SystemVerilog + RTL elaboration                                         systemverilog
+VHDL + RTL elaboration                                                  vhdl
+SystemVerilog + VHDL + RTL elaboration                                  systemverilog;vhdl
+SystemVerilog + RTL elaboration + Static elaboration + Hier tree        systemverilog;vhdl;hier_tree
+VHDL + RTL elaboration + Static elaboration + Hier tree                 vhdl;hier_tree
+SystemVerilog + VHDL + RTL elaboration + Static elaboration + Hier tree systemverilog;vhdl;hier_tree
+======================================================================= =================================
 
 .. note::
 
    In case your Verific build has EDIF and/or Liberty support, you can enable
-   those options. These are not mentioned above for simplification and since
-   they are disabled by default.
+   those options. These are not mentioned above for simplification.

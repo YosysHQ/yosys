@@ -1,5 +1,7 @@
 ## user config
 /Makefile.conf
+/Configuration.cmake
+/CMakeUserPresets.json
 
 ## homebrew
 /Brewfile.lock.json
