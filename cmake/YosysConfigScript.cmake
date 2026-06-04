@@ -32,6 +32,9 @@ function(yosys_config_script scope)
 	if (MINGW)
 		set(platform_libs -l:yosys.exe.a)
 	endif()
+	if (MINGW AND YOSYS_INSTALL_DRIVER)
+		set(platform_link_flags -L${LIBDIR})
+	endif()
 
 	set(CXX ${CMAKE_CXX_COMPILER})
 	string(JOIN " " CXXFLAGS
@@ -47,6 +50,7 @@ function(yosys_config_script scope)
 	)
 	string(JOIN " " LINKFLAGS
 		${CMAKE_SHARED_LIBRARY_CXX_FLAGS}
+		${link_flags}
 		${platform_link_flags}
 	)
 	string(JOIN " " LIBS
