@@ -1999,6 +1999,22 @@ struct RTLIL::Design
 	// via cell->module->design->src_twines.
 	TwinePool src_twines;
 
+	// Per-object src metadata, indexed by AttrObject::meta_idx_. Holds the
+	// Twine::Id for an object's src — the future home of any other per-
+	// object cold metadata we want to evacuate from inline storage (e.g.
+	// name once IdString/Twine unify). Freed slots are recycled via
+	// obj_meta_free_ (LIFO), mirroring TwinePool's freelist.
+	//
+	// alloc_obj_meta returns a fresh index whose entry is Twine::Null;
+	// free_obj_meta requires the slot's src_id to already have been
+	// released via src_twines.release() — the freelist only handles
+	// the index itself, not the referenced pool slot.
+	std::vector<Twine::Id> obj_meta_src_;
+	std::vector<uint32_t> obj_meta_free_;
+
+	uint32_t alloc_obj_meta();
+	void free_obj_meta(uint32_t idx);
+
 	// Resolve a stored src-attribute string to its flat path:line.col
 	// representation. If `raw` is a twine reference ("@N") returns
 	// src_twines.flatten(N); otherwise returns `raw` unchanged. Backends
