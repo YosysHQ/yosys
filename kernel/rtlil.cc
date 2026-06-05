@@ -971,16 +971,15 @@ void RTLIL::Design::obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id)
 			return;
 		meta_idx = alloc_obj_meta();
 	}
-	Twine::Id &slot = obj_meta_src_[meta_idx];
-	if (slot == id)
+	ObjMeta &m = obj_meta_[meta_idx];
+	if (m.src == id)
 		return;
-	if (slot != Twine::Null)
-		src_twines.release(slot);
-	slot = id;
-	if (slot != Twine::Null)
-		src_twines.retain(slot);
-	if (slot == Twine::Null) {
-		// Cleared — return the slot to the freelist.
+	if (m.src != Twine::Null)
+		src_twines.release(m.src);
+	m.src = id;
+	if (m.src != Twine::Null)
+		src_twines.retain(m.src);
+	if (m.src == Twine::Null && m.name.empty()) {
 		free_obj_meta(meta_idx);
 		meta_idx = RTLIL::AttrObject::NO_META;
 	}
@@ -990,13 +989,42 @@ void RTLIL::Design::obj_release_src_by_idx(uint32_t &meta_idx)
 {
 	if (meta_idx == RTLIL::AttrObject::NO_META)
 		return;
-	Twine::Id &slot = obj_meta_src_[meta_idx];
-	if (slot != Twine::Null) {
-		src_twines.release(slot);
-		slot = Twine::Null;
+	ObjMeta &m = obj_meta_[meta_idx];
+	if (m.src != Twine::Null) {
+		src_twines.release(m.src);
+		m.src = Twine::Null;
 	}
-	free_obj_meta(meta_idx);
-	meta_idx = RTLIL::AttrObject::NO_META;
+	if (m.name.empty()) {
+		free_obj_meta(meta_idx);
+		meta_idx = RTLIL::AttrObject::NO_META;
+	}
+}
+
+void RTLIL::Design::obj_set_name_by_idx(uint32_t &meta_idx, RTLIL::IdString name)
+{
+	if (meta_idx == RTLIL::AttrObject::NO_META) {
+		if (name.empty())
+			return;
+		meta_idx = alloc_obj_meta();
+	}
+	ObjMeta &m = obj_meta_[meta_idx];
+	m.name = name;
+	if (m.name.empty() && m.src == Twine::Null) {
+		free_obj_meta(meta_idx);
+		meta_idx = RTLIL::AttrObject::NO_META;
+	}
+}
+
+void RTLIL::Design::obj_release_name_by_idx(uint32_t &meta_idx)
+{
+	if (meta_idx == RTLIL::AttrObject::NO_META)
+		return;
+	ObjMeta &m = obj_meta_[meta_idx];
+	m.name = RTLIL::IdString();
+	if (m.src == Twine::Null) {
+		free_obj_meta(meta_idx);
+		meta_idx = RTLIL::AttrObject::NO_META;
+	}
 }
 
 void RTLIL::Design::set_src_attribute(RTLIL::AttrObject *obj, const RTLIL::SrcAttr &src)
@@ -1094,18 +1122,19 @@ uint32_t RTLIL::Design::alloc_obj_meta()
 	if (!obj_meta_free_.empty()) {
 		uint32_t idx = obj_meta_free_.back();
 		obj_meta_free_.pop_back();
-		obj_meta_src_[idx] = Twine::Null;
+		obj_meta_[idx] = ObjMeta{};
 		return idx;
 	}
-	uint32_t idx = static_cast<uint32_t>(obj_meta_src_.size());
-	obj_meta_src_.push_back(Twine::Null);
+	uint32_t idx = static_cast<uint32_t>(obj_meta_.size());
+	obj_meta_.emplace_back();
 	return idx;
 }
 
 void RTLIL::Design::free_obj_meta(uint32_t idx)
 {
-	log_assert(idx < obj_meta_src_.size());
-	log_assert(obj_meta_src_[idx] == Twine::Null);
+	log_assert(idx < obj_meta_.size());
+	log_assert(obj_meta_[idx].src == Twine::Null);
+	log_assert(obj_meta_[idx].name.empty());
 	obj_meta_free_.push_back(idx);
 }
 
@@ -1212,18 +1241,19 @@ size_t RTLIL::Design::gc_twines()
 	walk_attr_objects(this, [&](RTLIL::AttrObject *obj) {
 		if (obj->meta_idx_ == RTLIL::AttrObject::NO_META)
 			return;
-		Twine::Id &slot = obj_meta_src_[obj->meta_idx_];
-		if (slot == Twine::Null)
+		ObjMeta &m = obj_meta_[obj->meta_idx_];
+		if (m.src == Twine::Null)
 			return;
-		auto it = remap.find(slot);
+		auto it = remap.find(m.src);
 		if (it == remap.end()) {
-			// Wasn't in live set (design corruption) — zero out.
-			slot = Twine::Null;
-			free_obj_meta(obj->meta_idx_);
-			obj->meta_idx_ = RTLIL::AttrObject::NO_META;
+			m.src = Twine::Null;
+			if (m.name.empty()) {
+				free_obj_meta(obj->meta_idx_);
+				obj->meta_idx_ = RTLIL::AttrObject::NO_META;
+			}
 			return;
 		}
-		slot = it->second;
+		m.src = it->second;
 	});
 
 	return before - src_twines.size();
@@ -1684,7 +1714,7 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 	// assignment. The copied refcounts and the same meta_idx_ values
 	// assigned below 1:1 to cloned AttrObjects line up by construction.
 	dst->src_twines = src_twines;
-	dst->obj_meta_src_ = obj_meta_src_;
+	dst->obj_meta_ = obj_meta_;
 	dst->obj_meta_free_ = obj_meta_free_;
 	// Iterate via rbegin/rend so cloned modules land in dst in forward
 	// insertion order — same as how the source design's modules dict was

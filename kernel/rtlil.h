@@ -1953,42 +1953,39 @@ struct RTLIL::Design
 	// via cell->module->design->src_twines.
 	TwinePool src_twines;
 
-	// Per-object src metadata, indexed by AttrObject::meta_idx_. Holds the
-	// Twine::Id for an object's src — the future home of any other per-
-	// object cold metadata we want to evacuate from inline storage (e.g.
-	// name once IdString/Twine unify). Freed slots are recycled via
-	// obj_meta_free_ (LIFO), mirroring TwinePool's freelist.
-	//
-	// alloc_obj_meta returns a fresh index whose entry is Twine::Null;
-	// free_obj_meta requires the slot's src_id to already have been
-	// released via src_twines.release() — the freelist only handles
-	// the index itself, not the referenced pool slot.
-	std::vector<Twine::Id> obj_meta_src_;
+	// Per-object metadata indexed by AttrObject::meta_idx_. Slots are
+	// allocated lazily on first non-null write and recycled via the
+	// LIFO freelist obj_meta_free_. Both src and name share one slot
+	// so subtypes that carry either pay only one index field.
+	struct ObjMeta {
+		Twine::Id src = Twine::Null;
+		RTLIL::IdString name;
+	};
+	std::vector<ObjMeta> obj_meta_;
 	std::vector<uint32_t> obj_meta_free_;
 
 	uint32_t alloc_obj_meta();
 	void free_obj_meta(uint32_t idx);
 
-	// Read src for `meta_idx`. NO_META → Twine::Null.
 	Twine::Id obj_src_id_by_idx(uint32_t meta_idx) const {
 		if (meta_idx == RTLIL::AttrObject::NO_META)
 			return Twine::Null;
-		return obj_meta_src_[meta_idx];
+		return obj_meta_[meta_idx].src;
 	}
 
-	// Set src for `meta_idx`, allocating a slot lazily and freeing it
-	// when `id` is Twine::Null. Manages retain/release on src_twines.
-	// `meta_idx` is mutated as needed (NO_META -> allocated slot, or
-	// allocated slot -> NO_META after clearing).
+	// `meta_idx` is mutated as needed: NO_META -> allocated slot on first
+	// non-null write; allocated slot -> NO_META if src cleared and name empty.
 	void obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id);
-
-	// Release the slot's Twine ref and free the index. No-op if NO_META.
-	// Use from destructors. `meta_idx` becomes NO_META on return.
 	void obj_release_src_by_idx(uint32_t &meta_idx);
 
-	// AttrObject-keyed convenience overloads — dispatch to the _by_idx
-	// versions on obj->meta_idx_. Use these from generic helpers that
-	// already have a Design* in scope.
+	RTLIL::IdString obj_name_by_idx(uint32_t meta_idx) const {
+		if (meta_idx == RTLIL::AttrObject::NO_META)
+			return RTLIL::IdString();
+		return obj_meta_[meta_idx].name;
+	}
+	void obj_set_name_by_idx(uint32_t &meta_idx, RTLIL::IdString name);
+	void obj_release_name_by_idx(uint32_t &meta_idx);
+
 	Twine::Id obj_src_id(const RTLIL::AttrObject *obj) const {
 		return obj_src_id_by_idx(obj->meta_idx_);
 	}
@@ -1997,6 +1994,15 @@ struct RTLIL::Design
 	}
 	void obj_release_src(RTLIL::AttrObject *obj) {
 		obj_release_src_by_idx(obj->meta_idx_);
+	}
+	RTLIL::IdString obj_name(const RTLIL::AttrObject *obj) const {
+		return obj_name_by_idx(obj->meta_idx_);
+	}
+	void obj_set_name(RTLIL::AttrObject *obj, RTLIL::IdString name) {
+		obj_set_name_by_idx(obj->meta_idx_, name);
+	}
+	void obj_release_name(RTLIL::AttrObject *obj) {
+		obj_release_name_by_idx(obj->meta_idx_);
 	}
 
 	// Replacements for the methods that used to live on AttrObject and
