@@ -145,14 +145,14 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, co
 // through the normal match_attr path. Other ID::src-shaped patterns like
 // wildcards still flow through the (empty) dict and won't match src — those
 // uses were rare and the dict-path migration is a separate concern.
-static bool match_attr(const Yosys::TwinePool *pool, const RTLIL::AttrObject *obj, const std::string &match_expr)
+static bool match_attr(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const std::string &match_expr)
 {
-	if (obj->src_id() != Twine::Null && pool) {
+	if (design && obj->meta_idx_ != RTLIL::AttrObject::NO_META) {
 		size_t pos = match_expr.find_first_of("<!=>");
 		std::string name_part = (pos == std::string::npos) ? match_expr : match_expr.substr(0, pos);
 		if (name_part == "src" || name_part == "\\src") {
 			dict<RTLIL::IdString, RTLIL::Const> synthesized;
-			synthesized[RTLIL::ID::src] = RTLIL::Const(obj->get_src_attribute(pool));
+			synthesized[RTLIL::ID::src] = RTLIL::Const(design->get_src_attribute(obj));
 			return match_attr(synthesized, match_expr);
 		}
 	}
@@ -971,18 +971,17 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
-			Yosys::TwinePool *pool = design ? &design->src_twines : nullptr;
 			for (auto wire : mod->wires())
-				if (match_attr(pool, wire, arg_memb.substr(2)))
+				if (match_attr(design, wire, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
-				if (match_attr(pool, it.second, arg_memb.substr(2)))
+				if (match_attr(design, it.second, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto cell : mod->cells())
-				if (match_attr(pool, cell, arg_memb.substr(2)))
+				if (match_attr(design, cell, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
-				if (match_attr(pool, it.second, arg_memb.substr(2)))
+				if (match_attr(design, it.second, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {

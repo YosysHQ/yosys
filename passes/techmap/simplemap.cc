@@ -29,7 +29,7 @@ YOSYS_NAMESPACE_BEGIN
 
 static void transfer_src (Cell* to, const Cell* from) {
 	if (from->src_id() != Twine::Null && to->module && to->module->design)
-		to->set_src_id(&to->module->design->src_twines, from->src_id());
+		to->set_src_id(from->src_id());
 }
 
 void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)

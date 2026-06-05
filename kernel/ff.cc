@@ -770,13 +770,13 @@ Cell *FfData::emit() {
 	if (!src_twine.empty() && cell->module && cell->module->design) {
 		TwinePool *dst_pool = &cell->module->design->src_twines;
 		if (src_twine.pool() == dst_pool) {
-			cell->set_src_id(dst_pool, src_twine.id());
+			cell->set_src_id(src_twine.id());
 		} else {
 			// Cross-pool (unusual — FfData migrated between
 			// designs). Rebuild the twine structure into the
 			// destination pool, then adopt that fresh id.
 			Twine::Id migrated = dst_pool->copy_from(*src_twine.pool(), src_twine.id());
-			cell->set_src_id(dst_pool, migrated);
+			cell->set_src_id(migrated);
 			dst_pool->release(migrated);
 		}
 	}

@@ -44,7 +44,7 @@ static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this 
 
 std::string getFileinfo(const RTLIL::AttrObject *design_entity, const RTLIL::Design *design = nullptr)
 {
-	std::string src = design ? design_entity->get_src_attribute(&design->src_twines) : std::string();
+	std::string src = design ? design->get_src_attribute(design_entity) : std::string();
 	std::string fileinfo_str = src.empty() ? "" : "@[" + src + "]";
 	return fileinfo_str;
 }

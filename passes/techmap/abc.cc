@@ -1552,7 +1552,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 		RTLIL::Wire *orig_wire = nullptr;
 		RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
 		if (orig_wire != nullptr && orig_wire->src_id() != Twine::Null && module->design)
-			wire->set_src_id(&module->design->src_twines, orig_wire->src_id());
+			wire->set_src_id(orig_wire->src_id());
 		if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
 		design->select(module, wire);
 	}

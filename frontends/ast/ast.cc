@@ -1110,7 +1110,7 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 		return;
 	const auto &loc = ast->location;
 	if (!loc.begin.filename || loc.begin.filename->empty()) {
-		obj->set_src_attribute(&current_module->design->src_twines, ast->loc_string());
+		current_module->design->set_src_attribute(obj, ast->loc_string());
 		return;
 	}
 	// Split filename and per-location tail so the filename interns once
@@ -1125,8 +1125,8 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 			loc.end.line, loc.end.column);
 	Twine::Id suffix_id = pool->intern_suffix(file_id, tail);
 	pool->release(file_id); // suffix internally holds a ref now
-	obj->set_src_id(pool, suffix_id);
-	pool->release(suffix_id); // set_src_id retained on obj's behalf
+	current_module->design->obj_set_src_id(obj, suffix_id);
+	pool->release(suffix_id); // obj_set_src_id retained on obj's behalf
 }
 
 static bool param_has_no_default(const AstNode* param) {

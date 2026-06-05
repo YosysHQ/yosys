@@ -925,93 +925,10 @@ RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) co
 }
 #undef check /* check(condition) for Const */
 
-void RTLIL::AttrObject::set_src_id(TwinePool *pool, Twine::Id id)
-{
-	log_assert(pool != nullptr);
-	if (id == src_id_)
-		return;
-	if (src_id_ != Twine::Null)
-		pool->release(src_id_);
-	src_id_ = id;
-	if (src_id_ != Twine::Null)
-		pool->retain(src_id_);
-}
-
-void RTLIL::AttrObject::set_src_attribute(TwinePool *pool, const RTLIL::SrcAttr &src)
-{
-	if (src.empty()) {
-		if (src_id_ != Twine::Null) {
-			log_assert(pool != nullptr);
-			pool->release(src_id_);
-			src_id_ = Twine::Null;
-		}
-		return;
-	}
-	log_assert(pool != nullptr);
-	Twine::Id new_id = Twine::Null;
-	if (src.id != Twine::Null) {
-		// Direct id form — the caller (e.g. `other->src_ref()`) is
-		// responsible for keeping the slot alive. Retain on our
-		// behalf.
-		log_assert(pool->is_alive(src.id) && "set_src_attribute: SrcAttr id points to dead slot");
-		new_id = src.id;
-		pool->retain(new_id);
-	} else {
-		// Literal-string form. "@N" → adopt slot directly. Anything
-		// else → intern as leaf (returns +1).
-		new_id = TwinePool::parse_ref(src.literal);
-		if (new_id != Twine::Null) {
-			log_assert(pool->is_alive(new_id) && "set_src_attribute: @N ref points to dead slot");
-			pool->retain(new_id);
-		} else {
-			new_id = pool->intern(src.literal);
-		}
-	}
-	if (src_id_ != Twine::Null)
-		pool->release(src_id_);
-	src_id_ = new_id;
-}
-
-std::string RTLIL::AttrObject::get_src_attribute(const TwinePool *pool) const
-{
-	log_assert(pool);
-	return pool->flatten(src_id_);
-}
-
-void RTLIL::AttrObject::adopt_src_from(TwinePool *pool, const RTLIL::AttrObject *source)
-{
-	adopt_src_from(pool, source, pool);
-}
-
-void RTLIL::AttrObject::adopt_src_from(TwinePool *dst_pool,
-		const RTLIL::AttrObject *source, const TwinePool *src_pool)
-{
-	if (!source || source->src_id() == Twine::Null) {
-		if (src_id_ != Twine::Null) {
-			log_assert(dst_pool != nullptr);
-			dst_pool->release(src_id_);
-			src_id_ = Twine::Null;
-		}
-		return;
-	}
-	log_assert(dst_pool != nullptr);
-	if (src_pool == dst_pool || src_pool == nullptr) {
-		// Same-pool transfer — the source id is valid in dst_pool.
-		set_src_id(dst_pool, source->src_id());
-		return;
-	}
-	// Cross-pool: rebuild source's twine subtree into dst_pool via
-	// copy_from, then adopt the fresh id. copy_from returns +1.
-	Twine::Id new_id = dst_pool->copy_from(*src_pool, source->src_id());
-	if (src_id_ != Twine::Null)
-		dst_pool->release(src_id_);
-	src_id_ = new_id;
-}
-
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	if (id == ID::src)
-		return src_id_ != Twine::Null;
+		return meta_idx_ != RTLIL::AttrObject::NO_META;
 	return attributes.count(id);
 }
 
@@ -1027,7 +944,7 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
 	if (id == ID::src)
-		return src_id_ != Twine::Null;
+		return meta_idx_ != RTLIL::AttrObject::NO_META;
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
 		return false;
@@ -1037,9 +954,9 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 {
 	// ID::src on the base AttrObject is not routable here because the base
-	// has no pool — callers needing string-form src must go through the
-	// subtype helper (Cell::set_src_attribute / Wire::… / …) which derives
-	// the pool from context.
+	// has no Design context — callers needing string-form src must go
+	// through the subtype helper (Cell::set_src_attribute / Wire::… / …)
+	// which derives the design from context.
 	log_assert(id != ID::src && "set_string_attribute(ID::src,...) on AttrObject base; use the subtype helper");
 	if (value.empty())
 		attributes.erase(id);
@@ -1058,34 +975,128 @@ string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 	return value;
 }
 
-void RTLIL::AttrObject::absorb_attrs(TwinePool *pool, dict<RTLIL::IdString, RTLIL::Const> &&buf)
+void RTLIL::Design::obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id)
+{
+	if (meta_idx == RTLIL::AttrObject::NO_META) {
+		if (id == Twine::Null)
+			return;
+		meta_idx = alloc_obj_meta();
+	}
+	Twine::Id &slot = obj_meta_src_[meta_idx];
+	if (slot == id)
+		return;
+	if (slot != Twine::Null)
+		src_twines.release(slot);
+	slot = id;
+	if (slot != Twine::Null)
+		src_twines.retain(slot);
+	if (slot == Twine::Null) {
+		// Cleared — return the slot to the freelist.
+		free_obj_meta(meta_idx);
+		meta_idx = RTLIL::AttrObject::NO_META;
+	}
+}
+
+void RTLIL::Design::obj_release_src_by_idx(uint32_t &meta_idx)
+{
+	if (meta_idx == RTLIL::AttrObject::NO_META)
+		return;
+	Twine::Id &slot = obj_meta_src_[meta_idx];
+	if (slot != Twine::Null) {
+		src_twines.release(slot);
+		slot = Twine::Null;
+	}
+	free_obj_meta(meta_idx);
+	meta_idx = RTLIL::AttrObject::NO_META;
+}
+
+void RTLIL::Design::set_src_attribute(RTLIL::AttrObject *obj, const RTLIL::SrcAttr &src)
+{
+	if (src.empty()) {
+		obj_set_src_id(obj, Twine::Null);
+		return;
+	}
+	Twine::Id new_id = Twine::Null;
+	if (src.id != Twine::Null) {
+		// Direct id form — the caller is responsible for keeping the
+		// slot alive while we retain. obj_set_src_id handles retain.
+		log_assert(src_twines.is_alive(src.id) && "set_src_attribute: SrcAttr id points to dead slot");
+		new_id = src.id;
+		obj_set_src_id(obj, new_id);
+	} else {
+		// Literal-string form. "@N" → adopt slot directly. Anything else
+		// → intern as leaf (returns +1, which we release after the retain
+		// inside obj_set_src_id balances).
+		new_id = TwinePool::parse_ref(src.literal);
+		if (new_id != Twine::Null) {
+			log_assert(src_twines.is_alive(new_id) && "set_src_attribute: @N ref points to dead slot");
+			obj_set_src_id(obj, new_id);
+		} else {
+			new_id = src_twines.intern(src.literal);
+			obj_set_src_id(obj, new_id);
+			src_twines.release(new_id);
+		}
+	}
+}
+
+std::string RTLIL::Design::get_src_attribute(const RTLIL::AttrObject *obj) const
+{
+	return src_twines.flatten(obj_src_id(obj));
+}
+
+void RTLIL::Design::adopt_src_from(RTLIL::AttrObject *obj, const RTLIL::AttrObject *source)
+{
+	adopt_src_from(obj, source, &src_twines);
+}
+
+void RTLIL::Design::adopt_src_from(RTLIL::AttrObject *obj,
+		const RTLIL::AttrObject *source, const TwinePool *src_pool)
+{
+	(void)src_pool;
+	if (!source || source->meta_idx_ == RTLIL::AttrObject::NO_META) {
+		obj_set_src_id(obj, Twine::Null);
+		return;
+	}
+	// Same-pool semantics: source's meta-vector entry is meaningful in
+	// our pool. Cross-pool adoption goes through copy_src_into directly
+	// (taking a src Design*), since AttrObject is not polymorphic and
+	// we can't downcast to recover the source design from here.
+	Twine::Id source_id = obj_src_id(source);
+	obj_set_src_id(obj, source_id);
+}
+
+void RTLIL::Design::absorb_attrs(RTLIL::AttrObject *obj, dict<RTLIL::IdString, RTLIL::Const> &&buf)
 {
 	auto it = buf.find(ID::src);
 	if (it != buf.end()) {
 		if (it->second.flags & RTLIL::CONST_FLAG_STRING)
-			set_src_attribute(pool, it->second.decode_string());
+			set_src_attribute(obj, it->second.decode_string());
 		buf.erase(it);
 	}
-	attributes = std::move(buf);
+	obj->attributes = std::move(buf);
 }
 
-// Transfer src from `src` to `dst`. Both pools are supplied by the caller;
-// in cross-pool transfers the source twine structure is rebuilt inside the
-// destination pool via copy_from (preserving concats), in same-pool we just
-// retain the existing slot via set_src_id.
+// Cross-design src transfer. Source is in `src_design`, dst in this design.
+// Both AttrObjects must have their meta_idx_ resolvable through the
+// respective designs.
 namespace {
-	void copy_src_into(const RTLIL::AttrObject *src, const TwinePool *src_pool,
-			RTLIL::AttrObject *dst, TwinePool *dst_pool)
+	void copy_src_into(const RTLIL::AttrObject *src, const RTLIL::Design *src_design,
+			RTLIL::AttrObject *dst, RTLIL::Design *dst_design)
 	{
-		if (!src || src->src_id() == Twine::Null || !src_pool || !dst_pool)
+		if (!src || !src_design || !dst_design)
 			return;
-		if (src_pool == dst_pool) {
-			dst->set_src_id(dst_pool, src->src_id());
+		Twine::Id src_id = src_design->obj_src_id(src);
+		if (src_id == Twine::Null) {
+			dst_design->obj_set_src_id(dst, Twine::Null);
 			return;
 		}
-		Twine::Id new_id = dst_pool->copy_from(*src_pool, src->src_id());
-		dst->set_src_id(dst_pool, new_id);
-		dst_pool->release(new_id);
+		if (src_design == dst_design) {
+			dst_design->obj_set_src_id(dst, src_id);
+			return;
+		}
+		Twine::Id new_id = dst_design->src_twines.copy_from(src_design->src_twines, src_id);
+		dst_design->obj_set_src_id(dst, new_id);
+		dst_design->src_twines.release(new_id);
 	}
 }
 
@@ -1112,14 +1123,18 @@ void RTLIL::Design::free_obj_meta(uint32_t idx)
 void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
 {
 	std::vector<Twine::Id> ids;
-	if (target->src_id() != Twine::Null)
-		ids.push_back(target->src_id());
-	if (source && source->src_id() != Twine::Null)
-		ids.push_back(source->src_id());
+	Twine::Id tgt_id = obj_src_id(target);
+	if (tgt_id != Twine::Null)
+		ids.push_back(tgt_id);
+	if (source) {
+		Twine::Id src_id = obj_src_id(source);
+		if (src_id != Twine::Null)
+			ids.push_back(src_id);
+	}
 	if (ids.empty())
 		return;
 	Twine::Id merged = src_twines.concat(std::span<const Twine::Id>{ids});
-	target->set_src_id(&src_twines, merged);
+	obj_set_src_id(target, merged);
 	src_twines.release(merged);
 }
 
@@ -1127,8 +1142,9 @@ void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const pool<std::string>
 {
 	std::vector<Twine::Id> ids;
 	std::vector<Twine::Id> temp_interns;
-	if (target->src_id() != Twine::Null)
-		ids.push_back(target->src_id());
+	Twine::Id tgt_id = obj_src_id(target);
+	if (tgt_id != Twine::Null)
+		ids.push_back(tgt_id);
 	for (const auto &leaf : leaves) {
 		if (leaf.empty())
 			continue;
@@ -1142,7 +1158,7 @@ void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const pool<std::string>
 	if (ids.empty())
 		return;
 	Twine::Id merged = src_twines.concat(std::span<const Twine::Id>{ids});
-	target->set_src_id(&src_twines, merged);
+	obj_set_src_id(target, merged);
 	src_twines.release(merged);
 	for (Twine::Id id : temp_interns)
 		src_twines.release(id);
@@ -1188,33 +1204,37 @@ size_t RTLIL::Design::gc_twines()
 	if (before == 0)
 		return 0;
 
-	// Mark phase: every live src_id_ on any AttrObject is a root.
+	// Mark phase: every live src_id on any AttrObject is a root.
 	pool<Twine::Id> live;
 	walk_attr_objects(this, [&](const RTLIL::AttrObject *obj) {
-		if (obj->src_id_ != Twine::Null)
-			live.insert(obj->src_id_);
+		Twine::Id id = obj_src_id(obj);
+		if (id != Twine::Null)
+			live.insert(id);
 	});
 
 	// Sweep + compact: rebuild the pool keeping only reachable nodes,
 	// receiving an old-id -> new-id remap.
 	dict<Twine::Id, Twine::Id> remap = src_twines.gc(live);
 
-	// Rewrite every src_id_ through the remap. The pool was rebuilt, so
-	// the old ids no longer mean anything — set_src_id with the new id is
-	// the canonical update.
+	// Rewrite every meta-vector src_id through the remap. The pool was
+	// rebuilt, so the old ids no longer mean anything — we update the
+	// vector slots directly (bypassing retain/release, which the rebuilt
+	// pool already accounts for).
 	walk_attr_objects(this, [&](RTLIL::AttrObject *obj) {
-		if (obj->src_id_ == Twine::Null)
+		if (obj->meta_idx_ == RTLIL::AttrObject::NO_META)
 			return;
-		auto it = remap.find(obj->src_id_);
+		Twine::Id &slot = obj_meta_src_[obj->meta_idx_];
+		if (slot == Twine::Null)
+			return;
+		auto it = remap.find(slot);
 		if (it == remap.end()) {
-			// Wasn't in live set (design corruption) — just zero the id
-			// since the old pool is gone.
-			obj->src_id_ = Twine::Null;
+			// Wasn't in live set (design corruption) — zero out.
+			slot = Twine::Null;
+			free_obj_meta(obj->meta_idx_);
+			obj->meta_idx_ = RTLIL::AttrObject::NO_META;
 			return;
 		}
-		// Rewrite without going through retain/release — the rebuilt
-		// pool already accounts for ownership.
-		obj->src_id_ = it->second;
+		slot = it->second;
 	});
 
 	return before - src_twines.size();
@@ -1223,12 +1243,13 @@ size_t RTLIL::Design::gc_twines()
 pool<std::string> RTLIL::Design::src_leaves(const RTLIL::AttrObject *obj) const
 {
 	pool<std::string> result;
-	if (obj->src_id() == Twine::Null)
+	Twine::Id id = obj_src_id(obj);
+	if (id == Twine::Null)
 		return result;
 	const TwinePool *pool = &src_twines;
-	const Twine &n = (*pool)[obj->src_id()];
+	const Twine &n = (*pool)[id];
 	if (n.is_flat()) {
-		result.insert(pool->flat_string(obj->src_id()));
+		result.insert(pool->flat_string(id));
 	} else {
 		// Flat-children invariant: every concat child is a Leaf or Suffix.
 		for (Twine::Id c : n.children())
@@ -1668,11 +1689,14 @@ void RTLIL::Design::optimize()
 void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 {
 	log_assert(dst->modules_.empty());
-	// Copy the twine pool wholesale. Any prior pool state in dst (e.g.
-	// dead slots left over from a -reset / -pop preceding the clone) is
-	// discarded by the assignment. The copied refcounts will balance the
-	// per-AttrObject src_id_ refs assigned below 1:1.
+	// Copy the twine pool and the per-object src meta vector wholesale.
+	// Any prior pool / meta state in dst (e.g. dead slots left over from
+	// a -reset / -pop preceding the clone) is discarded by the
+	// assignment. The copied refcounts and the same meta_idx_ values
+	// assigned below 1:1 to cloned AttrObjects line up by construction.
 	dst->src_twines = src_twines;
+	dst->obj_meta_src_ = obj_meta_src_;
+	dst->obj_meta_free_ = obj_meta_free_;
 	// Iterate via rbegin/rend so cloned modules land in dst in forward
 	// insertion order — same as how the source design's modules dict was
 	// built — keeping write_rtlil output byte-stable across clone cycles.
@@ -1821,17 +1845,9 @@ RTLIL::Module::Module()
 RTLIL::Module::~Module()
 {
 	clear_sig_norm_index();
-	// Release src for Memories (they have no module backpointer) before
-	// destroying them. Wire/Cell/Process release themselves via their
-	// own dtor through module->design.
-	if (design) {
-		TwinePool *pool = &design->src_twines;
-		for (auto &pr : memories)
-			if (pr.second->src_id_ != Twine::Null) {
-				pool->release(pr.second->src_id_);
-				pr.second->src_id_ = Twine::Null;
-			}
-	}
+	// Wire/Cell/Process/Memory release their own src via their dtors
+	// through module->design. They run after their respective deletes
+	// below, so we let them handle their own meta_idx_ cleanup.
 	for (auto &pr : wires_)
 		delete pr.second;
 	for (auto &pr : memories)
@@ -1842,35 +1858,52 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto binding : bindings_)
 		delete binding;
-	// Module's own src_id_ — release last so the pool stays valid for
+	// Module's own src — release last so the pool stays valid for
 	// inner releases above.
-	if (design && src_id_ != Twine::Null) {
-		design->src_twines.release(src_id_);
-		src_id_ = Twine::Null;
-	}
+	if (design)
+		design->obj_release_src(this);
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
 }
 
+Twine::Id RTLIL::Module::src_id() const
+{
+	if (!design)
+		return Twine::Null;
+	return design->obj_src_id(this);
+}
+
+void RTLIL::Module::set_src_id(Twine::Id id)
+{
+	log_assert(design && "Module::set_src_id requires the module to be attached to a design");
+	design->obj_set_src_id(this, id);
+}
+
 void RTLIL::Module::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && src_id_ == Twine::Null)
+	if (src.empty() && meta_idx_ == NO_META)
 		return;
 	log_assert(design && "Module::set_src_attribute requires the module to be attached to a design");
-	AttrObject::set_src_attribute(&design->src_twines, src);
+	design->set_src_attribute(this, src);
 }
 
 void RTLIL::Module::adopt_src_from(const RTLIL::AttrObject *source)
 {
 	log_assert(design && "Module::adopt_src_from requires the module to be attached to a design");
-	AttrObject::adopt_src_from(&design->src_twines, source);
+	design->adopt_src_from(this, source);
 }
 
 std::string RTLIL::Module::get_src_attribute() const
 {
 	log_assert(design);
-	return AttrObject::get_src_attribute(&design->src_twines);
+	return design->get_src_attribute(this);
+}
+
+void RTLIL::Module::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(design && "Module::absorb_attrs requires the module to be attached to a design");
+	design->absorb_attrs(this, std::move(buf));
 }
 
 #ifdef YOSYS_ENABLE_PYTHON
@@ -3082,28 +3115,29 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 	for (auto &attr : attributes)
 		new_mod->attributes[attr.first] = attr.second;
 	if (src_id_verbatim) {
-		// Caller (Design::clone_into) copied src_twines wholesale, so
-		// the same Twine::Id is valid in the destination pool — and
-		// the copied refcounts already pre-account for these new
+		// Caller (Design::clone_into) copied src_twines AND the obj
+		// meta vector wholesale, so the same meta_idx_ resolves to
+		// the same Twine::Id in the destination pool — and the
+		// copied refcounts already pre-account for these new
 		// AttrObjects. Direct assignment, no retain.
-		new_mod->src_id_ = src_id_;
+		new_mod->meta_idx_ = meta_idx_;
 	} else {
 		// Transfer src across designs. Both modules must be attached
 		// to a design for the migration to happen; in the
 		// detached-clone() scratch flow (equiv_make, etc.) src is
 		// dropped here — those callers don't preserve src across the
 		// temp clone by design.
-		const TwinePool *src_pool = this->design ? &this->design->src_twines : nullptr;
-		TwinePool *dst_pool = new_mod->design ? &new_mod->design->src_twines : nullptr;
-		copy_src_into(this, src_pool, new_mod, dst_pool);
+		if (this->design && new_mod->design)
+			copy_src_into(this, this->design, new_mod, new_mod->design);
 	}
 
 	if (src_id_verbatim) {
 		// Build fresh wires/cells/memories/processes and transfer
-		// src_id_ verbatim. The non-verbatim branch goes through
+		// meta_idx_ verbatim. The non-verbatim branch goes through
 		// addWire/addCell/addProcess(name, other) which call
-		// copy_src_into to migrate src across pools; here both pools
-		// already match, so we skip that and copy the id directly.
+		// copy_src_into to migrate src across designs; here both
+		// designs already share the same meta vector / pool, so we
+		// skip that and copy the index directly.
 		for (auto it = wires_.rbegin(); it != wires_.rend(); ++it) {
 			const RTLIL::Wire *o = it->second;
 			RTLIL::Wire *w = new_mod->addWire(it->first, o->width);
@@ -3114,7 +3148,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			w->upto = o->upto;
 			w->is_signed = o->is_signed;
 			w->attributes = o->attributes;
-			w->src_id_ = o->src_id_;
+			w->meta_idx_ = o->meta_idx_;
 		}
 		for (auto it = memories.rbegin(); it != memories.rend(); ++it) {
 			const RTLIL::Memory *o = it->second;
@@ -3123,7 +3157,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			m->start_offset = o->start_offset;
 			m->size = o->size;
 			m->attributes = o->attributes;
-			m->src_id_ = o->src_id_;
+			m->meta_idx_ = o->meta_idx_;
 		}
 		for (auto it = cells_.rbegin(); it != cells_.rend(); ++it) {
 			const RTLIL::Cell *o = it->second;
@@ -3131,28 +3165,28 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			c->connections_ = o->connections_;
 			c->parameters = o->parameters;
 			c->attributes = o->attributes;
-			c->src_id_ = o->src_id_;
+			c->meta_idx_ = o->meta_idx_;
 		}
 		for (auto it = processes.rbegin(); it != processes.rend(); ++it) {
 			const RTLIL::Process *o = it->second;
 			RTLIL::Process *p = o->clone();
 			p->name = it->first;
 			new_mod->add(p);
-			// Process::clone drops src_id_ across the inner tree
-			// (no pool backpointer there); now that p has a module
-			// we can copy them verbatim.
-			p->src_id_ = o->src_id_;
+			// Process::clone drops meta_idx_ across the inner tree
+			// (no module backpointer there before attach); now that
+			// p has a module we can copy them verbatim.
+			p->meta_idx_ = o->meta_idx_;
 			std::vector<std::pair<const RTLIL::CaseRule*, RTLIL::CaseRule*>> case_stack;
 			case_stack.emplace_back(&o->root_case, &p->root_case);
 			while (!case_stack.empty()) {
 				auto [s_cs, d_cs] = case_stack.back();
 				case_stack.pop_back();
-				d_cs->src_id_ = s_cs->src_id_;
+				d_cs->meta_idx_ = s_cs->meta_idx_;
 				log_assert(s_cs->switches.size() == d_cs->switches.size());
 				for (size_t i = 0; i < s_cs->switches.size(); i++) {
 					const auto *s_sw = s_cs->switches[i];
 					auto *d_sw = d_cs->switches[i];
-					d_sw->src_id_ = s_sw->src_id_;
+					d_sw->meta_idx_ = s_sw->meta_idx_;
 					log_assert(s_sw->cases.size() == d_sw->cases.size());
 					for (size_t j = 0; j < s_sw->cases.size(); j++)
 						case_stack.emplace_back(s_sw->cases[j], d_sw->cases[j]);
@@ -3164,7 +3198,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 				auto *d_sync = p->syncs[i];
 				log_assert(s_sync->mem_write_actions.size() == d_sync->mem_write_actions.size());
 				for (size_t j = 0; j < s_sync->mem_write_actions.size(); j++)
-					d_sync->mem_write_actions[j].src_id_ = s_sync->mem_write_actions[j].src_id_;
+					d_sync->mem_write_actions[j].meta_idx_ = s_sync->mem_write_actions[j].meta_idx_;
 			}
 		}
 	} else {
@@ -3589,9 +3623,9 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	wire->is_signed = other->is_signed;
 	wire->attributes = other->attributes;
 	{
-		const TwinePool *src_pool = other->module && other->module->design ? &other->module->design->src_twines : nullptr;
-		TwinePool *dst_pool = this->design ? &this->design->src_twines : nullptr;
-		copy_src_into(other, src_pool, wire, dst_pool);
+		const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
+		if (src_design && this->design)
+			copy_src_into(other, src_design, wire, this->design);
 	}
 	return wire;
 }
@@ -3612,9 +3646,9 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
 	{
-		const TwinePool *src_pool = other->module && other->module->design ? &other->module->design->src_twines : nullptr;
-		TwinePool *dst_pool = this->design ? &this->design->src_twines : nullptr;
-		copy_src_into(other, src_pool, cell, dst_pool);
+		const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
+		if (src_design && this->design)
+			copy_src_into(other, src_design, cell, this->design);
 	}
 	return cell;
 }
@@ -3660,11 +3694,11 @@ namespace {
 	// design boundary for every AttrObject (CaseRule, SwitchRule,
 	// MemWriteAction). Process::clone() drops src on these inner objects
 	// because they have no pool backpointer; this restores it now that
-	// both source and destination pools are known.
-	void migrate_process_tree_src(const RTLIL::Process *src, const TwinePool *src_pool,
-			RTLIL::Process *dst, TwinePool *dst_pool)
+	// both source and destination designs are known.
+	void migrate_process_tree_src(const RTLIL::Process *src, const RTLIL::Design *src_design,
+			RTLIL::Process *dst, RTLIL::Design *dst_design)
 	{
-		if (!src_pool || !dst_pool)
+		if (!src_design || !dst_design)
 			return;
 		// Top-level Process src is handled by the addProcess() caller via
 		// copy_src_into; here we only walk inner objects.
@@ -3673,12 +3707,12 @@ namespace {
 		while (!case_stack.empty()) {
 			auto [s_cs, d_cs] = case_stack.back();
 			case_stack.pop_back();
-			copy_src_into(s_cs, src_pool, d_cs, dst_pool);
+			copy_src_into(s_cs, src_design, d_cs, dst_design);
 			log_assert(s_cs->switches.size() == d_cs->switches.size());
 			for (size_t i = 0; i < s_cs->switches.size(); i++) {
 				const auto *s_sw = s_cs->switches[i];
 				auto *d_sw = d_cs->switches[i];
-				copy_src_into(s_sw, src_pool, d_sw, dst_pool);
+				copy_src_into(s_sw, src_design, d_sw, dst_design);
 				log_assert(s_sw->cases.size() == d_sw->cases.size());
 				for (size_t j = 0; j < s_sw->cases.size(); j++)
 					case_stack.emplace_back(s_sw->cases[j], d_sw->cases[j]);
@@ -3690,8 +3724,8 @@ namespace {
 			auto *d_sync = dst->syncs[i];
 			log_assert(s_sync->mem_write_actions.size() == d_sync->mem_write_actions.size());
 			for (size_t j = 0; j < s_sync->mem_write_actions.size(); j++)
-				copy_src_into(&s_sync->mem_write_actions[j], src_pool,
-						&d_sync->mem_write_actions[j], dst_pool);
+				copy_src_into(&s_sync->mem_write_actions[j], src_design,
+						&d_sync->mem_write_actions[j], dst_design);
 		}
 	}
 }
@@ -3703,16 +3737,16 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 	add(proc);
 	// Migrate src across the design boundary for the inner-process tree.
 	// Process::clone drops src on CaseRule/SwitchRule/MemWriteAction since
-	// those types have no module backpointer; with both pools now known
+	// those types have no module backpointer; with both designs now known
 	// (other's via other->module->design; ours via this->design) we can
 	// walk in parallel and migrate.
 	if (other->module && other->module->design && this->design) {
-		const TwinePool *src_pool = &other->module->design->src_twines;
-		TwinePool *dst_pool = &this->design->src_twines;
+		const RTLIL::Design *src_design = other->module->design;
+		RTLIL::Design *dst_design = this->design;
 		// Top-level Process src.
-		copy_src_into(other, src_pool, proc, dst_pool);
+		copy_src_into(other, src_design, proc, dst_design);
 		// Inner tree.
-		migrate_process_tree_src(other, src_pool, proc, dst_pool);
+		migrate_process_tree_src(other, src_design, proc, dst_design);
 	}
 	return proc;
 }
@@ -4724,32 +4758,51 @@ RTLIL::Wire::Wire(ConstructToken)
 
 RTLIL::Wire::~Wire()
 {
-	if (module && module->design && src_id_ != Twine::Null)
-		module->design->src_twines.release(src_id_);
+	if (module && module->design)
+		module->design->obj_release_src(this);
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Wire::get_all_wires()->erase(hashidx_);
 #endif
 }
 
+Twine::Id RTLIL::Wire::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+
+void RTLIL::Wire::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "Wire::set_src_id requires the wire to be attached to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+
 void RTLIL::Wire::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && src_id_ == Twine::Null)
+	if (src.empty() && meta_idx_ == NO_META)
 		return;
 	log_assert(module && module->design && "Wire::set_src_attribute requires the wire to be attached to a module in a design");
-	AttrObject::set_src_attribute(&module->design->src_twines, src);
+	module->design->set_src_attribute(this, src);
 }
 
 std::string RTLIL::Wire::get_src_attribute() const
 {
 	log_assert(module);
 	log_assert(module->design);
-	return AttrObject::get_src_attribute(&module->design->src_twines);
+	return module->design->get_src_attribute(this);
 }
 
 void RTLIL::Wire::adopt_src_from(const RTLIL::AttrObject *source)
 {
 	log_assert(module && module->design && "Wire::adopt_src_from requires the wire to be attached to a module in a design");
-	AttrObject::adopt_src_from(&module->design->src_twines, source);
+	module->design->adopt_src_from(this, source);
+}
+
+void RTLIL::Wire::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "Wire::absorb_attrs requires the wire to be attached to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
 }
 
 std::string RTLIL::Wire::to_rtlil_str() const
@@ -4818,32 +4871,51 @@ RTLIL::Cell::Cell(ConstructToken) : module(nullptr)
 
 RTLIL::Cell::~Cell()
 {
-	if (module && module->design && src_id_ != Twine::Null)
-		module->design->src_twines.release(src_id_);
+	if (module && module->design)
+		module->design->obj_release_src(this);
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
 }
 
+Twine::Id RTLIL::Cell::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+
+void RTLIL::Cell::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "Cell::set_src_id requires the cell to be attached to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+
 void RTLIL::Cell::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && src_id_ == Twine::Null)
+	if (src.empty() && meta_idx_ == NO_META)
 		return;
 	log_assert(module && module->design && "Cell::set_src_attribute requires the cell to be attached to a module in a design");
-	AttrObject::set_src_attribute(&module->design->src_twines, src);
+	module->design->set_src_attribute(this, src);
 }
 
 std::string RTLIL::Cell::get_src_attribute() const
 {
 	log_assert(module);
 	log_assert(module->design);
-	return module->design->src_twines.flatten(src_id_);
+	return module->design->get_src_attribute(this);
 }
 
 void RTLIL::Cell::adopt_src_from(const RTLIL::AttrObject *source)
 {
 	log_assert(module && module->design && "Cell::adopt_src_from requires the cell to be attached to a module in a design");
-	AttrObject::adopt_src_from(&module->design->src_twines, source);
+	module->design->adopt_src_from(this, source);
+}
+
+void RTLIL::Cell::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "Cell::absorb_attrs requires the cell to be attached to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
 }
 
 std::string RTLIL::Cell::to_rtlil_str() const
@@ -6505,76 +6577,89 @@ RTLIL::SyncRule *RTLIL::SyncRule::clone() const
 	new_syncrule->signal = signal;
 	new_syncrule->actions = actions;
 	new_syncrule->mem_write_actions = mem_write_actions;
-	// Drop src_id_ on the cloned MemWriteActions — the integer was copied
-	// by the vector assignment above without retaining the pool slot, and
-	// the caller is responsible for migrating src across the clone via
-	// context (see Process::clone).
+	// Drop meta_idx_ on the cloned MemWriteActions — the integer was
+	// copied by the vector assignment above without registering with
+	// any pool; the caller is responsible for migrating src across the
+	// clone via context (see Process::clone).
 	for (auto &mwa : new_syncrule->mem_write_actions)
-		mwa.src_id_ = Twine::Null;
+		mwa.meta_idx_ = RTLIL::AttrObject::NO_META;
 	return new_syncrule;
 }
 
-RTLIL::Process::~Process()
-{
-	// Process owns the refcount lifecycle for its inner AttrObject tree:
-	// CaseRule/SwitchRule/MemWriteAction have no module backpointer so
-	// can't release their own src_id_. Walk the tree first while we still
-	// have access to the pool via module->design.
-	if (module && module->design) {
-		TwinePool *pool = &module->design->src_twines;
-		std::vector<RTLIL::CaseRule*> case_stack{&root_case};
+namespace {
+	// Release the meta src slot on each AttrObject inside a Process tree.
+	// Called from Process::~Process while module->design is still valid.
+	void release_process_tree_src(RTLIL::Process *p)
+	{
+		if (!p->module || !p->module->design)
+			return;
+		RTLIL::Design *d = p->module->design;
+		std::vector<RTLIL::CaseRule*> case_stack{&p->root_case};
 		while (!case_stack.empty()) {
 			RTLIL::CaseRule *cs = case_stack.back();
 			case_stack.pop_back();
-			if (cs->src_id_ != Twine::Null) {
-				pool->release(cs->src_id_);
-				cs->src_id_ = Twine::Null;
-			}
+			d->obj_release_src(cs);
 			for (auto *sw : cs->switches) {
-				if (sw->src_id_ != Twine::Null) {
-					pool->release(sw->src_id_);
-					sw->src_id_ = Twine::Null;
-				}
+				d->obj_release_src(sw);
 				for (auto *case_ : sw->cases)
 					case_stack.push_back(case_);
 			}
 		}
-		for (auto *sync : syncs)
-			for (auto &mwa : sync->mem_write_actions) {
-				if (mwa.src_id_ != Twine::Null) {
-					pool->release(mwa.src_id_);
-					mwa.src_id_ = Twine::Null;
-				}
-			}
-		// Process's own src_id_ (lives in the AttrObject base).
-		if (src_id_ != Twine::Null) {
-			pool->release(src_id_);
-			src_id_ = Twine::Null;
-		}
+		for (auto *sync : p->syncs)
+			for (auto &mwa : sync->mem_write_actions)
+				d->obj_release_src(&mwa);
 	}
+}
+
+RTLIL::Process::~Process()
+{
+	// Walk the inner tree first while module->design is still valid,
+	// then release Process's own src.
+	release_process_tree_src(this);
+	if (module && module->design)
+		module->design->obj_release_src(this);
 	for (auto it = syncs.begin(); it != syncs.end(); it++)
 		delete *it;
 }
 
+Twine::Id RTLIL::Process::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+
+void RTLIL::Process::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "Process::set_src_id requires the process to be attached to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+
 void RTLIL::Process::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && src_id_ == Twine::Null)
+	if (src.empty() && meta_idx_ == NO_META)
 		return;
 	log_assert(module && module->design && "Process::set_src_attribute requires the process to be attached to a module in a design");
-	AttrObject::set_src_attribute(&module->design->src_twines, src);
+	module->design->set_src_attribute(this, src);
 }
 
 std::string RTLIL::Process::get_src_attribute() const
 {
 	if (!module || !module->design)
 		return {};
-	return AttrObject::get_src_attribute(&module->design->src_twines);
+	return module->design->get_src_attribute(this);
 }
 
 void RTLIL::Process::adopt_src_from(const RTLIL::AttrObject *source)
 {
 	log_assert(module && module->design && "Process::adopt_src_from requires the process to be attached to a module in a design");
-	AttrObject::adopt_src_from(&module->design->src_twines, source);
+	module->design->adopt_src_from(this, source);
+}
+
+void RTLIL::Process::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "Process::absorb_attrs requires the process to be attached to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
 }
 
 RTLIL::Process *RTLIL::Process::clone() const
@@ -6597,11 +6682,163 @@ RTLIL::Process *RTLIL::Process::clone() const
 	return new_proc;
 }
 
-#ifdef YOSYS_ENABLE_PYTHON
 RTLIL::Memory::~Memory()
 {
+	if (module && module->design)
+		module->design->obj_release_src(this);
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
+#endif
 }
+
+Twine::Id RTLIL::Memory::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+
+void RTLIL::Memory::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "Memory::set_src_id requires the memory to be attached to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+
+void RTLIL::Memory::set_src_attribute(const RTLIL::SrcAttr &src)
+{
+	if (src.empty() && meta_idx_ == NO_META)
+		return;
+	log_assert(module && module->design && "Memory::set_src_attribute requires the memory to be attached to a module in a design");
+	module->design->set_src_attribute(this, src);
+}
+
+std::string RTLIL::Memory::get_src_attribute() const
+{
+	if (!module || !module->design)
+		return {};
+	return module->design->get_src_attribute(this);
+}
+
+void RTLIL::Memory::adopt_src_from(const RTLIL::AttrObject *source)
+{
+	log_assert(module && module->design && "Memory::adopt_src_from requires the memory to be attached to a module in a design");
+	module->design->adopt_src_from(this, source);
+}
+
+void RTLIL::Memory::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "Memory::absorb_attrs requires the memory to be attached to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
+}
+
+// CaseRule / SwitchRule / MemWriteAction src helpers — all delegate to
+// module->design->obj_* via the back-pointer added in the earlier commit.
+Twine::Id RTLIL::CaseRule::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+void RTLIL::CaseRule::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "CaseRule::set_src_id requires the case to belong to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+void RTLIL::CaseRule::set_src_attribute(const RTLIL::SrcAttr &src)
+{
+	if (src.empty() && meta_idx_ == NO_META)
+		return;
+	log_assert(module && module->design && "CaseRule::set_src_attribute requires the case to belong to a module in a design");
+	module->design->set_src_attribute(this, src);
+}
+std::string RTLIL::CaseRule::get_src_attribute() const
+{
+	if (!module || !module->design)
+		return {};
+	return module->design->get_src_attribute(this);
+}
+void RTLIL::CaseRule::adopt_src_from(const RTLIL::AttrObject *source)
+{
+	log_assert(module && module->design && "CaseRule::adopt_src_from requires the case to belong to a module in a design");
+	module->design->adopt_src_from(this, source);
+}
+void RTLIL::CaseRule::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "CaseRule::absorb_attrs requires the case to belong to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
+}
+
+Twine::Id RTLIL::SwitchRule::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+void RTLIL::SwitchRule::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "SwitchRule::set_src_id requires the switch to belong to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+void RTLIL::SwitchRule::set_src_attribute(const RTLIL::SrcAttr &src)
+{
+	if (src.empty() && meta_idx_ == NO_META)
+		return;
+	log_assert(module && module->design && "SwitchRule::set_src_attribute requires the switch to belong to a module in a design");
+	module->design->set_src_attribute(this, src);
+}
+std::string RTLIL::SwitchRule::get_src_attribute() const
+{
+	if (!module || !module->design)
+		return {};
+	return module->design->get_src_attribute(this);
+}
+void RTLIL::SwitchRule::adopt_src_from(const RTLIL::AttrObject *source)
+{
+	log_assert(module && module->design && "SwitchRule::adopt_src_from requires the switch to belong to a module in a design");
+	module->design->adopt_src_from(this, source);
+}
+void RTLIL::SwitchRule::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "SwitchRule::absorb_attrs requires the switch to belong to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
+}
+
+Twine::Id RTLIL::MemWriteAction::src_id() const
+{
+	if (!module || !module->design)
+		return Twine::Null;
+	return module->design->obj_src_id(this);
+}
+void RTLIL::MemWriteAction::set_src_id(Twine::Id id)
+{
+	log_assert(module && module->design && "MemWriteAction::set_src_id requires the action to belong to a module in a design");
+	module->design->obj_set_src_id(this, id);
+}
+void RTLIL::MemWriteAction::set_src_attribute(const RTLIL::SrcAttr &src)
+{
+	if (src.empty() && meta_idx_ == NO_META)
+		return;
+	log_assert(module && module->design && "MemWriteAction::set_src_attribute requires the action to belong to a module in a design");
+	module->design->set_src_attribute(this, src);
+}
+std::string RTLIL::MemWriteAction::get_src_attribute() const
+{
+	if (!module || !module->design)
+		return {};
+	return module->design->get_src_attribute(this);
+}
+void RTLIL::MemWriteAction::adopt_src_from(const RTLIL::AttrObject *source)
+{
+	log_assert(module && module->design && "MemWriteAction::adopt_src_from requires the action to belong to a module in a design");
+	module->design->adopt_src_from(this, source);
+}
+void RTLIL::MemWriteAction::absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf)
+{
+	log_assert(module && module->design && "MemWriteAction::absorb_attrs requires the action to belong to a module in a design");
+	module->design->absorb_attrs(this, std::move(buf));
+}
+
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Memory*> all_memorys;
 std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
 {

@@ -105,9 +105,9 @@ namespace {
 				pool.dump("twine pool state");
 		}
 		for (Cell* c : targets)
-			c->set_src_id(&pool, merged);
+			c->set_src_id(merged);
 		if (merge_src_into)
-			merge_src_into->set_src_id(&pool, merged);
+			merge_src_into->set_src_id(merged);
 		pool.release(merged);
 	}
 

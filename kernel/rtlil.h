@@ -1301,17 +1301,21 @@ struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
-	// Typed src field. Outside the attribute dict — src is a structured
-	// reference into a TwinePool. The pool is NOT stored here: every live
-	// AttrObject is reachable from a Design (Cell/Wire/Process via their
-	// module, Module via its design field), and inner-process AttrObjects
-	// (CaseRule, SwitchRule, MemWriteAction) are owned by a Process whose
-	// dtor drives their refcount on their behalf. src_id_ is a "weak"
-	// integer reference — copying it does not retain; destroying the
-	// AttrObject does not release. Lifecycle is driven by the leaf
-	// subtype's destructor (Cell, Wire, Module, Process) walking up to
-	// its owning pool, and by Process::~Process for the nested types.
-	Twine::Id src_id_ = Twine::Null;
+	// Per-Design metadata slot index, or NO_META. The slot lives in
+	// Design::obj_meta_src_ and holds this object's Twine::Id src; the
+	// slot is allocated lazily on the first non-null src write and
+	// freed when src returns to null. Per-object cost is just this
+	// 4-byte index (replacing the prior inline 4-byte src_id_).
+	//
+	// AttrObject can't resolve its owning Design on its own. Lookups
+	// route either through a leaf subtype's src_id() sugar (which knows
+	// its container chain — Cell/Wire/Process/Memory via module->design,
+	// Module via design, CaseRule/SwitchRule/MemWriteAction via the
+	// module back-pointer added in prior commits) or through the
+	// Design::obj_src_id / obj_set_src_id / obj_release_src helpers
+	// when generic AttrObject* code already has a Design* in hand.
+	static constexpr uint32_t NO_META = ~0u;
+	uint32_t meta_idx_ = NO_META;
 
 	bool has_attribute(RTLIL::IdString id) const;
 
@@ -1330,50 +1334,6 @@ struct RTLIL::AttrObject
 	void set_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
 	void add_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
-
-	Twine::Id src_id() const { return src_id_; }
-
-	// Store an interned id and manage refcount via the provided pool:
-	// retain the new id; release the previous one if any. Twine::Null
-	// clears. The caller supplies the pool because AttrObject does not
-	// store one — typically derived from context (cell->module->design->
-	// src_twines and friends) or known directly (frontends, copy_from).
-	void set_src_id(TwinePool *pool, Twine::Id id);
-
-	// Apply `src` to this AttrObject via `pool`. If `src` carries a
-	// pre-interned id (returned by e.g. `other->src_ref()`) it is
-	// retained directly — no flatten/intern. Otherwise `src.literal`
-	// is interned (handling "@N" refs and splitting pipe-joined
-	// multi-leaf inputs into a Concat). Empty `src` clears src_id_.
-	void set_src_attribute(TwinePool *pool, const RTLIL::SrcAttr &src);
-	// Flatten the held src_id_ via `pool` to its pipe-joined literal.
-	std::string get_src_attribute(const TwinePool *pool) const;
-
-	// Transfer src verbatim from `source` to this object. The two-arg
-	// form assumes same-pool: `source`'s src_id_ is retained directly
-	// on the destination in `pool`. The three-arg form handles the
-	// cross-pool case by rebuilding `source`'s subtree (Concat/Suffix/
-	// Leaf) into `dst_pool` via copy_from. Either way no flatten/
-	// re-intern round-trip on the canonical leaf strings, so a Concat
-	// src never collapses into a pipe-containing Leaf.
-	void adopt_src_from(TwinePool *pool, const RTLIL::AttrObject *source);
-	void adopt_src_from(TwinePool *dst_pool, const RTLIL::AttrObject *source,
-			const TwinePool *src_pool);
-
-	// The raw twine id naming this object's src. Pass this — never the
-	// flattened path string from get_src_attribute() — when handing
-	// src to a CellAdder method or to another object's set_src: every
-	// CellAdder method has a Twine::Id overload that adopts the slot
-	// directly with no flatten/intern round-trip, preserving Suffix/
-	// Concat structure and never producing a pipe-containing Leaf
-	// from a Concat src.
-	Twine::Id src_ref() const { return src_id_; }
-
-	// Replace `attributes` with `buf`, extracting any ID::src entry first
-	// and routing it via `pool` to the typed src_id_ field. Use this in
-	// frontends instead of `obj->attributes = std::move(buf)` so file src
-	// lands in the twine pool rather than the attribute dict.
-	void absorb_attrs(TwinePool *pool, dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
@@ -2015,6 +1975,46 @@ struct RTLIL::Design
 	uint32_t alloc_obj_meta();
 	void free_obj_meta(uint32_t idx);
 
+	// Read src for `meta_idx`. NO_META → Twine::Null.
+	Twine::Id obj_src_id_by_idx(uint32_t meta_idx) const {
+		if (meta_idx == RTLIL::AttrObject::NO_META)
+			return Twine::Null;
+		return obj_meta_src_[meta_idx];
+	}
+
+	// Set src for `meta_idx`, allocating a slot lazily and freeing it
+	// when `id` is Twine::Null. Manages retain/release on src_twines.
+	// `meta_idx` is mutated as needed (NO_META -> allocated slot, or
+	// allocated slot -> NO_META after clearing).
+	void obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id);
+
+	// Release the slot's Twine ref and free the index. No-op if NO_META.
+	// Use from destructors. `meta_idx` becomes NO_META on return.
+	void obj_release_src_by_idx(uint32_t &meta_idx);
+
+	// AttrObject-keyed convenience overloads — dispatch to the _by_idx
+	// versions on obj->meta_idx_. Use these from generic helpers that
+	// already have a Design* in scope.
+	Twine::Id obj_src_id(const RTLIL::AttrObject *obj) const {
+		return obj_src_id_by_idx(obj->meta_idx_);
+	}
+	void obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id) {
+		obj_set_src_id_by_idx(obj->meta_idx_, id);
+	}
+	void obj_release_src(RTLIL::AttrObject *obj) {
+		obj_release_src_by_idx(obj->meta_idx_);
+	}
+
+	// Replacements for the methods that used to live on AttrObject and
+	// took an explicit TwinePool*. Same semantics; the pool resolves
+	// to this->src_twines internally.
+	void set_src_attribute(RTLIL::AttrObject *obj, const RTLIL::SrcAttr &src);
+	std::string get_src_attribute(const RTLIL::AttrObject *obj) const;
+	void adopt_src_from(RTLIL::AttrObject *obj, const RTLIL::AttrObject *source);
+	void adopt_src_from(RTLIL::AttrObject *obj, const RTLIL::AttrObject *source,
+			const TwinePool *src_pool);
+	void absorb_attrs(RTLIL::AttrObject *obj, dict<RTLIL::IdString, RTLIL::Const> &&buf);
+
 	// Resolve a stored src-attribute string to its flat path:line.col
 	// representation. If `raw` is a twine reference ("@N") returns
 	// src_twines.flatten(N); otherwise returns `raw` unchanged. Backends
@@ -2245,16 +2245,17 @@ public:
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
 
-	// Context-aware src helpers. Resolve the destination pool via
-	// `module->design->src_twines`; assert the wire is attached.
-	using AttrObject::set_src_attribute;
-	using AttrObject::get_src_attribute;
-	using AttrObject::adopt_src_from;
+	// Context-aware src helpers. Resolve Design via module->design and
+	// route to the per-Design meta vector; assert the wire is attached.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
 	void set_src_attribute(const RTLIL::SrcAttr &src);
 	std::string get_src_attribute() const;
 	// Transfer src from `source` verbatim (same pool). Asserts attached
-	// to a design — derives the pool via module->design->src_twines.
+	// to a design.
 	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	bool known_driver() const { return driverCell_ != nullptr; }
 
@@ -2291,17 +2292,26 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Memory();
+	~Memory();
 
 	// Back-pointer to the owning module — same role as Cell::module /
 	// Wire::module. Set by Module::addMemory / the frontends that
 	// construct Memory free-standing before attaching to a module.
-	// Lets Memory's src access (and the upcoming per-Design meta vector
-	// lookup) resolve uniformly via module->design.
+	// Lets Memory's src access resolve uniformly via module->design.
 	RTLIL::Module *module = nullptr;
+
+	// Context-aware src helpers. Resolve Design via module->design and
+	// route to the per-Design meta vector; assert the memory is attached.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
+	void set_src_attribute(const RTLIL::SrcAttr &src);
+	std::string get_src_attribute() const;
+	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	int width, start_offset, size;
 #ifdef YOSYS_ENABLE_PYTHON
-	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
 #endif
 
@@ -2340,16 +2350,15 @@ public:
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
-	// Context-aware src helpers. Resolve the destination pool via
-	// `module->design->src_twines`; assert the cell is attached.
-	using AttrObject::set_src_attribute;
-	using AttrObject::get_src_attribute;
-	using AttrObject::adopt_src_from;
+	// Context-aware src helpers. Resolve Design via module->design and
+	// route to the per-Design meta vector; assert the cell is attached.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
 	void set_src_attribute(const RTLIL::SrcAttr &src);
 	std::string get_src_attribute() const;
-	// Transfer src from `source` verbatim (same pool). Asserts attached
-	// to a design — derives the pool via module->design->src_twines.
 	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	// access cell ports
 	bool hasPort(RTLIL::IdString portname) const;
@@ -2414,6 +2423,15 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 	// each. Idempotent.
 	void setModuleRecursive(RTLIL::Module *m);
 
+	// Context-aware src helpers via module->design.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
+	void set_src_attribute(const RTLIL::SrcAttr &src);
+	std::string get_src_attribute() const;
+	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::CaseRule *clone() const;
@@ -2433,6 +2451,15 @@ struct RTLIL::SwitchRule : public RTLIL::AttrObject
 
 	void setModuleRecursive(RTLIL::Module *m);
 
+	// Context-aware src helpers via module->design.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
+	void set_src_attribute(const RTLIL::SrcAttr &src);
+	std::string get_src_attribute() const;
+	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::SwitchRule *clone() const;
@@ -2448,6 +2475,15 @@ struct RTLIL::MemWriteAction : RTLIL::AttrObject
 	RTLIL::SigSpec data;
 	RTLIL::SigSpec enable;
 	RTLIL::Const priority_mask;
+
+	// Context-aware src helpers via module->design.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
+	void set_src_attribute(const RTLIL::SrcAttr &src);
+	std::string get_src_attribute() const;
+	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 };
 
 struct RTLIL::SyncRule
@@ -2482,16 +2518,15 @@ public:
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
 
-	// Context-aware src helpers. Resolve the destination pool via
-	// `module->design->src_twines`; assert the process is attached.
-	using AttrObject::set_src_attribute;
-	using AttrObject::get_src_attribute;
-	using AttrObject::adopt_src_from;
+	// Context-aware src helpers. Resolve Design via module->design and
+	// route to the per-Design meta vector; assert the process is attached.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
 	void set_src_attribute(const RTLIL::SrcAttr &src);
 	std::string get_src_attribute() const;
-	// Transfer src from `source` verbatim (same pool). Asserts attached
-	// to a design — derives the pool via module->design->src_twines.
 	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -2832,16 +2867,15 @@ public:
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
 
-	// Context-aware src helpers. Resolve the destination pool via
-	// `design->src_twines`; assert the module is attached.
-	using AttrObject::set_src_attribute;
-	using AttrObject::get_src_attribute;
-	using AttrObject::adopt_src_from;
+	// Context-aware src helpers. Resolve Design via this->design and
+	// route to the per-Design meta vector; assert the module is attached.
+	Twine::Id src_id() const;
+	Twine::Id src_ref() const { return src_id(); }
+	void set_src_id(Twine::Id id);
 	void set_src_attribute(const RTLIL::SrcAttr &src);
 	std::string get_src_attribute() const;
-	// Transfer src from `source` verbatim (same pool). Asserts attached
-	// to a design — derives the pool via module->design->src_twines.
 	void adopt_src_from(const RTLIL::AttrObject *source);
+	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	Module();
 	virtual ~Module();

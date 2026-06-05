@@ -135,9 +135,9 @@ struct JsonWriter
 		bool first = true;
 		// Emit the typed src field first if present — it lives outside the
 		// attribute dict after the typed-src migration.
-		if (src_obj && src_obj->src_id() != Twine::Null && design) {
+		if (src_obj && design && design->obj_src_id(src_obj) != Twine::Null) {
 			f << stringf("\n        %s%s: ", for_module ? "" : "    ", get_name(RTLIL::ID::src));
-			write_parameter_value(RTLIL::Const(src_obj->get_src_attribute(&design->src_twines)));
+			write_parameter_value(RTLIL::Const(design->get_src_attribute(src_obj)));
 			first = false;
 		}
 		for (auto &param : parameters) {

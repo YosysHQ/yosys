@@ -71,11 +71,10 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	// Propagate one of the cell-level srcs to the wrapper too so backends
 	// emitting `attribute \src` see a usable value on the wrapper.
 	if (cell->module && cell->module->design) {
-		TwinePool *pool = &cell->module->design->src_twines;
 		if (st.carry->src_id() != Twine::Null)
-			cell->set_src_id(pool, st.carry->src_id());
+			cell->set_src_id(st.carry->src_id());
 		else if (st.lut->src_id() != Twine::Null)
-			cell->set_src_id(pool, st.lut->src_id());
+			cell->set_src_id(st.lut->src_id());
 	}
 	cell->attributes[IdString{"\\SB_LUT4.name"}] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
