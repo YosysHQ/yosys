@@ -147,7 +147,7 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, co
 // uses were rare and the dict-path migration is a separate concern.
 static bool match_attr(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const std::string &match_expr)
 {
-	if (design && obj->meta_idx_ != RTLIL::AttrObject::NO_META) {
+	if (design && obj->meta_ != nullptr) {
 		size_t pos = match_expr.find_first_of("<!=>");
 		std::string name_part = (pos == std::string::npos) ? match_expr : match_expr.substr(0, pos);
 		if (name_part == "src" || name_part == "\\src") {

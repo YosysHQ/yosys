@@ -968,7 +968,7 @@ struct RTLILFrontendWorker {
 				// meta_idx_ is a weak ref — drop ours so the pushed copy
 				// in the vector is the sole holder. Process::~Process
 				// walks the tree to actually release.
-				act.meta_idx_ = RTLIL::AttrObject::NO_META;
+				act.meta_ = nullptr;
 				expect_eol();
 			}
 			// The old parser allowed dangling attributes before a "sync" to carry through
