@@ -3127,7 +3127,11 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		// were inherited via the wholesale copy and already account for
 		// these new AttrObjects, so no retain on src.
 		if (this->meta_ && new_mod->design) {
-			new_mod->meta_ = new_mod->design->alloc_obj_meta();
+			// The Module::name masquerade write in clone() may have
+			// pre-allocated this slot; reuse it so the name-write
+			// before cloneInto isn't leaked.
+			if (!new_mod->meta_)
+				new_mod->meta_ = new_mod->design->alloc_obj_meta();
 			*new_mod->meta_ = *this->meta_;
 		}
 	} else {

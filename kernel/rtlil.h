@@ -129,6 +129,7 @@ namespace RTLIL
 	struct SigNormIndex;
 	struct SrcAttr;
 	struct ObjMeta;
+	struct ModuleNameMasq;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 	struct PortBit;
@@ -2800,11 +2801,49 @@ public:
 	RTLIL::SigBit Oai4Gate   (RTLIL::IdString name, const RTLIL::SigBit &sig_a, const RTLIL::SigBit &sig_b, const RTLIL::SigBit &sig_c, const RTLIL::SigBit &sig_d, const RTLIL::SrcAttr &src = RTLIL::SrcAttr());
 };
 
+// Zero-size masquerade for Module::name. Reads/writes route through
+// module->design->obj_name(this) / obj_set_name. Shadows NamedObject::name
+// at the Module-instance scope; static_cast<NamedObject*>(module)->name
+// still hits the (now-unused) inline base field. Writing requires
+// module->design to be set first.
+struct RTLIL::ModuleNameMasq {
+	operator RTLIL::IdString() const;
+	ModuleNameMasq& operator=(RTLIL::IdString id);
+	// Without this, `new_mod->name = src_mod->name` invokes the implicit
+	// copy-assign (no-op) instead of operator=(IdString), so the meta
+	// never gets written.
+	ModuleNameMasq& operator=(const ModuleNameMasq& other) { return *this = RTLIL::IdString(other); }
+	bool empty() const { return RTLIL::IdString(*this).empty(); }
+	std::string str() const { return RTLIL::IdString(*this).str(); }
+	const char* c_str() const { return RTLIL::IdString(*this).c_str(); }
+	bool isPublic() const { return RTLIL::IdString(*this).isPublic(); }
+	std::string unescape() const { return RTLIL::IdString(*this).unescape(); }
+	bool begins_with(const char* s) const { return RTLIL::IdString(*this).begins_with(s); }
+	bool ends_with(const char* s) const { return RTLIL::IdString(*this).ends_with(s); }
+	template<typename... Ts> bool in(Ts&&... args) const {
+		return RTLIL::IdString(*this).in(std::forward<Ts>(args)...);
+	}
+	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		return RTLIL::IdString(*this).substr(pos, len);
+	}
+	size_t size() const { return RTLIL::IdString(*this).size(); }
+	bool contains(const char *p) const { return RTLIL::IdString(*this).contains(p); }
+	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator< (RTLIL::IdString rhs) const { return RTLIL::IdString(*this) <  rhs; }
+	bool operator==(const std::string &rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(const std::string &rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator==(const ModuleNameMasq &rhs) const { return RTLIL::IdString(*this) == RTLIL::IdString(rhs); }
+	bool operator!=(const ModuleNameMasq &rhs) const { return RTLIL::IdString(*this) != RTLIL::IdString(rhs); }
+};
+
 struct RTLIL::Module : public RTLIL::NamedObject, public CellAdderMixin<RTLIL::Module>
 {
 	friend struct RTLIL::SigNormIndex;
 	friend struct RTLIL::Cell;
 	friend struct RTLIL::Design;
+
+	[[no_unique_address]] RTLIL::ModuleNameMasq name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -3133,6 +3172,20 @@ void RTLIL::Process::rewrite_sigspecs2(T &functor)
 	root_case.rewrite_sigspecs2(functor);
 	for (auto it : syncs)
 		it->rewrite_sigspecs2(functor);
+}
+
+inline RTLIL::ModuleNameMasq::operator RTLIL::IdString() const {
+	const RTLIL::Module *m = reinterpret_cast<const RTLIL::Module*>(
+		reinterpret_cast<const char*>(this) - offsetof(RTLIL::Module, name));
+	return m->design ? m->design->obj_name(m) : RTLIL::IdString{};
+}
+
+inline RTLIL::ModuleNameMasq& RTLIL::ModuleNameMasq::operator=(RTLIL::IdString id) {
+	RTLIL::Module *m = reinterpret_cast<RTLIL::Module*>(
+		reinterpret_cast<char*>(this) - offsetof(RTLIL::Module, name));
+	log_assert(m->design && "assignment to Module::name requires the module to be attached to a design");
+	m->design->obj_set_name(m, id);
+	return *this;
 }
 
 YOSYS_NAMESPACE_END
