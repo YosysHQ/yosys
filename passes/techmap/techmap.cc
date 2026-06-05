@@ -1225,7 +1225,7 @@ struct TechmapPass : public Pass {
 					}
 					for (auto mod : saved_designs.at(fn.substr(1))->modules())
 						if (!map->module(mod->name))
-							map->add(mod->clone());
+							mod->clone(map);
 				} else {
 					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : verilog_frontend));
 				}

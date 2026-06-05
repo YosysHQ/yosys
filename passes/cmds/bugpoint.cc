@@ -183,7 +183,7 @@ struct BugpointPass : public Pass {
 
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
-			design_copy->add(module->clone());
+			module->clone(design_copy);
 		Pass::call(design_copy, "proc_clean -quiet");
 		Pass::call(design_copy, "clean -purge");
 
@@ -196,7 +196,7 @@ struct BugpointPass : public Pass {
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
-			design_copy->add(module->clone());
+			module->clone(design_copy);
 
 		int index = 0;
 		if (modules)
@@ -678,7 +678,7 @@ struct BugpointPass : public Pass {
 			Pass::call(design, "design -reset");
 			crashing_design = clean_design(crashing_design, clean, /*do_delete=*/true);
 			for (auto module : crashing_design->modules())
-				design->add(module->clone());
+				module->clone(design);
 			delete crashing_design;
 		}
 
