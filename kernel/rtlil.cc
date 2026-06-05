@@ -3251,6 +3251,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 RTLIL::Module *RTLIL::Module::clone() const
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
+	new_mod->design = design;
 	new_mod->name = name;
 	cloneInto(new_mod);
 	return new_mod;
@@ -3259,6 +3260,7 @@ RTLIL::Module *RTLIL::Module::clone() const
 RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, bool src_id_verbatim) const
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
+	new_mod->design = dst;
 	new_mod->name = name;
 	dst->add(new_mod);
 	cloneInto(new_mod, src_id_verbatim);

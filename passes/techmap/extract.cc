@@ -596,7 +596,7 @@ struct ExtractPass : public Pass {
 					}
 					for (auto mod : saved_designs.at(filename.substr(1))->modules())
 						if (!map->has(mod->name))
-							map->add(mod->clone());
+							mod->clone(map);
 				}
 				else
 				{
