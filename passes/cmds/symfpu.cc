@@ -756,26 +756,24 @@ struct SymFpuConvertPass : public Pass {
 
 		auto i_bv = input_ubv(ID(i), i_size);
 		uf i_f = symfpu::unpack<rtlil_traits>(i_format, i_bv);
+		prop i_sNaN(i_f.getNaN() && is_sNaN(i_bv, i_size-i_exp));
+
+		auto output_flags = [](IdString name, const prop &nv, const prop &nx, const prop &of = prop(false), const prop &uf = prop(false), const prop &dz = prop(false)) {
+			output_ubv(name, ubv{SigSpec({nv.bit, dz.bit, of.bit, uf.bit, nx.bit})});
+		};
 
 		uf_flagged o_ff = symfpu::convertFloatToFloat_flagged(i_format, o_format, rounding_mode, i_f);
 		output_ubv(ID(o_ff), symfpu::pack<rtlil_traits>(o_format, o_ff.val));
-		prop i_sNaN(i_f.getNaN() && is_sNaN(i_bv, i_size-i_exp));
-		output_prop(ID(nv_ff), o_ff.nv || i_sNaN);
-		output_prop(ID(of_ff), o_ff.of);
-		output_prop(ID(uf_ff), o_ff.uf);
-		output_prop(ID(nx_ff), o_ff.nx);
+		output_flags(ID(flags_ff), o_ff.nv || i_sNaN, o_ff.nx, o_ff.of, o_ff.uf);
 
 		ubv o_default = symfpu::ITE(i_f.getSign(), ubv::zero(o_size), ubv::allOnes(o_size));
 		ubv_flagged o_fi = symfpu::convertFloatToUBV_flagged(i_format, rounding_mode, i_f, o_size, o_default);
 		output_ubv(ID(o_fi), o_fi.val);
-		output_prop(ID(nv_fi), o_fi.nv);
-		output_prop(ID(nx_fi), o_fi.nx);
+		output_flags(ID(flags_fi), o_fi.nv, o_fi.nx);
 
 		uf_flagged o_if = symfpu::convertUBVToFloat_flagged<rtlil_traits>(o_format, rounding_mode, i_bv);
 		output_ubv(ID(o_if), symfpu::pack<rtlil_traits>(o_format, o_if.val));
-		output_prop(ID(nv_if), o_if.nv);
-		output_prop(ID(of_if), o_if.of);
-		output_prop(ID(nx_if), o_if.nx);
+		output_flags(ID(flags_if), o_if.nv, o_if.nx, o_if.of);
 
 		symfpu_mod->fixup_ports();
 	}
