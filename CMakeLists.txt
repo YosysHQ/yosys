@@ -9,7 +9,7 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
 	)
 endif()
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.28)
 project(yosys LANGUAGES C CXX)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -532,6 +532,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		COMMAND make vanilla-test ${makefile_vars}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
 		DEPENDS ${makefile_depends}
+		JOB_SERVER_AWARE TRUE
 	)
 
 	add_custom_target(test
@@ -543,6 +544,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		COMMAND make gen ${makefile_vars}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
+		JOB_SERVER_AWARE TRUE
 	)
 	foreach (format html latexpdf)
 		add_custom_target(docs-${format}
@@ -555,6 +557,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		COMMAND make test ${makefile_vars}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
+		JOB_SERVER_AWARE TRUE
 	)
 endif()
 
