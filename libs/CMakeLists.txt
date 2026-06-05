@@ -7,3 +7,8 @@ add_subdirectory(json11)
 add_subdirectory(minisat)
 add_subdirectory(sha1)
 add_subdirectory(subcircuit)
+
+add_library(symfpu INTERFACE)
+target_include_directories(symfpu INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
