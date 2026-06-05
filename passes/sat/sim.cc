@@ -811,10 +811,10 @@ struct SimInstance
 		return did_something;
 	}
 
-	static void log_source(RTLIL::AttrObject *src)
+	void log_source(RTLIL::AttrObject *src)
 	{
-		for (auto src : src->get_strpool_attribute(ID::src))
-			log("    %s\n", src);
+		for (auto leaf : module->design->src_leaves(src))
+			log("    %s\n", leaf);
 	}
 
 	void log_cell_w_hierarchy(std::string opening_verbiage, RTLIL::Cell *cell)
@@ -931,8 +931,8 @@ struct SimInstance
 			for (auto cell : formal_database)
 			{
 				string label = cell->name.unescape();
-				if (cell->attributes.count(ID::src))
-					label = cell->attributes.at(ID::src).decode_string();
+				if (cell->has_attribute(ID::src))
+					label = cell->get_src_attribute();
 
 				State a = get_state(cell->getPort(ID::A))[0];
 				State en = get_state(cell->getPort(ID::EN))[0];
@@ -2088,7 +2088,7 @@ struct SimWorker : SimShared
 			json.entry("step", assertion.step);
 			json.entry("type", assertion.cell->type.unescape());
 			json.entry("path", assertion.instance->witness_full_path(assertion.cell));
-			auto src = assertion.cell->get_string_attribute(ID::src);
+			auto src = assertion.cell->get_src_attribute();
 			if (!src.empty()) {
 				json.entry("src", src);
 			}
@@ -2101,7 +2101,7 @@ struct SimWorker : SimShared
 			json.begin_object();
 			json.entry("step", output.step);
 			json.entry("path", output.instance->witness_full_path(output.cell));
-			auto src = output.cell->get_string_attribute(ID::src);
+			auto src = output.cell->get_src_attribute();
 			if (!src.empty()) {
 				json.entry("src", src);
 			}

@@ -75,7 +75,7 @@ struct BmuxmapPass : public Pass {
 					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
 				}
 				RTLIL::Cell *pmux = module->addPmux(NEW_ID, new_a, data, new_s, new_data);
-				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+				module->design->merge_src(pmux, cell);
 				data = new_data;
 			}
 			else
@@ -88,7 +88,7 @@ struct BmuxmapPass : public Pass {
 							data.extract(i*2+width, width),
 							sel[idx],
 							new_data.extract(i, width));
-						mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+						module->design->merge_src(mux, cell);
 					}
 					data = new_data;
 				}

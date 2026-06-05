@@ -184,9 +184,9 @@ struct RomWorker
 
 		mem.emit();
 
-		if (sw->has_attribute(ID::src)) {
-			mem.inits[0].cell->attributes[ID::src] = sw->attributes[ID::src];
-			mem.rd_ports[0].cell->attributes[ID::src] = sw->attributes[ID::src];
+		if (sw->src_id() != Twine::Null && module->design) {
+			mem.inits[0].cell->set_src_id(&module->design->src_twines, sw->src_id());
+			mem.rd_ports[0].cell->set_src_id(&module->design->src_twines, sw->src_id());
 		}
 
 		for (auto cs: sw->cases)

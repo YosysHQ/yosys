@@ -167,7 +167,9 @@ static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
 		const AstNode *node, const char *to_add_kind)
 {
 	auto already_exists = [&](const RTLIL::AttrObject *existing, const char *existing_kind) {
-		std::string src = existing->get_string_attribute(ID::src);
+		std::string src;
+		if (module->design)
+			src = existing->get_src_attribute(&module->design->src_twines);
 		std::string location_str = "earlier";
 		if (!src.empty())
 			location_str = "at " + src;

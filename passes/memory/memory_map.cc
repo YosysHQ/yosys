@@ -112,7 +112,12 @@ struct MemoryMapWorker
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
 
-		mem_src = mem.get_src_attribute();
+		// "@N" ref, not a flattened literal — avoids re-interning a
+		// possibly-Concat src as a single pipe-joined leaf on every
+		// new cell. set_src_attribute's parse_ref path retains the
+		// pool slot directly.
+		mem_src = (mem.module && mem.module->design && mem.src_id() != Twine::Null) ?
+				TwinePool::format_ref(mem.src_id()) : std::string();
 
 		SigSpec init_data = mem.get_init_data();
 

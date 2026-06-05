@@ -402,6 +402,7 @@ namespace AST
 		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
 		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
+		RTLIL::Module *clone(RTLIL::Design *dst, bool src_id_verbatim = false) const override;
 		void loadconfig() const;
 	};
 

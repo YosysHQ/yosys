@@ -66,7 +66,7 @@ struct QbfSolutionType {
 		dict<RTLIL::SigBit, RTLIL::SigBit> anyconst_sigbit_to_wire_sigbit;
 
 		for (auto cell : module->cells()) {
-			pool<std::string> cell_src = cell->get_strpool_attribute(ID::src);
+			pool<std::string> cell_src = module->design->src_leaves(cell);
 			auto pos = hole_to_value.find(cell_src);
 			if (pos != hole_to_value.end() && cell->type.in("$anyconst", "$anyseq")) {
 				RTLIL::SigSpec port_y = cell->getPort(ID::Y);

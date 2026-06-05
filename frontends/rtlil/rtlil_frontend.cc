@@ -24,6 +24,7 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include "kernel/utils.h"
+#include "kernel/twine.h"
 #include <charconv>
 #include <deque>
 #include <optional>
@@ -51,6 +52,14 @@ struct RTLILFrontendWorker {
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
+
+	// Remap from file-local twine ids (as they appear in the `twines` block
+	// and on cell/wire src attrs) to ids in design->src_twines. Filled by
+	// parse_twines; consumed by parse_attribute. Parser-side ids retained
+	// during parse_twines are tracked here so they can be released at
+	// end-of-parse — only the cell/wire references should survive.
+	dict<Twine::Id, Twine::Id> twine_remap;
+	std::vector<Twine::Id> twine_parser_holds;
 
 	template <typename... Args>
 	[[noreturn]]
@@ -436,9 +445,15 @@ struct RTLILFrontendWorker {
 
 		current_module = new RTLIL::Module;
 		current_module->name = std::move(module_name);
-		current_module->attributes = std::move(attrbuf);
-		if (!delete_current_module)
+		if (delete_current_module) {
+			// Module is about to be discarded — drop its src attribute
+			// rather than push it into a pool we'll never reach.
+			attrbuf.erase(ID::src);
+			current_module->attributes = std::move(attrbuf);
+		} else {
 			design->add(current_module);
+			current_module->absorb_attrs(&design->src_twines, std::move(attrbuf));
+		}
 
 		while (true)
 		{
@@ -491,8 +506,103 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::IdString id = parse_id();
 		RTLIL::Const c = parse_const();
+		// The '|' separator inside a src attribute is a Yosys-internal
+		// merge convention emitted only by the legacy strpool path or by
+		// a `dump -resolve-src`; no external tool should be producing it.
+		// Warn so the producer learns to emit one path:line.col per
+		// attribute. We don't try to repair the value — the user's input
+		// is wrong and silently interning it would hide that.
+		if (id == RTLIL::ID::src && (c.flags & RTLIL::CONST_FLAG_STRING)) {
+			std::string raw = c.decode_string();
+			Twine::Id file_id = TwinePool::parse_ref(raw);
+			if (file_id != Twine::Null) {
+				// Translate the file-local twine id to the destination
+				// design's pool id via twine_remap. If the file had no
+				// `twines` block (legacy) the remap is empty — accept the
+				// ref verbatim and let downstream code intern it.
+				auto it = twine_remap.find(file_id);
+				if (it != twine_remap.end())
+					c = RTLIL::Const(TwinePool::format_ref(it->second));
+			} else if (raw.find('|') != std::string::npos) {
+				log_warning("line %d: src attribute %s contains '|' separators. "
+						"That convention is Yosys-internal; the producing tool "
+						"should emit a single path:line.col per attribute and "
+						"let Yosys merge through the twine pool.\n",
+						line_num, raw.c_str());
+			}
+		}
 		attrbuf.insert({std::move(id), std::move(c)});
 		expect_eol();
+	}
+
+	// Parses a `twines` ... `end` block. Builds twine_remap so subsequent
+	// cell/wire src "@N" references (which use file-local ids) translate
+	// to ids in design->src_twines. The destination pool may already be
+	// non-empty (multi-file load) — interned/concated nodes are dedup'd
+	// against the existing pool by the pool itself. Each parser-side
+	// retain is tracked in twine_parser_holds and released at end-of-parse
+	// so only cell/wire references survive.
+	void parse_twines()
+	{
+		expect_eol();
+		while (true) {
+			if (try_parse_keyword("end"))
+				break;
+			if (try_parse_keyword("leaf")) {
+				int file_id = static_cast<int>(parse_integer());
+				std::string text = parse_string();
+				expect_eol();
+				Twine::Id local_id = design->src_twines.intern(text);
+				twine_parser_holds.push_back(local_id);
+				twine_remap[static_cast<Twine::Id>(file_id)] = local_id;
+				continue;
+			}
+			if (try_parse_keyword("suffix")) {
+				int file_id = static_cast<int>(parse_integer());
+				Twine::Id file_parent = static_cast<Twine::Id>(parse_integer());
+				std::string tail = parse_string();
+				expect_eol();
+				auto it = twine_remap.find(file_parent);
+				if (it == twine_remap.end())
+					error("twines: suffix %d references undefined parent %u.",
+							file_id, file_parent);
+				Twine::Id local_id = design->src_twines.intern_suffix(it->second, tail);
+				twine_parser_holds.push_back(local_id);
+				twine_remap[static_cast<Twine::Id>(file_id)] = local_id;
+				continue;
+			}
+			if (try_parse_keyword("concat")) {
+				int file_id = static_cast<int>(parse_integer());
+				std::vector<Twine::Id> children;
+				while (!try_parse_eol()) {
+					Twine::Id file_child = static_cast<Twine::Id>(parse_integer());
+					auto it = twine_remap.find(file_child);
+					if (it == twine_remap.end())
+						error("twines: concat %d references undefined leaf/concat %u.",
+								file_id, file_child);
+					children.push_back(it->second);
+				}
+				Twine::Id local_id = design->src_twines.concat(
+						std::span<const Twine::Id>{children});
+				twine_parser_holds.push_back(local_id);
+				twine_remap[static_cast<Twine::Id>(file_id)] = local_id;
+				continue;
+			}
+			error("Expected `leaf`, `suffix` or `concat` inside twines block, got `%s'.",
+					error_token());
+		}
+		expect_eol();
+	}
+
+	// Release the per-file parser refs gathered during parse_twines. Call
+	// once the entire file has been parsed and every cell/wire that ever
+	// referred to a file_id has already adopted the corresponding local_id.
+	void release_twine_parser_holds()
+	{
+		for (Twine::Id id : twine_parser_holds)
+			design->src_twines.release(id);
+		twine_parser_holds.clear();
+		twine_remap.clear();
 	}
 
 	void parse_parameter()
@@ -556,7 +666,7 @@ struct RTLILFrontendWorker {
 				error("Unexpected wire option: %s", error_token());
 		}
 
-		wire->attributes = std::move(attrbuf);
+		wire->absorb_attrs(&design->src_twines, std::move(attrbuf));
 		wire->width = width;
 		wire->upto = upto;
 		wire->start_offset = start_offset;
@@ -570,7 +680,7 @@ struct RTLILFrontendWorker {
 	void parse_memory()
 	{
 		RTLIL::Memory *memory = new RTLIL::Memory;
-		memory->attributes = std::move(attrbuf);
+		memory->absorb_attrs(&design->src_twines, std::move(attrbuf));
 
 		int width = 1;
 		int start_offset = 0;
@@ -638,7 +748,7 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of cell %s.", cell_name);
 		}
 		RTLIL::Cell *cell = current_module->addCell(cell_name, cell_type);
-		cell->attributes = std::move(attrbuf);
+		cell->absorb_attrs(&design->src_twines, std::move(attrbuf));
 
 		while (true)
 		{
@@ -728,7 +838,7 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
 		rule->signal = parse_sigspec();
-		rule->attributes = std::move(attrbuf);
+		rule->absorb_attrs(&design->src_twines, std::move(attrbuf));
 		switch_stack.back()->push_back(rule);
 		expect_eol();
 
@@ -745,7 +855,7 @@ struct RTLILFrontendWorker {
 
 			expect_keyword("case");
 			RTLIL::CaseRule *case_rule = new RTLIL::CaseRule;
-			case_rule->attributes = std::move(attrbuf);
+			case_rule->absorb_attrs(&design->src_twines, std::move(attrbuf));
 			rule->cases.push_back(case_rule);
 			switch_stack.push_back(&case_rule->switches);
 			case_stack.push_back(case_rule);
@@ -779,7 +889,7 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of process %s.", proc_name);
 		}
 		RTLIL::Process *proc = current_module->addProcess(std::move(proc_name));
-		proc->attributes = std::move(attrbuf);
+		proc->absorb_attrs(&design->src_twines, std::move(attrbuf));
 
 		switch_stack.clear();
 		switch_stack.push_back(&proc->root_case.switches);
@@ -828,7 +938,7 @@ struct RTLILFrontendWorker {
 					break;
 
 				RTLIL::MemWriteAction act;
-				act.attributes = std::move(attrbuf);
+				act.absorb_attrs(&design->src_twines, std::move(attrbuf));
 				act.memid = parse_id();
 				act.address = parse_sigspec();
 				act.data = parse_sigspec();
@@ -869,10 +979,15 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
+			if (try_parse_keyword("twines")) {
+				parse_twines();
+				continue;
+			}
 			error("Unexpected token: %s", error_token());
 		}
 		if (attrbuf.size() != 0)
 			error("dangling attribute");
+		release_twine_parser_holds();
 	}
 };
 

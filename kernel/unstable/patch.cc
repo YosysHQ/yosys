@@ -76,25 +76,39 @@ std::vector<Cell*> Patch::commit_staged() {
 }
 
 namespace {
-	void collect_src(Cell* root, const std::vector<Cell*>& extras,
-			Cell* merge_src_into, pool<std::string>& out)
-	{
-		out.insert(root->get_src_attribute());
-		for (Cell* c : extras)
-			if (c)
-				out.insert(c->get_src_attribute());
-		if (merge_src_into)
-			out.insert(merge_src_into->get_src_attribute());
-	}
-
-	void apply_src(const pool<std::string>& src_pool,
+	void apply_src(Module* mod, Cell* root, const std::vector<Cell*>& extras,
 			const std::vector<Cell*>& targets, Cell* merge_src_into)
 	{
-		std::string src_str = AttrObject::strpool_attribute_to_str(src_pool);
+		// Without a design there's no pool — the cells can't carry typed
+		// src, so silently drop merge-of-src in that path.
+		if (!mod || !mod->design)
+			return;
+
+		TwinePool& pool = mod->design->src_twines;
+		std::vector<Twine::Id> ids;
+		ids.reserve(2 + extras.size());
+		auto push = [&](Cell *c) {
+			if (c && c->src_id() != Twine::Null)
+				ids.push_back(c->src_id());
+		};
+		push(root);
+		for (Cell *c : extras)
+			push(c);
+		push(merge_src_into);
+		if (ids.empty())
+			return;
+		Twine::Id merged = pool.concat(std::span<const Twine::Id>{ids});
+		if (ys_debug()) {
+			log_debug("twine: merge yields %s (pool size %zu)\n",
+					TwinePool::format_ref(merged).c_str(), pool.size());
+			if (ys_debug(2))
+				pool.dump("twine pool state");
+		}
 		for (Cell* c : targets)
-			c->set_src_attribute(src_str);
+			c->set_src_id(&pool, merged);
 		if (merge_src_into)
-			merge_src_into->set_src_attribute(src_str);
+			merge_src_into->set_src_id(&pool, merged);
+		pool.release(merged);
 	}
 
 	// Verifies via newcelltypes that root_cell has exactly one output port
@@ -133,11 +147,8 @@ void Patch::patch(Cell* root_cell, IdString old_port, SigSpec new_sig,
 			log_id(root_cell->name), log_id(old_port),
 			log_signal(old_sig), log_signal(new_sig));
 
-	pool<std::string> src_pool;
-	collect_src(root_cell, extras, merge_src_into, src_pool);
-
 	std::vector<Cell*> committed = commit_staged();
-	apply_src(src_pool, committed, merge_src_into);
+	apply_src(mod, root_cell, extras, committed, merge_src_into);
 
 	// Drop root_cell's driver on the output port BEFORE wiring old_sig to
 	// new_sig — otherwise old_sig would briefly have two drivers (root_cell
@@ -179,11 +190,8 @@ void Patch::patch_ports(Cell* root_cell,
 			log_error("patch_ports: cell %s of type %s has output port %s not in port_replacements\n",
 					log_id(root_cell->name), log_id(root_cell->type), log_id(port));
 
-	pool<std::string> src_pool;
-	collect_src(root_cell, extras, merge_src_into, src_pool);
-
 	std::vector<Cell*> committed = commit_staged();
-	apply_src(src_pool, committed, merge_src_into);
+	apply_src(mod, root_cell, extras, committed, merge_src_into);
 
 	// Drop every port (inputs included) so root_cell becomes a disconnected
 	// shell before we wire old_sigs to new_sigs. Doing this first ensures
@@ -208,11 +216,14 @@ void Patch::patch_ports(Cell* root_cell,
 }
 
 void Patch::commit_inheriting_src(Cell* src_source) {
-	std::string src = src_source ? src_source->get_src_attribute() : std::string();
 	for (auto& cell : cells_) {
-		cell->set_src_attribute(src);
 		cell->fixup_parameters();
-		commit_cell(std::move(cell));
+		Cell *committed = commit_cell(std::move(cell));
+		// commit_cell attaches the cell to mod, so adopt_src_from can
+		// now resolve the pool via committed->module->design. Direct
+		// id transfer — no flatten/re-intern detour.
+		if (src_source)
+			committed->adopt_src_from(src_source);
 	}
 	for (auto& wire : wires_)
 		commit_wire(std::move(wire));

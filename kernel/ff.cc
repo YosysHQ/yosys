@@ -39,6 +39,15 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.sig_q = cell->getPort(ID::Q);
 		info.width = GetSize(info.sig_q);
 		info.attributes = cell->attributes;
+		// Carry src across construction → emit() as an owning Twine
+		// reference. Retaining a slot on the source pool keeps it
+		// alive even if the source cell gets removed between
+		// manufacture_info() and emit(); emit() then transfers the
+		// id verbatim into the new cell — no flatten/re-intern, no
+		// pipe-leaf risk for cells whose src is a Concat.
+		if (cell->src_id() != Twine::Null && cell->module && cell->module->design)
+			info.src_twine = OwnedTwine(&cell->module->design->src_twines,
+					cell->src_id());
 		if (initvals)
 			info.val_init = (*initvals)(info.sig_q);
 	}
@@ -753,7 +762,24 @@ Cell *FfData::emit() {
 			}
 		}
 	}
+	// src is carried in info.src_twine (an OwnedTwine retaining the
+	// source slot). Transfer the id verbatim to the new cell — same
+	// pool, no flatten. The OwnedTwine still holds its own ref until
+	// FfData is destroyed; set_src_id retains on the cell's behalf.
 	cell->attributes = attributes;
+	if (!src_twine.empty() && cell->module && cell->module->design) {
+		TwinePool *dst_pool = &cell->module->design->src_twines;
+		if (src_twine.pool() == dst_pool) {
+			cell->set_src_id(dst_pool, src_twine.id());
+		} else {
+			// Cross-pool (unusual — FfData migrated between
+			// designs). Rebuild the twine structure into the
+			// destination pool, then adopt that fresh id.
+			Twine::Id migrated = dst_pool->copy_from(*src_twine.pool(), src_twine.id());
+			cell->set_src_id(dst_pool, migrated);
+			dst_pool->release(migrated);
+		}
+	}
 	if (initvals && !is_anyinit)
 		initvals->set_init(cell->getPort(ID::Q), val_init);
 	return cell;

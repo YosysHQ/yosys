@@ -287,6 +287,25 @@ void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 	}
 }
 
+// AttrObject-aware overload: extracts ID::src and routes it to the typed
+// src_id_ field via set_src_attribute. Other keys still land in the
+// attributes dict via the generic path.
+void json_parse_attributes(TwinePool *pool, RTLIL::AttrObject *obj, JsonNode *node)
+{
+	if (node->type != 'D')
+		log_error("JSON attributes or parameters node is not a dictionary.\n");
+
+	for (auto it : node->data_dict)
+	{
+		IdString key = RTLIL::escape_id(it.first.c_str());
+		Const value = json_parse_attr_param_value(it.second);
+		if (key == ID::src && (value.flags & RTLIL::CONST_FLAG_STRING))
+			obj->set_src_attribute(pool, value.decode_string());
+		else
+			obj->attributes[key] = value;
+	}
+}
+
 void json_import(Design *design, string &modname, JsonNode *node)
 {
 	log("Importing module %s from JSON tree.\n", modname);
@@ -300,7 +319,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 	design->add(module);
 
 	if (node->data_dict.count("attributes"))
-		json_parse_attr_param(module->attributes, node->data_dict.at("attributes"));
+		json_parse_attributes(&design->src_twines, module, node->data_dict.at("attributes"));
 
 	if (node->data_dict.count("parameter_default_values"))
 		json_parse_attr_param(module->parameter_default_values, node->data_dict.at("parameter_default_values"));
@@ -483,7 +502,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			}
 
 			if (net_node->data_dict.count("attributes"))
-				json_parse_attr_param(wire->attributes, net_node->data_dict.at("attributes"));
+				json_parse_attributes(&design->src_twines, wire, net_node->data_dict.at("attributes"));
 		}
 	}
 
@@ -564,7 +583,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			}
 
 			if (cell_node->data_dict.count("attributes"))
-				json_parse_attr_param(cell->attributes, cell_node->data_dict.at("attributes"));
+				json_parse_attributes(&design->src_twines, cell, cell_node->data_dict.at("attributes"));
 
 			if (cell_node->data_dict.count("parameters"))
 				json_parse_attr_param(cell->parameters, cell_node->data_dict.at("parameters"));
@@ -611,7 +630,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			}
 
 			if (memory_node->data_dict.count("attributes"))
-				json_parse_attr_param(mem->attributes, memory_node->data_dict.at("attributes"));
+				json_parse_attributes(&design->src_twines, mem, memory_node->data_dict.at("attributes"));
 
 			module->memories[mem->name] = mem;
 		}

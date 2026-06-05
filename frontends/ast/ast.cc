@@ -1106,7 +1106,31 @@ std::string AstNode::loc_string() const
 
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
-	obj->attributes[ID::src] = ast->loc_string();
+	// All AttrObjects in genrtlil — Cell/Wire/Module/Process AND the inner
+	// types (CaseRule, SwitchRule, MemWriteAction) — share current_module's
+	// design's twine pool. process_module attaches current_module->design
+	// early so this is reachable.
+	if (!current_module || !current_module->design)
+		return;
+	const auto &loc = ast->location;
+	if (!loc.begin.filename || loc.begin.filename->empty()) {
+		obj->set_src_attribute(&current_module->design->src_twines, ast->loc_string());
+		return;
+	}
+	// Split filename and per-location tail so the filename interns once
+	// per file and every cell/wire src for that file gets a Suffix node
+	// carrying only ":line.col-line.col". For a typical large design with
+	// thousands of objects in one file this collapses N copies of a long
+	// path into 1 Leaf + N short Suffix tails.
+	TwinePool *pool = &current_module->design->src_twines;
+	Twine::Id file_id = pool->intern(*loc.begin.filename);
+	std::string tail = stringf(":%d.%d-%d.%d",
+			loc.begin.line, loc.begin.column,
+			loc.end.line, loc.end.column);
+	Twine::Id suffix_id = pool->intern_suffix(file_id, tail);
+	pool->release(file_id); // suffix internally holds a ref now
+	obj->set_src_id(pool, suffix_id);
+	pool->release(suffix_id); // set_src_id retained on obj's behalf
 }
 
 static bool param_has_no_default(const AstNode* param) {
@@ -1130,6 +1154,12 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 	AstModule *module = new AstModule;
 	current_module = module;
+	// Set design backpointer early — every set_src_attr in genrtlil.cc
+	// resolves the pool via current_module->design->src_twines. The
+	// final design->add(current_module) at end-of-process_module hooks
+	// the module into the design's modules_ dict; we just need design
+	// reachable as a backpointer for src interning meanwhile.
+	module->design = design;
 
 	module->ast = nullptr;
 	module->name = ast->str;
@@ -1903,6 +1933,29 @@ RTLIL::Module *AstModule::clone() const
 	AstModule *new_mod = new AstModule;
 	new_mod->name = name;
 	cloneInto(new_mod);
+
+	new_mod->ast = ast->clone();
+	new_mod->nolatches = nolatches;
+	new_mod->nomeminit = nomeminit;
+	new_mod->nomem2reg = nomem2reg;
+	new_mod->mem2reg = mem2reg;
+	new_mod->noblackbox = noblackbox;
+	new_mod->lib = lib;
+	new_mod->nowb = nowb;
+	new_mod->noopt = noopt;
+	new_mod->icells = icells;
+	new_mod->pwires = pwires;
+	new_mod->autowire = autowire;
+
+	return new_mod;
+}
+
+RTLIL::Module *AstModule::clone(RTLIL::Design *dst, bool src_id_verbatim) const
+{
+	AstModule *new_mod = new AstModule;
+	new_mod->name = name;
+	dst->add(new_mod);
+	cloneInto(new_mod, src_id_verbatim);
 
 	new_mod->ast = ast->clone();
 	new_mod->nolatches = nolatches;

@@ -107,15 +107,15 @@ struct Async2syncPass : public Pass {
 						Wire *sig_en_q = module->addWire(NEW_ID);
 						Wire *sig_args_q = module->addWire(NEW_ID, GetSize(sig_args));
 						sig_en_q->attributes.emplace(ID::init, State::S0);
-						module->addDff(NEW_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->get_src_attribute());
-						module->addDff(NEW_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->get_src_attribute());
+						module->addDff(NEW_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->src_ref());
+						module->addDff(NEW_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->src_ref());
 						cell->setPort(ID::EN, sig_en_q);
 						cell->setPort(ID::ARGS, sig_args_q);
 						if (cell->type == ID($check)) {
 							SigBit sig_a = cell->getPort(ID::A);
 							Wire *sig_a_q = module->addWire(NEW_ID);
 							sig_a_q->attributes.emplace(ID::init, State::S1);
-							module->addDff(NEW_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->get_src_attribute());
+							module->addDff(NEW_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->src_ref());
 							cell->setPort(ID::A, sig_a_q);
 						}
 					}

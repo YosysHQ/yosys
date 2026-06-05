@@ -62,6 +62,21 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 		cell->attributes[stringf("\\SB_CARRY.%s", a.first)] = a.second;
 	for (const auto &a : st.lut->attributes)
 		cell->attributes[stringf("\\SB_LUT4.%s", a.first)] = a.second;
+	// src now lives in src_id_, not the attributes dict — propagate it
+	// via prefixed flat-literal attributes so the unwrap pass can restore.
+	if (st.carry->src_id() != Twine::Null)
+		cell->attributes[IdString("\\SB_CARRY.\\src")] = Const(st.carry->get_src_attribute());
+	if (st.lut->src_id() != Twine::Null)
+		cell->attributes[IdString("\\SB_LUT4.\\src")] = Const(st.lut->get_src_attribute());
+	// Propagate one of the cell-level srcs to the wrapper too so backends
+	// emitting `attribute \src` see a usable value on the wrapper.
+	if (cell->module && cell->module->design) {
+		TwinePool *pool = &cell->module->design->src_twines;
+		if (st.carry->src_id() != Twine::Null)
+			cell->set_src_id(pool, st.carry->src_id());
+		else if (st.lut->src_id() != Twine::Null)
+			cell->set_src_id(pool, st.lut->src_id());
+	}
 	cell->attributes[IdString{"\\SB_LUT4.name"}] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
 		cell->attributes[ID::keep] = true;
@@ -134,23 +149,30 @@ struct Ice40WrapCarryPass : public Pass {
 					lut->setPort(ID::A, { I3, cell->getPort(ID::B), cell->getPort(ID::A), cell->getPort(ID(I0)) });
 					lut->setPort(ID::Y, cell->getPort(ID::O));
 
-					Const src;
-					for (const auto &a : cell->attributes)
-						if (a.first.begins_with("\\SB_CARRY.\\"))
+					std::string carry_src, lut_src, fallback_src;
+					if (cell->src_id() != Twine::Null)
+						fallback_src = cell->get_src_attribute();
+					for (const auto &a : cell->attributes) {
+						// Match the prefixed src first so we don't fall through
+						// to the generic SB_CARRY./SB_LUT4. prefix copy.
+						if (a.first == IdString("\\SB_CARRY.\\src")) {
+							carry_src = a.second.decode_string();
+						} else if (a.first == IdString("\\SB_LUT4.\\src")) {
+							lut_src = a.second.decode_string();
+						} else if (a.first.begins_with("\\SB_CARRY.\\")) {
 							carry->attributes[a.first.c_str() + strlen("\\SB_CARRY.")] = a.second;
-						else if (a.first.begins_with("\\SB_LUT4.\\"))
+						} else if (a.first.begins_with("\\SB_LUT4.\\")) {
 							lut->attributes[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
-						else if (a.first == ID::src)
-							src = a.second;
-						else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived, ID::src))
+						} else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived)) {
 							continue;
-						else
+						} else {
 							log_abort();
-
-					if (!src.empty()) {
-						carry->attributes.insert(std::make_pair(ID::src, src));
-						lut->attributes.insert(std::make_pair(ID::src, src));
+						}
 					}
+					if (carry_src.empty()) carry_src = fallback_src;
+					if (lut_src.empty()) lut_src = fallback_src;
+					if (!carry_src.empty()) carry->set_src_attribute(carry_src);
+					if (!lut_src.empty()) lut->set_src_attribute(lut_src);
 
 					module->remove(cell);
 				}

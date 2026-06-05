@@ -614,7 +614,13 @@ struct Smt2Worker
 			{
 				auto QY = cell->type == ID($anyinit) ? ID::Q : ID::Y;
 				registers.insert(cell);
-				string infostr = cell->attributes.count(ID::src) ? cell->attributes.at(ID::src).decode_string().c_str() : get_id(cell);
+				string infostr;
+				if (cell->has_attribute(ID::src)) {
+					string raw_src = cell->get_src_attribute();
+					infostr = module && module->design ? module->design->resolve_src(raw_src) : raw_src;
+				} else {
+					infostr = get_id(cell);
+				}
 				if (cell->attributes.count(ID::reg))
 					infostr += " " + cell->attributes.at(ID::reg).decode_string();
 				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
@@ -1130,8 +1136,11 @@ struct Smt2Worker
 					}
 				}
 
-				if (private_name && cell->attributes.count(ID::src))
-					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, get_id(cell), cell->attributes.at(ID::src).decode_string()));
+				if (private_name && cell->has_attribute(ID::src)) {
+					string raw_src = cell->get_src_attribute();
+					string resolved_src = module && module->design ? module->design->resolve_src(raw_src) : raw_src;
+					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, get_id(cell), resolved_src.c_str()));
+				}
 				else
 					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, get_id(cell)));
 

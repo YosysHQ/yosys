@@ -27,12 +27,9 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
-static void transfer_attr (Cell* to, const Cell* from, IdString attr) {
-	if (from->has_attribute(attr))
-		to->attributes[attr] = from->attributes.at(attr);
-}
 static void transfer_src (Cell* to, const Cell* from) {
-	transfer_attr(to, from, ID::src);
+	if (from->src_id() != Twine::Null && to->module && to->module->design)
+		to->set_src_id(&to->module->design->src_twines, from->src_id());
 }
 
 void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)

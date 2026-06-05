@@ -404,8 +404,8 @@ struct EdifBackend : public Backend {
 
 					{
 						auto count_nontrivial_attr = [](Wire *w) {
+							// src isn't in attributes anymore (typed field).
 							int count = w->attributes.size();
-							count -= w->attributes.count(ID::src);
 							count -= w->attributes.count(ID::unused_bits);
 							return count;
 						};
