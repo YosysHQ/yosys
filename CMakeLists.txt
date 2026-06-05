@@ -168,7 +168,7 @@ if (APPLE)
 	use_homebrew()
 endif()
 
-find_package(FLEX)
+find_package(FLEX 2.6)
 set_package_properties(FLEX PROPERTIES
 	URL "https://github.com/westes/flex"
 	DESCRIPTION "The Fast Lexical Analyzer"
@@ -176,7 +176,7 @@ set_package_properties(FLEX PROPERTIES
 	TYPE REQUIRED
 )
 
-find_package(BISON)
+find_package(BISON 3.6)
 set_package_properties(BISON PROPERTIES
 	URL "https://www.gnu.org/software/bison/"
 	DESCRIPTION "The Yacc-compatible Parser Generator"
