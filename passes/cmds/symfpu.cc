@@ -421,7 +421,7 @@ struct SymFpuPass : public Pass {
 
 		content_root->usage("symfpu [size] [-op <OP>] [-rm <RM>]");
 		content_root->paragraph(
-			"Generates netlist for given floating point operation with floating point inputs"
+			"Generates netlist for given floating point operation with floating point inputs "
 			"a, b, c, floating point output o, 5-bit input rm (rounding mode), and "
 			"5 single-bit outputs NV (invalid operation), DZ (divide by zero), OF (overflow), "
 			"UF (underflow), and NX (inexact)."
