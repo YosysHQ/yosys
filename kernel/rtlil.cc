@@ -3611,6 +3611,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name)
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = std::move(name);
+	mem->module = this;
 	memories[mem->name] = mem;
 	return mem;
 }
@@ -3619,14 +3620,15 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = std::move(name);
+	mem->module = this;
 	mem->width = other->width;
 	mem->start_offset = other->start_offset;
 	mem->size = other->size;
 	mem->attributes = other->attributes;
 	{
-		// Memory has no module backpointer of its own — we can't know its
-		// source pool from `other` alone. Drop src in the rare clone-of-
-		// memory path; addMemory(name) is the common one and starts fresh.
+		// Clone path drops src for now — caller responsible for migrating
+		// src across the design boundary if needed. addMemory(name) is the
+		// common case.
 		(void)other;
 	}
 	memories[mem->name] = mem;

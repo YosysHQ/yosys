@@ -604,6 +604,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			RTLIL::Memory *mem = new RTLIL::Memory;
 			mem->name = memory_name;
+			mem->module = module;
 
 			if (memory_node->type != 'D')
 				log_error("JSON memory node '%s' is not a dictionary.\n", memory_name.unescape());

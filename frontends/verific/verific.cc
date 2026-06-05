@@ -1625,6 +1625,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		{
 			RTLIL::Memory *memory = new RTLIL::Memory;
 			memory->name = RTLIL::escape_id(net->Name());
+			memory->module = module;
 			log_assert(module->count_id(memory->name) == 0);
 			module->memories[memory->name] = memory;
 			import_attributes(memory->attributes, net, nl);

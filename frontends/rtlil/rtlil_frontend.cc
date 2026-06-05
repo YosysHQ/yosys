@@ -680,6 +680,7 @@ struct RTLILFrontendWorker {
 	void parse_memory()
 	{
 		RTLIL::Memory *memory = new RTLIL::Memory;
+		memory->module = current_module;
 		memory->absorb_attrs(&design->src_twines, std::move(attrbuf));
 
 		int width = 1;

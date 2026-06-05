@@ -1567,6 +1567,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				input_error("Memory `%s' with non-constant width or size!\n", str);
 
 			RTLIL::Memory *memory = new RTLIL::Memory;
+			memory->module = current_module;
 			set_src_attr(memory, this);
 			memory->name = str;
 			memory->width = children[0]->range_left - children[0]->range_right + 1;
