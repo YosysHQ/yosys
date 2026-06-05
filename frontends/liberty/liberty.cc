@@ -606,6 +606,7 @@ struct LibertyFrontend : public Frontend {
 			parse_type_map(type_map, cell);
 
 			RTLIL::Module *module = new RTLIL::Module;
+			module->design = design;
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 			module->name = cell_name;
 

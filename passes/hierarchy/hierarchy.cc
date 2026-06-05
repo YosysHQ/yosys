@@ -119,6 +119,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		log_assert(indices.empty());
 
 		RTLIL::Module *mod = new RTLIL::Module;
+		mod->design = design;
 		mod->name = celltype;
 		mod->attributes[ID::blackbox] = RTLIL::Const(1);
 		design->add(mod);

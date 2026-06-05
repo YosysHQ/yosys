@@ -1550,6 +1550,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	}
 
 	module = new RTLIL::Module;
+	module->design = design;
 	module->name = module_name;
 	design->add(module);
 

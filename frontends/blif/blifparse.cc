@@ -167,6 +167,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				if (module != nullptr)
 					goto error;
 				module = new RTLIL::Module;
+				module->design = design;
 				lastcell = nullptr;
 				char *name = strtok(NULL, " \t\r\n");
 				if (name == nullptr)
