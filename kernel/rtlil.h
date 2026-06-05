@@ -2369,6 +2369,14 @@ public:
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject
 {
+	// Back-pointer to the owning module. Set by the frontend / kernel
+	// attach path before any src access; the per-Design src meta vector
+	// is resolved as `module->design`. Frontends that construct an
+	// inner-process tree must call setModuleRecursive() on the root before
+	// the tree is consumed (e.g. before set_src_attribute is invoked on
+	// any nested CaseRule/SwitchRule/MemWriteAction).
+	RTLIL::Module *module = nullptr;
+
 	std::vector<RTLIL::SigSpec> compare;
 	std::vector<RTLIL::SigSig> actions;
 	std::vector<RTLIL::SwitchRule*> switches;
@@ -2377,6 +2385,12 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 
 	bool empty() const;
 
+	// Walk the whole CaseRule subtree (this case, every switch, every
+	// nested case, every MemWriteAction inside this process's sync rules
+	// — those are reached through Process, not here) and set `module` on
+	// each. Idempotent.
+	void setModuleRecursive(RTLIL::Module *m);
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::CaseRule *clone() const;
@@ -2384,12 +2398,17 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 
 struct RTLIL::SwitchRule : public RTLIL::AttrObject
 {
+	// Back-pointer to the owning module; see CaseRule::module.
+	RTLIL::Module *module = nullptr;
+
 	RTLIL::SigSpec signal;
 	std::vector<RTLIL::CaseRule*> cases;
 
 	~SwitchRule();
 
 	bool empty() const;
+
+	void setModuleRecursive(RTLIL::Module *m);
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -2398,6 +2417,9 @@ struct RTLIL::SwitchRule : public RTLIL::AttrObject
 
 struct RTLIL::MemWriteAction : RTLIL::AttrObject
 {
+	// Back-pointer to the owning module; see CaseRule::module.
+	RTLIL::Module *module = nullptr;
+
 	RTLIL::IdString memid;
 	RTLIL::SigSpec address;
 	RTLIL::SigSpec data;

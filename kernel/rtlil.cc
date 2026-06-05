@@ -3315,6 +3315,14 @@ void RTLIL::Module::add(RTLIL::Process *process)
 	log_assert(count_id(process->name) == 0);
 	processes[process->name] = process;
 	process->module = this;
+	// Propagate module back-pointer to every CaseRule/SwitchRule in the
+	// root case tree and every MemWriteAction in the sync rules — so the
+	// per-Design src meta vector can be resolved from any inner-process
+	// AttrObject via `module->design` after attach.
+	process->root_case.setModuleRecursive(this);
+	for (auto *sync : process->syncs)
+		for (auto &mwa : sync->mem_write_actions)
+			mwa.module = this;
 }
 
 void RTLIL::Module::add(RTLIL::Binding *binding)
@@ -6415,6 +6423,20 @@ RTLIL::CaseRule::~CaseRule()
 bool RTLIL::CaseRule::empty() const
 {
 	return actions.empty() && switches.empty();
+}
+
+void RTLIL::CaseRule::setModuleRecursive(RTLIL::Module *m)
+{
+	module = m;
+	for (auto *sw : switches)
+		sw->setModuleRecursive(m);
+}
+
+void RTLIL::SwitchRule::setModuleRecursive(RTLIL::Module *m)
+{
+	module = m;
+	for (auto *cs : cases)
+		cs->setModuleRecursive(m);
 }
 
 RTLIL::CaseRule *RTLIL::CaseRule::clone() const
