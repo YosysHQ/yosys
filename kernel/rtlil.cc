@@ -917,7 +917,7 @@ RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) co
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	if (id == ID::src)
-		return meta_idx_ != RTLIL::AttrObject::NO_META;
+		return meta_ != nullptr && meta_->src != Twine::Null;
 	return attributes.count(id);
 }
 
@@ -933,7 +933,7 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
 	if (id == ID::src)
-		return meta_idx_ != RTLIL::AttrObject::NO_META;
+		return meta_ != nullptr && meta_->src != Twine::Null;
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
 		return false;
@@ -964,14 +964,14 @@ string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 	return value;
 }
 
-void RTLIL::Design::obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id)
+void RTLIL::Design::obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id)
 {
-	if (meta_idx == RTLIL::AttrObject::NO_META) {
+	if (obj->meta_ == nullptr) {
 		if (id == Twine::Null)
 			return;
-		meta_idx = alloc_obj_meta();
+		obj->meta_ = alloc_obj_meta();
 	}
-	ObjMeta &m = obj_meta_[meta_idx];
+	ObjMeta &m = *obj->meta_;
 	if (m.src == id)
 		return;
 	if (m.src != Twine::Null)
@@ -980,50 +980,50 @@ void RTLIL::Design::obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id)
 	if (m.src != Twine::Null)
 		src_twines.retain(m.src);
 	if (m.src == Twine::Null && m.name.empty()) {
-		free_obj_meta(meta_idx);
-		meta_idx = RTLIL::AttrObject::NO_META;
+		free_obj_meta(obj->meta_);
+		obj->meta_ = nullptr;
 	}
 }
 
-void RTLIL::Design::obj_release_src_by_idx(uint32_t &meta_idx)
+void RTLIL::Design::obj_release_src(RTLIL::AttrObject *obj)
 {
-	if (meta_idx == RTLIL::AttrObject::NO_META)
+	if (obj->meta_ == nullptr)
 		return;
-	ObjMeta &m = obj_meta_[meta_idx];
+	ObjMeta &m = *obj->meta_;
 	if (m.src != Twine::Null) {
 		src_twines.release(m.src);
 		m.src = Twine::Null;
 	}
 	if (m.name.empty()) {
-		free_obj_meta(meta_idx);
-		meta_idx = RTLIL::AttrObject::NO_META;
+		free_obj_meta(obj->meta_);
+		obj->meta_ = nullptr;
 	}
 }
 
-void RTLIL::Design::obj_set_name_by_idx(uint32_t &meta_idx, RTLIL::IdString name)
+void RTLIL::Design::obj_set_name(RTLIL::AttrObject *obj, RTLIL::IdString name)
 {
-	if (meta_idx == RTLIL::AttrObject::NO_META) {
+	if (obj->meta_ == nullptr) {
 		if (name.empty())
 			return;
-		meta_idx = alloc_obj_meta();
+		obj->meta_ = alloc_obj_meta();
 	}
-	ObjMeta &m = obj_meta_[meta_idx];
+	ObjMeta &m = *obj->meta_;
 	m.name = name;
 	if (m.name.empty() && m.src == Twine::Null) {
-		free_obj_meta(meta_idx);
-		meta_idx = RTLIL::AttrObject::NO_META;
+		free_obj_meta(obj->meta_);
+		obj->meta_ = nullptr;
 	}
 }
 
-void RTLIL::Design::obj_release_name_by_idx(uint32_t &meta_idx)
+void RTLIL::Design::obj_release_name(RTLIL::AttrObject *obj)
 {
-	if (meta_idx == RTLIL::AttrObject::NO_META)
+	if (obj->meta_ == nullptr)
 		return;
-	ObjMeta &m = obj_meta_[meta_idx];
+	ObjMeta &m = *obj->meta_;
 	m.name = RTLIL::IdString();
 	if (m.src == Twine::Null) {
-		free_obj_meta(meta_idx);
-		meta_idx = RTLIL::AttrObject::NO_META;
+		free_obj_meta(obj->meta_);
+		obj->meta_ = nullptr;
 	}
 }
 
@@ -1070,7 +1070,7 @@ void RTLIL::Design::adopt_src_from(RTLIL::AttrObject *obj,
 		const RTLIL::AttrObject *source, const TwinePool *src_pool)
 {
 	(void)src_pool;
-	if (!source || source->meta_idx_ == RTLIL::AttrObject::NO_META) {
+	if (!source || source->meta_ == nullptr) {
 		obj_set_src_id(obj, Twine::Null);
 		return;
 	}
@@ -1117,25 +1117,24 @@ namespace {
 	}
 }
 
-uint32_t RTLIL::Design::alloc_obj_meta()
+RTLIL::ObjMeta *RTLIL::Design::alloc_obj_meta()
 {
 	if (!obj_meta_free_.empty()) {
-		uint32_t idx = obj_meta_free_.back();
+		ObjMeta *m = obj_meta_free_.back();
 		obj_meta_free_.pop_back();
-		obj_meta_[idx] = ObjMeta{};
-		return idx;
+		*m = ObjMeta{};
+		return m;
 	}
-	uint32_t idx = static_cast<uint32_t>(obj_meta_.size());
-	obj_meta_.emplace_back();
-	return idx;
+	obj_meta_storage_.emplace_back();
+	return &obj_meta_storage_.back();
 }
 
-void RTLIL::Design::free_obj_meta(uint32_t idx)
+void RTLIL::Design::free_obj_meta(RTLIL::ObjMeta *m)
 {
-	log_assert(idx < obj_meta_.size());
-	log_assert(obj_meta_[idx].src == Twine::Null);
-	log_assert(obj_meta_[idx].name.empty());
-	obj_meta_free_.push_back(idx);
+	log_assert(m != nullptr);
+	log_assert(m->src == Twine::Null);
+	log_assert(m->name.empty());
+	obj_meta_free_.push_back(m);
 }
 
 void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
@@ -1239,17 +1238,17 @@ size_t RTLIL::Design::gc_twines()
 	// vector slots directly (bypassing retain/release, which the rebuilt
 	// pool already accounts for).
 	walk_attr_objects(this, [&](RTLIL::AttrObject *obj) {
-		if (obj->meta_idx_ == RTLIL::AttrObject::NO_META)
+		if (obj->meta_ == nullptr)
 			return;
-		ObjMeta &m = obj_meta_[obj->meta_idx_];
+		ObjMeta &m = *obj->meta_;
 		if (m.src == Twine::Null)
 			return;
 		auto it = remap.find(m.src);
 		if (it == remap.end()) {
 			m.src = Twine::Null;
 			if (m.name.empty()) {
-				free_obj_meta(obj->meta_idx_);
-				obj->meta_idx_ = RTLIL::AttrObject::NO_META;
+				free_obj_meta(obj->meta_);
+				obj->meta_ = nullptr;
 			}
 			return;
 		}
@@ -1708,19 +1707,7 @@ void RTLIL::Design::optimize()
 void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 {
 	log_assert(dst->modules_.empty());
-	// Copy the twine pool and the per-object src meta vector wholesale.
-	// Any prior pool / meta state in dst (e.g. dead slots left over from
-	// a -reset / -pop preceding the clone) is discarded by the
-	// assignment. The copied refcounts and the same meta_idx_ values
-	// assigned below 1:1 to cloned AttrObjects line up by construction.
 	dst->src_twines = src_twines;
-	dst->obj_meta_ = obj_meta_;
-	dst->obj_meta_free_ = obj_meta_free_;
-	// Iterate via rbegin/rend so cloned modules land in dst in forward
-	// insertion order — same as how the source design's modules dict was
-	// built — keeping write_rtlil output byte-stable across clone cycles.
-	// Use virtual clone(dst, verbatim) so AstModule preserves its subtype
-	// (and its ast pointer + frontend-config flags).
 	for (auto it = modules_.rbegin(); it != modules_.rend(); ++it)
 		it->second->clone(dst, /*src_id_verbatim=*/true);
 }
@@ -1901,7 +1888,7 @@ void RTLIL::Module::set_src_id(Twine::Id id)
 
 void RTLIL::Module::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(design && "Module::set_src_attribute requires the module to be attached to a design");
 	design->set_src_attribute(this, src);
@@ -3134,12 +3121,15 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 	for (auto &attr : attributes)
 		new_mod->attributes[attr.first] = attr.second;
 	if (src_id_verbatim) {
-		// Caller (Design::clone_into) copied src_twines AND the obj
-		// meta vector wholesale, so the same meta_idx_ resolves to
-		// the same Twine::Id in the destination pool — and the
-		// copied refcounts already pre-account for these new
-		// AttrObjects. Direct assignment, no retain.
-		new_mod->meta_idx_ = meta_idx_;
+		// Caller (Design::clone_into) copied src_twines wholesale, so
+		// Twine::Ids preserve their meaning. Allocate per-AttrObject
+		// meta in dst's pool and copy the fields. dst's twine refcounts
+		// were inherited via the wholesale copy and already account for
+		// these new AttrObjects, so no retain on src.
+		if (this->meta_ && new_mod->design) {
+			new_mod->meta_ = new_mod->design->alloc_obj_meta();
+			*new_mod->meta_ = *this->meta_;
+		}
 	} else {
 		// Transfer src across designs. Both modules must be attached
 		// to a design for the migration to happen; in the
@@ -3151,12 +3141,14 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 	}
 
 	if (src_id_verbatim) {
-		// Build fresh wires/cells/memories/processes and transfer
-		// meta_idx_ verbatim. The non-verbatim branch goes through
-		// addWire/addCell/addProcess(name, other) which call
-		// copy_src_into to migrate src across designs; here both
-		// designs already share the same meta vector / pool, so we
-		// skip that and copy the index directly.
+		// Per-AttrObject meta clone via dst design's pool. Twine::Ids
+		// transfer verbatim because the src_twines copy is wholesale.
+		auto copy_meta = [&](const RTLIL::AttrObject *src, RTLIL::AttrObject *dst) {
+			if (src->meta_ && new_mod->design) {
+				dst->meta_ = new_mod->design->alloc_obj_meta();
+				*dst->meta_ = *src->meta_;
+			}
+		};
 		for (auto it = wires_.rbegin(); it != wires_.rend(); ++it) {
 			const RTLIL::Wire *o = it->second;
 			RTLIL::Wire *w = new_mod->addWire(it->first, o->width);
@@ -3167,7 +3159,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			w->upto = o->upto;
 			w->is_signed = o->is_signed;
 			w->attributes = o->attributes;
-			w->meta_idx_ = o->meta_idx_;
+			copy_meta(o, w);
 		}
 		for (auto it = memories.rbegin(); it != memories.rend(); ++it) {
 			const RTLIL::Memory *o = it->second;
@@ -3176,7 +3168,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			m->start_offset = o->start_offset;
 			m->size = o->size;
 			m->attributes = o->attributes;
-			m->meta_idx_ = o->meta_idx_;
+			copy_meta(o, m);
 		}
 		for (auto it = cells_.rbegin(); it != cells_.rend(); ++it) {
 			const RTLIL::Cell *o = it->second;
@@ -3184,28 +3176,25 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			c->connections_ = o->connections_;
 			c->parameters = o->parameters;
 			c->attributes = o->attributes;
-			c->meta_idx_ = o->meta_idx_;
+			copy_meta(o, c);
 		}
 		for (auto it = processes.rbegin(); it != processes.rend(); ++it) {
 			const RTLIL::Process *o = it->second;
 			RTLIL::Process *p = o->clone();
 			p->name = it->first;
 			new_mod->add(p);
-			// Process::clone drops meta_idx_ across the inner tree
-			// (no module backpointer there before attach); now that
-			// p has a module we can copy them verbatim.
-			p->meta_idx_ = o->meta_idx_;
+			copy_meta(o, p);
 			std::vector<std::pair<const RTLIL::CaseRule*, RTLIL::CaseRule*>> case_stack;
 			case_stack.emplace_back(&o->root_case, &p->root_case);
 			while (!case_stack.empty()) {
 				auto [s_cs, d_cs] = case_stack.back();
 				case_stack.pop_back();
-				d_cs->meta_idx_ = s_cs->meta_idx_;
+				copy_meta(s_cs, d_cs);
 				log_assert(s_cs->switches.size() == d_cs->switches.size());
 				for (size_t i = 0; i < s_cs->switches.size(); i++) {
 					const auto *s_sw = s_cs->switches[i];
 					auto *d_sw = d_cs->switches[i];
-					d_sw->meta_idx_ = s_sw->meta_idx_;
+					copy_meta(s_sw, d_sw);
 					log_assert(s_sw->cases.size() == d_sw->cases.size());
 					for (size_t j = 0; j < s_sw->cases.size(); j++)
 						case_stack.emplace_back(s_sw->cases[j], d_sw->cases[j]);
@@ -3217,7 +3206,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 				auto *d_sync = p->syncs[i];
 				log_assert(s_sync->mem_write_actions.size() == d_sync->mem_write_actions.size());
 				for (size_t j = 0; j < s_sync->mem_write_actions.size(); j++)
-					d_sync->mem_write_actions[j].meta_idx_ = s_sync->mem_write_actions[j].meta_idx_;
+					copy_meta(&s_sync->mem_write_actions[j], &d_sync->mem_write_actions[j]);
 			}
 		}
 	} else {
@@ -4798,7 +4787,7 @@ void RTLIL::Wire::set_src_id(Twine::Id id)
 
 void RTLIL::Wire::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "Wire::set_src_attribute requires the wire to be attached to a module in a design");
 	module->design->set_src_attribute(this, src);
@@ -4911,7 +4900,7 @@ void RTLIL::Cell::set_src_id(Twine::Id id)
 
 void RTLIL::Cell::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "Cell::set_src_attribute requires the cell to be attached to a module in a design");
 	module->design->set_src_attribute(this, src);
@@ -6600,7 +6589,7 @@ RTLIL::SyncRule *RTLIL::SyncRule::clone() const
 	// any pool; the caller is responsible for migrating src across the
 	// clone via context (see Process::clone).
 	for (auto &mwa : new_syncrule->mem_write_actions)
-		mwa.meta_idx_ = RTLIL::AttrObject::NO_META;
+		mwa.meta_ = nullptr;
 	return new_syncrule;
 }
 
@@ -6655,7 +6644,7 @@ void RTLIL::Process::set_src_id(Twine::Id id)
 
 void RTLIL::Process::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "Process::set_src_attribute requires the process to be attached to a module in a design");
 	module->design->set_src_attribute(this, src);
@@ -6724,7 +6713,7 @@ void RTLIL::Memory::set_src_id(Twine::Id id)
 
 void RTLIL::Memory::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "Memory::set_src_attribute requires the memory to be attached to a module in a design");
 	module->design->set_src_attribute(this, src);
@@ -6764,7 +6753,7 @@ void RTLIL::CaseRule::set_src_id(Twine::Id id)
 }
 void RTLIL::CaseRule::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "CaseRule::set_src_attribute requires the case to belong to a module in a design");
 	module->design->set_src_attribute(this, src);
@@ -6799,7 +6788,7 @@ void RTLIL::SwitchRule::set_src_id(Twine::Id id)
 }
 void RTLIL::SwitchRule::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "SwitchRule::set_src_attribute requires the switch to belong to a module in a design");
 	module->design->set_src_attribute(this, src);
@@ -6834,7 +6823,7 @@ void RTLIL::MemWriteAction::set_src_id(Twine::Id id)
 }
 void RTLIL::MemWriteAction::set_src_attribute(const RTLIL::SrcAttr &src)
 {
-	if (src.empty() && meta_idx_ == NO_META)
+	if (src.empty() && meta_ == nullptr)
 		return;
 	log_assert(module && module->design && "MemWriteAction::set_src_attribute requires the action to belong to a module in a design");
 	module->design->set_src_attribute(this, src);

@@ -24,6 +24,7 @@
 #include "kernel/yosys.h"
 #include "kernel/twine.h"
 
+#include <deque>
 #include <string_view>
 #include <unordered_map>
 
@@ -127,6 +128,7 @@ namespace RTLIL
 	struct StaticIdString;
 	struct SigNormIndex;
 	struct SrcAttr;
+	struct ObjMeta;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 	struct PortBit;
@@ -1291,25 +1293,20 @@ public:
 	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
+struct RTLIL::ObjMeta
+{
+	Twine::Id src = Twine::Null;
+	RTLIL::IdString name;
+};
+
 struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
-	// Per-Design metadata slot index, or NO_META. The slot lives in
-	// Design::obj_meta_src_ and holds this object's Twine::Id src; the
-	// slot is allocated lazily on the first non-null src write and
-	// freed when src returns to null. Per-object cost is just this
-	// 4-byte index (replacing the prior inline 4-byte src_id_).
-	//
-	// AttrObject can't resolve its owning Design on its own. Lookups
-	// route either through a leaf subtype's src_id() sugar (which knows
-	// its container chain — Cell/Wire/Process/Memory via module->design,
-	// Module via design, CaseRule/SwitchRule/MemWriteAction via the
-	// module back-pointer added in prior commits) or through the
-	// Design::obj_src_id / obj_set_src_id / obj_release_src helpers
-	// when generic AttrObject* code already has a Design* in hand.
-	static constexpr uint32_t NO_META = ~0u;
-	uint32_t meta_idx_ = NO_META;
+	// Pointer to a per-object metadata record in some pool (typically
+	// the owning Design's). Nullable: cleared until first non-null write
+	// of any field (src or name) and reset to null when all fields empty.
+	RTLIL::ObjMeta *meta_ = nullptr;
 
 	bool has_attribute(RTLIL::IdString id) const;
 
@@ -1953,57 +1950,25 @@ struct RTLIL::Design
 	// via cell->module->design->src_twines.
 	TwinePool src_twines;
 
-	// Per-object metadata indexed by AttrObject::meta_idx_. Slots are
-	// allocated lazily on first non-null write and recycled via the
-	// LIFO freelist obj_meta_free_. Both src and name share one slot
-	// so subtypes that carry either pay only one index field.
-	struct ObjMeta {
-		Twine::Id src = Twine::Null;
-		RTLIL::IdString name;
-	};
-	std::vector<ObjMeta> obj_meta_;
-	std::vector<uint32_t> obj_meta_free_;
+	// Per-Design ObjMeta pool: stable storage (deque) + LIFO freelist of
+	// returned slots. AttrObject::meta_ points into obj_meta_storage_.
+	std::deque<RTLIL::ObjMeta> obj_meta_storage_;
+	std::vector<RTLIL::ObjMeta*> obj_meta_free_;
 
-	uint32_t alloc_obj_meta();
-	void free_obj_meta(uint32_t idx);
-
-	Twine::Id obj_src_id_by_idx(uint32_t meta_idx) const {
-		if (meta_idx == RTLIL::AttrObject::NO_META)
-			return Twine::Null;
-		return obj_meta_[meta_idx].src;
-	}
-
-	// `meta_idx` is mutated as needed: NO_META -> allocated slot on first
-	// non-null write; allocated slot -> NO_META if src cleared and name empty.
-	void obj_set_src_id_by_idx(uint32_t &meta_idx, Twine::Id id);
-	void obj_release_src_by_idx(uint32_t &meta_idx);
-
-	RTLIL::IdString obj_name_by_idx(uint32_t meta_idx) const {
-		if (meta_idx == RTLIL::AttrObject::NO_META)
-			return RTLIL::IdString();
-		return obj_meta_[meta_idx].name;
-	}
-	void obj_set_name_by_idx(uint32_t &meta_idx, RTLIL::IdString name);
-	void obj_release_name_by_idx(uint32_t &meta_idx);
+	RTLIL::ObjMeta *alloc_obj_meta();
+	void free_obj_meta(RTLIL::ObjMeta *m);
 
 	Twine::Id obj_src_id(const RTLIL::AttrObject *obj) const {
-		return obj_src_id_by_idx(obj->meta_idx_);
+		return (obj->meta_ ? obj->meta_->src : Twine::Null);
 	}
-	void obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id) {
-		obj_set_src_id_by_idx(obj->meta_idx_, id);
-	}
-	void obj_release_src(RTLIL::AttrObject *obj) {
-		obj_release_src_by_idx(obj->meta_idx_);
-	}
+	void obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id);
+	void obj_release_src(RTLIL::AttrObject *obj);
+
 	RTLIL::IdString obj_name(const RTLIL::AttrObject *obj) const {
-		return obj_name_by_idx(obj->meta_idx_);
+		return (obj->meta_ ? obj->meta_->name : RTLIL::IdString());
 	}
-	void obj_set_name(RTLIL::AttrObject *obj, RTLIL::IdString name) {
-		obj_set_name_by_idx(obj->meta_idx_, name);
-	}
-	void obj_release_name(RTLIL::AttrObject *obj) {
-		obj_release_name_by_idx(obj->meta_idx_);
-	}
+	void obj_set_name(RTLIL::AttrObject *obj, RTLIL::IdString name);
+	void obj_release_name(RTLIL::AttrObject *obj);
 
 	// Replacements for the methods that used to live on AttrObject and
 	// took an explicit TwinePool*. Same semantics; the pool resolves
