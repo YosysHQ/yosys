@@ -66,6 +66,7 @@ module edges();
     wire o_subnorm = o_exp == 8'h00 && o_sig != '0;
     wire o_finite = o_norm || o_subnorm;
     wire o_unclamped = o_finite && o_unsigned != 31'h7f7fffff;
+    wire o_ebmin = o_exp == 8'h01 && o_sig == '0;
 
 `ifdef MULADD
     wire muladd_zero = c_zero;
@@ -215,8 +216,8 @@ module edges();
             assert (NX);
 
         if (UF)
-            // output = subnormal or zero
-            assert (o_subnorm || o_zero);
+            // output = subnormal or zero or +-e^bmin
+            assert (o_subnorm || o_zero || o_ebmin);
 
         if (o_inf && !OF)
             // a non-overflowing infinity is exact
@@ -228,8 +229,8 @@ module edges();
 
 `ifdef DIV
         assume (c_zero);
-        // div/zero when a = finite, b = 0
-        assert (!DZ || ((a_norm || a_subnorm) && b_unsigned == '0));
+        // div/zero only when a is finite
+        assert (DZ ^~ (a_finite && b_zero));
         // 0/0 or inf/inf
         if ((a_zero && b_zero) || (a_inf && b_inf))
             assert (NV);
@@ -305,15 +306,19 @@ module edges();
                 5'b10000 /* RTZ */: assert (o == pos_max || o == neg_max);
             endcase
 
-        // RTx modes cannot overflow to the far infinity
-        if (rm_RTP && o == neg_inf)
-            assert (!OF);
-        if (rm_RTN && o == pos_inf)
-            assert (!OF);
+        // RTx modes cannot underflow to the opposite ebmin (or either for RTZ)
+        if (UF && o_ebmin)
+            if (o_sign)
+                assert (rm_RNE || rm_RNA || rm_RTN);
+            else
+                assert (rm_RNE || rm_RNA || rm_RTP);
 
-        // RTZ cannot overflow to either
-        if (rm_RTZ && o_inf)
-            assert (!OF);
+        // and the same for overflowing to infinities
+        if (OF && o_inf)
+            if (o_sign)
+                assert (rm_RNE || rm_RNA || rm_RTN);
+            else
+                assert (rm_RNE || rm_RNA || rm_RTP);
 
         // test rounding
         if (round_p_001)
