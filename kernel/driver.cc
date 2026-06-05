@@ -70,75 +70,6 @@ namespace py = pybind11;
 
 USING_YOSYS_NAMESPACE
 
-#ifdef EMSCRIPTEN
-#  include <sys/stat.h>
-#  include <sys/types.h>
-#  include <emscripten.h>
-
-extern "C" int main(int, char**);
-extern "C" void run(const char*);
-extern "C" const char *errmsg();
-extern "C" const char *prompt();
-
-int main(int argc, char **argv)
-{
-	EM_ASM(
-		if (ENVIRONMENT_IS_NODE)
-		{
-			FS.mkdir('/hostcwd');
-			FS.mount(NODEFS, { root: '.' }, '/hostcwd');
-			FS.mkdir('/hostfs');
-			FS.mount(NODEFS, { root: '/' }, '/hostfs');
-		}
-	);
-
-	mkdir("/work", 0777);
-	chdir("/work");
-	log_files.push_back(stdout);
-	log_error_stderr = true;
-	yosys_banner();
-	yosys_setup();
-#ifdef YOSYS_ENABLE_PYTHON
-	py::object sys = py::module_::import("sys");
-	sys.attr("path").attr("append")(proc_self_dirname());
-	sys.attr("path").attr("append")(proc_share_dirname());
-#endif
-
-	if (argc == 2)
-	{
-		// Run the first argument as a script file
-		run_frontend(argv[1], "script");
-	}
-}
-
-void run(const char *command)
-{
-	int selSize = GetSize(yosys_get_design()->selection_stack);
-	try {
-		log_last_error = "Internal error (see JavaScript console for details)";
-		run_pass(command);
-		log_last_error = "";
-	} catch (...) {
-		while (GetSize(yosys_get_design()->selection_stack) > selSize)
-			yosys_get_design()->pop_selection();
-		throw;
-	}
-}
-
-const char *errmsg()
-{
-	return log_last_error.c_str();
-}
-
-const char *prompt()
-{
-	const char *p = create_prompt(yosys_get_design(), 0);
-	while (*p == '\n') p++;
-	return p;
-}
-
-#else /* EMSCRIPTEN */
-
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 int yosys_history_offset = 0;
 std::string yosys_history_file;
@@ -781,5 +712,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
-#endif /* EMSCRIPTEN */

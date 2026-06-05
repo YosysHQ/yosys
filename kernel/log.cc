@@ -335,9 +335,6 @@ void log_suppressed() {
 [[noreturn]]
 static void log_error_with_prefix(std::string_view prefix, std::string str)
 {
-#ifdef EMSCRIPTEN
-	auto backup_log_files = log_files;
-#endif
 	int bak_log_make_debug = log_make_debug;
 	log_make_debug = 0;
 	log_suppressed();
@@ -378,10 +375,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	if (e && atoi(e))
 		abort();
 
-#ifdef EMSCRIPTEN
-	log_files = backup_log_files;
-	throw 0;
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 	_exit(1);
 #else
 	_Exit(1);
@@ -679,9 +673,7 @@ void log_check_expected()
 			log_warn_regexes.clear();
 			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
-			#ifdef EMSCRIPTEN
-				throw 0;
-			#elif defined(_MSC_VER)
+			#if defined(_MSC_VER)
 				_exit(0);
 			#else
 				_Exit(0);
