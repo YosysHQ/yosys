@@ -689,6 +689,7 @@ struct AST_INTERNAL::ProcessGenerator
 				ast->detectSignWidth(width_hint, sign_hint);
 
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
+				sw->module = current_module;
 				set_src_attr(sw, ast);
 				sw->signal = ast->children[0]->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap());
 				current_case->switches.push_back(sw);
@@ -723,6 +724,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
+					current_case->module = current_module;
 					pool<RTLIL::SigBit> backup_assigned_bits = std::move(current_case_assigned_bits);
 					current_case_assigned_bits.clear();
 					set_src_attr(current_case, child.get());
@@ -759,12 +761,14 @@ struct AST_INTERNAL::ProcessGenerator
 					last_generated_case->compare.clear();
 			#else
 					default_case = new RTLIL::CaseRule;
+					default_case->module = current_module;
 					addChunkActions(default_case->actions, this_case_eq_ltemp, SigSpec(State::Sx, GetSize(this_case_eq_rvalue)));
 					sw->cases.push_back(default_case);
 			#endif
 				} else {
 					if (default_case == nullptr) {
 						default_case = new RTLIL::CaseRule;
+						default_case->module = current_module;
 						addChunkActions(default_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
 					}
 					sw->cases.push_back(default_case);

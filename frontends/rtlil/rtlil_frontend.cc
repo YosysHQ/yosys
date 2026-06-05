@@ -838,6 +838,7 @@ struct RTLILFrontendWorker {
 	void parse_switch()
 	{
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
+		rule->module = current_module;
 		rule->signal = parse_sigspec();
 		rule->absorb_attrs(std::move(attrbuf));
 		switch_stack.back()->push_back(rule);
@@ -856,6 +857,7 @@ struct RTLILFrontendWorker {
 
 			expect_keyword("case");
 			RTLIL::CaseRule *case_rule = new RTLIL::CaseRule;
+			case_rule->module = current_module;
 			case_rule->absorb_attrs(std::move(attrbuf));
 			rule->cases.push_back(case_rule);
 			switch_stack.push_back(&case_rule->switches);
