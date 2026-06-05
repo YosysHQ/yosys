@@ -35,12 +35,14 @@ prove_op() {
     done
 }
 
-prove_op sqrt "-DSQRT"
+prove_op sqrt "-DSQRT -DSQRTS"
 prove_op add "-DADD -DADDSUB -DADDS"
 prove_op sub "-DSUB -DADDSUB -DADDS"
 prove_op mul "-DMUL -DMULS"
-prove_op div "-DDIV"
+prove_op div "-DDIV -DDIVS"
 prove_op muladd "-DMULADD -DMULS -DADDS"
-prove_op altdiv "-DDIV -DALTDIV"
+
+prove_op altdiv "-DALTDIV -DDIVS"
+prove_op altsqrt "-DALTSQRT -DSQRTS"
 
 generate_mk --yosys-scripts
