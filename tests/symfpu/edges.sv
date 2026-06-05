@@ -1,5 +1,29 @@
-module edges();
-    (* anyseq *) reg [31:0] a, b, c;
+module edges(input clk);
+
+`ifdef MASK
+    (* anyconst *) reg [31:0] a_in, b_in, c_in;
+    wire [31:0] a, b, c;
+    assign a = a_in & 32'hffc42108;
+    assign b = b_in & 32'hfff80001;
+    assign c = c_in & 32'hfff80001;
+`elsif MAP
+    (* anyconst *) reg [31:0] a_pre, b_pre, c_pre;
+    wire [31:0] a_in, b_in, c_in;
+    // assuming 8/24
+    assign a_in[31:22] = a_pre[31:22];
+    assign b_in[31:22] = b_pre[31:22];
+	assign a_in[21:0] = (a_pre[21:0] & 22'h042100) | (|(a_pre[21:0] & ~22'h042100) << 3);
+	assign b_in[21:0] = (b_pre[21:0] & 22'h380000) | (|(b_pre[21:0] & ~22'h380000) << 0);
+    assign c_in = c_pre;
+
+    wire [31:0] a, b, c;
+    assign a = a_in & 32'hffc42108;
+    assign b = b_in & 32'hfff80001;
+    assign c = c_in & 32'hfff80001;
+`else
+    (* anyconst *) reg [31:0] a, b, c;
+`endif
+
     (* anyseq *) reg [4:0] rm;
     reg [31:0] o;
     reg NV, DZ, OF, UF, NX;
@@ -65,8 +89,13 @@ module edges();
     wire o_norm = o_exp > 8'h00 && !o_special;
     wire o_subnorm = o_exp == 8'h00 && o_sig != '0;
     wire o_finite = o_norm || o_subnorm;
-    wire o_unclamped = o_finite && o_unsigned != 31'h7f7fffff;
+    wire o_clamped = o_unsigned == 31'h7f7fffff;
+    wire o_unclamped = o_finite && !o_clamped;
     wire o_ebmin = o_exp == 8'h01 && o_sig == '0;
+
+    (* keep *) wire [25:0] a_faux = {2'b10, !a_subnorm, a_sig};
+    (* keep *) wire [25:0] b_faux = {2'b00, !b_subnorm, b_sig};
+    (* keep *) wire [25:0] o_faux = (a_faux - b_faux);
 
 `ifdef MULADD
     wire muladd_zero = c_zero;
@@ -180,6 +209,93 @@ module edges();
         c_sig == '0;
 
     always @* begin
+        // all classes of input are possible (for all inputs)
+        cover (a_sign);
+        cover (!a_sign);
+        cover (a_zero);
+        cover (a_norm);
+        cover (a_subnorm);
+        cover (a_inf);
+        cover (a_qnan);
+        cover (a_snan);
+
+        cover (b_sign);
+        cover (!b_sign);
+        cover (b_zero);
+        cover (b_norm);
+        cover (b_subnorm);
+        cover (b_inf);
+        cover (b_qnan);
+        cover (b_snan);
+
+`ifdef MULADD
+        cover (c_sign);
+        cover (!c_sign);
+        cover (c_zero);
+        cover (c_norm);
+        cover (c_subnorm);
+        cover (c_inf);
+        cover (c_qnan);
+        cover (c_snan);
+`endif
+
+        // all flags are possible
+        cover (NV);
+`ifdef DIV
+        // only div can div/zero
+        cover (DZ);
+`endif
+        cover (OF);
+`ifndef ADDSUB
+        // add/sub can't underflow
+        cover (UF);
+`endif
+        cover (NX);
+        cover (!NV);
+        cover (!DZ);
+        cover (!OF);
+        cover (!UF);
+        cover (!NX);
+
+        // all classes of output are possible
+        cover (o_sign);
+        cover (!o_sign);
+        cover (o_zero);
+        cover (o_norm);
+        cover (o_subnorm);
+        cover (o_inf);
+        cover (o_nan);
+        cover (o_ebmin);
+
+        if (OF) begin
+            cover (o_inf);
+            cover (o_clamped);
+        end else begin
+            cover (o_inf);
+            cover (o_clamped);
+        end
+
+        if (UF) begin
+`ifndef ADDSUB
+            cover (o_zero);
+            cover (o_ebmin);
+            cover (o_subnorm);
+`endif
+        end else begin
+            cover (o_zero);
+            cover (o_ebmin);
+            cover (o_subnorm);
+        end
+
+        if (NX) begin
+            cover (o_norm);
+            cover (o_inf);
+`ifndef ADDSUB
+            cover (o_subnorm);
+            cover (o_zero);
+`endif
+        end
+
         if (a_nan || b_nan || c_nan) begin
             // input NaN = output NaN
             assert (o_nan);
@@ -252,6 +368,11 @@ module edges();
         // an unrounded result between +-e^bmin is still an underflow when rounded to ebmin
         if (a_unsigned == 31'h0031b7be && b_unsigned == 31'h3ec6def9)
             assert (UF);
+    `ifdef ALT_DIV
+        if (!NV && !NX && !a_special && b_finite && o_norm)
+            // if o is subnorm then it can be shifted arbitrarily depending on exponent difference
+            assert (o_sig == (o_faux[25] ? o_faux[24:2] : o_faux[23:1]));
+    `endif
 `endif
 
 `ifdef MUL
@@ -428,6 +549,55 @@ module edges();
         if (a_sign && (a_norm || a_subnorm))
             assert (NV);
 `endif
+    end
 
+    reg skip = 1;
+    always @(posedge clk) begin
+        if (skip) begin
+            skip <= 0;
+        end else begin
+            // same input, different rounding mode
+            if ($stable(a) && $stable(b) && $stable(c)) begin
+                // inf edge cases
+                cover ($rose(o_inf));
+                if ($rose(o_inf)) begin
+                    cover ($rose(rm_RNE));
+                    cover ($rose(rm_RNA));
+                    cover ($rose(rm_RTN));
+                    cover ($rose(rm_RTP));
+                    // rm_RTZ can never round to inf
+                end
+
+`ifndef ADDSUB
+                // these aren't applicable to addsub since we they rely on underflow
+                // ebmin edge cases
+                cover ($rose(o_ebmin));
+                if ($rose(o_ebmin)) begin
+                    cover ($rose(rm_RNE));
+                    cover ($rose(rm_RNA));
+                    cover ($rose(rm_RTN));
+                    cover ($rose(rm_RTP));
+                    cover ($rose(rm_RTZ));
+                end
+
+                // zero edge cases
+                cover ($rose(o_zero));
+                if ($rose(o_zero)) begin
+                    cover ($rose(rm_RNE));
+                    cover ($rose(rm_RNA));
+                    cover ($rose(rm_RTN));
+                    cover ($rose(rm_RTP));
+                    cover ($rose(rm_RTZ));
+                end
+`endif
+
+`ifndef DIV
+                cover ($rose(OF));
+`endif
+`ifdef TININESS_AFTER
+                cover ($rose(UF));
+`endif
+            end
+        end
     end
 endmodule
