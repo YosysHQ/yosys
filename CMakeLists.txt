@@ -29,6 +29,7 @@ include(YosysLinkTarget)
 include(YosysAbc)
 include(YosysAbcSubmodule)
 include(YosysVerific)
+include(UseHomebrew)
 
 # Build options.
 set(YOSYS_COMPILER_LAUNCHER "" CACHE STRING "Compiler launcher (ccache, sccache)")
@@ -162,7 +163,12 @@ if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSIO
 endif()
 
 # Required dependencies.
-find_package(FLEX)
+if (APPLE)
+	# In practice, we can't expect paths to Homebrew packages to be configured.
+	use_homebrew()
+endif()
+
+find_package(FLEX 2.6)
 set_package_properties(FLEX PROPERTIES
 	URL "https://github.com/westes/flex"
 	DESCRIPTION "The Fast Lexical Analyzer"
@@ -170,7 +176,7 @@ set_package_properties(FLEX PROPERTIES
 	TYPE REQUIRED
 )
 
-find_package(BISON)
+find_package(BISON 3.6)
 set_package_properties(BISON PROPERTIES
 	URL "https://www.gnu.org/software/bison/"
 	DESCRIPTION "The Yacc-compatible Parser Generator"
