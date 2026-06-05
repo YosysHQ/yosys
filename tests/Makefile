@@ -75,6 +75,7 @@ MK_TEST_DIRS += ./memories
 MK_TEST_DIRS += ./aiger
 MK_TEST_DIRS += ./alumacc
 MK_TEST_DIRS += ./check_mem
+MK_TEST_DIRS += ./symfpu
 
 all: vanilla-test
 
