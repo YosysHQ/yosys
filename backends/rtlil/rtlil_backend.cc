@@ -37,12 +37,13 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 	// Emit the typed src field first. It is not stored in obj->attributes
 	// — the dict no longer holds ID::src under any circumstance. Backends
 	// that want to materialize the pipe-joined literal pass resolve_src.
-	if (obj->src_id() != Twine::Null && design) {
+	if (design && design->obj_src_id(obj) != Twine::Null) {
+		Twine::Id id = design->obj_src_id(obj);
 		f << stringf("%s" "attribute \\src ", indent);
 		if (resolve_src) {
-			dump_const(f, RTLIL::Const(design->src_twines.flatten(obj->src_id())));
+			dump_const(f, RTLIL::Const(design->src_twines.flatten(id)));
 		} else {
-			dump_const(f, RTLIL::Const(TwinePool::format_ref(obj->src_id())));
+			dump_const(f, RTLIL::Const(TwinePool::format_ref(id)));
 		}
 		f << stringf("\n");
 	}

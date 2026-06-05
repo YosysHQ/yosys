@@ -177,7 +177,7 @@ struct AssertpmuxWorker
 		Cell *assert_cell = module->addAssert(NEW_ID, assert_a, assert_en);
 
 		if (pmux->src_id() != Twine::Null && module->design)
-			assert_cell->set_src_id(&module->design->src_twines, pmux->src_id());
+			assert_cell->set_src_id(pmux->src_id());
 	}
 };
 

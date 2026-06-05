@@ -122,7 +122,7 @@ struct BtorWorker
 		string infostr = obj->name.unescape();
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
 		if (obj->has_attribute(ID::src)) {
-			string raw_src = module && module->design ? obj->get_src_attribute(&module->design->src_twines) : std::string();
+			string raw_src = module && module->design ? module->design->get_src_attribute(obj) : std::string();
 			string src = module && module->design ? module->design->resolve_src(raw_src) : raw_src;
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');

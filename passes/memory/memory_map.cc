@@ -116,8 +116,10 @@ struct MemoryMapWorker
 		// possibly-Concat src as a single pipe-joined leaf on every
 		// new cell. set_src_attribute's parse_ref path retains the
 		// pool slot directly.
-		mem_src = (mem.module && mem.module->design && mem.src_id() != Twine::Null) ?
-				TwinePool::format_ref(mem.src_id()) : std::string();
+		{
+			Twine::Id mid = (mem.module && mem.module->design) ? mem.module->design->obj_src_id(&mem) : Twine::Null;
+			mem_src = (mid != Twine::Null) ? TwinePool::format_ref(mid) : std::string();
+		}
 
 		SigSpec init_data = mem.get_init_data();
 

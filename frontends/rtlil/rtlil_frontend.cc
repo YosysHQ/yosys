@@ -452,7 +452,7 @@ struct RTLILFrontendWorker {
 			current_module->attributes = std::move(attrbuf);
 		} else {
 			design->add(current_module);
-			current_module->absorb_attrs(&design->src_twines, std::move(attrbuf));
+			current_module->absorb_attrs(std::move(attrbuf));
 		}
 
 		while (true)
@@ -666,7 +666,7 @@ struct RTLILFrontendWorker {
 				error("Unexpected wire option: %s", error_token());
 		}
 
-		wire->absorb_attrs(&design->src_twines, std::move(attrbuf));
+		wire->absorb_attrs(std::move(attrbuf));
 		wire->width = width;
 		wire->upto = upto;
 		wire->start_offset = start_offset;
@@ -681,7 +681,7 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::Memory *memory = new RTLIL::Memory;
 		memory->module = current_module;
-		memory->absorb_attrs(&design->src_twines, std::move(attrbuf));
+		memory->absorb_attrs(std::move(attrbuf));
 
 		int width = 1;
 		int start_offset = 0;
@@ -749,7 +749,7 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of cell %s.", cell_name);
 		}
 		RTLIL::Cell *cell = current_module->addCell(cell_name, cell_type);
-		cell->absorb_attrs(&design->src_twines, std::move(attrbuf));
+		cell->absorb_attrs(std::move(attrbuf));
 
 		while (true)
 		{
@@ -839,7 +839,7 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
 		rule->signal = parse_sigspec();
-		rule->absorb_attrs(&design->src_twines, std::move(attrbuf));
+		rule->absorb_attrs(std::move(attrbuf));
 		switch_stack.back()->push_back(rule);
 		expect_eol();
 
@@ -856,7 +856,7 @@ struct RTLILFrontendWorker {
 
 			expect_keyword("case");
 			RTLIL::CaseRule *case_rule = new RTLIL::CaseRule;
-			case_rule->absorb_attrs(&design->src_twines, std::move(attrbuf));
+			case_rule->absorb_attrs(std::move(attrbuf));
 			rule->cases.push_back(case_rule);
 			switch_stack.push_back(&case_rule->switches);
 			case_stack.push_back(case_rule);
@@ -890,7 +890,7 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of process %s.", proc_name);
 		}
 		RTLIL::Process *proc = current_module->addProcess(std::move(proc_name));
-		proc->absorb_attrs(&design->src_twines, std::move(attrbuf));
+		proc->absorb_attrs(std::move(attrbuf));
 
 		switch_stack.clear();
 		switch_stack.push_back(&proc->root_case.switches);
@@ -939,13 +939,18 @@ struct RTLILFrontendWorker {
 					break;
 
 				RTLIL::MemWriteAction act;
-				act.absorb_attrs(&design->src_twines, std::move(attrbuf));
+				act.module = current_module;
+				design->absorb_attrs(&act, std::move(attrbuf));
 				act.memid = parse_id();
 				act.address = parse_sigspec();
 				act.data = parse_sigspec();
 				act.enable = parse_sigspec();
 				act.priority_mask = parse_const();
-				rule->mem_write_actions.push_back(std::move(act));
+				rule->mem_write_actions.push_back(act);
+				// meta_idx_ is a weak ref — drop ours so the pushed copy
+				// in the vector is the sole holder. Process::~Process
+				// walks the tree to actually release.
+				act.meta_idx_ = RTLIL::AttrObject::NO_META;
 				expect_eol();
 			}
 			// The old parser allowed dangling attributes before a "sync" to carry through

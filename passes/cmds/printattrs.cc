@@ -54,12 +54,12 @@ struct PrintAttrsPass : public Pass {
 			log_assert(x.flags & RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
 
-	static void log_src(const Yosys::TwinePool *pool, const RTLIL::AttrObject *obj, const unsigned int indent) {
+	static void log_src(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const unsigned int indent) {
 		// Emit src outside the attributes loop — it lives on the typed
-		// src_id_ field, not in obj->attributes.
-		if (obj->src_id() != Twine::Null && pool)
+		// meta-vector slot, not in obj->attributes.
+		if (design && design->obj_src_id(obj) != Twine::Null)
 			log("%s(* src=\"%s\" *)\n", get_indent_str(indent),
-					obj->get_src_attribute(pool).c_str());
+					design->get_src_attribute(obj).c_str());
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -73,7 +73,7 @@ struct PrintAttrsPass : public Pass {
 			if (design->selected_whole_module(mod)) {
 				log("%s%s\n", get_indent_str(indent), mod->name.unescape());
 				indent += 2;
-				log_src(design ? &design->src_twines : nullptr, mod, indent);
+				log_src(design, mod, indent);
 				for (auto &it : mod->attributes)
 					log_const(it.first, it.second, indent);
 			}
@@ -81,7 +81,7 @@ struct PrintAttrsPass : public Pass {
 			for (auto cell : mod->selected_cells()) {
 				log("%s%s\n", get_indent_str(indent), cell->name.unescape());
 				indent += 2;
-				log_src(design ? &design->src_twines : nullptr, cell, indent);
+				log_src(design, cell, indent);
 				for (auto &it : cell->attributes)
 					log_const(it.first, it.second, indent);
 				indent -= 2;
@@ -90,7 +90,7 @@ struct PrintAttrsPass : public Pass {
 			for (auto wire : mod->selected_wires()) {
 				log("%s%s\n", get_indent_str(indent), wire->name.unescape());
 				indent += 2;
-				log_src(design ? &design->src_twines : nullptr, wire, indent);
+				log_src(design, wire, indent);
 				for (auto &it : wire->attributes)
 					log_const(it.first, it.second, indent);
 				indent -= 2;
