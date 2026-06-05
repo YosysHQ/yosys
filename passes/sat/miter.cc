@@ -131,6 +131,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	log("Creating miter cell \"%s\" with gold cell \"%s\" and gate cell \"%s\".\n", miter_name.unescape(), gold_name.unescape(), gate_name.unescape());
 
 	RTLIL::Module *miter_module = new RTLIL::Module;
+	miter_module->design = design;
 	miter_module->name = miter_name;
 	design->add(miter_module);
 

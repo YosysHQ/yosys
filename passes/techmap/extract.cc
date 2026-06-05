@@ -716,6 +716,7 @@ struct ExtractPass : public Pass {
 				}
 
 				RTLIL::Module *newMod = new RTLIL::Module;
+				newMod->design = map;
 				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits);
 				map->add(newMod);
 

@@ -116,6 +116,7 @@ struct SubmodWorker
 		}
 
 		RTLIL::Module *new_mod = new RTLIL::Module;
+		new_mod->design = design;
 		new_mod->name = submod.full_name;
 		design->add(new_mod);
 		int auto_name_counter = 1;

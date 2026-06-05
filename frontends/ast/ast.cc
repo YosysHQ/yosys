@@ -1953,6 +1953,7 @@ RTLIL::Module *AstModule::clone() const
 RTLIL::Module *AstModule::clone(RTLIL::Design *dst, bool src_id_verbatim) const
 {
 	AstModule *new_mod = new AstModule;
+	new_mod->design = dst;
 	new_mod->name = name;
 	dst->add(new_mod);
 	cloneInto(new_mod, src_id_verbatim);

@@ -444,6 +444,7 @@ struct RTLILFrontendWorker {
 		}
 
 		current_module = new RTLIL::Module;
+		current_module->design = design;
 		current_module->name = std::move(module_name);
 		if (delete_current_module) {
 			// Module is about to be discarded — drop its src attribute

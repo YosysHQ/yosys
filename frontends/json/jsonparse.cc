@@ -311,6 +311,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 	log("Importing module %s from JSON tree.\n", modname);
 
 	Module *module = new RTLIL::Module;
+	module->design = design;
 	module->name = RTLIL::escape_id(modname.c_str());
 
 	if (design->module(module->name))
