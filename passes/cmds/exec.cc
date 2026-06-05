@@ -158,7 +158,6 @@ struct ExecPass : public Pass {
 		int status = 0;
 		int retval = 0;
 
-#ifndef EMSCRIPTEN
 		FILE *f = popen(cmd.c_str(), "r");
 		if (f == nullptr)
 			log_cmd_error("errno %d after popen() returned NULL.\n", errno);
@@ -183,7 +182,6 @@ struct ExecPass : public Pass {
 			}
 		}
 		status = pclose(f);
-#endif
 
 		if(WIFEXITED(status)) {
 		    retval = WEXITSTATUS(status);
