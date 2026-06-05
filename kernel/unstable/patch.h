@@ -26,6 +26,7 @@ public:
 	SigMap* map;
 	vector<std::unique_ptr<Wire>> wires_ = {};
 	vector<std::unique_ptr<Cell>> cells_ = {};
+	dict<RTLIL::Cell*, RTLIL::IdString> staged_cell_names_;
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);

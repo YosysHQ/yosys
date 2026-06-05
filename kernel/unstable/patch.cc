@@ -14,9 +14,9 @@ Cell* Patch::addCell(IdString name, IdString type) {
 	cells_.push_back(std::make_unique<Cell>(Cell::ConstructToken{}));
 
 	Cell* cell = cells_.back().get();
-	cell->name = name;
 	cell->type = type;
 	cell->module = nullptr;
+	staged_cell_names_[cell] = name;
 	return cell;
 }
 
@@ -55,8 +55,11 @@ Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
 
 Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 	Cell* raw = cell.release();
-	mod->cells_[raw->name] = raw;
+	IdString name = staged_cell_names_.at(raw);
+	staged_cell_names_.erase(raw);
+	raw->name = name;
 	raw->module = mod;
+	mod->cells_[name] = raw;
 	raw->initIndex();
 	return raw;
 }
