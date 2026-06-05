@@ -459,8 +459,8 @@ struct WreduceWorker
 
 	static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	{
+		// w->attributes no longer holds ID::src — typed src field, not counted.
 		int count = w->attributes.size();
-		count -= w->attributes.count(ID::src);
 		count -= w->attributes.count(ID::unused_bits);
 		return count;
 	}

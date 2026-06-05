@@ -82,7 +82,7 @@ struct FlattenWorker
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 	{
 		if (!create_scopeinfo && object->has_attribute(ID::src))
-			object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+			cell->module->design->merge_src(object, cell);
 
 		// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
 		// If the '-scopename' option is used, also preserve the containing scope of private objects if their scope is fully public.
@@ -285,9 +285,16 @@ struct FlattenWorker
 				else
 					scopeinfo->attributes.emplace(stringf("\\cell_%s", attr.first.unescape()), attr.second);
 			}
+			// src lives outside cell->attributes after the typed-src
+			// migration — fold it into the renamed-attribute view by
+			// hand so `a:cell_src` selectors keep working.
+			if (cell->src_id() != Twine::Null)
+				scopeinfo->attributes.emplace(ID(cell_src), RTLIL::Const(cell->get_src_attribute()));
 
 			for (auto const &attr : tpl->attributes)
 				scopeinfo->attributes.emplace(stringf("\\module_%s", attr.first.unescape()), attr.second);
+			if (tpl->src_id() != Twine::Null)
+				scopeinfo->attributes.emplace(ID(module_src), RTLIL::Const(tpl->get_src_attribute()));
 
 			scopeinfo->attributes.emplace(ID(module), tpl->name.unescape());
 		}

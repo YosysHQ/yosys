@@ -436,8 +436,8 @@ struct ShowWorker
 			const bool is_borderless = (shape == "plaintext") || (shape == "plain") || (shape == "none");
 			if (wire->name.isPublic()) {
 				std::string src_href;
-				if (href && wire->attributes.count(ID::src) > 0)
-					src_href = stringf(", href=\"%s\" ", escape(wire->attributes.at(ID::src).decode_string()));
+				if (href && wire->has_attribute(ID::src) > 0)
+					src_href = stringf(", href=\"%s\" ", escape(wire->get_src_attribute()));
 				fprintf(f, "n%d [ shape=%s,%s label=\"%s\", %s%s];\n",
 						id2num(wire->name), shape.c_str(), is_borderless? " margin=0, width=0" : "",  findLabel(wire->name.str()),
 						is_borderless
@@ -506,8 +506,8 @@ struct ShowWorker
 			}
 
 			std::string src_href;
-			if (href && cell->attributes.count(ID::src) > 0) {
-				src_href = stringf("%shref=\"%s\" ", (findColor(cell->name).empty() ? "" :" , "), escape(cell->attributes.at(ID::src).decode_string()));
+			if (href && cell->has_attribute(ID::src) > 0) {
+				src_href = stringf("%shref=\"%s\" ", (findColor(cell->name).empty() ? "" :" , "), escape(cell->get_src_attribute()));
 			}
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
 			if (!code.empty())
@@ -550,8 +550,8 @@ struct ShowWorker
 			}
 
 			std::string proc_src = proc->name.unescape();
-			if (proc->attributes.count(ID::src) > 0)
-				proc_src = proc->attributes.at(ID::src).decode_string();
+			if (proc->has_attribute(ID::src) > 0)
+				proc_src = proc->get_src_attribute();
 			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\", %s];\n", pidx, findLabel(proc->name.str()), proc_src.c_str(), findColor(proc->name).c_str());
 		}
 

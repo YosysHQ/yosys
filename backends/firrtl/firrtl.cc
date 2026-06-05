@@ -42,9 +42,9 @@ static const FDirection FD_OUT = 0x2;
 static const FDirection FD_INOUT = 0x3;
 static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this is actually one greater than the maximum allowed shift width
 
-std::string getFileinfo(const RTLIL::AttrObject *design_entity)
+std::string getFileinfo(const RTLIL::AttrObject *design_entity, const RTLIL::Design *design = nullptr)
 {
-	std::string src(design_entity->get_src_attribute());
+	std::string src = design ? design_entity->get_src_attribute(&design->src_twines) : std::string();
 	std::string fileinfo_str = src.empty() ? "" : "@[" + src + "]";
 	return fileinfo_str;
 }

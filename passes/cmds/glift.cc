@@ -70,34 +70,34 @@ private:
 	void add_precise_GLIFT_logic(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH2 or OR2_SH2
 		bool is_and = cell->type.in(ID($_AND_), ID($_NAND_));
-		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_1_1", port_a, false, cell->get_src_attribute());
-		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_1_2", port_b, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_1_3", is_and? port_a : n_port_a, port_b_taint, false, cell->get_src_attribute());
-		auto subexpr2 = module->And(cell->name.str() + "_t_1_4", is_and? port_b : n_port_b, port_a_taint, false, cell->get_src_attribute());
-		auto subexpr3 = module->And(cell->name.str() + "_t_1_5", port_a_taint, port_b_taint, false, cell->get_src_attribute());
-		auto subexpr4 = module->Or(cell->name.str() + "_t_1_6", subexpr1, subexpr2, false, cell->get_src_attribute());
-		module->addOr(cell->name.str() + "_t_1_7", subexpr4, subexpr3, port_y_taint, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_1_1", port_a, false, cell->src_ref());
+		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_1_2", port_b, false, cell->src_ref());
+		auto subexpr1 = module->And(cell->name.str() + "_t_1_3", is_and? port_a : n_port_a, port_b_taint, false, cell->src_ref());
+		auto subexpr2 = module->And(cell->name.str() + "_t_1_4", is_and? port_b : n_port_b, port_a_taint, false, cell->src_ref());
+		auto subexpr3 = module->And(cell->name.str() + "_t_1_5", port_a_taint, port_b_taint, false, cell->src_ref());
+		auto subexpr4 = module->Or(cell->name.str() + "_t_1_6", subexpr1, subexpr2, false, cell->src_ref());
+		module->addOr(cell->name.str() + "_t_1_7", subexpr4, subexpr3, port_y_taint, false, cell->src_ref());
 	}
 
 	void add_imprecise_GLIFT_logic_1(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH3 or OR2_SH3
 		bool is_and = cell->type.in(ID($_AND_), ID($_NAND_));
-		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_2_1", port_a, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_2_2", is_and? port_b : n_port_a, is_and? port_a_taint : port_b_taint, false, cell->get_src_attribute());
-		module->addOr(cell->name.str() + "_t_2_3", is_and? port_b_taint : port_a_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_2_1", port_a, false, cell->src_ref());
+		auto subexpr1 = module->And(cell->name.str() + "_t_2_2", is_and? port_b : n_port_a, is_and? port_a_taint : port_b_taint, false, cell->src_ref());
+		module->addOr(cell->name.str() + "_t_2_3", is_and? port_b_taint : port_a_taint, subexpr1, port_y_taint, false, cell->src_ref());
 	}
 
 	void add_imprecise_GLIFT_logic_2(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH4 or OR2_SH4
 		bool is_and = cell->type.in(ID($_AND_), ID($_NAND_));
-		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_3_1", port_b, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_3_2", is_and? port_a : n_port_b, is_and? port_b_taint : port_a_taint, false, cell->get_src_attribute());
-		module->addOr(cell->name.str() + "_t_3_3", is_and? port_a_taint : port_b_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_3_1", port_b, false, cell->src_ref());
+		auto subexpr1 = module->And(cell->name.str() + "_t_3_2", is_and? port_a : n_port_b, is_and? port_b_taint : port_a_taint, false, cell->src_ref());
+		module->addOr(cell->name.str() + "_t_3_3", is_and? port_a_taint : port_b_taint, subexpr1, port_y_taint, false, cell->src_ref());
 	}
 
 	void add_imprecise_GLIFT_logic_3(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH5 or OR2_SH5 or XR2_SH2
-		module->addOr(cell->name.str() + "_t_4_1", port_a_taint, port_b_taint, port_y_taint, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_4_1", port_a_taint, port_b_taint, port_y_taint, false, cell->src_ref());
 	}
 
 	void add_imprecise_GLIFT_logic_4(RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_y_taint) {
@@ -118,22 +118,22 @@ private:
 
 	void add_precise_GLIFT_mux(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_s, RTLIL::SigSpec &port_s_taint, RTLIL::SigSpec &port_y_taint) {
 		//S&At | ~S&Bt | ~A&B&St | A&~B&St | At&St | Bt&St
-		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_4_1", port_a, false, cell->get_src_attribute());
-		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_4_2", port_b, false, cell->get_src_attribute());
-		RTLIL::SigSpec n_port_s = module->LogicNot(cell->name.str() + "_t_4_3", port_s, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_4_4", port_s, port_a_taint, false, cell->get_src_attribute());
-		auto subexpr2 = module->And(cell->name.str() + "_t_4_5", n_port_s, port_b_taint, false, cell->get_src_attribute());
-		auto subexpr3 = module->And(cell->name.str() + "_t_4_6", n_port_a, port_b, false, cell->get_src_attribute());
-		auto subexpr4 = module->And(cell->name.str() + "_t_4_7", subexpr3, port_s_taint, false, cell->get_src_attribute());
-		auto subexpr5 = module->And(cell->name.str() + "_t_4_8", port_a, n_port_b, false, cell->get_src_attribute());
-		auto subexpr6 = module->And(cell->name.str() + "_t_4_9", subexpr5, port_s_taint, false, cell->get_src_attribute());
-		auto subexpr7 = module->And(cell->name.str() + "_t_4_10", port_a_taint, port_s_taint, false, cell->get_src_attribute());
-		auto subexpr8 = module->And(cell->name.str() + "_t_4_11", port_b_taint, port_s_taint, false, cell->get_src_attribute());
-		auto subexpr9  = module->Or(cell->name.str() + "_t_4_12", subexpr1, subexpr2, false, cell->get_src_attribute());
-		auto subexpr10 = module->Or(cell->name.str() + "_t_4_13", subexpr4, subexpr6, false, cell->get_src_attribute());
-		auto subexpr11 = module->Or(cell->name.str() + "_t_4_14", subexpr7, subexpr8, false, cell->get_src_attribute());
-		auto subexpr12 = module->Or(cell->name.str() + "_t_4_15", subexpr9, subexpr10, false, cell->get_src_attribute());
-		module->addOr(cell->name.str() + "_t_4_16", subexpr11, subexpr12, port_y_taint, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_4_1", port_a, false, cell->src_ref());
+		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_4_2", port_b, false, cell->src_ref());
+		RTLIL::SigSpec n_port_s = module->LogicNot(cell->name.str() + "_t_4_3", port_s, false, cell->src_ref());
+		auto subexpr1 = module->And(cell->name.str() + "_t_4_4", port_s, port_a_taint, false, cell->src_ref());
+		auto subexpr2 = module->And(cell->name.str() + "_t_4_5", n_port_s, port_b_taint, false, cell->src_ref());
+		auto subexpr3 = module->And(cell->name.str() + "_t_4_6", n_port_a, port_b, false, cell->src_ref());
+		auto subexpr4 = module->And(cell->name.str() + "_t_4_7", subexpr3, port_s_taint, false, cell->src_ref());
+		auto subexpr5 = module->And(cell->name.str() + "_t_4_8", port_a, n_port_b, false, cell->src_ref());
+		auto subexpr6 = module->And(cell->name.str() + "_t_4_9", subexpr5, port_s_taint, false, cell->src_ref());
+		auto subexpr7 = module->And(cell->name.str() + "_t_4_10", port_a_taint, port_s_taint, false, cell->src_ref());
+		auto subexpr8 = module->And(cell->name.str() + "_t_4_11", port_b_taint, port_s_taint, false, cell->src_ref());
+		auto subexpr9  = module->Or(cell->name.str() + "_t_4_12", subexpr1, subexpr2, false, cell->src_ref());
+		auto subexpr10 = module->Or(cell->name.str() + "_t_4_13", subexpr4, subexpr6, false, cell->src_ref());
+		auto subexpr11 = module->Or(cell->name.str() + "_t_4_14", subexpr7, subexpr8, false, cell->src_ref());
+		auto subexpr12 = module->Or(cell->name.str() + "_t_4_15", subexpr9, subexpr10, false, cell->src_ref());
+		module->addOr(cell->name.str() + "_t_4_16", subexpr11, subexpr12, port_y_taint, false, cell->src_ref());
 	}
 
 	RTLIL::SigSpec score_metamux_select(const RTLIL::SigSpec &metamux_select, const RTLIL::IdString celltype) {
@@ -144,7 +144,7 @@ private:
 			//In this case, a nonzero hole metamux select value means less logic.
 			//Thus we should invert the ReduceOr over the metamux_select signal.
 			RTLIL::SigSpec pmux_select = module->ReduceOr(metamux_select.as_wire()->name.str() + "_nonzero", metamux_select);
-			return module->Pmux(NEW_ID, RTLIL::Const(1), RTLIL::Const(0), pmux_select, metamux_select.as_wire()->get_src_attribute());
+			return module->Pmux(NEW_ID, RTLIL::Const(1), RTLIL::Const(0), pmux_select, metamux_select.as_wire()->src_ref());
 		} else {
 			auto select_width = metamux_select.as_wire()->width;
 
@@ -163,7 +163,7 @@ private:
 			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + exp2(select_width));
 			for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
 				for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
-					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name, i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
+					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name, i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->src_ref()));
 				}
 				if (GetSize(pmux_y_ports) % 2 == 1)
 					next_pmux_y_ports.push_back(pmux_y_ports[GetSize(pmux_y_ports) - 1]);
@@ -234,7 +234,7 @@ private:
 					log_assert(exp2(select_width) == num_versions);
 					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", select_width));
 					meta_mux_selects.push_back(make_pair(meta_mux_select, cell->type));
-					module->connect(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", select_width, cell->get_src_attribute()));
+					module->connect(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", select_width, cell->src_ref()));
 
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
@@ -289,7 +289,7 @@ private:
 
 					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", select_width));
 					meta_mux_selects.push_back(make_pair(meta_mux_select, cell->type));
-					module->connect(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", select_width, cell->get_src_attribute()));
+					module->connect(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", select_width, cell->src_ref()));
 
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {

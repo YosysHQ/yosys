@@ -60,6 +60,7 @@ yosys_core(kernel
 	modtools.h
 	newcelltypes.h
 	pattern.h
+	pmux.h
 	qcsat.cc
 	qcsat.h
 	register.cc
@@ -80,6 +81,8 @@ yosys_core(kernel
 	threading.h
 	timinginfo.h
 	topo_scc.h
+	twine.cc
+	twine.h
 	unstable/patch.cc
 	unstable/patch.h
 	utils.h
@@ -147,6 +150,7 @@ yosys_core(kernel
 		sigtools.h
 		threading.h
 		timinginfo.h
+		twine.h
 		utils.h
 		yosys.h
 		yosys_common.h

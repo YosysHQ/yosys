@@ -181,9 +181,6 @@ yosys_pass(future
 yosys_pass(box_derive
 	box_derive.cc
 )
-yosys_pass(example_dt
-	example_dt.cc
-)
 yosys_pass(portarcs
 	portarcs.cc
 )
@@ -213,4 +210,7 @@ yosys_pass(icell_liberty
 )
 yosys_pass(test_patch
 	test_patch.cc
+)
+yosys_pass(dump_twines
+	dump_twines.cc
 )

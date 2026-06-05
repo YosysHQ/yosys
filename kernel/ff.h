@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/ffinit.h"
+#include "kernel/twine.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -169,6 +170,10 @@ struct FfData : FfTypeData {
 	// The FF data width in bits.
 	int width;
 	dict<IdString, Const> attributes;
+	// Stashed src across construction → emit. Refcount-managed so the
+	// source cell's pool slot survives if the cell itself is removed
+	// before emit() runs. Empty when the source cell had no src.
+	OwnedTwine src_twine;
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;

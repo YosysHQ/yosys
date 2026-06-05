@@ -75,7 +75,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 
 	for (auto cell : module->cells())
 		if (cell->type == "$anyconst")
-			anyconst_loc_to_cell[cell->get_strpool_attribute(ID::src)] = cell;
+			anyconst_loc_to_cell[module->design->src_leaves(cell)] = cell;
 
 	std::ifstream fin(file.c_str());
 	if (!fin)
@@ -132,7 +132,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 	pool<RTLIL::Cell *> anyconsts_to_remove;
 	for (auto cell : module->cells())
 		if (cell->type == "$anyconst")
-			if (hole_loc_idx_to_sigbit.find(std::make_pair(cell->get_strpool_attribute(ID::src), 0)) != hole_loc_idx_to_sigbit.end())
+			if (hole_loc_idx_to_sigbit.find(std::make_pair(module->design->src_leaves(cell), 0)) != hole_loc_idx_to_sigbit.end())
 				anyconsts_to_remove.insert(cell);
 	for (auto cell : anyconsts_to_remove)
 		module->remove(cell);
@@ -166,7 +166,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
 		allconst->setParam(ID(WIDTH), input->width);
 		allconst->setPort(ID::Y, input);
-		allconst->set_src_attribute(input->get_src_attribute());
+		allconst->adopt_src_from(input);
 		input->port_input = false;
 		log("Replaced input %s with $allconst cell.\n", n);
 	}
@@ -190,7 +190,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 
 	if (assume_neg) {
 		for (unsigned int i = 0; i < wires_to_assume.size(); ++i) {
-			RTLIL::SigSpec n_wire = module->LogicNot(wires_to_assume[i]->name.str() + "__n__qbfsat", wires_to_assume[i], false, wires_to_assume[i]->get_src_attribute());
+			RTLIL::SigSpec n_wire = module->LogicNot(wires_to_assume[i]->name.str() + "__n__qbfsat", wires_to_assume[i], false, wires_to_assume[i]->src_ref());
 			wires_to_assume[i] = n_wire.as_wire();
 		}
 	}
@@ -200,7 +200,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 		for (auto j = 0; j + 1 < GetSize(wires_to_assume); j += 2) {
 			std::stringstream strstr; strstr << i << "_" << j;
 			RTLIL::Wire *and_wire = module->addWire("\\_qbfsat_and_" + strstr.str(), 1);
-			module->addLogicAnd("$_qbfsat_and_" + strstr.str(), wires_to_assume[j], wires_to_assume[j+1], and_wire, false, wires_to_assume[j]->get_src_attribute());
+			module->addLogicAnd("$_qbfsat_and_" + strstr.str(), wires_to_assume[j], wires_to_assume[j+1], and_wire, false, wires_to_assume[j]->src_ref());
 			buf.push_back(and_wire);
 		}
 		if (wires_to_assume.size() % 2 == 1)

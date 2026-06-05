@@ -888,7 +888,14 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	if (!port.clk_enable)
 		return nullptr;
 
-	std::string mem_src = get_src_attribute();
+	// Keep src as a "@N" reference into the design's twine pool throughout
+	// — never flatten to a literal path string. That way every addX call
+	// below adopts the same slot as Mem itself (via set_src_attribute's
+	// "@N" parse_ref path), and there's no flatten → re-intern → pipe-
+	// leaf round-trip on cells whose src is a Concat node.
+	TwinePool *src_pool = (module && module->design) ? &module->design->src_twines : nullptr;
+	std::string mem_src = (src_pool && src_id_ != Twine::Null) ?
+			TwinePool::format_ref(src_id_) : std::string();
 
 	Cell *c;
 
@@ -994,8 +1001,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		IdString name = stringf("$%s$rdreg[%d]", memid, idx);
 		FfData ff(module, initvals, name);
-		if (!mem_src.empty())
-			ff.attributes[ID::src] = mem_src;
+		// Carry mem's src into the ff via the OwnedTwine handle — same
+		// pool, direct id retain. emit() transfers verbatim.
+		if (src_pool && src_id_ != Twine::Null)
+			ff.src_twine = OwnedTwine(src_pool, src_id_);
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
 		ff.sig_clk = port.clk;

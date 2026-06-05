@@ -71,7 +71,7 @@ struct AlumaccWorker
 					get_lt(is_signed);
 					get_eq();
 					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
-					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->src_ref());
 				}
 
 				return cached_sgt;
@@ -80,7 +80,7 @@ struct AlumaccWorker
 					get_lt(is_signed);
 					get_eq();
 					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->src_ref());
 				}
 
 				return cached_gt;
@@ -89,13 +89,13 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
+				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->src_ref());
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
 			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
+				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->src_ref());
 			return cached_ne;
 		}
 
@@ -103,7 +103,7 @@ struct AlumaccWorker
 			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort(ID::CO);
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
+				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->src_ref());
 			}
 			return cached_cf;
 		}
@@ -385,7 +385,7 @@ struct AlumaccWorker
 
 			log("  creating $macc cell for %s: %s\n", n->cell, cell);
 
-			cell->set_src_attribute(n->cell->get_src_attribute());
+			cell->adopt_src_from(n->cell);
 
 			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
@@ -518,7 +518,7 @@ struct AlumaccWorker
 			log(": %s\n", n->alu_cell);
 
 			if (n->cells.size() > 0)
-				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());
+				n->alu_cell->adopt_src_from(n->cells[0]);
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);

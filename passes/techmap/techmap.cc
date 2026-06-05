@@ -157,7 +157,11 @@ struct TechmapWorker
 		}
 
 		std::string orig_cell_name;
-		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
+		// Cache the source cell's src attribute (a "@N" ref or a legacy
+		// literal). Each technology-mapped object inherits this via
+		// design->merge_src, which routes through the twine pool so
+		// successive merges share substructure.
+		const RTLIL::Cell *src_cell = cell;
 
 		orig_cell_name = cell->name.str();
 		for (auto tpl_cell : tpl->cells())
@@ -172,8 +176,8 @@ struct TechmapWorker
 			IdString m_name = it.first;
 			apply_prefix(cell->name, m_name);
 			RTLIL::Memory *m = module->addMemory(m_name, it.second);
-			if (m->attributes.count(ID::src))
-				m->add_strpool_attribute(ID::src, extra_src_attrs);
+			if (m->has_attribute(ID::src))
+				design->merge_src(m, src_cell);
 			memory_renames[it.first] = m->name;
 			design->select(module, m);
 		}
@@ -217,8 +221,8 @@ struct TechmapWorker
 				w->attributes.erase(ID::techmap_autopurge);
 				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
 					w->attributes.clear();
-				if (w->attributes.count(ID::src))
-					w->add_strpool_attribute(ID::src, extra_src_attrs);
+				if (w->has_attribute(ID::src))
+					design->merge_src(w, src_cell);
 			}
 			design->select(module, w);
 
@@ -377,8 +381,8 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
-			if (c->attributes.count(ID::src))
-				c->add_strpool_attribute(ID::src, extra_src_attrs);
+			if (c->has_attribute(ID::src))
+				design->merge_src(c, src_cell);
 
 			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
@@ -514,8 +518,9 @@ struct TechmapWorker
 						{
 							extmapper_module = extmapper_design->addModule(m_name);
 							RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
-
-							extmapper_cell->set_src_attribute(cell->get_src_attribute());
+							// addCell(name, cell) already migrated src across
+							// designs via copy_src_into — no need for an
+							// explicit set_src_attribute round-trip here.
 
 							int port_counter = 1;
 							for (auto &c : extmapper_cell->connections_) {

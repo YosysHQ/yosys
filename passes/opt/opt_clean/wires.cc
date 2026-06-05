@@ -82,8 +82,9 @@ struct ExactCellWires {
 
 int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 {
+	// w->attributes no longer holds ID::src (typed src field), so it isn't
+	// counted in attributes.size() and we don't subtract for it here.
 	int count = w->attributes.size();
-	count -= w->attributes.count(ID::src);
 	count -= w->attributes.count(ID::hdlname);
 	count -= w->attributes.count(ID::scopename);
 	count -= w->attributes.count(ID::unused_bits);

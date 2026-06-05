@@ -10,5 +10,5 @@ read_json temp/test_escapes.json
 write_json temp/test_escapes.json
 design -reset
 read_json temp/test_escapes.json
-write_rtlil temp/test_escapes.json.il
+write_rtlil -resolve-src temp/test_escapes.json.il
 ! grep -F 'attribute \src "\" / \\ \010 \014 \n \015 \t \025 \033"' temp/test_escapes.json.il

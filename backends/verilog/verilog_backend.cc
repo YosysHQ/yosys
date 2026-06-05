@@ -424,6 +424,8 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 			f << stringf(" 0 ");
 		else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 			f << stringf(" 1 ");
+		else if (it->first == ID::src && (it->second.flags & RTLIL::CONST_FLAG_STRING) && active_module && active_module->design)
+			dump_const(f, RTLIL::Const(active_module->design->resolve_src(it->second.decode_string())), -1, 0, false, as_comment);
 		else
 			dump_const(f, it->second, -1, 0, false, as_comment);
 		f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
