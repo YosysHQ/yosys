@@ -452,6 +452,7 @@ struct SymFpuPass : public Pass {
 				else if (op.compare("add") == 0
 					|| op.compare("sub") == 0
 					|| op.compare("mul") == 0
+					|| op.compare("altdiv") == 0 // currently undocumented
 					|| op.compare("div") == 0)
 					inputs = 2;
 				else if (op.compare("muladd") == 0)
@@ -528,6 +529,8 @@ struct SymFpuPass : public Pass {
 				return symfpu::sqrt_flagged(format, rounding_mode, a);
 			else if (op.compare("muladd") == 0)
 				return symfpu::fma_flagged(format, rounding_mode, a, b, c);
+			else if (op.compare("altdiv") == 0)
+				return symfpu::falseDivide_flagged(format, rounding_mode, a, b);
 			else
 				log_abort();
 		};
