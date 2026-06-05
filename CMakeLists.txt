@@ -29,6 +29,7 @@ include(YosysLinkTarget)
 include(YosysAbc)
 include(YosysAbcSubmodule)
 include(YosysVerific)
+include(UseHomebrew)
 
 # Build options.
 set(YOSYS_COMPILER_LAUNCHER "" CACHE STRING "Compiler launcher (ccache, sccache)")
@@ -162,6 +163,11 @@ if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSIO
 endif()
 
 # Required dependencies.
+if (APPLE)
+	# In practice, we can't expect paths to Homebrew packages to be configured.
+	use_homebrew()
+endif()
+
 find_package(FLEX)
 set_package_properties(FLEX PROPERTIES
 	URL "https://github.com/westes/flex"
