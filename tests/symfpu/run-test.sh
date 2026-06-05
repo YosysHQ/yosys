@@ -35,6 +35,14 @@ prove_op() {
     done
 }
 
+prove_op_unrounded() {
+    # DYN is default rounding mode, so this is (currently) equivalent to no rounding mode
+    # but this does skip verifying the built in asserts
+    op=$1
+    defs=$2
+    prove_rm $op "DYN" "$defs"
+}
+
 prove_op sqrt "-DSQRT -DSQRTS"
 prove_op add "-DADD -DADDSUB -DADDS"
 prove_op sub "-DSUB -DADDSUB -DADDS"
@@ -44,5 +52,8 @@ prove_op muladd "-DMULADD -DMULS -DADDS"
 
 prove_op altdiv "-DALTDIV -DDIVS"
 prove_op altsqrt "-DALTSQRT -DSQRTS"
+
+prove_op_unrounded min "-DMIN -DCOMPARES"
+prove_op_unrounded max "-DMAX -DCOMPARES"
 
 generate_mk --yosys-scripts
