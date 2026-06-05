@@ -1259,6 +1259,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		current_case = &proc->root_case;
 
 		RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
+		sw->module = module;
 		sw->signal = sig_select;
 		current_case->switches.push_back(sw);
 
@@ -1294,6 +1295,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 					for (int32_t i = right; i<left; i++) {
 						RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+						cs->module = module;
 						cs->compare.push_back(RTLIL::Const(i,width));
 						cs->actions.push_back(action);
 						sw->cases.push_back(cs);
@@ -1301,12 +1303,14 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 				}
 
 				RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+				cs->module = module;
 				cs->compare.push_back(sel_left);
 				cs->actions.push_back(action);
 				sw->cases.push_back(cs);
 			}
 		}
 		RTLIL::CaseRule *cs_default = new RTLIL::CaseRule;
+		cs_default->module = module;
 		cs_default->actions.push_back(SigSig(sig_out_val, sig_data_default));
 		sw->cases.push_back(cs_default);
 
