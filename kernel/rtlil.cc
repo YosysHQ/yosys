@@ -1078,6 +1078,26 @@ namespace {
 	}
 }
 
+uint32_t RTLIL::Design::alloc_obj_meta()
+{
+	if (!obj_meta_free_.empty()) {
+		uint32_t idx = obj_meta_free_.back();
+		obj_meta_free_.pop_back();
+		obj_meta_src_[idx] = Twine::Null;
+		return idx;
+	}
+	uint32_t idx = static_cast<uint32_t>(obj_meta_src_.size());
+	obj_meta_src_.push_back(Twine::Null);
+	return idx;
+}
+
+void RTLIL::Design::free_obj_meta(uint32_t idx)
+{
+	log_assert(idx < obj_meta_src_.size());
+	log_assert(obj_meta_src_[idx] == Twine::Null);
+	obj_meta_free_.push_back(idx);
+}
+
 void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
 {
 	std::vector<Twine::Id> ids;
