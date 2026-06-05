@@ -2292,6 +2292,13 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 
 	Memory();
 
+	// Back-pointer to the owning module — same role as Cell::module /
+	// Wire::module. Set by Module::addMemory / the frontends that
+	// construct Memory free-standing before attaching to a module.
+	// Lets Memory's src access (and the upcoming per-Design meta vector
+	// lookup) resolve uniformly via module->design.
+	RTLIL::Module *module = nullptr;
+
 	int width, start_offset, size;
 #ifdef YOSYS_ENABLE_PYTHON
 	~Memory();

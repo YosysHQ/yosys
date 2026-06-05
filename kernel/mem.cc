@@ -294,6 +294,7 @@ void Mem::emit() {
 				memid = NEW_ID;
 			mem = new RTLIL::Memory;
 			mem->name = memid;
+			mem->module = module;
 			module->memories[memid] = mem;
 		}
 		mem->width = width;
