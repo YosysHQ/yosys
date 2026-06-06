@@ -217,7 +217,7 @@ struct IopadmapPass : public Pass {
 
 			// Collect explicitly-marked already-buffered SigBits.
 			for (auto wire : module->wires())
-				if (wire->get_bool_attribute(ID::iopad_external_pin) || ignore.count(make_pair(module->name, wire->name)))
+				if (wire->get_bool_attribute(ID::iopad_external_pin) || ignore.count(make_pair(RTLIL::IdString(module->name), wire->name)))
 					for (int i = 0; i < GetSize(wire); i++)
 						buf_bits.insert(sigmap(SigBit(wire, i)));
 
@@ -233,7 +233,7 @@ struct IopadmapPass : public Pass {
 				if (wire->port_input || wire->port_output)
 					for (int i = 0; i < GetSize(wire); i++)
 						if (buf_bits.count(sigmap(SigBit(wire, i)))) {
-							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+							buf_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 							log("Marking already mapped port: %s.%s[%d].\n", module, wire, i);
 						}
 		}
@@ -293,7 +293,7 @@ struct IopadmapPass : public Pass {
 						SigBit wire_bit(wire, i);
 						Cell *tbuf_cell = nullptr;
 
-						if (buf_ports.count(make_pair(module->name, make_pair(wire->name, i))))
+						if (buf_ports.count(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i))))
 							continue;
 
 						if (tbuf_bits.count(wire_bit))
@@ -370,7 +370,7 @@ struct IopadmapPass : public Pass {
 							if (!toutpad_portname_pad.empty())
 								rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(toutpad_portname_pad));
 						}
-						buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+						buf_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 					}
 				}
 			}
@@ -384,7 +384,7 @@ struct IopadmapPass : public Pass {
 				pool<int> skip_bit_indices;
 
 				for (int i = 0; i < GetSize(wire); i++)
-					if (buf_ports.count(make_pair(module->name, make_pair(wire->name, i))))
+					if (buf_ports.count(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i))))
 						skip_bit_indices.insert(i);
 
 				if (GetSize(wire) == GetSize(skip_bit_indices))

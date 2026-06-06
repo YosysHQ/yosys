@@ -258,7 +258,8 @@ void RTLIL::OwningIdString::collect_garbage()
 
 	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
 		for (RTLIL::Module *module : design->modules()) {
-			collectors[0].trace_named(*module);
+			collectors[0].trace_keys(module->attributes);
+			collectors[0].trace(RTLIL::IdString(module->name));
 			ParallelDispatchThreadPool::Subpool subpool(thread_pool, ThreadPool::work_pool_size(0, module->cells_size(), 1000));
 			subpool.run([&collectors, module](const ParallelDispatchThreadPool::RunCtx &ctx) {
 				for (int i : ctx.item_range(module->cells_size()))
@@ -3266,8 +3267,18 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, bool src_id_verbatim) co
 	RTLIL::Module *new_mod = new RTLIL::Module;
 	new_mod->design = dst;
 	new_mod->name = name;
-	dst->add(new_mod);
 	cloneInto(new_mod, src_id_verbatim);
+	dst->add(new_mod);
+	return new_mod;
+}
+
+RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim) const
+{
+	RTLIL::Module *new_mod = new RTLIL::Module;
+	new_mod->design = dst;
+	new_mod->name = target_name;
+	cloneInto(new_mod, src_id_verbatim);
+	dst->add(new_mod);
 	return new_mod;
 }
 

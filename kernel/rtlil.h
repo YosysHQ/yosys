@@ -2807,6 +2807,13 @@ public:
 // still hits the (now-unused) inline base field. Writing requires
 // module->design to be set first.
 struct RTLIL::ModuleNameMasq {
+	// Copying/moving is forbidden: a ModuleNameMasq derives its identity from
+	// `this` via offsetof(Module, name), so any instance not embedded in a
+	// Module would resolve to garbage. All conversions go through
+	// operator IdString() at the embedded location.
+	ModuleNameMasq() = default;
+	ModuleNameMasq(const ModuleNameMasq&) = delete;
+	ModuleNameMasq(ModuleNameMasq&&) = delete;
 	operator RTLIL::IdString() const;
 	ModuleNameMasq& operator=(RTLIL::IdString id);
 	// Without this, `new_mod->name = src_mod->name` invokes the implicit
@@ -2951,6 +2958,10 @@ public:
 	// preserve their type (AstModule). `src_id_verbatim` is forwarded to
 	// cloneInto.
 	virtual RTLIL::Module *clone(RTLIL::Design *dst, bool src_id_verbatim = false) const;
+	// As above, but additionally renames the new module to `target_name` in
+	// `dst`. Used when source and destination designs may contain modules
+	// with the same name and the new one must take a different identity.
+	virtual RTLIL::Module *clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim = false) const;
 
 	bool has_memories() const;
 	bool has_processes() const;

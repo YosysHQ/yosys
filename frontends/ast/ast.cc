@@ -1931,6 +1931,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 RTLIL::Module *AstModule::clone() const
 {
 	AstModule *new_mod = new AstModule;
+	new_mod->design = design;
 	new_mod->name = name;
 	cloneInto(new_mod);
 
@@ -1955,8 +1956,32 @@ RTLIL::Module *AstModule::clone(RTLIL::Design *dst, bool src_id_verbatim) const
 	AstModule *new_mod = new AstModule;
 	new_mod->design = dst;
 	new_mod->name = name;
-	dst->add(new_mod);
 	cloneInto(new_mod, src_id_verbatim);
+	dst->add(new_mod);
+
+	new_mod->ast = ast->clone();
+	new_mod->nolatches = nolatches;
+	new_mod->nomeminit = nomeminit;
+	new_mod->nomem2reg = nomem2reg;
+	new_mod->mem2reg = mem2reg;
+	new_mod->noblackbox = noblackbox;
+	new_mod->lib = lib;
+	new_mod->nowb = nowb;
+	new_mod->noopt = noopt;
+	new_mod->icells = icells;
+	new_mod->pwires = pwires;
+	new_mod->autowire = autowire;
+
+	return new_mod;
+}
+
+RTLIL::Module *AstModule::clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim) const
+{
+	AstModule *new_mod = new AstModule;
+	new_mod->design = dst;
+	new_mod->name = target_name;
+	cloneInto(new_mod, src_id_verbatim);
+	dst->add(new_mod);
 
 	new_mod->ast = ast->clone();
 	new_mod->nolatches = nolatches;

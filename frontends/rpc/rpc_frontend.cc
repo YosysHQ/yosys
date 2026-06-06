@@ -214,13 +214,11 @@ struct RpcModule : RTLIL::Module {
 
 				log("Importing `%s' as `%s'.\n", module.first.unescape(), mangled_name);
 
-				module.second->name = mangled_name;
-				module.second->design = design;
-				module.second->attributes.erase(ID::top);
-				if (!module.second->has_attribute(ID::hdlname))
-					module.second->set_string_attribute(ID::hdlname, module.first.str());
-				design->modules_[mangled_name] = module.second;
-				derived_design->modules_.erase(module.first);
+				RTLIL::IdString original_name = module.first;
+				RTLIL::Module *t = module.second->clone(design, RTLIL::IdString(mangled_name));
+				t->attributes.erase(ID::top);
+				if (!t->has_attribute(ID::hdlname))
+					t->set_string_attribute(ID::hdlname, original_name.str());
 			}
 
 			delete derived_design;
@@ -588,6 +586,7 @@ cleanup_path:
 		for (auto &module_name : server->get_module_names()) {
 			log("Linking module `%s'.\n", module_name);
 			RpcModule *module = new RpcModule;
+			module->design = design;
 			module->name = "$abstract\\" + module_name;
 			module->server = server;
 			design->add(module);
