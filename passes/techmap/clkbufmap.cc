@@ -145,16 +145,16 @@ struct ClkbufmapPass : public Pass {
 					auto wire = module->wire(port);
 					if (wire->get_bool_attribute(ID::clkbuf_driver))
 						for (int i = 0; i < GetSize(wire); i++)
-							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+							buf_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 					if (wire->get_bool_attribute(ID::clkbuf_sink))
 						for (int i = 0; i < GetSize(wire); i++)
-							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+							sink_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 					auto it = wire->attributes.find(ID::clkbuf_inv);
 					if (it != wire->attributes.end()) {
 						IdString in_name = RTLIL::escape_id(it->second.decode_string());
 						for (int i = 0; i < GetSize(wire); i++) {
-							inv_ports_out[make_pair(module->name, make_pair(wire->name, i))] = make_pair(in_name, i);
-							inv_ports_in[make_pair(module->name, make_pair(in_name, i))] = make_pair(wire->name, i);
+							inv_ports_out[make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i))] = make_pair(in_name, i);
+							inv_ports_in[make_pair(RTLIL::IdString(module->name), make_pair(in_name, i))] = make_pair(wire->name, i);
 						}
 					}
 				}
@@ -236,7 +236,7 @@ struct ClkbufmapPass : public Pass {
 					// some buffer higher up in the hierarchy.
 					if (wire->port_output)
 						for (int i = 0; i < GetSize(wire); i++)
-							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+							buf_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 					continue;
 				}
 
@@ -249,7 +249,7 @@ struct ClkbufmapPass : public Pass {
 					if (buf_wire_bits.count(mapped_wire_bit)) {
 						// Already buffered downstream.  If this is an output, mark it.
 						if (wire->port_output)
-							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+							buf_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 					} else if (!sink_wire_bits.count(mapped_wire_bit)) {
 						// Nothing to do.
 					} else if (driven_wire_bits.count(wire_bit) || (wire->port_input && module->get_bool_attribute(ID::top))) {
@@ -288,7 +288,7 @@ struct ClkbufmapPass : public Pass {
 						// A clock input in a submodule -- mark it, let higher level
 						// worry about it.
 						if (wire->port_input)
-							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+							sink_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 					}
 				}
 				if (!input_bits.empty()) {
@@ -320,7 +320,7 @@ struct ClkbufmapPass : public Pass {
 					SigBit wire_bit(wire, i);
 					SigBit mapped_wire_bit = sigmap(wire_bit);
 					if (buffered_bits.count(mapped_wire_bit))
-						buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
+						buf_ports.insert(make_pair(RTLIL::IdString(module->name), make_pair(wire->name, i)));
 				}
 			}
 

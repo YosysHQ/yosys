@@ -268,11 +268,8 @@ struct DesignPass : public Pass {
 			{
 				log("Importing %s as %s.\n", mod, RTLIL::unescape_id(prefix));
 
-				RTLIL::Module *t = mod->clone();
-				t->name = prefix;
-				t->design = copy_to_design;
+				RTLIL::Module *t = mod->clone(copy_to_design, RTLIL::IdString(prefix));
 				t->attributes.erase(ID::top);
-				copy_to_design->add(t);
 
 				queue.insert(t);
 				done[mod->name] = prefix;
@@ -300,11 +297,8 @@ struct DesignPass : public Pass {
 						if (copy_to_design->module(trg_name) != nullptr)
 							copy_to_design->remove(copy_to_design->module(trg_name));
 
-						RTLIL::Module *t = fmod->clone();
-						t->name = trg_name;
-						t->design = copy_to_design;
+						RTLIL::Module *t = fmod->clone(copy_to_design, RTLIL::IdString(trg_name));
 						t->attributes.erase(ID::top);
-						copy_to_design->add(t);
 
 						queue.insert(t);
 						done[cell->type] = trg_name;
@@ -327,10 +321,7 @@ struct DesignPass : public Pass {
 				if (copy_to_design->module(trg_name) != nullptr)
 					copy_to_design->remove(copy_to_design->module(trg_name));
 
-				RTLIL::Module *t = mod->clone();
-				t->name = trg_name;
-				t->design = copy_to_design;
-				copy_to_design->add(t);
+				mod->clone(copy_to_design, RTLIL::IdString(trg_name));
 			}
 		}
 

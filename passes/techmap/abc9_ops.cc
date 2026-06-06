@@ -38,7 +38,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 			if (it == m->attributes.end())
 				continue;
 			auto id = it->second.as_int();
-			auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), m->name));
+			auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), RTLIL::IdString(m->name)));
 			if (!r.second)
 				log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
 						m, id, r.first->second.unescape());

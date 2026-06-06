@@ -403,6 +403,7 @@ namespace AST
 		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
 		RTLIL::Module *clone(RTLIL::Design *dst, bool src_id_verbatim = false) const override;
+		RTLIL::Module *clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim = false) const override;
 		void loadconfig() const;
 	};
 
