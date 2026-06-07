@@ -3687,14 +3687,22 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 		if (assign_data)
 			newNode->children.push_back(std::move(assign_data));
+
+		std::unique_ptr<AstNode> meminit_en = nullptr;
+		if (current_always->type == AST_INITIAL && assign_en && assign_en->children[1]->isConst())
+			meminit_en = assign_en->children[1]->clone();
+
 		if (assign_en)
 			newNode->children.push_back(std::move(assign_en));
 
 		std::unique_ptr<AstNode> wrnode;
-		if (current_always->type == AST_INITIAL)
-			wrnode = std::make_unique<AstNode>(location, AST_MEMINIT, std::move(node_addr), std::move(node_data), std::move(node_en), mkconst_int(location, 1, false));
-		else
+		if (current_always->type == AST_INITIAL) {
+			if (!meminit_en)
+				meminit_en = std::move(node_en);
+			wrnode = std::make_unique<AstNode>(location, AST_MEMINIT, std::move(node_addr), std::move(node_data), std::move(meminit_en), mkconst_int(location, 1, false));
+		} else {
 			wrnode = std::make_unique<AstNode>(location, AST_MEMWR, std::move(node_addr), std::move(node_data), std::move(node_en));
+		}
 		wrnode->str = children[0]->str;
 		wrnode->id2ast = children[0]->id2ast;
 		wrnode->location = location;
