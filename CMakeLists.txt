@@ -31,6 +31,10 @@ include(YosysAbcSubmodule)
 include(YosysVerific)
 include(UseHomebrew)
 
+# Fix for using Clang from nixpkgs
+# see https://github.com/YosysHQ/yosys/pull/5936#issuecomment-4637319568
+set(CMAKE_CXX_SCAN_FOR_MODULES NO)
+
 # Build options.
 set(YOSYS_COMPILER_LAUNCHER "" CACHE STRING "Compiler launcher (ccache, sccache)")
 option(YOSYS_ENABLE_COVERAGE "Enable code coverage" OFF)
