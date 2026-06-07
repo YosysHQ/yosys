@@ -280,6 +280,7 @@ static parser::symbol_type process_str(char *str, int len, bool triple, parser::
 %x SYNOPSYS_FLAGS
 %x IMPORT_DPI
 %x BASED_CONST
+%x UDPTABLE
 
 UNSIGNED_NUMBER [0-9][0-9_]*
 FIXED_POINT_NUMBER_DEC [0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)?
@@ -355,6 +356,9 @@ TIME_SCALE_SUFFIX [munpf]?s
 
 "module"       { return parser::make_TOK_MODULE(out_loc); }
 "endmodule"    { return parser::make_TOK_ENDMODULE(out_loc); }
+"primitive"    { return parser::make_TOK_PRIMITIVE_DEF(out_loc); }
+"endprimitive" { return parser::make_TOK_ENDPRIMITIVE(out_loc); }
+"table"        { BEGIN(UDPTABLE); return parser::make_TOK_TABLE(out_loc); }
 "function"     { return parser::make_TOK_FUNCTION(out_loc); }
 "endfunction"  { return parser::make_TOK_ENDFUNCTION(out_loc); }
 "task"         { return parser::make_TOK_TASK(out_loc); }
@@ -699,15 +703,29 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 {FIXED_POINT_NUMBER_DEC}{TIME_SCALE_SUFFIX} { return parser::make_TOK_TIME_SCALE(out_loc); }
 {FIXED_POINT_NUMBER_NO_DEC}{TIME_SCALE_SUFFIX} { return parser::make_TOK_TIME_SCALE(out_loc); }
 
-<INITIAL,BASED_CONST>"/*" { comment_caller=YY_START; BEGIN(COMMENT); }
+<INITIAL,BASED_CONST,UDPTABLE>"/*" { comment_caller=YY_START; BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */
 <COMMENT>\n   /* ignore comment body */
 <COMMENT>"*/" { BEGIN(comment_caller); }
 
 
-<INITIAL,BASED_CONST>[ \t\r\n]		/* ignore whitespaces */
+<INITIAL,BASED_CONST,UDPTABLE>[ \t\r\n]		/* ignore whitespaces */
 <INITIAL,BASED_CONST>\\[\r\n]		/* ignore continuation sequence */
-<INITIAL,BASED_CONST>"//"[^\r\n]*	/* ignore one-line comments */
+<INITIAL,BASED_CONST,UDPTABLE>"//"[^\r\n]*	/* ignore one-line comments */
+
+	/* UDP state table: each field is a single symbol (or a parenthesised
+	   transition).  ':' and ';' delimit the input/state/output fields and
+	   terminate rows; "endtable" leaves the table sub-language. */
+<UDPTABLE>"endtable" { BEGIN(0); return parser::make_TOK_ENDTABLE(out_loc); }
+<UDPTABLE>\([01xXbB?][01xXbB?]\) {
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_UDP_VALUE(std::move(val), out_loc);
+}
+<UDPTABLE>[01xXbB?rRfFpPnN*\-] {
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_UDP_VALUE(std::move(val), out_loc);
+}
+<UDPTABLE>[:;] { return char_tok(*YYText(), out_loc); }
 
 <INITIAL>. { return char_tok(*YYText(), out_loc); }
 <*>. { BEGIN(0); return char_tok(*YYText(), out_loc); }
