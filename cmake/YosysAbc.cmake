@@ -61,8 +61,16 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		ABC_NO_DYNAMIC_LINKING
 		$<${YOSYS_ENABLE_THREADS}:ABC_USE_PTHREADS>
 		$<${YOSYS_ENABLE_READLINE}:ABC_USE_READLINE>
+		$<$<CXX_COMPILER_ID:MSVC>:ABC_USE_PTHREADS>
+		$<$<CXX_COMPILER_ID:MSVC>:_WINSOCKAPI_>
+		$<$<CXX_COMPILER_ID:MSVC>:HAVE_STRUCT_TIMESPEC>
 		ABC_NO_RLIMIT
 	)
+	target_compile_options(${arg_LIBNAME} PRIVATE 
+		$<$<CXX_COMPILER_ID:MSVC>:/wd4576>
+		$<$<CXX_COMPILER_ID:MSVC>:/Zc:strictStrings->
+	)
+	
 	target_safe_compile_options(${arg_LIBNAME} PRIVATE
 		-fpermissive
 		-fno-exceptions
@@ -78,6 +86,7 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		$<${YOSYS_ENABLE_THREADS}:Threads::Threads>
 		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
 		$<$<BOOL:${WIN32}>:-lshlwapi>
+		$<$<CXX_COMPILER_ID:MSVC>:${CMAKE_SOURCE_DIR}/abc/lib/x64/pthreadVC2.lib>
 	)
 	set_target_properties(${arg_LIBNAME} PROPERTIES
 		YOSYS_IS_ABC ON
