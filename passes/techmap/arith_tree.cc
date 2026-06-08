@@ -444,7 +444,7 @@ struct ArithTreePass : public Pass {
 		log("        Disable fused multiply-add expansion in $macc cells\n");
 		log("\n");
 		log("The default behaviour delivers 4:2 compression, FMA fusion, and a\n");
-		log("width-adaptive final adder\n");
+		log("final standard adder\n");
 		log("\n");
 	}
 
