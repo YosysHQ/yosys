@@ -44,7 +44,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-equiv_opt arith_tree -final ripple
+equiv_opt arith_tree
 design -load postopt
 select -assert-count 1 t:$add
 select -assert-count 0 t:$add a:adder_arch %i
