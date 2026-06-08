@@ -91,6 +91,9 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 	set_target_properties(${arg_LIBNAME} PROPERTIES
 		YOSYS_IS_ABC ON
 	)
+	if(MSVC)
+    	install(FILES "${CMAKE_SOURCE_DIR}/abc/lib/x64/pthreadVC2.dll" DESTINATION bin)
+	endif()
 
 	yosys_cxx_executable(${arg_EXENAME}
 		OUTPUT_NAME ${arg_EXENAME}
