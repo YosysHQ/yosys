@@ -486,7 +486,7 @@ struct XpropWorker
 				auto sig_a = cell->getPort(ID::A);
 				auto sig_b = cell->getPort(ID::B);
 
-				auto name = cell->name;
+				RTLIL::IdString name(cell->name);
 				module->remove(cell);
 				module->addXnor(name, sig_a, sig_b, sig_y);
 				return;
@@ -497,7 +497,7 @@ struct XpropWorker
 				auto sig_a = cell->getPort(ID::A);
 				auto sig_b = cell->getPort(ID::B);
 
-				auto name = cell->name;
+				RTLIL::IdString name(cell->name);
 				auto type = cell->type;
 				module->remove(cell);
 				if (type == ID($eqx))

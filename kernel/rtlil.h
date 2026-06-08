@@ -130,6 +130,8 @@ namespace RTLIL
 	struct SrcAttr;
 	struct ObjMeta;
 	struct ModuleNameMasq;
+	struct WireNameMasq;
+	struct CellNameMasq;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 	struct PortBit;
@@ -603,6 +605,14 @@ public:
 		if (global_id_index_.empty())
 			prepopulate();
 	}
+
+	// Thread-safe read-only pool lookup for use while Multithreading::active().
+	// global_id_index_ is stable (no writes) during parallel passes, so
+	// concurrent find() calls are safe. Returns empty IdString if not found.
+	static IdString lookup_threadsafe(std::string_view p) {
+		auto it = global_id_index_.find(p);
+		return from_index(it != global_id_index_.end() ? it->second : 0);
+	}
 };
 
 struct RTLIL::OwningIdString : public RTLIL::IdString {
@@ -910,15 +920,15 @@ namespace RTLIL {
 	// This iterator-range-pair is used for Design::modules(), Module::wires() and Module::cells().
 	// It maintains a reference counter that is used to make sure that the container is not modified while being iterated over.
 
-	template<typename T>
+	template<typename T, typename Key = RTLIL::IdString>
 	struct ObjIterator {
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = T;
 		using difference_type = ptrdiff_t;
 		using pointer = T*;
 		using reference = T&;
-		typename dict<RTLIL::IdString, T>::iterator it;
-		dict<RTLIL::IdString, T> *list_p;
+		typename dict<Key, T>::iterator it;
+		dict<Key, T> *list_p;
 		int *refcount_p;
 
 		ObjIterator() : list_p(nullptr), refcount_p(nullptr) {
@@ -934,7 +944,7 @@ namespace RTLIL {
 			}
 		}
 
-		ObjIterator(const RTLIL::ObjIterator<T> &other) {
+		ObjIterator(const RTLIL::ObjIterator<T, Key> &other) {
 			it = other.it;
 			list_p = other.list_p;
 			refcount_p = other.refcount_p;
@@ -942,7 +952,7 @@ namespace RTLIL {
 				(*refcount_p)++;
 		}
 
-		ObjIterator &operator=(const RTLIL::ObjIterator<T> &other) {
+		ObjIterator &operator=(const RTLIL::ObjIterator<T, Key> &other) {
 			if (refcount_p)
 				(*refcount_p)--;
 			it = other.it;
@@ -963,18 +973,18 @@ namespace RTLIL {
 			return it->second;
 		}
 
-		inline bool operator!=(const RTLIL::ObjIterator<T> &other) const {
+		inline bool operator!=(const RTLIL::ObjIterator<T, Key> &other) const {
 			if (list_p == nullptr || other.list_p == nullptr)
 				return list_p != other.list_p;
 			return it != other.it;
 		}
 
 
-		inline bool operator==(const RTLIL::ObjIterator<T> &other) const {
+		inline bool operator==(const RTLIL::ObjIterator<T, Key> &other) const {
 			return !(*this != other);
 		}
 
-		inline ObjIterator<T>& operator++() {
+		inline ObjIterator<T, Key>& operator++() {
 			log_assert(list_p != nullptr);
 			if (++it == list_p->end()) {
 				(*refcount_p)--;
@@ -984,7 +994,7 @@ namespace RTLIL {
 			return *this;
 		}
 
-		inline ObjIterator<T>& operator+=(int amt) {
+		inline ObjIterator<T, Key>& operator+=(int amt) {
 			log_assert(list_p != nullptr);
 			it += amt;
 			if (it == list_p->end()) {
@@ -995,9 +1005,9 @@ namespace RTLIL {
 			return *this;
 		}
 
-		inline ObjIterator<T> operator+(int amt) {
+		inline ObjIterator<T, Key> operator+(int amt) {
 			log_assert(list_p != nullptr);
-			ObjIterator<T> new_obj(*this);
+			ObjIterator<T, Key> new_obj(*this);
 			new_obj.it += amt;
 			if (new_obj.it == list_p->end()) {
 				(*(new_obj.refcount_p))--;
@@ -1007,22 +1017,22 @@ namespace RTLIL {
 			return new_obj;
 		}
 
-		inline const ObjIterator<T> operator++(int) {
-			ObjIterator<T> result(*this);
+		inline const ObjIterator<T, Key> operator++(int) {
+			ObjIterator<T, Key> result(*this);
 			++(*this);
 			return result;
 		}
 	};
 
-	template<typename T>
+	template<typename T, typename Key = RTLIL::IdString>
 	struct ObjRange
 	{
-		dict<RTLIL::IdString, T> *list_p;
+		dict<Key, T> *list_p;
 		int *refcount_p;
 
 		ObjRange(decltype(list_p) list_p, int *refcount_p) : list_p(list_p), refcount_p(refcount_p) { }
-		RTLIL::ObjIterator<T> begin() { return RTLIL::ObjIterator<T>(list_p, refcount_p); }
-		RTLIL::ObjIterator<T> end() { return RTLIL::ObjIterator<T>(); }
+		RTLIL::ObjIterator<T, Key> begin() { return RTLIL::ObjIterator<T, Key>(list_p, refcount_p); }
+		RTLIL::ObjIterator<T, Key> end() { return RTLIL::ObjIterator<T, Key>(); }
 
 		size_t size() const {
 			return list_p->size();
@@ -1297,7 +1307,8 @@ public:
 struct RTLIL::ObjMeta
 {
 	Twine::Id src = Twine::Null;
-	RTLIL::IdString name;
+	// RTLIL::IdString name;      // used by Module names
+	Twine::Id name_id = Twine::Null;  // used by Wire/Cell names (per-Design twines)
 };
 
 struct RTLIL::AttrObject
@@ -1322,10 +1333,10 @@ struct RTLIL::AttrObject
 	void set_string_attribute(RTLIL::IdString  id, string value);
 	string get_string_attribute(RTLIL::IdString id) const;
 
-	static std::string strpool_attribute_to_str(const pool<string> &data);
-	void set_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
-	void add_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
-	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
+	// static std::string strpool_attribute_to_str(const pool<string> &data);
+	// void set_strpool_attribute(IdString id, const pool<string> &data);
+	// void add_strpool_attribute(IdString id, const pool<string> &data);
+	// pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
@@ -1338,6 +1349,88 @@ struct RTLIL::NamedObject : public RTLIL::AttrObject
 {
 	RTLIL::IdString name;
 };
+
+// Read-only masquerade for Wire::name. Reads materialise the Twine::Id in
+// the owning Design's twines pool into a temporary IdString. Writes are
+// intentionally unsupported — use Module::rename(wire, new_name) instead.
+// Defined before Wire so it can be used as a [[no_unique_address]] member.
+struct RTLIL::WireNameMasq {
+	WireNameMasq() = default;
+	WireNameMasq(const WireNameMasq &) = delete;
+	WireNameMasq(WireNameMasq &&) = delete;
+	WireNameMasq &operator=(const WireNameMasq &) = delete;
+	WireNameMasq &operator=(WireNameMasq &&) = delete;
+	// Materialise → IdString. Slow path; intended for plugin code.
+	operator RTLIL::IdString() const;
+	bool empty() const { return RTLIL::IdString(*this).empty(); }
+	std::string str() const { return RTLIL::IdString(*this).str(); }
+	const char *c_str() const { return RTLIL::IdString(*this).c_str(); }
+	bool isPublic() const { return RTLIL::IdString(*this).isPublic(); }
+	std::string unescape() const { return RTLIL::IdString(*this).unescape(); }
+	bool begins_with(const char *s) const { return RTLIL::IdString(*this).begins_with(s); }
+	bool ends_with(const char *s) const { return RTLIL::IdString(*this).ends_with(s); }
+	template <typename... Ts> bool in(Ts &&...args) const {
+		return RTLIL::IdString(*this).in(std::forward<Ts>(args)...);
+	}
+	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		return RTLIL::IdString(*this).substr(pos, len);
+	}
+	size_t size() const { return RTLIL::IdString(*this).size(); }
+	bool contains(const char *p) const { return RTLIL::IdString(*this).contains(p); }
+	char operator[](int n) const { return RTLIL::IdString(*this).str()[n]; }
+	bool lt_by_name(RTLIL::IdString rhs) const { return RTLIL::IdString(*this).lt_by_name(rhs); }
+	bool lt_by_name(const WireNameMasq &rhs) const { return RTLIL::IdString(*this).lt_by_name(RTLIL::IdString(rhs)); }
+	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator<(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) < rhs; }
+	bool operator==(const std::string &rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(const std::string &rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator==(const WireNameMasq &rhs) const { return RTLIL::IdString(*this) == RTLIL::IdString(rhs); }
+	bool operator!=(const WireNameMasq &rhs) const { return RTLIL::IdString(*this) != RTLIL::IdString(rhs); }
+	bool operator<(const WireNameMasq &rhs) const { return RTLIL::IdString(*this) < RTLIL::IdString(rhs); }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { return RTLIL::IdString(*this).hash_into(h); }
+};
+inline bool operator==(RTLIL::IdString lhs, const RTLIL::WireNameMasq &rhs) { return lhs == RTLIL::IdString(rhs); }
+inline bool operator!=(RTLIL::IdString lhs, const RTLIL::WireNameMasq &rhs) { return lhs != RTLIL::IdString(rhs); }
+
+// Read-only masquerade for Cell::name. Same contract as WireNameMasq.
+struct RTLIL::CellNameMasq {
+	CellNameMasq() = default;
+	CellNameMasq(const CellNameMasq &) = delete;
+	CellNameMasq(CellNameMasq &&) = delete;
+	CellNameMasq &operator=(const CellNameMasq &) = delete;
+	CellNameMasq &operator=(CellNameMasq &&) = delete;
+	operator RTLIL::IdString() const;
+	bool empty() const { return RTLIL::IdString(*this).empty(); }
+	std::string str() const { return RTLIL::IdString(*this).str(); }
+	const char *c_str() const { return RTLIL::IdString(*this).c_str(); }
+	bool isPublic() const { return RTLIL::IdString(*this).isPublic(); }
+	std::string unescape() const { return RTLIL::IdString(*this).unescape(); }
+	bool begins_with(const char *s) const { return RTLIL::IdString(*this).begins_with(s); }
+	bool ends_with(const char *s) const { return RTLIL::IdString(*this).ends_with(s); }
+	template <typename... Ts> bool in(Ts &&...args) const {
+		return RTLIL::IdString(*this).in(std::forward<Ts>(args)...);
+	}
+	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		return RTLIL::IdString(*this).substr(pos, len);
+	}
+	size_t size() const { return RTLIL::IdString(*this).size(); }
+	bool contains(const char *p) const { return RTLIL::IdString(*this).contains(p); }
+	char operator[](int n) const { return RTLIL::IdString(*this).str()[n]; }
+	bool lt_by_name(RTLIL::IdString rhs) const { return RTLIL::IdString(*this).lt_by_name(rhs); }
+	bool lt_by_name(const CellNameMasq &rhs) const { return RTLIL::IdString(*this).lt_by_name(RTLIL::IdString(rhs)); }
+	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator<(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) < rhs; }
+	bool operator==(const std::string &rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(const std::string &rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator==(const CellNameMasq &rhs) const { return RTLIL::IdString(*this) == RTLIL::IdString(rhs); }
+	bool operator!=(const CellNameMasq &rhs) const { return RTLIL::IdString(*this) != RTLIL::IdString(rhs); }
+	bool operator<(const CellNameMasq &rhs) const { return RTLIL::IdString(*this) < RTLIL::IdString(rhs); }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { return RTLIL::IdString(*this).hash_into(h); }
+};
+inline bool operator==(RTLIL::IdString lhs, const RTLIL::CellNameMasq &rhs) { return lhs == RTLIL::IdString(rhs); }
+inline bool operator!=(RTLIL::IdString lhs, const RTLIL::CellNameMasq &rhs) { return lhs != RTLIL::IdString(rhs); }
 
 struct RTLIL::SigChunk
 {
@@ -1823,8 +1916,8 @@ struct RTLIL::Selection
 	bool complete_selection;
 	// selection covers full design, not including boxed modules
 	bool full_selection;
-	pool<RTLIL::IdString> selected_modules;
-	dict<RTLIL::IdString, pool<RTLIL::IdString>> selected_members;
+	pool<Twine::Id> selected_modules;
+	dict<Twine::Id, pool<Twine::Id>> selected_members;
 	RTLIL::Design *current_design;
 
 	// create a new selection
@@ -1840,18 +1933,18 @@ struct RTLIL::Selection
 
 	// checks if the given module exists in the current design and is a
 	// boxed module, warning the user if the current design is not set
-	bool boxed_module(RTLIL::IdString mod_name) const;
+	bool boxed_module(Twine::Id mod_name) const;
 
 	// checks if the given module is included in this selection
-	bool selected_module(RTLIL::IdString mod_name) const;
+	bool selected_module(Twine::Id mod_name) const;
 
 	// checks if the given module is wholly included in this selection,
 	// i.e. not partially selected
-	bool selected_whole_module(RTLIL::IdString mod_name) const;
+	bool selected_whole_module(Twine::Id mod_name) const;
 
 	// checks if the given member from the given module is included in this
 	// selection
-	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
+	bool selected_member(Twine::Id mod_name, Twine::Id memb_name) const;
 
 	// optimizes this selection for the given design by:
 	// - removing non-existent modules and members, any boxed modules and
@@ -1872,9 +1965,10 @@ struct RTLIL::Selection
 
 	// add whole module to this selection
 	template<typename T1> void select(T1 *module) {
-		if (!selects_all() && selected_modules.count(module->name) == 0) {
-			selected_modules.insert(module->name);
-			selected_members.erase(module->name);
+		if (!selects_all() && selected_modules.count(module->meta_->name_id) == 0) {
+			Twine::Id name = module->meta_->name_id;
+			selected_modules.insert(name);
+			selected_members.erase(name);
 			if (module->get_blackbox_attribute())
 				selects_boxes = true;
 		}
@@ -1944,12 +2038,10 @@ struct RTLIL::Design
 	void sigNormalize(bool enable=true);
 
 	int refcount_modules_;
-	dict<RTLIL::IdString, RTLIL::Module*> modules_;
+	dict<Twine::Id, RTLIL::Module*> modules_;
 	std::vector<RTLIL::Binding*> bindings_;
 
-	// Interns src-attribute strings and concats thereof. Cells reach this
-	// via cell->module->design->src_twines.
-	TwinePool src_twines;
+	TwinePool twines;
 
 	// Per-Design ObjMeta pool: stable storage (deque) + LIFO freelist of
 	// returned slots. AttrObject::meta_ points into obj_meta_storage_.
@@ -1965,15 +2057,22 @@ struct RTLIL::Design
 	void obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id);
 	void obj_release_src(RTLIL::AttrObject *obj);
 
-	RTLIL::IdString obj_name(const RTLIL::AttrObject *obj) const {
-		return (obj->meta_ ? obj->meta_->name : RTLIL::IdString());
+	std::string obj_name(const RTLIL::AttrObject *obj) const {
+		return (obj->meta_ ? twines.flat_string(obj->meta_->name_id) : std::string());
 	}
 	void obj_set_name(RTLIL::AttrObject *obj, RTLIL::IdString name);
 	void obj_release_name(RTLIL::AttrObject *obj);
 
+	// Wire/Cell names: stored as Twine::Id in twines.
+	Twine::Id obj_name_id(const RTLIL::AttrObject *obj) const {
+		return (obj->meta_ ? obj->meta_->name_id : Twine::Null);
+	}
+	void obj_set_name_id(RTLIL::AttrObject *obj, Twine::Id id);
+	void obj_release_name_id(RTLIL::AttrObject *obj);
+
 	// Replacements for the methods that used to live on AttrObject and
 	// took an explicit TwinePool*. Same semantics; the pool resolves
-	// to this->src_twines internally.
+	// to this->twines internally.
 	void set_src_attribute(RTLIL::AttrObject *obj, const RTLIL::SrcAttr &src);
 	std::string get_src_attribute(const RTLIL::AttrObject *obj) const;
 	void adopt_src_from(RTLIL::AttrObject *obj, const RTLIL::AttrObject *source);
@@ -1983,13 +2082,13 @@ struct RTLIL::Design
 
 	// Resolve a stored src-attribute string to its flat path:line.col
 	// representation. If `raw` is a twine reference ("@N") returns
-	// src_twines.flatten(N); otherwise returns `raw` unchanged. Backends
+	// twines.flatten(N); otherwise returns `raw` unchanged. Backends
 	// must call this whenever they emit src to a user-facing format.
-	std::string resolve_src(std::string_view raw) const {
-		Twine::Id id = TwinePool::parse_ref(raw);
-		if (id == Twine::Null)
+	std::string resolve_src(std::string_view raw) {
+		Twine* id = twines.get_ref(raw);
+		if (id == nullptr)
 			return std::string(raw);
-		return src_twines.flatten(id);
+		return twines.flatten(id);
 	}
 
 	// Merge `source`'s src attribute into `target`'s src attribute via the
@@ -2012,7 +2111,7 @@ struct RTLIL::Design
 	pool<std::string> src_leaves(const RTLIL::AttrObject *obj) const;
 
 	// Walk the design, collect the set of "@N" ids actually referenced by
-	// any AttrObject's src, then compact src_twines to contain only those
+	// any AttrObject's src, then compact twines to contain only those
 	// nodes plus their transitive leaf children, and rewrite every cell
 	// src attribute through the resulting old-id -> new-id remap.
 	// Intermediate concats produced by successive merges become unreferenced
@@ -2025,26 +2124,27 @@ struct RTLIL::Design
 
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;
-	std::string selected_active_module;
+	Twine::Id selected_active_module;
 
 	Design();
 	~Design();
 
-	RTLIL::ObjRange<RTLIL::Module*> modules();
-	RTLIL::Module *module(RTLIL::IdString name);
-	const RTLIL::Module *module(RTLIL::IdString name) const;
+	RTLIL::ObjRange<RTLIL::Module*, Twine::Id> modules();
+	RTLIL::Module *module(IdString name);
+	RTLIL::Module *module(Twine::Id name);
+	const RTLIL::Module *module(Twine::Id name) const;
 	RTLIL::Module *top_module() const;
 
-	bool has(RTLIL::IdString id) const {
+	bool has(Twine::Id id) const {
 		return modules_.count(id) != 0;
 	}
 
 	void add(RTLIL::Module *module);
 	void add(RTLIL::Binding *binding);
 
-	RTLIL::Module *addModule(RTLIL::IdString name);
+	RTLIL::Module *addModule(Twine::Id name);
 	void remove(RTLIL::Module *module);
-	void rename(RTLIL::Module *module, RTLIL::IdString new_name);
+	void rename(RTLIL::Module *module, Twine::Id new_name);
 
 	void scratchpad_unset(const std::string &varname);
 
@@ -2062,22 +2162,22 @@ struct RTLIL::Design
 	void optimize();
 
 	// Wholesale-copy this design into `dst`. `dst` must be empty (no
-	// modules). Copies src_twines verbatim and clones each module
+	// modules). Copies twines verbatim and clones each module
 	// preserving src_id_ values directly — avoids the per-module
 	// copy_from pool rebuild and yields byte-identical RTLIL output
 	// across design -push/-pop, -save/-load, etc.
 	void clone_into(RTLIL::Design *dst) const;
 
 	// checks if the given module is included in the current selection
-	bool selected_module(RTLIL::IdString mod_name) const;
+	bool selected_module(Twine::Id mod_name) const;
 
 	// checks if the given module is wholly included in the current
 	// selection, i.e. not partially selected
-	bool selected_whole_module(RTLIL::IdString mod_name) const;
+	bool selected_whole_module(Twine::Id mod_name) const;
 
 	// checks if the given member from the given module is included in the
 	// current selection
-	bool selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const;
+	bool selected_member(Twine::Id mod_name, Twine::Id memb_name) const;
 
 	// checks if the given module is included in the current selection
 	bool selected_module(RTLIL::Module *mod) const;
@@ -2193,6 +2293,10 @@ private:
 	friend struct RTLIL::Module;
 	friend struct RTLIL::Patch;
 public:
+	// Shadows NamedObject::name. Reads materialise via twines; writes
+	// are a compile error — use Module::rename(wire, new_name) instead.
+	[[no_unique_address]] RTLIL::WireNameMasq name;
+
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 	// use module->addWire() and module->remove() to create or destroy wires
@@ -2300,6 +2404,10 @@ private:
 	void signorm_index_add(RTLIL::IdString portname, const RTLIL::SigSpec &new_signal, bool is_input);
 	bool bufnorm_handle_setPort(RTLIL::IdString portname, RTLIL::SigSpec &signal, dict<RTLIL::IdString, RTLIL::SigSpec>::iterator conn_it);
 public:
+	// Shadows NamedObject::name. Reads materialise via twines; writes
+	// are a compile error — use Module::rename(cell, new_name) instead.
+	[[no_unique_address]] RTLIL::CellNameMasq name;
+
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
@@ -2566,7 +2674,10 @@ inline Hasher RTLIL::SigBit::hash_into(Hasher h) const {
 inline Hasher RTLIL::SigBit::hash_top() const {
 	Hasher h;
 	if (wire) {
-		h.force(hashlib::legacy::djb2_add(wire->name.index_, offset));
+		// Use the wire's name_id (Twine::Id) directly — avoids IdString materialisation.
+		Twine::Id name_id = wire->meta_ ? wire->meta_->name_id : Twine::Null;
+		h.eat(name_id);
+		h.eat(offset);
 		return h;
 	}
 	h.force(data);
@@ -2815,6 +2926,7 @@ struct RTLIL::ModuleNameMasq {
 	ModuleNameMasq(const ModuleNameMasq&) = delete;
 	ModuleNameMasq(ModuleNameMasq&&) = delete;
 	operator RTLIL::IdString() const;
+	operator Twine::Id() const;
 	ModuleNameMasq& operator=(RTLIL::IdString id);
 	// Without this, `new_mod->name = src_mod->name` invokes the implicit
 	// copy-assign (no-op) instead of operator=(IdString), so the meta
@@ -2867,8 +2979,8 @@ public:
 	int refcount_wires_;
 	int refcount_cells_;
 
-	dict<RTLIL::IdString, RTLIL::Wire*> wires_;
-	dict<RTLIL::IdString, RTLIL::Cell*> cells_;
+	dict<Twine::Id, RTLIL::Wire*> wires_;
+	dict<Twine::Id, RTLIL::Cell*> cells_;
 
 	std::vector<RTLIL::SigSig>   connections_;
 	std::vector<RTLIL::Binding*> bindings_;
@@ -2892,7 +3004,7 @@ public:
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
-	virtual size_t count_id(RTLIL::IdString id);
+	virtual size_t count_id(Twine* id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
 
@@ -2944,8 +3056,8 @@ public:
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	// `src_id_verbatim`: when true, the caller guarantees that
-	// `new_mod->design->src_twines` is a verbatim copy of
-	// `this->design->src_twines`, so src_id_ values can be transferred
+	// `new_mod->design->twines` is a verbatim copy of
+	// `this->design->twines`, so src_id_ values can be transferred
 	// without retain/release on the destination pool (the copied refcounts
 	// already account for the new AttrObject references). Used by
 	// Design::clone_into for wholesale design copies.
@@ -2982,28 +3094,42 @@ public:
 		return design->selected_member(name, member->name);
 	}
 
-	RTLIL::Wire* wire(const RTLIL::IdString &id) {
+	// Primary (fast) overloads — key directly into the dict.
+	RTLIL::Wire* wire(Twine::Id id) {
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
+	}
+	RTLIL::Cell* cell(Twine::Id id) {
+		auto it = cells_.find(id);
+		return it == cells_.end() ? nullptr : it->second;
+	}
+	const RTLIL::Wire* wire(Twine::Id id) const {
+		auto it = wires_.find(id);
+		return it == wires_.end() ? nullptr : it->second;
+	}
+	const RTLIL::Cell* cell(Twine::Id id) const {
+		auto it = cells_.find(id);
+		return it == cells_.end() ? nullptr : it->second;
+	}
+
+	// IdString compatibility shims: look up via twines, then dispatch.
+	RTLIL::Wire* wire(const RTLIL::IdString &id) {
+		return wire(design->twines.lookup(id.str()));
 	}
 	RTLIL::Cell* cell(const RTLIL::IdString &id) {
-		auto it = cells_.find(id);
-		return it == cells_.end() ? nullptr : it->second;
+		return cell(design->twines.lookup(id.str()));
 	}
-
-	const RTLIL::Wire* wire(const RTLIL::IdString &id) const{
-		auto it = wires_.find(id);
-		return it == wires_.end() ? nullptr : it->second;
+	const RTLIL::Wire* wire(const RTLIL::IdString &id) const {
+		return wire(design->twines.lookup(id.str()));
 	}
 	const RTLIL::Cell* cell(const RTLIL::IdString &id) const {
-		auto it = cells_.find(id);
-		return it == cells_.end() ? nullptr : it->second;
+		return cell(design->twines.lookup(id.str()));
 	}
 
-	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
+	RTLIL::ObjRange<RTLIL::Wire*, Twine::Id> wires() { return RTLIL::ObjRange<RTLIL::Wire*, Twine::Id>(&wires_, &refcount_wires_); }
 	int wires_size() const { return wires_.size(); }
 	RTLIL::Wire* wire_at(int index) const { return wires_.element(index)->second; }
-	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
+	RTLIL::ObjRange<RTLIL::Cell*, Twine::Id> cells() { return RTLIL::ObjRange<RTLIL::Cell*, Twine::Id>(&cells_, &refcount_cells_); }
 	int cells_size() const { return cells_.size(); }
 	RTLIL::Cell* cell_at(int index) const { return cells_.element(index)->second; }
 
@@ -3025,9 +3151,17 @@ public:
 	RTLIL::IdString uniquify(RTLIL::IdString name);
 	RTLIL::IdString uniquify(RTLIL::IdString name, int &index);
 
+	// Primary overloads: name already interned in design->twines.
+	RTLIL::Wire *addWire(Twine::Id name, int width = 1);
+	RTLIL::Wire *addWire(Twine::Id name, const RTLIL::Wire *other);
+	// IdString compatibility: interns name into twines, then dispatches.
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
+	// Primary overloads.
+	RTLIL::Cell *addCell(Twine::Id name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(Twine::Id name, const RTLIL::Cell *other);
+	// IdString compatibility.
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
@@ -3185,19 +3319,47 @@ void RTLIL::Process::rewrite_sigspecs2(T &functor)
 		it->rewrite_sigspecs2(functor);
 }
 
+inline RTLIL::WireNameMasq::operator RTLIL::IdString() const {
+	const RTLIL::Wire *w = reinterpret_cast<const RTLIL::Wire *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Wire, name));
+	if (!w->module || !w->module->design || !w->meta_)
+		return RTLIL::IdString{};
+	Twine::Id id = w->meta_->name_id;
+	if (id == Twine::Null)
+		return RTLIL::IdString{};
+	return RTLIL::IdString(w->module->design->twines.flat_string(id));
+}
+
+inline RTLIL::CellNameMasq::operator RTLIL::IdString() const {
+	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, name));
+	if (!c->module || !c->module->design || !c->meta_)
+		return RTLIL::IdString{};
+	Twine::Id id = c->meta_->name_id;
+	if (id == Twine::Null)
+		return RTLIL::IdString{};
+	return RTLIL::IdString(c->module->design->twines.flat_string(id));
+}
+
 inline RTLIL::ModuleNameMasq::operator RTLIL::IdString() const {
 	const RTLIL::Module *m = reinterpret_cast<const RTLIL::Module*>(
 		reinterpret_cast<const char*>(this) - offsetof(RTLIL::Module, name));
-	return m->design ? m->design->obj_name(m) : RTLIL::IdString{};
+	return m->design ? m->design->obj_name(m) : std::string();
 }
 
-inline RTLIL::ModuleNameMasq& RTLIL::ModuleNameMasq::operator=(RTLIL::IdString id) {
-	RTLIL::Module *m = reinterpret_cast<RTLIL::Module*>(
-		reinterpret_cast<char*>(this) - offsetof(RTLIL::Module, name));
-	log_assert(m->design && "assignment to Module::name requires the module to be attached to a design");
-	m->design->obj_set_name(m, id);
-	return *this;
+inline RTLIL::ModuleNameMasq::operator Twine::Id() const {
+	const RTLIL::Module *m = reinterpret_cast<const RTLIL::Module*>(
+		reinterpret_cast<const char*>(this) - offsetof(RTLIL::Module, name));
+	return m->design ? m->design->obj_src_id(m) : nullptr;
 }
+
+// inline RTLIL::ModuleNameMasq& RTLIL::ModuleNameMasq::operator=(RTLIL::IdString id) {
+// 	RTLIL::Module *m = reinterpret_cast<RTLIL::Module*>(
+// 		reinterpret_cast<char*>(this) - offsetof(RTLIL::Module, name));
+// 	log_assert(m->design && "assignment to Module::name requires the module to be attached to a design");
+// 	m->design->obj_set_name(m, id);
+// 	return *this;
+// }
 
 YOSYS_NAMESPACE_END
 

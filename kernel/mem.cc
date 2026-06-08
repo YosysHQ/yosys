@@ -894,10 +894,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	// below adopts the same slot as Mem itself (via set_src_attribute's
 	// "@N" parse_ref path), and there's no flatten → re-intern → pipe-
 	// leaf round-trip on cells whose src is a Concat node.
-	TwinePool *src_pool = (module && module->design) ? &module->design->src_twines : nullptr;
-	Twine::Id mem_src_id = (module && module->design) ? module->design->obj_src_id(this) : Twine::Null;
-	std::string mem_src = (src_pool && mem_src_id != Twine::Null) ?
-			TwinePool::format_ref(mem_src_id) : std::string();
+	log_assert(module && module->design);
+	Twine::Id mem_src_id = module->design->obj_src_id(this);
+	std::string mem_src = (mem_src_id != Twine::Null) ?
+			module->design->twines.format_ref(mem_src_id) : std::string();
 
 	Cell *c;
 
@@ -1005,8 +1005,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		FfData ff(module, initvals, name);
 		// Carry mem's src into the ff via the OwnedTwine handle — same
 		// pool, direct id retain. emit() transfers verbatim.
-		if (src_pool && mem_src_id != Twine::Null)
-			ff.src_twine = OwnedTwine(src_pool, mem_src_id);
+		ff.src_twine = mem_src_id;
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
 		ff.sig_clk = port.clk;

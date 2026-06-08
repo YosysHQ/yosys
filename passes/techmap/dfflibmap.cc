@@ -512,7 +512,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	for (auto cell : cell_list)
 	{
 		auto cell_type = cell->type;
-		auto cell_name = cell->name;
+		RTLIL::IdString cell_name(cell->name);
 		auto cell_connections = cell->connections();
 		std::string src = cell->get_src_attribute();
 

@@ -54,11 +54,11 @@ struct RTLILFrontendWorker {
 	std::vector<RTLIL::CaseRule*> case_stack;
 
 	// Remap from file-local twine ids (as they appear in the `twines` block
-	// and on cell/wire src attrs) to ids in design->src_twines. Filled by
+	// and on cell/wire src attrs) to ids in design->twines. Filled by
 	// parse_twines; consumed by parse_attribute. Parser-side ids retained
 	// during parse_twines are tracked here so they can be released at
 	// end-of-parse — only the cell/wire references should survive.
-	dict<Twine::Id, Twine::Id> twine_remap;
+	dict<size_t, Twine::Id> twine_remap;
 	std::vector<Twine::Id> twine_parser_holds;
 
 	template <typename... Args>
@@ -171,7 +171,7 @@ struct RTLILFrontendWorker {
 			error("Expected EOL, got `%s'.", error_token());
 	}
 
-	std::optional<RTLIL::IdString> try_parse_id()
+	std::optional<std::string> try_parse_id()
 	{
 		char ch = line[0];
 		if (ch != '\\' && ch != '$')
@@ -183,15 +183,15 @@ struct RTLILFrontendWorker {
 				break;
 			++idx;
 		}
-		IdString result(line.substr(0, idx));
+		std::string result(line.substr(0, idx));
 		line = line.substr(idx);
 		consume_whitespace_and_comments();
 		return result;
 	}
 
-	RTLIL::IdString parse_id()
+	std::string parse_id()
 	{
-		std::optional<RTLIL::IdString> id = try_parse_id();
+		std::optional<std::string> id = try_parse_id();
 		if (!id.has_value())
 			error("Expected ID, got `%s'.", error_token());
 		return std::move(*id);
@@ -423,7 +423,7 @@ struct RTLILFrontendWorker {
 
 	void parse_module()
 	{
-		RTLIL::IdString module_name = parse_id();
+		Twine::Id module_name = design->twines.lookup(parse_id());
 		expect_eol();
 
 		bool delete_current_module = false;
@@ -445,7 +445,7 @@ struct RTLILFrontendWorker {
 
 		current_module = new RTLIL::Module;
 		current_module->design = design;
-		current_module->name = std::move(module_name);
+		current_module->meta_->name_id = module_name;
 		if (delete_current_module) {
 			// Module is about to be discarded — drop its src attribute
 			// rather than push it into a pool we'll never reach.
@@ -515,15 +515,16 @@ struct RTLILFrontendWorker {
 		// is wrong and silently interning it would hide that.
 		if (id == RTLIL::ID::src && (c.flags & RTLIL::CONST_FLAG_STRING)) {
 			std::string raw = c.decode_string();
-			Twine::Id file_id = TwinePool::parse_ref(raw);
-			if (file_id != Twine::Null) {
+			// TODO error handling
+			auto file_id = design->twines.parse_ref(raw);
+			if (file_id) {
 				// Translate the file-local twine id to the destination
 				// design's pool id via twine_remap. If the file had no
 				// `twines` block (legacy) the remap is empty — accept the
 				// ref verbatim and let downstream code intern it.
-				auto it = twine_remap.find(file_id);
+				auto it = twine_remap.find(*file_id);
 				if (it != twine_remap.end())
-					c = RTLIL::Const(TwinePool::format_ref(it->second));
+					c = RTLIL::Const(design->twines.format_ref(it->second));
 			} else if (raw.find('|') != std::string::npos) {
 				log_warning("line %d: src attribute %s contains '|' separators. "
 						"That convention is Yosys-internal; the producing tool "
@@ -538,61 +539,47 @@ struct RTLILFrontendWorker {
 
 	// Parses a `twines` ... `end` block. Builds twine_remap so subsequent
 	// cell/wire src "@N" references (which use file-local ids) translate
-	// to ids in design->src_twines. The destination pool may already be
+	// to ids in design->twines. The destination pool may already be
 	// non-empty (multi-file load) — interned/concated nodes are dedup'd
 	// against the existing pool by the pool itself. Each parser-side
 	// retain is tracked in twine_parser_holds and released at end-of-parse
 	// so only cell/wire references survive.
 	void parse_twines()
 	{
+		TwinePoolExtender extender(design->twines, design->twines.size());
 		expect_eol();
 		while (true) {
 			if (try_parse_keyword("end"))
 				break;
 			if (try_parse_keyword("leaf")) {
-				int file_id = static_cast<int>(parse_integer());
+				size_t file_id = parse_integer();
 				std::string text = parse_string();
 				expect_eol();
-				Twine::Id local_id = design->src_twines.intern(text);
-				twine_parser_holds.push_back(local_id);
-				twine_remap[static_cast<Twine::Id>(file_id)] = local_id;
+				extender.extend_leaf(text, file_id);
 				continue;
 			}
 			if (try_parse_keyword("suffix")) {
-				int file_id = static_cast<int>(parse_integer());
-				Twine::Id file_parent = static_cast<Twine::Id>(parse_integer());
+				size_t file_id = parse_integer();
+				size_t file_parent = parse_integer();
 				std::string tail = parse_string();
 				expect_eol();
-				auto it = twine_remap.find(file_parent);
-				if (it == twine_remap.end())
-					error("twines: suffix %d references undefined parent %u.",
-							file_id, file_parent);
-				Twine::Id local_id = design->src_twines.intern_suffix(it->second, tail);
-				twine_parser_holds.push_back(local_id);
-				twine_remap[static_cast<Twine::Id>(file_id)] = local_id;
+				extender.extend_suffix(file_parent, tail, file_id);
 				continue;
 			}
 			if (try_parse_keyword("concat")) {
-				int file_id = static_cast<int>(parse_integer());
-				std::vector<Twine::Id> children;
+				size_t file_id = parse_integer();
+				std::vector<size_t> children;
 				while (!try_parse_eol()) {
-					Twine::Id file_child = static_cast<Twine::Id>(parse_integer());
-					auto it = twine_remap.find(file_child);
-					if (it == twine_remap.end())
-						error("twines: concat %d references undefined leaf/concat %u.",
-								file_id, file_child);
-					children.push_back(it->second);
+					children.push_back(parse_integer());
 				}
-				Twine::Id local_id = design->src_twines.concat(
-						std::span<const Twine::Id>{children});
-				twine_parser_holds.push_back(local_id);
-				twine_remap[static_cast<Twine::Id>(file_id)] = local_id;
+				extender.extend_concat(children, file_id);
 				continue;
 			}
 			error("Expected `leaf`, `suffix` or `concat` inside twines block, got `%s'.",
 					error_token());
 		}
 		expect_eol();
+		extender.finish();
 	}
 
 	// Release the per-file parser refs gathered during parse_twines. Call
@@ -601,7 +588,7 @@ struct RTLILFrontendWorker {
 	void release_twine_parser_holds()
 	{
 		for (Twine::Id id : twine_parser_holds)
-			design->src_twines.release(id);
+			design->twines.release(id);
 		twine_parser_holds.clear();
 		twine_remap.clear();
 	}

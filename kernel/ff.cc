@@ -46,8 +46,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		// id verbatim into the new cell — no flatten/re-intern, no
 		// pipe-leaf risk for cells whose src is a Concat.
 		if (cell->src_id() != Twine::Null && cell->module && cell->module->design)
-			info.src_twine = OwnedTwine(&cell->module->design->src_twines,
-					cell->src_id());
+			info.src_twine = cell->src_id();
 		if (initvals)
 			info.val_init = (*initvals)(info.sig_q);
 	}
@@ -768,7 +767,7 @@ Cell *FfData::emit() {
 	// FfData is destroyed; set_src_id retains on the cell's behalf.
 	cell->attributes = attributes;
 	if (!src_twine.empty() && cell->module && cell->module->design) {
-		TwinePool *dst_pool = &cell->module->design->src_twines;
+		TwinePool *dst_pool = &cell->module->design->twines;
 		if (src_twine.pool() == dst_pool) {
 			cell->set_src_id(src_twine.id());
 		} else {

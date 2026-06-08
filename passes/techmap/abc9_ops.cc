@@ -1298,8 +1298,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			SigBit D = mapped_cell->getPort(ID::D);
 			SigBit Q = mapped_cell->getPort(ID::Q);
 			if (D.wire)
-				D.wire = module->wires_.at(remap_name(D.wire->name));
-			Q.wire = module->wires_.at(remap_name(Q.wire->name));
+				D.wire = module->wire(remap_name(D.wire->name));
+			Q.wire = module->wire(remap_name(Q.wire->name));
 			module->connect(Q, D);
 			continue;
 		}
@@ -1341,8 +1341,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 					// If a driver couldn't be found (could be from PI or box CI)
 					// then implement using a LUT
 					RTLIL::Cell *cell = module->addLut(remap_name(stringf("$lut%s", mapped_cell->name)),
-							RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
-							RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
+							RTLIL::SigBit(module->wire(remap_name(a_bit.wire->name)), a_bit.offset),
+							RTLIL::SigBit(module->wire(remap_name(y_bit.wire->name)), y_bit.offset),
 							RTLIL::Const::from_string("01"));
 					bit2sinks[cell->getPort(ID::A)].push_back(cell);
 					cell_stats[ID($lut)]++;
@@ -1365,7 +1365,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 						continue;
 					//log_assert(c.width == 1);
 					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
+						c.wire = module->wire(remap_name(c.wire->name));
 					newsig.append(c);
 				}
 				cell->setPort(mapped_conn.first, newsig);
@@ -1392,9 +1392,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 				SigBit I = mapped_cell->getPort(ID(i));
 				SigBit O = mapped_cell->getPort(ID(o));
 				if (I.wire)
-					I.wire = module->wires_.at(remap_name(I.wire->name));
+					I.wire = module->wire(remap_name(I.wire->name));
 				log_assert(O.wire);
-				O.wire = module->wires_.at(remap_name(O.wire->name));
+				O.wire = module->wire(remap_name(O.wire->name));
 				module->connect(O, I);
 				continue;
 			}
@@ -1434,7 +1434,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 					old_q = existing_cell->getPort(port_name);
 				}
 				auto new_q = outputs[0];
-				new_q.wire = module->wires_.at(remap_name(new_q.wire->name));
+				new_q.wire = module->wire(remap_name(new_q.wire->name));
 				module->connect(old_q,  new_q);
 			}
 			else {
@@ -1467,7 +1467,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 						continue;
 					//log_assert(c.width == 1);
 					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
+						c.wire = module->wire(remap_name(c.wire->name));
 					newsig.append(c);
 				}
 
@@ -1490,14 +1490,14 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		if (!conn.first.is_fully_const()) {
 			std::vector<RTLIL::SigChunk> chunks = conn.first.chunks();
 			for (auto &c : chunks)
-				c.wire = module->wires_.at(remap_name(c.wire->name));
+				c.wire = module->wire(remap_name(c.wire->name));
 			conn.first = std::move(chunks);
 		}
 		if (!conn.second.is_fully_const()) {
 			std::vector<RTLIL::SigChunk> chunks = conn.second.chunks();
 			for (auto &c : chunks)
 				if (c.wire)
-					c.wire = module->wires_.at(remap_name(c.wire->name));
+					c.wire = module->wire(remap_name(c.wire->name));
 			conn.second = std::move(chunks);
 		}
 		module->connect(conn);
@@ -1564,8 +1564,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		RTLIL::SigBit y_bit = not_cell->getPort(ID::Y);
 		RTLIL::Const driver_mask;
 
-		a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
-		y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
+		a_bit.wire = module->wire(remap_name(a_bit.wire->name));
+		y_bit.wire = module->wire(remap_name(y_bit.wire->name));
 
 		auto jt = bit2sinks.find(a_bit);
 		if (jt == bit2sinks.end())
@@ -1614,7 +1614,7 @@ clone_lut:
 				y_bit,
 				driver_mask);
 		for (auto &bit : cell->connections_.at(ID::A)) {
-			bit.wire = module->wires_.at(remap_name(bit.wire->name));
+			bit.wire = module->wire(remap_name(bit.wire->name));
 			bit2sinks[bit].push_back(cell);
 		}
 	}

@@ -32,7 +32,7 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL_BACKEND {
 	// If `design` is non-null AND `resolve_src` is true, the ID::src
-	// attribute is expanded through design->src_twines so the emitted
+	// attribute is expanded through design->twines so the emitted
 	// value is the flat path:line.col string. Otherwise the stored value
 	// is written verbatim — including any "@N" twine references, which
 	// the matching `twines` header block emitted by dump_design lets the

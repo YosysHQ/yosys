@@ -104,14 +104,18 @@ public:
 	void check_wires()
 	{
 		for (const auto &it : mod_a->wires_) {
-			if (mod_b->wires_.count(it.first) == 0)
-				error("Module %s missing wire %s in second design.\n", mod_a->name.unescape(), it.first.unescape());
-			if (std::string mismatch = compare_wires(it.second, mod_b->wires_.at(it.first)); !mismatch.empty())
-				error("Module %s wire %s %s.\n", mod_a->name.unescape(), it.first.unescape(), mismatch);
+			RTLIL::IdString wname(it.second->name);
+			RTLIL::Wire *wb = mod_b->wire(wname);
+			if (!wb)
+				error("Module %s missing wire %s in second design.\n", mod_a->name.unescape(), wname.unescape());
+			else if (std::string mismatch = compare_wires(it.second, wb); !mismatch.empty())
+				error("Module %s wire %s %s.\n", mod_a->name.unescape(), wname.unescape(), mismatch);
 		}
-		for (const auto &it : mod_b->wires_)
-			if (mod_a->wires_.count(it.first) == 0)
-				error("Module %s missing wire %s in first design.\n", mod_b->name.unescape(), it.first.unescape());
+		for (const auto &it : mod_b->wires_) {
+			RTLIL::IdString wname(it.second->name);
+			if (!mod_a->wire(wname))
+				error("Module %s missing wire %s in first design.\n", mod_b->name.unescape(), wname.unescape());
+		}
 	}
 
 	std::string compare_memories(const RTLIL::Memory *a, const RTLIL::Memory *b)
@@ -164,14 +168,18 @@ public:
 	void check_cells()
 	{
 		for (const auto &it : mod_a->cells_) {
-			if (mod_b->cells_.count(it.first) == 0)
-				error("Module %s missing cell %s in second design.\n", mod_a->name.unescape(), it.first.unescape());
-			if (std::string mismatch = compare_cells(it.second, mod_b->cells_.at(it.first)); !mismatch.empty())
-				error("Module %s cell %s %s.\n", mod_a->name.unescape(), it.first.unescape(), mismatch);
+			RTLIL::IdString cname(it.second->name);
+			RTLIL::Cell *cb = mod_b->cell(cname);
+			if (!cb)
+				error("Module %s missing cell %s in second design.\n", mod_a->name.unescape(), cname.unescape());
+			else if (std::string mismatch = compare_cells(it.second, cb); !mismatch.empty())
+				error("Module %s cell %s %s.\n", mod_a->name.unescape(), cname.unescape(), mismatch);
 		}
-		for (const auto &it : mod_b->cells_)
-			if (mod_a->cells_.count(it.first) == 0)
-				error("Module %s missing cell %s in first design.\n", mod_b->name.unescape(), it.first.unescape());
+		for (const auto &it : mod_b->cells_) {
+			RTLIL::IdString cname(it.second->name);
+			if (!mod_a->cell(cname))
+				error("Module %s missing cell %s in first design.\n", mod_b->name.unescape(), cname.unescape());
+		}
 	}
 
 	void check_memories()

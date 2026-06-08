@@ -152,7 +152,7 @@ struct CutpointPass : public Pass {
 				}
 
 				RTLIL::Cell *scopeinfo = nullptr;
-				auto cell_name = cell->name;
+				RTLIL::IdString cell_name(cell->name);
 				if (flag_scopeinfo && cell_name.isPublic()) {
 					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));

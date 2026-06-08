@@ -160,7 +160,7 @@ struct EquivMiterWorker
 				vector<SigChunk> chunks = sig.chunks();
 				for (auto &c : chunks)
 					if (c.wire != NULL)
-						c.wire = mod->wires_.at(c.wire->name);
+						c.wire = mod->wire(RTLIL::IdString(c.wire->name));
 				sig = chunks;
 			}
 		};

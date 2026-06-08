@@ -288,7 +288,7 @@ struct CheckPass : public Pass {
 					SigBit to = sigmap(to_portsig[to_bit]);
 
 					if (from.wire && to.wire)
-						topo.edge(std::make_pair(from.wire->name, from.offset), std::make_pair(to.wire->name, to.offset));
+						topo.edge(std::make_pair(RTLIL::IdString(from.wire->name), from.offset), std::make_pair(RTLIL::IdString(to.wire->name), to.offset));
 				}
 
 				bool detail_costly(Cell *cell) {
@@ -338,14 +338,14 @@ struct CheckPass : public Pass {
 						if (cell->input(conn.first))
 						for (auto bit : sigmap(conn.second))
 						if (bit.wire)
-							topo.edge(std::make_pair(bit.wire->name, bit.offset),
-									  std::make_pair(cell->name, -1));
+							topo.edge(std::make_pair(RTLIL::IdString(bit.wire->name), bit.offset),
+									  std::make_pair(RTLIL::IdString(cell->name), -1));
 
 						if (cell->output(conn.first))
 						for (auto bit : sigmap(conn.second))
 						if (bit.wire)
-							topo.edge(std::make_pair(cell->name, -1),
-									  std::make_pair(bit.wire->name, bit.offset));
+							topo.edge(std::make_pair(RTLIL::IdString(cell->name), -1),
+									  std::make_pair(RTLIL::IdString(bit.wire->name), bit.offset));
 					}
 
 					// Return false to signify the fallback

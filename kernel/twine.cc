@@ -3,6 +3,52 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+TwinePool::TwinePool()
+    : leaf_index_(0, LeafHash{this}, LeafEq{this})
+    , suffix_index_(0, SuffixHash{this}, SuffixEq{this})
+    , concat_index_(0, ConcatHash{this}, ConcatEq{this})
+{}
+
+TwinePool::TwinePool(const TwinePool &other)
+    : nodes_(other.nodes_)
+    , refcount_(other.refcount_)
+    , free_list_(other.free_list_)
+    , leaf_index_(0, LeafHash{this}, LeafEq{this})
+    , suffix_index_(0, SuffixHash{this}, SuffixEq{this})
+    , concat_index_(0, ConcatHash{this}, ConcatEq{this})
+{
+	rebuild_indexes_();
+}
+
+TwinePool &TwinePool::operator=(const TwinePool &other)
+{
+	if (this == &other)
+		return *this;
+	nodes_ = other.nodes_;
+	refcount_ = other.refcount_;
+	free_list_ = other.free_list_;
+	// Re-create the index sets with functors pointing to *this,
+	// then rebuild their contents from the (now-copied) nodes_.
+	leaf_index_ = std::unordered_set<Twine::Id, LeafHash, LeafEq>(
+		0, LeafHash{this}, LeafEq{this});
+	suffix_index_ = std::unordered_set<Twine::Id, SuffixHash, SuffixEq>(
+		0, SuffixHash{this}, SuffixEq{this});
+	concat_index_ = std::unordered_set<Twine::Id, ConcatHash, ConcatEq>(
+		0, ConcatHash{this}, ConcatEq{this});
+	rebuild_indexes_();
+	return *this;
+}
+
+void TwinePool::rebuild_indexes_()
+{
+	for (auto& n : nodes_) {
+		if (n.is_dead()) continue;
+		if (n.is_leaf())   leaf_index_.insert(&n);
+		else if (n.is_suffix()) suffix_index_.insert(&n);
+		else if (n.is_concat()) concat_index_.insert(&n);
+	}
+}
+
 Twine::Id TwinePool::alloc_slot_(Twine &&node)
 {
 	if (!free_list_.empty()) {
@@ -12,40 +58,59 @@ Twine::Id TwinePool::alloc_slot_(Twine &&node)
 		// "@N" refs across design -push;-pop and similar wholesale-clone
 		// cycles, even though the in-memory pool got renumbered through
 		// the free list.
-		auto it = std::min_element(free_list_.begin(), free_list_.end());
-		Twine::Id id = *it;
-		free_list_.erase(it);
-		nodes_[id] = std::move(node);
-		refcount_[id] = 0;
+		// TODO nevermind, inefficient, solve in RTLIL frontend and backend
+		// auto it = std::min_element(free_list_.begin(), free_list_.end());
+		// Twine::Id id = *it;
+		// free_list_.erase(it);
+		Twine* id = free_list_.back();
+		*id = std::move(node);
+		// size_t idx = id - &nodes_.front();
+		// log_assert(idx > 0 && idx < refcount_.size());
+		// refcount_[idx] = 0;
+		refcount(id) = 0;
 		return id;
 	}
-	Twine::Id id = static_cast<Twine::Id>(nodes_.size());
+	// Twine::Id id = static_cast<Twine::Id>(nodes_.size());
 	nodes_.push_back(std::move(node));
+	Twine* id = &nodes_.back();
 	refcount_.push_back(0);
 	return id;
 }
 
-Twine::Id TwinePool::intern(std::string_view leaf)
+Twine::Id TwinePool::intern(std::string_view str)
 {
-	if (leaf.empty())
+	if (str.empty())
 		return Twine::Null;
-	std::string key{leaf};
-	if (auto it = leaf_index_.find(key); it != leaf_index_.end()) {
-		retain(it->second);
-		return it->second;
+	// Transparent find: probes with string_view, no string allocation.
+	// TODO why are they split like this? Is this called on a hot path somewhere?
+	if (auto it = leaf_index_.find(str); it != leaf_index_.end()) {
+		retain(*it);
+		return *it;
 	}
-	Twine::Id id = alloc_slot_(Twine{std::move(key)});
-	leaf_index_[std::get<std::string>(nodes_[id].data)] = id;
-	refcount_[id] = 1;
+	if (auto it = suffix_index_.find(str); it != suffix_index_.end()) {
+		retain(*it);
+		return *it;
+	}
+	if (auto it = concat_index_.find(str); it != concat_index_.end()) {
+		retain(*it);
+		return *it;
+	}
+	Twine::Id id = alloc_slot_(Twine{std::string{str}});
+	leaf_index_.insert(id);
+
+	// size_t idx = id - &nodes_.front();
+	// log_assert(idx > 0 && idx < refcount_.size());
+	// refcount_[idx] = 1;
+	refcount(id) = 1;
 	return id;
 }
 
-Twine::Id TwinePool::intern_suffix(Twine::Id parent, std::string_view tail)
+Twine* TwinePool::intern_suffix(Twine* parent, std::string_view tail)
 {
 	if (parent == Twine::Null)
 		return intern(tail);
-	log_assert(parent < nodes_.size() && !nodes_[parent].is_dead());
-	log_assert(nodes_[parent].is_flat() && "Suffix parent must be a flat node (Leaf or Suffix)");
+	log_assert(parent > &nodes_.front() && parent <= &nodes_.back() && !parent->is_dead());
+	log_assert(parent->is_flat() && "Suffix parent must be a flat node (Leaf or Suffix)");
 	if (tail.empty()) {
 		// No tail means "the same string as parent". Hand back a fresh
 		// owning ref on parent — semantically equivalent to a degenerate
@@ -54,18 +119,18 @@ Twine::Id TwinePool::intern_suffix(Twine::Id parent, std::string_view tail)
 		return parent;
 	}
 
-	std::pair<Twine::Id, std::string> key{parent, std::string{tail}};
+	// Transparent find: probes with (parent, string_view), no allocation.
+	SuffixKey key{parent, tail};
 	if (auto it = suffix_index_.find(key); it != suffix_index_.end()) {
-		retain(it->second);
-		return it->second;
+		retain(*it);
+		return *it;
 	}
 
 	// Internal child ref: the suffix node owns one ref on its parent.
 	retain(parent);
 	Twine::Id id = alloc_slot_(Twine{Twine::Suffix{parent, std::string{tail}}});
-	const auto &stored = std::get<Twine::Suffix>(nodes_[id].data);
-	suffix_index_[std::make_pair(stored.parent, stored.tail)] = id;
-	refcount_[id] = 1;
+	suffix_index_.insert(id);
+	refcount(id) = 1;
 	return id;
 }
 
@@ -85,8 +150,8 @@ Twine::Id TwinePool::concat(std::span<const Twine::Id> parts)
 	for (Twine::Id p : parts) {
 		if (p == Twine::Null)
 			continue;
-		log_assert(p < nodes_.size() && !nodes_[p].is_dead());
-		const Twine &n = nodes_[p];
+		// log_assert(p < nodes_.size() && !nodes_[p].is_dead());
+		const Twine &n = *p;
 		if (n.is_flat()) {
 			push_flat(p);
 		} else {
@@ -102,17 +167,19 @@ Twine::Id TwinePool::concat(std::span<const Twine::Id> parts)
 		return children.front();
 	}
 
-	if (auto it = concat_index_.find(children); it != concat_index_.end()) {
-		retain(it->second);
-		return it->second;
+	// Transparent find: probes with span, no vector allocation.
+	std::span<const Twine::Id> child_span{children};
+	if (auto it = concat_index_.find(child_span); it != concat_index_.end()) {
+		retain(*it);
+		return *it;
 	}
 
 	// Internal child refs: the concat node owns one ref on each child.
 	for (Twine::Id c : children)
 		retain(c);
 	Twine::Id id = alloc_slot_(Twine{std::move(children)});
-	concat_index_[std::get<std::vector<Twine::Id>>(nodes_[id].data)] = id;
-	refcount_[id] = 1;
+	concat_index_.insert(id);
+	refcount(id) = 1;
 	return id;
 }
 
@@ -126,55 +193,68 @@ void TwinePool::retain(Twine::Id id)
 {
 	if (id == Twine::Null)
 		return;
-	log_assert(id < nodes_.size() && !nodes_[id].is_dead());
-	refcount_[id]++;
+	refcount(id)++;
 }
 
 void TwinePool::release(Twine::Id id)
 {
 	if (id == Twine::Null)
 		return;
-	log_assert(id < nodes_.size() && !nodes_[id].is_dead());
-	log_assert(refcount_[id] > 0);
-	if (--refcount_[id] == 0)
+	// log_assert(id < nodes_.size() && !nodes_[id].is_dead());
+	log_assert(refcount(id) > 0);
+	if (--refcount(id) == 0)
 		destroy_slot_(id);
+}
+
+size_t TwinePool::index(Twine::Id p) const
+{
+	return p - &nodes_.front();
+}
+
+uint32_t& TwinePool::refcount(Twine::Id id)
+{
+	log_assert(id != Twine::Null);
+	size_t idx = index(id);
+	log_assert(idx > 0 && idx < refcount_.size());
+	return refcount_[idx];
 }
 
 uint32_t TwinePool::refcount(Twine::Id id) const
 {
-	if (id == Twine::Null)
-		return 0;
-	return refcount_.at(id);
+	log_assert(id != Twine::Null);
+	size_t idx = id - &nodes_.front();
+	log_assert(idx > 0 && idx < refcount_.size());
+	return refcount_[idx];
 }
 
 bool TwinePool::is_alive(Twine::Id id) const
 {
 	if (id == Twine::Null)
 		return false;
-	return id < nodes_.size() && !nodes_[id].is_dead();
+	return id >= &nodes_.front() && id <= &nodes_.back() && !id->is_dead();
 }
 
 void TwinePool::destroy_slot_(Twine::Id id)
 {
-	Twine &n = nodes_[id];
+	Twine &n = *id;
 	if (n.is_leaf()) {
-		leaf_index_.erase(n.leaf());
+		// Erase by id: functor reads nodes_[id].leaf() before we tombstone.
+		leaf_index_.erase(id);
 	} else if (n.is_concat()) {
-		// Release internal child refs. Capture by move so iteration is
-		// stable across child destroy_slot_ side effects.
-		std::vector<Twine::Id> children = std::move(std::get<std::vector<Twine::Id>>(n.data));
-		concat_index_.erase(children);
+		// Erase by id first (while data is still readable), then capture
+		// children by move so iteration is stable across recursive release.
+		concat_index_.erase(id);
+		std::vector<Twine::Id> children =
+			std::move(std::get<std::vector<Twine::Id>>(n.data));
 		n.data = std::monostate{};
 		free_list_.push_back(id);
 		for (Twine::Id c : children)
 			release(c);
 		return;
 	} else if (n.is_suffix()) {
-		// Capture parent by move and release after dropping the slot,
-		// since releasing may recursively destroy the parent and we
-		// want this slot's tombstone to be visible by then.
+		// Same pattern: erase first, then move data for deferred release.
+		suffix_index_.erase(id);
 		Twine::Suffix s = std::move(std::get<Twine::Suffix>(n.data));
-		suffix_index_.erase(std::make_pair(s.parent, s.tail));
 		n.data = std::monostate{};
 		free_list_.push_back(id);
 		release(s.parent);
@@ -184,11 +264,30 @@ void TwinePool::destroy_slot_(Twine::Id id)
 	free_list_.push_back(id);
 }
 
+Twine::Id TwinePool::lookup(std::string_view sv) const
+{
+	if (sv.empty())
+		return Twine::Null;
+	auto it = leaf_index_.find(sv);
+	return (it != leaf_index_.end()) ? *it : Twine::Null;
+}
+
+char TwinePool::first_char(Twine::Id id) const
+{
+	log_assert(id != Twine::Null && id > &nodes_.front() && id <= &nodes_.back() && !id->is_dead());
+	// Walk suffix parents to reach the root leaf, then return its first char.
+	while (id->is_suffix())
+		id = id->suffix().parent;
+	const std::string &s = id->leaf();
+	// TODO seems wrong for concate
+	return s.empty() ? '\0' : s.front();
+}
+
 void TwinePool::collect_leaves(Twine::Id id, pool<std::string> &out) const
 {
 	if (id == Twine::Null)
 		return;
-	const Twine &n = nodes_.at(id);
+	const Twine &n = *id;
 	if (n.is_dead())
 		return;
 	if (n.is_leaf()) {
@@ -213,7 +312,7 @@ std::string TwinePool::flat_string_(Twine::Id id) const
 	log_assert(id != Twine::Null);
 	std::vector<std::string_view> parts;
 	while (true) {
-		const Twine &n = nodes_.at(id);
+		const Twine &n = *id;
 		if (n.is_leaf()) {
 			parts.push_back(n.leaf());
 			break;
@@ -249,27 +348,32 @@ std::string TwinePool::flatten(Twine::Id id, char sep) const
 	return out;
 }
 
-std::string TwinePool::format_ref(Twine::Id id)
+std::string TwinePool::format_ref(Twine::Id id) const
 {
 	if (id == Twine::Null)
 		return {};
-	return "@" + std::to_string(id);
+	size_t i = index(id);
+	return "@" + std::to_string(i);
 }
 
-Twine::Id TwinePool::parse_ref(std::string_view s)
+std::optional<size_t> TwinePool::parse_ref(std::string_view s)
 {
 	if (s.size() < 2 || s[0] != '@')
-		return Twine::Null;
+		return std::nullopt;
 	uint64_t v = 0;
 	for (size_t i = 1; i < s.size(); i++) {
 		char c = s[i];
 		if (c < '0' || c > '9')
-			return Twine::Null;
+			return std::nullopt;
 		v = v * 10 + static_cast<uint64_t>(c - '0');
-		if (v >= std::numeric_limits<Twine::Id>::max())
-			return Twine::Null;
 	}
-	return static_cast<Twine::Id>(v);
+	return v;
+}
+Twine::Id TwinePool::get_ref(std::string_view s)
+{
+	if (auto idx = parse_ref(s))
+		return &nodes_.front() + *idx;
+	return nullptr;
 }
 
 void TwinePool::dump(const char *banner) const
@@ -281,18 +385,18 @@ void TwinePool::dump(const char *banner) const
 				concat_index_.size(), free_list_.size());
 	for_each_live([&](Twine::Id id, const Twine &n) {
 		if (n.is_leaf()) {
-			log("  @%u leaf rc=%u %s\n", id, refcount_[id], n.leaf().c_str());
+			log("  @%u leaf rc=%u %s\n", id, refcount(id), n.leaf().c_str());
 		} else if (n.is_suffix()) {
-			log("  @%u suffix rc=%u @%u + %s\n", id, refcount_[id],
+			log("  @%u suffix rc=%u @%u + %s\n", id, refcount(id),
 					n.suffix().parent, n.suffix().tail.c_str());
 		} else {
 			std::string children;
 			for (Twine::Id c : n.children()) {
 				if (!children.empty())
 					children += ", ";
-				children += "@" + std::to_string(c);
+				children += format_ref(c);
 			}
-			log("  @%u concat rc=%u [%s]\n", id, refcount_[id], children.c_str());
+			log("  @%u concat rc=%u [%s]\n", id, refcount(id), children.c_str());
 		}
 	});
 }
@@ -306,7 +410,7 @@ dict<Twine::Id, Twine::Id> TwinePool::gc(const pool<Twine::Id> &live)
 	pool<Twine::Id> reachable;
 	std::vector<Twine::Id> work;
 	for (Twine::Id id : live) {
-		if (id == Twine::Null || id >= nodes_.size() || nodes_[id].is_dead())
+		if (!id || id->is_dead())
 			continue;
 		if (reachable.insert(id).second)
 			work.push_back(id);
@@ -314,7 +418,7 @@ dict<Twine::Id, Twine::Id> TwinePool::gc(const pool<Twine::Id> &live)
 	while (!work.empty()) {
 		Twine::Id id = work.back();
 		work.pop_back();
-		const Twine &n = nodes_[id];
+		const Twine &n = *id;
 		if (n.is_concat()) {
 			for (Twine::Id c : n.children())
 				if (reachable.insert(c).second)
@@ -326,101 +430,101 @@ dict<Twine::Id, Twine::Id> TwinePool::gc(const pool<Twine::Id> &live)
 		}
 	}
 
-	// Rebuild the pool from scratch. Process flats (Leaf, then Suffix)
-	// before Concats so concat-child lookups can resolve, and process
-	// suffixes parent-before-child via a recursive helper that memoizes
-	// into `remap`.
+	// Rebuild the pool from scratch using temporary storage; process flats
+	// before concats so child lookups can resolve.
 	std::vector<Twine> new_nodes;
 	std::vector<uint32_t> new_refcount;
-	dict<std::string, Twine::Id> new_leaf_index;
-	dict<std::vector<Twine::Id>, Twine::Id> new_concat_index;
-	dict<std::pair<Twine::Id, std::string>, Twine::Id> new_suffix_index;
 	dict<Twine::Id, Twine::Id> remap;
 
-	auto intern_leaf = [&](const std::string &text) -> Twine::Id {
-		if (auto it = new_leaf_index.find(text); it != new_leaf_index.end())
-			return it->second;
-		Twine::Id id = static_cast<Twine::Id>(new_nodes.size());
-		new_nodes.push_back(Twine{text});
-		new_refcount.push_back(0);
-		new_leaf_index[std::get<std::string>(new_nodes.back().data)] = id;
-		return id;
-	};
-
+	// Helper: insert a leaf into new_nodes, dedup by string.
+	// dict<std::string, Twine::Id> new_leaf_map;
 	for (Twine::Id old_id : reachable) {
-		const Twine &n = nodes_[old_id];
+		const Twine &n = *old_id;
 		if (n.is_leaf())
-			remap[old_id] = intern_leaf(n.leaf());
+			remap[old_id] = intern(n.leaf());
 	}
 
 	std::function<Twine::Id(Twine::Id)> remap_flat = [&](Twine::Id old_id) -> Twine::Id {
 		if (auto it = remap.find(old_id); it != remap.end())
 			return it->second;
-		const Twine &n = nodes_[old_id];
+		const Twine &n = *old_id;
 		log_assert(n.is_suffix());
 		Twine::Id new_parent = remap_flat(n.suffix().parent);
-		std::pair<Twine::Id, std::string> key{new_parent, n.suffix().tail};
-		if (auto sit = new_suffix_index.find(key); sit != new_suffix_index.end()) {
-			remap[old_id] = sit->second;
-			return sit->second;
+		// Dedup suffix nodes in the new pool.
+		for (auto& i : new_nodes) {
+			if (i.is_suffix()) {
+				const auto &s = i.suffix();
+				if (s.parent == new_parent && s.tail == n.suffix().tail) {
+					remap[old_id] = &i;
+					return &i;
+				}
+			}
 		}
-		Twine::Id new_id = static_cast<Twine::Id>(new_nodes.size());
+		// Twine::Id new_id = static_cast<Twine::Id>(new_nodes.size());
 		new_nodes.push_back(Twine{Twine::Suffix{new_parent, n.suffix().tail}});
+		Twine::Id new_id = &new_nodes.back();
 		new_refcount.push_back(0);
-		const auto &stored = std::get<Twine::Suffix>(new_nodes.back().data);
-		new_suffix_index[std::make_pair(stored.parent, stored.tail)] = new_id;
 		remap[old_id] = new_id;
 		return new_id;
 	};
 
 	for (Twine::Id old_id : reachable) {
-		const Twine &n = nodes_[old_id];
+		const Twine &n = *old_id;
 		if (n.is_suffix() && remap.find(old_id) == remap.end())
 			remap_flat(old_id);
 	}
 
+	// Dedup concat nodes by child vector.
+	dict<std::vector<Twine::Id>, Twine::Id> new_concat_map;
 	for (Twine::Id old_id : reachable) {
-		const Twine &n = nodes_[old_id];
+		const Twine &n = *old_id;
 		if (!n.is_concat())
 			continue;
 		std::vector<Twine::Id> children;
 		children.reserve(n.children().size());
 		for (Twine::Id c : n.children())
 			children.push_back(remap.at(c));
-		if (auto it = new_concat_index.find(children); it != new_concat_index.end()) {
+		if (auto it = new_concat_map.find(children); it != new_concat_map.end()) {
 			remap[old_id] = it->second;
 		} else {
-			Twine::Id new_id = static_cast<Twine::Id>(new_nodes.size());
-			new_nodes.push_back(Twine{std::move(children)});
+			// Twine::Id new_id = static_cast<Twine::Id>(new_nodes.size());
+			new_nodes.push_back(Twine{children});
+			Twine::Id new_id = &new_nodes.back();
 			new_refcount.push_back(0);
-			new_concat_index[std::get<std::vector<Twine::Id>>(new_nodes.back().data)] = new_id;
+			new_concat_map[std::get<std::vector<Twine::Id>>(new_nodes.back().data)] = new_id;
 			remap[old_id] = new_id;
 		}
 	}
 
-	// Refcounts in the rebuilt pool: every external "live" id passed in by
-	// the caller corresponds to one external owner reference; concats
-	// hold one ref per stored child; suffixes hold one ref on their parent.
+
+
+	// Swap in the new storage and rebuild the intrusive indexes.
+	nodes_ = std::move(new_nodes);
+	refcount_ = std::move(new_refcount);
+
+	// Refcounts in the rebuilt pool.
 	for (Twine::Id old_id : live) {
 		auto it = remap.find(old_id);
 		if (it != remap.end())
-			new_refcount[it->second]++;
+			refcount(it->second)++;
 	}
-	for (size_t i = 0; i < new_nodes.size(); i++) {
-		if (new_nodes[i].is_concat()) {
-			for (Twine::Id c : new_nodes[i].children())
-				new_refcount[c]++;
-		} else if (new_nodes[i].is_suffix()) {
-			new_refcount[new_nodes[i].suffix().parent]++;
+	for (size_t i = 0; i < nodes_.size(); i++) {
+		if (nodes_[i].is_concat()) {
+			for (Twine::Id c : nodes_[i].children())
+				refcount(c)++;
+		} else if (nodes_[i].is_suffix()) {
+			refcount(nodes_[i].suffix().parent)++;
 		}
 	}
 
-	nodes_ = std::move(new_nodes);
-	refcount_ = std::move(new_refcount);
 	free_list_.clear();
-	leaf_index_ = std::move(new_leaf_index);
-	concat_index_ = std::move(new_concat_index);
-	suffix_index_ = std::move(new_suffix_index);
+	leaf_index_ = std::unordered_set<Twine::Id, LeafHash, LeafEq>(
+		0, LeafHash{this}, LeafEq{this});
+	suffix_index_ = std::unordered_set<Twine::Id, SuffixHash, SuffixEq>(
+		0, SuffixHash{this}, SuffixEq{this});
+	concat_index_ = std::unordered_set<Twine::Id, ConcatHash, ConcatEq>(
+		0, ConcatHash{this}, ConcatEq{this});
+	rebuild_indexes_();
 	return remap;
 }
 
@@ -428,8 +532,8 @@ Twine::Id TwinePool::copy_from(const TwinePool &src, Twine::Id src_id)
 {
 	if (src_id == Twine::Null)
 		return Twine::Null;
-	log_assert(src_id < src.nodes_.size() && !src.nodes_[src_id].is_dead());
-	const Twine &n = src.nodes_[src_id];
+	// log_assert(src_id < src.nodes_.size() && !src.nodes_[src_id].is_dead());
+	const Twine &n = *src_id;
 	if (n.is_leaf())
 		return intern(n.leaf());
 	if (n.is_suffix()) {

@@ -69,7 +69,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 
 	for (auto &cellport : cellport_list)
 	{
-		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		RTLIL::Cell *cell = module->cell(cellport.first);
 		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != ID::Y) {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type, cell->name);
 			return false;
@@ -271,7 +271,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	std::set<sig2driver_entry_t> cellport_list;
 	sig2driver.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		RTLIL::Cell *cell = module->cell(cellport.first);
 		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != ID::Q)
 			continue;
 		log("  found %s cell for state register: %s\n", cell->type, cell->name);
@@ -319,7 +319,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	cellport_list.clear();
 	sig2trigger.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		RTLIL::Cell *cell = module->cell(cellport.first);
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 		RTLIL::SigSpec sig_b;
 		if (cell->hasPort(ID::B))
@@ -388,10 +388,8 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// rename original state wire
 
-	module->wires_.erase(wire->name);
 	wire->attributes.erase(ID::fsm_encoding);
-	wire->name = stringf("$fsm$oldstate%s", wire->name);
-	module->wires_[wire->name] = wire;
+	module->rename(wire, stringf("$fsm$oldstate%s", wire->name.c_str()));
 	if(wire->attributes.count(ID::hdlname)) {
 		auto hdlname = wire->get_hdlname_attribute();
 		hdlname.pop_back();
@@ -405,7 +403,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	cellport_list.clear();
 	sig2driver.find(ctrl_out, cellport_list);
 	for (auto &cellport : cellport_list) {
-		RTLIL::Cell *cell = module->cells_.at(cellport.first);
+		RTLIL::Cell *cell = module->cell(cellport.first);
 		RTLIL::SigSpec port_sig = assign_map(cell->getPort(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
 		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%d", autoidx++), unconn_sig.size());
