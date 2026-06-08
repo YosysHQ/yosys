@@ -101,22 +101,22 @@ struct BitSim {
 				if (cell->is_builtin_ff()) {
 					res = next_rand();
 				} else if (cell->type == ID($_AND_)) {
-					res = eval_bit(cell->getPort(ID::A)[0], depth+1) & eval_bit(cell->getPort(ID::B)[0], depth+1);
+					res = eval_bit(cell->getPort(TW::A)[0], depth+1) & eval_bit(cell->getPort(TW::B)[0], depth+1);
 				} else if (cell->type == ID($_OR_)) {
-					res = eval_bit(cell->getPort(ID::A)[0], depth+1) | eval_bit(cell->getPort(ID::B)[0], depth+1);
+					res = eval_bit(cell->getPort(TW::A)[0], depth+1) | eval_bit(cell->getPort(TW::B)[0], depth+1);
 				} else if (cell->type == ID($_XOR_)) {
-					res = eval_bit(cell->getPort(ID::A)[0], depth+1) ^ eval_bit(cell->getPort(ID::B)[0], depth+1);
+					res = eval_bit(cell->getPort(TW::A)[0], depth+1) ^ eval_bit(cell->getPort(TW::B)[0], depth+1);
 				} else if (cell->type == ID($_NOT_)) {
-					res = ~eval_bit(cell->getPort(ID::A)[0], depth+1);
+					res = ~eval_bit(cell->getPort(TW::A)[0], depth+1);
 				} else if (cell->type == ID($_MUX_)) {
-					uint64_t s = eval_bit(cell->getPort(ID::S)[0], depth+1);
-					uint64_t a = eval_bit(cell->getPort(ID::A)[0], depth+1);
-					uint64_t b = eval_bit(cell->getPort(ID::B)[0], depth+1);
+					uint64_t s = eval_bit(cell->getPort(TW::S)[0], depth+1);
+					uint64_t a = eval_bit(cell->getPort(TW::A)[0], depth+1);
+					uint64_t b = eval_bit(cell->getPort(TW::B)[0], depth+1);
 					res = (a & ~s) | (b & s);
 				} else if (cell->type == ID($mux)) {
-					uint64_t s = eval_bit(cell->getPort(ID::S)[0], depth+1);
-					uint64_t a = eval_bit(cell->getPort(ID::A)[driver.offset], depth+1);
-					uint64_t b = eval_bit(cell->getPort(ID::B)[driver.offset], depth+1);
+					uint64_t s = eval_bit(cell->getPort(TW::S)[0], depth+1);
+					uint64_t a = eval_bit(cell->getPort(TW::A)[driver.offset], depth+1);
+					uint64_t b = eval_bit(cell->getPort(TW::B)[driver.offset], depth+1);
 					res = (a & ~s) | (b & s);
 				} else {
 					res = next_rand();

@@ -52,7 +52,7 @@ std::string getFileinfo(const RTLIL::AttrObject *design_entity, const RTLIL::Des
 // Get a port direction with respect to a specific module.
 FDirection getPortFDirection(IdString id, Module *module)
 {
-	Wire *wire = module->wires_.at(id);
+	Wire *wire = module->wire(id);
 	FDirection direction = FD_NODIRECTION;
 	if (wire && wire->port_id)
 	{

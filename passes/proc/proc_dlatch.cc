@@ -220,9 +220,9 @@ struct proc_dlatch_db_t
 			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
-					SigSpec sig = cell->getPort(ID::B);
+					SigSpec sig = cell->getPort(TW::B);
 					sig[i*width + index] = State::Sx;
-					cell->setPort(ID::B, sig);
+					cell->setPort(TW::B, sig);
 				}
 				bool sibling_undef = (sig_a[index] == State::Sx);
 				if (!is_bwmux)
@@ -258,9 +258,9 @@ struct proc_dlatch_db_t
 
 		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
 		bool is_bwmux = (cell->type == ID($bwmux));
-		SigSpec sig_a = sigmap(cell->getPort(ID::A));
-		SigSpec sig_b = sigmap(cell->getPort(ID::B));
-		SigSpec sig_s = sigmap(cell->getPort(ID::S));
+		SigSpec sig_a = sigmap(cell->getPort(TW::A));
+		SigSpec sig_b = sigmap(cell->getPort(TW::B));
+		SigSpec sig_s = sigmap(cell->getPort(TW::S));
 		int width = GetSize(sig_a);
 
 		pool<int> children;
@@ -268,9 +268,9 @@ struct proc_dlatch_db_t
 		int n = find_mux_constant(sig_a[index], needle, set_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == SigBit(needle)) {
-				SigSpec sig = cell->getPort(ID::A);
+				SigSpec sig = cell->getPort(TW::A);
 				sig[index] = State::Sx;
-				cell->setPort(ID::A, sig);
+				cell->setPort(TW::A, sig);
 			}
 			if (!is_bwmux) {
 				for (int i = 0; i < GetSize(sig_s); i++)
@@ -497,7 +497,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 
 		if (proc->get_bool_attribute(ID::always_latch) && !is_nosync)
 			log_error("No latch inferred for signal `%s.%s' from always_latch process `%s.%s'.\n",
-					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+					db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str());
 		else if (!is_nosync)
 			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
@@ -550,13 +550,13 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 
 			if (proc->get_bool_attribute(ID::always_comb))
 				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+						db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str());
 			else if (policy == POLICY_ERROR)
 				log_error("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
+						db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str(), cell);
 			else if (policy == POLICY_WARN)
 				log_warning("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
+						db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str(), cell);
 			else
 				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);

@@ -147,7 +147,7 @@ struct TestSelectPass : public Pass {
 				log_debug("  Adding %s.\n", mod);
 				selected_modules.insert(mod->name);
 			} else for (auto *memb : mod->selected_members()) {
-				log_debug("  Adding %s.%s.\n", mod, memb);
+				log_debug("  Adding %s.%s.\n", mod, mod->design->obj_name(memb).c_str());
 				selected_members[mod->name].insert(memb);
 			}
 		}

@@ -255,13 +255,13 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		ERROR("bad usage: expected \"get_attr -mod [-string|-int|-sint|-uint|-bool] <module> <attrname>\""
 			  " or \"get_attr [-string|-int|-sint|-uint|-bool] <module> <identifier> <attrname>\"")
 
-	IdString mod_id, obj_id, attr_id;
+	std::string mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
 	if (!mod_flag)
 		obj_id = RTLIL::escape_id(argv[i++]);
 	attr_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	RTLIL::Module *mod = yosys_design->module(yosys_design->twines.lookup(mod_id));
 	if (!mod)
 		ERROR("module not found")
 
@@ -318,13 +318,13 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		ERROR("bad usage: expected \"has_attr -mod <module> <attrname>\""
 			  " or \"has_attr <module> <identifier> <attrname>\"")
 
-	IdString mod_id, obj_id, attr_id;
+	std::string mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
 	if (!mod_flag)
 		obj_id = RTLIL::escape_id(argv[i++]);
 	attr_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	RTLIL::Module *mod = yosys_design->module(yosys_design->twines.lookup(mod_id));
 	if (!mod)
 		ERROR("module not found")
 
@@ -371,13 +371,13 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 			  " or \"set_attr [-true|-false] <module> <identifier> <attrname>\""
 			  " or \"set_attr -mod [-true|-false| <module> <attrname>\"")
 
-	IdString mod_id, obj_id, attr_id;
+	std::string mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	if (!mod_flag)
 		obj_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	attr_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	RTLIL::Module *mod = yosys_design->module(yosys_design->twines.lookup(mod_id));
 	if (!mod)
 		ERROR("module not found")
 
@@ -449,12 +449,12 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 			(string_flag + int_flag > 1))
 		ERROR("bad usage: expected \"get_param [-string|-int|-sint|-uint] <module> <cellid> <paramname>")
 
-	IdString mod_id, cell_id, param_id;
+	std::string mod_id, cell_id, param_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
 	cell_id = RTLIL::escape_id(argv[i++]);
 	param_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	RTLIL::Module *mod = yosys_design->module(yosys_design->twines.lookup(mod_id));
 	if (!mod)
 		ERROR("module not found")
 
@@ -495,12 +495,12 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 			(string_flag + sint_flag + uint_flag > 1))
 		ERROR("bad usage: expected \"set_param [-string|-sint|-uint] <module> <cellid> <paramname> <value>")
 
-	IdString mod_id, cell_id, param_id;
+	std::string mod_id, cell_id, param_id;
 	mod_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	cell_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	param_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	RTLIL::Module *mod = yosys_design->module(yosys_design->twines.lookup(mod_id));
 	if (!mod)
 		ERROR("module not found")
 

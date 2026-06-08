@@ -259,7 +259,7 @@ struct MemoryMapWorker
 				c->setPort(ID::D, w_in);
 
 				std::string w_out_name = stringf("%s[%d]", mem.memid, addr);
-				if (module->wires_.count(w_out_name) > 0)
+				if (module->wire(RTLIL::IdString(w_out_name)) != nullptr)
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);

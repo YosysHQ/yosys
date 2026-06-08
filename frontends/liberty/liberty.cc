@@ -47,11 +47,12 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
-	if (!module->wires_.count(id))
+	RTLIL::Wire *w = module->wire(RTLIL::IdString(id));
+	if (!w)
 		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), module);
 
 	expr += id_len;
-	return module->wires_.at(id);
+	return w;
 }
 
 static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack, token_t next_token)
@@ -728,7 +729,7 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib && dir->value == "internal")
 						continue;
 
-					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
+					RTLIL::Wire *wire = module->wire(RTLIL::IdString(RTLIL::escape_id(node->args.at(0))));
 					log_assert(wire);
 
 					const LibertyAst *capacitance = node->find("capacitance");

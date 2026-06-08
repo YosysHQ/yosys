@@ -520,12 +520,14 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	while (!cell->connections_.empty())
 		cell->unsetPort(cell->connections_.begin()->first);
 
-	log_assert(cells_.count(cell->name) != 0);
+	log_assert(cell->meta_ && cell->meta_->name_id != Twine::Null);
+	Twine::Id cell_id = cell->meta_->name_id;
+	log_assert(cells_.count(cell_id) != 0);
 	log_assert(refcount_cells_ == 0);
-	cells_.erase(cell->name);
+	cells_.erase(cell_id);
 	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
 		cell->type.clear();
-		cell->name.clear();
+		design->obj_release_name_id(cell);
 		pending_deleted_cells.insert(cell);
 	} else {
 		if (sig_norm_index != nullptr) {

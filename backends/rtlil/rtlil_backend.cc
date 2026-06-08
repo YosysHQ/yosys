@@ -41,9 +41,9 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 		Twine::Id id = design->obj_src_id(obj);
 		f << stringf("%s" "attribute \\src ", indent);
 		if (resolve_src) {
-			dump_const(f, RTLIL::Const(design->src_twines.flatten(id)));
+			dump_const(f, RTLIL::Const(design->twines.flatten(id)));
 		} else {
-			dump_const(f, RTLIL::Const(TwinePool::format_ref(id)));
+			dump_const(f, RTLIL::Const(design->twines.format_ref(id)));
 		}
 		f << stringf("\n");
 	}
@@ -56,10 +56,10 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 
 void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
 {
-	if (!design || design->src_twines.size() == 0)
+	if (!design || design->twines.size() == 0)
 		return;
 	f << stringf("twines\n");
-	design->src_twines.for_each_live([&](Twine::Id id, const Twine &n) {
+	design->twines.for_each_live([&](Twine::Id id, const Twine &n) {
 		if (n.is_leaf()) {
 			f << stringf("  leaf %u ", id);
 			dump_const(f, RTLIL::Const(n.leaf()));

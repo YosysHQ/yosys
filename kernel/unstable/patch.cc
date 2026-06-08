@@ -24,7 +24,7 @@ Wire* Patch::addWire(IdString name, int width) {
 	wires_.push_back(std::make_unique<Wire>(Wire::ConstructToken{}));
 
 	Wire* wire = wires_.back().get();
-	wire->name = name;
+	staged_wire_names_[wire] = name;
 	wire->width = width;
 	wire->module = nullptr;
 	return wire;
@@ -48,7 +48,12 @@ RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *othe
 
 Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
 	Wire* raw = wire.release();
-	mod->wires_[raw->name] = raw;
+	IdString name = staged_wire_names_.at(raw);
+	staged_wire_names_.erase(raw);
+	Twine::Id id = mod->design->twines.intern(name.str());
+	mod->design->obj_set_name_id(raw, id);
+	mod->design->twines.release(id);
+	mod->wires_[raw->meta_->name_id] = raw;
 	raw->module = mod;
 	return raw;
 }
@@ -57,9 +62,11 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 	Cell* raw = cell.release();
 	IdString name = staged_cell_names_.at(raw);
 	staged_cell_names_.erase(raw);
-	raw->name = name;
+	Twine::Id id = mod->design->twines.intern(name.str());
+	mod->design->obj_set_name_id(raw, id);
+	mod->design->twines.release(id);
 	raw->module = mod;
-	mod->cells_[name] = raw;
+	mod->cells_[raw->meta_->name_id] = raw;
 	raw->initIndex();
 	return raw;
 }
@@ -87,7 +94,7 @@ namespace {
 		if (!mod || !mod->design)
 			return;
 
-		TwinePool& pool = mod->design->src_twines;
+		TwinePool& pool = mod->design->twines;
 		std::vector<Twine::Id> ids;
 		ids.reserve(2 + extras.size());
 		auto push = [&](Cell *c) {
@@ -103,7 +110,7 @@ namespace {
 		Twine::Id merged = pool.concat(std::span<const Twine::Id>{ids});
 		if (ys_debug()) {
 			log_debug("twine: merge yields %s (pool size %zu)\n",
-					TwinePool::format_ref(merged).c_str(), pool.size());
+					pool.format_ref(merged).c_str(), pool.size());
 			if (ys_debug(2))
 				pool.dump("twine pool state");
 		}

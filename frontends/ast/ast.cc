@@ -1118,7 +1118,7 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 	// carrying only ":line.col-line.col". For a typical large design with
 	// thousands of objects in one file this collapses N copies of a long
 	// path into 1 Leaf + N short Suffix tails.
-	TwinePool *pool = &current_module->design->src_twines;
+	TwinePool *pool = &current_module->design->twines;
 	Twine::Id file_id = pool->intern(*loc.begin.filename);
 	std::string tail = stringf(":%d.%d-%d.%d",
 			loc.begin.line, loc.begin.column,
@@ -1151,7 +1151,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	AstModule *module = new AstModule;
 	current_module = module;
 	// Set design backpointer early — every set_src_attr in genrtlil.cc
-	// resolves the pool via current_module->design->src_twines. The
+	// resolves the pool via current_module->design->twines. The
 	// final design->add(current_module) at end-of-process_module hooks
 	// the module into the design's modules_ dict; we just need design
 	// reachable as a backpointer for src interning meanwhile.

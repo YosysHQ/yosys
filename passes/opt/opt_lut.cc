@@ -174,7 +174,7 @@ struct OptLutWorker
 						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)[0]))
 						{
 							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, module, lut_dlogic.second);
-							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type, dlogic_conn.second, log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
+							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type, module->design->twines.str(dlogic_conn.second).c_str(), log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
 							legal = false;
 							break;
 						}

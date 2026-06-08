@@ -173,7 +173,7 @@ struct FfData : FfTypeData {
 	// Stashed src across construction → emit. Refcount-managed so the
 	// source cell's pool slot survives if the cell itself is removed
 	// before emit() runs. Empty when the source cell had no src.
-	OwnedTwine src_twine;
+	Twine::Id src_twine;
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;

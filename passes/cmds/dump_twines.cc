@@ -19,7 +19,7 @@ struct DumpTwinesPass : public Pass {
 		log("\n");
 		log("    dump_twines [-flat]\n");
 		log("\n");
-		log("Print every node in design->src_twines. Leaves show the literal\n");
+		log("Print every node in design->twines. Leaves show the literal\n");
 		log("path:line.col string, concats show their child id list. With\n");
 		log("-flat each concat is additionally rendered as the pipe-joined\n");
 		log("flat string a backend would emit.\n");
@@ -39,7 +39,7 @@ struct DumpTwinesPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		const TwinePool &pool = design->src_twines;
+		const TwinePool &pool = design->twines;
 		log("twine pool: %zu nodes (%zu leaves, %zu suffixes, %zu concats)\n",
 				pool.size(), pool.leaf_count(), pool.suffix_count(), pool.concat_count());
 		pool.for_each_live([&](Twine::Id id, const Twine &n) {
@@ -82,7 +82,7 @@ struct GcTwinesPass : public Pass {
 		log("    gc_twines\n");
 		log("\n");
 		log("Walk the design, collect every \"@N\" referenced by any cell, wire,\n");
-		log("module, memory, or process attribute, and rebuild design->src_twines\n");
+		log("module, memory, or process attribute, and rebuild design->twines\n");
 		log("to contain only those entries plus their transitive leaf children.\n");
 		log("Cell src attributes are rewritten in place via the resulting id\n");
 		log("remap, so the design is unchanged at the path:line.col layer.\n");
@@ -98,10 +98,10 @@ struct GcTwinesPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		extra_args(args, 1, design);
-		size_t before = design->src_twines.size();
+		size_t before = design->twines.size();
 		size_t freed = design->gc_twines();
 		log("twine gc: %zu nodes -> %zu (%zu freed)\n",
-				before, design->src_twines.size(), freed);
+				before, design->twines.size(), freed);
 	}
 } GcTwinesPass;
 

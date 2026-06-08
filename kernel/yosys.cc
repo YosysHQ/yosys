@@ -370,7 +370,7 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 		if (design->selected_active_module.empty())
 			str += "*";
 		else if (design->selection().selected_modules.size() != 1 || design->selection().selected_members.size() != 0 ||
-				design->selection().selected_modules.count(design->selected_active_module) == 0)
+				design->selection().selected_modules.count(design->twines.intern(design->selected_active_module)) == 0)
 			str += "*";
 	}
 	snprintf(buffer, 100, "%s> ", str.c_str());

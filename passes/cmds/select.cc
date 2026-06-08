@@ -239,12 +239,12 @@ static void select_op_random(RTLIL::Design *design, RTLIL::Selection &lhs, int c
 
 		for (auto cell : mod->cells()) {
 			if (lhs.selected_member(mod->name, cell->name))
-				objects.push_back(make_pair(RTLIL::IdString(mod->name), cell->name));
+				objects.push_back(make_pair(RTLIL::IdString(mod->name), RTLIL::IdString(cell->name)));
 		}
 
 		for (auto wire : mod->wires()) {
 			if (lhs.selected_member(mod->name, wire->name))
-				objects.push_back(make_pair(RTLIL::IdString(mod->name), wire->name));
+				objects.push_back(make_pair(RTLIL::IdString(mod->name), RTLIL::IdString(wire->name)));
 		}
 	}
 
@@ -1792,7 +1792,7 @@ static void log_matches(const char *title, Module *module, const T &list)
 
 	for (auto &it : list)
 		if (module->selected(it.second))
-			matches.push_back(it.first);
+			matches.push_back(RTLIL::IdString(it.second->name));
 
 	if (!matches.empty()) {
 		log("\n%d %s:\n", int(matches.size()), title);

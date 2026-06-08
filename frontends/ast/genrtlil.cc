@@ -491,7 +491,7 @@ struct AST_INTERNAL::ProcessGenerator
 						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.str().find('$') != std::string::npos)
 					wire_name += stringf("$%d", autoidx++);
-			} while (current_module->wires_.count(wire_name) > 0);
+			} while (current_module->wire(RTLIL::IdString(wire_name)) != nullptr);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
 			set_src_attr(wire, always.get());
@@ -1617,10 +1617,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			log_assert(id2ast != nullptr);
 
-			if (id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
+			if (id2ast->type == AST_AUTOWIRE && current_module->wire(RTLIL::IdString(str)) == nullptr) {
 				RTLIL::Wire *wire = current_module->addWire(str);
 				set_src_attr(wire, this);
-				wire->name = str;
 
 				// If we are currently processing a bind directive which wires up
 				// signals or parameters explicitly, rather than with .*, then
@@ -1640,7 +1639,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
-			else if ((id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
+			else if ((id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wire(RTLIL::IdString(str)) != nullptr) {
 				RTLIL::Wire *current_wire = current_module->wire(str);
 				if (current_wire->get_bool_attribute(ID::is_interface))
 					is_interface = true;
@@ -1670,7 +1669,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				return dummy_wire;
 			}
 
-			wire = current_module->wires_[str];
+			wire = current_module->wire(RTLIL::IdString(str));
 			chunk.wire = wire;
 			chunk.width = wire->width;
 			chunk.offset = 0;
