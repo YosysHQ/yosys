@@ -39,7 +39,7 @@ public:
 	// merge_src_into if set) into every staged new cell and into
 	// merge_src_into, then removes root_cell from the module. No input-cone
 	// walk: only root_cell is removed.
-	void patch(Cell* root_cell, IdString old_port, SigSpec new_sig,
+	void patch(Cell* root_cell, TwineRef old_port, SigSpec new_sig,
 			const std::vector<Cell*>& extras = {},
 			Cell* merge_src_into = nullptr);
 
