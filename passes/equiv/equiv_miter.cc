@@ -82,7 +82,7 @@ struct EquivMiterWorker
 
 		for (auto c : source_module->selected_cells())
 			if (c->type == ID($equiv)) {
-				log("Seed $equiv cell: %s\n", log_id(c));
+				log("Seed $equiv cell: %s\n", c);
 				seed_cells.insert(c);
 			}
 
@@ -194,11 +194,11 @@ struct EquivMiterWorker
 					w->port_input = true;
 			}
 			if (w->port_output && w->port_input)
-				log("Created miter inout port %s.\n", log_id(w));
+				log("Created miter inout port %s.\n", w);
 			else if (w->port_output)
-				log("Created miter output port %s.\n", log_id(w));
+				log("Created miter output port %s.\n", w);
 			else if (w->port_input)
-				log("Created miter input port %s.\n", log_id(w));
+				log("Created miter input port %s.\n", w);
 		}
 
 		miter_module->fixup_ports();
@@ -252,7 +252,7 @@ struct EquivMiterWorker
 
 	void run()
 	{
-		log("Creating miter %s from module %s.\n", log_id(miter_module), log_id(source_module));
+		log("Creating miter %s from module %s.\n", miter_module, source_module);
 		find_miter_cells_wires();
 		copy_to_miter();
 		make_stuff();
@@ -320,7 +320,7 @@ struct EquivMiterPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (design->module(worker.miter_name))
-			log_cmd_error("Miter module %s already exists.\n", log_id(worker.miter_name));
+			log_cmd_error("Miter module %s already exists.\n", worker.miter_name.unescape());
 
 		worker.source_module = nullptr;
 		for (auto m : design->selected_modules()) {

@@ -170,7 +170,6 @@ struct QbfSolutionType {
 		std::smatch m;
 		bool sat_regex_found = false;
 		bool unsat_regex_found = false;
-		dict<std::string, bool> hole_value_recovered;
 		for (const std::string &x : stdout_lines) {
 			if(std::regex_search(x, m, hole_value_regex)) {
 				std::string loc = m[1].str();

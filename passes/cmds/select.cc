@@ -18,14 +18,12 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/sigtools.h"
 #include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-using RTLIL::id2cstr;
 
 static std::vector<RTLIL::Selection> work_stack;
 
@@ -488,7 +486,7 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, const std::string
 	}
 }
 
-static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, CellTypes &ct, bool eval_only)
+static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, NewCellTypes &ct, bool eval_only)
 {
 	int sel_objects = 0;
 	bool is_input, is_output;
@@ -564,7 +562,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 	std::vector<expand_rule_t> rules;
 	std::set<RTLIL::IdString> limits;
 
-	CellTypes ct;
+	NewCellTypes ct;
 
 	if (mode != 'x')
 		ct.setup(design);
@@ -1022,9 +1020,9 @@ static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::S
 	for (auto mod : design->all_selected_modules())
 	{
 		if (whole_modules && sel->selected_whole_module(mod->name))
-			desc += stringf("%s\n", id2cstr(mod->name));
+			desc += stringf("%s\n", mod);
 		for (auto it : mod->selected_members())
-			desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it->name));
+			desc += stringf("%s/%s\n", mod, it);
 	}
 	if (push_selection) design->pop_selection();
 	return desc;
@@ -1414,7 +1412,7 @@ struct SelectPass : public Pass {
 			if (arg == "-module" && argidx+1 < args.size()) {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
 				if (design->module(mod_name) == nullptr)
-					log_cmd_error("No such module: %s\n", id2cstr(mod_name));
+					log_cmd_error("No such module: %s\n", mod_name.unescape());
 				design->selected_active_module = mod_name.str();
 				got_module = true;
 				continue;
@@ -1527,10 +1525,10 @@ struct SelectPass : public Pass {
 			for (auto mod : design->all_selected_modules())
 			{
 				if (sel->selected_whole_module(mod->name) && list_mode)
-					log("%s\n", id2cstr(mod->name));
+					log("%s\n", mod);
 				if (!list_mod_mode)
 					for (auto it : mod->selected_members())
-						LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(it->name))
+						LOG_OBJECT("%s/%s\n", mod->name.unescape().c_str(), it->name.unescape().c_str())
 			}
 			if (count_mode)
 			{
@@ -1654,10 +1652,10 @@ struct SelectPass : public Pass {
 			if (sel.full_selection)
 				log("*\n");
 			for (auto &it : sel.selected_modules)
-				log("%s\n", id2cstr(it));
+				log("%s\n", it.unescape());
 			for (auto &it : sel.selected_members)
 				for (auto &it2 : it.second)
-					log("%s/%s\n", id2cstr(it.first), id2cstr(it2));
+					log("%s/%s\n", it.first.unescape(), it2.unescape());
 			return;
 		}
 
@@ -1779,7 +1777,7 @@ static void log_matches(const char *title, Module *module, const T &list)
 		log("\n%d %s:\n", int(matches.size()), title);
 		std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 		for (auto id : matches)
-			log("  %s\n", RTLIL::id2cstr(id));
+			log("  %s\n", id.unescape());
 	}
 }
 
@@ -1817,7 +1815,7 @@ struct LsPass : public Pass {
 				log("\n%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 				for (auto id : matches)
-					log("  %s%s\n", log_id(id), design->selected_whole_module(design->module(id)) ? "" : "*");
+					log("  %s%s\n", id.unescape(), design->selected_whole_module(design->module(id)) ? "" : "*");
 			}
 		}
 		else

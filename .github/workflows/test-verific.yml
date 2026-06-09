@@ -1,23 +1,20 @@
 name: Build and run tests with Verific (Linux)
 
 on:
-  # always test main
-  push:
-    branches:
-      - main
-  merge_group:
-  # test PRs
   pull_request:
-  # allow triggering tests, ignores skip check
+  merge_group:
+  #push:
+  #  branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  pre-job:
+  pre_job:
     runs-on: ubuntu-latest
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: ${{ steps.set_output.outputs.should_skip }}
     steps:
       - id: skip_check
+        if: ${{ github.event_name != 'merge_group' }}
         uses: fkirc/skip-duplicate-actions@v5
         with:
           # don't run on documentation changes
@@ -26,9 +23,17 @@ jobs:
           # but never cancel main
           cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
+      - id: set_output
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
+          fi
+
   test-verific:
-    needs: pre-job
-    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
@@ -39,21 +44,30 @@ jobs:
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
+          mkdir -p "${GITHUB_WORKSPACE}/coverage"
+          echo "LLVM_PROFILE_FILE=${GITHUB_WORKSPACE}/coverage/coverage_%p.profraw" >> $GITHUB_ENV
+          echo "LLVM_PROFILE_FILE_BUFFER_SIZE=0" >> $GITHUB_ENV
+
+      - name: Skip generating files
+        if: ${{ github.event_name != 'merge_group' && github.event_name != 'workflow_dispatch' }}
+        run: |
+          echo "LLVM_PROFILE_FILE=/dev/null" >> $GITHUB_ENV
 
       - name: Build Yosys
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_FUNCTIONAL_TESTS := 1" >> Makefile.conf
-          make -j$procs ENABLE_LTO=1
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_ENABLE_COVERAGE ON CACHE BOOL "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+
+          cmake -C Configuration.cmake -B build . -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/.local -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j$procs
 
       - name: Install Yosys
         run: |
-          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+          cmake --build build --target install
 
       - name: Checkout SBY
         uses: actions/checkout@v4
@@ -68,21 +82,46 @@ jobs:
 
       - name: Run Yosys tests
         run: |
-          make -j$procs vanilla-test
+          make -C tests -j$procs vanilla-test
 
       - name: Run Verific specific Yosys tests
         run: |
           make -C tests/sva
-          cd tests/svtypes && bash run-test.sh
+          make -C tests/svtypes
 
       - name: Run SBY tests
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
           make -C sby run_ci
 
+      - name: Run coverage
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          make -C tests coverage
+          make -C tests clean_coverage
+
+      - name: Push coverage
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          git clone https://x-access-token:${{ secrets.REPORTS_TOKEN }}@github.com/YosysHQ/reports.git out
+          rm -rf out/coverage/main
+          mkdir -p out/coverage/main
+          cp -r coverage_html/* out/coverage/main/
+          cd out
+          # find . -name "*.html" -type f -print0 | xargs -0 sed -i -z 's#\(<td class="headerItem">Date:</td>[[:space:]]*<td class="headerValue">\)[^<]*\(</td>\)#\1\2#g'
+          git config user.name "yosyshq-ci"
+          git config user.email "105224853+yosyshq-ci@users.noreply.github.com"
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Update coverage"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
   test-pyosys:
-    needs: pre-job
-    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
@@ -100,21 +139,39 @@ jobs:
 
       - name: Build pyosys
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_PYOSYS := 1" >> Makefile.conf
-          echo "PYTHON_DESTDIR := /usr/lib/python3/site-packages" >> Makefile.conf
-          make -j$procs
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_WITH_PYTHON ON CACHE BOOL "")' >> Configuration.cmake
+          echo 'set(YOSYS_INSTALL_PYTHON ON CACHE BOOL "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build . \
+                -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/.local \
+                -DYOSYS_INSTALL_PYTHON_SITEDIR=$GITHUB_WORKSPACE/.local/usr/lib/python3/site-packages
+          cmake --build build -j$procs
 
       - name: Install pyosys
         run: |
-          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+          cmake --build build --target install
 
       - name: Run pyosys tests
         run: |
           export PYTHONPATH=${GITHUB_WORKSPACE}/.local/usr/lib/python3/site-packages:$PYTHONPATH
           python3 tests/pyosys/run_tests.py
+
+  test-verific-result:
+    runs-on: ubuntu-latest
+    needs:
+      - test-verific
+      - test-pyosys
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "Needs results: ${{ join(needs.*.result, ',') }}"
+          if [[ "${{ join(needs.*.result, ',') }}" == *failure* ]] || \
+            [[ "${{ join(needs.*.result, ',') }}" == *cancelled* ]]; then
+            echo "Some jobs failed or were cancelled"
+            exit 1
+          fi
+      - run: echo "All good"

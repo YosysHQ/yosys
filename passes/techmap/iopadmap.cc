@@ -231,7 +231,7 @@ struct IopadmapPass : public Pass {
 					for (int i = 0; i < GetSize(wire); i++)
 						if (buf_bits.count(sigmap(SigBit(wire, i)))) {
 							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
-							log("Marking already mapped port: %s.%s[%d].\n", log_id(module), log_id(wire), i);
+							log("Marking already mapped port: %s.%s[%d].\n", module, wire, i);
 						}
 		}
 
@@ -324,10 +324,10 @@ struct IopadmapPass : public Pass {
 
 						if (wire->port_input)
 						{
-							log("Mapping port %s.%s[%d] using %s.\n", log_id(module), log_id(wire), i, tinoutpad_celltype);
+							log("Mapping port %s.%s[%d] using %s.\n", module, wire, i, tinoutpad_celltype);
 
 							Cell *cell = module->addCell(
-								module->uniquify(stringf("$iopadmap$%s.%s[%d]", log_id(module), log_id(wire), i)),
+								module->uniquify(stringf("$iopadmap$%s.%s[%d]", module, wire, i)),
 								RTLIL::escape_id(tinoutpad_celltype));
 
 							if (tinoutpad_neg_oe)
@@ -348,10 +348,10 @@ struct IopadmapPass : public Pass {
 							if (!tinoutpad_portname_pad.empty())
 								rewrite_bits[wire][i] = make_pair(cell, RTLIL::escape_id(tinoutpad_portname_pad));
 						} else {
-							log("Mapping port %s.%s[%d] using %s.\n", log_id(module), log_id(wire), i, toutpad_celltype);
+							log("Mapping port %s.%s[%d] using %s.\n", module, wire, i, toutpad_celltype);
 
 							Cell *cell = module->addCell(
-								module->uniquify(stringf("$iopadmap$%s.%s[%d]", log_id(module), log_id(wire), i)),
+								module->uniquify(stringf("$iopadmap$%s.%s[%d]", module, wire, i)),
 								RTLIL::escape_id(toutpad_celltype));
 
 							if (toutpad_neg_oe)
@@ -389,7 +389,7 @@ struct IopadmapPass : public Pass {
 
 				if (wire->port_input && !wire->port_output) {
 					if (inpad_celltype.empty()) {
-						log("Don't map input port %s.%s: Missing option -inpad.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+						log("Don't map input port %s.%s: Missing option -inpad.\n", module, wire);
 						continue;
 					}
 					celltype = inpad_celltype;
@@ -398,7 +398,7 @@ struct IopadmapPass : public Pass {
 				} else
 				if (!wire->port_input && wire->port_output) {
 					if (outpad_celltype.empty()) {
-						log("Don't map output port %s.%s: Missing option -outpad.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+						log("Don't map output port %s.%s: Missing option -outpad.\n", module, wire);
 						continue;
 					}
 					celltype = outpad_celltype;
@@ -407,7 +407,7 @@ struct IopadmapPass : public Pass {
 				} else
 				if (wire->port_input && wire->port_output) {
 					if (inoutpad_celltype.empty()) {
-						log("Don't map inout port %s.%s: Missing option -inoutpad.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+						log("Don't map inout port %s.%s: Missing option -inoutpad.\n", module, wire);
 						continue;
 					}
 					celltype = inoutpad_celltype;
@@ -417,11 +417,11 @@ struct IopadmapPass : public Pass {
 					log_abort();
 
 				if (!flag_bits && wire->width != 1 && widthparam.empty()) {
-					log("Don't map multi-bit port %s.%s: Missing option -widthparam or -bits.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+					log("Don't map multi-bit port %s.%s: Missing option -widthparam or -bits.\n", module, wire);
 					continue;
 				}
 
-				log("Mapping port %s.%s using %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name), celltype);
+				log("Mapping port %s.%s using %s.\n", module, wire, celltype);
 
 				if (flag_bits)
 				{
@@ -433,7 +433,7 @@ struct IopadmapPass : public Pass {
 						SigBit wire_bit(wire, i);
 
 						RTLIL::Cell *cell = module->addCell(
-							module->uniquify(stringf("$iopadmap$%s.%s", log_id(module->name), log_id(wire->name))),
+							module->uniquify(stringf("$iopadmap$%s.%s", module->name.unescape(), wire->name.unescape())),
 							RTLIL::escape_id(celltype));
 						cell->setPort(RTLIL::escape_id(portname_int), wire_bit);
 
@@ -442,21 +442,21 @@ struct IopadmapPass : public Pass {
 						if (!widthparam.empty())
 							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
 						if (!nameparam.empty())
-							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", RTLIL::id2cstr(wire->name), i));
+							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", wire, i));
 						cell->attributes[ID::keep] = RTLIL::Const(1);
 					}
 				}
 				else
 				{
 					RTLIL::Cell *cell = module->addCell(
-						module->uniquify(stringf("$iopadmap$%s.%s", log_id(module->name), log_id(wire->name))),
+						module->uniquify(stringf("$iopadmap$%s.%s", module->name.unescape(), wire->name.unescape())),
 						RTLIL::escape_id(celltype));
 					cell->setPort(RTLIL::escape_id(portname_int), RTLIL::SigSpec(wire));
 
 					if (!portname_pad.empty()) {
 						RTLIL::Wire *new_wire = NULL;
 						new_wire = module->addWire(
-							module->uniquify(stringf("$iopadmap$%s", log_id(wire))),
+							module->uniquify(stringf("$iopadmap$%s", wire)),
 							wire);
 						module->swap_names(new_wire, wire);
 						wire->attributes.clear();
@@ -465,7 +465,7 @@ struct IopadmapPass : public Pass {
 					if (!widthparam.empty())
 						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
 					if (!nameparam.empty())
-						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
+						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(wire->name.unescape());
 					cell->attributes[ID::keep] = RTLIL::Const(1);
 				}
 
@@ -500,7 +500,7 @@ struct IopadmapPass : public Pass {
 			for (auto &it : rewrite_bits) {
 				RTLIL::Wire *wire = it.first;
 				RTLIL::Wire *new_wire = module->addWire(
-					module->uniquify(stringf("$iopadmap$%s", log_id(wire))),
+					module->uniquify(stringf("$iopadmap$%s", wire)),
 					wire);
 				module->swap_names(new_wire, wire);
 				wire->attributes.clear();

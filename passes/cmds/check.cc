@@ -20,9 +20,10 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celledges.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/utils.h"
 #include "kernel/log_help.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -117,7 +118,7 @@ struct CheckPass : public Pass {
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
-			log("Checking module %s...\n", log_id(module));
+			log("Checking module %s...\n", module);
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
@@ -133,7 +134,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
-										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
 
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
@@ -154,7 +155,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
-										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -259,7 +260,7 @@ struct CheckPass : public Pass {
 			{
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
 					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
-					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
+					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescape());
 					counter++;
 				cell_allowed:;
 				}
@@ -275,10 +276,10 @@ struct CheckPass : public Pass {
 						if (input && bit.wire)
 							used_wires.insert(bit);
 						if (output && !input && bit.wire)
-							wire_drivers_count[bit]++;
+						wire_drivers_count[bit]++;
 						if (output && (bit.wire || !input))
-							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", log_id(conn.first), i,
-																log_id(cell), log_id(cell->type)));
+							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", conn.first.unescape(), i,
+																cell, cell->type.unescape()));
 						if (output)
 							driver_cells[bit] = cell;
 					}
@@ -298,7 +299,7 @@ struct CheckPass : public Pass {
 					SigSpec sig = sigmap(wire);
 					for (int i = 0; i < GetSize(sig); i++)
 						if (sig[i].wire || !wire->port_output)
-							wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
+							wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", wire, i));
 				}
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
@@ -312,7 +313,7 @@ struct CheckPass : public Pass {
 						if (initval[i] == State::S0 || initval[i] == State::S1)
 							init_bits.insert(sigmap(SigBit(wire, i)));
 					if (noinit) {
-						log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire));
+						log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", module, wire);
 						counter++;
 					}
 				}
@@ -329,7 +330,7 @@ struct CheckPass : public Pass {
 
 			for (auto it : wire_drivers)
 				if (wire_drivers_count[it.first] > 1) {
-					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
+					string message = stringf("multiple conflicting drivers for %s.%s:\n", module, log_signal(it.first));
 					for (auto str : it.second)
 						message += stringf("    %s\n", str);
 					log_warning("%s", message);
@@ -338,13 +339,13 @@ struct CheckPass : public Pass {
 
 			for (auto bit : used_wires)
 				if (!wire_drivers.count(bit)) {
-					log_warning("Wire %s.%s is used but has no driver.\n", log_id(module), log_signal(bit));
+					log_warning("Wire %s.%s is used but has no driver.\n", module, log_signal(bit));
 					counter++;
 				}
 
 			topo.sort();
 			for (auto &loop : topo.loops) {
-				string message = stringf("found logic loop in module %s:\n", log_id(module));
+				string message = stringf("found logic loop in module %s:\n", module);
 
 				// `loop` only contains wire bits, or an occasional special helper node for cells for
 				// which we have done the edges fallback. The cell and its ports that led to an edge are
@@ -378,8 +379,8 @@ struct CheckPass : public Pass {
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("      %s[%d] --> %s[%d]\n", log_id(from_port), from_bit,
-												   log_id(to_port), to_bit);
+								message += stringf("      %s[%d] --> %s[%d]\n", from_port.unescape(), from_bit,
+												   to_port.unescape(), to_bit);
 							if (nhits == HITS_LIMIT)
 								message += "      ...\n";
 						}
@@ -397,7 +398,7 @@ struct CheckPass : public Pass {
 						driver_src = stringf(" source: %s", src_attr);
 					}
 
-					message += stringf("    cell %s (%s)%s\n", log_id(driver), log_id(driver->type), driver_src);
+					message += stringf("    cell %s (%s)%s\n", driver, driver->type.unescape(), driver_src);
 
 					if (!coarsened_cells.count(driver)) {						
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);
@@ -437,7 +438,7 @@ struct CheckPass : public Pass {
 				init_sig.sort_and_unify();
 
 				for (auto chunk : init_sig.chunks()) {
-					log_warning("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", log_id(module), log_signal(chunk));
+					log_warning("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", module, log_signal(chunk));
 					counter++;
 				}
 			}
@@ -452,5 +453,96 @@ struct CheckPass : public Pass {
 			log_error("Found %d problems in 'check -assert'.\n", counter);
 	}
 } CheckPass;
+
+struct CheckMemPass : public Pass {
+	CheckMemPass() : Pass("check_mem", "check for obvious memory problems in the design") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+
+		auto content_root = help->get_root();
+
+		content_root->usage("check_mem [selection]");
+		content_root->paragraph(
+			"This pass identifies the following problems in the current design: "
+			"addressing invalid memory."
+		);
+
+		content_root->option("-non-const", "also check non-const address signals (may produce false-positives)");
+		content_root->option("-assert", "produce a runtime error if any problems are found in the current design");
+
+		return true;
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		int counter = 0;
+		bool assert_mode = false;
+		bool nonconst_mode = false;
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-assert") {
+				assert_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-non-const") {
+				nonconst_mode = true;
+				continue;
+			}
+			break;
+		}
+
+		extra_args(args, argidx, design);
+
+		log_header(design, "Executing CHECK_MEM pass.\n");
+
+		for (auto *module : design->selected_unboxed_modules_warn()) {
+			for (auto mem : Mem::get_selected_memories(module)) {
+				int min_addr = mem.mem->start_offset;
+				int max_addr = mem.mem->size + min_addr - 1;
+				for (auto &init : mem.inits) {
+					int start = init.addr.as_int();
+					if (start < min_addr) {
+						log_warning("Mem %s.%s starts at %d but initializes address %d.\n", log_id(module), log_id(mem.mem), min_addr, start);
+						counter++;
+					}
+					int end = start + (GetSize(init.data) / mem.width) - 1;
+					if (end > max_addr) {
+						log_warning("Mem %s.%s ends at %d but initializes address %d.\n", log_id(module), log_id(mem.mem), max_addr, end);
+						counter++;
+					}
+				}
+
+				auto check_addr = [min_addr, max_addr, &counter, module, &mem, &nonconst_mode](SigSpec &addr_sig, const char* access) {
+					if (addr_sig.is_fully_const()) {
+						auto addr = addr_sig.as_int();
+						if (addr < min_addr || addr > max_addr) {
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but %s address %d.\n", log_id(module), log_id(mem.mem), min_addr, max_addr, access, addr);
+							counter++;
+						}
+					} else if (nonconst_mode) {
+						// TODO check addr_sig.has_const() for constant MSb/LSb that may change effective min/max
+						// TODO consider sat solver for variable addresses
+						int addr_sig_min = 0;
+						int addr_sig_max = (1 << addr_sig.size()) - 1;
+						if (min_addr > addr_sig_min || max_addr < addr_sig_max) {
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but has a potentially dangerous non-const input %s\n", log_id(module), log_id(mem.mem), min_addr, max_addr, log_signal(addr_sig));
+							counter++;
+						}
+					}
+				};
+
+				// TODO test ABITS and WIDTH?
+				// TODO can we limit ports via selection?
+				for (auto &rd_port : mem.rd_ports)
+					check_addr(rd_port.addr, "reads");
+				for (auto &wr_port : mem.wr_ports)
+					check_addr(wr_port.addr, "writes");
+			}
+		}
+
+		if (assert_mode && counter > 0)
+			log_error("Found %d problems in 'check_mem -assert'.\n", counter);
+	}
+} CheckMemPass;
 
 PRIVATE_NAMESPACE_END

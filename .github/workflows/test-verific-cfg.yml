@@ -1,0 +1,95 @@
+name: Build various Verific configurations
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-verific-cfg:
+    if: github.repository_owner == 'YosysHQ'
+    runs-on: [self-hosted, linux, x64, fast]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: verific [SV]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
+
+      - name: verific [VHDL]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "vhdl" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
+
+      - name: verific [SV + VHDL]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "vhdl;systemverilog" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
+
+      - name: verific [SV + HIER]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog;hier_tree" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
+
+      - name: verific [VHDL + HIER]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "vhdl;hier_tree" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
+
+      - name: verific [SV + VHDL + HIER]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog;vhdl;hier_tree" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
+
+      - name: verific [SV + VHDL + HIER + EDIF + LIBERTY]
+        run: |
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog;vhdl;hier_tree;edif;liberty" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs

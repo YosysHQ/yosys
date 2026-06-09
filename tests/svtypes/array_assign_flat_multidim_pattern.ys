@@ -1,0 +1,10 @@
+logger -expect error "Assignment pattern element count mismatch: got 4, expected 2" 1
+
+read_verilog -sv <<EOT
+module top;
+    wire a [2][2];
+    assign a = '{1'b1, 1'b0, 1'b0, 1'b1};
+endmodule
+EOT
+
+hierarchy -top top

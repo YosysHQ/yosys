@@ -1,23 +1,20 @@
 name: Compiler testing
 
 on:
-  # always test main
-  push:
-    branches:
-      - main
-  merge_group:
-  # test PRs
   pull_request:
-  # allow triggering tests, ignores skip check
+  merge_group:
+  #push:
+  #  branches: [ main ]
   workflow_dispatch:
 
 jobs:
   pre_job:
     runs-on: ubuntu-latest
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: ${{ steps.set_output.outputs.should_skip }}
     steps:
       - id: skip_check
+        if: ${{ github.event_name != 'merge_group' }}
         uses: fkirc/skip-duplicate-actions@v5
         with:
           # don't run on documentation changes
@@ -26,35 +23,42 @@ jobs:
           # but never cancel main
           cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
+      - id: set_output
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
+          fi
+
   test-compile:
     runs-on: ${{ matrix.os }}
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     env:
       CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
-      CC_SHORT: ${{ startsWith(matrix.compiler, 'gcc') && 'gcc' || 'clang' }}
     strategy:
       matrix:
         os:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-10'
-          - 'gcc-10'
+          - 'clang-14'
+          - 'gcc-11'
           # newest, make sure to update maximum standard step to match
-          - 'clang-19'
-          - 'gcc-14'
+          - 'clang-22'
+          - 'gcc-16'
         include:
           # macOS x86
           - os: macos-15-intel
-            compiler: 'clang-19'
+            compiler: 'clang-22'
           # macOS arm
           - os: macos-latest
-            compiler: 'clang-19'
+            compiler: 'clang-22'
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
           persist-credentials: false
@@ -69,6 +73,7 @@ jobs:
         uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
+          gcc: ${{ (matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14') && '12' || '' }}
 
       - name: Tool versions
         shell: bash
@@ -76,17 +81,40 @@ jobs:
           $CC --version
           $CXX --version
 
+      - name: Fix clang-14 toolchain
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14'
+        run: |
+          echo 'CXXFLAGS=--gcc-toolchain=/usr -isystem /usr/include/c++/12 -isystem /usr/include/x86_64-linux-gnu/c++/12' >> $GITHUB_ENV
+
       # minimum standard
-      - name: Build C++17
+      - name: Build C++20
         shell: bash
         run: |
-          make config-$CC_SHORT
-          make -j$procs CXXSTD=c++17 compile-only
+          rm -rf build
+          cmake -B build -DCMAKE_CXX_STANDARD=20 . --fresh
+          cmake --build build --target yosys -j$procs
 
       # maximum standard, only on newest compilers
-      - name: Build C++20
-        if: ${{ matrix.compiler == 'clang-19' || matrix.compiler == 'gcc-14' }}
+      - name: Build C++26
+        if: ${{ matrix.compiler == 'clang-22' || matrix.compiler == 'gcc-16' }}
         shell: bash
         run: |
-          make config-$CC_SHORT
-          make -j$procs CXXSTD=c++20 compile-only
+          rm -rf build
+          cmake -B build -DCMAKE_CXX_STANDARD=26 . --fresh
+          cmake --build build --target yosys -j$procs
+
+  test-compile-result:
+    runs-on: ubuntu-latest
+    needs:
+      - test-compile
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "Needs results: ${{ join(needs.*.result, ',') }}"
+          if [[ "${{ join(needs.*.result, ',') }}" == *failure* ]] || \
+            [[ "${{ join(needs.*.result, ',') }}" == *cancelled* ]]; then
+            echo "Some jobs failed or were cancelled"
+            exit 1
+          fi
+      - run: echo "All good"

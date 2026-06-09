@@ -42,7 +42,7 @@ runs:
       if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
       with:
-        packages: gawk git make python3 bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache libgtest-dev
+        packages: gawk git make python3 bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache libgtest-dev libgmock-dev
         version: ${{ inputs.runs-on }}-buildys
 
     - name: Linux docs dependencies

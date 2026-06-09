@@ -1,0 +1,9 @@
+# Regression test for issue #5734: muxpack crash when $logic_not / $eq / $reduce_or
+# has Y port width > 1 (e.g. boolean result assigned to a wide wire).
+read_verilog <<EOT
+module top(input b, output [18:0] h);
+  assign h = ~|b;
+endmodule
+EOT
+proc
+muxpack

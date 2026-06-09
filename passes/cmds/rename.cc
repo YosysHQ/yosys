@@ -31,13 +31,13 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	to_name = RTLIL::escape_id(to_name);
 
 	if (module->count_id(to_name))
-		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name, module->name);
+		log_cmd_error("There is already an object `%s' in module `%s'.\n", RTLIL::unescape_id(to_name), module->name);
 
 	RTLIL::Wire *wire_to_rename = module->wire(from_name);
 	RTLIL::Cell *cell_to_rename = module->cell(from_name);
 
 	if (wire_to_rename != nullptr) {
-		log("Renaming wire %s to %s in module %s.\n", log_id(wire_to_rename), log_id(to_name), log_id(module));
+		log("Renaming wire %s to %s in module %s.\n", wire_to_rename, RTLIL::unescape_id(to_name), module);
 		module->rename(wire_to_rename, to_name);
 		if (wire_to_rename->port_id || flag_output) {
 			if (flag_output)
@@ -50,12 +50,12 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	if (cell_to_rename != nullptr) {
 		if (flag_output)
 			log_cmd_error("Called with -output but the specified object is a cell.\n");
-		log("Renaming cell %s to %s in module %s.\n", log_id(cell_to_rename), log_id(to_name), log_id(module));
+		log("Renaming cell %s to %s in module %s.\n", cell_to_rename, RTLIL::unescape_id(to_name), module);
 		module->rename(cell_to_rename, to_name);
 		return;
 	}
 
-	log_cmd_error("Object `%s' not found!\n", from_name);
+	log_cmd_error("Object `%s' not found!\n", RTLIL::unescape_id(from_name));
 }
 
 static std::string derive_name_from_src(const std::string &src, int counter)
@@ -254,18 +254,17 @@ struct RenamePass : public Pass {
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
 		log("\n");
-		log("Assign short auto-generated names to all selected wires and cells with private\n");
-		log("names. The -pattern option can be used to set the pattern for the new names.\n");
-		log("The character %% in the pattern is replaced with a integer number. The default\n");
-		log("pattern is '_%%_'.\n");
+		log("Assigns auto-generated names to objects used in formal verification\n");
+		log("that do not have a public name. This applies to all formal property\n");
+		log("cells, $any*/$all* output wires, and their containing cells.\n");
 		log("\n");
 		log("\n");
 		log("    rename -witness\n");
 		log("\n");
-		log("Assigns auto-generated names to all $any*/$all* output wires and containing\n");
-		log("cells that do not have a public name. This ensures that, during formal\n");
-		log("verification, a solver-found trace can be fully specified using a public\n");
-		log("hierarchical names.\n");
+		log("Assigns auto-generated names to objects used in formal verification\n");
+		log("that do not have a public name. This applies to all formal property\n");
+		log("cells ($assert, $assume, $cover, $live, $fair, $check), $any*/$all*\n");
+		log("output wires, and their containing cells.\n");
 		log("\n");
 		log("\n");
 		log("    rename -hide [selection]\n");
@@ -519,7 +518,7 @@ struct RenamePass : public Pass {
 			if (module == nullptr)
 				log_cmd_error("No top module found!\n");
 
-			log("Renaming module %s to %s.\n", log_id(module), log_id(new_name));
+			log("Renaming module %s to %s.\n", module, new_name.unescape());
 			design->rename(module, new_name);
 		}
 		else
@@ -533,7 +532,7 @@ struct RenamePass : public Pass {
 			for (auto module : design->selected_modules())
 			{
 				if (module->memories.size() != 0 || module->processes.size() != 0) {
-					log_warning("Skipping module %s with unprocessed memories or processes\n", log_id(module));
+					log_warning("Skipping module %s with unprocessed memories or processes\n", module);
 					continue;
 				}
 
@@ -622,7 +621,7 @@ struct RenamePass : public Pass {
 
 				RTLIL::Module *module_to_rename = nullptr;
 				for (auto module : design->modules())
-					if (module->name == from_name || RTLIL::unescape_id(module->name) == from_name) {
+					if (module->name == from_name || module->name.unescape() == from_name) {
 						module_to_rename = module;
 						break;
 					}

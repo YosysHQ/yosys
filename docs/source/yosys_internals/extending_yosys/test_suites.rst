@@ -7,28 +7,29 @@ Running the included test suite
 -------------------------------
 
 The Yosys source comes with a test suite to avoid regressions and keep
-everything working as expected.  Tests can be run by calling ``make test`` from
-the root Yosys directory. By default, this runs vanilla and unit tests.
+everything working as expected.  Tests can be run by building the ``test``
+target from the root Yosys directory. By default, this runs vanilla and unit
+tests.
+
+.. code:: console
+
+   cmake -B build .
+   cmake --build build --target test --parallel $(nproc)
 
 Vanilla tests
 ~~~~~~~~~~~~~
 
-These make up the majority of our testing coverage.
-They can be run with ``make vanilla-test`` and are based on calls to
-make subcommands (``make makefile-tests``) and shell scripts
-(``make seed-tests`` and ``make abcopt-tests``). Both use ``run-test.sh``
-files, but make-based tests only call ``tests/gen-tests-makefile.sh``
-to generate a makefile appropriate for the given directory, so only
-afterwards when make is invoked do the tests actually run.
+.. TODO:: update for test infra changes
 
-Usually their structure looks something like this:
-you write a .ys file that gets automatically run,
-which runs a frontend like ``read_verilog`` or ``read_rtlil`` with
-a relative path or a heredoc, then runs some commands including the command
-under test, and then uses :doc:`/using_yosys/more_scripting/selections`
-with ``-assert-count``. Usually it's unnecessary to "register" the test anywhere
-as if it's being added to an existing directory, depending
-on how the ``run-test.sh`` in that directory works.
+These make up the majority of our testing coverage. They can be run with the
+``test-vanilla`` CMake target. Usually their structure looks something like
+this: you write a .ys file that gets automatically run, which runs a frontend
+like ``read_verilog`` or ``read_rtlil`` with a relative path or a heredoc, then
+runs some commands including the command under test, and then uses
+:doc:`/using_yosys/more_scripting/selections` with ``-assert-count``. Usually
+it's unnecessary to "register" the test anywhere as if it's being added to an
+existing directory, depending on how the ``run-test.sh`` in that directory
+works.
 
 Unit tests
 ~~~~~~~~~~
@@ -45,7 +46,7 @@ Running the unit tests requires the following additional packages:
 
    No additional requirements.
 
-Unit tests can be run with ``make unit-test``.
+Unit tests can be run with the ``test-unit`` CMake target.
 
 Functional tests
 ~~~~~~~~~~~~~~~~
@@ -75,17 +76,23 @@ If you don't have one of the :ref:`getting_started/installation:CAD suite(s)`
 installed, you should also install Z3 `following their
 instructions <https://github.com/Z3Prover/z3>`_.
 
-Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
-``make test`` and the functional tests will be run as well.
+.. TODO:: CMAKE_TODO
+
+   How does this work under CMake?  Is it only via ``make -C tests
+   ENABLE_FUNCTIONAL_TESTS=1`` and then manually setting ``BUILD_DIR`` and
+   ``PROGRAM_PREFIX``?  And possibly also setting ``YOSYS`` et al if there is a
+   ``.exe``.  Previous instructions:
+
+   Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
+   ``make test`` and the functional tests will be run as well.
 
 Docs tests
 ~~~~~~~~~~
 
 There are some additional tests for checking examples included in the
-documentation, which can be run by calling ``make test`` from the
-:file:`yosys/docs` sub-directory (or ``make -C docs test`` from the root). This
-also includes checking some macro commands to ensure that descriptions of them
-are kept up to date, and is mostly intended for CI.
+documentation, which can be run with the ``test-docs`` CMake target. This also
+includes checking some macro commands to ensure that descriptions of them are
+kept up to date, and is mostly intended for CI.
 
 
 Automatic testing

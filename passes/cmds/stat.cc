@@ -253,7 +253,7 @@ struct statdata_t
 		log("   Number of cells:             %6u\n", num_cells);
 		for (auto &it : num_cells_by_type)
 			if (it.second)
-				log("     %-26s %6u\n", log_id(it.first), it.second);
+				log("     %-26s %6u\n", it.first.unescape(), it.second);
 
 		if (!unknown_cell_area.empty()) {
 			log("\n");
@@ -267,7 +267,7 @@ struct statdata_t
 			log("     of which used for sequential elements: %f (%.2f%%)\n", sequential_area, 100.0*sequential_area/area);
 		}
 
-		if (tech == "xilinx")
+		if (tech == "xilinx" || tech == "analogdevices")
 		{
 			log("\n");
 			log("   Estimated number of LCs: %10u\n", estimate_xilinx_lc());
@@ -305,12 +305,12 @@ struct statdata_t
 			if (it.second) {
 				if (!first_line)
 					log(",\n");
-				log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
+				log("            %s: %u", json11::Json(it.first.unescape()).dump().c_str(), it.second);
 				first_line = false;
 			}
 		log("\n");
 		log("         }");
-		if (tech == "xilinx")
+		if (tech == "xilinx" || tech == "analogdevices")
 		{
 			log(",\n");
 			log("         \"estimated_num_lc\": %u", estimate_xilinx_lc());
@@ -336,7 +336,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	for (auto &it : num_cells_by_type)
 		if (mod_stat.count(it.first) > 0) {
 			if (!quiet)
-				log("     %*s%-*s %6u\n", 2*level, "", 26-2*level, log_id(it.first), it.second);
+				log("     %*s%-*s %6u\n", 2*level, "", 26-2*level, it.first.unescape(), it.second);
 			mod_data = mod_data + hierarchy_worker(mod_stat, it.first, level+1, quiet) * it.second;
 			mod_data.num_cells -= it.second;
 		} else {
@@ -435,7 +435,7 @@ struct StatPass : public Pass {
 		log("\n");
 		log("    -tech <technology>\n");
 		log("        print area estimate for the specified technology. Currently supported\n");
-		log("        values for <technology>: xilinx, cmos\n");
+		log("        values for <technology>: xilinx, analogdevices, cmos\n");
 		log("\n");
 		log("    -width\n");
 		log("        annotate internal cell types with their word width.\n");
@@ -494,7 +494,7 @@ struct StatPass : public Pass {
 		if(!json_mode)
 			log_header(design, "Printing statistics.\n");
 
-		if (techname != "" && techname != "xilinx" && techname != "cmos" && !json_mode)
+		if (techname != "" && techname != "xilinx" && techname != "analogdevices" && techname != "cmos" && !json_mode)
 			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
 		if (json_mode) {
@@ -521,7 +521,7 @@ struct StatPass : public Pass {
 				first_module = false;
 			} else {
 				log("\n");
-				log("=== %s%s ===\n", log_id(mod->name), mod->is_selected_whole() ? "" : " (partially selected)");
+				log("=== %s%s ===\n", mod->name.unescape(), mod->is_selected_whole() ? "" : " (partially selected)");
 				log("\n");
 				data.log_data(mod->name, false);
 			}
@@ -538,7 +538,7 @@ struct StatPass : public Pass {
 				log("\n");
 				log("=== design hierarchy ===\n");
 				log("\n");
-				log("   %-28s %6d\n", log_id(top_mod->name), 1);
+				log("   %-28s %6d\n", top_mod->name.unescape(), 1);
 			}
 
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode);

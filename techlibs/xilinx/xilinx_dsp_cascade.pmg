@@ -114,7 +114,7 @@ finally
 					}
 					dsp_pcin->setPort(\OPMODE, opmode);
 
-					log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+					log_debug("PCOUT -> PCIN cascade for %s -> %s\n", dsp, dsp_pcin);
 				}
 				if (AREG >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 30);
@@ -128,7 +128,7 @@ finally
 						dsp->setParam(\ACASCREG, AREG);
 					dsp_pcin->setParam(\A_INPUT, Const("CASCADE"));
 
-					log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+					log_debug("ACOUT -> ACIN cascade for %s -> %s\n", dsp, dsp_pcin);
 				}
 				if (BREG >= 0) {
 					Wire *cascade = module->addWire(NEW_ID, 18);
@@ -161,11 +161,11 @@ finally
 						dsp_pcin->setParam(\B_INPUT, Const("CASCADE"));
 					}
 
-					log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+					log_debug("BCOUT -> BCIN cascade for %s -> %s\n", dsp, dsp_pcin);
 				}
 			}
 			else {
-				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", log_id(dsp), log_id(dsp_pcin), MAX_DSP_CASCADE);
+				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", dsp, dsp_pcin, MAX_DSP_CASCADE);
 			}
 
 			dsp = dsp_pcin;

@@ -79,7 +79,7 @@ struct BoxDerivePass : Pass {
 		if (!base_name.empty()) {
 			base_override = d->module(base_name);
 			if (!base_override)
-				log_cmd_error("Base module %s not found.\n", log_id(base_name));
+				log_cmd_error("Base module %s not found.\n", base_name.unescape());
 		}
 
 		dict<std::pair<RTLIL::IdString, dict<RTLIL::IdString, RTLIL::Const>>, Module*> done;
@@ -109,7 +109,7 @@ struct BoxDerivePass : Pass {
 						IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));
 						if (!new_name.isPublic())
 							log_error("Derived module %s cannot be renamed to private name %s.\n",
-									  log_id(derived), log_id(new_name));
+									  derived, new_name.unescape());
 						derived->attributes.erase(naming_attr);
 						d->rename(derived, new_name);
 					}

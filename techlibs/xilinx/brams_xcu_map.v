@@ -215,7 +215,7 @@ end else if (OPTION_MODE == "FULL") begin
 		.DINADIN(DI[31:0]),
 		.DINBDIN(PORT_W_WIDTH == 72 ? DI[63:32] : DI[31:0]),
 		.DINPADINP(DIP[3:0]),
-		.DINPBDINP(PORT_W_WIDTH == 71 ? DIP[7:4] : DIP[3:0]),
+		.DINPBDINP(PORT_W_WIDTH == 72 ? DIP[7:4] : DIP[3:0]),
 	);
 end
 

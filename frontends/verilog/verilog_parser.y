@@ -84,7 +84,7 @@
 			int current_function_or_task_port_id;
 			std::vector<char> case_type_stack;
 			bool do_not_require_port_stubs;
-			bool current_wire_rand, current_wire_const;
+			bool current_wire_rand, current_wire_const, current_wire_automatic;
 			bool current_modport_input, current_modport_output;
 			bool default_nettype_wire = true;
 			std::istream* lexin;
@@ -546,7 +546,7 @@
 %token TOK_z "'z'"
 
 %type <ast_t> range range_or_multirange non_opt_range non_opt_multirange
-%type <ast_t> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
+%type <ast_t> wire_type expr basic_expr concat_list assignment_pattern_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string_t> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string_t> type_name
 %type <ast_t> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
@@ -958,14 +958,18 @@ delay:
 	non_opt_delay | %empty;
 
 io_wire_type:
-	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; }
+	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; extra->current_wire_automatic = false; }
 	wire_type_token_io wire_type_const_rand opt_wire_type_token wire_type_signedness
 	{ $$ = std::move(extra->astbuf3); SET_RULE_LOC(@$, @2, @$); };
 
 non_io_wire_type:
-	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; }
-	wire_type_const_rand wire_type_token wire_type_signedness
-	{ $$ = std::move(extra->astbuf3); SET_RULE_LOC(@$, @2, @$); };
+	{ extra->astbuf3 = std::make_unique<AstNode>(@$, AST_WIRE); extra->current_wire_rand = false; extra->current_wire_const = false; extra->current_wire_automatic = false; }
+	opt_lifetime wire_type_const_rand wire_type_token wire_type_signedness
+	{
+		if (extra->current_wire_automatic)
+			extra->astbuf3->set_attribute(ID::nosync, AstNode::mkconst_int(extra->astbuf3->location, 1, false));
+		$$ = std::move(extra->astbuf3); SET_RULE_LOC(@$, @2, @$);
+	};
 
 wire_type:
 	io_wire_type { $$ = std::move($1); }  |
@@ -1251,6 +1255,10 @@ dpi_function_args:
 
 opt_automatic:
 	TOK_AUTOMATIC |
+	%empty;
+
+opt_lifetime:
+	TOK_AUTOMATIC { extra->current_wire_automatic = true; } |
 	%empty;
 
 task_func_args_opt:
@@ -3341,6 +3349,11 @@ basic_expr:
 	TOK_LCURL concat_list TOK_RCURL {
 		$$ = std::move($2);
 	} |
+	OP_CAST TOK_LCURL assignment_pattern_list optional_comma TOK_RCURL {
+		if (!mode->sv)
+			err_at_loc(@1, "Assignment patterns are only supported in SystemVerilog mode.");
+		$$ = std::move($3);
+	} |
 	TOK_LCURL expr TOK_LCURL concat_list TOK_RCURL TOK_RCURL {
 		$$ = std::make_unique<AstNode>(@$, AST_REPLICATE, std::move($2), std::move($4));
 	} |
@@ -3570,6 +3583,16 @@ concat_list:
 	expr TOK_COMMA concat_list {
 		$$ = std::move($3);
 		$$->children.push_back(std::move($1));
+	};
+
+assignment_pattern_list:
+	expr {
+		$$ = std::make_unique<AstNode>(@$, AST_ASSIGN_PATTERN);
+		$$->children.push_back(std::move($1));
+	} |
+	assignment_pattern_list TOK_COMMA expr {
+		$$ = std::move($1);
+		$$->children.push_back(std::move($3));
 	};
 
 integral_number:

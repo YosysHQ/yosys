@@ -1,6 +1,4 @@
-PROGRAM_PREFIX :=
-
-YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
+include ../../../common.mk
 
 DOT_NAMES = opt_share opt_muxtree opt_merge opt_expr
 
@@ -12,9 +10,9 @@ dots: $(DOTS)
 examples:
 
 %.dot: %.ys
-	$(YOSYS) $<
-	gvpack -u -o $@ $*_full.dot
+	@$(YOSYS) $< >/dev/null 2>&1
+	@gvpack -u -o $@ $*_full.dot >/dev/null 2>&1
 
 .PHONY: clean
 clean:
-	rm -f *.dot
+	@rm -f *.dot

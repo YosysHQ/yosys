@@ -56,6 +56,9 @@ struct SynthGateMatePass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis.\n");
 		log("\n");
+		log("    -scopename\n");
+		log("        create 'scopename' attributes when flattening the netlist.\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use CC_BRAM_20K or CC_BRAM_40K cells in output netlist.\n");
 		log("\n");
@@ -69,13 +72,17 @@ struct SynthGateMatePass : public ScriptPass
 		log("        do not use CC_MX{8,4} multiplexer cells in output netlist.\n");
 		log("\n");
 		log("    -luttree\n");
-		log("        use new LUT tree mapping approach (EXPERIMENTAL).\n");
+		log("        use LUT tree mapping for output to nextpnr. Do not use this if targeting\n");
+		log("        legacy p_r.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with '-dff -D 1' options\n");
+		log("\n");
+		log("    -abc_new\n");
+		log("        use 'abc_new' instead of 'abc' for mapping. (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -noiopad\n");
 		log("        disable I/O buffer insertion (useful for hierarchical or \n");
@@ -90,7 +97,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf;
+	bool noflatten, scopename, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf, abc_new;
 
 	void clear_flags() override
 	{
@@ -98,6 +105,7 @@ struct SynthGateMatePass : public ScriptPass
 		vlog_file = "";
 		json_file = "";
 		noflatten = false;
+		scopename = false;
 		nobram = false;
 		noaddf = false;
 		nomult = false;
@@ -108,6 +116,7 @@ struct SynthGateMatePass : public ScriptPass
 		retime = false;
 		noiopad = false;
 		noclkbuf = false;
+		abc_new = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -140,6 +149,10 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			if (args[argidx] == "-noflatten") {
 				noflatten = true;
+				continue;
+			}
+			if (args[argidx] == "-scopename") {
+				scopename = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -182,6 +195,10 @@ struct SynthGateMatePass : public ScriptPass
 				noclkbuf = true;
 				continue;
 			}
+			if (args[argidx] == "-abc_new") {
+				abc_new = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -210,7 +227,9 @@ struct SynthGateMatePass : public ScriptPass
 		{
 			run("proc");
 			if (!noflatten) {
-				run("flatten");
+				run("check");
+				std::string flatten_args = scopename ? " -scopename" : "";
+				run("flatten" + flatten_args);
 			}
 			run("tribuf -logic");
 			run("deminout");
@@ -312,7 +331,11 @@ struct SynthGateMatePass : public ScriptPass
 				if (dff) {
 					abc_args += " -dff";
 				}
-				run("abc " + abc_args, "(with -luttree)");
+				if (abc_new) {
+					run("abc_new " + abc_args, "(with -luttree and -abc_new)");
+				} else {
+					run("abc " + abc_args, "(with -luttree, without -abc_new)");
+				}
 				run("techmap -map +/gatemate/lut_tree_map.v", "(with -luttree)");
 				run("gatemate_foldinv", "(with -luttree)");
 				run("techmap -map +/gatemate/inv_map.v", "(with -luttree)");

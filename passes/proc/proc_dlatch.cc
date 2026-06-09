@@ -395,10 +395,17 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 	int offset = 0;
 	for (auto chunk : nolatches_bits.first.chunks()) {
 		SigSpec lhs = chunk, rhs = nolatches_bits.second.extract(offset, chunk.width);
-		if (proc->get_bool_attribute(ID::always_latch))
+		bool is_nosync = true;
+		for (auto bit : lhs)
+			if (bit.wire == nullptr || !bit.wire->get_bool_attribute(ID::nosync)) {
+				is_nosync = false;
+				break;
+			}
+
+		if (proc->get_bool_attribute(ID::always_latch) && !is_nosync)
 			log_error("No latch inferred for signal `%s.%s' from always_latch process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
-		else
+		else if (!is_nosync)
 			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
 		for (auto &bit : lhs) {
@@ -438,7 +445,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
 			else
 				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), log_id(cell));
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
 		}
 
 		offset += width;

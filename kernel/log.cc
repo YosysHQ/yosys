@@ -25,7 +25,7 @@
 #  include <sys/time.h>
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(YOSYS_ENABLE_DLOPEN)
 #  include <dlfcn.h>
 #endif
 
@@ -324,6 +324,14 @@ void log_formatted_file_info(std::string_view filename, int lineno, std::string 
 	log("%s:%d: Info: %s", filename, lineno, str);
 }
 
+void log_suppressed() {
+	if (log_debug_suppressed && !log_make_debug) {
+		constexpr const char* format = "<suppressed ~%d debug messages>\n";
+		logv_string(format, stringf(format, log_debug_suppressed));
+		log_debug_suppressed = 0;
+	}
+}
+
 [[noreturn]]
 static void log_error_with_prefix(std::string_view prefix, std::string str)
 {
@@ -345,7 +353,9 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	}
 
 	log_last_error = std::move(str);
-	log("%s%s", prefix, log_last_error);
+	std::string message(prefix);
+	message += log_last_error;
+	logv_string("%s%s", message);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -355,7 +365,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 			item.current_count++;
 
 	for (auto &[_, item] : log_expect_prefix_error)
-		if (std::regex_search(string(prefix) + string(log_last_error), item.pattern))
+		if (std::regex_search(message, item.pattern))
 			item.current_count++;
 
 	log_check_expected();
@@ -461,7 +471,7 @@ void log_pop()
 	log_flush();
 }
 
-#if (defined(__linux__) || defined(__FreeBSD__)) && defined(YOSYS_ENABLE_PLUGINS)
+#if defined(YOSYS_ENABLE_DLOPEN)
 void log_backtrace(const char *prefix, int levels)
 {
 	if (levels <= 0) return;
@@ -576,7 +586,7 @@ void log_flush()
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {
-	log("%s", log_id(v));
+	log("%s", v.unescape());
 }
 
 void log_dump_val_worker(RTLIL::SigSpec v) {
@@ -604,7 +614,7 @@ std::string log_const(const RTLIL::Const &value, bool autoint)
 
 const char *log_id(const RTLIL::IdString &str)
 {
-	std::string unescaped = RTLIL::unescape_id(str);
+	std::string unescaped = str.unescape();
 	log_id_cache.push_back(strdup(unescaped.c_str()));
 	return log_id_cache.back();
 }

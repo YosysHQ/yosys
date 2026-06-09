@@ -29,7 +29,7 @@ static std::string file_base_name(std::string const & path)
 
 FstData::FstData(std::string filename) : ctx(nullptr)
 {
-	#if !defined(YOSYS_DISABLE_SPAWN)
+	#if defined(YOSYS_ENABLE_SPAWN)
 	std::string filename_trim = file_base_name(filename);
 	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
 		filename_trim.erase(filename_trim.size()-4);
@@ -45,8 +45,7 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
 		log_error("Error opening '%s' as FST file\n", filename);
-	int scale = (int)fstReaderGetTimescale(ctx);	
-	timescale = pow(10.0, scale);
+	scale = (int)fstReaderGetTimescale(ctx);
 	timescale_str = "";
 	int unit = 0;
 	int zeros = 0;
@@ -88,11 +87,11 @@ static void normalize_brackets(std::string &str)
 	}
 }
 
-fstHandle FstData::getHandle(std::string name) { 
+fstHandle FstData::getHandle(std::string name) {
 	normalize_brackets(name);
 	if (name_to_handle.find(name) != name_to_handle.end())
 		return name_to_handle[name];
-	else 
+	else
 		return 0;
 };
 
@@ -253,7 +252,7 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 	bool is_clock = false;
 	if (!all_samples) {
 		for(auto &s : clk_signals) {
-			if (s==pnt_facidx)  { 
+			if (s==pnt_facidx)  {
 				is_clock=true;
 				break;
 			}
@@ -386,7 +385,7 @@ std::string FstData::autoScope(Module *topmod) {
 
 	// Logging results
 	if (results.empty()) {
-		log_warning("Could not auto-discover scope for module '%s'...\n", 
+		log_warning("Could not auto-discover scope for module '%s'...\n",
 			top.c_str());
 		return "";
 	} else {
@@ -395,7 +394,7 @@ std::string FstData::autoScope(Module *topmod) {
 			log("  %s\n", scope.c_str());
 		}
 		if (results.size() > 1) {
-			log_warning("Multiple scopes found for module '%s'. Using the first one.\n", 
+			log_warning("Multiple scopes found for module '%s'. Using the first one.\n",
 				top.c_str());
 		}
 		return results[0];

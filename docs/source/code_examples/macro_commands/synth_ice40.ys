@@ -6,6 +6,7 @@ begin:
     proc
 
 flatten:
+    check
     flatten
     tribuf -logic
     deminout

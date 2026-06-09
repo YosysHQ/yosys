@@ -37,7 +37,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "aigerparse.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -224,7 +224,7 @@ AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString
 	module = new RTLIL::Module;
 	module->name = module_name;
 	if (design->module(module->name))
-		log_error("Duplicate definition of module %s!\n", log_id(module->name));
+		log_error("Duplicate definition of module %s!\n", module->name.unescape());
 }
 
 void AigerReader::parse_aiger()
@@ -286,10 +286,15 @@ end_of_header:
 
 			RTLIL::IdString escaped_s = stringf("\\%s", s);
 			RTLIL::Wire* wire;
-			if (c == 'i') wire = inputs[l1];
-			else if (c == 'l') wire = latches[l1];
-			else if (c == 'o') {
+			if (c == 'i')  {
+				log_assert(l1 < inputs.size());
+				wire = inputs[l1];
+			} else if (c == 'l') {
+				log_assert(l1 < latches.size());
+				wire = latches[l1];
+			} else if (c == 'o') {
 				wire = module->wire(escaped_s);
+				log_assert(l1 < outputs.size());
 				if (wire) {
 					// Could have been renamed by a latch
 					module->swap_names(wire, outputs[l1]);
@@ -297,9 +302,9 @@ end_of_header:
 					goto next;
 				}
 				wire = outputs[l1];
-			}
-			else if (c == 'b') wire = bad_properties[l1];
-			else log_abort();
+			} else if (c == 'b') {
+				wire = bad_properties[l1];
+			} else log_abort();
 
 			module->rename(wire, escaped_s);
 		}
@@ -652,6 +657,9 @@ void AigerReader::parse_aiger_binary()
 	unsigned l1, l2, l3;
 	std::string line;
 
+	if (M != I + L + A)
+		log_error("Binary AIGER input is malformed: maximum variable index M is %u, but number of inputs, latches and AND gates adds up to %u.\n", M, I + L + A);
+
 	// Parse inputs
 	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i) {
@@ -813,7 +821,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = inputs[variable];
 				log_assert(wire);
 				log_assert(wire->port_input);
-				log_debug("Renaming input %s", log_id(wire));
+				log_debug("Renaming input %s", wire);
 
 				RTLIL::Wire *existing = nullptr;
 				if (index == 0) {
@@ -827,7 +835,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", log_id(escaped_s));
+					log_debug(" -> %s\n", escaped_s.unescape());
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -838,7 +846,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug(" -> %s\n", log_id(indexed_name));
+					log_debug(" -> %s\n", indexed_name.unescape());
 				}
 
 				if (wideports && !existing) {
@@ -858,7 +866,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Renaming output %s", log_id(wire));
+				log_debug("Renaming output %s", wire);
 
 				RTLIL::Wire *existing;
 				if (index == 0) {
@@ -874,7 +882,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug(" -> %s\n", log_id(escaped_s));
+					log_debug(" -> %s\n", escaped_s.unescape());
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -886,7 +894,7 @@ void AigerReader::post_process()
 						existing->port_output = true;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", log_id(indexed_name));
+					log_debug(" -> %s\n", indexed_name.unescape());
 				}
 
 				if (wideports && !existing) {
@@ -904,7 +912,7 @@ void AigerReader::post_process()
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$box%d", variable));
 				if (!cell)
-					log_debug("Box %d (%s) no longer exists.\n", variable, log_id(escaped_s));
+					log_debug("Box %d (%s) no longer exists.\n", variable, escaped_s.unescape());
 				else
 					module->rename(cell, escaped_s);
 			}

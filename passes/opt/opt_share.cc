@@ -446,7 +446,7 @@ struct OptSharePass : public Pass {
 						while (mux_port_offset + op_conn_width < mux_port_size &&
 								op_outsig_offset + op_conn_width < op_outsig_size &&
 								mux_insig[mux_port_offset + op_conn_width] == op_outsig[op_outsig_offset + op_conn_width])
-							op_conn_width++; 
+							op_conn_width++;
 
 						log_assert(op_conn_width >= 1);
 
@@ -561,9 +561,9 @@ struct OptSharePass : public Pass {
 				log_debug("    Found cells that share an operand and can be merged by moving the %s %s in front "
 				    "of "
 				    "them:\n",
-				    log_id(shared.mux->type), log_id(shared.mux));
+				    shared.mux->type.unescape(), shared.mux);
 				for (const auto& op : shared.ports)
-					log_debug("        %s\n", log_id(op.op));
+					log_debug("        %s\n", op.op);
 				log_debug("\n");
 
 				merge_operators(module, shared.mux, shared.ports, shared.shared_operand, sigmap);

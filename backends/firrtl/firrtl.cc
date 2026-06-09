@@ -82,7 +82,7 @@ const char *make_id(IdString id)
 	if (namecache.count(id) != 0)
 		return namecache.at(id).c_str();
 
-	string new_id = log_id(id);
+	string new_id = id.unescape();
 
 	for (int i = 0; i < GetSize(new_id); i++)
 	{
@@ -263,7 +263,7 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 
 		if (wire->port_input && wire->port_output)
 		{
-			log_error("Module port %s.%s is inout!\n", log_id(mod_instance), log_id(wire));
+			log_error("Module port %s.%s is inout!\n", mod_instance, wire);
 		}
 
 		const std::string portDecl = stringf("%s%s %s: UInt<%d> %s\n",
@@ -559,12 +559,12 @@ struct FirrtlWorker
 			if (wire->attributes.count(ID::init)) {
 				log_warning("Initial value (%s) for (%s.%s) not supported\n",
 							wire->attributes.at(ID::init).as_string().c_str(),
-							log_id(module), log_id(wire));
+							module, wire);
 			}
 			if (wire->port_id)
 			{
 				if (wire->port_input && wire->port_output)
-					log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
+					log_error("Module port %s.%s is inout!\n", module, wire);
 				port_decls.push_back(stringf("%s%s %s: UInt<%d> %s\n", indent, wire->port_input ? "input" : "output",
 						wireName, wire->width, wireFileinfo.c_str()));
 			}
@@ -833,7 +833,7 @@ struct FirrtlWorker
 							primop = "shl";
 							int shiftAmount = b_sig.as_int();
 							if (shiftAmount < 0) {
-								log_error("Negative power exponent - %d: %s.%s\n", shiftAmount, log_id(module), log_id(cell));
+								log_error("Negative power exponent - %d: %s.%s\n", shiftAmount, module, cell);
 							}
 							b_expr = std::to_string(shiftAmount);
 							firrtl_width = a_width + shiftAmount;
@@ -844,7 +844,7 @@ struct FirrtlWorker
 							firrtl_width = a_width + (1 << b_width) - 1;
 						}
 					} else {
-						log_error("Non power 2: %s.%s\n", log_id(module), log_id(cell));
+						log_error("Non power 2: %s.%s\n", module, cell);
 					}
 				}
 
@@ -905,7 +905,7 @@ struct FirrtlWorker
 			{
 				bool clkpol = cell->parameters.at(ID::CLK_POLARITY).as_bool();
 				if (clkpol == false)
-					log_error("Negative edge clock on FF %s.%s.\n", log_id(module), log_id(cell));
+					log_error("Negative edge clock on FF %s.%s.\n", module, cell);
 
 				int width = cell->parameters.at(ID::WIDTH).as_int();
 				string expr = make_expr(cell->getPort(ID::D));
@@ -983,7 +983,7 @@ struct FirrtlWorker
 
 			if (cell->type == ID($scopeinfo))
 				continue;
-			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+			log_error("Cell type not supported: %s (%s.%s)\n", cell->type.unescape(), module, cell);
 		}
 
 		for (auto &mem : memories) {
@@ -991,10 +991,10 @@ struct FirrtlWorker
 
 			Const init_data = mem.get_init_data();
 			if (!init_data.is_fully_undef())
-				log_error("Memory with initialization data: %s.%s\n", log_id(module), log_id(mem.memid));
+				log_error("Memory with initialization data: %s.%s\n", module, mem.memid.unescape());
 
 			if (mem.start_offset != 0)
-				log_error("Memory with nonzero offset: %s.%s\n", log_id(module), log_id(mem.memid));
+				log_error("Memory with nonzero offset: %s.%s\n", module, mem.memid.unescape());
 
 			for (int i = 0; i < GetSize(mem.rd_ports); i++)
 			{
@@ -1002,7 +1002,7 @@ struct FirrtlWorker
 				string port_name(stringf("%s.r%d", mem_id, i));
 
 				if (port.clk_enable)
-					log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
+					log_error("Clocked read port %d on memory %s.%s.\n", i, module, mem.memid.unescape());
 
 				std::ostringstream rpe;
 
@@ -1023,12 +1023,12 @@ struct FirrtlWorker
 				string port_name(stringf("%s.w%d", mem_id, i));
 
 				if (!port.clk_enable)
-					log_error("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
+					log_error("Unclocked write port %d on memory %s.%s.\n", i, module, mem.memid.unescape());
 				if (!port.clk_polarity)
-					log_error("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
+					log_error("Negedge write port %d on memory %s.%s.\n", i, module, mem.memid.unescape());
 				for (int i = 1; i < GetSize(port.en); i++)
 					if (port.en[0] != port.en[i])
-						log_error("Complex write enable on port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
+						log_error("Complex write enable on port %d on memory %s.%s.\n", i, module, mem.memid.unescape());
 
 				std::ostringstream wpe;
 

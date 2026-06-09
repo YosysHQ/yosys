@@ -1,0 +1,125 @@
+yosys_pass(xilinx_dffopt
+	xilinx_dffopt.cc
+)
+pmgen_command(xilinx_dsp
+	xilinx_dsp.pmg
+)
+pmgen_command(xilinx_dsp48a
+	xilinx_dsp48a.pmg
+)
+pmgen_command(xilinx_dsp_CREG
+	xilinx_dsp_CREG.pmg
+)
+pmgen_command(xilinx_dsp_cascade
+	xilinx_dsp_cascade.pmg
+)
+yosys_pass(xilinx_dsp
+	xilinx_dsp.cc
+	${PMGEN_xilinx_dsp_OUTPUT}
+	${PMGEN_xilinx_dsp48a_OUTPUT}
+	${PMGEN_xilinx_dsp_CREG_OUTPUT}
+	${PMGEN_xilinx_dsp_cascade_OUTPUT}
+)
+pmgen_command(xilinx_srl
+	xilinx_srl.pmg
+)
+yosys_pass(xilinx_srl
+	xilinx_srl.cc
+	${PMGEN_xilinx_srl_OUTPUT}
+)
+
+yosys_pass(synth_xilinx
+	synth_xilinx.cc
+	REQUIRES
+		abc
+		alumacc
+		blackbox
+		check
+		chtype
+		clean
+		clkbufmap
+		deminout
+		dfflegalize
+		extractinv
+		flatten
+		fsm
+		hierarchy
+		iopadmap
+		memory
+		memory_dff
+		memory_libmap
+		memory_map
+		muxcover
+		muxpack
+		opt
+		opt_clean
+		opt_expr
+		opt_lut_ins
+		peepopt
+		pmux2shiftx
+		proc
+		read_verilog
+		select
+		setattr
+		share
+		simplemap
+		sort
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_blif
+		write_edif
+		write_json
+		xilinx_dffopt
+		xilinx_dsp
+		xilinx_srl
+		zinit
+	DATA_DIR
+		xilinx
+	DATA_FILES
+		cells_map.v
+		cells_sim.v
+		cells_xtra.v
+
+		lutrams_xcv.txt
+		lutrams_xcv_map.v
+
+		lutrams_xc5v.txt
+		lutrams_xcu.txt
+		lutrams_xc5v_map.v
+
+		brams_xcv.txt
+		brams_xcv_map.v
+
+		brams_defs.vh
+
+		brams_xc2v.txt
+		brams_xc2v_map.v
+
+		brams_xc3sda.txt
+		brams_xc3sda_map.v
+
+		brams_xc4v.txt
+		brams_xc4v_map.v
+		brams_xc5v_map.v
+		brams_xc6v_map.v
+		brams_xcu_map.v
+
+		urams.txt
+		urams_map.v
+
+		arith_map.v
+		ff_map.v
+		lut_map.v
+		mux_map.v
+		xc3s_mult_map.v
+		xc3sda_dsp_map.v
+		xc6s_dsp_map.v
+		xc4v_dsp_map.v
+		xc5v_dsp_map.v
+		xc7_dsp_map.v
+		xcu_dsp_map.v
+
+		abc9_model.v
+)

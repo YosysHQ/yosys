@@ -93,7 +93,7 @@ struct CutpointPass : public Pass {
 		for (auto module : design->all_selected_modules())
 		{
 			if (module->is_selected_whole()) {
-				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
+				log("Making all outputs of module %s cut points, removing module contents.\n", module);
 				module->new_connections(std::vector<RTLIL::SigSig>());
 				for (auto cell : vector<Cell*>(module->cells()))
 					module->remove(cell);
@@ -125,14 +125,14 @@ struct CutpointPass : public Pass {
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($anyseq))
 					continue;
-				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
+				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", module, cell);
 				for (auto &conn : cell->connections()) {
 					if (cell->output(conn.first)) {
 						bool do_cut = true;
 						if (cell->input(conn.first))
 							for (auto bit : sigmap(conn.second))
 								if (wire_drivers.count(bit)) {
-									log_debug("  Treating inout port '%s' as input.\n", id2cstr(conn.first));
+									log_debug("  Treating inout port '%s' as input.\n", conn.first.unescape());
 									do_cut = false;
 									break;
 								}
@@ -140,7 +140,7 @@ struct CutpointPass : public Pass {
 						if (do_cut) {
 							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
 							if (cell->input(conn.first)) {
-								log_debug("  Treating inout port '%s' as output.\n", id2cstr(conn.first));
+								log_debug("  Treating inout port '%s' as output.\n", conn.first.unescape());
 								for (auto bit : sigmap(conn.second))
 									wire_drivers.insert(bit);
 							}
@@ -159,7 +159,7 @@ struct CutpointPass : public Pass {
 						if (attr.first == ID::hdlname)
 							scopeinfo->attributes.insert(attr);
 						else
-							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first)), attr.second);
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", attr.first.unescape()), attr.second);
 					}
 				}
 
@@ -171,7 +171,7 @@ struct CutpointPass : public Pass {
 
 			for (auto wire : module->selected_wires()) {
 				if (wire->port_output) {
-					log("Making output wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
+					log("Making output wire %s.%s a cutpoint.\n", module, wire);
 					Wire *new_wire = module->addWire(NEW_ID, wire);
 					module->swap_names(wire, new_wire);
 					module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_ID, GetSize(new_wire)));
@@ -180,7 +180,7 @@ struct CutpointPass : public Pass {
 					wire->port_output = false;
 					continue;
 				}
-				log("Making wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
+				log("Making wire %s.%s a cutpoint.\n", module, wire);
 				for (auto bit : sigmap(wire))
 					cutpoint_bits.insert(bit);
 			}

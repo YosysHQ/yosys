@@ -27,7 +27,7 @@ foreach fn [glob opt_hier_*.v] {
 	design -copy-from gate -as gate A:top
 	yosys rename -hide
 	equiv_make gold gate equiv
-	equiv_induct equiv
+	equiv_induct -ignore-unknown-cells equiv
 	equiv_status -assert equiv
 
 	log -pop

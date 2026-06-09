@@ -16,3 +16,4 @@
 /ports_only_in_*.txt
 /ports_nets_in_*.v
 /ports_only_in_*.v
+/*.aig

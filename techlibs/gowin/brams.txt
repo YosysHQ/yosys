@@ -51,11 +51,6 @@ ram block $__GOWIN_DP_ {
 		portoption "WRITE_MODE" 1 {
 			rdwr new;
 		}
-		ifndef gw5a {
-			portoption "WRITE_MODE" 2 {
-				rdwr old;
-			}
-		}
 		wrbe_separate;
 	}
 }

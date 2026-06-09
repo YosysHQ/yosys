@@ -1,0 +1,107 @@
+read_verilog <<EOT
+module equiv_macc_add3(
+	input [3:0] a, b, c,
+	output [3:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt arith_tree
+design -load postopt
+select -assert-count 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module equiv_macc_add4(
+	input [3:0] a, b, c, d,
+	output [3:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt arith_tree
+design -load postopt
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module equiv_macc_add8(
+	input [3:0] a, b, c, d, e, f, g, h,
+	output [3:0] y
+);
+	assign y = a + b + c + d + e + f + g + h;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt arith_tree
+design -load postopt
+select -assert-count 6 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module equiv_macc_signed(
+	input signed [3:0] a, b, c, d,
+	output signed [5:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt arith_tree
+design -load postopt
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module equiv_macc_sub_mixed(
+	input [3:0] a, b, c, d,
+	output [3:0] y
+);
+	assign y = a + b - c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt arith_tree
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module equiv_macc_sub_all(
+	input [3:0] a, b, c, d,
+	output [3:0] y
+);
+	assign y = a - b - c - d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt arith_tree
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset

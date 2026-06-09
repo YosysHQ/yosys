@@ -1,0 +1,13 @@
+read_verilog ../common/counter.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -async2sync -assert -map +/analogdevices/cells_sim.v synth_analogdevices -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+stat
+select -assert-count 8 t:FFCE
+select -assert-count 1 t:LUT1
+select -assert-count 2 t:CRY4
+select -assert-count 1 t:CRY4INIT
+select -assert-none t:FFCE t:LUT1 t:CRY4 t:CRY4INIT %% t:* %D

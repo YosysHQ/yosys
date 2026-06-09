@@ -1,0 +1,18 @@
+yosys_core(fst
+	config.h
+	fastlz.cc
+	fastlz.h
+	fstapi.cc
+	fstapi.h
+	fst_win_unistd.h
+	lz4.cc
+	lz4.h
+	LIBRARIES
+		$<${YOSYS_ENABLE_ZLIB}:PkgConfig::zlib>
+	DATA_DIR
+		include/libs/fst
+	DATA_FILES
+		fstapi.h
+	ENABLE_IF
+		YOSYS_ENABLE_ZLIB
+)

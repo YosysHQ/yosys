@@ -36,20 +36,18 @@ jobs:
               runner: "macos-15",
               archs: "arm64",
             },
-            ## Windows is disabled because of an issue with compiling FFI as
-            ## under MinGW in the GitHub Actions environment (SHELL variable has
-            ## whitespace.)
+            ## Windows still needs to be tested.
             # {
-            #   name: "Windows Server 2019",
+            #   name: "Windows Server 2025",
             #   family: "windows",
-            #   runner: "windows-2019",
+            #   runner: "windows-2025",
             #   archs: "AMD64",
             # },
           ]
     name: Build Wheels | ${{ matrix.os.name }} | ${{ matrix.os.archs }}
     runs-on: ${{ matrix.os.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: true
@@ -77,17 +75,14 @@ jobs:
         name: "[Windows] Flex/Bison"
         run: |
           choco install winflexbison3
-      - if: ${{ matrix.os.family == 'macos' && matrix.os.archs == 'arm64' }}
-        name: "[macOS/arm64] Install Python 3.8 (see: https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64)"
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.1
+        uses: pypa/cibuildwheel@v3.4.1
         env:
           # * APIs not supported by PyPy
           # * Musllinux disabled because it increases build time from 48m to ~3h
           CIBW_SKIP: >
+            cp38*
+            cp39*
             pp*
             *musllinux*
           CIBW_ARCHS: ${{ matrix.os.archs }}
@@ -104,17 +99,16 @@ jobs:
             OPTFLAGS=-O3
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
-            makeFlags='CONFIG=clang'
             PATH="$PWD/bison/src:$PATH"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-wheels-${{ matrix.os.runner }}
           path: ./wheelhouse/*.whl
   upload_wheels:
     name: Upload Wheels
-    if: (github.repository == 'YosysHQ/Yosys') && (github.event_name == 'workflow_dispatch')
+    if: (github.repository == 'YosysHQ/yosys') && (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
@@ -123,7 +117,7 @@ jobs:
       id-token: write
     needs: build_wheels
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: "."
           pattern: python-wheels-*
