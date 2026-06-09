@@ -107,7 +107,7 @@ function(yosys_extract_version)
 		# Build YOSYS_ORIGIN_INFO (git repository origin and branch)
 		if (git_origin AND git_branch)
 			string(REGEX REPLACE "^https://|.git$" "" git_origin ${git_origin})
-			if (git_origin STREQUAL "github.com/YosysHQ/yosys" AND git_branch MATCHES "^HEAD|main|release/v.+$")
+			if (git_origin MATCHES "github\\.com[:/]YosysHQ/yosys$" AND git_branch MATCHES "^HEAD|main|release/v.+$")
 				# Nothing to highlight.
 				set(YOSYS_ORIGIN_INFO "")
 			else()
