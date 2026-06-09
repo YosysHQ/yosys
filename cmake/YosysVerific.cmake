@@ -25,6 +25,9 @@ function(get_verific_components result)
 		list(APPEND components ${component})
 	endforeach()
 
+	# Always remove TCL command interface
+	list(REMOVE_ITEM components commands)
+
 	set(${result} ${components})
 	return(PROPAGATE ${result})
 endfunction()
