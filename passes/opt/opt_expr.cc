@@ -128,7 +128,7 @@ void log_replace_sig(RTLIL::Module *module, RTLIL::Cell *cell,
 }
 
 void log_replace_port(RTLIL::Module *module, RTLIL::Cell *cell,
-		const std::string &info, RTLIL::IdString port, RTLIL::SigSpec new_sig)
+		const std::string &info, TwineRef port, RTLIL::SigSpec new_sig)
 {
 	log_replace_sig(module, cell, info, cell->getPort(port), new_sig);
 }
@@ -136,7 +136,7 @@ void log_replace_port(RTLIL::Module *module, RTLIL::Cell *cell,
 struct OptExprPatcher : public RTLIL::Patch {
 	OptExprPatcher(Module *mod, SigMap *map) : RTLIL::Patch(mod, map) {}
 	// Single-output rewrite via the compatible Patch::patch interface.
-	void patch(Cell *old_cell, IdString old_port, SigSpec new_sig, const std::string &info) {
+	void patch(Cell *old_cell, TwineRef old_port, SigSpec new_sig, const std::string &info) {
 		new_sig.extend_u0(old_cell->getPort(old_port).size(), false);
 		log_replace_port(mod, old_cell, info, old_port, new_sig);
 		RTLIL::Patch::patch(old_cell, old_port, new_sig);
@@ -157,14 +157,14 @@ struct OptExprPatcher : public RTLIL::Patch {
 
 bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc)
 {
-	IdString b_name = cell->hasPort(ID::B) ? ID::B : ID::A;
+	TwineRef b_name = cell->hasPort(TW::B) ? TW::B : TW::A;
 
 	bool a_signed = cell->parameters.at(ID::A_SIGNED).as_bool();
 	bool b_signed = cell->parameters.at(b_name.str() + "_SIGNED").as_bool();
 
-	RTLIL::SigSpec sig_a = sigmap(cell->getPort(ID::A));
+	RTLIL::SigSpec sig_a = sigmap(cell->getPort(TW::A));
 	RTLIL::SigSpec sig_b = sigmap(cell->getPort(b_name));
-	RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+	RTLIL::SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 
 	sig_a.extend_u0(sig_y.size(), a_signed);
 	sig_b.extend_u0(sig_y.size(), b_signed);
@@ -326,17 +326,17 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 
 		RTLIL::Cell *c = patcher.addCell(NEW_ID, cell->type);
 
-		c->setPort(ID::A, new_a);
+		c->setPort(TW::A, new_a);
 		c->parameters[ID::A_WIDTH] = new_a.size();
 		c->parameters[ID::A_SIGNED] = false;
 
-		if (b_name == ID::B) {
-			c->setPort(ID::B, new_b);
+		if (b_name == TW::B) {
+			c->setPort(TW::B, new_b);
 			c->parameters[ID::B_WIDTH] = new_b.size();
 			c->parameters[ID::B_SIGNED] = false;
 		}
 
-		c->setPort(ID::Y, new_y);
+		c->setPort(TW::Y, new_y);
 		c->parameters[ID::Y_WIDTH] = GetSize(new_y);
 
 		log_debug("  New cell `%s': A=%s", c, log_signal(new_a));

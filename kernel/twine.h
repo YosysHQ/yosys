@@ -18,26 +18,236 @@
 YOSYS_NAMESPACE_BEGIN
 
 struct Twine;
-struct TwineRef {
-	std::variant<Twine*, size_t> data;
-	constexpr TwineRef(Twine* p) : data(p) {}
-	constexpr TwineRef(size_t global) : data(global) {}
-	const Twine& operator*() const;
-	Twine& operator*();
-	Twine* operator->() {
-		return &(**this);
+// struct TwineRef {
+// 	std::variant<Twine*, size_t> data;
+// 	constexpr TwineRef(Twine* p) : data(p) {}
+// 	constexpr TwineRef(size_t global) : data(global) {}
+// 	const Twine& operator*() const;
+// 	Twine& operator*();
+// 	Twine* operator->() {
+// 		return &(**this);
+// 	}
+// 	const Twine* operator->() const {
+// 		return &(**this);
+// 	}
+// 	friend constexpr bool operator==(const TwineRef& a, const TwineRef& b) {
+// 		return &*a == &*b;
+// 	}
+// 	friend constexpr auto operator<=>(const TwineRef& a, const TwineRef& b) {
+// 		return &*a <=> &*b;
+// 	}
+// };
+
+template <class T>
+struct pointer_wrapper {
+	using element_type = T;
+	using value_type = std::remove_cv_t<T>;
+	using pointer = T*;
+	using reference = T&;
+	using difference_type = std::ptrdiff_t;
+
+private:
+	pointer ptr_ = nullptr;
+
+public:
+	// ---------------------------------------------------------------------
+	// Construction
+	// ---------------------------------------------------------------------
+
+	constexpr pointer_wrapper() noexcept = default;
+	constexpr pointer_wrapper(std::nullptr_t) noexcept
+		: ptr_(nullptr) {}
+
+	constexpr explicit pointer_wrapper(pointer p) noexcept
+		: ptr_(p) {}
+
+	constexpr pointer_wrapper(const pointer_wrapper&) noexcept = default;
+	constexpr pointer_wrapper(pointer_wrapper&&) noexcept = default;
+
+	constexpr pointer_wrapper&
+	operator=(const pointer_wrapper&) noexcept = default;
+
+	constexpr pointer_wrapper&
+	operator=(pointer_wrapper&&) noexcept = default;
+
+	constexpr pointer_wrapper&
+	operator=(std::nullptr_t) noexcept {
+		ptr_ = nullptr;
+		return *this;
 	}
-	const Twine* operator->() const {
-		return &(**this);
+
+	// ---------------------------------------------------------------------
+	// Access
+	// ---------------------------------------------------------------------
+
+	[[nodiscard]]
+	constexpr pointer get() const noexcept {
+		return ptr_;
 	}
-	friend constexpr bool operator==(const TwineRef& a, const TwineRef& b) {
-		return &*a == &*b;
+
+	[[nodiscard]]
+	constexpr reference operator*() const noexcept {
+		return *ptr_;
 	}
-	friend constexpr auto operator<=>(const TwineRef& a, const TwineRef& b) {
-		return &*a <=> &*b;
+
+	[[nodiscard]]
+	constexpr pointer operator->() const noexcept {
+		return ptr_;
+	}
+
+	[[nodiscard]]
+	constexpr reference operator[](difference_type n) const noexcept {
+		return ptr_[n];
+	}
+
+	// ---------------------------------------------------------------------
+	// Conversions
+	// ---------------------------------------------------------------------
+
+	constexpr explicit operator bool() const noexcept {
+		return ptr_ != nullptr;
+	}
+
+	// Optional: allow passing to APIs expecting T*
+	constexpr operator pointer() const noexcept {
+		return ptr_;
+	}
+
+	// ---------------------------------------------------------------------
+	// Increment / decrement
+	// ---------------------------------------------------------------------
+
+	constexpr pointer_wrapper& operator++() noexcept {
+		++ptr_;
+		return *this;
+	}
+
+	constexpr pointer_wrapper operator++(int) noexcept {
+		auto tmp = *this;
+		++(*this);
+		return tmp;
+	}
+
+	constexpr pointer_wrapper& operator--() noexcept {
+		--ptr_;
+		return *this;
+	}
+
+	constexpr pointer_wrapper operator--(int) noexcept {
+		auto tmp = *this;
+		--(*this);
+		return tmp;
+	}
+
+	// ---------------------------------------------------------------------
+	// Arithmetic
+	// ---------------------------------------------------------------------
+
+	constexpr pointer_wrapper&
+	operator+=(difference_type n) noexcept {
+		ptr_ += n;
+		return *this;
+	}
+
+	constexpr pointer_wrapper&
+	operator-=(difference_type n) noexcept {
+		ptr_ -= n;
+		return *this;
+	}
+
+	[[nodiscard]]
+	friend constexpr pointer_wrapper
+	operator+(pointer_wrapper p, difference_type n) noexcept {
+		p += n;
+		return p;
+	}
+
+	[[nodiscard]]
+	friend constexpr pointer_wrapper
+	operator+(difference_type n, pointer_wrapper p) noexcept {
+		p += n;
+		return p;
+	}
+
+	[[nodiscard]]
+	friend constexpr pointer_wrapper
+	operator-(pointer_wrapper p, difference_type n) noexcept {
+		p -= n;
+		return p;
+	}
+
+	[[nodiscard]]
+	friend constexpr difference_type
+	operator-(pointer_wrapper lhs,
+			pointer_wrapper rhs) noexcept {
+		return lhs.ptr_ - rhs.ptr_;
+	}
+
+	// ---------------------------------------------------------------------
+	// Comparisons
+	// ---------------------------------------------------------------------
+
+	[[nodiscard]]
+	friend constexpr bool
+	operator==(pointer_wrapper lhs,
+			pointer_wrapper rhs) noexcept = default;
+
+	[[nodiscard]]
+	friend constexpr auto
+	operator<=>(pointer_wrapper lhs,
+				pointer_wrapper rhs) noexcept {
+		return lhs.ptr_ <=> rhs.ptr_;
+	}
+
+	[[nodiscard]]
+	friend constexpr bool
+	operator==(pointer_wrapper lhs,
+			std::nullptr_t) noexcept {
+		return lhs.ptr_ == nullptr;
+	}
+
+	[[nodiscard]]
+	friend constexpr auto
+	operator<=>(pointer_wrapper lhs,
+				std::nullptr_t) noexcept {
+		return lhs.ptr_ <=> nullptr;
 	}
 };
+
+// class TW
+// {
+// public:
+// 	using EnumType = short;
+// 	// constexpr explicit TW() : internal(0) {}
+// 	constexpr explicit TW(short v) : internal(v) {}
+
+// 	// constexpr operator TwineRef() const
+// 	// {
+// 	// 	return TwineRef(&TwinePool::globals_[internal]);
+// 	// }
+
+// #define X(N) static constexpr TW N{IDX_##N};
+// #include "kernel/constids.inc"
+// #undef X
+
+// private:
+// 	EnumType internal;
+// };
+
+enum class TW : short {
+	STATIC_TWINE_BEGIN = 0,
+#define X(N) N,
+#include "kernel/constids.inc"
+#undef X
+	STATIC_TWINE_END,
+};
+
 // using TwineRef = const Twine*;
+struct TwineRef : public pointer_wrapper<const Twine> {
+	using pointer_wrapper<const Twine>::pointer_wrapper;
+	// TwineRef(TW tw);
+	constexpr TwineRef(TW tw);
+};
 
 struct Twine {
 	static constexpr TwineRef Null = nullptr;
@@ -46,7 +256,7 @@ struct Twine {
 		TwineRef prefix;
 		std::string tail;
 		// TODO check
-		// auto operator<=>(const Suffix&) const = default;
+		auto operator<=>(const Suffix&) const = default;
 	};
 
 	std::variant<std::monostate, std::string, std::vector<TwineRef>, Suffix> data;
@@ -125,30 +335,40 @@ struct TwineEq {
 	// bool operator()(std::string_view a, TwineRef b) const noexcept;
 };
 
+
+enum : short {
+	STATIC_TWINE_BEGIN = 0,
+#define X(N) IDX_##N,
+#include "kernel/constids.inc"
+#undef X
+	STATIC_TWINE_END
+};
+
+
 struct TwinePool {
-	static std::vector<Twine> globals_;
+	static constexpr std::array<Twine, STATIC_TWINE_END> globals_;
 	plf::colony<Twine> backing;
 	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
 
 	TwinePool() {
-		for (Twine& t : globals_)
-			index.insert(&t);
+		for (auto t : globals_)
+			index.insert(TwineRef(&t));
 	}
 
 	TwineRef find(Twine t) const {
-		if (auto it = index.find(t); it != index.end()) {
+		if (auto it = index.find(TwineRef(&t)); it != index.end()) {
 			return *it;
 		}
 		return Twine::Null;
 	}
 
 	TwineRef add(Twine t) {
-		if (auto it = index.find(t); it != index.end()) {
+		if (auto it = index.find(TwineRef(&t)); it != index.end()) {
 			return *it;
 		}
 
 		auto colony_it = backing.insert(std::move(t));
-		TwineRef ptr = &(*colony_it);
+		TwineRef ptr(&(*colony_it));
 		index.insert(ptr);
 		return ptr;
 	}
@@ -316,7 +536,7 @@ struct TwineSearch {
 	TwinePool* pool;
 	TwineSearch(TwinePool* pool) : pool(pool) {
 		for (auto& t : pool->backing) {
-			index.insert(&t);
+			index.insert(TwineRef(&t));
 		}
 	}
 	TwineRef find(std::string_view sv) const {
@@ -327,56 +547,37 @@ struct TwineSearch {
 	}
 };
 
-// enum : short {
-// 	STATIC_ID_BEGIN = 0,
-// #define X(N) IDX_##N,
-// #include "kernel/constids.inc"
-// #undef X
-// 	STATIC_ID_END
-// };
 
+#define static_to_offset
+#define offset_to_static
+// TW static_to_offset(TwineRef ref);
+// TwineRef offset_to_static(TW offset);
 
-class TW
-{
-public:
-	constexpr explicit TW(short v) : internal(v) {}
+constexpr TwineRef::TwineRef(TW tw)
+	: pointer_wrapper<const Twine>(&TwinePool::globals_[(short)tw]) {}
+// Twine& TwineRef::operator*() {
+// 	// Ugly
+// 	std::visit([](const auto& data) {
+// 		using T = std::decay_t<decltype(data)>;
+// 		if constexpr (std::is_same_v<Twine*, std::monostate>) {
+// 			return *data;
+// 		} else {
+// 			return TwinePool::globals_[data];
+// 		}
+// 	}, data);
+// }
 
-	constexpr operator TwineRef() const
-	{
-		return &TwinePool::globals_[internal];
-	}
-
-#define X(N) static const TW N;
-#include "kernel/constids.inc"
-#undef X
-
-private:
-	short internal;
-};
-
-Twine& TwineRef::operator*() {
-	// Ugly
-	std::visit([](const auto& data) {
-		using T = std::decay_t<decltype(data)>;
-		if constexpr (std::is_same_v<Twine*, std::monostate>) {
-			return *data;
-		} else {
-			return TwinePool::globals_[data];
-		}
-	}, data);
-}
-
-const Twine& TwineRef::operator*() const {
-	// Ugly
-	std::visit([](const auto& data) {
-		using T = std::decay_t<decltype(data)>;
-		if constexpr (std::is_same_v<Twine*, std::monostate>) {
-			return *data;
-		} else {
-			return TwinePool::globals_[data];
-		}
-	}, data);
-}
+// const Twine& TwineRef::operator*() const {
+// 	// Ugly
+// 	std::visit([](const auto& data) {
+// 		using T = std::decay_t<decltype(data)>;
+// 		if constexpr (std::is_same_v<Twine*, std::monostate>) {
+// 			return *data;
+// 		} else {
+// 			return TwinePool::globals_[data];
+// 		}
+// 	}, data);
+// }
 
 // struct TwinePoolExtender {
 // 	TwinePool& pool;
