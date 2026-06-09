@@ -38,7 +38,7 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 	// — the dict no longer holds ID::src under any circumstance. Backends
 	// that want to materialize the pipe-joined literal pass resolve_src.
 	if (design && design->obj_src_id(obj) != Twine::Null) {
-		Twine::Id id = design->obj_src_id(obj);
+		TwineRef id = design->obj_src_id(obj);
 		f << stringf("%s" "attribute \\src ", indent);
 		if (resolve_src) {
 			dump_const(f, RTLIL::Const(design->twines.flatten(id)));
@@ -59,7 +59,7 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
 	if (!design || design->twines.size() == 0)
 		return;
 	f << stringf("twines\n");
-	design->twines.for_each_live([&](Twine::Id id, const Twine &n) {
+	design->twines.for_each_live([&](TwineRef id, const Twine &n) {
 		if (n.is_leaf()) {
 			f << stringf("  leaf %u ", id);
 			dump_const(f, RTLIL::Const(n.leaf()));
@@ -70,7 +70,7 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
 			f << stringf("\n");
 		} else {
 			f << stringf("  concat %u", id);
-			for (Twine::Id c : n.children())
+			for (TwineRef c : n.children())
 				f << stringf(" %u", c);
 			f << stringf("\n");
 		}

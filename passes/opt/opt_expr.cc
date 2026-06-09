@@ -479,7 +479,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 	if (!noclkinv)
 	for (auto cell : dirty_cells)
-	if (design->selected(module, cell)) {
+	if (design->selected_member(module, cell)) {
 		if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
 			handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map);
 

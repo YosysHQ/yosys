@@ -122,6 +122,7 @@ struct Xaiger2Frontend : public Frontend {
 		bits[1] = RTLIL::S1;
 
 		std::string type;
+		TwineSearch search(&design->twines);
 		while (map_file >> type) {
 			if (type == "pi") {
 				int pi_idx;
@@ -132,7 +133,7 @@ struct Xaiger2Frontend : public Frontend {
 				int lit = (2 * pi_idx) + 2;
 				if (lit < 0 || lit >= (int) bits.size())
 					log_error("Bad map file: primary input literal out of range\n");
-				Wire *w = module->wire(name);
+				Wire *w = module->wire(search.find(name));
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
 							  name.c_str(), woffset);
@@ -145,7 +146,7 @@ struct Xaiger2Frontend : public Frontend {
 				if (box_seq < 0)
 					log_error("Bad map file: box out of range\n");
 
-				Cell *box = module->cell(RTLIL::escape_id(name));
+				Cell *box = module->cell(search.find(RTLIL::escape_id(name)));
 				if (!box)
 					log_error("Map file references non-existent box %s\n",
 							  name.c_str());
@@ -214,7 +215,7 @@ struct Xaiger2Frontend : public Frontend {
 					for (auto port_id : def->ports) {
 						Wire *port = def->wire(port_id);
 						if (port->port_output) {
-							if (!cell->hasPort(port_id) || cell->getPort(port_id).size() != port->width)
+							if (!cell->hasPort(search.find(port_id)) || cell->getPort(port_id).size() != port->width)
 								log_error("Malformed design (1)\n");
 
 							SigSpec &conn = cell->connections_[port_id];

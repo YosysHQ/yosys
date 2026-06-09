@@ -774,7 +774,7 @@ Cell *FfData::emit() {
 			// Cross-pool (unusual — FfData migrated between
 			// designs). Rebuild the twine structure into the
 			// destination pool, then adopt that fresh id.
-			Twine::Id migrated = dst_pool->copy_from(*src_twine.pool(), src_twine.id());
+			TwineRef migrated = dst_pool->copy_from(*src_twine.pool(), src_twine.id());
 			cell->set_src_id(migrated);
 			dst_pool->release(migrated);
 		}

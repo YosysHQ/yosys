@@ -895,9 +895,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	// "@N" parse_ref path), and there's no flatten → re-intern → pipe-
 	// leaf round-trip on cells whose src is a Concat node.
 	log_assert(module && module->design);
-	Twine::Id mem_src_id = module->design->obj_src_id(this);
-	std::string mem_src = (mem_src_id != Twine::Null) ?
-			module->design->twines.format_ref(mem_src_id) : std::string();
+	TwineRef mem_src = module->design->obj_src_id(this);
 
 	Cell *c;
 
@@ -1005,7 +1003,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		FfData ff(module, initvals, name);
 		// Carry mem's src into the ff via the OwnedTwine handle — same
 		// pool, direct id retain. emit() transfers verbatim.
-		ff.src_twine = mem_src_id;
+		ff.src_twine = mem_src;
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
 		ff.sig_clk = port.clk;

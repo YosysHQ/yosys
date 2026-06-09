@@ -54,8 +54,8 @@ struct RTLILFrontendWorker {
 	// parse_twines; consumed by parse_attribute. Parser-side ids retained
 	// during parse_twines are tracked here so they can be released at
 	// end-of-parse — only the cell/wire references should survive.
-	dict<size_t, Twine::Id> twine_remap;
-	std::vector<Twine::Id> twine_parser_holds;
+	dict<size_t, TwineRef> twine_remap;
+	std::vector<TwineRef> twine_parser_holds;
 
 	template <typename... Args>
 	[[noreturn]]
@@ -419,7 +419,7 @@ struct RTLILFrontendWorker {
 
 	void parse_module()
 	{
-		Twine::Id module_name = design->twines.lookup(parse_id());
+		TwineRef module_name = design->twines.lookup(parse_id());
 		expect_eol();
 
 		bool delete_current_module = false;
@@ -583,7 +583,7 @@ struct RTLILFrontendWorker {
 	// referred to a file_id has already adopted the corresponding local_id.
 	void release_twine_parser_holds()
 	{
-		for (Twine::Id id : twine_parser_holds)
+		for (TwineRef id : twine_parser_holds)
 			design->twines.release(id);
 		twine_parser_holds.clear();
 		twine_remap.clear();

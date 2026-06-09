@@ -521,7 +521,7 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 		cell->unsetPort(cell->connections_.begin()->first);
 
 	log_assert(cell->meta_ && cell->meta_->name_id != Twine::Null);
-	Twine::Id cell_id = cell->meta_->name_id;
+	TwineRef cell_id = cell->meta_->name_id;
 	log_assert(cells_.count(cell_id) != 0);
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell_id);
@@ -1246,7 +1246,7 @@ void RTLIL::Cell::initIndex()
 	}
 }
 
-void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
+void RTLIL::Cell::setPort(TwineRef portname, RTLIL::SigSpec signal)
 {
 	bool is_input = false;
 	if (module && module->sig_norm_index != nullptr && !ignored_cell(type)) {
