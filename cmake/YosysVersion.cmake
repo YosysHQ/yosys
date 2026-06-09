@@ -70,6 +70,9 @@ function(yosys_extract_version)
 
 	# Build YOSYS_VERSION (just the version info).
 	set(YOSYS_VERSION "${YOSYS_VERSION_MAJOR}.${YOSYS_VERSION_MINOR}")
+	if (git_branch MATCHES "^release/v.+$")
+		set(git_distance 0)
+	endif()
 	if (git_distance STREQUAL "")
 		string(APPEND YOSYS_VERSION "+post")
 	else()
