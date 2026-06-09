@@ -114,6 +114,23 @@ select -assert-count 32 t:$gt
 design -reset
 log -pop
 
+log -header "Renamed ports: forward dense pack"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_renamed.sv
+verific -import opt_compact_prefix_pack_renamed
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$shl
+select -assert-none t:$mux
+select -assert-count 7 t:$add
+select -assert-count 8 t:$gt
+design -reset
+log -pop
+
 log -header "Exact regression size: 16-entry reverse suffix read"
 log -push
 design -reset
@@ -121,6 +138,53 @@ verific -cfg veri_optimize_wide_selector 1
 verific -cfg db_infer_wide_muxes_post_elaboration 0
 read -sv opt_compact_prefix_sub16.sv
 verific -import opt_compact_prefix_sub16
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$sub
+select -assert-none t:$mux
+select -assert-min 1 t:$add
+select -assert-min 1 t:$eq
+design -reset
+log -pop
+
+log -header "Renamed ports: reverse suffix read"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_compact_prefix_renamed.sv
+verific -import opt_compact_prefix_sub_renamed
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$sub
+select -assert-none t:$mux
+select -assert-min 1 t:$add
+select -assert-min 1 t:$eq
+design -reset
+log -pop
+
+log -header "Yosys frontend: forward dense pack"
+log -push
+design -reset
+read_verilog -sv opt_compact_prefix_yosys_frontend.v
+hierarchy -top opt_compact_prefix_yosys_pack
+proc; opt_clean
+opt_compact_prefix
+opt_clean
+select -assert-none t:$shl
+select -assert-none t:$mux
+select -assert-count 7 t:$add
+select -assert-count 8 t:$gt
+design -reset
+log -pop
+
+log -header "Yosys frontend: reverse suffix read"
+log -push
+design -reset
+read_verilog -sv opt_compact_prefix_yosys_frontend.v
+hierarchy -top opt_compact_prefix_yosys_sub
 proc; opt_clean
 opt_compact_prefix
 opt_clean

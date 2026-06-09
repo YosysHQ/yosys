@@ -60,9 +60,22 @@ struct OptCompactPrefixWorker
 		}
 	}
 
-	Wire *port(const char *name)
+	vector<Wire *> input_ports()
 	{
-		return module->wire(RTLIL::escape_id(name));
+		vector<Wire *> ports;
+		for (auto wire : module->wires())
+			if (wire->port_input)
+				ports.push_back(wire);
+		return ports;
+	}
+
+	vector<Wire *> output_ports()
+	{
+		vector<Wire *> ports;
+		for (auto wire : module->wires())
+			if (wire->port_output)
+				ports.push_back(wire);
+		return ports;
 	}
 
 	int count_cells(IdString type)
@@ -195,19 +208,36 @@ struct OptCompactPrefixWorker
 		return result;
 	}
 
-	bool bmux_selects_stay_in_range(Wire *data, int loop_width)
+	int output_bits_controlled_by(Wire *control, Wire *output)
 	{
-		bool saw_data_bmux = false;
+		pool<int> bits;
 		for (auto cell : module->cells()) {
-			if (cell->type != ID($bmux))
+			if (cell->type != ID($mux))
+				continue;
+			SigSpec sel = sigmap(cell->getPort(ID::S));
+			if (GetSize(sel) != 1 || sel[0].wire != control)
+				continue;
+			for (auto bit : sigmap(cell->getPort(ID::Y)))
+				if (bit.wire == output)
+					bits.insert(bit.offset);
+		}
+		return GetSize(bits);
+	}
+
+	bool indexed_reads_stay_in_range(Wire *data, int loop_width)
+	{
+		bool saw_data_read = false;
+		for (auto cell : module->cells()) {
+			if (!cell->type.in(ID($bmux), ID($shiftx)))
 				continue;
 			if (sigmap(cell->getPort(ID::A)) != sigmap(SigSpec(data)))
 				continue;
-			saw_data_bmux = true;
-			if (eval_sig_at_zero(cell->getPort(ID::S)) >= loop_width)
+			saw_data_read = true;
+			IdString select_port = cell->type == ID($bmux) ? ID::S : ID::B;
+			if (eval_sig_at_zero(cell->getPort(select_port)) >= loop_width)
 				return false;
 		}
-		return saw_data_bmux;
+		return saw_data_read;
 	}
 
 	SigSpec zext(SigSpec sig, int width)
@@ -311,12 +341,12 @@ struct OptCompactPrefixWorker
 
 	bool rewrite_forward_dense_pack()
 	{
-		Wire *sig = port("sig");
-		Wire *sig2 = port("sig2");
-		if (!sig || !sig2)
+		vector<Wire *> inputs = input_ports();
+		vector<Wire *> outputs = output_ports();
+		if (GetSize(inputs) != 1 || GetSize(outputs) != 1)
 			return false;
-		if (!sig->port_input || !sig2->port_output)
-			return false;
+		Wire *sig = inputs[0];
+		Wire *sig2 = outputs[0];
 		if (GetSize(sig) != GetSize(sig2))
 			return false;
 		if (GetSize(sig) < 4 || GetSize(sig) > max_width)
@@ -324,8 +354,6 @@ struct OptCompactPrefixWorker
 		if (GetSize(module->ports) != 2)
 			return false;
 		if (count_binop_const(ID($add), 1) < GetSize(sig) - 2)
-			return false;
-		if (count_cells(ID($shl)) < GetSize(sig) - 2)
 			return false;
 		if (count_cells(ID($mux)) < GetSize(sig))
 			return false;
@@ -357,29 +385,45 @@ struct OptCompactPrefixWorker
 
 	bool rewrite_reverse_suffix_read()
 	{
-		Wire *disable = port("disable_in");
-		Wire *data = port("data_in");
-		Wire *mask = port("mask");
-		if (!disable || !data || !mask)
+		vector<Wire *> inputs = input_ports();
+		vector<Wire *> outputs = output_ports();
+		if (GetSize(inputs) != 2 || GetSize(outputs) != 1)
 			return false;
-		if (!disable->port_input || !data->port_input || !mask->port_output)
-			return false;
-		if (GetSize(disable) != GetSize(data) || GetSize(mask) != GetSize(data))
-			return false;
-		if (GetSize(module->ports) != 3)
+		Wire *mask = outputs[0];
+		if (GetSize(inputs[0]) != GetSize(inputs[1]) || GetSize(mask) != GetSize(inputs[0]))
 			return false;
 
 		int dec_count = std::max(count_binop_const(ID($sub), 1),
 		                         count_binop_const(ID($add), -1));
 		int loop_width = dec_count + 1;
-		if (loop_width < 4 || loop_width > max_width || loop_width > GetSize(data))
-			return false;
 		if (count_cells(ID($mux)) < loop_width)
 			return false;
 		if (has_binop_const_other_than(ID($sub), 1) ||
 		    has_binop_const_other_than(ID($add), -1))
 			return false;
-		if (!bmux_selects_stay_in_range(data, loop_width))
+
+		Wire *disable = nullptr;
+		int controlled_width = 0;
+		for (auto input : inputs) {
+			int n = output_bits_controlled_by(input, mask);
+			if (n == 0)
+				continue;
+			if (disable != nullptr)
+				return false;
+			disable = input;
+			controlled_width = n;
+		}
+		if (disable == nullptr)
+			return false;
+		if (controlled_width > 0)
+			loop_width = controlled_width;
+		if (loop_width < 4 || loop_width > max_width || loop_width > GetSize(mask))
+			return false;
+		if (dec_count < loop_width - 1)
+			return false;
+		Wire *data = (inputs[0] == disable) ? inputs[1] : inputs[0];
+
+		if (!indexed_reads_stay_in_range(data, loop_width))
 			return false;
 		if (!eval_sig_is_zero(SigSpec(mask)))
 			return false;
