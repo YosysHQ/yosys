@@ -1,0 +1,16 @@
+read_verilog <<EOT
+module top(output [31:0] y);
+  reg [31:0] mem [0:3];
+
+  initial begin
+    mem[0] = 32'h00000000;
+    mem[1] = 32'h11111111;
+    mem[2] = 32'h22222222;
+    mem[3] = 32'h33333333;
+  end
+
+  assign y = mem[0];
+endmodule
+EOT
+
+write_verilog
