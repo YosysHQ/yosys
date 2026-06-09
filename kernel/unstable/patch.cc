@@ -50,7 +50,7 @@ Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
 	Wire* raw = wire.release();
 	IdString name = staged_wire_names_.at(raw);
 	staged_wire_names_.erase(raw);
-	Twine::Id id = mod->design->twines.intern(name.str());
+	TwineRef id = mod->design->twines.intern(name.str());
 	mod->design->obj_set_name_id(raw, id);
 	mod->design->twines.release(id);
 	mod->wires_[raw->meta_->name_id] = raw;
@@ -62,7 +62,7 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 	Cell* raw = cell.release();
 	IdString name = staged_cell_names_.at(raw);
 	staged_cell_names_.erase(raw);
-	Twine::Id id = mod->design->twines.intern(name.str());
+	TwineRef id = mod->design->twines.intern(name.str());
 	mod->design->obj_set_name_id(raw, id);
 	mod->design->twines.release(id);
 	raw->module = mod;
@@ -95,7 +95,7 @@ namespace {
 			return;
 
 		TwinePool& pool = mod->design->twines;
-		std::vector<Twine::Id> ids;
+		std::vector<TwineRef> ids;
 		ids.reserve(2 + extras.size());
 		auto push = [&](Cell *c) {
 			if (c && c->src_id() != Twine::Null)
@@ -107,7 +107,7 @@ namespace {
 		push(merge_src_into);
 		if (ids.empty())
 			return;
-		Twine::Id merged = pool.concat(std::span<const Twine::Id>{ids});
+		TwineRef merged = pool.concat(std::span<const TwineRef>{ids});
 		if (ys_debug()) {
 			log_debug("twine: merge yields %s (pool size %zu)\n",
 					pool.format_ref(merged).c_str(), pool.size());

@@ -117,7 +117,7 @@ struct MemoryMapWorker
 		// new cell. set_src_attribute's parse_ref path retains the
 		// pool slot directly.
 		{
-			Twine::Id mid = (mem.module && mem.module->design) ? mem.module->design->obj_src_id(&mem) : Twine::Null;
+			TwineRef mid = (mem.module && mem.module->design) ? mem.module->design->obj_src_id(&mem) : Twine::Null;
 			mem_src = (mid != Twine::Null) ? TwinePool::format_ref(mid) : std::string();
 		}
 

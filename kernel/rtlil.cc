@@ -150,7 +150,7 @@ struct IdStringCollector {
 	IdStringCollector(std::vector<MonotonicFlag> &live_ids)
 			: live_ids(live_ids) {}
 
-	void trace(Twine::Id id) {
+	void trace(TwineRef id) {
 		// live_twines.push_back(id );
 		// TODO
 	}
@@ -265,7 +265,7 @@ void RTLIL::OwningIdString::collect_garbage()
 	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
 		for (RTLIL::Module *module : design->modules()) {
 			collectors[0].trace_keys(module->attributes);
-			// collectors[0].trace(Twine::Id(module->name));
+			// collectors[0].trace(TwineRef(module->name));
 			// TODO
 			ParallelDispatchThreadPool::Subpool subpool(thread_pool, ThreadPool::work_pool_size(0, module->cells_size(), 1000));
 			subpool.run([&collectors, module](const ParallelDispatchThreadPool::RunCtx &ctx) {
@@ -972,7 +972,7 @@ string RTLIL::AttrObject::get_string_attribute(IdString id) const
 	return value;
 }
 
-void RTLIL::Design::obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id)
+void RTLIL::Design::obj_set_src_id(RTLIL::AttrObject *obj, TwineRef id)
 {
 	if (obj->meta_ == nullptr) {
 		if (id == Twine::Null)
@@ -982,11 +982,11 @@ void RTLIL::Design::obj_set_src_id(RTLIL::AttrObject *obj, Twine::Id id)
 	ObjMeta &m = *obj->meta_;
 	if (m.src == id)
 		return;
-	if (m.src != Twine::Null)
-		twines.release(m.src);
+	// if (m.src != Twine::Null)
+	// 	twines.release(m.src);
 	m.src = id;
-	if (m.src != Twine::Null)
-		twines.retain(m.src);
+	// if (m.src != Twine::Null)
+	// 	twines.retain(m.src);
 	if (m.src == Twine::Null && m.name_id == Twine::Null) {
 		free_obj_meta(obj->meta_);
 		obj->meta_ = nullptr;
@@ -999,7 +999,7 @@ void RTLIL::Design::obj_release_src(RTLIL::AttrObject *obj)
 		return;
 	ObjMeta &m = *obj->meta_;
 	if (m.src != Twine::Null) {
-		twines.release(m.src);
+		// twines.release(m.src);
 		m.src = Twine::Null;
 	}
 	if (m.name_id == Twine::Null) {
@@ -1008,7 +1008,7 @@ void RTLIL::Design::obj_release_src(RTLIL::AttrObject *obj)
 	}
 }
 
-// void RTLIL::Design::obj_set_name(RTLIL::AttrObject *obj, Twine::Id name)
+// void RTLIL::Design::obj_set_name(RTLIL::AttrObject *obj, TwineRef name)
 // {
 // 	if (obj->meta_ == nullptr) {
 // 		if (name.empty())
@@ -1028,14 +1028,14 @@ void RTLIL::Design::obj_release_name(RTLIL::AttrObject *obj)
 	if (obj->meta_ == nullptr)
 		return;
 	ObjMeta &m = *obj->meta_;
-	m.name_id = Twine::Id();
+	m.name_id = TwineRef();
 	if (m.src == Twine::Null && m.name_id == Twine::Null) {
 		free_obj_meta(obj->meta_);
 		obj->meta_ = nullptr;
 	}
 }
 
-void RTLIL::Design::obj_set_name_id(RTLIL::AttrObject *obj, Twine::Id id)
+void RTLIL::Design::obj_set_name_id(RTLIL::AttrObject *obj, TwineRef id)
 {
 	if (obj->meta_ == nullptr) {
 		if (id == Twine::Null)
@@ -1045,11 +1045,11 @@ void RTLIL::Design::obj_set_name_id(RTLIL::AttrObject *obj, Twine::Id id)
 	ObjMeta &m = *obj->meta_;
 	if (m.name_id == id)
 		return;
-	if (m.name_id != Twine::Null)
-		twines.release(m.name_id);
+	// if (m.name_id != Twine::Null)
+	// 	twines.release(m.name_id);
 	m.name_id = id;
-	if (m.name_id != Twine::Null)
-		twines.retain(m.name_id);
+	// if (m.name_id != Twine::Null)
+	// 	twines.retain(m.name_id);
 	if (m.name_id == Twine::Null && m.src == Twine::Null) {
 		free_obj_meta(obj->meta_);
 		obj->meta_ = nullptr;
@@ -1077,7 +1077,7 @@ void RTLIL::Design::set_src_attribute(RTLIL::AttrObject *obj, const RTLIL::SrcAt
 		obj_set_src_id(obj, Twine::Null);
 		return;
 	}
-	Twine::Id new_id = Twine::Null;
+	TwineRef new_id = Twine::Null;
 	if (src.id != Twine::Null) {
 		// Direct id form — the caller is responsible for keeping the
 		// slot alive while we retain. obj_set_src_id handles retain.
@@ -1102,7 +1102,7 @@ void RTLIL::Design::set_src_attribute(RTLIL::AttrObject *obj, const RTLIL::SrcAt
 
 std::string RTLIL::Design::get_src_attribute(const RTLIL::AttrObject *obj) const
 {
-	return twines.flatten(obj_src_id(obj));
+	return twines.flat_string(obj_src_id(obj));
 }
 
 void RTLIL::Design::adopt_src_from(RTLIL::AttrObject *obj, const RTLIL::AttrObject *source)
@@ -1122,7 +1122,7 @@ void RTLIL::Design::adopt_src_from(RTLIL::AttrObject *obj,
 	// our pool. Cross-pool adoption goes through copy_src_into directly
 	// (taking a src Design*), since AttrObject is not polymorphic and
 	// we can't downcast to recover the source design from here.
-	Twine::Id source_id = obj_src_id(source);
+	TwineRef source_id = obj_src_id(source);
 	obj_set_src_id(obj, source_id);
 }
 
@@ -1146,7 +1146,7 @@ namespace {
 	{
 		if (!src || !src_design || !dst_design)
 			return;
-		Twine::Id src_id = src_design->obj_src_id(src);
+		TwineRef src_id = src_design->obj_src_id(src);
 		if (src_id == Twine::Null) {
 			dst_design->obj_set_src_id(dst, Twine::Null);
 			return;
@@ -1155,7 +1155,7 @@ namespace {
 			dst_design->obj_set_src_id(dst, src_id);
 			return;
 		}
-		Twine::Id new_id = dst_design->twines.copy_from(src_design->twines, src_id);
+		TwineRef new_id = dst_design->twines.copy_from(src_design->twines, src_id);
 		dst_design->obj_set_src_id(dst, new_id);
 		dst_design->twines.release(new_id);
 	}
@@ -1183,33 +1183,33 @@ void RTLIL::Design::free_obj_meta(RTLIL::ObjMeta *m)
 
 void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
 {
-	std::vector<Twine::Id> ids;
-	Twine::Id tgt_id = obj_src_id(target);
+	std::vector<TwineRef> ids;
+	TwineRef tgt_id = obj_src_id(target);
 	if (tgt_id != Twine::Null)
 		ids.push_back(tgt_id);
 	if (source) {
-		Twine::Id src_id = obj_src_id(source);
+		TwineRef src_id = obj_src_id(source);
 		if (src_id != Twine::Null)
 			ids.push_back(src_id);
 	}
 	if (ids.empty())
 		return;
-	Twine::Id merged = twines.concat(std::span<const Twine::Id>{ids});
+	TwineRef merged = twines.concat(std::span<const TwineRef>{ids});
 	obj_set_src_id(target, merged);
 	twines.release(merged);
 }
 
 void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const pool<std::string> &leaves)
 {
-	std::vector<Twine::Id> ids;
-	std::vector<Twine::Id> temp_interns;
-	Twine::Id tgt_id = obj_src_id(target);
+	std::vector<TwineRef> ids;
+	std::vector<TwineRef> temp_interns;
+	TwineRef tgt_id = obj_src_id(target);
 	if (tgt_id != Twine::Null)
 		ids.push_back(tgt_id);
 	for (const auto &leaf : leaves) {
 		if (leaf.empty())
 			continue;
-		Twine::Id leaf_id = twines.get_ref(leaf);
+		TwineRef leaf_id = twines.get_ref(leaf);
 		if (leaf_id == Twine::Null) {
 			leaf_id = twines.intern(leaf);
 			temp_interns.push_back(leaf_id);
@@ -1218,10 +1218,10 @@ void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const pool<std::string>
 	}
 	if (ids.empty())
 		return;
-	Twine::Id merged = twines.concat(std::span<const Twine::Id>{ids});
+	TwineRef merged = twines.concat(std::span<const TwineRef>{ids});
 	obj_set_src_id(target, merged);
 	twines.release(merged);
-	for (Twine::Id id : temp_interns)
+	for (TwineRef id : temp_interns)
 		twines.release(id);
 }
 
@@ -1266,16 +1266,16 @@ size_t RTLIL::Design::gc_twines()
 		return 0;
 
 	// Mark phase: every live src_id on any AttrObject is a root.
-	pool<Twine::Id> live;
+	pool<TwineRef> live;
 	walk_attr_objects(this, [&](const RTLIL::AttrObject *obj) {
-		Twine::Id id = obj_src_id(obj);
+		TwineRef id = obj_src_id(obj);
 		if (id != Twine::Null)
 			live.insert(id);
 	});
 
 	// Sweep + compact: rebuild the pool keeping only reachable nodes,
 	// receiving an old-id -> new-id remap.
-	dict<Twine::Id, Twine::Id> remap = twines.gc(live);
+	dict<TwineRef, TwineRef> remap = twines.gc(live);
 
 	// Rewrite every meta-vector src_id through the remap. The pool was
 	// rebuilt, so the old ids no longer mean anything — we update the
@@ -1305,7 +1305,7 @@ size_t RTLIL::Design::gc_twines()
 pool<std::string> RTLIL::Design::src_leaves(const RTLIL::AttrObject *obj) const
 {
 	pool<std::string> result;
-	Twine::Id id = obj_src_id(obj);
+	TwineRef id = obj_src_id(obj);
 	if (id == Twine::Null)
 		return result;
 	const TwinePool *pool = &twines;
@@ -1314,7 +1314,7 @@ pool<std::string> RTLIL::Design::src_leaves(const RTLIL::AttrObject *obj) const
 		result.insert(pool->flat_string(id));
 	} else {
 		// Flat-children invariant: every concat child is a Leaf or Suffix.
-		for (Twine::Id c : n.children())
+		for (TwineRef c : n.children())
 			result.insert(pool->flat_string(c));
 	}
 	return result;
@@ -1398,7 +1398,7 @@ vector<int> RTLIL::AttrObject::get_intvec_attribute(IdString id) const
 	return data;
 }
 
-bool RTLIL::Selection::boxed_module(Twine::Id mod_name) const
+bool RTLIL::Selection::boxed_module(TwineRef mod_name) const
 {
 	if (current_design != nullptr) {
 		auto module = current_design->module(mod_name);
@@ -1410,7 +1410,7 @@ bool RTLIL::Selection::boxed_module(Twine::Id mod_name) const
 	}
 }
 
-bool RTLIL::Selection::selected_module(Twine::Id mod_name) const
+bool RTLIL::Selection::selected_module(TwineRef mod_name) const
 {
 	if (complete_selection)
 		return true;
@@ -1425,7 +1425,7 @@ bool RTLIL::Selection::selected_module(Twine::Id mod_name) const
 	return false;
 }
 
-bool RTLIL::Selection::selected_whole_module(Twine::Id mod_name) const
+bool RTLIL::Selection::selected_whole_module(TwineRef mod_name) const
 {
 	if (complete_selection)
 		return true;
@@ -1438,7 +1438,7 @@ bool RTLIL::Selection::selected_whole_module(Twine::Id mod_name) const
 	return false;
 }
 
-bool RTLIL::Selection::selected_member(Twine::Id mod_name, Twine::Id memb_name) const
+bool RTLIL::Selection::selected_member(TwineRef mod_name, TwineRef memb_name) const
 {
 	if (complete_selection)
 		return true;
@@ -1472,7 +1472,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		return;
 	}
 
-	std::vector<Twine::Id> del_list, add_list;
+	std::vector<TwineRef> del_list, add_list;
 
 	del_list.clear();
 	for (auto mod_name : selected_modules) {
@@ -1560,30 +1560,30 @@ std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 	return &all_designs;
 }
 
-RTLIL::ObjRange<RTLIL::Module*, Twine::Id> RTLIL::Design::modules()
+RTLIL::ObjRange<RTLIL::Module*, TwineRef> RTLIL::Design::modules()
 {
-	return RTLIL::ObjRange<RTLIL::Module*, Twine::Id>(&modules_, &refcount_modules_);
+	return RTLIL::ObjRange<RTLIL::Module*, TwineRef>(&modules_, &refcount_modules_);
 }
 
+// RTLIL::Module *RTLIL::Design::module(IdString id) {
+// 	auto t = twines.lookup(id.c_str());
+// 	if (t)
+// 		return module(t);
+// 	return nullptr;
+// }
+
+const RTLIL::Module *RTLIL::Design::module(IdString id) const {
+	return modules_.count(id) ? modules_.at(id) : NULL;
+}
 RTLIL::Module *RTLIL::Design::module(IdString id) {
-	auto t = twines.lookup(id.c_str());
-	if (t)
-		return module(t);
-	return nullptr;
-}
-
-const RTLIL::Module *RTLIL::Design::module(Twine::Id id) const {
 	return modules_.count(id) ? modules_.at(id) : NULL;
 }
-RTLIL::Module *RTLIL::Design::module(Twine::Id id) {
-	return modules_.count(id) ? modules_.at(id) : NULL;
-}
-// RTLIL::Module *RTLIL::Design::module(Twine::Id name)
+// RTLIL::Module *RTLIL::Design::module(TwineRef name)
 // {
 // 	return modules_.count(name) ? modules_.at(name) : NULL;
 // }
 
-// const RTLIL::Module *RTLIL::Design::module(Twine::Id name) const
+// const RTLIL::Module *RTLIL::Design::module(TwineRef name) const
 // {
 // 	return modules_.count(name) ? modules_.at(name) : NULL;
 // }
@@ -1609,7 +1609,7 @@ void RTLIL::Design::add(RTLIL::Binding *binding)
 	bindings_.push_back(binding);
 }
 
-RTLIL::Module *RTLIL::Design::addModule(Twine::Id name)
+RTLIL::Module *RTLIL::Design::addModule(TwineRef name)
 {
 	if (modules_.count(name) != 0)
 		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", name);
@@ -1712,7 +1712,7 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 	delete module;
 }
 
-void RTLIL::Design::rename(RTLIL::Module *module, Twine::Id new_name)
+void RTLIL::Design::rename(RTLIL::Module *module, TwineRef new_name)
 {
 	modules_.erase(module->name);
 	module->meta_->name_id = new_name;
@@ -1770,21 +1770,21 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 		it->second->clone(dst, /*src_id_verbatim=*/true);
 }
 
-bool RTLIL::Design::selected_module(Twine::Id mod_name) const
+bool RTLIL::Design::selected_module(TwineRef mod_name) const
 {
 	if (selected_active_module && mod_name != selected_active_module)
 		return false;
 	return selection().selected_module(mod_name);
 }
 
-bool RTLIL::Design::selected_whole_module(Twine::Id mod_name) const
+bool RTLIL::Design::selected_whole_module(TwineRef mod_name) const
 {
 	if (selected_active_module && mod_name != selected_active_module)
 		return false;
 	return selection().selected_whole_module(mod_name);
 }
 
-bool RTLIL::Design::selected_member(Twine::Id mod_name, Twine::Id memb_name) const
+bool RTLIL::Design::selected_member(TwineRef mod_name, TwineRef memb_name) const
 {
 	if (selected_active_module && mod_name != selected_active_module)
 		return false;
@@ -1932,14 +1932,14 @@ RTLIL::Module::~Module()
 #endif
 }
 
-Twine::Id RTLIL::Module::src_id() const
+TwineRef RTLIL::Module::src_id() const
 {
 	if (!design)
 		return Twine::Null;
 	return design->obj_src_id(this);
 }
 
-void RTLIL::Module::set_src_id(Twine::Id id)
+void RTLIL::Module::set_src_id(TwineRef id)
 {
 	log_assert(design && "Module::set_src_id requires the module to be attached to a design");
 	design->obj_set_src_id(this, id);
@@ -1965,7 +1965,7 @@ std::string RTLIL::Module::get_src_attribute() const
 	return design->get_src_attribute(this);
 }
 
-void RTLIL::Module::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::Module::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(design && "Module::absorb_attrs requires the module to be attached to a design");
 	design->absorb_attrs(this, std::move(buf));
@@ -2005,7 +2005,7 @@ void RTLIL::Module::makeblackbox()
 	set_bool_attribute(ID::blackbox);
 }
 
-void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<Twine::Id, RTLIL::Module *> &)
+void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<TwineRef, RTLIL::Module *> &)
 {
 	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", name.unescape());
 }
@@ -2015,24 +2015,24 @@ bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
 	return false;
 }
 
-Twine::Id RTLIL::Module::derive(RTLIL::Design*, const dict<Twine::Id, RTLIL::Const> &, bool mayfail)
+TwineRef RTLIL::Module::derive(RTLIL::Design*, const dict<TwineRef, RTLIL::Const> &, bool mayfail)
 {
 	if (mayfail)
-		return Twine::Id();
+		return TwineRef();
 	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
 }
 
 
-Twine::Id RTLIL::Module::derive(RTLIL::Design*, const dict<Twine::Id, RTLIL::Const> &, const dict<Twine::Id, RTLIL::Module*> &, const dict<Twine::Id, Twine::Id> &, bool mayfail)
+TwineRef RTLIL::Module::derive(RTLIL::Design*, const dict<TwineRef, RTLIL::Const> &, const dict<TwineRef, RTLIL::Module*> &, const dict<TwineRef, TwineRef> &, bool mayfail)
 {
 	if (mayfail)
-		return Twine::Id();
+		return TwineRef();
 	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
 }
 
-size_t RTLIL::Module::count_id(Twine::Id id)
+size_t RTLIL::Module::count_id(TwineRef id)
 {
-	Twine::Id tid = design->twines.lookup(id.str());
+	TwineRef tid = design->twines.lookup(id.str());
 	size_t n = memories.count(id) + processes.count(id);
 	if (tid != Twine::Null)
 		n += wires_.count(tid) + cells_.count(tid);
@@ -2045,7 +2045,7 @@ namespace {
 	{
 		const RTLIL::Module *module;
 		RTLIL::Cell *cell;
-		pool<Twine::Id> expected_params, expected_ports;
+		pool<TwineRef> expected_params, expected_ports;
 
 		InternalCellChecker(const RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
 
@@ -2059,7 +2059,7 @@ namespace {
 					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
-		int param(Twine::Id name)
+		int param(TwineRef name)
 		{
 			auto it = cell->parameters.find(name);
 			if (it == cell->parameters.end())
@@ -2068,7 +2068,7 @@ namespace {
 			return it->second.as_int();
 		}
 
-		int param_bool(Twine::Id name)
+		int param_bool(TwineRef name)
 		{
 			int v = param(name);
 			if (GetSize(cell->parameters.at(name)) > 32)
@@ -2078,7 +2078,7 @@ namespace {
 			return v;
 		}
 
-		int param_bool(Twine::Id name, bool expected)
+		int param_bool(TwineRef name, bool expected)
 		{
 			int v = param_bool(name);
 			if (v != expected)
@@ -2086,20 +2086,20 @@ namespace {
 			return v;
 		}
 
-		void param_bits(Twine::Id name, int width)
+		void param_bits(TwineRef name, int width)
 		{
 			param(name);
 			if (GetSize(cell->parameters.at(name)) != width)
 				error(__LINE__);
 		}
 
-		std::string param_string(Twine::Id name)
+		std::string param_string(TwineRef name)
 		{
 			param(name);
 			return cell->parameters.at(name).decode_string();
 		}
 
-		void port(Twine::Id name, int width)
+		void port(TwineRef name, int width)
 		{
 			auto it = cell->connections_.find(name);
 			if (it == cell->connections_.end())
@@ -3016,7 +3016,7 @@ namespace {
 
 void RTLIL::Module::sort()
 {
-	auto sort_twine_by_str = [this](Twine::Id a, Twine::Id b) {
+	auto sort_twine_by_str = [this](TwineRef a, TwineRef b) {
 		return design->twines.flat_string(a) < design->twines.flat_string(b);
 	};
 	wires_.sort(sort_twine_by_str);
@@ -3075,7 +3075,7 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 				log_assert(!memory_strings.count(memid));
 				memids.insert(ctx, std::move(memid));
 			}
-			auto cell_mod = const_module->design->module(Twine::Id(it.second->name));
+			auto cell_mod = const_module->design->module(TwineRef(it.second->name));
 			if (cell_mod != nullptr) {
 				// assertion check below to make sure that there are no
 				// cases where a cell has a blackbox attribute since
@@ -3102,7 +3102,7 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 				log_assert(!it2.first.empty());
 			if (it.second->port_id) {
 				log_assert(GetSize(const_module->ports) >= it.second->port_id);
-				log_assert(const_module->ports.at(it.second->port_id-1) == Twine::Id(it.second->name));
+				log_assert(const_module->ports.at(it.second->port_id-1) == TwineRef(it.second->name));
 				log_assert(it.second->port_input || it.second->port_output);
 				log_assert(it.second->port_id <= GetSize(ports_declared));
 				bool previously_declared = ports_declared[it.second->port_id-1].set_and_return_old();
@@ -3188,7 +3188,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		new_mod->attributes[attr.first] = attr.second;
 	if (src_id_verbatim) {
 		// Caller (Design::clone_into) copied twines wholesale, so
-		// Twine::Ids preserve their meaning. Allocate per-AttrObject
+		// TwineRefs preserve their meaning. Allocate per-AttrObject
 		// meta in dst's pool and copy the fields. dst's twine refcounts
 		// were inherited via the wholesale copy and already account for
 		// these new AttrObjects, so no retain on src.
@@ -3211,14 +3211,14 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 	}
 
 	if (src_id_verbatim) {
-		// Per-AttrObject meta clone via dst design's pool. Twine::Ids for
+		// Per-AttrObject meta clone via dst design's pool. TwineRefs for
 		// src attributes transfer verbatim (twines was wholesale-copied).
 		// name_id is re-interned by addWire/addCell; copy_meta restores it.
 		auto copy_meta = [&](const RTLIL::AttrObject *src_obj, RTLIL::AttrObject *dst_obj) {
 			if (!src_obj->meta_ || !new_mod->design)
 				return;
 			// Preserve name_id already set by addWire/addCell (in dst's pool).
-			Twine::Id saved_name_id = dst_obj->meta_ ? dst_obj->meta_->name_id : Twine::Null;
+			TwineRef saved_name_id = dst_obj->meta_ ? dst_obj->meta_->name_id : Twine::Null;
 			// Recycle old meta slot (no field releases — name_id's retain lives on).
 			if (dst_obj->meta_)
 				new_mod->design->free_obj_meta(dst_obj->meta_);
@@ -3230,7 +3230,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		};
 		for (auto it = wires_.rbegin(); it != wires_.rend(); ++it) {
 			const RTLIL::Wire *o = it->second;
-			Twine::Id dst_name_id = new_mod->design->twines.copy_from(design->twines, it->first);
+			TwineRef dst_name_id = new_mod->design->twines.copy_from(design->twines, it->first);
 			RTLIL::Wire *w = new_mod->addWire(dst_name_id, o->width);
 			new_mod->design->twines.release(dst_name_id);
 			w->start_offset = o->start_offset;
@@ -3253,7 +3253,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		}
 		for (auto it = cells_.rbegin(); it != cells_.rend(); ++it) {
 			const RTLIL::Cell *o = it->second;
-			Twine::Id dst_name_id = new_mod->design->twines.copy_from(design->twines, it->first);
+			TwineRef dst_name_id = new_mod->design->twines.copy_from(design->twines, it->first);
 			RTLIL::Cell *c = new_mod->addCell(dst_name_id, o->type);
 			new_mod->design->twines.release(dst_name_id);
 			c->connections_ = o->connections_;
@@ -3305,7 +3305,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		// the destination design's pool. copy_from is a no-op if both
 		// designs share the same pool (same-design clone).
 		for (auto it = wires_.rbegin(); it != wires_.rend(); ++it) {
-			Twine::Id dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
+			TwineRef dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
 			new_mod->addWire(dst_id, it->second);
 			new_mod->design->twines.release(dst_id);
 		}
@@ -3314,7 +3314,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			new_mod->addMemory(it->first, it->second);
 
 		for (auto it = cells_.rbegin(); it != cells_.rend(); ++it) {
-			Twine::Id dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
+			TwineRef dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
 			new_mod->addCell(dst_id, it->second);
 			new_mod->design->twines.release(dst_id);
 		}
@@ -3332,7 +3332,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 				// wire points to original module; look up by name in new module.
 				// Use the IdString materialisation path: works for both same-design
 				// and cross-design clones without assuming pool identity.
-				wire = mod->wire(Twine::Id(wire->name));
+				wire = mod->wire(TwineRef(wire->name));
 			});
 		}
 	};
@@ -3362,7 +3362,7 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, bool src_id_verbatim) co
 	return new_mod;
 }
 
-RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, Twine::Id target_name, bool src_id_verbatim) const
+RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, TwineRef target_name, bool src_id_verbatim) const
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
 	new_mod->design = dst;
@@ -3463,7 +3463,7 @@ std::vector<RTLIL::NamedObject*> RTLIL::Module::selected_members() const
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	log_assert(wire->meta_ && wire->meta_->name_id != Twine::Null);
-	Twine::Id id = wire->meta_->name_id;
+	TwineRef id = wire->meta_->name_id;
 	log_assert(wires_.count(id) == 0);
 	log_assert(refcount_wires_ == 0);
 	wires_[id] = wire;
@@ -3473,7 +3473,7 @@ void RTLIL::Module::add(RTLIL::Wire *wire)
 void RTLIL::Module::add(RTLIL::Cell *cell)
 {
 	log_assert(cell->meta_ && cell->meta_->name_id != Twine::Null);
-	Twine::Id id = cell->meta_->name_id;
+	TwineRef id = cell->meta_->name_id;
 	log_assert(cells_.count(id) == 0);
 	log_assert(refcount_cells_ == 0);
 	cells_[id] = cell;
@@ -3542,7 +3542,7 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 
 	for (auto &it : wires) {
 		log_assert(it->meta_ && it->meta_->name_id != Twine::Null);
-		Twine::Id id = it->meta_->name_id;
+		TwineRef id = it->meta_->name_id;
 		log_assert(wires_.count(id) != 0);
 		wires_.erase(id);
 		delete it;  // Wire::~Wire releases src and name_id
@@ -3563,35 +3563,35 @@ void RTLIL::Module::remove(RTLIL::Process *process)
 	delete process;
 }
 
-void RTLIL::Module::rename(RTLIL::Wire *wire, Twine::Id new_name)
+void RTLIL::Module::rename(RTLIL::Wire *wire, TwineRef new_name)
 {
 	log_assert(wire->meta_ && wire->meta_->name_id != Twine::Null);
-	Twine::Id old_id = wire->meta_->name_id;
+	TwineRef old_id = wire->meta_->name_id;
 	log_assert(wires_[old_id] == wire);
 	log_assert(refcount_wires_ == 0);
 	wires_.erase(old_id);
-	Twine::Id new_id = design->twines.intern(new_name.str());
+	TwineRef new_id = design->twines.intern(new_name.str());
 	design->obj_set_name_id(wire, new_id);
 	design->twines.release(new_id);
 	add(wire);
 }
 
-void RTLIL::Module::rename(RTLIL::Cell *cell, Twine::Id new_name)
+void RTLIL::Module::rename(RTLIL::Cell *cell, TwineRef new_name)
 {
 	log_assert(cell->meta_ && cell->meta_->name_id != Twine::Null);
-	Twine::Id old_id = cell->meta_->name_id;
+	TwineRef old_id = cell->meta_->name_id;
 	log_assert(cells_[old_id] == cell);
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(old_id);
-	Twine::Id new_id = design->twines.intern(new_name.str());
+	TwineRef new_id = design->twines.intern(new_name.str());
 	design->obj_set_name_id(cell, new_id);
 	design->twines.release(new_id);
 	add(cell);
 }
 
-void RTLIL::Module::rename(Twine::Id old_name, Twine::Id new_name)
+void RTLIL::Module::rename(TwineRef old_name, TwineRef new_name)
 {
-	Twine::Id old_id = design->twines.lookup(old_name.str());
+	TwineRef old_id = design->twines.lookup(old_name.str());
 	if (old_id != Twine::Null && wires_.count(old_id))
 		rename(wires_.at(old_id), new_name);
 	else if (old_id != Twine::Null && cells_.count(old_id))
@@ -3604,8 +3604,8 @@ void RTLIL::Module::swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2)
 {
 	log_assert(w1->meta_ && w1->meta_->name_id != Twine::Null);
 	log_assert(w2->meta_ && w2->meta_->name_id != Twine::Null);
-	Twine::Id id1 = w1->meta_->name_id;
-	Twine::Id id2 = w2->meta_->name_id;
+	TwineRef id1 = w1->meta_->name_id;
+	TwineRef id2 = w2->meta_->name_id;
 	log_assert(wires_[id1] == w1);
 	log_assert(wires_[id2] == w2);
 	log_assert(refcount_wires_ == 0);
@@ -3620,8 +3620,8 @@ void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
 {
 	log_assert(c1->meta_ && c1->meta_->name_id != Twine::Null);
 	log_assert(c2->meta_ && c2->meta_->name_id != Twine::Null);
-	Twine::Id id1 = c1->meta_->name_id;
-	Twine::Id id2 = c2->meta_->name_id;
+	TwineRef id1 = c1->meta_->name_id;
+	TwineRef id2 = c2->meta_->name_id;
 	log_assert(cells_[id1] == c1);
 	log_assert(cells_[id2] == c2);
 	log_assert(refcount_cells_ == 0);
@@ -3632,13 +3632,13 @@ void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
 	std::swap(c1->meta_->name_id, c2->meta_->name_id);
 }
 
-Twine::Id RTLIL::Module::uniquify(Twine::Id name)
+TwineRef RTLIL::Module::uniquify(TwineRef name)
 {
 	int index = 0;
 	return uniquify(name, index);
 }
 
-Twine::Id RTLIL::Module::uniquify(Twine::Id name, int &index)
+TwineRef RTLIL::Module::uniquify(TwineRef name, int &index)
 {
 	if (index == 0) {
 		if (count_id(name) == 0)
@@ -3647,7 +3647,7 @@ Twine::Id RTLIL::Module::uniquify(Twine::Id name, int &index)
 	}
 
 	while (1) {
-		Twine::Id new_name = stringf("%s_%d", name, index);
+		TwineRef new_name = stringf("%s_%d", name, index);
 		if (count_id(new_name) == 0)
 			return new_name;
 		index++;
@@ -3730,7 +3730,7 @@ void RTLIL::Module::fixup_ports()
 	}
 }
 
-RTLIL::Wire *RTLIL::Module::addWire(Twine::Id name, int width)
+RTLIL::Wire *RTLIL::Module::addWire(TwineRef name, int width)
 {
 	log_assert(design);
 	RTLIL::Wire *wire = new RTLIL::Wire(Wire::ConstructToken{});
@@ -3740,16 +3740,16 @@ RTLIL::Wire *RTLIL::Module::addWire(Twine::Id name, int width)
 	return wire;
 }
 
-RTLIL::Wire *RTLIL::Module::addWire(Twine::Id name, int width)
+RTLIL::Wire *RTLIL::Module::addWire(TwineRef name, int width)
 {
 	log_assert(design);
-	Twine::Id id = design->twines.intern(name.str());
+	TwineRef id = design->twines.intern(name.str());
 	RTLIL::Wire *wire = addWire(id, width);
 	design->twines.release(id);
 	return wire;
 }
 
-RTLIL::Wire *RTLIL::Module::addWire(Twine::Id name, const RTLIL::Wire *other)
+RTLIL::Wire *RTLIL::Module::addWire(TwineRef name, const RTLIL::Wire *other)
 {
 	RTLIL::Wire *wire = addWire(name);
 	wire->width = other->width;
@@ -3768,16 +3768,16 @@ RTLIL::Wire *RTLIL::Module::addWire(Twine::Id name, const RTLIL::Wire *other)
 	return wire;
 }
 
-RTLIL::Wire *RTLIL::Module::addWire(Twine::Id name, const RTLIL::Wire *other)
+RTLIL::Wire *RTLIL::Module::addWire(TwineRef name, const RTLIL::Wire *other)
 {
 	log_assert(design);
-	Twine::Id id = design->twines.intern(name.str());
+	TwineRef id = design->twines.intern(name.str());
 	RTLIL::Wire *wire = addWire(id, other);
 	design->twines.release(id);
 	return wire;
 }
 
-RTLIL::Cell *RTLIL::Module::addCell(Twine::Id name, Twine::Id type)
+RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, TwineRef type)
 {
 	log_assert(design);
 	RTLIL::Cell *cell = new RTLIL::Cell(Cell::ConstructToken{});
@@ -3787,16 +3787,16 @@ RTLIL::Cell *RTLIL::Module::addCell(Twine::Id name, Twine::Id type)
 	return cell;
 }
 
-RTLIL::Cell *RTLIL::Module::addCell(Twine::Id name, Twine::Id type)
+RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, TwineRef type)
 {
 	log_assert(design);
-	Twine::Id id = design->twines.intern(name.str());
+	TwineRef id = design->twines.intern(name.str());
 	RTLIL::Cell *cell = addCell(id, type);
 	design->twines.release(id);
 	return cell;
 }
 
-RTLIL::Cell *RTLIL::Module::addCell(Twine::Id name, const RTLIL::Cell *other)
+RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, const RTLIL::Cell *other)
 {
 	RTLIL::Cell *cell = addCell(name, other->type);
 	cell->connections_ = other->connections_;
@@ -3810,16 +3810,16 @@ RTLIL::Cell *RTLIL::Module::addCell(Twine::Id name, const RTLIL::Cell *other)
 	return cell;
 }
 
-RTLIL::Cell *RTLIL::Module::addCell(Twine::Id name, const RTLIL::Cell *other)
+RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, const RTLIL::Cell *other)
 {
 	log_assert(design);
-	Twine::Id id = design->twines.intern(name.str());
+	TwineRef id = design->twines.intern(name.str());
 	RTLIL::Cell *cell = addCell(id, other);
 	design->twines.release(id);
 	return cell;
 }
 
-RTLIL::Memory *RTLIL::Module::addMemory(Twine::Id name)
+RTLIL::Memory *RTLIL::Module::addMemory(TwineRef name)
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = std::move(name);
@@ -3828,7 +3828,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(Twine::Id name)
 	return mem;
 }
 
-RTLIL::Memory *RTLIL::Module::addMemory(Twine::Id name, const RTLIL::Memory *other)
+RTLIL::Memory *RTLIL::Module::addMemory(TwineRef name, const RTLIL::Memory *other)
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = std::move(name);
@@ -3847,7 +3847,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(Twine::Id name, const RTLIL::Memory *oth
 	return mem;
 }
 
-RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name)
+RTLIL::Process *RTLIL::Module::addProcess(TwineRef name)
 {
 	RTLIL::Process *proc = new RTLIL::Process;
 	proc->name = std::move(name);
@@ -3896,7 +3896,7 @@ namespace {
 	}
 }
 
-RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *other)
+RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *other)
 {
 	RTLIL::Process *proc = other->clone();
 	proc->name = std::move(name);
@@ -3918,7 +3918,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 }
 
 	#define DEF_METHOD(_func, _y_size, _type) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);           \
 			cell->parameters[ID::A_SIGNED] = is_signed;         \
 			cell->parameters[ID::A_WIDTH] = sig_a.size();       \
@@ -3928,7 +3928,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                       \
 			return cell;                                        \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, _y_size);    \
 			add ## _func(name, sig_a, sig_y, is_signed, src);   \
 			return sig_y;                                       \
@@ -3945,7 +3945,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _y_size, _type) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool /* is_signed */, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool /* is_signed */, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);           \
 			cell->parameters[ID::WIDTH] = sig_a.size();         \
 			cell->setPort(ID::A, sig_a);                        \
@@ -3953,7 +3953,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                       \
 			return cell;                                        \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, _y_size);    \
 			add ## _func(name, sig_a, sig_y, is_signed, src);   \
 			return sig_y;                                       \
@@ -3962,7 +3962,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _y_size, _type) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);           \
 			cell->parameters[ID::A_SIGNED] = is_signed;         \
 			cell->parameters[ID::B_SIGNED] = is_signed;         \
@@ -3975,7 +3975,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                       \
 			return cell;                                        \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, _y_size);         \
 			add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 			return sig_y;                                            \
@@ -4005,7 +4005,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _y_size, _type) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);           \
 			cell->parameters[ID::A_SIGNED] = is_signed;         \
 			cell->parameters[ID::B_SIGNED] = false;             \
@@ -4018,7 +4018,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                       \
 			return cell;                                        \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, _y_size);         \
 			add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 			return sig_y;                                            \
@@ -4030,7 +4030,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _y_size, _type) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);           \
 			cell->parameters[ID::A_SIGNED] = false;             \
 			cell->parameters[ID::B_SIGNED] = is_signed;         \
@@ -4043,7 +4043,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                       \
 			return cell;                                        \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, _y_size);         \
 			add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 			return sig_y;                                            \
@@ -4052,7 +4052,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _type, _pmux) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);                 \
 			cell->parameters[ID::WIDTH] = sig_a.size();               \
 			if (_pmux) cell->parameters[ID::S_WIDTH] = sig_s.size();  \
@@ -4063,7 +4063,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                             \
 			return cell;                                              \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, sig_a.size());     \
 			add ## _func(name, sig_a, sig_b, sig_s, sig_y, src);      \
 			return sig_y;                                             \
@@ -4074,7 +4074,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _type, _demux) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);                 \
 			cell->parameters[ID::WIDTH] = _demux ? sig_a.size() : sig_y.size(); \
 			cell->parameters[ID::S_WIDTH] = sig_s.size();             \
@@ -4084,7 +4084,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                             \
 			return cell;                                              \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, _demux ? sig_a.size() << sig_s.size() : sig_a.size() >> sig_s.size()); \
 			add ## _func(name, sig_a, sig_s, sig_y, src);             \
 			return sig_y;                                             \
@@ -4094,7 +4094,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD(_func, _type) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);                 \
 			cell->parameters[ID::WIDTH] = sig_a.size();               \
 			cell->setPort(ID::A, sig_a);                              \
@@ -4103,7 +4103,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                             \
 			return cell;                                              \
 		} \
-		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigSpec sig_y = static_cast<Derived*>(this)->addWire(NEW_ID, sig_a.size());     \
 			add ## _func(name, sig_a, sig_s, sig_y, src);             \
 			return sig_y;                                             \
@@ -4112,20 +4112,20 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD
 
 	#define DEF_METHOD_2(_func, _type, _P1, _P2) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);         \
 			cell->setPort("\\" #_P1, sig1);                   \
 			cell->setPort("\\" #_P2, sig2);                   \
 			cell->set_src_attribute(src);                     \
 			return cell;                                      \
 		} \
-		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigBit sig2 = static_cast<Derived*>(this)->addWire(NEW_ID);             \
 			add ## _func(name, sig1, sig2, src);              \
 			return sig2;                                      \
 		}
 	#define DEF_METHOD_3(_func, _type, _P1, _P2, _P3) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);         \
 			cell->setPort("\\" #_P1, sig1);                   \
 			cell->setPort("\\" #_P2, sig2);                   \
@@ -4133,13 +4133,13 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                     \
 			return cell;                                      \
 		} \
-		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigBit sig3 = static_cast<Derived*>(this)->addWire(NEW_ID);             \
 			add ## _func(name, sig1, sig2, sig3, src);        \
 			return sig3;                                      \
 		}
 	#define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);         \
 			cell->setPort("\\" #_P1, sig1);                   \
 			cell->setPort("\\" #_P2, sig2);                   \
@@ -4148,13 +4148,13 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                     \
 			return cell;                                      \
 		} \
-		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigBit sig4 = static_cast<Derived*>(this)->addWire(NEW_ID);             \
 			add ## _func(name, sig1, sig2, sig3, sig4, src);  \
 			return sig4;                                      \
 		}
 	#define DEF_METHOD_5(_func, _type, _P1, _P2, _P3, _P4, _P5) \
-		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SigBit &sig5, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::add ## _func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SigBit &sig5, const RTLIL::SrcAttr &src) { \
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, _type);         \
 			cell->setPort("\\" #_P1, sig1);                   \
 			cell->setPort("\\" #_P2, sig2);                   \
@@ -4164,7 +4164,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 			cell->set_src_attribute(src);                     \
 			return cell;                                      \
 		} \
-		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine::Id name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SrcAttr &src) { \
+		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(TwineRef name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SrcAttr &src) { \
 			RTLIL::SigBit sig5 = static_cast<Derived*>(this)->addWire(NEW_ID);                  \
 			add ## _func(name, sig1, sig2, sig3, sig4, sig5, src); \
 			return sig5;                                           \
@@ -4190,7 +4190,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 	#undef DEF_METHOD_4
 	#undef DEF_METHOD_5
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addPow(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool a_signed, bool b_signed, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addPow(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool a_signed, bool b_signed, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($pow));
 		cell->parameters[ID::A_SIGNED] = a_signed;
@@ -4205,7 +4205,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFa(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_x, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFa(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_x, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($fa));
 		cell->parameters[ID::WIDTH] = sig_a.size();
@@ -4218,7 +4218,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSlice(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const offset, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSlice(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const offset, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($slice));
 		cell->parameters[ID::A_WIDTH] = sig_a.size();
@@ -4230,7 +4230,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addConcat(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addConcat(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($concat));
 		cell->parameters[ID::A_WIDTH] = sig_a.size();
@@ -4242,7 +4242,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addLut(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const lut, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addLut(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const lut, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($lut));
 		cell->parameters[ID::LUT] = lut;
@@ -4253,7 +4253,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addTribuf(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addTribuf(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($tribuf));
 		cell->parameters[ID::WIDTH] = sig_a.size();
@@ -4264,7 +4264,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAssert(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAssert(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($assert));
 		cell->setPort(ID::A, sig_a);
@@ -4273,7 +4273,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAssume(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAssume(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($assume));
 		cell->setPort(ID::A, sig_a);
@@ -4282,7 +4282,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addLive(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addLive(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($live));
 		cell->setPort(ID::A, sig_a);
@@ -4291,7 +4291,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFair(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFair(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($fair));
 		cell->setPort(ID::A, sig_a);
@@ -4300,7 +4300,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addCover(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addCover(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($cover));
 		cell->setPort(ID::A, sig_a);
@@ -4309,7 +4309,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addEquiv(Twine::Id name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addEquiv(TwineRef name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($equiv));
 		cell->setPort(ID::A, sig_a);
@@ -4319,7 +4319,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSr(Twine::Id name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr, const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSr(TwineRef name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr, const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($sr));
 		cell->parameters[ID::SET_POLARITY] = set_polarity;
@@ -4332,7 +4332,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFf(Twine::Id name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFf(TwineRef name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($ff));
 		cell->parameters[ID::WIDTH] = sig_q.size();
@@ -4342,7 +4342,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDff(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDff(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($dff));
 		cell->parameters[ID::CLK_POLARITY] = clk_polarity;
@@ -4354,7 +4354,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffe(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffe(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($dffe));
 		cell->parameters[ID::CLK_POLARITY] = clk_polarity;
@@ -4368,7 +4368,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsr(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsr(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($dffsr));
@@ -4385,7 +4385,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsre(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsre(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($dffsre));
@@ -4404,7 +4404,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdff(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdff(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			RTLIL::Const arst_value, bool clk_polarity, bool arst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($adff));
@@ -4420,7 +4420,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffe(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffe(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			RTLIL::Const arst_value, bool clk_polarity, bool en_polarity, bool arst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($adffe));
@@ -4438,7 +4438,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldff(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldff(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($aldff));
@@ -4454,7 +4454,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffe(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffe(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($aldffe));
@@ -4472,7 +4472,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdff(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdff(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			RTLIL::Const srst_value, bool clk_polarity, bool srst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($sdff));
@@ -4488,7 +4488,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffe(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffe(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			RTLIL::Const srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($sdffe));
@@ -4506,7 +4506,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffce(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffce(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			RTLIL::Const srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($sdffce));
@@ -4524,7 +4524,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatch(Twine::Id name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatch(TwineRef name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($dlatch));
 		cell->parameters[ID::EN_POLARITY] = en_polarity;
@@ -4536,7 +4536,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdlatch(Twine::Id name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdlatch(TwineRef name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			RTLIL::Const arst_value, bool en_polarity, bool arst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($adlatch));
@@ -4552,7 +4552,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchsr(Twine::Id name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchsr(TwineRef name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($dlatchsr));
@@ -4569,7 +4569,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSrGate(Twine::Id name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSrGate(TwineRef name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_SR_%c%c_", set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
@@ -4580,7 +4580,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFfGate(Twine::Id name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addFfGate(TwineRef name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, ID($_FF_));
 		cell->setPort(ID::D, sig_d);
@@ -4589,7 +4589,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'));
 		cell->setPort(ID::C, sig_clk);
@@ -4599,7 +4599,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffeGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffeGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
 		cell->setPort(ID::C, sig_clk);
@@ -4610,7 +4610,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsrGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsrGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
@@ -4623,7 +4623,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsreGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsreGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DFFSRE_%c%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
@@ -4637,7 +4637,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool arst_value, bool clk_polarity, bool arst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
@@ -4649,7 +4649,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffeGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffeGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool arst_value, bool clk_polarity, bool en_polarity, bool arst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
@@ -4662,7 +4662,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_ALDFF_%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N'));
@@ -4675,7 +4675,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffeGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffeGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_ALDFFE_%c%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
@@ -4689,7 +4689,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool srst_value, bool clk_polarity, bool srst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_SDFF_%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0'));
@@ -4701,7 +4701,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffeGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffeGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_SDFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
@@ -4714,7 +4714,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffceGate(Twine::Id name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffceGate(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_SDFFCE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
@@ -4727,7 +4727,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchGate(Twine::Id name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const RTLIL::SrcAttr &src)
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchGate(TwineRef name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N'));
 		cell->setPort(ID::E, sig_en);
@@ -4737,7 +4737,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdlatchGate(Twine::Id name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdlatchGate(TwineRef name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool arst_value, bool en_polarity, bool arst_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DLATCH_%c%c%c_", en_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
@@ -4749,7 +4749,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchsrGate(Twine::Id name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchsrGate(TwineRef name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, const RTLIL::SrcAttr &src)
 	{
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(name, stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
@@ -4762,7 +4762,7 @@ RTLIL::Process *RTLIL::Module::addProcess(Twine::Id name, const RTLIL::Process *
 		return cell;
 	}
 
-RTLIL::Cell* RTLIL::Module::addAnyinit(Twine::Id name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const RTLIL::SrcAttr &src)
+RTLIL::Cell* RTLIL::Module::addAnyinit(TwineRef name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const RTLIL::SrcAttr &src)
 {
 	RTLIL::Cell *cell = addCell(name, ID($anyinit));
 	cell->parameters[ID::WIDTH] = sig_q.size();
@@ -4772,7 +4772,7 @@ RTLIL::Cell* RTLIL::Module::addAnyinit(Twine::Id name, const RTLIL::SigSpec &sig
 	return cell;
 }
 
-RTLIL::SigSpec RTLIL::Module::Anyconst(Twine::Id name, int width, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::Anyconst(TwineRef name, int width, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
 	Cell *cell = addCell(name, ID($anyconst));
@@ -4782,7 +4782,7 @@ RTLIL::SigSpec RTLIL::Module::Anyconst(Twine::Id name, int width, const RTLIL::S
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::Anyseq(Twine::Id name, int width, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::Anyseq(TwineRef name, int width, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
 	Cell *cell = addCell(name, ID($anyseq));
@@ -4792,7 +4792,7 @@ RTLIL::SigSpec RTLIL::Module::Anyseq(Twine::Id name, int width, const RTLIL::Src
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::Allconst(Twine::Id name, int width, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::Allconst(TwineRef name, int width, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
 	Cell *cell = addCell(name, ID($allconst));
@@ -4802,7 +4802,7 @@ RTLIL::SigSpec RTLIL::Module::Allconst(Twine::Id name, int width, const RTLIL::S
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::Allseq(Twine::Id name, int width, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::Allseq(TwineRef name, int width, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
 	Cell *cell = addCell(name, ID($allseq));
@@ -4812,7 +4812,7 @@ RTLIL::SigSpec RTLIL::Module::Allseq(Twine::Id name, int width, const RTLIL::Src
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::Initstate(Twine::Id name, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::Initstate(TwineRef name, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID);
 	Cell *cell = addCell(name, ID($initstate));
@@ -4821,7 +4821,7 @@ RTLIL::SigSpec RTLIL::Module::Initstate(Twine::Id name, const RTLIL::SrcAttr &sr
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::SetTag(Twine::Id name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::SetTag(TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($set_tag));
@@ -4835,7 +4835,7 @@ RTLIL::SigSpec RTLIL::Module::SetTag(Twine::Id name, const std::string &tag, con
 	return sig;
 }
 
-RTLIL::Cell* RTLIL::Module::addSetTag(Twine::Id name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
+RTLIL::Cell* RTLIL::Module::addSetTag(TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, const RTLIL::SrcAttr &src)
 {
 	Cell *cell = addCell(name, ID($set_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
@@ -4848,7 +4848,7 @@ RTLIL::Cell* RTLIL::Module::addSetTag(Twine::Id name, const std::string &tag, co
 	return cell;
 }
 
-RTLIL::SigSpec RTLIL::Module::GetTag(Twine::Id name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::GetTag(TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($get_tag));
@@ -4860,7 +4860,7 @@ RTLIL::SigSpec RTLIL::Module::GetTag(Twine::Id name, const std::string &tag, con
 	return sig;
 }
 
-RTLIL::Cell* RTLIL::Module::addOverwriteTag(Twine::Id name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SrcAttr &src)
+RTLIL::Cell* RTLIL::Module::addOverwriteTag(TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SrcAttr &src)
 {
 	RTLIL::Cell *cell = addCell(name, ID($overwrite_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
@@ -4872,7 +4872,7 @@ RTLIL::Cell* RTLIL::Module::addOverwriteTag(Twine::Id name, const std::string &t
 	return cell;
 }
 
-RTLIL::SigSpec RTLIL::Module::OriginalTag(Twine::Id name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::OriginalTag(TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($original_tag));
@@ -4884,7 +4884,7 @@ RTLIL::SigSpec RTLIL::Module::OriginalTag(Twine::Id name, const std::string &tag
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::FutureFF(Twine::Id name, const RTLIL::SigSpec &sig_e, const RTLIL::SrcAttr &src)
+RTLIL::SigSpec RTLIL::Module::FutureFF(TwineRef name, const RTLIL::SigSpec &sig_e, const RTLIL::SrcAttr &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
 	Cell *cell = addCell(name, ID($future_ff));
@@ -4933,14 +4933,14 @@ RTLIL::Wire::~Wire()
 #endif
 }
 
-Twine::Id RTLIL::Wire::src_id() const
+TwineRef RTLIL::Wire::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
 
-void RTLIL::Wire::set_src_id(Twine::Id id)
+void RTLIL::Wire::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "Wire::set_src_id requires the wire to be attached to a module in a design");
 	module->design->obj_set_src_id(this, id);
@@ -4967,7 +4967,7 @@ void RTLIL::Wire::adopt_src_from(const RTLIL::AttrObject *source)
 	module->design->adopt_src_from(this, source);
 }
 
-void RTLIL::Wire::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::Wire::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "Wire::absorb_attrs requires the wire to be attached to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));
@@ -5048,23 +5048,21 @@ RTLIL::Cell::~Cell()
 #endif
 }
 
-Twine::Id RTLIL::Cell::src_id() const
+TwineRef RTLIL::Cell::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
 
-void RTLIL::Cell::set_src_id(Twine::Id id)
+void RTLIL::Cell::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "Cell::set_src_id requires the cell to be attached to a module in a design");
 	module->design->obj_set_src_id(this, id);
 }
 
-void RTLIL::Cell::set_src_attribute(const RTLIL::SrcAttr &src)
+void RTLIL::Cell::set_src_attribute(RTLIL::SrcAttr src)
 {
-	if (src.empty() && meta_ == nullptr)
-		return;
 	log_assert(module && module->design && "Cell::set_src_attribute requires the cell to be attached to a module in a design");
 	module->design->set_src_attribute(this, src);
 }
@@ -5082,7 +5080,7 @@ void RTLIL::Cell::adopt_src_from(const RTLIL::AttrObject *source)
 	module->design->adopt_src_from(this, source);
 }
 
-void RTLIL::Cell::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::Cell::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "Cell::absorb_attrs requires the cell to be attached to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));
@@ -5103,19 +5101,19 @@ std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
 }
 #endif
 
-bool RTLIL::Cell::hasPort(Twine::Id portname) const
+bool RTLIL::Cell::hasPort(TwineRef portname) const
 {
 	return connections_.count(portname) != 0;
 }
 
 // bufnorm
 
-const RTLIL::SigSpec &RTLIL::Cell::getPort(Twine::Id portname) const
+const RTLIL::SigSpec &RTLIL::Cell::getPort(TwineRef portname) const
 {
 	return connections_.at(portname);
 }
 
-const dict<Twine::Id, RTLIL::SigSpec> &RTLIL::Cell::connections() const
+const dict<TwineRef, RTLIL::SigSpec> &RTLIL::Cell::connections() const
 {
 	return connections_;
 }
@@ -5129,7 +5127,7 @@ bool RTLIL::Cell::known() const
 	return false;
 }
 
-bool RTLIL::Cell::input(Twine::Id portname) const
+bool RTLIL::Cell::input(TwineRef portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_input(type, portname);
@@ -5141,7 +5139,7 @@ bool RTLIL::Cell::input(Twine::Id portname) const
 	return false;
 }
 
-bool RTLIL::Cell::output(Twine::Id portname) const
+bool RTLIL::Cell::output(TwineRef portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
@@ -5153,7 +5151,7 @@ bool RTLIL::Cell::output(Twine::Id portname) const
 	return false;
 }
 
-RTLIL::PortDir RTLIL::Cell::port_dir(Twine::Id portname) const
+RTLIL::PortDir RTLIL::Cell::port_dir(TwineRef portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_port_dir(type, portname);
@@ -5169,22 +5167,22 @@ RTLIL::PortDir RTLIL::Cell::port_dir(Twine::Id portname) const
 	return PortDir::PD_UNKNOWN;
 }
 
-bool RTLIL::Cell::hasParam(Twine::Id paramname) const
+bool RTLIL::Cell::hasParam(TwineRef paramname) const
 {
 	return parameters.count(paramname) != 0;
 }
 
-void RTLIL::Cell::unsetParam(Twine::Id paramname)
+void RTLIL::Cell::unsetParam(TwineRef paramname)
 {
 	parameters.erase(paramname);
 }
 
-void RTLIL::Cell::setParam(Twine::Id paramname, RTLIL::Const value)
+void RTLIL::Cell::setParam(TwineRef paramname, RTLIL::Const value)
 {
 	parameters[paramname] = std::move(value);
 }
 
-const RTLIL::Const &RTLIL::Cell::getParam(Twine::Id paramname) const
+const RTLIL::Const &RTLIL::Cell::getParam(TwineRef paramname) const
 {
 	const auto &it = parameters.find(paramname);
 	if (it != parameters.end())
@@ -6593,12 +6591,12 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 		}
 
 		{
-			Twine::Id wid = module->design->twines.lookup(netname);
+			TwineRef wid = module->design->twines.lookup(netname);
 			if (wid == Twine::Null || module->wires_.count(wid) == 0)
 				return false;
 		}
 
-		RTLIL::Wire *wire = module->wire(Twine::Id(netname));
+		RTLIL::Wire *wire = module->wire(TwineRef(netname));
 		if (!indices.empty()) {
 			std::vector<std::string> index_tokens;
 			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');
@@ -6639,7 +6637,7 @@ bool RTLIL::SigSpec::parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL
 	sig = RTLIL::SigSpec();
 	RTLIL::Selection &sel = design->selection_vars.at(str);
 	for (auto &it : module->wires_)
-		if (sel.selected_member(module->name, Twine::Id(it.second->name)))
+		if (sel.selected_member(module->name, TwineRef(it.second->name)))
 			sig.append(it.second);
 
 	return true;
@@ -6795,14 +6793,14 @@ RTLIL::Process::~Process()
 		delete *it;
 }
 
-Twine::Id RTLIL::Process::src_id() const
+TwineRef RTLIL::Process::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
 
-void RTLIL::Process::set_src_id(Twine::Id id)
+void RTLIL::Process::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "Process::set_src_id requires the process to be attached to a module in a design");
 	module->design->obj_set_src_id(this, id);
@@ -6829,7 +6827,7 @@ void RTLIL::Process::adopt_src_from(const RTLIL::AttrObject *source)
 	module->design->adopt_src_from(this, source);
 }
 
-void RTLIL::Process::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::Process::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "Process::absorb_attrs requires the process to be attached to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));
@@ -6864,14 +6862,14 @@ RTLIL::Memory::~Memory()
 #endif
 }
 
-Twine::Id RTLIL::Memory::src_id() const
+TwineRef RTLIL::Memory::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
 
-void RTLIL::Memory::set_src_id(Twine::Id id)
+void RTLIL::Memory::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "Memory::set_src_id requires the memory to be attached to a module in a design");
 	module->design->obj_set_src_id(this, id);
@@ -6898,7 +6896,7 @@ void RTLIL::Memory::adopt_src_from(const RTLIL::AttrObject *source)
 	module->design->adopt_src_from(this, source);
 }
 
-void RTLIL::Memory::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::Memory::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "Memory::absorb_attrs requires the memory to be attached to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));
@@ -6906,13 +6904,13 @@ void RTLIL::Memory::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
 
 // CaseRule / SwitchRule / MemWriteAction src helpers — all delegate to
 // module->design->obj_* via the back-pointer added in the earlier commit.
-Twine::Id RTLIL::CaseRule::src_id() const
+TwineRef RTLIL::CaseRule::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
-void RTLIL::CaseRule::set_src_id(Twine::Id id)
+void RTLIL::CaseRule::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "CaseRule::set_src_id requires the case to belong to a module in a design");
 	module->design->obj_set_src_id(this, id);
@@ -6935,19 +6933,19 @@ void RTLIL::CaseRule::adopt_src_from(const RTLIL::AttrObject *source)
 	log_assert(module && module->design && "CaseRule::adopt_src_from requires the case to belong to a module in a design");
 	module->design->adopt_src_from(this, source);
 }
-void RTLIL::CaseRule::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::CaseRule::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "CaseRule::absorb_attrs requires the case to belong to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));
 }
 
-Twine::Id RTLIL::SwitchRule::src_id() const
+TwineRef RTLIL::SwitchRule::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
-void RTLIL::SwitchRule::set_src_id(Twine::Id id)
+void RTLIL::SwitchRule::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "SwitchRule::set_src_id requires the switch to belong to a module in a design");
 	module->design->obj_set_src_id(this, id);
@@ -6970,19 +6968,19 @@ void RTLIL::SwitchRule::adopt_src_from(const RTLIL::AttrObject *source)
 	log_assert(module && module->design && "SwitchRule::adopt_src_from requires the switch to belong to a module in a design");
 	module->design->adopt_src_from(this, source);
 }
-void RTLIL::SwitchRule::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::SwitchRule::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "SwitchRule::absorb_attrs requires the switch to belong to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));
 }
 
-Twine::Id RTLIL::MemWriteAction::src_id() const
+TwineRef RTLIL::MemWriteAction::src_id() const
 {
 	if (!module || !module->design)
 		return Twine::Null;
 	return module->design->obj_src_id(this);
 }
-void RTLIL::MemWriteAction::set_src_id(Twine::Id id)
+void RTLIL::MemWriteAction::set_src_id(TwineRef id)
 {
 	log_assert(module && module->design && "MemWriteAction::set_src_id requires the action to belong to a module in a design");
 	module->design->obj_set_src_id(this, id);
@@ -7005,7 +7003,7 @@ void RTLIL::MemWriteAction::adopt_src_from(const RTLIL::AttrObject *source)
 	log_assert(module && module->design && "MemWriteAction::adopt_src_from requires the action to belong to a module in a design");
 	module->design->adopt_src_from(this, source);
 }
-void RTLIL::MemWriteAction::absorb_attrs(dict<Twine::Id, RTLIL::Const> &&buf)
+void RTLIL::MemWriteAction::absorb_attrs(dict<TwineRef, RTLIL::Const> &&buf)
 {
 	log_assert(module && module->design && "MemWriteAction::absorb_attrs requires the action to belong to a module in a design");
 	module->design->absorb_attrs(this, std::move(buf));

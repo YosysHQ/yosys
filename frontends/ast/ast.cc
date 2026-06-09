@@ -1123,11 +1123,11 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 	// thousands of objects in one file this collapses N copies of a long
 	// path into 1 Leaf + N short Suffix tails.
 	TwinePool *pool = &current_module->design->twines;
-	Twine::Id file_id = pool->intern(*loc.begin.filename);
+	TwineRef file_id = pool->intern(*loc.begin.filename);
 	std::string tail = stringf(":%d.%d-%d.%d",
 			loc.begin.line, loc.begin.column,
 			loc.end.line, loc.end.column);
-	Twine::Id suffix_id = pool->intern_suffix(file_id, tail);
+	TwineRef suffix_id = pool->intern_suffix(file_id, tail);
 	pool->release(file_id); // suffix internally holds a ref now
 	current_module->design->obj_set_src_id(obj, suffix_id);
 	pool->release(suffix_id); // obj_set_src_id retained on obj's behalf

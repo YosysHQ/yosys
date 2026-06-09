@@ -42,7 +42,7 @@ struct DumpTwinesPass : public Pass {
 		const TwinePool &pool = design->twines;
 		log("twine pool: %zu nodes (%zu leaves, %zu suffixes, %zu concats)\n",
 				pool.size(), pool.leaf_count(), pool.suffix_count(), pool.concat_count());
-		pool.for_each_live([&](Twine::Id id, const Twine &n) {
+		pool.for_each_live([&](TwineRef id, const Twine &n) {
 			if (n.is_leaf()) {
 				log("  @%u leaf rc=%u %s\n", id, pool.refcount(id), n.leaf().c_str());
 			} else if (n.is_suffix()) {
@@ -56,7 +56,7 @@ struct DumpTwinesPass : public Pass {
 				}
 			} else {
 				std::string children;
-				for (Twine::Id c : n.children()) {
+				for (TwineRef c : n.children()) {
 					if (!children.empty())
 						children += ", ";
 					children += "@" + std::to_string(c);

@@ -2,7 +2,9 @@
 #define YOSYS_TWINE_H
 
 #include "kernel/yosys_common.h"
+#include "kernel/hashlib.h"
 
+#include "libs/plf_colony/plf_colony.h"
 #include <cstdint>
 #include <limits>
 #include <span>
@@ -15,394 +17,407 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-// A Twine is an interned, possibly composite source-location string. Leaves
-// are flat path:line.col substrings (the existing src-attribute literal). A
-// Concat node holds an ordered sequence of child twines, so merging the src
-// of N cells is O(N) lookups plus one concat-table probe — independent of
-// the total path-string length the materialized result would have.
-//
-// Twines are valid only relative to the TwinePool that minted them. The pool
-// lives on RTLIL::Design (design->twines).
-struct Twine
-{
-	using Id = Twine*;
-	static constexpr Id Null = nullptr;
+struct Twine;
+struct TwineRef {
+	std::variant<Twine*, size_t> data;
+	constexpr TwineRef(Twine* p) : data(p) {}
+	constexpr TwineRef(size_t global) : data(global) {}
+	const Twine& operator*() const;
+	Twine& operator*();
+	Twine* operator->() {
+		return &(**this);
+	}
+	const Twine* operator->() const {
+		return &(**this);
+	}
+	friend constexpr bool operator==(const TwineRef& a, const TwineRef& b) {
+		return &*a == &*b;
+	}
+	friend constexpr auto operator<=>(const TwineRef& a, const TwineRef& b) {
+		return &*a <=> &*b;
+	}
+};
+// using TwineRef = const Twine*;
 
-	// Suffix shares a `prefix` prefix with other suffixes and contributes
-	// its own `tail` string. The materialized leaf string is
-	// flat_string(prefix) + tail, i.e. suffixes form trees whose leaves
-	// (string variant) are the roots — like a reverse-trie of common
-	// prefixes. The prefix is itself flat (Leaf or Suffix), never a
-	// Concat.
+struct Twine {
+	static constexpr TwineRef Null = nullptr;
+
 	struct Suffix {
-		Id prefix;
+		TwineRef prefix;
 		std::string tail;
+		// TODO check
+		// auto operator<=>(const Suffix&) const = default;
 	};
 
-	// Leaf holds the literal path:line.col string. Suffix holds a prefix
-	// id + own tail (see above). Concat holds the ordered children.
-	// Concats are kept flat by TwinePool::concat — children are always
-	// flat (Leaf or Suffix), never other Concats. monostate is the
-	// tombstone marker for freed slots awaiting reuse via the free list.
-	std::variant<std::monostate, std::string, std::vector<Id>, Suffix> data;
+	std::variant<std::monostate, std::string, std::vector<TwineRef>, Suffix> data;
 
 	bool is_dead() const { return std::holds_alternative<std::monostate>(data); }
 	bool is_leaf() const { return std::holds_alternative<std::string>(data); }
-	bool is_concat() const { return std::holds_alternative<std::vector<Id>>(data); }
+	bool is_concat() const { return std::holds_alternative<std::vector<TwineRef>>(data); }
 	bool is_suffix() const { return std::holds_alternative<Suffix>(data); }
 	bool is_flat() const { return is_leaf() || is_suffix(); }
 	const std::string &leaf() const { return std::get<std::string>(data); }
-	const std::vector<Id> &children() const { return std::get<std::vector<Id>>(data); }
+	const std::vector<TwineRef> &children() const { return std::get<std::vector<TwineRef>>(data); }
 	const Suffix &suffix() const { return std::get<Suffix>(data); }
+	void dump(std::ostream& os = std::cout) const {
+		std::visit([&os](const auto& val) {
+			using T = std::decay_t<decltype(val)>;
+			if constexpr (std::is_same_v<T, std::monostate>) {
+				os << "Dead()";
+			} else if constexpr (std::is_same_v<T, std::string>) {
+				os << "Leaf(\"" << val << "\")";
+			} else if constexpr (std::is_same_v<T, std::vector<TwineRef>>) {
+				os << "Concat[";
+				for (size_t i = 0; i < val.size(); ++i) {
+					if (i > 0)
+						os << ", ";
+					val[i]->dump(os);
+				}
+				os << "]";
+			} else if constexpr (std::is_same_v<T, Suffix>) {
+				os << "Suffix(prefix: ";
+				val.prefix->dump(os);
+				os << ", tail: \"" << val.tail << "\")";
+			}
+		}, data);
+	}
+	void print(std::ostream& os = std::cout) const {
+		std::visit([&os](const auto& val) {
+			using T = std::decay_t<decltype(val)>;
+			if constexpr (std::is_same_v<T, std::monostate>) {
+			} else if constexpr (std::is_same_v<T, std::string>) {
+				os << val;
+			} else if constexpr (std::is_same_v<T, std::vector<TwineRef>>) {
+				for (size_t i = 0; i < val.size(); ++i) {
+					if (i > 0)
+						os << "|";
+					val[i]->print(os);
+				}
+			} else if constexpr (std::is_same_v<T, Suffix>) {
+				val.prefix->print(os);
+				os << val.tail;
+			}
+		}, data);
+	}
+	std::string str() const {
+		std::string str;
+		std::stringstream os(str);
+		print(os);
+		return str;
+	}
 };
 
-struct TwinePoolExtender;
-class TwinePool
-{
-private:
-	friend struct TwinePoolExtender;
-	uint32_t& refcount(Twine::Id id);
-public:
-	TwinePool();
-	// Custom copy: functor pointers must target the NEW pool's nodes_.
-	TwinePool(const TwinePool &other);
-	TwinePool &operator=(const TwinePool &other);
-	// Move is deleted; the intrusive functors hold `this`, so a move would
-	// silently leave them pointing at the old (now-empty) pool.
-	TwinePool(TwinePool &&) = delete;
-	TwinePool &operator=(TwinePool &&) = delete;
+struct TwineHash {
+	using is_transparent = void;
 
-	// Intern a leaf string. Returns the same Id for byte-equal inputs. The
-	// returned Id carries one reference for the caller — release it when
-	// you are done holding it. Empty input returns Twine::Null.
-	Twine::Id intern(std::string_view leaf);
+	size_t operator()(const Twine& t) const noexcept;
+	size_t operator()(TwineRef ptr) const noexcept;
+	// size_t operator()(std::string_view v) const noexcept;
+};
 
-	// Intern a Suffix node. The resulting flat string is
-	// flat_string(prefix) + tail. `prefix` must be a flat node (Leaf or
-	// Suffix) — pass Twine::Null with a non-empty `tail` to fall back to
-	// intern(tail). Suffixes with the same (prefix, tail) dedup. The
-	// returned Id carries one reference for the caller. Internally the
-	// new suffix retains a reference on `prefix`; releasing the suffix
-	// releases that internal prefix ref. Empty `tail` returns `prefix`
-	// (with +1 ref for the caller).
-	Twine::Id intern_suffix(Twine::Id prefix, std::string_view tail);
+struct TwineEq {
+	using is_transparent = void;
 
-	// Build a Concat node referencing `parts` in order. Concat children are
-	// always leaves (flat-leaf invariant): any Concat passed in `parts` has
-	// its leaves spliced in instead. Duplicate leaves and Twine::Null are
-	// dropped. If only one distinct leaf remains its Id is returned directly
-	// (no Concat node created). Concats with the same child sequence dedup.
-	// The returned Id carries one reference for the caller. Internally the
-	// concat retains each child it stores; releasing the concat releases
-	// those internal child references.
-	Twine::Id concat(std::span<const Twine::Id> parts);
-	Twine::Id concat(Twine::Id a, Twine::Id b);
+	bool operator()(TwineRef a, TwineRef b) const noexcept;
+	bool operator()(TwineRef a, const Twine& b) const noexcept;
+	bool operator()(const Twine& a, TwineRef b) const noexcept;
+	// bool operator()(TwineRef a, std::string_view b) const noexcept;
+	// bool operator()(std::string_view a, TwineRef b) const noexcept;
+};
 
-	// Non-interning lookup: return the Id of the leaf whose string equals
-	// `sv`, or Twine::Null if no such leaf exists. Does not allocate.
-	Twine::Id lookup(std::string_view sv) const;
+struct TwinePool {
+	static std::vector<Twine> globals_;
+	plf::colony<Twine> backing;
+	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
 
-	// Refcount control. retain bumps; release decrements and, on reaching
-	// zero, marks the slot dead, drops it from the dedup indexes, releases
-	// any child refs the slot owned, and pushes the slot id onto the free
-	// list for reuse by the next intern/concat. Both no-op on Twine::Null.
+	TwinePool() {
+		for (Twine& t : globals_)
+			index.insert(&t);
+	}
 
-	size_t index(Twine* p) const;
-	void retain(Twine::Id id);
-	void release(Twine::Id id);
-	uint32_t refcount(Twine::Id id) const;
-	bool is_alive(Twine::Id id) const;
+	TwineRef find(Twine t) const {
+		if (auto it = index.find(t); it != index.end()) {
+			return *it;
+		}
+		return Twine::Null;
+	}
 
-	// Quick character queries on any flat node — avoids materializing the
-	// full string for the common `name[0] == '$'` / `.isPublic()` tests.
-	char first_char(Twine::Id id) const;
-	bool is_public(Twine::Id id) const { return first_char(id) == '\\'; }
+	TwineRef add(Twine t) {
+		if (auto it = index.find(t); it != index.end()) {
+			return *it;
+		}
 
-	// Materialize a Twine to the pipe-separated flat string used by the
-	// existing src attribute convention. Leaves visit in left-to-right DFS
-	// order; duplicate leaves are skipped to match `pool`-style semantics.
-	std::string flatten(Twine::Id id, char sep = '|') const;
+		auto colony_it = backing.insert(std::move(t));
+		TwineRef ptr = &(*colony_it);
+		index.insert(ptr);
+		return ptr;
+	}
 
-	// Materialize a flat node (Leaf or Suffix) to its single string. id
-	// must be a flat node (not a Concat) and not Twine::Null.
-	std::string flat_string(Twine::Id id) const { return flat_string_(id); }
+	void dump(std::ostream& os = std::cout) const {
+		os << "--- TwinePool Dump (" << backing.size() << " nodes) ---\n";
+		for (const auto& t : backing) {
+			os << static_cast<const void*>(&t) << " -> ";
+			t.dump(os);
+			os << '\n';
+		}
+		os << "--------------------------------\n";
+	}
+	// Silly compat
+	std::string flat_string(TwineRef t) const { return t->str(); }
+};
 
-	// Format an interned Id as the canonical src-attribute reference "@N".
-	// Twine::Null formats as the empty string.
-	std::string format_ref(Twine::Id id) const;
+inline size_t TwineHash::operator()(const Twine& t) const noexcept {
+	// size_t h = std::hash<size_t>{}(t.data.index());
+	Hasher h;
 
-	// Parse an "@N" reference back to an Id
-	static std::optional<size_t> parse_ref(std::string_view s);
-	Twine::Id get_ref(std::string_view s);
+	std::visit([&h](const auto& val) {
+		using T = std::decay_t<decltype(val)>;
 
-	const Twine &operator[](Twine::Id id) const { return *id; }
+		// auto combine = [&h](auto v) {
+		// 	h ^= v + 0x9e3779b9 + (h << 6) + (h >> 2); 
+		// };
 
-	size_t size() const { return nodes_.size(); }
-	size_t leaf_count() const { return leaf_index_.size(); }
-	size_t concat_count() const { return concat_index_.size(); }
-	size_t suffix_count() const { return suffix_index_.size(); }
+		if constexpr (std::is_same_v<T, std::string>) {
+			h.eat(val);
+			// combine(std::hash<std::string>{}(val));
+		} else if constexpr (std::is_same_v<T, std::vector<TwineRef>>) {
+			for (auto ref : val) {
+				h.eat(ref);
+				// combine(std::hash<TwineRef>{}(ref));
+			}
+		} else if constexpr (std::is_same_v<T, Twine::Suffix>) {
+			h.eat(val.prefix);
+			h.eat(val.tail);
+			// combine(std::hash<TwineRef>{}(val.prefix));
+			// combine(std::hash<std::string>{}(val.tail));
+		}
+	}, t.data);
 
-	// One-shot debug dump of the entire pool to stdout via log(). Each leaf
-	// shows its string; each concat shows its child id list. Intended for
-	// `dump -twines` or ad-hoc tracing — output volume scales with size().
-	void dump(const char *banner = nullptr) const;
+	return h.yield();
+}
 
-	// Rebuild the pool to contain only the nodes named in `live` plus the
-	// transitive children of any live concats. Returns an old-id -> new-id
-	// remap; ids not in the result are dead. Callers must rewrite every
-	// stored "@N" cell src through the returned remap immediately, since
-	// after this call the old ids no longer mean what they used to.
-	dict<Twine::Id, Twine::Id> gc(const pool<Twine::Id> &live);
+inline size_t TwineHash::operator()(TwineRef ptr) const noexcept {
+	return (*this)(*ptr);
+}
 
-	// Reconstruct `src->nodes_[src_id]` inside *this. Walks the structure
-	// — intern leaves, concat children — so a concat in `src` becomes a
-	// concat in this pool, not a flat literal of its leaves. Returns the
-	// id in this pool with +1 for the caller (release when done). Both
-	// pools may differ; the source is consulted read-only.
-	Twine::Id copy_from(const TwinePool &src, Twine::Id src_id);
+inline bool TwineEq::operator()(TwineRef a, TwineRef b) const noexcept {
+	return a->data == b->data;
+}
 
-	// Iterate every live (non-tombstoned) node. fn is `void(Twine::Id, const Twine&)`.
-	template <typename Fn>
-	void for_each_live(Fn fn) const {
-		for (auto& n : nodes_) {
-			if (n.is_dead())
-				continue;
-			fn(&n, n); // TODO de-stupid this
+inline bool TwineEq::operator()(TwineRef a, const Twine& b) const noexcept {
+	return a->data == b.data;
+}
+
+inline bool TwineEq::operator()(const Twine& a, TwineRef b) const noexcept {
+	return a.data == b->data;
+}
+
+
+struct DeepTwineHash {
+	using is_transparent = void;
+
+	// FNV-1a constants for 64-bit
+	static constexpr size_t FNV_OFFSET_BASIS = 14695981039346656037ull;
+	static constexpr size_t FNV_PRIME = 1099511628211ull;
+
+	static void combine(size_t& hash, std::string_view sv) noexcept {
+		for (char c : sv) {
+			hash ^= static_cast<size_t>(c);
+			hash *= FNV_PRIME;
 		}
 	}
 
-private:
-	std::vector<Twine> nodes_;
-	std::vector<uint32_t> refcount_;
-	std::list<Twine::Id> free_list_;
+	// Recursively hash the fragments of a Twine
+	static void combine(size_t& hash, TwineRef t) noexcept {
+		if (!t || t->is_dead()) return;
 
-	// --- Intrusive dedup indexes (Step 0) -----------------------------------
-	// Each set stores only the Twine::Id; hash/eq functors reach into
-	// nodes_[id] for the keying data. This avoids the duplicate-string cost
-	// of the old dict<std::string, Twine::Id> approach.
-	// All functors hold a raw pointer to *this; TwinePool is non-movable
-	// and copy-assignment rebuilds the sets from scratch so the pointer
-	// always stays valid.
+		if (t->is_leaf()) {
+			combine(hash, t->leaf());
+		} else if (t->is_concat()) {
+			for (auto child : t->children()) combine(hash, child);
+		} else if (t->is_suffix()) {
+			combine(hash, t->suffix().prefix);
+			combine(hash, t->suffix().tail);
+		}
+	}
 
-	using SuffixKey = std::pair<Twine::Id, std::string_view>;
+	size_t operator()(std::string_view sv) const noexcept {
+		size_t h = FNV_OFFSET_BASIS;
+		combine(h, sv);
+		return h;
+	}
 
-	struct LeafHash {
-		using is_transparent = void;
-		const TwinePool *pool;
-		size_t operator()(Twine::Id id) const noexcept {
-			return std::hash<std::string_view>{}(id->leaf());
-		}
-		size_t operator()(std::string_view sv) const noexcept {
-			return std::hash<std::string_view>{}(sv);
-		}
-	};
-	struct LeafEq {
-		using is_transparent = void;
-		const TwinePool *pool;
-		bool operator()(Twine::Id a, Twine::Id b) const noexcept {
-			return a->leaf() == b->leaf();
-		}
-		bool operator()(Twine::Id id, std::string_view sv) const noexcept {
-			return id->leaf() == sv;
-		}
-		bool operator()(std::string_view sv, Twine::Id id) const noexcept {
-			return sv == id->leaf();
-		}
-	};
-	struct SuffixHash {
-		using is_transparent = void;
-		const TwinePool *pool;
-		static size_t combine(size_t a, size_t b) noexcept {
-			return a ^ (b + 0x9e3779b9u + (a << 6) + (a >> 2));
-		}
-		size_t operator()(Twine::Id id) const noexcept {
-			const auto &s = id->suffix();
-			return combine(std::hash<Twine::Id>{}(s.prefix),
-			               std::hash<std::string_view>{}(s.tail));
-		}
-		size_t operator()(SuffixKey k) const noexcept {
-			return combine(std::hash<Twine::Id>{}(k.first),
-			               std::hash<std::string_view>{}(k.second));
-		}
-	};
-	struct SuffixEq {
-		using is_transparent = void;
-		const TwinePool *pool;
-		bool operator()(Twine::Id a, Twine::Id b) const noexcept {
-			const auto &sa = a->suffix();
-			const auto &sb = b->suffix();
-			return sa.prefix == sb.prefix && sa.tail == sb.tail;
-		}
-		bool operator()(Twine::Id id, SuffixKey k) const noexcept {
-			const auto &s = id->suffix();
-			return s.prefix == k.first && s.tail == k.second;
-		}
-		bool operator()(SuffixKey k, Twine::Id id) const noexcept {
-			return (*this)(id, k);
-		}
-	};
-	struct ConcatHash {
-		using is_transparent = void;
-		const TwinePool *pool;
-		static size_t hash_ids(std::span<const Twine::Id> v) noexcept {
-			size_t h = 0;
-			for (Twine::Id c : v)
-				h ^= std::hash<Twine::Id>{}(c) + 0x9e3779b9u + (h << 6) + (h >> 2);
-			return h;
-		}
-		size_t operator()(Twine::Id id) const noexcept {
-			return hash_ids(id->children());
-		}
-		size_t operator()(std::span<const Twine::Id> v) const noexcept {
-			return hash_ids(v);
-		}
-	};
-	struct ConcatEq {
-		using is_transparent = void;
-		const TwinePool *pool;
-		bool operator()(Twine::Id a, Twine::Id b) const noexcept {
-			return a->children() == b->children();
-		}
-		bool operator()(Twine::Id id, std::span<const Twine::Id> v) const noexcept {
-			const auto &ch = id->children();
-			return ch.size() == v.size() &&
-			       std::equal(ch.begin(), ch.end(), v.begin());
-		}
-		bool operator()(std::span<const Twine::Id> v, Twine::Id id) const noexcept {
-			return (*this)(id, v);
-		}
-	};
-
-	std::unordered_set<Twine::Id, LeafHash,   LeafEq>   leaf_index_;
-	std::unordered_set<Twine::Id, SuffixHash, SuffixEq> suffix_index_;
-	std::unordered_set<Twine::Id, ConcatHash, ConcatEq> concat_index_;
-	// -------------------------------------------------------------------------
-
-	Twine::Id alloc_slot_(Twine &&node);
-	void destroy_slot_(Twine::Id id);
-	void collect_leaves(Twine::Id id, pool<std::string> &out) const;
-	// Materialize a flat node (Leaf or Suffix) into its full string.
-	std::string flat_string_(Twine::Id id) const;
-	// Populate the three indexes from the current nodes_ vector (used by
-	// the copy constructor/assignment and by gc()).
-	void rebuild_indexes_();
+	size_t operator()(TwineRef t) const noexcept {
+		size_t h = FNV_OFFSET_BASIS;
+		combine(h, t);
+		return h;
+	}
 };
 
-// // Owning reference to a Twine slot. Retains on construction (and on copy
-// // of a non-empty ref), releases on destruction. Use this in transient
-// // container types — FfData, Mem helpers — that need to keep a src_id_
-// // alive across destruction of the original AttrObject that minted it,
-// // without having to fall back to a flattened path-string stash.
-// //
-// // Empty (no pool/no id) by default. A non-empty ref always carries a
-// // non-null pool and a live id.
-// class OwnedTwine
-// {
-// public:
-// 	OwnedTwine() = default;
+struct DeepTwineEq {
+	using is_transparent = void;
 
-// 	// Adopt the +1 reference returned by `intern` / `concat` / `intern_suffix`
-// 	// / `copy_from`. Use OwnedTwine(pool, id, retain=true) when copying an
-// 	// id already held elsewhere (e.g. another AttrObject's src_id_).
-// 	OwnedTwine(TwinePool *pool, Twine::Id id, bool retain = true) : pool_(pool), id_(id) {
-// 		if (retain && pool_ && id_ != Twine::Null)
-// 			pool_->retain(id_);
-// 	}
+	// Recursively consumes the string_view to check for deep equality
+	static bool consume(TwineRef t, std::string_view& sv) noexcept {
+		if (!t || t->is_dead()) return true;
 
-// 	OwnedTwine(const OwnedTwine &other) : pool_(other.pool_), id_(other.id_) {
-// 		if (pool_ && id_ != Twine::Null)
-// 			pool_->retain(id_);
-// 	}
+		if (t->is_leaf()) {
+			if (!sv.starts_with(t->leaf())) return false;
+			sv.remove_prefix(t->leaf().size());
+			return true;
+		} else if (t->is_concat()) {
+			for (auto child : t->children()) {
+				if (!consume(child, sv)) return false;
+			}
+			return true;
+		} else if (t->is_suffix()) {
+			if (!consume(t->suffix().prefix, sv)) return false;
+			if (!sv.starts_with(t->suffix().tail)) return false;
+			sv.remove_prefix(t->suffix().tail.size());
+			return true;
+		}
+		return false;
+	}
 
-// 	OwnedTwine(OwnedTwine &&other) noexcept : pool_(other.pool_), id_(other.id_) {
-// 		other.pool_ = nullptr;
-// 		other.id_ = Twine::Null;
-// 	}
+	bool operator()(TwineRef t, std::string_view sv) const noexcept {
+		return consume(t, sv) && sv.empty();
+	}
 
-// 	OwnedTwine &operator=(const OwnedTwine &other) {
-// 		if (this == &other)
-// 			return *this;
-// 		release_();
-// 		pool_ = other.pool_;
-// 		id_ = other.id_;
-// 		if (pool_ && id_ != Twine::Null)
-// 			pool_->retain(id_);
-// 		return *this;
-// 	}
+	bool operator()(std::string_view sv, TwineRef t) const noexcept {
+		return (*this)(t, sv);
+	}
 
-// 	OwnedTwine &operator=(OwnedTwine &&other) noexcept {
-// 		if (this == &other)
-// 			return *this;
-// 		release_();
-// 		pool_ = other.pool_;
-// 		id_ = other.id_;
-// 		other.pool_ = nullptr;
-// 		other.id_ = Twine::Null;
-// 		return *this;
-// 	}
+	// Required by unordered_set to handle hash collisions between two TwineRefs.
+	bool operator()(TwineRef a, TwineRef b) const {
+		if (a == b) return true; // Pointer or structural equality shortcut
+		return (*this)(a, flatten(b));
+	}
 
-// 	~OwnedTwine() { release_(); }
+	// Helper to flatten a twine (used only during rare hash collisions)
+	static std::string flatten(TwineRef t) {
+		std::string result;
+		auto append = [&result](auto& self, TwineRef node) -> void {
+			if (!node || node->is_dead()) return;
+			if (node->is_leaf()) result += node->leaf();
+			else if (node->is_concat()) {
+				for (auto child : node->children()) self(self, child);
+			} else if (node->is_suffix()) {
+				self(self, node->suffix().prefix);
+				result += node->suffix().tail;
+			}
+		};
+		append(append, t);
+		return result;
+	}
+};
 
-// 	void reset() {
-// 		release_();
-// 		pool_ = nullptr;
-// 		id_ = Twine::Null;
-// 	}
+struct TwineSearch {
+	std::unordered_set<TwineRef, DeepTwineHash, DeepTwineEq> index;
+	TwinePool* pool;
+	TwineSearch(TwinePool* pool) : pool(pool) {
+		for (auto& t : pool->backing) {
+			index.insert(&t);
+		}
+	}
+	TwineRef find(std::string_view sv) const {
+		if (auto it = index.find(sv); it != index.end()) {
+			return *it;
+		}
+		return Twine::Null;
+	}
+};
 
-// 	TwinePool *pool() const { return pool_; }
-// 	Twine::Id id() const { return id_; }
-// 	bool empty() const { return id_ == Twine::Null; }
-
-// private:
-// 	TwinePool *pool_ = nullptr;
-// 	Twine::Id id_ = Twine::Null;
-
-// 	void release_() {
-// 		if (pool_ && id_ != Twine::Null)
-// 			pool_->release(id_);
-// 	}
+// enum : short {
+// 	STATIC_ID_BEGIN = 0,
+// #define X(N) IDX_##N,
+// #include "kernel/constids.inc"
+// #undef X
+// 	STATIC_ID_END
 // };
 
-struct TwinePoolExtender {
-	TwinePool& pool;
-	size_t offset;
-private:
-	size_t resize_for_idx(size_t idx) {
-		auto real_idx = offset + idx;
-		pool.nodes_.resize(std::max(pool.nodes_.size(), real_idx + 1));
-		return real_idx;
-	}
-	void commit(Twine&& twine, size_t idx) {
-		pool.nodes_[idx] = std::move(twine);
-		pool.leaf_index_.insert(&pool.nodes_[idx]);
-	}
+
+class TW
+{
 public:
-	// TwinePoolExtender(Design* design) : pool(design->twines), offset(design->twines.size()) {}
-	void extend_leaf(std::string leaf, size_t idx) {
-		auto real_idx = resize_for_idx(idx);
-		commit(Twine(leaf), real_idx);
+	constexpr explicit TW(short v) : internal(v) {}
+
+	constexpr operator TwineRef() const
+	{
+		return &TwinePool::globals_[internal];
 	}
-	void extend_concat(std::vector<size_t> children, size_t idx) {
-		auto real_idx = resize_for_idx(idx);
-		Twine* first = &pool.nodes_.front() + offset;
-		std::vector<Twine*> real_children;
-		real_children.reserve(children.size());
-		for (auto child : children)
-			real_children.push_back(first + child);
-		commit(Twine(std::move(real_children)), real_idx);
-	}
-	void extend_suffix(size_t prefix, std::string tail, size_t idx) {
-		auto real_idx = resize_for_idx(idx);
-		Twine* first = &pool.nodes_.front() + offset;
-		Twine* real_prefix = first + prefix;
-		commit(Twine(Twine::Suffix(real_prefix, std::move(tail))), real_idx);
-	}
-	void finish() {
-		for (size_t i = offset; i < pool.nodes_.size(); i++)
-			if (pool.nodes_[i].is_dead())
-				pool.free_list_.push_back(&pool.nodes_[i]);
-	}
+
+#define X(N) static const TW N;
+#include "kernel/constids.inc"
+#undef X
+
+private:
+	short internal;
 };
+
+Twine& TwineRef::operator*() {
+	// Ugly
+	std::visit([](const auto& data) {
+		using T = std::decay_t<decltype(data)>;
+		if constexpr (std::is_same_v<Twine*, std::monostate>) {
+			return *data;
+		} else {
+			return TwinePool::globals_[data];
+		}
+	}, data);
+}
+
+const Twine& TwineRef::operator*() const {
+	// Ugly
+	std::visit([](const auto& data) {
+		using T = std::decay_t<decltype(data)>;
+		if constexpr (std::is_same_v<Twine*, std::monostate>) {
+			return *data;
+		} else {
+			return TwinePool::globals_[data];
+		}
+	}, data);
+}
+
+// struct TwinePoolExtender {
+// 	TwinePool& pool;
+// 	size_t offset;
+// private:
+// 	size_t resize_for_idx(size_t idx) {
+// 		auto real_idx = offset + idx;
+// 		pool.nodes_.resize(std::max(pool.nodes_.size(), real_idx + 1));
+// 		return real_idx;
+// 	}
+// 	void commit(Twine&& twine, size_t idx) {
+// 		pool.nodes_[idx] = std::move(twine);
+// 		pool.leaf_index_.insert(&pool.nodes_[idx]);
+// 	}
+// public:
+// 	// TwinePoolExtender(Design* design) : pool(design->twines), offset(design->twines.size()) {}
+// 	void extend_leaf(std::string leaf, size_t idx) {
+// 		auto real_idx = resize_for_idx(idx);
+// 		commit(Twine(leaf), real_idx);
+// 	}
+// 	void extend_concat(std::vector<size_t> children, size_t idx) {
+// 		auto real_idx = resize_for_idx(idx);
+// 		Twine* first = &pool.nodes_.front() + offset;
+// 		std::vector<Twine*> real_children;
+// 		real_children.reserve(children.size());
+// 		for (auto child : children)
+// 			real_children.push_back(first + child);
+// 		commit(Twine(std::move(real_children)), real_idx);
+// 	}
+// 	void extend_suffix(size_t prefix, std::string tail, size_t idx) {
+// 		auto real_idx = resize_for_idx(idx);
+// 		Twine* first = &pool.nodes_.front() + offset;
+// 		Twine* real_prefix = first + prefix;
+// 		commit(Twine(Twine::Suffix(real_prefix, std::move(tail))), real_idx);
+// 	}
+// 	void finish() {
+// 		for (size_t i = offset; i < pool.nodes_.size(); i++)
+// 			if (pool.nodes_[i].is_dead())
+// 				pool.free_list_.push_back(&pool.nodes_[i]);
+// 	}
+// };
 
 YOSYS_NAMESPACE_END
 
