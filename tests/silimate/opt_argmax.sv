@@ -55,6 +55,42 @@ module opt_argmax_w32 (
   end
 endmodule
 
+module opt_argmax_identity_w8 (
+  input  wire [7:0]       valid_in,
+  input  wire [7:0][4:0]  val_in,
+  output reg  [2:0]       best_idx
+);
+  always_comb begin
+    best_idx = '0;
+    for (int k = 1; k < 8; k++) begin
+      if (!valid_in[best_idx] && valid_in[k]) begin
+        best_idx = k;
+      end else if (valid_in[best_idx] && valid_in[k] &&
+                   (val_in[best_idx] < val_in[k])) begin
+        best_idx = k;
+      end
+    end
+  end
+endmodule
+
+module opt_argmax_identity_w16 (
+  input  wire [15:0]      valid_in,
+  input  wire [15:0][7:0] val_in,
+  output reg  [3:0]       best_idx
+);
+  always_comb begin
+    best_idx = '0;
+    for (int k = 1; k < 16; k++) begin
+      if (!valid_in[best_idx] && valid_in[k]) begin
+        best_idx = k;
+      end else if (valid_in[best_idx] && valid_in[k] &&
+                   (val_in[best_idx] < val_in[k])) begin
+        best_idx = k;
+      end
+    end
+  end
+endmodule
+
 module opt_argmax_flat (
   input  wire [7:0]       sig,
   input  wire [23:0]      sig3,

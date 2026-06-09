@@ -74,6 +74,49 @@ sat -prove-asserts -verify
 design -reset
 log -pop
 
+log -header "Identity-index masked argmax self-equivalence"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_argmax.sv
+verific -import opt_argmax_identity_w8
+proc; opt_clean
+rename opt_argmax_identity_w8 gold
+
+read -sv opt_argmax.sv
+verific -import opt_argmax_identity_w8
+proc; opt_clean
+select -module opt_argmax_identity_w8
+opt_argmax
+select -clear
+opt_clean
+select -assert-min 1 w:*argmax*
+rename opt_argmax_identity_w8 gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Identity-index masked argmax structural rewrite"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_argmax.sv
+verific -import opt_argmax_identity_w16
+proc; opt_clean
+opt_argmax
+opt_clean
+select -assert-min 1 w:*argmax*
+select -assert-none c:*argmax_val*
+select -assert-none c:LessThan_*
+design -reset
+log -pop
+
 log -header "Scaled masked argmax: 8 entries structural"
 log -push
 design -reset
