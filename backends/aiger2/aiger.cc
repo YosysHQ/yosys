@@ -998,7 +998,7 @@ struct XAigerWriter : AigerWriter {
 			if (map_file.is_open() && !box_port) {
 				log_assert(cursor.is_top()); // TODO
 				driven_by_opaque_box.insert(bit);
-				map_file << "pi " << pis.size() - 1 << " " << bit.offset
+				map_file << "input " << pis.size() - 1 << " " << bit.offset
 						<< " " << bit.wire->name.c_str() << "\n";
 			}
 		} else {
@@ -1277,7 +1277,7 @@ struct XAigerWriter : AigerWriter {
 					// don't emit it to the mapping file to aid re-integration, but we
 					// do emit a proper PO.
 					if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
-						map_file << "po " << proper_pos_counter << " " << i
+						map_file << "output " << proper_pos_counter << " " << i
 									<< " " << w->name.c_str() << "\n";
 					}
 					proper_pos_counter++;

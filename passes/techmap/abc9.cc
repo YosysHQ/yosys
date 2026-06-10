@@ -429,8 +429,8 @@ struct Abc9Pass : public ScriptPass
 						else
 							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
-						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", mod, tempdir_name, tempdir_name));
-						run_nocheck(stringf("abc_ops_reintegrate %s", dff_mode ? "-dff" : ""));
+						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 %s/output.aig", mod, tempdir_name));
+						run_nocheck(stringf("abc_ops_reintegrate -map %s/input.sym %s", tempdir_name, dff_mode ? "-dff" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");

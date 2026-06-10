@@ -55,17 +55,6 @@ inline int32_t from_big_endian(int32_t i32) {
 #define log_debug2(...) ;
 //#define log_debug2(...) log_debug(__VA_ARGS__)
 
-static int decimal_digits(uint32_t n) {
-	static uint32_t digit_cutoff[9] = {
-		10, 100, 1000, 10000, 100000,
-		1000000, 10000000, 100000000, 1000000000
-	};
-	for (int i = 0; i < 9; ++i) {
-		if (n < digit_cutoff[i]) return i + 1;
-	}
-	return 10;
-}
-
 struct ConstEvalAig
 {
 	RTLIL::Module *module;
@@ -607,13 +596,12 @@ void AigerReader::parse_aiger_ascii()
 	unsigned l1, l2, l3;
 
 	// Parse inputs
-	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
 		log_debug2("%d is an input\n", l1);
 		log_assert(!(l1 & 1)); // Inputs can't be inverted
-		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, l1 >> 1));
+		RTLIL::Wire *wire = module->addWire(stringf("$i%d", l1 >> 1));
 		wire->port_input = true;
 		module->connect(createWireIfNotExists(module, l1), wire);
 		inputs.push_back(wire);
@@ -629,13 +617,13 @@ void AigerReader::parse_aiger_ascii()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
-	digits = decimal_digits(L);
+
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug2("%d %d is a latch\n", l1, l2);
 		log_assert(!(l1 & 1));
-		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
+		RTLIL::Wire *q_wire = module->addWire(stringf("$l%d", l1 >> 1));
 		module->connect(createWireIfNotExists(module, l1), q_wire);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
@@ -667,14 +655,13 @@ void AigerReader::parse_aiger_ascii()
 	}
 
 	// Parse outputs
-	digits = decimal_digits(O);
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d is an output\n", l1);
-		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
+		RTLIL::Wire *wire = module->addWire(stringf("$o%d", i));
 		wire->port_output = true;
 		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
@@ -737,10 +724,9 @@ void AigerReader::parse_aiger_binary()
 		log_error("Binary AIGER input is malformed: maximum variable index M is %u, but number of inputs, latches and AND gates adds up to %u.\n", M, I + L + A);
 
 	// Parse inputs
-	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i) {
 		log_debug2("%d is an input\n", i);
-		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, i));
+		RTLIL::Wire *wire = module->addWire(stringf("$i%d", i));
 		wire->port_input = true;
 		module->connect(createWireIfNotExists(module, i << 1), wire);
 		inputs.push_back(wire);
@@ -756,13 +742,13 @@ void AigerReader::parse_aiger_binary()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
-	digits = decimal_digits(L);
+
 	l1 = (I+1) * 2;
 	for (unsigned i = 0; i < L; ++i, ++line_count, l1 += 2) {
 		if (!(f >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
 		log_debug("%d %d is a latch\n", l1, l2);
-		RTLIL::Wire *q_wire = module->addWire(stringf("$l%0*d", digits, l1 >> 1));
+		RTLIL::Wire *q_wire = module->addWire(stringf("$l%d", l1 >> 1));
 		module->connect(createWireIfNotExists(module, l1), q_wire);
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
@@ -794,14 +780,13 @@ void AigerReader::parse_aiger_binary()
 	}
 
 	// Parse outputs
-	digits = decimal_digits(O);
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
 		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d is an output\n", l1);
-		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
+		RTLIL::Wire *wire = module->addWire(stringf("$o%d", i));
 		wire->port_output = true;
 		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
@@ -897,7 +882,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = inputs[variable];
 				log_assert(wire);
 				log_assert(wire->port_input);
-				log_debug("Renaming input %s", wire);
+				log("Renaming input %s", wire);
 
 				RTLIL::Wire *existing = nullptr;
 				if (index == 0) {
@@ -911,7 +896,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", escaped_s.unescape());
+					log(" -> %s\n", escaped_s.unescape());
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -922,7 +907,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug(" -> %s\n", indexed_name.unescape());
+					log(" -> %s\n", indexed_name.unescape());
 				}
 
 				if (wideports && !existing) {
@@ -942,7 +927,7 @@ void AigerReader::post_process()
 				RTLIL::Wire* wire = outputs[variable + co_count];
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Renaming output %s", wire);
+				log("Renaming output %s", wire);
 
 				RTLIL::Wire *existing;
 				if (index == 0) {
@@ -958,7 +943,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug(" -> %s\n", escaped_s.unescape());
+					log(" -> %s\n", escaped_s.unescape());
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -970,7 +955,7 @@ void AigerReader::post_process()
 						existing->port_output = true;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", indexed_name.unescape());
+					log(" -> %s\n", indexed_name.unescape());
 				}
 
 				if (wideports && !existing) {

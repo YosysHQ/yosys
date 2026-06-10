@@ -34,7 +34,7 @@ inline std::string remap_name(RTLIL::IdString abc9_name)
 	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
 }
 
-void reintegrate(RTLIL::Module *module, bool dff_mode)
+void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 {
 	auto design = module->design;
 	log_assert(design);
@@ -50,6 +50,68 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		nw->start_offset = w->start_offset;
 		// Remove all (* init *) since they only exist on $_DFF_[NP]_
 		w->attributes.erase(ID::init);
+	}
+
+	dict<RTLIL::IdString, RTLIL::IdString> port_name_map;
+	dict<RTLIL::IdString, RTLIL::IdString> box_name_map;
+
+	// `write_aiger` will name ports according to their index: 0..N
+	// `read_aiger` will name ports according to their AIG literal: $o(L)..$o(L+N)
+	// To reconcile these, we need to find L.
+	unsigned int input_base = 1;
+	while (true) {
+		auto w = mapped_mod->wire(stringf("$i%d", input_base));
+		if (w) {
+			break;
+		}
+		input_base++;
+	}
+	log("input_base = %u\n", input_base);
+
+	unsigned int output_base = 1;
+	while (true) {
+		auto w = mapped_mod->wire(stringf("$o%d", output_base));
+		if (w) {
+			break;
+		}
+		output_base++;
+	}
+	log("output_base = %u\n", output_base);
+
+	if (!map_filename.empty()) {
+		std::ifstream mf(map_filename);
+		std::string type, symbol;
+		int variable, index;
+		while (mf >> type >> variable >> index >> symbol) {
+			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
+			if (type == "input") {
+				if (index == 0) {
+					port_name_map.insert({stringf("$i%d", variable + input_base), escaped_s});
+				} else {
+					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
+					port_name_map.insert({stringf("$i%d", variable + input_base), indexed_name});
+				}
+			}
+			else if (type == "output") {
+				if (index == 0) {
+					port_name_map.insert({stringf("$o%d", variable + output_base), escaped_s});
+				} else {
+					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
+					port_name_map.insert({stringf("$o%d", variable + output_base), indexed_name});
+				}
+			}
+			else if (type == "box") {
+				box_name_map.insert({stringf("$box%d", variable), escaped_s});
+			}
+			else if (type == "pseudopo") {
+				std::string port;
+				mf >> port;
+				log("pseudopo variable=%d index=%d symbol=%s port=%s\n", variable, index, symbol, port);
+				//port_name_map.insert({stringf("$i%d", variable), escaped_s});
+			}
+			else
+				log_warning("Symbol type '%s' not recognised.\n", type);
+		}
 	}
 
 	dict<IdString,std::vector<IdString>> box_ports;
@@ -222,9 +284,17 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			}
 		}
 		else {
-			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name);
+			RTLIL::IdString mapped_cell_name = mapped_cell->name;
+			auto box_name_entry = box_name_map.find(mapped_cell_name);
+			if (box_name_entry != box_name_map.end()) {
+				mapped_cell_name = box_name_entry->second;
+			}
+
+			RTLIL::Cell *existing_cell = module->cell(mapped_cell_name);
 			if (!existing_cell)
 				log_error("Cannot find existing box cell with name '%s' in original design.\n", mapped_cell);
+
+			log("matched mapped box %s\n", mapped_cell_name);
 
 			if (existing_cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY=")) {
 				SigBit I = mapped_cell->getPort(ID(i));
@@ -347,9 +417,20 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 	// Stitch in mapped_mod's inputs/outputs into module
 	for (auto port : mapped_mod->ports) {
+		RTLIL::IdString mapped_port_name = port;
+		auto wire_name_entry = port_name_map.find(mapped_port_name);
+		if (wire_name_entry != port_name_map.end()) {
+			mapped_port_name = wire_name_entry->second;
+		}
+
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
-		RTLIL::Wire *wire = module->wire(port);
+		RTLIL::Wire *wire = module->wire(mapped_port_name);
+		if (!wire) {
+			log_error("no wire in module matches mapped_mod port '%s' with mapped name '%s'\n", port.unescape(), mapped_port_name.unescape());
+		}
 		log_assert(wire);
+
+		log("matched mapped port %s\n", mapped_port_name);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, remap_wire->start_offset-wire->start_offset, GetSize(remap_wire));
@@ -475,18 +556,30 @@ struct AbcOpsReintegratePass : public Pass {
 		log("by first recovering ABC9 boxes, and then stitching in the remaining\n");
 		log("primary inputs and outputs.\n");
 		log("\n");
+		log("    -dff\n");
+		log("        consider flop cells (those instantiating modules marked with\n");
+		log("        (* abc9_flop *)) during -prep_{delays,xaiger,box}.\n");
+		log("\n");
+		log("    -map <filename>\n");
+		log("        read file with port and latch symbols\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC_OPS_REINTEGRATE pass (reintegrate ABC mapped design into module).\n");
 
 		bool dff_mode = false;
+		std::string map_filename;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-dff") {
 				dff_mode = true;
+				continue;
+			}
+			if (map_filename.empty() && arg == "-map" && argidx+1 < args.size()) {
+				map_filename = args[++argidx];
 				continue;
 			}
 		}
@@ -501,7 +594,7 @@ struct AbcOpsReintegratePass : public Pass {
 			if (!design->selected_whole_module(mod))
 				log_error("Can't handle partially selected module %s!\n", mod);
 
-			reintegrate(mod, dff_mode);
+			reintegrate(mod, dff_mode, map_filename);
 		}
 	}
 } AbcOpsReintegratePass;
