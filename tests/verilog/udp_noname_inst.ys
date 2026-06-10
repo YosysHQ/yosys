@@ -1,0 +1,15 @@
+read_verilog <<EOT
+primitive my_and (o, a, b);
+output o; input a, b;
+table
+    1 1 : 1 ;
+    0 ? : 0 ;
+    ? 0 : 0 ;
+endtable
+endprimitive
+module top (output o, input a, b);
+    my_and (o, a, b);   // gate-style: no instance name (IEEE 1364-2005 8.6)
+endmodule
+EOT
+hierarchy -top top
+select -assert-count 1 top/t:my_and

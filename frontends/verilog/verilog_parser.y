@@ -88,6 +88,8 @@
 			bool current_modport_input, current_modport_output;
 			bool default_nettype_wire = true;
 			std::istream* lexin;
+			// state of the user-defined primitive currently being parsed
+			std::unique_ptr<UdpParseData> udp;
 
 			AstNode* saveChild(std::unique_ptr<AstNode> child);
 			AstNode* pushChild(std::unique_ptr<AstNode> child);
@@ -429,6 +431,7 @@
 	#include <string>
 	#include <memory>
 	#include "frontends/verilog/verilog_frontend.h"
+	#include "frontends/verilog/verilog_udp.h"
 
 	struct specify_target {
 		char polarity_op;
@@ -487,6 +490,8 @@
 %token <string_t> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token <string_t> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
 %token <string_t> TOK_USER_TYPE TOK_PKG_USER_TYPE
+%token <string_t> TOK_UDP_VALUE
+%token TOK_PRIMITIVE_DEF TOK_ENDPRIMITIVE TOK_TABLE TOK_ENDTABLE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -550,7 +555,8 @@
 %type <string_t> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string_t> type_name
 %type <ast_t> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
-%type <boolean_t> opt_property always_comb_or_latch always_or_always_ff
+%type <boolean_t> opt_property always_comb_or_latch always_or_always_ff udp_output_reg_opt
+%type <string_t> udp_entry_tail
 %type <boolean_t> opt_signedness_default_signed opt_signedness_default_unsigned
 %type <integer_t> integer_atom_type integer_vector_type
 %type <al_t> attr if_attr case_attr
@@ -602,6 +608,7 @@ input: {
 
 design:
 	module design |
+	udp_primitive design |
 	defattr design |
 	task_func_decl design |
 	param_decl design |
@@ -712,6 +719,124 @@ module:
 		checkLabelsMatch(@11, "Module name", $4.get(), $11.get());
 		extra->current_ast_mod = nullptr;
 		extra->exitTypeScope();
+	};
+
+// User-defined primitives (IEEE 1364-2005 clause 8).  The parser collects the
+// definition into extra->udp and make_udp_module() lowers it into a normal
+// behavioural module.
+udp_primitive:
+	attr TOK_PRIMITIVE_DEF TOK_ID {
+		auto u = std::make_unique<UdpParseData>();
+		u->loc = @2;
+		u->name = *$3;
+		u->attributes = std::move($1);
+		extra->udp = std::move(u);
+	} TOK_LPAREN udp_port_list TOK_RPAREN TOK_SEMICOL
+	  udp_port_decls_opt
+	  udp_initial_opt
+	  udp_body
+	  TOK_ENDPRIMITIVE opt_label {
+		auto mod = make_udp_module(*extra->udp);
+		SET_AST_NODE_LOC(mod.get(), @2, @$);
+		checkLabelsMatch(@13, "Primitive name", $3.get(), $13.get());
+		extra->saveChild(std::move(mod));
+		extra->udp.reset();
+	};
+
+udp_port_list:
+	udp_port_item |
+	udp_port_list TOK_COMMA udp_port_item;
+
+udp_port_item:
+	TOK_ID {
+		extra->udp->port_order.push_back(*$1);
+	} |
+	TOK_OUTPUT udp_output_reg_opt TOK_ID {
+		extra->udp->port_order.push_back(*$3);
+		extra->udp->output_name = *$3;
+		extra->udp->output_declared = true;
+		if ($2)
+			extra->udp->is_sequential = true;
+	} udp_init_assign_opt |
+	TOK_INPUT TOK_ID {
+		extra->udp->port_order.push_back(*$2);
+		extra->udp->input_names.insert(*$2);
+	};
+
+udp_port_decls_opt:
+	udp_port_decls | %empty;
+
+udp_port_decls:
+	udp_port_decl | udp_port_decls udp_port_decl;
+
+udp_port_decl:
+	TOK_OUTPUT udp_output_reg_opt TOK_ID udp_init_assign_opt TOK_SEMICOL {
+		extra->udp->output_name = *$3;
+		extra->udp->output_declared = true;
+		if ($2)
+			extra->udp->is_sequential = true;
+	} |
+	TOK_INPUT udp_input_id_list TOK_SEMICOL |
+	TOK_REG TOK_ID TOK_SEMICOL {
+		extra->udp->is_sequential = true;
+	};
+
+udp_input_id_list:
+	TOK_ID {
+		extra->udp->input_names.insert(*$1);
+	} |
+	udp_input_id_list TOK_COMMA TOK_ID {
+		extra->udp->input_names.insert(*$3);
+	};
+
+udp_output_reg_opt:
+	TOK_REG { $$ = true; } |
+	%empty { $$ = false; };
+
+udp_init_assign_opt:
+	TOK_EQ expr {
+		extra->udp->initial_val = std::move($2);
+	} |
+	%empty;
+
+udp_initial_opt:
+	TOK_INITIAL TOK_ID TOK_EQ expr TOK_SEMICOL {
+		extra->udp->initial_val = std::move($4);
+	} |
+	%empty;
+
+udp_body:
+	TOK_TABLE udp_entries TOK_ENDTABLE;
+
+udp_entries:
+	udp_entry | udp_entries udp_entry;
+
+udp_entry:
+	udp_input_list TOK_COL TOK_UDP_VALUE udp_entry_tail TOK_SEMICOL {
+		UdpTableRow row;
+		row.loc = @1;
+		row.inputs = std::move(extra->udp->scratch_inputs);
+		extra->udp->scratch_inputs.clear();
+		if ($4) {
+			row.current = *$3;
+			row.output = *$4;
+			extra->udp->table_is_sequential = true;
+		} else {
+			row.output = *$3;
+		}
+		extra->udp->rows.push_back(std::move(row));
+	};
+
+udp_entry_tail:
+	TOK_COL TOK_UDP_VALUE { $$ = std::move($2); } |
+	%empty { $$ = nullptr; };
+
+udp_input_list:
+	TOK_UDP_VALUE {
+		extra->udp->scratch_inputs.push_back(*$1);
+	} |
+	udp_input_list TOK_UDP_VALUE {
+		extra->udp->scratch_inputs.push_back(*$2);
 	};
 
 module_para_opt:
@@ -1656,6 +1781,7 @@ module_path_primary:
 	| TOK_ID
 	// Deviate from specification: Normally string would not be allowed, however they are necessary for the ecp5 tests
 	| TOK_STRING
+	| TOK_LPAREN module_path_expression TOK_RPAREN
 	// | module_path_concatenation
 	// | module_path_multiple_concatenation
 	// | function_subroutine_call
@@ -1723,10 +1849,15 @@ system_timing_arg :
 	TOK_NEGEDGE ignspec_id |
 	ignspec_expr ;
 
+// Arguments may be omitted (e.g. the optional notifier/condition slots of
+// $setuphold), which appears as empty fields between commas.
+opt_system_timing_arg :
+	system_timing_arg | %empty ;
+
 system_timing_args :
-	system_timing_arg |
+	opt_system_timing_arg |
 	system_timing_args TOK_IGNORED_SPECIFY_AND system_timing_arg |
-	system_timing_args TOK_COMMA system_timing_arg ;
+	system_timing_args TOK_COMMA opt_system_timing_arg ;
 
 // for the time being this is OK, but we may write our own expr here.
 // as I'm not sure it is legal to use a full expr here (probably not)
@@ -2314,6 +2445,17 @@ single_cell_no_array:
 		log_assert(extra->cell_hack);
 		SET_AST_NODE_LOC(extra->cell_hack, @1, @$);
 		extra->cell_hack = nullptr;
+	} |
+	/* no instance name: gate/UDP-style instantiation (IEEE 1364-2005 7.1, 8.6) */ {
+		extra->astbuf2 = extra->astbuf1->clone();
+		if (extra->astbuf2->type != AST_PRIMITIVE)
+			extra->astbuf2->str = stringf("$cell$%d", autoidx++);
+		extra->cell_hack = extra->astbuf2.get();
+		extra->ast_stack.back()->children.push_back(std::move(extra->astbuf2));
+	} TOK_LPAREN cell_port_list TOK_RPAREN {
+		log_assert(extra->cell_hack);
+		SET_AST_NODE_LOC(extra->cell_hack, @1, @$);
+		extra->cell_hack = nullptr;
 	}
 
 single_cell_arraylist:
@@ -2339,18 +2481,9 @@ prim_list:
 	prim_list TOK_COMMA single_prim;
 
 single_prim:
-	single_cell |
-	/* no name */ {
-		extra->astbuf2 = extra->astbuf1->clone();
-		log_assert(!extra->cell_hack);
-		extra->cell_hack = extra->astbuf2.get();
-		// TODO optimize again
-		extra->ast_stack.back()->children.push_back(std::move(extra->astbuf2));
-	} TOK_LPAREN cell_port_list TOK_RPAREN {
-		log_assert(extra->cell_hack);
-		SET_AST_NODE_LOC(extra->cell_hack, @1, @$);
-		extra->cell_hack = nullptr;
-	}
+	// single_cell now also covers the no-instance-name form (for both gate
+	// primitives and UDP/module instantiations).
+	single_cell
 
 cell_parameter_list_opt:
 	TOK_HASH TOK_LPAREN cell_parameter_list TOK_RPAREN | %empty;

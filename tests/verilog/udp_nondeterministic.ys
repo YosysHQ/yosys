@@ -1,0 +1,12 @@
+# A UDP whose rows overlap with conflicting outputs must be rejected.
+logger -expect error "non-deterministic state table" 1
+read_verilog <<EOT
+primitive nd (o, a, b);
+output o; reg o; input a, b;
+table
+//  a b : q : q+
+    1 ? : ? : 1 ;
+    ? 1 : ? : 0 ;
+endtable
+endprimitive
+EOT

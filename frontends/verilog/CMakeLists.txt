@@ -23,6 +23,8 @@ yosys_frontend(verilog
 	verilog_frontend.h
 	verilog_lexer.h
 	verilog_location.h
+        verilog_udp.cc
+        verilog_udp.h
 	${FLEX_verilog_lexer_OUTPUTS}
 	${BISON_verilog_parser_OUTPUTS}
 	INCLUDE_DIRS
