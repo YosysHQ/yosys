@@ -5,3 +5,6 @@
 [submodule "cxxopts"]
 	path = libs/cxxopts
 	url = https://github.com/jarro2783/cxxopts
+[submodule "libs/yosys-slang"]
+	path = libs/yosys-slang
+	url = https://github.com/mmicko/yosys-slang
