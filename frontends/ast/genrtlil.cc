@@ -62,10 +62,10 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width
 
 	cell->parameters[ID::A_SIGNED] = RTLIL::Const(that->children[0]->is_signed);
 	cell->parameters[ID::A_WIDTH] = RTLIL::Const(arg.size());
-	cell->setPort(ID::A, arg);
+	cell->setPort(TW::A, arg);
 
 	cell->parameters[ID::Y_WIDTH] = result_width;
-	cell->setPort(ID::Y, wire);
+	cell->setPort(TW::Y, wire);
 	return wire;
 }
 
@@ -94,10 +94,10 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 
 	cell->parameters[ID::A_SIGNED] = RTLIL::Const(is_signed);
 	cell->parameters[ID::A_WIDTH] = RTLIL::Const(sig.size());
-	cell->setPort(ID::A, sig);
+	cell->setPort(TW::A, sig);
 
 	cell->parameters[ID::Y_WIDTH] = width;
-	cell->setPort(ID::Y, wire);
+	cell->setPort(TW::Y, wire);
 	sig = wire;
 }
 
@@ -124,11 +124,11 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width
 	cell->parameters[ID::A_WIDTH] = RTLIL::Const(left.size());
 	cell->parameters[ID::B_WIDTH] = RTLIL::Const(right.size());
 
-	cell->setPort(ID::A, left);
-	cell->setPort(ID::B, right);
+	cell->setPort(TW::A, left);
+	cell->setPort(TW::B, right);
 
 	cell->parameters[ID::Y_WIDTH] = result_width;
-	cell->setPort(ID::Y, wire);
+	cell->setPort(TW::Y, wire);
 	return wire;
 }
 
@@ -155,10 +155,10 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(left.size());
 
-	cell->setPort(ID::A, right);
-	cell->setPort(ID::B, left);
-	cell->setPort(ID::S, cond);
-	cell->setPort(ID::Y, wire);
+	cell->setPort(TW::A, right);
+	cell->setPort(TW::B, left);
+	cell->setPort(TW::S, cond);
+	cell->setPort(TW::Y, wire);
 
 	return wire;
 }
@@ -842,8 +842,8 @@ struct AST_INTERNAL::ProcessGenerator
 				cell->setParam(ID::TRG_ENABLE, (always->type == AST_INITIAL) || !triggers.empty());
 				cell->setParam(ID::TRG_POLARITY, polarity);
 				cell->setParam(ID::PRIORITY, --last_effect_priority);
-				cell->setPort(ID::TRG, triggers);
-				cell->setPort(ID::EN, en);
+				cell->setPort(TW::TRG, triggers);
+				cell->setPort(TW::EN, en);
 
 				int default_base = 10;
 				if (ast->str.back() == 'b')
@@ -947,9 +947,9 @@ struct AST_INTERNAL::ProcessGenerator
 				cell->setParam(ID::TRG_ENABLE, (always->type == AST_INITIAL) || !triggers.empty());
 				cell->setParam(ID::TRG_POLARITY, polarity);
 				cell->setParam(ID::PRIORITY, --last_effect_priority);
-				cell->setPort(ID::TRG, triggers);
-				cell->setPort(ID::EN, en);
-				cell->setPort(ID::A, check);
+				cell->setPort(TW::TRG, triggers);
+				cell->setPort(TW::EN, en);
+				cell->setPort(TW::A, check);
 
 				// No message is emitted to ensure Verilog code roundtrips correctly.
 				Fmt fmt;
@@ -2058,10 +2058,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::SigSpec addr_sig = children[0]->genRTLIL();
 
-			cell->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::Sx, 1));
-			cell->setPort(ID::EN, RTLIL::SigSpec(RTLIL::State::Sx, 1));
-			cell->setPort(ID::ADDR, addr_sig);
-			cell->setPort(ID::DATA, RTLIL::SigSpec(wire));
+			cell->setPort(TW::CLK, RTLIL::SigSpec(RTLIL::State::Sx, 1));
+			cell->setPort(TW::EN, RTLIL::SigSpec(RTLIL::State::Sx, 1));
+			cell->setPort(TW::ADDR, addr_sig);
+			cell->setPort(TW::DATA, RTLIL::SigSpec(wire));
 
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
@@ -2098,9 +2098,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			SigSpec addr_sig = children[0]->genRTLIL();
 
-			cell->setPort(ID::ADDR, addr_sig);
-			cell->setPort(ID::DATA, children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words, true));
-			cell->setPort(ID::EN, en_sig);
+			cell->setPort(TW::ADDR, addr_sig);
+			cell->setPort(TW::DATA, children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words, true));
+			cell->setPort(TW::EN, en_sig);
 
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
@@ -2147,9 +2147,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->parameters[ID::TRG_ENABLE] = 0;
 			cell->parameters[ID::TRG_POLARITY] = 0;
 			cell->parameters[ID::PRIORITY] = 0;
-			cell->setPort(ID::TRG, RTLIL::SigSpec());
-			cell->setPort(ID::EN, RTLIL::S1);
-			cell->setPort(ID::A, check);
+			cell->setPort(TW::TRG, RTLIL::SigSpec());
+			cell->setPort(TW::EN, RTLIL::S1);
+			cell->setPort(TW::A, check);
 
 			// No message is emitted to ensure Verilog code roundtrips correctly.
 			Fmt fmt;
@@ -2262,8 +2262,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
 			if (cell->type == ID($specify2)) {
-				int src_width = GetSize(cell->getPort(ID::SRC));
-				int dst_width = GetSize(cell->getPort(ID::DST));
+				int src_width = GetSize(cell->getPort(TW::SRC));
+				int dst_width = GetSize(cell->getPort(TW::DST));
 				bool full = cell->getParam(ID::FULL).as_bool();
 				if (!full && src_width != dst_width)
 					input_error("Parallel specify SRC width does not match DST width.\n");
@@ -2271,17 +2271,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cell->setParam(ID::DST_WIDTH, Const(dst_width));
 			}
 			else if (cell->type ==  ID($specify3)) {
-				int dat_width = GetSize(cell->getPort(ID::DAT));
-				int dst_width = GetSize(cell->getPort(ID::DST));
+				int dat_width = GetSize(cell->getPort(TW::DAT));
+				int dst_width = GetSize(cell->getPort(TW::DST));
 				if (dat_width != dst_width)
 					input_error("Specify DAT width does not match DST width.\n");
-				int src_width = GetSize(cell->getPort(ID::SRC));
+				int src_width = GetSize(cell->getPort(TW::SRC));
 				cell->setParam(ID::SRC_WIDTH, Const(src_width));
 				cell->setParam(ID::DST_WIDTH, Const(dst_width));
 			}
 			else if (cell->type == ID($specrule)) {
-				int src_width = GetSize(cell->getPort(ID::SRC));
-				int dst_width = GetSize(cell->getPort(ID::DST));
+				int src_width = GetSize(cell->getPort(TW::SRC));
+				int dst_width = GetSize(cell->getPort(TW::DST));
 				cell->setParam(ID::SRC_WIDTH, Const(src_width));
 				cell->setParam(ID::DST_WIDTH, Const(dst_width));
 			}
@@ -2370,7 +2370,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 				Wire *wire = current_module->addWire(myid + "_wire", width);
 				set_src_attr(wire, this);
-				cell->setPort(ID::Y, wire);
+				cell->setPort(TW::Y, wire);
 
 				is_signed = sign_hint;
 				return SigSpec(wire);

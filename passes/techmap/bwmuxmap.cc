@@ -52,10 +52,10 @@ struct BwmuxmapPass : public Pass {
 		{
 			if (cell->type != ID($bwmux))
 				continue;
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto &sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto &sig_s = cell->getPort(TW::S);
 
 			auto not_s = module->Not(NEW_ID, sig_s);
 			auto masked_b = module->And(NEW_ID, sig_s, sig_b);

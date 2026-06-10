@@ -46,16 +46,16 @@ struct QlIoffPass : public Pass {
 		for (auto cell : module->selected_cells()) {
 			if (cell->type.in(ID(dffsre), ID(sdffsre))) {
 				log_debug("Checking cell %s.\n", cell->name);
-				bool e_const = cell->getPort(ID::E).is_fully_ones();
-				bool r_const = cell->getPort(ID::R).is_fully_ones();
-				bool s_const = cell->getPort(ID::S).is_fully_ones();
+				bool e_const = cell->getPort(TW::E).is_fully_ones();
+				bool r_const = cell->getPort(TW::R).is_fully_ones();
+				bool s_const = cell->getPort(TW::S).is_fully_ones();
 
 				if (!(e_const && r_const && s_const)) {
 					log_debug("not promoting: E, R, or S is used\n");
 					continue;
 				}
 
-				SigSpec d = cell->getPort(ID::D);
+				SigSpec d = cell->getPort(TW::D);
 				log_assert(GetSize(d) == 1);
 				if (modwalker.has_inputs(d)) {
 					log_debug("Cell %s is potentially eligible for promotion to input IOFF.\n", cell->name);
@@ -70,7 +70,7 @@ struct QlIoffPass : public Pass {
 					continue; // prefer input FFs over output FFs
 				}
 
-				SigSpec q = cell->getPort(ID::Q);
+				SigSpec q = cell->getPort(TW::Q);
 				log_assert(GetSize(q) == 1);
 				if (modwalker.has_outputs(q) && !modwalker.has_consumers(q)) {
 					log_debug("Cell %s is potentially eligible for promotion to output IOFF.\n", cell->name);
@@ -84,17 +84,17 @@ struct QlIoffPass : public Pass {
 		}
 
 		for (auto cell : input_ffs) {
-			log("Promoting register %s to input IOFF.\n", log_signal(cell->getPort(ID::Q)));
+			log("Promoting register %s to input IOFF.\n", log_signal(cell->getPort(TW::Q)));
 			cell->type = ID(dff);
-			cell->unsetPort(ID::E);
-			cell->unsetPort(ID::R);
-			cell->unsetPort(ID::S);
+			cell->unsetPort(TW::E);
+			cell->unsetPort(TW::R);
+			cell->unsetPort(TW::S);
 		}
 		for (auto & [old_port_output, ioff_cells] : output_ffs) {
 			if (std::any_of(ioff_cells.begin(), ioff_cells.end(), [](Cell * c) { return c != nullptr; }))
 			{
 				// create replacement output wire
-				RTLIL::Wire* new_port_output = module->addWire(NEW_ID, old_port_output->width);
+				RTLIL::Wire* new_port_output = module->addWire(NEW_TWINE, old_port_output->width);
 				new_port_output->start_offset = old_port_output->start_offset;
 				module->swap_names(old_port_output, new_port_output);
 				std::swap(old_port_output->port_id, new_port_output->port_id);
@@ -111,10 +111,10 @@ struct QlIoffPass : public Pass {
 					if (ioff_cells[i]) {
 						log("Promoting %s to output IOFF.\n", log_signal(sig_n[i]));
 
-						RTLIL::Cell *new_cell = module->addCell(NEW_ID, ID(dff));
-						new_cell->setPort(ID::C, ioff_cells[i]->getPort(ID::C));
-						new_cell->setPort(ID::D, ioff_cells[i]->getPort(ID::D));
-						new_cell->setPort(ID::Q, sig_n[i]);
+						RTLIL::Cell *new_cell = module->addCell(NEW_TWINE, ID(dff));
+						new_cell->setPort(TW::C, ioff_cells[i]->getPort(TW::C));
+						new_cell->setPort(TW::D, ioff_cells[i]->getPort(TW::D));
+						new_cell->setPort(TW::Q, sig_n[i]);
 						new_cell->set_bool_attribute(ID::keep);
 					} else {
 						module->connect(sig_n[i], sig_o[i]);

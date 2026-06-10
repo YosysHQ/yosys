@@ -47,11 +47,11 @@ struct ModIndex : public RTLIL::Monitor
 	};
 	struct PortInfo {
 		RTLIL::Cell* cell;
-		RTLIL::IdString port;
+		TwineRef port;
 		int offset;
 
 		PortInfo() : cell(), port(), offset() { }
-		PortInfo(RTLIL::Cell* _c, RTLIL::IdString _p, int _o) : cell(_c), port(_p), offset(_o) { }
+		PortInfo(RTLIL::Cell* _c, TwineRef _p, int _o) : cell(_c), port(_p), offset(_o) { }
 
 		bool operator<(const PortInfo &other) const {
 			if (cell != other.cell)
@@ -98,7 +98,7 @@ struct ModIndex : public RTLIL::Monitor
 	int auto_reload_counter;
 	bool auto_reload_module;
 
-	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
+	void port_add(RTLIL::Cell *cell, TwineRef port, const RTLIL::SigSpec &sig)
 	{
 		for (int i = 0; i < GetSize(sig); i++) {
 			RTLIL::SigBit bit = sigmap(sig[i]);
@@ -107,7 +107,7 @@ struct ModIndex : public RTLIL::Monitor
 		}
 	}
 
-	void port_del(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
+	void port_del(RTLIL::Cell *cell, TwineRef port, const RTLIL::SigSpec &sig)
 	{
 		for (int i = 0; i < GetSize(sig); i++) {
 			RTLIL::SigBit bit = sigmap(sig[i]);
@@ -187,7 +187,7 @@ struct ModIndex : public RTLIL::Monitor
 		log_assert(ok());
 	}
 
-	void notify_connect(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
+	void notify_connect(RTLIL::Cell *cell, TwineRef port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
 	{
 		log_assert(module == cell->module);
 
@@ -321,7 +321,7 @@ struct ModIndex : public RTLIL::Monitor
 				log("  PRIMARY OUTPUT\n");
 			for (auto &port : it.second.ports)
 				log("  PORT: %s.%s[%d] (%s)\n", port.cell,
-						port.port.unescape(), port.offset, port.cell->type.unescape());
+						module->design->twines.str(port.port), port.offset, port.cell->type.unescape());
 		}
 	}
 };
@@ -331,9 +331,9 @@ struct ModWalker
 	struct PortBit
 	{
 		RTLIL::Cell *cell;
-		RTLIL::IdString port;
+		TwineRef port;
 		int offset;
-		PortBit(Cell* c, IdString p, int o) : cell(c), port(p), offset(o) {}
+		PortBit(Cell* c, TwineRef p, int o) : cell(c), port(p), offset(o) {}
 
 		bool operator<(const PortBit &other) const {
 			if (cell != other.cell)
@@ -384,7 +384,7 @@ struct ModWalker
 		}
 	}
 
-	void add_cell_port(RTLIL::Cell *cell, RTLIL::IdString port, std::vector<RTLIL::SigBit> bits, bool is_output, bool is_input)
+	void add_cell_port(RTLIL::Cell *cell, TwineRef port, std::vector<RTLIL::SigBit> bits, bool is_output, bool is_input)
 	{
 		for (int i = 0; i < int(bits.size()); i++)
 			if (bits[i].wire != NULL) {

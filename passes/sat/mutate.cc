@@ -659,7 +659,7 @@ void mutate_inv(Design *design, const mutate_opts_t &opts)
 	else
 	{
 		log("Add output inverter at %s.%s.%s[%d].\n", module, cell, opts.port.unescape(), opts.portbit);
-		SigBit inbit = module->addWire(NEW_ID);
+		SigBit inbit = module->addWire(NEW_TWINE);
 		SigBit outbit = module->Not(NEW_ID, inbit);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
 		bit = inbit;
@@ -687,7 +687,7 @@ void mutate_const(Design *design, const mutate_opts_t &opts, bool one)
 	else
 	{
 		log("Add output constant %d at %s.%s.%s[%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit);
-		SigBit inbit = module->addWire(NEW_ID);
+		SigBit inbit = module->addWire(NEW_TWINE);
 		SigBit outbit = one ? State::S1 : State::S0;
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
 		bit = inbit;
@@ -716,7 +716,7 @@ void mutate_cnot(Design *design, const mutate_opts_t &opts, bool one)
 	else
 	{
 		log("Add output cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit, opts.ctrlbit);
-		SigBit inbit = module->addWire(NEW_ID);
+		SigBit inbit = module->addWire(NEW_TWINE);
 		SigBit outbit = one ? module->Xor(NEW_ID, inbit, ctrl) : module->Xnor(NEW_ID, inbit, ctrl);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
 		bit = inbit;

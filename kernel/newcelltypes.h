@@ -586,9 +586,9 @@ struct NewCellTypes {
 		for (auto wire_name : module->ports) {
 			RTLIL::Wire *wire = module->wire(wire_name);
 			if (wire->port_input)
-				inputs.insert(wire->meta_->name_id);
+				inputs.insert(wire->meta_->name);
 			if (wire->port_output)
-				outputs.insert(wire->meta_->name_id);
+				outputs.insert(wire->meta_->name);
 		}
 		setup_type(module->name, inputs, outputs);
 	}

@@ -119,8 +119,8 @@ struct FmcombineWorker
 					Cell *gate = import_prim_cell(cell, "_gate");
 					if (opts.initeq) {
 						if (cell->is_builtin_ff()) {
-							SigSpec gold_q = gold->getPort(ID::Q);
-							SigSpec gate_q = gate->getPort(ID::Q);
+							SigSpec gold_q = gold->getPort(TW::Q);
+							SigSpec gate_q = gate->getPort(TW::Q);
 							SigSpec en = module->Initstate(NEW_ID);
 							SigSpec eq = module->Eq(NEW_ID, gold_q, gate_q);
 							module->addAssume(NEW_ID, eq, en);

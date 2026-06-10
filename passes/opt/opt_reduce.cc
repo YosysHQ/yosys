@@ -43,7 +43,7 @@ struct OptReduceWorker
 			return;
 		cells.erase(cell);
 
-		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+		RTLIL::SigSpec sig_a = assign_map(cell->getPort(TW::A));
 		sig_a.sort_and_unify();
 		pool<RTLIL::SigBit> new_sig_a_bits;
 
@@ -74,8 +74,8 @@ struct OptReduceWorker
 			for (auto child_cell : drivers.find(bit)) {
 				if (child_cell->type == cell->type) {
 					opt_reduce(cells, drivers, child_cell);
-					if (child_cell->getPort(ID::Y)[0] == bit) {
-						pool<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->getPort(ID::A)).to_sigbit_pool();
+					if (child_cell->getPort(TW::Y)[0] == bit) {
+						pool<RTLIL::SigBit> child_sig_a_bits = assign_map(child_cell->getPort(TW::A)).to_sigbit_pool();
 						new_sig_a_bits.insert(child_sig_a_bits.begin(), child_sig_a_bits.end());
 					} else
 						new_sig_a_bits.insert(RTLIL::State::S0);
@@ -92,22 +92,22 @@ struct OptReduceWorker
 		if (GetSize(new_sig_a) == 0)
 			new_sig_a = (cell->type == ID($reduce_or)) ? State::S0 : State::S1;
 
-		if (new_sig_a != sig_a || sig_a.size() != cell->getPort(ID::A).size()) {
+		if (new_sig_a != sig_a || sig_a.size() != cell->getPort(TW::A).size()) {
 			log("    New input vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_a));
 			did_something = true;
 			total_count++;
 		}
 
-		cell->setPort(ID::A, new_sig_a);
+		cell->setPort(TW::A, new_sig_a);
 		cell->parameters[ID::A_WIDTH] = RTLIL::Const(new_sig_a.size());
 		return;
 	}
 
 	void opt_pmux(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
-		RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
-		RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+		RTLIL::SigSpec sig_a = assign_map(cell->getPort(TW::A));
+		RTLIL::SigSpec sig_b = assign_map(cell->getPort(TW::B));
+		RTLIL::SigSpec sig_s = assign_map(cell->getPort(TW::S));
 
 		RTLIL::SigSpec new_sig_b, new_sig_s;
 		dict<RTLIL::SigSpec, std::vector<RTLIL::SigBit>> grouped_b_to_s;
@@ -126,15 +126,15 @@ struct OptReduceWorker
 			RTLIL::SigSpec this_s{this_s_bit};
 			if (this_s.size() > 1)
 			{
-				RTLIL::Cell *reduce_or_cell = module->addCell(NEW_ID, ID($reduce_or));
-				reduce_or_cell->setPort(ID::A, this_s);
+				RTLIL::Cell *reduce_or_cell = module->addCell(NEW_TWINE, ID($reduce_or));
+				reduce_or_cell->setPort(TW::A, this_s);
 				reduce_or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				reduce_or_cell->parameters[ID::A_WIDTH] = RTLIL::Const(this_s.size());
 				reduce_or_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 
-				RTLIL::Wire *reduce_or_wire = module->addWire(NEW_ID);
+				RTLIL::Wire *reduce_or_wire = module->addWire(NEW_TWINE);
 				this_s = RTLIL::SigSpec(reduce_or_wire);
-				reduce_or_cell->setPort(ID::Y, this_s);
+				reduce_or_cell->setPort(TW::Y, this_s);
 			}
 
 			new_sig_b.append(this_b);
@@ -143,8 +143,8 @@ struct OptReduceWorker
 
 		if (new_sig_s.size() == 0)
 		{
-			module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
-			assign_map.add(cell->getPort(ID::Y), cell->getPort(ID::A));
+			module->connect(cell->getPort(TW::Y), cell->getPort(TW::A));
+			assign_map.add(cell->getPort(TW::Y), cell->getPort(TW::A));
 			module->remove(cell);
 			did_something = true;
 			total_count++;
@@ -155,8 +155,8 @@ struct OptReduceWorker
 			log("    New ctrl vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_s));
 			did_something = true;
 			total_count++;
-			cell->setPort(ID::B, new_sig_b);
-			cell->setPort(ID::S, new_sig_s);
+			cell->setPort(TW::B, new_sig_b);
+			cell->setPort(TW::S, new_sig_s);
 			if (new_sig_s.size() > 1) {
 				cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
 			} else {
@@ -168,8 +168,8 @@ struct OptReduceWorker
 
 	void opt_bmux(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
-		RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+		RTLIL::SigSpec sig_a = assign_map(cell->getPort(TW::A));
+		RTLIL::SigSpec sig_s = assign_map(cell->getPort(TW::S));
 		int width = cell->getParam(ID::WIDTH).as_int();
 
 		RTLIL::SigSpec new_sig_a, new_sig_s;
@@ -218,8 +218,8 @@ struct OptReduceWorker
 
 		if (new_sig_s.size() == 0)
 		{
-			module->connect(cell->getPort(ID::Y), new_sig_a);
-			assign_map.add(cell->getPort(ID::Y), new_sig_a);
+			module->connect(cell->getPort(TW::Y), new_sig_a);
+			assign_map.add(cell->getPort(TW::Y), new_sig_a);
 			module->remove(cell);
 			did_something = true;
 			total_count++;
@@ -229,9 +229,9 @@ struct OptReduceWorker
 		if (new_sig_s.size() == 1)
 		{
 			cell->type = ID($mux);
-			cell->setPort(ID::A, new_sig_a.extract(0, width));
-			cell->setPort(ID::B, new_sig_a.extract(width, width));
-			cell->setPort(ID::S, new_sig_s);
+			cell->setPort(TW::A, new_sig_a.extract(0, width));
+			cell->setPort(TW::B, new_sig_a.extract(width, width));
+			cell->setPort(TW::S, new_sig_s);
 			cell->parameters.erase(ID::S_WIDTH);
 			did_something = true;
 			total_count++;
@@ -242,16 +242,16 @@ struct OptReduceWorker
 			log("    New ctrl vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_s));
 			did_something = true;
 			total_count++;
-			cell->setPort(ID::A, new_sig_a);
-			cell->setPort(ID::S, new_sig_s);
+			cell->setPort(TW::A, new_sig_a);
+			cell->setPort(TW::S, new_sig_s);
 			cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
 		}
 	}
 
 	void opt_demux(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
-		RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+		RTLIL::SigSpec sig_y = assign_map(cell->getPort(TW::Y));
+		RTLIL::SigSpec sig_s = assign_map(cell->getPort(TW::S));
 		int width = cell->getParam(ID::WIDTH).as_int();
 
 		RTLIL::SigSpec new_sig_y, new_sig_s;
@@ -319,27 +319,27 @@ struct OptReduceWorker
 
 		if (new_sig_s.size() == 0)
 		{
-			module->connect(new_sig_y, cell->getPort(ID::A));
-			assign_map.add(new_sig_y, cell->getPort(ID::A));
+			module->connect(new_sig_y, cell->getPort(TW::A));
+			assign_map.add(new_sig_y, cell->getPort(TW::A));
 			module->remove(cell);
 		}
 		else
 		{
-			cell->setPort(ID::S, new_sig_s);
-			cell->setPort(ID::Y, new_sig_y);
+			cell->setPort(TW::S, new_sig_s);
+			cell->setPort(TW::Y, new_sig_y);
 			cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
 		}
 	}
 
 	bool opt_mux_bits(RTLIL::Cell *cell)
 	{
-		SigSpec sig_a = assign_map(cell->getPort(ID::A));
+		SigSpec sig_a = assign_map(cell->getPort(TW::A));
 		SigSpec sig_b;
-		SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+		SigSpec sig_y = assign_map(cell->getPort(TW::Y));
 		int width = GetSize(sig_y);
 
 		if (cell->type != ID($bmux))
-			sig_b = assign_map(cell->getPort(ID::B));
+			sig_b = assign_map(cell->getPort(TW::B));
 
 		RTLIL::SigSig old_sig_conn;
 
@@ -387,11 +387,11 @@ struct OptReduceWorker
 		{
 			log("    Consolidated identical input bits for %s cell %s:\n", cell->type, cell->name);
 			if (cell->type != ID($bmux)) {
-				log("      Old ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-						log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
+				log("      Old ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(TW::A)),
+						log_signal(cell->getPort(TW::B)), log_signal(cell->getPort(TW::Y)));
 			} else {
-				log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-						log_signal(cell->getPort(ID::Y)));
+				log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(TW::A)),
+						log_signal(cell->getPort(TW::Y)));
 			}
 
 			if (swizzle.empty()) {
@@ -401,29 +401,29 @@ struct OptReduceWorker
 				for (int i = 0; i < GetSize(sig_a); i += width)
 					for (int j: swizzle)
 						new_sig_a.append(sig_a[i+j]);
-				cell->setPort(ID::A, new_sig_a);
+				cell->setPort(TW::A, new_sig_a);
 
 				if (cell->type != ID($bmux)) {
 					SigSpec new_sig_b;
 					for (int i = 0; i < GetSize(sig_b); i += width)
 						for (int j: swizzle)
 							new_sig_b.append(sig_b[i+j]);
-					cell->setPort(ID::B, new_sig_b);
+					cell->setPort(TW::B, new_sig_b);
 				}
 
 				SigSpec new_sig_y;
 				for (int j: swizzle)
 					new_sig_y.append(sig_y[j]);
-				cell->setPort(ID::Y, new_sig_y);
+				cell->setPort(TW::Y, new_sig_y);
 
 				cell->parameters[ID::WIDTH] = RTLIL::Const(GetSize(swizzle));
 
 				if (cell->type != ID($bmux)) {
-					log("      New ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-							log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
+					log("      New ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(TW::A)),
+							log_signal(cell->getPort(TW::B)), log_signal(cell->getPort(TW::Y)));
 				} else {
-					log("      New ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-							log_signal(cell->getPort(ID::Y)));
+					log("      New ports: A=%s, Y=%s\n", log_signal(cell->getPort(TW::A)),
+							log_signal(cell->getPort(TW::Y)));
 				}
 			}
 
@@ -437,8 +437,8 @@ struct OptReduceWorker
 	}
 
 	bool opt_demux_bits(RTLIL::Cell *cell) {
-		SigSpec sig_a = assign_map(cell->getPort(ID::A));
-		SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+		SigSpec sig_a = assign_map(cell->getPort(TW::A));
+		SigSpec sig_y = assign_map(cell->getPort(TW::Y));
 		int width = GetSize(sig_a);
 
 		RTLIL::SigSig old_sig_conn;
@@ -477,8 +477,8 @@ struct OptReduceWorker
 		if (GetSize(swizzle) != width)
 		{
 			log("    Consolidated identical input bits for %s cell %s:\n", cell->type, cell->name);
-			log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-					log_signal(cell->getPort(ID::Y)));
+			log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(TW::A)),
+					log_signal(cell->getPort(TW::Y)));
 
 			if (swizzle.empty()) {
 				module->remove(cell);
@@ -486,18 +486,18 @@ struct OptReduceWorker
 				SigSpec new_sig_a;
 				for (int j: swizzle)
 					new_sig_a.append(sig_a[j]);
-				cell->setPort(ID::A, new_sig_a);
+				cell->setPort(TW::A, new_sig_a);
 
 				SigSpec new_sig_y;
 				for (int i = 0; i < GetSize(sig_y); i += width)
 					for (int j: swizzle)
 						new_sig_y.append(sig_y[i+j]);
-				cell->setPort(ID::Y, new_sig_y);
+				cell->setPort(TW::Y, new_sig_y);
 
 				cell->parameters[ID::WIDTH] = RTLIL::Const(GetSize(swizzle));
 
-				log("      New ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-						log_signal(cell->getPort(ID::Y)));
+				log("      New ports: A=%s, Y=%s\n", log_signal(cell->getPort(TW::A)),
+						log_signal(cell->getPort(TW::Y)));
 			}
 
 			log("      New connections: %s = %s\n", log_signal(old_sig_conn.first), log_signal(old_sig_conn.second));
@@ -521,14 +521,14 @@ struct OptReduceWorker
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
 			if (cell->type.in(ID($mem), ID($mem_v2)))
-				mem_wren_sigs.add(assign_map(cell->getPort(ID::WR_EN)));
+				mem_wren_sigs.add(assign_map(cell->getPort(TW::WR_EN)));
 			if (cell->type.in(ID($memwr), ID($memwr_v2)))
-				mem_wren_sigs.add(assign_map(cell->getPort(ID::EN)));
+				mem_wren_sigs.add(assign_map(cell->getPort(TW::EN)));
 		}
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
-			if (cell->type == ID($dff) && mem_wren_sigs.check_any(assign_map(cell->getPort(ID::Q))))
-				mem_wren_sigs.add(assign_map(cell->getPort(ID::D)));
+			if (cell->type == ID($dff) && mem_wren_sigs.check_any(assign_map(cell->getPort(TW::Q))))
+				mem_wren_sigs.add(assign_map(cell->getPort(TW::D)));
 		}
 
 		bool keep_expanding_mem_wren_sigs = true;
@@ -536,12 +536,12 @@ struct OptReduceWorker
 			keep_expanding_mem_wren_sigs = false;
 			for (auto &cell_it : module->cells_) {
 				RTLIL::Cell *cell = cell_it.second;
-				if (cell->type == ID($mux) && mem_wren_sigs.check_any(assign_map(cell->getPort(ID::Y)))) {
-					if (!mem_wren_sigs.check_all(assign_map(cell->getPort(ID::A))) ||
-							!mem_wren_sigs.check_all(assign_map(cell->getPort(ID::B))))
+				if (cell->type == ID($mux) && mem_wren_sigs.check_any(assign_map(cell->getPort(TW::Y)))) {
+					if (!mem_wren_sigs.check_all(assign_map(cell->getPort(TW::A))) ||
+							!mem_wren_sigs.check_all(assign_map(cell->getPort(TW::B))))
 						keep_expanding_mem_wren_sigs = true;
-					mem_wren_sigs.add(assign_map(cell->getPort(ID::A)));
-					mem_wren_sigs.add(assign_map(cell->getPort(ID::B)));
+					mem_wren_sigs.add(assign_map(cell->getPort(TW::A)));
+					mem_wren_sigs.add(assign_map(cell->getPort(TW::B)));
 				}
 			}
 		}
@@ -563,7 +563,7 @@ struct OptReduceWorker
 					RTLIL::Cell *cell = cell_it.second;
 					if (cell->type != type || !design->selected(module, cell))
 						continue;
-					drivers.insert(assign_map(cell->getPort(ID::Y)), cell);
+					drivers.insert(assign_map(cell->getPort(TW::Y)), cell);
 					cells.insert(cell);
 				}
 
@@ -582,7 +582,7 @@ struct OptReduceWorker
 
 				// this optimization is to aggressive for most coarse-grain applications.
 				// but we always want it for multiplexers driving write enable ports.
-				if (do_fine || mem_wren_sigs.check_any(assign_map(cell->getPort(ID::Y)))) {
+				if (do_fine || mem_wren_sigs.check_any(assign_map(cell->getPort(TW::Y)))) {
 					if (cell->type == ID($demux)) {
 						if (opt_demux_bits(cell))
 							continue;

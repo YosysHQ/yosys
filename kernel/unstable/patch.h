@@ -26,8 +26,10 @@ public:
 	SigMap* map;
 	vector<std::unique_ptr<Wire>> wires_ = {};
 	vector<std::unique_ptr<Cell>> cells_ = {};
-	dict<RTLIL::Cell*, Twine> staged_cell_names_;
-	dict<RTLIL::Wire*, Twine> staged_wire_names_;
+	TwineChildPool twine_staging;
+	dict<RTLIL::Cell*, TwineRef> staged_cell_names_;
+	dict<RTLIL::Wire*, TwineRef> staged_wire_names_;
+	dict<const std::string*, TwineRef> staged_prefix_cache_;
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
@@ -64,16 +66,29 @@ public:
 	// tracking carries through transparently). Pass nullptr for src_source
 	// if the staged helpers have no natural ancestor.
 	void commit_inheriting_src(Cell* src_source);
-	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
-	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
 
-	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
-	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
+	// Primary overloads: name is a design ref or a twine_staging-local ref.
+	RTLIL::Wire *addWire(TwineRef name, int width = 1);
+	RTLIL::Wire *addWire(TwineRef name, const RTLIL::Wire *other);
+	// Convenience: stages name into twine_staging, then dispatches.
+	RTLIL::Wire *addWire(Twine &&name, int width = 1);
+	RTLIL::Wire *addWire(Twine &&name, const RTLIL::Wire *other);
 
-	RTLIL::Cell* addDffsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+	RTLIL::Cell *addCell(TwineRef name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(TwineRef name, const RTLIL::Cell *other);
+	RTLIL::Cell *addCell(Twine &&name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
+
+	// NEW_ID analog for twine names; see NEW_TWINE in yosys_common.h.
+	// Returned refs are twine_staging-local and die at the next commit.
+	TwineRef new_name(const std::string *prefix);
+
+	RTLIL::Cell* addDffsr(TwineRef name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src);
 
-	Patch(Module* mod, SigMap* map = nullptr) : mod(mod), map(map) {}
+	Patch(Module* mod, SigMap* map = nullptr) :
+		mod(mod), map(map),
+		twine_staging(mod && mod->design ? &mod->design->twines : nullptr) {}
 };
 
 YOSYS_NAMESPACE_END

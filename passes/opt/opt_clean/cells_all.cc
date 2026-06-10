@@ -202,7 +202,7 @@ ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const Sig
 					if (bit.wire == nullptr && clean_ctx.ct_all.cell_known(cell->type)) {
 						std::string msg = stringf("Driver-driver conflict "
 							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
-							log_signal(raw_bit), cell->name.unescape(), it2.first.unescape(), log_signal(bit), actx.mod->name.unescape());
+							log_signal(raw_bit), cell->name.unescape(), actx.mod->design->twines.str(it2.first), log_signal(bit), actx.mod->name);
 							logs.logs.insert(ctx, {wire_map(raw_bit), msg});
 						}
 						if (bit.wire != nullptr)
@@ -304,7 +304,7 @@ pool<Cell*> all_unused_cells(const Module *mod, const CellAnalysis& analysis, Wi
 	});
 	for (int cell_index : sharded_unused_cells)
 		unused_cells.insert(mod->cell_at(cell_index));
-	unused_cells.sort(RTLIL::sort_by_name_id<RTLIL::Cell>());
+	unused_cells.sort(RTLIL::sort_by_name<RTLIL::Cell>());
 	return unused_cells;
 }
 
@@ -314,7 +314,7 @@ void remove_cells(RTLIL::Module* mod, FfInitVals& ffinit, const pool<Cell*>& cel
 			log_debug("  removing unused `%s' cell `%s'.\n", cell->type, cell->name);
 		mod->design->scratchpad_set_bool("opt.did_something", true);
 		if (cell->is_builtin_ff())
-			ffinit.remove_init(cell->getPort(ID::Q));
+			ffinit.remove_init(cell->getPort(TW::Q));
 		mod->remove(cell);
 		stats.count_rm_cells++;
 	}

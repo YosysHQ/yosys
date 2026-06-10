@@ -53,7 +53,7 @@ struct FutureWorker {
 			if (cell->type != ID($future_ff))
 				continue;
 
-			module->connect(cell->getPort(ID::Y), future_ff(cell->getPort(ID::A)));
+			module->connect(cell->getPort(TW::Y), future_ff(cell->getPort(TW::A)));
 			replaced_cells.push_back(cell);
 		}
 

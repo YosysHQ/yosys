@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
+#include "kernel/yosys_common.h"
 
 #include <string.h>
 #include <algorithm>
@@ -28,7 +29,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 
-typedef std::pair<Cell*, IdString> cell_port_t;
+typedef std::pair<Cell*, TwineRef> cell_port_t;
 
 // Since this is kernel code, we only log with yosys_xtrace set to not get
 // in the way when using `debug` to debug specific passes.q
@@ -83,7 +84,7 @@ struct RTLIL::SigNormIndex
 			if (cell->type != ID($input_port))
 				continue;
 
-			auto const &sig_y = cell->getPort(ID::Y);
+			auto const &sig_y = cell->getPort(TW::Y);
 			Wire *wire;
 			if (sig_y.is_wire() && (wire = sig_y.as_wire())->port_input && !wire->port_output && !input_port_cells.count(wire))
 				input_port_cells.emplace(wire, cell);
@@ -97,16 +98,16 @@ struct RTLIL::SigNormIndex
 		for (auto portname : module->ports) {
 			Wire *wire = module->wire(portname);
 			if (wire->port_input && !wire->port_output && !input_port_cells.count(wire)) {
-				Cell *cell = module->addCell(NEW_ID, ID($input_port));
+				Cell *cell = module->addCell(NEW_TWINE, ID($input_port));
 				cell->setParam(ID::WIDTH, GetSize(wire));
-				cell->setPort(ID::Y, wire);
+				cell->setPort(TW::Y, wire);
 				input_port_cells.emplace(wire, cell);
 			}
 		}
 
 		for (auto [wire, cell] : input_port_cells) {
 			wire->driverCell_ = cell;
-			wire->driverPort_ = ID::Y;
+			wire->driverPort_ = TW::Y;
 		}
 	}
 
@@ -130,7 +131,7 @@ struct RTLIL::SigNormIndex
 					}
 				}
 
-				Wire *wire = module->addWire(NEW_ID, GetSize(sig));
+				Wire *wire = module->addWire(NEW_TWINE, GetSize(sig));
 				wire->driverCell_ = cell;
 				wire->driverPort_ = port;
 
@@ -194,11 +195,11 @@ struct RTLIL::SigNormIndex
 		}
 
 		if (!connect_lhs.empty()) {
-			Cell *cell = module->addCell(NEW_ID, ID($connect));
+			Cell *cell = module->addCell(NEW_TWINE, ID($connect));
 			xlog("add connect (1) %s\n", cell->name);
 			cell->setParam(ID::WIDTH, GetSize(connect_lhs));
-			cell->setPort(ID::A, std::move(connect_lhs));
-			cell->setPort(ID::B, std::move(connect_rhs));
+			cell->setPort(TW::A, std::move(connect_lhs));
+			cell->setPort(TW::B, std::move(connect_rhs));
 		}
 	}
 
@@ -287,7 +288,7 @@ void RTLIL::Design::bufNormalize(bool enable)
 			module->buf_norm_cell_port_queue.clear();
 			for (auto wire : module->wires()) {
 				wire->driverCell_ = nullptr;
-				wire->driverPort_ = IdString();
+				wire->driverPort_ = Twine::Null;
 			}
 			module->buf_norm_connect_index.clear();
 		}
@@ -348,7 +349,7 @@ void RTLIL::Design::sigNormalize(bool enable)
 
 			for (auto wire : module->wires()) {
 				wire->driverCell_ = nullptr;
-				wire->driverPort_ = IdString();
+				wire->driverPort_ = Twine::Null;
 			}
 
 			// TODO inefficient?
@@ -520,14 +521,14 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	while (!cell->connections_.empty())
 		cell->unsetPort(cell->connections_.begin()->first);
 
-	log_assert(cell->meta_ && cell->meta_->name_id != Twine::Null);
-	TwineRef cell_id = cell->meta_->name_id;
+	log_assert(cell->meta_ && cell->meta_->name != Twine::Null);
+	TwineRef cell_id = cell->meta_->name;
 	log_assert(cells_.count(cell_id) != 0);
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell_id);
 	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
 		cell->type.clear();
-		design->obj_release_name_id(cell);
+		// design->obj_release_name(cell);
 		pending_deleted_cells.insert(cell);
 	} else {
 		if (sig_norm_index != nullptr) {
@@ -561,12 +562,12 @@ void RTLIL::Module::bufNormalize()
 			if (wire->port_input && !wire->port_output) {
 				if (wire->driverCell_ != nullptr && wire->driverCell_->type != ID($input_port)) {
 					wire->driverCell_ = nullptr;
-					wire->driverPort_.clear();
+					wire->driverPort_ = Twine::Null;
 				}
 				if (wire->driverCell_ == nullptr) {
-					Cell *input_port_cell = addCell(NEW_ID, ID($input_port));
+					Cell *input_port_cell = addCell(NEW_TWINE, ID($input_port));
 					input_port_cell->setParam(ID::WIDTH, GetSize(wire));
-					input_port_cell->setPort(ID::Y, wire); // this hits the fast path that doesn't mutate the queues
+					input_port_cell->setPort(TW::Y, wire); // this hits the fast path that doesn't mutate the queues
 				}
 			}
 		}
@@ -593,19 +594,19 @@ void RTLIL::Module::bufNormalize()
 		// because it's not driving an input port or because there already is
 		// another $input_port driver for the same port, we also delete that
 		// $input_port cell.
-		dict<Wire *, std::pair<Cell *, IdString>> direct_driven_wires;
+		dict<Wire *, std::pair<Cell *, TwineRef>> direct_driven_wires;
 
 		// Set of cell ports that need a fresh intermediate wire. These are all
 		// cell ports that drive non-full-wire sigspecs, cell ports driving
 		// module input ports, and cell ports driving wires that are already
 		// driven.
-		pool<std::pair<Cell *, IdString>> pending_ports;
+		pool<std::pair<Cell *, TwineRef>> pending_ports;
 
 		// This helper will be called for every output/inout cell port that is
 		// already enqueued or becomes reachable when denormalizing $buf or
 		// $connect cells.
-		auto enqueue_cell_port = [&](Cell *cell, IdString port) {
-			xlog("processing cell port %s.%s\n", cell, port.unescape());
+		auto enqueue_cell_port = [&](Cell *cell, TwineRef port) {
+			xlog("processing cell port %s.%s\n", cell, design->twines.str(port));
 
 			// An empty cell type means the cell got removed
 			if (cell->type.empty())
@@ -632,8 +633,8 @@ void RTLIL::Module::bufNormalize()
 				// TODO: We could defer removing the $buf cells here, and
 				// re-use them in case we would create a new identical cell
 				// later.
-				log_assert(port == ID::Y);
-				SigSpec sig_a = cell->getPort(ID::A);
+				log_assert(port == TW::Y);
+				SigSpec sig_a = cell->getPort(TW::A);
 				SigSpec sig_y = sig;
 
 				for (auto const &s : {sig_a, sig})
@@ -662,7 +663,7 @@ void RTLIL::Module::bufNormalize()
 				buf_norm_wire_queue.clear();
 				return;
 			} else if (cell->type == ID($input_port)) {
-				log_assert(port == ID::Y);
+				log_assert(port == TW::Y);
 				if (sig.is_wire()) {
 					Wire *w = sig.as_wire();
 					if (w->port_input && !w->port_output) {
@@ -733,7 +734,7 @@ void RTLIL::Module::bufNormalize()
 
 			if (wire->driverCell_) {
 				Cell *cell = wire->driverCell_;
-				IdString port = wire->driverPort_;
+				TwineRef port = wire->driverPort_;
 				enqueue_cell_port(cell, port);
 			}
 
@@ -744,8 +745,8 @@ void RTLIL::Module::bufNormalize()
 				while (!found->second.empty()) {
 					Cell *connect_cell = *found->second.begin();
 					log_assert(connect_cell->type == ID($connect));
-					SigSpec const &sig_a = connect_cell->getPort(ID::A);
-					SigSpec const &sig_b = connect_cell->getPort(ID::B);
+					SigSpec const &sig_a = connect_cell->getPort(TW::A);
+					SigSpec const &sig_b = connect_cell->getPort(TW::B);
 					xlog("found $connect cell %s: %s <-> %s\n", connect_cell, log_signal(sig_a), log_signal(sig_b));
 					for (auto &side : {sig_a, sig_b})
 						for (auto chunk : side.chunks())
@@ -772,7 +773,7 @@ void RTLIL::Module::bufNormalize()
 			log_assert(!cell->type.empty());
 			log_assert(!pending_deleted_cells.count(cell));
 			SigSpec const &sig = cell->getPort(port);
-			Wire *w = addWire(NEW_ID, GetSize(sig));
+			Wire *w = addWire(NEW_TWINE, GetSize(sig));
 
 			// We update the module level connections, `direct_driven_wires`
 			// and `direct_driven_wires_conflicts` in such a way that they
@@ -792,7 +793,7 @@ void RTLIL::Module::bufNormalize()
 		// to keep track of the wires that we still have to update.
 		for (auto wire : wire_queue_entries) {
 			wire->driverCell_ = nullptr;
-			wire->driverPort_.clear();
+			wire->driverPort_ = Twine::Null;
 		}
 
 		// For the unique driving cell ports fully connected to a full wire, we
@@ -912,7 +913,7 @@ void RTLIL::Module::bufNormalize()
 
 			if (wire->driverCell_ == nullptr) {
 				xlog("wire %s drivers %s\n", wire, log_signal(wire_drivers));
-				addBuf(NEW_ID, wire_drivers, wire);
+				addBuf(NEW_TWINE, wire_drivers, wire);
 			}
 		}
 
@@ -946,10 +947,10 @@ void RTLIL::Module::bufNormalize()
 			if (sig_a.empty())
 				return;
 			xlog("connect %s <-> %s\n", log_signal(sig_a), log_signal(sig_b));
-			Cell *connect_cell = addCell(NEW_ID, ID($connect));
+			Cell *connect_cell = addCell(NEW_TWINE, ID($connect));
 			connect_cell->setParam(ID::WIDTH, GetSize(sig_a));
-			connect_cell->setPort(ID::A, sig_a);
-			connect_cell->setPort(ID::B, sig_b);
+			connect_cell->setPort(TW::A, sig_a);
+			connect_cell->setPort(TW::B, sig_b);
 			sig_a = SigSpec();
 			sig_b = SigSpec();
 		};
@@ -985,7 +986,7 @@ void RTLIL::Module::bufNormalize()
 	pending_deleted_cells.clear();
 }
 
-void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
+void RTLIL::Cell::unsetPort(TwineRef portname)
 {
 	RTLIL::SigSpec signal;
 	auto conn_it = connections_.find(portname);
@@ -1000,7 +1001,7 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 		if (yosys_xtrace) {
-			log("#X# Unconnect %s.%s.%s\n", this->module, this, portname.unescape());
+			log("#X# Unconnect %s.%s.%s\n", module, this, module->design->twines.str(portname));
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
@@ -1026,14 +1027,14 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 				log_assert(w->driverCell_ == this);
 				log_assert(w->driverPort_ == portname);
 				w->driverCell_ = nullptr;
-				w->driverPort_ = IdString();
+				w->driverPort_ = Twine::Null;
 			}
 			// bool clear_fanout = true;
 			// if (conn_it->second.is_wire()) {
 			// 	Wire *w = conn_it->second.as_wire();
 			// 	if (w->driverCell_ == this && w->driverPort_ == portname) {
 			// 		w->driverCell_ = nullptr;
-			// 		w->driverPort_ = IdString();
+			// 		w->driverPort_ = Twine::Null;
 			// 		clear_fanout = false;
 			// 	}
 			// }
@@ -1058,7 +1059,7 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 				Wire *w = conn_it->second.as_wire();
 				if (w->driverCell_ == this && w->driverPort_ == portname) {
 					w->driverCell_ = nullptr;
-					w->driverPort_ = IdString();
+					w->driverPort_ = Twine::Null;
 					module->buf_norm_wire_queue.insert(w);
 				} else if (w->driverCell_) {
 					log_assert(w->driverCell_->getPort(w->driverPort_) == w);
@@ -1099,7 +1100,7 @@ static bool ignored_cell(const RTLIL::IdString& type)
 	return type == ID($specify2) || type == ID($specify3) || type == ID($specrule);
 }
 
-void RTLIL::Cell::signorm_index_remove(IdString portname, const SigSpec &old_signal, bool is_input)
+void RTLIL::Cell::signorm_index_remove(TwineRef portname, const SigSpec &old_signal, bool is_input)
 {
 	auto &index = *module->sig_norm_index;
 	index.dirty.insert(this);
@@ -1121,11 +1122,11 @@ void RTLIL::Cell::signorm_index_remove(IdString portname, const SigSpec &old_sig
 		log_assert(w->driverCell_ == this);
 		log_assert(w->driverPort_ == portname);
 		w->driverCell_ = nullptr;
-		w->driverPort_ = IdString();
+		w->driverPort_ = Twine::Null;
 	}
 }
 
-void RTLIL::Cell::signorm_index_add(IdString portname, const SigSpec &new_signal, bool is_input)
+void RTLIL::Cell::signorm_index_add(TwineRef portname, const SigSpec &new_signal, bool is_input)
 {
 	auto &index = *module->sig_norm_index;
 	index.dirty.insert(this);
@@ -1140,7 +1141,7 @@ void RTLIL::Cell::signorm_index_add(IdString portname, const SigSpec &new_signal
 	} else if (GetSize(new_signal)) {
 		Wire *w = new_signal.as_wire();
 		log_assert(w->driverCell_ == nullptr);
-		log_assert(w->driverPort_.empty());
+		log_assert(w->driverPort_ == Twine::Null);
 		w->driverCell_ = this;
 		w->driverPort_ = portname;
 	}
@@ -1148,14 +1149,14 @@ void RTLIL::Cell::signorm_index_add(IdString portname, const SigSpec &new_signal
 
 // Handles the bufnorm part of setPort. Updates conn_it->second and returns true if the
 // connection was stored (fast path or $connect cell). If false, caller must store signal.
-bool RTLIL::Cell::bufnorm_handle_setPort(IdString portname, SigSpec &signal, dict<IdString, SigSpec>::iterator conn_it)
+bool RTLIL::Cell::bufnorm_handle_setPort(TwineRef portname, SigSpec &signal, dict<TwineRef, SigSpec>::iterator conn_it)
 {
 	// Eagerly clear a driver that got disconnected by changing this port connection
 	if (conn_it->second.is_wire()) {
 		Wire *w = conn_it->second.as_wire();
 		if (w->driverCell_ == this && w->driverPort_ == portname) {
 			w->driverCell_ = nullptr;
-			w->driverPort_ = IdString();
+			w->driverPort_ = Twine::Null;
 			module->buf_norm_wire_queue.insert(w);
 		}
 	}
@@ -1260,7 +1261,7 @@ void RTLIL::Cell::setPort(TwineRef portname, RTLIL::SigSpec signal)
 			if (signal.is_wire() && (wire = signal.as_wire())->driverCell_ != nullptr)
 				wire = nullptr;
 			if (wire == nullptr) {
-				wire = module->addWire(NEW_ID, GetSize(signal));
+				wire = module->addWire(NEW_TWINE, GetSize(signal));
 				module->connect(signal, wire);
 				signal = wire;
 			}
@@ -1282,7 +1283,7 @@ void RTLIL::Cell::setPort(TwineRef portname, RTLIL::SigSpec signal)
 	}
 
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module ? this->module->name.unescape() : "PATCH", this, portname.unescape(), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", module ? module->name.unescape() : "PATCH", this, module->design->twines.str(portname), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -1302,9 +1303,9 @@ void RTLIL::Cell::setPort(TwineRef portname, RTLIL::SigSpec signal)
 
 void RTLIL::Design::add(RTLIL::Module *module)
 {
-	log_assert(modules_.count(module->name) == 0);
+	log_assert(modules_.count(module->meta_->name) == 0);
 	log_assert(refcount_modules_ == 0);
-	modules_[module->name] = module;
+	modules_[module->meta_->name] = module;
 	module->design = this;
 
 	for (auto mon : monitors)

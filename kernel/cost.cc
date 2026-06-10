@@ -124,7 +124,7 @@ unsigned int max_inp_width(RTLIL::Cell *cell)
 unsigned int port_width_sum(RTLIL::Cell *cell)
 {
 	unsigned int sum = 0;
-	RTLIL::IdString port_width_params[] = {
+	TwineRef port_width_params[] = {
 	  ID::WIDTH, ID::A_WIDTH, ID::B_WIDTH, ID::S_WIDTH, ID::Y_WIDTH,
 	};
 

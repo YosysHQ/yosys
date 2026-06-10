@@ -10,7 +10,7 @@ using namespace RTLIL;
 
 template class CellAdderMixin<Patch>;
 
-Cell* Patch::addCell(IdString name, IdString type) {
+Cell* Patch::addCell(TwineRef name, IdString type) {
 	cells_.push_back(std::make_unique<Cell>(Cell::ConstructToken{}));
 
 	Cell* cell = cells_.back().get();
@@ -20,7 +20,11 @@ Cell* Patch::addCell(IdString name, IdString type) {
 	return cell;
 }
 
-Wire* Patch::addWire(IdString name, int width) {
+Cell* Patch::addCell(Twine &&name, IdString type) {
+	return addCell(twine_staging.add(std::move(name)), type);
+}
+
+Wire* Patch::addWire(TwineRef name, int width) {
 	wires_.push_back(std::make_unique<Wire>(Wire::ConstructToken{}));
 
 	Wire* wire = wires_.back().get();
@@ -30,11 +34,15 @@ Wire* Patch::addWire(IdString name, int width) {
 	return wire;
 }
 
+Wire* Patch::addWire(Twine &&name, int width) {
+	return addWire(twine_staging.add(std::move(name)), width);
+}
+
 // TODO code golf
 
-RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
+RTLIL::Wire *RTLIL::Patch::addWire(TwineRef name, const RTLIL::Wire *other)
 {
-	RTLIL::Wire *wire = addWire(std::move(name));
+	RTLIL::Wire *wire = addWire(name);
 	wire->width = other->width;
 	wire->start_offset = other->start_offset;
 	wire->port_id = other->port_id;
@@ -46,32 +54,44 @@ RTLIL::Wire *RTLIL::Patch::addWire(RTLIL::IdString name, const RTLIL::Wire *othe
 	return wire;
 }
 
+RTLIL::Wire *RTLIL::Patch::addWire(Twine &&name, const RTLIL::Wire *other)
+{
+	return addWire(twine_staging.add(std::move(name)), other);
+}
+
+TwineRef Patch::new_name(const std::string *prefix) {
+	TwineRef pref;
+	if (auto it = staged_prefix_cache_.find(prefix); it != staged_prefix_cache_.end())
+		pref = it->second;
+	else
+		pref = staged_prefix_cache_[prefix] = twine_staging.add(Twine{*prefix});
+	return twine_staging.add(Twine{Twine::Suffix{pref, std::to_string(autoidx++)}});
+}
+
 Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
 	Wire* raw = wire.release();
-	IdString name = staged_wire_names_.at(raw);
+	TwineRef id = twine_staging.resolve(staged_wire_names_.at(raw));
 	staged_wire_names_.erase(raw);
-	TwineRef id = mod->design->twines.intern(name.str());
-	mod->design->obj_set_name_id(raw, id);
-	mod->design->twines.release(id);
-	mod->wires_[raw->meta_->name_id] = raw;
+	raw->meta_->name = id;
+	mod->wires_[raw->meta_->name] = raw;
 	raw->module = mod;
 	return raw;
 }
 
 Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 	Cell* raw = cell.release();
-	IdString name = staged_cell_names_.at(raw);
+	TwineRef id = twine_staging.resolve(staged_cell_names_.at(raw));
 	staged_cell_names_.erase(raw);
-	TwineRef id = mod->design->twines.intern(name.str());
-	mod->design->obj_set_name_id(raw, id);
-	mod->design->twines.release(id);
+	raw->meta_->name = id;
 	raw->module = mod;
-	mod->cells_[raw->meta_->name_id] = raw;
+	mod->cells_[raw->meta_->name] = raw;
 	raw->initIndex();
 	return raw;
 }
 
 std::vector<Cell*> Patch::commit_staged() {
+	twine_staging.commit_into(mod->design->twines);
+	staged_prefix_cache_.clear();
 	std::vector<Cell*> committed;
 	committed.reserve(cells_.size());
 	for (auto& cell : cells_) {
@@ -86,6 +106,12 @@ std::vector<Cell*> Patch::commit_staged() {
 }
 
 namespace {
+	std::string port_name(Cell* cell, TwineRef port) {
+		if (cell->module && cell->module->design)
+			return cell->module->design->twines.str(port);
+		return "<port#" + std::to_string(port) + ">";
+	}
+
 	void apply_src(Module* mod, Cell* root, const std::vector<Cell*>& extras,
 			const std::vector<Cell*>& targets, Cell* merge_src_into)
 	{
@@ -107,25 +133,24 @@ namespace {
 		push(merge_src_into);
 		if (ids.empty())
 			return;
-		TwineRef merged = pool.concat(std::span<const TwineRef>{ids});
+		TwineRef merged = ids.size() == 1 ? ids[0] : pool.add(Twine{std::move(ids)});
 		if (ys_debug()) {
 			log_debug("twine: merge yields %s (pool size %zu)\n",
-					pool.format_ref(merged).c_str(), pool.size());
+					pool.str(merged).c_str(), pool.backing.size());
 			if (ys_debug(2))
-				pool.dump("twine pool state");
+				pool.dump();
 		}
 		for (Cell* c : targets)
 			c->set_src_id(merged);
 		if (merge_src_into)
 			merge_src_into->set_src_id(merged);
-		pool.release(merged);
 	}
 
 	// Verifies via newcelltypes that root_cell has exactly one output port
 	// and that it matches `expected_port`.
-	void assert_single_output(Cell* root_cell, IdString expected_port) {
+	void assert_single_output(Cell* root_cell, TwineRef expected_port) {
 		int count = 0;
-		IdString found;
+		TwineRef found = Twine::Null;
 		for (auto &[port, sig] : root_cell->connections()) {
 			if (root_cell->output(port)) {
 				found = port;
@@ -138,11 +163,11 @@ namespace {
 		if (found != expected_port)
 			log_error("Patch: cell %s of type %s sole output port %s does not match patched port %s\n",
 					log_id(root_cell->name), log_id(root_cell->type),
-					log_id(found), log_id(expected_port));
+					port_name(root_cell, found).c_str(), port_name(root_cell, expected_port).c_str());
 	}
 }
 
-void Patch::patch(Cell* root_cell, IdString old_port, SigSpec new_sig,
+void Patch::patch(Cell* root_cell, TwineRef old_port, SigSpec new_sig,
 		const std::vector<Cell*>& extras, Cell* merge_src_into)
 {
 	assert_single_output(root_cell, old_port);
@@ -150,11 +175,11 @@ void Patch::patch(Cell* root_cell, IdString old_port, SigSpec new_sig,
 	SigSpec old_sig = root_cell->getPort(old_port);
 	if (old_sig.size() != new_sig.size())
 		log_error("patch size mismatch on cell %s port %s: old %d (%s) vs new %d (%s)\n",
-				log_id(root_cell->name), log_id(old_port),
+				log_id(root_cell->name), port_name(root_cell, old_port).c_str(),
 				old_sig.size(), log_signal(old_sig),
 				new_sig.size(), log_signal(new_sig));
 	log_debug("patching %s %s which is %s with %s\n",
-			log_id(root_cell->name), log_id(old_port),
+			log_id(root_cell->name), port_name(root_cell, old_port).c_str(),
 			log_signal(old_sig), log_signal(new_sig));
 
 	std::vector<Cell*> committed = commit_staged();
@@ -174,22 +199,22 @@ void Patch::patch(Cell* root_cell, IdString old_port, SigSpec new_sig,
 }
 
 void Patch::patch_ports(Cell* root_cell,
-		const std::vector<std::pair<IdString, SigSpec>>& port_replacements,
+		const std::vector<std::pair<TwineRef, SigSpec>>& port_replacements,
 		const std::vector<Cell*>& extras, Cell* merge_src_into)
 {
 	// Verify each listed port is an output of root_cell and that the
 	// replacements cover every output port of root_cell.
-	pool<IdString> listed;
+	pool<TwineRef> listed;
 	std::vector<SigSpec> old_sigs;
 	old_sigs.reserve(port_replacements.size());
 	for (auto &[port, new_sig] : port_replacements) {
 		if (!root_cell->output(port))
 			log_error("patch_ports: cell %s of type %s port %s is not an output\n",
-					log_id(root_cell->name), log_id(root_cell->type), log_id(port));
+					log_id(root_cell->name), log_id(root_cell->type), port_name(root_cell, port).c_str());
 		SigSpec old_sig = root_cell->getPort(port);
 		if (old_sig.size() != new_sig.size())
 			log_error("patch_ports size mismatch on cell %s port %s: old %d (%s) vs new %d (%s)\n",
-					log_id(root_cell->name), log_id(port),
+					log_id(root_cell->name), port_name(root_cell, port).c_str(),
 					old_sig.size(), log_signal(old_sig),
 					new_sig.size(), log_signal(new_sig));
 		listed.insert(port);
@@ -198,7 +223,7 @@ void Patch::patch_ports(Cell* root_cell,
 	for (auto &[port, sig] : root_cell->connections())
 		if (root_cell->output(port) && !listed.count(port))
 			log_error("patch_ports: cell %s of type %s has output port %s not in port_replacements\n",
-					log_id(root_cell->name), log_id(root_cell->type), log_id(port));
+					log_id(root_cell->name), log_id(root_cell->type), port_name(root_cell, port).c_str());
 
 	std::vector<Cell*> committed = commit_staged();
 	apply_src(mod, root_cell, extras, committed, merge_src_into);
@@ -207,7 +232,7 @@ void Patch::patch_ports(Cell* root_cell,
 	// shell before we wire old_sigs to new_sigs. Doing this first ensures
 	// the old port signals are not briefly double-driven by root_cell and
 	// the new connection.
-	std::vector<IdString> all_ports;
+	std::vector<TwineRef> all_ports;
 	all_ports.reserve(root_cell->connections().size());
 	for (auto &[port, sig] : root_cell->connections())
 		all_ports.push_back(port);
@@ -226,6 +251,8 @@ void Patch::patch_ports(Cell* root_cell,
 }
 
 void Patch::commit_inheriting_src(Cell* src_source) {
+	twine_staging.commit_into(mod->design->twines);
+	staged_prefix_cache_.clear();
 	for (auto& cell : cells_) {
 		cell->fixup_parameters();
 		Cell *committed = commit_cell(std::move(cell));

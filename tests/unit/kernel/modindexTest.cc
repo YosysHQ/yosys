@@ -40,7 +40,7 @@ TEST(ModIndexDeleteTest, has)
     mi.reload_module();
     mi.dump_db();
     Wire* a = m->addWire("\\a");
-    not_->setPort(ID::A, a);
+    not_->setPort(TW::A, a);
     EXPECT_TRUE(mi.ok());
 }
 

@@ -136,7 +136,7 @@ struct Coolrunner2FixupPass : public Pass {
 				if (cell->type.in(ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(LDCP), ID(LDCP_N),
 							ID(FTCP), ID(FTCP_N), ID(FTDCP), ID(FDCPE), ID(FDCPE_N), ID(FDDCPE)))
 				{
-					auto output = sigmap(cell->getPort(ID::Q)[0]);
+					auto output = sigmap(cell->getPort(TW::Q)[0]);
 					sig_fed_by_ff.insert(output);
 				}
 			}
@@ -159,7 +159,7 @@ struct Coolrunner2FixupPass : public Pass {
 				if (cell->type.in(ID(IBUF), ID(IOBUFE)))
 				{
 					if (cell->hasPort(ID::O)) {
-						auto output = sigmap(cell->getPort(ID::O)[0]);
+						auto output = sigmap(cell->getPort(TW::O)[0]);
 						sig_fed_by_io.insert(output);
 					}
 				}
@@ -182,7 +182,7 @@ struct Coolrunner2FixupPass : public Pass {
 			{
 				if (cell->type == ID(BUFG))
 				{
-					auto output = sigmap(cell->getPort(ID::O)[0]);
+					auto output = sigmap(cell->getPort(TW::O)[0]);
 					sig_fed_by_bufg.insert(output);
 				}
 			}
@@ -193,7 +193,7 @@ struct Coolrunner2FixupPass : public Pass {
 			{
 				if (cell->type == ID(BUFGSR))
 				{
-					auto output = sigmap(cell->getPort(ID::O)[0]);
+					auto output = sigmap(cell->getPort(TW::O)[0]);
 					sig_fed_by_bufgsr.insert(output);
 				}
 			}
@@ -204,7 +204,7 @@ struct Coolrunner2FixupPass : public Pass {
 			{
 				if (cell->type == ID(BUFGTS))
 				{
-					auto output = sigmap(cell->getPort(ID::O)[0]);
+					auto output = sigmap(cell->getPort(TW::O)[0]);
 					sig_fed_by_bufgts.insert(output);
 				}
 			}
@@ -215,7 +215,7 @@ struct Coolrunner2FixupPass : public Pass {
 			{
 				if (cell->type == ID(IBUF))
 				{
-					auto output = sigmap(cell->getPort(ID::O)[0]);
+					auto output = sigmap(cell->getPort(TW::O)[0]);
 					sig_fed_by_ibuf.insert(output);
 				}
 			}
@@ -259,10 +259,10 @@ struct Coolrunner2FixupPass : public Pass {
 				{
 					SigBit input;
 					if (maybe_ff_cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
-						input = sigmap(maybe_ff_cell->getPort(ID::T)[0]);
+						input = sigmap(maybe_ff_cell->getPort(TW::T)[0]);
 					else
-						input = sigmap(maybe_ff_cell->getPort(ID::D)[0]);
-					SigBit output = sigmap(maybe_ff_cell->getPort(ID::Q)[0]);
+						input = sigmap(maybe_ff_cell->getPort(TW::D)[0]);
+					SigBit output = sigmap(maybe_ff_cell->getPort(TW::Q)[0]);
 
 					if (input == ibuf_out_wire)
 					{
@@ -287,9 +287,9 @@ struct Coolrunner2FixupPass : public Pass {
 					// to be inserted.
 					SigBit input;
 					if (cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
-						input = sigmap(cell->getPort(ID::T)[0]);
+						input = sigmap(cell->getPort(TW::T)[0]);
 					else
-						input = sigmap(cell->getPort(ID::D)[0]);
+						input = sigmap(cell->getPort(TW::D)[0]);
 
 					// If the input wasn't an XOR nor an IO, then a buffer
 					// definitely needs to be added.
@@ -303,9 +303,9 @@ struct Coolrunner2FixupPass : public Pass {
 						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.c_str());
 
 						if (cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
-							cell->setPort(ID::T, xor_to_ff_wire);
+							cell->setPort(TW::T, xor_to_ff_wire);
 						else
-							cell->setPort(ID::D, xor_to_ff_wire);
+							cell->setPort(TW::D, xor_to_ff_wire);
 					}
 
 					// Buffering FF clocks. FF clocks can only come from either
@@ -314,9 +314,9 @@ struct Coolrunner2FixupPass : public Pass {
 					// AND-ing two signals) but not in all cases.
 					SigBit clock;
 					if (cell->type.in(ID(LDCP), ID(LDCP_N)))
-						clock = sigmap(cell->getPort(ID::G)[0]);
+						clock = sigmap(cell->getPort(TW::G)[0]);
 					else
-						clock = sigmap(cell->getPort(ID::C)[0]);
+						clock = sigmap(cell->getPort(TW::C)[0]);
 
 					if (!sig_fed_by_pterm[clock] && !sig_fed_by_bufg[clock])
 					{
@@ -325,9 +325,9 @@ struct Coolrunner2FixupPass : public Pass {
 						auto pterm_to_ff_wire = makeptermbuffer(module, clock);
 
 						if (cell->type.in(ID(LDCP), ID(LDCP_N)))
-							cell->setPort(ID::G, pterm_to_ff_wire);
+							cell->setPort(TW::G, pterm_to_ff_wire);
 						else
-							cell->setPort(ID::C, pterm_to_ff_wire);
+							cell->setPort(TW::C, pterm_to_ff_wire);
 					}
 
 					// Buffering FF set/reset. This can only come from either
@@ -347,7 +347,7 @@ struct Coolrunner2FixupPass : public Pass {
 					}
 
 					SigBit reset;
-					reset = sigmap(cell->getPort(ID::CLR)[0]);
+					reset = sigmap(cell->getPort(TW::CLR)[0]);
 					if (reset != SigBit(false))
 					{
 						if (!sig_fed_by_pterm[reset] && !sig_fed_by_bufgsr[reset])
@@ -356,7 +356,7 @@ struct Coolrunner2FixupPass : public Pass {
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, reset);
 
-							cell->setPort(ID::CLR, pterm_to_ff_wire);
+							cell->setPort(TW::CLR, pterm_to_ff_wire);
 						}
 					}
 
@@ -384,7 +384,7 @@ struct Coolrunner2FixupPass : public Pass {
 				if (cell->type == ID(IOBUFE))
 				{
 					// Buffer IOBUFE inputs. This can only be fed from an XOR or FF.
-					SigBit input = sigmap(cell->getPort(ID::I)[0]);
+					SigBit input = sigmap(cell->getPort(TW::I)[0]);
 
 					if ((!sig_fed_by_xor[input] && !sig_fed_by_ff[input]) ||
 						packed_reg_out[input])
@@ -393,7 +393,7 @@ struct Coolrunner2FixupPass : public Pass {
 
 						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.c_str());
 
-						cell->setPort(ID::I, xor_to_io_wire);
+						cell->setPort(TW::I, xor_to_io_wire);
 					}
 
 					// Buffer IOBUFE enables. This can only be fed from a pterm
@@ -401,14 +401,14 @@ struct Coolrunner2FixupPass : public Pass {
 					if (cell->hasPort(ID::E))
 					{
 						SigBit oe;
-						oe = sigmap(cell->getPort(ID::E)[0]);
+						oe = sigmap(cell->getPort(TW::E)[0]);
 						if (!sig_fed_by_pterm[oe] && !sig_fed_by_bufgts[oe])
 						{
 							log("Buffering output enable to \"%s\"\n", cell->name);
 
 							auto pterm_to_oe_wire = makeptermbuffer(module, oe);
 
-							cell->setPort(ID::E, pterm_to_oe_wire);
+							cell->setPort(TW::E, pterm_to_oe_wire);
 						}
 					}
 				}

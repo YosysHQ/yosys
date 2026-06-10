@@ -445,7 +445,7 @@ struct RTLILFrontendWorker {
 
 		current_module = new RTLIL::Module;
 		current_module->design = design;
-		current_module->meta_->name_id = module_name;
+		current_module->meta_->name = module_name;
 		if (delete_current_module) {
 			// Module is about to be discarded — drop its src attribute
 			// rather than push it into a pool we'll never reach.
@@ -706,7 +706,7 @@ struct RTLILFrontendWorker {
 		expect_eol();
 	}
 
-	void legalize_width_parameter(RTLIL::Cell *cell, RTLIL::IdString port_name)
+	void legalize_width_parameter(RTLIL::Cell *cell, TwineRef port_name)
 	{
 		std::string width_param_name = port_name.str() + "_WIDTH";
 		if (cell->parameters.count(width_param_name) == 0)
@@ -763,7 +763,7 @@ struct RTLILFrontendWorker {
 				cell->parameters.insert({std::move(param_name), std::move(val)});
 				expect_eol();
 			} else if (try_parse_keyword("connect")) {
-				RTLIL::IdString port_name = parse_id();
+				TwineRef port_name = parse_id();
 				if (cell->hasPort(port_name)) {
 					if (flag_legalize)
 						log("Legalizing redefinition of cell port %s.", port_name);

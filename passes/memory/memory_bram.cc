@@ -903,7 +903,7 @@ grow_read_ports:;
 
 	// Swizzle read ports.
 	for (auto &port : mem.rd_ports) {
-		SigSpec new_data = module->addWire(NEW_ID, mem.width);
+		SigSpec new_data = module->addWire(NEW_TWINE, mem.width);
 		Const new_init_value = Const(State::Sx, mem.width);
 		Const new_arst_value = Const(State::Sx, mem.width);
 		Const new_srst_value = Const(State::Sx, mem.width);
@@ -1023,12 +1023,12 @@ grow_read_ports:;
 					auto &port = mem.rd_ports[pi.mapped_port];
 					SigSpec sig_data = port.data.extract(grid_d * bram.dbits, bram.dbits);
 
-					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
+					SigSpec bram_dout = module->addWire(NEW_TWINE, bram.dbits);
 					c->setPort(stringf("\\%sDATA", pf), bram_dout);
 
 					SigSpec addr_ok_q = addr_ok;
 					if (port.clk_enable && !addr_ok.empty()) {
-						addr_ok_q = module->addWire(NEW_ID);
+						addr_ok_q = module->addWire(NEW_TWINE);
 						module->addDffe(NEW_ID, port.clk, port.en, addr_ok, addr_ok_q, port.clk_polarity);
 					}
 

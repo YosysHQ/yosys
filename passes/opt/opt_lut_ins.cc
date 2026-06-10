@@ -79,8 +79,8 @@ struct OptLutInsPass : public Pass {
 				if (techname == "") {
 					if (cell->type != ID($lut))
 						continue;
-					inputs = cell->getPort(ID::A);
-					output = cell->getPort(ID::Y);
+					inputs = cell->getPort(TW::A);
+					output = cell->getPort(TW::Y);
 					lut = cell->getParam(ID::LUT);
 				} else if (techname == "xilinx" || techname == "gowin" || techname == "analogdevices") {
 					if (cell->type == ID(LUT1)) {
@@ -128,16 +128,16 @@ struct OptLutInsPass : public Pass {
 					}
 					lut = cell->getParam(ID::INIT);
 					if (techname == "xilinx" || techname == "analogdevices")
-						output = cell->getPort(ID::O);
+						output = cell->getPort(TW::O);
 					else
-						output = cell->getPort(ID::F);
+						output = cell->getPort(TW::F);
 				} else if (techname == "lattice") {
 					if (cell->type == ID(LUT4)) {
 						inputs = {
-							cell->getPort(ID::A),
-							cell->getPort(ID::B),
-							cell->getPort(ID::C),
-							cell->getPort(ID::D),
+							cell->getPort(TW::A),
+							cell->getPort(TW::B),
+							cell->getPort(TW::C),
+							cell->getPort(TW::D),
 						};
 						lut = cell->getParam(ID::INIT);
 						output = cell->getPort(ID(Z));
@@ -226,14 +226,14 @@ struct OptLutInsPass : public Pass {
 					if (techname == "") {
 						cell->setParam(ID::LUT, new_lut);
 						cell->setParam(ID::WIDTH, GetSize(new_inputs));
-						cell->setPort(ID::A, new_inputs);
+						cell->setPort(TW::A, new_inputs);
 					} else if (techname == "lattice" || techname == "ecp5") {
 						log_assert(GetSize(new_inputs) == 4);
 						cell->setParam(ID::INIT, new_lut);
-						cell->setPort(ID::A, new_inputs[0]);
-						cell->setPort(ID::B, new_inputs[1]);
-						cell->setPort(ID::C, new_inputs[2]);
-						cell->setPort(ID::D, new_inputs[3]);
+						cell->setPort(TW::A, new_inputs[0]);
+						cell->setPort(TW::B, new_inputs[1]);
+						cell->setPort(TW::C, new_inputs[2]);
+						cell->setPort(TW::D, new_inputs[3]);
 					} else {
 						// xilinx, gowin
 						cell->setParam(ID::INIT, new_lut);

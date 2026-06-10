@@ -111,7 +111,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf);
 
 			RTLIL::Cell *hole_cell = hole_cell_it->second;
-			hole_sigbit = hole_cell->getPort(ID::Y)[hole_bit];
+			hole_sigbit = hole_cell->getPort(TW::Y)[hole_bit];
 		}
 		hole_assignments[hole_sigbit] = hole_value;
 	}
@@ -165,7 +165,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
 		allconst->setParam(ID(WIDTH), input->width);
-		allconst->setPort(ID::Y, input);
+		allconst->setPort(TW::Y, input);
 		allconst->adopt_src_from(input);
 		input->port_input = false;
 		log("Replaced input %s with $allconst cell.\n", n);

@@ -66,38 +66,38 @@ struct TribufWorker {
 		for (auto cell : module->selected_cells())
 		{
 			if (cell->type == ID($tribuf))
-				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+				tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 
 			if (cell->type == ID($_TBUF_))
-				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+				tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 
 			if (cell->type.in(ID($mux), ID($_MUX_)))
 			{
 				IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
 				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
 
-				if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
+				if (is_all_z(cell->getPort(TW::A)) && is_all_z(cell->getPort(TW::B))) {
 					module->remove(cell);
 					continue;
 				}
 
-				if (is_all_z(cell->getPort(ID::A))) {
-					cell->setPort(ID::A, cell->getPort(ID::B));
-					cell->setPort(en_port, cell->getPort(ID::S));
-					cell->unsetPort(ID::B);
-					cell->unsetPort(ID::S);
+				if (is_all_z(cell->getPort(TW::A))) {
+					cell->setPort(TW::A, cell->getPort(TW::B));
+					cell->setPort(en_port, cell->getPort(TW::S));
+					cell->unsetPort(TW::B);
+					cell->unsetPort(TW::S);
 					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+					tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
 				}
 
-				if (is_all_z(cell->getPort(ID::B))) {
-					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
-					cell->unsetPort(ID::B);
-					cell->unsetPort(ID::S);
+				if (is_all_z(cell->getPort(TW::B))) {
+					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(TW::S)));
+					cell->unsetPort(TW::B);
+					cell->unsetPort(TW::S);
 					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+					tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
 				}
@@ -131,12 +131,12 @@ struct TribufWorker {
 							if (other_cell == cell)
 								continue;
 							else if (other_cell->type == ID($tribuf))
-								others_s.append(other_cell->getPort(ID::EN));
+								others_s.append(other_cell->getPort(TW::EN));
 							else
-								others_s.append(other_cell->getPort(ID::E));
+								others_s.append(other_cell->getPort(TW::E));
 						}
 
-						auto cell_s = cell->type == ID($tribuf) ? cell->getPort(ID::EN) : cell->getPort(ID::E);
+						auto cell_s = cell->type == ID($tribuf) ? cell->getPort(TW::EN) : cell->getPort(TW::E);
 
 						auto other_s = module->ReduceOr(NEW_ID, others_s);
 
@@ -155,10 +155,10 @@ struct TribufWorker {
 				SigSpec pmux_b, pmux_s;
 				for (auto cell : it.second) {
 					if (cell->type == ID($tribuf))
-						pmux_s.append(cell->getPort(ID::EN));
+						pmux_s.append(cell->getPort(TW::EN));
 					else
-						pmux_s.append(cell->getPort(ID::E));
-					pmux_b.append(cell->getPort(ID::A));
+						pmux_s.append(cell->getPort(TW::E));
+					pmux_b.append(cell->getPort(TW::A));
 					module->remove(cell);
 				}
 

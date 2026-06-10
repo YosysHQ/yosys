@@ -79,15 +79,15 @@ struct AluInfo {
 	Traversal &traversal;
 	bool is_subtract(Cell *cell)
 	{
-		SigSpec bi = traversal.sigmap(cell->getPort(ID::BI));
-		SigSpec ci = traversal.sigmap(cell->getPort(ID::CI));
+		SigSpec bi = traversal.sigmap(cell->getPort(TW::BI));
+		SigSpec ci = traversal.sigmap(cell->getPort(TW::CI));
 		return GetSize(bi) == 1 && bi[0] == State::S1 && GetSize(ci) == 1 && ci[0] == State::S1;
 	}
 
 	bool is_add(Cell *cell)
 	{
-		SigSpec bi = traversal.sigmap(cell->getPort(ID::BI));
-		SigSpec ci = traversal.sigmap(cell->getPort(ID::CI));
+		SigSpec bi = traversal.sigmap(cell->getPort(TW::BI));
+		SigSpec ci = traversal.sigmap(cell->getPort(TW::CI));
 		return GetSize(bi) == 1 && bi[0] == State::S0 && GetSize(ci) == 1 && ci[0] == State::S0;
 	}
 
@@ -96,10 +96,10 @@ struct AluInfo {
 		if (!(is_add(cell) || is_subtract(cell)))
 			return false;
 
-		for (auto bit : traversal.sigmap(cell->getPort(ID::X)))
+		for (auto bit : traversal.sigmap(cell->getPort(TW::X)))
 			if (traversal.fanout.count(bit) && traversal.fanout[bit] > 0)
 				return false;
-		for (auto bit : traversal.sigmap(cell->getPort(ID::CO)))
+		for (auto bit : traversal.sigmap(cell->getPort(TW::CO)))
 			if (traversal.fanout.count(bit) && traversal.fanout[bit] > 0)
 				return false;
 
@@ -140,7 +140,7 @@ struct Rewriter {
 	{
 		dict<Cell *, Cell *> parent_of;
 		for (auto cell : candidates) {
-			Cell *consumer = sole_chainable_consumer(traversal.sigmap(cell->getPort(ID::Y)), candidates);
+			Cell *consumer = sole_chainable_consumer(traversal.sigmap(cell->getPort(TW::Y)), candidates);
 			if (consumer && consumer != cell)
 				parent_of[cell] = consumer;
 		}
@@ -180,7 +180,7 @@ struct Rewriter {
 	{
 		pool<SigBit> bits;
 		for (auto cell : chain)
-			for (auto bit : traversal.sigmap(cell->getPort(ID::Y)))
+			for (auto bit : traversal.sigmap(cell->getPort(TW::Y)))
 				bits.insert(bit);
 		return bits;
 	}
@@ -207,8 +207,8 @@ struct Rewriter {
 			return false;
 
 		// Check if any bit of child's Y connects to parent's B
-		SigSpec child_y = traversal.sigmap(child->getPort(ID::Y));
-		SigSpec parent_b = traversal.sigmap(parent->getPort(ID::B));
+		SigSpec child_y = traversal.sigmap(child->getPort(TW::Y));
+		SigSpec parent_b = traversal.sigmap(parent->getPort(TW::B));
 		for (auto bit : child_y)
 			for (auto pbit : parent_b)
 				if (bit == pbit)
@@ -247,8 +247,8 @@ struct Rewriter {
 		for (auto cell : chain) {
 			bool cell_neg = negated.count(cell) ? negated[cell] : false;
 
-			SigSpec a = traversal.sigmap(cell->getPort(ID::A));
-			SigSpec b = traversal.sigmap(cell->getPort(ID::B));
+			SigSpec a = traversal.sigmap(cell->getPort(TW::A));
+			SigSpec b = traversal.sigmap(cell->getPort(TW::B));
 			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
 			bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
 			bool b_sub = (cell->type == ID($sub)) || (cells.is_alu(cell) && alu_info.is_subtract(cell));
@@ -357,7 +357,7 @@ struct Rewriter {
 			for (auto c : chain)
 				to_remove.insert(c);
 
-			replace_with_carry_save_tree(operands, root->getPort(ID::Y), neg_compensation, "Replaced add/sub chain");
+			replace_with_carry_save_tree(operands, root->getPort(TW::Y), neg_compensation, "Replaced add/sub chain");
 		}
 
 		for (auto cell : to_remove)
@@ -374,7 +374,7 @@ struct Rewriter {
 			if (operands.size() < 3)
 				continue;
 
-			replace_with_carry_save_tree(operands, cell->getPort(ID::Y), neg_compensation, "Replaced $macc");
+			replace_with_carry_save_tree(operands, cell->getPort(TW::Y), neg_compensation, "Replaced $macc");
 			module->remove(cell);
 		}
 	}

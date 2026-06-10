@@ -202,9 +202,9 @@ struct XpropWorker
 
 		EncodedSig new_sigs;
 		if (new_bits > 0) {
-			new_sigs.is_0 = module->addWire(NEW_ID, new_bits);
-			new_sigs.is_1 = module->addWire(NEW_ID, new_bits);
-			new_sigs.is_x = module->addWire(NEW_ID, new_bits);
+			new_sigs.is_0 = module->addWire(NEW_TWINE, new_bits);
+			new_sigs.is_1 = module->addWire(NEW_TWINE, new_bits);
+			new_sigs.is_x = module->addWire(NEW_TWINE, new_bits);
 		}
 
 		int invert_pos = 0;
@@ -319,8 +319,8 @@ struct XpropWorker
 		}
 
 		if (cell->type == ID($not)) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A); sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A); sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 			for (int i = 0; i < GetSize(sig_y); i++)
 				if (maybe_x(sig_a[i]))
 					mark_maybe_x(sig_y[i]);
@@ -328,9 +328,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A); sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
-			auto sig_b = cell->getPort(ID::B); sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A); sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
+			auto sig_b = cell->getPort(TW::B); sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
 			for (int i = 0; i < GetSize(sig_y); i++)
 				if (maybe_x(sig_a[i]) || maybe_x(sig_b[i]))
 					mark_maybe_x(sig_y[i]);
@@ -338,10 +338,10 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($bwmux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto &sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto &sig_s = cell->getPort(TW::S);
 			for (int i = 0; i < GetSize(sig_y); i++)
 				if (maybe_x(sig_a[i]) || maybe_x(sig_b[i]) || maybe_x(sig_s[i]))
 					mark_maybe_x(sig_y[i]);
@@ -349,10 +349,10 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($_MUX_), ID($mux), ID($bmux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto &sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto &sig_s = cell->getPort(TW::S);
 			if (maybe_x(sig_s)) {
 				mark_maybe_x(sig_y);
 				return;
@@ -373,9 +373,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($demux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_s = cell->getPort(TW::S);
 			if (maybe_x(sig_s)) {
 				mark_maybe_x(sig_y);
 				return;
@@ -388,15 +388,15 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift))) {
-			auto &sig_b = cell->getPort(ID::B);
-			auto &sig_y = cell->getPort(ID::Y);
+			auto &sig_b = cell->getPort(TW::B);
+			auto &sig_y = cell->getPort(TW::Y);
 
 			if (maybe_x(sig_b)) {
 				mark_maybe_x(sig_y);
 				return;
 			}
 
-			auto &sig_a = cell->getPort(ID::A);
+			auto &sig_a = cell->getPort(TW::A);
 
 			if (maybe_x(sig_a)) {
 				// We could be more precise for shifts, but that's not required
@@ -408,15 +408,15 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($shiftx))) {
-			auto &sig_b = cell->getPort(ID::B);
-			auto &sig_y = cell->getPort(ID::Y);
+			auto &sig_b = cell->getPort(TW::B);
+			auto &sig_y = cell->getPort(TW::Y);
 
 			if (cell->getParam(ID::B_SIGNED).as_bool() || GetSize(sig_b) >= 30) {
 				mark_maybe_x(sig_y);
 			} else {
 				int max_shift = (1 << GetSize(sig_b)) - 1;
 
-				auto &sig_a = cell->getPort(ID::A);
+				auto &sig_a = cell->getPort(TW::A);
 
 				for (int i = 0; i < GetSize(sig_y); i++)
 					if (i + max_shift >= GetSize(sig_a))
@@ -428,7 +428,7 @@ struct XpropWorker
 				return;
 			}
 
-			auto &sig_a = cell->getPort(ID::A);
+			auto &sig_a = cell->getPort(TW::A);
 			if (maybe_x(sig_a)) {
 				// We could be more precise for shifts, but that's not required
 				// for correctness, so let's keep it simple
@@ -457,7 +457,7 @@ struct XpropWorker
 
 			ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_ANDNOT_), ID($_OR_), ID($_NOR_), ID($_ORNOT_), ID($_XOR_), ID($_XNOR_)
 		)) {
-			auto &sig_y = cell->getPort(ID::Y);
+			auto &sig_y = cell->getPort(TW::Y);
 			if (inputs_maybe_x(cell))
 				mark_maybe_x(sig_y[0]);
 			return;
@@ -482,9 +482,9 @@ struct XpropWorker
 		if (!ports_maybe_x(cell)) {
 
 			if (cell->type == ID($bweq)) {
-				auto sig_y = cell->getPort(ID::Y);
-				auto sig_a = cell->getPort(ID::A);
-				auto sig_b = cell->getPort(ID::B);
+				auto sig_y = cell->getPort(TW::Y);
+				auto sig_a = cell->getPort(TW::A);
+				auto sig_b = cell->getPort(TW::B);
 
 				RTLIL::IdString name(cell->name);
 				module->remove(cell);
@@ -493,9 +493,9 @@ struct XpropWorker
 			}
 
 			if (cell->type.in(ID($nex), ID($eqx))) {
-				auto sig_y = cell->getPort(ID::Y);
-				auto sig_a = cell->getPort(ID::A);
-				auto sig_b = cell->getPort(ID::B);
+				auto sig_y = cell->getPort(TW::Y);
+				auto sig_a = cell->getPort(TW::A);
+				auto sig_b = cell->getPort(TW::B);
 
 				RTLIL::IdString name(cell->name);
 				auto type = cell->type;
@@ -511,8 +511,8 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($not), ID($_NOT_))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
 			if (cell->type == ID($not))
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 
@@ -528,9 +528,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($and), ID($or), ID($_AND_), ID($_OR_), ID($_NAND_), ID($_NOR_), ID($_ANDNOT_), ID($_ORNOT_))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			if (cell->type.in(ID($and), ID($or))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 				sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
@@ -555,8 +555,8 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool), ID($logic_not))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
 
 			auto enc_a = encoded(sig_a);
 			auto enc_y = encoded(sig_y, true);
@@ -577,8 +577,8 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
 
 			auto enc_a = encoded(sig_a);
 			auto enc_y = encoded(sig_y, true);
@@ -597,9 +597,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($logic_and), ID($logic_or))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
 
 			auto enc_a = encoded(sig_a);
 			auto enc_b = encoded(sig_b);
@@ -623,9 +623,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($xor), ID($xnor), ID($_XOR_), ID($_XNOR_))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			if (cell->type.in(ID($xor), ID($xnor))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 				sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
@@ -646,9 +646,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($eq), ID($ne))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			int width = std::max(GetSize(sig_a), GetSize(sig_b));
 			sig_a.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
 			sig_b.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
@@ -672,9 +672,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($eqx), ID($nex))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			int width = std::max(GetSize(sig_a), GetSize(sig_b));
 			sig_a.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
 			sig_b.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
@@ -697,9 +697,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($bweqx))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
 
 			auto enc_a = encoded(sig_a);
 			auto enc_b = encoded(sig_b);
@@ -712,10 +712,10 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($_MUX_), ID($mux), ID($bwmux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto sig_s = cell->getPort(TW::S);
 
 			if (cell->type == ID($mux))
 				sig_s = SigSpec(sig_s[0], GetSize(sig_y));
@@ -737,10 +737,10 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($pmux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto &sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto &sig_s = cell->getPort(TW::S);
 
 			auto enc_a = encoded(sig_a);
 			auto enc_b = encoded(sig_b);
@@ -772,9 +772,9 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
 
 			auto enc_a = encoded(sig_a);
 			auto enc_b = encoded(sig_b);
@@ -783,9 +783,9 @@ struct XpropWorker
 			auto all_x = module->ReduceOr(NEW_ID, enc_b.is_x)[0];
 			auto not_all_x = module->Not(NEW_ID, all_x)[0];
 
-			SigSpec y_not_0 = module->addWire(NEW_ID, GetSize(sig_y));
-			SigSpec y_1 = module->addWire(NEW_ID, GetSize(sig_y));
-			SigSpec y_x = module->addWire(NEW_ID, GetSize(sig_y));
+			SigSpec y_not_0 = module->addWire(NEW_TWINE, GetSize(sig_y));
+			SigSpec y_1 = module->addWire(NEW_TWINE, GetSize(sig_y));
+			SigSpec y_x = module->addWire(NEW_TWINE, GetSize(sig_y));
 
 			auto encoded_type = cell->type == ID($shiftx) ? ID($shift) : cell->type;
 
@@ -793,23 +793,23 @@ struct XpropWorker
 				std::swap(enc_a.is_0, enc_a.is_x);
 			}
 
-			auto shift_0 = module->addCell(NEW_ID, encoded_type);
+			auto shift_0 = module->addCell(NEW_TWINE, encoded_type);
 			shift_0->parameters = cell->parameters;
-			shift_0->setPort(ID::A, module->Not(NEW_ID, enc_a.is_0));
-			shift_0->setPort(ID::B, enc_b.is_1);
-			shift_0->setPort(ID::Y, y_not_0);
+			shift_0->setPort(TW::A, module->Not(NEW_ID, enc_a.is_0));
+			shift_0->setPort(TW::B, enc_b.is_1);
+			shift_0->setPort(TW::Y, y_not_0);
 
-			auto shift_1 = module->addCell(NEW_ID, encoded_type);
+			auto shift_1 = module->addCell(NEW_TWINE, encoded_type);
 			shift_1->parameters = cell->parameters;
-			shift_1->setPort(ID::A, enc_a.is_1);
-			shift_1->setPort(ID::B, enc_b.is_1);
-			shift_1->setPort(ID::Y, y_1);
+			shift_1->setPort(TW::A, enc_a.is_1);
+			shift_1->setPort(TW::B, enc_b.is_1);
+			shift_1->setPort(TW::Y, y_1);
 
-			auto shift_x = module->addCell(NEW_ID, encoded_type);
+			auto shift_x = module->addCell(NEW_TWINE, encoded_type);
 			shift_x->parameters = cell->parameters;
-			shift_x->setPort(ID::A, enc_a.is_x);
-			shift_x->setPort(ID::B, enc_b.is_1);
-			shift_x->setPort(ID::Y, y_x);
+			shift_x->setPort(TW::A, enc_a.is_x);
+			shift_x->setPort(TW::B, enc_b.is_1);
+			shift_x->setPort(TW::Y, y_x);
 
 			SigSpec y_0 = module->Not(NEW_ID, y_not_0);
 
@@ -825,8 +825,8 @@ struct XpropWorker
 		}
 
 		if (cell->type.in(ID($ff))) {
-			auto &sig_d = cell->getPort(ID::D);
-			auto &sig_q = cell->getPort(ID::Q);
+			auto &sig_d = cell->getPort(TW::D);
+			auto &sig_q = cell->getPort(TW::Q);
 
 			auto init_q = initvals(sig_q);
 			auto init_q_is_1 = init_q;
@@ -842,7 +842,7 @@ struct XpropWorker
 			auto enc_d = encoded(sig_d);
 			auto enc_q = encoded(sig_q, true);
 
-			auto data_q = module->addWire(NEW_ID, GetSize(sig_q));
+			auto data_q = module->addWire(NEW_TWINE, GetSize(sig_q));
 
 			module->addFf(NEW_ID, enc_d.is_1, data_q);
 			module->addFf(NEW_ID, enc_d.is_x, enc_q.is_x);
@@ -885,7 +885,7 @@ struct XpropWorker
 					auto enc_d = encoded(ff.sig_d);
 					auto enc_q = encoded(ff.sig_q, true);
 
-					auto data_q = module->addWire(NEW_ID, GetSize(ff.sig_q));
+					auto data_q = module->addWire(NEW_TWINE, GetSize(ff.sig_q));
 
 					ff.sig_d = enc_d.is_1;
 					ff.sig_q = data_q;
@@ -928,11 +928,11 @@ struct XpropWorker
 			}
 
 			if (cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
-				auto sig_b = cell->getPort(ID::B);
+				auto sig_b = cell->getPort(TW::B);
 				auto invalid = module->LogicNot(NEW_ID, sig_b);
 				inbits_x.append(invalid);
 				sig_b[0] = module->Or(NEW_ID, sig_b[0], invalid);
-				cell->setPort(ID::B, sig_b);
+				cell->setPort(TW::B, sig_b);
 			}
 
 			SigBit outbits_x = (GetSize(inbits_x) == 1 ? inbits_x : module->ReduceOr(NEW_ID, inbits_x));
@@ -945,7 +945,7 @@ struct XpropWorker
 					if (bool_out)
 						enc_port.connect_as_bool();
 
-					SigSpec new_output = module->addWire(NEW_ID, GetSize(conn.second));
+					SigSpec new_output = module->addWire(NEW_TWINE, GetSize(conn.second));
 
 					enc_port.connect_1_under_x(bool_out ? new_output.extract(0) : new_output);
 					enc_port.connect_x(SigSpec(outbits_x, GetSize(enc_port)));

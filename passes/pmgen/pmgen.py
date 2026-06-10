@@ -451,13 +451,13 @@ with open(outfile, "w") as f:
 
     current_pattern = None
 
-    print("  SigSpec port(Cell *cell, IdString portname) {", file=f)
+    print("  SigSpec port(Cell *cell, TwineRef portname) {", file=f)
     print("    try {", file=f)
     print("      return (*sigmap)(cell->getPort(portname));", file=f)
     print("    } catch(std::out_of_range&) { log_error(\"Accessing non existing port %s\\n\",portname); }", file=f)
     print("  }", file=f)
     print("", file=f)
-    print("  SigSpec port(Cell *cell, IdString portname, const SigSpec& defval) {", file=f)
+    print("  SigSpec port(Cell *cell, TwineRef portname, const SigSpec& defval) {", file=f)
     print("    return (*sigmap)(cell->connections_.at(portname, defval));", file=f)
     print("  }", file=f)
     print("", file=f)

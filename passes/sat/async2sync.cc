@@ -97,30 +97,30 @@ struct Async2syncPass : public Pass {
 						if (initstate == State::S0)
 							initstate = module->Initstate(NEW_ID);
 
-						SigBit sig_en = cell->getPort(ID::EN);
-						cell->setPort(ID::EN, module->And(NEW_ID, sig_en, initstate));
+						SigBit sig_en = cell->getPort(TW::EN);
+						cell->setPort(TW::EN, module->And(NEW_ID, sig_en, initstate));
 					} else {
-						SigBit sig_en = cell->getPort(ID::EN);
-						SigSpec sig_args = cell->getPort(ID::ARGS);
+						SigBit sig_en = cell->getPort(TW::EN);
+						SigSpec sig_args = cell->getPort(TW::ARGS);
 						bool trg_polarity = cell->getParam(ID(TRG_POLARITY)).as_bool();
-						SigBit sig_trg = cell->getPort(ID::TRG);
-						Wire *sig_en_q = module->addWire(NEW_ID);
-						Wire *sig_args_q = module->addWire(NEW_ID, GetSize(sig_args));
+						SigBit sig_trg = cell->getPort(TW::TRG);
+						Wire *sig_en_q = module->addWire(NEW_TWINE);
+						Wire *sig_args_q = module->addWire(NEW_TWINE, GetSize(sig_args));
 						sig_en_q->attributes.emplace(ID::init, State::S0);
 						module->addDff(NEW_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->src_ref());
 						module->addDff(NEW_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->src_ref());
-						cell->setPort(ID::EN, sig_en_q);
-						cell->setPort(ID::ARGS, sig_args_q);
+						cell->setPort(TW::EN, sig_en_q);
+						cell->setPort(TW::ARGS, sig_args_q);
 						if (cell->type == ID($check)) {
-							SigBit sig_a = cell->getPort(ID::A);
-							Wire *sig_a_q = module->addWire(NEW_ID);
+							SigBit sig_a = cell->getPort(TW::A);
+							Wire *sig_a_q = module->addWire(NEW_TWINE);
 							sig_a_q->attributes.emplace(ID::init, State::S1);
 							module->addDff(NEW_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->src_ref());
-							cell->setPort(ID::A, sig_a_q);
+							cell->setPort(TW::A, sig_a_q);
 						}
 					}
 
-					cell->setPort(ID::TRG, SigSpec());
+					cell->setPort(TW::TRG, SigSpec());
 
 					cell->setParam(ID::TRG_ENABLE, false);
 					cell->setParam(ID::TRG_WIDTH, 0);
@@ -152,8 +152,8 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_d = module->addWire(NEW_ID, ff.width);
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_d = module->addWire(NEW_TWINE, ff.width);
+						Wire *new_q = module->addWire(NEW_TWINE, ff.width);
 
 						SigSpec sig_set = ff.sig_set;
 						SigSpec sig_clr = ff.sig_clr;
@@ -217,8 +217,8 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_d = module->addWire(NEW_ID, ff.width);
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_d = module->addWire(NEW_TWINE, ff.width);
+						Wire *new_q = module->addWire(NEW_TWINE, ff.width);
 
 						if (ff.pol_aload) {
 							if (!ff.is_fine) {
@@ -250,7 +250,7 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_q = module->addWire(NEW_TWINE, ff.width);
 
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
@@ -284,11 +284,11 @@ struct Async2syncPass : public Pass {
 
 					initvals.remove_init(ff.sig_q);
 
-					Wire *new_q = module->addWire(NEW_ID, ff.width);
+					Wire *new_q = module->addWire(NEW_TWINE, ff.width);
 					Wire *new_d;
 
 					if (ff.has_aload) {
-						new_d = module->addWire(NEW_ID, ff.width);
+						new_d = module->addWire(NEW_TWINE, ff.width);
 						if (ff.pol_aload) {
 							if (!ff.is_fine)
 								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);

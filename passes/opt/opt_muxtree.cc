@@ -113,10 +113,10 @@ struct OptMuxtreeWorker
 		//	.input_sigs
 		//	.const_activated
 		//	.const_deactivated
-		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
-		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
-		RTLIL::SigSpec sig_s = cell->getPort(ID::S);
-		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
+		RTLIL::SigSpec sig_a = cell->getPort(TW::A);
+		RTLIL::SigSpec sig_b = cell->getPort(TW::B);
+		RTLIL::SigSpec sig_s = cell->getPort(TW::S);
+		RTLIL::SigSpec sig_y = cell->getPort(TW::Y);
 
 		muxinfo_t muxinfo;
 		muxinfo.cell = cell;
@@ -300,10 +300,10 @@ struct OptMuxtreeWorker
 				continue;
 			}
 
-			RTLIL::SigSpec sig_a = mi.cell->getPort(ID::A);
-			RTLIL::SigSpec sig_b = mi.cell->getPort(ID::B);
-			RTLIL::SigSpec sig_s = mi.cell->getPort(ID::S);
-			RTLIL::SigSpec sig_y = mi.cell->getPort(ID::Y);
+			RTLIL::SigSpec sig_a = mi.cell->getPort(TW::A);
+			RTLIL::SigSpec sig_b = mi.cell->getPort(TW::B);
+			RTLIL::SigSpec sig_s = mi.cell->getPort(TW::S);
+			RTLIL::SigSpec sig_y = mi.cell->getPort(TW::Y);
 
 			RTLIL::SigSpec sig_ports = sig_b;
 			sig_ports.append(sig_a);
@@ -328,9 +328,9 @@ struct OptMuxtreeWorker
 					}
 				}
 
-				mi.cell->setPort(ID::A, new_sig_a);
-				mi.cell->setPort(ID::B, new_sig_b);
-				mi.cell->setPort(ID::S, new_sig_s);
+				mi.cell->setPort(TW::A, new_sig_a);
+				mi.cell->setPort(TW::B, new_sig_b);
+				mi.cell->setPort(TW::S, new_sig_s);
 				if (GetSize(new_sig_s) == 1) {
 					mi.cell->type = ID($mux);
 					mi.cell->parameters.erase(ID::S_WIDTH);
@@ -465,7 +465,7 @@ struct OptMuxtreeWorker
 		deactivate_port(knowledge, port_idx, muxinfo);
 	}
 
-	void replace_known(knowledge_t &knowledge, muxinfo_t &muxinfo, IdString portname)
+	void replace_known(knowledge_t &knowledge, muxinfo_t &muxinfo, TwineRef portname)
 	{
 		SigSpec sig = muxinfo.cell->getPort(portname);
 		bool did_something = false;
@@ -473,8 +473,8 @@ struct OptMuxtreeWorker
 		int width_if_b = 0;
 		idict<int> ctrl_bits;
 		if (portname == ID::B)
-			width_if_b = GetSize(muxinfo.cell->getPort(ID::A));
-		for (int bit : sig2bits(muxinfo.cell->getPort(ID::S), false))
+			width_if_b = GetSize(muxinfo.cell->getPort(TW::A));
+		for (int bit : sig2bits(muxinfo.cell->getPort(TW::S), false))
 			ctrl_bits(bit);
 
 		int slice_idx = 0, slice_off = 0;

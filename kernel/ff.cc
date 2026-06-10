@@ -36,7 +36,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		type = flop->type;
 	}
 	if constexpr (have_cell) {
-		info.sig_q = cell->getPort(ID::Q);
+		info.sig_q = cell->getPort(TW::Q);
 		info.width = GetSize(info.sig_q);
 		info.attributes = cell->attributes;
 		// Carry src across construction → emit() as an owning Twine
@@ -58,7 +58,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		if (type.in(ID($anyinit), ID($ff))) {
 			info.has_gclk = true;
 			if constexpr (have_cell)
-				info.sig_d = cell->getPort(ID::D);
+				info.sig_d = cell->getPort(TW::D);
 			if (type == ID($anyinit)) {
 				info.is_anyinit = true;
 				if constexpr (have_cell)
@@ -69,30 +69,30 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		} else if (type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
 			info.has_aload = true;
 			if constexpr (have_cell) {
-				info.sig_aload = cell->getPort(ID::EN);
+				info.sig_aload = cell->getPort(TW::EN);
 				info.pol_aload = cell->getParam(ID::EN_POLARITY).as_bool();
-				info.sig_ad = cell->getPort(ID::D);
+				info.sig_ad = cell->getPort(TW::D);
 			}
 		} else {
 			info.has_clk = true;
 			if constexpr (have_cell) {
-				info.sig_clk = cell->getPort(ID::CLK);
+				info.sig_clk = cell->getPort(TW::CLK);
 				info.pol_clk = cell->getParam(ID::CLK_POLARITY).as_bool();
-				info.sig_d = cell->getPort(ID::D);
+				info.sig_d = cell->getPort(TW::D);
 			}
 		}
 		if (type.in(ID($dffe), ID($dffsre), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce))) {
 			info.has_ce = true;
 			if constexpr (have_cell) {
-				info.sig_ce = cell->getPort(ID::EN);
+				info.sig_ce = cell->getPort(TW::EN);
 				info.pol_ce = cell->getParam(ID::EN_POLARITY).as_bool();
 			}
 		}
 		if (type.in(ID($dffsr), ID($dffsre), ID($dlatchsr), ID($sr))) {
 			info.has_sr = true;
 			if constexpr (have_cell) {
-				info.sig_clr = cell->getPort(ID::CLR);
-				info.sig_set = cell->getPort(ID::SET);
+				info.sig_clr = cell->getPort(TW::CLR);
+				info.sig_set = cell->getPort(TW::SET);
 				info.pol_clr = cell->getParam(ID::CLR_POLARITY).as_bool();
 				info.pol_set = cell->getParam(ID::SET_POLARITY).as_bool();
 			}
@@ -100,15 +100,15 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		if (type.in(ID($aldff), ID($aldffe))) {
 			info.has_aload = true;
 			if constexpr (have_cell) {
-				info.sig_aload = cell->getPort(ID::ALOAD);
+				info.sig_aload = cell->getPort(TW::ALOAD);
 				info.pol_aload = cell->getParam(ID::ALOAD_POLARITY).as_bool();
-				info.sig_ad = cell->getPort(ID::AD);
+				info.sig_ad = cell->getPort(TW::AD);
 			}
 		}
 		if (type.in(ID($adff), ID($adffe), ID($adlatch))) {
 			info.has_arst = true;
 			if constexpr (have_cell) {
-				info.sig_arst = cell->getPort(ID::ARST);
+				info.sig_arst = cell->getPort(TW::ARST);
 				info.pol_arst = cell->getParam(ID::ARST_POLARITY).as_bool();
 				info.val_arst = cell->getParam(ID::ARST_VALUE);
 			}
@@ -116,7 +116,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		if (type.in(ID($sdff), ID($sdffe), ID($sdffce))) {
 			info.has_srst = true;
 			if constexpr (have_cell) {
-				info.sig_srst = cell->getPort(ID::SRST);
+				info.sig_srst = cell->getPort(TW::SRST);
 				info.pol_srst = cell->getParam(ID::SRST_POLARITY).as_bool();
 				info.val_srst = cell->getParam(ID::SRST_VALUE);
 			}
@@ -126,23 +126,23 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.is_fine = true;
 		info.has_gclk = true;
 		if constexpr (have_cell)
-			info.sig_d = cell->getPort(ID::D);
+			info.sig_d = cell->getPort(TW::D);
 	} else if (type_str.substr(0, 5) == "$_SR_") {
 		info.is_fine = true;
 		info.has_sr = true;
 		info.pol_set = type_str[5] == 'P';
 		info.pol_clr = type_str[6] == 'P';
 		if constexpr (have_cell) {
-			info.sig_set = cell->getPort(ID::S);
-			info.sig_clr = cell->getPort(ID::R);
+			info.sig_set = cell->getPort(TW::S);
+			info.sig_clr = cell->getPort(TW::R);
 		}
 	} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 8) {
 		info.is_fine = true;
 		info.has_clk = true;
 		info.pol_clk = type_str[6] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
 		}
 	} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 10) {
 		info.is_fine = true;
@@ -151,9 +151,9 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_ce = true;
 		info.pol_ce = type_str[8] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_ce = cell->getPort(ID::E);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_ce = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 10) {
 		info.is_fine = true;
@@ -163,9 +163,9 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.pol_arst = type_str[7] == 'P';
 		info.val_arst = type_str[8] == '1' ? State::S1 : State::S0;
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_arst = cell->getPort(ID::R);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_arst = cell->getPort(TW::R);
 		}
 	} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 12) {
 		info.is_fine = true;
@@ -177,10 +177,10 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_ce = true;
 		info.pol_ce = type_str[10] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_arst = cell->getPort(ID::R);
-			info.sig_ce = cell->getPort(ID::E);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_arst = cell->getPort(TW::R);
+			info.sig_ce = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 8) == "$_ALDFF_" && type_str.size() == 11) {
 		info.is_fine = true;
@@ -189,10 +189,10 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_aload = true;
 		info.pol_aload = type_str[9] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_aload = cell->getPort(ID::L);
-			info.sig_ad = cell->getPort(ID::AD);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_aload = cell->getPort(TW::L);
+			info.sig_ad = cell->getPort(TW::AD);
 		}
 	} else if (type_str.substr(0, 9) == "$_ALDFFE_" && type_str.size() == 13) {
 		info.is_fine = true;
@@ -203,11 +203,11 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_ce = true;
 		info.pol_ce = type_str[11] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_aload = cell->getPort(ID::L);
-			info.sig_ad = cell->getPort(ID::AD);
-			info.sig_ce = cell->getPort(ID::E);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_aload = cell->getPort(TW::L);
+			info.sig_ad = cell->getPort(TW::AD);
+			info.sig_ce = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 8) == "$_DFFSR_" && type_str.size() == 12) {
 		info.is_fine = true;
@@ -217,10 +217,10 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.pol_set = type_str[9] == 'P';
 		info.pol_clr = type_str[10] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_set = cell->getPort(ID::S);
-			info.sig_clr = cell->getPort(ID::R);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_set = cell->getPort(TW::S);
+			info.sig_clr = cell->getPort(TW::R);
 		}
 	} else if (type_str.substr(0, 9) == "$_DFFSRE_" && type_str.size() == 14) {
 		info.is_fine = true;
@@ -232,11 +232,11 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_ce = true;
 		info.pol_ce = type_str[12] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_set = cell->getPort(ID::S);
-			info.sig_clr = cell->getPort(ID::R);
-			info.sig_ce = cell->getPort(ID::E);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_set = cell->getPort(TW::S);
+			info.sig_clr = cell->getPort(TW::R);
+			info.sig_ce = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 7) == "$_SDFF_" && type_str.size() == 11) {
 		info.is_fine = true;
@@ -246,9 +246,9 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.pol_srst = type_str[8] == 'P';
 		info.val_srst = type_str[9] == '1' ? State::S1 : State::S0;
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_srst = cell->getPort(ID::R);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_srst = cell->getPort(TW::R);
 		}
 	} else if (type_str.substr(0, 8) == "$_SDFFE_" && type_str.size() == 13) {
 		info.is_fine = true;
@@ -260,10 +260,10 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_ce = true;
 		info.pol_ce = type_str[11] == 'P';
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_srst = cell->getPort(ID::R);
-			info.sig_ce = cell->getPort(ID::E);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_srst = cell->getPort(TW::R);
+			info.sig_ce = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 9) == "$_SDFFCE_" && type_str.size() == 14) {
 		info.is_fine = true;
@@ -276,10 +276,10 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.pol_ce = type_str[12] == 'P';
 		info.ce_over_srst = true;
 		if constexpr (have_cell) {
-			info.sig_d = cell->getPort(ID::D);
-			info.sig_clk = cell->getPort(ID::C);
-			info.sig_srst = cell->getPort(ID::R);
-			info.sig_ce = cell->getPort(ID::E);
+			info.sig_d = cell->getPort(TW::D);
+			info.sig_clk = cell->getPort(TW::C);
+			info.sig_srst = cell->getPort(TW::R);
+			info.sig_ce = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 11) {
 		info.is_fine = true;
@@ -287,8 +287,8 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.has_aload = true;
 		info.pol_aload = type_str[9] == 'P';
 		if constexpr (have_cell) {
-			info.sig_ad = cell->getPort(ID::D);
-			info.sig_aload = cell->getPort(ID::E);
+			info.sig_ad = cell->getPort(TW::D);
+			info.sig_aload = cell->getPort(TW::E);
 		}
 	} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 13) {
 		info.is_fine = true;
@@ -299,9 +299,9 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.pol_arst = type_str[10] == 'P';
 		info.val_arst = type_str[11] == '1' ? State::S1 : State::S0;
 		if constexpr (have_cell) {
-			info.sig_ad = cell->getPort(ID::D);
-			info.sig_aload = cell->getPort(ID::E);
-			info.sig_arst = cell->getPort(ID::R);
+			info.sig_ad = cell->getPort(TW::D);
+			info.sig_aload = cell->getPort(TW::E);
+			info.sig_arst = cell->getPort(TW::R);
 		}
 	} else if (type_str.substr(0, 11) == "$_DLATCHSR_" && type_str.size() == 15) {
 		info.is_fine = true;
@@ -312,10 +312,10 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.pol_set = type_str[12] == 'P';
 		info.pol_clr = type_str[13] == 'P';
 		if constexpr (have_cell) {
-			info.sig_ad = cell->getPort(ID::D);
-			info.sig_aload = cell->getPort(ID::E);
-			info.sig_set = cell->getPort(ID::S);
-			info.sig_clr = cell->getPort(ID::R);
+			info.sig_ad = cell->getPort(TW::D);
+			info.sig_aload = cell->getPort(TW::E);
+			info.sig_set = cell->getPort(TW::S);
+			info.sig_clr = cell->getPort(TW::R);
 		}
 	} else {
 		log_assert(0);
@@ -780,7 +780,7 @@ Cell *FfData::emit() {
 		}
 	}
 	if (initvals && !is_anyinit)
-		initvals->set_init(cell->getPort(ID::Q), val_init);
+		initvals->set_init(cell->getPort(TW::Q), val_init);
 	return cell;
 }
 
@@ -823,7 +823,7 @@ void FfData::flip_bits(const pool<int> &bits) {
 
 	flip_rst_bits(bits);
 
-	Wire *new_q = module->addWire(NEW_ID, width);
+	Wire *new_q = module->addWire(NEW_TWINE, width);
 
 	if (has_sr && cell) {
 		log_warning("Flipping D/Q/init and inserting priority fixup to legalize %s.%s [%s].\n", module->name.unescape(), cell->name.unescape(), cell->type.unescape());

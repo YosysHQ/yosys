@@ -304,8 +304,8 @@ struct CheckPass : public Pass {
 
 					if (cell->type.in(ID($pmux), ID($bmux))) {
 						// We're skipping inputs A and B, since each of their bits contributes only one edge
-						in_widths = GetSize(cell->getPort(ID::S));
-						out_widths = GetSize(cell->getPort(ID::Y));
+						in_widths = GetSize(cell->getPort(TW::S));
+						out_widths = GetSize(cell->getPort(TW::Y));
 					} else {
 						for (auto &conn : cell->connections()) {
 							if (cell->input(conn.first))
@@ -370,8 +370,8 @@ struct CheckPass : public Pass {
 
 				if (cell->type == ID($connect)) {
 					// Inefficient, but rare case in sane design
-					auto sig_a = cell->getPort(ID::A);
-					auto sig_b = cell->getPort(ID::B);
+					auto sig_a = cell->getPort(TW::A);
+					auto sig_b = cell->getPort(TW::B);
 					for (int i = 0; i < sig_a.size(); i++) {
 						int count_a = wire_drivers_count[sig_a[i]];
 						int count_b = wire_drivers_count[sig_b[i]];
@@ -561,7 +561,7 @@ struct CheckPass : public Pass {
 					if (cell->is_builtin_ff() == 0)
 						continue;
 
-					for (auto bit : sigmap(cell->getPort(ID::Q)))
+					for (auto bit : sigmap(cell->getPort(TW::Q)))
 						init_bits.erase(bit);
 				}
 

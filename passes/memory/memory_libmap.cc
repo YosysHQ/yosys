@@ -142,13 +142,13 @@ struct MapWorker {
 		{
 			if (cell->type == ID($mux))
 			{
-				RTLIL::SigSpec sig_a = sigmap_xmux(cell->getPort(ID::A));
-				RTLIL::SigSpec sig_b = sigmap_xmux(cell->getPort(ID::B));
+				RTLIL::SigSpec sig_a = sigmap_xmux(cell->getPort(TW::A));
+				RTLIL::SigSpec sig_b = sigmap_xmux(cell->getPort(TW::B));
 
 				if (sig_a.is_fully_undef())
-					sigmap_xmux.add(cell->getPort(ID::Y), sig_b);
+					sigmap_xmux.add(cell->getPort(TW::Y), sig_b);
 				else if (sig_b.is_fully_undef())
-					sigmap_xmux.add(cell->getPort(ID::Y), sig_a);
+					sigmap_xmux.add(cell->getPort(TW::Y), sig_a);
 			}
 		}
 	}
@@ -1665,14 +1665,14 @@ std::vector<SigSpec> generate_mux(Mem &mem, int rpidx, const Swizzle &swz) {
 		return {port.data};
 	}
 	if (port.clk_enable) {
-		SigSpec new_sig_s = mem.module->addWire(NEW_ID, GetSize(sig_s));
+		SigSpec new_sig_s = mem.module->addWire(NEW_TWINE, GetSize(sig_s));
 		mem.module->addDffe(NEW_ID, port.clk, port.en, sig_s, new_sig_s, port.clk_polarity);
 		sig_s = new_sig_s;
 	}
 	SigSpec sig_a = Const(State::Sx, GetSize(port.data) << hi_bits << GetSize(swz.addr_mux_bits));
 	for (int i = 0; i < ((swz.addr_end - swz.addr_start) >> swz.addr_shift); i++) {
 		for (int j = 0; j < (1 << GetSize(swz.addr_mux_bits)); j++) {
-			SigSpec sig = mem.module->addWire(NEW_ID, GetSize(port.data));
+			SigSpec sig = mem.module->addWire(NEW_TWINE, GetSize(port.data));
 			int hi = ((swz.addr_start >> swz.addr_shift) + i) & ((1 << hi_bits) - 1);
 			int pos = (hi << GetSize(swz.addr_mux_bits) | j) * GetSize(port.data);
 			for (int k = 0; k < GetSize(port.data); k++)
@@ -1948,7 +1948,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 						cell->setParam(stringf("\\PORT_%s_RD_SRST_VALUE", name), hw_val);
 					}
 				}
-				SigSpec hw_rdata = mem.module->addWire(NEW_ID, width);
+				SigSpec hw_rdata = mem.module->addWire(NEW_TWINE, width);
 				cell->setPort(stringf("\\PORT_%s_RD_DATA", name), hw_rdata);
 				SigSpec lhs;
 				SigSpec rhs;
@@ -1983,7 +1983,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 					else if (pdef.rdsrstval == ResetValKind::NoUndef)
 						cell->setParam(stringf("\\PORT_%s_RD_SRST_VALUE", name), Const(State::S0, width));
 				}
-				SigSpec hw_rdata = mem.module->addWire(NEW_ID, width);
+				SigSpec hw_rdata = mem.module->addWire(NEW_TWINE, width);
 				cell->setPort(stringf("\\PORT_%s_RD_DATA", name), hw_rdata);
 			}
 		}

@@ -112,7 +112,7 @@ namespace pyosys {
 
 		void notify_connect(
 			RTLIL::Cell *cell,
-			RTLIL::IdString port,
+			TwineRef port,
 			const RTLIL::SigSpec &old_sig,
 			const RTLIL::SigSpec &sig
 		) override {

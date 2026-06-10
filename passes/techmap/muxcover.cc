@@ -122,7 +122,7 @@ struct MuxcoverWorker
 				}
 			}
 			if (cell->type == ID($_MUX_))
-				sig_to_mux[sigmap(cell->getPort(ID::Y))] = cell;
+				sig_to_mux[sigmap(cell->getPort(TW::Y))] = cell;
 		}
 
 		log("  Treeifying %d MUXes:\n", GetSize(sig_to_mux));
@@ -141,8 +141,8 @@ struct MuxcoverWorker
 				if (sig_to_mux.count(bit) && (bit == rootsig || !roots.count(bit))) {
 					Cell *c = sig_to_mux.at(bit);
 					tree.muxes[bit] = c;
-					wavefront.insert(sigmap(c->getPort(ID::A)));
-					wavefront.insert(sigmap(c->getPort(ID::B)));
+					wavefront.insert(sigmap(c->getPort(TW::A)));
+					wavefront.insert(sigmap(c->getPort(TW::B)));
 				}
 			}
 
@@ -185,7 +185,7 @@ struct MuxcoverWorker
 		tuple<SigBit, SigBit, SigBit> key(A, B, sel);
 		if (decode_mux_cache.count(key) == 0) {
 			auto &entry = decode_mux_cache[key];
-			std::get<0>(entry) = module->addWire(NEW_ID);
+			std::get<0>(entry) = module->addWire(NEW_TWINE);
 			std::get<2>(entry) = false;
 			decode_mux_reverse_cache[std::get<0>(entry)] = key;
 		}
@@ -513,69 +513,69 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 2) {
 			count_muxes_by_type[0]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX_));
-			cell->setPort(ID::A, mux.inputs[0]);
-			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID::S, mux.selects[0]);
-			cell->setPort(ID::Y, bit);
+			Cell *cell = module->addCell(NEW_TWINE, ID($_MUX_));
+			cell->setPort(TW::A, mux.inputs[0]);
+			cell->setPort(TW::B, mux.inputs[1]);
+			cell->setPort(TW::S, mux.selects[0]);
+			cell->setPort(TW::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 4) {
 			count_muxes_by_type[1]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX4_));
-			cell->setPort(ID::A, mux.inputs[0]);
-			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID::C, mux.inputs[2]);
-			cell->setPort(ID::D, mux.inputs[3]);
-			cell->setPort(ID::S, mux.selects[0]);
-			cell->setPort(ID::T, mux.selects[1]);
-			cell->setPort(ID::Y, bit);
+			Cell *cell = module->addCell(NEW_TWINE, ID($_MUX4_));
+			cell->setPort(TW::A, mux.inputs[0]);
+			cell->setPort(TW::B, mux.inputs[1]);
+			cell->setPort(TW::C, mux.inputs[2]);
+			cell->setPort(TW::D, mux.inputs[3]);
+			cell->setPort(TW::S, mux.selects[0]);
+			cell->setPort(TW::T, mux.selects[1]);
+			cell->setPort(TW::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 8) {
 			count_muxes_by_type[2]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX8_));
-			cell->setPort(ID::A, mux.inputs[0]);
-			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID::C, mux.inputs[2]);
-			cell->setPort(ID::D, mux.inputs[3]);
-			cell->setPort(ID::E, mux.inputs[4]);
-			cell->setPort(ID::F, mux.inputs[5]);
-			cell->setPort(ID::G, mux.inputs[6]);
-			cell->setPort(ID::H, mux.inputs[7]);
-			cell->setPort(ID::S, mux.selects[0]);
-			cell->setPort(ID::T, mux.selects[1]);
-			cell->setPort(ID::U, mux.selects[2]);
-			cell->setPort(ID::Y, bit);
+			Cell *cell = module->addCell(NEW_TWINE, ID($_MUX8_));
+			cell->setPort(TW::A, mux.inputs[0]);
+			cell->setPort(TW::B, mux.inputs[1]);
+			cell->setPort(TW::C, mux.inputs[2]);
+			cell->setPort(TW::D, mux.inputs[3]);
+			cell->setPort(TW::E, mux.inputs[4]);
+			cell->setPort(TW::F, mux.inputs[5]);
+			cell->setPort(TW::G, mux.inputs[6]);
+			cell->setPort(TW::H, mux.inputs[7]);
+			cell->setPort(TW::S, mux.selects[0]);
+			cell->setPort(TW::T, mux.selects[1]);
+			cell->setPort(TW::U, mux.selects[2]);
+			cell->setPort(TW::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 16) {
 			count_muxes_by_type[3]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX16_));
-			cell->setPort(ID::A, mux.inputs[0]);
-			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID::C, mux.inputs[2]);
-			cell->setPort(ID::D, mux.inputs[3]);
-			cell->setPort(ID::E, mux.inputs[4]);
-			cell->setPort(ID::F, mux.inputs[5]);
-			cell->setPort(ID::G, mux.inputs[6]);
-			cell->setPort(ID::H, mux.inputs[7]);
-			cell->setPort(ID::I, mux.inputs[8]);
-			cell->setPort(ID::J, mux.inputs[9]);
-			cell->setPort(ID::K, mux.inputs[10]);
-			cell->setPort(ID::L, mux.inputs[11]);
-			cell->setPort(ID::M, mux.inputs[12]);
-			cell->setPort(ID::N, mux.inputs[13]);
-			cell->setPort(ID::O, mux.inputs[14]);
-			cell->setPort(ID::P, mux.inputs[15]);
-			cell->setPort(ID::S, mux.selects[0]);
-			cell->setPort(ID::T, mux.selects[1]);
-			cell->setPort(ID::U, mux.selects[2]);
-			cell->setPort(ID::V, mux.selects[3]);
-			cell->setPort(ID::Y, bit);
+			Cell *cell = module->addCell(NEW_TWINE, ID($_MUX16_));
+			cell->setPort(TW::A, mux.inputs[0]);
+			cell->setPort(TW::B, mux.inputs[1]);
+			cell->setPort(TW::C, mux.inputs[2]);
+			cell->setPort(TW::D, mux.inputs[3]);
+			cell->setPort(TW::E, mux.inputs[4]);
+			cell->setPort(TW::F, mux.inputs[5]);
+			cell->setPort(TW::G, mux.inputs[6]);
+			cell->setPort(TW::H, mux.inputs[7]);
+			cell->setPort(TW::I, mux.inputs[8]);
+			cell->setPort(TW::J, mux.inputs[9]);
+			cell->setPort(TW::K, mux.inputs[10]);
+			cell->setPort(TW::L, mux.inputs[11]);
+			cell->setPort(TW::M, mux.inputs[12]);
+			cell->setPort(TW::N, mux.inputs[13]);
+			cell->setPort(TW::O, mux.inputs[14]);
+			cell->setPort(TW::P, mux.inputs[15]);
+			cell->setPort(TW::S, mux.selects[0]);
+			cell->setPort(TW::T, mux.selects[1]);
+			cell->setPort(TW::U, mux.selects[2]);
+			cell->setPort(TW::V, mux.selects[3]);
+			cell->setPort(TW::Y, bit);
 			return;
 		}
 

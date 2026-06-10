@@ -214,18 +214,18 @@ struct EquivMiterWorker
 		vector<Cell*> equiv_cells;
 
 		for (auto c : miter_module->cells())
-			if (c->type == ID($equiv) && c->getPort(ID::A) != c->getPort(ID::B))
+			if (c->type == ID($equiv) && c->getPort(TW::A) != c->getPort(TW::B))
 				equiv_cells.push_back(c);
 
 		for (auto c : equiv_cells)
 		{
 			SigSpec cmp = mode_undef ?
-					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort(ID::A), State::Sx),
-							miter_module->Eqx(NEW_ID, c->getPort(ID::A), c->getPort(ID::B))) :
-					miter_module->Eq(NEW_ID, c->getPort(ID::A), c->getPort(ID::B));
+					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort(TW::A), State::Sx),
+							miter_module->Eqx(NEW_ID, c->getPort(TW::A), c->getPort(TW::B))) :
+					miter_module->Eq(NEW_ID, c->getPort(TW::A), c->getPort(TW::B));
 
 			if (mode_cmp) {
-				string cmp_name = stringf("\\cmp%s", log_signal(c->getPort(ID::Y)));
+				string cmp_name = stringf("\\cmp%s", log_signal(c->getPort(TW::Y)));
 				for (int i = 1; i < GetSize(cmp_name); i++)
 					if (cmp_name[i] == '\\')
 						cmp_name[i] = '_';

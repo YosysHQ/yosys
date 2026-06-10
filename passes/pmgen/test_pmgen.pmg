@@ -14,9 +14,9 @@ match first
 	select first->type.in($_AND_, $_OR_, $_XOR_)
 	filter !non_first_cells.count(first)
 generate
-	SigSpec A = module->addWire(NEW_ID);
-	SigSpec B = module->addWire(NEW_ID);
-	SigSpec Y = module->addWire(NEW_ID);
+	SigSpec A = module->addWire(NEW_TWINE);
+	SigSpec B = module->addWire(NEW_TWINE);
+	SigSpec Y = module->addWire(NEW_TWINE);
 	switch (rng(3))
 	{
 	case 0:
@@ -82,8 +82,8 @@ match next
 	index <IdString> next->type === chain.back().first->type
 	index <SigSpec> port(next, \Y) === port(chain.back().first, chain.back().second)
 generate 10
-	SigSpec A = module->addWire(NEW_ID);
-	SigSpec B = module->addWire(NEW_ID);
+	SigSpec A = module->addWire(NEW_TWINE);
+	SigSpec B = module->addWire(NEW_TWINE);
 	SigSpec Y = port(chain.back().first, chain.back().second);
 	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
 	c->type = chain.back().first->type;
@@ -121,9 +121,9 @@ match eq
 	set eq_inB port(eq, \B)
 	set eq_ne_signed param(eq, \A_SIGNED).as_bool()
 generate 100 10
-	SigSpec A = module->addWire(NEW_ID, rng(7)+1);
-	SigSpec B = module->addWire(NEW_ID, rng(7)+1);
-	SigSpec Y = module->addWire(NEW_ID);
+	SigSpec A = module->addWire(NEW_TWINE, rng(7)+1);
+	SigSpec B = module->addWire(NEW_TWINE, rng(7)+1);
+	SigSpec Y = module->addWire(NEW_TWINE);
 	module->addEq(NEW_ID, A, B, Y, rng(2));
 endmatch
 
@@ -137,13 +137,13 @@ generate 100 10
 	int numsel = rng(4) + 1;
 	int idx = rng(numsel);
 
-	SigSpec A = module->addWire(NEW_ID, width);
-	SigSpec Y = module->addWire(NEW_ID, width);
+	SigSpec A = module->addWire(NEW_TWINE, width);
+	SigSpec Y = module->addWire(NEW_TWINE, width);
 
 	SigSpec B, S;
 	for (int i = 0; i < numsel; i++) {
-		B.append(module->addWire(NEW_ID, width));
-		S.append(i == idx ? port(eq, \Y) : module->addWire(NEW_ID));
+		B.append(module->addWire(NEW_TWINE, width));
+		S.append(i == idx ? port(eq, \Y) : module->addWire(NEW_TWINE));
 	}
 
 	module->addPmux(NEW_ID, A, B, S, Y);
@@ -169,9 +169,9 @@ generate 100 10
 		if (GetSize(Y))
 			Y = Y[rng(GetSize(Y))];
 		else
-			Y = module->addWire(NEW_ID);
+			Y = module->addWire(NEW_TWINE);
 	} else {
-		Y = module->addWire(NEW_ID);
+		Y = module->addWire(NEW_TWINE);
 	}
 	module->addNe(NEW_ID, A, B, Y, rng(2));
 endmatch

@@ -190,22 +190,22 @@ struct statdata_t {
 						 ID($xor), ID($xnor), ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx), ID($lt),
 						 ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt), ID($add), ID($sub), ID($mul),
 						 ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow), ID($alu))) {
-					int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(ID::A)) : 0;
-					int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(ID::B)) : 0;
-					int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(ID::Y)) : 0;
+					int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(TW::A)) : 0;
+					int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(TW::B)) : 0;
+					int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
 					cell_type = stringf("%s_%d", cell_type, max<int>({width_a, width_b, width_y}));
 				} else if (cell_type.in(ID($mux)))
-					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(ID::Y)));
+					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Y)));
 				else if (cell_type.in(ID($bmux), ID($pmux)))
 					cell_type =
-					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(ID::Y)), GetSize(cell->getPort(ID::S)));
+					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(TW::Y)), GetSize(cell->getPort(TW::S)));
 				else if (cell_type == ID($demux))
 					cell_type =
-					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::S)));
+					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::S)));
 				else if (cell_type.in(ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe),
 						      ID($sdff), ID($sdffe), ID($sdffce), ID($aldff), ID($aldffe), ID($dlatch), ID($adlatch),
 						      ID($dlatchsr)))
-					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(ID::Q)));
+					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Q)));
 			}
 
 			if (!cell_area.empty()) {
@@ -215,10 +215,10 @@ struct statdata_t {
 					if (cell_data.single_parameter_area.size() > 0) {
 						// assume that we just take the max of the A,B,Y ports
 
-						int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(ID::A)) : 0;
-						int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(ID::B)) : 0;
-						int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(ID::Y)) : 0;
-						int width_q = cell->hasPort(ID::Q) ? GetSize(cell->getPort(ID::Q)) : 0;
+						int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(TW::A)) : 0;
+						int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(TW::B)) : 0;
+						int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
+						int width_q = cell->hasPort(ID::Q) ? GetSize(cell->getPort(TW::Q)) : 0;
 						int max_width = max<int>({width_a, width_b, width_y, width_q});
 						if (!cell_area.count(cell_type)) {
 							cell_area[cell_type] = cell_data;
@@ -237,7 +237,7 @@ struct statdata_t {
 					vector<double> widths;
 					if (cell_data.parameter_names.size() > 0) {
 						for (auto &it : cell_data.parameter_names) {
-							RTLIL::IdString port_name;
+							TwineRef port_name;
 							if (it == "A") {
 								port_name = ID::A;
 							} else if (it == "B") {

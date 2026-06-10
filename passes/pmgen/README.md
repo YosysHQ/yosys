@@ -367,8 +367,8 @@ test-case generation. For example:
         ...
     generate 10 0
         SigSpec Y = port(ff, \D);
-        SigSpec A = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
-        SigSpec B = module->addWire(NEW_ID, GetSize(Y) - rng(GetSize(Y)/2));
+        SigSpec A = module->addWire(NEW_TWINE, GetSize(Y) - rng(GetSize(Y)/2));
+        SigSpec B = module->addWire(NEW_TWINE, GetSize(Y) - rng(GetSize(Y)/2));
         module->addMul(NEW_ID, A, B, Y, rng(2));
     endmatch
 

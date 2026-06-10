@@ -60,7 +60,7 @@ static void run_ice40_opts(Module *module)
 			SigBit inbit[3] = {
 				get_bit_or_zero(cell->getPort(ID(I0))),
 				get_bit_or_zero(cell->getPort(ID(I1))),
-				get_bit_or_zero(cell->getPort(ID::CI))
+				get_bit_or_zero(cell->getPort(TW::CI))
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -79,8 +79,8 @@ static void run_ice40_opts(Module *module)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {
-				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
-				module->connect(cell->getPort(ID::CO)[0], replacement_output);
+				optimized_co.insert(sigmap(cell->getPort(TW::CO)[0]));
+				module->connect(cell->getPort(TW::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
 						module, cell, log_signal(replacement_output));
@@ -95,9 +95,9 @@ static void run_ice40_opts(Module *module)
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				cell->getPort(ID::A),
-				cell->getPort(ID::B),
-				cell->getPort(ID::CI)
+				cell->getPort(TW::A),
+				cell->getPort(TW::B),
+				cell->getPort(TW::CI)
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -116,7 +116,7 @@ static void run_ice40_opts(Module *module)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {
-				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
+				optimized_co.insert(sigmap(cell->getPort(TW::CO)[0]));
 				auto it = cell->attributes.find(IdString{"\\SB_LUT4.name"});
 				if (it != cell->attributes.end()) {
 					module->rename(cell, it->second.decode_string());
@@ -134,20 +134,20 @@ static void run_ice40_opts(Module *module)
 							log_abort();
 					cell->attributes = std::move(new_attr);
 				}
-				module->connect(cell->getPort(ID::CO)[0], replacement_output);
+				module->connect(cell->getPort(TW::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						module, cell, log_signal(replacement_output));
 				cell->type = ID($lut);
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
-				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
-				cell->setPort(ID::Y, cell->getPort(ID::O));
-				cell->unsetPort(ID::B);
-				cell->unsetPort(ID::CI);
+				cell->setPort(TW::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
+				cell->setPort(TW::Y, cell->getPort(TW::O));
+				cell->unsetPort(TW::B);
+				cell->unsetPort(TW::CI);
 				cell->unsetPort(ID(I0));
 				cell->unsetPort(ID(I3));
-				cell->unsetPort(ID::CO);
-				cell->unsetPort(ID::O);
+				cell->unsetPort(TW::CO);
+				cell->unsetPort(TW::O);
 				cell->setParam(ID::WIDTH, 4);
 				cell->unsetParam(ID(I3_IS_CI));
 			}
@@ -182,18 +182,18 @@ static void run_ice40_opts(Module *module)
 		cell->setParam(ID::LUT, cell->getParam(ID(LUT_INIT)));
 		cell->unsetParam(ID(LUT_INIT));
 
-		cell->setPort(ID::A, SigSpec({
+		cell->setPort(TW::A, SigSpec({
 			get_bit_or_zero(cell->getPort(ID(I3))),
 			get_bit_or_zero(cell->getPort(ID(I2))),
 			get_bit_or_zero(cell->getPort(ID(I1))),
 			get_bit_or_zero(cell->getPort(ID(I0)))
 		}));
-		cell->setPort(ID::Y, cell->getPort(ID::O)[0]);
+		cell->setPort(TW::Y, cell->getPort(TW::O)[0]);
 		cell->unsetPort(ID(I0));
 		cell->unsetPort(ID(I1));
 		cell->unsetPort(ID(I2));
 		cell->unsetPort(ID(I3));
-		cell->unsetPort(ID::O);
+		cell->unsetPort(TW::O);
 
 		cell->check();
 		simplemap_lut(module, cell);

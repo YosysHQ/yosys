@@ -21,8 +21,8 @@ YOSYS_NAMESPACE_BEGIN
 
 inline std::pair<SigSpec, SigSpec> emit_fa(Module *module, SigSpec a, SigSpec b, SigSpec c, int width)
 {
-	SigSpec sum = module->addWire(NEW_ID, width);
-	SigSpec cout = module->addWire(NEW_ID, width);
+	SigSpec sum = module->addWire(NEW_TWINE, width);
+	SigSpec cout = module->addWire(NEW_TWINE, width);
 
 	module->addFa(NEW_ID, a, b, c, cout, sum);
 

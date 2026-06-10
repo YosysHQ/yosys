@@ -122,8 +122,8 @@ struct EquivMarkWorker
 		{
 			auto cell = module->cell(cell_name);
 
-			SigSpec sig_a = sigmap(cell->getPort(ID::A));
-			SigSpec sig_b = sigmap(cell->getPort(ID::B));
+			SigSpec sig_a = sigmap(cell->getPort(TW::A));
+			SigSpec sig_b = sigmap(cell->getPort(TW::B));
 
 			if (sig_a == sig_b) {
 				for (auto bit : sig_a)
@@ -142,8 +142,8 @@ struct EquivMarkWorker
 			if (cell_regions.count(cell->name) || cell->type != ID($equiv))
 				continue;
 
-			SigSpec sig_a = sigmap(cell->getPort(ID::A));
-			SigSpec sig_b = sigmap(cell->getPort(ID::B));
+			SigSpec sig_a = sigmap(cell->getPort(TW::A));
+			SigSpec sig_b = sigmap(cell->getPort(TW::B));
 
 			log_assert(sig_a != sig_b);
 

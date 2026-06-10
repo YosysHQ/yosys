@@ -100,11 +100,11 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
 	cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
-	cell->setPort(ID::D, sig_in);
-	cell->setPort(ID::Q, sig_out);
-	cell->setPort(ID::AD, sig_set);
-	cell->setPort(ID::CLK, clk);
-	cell->setPort(ID::ALOAD, set);
+	cell->setPort(TW::D, sig_in);
+	cell->setPort(TW::Q, sig_out);
+	cell->setPort(TW::AD, sig_set);
+	cell->setPort(TW::CLK, clk);
+	cell->setPort(TW::ALOAD, set);
 
 	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type, cell->name,
 			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
@@ -128,12 +128,12 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 		cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
 	}
 
-	cell->setPort(ID::D, sig_in);
-	cell->setPort(ID::Q, sig_out);
+	cell->setPort(TW::D, sig_in);
+	cell->setPort(TW::Q, sig_out);
 	if (arst)
-		cell->setPort(ID::ARST, *arst);
+		cell->setPort(TW::ARST, *arst);
 	if (!clk.empty())
-		cell->setPort(ID::CLK, clk);
+		cell->setPort(TW::CLK, clk);
 
 	if (!clk.empty())
 		log("  created %s cell `%s' with %s edge clock", cell->type, cell->name, clk_polarity ? "positive" : "negative");

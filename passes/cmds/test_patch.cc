@@ -19,18 +19,18 @@ struct TestPatchPass : public Pass {
 			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($add)) {
 					Cell* add = cell;
-					log_assert(add->getPort(ID::B).is_wire());
-					log_assert(add->getPort(ID::B).known_driver());
-					auto neg = add->getPort(ID::B)[0].wire->driverCell();
+					log_assert(add->getPort(TW::B).is_wire());
+					log_assert(add->getPort(TW::B).known_driver());
+					auto neg = add->getPort(TW::B)[0].wire->driverCell();
 					log_assert(neg->type == ID($not));
 					RTLIL::Patch patcher(module, nullptr);
-					int width = cell->getPort(ID::A).size();
+					int width = cell->getPort(TW::A).size();
 					auto sub = patcher.addSub(NEW_ID,
-						neg->getPort(ID::A),
-						add->getPort(ID::A),
-						patcher.addWire(NEW_ID, width));
-					auto new_out_wire = patcher.addWire(NEW_ID, width);
-					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(ID::Y), new_out_wire);
+						neg->getPort(TW::A),
+						add->getPort(TW::A),
+						patcher.addWire(NEW_TWINE, width));
+					auto new_out_wire = patcher.addWire(NEW_TWINE, width);
+					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(TW::Y), new_out_wire);
 					log_cell(new_cell);
 					patcher.patch(add, ID::Y, new_out_wire);
 				}

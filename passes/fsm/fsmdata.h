@@ -127,13 +127,13 @@ struct FsmData
 
 		log("\n");
 		log("  Input signals:\n");
-		RTLIL::SigSpec sig_in = cell->getPort(ID::CTRL_IN);
+		RTLIL::SigSpec sig_in = cell->getPort(TW::CTRL_IN);
 		for (int i = 0; i < GetSize(sig_in); i++)
 			log("  %3d: %s\n", i, log_signal(sig_in[i]));
 
 		log("\n");
 		log("  Output signals:\n");
-		RTLIL::SigSpec sig_out = cell->getPort(ID::CTRL_OUT);
+		RTLIL::SigSpec sig_out = cell->getPort(TW::CTRL_OUT);
 		for (int i = 0; i < GetSize(sig_out); i++)
 			log("  %3d: %s\n", i, log_signal(sig_out[i]));
 

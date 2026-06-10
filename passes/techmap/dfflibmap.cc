@@ -505,7 +505,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
 		if (cell->type == ID($_NOT_))
-			notmap[sigmap(cell->getPort(ID::A))].insert(cell);
+			notmap[sigmap(cell->getPort(TW::A))].insert(cell);
 	}
 
 	std::map<std::string, int> stats;
@@ -536,11 +536,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			} else
 			if (port.second == 'q') {
 				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				sig = module->addWire(NEW_ID, GetSize(old_sig));
+				sig = module->addWire(NEW_TWINE, GetSize(old_sig));
 				if (has_q && has_qn) {
 					for (auto &it : notmap[sigmap(old_sig)]) {
-						module->connect(it->getPort(ID::Y), sig);
-						it->setPort(ID::Y, module->addWire(NEW_ID, GetSize(old_sig)));
+						module->connect(it->getPort(TW::Y), sig);
+						it->setPort(TW::Y, module->addWire(NEW_TWINE, GetSize(old_sig)));
 					}
 				} else {
 					module->addNotGate(NEW_ID, sig, old_sig);
@@ -554,7 +554,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
 			} else
 			if (port.second == 0) {
-				sig = module->addWire(NEW_ID);
+				sig = module->addWire(NEW_TWINE);
 			} else
 				log_abort();
 			new_cell->setPort("\\" + port.first, sig);

@@ -632,7 +632,7 @@ struct FreduceWorker
 				bits_full_total += outputs.size();
 			}
 			if (inv_mode && cell->type == ID($_NOT_))
-				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort(ID::A)), sigmap(cell->getPort(ID::Y))));
+				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort(TW::A)), sigmap(cell->getPort(TW::Y))));
 		}
 
 		int bits_count = 0;
@@ -716,7 +716,7 @@ struct FreduceWorker
 				log("      Connect slave%s: %s\n", grp[i].inverted ? " using inverter" : "", log_signal(grp[i].bit));
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
-				RTLIL::Wire *dummy_wire = module->addWire(NEW_ID);
+				RTLIL::Wire *dummy_wire = module->addWire(NEW_TWINE);
 				for (auto &port : drv->connections_)
 					if (ct.cell_output(drv->type, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
@@ -725,11 +725,11 @@ struct FreduceWorker
 				{
 					if (inv_sig.size() == 0)
 					{
-						inv_sig = module->addWire(NEW_ID);
+						inv_sig = module->addWire(NEW_TWINE);
 
-						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, ID($_NOT_));
-						inv_cell->setPort(ID::A, grp[0].bit);
-						inv_cell->setPort(ID::Y, inv_sig);
+						RTLIL::Cell *inv_cell = module->addCell(NEW_TWINE, ID($_NOT_));
+						inv_cell->setPort(TW::A, grp[0].bit);
+						inv_cell->setPort(TW::Y, inv_sig);
 					}
 
 					module->connect(RTLIL::SigSig(grp[i].bit, inv_sig));

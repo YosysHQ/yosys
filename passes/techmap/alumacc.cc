@@ -89,7 +89,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->src_ref());
+				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(TW::X), false, alu_cell->src_ref());
 			return cached_eq;
 		}
 
@@ -101,7 +101,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_cf() {
 			if (GetSize(cached_cf) == 0) {
-				cached_cf = alu_cell->getPort(ID::CO);
+				cached_cf = alu_cell->getPort(TW::CO);
 				log_assert(GetSize(cached_cf) >= 1);
 				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->src_ref());
 			}
@@ -110,7 +110,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_of() {
 			if (GetSize(cached_of) == 0) {
-				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
+				cached_of = {alu_cell->getPort(TW::CO), alu_cell->getPort(TW::CI)};
 				log_assert(GetSize(cached_of) >= 2);
 				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
 			}
@@ -119,7 +119,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_sf() {
 			if (GetSize(cached_sf) == 0) {
-				cached_sf = alu_cell->getPort(ID::Y);
+				cached_sf = alu_cell->getPort(TW::Y);
 				cached_sf = cached_sf[GetSize(cached_sf)-1];
 			}
 			return cached_sf;
@@ -162,7 +162,7 @@ struct AlumaccWorker
 			Macc::term_t new_term;
 
 			n->cell = cell;
-			n->y = sigmap(cell->getPort(ID::Y));
+			n->y = sigmap(cell->getPort(TW::Y));
 			n->users = 0;
 
 			for (auto bit : n->y)
@@ -170,7 +170,7 @@ struct AlumaccWorker
 
 			if (cell->type.in(ID($pos), ID($neg)))
 			{
-				new_term.in_a = sigmap(cell->getPort(ID::A));
+				new_term.in_a = sigmap(cell->getPort(TW::A));
 				new_term.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				new_term.do_subtract = cell->type == ID($neg);
 				n->macc.terms.push_back(new_term);
@@ -178,12 +178,12 @@ struct AlumaccWorker
 
 			if (cell->type.in(ID($add), ID($sub)))
 			{
-				new_term.in_a = sigmap(cell->getPort(ID::A));
+				new_term.in_a = sigmap(cell->getPort(TW::A));
 				new_term.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				new_term.do_subtract = false;
 				n->macc.terms.push_back(new_term);
 
-				new_term.in_a = sigmap(cell->getPort(ID::B));
+				new_term.in_a = sigmap(cell->getPort(TW::B));
 				new_term.is_signed = cell->getParam(ID::B_SIGNED).as_bool();
 				new_term.do_subtract = cell->type == ID($sub);
 				n->macc.terms.push_back(new_term);
@@ -191,8 +191,8 @@ struct AlumaccWorker
 
 			if (cell->type.in(ID($mul)))
 			{
-				new_term.in_a = sigmap(cell->getPort(ID::A));
-				new_term.in_b = sigmap(cell->getPort(ID::B));
+				new_term.in_a = sigmap(cell->getPort(TW::A));
+				new_term.in_b = sigmap(cell->getPort(TW::B));
 				new_term.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				new_term.do_subtract = false;
 				n->macc.terms.push_back(new_term);
@@ -379,7 +379,7 @@ struct AlumaccWorker
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
-			auto cell = module->addCell(NEW_ID, ID($macc));
+			auto cell = module->addCell(NEW_TWINE, ID($macc));
 
 			macc_counter++;
 
@@ -389,7 +389,7 @@ struct AlumaccWorker
 
 			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
-			cell->setPort(ID::Y, n->y);
+			cell->setPort(TW::Y, n->y);
 			cell->fixup_parameters();
 			module->remove(n->cell);
 			delete n;
@@ -418,9 +418,9 @@ struct AlumaccWorker
 			bool cmp_equal = cell->type.in(ID($le), ID($ge));
 			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
-			RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
-			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
-			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
+			RTLIL::SigSpec A = sigmap(cell->getPort(TW::A));
+			RTLIL::SigSpec B = sigmap(cell->getPort(TW::B));
+			RTLIL::SigSpec Y = sigmap(cell->getPort(TW::Y));
 
 			alunode_t *n = nullptr;
 
@@ -445,7 +445,7 @@ struct AlumaccWorker
 				n->a = A;
 				n->b = B;
 				n->c = State::S1;
-				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
+				n->y = module->addWire(NEW_TWINE, max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
@@ -463,9 +463,9 @@ struct AlumaccWorker
 			bool cmp_equal = cell->type.in(ID($eq), ID($eqx));
 			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
-			RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
-			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
-			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
+			RTLIL::SigSpec A = sigmap(cell->getPort(TW::A));
+			RTLIL::SigSpec B = sigmap(cell->getPort(TW::B));
+			RTLIL::SigSpec Y = sigmap(cell->getPort(TW::Y));
 
 			alunode_t *n = nullptr;
 
@@ -509,7 +509,7 @@ struct AlumaccWorker
 				goto delete_node;
 			}
 
-			n->alu_cell = module->addCell(NEW_ID, ID($alu));
+			n->alu_cell = module->addCell(NEW_TWINE, ID($alu));
 			alu_counter++;
 
 			log("  creating $alu cell for ");
@@ -520,13 +520,13 @@ struct AlumaccWorker
 			if (n->cells.size() > 0)
 				n->alu_cell->adopt_src_from(n->cells[0]);
 
-			n->alu_cell->setPort(ID::A, n->a);
-			n->alu_cell->setPort(ID::B, n->b);
-			n->alu_cell->setPort(ID::CI, GetSize(n->c) ? n->c : State::S0);
-			n->alu_cell->setPort(ID::BI, n->invert_b ? State::S1 : State::S0);
-			n->alu_cell->setPort(ID::Y, n->y);
-			n->alu_cell->setPort(ID::X, module->addWire(NEW_ID, GetSize(n->y)));
-			n->alu_cell->setPort(ID::CO, module->addWire(NEW_ID, GetSize(n->y)));
+			n->alu_cell->setPort(TW::A, n->a);
+			n->alu_cell->setPort(TW::B, n->b);
+			n->alu_cell->setPort(TW::CI, GetSize(n->c) ? n->c : State::S0);
+			n->alu_cell->setPort(TW::BI, n->invert_b ? State::S1 : State::S0);
+			n->alu_cell->setPort(TW::Y, n->y);
+			n->alu_cell->setPort(TW::X, module->addWire(NEW_TWINE, GetSize(n->y)));
+			n->alu_cell->setPort(TW::CO, module->addWire(NEW_TWINE, GetSize(n->y)));
 			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
 
 			for (auto &it : n->cmp)

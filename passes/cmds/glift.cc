@@ -189,7 +189,7 @@ private:
 			if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
 				const unsigned int NUM_PORTS = 3;
-				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::Y)};
+				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(TW::A), cell->getPort(TW::B), cell->getPort(TW::Y)};
 				RTLIL::SigSpec port_taints[NUM_PORTS];
 
 				if (ports[A].size() != 1 || ports[B].size() != 1 || ports[Y].size() != 1)
@@ -254,7 +254,7 @@ private:
 			else if (cell->type.in(ID($_XOR_), ID($_XNOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
 				const unsigned int NUM_PORTS = 3;
-				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::Y)};
+				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(TW::A), cell->getPort(TW::B), cell->getPort(TW::Y)};
 				RTLIL::SigSpec port_taints[NUM_PORTS];
 
 				if (ports[A].size() != 1 || ports[B].size() != 1 || ports[Y].size() != 1)
@@ -310,7 +310,7 @@ private:
 			else if (cell->type.in(ID($_MUX_), ID($_NMUX_))) {
 				const unsigned int A = 0, B = 1, S = 2, Y = 3;
 				const unsigned int NUM_PORTS = 4;
-				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::S), cell->getPort(ID::Y)};
+				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(TW::A), cell->getPort(TW::B), cell->getPort(TW::S), cell->getPort(TW::Y)};
 				RTLIL::SigSpec port_taints[NUM_PORTS];
 
 				if (ports[A].size() != 1 || ports[B].size() != 1 || ports[S].size() != 1 || ports[Y].size() != 1)
@@ -323,7 +323,7 @@ private:
 			else if (cell->type.in(ID($_NOT_))) {
 				const unsigned int A = 0, Y = 1;
 				const unsigned int NUM_PORTS = 2;
-				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::Y)};
+				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(TW::A), cell->getPort(TW::Y)};
 				RTLIL::SigSpec port_taints[NUM_PORTS];
 
 				if (ports[A].size() != 1 || ports[Y].size() != 1)

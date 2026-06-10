@@ -98,7 +98,7 @@ struct FsmOpt
 
 	void opt_const_and_unused_inputs()
 	{
-		RTLIL::SigSpec ctrl_in = cell->getPort(ID::CTRL_IN);
+		RTLIL::SigSpec ctrl_in = cell->getPort(TW::CTRL_IN);
 		std::vector<bool> ctrl_in_used(ctrl_in.size());
 
 		std::vector<FsmData::transition_t> new_transition_table;
@@ -119,15 +119,15 @@ struct FsmOpt
 
 		for (int i = int(ctrl_in_used.size())-1; i >= 0; i--) {
 			if (!ctrl_in_used[i]) {
-				log("  Removing unused input signal %s.\n", log_signal(cell->getPort(ID::CTRL_IN).extract(i, 1)));
+				log("  Removing unused input signal %s.\n", log_signal(cell->getPort(TW::CTRL_IN).extract(i, 1)));
 				for (auto &tr : new_transition_table) {
 					RTLIL::SigSpec tmp(tr.ctrl_in);
 					tmp.remove(i, 1);
 					tr.ctrl_in = tmp.as_const();
 				}
-				RTLIL::SigSpec new_ctrl_in = cell->getPort(ID::CTRL_IN);
+				RTLIL::SigSpec new_ctrl_in = cell->getPort(TW::CTRL_IN);
 				new_ctrl_in.remove(i, 1);
-				cell->setPort(ID::CTRL_IN, new_ctrl_in);
+				cell->setPort(TW::CTRL_IN, new_ctrl_in);
 				fsm_data.num_inputs--;
 			}
 		}
@@ -139,12 +139,12 @@ struct FsmOpt
 	void opt_unused_outputs()
 	{
 		for (int i = 0; i < fsm_data.num_outputs; i++) {
-			RTLIL::SigSpec sig = cell->getPort(ID::CTRL_OUT).extract(i, 1);
+			RTLIL::SigSpec sig = cell->getPort(TW::CTRL_OUT).extract(i, 1);
 			if (signal_is_unused(sig)) {
 				log("  Removing unused output signal %s.\n", log_signal(sig));
-				RTLIL::SigSpec new_ctrl_out = cell->getPort(ID::CTRL_OUT);
+				RTLIL::SigSpec new_ctrl_out = cell->getPort(TW::CTRL_OUT);
 				new_ctrl_out.remove(i, 1);
-				cell->setPort(ID::CTRL_OUT, new_ctrl_out);
+				cell->setPort(TW::CTRL_OUT, new_ctrl_out);
 				for (auto &tr : fsm_data.transition_table) {
 					RTLIL::SigSpec tmp(tr.ctrl_out);
 					tmp.remove(i, 1);

@@ -148,7 +148,7 @@ struct ExtractReducePass : public Pass
 
 						head_cell = x;
 
-						auto y = sigmap(x->getPort(ID::Y));
+						auto y = sigmap(x->getPort(TW::Y));
 						log_assert(y.size() == 1);
 
 						// Should only continue if there is one fanout back into a cell (not to a port)
@@ -166,7 +166,7 @@ struct ExtractReducePass : public Pass
 				{
 					//BFS, following all chains until they hit a cell of a different type
 					//Pick the longest one
-					auto y = sigmap(cell->getPort(ID::Y));
+					auto y = sigmap(cell->getPort(TW::Y));
 					pool<Cell*> current_loads = sig_to_sink[y];
 					pool<Cell*> next_loads;
 
@@ -183,7 +183,7 @@ struct ExtractReducePass : public Pass
 								continue;
 							}
 
-							auto xy = sigmap(x->getPort(ID::Y));
+							auto xy = sigmap(x->getPort(TW::Y));
 
 							//If this signal drives a port, add it to the sinks
 							//(even though it may not be the end of a chain)
@@ -256,7 +256,7 @@ struct ExtractReducePass : public Pass
 						// Worth it to create reduce cell
 						log("  Creating $reduce_* cell!\n");
 
-						SigBit output = sigmap(head_cell->getPort(ID::Y)[0]);
+						SigBit output = sigmap(head_cell->getPort(TW::Y)[0]);
 
 						SigSpec input;
 						for (auto it : sources) {

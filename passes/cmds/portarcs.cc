@@ -32,7 +32,7 @@ static RTLIL::SigBit canonical_bit(RTLIL::SigBit bit)
 	RTLIL::Wire *w;
 	while ((w = bit.wire) != NULL && !w->port_input &&
 			w->driverCell()->type.in(ID($buf), ID($_BUF_))) {
-		bit = w->driverCell()->getPort(ID::A)[bit.offset];
+		bit = w->driverCell()->getPort(TW::A)[bit.offset];
 	}
 	return bit;
 }
@@ -292,7 +292,7 @@ struct PortarcsPass : Pass {
 					int *p = annotations.at(canonical_bit(bit));
 					for (auto i = 0; i < inputs.size(); i++) {
 						if (p[i] >= 0) {
-							Cell *spec = m->addCell(NEW_ID, ID($specify2));
+							Cell *spec = m->addCell(NEW_TWINE, ID($specify2));
 							spec->setParam(ID::SRC_WIDTH, 1);
 							spec->setParam(ID::DST_WIDTH, 1);
 							spec->setParam(ID::T_FALL_MAX, p[i]);
@@ -304,9 +304,9 @@ struct PortarcsPass : Pass {
 							spec->setParam(ID::SRC_DST_POL, false);
 							spec->setParam(ID::SRC_DST_PEN, false);
 							spec->setParam(ID::FULL, false);
-							spec->setPort(ID::EN, Const(1, 1));
-							spec->setPort(ID::SRC, inputs[i]);
-							spec->setPort(ID::DST, bit);
+							spec->setPort(TW::EN, Const(1, 1));
+							spec->setPort(TW::SRC, inputs[i]);
+							spec->setPort(TW::DST, bit);
 						}
 					}
 				}

@@ -151,7 +151,7 @@ struct RomWorker
 		}
 
 		// Ok, let's do it.
-		SigSpec rdata = module->addWire(NEW_ID, GetSize(lhs));
+		SigSpec rdata = module->addWire(NEW_TWINE, GetSize(lhs));
 		Mem mem(module, NEW_ID, GetSize(lhs), 0, 1 << abits);
 		mem.attributes = sw->attributes;
 

@@ -35,12 +35,12 @@ struct FsmExpand
 	bool full_mode;
 
 	SigMap assign_map;
-	SigSet<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> sig2driver, sig2user;
+	SigSet<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> sig2driver, sig2user;
 	CellTypes ct;
 
-	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> merged_set;
-	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> current_set;
-	std::set<RTLIL::Cell*, RTLIL::sort_by_name_id<RTLIL::Cell>> no_candidate_set;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> merged_set;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> current_set;
+	std::set<RTLIL::Cell*, RTLIL::sort_by_name<RTLIL::Cell>> no_candidate_set;
 
 	bool already_optimized;
 	int limit_transitions;
@@ -51,38 +51,38 @@ struct FsmExpand
 			return true;
 
 		if (cell->type.in(ID($mux), ID($pmux)))
-			if (cell->getPort(ID::A).size() < 2)
+			if (cell->getPort(TW::A).size() < 2)
 				return true;
 
 		int in_bits = 0;
 		RTLIL::SigSpec new_signals;
 
 		if (cell->hasPort(ID::A)) {
-			in_bits += GetSize(cell->getPort(ID::A));
-			new_signals.append(assign_map(cell->getPort(ID::A)));
+			in_bits += GetSize(cell->getPort(TW::A));
+			new_signals.append(assign_map(cell->getPort(TW::A)));
 		}
 
 		if (cell->hasPort(ID::B)) {
-			in_bits += GetSize(cell->getPort(ID::B));
-			new_signals.append(assign_map(cell->getPort(ID::B)));
+			in_bits += GetSize(cell->getPort(TW::B));
+			new_signals.append(assign_map(cell->getPort(TW::B)));
 		}
 
 		if (cell->hasPort(ID::S)) {
-			in_bits += GetSize(cell->getPort(ID::S));
-			new_signals.append(assign_map(cell->getPort(ID::S)));
+			in_bits += GetSize(cell->getPort(TW::S));
+			new_signals.append(assign_map(cell->getPort(TW::S)));
 		}
 
 		if (in_bits > 8)
 			return false;
 
 		if (cell->hasPort(ID::Y))
-			new_signals.append(assign_map(cell->getPort(ID::Y)));
+			new_signals.append(assign_map(cell->getPort(TW::Y)));
 
 		new_signals.sort_and_unify();
 		new_signals.remove_const();
 
-		new_signals.remove(assign_map(fsm_cell->getPort(ID::CTRL_IN)));
-		new_signals.remove(assign_map(fsm_cell->getPort(ID::CTRL_OUT)));
+		new_signals.remove(assign_map(fsm_cell->getPort(TW::CTRL_IN)));
+		new_signals.remove(assign_map(fsm_cell->getPort(TW::CTRL_OUT)));
 
 		if (new_signals.size() > 3)
 			return false;
@@ -94,10 +94,10 @@ struct FsmExpand
 	{
 		std::vector<RTLIL::Cell*> cell_list;
 
-		for (auto c : sig2driver.find(assign_map(fsm_cell->getPort(ID::CTRL_IN))))
+		for (auto c : sig2driver.find(assign_map(fsm_cell->getPort(TW::CTRL_IN))))
 			cell_list.push_back(c);
 
-		for (auto c : sig2user.find(assign_map(fsm_cell->getPort(ID::CTRL_OUT))))
+		for (auto c : sig2user.find(assign_map(fsm_cell->getPort(TW::CTRL_OUT))))
 			cell_list.push_back(c);
 
 		current_set.clear();
@@ -160,11 +160,11 @@ struct FsmExpand
 			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
 			if (cell->hasPort(ID::A))
-				A = assign_map(cell->getPort(ID::A));
+				A = assign_map(cell->getPort(TW::A));
 			if (cell->hasPort(ID::B))
-				B = assign_map(cell->getPort(ID::B));
+				B = assign_map(cell->getPort(TW::B));
 			if (cell->hasPort(ID::S))
-				S = assign_map(cell->getPort(ID::S));
+				S = assign_map(cell->getPort(TW::S));
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));
 			S.replace(input_sig, RTLIL::SigSpec(in_val));
@@ -178,14 +178,14 @@ struct FsmExpand
 		fsm_data.copy_from_cell(fsm_cell);
 
 		fsm_data.num_inputs += input_sig.size();
-		RTLIL::SigSpec new_ctrl_in = fsm_cell->getPort(ID::CTRL_IN);
+		RTLIL::SigSpec new_ctrl_in = fsm_cell->getPort(TW::CTRL_IN);
 		new_ctrl_in.append(input_sig);
-		fsm_cell->setPort(ID::CTRL_IN, new_ctrl_in);
+		fsm_cell->setPort(TW::CTRL_IN, new_ctrl_in);
 
 		fsm_data.num_outputs += output_sig.size();
-		RTLIL::SigSpec new_ctrl_out = fsm_cell->getPort(ID::CTRL_OUT);
+		RTLIL::SigSpec new_ctrl_out = fsm_cell->getPort(TW::CTRL_OUT);
 		new_ctrl_out.append(output_sig);
-		fsm_cell->setPort(ID::CTRL_OUT, new_ctrl_out);
+		fsm_cell->setPort(TW::CTRL_OUT, new_ctrl_out);
 
 		if (GetSize(input_sig) > 10)
 			log_warning("Cell %s.%s (%s) has %d input bits, merging into FSM %s.%s might be problematic.\n",

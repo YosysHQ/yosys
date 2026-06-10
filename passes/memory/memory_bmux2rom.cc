@@ -50,7 +50,7 @@ struct MemoryBmux2RomPass : public Pass {
 				if (cell->type != ID($bmux))
 					continue;
 
-				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_a = cell->getPort(TW::A);
 				if (!sig_a.is_fully_const())
 					continue;
 
@@ -70,8 +70,8 @@ struct MemoryBmux2RomPass : public Pass {
 				mem.inits.push_back(std::move(init));
 
 				MemRd rd;
-				rd.addr = cell->getPort(ID::S);
-				rd.data = cell->getPort(ID::Y);
+				rd.addr = cell->getPort(TW::S);
+				rd.data = cell->getPort(TW::Y);
 				rd.init_value = Const(State::Sx, width);
 				rd.arst_value = Const(State::Sx, width);
 				rd.srst_value = Const(State::Sx, width);

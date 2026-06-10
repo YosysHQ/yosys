@@ -991,7 +991,7 @@ std::string cellname(RTLIL::Cell *cell)
 {
 	if (!norename && cell->name[0] == '$' && cell->is_builtin_ff() && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_)))
 	{
-		RTLIL::SigSpec sig = cell->getPort(ID::Q);
+		RTLIL::SigSpec sig = cell->getPort(TW::Q);
 		if (GetSize(sig) != 1 || sig.is_fully_const())
 			goto no_special_reg_name;
 
@@ -1026,7 +1026,7 @@ no_special_reg_name:
 void dump_cell_expr_uniop(std::ostream &f, std::string indent, RTLIL::Cell *cell, std::string op)
 {
 	f << stringf("%s" "assign ", indent);
-	dump_sigspec(f, cell->getPort(ID::Y));
+	dump_sigspec(f, cell->getPort(TW::Y));
 	f << stringf(" = %s ", op);
 	dump_attributes(f, "", cell->attributes, " ");
 	dump_cell_expr_port(f, cell, "A", true);
@@ -1036,7 +1036,7 @@ void dump_cell_expr_uniop(std::ostream &f, std::string indent, RTLIL::Cell *cell
 void dump_cell_expr_binop(std::ostream &f, std::string indent, RTLIL::Cell *cell, std::string op)
 {
 	f << stringf("%s" "assign ", indent);
-	dump_sigspec(f, cell->getPort(ID::Y));
+	dump_sigspec(f, cell->getPort(TW::Y));
 	f << stringf(" = ");
 	dump_cell_expr_port(f, cell, "A", true);
 	f << stringf(" %s ", op);
@@ -1100,7 +1100,7 @@ void dump_cell_expr_check(std::ostream &f, std::string indent, const RTLIL::Cell
 		f << stringf("%s" "%s" "cover (", indent, label);
 	else
 		log_abort();
-	dump_sigspec(f, cell->getPort(ID::A));
+	dump_sigspec(f, cell->getPort(TW::A));
 	f << stringf(");\n");
 }
 
@@ -1108,7 +1108,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 {
 	if (cell->type == ID($_NOT_)) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
 		f << stringf("~");
 		dump_attributes(f, "", cell->attributes, " ");
@@ -1118,9 +1118,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 
 	if (cell->type.in(ID($_BUF_), ID($buf))) {
-		if (cell->type == ID($buf) && cell->getPort(ID::A).has_const(State::Sz)) {
-			RTLIL::SigSpec a = cell->getPort(ID::A);
-			RTLIL::SigSpec y = cell->getPort(ID::Y);
+		if (cell->type == ID($buf) && cell->getPort(TW::A).has_const(State::Sz)) {
+			RTLIL::SigSpec a = cell->getPort(TW::A);
+			RTLIL::SigSpec y = cell->getPort(TW::Y);
 			a.extend_u0(GetSize(y));
 
 			if (a.has_const(State::Sz)) {
@@ -1146,7 +1146,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			return true;
 		}
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
 		dump_cell_expr_port(f, cell, "A", false);
 		f << stringf(";\n");
@@ -1155,7 +1155,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_))) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
 		if (cell->type.in(ID($_NAND_), ID($_NOR_), ID($_XNOR_)))
 			f << stringf("~(");
@@ -1180,7 +1180,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type == ID($_MUX_)) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
 		dump_cell_expr_port(f, cell, "S", false);
 		f << stringf(" ? ");
@@ -1194,7 +1194,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type == ID($_NMUX_)) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = !(");
 		dump_cell_expr_port(f, cell, "S", false);
 		f << stringf(" ? ");
@@ -1208,7 +1208,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($_AOI3_), ID($_OAI3_))) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
 		f << (cell->type == ID($_AOI3_) ? " & " : " | ");
@@ -1223,7 +1223,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($_AOI4_), ID($_OAI4_))) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
 		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
@@ -1295,15 +1295,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		// assign Y = $signed(_2_) / $signed(_1_);
 
 		if (cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) {
-			SigSpec sig_a = cell->getPort(ID::A);
-			SigSpec sig_b = cell->getPort(ID::B);
+			SigSpec sig_a = cell->getPort(TW::A);
+			SigSpec sig_b = cell->getPort(TW::B);
 
 			std::string buf_a = next_auto_id();
 			std::string buf_b = next_auto_id();
 			std::string buf_num = next_auto_id();
 			int size_a = GetSize(sig_a);
 			int size_b = GetSize(sig_b);
-			int size_y = GetSize(cell->getPort(ID::Y));
+			int size_y = GetSize(cell->getPort(TW::Y));
 			int size_max = std::max(size_a, std::max(size_b, size_y));
 
 			// intentionally one wider than maximum width
@@ -1329,7 +1329,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 
 			f << stringf("%s" "assign ", indent);
-			dump_sigspec(f, cell->getPort(ID::Y));
+			dump_sigspec(f, cell->getPort(TW::Y));
 			f << stringf(" = $signed(%s) / ", buf_num);
 			dump_attributes(f, "", cell->attributes, " ");
 			f << stringf("$signed(%s);\n", buf_b);
@@ -1347,11 +1347,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		// assign Y = (A[-1] == B[-1]) || truncated == 0 ? $signed(truncated) : $signed(B) + $signed(truncated);
 
 		if (cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) {
-			SigSpec sig_a = cell->getPort(ID::A);
-			SigSpec sig_b = cell->getPort(ID::B);
+			SigSpec sig_a = cell->getPort(TW::A);
+			SigSpec sig_b = cell->getPort(TW::B);
 
 			std::string temp_id = next_auto_id();
-			f << stringf("%s" "wire [%d:0] %s = ", indent, GetSize(cell->getPort(ID::A))-1, temp_id);
+			f << stringf("%s" "wire [%d:0] %s = ", indent, GetSize(cell->getPort(TW::A))-1, temp_id);
 			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" %% ");
 			dump_attributes(f, "", cell->attributes, " ");
@@ -1359,7 +1359,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf(";\n");
 
 			f << stringf("%s" "assign ", indent);
-			dump_sigspec(f, cell->getPort(ID::Y));
+			dump_sigspec(f, cell->getPort(TW::Y));
 			f << stringf(" = (");
 			dump_sigspec(f, sig_a.extract(sig_a.size()-1));
 			f << stringf(" == ");
@@ -1378,7 +1378,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($shift))
 	{
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
 		if (cell->getParam(ID::B_SIGNED).as_bool())
 		{
@@ -1386,17 +1386,17 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf(" < 0 ? ");
 			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" << - ");
-			dump_sigspec(f, cell->getPort(ID::B));
+			dump_sigspec(f, cell->getPort(TW::B));
 			f << stringf(" : ");
 			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" >> ");
-			dump_sigspec(f, cell->getPort(ID::B));
+			dump_sigspec(f, cell->getPort(TW::B));
 		}
 		else
 		{
 			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" >> ");
-			dump_sigspec(f, cell->getPort(ID::B));
+			dump_sigspec(f, cell->getPort(TW::B));
 		}
 		f << stringf(";\n");
 		return true;
@@ -1405,16 +1405,16 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($shiftx))
 	{
 		std::string temp_id = next_auto_id();
-		f << stringf("%s" "wire [%d:0] %s = ", indent, GetSize(cell->getPort(ID::A))-1, temp_id);
-		dump_sigspec(f, cell->getPort(ID::A));
+		f << stringf("%s" "wire [%d:0] %s = ", indent, GetSize(cell->getPort(TW::A))-1, temp_id);
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(";\n");
 
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = %s[", temp_id);
 		if (cell->getParam(ID::B_SIGNED).as_bool())
 			f << stringf("$signed(");
-		dump_sigspec(f, cell->getPort(ID::B));
+		dump_sigspec(f, cell->getPort(TW::B));
 		if (cell->getParam(ID::B_SIGNED).as_bool())
 			f << stringf(")");
 		f << stringf(" +: %d", cell->getParam(ID::Y_WIDTH).as_int());
@@ -1425,14 +1425,14 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($mux))
 	{
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
-		dump_sigspec(f, cell->getPort(ID::S));
+		dump_sigspec(f, cell->getPort(TW::S));
 		f << stringf(" ? ");
 		dump_attributes(f, "", cell->attributes, " ");
-		dump_sigspec(f, cell->getPort(ID::B));
+		dump_sigspec(f, cell->getPort(TW::B));
 		f << stringf(" : ");
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(";\n");
 		return true;
 	}
@@ -1440,7 +1440,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($pmux))
 	{
 		int width = cell->parameters[ID::WIDTH].as_int();
-		int s_width = cell->getPort(ID::S).size();
+		int s_width = cell->getPort(TW::S).size();
 		std::string func_name = cellname(cell);
 
 		f << stringf("%s" "function [%d:0] %s;\n", indent, width-1, func_name);
@@ -1486,13 +1486,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "endfunction\n", indent);
 
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = %s(", func_name);
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(", ");
-		dump_sigspec(f, cell->getPort(ID::B));
+		dump_sigspec(f, cell->getPort(TW::B));
 		f << stringf(", ");
-		dump_sigspec(f, cell->getPort(ID::S));
+		dump_sigspec(f, cell->getPort(TW::S));
 		f << stringf(");\n");
 		return true;
 	}
@@ -1500,11 +1500,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($tribuf))
 	{
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
-		dump_sigspec(f, cell->getPort(ID::EN));
+		dump_sigspec(f, cell->getPort(TW::EN));
 		f << stringf(" ? ");
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(" : %d'bz;\n", cell->parameters.at(ID::WIDTH).as_int());
 		return true;
 	}
@@ -1512,9 +1512,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($slice))
 	{
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(" >> %d;\n", cell->parameters.at(ID::OFFSET).as_int());
 		return true;
 	}
@@ -1522,11 +1522,11 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($concat))
 	{
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = { ");
-		dump_sigspec(f, cell->getPort(ID::B));
+		dump_sigspec(f, cell->getPort(TW::B));
 		f << stringf(" , ");
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(" };\n");
 		return true;
 	}
@@ -1534,12 +1534,12 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($lut))
 	{
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, cell->getPort(ID::Y));
+		dump_sigspec(f, cell->getPort(TW::Y));
 		f << stringf(" = ");
 		dump_const(f, cell->parameters.at(ID::LUT));
 		f << stringf(" >> ");
 		dump_attributes(f, "", cell->attributes, " ");
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(";\n");
 		return true;
 	}
@@ -1552,16 +1552,16 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int width = cell->getParam(ID::WIDTH).as_int() ;
 		if (width == 1) {
 			f << stringf("%s" "tran(", indent);
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_sigspec(f, cell->getPort(TW::A));
 			f << stringf(", ");
-			dump_sigspec(f, cell->getPort(ID::B));
+			dump_sigspec(f, cell->getPort(TW::B));
 			f << stringf(");\n");
 		} else {
 			auto tran_id = next_auto_id();
 			f << stringf("%s" "tran %s[%d:0](", indent, tran_id, width - 1);
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_sigspec(f, cell->getPort(TW::A));
 			f << stringf(", ");
-			dump_sigspec(f, cell->getPort(ID::B));
+			dump_sigspec(f, cell->getPort(TW::B));
 			f << stringf(");\n");
 		}
 		return true;
@@ -1794,9 +1794,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type.in(ID($assert), ID($assume), ID($cover)))
 	{
 		f << stringf("%s" "always%s if (", indent, systemverilog ? "_comb" : " @*");
-		dump_sigspec(f, cell->getPort(ID::EN));
+		dump_sigspec(f, cell->getPort(TW::EN));
 		f << stringf(") %s(", cell->type.c_str()+1);
-		dump_sigspec(f, cell->getPort(ID::A));
+		dump_sigspec(f, cell->getPort(TW::A));
 		f << stringf(");\n");
 		return true;
 	}
@@ -1805,10 +1805,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	{
 		f << stringf("%s" "specify\n%s  ", indent, indent);
 
-		SigSpec en = cell->getPort(ID::EN);
+		SigSpec en = cell->getPort(TW::EN);
 		if (en != State::S1) {
 			f << stringf("if (");
-			dump_sigspec(f, cell->getPort(ID::EN));
+			dump_sigspec(f, cell->getPort(TW::EN));
 			f << stringf(") ");
 		}
 
@@ -1816,7 +1816,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		if (cell->type == ID($specify3) && cell->getParam(ID::EDGE_EN).as_bool())
 			f << (cell->getParam(ID::EDGE_POL).as_bool() ? "posedge ": "negedge ");
 
-		dump_sigspec(f, cell->getPort(ID::SRC));
+		dump_sigspec(f, cell->getPort(TW::SRC));
 
 		f << " ";
 		if (cell->getParam(ID::SRC_DST_PEN).as_bool())
@@ -1825,15 +1825,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 		if (cell->type == ID($specify3)) {
 			f << "(";
-			dump_sigspec(f, cell->getPort(ID::DST));
+			dump_sigspec(f, cell->getPort(TW::DST));
 			f << " ";
 			if (cell->getParam(ID::DAT_DST_PEN).as_bool())
 				f << (cell->getParam(ID::DAT_DST_POL).as_bool() ? "+": "-");
 			f << ": ";
-			dump_sigspec(f, cell->getPort(ID::DAT));
+			dump_sigspec(f, cell->getPort(TW::DAT));
 			f << ")";
 		} else {
-			dump_sigspec(f, cell->getPort(ID::DST));
+			dump_sigspec(f, cell->getPort(TW::DST));
 		}
 
 		bool bak_decimal = decimal;
@@ -1868,21 +1868,21 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 		if (cell->getParam(ID::SRC_PEN).as_bool())
 			f << (cell->getParam(ID::SRC_POL).as_bool() ? "posedge ": "negedge ");
-		dump_sigspec(f, cell->getPort(ID::SRC));
+		dump_sigspec(f, cell->getPort(TW::SRC));
 
-		if (cell->getPort(ID::SRC_EN) != State::S1) {
+		if (cell->getPort(TW::SRC_EN) != State::S1) {
 			f << " &&& ";
-			dump_sigspec(f, cell->getPort(ID::SRC_EN));
+			dump_sigspec(f, cell->getPort(TW::SRC_EN));
 		}
 
 		f << ", ";
 		if (cell->getParam(ID::DST_PEN).as_bool())
 			f << (cell->getParam(ID::DST_POL).as_bool() ? "posedge ": "negedge ");
-		dump_sigspec(f, cell->getPort(ID::DST));
+		dump_sigspec(f, cell->getPort(TW::DST));
 
-		if (cell->getPort(ID::DST_EN) != State::S1) {
+		if (cell->getPort(TW::DST_EN) != State::S1) {
 			f << " &&& ";
-			dump_sigspec(f, cell->getPort(ID::DST_EN));
+			dump_sigspec(f, cell->getPort(TW::DST_EN));
 		}
 
 		bool bak_decimal = decimal;
@@ -1920,7 +1920,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "always @*\n", indent);
 
 		f << stringf("%s" "  if (", indent);
-		dump_sigspec(f, cell->getPort(ID::EN));
+		dump_sigspec(f, cell->getPort(TW::EN));
 		f << stringf(")\n");
 
 		dump_cell_expr_print(f, indent + "    ", cell);
@@ -1936,7 +1936,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "always @*\n", indent);
 
 		f << stringf("%s" "  if (", indent);
-		dump_sigspec(f, cell->getPort(ID::EN));
+		dump_sigspec(f, cell->getPort(TW::EN));
 		f << stringf(") begin\n");
 
 		std::string flavor = cell->getParam(ID::FLAVOR).decode_string();
@@ -1945,7 +1945,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			fmt.parse_rtlil(cell);
 			if (!fmt.parts.empty()) {
 				f << stringf("%s" "    if (!", indent);
-				dump_sigspec(f, cell->getPort(ID::A));
+				dump_sigspec(f, cell->getPort(TW::A));
 				f << stringf(")\n");
 				dump_cell_expr_print(f, indent + "      ", cell);
 			}
@@ -2047,7 +2047,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (siminit && cell->is_builtin_ff() && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_))) {
 		std::stringstream ss;
-		dump_reg_init(ss, cell->getPort(ID::Q));
+		dump_reg_init(ss, cell->getPort(TW::Q));
 		if (!ss.str().empty()) {
 			f << stringf("%sinitial %s.Q", indent, cell_name);
 			f << ss.str();
@@ -2079,7 +2079,7 @@ void dump_sync_effect(std::ostream &f, std::string indent, const RTLIL::SigSpec 
 	});
 	for (auto cell : cells) {
 		f << stringf("%s" "  if (", indent);
-		dump_sigspec(f, cell->getPort(ID::EN));
+		dump_sigspec(f, cell->getPort(TW::EN));
 		f << stringf(") begin\n");
 
 		if (cell->type == ID($print)) {
@@ -2091,7 +2091,7 @@ void dump_sync_effect(std::ostream &f, std::string indent, const RTLIL::SigSpec 
 				fmt.parse_rtlil(cell);
 				if (!fmt.parts.empty()) {
 					f << stringf("%s" "    if (!", indent);
-					dump_sigspec(f, cell->getPort(ID::A));
+					dump_sigspec(f, cell->getPort(TW::A));
 					f << stringf(")\n");
 					dump_cell_expr_print(f, indent + "      ", cell);
 				}
@@ -2402,14 +2402,14 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		for (auto cell : module->cells())
 		{
 			if (cell->type.in(ID($print), ID($check)) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
-				sync_effect_cells[make_pair(cell->getPort(ID::TRG), cell->getParam(ID::TRG_POLARITY))].push_back(cell);
+				sync_effect_cells[make_pair(cell->getPort(TW::TRG), cell->getParam(ID::TRG_POLARITY))].push_back(cell);
 				continue;
 			}
 
 			if (!cell->is_builtin_ff() || !cell->hasPort(ID::Q) || cell->type.in(ID($ff), ID($_FF_)))
 				continue;
 
-			RTLIL::SigSpec sig = cell->getPort(ID::Q);
+			RTLIL::SigSpec sig = cell->getPort(TW::Q);
 
 			if (sig.is_chunk()) {
 				RTLIL::SigChunk chunk = sig.as_chunk();

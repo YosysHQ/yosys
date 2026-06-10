@@ -193,8 +193,8 @@ struct XAigerWriter
 			if (!cell->has_keep_attr()) {
 				if (cell->type == ID($_NOT_))
 				{
-					SigBit A = sigmap(cell->getPort(ID::A).as_bit());
-					SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
+					SigBit A = sigmap(cell->getPort(TW::A).as_bit());
+					SigBit Y = sigmap(cell->getPort(TW::Y).as_bit());
 					unused_bits.erase(A);
 					undriven_bits.erase(Y);
 					not_map[Y] = A;
@@ -203,9 +203,9 @@ struct XAigerWriter
 
 				if (cell->type == ID($_AND_))
 				{
-					SigBit A = sigmap(cell->getPort(ID::A).as_bit());
-					SigBit B = sigmap(cell->getPort(ID::B).as_bit());
-					SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
+					SigBit A = sigmap(cell->getPort(TW::A).as_bit());
+					SigBit B = sigmap(cell->getPort(TW::B).as_bit());
+					SigBit Y = sigmap(cell->getPort(TW::Y).as_bit());
 					unused_bits.erase(A);
 					unused_bits.erase(B);
 					undriven_bits.erase(Y);
@@ -215,8 +215,8 @@ struct XAigerWriter
 
 				if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep))
 				{
-					SigBit D = sigmap(cell->getPort(ID::D).as_bit());
-					SigBit Q = sigmap(cell->getPort(ID::Q).as_bit());
+					SigBit D = sigmap(cell->getPort(TW::D).as_bit());
+					SigBit Q = sigmap(cell->getPort(TW::Q).as_bit());
 					unused_bits.erase(D);
 					undriven_bits.erase(Q);
 					alias_map[Q] = D;
@@ -413,7 +413,7 @@ struct XAigerWriter
 		}
 
 		for (auto cell : ff_list) {
-			const SigBit &q = sigmap(cell->getPort(ID::Q));
+			const SigBit &q = sigmap(cell->getPort(TW::Q));
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(q));
 			aig_map[q] = 2*aig_m;
@@ -461,7 +461,7 @@ struct XAigerWriter
 		}
 
 		for (auto cell : ff_list) {
-			const SigBit &d = sigmap(cell->getPort(ID::D));
+			const SigBit &d = sigmap(cell->getPort(TW::D));
 			aig_o++;
 			aig_outputs.push_back(aig_map.at(d));
 		}
@@ -605,10 +605,10 @@ struct XAigerWriter
 
 			dict<SigSpec, int> clk_to_mergeability;
 			for (const auto cell : ff_list) {
-				const SigBit &d = sigmap(cell->getPort(ID::D));
-				const SigBit &q = sigmap(cell->getPort(ID::Q));
+				const SigBit &d = sigmap(cell->getPort(TW::D));
+				const SigBit &q = sigmap(cell->getPort(TW::Q));
 
-				SigSpec clk_and_pol{sigmap(cell->getPort(ID::C)), cell->type[6] == 'P' ? State::S1 : State::S0};
+				SigSpec clk_and_pol{sigmap(cell->getPort(TW::C)), cell->type[6] == 'P' ? State::S1 : State::S0};
 				auto r = clk_to_mergeability.insert(std::make_pair(clk_and_pol, clk_to_mergeability.size()+1));
 				int mergeability = r.first->second;
 				log_assert(mergeability > 0);

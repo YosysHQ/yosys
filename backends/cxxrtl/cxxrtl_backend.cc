@@ -243,7 +243,7 @@ enum class CxxrtlPortType {
 	SYNC = 2,
 };
 
-CxxrtlPortType cxxrtl_port_type(RTLIL::Module *module, RTLIL::IdString port)
+CxxrtlPortType cxxrtl_port_type(RTLIL::Module *module, TwineRef port)
 {
 	RTLIL::Wire *output_wire = module->wire(port);
 	log_assert(output_wire != nullptr);
@@ -259,7 +259,7 @@ CxxrtlPortType cxxrtl_port_type(RTLIL::Module *module, RTLIL::IdString port)
 	return CxxrtlPortType::UNKNOWN;
 }
 
-CxxrtlPortType cxxrtl_port_type(const RTLIL::Cell *cell, RTLIL::IdString port)
+CxxrtlPortType cxxrtl_port_type(const RTLIL::Cell *cell, TwineRef port)
 {
 	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
 	if (cell_module == nullptr || !cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
@@ -267,12 +267,12 @@ CxxrtlPortType cxxrtl_port_type(const RTLIL::Cell *cell, RTLIL::IdString port)
 	return cxxrtl_port_type(cell_module, port);
 }
 
-bool is_cxxrtl_comb_port(const RTLIL::Cell *cell, RTLIL::IdString port)
+bool is_cxxrtl_comb_port(const RTLIL::Cell *cell, TwineRef port)
 {
 	return cxxrtl_port_type(cell, port) == CxxrtlPortType::COMB;
 }
 
-bool is_cxxrtl_sync_port(const RTLIL::Cell *cell, RTLIL::IdString port)
+bool is_cxxrtl_sync_port(const RTLIL::Cell *cell, TwineRef port)
 {
 	return cxxrtl_port_type(cell, port) == CxxrtlPortType::SYNC;
 }
@@ -1139,7 +1139,7 @@ struct CxxrtlWorker {
 			if (is_extending_cell(cell->type))
 				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u');
 			f << "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ")";
 		// Binary cells
 		} else if (is_binary_cell(cell->type)) {
@@ -1148,18 +1148,18 @@ struct CxxrtlWorker {
 				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
 				            (cell->getParam(ID::B_SIGNED).as_bool() ? 's' : 'u');
 			f << "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ", ";
-			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::B), for_debug);
 			f << ")";
 		// Muxes
 		} else if (cell->type == ID($mux)) {
 			f << "(";
-			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::S), for_debug);
 			f << " ? ";
-			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::B), for_debug);
 			f << " : ";
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ")";
 		// Parallel (one-hot) muxes
 		} else if (cell->type == ID($pmux)) {
@@ -1167,48 +1167,48 @@ struct CxxrtlWorker {
 			int s_width = cell->getParam(ID::S_WIDTH).as_int();
 			for (int part = 0; part < s_width; part++) {
 				f << "(";
-				dump_sigspec_rhs(cell->getPort(ID::S).extract(part), for_debug);
+				dump_sigspec_rhs(cell->getPort(TW::S).extract(part), for_debug);
 				f << " ? ";
-				dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width), for_debug);
+				dump_sigspec_rhs(cell->getPort(TW::B).extract(part * width, width), for_debug);
 				f << " : ";
 			}
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			for (int part = 0; part < s_width; part++) {
 				f << ")";
 			}
 		// Big muxes
 		} else if (cell->type == ID($bmux)) {
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ".bmux<";
 			f << cell->getParam(ID::WIDTH).as_int();
 			f << ">(";
-			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::S), for_debug);
 			f << ").val()";
 		// Bitwise muxes
 		} else if (cell->type == ID($bwmux)) {
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ".bwmux(";
-			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::B), for_debug);
 			f << ",";
-			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::S), for_debug);
 			f << ").val()";
 		// Demuxes
 		} else if (cell->type == ID($demux)) {
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ".demux<";
-			f << GetSize(cell->getPort(ID::Y));
+			f << GetSize(cell->getPort(TW::Y));
 			f << ">(";
-			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::S), for_debug);
 			f << ").val()";
 		// Concats
 		} else if (cell->type == ID($concat)) {
-			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::B), for_debug);
 			f << ".concat(";
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ").val()";
 		// Slices
 		} else if (cell->type == ID($slice)) {
-			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			dump_sigspec_rhs(cell->getPort(TW::A), for_debug);
 			f << ".slice<";
 			f << cell->getParam(ID::OFFSET).as_int() + cell->getParam(ID::Y_WIDTH).as_int() - 1;
 			f << ",";
@@ -1225,7 +1225,7 @@ struct CxxrtlWorker {
 		fmt.parse_rtlil(cell);
 
 		f << indent << "if (";
-		dump_sigspec_rhs(cell->getPort(ID::EN));
+		dump_sigspec_rhs(cell->getPort(TW::EN));
 		f << " == value<1>{1u}) {\n";
 		inc_indent();
 			dict<std::string, RTLIL::SigSpec> fmt_args;
@@ -1277,7 +1277,7 @@ struct CxxrtlWorker {
 		fmt.parse_rtlil(cell);
 
 		f << indent << "if (";
-		dump_sigspec_rhs(cell->getPort(ID::EN));
+		dump_sigspec_rhs(cell->getPort(TW::EN));
 		f << ") {\n";
 		inc_indent();
 			dict<std::string, RTLIL::SigSpec> fmt_args;
@@ -1309,7 +1309,7 @@ struct CxxrtlWorker {
 			}
 			if (cell->hasPort(ID::A)) {
 				f << indent << "bool condition = (bool)";
-				dump_sigspec_rhs(cell->getPort(ID::A));
+				dump_sigspec_rhs(cell->getPort(TW::A));
 				f << ";\n";
 			}
 			f << indent << "if (performer) {\n";
@@ -1366,7 +1366,7 @@ struct CxxrtlWorker {
 		// Elidable cells
 		if (is_inlinable_cell(cell->type)) {
 			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID::Y), for_debug);
+			dump_sigspec_lhs(cell->getPort(TW::Y), for_debug);
 			f << " = ";
 			dump_cell_expr(cell, for_debug);
 			f << ";\n";
@@ -1379,12 +1379,12 @@ struct CxxrtlWorker {
 
 			if (!cell->getParam(ID::TRG_ENABLE).as_bool()) { // async effectful cell
 				f << indent << "auto " << mangle(cell) << "_next = ";
-				dump_sigspec_rhs(cell->getPort(ID::EN));
+				dump_sigspec_rhs(cell->getPort(TW::EN));
 				f << ".concat(";
 				if (cell->type == ID($print))
-					dump_sigspec_rhs(cell->getPort(ID::ARGS));
+					dump_sigspec_rhs(cell->getPort(TW::ARGS));
 				else if (cell->type == ID($check))
-					dump_sigspec_rhs(cell->getPort(ID::A));
+					dump_sigspec_rhs(cell->getPort(TW::A));
 				else log_assert(false);
 				f << ").val();\n";
 
@@ -1406,9 +1406,9 @@ struct CxxrtlWorker {
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
 			// Clocks might be slices of larger signals but should only ever be single bit
-			if (cell->hasPort(ID::CLK) && is_valid_clock(cell->getPort(ID::CLK))) {
+			if (cell->hasPort(ID::CLK) && is_valid_clock(cell->getPort(TW::CLK))) {
 				// Edge-sensitive logic
-				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
+				RTLIL::SigBit clk_bit = cell->getPort(TW::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
 				if (clk_bit.wire) {
 					f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
@@ -1419,14 +1419,14 @@ struct CxxrtlWorker {
 				inc_indent();
 					if (cell->hasPort(ID::EN)) {
 						f << indent << "if (";
-						dump_sigspec_rhs(cell->getPort(ID::EN));
+						dump_sigspec_rhs(cell->getPort(TW::EN));
 						f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
 						inc_indent();
 					}
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID::Q));
+					dump_sigspec_lhs(cell->getPort(TW::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID::D));
+					dump_sigspec_rhs(cell->getPort(TW::D));
 					f << ";\n";
 					if (cell->hasPort(ID::EN) && cell->type != ID($sdffce)) {
 						dec_indent();
@@ -1434,11 +1434,11 @@ struct CxxrtlWorker {
 					}
 					if (cell->hasPort(ID::SRST)) {
 						f << indent << "if (";
-						dump_sigspec_rhs(cell->getPort(ID::SRST));
+						dump_sigspec_rhs(cell->getPort(TW::SRST));
 						f << " == value<1> {" << cell->getParam(ID::SRST_POLARITY).as_bool() << "u}) {\n";
 						inc_indent();
 							f << indent;
-							dump_sigspec_lhs(cell->getPort(ID::Q));
+							dump_sigspec_lhs(cell->getPort(TW::Q));
 							f << " = ";
 							dump_const(cell->getParam(ID::SRST_VALUE));
 							f << ";\n";
@@ -1454,13 +1454,13 @@ struct CxxrtlWorker {
 			} else if (cell->hasPort(ID::EN)) {
 				// Level-sensitive logic
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID::EN));
+				dump_sigspec_rhs(cell->getPort(TW::EN));
 				f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID::Q));
+					dump_sigspec_lhs(cell->getPort(TW::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID::D));
+					dump_sigspec_rhs(cell->getPort(TW::D));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
@@ -1468,11 +1468,11 @@ struct CxxrtlWorker {
 			if (cell->hasPort(ID::ARST)) {
 				// Asynchronous reset (entire coarse cell at once)
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID::ARST));
+				dump_sigspec_rhs(cell->getPort(TW::ARST));
 				f << " == value<1> {" << cell->getParam(ID::ARST_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID::Q));
+					dump_sigspec_lhs(cell->getPort(TW::Q));
 					f << " = ";
 					dump_const(cell->getParam(ID::ARST_VALUE));
 					f << ";\n";
@@ -1482,13 +1482,13 @@ struct CxxrtlWorker {
 			if (cell->hasPort(ID::ALOAD)) {
 				// Asynchronous load
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID::ALOAD));
+				dump_sigspec_rhs(cell->getPort(TW::ALOAD));
 				f << " == value<1> {" << cell->getParam(ID::ALOAD_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID::Q));
+					dump_sigspec_lhs(cell->getPort(TW::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID::AD));
+					dump_sigspec_rhs(cell->getPort(TW::AD));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
@@ -1496,25 +1496,25 @@ struct CxxrtlWorker {
 			if (cell->hasPort(ID::SET)) {
 				// Asynchronous set (for individual bits)
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID::Q));
+				dump_sigspec_lhs(cell->getPort(TW::Q));
 				f << " = ";
-				dump_sigspec_rhs(cell->getPort(ID::Q));
+				dump_sigspec_rhs(cell->getPort(TW::Q));
 				f << ".update(";
 				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID::SET));
+				dump_sigspec_rhs(cell->getPort(TW::SET));
 				f << (cell->getParam(ID::SET_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
 			if (cell->hasPort(ID::CLR)) {
 				// Asynchronous clear (for individual bits; priority over set)
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID::Q));
+				dump_sigspec_lhs(cell->getPort(TW::Q));
 				f << " = ";
-				dump_sigspec_rhs(cell->getPort(ID::Q));
+				dump_sigspec_rhs(cell->getPort(TW::Q));
 				f << ".update(";
 				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID::CLR));
+				dump_sigspec_rhs(cell->getPort(TW::CLR));
 				f << (cell->getParam(ID::CLR_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
 		// Internal cells
@@ -1788,7 +1788,7 @@ struct CxxrtlWorker {
 	void dump_cell_effect_sync(std::vector<const RTLIL::Cell*> &cells)
 	{
 		log_assert(!cells.empty());
-		const auto &trg = cells[0]->getPort(ID::TRG);
+		const auto &trg = cells[0]->getPort(TW::TRG);
 		const auto &trg_polarity = cells[0]->getParam(ID::TRG_POLARITY);
 
 		f << indent << "if (";
@@ -1813,7 +1813,7 @@ struct CxxrtlWorker {
 			});
 			for (auto cell : cells) {
 				log_assert(cell->getParam(ID::TRG_ENABLE).as_bool());
-				log_assert(cell->getPort(ID::TRG) == trg);
+				log_assert(cell->getPort(TW::TRG) == trg);
 				log_assert(cell->getParam(ID::TRG_POLARITY) == trg_polarity);
 
 				std::vector<const RTLIL::Cell*> inlined_cells;
@@ -2999,15 +2999,15 @@ struct CxxrtlWorker {
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
 				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
-					if (is_valid_clock(cell->getPort(ID::CLK)))
-						register_edge_signal(sigmap, cell->getPort(ID::CLK),
+					if (is_valid_clock(cell->getPort(TW::CLK)))
+						register_edge_signal(sigmap, cell->getPort(TW::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
 
 				// Effectful cells may be triggered on posedge/negedge events.
 				if (is_effectful_cell(cell->type) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
 					for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
-						RTLIL::SigBit trg = cell->getPort(ID::TRG).extract(i, 1);
+						RTLIL::SigBit trg = cell->getPort(TW::TRG).extract(i, 1);
 						if (is_valid_clock(trg))
 							register_edge_signal(sigmap, trg,
 								cell->parameters[ID::TRG_POLARITY][i] == RTLIL::S1 ? RTLIL::STp : RTLIL::STn);
@@ -3216,7 +3216,7 @@ struct CxxrtlWorker {
 							is_effectful_cell(node->cell->type) &&
 							node->cell->getParam(ID::TRG_ENABLE).as_bool() &&
 							node->cell->getParam(ID::TRG_WIDTH).as_int() != 0)
-						effect_sync_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
+						effect_sync_cells[make_pair(node->cell->getPort(TW::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
 					else
 						schedule[module].push_back(*node);
 				}

@@ -210,8 +210,8 @@ struct EquivMakeWorker
 					for (auto &bit : enc_result)
 						if (bit != State::S1) bit = State::S0;
 
-					SigSpec dec_eq = equiv_mod->addWire(NEW_ID);
-					SigSpec enc_eq = equiv_mod->addWire(NEW_ID);
+					SigSpec dec_eq = equiv_mod->addWire(NEW_TWINE);
+					SigSpec enc_eq = equiv_mod->addWire(NEW_TWINE);
 
 					equiv_mod->addEq(NEW_ID, reduced_dec_sig, reduced_dec_pat, dec_eq);
 					cells_list.push_back(equiv_mod->addEq(NEW_ID, reduced_enc_sig, reduced_enc_pat, enc_eq));
@@ -370,7 +370,7 @@ struct EquivMakeWorker
 				{
 					for (int i = 0; i < GetSize(gold_sig); i++)
 						if (gold_sig[i] != gate_sig[i]) {
-							Wire *w = equiv_mod->addWire(NEW_ID);
+							Wire *w = equiv_mod->addWire(NEW_TWINE);
 							equiv_mod->addEquiv(NEW_ID, gold_sig[i], gate_sig[i], w);
 							gold_sig[i] = w;
 						}

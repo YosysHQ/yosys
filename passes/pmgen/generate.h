@@ -131,7 +131,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 	for (auto mod : mods) {
 		Cell *c = m->addCell(mod->name, mod->name);
 		for (auto port : mod->ports) {
-			Wire *w = m->addWire(NEW_ID, GetSize(mod->wire(port)));
+			Wire *w = m->addWire(NEW_TWINE, GetSize(mod->wire(port)));
 			c->setPort(port, w);
 		}
 	}

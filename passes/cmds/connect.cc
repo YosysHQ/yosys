@@ -30,7 +30,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 {
 	CellTypes ct(design);
 
-	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
+	RTLIL::Wire *dummy_wire = module->addWire(NEW_TWINE, sig.size());
 
 	// (void)module->connections(); // trigger signorm flush
 

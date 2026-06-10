@@ -48,14 +48,14 @@ struct proc_dlatch_db_t
 		{
 			if (cell->type.in(ID($mux), ID($pmux), ID($bwmux)))
 			{
-				auto sig_y = sigmap(cell->getPort(ID::Y));
+				auto sig_y = sigmap(cell->getPort(TW::Y));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					mux_drivers[sig_y[i]] = pair<Cell*, int>(cell, i);
 
 				pool<SigBit> mux_srcbits_pool;
-				for (auto bit : sigmap(cell->getPort(ID::A)))
+				for (auto bit : sigmap(cell->getPort(TW::A)))
 					mux_srcbits_pool.insert(bit);
-				for (auto bit : sigmap(cell->getPort(ID::B)))
+				for (auto bit : sigmap(cell->getPort(TW::B)))
 					mux_srcbits_pool.insert(bit);
 
 				vector<SigBit> mux_srcbits_vec;
@@ -187,9 +187,9 @@ struct proc_dlatch_db_t
 
 		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
 		bool is_bwmux = (cell->type == ID($bwmux));
-		SigSpec sig_a = sigmap(cell->getPort(ID::A));
-		SigSpec sig_b = sigmap(cell->getPort(ID::B));
-		SigSpec sig_s = sigmap(cell->getPort(ID::S));
+		SigSpec sig_a = sigmap(cell->getPort(TW::A));
+		SigSpec sig_b = sigmap(cell->getPort(TW::B));
+		SigSpec sig_s = sigmap(cell->getPort(TW::S));
 		int width = GetSize(sig_a);
 
 		pool<int> children;
@@ -197,9 +197,9 @@ struct proc_dlatch_db_t
 		int n = find_mux_feedback(sig_a[index], needle, set_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == needle) {
-				SigSpec sig = cell->getPort(ID::A);
+				SigSpec sig = cell->getPort(TW::A);
 				sig[index] = State::Sx;
-				cell->setPort(ID::A, sig);
+				cell->setPort(TW::A, sig);
 			}
 			if (!is_bwmux) {
 				for (int i = 0; i < GetSize(sig_s); i++)
@@ -214,9 +214,9 @@ struct proc_dlatch_db_t
 			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
-					SigSpec sig = cell->getPort(ID::B);
+					SigSpec sig = cell->getPort(TW::B);
 					sig[i*width + index] = State::Sx;
-					cell->setPort(ID::B, sig);
+					cell->setPort(TW::B, sig);
 				}
 				children.insert(make_inner(sig_s[is_bwmux ? index : i], State::S1, n));
 			}
@@ -268,9 +268,9 @@ struct proc_dlatch_db_t
 
 	void fixup_mux(Cell *cell)
 	{
-		SigSpec sig_a = cell->getPort(ID::A);
-		SigSpec sig_b = cell->getPort(ID::B);
-		SigSpec sig_s = cell->getPort(ID::S);
+		SigSpec sig_a = cell->getPort(TW::A);
+		SigSpec sig_b = cell->getPort(TW::B);
+		SigSpec sig_s = cell->getPort(TW::S);
 		SigSpec sig_any_valid_b;
 
 		SigSpec sig_new_b, sig_new_s;
@@ -289,7 +289,7 @@ struct proc_dlatch_db_t
 		}
 
 		if (sig_a.is_fully_undef() && !sig_any_valid_b.empty())
-			cell->setPort(ID::A, sig_any_valid_b);
+			cell->setPort(TW::A, sig_any_valid_b);
 
 		if (GetSize(sig_new_s) == 1) {
 			cell->type = ID($mux);
@@ -299,8 +299,8 @@ struct proc_dlatch_db_t
 			cell->setParam(ID::S_WIDTH, GetSize(sig_new_s));
 		}
 
-		cell->setPort(ID::B, sig_new_b);
-		cell->setPort(ID::S, sig_new_s);
+		cell->setPort(TW::B, sig_new_b);
+		cell->setPort(TW::S, sig_new_s);
 	}
 
 	void fixup_muxes()

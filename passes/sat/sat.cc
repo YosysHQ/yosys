@@ -268,7 +268,7 @@ struct SatHelper
 			if (set_init_undef && satgen.def_formal)
 				for (auto cell : module->cells())
 					if (cell->type == ID($anyinit))
-						forced_def.append(sigmap(cell->getPort(ID::Q)));
+						forced_def.append(sigmap(cell->getPort(TW::Q)));
 
 			for (auto wire : module->wires())
 			{
@@ -1409,7 +1409,7 @@ struct SatPass : public Pass {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
 				if (cell->type == ID($dff) || cell->type.begins_with("$_DFF_"))
-					for (auto bit : cell->getPort(ID::Q))
+					for (auto bit : cell->getPort(TW::Q))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);
 			}

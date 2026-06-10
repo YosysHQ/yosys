@@ -135,11 +135,11 @@ struct MicrochipDffOptPass : public Pass {
 				if (cell->get_bool_attribute(ID::keep))
 					continue;
 				if (cell->type == ID(INV)) {
-					SigBit sigout = sigmap(cell->getPort(ID::Y));
-					SigBit sigin = sigmap(cell->getPort(ID::A));
+					SigBit sigout = sigmap(cell->getPort(TW::Y));
+					SigBit sigin = sigmap(cell->getPort(TW::A));
 					bit_to_lut[sigout] = make_pair(LutData(Const(1, 2), {sigin}), cell); // INIT = 01
 				} else if (cell->type.in(ID(CFG1), ID(CFG2), ID(CFG3), ID(CFG4))) {
-					SigBit sigout = sigmap(cell->getPort(ID::Y));
+					SigBit sigout = sigmap(cell->getPort(TW::Y));
 					const Const &init = cell->getParam(ID::INIT);
 					std::vector<SigBit> sigin;
 					sigin.push_back(sigmap(cell->getPort(ID(A))));
@@ -182,7 +182,7 @@ struct MicrochipDffOptPass : public Pass {
 				log_assert(!(has_s && has_r));
 
 				// Don't bother if D has more than one use.
-				SigBit sig_D = sigmap(cell->getPort(ID::D));
+				SigBit sig_D = sigmap(cell->getPort(TW::D));
 				if (bit_uses[sig_D] > 2)
 					continue;
 
@@ -201,7 +201,7 @@ struct MicrochipDffOptPass : public Pass {
 				bool worthy_post_r = false;
 
 				// First, unmap CE.
-				SigBit sig_Q = sigmap(cell->getPort(ID::Q));
+				SigBit sig_Q = sigmap(cell->getPort(TW::Q));
 				SigBit sig_CE = sigmap(cell->getPort(ID(EN)));
 				LutData lut_ce = LutData(Const(2, 2), {sig_CE}); // INIT = 10
 				auto it_CE = bit_to_lut.find(sig_CE);
@@ -309,25 +309,25 @@ struct MicrochipDffOptPass : public Pass {
 				Cell *lut_cell = nullptr;
 				switch (GetSize(final_lut.second)) {
 				case 1:
-					lut_cell = module->addCell(NEW_ID, ID(CFG1));
+					lut_cell = module->addCell(NEW_TWINE, ID(CFG1));
 					break;
 				case 2:
-					lut_cell = module->addCell(NEW_ID, ID(CFG2));
+					lut_cell = module->addCell(NEW_TWINE, ID(CFG2));
 					break;
 				case 3:
-					lut_cell = module->addCell(NEW_ID, ID(CFG3));
+					lut_cell = module->addCell(NEW_TWINE, ID(CFG3));
 					break;
 				case 4:
-					lut_cell = module->addCell(NEW_ID, ID(CFG4));
+					lut_cell = module->addCell(NEW_TWINE, ID(CFG4));
 					break;
 				default:
 					log_assert(!"unknown lut size");
 				}
 				lut_cell->attributes = cell_d->attributes;
-				Wire *lut_out = module->addWire(NEW_ID);
+				Wire *lut_out = module->addWire(NEW_TWINE);
 				lut_cell->setParam(ID::INIT, final_lut.first);
-				cell->setPort(ID::D, lut_out);
-				lut_cell->setPort(ID::Y, lut_out);
+				cell->setPort(TW::D, lut_out);
+				lut_cell->setPort(TW::Y, lut_out);
 				lut_cell->setPort(ID(A), final_lut.second[0]);
 				if (GetSize(final_lut.second) >= 2)
 					lut_cell->setPort(ID(B), final_lut.second[1]);

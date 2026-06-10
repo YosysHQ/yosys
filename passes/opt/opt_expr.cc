@@ -243,7 +243,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 			continue;
 
 		int group_size = GetSize(per_kind[kind]);
-		RTLIL::SigSpec new_y = patcher.addWire(NEW_ID, group_size);
+		RTLIL::SigSpec new_y = patcher.addWire(NEW_TWINE, group_size);
 		RTLIL::SigSpec new_a, new_b;
 
 		int slot = 0;
@@ -295,9 +295,9 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 				else if (new_a[j] == State::S0 || new_a[j] == State::S1) {
 					undef_a.append(new_a[j]);
 					if (cell->type == ID($xor))
-						undef_b.append(new_a[j] == State::S1 ? patcher.Not(NEW_ID, new_b[j]).as_bit() : new_b[j]);
+						undef_b.append(new_a[j] == State::S1 ? patcher.Not(NEW_TWINE, new_b[j]).as_bit() : new_b[j]);
 					else if (cell->type == ID($xnor))
-						undef_b.append(new_a[j] == State::S1 ? new_b[j] : patcher.Not(NEW_ID, new_b[j]).as_bit());
+						undef_b.append(new_a[j] == State::S1 ? new_b[j] : patcher.Not(NEW_TWINE, new_b[j]).as_bit());
 					else log_abort();
 					undef_y.append(new_y[j]);
 				}
@@ -324,7 +324,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 			new_y = std::move(def_y);
 		}
 
-		RTLIL::Cell *c = patcher.addCell(NEW_ID, cell->type);
+		RTLIL::Cell *c = patcher.addCell(NEW_TWINE, cell->type);
 
 		c->setPort(TW::A, new_a);
 		c->parameters[ID::A_WIDTH] = new_a.size();
@@ -687,7 +687,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						sig_y.append(RTLIL::Const(State::S0, width-1));
 						patcher.patch(cell, TW::Y, sig_y, "xor_buffer");
 					} else {
-						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
+						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_TWINE, sig_a) : patcher.Not(NEW_TWINE, sig_a);
 						sig_y.append(RTLIL::Const(State::S0, width-1));
 						patcher.patch(cell, TW::Y, sig_y, "xor_buffer");
 					}
@@ -699,7 +699,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						sig_y.append(RTLIL::Const(State::S1, width-1));
 						patcher.patch(cell, TW::Y, sig_y, "xnor_buffer");
 					} else {
-						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_ID, sig_a) : patcher.Not(NEW_ID, sig_a);
+						SigSpec sig_y = is_gate ? (SigSpec)patcher.NotGate(NEW_TWINE, sig_a) : patcher.Not(NEW_TWINE, sig_a);
 						sig_y.append(RTLIL::Const(State::S1, width-1));
 						patcher.patch(cell, TW::Y, sig_y, "xnor_buffer");
 					}
@@ -771,7 +771,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (!b_group_1.empty()) y_new_1 = b_group_1;
 					if (!b_group_x.empty()) {
 						if (keepdc)
-							y_new_x = patcher.And(NEW_ID, Const(State::Sx, GetSize(b_group_x)), b_group_x);
+							y_new_x = patcher.And(NEW_TWINE, Const(State::Sx, GetSize(b_group_x)), b_group_x);
 						else
 							y_new_x = Const(State::S0, GetSize(b_group_x));
 					}
@@ -780,16 +780,16 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (!b_group_1.empty()) y_new_1 = Const(State::S1, GetSize(b_group_1));
 					if (!b_group_x.empty()) {
 						if (keepdc)
-							y_new_x = patcher.Or(NEW_ID, Const(State::Sx, GetSize(b_group_x)), b_group_x);
+							y_new_x = patcher.Or(NEW_TWINE, Const(State::Sx, GetSize(b_group_x)), b_group_x);
 						else
 							y_new_x = Const(State::S1, GetSize(b_group_x));
 					}
 				} else if (cell->type.in(ID($xor), ID($xnor))) {
 					if (!b_group_0.empty()) y_new_0 = b_group_0;
-					if (!b_group_1.empty()) y_new_1 = patcher.Not(NEW_ID, b_group_1);
+					if (!b_group_1.empty()) y_new_1 = patcher.Not(NEW_TWINE, b_group_1);
 					if (!b_group_x.empty()) {
 						if (keepdc)
-							y_new_x = patcher.Xor(NEW_ID, Const(State::Sx, GetSize(b_group_x)), b_group_x);
+							y_new_x = patcher.Xor(NEW_TWINE, Const(State::Sx, GetSize(b_group_x)), b_group_x);
 						else // This should be fine even with keepdc, but opt_expr_xor.ys wants to keep the xor
 							y_new_x = Const(State::Sx, GetSize(b_group_x));
 					}
@@ -849,11 +849,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec y_new_0, y_new_1;
 
 				if (flip) {
-					if (!b_group_0.empty()) y_new_0 = patcher.And(NEW_ID, b_group_0, patcher.Not(NEW_ID, s_group_0));
-					if (!b_group_1.empty()) y_new_1 = patcher.Or(NEW_ID, b_group_1, s_group_1);
+					if (!b_group_0.empty()) y_new_0 = patcher.And(NEW_TWINE, b_group_0, patcher.Not(NEW_TWINE, s_group_0));
+					if (!b_group_1.empty()) y_new_1 = patcher.Or(NEW_TWINE, b_group_1, s_group_1);
 				} else {
-					if (!b_group_0.empty()) y_new_0 = patcher.And(NEW_ID, b_group_0, s_group_0);
-					if (!b_group_1.empty()) y_new_1 = patcher.Or(NEW_ID, b_group_1, patcher.Not(NEW_ID, s_group_1));
+					if (!b_group_0.empty()) y_new_0 = patcher.And(NEW_TWINE, b_group_0, s_group_0);
+					if (!b_group_1.empty()) y_new_1 = patcher.Or(NEW_TWINE, b_group_1, patcher.Not(NEW_TWINE, s_group_1));
 				}
 
 				RTLIL::SigSpec new_sig_y(width);
@@ -1059,12 +1059,12 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					RTLIL::SigBit a = sig_a[i];
 					if (b == ((bi ^ ci) ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], a);
-						module->connect(sig_x[i], ci ? module->Not(NEW_ID, a).as_bit() : a);
+						module->connect(sig_x[i], ci ? module->Not(NEW_TWINE, a).as_bit() : a);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else if (a == (ci ? State::S1 : State::S0)) {
-						module->connect(sig_y[i], bi ? module->Not(NEW_ID, b).as_bit() : b);
-						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID, b).as_bit() : b);
+						module->connect(sig_y[i], bi ? module->Not(NEW_TWINE, b).as_bit() : b);
+						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_TWINE, b).as_bit() : b);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else
@@ -1486,7 +1486,7 @@ skip_fine_alu:
 						/* sub, b is 0 */
 						RTLIL::SigSpec a = cell->getPort(TW::A);
 						a.extend_u0(y_width, is_signed);
-						new_x = patcher.Not(NEW_ID, a);
+						new_x = patcher.Not(NEW_TWINE, a);
 						new_co = RTLIL::Const(State::S1, y_width);
 						a_port = cell->getPort(TW::A);
 						a_port_signed = a_signed;
@@ -1503,8 +1503,8 @@ skip_fine_alu:
 					}
 
 					IdString new_type = arith_inverse ? ID($neg) : ID($pos);
-					SigSpec new_y = patcher.addWire(NEW_ID, y_width);
-					Cell *new_cell = patcher.addCell(NEW_ID, new_type);
+					SigSpec new_y = patcher.addWire(NEW_TWINE, y_width);
+					Cell *new_cell = patcher.addCell(NEW_TWINE, new_type);
 					new_cell->setPort(TW::A, a_port);
 					new_cell->setPort(TW::Y, new_y);
 					new_cell->setParam(ID::A_WIDTH, a_port_width);
@@ -1805,8 +1805,8 @@ skip_identity:
 					OptExprPatcher patcher(module, &assign_map);
 					int a_width = cell->parameters[ID::A_WIDTH].as_int();
 
-					SigSpec y_wire = patcher.addWire(NEW_ID, y_size);
-					Cell *mul = patcher.addCell(NEW_ID, ID($mul));
+					SigSpec y_wire = patcher.addWire(NEW_TWINE, y_size);
+					Cell *mul = patcher.addCell(NEW_TWINE, ID($mul));
 					mul->setPort(TW::A, Const(bit_idx, a_width));
 					mul->setPort(TW::B, cell->getPort(TW::B));
 					mul->setPort(TW::Y, y_wire);
@@ -1816,8 +1816,8 @@ skip_identity:
 					mul->parameters[ID::B_SIGNED] = cell->parameters[ID::B_SIGNED];
 					mul->parameters[ID::Y_WIDTH] = y_size;
 
-					SigSpec new_y = patcher.addWire(NEW_ID, y_size);
-					patcher.addShl(NEW_ID, Const(State::S1, 1), y_wire, new_y);
+					SigSpec new_y = patcher.addWire(NEW_TWINE, y_size);
+					patcher.addShl(NEW_TWINE, Const(State::S1, 1), y_wire, new_y);
 
 					patcher.patch(cell, TW::Y, new_y, "pow_to_mul_shl");
 					goto next_cell;
@@ -1954,13 +1954,13 @@ skip_identity:
 						// Truncating division is the same as flooring division, except when
 						// the result is negative and there is a remainder - then trunc = floor + 1
 						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0) {
-							Wire *flooring = module->addWire(NEW_ID, sig_y.size());
+							Wire *flooring = module->addWire(NEW_TWINE, sig_y.size());
 							cell->setPort(TW::Y, flooring);
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, exp));
-							SigSpec should_add = module->And(NEW_ID, a_sign, rem_nonzero);
-							module->addAdd(NEW_ID, flooring, should_add, sig_y);
+							SigSpec rem_nonzero = module->ReduceOr(NEW_TWINE, sig_a.extract(0, exp));
+							SigSpec should_add = module->And(NEW_TWINE, a_sign, rem_nonzero);
+							module->addAdd(NEW_TWINE, flooring, should_add, sig_y);
 						}
 
 						cell->check();
@@ -1980,8 +1980,8 @@ skip_identity:
 							SigSpec truncating = sig_a.extract(0, exp);
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = patcher.ReduceOr(NEW_ID, sig_a.extract(0, exp));
-							SigSpec extend_bit = patcher.And(NEW_ID, a_sign, rem_nonzero);
+							SigSpec rem_nonzero = patcher.ReduceOr(NEW_TWINE, sig_a.extract(0, exp));
+							SigSpec extend_bit = patcher.And(NEW_TWINE, a_sign, rem_nonzero);
 
 							truncating.append(extend_bit);
 							SigSpec new_y = truncating;
@@ -2071,11 +2071,11 @@ skip_identity:
 				int sz = cur - prev;
 				bool last = cur == GetSize(sig_y);
 
-				SigSpec slice_y = patcher.addWire(NEW_ID, sz);
-				SigSpec slice_x = patcher.addWire(NEW_ID, sz);
-				SigSpec slice_co = patcher.addWire(NEW_ID, sz);
+				SigSpec slice_y = patcher.addWire(NEW_TWINE, sz);
+				SigSpec slice_x = patcher.addWire(NEW_TWINE, sz);
+				SigSpec slice_co = patcher.addWire(NEW_TWINE, sz);
 
-				RTLIL::Cell *c = patcher.addCell(NEW_ID, cell->type);
+				RTLIL::Cell *c = patcher.addCell(NEW_TWINE, cell->type);
 				c->setPort(TW::A, sig_a.extract(prev, sz));
 				c->setPort(TW::B, sig_b.extract(prev, sz));
 				c->setPort(TW::BI, sig_bi);
@@ -2248,14 +2248,14 @@ skip_alu_split:
 						{
 							condition   = stringf("unsigned X<%s", log_signal(const_sig));
 							replacement = stringf("!X[%d:%d]", var_width - 1, const_bit_hot);
-							replace_sig[0] = patcher.LogicNot(NEW_ID, var_high_sig).as_bit();
+							replace_sig[0] = patcher.LogicNot(NEW_TWINE, var_high_sig).as_bit();
 							replace = true;
 						}
 						if (cmp_type == ID($ge))
 						{
 							condition   = stringf("unsigned X>=%s", log_signal(const_sig));
 							replacement = stringf("|X[%d:%d]", var_width - 1, const_bit_hot);
-							replace_sig[0] = patcher.ReduceOr(NEW_ID, var_high_sig).as_bit();
+							replace_sig[0] = patcher.ReduceOr(NEW_TWINE, var_high_sig).as_bit();
 							replace = true;
 						}
 					}
@@ -2297,7 +2297,7 @@ skip_alu_split:
 					{
 						condition   = "signed X>=0";
 						replacement = stringf("X[%d]", var_width - 1);
-						replace_sig[0] = patcher.LogicNot(NEW_ID, var_sig[var_width - 1]).as_bit();
+						replace_sig[0] = patcher.LogicNot(NEW_TWINE, var_sig[var_width - 1]).as_bit();
 						replace = true;
 					}
 				}

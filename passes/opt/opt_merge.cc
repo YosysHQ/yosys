@@ -298,7 +298,7 @@ struct OptMergeWorker
 			for (auto [remove_cell, keep_cell] : cell_ptrs)
 			{
 				log_debug("  Cell `%s' is identical to cell `%s'.\n", remove_cell->name, keep_cell->name);
-				std::vector<std::pair<RTLIL::IdString, RTLIL::SigSpec>> port_replacements;
+				std::vector<std::pair<TwineRef, RTLIL::SigSpec>> port_replacements;
 				for (auto &it : remove_cell->connections()) {
 					if (remove_cell->output(it.first)) {
 						RTLIL::SigSpec keep_sig = keep_cell->getPort(it.first);

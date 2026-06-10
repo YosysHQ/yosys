@@ -147,7 +147,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 			SigSpec w = miter_module->addWire("\\cross_" + gold_wire->name.unescape(), gold_wire->width);
 			gold_cell->setPort(gold_wire->name, w);
 			if (flag_ignore_gold_x) {
-				RTLIL::SigSpec w_x = miter_module->addWire(NEW_ID, GetSize(w));
+				RTLIL::SigSpec w_x = miter_module->addWire(NEW_TWINE, GetSize(w));
 				for (int i = 0; i < GetSize(w); i++)
 					miter_module->addEqx(NEW_ID, w[i], State::Sx, w_x[i]);
 				RTLIL::SigSpec w_any = miter_module->And(NEW_ID, miter_module->Anyseq(NEW_ID, GetSize(w)), w_x);
@@ -182,65 +182,65 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 
 			if (flag_ignore_gold_x)
 			{
-				RTLIL::SigSpec gold_x = miter_module->addWire(NEW_ID, w_gold->width);
+				RTLIL::SigSpec gold_x = miter_module->addWire(NEW_TWINE, w_gold->width);
 				for (int i = 0; i < w_gold->width; i++) {
-					RTLIL::Cell *eqx_cell = miter_module->addCell(NEW_ID, ID($eqx));
+					RTLIL::Cell *eqx_cell = miter_module->addCell(NEW_TWINE, ID($eqx));
 					eqx_cell->parameters[ID::A_WIDTH] = 1;
 					eqx_cell->parameters[ID::B_WIDTH] = 1;
 					eqx_cell->parameters[ID::Y_WIDTH] = 1;
 					eqx_cell->parameters[ID::A_SIGNED] = 0;
 					eqx_cell->parameters[ID::B_SIGNED] = 0;
-					eqx_cell->setPort(ID::A, RTLIL::SigSpec(w_gold, i));
-					eqx_cell->setPort(ID::B, RTLIL::State::Sx);
-					eqx_cell->setPort(ID::Y, gold_x.extract(i, 1));
+					eqx_cell->setPort(TW::A, RTLIL::SigSpec(w_gold, i));
+					eqx_cell->setPort(TW::B, RTLIL::State::Sx);
+					eqx_cell->setPort(TW::Y, gold_x.extract(i, 1));
 				}
 
-				RTLIL::SigSpec gold_masked = miter_module->addWire(NEW_ID, w_gold->width);
-				RTLIL::SigSpec gate_masked = miter_module->addWire(NEW_ID, w_gate->width);
+				RTLIL::SigSpec gold_masked = miter_module->addWire(NEW_TWINE, w_gold->width);
+				RTLIL::SigSpec gate_masked = miter_module->addWire(NEW_TWINE, w_gate->width);
 
-				RTLIL::Cell *or_gold_cell = miter_module->addCell(NEW_ID, ID($or));
+				RTLIL::Cell *or_gold_cell = miter_module->addCell(NEW_TWINE, ID($or));
 				or_gold_cell->parameters[ID::A_WIDTH] = w_gold->width;
 				or_gold_cell->parameters[ID::B_WIDTH] = w_gold->width;
 				or_gold_cell->parameters[ID::Y_WIDTH] = w_gold->width;
 				or_gold_cell->parameters[ID::A_SIGNED] = 0;
 				or_gold_cell->parameters[ID::B_SIGNED] = 0;
-				or_gold_cell->setPort(ID::A, w_gold);
-				or_gold_cell->setPort(ID::B, gold_x);
-				or_gold_cell->setPort(ID::Y, gold_masked);
+				or_gold_cell->setPort(TW::A, w_gold);
+				or_gold_cell->setPort(TW::B, gold_x);
+				or_gold_cell->setPort(TW::Y, gold_masked);
 
-				RTLIL::Cell *or_gate_cell = miter_module->addCell(NEW_ID, ID($or));
+				RTLIL::Cell *or_gate_cell = miter_module->addCell(NEW_TWINE, ID($or));
 				or_gate_cell->parameters[ID::A_WIDTH] = w_gate->width;
 				or_gate_cell->parameters[ID::B_WIDTH] = w_gate->width;
 				or_gate_cell->parameters[ID::Y_WIDTH] = w_gate->width;
 				or_gate_cell->parameters[ID::A_SIGNED] = 0;
 				or_gate_cell->parameters[ID::B_SIGNED] = 0;
-				or_gate_cell->setPort(ID::A, w_gate);
-				or_gate_cell->setPort(ID::B, gold_x);
-				or_gate_cell->setPort(ID::Y, gate_masked);
+				or_gate_cell->setPort(TW::A, w_gate);
+				or_gate_cell->setPort(TW::B, gold_x);
+				or_gate_cell->setPort(TW::Y, gate_masked);
 
-				RTLIL::Cell *eq_cell = miter_module->addCell(NEW_ID, ID($eqx));
+				RTLIL::Cell *eq_cell = miter_module->addCell(NEW_TWINE, ID($eqx));
 				eq_cell->parameters[ID::A_WIDTH] = w_gold->width;
 				eq_cell->parameters[ID::B_WIDTH] = w_gate->width;
 				eq_cell->parameters[ID::Y_WIDTH] = 1;
 				eq_cell->parameters[ID::A_SIGNED] = 0;
 				eq_cell->parameters[ID::B_SIGNED] = 0;
-				eq_cell->setPort(ID::A, gold_masked);
-				eq_cell->setPort(ID::B, gate_masked);
-				eq_cell->setPort(ID::Y, miter_module->addWire(NEW_ID));
-				this_condition = eq_cell->getPort(ID::Y);
+				eq_cell->setPort(TW::A, gold_masked);
+				eq_cell->setPort(TW::B, gate_masked);
+				eq_cell->setPort(TW::Y, miter_module->addWire(NEW_TWINE));
+				this_condition = eq_cell->getPort(TW::Y);
 			}
 			else
 			{
-				RTLIL::Cell *eq_cell = miter_module->addCell(NEW_ID, ID($eqx));
+				RTLIL::Cell *eq_cell = miter_module->addCell(NEW_TWINE, ID($eqx));
 				eq_cell->parameters[ID::A_WIDTH] = w_gold->width;
 				eq_cell->parameters[ID::B_WIDTH] = w_gate->width;
 				eq_cell->parameters[ID::Y_WIDTH] = 1;
 				eq_cell->parameters[ID::A_SIGNED] = 0;
 				eq_cell->parameters[ID::B_SIGNED] = 0;
-				eq_cell->setPort(ID::A, w_gold);
-				eq_cell->setPort(ID::B, w_gate);
-				eq_cell->setPort(ID::Y, miter_module->addWire(NEW_ID));
-				this_condition = eq_cell->getPort(ID::Y);
+				eq_cell->setPort(TW::A, w_gold);
+				eq_cell->setPort(TW::B, w_gate);
+				eq_cell->setPort(TW::Y, miter_module->addWire(NEW_TWINE));
+				this_condition = eq_cell->getPort(TW::Y);
 			}
 
 			if (flag_make_outcmp)
@@ -261,31 +261,31 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	}
 
 	if (all_conditions.size() != 1) {
-		RTLIL::Cell *reduce_cell = miter_module->addCell(NEW_ID, ID($reduce_and));
+		RTLIL::Cell *reduce_cell = miter_module->addCell(NEW_TWINE, ID($reduce_and));
 		reduce_cell->parameters[ID::A_WIDTH] = all_conditions.size();
 		reduce_cell->parameters[ID::Y_WIDTH] = 1;
 		reduce_cell->parameters[ID::A_SIGNED] = 0;
-		reduce_cell->setPort(ID::A, all_conditions);
-		reduce_cell->setPort(ID::Y, miter_module->addWire(NEW_ID));
-		all_conditions = reduce_cell->getPort(ID::Y);
+		reduce_cell->setPort(TW::A, all_conditions);
+		reduce_cell->setPort(TW::Y, miter_module->addWire(NEW_TWINE));
+		all_conditions = reduce_cell->getPort(TW::Y);
 	}
 
 	if (flag_make_assert) {
-		RTLIL::Cell *assert_cell = miter_module->addCell(NEW_ID, ID($assert));
-		assert_cell->setPort(ID::A, all_conditions);
-		assert_cell->setPort(ID::EN, State::S1);
+		RTLIL::Cell *assert_cell = miter_module->addCell(NEW_TWINE, ID($assert));
+		assert_cell->setPort(TW::A, all_conditions);
+		assert_cell->setPort(TW::EN, State::S1);
 	}
 
 	RTLIL::Wire *w_trigger = miter_module->addWire(ID(trigger));
 	w_trigger->port_output = true;
 
-	RTLIL::Cell *not_cell = miter_module->addCell(NEW_ID, ID($not));
+	RTLIL::Cell *not_cell = miter_module->addCell(NEW_TWINE, ID($not));
 	not_cell->parameters[ID::A_WIDTH] = all_conditions.size();
 	not_cell->parameters[ID::A_WIDTH] = all_conditions.size();
 	not_cell->parameters[ID::Y_WIDTH] = w_trigger->width;
 	not_cell->parameters[ID::A_SIGNED] = 0;
-	not_cell->setPort(ID::A, all_conditions);
-	not_cell->setPort(ID::Y, w_trigger);
+	not_cell->setPort(TW::A, all_conditions);
+	not_cell->setPort(TW::Y, w_trigger);
 
 	miter_module->fixup_ports();
 
@@ -356,8 +356,8 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 		if (!cell->type.in(ID($assert), ID($assume)))
 			continue;
 
-		SigBit is_active = module->Nex(NEW_ID, cell->getPort(ID::A), State::S1);
-		SigBit is_enabled = module->Eqx(NEW_ID, cell->getPort(ID::EN), State::S1);
+		SigBit is_active = module->Nex(NEW_ID, cell->getPort(TW::A), State::S1);
+		SigBit is_enabled = module->Eqx(NEW_ID, cell->getPort(TW::EN), State::S1);
 
 		if (cell->type == ID($assert)) {
 			assert_signals.append(module->And(NEW_ID, is_active, is_enabled));
@@ -374,7 +374,7 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 	}
 	else
 	{
-		Wire *assume_q = module->addWire(NEW_ID);
+		Wire *assume_q = module->addWire(NEW_TWINE);
 		assume_q->attributes[ID::init] = State::S0;
 		assume_signals.append(assume_q);
 

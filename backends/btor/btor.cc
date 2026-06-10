@@ -271,8 +271,8 @@ struct BtorWorker
 			if (cell->type.in(ID($xnor), ID($_XNOR_))) btor_op = "xnor";
 			log_assert(!btor_op.empty());
 
-			int width_ay = std::max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::Y)));
-			int width = std::max(width_ay, GetSize(cell->getPort(ID::B)));
+			int width_ay = std::max(GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::Y)));
+			int width = std::max(width_ay, GetSize(cell->getPort(TW::B)));
 
 			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
 			bool b_signed = cell->hasParam(ID::B_SIGNED) ? cell->getParam(ID::B_SIGNED).as_bool() : false;
@@ -292,17 +292,17 @@ struct BtorWorker
 			int nid_a;
 			if (cell->type.in(ID($shl), ID($shr), ID($shift), ID($shiftx)) && a_signed && width_ay < width) {
 				// sign-extend A up to the width of Y
-				int nid_a_padded = get_sig_nid(cell->getPort(ID::A), width_ay, a_signed);
+				int nid_a_padded = get_sig_nid(cell->getPort(TW::A), width_ay, a_signed);
 
 				// zero-extend the rest
 				int zeroes = get_sig_nid(Const(0, width-width_ay));
 				nid_a = next_nid++;
 				btorf("%d concat %d %d %d\n", nid_a, sid, zeroes, nid_a_padded);
 			} else {
-				nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
+				nid_a = get_sig_nid(cell->getPort(TW::A), width, a_signed);
 			}
 
-			int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
+			int nid_b = get_sig_nid(cell->getPort(TW::B), width, b_signed);
 
 			if (btor_op == "shift")
 			{
@@ -329,7 +329,7 @@ struct BtorWorker
 				btorf("%d %s %d %d %d%s\n", nid, btor_op, sid, nid_a, nid_b, getinfo(cell));
 			}
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 
 			if (GetSize(sig) < width) {
 				int sid = get_bv_sid(GetSize(sig));
@@ -358,18 +358,18 @@ struct BtorWorker
 			}
 			log_assert(!btor_op.empty());
 
-			int width = GetSize(cell->getPort(ID::Y));
-			width = std::max(width, GetSize(cell->getPort(ID::A)));
-			width = std::max(width, GetSize(cell->getPort(ID::B)));
+			int width = GetSize(cell->getPort(TW::Y));
+			width = std::max(width, GetSize(cell->getPort(TW::A)));
+			width = std::max(width, GetSize(cell->getPort(TW::B)));
 
-			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
-			int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
+			int nid_a = get_sig_nid(cell->getPort(TW::A), width, a_signed);
+			int nid_b = get_sig_nid(cell->getPort(TW::B), width, b_signed);
 
 			int sid = get_bv_sid(width);
 			int nid = next_nid++;
 			btorf("%d %c%s %d %d %d%s\n", nid, a_signed || b_signed ? 's' : 'u', btor_op, sid, nid_a, nid_b, getinfo(cell));
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 
 			if (GetSize(sig) < width) {
 				int sid = get_bv_sid(GetSize(sig));
@@ -385,8 +385,8 @@ struct BtorWorker
 		if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
 		{
 			int sid = get_bv_sid(1);
-			int nid_a = get_sig_nid(cell->getPort(ID::A));
-			int nid_b = get_sig_nid(cell->getPort(ID::B));
+			int nid_a = get_sig_nid(cell->getPort(TW::A));
+			int nid_b = get_sig_nid(cell->getPort(TW::B));
 
 			int nid1 = next_nid++;
 			int nid2 = next_nid++;
@@ -401,7 +401,7 @@ struct BtorWorker
 				btorf("%d or %d %d %d%s\n", nid2, sid, nid_a, nid1, getinfo(cell));
 			}
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 			add_nid_sig(nid2, sig);
 			goto okay;
 		}
@@ -409,9 +409,9 @@ struct BtorWorker
 		if (cell->type.in(ID($_OAI3_), ID($_AOI3_)))
 		{
 			int sid = get_bv_sid(1);
-			int nid_a = get_sig_nid(cell->getPort(ID::A));
-			int nid_b = get_sig_nid(cell->getPort(ID::B));
-			int nid_c = get_sig_nid(cell->getPort(ID::C));
+			int nid_a = get_sig_nid(cell->getPort(TW::A));
+			int nid_b = get_sig_nid(cell->getPort(TW::B));
+			int nid_c = get_sig_nid(cell->getPort(TW::C));
 
 			int nid1 = next_nid++;
 			int nid2 = next_nid++;
@@ -429,7 +429,7 @@ struct BtorWorker
 				btorf("%d not %d %d%s\n", nid3, sid, nid2, getinfo(cell));
 			}
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 			add_nid_sig(nid3, sig);
 			goto okay;
 		}
@@ -437,10 +437,10 @@ struct BtorWorker
 		if (cell->type.in(ID($_OAI4_), ID($_AOI4_)))
 		{
 			int sid = get_bv_sid(1);
-			int nid_a = get_sig_nid(cell->getPort(ID::A));
-			int nid_b = get_sig_nid(cell->getPort(ID::B));
-			int nid_c = get_sig_nid(cell->getPort(ID::C));
-			int nid_d = get_sig_nid(cell->getPort(ID::D));
+			int nid_a = get_sig_nid(cell->getPort(TW::A));
+			int nid_b = get_sig_nid(cell->getPort(TW::B));
+			int nid_c = get_sig_nid(cell->getPort(TW::C));
+			int nid_d = get_sig_nid(cell->getPort(TW::D));
 
 			int nid1 = next_nid++;
 			int nid2 = next_nid++;
@@ -461,7 +461,7 @@ struct BtorWorker
 				btorf("%d not %d %d%s\n", nid4, sid, nid3, getinfo(cell));
 			}
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 			add_nid_sig(nid4, sig);
 			goto okay;
 		}
@@ -478,15 +478,15 @@ struct BtorWorker
 			log_assert(!btor_op.empty());
 
 			int width = 1;
-			width = std::max(width, GetSize(cell->getPort(ID::A)));
-			width = std::max(width, GetSize(cell->getPort(ID::B)));
+			width = std::max(width, GetSize(cell->getPort(TW::A)));
+			width = std::max(width, GetSize(cell->getPort(TW::B)));
 
 			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
 			bool b_signed = cell->hasParam(ID::B_SIGNED) ? cell->getParam(ID::B_SIGNED).as_bool() : false;
 
 			int sid = get_bv_sid(1);
-			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
-			int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
+			int nid_a = get_sig_nid(cell->getPort(TW::A), width, a_signed);
+			int nid_b = get_sig_nid(cell->getPort(TW::B), width, b_signed);
 
 			int nid = next_nid++;
 			if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt))) {
@@ -495,7 +495,7 @@ struct BtorWorker
 				btorf("%d %s %d %d %d%s\n", nid, btor_op, sid, nid_a, nid_b, getinfo(cell));
 			}
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 
 			if (GetSize(sig) > 1) {
 				int sid = get_bv_sid(GetSize(sig));
@@ -514,11 +514,11 @@ struct BtorWorker
 			if (cell->type.in(ID($not), ID($_NOT_))) btor_op = "not";
 			if (cell->type == ID($neg)) btor_op = "neg";
 
-			int width = std::max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::Y)));
+			int width = std::max(GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::Y)));
 
 			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
-			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			int nid_a = get_sig_nid(cell->getPort(TW::A), width, a_signed);
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 
 			// the $pos/$buf cells just pass through, all other cells need an actual operation applied
 			int nid = nid_a;
@@ -550,16 +550,16 @@ struct BtorWorker
 			log_assert(!btor_op.empty());
 
 			int sid = get_bv_sid(1);
-			int nid_a = get_sig_nid(cell->getPort(ID::A));
-			int nid_b = btor_op != "not" ? get_sig_nid(cell->getPort(ID::B)) : 0;
+			int nid_a = get_sig_nid(cell->getPort(TW::A));
+			int nid_b = btor_op != "not" ? get_sig_nid(cell->getPort(TW::B)) : 0;
 
-			if (GetSize(cell->getPort(ID::A)) > 1) {
+			if (GetSize(cell->getPort(TW::A)) > 1) {
 				int nid_red_a = next_nid++;
 				btorf("%d redor %d %d\n", nid_red_a, sid, nid_a);
 				nid_a = nid_red_a;
 			}
 
-			if (btor_op != "not" && GetSize(cell->getPort(ID::B)) > 1) {
+			if (btor_op != "not" && GetSize(cell->getPort(TW::B)) > 1) {
 				int nid_red_b = next_nid++;
 				btorf("%d redor %d %d\n", nid_red_b, sid, nid_b);
 				nid_b = nid_red_b;
@@ -571,7 +571,7 @@ struct BtorWorker
 			else
 				btorf("%d %s %d %d%s\n", nid, btor_op, sid, nid_a, getinfo(cell));
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 
 			if (GetSize(sig) > 1) {
 				int sid = get_bv_sid(GetSize(sig));
@@ -594,7 +594,7 @@ struct BtorWorker
 			log_assert(!btor_op.empty());
 
 			int sid = get_bv_sid(1);
-			int nid_a = get_sig_nid(cell->getPort(ID::A));
+			int nid_a = get_sig_nid(cell->getPort(TW::A));
 
 			int nid = next_nid++;
 
@@ -607,7 +607,7 @@ struct BtorWorker
 				btorf("%d %s %d %d%s\n", nid, btor_op, sid, nid_a, getinfo(cell));
 			}
 
-			SigSpec sig = sigmap(cell->getPort(ID::Y));
+			SigSpec sig = sigmap(cell->getPort(TW::Y));
 
 			if (GetSize(sig) > 1) {
 				int sid = get_bv_sid(GetSize(sig));
@@ -623,10 +623,10 @@ struct BtorWorker
 
 		if (cell->type.in(ID($mux), ID($_MUX_), ID($_NMUX_)))
 		{
-			SigSpec sig_a = sigmap(cell->getPort(ID::A));
-			SigSpec sig_b = sigmap(cell->getPort(ID::B));
-			SigSpec sig_s = sigmap(cell->getPort(ID::S));
-			SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+			SigSpec sig_a = sigmap(cell->getPort(TW::A));
+			SigSpec sig_b = sigmap(cell->getPort(TW::B));
+			SigSpec sig_s = sigmap(cell->getPort(TW::S));
+			SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 
 			int nid_a = get_sig_nid(sig_a);
 			int nid_b = get_sig_nid(sig_b);
@@ -650,10 +650,10 @@ struct BtorWorker
 
 		if (cell->type == ID($pmux))
 		{
-			SigSpec sig_a = sigmap(cell->getPort(ID::A));
-			SigSpec sig_b = sigmap(cell->getPort(ID::B));
-			SigSpec sig_s = sigmap(cell->getPort(ID::S));
-			SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+			SigSpec sig_a = sigmap(cell->getPort(TW::A));
+			SigSpec sig_b = sigmap(cell->getPort(TW::B));
+			SigSpec sig_s = sigmap(cell->getPort(TW::S));
+			SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 
 			int width = GetSize(sig_a);
 			int sid = get_bv_sid(width);
@@ -676,8 +676,8 @@ struct BtorWorker
 
 		if (cell->type.in(ID($dff), ID($ff), ID($anyinit), ID($_DFF_P_), ID($_DFF_N), ID($_FF_)))
 		{
-			SigSpec sig_d = sigmap(cell->getPort(ID::D));
-			SigSpec sig_q = sigmap(cell->getPort(ID::Q));
+			SigSpec sig_d = sigmap(cell->getPort(TW::D));
+			SigSpec sig_q = sigmap(cell->getPort(TW::Q));
 
 			if ((!info_filename.empty() || ywmap_json.active()) && cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)))
 			{
@@ -730,7 +730,7 @@ struct BtorWorker
 				btorf("%d state %d %s\n", nid, sid, symbol.unescape());
 
 			if (cell->get_bool_attribute(ID(clk2fflogic)))
-				ywmap_state(cell->getPort(ID::D)); // For a clk2fflogic FF the named signal is the D input not the Q output
+				ywmap_state(cell->getPort(TW::D)); // For a clk2fflogic FF the named signal is the D input not the Q output
 			else
 				ywmap_state(sig_q);
 
@@ -748,7 +748,7 @@ struct BtorWorker
 
 		if (cell->type.in(ID($anyconst), ID($anyseq)))
 		{
-			SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+			SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 
 			int sid = get_bv_sid(GetSize(sig_y));
 			int nid = next_nid++;
@@ -768,7 +768,7 @@ struct BtorWorker
 
 		if (cell->type == ID($initstate))
 		{
-			SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+			SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 
 			if (initstate_nid < 0)
 			{
@@ -1272,8 +1272,8 @@ struct BtorWorker
 				btorf_push(cell->name.unescape());
 
 				int sid = get_bv_sid(1);
-				int nid_a = get_sig_nid(cell->getPort(ID::A));
-				int nid_en = get_sig_nid(cell->getPort(ID::EN));
+				int nid_a = get_sig_nid(cell->getPort(TW::A));
+				int nid_en = get_sig_nid(cell->getPort(TW::EN));
 				int nid_not_en = next_nid++;
 				int nid_a_or_not_en = next_nid++;
 				int nid = next_nid++;
@@ -1292,8 +1292,8 @@ struct BtorWorker
 				btorf_push(cell->name.unescape());
 
 				int sid = get_bv_sid(1);
-				int nid_a = get_sig_nid(cell->getPort(ID::A));
-				int nid_en = get_sig_nid(cell->getPort(ID::EN));
+				int nid_a = get_sig_nid(cell->getPort(TW::A));
+				int nid_en = get_sig_nid(cell->getPort(TW::EN));
 				int nid_not_a = next_nid++;
 				int nid_en_and_not_a = next_nid++;
 
@@ -1321,8 +1321,8 @@ struct BtorWorker
 				btorf_push(cell->name.unescape());
 
 				int sid = get_bv_sid(1);
-				int nid_a = get_sig_nid(cell->getPort(ID::A));
-				int nid_en = get_sig_nid(cell->getPort(ID::EN));
+				int nid_a = get_sig_nid(cell->getPort(TW::A));
+				int nid_en = get_sig_nid(cell->getPort(TW::EN));
 				int nid_en_and_a = next_nid++;
 
 				btorf("%d and %d %d %d\n", nid_en_and_a, sid, nid_en, nid_a);
@@ -1372,7 +1372,7 @@ struct BtorWorker
 
 				btorf_push(stringf("next %s", cell));
 
-				SigSpec sig = sigmap(cell->getPort(ID::D));
+				SigSpec sig = sigmap(cell->getPort(TW::D));
 				int nid_q = get_sig_nid(sig);
 				int sid = get_bv_sid(GetSize(sig));
 				btorf("%d next %d %d %d%s\n", next_nid++, sid, nid, nid_q, getinfo(cell));
