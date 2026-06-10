@@ -100,6 +100,10 @@ yosys_pass(opt_prienc
 	opt_prienc.cc
 )
 
+yosys_pass(opt_priority_onehot
+	opt_priority_onehot.cc
+)
+
 pmgen_command(peepopt
 	peepopt_shiftmul_right.pmg
 	peepopt_shiftmul_left.pmg

@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/consteval.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -44,6 +45,7 @@ struct OptCompactPrefixWorker
 
 	int forward_rewrites = 0;
 	int reverse_rewrites = 0;
+	int modulo_rewrites = 0;
 	int old_cells_removed = 0;
 	int new_cells_emitted = 0;
 
@@ -60,9 +62,22 @@ struct OptCompactPrefixWorker
 		}
 	}
 
-	Wire *port(const char *name)
+	vector<Wire *> input_ports()
 	{
-		return module->wire(RTLIL::escape_id(name));
+		vector<Wire *> ports;
+		for (auto wire : module->wires())
+			if (wire->port_input)
+				ports.push_back(wire);
+		return ports;
+	}
+
+	vector<Wire *> output_ports()
+	{
+		vector<Wire *> ports;
+		for (auto wire : module->wires())
+			if (wire->port_output)
+				ports.push_back(wire);
+		return ports;
 	}
 
 	int count_cells(IdString type)
@@ -195,19 +210,36 @@ struct OptCompactPrefixWorker
 		return result;
 	}
 
-	bool bmux_selects_stay_in_range(Wire *data, int loop_width)
+	int output_bits_controlled_by(Wire *control, Wire *output)
 	{
-		bool saw_data_bmux = false;
+		pool<int> bits;
 		for (auto cell : module->cells()) {
-			if (cell->type != ID($bmux))
+			if (cell->type != ID($mux))
+				continue;
+			SigSpec sel = sigmap(cell->getPort(ID::S));
+			if (GetSize(sel) != 1 || sel[0].wire != control)
+				continue;
+			for (auto bit : sigmap(cell->getPort(ID::Y)))
+				if (bit.wire == output)
+					bits.insert(bit.offset);
+		}
+		return GetSize(bits);
+	}
+
+	bool indexed_reads_stay_in_range(Wire *data, int loop_width)
+	{
+		bool saw_data_read = false;
+		for (auto cell : module->cells()) {
+			if (!cell->type.in(ID($bmux), ID($shiftx)))
 				continue;
 			if (sigmap(cell->getPort(ID::A)) != sigmap(SigSpec(data)))
 				continue;
-			saw_data_bmux = true;
-			if (eval_sig_at_zero(cell->getPort(ID::S)) >= loop_width)
+			saw_data_read = true;
+			IdString select_port = cell->type == ID($bmux) ? ID::S : ID::B;
+			if (eval_sig_at_zero(cell->getPort(select_port)) >= loop_width)
 				return false;
 		}
-		return saw_data_bmux;
+		return saw_data_read;
 	}
 
 	SigSpec zext(SigSpec sig, int width)
@@ -299,6 +331,25 @@ struct OptCompactPrefixWorker
 		return SigBit(out);
 	}
 
+	SigBit emit_bmux(SigSpec table, SigSpec sel)
+	{
+		Cell *cell = ref_cell;
+		log_assert(cell != nullptr);
+		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_div"), 1);
+		module->addBmux(NEW_ID2_SUFFIX("compact_bmux"), table, sel, out);
+		new_cells_emitted++;
+		return SigBit(out);
+	}
+
+	static Const const_u64(uint64_t value, int width)
+	{
+		vector<State> bits(width, State::S0);
+		for (int i = 0; i < width && i < 64; i++)
+			if ((value >> i) & 1ULL)
+				bits[i] = State::S1;
+		return Const(bits);
+	}
+
 	void remove_old_cells(const vector<Cell *> &old_cells)
 	{
 		for (auto cell : old_cells) {
@@ -311,12 +362,12 @@ struct OptCompactPrefixWorker
 
 	bool rewrite_forward_dense_pack()
 	{
-		Wire *sig = port("sig");
-		Wire *sig2 = port("sig2");
-		if (!sig || !sig2)
+		vector<Wire *> inputs = input_ports();
+		vector<Wire *> outputs = output_ports();
+		if (GetSize(inputs) != 1 || GetSize(outputs) != 1)
 			return false;
-		if (!sig->port_input || !sig2->port_output)
-			return false;
+		Wire *sig = inputs[0];
+		Wire *sig2 = outputs[0];
 		if (GetSize(sig) != GetSize(sig2))
 			return false;
 		if (GetSize(sig) < 4 || GetSize(sig) > max_width)
@@ -324,8 +375,6 @@ struct OptCompactPrefixWorker
 		if (GetSize(module->ports) != 2)
 			return false;
 		if (count_binop_const(ID($add), 1) < GetSize(sig) - 2)
-			return false;
-		if (count_cells(ID($shl)) < GetSize(sig) - 2)
 			return false;
 		if (count_cells(ID($mux)) < GetSize(sig))
 			return false;
@@ -357,29 +406,45 @@ struct OptCompactPrefixWorker
 
 	bool rewrite_reverse_suffix_read()
 	{
-		Wire *disable = port("disable_in");
-		Wire *data = port("data_in");
-		Wire *mask = port("mask");
-		if (!disable || !data || !mask)
+		vector<Wire *> inputs = input_ports();
+		vector<Wire *> outputs = output_ports();
+		if (GetSize(inputs) != 2 || GetSize(outputs) != 1)
 			return false;
-		if (!disable->port_input || !data->port_input || !mask->port_output)
-			return false;
-		if (GetSize(disable) != GetSize(data) || GetSize(mask) != GetSize(data))
-			return false;
-		if (GetSize(module->ports) != 3)
+		Wire *mask = outputs[0];
+		if (GetSize(inputs[0]) != GetSize(inputs[1]) || GetSize(mask) != GetSize(inputs[0]))
 			return false;
 
 		int dec_count = std::max(count_binop_const(ID($sub), 1),
 		                         count_binop_const(ID($add), -1));
 		int loop_width = dec_count + 1;
-		if (loop_width < 4 || loop_width > max_width || loop_width > GetSize(data))
-			return false;
 		if (count_cells(ID($mux)) < loop_width)
 			return false;
 		if (has_binop_const_other_than(ID($sub), 1) ||
 		    has_binop_const_other_than(ID($add), -1))
 			return false;
-		if (!bmux_selects_stay_in_range(data, loop_width))
+
+		Wire *disable = nullptr;
+		int controlled_width = 0;
+		for (auto input : inputs) {
+			int n = output_bits_controlled_by(input, mask);
+			if (n == 0)
+				continue;
+			if (disable != nullptr)
+				return false;
+			disable = input;
+			controlled_width = n;
+		}
+		if (disable == nullptr)
+			return false;
+		if (controlled_width > 0)
+			loop_width = controlled_width;
+		if (loop_width < 4 || loop_width > max_width || loop_width > GetSize(mask))
+			return false;
+		if (dec_count < loop_width - 1)
+			return false;
+		Wire *data = (inputs[0] == disable) ? inputs[1] : inputs[0];
+
+		if (!indexed_reads_stay_in_range(data, loop_width))
 			return false;
 		if (!eval_sig_is_zero(SigSpec(mask)))
 			return false;
@@ -424,13 +489,200 @@ struct OptCompactPrefixWorker
 		return true;
 	}
 
+	// Reference function for the modulo-n decimation loop: scanning the enable
+	// vector from one end, mark every n-th enabled bit. Equivalent closed form:
+	//   mask[I] = en[I] && n>0 && (inclusive_popcount(I) % n == 0)
+	// where the popcount runs from the scan's leading end down to (incl.) I.
+	uint64_t expected_modulo_mask(uint64_t en, uint64_t n, int width, bool msb_first)
+	{
+		if (n == 0)
+			return 0;
+		uint64_t mask = 0;
+		for (int i = 0; i < width; i++) {
+			if (!((en >> i) & 1ULL))
+				continue;
+			uint64_t v = 0;
+			if (msb_first)
+				for (int k = i; k < width; k++)
+					v += (en >> k) & 1ULL;
+			else
+				for (int k = 0; k <= i; k++)
+					v += (en >> k) & 1ULL;
+			if (v % n == 0)
+				mask |= (1ULL << i);
+		}
+		return mask;
+	}
+
+	// Confirm the combinational function from (en, n) to mask matches the modulo
+	// decimation reference for the given scan direction, using ConstEval over a
+	// structured + pseudo-random vector set (cf. opt_argmax's fingerprint).
+	bool fingerprint_modulo(Wire *en, Wire *n, Wire *mask, int width, bool msb_first)
+	{
+		if (width <= 0 || width > 62)
+			return false;
+		ConstEval ce(module);
+		SigSpec en_sig = sigmap(SigSpec(en));
+		SigSpec n_sig = sigmap(SigSpec(n));
+		SigSpec mask_sig = sigmap(SigSpec(mask));
+		int nw = GetSize(n);
+
+		vector<uint64_t> nvals;
+		uint64_t nmax = (nw >= 64) ? ~0ULL : ((1ULL << nw) - 1);
+		for (uint64_t v = 0; v <= (uint64_t)width + 1 && v <= nmax; v++)
+			nvals.push_back(v);
+		if (nmax > (uint64_t)width + 1)
+			nvals.push_back(nmax);
+
+		uint64_t full = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
+		vector<uint64_t> envals;
+		envals.push_back(0);
+		envals.push_back(full);
+		envals.push_back(full & 0x5555555555555555ULL);
+		envals.push_back(full & 0xAAAAAAAAAAAAAAAAULL);
+		for (int i = 0; i < width; i++)
+			envals.push_back(1ULL << i);
+		uint64_t lfsr = 0x1234567089abcdefULL;
+		for (int r = 0; r < 64; r++) {
+			lfsr ^= lfsr << 13;
+			lfsr ^= lfsr >> 7;
+			lfsr ^= lfsr << 17;
+			envals.push_back(lfsr & full);
+		}
+
+		for (uint64_t nv : nvals)
+			for (uint64_t ev : envals) {
+				ce.push();
+				ce.set(en_sig, const_u64(ev, width));
+				ce.set(n_sig, const_u64(nv, nw));
+				SigSpec out = mask_sig;
+				SigSpec undef;
+				bool ok = ce.eval(out, undef);
+				ce.pop();
+				if (!ok || !out.is_fully_const())
+					return false;
+				Const cv = out.as_const();
+				uint64_t actual = 0;
+				for (int i = 0; i < width && i < 64; i++)
+					if (cv[i] == State::S1)
+						actual |= (1ULL << i);
+				if (actual != expected_modulo_mask(ev, nv, width, msb_first))
+					return false;
+			}
+		return true;
+	}
+
+	bool rewrite_modulo_decimation()
+	{
+		vector<Wire *> inputs = input_ports();
+		vector<Wire *> outputs = output_ports();
+		if (GetSize(inputs) != 2 || GetSize(outputs) != 1)
+			return false;
+		if (GetSize(module->ports) != 3)
+			return false;
+
+		Wire *mask = outputs[0];
+		int width = GetSize(mask);
+		if (width < 4 || width > max_width)
+			return false;
+
+		// en matches the mask width; n (the modulus) is a distinct, narrower bus.
+		// Requiring different widths also disambiguates from the reverse suffix
+		// read form, whose two inputs share the mask width.
+		Wire *en = nullptr, *n = nullptr;
+		for (auto in : inputs) {
+			if (GetSize(in) == width && en == nullptr)
+				en = in;
+			else
+				n = in;
+		}
+		if (en == nullptr || n == nullptr || en == n || GetSize(n) == width)
+			return false;
+
+		bool msb_first;
+		if (fingerprint_modulo(en, n, mask, width, true))
+			msb_first = true;
+		else if (fingerprint_modulo(en, n, mask, width, false))
+			msb_first = false;
+		else
+			return false;
+
+		vector<Cell *> old_cells(module->cells().begin(), module->cells().end());
+		if (old_cells.empty())
+			return false;
+		ref_cell = old_cells.front();
+
+		int cnt_width = ceil_log2_int(width + 1);
+		int table_size = 1 << cnt_width;
+		int cmp_width = std::max(GetSize(n), cnt_width);
+
+		auto en_bit = [&](int i) { return sigmap(SigBit(en, i)); };
+
+		// 1) Inclusive prefix popcount as a naive linear $add cascade. Each
+		//    running sum is consumed below, so the downstream opt_parallel_prefix
+		//    pass rebuilds the cascade into a shared log-depth prefix network.
+		vector<SigSpec> popcount(width);
+		Cell *cell = ref_cell;
+		int start = msb_first ? width - 1 : 0;
+		int step = msb_first ? -1 : 1;
+		int last = msb_first ? 0 : width - 1;
+		SigSpec acc = SigSpec(en_bit(start));
+		popcount[start] = zext(acc, cnt_width);
+		for (int i = start + step; i != last + step; i += step) {
+			Wire *sum = module->addWire(NEW_ID2_SUFFIX("compact_pop"), cnt_width);
+			module->addAdd(NEW_ID2_SUFFIX("compact_pop_add"), acc, SigSpec(en_bit(i)), sum);
+			new_cells_emitted++;
+			acc = SigSpec(sum);
+			popcount[i] = SigSpec(sum);
+		}
+
+		// 2) Decode the modulus once: eq_d = (n == d) for d in [1..width].
+		vector<SigBit> eqd(width + 1, State::S0);
+		for (int d = 1; d <= width; d++)
+			eqd[d] = emit_eq(SigSpec(n), d, cmp_width);
+
+		// 3) Divisibility per popcount value: div_k = OR_{d | k} eq_d. n>0 and
+		//    n>width fall out for free (no divisor in range matches).
+		vector<SigBit> divisible(table_size, State::S0);
+		divisible[0] = State::S1; // gated away by en[]; defined to size the table
+		for (int k = 1; k <= width; k++) {
+			SigSpec terms;
+			for (int d = 1; d <= k; d++)
+				if (k % d == 0)
+					terms.append(SigSpec(eqd[d]));
+			divisible[k] = emit_reduce_or(terms);
+		}
+
+		// 4) Shared divisibility table; select per bit by its popcount value.
+		SigSpec table;
+		for (int k = 0; k < table_size; k++)
+			table.append(SigSpec(divisible[k]));
+
+		SigSpec out_bits;
+		for (int i = 0; i < width; i++) {
+			SigBit sel_divisible = emit_bmux(table, popcount[i]);
+			out_bits.append(emit_and(en_bit(i), sel_divisible));
+		}
+
+		module->connect(SigSpec(mask), out_bits);
+		remove_old_cells(old_cells);
+
+		log("  Modulo decimation: en=%s, n=%s -> %s, width=%d, %s scan.\n",
+		    log_id(en->name), log_id(n->name), log_id(mask->name), width,
+		    msb_first ? "MSB-first" : "LSB-first");
+		modulo_rewrites++;
+		return true;
+	}
+
 	void run()
 	{
 		if (module->has_processes_warn())
 			return;
 		if (rewrite_forward_dense_pack())
 			return;
-		rewrite_reverse_suffix_read();
+		if (rewrite_reverse_suffix_read())
+			return;
+		rewrite_modulo_decimation();
 	}
 };
 
@@ -448,9 +700,16 @@ struct OptCompactPrefixPass : public Pass
 		log("lowering of SystemVerilog loops and replace their long loop-carried\n");
 		log("index/update cones with balanced prefix-count and routing logic.\n");
 		log("\n");
-		log("Currently this pass handles the dense bit-pack and reverse suffix-read\n");
-		log("forms used by the qor_spi_ra_add_chain and qor_spi_ra_sub_chain\n");
-		log("regressions. Non-matching modules are left unchanged.\n");
+		log("Currently this pass handles the dense bit-pack, reverse suffix-read,\n");
+		log("and modulo-n decimation forms used by the qor_spi_ra_add_chain,\n");
+		log("qor_spi_ra_sub_chain, and qor_spi_ra_add_chain2 regressions.\n");
+		log("Non-matching modules are left unchanged.\n");
+		log("\n");
+		log("The modulo decimation form (mark every n-th enabled bit while scanning\n");
+		log("the enable vector) is lowered to a prefix-popcount plus divisor-decode\n");
+		log("divisibility check. The popcount is emitted as a plain linear $add\n");
+		log("cascade so a subsequent opt_parallel_prefix pass can rebuild it into a\n");
+		log("shared log-depth network.\n");
 		log("\n");
 		log("    -max_width <n>\n");
 		log("        Maximum compaction width to rewrite. Default: 64.\n");
@@ -474,6 +733,7 @@ struct OptCompactPrefixPass : public Pass
 
 		int total_forward = 0;
 		int total_reverse = 0;
+		int total_modulo = 0;
 		int total_removed = 0;
 		int total_emitted = 0;
 
@@ -482,15 +742,16 @@ struct OptCompactPrefixPass : public Pass
 			worker.run();
 			total_forward += worker.forward_rewrites;
 			total_reverse += worker.reverse_rewrites;
+			total_modulo += worker.modulo_rewrites;
 			total_removed += worker.old_cells_removed;
 			total_emitted += worker.new_cells_emitted;
 		}
 
-		log("Rewrote %d forward pack(s), %d reverse suffix read(s); "
+		log("Rewrote %d forward pack(s), %d reverse suffix read(s), %d modulo decimation(s); "
 		    "removed %d old cell(s), emitted %d new cell(s).\n",
-		    total_forward, total_reverse, total_removed, total_emitted);
+		    total_forward, total_reverse, total_modulo, total_removed, total_emitted);
 
-		if (total_forward || total_reverse)
+		if (total_forward || total_reverse || total_modulo)
 			Yosys::run_pass("clean -purge");
 	}
 } OptCompactPrefixPass;
