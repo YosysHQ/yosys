@@ -1,14 +1,13 @@
 if (YOSYS_ENABLE_VERIFIC)
 	# user-facing options
-	option(WITH_VERIFIC_SYSTEMVERILOG "" ON)
-	option(WITH_VERIFIC_VHDL "" ON)
-	option(WITH_VERIFIC_HIER_TREE "" ON)
-	option(WITH_VERIFIC_SILIMATE_EXTENSIONS "" ON)
-	option(WITH_VERIFIC_YOSYSHQ_EXTENSIONS "" OFF)
-	option(WITH_VERIFIC_EDIF "" OFF)
-	option(WITH_VERIFIC_LIBERTY "" OFF)
-	option(WITH_VERIFIC_UPF "" OFF)
-	option(WITH_VERIFIC_SILIMATE_EXTENSIONS "Enable Silimate-specific options for Verific" ON)
+	option(WITH_VERIFIC_SYSTEMVERILOG "Enable Verific SystemVerilog support" ON)
+	option(WITH_VERIFIC_VHDL "Enable Verific VHDL support" ON)
+	option(WITH_VERIFIC_HIER_TREE "Enable Verific hier_tree component" ON)
+	option(WITH_VERIFIC_SILIMATE_EXTENSIONS "Enable Silimate-specific Verific modifications" ON)
+	option(WITH_VERIFIC_YOSYSHQ_EXTENSIONS "Enable YosysHQ-specific Verific modifications" OFF)
+	option(WITH_VERIFIC_EDIF "Enable Verific EDIF support" OFF)
+	option(WITH_VERIFIC_LIBERTY "Enable Verific Liberty file support" OFF)
+	option(WITH_VERIFIC_UPF "Enable Verific UPF support (requires Tcl support)" OFF)
 
 	# further checks and conditions
 	condition(ENABLE_VERIFIC_SYSTEMVERILOG WITH_VERIFIC_SYSTEMVERILOG)
@@ -44,7 +43,7 @@ if (YOSYS_ENABLE_VERIFIC)
 		list(APPEND YOSYS_VERIFIC_COMPONENTS extensions)
 	endif()
 
-	# Prepare Silimate-specific objects
+	# Prepare Silimate-specific objects overriding existing Verific symbols
 	flex_target(veri_flex
 		${YOSYS_VERIFIC_DIR}/verilog/verilog.l
 		veri_lex.cpp
@@ -57,14 +56,35 @@ if (YOSYS_ENABLE_VERIFIC)
 		COMPILE_FLAGS "--name-prefix=veri --no-lines"
 	)
 
-	add_library(verific_database_modified OBJECT
-		${YOSYS_VERIFIC_DIR}/database/DBSilimate.cpp
+	string(REPLACE ".a" ".raw.a" VERIFIC_RAW_LIB_SUFFIX "${VERIFIC_LIB_SUFFIX}")
+
+	# prepare archive list
+	foreach(component ${YOSYS_VERIFIC_COMPONENTS})
+		if (component STREQUAL "util")
+			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/util${VERIFIC_RAW_LIB_SUFFIX})
+		elseif (component STREQUAL "database")
+			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/database${VERIFIC_RAW_LIB_SUFFIX})
+		elseif (component STREQUAL "verilog")
+			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/verilog${VERIFIC_RAW_LIB_SUFFIX})
+		else()
+			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/${component}${VERIFIC_LIB_SUFFIX})
+		endif()
+	endforeach()
+
+	# Compile "verific_merged", which prioritizes the custom, listed Silimate
+	# files but also merges in .a files from upstream with a lower priority.
+	add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/empty.cpp
+		COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/empty.cpp
 	)
-	target_include_directories(verific_database_modified PRIVATE ${YOSYS_VERIFIC_DIR}/containers ${YOSYS_VERIFIC_DIR}/containers ${YOSYS_VERIFIC_DIR}/util)
-	add_library(verific_verilog_modified OBJECT
-		${YOSYS_VERIFIC_DIR}/verilog/VeriSilimate.cpp
+	add_library(verific_merged STATIC
+		${CMAKE_CURRENT_BINARY_DIR}/empty.cpp # empty file so the source list isn't empty if silimate extensions are off
+		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_yacc.cpp>
+		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_lex.cpp>
+		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/util/UtilSilimate.cpp>
+		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/database/DBSilimate.cpp>
+		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/verilog/VeriSilimate.cpp>
 	)
-	target_include_directories(verific_verilog_modified PRIVATE
+	target_include_directories(verific_merged PRIVATE
 		${YOSYS_VERIFIC_DIR}/containers
 		${YOSYS_VERIFIC_DIR}/database
 		${YOSYS_VERIFIC_DIR}/util
@@ -72,62 +92,20 @@ if (YOSYS_ENABLE_VERIFIC)
 		${YOSYS_VERIFIC_DIR}/vhdl
 		${YOSYS_VERIFIC_DIR}/verilog
 	)
-	add_library(verific_vparser_modified OBJECT
-		veri_yacc.cpp
-	)
-	target_include_directories(verific_vparser_modified PRIVATE
-		${YOSYS_VERIFIC_DIR}/containers
-		${YOSYS_VERIFIC_DIR}/verilog
-		${YOSYS_VERIFIC_DIR}/util
-	)
-	add_library(verific_util_modified OBJECT
-		${YOSYS_VERIFIC_DIR}/util/UtilSilimate.cpp
-	)
-	target_include_directories(verific_util_modified PRIVATE ${YOSYS_VERIFIC_DIR}/containers ${YOSYS_VERIFIC_DIR}/util)
-
-	string(REPLACE ".a" ".raw.a" VERIFIC_RAW_LIB_SUFFIX "${VERIFIC_LIB_SUFFIX}")
-
-	# prepare object list based on component list + whether to load silimate
-	# customizations
-	list(APPEND VERIFIC_OBJECTS $<TARGET_OBJECTS:verific_vparser_modified>)
-	foreach(component ${YOSYS_VERIFIC_COMPONENTS})
-		if (component STREQUAL "util")
-			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/util${VERIFIC_RAW_LIB_SUFFIX})
-			if (ENABLE_VERIFIC_SILIMATE_EXTENSIONS)
-				list(APPEND VERIFIC_OBJECTS $<TARGET_OBJECTS:verific_util_modified>)
-			endif()
-		elseif (component STREQUAL "database")
-			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/database${VERIFIC_RAW_LIB_SUFFIX})
-			if (ENABLE_VERIFIC_SILIMATE_EXTENSIONS)
-				list(APPEND VERIFIC_OBJECTS $<TARGET_OBJECTS:verific_database_modified>)
-			endif()
-		elseif (component STREQUAL "verilog")
-			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/verilog${VERIFIC_RAW_LIB_SUFFIX})
-			if (ENABLE_VERIFIC_SILIMATE_EXTENSIONS)
-				list(APPEND VERIFIC_OBJECTS $<TARGET_OBJECTS:verific_verilog_modified>)
-			endif()
-		else()
-			list(APPEND VERIFIC_OBJECTS ${YOSYS_VERIFIC_DIR}/${component}/${component}${VERIFIC_LIB_SUFFIX})
-		endif()
-	endforeach()
-
-	# prepare merged .a object using custom Python script
-	add_custom_command(
-		OUTPUT ${PROJECT_BINARY_DIR}/verific_merged.a
+	add_custom_command(TARGET verific_merged POST_BUILD
 		DEPENDS
 			${VERIFIC_OBJECTS}
 		COMMAND
-			${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/SilimateVerific-merge-archive.py ${CMAKE_CURRENT_BINARY_DIR}/verific_merged.a ${VERIFIC_OBJECTS}
+			env CMAKE_OBJCOPY=${CMAKE_OBJCOPY} ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/SilimateVerific-merge-archive.py $<TARGET_FILE:verific_merged> ${VERIFIC_OBJECTS}
 	)
-	add_custom_target(verific_merged DEPENDS ${PROJECT_BINARY_DIR}/verific_merged.a)
 
-	# prepare interface as in YosysVerific.cmake
+	# Prepare verific interface library as in YosysVerific.cmake
 	get_verific_options(verific_include_dirs verific_libraries ${YOSYS_VERIFIC_COMPONENTS})
 	target_include_directories(verific INTERFACE
 		${verific_include_dirs}
 	)
 	target_link_libraries(verific INTERFACE
-		$<LINK_LIBRARY:WHOLE_ARCHIVE,${PROJECT_BINARY_DIR}/verific_merged.a>
+		$<LINK_LIBRARY:WHOLE_ARCHIVE,$<TARGET_FILE:verific_merged>>
 		PkgConfig::zlib
 	)
 
