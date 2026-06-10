@@ -377,8 +377,8 @@ struct Abc9Pass : public ScriptPass
 				run("    abc9_ops -write_box <abc-temp-dir>/input.box", "(skip if '-box')");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym [-dff] <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> -lut [<abc-temp-dir>/input.lut] -box [<abc-temp-dir>/input.box]");
-				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-				run("    abc_ops_reintegrate [-dff]");
+				run("    read_aiger -xaiger -module_name <module-name>$abc9 <abc-temp-dir>/output.aig");
+				run("    abc_ops_reintegrate -map <abc-temp-dir>/input.sym [-dff]");
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
@@ -429,8 +429,8 @@ struct Abc9Pass : public ScriptPass
 						else
 							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
-						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", mod, tempdir_name, tempdir_name));
-						run_nocheck(stringf("abc_ops_reintegrate %s", dff_mode ? "-dff" : ""));
+						run_nocheck(stringf("read_aiger -xaiger -module_name %s$abc9 %s/output.aig", mod, tempdir_name));
+						run_nocheck(stringf("abc_ops_reintegrate -map %s/input.sym %s", tempdir_name, dff_mode ? "-dff" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");
