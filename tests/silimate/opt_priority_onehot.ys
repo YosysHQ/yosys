@@ -1,0 +1,301 @@
+# Tests for opt_priority_onehot.
+
+# Helper pattern per positive module: import a gold copy, import a gate copy,
+# rewrite the gate, assert the rewrite fired, then prove gold == gate by SAT.
+
+log -header "Basic priority-onehot self-equivalence (N=16, field id[*][4:1])"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_basic
+proc; opt_clean
+rename pri_onehot_basic gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_basic
+proc; opt_clean
+select -module pri_onehot_basic
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_basic gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "One-based [N:1] ports self-equivalence (regression shape)"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_onebased
+proc; opt_clean
+rename pri_onehot_onebased gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_onebased
+proc; opt_clean
+select -module pri_onehot_onebased
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_onebased gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Packed field self-equivalence (ID_W == IDX_W, no gap)"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_packed
+proc; opt_clean
+rename pri_onehot_packed gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_packed
+proc; opt_clean
+select -module pri_onehot_packed
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_packed gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Scaled N=8 self-equivalence"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_w8
+proc; opt_clean
+rename pri_onehot_w8 gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_w8
+proc; opt_clean
+select -module pri_onehot_w8
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_w8 gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Lane count != output width self-equivalence (N=8, W=16)"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_n8_w16
+proc; opt_clean
+rename pri_onehot_n8_w16 gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_n8_w16
+proc; opt_clean
+select -module pri_onehot_n8_w16
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_n8_w16 gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "MSB-first priority self-equivalence"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_msb
+proc; opt_clean
+rename pri_onehot_msb gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_msb
+proc; opt_clean
+select -module pri_onehot_msb
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_msb gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Two independent regions self-equivalence"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_two_regions
+proc; opt_clean
+rename pri_onehot_two_regions gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_two_regions
+proc; opt_clean
+select -module pri_onehot_two_regions
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 2 w:*prionehot*
+rename pri_onehot_two_regions gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Shared consumer of one-hot output stays equivalent"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_shared_consumer
+proc; opt_clean
+rename pri_onehot_shared_consumer gold
+
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_shared_consumer
+proc; opt_clean
+select -module pri_onehot_shared_consumer
+opt_priority_onehot
+select -clear
+opt_clean
+select -assert-min 1 w:*prionehot*
+rename pri_onehot_shared_consumer gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+log -header "Scaled N=32 structural rewrite"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_w32
+proc; opt_clean
+opt_priority_onehot
+opt_clean
+select -assert-min 1 w:*prionehot*
+design -reset
+log -pop
+
+log -header "Negative: OR-of-all (no priority) unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_orall
+proc; opt_clean
+opt_priority_onehot
+select -assert-none w:*prionehot*
+design -reset
+log -pop
+
+log -header "Negative: nonzero all-invalid default unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_nonzero_default
+proc; opt_clean
+opt_priority_onehot
+select -assert-none w:*prionehot*
+design -reset
+log -pop
+
+log -header "Negative: non-power-of-two output width unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_nonpow2
+proc; opt_clean
+opt_priority_onehot
+select -assert-none w:*prionehot*
+design -reset
+log -pop
+
+log -header "Negative: unrelated mux logic unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_unrelated
+proc; opt_clean
+select -assert-count 1 t:$mux
+opt_priority_onehot
+select -assert-none w:*prionehot*
+select -assert-count 1 t:$mux
+design -reset
+log -pop
+
+log -header "Max-width below lane count leaves design unchanged"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+read -sv opt_priority_onehot.sv
+verific -import pri_onehot_basic
+proc; opt_clean
+opt_priority_onehot -max_width 8
+select -assert-none w:*prionehot*
+design -reset
+log -pop
