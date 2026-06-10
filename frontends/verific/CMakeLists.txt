@@ -2,7 +2,7 @@ if (NOT YOSYS_ENABLE_VERIFIC)
 	# Stub interface library.
 	add_library(verific INTERFACE)
 	set(verific_data_files)
-else()
+elseif (NOT TARGET verific)
 	if (NOT YOSYS_VERIFIC_COMPONENTS)
 		get_verific_components(YOSYS_VERIFIC_COMPONENTS)
 	endif()
@@ -58,6 +58,7 @@ yosys_frontend(verific
 		$<$<IN_LIST:edif,${YOSYS_VERIFIC_FEATURES}>:VERIFIC_EDIF_SUPPORT>
 		$<$<IN_LIST:liberty,${YOSYS_VERIFIC_FEATURES}>:VERIFIC_LIBERTY_SUPPORT>
 		$<$<IN_LIST:extensions,${YOSYS_VERIFIC_FEATURES}>:YOSYSHQ_VERIFIC_EXTENSIONS>
+		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:SILIMATE_VERIFIC_EXTENSIONS>
 	LIBRARIES
 		verific
 	REQUIRES

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-#include "passes/silimate/peepopt_expand.h"
+#include "passes/silimate/peepopt_expand_pm.h"
 
 struct OptExpandPass : public Pass {
   OptExpandPass() : Pass("opt_expand", "expand conjunction") { }
@@ -65,7 +65,7 @@ struct OptExpandPass : public Pass {
       {
         log("ITERATION OF OPT_EXPAND\n");
         did_something = false;
-        peepopt_pm pm(module);
+        peepopt_expand_pm pm(module);
         pm.setup(module->selected_cells());
         pm.run_expand();
       }

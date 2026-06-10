@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-#include "passes/silimate/peepopt_muxmode.h"
+#include "passes/silimate/peepopt_muxmode_pm.h"
 
 struct MuxmodePass : public Pass {
   MuxmodePass() : Pass("muxmode", "convert primitives to muxes") { }
@@ -52,7 +52,7 @@ struct MuxmodePass : public Pass {
       {
         log("ITERATION %d OF MUXMODE\n", i);
         did_something = false;
-        peepopt_pm pm(module);
+        peepopt_muxmode_pm pm(module);
         pm.setup(module->selected_cells());
         pm.run_muxmode();
         pm.run_muxinvprop();

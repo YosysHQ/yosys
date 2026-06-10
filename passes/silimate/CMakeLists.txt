@@ -1,0 +1,126 @@
+
+yosys_pass(activity
+	activity.cc
+)
+yosys_pass(annotate_cell_fanout
+	annotate_cell_fanout.cc
+)
+yosys_pass(annotate_ff_width
+	annotate_ff_width.cc
+)
+yosys_pass(breakreduce
+	breakreduce.cc
+)
+yosys_pass(breaksop
+	breaksop.cc
+)
+yosys_pass(bus_rebuild
+	bus_rebuild.cc
+)
+yosys_pass(fanoutbuf
+	fanoutbuf.cc
+)
+yosys_pass(l2j_frontend
+	l2j_frontend.cc
+)
+yosys_pass(mux_push
+	mux_push.cc
+)
+yosys_pass(obs_clean
+	obs_clean.cc
+)
+yosys_pass(segv
+	segv.cc
+)
+yosys_pass(reg_rename
+	reg_rename.cc
+)
+yosys_pass(infer_ce
+	infer_ce.cc
+)
+yosys_pass(ffnormpol
+	ffnormpol.cc
+)
+yosys_pass(report_fanout
+	report_fanout.cc
+)
+yosys_pass(splitfanout
+	splitfanout.cc
+)
+yosys_pass(splitlarge
+	splitlarge.cc
+)
+yosys_pass(splitnetlist
+	splitnetlist.cc
+)
+yosys_pass(opt_timing_balance
+	opt_timing_balance.cc
+)
+yosys_pass(cone_partition
+	cone_partition.cc
+)
+yosys_pass(clkmerge
+	clkmerge.cc
+)
+yosys_pass(opt_boundary
+	opt_boundary.cc
+)
+yosys_pass(opt_vps
+	opt_vps.cc
+)
+yosys_pass(opt_compact_prefix
+	opt_compact_prefix.cc
+)
+yosys_pass(infer_icg
+	infer_icg.cc
+)
+
+
+pmgen_command(peepopt_expand
+	peepopt_expand.pmg
+	PREFIX
+		peepopt_expand
+)
+yosys_pass(peepopt_expand
+	opt_expand.cc
+	${PMGEN_peepopt_expand_OUTPUT}
+)
+
+pmgen_command(peepopt_shift
+	peepopt_combine_shifts.pmg
+	peepopt_expand_shifts.pmg
+	PREFIX
+		peepopt_shift
+)
+yosys_pass(peepopt_shift
+	opt_shift.cc
+	${PMGEN_peepopt_shift_OUTPUT}
+)
+
+pmgen_command(peepopt_muxmode
+	peepopt_muxmode.pmg
+	peepopt_muxinvprop.pmg
+	PREFIX
+		peepopt_muxmode
+)
+yosys_pass(peepopt_muxmode
+	muxmode.cc
+	${PMGEN_peepopt_muxmode_OUTPUT}
+)
+
+pmgen_command(peepopt_negopt
+	peepopt_manual2sub.pmg
+	peepopt_sub2neg.pmg
+	peepopt_negexpand.pmg
+	peepopt_negneg.pmg
+	peepopt_negmux.pmg
+	peepopt_negrebuild.pmg
+	peepopt_muxneg.pmg
+	peepopt_neg2sub.pmg
+	PREFIX
+		peepopt_negopt
+)
+yosys_pass(peepopt_negopt
+	negopt.cc
+	${PMGEN_peepopt_negopt_OUTPUT}
+)

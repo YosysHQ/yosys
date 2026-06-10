@@ -80,6 +80,26 @@ yosys_pass(opt_balance_tree
 	opt_balance_tree.cc
 )
 
+yosys_pass(opt_addcin
+	opt_addcin.cc
+)
+
+yosys_pass(opt_andor_pmux
+	opt_andor_pmux.cc
+)
+
+yosys_pass(opt_argmax
+	opt_argmax.cc
+)
+
+yosys_pass(opt_parallel_prefix
+	opt_parallel_prefix.cc
+)
+
+yosys_pass(opt_prienc
+	opt_prienc.cc
+)
+
 pmgen_command(peepopt
 	peepopt_shiftmul_right.pmg
 	peepopt_shiftmul_left.pmg
@@ -88,6 +108,10 @@ pmgen_command(peepopt
 	peepopt_muldiv.pmg
 	peepopt_muldiv_c.pmg
 	peepopt_formal_clockgateff.pmg
+	peepopt_modshr_onehot.pmg
+	peepopt_addsub_c.pmg
+	peepopt_muxorder.pmg
+	peepopt_sub_neg.pmg
 	PREFIX
 		peepopt
 )
