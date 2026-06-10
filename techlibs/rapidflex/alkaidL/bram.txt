@@ -1,0 +1,18 @@
+bram $__FLEX_TDPRAM_256x36 # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 8                 # Number of address bits
+  dbits 36                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_256x36
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+endmatch
+
