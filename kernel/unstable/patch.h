@@ -26,8 +26,8 @@ public:
 	SigMap* map;
 	vector<std::unique_ptr<Wire>> wires_ = {};
 	vector<std::unique_ptr<Cell>> cells_ = {};
-	dict<RTLIL::Cell*, RTLIL::IdString> staged_cell_names_;
-	dict<RTLIL::Wire*, RTLIL::IdString> staged_wire_names_;
+	dict<RTLIL::Cell*, Twine> staged_cell_names_;
+	dict<RTLIL::Wire*, Twine> staged_wire_names_;
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
@@ -53,7 +53,7 @@ public:
 	// Src is auto-merged from root_cell + extras + merge_src_into into
 	// every staged new cell and into merge_src_into.
 	void patch_ports(Cell* root_cell,
-			const std::vector<std::pair<IdString, SigSpec>>& port_replacements,
+			const std::vector<std::pair<TwineRef, SigSpec>>& port_replacements,
 			const std::vector<Cell*>& extras = {},
 			Cell* merge_src_into = nullptr);
 

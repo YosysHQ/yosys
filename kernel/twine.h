@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -18,239 +19,26 @@
 YOSYS_NAMESPACE_BEGIN
 
 struct Twine;
-// struct TwineRef {
-// 	std::variant<Twine*, size_t> data;
-// 	constexpr TwineRef(Twine* p) : data(p) {}
-// 	constexpr TwineRef(size_t global) : data(global) {}
-// 	const Twine& operator*() const;
-// 	Twine& operator*();
-// 	Twine* operator->() {
-// 		return &(**this);
-// 	}
-// 	const Twine* operator->() const {
-// 		return &(**this);
-// 	}
-// 	friend constexpr bool operator==(const TwineRef& a, const TwineRef& b) {
-// 		return &*a == &*b;
-// 	}
-// 	friend constexpr auto operator<=>(const TwineRef& a, const TwineRef& b) {
-// 		return &*a <=> &*b;
-// 	}
-// };
+struct TwinePool;
 
-template <class T>
-struct pointer_wrapper {
-	using element_type = T;
-	using value_type = std::remove_cv_t<T>;
-	using pointer = T*;
-	using reference = T&;
-	using difference_type = std::ptrdiff_t;
+using TwineRef = size_t;
 
-private:
-	pointer ptr_ = nullptr;
-
-public:
-	// ---------------------------------------------------------------------
-	// Construction
-	// ---------------------------------------------------------------------
-
-	constexpr pointer_wrapper() noexcept = default;
-	constexpr pointer_wrapper(std::nullptr_t) noexcept
-		: ptr_(nullptr) {}
-
-	constexpr explicit pointer_wrapper(pointer p) noexcept
-		: ptr_(p) {}
-
-	constexpr pointer_wrapper(const pointer_wrapper&) noexcept = default;
-	constexpr pointer_wrapper(pointer_wrapper&&) noexcept = default;
-
-	constexpr pointer_wrapper&
-	operator=(const pointer_wrapper&) noexcept = default;
-
-	constexpr pointer_wrapper&
-	operator=(pointer_wrapper&&) noexcept = default;
-
-	constexpr pointer_wrapper&
-	operator=(std::nullptr_t) noexcept {
-		ptr_ = nullptr;
-		return *this;
-	}
-
-	// ---------------------------------------------------------------------
-	// Access
-	// ---------------------------------------------------------------------
-
-	[[nodiscard]]
-	constexpr pointer get() const noexcept {
-		return ptr_;
-	}
-
-	[[nodiscard]]
-	constexpr reference operator*() const noexcept {
-		return *ptr_;
-	}
-
-	[[nodiscard]]
-	constexpr pointer operator->() const noexcept {
-		return ptr_;
-	}
-
-	[[nodiscard]]
-	constexpr reference operator[](difference_type n) const noexcept {
-		return ptr_[n];
-	}
-
-	// ---------------------------------------------------------------------
-	// Conversions
-	// ---------------------------------------------------------------------
-
-	constexpr explicit operator bool() const noexcept {
-		return ptr_ != nullptr;
-	}
-
-	// Optional: allow passing to APIs expecting T*
-	constexpr operator pointer() const noexcept {
-		return ptr_;
-	}
-
-	// ---------------------------------------------------------------------
-	// Increment / decrement
-	// ---------------------------------------------------------------------
-
-	constexpr pointer_wrapper& operator++() noexcept {
-		++ptr_;
-		return *this;
-	}
-
-	constexpr pointer_wrapper operator++(int) noexcept {
-		auto tmp = *this;
-		++(*this);
-		return tmp;
-	}
-
-	constexpr pointer_wrapper& operator--() noexcept {
-		--ptr_;
-		return *this;
-	}
-
-	constexpr pointer_wrapper operator--(int) noexcept {
-		auto tmp = *this;
-		--(*this);
-		return tmp;
-	}
-
-	// ---------------------------------------------------------------------
-	// Arithmetic
-	// ---------------------------------------------------------------------
-
-	constexpr pointer_wrapper&
-	operator+=(difference_type n) noexcept {
-		ptr_ += n;
-		return *this;
-	}
-
-	constexpr pointer_wrapper&
-	operator-=(difference_type n) noexcept {
-		ptr_ -= n;
-		return *this;
-	}
-
-	[[nodiscard]]
-	friend constexpr pointer_wrapper
-	operator+(pointer_wrapper p, difference_type n) noexcept {
-		p += n;
-		return p;
-	}
-
-	[[nodiscard]]
-	friend constexpr pointer_wrapper
-	operator+(difference_type n, pointer_wrapper p) noexcept {
-		p += n;
-		return p;
-	}
-
-	[[nodiscard]]
-	friend constexpr pointer_wrapper
-	operator-(pointer_wrapper p, difference_type n) noexcept {
-		p -= n;
-		return p;
-	}
-
-	[[nodiscard]]
-	friend constexpr difference_type
-	operator-(pointer_wrapper lhs,
-			pointer_wrapper rhs) noexcept {
-		return lhs.ptr_ - rhs.ptr_;
-	}
-
-	// ---------------------------------------------------------------------
-	// Comparisons
-	// ---------------------------------------------------------------------
-
-	[[nodiscard]]
-	friend constexpr bool
-	operator==(pointer_wrapper lhs,
-			pointer_wrapper rhs) noexcept = default;
-
-	[[nodiscard]]
-	friend constexpr auto
-	operator<=>(pointer_wrapper lhs,
-				pointer_wrapper rhs) noexcept {
-		return lhs.ptr_ <=> rhs.ptr_;
-	}
-
-	[[nodiscard]]
-	friend constexpr bool
-	operator==(pointer_wrapper lhs,
-			std::nullptr_t) noexcept {
-		return lhs.ptr_ == nullptr;
-	}
-
-	[[nodiscard]]
-	friend constexpr auto
-	operator<=>(pointer_wrapper lhs,
-				std::nullptr_t) noexcept {
-		return lhs.ptr_ <=> nullptr;
-	}
-};
-
-// class TW
-// {
-// public:
-// 	using EnumType = short;
-// 	// constexpr explicit TW() : internal(0) {}
-// 	constexpr explicit TW(short v) : internal(v) {}
-
-// 	// constexpr operator TwineRef() const
-// 	// {
-// 	// 	return TwineRef(&TwinePool::globals_[internal]);
-// 	// }
-
-// #define X(N) static constexpr TW N{IDX_##N};
-// #include "kernel/constids.inc"
-// #undef X
-
-// private:
-// 	EnumType internal;
-// };
-
-enum class TW : short {
+enum : short {
 	STATIC_TWINE_BEGIN = 0,
-#define X(N) N,
+#define X(N) IDX_##N,
 #include "kernel/constids.inc"
 #undef X
-	STATIC_TWINE_END,
+	STATIC_TWINE_END
 };
 
-// using TwineRef = const Twine*;
-struct TwineRef : public pointer_wrapper<const Twine> {
-	using pointer_wrapper<const Twine>::pointer_wrapper;
-	// TwineRef(TW tw);
-	constexpr TwineRef(TW tw);
+struct TW {
+#define X(N) static constexpr TwineRef N = IDX_##N;
+#include "kernel/constids.inc"
+#undef X
 };
 
 struct Twine {
-	static constexpr TwineRef Null = nullptr;
+	static constexpr TwineRef Null = std::numeric_limits<size_t>::max();
 
 	struct Suffix {
 		TwineRef prefix;
@@ -269,8 +57,49 @@ struct Twine {
 	const std::string &leaf() const { return std::get<std::string>(data); }
 	const std::vector<TwineRef> &children() const { return std::get<std::vector<TwineRef>>(data); }
 	const Suffix &suffix() const { return std::get<Suffix>(data); }
-	void dump(std::ostream& os = std::cout) const {
-		std::visit([&os](const auto& val) {
+};
+
+struct TwineHash {
+	using is_transparent = void;
+
+	const TwinePool* pool = nullptr;
+
+	size_t operator()(const Twine& t) const noexcept;
+	size_t operator()(TwineRef ref) const noexcept;
+	// size_t operator()(std::string_view v) const noexcept;
+};
+
+struct TwineEq {
+	using is_transparent = void;
+
+	const TwinePool* pool = nullptr;
+
+	bool operator()(TwineRef a, TwineRef b) const noexcept;
+	bool operator()(TwineRef a, const Twine& b) const noexcept;
+	bool operator()(const Twine& a, TwineRef b) const noexcept;
+	// bool operator()(TwineRef a, std::string_view b) const noexcept;
+	// bool operator()(std::string_view a, TwineRef b) const noexcept;
+};
+
+
+TwineRef twine_populate(std::string name);
+void twine_prepopulate();
+
+struct TwinePool {
+	static std::vector<Twine> globals_;
+	plf::colony<Twine> backing;
+	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
+
+	const Twine& operator[] (TwineRef ref) const {
+		if (ref < STATIC_TWINE_END)
+			return globals_[ref];
+		else
+			return backing[ref - STATIC_TWINE_END];
+	}
+
+	void dump(TwineRef ref, std::ostream& os = std::cout) const {
+		const Twine& twine = (*this)[ref];
+		std::visit([&](const auto& val) {
 			using T = std::decay_t<decltype(val)>;
 			if constexpr (std::is_same_v<T, std::monostate>) {
 				os << "Dead()";
@@ -281,18 +110,18 @@ struct Twine {
 				for (size_t i = 0; i < val.size(); ++i) {
 					if (i > 0)
 						os << ", ";
-					val[i]->dump(os);
+					dump(val[i], os);
 				}
 				os << "]";
-			} else if constexpr (std::is_same_v<T, Suffix>) {
+			} else if constexpr (std::is_same_v<T, Twine::Suffix>) {
 				os << "Suffix(prefix: ";
-				val.prefix->dump(os);
+				dump(val.prefix, os);
 				os << ", tail: \"" << val.tail << "\")";
 			}
-		}, data);
+		}, twine.data);
 	}
-	void print(std::ostream& os = std::cout) const {
-		std::visit([&os](const auto& val) {
+	void print(TwineRef ref, std::ostream& os = std::cout) const {
+		std::visit([&](const auto& val) {
 			using T = std::decay_t<decltype(val)>;
 			if constexpr (std::is_same_v<T, std::monostate>) {
 			} else if constexpr (std::is_same_v<T, std::string>) {
@@ -301,89 +130,83 @@ struct Twine {
 				for (size_t i = 0; i < val.size(); ++i) {
 					if (i > 0)
 						os << "|";
-					val[i]->print(os);
+					print(val[i], os);
 				}
-			} else if constexpr (std::is_same_v<T, Suffix>) {
-				val.prefix->print(os);
+			} else if constexpr (std::is_same_v<T, Twine::Suffix>) {
+				print(val.prefix, os);
 				os << val.tail;
 			}
-		}, data);
+		}, (*this)[ref].data);
 	}
-	std::string str() const {
-		std::string str;
-		std::stringstream os(str);
-		print(os);
-		return str;
-	}
-};
-
-struct TwineHash {
-	using is_transparent = void;
-
-	size_t operator()(const Twine& t) const noexcept;
-	size_t operator()(TwineRef ptr) const noexcept;
-	// size_t operator()(std::string_view v) const noexcept;
-};
-
-struct TwineEq {
-	using is_transparent = void;
-
-	bool operator()(TwineRef a, TwineRef b) const noexcept;
-	bool operator()(TwineRef a, const Twine& b) const noexcept;
-	bool operator()(const Twine& a, TwineRef b) const noexcept;
-	// bool operator()(TwineRef a, std::string_view b) const noexcept;
-	// bool operator()(std::string_view a, TwineRef b) const noexcept;
-};
-
-
-enum : short {
-	STATIC_TWINE_BEGIN = 0,
-#define X(N) IDX_##N,
-#include "kernel/constids.inc"
-#undef X
-	STATIC_TWINE_END
-};
-
-
-struct TwinePool {
-	static constexpr std::array<Twine, STATIC_TWINE_END> globals_;
-	plf::colony<Twine> backing;
-	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
-
-	TwinePool() {
-		for (auto t : globals_)
-			index.insert(TwineRef(&t));
+	std::string str(TwineRef ref) const {
+		std::ostringstream os;
+		print(ref, os);
+		return os.str();
 	}
 
-	TwineRef find(Twine t) const {
-		if (auto it = index.find(TwineRef(&t)); it != index.end()) {
+	TwinePool() : index(0, TwineHash{this}, TwineEq{this}) {
+		rebuild_index();
+	}
+	TwinePool(const TwinePool& other) : backing(other.backing), index(0, TwineHash{this}, TwineEq{this}) {
+		rebuild_index();
+	}
+	TwinePool(TwinePool&& other) : backing(std::move(other.backing)), index(0, TwineHash{this}, TwineEq{this}) {
+		rebuild_index();
+	}
+	TwinePool& operator=(const TwinePool& other) {
+		if (this != &other) {
+			backing = other.backing;
+			index = std::unordered_set<TwineRef, TwineHash, TwineEq>(0, TwineHash{this}, TwineEq{this});
+			rebuild_index();
+		}
+		return *this;
+	}
+	TwinePool& operator=(TwinePool&& other) {
+		if (this != &other) {
+			backing = std::move(other.backing);
+			index = std::unordered_set<TwineRef, TwineHash, TwineEq>(0, TwineHash{this}, TwineEq{this});
+			rebuild_index();
+		}
+		return *this;
+	}
+
+	void rebuild_index() {
+		for (TwineRef ref = 0; ref < globals_.size(); ref++)
+			index.insert(ref);
+		for (auto it = backing.begin(); it != backing.end(); ++it)
+			index.insert(STATIC_TWINE_END + backing.get_index(it));
+	}
+
+	TwineRef find(const Twine& t) const {
+		if (auto it = index.find(t); it != index.end()) {
 			return *it;
 		}
 		return Twine::Null;
 	}
 
 	TwineRef add(Twine t) {
-		if (auto it = index.find(TwineRef(&t)); it != index.end()) {
+		if (auto it = index.find(t); it != index.end()) {
 			return *it;
 		}
 
 		auto colony_it = backing.insert(std::move(t));
-		TwineRef ptr(&(*colony_it));
-		index.insert(ptr);
-		return ptr;
+		TwineRef ref = STATIC_TWINE_END + backing.get_index(colony_it);
+		index.insert(ref);
+		return ref;
 	}
 
 	void dump(std::ostream& os = std::cout) const {
 		os << "--- TwinePool Dump (" << backing.size() << " nodes) ---\n";
-		for (const auto& t : backing) {
-			os << static_cast<const void*>(&t) << " -> ";
-			t.dump(os);
+		for (auto it = backing.begin(); it != backing.end(); ++it) {
+			TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
+			os << ref << " -> ";
+			dump(ref, os);
 			os << '\n';
 		}
 		os << "--------------------------------\n";
 	}
 	// Silly compat
-	std::string flat_string(TwineRef t) const { return t->str(); }
+	std::string flat_string(TwineRef t) const { return str(t); }
 };
 
 inline size_t TwineHash::operator()(const Twine& t) const noexcept {
@@ -394,7 +217,7 @@ inline size_t TwineHash::operator()(const Twine& t) const noexcept {
 		using T = std::decay_t<decltype(val)>;
 
 		// auto combine = [&h](auto v) {
-		// 	h ^= v + 0x9e3779b9 + (h << 6) + (h >> 2); 
+		// 	h ^= v + 0x9e3779b9 + (h << 6) + (h >> 2);
 		// };
 
 		if constexpr (std::is_same_v<T, std::string>) {
@@ -416,25 +239,27 @@ inline size_t TwineHash::operator()(const Twine& t) const noexcept {
 	return h.yield();
 }
 
-inline size_t TwineHash::operator()(TwineRef ptr) const noexcept {
-	return (*this)(*ptr);
+inline size_t TwineHash::operator()(TwineRef ref) const noexcept {
+	return (*this)((*pool)[ref]);
 }
 
 inline bool TwineEq::operator()(TwineRef a, TwineRef b) const noexcept {
-	return a->data == b->data;
+	return (*pool)[a].data == (*pool)[b].data;
 }
 
 inline bool TwineEq::operator()(TwineRef a, const Twine& b) const noexcept {
-	return a->data == b.data;
+	return (*pool)[a].data == b.data;
 }
 
 inline bool TwineEq::operator()(const Twine& a, TwineRef b) const noexcept {
-	return a.data == b->data;
+	return a.data == (*pool)[b].data;
 }
 
 
 struct DeepTwineHash {
 	using is_transparent = void;
+
+	const TwinePool* pool = nullptr;
 
 	// FNV-1a constants for 64-bit
 	static constexpr size_t FNV_OFFSET_BASIS = 14695981039346656037ull;
@@ -448,16 +273,19 @@ struct DeepTwineHash {
 	}
 
 	// Recursively hash the fragments of a Twine
-	static void combine(size_t& hash, TwineRef t) noexcept {
-		if (!t || t->is_dead()) return;
+	void combine(size_t& hash, TwineRef t) const noexcept {
+		if (t == Twine::Null)
+			return;
+		const Twine& n = (*pool)[t];
+		if (n.is_dead()) return;
 
-		if (t->is_leaf()) {
-			combine(hash, t->leaf());
-		} else if (t->is_concat()) {
-			for (auto child : t->children()) combine(hash, child);
-		} else if (t->is_suffix()) {
-			combine(hash, t->suffix().prefix);
-			combine(hash, t->suffix().tail);
+		if (n.is_leaf()) {
+			combine(hash, std::string_view(n.leaf()));
+		} else if (n.is_concat()) {
+			for (auto child : n.children()) combine(hash, child);
+		} else if (n.is_suffix()) {
+			combine(hash, n.suffix().prefix);
+			combine(hash, std::string_view(n.suffix().tail));
 		}
 	}
 
@@ -477,23 +305,28 @@ struct DeepTwineHash {
 struct DeepTwineEq {
 	using is_transparent = void;
 
-	// Recursively consumes the string_view to check for deep equality
-	static bool consume(TwineRef t, std::string_view& sv) noexcept {
-		if (!t || t->is_dead()) return true;
+	const TwinePool* pool = nullptr;
 
-		if (t->is_leaf()) {
-			if (!sv.starts_with(t->leaf())) return false;
-			sv.remove_prefix(t->leaf().size());
+	// Recursively consumes the string_view to check for deep equality
+	bool consume(TwineRef t, std::string_view& sv) const noexcept {
+		if (t == Twine::Null)
 			return true;
-		} else if (t->is_concat()) {
-			for (auto child : t->children()) {
+		const Twine& n = (*pool)[t];
+		if (n.is_dead()) return true;
+
+		if (n.is_leaf()) {
+			if (!sv.starts_with(n.leaf())) return false;
+			sv.remove_prefix(n.leaf().size());
+			return true;
+		} else if (n.is_concat()) {
+			for (auto child : n.children()) {
 				if (!consume(child, sv)) return false;
 			}
 			return true;
-		} else if (t->is_suffix()) {
-			if (!consume(t->suffix().prefix, sv)) return false;
-			if (!sv.starts_with(t->suffix().tail)) return false;
-			sv.remove_prefix(t->suffix().tail.size());
+		} else if (n.is_suffix()) {
+			if (!consume(n.suffix().prefix, sv)) return false;
+			if (!sv.starts_with(n.suffix().tail)) return false;
+			sv.remove_prefix(n.suffix().tail.size());
 			return true;
 		}
 		return false;
@@ -509,21 +342,25 @@ struct DeepTwineEq {
 
 	// Required by unordered_set to handle hash collisions between two TwineRefs.
 	bool operator()(TwineRef a, TwineRef b) const {
-		if (a == b) return true; // Pointer or structural equality shortcut
-		return (*this)(a, flatten(b));
+		if (a == b) return true; // Index or structural equality shortcut
+		std::string fb = flatten(b);
+		return (*this)(a, std::string_view(fb));
 	}
 
 	// Helper to flatten a twine (used only during rare hash collisions)
-	static std::string flatten(TwineRef t) {
+	std::string flatten(TwineRef t) const {
 		std::string result;
-		auto append = [&result](auto& self, TwineRef node) -> void {
-			if (!node || node->is_dead()) return;
-			if (node->is_leaf()) result += node->leaf();
-			else if (node->is_concat()) {
-				for (auto child : node->children()) self(self, child);
-			} else if (node->is_suffix()) {
-				self(self, node->suffix().prefix);
-				result += node->suffix().tail;
+		auto append = [&](auto& self, TwineRef ref) -> void {
+			if (ref == Twine::Null)
+				return;
+			const Twine& node = (*pool)[ref];
+			if (node.is_dead()) return;
+			if (node.is_leaf()) result += node.leaf();
+			else if (node.is_concat()) {
+				for (auto child : node.children()) self(self, child);
+			} else if (node.is_suffix()) {
+				self(self, node.suffix().prefix);
+				result += node.suffix().tail;
 			}
 		};
 		append(append, t);
@@ -532,11 +369,11 @@ struct DeepTwineEq {
 };
 
 struct TwineSearch {
-	std::unordered_set<TwineRef, DeepTwineHash, DeepTwineEq> index;
 	TwinePool* pool;
-	TwineSearch(TwinePool* pool) : pool(pool) {
-		for (auto& t : pool->backing) {
-			index.insert(TwineRef(&t));
+	std::unordered_set<TwineRef, DeepTwineHash, DeepTwineEq> index;
+	TwineSearch(TwinePool* pool) : pool(pool), index(0, DeepTwineHash{pool}, DeepTwineEq{pool}) {
+		for (auto it = pool->backing.begin(); it != pool->backing.end(); ++it) {
+			index.insert(STATIC_TWINE_END + pool->backing.get_index(it));
 		}
 	}
 	TwineRef find(std::string_view sv) const {
@@ -546,38 +383,6 @@ struct TwineSearch {
 		return Twine::Null;
 	}
 };
-
-
-#define static_to_offset
-#define offset_to_static
-// TW static_to_offset(TwineRef ref);
-// TwineRef offset_to_static(TW offset);
-
-constexpr TwineRef::TwineRef(TW tw)
-	: pointer_wrapper<const Twine>(&TwinePool::globals_[(short)tw]) {}
-// Twine& TwineRef::operator*() {
-// 	// Ugly
-// 	std::visit([](const auto& data) {
-// 		using T = std::decay_t<decltype(data)>;
-// 		if constexpr (std::is_same_v<Twine*, std::monostate>) {
-// 			return *data;
-// 		} else {
-// 			return TwinePool::globals_[data];
-// 		}
-// 	}, data);
-// }
-
-// const Twine& TwineRef::operator*() const {
-// 	// Ugly
-// 	std::visit([](const auto& data) {
-// 		using T = std::decay_t<decltype(data)>;
-// 		if constexpr (std::is_same_v<Twine*, std::monostate>) {
-// 			return *data;
-// 		} else {
-// 			return TwinePool::globals_[data];
-// 		}
-// 	}, data);
-// }
 
 // struct TwinePoolExtender {
 // 	TwinePool& pool;

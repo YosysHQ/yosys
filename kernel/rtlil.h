@@ -3308,7 +3308,7 @@ inline RTLIL::ModuleNameMasq::operator RTLIL::IdString() const {
 inline RTLIL::ModuleNameMasq::operator TwineRef() const {
 	const RTLIL::Module *m = reinterpret_cast<const RTLIL::Module*>(
 		reinterpret_cast<const char*>(this) - offsetof(RTLIL::Module, name));
-	return m->design ? m->design->obj_src_id(m) : nullptr;
+	return m->design ? m->design->obj_src_id(m) : Twine::Null;
 }
 
 // inline RTLIL::ModuleNameMasq& RTLIL::ModuleNameMasq::operator=(RTLIL::IdString id) {

@@ -22,7 +22,7 @@ struct CellTableBuilder {
 		std::array<TwineRef, MAX_PORTS> ports{};
 		size_t count = 0;
 		constexpr PortList() = default;
-		constexpr PortList(std::initializer_list<TW> init) {
+		constexpr PortList(std::initializer_list<TwineRef> init) {
 			for (auto p : init) {
 				ports[count++] = p;
 			}
@@ -57,7 +57,7 @@ struct CellTableBuilder {
 	std::array<CellInfo, MAX_CELLS> cells{};
 	size_t count = 0;
 
-	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<TW> inputs, std::initializer_list<TW> outputs, const Features& features) {
+	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<TwineRef> inputs, std::initializer_list<TwineRef> outputs, const Features& features) {
 		cells[count++] = {type, PortList(inputs), PortList(outputs), features};
 	}
 	constexpr void setup_internals_other()
@@ -619,7 +619,7 @@ struct NewCellTypes {
 
 	bool cell_input(const RTLIL::IdString &type, TwineRef port) const
 	{
-		if (static_cell_types(type) && StaticCellTypes::port_info.inputs(type).contains(static_to_offset(port))) {
+		if (static_cell_types(type) && StaticCellTypes::port_info.inputs(type).contains(port)) {
 			return true;
 		}
 		auto it = custom_cell_types.find(type);
@@ -630,8 +630,8 @@ struct NewCellTypes {
 	{
 		bool is_input, is_output;
 		if (static_cell_types(type)) {
-			is_input = StaticCellTypes::port_info.inputs(type).contains(static_to_offset(port));
-			is_output = StaticCellTypes::port_info.outputs(type).contains(static_to_offset(port));
+			is_input = StaticCellTypes::port_info.inputs(type).contains(port);
+			is_output = StaticCellTypes::port_info.outputs(type).contains(port);
 		} else {
 			auto it = custom_cell_types.find(type);
 			if (it == custom_cell_types.end())
