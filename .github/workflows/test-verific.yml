@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-          submodules: true
+          submodules: recursive
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
@@ -128,7 +128,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-          submodules: true
+          submodules: recursive
       - name: Install UV
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh

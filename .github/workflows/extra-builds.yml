@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
           persist-credentials: false
 
       - name: Setup MSVC
@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
           persist-credentials: false
       - name: Build
         run: |
@@ -110,7 +110,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
           persist-credentials: false
       - uses: cachix/install-nix-action@v31
         with:

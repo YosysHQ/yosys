@@ -13,7 +13,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v5
       with:
-        submodules: true
+        submodules: recursive
         persist-credentials: false
 
     - name: Setup environment

@@ -70,7 +70,7 @@ jobs:
       - name: Checkout Yosys
         uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: recursive
           persist-credentials: false
 
       - name: Setup environment
@@ -248,7 +248,7 @@ jobs:
       - name: Checkout Yosys
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
           persist-credentials: false
 
       - name: Runtime environment
