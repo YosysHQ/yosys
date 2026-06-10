@@ -49,7 +49,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
@@ -67,7 +67,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add

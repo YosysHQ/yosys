@@ -11,7 +11,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 0 t:$macc t:$macc_v2 %u
 select -assert-count 0 t:$mul
@@ -30,7 +30,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 1 t:$macc t:$macc_v2 %u
 select -assert-count 0 t:$mul
@@ -49,7 +49,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 0 t:$macc t:$macc_v2 %u
 select -assert-count 0 t:$mul
@@ -69,7 +69,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 0 t:$macc t:$macc_v2 %u
 select -assert-count 0 t:$mul
@@ -89,7 +89,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 0 t:$macc t:$macc_v2 %u
 select -assert-min 1 t:$fa
@@ -108,7 +108,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree
+equiv_opt -assert arith_tree
 design -load postopt
 select -assert-count 0 t:$macc t:$macc_v2 %u
 select -assert-count 0 t:$mul
@@ -128,7 +128,7 @@ hierarchy -auto-top
 proc
 alumacc
 opt
-equiv_opt arith_tree -no-fma
+equiv_opt -assert arith_tree -no-fma
 design -load postopt
 select -assert-count 0 t:$fa
 select -assert-min 1 t:$macc t:$macc_v2 %u
