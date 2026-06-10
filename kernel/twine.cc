@@ -3,41 +3,22 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-// std::vector<Twine> TwinePool::globals_;
-constexpr inline std::array<Twine, STATIC_ID_END> globals_;
+std::vector<Twine> TwinePool::globals_;
 
 TwineRef twine_populate(std::string name) {
 	if (name[1] == '$') {
 		// Skip prepended '\'
 		name = name.substr(1);
 	}
-	TwinePool::globals_.push_back(Twine(name));
-	return &TwinePool::globals_.back();
+	TwinePool::globals_.push_back(Twine{std::move(name)});
+	return TwinePool::globals_.size() - 1;
 }
 void twine_prepopulate() {
-	int size = static_cast<short>(RTLIL::StaticId::STATIC_ID_END);
-	TwinePool::globals_.reserve(size);
-	TwinePool::globals_.push_back(Twine(""));
+	TwinePool::globals_.reserve(STATIC_TWINE_END);
+	TwinePool::globals_.push_back(Twine{std::string()});
 #define X(_id) twine_populate("\\" #_id);
 #include "kernel/constids.inc"
 #undef X
-}
-
-#define X(N) constexpr TW TW::N{IDX_##N};
-#include "kernel/constids.inc"
-#undef X
-
-TW::EnumType static_to_offset(TwineRef ref); {
-	size_t offset = ref - &TwinePool::globals_.front();
-	log_assert(offset > STATIC_TWINE_BEGIN);
-	log_assert(offset < STATIC_TWINE_END);
-	return (TW::EnumType)offset;
-}
-
-TwineRef offset_to_static(TW::EnumType offset) {
-	log_assert(offset > STATIC_TWINE_BEGIN);
-	log_assert(offset < STATIC_TWINE_END);
-	return &TwinePool::globals_[offset];
 }
 
 // enum : short
