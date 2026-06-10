@@ -304,10 +304,10 @@ struct ArithTreeWorker {
 		for (auto &op : operands) {
 			if (GetSize(op.factor_b) == 0) {
 				// Additive operand
-				SigSpec s = CompressorTree::normalize_to_width(op.sig, op.is_signed, width);
+				op.sig.extend_u0(width, op.is_signed);
 				if (op.negate)
-					s = module->Not(NEW_ID, s);
-				pool.push_back({s, 0});
+					op.sig = module->Not(NEW_ID, op.sig);
+				pool.push_back({op.sig, 0});
 			} else {
 				// Multiplicative operand
 				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);

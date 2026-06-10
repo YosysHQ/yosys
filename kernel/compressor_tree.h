@@ -30,8 +30,8 @@ namespace CompressorTree
 {
 
 // Width and depth thresholds below which a ripple is preferred over parallel-prefix
-constexpr int RIPPLE_PREFIX_THRESHOLD = 16;
-constexpr int PREFIX_DEPTH_THRESHOLD = 5;
+constexpr int RIPPLE_PREFIX_WIDTH_THRESHOLD = 16;
+constexpr int RIPPLE_PREFIX_DEPTH_THRESHOLD = 5;
 
 enum class Strategy {
 	FA_ONLY,   // 3:2 compressors
@@ -58,8 +58,6 @@ enum class FinalMode {
 
 std::pair<SigSpec, SigSpec> emit_compressor_32(Module *module, SigSpec a, SigSpec b, SigSpec c, int width);
 std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpec b, SigSpec c, SigSpec d, int width);
-
-SigSpec normalize_to_width(SigSpec sig, bool is_signed, int width);
 
 /**
  * generate_partial_products() - Generate partial products for FMA concat

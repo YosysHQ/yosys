@@ -43,23 +43,6 @@ std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpe
 	return {sum, carry};
 }
 
-SigSpec normalize_to_width(SigSpec sig, bool is_signed, int width)
-{
-	// Zero/sign-extend to width
-	if (GetSize(sig) < width) {
-		SigBit pad;
-		if (is_signed && GetSize(sig) > 0)
-			pad = sig[GetSize(sig) - 1];
-		else
-			pad = State::S0;
-		sig.append(SigSpec(pad, width - GetSize(sig)));
-	}
-	// Truncate to width
-	if (GetSize(sig) > width)
-		sig = sig.extract(0, width);
-	return sig;
-}
-
 std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSpec b, bool a_signed, bool b_signed, int width) {
 	int width_a = GetSize(a);
 	int width_b = GetSize(b);
@@ -72,7 +55,7 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
 		// b_shifted = (0_i ## b)
 		SigSpec b_shifted = SigSpec(State::S0, i);
 		b_shifted.append(b);
-		b_shifted = normalize_to_width(b_shifted, false, width);
+		b_shifted.extend_u0(width, false);
 
 		// row = b_shifted & replicate(a[i], width)
 		SigSpec ai_rep = SigSpec(ai, width);
@@ -333,8 +316,8 @@ FinalAdder pick_final_adder(int width, int final_depth, FinalMode mode) {
 		case FinalMode::PREFIX:  return FinalAdder::PARALLEL_PREFIX;
 		case FinalMode::AUTO:
 		default: {
-			bool wide = width >= RIPPLE_PREFIX_THRESHOLD;
-			bool deep = final_depth >= PREFIX_DEPTH_THRESHOLD;
+			bool wide = width >= RIPPLE_PREFIX_WIDTH_THRESHOLD;
+			bool deep = final_depth >= RIPPLE_PREFIX_DEPTH_THRESHOLD;
 			return (wide && deep) ? FinalAdder::PARALLEL_PREFIX : FinalAdder::DEFAULT;
 		}
 	}
