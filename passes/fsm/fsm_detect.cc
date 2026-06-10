@@ -67,8 +67,8 @@ ret_false:
 
 		recursion_monitor.insert(cellport.first);
 
-		RTLIL::SigSpec sig_a = assign_map(cellport.first->getPort(ID::A));
-		RTLIL::SigSpec sig_b = assign_map(cellport.first->getPort(ID::B));
+		RTLIL::SigSpec sig_a = assign_map(cellport.first->getPort(TW::A));
+		RTLIL::SigSpec sig_b = assign_map(cellport.first->getPort(TW::B));
 
 		if (!check_state_mux_tree(old_sig, sig_a, recursion_monitor, mux_tree_cache)) {
 			recursion_monitor.erase(cellport.first);
@@ -101,7 +101,7 @@ static bool check_state_users(RTLIL::SigSpec sig)
 			continue;
 		if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
 			continue;
-		if (cell->type == ID($logic_not) && assign_map(cell->getPort(ID::A)) == sig)
+		if (cell->type == ID($logic_not) && assign_map(cell->getPort(TW::A)) == sig)
 			continue;
 		if (cellport.second != ID::A && cellport.second != ID::B)
 			return false;
@@ -110,9 +110,9 @@ static bool check_state_users(RTLIL::SigSpec sig)
 		for (auto &port_it : cell->connections())
 			if (port_it.first != ID::A && port_it.first != ID::B && port_it.first != ID::Y)
 				return false;
-		if (assign_map(cell->getPort(ID::A)) == sig && cell->getPort(ID::B).is_fully_const())
+		if (assign_map(cell->getPort(TW::A)) == sig && cell->getPort(TW::B).is_fully_const())
 			continue;
-		if (assign_map(cell->getPort(ID::B)) == sig && cell->getPort(ID::A).is_fully_const())
+		if (assign_map(cell->getPort(TW::B)) == sig && cell->getPort(TW::A).is_fully_const())
 			continue;
 		return false;
 	}
@@ -150,8 +150,8 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 
 		muxtree_cells.clear();
 		pool<Cell*> recursion_monitor;
-		RTLIL::SigSpec sig_q = assign_map(cellport.first->getPort(ID::Q));
-		RTLIL::SigSpec sig_d = assign_map(cellport.first->getPort(ID::D));
+		RTLIL::SigSpec sig_q = assign_map(cellport.first->getPort(TW::Q));
+		RTLIL::SigSpec sig_d = assign_map(cellport.first->getPort(TW::D));
 		dict<RTLIL::SigSpec, bool> mux_tree_cache;
 
 		if (sig_q != assign_map(wire))
@@ -203,7 +203,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 		SigSpec sig_y = sig_d, sig_undef;
 		if (!ignore_self_reset) {
 			if (cellport.first->type == ID($adff)) {
-				SigSpec sig_arst = assign_map(cellport.first->getPort(ID::ARST));
+				SigSpec sig_arst = assign_map(cellport.first->getPort(TW::ARST));
 				if (ce.eval(sig_arst, sig_undef))
 					is_self_resetting = true;
 			}

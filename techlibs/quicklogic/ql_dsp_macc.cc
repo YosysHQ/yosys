@@ -80,7 +80,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
         log("  %s (%s)\n", cell, cell->type.unescape());
 
     // Add the DSP cell
-    RTLIL::Cell *cell = pm.module->addCell(NEW_ID, type);
+    RTLIL::Cell *cell = pm.module->addCell(NEW_TWINE, type);
 
     // Set attributes
     cell->set_bool_attribute(ID(is_inferred), true);
@@ -102,7 +102,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
     // Connect output data port, pad if needed
     if ((size_t) GetSize(sig_z) < tgt_z_width) {
-        auto *wire = pm.module->addWire(NEW_ID, tgt_z_width - GetSize(sig_z));
+        auto *wire = pm.module->addWire(NEW_TWINE, tgt_z_width - GetSize(sig_z));
         sig_z.append(wire);
     }
     cell->setPort(ID(z_o), sig_z);

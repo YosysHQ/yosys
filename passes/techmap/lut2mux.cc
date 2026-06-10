@@ -25,8 +25,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 int lut2mux(Cell *cell, bool word_mode)
 {
-	SigSpec sig_a = cell->getPort(ID::A);
-	SigSpec sig_y = cell->getPort(ID::Y);
+	SigSpec sig_a = cell->getPort(TW::A);
+	SigSpec sig_y = cell->getPort(TW::Y);
 	Const lut = cell->getParam(ID::LUT);
 	int count = 1;
 
@@ -41,8 +41,8 @@ int lut2mux(Cell *cell, bool word_mode)
 	{
 		SigSpec sig_a_hi = sig_a[GetSize(sig_a)-1];
 		SigSpec sig_a_lo = sig_a.extract(0, GetSize(sig_a)-1);
-		SigSpec sig_y1 = cell->module->addWire(NEW_ID);
-		SigSpec sig_y2 = cell->module->addWire(NEW_ID);
+		SigSpec sig_y1 = cell->module->addWire(NEW_TWINE);
+		SigSpec sig_y2 = cell->module->addWire(NEW_TWINE);
 
 		Const lut1 = lut.extract(0, GetSize(lut)/2);
 		Const lut2 = lut.extract(GetSize(lut)/2, GetSize(lut)/2);

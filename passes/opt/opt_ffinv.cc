@@ -84,12 +84,12 @@ struct OptFfInvWorker
 		}
 
 		ff.flip_rst_bits({0});
-		ff.sig_d = d_inv->getPort(ID::A);
+		ff.sig_d = d_inv->getPort(TW::A);
 
 		for (Cell *lut: q_luts) {
 			if (lut->type == ID($lut)) {
 				int flip_mask = 0;
-				SigSpec sig_a = lut->getPort(ID::A);
+				SigSpec sig_a = lut->getPort(TW::A);
 				for (int i = 0; i < GetSize(sig_a); i++) {
 					if (index.sigmap(sig_a[i]) == index.sigmap(ff.sig_q[0])) {
 						flip_mask |= 1 << i;
@@ -101,14 +101,14 @@ struct OptFfInvWorker
 					new_mask_builder.push_back(mask[j ^ flip_mask]);
 				Const new_mask = new_mask_builder.build();
 				if (GetSize(sig_a) == 1 && new_mask.as_int() == 2) {
-					module->connect(lut->getPort(ID::Y), ff.sig_q);
+					module->connect(lut->getPort(TW::Y), ff.sig_q);
 					module->remove(lut);
 				} else {
 					lut->setParam(ID::LUT, new_mask);
 				}
 			} else {
 				// it was an inverter
-				module->connect(lut->getPort(ID::Y), ff.sig_q);
+				module->connect(lut->getPort(TW::Y), ff.sig_q);
 				module->remove(lut);
 			}
 		}
@@ -173,7 +173,7 @@ struct OptFfInvWorker
 		if (!q_inv) return false;
 
 		ff.flip_rst_bits({0});
-		ff.sig_q = q_inv->getPort(ID::Y);
+		ff.sig_q = q_inv->getPort(TW::Y);
 		module->remove(q_inv);
 
 		if (d_lut->type == ID($lut)) {
@@ -188,12 +188,12 @@ struct OptFfInvWorker
 			Const new_mask = new_mask_builder.build();
 			d_lut->setParam(ID::LUT, new_mask);
 			if (d_lut->getParam(ID::WIDTH) == 1 && new_mask.as_int() == 2) {
-				module->connect(ff.sig_d, d_lut->getPort(ID::A));
+				module->connect(ff.sig_d, d_lut->getPort(TW::A));
 				module->remove(d_lut);
 			}
 		} else {
 			// it was an inverter
-			module->connect(ff.sig_d, d_lut->getPort(ID::A));
+			module->connect(ff.sig_d, d_lut->getPort(TW::A));
 			module->remove(d_lut);
 		}
 

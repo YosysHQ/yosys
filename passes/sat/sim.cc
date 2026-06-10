@@ -211,7 +211,7 @@ struct SimInstance
 		{
 			return std::make_tuple(
 				cell->getParam(ID::TRG_ENABLE).as_bool(), // Group by trigger
-				cell->getPort(ID::TRG),
+				cell->getPort(TW::TRG),
 				cell->getParam(ID::TRG_POLARITY),
 				-cell->getParam(ID::PRIORITY).as_int(), // Then sort by descending PRIORITY
 				cell
@@ -368,8 +368,8 @@ struct SimInstance
 				auto &print = print_database.back();
 				print.cell = cell;
 				print.fmt.parse_rtlil(cell);
-				print.past_trg = Const(State::Sx, cell->getPort(ID::TRG).size());
-				print.past_args = Const(State::Sx, cell->getPort(ID::ARGS).size());
+				print.past_trg = Const(State::Sx, cell->getPort(TW::TRG).size());
+				print.past_args = Const(State::Sx, cell->getPort(TW::ARGS).size());
 				print.past_en = State::Sx;
 				print.initial_done = false;
 			}
@@ -568,12 +568,12 @@ struct SimInstance
 			has_s = cell->hasPort(ID::S);
 			has_y = cell->hasPort(ID::Y);
 
-			if (has_a) sig_a = cell->getPort(ID::A);
-			if (has_b) sig_b = cell->getPort(ID::B);
-			if (has_c) sig_c = cell->getPort(ID::C);
-			if (has_d) sig_d = cell->getPort(ID::D);
-			if (has_s) sig_s = cell->getPort(ID::S);
-			if (has_y) sig_y = cell->getPort(ID::Y);
+			if (has_a) sig_a = cell->getPort(TW::A);
+			if (has_b) sig_b = cell->getPort(TW::B);
+			if (has_c) sig_c = cell->getPort(TW::C);
+			if (has_d) sig_d = cell->getPort(TW::D);
+			if (has_s) sig_s = cell->getPort(TW::S);
+			if (has_y) sig_y = cell->getPort(TW::Y);
 
 			if (shared->debug)
 				log("[%s] eval %s (%s)\n", hiername(), cell, cell->type.unescape());
@@ -878,10 +878,10 @@ struct SimInstance
 			Cell *cell = print.cell;
 			bool triggered = false;
 
-			Const trg = get_state(cell->getPort(ID::TRG));
+			Const trg = get_state(cell->getPort(TW::TRG));
 			bool trg_en = cell->getParam(ID::TRG_ENABLE).as_bool();
-			Const en = get_state(cell->getPort(ID::EN));
-			Const args = get_state(cell->getPort(ID::ARGS));
+			Const en = get_state(cell->getPort(TW::EN));
+			Const args = get_state(cell->getPort(TW::ARGS));
 
 			bool sampled = trg_en && trg.size() > 0;
 
@@ -937,8 +937,8 @@ struct SimInstance
 				if (cell->has_attribute(ID::src))
 					label = cell->get_src_attribute();
 
-				State a = get_state(cell->getPort(ID::A))[0];
-				State en = get_state(cell->getPort(ID::EN))[0];
+				State a = get_state(cell->getPort(TW::A))[0];
+				State en = get_state(cell->getPort(TW::EN))[0];
 
 				if (en == State::S1 && (cell->type == ID($cover) ? a == State::S1 : a != State::S1)) {
 					shared->triggered_assertions.emplace_back(shared->step, this, cell);
@@ -967,7 +967,7 @@ struct SimInstance
 	void set_initstate_outputs(State state)
 	{
 		for (auto cell : initstate_database)
-			set_state(cell->getPort(ID::Y), state);
+			set_state(cell->getPort(TW::Y), state);
 		for (auto child : children)
 			child.second->set_initstate_outputs(state);
 	}
@@ -1203,7 +1203,7 @@ struct SimInstance
 		for (auto cell : module->cells())
 		{
 			if (cell->type.in(ID($anyseq))) {
-				SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+				SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 				if (sig_y.is_wire()) {
 					bool found = false;
 					for(auto &item : fst_handles) {
@@ -1894,7 +1894,7 @@ struct SimWorker : SimShared
 							if (!c)
 								log_warning("Wire/cell %s not present in module %s\n",escaped_s.unescape(),topmod);
 							else if (c->type.in(ID($anyconst), ID($anyseq))) {
-								SigSpec sig_y= c->getPort(ID::Y);
+								SigSpec sig_y= c->getPort(TW::Y);
 								if ((int)parts[1].size() != GetSize(sig_y))
 									log_error("Size of wire %s is different than provided data.\n", log_signal(sig_y));
 								top->set_state(sig_y, Const::from_string(parts[1]));

@@ -241,7 +241,7 @@ struct MemoryMapWorker
 					} else {
 						c = module->addCell(ff_id, ID($dff));
 						c->parameters[ID::CLK_POLARITY] = RTLIL::Const(RTLIL::State::S1);
-						c->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::S0));
+						c->setPort(TW::CLK, RTLIL::SigSpec(RTLIL::State::S0));
 					}
 				} else if (async_wr) {
 					log_assert(formal); // General async write not implemented yet, checked against above
@@ -249,14 +249,14 @@ struct MemoryMapWorker
 				} else {
 					c = module->addCell(ff_id, ID($dff));
 					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(refclock_pol);
-					c->setPort(ID::CLK, refclock);
+					c->setPort(TW::CLK, refclock);
 				}
 				c->set_src_attribute(mem_src);
 				c->parameters[ID::WIDTH] = mem.width;
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
 				data_reg_in[idx] = w_in;
-				c->setPort(ID::D, w_in);
+				c->setPort(TW::D, w_in);
 
 				std::string w_out_name = stringf("%s[%d]", mem.memid, addr);
 				if (module->wire(RTLIL::IdString(w_out_name)) != nullptr)
@@ -276,7 +276,7 @@ struct MemoryMapWorker
 					w_out->attributes[ID::init] = w_init.as_const();
 
 				data_reg_out[idx] = w_out;
-				c->setPort(ID::Q, w_out);
+				c->setPort(TW::Q, w_out);
 
 				if (static_only)
 					module->connect(RTLIL::SigSig(w_in, w_out));
@@ -308,15 +308,15 @@ struct MemoryMapWorker
 					RTLIL::Cell *c = module->addCell(genid(mem.memid, "$rdmux", i, "", j, "", k), ID($mux));
 					c->set_src_attribute(mem_src);
 					c->parameters[ID::WIDTH] = GetSize(port.data);
-					c->setPort(ID::Y, rd_signals[k]);
-					c->setPort(ID::S, rd_addr.extract(abits-j-1, 1));
+					c->setPort(TW::Y, rd_signals[k]);
+					c->setPort(TW::S, rd_addr.extract(abits-j-1, 1));
 					count_mux++;
 
-					c->setPort(ID::A, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data)));
-					c->setPort(ID::B, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data)));
+					c->setPort(TW::A, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data)));
+					c->setPort(TW::B, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data)));
 
-					next_rd_signals.push_back(c->getPort(ID::A));
-					next_rd_signals.push_back(c->getPort(ID::B));
+					next_rd_signals.push_back(c->getPort(TW::A));
+					next_rd_signals.push_back(c->getPort(TW::B));
 				}
 
 				next_rd_signals.swap(rd_signals);
@@ -372,22 +372,22 @@ struct MemoryMapWorker
 							c->parameters[ID::A_WIDTH] = RTLIL::Const(1);
 							c->parameters[ID::B_WIDTH] = RTLIL::Const(1);
 							c->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
-							c->setPort(ID::A, w);
-							c->setPort(ID::B, wr_bit);
+							c->setPort(TW::A, w);
+							c->setPort(TW::B, wr_bit);
 
 							w = module->addWire(genid(mem.memid, "$wren", addr, "", j, "", wr_offset, "$y"));
-							c->setPort(ID::Y, RTLIL::SigSpec(w));
+							c->setPort(TW::Y, RTLIL::SigSpec(w));
 						}
 
 						RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset), ID($mux));
 						c->set_src_attribute(mem_src);
 						c->parameters[ID::WIDTH] = wr_width;
-						c->setPort(ID::A, sig.extract(wr_offset, wr_width));
-						c->setPort(ID::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
-						c->setPort(ID::S, RTLIL::SigSpec(w));
+						c->setPort(TW::A, sig.extract(wr_offset, wr_width));
+						c->setPort(TW::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
+						c->setPort(TW::S, RTLIL::SigSpec(w));
 
 						w = module->addWire(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset, "$y"), wr_width);
-						c->setPort(ID::Y, w);
+						c->setPort(TW::Y, w);
 
 						sig.replace(wr_offset, w);
 						wr_offset += wr_width;

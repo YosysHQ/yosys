@@ -127,7 +127,7 @@ struct QlBramMergeWorker {
 		const RTLIL::IdString merged_cell_type = ID($__QLF_TDP36K_MERGED);
 
 		// Create the new cell
-		RTLIL::Cell* merged = module->addCell(NEW_ID, merged_cell_type);
+		RTLIL::Cell* merged = module->addCell(NEW_TWINE, merged_cell_type);
 		log_debug("Merging split BRAM cells %s and %s -> %s\n", bram1->name.unescape(), bram2->name.unescape(), merged->name.unescape());
 
 		for (auto &it : param_map(false))

@@ -371,10 +371,10 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
-				Cell* icg = module->addCell(NEW_ID, matching_icg_desc->name);
+				Cell* icg = module->addCell(NEW_TWINE, matching_icg_desc->name);
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
-				gclk.new_net = module->addWire(NEW_ID);
+				gclk.new_net = module->addWire(NEW_TWINE);
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
 				for (auto port : matching_icg_desc->tie_lo_pins)

@@ -1432,7 +1432,7 @@ struct FlowmapWorker
 		{
 			auto origin = node_origins[node];
 			RTLIL::SigSpec driver = origin.cell->getPort(origin.port);
-			driver[origin.offset] = module->addWire(NEW_ID);
+			driver[origin.offset] = module->addWire(NEW_TWINE);
 			origin.cell->setPort(origin.port, driver);
 		}
 	}

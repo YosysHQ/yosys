@@ -23,6 +23,9 @@ struct TwinePool;
 
 using TwineRef = size_t;
 
+// Tags TwineChildPool-local refs; never set on refs handed out by TwinePool.
+constexpr TwineRef TWINE_LOCAL_BIT = TwineRef(1) << 63;
+
 enum : short {
 	STATIC_TWINE_BEGIN = 0,
 #define X(N) IDX_##N,
@@ -193,6 +196,68 @@ struct TwinePool {
 		TwineRef ref = STATIC_TWINE_END + backing.get_index(colony_it);
 		index.insert(ref);
 		return ref;
+	}
+
+	size_t size() const { return backing.size(); }
+
+	TwineRef concat(std::span<const TwineRef> ids) {
+		if (ids.size() == 1)
+			return ids[0];
+		return add(Twine{std::vector<TwineRef>(ids.begin(), ids.end())});
+	}
+
+	TwineRef copy_from(const TwinePool& src, TwineRef ref) {
+		if (ref == Twine::Null || ref < STATIC_TWINE_END)
+			return ref;
+		const Twine& t = src[ref];
+		if (t.is_leaf())
+			return add(Twine{t.leaf()});
+		if (t.is_concat()) {
+			std::vector<TwineRef> children;
+			children.reserve(t.children().size());
+			for (TwineRef c : t.children())
+				children.push_back(copy_from(src, c));
+			return add(Twine{std::move(children)});
+		}
+		if (t.is_suffix())
+			return add(Twine{Twine::Suffix{copy_from(src, t.suffix().prefix), t.suffix().tail}});
+		return Twine::Null;
+	}
+
+	// linear deep scan; only for rare by-string lookups
+	TwineRef lookup(std::string_view sv) const;
+
+	// Erases every backing node not reachable from `roots`; refs to
+	// surviving nodes stay valid. Returns the number of erased nodes.
+	template<typename Pool>
+	size_t gc(const Pool& roots) {
+		std::unordered_set<TwineRef> live;
+		for (TwineRef ref : roots)
+			mark_live(ref, live);
+		size_t erased = 0;
+		for (auto it = backing.begin(); it != backing.end();) {
+			TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
+			if (live.count(ref)) {
+				++it;
+			} else {
+				index.erase(ref);
+				it = backing.erase(it);
+				erased++;
+			}
+		}
+		return erased;
+	}
+
+	void mark_live(TwineRef ref, std::unordered_set<TwineRef>& live) const {
+		if (ref == Twine::Null || ref < STATIC_TWINE_END || !live.insert(ref).second)
+			return;
+		const Twine& t = (*this)[ref];
+		if (t.is_concat()) {
+			for (TwineRef c : t.children())
+				mark_live(c, live);
+		} else if (t.is_suffix()) {
+			mark_live(t.suffix().prefix, live);
+		}
 	}
 
 	void dump(std::ostream& os = std::cout) const {
@@ -367,6 +432,67 @@ struct DeepTwineEq {
 		return result;
 	}
 };
+
+// Parallel-safe staging while the parent stays read-only; nodes may reference parent refs and earlier local refs
+struct TwineChildPool {
+	const TwinePool* parent;
+	std::vector<Twine> local_;
+	std::vector<TwineRef> remap_;
+
+	TwineChildPool(const TwinePool* parent) : parent(parent) {}
+
+	static bool is_local(TwineRef ref) {
+		return ref != Twine::Null && (ref & TWINE_LOCAL_BIT);
+	}
+
+	const Twine& operator[] (TwineRef ref) const {
+		if (is_local(ref))
+			return local_[ref & ~TWINE_LOCAL_BIT];
+		return (*parent)[ref];
+	}
+
+	TwineRef add(Twine t) {
+		local_.push_back(std::move(t));
+		return (local_.size() - 1) | TWINE_LOCAL_BIT;
+	}
+
+	bool empty() const { return local_.empty(); }
+
+	// serial phase only; dest must be *parent; resolve() covers refs added since the previous commit
+	void commit_into(TwinePool& dest) {
+		remap_.clear();
+		remap_.reserve(local_.size());
+		for (Twine& t : local_) {
+			if (t.is_concat()) {
+				for (TwineRef& c : std::get<std::vector<TwineRef>>(t.data))
+					c = resolve(c);
+			} else if (t.is_suffix()) {
+				std::get<Twine::Suffix>(t.data).prefix = resolve(std::get<Twine::Suffix>(t.data).prefix);
+			}
+			remap_.push_back(dest.add(std::move(t)));
+		}
+		local_.clear();
+	}
+
+	TwineRef resolve(TwineRef ref) const {
+		if (!is_local(ref))
+			return ref;
+		return remap_[ref & ~TWINE_LOCAL_BIT];
+	}
+};
+
+inline TwineRef TwinePool::lookup(std::string_view sv) const {
+	DeepTwineEq eq{this};
+	for (TwineRef ref = 0; ref < globals_.size(); ref++)
+		if (eq(ref, sv))
+			return ref;
+	for (auto it = backing.begin(); it != backing.end(); ++it) {
+		TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
+		if (eq(ref, sv))
+			return ref;
+	}
+	return Twine::Null;
+}
 
 struct TwineSearch {
 	TwinePool* pool;

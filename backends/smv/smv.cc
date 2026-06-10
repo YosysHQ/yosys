@@ -229,8 +229,8 @@ struct SmvWorker
 
 			if (cell->type.in(ID($assert)))
 			{
-				SigSpec sig_a = cell->getPort(ID::A);
-				SigSpec sig_en = cell->getPort(ID::EN);
+				SigSpec sig_a = cell->getPort(TW::A);
+				SigSpec sig_en = cell->getPort(TW::EN);
 
 				invarspecs.push_back(stringf("!bool(%s) | bool(%s);", rvalue(sig_en), rvalue(sig_a)));
 
@@ -239,10 +239,10 @@ struct SmvWorker
 
 			if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
 			{
-				SigSpec sig_a = cell->getPort(ID::A);
-				SigSpec sig_b = cell->getPort(ID::B);
+				SigSpec sig_a = cell->getPort(TW::A);
+				SigSpec sig_b = cell->getPort(TW::B);
 
-				int width_y = GetSize(cell->getPort(ID::Y));
+				int width_y = GetSize(cell->getPort(TW::Y));
 				int shift_b_width = GetSize(sig_b);
 				int width_ay = max(GetSize(sig_a), width_y);
 				int width = width_ay;
@@ -303,14 +303,14 @@ struct SmvWorker
 								GetSize(sig_b)-shift_b_width, width_y, expr.c_str());
 				}
 
-				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(TW::Y)), expr));
 
 				continue;
 			}
 
 			if (cell->type.in(ID($not), ID($pos), ID($neg)))
 			{
-				int width = GetSize(cell->getPort(ID::Y));
+				int width = GetSize(cell->getPort(TW::Y));
 				string expr_a, op;
 
 				if (cell->type == ID($not))  op = "!";
@@ -319,13 +319,13 @@ struct SmvWorker
 
 				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					definitions.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort(ID::Y)),
-							op.c_str(), rvalue_s(cell->getPort(ID::A), width)));
+					definitions.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort(TW::Y)),
+							op.c_str(), rvalue_s(cell->getPort(TW::A), width)));
 				}
 				else
 				{
-					definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(ID::Y)),
-							op.c_str(), rvalue_u(cell->getPort(ID::A), width)));
+					definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(TW::Y)),
+							op.c_str(), rvalue_u(cell->getPort(TW::A), width)));
 				}
 
 				continue;
@@ -333,7 +333,7 @@ struct SmvWorker
 
 			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($and), ID($or), ID($xor), ID($xnor)))
 			{
-				int width = GetSize(cell->getPort(ID::Y));
+				int width = GetSize(cell->getPort(TW::Y));
 				string expr_a, expr_b, op;
 
 				if (cell->type == ID($add))  op = "+";
@@ -346,13 +346,13 @@ struct SmvWorker
 
 				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					definitions.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort(ID::Y)),
-							rvalue_s(cell->getPort(ID::A), width), op.c_str(), rvalue_s(cell->getPort(ID::B), width)));
+					definitions.push_back(stringf("%s := unsigned(%s %s %s);", lvalue(cell->getPort(TW::Y)),
+							rvalue_s(cell->getPort(TW::A), width), op.c_str(), rvalue_s(cell->getPort(TW::B), width)));
 				}
 				else
 				{
-					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort(ID::Y)),
-							rvalue_u(cell->getPort(ID::A), width), op.c_str(), rvalue_u(cell->getPort(ID::B), width)));
+					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort(TW::Y)),
+							rvalue_u(cell->getPort(TW::A), width), op.c_str(), rvalue_u(cell->getPort(TW::B), width)));
 				}
 
 				continue;
@@ -361,9 +361,9 @@ struct SmvWorker
 			// SMV has a "mod" operator, but its semantics don't seem to be well-defined - to be safe, don't generate it at all
 			if (cell->type.in(ID($div)/*, ID($mod), ID($modfloor)*/))
 			{
-				int width_y = GetSize(cell->getPort(ID::Y));
-				int width = max(width_y, GetSize(cell->getPort(ID::A)));
-				width = max(width, GetSize(cell->getPort(ID::B)));
+				int width_y = GetSize(cell->getPort(TW::Y));
+				int width = max(width_y, GetSize(cell->getPort(TW::A)));
+				width = max(width, GetSize(cell->getPort(TW::B)));
 				string expr_a, expr_b, op;
 
 				if (cell->type == ID($div))  op = "/";
@@ -371,13 +371,13 @@ struct SmvWorker
 
 				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					definitions.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort(ID::Y)),
-							rvalue_s(cell->getPort(ID::A), width), op.c_str(), rvalue_s(cell->getPort(ID::B), width), width_y));
+					definitions.push_back(stringf("%s := resize(unsigned(%s %s %s), %d);", lvalue(cell->getPort(TW::Y)),
+							rvalue_s(cell->getPort(TW::A), width), op.c_str(), rvalue_s(cell->getPort(TW::B), width), width_y));
 				}
 				else
 				{
-					definitions.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort(ID::Y)),
-							rvalue_u(cell->getPort(ID::A), width), op.c_str(), rvalue_u(cell->getPort(ID::B), width), width_y));
+					definitions.push_back(stringf("%s := resize(%s %s %s, %d);", lvalue(cell->getPort(TW::Y)),
+							rvalue_u(cell->getPort(TW::A), width), op.c_str(), rvalue_u(cell->getPort(TW::B), width), width_y));
 				}
 
 				continue;
@@ -385,7 +385,7 @@ struct SmvWorker
 
 			if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex), ID($lt), ID($le), ID($ge), ID($gt)))
 			{
-				int width = max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::B)));
+				int width = max(GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::B)));
 				string expr_a, expr_b, op;
 
 				if (cell->type == ID($eq))  op = "=";
@@ -399,27 +399,27 @@ struct SmvWorker
 
 				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{
-					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort(ID::A)), width);
-					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort(ID::B)), width);
+					expr_a = stringf("resize(signed(%s), %d)", rvalue(cell->getPort(TW::A)), width);
+					expr_b = stringf("resize(signed(%s), %d)", rvalue(cell->getPort(TW::B)), width);
 				}
 				else
 				{
-					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort(ID::A)), width);
-					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort(ID::B)), width);
+					expr_a = stringf("resize(%s, %d)", rvalue(cell->getPort(TW::A)), width);
+					expr_b = stringf("resize(%s, %d)", rvalue(cell->getPort(TW::B)), width);
 				}
 
-				definitions.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort(ID::Y)),
-						expr_a.c_str(), op.c_str(), expr_b.c_str(), GetSize(cell->getPort(ID::Y))));
+				definitions.push_back(stringf("%s := resize(word1(%s %s %s), %d);", lvalue(cell->getPort(TW::Y)),
+						expr_a.c_str(), op.c_str(), expr_b.c_str(), GetSize(cell->getPort(TW::Y))));
 
 				continue;
 			}
 
 			if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool)))
 			{
-				int width_a = GetSize(cell->getPort(ID::A));
-				int width_y = GetSize(cell->getPort(ID::Y));
-				const char *expr_a = rvalue(cell->getPort(ID::A));
-				const char *expr_y = lvalue(cell->getPort(ID::Y));
+				int width_a = GetSize(cell->getPort(TW::A));
+				int width_y = GetSize(cell->getPort(TW::Y));
+				const char *expr_a = rvalue(cell->getPort(TW::A));
+				const char *expr_y = lvalue(cell->getPort(TW::Y));
 				string expr;
 
 				if (cell->type == ID($reduce_and))  expr = stringf("%s = !0ub%d_0", expr_a, width_a);
@@ -432,11 +432,11 @@ struct SmvWorker
 
 			if (cell->type.in(ID($reduce_xor), ID($reduce_xnor)))
 			{
-				int width_y = GetSize(cell->getPort(ID::Y));
-				const char *expr_y = lvalue(cell->getPort(ID::Y));
+				int width_y = GetSize(cell->getPort(TW::Y));
+				const char *expr_y = lvalue(cell->getPort(TW::Y));
 				string expr;
 
-				for (auto bit : cell->getPort(ID::A)) {
+				for (auto bit : cell->getPort(TW::A)) {
 					if (!expr.empty())
 						expr += " xor ";
 					expr += rvalue(bit);
@@ -451,13 +451,13 @@ struct SmvWorker
 
 			if (cell->type.in(ID($logic_and), ID($logic_or)))
 			{
-				int width_a = GetSize(cell->getPort(ID::A));
-				int width_b = GetSize(cell->getPort(ID::B));
-				int width_y = GetSize(cell->getPort(ID::Y));
+				int width_a = GetSize(cell->getPort(TW::A));
+				int width_b = GetSize(cell->getPort(TW::B));
+				int width_y = GetSize(cell->getPort(TW::Y));
 
-				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort(ID::A)), width_a);
-				string expr_b = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort(ID::B)), width_b);
-				const char *expr_y = lvalue(cell->getPort(ID::Y));
+				string expr_a = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort(TW::A)), width_a);
+				string expr_b = stringf("(%s != 0ub%d_0)", rvalue(cell->getPort(TW::B)), width_b);
+				const char *expr_y = lvalue(cell->getPort(TW::Y));
 
 				string expr;
 				if (cell->type == ID($logic_and)) expr = expr_a + " & " + expr_b;
@@ -469,11 +469,11 @@ struct SmvWorker
 
 			if (cell->type.in(ID($logic_not)))
 			{
-				int width_a = GetSize(cell->getPort(ID::A));
-				int width_y = GetSize(cell->getPort(ID::Y));
+				int width_a = GetSize(cell->getPort(TW::A));
+				int width_y = GetSize(cell->getPort(TW::Y));
 
-				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort(ID::A)), width_a);
-				const char *expr_y = lvalue(cell->getPort(ID::Y));
+				string expr_a = stringf("(%s = 0ub%d_0)", rvalue(cell->getPort(TW::A)), width_a);
+				const char *expr_y = lvalue(cell->getPort(TW::Y));
 
 				definitions.push_back(stringf("%s := resize(word1(%s), %d);", expr_y, expr_a, width_y));
 				continue;
@@ -481,31 +481,31 @@ struct SmvWorker
 
 			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				int width = GetSize(cell->getPort(ID::Y));
-				SigSpec sig_a = cell->getPort(ID::A);
-				SigSpec sig_b = cell->getPort(ID::B);
-				SigSpec sig_s = cell->getPort(ID::S);
+				int width = GetSize(cell->getPort(TW::Y));
+				SigSpec sig_a = cell->getPort(TW::A);
+				SigSpec sig_b = cell->getPort(TW::B);
+				SigSpec sig_s = cell->getPort(TW::S);
 
 				string expr;
 				for (int i = 0; i < GetSize(sig_s); i++)
 					expr += stringf("bool(%s) ? %s : ", rvalue(sig_s[i]), rvalue(sig_b.extract(i*width, width)));
 				expr += rvalue(sig_a);
 
-				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(ID::Y)), expr));
+				definitions.push_back(stringf("%s := %s;", lvalue(cell->getPort(TW::Y)), expr));
 				continue;
 			}
 
 			if (cell->type == ID($dff))
 			{
-				vars.push_back(stringf("%s : unsigned word[%d]; -- %s", lvalue(cell->getPort(ID::Q)), GetSize(cell->getPort(ID::Q)), log_signal(cell->getPort(ID::Q))));
-				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort(ID::Q)), rvalue(cell->getPort(ID::D))));
+				vars.push_back(stringf("%s : unsigned word[%d]; -- %s", lvalue(cell->getPort(TW::Q)), GetSize(cell->getPort(TW::Q)), log_signal(cell->getPort(TW::Q))));
+				assignments.push_back(stringf("next(%s) := %s;", lvalue(cell->getPort(TW::Q)), rvalue(cell->getPort(TW::D))));
 				continue;
 			}
 
 			if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 			{
 				string op = cell->type == ID($_NOT_) ? "!" : "";
-				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(ID::Y)), op, rvalue(cell->getPort(ID::A))));
+				definitions.push_back(stringf("%s := %s%s;", lvalue(cell->getPort(TW::Y)), op, rvalue(cell->getPort(TW::A))));
 				continue;
 			}
 
@@ -519,57 +519,57 @@ struct SmvWorker
 				if (cell->type.in(ID($_XNOR_)))  op = "xnor";
 
 				if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
-					definitions.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort(ID::Y)),
-							rvalue(cell->getPort(ID::A)), op.c_str(), rvalue(cell->getPort(ID::B))));
+					definitions.push_back(stringf("%s := %s %s (!%s);", lvalue(cell->getPort(TW::Y)),
+							rvalue(cell->getPort(TW::A)), op.c_str(), rvalue(cell->getPort(TW::B))));
 				else
 				if (cell->type.in(ID($_NAND_), ID($_NOR_)))
-					definitions.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort(ID::Y)),
-							rvalue(cell->getPort(ID::A)), op.c_str(), rvalue(cell->getPort(ID::B))));
+					definitions.push_back(stringf("%s := !(%s %s %s);", lvalue(cell->getPort(TW::Y)),
+							rvalue(cell->getPort(TW::A)), op.c_str(), rvalue(cell->getPort(TW::B))));
 				else
-					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort(ID::Y)),
-							rvalue(cell->getPort(ID::A)), op.c_str(), rvalue(cell->getPort(ID::B))));
+					definitions.push_back(stringf("%s := %s %s %s;", lvalue(cell->getPort(TW::Y)),
+							rvalue(cell->getPort(TW::A)), op.c_str(), rvalue(cell->getPort(TW::B))));
 				continue;
 			}
 
 			if (cell->type == ID($_MUX_))
 			{
-				definitions.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort(ID::Y)),
-						rvalue(cell->getPort(ID::S)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::A))));
+				definitions.push_back(stringf("%s := bool(%s) ? %s : %s;", lvalue(cell->getPort(TW::Y)),
+						rvalue(cell->getPort(TW::S)), rvalue(cell->getPort(TW::B)), rvalue(cell->getPort(TW::A))));
 				continue;
 			}
 
 			if (cell->type == ID($_NMUX_))
 			{
-				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort(ID::Y)),
-						rvalue(cell->getPort(ID::S)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::A))));
+				definitions.push_back(stringf("%s := !(bool(%s) ? %s : %s);", lvalue(cell->getPort(TW::Y)),
+						rvalue(cell->getPort(TW::S)), rvalue(cell->getPort(TW::B)), rvalue(cell->getPort(TW::A))));
 				continue;
 			}
 
 			if (cell->type == ID($_AOI3_))
 			{
-				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort(ID::Y)),
-						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C))));
+				definitions.push_back(stringf("%s := !((%s & %s) | %s);", lvalue(cell->getPort(TW::Y)),
+						rvalue(cell->getPort(TW::A)), rvalue(cell->getPort(TW::B)), rvalue(cell->getPort(TW::C))));
 				continue;
 			}
 
 			if (cell->type == ID($_OAI3_))
 			{
-				definitions.push_back(stringf("%s := !((%s | %s) & %s);", lvalue(cell->getPort(ID::Y)),
-						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C))));
+				definitions.push_back(stringf("%s := !((%s | %s) & %s);", lvalue(cell->getPort(TW::Y)),
+						rvalue(cell->getPort(TW::A)), rvalue(cell->getPort(TW::B)), rvalue(cell->getPort(TW::C))));
 				continue;
 			}
 
 			if (cell->type == ID($_AOI4_))
 			{
-				definitions.push_back(stringf("%s := !((%s & %s) | (%s & %s));", lvalue(cell->getPort(ID::Y)),
-						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C)), rvalue(cell->getPort(ID::D))));
+				definitions.push_back(stringf("%s := !((%s & %s) | (%s & %s));", lvalue(cell->getPort(TW::Y)),
+						rvalue(cell->getPort(TW::A)), rvalue(cell->getPort(TW::B)), rvalue(cell->getPort(TW::C)), rvalue(cell->getPort(TW::D))));
 				continue;
 			}
 
 			if (cell->type == ID($_OAI4_))
 			{
-				definitions.push_back(stringf("%s := !((%s | %s) & (%s | %s));", lvalue(cell->getPort(ID::Y)),
-						rvalue(cell->getPort(ID::A)), rvalue(cell->getPort(ID::B)), rvalue(cell->getPort(ID::C)), rvalue(cell->getPort(ID::D))));
+				definitions.push_back(stringf("%s := !((%s | %s) & (%s | %s));", lvalue(cell->getPort(TW::Y)),
+						rvalue(cell->getPort(TW::A)), rvalue(cell->getPort(TW::B)), rvalue(cell->getPort(TW::C)), rvalue(cell->getPort(TW::D))));
 				continue;
 			}
 

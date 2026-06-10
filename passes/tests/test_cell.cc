@@ -53,22 +53,22 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::B);
 		wire->width = width * swidth;
 		wire->port_input = true;
-		cell->setPort(ID::B, wire);
+		cell->setPort(TW::B, wire);
 
 		wire = module->addWire(ID::S);
 		wire->width = swidth;
 		wire->port_input = true;
-		cell->setPort(ID::S, wire);
+		cell->setPort(TW::S, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type.in(ID($_MUX_), ID($_NMUX_)))
@@ -76,22 +76,22 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = 1;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::B);
 		wire->width = 1;
 		wire->port_input = true;
-		cell->setPort(ID::B, wire);
+		cell->setPort(TW::B, wire);
 
 		wire = module->addWire(ID::S);
 		wire->width = 1;
 		wire->port_input = true;
-		cell->setPort(ID::S, wire);
+		cell->setPort(TW::S, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->width = 1;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type == ID($bmux))
@@ -102,17 +102,17 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = width << swidth;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::S);
 		wire->width = swidth;
 		wire->port_input = true;
-		cell->setPort(ID::S, wire);
+		cell->setPort(TW::S, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type == ID($demux))
@@ -123,17 +123,17 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::S);
 		wire->width = swidth;
 		wire->port_input = true;
-		cell->setPort(ID::S, wire);
+		cell->setPort(TW::S, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->width = width << swidth;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type == ID($fa))
@@ -143,27 +143,27 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::B);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::B, wire);
+		cell->setPort(TW::B, wire);
 
 		wire = module->addWire(ID::C);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::C, wire);
+		cell->setPort(TW::C, wire);
 
 		wire = module->addWire(ID::X);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort(ID::X, wire);
+		cell->setPort(TW::X, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type == ID($lcu))
@@ -173,21 +173,21 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::P);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::P, wire);
+		cell->setPort(TW::P, wire);
 
 		wire = module->addWire(ID::G);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::G, wire);
+		cell->setPort(TW::G, wire);
 
 		wire = module->addWire(ID::CI);
 		wire->port_input = true;
-		cell->setPort(ID::CI, wire);
+		cell->setPort(TW::CI, wire);
 
 		wire = module->addWire(ID::CO);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort(ID::CO, wire);
+		cell->setPort(TW::CO, wire);
 	}
 
 	if (cell_type == ID($macc_v2))
@@ -231,7 +231,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type == ID($lut))
@@ -241,11 +241,11 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < (1 << width); i++)
@@ -262,11 +262,11 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 
 		wire = module->addWire(ID::Y);
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < width*depth; i++)
@@ -296,7 +296,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		else
 			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
-		cell->setPort(ID::A, wire);
+		cell->setPort(TW::A, wire);
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
@@ -308,7 +308,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		else
 			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
-		cell->setPort(ID::B, wire);
+		cell->setPort(TW::B, wire);
 	}
 
 	if (cell_type_flags.find('C') != std::string::npos) {
@@ -318,7 +318,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		else
 			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
-		cell->setPort(ID::C, wire);
+		cell->setPort(TW::C, wire);
 	}
 
 	if (cell_type_flags.find('D') != std::string::npos) {
@@ -328,7 +328,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		else
 			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
-		cell->setPort(ID::D, wire);
+		cell->setPort(TW::D, wire);
 	}
 
 	if (cell_type_flags.find('S') != std::string::npos && xorshift32(2)) {
@@ -352,7 +352,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		else
 			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type.in(ID($shiftx))) {
@@ -364,43 +364,43 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (muxdiv && cell_type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
-		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(ID::B));
-		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort(ID::Y)));
-		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(ID::Y));
-		cell->setPort(ID::Y, div_out);
+		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(TW::B));
+		auto div_out = module->addWire(NEW_TWINE, GetSize(cell->getPort(TW::Y)));
+		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(TW::Y));
+		cell->setPort(TW::Y, div_out);
 	}
 
 	if (cell_type == ID($alu))
 	{
 		wire = module->addWire(ID::CI);
 		wire->port_input = true;
-		cell->setPort(ID::CI, wire);
+		cell->setPort(TW::CI, wire);
 
 		wire = module->addWire(ID::BI);
 		wire->port_input = true;
-		cell->setPort(ID::BI, wire);
+		cell->setPort(TW::BI, wire);
 
 		wire = module->addWire(ID::X);
-		wire->width = GetSize(cell->getPort(ID::Y));
+		wire->width = GetSize(cell->getPort(TW::Y));
 		wire->port_output = true;
-		cell->setPort(ID::X, wire);
+		cell->setPort(TW::X, wire);
 
 		wire = module->addWire(ID::CO);
-		wire->width = GetSize(cell->getPort(ID::Y));
+		wire->width = GetSize(cell->getPort(TW::Y));
 		wire->port_output = true;
-		cell->setPort(ID::CO, wire);
+		cell->setPort(TW::CO, wire);
 	}
 
 	if (cell_type == ID($slice))
 	{
-		int a_size = GetSize(cell->getPort(ID::A));
+		int a_size = GetSize(cell->getPort(TW::A));
 		int y_size = 1;
 		if (a_size > 1)
 			y_size += (xorshift32(8 * bloat_factor) % (a_size - 1));
 		wire = module->addWire(ID::Y);
 		wire->width = y_size;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 		if (a_size > y_size)
 			cell->setParam(ID::OFFSET, (xorshift32(8 * bloat_factor) % (a_size - y_size)));
 		else
@@ -410,37 +410,37 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	if (cell_type == ID($concat))
 	{
 		wire = module->addWire(ID::Y);
-		wire->width = GetSize(cell->getPort(ID::A)) + GetSize(cell->getPort(ID::B));
+		wire->width = GetSize(cell->getPort(TW::A)) + GetSize(cell->getPort(TW::B));
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type == ID($buf))
 	{
 		wire = module->addWire(ID::Y);
-		wire->width = GetSize(cell->getPort(ID::A));
+		wire->width = GetSize(cell->getPort(TW::A));
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (cell_type.in(ID($bwmux), ID($bweqx)))
 	{
-		int a_size = GetSize(cell->getPort(ID::A));
+		int a_size = GetSize(cell->getPort(TW::A));
 		wire = module->addWire(ID::B);
 		wire->width = a_size;
 		wire->port_input = true;
-		cell->setPort(ID::B, wire);
+		cell->setPort(TW::B, wire);
 		if (cell_type == ID($bwmux))
 		{
 			wire = module->addWire(ID::S);
 			wire->width = a_size;
 			wire->port_input = true;
-			cell->setPort(ID::S, wire);
+			cell->setPort(TW::S, wire);
 		}
 		wire = module->addWire(ID::Y);
 		wire->width = a_size;
 		wire->port_output = true;
-		cell->setPort(ID::Y, wire);
+		cell->setPort(TW::Y, wire);
 	}
 
 	if (constmode)

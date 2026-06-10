@@ -230,8 +230,8 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 		pool<Cell*> extra_problem_cells;
 		for (auto assume : assume_cells) {
 			pool<SigBit> assume_seed, dummy_next_seed, overlap_bits;
-			assume_seed.insert(model.sigmap(assume->getPort(ID::A)).as_bit());
-			assume_seed.insert(model.sigmap(assume->getPort(ID::EN)).as_bit());
+			assume_seed.insert(model.sigmap(assume->getPort(TW::A)).as_bit());
+			assume_seed.insert(model.sigmap(assume->getPort(TW::EN)).as_bit());
 
 			for (auto& cone : {cone_a, cone_b}) {
 				Cone assume_cone;
@@ -292,8 +292,8 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 
 	bool prove_equiv_cell(Cell* cell)
 	{
-		SigBit bit_a = model.sigmap(cell->getPort(ID::A)).as_bit();
-		SigBit bit_b = model.sigmap(cell->getPort(ID::B)).as_bit();
+		SigBit bit_a = model.sigmap(cell->getPort(TW::A)).as_bit();
+		SigBit bit_b = model.sigmap(cell->getPort(TW::B)).as_bit();
 		int ez_context = ez->frozen_literal();
 
 		prepare_ezsat(ez_context, bit_a, bit_b);
@@ -306,9 +306,9 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 
 		if (cfg.verbose) {
 			log("  Trying to prove $equiv cell %s:\n", cell);
-			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(cell->getPort(ID::Y)));
+			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(cell->getPort(TW::Y)));
 		} else {
-			log("  Trying to prove $equiv for %s:", log_signal(cell->getPort(ID::Y)));
+			log("  Trying to prove $equiv for %s:", log_signal(cell->getPort(TW::Y)));
 		}
 
 		int step = cfg.max_seq;
@@ -347,7 +347,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 			if (!ez->solve(ez_context)) {
 				log("%s", cfg.verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
 				// Replace $equiv cell with a short
-				cell->setPort(ID::B, cell->getPort(ID::A));
+				cell->setPort(TW::B, cell->getPort(TW::A));
 				ez->assume(ez->NOT(ez_context));
 				return true;
 			}
@@ -404,7 +404,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 		if (GetSize(equiv_cells) > 1) {
 			SigSpec sig;
 			for (auto c : equiv_cells)
-				sig.append(model.sigmap(c->getPort(ID::Y)));
+				sig.append(model.sigmap(c->getPort(TW::Y)));
 			log(" Grouping SAT models for %s:\n", log_signal(sig));
 		}
 
@@ -461,8 +461,8 @@ struct EquivSimplePass : public Pass {
 			int unproven_cells_counter = 0;
 
 			for (auto cell : module->selected_cells()) {
-				if (cell->type == ID($equiv) && cell->getPort(ID::A) != cell->getPort(ID::B)) {
-					auto bit = sigmap(cell->getPort(ID::Y).as_bit());
+				if (cell->type == ID($equiv) && cell->getPort(TW::A) != cell->getPort(TW::B)) {
+					auto bit = sigmap(cell->getPort(TW::Y).as_bit());
 					auto bit_group = bit;
 					if (cfg.group && bit_group.wire)
 						bit_group.offset = 0;

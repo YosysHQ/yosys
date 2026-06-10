@@ -98,7 +98,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 			}
 
 		while (portnames.size() > 0) {
-			RTLIL::IdString portname = *portnames.begin();
+			TwineRef portname = *portnames.begin();
 			for (auto &decl : portdecls)
 				if (decl.index == 0 && patmatch(decl.portname.c_str(), portname.unescape().c_str())) {
 					generate_port_decl_t d = decl;
@@ -604,7 +604,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
-			RTLIL::IdString portname = conn.first;
+			TwineRef portname = conn.first;
 			if (portname.begins_with("$")) {
 				int port_id = atoi(portname.substr(1).c_str());
 				for (auto wire : mod->wires())
@@ -1425,7 +1425,7 @@ struct HierarchyPass : public Pass {
 							continue;
 						}
 
-						Wire *t = module->addWire(NEW_ID, GetSize(c));
+						Wire *t = module->addWire(NEW_TWINE, GetSize(c));
 						new_sig.append(t);
 						update_port = true;
 
@@ -1528,7 +1528,7 @@ struct HierarchyPass : public Pass {
 							if (w->port_input && !w->port_output)
 								sig.extend_u0(GetSize(w), sig.is_wire() && sig.as_wire()->is_signed);
 							else
-								sig.append(module->addWire(NEW_ID, n));
+								sig.append(module->addWire(NEW_TWINE, n));
 						}
 
 						if (!conn.second.is_fully_const() || !w->port_input || w->port_output)

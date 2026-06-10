@@ -85,7 +85,7 @@ struct EquivStructWorker
 
 		for (int i = 0; i < GetSize(inputs_a); i++) {
 			SigBit bit_a = inputs_a[i], bit_b = inputs_b[i];
-			SigBit bit_y = module->addWire(NEW_ID);
+			SigBit bit_y = module->addWire(NEW_TWINE);
 			log("        New $equiv for input %s: A: %s, B: %s, Y: %s\n",
 					input_names[i].c_str(), log_signal(bit_a), log_signal(bit_b), log_signal(bit_y));
 			module->addEquiv(NEW_ID, bit_a, bit_b, bit_y);
@@ -127,8 +127,8 @@ struct EquivStructWorker
 
 		for (auto cell : module->selected_cells())
 			if (cell->type == ID($equiv)) {
-				SigBit sig_a = sigmap(cell->getPort(ID::A).as_bit());
-				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
+				SigBit sig_a = sigmap(cell->getPort(TW::A).as_bit());
+				SigBit sig_b = sigmap(cell->getPort(TW::B).as_bit());
 				equiv_bits.add(sig_b, sig_a);
 				equiv_inputs.insert(sig_a);
 				equiv_inputs.insert(sig_b);
@@ -140,9 +140,9 @@ struct EquivStructWorker
 
 		for (auto cell : module->selected_cells())
 			if (cell->type == ID($equiv)) {
-				SigBit sig_a = sigmap(cell->getPort(ID::A).as_bit());
-				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
-				SigBit sig_y = sigmap(cell->getPort(ID::Y).as_bit());
+				SigBit sig_a = sigmap(cell->getPort(TW::A).as_bit());
+				SigBit sig_b = sigmap(cell->getPort(TW::B).as_bit());
+				SigBit sig_y = sigmap(cell->getPort(TW::Y).as_bit());
 				if (sig_a == sig_b && equiv_inputs.count(sig_y)) {
 					log("    Purging redundant $equiv cell %s.\n", cell);
 					module->connect(sig_y, sig_a);

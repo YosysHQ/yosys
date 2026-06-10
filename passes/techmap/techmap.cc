@@ -247,7 +247,7 @@ struct TechmapWorker
 
 		for (auto &it : cell->connections())
 		{
-			IdString portname = it.first;
+			TwineRef portname = it.first;
 			if (positional_ports.count(portname) > 0)
 				portname = positional_ports.at(portname);
 			if (tpl->wire(portname) == nullptr || tpl->wire(portname)->port_id == 0) {

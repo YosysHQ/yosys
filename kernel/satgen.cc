@@ -30,9 +30,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (model_undef && (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor)) || is_arith_compare))
 	{
-		std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 		if (is_arith_compare)
 			extendSignalWidth(undef_a, undef_b, cell, true);
 		else
@@ -43,7 +43,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		int undef_y_bit = ez->OR(undef_any_a, undef_any_b);
 
 		if (cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
-			std::vector<int> b = importSigSpec(cell->getPort(ID::B), timestep);
+			std::vector<int> b = importSigSpec(cell->getPort(TW::B), timestep);
 			undef_y_bit = ez->OR(undef_y_bit, ez->NOT(ez->expression(ezSAT::OpOr, b)));
 		}
 
@@ -62,9 +62,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_),
 			ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($sub)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidth(a, b, y, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
@@ -92,9 +92,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef && !arith_undef_handled)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			extendSignalWidth(undef_a, undef_b, undef_y, cell, false);
 
 			if (cell->type.in(ID($and), ID($_AND_), ID($_NAND_))) {
@@ -133,7 +133,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		}
 		else if (model_undef)
 		{
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			undefGating(y, yy, undef_y);
 		}
 		return true;
@@ -144,11 +144,11 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		bool aoi_mode = cell->type.in(ID($_AOI3_), ID($_AOI4_));
 		bool three_mode = cell->type.in(ID($_AOI3_), ID($_OAI3_));
 
-		int a = importDefSigSpec(cell->getPort(ID::A), timestep).at(0);
-		int b = importDefSigSpec(cell->getPort(ID::B), timestep).at(0);
-		int c = importDefSigSpec(cell->getPort(ID::C), timestep).at(0);
-		int d = three_mode ? (aoi_mode ? ez->CONST_TRUE : ez->CONST_FALSE) : importDefSigSpec(cell->getPort(ID::D), timestep).at(0);
-		int y = importDefSigSpec(cell->getPort(ID::Y), timestep).at(0);
+		int a = importDefSigSpec(cell->getPort(TW::A), timestep).at(0);
+		int b = importDefSigSpec(cell->getPort(TW::B), timestep).at(0);
+		int c = importDefSigSpec(cell->getPort(TW::C), timestep).at(0);
+		int d = three_mode ? (aoi_mode ? ez->CONST_TRUE : ez->CONST_FALSE) : importDefSigSpec(cell->getPort(TW::D), timestep).at(0);
+		int y = importDefSigSpec(cell->getPort(TW::Y), timestep).at(0);
 		int yy = model_undef ? ez->literal() : y;
 
 		if (cell->type.in(ID($_AOI3_), ID($_AOI4_)))
@@ -158,11 +158,11 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			int undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep).at(0);
-			int undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep).at(0);
-			int undef_c = importUndefSigSpec(cell->getPort(ID::C), timestep).at(0);
-			int undef_d = three_mode ? ez->CONST_FALSE : importUndefSigSpec(cell->getPort(ID::D), timestep).at(0);
-			int undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep).at(0);
+			int undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep).at(0);
+			int undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep).at(0);
+			int undef_c = importUndefSigSpec(cell->getPort(TW::C), timestep).at(0);
+			int undef_d = three_mode ? ez->CONST_FALSE : importUndefSigSpec(cell->getPort(TW::D), timestep).at(0);
+			int undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep).at(0);
 
 			if (aoi_mode)
 			{
@@ -207,16 +207,16 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($_NOT_), ID($not)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidthUnary(a, y, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 		ez->assume(ez->vec_eq(ez->vec_not(a), yy));
 
 		if (model_undef) {
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			extendSignalWidthUnary(undef_a, undef_y, cell, false);
 			ez->assume(ez->vec_eq(undef_a, undef_y));
 			undefGating(y, yy, undef_y);
@@ -226,17 +226,17 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($bweqx))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> bweqx = ez->vec_not(ez->vec_xor(a, b));
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 
 			std::vector<int> both_undef = ez->vec_and(undef_a, undef_b);
 			std::vector<int> both_def = ez->vec_and(ez->vec_not(undef_a), ez->vec_not(undef_b));
@@ -252,10 +252,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($_MUX_), ID($mux), ID($_NMUX_), ID($bwmux)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> s = importDefSigSpec(cell->getPort(ID::S), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> s = importDefSigSpec(cell->getPort(TW::S), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 		if (cell->type == ID($_NMUX_))
@@ -267,10 +267,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_s = importUndefSigSpec(cell->getPort(ID::S), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_s = importUndefSigSpec(cell->getPort(TW::S), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 
 			std::vector<int> unequal_ab = ez->vec_not(ez->vec_iff(a, b));
 			std::vector<int> undef_ab = ez->vec_or(unequal_ab, ez->vec_or(undef_a, undef_b));
@@ -287,16 +287,16 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($bmux))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> s = importDefSigSpec(cell->getPort(ID::S), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> s = importDefSigSpec(cell->getPort(TW::S), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		std::vector<int> undef_a, undef_s, undef_y;
 
 		if (model_undef)
 		{
-			undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			undef_s = importUndefSigSpec(cell->getPort(ID::S), timestep);
-			undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			undef_s = importUndefSigSpec(cell->getPort(TW::S), timestep);
+			undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 		}
 
 		if (GetSize(s) == 0) {
@@ -335,17 +335,17 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($demux))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> s = importDefSigSpec(cell->getPort(ID::S), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> s = importDefSigSpec(cell->getPort(TW::S), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 		std::vector<int> undef_a, undef_s, undef_y;
 
 		if (model_undef)
 		{
-			undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			undef_s = importUndefSigSpec(cell->getPort(ID::S), timestep);
-			undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			undef_s = importUndefSigSpec(cell->getPort(TW::S), timestep);
+			undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 		}
 
 		if (GetSize(s) == 0) {
@@ -387,10 +387,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($pmux))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> s = importDefSigSpec(cell->getPort(ID::S), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> s = importDefSigSpec(cell->getPort(TW::S), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
@@ -403,10 +403,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_s = importUndefSigSpec(cell->getPort(ID::S), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_s = importUndefSigSpec(cell->getPort(TW::S), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 
 			int all_undef = ez->CONST_FALSE;
 			int found_active = ez->CONST_FALSE;
@@ -433,8 +433,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($pos), ID($buf), ID($neg)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidthUnary(a, y, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
@@ -448,8 +448,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			extendSignalWidthUnary(undef_a, undef_y, cell);
 
 			if (cell->type.in(ID($pos), ID($buf))) {
@@ -467,8 +467,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($connect)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
 		extendSignalWidthUnary(a, b, cell);
 
 		std::vector<int> bb = model_undef ? ez->vec_var(b.size()) : b;
@@ -476,8 +476,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
 			extendSignalWidthUnary(undef_a, undef_b, cell);
 			ez->assume(ez->vec_eq(undef_a, undef_b));
 			undefGating(b, bb, undef_b);
@@ -487,8 +487,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool), ID($logic_not)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
@@ -507,8 +507,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			int aX = ez->expression(ezSAT::OpOr, undef_a);
 
 			if (cell->type == ID($reduce_and)) {
@@ -534,12 +534,12 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($logic_and), ID($logic_or)))
 	{
-		std::vector<int> vec_a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> vec_b = importDefSigSpec(cell->getPort(ID::B), timestep);
+		std::vector<int> vec_a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> vec_b = importDefSigSpec(cell->getPort(TW::B), timestep);
 
 		int a = ez->expression(ez->OpOr, vec_a);
 		int b = ez->expression(ez->OpOr, vec_b);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
@@ -552,9 +552,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 
 			int a0 = ez->NOT(ez->OR(ez->expression(ezSAT::OpOr, vec_a), ez->expression(ezSAT::OpOr, undef_a)));
 			int b0 = ez->NOT(ez->OR(ez->expression(ezSAT::OpOr, vec_b), ez->expression(ezSAT::OpOr, undef_b)));
@@ -581,16 +581,16 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	if (cell->type.in(ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt)))
 	{
 		bool is_signed = cell->parameters[ID::A_SIGNED].as_bool() && cell->parameters[ID::B_SIGNED].as_bool();
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidth(a, b, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
 		if (model_undef && cell->type.in(ID($eqx), ID($nex))) {
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
 			extendSignalWidth(undef_a, undef_b, cell, true);
 			a = ez->vec_or(a, undef_a);
 			b = ez->vec_or(b, undef_b);
@@ -613,9 +613,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef && cell->type.in(ID($eqx), ID($nex)))
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			extendSignalWidth(undef_a, undef_b, cell, true);
 
 			if (cell->type == ID($eqx))
@@ -630,9 +630,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		}
 		else if (model_undef && cell->type.in(ID($eq), ID($ne)))
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			extendSignalWidth(undef_a, undef_b, cell, true);
 
 			int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);
@@ -654,7 +654,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		else
 		{
 			if (model_undef) {
-				std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 				undefGating(y, yy, undef_y);
 			}
 			log_assert(!model_undef || arith_undef_handled);
@@ -664,9 +664,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		int extend_bit = ez->CONST_FALSE;
 
@@ -697,9 +697,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			std::vector<int> undef_a_shifted;
 
 			extend_bit = cell->type == ID($shiftx) ? ez->CONST_TRUE : ez->CONST_FALSE;
@@ -736,9 +736,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($mul))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidth(a, b, y, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
@@ -755,7 +755,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef) {
 			log_assert(arith_undef_handled);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			undefGating(y, yy, undef_y);
 		}
 		return true;
@@ -763,8 +763,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($macc), ID($macc_v2)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		Macc macc;
 		macc.from_cell(cell);
@@ -807,19 +807,19 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
 			std::vector<int> undef_c;
 
 			if (cell->type == ID($macc_v2))
-				undef_c = importUndefSigSpec(cell->getPort(ID::C), timestep);
+				undef_c = importUndefSigSpec(cell->getPort(TW::C), timestep);
 
 			int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);
 			int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
 			int undef_any_c = ez->expression(ezSAT::OpOr, undef_c);
 			int undef_any = ez->OR(undef_any_a, ez->OR(undef_any_b, undef_any_c));
 
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			ez->assume(ez->vec_eq(undef_y, std::vector<int>(GetSize(y), undef_any)));
 
 			undefGating(y, tmp, undef_y);
@@ -832,9 +832,9 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidth(a, b, y, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
@@ -913,12 +913,12 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 					only_first_one.at(0) = ez->CONST_TRUE;
 					div_zero_result = ez->vec_ite(a.back(), only_first_one, all_ones);
 				} else {
-					div_zero_result.insert(div_zero_result.end(), cell->getPort(ID::A).size(), ez->CONST_TRUE);
+					div_zero_result.insert(div_zero_result.end(), cell->getPort(TW::A).size(), ez->CONST_TRUE);
 					div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), ez->CONST_FALSE);
 				}
 			} else if (cell->type.in(ID($mod), ID($modfloor))) {
 				// a mod 0 = a
-				int copy_a_bits = min(cell->getPort(ID::A).size(), cell->getPort(ID::B).size());
+				int copy_a_bits = min(cell->getPort(TW::A).size(), cell->getPort(TW::B).size());
 				div_zero_result.insert(div_zero_result.end(), a.begin(), a.begin() + copy_a_bits);
 				if (cell->parameters[ID::A_SIGNED].as_bool() && cell->parameters[ID::B_SIGNED].as_bool())
 					div_zero_result.insert(div_zero_result.end(), y.size() - div_zero_result.size(), div_zero_result.back());
@@ -930,7 +930,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef) {
 			log_assert(arith_undef_handled);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			undefGating(y, yy, undef_y);
 		}
 		return true;
@@ -938,8 +938,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($lut))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> lut;
 		for (auto bit : cell->getParam(ID::LUT))
@@ -950,7 +950,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
 			std::vector<int> t(lut), u(GetSize(t), ez->CONST_FALSE);
 
 			for (int i = GetSize(a)-1; i >= 0; i--)
@@ -968,7 +968,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			log_assert(GetSize(t) == 1);
 			log_assert(GetSize(u) == 1);
 			undefGating(y, t, u);
-			ez->assume(ez->vec_eq(importUndefSigSpec(cell->getPort(ID::Y), timestep), u));
+			ez->assume(ez->vec_eq(importUndefSigSpec(cell->getPort(TW::Y), timestep), u));
 		}
 		else
 		{
@@ -988,8 +988,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($sop))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		int y = importDefSigSpec(cell->getPort(ID::Y), timestep).at(0);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		int y = importDefSigSpec(cell->getPort(TW::Y), timestep).at(0);
 
 		int width = cell->getParam(ID::WIDTH).as_int();
 		int depth = cell->getParam(ID::DEPTH).as_int();
@@ -1017,8 +1017,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		if (model_undef)
 		{
 			std::vector<int> products, undef_products;
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			int undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep).at(0);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			int undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep).at(0);
 
 			for (int i = 0; i < depth; i++)
 			{
@@ -1070,11 +1070,11 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($fa))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> c = importDefSigSpec(cell->getPort(ID::C), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
-		std::vector<int> x = importDefSigSpec(cell->getPort(ID::X), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> c = importDefSigSpec(cell->getPort(TW::C), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
+		std::vector<int> x = importDefSigSpec(cell->getPort(TW::X), timestep);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 		std::vector<int> xx = model_undef ? ez->vec_var(x.size()) : x;
@@ -1088,12 +1088,12 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_c = importUndefSigSpec(cell->getPort(ID::C), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_c = importUndefSigSpec(cell->getPort(TW::C), timestep);
 
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
-			std::vector<int> undef_x = importUndefSigSpec(cell->getPort(ID::X), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
+			std::vector<int> undef_x = importUndefSigSpec(cell->getPort(TW::X), timestep);
 
 			ez->assume(ez->vec_eq(undef_y, ez->vec_or(ez->vec_or(undef_a, undef_b), undef_c)));
 			ez->assume(ez->vec_eq(undef_x, undef_y));
@@ -1106,10 +1106,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($lcu))
 	{
-		std::vector<int> p = importDefSigSpec(cell->getPort(ID::P), timestep);
-		std::vector<int> g = importDefSigSpec(cell->getPort(ID::G), timestep);
-		std::vector<int> ci = importDefSigSpec(cell->getPort(ID::CI), timestep);
-		std::vector<int> co = importDefSigSpec(cell->getPort(ID::CO), timestep);
+		std::vector<int> p = importDefSigSpec(cell->getPort(TW::P), timestep);
+		std::vector<int> g = importDefSigSpec(cell->getPort(TW::G), timestep);
+		std::vector<int> ci = importDefSigSpec(cell->getPort(TW::CI), timestep);
+		std::vector<int> co = importDefSigSpec(cell->getPort(TW::CO), timestep);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(co.size()) : co;
 
@@ -1118,10 +1118,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_p = importUndefSigSpec(cell->getPort(ID::P), timestep);
-			std::vector<int> undef_g = importUndefSigSpec(cell->getPort(ID::G), timestep);
-			std::vector<int> undef_ci = importUndefSigSpec(cell->getPort(ID::CI), timestep);
-			std::vector<int> undef_co = importUndefSigSpec(cell->getPort(ID::CO), timestep);
+			std::vector<int> undef_p = importUndefSigSpec(cell->getPort(TW::P), timestep);
+			std::vector<int> undef_g = importUndefSigSpec(cell->getPort(TW::G), timestep);
+			std::vector<int> undef_ci = importUndefSigSpec(cell->getPort(TW::CI), timestep);
+			std::vector<int> undef_co = importUndefSigSpec(cell->getPort(TW::CO), timestep);
 
 			int undef_any_p = ez->expression(ezSAT::OpOr, undef_p);
 			int undef_any_g = ez->expression(ezSAT::OpOr, undef_g);
@@ -1138,13 +1138,13 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($alu))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
-		std::vector<int> x = importDefSigSpec(cell->getPort(ID::X), timestep);
-		std::vector<int> ci = importDefSigSpec(cell->getPort(ID::CI), timestep);
-		std::vector<int> bi = importDefSigSpec(cell->getPort(ID::BI), timestep);
-		std::vector<int> co = importDefSigSpec(cell->getPort(ID::CO), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(TW::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
+		std::vector<int> x = importDefSigSpec(cell->getPort(TW::X), timestep);
+		std::vector<int> ci = importDefSigSpec(cell->getPort(TW::CI), timestep);
+		std::vector<int> bi = importDefSigSpec(cell->getPort(TW::BI), timestep);
+		std::vector<int> co = importDefSigSpec(cell->getPort(TW::CO), timestep);
 
 		extendSignalWidth(a, b, y, cell);
 		extendSignalWidth(a, b, x, cell);
@@ -1169,14 +1169,14 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (model_undef)
 		{
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
-			std::vector<int> undef_ci = importUndefSigSpec(cell->getPort(ID::CI), timestep);
-			std::vector<int> undef_bi = importUndefSigSpec(cell->getPort(ID::BI), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(TW::B), timestep);
+			std::vector<int> undef_ci = importUndefSigSpec(cell->getPort(TW::CI), timestep);
+			std::vector<int> undef_bi = importUndefSigSpec(cell->getPort(TW::BI), timestep);
 
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
-			std::vector<int> undef_x = importUndefSigSpec(cell->getPort(ID::X), timestep);
-			std::vector<int> undef_co = importUndefSigSpec(cell->getPort(ID::CO), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
+			std::vector<int> undef_x = importUndefSigSpec(cell->getPort(TW::X), timestep);
+			std::vector<int> undef_co = importUndefSigSpec(cell->getPort(TW::CO), timestep);
 
 			extendSignalWidth(undef_a, undef_b, undef_y, cell);
 			extendSignalWidth(undef_a, undef_b, undef_x, cell);
@@ -1204,17 +1204,17 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type == ID($slice))
 	{
-		RTLIL::SigSpec a = cell->getPort(ID::A);
-		RTLIL::SigSpec y = cell->getPort(ID::Y);
+		RTLIL::SigSpec a = cell->getPort(TW::A);
+		RTLIL::SigSpec y = cell->getPort(TW::Y);
 		ez->assume(signals_eq(a.extract(cell->parameters.at(ID::OFFSET).as_int(), y.size()), y, timestep));
 		return true;
 	}
 
 	if (cell->type == ID($concat))
 	{
-		RTLIL::SigSpec a = cell->getPort(ID::A);
-		RTLIL::SigSpec b = cell->getPort(ID::B);
-		RTLIL::SigSpec y = cell->getPort(ID::Y);
+		RTLIL::SigSpec a = cell->getPort(TW::A);
+		RTLIL::SigSpec b = cell->getPort(TW::B);
+		RTLIL::SigSpec y = cell->getPort(TW::Y);
 
 		RTLIL::SigSpec ab = a;
 		ab.append(b);
@@ -1233,18 +1233,18 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		if (timestep == 1)
 		{
-			initial_state.add((*sigmap)(cell->getPort(ID::Q)));
+			initial_state.add((*sigmap)(cell->getPort(TW::Q)));
 			if (model_undef && def_formal) {
-				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
+				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(TW::Q), timestep);
 				ez->assume(ez->NOT(ez->vec_reduce_or(undef_q)));
 			}
 		}
 		else
 		{
-			std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep-1);
+			std::vector<int> d = importDefSigSpec(cell->getPort(TW::D), timestep-1);
 			std::vector<int> undef_d;
 			if (model_undef)
-				undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep-1);
+				undef_d = importUndefSigSpec(cell->getPort(TW::D), timestep-1);
 			if (ff.has_srst && ff.has_ce && ff.ce_over_srst) {
 				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
 				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
@@ -1287,14 +1287,14 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 				else
 					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
 			}
-			std::vector<int> q = importDefSigSpec(cell->getPort(ID::Q), timestep);
+			std::vector<int> q = importDefSigSpec(cell->getPort(TW::Q), timestep);
 
 			std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
 			ez->assume(ez->vec_eq(d, qq));
 
 			if (model_undef)
 			{
-				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
+				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(TW::Q), timestep);
 
 				ez->assume(ez->vec_eq(undef_d, undef_q));
 				undefGating(q, qq, undef_q);
@@ -1307,22 +1307,22 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	{
 		if (timestep < 2) {
 			if (model_undef && def_formal) {
-				std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+				std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 				ez->assume(ez->NOT(ez->vec_reduce_or(undef_y)));
 			}
 			return true;
 		}
 
-		std::vector<int> d = importDefSigSpec(cell->getPort(ID::Y), timestep-1);
-		std::vector<int> q = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> d = importDefSigSpec(cell->getPort(TW::Y), timestep-1);
+		std::vector<int> q = importDefSigSpec(cell->getPort(TW::Y), timestep);
 
 		std::vector<int> qq = (model_undef && !def_formal) ? ez->vec_var(q.size()) : q;
 		ez->assume(ez->vec_eq(d, qq));
 
 		if (model_undef)
 		{
-			std::vector<int> undef_d = importUndefSigSpec(cell->getPort(ID::Y), timestep-1);
-			std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_d = importUndefSigSpec(cell->getPort(TW::Y), timestep-1);
+			std::vector<int> undef_q = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 
 			if (def_formal) {
 				for (auto &undef_q_bit : undef_q)
@@ -1338,7 +1338,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	if (cell->type == ID($anyseq))
 	{
 		if (model_undef && def_formal) {
-			std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_q = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			for (auto &undef_q_bit : undef_q)
 				ez->SET(ez->CONST_FALSE, undef_q_bit);
 		}
@@ -1347,16 +1347,16 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 	if (cell->type.in(ID($_BUF_), ID($equiv)))
 	{
-		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> a = importDefSigSpec(cell->getPort(TW::A), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		extendSignalWidthUnary(a, y, cell);
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 		ez->assume(ez->vec_eq(a, yy));
 
 		if (model_undef) {
-			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(TW::A), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			extendSignalWidthUnary(undef_a, undef_y, cell, false);
 			ez->assume(ez->vec_eq(undef_a, undef_y));
 			undefGating(y, yy, undef_y);
@@ -1370,12 +1370,12 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		if (initstates.count(key) == 0)
 			initstates[key] = false;
 
-		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(TW::Y), timestep);
 		log_assert(GetSize(y) == 1);
 		ez->SET(y[0], initstates[key] ? ez->CONST_TRUE : ez->CONST_FALSE);
 
 		if (model_undef) {
-			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(TW::Y), timestep);
 			log_assert(GetSize(undef_y) == 1);
 			ez->SET(undef_y[0], ez->CONST_FALSE);
 		}
@@ -1386,16 +1386,16 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	if (cell->type == ID($assert))
 	{
 		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
-		asserts_a[pf].append((*sigmap)(cell->getPort(ID::A)));
-		asserts_en[pf].append((*sigmap)(cell->getPort(ID::EN)));
+		asserts_a[pf].append((*sigmap)(cell->getPort(TW::A)));
+		asserts_en[pf].append((*sigmap)(cell->getPort(TW::EN)));
 		return true;
 	}
 
 	if (cell->type == ID($assume))
 	{
 		std::string pf = prefix + (timestep == -1 ? "" : stringf("@%d:", timestep));
-		assumes_a[pf].append((*sigmap)(cell->getPort(ID::A)));
-		assumes_en[pf].append((*sigmap)(cell->getPort(ID::EN)));
+		assumes_a[pf].append((*sigmap)(cell->getPort(TW::A)));
+		assumes_en[pf].append((*sigmap)(cell->getPort(TW::EN)));
 		return true;
 	}
 

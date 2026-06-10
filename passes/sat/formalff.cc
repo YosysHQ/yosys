@@ -53,7 +53,7 @@ struct InitValWorker
 	}
 
 	// Sign/Zero-extended indexing of individual port bits
-	static SigBit bit_in_port(RTLIL::Cell *cell, RTLIL::IdString port, RTLIL::IdString sign, int index)
+	static SigBit bit_in_port(RTLIL::Cell *cell, TwineRef port, RTLIL::IdString sign, int index)
 	{
 		auto sig_port = cell->getPort(port);
 		if (index < GetSize(sig_port))
@@ -114,17 +114,17 @@ struct InitValWorker
 		{
 			if (cell->type == ID($mux))
 			{
-				SigBit sig_s = sigmap(cell->getPort(ID::S));
+				SigBit sig_s = sigmap(cell->getPort(TW::S));
 				State init_s = initconst(sig_s);
 				State init_y;
 
 				if (init_s == State::S0) {
-					init_y = initconst(cell->getPort(ID::A)[portbit.offset]);
+					init_y = initconst(cell->getPort(TW::A)[portbit.offset]);
 				} else if (init_s == State::S1) {
-					init_y = initconst(cell->getPort(ID::B)[portbit.offset]);
+					init_y = initconst(cell->getPort(TW::B)[portbit.offset]);
 				} else {
-					State init_a = initconst(cell->getPort(ID::A)[portbit.offset]);
-					State init_b = initconst(cell->getPort(ID::B)[portbit.offset]);
+					State init_a = initconst(cell->getPort(TW::A)[portbit.offset]);
+					State init_b = initconst(cell->getPort(TW::B)[portbit.offset]);
 					init_y = init_a == init_b ? init_a : State::Sx;
 				}
 				initconst_bits[bit] = init_y;
@@ -156,8 +156,8 @@ struct InitValWorker
 					return State::S0;
 				}
 
-				SigSpec sig_a = cell->getPort(ID::A);
-				SigSpec sig_b = cell->getPort(ID::B);
+				SigSpec sig_a = cell->getPort(TW::A);
+				SigSpec sig_b = cell->getPort(TW::B);
 
 				State init_y = State::S1;
 
@@ -246,21 +246,21 @@ struct InitValWorker
 			}
 			else if (cell->type == ID($mux))
 			{
-				State init_s = initconst(cell->getPort(ID::S).as_bit());
+				State init_s = initconst(cell->getPort(TW::S).as_bit());
 				if (init_s == State::S0 && portbit.port == ID::B)
 					continue;
 				if (init_s == State::S1 && portbit.port == ID::A)
 					continue;
-				auto sig_y = cell->getPort(ID::Y);
+				auto sig_y = cell->getPort(TW::Y);
 
 				if (is_initval_used(sig_y[portbit.offset]))
 					return true;
 			}
 			else if (cell->type.in(ID($and), ID($or)))
 			{
-				auto sig_a = cell->getPort(ID::A);
-				auto sig_b = cell->getPort(ID::B);
-				auto sig_y = cell->getPort(ID::Y);
+				auto sig_a = cell->getPort(TW::A);
+				auto sig_b = cell->getPort(TW::B);
+				auto sig_y = cell->getPort(TW::Y);
 				if (GetSize(sig_y) != GetSize(sig_a) || GetSize(sig_y) != GetSize(sig_b))
 					return true; // TODO handle more of this
 				State absorbing = cell->type == ID($and) ? State::S0 : State::S1;
@@ -282,13 +282,13 @@ struct InitValWorker
 
 				if (portbit.port == ID::WR_DATA)
 				{
-					if (initconst(cell->getPort(ID::WR_EN)[portbit.offset]) == State::S0)
+					if (initconst(cell->getPort(TW::WR_EN)[portbit.offset]) == State::S0)
 						continue;
 				}
 				else if (portbit.port == ID::WR_ADDR)
 				{
 					int port = portbit.offset / cell->getParam(ID::ABITS).as_int();
-					auto sig_en = cell->getPort(ID::WR_EN);
+					auto sig_en = cell->getPort(TW::WR_EN);
 					int width = cell->getParam(ID::WIDTH).as_int();
 
 					for (int i = port * width; i < (port + 1) * width; i++)
@@ -300,7 +300,7 @@ struct InitValWorker
 				else if (portbit.port == ID::RD_ADDR)
 				{
 					int port = portbit.offset / cell->getParam(ID::ABITS).as_int();
-					auto sig_en = cell->getPort(ID::RD_EN);
+					auto sig_en = cell->getPort(TW::RD_EN);
 
 					if (initconst(sig_en[port]) != State::S0)
 						return true;
@@ -369,8 +369,8 @@ struct PropagateWorker
 
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($not), ID($_NOT_))) {
-				auto sig_a = cell->getPort(ID::A);
-				auto &sig_y = cell->getPort(ID::Y);
+				auto sig_a = cell->getPort(TW::A);
+				auto &sig_y = cell->getPort(TW::Y);
 				sig_a.extend_u0(GetSize(sig_y), cell->hasParam(ID::A_SIGNED) && cell->parameters.at(ID::A_SIGNED).as_bool());
 
 				for (int i = 0; i < GetSize(sig_a); i++)
@@ -445,7 +445,7 @@ struct PropagateWorker
 		if (add_attribute) {
 			Wire *clk_wire = bit.wire;
 			if (bit.offset != 0 || GetSize(bit.wire) != 1) {
-				clk_wire = module->addWire(NEW_ID);
+				clk_wire = module->addWire(NEW_TWINE);
 				module->connect(RTLIL::SigBit(clk_wire), bit);
 			}
 			clk_wire->attributes[ID::replaced_by_gclk] = polarity ? State::S1 : State::S0;
@@ -717,8 +717,8 @@ struct FormalFfPass : public Pass {
 
 						continue;
 					}
-					SigBit gate_clock = sigmap(driver.cell->getPort(ID::A)[driver.offset]);
-					SigBit gate_enable = sigmap(driver.cell->getPort(ID::B)[driver.offset]);
+					SigBit gate_clock = sigmap(driver.cell->getPort(TW::A)[driver.offset]);
+					SigBit gate_enable = sigmap(driver.cell->getPort(TW::B)[driver.offset]);
 
 					std::swap(gate_clock, gate_enable);
 					for (int i = 0; i < 2; i++) {
@@ -900,7 +900,7 @@ struct FormalFfPass : public Pass {
 					auto clk_wire = ff.sig_clk.is_wire() ? ff.sig_clk.as_wire() : nullptr;
 
 					if (clk_wire == nullptr) {
-						clk_wire = module->addWire(NEW_ID);
+						clk_wire = module->addWire(NEW_TWINE);
 						module->connect(RTLIL::SigBit(clk_wire), ff.sig_clk);
 					}
 

@@ -37,14 +37,14 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 
 	log("  replacing SB_LUT + SB_CARRY with $__ICE40_CARRY_WRAPPER cell.\n");
 
-	Cell *cell = pm.module->addCell(NEW_ID, ID($__ICE40_CARRY_WRAPPER));
+	Cell *cell = pm.module->addCell(NEW_TWINE, ID($__ICE40_CARRY_WRAPPER));
 	pm.module->swap_names(cell, st.carry);
 
-	cell->setPort(ID::A, st.carry->getPort(ID(I0)));
-	cell->setPort(ID::B, st.carry->getPort(ID(I1)));
-	auto CI = st.carry->getPort(ID::CI);
-	cell->setPort(ID::CI, CI);
-	cell->setPort(ID::CO, st.carry->getPort(ID::CO));
+	cell->setPort(TW::A, st.carry->getPort(ID(I0)));
+	cell->setPort(TW::B, st.carry->getPort(ID(I1)));
+	auto CI = st.carry->getPort(TW::CI);
+	cell->setPort(TW::CI, CI);
+	cell->setPort(TW::CO, st.carry->getPort(TW::CO));
 
 	cell->setPort(ID(I0), st.lut->getPort(ID(I0)));
 	auto I3 = st.lut->getPort(ID(I3));
@@ -55,7 +55,7 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	else
 		cell->setParam(ID(I3_IS_CI), State::S0);
 	cell->setPort(ID(I3), I3);
-	cell->setPort(ID::O, st.lut->getPort(ID::O));
+	cell->setPort(TW::O, st.lut->getPort(TW::O));
 	cell->setParam(ID::LUT, st.lut->getParam(ID(LUT_INIT)));
 
 	for (const auto &a : st.carry->attributes)
@@ -134,19 +134,19 @@ struct Ice40WrapCarryPass : public Pass {
 					if (cell->type != ID($__ICE40_CARRY_WRAPPER))
 						continue;
 
-					auto carry = module->addCell(NEW_ID, ID(SB_CARRY));
-					carry->setPort(ID(I0), cell->getPort(ID::A));
-					carry->setPort(ID(I1), cell->getPort(ID::B));
-					carry->setPort(ID::CI, cell->getPort(ID::CI));
-					carry->setPort(ID::CO, cell->getPort(ID::CO));
+					auto carry = module->addCell(NEW_TWINE, ID(SB_CARRY));
+					carry->setPort(ID(I0), cell->getPort(TW::A));
+					carry->setPort(ID(I1), cell->getPort(TW::B));
+					carry->setPort(TW::CI, cell->getPort(TW::CI));
+					carry->setPort(TW::CO, cell->getPort(TW::CO));
 					module->swap_names(carry, cell);
 					auto lut_name = cell->attributes.at(IdString{"\\SB_LUT4.name"}, Const(NEW_ID.str())).decode_string();
 					auto lut = module->addCell(lut_name, ID($lut));
 					lut->setParam(ID::WIDTH, 4);
 					lut->setParam(ID::LUT, cell->getParam(ID::LUT));
 					auto I3 = cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3));
-					lut->setPort(ID::A, { I3, cell->getPort(ID::B), cell->getPort(ID::A), cell->getPort(ID(I0)) });
-					lut->setPort(ID::Y, cell->getPort(ID::O));
+					lut->setPort(TW::A, { I3, cell->getPort(TW::B), cell->getPort(TW::A), cell->getPort(ID(I0)) });
+					lut->setPort(TW::Y, cell->getPort(TW::O));
 
 					std::string carry_src, lut_src, fallback_src;
 					if (cell->src_id() != Twine::Null)

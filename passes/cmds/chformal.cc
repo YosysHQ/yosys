@@ -275,15 +275,15 @@ struct ChformalPass : public Pass {
 				for (auto cell : module->selected_cells())
 				{
 					if (cell->type == ID($ff)) {
-						SigSpec D = sigmap(cell->getPort(ID::D));
-						SigSpec Q = sigmap(cell->getPort(ID::Q));
+						SigSpec D = sigmap(cell->getPort(TW::D));
+						SigSpec Q = sigmap(cell->getPort(TW::Q));
 						for (int i = 0; i < GetSize(D); i++)
 							ffmap[Q[i]] = make_pair(D[i], make_pair(State::Sm, false));
 					}
 					if (cell->type == ID($dff)) {
-						SigSpec D = sigmap(cell->getPort(ID::D));
-						SigSpec Q = sigmap(cell->getPort(ID::Q));
-						SigSpec C = sigmap(cell->getPort(ID::CLK));
+						SigSpec D = sigmap(cell->getPort(TW::D));
+						SigSpec Q = sigmap(cell->getPort(TW::Q));
+						SigSpec C = sigmap(cell->getPort(TW::CLK));
 						bool clockpol = cell->getParam(ID::CLK_POLARITY).as_bool();
 						for (int i = 0; i < GetSize(D); i++)
 							ffmap[Q[i]] = make_pair(D[i], make_pair(C, clockpol));
@@ -295,7 +295,7 @@ struct ChformalPass : public Pass {
 					if (is_triggered_check_cell(cell)) {
 						if (cell->getParam(ID::TRG_WIDTH).as_int() != 1)
 							continue;
-						cell->setPort(ID::TRG, SigSpec());
+						cell->setPort(TW::TRG, SigSpec());
 						cell->setParam(ID::TRG_ENABLE, false);
 						cell->setParam(ID::TRG_WIDTH, 0);
 						cell->setParam(ID::TRG_POLARITY, false);
@@ -305,8 +305,8 @@ struct ChformalPass : public Pass {
 
 					while (true)
 					{
-						SigSpec A = sigmap(cell->getPort(ID::A));
-						SigSpec EN = sigmap(cell->getPort(ID::EN));
+						SigSpec A = sigmap(cell->getPort(TW::A));
+						SigSpec EN = sigmap(cell->getPort(TW::EN));
 
 						if (ffmap.count(A) == 0 || ffmap.count(EN) == 0)
 							break;
@@ -322,8 +322,8 @@ struct ChformalPass : public Pass {
 						if (A_map.second != EN_map.second)
 							break;
 
-						cell->setPort(ID::A, A_map.first);
-						cell->setPort(ID::EN, EN_map.first);
+						cell->setPort(TW::A, A_map.first);
+						cell->setPort(TW::EN, EN_map.first);
 					}
 				}
 			}
@@ -337,18 +337,18 @@ struct ChformalPass : public Pass {
 
 					for (int i = 0; i < mode_arg; i++)
 					{
-						SigSpec orig_a = cell->getPort(ID::A);
-						SigSpec orig_en = cell->getPort(ID::EN);
+						SigSpec orig_a = cell->getPort(TW::A);
+						SigSpec orig_en = cell->getPort(TW::EN);
 
-						Wire *new_a = module->addWire(NEW_ID);
-						Wire *new_en = module->addWire(NEW_ID);
+						Wire *new_a = module->addWire(NEW_TWINE);
+						Wire *new_en = module->addWire(NEW_TWINE);
 						new_en->attributes[ID::init] = State::S0;
 
 						module->addFf(NEW_ID, orig_a, new_a);
 						module->addFf(NEW_ID, orig_en, new_en);
 
-						cell->setPort(ID::A, new_a);
-						cell->setPort(ID::EN, new_en);
+						cell->setPort(TW::A, new_a);
+						cell->setPort(TW::EN, new_en);
 					}
 				}
 			}
@@ -358,14 +358,14 @@ struct ChformalPass : public Pass {
 				SigSpec en = State::S1;
 
 				for (int i = 0; i < mode_arg; i++) {
-					Wire *w = module->addWire(NEW_ID);
+					Wire *w = module->addWire(NEW_TWINE);
 					w->attributes[ID::init] = State::S0;
 					module->addFf(NEW_ID, en, w);
 					en = w;
 				}
 
 				for (auto cell : constr_cells)
-					cell->setPort(ID::EN, module->LogicAnd(NEW_ID, en, cell->getPort(ID::EN)));
+					cell->setPort(TW::EN, module->LogicAnd(NEW_ID, en, cell->getPort(TW::EN)));
 			}
 			else
 			if (mode =='p')
@@ -373,7 +373,7 @@ struct ChformalPass : public Pass {
 				for (auto cell : constr_cells)
 				{
 					if (cell->type == ID($check)) {
-						Cell *cover = module->addCell(NEW_ID_SUFFIX("coverenable"), ID($check));
+						Cell *cover = module->addCell(NEW_TWINE_SUFFIX("coverenable"), ID($check));
 						cover->attributes = cell->attributes;
 						if (cell->src_id() != Twine::Null && module->design)
 							cover->set_src_id(cell->src_id());
@@ -383,11 +383,11 @@ struct ChformalPass : public Pass {
 						for (auto const &conn : cell->connections())
 							if (!conn.first.in(ID::A, ID::EN))
 								cover->setPort(conn.first, conn.second);
-						cover->setPort(ID::A, cell->getPort(ID::EN));
-						cover->setPort(ID::EN, State::S1);
+						cover->setPort(TW::A, cell->getPort(TW::EN));
+						cover->setPort(TW::EN, State::S1);
 					} else {
 						module->addCover(NEW_ID_SUFFIX("coverenable"),
-							cell->getPort(ID::EN), State::S1, cell->get_src_attribute());
+							cell->getPort(TW::EN), State::S1, cell->get_src_attribute());
 					}
 				}
 			}
@@ -419,17 +419,17 @@ struct ChformalPass : public Pass {
 						log_error("Cannot lower edge triggered $check cell %s, run async2sync or clk2fflogic first.\n", cell);
 
 
-					Cell *plain_cell = module->addCell(NEW_ID, formal_flavor(cell));
+					Cell *plain_cell = module->addCell(NEW_TWINE, formal_flavor(cell));
 
 					plain_cell->attributes = cell->attributes;
 					if (cell->src_id() != Twine::Null && module->design)
 						plain_cell->set_src_id(cell->src_id());
 
-					SigBit sig_a = cell->getPort(ID::A);
-					SigBit sig_en = cell->getPort(ID::EN);
+					SigBit sig_a = cell->getPort(TW::A);
+					SigBit sig_en = cell->getPort(TW::EN);
 
-					plain_cell->setPort(ID::A, sig_a);
-					plain_cell->setPort(ID::EN, sig_en);
+					plain_cell->setPort(TW::A, sig_a);
+					plain_cell->setPort(TW::EN, sig_en);
 
 					if (plain_cell->type.in(ID($assert), ID($assume)))
 						sig_a = module->Not(NEW_ID, sig_a);
@@ -438,12 +438,12 @@ struct ChformalPass : public Pass {
 
 					module->swap_names(cell, plain_cell);
 
-					if (cell->getPort(ID::ARGS).empty()) {
+					if (cell->getPort(TW::ARGS).empty()) {
 						module->remove(cell);
 					} else {
 						cell->type = ID($print);
-						cell->setPort(ID::EN, combined_en);
-						cell->unsetPort(ID::A);
+						cell->setPort(TW::EN, combined_en);
+						cell->unsetPort(TW::A);
 						cell->unsetParam(ID(FLAVOR));
 					}
 				}

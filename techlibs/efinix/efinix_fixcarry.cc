@@ -43,9 +43,9 @@ static void fix_carry_chain(Module *module)
 			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(I0)));
 			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(I1)));
 			if (bit_i0 == State::S0 && bit_i1== State::S0) {
-				SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
-				SigBit bit_o = sigmap(cell->getPort(ID::O));
-				ci_bits.insert(bit_ci);
+				SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::CI));
+				SigBit bit_o = sigmap(cell->getPort(TW::O));
+				ci_bits.insert(bit_ci);				
 				mapping_bits[bit_ci] = bit_o;
 			}
 		}
@@ -55,7 +55,7 @@ static void fix_carry_chain(Module *module)
 	for (auto cell : module->cells())
 	{
 		if (cell->type == ID(EFX_ADD)) {
-			SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
+			SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::CI));
 			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(I0)));
 			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(I1)));
 			SigBit canonical_bit = sigmap(bit_ci);
@@ -71,20 +71,20 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : adders_to_fix_cells)
 	{
-		SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
+		SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::CI));
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescape(), cell);
-		Cell *c = module->addCell(NEW_ID, ID(EFX_ADD));
-		SigBit new_bit = module->addWire(NEW_ID);
+		Cell *c = module->addCell(NEW_TWINE, ID(EFX_ADD));
+		SigBit new_bit = module->addWire(NEW_TWINE);
 		c->setParam(ID(I0_POLARITY), State::S1);
 		c->setParam(ID(I1_POLARITY), State::S1);
 		c->setPort(ID(I0), bit);
 		c->setPort(ID(I1), State::S1);
-		c->setPort(ID::CI, State::S0);
-		c->setPort(ID::CO, new_bit);
-
-		cell->setPort(ID::CI, new_bit);
+		c->setPort(TW::CI, State::S0);
+		c->setPort(TW::CO, new_bit);
+		
+		cell->setPort(TW::CI, new_bit);
 	}
 }
 

@@ -91,7 +91,7 @@ struct AigMaker
 		return node2index(node);
 	}
 
-	int inport(IdString portname, int portbit = 0, bool inverter = false)
+	int inport(TwineRef portname, int portbit = 0, bool inverter = false)
 	{
 		if (portbit >= GetSize(cell->getPort(portname))) {
 			if (cell->parameters.count(portname.str() + "_SIGNED") && cell->getParam(portname.str() + "_SIGNED").as_bool())
@@ -106,7 +106,7 @@ struct AigMaker
 		return node2index(node);
 	}
 
-	vector<int> inport_vec(IdString portname, int width)
+	vector<int> inport_vec(TwineRef portname, int width)
 	{
 		vector<int> vec;
 		for (int i = 0; i < width; i++)
@@ -114,7 +114,7 @@ struct AigMaker
 		return vec;
 	}
 
-	int not_inport(IdString portname, int portbit = 0)
+	int not_inport(TwineRef portname, int portbit = 0)
 	{
 		return inport(portname, portbit, true);
 	}
@@ -244,20 +244,20 @@ struct AigMaker
 		return Y;
 	}
 
-	void outport(int node, IdString portname, int portbit = 0)
+	void outport(int node, TwineRef portname, int portbit = 0)
 	{
 		if (portbit < GetSize(cell->getPort(portname)))
 			aig->nodes.at(node).outports.push_back(pair<IdString, int>(portname, portbit));
 	}
 
-	void outport_bool(int node, IdString portname)
+	void outport_bool(int node, TwineRef portname)
 	{
 		outport(node, portname);
 		for (int i = 1; i < GetSize(cell->getPort(portname)); i++)
 			outport(bool_node(false), portname, i);
 	}
 
-	void outport_vec(const vector<int> &vec, IdString portname)
+	void outport_vec(const vector<int> &vec, TwineRef portname)
 	{
 		for (int i = 0; i < GetSize(vec); i++)
 			outport(vec.at(i), portname, i);
@@ -304,7 +304,7 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in(ID($not), ID($_NOT_), ID($pos), ID($buf), ID($_BUF_)))
 	{
-		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
+		for (int i = 0; i < GetSize(cell->getPort(TW::Y)); i++) {
 			int A = mk.inport(ID::A, i);
 			int Y = cell->type.in(ID($not), ID($_NOT_)) ? mk.not_gate(A) : A;
 			mk.outport(Y, ID::Y, i);
@@ -314,7 +314,7 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in(ID($and), ID($_AND_), ID($_NAND_), ID($or), ID($_OR_), ID($_NOR_), ID($xor), ID($xnor), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 	{
-		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
+		for (int i = 0; i < GetSize(cell->getPort(TW::Y)); i++) {
 			int A = mk.inport(ID::A, i);
 			int B = mk.inport(ID::B, i);
 			int Y = cell->type.in(ID($and), ID($_AND_))   ? mk.and_gate(A, B) :
@@ -333,7 +333,7 @@ Aig::Aig(Cell *cell)
 	if (cell->type.in(ID($mux), ID($_MUX_), ID($_NMUX_)))
 	{
 		int S = mk.inport(ID::S);
-		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
+		for (int i = 0; i < GetSize(cell->getPort(TW::Y)); i++) {
 			int A = mk.inport(ID::A, i);
 			int B = mk.inport(ID::B, i);
 			int Y = mk.mux_gate(A, B, S);
@@ -347,7 +347,7 @@ Aig::Aig(Cell *cell)
 	if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)))
 	{
 		int Y = mk.inport(ID::A, 0);
-		for (int i = 1; i < GetSize(cell->getPort(ID::A)); i++) {
+		for (int i = 1; i < GetSize(cell->getPort(TW::A)); i++) {
 			int A = mk.inport(ID::A, i);
 			if (cell->type == ID($reduce_and))  Y = mk.and_gate(A, Y);
 			if (cell->type == ID($reduce_or))   Y = mk.or_gate(A, Y);
@@ -358,7 +358,7 @@ Aig::Aig(Cell *cell)
 		if (cell->type == ID($reduce_xnor))
 			Y = mk.not_gate(Y);
 		mk.outport(Y, ID::Y, 0);
-		for (int i = 1; i < GetSize(cell->getPort(ID::Y)); i++)
+		for (int i = 1; i < GetSize(cell->getPort(TW::Y)); i++)
 			mk.outport(mk.bool_node(false), ID::Y, i);
 		goto optimize;
 	}
@@ -366,11 +366,11 @@ Aig::Aig(Cell *cell)
 	if (cell->type.in(ID($logic_not), ID($logic_and), ID($logic_or)))
 	{
 		int A = mk.inport(ID::A, 0), Y = -1;
-		for (int i = 1; i < GetSize(cell->getPort(ID::A)); i++)
+		for (int i = 1; i < GetSize(cell->getPort(TW::A)); i++)
 			A = mk.or_gate(mk.inport(ID::A, i), A);
 		if (cell->type.in(ID($logic_and), ID($logic_or))) {
 			int B = mk.inport(ID::B, 0);
-			for (int i = 1; i < GetSize(cell->getPort(ID::B)); i++)
+			for (int i = 1; i < GetSize(cell->getPort(TW::B)); i++)
 				B = mk.or_gate(mk.inport(ID::B, i), B);
 			if (cell->type == ID($logic_and)) Y = mk.and_gate(A, B);
 			if (cell->type == ID($logic_or))  Y = mk.or_gate(A, B);
@@ -383,7 +383,7 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in(ID($add), ID($sub)))
 	{
-		int width = GetSize(cell->getPort(ID::Y));
+		int width = GetSize(cell->getPort(TW::Y));
 		vector<int> A = mk.inport_vec(ID::A, width);
 		vector<int> B = mk.inport_vec(ID::B, width);
 		int carry = mk.bool_node(false);
@@ -399,8 +399,8 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in(ID($lt), ID($gt), ID($le), ID($ge)))
 	{
-		int width = std::max(GetSize(cell->getPort(ID::A)),
-							 GetSize(cell->getPort(ID::B))) + 1;
+		int width = std::max(GetSize(cell->getPort(TW::A)),
+							 GetSize(cell->getPort(TW::B))) + 1;
 		vector<int> A = mk.inport_vec(ID::A, width);
 		vector<int> B = mk.inport_vec(ID::B, width);
 
@@ -412,14 +412,14 @@ Aig::Aig(Cell *cell)
 			n = mk.not_gate(n);
 		vector<int> Y = mk.adder(A, B, carry);
 		mk.outport(Y.back(), ID::Y);
-		for (int i = 1; i < GetSize(cell->getPort(ID::Y)); i++)
+		for (int i = 1; i < GetSize(cell->getPort(TW::Y)); i++)
 			mk.outport(mk.bool_node(false), ID::Y, i);
 		goto optimize;
 	}
 
 	if (cell->type == ID($alu))
 	{
-		int width = GetSize(cell->getPort(ID::Y));
+		int width = GetSize(cell->getPort(TW::Y));
 		vector<int> A = mk.inport_vec(ID::A, width);
 		vector<int> B = mk.inport_vec(ID::B, width);
 		int carry = mk.inport(ID::CI);
@@ -438,7 +438,7 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in(ID($eq), ID($ne)))
 	{
-		int width = max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::B)));
+		int width = max(GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::B)));
 		vector<int> A = mk.inport_vec(ID::A, width);
 		vector<int> B = mk.inport_vec(ID::B, width);
 		int Y = mk.bool_node(false);

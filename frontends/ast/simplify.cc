@@ -1479,7 +1479,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					continue;
 
 				// determine the full name of port this argument is connected to
-				RTLIL::IdString port_name;
+				TwineRef port_name;
 				if (child->str.size())
 					port_name = child->str;
 				else {

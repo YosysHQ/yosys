@@ -162,29 +162,29 @@ struct OptDffWorker
 
 	SigSpec create_not(SigSpec a, bool is_fine) {
 		if (is_fine)
-			return module->NotGate(NEW_ID, a);
+			return module->NotGate(NEW_TWINE, a);
 		else
-			return module->Not(NEW_ID, a);
+			return module->Not(NEW_TWINE, a);
 	}
 
 	SigSpec create_and(SigSpec a, SigSpec b, bool is_fine) {
 		if (is_fine)
-			return module->AndGate(NEW_ID, a, b);
+			return module->AndGate(NEW_TWINE, a, b);
 		else
-			return module->And(NEW_ID, a, b);
+			return module->And(NEW_TWINE, a, b);
 	}
 
 	void create_mux_to_output(SigSpec a, SigSpec b, SigSpec sel, SigSpec y, bool pol, bool is_fine) {
 		if (is_fine) {
 			if (pol)
-				module->addMuxGate(NEW_ID, a, b, sel, y);
+				module->addMuxGate(NEW_TWINE, a, b, sel, y);
 			else
-				module->addMuxGate(NEW_ID, b, a, sel, y);
+				module->addMuxGate(NEW_TWINE, b, a, sel, y);
 		} else {
 			if (pol)
-				module->addMux(NEW_ID, a, b, sel, y);
+				module->addMux(NEW_TWINE, a, b, sel, y);
 			else
-				module->addMux(NEW_ID, b, a, sel, y);
+				module->addMux(NEW_TWINE, b, a, sel, y);
 		}
 	}
 
@@ -209,7 +209,7 @@ struct OptDffWorker
 
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
-				RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+				RTLIL::SigSpec sig_y = sigmap(cell->getPort(TW::Y));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
 			}
@@ -248,9 +248,9 @@ struct OptDffWorker
 			return ret; // D not driven by MUX / MUX drives multiple loads
 
 		cell_int_t mbit = bit2mux.at(d);
-		RTLIL::SigSpec sig_a = sigmap(mbit.first->getPort(ID::A));
-		RTLIL::SigSpec sig_b = sigmap(mbit.first->getPort(ID::B));
-		RTLIL::SigSpec sig_s = sigmap(mbit.first->getPort(ID::S));
+		RTLIL::SigSpec sig_a = sigmap(mbit.first->getPort(TW::A));
+		RTLIL::SigSpec sig_b = sigmap(mbit.first->getPort(TW::B));
+		RTLIL::SigSpec sig_s = sigmap(mbit.first->getPort(TW::S));
 		int width = GetSize(sig_a), index = mbit.second;
 
 		// Traverse MUX tree
@@ -258,9 +258,9 @@ struct OptDffWorker
 			if (path.count(sig_s[i]) && path.at(sig_s[i])) {
 				ret = find_muxtree_feedback_patterns(sig_b[i*width + index], q, path);
 				if (sig_b[i*width + index] == q) {
-					RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::B));
+					RTLIL::SigSpec s = sigmap(mbit.first->getPort(TW::B));
 					s[i*width + index] = RTLIL::Sx;
-					mbit.first->setPort(ID::B, s);
+					mbit.first->setPort(TW::B, s);
 				}
 
 				return ret;
@@ -282,9 +282,9 @@ struct OptDffWorker
 				ret.insert(pat);
 
 			if (sig_b[i*width + index] == q) {
-				RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::B));
+				RTLIL::SigSpec s = sigmap(mbit.first->getPort(TW::B));
 				s[i*width + index] = RTLIL::Sx;
-				mbit.first->setPort(ID::B, s);
+				mbit.first->setPort(TW::B, s);
 			}
 		}
 
@@ -293,9 +293,9 @@ struct OptDffWorker
 			ret.insert(pat);
 
 		if (sig_a[index] == q) {
-			RTLIL::SigSpec s = sigmap(mbit.first->getPort(ID::A));
+			RTLIL::SigSpec s = sigmap(mbit.first->getPort(TW::A));
 			s[index] = RTLIL::Sx;
-			mbit.first->setPort(ID::A, s);
+			mbit.first->setPort(TW::A, s);
 		}
 
 		return ret;
@@ -317,8 +317,8 @@ struct OptDffWorker
 				s2.append(it.second);
 			}
 
-			RTLIL::SigSpec y = module->addWire(NEW_ID);
-			RTLIL::Cell *c = module->addNe(NEW_ID, s1, s2, y);
+			RTLIL::SigSpec y = module->addWire(NEW_TWINE);
+			RTLIL::Cell *c = module->addNe(NEW_TWINE, s1, s2, y);
 			maybe_simplemap(c, make_gates);
 			or_input.append(y);
 		}
@@ -334,8 +334,8 @@ struct OptDffWorker
 		if (GetSize(or_input) == 0) return ctrl_t(State::S1, true);
 		if (GetSize(or_input) == 1) return ctrl_t(or_input, true);
 
-		RTLIL::SigSpec y = module->addWire(NEW_ID);
-		RTLIL::Cell *c = module->addReduceAnd(NEW_ID, or_input, y);
+		RTLIL::SigSpec y = module->addWire(NEW_TWINE);
+		RTLIL::Cell *c = module->addReduceAnd(NEW_TWINE, or_input, y);
 		maybe_simplemap(c, make_gates);
 		return ctrl_t(y, true);
 	}
@@ -358,10 +358,10 @@ struct OptDffWorker
 				or_input.append(create_not(item.first, make_gates));
 		}
 
-		RTLIL::SigSpec y = module->addWire(NEW_ID);
+		RTLIL::SigSpec y = module->addWire(NEW_TWINE);
 		RTLIL::Cell *c = final_pol
-			? module->addReduceOr(NEW_ID, or_input, y)
-			: module->addReduceAnd(NEW_ID, or_input, y);
+			? module->addReduceOr(NEW_TWINE, or_input, y)
+			: module->addReduceAnd(NEW_TWINE, or_input, y);
 		maybe_simplemap(c, make_gates);
 		return ctrl_t(y, final_pol);
 	}
@@ -394,9 +394,9 @@ struct OptDffWorker
 				if (!ff.pol_clr)
 					module->connect(ff.sig_q[i], ff.sig_clr[i]);
 				else if (ff.is_fine)
-					module->addNotGate(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
+					module->addNotGate(NEW_TWINE, ff.sig_clr[i], ff.sig_q[i]);
 				else
-					module->addNot(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
+					module->addNot(NEW_TWINE, ff.sig_clr[i], ff.sig_q[i]);
 				log("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
 						i, cell, cell->type.unescape(), module);
 				sr_removed = true;
@@ -491,22 +491,22 @@ struct OptDffWorker
 				SigSpec tmp;
 				if (ff.is_fine) {
 					tmp = ff.pol_set
-						? module->MuxGate(NEW_ID, ff.sig_ad, State::S1, ff.sig_set)
-						: module->MuxGate(NEW_ID, State::S1, ff.sig_ad, ff.sig_set);
+						? module->MuxGate(NEW_TWINE, ff.sig_ad, State::S1, ff.sig_set)
+						: module->MuxGate(NEW_TWINE, State::S1, ff.sig_ad, ff.sig_set);
 
 					if (ff.pol_clr)
-						module->addMuxGate(NEW_ID, tmp, State::S0, ff.sig_clr, ff.sig_q);
+						module->addMuxGate(NEW_TWINE, tmp, State::S0, ff.sig_clr, ff.sig_q);
 					else
-						module->addMuxGate(NEW_ID, State::S0, tmp, ff.sig_clr, ff.sig_q);
+						module->addMuxGate(NEW_TWINE, State::S0, tmp, ff.sig_clr, ff.sig_q);
 				} else {
 					tmp = ff.pol_set
-						? module->Or(NEW_ID, ff.sig_ad, ff.sig_set)
-						: module->Or(NEW_ID, ff.sig_ad, module->Not(NEW_ID, ff.sig_set));
+						? module->Or(NEW_TWINE, ff.sig_ad, ff.sig_set)
+						: module->Or(NEW_TWINE, ff.sig_ad, module->Not(NEW_TWINE, ff.sig_set));
 
 					if (ff.pol_clr)
-						module->addAnd(NEW_ID, tmp, module->Not(NEW_ID, ff.sig_clr), ff.sig_q);
+						module->addAnd(NEW_TWINE, tmp, module->Not(NEW_TWINE, ff.sig_clr), ff.sig_q);
 					else
-						module->addAnd(NEW_ID, tmp, ff.sig_clr, ff.sig_q);
+						module->addAnd(NEW_TWINE, tmp, ff.sig_clr, ff.sig_q);
 				}
 			} else if (ff.has_arst) {
 				create_mux_to_output(ff.sig_ad, ff.val_arst, ff.sig_arst, ff.sig_q, ff.pol_arst, ff.is_fine);
@@ -651,12 +651,12 @@ struct OptDffWorker
 
 			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
 				cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
-				if (GetSize(mbit.first->getPort(ID::S)) != 1)
+				if (GetSize(mbit.first->getPort(TW::S)) != 1)
 					break;
 
-				SigBit s = sigmap(mbit.first->getPort(ID::S));
-				SigBit a = sigmap(mbit.first->getPort(ID::A)[mbit.second]);
-				SigBit b = sigmap(mbit.first->getPort(ID::B)[mbit.second]);
+				SigBit s = sigmap(mbit.first->getPort(TW::S));
+				SigBit a = sigmap(mbit.first->getPort(TW::A)[mbit.second]);
+				SigBit b = sigmap(mbit.first->getPort(TW::B)[mbit.second]);
 
 				if ((a == State::S0 || a == State::S1) && (b == State::S0 || b == State::S1))
 					break;
@@ -734,12 +734,12 @@ struct OptDffWorker
 
 			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
 				cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
-				if (GetSize(mbit.first->getPort(ID::S)) != 1)
+				if (GetSize(mbit.first->getPort(TW::S)) != 1)
 					break;
 
-				SigBit s = sigmap(mbit.first->getPort(ID::S));
-				SigBit a = sigmap(mbit.first->getPort(ID::A)[mbit.second]);
-				SigBit b = sigmap(mbit.first->getPort(ID::B)[mbit.second]);
+				SigBit s = sigmap(mbit.first->getPort(TW::S));
+				SigBit a = sigmap(mbit.first->getPort(TW::A)[mbit.second]);
+				SigBit b = sigmap(mbit.first->getPort(TW::B)[mbit.second]);
 
 				if (a == ff.sig_q[i]) {
 					enables.insert(ctrl_t(s, true));

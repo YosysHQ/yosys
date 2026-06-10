@@ -268,7 +268,7 @@ struct OptMergeIncWorker
 				did_something = true;
 				log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name, other_cell->name);
 
-				std::vector<std::pair<RTLIL::IdString, RTLIL::SigSpec>> port_replacements;
+				std::vector<std::pair<TwineRef, RTLIL::SigSpec>> port_replacements;
 				for (auto &[port, sig] : cell->connections()) {
 					if (cell->output(port)) {
 						// TODO why was this removed before?

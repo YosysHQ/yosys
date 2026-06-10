@@ -102,7 +102,7 @@ struct LatticeGsrPass : public Pass {
 			{
 				if (cell->type != ID($_NOT_))
 					continue;
-				SigSpec sig_a = cell->getPort(ID::A), sig_y = cell->getPort(ID::Y);
+				SigSpec sig_a = cell->getPort(TW::A), sig_y = cell->getPort(TW::Y);
 				if (GetSize(sig_a) < 1 || GetSize(sig_y) < 1)
 					continue;
 				SigBit a = sigmap(sig_a[0]);

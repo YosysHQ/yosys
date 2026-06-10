@@ -28,7 +28,7 @@ YOSYS_NAMESPACE_BEGIN
 struct CellType
 {
 	RTLIL::IdString type;
-	pool<RTLIL::IdString> inputs, outputs;
+	pool<TwineRef> inputs, outputs;
 	bool is_evaluable;
 	bool is_combinatorial;
 	bool is_synthesizable;
@@ -59,7 +59,7 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
+	void setup_type(RTLIL::IdString type, const pool<TwineRef> &inputs, const pool<TwineRef> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
 	{
 		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
 		cell_types[ct.type] = ct;
@@ -67,13 +67,13 @@ struct CellTypes
 
 	void setup_module(RTLIL::Module *module)
 	{
-		pool<RTLIL::IdString> inputs, outputs;
+		pool<TwineRef> inputs, outputs;
 		for (auto wire_name : module->ports) {
 			RTLIL::Wire *wire = module->wire(wire_name);
 			if (wire->port_input)
-				inputs.insert(wire->name);
+				inputs.insert(wire->meta_->name);
 			if (wire->port_output)
-				outputs.insert(wire->name);
+				outputs.insert(wire->meta_->name);
 		}
 		setup_type(module->name, inputs, outputs);
 	}
@@ -88,34 +88,34 @@ struct CellTypes
 	{
 		setup_internals_eval();
 
-		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y});
+		setup_type(ID($tribuf), {TW::A, TW::EN}, {TW::Y});
 
-		setup_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($assume), {ID::A, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($live), {ID::A, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($fair), {ID::A, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($cover), {ID::A, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($initstate), pool<RTLIL::IdString>(), {ID::Y});
-		setup_type(ID($anyconst), pool<RTLIL::IdString>(), {ID::Y});
-		setup_type(ID($anyseq), pool<RTLIL::IdString>(), {ID::Y});
-		setup_type(ID($allconst), pool<RTLIL::IdString>(), {ID::Y});
-		setup_type(ID($allseq), pool<RTLIL::IdString>(), {ID::Y});
-		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y});
-		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>());
-		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>());
-		setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>());
-		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
-		setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
-		setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
-		setup_type(ID($get_tag), {ID::A}, {ID::Y});
-		setup_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, pool<RTLIL::IdString>());
-		setup_type(ID($original_tag), {ID::A}, {ID::Y});
-		setup_type(ID($future_ff), {ID::A}, {ID::Y});
+		setup_type(ID($assert), {TW::A, TW::EN}, pool<TwineRef>());
+		setup_type(ID($assume), {TW::A, TW::EN}, pool<TwineRef>());
+		setup_type(ID($live), {TW::A, TW::EN}, pool<TwineRef>());
+		setup_type(ID($fair), {TW::A, TW::EN}, pool<TwineRef>());
+		setup_type(ID($cover), {TW::A, TW::EN}, pool<TwineRef>());
+		setup_type(ID($initstate), pool<TwineRef>(), {TW::Y});
+		setup_type(ID($anyconst), pool<TwineRef>(), {TW::Y});
+		setup_type(ID($anyseq), pool<TwineRef>(), {TW::Y});
+		setup_type(ID($allconst), pool<TwineRef>(), {TW::Y});
+		setup_type(ID($allseq), pool<TwineRef>(), {TW::Y});
+		setup_type(ID($equiv), {TW::A, TW::B}, {TW::Y});
+		setup_type(ID($specify2), {TW::EN, TW::SRC, TW::DST}, pool<TwineRef>());
+		setup_type(ID($specify3), {TW::EN, TW::SRC, TW::DST, TW::DAT}, pool<TwineRef>());
+		setup_type(ID($specrule), {TW::SRC_EN, TW::DST_EN, TW::SRC, TW::DST}, pool<TwineRef>());
+		setup_type(ID($print), {TW::EN, TW::ARGS, TW::TRG}, pool<TwineRef>());
+		setup_type(ID($check), {TW::A, TW::EN, TW::ARGS, TW::TRG}, pool<TwineRef>());
+		setup_type(ID($set_tag), {TW::A, TW::SET, TW::CLR}, {TW::Y});
+		setup_type(ID($get_tag), {TW::A}, {TW::Y});
+		setup_type(ID($overwrite_tag), {TW::A, TW::SET, TW::CLR}, pool<TwineRef>());
+		setup_type(ID($original_tag), {TW::A}, {TW::Y});
+		setup_type(ID($future_ff), {TW::A}, {TW::Y});
 		setup_type(ID($scopeinfo), {}, {});
-		setup_type(ID($input_port), {}, {ID::Y});
-		setup_type(ID($output_port), {ID::A}, {});
-		setup_type(ID($public), {ID::A}, {});
-		setup_type(ID($connect), {ID::A, ID::B}, {});
+		setup_type(ID($input_port), {}, {TW::Y});
+		setup_type(ID($output_port), {TW::A}, {});
+		setup_type(ID($public), {TW::A}, {});
+		setup_type(ID($connect), {TW::A, TW::B}, {});
 	}
 
 	void setup_internals_eval()
@@ -136,92 +136,92 @@ struct CellTypes
 		};
 
 		for (auto type : unary_ops)
-			setup_type(type, {ID::A}, {ID::Y}, true);
+			setup_type(type, {TW::A}, {TW::Y}, true);
 
 		for (auto type : binary_ops)
-			setup_type(type, {ID::A, ID::B}, {ID::Y}, true);
+			setup_type(type, {TW::A, TW::B}, {TW::Y}, true);
 
 		for (auto type : std::vector<RTLIL::IdString>({ID($mux), ID($pmux), ID($bwmux)}))
-			setup_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, true);
+			setup_type(type, {TW::A, TW::B, TW::S}, {TW::Y}, true);
 
 		for (auto type : std::vector<RTLIL::IdString>({ID($bmux), ID($demux)}))
-			setup_type(type, {ID::A, ID::S}, {ID::Y}, true);
+			setup_type(type, {TW::A, TW::S}, {TW::Y}, true);
 
-		setup_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO}, true);
-		setup_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO}, true);
-		setup_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y}, true);
-		setup_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y}, true);
+		setup_type(ID($lcu), {TW::P, TW::G, TW::CI}, {TW::CO}, true);
+		setup_type(ID($alu), {TW::A, TW::B, TW::CI, TW::BI}, {TW::X, TW::Y, TW::CO}, true);
+		setup_type(ID($macc_v2), {TW::A, TW::B, TW::C}, {TW::Y}, true);
+		setup_type(ID($fa), {TW::A, TW::B, TW::C}, {TW::X, TW::Y}, true);
 	}
 
 	void setup_internals_ff()
 	{
-		setup_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q});
-		setup_type(ID($ff), {ID::D}, {ID::Q});
-		setup_type(ID($dff), {ID::CLK, ID::D}, {ID::Q});
-		setup_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q});
-		setup_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q});
-		setup_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q});
-		setup_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($aldff), {ID::CLK, ID::ALOAD, ID::AD, ID::D}, {ID::Q});
-		setup_type(ID($aldffe), {ID::CLK, ID::ALOAD, ID::AD, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
-		setup_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
-		setup_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
-		setup_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
-		setup_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
+		setup_type(ID($sr), {TW::SET, TW::CLR}, {TW::Q});
+		setup_type(ID($ff), {TW::D}, {TW::Q});
+		setup_type(ID($dff), {TW::CLK, TW::D}, {TW::Q});
+		setup_type(ID($dffe), {TW::CLK, TW::EN, TW::D}, {TW::Q});
+		setup_type(ID($dffsr), {TW::CLK, TW::SET, TW::CLR, TW::D}, {TW::Q});
+		setup_type(ID($dffsre), {TW::CLK, TW::SET, TW::CLR, TW::D, TW::EN}, {TW::Q});
+		setup_type(ID($adff), {TW::CLK, TW::ARST, TW::D}, {TW::Q});
+		setup_type(ID($adffe), {TW::CLK, TW::ARST, TW::D, TW::EN}, {TW::Q});
+		setup_type(ID($aldff), {TW::CLK, TW::ALOAD, TW::AD, TW::D}, {TW::Q});
+		setup_type(ID($aldffe), {TW::CLK, TW::ALOAD, TW::AD, TW::D, TW::EN}, {TW::Q});
+		setup_type(ID($sdff), {TW::CLK, TW::SRST, TW::D}, {TW::Q});
+		setup_type(ID($sdffe), {TW::CLK, TW::SRST, TW::D, TW::EN}, {TW::Q});
+		setup_type(ID($sdffce), {TW::CLK, TW::SRST, TW::D, TW::EN}, {TW::Q});
+		setup_type(ID($dlatch), {TW::EN, TW::D}, {TW::Q});
+		setup_type(ID($adlatch), {TW::EN, TW::D, TW::ARST}, {TW::Q});
+		setup_type(ID($dlatchsr), {TW::EN, TW::SET, TW::CLR, TW::D}, {TW::Q});
 	}
 
 	void setup_internals_anyinit()
 	{
-		setup_type(ID($anyinit), {ID::D}, {ID::Q});
+		setup_type(ID($anyinit), {TW::D}, {TW::Q});
 	}
 
 	void setup_internals_mem()
 	{
 		setup_internals_ff();
 
-		setup_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA});
-		setup_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
-		setup_type(ID($memwr), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($memwr_v2), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($meminit), {ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
-		setup_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
+		setup_type(ID($memrd), {TW::CLK, TW::EN, TW::ADDR}, {TW::DATA});
+		setup_type(ID($memrd_v2), {TW::CLK, TW::EN, TW::ARST, TW::SRST, TW::ADDR}, {TW::DATA});
+		setup_type(ID($memwr), {TW::CLK, TW::EN, TW::ADDR, TW::DATA}, pool<TwineRef>());
+		setup_type(ID($memwr_v2), {TW::CLK, TW::EN, TW::ADDR, TW::DATA}, pool<TwineRef>());
+		setup_type(ID($meminit), {TW::ADDR, TW::DATA}, pool<TwineRef>());
+		setup_type(ID($meminit_v2), {TW::ADDR, TW::DATA, TW::EN}, pool<TwineRef>());
+		setup_type(ID($mem), {TW::RD_CLK, TW::RD_EN, TW::RD_ADDR, TW::WR_CLK, TW::WR_EN, TW::WR_ADDR, TW::WR_DATA}, {TW::RD_DATA});
+		setup_type(ID($mem_v2), {TW::RD_CLK, TW::RD_EN, TW::RD_ARST, TW::RD_SRST, TW::RD_ADDR, TW::WR_CLK, TW::WR_EN, TW::WR_ADDR, TW::WR_DATA}, {TW::RD_DATA});
 
-		setup_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT});
+		setup_type(ID($fsm), {TW::CLK, TW::ARST, TW::CTRL_IN}, {TW::CTRL_OUT});
 	}
 
 	void setup_stdcells()
 	{
 		setup_stdcells_eval();
 
-		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y});
+		setup_type(ID($_TBUF_), {TW::A, TW::E}, {TW::Y});
 	}
 
 	void setup_stdcells_eval()
 	{
-		setup_type(ID($_BUF_), {ID::A}, {ID::Y}, true);
-		setup_type(ID($_NOT_), {ID::A}, {ID::Y}, true);
-		setup_type(ID($_AND_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_NAND_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_OR_),  {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_NOR_),  {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_XOR_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_XNOR_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_ANDNOT_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_ORNOT_), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($_MUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true);
-		setup_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true);
-		setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, true);
-		setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, true);
-		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, true);
-		setup_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true);
-		setup_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true);
-		setup_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, true);
-		setup_type(ID($_OAI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, true);
+		setup_type(ID($_BUF_), {TW::A}, {TW::Y}, true);
+		setup_type(ID($_NOT_), {TW::A}, {TW::Y}, true);
+		setup_type(ID($_AND_), {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_NAND_), {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_OR_),  {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_NOR_),  {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_XOR_), {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_XNOR_), {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_ANDNOT_), {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_ORNOT_), {TW::A, TW::B}, {TW::Y}, true);
+		setup_type(ID($_MUX_), {TW::A, TW::B, TW::S}, {TW::Y}, true);
+		setup_type(ID($_NMUX_), {TW::A, TW::B, TW::S}, {TW::Y}, true);
+		setup_type(ID($_MUX4_), {TW::A, TW::B, TW::C, TW::D, TW::S, TW::T}, {TW::Y}, true);
+		setup_type(ID($_MUX8_), {TW::A, TW::B, TW::C, TW::D, TW::E, TW::F, TW::G, TW::H, TW::S, TW::T, TW::U}, {TW::Y}, true);
+		setup_type(ID($_MUX16_), {TW::A, TW::B, TW::C, TW::D, TW::E, TW::F, TW::G, TW::H, TW::I, TW::J, TW::K, TW::L, TW::M, TW::N, TW::O, TW::P, TW::S, TW::T, TW::U, TW::V}, {TW::Y}, true);
+		setup_type(ID($_AOI3_), {TW::A, TW::B, TW::C}, {TW::Y}, true);
+		setup_type(ID($_OAI3_), {TW::A, TW::B, TW::C}, {TW::Y}, true);
+		setup_type(ID($_AOI4_), {TW::A, TW::B, TW::C, TW::D}, {TW::Y}, true);
+		setup_type(ID($_OAI4_), {TW::A, TW::B, TW::C, TW::D}, {TW::Y}, true);
 	}
 
 	void setup_stdcells_mem()
@@ -230,77 +230,77 @@ struct CellTypes
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-			setup_type(stringf("$_SR_%c%c_", c1, c2), {ID::S, ID::R}, {ID::Q});
+			setup_type(stringf("$_SR_%c%c_", c1, c2), {TW::S, TW::R}, {TW::Q});
 
-		setup_type(ID($_FF_), {ID::D}, {ID::Q});
-
-		for (auto c1 : list_np)
-			setup_type(stringf("$_DFF_%c_", c1), {ID::C, ID::D}, {ID::Q});
+		setup_type(ID($_FF_), {TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-			setup_type(stringf("$_DFFE_%c%c_", c1, c2), {ID::C, ID::D, ID::E}, {ID::Q});
+			setup_type(stringf("$_DFF_%c_", c1), {TW::C, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-		for (auto c3 : list_01)
-			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
+			setup_type(stringf("$_DFFE_%c%c_", c1, c2), {TW::C, TW::D, TW::E}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-		for (auto c4 : list_np)
-			setup_type(stringf("$_DFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-			setup_type(stringf("$_ALDFF_%c%c_", c1, c2), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-			setup_type(stringf("$_ALDFFE_%c%c%c_", c1, c2, c3), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {ID::C, ID::S, ID::R, ID::D}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-		for (auto c4 : list_np)
-			setup_type(stringf("$_DFFSRE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_01)
-			setup_type(stringf("$_SDFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
+			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {TW::C, TW::R, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
 		for (auto c4 : list_np)
-			setup_type(stringf("$_SDFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+			setup_type(stringf("$_DFFE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+			setup_type(stringf("$_ALDFF_%c%c_", c1, c2), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_type(stringf("$_ALDFFE_%c%c%c_", c1, c2, c3), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {TW::C, TW::S, TW::R, TW::D}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+		for (auto c4 : list_np)
+			setup_type(stringf("$_DFFSRE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_SDFF_%c%c%c_", c1, c2, c3), {TW::C, TW::R, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
 		for (auto c4 : list_np)
-			setup_type(stringf("$_SDFFCE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
-
-		for (auto c1 : list_np)
-			setup_type(stringf("$_DLATCH_%c_", c1), {ID::E, ID::D}, {ID::Q});
+			setup_type(stringf("$_SDFFE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-			setup_type(stringf("$_DLATCH_%c%c%c_", c1, c2, c3), {ID::E, ID::R, ID::D}, {ID::Q});
+		for (auto c4 : list_np)
+			setup_type(stringf("$_SDFFCE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+			setup_type(stringf("$_DLATCH_%c_", c1), {TW::E, TW::D}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_DLATCH_%c%c%c_", c1, c2, c3), {TW::E, TW::R, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_np)
-			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {ID::E, ID::S, ID::R, ID::D}, {ID::Q});
+			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {TW::E, TW::S, TW::R, TW::D}, {TW::Q});
 	}
 
 	void clear()
@@ -313,19 +313,19 @@ struct CellTypes
 		return cell_types.count(type) != 0;
 	}
 
-	bool cell_output(RTLIL::IdString type, RTLIL::IdString port) const
+	bool cell_output(RTLIL::IdString type, TwineRef port) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.outputs.count(port) != 0;
 	}
 
-	bool cell_input(RTLIL::IdString type, RTLIL::IdString port) const
+	bool cell_input(RTLIL::IdString type, TwineRef port) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
 	}
 
-	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, RTLIL::IdString port) const
+	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, TwineRef port) const
 	{
 		auto it = cell_types.find(type);
 		if (it == cell_types.end())

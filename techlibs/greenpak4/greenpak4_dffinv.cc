@@ -71,12 +71,12 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 	}
 
 	if (cell_type_i) {
-		cell->setPort(ID::Q, cell->getPort(ID(nQ)));
+		cell->setPort(TW::Q, cell->getPort(ID(nQ)));
 		cell->unsetPort(ID(nQ));
 		cell_type_i = false;
 	} else {
-		cell->setPort(ID(nQ), cell->getPort(ID::Q));
-		cell->unsetPort(ID::Q);
+		cell->setPort(ID(nQ), cell->getPort(TW::Q));
+		cell->unsetPort(TW::Q);
 		cell_type_i = true;
 	}
 
@@ -175,15 +175,15 @@ struct Greenpak4DffInvPass : public Pass {
 
 			for (auto cell : dff_cells)
 			{
-				SigBit d_bit = sigmap(cell->getPort(ID::D));
-				SigBit q_bit = sigmap(cell->hasPort(ID::Q) ? cell->getPort(ID::Q) : cell->getPort(ID(nQ)));
+				SigBit d_bit = sigmap(cell->getPort(TW::D));
+				SigBit q_bit = sigmap(cell->hasPort(ID::Q) ? cell->getPort(TW::Q) : cell->getPort(ID(nQ)));
 
 				while (inv_out2in.count(d_bit))
 				{
 					sig_use_cnt[d_bit]--;
 					invert_gp_dff(cell, true);
 					d_bit = inv_out2in.at(d_bit);
-					cell->setPort(ID::D, d_bit);
+					cell->setPort(TW::D, d_bit);
 					sig_use_cnt[d_bit]++;
 				}
 
@@ -198,7 +198,7 @@ struct Greenpak4DffInvPass : public Pass {
 
 					invert_gp_dff(cell, false);
 					if (cell->hasPort(ID::Q))
-						cell->setPort(ID::Q, new_q_bit);
+						cell->setPort(TW::Q, new_q_bit);
 					else
 						cell->setPort(ID(nQ), new_q_bit);
 				}

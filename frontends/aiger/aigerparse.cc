@@ -119,7 +119,7 @@ struct ConstEvalAig
 		sig2deps[output].insert(output);
 
 		RTLIL::Cell *cell = sig2driver.at(output);
-		RTLIL::SigBit sig_a = cell->getPort(ID::A);
+		RTLIL::SigBit sig_a = cell->getPort(TW::A);
 		sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size()); // Reserve so that any invalidation
 											   // that may occur does so here, and
 											   // not mid insertion (below)
@@ -128,7 +128,7 @@ struct ConstEvalAig
 			compute_deps(sig_a, inputs);
 
 		if (cell->type == ID($_AND_)) {
-			RTLIL::SigSpec sig_b = cell->getPort(ID::B);
+			RTLIL::SigSpec sig_b = cell->getPort(TW::B);
 			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
 												   // that may occur does so here, and
 												   // not mid insertion (below)
@@ -144,11 +144,11 @@ struct ConstEvalAig
 
 	bool eval(RTLIL::Cell *cell)
 	{
-		RTLIL::SigBit sig_y = cell->getPort(ID::Y);
+		RTLIL::SigBit sig_y = cell->getPort(TW::Y);
 		if (values_map.count(sig_y))
 			return true;
 
-		RTLIL::SigBit sig_a = cell->getPort(ID::A);
+		RTLIL::SigBit sig_a = cell->getPort(TW::A);
 		if (!eval(sig_a))
 			return false;
 
@@ -164,7 +164,7 @@ struct ConstEvalAig
 			}
 
 			{
-				RTLIL::SigBit sig_b = cell->getPort(ID::B);
+				RTLIL::SigBit sig_b = cell->getPort(TW::B);
 				if (!eval(sig_b))
 					return false;
 				if (sig_b == State::S0) {
@@ -892,7 +892,7 @@ void AigerReader::post_process()
 
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->type != ID($lut)) continue;
-		auto y_port = cell->getPort(ID::Y).as_bit();
+		auto y_port = cell->getPort(TW::Y).as_bit();
 		if (y_port.wire->width == 1)
 			module->rename(cell, stringf("$lut%s", y_port.wire->name));
 		else

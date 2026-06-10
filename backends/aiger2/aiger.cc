@@ -283,9 +283,9 @@ struct Index {
 		if (cell->type.in(REDUCE_OPS, LOGIC_OPS, CMP_OPS) && obit != 0) {
 			return CFALSE;
 		} else if (cell->type.in(CMP_OPS)) {
-			SigSpec aport = cell->getPort(ID::A);
+			SigSpec aport = cell->getPort(TW::A);
 			bool asigned = cell->getParam(ID::A_SIGNED).as_bool();
-			SigSpec bport = cell->getPort(ID::B);
+			SigSpec bport = cell->getPort(TW::B);
 			bool bsigned = cell->getParam(ID::B_SIGNED).as_bool();
 
 			int width = std::max(aport.size(), bport.size()) + 1;
@@ -318,7 +318,7 @@ struct Index {
 				log_abort();
 			}
 		} else if (cell->type.in(REDUCE_OPS, ID($logic_not))) {
-			SigSpec inport = cell->getPort(ID::A);
+			SigSpec inport = cell->getPort(TW::A);
 
 			std::vector<Lit> lits;
 			for (int i = 0; i < inport.size(); i++) {
@@ -339,8 +339,8 @@ struct Index {
 			else
 				return NOT(acc);
 		} else if (cell->type.in(ID($logic_and), ID($logic_or))) {
-			SigSpec aport = cell->getPort(ID::A);
-			SigSpec bport = cell->getPort(ID::B);
+			SigSpec aport = cell->getPort(TW::A);
+			SigSpec bport = cell->getPort(TW::B);
 
 			log_assert(aport.size() > 0 && bport.size() > 0); // TODO
 
@@ -363,7 +363,7 @@ struct Index {
 			else
 				log_abort();
 		} else if (cell->type.in(BITWISE_OPS, GATE_OPS, ID($pos))) {
-			SigSpec aport = cell->getPort(ID::A);
+			SigSpec aport = cell->getPort(TW::A);
 			Lit a;
 			if (obit < aport.size()) {
 				a = visit(cursor, aport[obit]);
@@ -379,7 +379,7 @@ struct Index {
 			} else if (cell->type.in(ID($not), ID($_NOT_))) {
 				return NOT(a);
 			} else {
-				SigSpec bport = cell->getPort(ID::B);
+				SigSpec bport = cell->getPort(TW::B);
 				Lit b;
 				if (obit < bport.size()) {
 					b = visit(cursor, bport[obit]);
@@ -407,16 +407,16 @@ struct Index {
 				} else if (cell->type.in(ID($_ORNOT_))) {
 					return OR(a, NOT(b));
 				} else if (cell->type.in(ID($mux), ID($_MUX_))) {
-					Lit s = visit(cursor, cell->getPort(ID::S));
+					Lit s = visit(cursor, cell->getPort(TW::S));
 					return MUX(a, b, s);
 				} else if (cell->type.in(ID($bwmux))) {
-					Lit s = visit(cursor, cell->getPort(ID::S)[obit]);
+					Lit s = visit(cursor, cell->getPort(TW::S)[obit]);
 					return MUX(a, b, s);
 				} else if (cell->type.in(ID($_NMUX_))) {
-					Lit s = visit(cursor, cell->getPort(ID::S)[obit]);
+					Lit s = visit(cursor, cell->getPort(TW::S)[obit]);
 					return NOT(MUX(a, b, s));
 				} else if (cell->type.in(ID($fa))) {
-					Lit c = visit(cursor, cell->getPort(ID::C)[obit]);
+					Lit c = visit(cursor, cell->getPort(TW::C)[obit]);
 					Lit ab = XOR(a, b);
 					if (oport == ID::Y) {
 						return XOR(ab, c);
@@ -428,9 +428,9 @@ struct Index {
 				} else if (cell->type.in(ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_))) {
 					Lit c, d;
 
-					c = visit(cursor, cell->getPort(ID::C)[obit]);
+					c = visit(cursor, cell->getPort(TW::C)[obit]);
 					if (/* 4 input types */ cell->type.in(ID($_AOI4_), ID($_OAI4_)))
-						d = visit(cursor, cell->getPort(ID::D)[obit]);
+						d = visit(cursor, cell->getPort(TW::D)[obit]);
 					else
 						d = cell->type == ID($_AOI3_) ? CTRUE : CFALSE;
 
@@ -448,9 +448,9 @@ struct Index {
 				}
 			}
 		} else if (cell->type == ID($pmux)) {
-			SigSpec aport = cell->getPort(ID::A);
-			SigSpec bport = cell->getPort(ID::B);
-			SigSpec sport = cell->getPort(ID::S);
+			SigSpec aport = cell->getPort(TW::A);
+			SigSpec bport = cell->getPort(TW::B);
+			SigSpec sport = cell->getPort(TW::S);
 			int width = aport.size();
 
 			Lit a = visit(cursor, aport[obit]);
@@ -469,8 +469,8 @@ struct Index {
 
 			return OR(reduce_sels_and_a, reduce_bar);
 		} else if (cell->type == ID($bmux)) {
-			SigSpec aport = cell->getPort(ID::A);
-			SigSpec sport = cell->getPort(ID::S);
+			SigSpec aport = cell->getPort(TW::A);
+			SigSpec sport = cell->getPort(TW::S);
 			int width = cell->getParam(ID::WIDTH).as_int();
 
 			std::vector<Lit> data;
@@ -632,7 +632,7 @@ struct Index {
 			} else {
 				Module *def = cursor.enter(*this, driver);
 				{
-					IdString portname = bit.wire->driverPort();
+					TwineRef portname = bit.wire->driverPort();
 					Wire *w = def->wire(portname);
 					if (!w)
 						log_error("Output port %s on instance %s of %s doesn't exist\n",
@@ -652,7 +652,7 @@ struct Index {
 			// step into the upper module
 			Cell *instance = cursor.exit(*this);
 			{
-				IdString portname = bit.wire->name;
+				TwineRef portname = bit.wire->name;
 				if (!instance->hasPort(portname))
 					log_error("Input port %s on instance %s of %s unconnected\n",
 							  portname.unescape(), instance, instance->type);
@@ -1134,7 +1134,7 @@ struct XAigerWriter : AigerWriter {
 
 		for (auto [cursor, box, def] : nonopaque_boxes) {
 			// use `def->name` not `box->type` as we want the derived type
-			Cell *holes_wb = holes_module->addCell(NEW_ID, def->name);
+			Cell *holes_wb = holes_module->addCell(NEW_TWINE, def->name);
 			int holes_pi_idx = 0;
 
 			if (map_file.is_open()) {
@@ -1175,7 +1175,7 @@ struct XAigerWriter : AigerWriter {
 					SigSpec in_conn;
 					for (int i = 0; i < port->width; i++) {
 						while (holes_pi_idx >= (int) holes_pis.size()) {
-							Wire *w = holes_module->addWire(NEW_ID, 1);
+							Wire *w = holes_module->addWire(NEW_TWINE, 1);
 							w->port_input = true;
 							holes_module->ports.push_back(w->name);
 							holes_pis.push_back(w);
@@ -1204,7 +1204,7 @@ struct XAigerWriter : AigerWriter {
 					boxes_ci_num += port->width;
 
 					// holes
-					Wire *w = holes_module->addWire(NEW_ID, port->width);
+					Wire *w = holes_module->addWire(NEW_TWINE, port->width);
 					w->port_output = true;
 					holes_module->ports.push_back(w->name);
 					holes_wb->setPort(port_id, w);

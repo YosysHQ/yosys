@@ -77,7 +77,7 @@ struct CleanZeroWidthPass : public Pass {
 					// Coarse FF cells: remove if WIDTH == 0 (no outputs).
 					// This will also trigger on fine cells, so use the Q port
 					// width instead of actual WIDTH parameter.
-					if (GetSize(cell->getPort(ID::Q)) == 0) {
+					if (GetSize(cell->getPort(TW::Q)) == 0) {
 						module->remove(cell);
 					}
 				} else if (cell->type.in(ID($pmux), ID($bmux), ID($demux))) {
@@ -87,17 +87,17 @@ struct CleanZeroWidthPass : public Pass {
 						module->remove(cell);
 					}
 					if (cell->getParam(ID::S_WIDTH).as_int() == 0) {
-						module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
+						module->connect(cell->getPort(TW::Y), cell->getPort(TW::A));
 						module->remove(cell);
 					}
 				} else if (cell->type == ID($concat)) {
 					// If a concat has a zero-width input: replace with direct
 					// connection to the other input.
 					if (cell->getParam(ID::A_WIDTH).as_int() == 0) {
-						module->connect(cell->getPort(ID::Y), cell->getPort(ID::B));
+						module->connect(cell->getPort(TW::Y), cell->getPort(TW::B));
 						module->remove(cell);
 					} else if (cell->getParam(ID::B_WIDTH).as_int() == 0) {
-						module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
+						module->connect(cell->getPort(TW::Y), cell->getPort(TW::A));
 						module->remove(cell);
 					}
 				} else if (cell->type == ID($fsm)) {
@@ -107,7 +107,7 @@ struct CleanZeroWidthPass : public Pass {
 				} else if (cell->type == ID($lut)) {
 					// Zero-width LUT is just a const driver.
 					if (cell->getParam(ID::WIDTH).as_int() == 0) {
-						module->connect(cell->getPort(ID::Y), cell->getParam(ID::LUT)[0]);
+						module->connect(cell->getPort(TW::Y), cell->getParam(ID::LUT)[0]);
 						module->remove(cell);
 					}
 				} else if (cell->type == ID($sop)) {
@@ -115,7 +115,7 @@ struct CleanZeroWidthPass : public Pass {
 					if (cell->getParam(ID::WIDTH).as_int() == 0) {
 						// The value is 1 iff DEPTH is non-0.
 						bool val = cell->getParam(ID::DEPTH).as_int() != 0;
-						module->connect(cell->getPort(ID::Y), val);
+						module->connect(cell->getPort(TW::Y), val);
 						module->remove(cell);
 					}
 				} else if (cell->hasParam(ID::WIDTH)) {
@@ -132,11 +132,11 @@ struct CleanZeroWidthPass : public Pass {
 						// TODO: fixing zero-width A and B not supported.
 					} else {
 						if (cell->getParam(ID::A_WIDTH).as_int() == 0) {
-							cell->setPort(ID::A, State::S0);
+							cell->setPort(TW::A, State::S0);
 							cell->setParam(ID::A_WIDTH, 1);
 						}
 						if (cell->hasParam(ID::B_WIDTH) && cell->getParam(ID::B_WIDTH).as_int() == 0) {
-							cell->setPort(ID::B, State::S0);
+							cell->setPort(TW::B, State::S0);
 							cell->setParam(ID::B_WIDTH, 1);
 						}
 					}

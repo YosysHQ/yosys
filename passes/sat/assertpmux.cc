@@ -59,9 +59,9 @@ struct AssertpmuxWorker
 				int width = cell->getParam(ID::WIDTH).as_int();
 				int numports = cell->type == ID($mux) ? 2 : cell->getParam(ID::S_WIDTH).as_int() + 1;
 
-				SigSpec sig_a = sigmap(cell->getPort(ID::A));
-				SigSpec sig_b = sigmap(cell->getPort(ID::B));
-				SigSpec sig_s = sigmap(cell->getPort(ID::S));
+				SigSpec sig_a = sigmap(cell->getPort(TW::A));
+				SigSpec sig_b = sigmap(cell->getPort(TW::B));
+				SigSpec sig_s = sigmap(cell->getPort(TW::S));
 
 				for (int i = 0; i < numports; i++) {
 					SigSpec bits = i == 0 ? sig_a : sig_b.extract(width*(i-1), width);
@@ -100,12 +100,12 @@ struct AssertpmuxWorker
 
 				if (muxport_actsignal.count(muxport) == 0) {
 					if (portidx == 0)
-						muxport_actsignal[muxport] = module->LogicNot(NEW_ID, cell->getPort(ID::S));
+						muxport_actsignal[muxport] = module->LogicNot(NEW_ID, cell->getPort(TW::S));
 					else
-						muxport_actsignal[muxport] = cell->getPort(ID::S)[portidx-1];
+						muxport_actsignal[muxport] = cell->getPort(TW::S)[portidx-1];
 				}
 
-				output.append(module->LogicAnd(NEW_ID, muxport_actsignal.at(muxport), get_bit_activation(cell->getPort(ID::Y)[bitidx])));
+				output.append(module->LogicAnd(NEW_ID, muxport_actsignal.at(muxport), get_bit_activation(cell->getPort(TW::Y)[bitidx])));
 			}
 
 			output.sort_and_unify();
@@ -153,7 +153,7 @@ struct AssertpmuxWorker
 		int swidth = pmux->getParam(ID::S_WIDTH).as_int();
 		int cntbits = ceil_log2(swidth+1);
 
-		SigSpec sel = pmux->getPort(ID::S);
+		SigSpec sel = pmux->getPort(TW::S);
 		SigSpec cnt(State::S0, cntbits);
 
 		for (int i = 0; i < swidth; i++)
@@ -166,7 +166,7 @@ struct AssertpmuxWorker
 			assert_en.append(module->LogicNot(NEW_ID, module->Initstate(NEW_ID)));
 
 		if (!flag_always)
-			assert_en.append(get_activation(pmux->getPort(ID::Y)));
+			assert_en.append(get_activation(pmux->getPort(TW::Y)));
 
 		if (GetSize(assert_en) == 0)
 			assert_en = State::S1;

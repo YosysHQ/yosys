@@ -75,13 +75,13 @@ struct SpliceWorker
 		RTLIL::SigSpec new_sig = sig;
 
 		if (sig_a.size() != sig.size()) {
-			RTLIL::Cell *cell = module->addCell(NEW_ID, ID($slice));
+			RTLIL::Cell *cell = module->addCell(NEW_TWINE, ID($slice));
 			cell->parameters[ID::OFFSET] = offset;
 			cell->parameters[ID::A_WIDTH] = sig_a.size();
 			cell->parameters[ID::Y_WIDTH] = sig.size();
-			cell->setPort(ID::A, sig_a);
-			cell->setPort(ID::Y, module->addWire(NEW_ID, sig.size()));
-			new_sig = cell->getPort(ID::Y);
+			cell->setPort(TW::A, sig_a);
+			cell->setPort(TW::Y, module->addWire(NEW_TWINE, sig.size()));
+			new_sig = cell->getPort(TW::Y);
 		}
 
 		sliced_signals_cache[sig] = new_sig;
@@ -132,13 +132,13 @@ struct SpliceWorker
 		RTLIL::SigSpec new_sig = get_sliced_signal(chunks.front());
 		for (size_t i = 1; i < chunks.size(); i++) {
 			RTLIL::SigSpec sig2 = get_sliced_signal(chunks[i]);
-			RTLIL::Cell *cell = module->addCell(NEW_ID, ID($concat));
+			RTLIL::Cell *cell = module->addCell(NEW_TWINE, ID($concat));
 			cell->parameters[ID::A_WIDTH] = new_sig.size();
 			cell->parameters[ID::B_WIDTH] = sig2.size();
-			cell->setPort(ID::A, new_sig);
-			cell->setPort(ID::B, sig2);
-			cell->setPort(ID::Y, module->addWire(NEW_ID, new_sig.size() + sig2.size()));
-			new_sig = cell->getPort(ID::Y);
+			cell->setPort(TW::A, new_sig);
+			cell->setPort(TW::B, sig2);
+			cell->setPort(TW::Y, module->addWire(NEW_TWINE, new_sig.size() + sig2.size()));
+			new_sig = cell->getPort(TW::Y);
 		}
 
 		spliced_signals_cache[sig] = new_sig;

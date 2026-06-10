@@ -269,8 +269,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		//   $_DFF_[NP]_ cells since flop box already has all the information
 		//   we need to reconstruct them
 		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
-			SigBit Q = cell->getPort(ID::Q);
-			module->connect(Q, cell->getPort(ID::D));
+			SigBit Q = cell->getPort(TW::Q);
+			module->connect(Q, cell->getPort(TW::D));
 			module->remove(cell);
 			auto Qi = initmap(Q);
 			auto it = Qi.wire->attributes.find(ID::init);
@@ -294,8 +294,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		// Short out $_FF_ cells since the flop box already has
 		//   all the information we need to reconstruct cell
 		if (dff_mode && mapped_cell->type == ID($_FF_)) {
-			SigBit D = mapped_cell->getPort(ID::D);
-			SigBit Q = mapped_cell->getPort(ID::Q);
+			SigBit D = mapped_cell->getPort(TW::D);
+			SigBit Q = mapped_cell->getPort(TW::Q);
 			if (D.wire)
 				D.wire = module->wire(remap_name(D.wire->name));
 			Q.wire = module->wire(remap_name(Q.wire->name));
@@ -307,15 +307,15 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		toposort.node(mapped_cell->name);
 
 		if (mapped_cell->type == ID($_NOT_)) {
-			RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
-			RTLIL::SigBit y_bit = mapped_cell->getPort(ID::Y);
+			RTLIL::SigBit a_bit = mapped_cell->getPort(TW::A);
+			RTLIL::SigBit y_bit = mapped_cell->getPort(TW::Y);
 			bit_users[a_bit].insert(mapped_cell->name);
 			// Ignore inouts for topo ordering
 			if (y_bit.wire && !(y_bit.wire->port_input && y_bit.wire->port_output))
 				bit_drivers[y_bit].insert(mapped_cell->name);
 
 			if (!a_bit.wire) {
-				mapped_cell->setPort(ID::Y, module->addWire(NEW_ID));
+				mapped_cell->setPort(TW::Y, module->addWire(NEW_TWINE));
 				RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 				log_assert(wire);
 				module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
@@ -343,7 +343,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 							RTLIL::SigBit(module->wire(remap_name(a_bit.wire->name)), a_bit.offset),
 							RTLIL::SigBit(module->wire(remap_name(y_bit.wire->name)), y_bit.offset),
 							RTLIL::Const::from_string("01"));
-					bit2sinks[cell->getPort(ID::A)].push_back(cell);
+					bit2sinks[cell->getPort(TW::A)].push_back(cell);
 					cell_stats[ID($lut)]++;
 				}
 				else
@@ -559,8 +559,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		if (it == not2drivers.end())
 			continue;
 		RTLIL::Cell *driver_lut = it->second;
-		RTLIL::SigBit a_bit = not_cell->getPort(ID::A);
-		RTLIL::SigBit y_bit = not_cell->getPort(ID::Y);
+		RTLIL::SigBit a_bit = not_cell->getPort(TW::A);
+		RTLIL::SigBit y_bit = not_cell->getPort(TW::Y);
 		RTLIL::Const driver_mask;
 
 		a_bit.wire = module->wire(remap_name(a_bit.wire->name));
@@ -576,7 +576,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 
 		// Push downstream LUTs past inverter
 		for (auto sink_cell : jt->second) {
-			SigSpec A = sink_cell->getPort(ID::A);
+			SigSpec A = sink_cell->getPort(TW::A);
 			RTLIL::Const mask = sink_cell->getParam(ID::LUT);
 			int index = 0;
 			for (; index < GetSize(A); index++)
@@ -593,7 +593,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 				i += 1 << (index+1);
 			}
 			A[index] = y_bit;
-			sink_cell->setPort(ID::A, A);
+			sink_cell->setPort(TW::A, A);
 			sink_cell->setParam(ID::LUT, mask);
 		}
 
@@ -609,7 +609,7 @@ clone_lut:
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}
 		auto cell = module->addLut(NEW_ID,
-				driver_lut->getPort(ID::A),
+				driver_lut->getPort(TW::A),
 				y_bit,
 				driver_mask);
 		for (auto &bit : cell->connections_.at(ID::A)) {

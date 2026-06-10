@@ -1088,7 +1088,7 @@ parameter CONFIG = 4'b0000;
 parameter CONFIG_WIDTH = 4;
 
 // In the terms used for this cell, there's mixed meanings for the term "port". To disambiguate:
-// A cell port is for example the A input (it is constructed in C++ as cell->setPort(ID::A, ...))
+// A cell port is for example the A input (it is constructed in C++ as cell->setPort(TW::A, ...))
 // Multiplier ports are pairs of multiplier inputs ("factors").
 // If the second signal in such a pair is zero length, no multiplication is necessary, and the first signal is just added to the sum.
 input [A_WIDTH-1:0] A; // Cell port A is the concatenation of all arithmetic ports

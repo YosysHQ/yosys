@@ -63,7 +63,7 @@ struct MemoryMemxPass : public Pass {
 							module, mem.memid.unescape());
 
 				SigSpec addr_ok = make_addr_check(mem, port.addr);
-				Wire *raw_rdata = module->addWire(NEW_ID, GetSize(port.data));
+				Wire *raw_rdata = module->addWire(NEW_TWINE, GetSize(port.data));
 				module->addMux(NEW_ID, SigSpec(State::Sx, GetSize(port.data)), raw_rdata, addr_ok, port.data);
 				port.data = raw_rdata;
 			}

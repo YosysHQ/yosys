@@ -49,8 +49,8 @@ struct Coolrunner2SopPass : public Pass {
 			{
 				if (cell->type == ID($_NOT_))
 				{
-					auto not_input = sigmap(cell->getPort(ID::A)[0]);
-					auto not_output = sigmap(cell->getPort(ID::Y)[0]);
+					auto not_input = sigmap(cell->getPort(TW::A)[0]);
+					auto not_output = sigmap(cell->getPort(TW::Y)[0]);
 					not_cells[not_input] = tuple<SigBit, Cell*>(not_output, cell);
 				}
 			}
@@ -67,17 +67,17 @@ struct Coolrunner2SopPass : public Pass {
 						special_pterms_no_inv[sigmap(cell->getPort(ID(PRE))[0])].insert(
 							make_tuple(cell, ID(PRE)));
 					if (cell->hasPort(ID::CLR))
-						special_pterms_no_inv[sigmap(cell->getPort(ID::CLR)[0])].insert(
+						special_pterms_no_inv[sigmap(cell->getPort(TW::CLR)[0])].insert(
 							make_tuple(cell, ID::CLR));
 					if (cell->hasPort(ID(CE)))
 						special_pterms_no_inv[sigmap(cell->getPort(ID(CE))[0])].insert(
 							make_tuple(cell, ID(CE)));
 
 					if (cell->hasPort(ID::C))
-						special_pterms_inv[sigmap(cell->getPort(ID::C)[0])].insert(
+						special_pterms_inv[sigmap(cell->getPort(TW::C)[0])].insert(
 							make_tuple(cell, ID::C));
 					if (cell->hasPort(ID::G))
-						special_pterms_inv[sigmap(cell->getPort(ID::G)[0])].insert(
+						special_pterms_inv[sigmap(cell->getPort(TW::G)[0])].insert(
 							make_tuple(cell, ID::G));
 				}
 			}
@@ -88,8 +88,8 @@ struct Coolrunner2SopPass : public Pass {
 				if (cell->type == ID($sop))
 				{
 					// Read the inputs/outputs/parameters of the $sop cell
-					auto sop_inputs = sigmap(cell->getPort(ID::A));
-					auto sop_output = sigmap(cell->getPort(ID::Y))[0];
+					auto sop_inputs = sigmap(cell->getPort(TW::A));
+					auto sop_output = sigmap(cell->getPort(TW::Y))[0];
 					auto sop_depth = cell->getParam(ID::DEPTH).as_int();
 					auto sop_width = cell->getParam(ID::WIDTH).as_int();
 					auto sop_table = cell->getParam(ID::TABLE);

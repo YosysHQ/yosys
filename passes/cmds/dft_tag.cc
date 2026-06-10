@@ -98,10 +98,10 @@ struct DftTagWorker {
 		}
 
 		for (auto cell : overwrite_cells) {
-			log_debug("Applying $overwrite_tag %s for signal %s\n", cell->name.unescape(), log_signal(cell->getPort(ID::A)));
-			SigSpec orig_signal = cell->getPort(ID::A);
+			log_debug("Applying $overwrite_tag %s for signal %s\n", cell->name.unescape(), log_signal(cell->getPort(TW::A)));
+			SigSpec orig_signal = cell->getPort(TW::A);
 			SigSpec interposed_signal = divert_users(orig_signal);
-			auto *set_tag_cell = module->addSetTag(NEW_ID, cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(ID::SET), cell->getPort(ID::CLR), interposed_signal);
+			auto *set_tag_cell = module->addSetTag(NEW_ID, cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(TW::SET), cell->getPort(TW::CLR), interposed_signal);
 			modwalker.add_cell(set_tag_cell); // Make sure the next $overwrite_tag sees the new connections
 			design_changed = true;
 		}
@@ -123,7 +123,7 @@ struct DftTagWorker {
 		signal_mapped.sort_and_unify();
 		if (GetSize(signal_mapped) < GetSize(signal))
 			log_warning("Detected $overwrite_tag on signal %s which contains repeated bits, this can result in unexpected behavior.\n", log_signal(signal));
-		SigSpec new_wire = module->addWire(NEW_ID, GetSize(signal));
+		SigSpec new_wire = module->addWire(NEW_TWINE, GetSize(signal));
 		for (int i = 0; i < GetSize(new_wire); ++i)
 			divert_users(signal[i], new_wire[i]);
 		return new_wire;
@@ -359,7 +359,7 @@ struct DftTagWorker {
 			// when the outer call for this tag/cell returns
 			for (auto &conn : cell->connections())
 				if (cell->output(conn.first))
-					emit_tag_signal(tag, conn.second, module->addWire(NEW_ID, GetSize(conn.second)));
+					emit_tag_signal(tag, conn.second, module->addWire(NEW_TWINE, GetSize(conn.second)));
 
 			return;
 		}
@@ -380,8 +380,8 @@ struct DftTagWorker {
 				group_of_tag[tag] = tag_group;
 			}
 
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
 			// TODO handle constant set/clr masks
 			add_tags(sig_y, singleton(tag));
 			forward_tags(sig_y, sig_a);
@@ -393,8 +393,8 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($not), ID($pos))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
 			if (cell->type.in(ID($not), ID($or))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 			}
@@ -403,9 +403,9 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($bweqx))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 				sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
@@ -416,10 +416,10 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($mux), ID($bwmux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto sig_s = cell->getPort(TW::S);
 
 			if (cell->type == ID($mux))
 				sig_s = SigSpec(sig_s[0], GetSize(sig_y));
@@ -445,7 +445,7 @@ struct DftTagWorker {
 			ID($reduce_bool), ID($logic_not), ID($logic_or), ID($logic_and),
 			ID($eq), ID($ne)
 		)) {
-			auto &sig_y = cell->getPort(ID::Y);
+			auto &sig_y = cell->getPort(TW::Y);
 
 			add_tags(sig_y[0], tags(cell));
 			return;
@@ -480,12 +480,12 @@ struct DftTagWorker {
 		if (cell->type == ID($set_tag)) {
 			IdString cell_tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
-			auto tag_sig_a = tag_signal(tag, cell->getPort(ID::A));
-			auto &sig_y = cell->getPort(ID::Y);
+			auto tag_sig_a = tag_signal(tag, cell->getPort(TW::A));
+			auto &sig_y = cell->getPort(TW::Y);
 
 			if (cell_tag == tag) {
-				auto &sig_set = cell->getPort(ID::SET);
-				auto &sig_clr = cell->getPort(ID::CLR);
+				auto &sig_set = cell->getPort(TW::SET);
+				auto &sig_clr = cell->getPort(TW::CLR);
 				tag_sig_a = autoAnd(NEW_ID, tag_sig_a, autoNot(NEW_ID, sig_clr));
 				tag_sig_a = autoOr(NEW_ID, tag_sig_a, sig_set);
 			}
@@ -499,8 +499,8 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($not), ID($pos), ID($_NOT_), ID($_BUF_))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
 			if (cell->type.in(ID($not), ID($or))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 			}
@@ -512,9 +512,9 @@ struct DftTagWorker {
 			ID($and), ID($or),
 			ID($_AND_), ID($_OR_), ID($_NAND_), ID($_NOR_), ID($_ANDNOT_), ID($_ORNOT_)
 		)) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			if (cell->type.in(ID($and), ID($or))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 				sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
@@ -555,9 +555,9 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($xor), ID($xnor), ID($bweqx), ID($_XOR_), ID($_XNOR_))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			if (cell->type.in(ID($xor), ID($xnor))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 				sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
@@ -573,10 +573,10 @@ struct DftTagWorker {
 
 
 		if (cell->type.in(ID($_MUX_), ID($mux), ID($bwmux))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_b = cell->getPort(ID::B);
-			auto sig_s = cell->getPort(ID::S);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_b = cell->getPort(TW::B);
+			auto sig_s = cell->getPort(TW::S);
 
 			if (cell->type == ID($mux))
 				sig_s = SigSpec(sig_s[0], GetSize(sig_y));
@@ -607,9 +607,9 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			int width = std::max(GetSize(sig_a), GetSize(sig_b));
 			sig_a.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
 			sig_b.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
@@ -636,9 +636,9 @@ struct DftTagWorker {
 
 
 		if (cell->type.in(ID($lt), ID($gt), ID($le), ID($ge))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
-			auto sig_b = cell->getPort(ID::B);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
+			auto sig_b = cell->getPort(TW::B);
 			int width = std::max(GetSize(sig_a), GetSize(sig_b));
 			sig_a.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
 			sig_b.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
@@ -667,8 +667,8 @@ struct DftTagWorker {
 		}
 
 		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool), ID($logic_not))) {
-			auto &sig_y = cell->getPort(ID::Y);
-			auto sig_a = cell->getPort(ID::A);
+			auto &sig_y = cell->getPort(TW::Y);
+			auto sig_a = cell->getPort(TW::A);
 
 			auto group_sig_a = tag_group_signal(tag, sig_a);
 			auto tag_sig_a = tag_signal(tag, sig_a);
@@ -701,7 +701,7 @@ struct DftTagWorker {
 				ff.name = NEW_ID;
 				ff.cell = nullptr;
 				ff.sig_d = tag_signal(tag, ff.sig_d);
-				ff.sig_q = module->addWire(NEW_ID, width);
+				ff.sig_q = module->addWire(NEW_TWINE, width);
 				ff.is_anyinit = false;
 				ff.val_init = Const(0, width);
 				ff.emit();
@@ -751,7 +751,7 @@ struct DftTagWorker {
 				get_tag_cells.push_back(cell);
 
 		for (auto cell : get_tag_cells) {
-			auto &sig_a = cell->getPort(ID::A);
+			auto &sig_a = cell->getPort(TW::A);
 			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			tag_signal(tag, sig_a);
@@ -808,15 +808,15 @@ struct DftTagWorker {
 		}
 
 		for (auto cell : set_tag_cells) {
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_y = cell->getPort(ID::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_y = cell->getPort(TW::Y);
 			module->connect(sig_y, sig_a);
 			module->remove(cell);
 		}
 
 		for (auto cell : get_tag_cells) {
-			auto &sig_a = cell->getPort(ID::A);
-			auto &sig_y = cell->getPort(ID::Y);
+			auto &sig_a = cell->getPort(TW::A);
+			auto &sig_y = cell->getPort(TW::Y);
 			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			auto tag_sig = tag_signal(tag, sig_a);

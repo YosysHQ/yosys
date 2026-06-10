@@ -64,10 +64,10 @@ struct CellHasher
 		return comm.hash_into(h);
 	}
 
-	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	static void sort_pmux_conn(dict<TwineRef, RTLIL::SigSpec> &conn)
 	{
-		const SigSpec &sig_s = conn.at(ID::S);
-		const SigSpec &sig_b = conn.at(ID::B);
+		const SigSpec &sig_s = conn.at(TW::S);
+		const SigSpec &sig_b = conn.at(TW::B);
 
 		int s_width = GetSize(sig_s);
 		int width = GetSize(sig_b) / s_width;
@@ -78,12 +78,12 @@ struct CellHasher
 
 		std::sort(sb_pairs.begin(), sb_pairs.end());
 
-		conn[ID::S] = SigSpec();
-		conn[ID::B] = SigSpec();
+		conn[TW::S] = SigSpec();
+		conn[TW::B] = SigSpec();
 
 		for (auto &it : sb_pairs) {
-			conn[ID::S].append(it.first);
-			conn[ID::B].append(it.second);
+			conn[TW::S].append(it.first);
+			conn[TW::B].append(it.second);
 		}
 	}
 
@@ -94,22 +94,22 @@ struct CellHasher
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
 			hashlib::commutative_hash comm;
-			comm.eat(map_sig(cell->getPort(ID::A)));
-			comm.eat(map_sig(cell->getPort(ID::B)));
+			comm.eat(map_sig(cell->getPort(TW::A)));
+			comm.eat(map_sig(cell->getPort(TW::B)));
 			h = comm.hash_into(h);
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
-			SigSpec a = map_sig(cell->getPort(ID::A));
+			SigSpec a = map_sig(cell->getPort(TW::A));
 			a.sort();
 			h = a.hash_into(h);
 		} else if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
-			SigSpec a = map_sig(cell->getPort(ID::A));
+			SigSpec a = map_sig(cell->getPort(TW::A));
 			a.sort_and_unify();
 			h = a.hash_into(h);
 		} else if (cell->type == ID($pmux)) {
-			SigSpec sig_s = map_sig(cell->getPort(ID::S));
-			SigSpec sig_b = map_sig(cell->getPort(ID::B));
+			SigSpec sig_s = map_sig(cell->getPort(TW::S));
+			SigSpec sig_b = map_sig(cell->getPort(TW::B));
 			h = hash_pmux_in(sig_s, sig_b, h);
-			h = map_sig(cell->getPort(ID::A)).hash_into(h);
+			h = map_sig(cell->getPort(TW::A)).hash_into(h);
 		} else {
 			hashlib::commutative_hash comm;
 			for (const auto& [port, sig] : cell->connections()) {
@@ -119,7 +119,7 @@ struct CellHasher
 			}
 			h = comm.hash_into(h);
 			if (cell->is_builtin_ff())
-				h = initvals(cell->getPort(ID::Q)).hash_into(h);
+				h = initvals(cell->getPort(TW::Q)).hash_into(h);
 		}
 		return h;
 	}
@@ -160,7 +160,7 @@ struct CellHasher
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID::Q && cell1->is_builtin_ff()) {
+				if (it.first == TW::Q && cell1->is_builtin_ff()) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					conn1[it.first] = initvals(it.second);
@@ -179,20 +179,20 @@ struct CellHasher
 
 		if (cell1->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
-			if (conn1.at(ID::A) < conn1.at(ID::B)) {
-				std::swap(conn1[ID::A], conn1[ID::B]);
+			if (conn1.at(TW::A) < conn1.at(TW::B)) {
+				std::swap(conn1[TW::A], conn1[TW::B]);
 			}
-			if (conn2.at(ID::A) < conn2.at(ID::B)) {
-				std::swap(conn2[ID::A], conn2[ID::B]);
+			if (conn2.at(TW::A) < conn2.at(TW::B)) {
+				std::swap(conn2[TW::A], conn2[TW::B]);
 			}
 		} else
 		if (cell1->type.in(ID($reduce_xor), ID($reduce_xnor))) {
-			conn1[ID::A].sort();
-			conn2[ID::A].sort();
+			conn1[TW::A].sort();
+			conn2[TW::A].sort();
 		} else
 		if (cell1->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
-			conn1[ID::A].sort_and_unify();
-			conn2[ID::A].sort_and_unify();
+			conn1[TW::A].sort_and_unify();
+			conn2[TW::A].sort_and_unify();
 		} else
 		if (cell1->type == ID($pmux)) {
 			sort_pmux_conn(conn1);
@@ -207,7 +207,7 @@ struct CellHasher
 		if (!cell->is_builtin_ff())
 			return false;
 
-		return !initvals(cell->getPort(ID::Q)).is_fully_def();
+		return !initvals(cell->getPort(TW::Q)).is_fully_def();
 	}
 };
 

@@ -177,7 +177,7 @@ struct MemQueryCache
 		if (!driver.cell->type.in(ID($mux), ID($pmux)))
 			return false;
 		log_assert(driver.port == ID::Y);
-		SigSpec sig_s = driver.cell->getPort(ID::S);
+		SigSpec sig_s = driver.cell->getPort(TW::S);
 		int sel_sat = qcsat.importSigBit(sel);
 		if (neg_sel)
 			sel_sat = qcsat.ez->NOT(sel_sat);
@@ -187,14 +187,14 @@ struct MemQueryCache
 			int sbit = qcsat.importSigBit(sig_s[i]);
 			qcsat.prepare();
 			if (!qcsat.ez->solve(port_ren, sel_sat, qcsat.ez->NOT(sbit))) {
-				bit = driver.cell->getPort(ID::B)[i * width + driver.offset];
+				bit = driver.cell->getPort(TW::B)[i * width + driver.offset];
 				return true;
 			}
 			if (qcsat.ez->solve(port_ren, sel_sat, sbit))
 				all_0 = false;
 		}
 		if (all_0) {
-			bit = driver.cell->getPort(ID::A)[driver.offset];
+			bit = driver.cell->getPort(TW::A)[driver.offset];
 			return true;
 		}
 		return false;
@@ -264,7 +264,7 @@ struct MemoryDffWorker
 				} else {
 					continue;
 				}
-				SigSpec y = consumer.cell->getPort(ID::Y);
+				SigSpec y = consumer.cell->getPort(TW::Y);
 				int mux_width = GetSize(y);
 				SigBit ybit = y.extract(consumer.offset);
 				if (prev_cell != consumer.cell || prev_idx+1 != i || prev_is_b != is_b) {
@@ -272,7 +272,7 @@ struct MemoryDffWorker
 					md.base_idx = i;
 					md.size = 0;
 					md.is_b = is_b;
-					md.sig_s = consumer.cell->getPort(ID::S);
+					md.sig_s = consumer.cell->getPort(TW::S);
 					md.sig_other.resize(GetSize(md.sig_s));
 					prev_cell = consumer.cell;
 					prev_is_b = is_b;

@@ -26,7 +26,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct AigNode
 {
-	IdString portname;
+	TwineRef portname;
 	int portbit;
 	bool inverter;
 	int left_parent, right_parent;

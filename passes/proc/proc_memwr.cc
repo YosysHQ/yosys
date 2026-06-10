@@ -42,15 +42,15 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 					priority_mask.set(prev_port_ids[i], State::S1);
 			prev_port_ids.push_back(port_id);
 
-			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));
+			RTLIL::Cell *cell = mod->addCell(NEW_TWINE, ID($memwr_v2));
 			cell->attributes = memwr.attributes;
 			cell->setParam(ID::MEMID, Const(memwr.memid.str()));
 			cell->setParam(ID::ABITS, GetSize(memwr.address));
 			cell->setParam(ID::WIDTH, GetSize(memwr.data));
 			cell->setParam(ID::PORTID, port_id);
 			cell->setParam(ID::PRIORITY_MASK, priority_mask);
-			cell->setPort(ID::ADDR, memwr.address);
-			cell->setPort(ID::DATA, memwr.data);
+			cell->setPort(TW::ADDR, memwr.address);
+			cell->setPort(TW::DATA, memwr.data);
 			SigSpec enable = memwr.enable;
 			for (auto sr2 : proc->syncs) {
 				if (sr2->type == RTLIL::SyncType::ST0) {
@@ -61,17 +61,17 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 					enable = mod->Mux(NEW_ID, enable, Const(State::S0, GetSize(enable)), sr2->signal);
 				}
 			}
-			cell->setPort(ID::EN, enable);
+			cell->setPort(TW::EN, enable);
 			if (sr->type == RTLIL::SyncType::STa) {
-				cell->setPort(ID::CLK, State::Sx);
+				cell->setPort(TW::CLK, State::Sx);
 				cell->setParam(ID::CLK_ENABLE, State::S0);
 				cell->setParam(ID::CLK_POLARITY, State::Sx);
 			} else if (sr->type == RTLIL::SyncType::STp) {
-				cell->setPort(ID::CLK, sr->signal);
+				cell->setPort(TW::CLK, sr->signal);
 				cell->setParam(ID::CLK_ENABLE, State::S1);
 				cell->setParam(ID::CLK_POLARITY, State::S1);
 			} else if (sr->type == RTLIL::SyncType::STn) {
-				cell->setPort(ID::CLK, sr->signal);
+				cell->setPort(TW::CLK, sr->signal);
 				cell->setParam(ID::CLK_ENABLE, State::S1);
 				cell->setParam(ID::CLK_POLARITY, State::S0);
 			} else {

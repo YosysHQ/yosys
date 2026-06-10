@@ -254,7 +254,7 @@ struct IopadmapPass : public Pass {
 				// Gather tristate buffers and always-on drivers.
 				for (auto cell : module->cells())
 					if (cell->type == ID($_TBUF_)) {
-						SigBit bit = cell->getPort(ID::Y).as_bit();
+						SigBit bit = cell->getPort(TW::Y).as_bit();
 						tbuf_bits[bit] = cell;
 					} else {
 						for (auto port : cell->connections())
@@ -305,8 +305,8 @@ struct IopadmapPass : public Pass {
 
 						if (tbuf_cell != nullptr) {
 							// Found a tristate buffer — use it.
-							en_sig = tbuf_cell->getPort(ID::E).as_bit();
-							data_sig = tbuf_cell->getPort(ID::A).as_bit();
+							en_sig = tbuf_cell->getPort(TW::E).as_bit();
+							data_sig = tbuf_cell->getPort(TW::A).as_bit();
 						} else if (is_driven) {
 							// No tristate buffer, but an always-on driver is present.
 							// If this is an inout port, we're creating a tinoutpad

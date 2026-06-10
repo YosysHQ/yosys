@@ -27,8 +27,8 @@ bool is_signed(RTLIL::Cell* cell) {
 }
 
 bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, const ParallelDispatchThreadPool::RunCtx &ctx) {
-	RTLIL::SigSpec a = cell->getPort(ID::A);
-	RTLIL::SigSpec y = cell->getPort(ID::Y);
+	RTLIL::SigSpec a = cell->getPort(TW::A);
+	RTLIL::SigSpec y = cell->getPort(TW::Y);
 	a.extend_u0(GetSize(y), is_signed(cell));
 
 	if (a.has_const(State::Sz)) {
@@ -58,20 +58,20 @@ bool remove(ShardedVector<RTLIL::Cell*>& cells, RTLIL::Module* mod, bool verbose
 		if (verbose) {
 			if (cell->type == ID($connect)) {
 				log_debug("  removing connect cell `%s': %s <-> %s\n", cell->name,
-						log_signal(cell->getPort(ID::A)), log_signal(cell->getPort(ID::B)));
+						log_signal(cell->getPort(TW::A)), log_signal(cell->getPort(TW::B)));
 			} else if (cell->type == ID($input_port)) {
 				log_debug("  removing input port marker cell `%s': %s\n", cell->name,
-						log_signal(cell->getPort(ID::Y)));
+						log_signal(cell->getPort(TW::Y)));
 			} else if (cell->type == ID($output_port)) {
 				log_debug("  removing output port marker cell `%s': %s\n", cell->name,
-						log_signal(cell->getPort(ID::A)));
+						log_signal(cell->getPort(TW::A)));
 			} else if (cell->type == ID($public)) {
 				log_debug("  removing public wire marker cell `%s': %s\n", cell->name,
-						log_signal(cell->getPort(ID::A)));
+						log_signal(cell->getPort(TW::A)));
 			} else {
 				did_something = true;
 				log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
-						log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
+						log_signal(cell->getPort(TW::Y)), log_signal(cell->getPort(TW::A)));
 			}
 		}
 		mod->remove(cell);
@@ -93,8 +93,8 @@ void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::S
 				if (trim_buf(cell, new_connections, ctx))
 					delcells.insert(ctx, cell);
 			} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
-				RTLIL::SigSpec a = cell->getPort(ID::A);
-				RTLIL::SigSpec b = cell->getPort(ID::B);
+				RTLIL::SigSpec a = cell->getPort(TW::A);
+				RTLIL::SigSpec b = cell->getPort(TW::B);
 				if (a.has_const() && !b.has_const())
 					std::swap(a, b);
 				new_connections.insert(ctx, {a, b});

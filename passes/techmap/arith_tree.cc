@@ -93,15 +93,15 @@ struct ArithTreeWorker {
 	}
 
 	bool is_sub(Cell *cell) {
-		SigSpec bi = sigmap(cell->getPort(ID::BI));
-		SigSpec ci = sigmap(cell->getPort(ID::CI));
+		SigSpec bi = sigmap(cell->getPort(TW::BI));
+		SigSpec ci = sigmap(cell->getPort(TW::CI));
 		return GetSize(bi) == 1 && bi[0] == State::S1 && GetSize(ci) == 1 && ci[0] == State::S1;
 	}
 
 	bool is_add(Cell *cell)
 	{
-		SigSpec bi = sigmap(cell->getPort(ID::BI));
-		SigSpec ci = sigmap(cell->getPort(ID::CI));
+		SigSpec bi = sigmap(cell->getPort(TW::BI));
+		SigSpec ci = sigmap(cell->getPort(TW::CI));
 		return GetSize(bi) == 1 && bi[0] == State::S0 && GetSize(ci) == 1 && ci[0] == State::S0;
 	}
 
@@ -109,10 +109,10 @@ struct ArithTreeWorker {
 	{
 		if (!(is_add(cell) || is_sub(cell)))
 			return false;
-		for (auto bit : sigmap(cell->getPort(ID::X)))
+		for (auto bit : sigmap(cell->getPort(TW::X)))
 			if (fanout.count(bit) && fanout[bit] > 0)
 				return false;
-		for (auto bit : sigmap(cell->getPort(ID::CO)))
+		for (auto bit : sigmap(cell->getPort(TW::CO)))
 			if (fanout.count(bit) && fanout[bit] > 0)
 				return false;
 		return true;
@@ -143,7 +143,7 @@ struct ArithTreeWorker {
 	{
 		dict<Cell *, Cell *> parent_of;
 		for (auto cell : candidates) {
-			Cell *consumer = sole_chainable_consumer(sigmap(cell->getPort(ID::Y)), candidates);
+			Cell *consumer = sole_chainable_consumer(sigmap(cell->getPort(TW::Y)), candidates);
 			if (consumer && consumer != cell)
 				parent_of[cell] = consumer;
 		}
@@ -183,7 +183,7 @@ struct ArithTreeWorker {
 	{
 		pool<SigBit> bits;
 		for (auto cell : chain)
-			for (auto bit : sigmap(cell->getPort(ID::Y)))
+			for (auto bit : sigmap(cell->getPort(TW::Y)))
 				bits.insert(bit);
 		return bits;
 	}
@@ -209,8 +209,8 @@ struct ArithTreeWorker {
 		if (!parent_subtracts)
 			return false;
 
-		SigSpec child_y = sigmap(child->getPort(ID::Y));
-		SigSpec parent_b = sigmap(parent->getPort(ID::B));
+		SigSpec child_y = sigmap(child->getPort(TW::Y));
+		SigSpec parent_b = sigmap(parent->getPort(TW::B));
 		for (auto bit : child_y)
 			for (auto pbit : parent_b)
 				if (bit == pbit)
@@ -249,8 +249,8 @@ struct ArithTreeWorker {
 		for (auto cell : chain) {
 			bool cell_neg = negated.count(cell) ? negated[cell] : false;
 
-			SigSpec a = sigmap(cell->getPort(ID::A));
-			SigSpec b = sigmap(cell->getPort(ID::B));
+			SigSpec a = sigmap(cell->getPort(TW::A));
+			SigSpec b = sigmap(cell->getPort(TW::B));
 			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
 			bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
 			bool b_sub = (cell->type == ID($sub)) || (is_alu(cell) && is_sub(cell));
@@ -378,7 +378,7 @@ struct ArithTreeWorker {
 			for (auto c : chain)
 				to_remove.insert(c);
 
-			emit_tree(operands, root->getPort(ID::Y), neg_compensation);
+			emit_tree(operands, root->getPort(TW::Y), neg_compensation);
 		}
 
 		for (auto cell : to_remove)
@@ -404,7 +404,7 @@ struct ArithTreeWorker {
 				continue;
 			if (!has_mul && operands.size() < 3)
 				continue;
-			emit_tree(operands, cell->getPort(ID::Y), neg_compensation);
+			emit_tree(operands, cell->getPort(TW::Y), neg_compensation);
 			to_remove.insert(cell);
 		}
 		for (auto cell : to_remove)

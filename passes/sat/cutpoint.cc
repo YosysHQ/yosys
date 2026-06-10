@@ -154,7 +154,7 @@ struct CutpointPass : public Pass {
 				RTLIL::Cell *scopeinfo = nullptr;
 				RTLIL::IdString cell_name(cell->name);
 				if (flag_scopeinfo && cell_name.isPublic()) {
-					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
+					auto scopeinfo = module->addCell(NEW_TWINE, ID($scopeinfo));
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 
 					for (auto const &attr : cell->attributes)
@@ -175,7 +175,7 @@ struct CutpointPass : public Pass {
 			for (auto wire : module->selected_wires()) {
 				if (wire->port_output) {
 					log("Making output wire %s.%s a cutpoint.\n", module, wire);
-					Wire *new_wire = module->addWire(NEW_ID, wire);
+					Wire *new_wire = module->addWire(NEW_TWINE, wire);
 					module->swap_names(wire, new_wire);
 					module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_ID, GetSize(new_wire)));
 					wire->port_id = 0;
@@ -202,7 +202,7 @@ struct CutpointPass : public Pass {
 						}
 						if (bit_count == 0)
 							continue;
-						SigSpec dummy = module->addWire(NEW_ID, bit_count);
+						SigSpec dummy = module->addWire(NEW_TWINE, bit_count);
 						bit_count = 0;
 						for (auto &bit : sig) {
 							if (cutpoint_bits.count(bit))
@@ -226,7 +226,7 @@ struct CutpointPass : public Pass {
 				}
 
 				for (auto wire : rewrite_wires) {
-					Wire *new_wire = module->addWire(NEW_ID, wire);
+					Wire *new_wire = module->addWire(NEW_TWINE, wire);
 					SigSpec lhs, rhs, sig = sigmap(wire);
 					for (int i = 0; i < GetSize(sig); i++)
 						if (!cutpoint_bits.count(sig[i])) {

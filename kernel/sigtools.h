@@ -233,9 +233,9 @@ struct SigSet
 template<typename T>
 class SigSet<T, typename std::enable_if<!std::is_pointer<T>::value>::type> : public SigSet<T, std::less<T>> {};
 template<typename T>
-using sort_by_name_id_guard = typename std::enable_if<std::is_same<T,RTLIL::Cell*>::value>::type;
+using sort_by_name_guard = typename std::enable_if<std::is_same<T,RTLIL::Cell*>::value>::type;
 template<typename T>
-class SigSet<T, sort_by_name_id_guard<T>> : public SigSet<T, RTLIL::sort_by_name_id<typename std::remove_pointer<T>::type>> {};
+class SigSet<T, sort_by_name_guard<T>> : public SigSet<T, RTLIL::sort_by_name<typename std::remove_pointer<T>::type>> {};
 
 struct SigMapView
 {

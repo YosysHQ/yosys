@@ -43,10 +43,10 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		st.sigB.extend_u0(18, B_SIGNED);
 		st.sigD.extend_u0(18, D_SIGNED);
 		if (st.moveBtoA) {
-			cell->setPort(ID::A, st.sigA); // if pre-adder feeds into A, original sigB will be moved to port A
+			cell->setPort(TW::A, st.sigA); // if pre-adder feeds into A, original sigB will be moved to port A
 		}
-		cell->setPort(ID::B, st.sigB);
-		cell->setPort(ID::D, st.sigD);
+		cell->setPort(TW::B, st.sigB);
+		cell->setPort(TW::D, st.sigD);
 		// MACC_PA supports both addition and subtraction with the pre-adder.
 		//   Affects the sign of the 'D' port.
 		if (st.preAdderStatic->type == ID($add))
@@ -75,7 +75,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			cell->setPort(ID(CDIN_FDBK_SEL), {State::S0, State::S1});
 		} else {
 			st.sigC.extend_u0(48, st.postAdderStatic->getParam(ID::A_SIGNED).as_bool());
-			cell->setPort(ID::C, st.sigC);
+			cell->setPort(TW::C, st.sigC);
 		}
 
 		pm.autoremove(st.postAdderStatic);
@@ -83,24 +83,24 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 
 	// pack registers
 	if (st.clock != SigBit()) {
-		cell->setPort(ID::CLK, st.clock);
+		cell->setPort(TW::CLK, st.clock);
 
 		// function to absorb a register
 		auto f = [&pm, cell](SigSpec &A, Cell *ff, IdString ceport, IdString rstport, IdString bypass) {
 			// input/output ports
-			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
+			SigSpec D = ff->getPort(TW::D);
+			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
-					SigSpec srst = ff->getPort(ID::SRST);
+					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
 					// active low sync rst
 					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_ID, srst));
 				} else if (ff->type.in(ID($adff), ID($adffe))) {
-					SigSpec arst = ff->getPort(ID::ARST);
+					SigSpec arst = ff->getPort(TW::ARST);
 					bool rstpol_n = !ff->getParam(ID::ARST_POLARITY).as_bool();
 					// active low async rst
 					cell->setPort(rstport, rstpol_n ? arst : pm.module->Not(NEW_ID, arst));
@@ -110,7 +110,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 				}
 			}
 			if (ff->type.in(ID($dffe), ID($sdffe), ID($adffe))) {
-				SigSpec ce = ff->getPort(ID::EN);
+				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				// enables are all active high
 				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
@@ -136,23 +136,23 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		// NOTE: flops are not autoremoved because it is possible that they
 		//       are only partially absorbed into DSP, or have fanouts.
 		if (st.ffA) {
-			SigSpec A = cell->getPort(ID::A);
+			SigSpec A = cell->getPort(TW::A);
 			if (st.ffA) {
 				f(A, st.ffA, ID(A_EN), ID(A_SRST_N), ID(A_BYPASS));
 			}
 			pm.add_siguser(A, cell);
-			cell->setPort(ID::A, A);
+			cell->setPort(TW::A, A);
 		}
 		if (st.ffB) {
-			SigSpec B = cell->getPort(ID::B);
+			SigSpec B = cell->getPort(TW::B);
 			if (st.ffB) {
 				f(B, st.ffB, ID(B_EN), ID(B_SRST_N), ID(B_BYPASS));
 			}
 			pm.add_siguser(B, cell);
-			cell->setPort(ID::B, B);
+			cell->setPort(TW::B, B);
 		}
 		if (st.ffD) {
-			SigSpec D = cell->getPort(ID::D);
+			SigSpec D = cell->getPort(TW::D);
 			if (st.ffD->type.in(ID($adff), ID($adffe))) {
 				f(D, st.ffD, ID(D_EN), ID(D_ARST_N), ID(D_BYPASS));
 			} else {
@@ -160,12 +160,12 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			}
 
 			pm.add_siguser(D, cell);
-			cell->setPort(ID::D, D);
+			cell->setPort(TW::D, D);
 		}
 		if (st.ffP) {
 			SigSpec P; // unused
 			f(P, st.ffP, ID(P_EN), ID(P_SRST_N), ID(P_BYPASS));
-			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
+			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
 		}
 
 		log("  clock: %s (%s)\n", log_signal(st.clock), "posedge");
@@ -183,8 +183,8 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 
 	SigSpec P = st.sigP;
 	if (GetSize(P) < 48)
-		P.append(pm.module->addWire(NEW_ID, 48 - GetSize(P)));
-	cell->setPort(ID::P, P);
+		P.append(pm.module->addWire(NEW_TWINE, 48 - GetSize(P)));
+	cell->setPort(TW::P, P);
 
 	pm.blacklist(cell);
 }
@@ -200,23 +200,23 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 	Cell *cell = st.dsp;
 
 	if (st.clock != SigBit()) {
-		cell->setPort(ID::CLK, st.clock);
+		cell->setPort(TW::CLK, st.clock);
 
 		// same function as above, used for the last CREG we need to absorb
 		auto f = [&pm, cell](SigSpec &A, Cell *ff, IdString ceport, IdString rstport, IdString bypass) {
 			// input/output ports
-			SigSpec D = ff->getPort(ID::D);
-			SigSpec Q = (*pm.sigmap)(ff->getPort(ID::Q));
+			SigSpec D = ff->getPort(TW::D);
+			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
-					SigSpec srst = ff->getPort(ID::SRST);
+					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
 					// active low sync rst
 					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_ID, srst));
 				} else if (ff->type.in(ID($adff), ID($adffe))) {
-					SigSpec arst = ff->getPort(ID::ARST);
+					SigSpec arst = ff->getPort(TW::ARST);
 					bool rstpol_n = !ff->getParam(ID::ARST_POLARITY).as_bool();
 					// active low async rst
 					cell->setPort(rstport, rstpol_n ? arst : pm.module->Not(NEW_ID, arst));
@@ -226,7 +226,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 				}
 			}
 			if (ff->type.in(ID($dffe), ID($sdffe), ID($adffe))) {
-				SigSpec ce = ff->getPort(ID::EN);
+				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				// enables are all active high
 				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
@@ -250,7 +250,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 		};
 
 		if (st.ffC) {
-			SigSpec C = cell->getPort(ID::C);
+			SigSpec C = cell->getPort(TW::C);
 
 			if (st.ffC->type.in(ID($adff), ID($adffe))) {
 				f(C, st.ffC, ID(C_EN), ID(C_ARST_N), ID(C_BYPASS));
@@ -258,7 +258,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 				f(C, st.ffC, ID(C_EN), ID(C_SRST_N), ID(C_BYPASS));
 			}
 			pm.add_siguser(C, cell);
-			cell->setPort(ID::C, C);
+			cell->setPort(TW::C, C);
 		}
 
 		log("  clock: %s (%s)", log_signal(st.clock), "posedge");

@@ -50,7 +50,7 @@ code
 	// instead of the latch. We don't delete the latch in case its output is
 	// used to drive other nodes. If it isn't, it will be trivially removed by
 	// clean
-	SigSpec flopped_en = module->addWire(NEW_ID);
+	SigSpec flopped_en = module->addWire(NEW_TWINE);
 	module->addDff(NEW_ID, clk, en, flopped_en, true, latch->src_ref());
 	and_gate->setPort(latched_en_port_name, flopped_en);
 	did_something = true;

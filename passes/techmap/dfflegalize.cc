@@ -293,7 +293,7 @@ struct DffLegalizePass : public Pass {
 		ff_dff.has_ce = ff.has_ce;
 		ff_dff.sig_ce = ff.sig_ce;
 		ff_dff.pol_ce = ff.pol_ce;
-		ff_dff.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_dff.sig_q = ff.module->addWire(NEW_TWINE, ff.width);
 		ff_dff.val_init = ff.val_init;
 		ff_dff.is_fine = ff.is_fine;
 
@@ -310,7 +310,7 @@ struct DffLegalizePass : public Pass {
 		ff_adff.has_ce = ff.has_ce;
 		ff_adff.sig_ce = ff.sig_ce;
 		ff_adff.pol_ce = ff.pol_ce;
-		ff_adff.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_adff.sig_q = ff.module->addWire(NEW_TWINE, ff.width);
 		ff_adff.val_init = Const(State::Sx, ff.width);
 		ff_adff.has_arst = true;
 		ff_adff.sig_arst = ff.sig_arst;
@@ -320,7 +320,7 @@ struct DffLegalizePass : public Pass {
 
 		FfData ff_sel(ff.module, &initvals, NEW_ID);
 		ff_sel.width = 1;
-		ff_sel.sig_q = ff.module->addWire(NEW_ID);
+		ff_sel.sig_q = ff.module->addWire(NEW_TWINE);
 		ff_sel.has_arst = true;
 		ff_sel.sig_arst = ff.sig_arst;
 		ff_sel.pol_arst = ff.pol_arst;
@@ -409,7 +409,7 @@ struct DffLegalizePass : public Pass {
 		ff_clr.sig_arst = ff.sig_clr;
 		ff_clr.pol_arst = ff.pol_clr;
 		ff_clr.val_arst = Const(State::S0, ff.width);
-		ff_clr.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_clr.sig_q = ff.module->addWire(NEW_TWINE, ff.width);
 		ff_clr.val_init = init_clr ? ff.val_init : Const(State::Sx, ff.width);
 		ff_clr.is_fine = ff.is_fine;
 
@@ -430,7 +430,7 @@ struct DffLegalizePass : public Pass {
 		ff_set.sig_arst = ff.sig_set;
 		ff_set.pol_arst = ff.pol_set;
 		ff_set.val_arst = Const(State::S1, ff.width);
-		ff_set.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_set.sig_q = ff.module->addWire(NEW_TWINE, ff.width);
 		ff_set.val_init = init_set ? ff.val_init : Const(State::Sx, ff.width);
 		ff_set.is_fine = ff.is_fine;
 
@@ -441,7 +441,7 @@ struct DffLegalizePass : public Pass {
 		ff_sel.pol_set = ff.pol_set;
 		ff_sel.sig_clr = ff.sig_clr;
 		ff_sel.sig_set = ff.sig_set;
-		ff_sel.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_sel.sig_q = ff.module->addWire(NEW_TWINE, ff.width);
 		ff_sel.val_init = Const(initsel, ff.width);
 		ff_sel.is_fine = ff.is_fine;
 
@@ -898,7 +898,7 @@ struct DffLegalizePass : public Pass {
 			ff.sig_ad = State::S0;
 			ff.val_arst = State::S1;
 			ff.remove_init();
-			Wire *new_q = ff.module->addWire(NEW_ID);
+			Wire *new_q = ff.module->addWire(NEW_TWINE);
 			if (ff.is_fine)
 				ff.module->addNotGate(NEW_ID, new_q, ff.sig_q);
 			else

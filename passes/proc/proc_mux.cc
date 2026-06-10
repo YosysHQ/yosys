@@ -188,9 +188,9 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 			eq_cell->parameters[ID::B_WIDTH] = RTLIL::Const(comp.size());
 			eq_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 
-			eq_cell->setPort(ID::A, sig);
-			eq_cell->setPort(ID::B, comp);
-			eq_cell->setPort(ID::Y, RTLIL::SigSpec(cmp_wire, cmp_wire->width++));
+			eq_cell->setPort(TW::A, sig);
+			eq_cell->setPort(TW::B, comp);
+			eq_cell->setPort(TW::Y, RTLIL::SigSpec(cmp_wire, cmp_wire->width++));
 		}
 	}
 
@@ -211,8 +211,8 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
 		any_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 
-		any_cell->setPort(ID::A, cmp_wire);
-		any_cell->setPort(ID::Y, RTLIL::SigSpec(ctrl_wire));
+		any_cell->setPort(TW::A, cmp_wire);
+		any_cell->setPort(TW::Y, RTLIL::SigSpec(ctrl_wire));
 	}
 
 	return RTLIL::SigSpec(ctrl_wire);
@@ -243,10 +243,10 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	apply_attrs(mux_cell, sw, cs);
 
 	mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());
-	mux_cell->setPort(ID::A, else_signal);
-	mux_cell->setPort(ID::B, when_signal);
-	mux_cell->setPort(ID::S, ctrl_sig);
-	mux_cell->setPort(ID::Y, RTLIL::SigSpec(result_wire));
+	mux_cell->setPort(TW::A, else_signal);
+	mux_cell->setPort(TW::B, when_signal);
+	mux_cell->setPort(TW::S, ctrl_sig);
+	mux_cell->setPort(TW::Y, RTLIL::SigSpec(result_wire));
 
 	last_mux_cell = mux_cell;
 	return RTLIL::SigSpec(result_wire);
@@ -255,24 +255,24 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
 {
 	log_assert(last_mux_cell != NULL);
-	log_assert(when_signal.size() == last_mux_cell->getPort(ID::A).size());
+	log_assert(when_signal.size() == last_mux_cell->getPort(TW::A).size());
 
-	if (when_signal == last_mux_cell->getPort(ID::A))
+	if (when_signal == last_mux_cell->getPort(TW::A))
 		return;
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, cs, ifxmode);
 	log_assert(ctrl_sig.size() == 1);
 	last_mux_cell->type = ID($pmux);
 
-	RTLIL::SigSpec new_s = last_mux_cell->getPort(ID::S);
+	RTLIL::SigSpec new_s = last_mux_cell->getPort(TW::S);
 	new_s.append(ctrl_sig);
-	last_mux_cell->setPort(ID::S, new_s);
+	last_mux_cell->setPort(TW::S, new_s);
 
-	RTLIL::SigSpec new_b = last_mux_cell->getPort(ID::B);
+	RTLIL::SigSpec new_b = last_mux_cell->getPort(TW::B);
 	new_b.append(when_signal);
-	last_mux_cell->setPort(ID::B, new_b);
+	last_mux_cell->setPort(TW::B, new_b);
 
-	last_mux_cell->parameters[ID::S_WIDTH] = last_mux_cell->getPort(ID::S).size();
+	last_mux_cell->parameters[ID::S_WIDTH] = last_mux_cell->getPort(TW::S).size();
 }
 
 const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRule *sw)

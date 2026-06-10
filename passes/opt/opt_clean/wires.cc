@@ -178,7 +178,7 @@ bool check_all(const ShardedSigPool &sigs, const RTLIL::SigSpec &spec) {
 
 struct UpdateConnection {
 	RTLIL::Cell *cell;
-	RTLIL::IdString port;
+	TwineRef port;
 	RTLIL::SigSpec spec;
 };
 void fixup_cell_ports(ShardedVector<UpdateConnection> &update_connections)
@@ -256,7 +256,7 @@ struct SigConnKinds {
 						// see commit message e36c71b5
 						bool clk2fflogic = cell->get_bool_attribute(ID::clk2fflogic);
 						for (auto &[port, sig] : cell->connections())
-							if (clk2fflogic ? port == ID::D : clean_ctx.ct_all.cell_output(cell->type, port))
+							if (clk2fflogic ? port == TW::D : clean_ctx.ct_all.cell_output(cell->type, port))
 								add_spec(raw_register_builder, ctx, sig);
 					}
 					for (auto &[_, sig] : cell->connections())

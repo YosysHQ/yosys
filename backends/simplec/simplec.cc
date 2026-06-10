@@ -380,8 +380,8 @@ struct SimplecWorker
 	{
 		if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
-			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(TW::A));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(TW::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string expr;
@@ -399,9 +399,9 @@ struct SimplecWorker
 
 		if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
-			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
-			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(TW::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(TW::B));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(TW::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
@@ -426,10 +426,10 @@ struct SimplecWorker
 
 		if (cell->type.in(ID($_AOI3_), ID($_OAI3_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
-			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
-			SigBit c = sigmaps.at(work->module)(cell->getPort(ID::C));
-			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(TW::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(TW::B));
+			SigBit c = sigmaps.at(work->module)(cell->getPort(TW::C));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(TW::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
@@ -449,11 +449,11 @@ struct SimplecWorker
 
 		if (cell->type.in(ID($_AOI4_), ID($_OAI4_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
-			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
-			SigBit c = sigmaps.at(work->module)(cell->getPort(ID::C));
-			SigBit d = sigmaps.at(work->module)(cell->getPort(ID::D));
-			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(TW::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(TW::B));
+			SigBit c = sigmaps.at(work->module)(cell->getPort(TW::C));
+			SigBit d = sigmaps.at(work->module)(cell->getPort(TW::D));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(TW::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
@@ -474,10 +474,10 @@ struct SimplecWorker
 
 		if (cell->type.in(ID($_MUX_), ID($_NMUX_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
-			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
-			SigBit s = sigmaps.at(work->module)(cell->getPort(ID::S));
-			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(TW::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(TW::B));
+			SigBit s = sigmaps.at(work->module)(cell->getPort(TW::S));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(TW::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";

@@ -48,8 +48,8 @@ struct EquivInductWorker : public EquivWorker<>
 				report_missing_model(cfg.ignore_unknown_cells, cell);
 			}
 			if (cell->type == ID($equiv)) {
-				SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
-				SigBit bit_b = sigmap(cell->getPort(ID::B)).as_bit();
+				SigBit bit_a = sigmap(cell->getPort(TW::A)).as_bit();
+				SigBit bit_b = sigmap(cell->getPort(TW::B)).as_bit();
 				if (bit_a != bit_b) {
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
@@ -126,7 +126,7 @@ struct EquivInductWorker : public EquivWorker<>
 			if (!ez->solve(new_step_not_consistent)) {
 				log("  Proof for induction step holds. Entire workset of %d cells proven!\n", GetSize(workset));
 				for (auto cell : workset)
-					cell->setPort(ID::B, cell->getPort(ID::A));
+					cell->setPort(TW::B, cell->getPort(TW::A));
 				success_counter += GetSize(workset);
 				return;
 			}
@@ -138,10 +138,10 @@ struct EquivInductWorker : public EquivWorker<>
 
 		for (auto cell : workset)
 		{
-			SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
-			SigBit bit_b = sigmap(cell->getPort(ID::B)).as_bit();
+			SigBit bit_a = sigmap(cell->getPort(TW::A)).as_bit();
+			SigBit bit_b = sigmap(cell->getPort(TW::B)).as_bit();
 
-			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort(ID::Y))));
+			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort(TW::Y))));
 
 			int ez_a = satgen.importSigBit(bit_a, cfg.max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, cfg.max_seq+1);
@@ -152,7 +152,7 @@ struct EquivInductWorker : public EquivWorker<>
 
 			if (!ez->solve(cond)) {
 				log(" success!\n");
-				cell->setPort(ID::B, cell->getPort(ID::A));
+				cell->setPort(TW::B, cell->getPort(TW::A));
 				success_counter++;
 			} else {
 				log(" failed.\n");
@@ -212,7 +212,7 @@ struct EquivInductPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 				if (cell->type == ID($equiv)) {
-					if (cell->getPort(ID::A) != cell->getPort(ID::B))
+					if (cell->getPort(TW::A) != cell->getPort(TW::B))
 						unproven_equiv_cells.insert(cell);
 				}
 

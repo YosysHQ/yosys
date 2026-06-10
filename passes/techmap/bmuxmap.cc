@@ -59,17 +59,17 @@ struct BmuxmapPass : public Pass {
 			if (cell->type != ID($bmux))
 				continue;
 
-			SigSpec sel = cell->getPort(ID::S);
-			SigSpec data = cell->getPort(ID::A);
-			int width = GetSize(cell->getPort(ID::Y));
-			int s_width = GetSize(cell->getPort(ID::S));
+			SigSpec sel = cell->getPort(TW::S);
+			SigSpec data = cell->getPort(TW::A);
+			int width = GetSize(cell->getPort(TW::Y));
+			int s_width = GetSize(cell->getPort(TW::S));
 
 			if(pmux_mode)
 			{
 				int num_cases = 1 << s_width;
 				SigSpec new_a = SigSpec(State::Sx, width);
-				SigSpec new_s = module->addWire(NEW_ID, num_cases);
-				SigSpec new_data = module->addWire(NEW_ID, width);
+				SigSpec new_s = module->addWire(NEW_TWINE, num_cases);
+				SigSpec new_data = module->addWire(NEW_TWINE, width);
 				for (int val = 0; val < num_cases; val++)
 				{
 					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
@@ -81,7 +81,7 @@ struct BmuxmapPass : public Pass {
 			else
 			{
 				for (int idx = 0; idx < GetSize(sel); idx++) {
-					SigSpec new_data = module->addWire(NEW_ID, GetSize(data)/2);
+					SigSpec new_data = module->addWire(NEW_TWINE, GetSize(data)/2);
 					for (int i = 0; i < GetSize(new_data); i += width) {
 						RTLIL::Cell *mux = module->addMux(NEW_ID,
 							data.extract(i*2, width),
@@ -94,7 +94,7 @@ struct BmuxmapPass : public Pass {
 				}
 			}
 
-			module->connect(cell->getPort(ID::Y), data);
+			module->connect(cell->getPort(TW::Y), data);
 			module->remove(cell);
 		}
 	}

@@ -280,8 +280,8 @@ struct BufnormPass : public Pass {
 					if (!cell->type.in(ID($buf), ID($_BUF_)))
 						continue;
 
-					SigSpec insig = cell->getPort(ID::A);
-					SigSpec outsig = cell->getPort(ID::Y);
+					SigSpec insig = cell->getPort(TW::A);
+					SigSpec outsig = cell->getPort(TW::Y);
 					for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 						sigmap.add(insig[i], outsig[i]);
 
@@ -401,7 +401,7 @@ struct BufnormPass : public Pass {
 							it->second.sort(compare_wires_f);
 							w = *(it->second.begin());
 						} else {
-							w = module->addWire(NEW_ID, GetSize(conn.second));
+							w = module->addWire(NEW_TWINE, GetSize(conn.second));
 							for (int i = 0; i < GetSize(w); i++)
 								sigmap.add(SigBit(w, i), keysig[i]);
 						}
@@ -442,20 +442,20 @@ struct BufnormPass : public Pass {
 					old_buffers.erase(it);
 					added_buffers.insert(cell);
 
-					if (cell->getPort(ID::A) == src) {
+					if (cell->getPort(TW::A) == src) {
 						count_kept_buffers++;
 					} else {
-						cell->setPort(ID::A, src);
+						cell->setPort(TW::A, src);
 						count_updated_buffers++;
 					}
 					return;
 				}
 
-				Cell *cell = module->addCell(NEW_ID, type);
+				Cell *cell = module->addCell(NEW_TWINE, type);
 				added_buffers.insert(cell);
 
-				cell->setPort(ID::A, src);
-				cell->setPort(ID::Y, dst);
+				cell->setPort(TW::A, src);
+				cell->setPort(TW::Y, dst);
 				cell->fixup_parameters();
 				count_created_buffers++;
 			};

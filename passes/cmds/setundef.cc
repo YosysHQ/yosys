@@ -371,13 +371,13 @@ struct SetundefPass : public Pass {
 
 					bool cell_selected = design->selected(module, cell);
    	 			bool wire_selected = false;
-					for (auto bit : sigmap(cell->getPort(ID::Q)))
+					for (auto bit : sigmap(cell->getPort(TW::Q)))
 						if (bit.wire && design->selected(module, bit.wire))
 							wire_selected = true;
 					if (!cell_selected && !wire_selected)
 						continue;
 
-					for (auto bit : sigmap(cell->getPort(ID::Q)))
+					for (auto bit : sigmap(cell->getPort(TW::Q)))
 						ffbits.insert(bit);
 				}
 

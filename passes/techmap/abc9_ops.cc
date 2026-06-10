@@ -125,7 +125,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 							log_error("Whitebox '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", derived_module);
 						found = true;
 
-						SigBit Q = derived_cell->getPort(ID::Q);
+						SigBit Q = derived_cell->getPort(TW::Q);
 						log_assert(GetSize(Q.wire) == 1);
 
 						if (!Q.wire->port_output)
@@ -202,7 +202,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
 					for (auto derived_cell : derived_module->cells())
 						if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
-							SigBit Q = derived_cell->getPort(ID::Q);
+							SigBit Q = derived_cell->getPort(TW::Q);
 							Const init = Q.wire->attributes.at(ID::init, State::Sx);
 							log_assert(GetSize(init) == 1);
 
@@ -337,10 +337,10 @@ void prep_bypass(RTLIL::Design *design)
 				// For these new input ports driven by the replaced
 				//   cell, then create a new simple-path specify entry:
 				//     (input => output) = 0
-				auto specify = bypass_module->addCell(NEW_ID, ID($specify2));
-				specify->setPort(ID::EN, State::S1);
-				specify->setPort(ID::SRC, src);
-				specify->setPort(ID::DST, dst);
+				auto specify = bypass_module->addCell(NEW_TWINE, ID($specify2));
+				specify->setPort(TW::EN, State::S1);
+				specify->setPort(TW::SRC, src);
+				specify->setPort(TW::DST, dst);
 				specify->setParam(ID::FULL, 0);
 				specify->setParam(ID::SRC_WIDTH, GetSize(src));
 				specify->setParam(ID::DST_WIDTH, GetSize(dst));
@@ -364,11 +364,11 @@ void prep_bypass(RTLIL::Design *design)
 			for (auto cell : inst_module->cells()) {
 				if (cell->type != ID($specify2))
 					continue;
-				auto EN = cell->getPort(ID::EN).as_bit();
+				auto EN = cell->getPort(TW::EN).as_bit();
 				SigBit newEN;
 				if (!EN.wire && EN != State::S1)
 					continue;
-				auto SRC = cell->getPort(ID::SRC);
+				auto SRC = cell->getPort(TW::SRC);
 				for (const auto &c : SRC.chunks())
 					if (c.wire && !c.wire->port_input) {
 						SRC = SigSpec();
@@ -376,7 +376,7 @@ void prep_bypass(RTLIL::Design *design)
 					}
 				if (SRC.empty())
 					continue;
-				auto DST = cell->getPort(ID::DST);
+				auto DST = cell->getPort(TW::DST);
 				for (const auto &c : DST.chunks())
 					if (c.wire && !c.wire->port_output) {
 						DST = SigSpec();
@@ -398,7 +398,7 @@ void prep_bypass(RTLIL::Design *design)
 					}
 					sig = std::move(new_sig);
 				};
-				auto specify = bypass_module->addCell(NEW_ID, cell);
+				auto specify = bypass_module->addCell(NEW_TWINE, cell);
 				specify->rewrite_sigspecs(rw);
 			}
 			bypass_module->fixup_ports();
@@ -408,7 +408,7 @@ void prep_bypass(RTLIL::Design *design)
 			//   original cell, but with additional inputs taken from the
 			//   replaced cell
 			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
-			auto bypass_cell = map_module->addCell(NEW_ID, cell->type.str() + "_$abc9_byp");
+			auto bypass_cell = map_module->addCell(NEW_TWINE, cell->type.str() + "_$abc9_byp");
 			for (const auto &conn : cell->connections()) {
 				auto port = map_module->wire(conn.first);
 				if (cell->input(conn.first)) {
@@ -486,7 +486,7 @@ void prep_dff_submod(RTLIL::Design *design)
 			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
 				log_assert(!dff_cell);
 				dff_cell = cell;
-				Q = cell->getPort(ID::Q);
+				Q = cell->getPort(TW::Q);
 				log_assert(GetSize(Q.wire) == 1);
 			}
 			else if (cell->type.in(ID($specify3), ID($specrule)))
@@ -496,17 +496,17 @@ void prep_dff_submod(RTLIL::Design *design)
 		// Add an always-enabled CE mux that drives $_DFF_[NP]_.D so that:
 		//   (a) flop box will have an output
 		//   (b) $_DFF_[NP]_.Q will be present as an input
-		SigBit D = module->addWire(NEW_ID);
-		module->addMuxGate(NEW_ID, dff_cell->getPort(ID::D), Q, State::S0, D);
-		dff_cell->setPort(ID::D, D);
+		SigBit D = module->addWire(NEW_TWINE);
+		module->addMuxGate(NEW_ID, dff_cell->getPort(TW::D), Q, State::S0, D);
+		dff_cell->setPort(TW::D, D);
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
 		//   to $_DFF_[NP]_.D since it will be moved into
 		//   the submodule
 		for (auto cell : specify_cells) {
-			auto DST = cell->getPort(ID::DST);
+			auto DST = cell->getPort(TW::DST);
 			DST.replace(Q, D);
-			cell->setPort(ID::DST, DST);
+			cell->setPort(TW::DST, DST);
 		}
 
 		design->scratchpad_set_bool("abc9_ops.prep_dff_submod.did_something", true);
@@ -586,7 +586,7 @@ void break_scc(RTLIL::Module *module)
 		for (auto &c : cell->connections_) {
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
-				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
+				Wire *w = module->addWire(NEW_TWINE, GetSize(c.second));
 				I.append(w);
 				O.append(c.second);
 				c.second = w;
@@ -596,11 +596,11 @@ void break_scc(RTLIL::Module *module)
 
 	if (!I.empty())
 	{
-		auto cell = module->addCell(NEW_ID, ID($__ABC9_SCC_BREAKER));
+		auto cell = module->addCell(NEW_TWINE, ID($__ABC9_SCC_BREAKER));
 		log_assert(GetSize(I) == GetSize(O));
 		cell->setParam(ID::WIDTH, GetSize(I));
-		cell->setPort(ID::I, std::move(I));
-		cell->setPort(ID::O, std::move(O));
+		cell->setPort(TW::I, std::move(I));
+		cell->setPort(TW::O, std::move(O));
 	}
 }
 
@@ -674,7 +674,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			auto rhs = cell->getPort(i.first.name);
 			if (offset >= rhs.size())
 				continue;
-			auto O = module->addWire(NEW_ID);
+			auto O = module->addWire(NEW_TWINE);
 
 #ifndef NDEBUG
 			if (ys_debug(1)) {
@@ -688,9 +688,9 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				r.first->second = delay_module->derive(design, {{ID::DELAY, d}});
 				log_assert(r.first->second.begins_with("$paramod$__ABC9_DELAY\\DELAY="));
 			}
-			auto box = module->addCell(NEW_ID, r.first->second);
-			box->setPort(ID::I, rhs[offset]);
-			box->setPort(ID::O, O);
+			auto box = module->addCell(NEW_TWINE, r.first->second);
+			box->setPort(TW::I, rhs[offset]);
+			box->setPort(TW::O, O);
 			rhs[offset] = O;
 			cell->setPort(i.first.name, rhs);
 		}
@@ -812,7 +812,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				for (auto &c : cell->connections_) {
 					if (c.second.is_fully_const()) continue;
 					if (cell->output(c.first)) {
-						Wire *w = module->addWire(NEW_ID, GetSize(c.second));
+						Wire *w = module->addWire(NEW_TWINE, GetSize(c.second));
 						I.append(w);
 						O.append(c.second);
 						c.second = w;
@@ -821,11 +821,11 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			}
 
 		if (!I.empty()) {
-			auto cell = module->addCell(NEW_ID, ID($__ABC9_SCC_BREAKER));
+			auto cell = module->addCell(NEW_TWINE, ID($__ABC9_SCC_BREAKER));
 			log_assert(GetSize(I) == GetSize(O));
 			cell->setParam(ID::WIDTH, GetSize(I));
-			cell->setPort(ID::I, std::move(I));
-			cell->setPort(ID::O, std::move(O));
+			cell->setPort(TW::I, std::move(I));
+			cell->setPort(TW::O, std::move(O));
 
 			// Rebuild topo ordering after inserting the additional breakers.
 			toposort.emplace();
@@ -884,7 +884,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		auto &holes_cell = r.first->second;
 		if (r.second) {
 			if (box_module->get_bool_attribute(ID::whitebox)) {
-				holes_cell = holes_module->addCell(NEW_ID, cell->type);
+				holes_cell = holes_module->addCell(NEW_TWINE, cell->type);
 
 				if (box_module->has_processes())
 					Pass::call_on_module(design, box_module, "proc -noopt");
@@ -1200,7 +1200,7 @@ static void replace_zbufs(Design *design)
 		for (auto cell : mod->cells()) {
 			if (cell->type != ID($buf))
 				continue;
-			auto &sig = cell->getPort(ID::A);
+			auto &sig = cell->getPort(TW::A);
 			for (int i = 0; i < GetSize(sig); ++i) {
 				if (sig[i] == State::Sz) {
 					zbufs.push_back(cell);
@@ -1210,20 +1210,20 @@ static void replace_zbufs(Design *design)
 		}
 
 		for (auto cell : zbufs) {
-			auto sig = cell->getPort(ID::A);
+			auto sig = cell->getPort(TW::A);
 			for (int i = 0; i < GetSize(sig); ++i) {
 				if (sig[i] == State::Sz) {
-					Wire *w = mod->addWire(NEW_ID);
-					Cell *ud = mod->addCell(NEW_ID, ID($tribuf));
+					Wire *w = mod->addWire(NEW_TWINE);
+					Cell *ud = mod->addCell(NEW_TWINE, ID($tribuf));
 					ud->set_bool_attribute(ID::aiger2_zbuf);
 					ud->setParam(ID::WIDTH, 1);
-					ud->setPort(ID::Y, w);
-					ud->setPort(ID::EN, State::S0);
-					ud->setPort(ID::A, State::S0);
+					ud->setPort(TW::Y, w);
+					ud->setPort(TW::EN, State::S0);
+					ud->setPort(TW::A, State::S0);
 					sig[i] = w;
 				}
 			}
-			cell->setPort(ID::A, sig);
+			cell->setPort(TW::A, sig);
 		}
 
 		mod->bufNormalize();
@@ -1244,7 +1244,7 @@ static void restore_zbufs(Design *design)
 				to_remove.push_back(cell);
 
 		for (auto cell : to_remove) {
-			SigSpec sig_y = cell->getPort(ID::Y);
+			SigSpec sig_y = cell->getPort(TW::Y);
 			mod->addBuf(NEW_ID, Const(State::Sz, GetSize(sig_y)), sig_y);
 			mod->remove(cell);
 		}
