@@ -527,7 +527,7 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell_id);
 	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
-		cell->type.clear();
+		cell->type_impl = Twine::Null;
 		// design->obj_release_name(cell);
 		pending_deleted_cells.insert(cell);
 	} else {

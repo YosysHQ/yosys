@@ -396,14 +396,14 @@ namespace AST
 	struct AstModule : RTLIL::Module {
 		std::unique_ptr<AstNode> ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, noblackbox, lib, nowb, noopt, icells, pwires, autowire;
-		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;
-		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
+		TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;
+		TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<TwineRef, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
 		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, std::unique_ptr<AstNode>* new_ast_out, bool quiet = false);
 		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
 		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
 		RTLIL::Module *clone(RTLIL::Design *dst, bool src_id_verbatim = false) const override;
-		RTLIL::Module *clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim = false) const override;
+		RTLIL::Module *clone(RTLIL::Design *dst, TwineRef target_name, bool src_id_verbatim = false) const override;
 		void loadconfig() const;
 	};
 

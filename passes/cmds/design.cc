@@ -304,7 +304,7 @@ struct DesignPass : public Pass {
 						done[cell->type] = trg_name;
 					}
 
-					cell->type = done.at(cell->type);
+					cell->type_impl = cell->module->design->twines.add(Twine{done.at(cell->type).str()});
 				}
 			}
 		}

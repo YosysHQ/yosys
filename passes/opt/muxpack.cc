@@ -277,7 +277,7 @@ struct MuxpackWorker
 			mux_count += cases;
 			pmux_count += 1;
 
-			first_cell->type = ID($pmux);
+			first_cell->type_impl = TW::$pmux;
 			SigSpec b_sig = first_cell->getPort(TW::B);
 			SigSpec s_sig = first_cell->getPort(TW::S);
 

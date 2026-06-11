@@ -74,9 +74,10 @@ public:
 	RTLIL::Wire *addWire(Twine &&name, int width = 1);
 	RTLIL::Wire *addWire(Twine &&name, const RTLIL::Wire *other);
 
-	RTLIL::Cell *addCell(TwineRef name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(TwineRef name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, const RTLIL::Cell *other);
-	RTLIL::Cell *addCell(Twine &&name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(Twine &&name, TwineRef type);
+	RTLIL::Cell *addCell(TwineRef name, Twine &&type);
 	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
 
 	// NEW_ID analog for twine names; see NEW_TWINE in yosys_common.h.

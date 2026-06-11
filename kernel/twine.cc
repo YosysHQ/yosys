@@ -6,10 +6,10 @@ YOSYS_NAMESPACE_BEGIN
 std::vector<Twine> TwinePool::globals_;
 
 TwineRef twine_populate(std::string name) {
-	if (name[1] == '$') {
-		// Skip prepended '\'
-		name = name.substr(1);
-	}
+	// Globals store content only: drop the prepended '\'. Publicity lives
+	// in TWINE_PUBLIC_BIT on the TW:: handle, not in the stored string.
+	log_assert(name[0] == '\\');
+	name = name.substr(1);
 	TwinePool::globals_.push_back(Twine{std::move(name)});
 	return TwinePool::globals_.size() - 1;
 }

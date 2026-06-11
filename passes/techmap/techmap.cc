@@ -562,7 +562,7 @@ struct TechmapWorker
 							}
 						}
 
-						cell->type = extmapper_module->name;
+						cell->type_impl = extmapper_module->meta_->name;
 						cell->parameters.clear();
 
 						if (!extern_mode || in_recursion) {
@@ -933,7 +933,7 @@ struct TechmapWorker
 					}
 
 					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, module, cell, m_name);
-					cell->type = m_name;
+					cell->type_impl = cell->module->design->twines.add(Twine{m_name.str()});
 					cell->parameters.clear();
 				}
 				else

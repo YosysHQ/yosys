@@ -141,7 +141,7 @@ struct statdata_t {
 		}
 	}
 
-	statdata_t(const RTLIL::Design *design, const RTLIL::Module *mod, bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
+	statdata_t(RTLIL::Design *design, const RTLIL::Module *mod, bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
 	{
 		tech = techname;
 
@@ -239,17 +239,17 @@ struct statdata_t {
 						for (auto &it : cell_data.parameter_names) {
 							TwineRef port_name;
 							if (it == "A") {
-								port_name = ID::A;
+								port_name = TW::A;
 							} else if (it == "B") {
-								port_name = ID::B;
+								port_name = TW::B;
 							} else if (it == "Y") {
-								port_name = ID::Y;
+								port_name = TW::Y;
 							} else if (it == "Q") {
-								port_name = ID::Q;
+								port_name = TW::Q;
 							} else if (it == "S") {
-								port_name = ID::S;
+								port_name = TW::S;
 							} else {
-								port_name = ID(it);
+								port_name = design->twines.add(Twine{it});
 							}
 							if (cell->hasPort(port_name)) {
 								int width = GetSize(cell->getPort(port_name));
@@ -744,7 +744,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	return mod_data;
 }
 
-statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *top_mod, std::map<RTLIL::IdString, statdata_t> &mod_stat,
+statdata_t hierarchy_builder(RTLIL::Design *design, const RTLIL::Module *top_mod, std::map<RTLIL::IdString, statdata_t> &mod_stat,
 			     bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
 {
 	if (top_mod == nullptr)

@@ -86,7 +86,7 @@ struct TribufWorker {
 					cell->setPort(en_port, cell->getPort(TW::S));
 					cell->unsetPort(TW::B);
 					cell->unsetPort(TW::S);
-					cell->type = tri_type;
+					cell->type_impl = cell->module->design->twines.add(Twine{tri_type.str()});
 					tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
@@ -96,7 +96,7 @@ struct TribufWorker {
 					cell->setPort(en_port, module->Not(NEW_TWINE, cell->getPort(TW::S)));
 					cell->unsetPort(TW::B);
 					cell->unsetPort(TW::S);
-					cell->type = tri_type;
+					cell->type_impl = cell->module->design->twines.add(Twine{tri_type.str()});
 					tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;

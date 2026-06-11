@@ -44,7 +44,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     log_assert(ab_signed == st.mul->getParam(ID(B_SIGNED)).as_bool());
 
     // Determine DSP type or discard if too narrow / wide
-    RTLIL::IdString type;
+    TwineRef type;
     size_t tgt_a_width;
     size_t tgt_b_width;
     size_t tgt_z_width;

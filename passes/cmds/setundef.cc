@@ -37,7 +37,7 @@ PRIVATE_NAMESPACE_BEGIN
 static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output)
 {
 	RTLIL::Wire *wire = NULL;
-	name = RTLIL::escape_id(name);
+	TwineRef t = module->design->twines.add(Twine{name});
 
 	if (module->count_id(name) != 0)
 	{

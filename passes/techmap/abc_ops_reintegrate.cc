@@ -401,7 +401,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			RTLIL::Module* box_module = design->module(existing_cell->type);
 			log_assert(existing_cell->parameters.empty());
 			log_assert(mapped_cell->type == stringf("$__boxid%d", box_module->attributes.at(ID::abc9_box_id).as_int()));
-			mapped_cell->type = existing_cell->type;
+			mapped_cell->type_impl = existing_cell->type_impl;
 
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = existing_cell->parameters;

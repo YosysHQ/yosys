@@ -243,8 +243,8 @@ struct WreduceWorker
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
 	{
 		port_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
-		auto twines = cell->module->design->twines;
-		SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", twines.str(port))})));
+		auto &twines = cell->module->design->twines;
+		SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", port)})));
 
 		if (port == 'B' && cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr)))
 			port_signed = false;
@@ -268,8 +268,8 @@ struct WreduceWorker
 		if (bits_removed) {
 			log("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, port, module, cell, cell->type.unescape());
-			// SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", twines.str(port))})));
-			cell->setPort(twines.add(Twine{stringf("\\%c", twines.str(port))}), sig);
+			// SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", port)})));
+			cell->setPort(twines.add(Twine{stringf("\\%c", port)}), sig);
 			did_something = true;
 		}
 	}

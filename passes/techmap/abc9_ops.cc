@@ -187,7 +187,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						// If derived_type is present in unmap_design, it means that it was processed previously, but found to be incompatible -- e.g. if
 						// it contained a non-zero initial state. In this case, continue to replace the cell type/parameters so that it has the same properties
 						// as a compatible type, yet will be safely unmapped later
-						cell->type = derived_type;
+						cell->type_impl = cell->module->design->twines.add(Twine{derived_type.str()});
 						cell->parameters.clear();
 						unused_derived.erase(derived_type);
 					}
@@ -247,7 +247,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				}
 			}
 
-			cell->type = derived_type;
+			cell->type_impl = cell->module->design->twines.add(Twine{derived_type.str()});
 			cell->parameters.clear();
 			unused_derived.erase(derived_type);
 		}
@@ -313,7 +313,7 @@ void prep_bypass(RTLIL::Design *design)
 
 			// Copy inst_module into map_design, with the same interface
 			//   and duplicate $abc9$* wires for its output ports
-			auto map_module = map_design->addModule(cell->type);
+			auto map_module = map_design->addModule(cell->type.ref());
 			for (auto port_name : inst_module->ports) {
 				auto w = map_module->addWire(port_name, inst_module->wire(port_name));
 				if (w->port_output)
@@ -452,7 +452,7 @@ void prep_dff(RTLIL::Design *design)
 
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
-			if (modules_sel.selected_whole_module(cell->type))
+			if (modules_sel.selected_whole_module(cell->type.ref()))
 				continue;
 			auto inst_module = design->module(cell->type);
 			if (!inst_module)
