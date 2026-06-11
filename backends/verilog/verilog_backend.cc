@@ -143,7 +143,7 @@ void reset_auto_counter(RTLIL::Module *module)
 	auto_name_counter = 0;
 	auto_name_offset = 0;
 
-	reset_auto_counter_id(module->name, false);
+	reset_auto_counter_id(RTLIL::IdString(module->design->twines.flat_string(module->meta_->name)), false);
 
 	for (auto w : module->wires())
 		reset_auto_counter_id(w->name, true);
@@ -154,7 +154,7 @@ void reset_auto_counter(RTLIL::Module *module)
 	}
 
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
-		reset_auto_counter_id(it->second->name, false);
+		reset_auto_counter_id(RTLIL::IdString(module->design->twines.flat_string(it->first)), false);
 
 	auto_name_digits = 1;
 	for (size_t i = 10; i < auto_name_offset + auto_name_map.size(); i = i*10)
@@ -417,7 +417,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 		else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 			f << stringf(" 1 ");
 		else if (it->first == ID::src && (it->second.flags & RTLIL::CONST_FLAG_STRING) && active_module && active_module->design)
-			dump_const(f, RTLIL::Const(active_module->design->resolve_src(it->second.decode_string())), -1, 0, false, as_comment);
+			dump_const(f, RTLIL::Const(it->second.decode_string()), -1, 0, false, as_comment);
 		else
 			dump_const(f, it->second, -1, 0, false, as_comment);
 		f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
@@ -981,15 +981,18 @@ void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, b
 {
 	if (gen_signed && cell->parameters.count("\\" + port + "_SIGNED") > 0 && cell->parameters["\\" + port + "_SIGNED"].as_bool()) {
 		f << stringf("$signed(");
-		dump_sigspec(f, cell->getPort("\\" + port));
+		TwineRef port_ref = cell->module->design->twines.lookup("\\" + port);
+		dump_sigspec(f, cell->getPort(port_ref != Twine::Null ? port_ref : cell->module->design->twines.add(Twine{"\\" + port})));
 		f << stringf(")");
-	} else
-		dump_sigspec(f, cell->getPort("\\" + port));
+	} else {
+		TwineRef port_ref = cell->module->design->twines.lookup("\\" + port);
+		dump_sigspec(f, cell->getPort(port_ref != Twine::Null ? port_ref : cell->module->design->twines.add(Twine{"\\" + port})));
+	}
 }
 
 std::string cellname(RTLIL::Cell *cell)
 {
-	if (!norename && cell->name[0] == '$' && cell->is_builtin_ff() && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_)))
+	if (!norename && cell->name[0] == '$' && cell->is_builtin_ff() && cell->hasPort(TW::Q) && !cell->type.in(ID($ff), ID($_FF_)))
 	{
 		RTLIL::SigSpec sig = cell->getPort(TW::Q);
 		if (GetSize(sig) != 1 || sig.is_fully_const())
@@ -1011,7 +1014,7 @@ std::string cellname(RTLIL::Cell *cell)
 		if (wire->width != 1)
 			cell_name += stringf("[%d]", wire->start_offset + sig[0].offset);
 
-		if (active_module && active_module->count_id(cell_name) > 0)
+		if (active_module && active_module->count_id(active_module->design->twines.lookup(cell_name)) > 0)
 				goto no_special_reg_name;
 
 		return id(cell_name);
@@ -2006,12 +2009,15 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(" %s (", cell_name);
 
 	bool first_arg = true;
-	std::set<RTLIL::IdString> numbered_ports;
+	std::set<TwineRef> numbered_ports;
 	for (int i = 1; true; i++) {
 		char str[16];
 		snprintf(str, 16, "$%d", i);
+		std::string port_str(str);
+		TwineRef port_ref = cell->module->design->twines.lookup(port_str);
+		bool found_port = false;
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
-			if (it->first != str)
+			if (port_ref == Twine::Null || it->first != port_ref)
 				continue;
 			if (!first_arg)
 				f << stringf(",");
@@ -2019,10 +2025,11 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << stringf("\n%s  ", indent);
 			dump_sigspec(f, it->second);
 			numbered_ports.insert(it->first);
-			goto found_numbered_port;
+			found_port = true;
+			break;
 		}
-		break;
-	found_numbered_port:;
+		if (!found_port)
+			break;
 	}
 	for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 		if (numbered_ports.count(it->first))
@@ -2030,7 +2037,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		if (!first_arg)
 			f << stringf(",");
 		first_arg = false;
-		f << stringf("\n%s  .%s(", indent, id(it->first));
+		f << stringf("\n%s  .%s(", indent, id(cell->module->design->twines.str(it->first)).c_str());
 		if (it->second.size() > 0)
 			dump_sigspec(f, it->second);
 		f << stringf(")");
@@ -2045,7 +2052,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 	}
 
-	if (siminit && cell->is_builtin_ff() && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_))) {
+	if (siminit && cell->is_builtin_ff() && cell->hasPort(TW::Q) && !cell->type.in(ID($ff), ID($_FF_))) {
 		std::stringstream ss;
 		dump_reg_init(ss, cell->getPort(TW::Q));
 		if (!ss.str().empty()) {
@@ -2406,7 +2413,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 				continue;
 			}
 
-			if (!cell->is_builtin_ff() || !cell->hasPort(ID::Q) || cell->type.in(ID($ff), ID($_FF_)))
+			if (!cell->is_builtin_ff() || !cell->hasPort(TW::Q) || cell->type.in(ID($ff), ID($_FF_)))
 				continue;
 
 			RTLIL::SigSpec sig = cell->getPort(TW::Q);
@@ -2430,7 +2437,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	}
 
 	dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
-	f << stringf("%s" "module %s(", indent, id(module->name, false));
+	f << stringf("%s" "module %s(", indent, id(RTLIL::IdString(module->design->twines.str(module->meta_->name)), false));
 	int cnt = 0;
 	for (auto port : module->ports) {
 		Wire *wire = module->wire(port);
@@ -2714,12 +2721,12 @@ struct VerilogBackend : public Backend {
 		for (auto module : design->modules()) {
 			if (module->get_blackbox_attribute() != blackboxes)
 				continue;
-			if (selected && !design->selected_whole_module(module->name)) {
-				if (design->selected_module(module->name))
-					log_cmd_error("Can't handle partially selected module %s!\n", module->name.unescape());
+			if (selected && !design->selected_whole_module(module->meta_->name)) {
+				if (design->selected_module(module->meta_->name))
+					log_cmd_error("Can't handle partially selected module %s!\n", design->twines.str(module->meta_->name).c_str());
 				continue;
 			}
-			log("Dumping module `%s'.\n", module->name);
+			log("Dumping module `%s'.\n", design->twines.str(module->meta_->name).c_str());
 			module->sort();
 			dump_module(*f, "", module);
 		}

@@ -77,7 +77,7 @@ struct ConnwrappersWorker
 
 			for (auto &conn : cell->connections())
 			{
-				std::pair<RTLIL::IdString, RTLIL::IdString> key(cell->type, conn.first);
+				std::pair<RTLIL::IdString, RTLIL::IdString> key(cell->type, RTLIL::IdString(cell->module->design->twines.str(conn.first)));
 
 				if (!decls.count(key))
 					continue;
@@ -134,8 +134,8 @@ struct ConnwrappersWorker
 				}
 
 				if (old_sig.size())
-					log("Connected extended bits of %s.%s:%s: %s -> %s\n", module->name.unescape(), cell->name.unescape(),
-							conn.first.unescape(), log_signal(old_sig), log_signal(conn.second));
+					log("Connected extended bits of %s.%s:%s: %s -> %s\n", module->design->twines.str(module->meta_->name).c_str(), cell->module->design->twines.str(cell->meta_->name),
+							module->design->twines.str(conn.first).c_str(), log_signal(old_sig), log_signal(conn.second));
 			}
 		}
 	}

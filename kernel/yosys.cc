@@ -240,7 +240,7 @@ void yosys_setup()
 	already_shutdown = false;
 
 	IdString::ensure_prepopulated();
-	Twine::ensure_prepopulated();
+	twine_prepopulate();
 
 #ifdef YOSYS_ENABLE_PYTHON
 	// Starting Python 3.12, calling PyImport_AppendInittab on an already
@@ -364,13 +364,13 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	if (recursion_counter > 1)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
-	if (!design->selected_active_module.empty())
-		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module));
+	if (design->selected_active_module != Twine::Null)
+		str += stringf(" [%s]", RTLIL::unescape_id(design->twines.str(design->selected_active_module)).c_str());
 	if (!design->full_selection()) {
-		if (design->selected_active_module.empty())
+		if (design->selected_active_module == Twine::Null)
 			str += "*";
 		else if (design->selection().selected_modules.size() != 1 || design->selection().selected_members.size() != 0 ||
-				design->selection().selected_modules.count(design->twines.intern(design->selected_active_module)) == 0)
+				design->selection().selected_modules.count(design->selected_active_module) == 0)
 			str += "*";
 	}
 	snprintf(buffer, 100, "%s> ", str.c_str());
@@ -951,11 +951,13 @@ static char *readline_obj_generator(const char *text, int state)
 		RTLIL::Design *design = yosys_get_design();
 		int len = strlen(text);
 
-		if (design->selected_active_module.empty())
+		if (design->selected_active_module == Twine::Null)
 		{
-			for (auto mod : design->modules())
-				if (mod->name.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(mod->name.unescape().c_str()));
+			for (auto mod : design->modules()) {
+				std::string mod_name = design->twines.str(mod->meta_->name);
+				if (mod_name.compare(0, len, text) == 0)
+					obj_names.push_back(strdup(mod_name.c_str()));
+			}
 		}
 		else if (design->module(design->selected_active_module) != nullptr)
 		{
@@ -965,17 +967,21 @@ static char *readline_obj_generator(const char *text, int state)
 				if (w->name.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
-			for (auto &it : module->memories)
-				if (it.first.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(it.first.unescape().c_str()));
+			for (auto &it : module->memories) {
+				std::string mem_name = design->twines.str(it.first);
+				if (mem_name.compare(0, len, text) == 0)
+					obj_names.push_back(strdup(mem_name.c_str()));
+			}
 
 			for (auto cell : module->cells())
-				if (cell->name.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(cell->name.unescape().c_str()));
+				if (cell->module->design->twines.str(cell->meta_->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(cell->module->design->twines.str(cell->meta_->name).c_str()));
 
-			for (auto &it : module->processes)
-				if (it.first.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(it.first.unescape().c_str()));
+			for (auto &it : module->processes) {
+				std::string proc_name = design->twines.str(it.first);
+				if (proc_name.compare(0, len, text) == 0)
+					obj_names.push_back(strdup(proc_name.c_str()));
+			}
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());

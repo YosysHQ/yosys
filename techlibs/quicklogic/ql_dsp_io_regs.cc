@@ -84,13 +84,13 @@ struct QlDspIORegs : public Pass {
 			if (!cell->hasPort(cfg_port) || !sigmap(cell->getPort(cfg_port)).is_fully_const())
 				log_error("Missing or non-constant '%s' port on DSP cell %s\n",
 						  cfg_port, cell);
-			int reg_in_i = sigmap(cell->getPort(ID(register_inputs))).as_int();
-			int out_sel_i = sigmap(cell->getPort(ID(output_select))).as_int();
+			int reg_in_i = sigmap(cell->getPort(TW::register_inputs)).as_int();
+			int out_sel_i = sigmap(cell->getPort(TW::output_select)).as_int();
 
 			// Get the feedback port
-			if (!cell->hasPort(ID(feedback)))
+			if (!cell->hasPort(TW(feedback)))
 				log_error("Missing 'feedback' port on %s", cell);
-			SigSpec feedback = sigmap(cell->getPort(ID(feedback)));
+			SigSpec feedback = sigmap(cell->getPort(TW::feedback));
 
 			// Check the top two bits on 'feedback' to be constant zero.
 			// That's what we are expecting from inference.
@@ -132,7 +132,7 @@ struct QlDspIORegs : public Pass {
 			std::vector<std::string> ports2del;
 
 			if (del_clk)
-				cell->unsetPort(ID(clk));
+				cell->unsetPort(TW::clk);
 
 			switch (out_sel_i) {
 			case 0:

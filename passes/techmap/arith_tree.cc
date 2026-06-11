@@ -309,7 +309,7 @@ struct Rewriter {
 		for (auto &op : operands) {
 			SigSpec s = extend_operand(op.sig, op.is_signed, width);
 			if (op.negate)
-				s = module->Not(NEW_ID, s);
+				s = module->Not(NEW_TWINE, s);
 			extended.push_back(s);
 		}
 
@@ -322,7 +322,7 @@ struct Rewriter {
 		log("  %s -> %d $fa + 1 $add (%d operands, module %s)\n", desc, compressor_count, (int)operands.size(), module);
 
 		// Emit final add
-		module->addAdd(NEW_ID, a, b, result_y, false);
+		module->addAdd(NEW_TWINE, a, b, result_y, false);
 	}
 
 	void process_chains()

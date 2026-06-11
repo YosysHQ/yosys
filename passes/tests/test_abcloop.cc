@@ -55,7 +55,7 @@ static void test_abcloop()
 
 	while (1)
 	{
-		module = design->addModule(ID(UUT));
+		module = design->addModule(design->twines.add(Twine{ID(UUT).str()}));
 		create_cycles++;
 
 		in_sig = {};
@@ -64,21 +64,21 @@ static void test_abcloop()
 		std::vector<RTLIL::Wire*> wires;
 
 		for (int i = 0; i < 4; i++) {
-			RTLIL::Wire *w = module->addWire(stringf("\\i%d", i));
+			RTLIL::Wire *w = module->addWire(Twine{stringf("\\i%d", i)});
 			w->port_input = true;
 			wires.push_back(w);
 			in_sig.append(w);
 		}
 
 		for (int i = 0; i < 4; i++) {
-			RTLIL::Wire *w = module->addWire(stringf("\\o%d", i));
+			RTLIL::Wire *w = module->addWire(Twine{stringf("\\o%d", i)});
 			w->port_output = true;
 			wires.push_back(w);
 			out_sig.append(w);
 		}
 
 		for (int i = 0; i < 16; i++) {
-			RTLIL::Wire *w = module->addWire(stringf("\\t%d", i));
+			RTLIL::Wire *w = module->addWire(Twine{stringf("\\t%d", i)});
 			wires.push_back(w);
 		}
 
@@ -87,40 +87,40 @@ static void test_abcloop()
 				switch (xorshift32(12))
 				{
 				case 0:
-					module->addNotGate(w->name.str() + "g", getw(wires, w), w);
+					module->addNotGate(Twine{w->name.str() + "g"}, getw(wires, w), w);
 					break;
 				case 1:
-					module->addAndGate(w->name.str() + "g", getw(wires, w), getw(wires, w), w);
+					module->addAndGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), w);
 					break;
 				case 2:
-					module->addNandGate(w->name.str() + "g", getw(wires, w), getw(wires, w), w);
+					module->addNandGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), w);
 					break;
 				case 3:
-					module->addOrGate(w->name.str() + "g", getw(wires, w), getw(wires, w), w);
+					module->addOrGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), w);
 					break;
 				case 4:
-					module->addNorGate(w->name.str() + "g", getw(wires, w), getw(wires, w), w);
+					module->addNorGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), w);
 					break;
 				case 5:
-					module->addXorGate(w->name.str() + "g", getw(wires, w), getw(wires, w), w);
+					module->addXorGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), w);
 					break;
 				case 6:
-					module->addXnorGate(w->name.str() + "g", getw(wires, w), getw(wires, w), w);
+					module->addXnorGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), w);
 					break;
 				case 7:
-					module->addMuxGate(w->name.str() + "g", getw(wires, w), getw(wires, w), getw(wires, w), w);
+					module->addMuxGate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), getw(wires, w), w);
 					break;
 				case 8:
-					module->addAoi3Gate(w->name.str() + "g", getw(wires, w), getw(wires, w), getw(wires, w), w);
+					module->addAoi3Gate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), getw(wires, w), w);
 					break;
 				case 9:
-					module->addOai3Gate(w->name.str() + "g", getw(wires, w), getw(wires, w), getw(wires, w), w);
+					module->addOai3Gate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), getw(wires, w), w);
 					break;
 				case 10:
-					module->addAoi4Gate(w->name.str() + "g", getw(wires, w), getw(wires, w), getw(wires, w), getw(wires, w), w);
+					module->addAoi4Gate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), getw(wires, w), getw(wires, w), w);
 					break;
 				case 11:
-					module->addOai4Gate(w->name.str() + "g", getw(wires, w), getw(wires, w), getw(wires, w), getw(wires, w), w);
+					module->addOai4Gate(Twine{w->name.str() + "g"}, getw(wires, w), getw(wires, w), getw(wires, w), getw(wires, w), w);
 					break;
 				}
 

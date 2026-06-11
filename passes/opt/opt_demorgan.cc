@@ -43,7 +43,7 @@ void demorgan_worker(
 	if (GetSize(insig) < 1)
 		return;
 
-	log("Inspecting %s cell %s (%d inputs)\n", cell->type.unescape(), cell->name.unescape(), GetSize(insig));
+	log("Inspecting %s cell %s (%d inputs)\n", cell->type.unescape(), cell->module->design->twines.str(cell->meta_->name), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
 	{
@@ -55,7 +55,7 @@ void demorgan_worker(
 		bool inverted = false;
 		for(auto x : ports)
 		{
-			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
+			if(x.port == TW::Y && x.cell->type == ID($_NOT_))
 			{
 				inverted = true;
 				break;
@@ -89,7 +89,7 @@ void demorgan_worker(
 		RTLIL::Cell* srcinv = NULL;
 		for(auto x : ports)
 		{
-			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
+			if(x.port == TW::Y && x.cell->type == ID($_NOT_))
 			{
 				srcinv = x.cell;
 				break;
@@ -100,7 +100,7 @@ void demorgan_worker(
 		if(!srcinv)
 		{
 			auto inverted_b = m->addWire(NEW_TWINE);
-			m->addNot(NEW_ID, RTLIL::SigSpec(b), RTLIL::SigSpec(inverted_b));
+			m->addNot(NEW_TWINE, RTLIL::SigSpec(b), RTLIL::SigSpec(inverted_b));
 			insig[i] = inverted_b;
 		}
 
@@ -167,7 +167,7 @@ void demorgan_worker(
 	//Add an inverter to the output
 	auto inverted_output = cell->getPort(TW::Y);
 	auto uninverted_output = m->addWire(NEW_TWINE);
-	m->addNot(NEW_ID, RTLIL::SigSpec(uninverted_output), inverted_output);
+	m->addNot(NEW_TWINE, RTLIL::SigSpec(uninverted_output), inverted_output);
 	cell->setPort(TW::Y, uninverted_output);
 }
 

@@ -29,7 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 static RTLIL::Module *module;
 static SigMap assign_map;
-typedef std::pair<RTLIL::Cell*, RTLIL::IdString> sig2driver_entry_t;
+typedef std::pair<RTLIL::Cell*, TwineRef> sig2driver_entry_t;
 static SigSet<sig2driver_entry_t> sig2driver, sig2user;
 static std::set<RTLIL::Cell*> muxtree_cells;
 static SigPool sig_at_port;
@@ -55,7 +55,7 @@ ret_false:
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != ID($mux) && cellport.first->type != ID($pmux)) || cellport.second != ID::Y) {
+		if ((cellport.first->type != ID($mux) && cellport.first->type != ID($pmux)) || cellport.second != TW::Y) {
 			goto ret_false;
 		}
 
@@ -103,12 +103,12 @@ static bool check_state_users(RTLIL::SigSpec sig)
 			continue;
 		if (cell->type == ID($logic_not) && assign_map(cell->getPort(TW::A)) == sig)
 			continue;
-		if (cellport.second != ID::A && cellport.second != ID::B)
+		if (cellport.second != TW::A && cellport.second != TW::B)
 			return false;
-		if (!cell->hasPort(ID::A) || !cell->hasPort(ID::B) || !cell->hasPort(ID::Y))
+		if (!cell->hasPort(TW::A) || !cell->hasPort(TW::B) || !cell->hasPort(TW::Y))
 			return false;
 		for (auto &port_it : cell->connections())
-			if (port_it.first != ID::A && port_it.first != ID::B && port_it.first != ID::Y)
+			if (port_it.first != TW::A && port_it.first != TW::B && port_it.first != TW::Y)
 				return false;
 		if (assign_map(cell->getPort(TW::A)) == sig && cell->getPort(TW::B).is_fully_const())
 			continue;
@@ -145,7 +145,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != ID($dff) && cellport.first->type != ID($adff)) || cellport.second != ID::Q)
+		if ((cellport.first->type != ID($dff) && cellport.first->type != ID($adff)) || cellport.second != TW::Q)
 			continue;
 
 		muxtree_cells.clear();

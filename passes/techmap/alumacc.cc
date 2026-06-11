@@ -52,7 +52,7 @@ struct AlumaccWorker
 				if (GetSize(cached_slt) == 0) {
 					get_of();
 					get_sf();
-					cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					cached_slt = alu_cell->module->Xor(NEW_TWINE, cached_of, cached_sf);
 				}
 
 				return cached_slt;
@@ -70,8 +70,8 @@ struct AlumaccWorker
 				if (GetSize(cached_sgt) == 0) {
 					get_lt(is_signed);
 					get_eq();
-					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
-					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->src_ref());
+					SigSpec Or = alu_cell->module->Or(NEW_TWINE, cached_slt, cached_eq);
+					cached_sgt = alu_cell->module->Not(NEW_TWINE, Or, false, alu_cell->src_ref());
 				}
 
 				return cached_sgt;
@@ -79,8 +79,8 @@ struct AlumaccWorker
 				if (GetSize(cached_gt) == 0) {
 					get_lt(is_signed);
 					get_eq();
-					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->src_ref());
+					SigSpec Or = alu_cell->module->Or(NEW_TWINE, cached_lt, cached_eq);
+					cached_gt = alu_cell->module->Not(NEW_TWINE, Or, false, alu_cell->src_ref());
 				}
 
 				return cached_gt;
@@ -89,13 +89,13 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(TW::X), false, alu_cell->src_ref());
+				cached_eq = alu_cell->module->ReduceAnd(NEW_TWINE, alu_cell->getPort(TW::X), false, alu_cell->src_ref());
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
 			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->src_ref());
+				cached_ne = alu_cell->module->Not(NEW_TWINE, get_eq(), false, alu_cell->src_ref());
 			return cached_ne;
 		}
 
@@ -103,7 +103,7 @@ struct AlumaccWorker
 			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort(TW::CO);
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->src_ref());
+				cached_cf = alu_cell->module->Not(NEW_TWINE, cached_cf[GetSize(cached_cf)-1], false, alu_cell->src_ref());
 			}
 			return cached_cf;
 		}
@@ -112,7 +112,7 @@ struct AlumaccWorker
 			if (GetSize(cached_of) == 0) {
 				cached_of = {alu_cell->getPort(TW::CO), alu_cell->getPort(TW::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
+				cached_of = alu_cell->module->Xor(NEW_TWINE, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
 			}
 			return cached_of;
 		}
@@ -499,7 +499,7 @@ struct AlumaccWorker
 		{
 			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
-				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
+				n->alu_cell = module->addPos(NEW_TWINE, n->a, n->y, n->is_signed);
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -545,7 +545,7 @@ struct AlumaccWorker
 				if (cmp_ne) sig.append(n->get_ne());
 
 				if (GetSize(sig) > 1)
-					sig = module->ReduceOr(NEW_ID, sig);
+					sig = module->ReduceOr(NEW_TWINE, sig);
 
 				sig.extend_u0(GetSize(cmp_y));
 				module->connect(cmp_y, sig);

@@ -278,7 +278,7 @@ struct Index {
 			return lits.front();
 	}
 
-	Lit impl_op(HierCursor &cursor, Cell *cell, IdString oport, int obit)
+	Lit impl_op(HierCursor &cursor, Cell *cell, TwineRef oport, int obit)
 	{
 		if (cell->type.in(REDUCE_OPS, LOGIC_OPS, CMP_OPS) && obit != 0) {
 			return CFALSE;
@@ -418,9 +418,9 @@ struct Index {
 				} else if (cell->type.in(ID($fa))) {
 					Lit c = visit(cursor, cell->getPort(TW::C)[obit]);
 					Lit ab = XOR(a, b);
-					if (oport == ID::Y) {
+					if (oport == TW::Y) {
 						return XOR(ab, c);
-					} else /* oport == ID::X */ {
+					} else /* oport == TW::X */ {
 						Lit a_and_b = AND(a, b);
 						Lit c_and_ab = AND(c, ab);
 						return OR(a_and_b, c_and_ab);
@@ -556,13 +556,14 @@ struct Index {
 		{
 			std::string ret;
 			bool first = true;
+			Design *design = levels[0].first.module ? levels[0].first.module->design : nullptr;
 			for (auto [minfo, cell] : levels) {
 				if (!first)
 					ret += ".";
 				if (!cell)
-					ret += minfo.module->name.unescape();
+					ret += design->twines.str(minfo.module->meta_->name);
 				else
-					ret += cell->name.unescape();
+					ret += design->twines.str(cell->meta_->name);
 				first = false;
 			}
 			return ret;
@@ -636,10 +637,10 @@ struct Index {
 					Wire *w = def->wire(portname);
 					if (!w)
 						log_error("Output port %s on instance %s of %s doesn't exist\n",
-								  portname.unescape(), driver, def);
+								  design->twines.str(portname).c_str(), driver, def);
 					if (bit.offset >= w->width)
 						log_error("Bit position %d of output port %s on instance %s of %s is out of range (port has width %d)\n",
-								  bit.offset, portname.unescape(), driver, def, w->width);
+								  bit.offset, design->twines.str(portname).c_str(), driver, def, w->width);
 					ret = visit(cursor, SigBit(w, bit.offset));
 				}
 				cursor.exit(*this);
@@ -652,14 +653,14 @@ struct Index {
 			// step into the upper module
 			Cell *instance = cursor.exit(*this);
 			{
-				TwineRef portname = bit.wire->name;
+				TwineRef portname = bit.wire->meta_->name;
 				if (!instance->hasPort(portname))
 					log_error("Input port %s on instance %s of %s unconnected\n",
-							  portname.unescape(), instance, instance->type);
+							  design->twines.str(portname).c_str(), instance, instance->type);
 				auto &port = instance->getPort(portname);
 				if (bit.offset >= port.size())
 					log_error("Bit %d of input port %s on instance %s of %s unconnected\n",
-							  bit.offset, portname.unescape(), instance, instance->type.unescape());
+							  bit.offset, design->twines.str(portname).c_str(), instance, instance->type.unescape());
 				ret = visit(cursor, port[bit.offset]);
 			}
 			cursor.enter(*this, instance);
@@ -905,7 +906,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		int max = 1;
 		for (auto wire : mod->wires()) {
 			if (wire->port_input && !wire->port_output) {
-				SigSpec port = driver->getPort(wire->name);
+				SigSpec port = driver->getPort(wire->meta_->name);
 				for (int i = 0; i < std::min(wire->width, port.size()); i++) {
 					int ilevel = visit(cursor, port[i]);
 					max = std::max(max, ilevel + 1);
@@ -999,7 +1000,7 @@ struct XAigerWriter : AigerWriter {
 				log_assert(cursor.is_top()); // TODO
 				driven_by_opaque_box.insert(bit);
 				map_file << "pi " << pis.size() - 1 << " " << bit.offset
-						<< " " << bit.wire->name.c_str() << "\n";
+						<< " " << design->twines.str(bit.wire->meta_->name).c_str() << "\n";
 			}
 		} else {
 			log_assert(!box_port);
@@ -1034,8 +1035,8 @@ struct XAigerWriter : AigerWriter {
 					if (map_file.is_open()) {
 						log_assert(cursor.is_top());
 						map_file << "pseudopo " << proper_pos_counter << " " << bitp
-							<< " " << box->name.c_str()
-							<< " " << conn.first.c_str() << "\n";
+							<< " " << design->twines.str(box->meta_->name).c_str()
+							<< " " << design->twines.str(conn.first).c_str() << "\n";
 					}
 					proper_pos_counter++;
 					pos.push_back(std::make_pair(bit, cursor));
@@ -1048,7 +1049,7 @@ struct XAigerWriter : AigerWriter {
 			} else if (!is_input && !inputs) {
 				for (auto &bit : conn.second) {
 					if (!bit.wire || (bit.wire->port_input && !bit.wire->port_output))
-						log_error("Bad connection %s/%s ~ %s\n", box, conn.first.unescape(), log_signal(conn.second));
+						log_error("Bad connection %s/%s ~ %s\n", box, design->twines.str(conn.first).c_str(), log_signal(conn.second));
 
 
 					ensure_pi(bit, cursor);
@@ -1116,7 +1117,7 @@ struct XAigerWriter : AigerWriter {
 		for (auto [cursor, box, def] : opaque_boxes)
 			append_opaque_box_ports(box, cursor, false);
 
-		holes_module = design->addModule(NEW_ID);
+		holes_module = design->addModule(design->twines.add(NEW_TWINE));
 		std::vector<RTLIL::Wire *> holes_pis;
 		int boxes_ci_num = 0, boxes_co_num = 0;
 
@@ -1133,13 +1134,13 @@ struct XAigerWriter : AigerWriter {
 		}
 
 		for (auto [cursor, box, def] : nonopaque_boxes) {
-			// use `def->name` not `box->type` as we want the derived type
-			Cell *holes_wb = holes_module->addCell(NEW_TWINE, def->name);
+			// use `def->meta_->name` not `box->type` as we want the derived type
+			Cell *holes_wb = holes_module->addCell(NEW_TWINE, IdString(design->twines.str(def->meta_->name)));
 			int holes_pi_idx = 0;
 
 			if (map_file.is_open()) {
 				log_assert(cursor.is_top());
-				map_file << "box " << box_seq << " " << box->name.c_str() << "\n";
+				map_file << "box " << box_seq << " " << design->twines.str(box->meta_->name).c_str() << "\n";
 			}
 			box_seq++;
 
@@ -1158,7 +1159,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_warning("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
-										port_id.unescape(), i, box, box->type.unescape());
+										design->twines.str(port_id).c_str(), i, box, box->type.unescape());
 							bit = RTLIL::Sx;
 						}
 
@@ -1177,7 +1178,7 @@ struct XAigerWriter : AigerWriter {
 						while (holes_pi_idx >= (int) holes_pis.size()) {
 							Wire *w = holes_module->addWire(NEW_TWINE, 1);
 							w->port_input = true;
-							holes_module->ports.push_back(w->name);
+							holes_module->ports.push_back(w->meta_->name);
 							holes_pis.push_back(w);
 						}
 						in_conn.append(holes_pis[holes_pi_idx]);
@@ -1193,7 +1194,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_warning("connection on port %s[%d] of instance %s (type %s) missing\n",
-										port_id.unescape(), i, box, box->type.unescape());
+										design->twines.str(port_id).c_str(), i, box, box->type.unescape());
 							pad_pi();
 							continue;
 						}
@@ -1206,11 +1207,11 @@ struct XAigerWriter : AigerWriter {
 					// holes
 					Wire *w = holes_module->addWire(NEW_TWINE, port->width);
 					w->port_output = true;
-					holes_module->ports.push_back(w->name);
+					holes_module->ports.push_back(w->meta_->name);
 					holes_wb->setPort(port_id, w);
 				} else {
 					log_error("Ambiguous port direction on %s/%s\n",
-							  box->type.unescape(), port_id.unescape());
+							  box->type.unescape(), design->twines.str(port_id).c_str());
 				}
 			}
 		}

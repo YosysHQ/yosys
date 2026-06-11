@@ -132,19 +132,19 @@ struct ConstEval
 
 		RTLIL::SigSpec sig_a, sig_b, sig_s, sig_y;
 
-		log_assert(cell->hasPort(ID::Y));
+		log_assert(cell->hasPort(TW::Y));
 		sig_y = values_map(assign_map(cell->getPort(TW::Y)));
 		if (sig_y.is_fully_const())
 			return true;
 
-		if (cell->hasPort(ID::S)) {
+		if (cell->hasPort(TW::S)) {
 			sig_s = cell->getPort(TW::S);
 		}
 
-		if (cell->hasPort(ID::A))
+		if (cell->hasPort(TW::A))
 			sig_a = cell->getPort(TW::A);
 
-		if (cell->hasPort(ID::B))
+		if (cell->hasPort(TW::B))
 			sig_b = cell->getPort(TW::B);
 
 		if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_NMUX_)))
@@ -337,9 +337,9 @@ struct ConstEval
 			RTLIL::SigSpec sig_c, sig_d;
 
 			if (cell->type.in(ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_))) {
-				if (cell->hasPort(ID::C))
+				if (cell->hasPort(TW::C))
 					sig_c = cell->getPort(TW::C);
-				if (cell->hasPort(ID::D))
+				if (cell->hasPort(TW::D))
 					sig_d = cell->getPort(TW::D);
 			}
 

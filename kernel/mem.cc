@@ -28,7 +28,7 @@ void Mem::remove() {
 		cell = nullptr;
 	}
 	if (mem) {
-		module->memories.erase(mem->name);
+		module->memories.erase(mem->meta_->name);
 		delete mem;
 		mem = nullptr;
 	}
@@ -116,14 +116,14 @@ void Mem::emit() {
 
 	if (packed) {
 		if (mem) {
-			module->memories.erase(mem->name);
+			module->memories.erase(mem->meta_->name);
 			delete mem;
 			mem = nullptr;
 		}
 		if (!cell) {
 			if (memid.empty())
 				memid = NEW_ID;
-			cell = module->addCell(memid, ID($mem_v2));
+			cell = module->addCell(Twine{memid.str()}, ID($mem_v2));
 		}
 		cell->type = ID($mem_v2);
 		cell->attributes = attributes;
@@ -292,10 +292,7 @@ void Mem::emit() {
 		if (!mem) {
 			if (memid.empty())
 				memid = NEW_ID;
-			mem = new RTLIL::Memory;
-			mem->name = memid;
-			mem->module = module;
-			module->memories[memid] = mem;
+			mem = module->addMemory(Twine{memid.str()});
 		}
 		mem->width = width;
 		mem->start_offset = start_offset;
@@ -562,14 +559,14 @@ namespace {
 	};
 
 	Mem mem_from_memory(Module *module, RTLIL::Memory *mem, const MemIndex &index) {
-		Mem res(module, mem->name, mem->width, mem->start_offset, mem->size);
+		Mem res(module, RTLIL::IdString(module->design->twines.str(mem->meta_->name)), mem->width, mem->start_offset, mem->size);
 		res.packed = false;
 		res.mem = mem;
 		res.attributes = mem->attributes;
 		std::vector<bool> rd_transparent;
 		std::vector<int> wr_portid;
-		if (index.rd_ports.count(mem->name)) {
-			for (auto cell : index.rd_ports.at(mem->name)) {
+		if (index.rd_ports.count(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
+			for (auto cell : index.rd_ports.at(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 				MemRd mrd;
 				bool is_compat = cell->type == ID($memrd);
 				mrd.cell = cell;
@@ -611,9 +608,9 @@ namespace {
 				rd_transparent.push_back(transparent);
 			}
 		}
-		if (index.wr_ports.count(mem->name)) {
+		if (index.wr_ports.count(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 			std::vector<std::pair<int, MemWr>> ports;
-			for (auto cell : index.wr_ports.at(mem->name)) {
+			for (auto cell : index.wr_ports.at(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 				MemWr mwr;
 				bool is_compat = cell->type == ID($memwr);
 				mwr.cell = cell;
@@ -656,9 +653,9 @@ namespace {
 				}
 			}
 		}
-		if (index.inits.count(mem->name)) {
+		if (index.inits.count(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 			std::vector<std::pair<int, MemInit>> inits;
-			for (auto cell : index.inits.at(mem->name)) {
+			for (auto cell : index.inits.at(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 				MemInit init;
 				init.cell = cell;
 				init.attributes = cell->attributes;
@@ -933,7 +930,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		if (width)
 		{
-			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid, idx), width);
+			SigSpec sig_q = module->addWire(Twine{stringf("$%s$rdreg[%d]$q", memid, idx)}, width);
 			SigSpec sig_d;
 
 			int pos = 0;
@@ -943,7 +940,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 					port.addr[i] = sig_q[pos++];
 				}
 
-			c = module->addDff(stringf("$%s$rdreg[%d]", memid, idx), port.clk, sig_d, sig_q, port.clk_polarity, mem_src);
+			c = module->addDff(Twine{stringf("$%s$rdreg[%d]", memid, idx)}, port.clk, sig_d, sig_q, port.clk_polarity, mem_src);
 		} else {
 			c = nullptr;
 		}
@@ -952,7 +949,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	{
 		log_assert(port.arst == State::S0 || port.srst == State::S0);
 
-		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid, idx), GetSize(port.data));
+		SigSpec async_d = module->addWire(Twine{stringf("$%s$rdreg[%d]$d", memid, idx)}, GetSize(port.data));
 		SigSpec sig_d = async_d;
 
 		for (int i = 0; i < GetSize(wr_ports); i++) {
@@ -975,7 +972,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						raddr = port.sub_addr(sub);
 					SigSpec addr_eq;
 					if (raddr != waddr)
-						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid, idx, i, sub), raddr, waddr, false, mem_src);
+						addr_eq = module->Eq(Twine{stringf("$%s$rdtransen[%d][%d][%d]$d", memid, idx, i, sub)}, raddr, waddr, false, mem_src);
 					int pos = 0;
 					int ewidth = width << min_wide_log2;
 					int wsub = wide_write ? sub : 0;
@@ -988,10 +985,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						SigSpec other = port.transparency_mask[i] ? wport.data.extract(pos + wsub * width, epos-pos) : Const(State::Sx, epos-pos);
 						SigSpec cond;
 						if (raddr != waddr)
-							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid, idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq, false, mem_src);
+							cond = module->And(Twine{stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid, idx, i, sub, pos)}, wport.en[pos + wsub * width], addr_eq, false, mem_src);
 						else
 							cond = wport.en[pos + wsub * width];
-						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid, idx, i, sub, pos), cur, other, cond, mem_src);
+						SigSpec merged = module->Mux(Twine{stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid, idx, i, sub, pos)}, cur, other, cond, mem_src);
 						sig_d.replace(pos + rsub * width, merged);
 						pos = epos;
 					}
@@ -1140,7 +1137,7 @@ void Mem::emulate_priority(int idx1, int idx2, FfInitVals *initvals)
 			addr1 = port1.sub_addr(sub);
 		else
 			addr2 = port2.sub_addr(sub);
-		SigSpec addr_eq = module->Eq(NEW_ID, addr1, addr2);
+		SigSpec addr_eq = module->Eq(NEW_TWINE, addr1, addr2);
 		int ewidth = width << min_wide_log2;
 		int sub1 = wide1 ? sub : 0;
 		int sub2 = wide1 ? 0 : sub;
@@ -1152,9 +1149,9 @@ void Mem::emulate_priority(int idx1, int idx2, FfInitVals *initvals)
 			if (cache.count(key)) {
 				en1 = cache[key];
 			} else {
-				SigBit active2 = module->And(NEW_ID, addr_eq, en2);
-				SigBit nactive2 = module->Not(NEW_ID, active2);
-				en1 = cache[key] = module->And(NEW_ID, en1, nactive2);
+				SigBit active2 = module->And(NEW_TWINE, addr_eq, en2);
+				SigBit nactive2 = module->Not(NEW_TWINE, active2);
+				en1 = cache[key] = module->And(NEW_TWINE, en1, nactive2);
 			}
 		}
 	}
@@ -1179,7 +1176,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 	// the mux whenever this would be relevant.  It does, however, need to have the same
 	// clock enable signal as the read port.
 	SigSpec wdata_q = module->addWire(NEW_TWINE, GetSize(wport.data));
-	module->addDffe(NEW_ID, rport.clk, rport.en, wport.data, wdata_q, rport.clk_polarity, true);
+	module->addDffe(NEW_TWINE, rport.clk, rport.en, wport.data, wdata_q, rport.clk_polarity, true);
 	for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
 		SigSpec raddr = rport.addr;
 		SigSpec waddr = wport.addr;
@@ -1190,7 +1187,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 				raddr = rport.sub_addr(sub);
 		SigSpec addr_eq;
 		if (raddr != waddr)
-			addr_eq = module->Eq(NEW_ID, raddr, waddr);
+			addr_eq = module->Eq(NEW_TWINE, raddr, waddr);
 		int pos = 0;
 		int ewidth = width << min_wide_log2;
 		int wsub = wide_write ? sub : 0;
@@ -1202,7 +1199,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 				epos++;
 			SigSpec cond;
 			if (raddr != waddr)
-				cond = module->And(NEW_ID, wport.en[pos + wsub * width], addr_eq);
+				cond = module->And(NEW_TWINE, wport.en[pos + wsub * width], addr_eq);
 			else
 				cond = wport.en[pos + wsub * width];
 			SigSpec cond_q = module->addWire(NEW_TWINE);
@@ -1243,7 +1240,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 			SigSpec cur = rdata_a.extract(pos, epos-pos);
 			SigSpec other = wdata_q.extract(pos + wsub * width, epos-pos);
 			SigSpec dest = rport.data.extract(pos + rsub * width, epos-pos);
-			module->addMux(NEW_ID, cur, other, cond_q, dest);
+			module->addMux(NEW_TWINE, cur, other, cond_q, dest);
 			pos = epos;
 		}
 		rport.data.replace(rsub * width, rdata_a);
@@ -1389,8 +1386,8 @@ void Mem::widen_wr_port(int idx, int wide_log2) {
 			} else {
 				// May or may not write to this subword.
 				new_data.append(port.data);
-				SigSpec addr_eq = module->Eq(NEW_ID, addr_lo, cur_addr_lo);
-				SigSpec en = module->Mux(NEW_ID, Const(State::S0, GetSize(port.data)), port.en, addr_eq);
+				SigSpec addr_eq = module->Eq(NEW_TWINE, addr_lo, cur_addr_lo);
+				SigSpec en = module->Mux(NEW_TWINE, Const(State::S0, GetSize(port.data)), port.en, addr_eq);
 				new_en.append(en);
 			}
 		}
@@ -1457,7 +1454,7 @@ void Mem::emulate_rden(int idx, FfInitVals *initvals) {
 	}
 	ff_sel.emit();
 	ff_data.emit();
-	module->addMux(NEW_ID, prev_data, new_data, sel, port.data);
+	module->addMux(NEW_TWINE, prev_data, new_data, sel, port.data);
 	port.data = new_data;
 	port.en = State::S1;
 }
@@ -1506,7 +1503,7 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 			}
 		}
 		ff_sel.emit();
-		module->addMux(NEW_ID, port.init_value, new_data, sel, port.data);
+		module->addMux(NEW_TWINE, port.init_value, new_data, sel, port.data);
 		port.data = new_data;
 		port.init_value = Const(State::Sx, GetSize(port.data));
 	}
@@ -1546,7 +1543,7 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 			}
 		}
 		ff_sel.emit();
-		module->addMux(NEW_ID, port.arst_value, new_data, sel, port.data);
+		module->addMux(NEW_TWINE, port.arst_value, new_data, sel, port.data);
 		port.data = new_data;
 		port.arst = State::S0;
 	}
@@ -1581,7 +1578,7 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 			ff_sel.val_arst = State::S1;
 		}
 		ff_sel.emit();
-		module->addMux(NEW_ID, port.srst_value, new_data, sel, port.data);
+		module->addMux(NEW_TWINE, port.srst_value, new_data, sel, port.data);
 		port.data = new_data;
 		port.srst = State::S0;
 	}
@@ -1595,7 +1592,7 @@ void Mem::emulate_rd_ce_over_srst(int idx) {
 		return;
 	}
 	port.ce_over_srst = false;
-	port.srst = module->And(NEW_ID, port.en, port.srst);
+	port.srst = module->And(NEW_TWINE, port.en, port.srst);
 }
 
 void Mem::emulate_rd_srst_over_ce(int idx) {
@@ -1606,7 +1603,7 @@ void Mem::emulate_rd_srst_over_ce(int idx) {
 		return;
 	}
 	port.ce_over_srst = true;
-	port.en = module->Or(NEW_ID, port.en, port.srst);
+	port.en = module->Or(NEW_TWINE, port.en, port.srst);
 }
 
 bool Mem::emulate_read_first_ok() {

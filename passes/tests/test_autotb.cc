@@ -109,12 +109,12 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			continue;
 
 		int count_ports = 0;
-		log("Generating test bench for module `%s'.\n", mod->name);
+		log("Generating test bench for module `%s'.\n", design->twines.str(mod->meta_->name));
 		for (auto wire : mod->wires()) {
 			if (wire->port_output) {
 				count_ports++;
-				signal_out[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
-				f << stringf("wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()));
+				signal_out[idy("sig", design->twines.str(mod->meta_->name), wire->name.str())] = wire->width;
+				f << stringf("wire [%d:0] %s;\n", wire->width-1, idy("sig", design->twines.str(mod->meta_->name), wire->name.str()));
 			} else if (wire->port_input) {
 				count_ports++;
 				bool is_clksignal = wire->get_bool_attribute(ID::gentb_clock);
@@ -128,24 +128,24 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 							is_clksignal = true;
 				}
 				if (is_clksignal && wire->attributes.count(ID::gentb_constant) == 0) {
-					signal_clk[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
+					signal_clk[idy("sig", design->twines.str(mod->meta_->name), wire->name.str())] = wire->width;
 				} else {
-					signal_in[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
+					signal_in[idy("sig", design->twines.str(mod->meta_->name), wire->name.str())] = wire->width;
 					if (wire->attributes.count(ID::gentb_constant) != 0)
-						signal_const[idy("sig", mod->name.str(), wire->name.str())] = wire->attributes[ID::gentb_constant].as_string();
+						signal_const[idy("sig", design->twines.str(mod->meta_->name), wire->name.str())] = wire->attributes[ID::gentb_constant].as_string();
 				}
-				f << stringf("reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()));
+				f << stringf("reg [%d:0] %s;\n", wire->width-1, idy("sig", design->twines.str(mod->meta_->name), wire->name.str()));
 			}
 		}
-		f << stringf("%s %s(\n", id(mod->name.str()), idy("uut", mod->name.str()));
+		f << stringf("%s %s(\n", id(design->twines.str(mod->meta_->name)), idy("uut", design->twines.str(mod->meta_->name)));
 		for (auto wire : mod->wires()) {
 			if (wire->port_output || wire->port_input)
 				f << stringf("\t.%s(%s)%s\n", id(wire->name.str()),
-						idy("sig", mod->name.str(), wire->name.str()).c_str(), --count_ports ? "," : "");
+						idy("sig", design->twines.str(mod->meta_->name), wire->name.str()).c_str(), --count_ports ? "," : "");
 		}
 		f << stringf(");\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "reset"));
+		f << stringf("task %s;\n", idy(design->twines.str(mod->meta_->name), "reset"));
 		f << stringf("begin\n");
 		int delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); ++it)
@@ -175,7 +175,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "update_data"));
+		f << stringf("task %s;\n", idy(design->twines.str(mod->meta_->name), "update_data"));
 		f << stringf("begin\n");
 		delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
@@ -188,7 +188,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "update_clock"));
+		f << stringf("task %s;\n", idy(design->twines.str(mod->meta_->name), "update_clock"));
 		f << stringf("begin\n");
 		if (signal_clk.size()) {
 			f << stringf("\txorshift128;\n");
@@ -210,7 +210,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		std::vector<std::string> header1;
 		std::string header2 = "";
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "print_status"));
+		f << stringf("task %s;\n", idy(design->twines.str(mod->meta_->name), "print_status"));
 		f << stringf("begin\n");
 		f << stringf("\t$fdisplay(file, \"#OUT# %%b %%b %%b %%t %%d\", {");
 		if (signal_in.size())
@@ -281,7 +281,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "print_header"));
+		f << stringf("task %s;\n", idy(design->twines.str(mod->meta_->name), "print_header"));
 		f << stringf("begin\n");
 		f << stringf("\t$fdisplay(file, \"#OUT#\");\n");
 		for (auto &hdr : header1)
@@ -291,15 +291,15 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "test"));
+		f << stringf("task %s;\n", idy(design->twines.str(mod->meta_->name), "test"));
 		f << stringf("begin\n");
-		f << stringf("\t$fdisplay(file, \"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name.str()));
-		f << stringf("\t%s;\n", idy(mod->name.str(), "reset"));
+		f << stringf("\t$fdisplay(file, \"#OUT#\\n#OUT# ==== %s ====\");\n", idy(design->twines.str(mod->meta_->name)));
+		f << stringf("\t%s;\n", idy(design->twines.str(mod->meta_->name), "reset"));
 		f << stringf("\tfor (i=0; i<%d; i=i+1) begin\n", num_iter);
-		f << stringf("\t\tif (i %% 20 == 0) %s;\n", idy(mod->name.str(), "print_header"));
-		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "update_data"));
-		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "update_clock"));
-		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "print_status"));
+		f << stringf("\t\tif (i %% 20 == 0) %s;\n", idy(design->twines.str(mod->meta_->name), "print_header"));
+		f << stringf("\t\t#100; %s;\n", idy(design->twines.str(mod->meta_->name), "update_data"));
+		f << stringf("\t\t#100; %s;\n", idy(design->twines.str(mod->meta_->name), "update_clock"));
+		f << stringf("\t\t#100; %s;\n", idy(design->twines.str(mod->meta_->name), "print_status"));
 		f << stringf("\tend\n");
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
@@ -317,7 +317,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 	f << stringf("\tend\n");
 	for (auto module : design->modules())
 		if (!module->get_bool_attribute(ID::gentb_skip))
-			f << stringf("\t%s;\n", idy(module->name.str(), "test"));
+			f << stringf("\t%s;\n", idy(design->twines.str(module->meta_->name), "test"));
 	f << stringf("\t$fclose(file);\n");
 	f << stringf("\t$finish;\n");
 	f << stringf("end\n\n");

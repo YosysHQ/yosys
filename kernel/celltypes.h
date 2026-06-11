@@ -75,7 +75,7 @@ struct CellTypes
 			if (wire->port_output)
 				outputs.insert(wire->meta_->name);
 		}
-		setup_type(module->name, inputs, outputs);
+		setup_type(RTLIL::IdString(module->design->twines.str(module->meta_->name)), inputs, outputs);
 	}
 
 	void setup_design(RTLIL::Design *design)

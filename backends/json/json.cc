@@ -79,6 +79,11 @@ struct JsonWriter
 		return get_string(name.unescape());
 	}
 
+	string get_name(TwineRef name)
+	{
+		return get_string(design->twines.str(name));
+	}
+
 	string get_bits(SigSpec sig)
 	{
 		bool first = true;
@@ -162,7 +167,7 @@ struct JsonWriter
 			log_error("Module %s contains processes, which are not supported by JSON backend (run `proc` first).\n", module);
 		}
 
-		f << stringf("    %s: {\n", get_name(module->name));
+		f << stringf("    %s: {\n", get_name(module->meta_->name));
 
 		f << stringf("      \"attributes\": {");
 		write_parameters(module->attributes, /*for_module=*/true, module);
@@ -252,8 +257,8 @@ struct JsonWriter
 				if (use_selection && !module->selected(it.second))
 					continue;
 				f << stringf("%s\n", first ? "" : ",");
-				f << stringf("        %s: {\n", get_name(it.second->name));
-				f << stringf("          \"hide_name\": %s,\n", it.second->name[0] == '$' ? "1" : "0");
+				f << stringf("        %s: {\n", get_name(it.second->meta_->name));
+				f << stringf("          \"hide_name\": %s,\n", design->twines.str(it.second->meta_->name)[0] == '$' ? "1" : "0");
 				f << stringf("          \"attributes\": {");
 				write_parameters(it.second->attributes, false, it.second);
 				f << stringf("\n          },\n");
@@ -323,13 +328,13 @@ struct JsonWriter
 					f << stringf("      /* %3d */ [ ", node_idx);
 					if (node.portbit >= 0)
 						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
-								node.portname.unescape(), node.portbit);
+								design->twines.str(node.portname), node.portbit);
 					else if (node.left_parent < 0 && node.right_parent < 0)
 						f << stringf("\"%s\"", node.inverter ? "true" : "false");
 					else
 						f << stringf("\"%s\", %d, %d", node.inverter ? "nand" : "and", node.left_parent, node.right_parent);
 					for (auto &op : node.outports)
-						f << stringf(", \"%s\", %d", op.first.unescape(), op.second);
+						f << stringf(", \"%s\", %d", design->twines.str(op.first), op.second);
 					f << stringf(" ]");
 					node_idx++;
 				}

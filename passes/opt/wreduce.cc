@@ -243,7 +243,8 @@ struct WreduceWorker
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
 	{
 		port_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
-		SigSpec sig = mi.sigmap(cell->getPort(stringf("\\%c", port)));
+		auto twines = cell->module->design->twines;
+		SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", twines.str(port))})));
 
 		if (port == 'B' && cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr)))
 			port_signed = false;
@@ -267,7 +268,8 @@ struct WreduceWorker
 		if (bits_removed) {
 			log("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, port, module, cell, cell->type.unescape());
-			cell->setPort(stringf("\\%c", port), sig);
+			// SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", twines.str(port))})));
+			cell->setPort(twines.add(Twine{stringf("\\%c", twines.str(port))}), sig);
 			did_something = true;
 		}
 	}
@@ -306,8 +308,8 @@ struct WreduceWorker
 
 		// Reduce size of ports A and B based on constant input bits and size of output port
 
-		int max_port_a_size = cell->hasPort(ID::A) ? GetSize(cell->getPort(TW::A)) : -1;
-		int max_port_b_size = cell->hasPort(ID::B) ? GetSize(cell->getPort(TW::B)) : -1;
+		int max_port_a_size = cell->hasPort(TW::A) ? GetSize(cell->getPort(TW::A)) : -1;
+		int max_port_b_size = cell->hasPort(TW::B) ? GetSize(cell->getPort(TW::B)) : -1;
 
 		if (cell->type.in(ID($not), ID($pos), ID($neg), ID($and), ID($or), ID($xor), ID($add), ID($sub))) {
 			max_port_a_size = min(max_port_a_size, GetSize(sig));
@@ -362,7 +364,7 @@ struct WreduceWorker
 		if (max_port_b_size >= 0)
 			run_reduce_inport(cell, 'B', max_port_b_size, port_b_signed, did_something);
 
-		if (cell->hasPort(ID::A) && cell->hasPort(ID::B) && port_a_signed && port_b_signed) {
+		if (cell->hasPort(TW::A) && cell->hasPort(TW::B) && port_a_signed && port_b_signed) {
 			SigSpec sig_a = mi.sigmap(cell->getPort(TW::A)), sig_b = mi.sigmap(cell->getPort(TW::B));
 			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0 &&
 					GetSize(sig_b) > 0 && sig_b[GetSize(sig_b)-1] == State::S0) {
@@ -376,7 +378,7 @@ struct WreduceWorker
 			}
 		}
 
-		if (cell->hasPort(ID::A) && !cell->hasPort(ID::B) && port_a_signed) {
+		if (cell->hasPort(TW::A) && !cell->hasPort(TW::B) && port_a_signed) {
 			SigSpec sig_a = mi.sigmap(cell->getPort(TW::A));
 			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0) {
 				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
@@ -414,8 +416,8 @@ struct WreduceWorker
 			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool() || cell->type == ID($sub);
 
 			int a_size = 0, b_size = 0;
-			if (cell->hasPort(ID::A)) a_size = GetSize(cell->getPort(TW::A));
-			if (cell->hasPort(ID::B)) b_size = GetSize(cell->getPort(TW::B));
+			if (cell->hasPort(TW::A)) a_size = GetSize(cell->getPort(TW::A));
+			if (cell->hasPort(TW::B)) b_size = GetSize(cell->getPort(TW::B));
 
 			int max_y_size = max(a_size, b_size);
 
@@ -637,7 +639,8 @@ struct WreducePass : public Pass {
 				}
 
 				if (!opt_memx && c->type.in(ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2))) {
-					IdString memid = c->getParam(ID::MEMID).decode_string();
+					std::string memid_s = c->getParam(ID::MEMID).decode_string();
+					TwineRef memid = design->twines.add(Twine{memid_s});
 					RTLIL::Memory *mem = module->memories.at(memid);
 					if (mem->start_offset >= 0) {
 						int cur_addrbits = c->getParam(ID::ABITS).as_int();
@@ -646,7 +649,7 @@ struct WreducePass : public Pass {
 							log("Removed top %d address bits (of %d) from memory %s port %s.%s (%s).\n",
 									cur_addrbits-max_addrbits, cur_addrbits,
 									c->type == ID($memrd) ? "read" : c->type == ID($memwr) ? "write" : "init",
-									module, c, memid.unescape());
+									module, c, memid_s);
 							c->setParam(ID::ABITS, max_addrbits);
 							c->setPort(TW::ADDR, c->getPort(TW::ADDR).extract(0, max_addrbits));
 						}

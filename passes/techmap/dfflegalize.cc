@@ -263,7 +263,7 @@ struct DffLegalizePass : public Pass {
 	}
 
 	void fail_ff(const FfData &ff, const char *reason) {
-		log_error("FF %s.%s (type %s) cannot be legalized: %s\n", ff.module->name.unescape(), ff.cell->name.unescape(), ff.cell->type.unescape(), reason);
+		log_error("FF %s.%s (type %s) cannot be legalized: %s\n", ff.module->name.unescape(), ff.cell->module->design->twines.str(cell->meta_->name), ff.cell->type.unescape(), reason);
 	}
 
 	bool try_flip(FfData &ff, int supported_mask) {
@@ -329,9 +329,9 @@ struct DffLegalizePass : public Pass {
 		ff_sel.is_fine = ff.is_fine;
 
 		if (ff.is_fine)
-			ff.module->addMuxGate(NEW_ID, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
+			ff.module->addMuxGate(NEW_TWINE, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
 		else
-			ff.module->addMux(NEW_ID, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
+			ff.module->addMux(NEW_TWINE, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
 
 		legalize_ff(ff_dff);
 		legalize_ff(ff_adff);
@@ -381,7 +381,7 @@ struct DffLegalizePass : public Pass {
 		if (ff.has_ce && !supported_cells[FF_ADFFE])
 			ff.unmap_ce();
 
-		log_warning("Emulating async set + reset with several FFs and a mux for %s.%s\n", ff.module->name.unescape(), ff.cell->name.unescape());
+		log_warning("Emulating async set + reset with several FFs and a mux for %s.%s\n", ff.module->name.unescape(), ff.cell->module->design->twines.str(cell->meta_->name));
 
 		log_assert(ff.width == 1);
 		ff.remove();
@@ -440,9 +440,9 @@ struct DffLegalizePass : public Pass {
 		ff_sel.is_fine = ff.is_fine;
 
 		if (!ff.is_fine)
-			ff.module->addMux(NEW_ID, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
+			ff.module->addMux(NEW_TWINE, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
 		else
-			ff.module->addMuxGate(NEW_ID, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
+			ff.module->addMuxGate(NEW_TWINE, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
 
 		legalize_ff(ff_clr);
 		legalize_ff(ff_set);
@@ -600,7 +600,7 @@ struct DffLegalizePass : public Pass {
 				ff.unmap_ce();
 
 			if (ff.cell)
-				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n", ff.module->name.unescape(), ff.cell->name.unescape());
+				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n", ff.module->name.unescape(), ff.cell->module->design->twines.str(cell->meta_->name));
 			emulate_split_init_arst(ff);
 			return;
 		}
@@ -752,7 +752,7 @@ struct DffLegalizePass : public Pass {
 			// The only hope left is breaking down to adlatch + dlatch + dlatch + mux.
 
 			if (ff.cell)
-				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n", ff.module->name.unescape(), ff.cell->name.unescape());
+				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n", ff.module->name.unescape(), ff.cell->module->design->twines.str(cell->meta_->name));
 			ff.remove();
 
 			emulate_split_init_arst(ff);
@@ -843,9 +843,9 @@ struct DffLegalizePass : public Pass {
 			ff.remove_init();
 			Wire *new_q = ff.module->addWire(NEW_TWINE);
 			if (ff.is_fine)
-				ff.module->addNotGate(NEW_ID, new_q, ff.sig_q);
+				ff.module->addNotGate(NEW_TWINE, new_q, ff.sig_q);
 			else
-				ff.module->addNot(NEW_ID, new_q, ff.sig_q);
+				ff.module->addNot(NEW_TWINE, new_q, ff.sig_q);
 			ff.sig_q = new_q;
 			if (ff.val_init == State::S0)
 				ff.val_init = State::S1;
@@ -938,9 +938,9 @@ struct DffLegalizePass : public Pass {
 		} else if (sig == State::S1) {
 			sig = State::S0;
 		} else if (ff.is_fine) {
-			sig = ff.module->NotGate(NEW_ID, sig);
+			sig = ff.module->NotGate(NEW_TWINE, sig);
 		} else {
-			sig = ff.module->Not(NEW_ID, sig);
+			sig = ff.module->Not(NEW_TWINE, sig);
 		}
 		pol = !pol;
 	}

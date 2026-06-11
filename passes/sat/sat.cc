@@ -533,9 +533,9 @@ struct SatHelper
 				} else {
 					for (auto &d : drivers)
 					for (auto &p : d->connections()) {
-						if (d->type == ID($dff) && p.first == ID::CLK)
+						if (d->type == ID($dff) && p.first == TW::CLK)
 							continue;
-						if (d->type.begins_with("$_DFF_") && p.first == ID::C)
+						if (d->type.begins_with("$_DFF_") && p.first == TW::C)
 							continue;
 						queued_signals.add(handled_signals.remove(sigmap(p.second)));
 					}
@@ -706,13 +706,13 @@ struct SatHelper
 		fprintf(f, "$end\n");
 		fprintf(f, "$comment\n");
 		fprintf(f, "    Generated from SAT problem in module %s (declared at %s)\n",
-			module->name.c_str(), module_fname.c_str());
+			module->design->twines.str(module->meta_->name).c_str(), module_fname.c_str());
 		fprintf(f, "$end\n");
 
 		// VCD has some limits on internal (non-display) identifier names, so make legal ones
 		std::map<std::string, std::string> vcdnames;
 
-		fprintf(f, "$scope module %s $end\n", module->name.c_str());
+		fprintf(f, "$scope module %s $end\n", module->design->twines.str(module->meta_->name).c_str());
 		for (auto &info : modelInfo)
 		{
 			if (vcdnames.find(info.description) != vcdnames.end())

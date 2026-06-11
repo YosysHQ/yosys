@@ -52,7 +52,7 @@ struct MaccmapWorker
 		a.extend_u0(width, is_signed);
 
 		if (do_subtract) {
-			a = module->Not(NEW_ID, a);
+			a = module->Not(NEW_TWINE, a);
 			add(State::S1, 0);
 		}
 
@@ -73,13 +73,13 @@ struct MaccmapWorker
 		for (int i = 0; i < GetSize(b); i++)
 			if (is_signed && i+1 == GetSize(b))
 			{
-				a = {module->Not(NEW_ID, a.extract(i, width-i)), RTLIL::SigSpec(0, i)};
-				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
+				a = {module->Not(NEW_TWINE, a.extract(i, width-i)), RTLIL::SigSpec(0, i)};
+				add(module->And(NEW_TWINE, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
 				add({b[i], RTLIL::SigSpec(0, i)}, false, do_subtract);
 			}
 			else
 			{
-				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
+				add(module->And(NEW_TWINE, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
 				a = {a.extract(0, width-1), State::S0};
 			}
 	}
@@ -297,7 +297,7 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 			summand_t this_summand;
 			if (GetSize(term.in_b)) {
 				this_summand.first = module->addWire(NEW_TWINE, width);
-				module->addMul(NEW_ID, term.in_a, term.in_b, this_summand.first, term.is_signed);
+				module->addMul(NEW_TWINE, term.in_a, term.in_b, this_summand.first, term.is_signed);
 			} else if (GetSize(term.in_a) == 1 && GetSize(term.in_b) == 0 && !term.is_signed && !term.do_subtract) {
 				// Mimic old 'bit_terms' treatment in case it's relevant for performance,
 				// i.e. defer single-bit summands to be the last ones
@@ -305,7 +305,7 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 				continue;
 			} else if (GetSize(term.in_a) != width) {
 				this_summand.first = module->addWire(NEW_TWINE, width);
-				module->addPos(NEW_ID, term.in_a, this_summand.first, term.is_signed);
+				module->addPos(NEW_TWINE, term.in_a, this_summand.first, term.is_signed);
 			} else {
 				this_summand.first = term.in_a;
 			}
@@ -328,11 +328,11 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 					this_summand.first = module->addWire(NEW_TWINE, width);
 					this_summand.second = summands[i].second && summands[i+1].second;
 					if (summands[i].second == summands[i+1].second)
-						module->addAdd(NEW_ID, summands[i].first, summands[i+1].first, this_summand.first);
+						module->addAdd(NEW_TWINE, summands[i].first, summands[i+1].first, this_summand.first);
 					else if (summands[i].second)
-						module->addSub(NEW_ID, summands[i+1].first, summands[i].first, this_summand.first);
+						module->addSub(NEW_TWINE, summands[i+1].first, summands[i].first, this_summand.first);
 					else if (summands[i+1].second)
-						module->addSub(NEW_ID, summands[i].first, summands[i+1].first, this_summand.first);
+						module->addSub(NEW_TWINE, summands[i].first, summands[i+1].first, this_summand.first);
 					else
 						log_abort();
 					new_summands.push_back(this_summand);
@@ -343,7 +343,7 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 		}
 
 		if (summands.front().second)
-			module->addNeg(NEW_ID, summands.front().first, cell->getPort(TW::Y));
+			module->addNeg(NEW_TWINE, summands.front().first, cell->getPort(TW::Y));
 		else
 			module->connect(cell->getPort(TW::Y), summands.front().first);
 	}

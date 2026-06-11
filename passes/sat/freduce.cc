@@ -597,7 +597,7 @@ struct FreduceWorker
 	{
 		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, module, reduce_counter);
 		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename);
-		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module.empty() ? module->name.c_str() : ""));
+		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module == Twine::Null ? design->twines.str(module->meta_->name).c_str() : ""));
 	}
 
 	int run()

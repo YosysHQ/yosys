@@ -156,7 +156,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 
 static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 {
-	log("Mapping FSM `%s' from module `%s'.\n", fsm_cell->name, module->name);
+	log("Mapping FSM `%s' from module `%s'.\n", log_id(fsm_cell), log_id(module));
 
 	FsmData fsm_data;
 	fsm_data.copy_from_cell(fsm_cell);
@@ -166,7 +166,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 	// create state register
 
-	RTLIL::Wire *state_wire = module->addWire(module->uniquify(fsm_cell->parameters[ID::NAME].decode_string()), fsm_data.state_bits);
+	RTLIL::Wire *state_wire = module->addWire(module->uniquify(module->design->twines.add(Twine{fsm_cell->parameters[ID::NAME].decode_string()})), fsm_data.state_bits);
 	RTLIL::Wire *next_state_wire = module->addWire(NEW_TWINE, fsm_data.state_bits);
 
 	RTLIL::Cell *state_dff = module->addCell(NEW_TWINE, "");

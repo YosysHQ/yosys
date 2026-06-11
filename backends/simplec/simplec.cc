@@ -78,7 +78,7 @@ struct HierDirtyFlags
 		for (Cell *cell : module->cells()) {
 			Module *mod = module->design->module(cell->type);
 			if (mod) children[cell->name] = new HierDirtyFlags(mod, cell->name, this,
-					prefix + cid(cell->name) + ".", log_prefix + "." + prefix + cell->name.unescape());
+					prefix + cid(cell->name) + ".", log_prefix + "." + prefix + cell->module->design->twines.str(cell->meta_->name));
 		}
 	}
 
@@ -167,7 +167,7 @@ struct SimplecWorker
 
 	vector<string> funct_declarations;
 
-	dict<Module*, dict<SigBit, pool<tuple<Cell*, IdString, int>>>> bit2cell;
+	dict<Module*, dict<SigBit, pool<tuple<Cell*, TwineRef, int>>>> bit2cell;
 	dict<Module*, dict<SigBit, pool<SigBit>>> bit2output;
 	dict<Module*, pool<SigBit>> driven_bits;
 
@@ -284,10 +284,10 @@ struct SimplecWorker
 
 	void create_module_struct(Module *mod)
 	{
-		if (generated_structs.count(mod->name))
+		if (generated_structs.count(design->twines.str(mod->meta_->name)))
 			return;
 
-		generated_structs.insert(mod->name);
+		generated_structs.insert(design->twines.str(mod->meta_->name));
 		sigmaps[mod].set(mod);
 
 		for (Wire *w : mod->wires())
@@ -309,7 +309,7 @@ struct SimplecWorker
 
 				int idx = 0;
 				for (auto bit : sigmaps.at(mod)(conn.second))
-					bit2cell[mod][bit].insert(tuple<Cell*, IdString, int>(c, conn.first, idx++));
+					bit2cell[mod][bit].insert(tuple<Cell*, TwineRef, int>(c, conn.first, idx++));
 			}
 
 			if (design->module(c->type))
@@ -337,9 +337,9 @@ struct SimplecWorker
 		topo.sort();
 
 		for (int i = 0; i < GetSize(topo.sorted); i++)
-			topoidx[mod->cell(topo.sorted[i])] = i;
+			topoidx[mod->cell(design->twines.lookup(topo.sorted[i].str()))] = i;
 
-		string ifdef_name = stringf("yosys_simplec_%s_state_t", cid(mod->name));
+		string ifdef_name = stringf("yosys_simplec_%s_state_t", cid(RTLIL::IdString(design->twines.str(mod->meta_->name))));
 
 		for (int i = 0; i < GetSize(ifdef_name); i++)
 			if ('a' <= ifdef_name[i] && ifdef_name[i] <= 'z')
@@ -348,7 +348,7 @@ struct SimplecWorker
 		struct_declarations.push_back("");
 		struct_declarations.push_back(stringf("#ifndef %s", ifdef_name));
 		struct_declarations.push_back(stringf("#define %s", ifdef_name));
-		struct_declarations.push_back(stringf("struct %s_state_t", cid(mod->name)));
+		struct_declarations.push_back(stringf("struct %s_state_t", cid(RTLIL::IdString(design->twines.str(mod->meta_->name)))));
 		struct_declarations.push_back("{");
 
 		struct_declarations.push_back("  // Input Ports");
@@ -527,9 +527,9 @@ struct SimplecWorker
 							for (auto outbit : bit2output[work->module][bit])
 							{
 								Module *parent_mod = work->parent->module;
-								Cell *parent_cell = parent_mod->cell(work->hiername);
+								Cell *parent_cell = parent_mod->cell(parent_mod->design->twines.lookup(work->hiername.str()));
 
-								IdString port_name = outbit.wire->name;
+								TwineRef port_name = outbit.wire->meta_->name;
 								int port_offset = outbit.offset;
 								SigBit parent_bit = sigmaps.at(parent_mod)(parent_cell->getPort(port_name)[port_offset]);
 
@@ -576,7 +576,7 @@ struct SimplecWorker
 						if (cell == nullptr || topoidx.at(cell) < topoidx.at(c))
 							cell = c;
 
-					string hiername = work->log_prefix + "." + cell->name.unescape();
+					string hiername = work->log_prefix + "." + cell->module->design->twines.str(cell->meta_->name);
 
 					if (verbose)
 						log("    Evaluating %s (%s, best of %d).\n", hiername, cell->type.unescape(), GetSize(work->dirty_cells));
@@ -636,7 +636,7 @@ struct SimplecWorker
 		reactivated_cells.clear();
 
 		funct_declarations.push_back("");
-		funct_declarations.push_back(stringf("static void %s(struct %s_state_t *state)", func_name, cid(work->module->name)));
+		funct_declarations.push_back(stringf("static void %s(struct %s_state_t *state)", func_name, cid(RTLIL::IdString(work->module->design->twines.str(work->module->meta_->name)))));
 		funct_declarations.push_back("{");
 		for (auto &line : preamble)
 			funct_declarations.push_back(line);
@@ -690,7 +690,7 @@ struct SimplecWorker
 	{
 		vector<string> preamble;
 		eval_init(work, preamble);
-		make_func(work, cid(work->module->name) + "_init", preamble);
+		make_func(work, cid(RTLIL::IdString(work->module->design->twines.str(work->module->meta_->name))) + "_init", preamble);
 	}
 
 	void make_eval_func(HierDirtyFlags *work)
@@ -704,7 +704,7 @@ struct SimplecWorker
 					work->set_dirty(bit);
 		}
 
-		make_func(work, cid(work->module->name) + "_eval", preamble);
+		make_func(work, cid(RTLIL::IdString(work->module->design->twines.str(work->module->meta_->name))) + "_eval", preamble);
 	}
 
 	void make_tick_func(HierDirtyFlags* /* work */)
@@ -716,7 +716,7 @@ struct SimplecWorker
 	{
 		create_module_struct(mod);
 
-		HierDirtyFlags work(mod, IdString(), nullptr, "state->", mod->name.unescape());
+		HierDirtyFlags work(mod, IdString(), nullptr, "state->", mod->design->twines.str(mod->meta_->name));
 
 		make_init_func(&work);
 		make_eval_func(&work);

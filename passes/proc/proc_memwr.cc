@@ -55,10 +55,10 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 			for (auto sr2 : proc->syncs) {
 				if (sr2->type == RTLIL::SyncType::ST0) {
 					log_assert(sr2->mem_write_actions.empty());
-					enable = mod->Mux(NEW_ID, Const(State::S0, GetSize(enable)), enable, sr2->signal);
+					enable = mod->Mux(NEW_TWINE, Const(State::S0, GetSize(enable)), enable, sr2->signal);
 				} else if (sr2->type == RTLIL::SyncType::ST1) {
 					log_assert(sr2->mem_write_actions.empty());
-					enable = mod->Mux(NEW_ID, enable, Const(State::S0, GetSize(enable)), sr2->signal);
+					enable = mod->Mux(NEW_TWINE, enable, Const(State::S0, GetSize(enable)), sr2->signal);
 				}
 			}
 			cell->setPort(TW::EN, enable);

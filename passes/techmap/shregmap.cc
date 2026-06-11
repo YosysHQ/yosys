@@ -76,9 +76,9 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		auto C = cell->getPort(TW::C);
 
 		auto newcell = cell->module->addCell(NEW_TWINE, ID(GP_SHREG));
-		newcell->setPort(ID(nRST), State::S1);
+		newcell->setPort(TW::nRST, State::S1);
 		newcell->setPort(TW::CLK, C);
-		newcell->setPort(ID(IN), D);
+		newcell->setPort(TW::IN, D);
 
 		int i = 0;
 		for (auto tap : taps) {

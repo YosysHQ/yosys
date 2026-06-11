@@ -344,8 +344,8 @@ struct ChformalPass : public Pass {
 						Wire *new_en = module->addWire(NEW_TWINE);
 						new_en->attributes[ID::init] = State::S0;
 
-						module->addFf(NEW_ID, orig_a, new_a);
-						module->addFf(NEW_ID, orig_en, new_en);
+						module->addFf(NEW_TWINE, orig_a, new_a);
+						module->addFf(NEW_TWINE, orig_en, new_en);
 
 						cell->setPort(TW::A, new_a);
 						cell->setPort(TW::EN, new_en);
@@ -360,12 +360,12 @@ struct ChformalPass : public Pass {
 				for (int i = 0; i < mode_arg; i++) {
 					Wire *w = module->addWire(NEW_TWINE);
 					w->attributes[ID::init] = State::S0;
-					module->addFf(NEW_ID, en, w);
+					module->addFf(NEW_TWINE, en, w);
 					en = w;
 				}
 
 				for (auto cell : constr_cells)
-					cell->setPort(TW::EN, module->LogicAnd(NEW_ID, en, cell->getPort(TW::EN)));
+					cell->setPort(TW::EN, module->LogicAnd(NEW_TWINE, en, cell->getPort(TW::EN)));
 			}
 			else
 			if (mode =='p')
@@ -381,13 +381,13 @@ struct ChformalPass : public Pass {
 						cover->setParam(ID(FLAVOR), Const("cover"));
 
 						for (auto const &conn : cell->connections())
-							if (!conn.first.in(ID::A, ID::EN))
+							if (conn.first != TW::A && conn.first != TW::EN)
 								cover->setPort(conn.first, conn.second);
 						cover->setPort(TW::A, cell->getPort(TW::EN));
 						cover->setPort(TW::EN, State::S1);
 					} else {
-						module->addCover(NEW_ID_SUFFIX("coverenable"),
-							cell->getPort(TW::EN), State::S1, cell->get_src_attribute());
+						module->addCover(NEW_TWINE_SUFFIX("coverenable"),
+							cell->getPort(TW::EN), State::S1, module->design->twines.add(Twine{cell->get_src_attribute()}));
 					}
 				}
 			}
@@ -432,9 +432,9 @@ struct ChformalPass : public Pass {
 					plain_cell->setPort(TW::EN, sig_en);
 
 					if (plain_cell->type.in(ID($assert), ID($assume)))
-						sig_a = module->Not(NEW_ID, sig_a);
+						sig_a = module->Not(NEW_TWINE, sig_a);
 
-					SigBit combined_en = module->And(NEW_ID, sig_a, sig_en);
+					SigBit combined_en = module->And(NEW_TWINE, sig_a, sig_en);
 
 					module->swap_names(cell, plain_cell);
 

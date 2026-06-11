@@ -82,7 +82,7 @@ struct Slice {
 };
 
 void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_output, EnableLogic enable) {
-	auto anyseq = mod->Anyseq(NEW_ID, mux_input.size());
+	auto anyseq = mod->Anyseq(mod->design->twines.add(NEW_TWINE), mux_input.size());
 	if (enable.bit == (enable.pol ? State::S1 : State::S0)) {
 		mod->connect(mux_output, anyseq);
 	}
@@ -94,7 +94,7 @@ void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_o
 		mux_a = anyseq;
 		mux_b = mux_input;
 	}
-	(void)mod->addMux(NEW_ID,
+	(void)mod->addMux(NEW_TWINE,
 		mux_a,
 		mux_b,
 		enable.bit,
@@ -212,7 +212,7 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 	return changed;
 }
 
-bool abstract_value_cell_port(Module* mod, Cell* cell, std::set<int> offsets, IdString port_name, EnableLogic enable) {
+bool abstract_value_cell_port(Module* mod, Cell* cell, std::set<int> offsets, TwineRef port_name, EnableLogic enable) {
 	Wire* to_abstract = mod->addWire(NEW_TWINE, offsets.size());
 	SigSpec mux_input;
 	SigSpec mux_output;
@@ -273,7 +273,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 				for (int i = 0; i < conn.second.size(); i++) {
 					if (selected_reps.count(sigmap(conn.second[i]))) {
 						log_debug("Abstracting value for %s.%s[%i] in module %s due to selections:\n",
-							cell, conn.first.unescape(), i, mod);
+							cell, cell->module->design->twines.str(conn.first).c_str(), i, mod);
 						explain_selections(selected_reps.at(sigmap(conn.second[i])));
 						offsets_to_abstract.insert(i);
 					}
@@ -496,19 +496,19 @@ struct AbstractPass : public Pass {
 					} break;
 					case Enable::ActiveLow:
 					case Enable::ActiveHigh: {
-						Wire *enable_wire = mod->wire("\\" + enable_name);
+						Wire *enable_wire = mod->wire(mod->design->twines.lookup("\\" + enable_name));
 						if (!enable_wire)
-							log_cmd_error("Enable wire %s not found in module %s\n", enable_name, mod->name);
+							log_cmd_error("Enable wire %s not found in module %s\n", enable_name, log_id(mod));
 						if (GetSize(enable_wire) != 1)
 							log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
-									enable_name.c_str(), GetSize(enable_wire), mod->name.c_str());
+									enable_name.c_str(), GetSize(enable_wire), log_id(mod));
 						enable_logic = { enable_wire, enable == Enable::ActiveHigh };
 					} break;
 					case Enable::Initstates: {
-						SigBit in_init_states = mod->Initstate(NEW_ID);
+						SigBit in_init_states = mod->Initstate(mod->design->twines.add(NEW_TWINE));
 						for (int i = 1; i < initstates; i++) {
 							Wire *in_init_states_q = mod->addWire(NEW_TWINE);
-							mod->addFf(NEW_ID, in_init_states, in_init_states_q);
+							mod->addFf(NEW_TWINE, in_init_states, in_init_states_q);
 							in_init_states_q->attributes[ID::init] = State::S1;
 							in_init_states = in_init_states_q;
 						}

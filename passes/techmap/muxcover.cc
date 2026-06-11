@@ -215,11 +215,11 @@ struct MuxcoverWorker
 		implement_decode_mux(std::get<1>(key));
 
 		if (std::get<0>(key) == State::Sx) {
-			module->addBufGate(NEW_ID, std::get<1>(key), ctrl_bit);
+			module->addBufGate(NEW_TWINE, std::get<1>(key), ctrl_bit);
 		} else if (std::get<1>(key) == State::Sx) {
-			module->addBufGate(NEW_ID, std::get<0>(key), ctrl_bit);
+			module->addBufGate(NEW_TWINE, std::get<0>(key), ctrl_bit);
 		} else {
-			module->addMuxGate(NEW_ID, std::get<0>(key), std::get<1>(key), std::get<2>(key), ctrl_bit);
+			module->addMuxGate(NEW_TWINE, std::get<0>(key), std::get<1>(key), std::get<2>(key), ctrl_bit);
 			decode_mux_counter++;
 		}
 		std::get<2>(entry) = true;

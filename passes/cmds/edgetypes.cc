@@ -58,24 +58,24 @@ struct EdgetypePass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, pool<tuple<IdString, IdString, int>>> bit_sources, bit_sinks;
-			pool<std::pair<IdString, IdString>> multibit_ports;
+			dict<SigBit, pool<tuple<IdString, TwineRef, int>>> bit_sources, bit_sinks;
+			pool<std::pair<IdString, TwineRef>> multibit_ports;
 
 			for (auto cell : module->selected_cells())
 			for (auto conn : cell->connections())
 			{
 				IdString cell_type = cell->type;
-				IdString port_name = conn.first;
+				TwineRef port_name = conn.first;
 				SigSpec sig = sigmap(conn.second);
 
 				if (GetSize(sig) > 1)
-					multibit_ports.insert(std::pair<IdString, IdString>(cell_type, port_name));
+					multibit_ports.insert(std::pair<IdString, TwineRef>(cell_type, port_name));
 
 				for (int i = 0; i < GetSize(sig); i++) {
 					if (cell->output(port_name))
-						bit_sources[sig[i]].insert(tuple<IdString, IdString, int>(cell_type, port_name, i));
+						bit_sources[sig[i]].insert(tuple<IdString, TwineRef, int>(cell_type, port_name, i));
 					if (cell->input(port_name))
-						bit_sinks[sig[i]].insert(tuple<IdString, IdString, int>(cell_type, port_name, i));
+						bit_sinks[sig[i]].insert(tuple<IdString, TwineRef, int>(cell_type, port_name, i));
 				}
 			}
 
@@ -91,13 +91,13 @@ struct EdgetypePass : public Pass {
 				auto sink_port_name = std::get<1>(sink);
 				auto sink_bit_index = std::get<2>(sink);
 
-				string source_str = multibit_ports.count(std::pair<IdString, IdString>(source_cell_type, source_port_name)) ?
-						stringf("%s.%s[%d]", source_cell_type.unescape(), source_port_name.unescape(), source_bit_index) :
-						stringf("%s.%s", source_cell_type.unescape(), source_port_name.unescape());
+				string source_str = multibit_ports.count(std::pair<IdString, TwineRef>(source_cell_type, source_port_name)) ?
+						stringf("%s.%s[%d]", source_cell_type.unescape(), module->design->twines.str(source_port_name).c_str(), source_bit_index) :
+						stringf("%s.%s", source_cell_type.unescape(), module->design->twines.str(source_port_name).c_str());
 
-				string sink_str = multibit_ports.count(std::pair<IdString, IdString>(sink_cell_type, sink_port_name)) ?
-						stringf("%s.%s[%d]", sink_cell_type.unescape(), sink_port_name.unescape(), sink_bit_index) :
-						stringf("%s.%s", sink_cell_type.unescape(), sink_port_name.unescape());
+				string sink_str = multibit_ports.count(std::pair<IdString, TwineRef>(sink_cell_type, sink_port_name)) ?
+						stringf("%s.%s[%d]", sink_cell_type.unescape(), module->design->twines.str(sink_port_name).c_str(), sink_bit_index) :
+						stringf("%s.%s", sink_cell_type.unescape(), module->design->twines.str(sink_port_name).c_str());
 
 				edge_cache.insert(source_str + " " + sink_str);
 			}

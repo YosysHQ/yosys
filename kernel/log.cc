@@ -619,6 +619,39 @@ const char *log_id(const RTLIL::IdString &str)
 	return log_id_cache.back();
 }
 
+static const char *log_id_twine(const RTLIL::Design *design, TwineRef name)
+{
+	std::string unescaped = RTLIL::unescape_id(design->twines.str(name));
+	log_id_cache.push_back(strdup(unescaped.c_str()));
+	return log_id_cache.back();
+}
+
+const char *log_id(const RTLIL::Module *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->design, obj->meta_->name);
+}
+const char *log_id(const RTLIL::Cell *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->meta_->name);
+}
+const char *log_id(const RTLIL::Wire *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->meta_->name);
+}
+const char *log_id(const RTLIL::Memory *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->meta_->name);
+}
+const char *log_id(const RTLIL::Process *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->meta_->name);
+}
+
 void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;

@@ -94,7 +94,7 @@ struct BoxDerivePass : Pass {
 				if (base_override)
 					base = base_override;
 
-				auto index = std::make_pair(RTLIL::IdString(base->name), cell->parameters);
+				auto index = std::make_pair(RTLIL::IdString(base->design->twines.str(base->meta_->name)), cell->parameters);
 
 				if (cell->parameters.empty())
 					continue;
@@ -111,14 +111,14 @@ struct BoxDerivePass : Pass {
 							log_error("Derived module %s cannot be renamed to private name %s.\n",
 									  derived, new_name.unescape());
 						derived->attributes.erase(naming_attr);
-						d->rename(derived, new_name);
+						d->rename(derived, d->twines.add(Twine{new_name.str()}));
 					}
 
 					done[index] = derived;
 				}
 
 				if (apply_mode)
-					cell->type = done[index]->name;
+					cell->type = RTLIL::IdString(done[index]->design->twines.str(done[index]->meta_->name));
 			}
 		}
 	}

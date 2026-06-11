@@ -196,9 +196,10 @@ struct IdStringCollector {
 		trace(selection_var.selected_modules);
 		trace(selection_var.selected_members);
 	}
-	void trace_named(const RTLIL::NamedObject &named) {
+	void trace_named(const RTLIL::AttrObject &named) {
 		trace_keys(named.attributes);
-		trace(named.name);
+		if (named.meta_)
+			trace(named.meta_->name);
 	}
 	void trace(const RTLIL::Wire &wire) {
 		trace_named(wire);
@@ -1548,6 +1549,7 @@ RTLIL::Module *RTLIL::Design::addModule(TwineRef name)
 	RTLIL::Module *module = new RTLIL::Module;
 	modules_[name] = module;
 	module->design = this;
+	module->meta_ = alloc_obj_meta();
 	module->meta_->name = name;
 
 	for (auto mon : monitors)
@@ -1938,7 +1940,7 @@ void RTLIL::Module::makeblackbox()
 
 void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<RTLIL::IdString, RTLIL::Module *> &)
 {
-	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", name.unescape());
+	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", design->twines.str(meta_->name).c_str());
 }
 
 bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
@@ -1950,7 +1952,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 {
 	if (mayfail)
 		return IdString();
-	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
+	log_error("Module `%s' is used with parameters but is not parametric!\n", design->twines.str(meta_->name).c_str());
 }
 
 
@@ -1958,13 +1960,12 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 {
 	if (mayfail)
 		return IdString();
-	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
+	log_error("Module `%s' is used with parameters but is not parametric!\n", design->twines.str(meta_->name).c_str());
 }
 
 size_t RTLIL::Module::count_id(TwineRef id)
 {
-	IdString sid(design->twines.str(id));
-	return wires_.count(id) + cells_.count(id) + memories.count(sid) + processes.count(sid);
+	return wires_.count(id) + cells_.count(id) + memories.count(id) + processes.count(id);
 }
 
 #ifndef NDEBUG
@@ -1983,9 +1984,11 @@ namespace {
 			std::stringstream buf;
 			RTLIL_BACKEND::dump_cell(buf, "  ", cell);
 
+			std::string mod_name = module ? module->design->twines.str(module->meta_->name) : std::string();
+			std::string cell_name = cell->module->design->twines.str(cell->meta_->name);
 			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",
-					module ? module->name.c_str() : "", module ? "." : "",
-					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
+					mod_name.c_str(), module ? "." : "",
+					cell_name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
 		int param(IdString name)
@@ -2951,8 +2954,8 @@ void RTLIL::Module::sort()
 	wires_.sort(sort_twine_by_str);
 	cells_.sort(sort_twine_by_str);
 	parameter_default_values.sort(sort_by_id_str());
-	memories.sort(sort_by_id_str());
-	processes.sort(sort_by_id_str());
+	memories.sort(sort_twine_by_str);
+	processes.sort(sort_twine_by_str);
 	for (auto &it : cells_)
 		it.second->sort();
 	for (auto &it : wires_)
@@ -2969,13 +2972,13 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 
 	pool<std::string> memory_strings;
 	for (auto &it : module->memories) {
-		log_assert(it.first == it.second->name);
-		log_assert(!it.first.empty());
+		log_assert(it.second->meta_ && it.first == it.second->meta_->name);
+		log_assert(it.first != Twine::Null);
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->size >= 0);
 		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
-		memory_strings.insert(it.second->name.str());
+		memory_strings.insert(module->design->twines.str(it.second->meta_->name));
 	}
 
 	std::vector<MonotonicFlag> ports_declared(GetSize(module->ports));
@@ -3047,8 +3050,8 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 		log_assert(memids_pool.insert(memid).second);
 
 	for (auto &it : module->processes) {
-		log_assert(it.first == it.second->name);
-		log_assert(!it.first.empty());
+		log_assert(it.second->meta_ && it.first == it.second->meta_->name);
+		log_assert(it.first != Twine::Null);
 		log_assert(it.second->root_case.compare.empty());
 		std::vector<RTLIL::CaseRule*> all_cases = {&it.second->root_case};
 		for (size_t i = 0; i < all_cases.size(); i++) {
@@ -3172,7 +3175,8 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		}
 		for (auto it = memories.rbegin(); it != memories.rend(); ++it) {
 			const RTLIL::Memory *o = it->second;
-			RTLIL::Memory *m = new_mod->addMemory(it->first);
+			TwineRef dst_name = new_mod->design->twines.copy_from(design->twines, it->first);
+			RTLIL::Memory *m = new_mod->addMemory(dst_name);
 			m->width = o->width;
 			m->start_offset = o->start_offset;
 			m->size = o->size;
@@ -3190,8 +3194,11 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		}
 		for (auto it = processes.rbegin(); it != processes.rend(); ++it) {
 			const RTLIL::Process *o = it->second;
+			TwineRef dst_name = new_mod->design->twines.copy_from(design->twines, it->first);
 			RTLIL::Process *p = o->clone();
-			p->name = it->first;
+			if (!p->meta_)
+				p->meta_ = new_mod->design->alloc_obj_meta();
+			p->meta_->name = dst_name;
 			new_mod->add(p);
 			copy_meta(o, p);
 			std::vector<std::pair<const RTLIL::CaseRule*, RTLIL::CaseRule*>> case_stack;
@@ -3236,16 +3243,20 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			new_mod->addWire(dst_id, it->second);
 		}
 
-		for (auto it = memories.rbegin(); it != memories.rend(); ++it)
-			new_mod->addMemory(it->first, it->second);
+		for (auto it = memories.rbegin(); it != memories.rend(); ++it) {
+			TwineRef dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
+			new_mod->addMemory(dst_id, it->second);
+		}
 
 		for (auto it = cells_.rbegin(); it != cells_.rend(); ++it) {
 			TwineRef dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
 			new_mod->addCell(dst_id, it->second);
 		}
 
-		for (auto it = processes.rbegin(); it != processes.rend(); ++it)
-			new_mod->addProcess(it->first, it->second);
+		for (auto it = processes.rbegin(); it != processes.rend(); ++it) {
+			TwineRef dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
+			new_mod->addProcess(dst_id, it->second);
+		}
 	}
 
 	struct RewriteSigSpecWorker
@@ -3272,7 +3283,8 @@ RTLIL::Module *RTLIL::Module::clone() const
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
 	new_mod->design = design;
-	new_mod->name = name;
+	new_mod->meta_ = design->alloc_obj_meta();
+	new_mod->meta_->name = meta_->name;
 	cloneInto(new_mod);
 	return new_mod;
 }
@@ -3281,7 +3293,8 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, bool src_id_verbatim) co
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
 	new_mod->design = dst;
-	new_mod->name = name;
+	new_mod->meta_ = dst->alloc_obj_meta();
+	new_mod->meta_->name = dst->twines.copy_from(design->twines, meta_->name);
 	cloneInto(new_mod, src_id_verbatim);
 	dst->add(new_mod);
 	return new_mod;
@@ -3291,7 +3304,8 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, RTLIL::IdString target_n
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
 	new_mod->design = dst;
-	new_mod->name = target_name;
+	new_mod->meta_ = dst->alloc_obj_meta();
+	new_mod->meta_->name = dst->twines.add(Twine{target_name.str()});
 	cloneInto(new_mod, src_id_verbatim);
 	dst->add(new_mod);
 	return new_mod;
@@ -3371,9 +3385,9 @@ std::vector<RTLIL::Process*> RTLIL::Module::selected_processes() const
 	return result;
 }
 
-std::vector<RTLIL::NamedObject*> RTLIL::Module::selected_members() const
+std::vector<RTLIL::AttrObject*> RTLIL::Module::selected_members() const
 {
-	std::vector<RTLIL::NamedObject*> result;
+	std::vector<RTLIL::AttrObject*> result;
 	auto cells = selected_cells();
 	auto memories = selected_memories();
 	auto wires = selected_wires();
@@ -3407,9 +3421,9 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 
 void RTLIL::Module::add(RTLIL::Process *process)
 {
-	log_assert(!process->name.empty());
-	log_assert(count_id(design->twines.lookup(process->name.str())) == 0);
-	processes[process->name] = process;
+	log_assert(process->meta_ && process->meta_->name != Twine::Null);
+	log_assert(count_id(process->meta_->name) == 0);
+	processes[process->meta_->name] = process;
 	process->module = this;
 	// Propagate module back-pointer to every CaseRule/SwitchRule in the
 	// root case tree and every MemWriteAction in the sync rules — so the
@@ -3476,15 +3490,15 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Memory *memory)
 {
-	log_assert(memories.count(memory->name) != 0);
-	memories.erase(memory->name);
+	log_assert(memory->meta_ && memories.count(memory->meta_->name) != 0);
+	memories.erase(memory->meta_->name);
 	delete memory;
 }
 
 void RTLIL::Module::remove(RTLIL::Process *process)
 {
-	log_assert(processes.count(process->name) != 0);
-	processes.erase(process->name);
+	log_assert(process->meta_ && processes.count(process->meta_->name) != 0);
+	processes.erase(process->meta_->name);
 	delete process;
 }
 
@@ -3729,20 +3743,30 @@ RTLIL::Cell *RTLIL::Module::addCell(Twine &&name, const RTLIL::Cell *other)
 	return addCell(design->twines.add(std::move(name)), other);
 }
 
-RTLIL::Memory *RTLIL::Module::addMemory(IdString name)
+RTLIL::Memory *RTLIL::Module::addMemory(TwineRef name)
 {
+	log_assert(design);
 	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->name = std::move(name);
 	mem->module = this;
-	memories[mem->name] = mem;
+	mem->meta_ = design->alloc_obj_meta();
+	mem->meta_->name = name;
+	memories[name] = mem;
 	return mem;
 }
 
-RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *other)
+RTLIL::Memory *RTLIL::Module::addMemory(Twine &&name)
 {
+	log_assert(design);
+	return addMemory(design->twines.add(std::move(name)));
+}
+
+RTLIL::Memory *RTLIL::Module::addMemory(TwineRef name, const RTLIL::Memory *other)
+{
+	log_assert(design);
 	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->name = std::move(name);
 	mem->module = this;
+	mem->meta_ = design->alloc_obj_meta();
+	mem->meta_->name = name;
 	mem->width = other->width;
 	mem->start_offset = other->start_offset;
 	mem->size = other->size;
@@ -3753,16 +3777,24 @@ RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *othe
 		// common case.
 		(void)other;
 	}
-	memories[mem->name] = mem;
+	memories[name] = mem;
 	return mem;
 }
 
-RTLIL::Process *RTLIL::Module::addProcess(IdString name)
+RTLIL::Process *RTLIL::Module::addProcess(TwineRef name)
 {
+	log_assert(design);
 	RTLIL::Process *proc = new RTLIL::Process;
-	proc->name = std::move(name);
+	proc->meta_ = design->alloc_obj_meta();
+	proc->meta_->name = name;
 	add(proc);
 	return proc;
+}
+
+RTLIL::Process *RTLIL::Module::addProcess(Twine &&name)
+{
+	log_assert(design);
+	return addProcess(design->twines.add(std::move(name)));
 }
 
 namespace {
@@ -3806,10 +3838,13 @@ namespace {
 	}
 }
 
-RTLIL::Process *RTLIL::Module::addProcess(IdString name, const RTLIL::Process *other)
+RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *other)
 {
+	log_assert(design);
 	RTLIL::Process *proc = other->clone();
-	proc->name = std::move(name);
+	if (!proc->meta_)
+		proc->meta_ = design->alloc_obj_meta();
+	proc->meta_->name = name;
 	add(proc);
 	// Migrate src across the design boundary for the inner-process tree.
 	// Process::clone drops src on CaseRule/SwitchRule/MemWriteAction since
@@ -6747,7 +6782,6 @@ RTLIL::Process *RTLIL::Process::clone() const
 {
 	RTLIL::Process *new_proc = new RTLIL::Process;
 
-	new_proc->name = name;
 	new_proc->attributes = attributes;
 	// clone() drops src across the whole tree; the caller is responsible
 	// for migrating src via context after the clone has a module.

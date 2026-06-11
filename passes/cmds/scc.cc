@@ -101,7 +101,7 @@ struct SccWorker
 			design(design), module(module), sigmap(module)
 	{
 		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name);
+			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", log_id(module));
 			return;
 		}
 
@@ -154,16 +154,16 @@ struct SccWorker
 
 					for (auto bit : subcell->getPort(TW::SRC))
 					{
-						if (!bit.wire || !cell->hasPort(bit.wire->name))
+						if (!bit.wire || !cell->hasPort(bit.wire->meta_->name))
 							continue;
-						inputSignals.append(sigmap(cell->getPort(bit.wire->name)));
+						inputSignals.append(sigmap(cell->getPort(bit.wire->meta_->name)));
 					}
 
 					for (auto bit : subcell->getPort(TW::DST))
 					{
-						if (!bit.wire || !cell->hasPort(bit.wire->name))
+						if (!bit.wire || !cell->hasPort(bit.wire->meta_->name))
 							continue;
-						outputSignals.append(sigmap(cell->getPort(bit.wire->name)));
+						outputSignals.append(sigmap(cell->getPort(bit.wire->meta_->name)));
 					}
 				}
 			} else {
@@ -221,7 +221,7 @@ struct SccWorker
 			run(cell, 0, maxDepth);
 		}
 
-		log("Found %d SCCs in module %s.\n", int(sccList.size()), module);
+		log("Found %d SCCs in module %s.\n", int(sccList.size()), log_id(module));
 	}
 
 	void select(RTLIL::Selection &sel)
@@ -232,7 +232,7 @@ struct SccWorker
 			RTLIL::SigSpec prevsig, nextsig, sig;
 
 			for (auto cell : cells) {
-				sel.selected_members[module->name].insert(cell->name);
+				sel.selected_members[module->meta_->name].insert(cell->meta_->name);
 				prevsig.append(cellToPrevSig[cell]);
 				nextsig.append(cellToNextSig[cell]);
 			}
@@ -243,7 +243,7 @@ struct SccWorker
 
 			for (auto &chunk : sig.chunks())
 				if (chunk.wire != NULL)
-					sel.selected_members[module->name].insert(chunk.wire->name);
+					sel.selected_members[module->meta_->name].insert(chunk.wire->meta_->name);
 		}
 	}
 };

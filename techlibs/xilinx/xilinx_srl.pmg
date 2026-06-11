@@ -41,13 +41,13 @@ generate
 		break;
 	case 2:
 	case 3:
-		cell = module->addDffGate(NEW_ID, C, D, Q, r & 1);
+		cell = module->addDffGate(NEW_TWINE, C, D, Q, r & 1);
 		break;
 	case 4:
 	case 5:
 	case 6:
 	case 7:
-		cell = module->addDffeGate(NEW_ID, C, module->addWire(NEW_TWINE), D, Q, r & 1, r & 2);
+		cell = module->addDffeGate(NEW_TWINE, C, module->addWire(NEW_TWINE), D, Q, r & 1, r & 2);
 		break;
 	default: log_abort();
 	}
@@ -191,7 +191,7 @@ match shiftx
 	filter param(shiftx, \A_WIDTH).as_int() >= minlen
 generate
 	minlen = 3;
-	module->addShiftx(NEW_ID, module->addWire(NEW_TWINE, rng(6)+minlen), module->addWire(NEW_TWINE, 3), module->addWire(NEW_TWINE));
+	module->addShiftx(NEW_TWINE, module->addWire(NEW_TWINE, rng(6)+minlen), module->addWire(NEW_TWINE, 3), module->addWire(NEW_TWINE));
 endmatch
 
 code shiftx_width
@@ -217,18 +217,18 @@ generate
 	{
 	case 0:
 	case 1:
-		cell = module->addDff(NEW_ID, C, D, Q, r & 1);
+		cell = module->addDff(NEW_TWINE, C, D, Q, r & 1);
 		break;
 	case 2:
 	case 3:
 	case 4:
 	case 5:
-		//cell = module->addDffe(NEW_ID, C, module->addWire(NEW_TWINE), D, Q, r & 1, r & 4);
+		//cell = module->addDffe(NEW_TWINE, C, module->addWire(NEW_TWINE), D, Q, r & 1, r & 4);
 		//break;
 	case 6:
 	case 7:
 		WIDTH = 1;
-		cell = module->addDffGate(NEW_ID, C, D[0], Q[0], r & 1);
+		cell = module->addDffGate(NEW_TWINE, C, D[0], Q[0], r & 1);
 		break;
 	default: log_abort();
 	}
@@ -297,9 +297,9 @@ generate
 			else {
 				auto D = module->addWire(NEW_TWINE, WIDTH);
 				if (back->type == $dff)
-					module->addDff(NEW_ID, port(back, \CLK), D, port(back, \D), param(back, \CLK_POLARITY).as_bool());
+					module->addDff(NEW_TWINE, port(back, \CLK), D, port(back, \D), param(back, \CLK_POLARITY).as_bool());
 				else if (back->type == $dffe)
-					module->addDffe(NEW_ID, port(back, \CLK), port(back, \EN), D, port(back, \D), param(back, \CLK_POLARITY).as_bool(), param(back, \EN_POLARITY).as_bool());
+					module->addDffe(NEW_TWINE, port(back, \CLK), port(back, \EN), D, port(back, \D), param(back, \CLK_POLARITY).as_bool(), param(back, \EN_POLARITY).as_bool());
 				else
 					log_abort();
 			}

@@ -57,17 +57,17 @@ struct FsmExpand
 		int in_bits = 0;
 		RTLIL::SigSpec new_signals;
 
-		if (cell->hasPort(ID::A)) {
+		if (cell->hasPort(TW::A)) {
 			in_bits += GetSize(cell->getPort(TW::A));
 			new_signals.append(assign_map(cell->getPort(TW::A)));
 		}
 
-		if (cell->hasPort(ID::B)) {
+		if (cell->hasPort(TW::B)) {
 			in_bits += GetSize(cell->getPort(TW::B));
 			new_signals.append(assign_map(cell->getPort(TW::B)));
 		}
 
-		if (cell->hasPort(ID::S)) {
+		if (cell->hasPort(TW::S)) {
 			in_bits += GetSize(cell->getPort(TW::S));
 			new_signals.append(assign_map(cell->getPort(TW::S)));
 		}
@@ -75,7 +75,7 @@ struct FsmExpand
 		if (in_bits > 8)
 			return false;
 
-		if (cell->hasPort(ID::Y))
+		if (cell->hasPort(TW::Y))
 			new_signals.append(assign_map(cell->getPort(TW::Y)));
 
 		new_signals.sort_and_unify();
@@ -106,7 +106,7 @@ struct FsmExpand
 			if (merged_set.count(c) > 0 || current_set.count(c) > 0 || no_candidate_set.count(c) > 0)
 				continue;
 			for (auto &p : c->connections()) {
-				if (p.first != ID::A && p.first != ID::B && p.first != ID::S && p.first != ID::Y)
+				if (p.first != TW::A && p.first != TW::B && p.first != TW::S && p.first != TW::Y)
 					goto next_cell;
 			}
 			if (!is_cell_merge_candidate(c)) {
@@ -159,11 +159,11 @@ struct FsmExpand
 		for (int i = 0; i < (1 << input_sig.size()); i++) {
 			RTLIL::Const in_val(i, input_sig.size());
 			RTLIL::SigSpec A, B, S;
-			if (cell->hasPort(ID::A))
+			if (cell->hasPort(TW::A))
 				A = assign_map(cell->getPort(TW::A));
-			if (cell->hasPort(ID::B))
+			if (cell->hasPort(TW::B))
 				B = assign_map(cell->getPort(TW::B));
-			if (cell->hasPort(ID::S))
+			if (cell->hasPort(TW::S))
 				S = assign_map(cell->getPort(TW::S));
 			A.replace(input_sig, RTLIL::SigSpec(in_val));
 			B.replace(input_sig, RTLIL::SigSpec(in_val));
@@ -243,7 +243,7 @@ struct FsmExpand
 	void execute()
 	{
 		log("\n");
-		log("Expanding FSM `%s' from module `%s':\n", fsm_cell->name, module->name);
+		log("Expanding FSM `%s' from module `%s':\n", log_id(fsm_cell), log_id(module));
 
 		already_optimized = false;
 		limit_transitions =  16 * fsm_cell->parameters[ID::TRANS_NUM].as_int();

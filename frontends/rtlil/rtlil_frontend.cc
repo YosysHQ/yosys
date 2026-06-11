@@ -361,7 +361,7 @@ struct RTLILFrontendWorker {
 			// We don't need to addref/release in this case.
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
-				RTLIL::Wire *wire = current_module->wire(*id);
+				RTLIL::Wire *wire = current_module->wire(design->twines.lookup(id->str()));
 				if (wire == nullptr) {
 					if (flag_legalize)
 						wire = legalize_wire(*id);
@@ -515,17 +515,7 @@ struct RTLILFrontendWorker {
 		// is wrong and silently interning it would hide that.
 		if (id == RTLIL::ID::src && (c.flags & RTLIL::CONST_FLAG_STRING)) {
 			std::string raw = c.decode_string();
-			// TODO error handling
-			auto file_id = design->twines.parse_ref(raw);
-			if (file_id) {
-				// Translate the file-local twine id to the destination
-				// design's pool id via twine_remap. If the file had no
-				// `twines` block (legacy) the remap is empty — accept the
-				// ref verbatim and let downstream code intern it.
-				auto it = twine_remap.find(*file_id);
-				if (it != twine_remap.end())
-					c = RTLIL::Const(design->twines.format_ref(it->second));
-			} else if (raw.find('|') != std::string::npos) {
+			if (raw.find('|') != std::string::npos) {
 				log_warning("line %d: src attribute %s contains '|' separators. "
 						"That convention is Yosys-internal; the producing tool "
 						"should emit a single path:line.col per attribute and "
@@ -541,12 +531,10 @@ struct RTLILFrontendWorker {
 	// cell/wire src "@N" references (which use file-local ids) translate
 	// to ids in design->twines. The destination pool may already be
 	// non-empty (multi-file load) — interned/concated nodes are dedup'd
-	// against the existing pool by the pool itself. Each parser-side
-	// retain is tracked in twine_parser_holds and released at end-of-parse
-	// so only cell/wire references survive.
+	// against the existing pool by the pool itself.
 	void parse_twines()
 	{
-		TwinePoolExtender extender(design->twines, design->twines.size());
+		dict<size_t, Twine> file_twines;
 		expect_eol();
 		while (true) {
 			if (try_parse_keyword("end"))
@@ -555,7 +543,7 @@ struct RTLILFrontendWorker {
 				size_t file_id = parse_integer();
 				std::string text = parse_string();
 				expect_eol();
-				extender.extend_leaf(text, file_id);
+				file_twines[file_id] = Twine{text};
 				continue;
 			}
 			if (try_parse_keyword("suffix")) {
@@ -563,23 +551,30 @@ struct RTLILFrontendWorker {
 				size_t file_parent = parse_integer();
 				std::string tail = parse_string();
 				expect_eol();
-				extender.extend_suffix(file_parent, tail, file_id);
+				if (twine_remap.count(file_parent) == 0)
+					error("Unknown parent twine @%zu for suffix at line %d", file_parent, line_num);
+				file_twines[file_id] = Twine{Twine::Suffix{twine_remap[file_parent], tail}};
 				continue;
 			}
 			if (try_parse_keyword("concat")) {
 				size_t file_id = parse_integer();
-				std::vector<size_t> children;
+				std::vector<TwineRef> children;
 				while (!try_parse_eol()) {
-					children.push_back(parse_integer());
+					size_t child_id = parse_integer();
+					if (twine_remap.count(child_id) == 0)
+						error("Unknown child twine @%zu for concat at line %d", child_id, line_num);
+					children.push_back(twine_remap[child_id]);
 				}
-				extender.extend_concat(children, file_id);
+				file_twines[file_id] = Twine{children};
 				continue;
 			}
 			error("Expected `leaf`, `suffix` or `concat` inside twines block, got `%s'.",
 					error_token());
 		}
 		expect_eol();
-		extender.finish();
+		for (auto &p : file_twines) {
+			twine_remap[p.first] = design->twines.add(std::move(p.second));
+		}
 	}
 
 	// Release the per-file parser refs gathered during parse_twines. Call
@@ -587,8 +582,6 @@ struct RTLILFrontendWorker {
 	// referred to a file_id has already adopted the corresponding local_id.
 	void release_twine_parser_holds()
 	{
-		for (TwineRef id : twine_parser_holds)
-			design->twines.release(id);
 		twine_parser_holds.clear();
 		twine_remap.clear();
 	}
@@ -619,15 +612,18 @@ struct RTLILFrontendWorker {
 		{
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
-				if (current_module->wire(*id) != nullptr) {
+				TwineRef wire_name = design->twines.lookup(id->str());
+				if (wire_name == Twine::Null)
+					wire_name = design->twines.add(Twine{id->str()});
+				if (current_module->wire(wire_name) != nullptr) {
 				  if (flag_legalize) {
 						log("Legalizing redefinition of wire %s.\n", *id);
-						pool<RTLIL::Wire*> wires = {current_module->wire(*id)};
+						pool<RTLIL::Wire*> wires = {current_module->wire(wire_name)};
 						current_module->remove(wires);
 					} else
 						error("RTLIL error: redefinition of wire %s.", *id);
 				}
-				wire = current_module->addWire(std::move(*id));
+				wire = current_module->addWire(Twine{id->str()});
 				break;
 			}
 			if (try_parse_keyword("width"))
@@ -674,18 +670,22 @@ struct RTLILFrontendWorker {
 		int width = 1;
 		int start_offset = 0;
 		int size = 0;
+		TwineRef mem_name = Twine::Null;
 		while (true)
 		{
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
-				if (current_module->memories.count(*id) != 0) {
+				mem_name = design->twines.lookup(id->str());
+				if (mem_name == Twine::Null)
+					mem_name = design->twines.add(Twine{id->str()});
+				if (current_module->memories.count(mem_name) != 0) {
 					if (flag_legalize) {
 						log("Legalizing redefinition of memory %s.\n", *id);
-						current_module->remove(current_module->memories.at(*id));
+						current_module->remove(current_module->memories.at(mem_name));
 					} else
 						error("RTLIL error: redefinition of memory %s.", *id);
 				}
-				memory->name = std::move(*id);
+				memory->meta_->name = mem_name;
 				break;
 			}
 			if (try_parse_keyword("width"))
@@ -702,41 +702,53 @@ struct RTLILFrontendWorker {
 		memory->width = width;
 		memory->start_offset = start_offset;
 		memory->size = size;
-		current_module->memories.insert({memory->name, memory});
+		current_module->memories.insert({mem_name, memory});
 		expect_eol();
 	}
 
 	void legalize_width_parameter(RTLIL::Cell *cell, TwineRef port_name)
 	{
-		std::string width_param_name = port_name.str() + "_WIDTH";
-		if (cell->parameters.count(width_param_name) == 0)
+		std::string width_param_name = design->twines.str(port_name) + "_WIDTH";
+		if (cell->parameters.count(RTLIL::IdString(width_param_name)) == 0)
 			return;
-		RTLIL::Const &param = cell->parameters.at(width_param_name);
+		RTLIL::Const &param = cell->parameters.at(RTLIL::IdString(width_param_name));
 		if (param.as_int() != 0)
 			return;
-		cell->parameters[width_param_name] = RTLIL::Const(cell->getPort(port_name).size());
+		cell->parameters[RTLIL::IdString(width_param_name)] = RTLIL::Const(cell->getPort(port_name).size());
 	}
 
 	void parse_cell()
 	{
 		RTLIL::IdString cell_type = parse_id();
-		RTLIL::IdString cell_name = parse_id();
+		std::string cell_name_str = parse_id();
 		expect_eol();
 
-		if (current_module->cell(cell_name) != nullptr) {
+		TwineRef cell_name_ref = design->twines.lookup(cell_name_str);
+		if (cell_name_ref == Twine::Null)
+			cell_name_ref = design->twines.add(Twine{cell_name_str});
+
+		if (current_module->cell(cell_name_ref) != nullptr) {
 			if (flag_legalize) {
-				RTLIL::IdString new_name;
+				std::string new_name_str;
 				int suffix = 1;
 				do {
-					new_name = RTLIL::IdString(cell_name.str() + "_" + std::to_string(suffix));
+					new_name_str = cell_name_str + "_" + std::to_string(suffix);
+					TwineRef test_ref = design->twines.lookup(new_name_str);
+					if (test_ref == Twine::Null)
+						test_ref = design->twines.add(Twine{new_name_str});
 					++suffix;
-				} while (current_module->cell(new_name) != nullptr);
-				log("Legalizing redefinition of cell %s by renaming to %s.\n", cell_name, new_name);
-				cell_name = new_name;
+					if (current_module->cell(test_ref) == nullptr)
+						break;
+				} while (true);
+				log("Legalizing redefinition of cell %s by renaming to %s.\n", cell_name_str, new_name_str);
+				cell_name_str = new_name_str;
+				cell_name_ref = design->twines.lookup(cell_name_str);
+				if (cell_name_ref == Twine::Null)
+					cell_name_ref = design->twines.add(Twine{cell_name_str});
 			} else
-				error("RTLIL error: redefinition of cell %s.", cell_name);
+				error("RTLIL error: redefinition of cell %s.", cell_name_str);
 		}
-		RTLIL::Cell *cell = current_module->addCell(cell_name, cell_type);
+		RTLIL::Cell *cell = current_module->addCell(Twine{cell_name_str}, cell_type);
 		cell->absorb_attrs(std::move(attrbuf));
 
 		while (true)
@@ -763,14 +775,17 @@ struct RTLILFrontendWorker {
 				cell->parameters.insert({std::move(param_name), std::move(val)});
 				expect_eol();
 			} else if (try_parse_keyword("connect")) {
-				TwineRef port_name = parse_id();
+				std::string port_name_str = parse_id();
+				TwineRef port_name = design->twines.lookup(port_name_str);
+				if (port_name == Twine::Null)
+					port_name = design->twines.add(Twine{port_name_str});
 				if (cell->hasPort(port_name)) {
 					if (flag_legalize)
-						log("Legalizing redefinition of cell port %s.", port_name);
+						log("Legalizing redefinition of cell port %s.", port_name_str);
 					else
-						error("RTLIL error: redefinition of cell port %s.", port_name);
+						error("RTLIL error: redefinition of cell port %s.", port_name_str);
 				}
-				cell->setPort(std::move(port_name), parse_sigspec());
+				cell->setPort(port_name, parse_sigspec());
 				if (flag_legalize)
 					legalize_width_parameter(cell, port_name);
 				expect_eol();
@@ -869,17 +884,21 @@ struct RTLILFrontendWorker {
 
 	void parse_process()
 	{
-		RTLIL::IdString proc_name = parse_id();
+		std::string proc_name_str = parse_id();
 		expect_eol();
+
+		TwineRef proc_name = design->twines.lookup(proc_name_str);
+		if (proc_name == Twine::Null)
+			proc_name = design->twines.add(Twine{proc_name_str});
 
 		if (current_module->processes.count(proc_name) != 0) {
 			if (flag_legalize) {
-				log("Legalizing redefinition of process %s.\n", proc_name);
+				log("Legalizing redefinition of process %s.\n", proc_name_str);
 				current_module->remove(current_module->processes.at(proc_name));
 			} else
-				error("RTLIL error: redefinition of process %s.", proc_name);
+				error("RTLIL error: redefinition of process %s.", proc_name_str);
 		}
-		RTLIL::Process *proc = current_module->addProcess(std::move(proc_name));
+		RTLIL::Process *proc = current_module->addProcess(Twine{proc_name_str});
 		proc->absorb_attrs(std::move(attrbuf));
 
 		switch_stack.clear();

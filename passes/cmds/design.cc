@@ -272,7 +272,7 @@ struct DesignPass : public Pass {
 				t->attributes.erase(ID::top);
 
 				queue.insert(t);
-				done[mod->name] = prefix;
+				done[RTLIL::escape_id(copy_from_design->twines.str(mod->meta_->name))] = prefix;
 			}
 
 			while (!queue.empty() && copy_from_design)
@@ -316,7 +316,7 @@ struct DesignPass : public Pass {
 
 			for (auto mod : copy_src_modules)
 			{
-				std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
+				std::string trg_name = as_name.empty() ? copy_from_design->twines.str(mod->meta_->name) : RTLIL::escape_id(as_name);
 
 				if (copy_to_design->module(trg_name) != nullptr)
 					copy_to_design->remove(copy_to_design->module(trg_name));
@@ -358,7 +358,7 @@ struct DesignPass : public Pass {
 
 			design->selection_stack.clear();
 			design->selection_vars.clear();
-			design->selected_active_module.clear();
+			design->selected_active_module = Twine::Null;
 
 			design->push_full_selection();
 		}

@@ -85,7 +85,7 @@ void find_dff_wires(std::set<RTLIL::IdString> &dff_wires, RTLIL::Module *module)
 	SigPool dffsignals;
 
 	for (auto cell : module->cells()) {
-		if (ct.cell_known(cell->type) && cell->hasPort(ID::Q))
+		if (ct.cell_known(cell->type) && cell->hasPort(TW::Q))
 			dffsignals.add(sigmap(cell->getPort(TW::Q)));
 	}
 

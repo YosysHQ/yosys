@@ -473,7 +473,7 @@ void prep_dff(RTLIL::Design *design)
 				// be instantiating the derived module which will have had any parameters constant-propagated.
 				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 				// Please file a bug report!
-				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->name.unescape(), cell->type.unescape());
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->module->design->twines.str(cell->meta_->name), cell->type.unescape());
 			}
 			modules_sel.select(inst_module);
 		}
@@ -504,7 +504,7 @@ void prep_dff_submod(RTLIL::Design *design)
 		//   (a) flop box will have an output
 		//   (b) $_DFF_[NP]_.Q will be present as an input
 		SigBit D = module->addWire(NEW_TWINE);
-		module->addMuxGate(NEW_ID, dff_cell->getPort(TW::D), Q, State::S0, D);
+		module->addMuxGate(NEW_TWINE, dff_cell->getPort(TW::D), Q, State::S0, D);
 		dff_cell->setPort(TW::D, D);
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
@@ -1389,8 +1389,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 				log_error("Cannot find existing box cell with name '%s' in original design.\n", mapped_cell);
 
 			if (existing_cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY=")) {
-				SigBit I = mapped_cell->getPort(ID(i));
-				SigBit O = mapped_cell->getPort(ID(o));
+				SigBit I = mapped_cell->getPort(TW::i);
+				SigBit O = mapped_cell->getPort(TW::o);
 				if (I.wire)
 					I.wire = module->wire(remap_name(I.wire->name));
 				log_assert(O.wire);
@@ -1609,7 +1609,7 @@ clone_lut:
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}
-		auto cell = module->addLut(NEW_ID,
+		auto cell = module->addLut(NEW_TWINE,
 				driver_lut->getPort(TW::A),
 				y_bit,
 				driver_mask);

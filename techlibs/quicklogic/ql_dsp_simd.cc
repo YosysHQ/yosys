@@ -206,7 +206,7 @@ struct QlDspSimdPass : public Pass {
 
 					// Enable the fractured mode by connecting the control
 					// port.
-					simd->setPort(ID(f_mode), State::S1);
+					simd->setPort(TW::f_mode, State::S1);
 					simd->setParam(ID(MODE_BITS), mode_bits);
 					log_assert(mode_bits.size() == m_ModeBitsSize);
 

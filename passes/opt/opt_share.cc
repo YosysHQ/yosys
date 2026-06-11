@@ -55,11 +55,11 @@ struct ExtSigSpec {
 	RTLIL::SigSpec sig;
 	RTLIL::SigSpec sign;
 	bool is_signed;
-	RTLIL::IdString semantics;
+	TwineRef semantics;
 
 	ExtSigSpec() {}
 
-	ExtSigSpec(RTLIL::SigSpec s, RTLIL::SigSpec sign = RTLIL::Const(0, 1), bool is_signed = false, RTLIL::IdString semantics = RTLIL::IdString()) : sig(s), sign(sign), is_signed(is_signed), semantics(semantics) {}
+	ExtSigSpec(RTLIL::SigSpec s, RTLIL::SigSpec sign = RTLIL::Const(0, 1), bool is_signed = false, TwineRef semantics = Twine::Null) : sig(s), sign(sign), is_signed(is_signed), semantics(semantics) {}
 
 	bool empty() const { return sig.empty(); }
 
@@ -126,22 +126,22 @@ bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 	return a_type == b_type;
 }
 
-RTLIL::IdString decode_port_semantics(RTLIL::Cell *cell, TwineRef port_name)
+TwineRef decode_port_semantics(RTLIL::Cell *cell, TwineRef port_name)
 {
-	if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($concat), SHIFT_OPS) && port_name == ID::B)
+	if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($concat), SHIFT_OPS) && port_name == TW::B)
 		return port_name;
 
 	if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
 		return port_name;
 
-	return "";
+	return Twine::Null;
 }
 
 RTLIL::SigSpec decode_port_sign(RTLIL::Cell *cell, TwineRef port_name) {
 
-	if (cell->type == ID($alu) && port_name == ID::B)
+	if (cell->type == ID($alu) && port_name == TW::B)
 		return cell->getPort(TW::BI);
-	else if (cell->type == ID($sub) && port_name == ID::B)
+	else if (cell->type == ID($sub) && port_name == TW::B)
 		return RTLIL::Const(1, 1);
 
 	return RTLIL::Const(0, 1);
@@ -152,8 +152,9 @@ bool decode_port_signed(RTLIL::Cell *cell, TwineRef port_name)
 	if (cell->type.in(BITWISE_OPS, LOGICAL_OPS))
 		return false;
 
-	if (cell->hasParam(port_name.str() + "_SIGNED"))
-		return cell->getParam(port_name.str() + "_SIGNED").as_bool();
+	auto param_signed = cell->module->design->twines.str(port_name) + "_SIGNED";
+	if (cell->hasParam(param_signed))
+		return cell->getParam(param_signed).as_bool();
 
 	return false;
 }
@@ -163,7 +164,7 @@ ExtSigSpec decode_port(RTLIL::Cell *cell, TwineRef port_name, const SigMap &sigm
 	auto sig = sigmap(cell->getPort(port_name));
 
 	RTLIL::SigSpec sign = decode_port_sign(cell, port_name);
-	RTLIL::IdString semantics = decode_port_semantics(cell, port_name);
+	TwineRef semantics = decode_port_semantics(cell, port_name);
 
 	bool is_signed = decode_port_signed(cell, port_name);
 
@@ -177,9 +178,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	for (const auto& p : ports) {
 		auto op = p.op;
 
-		RTLIL::IdString muxed_port_name = ID::A;
-		if (decode_port(op, ID::A, sigmap) == operand)
-			muxed_port_name = ID::B;
+		TwineRef muxed_port_name = TW::A;
+		if (decode_port(op, TW::A, sigmap) == operand)
+			muxed_port_name = TW::B;
 
 		auto operand = decode_port(op, muxed_port_name, sigmap);
 		if (operand.sig.size() > max_width)
@@ -196,7 +197,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	for (auto &operand : muxed_operands) {
 		operand.sig.extend_u0(max_width, operand.is_signed);
 		if (operand.sign != muxed_operands[0].sign)
-			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed));
+			operand = ExtSigSpec(module->Neg(NEW_TWINE, operand.sig, operand.is_signed));
 	}
 
 	for (const auto& p : ports) {
@@ -241,9 +242,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	SigSpec mux_to_oper;
 	if (GetSize(shared_pmux_s) == 1) {
-		mux_to_oper = module->Mux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Mux(NEW_TWINE, shared_pmux_a, shared_pmux_b, shared_pmux_s);
 	} else {
-		mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Pmux(NEW_TWINE, shared_pmux_a, shared_pmux_b, shared_pmux_s);
 	}
 
 	if (shared_op->type.in(ID($alu))) {
@@ -257,7 +258,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	if (!is_fine)
 		shared_op->setParam(ID::Y_WIDTH, GetSize(new_out));
 
-	if (decode_port(shared_op, ID::A, sigmap) == operand) {
+	if (decode_port(shared_op, TW::A, sigmap) == operand) {
 		shared_op->setPort(TW::B, mux_to_oper);
 		if (!is_fine)
 			shared_op->setParam(ID::B_WIDTH, max_width);
@@ -284,9 +285,9 @@ void check_muxed_operands(std::vector<const OpMuxConn *> &ports, const ExtSigSpe
 		auto p = *it;
 		auto op = p->op;
 
-		RTLIL::IdString muxed_port_name = ID::A;
-		if (decode_port(op, ID::A, sigmap) == shared_operand) {
-			muxed_port_name = ID::B;
+		TwineRef muxed_port_name = TW::A;
+		if (decode_port(op, TW::A, sigmap) == shared_operand) {
+			muxed_port_name = TW::B;
 		}
 
 		auto operand = decode_port(op, muxed_port_name, sigmap);
@@ -313,7 +314,7 @@ ExtSigSpec find_shared_operand(const OpMuxConn* seed, std::vector<const OpMuxCon
 
 	auto op_a = seed->op;
 
-	for (TwineRef port_name : {ID::A, ID::B}) {
+	for (TwineRef port_name : {TW::A, TW::B}) {
 		oper = decode_port(op_a, port_name, sigmap);
 		auto operand_users = operand_to_users.at(oper);
 
@@ -386,7 +387,7 @@ struct OptSharePass : public Pass {
 
 				bool skip = false;
 				if (cell->type == ID($alu)) {
-					for (TwineRef port_name : {ID::X, ID::CO}) {
+					for (TwineRef port_name : {TW::X, TW::CO}) {
 						for (auto outbit : sigmap(cell->getPort(port_name)))
 							if (bit_users[outbit] > 1)
 								skip = true;
@@ -400,7 +401,7 @@ struct OptSharePass : public Pass {
 				for (int i = 0; i < GetSize(mux_insig); i++)
 					op_outbit_to_outsig[mux_insig[i]] = std::make_pair(cell, i);
 
-				for (TwineRef port_name : {ID::A, ID::B}) {
+				for (TwineRef port_name : {TW::A, TW::B}) {
 					auto op_insig = decode_port(cell, port_name, sigmap);
 					operand_to_users[op_insig].insert(cell);
 					if (operand_to_users[op_insig].size() > 1)

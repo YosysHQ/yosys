@@ -246,20 +246,20 @@ struct proc_dlatch_db_t
 			if (rule.match == State::S1)
 				and_bits.append(rule.signal);
 			else if (rule.match == State::S0)
-				and_bits.append(module->Not(NEW_ID, rule.signal, false, src));
+				and_bits.append(module->Not(NEW_TWINE, rule.signal, false));
 			else
-				and_bits.append(module->Eq(NEW_ID, rule.signal, rule.match, false, src));
+				and_bits.append(module->Eq(NEW_TWINE, rule.signal, rule.match, false));
 		}
 
 		if (!rule.children.empty()) {
 			SigSpec or_bits;
 			for (int k : rule.children)
 				or_bits.append(make_hold(k, src));
-			and_bits.append(module->ReduceOr(NEW_ID, or_bits, false, src));
+			and_bits.append(module->ReduceOr(NEW_TWINE, or_bits, false));
 		}
 
 		if (GetSize(and_bits) == 2)
-			and_bits = module->And(NEW_ID, and_bits[0], and_bits[1], false, src);
+			and_bits = module->And(NEW_TWINE, and_bits[0], and_bits[1], false);
 		log_assert(GetSize(and_bits) == 1);
 
 		rules_sig[n] = and_bits[0];
@@ -360,7 +360,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 
 		if (proc->get_bool_attribute(ID::always_ff))
 			log_error("Found non edge/level sensitive event in always_ff process `%s.%s'.\n",
-					db.module->name.c_str(), proc->name.c_str());
+					db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str());
 
 		for (auto ss : sr->actions)
 		{
@@ -397,14 +397,14 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 		SigSpec lhs = chunk, rhs = nolatches_bits.second.extract(offset, chunk.width);
 		if (proc->get_bool_attribute(ID::always_latch))
 			log_error("No latch inferred for signal `%s.%s' from always_latch process `%s.%s'.\n",
-					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+					db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str());
 		else
 			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
-					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+					db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str());
 		for (auto &bit : lhs) {
 			State val = db.initvals(bit);
 			if (db.initvals(bit) != State::Sx) {
-				log("Removing init bit %s for non-memory siginal `%s.%s` in process `%s.%s`.\n", log_signal(val), db.module->name, log_signal(bit), db.module->name, proc->name);
+				log("Removing init bit %s for non-memory siginal `%s.%s` in process `%s.%s`.\n", log_signal(val), db.module->design->twines.str(db.module->meta_->name), log_signal(bit), db.module->design->twines.str(db.module->meta_->name), db.module->design->twines.str(proc->meta_->name));
 			}
 			db.initvals.remove_init(bit);
 		}
@@ -429,16 +429,16 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			SigSpec lhs = latches_bits.first.extract(offset, width);
 			SigSpec rhs = latches_bits.second.extract(offset, width);
 
-			Cell *cell = db.module->addDlatch(NEW_ID, db.module->Not(NEW_ID, db.make_hold(n, src)), rhs, lhs);
-			cell->set_src_attribute(src);
+			Cell *cell = db.module->addDlatch(NEW_TWINE, db.module->Not(NEW_TWINE, db.make_hold(n, src)), rhs, lhs);
+			cell->set_src_attribute(db.module->design->twines.add(Twine{src}));
 			db.generated_dlatches.insert(cell);
 
 			if (proc->get_bool_attribute(ID::always_comb))
 				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+						db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str());
 			else
 				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
+						db.module->design->twines.str(db.module->meta_->name).c_str(), log_signal(lhs), db.module->design->twines.str(db.module->meta_->name).c_str(), db.module->design->twines.str(proc->meta_->name).c_str(), cell);
 		}
 
 		offset += width;

@@ -68,12 +68,12 @@ struct DeletePass : public Pass {
 		std::vector<RTLIL::Module *> delete_mods;
 		for (auto module : design->modules())
 		{
-			if (design->selected_whole_module(module->name) && !flag_input && !flag_output) {
+			if (design->selected_whole_module(module->meta_->name) && !flag_input && !flag_output) {
 				delete_mods.push_back(module);
 				continue;
 			}
 
-			if (!design->selected_module(module->name))
+			if (!design->selected_module(module->meta_->name))
 				continue;
 
 			if (flag_input || flag_output) {
@@ -91,7 +91,7 @@ struct DeletePass : public Pass {
 			pool<RTLIL::Wire*> delete_wires;
 			pool<RTLIL::Cell*> delete_cells;
 			pool<RTLIL::Process*> delete_procs;
-			pool<RTLIL::IdString> delete_mems;
+			pool<TwineRef> delete_mems;
 
 			for (auto wire : module->selected_wires())
 				delete_wires.insert(wire);
@@ -104,7 +104,7 @@ struct DeletePass : public Pass {
 				if (design->selected(module, cell))
 					delete_cells.insert(cell);
 				if (cell->has_memid() &&
-						delete_mems.count(cell->parameters.at(ID::MEMID).decode_string()) != 0)
+						delete_mems.count(design->twines.lookup(cell->parameters.at(ID::MEMID).decode_string())) != 0)
 					delete_cells.insert(cell);
 			}
 

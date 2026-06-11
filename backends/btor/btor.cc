@@ -122,14 +122,43 @@ struct BtorWorker
 		string infostr = obj->name.unescape();
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
 		if (obj->has_attribute(ID::src)) {
-			string raw_src = module && module->design ? module->design->get_src_attribute(obj) : std::string();
-			string src = module && module->design ? module->design->resolve_src(raw_src) : raw_src;
+			string src = module && module->design ? module->design->get_src_attribute(obj) : std::string();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
-				if (srcsymbols.count(src) || module->count_id("\\" + src)) {
+				TwineRef src_ref = module->design->twines.lookup(src);
+				if (srcsymbols.count(src) || src_ref != Twine::Null) {
 					for (int i = 1;; i++) {
 						string s = stringf("%s-%d", src, i);
-						if (!srcsymbols.count(s) && !module->count_id("\\" + s)) {
+						TwineRef s_ref = module->design->twines.lookup(s);
+						if (!srcsymbols.count(s) && s_ref == Twine::Null) {
+							src = s;
+							break;
+						}
+					}
+				}
+				srcsymbols.insert(src);
+				infostr = src;
+			} else {
+				infostr += " ; " + src;
+			}
+		}
+		return " " + infostr;
+	}
+
+	string getinfo(Mem *mem, bool srcsym = false)
+	{
+		string infostr = mem->memid.unescape();
+		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
+		if (mem->has_attribute(ID::src)) {
+			string src = module && module->design ? module->design->get_src_attribute(mem) : std::string();
+			if (srcsym && infostr[0] == '$') {
+				std::replace(src.begin(), src.end(), ' ', '_');
+				TwineRef src_ref = module->design->twines.lookup(src);
+				if (srcsymbols.count(src) || src_ref != Twine::Null) {
+					for (int i = 1;; i++) {
+						string s = stringf("%s-%d", src, i);
+						TwineRef s_ref = module->design->twines.lookup(s);
+						if (!srcsymbols.count(s) && s_ref == Twine::Null) {
 							src = s;
 							break;
 						}
@@ -249,7 +278,7 @@ struct BtorWorker
 		}
 
 		cell_recursion_guard.insert(cell);
-		btorf_push(cell->name.unescape());
+		btorf_push(cell->module->design->twines.str(cell->meta_->name));
 
 		if (cell->type.in(ID($add), ID($sub), ID($mul), ID($and), ID($or), ID($xor), ID($xnor), ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
 				ID($concat), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_)))
@@ -681,7 +710,7 @@ struct BtorWorker
 
 			if ((!info_filename.empty() || ywmap_json.active()) && cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)))
 			{
-				SigSpec sig_c = sigmap(cell->getPort(cell->type == ID($dff) ? ID::CLK : ID::C));
+				SigSpec sig_c = sigmap(cell->getPort(cell->type == ID($dff) ? TW::CLK : TW::C));
 				int nid = get_sig_nid(sig_c);
 				bool negedge = false;
 
@@ -962,7 +991,7 @@ struct BtorWorker
 		log_error("Unsupported cell type %s for cell %s.%s.\n",
 				cell->type.unescape(), module, cell);
 	okay:
-		btorf_pop(cell->name.unescape());
+		btorf_pop(cell->module->design->twines.str(cell->meta_->name));
 		cell_recursion_guard.erase(cell);
 	}
 
@@ -1269,7 +1298,7 @@ struct BtorWorker
 		{
 			if (cell->type == ID($assume))
 			{
-				btorf_push(cell->name.unescape());
+				btorf_push(cell->module->design->twines.str(cell->meta_->name));
 
 				int sid = get_bv_sid(1);
 				int nid_a = get_sig_nid(cell->getPort(TW::A));
@@ -1284,12 +1313,12 @@ struct BtorWorker
 
 				if (ywmap_json.active()) ywmap_assumes.emplace_back(cell);
 
-				btorf_pop(cell->name.unescape());
+				btorf_pop(cell->module->design->twines.str(cell->meta_->name));
 			}
 
 			if (cell->type == ID($assert))
 			{
-				btorf_push(cell->name.unescape());
+				btorf_push(cell->module->design->twines.str(cell->meta_->name));
 
 				int sid = get_bv_sid(1);
 				int nid_a = get_sig_nid(cell->getPort(TW::A));
@@ -1313,12 +1342,12 @@ struct BtorWorker
 					}
 				}
 
-				btorf_pop(cell->name.unescape());
+				btorf_pop(cell->module->design->twines.str(cell->meta_->name));
 			}
 
 			if (cell->type == ID($cover) && cover_mode)
 			{
-				btorf_push(cell->name.unescape());
+				btorf_push(cell->module->design->twines.str(cell->meta_->name));
 
 				int sid = get_bv_sid(1);
 				int nid_a = get_sig_nid(cell->getPort(TW::A));
@@ -1334,7 +1363,7 @@ struct BtorWorker
 					btorf("%d bad %d%s\n", nid, nid_en_and_a, getinfo(cell, true));
 				}
 
-				btorf_pop(cell->name.unescape());
+				btorf_pop(cell->module->design->twines.str(cell->meta_->name));
 			}
 		}
 
@@ -1434,7 +1463,7 @@ struct BtorWorker
 				}
 
 				int nid2 = next_nid++;
-				btorf("%d next %d %d %d%s\n", nid2, sid, nid, nid_head, (mem->cell ? getinfo(mem->cell) : getinfo(mem->mem)));
+				btorf("%d next %d %d %d%s\n", nid2, sid, nid, nid_head, getinfo(mem));
 
 				btorf_pop(stringf("next %s", mem->memid.unescape()));
 			}

@@ -253,10 +253,10 @@ struct ChparamPass : public Pass {
 			return;
 		}
 
-		pool<IdString> modnames, old_modnames;
+		pool<TwineRef> modnames, old_modnames;
 		for (auto module : design->selected_whole_modules_warn()) {
-			modnames.insert(module->name);
-			old_modnames.insert(module->name);
+			modnames.insert(module->meta_->name);
+			old_modnames.insert(module->meta_->name);
 		}
 		modnames.sort();
 
@@ -265,11 +265,11 @@ struct ChparamPass : public Pass {
 			Module *new_module = design->module(module->derive(design, new_parameters));
 			if (module != new_module) {
 				Module *m = new_module->clone();
-				m->name = module->name;
+				m->meta_->name = module->meta_->name;
 				design->remove(module);
 				design->add(m);
 			}
-			if (old_modnames.count(new_module->name) == 0)
+			if (old_modnames.count(new_module->meta_->name) == 0)
 				design->remove(new_module);
 		}
 	}

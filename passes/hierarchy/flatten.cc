@@ -42,6 +42,12 @@ template <typename... Args>
     return result;
 }
 
+struct module_ptr_compare {
+	bool operator()(RTLIL::Module *a, RTLIL::Module *b) const {
+		return a < b;
+	}
+};
+
 IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::string &separator = ".")
 {
 	std::string_view object_name_view(object_name.c_str());
@@ -57,9 +63,31 @@ IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::
 }
 
 template<class T>
-IdString map_name(RTLIL::Cell *cell, T *object, const std::string &separator = ".")
+TwineRef map_name(RTLIL::Cell *cell, T *object, const std::string &separator = ".")
 {
-	return cell->module->uniquify(concat_name(cell, object->name, separator));
+	return cell->module->uniquify(cell->module->design->twines.add(Twine{concat_name(cell, object->name, separator).str()}));
+}
+
+// Specialization for Memory
+template<>
+TwineRef map_name<RTLIL::Memory>(RTLIL::Cell *cell, RTLIL::Memory *object, const std::string &separator)
+{
+	auto design = cell->module->design;
+	std::string obj_name(design->twines.str(object->meta_->name));
+	IdString obj_name_id(obj_name);
+	std::string mapped_name = concat_name(cell, obj_name_id, separator).str();
+	return cell->module->uniquify(design->twines.add(Twine{mapped_name}));
+}
+
+// Specialization for Process
+template<>
+TwineRef map_name<RTLIL::Process>(RTLIL::Cell *cell, RTLIL::Process *object, const std::string &separator)
+{
+	auto design = cell->module->design;
+	std::string obj_name(design->twines.str(object->meta_->name));
+	IdString obj_name_id(obj_name);
+	std::string mapped_name = concat_name(cell, obj_name_id, separator).str();
+	return cell->module->uniquify(design->twines.add(Twine{mapped_name}));
 }
 
 void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
@@ -128,23 +156,24 @@ struct FlattenWorker
 	{
 		// Copy the contents of the flattened cell
 
-		dict<IdString, IdString> memory_map;
+		dict<TwineRef, TwineRef> memory_map;
 		for (auto &tpl_memory_it : tpl->memories) {
 			RTLIL::Memory *new_memory = module->addMemory(map_name(cell, tpl_memory_it.second, separator), tpl_memory_it.second);
-			map_attributes(cell, new_memory, tpl_memory_it.second->name);
-			memory_map[tpl_memory_it.first] = new_memory->name;
+			map_attributes(cell, new_memory, design->twines.str(tpl_memory_it.second->meta_->name));
+			memory_map[tpl_memory_it.first] = new_memory->meta_->name;
 			design->select(module, new_memory);
 		}
 
 		dict<RTLIL::Wire*, RTLIL::Wire*> wire_map;
-		dict<IdString, IdString> positional_ports;
+		dict<TwineRef, TwineRef> positional_ports;
 		for (auto tpl_wire : tpl->wires()) {
 			if (tpl_wire->port_id > 0)
-				positional_ports.emplace(stringf("$%d", tpl_wire->port_id), tpl_wire->name);
+				positional_ports.emplace(design->twines.add(Twine{stringf("$%d", tpl_wire->port_id)}), tpl_wire->meta_->name);
 
 			RTLIL::Wire *new_wire = nullptr;
 			if (tpl_wire->name[0] == '\\') {
-				RTLIL::Wire *hier_wire = module->wire(concat_name(cell, tpl_wire->name, separator));
+				std::string wire_name = concat_name(cell, tpl_wire->name, separator).str();
+				RTLIL::Wire *hier_wire = module->wire(design->twines.lookup(wire_name));
 				if (hier_wire != nullptr && hier_wire->get_bool_attribute(ID::hierconn)) {
 					hier_wire->attributes.erase(ID::hierconn);
 					if (GetSize(hier_wire) < GetSize(tpl_wire)) {
@@ -168,10 +197,12 @@ struct FlattenWorker
 
 		for (auto &tpl_proc_it : tpl->processes) {
 			RTLIL::Process *new_proc = module->addProcess(map_name(cell, tpl_proc_it.second, separator), tpl_proc_it.second);
-			map_attributes(cell, new_proc, tpl_proc_it.second->name);
+			map_attributes(cell, new_proc, design->twines.str(tpl_proc_it.second->meta_->name));
 			for (auto new_proc_sync : new_proc->syncs)
-				for (auto &memwr_action : new_proc_sync->mem_write_actions)
-					memwr_action.memid = memory_map.at(memwr_action.memid).str();
+				for (auto &memwr_action : new_proc_sync->mem_write_actions) {
+					TwineRef old_memid_ref = design->twines.lookup(memwr_action.memid.str());
+					memwr_action.memid = design->twines.str(memory_map.at(old_memid_ref));
+				}
 			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
 			new_proc->rewrite_sigspecs(rewriter);
 			design->select(module, new_proc);
@@ -184,7 +215,8 @@ struct FlattenWorker
 			map_attributes(cell, new_cell, tpl_cell->name);
 			if (new_cell->has_memid()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
-				new_cell->setParam(ID::MEMID, Const(memory_map.at(memid).str()));
+				TwineRef memid_ref = design->twines.lookup(memid.str());
+				new_cell->setParam(ID::MEMID, Const(design->twines.str(memory_map.at(memid_ref))));
 			} else if (new_cell->is_mem_cell()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(concat_name(cell, memid, separator).str()));
@@ -216,13 +248,14 @@ struct FlattenWorker
 
 		for (auto &port_it : cell->connections())
 		{
-			IdString port_name = port_it.first;
+			TwineRef port_name = port_it.first;
 			if (positional_ports.count(port_name) > 0)
 				port_name = positional_ports.at(port_name);
 			if (tpl->wire(port_name) == nullptr || tpl->wire(port_name)->port_id == 0) {
-				if (port_name.begins_with("$"))
+				std::string port_name_str = design->twines.str(port_name);
+				if (!port_name_str.empty() && port_name_str[0] == '$')
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n",
-						port_name.c_str(), cell->name.c_str(), tpl->name.c_str());
+						std::string(port_name_str).c_str(), cell->name.c_str(), design->twines.str(tpl->meta_->name).c_str());
 				continue;
 			}
 
@@ -263,7 +296,7 @@ struct FlattenWorker
 
 			if (sigmap(new_conn.first).has_const())
 				log_error("Cell port %s.%s.%s is driving constant bits: %s <= %s\n",
-					module, cell, port_it.first.unescape(), log_signal(new_conn.first), log_signal(new_conn.second));
+					module, cell, design->twines.str(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
 			module->connect(new_conn);
 			sigmap.add(new_conn.first, new_conn.second);
@@ -296,18 +329,18 @@ struct FlattenWorker
 			if (tpl->src_id() != Twine::Null)
 				scopeinfo->attributes.emplace(ID(module_src), RTLIL::Const(tpl->get_src_attribute()));
 
-			scopeinfo->attributes.emplace(ID(module), tpl->name.unescape());
+			scopeinfo->attributes.emplace(ID(module), RTLIL::Const(design->twines.str(tpl->meta_->name).substr(1)));
 		}
 
 		module->remove(cell);
 
 		if (scopeinfo != nullptr)
-			module->rename(scopeinfo, cell_name);
+			module->rename(scopeinfo, design->twines.add(Twine{cell_name.str()}));
 	}
 
 	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules, const std::string &separator)
 	{
-		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
+		if (!design->selected_module(module) || module->get_blackbox_attribute(ignore_wb))
 			return;
 
 		SigMap sigmap(module);
@@ -317,10 +350,11 @@ struct FlattenWorker
 			RTLIL::Cell *cell = worklist.back();
 			worklist.pop_back();
 
-			if (!design->has(cell->type))
+			TwineRef cell_type_ref = design->twines.add(Twine{cell->type.str()});
+			if (!design->has(cell_type_ref))
 				continue;
 
-			RTLIL::Module *tpl = design->module(cell->type);
+			RTLIL::Module *tpl = design->module(cell_type_ref);
 			if (tpl->get_blackbox_attribute(ignore_wb))
 				continue;
 
@@ -432,7 +466,7 @@ struct FlattenPass : public Pass {
 		else
 			used_modules.insert(top);
 
-		TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
+		TopoSort<RTLIL::Module*, module_ptr_compare> topo_modules;
 		pool<RTLIL::Module*> worklist = used_modules;
 		while (!worklist.empty()) {
 			RTLIL::Module *module = worklist.pop();

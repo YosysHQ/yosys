@@ -248,14 +248,16 @@ struct XAigerWriter
 						continue;
 				}
 
-				if (!timing.count(inst_module->name))
+				auto inst_name_id = RTLIL::IdString(design->twines.str(inst_module->meta_->name));
+				if (!timing.count(inst_name_id))
 					timing.setup_module(inst_module);
 
-				for (auto &i : timing.at(inst_module->name).arrival) {
-					if (!cell->hasPort(i.first.name))
+				for (auto &i : timing.at(inst_name_id).arrival) {
+					auto port_name_ref = design->twines.add(Twine{i.first.name.str()});
+					if (!cell->hasPort(port_name_ref))
 						continue;
 
-					auto port_wire = inst_module->wire(i.first.name);
+					auto port_wire = inst_module->wire(port_name_ref);
 					log_assert(port_wire->port_output);
 
 					auto d = i.second.first;
@@ -263,14 +265,14 @@ struct XAigerWriter
 						continue;
 					auto offset = i.first.offset;
 
-					auto rhs = cell->getPort(i.first.name);
+					auto rhs = cell->getPort(port_name_ref);
 					if (offset >= rhs.size())
 						continue;
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
 						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
-						if (seen.emplace(inst_module->name, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
+						if (seen.emplace(inst_name_id, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
 								cell->type.unescape(), i.first.name.unescape(), offset, d);
 					}
 #endif
@@ -288,7 +290,7 @@ struct XAigerWriter
 				auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
 				auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
 				if (!is_input && !is_output)
-					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", c.first.unescape(), cell, cell->type.unescape());
+					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", RTLIL::IdString(design->twines.str(c.first)).unescape(), cell, cell->type.unescape());
 
 				if (is_input)
 					for (auto b : c.second) {
@@ -309,7 +311,7 @@ struct XAigerWriter
 			//log_warning("Unsupported cell type: %s (%s)\n", cell->type.unescape(), cell);
 		}
 
-		dict<IdString, std::vector<IdString>> box_ports;
+		dict<IdString, std::vector<TwineRef>> box_ports;
 		for (auto cell : box_list) {
 			log_assert(cell);
 
@@ -321,18 +323,18 @@ struct XAigerWriter
 			if (r.second) {
 				// Make carry in the last PI, and carry out the last PO
 				//   since ABC requires it this way
-				IdString carry_in, carry_out;
+				TwineRef carry_in = Twine::Null, carry_out = Twine::Null;
 				for (const auto &port_name : box_module->ports) {
 					auto w = box_module->wire(port_name);
 					log_assert(w);
 					if (w->get_bool_attribute(ID::abc9_carry)) {
 						if (w->port_input) {
-							if (carry_in != IdString())
+							if (carry_in != Twine::Null)
 								log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", box_module);
 							carry_in = port_name;
 						}
 						if (w->port_output) {
-							if (carry_out != IdString())
+							if (carry_out != Twine::Null)
 								log_error("Module '%s' contains more than one 'abc9_carry' output port.\n", box_module);
 							carry_out = port_name;
 						}
@@ -341,11 +343,11 @@ struct XAigerWriter
 						r.first->second.push_back(port_name);
 				}
 
-				if (carry_in != IdString() && carry_out == IdString())
+				if (carry_in != Twine::Null && carry_out == Twine::Null)
 					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", box_module);
-				if (carry_in == IdString() && carry_out != IdString())
+				if (carry_in == Twine::Null && carry_out != Twine::Null)
 					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", box_module);
-				if (carry_in != IdString()) {
+				if (carry_in != Twine::Null) {
 					r.first->second.push_back(carry_in);
 					r.first->second.push_back(carry_out);
 				}
@@ -646,7 +648,7 @@ struct XAigerWriter
 				holes_design = it->second;
 			else
 				holes_design = nullptr;
-			RTLIL::Module *holes_module = holes_design ? holes_design->module(module->name) : nullptr;
+			RTLIL::Module *holes_module = holes_design ? holes_design->module(module->meta_->name) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /* dff_mode */);
@@ -712,7 +714,7 @@ struct XAigerWriter
 
 		int box_count = 0;
 		for (auto cell : box_list)
-			f << stringf("box %d %d %s\n", box_count++, 0, cell->name.unescape());
+			f << stringf("box %d %d %s\n", box_count++, 0, cell->module->design->twines.str(cell->meta_->name));
 
 		output_lines.sort();
 		for (auto &it : output_lines)

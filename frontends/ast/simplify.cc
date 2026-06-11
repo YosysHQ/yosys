@@ -176,7 +176,7 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 	}
 
 	Fmt fmt;
-	fmt.parse_verilog(args, sformat_like, default_base, /*task_name=*/str, current_module->name);
+	fmt.parse_verilog(args, sformat_like, default_base, /*task_name=*/str, RTLIL::IdString(current_module->design->twines.str(current_module->meta_->name)));
 	return fmt;
 }
 
@@ -1481,7 +1481,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				// determine the full name of port this argument is connected to
 				TwineRef port_name;
 				if (child->str.size())
-					port_name = child->str;
+					port_name = module->design->twines.lookup(child->str);
 				else {
 					if (port_counter >= module->ports.size())
 						input_error("Cell instance has more ports than the module!\n");
@@ -1492,7 +1492,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				const RTLIL::Wire *ref = module->wire(port_name);
 				if (ref == nullptr)
 					input_error("Cell instance refers to port %s which does not exist in module %s!.\n",
-							port_name.unescape(), module->name.unescape());
+							module->design->twines.str(port_name).c_str(), module->design->twines.str(module->meta_->name).c_str());
 
 				// select the argument, if present
 				log_assert(child->children.size() <= 1);

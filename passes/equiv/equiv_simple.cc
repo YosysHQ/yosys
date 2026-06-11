@@ -114,7 +114,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 				if (yosys_celltypes.cell_input(cell->type, conn.first))
 					for (auto bit : model.sigmap(conn.second)) {
 						if (cell->is_builtin_ff()) {
-							if (!conn.first.in(ID::CLK, ID::C))
+							if (conn.first != TW::CLK && conn.first != TW::C)
 								next_seed.insert(bit);
 						} else
 							find_input_cone(bit);

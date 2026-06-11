@@ -1,3 +1,4 @@
+#include "kernel/rtlil.h"
 #include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
@@ -139,16 +140,16 @@ struct TestSelectPass : public Pass {
 
 		// get sub selection and store the results
 		auto sub_sel = design->selected_modules(partials, (RTLIL::SelectBoxes)boxes);
-		pool<RTLIL::IdString> selected_modules;
-		dict<RTLIL::IdString, pool<RTLIL::NamedObject*>> selected_members;
+		pool<TwineRef> selected_modules;
+		dict<TwineRef, pool<RTLIL::AttrObject*>> selected_members;
 
 		for (auto *mod : sub_sel) {
 			if (mod->is_selected_whole()) {
 				log_debug("  Adding %s.\n", mod);
-				selected_modules.insert(mod->name);
+				selected_modules.insert(mod->meta_->name);
 			} else for (auto *memb : mod->selected_members()) {
 				log_debug("  Adding %s.%s.\n", mod, memb);
-				selected_members[mod->name].insert(memb);
+				selected_members[mod->meta_->name].insert(memb);
 			}
 		}
 

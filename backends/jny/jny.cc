@@ -211,10 +211,11 @@ struct JnyWriter
         f << _indent << "  }";
     }
 
-    void write_cell_conn(const std::pair<RTLIL::IdString, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
+    void write_cell_conn(Design* design, const std::pair<TwineRef, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
+        std::string port_name = design->twines.str(sig.first);
         f << _indent << "  {\n";
-        f << _indent << "    \"name\": \"" << escape_string(sig.first.unescape()) << "\",\n";
+        f << _indent << "    \"name\": \"" << escape_string(port_name) << "\",\n";
         f << _indent << "    \"signals\": [\n";
 
         write_sigspec(sig.second, indent_level + 2);
@@ -232,7 +233,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         f << _indent << "{\n";
-        f << stringf("  %s\"name\": \"%s\",\n", _indent, escape_string(mod->name.unescape()));
+        f << stringf("  %s\"name\": \"%s\",\n", _indent, escape_string(mod->design->twines.str(mod->meta_->name)));
         f << _indent << "  \"cell_sorts\": [\n";
 
         bool first_sort{true};
@@ -279,8 +280,9 @@ struct JnyWriter
             if (!first_port)
                 f << ",\n";
 
+            std::string port_name = port_cell->module->design->twines.str(con.first);
             f << _indent << "  {\n";
-            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(con.first.unescape()));
+            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(port_name));
             f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
@@ -366,7 +368,7 @@ struct JnyWriter
         log_assert(cell != nullptr);
 
         f << _indent << "  {\n";
-        f << stringf("    %s\"name\": \"%s\"", _indent, escape_string(cell->name.unescape()));
+        f << stringf("    %s\"name\": \"%s\"", _indent, escape_string(cell->module->design->twines.str(cell->meta_->name)));
 
         if (_include_connections) {
             f << ",\n" << _indent << "    \"connections\": [\n";
@@ -376,7 +378,7 @@ struct JnyWriter
                 if (!first_conn)
                     f << ",\n";
 
-                write_cell_conn(conn, indent_level + 2);
+                write_cell_conn(cell->module->design, conn, indent_level + 2);
 
                 first_conn = false;
             }

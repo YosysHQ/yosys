@@ -38,8 +38,8 @@ struct EquivStructWorker
 	{
 		IdString type;
 		vector<pair<IdString, Const>> parameters;
-		vector<pair<IdString, int>> port_sizes;
-		vector<tuple<IdString, int, SigBit>> connections;
+		vector<pair<TwineRef, int>> port_sizes;
+		vector<tuple<TwineRef, int, SigBit>> connections;
 
 		bool operator==(const merge_key_t &other) const {
 			return type == other.type && connections == other.connections &&
@@ -55,7 +55,7 @@ struct EquivStructWorker
 		}
 	};
 
-	dict<merge_key_t, pool<IdString>> merge_cache;
+	dict<merge_key_t, pool<TwineRef>> merge_cache;
 	pool<merge_key_t> fwd_merge_cache, bwd_merge_cache;
 
 	void merge_cell_pair(Cell *cell_a, Cell *cell_b)
@@ -78,8 +78,8 @@ struct EquivStructWorker
 					if (bits_a[i] != bits_b[i]) {
 						inputs_a.append(bits_a[i]);
 						inputs_b.append(bits_b[i]);
-						input_names.push_back(GetSize(bits_a) == 1 ? port_a.first.str() :
-								stringf("%s[%d]", port_a.first.unescape(), i));
+						input_names.push_back(GetSize(bits_a) == 1 ? module->design->twines.str(port_a.first) :
+								stringf("%s[%d]", module->design->twines.str(port_a.first).c_str(), i));
 					}
 		}
 
@@ -88,12 +88,12 @@ struct EquivStructWorker
 			SigBit bit_y = module->addWire(NEW_TWINE);
 			log("        New $equiv for input %s: A: %s, B: %s, Y: %s\n",
 					input_names[i].c_str(), log_signal(bit_a), log_signal(bit_b), log_signal(bit_y));
-			module->addEquiv(NEW_ID, bit_a, bit_b, bit_y);
+			module->addEquiv(NEW_TWINE, bit_a, bit_b, bit_y);
 			merged_map.add(bit_a, bit_y);
 			merged_map.add(bit_b, bit_y);
 		}
 
-		std::vector<IdString> outport_names, inport_names;
+		std::vector<TwineRef> outport_names, inport_names;
 
 		for (auto &port_a : cell_a->connections())
 			if (cell_a->output(port_a.first))
@@ -110,9 +110,7 @@ struct EquivStructWorker
 			module->connect(sig_b, sig_a);
 		}
 
-		auto merged_attr = cell_b->get_strpool_attribute(ID::equiv_merged);
-		merged_attr.insert(cell_b->name.unescape());
-		cell_a->add_strpool_attribute(ID::equiv_merged, merged_attr);
+		cell_a->set_bool_attribute(ID::equiv_merged);
 		module->remove(cell_b);
 	}
 
@@ -123,7 +121,7 @@ struct EquivStructWorker
 		log("  Starting iteration %d.\n", iter_num);
 
 		pool<SigBit> equiv_inputs;
-		pool<IdString> cells;
+		pool<TwineRef> cells;
 
 		for (auto cell : module->selected_cells())
 			if (cell->type == ID($equiv)) {
@@ -132,10 +130,10 @@ struct EquivStructWorker
 				equiv_bits.add(sig_b, sig_a);
 				equiv_inputs.insert(sig_a);
 				equiv_inputs.insert(sig_b);
-				cells.insert(cell->name);
+				cells.insert(cell->meta_->name);
 			} else {
 				if (mode_icells || module->design->module(cell->type))
-					cells.insert(cell->name);
+					cells.insert(cell->meta_->name);
 			}
 
 		for (auto cell : module->selected_cells())
@@ -157,7 +155,7 @@ struct EquivStructWorker
 		for (auto cell_name : cells)
 		{
 			merge_key_t key;
-			vector<tuple<IdString, int, SigBit>> fwd_connections;
+			vector<tuple<TwineRef, int, SigBit>> fwd_connections;
 
 			Cell *cell = module->cell(cell_name);
 			key.type = cell->type;
@@ -175,14 +173,14 @@ struct EquivStructWorker
 				if (cell->input(conn.first)) {
 					SigSpec sig = sigmap(conn.second);
 					for (int i = 0; i < GetSize(sig); i++)
-						fwd_connections.push_back(make_tuple(conn.first, i, sig[i]));
+						fwd_connections.push_back(std::make_tuple(conn.first, i, sig[i]));
 				}
 
 				if (cell->output(conn.first)) {
 					SigSpec sig = equiv_bits(conn.second);
 					for (int i = 0; i < GetSize(sig); i++) {
 						key.connections.clear();
-						key.connections.push_back(make_tuple(conn.first, i, sig[i]));
+						key.connections.push_back(std::make_tuple(conn.first, i, sig[i]));
 
 						if (merge_cache.count(key))
 							bwd_merge_cache.insert(key);
@@ -213,7 +211,7 @@ struct EquivStructWorker
 				for (auto cell_name : merge_cache[key]) {
 					Cell *c = module->cell(cell_name);
 					if (c != nullptr) {
-						string n = cell_name.str();
+						string n = module->design->twines.str(cell_name);
 						cells_type = c->type;
 						if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gold") == 0)
 							gold_cells.push_back(c);

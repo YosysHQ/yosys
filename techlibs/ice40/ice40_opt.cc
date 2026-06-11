@@ -58,8 +58,8 @@ static void run_ice40_opts(Module *module)
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				get_bit_or_zero(cell->getPort(ID(I0))),
-				get_bit_or_zero(cell->getPort(ID(I1))),
+				get_bit_or_zero(cell->getPort(TW::I0)),
+				get_bit_or_zero(cell->getPort(TW::I1)),
 				get_bit_or_zero(cell->getPort(TW::CI))
 			};
 			for (int i = 0; i < 3; i++)
@@ -140,12 +140,12 @@ static void run_ice40_opts(Module *module)
 						module, cell, log_signal(replacement_output));
 				cell->type = ID($lut);
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
-				cell->setPort(TW::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
+				cell->setPort(TW::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(TW::I0)) });
 				cell->setPort(TW::Y, cell->getPort(TW::O));
 				cell->unsetPort(TW::B);
 				cell->unsetPort(TW::CI);
-				cell->unsetPort(ID(I0));
-				cell->unsetPort(ID(I3));
+				cell->unsetPort(TW::I0);
+				cell->unsetPort(TW::I3);
 				cell->unsetPort(TW::CO);
 				cell->unsetPort(TW::O);
 				cell->setParam(ID::WIDTH, 4);
@@ -159,10 +159,10 @@ static void run_ice40_opts(Module *module)
 	{
 		SigSpec inbits;
 
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I0))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I1))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I2))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I3))));
+		inbits.append(get_bit_or_zero(cell->getPort(TW::I0)));
+		inbits.append(get_bit_or_zero(cell->getPort(TW::I1)));
+		inbits.append(get_bit_or_zero(cell->getPort(TW::I2)));
+		inbits.append(get_bit_or_zero(cell->getPort(TW::I3)));
 		sigmap.apply(inbits);
 
 		if (optimized_co.count(inbits[0])) goto remap_lut;
@@ -183,16 +183,16 @@ static void run_ice40_opts(Module *module)
 		cell->unsetParam(ID(LUT_INIT));
 
 		cell->setPort(TW::A, SigSpec({
-			get_bit_or_zero(cell->getPort(ID(I3))),
-			get_bit_or_zero(cell->getPort(ID(I2))),
-			get_bit_or_zero(cell->getPort(ID(I1))),
-			get_bit_or_zero(cell->getPort(ID(I0)))
+			get_bit_or_zero(cell->getPort(TW::I3)),
+			get_bit_or_zero(cell->getPort(TW::I2)),
+			get_bit_or_zero(cell->getPort(TW::I1)),
+			get_bit_or_zero(cell->getPort(TW::I0))
 		}));
 		cell->setPort(TW::Y, cell->getPort(TW::O)[0]);
-		cell->unsetPort(ID(I0));
-		cell->unsetPort(ID(I1));
-		cell->unsetPort(ID(I2));
-		cell->unsetPort(ID(I3));
+		cell->unsetPort(TW::I0);
+		cell->unsetPort(TW::I1);
+		cell->unsetPort(TW::I2);
+		cell->unsetPort(TW::I3);
 		cell->unsetPort(TW::O);
 
 		cell->check();

@@ -207,7 +207,7 @@ struct OptMergeWorker
 		FfInitVals initvals;
 		initvals.set(&assign_map, module);
 
-		log("Finding identical cells in module `%s'.\n", module->name);
+		log("Finding identical cells in module `%s'.\n", module->design->twines.str(module->meta_->name).c_str());
 
 		// Use no more than one worker per thousand cells, rounded down, so
 		// we only start multithreading with at least 2000 cells.
@@ -242,7 +242,7 @@ struct OptMergeWorker
 		while (did_something)
 		{
 			int cells_size = module->cells_size();
-			log("Computing hashes of %d cells of `%s'.\n", cells_size, module->name);
+			log("Computing hashes of %d cells of `%s'.\n", cells_size, module->design->twines.str(module->meta_->name).c_str());
 			std::vector<std::vector<std::vector<CellHash>>> sharded_bucketed_cell_hashes(workers);
 
 			int cell_index = 0;
@@ -264,7 +264,7 @@ struct OptMergeWorker
 						sharded_bucketed_cell_hashes[i] = std::move(cell_hashes_queues[i].pop_front()->bucketed_cell_hashes);
 			}
 
-			log("Finding duplicate cells in `%s'.\n", module->name);
+			log("Finding duplicate cells in `%s'.\n", module->design->twines.str(module->meta_->name).c_str());
 			std::vector<DuplicateCell> merged_duplicates;
 			{
 				Multithreading multithreading;
@@ -311,7 +311,7 @@ struct OptMergeWorker
 						port_replacements.emplace_back(it.first, keep_sig);
 					}
 				}
-				log_debug("    Removing %s cell `%s' from module `%s'.\n", remove_cell->type, remove_cell->name, module->name);
+				log_debug("    Removing %s cell `%s' from module `%s'.\n", remove_cell->type, log_id(remove_cell->name), module->design->twines.str(module->meta_->name).c_str());
 				RTLIL::Patch patcher(module, &assign_map);
 				// Single-output cell types take the compatible Patch::patch
 				// path; multi-output types (e.g. $alu) use patch_ports,

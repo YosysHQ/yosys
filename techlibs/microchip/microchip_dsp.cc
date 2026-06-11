@@ -72,7 +72,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			log_assert(!"strange post-adder type");
 
 		if (st.useFeedBack) {
-			cell->setPort(ID(CDIN_FDBK_SEL), {State::S0, State::S1});
+			cell->setPort(TW::CDIN_FDBK_SEL, {State::S0, State::S1});
 		} else {
 			st.sigC.extend_u0(48, st.postAdderStatic->getParam(ID::A_SIGNED).as_bool());
 			cell->setPort(TW::C, st.sigC);
@@ -98,12 +98,12 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
 					// active low sync rst
-					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_ID, srst));
+					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_TWINE, srst));
 				} else if (ff->type.in(ID($adff), ID($adffe))) {
 					SigSpec arst = ff->getPort(TW::ARST);
 					bool rstpol_n = !ff->getParam(ID::ARST_POLARITY).as_bool();
 					// active low async rst
-					cell->setPort(rstport, rstpol_n ? arst : pm.module->Not(NEW_ID, arst));
+					cell->setPort(rstport, rstpol_n ? arst : pm.module->Not(NEW_TWINE, arst));
 				} else {
 					// active low async/sync rst
 					cell->setPort(rstport, State::S1);
@@ -113,7 +113,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				// enables are all active high
-				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
+				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
 			} else {
 				// enables are all active high
 				cell->setPort(ceport, State::S1);
@@ -214,12 +214,12 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
 					// active low sync rst
-					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_ID, srst));
+					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_TWINE, srst));
 				} else if (ff->type.in(ID($adff), ID($adffe))) {
 					SigSpec arst = ff->getPort(TW::ARST);
 					bool rstpol_n = !ff->getParam(ID::ARST_POLARITY).as_bool();
 					// active low async rst
-					cell->setPort(rstport, rstpol_n ? arst : pm.module->Not(NEW_ID, arst));
+					cell->setPort(rstport, rstpol_n ? arst : pm.module->Not(NEW_TWINE, arst));
 				} else {
 					// active low async/sync rst
 					cell->setPort(rstport, State::S1);
@@ -229,7 +229,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				// enables are all active high
-				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
+				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
 			} else {
 				// enables are all active high
 				cell->setPort(ceport, State::S1);

@@ -347,9 +347,9 @@ struct SetundefPass : public Pass {
 					for (auto &c : sig.chunks()) {
 						RTLIL::SigSpec bits;
 						if (worker.next_bit_mode == MODE_ANYSEQ)
-							bits = module->Anyseq(NEW_ID, c.width);
+							bits = module->Anyseq(NEW_TWINE, c.width);
 						else if (worker.next_bit_mode == MODE_ANYCONST)
-							bits = module->Anyconst(NEW_ID, c.width);
+							bits = module->Anyconst(NEW_TWINE, c.width);
 						else
 							for (int i = 0; i < c.width; i++)
 								bits.append(worker.next_bit());
@@ -547,9 +547,9 @@ struct SetundefPass : public Pass {
 
 						if (width > 0) {
 							if (worker.next_bit_mode == MODE_ANYSEQ)
-								sig.replace(cursor, module->Anyseq(NEW_ID, width));
+								sig.replace(cursor, module->Anyseq(NEW_TWINE, width));
 							else
-								sig.replace(cursor, module->Anyconst(NEW_ID, width));
+								sig.replace(cursor, module->Anyconst(NEW_TWINE, width));
 							cursor += width;
 						} else {
 							cursor++;

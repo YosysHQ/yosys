@@ -28,7 +28,7 @@ struct CellCosts
 {
 
 	private:
-	dict<RTLIL::IdString, int> mod_cost_cache_;
+	dict<TwineRef, int> mod_cost_cache_;
 	Design *design_ = nullptr;
 
 	public:

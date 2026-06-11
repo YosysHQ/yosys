@@ -190,9 +190,9 @@ struct statdata_t {
 						 ID($xor), ID($xnor), ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx), ID($lt),
 						 ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt), ID($add), ID($sub), ID($mul),
 						 ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow), ID($alu))) {
-					int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(TW::A)) : 0;
-					int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(TW::B)) : 0;
-					int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
+					int width_a = cell->hasPort(TW::A) ? GetSize(cell->getPort(TW::A)) : 0;
+					int width_b = cell->hasPort(TW::B) ? GetSize(cell->getPort(TW::B)) : 0;
+					int width_y = cell->hasPort(TW::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
 					cell_type = stringf("%s_%d", cell_type, max<int>({width_a, width_b, width_y}));
 				} else if (cell_type.in(ID($mux)))
 					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Y)));
@@ -215,10 +215,10 @@ struct statdata_t {
 					if (cell_data.single_parameter_area.size() > 0) {
 						// assume that we just take the max of the A,B,Y ports
 
-						int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(TW::A)) : 0;
-						int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(TW::B)) : 0;
-						int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
-						int width_q = cell->hasPort(ID::Q) ? GetSize(cell->getPort(TW::Q)) : 0;
+						int width_a = cell->hasPort(TW::A) ? GetSize(cell->getPort(TW::A)) : 0;
+						int width_b = cell->hasPort(TW::B) ? GetSize(cell->getPort(TW::B)) : 0;
+						int width_y = cell->hasPort(TW::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
+						int width_q = cell->hasPort(TW::Q) ? GetSize(cell->getPort(TW::Q)) : 0;
 						int max_width = max<int>({width_a, width_b, width_y, width_q});
 						if (!cell_area.count(cell_type)) {
 							cell_area[cell_type] = cell_data;

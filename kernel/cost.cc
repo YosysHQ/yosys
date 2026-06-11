@@ -5,8 +5,8 @@ USING_YOSYS_NAMESPACE
 
 unsigned int CellCosts::get(RTLIL::Module *mod)
 {
-	if (mod_cost_cache_.count(mod->name))
-		return mod_cost_cache_.at(mod->name);
+	if (mod_cost_cache_.count(mod->meta_->name))
+		return mod_cost_cache_.at(mod->meta_->name);
 
 	unsigned int module_cost = 1;
 	for (auto c : mod->cells()) {
@@ -14,7 +14,7 @@ unsigned int CellCosts::get(RTLIL::Module *mod)
 		module_cost = new_cost >= module_cost ? new_cost : INT_MAX;
 	}
 
-	mod_cost_cache_[mod->name] = module_cost;
+	mod_cost_cache_[mod->meta_->name] = module_cost;
 	return module_cost;
 }
 
@@ -124,7 +124,7 @@ unsigned int max_inp_width(RTLIL::Cell *cell)
 unsigned int port_width_sum(RTLIL::Cell *cell)
 {
 	unsigned int sum = 0;
-	TwineRef port_width_params[] = {
+	IdString port_width_params[] = {
 	  ID::WIDTH, ID::A_WIDTH, ID::B_WIDTH, ID::S_WIDTH, ID::Y_WIDTH,
 	};
 
@@ -146,7 +146,7 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		log_debug("%s is a module, recurse\n", cell->name);
 		return get(design_->module(cell->type));
 	} else if (cell->is_builtin_ff()) {
-		log_assert(cell->hasPort(ID::Q) && "Weird flip flop");
+		log_assert(cell->hasPort(TW::Q) && "Weird flip flop");
 		log_debug("%s is ff\n", cell->name);
 		return cell->getParam(ID::WIDTH).as_int();
 	} else if (cell->type.in(ID($mem), ID($mem_v2))) {

@@ -64,13 +64,13 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 		kiss_name.assign(attr_it->second.decode_string());
 	}
 	else {
-		kiss_name.assign(module->name.unescape() + std::string("-") + cell->name.unescape() + ".kiss2");
+		kiss_name.assign(module->design->twines.str(module->meta_->name) + std::string("-") + module->design->twines.str(cell->meta_->name) + ".kiss2");
 	}
 
 	log("\n");
 	log("Exporting FSM `%s' from module `%s' to file `%s'.\n",
-			cell->name.c_str(),
-			module->name.c_str(),
+			log_id(cell),
+			log_id(module),
 			kiss_name.c_str());
 
 	kiss_file.open(kiss_name, std::ios::out | std::ios::trunc);

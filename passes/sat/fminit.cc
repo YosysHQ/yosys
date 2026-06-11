@@ -131,8 +131,8 @@ struct FminitPass : public Pass {
 				}
 
 			if (!final_lhs.empty()) {
-				SigSpec eq = module->Eq(NEW_ID, final_lhs, final_rhs);
-				module->addAssume(NEW_ID, eq, State::S1);
+				SigSpec eq = module->Eq(NEW_TWINE, final_lhs, final_rhs);
+				module->addAssume(NEW_TWINE, eq, State::S1);
 			}
 		}
 
@@ -156,9 +156,9 @@ struct FminitPass : public Pass {
 					outwire->attributes[ID::init] = i > 0 ? State::S0 : State::S1;
 
 					if (clksig.empty())
-						module->addFf(NEW_ID, insig, outwire);
+						module->addFf(NEW_TWINE, insig, outwire);
 					else
-						module->addDff(NEW_ID, clksig, insig, outwire, clockedge);
+						module->addDff(NEW_TWINE, clksig, insig, outwire, clockedge);
 
 					ctrlsig.push_back(outwire);
 					ctrlsig_latched.push_back(SigSpec());
@@ -168,12 +168,12 @@ struct FminitPass : public Pass {
 				{
 					Wire *ffwire = module->addWire(NEW_TWINE);
 					ffwire->attributes[ID::init] = State::S0;
-					SigSpec outsig = module->Or(NEW_ID, ffwire, ctrlsig[i]);
+					SigSpec outsig = module->Or(NEW_TWINE, ffwire, ctrlsig[i]);
 
 					if (clksig.empty())
-						module->addFf(NEW_ID, outsig, ffwire);
+						module->addFf(NEW_TWINE, outsig, ffwire);
 					else
-						module->addDff(NEW_ID, clksig, outsig, ffwire, clockedge);
+						module->addDff(NEW_TWINE, clksig, outsig, ffwire, clockedge);
 
 					ctrlsig_latched[i] = outsig;
 				}
@@ -192,8 +192,8 @@ struct FminitPass : public Pass {
 					}
 
 				if (!final_lhs.empty()) {
-					SigSpec eq = module->Eq(NEW_ID, final_lhs, final_rhs);
-					module->addAssume(NEW_ID, eq, ctrl);
+					SigSpec eq = module->Eq(NEW_TWINE, final_lhs, final_rhs);
+					module->addAssume(NEW_TWINE, eq, ctrl);
 				}
 			}
 		}

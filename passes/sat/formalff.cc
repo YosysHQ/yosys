@@ -402,7 +402,7 @@ struct PropagateWorker
 					sigmap.apply(bit);
 					if (replaced_clk_bits.count(bit))
 						log_error("derived signal %s driven by %s (%s) from module %s is used as clock, derived clocks are only supported with clk2fflogic.\n",
-								log_signal(bit), cell->name.unescape(), cell->type.unescape(), module);
+								log_signal(bit), cell->module->design->twines.str(cell->meta_->name), cell->type.unescape(), module);
 				}
 			}
 		}
@@ -420,7 +420,7 @@ struct PropagateWorker
 				replaced_clk_inputs.emplace_back(ReplacedPort {port, i, it->second});
 
 				if (it->second) {
-					bit = module->Not(NEW_ID, bit);
+					bit = module->Not(NEW_TWINE, bit);
 				}
 			}
 		}
@@ -802,9 +802,9 @@ struct FormalFfPass : public Pass {
 										log_debug("patching rd port\n");
 										changed = true;
 										rd_port.clk = gate_clock;
-										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
+										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_TWINE, sig_gate));
 										SigSpec en_mask = SigSpec(en_bit, GetSize(rd_port.en));
-										rd_port.en = module->And(NEW_ID, rd_port.en, en_mask);
+										rd_port.en = module->And(NEW_TWINE, rd_port.en, en_mask);
 									}
 								}
 								for (auto &wr_port : mem.wr_ports) {
@@ -812,9 +812,9 @@ struct FormalFfPass : public Pass {
 										log_debug("patching wr port\n");
 										changed = true;
 										wr_port.clk = gate_clock;
-										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
+										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_TWINE, sig_gate));
 										SigSpec en_mask = SigSpec(en_bit, GetSize(wr_port.en));
-										wr_port.en = module->And(NEW_ID, wr_port.en, en_mask);
+										wr_port.en = module->And(NEW_TWINE, wr_port.en, en_mask);
 									}
 								}
 								if (changed)
@@ -982,9 +982,9 @@ struct FormalFfPass : public Pass {
 					SigBit clk = pair.first;
 
 					if (pair.second)
-						clk = module->Not(NEW_ID, clk);
+						clk = module->Not(NEW_TWINE, clk);
 
-					module->addAssume(NEW_ID, clk, State::S1);
+					module->addAssume(NEW_TWINE, clk, State::S1);
 
 				}
 			}

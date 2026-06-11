@@ -31,7 +31,7 @@ void Fmt::append_literal(const std::string &str) {
 
 void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 	std::string fmt = cell->getParam(ID(FORMAT)).decode_string();
-	RTLIL::SigSpec args = cell->getPort(ID(ARGS));
+	RTLIL::SigSpec args = cell->getPort(TW::ARGS);
 	parts.clear();
 
 	FmtPart part;
@@ -261,7 +261,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 
 	cell->setParam(ID(FORMAT), fmt);
 	cell->setParam(ID(ARGS_WIDTH), args.size());
-	cell->setPort(ID(ARGS), args);
+	cell->setPort(TW::ARGS, args);
 }
 
 static size_t compute_required_decimal_places(size_t size, bool signed_)

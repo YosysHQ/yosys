@@ -218,15 +218,15 @@ private:
 			y = factory.mux(y, factory.slice(b, a.width() * i, a.width()), factory.slice(s, i, 1));
 		return y;
 	}
-	dict<IdString, Node> handle_fa(Node a, Node b, Node c) {
+	dict<TwineRef, Node> handle_fa(Node a, Node b, Node c) {
 		Node t1 = factory.bitwise_xor(a, b);
 		Node t2 = factory.bitwise_and(a, b);
 		Node t3 = factory.bitwise_and(c, t1);
 		Node y = factory.bitwise_xor(c, t1);
 		Node x = factory.bitwise_or(t2, t3);
-		return {{ID(X), x}, {ID(Y), y}};
+		return {{TW::X, x}, {TW::Y, y}};
 	}
-	dict<IdString, Node> handle_alu(Node a_in, Node b_in, int y_width, bool is_signed, Node ci, Node bi) {
+	dict<TwineRef, Node> handle_alu(Node a_in, Node b_in, int y_width, bool is_signed, Node ci, Node bi) {
 		Node a = factory.extend(a_in, y_width, is_signed);
 		Node b_uninverted = factory.extend(b_in, y_width, is_signed);
 		Node b = factory.mux(b_uninverted, factory.bitwise_not(b_uninverted), bi);
@@ -240,13 +240,13 @@ private:
 		Node y = factory.slice(y_extra, 0, y_width);
 		Node carries = factory.bitwise_xor(y_extra, factory.bitwise_xor(a_extra, b_extra));
 		Node co = factory.slice(carries, 1, y_width);
-		return {{ID(X), x}, {ID(Y), y}, {ID(CO), co}};
+		return {{TW::X, x}, {TW::Y, y}, {TW::CO, co}};
 	}
 	Node handle_lcu(Node p, Node g, Node ci) {
-		return handle_alu(g, factory.bitwise_or(p, g), g.width(), false, ci, factory.constant(Const(State::S0, 1))).at(ID(CO));
+		return handle_alu(g, factory.bitwise_or(p, g), g.width(), false, ci, factory.constant(Const(State::S0, 1))).at(TW::CO);
 	}
 public:
-	std::variant<dict<IdString, Node>, Node> handle(IdString cellName, IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
+	std::variant<dict<TwineRef, Node>, Node> handle(IdString cellName, IdString cellType, dict<IdString, Const> parameters, dict<TwineRef, Node> inputs)
 	{
 		int a_width = parameters.at(ID(A_WIDTH), Const(-1)).as_int();
 		int b_width = parameters.at(ID(B_WIDTH), Const(-1)).as_int();
@@ -255,8 +255,8 @@ public:
 		bool b_signed = parameters.at(ID(B_SIGNED), Const(0)).as_bool();
 		if(cellType.in(ID($add), ID($sub), ID($and), ID($or), ID($xor), ID($xnor), ID($mul))){
 			bool is_signed = a_signed && b_signed;
-			Node a = factory.extend(inputs.at(ID(A)), y_width, is_signed);
-			Node b = factory.extend(inputs.at(ID(B)), y_width, is_signed);
+			Node a = factory.extend(inputs.at(TW::A), y_width, is_signed);
+			Node b = factory.extend(inputs.at(TW::B), y_width, is_signed);
 			if(cellType == ID($add))
 				return factory.add(a, b);
 			else if(cellType == ID($sub))
@@ -276,8 +276,8 @@ public:
 		}else if(cellType.in(ID($eq), ID($ne), ID($eqx), ID($nex), ID($le), ID($lt), ID($ge), ID($gt))){
 			bool is_signed = a_signed && b_signed;
 			int width = max(a_width, b_width);
-			Node a = factory.extend(inputs.at(ID(A)), width, is_signed);
-			Node b = factory.extend(inputs.at(ID(B)), width, is_signed);
+			Node a = factory.extend(inputs.at(TW::A), width, is_signed);
+			Node b = factory.extend(inputs.at(TW::B), width, is_signed);
 			if(cellType.in(ID($eq), ID($eqx)))
 				return factory.extend(factory.equal(a, b), y_width, false);
 			else if(cellType.in(ID($ne), ID($nex)))
@@ -293,48 +293,48 @@ public:
 			else
 				log_abort();
 		}else if(cellType.in(ID($logic_or), ID($logic_and))){
-			Node a = factory.reduce_or(inputs.at(ID(A)));
-			Node b = factory.reduce_or(inputs.at(ID(B)));
+			Node a = factory.reduce_or(inputs.at(TW::A));
+			Node b = factory.reduce_or(inputs.at(TW::B));
 			Node y = cellType == ID($logic_and) ? factory.bitwise_and(a, b) : factory.bitwise_or(a, b);
 			return factory.extend(y, y_width, false);
 		}else if(cellType == ID($not)){
-			Node a = factory.extend(inputs.at(ID(A)), y_width, a_signed);
+			Node a = factory.extend(inputs.at(TW::A), y_width, a_signed);
 			return factory.bitwise_not(a);
 		}else if(cellType == ID($pos)){
-			return factory.extend(inputs.at(ID(A)), y_width, a_signed);
+			return factory.extend(inputs.at(TW::A), y_width, a_signed);
 		}else if(cellType == ID($neg)){
-			Node a = factory.extend(inputs.at(ID(A)), y_width, a_signed);
+			Node a = factory.extend(inputs.at(TW::A), y_width, a_signed);
 			return factory.unary_minus(a);
 		}else if(cellType == ID($logic_not)){
-			Node a = factory.reduce_or(inputs.at(ID(A)));
+			Node a = factory.reduce_or(inputs.at(TW::A));
 			Node y = factory.bitwise_not(a);
 			return factory.extend(y, y_width, false);
 		}else if(cellType.in(ID($reduce_or), ID($reduce_bool))){
-			Node a = factory.reduce_or(inputs.at(ID(A)));
+			Node a = factory.reduce_or(inputs.at(TW::A));
 			return factory.extend(a, y_width, false);
 		}else if(cellType == ID($reduce_and)){
-			Node a = factory.reduce_and(inputs.at(ID(A)));
+			Node a = factory.reduce_and(inputs.at(TW::A));
 			return factory.extend(a, y_width, false);
 		}else if(cellType.in(ID($reduce_xor), ID($reduce_xnor))){
-			Node a = factory.reduce_xor(inputs.at(ID(A)));
+			Node a = factory.reduce_xor(inputs.at(TW::A));
 			Node y = cellType == ID($reduce_xnor) ? factory.bitwise_not(a) : a;
 			return factory.extend(y, y_width, false);
 		}else if(cellType == ID($shl) || cellType == ID($sshl)){
-			Node a = factory.extend(inputs.at(ID(A)), y_width, a_signed);
-			Node b = inputs.at(ID(B));
+			Node a = factory.extend(inputs.at(TW::A), y_width, a_signed);
+			Node b = inputs.at(TW::B);
 			return logical_shift_left(a, b);
 		}else if(cellType == ID($shr) || cellType == ID($sshr)){
 			int width = max(a_width, y_width);
-			Node a = factory.extend(inputs.at(ID(A)), width, a_signed);
-			Node b = inputs.at(ID(B));
+			Node a = factory.extend(inputs.at(TW::A), width, a_signed);
+			Node b = inputs.at(TW::B);
 			Node y = a_signed && cellType == ID($sshr) ?
 				arithmetic_shift_right(a, b) :
 				logical_shift_right(a, b);
 			return factory.extend(y, y_width, a_signed);
 		}else if(cellType == ID($shiftx) || cellType == ID($shift)){
 			int width = max(a_width, y_width);
-			Node a = factory.extend(inputs.at(ID(A)), width, cellType == ID($shift) && a_signed);
-			Node b = inputs.at(ID(B));
+			Node a = factory.extend(inputs.at(TW::A), width, cellType == ID($shift) && a_signed);
+			Node b = inputs.at(TW::B);
 			Node shr = logical_shift_right(a, b);
 			if(b_signed) {
 				Node shl = logical_shift_left(a, factory.unary_minus(b));
@@ -344,22 +344,22 @@ public:
 				return factory.extend(shr, y_width, false);
 			}
 		}else if(cellType == ID($mux)){
-			return factory.mux(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(S)));
+			return factory.mux(inputs.at(TW::A), inputs.at(TW::B), inputs.at(TW::S));
 		}else if(cellType == ID($pmux)){
-			return handle_pmux(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(S)));
+			return handle_pmux(inputs.at(TW::A), inputs.at(TW::B), inputs.at(TW::S));
 		}else if(cellType == ID($concat)){
-			Node a = inputs.at(ID(A));
-			Node b = inputs.at(ID(B));
+			Node a = inputs.at(TW::A);
+			Node b = inputs.at(TW::B);
 			return factory.concat(a, b);
 		}else if(cellType == ID($slice)){
 			int offset = parameters.at(ID(OFFSET)).as_int();
-			Node a = inputs.at(ID(A));
+			Node a = inputs.at(TW::A);
 			return factory.slice(a, offset, y_width);
 		}else if(cellType.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
 			int width = max(a_width, b_width);
 			bool is_signed = a_signed && b_signed;
-			Node a = factory.extend(inputs.at(ID(A)), width, is_signed);
-			Node b = factory.extend(inputs.at(ID(B)), width, is_signed);
+			Node a = factory.extend(inputs.at(TW::A), width, is_signed);
+			Node b = factory.extend(inputs.at(TW::B), width, is_signed);
 			if(is_signed) {
 				if(cellType == ID($div)) {
 					// divide absolute values, then flip the sign if input signs differ
@@ -403,44 +403,44 @@ public:
 					return factory.extend(factory.unsigned_div(a, b), y_width, false);
 			}
 		} else if(cellType == ID($pow)) {
-			return handle_pow(inputs.at(ID(A)), inputs.at(ID(B)), y_width, a_signed && b_signed);
+			return handle_pow(inputs.at(TW::A), inputs.at(TW::B), y_width, a_signed && b_signed);
 		} else if (cellType == ID($lut)) {
 			int width = parameters.at(ID(WIDTH)).as_int();
 			Const lut_table = parameters.at(ID(LUT));
 			lut_table.extu(1 << width);
-			return handle_bmux(factory.constant(lut_table), inputs.at(ID(A)), 0, 1, width);
+			return handle_bmux(factory.constant(lut_table), inputs.at(TW::A), 0, 1, width);
 		} else if (cellType == ID($bwmux)) {
-			Node a = inputs.at(ID(A));
-			Node b = inputs.at(ID(B));
-			Node s = inputs.at(ID(S));
+			Node a = inputs.at(TW::A);
+			Node b = inputs.at(TW::B);
+			Node s = inputs.at(TW::S);
 			return factory.bitwise_or(
 				factory.bitwise_and(a, factory.bitwise_not(s)),
 				factory.bitwise_and(b, s));
 		} else if (cellType == ID($bweqx)) {
-			Node a = inputs.at(ID(A));
-			Node b = inputs.at(ID(B));
+			Node a = inputs.at(TW::A);
+			Node b = inputs.at(TW::B);
 			return factory.bitwise_not(factory.bitwise_xor(a, b));
 		} else if(cellType == ID($bmux)) {
 			int width = parameters.at(ID(WIDTH)).as_int();
 			int s_width = parameters.at(ID(S_WIDTH)).as_int();
-			return handle_bmux(inputs.at(ID(A)), inputs.at(ID(S)), 0, width, s_width);
+			return handle_bmux(inputs.at(TW::A), inputs.at(TW::S), 0, width, s_width);
 		} else if(cellType == ID($demux)) {
 			int width = parameters.at(ID(WIDTH)).as_int();
 			int s_width = parameters.at(ID(S_WIDTH)).as_int();
 			int y_width = width << s_width;
 			int b_width = ceil_log2(y_width);
-			Node a = factory.extend(inputs.at(ID(A)), y_width, false);
-			Node s = factory.extend(inputs.at(ID(S)), b_width, false);
+			Node a = factory.extend(inputs.at(TW::A), y_width, false);
+			Node s = factory.extend(inputs.at(TW::S), b_width, false);
 			Node b = factory.mul(s, factory.constant(Const(width, b_width)));
 			return factory.logical_shift_left(a, b);
 		} else if(cellType == ID($fa)) {
-			return handle_fa(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(C)));
+			return handle_fa(inputs.at(TW::A), inputs.at(TW::B), inputs.at(TW::C));
 		} else if(cellType == ID($lcu)) {
-			return handle_lcu(inputs.at(ID(P)), inputs.at(ID(G)), inputs.at(ID(CI)));
+			return handle_lcu(inputs.at(TW::P), inputs.at(TW::G), inputs.at(TW::CI));
 		} else if(cellType == ID($alu)) {
-			return handle_alu(inputs.at(ID(A)), inputs.at(ID(B)), y_width, a_signed && b_signed, inputs.at(ID(CI)), inputs.at(ID(BI)));
+			return handle_alu(inputs.at(TW::A), inputs.at(TW::B), y_width, a_signed && b_signed, inputs.at(TW::CI), inputs.at(TW::BI));
 		} else if(cellType.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover))) {
-			Node a = factory.mux(factory.constant(Const(State::S1, 1)), inputs.at(ID(A)), inputs.at(ID(EN)));
+			Node a = factory.mux(factory.constant(Const(State::S1, 1)), inputs.at(TW::A), inputs.at(TW::EN));
 			auto &output = factory.add_output(cellName, cellType, Sort(1));
 			output.set_value(a);
 			return {};
@@ -468,7 +468,7 @@ public:
 class FunctionalIRConstruction {
 	std::deque<std::variant<DriveSpec, Cell *>> queue;
 	dict<DriveSpec, Node> graph_nodes;
-	dict<std::pair<Cell *, IdString>, Node> cell_outputs;
+	dict<std::pair<Cell *, TwineRef>, Node> cell_outputs;
 	DriverMap driver_map;
 	Factory& factory;
 	CellSimplifier simplifier;
@@ -488,7 +488,7 @@ class FunctionalIRConstruction {
 		}else
 			return it->second;
 	}
-	Node enqueue_cell(Cell *cell, IdString port_name)
+	Node enqueue_cell(Cell *cell, TwineRef port_name)
 	{
 		auto it = cell_outputs.find({cell, port_name});
 		if(it == cell_outputs.end()) {
@@ -497,7 +497,7 @@ class FunctionalIRConstruction {
 			for(auto const &[name, sigspec] : cell->connections())
 				if(driver_map.celltypes.cell_output(cell->type, name)) {
 					auto node = factory.create_pending(sigspec.size());
-					factory.suggest_name(node, cell->name.str() + "$" + name.str());
+					factory.suggest_name(node, cell->name.str() + "$" + cell->module->design->twines.str(name));
 					cell_outputs.emplace({cell, name}, node);
 					if(name == port_name)
 						rv = node;
@@ -539,7 +539,7 @@ private:
 	Node concatenate_read_results(Mem *mem, vector<Node> results)
 	{
 		// sanity check: all read ports concatenated should equal to the RD_DATA port
-		const SigSpec &rd_data = mem->cell->connections().at(ID(RD_DATA));
+		const SigSpec &rd_data = mem->cell->connections().at(TW::RD_DATA);
 		int current = 0;
 		for(size_t i = 0; i < mem->rd_ports.size(); i++) {
 			int width = mem->width << mem->rd_ports[i].wide_log2;
@@ -604,7 +604,7 @@ private:
 					"Call memory_collect to avoid this error.\n", log_const(cell->parameters.at(ID(MEMID))));
 			}
 			Node node = handle_memory(mem);
-			factory.update_pending(cell_outputs.at({cell, ID(RD_DATA)}), node);
+			factory.update_pending(cell_outputs.at({cell, TW::RD_DATA}), node);
 		} else if (cell->is_builtin_ff()) {
 			FfData ff(&ff_initvals, cell);
 			if (!ff.has_gclk)
@@ -613,12 +613,12 @@ private:
 			auto &state = factory.add_state(ff.name, ID($state), Sort(ff.width));
 			Node q_value = factory.value(state);
 			factory.suggest_name(q_value, ff.name);
-			factory.update_pending(cell_outputs.at({cell, ID(Q)}), q_value);
+			factory.update_pending(cell_outputs.at({cell, TW::Q}), q_value);
 			state.set_next_value(enqueue(ff.sig_d));
 			state.set_initial_value(ff.val_init);
 		} else {
-			dict<IdString, Node> connections;
-			IdString output_name; // for the single output case
+			dict<TwineRef, Node> connections;
+			TwineRef output_name; // for the single output case
 			int n_outputs = 0;
 			for(auto const &[name, sigspec] : cell->connections()) {
 				if(driver_map.celltypes.cell_input(cell->type, name) && sigspec.size() > 0)
@@ -628,12 +628,12 @@ private:
 					n_outputs++;
 				}
 			}
-			std::variant<dict<IdString, Node>, Node> outputs = simplifier.handle(cell->name, cell->type, cell->parameters, connections);
+			std::variant<dict<TwineRef, Node>, Node> outputs = simplifier.handle(cell->name, cell->type, cell->parameters, connections);
 			if(auto *nodep = std::get_if<Node>(&outputs); nodep != nullptr) {
 				log_assert(n_outputs == 1);
 				factory.update_pending(cell_outputs.at({cell, output_name}), *nodep);
 			} else {
-				for(auto [name, node] : std::get<dict<IdString, Node>>(outputs))
+				for(auto [name, node] : std::get<dict<TwineRef, Node>>(outputs))
 					factory.update_pending(cell_outputs.at({cell, name}), node);
 			}
 		}
@@ -695,7 +695,8 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(port_chunk));
-							check_undriven(driver, port_chunk.cell->name.unescape() + " port " + port_chunk.port.unescape());
+							auto& twines = port_chunk.cell->module->design->twines;
+							check_undriven(driver, twines.str(port_chunk.cell->meta_->name) + " port " + twines.str(port_chunk.port));
 							factory.update_pending(pending, enqueue(driver));
 						}
 					} else {

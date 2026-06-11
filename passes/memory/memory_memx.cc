@@ -42,10 +42,10 @@ struct MemoryMemxPass : public Pass {
 
 		addr.extend_u0(32);
 
-		SigSpec res = mem.module->Nex(NEW_ID, mem.module->ReduceXor(NEW_ID, addr), mem.module->ReduceXor(NEW_ID, {addr, State::S1}));
+		SigSpec res = mem.module->Nex(NEW_TWINE, mem.module->ReduceXor(NEW_TWINE, addr), mem.module->ReduceXor(NEW_TWINE, {addr, State::S1}));
 		if (start_addr != 0)
-			res = mem.module->LogicAnd(NEW_ID, res, mem.module->Ge(NEW_ID, addr, start_addr));
-		res = mem.module->LogicAnd(NEW_ID, res, mem.module->Lt(NEW_ID, addr, end_addr));
+			res = mem.module->LogicAnd(NEW_TWINE, res, mem.module->Ge(NEW_TWINE, addr, start_addr));
+		res = mem.module->LogicAnd(NEW_TWINE, res, mem.module->Lt(NEW_TWINE, addr, end_addr));
 		return res;
 	}
 
@@ -64,13 +64,13 @@ struct MemoryMemxPass : public Pass {
 
 				SigSpec addr_ok = make_addr_check(mem, port.addr);
 				Wire *raw_rdata = module->addWire(NEW_TWINE, GetSize(port.data));
-				module->addMux(NEW_ID, SigSpec(State::Sx, GetSize(port.data)), raw_rdata, addr_ok, port.data);
+				module->addMux(NEW_TWINE, SigSpec(State::Sx, GetSize(port.data)), raw_rdata, addr_ok, port.data);
 				port.data = raw_rdata;
 			}
 
 			for (auto &port : mem.wr_ports) {
 				SigSpec addr_ok = make_addr_check(mem, port.addr);
-				port.en = module->And(NEW_ID, port.en, addr_ok.repeat(GetSize(port.en)));
+				port.en = module->And(NEW_TWINE, port.en, addr_ok.repeat(GetSize(port.en)));
 			}
 
 			mem.emit();

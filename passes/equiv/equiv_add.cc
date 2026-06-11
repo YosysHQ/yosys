@@ -43,7 +43,7 @@ struct EquivAddPass : public Pass {
 	{
 		bool try_mode = false;
 
-		if (design->selected_active_module.empty())
+		if (design->selected_active_module == Twine::Null)
 			log_cmd_error("This command must be executed in module context!\n");
 
 		Module *module = design->module(design->selected_active_module);
@@ -56,8 +56,8 @@ struct EquivAddPass : public Pass {
 
 		if (GetSize(args) == 4 && args[1] == "-cell")
 		{
-			Cell *gold_cell = module->cell(RTLIL::escape_id(args[2]));
-			Cell *gate_cell = module->cell(RTLIL::escape_id(args[3]));
+			Cell *gold_cell = module->cell(design->twines.lookup(RTLIL::escape_id(args[2])));
+			Cell *gate_cell = module->cell(design->twines.lookup(RTLIL::escape_id(args[3])));
 
 			if (gold_cell == nullptr) {
 				if (try_mode) {
@@ -87,7 +87,7 @@ struct EquivAddPass : public Pass {
 					SigSpec combined_sig = module->addWire(NEW_TWINE, width);
 
 					for (int i = 0; i < width; i++) {
-						module->addEquiv(NEW_ID, gold_sig[i], gate_sig[i], combined_sig[i]);
+						module->addEquiv(NEW_TWINE, gold_sig[i], gate_sig[i], combined_sig[i]);
 						gold_sig[i] = gate_sig[i] = combined_sig[i];
 					}
 
@@ -103,7 +103,7 @@ struct EquivAddPass : public Pass {
 					SigSig gg_conn;
 
 					for (int i = 0; i < width; i++) {
-						module->addEquiv(NEW_ID, new_gold_wire[i], new_gold_wire[i], gold_sig[i]);
+						module->addEquiv(NEW_TWINE, new_gold_wire[i], new_gold_wire[i], gold_sig[i]);
 						gg_conn.first.append(gate_sig[i]);
 						gg_conn.second.append(gold_sig[i]);
 						gold_sig[i] = new_gold_wire[i];
@@ -151,7 +151,7 @@ struct EquivAddPass : public Pass {
 			pool<Cell*> added_equiv_cells;
 
 			for (int i = 0; i < GetSize(gold_signal); i++) {
-				Cell *equiv_cell = module->addEquiv(NEW_ID, gold_signal[i], gate_signal[i], equiv_signal[i]);
+				Cell *equiv_cell = module->addEquiv(NEW_TWINE, gold_signal[i], gate_signal[i], equiv_signal[i]);
 				equiv_cell->set_bool_attribute(ID::keep);
 				to_equiv_bits[gold_signal[i]] = equiv_signal[i];
 				to_equiv_bits[gate_signal[i]] = equiv_signal[i];

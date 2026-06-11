@@ -71,7 +71,7 @@ struct LatticeGsrPass : public Pass {
 				if (found_gsr)
 					log_error("Found more than one GSR or SGSR cell in module %s.\n", module);
 				found_gsr = true;
-				SigSpec sig_gsr = cell->getPort(ID(GSR));
+				SigSpec sig_gsr = cell->getPort(TW::GSR);
 				if (GetSize(sig_gsr) < 1)
 					log_error("GSR cell %s has disconnected GSR input.\n", cell);
 				gsr = sigmap(sig_gsr[0]);
@@ -118,14 +118,14 @@ struct LatticeGsrPass : public Pass {
 					continue;
 				if (cell->getParam(ID(SRMODE)).decode_string() != "ASYNC")
 					continue;
-				SigSpec sig_lsr = cell->getPort(ID(LSR));
+				SigSpec sig_lsr = cell->getPort(TW::LSR);
 				if (GetSize(sig_lsr) < 1)
 					continue;
 				SigBit lsr = sigmap(sig_lsr[0]);
 				if (!inverted_gsr.count(lsr))
 					continue;
 				cell->setParam(ID(SRMODE), Const("LSR_OVER_CE"));
-				cell->unsetPort(ID(LSR));
+				cell->unsetPort(TW::LSR);
 			}
 
 		}

@@ -24,7 +24,7 @@ inline std::pair<SigSpec, SigSpec> emit_fa(Module *module, SigSpec a, SigSpec b,
 	SigSpec sum = module->addWire(NEW_TWINE, width);
 	SigSpec cout = module->addWire(NEW_TWINE, width);
 
-	module->addFa(NEW_ID, a, b, c, cout, sum);
+	module->addFa(NEW_TWINE, a, b, c, cout, sum);
 
 	SigSpec carry;
 	carry.append(State::S0);

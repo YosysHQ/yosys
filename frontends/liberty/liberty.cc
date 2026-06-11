@@ -47,7 +47,8 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
-	RTLIL::Wire *w = module->wire(RTLIL::IdString(id));
+	TwineRef wire_ref = module->design->twines.lookup(id);
+	RTLIL::Wire *w = module->wire(wire_ref);
 	if (!w)
 		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), module);
 
@@ -60,7 +61,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	int top = int(stack.size())-1;
 
 	if (0 <= top-1 && stack[top].type == 0 && stack[top-1].type == '!') {
-		token_t t = token_t(0, module->NotGate(NEW_ID, stack[top].sig));
+		token_t t = token_t(0, module->NotGate(NEW_TWINE, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -68,7 +69,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top].type == '\'' && stack[top-1].type == 0) {
-		token_t t = token_t(0, module->NotGate(NEW_ID, stack[top-1].sig));
+		token_t t = token_t(0, module->NotGate(NEW_TWINE, stack[top-1].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -83,7 +84,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 1 && stack[top-1].type == '^' && stack[top].type == 1) {
-		token_t t = token_t(1, module->XorGate(NEW_ID, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(1, module->XorGate(NEW_TWINE, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -99,7 +100,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top-1].type == 2 && stack[top].type == 2) {
-		token_t t = token_t(2, module->AndGate(NEW_ID, stack[top-1].sig, stack[top].sig));
+		token_t t = token_t(2, module->AndGate(NEW_TWINE, stack[top-1].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -107,7 +108,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 2 && (stack[top-1].type == '*' || stack[top-1].type == '&') && stack[top].type == 2) {
-		token_t t = token_t(2, module->AndGate(NEW_ID, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(2, module->AndGate(NEW_TWINE, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -123,7 +124,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 3 && (stack[top-1].type == '+' || stack[top-1].type == '|') && stack[top].type == 3) {
-		token_t t = token_t(3, module->OrGate(NEW_ID, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(3, module->OrGate(NEW_TWINE, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -188,21 +189,23 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 	RTLIL::Cell *cell = module->addCell(NEW_TWINE, ID($tribuf));
 	cell->setParam(ID::WIDTH, GetSize(func));
 	cell->setPort(TW::A, func);
-	cell->setPort(TW::EN, module->NotGate(NEW_ID, three_state));
+	cell->setPort(TW::EN, module->NotGate(NEW_TWINE, three_state));
 	cell->setPort(TW::Y, module->addWire(NEW_TWINE));
 	return cell->getPort(TW::Y);
 }
 
 static void create_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 {
-	module->addWire(RTLIL::escape_id(node->args.at(0)));
-	module->addWire(RTLIL::escape_id(node->args.at(1)));
+	module->addWire(Twine{RTLIL::escape_id(node->args.at(0))});
+	module->addWire(Twine{RTLIL::escape_id(node->args.at(1))});
 }
 
 static std::pair<RTLIL::SigSpec, RTLIL::SigSpec> find_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 {
-	auto* iq_wire = module->wire(RTLIL::escape_id(node->args.at(0)));
-	auto* iqn_wire = module->wire(RTLIL::escape_id(node->args.at(1)));
+	TwineRef iq_ref = module->design->twines.lookup(RTLIL::escape_id(node->args.at(0)));
+	TwineRef iqn_ref = module->design->twines.lookup(RTLIL::escape_id(node->args.at(1)));
+	auto* iq_wire = module->wire(iq_ref);
+	auto* iqn_wire = module->wire(iqn_ref);
 	log_assert(iq_wire && iqn_wire);
 	return std::make_pair(iq_wire, iqn_wire);
 }
@@ -212,7 +215,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec clk_sig, data_sig, clear_sig, preset_sig;
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
-	const std::string name = module->name.unescape();
+	const std::string name = module->design->twines.str(module->meta_->name);
 
 	std::optional<char> clear_preset_var1;
 	std::optional<char> clear_preset_var2;
@@ -265,7 +268,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		SigSpec q_sig = out_sig;
 		if (neg) {
 			q_sig = module->addWire(NEW_TWINE, out_sig.as_wire());
-			module->addNotGate(NEW_ID, q_sig, out_sig);
+			module->addNotGate(NEW_TWINE, q_sig, out_sig);
 		}
 
 		RTLIL::Cell* cell = module->addCell(NEW_TWINE, "");
@@ -305,9 +308,9 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 				log_debug("cell %s variable %d cp_var %c set dominates? %d\n", name, (int)neg + 1, *cp_var, set_dominates);
 				// S&R priority is well-defined now
 				if (set_dominates) {
-					r_sig = module->AndnotGate(NEW_ID, r_sig, s_sig);
+					r_sig = module->AndnotGate(NEW_TWINE, r_sig, s_sig);
 				} else {
-					s_sig = module->AndnotGate(NEW_ID, s_sig, r_sig);
+					s_sig = module->AndnotGate(NEW_TWINE, s_sig, r_sig);
 				}
 			} else {
 				log_debug("cell %s variable %d undef c&p behavior\n", name, (int)neg + 1);
@@ -609,7 +612,8 @@ struct LibertyFrontend : public Frontend {
 			RTLIL::Module *module = new RTLIL::Module;
 			module->design = design;
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
-			module->name = cell_name;
+			TwineRef cell_name_ref = design->twines.lookup(cell_name);
+			module->meta_->name = design->twines.add(Twine{cell_name});
 
 			if (flag_lib)
 				module->set_bool_attribute(ID::blackbox);
@@ -642,7 +646,7 @@ struct LibertyFrontend : public Frontend {
 						}
 					}
 					if (!flag_lib || dir->value != "internal")
-						module->addWire(RTLIL::escape_id(node->args.at(0)));
+						module->addWire(Twine{RTLIL::escape_id(node->args.at(0))});
 				}
 
 				if (node->id == "bus" && node->args.size() == 1)
@@ -682,7 +686,7 @@ struct LibertyFrontend : public Frontend {
 					int bus_type_offset = std::get<1>(type_map.at(bus_type_node->value));
 					bool bus_type_upto = std::get<2>(type_map.at(bus_type_node->value));
 
-					Wire *wire = module->addWire(RTLIL::escape_id(node->args.at(0)), bus_type_width);
+					Wire *wire = module->addWire(Twine{RTLIL::escape_id(node->args.at(0))}, bus_type_width);
 					wire->start_offset = bus_type_offset;
 					wire->upto = bus_type_upto;
 
@@ -729,7 +733,8 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib && dir->value == "internal")
 						continue;
 
-					RTLIL::Wire *wire = module->wire(RTLIL::IdString(RTLIL::escape_id(node->args.at(0))));
+					TwineRef wire_ref = module->design->twines.lookup(RTLIL::escape_id(node->args.at(0)));
+					RTLIL::Wire *wire = module->wire(wire_ref);
 					log_assert(wire);
 
 					const LibertyAst *capacitance = node->find("capacitance");
@@ -813,8 +818,8 @@ struct LibertyFrontend : public Frontend {
 				}
 			}
 
-			if (design->has(cell_name)) {
-				Module *existing_mod = design->module(cell_name);
+			if (design->has(cell_name_ref)) {
+				Module *existing_mod = design->module(cell_name_ref);
 				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
 					log_error("Re-definition of cell/module %s!\n", RTLIL::unescape_id(cell_name));
 				} else if (flag_nooverwrite) {

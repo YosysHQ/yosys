@@ -746,7 +746,7 @@ void DriverMap::add(SigSpec const &a, SigSpec const &b)
 	}
 }
 
-void DriverMap::add_port(Cell *cell, IdString const &port, SigSpec const &b)
+void DriverMap::add_port(Cell *cell, TwineRef port, SigSpec const &b)
 {
 	int offset = 0;
 	for (auto const &chunk : b.chunks()) {
@@ -877,8 +877,8 @@ std::string log_signal(DriveChunkWire const &chunk)
 
 std::string log_signal(DriveChunkPort const &chunk)
 {
-	std::string cell_id = chunk.cell->name.unescape();
-	std::string port_id = chunk.port.unescape();
+	std::string cell_id = chunk.cell->module->design->twines.str(cell->meta_->name);
+	std::string port_id = chunk.cell->module->design->twines.str(chunk.port);
 	if (chunk.is_whole())
 		return stringf("%s <%s>", cell_id, port_id);
 	if (chunk.width == 1)
