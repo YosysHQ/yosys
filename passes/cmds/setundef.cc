@@ -355,6 +355,28 @@ struct SetundefPass : public Pass {
 								bits.append(worker.next_bit());
 						module->connect(RTLIL::SigSig(c, bits));
 					}
+					// Remove init attributes from undriven wires to prevent
+					// conflicts with the values we just assigned (issue #5835).
+					for (auto &c : sig.chunks()) {
+						if (c.wire && c.wire->attributes.count(ID::init)) {
+							if (c.wire->width == c.width && c.offset == 0) {
+								c.wire->attributes.erase(ID::init);
+								log("Removing init attribute from undriven wire %s.\n", log_id(c.wire));
+							} else {
+								Const &initval = c.wire->attributes[ID::init];
+								initval.resize(GetSize(c.wire), State::Sx);
+								for (int i = c.offset; i < c.offset + c.width; i++)
+									initval.set(i, State::Sx);
+								if (initval.is_fully_undef()) {
+									c.wire->attributes.erase(ID::init);
+									log("Removing init attribute from undriven wire %s.\n", log_id(c.wire));
+								} else {
+									log("Clearing init attribute bits [%d:%d] from partially undriven wire %s.\n",
+										c.offset + c.width - 1, c.offset, log_id(c.wire));
+								}
+							}
+						}
+					}
 				}
 			}
 
