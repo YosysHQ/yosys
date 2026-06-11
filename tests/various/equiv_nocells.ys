@@ -1,0 +1,13 @@
+read_verilog <<EOT
+module gold(input a, input b, output y);
+    assign y = a & b;
+endmodule
+
+module gate(input a, input b, output y);
+    assign y = a & b;
+endmodule
+EOT
+
+equiv_make -nocells gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
