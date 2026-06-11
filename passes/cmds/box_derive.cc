@@ -118,7 +118,7 @@ struct BoxDerivePass : Pass {
 				}
 
 				if (apply_mode)
-					cell->type = RTLIL::IdString(done[index]->design->twines.str(done[index]->meta_->name));
+					cell->type_impl = cell->module->design->twines.copy_from(done[index]->design->twines, done[index]->meta_->name);
 			}
 		}
 	}

@@ -264,9 +264,9 @@ struct Xaiger2Frontend : public Frontend {
 				log_debug("M: len=%u no_cells=%u no_instances=%u\n", len, no_cells, no_instances);
 
 				struct MappingCell {
-					RTLIL::IdString type;
+					TwineRef type;
 					RTLIL::IdString out;
-					std::vector<RTLIL::IdString> ins;
+					std::vector<TwineRef ins;
 				};
 				std::vector<MappingCell> cells;
 				cells.resize(no_cells);

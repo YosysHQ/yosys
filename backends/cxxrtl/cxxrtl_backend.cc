@@ -174,14 +174,14 @@ struct Scheduler {
 	}
 };
 
-bool is_unary_cell(RTLIL::IdString type)
+bool is_unary_cell(TwineRef type)
 {
 	return type.in(
 		ID($not), ID($logic_not), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
 		ID($pos), ID($neg));
 }
 
-bool is_binary_cell(RTLIL::IdString type)
+bool is_binary_cell(TwineRef type)
 {
 	return type.in(
 		ID($and), ID($or), ID($xor), ID($xnor), ID($logic_and), ID($logic_or),
@@ -190,20 +190,20 @@ bool is_binary_cell(RTLIL::IdString type)
 		ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($modfloor), ID($divfloor));
 }
 
-bool is_extending_cell(RTLIL::IdString type)
+bool is_extending_cell(TwineRef type)
 {
 	return !type.in(
 		ID($logic_not), ID($logic_and), ID($logic_or),
 		ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool));
 }
 
-bool is_inlinable_cell(RTLIL::IdString type)
+bool is_inlinable_cell(TwineRef type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
 		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux));
 }
 
-bool is_ff_cell(RTLIL::IdString type)
+bool is_ff_cell(TwineRef type)
 {
 	return type.in(
 		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce),
@@ -212,12 +212,12 @@ bool is_ff_cell(RTLIL::IdString type)
 		ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
-bool is_internal_cell(RTLIL::IdString type)
+bool is_internal_cell(TwineRef type)
 {
 	return !type.isPublic() && !type.begins_with("$paramod");
 }
 
-bool is_effectful_cell(RTLIL::IdString type)
+bool is_effectful_cell(TwineRef type)
 {
 	return type.in(ID($print), ID($check));
 }

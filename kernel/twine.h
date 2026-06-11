@@ -4,6 +4,8 @@
 #include "kernel/yosys_common.h"
 #include "kernel/hashlib.h"
 
+#include <cassert>
+
 #include "libs/plf_colony/plf_colony.h"
 #include <cstdint>
 #include <limits>
@@ -21,10 +23,49 @@ YOSYS_NAMESPACE_BEGIN
 struct Twine;
 struct TwinePool;
 
-using TwineRef = size_t;
+struct TwineRef {
+	size_t value;
+
+	static constexpr size_t kLocalBit  = 1ULL << 63;
+	static constexpr size_t kPublicBit = 1ULL << 62;
+	static constexpr size_t kTagMask   = kLocalBit | kPublicBit;
+	static constexpr size_t kNull      = ~size_t{0};
+
+	constexpr TwineRef() : value(0) {}
+	constexpr TwineRef(size_t val) : value(val) {}
+	constexpr operator size_t() const { return value; }
+
+	template <typename... Args>
+	constexpr bool in(const Args&... args) const {
+		return ((*this == args) || ...);
+	}
+
+	constexpr TwineRef operator|(TwineRef rhs) const { return TwineRef(value | rhs.value); }
+	constexpr TwineRef operator&(TwineRef rhs) const { return TwineRef(value & rhs.value); }
+	constexpr TwineRef operator~() const { return TwineRef(~value); }
+	constexpr TwineRef& operator++() { ++value; return *this; }
+	constexpr TwineRef  operator++(int) { return TwineRef(value++); }
+
+	constexpr bool is_public() const { return value != kNull && (value & kPublicBit); }
+	constexpr bool is_local()  const { return value != kNull && (value & kLocalBit); }
+
+	constexpr TwineRef untag() const {
+		return value == kNull ? *this : TwineRef(value & ~kPublicBit);
+	}
+	constexpr TwineRef tag(bool pub) const {
+		return value == kNull ? *this : TwineRef(pub ? (value | kPublicBit) : (value & ~kPublicBit));
+	}
+
+	Hasher hash_into(Hasher h) const { h.hash64(value); return h; }
+};
 
 // Tags TwineChildPool-local refs; never set on refs handed out by TwinePool.
-constexpr TwineRef TWINE_LOCAL_BIT = TwineRef(1) << 63;
+constexpr TwineRef TWINE_LOCAL_BIT = TwineRef(1LLU << 63);
+// Publicity tag carried on name handles. Pool nodes store name *content*
+// (no '\' escape); whether a name is public lives in this bit of the
+// handle, never inside the pool. TwinePool strips it on every entry path.
+constexpr TwineRef TWINE_PUBLIC_BIT = TwineRef(1LLU << 62);
+constexpr TwineRef TWINE_TAG_MASK = TWINE_LOCAL_BIT | TWINE_PUBLIC_BIT;
 
 enum : short {
 	STATIC_TWINE_BEGIN = 0,
@@ -35,10 +76,25 @@ enum : short {
 };
 
 struct TW {
-#define X(N) static constexpr TwineRef N = IDX_##N;
+// Static ids are name handles: non-'$' constids were '\'-escaped publics,
+// so their handles carry TWINE_PUBLIC_BIT baked in at compile time.
+#define X(N) static constexpr TwineRef N = (#N)[0] == '$' ? TwineRef(IDX_##N) : (TwineRef(IDX_##N) | TWINE_PUBLIC_BIT);
 #include "kernel/constids.inc"
 #undef X
+
+	static constexpr TwineRef lookup(std::string_view name)
+	{
+#define X(N) \
+		if (name == #N) return N;
+#include "kernel/constids.inc"
+#undef X
+
+		throw "unknown twine id";
+	}
 };
+
+#define TW(id) (size_t)lookup_well_known_id(#id)
+// #define TW(name) TW::lookup(#name)
 
 struct Twine {
 	static constexpr TwineRef Null = std::numeric_limits<size_t>::max();
@@ -61,6 +117,10 @@ struct Twine {
 	const std::vector<TwineRef> &children() const { return std::get<std::vector<TwineRef>>(data); }
 	const Suffix &suffix() const { return std::get<Suffix>(data); }
 };
+
+constexpr bool twine_is_public(TwineRef ref) { return ref.is_public(); }
+constexpr TwineRef twine_untag(TwineRef ref)  { return ref.untag(); }
+constexpr TwineRef twine_tag(TwineRef ref, bool is_public) { return ref.tag(is_public); }
 
 struct TwineHash {
 	using is_transparent = void;
@@ -94,6 +154,7 @@ struct TwinePool {
 	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
 
 	const Twine& operator[] (TwineRef ref) const {
+		ref = twine_untag(ref);
 		if (ref < STATIC_TWINE_END)
 			return globals_[ref];
 		else
@@ -124,6 +185,10 @@ struct TwinePool {
 		}, twine.data);
 	}
 	void print(TwineRef ref, std::ostream& os = std::cout) const {
+		if (ref == Twine::Null)
+			return;
+		if (twine_is_public(ref))
+			os << '\\';
 		std::visit([&](const auto& val) {
 			using T = std::decay_t<decltype(val)>;
 			if constexpr (std::is_same_v<T, std::monostate>) {
@@ -141,10 +206,16 @@ struct TwinePool {
 			}
 		}, (*this)[ref].data);
 	}
+	// Escaped form: leading '\' for public name handles, content otherwise.
 	std::string str(TwineRef ref) const {
 		std::ostringstream os;
 		print(ref, os);
 		return os.str();
+	}
+
+	// Name content without the publicity escape.
+	std::string unescaped_str(TwineRef ref) const {
+		return str(twine_untag(ref));
 	}
 
 	TwinePool() : index(0, TwineHash{this}, TwineEq{this}) {
@@ -180,14 +251,28 @@ struct TwinePool {
 			index.insert(STATIC_TWINE_END + backing.get_index(it));
 	}
 
-	TwineRef find(const Twine& t) const {
+	TwineRef find(Twine t) const {
+		if (auto *children = std::get_if<std::vector<TwineRef>>(&t.data)) {
+			for (TwineRef &c : *children)
+				c = twine_untag(c);
+		} else if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
+			sfx->prefix = twine_untag(sfx->prefix);
+		}
 		if (auto it = index.find(t); it != index.end()) {
 			return *it;
 		}
 		return Twine::Null;
 	}
 
-	TwineRef add(Twine t) {
+	TwineRef add_inner(Twine t) {
+		// Nodes store content only: strip publicity tags off child handles.
+		if (auto *children = std::get_if<std::vector<TwineRef>>(&t.data)) {
+			for (TwineRef &c : *children)
+				c = twine_untag(c);
+		} else if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
+			sfx->prefix = twine_untag(sfx->prefix);
+		}
+
 		if (auto it = index.find(t); it != index.end()) {
 			return *it;
 		}
@@ -196,6 +281,40 @@ struct TwinePool {
 		TwineRef ref = STATIC_TWINE_END + backing.get_index(colony_it);
 		index.insert(ref);
 		return ref;
+	}
+
+	// Interns an object name and returns a publicity-tagged handle. Leaf
+	// strings follow the escaped convention: a leading '\' marks a public
+	// name (stripped from the stored content), '$' a private one. Suffix
+	// and concat names inherit the prefix/first-child handle's publicity.
+	TwineRef add(Twine t) {
+		bool is_public = false;
+		if (auto *leaf = std::get_if<std::string>(&t.data)) {
+			assert(!leaf->empty());
+			if ((*leaf)[0] == '\\') {
+				is_public = true;
+				leaf->erase(0, 1);
+				assert(!leaf->empty());
+			} else {
+				assert((*leaf)[0] == '$');
+			}
+		} else if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
+			is_public = twine_is_public(sfx->prefix);
+		} else if (auto *children = std::get_if<std::vector<TwineRef>>(&t.data)) {
+			is_public = false;
+		}
+		return twine_tag(add_inner(std::move(t)), is_public);
+	}
+
+	TwineRef add(std::string&& s) {
+		if (s.size()) {
+			if (s[0] == '\\')
+				return twine_tag(add(Twine{s.substr(1)}), true);
+			else
+				return twine_tag(add(Twine{std::move(s)}), true);
+		} else {
+		 	return Twine::Null;
+		}
 	}
 
 	size_t size() const { return backing.size(); }
@@ -207,31 +326,39 @@ struct TwinePool {
 	}
 
 	TwineRef copy_from(const TwinePool& src, TwineRef ref) {
-		if (ref == Twine::Null || ref < STATIC_TWINE_END)
+		if (ref == Twine::Null)
 			return ref;
-		const Twine& t = src[ref];
+		// Statics are shared across pools; preserve the handle's publicity
+		// tag across the copy in either case.
+		bool is_public = twine_is_public(ref);
+		TwineRef untagged = twine_untag(ref);
+		if (untagged < STATIC_TWINE_END)
+			return ref;
+		const Twine& t = src[untagged];
 		if (t.is_leaf())
-			return add(Twine{t.leaf()});
+			return twine_tag(add(Twine{t.leaf()}), is_public);
 		if (t.is_concat()) {
 			std::vector<TwineRef> children;
 			children.reserve(t.children().size());
 			for (TwineRef c : t.children())
 				children.push_back(copy_from(src, c));
-			return add(Twine{std::move(children)});
+			return twine_tag(add(Twine{std::move(children)}), is_public);
 		}
 		if (t.is_suffix())
-			return add(Twine{Twine::Suffix{copy_from(src, t.suffix().prefix), t.suffix().tail}});
+			return twine_tag(add(Twine{Twine::Suffix{copy_from(src, t.suffix().prefix), t.suffix().tail}}), is_public);
 		return Twine::Null;
 	}
 
-	// linear deep scan; only for rare by-string lookups
+	// linear deep scan; only for rare by-string lookups. Accepts the
+	// escaped name convention: a leading '\' is stripped and the returned
+	// handle carries TWINE_PUBLIC_BIT.
 	TwineRef lookup(std::string_view sv) const;
 
 	// Erases every backing node not reachable from `roots`; refs to
 	// surviving nodes stay valid. Returns the number of erased nodes.
 	template<typename Pool>
 	size_t gc(const Pool& roots) {
-		std::unordered_set<TwineRef> live;
+		pool<TwineRef> live;
 		for (TwineRef ref : roots)
 			mark_live(ref, live);
 		size_t erased = 0;
@@ -248,7 +375,8 @@ struct TwinePool {
 		return erased;
 	}
 
-	void mark_live(TwineRef ref, std::unordered_set<TwineRef>& live) const {
+	void mark_live(TwineRef ref, pool<TwineRef>& live) const {
+		ref = twine_untag(ref);
 		if (ref == Twine::Null || ref < STATIC_TWINE_END || !live.insert(ref).second)
 			return;
 		const Twine& t = (*this)[ref];
@@ -441,19 +569,49 @@ struct TwineChildPool {
 
 	TwineChildPool(const TwinePool* parent) : parent(parent) {}
 
-	static bool is_local(TwineRef ref) {
-		return ref != Twine::Null && (ref & TWINE_LOCAL_BIT);
-	}
+	static bool is_local(TwineRef ref) { return ref.is_local(); }
 
 	const Twine& operator[] (TwineRef ref) const {
 		if (is_local(ref))
-			return local_[ref & ~TWINE_LOCAL_BIT];
+			return local_[ref & ~TWINE_TAG_MASK];
 		return (*parent)[ref];
 	}
 
-	TwineRef add(Twine t) {
+	TwineRef add_inner(Twine t) {
 		local_.push_back(std::move(t));
 		return (local_.size() - 1) | TWINE_LOCAL_BIT;
+	}
+
+	// Local analog of TwinePool::add; see there for the convention.
+	TwineRef add(Twine t) {
+		bool is_public = false;
+		if (auto *leaf = std::get_if<std::string>(&t.data)) {
+			assert(!leaf->empty());
+			if ((*leaf)[0] == '\\') {
+				is_public = true;
+				leaf->erase(0, 1);
+				assert(!leaf->empty());
+			} else {
+				assert((*leaf)[0] == '$');
+			}
+		} else if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
+			is_public = twine_is_public(sfx->prefix);
+		} else if (auto *children = std::get_if<std::vector<TwineRef>>(&t.data)) {
+			is_public = !children->empty() && twine_is_public(children->front());
+		}
+		return twine_tag(add_inner(std::move(t)), is_public);
+	}
+
+	// TODO duplicated code
+	TwineRef add(std::string&& s) {
+		if (s.size()) {
+			if (s[0] == '\\')
+				return twine_tag(add(Twine{s.substr(1)}), true);
+			else
+				return twine_tag(add(Twine{std::move(s)}), true);
+		} else {
+		 	return Twine::Null;
+		}
 	}
 
 	bool empty() const { return local_.empty(); }
@@ -477,19 +635,22 @@ struct TwineChildPool {
 	TwineRef resolve(TwineRef ref) const {
 		if (!is_local(ref))
 			return ref;
-		return remap_[ref & ~TWINE_LOCAL_BIT];
+		return twine_tag(remap_[ref & ~TWINE_TAG_MASK], twine_is_public(ref));
 	}
 };
 
 inline TwineRef TwinePool::lookup(std::string_view sv) const {
+	bool is_public = !sv.empty() && sv[0] == '\\';
+	if (is_public)
+		sv.remove_prefix(1);
 	DeepTwineEq eq{this};
 	for (TwineRef ref = 0; ref < globals_.size(); ref++)
 		if (eq(ref, sv))
-			return ref;
+			return twine_tag(ref, is_public);
 	for (auto it = backing.begin(); it != backing.end(); ++it) {
 		TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
 		if (eq(ref, sv))
-			return ref;
+			return twine_tag(ref, is_public);
 	}
 	return Twine::Null;
 }
@@ -502,9 +663,13 @@ struct TwineSearch {
 			index.insert(STATIC_TWINE_END + pool->backing.get_index(it));
 		}
 	}
+	// Escaped-name aware, same contract as TwinePool::lookup.
 	TwineRef find(std::string_view sv) const {
+		bool is_public = !sv.empty() && sv[0] == '\\';
+		if (is_public)
+			sv.remove_prefix(1);
 		if (auto it = index.find(sv); it != index.end()) {
-			return *it;
+			return twine_tag(*it, is_public);
 		}
 		return Twine::Null;
 	}

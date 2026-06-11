@@ -661,7 +661,7 @@ Cell *FfData::emit() {
 			log_assert(!has_srst);
 			log_assert(!has_sr);
 			if (is_anyinit) {
-				cell = module->addAnyinit(name, sig_d, sig_q);
+				cell = module->addAnyinit(Twine{name.str()}, sig_d, sig_q);
 				log_assert(val_init.is_fully_undef());
 			} else {
 				cell = module->addFf(Twine{name.str()}, sig_d, sig_q);

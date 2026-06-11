@@ -18,7 +18,7 @@ unsigned int CellCosts::get(RTLIL::Module *mod)
 	return module_cost;
 }
 
-static unsigned int y_coef(RTLIL::IdString type)
+static unsigned int y_coef(TwineRef type)
 {
 	if (
 	  // equality
@@ -46,7 +46,7 @@ static unsigned int y_coef(RTLIL::IdString type)
 	return 0;
 }
 
-static unsigned int max_inp_coef(RTLIL::IdString type)
+static unsigned int max_inp_coef(TwineRef type)
 {
 	if (
 	  // binop reduce
@@ -69,7 +69,7 @@ static unsigned int max_inp_coef(RTLIL::IdString type)
 	return 0;
 }
 
-static unsigned int sum_coef(RTLIL::IdString type)
+static unsigned int sum_coef(TwineRef type)
 {
 	if (type.in(ID($shr), ID($sshr))) {
 		// right shift
@@ -81,12 +81,12 @@ static unsigned int sum_coef(RTLIL::IdString type)
 	return 0;
 }
 
-static unsigned int is_div_mod(RTLIL::IdString type)
+static unsigned int is_div_mod(TwineRef type)
 {
 	return (type == ID($div) || type == ID($divfloor) || type == ID($mod) || type == ID($modfloor));
 }
 
-static bool is_free(RTLIL::IdString type)
+static bool is_free(TwineRef type)
 {
 	return (
 	  // tags

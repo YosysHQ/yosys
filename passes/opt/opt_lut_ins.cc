@@ -242,17 +242,17 @@ struct OptLutInsPass : public Pass {
 						else
 							log_assert(GetSize(new_inputs) <= 4);
 						if (GetSize(new_inputs) == 1)
-							cell->type = ID(LUT1);
+							cell->type_impl = TW::LUT1;
 						else if (GetSize(new_inputs) == 2)
-							cell->type = ID(LUT2);
+							cell->type_impl = TW::LUT2;
 						else if (GetSize(new_inputs) == 3)
-							cell->type = ID(LUT3);
+							cell->type_impl = TW::LUT3;
 						else if (GetSize(new_inputs) == 4)
-							cell->type = ID(LUT4);
+							cell->type_impl = TW::LUT4;
 						else if (GetSize(new_inputs) == 5)
-							cell->type = ID(LUT5);
+							cell->type_impl = TW::LUT5;
 						else if (GetSize(new_inputs) == 6)
-							cell->type = ID(LUT6);
+							cell->type_impl = TW::LUT6;
 						else
 							log_assert(0);
 						cell->unsetPort(TW::I0);

@@ -38,7 +38,9 @@ static void publish_design(RTLIL::Design* design) {
 		publish(new_name);
 		design->modules_[mod->meta_->name] = mod;
 		for (auto* cell : mod->cells()) {
-			publish(cell->type);
+			IdString ct = cell->type;
+			if (ct.begins_with("$"))
+				cell->type_impl = cell->module->design->twines.add(Twine{"\\" + ct.str()});
 		}
 	}
 }
@@ -100,12 +102,12 @@ struct ChtypePass : public Pass {
 			for (auto cell : module->selected_cells())
 			{
 				if (map_types.count(cell->type)) {
-					cell->type = map_types.at(cell->type);
+					cell->type_impl = cell->module->design->twines.add(Twine{map_types.at(cell->type).str()});
 					continue;
 				}
 
 				if (set_type != IdString()) {
-					cell->type = set_type;
+					cell->type_impl = cell->module->design->twines.add(Twine{set_type.str()});
 					continue;
 				}
 			}

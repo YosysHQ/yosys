@@ -50,67 +50,67 @@ struct CellTableBuilder {
 		bool is_tristate = false;
 	};
 	struct CellInfo {
-		RTLIL::IdString type;
+		TwineRef type;
 		PortList inputs, outputs;
 		Features features;
 	};
 	std::array<CellInfo, MAX_CELLS> cells{};
 	size_t count = 0;
 
-	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<TwineRef> inputs, std::initializer_list<TwineRef> outputs, const Features& features) {
+	constexpr void setup_type(TwineRef type, std::initializer_list<TwineRef> inputs, std::initializer_list<TwineRef> outputs, const Features& features) {
 		cells[count++] = {type, PortList(inputs), PortList(outputs), features};
 	}
 	constexpr void setup_internals_other()
 	{
 		Features features {};
 		features.is_tristate = true;
-		setup_type(ID($tribuf), {TW::A, TW::EN}, {TW::Y}, features);
+		setup_type(TW($tribuf), {TW::A, TW::EN}, {TW::Y}, features);
 
 		features = {};
-		setup_type(ID($assert), {TW::A, TW::EN}, {}, features);
-		setup_type(ID($assume), {TW::A, TW::EN}, {}, features);
-		setup_type(ID($live), {TW::A, TW::EN}, {}, features);
-		setup_type(ID($fair), {TW::A, TW::EN}, {}, features);
-		setup_type(ID($cover), {TW::A, TW::EN}, {}, features);
-		setup_type(ID($initstate), {}, {TW::Y}, features);
-		setup_type(ID($anyconst), {}, {TW::Y}, features);
-		setup_type(ID($anyseq), {}, {TW::Y}, features);
-		setup_type(ID($allconst), {}, {TW::Y}, features);
-		setup_type(ID($allseq), {}, {TW::Y}, features);
-		setup_type(ID($equiv), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($specify2), {TW::EN, TW::SRC, TW::DST}, {}, features);
-		setup_type(ID($specify3), {TW::EN, TW::SRC, TW::DST, TW::DAT}, {}, features);
-		setup_type(ID($specrule), {TW::SRC_EN, TW::DST_EN, TW::SRC, TW::DST}, {}, features);
-		setup_type(ID($print), {TW::EN, TW::ARGS, TW::TRG}, {}, features);
-		setup_type(ID($check), {TW::A, TW::EN, TW::ARGS, TW::TRG}, {}, features);
-		setup_type(ID($set_tag), {TW::A, TW::SET, TW::CLR}, {TW::Y}, features);
-		setup_type(ID($get_tag), {TW::A}, {TW::Y}, features);
-		setup_type(ID($overwrite_tag), {TW::A, TW::SET, TW::CLR}, {}, features);
-		setup_type(ID($original_tag), {TW::A}, {TW::Y}, features);
-		setup_type(ID($future_ff), {TW::A}, {TW::Y}, features);
-		setup_type(ID($scopeinfo), {}, {}, features);
-		setup_type(ID($input_port), {}, {TW::Y}, features);
-		setup_type(ID($output_port), {TW::A}, {}, features);
-		setup_type(ID($public), {TW::A}, {}, features);
-		setup_type(ID($connect), {TW::A, TW::B}, {}, features);
+		setup_type(TW($assert), {TW::A, TW::EN}, {}, features);
+		setup_type(TW($assume), {TW::A, TW::EN}, {}, features);
+		setup_type(TW($live), {TW::A, TW::EN}, {}, features);
+		setup_type(TW($fair), {TW::A, TW::EN}, {}, features);
+		setup_type(TW($cover), {TW::A, TW::EN}, {}, features);
+		setup_type(TW($initstate), {}, {TW::Y}, features);
+		setup_type(TW($anyconst), {}, {TW::Y}, features);
+		setup_type(TW($anyseq), {}, {TW::Y}, features);
+		setup_type(TW($allconst), {}, {TW::Y}, features);
+		setup_type(TW($allseq), {}, {TW::Y}, features);
+		setup_type(TW($equiv), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($specify2), {TW::EN, TW::SRC, TW::DST}, {}, features);
+		setup_type(TW($specify3), {TW::EN, TW::SRC, TW::DST, TW::DAT}, {}, features);
+		setup_type(TW($specrule), {TW::SRC_EN, TW::DST_EN, TW::SRC, TW::DST}, {}, features);
+		setup_type(TW($print), {TW::EN, TW::ARGS, TW::TRG}, {}, features);
+		setup_type(TW($check), {TW::A, TW::EN, TW::ARGS, TW::TRG}, {}, features);
+		setup_type(TW($set_tag), {TW::A, TW::SET, TW::CLR}, {TW::Y}, features);
+		setup_type(TW($get_tag), {TW::A}, {TW::Y}, features);
+		setup_type(TW($overwrite_tag), {TW::A, TW::SET, TW::CLR}, {}, features);
+		setup_type(TW($original_tag), {TW::A}, {TW::Y}, features);
+		setup_type(TW($future_ff), {TW::A}, {TW::Y}, features);
+		setup_type(TW($scopeinfo), {}, {}, features);
+		setup_type(TW($input_port), {}, {TW::Y}, features);
+		setup_type(TW($output_port), {TW::A}, {}, features);
+		setup_type(TW($public), {TW::A}, {}, features);
+		setup_type(TW($connect), {TW::A, TW::B}, {}, features);
 	}
 	constexpr void setup_internals_eval()
 	{
 		Features features {};
 		features.is_evaluable = true;
-		std::initializer_list<RTLIL::IdString> unary_ops = {
-			ID($not), ID($pos), ID($buf), ID($neg),
-			ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
-			ID($logic_not), ID($slice), ID($lut), ID($sop)
+		std::initializer_list<TwineRef> unary_ops = {
+			TW($not), TW($pos), TW($buf), TW($neg),
+			TW($reduce_and), TW($reduce_or), TW($reduce_xor), TW($reduce_xnor), TW($reduce_bool),
+			TW($logic_not), TW($slice), TW($lut), TW($sop)
 		};
 
-		std::initializer_list<RTLIL::IdString> binary_ops = {
-			ID($and), ID($or), ID($xor), ID($xnor),
-			ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
-			ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
-			ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow),
-			ID($logic_and), ID($logic_or), ID($concat), ID($macc),
-			ID($bweqx)
+		std::initializer_list<TwineRef> binary_ops = {
+			TW($and), TW($or), TW($xor), TW($xnor),
+			TW($shl), TW($shr), TW($sshl), TW($sshr), TW($shift), TW($shiftx),
+			TW($lt), TW($le), TW($eq), TW($ne), TW($eqx), TW($nex), TW($ge), TW($gt),
+			TW($add), TW($sub), TW($mul), TW($div), TW($mod), TW($divfloor), TW($modfloor), TW($pow),
+			TW($logic_and), TW($logic_or), TW($concat), TW($macc),
+			TW($bweqx)
 		};
 
 		for (auto type : unary_ops)
@@ -119,43 +119,43 @@ struct CellTableBuilder {
 		for (auto type : binary_ops)
 			setup_type(type, {TW::A, TW::B}, {TW::Y}, features);
 
-		for (auto type : {ID($mux), ID($pmux), ID($bwmux)})
+		for (auto type : {TW($mux), TW($pmux), TW($bwmux)})
 			setup_type(type, {TW::A, TW::B, TW::S}, {TW::Y}, features);
 
-		for (auto type : {ID($bmux), ID($demux)})
+		for (auto type : {TW($bmux), TW($demux)})
 			setup_type(type, {TW::A, TW::S}, {TW::Y}, features);
 
-		setup_type(ID($lcu), {TW::P, TW::G, TW::CI}, {TW::CO}, features);
-		setup_type(ID($alu), {TW::A, TW::B, TW::CI, TW::BI}, {TW::X, TW::Y, TW::CO}, features);
-		setup_type(ID($macc_v2), {TW::A, TW::B, TW::C}, {TW::Y}, features);
-		setup_type(ID($fa), {TW::A, TW::B, TW::C}, {TW::X, TW::Y}, features);
+		setup_type(TW($lcu), {TW::P, TW::G, TW::CI}, {TW::CO}, features);
+		setup_type(TW($alu), {TW::A, TW::B, TW::CI, TW::BI}, {TW::X, TW::Y, TW::CO}, features);
+		setup_type(TW($macc_v2), {TW::A, TW::B, TW::C}, {TW::Y}, features);
+		setup_type(TW($fa), {TW::A, TW::B, TW::C}, {TW::X, TW::Y}, features);
 	}
 	constexpr void setup_internals_ff()
 	{
 		Features features {};
 		features.is_ff = true;
-		setup_type(ID($sr), {TW::SET, TW::CLR}, {TW::Q}, features);
-		setup_type(ID($ff), {TW::D}, {TW::Q}, features);
-		setup_type(ID($dff), {TW::CLK, TW::D}, {TW::Q}, features);
-		setup_type(ID($dffe), {TW::CLK, TW::EN, TW::D}, {TW::Q}, features);
-		setup_type(ID($dffsr), {TW::CLK, TW::SET, TW::CLR, TW::D}, {TW::Q}, features);
-		setup_type(ID($dffsre), {TW::CLK, TW::SET, TW::CLR, TW::D, TW::EN}, {TW::Q}, features);
-		setup_type(ID($adff), {TW::CLK, TW::ARST, TW::D}, {TW::Q}, features);
-		setup_type(ID($adffe), {TW::CLK, TW::ARST, TW::D, TW::EN}, {TW::Q}, features);
-		setup_type(ID($aldff), {TW::CLK, TW::ALOAD, TW::AD, TW::D}, {TW::Q}, features);
-		setup_type(ID($aldffe), {TW::CLK, TW::ALOAD, TW::AD, TW::D, TW::EN}, {TW::Q}, features);
-		setup_type(ID($sdff), {TW::CLK, TW::SRST, TW::D}, {TW::Q}, features);
-		setup_type(ID($sdffe), {TW::CLK, TW::SRST, TW::D, TW::EN}, {TW::Q}, features);
-		setup_type(ID($sdffce), {TW::CLK, TW::SRST, TW::D, TW::EN}, {TW::Q}, features);
-		setup_type(ID($dlatch), {TW::EN, TW::D}, {TW::Q}, features);
-		setup_type(ID($adlatch), {TW::EN, TW::D, TW::ARST}, {TW::Q}, features);
-		setup_type(ID($dlatchsr), {TW::EN, TW::SET, TW::CLR, TW::D}, {TW::Q}, features);
+		setup_type(TW($sr), {TW::SET, TW::CLR}, {TW::Q}, features);
+		setup_type(TW($ff), {TW::D}, {TW::Q}, features);
+		setup_type(TW($dff), {TW::CLK, TW::D}, {TW::Q}, features);
+		setup_type(TW($dffe), {TW::CLK, TW::EN, TW::D}, {TW::Q}, features);
+		setup_type(TW($dffsr), {TW::CLK, TW::SET, TW::CLR, TW::D}, {TW::Q}, features);
+		setup_type(TW($dffsre), {TW::CLK, TW::SET, TW::CLR, TW::D, TW::EN}, {TW::Q}, features);
+		setup_type(TW($adff), {TW::CLK, TW::ARST, TW::D}, {TW::Q}, features);
+		setup_type(TW($adffe), {TW::CLK, TW::ARST, TW::D, TW::EN}, {TW::Q}, features);
+		setup_type(TW($aldff), {TW::CLK, TW::ALOAD, TW::AD, TW::D}, {TW::Q}, features);
+		setup_type(TW($aldffe), {TW::CLK, TW::ALOAD, TW::AD, TW::D, TW::EN}, {TW::Q}, features);
+		setup_type(TW($sdff), {TW::CLK, TW::SRST, TW::D}, {TW::Q}, features);
+		setup_type(TW($sdffe), {TW::CLK, TW::SRST, TW::D, TW::EN}, {TW::Q}, features);
+		setup_type(TW($sdffce), {TW::CLK, TW::SRST, TW::D, TW::EN}, {TW::Q}, features);
+		setup_type(TW($dlatch), {TW::EN, TW::D}, {TW::Q}, features);
+		setup_type(TW($adlatch), {TW::EN, TW::D, TW::ARST}, {TW::Q}, features);
+		setup_type(TW($dlatchsr), {TW::EN, TW::SET, TW::CLR, TW::D}, {TW::Q}, features);
 	}
 	constexpr void setup_internals_anyinit()
 	{
 		Features features {};
 		features.is_anyinit = true;
-		setup_type(ID($anyinit), {TW::D}, {TW::Q}, features);
+		setup_type(TW($anyinit), {TW::D}, {TW::Q}, features);
 	}
 	constexpr void setup_internals_mem_noff()
 	{
@@ -163,24 +163,24 @@ struct CellTableBuilder {
 		features.is_mem_noff = true;
 		// NOT setup_internals_ff()
 
-		setup_type(ID($memrd), {TW::CLK, TW::EN, TW::ADDR}, {TW::DATA}, features);
-		setup_type(ID($memrd_v2), {TW::CLK, TW::EN, TW::ARST, TW::SRST, TW::ADDR}, {TW::DATA}, features);
-		setup_type(ID($memwr), {TW::CLK, TW::EN, TW::ADDR, TW::DATA}, {}, features);
-		setup_type(ID($memwr_v2), {TW::CLK, TW::EN, TW::ADDR, TW::DATA}, {}, features);
-		setup_type(ID($meminit), {TW::ADDR, TW::DATA}, {}, features);
-		setup_type(ID($meminit_v2), {TW::ADDR, TW::DATA, TW::EN}, {}, features);
-		setup_type(ID($mem), {TW::RD_CLK, TW::RD_EN, TW::RD_ADDR, TW::WR_CLK, TW::WR_EN, TW::WR_ADDR, TW::WR_DATA}, {TW::RD_DATA}, features);
-		setup_type(ID($mem_v2), {TW::RD_CLK, TW::RD_EN, TW::RD_ARST, TW::RD_SRST, TW::RD_ADDR, TW::WR_CLK, TW::WR_EN, TW::WR_ADDR, TW::WR_DATA}, {TW::RD_DATA}, features);
+		setup_type(TW($memrd), {TW::CLK, TW::EN, TW::ADDR}, {TW::DATA}, features);
+		setup_type(TW($memrd_v2), {TW::CLK, TW::EN, TW::ARST, TW::SRST, TW::ADDR}, {TW::DATA}, features);
+		setup_type(TW($memwr), {TW::CLK, TW::EN, TW::ADDR, TW::DATA}, {}, features);
+		setup_type(TW($memwr_v2), {TW::CLK, TW::EN, TW::ADDR, TW::DATA}, {}, features);
+		setup_type(TW($meminit), {TW::ADDR, TW::DATA}, {}, features);
+		setup_type(TW($meminit_v2), {TW::ADDR, TW::DATA, TW::EN}, {}, features);
+		setup_type(TW($mem), {TW::RD_CLK, TW::RD_EN, TW::RD_ADDR, TW::WR_CLK, TW::WR_EN, TW::WR_ADDR, TW::WR_DATA}, {TW::RD_DATA}, features);
+		setup_type(TW($mem_v2), {TW::RD_CLK, TW::RD_EN, TW::RD_ARST, TW::RD_SRST, TW::RD_ADDR, TW::WR_CLK, TW::WR_EN, TW::WR_ADDR, TW::WR_DATA}, {TW::RD_DATA}, features);
 
 		// What?
-		setup_type(ID($fsm), {TW::CLK, TW::ARST, TW::CTRL_IN}, {TW::CTRL_OUT}, features);
+		setup_type(TW($fsm), {TW::CLK, TW::ARST, TW::CTRL_IN}, {TW::CTRL_OUT}, features);
 	}
 	constexpr void setup_stdcells_tristate()
 	{
 		Features features {};
 		features.is_stdcell = true;
 		features.is_tristate = true;
-		setup_type(ID($_TBUF_), {TW::A, TW::E}, {TW::Y}, features);
+		setup_type(TW($_TBUF_), {TW::A, TW::E}, {TW::Y}, features);
 	}
 
 	constexpr void setup_stdcells_eval()
@@ -188,25 +188,25 @@ struct CellTableBuilder {
 		Features features {};
 		features.is_stdcell = true;
 		features.is_evaluable = true;
-		setup_type(ID($_BUF_), {TW::A}, {TW::Y}, features);
-		setup_type(ID($_NOT_), {TW::A}, {TW::Y}, features);
-		setup_type(ID($_AND_), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_NAND_), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_OR_),  {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_NOR_),  {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_XOR_), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_XNOR_), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_ANDNOT_), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_ORNOT_), {TW::A, TW::B}, {TW::Y}, features);
-		setup_type(ID($_MUX_), {TW::A, TW::B, TW::S}, {TW::Y}, features);
-		setup_type(ID($_NMUX_), {TW::A, TW::B, TW::S}, {TW::Y}, features);
-		setup_type(ID($_MUX4_), {TW::A, TW::B, TW::C, TW::D, TW::S, TW::T}, {TW::Y}, features);
-		setup_type(ID($_MUX8_), {TW::A, TW::B, TW::C, TW::D, TW::E, TW::F, TW::G, TW::H, TW::S, TW::T, TW::U}, {TW::Y}, features);
-		setup_type(ID($_MUX16_), {TW::A, TW::B, TW::C, TW::D, TW::E, TW::F, TW::G, TW::H, TW::I, TW::J, TW::K, TW::L, TW::M, TW::N, TW::O, TW::P, TW::S, TW::T, TW::U, TW::V}, {TW::Y}, features);
-		setup_type(ID($_AOI3_), {TW::A, TW::B, TW::C}, {TW::Y}, features);
-		setup_type(ID($_OAI3_), {TW::A, TW::B, TW::C}, {TW::Y}, features);
-		setup_type(ID($_AOI4_), {TW::A, TW::B, TW::C, TW::D}, {TW::Y}, features);
-		setup_type(ID($_OAI4_), {TW::A, TW::B, TW::C, TW::D}, {TW::Y}, features);
+		setup_type(TW($_BUF_), {TW::A}, {TW::Y}, features);
+		setup_type(TW($_NOT_), {TW::A}, {TW::Y}, features);
+		setup_type(TW($_AND_), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_NAND_), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_OR_),  {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_NOR_),  {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_XOR_), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_XNOR_), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_ANDNOT_), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_ORNOT_), {TW::A, TW::B}, {TW::Y}, features);
+		setup_type(TW($_MUX_), {TW::A, TW::B, TW::S}, {TW::Y}, features);
+		setup_type(TW($_NMUX_), {TW::A, TW::B, TW::S}, {TW::Y}, features);
+		setup_type(TW($_MUX4_), {TW::A, TW::B, TW::C, TW::D, TW::S, TW::T}, {TW::Y}, features);
+		setup_type(TW($_MUX8_), {TW::A, TW::B, TW::C, TW::D, TW::E, TW::F, TW::G, TW::H, TW::S, TW::T, TW::U}, {TW::Y}, features);
+		setup_type(TW($_MUX16_), {TW::A, TW::B, TW::C, TW::D, TW::E, TW::F, TW::G, TW::H, TW::I, TW::J, TW::K, TW::L, TW::M, TW::N, TW::O, TW::P, TW::S, TW::T, TW::U, TW::V}, {TW::Y}, features);
+		setup_type(TW($_AOI3_), {TW::A, TW::B, TW::C}, {TW::Y}, features);
+		setup_type(TW($_OAI3_), {TW::A, TW::B, TW::C}, {TW::Y}, features);
+		setup_type(TW($_AOI4_), {TW::A, TW::B, TW::C, TW::D}, {TW::Y}, features);
+		setup_type(TW($_OAI4_), {TW::A, TW::B, TW::C, TW::D}, {TW::Y}, features);
 	}
 
 	constexpr void setup_stdcells_ff() {
@@ -217,193 +217,193 @@ struct CellTableBuilder {
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// 	setup_type(std::string("$_SR_") + c1 + c2 + "_", {TW::S, TW::R}, {TW::Q}, features);
-		setup_type(ID($_SR_NN_), {TW::S, TW::R}, {TW::Q}, features);
-		setup_type(ID($_SR_NP_), {TW::S, TW::R}, {TW::Q}, features);
-		setup_type(ID($_SR_PN_), {TW::S, TW::R}, {TW::Q}, features);
-		setup_type(ID($_SR_PP_), {TW::S, TW::R}, {TW::Q}, features);
+		setup_type(TW($_SR_NN_), {TW::S, TW::R}, {TW::Q}, features);
+		setup_type(TW($_SR_NP_), {TW::S, TW::R}, {TW::Q}, features);
+		setup_type(TW($_SR_PN_), {TW::S, TW::R}, {TW::Q}, features);
+		setup_type(TW($_SR_PP_), {TW::S, TW::R}, {TW::Q}, features);
 
-		setup_type(ID($_FF_), {TW::D}, {TW::Q}, features);
+		setup_type(TW($_FF_), {TW::D}, {TW::Q}, features);
 
 		// for (auto c1 : list_np)
 		// 	setup_type(std::string("$_DFF_") + c1 + "_", {TW::C, TW::D}, {TW::Q}, features);
-		setup_type(ID::$_DFF_N_, {TW::C, TW::D}, {TW::Q}, features);
-		setup_type(ID::$_DFF_P_, {TW::C, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_N_), {TW::C, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_P_), {TW::C, TW::D}, {TW::Q}, features);
 
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// 	setup_type(std::string("$_DFFE_") + c1 + c2 + "_", {TW::C, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID::$_DFFE_NN_, {TW::C, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID::$_DFFE_NP_, {TW::C, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID::$_DFFE_PN_, {TW::C, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID::$_DFFE_PP_, {TW::C, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NN_), {TW::C, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NP_), {TW::C, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PN_), {TW::C, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PP_), {TW::C, TW::D, TW::E}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// 	setup_type(std::string("$_DFF_") + c1 + c2 + c3 + "_", {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_NN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_NN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_NP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_NP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_PN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_PN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_PP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFF_PP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_NN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_NN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_NP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_NP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_PN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_PN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_PP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFF_PP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_DFFE_") + c1 + c2 + c3 + c4 + "_", {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_NP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFE_PP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_NP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFE_PP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// 	setup_type(std::string("$_ALDFF_") + c1 + c2 + "_", {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
-		setup_type(ID($_ALDFF_NN_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
-		setup_type(ID($_ALDFF_NP_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
-		setup_type(ID($_ALDFF_PN_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
-		setup_type(ID($_ALDFF_PP_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
+		setup_type(TW($_ALDFF_NN_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
+		setup_type(TW($_ALDFF_NP_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
+		setup_type(TW($_ALDFF_PN_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
+		setup_type(TW($_ALDFF_PP_), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// 	setup_type(std::string("$_ALDFFE_") + c1 + c2 + c3 + "_", {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_NNN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_NNP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_NPN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_NPP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_PNN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_PNP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_PPN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_ALDFFE_PPP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_NNN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_NNP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_NPN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_NPP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_PNN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_PNP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_PPN_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_ALDFFE_PPP_), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// 	setup_type(std::string("$_DFFSR_") + c1 + c2 + c3 + "_", {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_NNN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_NNP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_NPN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_NPP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_PNN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_PNP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_PPN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DFFSR_PPP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_NNN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_NNP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_NPN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_NPP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_PNN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_PNP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_PPN_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DFFSR_PPP_), {TW::C, TW::S, TW::R, TW::D}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_DFFSRE_") + c1 + c2 + c3 + c4 + "_", {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NNNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NNNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NNPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NNPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NPNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NPNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NPPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_NPPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PNNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PNNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PNPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PNPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PPNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PPNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PPPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_DFFSRE_PPPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NNNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NNNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NNPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NNPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NPNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NPNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NPPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_NPPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PNNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PNNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PNPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PNPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PPNN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PPNP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PPPN_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_DFFSRE_PPPP_), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// 	setup_type(std::string("$_SDFF_") + c1 + c2 + c3 + "_", {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_NN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_NN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_NP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_NP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_PN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_PN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_PP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_SDFF_PP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_NN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_NN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_NP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_NP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_PN0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_PN1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_PP0_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_SDFF_PP1_), {TW::C, TW::R, TW::D}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_SDFFE_") + c1 + c2 + c3 + c4 + "_", {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_NP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFE_PP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_NP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFE_PP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_SDFFCE_") + c1 + c2 + c3 + c4 + "_", {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_NP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
-		setup_type(ID($_SDFFCE_PP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_NP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PN0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PN0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PN1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PN1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PP0N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PP0P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PP1N_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
+		setup_type(TW($_SDFFCE_PP1P_), {TW::C, TW::R, TW::D, TW::E}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// 	setup_type(std::string("$_DLATCH_") + c1 + "_", {TW::E, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_N_), {TW::E, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_P_), {TW::E, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_N_), {TW::E, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_P_), {TW::E, TW::D}, {TW::Q}, features);
 
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// 	setup_type(std::string("$_DLATCH_") + c1 + c2 + c3 + "_", {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_NN0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_NN1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_NP0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_NP1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_PN0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_PN1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_PP0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCH_PP1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_NN0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_NN1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_NP0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_NP1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_PN0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_PN1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_PP0_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCH_PP1_), {TW::E, TW::R, TW::D}, {TW::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// 	setup_type(std::string("$_DLATCHSR_") + c1 + c2 + c3 + "_", {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_NNN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_NNP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_NPN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_NPP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_PNN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_PNP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_PPN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
-		setup_type(ID($_DLATCHSR_PPP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_NNN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_NNP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_NPN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_NPP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_PNN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_PNP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_PPN_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
+		setup_type(TW($_DLATCHSR_PPP_), {TW::E, TW::S, TW::R, TW::D}, {TW::Q}, features);
 	}
 	constexpr CellTableBuilder() {
 		setup_internals_other();
@@ -423,8 +423,8 @@ constexpr CellTableBuilder builder {};
 struct PortInfo {
 	struct PortLists {
 		std::array<CellTableBuilder::PortList, MAX_CELLS> data{};
-		constexpr CellTableBuilder::PortList operator()(IdString type) const {
-			return data[type.index_];
+		constexpr CellTableBuilder::PortList operator()(TwineRef type) const {
+			return data[type];
 		}
 		constexpr CellTableBuilder::PortList& operator[](size_t idx) {
 			return data[idx];
@@ -436,7 +436,7 @@ struct PortInfo {
 	constexpr PortInfo() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
-			size_t idx = cell.type.index_;
+			size_t idx = cell.type;
 			inputs[idx] = cell.inputs;
 			outputs[idx] = cell.outputs;
 		}
@@ -446,8 +446,8 @@ struct PortInfo {
 struct Categories {
 	struct Category {
 		std::array<bool, MAX_CELLS> data{};
-		constexpr bool operator()(IdString type) const {
-			size_t idx = type.index_;
+		constexpr bool operator()(TwineRef type) const {
+			size_t idx = type;
 			if (idx >= MAX_CELLS)
 				return false;
 			return data[idx];
@@ -479,7 +479,7 @@ struct Categories {
 	constexpr Categories() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
-			size_t idx = cell.type.index_;
+			size_t idx = cell.type;
 			is_known.set(idx);
 			is_evaluable.set(idx, cell.features.is_evaluable);
 			is_combinatorial.set(idx, cell.features.is_combinatorial);
@@ -537,17 +537,17 @@ namespace Compat {
 };
 
 namespace {
-	static_assert(categories.is_evaluable(ID($and)));
-	static_assert(!categories.is_ff(ID($and)));
-	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($and)));
-	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($dffsr)));
-	static_assert(!Categories::join(categories.is_evaluable, categories.is_ff)(ID($anyinit)));
+	static_assert(categories.is_evaluable(TW($and)));
+	static_assert(!categories.is_ff(TW($and)));
+	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(TW($and)));
+	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(TW($dffsr)));
+	static_assert(!Categories::join(categories.is_evaluable, categories.is_ff)(TW($anyinit)));
 }
 
 };
 
 struct NewCellType {
-	RTLIL::IdString type;
+	TwineRef type;
 	pool<TwineRef> inputs, outputs;
 	bool is_evaluable;
 	bool is_combinatorial;
@@ -561,7 +561,7 @@ struct NewCellTypes {
 		}
 	};
 	StaticCellTypes::Categories::Category static_cell_types = StaticCellTypes::categories.empty;
-	std::unordered_map<RTLIL::IdString, NewCellType, IdStringHash> custom_cell_types {};
+	std::unordered_map<TwineRef, NewCellType, IdStringHash> custom_cell_types {};
 
 	NewCellTypes() {
 		static_cell_types = StaticCellTypes::categories.empty;
@@ -590,10 +590,10 @@ struct NewCellTypes {
 			if (wire->port_output)
 				outputs.insert(wire->meta_->name);
 		}
-		setup_type(RTLIL::IdString(module->design->twines.str(module->meta_->name)), inputs, outputs);
+		setup_type(module->meta_->name, inputs, outputs);
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<TwineRef> &inputs, const pool<TwineRef> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false) {
+	void setup_type(TwineRef type, const pool<TwineRef> &inputs, const pool<TwineRef> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false) {
 		NewCellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
 		custom_cell_types[ct.type] = ct;
 	}
@@ -603,11 +603,11 @@ struct NewCellTypes {
 		static_cell_types = StaticCellTypes::categories.empty;
 	}
 
-	bool cell_known(const RTLIL::IdString &type) const {
+	bool cell_known(TwineRef type) const {
 		return static_cell_types(type) || custom_cell_types.count(type) != 0;
 	}
 
-	bool cell_output(const RTLIL::IdString &type, TwineRef port) const
+	bool cell_output(TwineRef type, TwineRef port) const
 	{
 		// TODO refactor
 		if (static_cell_types(type) && StaticCellTypes::port_info.outputs(type).contains(port)) {
@@ -617,7 +617,7 @@ struct NewCellTypes {
 		return it != custom_cell_types.end() && it->second.outputs.count(port) != 0;
 	}
 
-	bool cell_input(const RTLIL::IdString &type, TwineRef port) const
+	bool cell_input(TwineRef type, TwineRef port) const
 	{
 		if (static_cell_types(type) && StaticCellTypes::port_info.inputs(type).contains(port)) {
 			return true;
@@ -626,7 +626,7 @@ struct NewCellTypes {
 		return it != custom_cell_types.end() && it->second.inputs.count(port) != 0;
 	}
 
-	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, TwineRef port) const
+	RTLIL::PortDir cell_port_dir(TwineRef type, TwineRef port) const
 	{
 		bool is_input, is_output;
 		if (static_cell_types(type)) {
@@ -641,7 +641,7 @@ struct NewCellTypes {
 		}
 		return RTLIL::PortDir(is_input + is_output * 2);
 	}
-	bool cell_evaluable(const RTLIL::IdString &type) const
+	bool cell_evaluable(TwineRef type) const
 	{
 		return static_cell_types(type) && StaticCellTypes::categories.is_evaluable(type);
 	}

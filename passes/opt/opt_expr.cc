@@ -419,7 +419,7 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, TwineRe
 					IdString(RTLIL::StaticId(port)).unescape(), cell->type.unescape(), cell, cell->module,
 					log_signal(sig), log_signal(new_sig));
 			cell->setPort(port, new_sig);
-			cell->type = cell->type == type1 ? type2 : type1;
+			cell->type_impl = cell->module->design->twines.add(Twine{cell->type == type1 ? type2 : type1});
 		}
 	}
 }
@@ -715,7 +715,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			if (cell->type == ID($reduce_xnor)) {
 				log_debug("Replacing %s cell `%s' in module `%s' with $not cell.\n",
 						cell->type.unescape(), cell->module->design->twines.str(cell->meta_->name), module);
-				cell->type = ID($not);
+				cell->type_impl = TW::$not;
 				did_something = true;
 			} else {
 				OptExprPatcher patcher(module, &assign_map);
@@ -1235,7 +1235,7 @@ skip_fine_alu:
 				cell->setPort(TW::A, input.extract(0, 1));
 				cell->unsetPort(TW::B);
 				cell->unsetPort(TW::S);
-				cell->type = ID($_NOT_);
+				cell->type_impl = TW::$_NOT_;
 				goto next_cell;
 			}
 			if (input.match("11 ")) ACTION_DO_Y(1);
@@ -1340,7 +1340,7 @@ skip_fine_alu:
 					cell->parameters.erase(ID::B_WIDTH);
 					cell->parameters.erase(ID::B_SIGNED);
 					cell->unsetPort(TW::B);
-					cell->type = ID($not);
+					cell->type_impl = TW::$not;
 					did_something = true;
 				}
 				goto next_cell;
@@ -1360,7 +1360,7 @@ skip_fine_alu:
 			cell->unsetPort(TW::B);
 			cell->unsetParam(ID::B_SIGNED);
 			cell->unsetParam(ID::B_WIDTH);
-			cell->type = cell->type == ID($eq) ? ID($logic_not) : ID($reduce_bool);
+			cell->type_impl = (cell->type == ID($eq)) ? TW::$logic_not : TW::$reduce_bool;
 			did_something = true;
 			goto next_cell;
 		}
@@ -1524,7 +1524,7 @@ skip_fine_alu:
 				cell->unsetPort(TW::B);
 				cell->parameters.erase(ID::B_WIDTH);
 				cell->parameters.erase(ID::B_SIGNED);
-				cell->type = arith_inverse ? ID($neg) : ID($pos);
+				cell->type_impl = arith_inverse ? TW::$neg : TW::$pos;
 				cell->check();
 
 				did_something = true;
@@ -1552,9 +1552,9 @@ skip_identity:
 				cell->parameters[ID::Y_WIDTH] = width;
 				cell->parameters[ID::A_SIGNED] = 0;
 				cell->parameters.erase(ID::WIDTH);
-				cell->type = ID($not);
+				cell->type_impl = TW::$not;
 			} else
-				cell->type = ID($_NOT_);
+				cell->type_impl = TW::$_NOT_;
 			did_something = true;
 			goto next_cell;
 		}
@@ -1571,9 +1571,9 @@ skip_identity:
 				cell->parameters[ID::A_SIGNED] = 0;
 				cell->parameters[ID::B_SIGNED] = 0;
 				cell->parameters.erase(ID::WIDTH);
-				cell->type = ID($and);
+				cell->type_impl = TW::$and;
 			} else
-				cell->type = ID($_AND_);
+				cell->type_impl = TW::$_AND_;
 			did_something = true;
 			goto next_cell;
 		}
@@ -1590,9 +1590,9 @@ skip_identity:
 				cell->parameters[ID::A_SIGNED] = 0;
 				cell->parameters[ID::B_SIGNED] = 0;
 				cell->parameters.erase(ID::WIDTH);
-				cell->type = ID($or);
+				cell->type_impl = TW::$or;
 			} else
-				cell->type = ID($_OR_);
+				cell->type_impl = TW::$_OR_;
 			did_something = true;
 			goto next_cell;
 		}
@@ -1637,10 +1637,10 @@ skip_identity:
 				cell->setPort(TW::B, new_b);
 				cell->setPort(TW::S, new_s);
 				if (new_s.size() > 1) {
-					cell->type = ID($pmux);
+					cell->type_impl = TW::$pmux;
 					cell->parameters[ID::S_WIDTH] = new_s.size();
 				} else {
-					cell->type = ID($mux);
+					cell->type_impl = TW::$mux;
 					cell->parameters.erase(ID::S_WIDTH);
 				}
 				did_something = true;
@@ -1795,7 +1795,7 @@ skip_identity:
 				if (bit_idx == 1) {
 					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n",
 							cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
-					cell->type = ID($shl);
+					cell->type_impl = TW::$shl;
 					cell->parameters[ID::A_WIDTH] = 1;
 					cell->setPort(TW::A, Const(State::S1, 1));
 				}
@@ -1865,7 +1865,7 @@ skip_identity:
 
 					Const new_b = exp;
 
-					cell->type = ID($shl);
+					cell->type_impl = TW::$shl;
 					cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 					cell->parameters[ID::B_SIGNED] = false;
 					cell->setPort(TW::B, new_b);
@@ -1946,7 +1946,7 @@ skip_identity:
 
 						Const new_b = exp;
 
-						cell->type = ID($sshr);
+						cell->type_impl = TW::$sshr;
 						cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 						cell->parameters[ID::B_SIGNED] = false;
 						cell->setPort(TW::B, new_b);
@@ -1996,7 +1996,7 @@ skip_identity:
 							if (b_signed || exp == 0)
 								new_b.push_back(State::S0);
 
-							cell->type = ID($and);
+							cell->type_impl = TW::$and;
 							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 							cell->setPort(TW::B, new_b);
 							cell->check();

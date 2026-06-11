@@ -292,7 +292,7 @@ struct WrapcellPass : Pass {
 				for (auto chunk : collect_chunks(used_outputs))
 					new_connections[chunk.format(cell)] = chunk.sample(cell);
 
-				cell->type = name;
+				cell->type_impl = cell->module->design->twines.add(Twine{name.str()});
 				cell->connections_ = new_connections;
 			}
 		}

@@ -159,9 +159,9 @@ void demorgan_worker(
 
 	//Change the cell type
 	if(cell->type == ID($reduce_and))
-		cell->type = ID($reduce_or);
+		cell->type_impl = TW::$reduce_or;
 	else if(cell->type == ID($reduce_or))
-		cell->type = ID($reduce_and);
+		cell->type_impl = TW::$reduce_and;
 	//don't change XOR
 
 	//Add an inverter to the output

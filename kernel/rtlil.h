@@ -133,6 +133,7 @@ namespace RTLIL
 	struct ModuleNameMasq;
 	struct WireNameMasq;
 	struct CellNameMasq;
+	struct CellTypeMasq;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 	struct PortBit;
@@ -590,6 +591,9 @@ public:
 	}
 };
 
+inline bool operator==(TwineRef a, RTLIL::IdString b) { return a.untag().value == (size_t)(unsigned)b.index_; }
+inline bool operator==(RTLIL::IdString a, TwineRef b) { return b == a; }
+
 struct RTLIL::OwningIdString : public RTLIL::IdString {
 	inline OwningIdString() { }
 	inline OwningIdString(const OwningIdString &str) : IdString(str) { get_reference(); }
@@ -776,7 +780,7 @@ namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
 	[[deprecated("use StaticCellTypes::categories.is_ff() instead")]]
-	const pool<IdString> &builtin_ff_cell_types();
+	const pool<TwineRef> &builtin_ff_cell_types();
 
 	static inline std::string escape_id(const std::string &str) {
 		if (str.size() > 0 && str[0] != '\\' && str[0] != '$')
@@ -1337,11 +1341,16 @@ struct RTLIL::WireNameMasq {
 	WireNameMasq &operator=(WireNameMasq &&) = delete;
 	// Materialise → IdString. Slow path; intended for plugin code.
 	operator RTLIL::IdString() const;
+	// Tagged name handle (Twine::Null when unnamed).
+	TwineRef ref() const;
+	// Escaped form ('\'-prefixed when public) / bare content.
+	std::string escaped() const;
+	std::string unescaped() const;
+	bool isPublic() const { return twine_is_public(ref()); }
 	bool empty() const { return RTLIL::IdString(*this).empty(); }
-	std::string str() const { return RTLIL::IdString(*this).str(); }
+	std::string str() const { return escaped(); }
 	const char *c_str() const { return RTLIL::IdString(*this).c_str(); }
-	bool isPublic() const { return RTLIL::IdString(*this).isPublic(); }
-	std::string unescape() const { return RTLIL::IdString(*this).unescape(); }
+	std::string unescape() const { return unescaped(); }
 	bool begins_with(const char *s) const { return RTLIL::IdString(*this).begins_with(s); }
 	bool ends_with(const char *s) const { return RTLIL::IdString(*this).ends_with(s); }
 	template <typename... Ts> bool in(Ts &&...args) const {
@@ -1376,11 +1385,16 @@ struct RTLIL::CellNameMasq {
 	CellNameMasq &operator=(const CellNameMasq &) = delete;
 	CellNameMasq &operator=(CellNameMasq &&) = delete;
 	operator RTLIL::IdString() const;
+	// Tagged name handle (Twine::Null when unnamed).
+	TwineRef ref() const;
+	// Escaped form ('\'-prefixed when public) / bare content.
+	std::string escaped() const;
+	std::string unescaped() const;
+	bool isPublic() const { return twine_is_public(ref()); }
 	bool empty() const { return RTLIL::IdString(*this).empty(); }
-	std::string str() const { return RTLIL::IdString(*this).str(); }
+	std::string str() const { return escaped(); }
 	const char *c_str() const { return RTLIL::IdString(*this).c_str(); }
-	bool isPublic() const { return RTLIL::IdString(*this).isPublic(); }
-	std::string unescape() const { return RTLIL::IdString(*this).unescape(); }
+	std::string unescape() const { return unescaped(); }
 	bool begins_with(const char *s) const { return RTLIL::IdString(*this).begins_with(s); }
 	bool ends_with(const char *s) const { return RTLIL::IdString(*this).ends_with(s); }
 	template <typename... Ts> bool in(Ts &&...args) const {
@@ -1406,6 +1420,51 @@ struct RTLIL::CellNameMasq {
 };
 inline bool operator==(RTLIL::IdString lhs, const RTLIL::CellNameMasq &rhs) { return lhs == RTLIL::IdString(rhs); }
 inline bool operator!=(RTLIL::IdString lhs, const RTLIL::CellNameMasq &rhs) { return lhs != RTLIL::IdString(rhs); }
+
+// Read-only masquerade for Cell::type. Backed by Cell::type_impl.
+// Write the type via cell->type_impl directly.
+struct RTLIL::CellTypeMasq {
+	CellTypeMasq() = default;
+	CellTypeMasq(const CellTypeMasq &) = delete;
+	CellTypeMasq(CellTypeMasq &&) = delete;
+	CellTypeMasq &operator=(const CellTypeMasq &) = delete;
+	CellTypeMasq &operator=(CellTypeMasq &&) = delete;
+	operator RTLIL::IdString() const;
+	explicit operator TwineRef() const { return ref(); }
+	TwineRef ref() const;
+	std::string escaped() const;
+	std::string unescaped() const;
+	bool isPublic() const { return twine_is_public(ref()); }
+	bool empty() const { return ref() == Twine::Null; }
+	std::string str() const { return escaped(); } // TODO deprecate
+	const char *c_str() const { return RTLIL::IdString(*this).c_str(); }
+	std::string unescape() const { return unescaped(); }
+	bool begins_with(const char *s) const { return RTLIL::IdString(*this).begins_with(s); }
+	bool ends_with(const char *s) const { return RTLIL::IdString(*this).ends_with(s); }
+	template <typename... Ts> bool in(Ts &&...args) const {
+		return ref().in(std::forward<Ts>(args)...);
+	}
+	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		return RTLIL::IdString(*this).substr(pos, len);
+	}
+	size_t size() const { return RTLIL::IdString(*this).size(); }
+	bool contains(const char *p) const { return RTLIL::IdString(*this).contains(p); }
+	char operator[](int n) const { return RTLIL::IdString(*this).str()[n]; }
+	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator<(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) < rhs; }
+	bool operator==(TwineRef rhs) const { return ref() == rhs; }
+	bool operator!=(TwineRef rhs) const { return ref() != rhs; }
+	bool operator==(const std::string &rhs) const { return RTLIL::IdString(*this) == rhs; }
+	bool operator!=(const std::string &rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator==(const CellTypeMasq &rhs) const { return ref() == rhs.ref(); }
+	bool operator!=(const CellTypeMasq &rhs) const { return ref() != rhs.ref(); }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { return RTLIL::IdString(*this).hash_into(h); }
+};
+inline bool operator==(RTLIL::IdString lhs, const RTLIL::CellTypeMasq &rhs) { return lhs == RTLIL::IdString(rhs); }
+inline bool operator!=(RTLIL::IdString lhs, const RTLIL::CellTypeMasq &rhs) { return lhs != RTLIL::IdString(rhs); }
+inline bool operator==(TwineRef lhs, const RTLIL::CellTypeMasq &rhs) { return lhs == rhs.ref(); }
+inline bool operator!=(TwineRef lhs, const RTLIL::CellTypeMasq &rhs) { return lhs != rhs.ref(); }
 
 struct RTLIL::SigChunk
 {
@@ -2385,7 +2444,8 @@ public:
 	void operator=(RTLIL::Cell &other) = delete;
 
 	RTLIL::Module *module;
-	IdString type;
+	TwineRef type_impl;
+	[[no_unique_address]] RTLIL::CellTypeMasq type;
 	dict<TwineRef, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
@@ -2800,8 +2860,6 @@ public:
 	RTLIL::Cell* addDlatchsrGate  (Twine &&name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity = true, bool set_polarity = true, bool clr_polarity = true, TwineRef src = Twine::Null);
 
-	RTLIL::Cell* addAnyinit(Twine &&name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, TwineRef src = Twine::Null);
-
 	// The methods without the add* prefix create a cell and an output signal. They return the newly created output signal.
 
 	RTLIL::SigSpec Not (Twine &&name, const RTLIL::SigSpec &sig_a, bool is_signed = false, TwineRef src = Twine::Null);
@@ -2967,8 +3025,8 @@ public:
 
 	Module();
 	virtual ~Module();
-	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
-	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
+	virtual TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
+	virtual TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
 	virtual size_t count_id(TwineRef id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
@@ -3038,7 +3096,7 @@ public:
 	// As above, but additionally renames the new module to `target_name` in
 	// `dst`. Used when source and destination designs may contain modules
 	// with the same name and the new one must take a different identity.
-	virtual RTLIL::Module *clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim = false) const;
+	virtual RTLIL::Module *clone(RTLIL::Design *dst, TwineRef target_name, bool src_id_verbatim = false) const;
 
 	bool has_memories() const;
 	bool has_processes() const;
@@ -3110,10 +3168,11 @@ public:
 	RTLIL::Wire *addWire(Twine &&name, const RTLIL::Wire *other);
 
 	// Primary overloads.
-	RTLIL::Cell *addCell(TwineRef name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(TwineRef name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, const RTLIL::Cell *other);
 	// Convenience.
-	RTLIL::Cell *addCell(Twine &&name, RTLIL::IdString type);
+	RTLIL::Cell *addCell(Twine &&name, TwineRef type);
+	RTLIL::Cell *addCell(TwineRef name, Twine &&type);
 	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
 
 	// NEW_ID analog for twine names; see NEW_TWINE in yosys_common.h.
@@ -3132,7 +3191,8 @@ public:
 
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
 
-	RTLIL::Cell* addAnyinit(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, TwineRef src = Twine::Null);
+	RTLIL::Cell* addAnyinit(TwineRef name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, TwineRef src = Twine::Null);
+	RTLIL::Cell* addAnyinit(Twine &&name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, TwineRef src = Twine::Null);
 
 	// The methods without the add* prefix create a cell and an output signal. They return the newly created output signal.
 
@@ -3141,6 +3201,11 @@ public:
 	RTLIL::SigSpec Allconst  (TwineRef name, int width = 1, TwineRef src = Twine::Null);
 	RTLIL::SigSpec Allseq    (TwineRef name, int width = 1, TwineRef src = Twine::Null);
 	RTLIL::SigSpec Initstate (TwineRef name, TwineRef src = Twine::Null);
+	RTLIL::SigSpec Anyconst  (Twine &&name, int width = 1, TwineRef src = Twine::Null);
+	RTLIL::SigSpec Anyseq    (Twine &&name, int width = 1, TwineRef src = Twine::Null);
+	RTLIL::SigSpec Allconst  (Twine &&name, int width = 1, TwineRef src = Twine::Null);
+	RTLIL::SigSpec Allseq    (Twine &&name, int width = 1, TwineRef src = Twine::Null);
+	RTLIL::SigSpec Initstate (Twine &&name, TwineRef src = Twine::Null);
 
 	RTLIL::SigSpec SetTag          (TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, TwineRef src = Twine::Null);
 	RTLIL::Cell*   addSetTag       (TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, TwineRef src = Twine::Null);
@@ -3148,6 +3213,12 @@ public:
 	RTLIL::Cell*   addOverwriteTag (TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, TwineRef src = Twine::Null);
 	RTLIL::SigSpec OriginalTag     (TwineRef name, const std::string &tag, const RTLIL::SigSpec &sig_a, TwineRef src = Twine::Null);
 	RTLIL::SigSpec FutureFF        (TwineRef name, const RTLIL::SigSpec &sig_e, TwineRef src = Twine::Null);
+	RTLIL::SigSpec SetTag          (Twine &&name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, TwineRef src = Twine::Null);
+	RTLIL::Cell*   addSetTag       (Twine &&name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, TwineRef src = Twine::Null);
+	RTLIL::SigSpec GetTag          (Twine &&name, const std::string &tag, const RTLIL::SigSpec &sig_a, TwineRef src = Twine::Null);
+	RTLIL::Cell*   addOverwriteTag (Twine &&name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, TwineRef src = Twine::Null);
+	RTLIL::SigSpec OriginalTag     (Twine &&name, const std::string &tag, const RTLIL::SigSpec &sig_a, TwineRef src = Twine::Null);
+	RTLIL::SigSpec FutureFF        (Twine &&name, const RTLIL::SigSpec &sig_e, TwineRef src = Twine::Null);
 
 	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
@@ -3278,26 +3349,108 @@ void RTLIL::Process::rewrite_sigspecs2(T &functor)
 		it->rewrite_sigspecs2(functor);
 }
 
-inline RTLIL::WireNameMasq::operator RTLIL::IdString() const {
+inline TwineRef RTLIL::WireNameMasq::ref() const {
 	const RTLIL::Wire *w = reinterpret_cast<const RTLIL::Wire *>(
 		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Wire, name));
 	if (!w->module || !w->module->design || !w->meta_)
-		return RTLIL::IdString{};
-	TwineRef id = w->meta_->name;
-	if (id == Twine::Null)
-		return RTLIL::IdString{};
-	return RTLIL::IdString(w->module->design->twines.flat_string(id));
+		return Twine::Null;
+	return w->meta_->name;
 }
 
-inline RTLIL::CellNameMasq::operator RTLIL::IdString() const {
+inline std::string RTLIL::WireNameMasq::escaped() const {
+	const RTLIL::Wire *w = reinterpret_cast<const RTLIL::Wire *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Wire, name));
+	TwineRef id = ref();
+	if (id == Twine::Null)
+		return std::string();
+	return w->module->design->twines.str(id);
+}
+
+inline std::string RTLIL::WireNameMasq::unescaped() const {
+	const RTLIL::Wire *w = reinterpret_cast<const RTLIL::Wire *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Wire, name));
+	TwineRef id = ref();
+	if (id == Twine::Null)
+		return std::string();
+	return w->module->design->twines.unescaped_str(id);
+}
+
+inline RTLIL::WireNameMasq::operator RTLIL::IdString() const {
+	std::string s = escaped();
+	if (s.empty())
+		return RTLIL::IdString{};
+	return RTLIL::IdString(s);
+}
+
+inline TwineRef RTLIL::CellNameMasq::ref() const {
 	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
 		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, name));
 	if (!c->module || !c->module->design || !c->meta_)
-		return RTLIL::IdString{};
-	TwineRef id = c->meta_->name;
+		return Twine::Null;
+	return c->meta_->name;
+}
+
+inline std::string RTLIL::CellNameMasq::escaped() const {
+	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, name));
+	TwineRef id = ref();
 	if (id == Twine::Null)
+		return std::string();
+	return c->module->design->twines.str(id);
+}
+
+inline std::string RTLIL::CellNameMasq::unescaped() const {
+	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, name));
+	TwineRef id = ref();
+	if (id == Twine::Null)
+		return std::string();
+	return c->module->design->twines.unescaped_str(id);
+}
+
+inline RTLIL::CellNameMasq::operator RTLIL::IdString() const {
+	std::string s = escaped();
+	if (s.empty())
 		return RTLIL::IdString{};
-	return RTLIL::IdString(c->module->design->twines.flat_string(id));
+	return RTLIL::IdString(s);
+}
+
+inline TwineRef RTLIL::CellTypeMasq::ref() const {
+	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, type));
+	return c->type_impl;
+}
+
+inline std::string RTLIL::CellTypeMasq::escaped() const {
+	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, type));
+	TwineRef id = c->type_impl;
+	if (id == Twine::Null)
+		return std::string();
+	if (c->module && c->module->design)
+		return c->module->design->twines.str(id);
+	// Static (TW::) refs are pool-independent; assert non-local ref.
+	log_assert(twine_untag(id) < STATIC_TWINE_END);
+	return TwinePool{}.str(id);
+}
+
+inline std::string RTLIL::CellTypeMasq::unescaped() const {
+	const RTLIL::Cell *c = reinterpret_cast<const RTLIL::Cell *>(
+		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Cell, type));
+	TwineRef id = c->type_impl;
+	if (id == Twine::Null)
+		return std::string();
+	if (c->module && c->module->design)
+		return c->module->design->twines.unescaped_str(id);
+	log_assert(twine_untag(id) < STATIC_TWINE_END);
+	return TwinePool{}.unescaped_str(id);
+}
+
+inline RTLIL::CellTypeMasq::operator RTLIL::IdString() const {
+	std::string s = escaped();
+	if (s.empty())
+		return RTLIL::IdString{};
+	return RTLIL::IdString(s);
 }
 
 // inline RTLIL::ModuleNameMasq& RTLIL::ModuleNameMasq::operator=(RTLIL::IdString id) {

@@ -205,7 +205,7 @@ struct IFExpander
 
 	bool                                    has_interfaces_not_found;
 	std::vector<TwineRef>                   connections_to_remove;
-	std::vector<TwineRef>                   connections_to_add_name;
+	std::vector<TwineRef>                   connections_to_add;
 	std::vector<RTLIL::SigSpec>             connections_to_add_signal;
 	dict<TwineRef, RTLIL::Module*>          interfaces_to_add_to_submodule;
 	dict<TwineRef, RTLIL::IdString>         modports_used_in_submodule;
@@ -215,7 +215,7 @@ struct IFExpander
 	{
 		has_interfaces_not_found = false;
 		connections_to_remove.clear();
-		connections_to_add_name.clear();
+		connections_to_add.clear();
 		connections_to_add_signal.clear();
 		interfaces_to_add_to_submodule.clear();
 		modports_used_in_submodule.clear();
@@ -284,7 +284,7 @@ struct IFExpander
 		for (auto mod_wire : mod_replace_ports->wires()) {
 			std::string signal_name1 = conn_name_str + "." + mod_wire->name.unescape();
 			std::string signal_name2 = interface_name.str() + "." + mod_wire->name.unescape();
-			connections_to_add_name.push_back(design.twines.add(Twine{signal_name1}));
+			connections_to_add.push_back(design.twines.add(Twine{signal_name1}));
 			TwineRef signal_name2_ref = design.twines.lookup(signal_name2);
 			if(module.wire(signal_name2_ref) == nullptr) {
 				log_error("Could not find signal '%s' in '%s'\n",
@@ -365,8 +365,8 @@ struct IFExpander
 	// interface port connection with the individual signal connections.
 	void rewrite_interface_connections(RTLIL::Cell &cell) const
 	{
-		for(unsigned int i=0;i<connections_to_add_name.size();i++) {
-			cell.connections_[connections_to_add_name[i]] = connections_to_add_signal[i];
+		for(unsigned int i=0;i<connections_to_add.size();i++) {
+			cell.connections_[connections_to_add[i]] = connections_to_add_signal[i];
 		}
 		// Remove the connection for the interface itself:
 		for(unsigned int i=0;i<connections_to_remove.size();i++) {
@@ -391,7 +391,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	std::string cell_type = cell.type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
-		cell.type = abs_mod->derive(&design, cell.parameters);
+		cell.type_impl = design.twines.add(Twine{abs_mod->derive(&design, cell.parameters).str()});
 		cell.parameters.clear();
 		RTLIL::Module *mod = design.module(cell.type);
 		log_assert(mod);
@@ -514,7 +514,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
 			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->type.substr(pos_type + 1);
+			cell->type_impl = cell->module->design->twines.add(Twine{cell->type.str().substr(pos_type + 1)});
 		}
 
 		dict<RTLIL::IdString, RTLIL::Module*> interfaces_by_name;
@@ -576,10 +576,10 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			interfaces_by_name[RTLIL::IdString(design->twines.str(p.first))] = p.second;
 		for (auto &p : if_expander.modports_used_in_submodule)
 			modports_by_name[RTLIL::IdString(design->twines.str(p.first))] = p.second;
-		cell->type = mod->derive(design,
+		cell->type_impl = design->twines.add(Twine{mod->derive(design,
 					 cell->parameters,
 					 interfaces_by_name,
-					 modports_by_name);
+					 modports_by_name).str()});
 		cell->parameters.clear();
 		did_something = true;
 

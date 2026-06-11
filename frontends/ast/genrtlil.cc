@@ -2191,9 +2191,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			for (auto it = children.begin(); it != children.end(); it++) {
 				auto* child = it->get();
 				if (child->type == AST_CELLTYPE) {
-					cell->type = child->str;
-					if (flag_icells && cell->type.begins_with("\\$"))
-						cell->type = cell->type.substr(1);
+					std::string type_str = child->str;
+					if (flag_icells && type_str.size() >= 2 && type_str[0] == '\\' && type_str[1] == '$')
+						type_str = type_str.substr(1);
+					cell->type_impl = current_module->design->twines.add(Twine{type_str});
 					continue;
 				}
 				if (child->type == AST_PARASET) {

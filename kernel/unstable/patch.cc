@@ -10,17 +10,28 @@ using namespace RTLIL;
 
 template class CellAdderMixin<Patch>;
 
-Cell* Patch::addCell(TwineRef name, IdString type) {
+Cell* Patch::addCell(TwineRef name, TwineRef type) {
 	cells_.push_back(std::make_unique<Cell>(Cell::ConstructToken{}));
 
 	Cell* cell = cells_.back().get();
-	cell->type = type;
+	cell->type_impl = type;
 	cell->module = nullptr;
 	staged_cell_names_[cell] = name;
 	return cell;
 }
 
-Cell* Patch::addCell(Twine &&name, IdString type) {
+// Cell* Patch::addCell(TwineRef name, IdString type) {
+// 	static TwinePool s_pool;
+// 	TwineRef tref = s_pool.lookup(type.str());
+// 	log_assert(tref != Twine::Null);
+// 	return addCell(name, tref);
+// }
+
+Cell* Patch::addCell(TwineRef name, Twine &&type) {
+	return addCell(name, twine_staging.add(std::move(type)));
+}
+
+Cell* Patch::addCell(Twine &&name, TwineRef type) {
 	return addCell(twine_staging.add(std::move(name)), type);
 }
 

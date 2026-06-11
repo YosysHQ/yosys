@@ -101,7 +101,7 @@ struct DftTagWorker {
 			log_debug("Applying $overwrite_tag %s for signal %s\n", cell->module->design->twines.str(cell->meta_->name), log_signal(cell->getPort(TW::A)));
 			SigSpec orig_signal = cell->getPort(TW::A);
 			SigSpec interposed_signal = divert_users(orig_signal);
-			auto *set_tag_cell = module->addSetTag(module->design->twines.add(NEW_TWINE), cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(TW::SET), cell->getPort(TW::CLR), interposed_signal);
+			auto *set_tag_cell = module->addSetTag(NEW_TWINE, cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(TW::SET), cell->getPort(TW::CLR), interposed_signal);
 			modwalker.add_cell(set_tag_cell); // Make sure the next $overwrite_tag sees the new connections
 			design_changed = true;
 		}
@@ -110,7 +110,7 @@ struct DftTagWorker {
 			module->remove(cell);
 		}
 		for (auto cell : original_cells) {
-			cell->type = ID($get_tag);
+			cell->type_impl = TW::$get_tag;
 		}
 
 		if (design_changed)
