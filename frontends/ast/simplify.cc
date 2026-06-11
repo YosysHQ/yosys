@@ -1057,7 +1057,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 #if 0
 	log("-------------\n");
-	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.begin.filename, location.begin.line, type2str(type), this);
+	log("AST simplify[%d] depth %d at %s on %s %p:\n", stage, recursion_counter, location.to_string(), type2str(type), this);
 	log("const_fold=%d, stage=%d, width_hint=%d, sign_hint=%d\n",
 			int(const_fold), int(stage), int(width_hint), int(sign_hint));
 	// dumpAst(nullptr, "> ");
@@ -5041,7 +5041,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 			if (!child->str.empty() && prefix.size() > 0) {
 				bool is_resolved = false;
 				std::string identifier_str = child->str;
-				if (current_ast_mod != nullptr && identifier_str.compare(0, current_ast_mod->str.size(), current_ast_mod->str) == 0) {
+				if (current_ast_mod != nullptr && identifier_str.size() > current_ast_mod->str.size() && identifier_str.compare(0, current_ast_mod->str.size(), current_ast_mod->str) == 0) {
 					if (identifier_str.at(current_ast_mod->str.size()) == '.') {
 						identifier_str = '\\' + identifier_str.substr(current_ast_mod->str.size()+1, identifier_str.size());
 					}
