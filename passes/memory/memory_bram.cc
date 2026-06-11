@@ -44,7 +44,7 @@ struct rules_t
 
 		void dump_config() const
 		{
-			log("      bram %s # variant %d\n", name.unescape(), variant);
+			log("      bram %s # variant %d\n", design->twines.unescaped_str(name), variant);
 			log("        init %d\n", init);
 			log("        abits %d\n", abits);
 			log("        dbits %d\n", dbits);
@@ -61,16 +61,16 @@ struct rules_t
 
 		void check_vectors() const
 		{
-			if (groups != GetSize(ports))  log_error("Bram %s variant %d has %d groups but only %d entries in 'ports'.\n",  name.unescape(), variant, groups, GetSize(ports));
-			if (groups != GetSize(wrmode)) log_error("Bram %s variant %d has %d groups but only %d entries in 'wrmode'.\n", name.unescape(), variant, groups, GetSize(wrmode));
-			if (groups != GetSize(enable)) log_error("Bram %s variant %d has %d groups but only %d entries in 'enable'.\n", name.unescape(), variant, groups, GetSize(enable));
-			if (groups != GetSize(transp)) log_error("Bram %s variant %d has %d groups but only %d entries in 'transp'.\n", name.unescape(), variant, groups, GetSize(transp));
-			if (groups != GetSize(clocks)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clocks'.\n", name.unescape(), variant, groups, GetSize(clocks));
-			if (groups != GetSize(clkpol)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clkpol'.\n", name.unescape(), variant, groups, GetSize(clkpol));
+			if (groups != GetSize(ports))  log_error("Bram %s variant %d has %d groups but only %d entries in 'ports'.\n",  design->twines.unescaped_str(name), variant, groups, GetSize(ports));
+			if (groups != GetSize(wrmode)) log_error("Bram %s variant %d has %d groups but only %d entries in 'wrmode'.\n", design->twines.unescaped_str(name), variant, groups, GetSize(wrmode));
+			if (groups != GetSize(enable)) log_error("Bram %s variant %d has %d groups but only %d entries in 'enable'.\n", design->twines.unescaped_str(name), variant, groups, GetSize(enable));
+			if (groups != GetSize(transp)) log_error("Bram %s variant %d has %d groups but only %d entries in 'transp'.\n", design->twines.unescaped_str(name), variant, groups, GetSize(transp));
+			if (groups != GetSize(clocks)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clocks'.\n", design->twines.unescaped_str(name), variant, groups, GetSize(clocks));
+			if (groups != GetSize(clkpol)) log_error("Bram %s variant %d has %d groups but only %d entries in 'clkpol'.\n", design->twines.unescaped_str(name), variant, groups, GetSize(clkpol));
 
 			int group = 0;
 			for (auto e : enable)
-				if (e > dbits) log_error("Bram %s variant %d group %d has %d enable bits but only %d dbits.\n", name.unescape(), variant, group, e, dbits);
+				if (e > dbits) log_error("Bram %s variant %d group %d has %d enable bits but only %d dbits.\n", design->twines.unescaped_str(name), variant, group, e, dbits);
 		}
 
 		vector<portinfo_t> make_portinfos() const
@@ -100,7 +100,7 @@ struct rules_t
 			log_assert(name == other.name);
 
 			if (groups != other.groups)
-				log_error("Bram %s variants %d and %d have different values for 'groups'.\n", name.unescape(), variant, other.variant);
+				log_error("Bram %s variants %d and %d have different values for 'groups'.\n", design->twines.unescaped_str(name), variant, other.variant);
 
 			if (abits != other.abits)
 				variant_params[ID::CFG_ABITS] = abits;
@@ -112,7 +112,7 @@ struct rules_t
 			for (int i = 0; i < groups; i++)
 			{
 				if (ports[i] != other.ports[i])
-					log_error("Bram %s variants %d and %d have different number of %c-ports.\n", name.unescape(), variant, other.variant, 'A'+i);
+					log_error("Bram %s variants %d and %d have different number of %c-ports.\n", design->twines.unescaped_str(name), variant, other.variant, 'A'+i);
 				if (wrmode[i] != other.wrmode[i])
 					variant_params[stringf("\\CFG_WRMODE_%c", 'A' + i)] = wrmode[i];
 				if (enable[i] != other.enable[i])
@@ -490,7 +490,7 @@ bool replace_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals, const 
 		transp_max = max(transp_max, pi.transp);
 	}
 
-	log("    Mapping to bram type %s (variant %d):\n", bram.name.unescape(), bram.variant);
+	log("    Mapping to bram type %s (variant %d):\n", design->twines.unescaped_str(bram.name), bram.variant);
 	// bram.dump_config();
 
 	std::vector<int> shuffle_map;
@@ -777,7 +777,7 @@ grow_read_ports:;
 		for (auto it : match.min_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), match.name.unescape());
+						it.first.c_str(), design->twines.unescaped_str(match.name));
 			if (match_properties[it.first] >= it.second)
 				continue;
 			log("    Rule for bram type %s rejected: requirement 'min %s %d' not met.\n",
@@ -787,7 +787,7 @@ grow_read_ports:;
 		for (auto it : match.max_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), match.name.unescape());
+						it.first.c_str(), design->twines.unescaped_str(match.name));
 			if (match_properties[it.first] <= it.second)
 				continue;
 			log("    Rule for bram type %s rejected: requirement 'max %s %d' not met.\n",
@@ -821,7 +821,7 @@ grow_read_ports:;
 				if (!exists)
 					ss << "!";
 				IdString key = std::get<1>(sums.front());
-				ss << key.unescape();
+				ss << design->twines.unescaped_str(key);
 				const Const &value = rules.map_case(std::get<2>(sums.front()));
 				if (exists && value != Const(1))
 					ss << "=\"" << value.decode_string() << "\"";
@@ -936,7 +936,7 @@ grow_read_ports:;
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
 			Cell *c = module->addCell(module->uniquify(module->design->twines.add(Twine{stringf("%s.%d.%d.%d", mem.memid.str(), grid_d, grid_a, dupidx)})), bram.name);
-			log("      Creating %s cell at grid position <%d %d %d>: %s\n", bram.name.unescape(), grid_d, grid_a, dupidx, c);
+			log("      Creating %s cell at grid position <%d %d %d>: %s\n", design->twines.unescaped_str(bram.name), grid_d, grid_a, dupidx, c);
 
 			for (auto &vp : variant_params)
 				c->setParam(vp.first, vp.second);
@@ -1066,7 +1066,7 @@ grow_read_ports:;
 
 void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 {
-	log("Processing %s.%s:\n", mem.module, mem.memid.unescape());
+	log("Processing %s.%s:\n", mem.module, design->twines.unescaped_str(mem.memid));
 	mem.narrow();
 
 	bool cell_init = !mem.inits.empty();
@@ -1093,7 +1093,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 		auto &match = rules.matches.at(i);
 
 		if (!rules.brams.count(rules.matches[i].name))
-			log_error("No bram description for resource %s found!\n", rules.matches[i].name.unescape());
+			log_error("No bram description for resource %s found!\n", design->twines.unescaped_str(rules.matches[i].name));
 
 		for (int vi = 0; vi < GetSize(rules.brams.at(match.name)); vi++)
 		{
@@ -1109,7 +1109,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					avail_wr_ports += GetSize(bram.ports) < j ? bram.ports.at(j) : 0;
 			}
 
-			log("  Checking rule #%d for bram type %s (variant %d):\n", i+1, bram.name.unescape(), bram.variant);
+			log("  Checking rule #%d for bram type %s (variant %d):\n", i+1, design->twines.unescaped_str(bram.name), bram.variant);
 			log("    Bram geometry: abits=%d dbits=%d wports=%d rports=%d\n", bram.abits, bram.dbits, avail_wr_ports, avail_rd_ports);
 
 			int dups = avail_rd_ports ? (match_properties["rports"] + avail_rd_ports - 1) / avail_rd_ports : 1;
@@ -1143,7 +1143,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 
 			if (cell_init && bram.init == 0) {
 				log("    Rule #%d for bram type %s (variant %d) rejected: cannot be initialized.\n",
-						i+1, bram.name.unescape(), bram.variant);
+						i+1, design->twines.unescaped_str(bram.name), bram.variant);
 				goto next_match_rule;
 			}
 
@@ -1152,11 +1152,11 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					continue;
 				if (!match_properties.count(it.first))
 					log_error("Unknown property '%s' in match rule for bram type %s.\n",
-							it.first.c_str(), match.name.unescape());
+							it.first.c_str(), design->twines.unescaped_str(match.name));
 				if (match_properties[it.first] >= it.second)
 					continue;
 				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'min %s %d' not met.\n",
-						i+1, bram.name.unescape(), bram.variant, it.first.c_str(), it.second);
+						i+1, design->twines.unescaped_str(bram.name), bram.variant, it.first.c_str(), it.second);
 				goto next_match_rule;
 			}
 
@@ -1165,11 +1165,11 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					continue;
 				if (!match_properties.count(it.first))
 					log_error("Unknown property '%s' in match rule for bram type %s.\n",
-							it.first.c_str(), match.name.unescape());
+							it.first.c_str(), design->twines.unescaped_str(match.name));
 				if (match_properties[it.first] <= it.second)
 					continue;
 				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'max %s %d' not met.\n",
-						i+1, bram.name.unescape(), bram.variant, it.first.c_str(), it.second);
+						i+1, design->twines.unescaped_str(bram.name), bram.variant, it.first.c_str(), it.second);
 				goto next_match_rule;
 			}
 
@@ -1199,7 +1199,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					if (!exists)
 						ss << "!";
 					IdString key = std::get<1>(sums.front());
-					ss << key.unescape();
+					ss << design->twines.unescaped_str(key);
 					const Const &value = rules.map_case(std::get<2>(sums.front()));
 					if (exists && value != Const(1))
 						ss << "=\"" << value.decode_string() << "\"";
@@ -1210,7 +1210,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 				}
 			}
 
-			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, bram.name.unescape(), bram.variant);
+			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, design->twines.unescaped_str(bram.name), bram.variant);
 
 			if (or_next_if_better || !best_rule_cache.empty())
 			{
@@ -1218,7 +1218,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					log_error("Found 'or_next_if_better' in last match rule.\n");
 
 				if (!replace_memory(mem, rules, initvals, bram, match, match_properties, 1)) {
-					log("    Mapping to bram type %s failed.\n", match.name.unescape());
+					log("    Mapping to bram type %s failed.\n", design->twines.unescaped_str(match.name));
 					failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
 					goto next_match_rule;
 				}
@@ -1245,12 +1245,12 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 
 				auto &best_bram = rules.brams.at(rules.matches.at(best_rule.first).name).at(best_rule.second);
 				if (!replace_memory(mem, rules, initvals, best_bram, rules.matches.at(best_rule.first), match_properties, 2))
-					log_error("Mapping to bram type %s (variant %d) after pre-selection failed.\n", best_bram.name.unescape(), best_bram.variant);
+					log_error("Mapping to bram type %s (variant %d) after pre-selection failed.\n", design->twines.unescaped_str(best_bram.name), best_bram.variant);
 				return;
 			}
 
 			if (!replace_memory(mem, rules, initvals, bram, match, match_properties, 0)) {
-				log("    Mapping to bram type %s failed.\n", match.name.unescape());
+				log("    Mapping to bram type %s failed.\n", design->twines.unescaped_str(match.name));
 				failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
 				goto next_match_rule;
 			}

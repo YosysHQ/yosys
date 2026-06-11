@@ -28,7 +28,7 @@ uint32_t read_be32(std::istream &f) {
 		((uint32_t) f.get() << 8) | (uint32_t) f.get();
 }
 
-IdString read_idstring(std::istream &f)
+std::string read_idstring(std::istream &f)
 {
 	std::string str;
 	std::getline(f, str, '\0');
@@ -61,14 +61,15 @@ struct Xaiger2Frontend : public Frontend {
 
 	void read_sc_mapping(std::istream *&f, std::string filename, std::vector<std::string> args, Design *design)
 	{
-		IdString module_name;
+		std::optional<TwineRef> module_name;
+		TwineSearch search(&design->twines);
 		std::string map_filename;
 
 		size_t argidx;
 		for (argidx = 2; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-module_name" && argidx + 1 < args.size()) {
-				module_name = RTLIL::escape_id(args[++argidx]);
+				module_name = search.find(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (arg == "-map2" && argidx + 1 < args.size()) {
@@ -81,12 +82,12 @@ struct Xaiger2Frontend : public Frontend {
 
 		if (map_filename.empty())
 			log_error("A '-map2' argument is required\n");
-		if (module_name.empty())
+		if (!module_name)
 			log_error("A '-module_name' argument is required\n");
 
-		Module *module = design->module(module_name);
+		Module *module = design->module(*module_name);
 		if (!module)
-			log_error("Module '%s' not found\n", module_name.unescape());
+			log_error("Module '%s' not found\n", design->twines.unescaped_str(*module_name));
 
 		std::ifstream map_file;
 		map_file.open(map_filename);
@@ -122,7 +123,6 @@ struct Xaiger2Frontend : public Frontend {
 		bits[1] = RTLIL::S1;
 
 		std::string type;
-		TwineSearch search(&design->twines);
 		while (map_file >> type) {
 			if (type == "pi") {
 				int pi_idx;
@@ -159,7 +159,7 @@ struct Xaiger2Frontend : public Frontend {
 				}
 
 				if (!def)
-					log_error("Bad map file: no module found for box type '%s'\n", box->type.unescape());
+					log_error("Bad map file: no module found for box type '%s'\n", design->twines.unescaped_str(box->type_impl));
 
 				if (box_seq >= (int) boxes.size()) {
 					boxes.resize(box_seq + 1);
@@ -265,22 +265,22 @@ struct Xaiger2Frontend : public Frontend {
 
 				struct MappingCell {
 					TwineRef type;
-					RTLIL::IdString out;
-					std::vector<TwineRef ins;
+					TwineRef out;
+					std::vector<TwineRef> ins;
 				};
 				std::vector<MappingCell> cells;
 				cells.resize(no_cells);
 
 				for (unsigned i = 0; i < no_cells; ++i) {
 					auto &cell = cells[i];
-					cell.type = read_idstring(*f);
-					cell.out = read_idstring(*f);
+					cell.type = design->twines.add(Twine{read_idstring(*f)});
+					cell.out = design->twines.add(Twine{read_idstring(*f)});
 					uint32_t nins = read_be32(*f);
 					for (uint32_t j = 0; j < nins; j++)
-						cell.ins.push_back(read_idstring(*f));
-					log_debug("M: Cell %s (out %s, ins", cell.type.unescape(), cell.out.unescape());
+						cell.ins.push_back(design->twines.add(Twine{read_idstring(*f)}));
+					log_debug("M: Cell %s (out %s, ins", design->twines.str(cell.type).c_str(), design->twines.unescaped_str(cell.out));
 					for (auto in : cell.ins)
-						log_debug(" %s", in.unescape());
+						log_debug(" %s", design->twines.str(in).c_str());
 					log_debug(")\n");
 				}
 
@@ -294,13 +294,13 @@ struct Xaiger2Frontend : public Frontend {
 					auto &cell = cells[cell_id];
 					Cell *instance = module->addCell(module->uniquify(design->twines.add(Twine{stringf("$sc%d", out_lit)})), cell.type);
 					auto out_w = module->addWire(module->uniquify(design->twines.add(Twine{stringf("$lit%d", out_lit)})));
-					instance->setPort(design->twines.add(Twine{cell.out.str()}), out_w);
+					instance->setPort(cell.out, out_w);
 					bits[out_lit] = out_w;
 					for (auto in : cell.ins) {
 						uint32_t in_lit = read_be32(*f);
 						log_assert(out_lit < bits.size());
 						log_assert(bits[in_lit] != RTLIL::Sm);
-						instance->setPort(design->twines.add(Twine{in.str()}), bits[in_lit]);
+						instance->setPort(in, bits[in_lit]);
 					}
 				}
 			} else if (c == '\n') {

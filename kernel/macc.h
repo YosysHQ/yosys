@@ -138,11 +138,11 @@ struct Macc
 
 	void from_cell(RTLIL::Cell *cell)
 	{
-		if (cell->type == ID($macc)) {
+		if (cell->type == TW($macc)) {
 			from_cell_v1(cell);
 			return;
 		}
-		log_assert(cell->type == ID($macc_v2));
+		log_assert(cell->type == TW($macc_v2));
 
 		RTLIL::SigSpec port_a = cell->getPort(TW::A);
 		RTLIL::SigSpec port_b = cell->getPort(TW::B);

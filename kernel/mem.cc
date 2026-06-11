@@ -123,7 +123,7 @@ void Mem::emit() {
 		if (!cell) {
 			if (memid.empty())
 				memid = NEW_ID;
-			cell = module->addCell(Twine{memid.str()}, ID($mem_v2));
+			cell = module->addCell(Twine{memid.str()}, TW::$mem_v2);
 		}
 		cell->type_impl = TW::$mem_v2;
 		cell->attributes = attributes;
@@ -300,7 +300,7 @@ void Mem::emit() {
 		mem->attributes = attributes;
 		for (auto &port : rd_ports) {
 			if (!port.cell)
-				port.cell = module->addCell(NEW_TWINE, ID($memrd_v2));
+				port.cell = module->addCell(NEW_TWINE, TW::$memrd_v2);
 			port.cell->type_impl = TW::$memrd_v2;
 			port.cell->attributes = port.attributes;
 			port.cell->parameters[ID::MEMID] = memid.str();
@@ -325,7 +325,7 @@ void Mem::emit() {
 		int idx = 0;
 		for (auto &port : wr_ports) {
 			if (!port.cell)
-				port.cell = module->addCell(NEW_TWINE, ID($memwr_v2));
+				port.cell = module->addCell(NEW_TWINE, TW::$memwr_v2);
 			port.cell->type_impl = TW::$memwr_v2;
 			port.cell->attributes = port.attributes;
 			if (port.cell->parameters.count(ID::PRIORITY))
@@ -346,7 +346,7 @@ void Mem::emit() {
 		for (auto &init : inits) {
 			bool v2 = !init.en.is_fully_ones();
 			if (!init.cell)
-				init.cell = module->addCell(NEW_TWINE, v2 ? ID($meminit_v2) : ID($meminit));
+				init.cell = module->addCell(NEW_TWINE, v2 ? TW::$meminit_v2 : TW::$meminit);
 			else {
 				if (!v2)
 					init.cell->unsetPort(TW::EN);
@@ -548,11 +548,11 @@ namespace {
 		dict<IdString, pool<Cell *>> inits;
 		MemIndex (Module *module) {
 			for (auto cell: module->cells()) {
-				if (cell->type.in(ID($memwr), ID($memwr_v2)))
+				if (cell->type.in(TW($memwr), TW($memwr_v2)))
 					wr_ports[cell->parameters.at(ID::MEMID).decode_string()].insert(cell);
-				else if (cell->type.in(ID($memrd), ID($memrd_v2)))
+				else if (cell->type.in(TW($memrd), TW($memrd_v2)))
 					rd_ports[cell->parameters.at(ID::MEMID).decode_string()].insert(cell);
-				else if (cell->type.in(ID($meminit), ID($meminit_v2)))
+				else if (cell->type.in(TW($meminit), TW($meminit_v2)))
 					inits[cell->parameters.at(ID::MEMID).decode_string()].insert(cell);
 			}
 		}
@@ -568,7 +568,7 @@ namespace {
 		if (index.rd_ports.count(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 			for (auto cell : index.rd_ports.at(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 				MemRd mrd;
-				bool is_compat = cell->type == ID($memrd);
+				bool is_compat = cell->type == TW($memrd);
 				mrd.cell = cell;
 				mrd.attributes = cell->attributes;
 				mrd.clk_enable = cell->parameters.at(ID::CLK_ENABLE).as_bool();
@@ -612,7 +612,7 @@ namespace {
 			std::vector<std::pair<int, MemWr>> ports;
 			for (auto cell : index.wr_ports.at(RTLIL::IdString(module->design->twines.str(mem->meta_->name)))) {
 				MemWr mwr;
-				bool is_compat = cell->type == ID($memwr);
+				bool is_compat = cell->type == TW($memwr);
 				mwr.cell = cell;
 				mwr.attributes = cell->attributes;
 				mwr.clk_enable = cell->parameters.at(ID::CLK_ENABLE).as_bool();
@@ -631,7 +631,7 @@ namespace {
 			}
 			for (int i = 0; i < GetSize(res.wr_ports); i++) {
 				auto &port = res.wr_ports[i];
-				bool is_compat = port.cell->type == ID($memwr);
+				bool is_compat = port.cell->type == TW($memwr);
 				if (is_compat) {
 					port.priority_mask.resize(GetSize(res.wr_ports));
 					for (int j = 0; j < i; j++) {
@@ -667,7 +667,7 @@ namespace {
 					log_error("Non-constant data %s in memory initialization %s.\n", log_signal(data), cell);
 				init.addr = addr.as_const();
 				init.data = data.as_const();
-				if (cell->type == ID($meminit_v2)) {
+				if (cell->type == TW($meminit_v2)) {
 					auto en = cell->getPort(TW::EN);
 					if (!en.is_fully_const())
 						log_error("Non-constant enable %s in memory initialization %s.\n", log_signal(en), cell);
@@ -683,7 +683,7 @@ namespace {
 		}
 		for (int i = 0; i < GetSize(res.rd_ports); i++) {
 			auto &port = res.rd_ports[i];
-			bool is_compat = port.cell->type == ID($memrd);
+			bool is_compat = port.cell->type == TW($memrd);
 			if (is_compat) {
 				port.transparency_mask.resize(GetSize(res.wr_ports));
 				port.collision_x_mask.resize(GetSize(res.wr_ports));
@@ -720,7 +720,7 @@ namespace {
 			cell->parameters.at(ID::OFFSET).as_int(),
 			cell->parameters.at(ID::SIZE).as_int()
 		);
-		bool is_compat = cell->type == ID($mem);
+		bool is_compat = cell->type == TW($mem);
 		int abits = cell->parameters.at(ID::ABITS).as_int();
 		res.packed = true;
 		res.cell = cell;
@@ -860,7 +860,7 @@ std::vector<Mem> Mem::get_all_memories(Module *module) {
 		res.push_back(mem_from_memory(module, it.second, index));
 	}
 	for (auto cell: module->cells()) {
-		if (cell->type.in(ID($mem), ID($mem_v2)))
+		if (cell->type.in(TW($mem), TW($mem_v2)))
 			res.push_back(mem_from_cell(cell));
 	}
 	return res;
@@ -874,7 +874,7 @@ std::vector<Mem> Mem::get_selected_memories(Module *module) {
 			res.push_back(mem_from_memory(module, it.second, index));
 	}
 	for (auto cell: module->selected_cells()) {
-		if (cell->type.in(ID($mem), ID($mem_v2)))
+		if (cell->type.in(TW($mem), TW($mem_v2)))
 			res.push_back(mem_from_cell(cell));
 	}
 	return res;

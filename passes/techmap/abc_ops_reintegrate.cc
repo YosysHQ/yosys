@@ -268,7 +268,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		// Short out (so that existing name can be preserved) and remove
 		//   $_DFF_[NP]_ cells since flop box already has all the information
 		//   we need to reconstruct them
-		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
+		if (dff_mode && cell->type.in(TW($_DFF_N_), TW($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
 			SigBit Q = cell->getPort(TW::Q);
 			module->connect(Q, cell->getPort(TW::D));
 			module->remove(cell);
@@ -277,7 +277,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			if (it != Qi.wire->attributes.end())
 				it->second.set(Qi.offset, State::Sx);
 		}
-		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
+		else if (cell->type.in(TW($_AND_), TW($_NOT_)))
 			module->remove(cell);
 		else if (cell->attributes.erase(ID::abc9_box_seq))
 			boxes.emplace_back(cell);
@@ -293,7 +293,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	{
 		// Short out $_FF_ cells since the flop box already has
 		//   all the information we need to reconstruct cell
-		if (dff_mode && mapped_cell->type == ID($_FF_)) {
+		if (dff_mode && mapped_cell->type == TW($_FF_)) {
 			SigBit D = mapped_cell->getPort(TW::D);
 			SigBit Q = mapped_cell->getPort(TW::Q);
 			if (D.wire)
@@ -306,7 +306,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		// TODO: Speed up toposort -- we care about NOT ordering only
 		toposort.node(mapped_cell->name);
 
-		if (mapped_cell->type == ID($_NOT_)) {
+		if (mapped_cell->type == TW($_NOT_)) {
 			RTLIL::SigBit a_bit = mapped_cell->getPort(TW::A);
 			RTLIL::SigBit y_bit = mapped_cell->getPort(TW::Y);
 			bit_users[a_bit].insert(mapped_cell->name);
@@ -344,7 +344,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 							RTLIL::SigBit(module->wire(remap_name(y_bit.wire->name)), y_bit.offset),
 							RTLIL::Const::from_string("01"));
 					bit2sinks[cell->getPort(TW::A)].push_back(cell);
-					cell_stats[ID($lut)]++;
+					cell_stats[TW($lut)]++;
 				}
 				else
 					not2drivers[mapped_cell] = driver_lut;
@@ -352,7 +352,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			continue;
 		}
 
-		if (mapped_cell->type == ID($lut)) {
+		if (mapped_cell->type == TW($lut)) {
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = mapped_cell->parameters;
 			cell->attributes = mapped_cell->attributes;
@@ -553,7 +553,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
 		RTLIL::Cell *not_cell = mapped_mod->cell(*ii);
 		log_assert(not_cell);
-		if (not_cell->type != ID($_NOT_))
+		if (not_cell->type != TW($_NOT_))
 			continue;
 		auto it = not2drivers.find(not_cell);
 		if (it == not2drivers.end())
@@ -571,7 +571,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			goto clone_lut;
 
 		for (auto sink_cell : jt->second)
-			if (sink_cell->type != ID($lut))
+			if (sink_cell->type != TW($lut))
 				goto clone_lut;
 
 		// Push downstream LUTs past inverter

@@ -100,7 +100,7 @@ struct LatticeGsrPass : public Pass {
 			log_debug("GSR net in module %s is %s.\n", module, log_signal(gsr));
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != ID($_NOT_))
+				if (cell->type != TW($_NOT_))
 					continue;
 				SigSpec sig_a = cell->getPort(TW::A), sig_y = cell->getPort(TW::Y);
 				if (GetSize(sig_a) < 1 || GetSize(sig_y) < 1)

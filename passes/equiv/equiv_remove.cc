@@ -68,7 +68,7 @@ struct EquivRemovePass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			for (auto cell : module->selected_cells())
-				if (cell->type == ID($equiv) && (mode_gold || mode_gate || cell->getPort(TW::A) == cell->getPort(TW::B))) {
+				if (cell->type == TW($equiv) && (mode_gold || mode_gate || cell->getPort(TW::A) == cell->getPort(TW::B))) {
 					log("Removing $equiv cell %s.%s (%s).\n", module, cell, log_signal(cell->getPort(TW::Y)));
 					module->connect(cell->getPort(TW::Y), mode_gate ? cell->getPort(TW::B) : cell->getPort(TW::A));
 					module->remove(cell);

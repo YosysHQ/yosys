@@ -174,7 +174,7 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 	std::vector<FfData> ffs;
 	// Abstract flop inputs if they're driving a selected output rep
 	for (auto cell : mod->cells()) {
-		if (!ct.cell_types.count(cell->type))
+		if (!ct.cell_types.count(cell->type_impl))
 			continue;
 		FfData ff(nullptr, cell);
 		if (ff.has_sr)
@@ -265,7 +265,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 	unsigned int changed = 0;
 	std::vector<Cell*> cells_snapshot = mod->cells();
 	for (auto cell : cells_snapshot) {
-		if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+		if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 			continue;
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first)) {

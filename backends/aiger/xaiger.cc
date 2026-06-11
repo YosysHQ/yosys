@@ -187,11 +187,11 @@ struct XAigerWriter
 		TimingInfo timing;
 
 		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 				continue;
 
 			if (!cell->has_keep_attr()) {
-				if (cell->type == ID($_NOT_))
+				if (cell->type == TW($_NOT_))
 				{
 					SigBit A = sigmap(cell->getPort(TW::A).as_bit());
 					SigBit Y = sigmap(cell->getPort(TW::Y).as_bit());
@@ -201,7 +201,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (cell->type == ID($_AND_))
+				if (cell->type == TW($_AND_))
 				{
 					SigBit A = sigmap(cell->getPort(TW::A).as_bit());
 					SigBit B = sigmap(cell->getPort(TW::B).as_bit());
@@ -213,7 +213,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep))
+				if (dff_mode && cell->type.in(TW($_DFF_N_), TW($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep))
 				{
 					SigBit D = sigmap(cell->getPort(TW::D).as_bit());
 					SigBit Q = sigmap(cell->getPort(TW::Q).as_bit());
@@ -224,7 +224,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
+				if (cell->type.in(TW($specify2), TW($specify3), TW($specrule)))
 					continue;
 			}
 
@@ -248,12 +248,12 @@ struct XAigerWriter
 						continue;
 				}
 
-				auto inst_name_id = RTLIL::IdString(design->twines.str(inst_module->meta_->name));
+				auto inst_name_id = inst_module->meta_->name;
 				if (!timing.count(inst_name_id))
 					timing.setup_module(inst_module);
 
 				for (auto &i : timing.at(inst_name_id).arrival) {
-					auto port_name_ref = design->twines.add(Twine{i.first.name.str()});
+					auto port_name_ref = i.first.name;
 					if (!cell->hasPort(port_name_ref))
 						continue;
 
@@ -273,7 +273,7 @@ struct XAigerWriter
 					if (ys_debug(1)) {
 						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 						if (seen.emplace(inst_name_id, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
-								cell->type.unescape(), i.first.name.unescape(), offset, d);
+								cell->type.unescape(), design->twines.unescaped_str(i.first.name), offset, d);
 					}
 #endif
 					arrival_times[rhs[offset]] = d;
@@ -308,7 +308,7 @@ struct XAigerWriter
 					}
 			}
 
-			//log_warning("Unsupported cell type: %s (%s)\n", cell->type.unescape(), cell);
+			//log_warning("Unsupported cell type: %s (%s)\n", cell->type.unescaped(), cell);
 		}
 
 		dict<IdString, std::vector<TwineRef>> box_ports;

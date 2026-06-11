@@ -88,7 +88,7 @@ int check_bufnorm_wire(RTLIL::Module *module, RTLIL::Wire *wire)
 			if (!dsig.is_wire() || dsig.as_wire() != wire)
 				log_warning("bufNorm: wire %s.%s driverCell_ %s port %s does not connect back to this wire\n",
 					log_id(module), log_id(wire), log_id(driver), module->design->twines.str(dport).c_str()), counter++;
-			if (wire->port_input && !wire->port_output && driver->type != ID($input_port))
+			if (wire->port_input && !wire->port_output && driver->type != TW($input_port))
 				log_warning("bufNorm: module input wire %s.%s is driven by non-$input_port cell %s of type %s\n",
 					log_id(module), log_id(wire), log_id(driver), log_id(driver->type)), counter++;
 		}
@@ -328,14 +328,14 @@ struct CheckPass : public Pass {
 					// Only those cell types for which the edge data can expode quadratically
 					// in port widths are those for us to check.
 					if (!cell->type.in(
-							ID($add), ID($sub),
-							ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
-							ID($pmux), ID($bmux)))
+							TW($add), TW($sub),
+							TW($shl), TW($shr), TW($sshl), TW($sshr), TW($shift), TW($shiftx),
+							TW($pmux), TW($bmux)))
 						return false;
 
 					int in_widths = 0, out_widths = 0;
 
-					if (cell->type.in(ID($pmux), ID($bmux))) {
+					if (cell->type.in(TW($pmux), TW($bmux))) {
 						// We're skipping inputs A and B, since each of their bits contributes only one edge
 						in_widths = GetSize(cell->getPort(TW::S));
 						out_widths = GetSize(cell->getPort(TW::Y));
@@ -391,12 +391,12 @@ struct CheckPass : public Pass {
 			pool<Cell *> coarsened_cells;
 			for (auto cell : module->cells())
 			{
-				if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+				if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 					continue;
 
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
-					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
-					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescape());
+					if (allow_tbuf && cell->type == TW($_TBUF_)) goto cell_allowed;
+					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescaped());
 					counter++;
 				cell_allowed:;
 				}
@@ -410,7 +410,7 @@ struct CheckPass : public Pass {
 					counter++;
 				}
 
-				if (cell->type == ID($connect)) {
+				if (cell->type == TW($connect)) {
 					// Inefficient, but rare case in sane design
 					auto sig_a = cell->getPort(TW::A);
 					auto sig_b = cell->getPort(TW::B);
@@ -448,13 +448,13 @@ struct CheckPass : public Pass {
 						wire_drivers_count[bit]++;
 						if (output && (bit.wire || !input))
 							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", cell->module->design->twines.str(conn.first).c_str(), i,
-																cell, cell->type.unescape()));
+																cell, cell->type.unescaped()));
 						if (output)
 							driver_cells[bit] = cell;
 					}
 				}
 
-				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)) \
+				if (yosys_celltypes.cell_evaluable(cell->type.ref()) || cell->type.in(TW($mem_v2), TW($memrd), TW($memrd_v2)) \
 						|| cell->is_builtin_ff()) {
 					if (!edges_db.add_edges_from_cell(cell))
 						coarsened_cells.insert(cell);
@@ -571,7 +571,7 @@ struct CheckPass : public Pass {
 						driver_src = stringf(" source: %s", src_attr);
 					}
 
-					message += stringf("    cell %s (%s)%s\n", driver, driver->type.unescape(), driver_src);
+					message += stringf("    cell %s (%s)%s\n", driver, design->twines.unescaped_str(driver->type), driver_src);
 
 					if (!coarsened_cells.count(driver)) {
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);

@@ -54,17 +54,17 @@ struct OnehotDatabase
 			vector<SigSpec> inputs;
 			SigSpec output;
 
-			if (cell->type.in(ID($adff), ID($adffe), ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($ff)))
+			if (cell->type.in(TW($adff), TW($adffe), TW($dff), TW($dffe), TW($sdff), TW($sdffe), TW($sdffce), TW($dlatch), TW($adlatch), TW($ff)))
 			{
 				output = cell->getPort(TW::Q);
-				if (cell->type.in(ID($adff), ID($adffe), ID($adlatch)))
+				if (cell->type.in(TW($adff), TW($adffe), TW($adlatch)))
 					inputs.push_back(cell->getParam(ID::ARST_VALUE));
-				if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce)))
+				if (cell->type.in(TW($sdff), TW($sdffe), TW($sdffce)))
 					inputs.push_back(cell->getParam(ID::SRST_VALUE));
 				inputs.push_back(cell->getPort(TW::D));
 			}
 
-			if (cell->type.in(ID($mux), ID($pmux)))
+			if (cell->type.in(TW($mux), TW($pmux)))
 			{
 				output = cell->getPort(TW::Y);
 				inputs.push_back(cell->getPort(TW::A));
@@ -285,7 +285,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 			for (auto cell : module->cells())
 			{
-				if (cell->type == ID($eq))
+				if (cell->type == TW($eq))
 				{
 					dict<SigBit, State> bits;
 
@@ -333,7 +333,7 @@ struct Pmux2ShiftxPass : public Pass {
 					goto next_cell;
 				}
 
-				if (cell->type == ID($logic_not))
+				if (cell->type == TW($logic_not))
 				{
 					dict<SigBit, State> bits;
 
@@ -359,10 +359,10 @@ struct Pmux2ShiftxPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != ID($pmux))
+				if (cell->type != TW($pmux))
 					continue;
 
-				string src = cell->get_src_attribute();
+				TwineRef src = cell->meta_->src;
 				int width = cell->getParam(ID::WIDTH).as_int();
 				int width_bits = ceil_log2(width);
 				int extwidth = width;
@@ -777,7 +777,7 @@ struct OnehotPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != ID($eq))
+				if (cell->type != TW($eq))
 					continue;
 
 				SigSpec A = sigmap(cell->getPort(TW::A));
@@ -851,7 +851,7 @@ struct OnehotPass : public Pass {
 				}
 
 				RTLIL::Patch patcher(module, &sigmap);
-				patcher.patch(cell, ID::Y, replacement);
+				patcher.patch(cell, TW::Y, replacement);
 			}
 		}
 	}

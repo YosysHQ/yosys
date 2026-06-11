@@ -55,31 +55,31 @@ static void logmap(IdString dff)
 
 static void logmap_all()
 {
-	logmap(ID($_DFF_N_));
-	logmap(ID($_DFF_P_));
+	logmap(TW($_DFF_N_));
+	logmap(TW($_DFF_P_));
 
-	logmap(ID($_DFF_NN0_));
-	logmap(ID($_DFF_NN1_));
-	logmap(ID($_DFF_NP0_));
-	logmap(ID($_DFF_NP1_));
-	logmap(ID($_DFF_PN0_));
-	logmap(ID($_DFF_PN1_));
-	logmap(ID($_DFF_PP0_));
-	logmap(ID($_DFF_PP1_));
+	logmap(TW($_DFF_NN0_));
+	logmap(TW($_DFF_NN1_));
+	logmap(TW($_DFF_NP0_));
+	logmap(TW($_DFF_NP1_));
+	logmap(TW($_DFF_PN0_));
+	logmap(TW($_DFF_PN1_));
+	logmap(TW($_DFF_PP0_));
+	logmap(TW($_DFF_PP1_));
 
-	logmap(ID($_DFFE_NN_));
-	logmap(ID($_DFFE_NP_));
-	logmap(ID($_DFFE_PN_));
-	logmap(ID($_DFFE_PP_));
+	logmap(TW($_DFFE_NN_));
+	logmap(TW($_DFFE_NP_));
+	logmap(TW($_DFFE_PN_));
+	logmap(TW($_DFFE_PP_));
 
-	logmap(ID($_DFFSR_NNN_));
-	logmap(ID($_DFFSR_NNP_));
-	logmap(ID($_DFFSR_NPN_));
-	logmap(ID($_DFFSR_NPP_));
-	logmap(ID($_DFFSR_PNN_));
-	logmap(ID($_DFFSR_PNP_));
-	logmap(ID($_DFFSR_PPN_));
-	logmap(ID($_DFFSR_PPP_));
+	logmap(TW($_DFFSR_NNN_));
+	logmap(TW($_DFFSR_NNP_));
+	logmap(TW($_DFFSR_NPN_));
+	logmap(TW($_DFFSR_NPP_));
+	logmap(TW($_DFFSR_PNN_));
+	logmap(TW($_DFFSR_PNP_));
+	logmap(TW($_DFFSR_PPN_));
+	logmap(TW($_DFFSR_PPP_));
 }
 
 static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std::string &data_name, bool &data_not_inverted, std::string &enable_name, bool &enable_not_inverted)
@@ -504,7 +504,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	for (auto cell : module->cells()) {
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
-		if (cell->type == ID($_NOT_))
+		if (cell->type == TW($_NOT_))
 			notmap[sigmap(cell->getPort(TW::A))].insert(cell);
 	}
 
@@ -660,31 +660,31 @@ struct DfflibmapPass : public Pass {
 			delete f;
 		}
 
-		find_cell(merged.cells, ID($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
+		find_cell(merged.cells, TW($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
+		find_cell(merged.cells, TW($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
+		find_cell(merged.cells, TW($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
 
-		find_cell_sr(merged.cells, ID($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, TW($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
 
 		log("  final dff cell mappings:\n");
 		logmap_all();

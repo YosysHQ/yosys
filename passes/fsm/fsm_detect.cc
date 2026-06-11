@@ -55,7 +55,7 @@ ret_false:
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != ID($mux) && cellport.first->type != ID($pmux)) || cellport.second != TW::Y) {
+		if ((cellport.first->type != TW($mux) && cellport.first->type != TW($pmux)) || cellport.second != TW::Y) {
 			goto ret_false;
 		}
 
@@ -99,9 +99,9 @@ static bool check_state_users(RTLIL::SigSpec sig)
 		RTLIL::Cell *cell = cellport.first;
 		if (muxtree_cells.count(cell) > 0)
 			continue;
-		if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+		if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 			continue;
-		if (cell->type == ID($logic_not) && assign_map(cell->getPort(TW::A)) == sig)
+		if (cell->type == TW($logic_not) && assign_map(cell->getPort(TW::A)) == sig)
 			continue;
 		if (cellport.second != TW::A && cellport.second != TW::B)
 			return false;
@@ -145,7 +145,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 
 	for (auto &cellport : cellport_list)
 	{
-		if ((cellport.first->type != ID($dff) && cellport.first->type != ID($adff)) || cellport.second != TW::Q)
+		if ((cellport.first->type != TW($dff) && cellport.first->type != TW($adff)) || cellport.second != TW::Q)
 			continue;
 
 		muxtree_cells.clear();
@@ -175,10 +175,10 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 			RTLIL::Cell *cell = cellport.first;
 			bool set_output = false, clr_output = false;
 
-			if (cell->type.in(ID($ne), ID($reduce_or), ID($reduce_bool)))
+			if (cell->type.in(TW($ne), TW($reduce_or), TW($reduce_bool)))
 				set_output = true;
 
-			if (cell->type.in(ID($eq), ID($logic_not), ID($reduce_and)))
+			if (cell->type.in(TW($eq), TW($logic_not), TW($reduce_and)))
 				clr_output = true;
 
 			if (set_output || clr_output) {
@@ -202,7 +202,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 
 		SigSpec sig_y = sig_d, sig_undef;
 		if (!ignore_self_reset) {
-			if (cellport.first->type == ID($adff)) {
+			if (cellport.first->type == TW($adff)) {
 				SigSpec sig_arst = assign_map(cellport.first->getPort(TW::ARST));
 				if (ce.eval(sig_arst, sig_undef))
 					is_self_resetting = true;
@@ -328,12 +328,12 @@ struct FsmDetectPass : public Pass {
 			sig_at_port.clear();
 			for (auto cell : module->cells())
 				for (auto &conn_it : cell->connections()) {
-					if (ct.cell_output(cell->type, conn_it.first) || !ct.cell_known(cell->type)) {
+					if (ct.cell_output(cell->type_impl, conn_it.first) || !ct.cell_known(cell->type_impl)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
 						sig2driver.insert(sig, sig2driver_entry_t(cell, conn_it.first));
 					}
-					if (!ct.cell_known(cell->type) || ct.cell_input(cell->type, conn_it.first)) {
+					if (!ct.cell_known(cell->type_impl) || ct.cell_input(cell->type_impl, conn_it.first)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
 						sig2user.insert(sig, sig2driver_entry_t(cell, conn_it.first));

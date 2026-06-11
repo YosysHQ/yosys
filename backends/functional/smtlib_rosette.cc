@@ -180,8 +180,8 @@ struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("list-ref-bv", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("list-set-bv", n(mem), n(addr), n(data)); }
 
-	SExpr input(Node, IdString name, IdString kind) override { log_assert(kind == ID($input)); return input_struct.access("inputs", name); }
-	SExpr state(Node, IdString name, IdString kind) override { log_assert(kind == ID($state)); return state_struct.access("state", name); }
+	SExpr input(Node, IdString name, IdString kind) override { log_assert(kind == TW($input)); return input_struct.access("inputs", name); }
+	SExpr state(Node, IdString name, IdString kind) override { log_assert(kind == TW($state)); return state_struct.access("state", name); }
 };
 
 struct SmtrModule {
@@ -281,7 +281,7 @@ struct SmtrModule {
 			w.push();
 			w.open(list());
 			w.open(list("assoc-result"));
-			w << list("assoc", "\"" + input->name.unescape() + "\"", inputs_name);
+			w << list("assoc", "\"" + design->twines.unescaped_str(input->name) + "\"", inputs_name);
 			w.pop();
 			w.open(list("if", "assoc-result"));
 			w << list("cdr", "assoc-result");
@@ -298,7 +298,7 @@ struct SmtrModule {
 		w << list(*output_helper_name, outputs_name);
 		w.open(list("list"));
 		for (auto output : ir.outputs()) {
-			w << list("cons", "\"" + output->name.unescape() + "\"", output_struct.access("outputs", output->name));
+			w << list("cons", "\"" + design->twines.unescaped_str(output->name) + "\"", output_struct.access("outputs", output->name));
 		}
 		w.pop();
 	}

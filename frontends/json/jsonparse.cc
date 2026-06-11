@@ -532,7 +532,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			IdString cell_type = RTLIL::escape_id(type_node->data_string.c_str());
 
-			Cell *cell = module->addCell(Twine{cell_name.str()}, cell_type);
+			Cell *cell = module->addCell(Twine{cell_name.str()}, Twine{cell_type.str()});
 
 			if (cell_node->data_dict.count("connections") == 0)
 				log_error("JSON cells node '%s' has no connections attribute.\n", cell_name.unescape());

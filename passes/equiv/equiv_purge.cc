@@ -37,7 +37,7 @@ struct EquivPurgeWorker
 			Wire *wire = sig.as_wire();
 			if (wire->name.isPublic()) {
 				if (!wire->port_output) {
-					log("  Module output: %s (%s)\n", log_signal(wire), cellname.unescape());
+					log("  Module output: %s (%s)\n", log_signal(wire), design->twines.unescaped_str(cellname));
 					wire->port_output = true;
 				}
 				return wire;
@@ -53,7 +53,7 @@ struct EquivPurgeWorker
 			Wire *wire = module->addWire(Twine{name}, GetSize(sig));
 			wire->port_output = true;
 			module->connect(wire, sig);
-			log("  Module output: %s (%s)\n", log_signal(wire), cellname.unescape());
+			log("  Module output: %s (%s)\n", log_signal(wire), design->twines.unescaped_str(cellname));
 			return wire;
 		}
 	}
@@ -102,7 +102,7 @@ struct EquivPurgeWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type != ID($equiv)) {
+			if (cell->type != TW($equiv)) {
 				for (auto &port : cell->connections()) {
 					if (cell->input(port.first))
 						for (auto bit : sigmap(port.second))
@@ -167,7 +167,7 @@ struct EquivPurgeWorker
 				rewrite_sigmap.add(chunk, make_input(chunk));
 
 		for (auto cell : module->cells())
-			if (cell->type == ID($equiv))
+			if (cell->type == TW($equiv))
 				cell->setPort(TW::Y, rewrite_sigmap(sigmap(cell->getPort(TW::Y))));
 
 		module->fixup_ports();

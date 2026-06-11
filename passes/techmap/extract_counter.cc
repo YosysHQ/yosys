@@ -258,7 +258,7 @@ int counter_tryextract(
 		return 9;
 	Cell* count_mux = *y_loads.begin();
 	extract.count_mux = count_mux;
-	if(count_mux->type != ID($mux))
+	if(count_mux->type != TW($mux))
 		return 10;
 	if(!is_full_bus(aluy, index, cell, ID::Y, count_mux, ID::A))
 		return 11;
@@ -287,9 +287,9 @@ int counter_tryextract(
 	Cell* overflow_cell = NULL;
 	for(auto c : muxsel_conns)
 	{
-		if(extract.count_is_up && c->type != ID($eq))
+		if(extract.count_is_up && c->type != TW($eq))
 			continue;
-		if(!extract.count_is_up && c->type != ID($logic_not))
+		if(!extract.count_is_up && c->type != TW($logic_not))
 			continue;
 		if(!is_full_bus(muxsel, index, c, ID::Y, count_mux, ID::S, true))
 			continue;
@@ -311,7 +311,7 @@ int counter_tryextract(
 	Cell* count_reg = muxload;
 	Cell* cemux = NULL;
 	RTLIL::SigSpec cey;
-	if(muxload->type == ID($mux))
+	if(muxload->type == TW($mux))
 	{
 		//This mux is probably a clock enable mux.
 		//Find our count register (should be our only load)
@@ -349,9 +349,9 @@ int counter_tryextract(
 		extract.has_ce = false;
 
 	extract.count_reg = count_reg;
-	if(count_reg->type == ID($dff))
+	if(count_reg->type == TW($dff))
 		extract.has_reset = false;
-	else if(count_reg->type == ID($adff))
+	else if(count_reg->type == TW($adff))
 	{
 		if (!settings.allow_arst)
 			return 25;
@@ -517,7 +517,7 @@ void counter_worker(
 	SigMap& sigmap = index.sigmap;
 
 	//Core of the counter must be an ALU
-	if (cell->type != ID($alu))
+	if (cell->type != TW($alu))
 		return;
 
 	//A input is the count value. Check if it has COUNT_EXTRACT set.
@@ -611,7 +611,7 @@ void counter_worker(
 	}
 
 	//Get new cell name
-	string countname = string("$COUNTx$") + extract.rwire->name.unescape();
+	string countname = string("$COUNTx$") + design->twines.unescaped_str(extract.rwire->name);
 
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort(TW::A);
@@ -697,7 +697,7 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", load.cell->module->design->twines.str(cell->meta_->name), load.port.unescape());
+		log("    Counter has parallel output to cell %s port %s\n", load.cell->module->design->twines.str(cell->meta_->name), design->twines.unescaped_str(load.port));
 	}
 	if(extract.has_pout)
 	{

@@ -27,7 +27,7 @@ ShardedVector<std::pair<SigBit, State>> build_inits(AnalysisContext& actx) {
 	actx.subpool.run([&results, &actx](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		for (int i : ctx.item_range(actx.mod->cells_size())) {
 			RTLIL::Cell *cell = actx.mod->cell_at(i);
-			if (StaticCellTypes::Compat::internals_mem_ff(cell->type) && cell->hasPort(TW::Q))
+			if (StaticCellTypes::Compat::internals_mem_ff(cell->type_impl) && cell->hasPort(TW::Q))
 			{
 				SigSpec sig = cell->getPort(TW::Q);
 

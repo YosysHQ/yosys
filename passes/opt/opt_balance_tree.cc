@@ -48,10 +48,10 @@ struct OptBalanceTreeWorker {
 
 		// Calculate the "natural" output width for this operation
 		int natural_width;
-		if (cell_type == ID($add)) {
+		if (cell_type == TW($add)) {
 			// Addition produces max(A_WIDTH, B_WIDTH) + 1 (for carry bit)
 			natural_width = std::max(a_width, b_width) + 1;
-		} else if (cell_type == ID($mul)) {
+		} else if (cell_type == TW($mul)) {
 			// Multiplication produces A_WIDTH + B_WIDTH
 			natural_width = a_width + b_width;
 		} else {
@@ -84,9 +84,9 @@ struct OptBalanceTreeWorker {
 
 			// Create output wire
 			int out_width = cell->getParam(ID::Y_WIDTH).as_int();
-			if (cell_type == ID($add))
+			if (cell_type == TW($add))
 				out_width = max(sources[0].size(), sources[1].size()) + 1;
-			else if (cell_type == ID($mul))
+			else if (cell_type == TW($mul))
 				out_width = sources[0].size() + sources[1].size();
 			Wire* out_wire = module->addWire(NEW_TWINE, out_width);
 			
@@ -119,9 +119,9 @@ struct OptBalanceTreeWorker {
 
 		// Create output wire
 		int out_width = cell->getParam(ID::Y_WIDTH).as_int();
-		if (cell_type == ID($add))
+		if (cell_type == TW($add))
 			out_width = max(left_tree.size(), right_tree.size()) + 1;
-		else if (cell_type == ID($mul))
+		else if (cell_type == TW($mul))
 			out_width = left_tree.size() + right_tree.size();
 		Wire* out_wire = module->addWire(NEW_TWINE, out_width);
 		
@@ -344,14 +344,14 @@ struct OptBalanceTreePass : public Pass {
 
 		// Handle arguments
 		size_t argidx;
-		vector<IdString> cell_types = {ID($and), ID($or), ID($xor), ID($add), ID($mul)};
+		vector<IdString> cell_types = {TW($and), TW($or), TW($xor), TW($add), TW($mul)};
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-arith") {
-				cell_types = {ID($add), ID($mul)};
+				cell_types = {TW($add), TW($mul)};
 				continue;
 			}
 			if (args[argidx] == "-logic") {
-				cell_types = {ID($and), ID($or), ID($xor)};
+				cell_types = {TW($and), TW($or), TW($xor)};
 				continue;
 			}
 			break;
@@ -369,7 +369,7 @@ struct OptBalanceTreePass : public Pass {
 
 		// Log stats
 		for (auto cell_type : cell_types)
-			log("Converted %d %s cells into trees.\n", cell_count[cell_type], cell_type.unescape());
+			log("Converted %d %s cells into trees.\n", cell_count[cell_type], design->twines.unescaped_str(cell_type));
 
 		// Clean up
 		Yosys::run_pass("clean -purge");

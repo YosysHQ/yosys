@@ -994,7 +994,7 @@ struct HelpPass : public Pass {
 		for (auto it : StaticCellTypes::builder.cells) {
 			if (!StaticCellTypes::categories.is_known(it.type))
 				continue;
-			auto name = it.type.str();
+			auto name = TW::str(it.type);
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
 				groups[cell_help.group].emplace_back(name);
@@ -1032,10 +1032,10 @@ struct HelpPass : public Pass {
 			json.name("code"); json.value(ch.code);
 			vector<string> inputs, outputs;
 			for (auto &input : ct.inputs)
-				inputs.push_back(RTLIL::IdString((RTLIL::StaticId)input).str());
+				inputs.push_back(TW::str(input));
 			json.name("inputs"); json.value(inputs);
 			for (auto &output : ct.outputs)
-				outputs.push_back(RTLIL::IdString((RTLIL::StaticId)output).str());
+				outputs.push_back(TW::str(output));
 			json.name("outputs"); json.value(outputs);
 			vector<string> properties;
 			// CellType properties

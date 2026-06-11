@@ -77,7 +77,7 @@ struct OptLutInsPass : public Pass {
 				std::vector<SigBit> output;
 				bool ignore_const = false;
 				if (techname == "") {
-					if (cell->type != ID($lut))
+					if (cell->type != TW($lut))
 						continue;
 					inputs = cell->getPort(TW::A);
 					output = cell->getPort(TW::Y);

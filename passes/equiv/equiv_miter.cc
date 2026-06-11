@@ -47,7 +47,7 @@ struct EquivMiterWorker
 		if (cone.count(c))
 			return;
 
-		if (c->type == ID($equiv) && !seed_cells.count(c)) {
+		if (c->type == TW($equiv) && !seed_cells.count(c)) {
 			leaves.insert(c);
 			return;
 		}
@@ -55,9 +55,9 @@ struct EquivMiterWorker
 		cone.insert(c);
 
 		for (auto &conn : c->connections()) {
-			if (!ct.cell_input(c->type, conn.first))
+			if (!ct.cell_input(c->type_impl, conn.first))
 				continue;
-			if (c->type == ID($equiv) && (conn.first == TW::A) != gold_mode)
+			if (c->type == TW($equiv) && (conn.first == TW::A) != gold_mode)
 				continue;
 			for (auto bit : sigmap(conn.second))
 				if (bit_to_driver.count(bit))
@@ -73,7 +73,7 @@ struct EquivMiterWorker
 
 		for (auto c : source_module->cells())
 			for (auto &conn : c->connections())
-				if (ct.cell_output(c->type, conn.first))
+				if (ct.cell_output(c->type_impl, conn.first))
 					for (auto bit : sigmap(conn.second))
 						if (bit.wire)
 							bit_to_driver[bit] = c;
@@ -81,7 +81,7 @@ struct EquivMiterWorker
 		// find seed cells
 
 		for (auto c : source_module->selected_cells())
-			if (c->type == ID($equiv)) {
+			if (c->type == TW($equiv)) {
 				log("Seed $equiv cell: %s\n", c);
 				seed_cells.insert(c);
 			}
@@ -143,7 +143,7 @@ struct EquivMiterWorker
 		for (auto w :  miter_wires)
 			miter_module->addWire(Twine{w->name.str()}, w->width);
 		for (auto c :  miter_cells) {
-			if (c->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (c->type.in(TW($input_port), TW($output_port), TW($public)))
 				continue;
 			auto mc = miter_module->addCell(Twine{c->name.str()}, c);
 			for (auto &conn : mc->connections())
@@ -175,11 +175,11 @@ struct EquivMiterWorker
 
 		for (auto c : miter_module->cells())
 		for (auto &conn : c->connections()) {
-			if (ct.cell_input(c->type, conn.first))
+			if (ct.cell_input(c->type_impl, conn.first))
 				for (auto bit : conn.second)
 					if (bit.wire)
 						used_bits.insert(bit);
-			if (ct.cell_output(c->type, conn.first))
+			if (ct.cell_output(c->type_impl, conn.first))
 				for (auto bit : conn.second)
 					if (bit.wire)
 						driven_bits.insert(bit);
@@ -214,7 +214,7 @@ struct EquivMiterWorker
 		vector<Cell*> equiv_cells;
 
 		for (auto c : miter_module->cells())
-			if (c->type == ID($equiv) && c->getPort(TW::A) != c->getPort(TW::B))
+			if (c->type == TW($equiv) && c->getPort(TW::A) != c->getPort(TW::B))
 				equiv_cells.push_back(c);
 
 		for (auto c : equiv_cells)
@@ -324,7 +324,7 @@ struct EquivMiterPass : public Pass {
 		design->sigNormalize(false);
 
 		if (design->module(design->twines.lookup(worker.miter_name.str())))
-			log_cmd_error("Miter module %s already exists.\n", worker.miter_name.unescape());
+			log_cmd_error("Miter module %s already exists.\n", design->twines.unescaped_str(worker.miter_name));
 
 		worker.source_module = nullptr;
 		for (auto m : design->selected_modules()) {

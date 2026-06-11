@@ -69,7 +69,7 @@ static void fix_carry_chain(Module *module)
 				continue;
 
 			adders_to_fix_cells.push_back(cell);
-			log("Found %s cell named %s with invalid 'c' signal.\n", cell->type.unescape(), cell);
+			log("Found %s cell named %s with invalid 'c' signal.\n", cell->type.unescaped(), cell);
 		}
 	}
 
@@ -78,7 +78,7 @@ static void fix_carry_chain(Module *module)
 		SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::c));
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
-		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescape(), cell);
+		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescaped(), cell);
 		Cell *c = module->addCell(NEW_TWINE, ID(AL_MAP_ADDER));
 		SigBit new_bit = module->addWire(NEW_TWINE);
 		SigBit dummy_bit = module->addWire(NEW_TWINE);

@@ -48,7 +48,7 @@ struct EquivMarkWorker
 	{
 		for (auto cell : module->cells())
 		{
-			if (cell->type == ID($equiv))
+			if (cell->type == TW($equiv))
 				equiv_cells.insert(cell->meta_->name);
 
 			for (auto &port : cell->connections())
@@ -139,7 +139,7 @@ struct EquivMarkWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell_regions.count(cell->meta_->name) || cell->type != ID($equiv))
+			if (cell_regions.count(cell->meta_->name) || cell->type != TW($equiv))
 				continue;
 
 			SigSpec sig_a = sigmap(cell->getPort(TW::A));

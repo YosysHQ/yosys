@@ -558,7 +558,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	if (opts.none) {
 		string str = "mutate";
 		if (!opts.ctrl_name.empty())
-			str += stringf(" -ctrl %s %d %d", opts.ctrl_name.unescape(), opts.ctrl_width, ctrl_value++);
+			str += stringf(" -ctrl %s %d %d", design->twines.unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += " -mode none";
 		if (filename.empty())
 			log("%s\n", str);
@@ -569,20 +569,20 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	for (auto &entry : database) {
 		string str = "mutate";
 		if (!opts.ctrl_name.empty())
-			str += stringf(" -ctrl %s %d %d", opts.ctrl_name.unescape(), opts.ctrl_width, ctrl_value++);
+			str += stringf(" -ctrl %s %d %d", design->twines.unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += stringf(" -mode %s", entry.mode);
 		if (!entry.module.empty())
-			str += stringf(" -module %s", entry.module.unescape());
+			str += stringf(" -module %s", design->twines.unescaped_str(entry.module));
 		if (!entry.cell.empty())
-			str += stringf(" -cell %s", entry.cell.unescape());
+			str += stringf(" -cell %s", design->twines.unescaped_str(entry.cell));
 		if (!entry.port.empty())
-			str += stringf(" -port %s", entry.port.unescape());
+			str += stringf(" -port %s", design->twines.unescaped_str(entry.port));
 		if (entry.portbit >= 0)
 			str += stringf(" -portbit %d", entry.portbit);
 		if (entry.ctrlbit >= 0)
 			str += stringf(" -ctrlbit %d", entry.ctrlbit);
 		if (!entry.wire.empty())
-			str += stringf(" -wire %s", entry.wire.unescape());
+			str += stringf(" -wire %s", design->twines.unescaped_str(entry.wire));
 		if (entry.wirebit >= 0)
 			str += stringf(" -wirebit %d", entry.wirebit);
 		for (auto &s : entry.src)
@@ -600,7 +600,7 @@ SigSpec mutate_ctrl_sig(Module *module, IdString name, int width)
 
 	if (ctrl_wire == nullptr)
 	{
-		log("Adding ctrl port %s to module %s.\n", name.unescape(), module);
+		log("Adding ctrl port %s to module %s.\n", design->twines.unescaped_str(name), module);
 
 		ctrl_wire = module->addWire(name, width);
 		ctrl_wire->port_input = true;
@@ -652,13 +652,13 @@ void mutate_inv(Design *design, const mutate_opts_t &opts)
 
 	if (cell->input(opts.port))
 	{
-		log("Add input inverter at %s.%s.%s[%d].\n", module, cell, opts.port.unescape(), opts.portbit);
+		log("Add input inverter at %s.%s.%s[%d].\n", module, cell, design->twines.unescaped_str(opts.port), opts.portbit);
 		SigBit outbit = module->Not(NEW_TWINE, bit);
 		bit = mutate_ctrl_mux(module, opts, bit, outbit);
 	}
 	else
 	{
-		log("Add output inverter at %s.%s.%s[%d].\n", module, cell, opts.port.unescape(), opts.portbit);
+		log("Add output inverter at %s.%s.%s[%d].\n", module, cell, design->twines.unescaped_str(opts.port), opts.portbit);
 		SigBit inbit = module->addWire(NEW_TWINE);
 		SigBit outbit = module->Not(NEW_TWINE, inbit);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
@@ -680,13 +680,13 @@ void mutate_const(Design *design, const mutate_opts_t &opts, bool one)
 
 	if (cell->input(opts.port))
 	{
-		log("Add input constant %d at %s.%s.%s[%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit);
+		log("Add input constant %d at %s.%s.%s[%d].\n", one ? 1 : 0, module, cell, design->twines.unescaped_str(opts.port), opts.portbit);
 		SigBit outbit = one ? State::S1 : State::S0;
 		bit = mutate_ctrl_mux(module, opts, bit, outbit);
 	}
 	else
 	{
-		log("Add output constant %d at %s.%s.%s[%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit);
+		log("Add output constant %d at %s.%s.%s[%d].\n", one ? 1 : 0, module, cell, design->twines.unescaped_str(opts.port), opts.portbit);
 		SigBit inbit = module->addWire(NEW_TWINE);
 		SigBit outbit = one ? State::S1 : State::S0;
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
@@ -709,13 +709,13 @@ void mutate_cnot(Design *design, const mutate_opts_t &opts, bool one)
 
 	if (cell->input(opts.port))
 	{
-		log("Add input cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit, opts.ctrlbit);
+		log("Add input cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, design->twines.unescaped_str(opts.port), opts.portbit, opts.ctrlbit);
 		SigBit outbit = one ? module->Xor(NEW_ID, bit, ctrl) : module->Xnor(NEW_TWINE, bit, ctrl);
 		bit = mutate_ctrl_mux(module, opts, bit, outbit);
 	}
 	else
 	{
-		log("Add output cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit, opts.ctrlbit);
+		log("Add output cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, design->twines.unescaped_str(opts.port), opts.portbit, opts.ctrlbit);
 		SigBit inbit = module->addWire(NEW_TWINE);
 		SigBit outbit = one ? module->Xor(NEW_ID, inbit, ctrl) : module->Xnor(NEW_TWINE, inbit, ctrl);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
@@ -947,26 +947,26 @@ struct MutatePass : public Pass {
 
 		Module *module = design->module(opts.module);
 		if (module == nullptr)
-			log_cmd_error("Module %s not found.\n", opts.module.unescape());
+			log_cmd_error("Module %s not found.\n", design->twines.unescaped_str(opts.module));
 
 		if (opts.cell.empty())
 			log_cmd_error("Missing -cell argument.\n");
 
 		Cell *cell = module->cell(opts.cell);
 		if (cell == nullptr)
-			log_cmd_error("Cell %s not found in module %s.\n", opts.cell.unescape(), opts.module.unescape());
+			log_cmd_error("Cell %s not found in module %s.\n", design->twines.unescaped_str(opts.cell), design->twines.unescaped_str(opts.module));
 
 		if (opts.port.empty())
 			log_cmd_error("Missing -port argument.\n");
 
 		if (!cell->hasPort(opts.port))
-			log_cmd_error("Port %s not found on cell %s.%s.\n", opts.port.unescape(), opts.module.unescape(), opts.cell.unescape());
+			log_cmd_error("Port %s not found on cell %s.%s.\n", design->twines.unescaped_str(opts.port), design->twines.unescaped_str(opts.module), design->twines.unescaped_str(opts.cell));
 
 		if (opts.portbit < 0)
 			log_cmd_error("Missing -portbit argument.\n");
 
 		if (GetSize(cell->getPort(opts.port)) <= opts.portbit)
-			log_cmd_error("Out-of-range -portbit argument for port %s on cell %s.%s.\n", opts.port.unescape(), opts.module.unescape(), opts.cell.unescape());
+			log_cmd_error("Out-of-range -portbit argument for port %s on cell %s.%s.\n", design->twines.unescaped_str(opts.port), design->twines.unescaped_str(opts.module), design->twines.unescaped_str(opts.cell));
 
 		if (opts.mode == "inv") {
 			mutate_inv(design, opts);
@@ -982,7 +982,7 @@ struct MutatePass : public Pass {
 			log_cmd_error("Missing -ctrlbit argument.\n");
 
 		if (GetSize(cell->getPort(opts.port)) <= opts.ctrlbit)
-			log_cmd_error("Out-of-range -ctrlbit argument for port %s on cell %s.%s.\n", opts.port.unescape(), opts.module.unescape(), opts.cell.unescape());
+			log_cmd_error("Out-of-range -ctrlbit argument for port %s on cell %s.%s.\n", design->twines.unescaped_str(opts.port), design->twines.unescaped_str(opts.module), design->twines.unescaped_str(opts.cell));
 
 		if (opts.mode == "cnot0" || opts.mode == "cnot1") {
 			mutate_cnot(design, opts, opts.mode == "cnot1");

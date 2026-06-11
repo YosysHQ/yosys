@@ -34,52 +34,52 @@ struct CellCosts
 	public:
 	CellCosts(RTLIL::Design *design) : design_(design) { }
 
-	static const dict<RTLIL::IdString, int>& default_gate_cost() {
+	static const dict<TwineRef, int>& default_gate_cost() {
 		// Default size heuristics for several common PDK standard cells
 		// used by abc and stat
-		static const dict<RTLIL::IdString, int> db = {
-			{ ID($_BUF_),    1 },
-			{ ID($_NOT_),    2 },
-			{ ID($_AND_),    4 },
-			{ ID($_NAND_),   4 },
-			{ ID($_OR_),     4 },
-			{ ID($_NOR_),    4 },
-			{ ID($_ANDNOT_), 4 },
-			{ ID($_ORNOT_),  4 },
-			{ ID($_XOR_),    5 },
-			{ ID($_XNOR_),   5 },
-			{ ID($_AOI3_),   6 },
-			{ ID($_OAI3_),   6 },
-			{ ID($_AOI4_),   7 },
-			{ ID($_OAI4_),   7 },
-			{ ID($_MUX_),    4 },
-			{ ID($_NMUX_),   4 },
+		static const dict<TwineRef, int> db = {
+			{ TW($_BUF_),    1 },
+			{ TW($_NOT_),    2 },
+			{ TW($_AND_),    4 },
+			{ TW($_NAND_),   4 },
+			{ TW($_OR_),     4 },
+			{ TW($_NOR_),    4 },
+			{ TW($_ANDNOT_), 4 },
+			{ TW($_ORNOT_),  4 },
+			{ TW($_XOR_),    5 },
+			{ TW($_XNOR_),   5 },
+			{ TW($_AOI3_),   6 },
+			{ TW($_OAI3_),   6 },
+			{ TW($_AOI4_),   7 },
+			{ TW($_OAI4_),   7 },
+			{ TW($_MUX_),    4 },
+			{ TW($_NMUX_),   4 },
 		};
 		return db;
 	}
 
-	static const dict<RTLIL::IdString, int>& cmos_gate_cost() {
+	static const dict<TwineRef, int>& cmos_gate_cost() {
 		// Estimated CMOS transistor counts for several common PDK standard cells
 		// used by stat and optionally by abc
-		static const dict<RTLIL::IdString, int> db = {
-			{ ID($_BUF_),     1 },
-			{ ID($_NOT_),     2 },
-			{ ID($_AND_),     6 },
-			{ ID($_NAND_),    4 },
-			{ ID($_OR_),      6 },
-			{ ID($_NOR_),     4 },
-			{ ID($_ANDNOT_),  6 },
-			{ ID($_ORNOT_),   6 },
-			{ ID($_XOR_),    12 },
-			{ ID($_XNOR_),   12 },
-			{ ID($_AOI3_),    6 },
-			{ ID($_OAI3_),    6 },
-			{ ID($_AOI4_),    8 },
-			{ ID($_OAI4_),    8 },
-			{ ID($_MUX_),    12 },
-			{ ID($_NMUX_),   10 },
-			{ ID($_DFF_P_),  16 },
-			{ ID($_DFF_N_),  16 },
+		static const dict<TwineRef, int> db = {
+			{ TW($_BUF_),     1 },
+			{ TW($_NOT_),     2 },
+			{ TW($_AND_),     6 },
+			{ TW($_NAND_),    4 },
+			{ TW($_OR_),      6 },
+			{ TW($_NOR_),     4 },
+			{ TW($_ANDNOT_),  6 },
+			{ TW($_ORNOT_),   6 },
+			{ TW($_XOR_),    12 },
+			{ TW($_XNOR_),   12 },
+			{ TW($_AOI3_),    6 },
+			{ TW($_OAI3_),    6 },
+			{ TW($_AOI4_),    8 },
+			{ TW($_OAI4_),    8 },
+			{ TW($_MUX_),    12 },
+			{ TW($_NMUX_),   10 },
+			{ TW($_DFF_P_),  16 },
+			{ TW($_DFF_N_),  16 },
 		};
 		return db;
 	}

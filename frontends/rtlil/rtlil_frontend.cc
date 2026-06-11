@@ -337,7 +337,7 @@ struct RTLILFrontendWorker {
 			error("No wires found for legalization");
 		int hash = hash_ops<RTLIL::IdString>::hash(id).yield();
 		RTLIL::Wire *wire = current_module->wire_at(abs(hash % wires_size));
-		log("Legalizing wire `%s' to `%s'.\n", id.unescape(), wire->name.unescape());
+		log("Legalizing wire `%s' to `%s'.\n", design->twines.unescaped_str(id), design->twines.unescaped_str(wire->name));
 		return wire;
 	}
 
@@ -764,7 +764,7 @@ struct RTLILFrontendWorker {
 			} else
 				error("RTLIL error: redefinition of cell %s.", cell_name_str);
 		}
-		RTLIL::Cell *cell = current_module->addCell(Twine{cell_name_str}, cell_type);
+		RTLIL::Cell *cell = current_module->addCell(cell_name_ref, design->twines.add(Twine{cell_type.str()}));
 		cell->absorb_attrs(std::move(attrbuf));
 
 		while (true)

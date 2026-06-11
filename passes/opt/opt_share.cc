@@ -81,27 +81,27 @@ struct ExtSigSpec {
 	bool operator==(const ExtSigSpec &other) const { return is_signed == other.is_signed && sign == other.sign && sig == other.sig && semantics == other.semantics; }
 };
 
-#define FINE_BITWISE_OPS ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)
+#define FINE_BITWISE_OPS TW($_AND_), TW($_NAND_), TW($_OR_), TW($_NOR_), TW($_XOR_), TW($_XNOR_), TW($_ANDNOT_), TW($_ORNOT_)
 
-#define BITWISE_OPS FINE_BITWISE_OPS, ID($and), ID($or), ID($xor), ID($xnor)
+#define BITWISE_OPS FINE_BITWISE_OPS, TW($and), TW($or), TW($xor), TW($xnor)
 
-#define REDUCTION_OPS ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool), ID($reduce_nand)
+#define REDUCTION_OPS TW($reduce_and), TW($reduce_or), TW($reduce_xor), TW($reduce_xnor), TW($reduce_bool), TW($reduce_nand)
 
-#define LOGICAL_OPS ID($logic_and), ID($logic_or)
+#define LOGICAL_OPS TW($logic_and), TW($logic_or)
 
-#define SHIFT_OPS ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)
+#define SHIFT_OPS TW($shl), TW($shr), TW($sshl), TW($sshr), TW($shift), TW($shiftx)
 
-#define RELATIONAL_OPS ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt)
+#define RELATIONAL_OPS TW($lt), TW($le), TW($eq), TW($ne), TW($eqx), TW($nex), TW($ge), TW($gt)
 
 bool cell_supported(RTLIL::Cell *cell)
 {
-	if (cell->type.in(ID($alu))) {
+	if (cell->type.in(TW($alu))) {
 		RTLIL::SigSpec sig_bi = cell->getPort(TW::BI);
 		RTLIL::SigSpec sig_ci = cell->getPort(TW::CI);
 
 		if (sig_bi.is_fully_const() && sig_ci.is_fully_const() && sig_bi == sig_ci)
 			return true;
-	} else if (cell->type.in(LOGICAL_OPS, SHIFT_OPS, BITWISE_OPS, RELATIONAL_OPS, ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($concat))) {
+	} else if (cell->type.in(LOGICAL_OPS, SHIFT_OPS, BITWISE_OPS, RELATIONAL_OPS, TW($add), TW($sub), TW($mul), TW($div), TW($mod), TW($divfloor), TW($modfloor), TW($concat))) {
 		return true;
 	}
 
@@ -113,7 +113,7 @@ std::map<IdString, IdString> mergeable_type_map;
 bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 {
 	if (mergeable_type_map.empty()) {
-		mergeable_type_map.insert({ID($sub), ID($add)});
+		mergeable_type_map.insert({TW($sub), TW($add)});
 	}
 	auto a_type = a->type;
 	if (mergeable_type_map.count(a_type))
@@ -128,10 +128,10 @@ bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 
 TwineRef decode_port_semantics(RTLIL::Cell *cell, TwineRef port_name)
 {
-	if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($concat), SHIFT_OPS) && port_name == TW::B)
+	if (cell->type.in(TW($lt), TW($le), TW($ge), TW($gt), TW($div), TW($mod), TW($divfloor), TW($modfloor), TW($concat), SHIFT_OPS) && port_name == TW::B)
 		return port_name;
 
-	if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
+	if (cell->type.in(TW($_ANDNOT_), TW($_ORNOT_)))
 		return port_name;
 
 	return Twine::Null;
@@ -139,9 +139,9 @@ TwineRef decode_port_semantics(RTLIL::Cell *cell, TwineRef port_name)
 
 RTLIL::SigSpec decode_port_sign(RTLIL::Cell *cell, TwineRef port_name) {
 
-	if (cell->type == ID($alu) && port_name == TW::B)
+	if (cell->type == TW($alu) && port_name == TW::B)
 		return cell->getPort(TW::BI);
-	else if (cell->type == ID($sub) && port_name == TW::B)
+	else if (cell->type == TW($sub) && port_name == TW::B)
 		return RTLIL::Const(1, 1);
 
 	return RTLIL::Const(0, 1);
@@ -247,7 +247,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 		mux_to_oper = module->Pmux(NEW_TWINE, shared_pmux_a, shared_pmux_b, shared_pmux_s);
 	}
 
-	if (shared_op->type.in(ID($alu))) {
+	if (shared_op->type.in(TW($alu))) {
 		shared_op->setPort(TW::X, module->addWire(NEW_TWINE, GetSize(new_out)));
 		shared_op->setPort(TW::CO, module->addWire(NEW_TWINE, GetSize(new_out)));
 	}
@@ -365,7 +365,7 @@ struct OptSharePass : public Pass {
 			dict<RTLIL::SigBit, int> bit_users;
 
 			for (auto cell : module->cells()) {
-				if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+				if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 					continue;
 				for (auto conn : cell->connections())
 					for (auto bit : conn.second)
@@ -386,7 +386,7 @@ struct OptSharePass : public Pass {
 					continue;
 
 				bool skip = false;
-				if (cell->type == ID($alu)) {
+				if (cell->type == TW($alu)) {
 					for (TwineRef port_name : {TW::X, TW::CO}) {
 						for (auto outbit : sigmap(cell->getPort(port_name)))
 							if (bit_users[outbit] > 1)
@@ -417,7 +417,7 @@ struct OptSharePass : public Pass {
 			std::vector<merged_op_t> merged_ops;
 
 			for (auto mux : module->selected_cells()) {
-				if (!mux->type.in(ID($mux), ID($_MUX_), ID($pmux)))
+				if (!mux->type.in(TW($mux), TW($_MUX_), TW($pmux)))
 					continue;
 
 				int mux_port_size = GetSize(mux->getPort(TW::A));
@@ -564,7 +564,7 @@ struct OptSharePass : public Pass {
 				log("    Found cells that share an operand and can be merged by moving the %s %s in front "
 				    "of "
 				    "them:\n",
-				    shared.mux->type.unescape(), shared.mux);
+				    design->twines.unescaped_str(shared.mux->type), shared.mux);
 				for (const auto& op : shared.ports)
 					log("        %s\n", op.op);
 				log("\n");

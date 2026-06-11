@@ -140,7 +140,7 @@ struct RamClock {
 };
 
 struct Ram {
-	IdString id;
+	TwineRef id;
 	RamKind kind;
 	dict<std::string, Const> options;
 	std::vector<PortGroup> port_groups;

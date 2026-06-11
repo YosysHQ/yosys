@@ -41,7 +41,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 			auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), RTLIL::IdString(m->name)));
 			if (!r.second)
 				log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-						m, id, r.first->second.unescape());
+						m, id, design->twines.unescaped_str(r.first->second));
 		}
 
 		// Make carry in the last PI, and carry out the last PO
@@ -82,13 +82,13 @@ void check(RTLIL::Design *design, bool dff_mode)
 
 	if (dff_mode) {
 		static pool<IdString> unsupported{
-			ID($adff), ID($dlatch), ID($dlatchsr), ID($sr),
-			ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
-			ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
-			ID($_DLATCH_N_), ID($_DLATCH_P_),
-			ID($_DLATCHSR_NNN_), ID($_DLATCHSR_NNP_), ID($_DLATCHSR_NPN_), ID($_DLATCHSR_NPP_),
-			ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_),
-			ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
+			TW($adff), TW($dlatch), TW($dlatchsr), TW($sr),
+			TW($_DFF_NN0_), TW($_DFF_NN1_), TW($_DFF_NP0_), TW($_DFF_NP1_),
+			TW($_DFF_PN0_), TW($_DFF_PN1_), TW($_DFF_PP0_), TW($_DFF_PP1_),
+			TW($_DLATCH_N_), TW($_DLATCH_P_),
+			TW($_DLATCHSR_NNN_), TW($_DLATCHSR_NNP_), TW($_DLATCHSR_NPN_), TW($_DLATCHSR_NPP_),
+			TW($_DLATCHSR_PNN_), TW($_DLATCHSR_PNP_), TW($_DLATCHSR_PPN_), TW($_DLATCHSR_PPP_),
+			TW($_SR_NN_), TW($_SR_NP_), TW($_SR_PN_), TW($_SR_PP_)
 		};
 		for (auto module : design->selected_modules())
 			for (auto cell : module->cells()) {
@@ -113,14 +113,14 @@ void check(RTLIL::Design *design, bool dff_mode)
 				if (!derived_module->get_bool_attribute(ID::abc9_flop))
 					continue;
 				if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
-					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", derived_type.unescape());
+					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", design->twines.unescaped_str(derived_type));
 
 				if (derived_module->has_processes())
 					Pass::call_on_module(design, derived_module, "proc -noopt");
 
 				bool found = false;
 				for (auto derived_cell : derived_module->cells()) {
-					if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
+					if (derived_cell->type.in(TW($dff), TW($_DFF_N_), TW($_DFF_P_))) {
 						if (found)
 							log_error("Whitebox '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", derived_module);
 						found = true;
@@ -129,13 +129,13 @@ void check(RTLIL::Design *design, bool dff_mode)
 						log_assert(GetSize(Q.wire) == 1);
 
 						if (!Q.wire->port_output)
-							log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell where its 'Q' port does not drive a module output.\n", derived_module, derived_cell->type.unescape());
+							log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell where its 'Q' port does not drive a module output.\n", derived_module, design->twines.unescaped_str(derived_cell->type));
 
 						Const init = Q.wire->attributes.at(ID::init, State::Sx);
 						log_assert(GetSize(init) == 1);
 					}
 					else if (unsupported.count(derived_cell->type))
-						log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", derived_module, derived_cell->type.unescape());
+						log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", derived_module, design->twines.unescaped_str(derived_cell->type));
 				}
 			}
 	}
@@ -175,7 +175,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			else {
 				bool has_timing = false;
 				for (auto derived_cell : derived_module->cells()) {
-					if (derived_cell->type.in(ID($specify2), ID($specify3), ID($specrule))) {
+					if (derived_cell->type.in(TW($specify2), TW($specify3), TW($specrule))) {
 						// If the module contains timing; then we potentially care about deriving its content too,
 						// as timings (or associated port widths) could be dependent on parameters.
 						has_timing = true;
@@ -201,7 +201,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
 					for (auto derived_cell : derived_module->cells())
-						if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
+						if (derived_cell->type.in(TW($dff), TW($_DFF_N_), TW($_DFF_P_))) {
 							SigBit Q = derived_cell->getPort(TW::Q);
 							Const init = Q.wire->attributes.at(ID::init, State::Sx);
 							log_assert(GetSize(init) == 1);
@@ -209,7 +209,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							// Block sequential synthesis on cells with (* init *) != 1'b0
 							//   because ABC9 doesn't support them
 							if (init != State::S0) {
-								log_warning("Whitebox '%s' with (* abc9_flop *) contains a %s cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox.\n", derived_module, derived_cell->type.unescape());
+								log_warning("Whitebox '%s' with (* abc9_flop *) contains a %s cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox.\n", derived_module, design->twines.unescaped_str(derived_cell->type));
 								derived_module->set_bool_attribute(ID::abc9_flop, false);
 							}
 							break;
@@ -337,7 +337,7 @@ void prep_bypass(RTLIL::Design *design)
 				// For these new input ports driven by the replaced
 				//   cell, then create a new simple-path specify entry:
 				//     (input => output) = 0
-				auto specify = bypass_module->addCell(NEW_TWINE, ID($specify2));
+				auto specify = bypass_module->addCell(NEW_TWINE, TW($specify2));
 				specify->setPort(TW::EN, State::S1);
 				specify->setPort(TW::SRC, src);
 				specify->setPort(TW::DST, dst);
@@ -362,7 +362,7 @@ void prep_bypass(RTLIL::Design *design)
 			//   module ports; create new input port if one doesn't
 			//   already exist
 			for (auto cell : inst_module->cells()) {
-				if (cell->type != ID($specify2))
+				if (cell->type != TW($specify2))
 					continue;
 				auto EN = cell->getPort(TW::EN).as_bit();
 				SigBit newEN;
@@ -447,7 +447,7 @@ void prep_bypass(RTLIL::Design *design)
 
 void prep_dff(RTLIL::Design *design)
 {
-	auto r = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection::EmptySelection(design)));
+	auto r = design->selection_vars.insert(std::make_pair(TW($abc9_flops), RTLIL::Selection::EmptySelection(design)));
 	auto &modules_sel = r.first->second;
 
 	for (auto module : design->selected_modules())
@@ -466,7 +466,7 @@ void prep_dff(RTLIL::Design *design)
 				// be instantiating the derived module which will have had any parameters constant-propagated.
 				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 				// Please file a bug report!
-				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->module->design->twines.str(cell->meta_->name), cell->type.unescape());
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->module->design->twines.str(cell->meta_->name), cell->type.unescaped());
 			}
 			modules_sel.select(inst_module);
 		}
@@ -483,13 +483,13 @@ void prep_dff_submod(RTLIL::Design *design)
 			continue;
 
 		for (auto cell : module->cells())
-			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
+			if (cell->type.in(TW($_DFF_N_), TW($_DFF_P_))) {
 				log_assert(!dff_cell);
 				dff_cell = cell;
 				Q = cell->getPort(TW::Q);
 				log_assert(GetSize(Q.wire) == 1);
 			}
-			else if (cell->type.in(ID($specify3), ID($specrule)))
+			else if (cell->type.in(TW($specify3), TW($specrule)))
 				specify_cells.emplace_back(cell);
 		log_assert(dff_cell);
 
@@ -596,7 +596,7 @@ void break_scc(RTLIL::Module *module)
 
 	if (!I.empty())
 	{
-		auto cell = module->addCell(NEW_TWINE, ID($__ABC9_SCC_BREAKER));
+		auto cell = module->addCell(NEW_TWINE, TW($__ABC9_SCC_BREAKER));
 		log_assert(GetSize(I) == GetSize(O));
 		cell->setParam(ID::WIDTH, GetSize(I));
 		cell->setPort(TW::I, std::move(I));
@@ -618,7 +618,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 		}
 
 		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($_DFF_N_), ID($_DFF_P_)))
+			if (cell->type.in(TW($_AND_), TW($_NOT_), TW($_DFF_N_), TW($_DFF_P_)))
 				continue;
 			log_assert(!cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY="));
 
@@ -650,7 +650,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 	// Insert $__ABC9_DELAY cells on all cells that instantiate blackboxes
 	//   (or bypassed white-boxes with required times)
 	dict<int, IdString> box_cache;
-	Module *delay_module = design->module(ID($__ABC9_DELAY));
+	Module *delay_module = design->module(TW($__ABC9_DELAY));
 	log_assert(delay_module);
 	for (auto cell : cells) {
 		auto module = cell->module;
@@ -661,7 +661,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			auto port_wire = inst_module->wire(i.first.name);
 			if (!port_wire)
 				log_error("Port %s in cell %s (type %s) from module %s does not actually exist",
-						i.first.name.unescape(), cell, cell->type.unescape(), module);
+						i.first.name.unescape(), cell, cell->type.unescaped(), module);
 			log_assert(port_wire->port_input);
 
 			auto d = i.second.first;
@@ -680,7 +680,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			if (ys_debug(1)) {
 				static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 				if (seen.emplace(cell->type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
-						cell->type.unescape(), i.first.name.unescape(), offset, d);
+						cell->type.unescape(), design->twines.unescaped_str(i.first.name), offset, d);
 			}
 #endif
 			auto r = box_cache.insert(d);
@@ -707,7 +707,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	dict<IdString, std::vector<IdString>> box_ports;
 
 	for (auto cell : module->cells()) {
-		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+		if (cell->type.in(TW($_DFF_N_), TW($_DFF_P_)))
 			continue;
 		if (cell->has_keep_attr())
 			continue;
@@ -752,7 +752,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 
 		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+			if (cell->type.in(TW($_DFF_N_), TW($_DFF_P_)))
 				continue;
 			if (cell->has_keep_attr())
 				continue;
@@ -761,7 +761,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
 			if (abc9_flop && !dff)
 				continue;
-			if (!(inst_module && inst_module->get_bool_attribute(ID::abc9_box)) && !yosys_celltypes.cell_known(cell->type))
+			if (!(inst_module && inst_module->get_bool_attribute(ID::abc9_box)) && !yosys_celltypes.cell_known(cell->type_impl))
 				continue;
 
 			// TODO: Speed up toposort -- we care about box ordering only
@@ -821,7 +821,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			}
 
 		if (!I.empty()) {
-			auto cell = module->addCell(NEW_TWINE, ID($__ABC9_SCC_BREAKER));
+			auto cell = module->addCell(NEW_TWINE, TW($__ABC9_SCC_BREAKER));
 			log_assert(GetSize(I) == GetSize(O));
 			cell->setParam(ID::WIDTH, GetSize(I));
 			cell->setPort(TW::I, std::move(I));
@@ -840,7 +840,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			for (auto cell_name : it) {
 				auto cell = module->cell(cell_name);
 				log_assert(cell);
-				log("\t%s (%s @ %s)\n", cell, cell->type.unescape(), cell->get_src_attribute());
+				log("\t%s (%s @ %s)\n", cell, cell->type.unescaped(), cell->get_src_attribute());
 			}
 		}
 	}
@@ -874,7 +874,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			// be instantiating the derived module which will have had any parameters constant-propagated.
 			// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 			// Please file a bug report!
-			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", cell_name.unescape(), cell->type.unescape());
+			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", design->twines.unescaped_str(cell_name), cell->type.unescaped());
 		}
 		log_assert(box_module->get_blackbox_attribute());
 
@@ -909,7 +909,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 						}
 					}
 					else if (w->port_output)
-						conn = holes_module->addWire(stringf("%s.%s", cell->type, port_name.unescape()), GetSize(w));
+						conn = holes_module->addWire(stringf("%s.%s", cell->type, design->twines.unescaped_str(port_name)), GetSize(w));
 				}
 			}
 			else // box_module is a blackbox
@@ -921,7 +921,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			log_assert(w);
 			if (!w->port_output)
 				continue;
-			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, port_name.unescape()), GetSize(w));
+			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, design->twines.unescaped_str(port_name)), GetSize(w));
 			holes_wire->port_output = true;
 			holes_wire->port_id = port_id++;
 			holes_module->ports.push_back(holes_wire->name);
@@ -973,9 +973,9 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		auto r = table.emplace(K, entry);
 		if (!r.second) {
 			if (r.first->second.area != entry.area)
-				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", module, r.first->second.name.unescape());
+				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", module, design->twines.unescaped_str(r.first->second.name));
 			if (r.first->second.delays != entry.delays)
-				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", module, r.first->second.name.unescape());
+				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", module, design->twines.unescaped_str(r.first->second.name));
 		}
 	}
 
@@ -994,7 +994,7 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		ss << std::endl;
 	}
 	for (const auto &i : table) {
-		ss << "# " << i.second.name.unescape() << std::endl;
+		ss << "# " << design->twines.unescaped_str(i.second.name) << std::endl;
 		ss << i.first << " " << i.second.area;
 		for (const auto &j : i.second.delays)
 			ss << " " << j;
@@ -1038,7 +1038,7 @@ void prep_box(RTLIL::Design *design)
 			}
 			log_assert(num_outputs == 1);
 
-			ss << module->name.unescape() << " " << r.first->second.as_int();
+			ss << design->twines.unescaped_str(module->name) << " " << r.first->second.as_int();
 			log_assert(module->get_bool_attribute(ID::whitebox));
 			ss << " " << "1";
 			ss << " " << num_inputs << " " << num_outputs << std::endl;
@@ -1053,7 +1053,7 @@ void prep_box(RTLIL::Design *design)
 					first = false;
 				else
 					ss << " ";
-				ss << wire->name.unescape();
+				ss << design->twines.unescaped_str(wire->name);
 			}
 			ss << std::endl;
 
@@ -1127,7 +1127,7 @@ void prep_box(RTLIL::Design *design)
 						outputs.emplace_back(wire, i);
 			}
 
-			ss << module->name.unescape() << " " << module->attributes.at(ID::abc9_box_id).as_int();
+			ss << design->twines.unescaped_str(module->name) << " " << module->attributes.at(ID::abc9_box_id).as_int();
 			bool has_model = module->get_bool_attribute(ID::whitebox) || !module->get_bool_attribute(ID::blackbox);
 			ss << " " << (has_model ? "1" : "0");
 			ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
@@ -1140,9 +1140,9 @@ void prep_box(RTLIL::Design *design)
 				else
 					ss << " ";
 				if (GetSize(i.wire) == 1)
-					ss << i.wire->name.unescape();
+					ss << design->twines.unescaped_str(i.wire->name);
 				else
-					ss << i.wire->name.unescape() << "[" << i.offset << "]";
+					ss << design->twines.unescaped_str(i.wire->name) << "[" << i.offset << "]";
 			}
 			ss << std::endl;
 
@@ -1166,9 +1166,9 @@ void prep_box(RTLIL::Design *design)
 				}
 				ss << " # ";
 				if (GetSize(o.wire) == 1)
-					ss << o.wire->name.unescape();
+					ss << design->twines.unescaped_str(o.wire->name);
 				else
-					ss << o.wire->name.unescape() << "[" << o.offset << "]";
+					ss << design->twines.unescaped_str(o.wire->name) << "[" << o.offset << "]";
 				ss << std::endl;
 			}
 			ss << std::endl;
@@ -1198,7 +1198,7 @@ static void replace_zbufs(Design *design)
 	for (auto mod : design->modules()) {
 		zbufs.clear();
 		for (auto cell : mod->cells()) {
-			if (cell->type != ID($buf))
+			if (cell->type != TW($buf))
 				continue;
 			auto &sig = cell->getPort(TW::A);
 			for (int i = 0; i < GetSize(sig); ++i) {
@@ -1214,7 +1214,7 @@ static void replace_zbufs(Design *design)
 			for (int i = 0; i < GetSize(sig); ++i) {
 				if (sig[i] == State::Sz) {
 					Wire *w = mod->addWire(NEW_TWINE);
-					Cell *ud = mod->addCell(NEW_TWINE, ID($tribuf));
+					Cell *ud = mod->addCell(NEW_TWINE, TW($tribuf));
 					ud->set_bool_attribute(ID::aiger2_zbuf);
 					ud->setParam(ID::WIDTH, 1);
 					ud->setPort(TW::Y, w);
@@ -1240,7 +1240,7 @@ static void restore_zbufs(Design *design)
 	for (auto mod : design->modules()) {
 		to_remove.clear();
 		for (auto cell : mod->cells())
-			if (cell->type == ID($tribuf) && cell->has_attribute(ID(aiger2_zbuf)))
+			if (cell->type == TW($tribuf) && cell->has_attribute(ID(aiger2_zbuf)))
 				to_remove.push_back(cell);
 
 		for (auto cell : to_remove) {

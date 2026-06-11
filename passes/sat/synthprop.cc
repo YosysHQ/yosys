@@ -64,7 +64,7 @@ void SynthPropWorker::tracing(RTLIL::Module *mod, int depth, TrackingData &traci
 	tracing_data[mod] = TrackingItem();
 	int cnt = 0;
 	for (auto cell : mod->cells()) {
-		if (cell->type == ID($assert)) {
+		if (cell->type == TW($assert)) {
 			log("%*sFound assert %s..\n", 2*(depth+1), "", cell);
 			tracing_data[mod].assertion_cells.emplace(cell);
 			if (!or_outputs) {
@@ -93,7 +93,7 @@ void SynthPropWorker::run()
 		log_error("Module is not TOP module\n");
 
 	TrackingData tracing_data;
-	tracing(module, 0, tracing_data, module->name.unescape());
+	tracing(module, 0, tracing_data, design->twines.unescaped_str(module->name));
 
 	for (auto &data : tracing_data) {
 		if (data.second.names.size() == 0) continue;
@@ -112,7 +112,7 @@ void SynthPropWorker::run()
 		}
 		pool<Wire*> connected;
 		for (auto cell : data.second.assertion_cells) {
-			if (cell->type == ID($assert)) {
+			if (cell->type == TW($assert)) {
 				RTLIL::Wire *neg_wire = data.first->addWire(NEW_TWINE);
 				RTLIL::Wire *result_wire = data.first->addWire(NEW_TWINE);
 				data.first->addNot(NEW_ID, cell->getPort(TW::A), neg_wire);

@@ -50,7 +50,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		if (cell->type.begins_with("$") && !cell->type.begins_with("$__"))
 			continue;
 		for (auto &pattern : celltypes)
-			if (patmatch(pattern.c_str(), cell->type.unescape().c_str()))
+			if (patmatch(pattern.c_str(), cell->type.unescaped().c_str()))
 				found_celltypes.insert(cell->type);
 	}
 
@@ -132,7 +132,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		mod->fixup_ports();
 
 		for (auto &para : parameters)
-			log("  ignoring parameter %s.\n", para.unescape());
+			log("  ignoring parameter %s.\n", design->twines.unescaped_str(para));
 
 		log("  module %s created.\n", mod);
 	}
@@ -238,7 +238,7 @@ struct IFExpander
 		// about it and don't set has_interfaces_not_found (to avoid a
 		// loop).
 		log_warning("Could not find interface instance for `%s' in `%s'\n",
-			    interface_name.unescape(), &module);
+			    design->twines.unescaped_str(interface_name), &module);
 	}
 
 	// Handle an interface connection from the module
@@ -282,8 +282,8 @@ struct IFExpander
 		// Go over all wires in interface, and add replacements to lists.
 		std::string conn_name_str(design.twines.str(conn_name));
 		for (auto mod_wire : mod_replace_ports->wires()) {
-			std::string signal_name1 = conn_name_str + "." + mod_wire->name.unescape();
-			std::string signal_name2 = interface_name.str() + "." + mod_wire->name.unescape();
+			std::string signal_name1 = conn_name_str + "." + design->twines.unescaped_str(mod_wire->name);
+			std::string signal_name2 = interface_name.str() + "." + design->twines.unescaped_str(mod_wire->name);
 			connections_to_add.push_back(design.twines.add(Twine{signal_name1}));
 			TwineRef signal_name2_ref = design.twines.lookup(signal_name2);
 			if(module.wire(signal_name2_ref) == nullptr) {
@@ -412,7 +412,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 			};
 
 		for (auto &ext : extensions_list) {
-			std::string filename = dir + "/" + cell.type.unescape() + ext.first;
+			std::string filename = dir + "/" + design->twines.unescaped_str(cell.type) + ext.first;
 			if (!check_file_exists(filename))
 				continue;
 
@@ -447,7 +447,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			if (id <= 0 || id > GetSize(mod.ports))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
 				          "has only %d ports, requested port %d.\n",
-				          cell.type.unescape(), &module, &cell,
+				          design->twines.unescaped_str(cell.type), &module, &cell,
 				          GetSize(mod.ports), id);
 			continue;
 		}
@@ -456,7 +456,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 		if (!wire || wire->port_id == 0) {
 			log_error("Module `%s' referenced in module `%s' in cell `%s' "
 			          "does not have a port named '%s'.\n",
-			          cell.type.unescape(), &module, &cell,
+			          design->twines.unescaped_str(cell.type), &module, &cell,
 			          module.design->twines.str(conn.first).data());
 		}
 	}
@@ -465,7 +465,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			if (id <= 0 || id > GetSize(mod.avail_parameters))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
 				          "has only %d parameters, requested parameter %d.\n",
-				          cell.type.unescape(), &module, &cell,
+				          design->twines.unescaped_str(cell.type), &module, &cell,
 				          GetSize(mod.avail_parameters), id);
 			continue;
 		}
@@ -475,8 +475,8 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 		    strchr(param.first.c_str(), '.') == NULL) {
 			log_error("Module `%s' referenced in module `%s' in cell `%s' "
 			          "does not have a parameter named '%s'.\n",
-			          cell.type.unescape(), &module, &cell,
-			          param.first.unescape());
+			          design->twines.unescaped_str(cell.type), &module, &cell,
+			          design->twines.unescaped_str(param.first));
 		}
 	}
 }
@@ -619,7 +619,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		int idx = it.second.first, num = it.second.second;
 
 		if (design->module(cell->type) == nullptr)
-			log_error("Array cell `%s.%s' of unknown type `%s'.\n", module, cell, cell->type.unescape());
+			log_error("Array cell `%s.%s' of unknown type `%s'.\n", module, cell, cell->type.unescaped());
 
 		RTLIL::Module *mod = design->module(cell->type);
 
@@ -715,7 +715,7 @@ bool set_keep_print(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 			if (mod->meta_->name == mod->design->twines.add(Twine{c->type.str()}))
 				continue;
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_print(cache, m)) || c->type == ID($print))
+			if ((m != nullptr && set_keep_print(cache, m)) || c->type == TW($print))
 				return cache[mod] = true;
 		}
 	return cache[mod];
@@ -728,7 +728,7 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 			if (mod->meta_->name == mod->design->twines.add(Twine{c->type.str()}))
 				continue;
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(TW($check), TW($assert), TW($assume), TW($live), TW($fair), TW($cover)))
 				return cache[mod] = true;
 		}
 	return cache[mod];
@@ -1225,7 +1225,7 @@ struct HierarchyPass : public Pass {
 		if (flag_simcheck || flag_smtcheck) {
 			for (auto mod : design->modules()) {
 				for (auto cell : mod->cells()) {
-					if (!cell->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+					if (!cell->type.in(TW($check), TW($assert), TW($assume), TW($live), TW($fair), TW($cover)))
 						continue;
 					if (!cell->has_attribute(ID(unsupported_sva)))
 						continue;
@@ -1267,7 +1267,7 @@ struct HierarchyPass : public Pass {
 					if (read_id_num(p.first, &id)) {
 						if (id <= 0 || id > GetSize(cell_mod->avail_parameters)) {
 							log("  Failed to map positional parameter %d of cell %s.%s (%s).\n",
-									id, mod, cell, cell->type.unescape());
+									id, mod, cell, cell->type.unescaped());
 						} else {
 							params_rename.insert(std::make_pair(p.first, cell_mod->avail_parameters[id - 1]));
 						}
@@ -1289,7 +1289,7 @@ struct HierarchyPass : public Pass {
 				RTLIL::Module *module = work.first;
 				RTLIL::Cell *cell = work.second;
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
-						module, cell, cell->type.unescape());
+						module, cell, cell->type.unescaped());
 				dict<TwineRef, RTLIL::SigSpec> new_connections_twine;
 				for (auto &conn : cell->connections()) {
 					int id;
@@ -1297,7 +1297,7 @@ struct HierarchyPass : public Pass {
 						std::pair<RTLIL::Module*,int> key(design->module(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
-									id, module, cell, cell->type.unescape());
+									id, module, cell, cell->type.unescaped());
 							new_connections_twine[conn.first] = conn.second;
 						} else
 							new_connections_twine[design->twines.add(Twine{pos_map.at(key).str()})] = conn.second;
@@ -1331,7 +1331,7 @@ struct HierarchyPass : public Pass {
 
 				if (m == nullptr)
 					log_error("Cell %s.%s (%s) has implicit port connections but the module it instantiates is unknown.\n",
-							module, cell, cell->type.unescape());
+							module, cell, cell->type.unescaped());
 
 				// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
@@ -1360,11 +1360,11 @@ struct HierarchyPass : public Pass {
 
 					if (parent_wire == nullptr)
 						log_error("No matching wire for implicit port connection `%s' of cell %s.%s (%s).\n",
-								wire, module, cell, cell->type.unescape());
+								wire, module, cell, cell->type.unescaped());
 					if (parent_wire->width != wire->width)
 						log_error("Width mismatch between wire (%d bits) and port (%d bits) for implicit port connection `%s' of cell %s.%s (%s).\n",
 								parent_wire->width, wire->width,
-								wire, module, cell, cell->type.unescape());
+								wire, module, cell, cell->type.unescaped());
 					cell->setPort(wire->meta_->name, parent_wire);
 				}
 				cell->attributes.erase(ID::wildcard_port_conns);
@@ -1582,7 +1582,7 @@ struct HierarchyPass : public Pass {
 
 					if (w->port_output && !w->port_input && sig.has_const())
 						log_error("Output port %s.%s.%s (%s) is connected to constants: %s\n",
-								module, cell, design->twines.str(conn.first).data(), cell->type.unescape(), log_signal(sig));
+								module, cell, design->twines.str(conn.first).data(), cell->type.unescaped(), log_signal(sig));
 				}
 			}
 		}

@@ -52,9 +52,9 @@ struct OptFfInvWorker
 				continue;
 			if (port.port != TW::Y)
 				return false;
-			if (port.cell->type.in(ID($not), ID($_NOT_))) {
+			if (port.cell->type.in(TW($not), TW($_NOT_))) {
 				// OK
-			} else if (port.cell->type.in(ID($lut))) {
+			} else if (port.cell->type.in(TW($lut))) {
 				if (port.cell->getParam(ID::WIDTH) != 1)
 					return false;
 				if (port.cell->getParam(ID::LUT).as_int() != 1)
@@ -78,7 +78,7 @@ struct OptFfInvWorker
 				return false;
 			if (port.port != TW::A)
 				return false;
-			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+			if (!port.cell->type.in(TW($not), TW($_NOT_), TW($lut)))
 				return false;
 			q_luts.insert(port.cell);
 		}
@@ -87,7 +87,7 @@ struct OptFfInvWorker
 		ff.sig_d = d_inv->getPort(TW::A);
 
 		for (Cell *lut: q_luts) {
-			if (lut->type == ID($lut)) {
+			if (lut->type == TW($lut)) {
 				int flip_mask = 0;
 				SigSpec sig_a = lut->getPort(TW::A);
 				for (int i = 0; i < GetSize(sig_a); i++) {
@@ -137,7 +137,7 @@ struct OptFfInvWorker
 				continue;
 			if (port.port != TW::Y)
 				return false;
-			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+			if (!port.cell->type.in(TW($not), TW($_NOT_), TW($lut)))
 				return false;
 			log_assert(d_lut == nullptr);
 			d_lut = port.cell;
@@ -157,9 +157,9 @@ struct OptFfInvWorker
 				return false;
 			if (port.port != TW::A)
 				return false;
-			if (port.cell->type.in(ID($not), ID($_NOT_))) {
+			if (port.cell->type.in(TW($not), TW($_NOT_))) {
 				// OK
-			} else if (port.cell->type.in(ID($lut))) {
+			} else if (port.cell->type.in(TW($lut))) {
 				if (port.cell->getParam(ID::WIDTH) != 1)
 					return false;
 				if (port.cell->getParam(ID::LUT).as_int() != 1)
@@ -176,7 +176,7 @@ struct OptFfInvWorker
 		ff.sig_q = q_inv->getPort(TW::Y);
 		module->remove(q_inv);
 
-		if (d_lut->type == ID($lut)) {
+		if (d_lut->type == TW($lut)) {
 			Const mask = d_lut->getParam(ID::LUT);
 			Const::Builder new_mask_builder(GetSize(mask));
 			for (int i = 0; i < GetSize(mask); i++) {

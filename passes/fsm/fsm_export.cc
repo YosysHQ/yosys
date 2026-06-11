@@ -175,7 +175,7 @@ struct FsmExportPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 			for (auto cell : mod->selected_cells())
-				if (cell->type == ID($fsm)) {
+				if (cell->type == TW($fsm)) {
 					attr_it = cell->attributes.find(ID::fsm_export);
 					if (!flag_noauto || (attr_it != cell->attributes.end())) {
 						write_kiss2(mod, cell, filename, flag_origenc);

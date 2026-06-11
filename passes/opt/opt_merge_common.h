@@ -91,21 +91,21 @@ struct CellHasher
 	{
 		// TODO: when implemented, use celltypes to match:
 		// (builtin || stdcell) && (unary || binary) && symmetrical
-		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
-				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
+		if (cell->type.in(TW($and), TW($or), TW($xor), TW($xnor), TW($add), TW($mul),
+				TW($logic_and), TW($logic_or), TW($_AND_), TW($_OR_), TW($_XOR_))) {
 			hashlib::commutative_hash comm;
 			comm.eat(map_sig(cell->getPort(TW::A)));
 			comm.eat(map_sig(cell->getPort(TW::B)));
 			h = comm.hash_into(h);
-		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
+		} else if (cell->type.in(TW($reduce_xor), TW($reduce_xnor))) {
 			SigSpec a = map_sig(cell->getPort(TW::A));
 			a.sort();
 			h = a.hash_into(h);
-		} else if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
+		} else if (cell->type.in(TW($reduce_and), TW($reduce_or), TW($reduce_bool))) {
 			SigSpec a = map_sig(cell->getPort(TW::A));
 			a.sort_and_unify();
 			h = a.hash_into(h);
-		} else if (cell->type == ID($pmux)) {
+		} else if (cell->type == TW($pmux)) {
 			SigSpec sig_s = map_sig(cell->getPort(TW::S));
 			SigSpec sig_b = map_sig(cell->getPort(TW::B));
 			h = hash_pmux_in(sig_s, sig_b, h);
@@ -177,8 +177,8 @@ struct CellHasher
 			}
 		}
 
-		if (cell1->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
-				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
+		if (cell1->type.in(TW($and), TW($or), TW($xor), TW($xnor), TW($add), TW($mul),
+				TW($logic_and), TW($logic_or), TW($_AND_), TW($_OR_), TW($_XOR_))) {
 			if (conn1.at(TW::A) < conn1.at(TW::B)) {
 				std::swap(conn1[TW::A], conn1[TW::B]);
 			}
@@ -186,15 +186,15 @@ struct CellHasher
 				std::swap(conn2[TW::A], conn2[TW::B]);
 			}
 		} else
-		if (cell1->type.in(ID($reduce_xor), ID($reduce_xnor))) {
+		if (cell1->type.in(TW($reduce_xor), TW($reduce_xnor))) {
 			conn1[TW::A].sort();
 			conn2[TW::A].sort();
 		} else
-		if (cell1->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
+		if (cell1->type.in(TW($reduce_and), TW($reduce_or), TW($reduce_bool))) {
 			conn1[TW::A].sort_and_unify();
 			conn2[TW::A].sort_and_unify();
 		} else
-		if (cell1->type == ID($pmux)) {
+		if (cell1->type == TW($pmux)) {
 			sort_pmux_conn(conn1);
 			sort_pmux_conn(conn2);
 		}

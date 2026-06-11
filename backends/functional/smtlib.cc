@@ -80,7 +80,7 @@ public:
 	SmtStruct(std::string name, SmtScope &scope) : scope(scope), name(name) {}
 	void insert(IdString field_name, SmtSort sort) {
 		field_names(field_name);
-		auto accessor = scope.unique_name("\\" + name + "_" + field_name.unescape());
+		auto accessor = scope.unique_name("\\" + name + "_" + design->twines.unescaped_str(field_name));
 		fields.emplace_back(Field{sort, accessor});
 	}
 	void write_definition(SExprWriter &w) {
@@ -179,8 +179,8 @@ struct SmtPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("select", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("store", n(mem), n(addr), n(data)); }
 
-	SExpr input(Node, IdString name, IdString kind) override { log_assert(kind == ID($input)); return input_struct.access("inputs", name); }
-	SExpr state(Node, IdString name, IdString kind) override { log_assert(kind == ID($state)); return state_struct.access("state", name); }
+	SExpr input(Node, IdString name, IdString kind) override { log_assert(kind == TW($input)); return input_struct.access("inputs", name); }
+	SExpr state(Node, IdString name, IdString kind) override { log_assert(kind == TW($state)); return state_struct.access("state", name); }
 };
 
 struct SmtModule {

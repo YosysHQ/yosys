@@ -109,7 +109,7 @@ struct OptLutWorker
 		log("Discovering LUTs.\n");
 		for (auto cell : module->selected_cells())
 		{
-			if (cell->type == ID($lut))
+			if (cell->type == TW($lut))
 			{
 				if (cell->has_keep_attr())
 					continue;

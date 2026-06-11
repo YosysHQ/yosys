@@ -121,18 +121,18 @@ struct OptMergeThreadWorker : public CellHasher
 			const RTLIL::Cell *cell = module->cell_at(cell_index);
 			if (!module->selected(cell))
 				continue;
-			if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
+			if (cell->type.in(TW($meminit), TW($meminit_v2), TW($mem), TW($mem_v2))) {
 				// Ignore those for performance: meminit can have an excessively large port,
 				// mem can have an excessively large parameter holding the init data
 				continue;
 			}
-			if (cell->type == ID($scopeinfo))
+			if (cell->type == TW($scopeinfo))
 				continue;
 			if (mode_keepdc && has_dont_care_initval(cell))
 				continue;
 			if (!cell->known())
 				continue;
-			if (!mode_share_all && !ct.cell_known(cell->type))
+			if (!mode_share_all && !ct.cell_known(cell->type_impl))
 				continue;
 
 			Hasher::hash_t h = hash_cell_function(cell, Hasher()).yield();
@@ -397,20 +397,20 @@ struct OptMergePass : public Pass {
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();
 		if (mode_nomux) {
-			ct.cell_types.erase(ID($mux));
-			ct.cell_types.erase(ID($pmux));
+			ct.cell_types.erase(TW($mux));
+			ct.cell_types.erase(TW($pmux));
 		}
-		ct.cell_types.erase(ID($tribuf));
-		ct.cell_types.erase(ID($_TBUF_));
-		ct.cell_types.erase(ID($anyseq));
-		ct.cell_types.erase(ID($anyconst));
-		ct.cell_types.erase(ID($allseq));
-		ct.cell_types.erase(ID($allconst));
+		ct.cell_types.erase(TW($tribuf));
+		ct.cell_types.erase(TW($_TBUF_));
+		ct.cell_types.erase(TW($anyseq));
+		ct.cell_types.erase(TW($anyconst));
+		ct.cell_types.erase(TW($allseq));
+		ct.cell_types.erase(TW($allconst));
 		// Synthetic driver cells signorm creates for module ports — must
 		// never be folded into one another, otherwise distinct ports collapse.
-		ct.cell_types.erase(ID($input_port));
-		ct.cell_types.erase(ID($output_port));
-		ct.cell_types.erase(ID($public));
+		ct.cell_types.erase(TW($input_port));
+		ct.cell_types.erase(TW($output_port));
+		ct.cell_types.erase(TW($public));
 
 		// patcher.patch uses connect_incremental + fanout queries.
 		design->sigNormalize(true);

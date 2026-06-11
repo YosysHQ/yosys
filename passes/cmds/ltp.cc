@@ -64,7 +64,7 @@ struct LtpWorker
 						dst_bits.insert(bit);
 				}
 
-			if (noff && ff_celltypes.cell_known(cell->type)) {
+			if (noff && ff_celltypes.cell_known(cell->type_impl)) {
 				for (auto s : src_bits)
 					for (auto d : dst_bits) {
 						bit2ff[s] = tuple<SigBit, Cell*>(d, cell);

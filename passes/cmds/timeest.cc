@@ -66,8 +66,8 @@ struct EstimateSta {
 	// and to account for the AIG model not being balanced
 	int cell_type_factor(IdString type)
 	{
-		if (type.in(ID($gt), ID($ge), ID($lt), ID($le), ID($add), ID($sub),
-					ID($logic_not), ID($reduce_and), ID($reduce_or), ID($eq)))
+		if (type.in(TW($gt), TW($ge), TW($lt), TW($le), TW($add), TW($sub),
+					TW($logic_not), TW($reduce_and), TW($reduce_or), TW($eq)))
 			return 1;
 		else
 			return 2;
@@ -97,7 +97,7 @@ struct EstimateSta {
 				FfData ff(nullptr, cell);
 				if (!ff.has_clk) {
 					log_warning("Ignoring unsupported storage element '%s' (%s)\n",
-								cell, cell->type.unescape());
+								cell, cell->type.unescaped());
 					continue;
 				}
 				if (!clk || ff.sig_clk.as_bit() != *clk)
@@ -112,7 +112,7 @@ struct EstimateSta {
 			} else if (cell->is_mem_cell()) {
 				// memories handled separately
 				continue;
-			} else if (cell->type == ID($scopeinfo)) {
+			} else if (cell->type == TW($scopeinfo)) {
 				continue;
 			} else {
 				// find or build AIG model of combinational cell
@@ -121,7 +121,7 @@ struct EstimateSta {
 					aigs.emplace(fingerprint, Aig(cell));
 					if (aigs.at(fingerprint).name.empty()) {
 						log_error("Unsupported cell '%s' in module '%s'",
-								  cell->type.unescape(), m);
+								  cell->type.unescaped(), m);
 					}
 				}
 
@@ -342,7 +342,7 @@ struct EstimateSta {
 						std::string src_attr = cell->get_src_attribute();
 						cell_src = stringf(" source: %s", src_attr);
 					}
-					log("    cell %s (%s)%s\n", cell, cell->type.unescape(), cell_src);
+					log("    cell %s (%s)%s\n", cell, cell->type.unescaped(), cell_src);
 					printed.insert(cell);
 				}
 			} else {

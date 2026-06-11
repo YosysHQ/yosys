@@ -73,11 +73,11 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     }
 
     type = RTLIL::escape_id(cell_base_name + cell_size_name + "_cfg_ports");
-    log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, type.unescape());
+    log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, design->twines.unescaped_str(type));
 
     for (auto cell : {st.mul, st.add, st.mux, st.ff})
     if (cell)
-        log("  %s (%s)\n", cell, cell->type.unescape());
+        log("  %s (%s)\n", cell, cell->type.unescaped());
 
     // Add the DSP cell
     RTLIL::Cell *cell = pm.module->addCell(NEW_TWINE, type);
@@ -169,7 +169,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     // 3 - output post acc; 1 - output pre acc
     cell->setPort(TW::output_select_i, RTLIL::Const(st.output_registered ? 1 : 3, 3));
 
-    bool subtract = (st.add->type == ID($sub));
+    bool subtract = (st.add->type == TW($sub));
     cell->setPort(TW::subtract_i, RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
 
     // Mark the cells for removal

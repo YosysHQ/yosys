@@ -66,7 +66,7 @@ struct CleanZeroWidthPass : public Pass {
 		{
 			for (auto cell : module->selected_cells())
 			{
-				if (!ct.cell_known(cell->type)) {
+				if (!ct.cell_known(cell->type_impl)) {
 					// User-defined cell: just prune zero-width connections.
 					for (auto it: cell->connections()) {
 						if (GetSize(it.second) == 0) {
@@ -80,7 +80,7 @@ struct CleanZeroWidthPass : public Pass {
 					if (GetSize(cell->getPort(TW::Q)) == 0) {
 						module->remove(cell);
 					}
-				} else if (cell->type.in(ID($pmux), ID($bmux), ID($demux))) {
+				} else if (cell->type.in(TW($pmux), TW($bmux), TW($demux))) {
 					// Remove altogether if WIDTH is 0, replace with
 					// a connection if S_WIDTH is 0.
 					if (cell->getParam(ID::WIDTH).as_int() == 0) {
@@ -90,7 +90,7 @@ struct CleanZeroWidthPass : public Pass {
 						module->connect(cell->getPort(TW::Y), cell->getPort(TW::A));
 						module->remove(cell);
 					}
-				} else if (cell->type == ID($concat)) {
+				} else if (cell->type == TW($concat)) {
 					// If a concat has a zero-width input: replace with direct
 					// connection to the other input.
 					if (cell->getParam(ID::A_WIDTH).as_int() == 0) {
@@ -100,17 +100,17 @@ struct CleanZeroWidthPass : public Pass {
 						module->connect(cell->getPort(TW::Y), cell->getPort(TW::A));
 						module->remove(cell);
 					}
-				} else if (cell->type == ID($fsm)) {
+				} else if (cell->type == TW($fsm)) {
 					// TODO: not supported
 				} else if (cell->is_mem_cell()) {
 					// Skip — will be handled below.
-				} else if (cell->type == ID($lut)) {
+				} else if (cell->type == TW($lut)) {
 					// Zero-width LUT is just a const driver.
 					if (cell->getParam(ID::WIDTH).as_int() == 0) {
 						module->connect(cell->getPort(TW::Y), cell->getParam(ID::LUT)[0]);
 						module->remove(cell);
 					}
-				} else if (cell->type == ID($sop)) {
+				} else if (cell->type == TW($sop)) {
 					// Zero-width SOP is just a const driver.
 					if (cell->getParam(ID::WIDTH).as_int() == 0) {
 						// The value is 1 iff DEPTH is non-0.
@@ -128,7 +128,7 @@ struct CleanZeroWidthPass : public Pass {
 					// A and B to 1-bit if their width is 0.
 					if (cell->getParam(ID::Y_WIDTH).as_int() == 0) {
 						module->remove(cell);
-					} else if (cell->type.in(ID($macc), ID($macc_v2))) {
+					} else if (cell->type.in(TW($macc), TW($macc_v2))) {
 						// TODO: fixing zero-width A and B not supported.
 					} else {
 						if (cell->getParam(ID::A_WIDTH).as_int() == 0) {

@@ -95,11 +95,11 @@ struct FmcombineWorker
 	void generate()
 	{
 		if (design->module(combined_type)) {
-			// log("Combined module %s already exists.\n", combined_type.unescape());
+			// log("Combined module %s already exists.\n", design->twines.unescaped_str(combined_type));
 			return;
 		}
 
-		log("Generating combined module %s from module %s.\n", combined_type.unescape(), orig_type.unescape());
+		log("Generating combined module %s from module %s.\n", design->twines.unescaped_str(combined_type), design->twines.unescaped_str(orig_type));
 		module = design->addModule(combined_type);
 
 		for (auto wire : original->wires()) {
@@ -110,7 +110,7 @@ struct FmcombineWorker
 
 		for (auto cell : original->cells()) {
 			if (design->module(cell->type) == nullptr) {
-				if (opts.anyeq && cell->type.in(ID($anyseq), ID($anyconst))) {
+				if (opts.anyeq && cell->type.in(TW($anyseq), TW($anyconst))) {
 					Cell *gold = import_prim_cell(cell, "_gold");
 					for (auto &conn : cell->connections())
 						module->connect(import_sig(conn.second, "_gate"), gold->getPort(conn.first));
@@ -153,7 +153,7 @@ struct FmcombineWorker
 
 		for (auto cell : original->cells())
 		{
-			if (!ct.cell_known(cell->type))
+			if (!ct.cell_known(cell->type_impl))
 				continue;
 
 			for (auto &conn : cell->connections())
@@ -174,7 +174,7 @@ struct FmcombineWorker
 
 		for (auto cell : original->cells())
 		{
-			if (!ct.cell_known(cell->type))
+			if (!ct.cell_known(cell->type_impl))
 				continue;
 
 			bool skip_cell = !cell_to_eq_nets.count(cell);
@@ -332,15 +332,15 @@ struct FmcombinePass : public Pass {
 
 			module = design->module(module_name);
 			if (module == nullptr)
-				log_cmd_error("Module %s not found.\n", module_name.unescape());
+				log_cmd_error("Module %s not found.\n", design->twines.unescaped_str(module_name));
 
 			gold_cell = module->cell(gold_name);
 			if (gold_cell == nullptr)
-				log_cmd_error("Gold cell %s not found in module %s.\n", gold_name.unescape(), module);
+				log_cmd_error("Gold cell %s not found in module %s.\n", design->twines.unescaped_str(gold_name), module);
 
 			gate_cell = module->cell(gate_name);
 			if (gate_cell == nullptr)
-				log_cmd_error("Gate cell %s not found in module %s.\n", gate_name.unescape(), module);
+				log_cmd_error("Gate cell %s not found in module %s.\n", design->twines.unescaped_str(gate_name), module);
 		}
 		else
 		{

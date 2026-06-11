@@ -1569,7 +1569,7 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 	for (auto w : intfmodule->wires()){
 		auto loc = module_ast->location;
 		auto wire = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, AstNode::mkconst_int(loc, w->width -1, true), AstNode::mkconst_int(loc, 0, true)));
-		std::string origname = w->name.unescape();
+		std::string origname = intfmodule->design->twines.unescaped_str(w->meta_->name);
 		std::string newname = intfname + "." + origname;
 		wire->str = newname;
 		if (modport != NULL) {
@@ -1633,7 +1633,7 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 		RTLIL::Module *intfmodule = intf.second;
 		for (auto w : intfmodule->wires()){
 			auto wire = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, AstNode::mkconst_int(loc, w->width -1, true), AstNode::mkconst_int(loc, 0, true)));
-			std::string newname = w->name.unescape();
+			std::string newname = design->twines.unescaped_str(w->meta_->name);
 			newname = intfname + "." + newname;
 			wire->str = newname;
 			new_ast->children.push_back(std::move(wire));
@@ -1694,7 +1694,7 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
 // This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool /*mayfail*/)
+TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<TwineRef, RTLIL::Module*> &interfaces, const dict<TwineRef, TwineRef> &modports, bool /*mayfail*/)
 {
 	std::unique_ptr<AstNode> new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast);
@@ -1727,11 +1727,11 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		// Iterate over all interfaces which are ports in this module:
 		for(auto &intf : interfaces) {
 			RTLIL::Module * intfmodule = intf.second;
-			std::string intfname = intf.first.str();
+			std::string intfname = design->twines.str(intf.first);
 			// Check if a modport applies for the interface port:
 			AstNode *modport = NULL;
-			if (modports.count(intfname) > 0) {
-				std::string interface_modport = modports.at(intfname).str();
+			if (modports.count(intf.first) > 0) {
+				std::string interface_modport = design->twines.str(modports.at(intf.first));
 				AstModule *ast_module_of_interface = (AstModule*)intfmodule;
 				AstNode *ast_node_of_interface = ast_module_of_interface->ast.get();
 				modport = find_modport(ast_node_of_interface, interface_modport);
@@ -1747,7 +1747,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
 		for(auto &intf : interfaces) {
-			TwineRef intf_name = design->twines.lookup(intf.first.str());
+			TwineRef intf_name = design->twines.lookup(design->twines.str(intf.first));
 			if(mod->wire(intf_name) != nullptr) {
 				// Normally, removing wires would be batched together as it's an
 				//   expensive operation, however, in this case doing so would mean
@@ -1760,7 +1760,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 				mod->fixup_ports();
 				// We copy the cell of the interface to the sub-module such that it
 				//   can further be found if it is propagated down to sub-sub-modules etc.
-				RTLIL::Cell *new_subcell = mod->addCell(Twine{intf.first.str()}, RTLIL::IdString(design->twines.str(intf.second->meta_->name)));
+				RTLIL::Cell *new_subcell = mod->addCell(intf.first, intf.second->meta_->name);
 				new_subcell->set_bool_attribute(ID::is_interface);
 			}
 			else {
@@ -1778,11 +1778,11 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
-	return modname;
+	return design->twines.add(Twine{modname});
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
+TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
 {
 	bool quiet = lib || attributes.count(ID::blackbox) || attributes.count(ID::whitebox);
 
@@ -1798,7 +1798,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
-	return modname;
+	return design->twines.add(Twine{modname});
 }
 
 static std::string serialize_param_value(const RTLIL::Const &val) {
@@ -1975,11 +1975,11 @@ RTLIL::Module *AstModule::clone(RTLIL::Design *dst, bool src_id_verbatim) const
 	return new_mod;
 }
 
-RTLIL::Module *AstModule::clone(RTLIL::Design *dst, RTLIL::IdString target_name, bool src_id_verbatim) const
+RTLIL::Module *AstModule::clone(RTLIL::Design *dst, TwineRef target_name, bool src_id_verbatim) const
 {
 	AstModule *new_mod = new AstModule;
 	new_mod->design = dst;
-	new_mod->meta_->name = dst->twines.add(Twine{target_name.str()});
+	new_mod->meta_->name = target_name;
 	cloneInto(new_mod, src_id_verbatim);
 	dst->add(new_mod);
 

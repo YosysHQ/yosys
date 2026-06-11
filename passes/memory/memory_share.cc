@@ -80,7 +80,7 @@ struct MemoryShareWorker
 		if (GetSize(mem.rd_ports) <= 1)
 			return false;
 
-		log("Consolidating read ports of memory %s.%s by address:\n", module, mem.memid.unescape());
+		log("Consolidating read ports of memory %s.%s by address:\n", module, design->twines.unescaped_str(mem.memid));
 
 		bool changed = false;
 		int abits = 0;
@@ -197,7 +197,7 @@ struct MemoryShareWorker
 		if (GetSize(mem.wr_ports) <= 1)
 			return false;
 
-		log("Consolidating write ports of memory %s.%s by address:\n", module, mem.memid.unescape());
+		log("Consolidating write ports of memory %s.%s by address:\n", module, design->twines.unescaped_str(mem.memid));
 
 		bool changed = false;
 		int abits = 0;
@@ -316,7 +316,7 @@ struct MemoryShareWorker
 		if (eligible_ports.size() <= 1)
 			return;
 
-		log("Consolidating write ports of memory %s.%s using sat-based resource sharing:\n", module, mem.memid.unescape());
+		log("Consolidating write ports of memory %s.%s using sat-based resource sharing:\n", module, design->twines.unescaped_str(mem.memid));
 
 		// Group eligible ports by clock domain and width.
 
@@ -482,7 +482,7 @@ struct MemoryShareWorker
 		sigmap_xmux = sigmap;
 		for (auto cell : module->cells())
 		{
-			if (cell->type == ID($mux))
+			if (cell->type == TW($mux))
 			{
 				RTLIL::SigSpec sig_a = sigmap_xmux(cell->getPort(TW::A));
 				RTLIL::SigSpec sig_b = sigmap_xmux(cell->getPort(TW::B));

@@ -41,7 +41,7 @@ static void run_ice40_opts(Module *module)
 
 	for (auto cell : module->selected_cells())
 	{
-		if (!cell->type.in(ID(SB_LUT4), ID(SB_CARRY), ID($__ICE40_CARRY_WRAPPER)))
+		if (!cell->type.in(ID(SB_LUT4), ID(SB_CARRY), TW($__ICE40_CARRY_WRAPPER)))
 			continue;
 		if (cell->has_keep_attr())
 			continue;
@@ -89,7 +89,7 @@ static void run_ice40_opts(Module *module)
 			continue;
 		}
 
-		if (cell->type == ID($__ICE40_CARRY_WRAPPER))
+		if (cell->type == TW($__ICE40_CARRY_WRAPPER))
 		{
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
@@ -138,7 +138,7 @@ static void run_ice40_opts(Module *module)
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						module, cell, log_signal(replacement_output));
-				cell->type = ID($lut);
+				cell->type = TW($lut);
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
 				cell->setPort(TW::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(TW::I0)) });
 				cell->setPort(TW::Y, cell->getPort(TW::O));
@@ -177,7 +177,7 @@ static void run_ice40_opts(Module *module)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", module, cell);
 
-		cell->type = ID($lut);
+		cell->type = TW($lut);
 		cell->setParam(ID::WIDTH, 4);
 		cell->setParam(ID::LUT, cell->getParam(ID(LUT_INIT)));
 		cell->unsetParam(ID(LUT_INIT));

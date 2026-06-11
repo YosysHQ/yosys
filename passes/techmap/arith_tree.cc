@@ -50,7 +50,7 @@ struct ArithTreeWorker {
 	{
 		// Build traversal data
 		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 				continue;
 			for (auto &[name, sig] : cell->connections()) {
 				if (cell->input(name)) {
@@ -199,7 +199,7 @@ struct ArithTreeWorker {
 	bool feeds_subtracted_port(Cell *child, Cell *parent)
 	{
 		bool parent_subtracts;
-		if (parent->type == ID($sub))
+		if (parent->type == TW($sub))
 			parent_subtracts = true;
 		else if (is_alu(parent))
 			parent_subtracts = is_sub(parent);
@@ -253,7 +253,7 @@ struct ArithTreeWorker {
 			SigSpec b = sigmap(cell->getPort(TW::B));
 			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
 			bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
-			bool b_sub = (cell->type == ID($sub)) || (is_alu(cell) && is_sub(cell));
+			bool b_sub = (cell->type == TW($sub)) || (is_alu(cell) && is_sub(cell));
 
 			if (!overlaps(a, chain_bits)) {
 				operands.push_back({a, a_signed, cell_neg, SigSpec(), false});

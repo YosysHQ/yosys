@@ -537,8 +537,8 @@ DriverMap::BitMode DriverMap::bit_mode(DriveBit const &bit)
 		}
 		case DriveType::PORT: {
 			auto const &port = bit.port();
-			bool driver = celltypes.cell_output(port.cell->type, port.port);
-			bool driven = celltypes.cell_input(port.cell->type, port.port);
+			bool driver = celltypes.cell_output(port.cell->type.ref(), port.port);
+			bool driven = celltypes.cell_input(port.cell->type.ref(), port.port);
 			if (driver && !driven)
 				return BitMode::DRIVER;
 			else if (driven && !driver)
@@ -866,7 +866,7 @@ DriveSpec DriverMap::operator()(DriveSpec spec)
 
 std::string log_signal(DriveChunkWire const &chunk)
 {
-	std::string id = chunk.wire->name.unescape();
+	std::string id = design->twines.unescaped_str(chunk.wire->name);
 	if (chunk.is_whole())
 		return id;
 	if (chunk.width == 1)

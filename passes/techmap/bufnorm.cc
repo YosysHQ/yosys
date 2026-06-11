@@ -277,7 +277,7 @@ struct BufnormPass : public Pass {
 				vector<Cell*> old_dup_buffers;
 				for (auto cell : module->cells())
 				{
-					if (!cell->type.in(ID($buf), ID($_BUF_)))
+					if (!cell->type.in(TW($buf), TW($_BUF_)))
 						continue;
 
 					SigSpec insig = cell->getPort(TW::A);
@@ -380,7 +380,7 @@ struct BufnormPass : public Pass {
 
 			for (auto cell : module->cells())
 			{
-				if (cell->type.in(ID($buf), ID($_BUF_)))
+				if (cell->type.in(TW($buf), TW($_BUF_)))
 					continue;
 
 				for (auto &conn : cell->connections())
@@ -409,7 +409,7 @@ struct BufnormPass : public Pass {
 
 					if (w->name.isPublic())
 						log("  directly driven by cell %s port %s: %s\n",
-								cell, conn.first.unescape(), w);
+								cell, design->twines.unescaped_str(conn.first), w);
 
 					for (auto bit : SigSpec(w))
 						mapped_bits[sigmap(bit)] = bit;
@@ -488,12 +488,12 @@ struct BufnormPass : public Pass {
 					}
 				} else {
 					if (bits_mode) {
-						IdString celltype = pos_mode ? ID($pos) : buf_mode ? ID($buf) : ID($_BUF_);
+						IdString celltype = pos_mode ? TW($pos) : buf_mode ? TW($buf) : TW($_BUF_);
 						for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 							make_buffer_f(celltype, insig[i], outsig[i]);
 					} else {
-						IdString celltype = pos_mode ? ID($pos) : buf_mode ? ID($buf) :
-								GetSize(outsig) == 1 ? ID($_BUF_) : ID($buf);
+						IdString celltype = pos_mode ? TW($pos) : buf_mode ? TW($buf) :
+								GetSize(outsig) == 1 ? TW($_BUF_) : TW($buf);
 						make_buffer_f(celltype, insig, outsig);
 					}
 				}
@@ -519,7 +519,7 @@ struct BufnormPass : public Pass {
 
 					if (conn.second != newsig) {
 						log("  fixing input signal on cell %s port %s: %s\n",
-								cell, conn.first.unescape(), log_signal(newsig));
+								cell, design->twines.unescaped_str(conn.first), log_signal(newsig));
 						cell->setPort(conn.first, newsig);
 						count_updated_cellports++;
 					}

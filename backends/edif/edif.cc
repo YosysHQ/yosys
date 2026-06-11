@@ -30,9 +30,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define EDIF_DEF(_id) edif_names(_id.unescape(), true)
-#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(_id.unescape(), true, _ren, _bl, _br)
-#define EDIF_REF(_id) edif_names(_id.unescape(), false)
+#define EDIF_DEF(_id) design->twines.unescaped_str(edif_names(_id), true)
+#define EDIF_DEFR(_id, _ren, _bl, _br) design->twines.unescaped_str(edif_names(_id), true, _ren, _bl, _br)
+#define EDIF_REF(_id) design->twines.unescaped_str(edif_names(_id), false)
 #define EDIF_DEF_STR(_id) edif_names(RTLIL::unescape_id(_id), true)
 #define EDIF_REF_STR(_id) edif_names(RTLIL::unescape_id(_id), false)
 
@@ -216,7 +216,7 @@ struct EdifBackend : public Backend {
 
 			for (auto cell : module->cells())
 			{
-				if (cell->type == ID($scopeinfo))
+				if (cell->type == TW($scopeinfo))
 					continue;
 
 				if (design->module(cell->type) == nullptr || design->module(cell->type)->get_blackbox_attribute()) {
@@ -321,7 +321,7 @@ struct EdifBackend : public Backend {
 				for (auto &dep : it.second)
 					if (module_deps.count(dep) > 0)
 						goto not_ready_yet;
-				// log("Next in topological sort: %s\n", it.first->name.unescape());
+				// log("Next in topological sort: %s\n", design->twines.unescaped_str(it.first->name));
 				sorted_modules.push_back(it.first);
 			not_ready_yet:;
 			}

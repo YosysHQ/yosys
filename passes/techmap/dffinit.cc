@@ -123,14 +123,14 @@ struct DffinitPass : public Pass {
 						if (noreinit && value[i] != State::Sx && value[i] != initval[i])
 							log_error("Trying to assign a different init value for %s.%s.%s which technically "
 									"have a conflicted init value.\n",
-									module, cell, it.second.unescape());
+									module, cell, design->twines.unescaped_str(it.second));
 						value.set(i, initval[i]);
 					}
 
 					if (highlow_mode && GetSize(value) != 0) {
 						if (GetSize(value) != 1)
 							log_error("Multi-bit init value for %s.%s.%s is incompatible with -highlow mode.\n",
-									module, cell, it.second.unescape());
+									module, cell, design->twines.unescaped_str(it.second));
 						if (value[0] == State::S1)
 							value = Const(high_string);
 						else
@@ -138,7 +138,7 @@ struct DffinitPass : public Pass {
 					}
 
 					if (value.size() != 0) {
-						log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", module, cell, it.second.unescape(),
+						log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", module, cell, design->twines.unescaped_str(it.second),
 								it.first.unescape(), log_signal(sig), log_signal(value));
 						cell->setParam(it.second, value);
 					}

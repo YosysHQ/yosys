@@ -319,13 +319,13 @@ struct ShregmapWorker
 				int param_clkpol = -1;
 				int param_enpol = 2;
 
-				if (first_cell->type == ID($_DFF_N_)) param_clkpol = 0;
-				if (first_cell->type == ID($_DFF_P_)) param_clkpol = 1;
+				if (first_cell->type == TW($_DFF_N_)) param_clkpol = 0;
+				if (first_cell->type == TW($_DFF_P_)) param_clkpol = 1;
 
-				if (first_cell->type == ID($_DFFE_NN_)) param_clkpol = 0, param_enpol = 0;
-				if (first_cell->type == ID($_DFFE_NP_)) param_clkpol = 0, param_enpol = 1;
-				if (first_cell->type == ID($_DFFE_PN_)) param_clkpol = 1, param_enpol = 0;
-				if (first_cell->type == ID($_DFFE_PP_)) param_clkpol = 1, param_enpol = 1;
+				if (first_cell->type == TW($_DFFE_NN_)) param_clkpol = 0, param_enpol = 0;
+				if (first_cell->type == TW($_DFFE_NP_)) param_clkpol = 0, param_enpol = 1;
+				if (first_cell->type == TW($_DFFE_PN_)) param_clkpol = 1, param_enpol = 0;
+				if (first_cell->type == TW($_DFFE_PP_)) param_clkpol = 1, param_enpol = 1;
 
 				log_assert(param_clkpol >= 0);
 				first_cell->setParam(ID(CLKPOL), param_clkpol);
@@ -519,19 +519,19 @@ struct ShregmapPass : public Pass {
 			bool en_neg = enpol == "neg" || enpol == "any" || enpol == "any_or_none";
 
 			if (clk_pos && en_none)
-				opts.ffcells[ID($_DFF_P_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFF_P_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 			if (clk_neg && en_none)
-				opts.ffcells[ID($_DFF_N_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFF_N_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 
 			if (clk_pos && en_pos)
-				opts.ffcells[ID($_DFFE_PP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_PP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 			if (clk_pos && en_neg)
-				opts.ffcells[ID($_DFFE_PN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_PN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 
 			if (clk_neg && en_pos)
-				opts.ffcells[ID($_DFFE_NP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_NP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 			if (clk_neg && en_neg)
-				opts.ffcells[ID($_DFFE_NN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_NN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 
 			if (en_pos || en_neg)
 				opts.ffe = true;

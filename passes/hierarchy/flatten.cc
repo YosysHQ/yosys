@@ -209,7 +209,7 @@ struct FlattenWorker
 		}
 
 		for (auto tpl_cell : tpl->cells()) {
-			if (tpl_cell->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (tpl_cell->type.in(TW($input_port), TW($output_port), TW($public)))
 				continue;
 			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell, separator), tpl_cell);
 			map_attributes(cell, new_cell, tpl_cell->name);
@@ -308,7 +308,7 @@ struct FlattenWorker
 		if (create_scopeinfo && cell_name.isPublic())
 		{
 			// The $scopeinfo's name will be changed below after removing the flattened cell
-			scopeinfo = module->addCell(NEW_TWINE, ID($scopeinfo));
+			scopeinfo = module->addCell(NEW_TWINE, TW($scopeinfo));
 			scopeinfo->setParam(ID::TYPE, RTLIL::Const("module"));
 
 			for (auto const &attr : cell->attributes)
@@ -316,7 +316,7 @@ struct FlattenWorker
 				if (attr.first == ID::hdlname)
 					scopeinfo->attributes.insert(attr);
 				else
-					scopeinfo->attributes.emplace(stringf("\\cell_%s", attr.first.unescape()), attr.second);
+					scopeinfo->attributes.emplace(stringf("\\cell_%s", design->twines.unescaped_str(attr.first)), attr.second);
 			}
 			// src lives outside cell->attributes after the typed-src
 			// migration — fold it into the renamed-attribute view by
@@ -325,7 +325,7 @@ struct FlattenWorker
 				scopeinfo->attributes.emplace(ID(cell_src), RTLIL::Const(cell->get_src_attribute()));
 
 			for (auto const &attr : tpl->attributes)
-				scopeinfo->attributes.emplace(stringf("\\module_%s", attr.first.unescape()), attr.second);
+				scopeinfo->attributes.emplace(stringf("\\module_%s", design->twines.unescaped_str(attr.first)), attr.second);
 			if (tpl->src_id() != Twine::Null)
 				scopeinfo->attributes.emplace(ID(module_src), RTLIL::Const(tpl->get_src_attribute()));
 
@@ -364,7 +364,7 @@ struct FlattenWorker
 				continue;
 			}
 
-			log_debug("Flattening %s.%s (%s).\n", module, cell, cell->type.unescape());
+			log_debug("Flattening %s.%s (%s).\n", module, cell, cell->type.unescaped());
 			// If a design is fully selected and has a top module defined, topological sorting ensures that all cells
 			// added during flattening are black boxes, and flattening is finished in one pass. However, when flattening
 			// individual modules, this isn't the case, and the newly added cells might have to be flattened further.

@@ -17,6 +17,8 @@
  *
  */
 
+#include "kernel/rtlil.h"
+#include "kernel/twine.h"
 #include "kernel/yosys.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/sigtools.h"
@@ -450,7 +452,7 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 
 	select_all(design, lhs);
 
-	std::vector<RTLIL::IdString> del_list;
+	std::vector<TwineRef> del_list;
 
 	for (auto mod_name : lhs.selected_modules) {
 		if (rhs.selected_whole_module(mod_name))
@@ -471,7 +473,7 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 			del_list.push_back(it.first);
 			continue;
 		}
-		std::vector<RTLIL::IdString> del_list2;
+		std::vector<TwineRef> del_list2;
 		for (auto &it2 : it.second)
 			if (!rhs.selected_member(it.first, it2))
 				del_list2.push_back(it2);
@@ -487,11 +489,11 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 namespace {
 	struct expand_rule_t {
 		char mode;
-		std::set<RTLIL::IdString> cell_types, port_names;
+		std::set<std::string> cell_types, port_names;
 	};
 }
 
-static int parse_comma_list(std::set<RTLIL::IdString> &tokens, const std::string &str, size_t pos, std::string stopchar)
+static int parse_comma_list(std::set<std::string> &tokens, const std::string &str, size_t pos, std::string stopchar)
 {
 	stopchar += ',';
 	while (1) {
@@ -520,7 +522,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 		auto selected_members = lhs.selected_members[mod->meta_->name];
 
 		for (auto wire : mod->wires())
-			if (lhs.selected_member(mod->meta_->name, wire->meta_->name) && limits.count(wire->meta_->name) == 0)
+			if (lhs.selected_member(mod->meta_->name, wire->meta_->name) && limits.count(RTLIL::IdString(design->twines.str(wire->meta_->name))) == 0)
 				selected_wires.insert(wire);
 
 		for (auto &conn : mod->connections())
@@ -538,17 +540,18 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			}
 		}
 
+		auto twines = design->twines;
 		for (auto cell : mod->cells())
 		for (auto &conn : cell->connections())
 		{
 			char last_mode = '-';
-			if (eval_only && !yosys_celltypes.cell_evaluable(cell->type))
+			if (eval_only && !yosys_celltypes.cell_evaluable(cell->type.ref()))
 				goto exclude_match;
 			for (auto &rule : rules) {
 				last_mode = rule.mode;
-				if (rule.cell_types.size() > 0 && rule.cell_types.count(cell->type) == 0)
+				if (rule.cell_types.size() > 0 && rule.cell_types.count(twines.unescaped_str(cell->type_impl)) == 0)
 					continue;
-				if (rule.port_names.size() > 0 && rule.port_names.count(conn.first) == 0)
+				if (rule.port_names.size() > 0 && rule.port_names.count(twines.unescaped_str(conn.first)) == 0)
 					continue;
 				if (rule.mode == '+')
 					goto include_match;
@@ -558,16 +561,16 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			if (last_mode == '+')
 				goto exclude_match;
 		include_match:
-			is_input = mode == 'x' || ct.cell_input(cell->type, conn.first);
-			is_output = mode == 'x' || ct.cell_output(cell->type, conn.first);
+			is_input = mode == 'x' || ct.cell_input(cell->type.ref(), conn.first);
+			is_output = mode == 'x' || ct.cell_output(cell->type.ref(), conn.first);
 			for (auto &chunk : conn.second.chunks())
 				if (chunk.wire != nullptr) {
-					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && selected_members.count(cell->name) == 0)
+					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && selected_members.count(cell->name.ref()) == 0)
 						if (mode == 'x' || (mode == 'i' && is_output) || (mode == 'o' && is_input))
-							lhs.selected_members[mod->name].insert(cell->name), sel_objects++, max_objects--;
-					if (max_objects != 0 && selected_members.count(cell->name) > 0 && limits.count(cell->name) == 0 && selected_members.count(chunk.wire->name) == 0)
+							lhs.selected_members[mod->meta_->name].insert(cell->name.ref()), sel_objects++, max_objects--;
+					if (max_objects != 0 && selected_members.count(cell->name.ref()) > 0 && limits.count(cell->name) == 0 && selected_members.count(chunk.wire->name.ref()) == 0)
 						if (mode == 'x' || (mode == 'i' && is_input) || (mode == 'o' && is_output))
-							lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
+							lhs.selected_members[mod->meta_->name].insert(chunk.wire->name.ref()), sel_objects++, max_objects--;
 				}
 		exclude_match:;
 		}
@@ -634,7 +637,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 					if (design->selection_vars.count(str) > 0) {
 						for (auto i1 : design->selection_vars.at(str).selected_members)
 						for (auto i2 : i1.second)
-							limits.insert(i2);
+							limits.insert(RTLIL::IdString(design->twines.str(i2)));
 					} else
 						log_cmd_error("Selection %s is not defined!\n", RTLIL::unescape_id(str));
 				} else
@@ -682,7 +685,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)
 {
-	if (design->selected_active_module.empty())
+	if (!design->selected_active_module)
 		return;
 
 	if (sel.full_selection) {
@@ -691,7 +694,7 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 		return;
 	}
 
-	std::vector<RTLIL::IdString> del_list;
+	std::vector<TwineRef> del_list;
 	for (auto mod_name : sel.selected_modules)
 		if (mod_name != design->selected_active_module)
 			del_list.push_back(mod_name);
@@ -845,8 +848,8 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		select_blackboxes = true;
 	}
 
-	if (!design->selected_active_module.empty()) {
-		arg_mod = design->selected_active_module;
+	if (design->selected_active_module) {
+		arg_mod = design->twines.str(design->selected_active_module);
 		arg_memb = arg;
 		if (!isprefixed(arg_memb))
 			arg_memb_found[arg_memb] = false;
@@ -898,29 +901,29 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			arg_mod_found[arg_mod] = true;
 
 		if (arg_memb == "") {
-			sel.selected_modules.insert(mod->name);
+			sel.selected_modules.insert(mod->meta_->name);
 			continue;
 		}
 
 		if (arg_memb.compare(0, 2, "w:") == 0) {
 			for (auto wire : mod->wires())
 				if (match_ids(wire->name, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(wire->name);
+					sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 		} else
 		if (arg_memb.compare(0, 2, "i:") == 0) {
 			for (auto wire : mod->wires())
 				if (wire->port_input && match_ids(wire->name, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(wire->name);
+					sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 		} else
 		if (arg_memb.compare(0, 2, "o:") == 0) {
 			for (auto wire : mod->wires())
 				if (wire->port_output && match_ids(wire->name, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(wire->name);
+					sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 		} else
 		if (arg_memb.compare(0, 2, "x:") == 0) {
 			for (auto wire : mod->wires())
 				if ((wire->port_input || wire->port_output) && match_ids(wire->name, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(wire->name);
+					sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 		} else
 		if (arg_memb.compare(0, 2, "s:") == 0) {
 			size_t delim = arg_memb.substr(2).find(':');
@@ -928,7 +931,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 				int width = atoi(arg_memb.substr(2).c_str());
 				for (auto wire : mod->wires())
 					if (wire->width == width)
-						sel.selected_members[mod->name].insert(wire->name);
+						sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 			} else {
 				std::string min_str = arg_memb.substr(2, delim);
 				std::string max_str = arg_memb.substr(2+delim+1);
@@ -936,18 +939,18 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 				int max_width = max_str.empty() ? -1 : atoi(max_str.c_str());
 				for (auto wire : mod->wires())
 					if (min_width <= wire->width && (wire->width <= max_width || max_width == -1))
-						sel.selected_members[mod->name].insert(wire->name);
+						sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 			}
 		} else
 		if (arg_memb.compare(0, 2, "m:") == 0) {
 			for (auto &it : mod->memories)
-				if (match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+				if (match_ids(RTLIL::IdString(design->twines.str(it.first)), arg_memb.substr(2)))
+					sel.selected_members[mod->meta_->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "c:") == 0) {
 			for (auto cell : mod->cells())
 				if (match_ids(cell->name, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(cell->name);
+					sel.selected_members[mod->meta_->name].insert(cell->name.ref());
 		} else
 		if (arg_memb.compare(0, 2, "t:") == 0) {
 			if (arg_memb.compare(2, 1, "@") == 0) {
@@ -957,59 +960,59 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 
 				auto &muster = design->selection_vars[set_name];
 				for (auto cell : mod->cells())
-					if (muster.selected_modules.count(cell->type))
-						sel.selected_members[mod->name].insert(cell->name);
+					if (muster.selected_modules.count(cell->type.ref()))
+						sel.selected_members[mod->meta_->name].insert(cell->name.ref());
 			} else {
 				for (auto cell : mod->cells())
 					if (match_ids(cell->type, arg_memb.substr(2)))
-						sel.selected_members[mod->name].insert(cell->name);
+						sel.selected_members[mod->meta_->name].insert(cell->name.ref());
 			}
 		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
-				if (match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+				if (match_ids(RTLIL::IdString(design->twines.str(it.first)), arg_memb.substr(2)))
+					sel.selected_members[mod->meta_->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto wire : mod->wires())
 				if (match_attr(design, wire, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(wire->name);
+					sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 			for (auto &it : mod->memories)
 				if (match_attr(design, it.second, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+					sel.selected_members[mod->meta_->name].insert(it.first);
 			for (auto cell : mod->cells())
 				if (match_attr(design, cell, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(cell->name);
+					sel.selected_members[mod->meta_->name].insert(cell->name.ref());
 			for (auto &it : mod->processes)
 				if (match_attr(design, it.second, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+					sel.selected_members[mod->meta_->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {
 			for (auto cell : mod->cells())
 				if (match_attr(cell->parameters, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(cell->name);
+					sel.selected_members[mod->meta_->name].insert(cell->name.ref());
 		} else {
 			std::string orig_arg_memb = arg_memb;
 			if (arg_memb.compare(0, 2, "n:") == 0)
 				arg_memb = arg_memb.substr(2);
 			for (auto wire : mod->wires())
 				if (match_ids(wire->name, arg_memb)) {
-					sel.selected_members[mod->name].insert(wire->name);
+					sel.selected_members[mod->meta_->name].insert(wire->name.ref());
 					arg_memb_found[orig_arg_memb] = true;
 				}
 			for (auto &it : mod->memories)
-				if (match_ids(it.first, arg_memb)) {
-					sel.selected_members[mod->name].insert(it.first);
+				if (match_ids(RTLIL::IdString(design->twines.str(it.first)), arg_memb)) {
+					sel.selected_members[mod->meta_->name].insert(it.first);
 					arg_memb_found[orig_arg_memb] = true;
 				}
 			for (auto cell : mod->cells())
 				if (match_ids(cell->name, arg_memb)) {
-					sel.selected_members[mod->name].insert(cell->name);
+					sel.selected_members[mod->meta_->name].insert(cell->name.ref());
 					arg_memb_found[orig_arg_memb] = true;
 				}
 			for (auto &it : mod->processes)
-				if (match_ids(it.first, arg_memb)) {
-					sel.selected_members[mod->name].insert(it.first);
+				if (match_ids(RTLIL::IdString(design->twines.str(it.first)), arg_memb)) {
+					sel.selected_members[mod->meta_->name].insert(it.first);
 					arg_memb_found[orig_arg_memb] = true;
 				}
 		}
@@ -1365,6 +1368,7 @@ struct SelectPass : public Pass {
 
 		work_stack.clear();
 
+		TwineSearch search(&design->twines);
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -1431,10 +1435,11 @@ struct SelectPass : public Pass {
 				continue;
 			}
 			if (arg == "-module" && argidx+1 < args.size()) {
-				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
-				if (design->module(mod_name) == nullptr)
-					log_cmd_error("No such module: %s\n", mod_name.unescape());
-				design->selected_active_module = mod_name.str();
+				std::string mod_name = RTLIL::escape_id(args[++argidx]);
+				TwineRef t = search.find(mod_name);
+				if (t == Twine::Null || design->module(t) == nullptr)
+					log_cmd_error("No such module: %s\n", RTLIL::unescape_id(mod_name));
+				design->selected_active_module = t;
 				got_module = true;
 				continue;
 			}
@@ -1475,7 +1480,7 @@ struct SelectPass : public Pass {
 				}
 				IdString mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
 				IdString obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
-				sel.selected_members[mod_name].insert(obj_name);
+				sel.selected_members[design->twines.add(Twine{mod_name.str()})].insert(design->twines.add(Twine{obj_name.str()}));
 			}
 
 			select_filter_active_mod(design, sel);
@@ -1519,7 +1524,7 @@ struct SelectPass : public Pass {
 
 		if (clear_mode) {
 			design->selection() = RTLIL::Selection::FullSelection(design);
-			design->selected_active_module = std::string();
+			design->selected_active_module = TwineRef{};
 			return;
 		}
 
@@ -1545,11 +1550,11 @@ struct SelectPass : public Pass {
 			sel->optimize(design);
 			for (auto mod : design->all_selected_modules())
 			{
-				if (sel->selected_whole_module(mod->name) && list_mode)
+				if (sel->selected_whole_module(mod->meta_->name) && list_mode)
 					log("%s\n", mod);
 				if (!list_mod_mode)
 					for (auto it : mod->selected_members())
-						LOG_OBJECT("%s/%s\n", mod->name.unescape().c_str(), it->name.unescape().c_str())
+						LOG_OBJECT("%s/%s\n", design->twines.unescaped_str(mod->name).c_str(), mod->design->twines.unescaped_str(it->meta_->name).c_str())
 			}
 			if (count_mode)
 			{
@@ -1673,10 +1678,10 @@ struct SelectPass : public Pass {
 			if (sel.full_selection)
 				log("*\n");
 			for (auto &it : sel.selected_modules)
-				log("%s\n", it.unescape());
+				log("%s\n", design->twines.unescaped_str(it).c_str());
 			for (auto &it : sel.selected_members)
 				for (auto &it2 : it.second)
-					log("%s/%s\n", it.first.unescape(), it2.unescape());
+					log("%s/%s\n", design->twines.unescaped_str(it.first).c_str(), design->twines.unescaped_str(it2).c_str());
 			return;
 		}
 
@@ -1728,17 +1733,17 @@ struct CdPass : public Pass {
 		if (args.size() == 1 || args[1] == "/") {
 			design->pop_selection();
 			design->push_full_selection();
-			design->selected_active_module = std::string();
+			design->selected_active_module = TwineRef{};
 			return;
 		}
 
 		if (args[1] == "..")
 		{
-			string modname = design->selected_active_module;
+			string modname = design->twines.str(design->selected_active_module);
 
 			design->pop_selection();
 			design->push_full_selection();
-			design->selected_active_module = std::string();
+			design->selected_active_module = TwineRef{};
 
 			while (1)
 			{
@@ -1748,12 +1753,12 @@ struct CdPass : public Pass {
 					break;
 
 				modname = modname.substr(0, pos);
-				Module *mod = design->module(modname);
+				Module *mod = design->module(RTLIL::IdString(modname));
 
 				if (mod == nullptr)
 					continue;
 
-				design->selected_active_module = modname;
+				design->selected_active_module = design->twines.add(Twine{modname});
 				design->pop_selection();
 				design->push_full_selection();
 				select_filter_active_mod(design, design->selection());
@@ -1766,14 +1771,15 @@ struct CdPass : public Pass {
 
 		std::string modname = RTLIL::escape_id(args[1]);
 
-		if (design->module(modname) == nullptr && !design->selected_active_module.empty()) {
+		if (design->module(RTLIL::IdString(modname)) == nullptr && design->selected_active_module) {
 			RTLIL::Module *module = design->module(design->selected_active_module);
-			if (module != nullptr && module->cell(modname) != nullptr)
-				modname = module->cell(modname)->type.str();
+			TwineRef cell_ref = design->twines.lookup(modname);
+			if (module != nullptr && cell_ref && module->cell(cell_ref) != nullptr)
+				modname = design->twines.str(module->cell(cell_ref)->type.ref());
 		}
 
-		if (design->module(modname) != nullptr) {
-			design->selected_active_module = modname;
+		if (design->module(RTLIL::IdString(modname)) != nullptr) {
+			design->selected_active_module = design->twines.add(Twine{modname});
 			design->pop_selection();
 			design->push_full_selection();
 			select_filter_active_mod(design, design->selection());
@@ -1788,17 +1794,20 @@ struct CdPass : public Pass {
 template<typename T>
 static void log_matches(const char *title, Module *module, const T &list)
 {
-	std::vector<IdString> matches;
+	std::vector<TwineRef> matches;
 
 	for (auto &it : list)
 		if (module->selected(it.second))
-			matches.push_back(RTLIL::IdString(it.second->name));
+			matches.push_back(it.first);
 
 	if (!matches.empty()) {
 		log("\n%d %s:\n", int(matches.size()), title);
-		std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
-		for (auto id : matches)
-			log("  %s\n", id.unescape());
+		auto &twines = module->design->twines;
+		std::sort(matches.begin(), matches.end(), [&](TwineRef a, TwineRef b) {
+			return twines.str(a) < twines.str(b);
+		});
+		for (auto ref : matches)
+			log("  %s\n", twines.unescaped_str(ref).c_str());
 	}
 }
 
@@ -1825,7 +1834,7 @@ struct LsPass : public Pass {
 		size_t argidx = 1;
 		extra_args(args, argidx, design);
 
-		if (design->selected_active_module.empty())
+		if (!design->selected_active_module)
 		{
 			std::vector<IdString> matches;
 
@@ -1836,7 +1845,7 @@ struct LsPass : public Pass {
 				log("\n%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 				for (auto id : matches)
-					log("  %s%s\n", id.unescape(), design->selected_whole_module(design->module(id)) ? "" : "*");
+					log("  %s%s\n", design->twines.unescaped_str(id), design->selected_whole_module(design->module(id)) ? "" : "*");
 			}
 		}
 		else

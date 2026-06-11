@@ -178,7 +178,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = mod->addCell(Twine{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}, ifxmode ? ID($eqx) : ID($eq));
+			RTLIL::Cell *eq_cell = mod->addCell(Twine{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}, ifxmode ? TW($eqx) : TW($eq));
 			apply_attrs(eq_cell, sw, cs);
 
 			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -204,7 +204,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		ctrl_wire = mod->addWire(Twine{sstr.str() + "_CTRL"});
 
 		// reduce cmp vector to one logic signal
-		RTLIL::Cell *any_cell = mod->addCell(Twine{sstr.str() + "_ANY"}, ID($reduce_or));
+		RTLIL::Cell *any_cell = mod->addCell(Twine{sstr.str() + "_ANY"}, TW($reduce_or));
 		apply_attrs(any_cell, sw, cs);
 
 		any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -239,7 +239,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	RTLIL::Wire *result_wire = mod->addWire(Twine{sstr.str() + "_Y"}, when_signal.size());
 
 	// create the multiplexer itself
-	RTLIL::Cell *mux_cell = mod->addCell(Twine{sstr.str()}, ID($mux));
+	RTLIL::Cell *mux_cell = mod->addCell(Twine{sstr.str()}, TW($mux));
 	apply_attrs(mux_cell, sw, cs);
 
 	mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());

@@ -91,6 +91,20 @@ struct TW {
 
 		throw "unknown twine id";
 	}
+
+	static constexpr const char* static_names[] = {
+#define X(N) #N,
+#include "kernel/constids.inc"
+#undef X
+	};
+
+	static std::string str(TwineRef ref) {
+		TwineRef idx = ref.untag();
+		if (idx.value >= STATIC_TWINE_END) return {};
+		std::string result = ref.is_public() ? "\\" : "";
+		result += static_names[idx.value];
+		return result;
+	}
 };
 
 #define TW(id) (size_t)lookup_well_known_id(#id)
@@ -102,7 +116,6 @@ struct Twine {
 	struct Suffix {
 		TwineRef prefix;
 		std::string tail;
-		// TODO check
 		auto operator<=>(const Suffix&) const = default;
 	};
 

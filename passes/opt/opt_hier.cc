@@ -101,7 +101,7 @@ struct ModuleIndex {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  port_name.unescape(), instantiation, module);
+						  design->twines.unescaped_str(port_name), instantiation, module);
 			}
 
 			if (port->port_input && port->port_output) {
@@ -145,12 +145,12 @@ struct ModuleIndex {
 
 			if (nunused > 0) {
 				log("Disconnected %d input bits of instance '%s' (type '%s') in '%s'\n",
-					nunused, instantiation, instantiation->type.unescape(), parent.module);
+					nunused, instantiation, design->twines.unescaped_str(instantiation->type), parent.module);
 				changed = true;
 			}
 			if (nconstants > 0) {
 				log("Substituting constant for %d output bits of instance '%s' (type '%s') in '%s'\n",
-					nconstants, instantiation, instantiation->type.unescape(), parent.module);
+					nconstants, instantiation, design->twines.unescaped_str(instantiation->type), parent.module);
 				changed = true;
 			}
 		}
@@ -163,8 +163,8 @@ struct ModuleIndex {
 			SigSpec new_tie;
 
 			for (auto port_bit : class_) {
-				if (instantiation->connections_.count(port_bit.wire->name)) {
-					SigBit bit = instantiation->connections_.at(port_bit.wire->name)[port_bit.offset];
+				if (instantiation->connections_.count(port_bit.wire->meta_->name)) {
+					SigBit bit = instantiation->connections_.at(port_bit.wire->meta_->name)[port_bit.offset];
 					if (parent.used.check(bit)) {
 						if (!new_tie.empty()) {
 							severed_port_bits.append(port_bit);
@@ -181,7 +181,7 @@ struct ModuleIndex {
 
 		severed_port_bits.sort_and_unify();
 		for (auto chunk : severed_port_bits.chunks()) {
-			SigSpec &value = instantiation->connections_.at(chunk.wire->name);
+			SigSpec &value = instantiation->connections_.at(chunk.wire->meta_->name);
 			SigSpec dummy = parent.module->addWire(NEW_TWINE_SUFFIX("tie_together"), chunk.width);
 			for (int i = 0; i < chunk.width; i++)
 				value[chunk.offset + i] = dummy[i];
@@ -189,7 +189,7 @@ struct ModuleIndex {
 
 		if (ntie_togethers > 0) {
 			log("Replacing %d output bits with tie-togethers on instance '%s' of '%s' in '%s'\n",
-				ntie_togethers, instantiation, instantiation->type.unescape(), parent.module);
+				ntie_togethers, instantiation, design->twines.unescaped_str(instantiation->type), parent.module);
 			changed = true;
 		}
 
@@ -290,7 +290,7 @@ struct UsageData {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  port_name.unescape(), instance, module);
+						module->design->twines.unescaped_str(port_name), instance, module);
 			}
 
 			if (port->port_input && port->port_output) {
@@ -338,7 +338,7 @@ struct UsageData {
 
 		dict<SigBit, SigBit> replacement_map;
 		for (auto chunk : disconnect_outputs.chunks()) {
-			Wire *repl_wire = module->addWire(module->uniquify(std::string("$") + chunk.wire->name.str()), chunk.size());
+			Wire *repl_wire = module->addWire(module->uniquify(Twine{std::string("$") + chunk.wire->name.str()}), chunk.size());
 			for (int i = 0; i < repl_wire->width; i++)
 				replacement_map[SigSpec(chunk)[i]] = SigBit(repl_wire, i);
 		}
@@ -454,7 +454,7 @@ struct OptHierPass : Pass {
 		for (auto module : d->modules()) {
 			for (auto cell : module->cells()) {
 				if (usage_datas.count(cell->type)) {
-					log_debug("Account for instance %s of %s in %s\n", cell, cell->type.unescape(), module);
+					log_debug("Account for instance %s of %s in %s\n", cell, cell->type.unescaped(), module);
 					usage_datas.at(cell->type).refine(cell, indices.at(module->name));
 				}
 			}
@@ -471,7 +471,7 @@ struct OptHierPass : Pass {
 
 			for (auto cell : module->cells()) {
 				if (indices.count(cell->type)) {
-					log_debug("Applying changes to instance %s of %s in %s\n", cell, cell->type.unescape(), module);
+					log_debug("Applying changes to instance %s of %s in %s\n", cell, cell->type.unescaped(), module);
 					did_something |= indices.at(cell->type).apply_changes(parent_index, cell);
 				}
 			}

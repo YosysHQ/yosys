@@ -68,7 +68,7 @@ struct FoldInvWorker {
     void find_inverted_bits()
     {
         for (auto cell : module->selected_cells()) {
-            if (cell->type != ID($__CC_NOT))
+            if (cell->type != TW($__CC_NOT))
                 continue;
             SigBit a = sigmap(cell->getPort(TW::A)[0]);
             SigBit y = sigmap(cell->getPort(TW::Y)[0]);

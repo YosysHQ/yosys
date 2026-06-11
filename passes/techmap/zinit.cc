@@ -68,7 +68,7 @@ struct ZinitPass : public Pass {
 
 				FfData ff(&initvals, cell);
 
-				log("FF init value for cell %s (%s): %s = %s\n", cell, cell->type.unescape(),
+				log("FF init value for cell %s (%s): %s = %s\n", cell, cell->type.unescaped(),
 						log_signal(ff.sig_q), log_signal(ff.val_init));
 
 				pool<int> bits;

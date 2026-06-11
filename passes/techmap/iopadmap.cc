@@ -253,7 +253,7 @@ struct IopadmapPass : public Pass {
 
 				// Gather tristate buffers and always-on drivers.
 				for (auto cell : module->cells())
-					if (cell->type == ID($_TBUF_)) {
+					if (cell->type == TW($_TBUF_)) {
 						SigBit bit = cell->getPort(TW::Y).as_bit();
 						tbuf_bits[bit] = cell;
 					} else {
@@ -436,7 +436,7 @@ struct IopadmapPass : public Pass {
 						SigBit wire_bit(wire, i);
 
 						RTLIL::Cell *cell = module->addCell(
-							module->uniquify(stringf("$iopadmap$%s.%s", module->name.unescape(), wire->name.unescape())),
+							module->uniquify(stringf("$iopadmap$%s.%s", design->twines.unescaped_str(module->name), design->twines.unescaped_str(wire->name))),
 							RTLIL::escape_id(celltype));
 						cell->setPort(RTLIL::escape_id(portname_int), wire_bit);
 
@@ -452,7 +452,7 @@ struct IopadmapPass : public Pass {
 				else
 				{
 					RTLIL::Cell *cell = module->addCell(
-						module->uniquify(stringf("$iopadmap$%s.%s", module->name.unescape(), wire->name.unescape())),
+						module->uniquify(stringf("$iopadmap$%s.%s", design->twines.unescaped_str(module->name), design->twines.unescaped_str(wire->name))),
 						RTLIL::escape_id(celltype));
 					cell->setPort(RTLIL::escape_id(portname_int), RTLIL::SigSpec(wire));
 
@@ -468,7 +468,7 @@ struct IopadmapPass : public Pass {
 					if (!widthparam.empty())
 						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
 					if (!nameparam.empty())
-						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(wire->name.unescape());
+						cell->parameters[RTLIL::escape_id(nameparam)] = design->twines.unescaped_str(RTLIL::Const(wire->name));
 					cell->attributes[ID::keep] = RTLIL::Const(1);
 				}
 

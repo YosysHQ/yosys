@@ -131,13 +131,13 @@ void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actio
 
 		if (new_attr != attr)
 			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname,
-					attr.first.unescape(), log_const(attr.second), new_attr.first.unescape(), log_const(new_attr.second));
+					attr.first.unescape(), log_const(attr.second), design->twines.unescaped_str(new_attr.first), log_const(new_attr.second));
 
 		new_attributes[new_attr.first] = new_attr.second;
 
 		if (0)
 	delete_this_attr:
-			log("Removed attribute on %s: %s=%s\n", objname, attr.first.unescape(), log_const(attr.second));
+			log("Removed attribute on %s: %s=%s\n", objname, design->twines.unescaped_str(attr.first), log_const(attr.second));
 	}
 
 	attributes.swap(new_attributes);

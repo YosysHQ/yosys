@@ -1959,18 +1959,18 @@ bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
 	return false;
 }
 
-RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, bool mayfail)
+TwineRef RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, bool mayfail)
 {
 	if (mayfail)
-		return IdString();
+		return Twine::Null;
 	log_error("Module `%s' is used with parameters but is not parametric!\n", design->twines.str(meta_->name).c_str());
 }
 
 
-RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, const dict<RTLIL::IdString, RTLIL::Module*> &, const dict<RTLIL::IdString, RTLIL::IdString> &, bool mayfail)
+TwineRef RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, const dict<TwineRef, RTLIL::Module*> &, const dict<TwineRef, TwineRef> &, bool mayfail)
 {
 	if (mayfail)
-		return IdString();
+		return Twine::Null;
 	log_error("Module `%s' is used with parameters but is not parametric!\n", design->twines.str(meta_->name).c_str());
 }
 
@@ -3585,6 +3585,11 @@ TwineRef RTLIL::Module::uniquify(TwineRef name)
 	return uniquify(name, index);
 }
 
+TwineRef RTLIL::Module::uniquify(Twine&& name)
+{
+	return uniquify(design->twines.add(Twine{std::move(name)}));
+}
+
 TwineRef RTLIL::Module::uniquify(TwineRef name, int &index)
 {
 	if (index == 0) {
@@ -3599,6 +3604,11 @@ TwineRef RTLIL::Module::uniquify(TwineRef name, int &index)
 			return new_name;
 		index++;
 	}
+}
+
+TwineRef RTLIL::Module::uniquify(Twine&& name, int &index)
+{
+	return uniquify(design->twines.add(Twine{std::move(name)}), index);
 }
 
 static bool fixup_ports_compare(const RTLIL::Wire *a, const RTLIL::Wire *b)
@@ -4536,10 +4546,14 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		return cell;
 	}
 
+	static TwinePool& _cell_adder_twines(RTLIL::Module* m) { return m->design->twines; }
+	static TwinePool& _cell_adder_twines(RTLIL::Patch* p) { return p->mod->design->twines; }
+
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSrGate(Twine &&name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_SR_%c%c_", set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_SR_%c%c_", set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::S, sig_set);
 		cell->setPort(TW::R, sig_clr);
 		cell->setPort(TW::Q, sig_q);
@@ -4558,7 +4572,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
@@ -4568,7 +4583,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffeGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
@@ -4580,7 +4596,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsrGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::S, sig_set);
 		cell->setPort(TW::R, sig_clr);
@@ -4593,7 +4610,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDffsreGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, bool set_polarity, bool clr_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DFFSRE_%c%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DFFSRE_%c%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::S, sig_set);
 		cell->setPort(TW::R, sig_clr);
@@ -4607,7 +4625,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool arst_value, bool clk_polarity, bool arst_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::R, sig_arst);
 		cell->setPort(TW::D, sig_d);
@@ -4619,7 +4638,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdffeGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool arst_value, bool clk_polarity, bool en_polarity, bool arst_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0', en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0', en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::R, sig_arst);
 		cell->setPort(TW::E, sig_en);
@@ -4632,7 +4652,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_ALDFF_%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_ALDFF_%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::L, sig_aload);
 		cell->setPort(TW::D, sig_d);
@@ -4645,7 +4666,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAldffeGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_ALDFFE_%c%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_ALDFFE_%c%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::L, sig_aload);
 		cell->setPort(TW::E, sig_en);
@@ -4659,7 +4681,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool srst_value, bool clk_polarity, bool srst_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_SDFF_%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_SDFF_%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::R, sig_srst);
 		cell->setPort(TW::D, sig_d);
@@ -4671,7 +4694,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffeGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_SDFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_SDFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::R, sig_srst);
 		cell->setPort(TW::E, sig_en);
@@ -4684,7 +4708,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addSdffceGate(Twine &&name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_SDFFCE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_SDFFCE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::R, sig_srst);
 		cell->setPort(TW::E, sig_en);
@@ -4696,7 +4721,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchGate(Twine &&name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
@@ -4707,7 +4733,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addAdlatchGate(Twine &&name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 			bool arst_value, bool en_polarity, bool arst_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DLATCH_%c%c%c_", en_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DLATCH_%c%c%c_", en_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::R, sig_arst);
 		cell->setPort(TW::D, sig_d);
@@ -4719,7 +4746,8 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 	template<typename Derived> RTLIL::Cell* CellAdderMixin<Derived>::addDlatchsrGate(Twine &&name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 			RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, TwineRef src)
 	{
-		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), Twine{stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N')});
+		TwineRef _t = _cell_adder_twines(static_cast<Derived*>(this)).add(Twine{stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N')});
+		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _t);
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::S, sig_set);
 		cell->setPort(TW::R, sig_clr);

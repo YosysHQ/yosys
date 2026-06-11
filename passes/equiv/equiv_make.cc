@@ -115,7 +115,7 @@ struct EquivMakeWorker
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
 			gold_clone->rename(it, gold_clone->design->twines.add(Twine{it->name.str() + "_gold"}));
-			if (it->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (it->type.in(TW($input_port), TW($output_port), TW($public)))
 				gold_clone->remove(it);
 		}
 
@@ -129,7 +129,7 @@ struct EquivMakeWorker
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
 			gate_clone->rename(it, gate_clone->design->twines.add(Twine{it->name.str() + "_gate"}));
-			if (it->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (it->type.in(TW($input_port), TW($output_port), TW($public)))
 				gate_clone->remove(it);
 		}
 
@@ -164,7 +164,7 @@ struct EquivMakeWorker
 
 			if (encdata.count(id))
 			{
-				log("Creating encoder/decoder for signal %s.\n", id.unescape());
+				log("Creating encoder/decoder for signal %s.\n", design->twines.unescaped_str(id));
 
 				Wire *dec_wire = equiv_mod->addWire(Twine{id.str() + "_decoded"}, gold_wire->width);
 				Wire *enc_wire = equiv_mod->addWire(Twine{id.str() + "_encoded"}, gate_wire->width);
@@ -239,7 +239,7 @@ struct EquivMakeWorker
 
 			log("Presumably equivalent wires: %s (%s), %s (%s) -> %s\n",
 					gold_wire, log_signal(assign_map(gold_wire)),
-					gate_wire, log_signal(assign_map(gate_wire)), id.unescape());
+					gate_wire, log_signal(assign_map(gate_wire)), design->twines.unescaped_str(id));
 
 			if (gold_wire->port_output || gate_wire->port_output)
 			{
@@ -310,7 +310,7 @@ struct EquivMakeWorker
 
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
-			if (!ct.cell_output(c->type, conn.first)) {
+			if (!ct.cell_output(c->type_impl, conn.first)) {
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
 				for (int i = 0; i < GetSize(old_sig); i++)
@@ -318,7 +318,7 @@ struct EquivMakeWorker
 						new_sig[i] = old_sig[i];
 				if (old_sig != new_sig) {
 					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							equiv_mod->design->twines.str(conn.first).c_str(), c, c->type.unescape(),
+							equiv_mod->design->twines.str(conn.first).c_str(), c, design->twines.unescaped_str(c->type),
 							log_signal(old_sig), log_signal(new_sig));
 					c->setPort(conn.first, new_sig);
 				}
@@ -339,7 +339,7 @@ struct EquivMakeWorker
 			Cell *gold_cell = equiv_mod->cell(gold_id);
 			Cell *gate_cell = equiv_mod->cell(gate_id);
 
-			if (gold_cell == nullptr || gate_cell == nullptr || gold_cell->type != gate_cell->type || !ct.cell_known(gold_cell->type) ||
+			if (gold_cell == nullptr || gate_cell == nullptr || gold_cell->type != gate_cell->type || !ct.cell_known(gold_cell->type_impl) ||
 					gold_cell->parameters != gate_cell->parameters || GetSize(gold_cell->connections()) != GetSize(gate_cell->connections()))
 		try_next_cell_name:
 				continue;
@@ -349,14 +349,14 @@ struct EquivMakeWorker
 					goto try_next_cell_name;
 
 			log("Presumably equivalent cells: %s %s (%s) -> %s\n",
-					gold_cell, gate_cell, gold_cell->type.unescape(), id.unescape());
+					gold_cell, gate_cell, design->twines.unescaped_str(gold_cell->type), design->twines.unescaped_str(id));
 
 			for (auto gold_conn : gold_cell->connections())
 			{
 				SigSpec gold_sig = assign_map(gold_conn.second);
 				SigSpec gate_sig = assign_map(gate_cell->getPort(gold_conn.first));
 
-				if (ct.cell_output(gold_cell->type, gold_conn.first)) {
+				if (ct.cell_output(gold_cell->type_impl, gold_conn.first)) {
 					equiv_mod->connect(gate_sig, gold_sig);
 					continue;
 				}
@@ -403,7 +403,7 @@ struct EquivMakeWorker
 
 		for (auto cell : equiv_mod->cells()) {
 			for (auto &conn : cell->connections())
-				if (!ct.cell_known(cell->type) || ct.cell_output(cell->type, conn.first))
+				if (!ct.cell_known(cell->type_impl) || ct.cell_output(cell->type_impl, conn.first))
 					for (auto bit : assign_map(conn.second))
 						undriven_bits.erase(bit);
 		}

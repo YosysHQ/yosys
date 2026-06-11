@@ -251,20 +251,20 @@ struct SigConnKinds {
 			for (int i : ctx.item_range(actx.mod->cells_size())) {
 				RTLIL::Cell *cell = actx.mod->cell_at(i);
 				if (!purge_mode) {
-					if (clean_ctx.ct_reg(cell->type)) {
+					if (clean_ctx.ct_reg(cell->type_impl)) {
 						// Improve witness signal naming when clk2fflogic used
 						// see commit message e36c71b5
 						bool clk2fflogic = cell->get_bool_attribute(ID::clk2fflogic);
 						for (auto &[port, sig] : cell->connections())
-							if (clk2fflogic ? port == TW::D : clean_ctx.ct_all.cell_output(cell->type, port))
+							if (clk2fflogic ? port == TW::D : clean_ctx.ct_all.cell_output(cell->type_impl, port))
 								add_spec(raw_register_builder, ctx, sig);
 					}
 					for (auto &[_, sig] : cell->connections())
 						add_spec(raw_cell_connected_builder, ctx, sig);
 				}
-				if (clean_ctx.ct_all.cell_known(cell->type))
+				if (clean_ctx.ct_all.cell_known(cell->type_impl))
 					for (auto &[port, sig] : cell->connections())
-						if (clean_ctx.ct_all.cell_output(cell->type, port)) {
+						if (clean_ctx.ct_all.cell_output(cell->type_impl, port)) {
 							RTLIL::SigSpec spec = actx.assign_map(sig);
 							unsigned int hash = spec.hash_into(Hasher()).yield();
 							exact_cell_output_builder.insert(ctx, {std::move(spec), hash});
@@ -367,7 +367,7 @@ DeferredUpdates analyse_connectivity(UsedSignals& used, SigConnKinds& sig_analys
 					deferred.update_connections.insert(ctx, {cell, port, spec});
 				add_spec(raw_conn_builder, ctx, spec);
 				add_spec(conn_builder, ctx, spec);
-				if (!clean_ctx.ct_all.cell_output(cell->type, port))
+				if (!clean_ctx.ct_all.cell_output(cell->type_impl, port))
 					add_spec(used_builder, ctx, spec);
 			}
 		}

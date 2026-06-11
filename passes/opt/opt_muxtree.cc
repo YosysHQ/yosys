@@ -235,7 +235,7 @@ struct OptMuxtreeWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in(ID($mux), ID($pmux)))
+			if (cell->type.in(TW($mux), TW($pmux)))
 				track_mux(cell);
 			else
 				see_non_mux_cell(cell);

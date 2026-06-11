@@ -36,7 +36,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 	for (auto cell : module->cells())
 	for (auto &port : cell->connections_)
-		if (ct.cell_output(cell->type, port.first))
+		if (ct.cell_output(cell->type.ref(), port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
 
 	bool need_fixup = false;

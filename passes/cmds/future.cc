@@ -50,7 +50,7 @@ struct FutureWorker {
 
 		std::vector<Cell *> replaced_cells;
 		for (auto cell : module->selected_cells()) {
-			if (cell->type != ID($future_ff))
+			if (cell->type != TW($future_ff))
 				continue;
 
 			module->connect(cell->getPort(TW::Y), future_ff(cell->getPort(TW::A)));
@@ -92,7 +92,7 @@ struct FutureWorker {
 
 		if (!ff.has_clk && !ff.has_gclk)
 			log_error("Driver for future_ff target signal %s has cell type %s, which is not clocked\n", log_signal(bit),
-				  driver.cell->type.unescape());
+				  driver.cell->type);
 
 		ff.unmap_ce_srst();
 

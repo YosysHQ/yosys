@@ -111,7 +111,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 				return true;
 
 			for (auto &conn : cell->connections())
-				if (yosys_celltypes.cell_input(cell->type, conn.first))
+				if (yosys_celltypes.cell_input(cell->type_impl, conn.first))
 					for (auto bit : model.sigmap(conn.second)) {
 						if (cell->is_builtin_ff()) {
 							if (conn.first != TW::CLK && conn.first != TW::C)
@@ -461,14 +461,14 @@ struct EquivSimplePass : public Pass {
 			int unproven_cells_counter = 0;
 
 			for (auto cell : module->selected_cells()) {
-				if (cell->type == ID($equiv) && cell->getPort(TW::A) != cell->getPort(TW::B)) {
+				if (cell->type == TW($equiv) && cell->getPort(TW::A) != cell->getPort(TW::B)) {
 					auto bit = sigmap(cell->getPort(TW::Y).as_bit());
 					auto bit_group = bit;
 					if (cfg.group && bit_group.wire)
 						bit_group.offset = 0;
 					unproven_equiv_cells[bit_group][bit] = cell;
 					unproven_cells_counter++;
-				} else if (cell->type == ID($assume)) {
+				} else if (cell->type == TW($assume)) {
 					assumes.push_back(cell);
 				}
 			}
@@ -480,10 +480,10 @@ struct EquivSimplePass : public Pass {
 					unproven_cells_counter, GetSize(unproven_equiv_cells), module);
 
 			for (auto cell : module->cells()) {
-				if (!ct.cell_known(cell->type))
+				if (!ct.cell_known(cell->type_impl))
 					continue;
 				for (auto &conn : cell->connections())
-					if (yosys_celltypes.cell_output(cell->type, conn.first))
+					if (yosys_celltypes.cell_output(cell->type_impl, conn.first))
 						for (auto bit : sigmap(conn.second))
 							bit2driver[bit] = cell;
 			}

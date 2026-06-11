@@ -120,7 +120,7 @@ struct ConflictLogs {
 			// We could do this in parallel but hopefully this is rare.
 			for (auto [_, cell] : mod->cells_) {
 				for (auto &[port, sig] : cell->connections()) {
-					if (clean_ctx.ct_all.cell_known(cell->type) && !clean_ctx.ct_all.cell_input(cell->type, port))
+					if (clean_ctx.ct_all.cell_known(cell->type_impl) && !clean_ctx.ct_all.cell_input(cell->type_impl, port))
 						continue;
 					for (auto raw_bit : wire_map(sig))
 						used_raw_bits.insert(raw_bit);
@@ -189,17 +189,17 @@ ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const Sig
 	actx.subpool.run([&analysis, &traversal, &logs, &wire_map, &mem2cells_vector, &wire2driver_builder, &actx, &clean_ctx](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		for (int i : ctx.item_range(actx.mod->cells_size())) {
 			Cell *cell = actx.mod->cell_at(i);
-			if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2)))
+			if (cell->type.in(TW($memwr), TW($memwr_v2), TW($meminit), TW($meminit_v2)))
 				mem2cells_vector.insert(ctx, {cell->getParam(ID::MEMID).decode_string(), i});
 
 			for (auto &it2 : cell->connections()) {
-				if (clean_ctx.ct_all.cell_known(cell->type) && !clean_ctx.ct_all.cell_output(cell->type, it2.first))
+				if (clean_ctx.ct_all.cell_known(cell->type_impl) && !clean_ctx.ct_all.cell_output(cell->type_impl, it2.first))
 					continue;
 				for (auto raw_bit : it2.second) {
 					if (raw_bit.wire == nullptr)
 						continue;
 					auto bit = actx.assign_map(raw_bit);
-					if (bit.wire == nullptr && clean_ctx.ct_all.cell_known(cell->type)) {
+					if (bit.wire == nullptr && clean_ctx.ct_all.cell_known(cell->type_impl)) {
 						auto twines = cell->module->design->twines;
 						std::string msg = stringf("Driver-driver conflict "
 							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
@@ -257,11 +257,11 @@ void fixup_unused_cells_and_mems(CellAnalysis& analysis, MemAnalysis& mem_analys
 			for (auto cell_index : cell_indices) {
 				Cell *cell = actx.mod->cell_at(cell_index);
 				for (auto &it : cell->connections())
-					if (!clean_ctx.ct_all.cell_known(cell->type) || clean_ctx.ct_all.cell_input(cell->type, it.first))
+					if (!clean_ctx.ct_all.cell_known(cell->type_impl) || clean_ctx.ct_all.cell_input(cell->type_impl, it.first))
 						for (auto bit : actx.assign_map(it.second))
 							bits.insert(bit);
 
-				if (cell->type.in(ID($memrd), ID($memrd_v2))) {
+				if (cell->type.in(TW($memrd), TW($memrd_v2))) {
 					std::string mem_id = cell->getParam(ID::MEMID).decode_string();
 					if (mem_analysis.indices.count(mem_id)) {
 						int mem_index = mem_analysis.indices[mem_id];

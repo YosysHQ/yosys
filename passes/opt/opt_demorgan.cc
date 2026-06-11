@@ -35,7 +35,7 @@ void demorgan_worker(
 	//TODO: Add support for reduce_xor
 	//DeMorgan of XOR is either XOR (if even number of inputs) or XNOR (if odd number)
 
-	if( (cell->type != ID($reduce_and)) && (cell->type != ID($reduce_or)) )
+	if( (cell->type != TW($reduce_and)) && (cell->type != TW($reduce_or)) )
 		return;
 
 	auto insig = sigmap(cell->getPort(TW::A));
@@ -43,7 +43,7 @@ void demorgan_worker(
 	if (GetSize(insig) < 1)
 		return;
 
-	log("Inspecting %s cell %s (%d inputs)\n", cell->type.unescape(), cell->module->design->twines.str(cell->meta_->name), GetSize(insig));
+	log("Inspecting %s cell %s (%d inputs)\n", cell->type.unescaped(), cell->module->design->twines.str(cell->meta_->name), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
 	{
@@ -55,7 +55,7 @@ void demorgan_worker(
 		bool inverted = false;
 		for(auto x : ports)
 		{
-			if(x.port == TW::Y && x.cell->type == ID($_NOT_))
+			if(x.port == TW::Y && x.cell->type == TW($_NOT_))
 			{
 				inverted = true;
 				break;
@@ -89,7 +89,7 @@ void demorgan_worker(
 		RTLIL::Cell* srcinv = NULL;
 		for(auto x : ports)
 		{
-			if(x.port == TW::Y && x.cell->type == ID($_NOT_))
+			if(x.port == TW::Y && x.cell->type == TW($_NOT_))
 			{
 				srcinv = x.cell;
 				break;
@@ -158,9 +158,9 @@ void demorgan_worker(
 	cell->setPort(TW::A, insig);
 
 	//Change the cell type
-	if(cell->type == ID($reduce_and))
+	if(cell->type == TW($reduce_and))
 		cell->type_impl = TW::$reduce_or;
-	else if(cell->type == ID($reduce_or))
+	else if(cell->type == TW($reduce_or))
 		cell->type_impl = TW::$reduce_and;
 	//don't change XOR
 

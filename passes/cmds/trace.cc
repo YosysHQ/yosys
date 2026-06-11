@@ -38,7 +38,7 @@ struct TraceMonitor : public RTLIL::Monitor
 
 	void notify_connect(RTLIL::Cell *cell, TwineRef port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
 	{
-		log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", cell->module, cell, port.unescape(), log_signal(sig), log_signal(old_sig));
+		log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", cell->module, cell, cell->module->design->twines.unescaped_str(port).c_str(), log_signal(sig), log_signal(old_sig));
 	}
 
 	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &sigsig) override

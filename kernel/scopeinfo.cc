@@ -55,7 +55,7 @@ void ModuleHdlnameIndex::index_cells()
 void ModuleHdlnameIndex::index_scopeinfo_cells()
 {
 	auto cells = module->cells();
-	index_items(cells.begin(), cells.end(), [](Cell *cell) { return cell->type == ID($scopeinfo); });
+	index_items(cells.begin(), cells.end(), [](Cell *cell) { return cell->type == TW($scopeinfo); });
 }
 
 std::vector<std::string> ModuleHdlnameIndex::scope_sources(Cursor cursor)
@@ -69,7 +69,7 @@ std::vector<std::string> ModuleHdlnameIndex::scope_sources(Cursor cursor)
 			continue;
 		}
 		Cell *cell = cursor.entry().cell();
-		if (cell == nullptr || cell->type != ID($scopeinfo)) {
+		if (cell == nullptr || cell->type != TW($scopeinfo)) {
 			result.push_back("");
 			result.push_back("");
 			continue;
@@ -99,14 +99,14 @@ static const char *attr_prefix(ScopeinfoAttrs attrs)
 
 bool scopeinfo_has_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, RTLIL::IdString id)
 {
-	log_assert(scopeinfo->type == ID($scopeinfo));
-	return scopeinfo->has_attribute(attr_prefix(attrs) + id.unescape());
+	log_assert(scopeinfo->type == TW($scopeinfo));
+	return scopeinfo->has_attribute(attr_prefix(attrs) + design->twines.unescaped_str(id));
 }
 
 RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, RTLIL::IdString id)
 {
-	log_assert(scopeinfo->type == ID($scopeinfo));
-	auto found = scopeinfo->attributes.find(attr_prefix(attrs) + id.unescape());
+	log_assert(scopeinfo->type == TW($scopeinfo));
+	auto found = scopeinfo->attributes.find(attr_prefix(attrs) + design->twines.unescaped_str(id));
 	if (found == scopeinfo->attributes.end())
 		return RTLIL::Const();
 	return found->second;

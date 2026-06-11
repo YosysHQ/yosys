@@ -746,7 +746,7 @@ constexpr int lookup_well_known_id(std::string_view name)
 	return -1;
 }
 
-// Create a statically allocated IdString object, using for example ID::A or ID($add).
+// Create a statically allocated IdString object, using for example ID::A or TW($add).
 //
 // Recipe for Converting old code that is using conversion of strings like ID::A and
 // "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
@@ -3032,7 +3032,7 @@ public:
 	Module();
 	virtual ~Module();
 	virtual TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
-	virtual TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
+	virtual TwineRef derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<TwineRef, RTLIL::Module*> &interfaces, const dict<TwineRef, TwineRef> &modports, bool mayfail = false);
 	virtual size_t count_id(TwineRef id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
@@ -3164,7 +3164,9 @@ public:
 	void swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2);
 
 	TwineRef uniquify(TwineRef name);
+	TwineRef uniquify(Twine&& name);
 	TwineRef uniquify(TwineRef name, int &index);
+	TwineRef uniquify(Twine&& name, int &index);
 
 	// Primary overloads: name already interned in design->twines.
 	RTLIL::Wire *addWire(TwineRef name, int width = 1);
@@ -3177,6 +3179,7 @@ public:
 	RTLIL::Cell *addCell(TwineRef name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, const RTLIL::Cell *other);
 	// Convenience.
+	RTLIL::Cell *addCell(Twine name, Twine type);
 	RTLIL::Cell *addCell(Twine &&name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, Twine &&type);
 	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);

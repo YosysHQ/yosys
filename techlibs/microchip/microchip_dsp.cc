@@ -37,7 +37,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 	// pack pre-adder
 	if (st.preAdderStatic) {
 		SigSpec &pasub = cell->connections_.at(ID(PASUB));
-		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, st.preAdderStatic->type.unescape());
+		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, design->twines.unescaped_str(st.preAdderStatic->type));
 		bool D_SIGNED = st.preAdderStatic->getParam(ID::B_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdderStatic->getParam(ID::A_SIGNED).as_bool();
 		st.sigB.extend_u0(18, B_SIGNED);
@@ -49,9 +49,9 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		cell->setPort(TW::D, st.sigD);
 		// MACC_PA supports both addition and subtraction with the pre-adder.
 		//   Affects the sign of the 'D' port.
-		if (st.preAdderStatic->type == ID($add))
+		if (st.preAdderStatic->type == TW($add))
 			pasub[0] = State::S0;
-		else if (st.preAdderStatic->type == ID($sub))
+		else if (st.preAdderStatic->type == TW($sub))
 			pasub[0] = State::S1;
 		else
 			log_assert(!"strange pre-adder type");
@@ -60,13 +60,13 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 	}
 	// pack post-adder
 	if (st.postAdderStatic) {
-		log("  postadder %s (%s)\n", st.postAdderStatic, st.postAdderStatic->type.unescape());
+		log("  postadder %s (%s)\n", st.postAdderStatic, design->twines.unescaped_str(st.postAdderStatic->type));
 		SigSpec &sub = cell->connections_.at(ID(SUB));
 		// Post-adder in MACC_PA also supports subtraction
 		//   Determines the sign of the output from the multiplier.
-		if (st.postAdderStatic->type == ID($add))
+		if (st.postAdderStatic->type == TW($add))
 			sub[0] = State::S0;
-		else if (st.postAdderStatic->type == ID($sub))
+		else if (st.postAdderStatic->type == TW($sub))
 			sub[0] = State::S1;
 		else
 			log_assert(!"strange post-adder type");
@@ -94,12 +94,12 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
-				if (ff->type.in(ID($sdff), ID($sdffe))) {
+				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
 					// active low sync rst
 					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_TWINE, srst));
-				} else if (ff->type.in(ID($adff), ID($adffe))) {
+				} else if (ff->type.in(TW($adff), TW($adffe))) {
 					SigSpec arst = ff->getPort(TW::ARST);
 					bool rstpol_n = !ff->getParam(ID::ARST_POLARITY).as_bool();
 					// active low async rst
@@ -109,7 +109,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 					cell->setPort(rstport, State::S1);
 				}
 			}
-			if (ff->type.in(ID($dffe), ID($sdffe), ID($adffe))) {
+			if (ff->type.in(TW($dffe), TW($sdffe), TW($adffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				// enables are all active high
@@ -153,7 +153,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		}
 		if (st.ffD) {
 			SigSpec D = cell->getPort(TW::D);
-			if (st.ffD->type.in(ID($adff), ID($adffe))) {
+			if (st.ffD->type.in(TW($adff), TW($adffe))) {
 				f(D, st.ffD, ID(D_EN), ID(D_ARST_N), ID(D_BYPASS));
 			} else {
 				f(D, st.ffD, ID(D_EN), ID(D_SRST_N), ID(D_BYPASS));
@@ -195,7 +195,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 	auto &st = pm.st_microchip_dsp_packC;
 
 	log_debug("Analysing %s.%s for Microchip DSP packing (REG_C).\n", pm.module, st.dsp);
-	log_debug("ffC:        %s\n", st.ffC ? st.ffC->name.unescape() : "--");
+	log_debug("ffC:        %s\n", st.ffC ? design->twines.unescaped_str(st.ffC->name) : "--");
 
 	Cell *cell = st.dsp;
 
@@ -210,12 +210,12 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
-				if (ff->type.in(ID($sdff), ID($sdffe))) {
+				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
 					// active low sync rst
 					cell->setPort(rstport, rstpol_n ? srst : pm.module->Not(NEW_TWINE, srst));
-				} else if (ff->type.in(ID($adff), ID($adffe))) {
+				} else if (ff->type.in(TW($adff), TW($adffe))) {
 					SigSpec arst = ff->getPort(TW::ARST);
 					bool rstpol_n = !ff->getParam(ID::ARST_POLARITY).as_bool();
 					// active low async rst
@@ -225,7 +225,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 					cell->setPort(rstport, State::S1);
 				}
 			}
-			if (ff->type.in(ID($dffe), ID($sdffe), ID($adffe))) {
+			if (ff->type.in(TW($dffe), TW($sdffe), TW($adffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				// enables are all active high
@@ -252,7 +252,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 		if (st.ffC) {
 			SigSpec C = cell->getPort(TW::C);
 
-			if (st.ffC->type.in(ID($adff), ID($adffe))) {
+			if (st.ffC->type.in(TW($adff), TW($adffe))) {
 				f(C, st.ffC, ID(C_EN), ID(C_ARST_N), ID(C_BYPASS));
 			} else {
 				f(C, st.ffC, ID(C_EN), ID(C_SRST_N), ID(C_BYPASS));

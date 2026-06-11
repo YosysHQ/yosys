@@ -94,7 +94,7 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 	std::stringstream sstr;
 	sstr << "$procdff$" << (autoidx++);
 
-	RTLIL::Cell *cell = mod->addCell(Twine{sstr.str()}, ID($aldff));
+	RTLIL::Cell *cell = mod->addCell(Twine{sstr.str()}, TW($aldff));
 	cell->attributes = proc->attributes;
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
@@ -116,7 +116,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	std::stringstream sstr;
 	sstr << "$procdff$" << (autoidx++);
 
-	RTLIL::Cell *cell = mod->addCell(Twine{sstr.str()}, clk.empty() ? ID($ff) : arst ? ID($adff) : ID($dff));
+	RTLIL::Cell *cell = mod->addCell(Twine{sstr.str()}, clk.empty() ? TW($ff) : arst ? TW($adff) : TW($dff));
 	cell->attributes = proc->attributes;
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());

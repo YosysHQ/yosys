@@ -148,14 +148,15 @@ struct ShowWorker
 
 	std::string findColor(IdString member_name)
 	{
+		TwineRef member_ref = design->twines.lookup(member_name.str());
 		for (auto &s : color_selections)
-			if (s.second.selected_member(module->name, member_name)) {
+			if (member_ref && s.second.selected_member(module->meta_->name, member_ref)) {
 				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first, s.first);
 			}
 
 		RTLIL::Const colorattr_value;
-		RTLIL::Cell *cell = module->cell(member_name);
-		RTLIL::Wire *wire = module->wire(member_name);
+		RTLIL::Cell *cell = member_ref ? module->cell(member_ref) : nullptr;
+		RTLIL::Wire *wire = member_ref ? module->wire(member_ref) : nullptr;
 
 		if (cell && cell->attributes.count(colorattr))
 			colorattr_value = cell->attributes.at(colorattr);
@@ -174,8 +175,9 @@ struct ShowWorker
 
 	const char *findLabel(std::string member_name)
 	{
+		TwineRef member_ref = design->twines.lookup(member_name);
 		for (auto &s : label_selections)
-			if (s.second.selected_member(module->name, member_name))
+			if (member_ref && s.second.selected_member(module->meta_->name, member_ref))
 				return escape(s.first);
 		return escape(member_name, true);
 	}
@@ -240,7 +242,7 @@ struct ShowWorker
 
 		if (sig.is_chunk()) {
 			const RTLIL::SigChunk &c = sig.as_chunk();
-			if (c.wire != nullptr && design->selected_member(module->name, c.wire->name)) {
+			if (c.wire != nullptr && design->selected_member(module->meta_->name, c.wire->name.ref())) {
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));
 			} else {
@@ -472,10 +474,10 @@ struct ShowWorker
 			std::vector<std::string> in_label_pieces, out_label_pieces;
 
 			for (auto &conn : cell->connections()) {
-				if (!ct.cell_output(cell->type, conn.first))
-					in_ports.push_back(conn.first);
+				if (!ct.cell_output(cell->type.ref(), conn.first))
+					in_ports.push_back(RTLIL::IdString(design->twines.str(conn.first)));
 				else
-					out_ports.push_back(conn.first);
+					out_ports.push_back(RTLIL::IdString(design->twines.str(conn.first)));
 			}
 
 			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str());
@@ -501,8 +503,8 @@ struct ShowWorker
 
 			std::string code;
 			for (auto &conn : cell->connections()) {
-				code += gen_portbox(stringf("c%d:p%d", id2num(cell->name), id2num(conn.first)),
-						conn.second, ct.cell_output(cell->type, conn.first));
+				code += gen_portbox(stringf("c%d:p%d", id2num(cell->name), id2num(RTLIL::IdString(design->twines.str(conn.first)))),
+						conn.second, ct.cell_output(cell->type.ref(), conn.first));
 			}
 
 			std::string src_href;
@@ -523,7 +525,7 @@ struct ShowWorker
 		{
 			RTLIL::Process *proc = it.second;
 
-			if (!design->selected_member(module->name, proc->name))
+			if (!design->selected_member(module->meta_->name, it.first))
 				continue;
 
 			std::set<RTLIL::SigSpec> input_signals, output_signals;
@@ -549,22 +551,23 @@ struct ShowWorker
 				net_conn_map[node].color = nextColor(sig, net_conn_map[node].color);
 			}
 
-			std::string proc_src = proc->name.unescape();
+			std::string proc_name_str = design->twines.str(it.first);
+			std::string proc_src = design->twines.unescaped_str(it.first);
 			if (proc->has_attribute(ID::src) > 0)
 				proc_src = proc->get_src_attribute();
-			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\", %s];\n", pidx, findLabel(proc->name.str()), proc_src.c_str(), findColor(proc->name).c_str());
+			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\", %s];\n", pidx, findLabel(proc_name_str), proc_src.c_str(), findColor(RTLIL::IdString(proc_name_str)).c_str());
 		}
 
 		for (auto &conn : module->connections())
 		{
 			bool found_lhs_wire = false;
 			for (auto &c : conn.first.chunks()) {
-				if (c.wire == nullptr || design->selected_member(module->name, c.wire->name))
+				if (c.wire == nullptr || design->selected_member(module->meta_->name, c.wire->name.ref()))
 					found_lhs_wire = true;
 			}
 			bool found_rhs_wire = false;
 			for (auto &c : conn.second.chunks()) {
-				if (c.wire == nullptr || design->selected_member(module->name, c.wire->name))
+				if (c.wire == nullptr || design->selected_member(module->meta_->name, c.wire->name.ref()))
 					found_rhs_wire = true;
 			}
 			if (!found_lhs_wire || !found_rhs_wire)
@@ -645,16 +648,16 @@ struct ShowWorker
 			module = mod;
 			if (design->selected_whole_module(module->name)) {
 				if (module->get_blackbox_attribute()) {
-						//log("Skipping blackbox module %s.\n", module->name.unescape());
+						//log("Skipping blackbox module %s.\n", design->twines.unescaped_str(module->name));
 					continue;
 				} else
 				if (module->cells().size() == 0 && module->connections().empty() && module->processes.empty()) {
-					log("Skipping empty module %s.\n", module->name.unescape());
+					log("Skipping empty module %s.\n", design->twines.unescaped_str(module->name));
 					continue;
 				} else
-					log("Dumping module %s to page %d.\n", module->name.unescape(), ++page_counter);
+					log("Dumping module %s to page %d.\n", design->twines.unescaped_str(module->name), ++page_counter);
 			} else
-				log("Dumping selected parts of module %s to page %d.\n", module->name.unescape(), ++page_counter);
+				log("Dumping selected parts of module %s to page %d.\n", design->twines.unescaped_str(module->name), ++page_counter);
 			handle_module();
 		}
 	}

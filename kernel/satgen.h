@@ -102,7 +102,7 @@ struct SatGen
 				else
 					vec.push_back(bit == (undef_mode ? RTLIL::State::Sx : RTLIL::State::S1) ? ez->CONST_TRUE : ez->CONST_FALSE);
 			} else {
-				std::string wire_name = bit.wire->name.unescape();
+				std::string wire_name = bit.wire->module->design->twines.unescaped_str(bit.wire->meta_->name);
 				std::string name = pf +
 					(bit.wire->width == 1 ? wire_name : stringf("%s [%d]", wire_name, bit.offset));
 				vec.push_back(ez->frozen_literal(name));
