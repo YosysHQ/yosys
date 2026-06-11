@@ -1,0 +1,14 @@
+read_verilog <<EOT
+module top(input a, input b, input c, output y, output z);
+	assign y = ~(a & b);
+	assign z = ~(a | c);
+endmodule
+EOT
+hierarchy -check -top top
+proc; opt -fast
+abc_new -script "+&scorr;&sweep;&dc2;&dch,-f;&nf,{D}" -liberty ../../examples/cmos/cmos_cells.lib
+
+select -assert-min 1 t:NAND
+select -assert-min 1 t:NOR
+select -assert-min 1 t:NAND t:NOT t:NOR t:BUF %u
+select -assert-none t:$_AND_ t:$_OR_ t:$_NAND_ t:$_NOR_ %u
