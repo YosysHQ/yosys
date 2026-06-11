@@ -91,9 +91,9 @@ struct SubmodWorker
 
 		wire_flags.clear();
 		for (RTLIL::Cell *cell : submod.cells) {
-			if (ct.cell_known(cell->type)) {
+			if (ct.cell_known(cell->type_impl)) {
 				for (auto &conn : cell->connections())
-					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first), false, false);
+					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type_impl, conn.first), false, false);
 			} else {
 				log_warning("Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name, cell->type);
 				for (auto &conn : cell->connections())
@@ -103,9 +103,9 @@ struct SubmodWorker
 		for (auto cell : module->cells()) {
 			if (submod.cells.count(cell) > 0)
 				continue;
-			if (ct.cell_known(cell->type)) {
+			if (ct.cell_known(cell->type_impl)) {
 				for (auto &conn : cell->connections())
-					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type, conn.first));
+					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type_impl, conn.first));
 			} else {
 				flag_found_something = false;
 				for (auto &conn : cell->connections())

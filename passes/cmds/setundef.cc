@@ -39,7 +39,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 	RTLIL::Wire *wire = NULL;
 	TwineRef t = module->design->twines.add(Twine{name});
 
-	if (module->count_id(name) != 0)
+	if (module->count_id(t) != 0)
 	{
 		log("Module %s already has such an object %s.\n", module->name, name);
 		name += "$";
@@ -47,7 +47,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 	}
 	else
 	{
-		wire = module->addWire(name, width);
+		wire = module->addWire(t, width);
 		wire->port_input = flag_input;
 		wire->port_output = flag_output;
 
@@ -305,7 +305,7 @@ struct SetundefPass : public Pass {
 					CellTypes ct(design);
 					for (auto &it : module->cells_)
 					for (auto &conn : it.second->connections())
-						if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+						if (!ct.cell_known(it.second->type.ref()) || ct.cell_output(it.second->type.ref(), conn.first))
 							undriven_signals.del(sigmap(conn.second));
 
 					RTLIL::SigSpec sig = undriven_signals.export_all();
@@ -340,7 +340,7 @@ struct SetundefPass : public Pass {
 					CellTypes ct(design);
 					for (auto &it : module->cells_)
 					for (auto &conn : it.second->connections())
-						if (!ct.cell_known(it.second->type) || ct.cell_output(it.second->type, conn.first))
+						if (!ct.cell_known(it.second->type.ref()) || ct.cell_output(it.second->type.ref(), conn.first))
 							undriven_signals.del(sigmap(conn.second));
 
 					RTLIL::SigSpec sig = undriven_signals.export_all();

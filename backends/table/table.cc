@@ -78,7 +78,7 @@ struct TableBackend : public Backend {
 					continue;
 
 				*f << design->twines.str(module->meta_->name) << "\t";
-				*f << wire->name.unescape() << "\t";
+				*f << design->twines.unescaped_str(wire->name) << "\t";
 				*f << "-" << "\t";
 				*f << "-" << "\t";
 
@@ -99,7 +99,7 @@ struct TableBackend : public Backend {
 			{
 				*f << design->twines.str(module->meta_->name) << "\t";
 				*f << cell->module->design->twines.str(cell->meta_->name) << "\t";
-				*f << cell->type.unescape() << "\t";
+				*f << cell->type.unescaped() << "\t";
 				*f << design->twines.str(conn.first) << "\t";
 
 				if (cell->input(conn.first) && cell->output(conn.first))

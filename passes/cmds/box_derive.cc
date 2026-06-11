@@ -100,7 +100,7 @@ struct BoxDerivePass : Pass {
 					continue;
 
 				if (!done.count(index)) {
-					IdString derived_type = base->derive(d, cell->parameters);
+					TwineRef derived_type = base->derive(d, cell->parameters);
 					Module *derived = d->module(derived_type);
 					log_assert(derived && "Failed to derive module\n");
 					log("derived %s\n", derived_type);

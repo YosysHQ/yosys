@@ -47,10 +47,10 @@ struct FsmExpand
 
 	bool is_cell_merge_candidate(RTLIL::Cell *cell)
 	{
-		if (full_mode || cell->type == ID($_MUX_))
+		if (full_mode || cell->type == TW($_MUX_))
 			return true;
 
-		if (cell->type.in(ID($mux), ID($pmux)))
+		if (cell->type.in(TW($mux), TW($pmux)))
 			if (cell->getPort(TW::A).size() < 2)
 				return true;
 
@@ -147,7 +147,7 @@ struct FsmExpand
 		RTLIL::SigSpec input_sig, output_sig;
 
 		for (auto &p : cell->connections())
-			if (ct.cell_output(cell->type, p.first))
+			if (ct.cell_output(cell->type_impl, p.first))
 				output_sig.append(assign_map(p.second));
 			else
 				input_sig.append(assign_map(p.second));
@@ -189,7 +189,7 @@ struct FsmExpand
 
 		if (GetSize(input_sig) > 10)
 			log_warning("Cell %s.%s (%s) has %d input bits, merging into FSM %s.%s might be problematic.\n",
-					cell->module, cell, cell->type.unescape(),
+					cell->module, cell, cell->type.unescaped(),
 					GetSize(input_sig), fsm_cell->module, fsm_cell);
 
 		if (GetSize(fsm_data.transition_table) > 10000)
@@ -230,9 +230,9 @@ struct FsmExpand
 
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *c = cell_it.second;
-			if (ct.cell_known(c->type) && design->selected(mod, c))
+			if (ct.cell_known(c->type_impl) && design->selected(mod, c))
 				for (auto &p : c->connections()) {
-					if (ct.cell_output(c->type, p.first))
+					if (ct.cell_output(c->type_impl, p.first))
 						sig2driver.insert(assign_map(p.second), c);
 					else
 						sig2user.insert(assign_map(p.second), c);
@@ -298,7 +298,7 @@ struct FsmExpandPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			std::vector<RTLIL::Cell*> fsm_cells;
 			for (auto cell : mod->selected_cells())
-				if (cell->type == ID($fsm))
+				if (cell->type == TW($fsm))
 					fsm_cells.push_back(cell);
 			for (auto c : fsm_cells) {
 				FsmExpand fsm_expand(c, design, mod, full_mode);

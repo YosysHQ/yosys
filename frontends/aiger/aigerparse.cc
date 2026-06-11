@@ -76,10 +76,10 @@ struct ConstEvalAig
 	ConstEvalAig(RTLIL::Module *module) : module(module)
 	{
 		for (auto &it : module->cells_) {
-			if (!yosys_celltypes.cell_known(it.second->type))
+			if (!yosys_celltypes.cell_known(it.second->type.ref()))
 				continue;
 			for (auto &it2 : it.second->connections())
-				if (yosys_celltypes.cell_output(it.second->type, it2.first)) {
+				if (yosys_celltypes.cell_output(it.second->type.ref(), it2.first)) {
 					auto r = sig2driver.insert(std::make_pair(it2.second, it.second));
 					log_assert(r.second);
 				}
@@ -138,7 +138,7 @@ struct ConstEvalAig
 		if (!inputs.count(sig_a))
 			compute_deps(sig_a, inputs);
 
-		if (cell->type == ID($_AND_)) {
+		if (cell->type == TW($_AND_)) {
 			RTLIL::SigSpec sig_b = cell->getPort(TW::B);
 			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
 												   // that may occur does so here, and
@@ -148,7 +148,7 @@ struct ConstEvalAig
 			if (!inputs.count(sig_b))
 				compute_deps(sig_b, inputs);
 		}
-		else if (cell->type == ID($_NOT_)) {
+		else if (cell->type == TW($_NOT_)) {
 		}
 		else log_abort();
 	}
@@ -164,11 +164,11 @@ struct ConstEvalAig
 			return false;
 
 		RTLIL::State eval_ret = RTLIL::Sx;
-		if (cell->type == ID($_NOT_)) {
+		if (cell->type == TW($_NOT_)) {
 			if (sig_a == State::S0) eval_ret = State::S1;
 			else if (sig_a == State::S1) eval_ret = State::S0;
 		}
-		else if (cell->type == ID($_AND_)) {
+		else if (cell->type == TW($_AND_)) {
 			if (sig_a == State::S0) {
 				eval_ret = State::S0;
 				goto eval_end;
@@ -504,7 +504,8 @@ void AigerReader::parse_xaiger()
 				uint32_t boxUniqueId = parse_xaiger_literal(f);
 				log_assert(boxUniqueId > 0);
 				uint32_t oldBoxNum = parse_xaiger_literal(f);
-				RTLIL::Cell* cell = module->addCell(Twine{stringf("$box%u", oldBoxNum)}, ID(stringf("$__boxid%u", boxUniqueId)));
+				TwineRef _type = module->design->twines.add(Twine{stringf("$__boxid%u", boxUniqueId)});
+				RTLIL::Cell* cell = module->addCell(Twine{stringf("$box%u", oldBoxNum)}, _type);
 				cell->setPort(TW::I, SigSpec(State::S0, boxInputs));
 				cell->setPort(TW::O, SigSpec(State::S0, boxOutputs));
 				cell->attributes[ID::abc9_box_seq] = oldBoxNum;
@@ -836,7 +837,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", escaped_s.unescape());
+					log_debug(" -> %s\n", design->twines.unescaped_str(escaped_s));
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -847,7 +848,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug(" -> %s\n", indexed_name.unescape());
+					log_debug(" -> %s\n", design->twines.unescaped_str(indexed_name));
 				}
 
 				if (wideports && !existing) {
@@ -883,7 +884,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug(" -> %s\n", escaped_s.unescape());
+					log_debug(" -> %s\n", design->twines.unescaped_str(escaped_s));
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -895,7 +896,7 @@ void AigerReader::post_process()
 						existing->port_output = true;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", indexed_name.unescape());
+					log_debug(" -> %s\n", design->twines.unescaped_str(indexed_name));
 				}
 
 				if (wideports && !existing) {
@@ -913,7 +914,7 @@ void AigerReader::post_process()
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(design->twines.lookup(stringf("$box%d", variable)));
 				if (!cell)
-					log_debug("Box %d (%s) no longer exists.\n", variable, escaped_s.unescape());
+					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines.unescaped_str(escaped_s));
 				else
 					module->rename(cell, design->twines.add(Twine{escaped_s.str()}));
 			}
@@ -977,7 +978,7 @@ void AigerReader::post_process()
 	design->add(module);
 
 	for (auto cell : module->cells().to_vector()) {
-		if (cell->type != ID($lut)) continue;
+		if (cell->type != TW($lut)) continue;
 		auto y_port = cell->getPort(TW::Y).as_bit();
 		if (y_port.wire->width == 1)
 			module->rename(cell, design->twines.add(Twine{stringf("$lut%s", design->twines.str(y_port.wire->meta_->name).c_str())}));

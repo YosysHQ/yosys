@@ -85,7 +85,7 @@ void find_dff_wires(std::set<RTLIL::IdString> &dff_wires, RTLIL::Module *module)
 	SigPool dffsignals;
 
 	for (auto cell : module->cells()) {
-		if (ct.cell_known(cell->type) && cell->hasPort(TW::Q))
+		if (ct.cell_known(cell->type_impl) && cell->hasPort(TW::Q))
 			dffsignals.add(sigmap(cell->getPort(TW::Q)));
 	}
 
@@ -111,7 +111,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 		info.arst_value = RTLIL::State::Sm;
 		info.cell = cell;
 
-		if (info.cell->type == ID($dff)) {
+		if (info.cell->type == TW($dff)) {
 			info.bit_clk = sigmap(info.cell->getPort(TW::CLK)).as_bit();
 			info.clk_polarity = info.cell->parameters.at(ID::CLK_POLARITY).as_bool();
 			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->getPort(TW::D)).to_sigbit_vector();
@@ -123,7 +123,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 			continue;
 		}
 
-		if (info.cell->type == ID($adff)) {
+		if (info.cell->type == TW($adff)) {
 			info.bit_clk = sigmap(info.cell->getPort(TW::CLK)).as_bit();
 			info.bit_arst = sigmap(info.cell->getPort(TW::ARST)).as_bit();
 			info.clk_polarity = info.cell->parameters.at(ID::CLK_POLARITY).as_bool();
@@ -139,9 +139,9 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 			continue;
 		}
 
-		if (info.cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
+		if (info.cell->type.in(TW($_DFF_N_), TW($_DFF_P_))) {
 			info.bit_clk = sigmap(info.cell->getPort(TW::C)).as_bit();
-			info.clk_polarity = info.cell->type == ID($_DFF_P_);
+			info.clk_polarity = info.cell->type == TW($_DFF_P_);
 			info.bit_d = sigmap(info.cell->getPort(TW::D)).as_bit();
 			bit_info[sigmap(info.cell->getPort(TW::Q)).as_bit()] = info;
 			continue;
@@ -210,7 +210,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width = 1)
 {
 	if (module->count_id(name))
-		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n", name.unescape());
+		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n", design->twines.unescaped_str(name));
 	return module->addWire(name, width);
 }
 
@@ -497,10 +497,10 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto cell : module->cells()) {
-					if (!ct.cell_known(cell->type))
+					if (!ct.cell_known(cell->type_impl))
 						continue;
 					for (auto &conn : cell->connections_)
-						if (ct.cell_output(cell->type, conn.first))
+						if (ct.cell_output(cell->type_impl, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}
 
@@ -518,10 +518,10 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto cell : module->cells()) {
-					if (!ct.cell_known(cell->type))
+					if (!ct.cell_known(cell->type_impl))
 						continue;
 					for (auto &conn : cell->connections_)
-						if (ct.cell_input(cell->type, conn.first))
+						if (ct.cell_input(cell->type_impl, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}
 
@@ -578,7 +578,7 @@ struct ExposePass : public Pass {
 				if (info.clk_polarity) {
 					module->connect(RTLIL::SigSig(wire_c, info.sig_clk));
 				} else {
-					RTLIL::Cell *c = module->addCell(NEW_TWINE, ID($not));
+					RTLIL::Cell *c = module->addCell(NEW_TWINE, TW($not));
 					c->parameters[ID::A_SIGNED] = 0;
 					c->parameters[ID::A_WIDTH] = 1;
 					c->parameters[ID::Y_WIDTH] = 1;
@@ -594,7 +594,7 @@ struct ExposePass : public Pass {
 					if (info.arst_polarity) {
 						module->connect(RTLIL::SigSig(wire_r, info.sig_arst));
 					} else {
-						RTLIL::Cell *c = module->addCell(NEW_TWINE, ID($not));
+						RTLIL::Cell *c = module->addCell(NEW_TWINE, TW($not));
 						c->parameters[ID::A_SIGNED] = 0;
 						c->parameters[ID::A_WIDTH] = 1;
 						c->parameters[ID::Y_WIDTH] = 1;
@@ -632,13 +632,13 @@ struct ExposePass : public Pass {
 							if (!p->port_input && !p->port_output)
 								continue;
 
-							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + p->name.unescape(), p->width);
+							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + design->twines.unescaped_str(p->name), p->width);
 							if (p->port_input)
 								w->port_output = true;
 							if (p->port_output)
 								w->port_input = true;
 
-							log("New module port: %s/%s (%s)\n", module, w, cell->type.unescape());
+							log("New module port: %s/%s (%s)\n", module, w, cell->type.unescaped());
 
 							RTLIL::SigSpec sig;
 							if (cell->hasPort(p->name))
@@ -654,13 +654,13 @@ struct ExposePass : public Pass {
 					{
 						for (auto &it : cell->connections())
 						{
-							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + it.first.unescape(), it.second.size());
-							if (ct.cell_input(cell->type, it.first))
+							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + design->twines.unescaped_str(it.first), it.second.size());
+							if (ct.cell_input(cell->type_impl, it.first))
 								w->port_output = true;
-							if (ct.cell_output(cell->type, it.first))
+							if (ct.cell_output(cell->type_impl, it.first))
 								w->port_input = true;
 
-							log("New module port: %s/%s (%s)\n", module, w, cell->type.unescape());
+							log("New module port: %s/%s (%s)\n", module, w, cell->type.unescaped());
 
 							if (w->port_input)
 								module->connect(RTLIL::SigSig(it.second, w));
@@ -673,7 +673,7 @@ struct ExposePass : public Pass {
 				}
 
 				for (auto cell : delete_cells) {
-					log("Removing cell: %s/%s (%s)\n", module, cell, cell->type.unescape());
+					log("Removing cell: %s/%s (%s)\n", module, cell, cell->type.unescaped());
 					module->remove(cell);
 				}
 			}

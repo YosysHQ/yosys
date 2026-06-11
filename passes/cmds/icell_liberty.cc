@@ -63,7 +63,7 @@ struct LibertyStubber {
 		}
 
 		f << "\tcell (\"" << derived_name << "\") {\n";
-		auto& base_type = ct.cell_types[base_name];
+		auto& base_type = ct.cell_types[base->name];
 		i.indent = 3;
 		auto sorted_ports = derived->ports;
 		// Hack for CLK and C coming before Q does
@@ -117,17 +117,17 @@ struct LibertyStubber {
 	}
 	void liberty_cell(Module* base, Module* derived, std::ostream& f)
 	{
-		auto base_name = base->design->twines.str(base->meta_->name).substr(1);
+		auto base_name = base->name.substr(1);
 		auto derived_name = derived->design->twines.str(derived->meta_->name).substr(1);
-		if (!ct.cell_types.count(base_name)) {
+		if (!ct.cell_types.count(base->name)) {
 			log_debug("skip skeleton for %s\n", base_name.c_str());
 			return;
 		}
 
-		if (StaticCellTypes::categories.is_ff(base_name))
+		if (StaticCellTypes::categories.is_ff(base->name))
 			return liberty_flop(base, derived, f);
 
-		auto& base_type = ct.cell_types[base_name];
+		auto& base_type = ct.cell_types[base->name];
 		f << "\tcell (\"" << derived_name << "\") {\n";
 		for (auto x : derived->ports) {
 			std::string port_name = derived->design->twines.str(x);

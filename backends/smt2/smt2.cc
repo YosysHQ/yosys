@@ -60,7 +60,7 @@ struct Smt2Worker
 	const char *get_id(IdString n)
 	{
 		if (ids.count(n) == 0) {
-			std::string str = n.unescape();
+			std::string str = design->twines.unescaped_str(n);
 			for (int i = 0; i < GetSize(str); i++) {
 				if (str[i] == '\\')
 					str[i] = '/';
@@ -196,8 +196,8 @@ struct Smt2Worker
 				continue;
 			}
 
-			bool is_input = ct.cell_input(cell->type, conn.first);
-			bool is_output = ct.cell_output(cell->type, conn.first);
+			bool is_input = ct.cell_input(cell->type_impl, conn.first);
+			bool is_output = ct.cell_output(cell->type_impl, conn.first);
 
 			if (is_output && !is_input)
 				for (auto bit : sigmap(conn.second)) {
@@ -207,11 +207,11 @@ struct Smt2Worker
 				}
 			else if (is_output || !is_input)
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
-						module->design->twines.str(conn.first).c_str(), module, cell, cell->type.unescape());
+						module->design->twines.str(conn.first).c_str(), module, cell, cell->type.unescaped());
 
-			if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)) && (conn.first == TW::CLK || conn.first == TW::C))
+			if (cell->type.in(TW($dff), TW($_DFF_P_), TW($_DFF_N_)) && (conn.first == TW::CLK || conn.first == TW::C))
 			{
-				bool posedge = (cell->type == ID($_DFF_N_)) || (cell->type == ID($dff) && cell->getParam(ID::CLK_POLARITY).as_bool());
+				bool posedge = (cell->type == TW($_DFF_N_)) || (cell->type == TW($dff) && cell->getParam(ID::CLK_POLARITY).as_bool());
 				for (auto bit : sigmap(conn.second)) {
 					if (posedge)
 						clock_posedge.insert(bit);
@@ -546,7 +546,7 @@ struct Smt2Worker
 	{
 		if (verbose)
 			log("%*s=> export_cell %s (%s) [%s]\n", 2+2*GetSize(recursive_cells), "",
-					cell, cell->type.unescape(), exported_cells.count(cell) ? "old" : "new");
+					cell, cell->type.unescaped(), exported_cells.count(cell) ? "old" : "new");
 
 		if (recursive_cells.count(cell))
 			log_error("Found logic loop in module %s! See cell %s.\n", get_id(module), get_id(cell));
@@ -557,7 +557,7 @@ struct Smt2Worker
 		exported_cells.insert(cell);
 		recursive_cells.insert(cell);
 
-		if (cell->type == ID($initstate))
+		if (cell->type == TW($initstate))
 		{
 			SigBit bit = sigmap(cell->getPort(TW::Y).as_bit());
 			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool (|%s_is| state)) ; %s\n",
@@ -567,7 +567,7 @@ struct Smt2Worker
 			return;
 		}
 
-		if (cell->type.in(ID($_FF_), ID($_DFF_P_), ID($_DFF_N_)))
+		if (cell->type.in(TW($_FF_), TW($_DFF_P_), TW($_DFF_N_)))
 		{
 			registers.insert(cell);
 			SigBit q_bit = cell->getPort(TW::Q);
@@ -579,28 +579,28 @@ struct Smt2Worker
 			return;
 		}
 
-		if (cell->type == ID($_BUF_)) return export_gate(cell, "A");
-		if (cell->type == ID($_NOT_)) return export_gate(cell, "(not A)");
-		if (cell->type == ID($_AND_)) return export_gate(cell, "(and A B)");
-		if (cell->type == ID($_NAND_)) return export_gate(cell, "(not (and A B))");
-		if (cell->type == ID($_OR_)) return export_gate(cell, "(or A B)");
-		if (cell->type == ID($_NOR_)) return export_gate(cell, "(not (or A B))");
-		if (cell->type == ID($_XOR_)) return export_gate(cell, "(xor A B)");
-		if (cell->type == ID($_XNOR_)) return export_gate(cell, "(not (xor A B))");
-		if (cell->type == ID($_ANDNOT_)) return export_gate(cell, "(and A (not B))");
-		if (cell->type == ID($_ORNOT_)) return export_gate(cell, "(or A (not B))");
-		if (cell->type == ID($_MUX_)) return export_gate(cell, "(ite S B A)");
-		if (cell->type == ID($_NMUX_)) return export_gate(cell, "(not (ite S B A))");
-		if (cell->type == ID($_AOI3_)) return export_gate(cell, "(not (or (and A B) C))");
-		if (cell->type == ID($_OAI3_)) return export_gate(cell, "(not (and (or A B) C))");
-		if (cell->type == ID($_AOI4_)) return export_gate(cell, "(not (or (and A B) (and C D)))");
-		if (cell->type == ID($_OAI4_)) return export_gate(cell, "(not (and (or A B) (or C D)))");
+		if (cell->type == TW($_BUF_)) return export_gate(cell, "A");
+		if (cell->type == TW($_NOT_)) return export_gate(cell, "(not A)");
+		if (cell->type == TW($_AND_)) return export_gate(cell, "(and A B)");
+		if (cell->type == TW($_NAND_)) return export_gate(cell, "(not (and A B))");
+		if (cell->type == TW($_OR_)) return export_gate(cell, "(or A B)");
+		if (cell->type == TW($_NOR_)) return export_gate(cell, "(not (or A B))");
+		if (cell->type == TW($_XOR_)) return export_gate(cell, "(xor A B)");
+		if (cell->type == TW($_XNOR_)) return export_gate(cell, "(not (xor A B))");
+		if (cell->type == TW($_ANDNOT_)) return export_gate(cell, "(and A (not B))");
+		if (cell->type == TW($_ORNOT_)) return export_gate(cell, "(or A (not B))");
+		if (cell->type == TW($_MUX_)) return export_gate(cell, "(ite S B A)");
+		if (cell->type == TW($_NMUX_)) return export_gate(cell, "(not (ite S B A))");
+		if (cell->type == TW($_AOI3_)) return export_gate(cell, "(not (or (and A B) C))");
+		if (cell->type == TW($_OAI3_)) return export_gate(cell, "(not (and (or A B) C))");
+		if (cell->type == TW($_AOI4_)) return export_gate(cell, "(not (or (and A B) (and C D)))");
+		if (cell->type == TW($_OAI4_)) return export_gate(cell, "(not (and (or A B) (or C D)))");
 
 		// FIXME: $lut
 
 		if (bvmode)
 		{
-			if (cell->type.in(ID($ff), ID($dff)))
+			if (cell->type.in(TW($ff), TW($dff)))
 			{
 				registers.insert(cell);
 				int smtoffset = 0;
@@ -615,9 +615,9 @@ struct Smt2Worker
 				return;
 			}
 
-			if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq)))
+			if (cell->type.in(TW($anyconst), TW($anyseq), TW($anyinit), TW($allconst), TW($allseq)))
 			{
-				auto QY = cell->type == ID($anyinit) ? TW::Q : TW::Y;
+				auto QY = cell->type == TW($anyinit) ? TW::Q : TW::Y;
 				registers.insert(cell);
 				string infostr;
 				if (cell->has_attribute(ID::src)) {
@@ -637,8 +637,8 @@ struct Smt2Worker
 					log("Wire %s is minimized\n", cell->getPort(QY).as_wire()->name.str());
 				}
 
-				bool init_only = cell->type.in(ID($anyconst), ID($anyinit), ID($allconst));
-				bool clk2fflogic = cell->type == ID($anyinit) && cell->get_bool_attribute(ID(clk2fflogic));
+				bool init_only = cell->type.in(TW($anyconst), TW($anyinit), TW($allconst));
+				bool clk2fflogic = cell->type == TW($anyinit) && cell->get_bool_attribute(ID(clk2fflogic));
 				int smtoffset = 0;
 				for (auto chunk : cell->getPort(clk2fflogic ? TW::D : QY).chunks()) {
 					if (chunk.is_wire())
@@ -647,27 +647,27 @@ struct Smt2Worker
 				}
 
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(QY)), log_signal(cell->getPort(QY)));
-				if (cell->type == ID($anyseq))
+				if (cell->type == TW($anyseq))
 					ex_input_eq.push_back(stringf("  (= (|%s#%d| state) (|%s#%d| other_state))", get_id(module), idcounter, get_id(module), idcounter));
 				register_bv(cell->getPort(QY), idcounter++);
 				recursive_cells.erase(cell);
 				return;
 			}
 
-			if (cell->type == ID($and)) return export_bvop(cell, "(bvand A B)");
-			if (cell->type == ID($or)) return export_bvop(cell, "(bvor A B)");
-			if (cell->type == ID($xor)) return export_bvop(cell, "(bvxor A B)");
-			if (cell->type == ID($xnor)) return export_bvop(cell, "(bvxnor A B)");
+			if (cell->type == TW($and)) return export_bvop(cell, "(bvand A B)");
+			if (cell->type == TW($or)) return export_bvop(cell, "(bvor A B)");
+			if (cell->type == TW($xor)) return export_bvop(cell, "(bvxor A B)");
+			if (cell->type == TW($xnor)) return export_bvop(cell, "(bvxnor A B)");
 
-			if (cell->type == ID($bweqx)) return export_bvop(cell, "(bvxnor A B)", 'U');
-			if (cell->type == ID($bwmux)) return export_bvop(cell, "(bvor (bvand A (bvnot S)) (bvand B S))", 'U');
+			if (cell->type == TW($bweqx)) return export_bvop(cell, "(bvxnor A B)", 'U');
+			if (cell->type == TW($bwmux)) return export_bvop(cell, "(bvor (bvand A (bvnot S)) (bvand B S))", 'U');
 
-			if (cell->type == ID($shl)) return export_bvop(cell, "(bvshl A B)", 's');
-			if (cell->type == ID($shr)) return export_bvop(cell, "(bvlshr A B)", 's');
-			if (cell->type == ID($sshl)) return export_bvop(cell, "(bvshl A B)", 's');
-			if (cell->type == ID($sshr)) return export_bvop(cell, "(bvLshr A B)", 's');
+			if (cell->type == TW($shl)) return export_bvop(cell, "(bvshl A B)", 's');
+			if (cell->type == TW($shr)) return export_bvop(cell, "(bvlshr A B)", 's');
+			if (cell->type == TW($sshl)) return export_bvop(cell, "(bvshl A B)", 's');
+			if (cell->type == TW($sshr)) return export_bvop(cell, "(bvLshr A B)", 's');
 
-			if (cell->type.in(ID($shift), ID($shiftx))) {
+			if (cell->type.in(TW($shift), TW($shiftx))) {
 				if (cell->getParam(ID::B_SIGNED).as_bool()) {
 					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
 							"(bvlshr A B) (bvshl A (bvneg B)))",
@@ -677,28 +677,28 @@ struct Smt2Worker
 				}
 			}
 
-			if (cell->type == ID($lt)) return export_bvop(cell, "(bvUlt A B)", 'b');
-			if (cell->type == ID($le)) return export_bvop(cell, "(bvUle A B)", 'b');
-			if (cell->type == ID($ge)) return export_bvop(cell, "(bvUge A B)", 'b');
-			if (cell->type == ID($gt)) return export_bvop(cell, "(bvUgt A B)", 'b');
+			if (cell->type == TW($lt)) return export_bvop(cell, "(bvUlt A B)", 'b');
+			if (cell->type == TW($le)) return export_bvop(cell, "(bvUle A B)", 'b');
+			if (cell->type == TW($ge)) return export_bvop(cell, "(bvUge A B)", 'b');
+			if (cell->type == TW($gt)) return export_bvop(cell, "(bvUgt A B)", 'b');
 
-			if (cell->type == ID($ne)) return export_bvop(cell, "(distinct A B)", 'b');
-			if (cell->type == ID($nex)) return export_bvop(cell, "(distinct A B)", 'b');
-			if (cell->type == ID($eq)) return export_bvop(cell, "(= A B)", 'b');
-			if (cell->type == ID($eqx)) return export_bvop(cell, "(= A B)", 'b');
+			if (cell->type == TW($ne)) return export_bvop(cell, "(distinct A B)", 'b');
+			if (cell->type == TW($nex)) return export_bvop(cell, "(distinct A B)", 'b');
+			if (cell->type == TW($eq)) return export_bvop(cell, "(= A B)", 'b');
+			if (cell->type == TW($eqx)) return export_bvop(cell, "(= A B)", 'b');
 
-			if (cell->type == ID($not)) return export_bvop(cell, "(bvnot A)");
-			if (cell->type == ID($pos)) return export_bvop(cell, "A");
-			if (cell->type == ID($neg)) return export_bvop(cell, "(bvneg A)");
+			if (cell->type == TW($not)) return export_bvop(cell, "(bvnot A)");
+			if (cell->type == TW($pos)) return export_bvop(cell, "A");
+			if (cell->type == TW($neg)) return export_bvop(cell, "(bvneg A)");
 
-			if (cell->type == ID($add)) return export_bvop(cell, "(bvadd A B)");
-			if (cell->type == ID($sub)) return export_bvop(cell, "(bvsub A B)");
-			if (cell->type == ID($mul)) return export_bvop(cell, "(bvmul A B)");
-			if (cell->type == ID($div)) return export_bvop(cell, "(bvUdiv A B)", 'd');
+			if (cell->type == TW($add)) return export_bvop(cell, "(bvadd A B)");
+			if (cell->type == TW($sub)) return export_bvop(cell, "(bvsub A B)");
+			if (cell->type == TW($mul)) return export_bvop(cell, "(bvmul A B)");
+			if (cell->type == TW($div)) return export_bvop(cell, "(bvUdiv A B)", 'd');
 			// "rem" = truncating modulo
-			if (cell->type == ID($mod)) return export_bvop(cell, "(bvUrem A B)", 'd');
+			if (cell->type == TW($mod)) return export_bvop(cell, "(bvUrem A B)", 'd');
 			// "mod" = flooring modulo
-			if (cell->type == ID($modfloor)) {
+			if (cell->type == TW($modfloor)) {
 				// bvumod doesn't exist because it's the same as bvurem
 				if (cell->getParam(ID::A_SIGNED).as_bool()) {
 					return export_bvop(cell, "(bvsmod A B)", 'd');
@@ -707,7 +707,7 @@ struct Smt2Worker
 				}
 			}
 			// "div" = flooring division
-			if (cell->type == ID($divfloor)) {
+			if (cell->type == TW($divfloor)) {
 				if (cell->getParam(ID::A_SIGNED).as_bool()) {
 					// bvsdiv is truncating division, so we can't use it here.
 					int width = max(GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::B)));
@@ -728,24 +728,24 @@ struct Smt2Worker
 				}
 			}
 
-			if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool)) &&
+			if (cell->type.in(TW($reduce_and), TW($reduce_or), TW($reduce_bool)) &&
 					2*GetSize(cell->getPort(TW::A).chunks()) < GetSize(cell->getPort(TW::A))) {
-				bool is_and = cell->type == ID($reduce_and);
+				bool is_and = cell->type == TW($reduce_and);
 				string bits(GetSize(cell->getPort(TW::A)), is_and ? '1' : '0');
 				return export_bvop(cell, stringf("(%s A #b%s)", is_and ? "=" : "distinct", bits), 'b');
 			}
 
-			if (cell->type == ID($reduce_and)) return export_reduce(cell, "(and A)", true);
-			if (cell->type == ID($reduce_or)) return export_reduce(cell, "(or A)", false);
-			if (cell->type == ID($reduce_xor)) return export_reduce(cell, "(xor A)", false);
-			if (cell->type == ID($reduce_xnor)) return export_reduce(cell, "(not (xor A))", false);
-			if (cell->type == ID($reduce_bool)) return export_reduce(cell, "(or A)", false);
+			if (cell->type == TW($reduce_and)) return export_reduce(cell, "(and A)", true);
+			if (cell->type == TW($reduce_or)) return export_reduce(cell, "(or A)", false);
+			if (cell->type == TW($reduce_xor)) return export_reduce(cell, "(xor A)", false);
+			if (cell->type == TW($reduce_xnor)) return export_reduce(cell, "(not (xor A))", false);
+			if (cell->type == TW($reduce_bool)) return export_reduce(cell, "(or A)", false);
 
-			if (cell->type == ID($logic_not)) return export_reduce(cell, "(not (or A))", false);
-			if (cell->type == ID($logic_and)) return export_reduce(cell, "(and (or A) (or B))", false);
-			if (cell->type == ID($logic_or)) return export_reduce(cell, "(or A B)", false);
+			if (cell->type == TW($logic_not)) return export_reduce(cell, "(not (or A))", false);
+			if (cell->type == TW($logic_and)) return export_reduce(cell, "(and (or A) (or B))", false);
+			if (cell->type == TW($logic_or)) return export_reduce(cell, "(or A B)", false);
 
-			if (cell->type.in(ID($mux), ID($pmux)))
+			if (cell->type.in(TW($mux), TW($pmux)))
 			{
 				int width = GetSize(cell->getPort(TW::Y));
 				std::string processed_expr = get_bv(cell->getPort(TW::A));
@@ -798,7 +798,7 @@ struct Smt2Worker
 			if (has_async_wr && has_sync_wr)
 				log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", cell, module);
 
-			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", mem->memid.unescape(), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
+			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", design->twines.unescaped_str(mem->memid), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
 			decls.push_back(witness_memory(get_id(mem->memid), cell, mem));
 
 			string memstate;
@@ -823,7 +823,7 @@ struct Smt2Worker
 
 					if (port.clk_enable)
 						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), mem->memid.unescape(), module);
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), design->twines.unescaped_str(mem->memid), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
@@ -867,7 +867,7 @@ struct Smt2Worker
 
 					if (port.clk_enable)
 						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), mem->memid.unescape(), module);
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), design->twines.unescaped_str(mem->memid), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
@@ -936,15 +936,15 @@ struct Smt2Worker
 			return;
 		}
 
-		if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
+		if (cell->type.in(TW($dffe), TW($sdff), TW($sdffe), TW($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smt2`.\n",
 					cell->type.unescape(), module, cell);
 		}
-		if (cell->type.in(ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF" || cell->type.str().substr(0, 7) == "$_ALDFF") {
+		if (cell->type.in(TW($adff), TW($adffe), TW($aldff), TW($aldffe), TW($dffsr), TW($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF" || cell->type.str().substr(0, 7) == "$_ALDFF") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_smt2`.\n",
 					cell->type.unescape(), module, cell);
 		}
-		if (cell->type.in(ID($sr), ID($dlatch), ID($adlatch), ID($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
+		if (cell->type.in(TW($sr), TW($dlatch), TW($adlatch), TW($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_smt2`.\n",
 					cell->type, module, cell);
 		}
@@ -973,7 +973,7 @@ struct Smt2Worker
 
 		pool<SigBit> reg_bits;
 		for (auto cell : module->cells())
-			if (cell->type.in(ID($ff), ID($dff), ID($_FF_), ID($_DFF_P_), ID($_DFF_N_), ID($anyinit))) {
+			if (cell->type.in(TW($ff), TW($dff), TW($_FF_), TW($_DFF_P_), TW($_DFF_N_), TW($anyinit))) {
 				// not using sigmap -- we want the net directly at the dff output
 				for (auto bit : cell->getPort(TW::Q))
 					reg_bits.insert(bit);
@@ -1117,15 +1117,15 @@ struct Smt2Worker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in(ID($assert), ID($assume), ID($cover)))
+			if (cell->type.in(TW($assert), TW($assume), TW($cover)))
 			{
-				int &id = cell->type == ID($assert) ? assert_id :
-						cell->type == ID($assume) ? assume_id :
-						cell->type == ID($cover) ? cover_id : *(int*)nullptr;
+				int &id = cell->type == TW($assert) ? assert_id :
+						cell->type == TW($assume) ? assume_id :
+						cell->type == TW($cover) ? cover_id : *(int*)nullptr;
 
-				char postfix = cell->type == ID($assert) ? 'a' :
-						cell->type == ID($assume) ? 'u' :
-						cell->type == ID($cover) ? 'c' : 0;
+				char postfix = cell->type == TW($assert) ? 'a' :
+						cell->type == TW($assume) ? 'u' :
+						cell->type == TW($cover) ? 'c' : 0;
 
 				string name_a = get_bool(cell->getPort(TW::A));
 				string name_en = get_bool(cell->getPort(TW::EN));
@@ -1147,16 +1147,16 @@ struct Smt2Worker
 				else
 					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, get_id(cell)));
 
-				if (cell->type == ID($cover))
+				if (cell->type == TW($cover))
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
 							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
 				else
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
 							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
 
-				if (cell->type == ID($assert))
+				if (cell->type == TW($assert))
 					assert_list.push_back(stringf("(|%s_a %d| state)", get_id(module), id));
-				else if (cell->type == ID($assume))
+				else if (cell->type == TW($assume))
 					assume_list.push_back(stringf("(|%s_u %d| state)", get_id(module), id));
 
 				id++;
@@ -1212,7 +1212,7 @@ struct Smt2Worker
 
 			for (auto cell : this_regs)
 			{
-				if (cell->type.in(ID($_FF_), ID($_DFF_P_), ID($_DFF_N_)))
+				if (cell->type.in(TW($_FF_), TW($_DFF_P_), TW($_DFF_N_)))
 				{
 					std::string expr_d = get_bool(cell->getPort(TW::D));
 					std::string expr_q = get_bool(cell->getPort(TW::Q), "next_state");
@@ -1220,7 +1220,7 @@ struct Smt2Worker
 					ex_state_eq.push_back(stringf("(= %s %s)", get_bool(cell->getPort(TW::Q)), get_bool(cell->getPort(TW::Q), "other_state")));
 				}
 
-				if (cell->type.in(ID($ff), ID($dff), ID($anyinit)))
+				if (cell->type.in(TW($ff), TW($dff), TW($anyinit)))
 				{
 					std::string expr_d = get_bv(cell->getPort(TW::D));
 					std::string expr_q = get_bv(cell->getPort(TW::Q), "next_state");
@@ -1228,12 +1228,12 @@ struct Smt2Worker
 					ex_state_eq.push_back(stringf("(= %s %s)", get_bv(cell->getPort(TW::Q)), get_bv(cell->getPort(TW::Q), "other_state")));
 				}
 
-				if (cell->type.in(ID($anyconst), ID($allconst)))
+				if (cell->type.in(TW($anyconst), TW($allconst)))
 				{
 					std::string expr_d = get_bv(cell->getPort(TW::Y));
 					std::string expr_q = get_bv(cell->getPort(TW::Y), "next_state");
 					trans.push_back(stringf("  (= %s %s) ; %s %s\n", expr_d, expr_q, get_id(cell), log_signal(cell->getPort(TW::Y))));
-					if (cell->type == ID($anyconst))
+					if (cell->type == TW($anyconst))
 						ex_state_eq.push_back(stringf("(= %s %s)", get_bv(cell->getPort(TW::Y)), get_bv(cell->getPort(TW::Y), "other_state")));
 				}
 			}
@@ -1882,7 +1882,7 @@ struct Smt2Backend : public Backend {
 				for (auto &dep : it.second)
 					if (module_deps.count(dep) > 0)
 						goto not_ready_yet;
-				// log("Next in topological sort: %s\n", it.first->name.unescape());
+				// log("Next in topological sort: %s\n", design->twines.unescaped_str(it.first->name));
 				sorted_modules.push_back(it.first);
 			not_ready_yet:;
 			}
@@ -1899,7 +1899,7 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 			for (auto cell : module->cells())
-				if (cell->type.in(ID($allconst), ID($allseq)))
+				if (cell->type.in(TW($allconst), TW($allseq)))
 					goto found_forall;
 		if (0) {
 	found_forall:

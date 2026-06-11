@@ -47,7 +47,7 @@ struct MemoryBmux2RomPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
-				if (cell->type != ID($bmux))
+				if (cell->type != TW($bmux))
 					continue;
 
 				SigSpec sig_a = cell->getPort(TW::A);

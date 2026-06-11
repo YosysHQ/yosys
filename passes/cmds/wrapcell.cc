@@ -208,13 +208,13 @@ struct WrapcellPass : Pass {
 				Module *subm;
 				Cell *subcell;
 
-				if (!ct.cell_known(cell->type))
+				if (!ct.cell_known(cell->type_impl))
 					log_error("Non-internal cell type '%s' on cell '%s' in module '%s' unsupported\n",
-							  cell->type.unescape(), cell, module);
+							  cell->type.unescaped(), cell, module);
 
 				std::vector<std::pair<IdString, int>> unused_outputs, used_outputs;
 				for (auto conn : cell->connections()) {
-					if (ct.cell_output(cell->type, conn.first))
+					if (ct.cell_output(cell->type_impl, conn.first))
 					for (int i = 0; i < conn.second.size(); i++) {
 						if (tracking_unused && unused.check(conn.second[i]))
 							unused_outputs.emplace_back(conn.first, i);
@@ -227,7 +227,7 @@ struct WrapcellPass : Pass {
 				if (!unused_outputs.empty()) {
 					context.unused_outputs += "_unused";
 					for (auto chunk : collect_chunks(unused_outputs))
-						context.unused_outputs += "_" + chunk.format(cell).unescape();
+						context.unused_outputs += "_" + design->twines.unescaped_str(chunk.format(cell));
 				}
 
 				std::optional<std::string> unescaped_name = format_with_params(name_fmt, cell->parameters, context);
@@ -242,7 +242,7 @@ struct WrapcellPass : Pass {
 				subm = d->addModule(name);
 				subcell = subm->addCell("$1", cell->type);
 				for (auto conn : cell->connections()) {
-					if (ct.cell_output(cell->type, conn.first)) {
+					if (ct.cell_output(cell->type_impl, conn.first)) {
 						// Insert marker bits as placehodlers which need to be replaced
 						subcell->setPort(conn.first, SigSpec(RTLIL::Sm, conn.second.size()));
 					} else {
@@ -286,7 +286,7 @@ struct WrapcellPass : Pass {
 				dict<IdString, SigSpec> new_connections;
 
 				for (auto conn : cell->connections())
-				if (!ct.cell_output(cell->type, conn.first))
+				if (!ct.cell_output(cell->type_impl, conn.first))
 					new_connections[conn.first] = conn.second;
 
 				for (auto chunk : collect_chunks(used_outputs))

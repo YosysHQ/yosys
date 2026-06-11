@@ -77,10 +77,10 @@ struct AigmapPass : public Pass {
 			{
 				Aig aig(cell);
 
-				if (cell->type.in(ID($_AND_), ID($_NOT_)))
+				if (cell->type.in(TW($_AND_), TW($_NOT_)))
 					aig.name.clear();
 
-				if (nand_mode && cell->type == ID($_NAND_))
+				if (nand_mode && cell->type == TW($_NAND_))
 					aig.name.clear();
 
 				if (aig.name.empty()) {
@@ -157,14 +157,14 @@ struct AigmapPass : public Pass {
 				stat_replaced.sort();
 				log("  replaced %d cell types:\n", GetSize(stat_replaced));
 				for (auto &it : stat_replaced)
-					log("%8d %s\n", it.second, it.first.unescape());
+					log("%8d %s\n", it.second, design->twines.unescaped_str(it.first));
 			}
 
 			if (!stat_not_replaced.empty()) {
 				stat_not_replaced.sort();
 				log("  not replaced %d cell types:\n", GetSize(stat_not_replaced));
 				for (auto &it : stat_not_replaced)
-					log("%8d %s\n", it.second, it.first.unescape());
+					log("%8d %s\n", it.second, design->twines.unescaped_str(it.first));
 			}
 
 			for (auto cell : replaced_cells)

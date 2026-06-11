@@ -1,3 +1,4 @@
+#include "kernel/twine.h"
 #ifdef YOSYS_ENABLE_TCL
 
 #include "kernel/register.h"
@@ -97,7 +98,7 @@ struct SdcObjects {
 		// constraint-side tracking
 		FullConstraint,
 	} collect_mode;
-	using CellPin = std::pair<Cell*, IdString>;
+	using CellPin = std::pair<Cell*, TwineRef>;
 	Design* design;
 	std::vector<std::pair<std::string, Wire*>> design_ports;
 	std::vector<std::pair<std::string, Cell*>> design_cells;
@@ -149,8 +150,8 @@ struct SdcObjects {
 			path += name;
 			design_cells.push_back(std::make_pair(path, cell));
 			for (auto pin : cell->connections()) {
-				IdString pin_name = pin.first;
-				std::string pin_name_sdc = path + "/" + pin.first.str().substr(1);
+				TwineRef pin_name = pin.first;
+				std::string pin_name_sdc = path + "/" + design->twines.unescaped_str(pin.first);
 				design_pins.push_back(std::make_pair(pin_name_sdc, std::make_pair(cell, pin_name)));
 			}
 			if (auto sub_mod = mod->design->module(cell->type)) {
@@ -168,9 +169,9 @@ struct SdcObjects {
 			RTLIL::Wire *wire = top->wire(port);
 			if (!wire) {
 				// This should not be possible. See https://github.com/YosysHQ/yosys/pull/5594#issue-3791198573
-				log_error("Port %s doesn't exist", port.unescape());
+				log_error("Port %s doesn't exist", design->twines.unescaped_str(port));
 			}
-			design_ports.push_back(std::make_pair(port.str().substr(1), wire));
+			design_ports.push_back(std::make_pair(design->twines.unescaped_str(port), wire));
 		}
 		std::list<std::string> hierarchy{};
 		sniff_module(hierarchy, top);

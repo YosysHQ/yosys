@@ -47,7 +47,7 @@ struct Coolrunner2SopPass : public Pass {
 			dict<SigBit, tuple<SigBit, Cell*>> not_cells;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == ID($_NOT_))
+				if (cell->type == TW($_NOT_))
 				{
 					auto not_input = sigmap(cell->getPort(TW::A)[0]);
 					auto not_output = sigmap(cell->getPort(TW::Y)[0]);
@@ -85,7 +85,7 @@ struct Coolrunner2SopPass : public Pass {
 			// Process $sop cells
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == ID($sop))
+				if (cell->type == TW($sop))
 				{
 					// Read the inputs/outputs/parameters of the $sop cell
 					auto sop_inputs = sigmap(cell->getPort(TW::A));

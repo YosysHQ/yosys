@@ -212,14 +212,14 @@ struct BoothPassWorker {
 			SigSpec A, B, Y;
 			bool is_signed;
 
-			if (cell->type == ID($mul)) {
+			if (cell->type == TW($mul)) {
 				A = cell->getPort(TW::A);
 				B = cell->getPort(TW::B);
 				Y = cell->getPort(TW::Y);
 
 				log_assert(cell->getParam(ID::A_SIGNED).as_bool() == cell->getParam(ID::B_SIGNED).as_bool());
 				is_signed = cell->getParam(ID::A_SIGNED).as_bool();
-			} else if (cell->type.in(ID($macc), ID($macc_v2))) {
+			} else if (cell->type.in(TW($macc), TW($macc_v2))) {
 				Macc macc;
 				macc.from_cell(cell);
 

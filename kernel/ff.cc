@@ -54,19 +54,19 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 
 	std::string type_str = type.str();
 
-	if (type.in(ID($anyinit), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
-		if (type.in(ID($anyinit), ID($ff))) {
+	if (type.in(TW($anyinit), TW($ff), TW($dff), TW($dffe), TW($dffsr), TW($dffsre), TW($adff), TW($adffe), TW($aldff), TW($aldffe), TW($sdff), TW($sdffe), TW($sdffce), TW($dlatch), TW($adlatch), TW($dlatchsr), TW($sr))) {
+		if (type.in(TW($anyinit), TW($ff))) {
 			info.has_gclk = true;
 			if constexpr (have_cell)
 				info.sig_d = cell->getPort(TW::D);
-			if (type == ID($anyinit)) {
+			if (type == TW($anyinit)) {
 				info.is_anyinit = true;
 				if constexpr (have_cell)
 					log_assert(info.val_init.is_fully_undef());
 			}
-		} else if (type == ID($sr)) {
+		} else if (type == TW($sr)) {
 			// No data input at all.
-		} else if (type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
+		} else if (type.in(TW($dlatch), TW($adlatch), TW($dlatchsr))) {
 			info.has_aload = true;
 			if constexpr (have_cell) {
 				info.sig_aload = cell->getPort(TW::EN);
@@ -81,14 +81,14 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 				info.sig_d = cell->getPort(TW::D);
 			}
 		}
-		if (type.in(ID($dffe), ID($dffsre), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce))) {
+		if (type.in(TW($dffe), TW($dffsre), TW($adffe), TW($aldffe), TW($sdffe), TW($sdffce))) {
 			info.has_ce = true;
 			if constexpr (have_cell) {
 				info.sig_ce = cell->getPort(TW::EN);
 				info.pol_ce = cell->getParam(ID::EN_POLARITY).as_bool();
 			}
 		}
-		if (type.in(ID($dffsr), ID($dffsre), ID($dlatchsr), ID($sr))) {
+		if (type.in(TW($dffsr), TW($dffsre), TW($dlatchsr), TW($sr))) {
 			info.has_sr = true;
 			if constexpr (have_cell) {
 				info.sig_clr = cell->getPort(TW::CLR);
@@ -97,7 +97,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 				info.pol_set = cell->getParam(ID::SET_POLARITY).as_bool();
 			}
 		}
-		if (type.in(ID($aldff), ID($aldffe))) {
+		if (type.in(TW($aldff), TW($aldffe))) {
 			info.has_aload = true;
 			if constexpr (have_cell) {
 				info.sig_aload = cell->getPort(TW::ALOAD);
@@ -105,7 +105,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 				info.sig_ad = cell->getPort(TW::AD);
 			}
 		}
-		if (type.in(ID($adff), ID($adffe), ID($adlatch))) {
+		if (type.in(TW($adff), TW($adffe), TW($adlatch))) {
 			info.has_arst = true;
 			if constexpr (have_cell) {
 				info.sig_arst = cell->getPort(TW::ARST);
@@ -113,16 +113,16 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 				info.val_arst = cell->getParam(ID::ARST_VALUE);
 			}
 		}
-		if (type.in(ID($sdff), ID($sdffe), ID($sdffce))) {
+		if (type.in(TW($sdff), TW($sdffe), TW($sdffce))) {
 			info.has_srst = true;
 			if constexpr (have_cell) {
 				info.sig_srst = cell->getPort(TW::SRST);
 				info.pol_srst = cell->getParam(ID::SRST_POLARITY).as_bool();
 				info.val_srst = cell->getParam(ID::SRST_VALUE);
 			}
-			info.ce_over_srst = type == ID($sdffce);
+			info.ce_over_srst = type == TW($sdffce);
 		}
-	} else if (type == ID($_FF_)) {
+	} else if (type == TW($_FF_)) {
 		info.is_fine = true;
 		info.has_gclk = true;
 		if constexpr (have_cell)
@@ -815,7 +815,7 @@ void FfData::flip_bits(const pool<int> &bits) {
 	Wire *new_q = module->addWire(NEW_TWINE, width);
 
 	if (has_sr && cell) {
-		log_warning("Flipping D/Q/init and inserting priority fixup to legalize %s.%s [%s].\n", module->design->twines.str(module->meta_->name).c_str(), cell->module->design->twines.str(cell->meta_->name), cell->type.unescape());
+		log_warning("Flipping D/Q/init and inserting priority fixup to legalize %s.%s [%s].\n", module->design->twines.str(module->meta_->name).c_str(), cell->name, cell->type.unescape());
 	}
 
 	if (is_fine) {

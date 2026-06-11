@@ -61,7 +61,7 @@ struct ThresholdHierarchyKeeping {
 				RTLIL::Module *submodule = design->module(cell->type);
 				if (!submodule)
 					log_error("Hierarchy contains unknown module '%s' (instanced as %s in %s)\n",
-							  cell->type.unescape(), cell, module);
+							  cell->type.unescaped(), cell, module);
 				size += visit(submodule);
 			}
 		}

@@ -100,7 +100,7 @@ struct ExtractinvPass : public Pass {
 					continue;
 				SigSpec sig = port.second;
 				if (it2->second.size() != sig.size())
-					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", module->name.unescape(), cell->type.unescape(), port.first.unescape(), param_name.unescape());
+					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", design->twines.unescaped_str(module->name), cell->type.unescaped(), design->twines.unescaped_str(port.first), design->twines.unescaped_str(param_name));
 				RTLIL::Const invmask = it2->second;
 				cell->parameters.erase(param_name);
 				if (invmask.is_fully_zero())
@@ -111,7 +111,7 @@ struct ExtractinvPass : public Pass {
 						RTLIL::Cell *icell = module->addCell(NEW_TWINE, RTLIL::escape_id(inv_celltype));
 						icell->setPort(RTLIL::escape_id(inv_portname), SigSpec(iwire, i));
 						icell->setPort(RTLIL::escape_id(inv_portname2), sig[i]);
-						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, module, cell->type.unescape(), port.first.unescape(), i);
+						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, module, cell->type.unescaped(), design->twines.unescaped_str(port.first), i);
 						sig[i] = SigBit(iwire, i);
 					}
 				cell->setPort(port.first, sig);

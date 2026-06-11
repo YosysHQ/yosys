@@ -74,7 +74,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			RTLIL::Wire *eq_wire = module->addWire(NEW_TWINE);
 			and_sig.append(RTLIL::SigSpec(eq_wire));
 
-			RTLIL::Cell *eq_cell = module->addCell(NEW_TWINE, ID($eq));
+			RTLIL::Cell *eq_cell = module->addCell(NEW_TWINE, TW($eq));
 			eq_cell->setPort(TW::A, eq_sig_a);
 			eq_cell->setPort(TW::B, eq_sig_b);
 			eq_cell->setPort(TW::Y, RTLIL::SigSpec(eq_wire));
@@ -102,7 +102,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				RTLIL::Wire *or_wire = module->addWire(NEW_TWINE);
 				and_sig.append(RTLIL::SigSpec(or_wire));
 
-				RTLIL::Cell *or_cell = module->addCell(NEW_TWINE, ID($reduce_or));
+				RTLIL::Cell *or_cell = module->addCell(NEW_TWINE, TW($reduce_or));
 				or_cell->setPort(TW::A, or_sig);
 				or_cell->setPort(TW::Y, RTLIL::SigSpec(or_wire));
 				or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
@@ -118,7 +118,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 				RTLIL::Wire *and_wire = module->addWire(NEW_TWINE);
 				cases_vector.append(RTLIL::SigSpec(and_wire));
 
-				RTLIL::Cell *and_cell = module->addCell(NEW_TWINE, ID($and));
+				RTLIL::Cell *and_cell = module->addCell(NEW_TWINE, TW($and));
 				and_cell->setPort(TW::A, and_sig.extract(0, 1));
 				and_cell->setPort(TW::B, and_sig.extract(1, 1));
 				and_cell->setPort(TW::Y, RTLIL::SigSpec(and_wire));
@@ -141,7 +141,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 	}
 
 	if (cases_vector.size() > 1) {
-		RTLIL::Cell *or_cell = module->addCell(NEW_TWINE, ID($reduce_or));
+		RTLIL::Cell *or_cell = module->addCell(NEW_TWINE, TW($reduce_or));
 		or_cell->setPort(TW::A, cases_vector);
 		or_cell->setPort(TW::Y, output);
 		or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
@@ -212,7 +212,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		{
 			encoding_is_onehot = false;
 
-			RTLIL::Cell *eq_cell = module->addCell(NEW_TWINE, ID($eq));
+			RTLIL::Cell *eq_cell = module->addCell(NEW_TWINE, TW($eq));
 			eq_cell->setPort(TW::A, sig_a);
 			eq_cell->setPort(TW::B, sig_b);
 			eq_cell->setPort(TW::Y, RTLIL::SigSpec(state_onehot, i));
@@ -285,7 +285,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				}
 			}
 
-			RTLIL::Cell *mux_cell = module->addCell(NEW_TWINE, ID($pmux));
+			RTLIL::Cell *mux_cell = module->addCell(NEW_TWINE, TW($pmux));
 			mux_cell->setPort(TW::A, sig_a);
 			mux_cell->setPort(TW::B, sig_b);
 			mux_cell->setPort(TW::S, sig_s);
@@ -339,7 +339,7 @@ struct FsmMapPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			std::vector<RTLIL::Cell*> fsm_cells;
 			for (auto cell : mod->selected_cells())
-				if (cell->type == ID($fsm))
+				if (cell->type == TW($fsm))
 					fsm_cells.push_back(cell);
 			for (auto cell : fsm_cells)
 					map_fsm(cell, mod);

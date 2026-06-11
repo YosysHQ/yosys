@@ -76,9 +76,9 @@ public:
 
 	RTLIL::Cell *addCell(TwineRef name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, const RTLIL::Cell *other);
+	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
 	RTLIL::Cell *addCell(Twine &&name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, Twine &&type);
-	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
 
 	// NEW_ID analog for twine names; see NEW_TWINE in yosys_common.h.
 	// Returned refs are twine_staging-local and die at the next commit.

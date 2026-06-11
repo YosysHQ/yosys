@@ -95,7 +95,7 @@ bool derive_module_luts(Module *m, std::vector<uint64_t> &luts)
 	CellTypes ff_types;
 	ff_types.setup_stdcells_mem();
 	for (auto cell : m->cells()) {
-		if (ff_types.cell_known(cell->type)) {
+		if (ff_types.cell_known(cell->type_impl)) {
 			log("Ignoring module '%s' which isn't purely combinational.\n", m);
 			return false;
 		}

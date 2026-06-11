@@ -348,7 +348,7 @@ struct FsmOptPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 			for (auto cell : mod->selected_cells())
-				if (cell->type == ID($fsm))
+				if (cell->type == TW($fsm))
 					FsmData::optimize_fsm(cell, mod);
 	}
 } FsmOptPass;

@@ -47,9 +47,9 @@ struct PrintAttrsPass : public Pass {
 
 	static void log_const(RTLIL::IdString s, const RTLIL::Const &x, const unsigned int indent) {
 		if (x.flags & RTLIL::CONST_FLAG_STRING)
-			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent), s.unescape(), x.decode_string());
+			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent), design->twines.unescaped_str(s), x.decode_string());
 		else if (x.flags == RTLIL::CONST_FLAG_NONE || x.flags == RTLIL::CONST_FLAG_SIGNED)
-			log("%s(* %s=%s *)\n", get_indent_str(indent), s.unescape(), x.as_string());
+			log("%s(* %s=%s *)\n", get_indent_str(indent), design->twines.unescaped_str(s), x.as_string());
 		else
 			log_assert(x.flags & RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
@@ -88,7 +88,7 @@ struct PrintAttrsPass : public Pass {
 			}
 
 			for (auto wire : mod->selected_wires()) {
-				log("%s%s\n", get_indent_str(indent), wire->name.unescape());
+				log("%s%s\n", get_indent_str(indent), design->twines.unescaped_str(wire->name));
 				indent += 2;
 				log_src(design, wire, indent);
 				for (auto &it : wire->attributes)

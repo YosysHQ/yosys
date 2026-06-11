@@ -245,7 +245,7 @@ struct SatHelper
 			if (design->selected(module, cell)) {
 				if (satgen.importCell(cell, timestep)) {
 					for (auto &p : cell->connections())
-						if (ct.cell_output(cell->type, p.first))
+						if (ct.cell_output(cell->type_impl, p.first))
 							show_drivers.insert(sigmap(p.second), cell);
 					import_cell_counter++;
 				} else report_missing_model(ignore_unknown_cells, cell);
@@ -267,7 +267,7 @@ struct SatHelper
 			// Check for $anyinit cells that are forced to be defined
 			if (set_init_undef && satgen.def_formal)
 				for (auto cell : module->cells())
-					if (cell->type == ID($anyinit))
+					if (cell->type == TW($anyinit))
 						forced_def.append(sigmap(cell->getPort(TW::Q)));
 
 			for (auto wire : module->wires())
@@ -533,7 +533,7 @@ struct SatHelper
 				} else {
 					for (auto &d : drivers)
 					for (auto &p : d->connections()) {
-						if (d->type == ID($dff) && p.first == TW::CLK)
+						if (d->type == TW($dff) && p.first == TW::CLK)
 							continue;
 						if (d->type.begins_with("$_DFF_") && p.first == TW::C)
 							continue;
@@ -1408,7 +1408,7 @@ struct SatPass : public Pass {
 		if (show_regs) {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
-				if (cell->type == ID($dff) || cell->type.begins_with("$_DFF_"))
+				if (cell->type == TW($dff) || cell->type.begins_with("$_DFF_"))
 					for (auto bit : cell->getPort(TW::Q))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);

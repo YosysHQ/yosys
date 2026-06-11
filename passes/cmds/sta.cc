@@ -35,8 +35,8 @@ struct StaWorker
 
 	struct t_data {
 		Cell* driver;
-		IdString dst_port, src_port;
-		vector<tuple<SigBit,int,IdString>> fanouts;
+		TwineRef dst_port, src_port;
+		vector<tuple<SigBit,int,TwineRef>> fanouts;
 		SigBit backtrack;
 		t_data() : driver(nullptr) {}
 	};
@@ -44,7 +44,7 @@ struct StaWorker
 	std::deque<SigBit> queue;
 	struct t_endpoint {
 		Cell *sink;
-		IdString port;
+		TwineRef port;
 		int required;
 		t_endpoint() : sink(nullptr), required(0) {}
 	};
@@ -66,23 +66,23 @@ struct StaWorker
 			Module *inst_module = design->module(cell->type);
 			if (!inst_module) {
 				if (unrecognised_cells.insert(cell->type).second)
-					log_warning("Cell type '%s' not recognised! Ignoring.\n", cell->type.unescape());
+					log_warning("Cell type '%s' not recognised! Ignoring.\n", cell->type.unescaped());
 				continue;
 			}
 
 			if (!inst_module->get_blackbox_attribute()) {
-				log_warning("Cell type '%s' is not a black- nor white-box! Ignoring.\n", cell->type.unescape());
+				log_warning("Cell type '%s' is not a black- nor white-box! Ignoring.\n", cell->type.unescaped());
 				continue;
 			}
 
-			IdString derived_type = inst_module->derive(design, cell->parameters);
+			TwineRef derived_type = inst_module->derive(design, cell->parameters);
 			inst_module = design->module(derived_type);
 			log_assert(inst_module);
 
 			if (!timing.count(derived_type)) {
 				auto &t = timing.setup_module(inst_module);
 				if (t.has_inputs && t.comb.empty() && t.arrival.empty() && t.required.empty())
-					log_warning("Module '%s' has no timing arcs!\n", cell->type.unescape());
+					log_warning("Module '%s' has no timing arcs!\n", cell->type.unescaped());
 			}
 
 			auto &t = timing.at(derived_type);
@@ -206,7 +206,7 @@ struct StaWorker
 		log("Latest arrival time in '%s' is %d:\n", module, maxarrival);
 		auto it = endpoints.find(maxbit);
 		if (it != endpoints.end() && it->second.sink)
-			log("  %6d %s (%s.%s)\n", maxarrival, it->second.sink, it->second.sink->type.unescape(), it->second.port.unescape());
+			log("  %6d %s (%s.%s)\n", maxarrival, it->second.sink, design->twines.unescaped_str(it->second.sink->type), design->twines.unescaped_str(it->second.port));
 		else {
 			log("  %6d (%s)\n", maxarrival, b.wire->port_output ? "<primary output>" : "<unknown>");
 			if (!b.wire->port_output)
@@ -217,7 +217,7 @@ struct StaWorker
 			int arrival = b.wire->get_intvec_attribute(ID::sta_arrival)[b.offset];
 			if (jt->second.driver) {
 				log("           %s\n", log_signal(b));
-				log("  %6d %s (%s.%s->%s)\n", arrival, jt->second.driver, jt->second.driver->type.unescape(), jt->second.src_port.unescape(), jt->second.dst_port.unescape());
+				log("  %6d %s (%s.%s->%s)\n", arrival, jt->second.driver, design->twines.unescaped_str(jt->second.driver->type), design->twines.unescaped_str(jt->second.src_port), design->twines.unescaped_str(jt->second.dst_port));
 			}
 			else if (b.wire->port_input)
 				log("  %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");

@@ -115,7 +115,7 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 	SigPool simds = simd_signals(module, sigmap);
 
 	for (auto cell : selected_cells) {
-		if (!cell->type.in(ID($add), ID($sub)))
+		if (!cell->type.in(TW($add), TW($sub)))
 			continue;
 		SigSpec Y = cell->getPort(TW::Y);
 		if (!is_allowed(Y, simds))
@@ -129,9 +129,9 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 				continue;
 			if (GetSize(B) > 12)
 				continue;
-			if (cell->type == ID($add))
+			if (cell->type == TW($add))
 				simd12_add.push_back(cell);
-			else if (cell->type == ID($sub))
+			else if (cell->type == TW($sub))
 				simd12_sub.push_back(cell);
 		}
 		else if (GetSize(Y) <= 25) {
@@ -139,9 +139,9 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 				continue;
 			if (GetSize(B) > 24)
 				continue;
-			if (cell->type == ID($add))
+			if (cell->type == TW($add))
 				simd24_add.push_back(cell);
-			else if (cell->type == ID($sub))
+			else if (cell->type == TW($sub))
 				simd24_sub.push_back(cell);
 		}
 		else
@@ -222,7 +222,7 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 			cell->setPort(TW::C, C);
 			cell->setPort(TW::P, P);
 			cell->setPort(TW::CARRYOUT, CARRYOUT);
-			if (lane1->type == ID($sub))
+			if (lane1->type == TW($sub))
 				cell->setPort(TW::ALUMODE, Const::from_string("0011"));
 
 			module->remove(lane1);
@@ -286,7 +286,7 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 			cell->setPort(TW::C, C);
 			cell->setPort(TW::P, P);
 			cell->setPort(TW::CARRYOUT, CARRYOUT);
-			if (lane1->type == ID($sub))
+			if (lane1->type == TW($sub))
 				cell->setPort(TW::ALUMODE, Const::from_string("0011"));
 
 			module->remove(lane1);
@@ -305,27 +305,27 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", pm.module, st.dsp);
 
-	log_debug("preAdd:     %s\n", st.preAdd ? st.preAdd->name.unescape() : "--");
-	log_debug("preSub:     %s\n", st.preSub ? st.preSub->name.unescape() : "--");
-	log_debug("ffAD:       %s\n", st.ffAD ? st.ffAD->name.unescape() : "--");
-	log_debug("ffA2:       %s\n", st.ffA2 ? st.ffA2->name.unescape() : "--");
-	log_debug("ffA1:       %s\n", st.ffA1 ? st.ffA1->name.unescape() : "--");
-	log_debug("ffB2:       %s\n", st.ffB2 ? st.ffB2->name.unescape() : "--");
-	log_debug("ffB1:       %s\n", st.ffB1 ? st.ffB1->name.unescape() : "--");
-	log_debug("ffD:        %s\n", st.ffD ? st.ffD->name.unescape() : "--");
-	log_debug("dsp:        %s\n", st.dsp ? st.dsp->name.unescape() : "--");
-	log_debug("ffM:        %s\n", st.ffM ? st.ffM->name.unescape() : "--");
-	log_debug("postAdd:    %s\n", st.postAdd ? st.postAdd->name.unescape() : "--");
-	log_debug("postAddMux: %s\n", st.postAddMux ? st.postAddMux->name.unescape() : "--");
-	log_debug("ffP:        %s\n", st.ffP ? st.ffP->name.unescape() : "--");
-	log_debug("overflow:   %s\n", st.overflow ? st.overflow->name.unescape() : "--");
+	log_debug("preAdd:     %s\n", st.preAdd ? design->twines.unescaped_str(st.preAdd->name) : "--");
+	log_debug("preSub:     %s\n", st.preSub ? design->twines.unescaped_str(st.preSub->name) : "--");
+	log_debug("ffAD:       %s\n", st.ffAD ? design->twines.unescaped_str(st.ffAD->name) : "--");
+	log_debug("ffA2:       %s\n", st.ffA2 ? design->twines.unescaped_str(st.ffA2->name) : "--");
+	log_debug("ffA1:       %s\n", st.ffA1 ? design->twines.unescaped_str(st.ffA1->name) : "--");
+	log_debug("ffB2:       %s\n", st.ffB2 ? design->twines.unescaped_str(st.ffB2->name) : "--");
+	log_debug("ffB1:       %s\n", st.ffB1 ? design->twines.unescaped_str(st.ffB1->name) : "--");
+	log_debug("ffD:        %s\n", st.ffD ? design->twines.unescaped_str(st.ffD->name) : "--");
+	log_debug("dsp:        %s\n", st.dsp ? design->twines.unescaped_str(st.dsp->name) : "--");
+	log_debug("ffM:        %s\n", st.ffM ? design->twines.unescaped_str(st.ffM->name) : "--");
+	log_debug("postAdd:    %s\n", st.postAdd ? design->twines.unescaped_str(st.postAdd->name) : "--");
+	log_debug("postAddMux: %s\n", st.postAddMux ? design->twines.unescaped_str(st.postAddMux->name) : "--");
+	log_debug("ffP:        %s\n", st.ffP ? design->twines.unescaped_str(st.ffP->name) : "--");
+	log_debug("overflow:   %s\n", st.overflow ? design->twines.unescaped_str(st.overflow->name) : "--");
 
 	Cell *cell = st.dsp;
 
 	if (st.preAdd || st.preSub) {
 		Cell* preAdder = st.preAdd ? st.preAdd : st.preSub;
 
-		log("  preadder %s (%s)\n", preAdder, preAdder->type.unescape());
+		log("  preadder %s (%s)\n", preAdder, design->twines.unescaped_str(preAdder->type));
 		bool A_SIGNED = preAdder->getParam(ID::A_SIGNED).as_bool();
 		bool D_SIGNED = preAdder->getParam(ID::B_SIGNED).as_bool();
 		if (st.sigA == preAdder->getPort(TW::B))
@@ -334,13 +334,13 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		st.sigD.extend_u0(25, D_SIGNED);
 		cell->setPort(TW::A, st.sigA);
 		cell->setPort(TW::D, st.sigD);
-		if (preAdder->type == ID($add))
+		if (preAdder->type == TW($add))
 			cell->setPort(TW::INMODE, Const::from_string("00100"));
 		else
 			cell->setPort(TW::INMODE, Const::from_string("01100"));
 
 		if (st.ffAD) {
-			if (st.ffAD->type.in(ID($dffe), ID($sdffe))) {
+			if (st.ffAD->type.in(TW($dffe), TW($sdffe))) {
 				bool pol = st.ffAD->getParam(ID::EN_POLARITY).as_bool();
 				SigSpec S = st.ffAD->getPort(TW::EN);
 				cell->setPort(TW::CEAD, pol ? S : pm.module->Not(NEW_TWINE, S));
@@ -355,7 +355,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		pm.autoremove(preAdder);
 	}
 	if (st.postAdd) {
-		log("  postadder %s (%s)\n", st.postAdd, st.postAdd->type.unescape());
+		log("  postadder %s (%s)\n", st.postAdd, design->twines.unescaped_str(st.postAdd->type));
 
 		SigSpec &opmode = cell->connections_.at(ID(OPMODE));
 		if (st.postAddMux) {
@@ -381,12 +381,12 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		pm.autoremove(st.postAdd);
 	}
 	if (st.overflow) {
-		log("  overflow %s (%s)\n", st.overflow, st.overflow->type.unescape());
+		log("  overflow %s (%s)\n", st.overflow, design->twines.unescaped_str(st.overflow->type));
 		cell->setParam(ID(USE_PATTERN_DETECT), Const("PATDET"));
 		cell->setParam(ID(SEL_PATTERN), Const("PATTERN"));
 		cell->setParam(ID(SEL_MASK), Const("MASK"));
 
-		if (st.overflow->type == ID($ge)) {
+		if (st.overflow->type == TW($ge)) {
 			Const B = st.overflow->getPort(TW::B).as_const();
 			log_assert(std::count(B.begin(), B.end(), State::S1) == 1);
 			// Since B is an exact power of 2, subtract 1
@@ -419,7 +419,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
-				if (ff->type.in(ID($sdff), ID($sdffe))) {
+				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
 					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_TWINE, srst));
@@ -427,7 +427,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 					cell->setPort(rstport, State::S0);
 				}
 			}
-			if (ff->type.in(ID($dffe), ID($sdffe))) {
+			if (ff->type.in(TW($dffe), TW($sdffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
@@ -538,23 +538,23 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 
 	log("Analysing %s.%s for Xilinx DSP48A/DSP48A1 packing.\n", pm.module, st.dsp);
 
-	log_debug("preAdd:     %s\n", st.preAdd ? st.preAdd->name.unescape() : "--");
-	log_debug("ffA1:       %s\n", st.ffA1 ? st.ffA1->name.unescape() : "--");
-	log_debug("ffA0:       %s\n", st.ffA0 ? st.ffA0->name.unescape() : "--");
-	log_debug("ffB1:       %s\n", st.ffB1 ? st.ffB1->name.unescape() : "--");
-	log_debug("ffB0:       %s\n", st.ffB0 ? st.ffB0->name.unescape() : "--");
-	log_debug("ffD:        %s\n", st.ffD ? st.ffD->name.unescape() : "--");
-	log_debug("dsp:        %s\n", st.dsp ? st.dsp->name.unescape() : "--");
-	log_debug("ffM:        %s\n", st.ffM ? st.ffM->name.unescape() : "--");
-	log_debug("postAdd:    %s\n", st.postAdd ? st.postAdd->name.unescape() : "--");
-	log_debug("postAddMux: %s\n", st.postAddMux ? st.postAddMux->name.unescape() : "--");
-	log_debug("ffP:        %s\n", st.ffP ? st.ffP->name.unescape() : "--");
+	log_debug("preAdd:     %s\n", st.preAdd ? design->twines.unescaped_str(st.preAdd->name) : "--");
+	log_debug("ffA1:       %s\n", st.ffA1 ? design->twines.unescaped_str(st.ffA1->name) : "--");
+	log_debug("ffA0:       %s\n", st.ffA0 ? design->twines.unescaped_str(st.ffA0->name) : "--");
+	log_debug("ffB1:       %s\n", st.ffB1 ? design->twines.unescaped_str(st.ffB1->name) : "--");
+	log_debug("ffB0:       %s\n", st.ffB0 ? design->twines.unescaped_str(st.ffB0->name) : "--");
+	log_debug("ffD:        %s\n", st.ffD ? design->twines.unescaped_str(st.ffD->name) : "--");
+	log_debug("dsp:        %s\n", st.dsp ? design->twines.unescaped_str(st.dsp->name) : "--");
+	log_debug("ffM:        %s\n", st.ffM ? design->twines.unescaped_str(st.ffM->name) : "--");
+	log_debug("postAdd:    %s\n", st.postAdd ? design->twines.unescaped_str(st.postAdd->name) : "--");
+	log_debug("postAddMux: %s\n", st.postAddMux ? design->twines.unescaped_str(st.postAddMux->name) : "--");
+	log_debug("ffP:        %s\n", st.ffP ? design->twines.unescaped_str(st.ffP->name) : "--");
 
 	Cell *cell = st.dsp;
 	SigSpec &opmode = cell->connections_.at(ID(OPMODE));
 
 	if (st.preAdd) {
-		log("  preadder %s (%s)\n", st.preAdd, st.preAdd->type.unescape());
+		log("  preadder %s (%s)\n", st.preAdd, design->twines.unescaped_str(st.preAdd->type));
 		bool D_SIGNED = st.preAdd->getParam(ID::A_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdd->getParam(ID::B_SIGNED).as_bool();
 		st.sigB.extend_u0(18, B_SIGNED);
@@ -562,9 +562,9 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		cell->setPort(TW::B, st.sigB);
 		cell->setPort(TW::D, st.sigD);
 		opmode[4] = State::S1;
-		if (st.preAdd->type == ID($add))
+		if (st.preAdd->type == TW($add))
 			opmode[6] = State::S0;
-		else if (st.preAdd->type == ID($sub))
+		else if (st.preAdd->type == TW($sub))
 			opmode[6] = State::S1;
 		else
 			log_assert(!"strange pre-adder type");
@@ -572,7 +572,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		pm.autoremove(st.preAdd);
 	}
 	if (st.postAdd) {
-		log("  postadder %s (%s)\n", st.postAdd, st.postAdd->type.unescape());
+		log("  postadder %s (%s)\n", st.postAdd, design->twines.unescaped_str(st.postAdd->type));
 
 		if (st.postAddMux) {
 			log_assert(st.ffP);
@@ -606,7 +606,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
-				if (ff->type.in(ID($sdff), ID($sdffe))) {
+				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
 					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_TWINE, srst));
@@ -614,7 +614,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 					cell->setPort(rstport, State::S0);
 				}
 			}
-			if (ff->type.in(ID($dffe), ID($sdffe))) {
+			if (ff->type.in(TW($dffe), TW($sdffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
@@ -715,7 +715,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 	auto &st = pm.st_xilinx_dsp_packC;
 
 	log_debug("Analysing %s.%s for Xilinx DSP packing (CREG).\n", pm.module, st.dsp);
-	log_debug("ffC:        %s\n", st.ffC ? st.ffC->name.unescape() : "--");
+	log_debug("ffC:        %s\n", st.ffC ? design->twines.unescaped_str(st.ffC->name) : "--");
 
 	Cell *cell = st.dsp;
 
@@ -729,7 +729,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString()) {
-				if (ff->type.in(ID($sdff), ID($sdffe))) {
+				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
 					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_TWINE, srst));
@@ -737,7 +737,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 					cell->setPort(rstport, State::S0);
 				}
 			}
-			if (ff->type.in(ID($dffe), ID($sdffe))) {
+			if (ff->type.in(TW($dffe), TW($sdffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
 				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));

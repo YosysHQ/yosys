@@ -22,24 +22,24 @@ static unsigned int y_coef(TwineRef type)
 {
 	if (
 	  // equality
-	  type.in(ID($bweqx), ID($nex), ID($eqx)) ||
+	  type.in(TW($bweqx), TW($nex), TW($eqx)) ||
 	  // basic logic
-	  type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($not)) ||
+	  type.in(TW($and), TW($or), TW($xor), TW($xnor), TW($not)) ||
 	  // mux
-	  type.in(ID($bwmux), ID($mux)) ||
+	  type.in(TW($bwmux), TW($mux)) ||
 	  // others
-	  type == ID($tribuf)) {
+	  type == TW($tribuf)) {
 		return 1;
-	} else if (type == ID($neg)) {
+	} else if (type == TW($neg)) {
 		return 4;
-	} else if (type == ID($demux)) {
+	} else if (type == TW($demux)) {
 		return 2;
-	} else if (type == ID($fa)) {
+	} else if (type == TW($fa)) {
 		return 5;
-	} else if (type.in(ID($add), ID($sub), ID($alu))) {
+	} else if (type.in(TW($add), TW($sub), TW($alu))) {
 		// multi-bit adders
 		return 8;
-	} else if (type.in(ID($shl), ID($sshl))) {
+	} else if (type.in(TW($shl), TW($sshl))) {
 		// left shift
 		return 10;
 	}
@@ -50,19 +50,19 @@ static unsigned int max_inp_coef(TwineRef type)
 {
 	if (
 	  // binop reduce
-	  type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)) ||
+	  type.in(TW($reduce_and), TW($reduce_or), TW($reduce_xor), TW($reduce_xnor), TW($reduce_bool)) ||
 	  // others
-	  type.in(ID($logic_not), ID($pmux), ID($bmux))) {
+	  type.in(TW($logic_not), TW($pmux), TW($bmux))) {
 		return 1;
 	} else if (
 	  // equality
-	  type.in(ID($eq), ID($ne)) ||
+	  type.in(TW($eq), TW($ne)) ||
 	  // logic
-	  type.in(ID($logic_and), ID($logic_or))) {
+	  type.in(TW($logic_and), TW($logic_or))) {
 		return 2;
-	} else if (type == ID($lcu)) {
+	} else if (type == TW($lcu)) {
 		return 5;
-	} else if (type.in(ID($lt), ID($le), ID($ge), ID($gt))) {
+	} else if (type.in(TW($lt), TW($le), TW($ge), TW($gt))) {
 		// comparison
 		return 7;
 	}
@@ -71,10 +71,10 @@ static unsigned int max_inp_coef(TwineRef type)
 
 static unsigned int sum_coef(TwineRef type)
 {
-	if (type.in(ID($shr), ID($sshr))) {
+	if (type.in(TW($shr), TW($sshr))) {
 		// right shift
 		return 4;
-	} else if (type.in(ID($shift), ID($shiftx))) {
+	} else if (type.in(TW($shift), TW($shiftx))) {
 		// shift
 		return 8;
 	}
@@ -83,23 +83,23 @@ static unsigned int sum_coef(TwineRef type)
 
 static unsigned int is_div_mod(TwineRef type)
 {
-	return (type == ID($div) || type == ID($divfloor) || type == ID($mod) || type == ID($modfloor));
+	return (type == TW($div) || type == TW($divfloor) || type == TW($mod) || type == TW($modfloor));
 }
 
 static bool is_free(TwineRef type)
 {
 	return (
 	  // tags
-	  type.in(ID($overwrite_tag), ID($set_tag), ID($original_tag), ID($get_tag)) ||
+	  type.in(TW($overwrite_tag), TW($set_tag), TW($original_tag), TW($get_tag)) ||
 	  // formal
-	  type.in(ID($check), ID($equiv), ID($initstate), ID($assert), ID($assume), ID($live), ID($cover), ID($fair)) ||
-	  type.in(ID($allseq), ID($allconst), ID($anyseq), ID($anyconst), ID($anyinit)) ||
+	  type.in(TW($check), TW($equiv), TW($initstate), TW($assert), TW($assume), TW($live), TW($cover), TW($fair)) ||
+	  type.in(TW($allseq), TW($allconst), TW($anyseq), TW($anyconst), TW($anyinit)) ||
 	  // utilities
-	  type.in(ID($scopeinfo), ID($print)) ||
+	  type.in(TW($scopeinfo), TW($print)) ||
 	  // real but free
-	  type.in(ID($concat), ID($slice), ID($pos)) ||
+	  type.in(TW($concat), TW($slice), TW($pos)) ||
 	  // specify
-	  type.in(ID($specrule), ID($specify2), ID($specify3)));
+	  type.in(TW($specrule), TW($specify2), TW($specify3)));
 }
 
 unsigned int max_inp_width(RTLIL::Cell *cell)
@@ -112,7 +112,7 @@ unsigned int max_inp_width(RTLIL::Cell *cell)
 	  ID::S_WIDTH,
 	};
 
-	if (cell->type == ID($bmux))
+	if (cell->type == TW($bmux))
 		return cell->getParam(ID::WIDTH).as_int() << cell->getParam(ID::S_WIDTH).as_int();
 
 	for (RTLIL::IdString param : input_width_params)
@@ -139,7 +139,7 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 {
 
 	// simple 1-bit cells
-	if (cmos_gate_cost().count(cell->type))
+	if (cmos_gate_cost().count(cell->type_impl))
 		return 1;
 
 	if (design_ && design_->module(cell->type) && cell->parameters.empty()) {
@@ -149,35 +149,35 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		log_assert(cell->hasPort(TW::Q) && "Weird flip flop");
 		log_debug("%s is ff\n", cell->name);
 		return cell->getParam(ID::WIDTH).as_int();
-	} else if (cell->type.in(ID($mem), ID($mem_v2))) {
+	} else if (cell->type.in(TW($mem), TW($mem_v2))) {
 		log_debug("%s is mem\n", cell->name);
 		return cell->getParam(ID::WIDTH).as_int() * cell->getParam(ID::SIZE).as_int();
-	} else if (y_coef(cell->type)) {
+	} else if (y_coef(cell->type.ref())) {
 		// linear with Y_WIDTH or WIDTH
 		log_assert((cell->hasParam(ID::Y_WIDTH) || cell->hasParam(ID::WIDTH)) && "Unknown width");
 		auto param = cell->hasParam(ID::Y_WIDTH) ? ID::Y_WIDTH : ID::WIDTH;
 		int width = cell->getParam(param).as_int();
-		if (cell->type == ID($demux))
+		if (cell->type == TW($demux))
 			width <<= cell->getParam(ID::S_WIDTH).as_int();
-		log_debug("%s Y*coef %d * %d\n", cell->name, width, y_coef(cell->type));
-		return width * y_coef(cell->type);
-	} else if (sum_coef(cell->type)) {
+		log_debug("%s Y*coef %d * %d\n", cell->name, width, y_coef(cell->type.ref()));
+		return width * y_coef(cell->type.ref());
+	} else if (sum_coef(cell->type.ref())) {
 		// linear with sum of port widths
 		unsigned int sum = port_width_sum(cell);
-		log_debug("%s sum*coef %d * %d\n", cell->name, sum, sum_coef(cell->type));
-		return sum * sum_coef(cell->type);
-	} else if (max_inp_coef(cell->type)) {
+		log_debug("%s sum*coef %d * %d\n", cell->name, sum, sum_coef(cell->type.ref()));
+		return sum * sum_coef(cell->type.ref());
+	} else if (max_inp_coef(cell->type.ref())) {
 		// linear with largest input width
 		unsigned int max = max_inp_width(cell);
-		log_debug("%s max*coef %d * %d\n", cell->name, max, max_inp_coef(cell->type));
-		return max * max_inp_coef(cell->type);
-	} else if (is_div_mod(cell->type) || cell->type == ID($mul)) {
+		log_debug("%s max*coef %d * %d\n", cell->name, max, max_inp_coef(cell->type.ref()));
+		return max * max_inp_coef(cell->type.ref());
+	} else if (is_div_mod(cell->type.ref()) || cell->type == TW($mul)) {
 		// quadratic with sum of port widths
 		unsigned int sum = port_width_sum(cell);
-		unsigned int coef = cell->type == ID($mul) ? 3 : 5;
+		unsigned int coef = cell->type == TW($mul) ? 3 : 5;
 		log_debug("%s coef*(sum**2) %d * %d\n", cell->name, coef, sum * sum);
 		return coef * sum * sum;
-	} else if (cell->type.in(ID($macc), ID($macc_v2))) {
+	} else if (cell->type.in(TW($macc), TW($macc_v2))) {
 		// quadratic per term
 		unsigned int cost_sum = 0;
 		Macc macc;
@@ -193,17 +193,17 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 			cost_sum += 3 * sum * sum;
 		}
 		return cost_sum;
-	} else if (cell->type == ID($lut)) {
+	} else if (cell->type == TW($lut)) {
 		int width = cell->getParam(ID::WIDTH).as_int();
 		unsigned int cost = 1U << (unsigned int)width;
 		log_debug("%s is 2**%d\n", cell->name, width);
 		return cost;
-	} else if (cell->type == ID($sop)) {
+	} else if (cell->type == TW($sop)) {
 		int width = cell->getParam(ID::WIDTH).as_int();
 		int depth = cell->getParam(ID::DEPTH).as_int();
 		log_debug("%s is (2*%d + 1)*%d\n", cell->name, width, depth);
 		return (2 * width + 1) * depth;
-	} else if (is_free(cell->type)) {
+	} else if (is_free(cell->type.ref())) {
 		log_debug("%s is free\n", cell->name);
 		return 0;
 	}

@@ -674,8 +674,8 @@ struct FlowmapWorker
 			labels[node] = -1;
 		for (auto input : inputs)
 		{
-			if (input.wire->attributes.count(ID($flowmap_level)))
-				labels[input] = input.wire->attributes[ID($flowmap_level)].as_int();
+			if (input.wire->attributes.count(TW($flowmap_level)))
+				labels[input] = input.wire->attributes[TW($flowmap_level)].as_int();
 			else
 				labels[input] = 0;
 		}
@@ -1590,7 +1590,7 @@ struct FlowmapPass : public Pass {
 		}
 		else
 		{
-			cell_types = {ID($_NOT_), ID($_AND_), ID($_OR_), ID($_XOR_), ID($_MUX_)};
+			cell_types = {TW($_NOT_), TW($_AND_), TW($_OR_), TW($_XOR_), TW($_MUX_)};
 		}
 
 		const char *algo_r = relax ? "-r" : "";

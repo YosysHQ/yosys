@@ -76,7 +76,7 @@ struct JsonWriter
 
 	string get_name(IdString name)
 	{
-		return get_string(name.unescape());
+		return design->twines.unescaped_str(get_string(name));
 	}
 
 	string get_name(TwineRef name)
@@ -205,7 +205,7 @@ struct JsonWriter
 		for (auto c : module->cells()) {
 			if (use_selection && !module->selected(c))
 				continue;
-			if (!scopeinfo_mode && c->type == ID($scopeinfo))
+			if (!scopeinfo_mode && c->type == TW($scopeinfo))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(c->name));

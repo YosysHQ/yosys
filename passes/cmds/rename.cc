@@ -21,6 +21,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 #include "backends/verilog/verilog_backend.h"
+#include "kernel/twine.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -149,11 +150,11 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 			}
 		}
 
-		if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq))) {
+		if (cell->type.in(TW($anyconst), TW($anyseq), TW($anyinit), TW($allconst), TW($allseq))) {
 			has_witness_signals = true;
 			IdString QY;
 			bool clk2fflogic = false;
-			if (cell->type == ID($anyinit))
+			if (cell->type == TW($anyinit))
 				QY = (clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic))) ? ID::D : ID::Q;
 			else
 				QY = ID::Y;
@@ -179,7 +180,7 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 		}
 
 
-		if (cell->type.in(ID($assert), ID($assume), ID($cover), ID($live), ID($fair), ID($check))) {
+		if (cell->type.in(TW($assert), TW($assume), TW($cover), TW($live), TW($fair), TW($check))) {
 			has_witness_signals = true;
 			if (cell->name.isPublic())
 				continue;
@@ -386,6 +387,7 @@ struct RenamePass : public Pass {
 		// TODO disable signorm due to rename I think?
 		design->sigNormalize(false);
 
+		TwineSearch search(&design->twines);
 		if (flag_src)
 		{
 			extra_args(args, argidx, design);
@@ -527,14 +529,14 @@ struct RenamePass : public Pass {
 			if (argidx+1 != args.size())
 				log_cmd_error("Invalid number of arguments!\n");
 
-			IdString new_name = RTLIL::escape_id(args[argidx]);
+			TwineRef new_name = design->twines.add(Twine{RTLIL::escape_id(args[argidx])});
 			RTLIL::Module *module = design->top_module();
 
 			if (module == nullptr)
 				log_cmd_error("No top module found!\n");
 
-			log("Renaming module %s to %s.\n", log_id(module), new_name.unescape());
-			design->rename(module, design->twines.add(Twine{new_name.str()}));
+			log("Renaming module %s to %s.\n", log_id(module), design->twines.unescaped_str(new_name));
+			design->rename(module, new_name);
 		}
 		else
 		if (flag_scramble_name)

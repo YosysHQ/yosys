@@ -37,7 +37,7 @@ struct ExclusiveDatabase
 		SigBit y_port;
 		pool<Cell*> reduce_or;
 		for (auto cell : module->cells()) {
-			if (cell->type == ID($eq)) {
+			if (cell->type == TW($eq)) {
 				SigSpec y_sig = sigmap(cell->getPort(TW::Y));
 				if (GetSize(y_sig) == 0)
 					continue;
@@ -50,7 +50,7 @@ struct ExclusiveDatabase
 				}
 				y_port = y_sig[0];
 			}
-			else if (cell->type == ID($logic_not)) {
+			else if (cell->type == TW($logic_not)) {
 				SigSpec y_sig = sigmap(cell->getPort(TW::Y));
 				if (GetSize(y_sig) == 0)
 					continue;
@@ -58,7 +58,7 @@ struct ExclusiveDatabase
 				const_sig = Const(State::S0, GetSize(nonconst_sig));
 				y_port = y_sig[0];
 			}
-			else if (cell->type == ID($reduce_or)) {
+			else if (cell->type == TW($reduce_or)) {
 				reduce_or.insert(cell);
 				continue;
 			}
@@ -152,11 +152,11 @@ struct MuxpackWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in(ID($mux), ID($pmux)) && !cell->get_bool_attribute(ID::keep))
+			if (cell->type.in(TW($mux), TW($pmux)) && !cell->get_bool_attribute(ID::keep))
 			{
 				SigSpec a_sig = sigmap(cell->getPort(TW::A));
 				SigSpec b_sig;
-				if (cell->type == ID($mux))
+				if (cell->type == TW($mux))
 					b_sig = sigmap(cell->getPort(TW::B));
 				SigSpec y_sig = sigmap(cell->getPort(TW::Y));
    
@@ -193,10 +193,10 @@ struct MuxpackWorker
 	{
 		for (auto cell : candidate_cells)
 		{
-			log_debug("Considering %s (%s)\n", cell, cell->type.unescape());
+			log_debug("Considering %s (%s)\n", cell, cell->type.unescaped());
 
 			SigSpec a_sig = sigmap(cell->getPort(TW::A));
-			if (cell->type == ID($mux)) {
+			if (cell->type == TW($mux)) {
 				SigSpec b_sig = sigmap(cell->getPort(TW::B));
 				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
 					goto start_cell;
@@ -204,7 +204,7 @@ struct MuxpackWorker
 				if (!sig_chain_prev.count(a_sig))
 					a_sig = b_sig;
 			}
-			else if (cell->type == ID($pmux)) {
+			else if (cell->type == TW($pmux)) {
 				if (!sig_chain_prev.count(a_sig))
 					goto start_cell;
 			}
@@ -289,7 +289,7 @@ struct MuxpackWorker
 					s_sig.append(cursor_cell->getPort(TW::S));
 				}
 				else {
-					log_assert(cursor_cell->type == ID($mux));
+					log_assert(cursor_cell->type == TW($mux));
 					b_sig.append(cursor_cell->getPort(TW::A));
 					s_sig.append(module->LogicNot(NEW_TWINE, cursor_cell->getPort(TW::S)));
 				}

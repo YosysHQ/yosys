@@ -37,7 +37,7 @@ void reduce_chain(test_pmgen_pm &pm)
 	if (ud.longest_chain.empty())
 		return;
 
-	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), st.first->type.unescape());
+	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), design->twines.unescaped_str(st.first->type));
 
 	SigSpec A;
 	SigSpec Y = ud.longest_chain.front().first->getPort(TW::Y);
@@ -57,16 +57,16 @@ void reduce_chain(test_pmgen_pm &pm)
 
 	Cell *c;
 
-	if (last_cell->type == ID($_AND_))
+	if (last_cell->type == TW($_AND_))
 		c = pm.module->addReduceAnd(NEW_TWINE, A, Y);
-	else if (last_cell->type == ID($_OR_))
+	else if (last_cell->type == TW($_OR_))
 		c = pm.module->addReduceOr(NEW_TWINE, A, Y);
-	else if (last_cell->type == ID($_XOR_))
+	else if (last_cell->type == TW($_XOR_))
 		c = pm.module->addReduceXor(NEW_TWINE, A, Y);
 	else
 		log_abort();
 
-	log("    -> %s (%s)\n", c, c->type.unescape());
+	log("    -> %s (%s)\n", c, design->twines.unescaped_str(c->type));
 }
 
 void reduce_tree(test_pmgen_pm &pm)
@@ -81,21 +81,21 @@ void reduce_tree(test_pmgen_pm &pm)
 	SigSpec Y = st.first->getPort(TW::Y);
 	pm.autoremove(st.first);
 
-	log("Found %s tree with %d leaves for %s (%s).\n", st.first->type.unescape(),
+	log("Found %s tree with %d leaves for %s (%s).\n", design->twines.unescaped_str(st.first->type),
 			GetSize(A), log_signal(Y), st.first);
 
 	Cell *c;
 
-	if (st.first->type == ID($_AND_))
+	if (st.first->type == TW($_AND_))
 		c = pm.module->addReduceAnd(NEW_TWINE, A, Y);
-	else if (st.first->type == ID($_OR_))
+	else if (st.first->type == TW($_OR_))
 		c = pm.module->addReduceOr(NEW_TWINE, A, Y);
-	else if (st.first->type == ID($_XOR_))
+	else if (st.first->type == TW($_XOR_))
 		c = pm.module->addReduceXor(NEW_TWINE, A, Y);
 	else
 		log_abort();
 
-	log("    -> %s (%s)\n", c, c->type.unescape());
+	log("    -> %s (%s)\n", c, design->twines.unescaped_str(c->type));
 }
 
 void opt_eqpmux(test_pmgen_pm &pm)
@@ -113,7 +113,7 @@ void opt_eqpmux(test_pmgen_pm &pm)
 
 	pm.autoremove(st.pmux);
 	Cell *c = pm.module->addMux(NEW_TWINE, NE, EQ, st.eq->getPort(TW::Y), Y);
-	log("    -> %s (%s)\n", c, c->type.unescape());
+	log("    -> %s (%s)\n", c, design->twines.unescaped_str(c->type));
 }
 
 struct TestPmgenPass : public Pass {

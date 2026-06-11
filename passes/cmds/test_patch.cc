@@ -17,12 +17,12 @@ struct TestPatchPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			SigMap sigmap(module);
 			for (auto cell : module->selected_cells()) {
-				if (cell->type == ID($add)) {
+				if (cell->type == TW($add)) {
 					Cell* add = cell;
 					log_assert(add->getPort(TW::B).is_wire());
 					log_assert(add->getPort(TW::B).known_driver());
 					auto neg = add->getPort(TW::B)[0].wire->driverCell();
-					log_assert(neg->type == ID($not));
+					log_assert(neg->type == TW($not));
 					RTLIL::Patch patcher(module, nullptr);
 					int width = cell->getPort(TW::A).size();
 					auto sub = patcher.addSub(NEW_TWINE,

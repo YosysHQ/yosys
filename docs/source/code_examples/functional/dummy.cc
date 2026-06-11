@@ -24,19 +24,19 @@ struct FunctionalDummyBackend : public Backend {
 
 			// write node functions
 			for (auto node : ir)
-				*f << "  assign " << node.name().unescape()
+				*f << "  assign " << design->twines.unescaped_str(node.name())
 				   << " = " << node.to_string() << "\n";
 			*f << "\n";
 
 			// write outputs and next state
 			for (auto output : ir.outputs())
-				*f << " " << output->kind.unescape()
-				   << " " << output->name.unescape()
-				   << " = " << output->value().name().unescape() << "\n";
+				*f << " " << design->twines.unescaped_str(output->kind)
+				   << " " << design->twines.unescaped_str(output->name)
+				   << " = " << design->twines.unescaped_str(output->value().name()) << "\n";
 			for (auto state : ir.states())
-				*f << " " << state->kind.unescape()
-				   << " " << state->name.unescape()
-				   << " = " << state->next_value().name().unescape() << "\n";
+				*f << " " << design->twines.unescaped_str(state->kind)
+				   << " " << design->twines.unescaped_str(state->name)
+				   << " = " << design->twines.unescaped_str(state->next_value().name()) << "\n";
 		}
 	}
 } FunctionalDummyBackend;

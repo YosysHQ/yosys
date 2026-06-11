@@ -173,7 +173,7 @@ struct Clk2fflogicPass : public Pass {
 					auto &port = mem.rd_ports[i];
 					if (port.clk_enable)
 						log_error("Read port %d of memory %s.%s is clocked. This is not supported by \"clk2fflogic\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, mem.memid.unescape(), module);
+								"Call \"memory\" with -nordff to avoid this error.\n", i, design->twines.unescaped_str(mem.memid), module);
 				}
 
 				for (int i = 0; i < GetSize(mem.wr_ports); i++)
@@ -184,10 +184,10 @@ struct Clk2fflogicPass : public Pass {
 						continue;
 
 					log("Modifying write port %d on memory %s.%s: CLK=%s, A=%s, D=%s\n",
-							i, module, mem.memid.unescape(), log_signal(port.clk),
+							i, module, design->twines.unescaped_str(mem.memid), log_signal(port.clk),
 							log_signal(port.addr), log_signal(port.data));
 
-					Wire *past_clk = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#past_clk#%s", mem.memid.unescape(), i, log_signal(port.clk))));
+					Wire *past_clk = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#past_clk#%s", design->twines.unescaped_str(mem.memid), i, log_signal(port.clk))));
 					past_clk->attributes[ID::init] = port.clk_polarity ? State::S1 : State::S0;
 					module->addFf(NEW_TWINE, port.clk, past_clk);
 
@@ -203,13 +203,13 @@ struct Clk2fflogicPass : public Pass {
 
 					SigSpec clock_edge = module->Eqx(NEW_TWINE, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-					SigSpec en_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#en_q", mem.memid.unescape(), i)), GetSize(port.en));
+					SigSpec en_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#en_q", design->twines.unescaped_str(mem.memid), i)), GetSize(port.en));
 					module->addFf(NEW_TWINE, port.en, en_q);
 
-					SigSpec addr_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#addr_q", mem.memid.unescape(), i)), GetSize(port.addr));
+					SigSpec addr_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#addr_q", design->twines.unescaped_str(mem.memid), i)), GetSize(port.addr));
 					module->addFf(NEW_TWINE, port.addr, addr_q);
 
-					SigSpec data_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#data_q", mem.memid.unescape(), i)), GetSize(port.data));
+					SigSpec data_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#data_q", design->twines.unescaped_str(mem.memid), i)), GetSize(port.data));
 					module->addFf(NEW_TWINE, port.data, data_q);
 
 					port.clk = State::S0;
@@ -228,9 +228,9 @@ struct Clk2fflogicPass : public Pass {
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (cell->type.in(ID($print), ID($check)))
+				if (cell->type.in(TW($print), TW($check)))
 				{
-					if (cell->type == ID($check))
+					if (cell->type == TW($check))
 						have_check_cells = true;
 
 					bool trg_enable = cell->getParam(ID(TRG_ENABLE)).as_bool();
@@ -262,7 +262,7 @@ struct Clk2fflogicPass : public Pass {
 
 						cell->setPort(TW::EN, module->And(NEW_TWINE, sig_en_sampled, sig_trg_combined));
 						cell->setPort(TW::ARGS, sig_args_sampled);
-						if (cell->type == ID($check)) {
+						if (cell->type == TW($check)) {
 							SigBit sig_a = cell->getPort(TW::A);
 							SigBit sig_a_sampled = sample_data(module, sig_a, State::S1, false, false).sampled;
 							cell->setPort(TW::A, sig_a_sampled);
@@ -291,16 +291,16 @@ struct Clk2fflogicPass : public Pass {
 
 				if (ff.has_clk) {
 					log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
-							module, cell, cell->type.unescape(),
+							module, cell, cell->type.unescaped(),
 							log_signal(ff.sig_clk), log_signal(ff.sig_d), log_signal(ff.sig_q));
 				} else if (ff.has_aload) {
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-							module, cell, cell->type.unescape(),
+							module, cell, cell->type.unescaped(),
 							log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
 				} else {
 					// $sr.
 					log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
-							module, cell, cell->type.unescape(),
+							module, cell, cell->type.unescaped(),
 							log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
 				}
 

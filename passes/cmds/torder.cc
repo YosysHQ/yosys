@@ -83,13 +83,13 @@ struct TorderPass : public Pass {
 			for (auto cell : module->selected_cells())
 			for (auto conn : cell->connections())
 			{
-				if (stop_db.count(cell->type) && stop_db.at(cell->type).count(conn.first))
+				if (stop_db.count(RTLIL::IdString(cell->type)) && stop_db.at(RTLIL::IdString(cell->type)).count(RTLIL::IdString(design->twines.str(conn.first))))
 					continue;
 
-				if (!noautostop && yosys_celltypes.cell_known(cell->type)) {
+				if (!noautostop && yosys_celltypes.cell_known(cell->type.ref())) {
 					if (conn.first.in(ID::Q, ID::CTRL_OUT, ID::RD_DATA))
 						continue;
-					if (cell->type.in(ID($memrd), ID($memrd_v2)) && conn.first == ID::DATA)
+					if (cell->type.in(TW($memrd), TW($memrd_v2)) && conn.first == ID::DATA)
 						continue;
 				}
 

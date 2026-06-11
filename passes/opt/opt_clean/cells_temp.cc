@@ -23,7 +23,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 bool is_signed(RTLIL::Cell* cell) {
-	return cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
+	return cell->type == TW($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 }
 
 bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, const ParallelDispatchThreadPool::RunCtx &ctx) {
@@ -56,16 +56,16 @@ bool remove(ShardedVector<RTLIL::Cell*>& cells, RTLIL::Module* mod, bool verbose
 	bool did_something = false;
 	for (RTLIL::Cell *cell : cells) {
 		if (verbose) {
-			if (cell->type == ID($connect)) {
+			if (cell->type == TW($connect)) {
 				log_debug("  removing connect cell `%s': %s <-> %s\n", cell->name,
 						log_signal(cell->getPort(TW::A)), log_signal(cell->getPort(TW::B)));
-			} else if (cell->type == ID($input_port)) {
+			} else if (cell->type == TW($input_port)) {
 				log_debug("  removing input port marker cell `%s': %s\n", cell->name,
 						log_signal(cell->getPort(TW::Y)));
-			} else if (cell->type == ID($output_port)) {
+			} else if (cell->type == TW($output_port)) {
 				log_debug("  removing output port marker cell `%s': %s\n", cell->name,
 						log_signal(cell->getPort(TW::A)));
-			} else if (cell->type == ID($public)) {
+			} else if (cell->type == TW($public)) {
 				log_debug("  removing public wire marker cell `%s': %s\n", cell->name,
 						log_signal(cell->getPort(TW::A)));
 			} else {
@@ -89,17 +89,17 @@ void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::S
 	subpool.run([const_module, &delcells, &new_connections](const ParallelDispatchThreadPool::RunCtx &ctx) {
 		for (int i : ctx.item_range(const_module->cells_size())) {
 			RTLIL::Cell *cell = const_module->cell_at(i);
-			if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
+			if (cell->type.in(TW($pos), TW($_BUF_), TW($buf)) && !cell->has_keep_attr()) {
 				if (trim_buf(cell, new_connections, ctx))
 					delcells.insert(ctx, cell);
-			} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
+			} else if (cell->type.in(TW($connect)) && !cell->has_keep_attr()) {
 				RTLIL::SigSpec a = cell->getPort(TW::A);
 				RTLIL::SigSpec b = cell->getPort(TW::B);
 				if (a.has_const() && !b.has_const())
 					std::swap(a, b);
 				new_connections.insert(ctx, {a, b});
 				delcells.insert(ctx, cell);
-			} else if (cell->type.in(ID($input_port), ID($output_port), ID($public)) && !cell->has_keep_attr()) {
+			} else if (cell->type.in(TW($input_port), TW($output_port), TW($public)) && !cell->has_keep_attr()) {
 				delcells.insert(ctx, cell);
 			}
 		}

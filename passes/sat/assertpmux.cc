@@ -54,10 +54,10 @@ struct AssertpmuxWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in(ID($mux), ID($pmux)))
+			if (cell->type.in(TW($mux), TW($pmux)))
 			{
 				int width = cell->getParam(ID::WIDTH).as_int();
-				int numports = cell->type == ID($mux) ? 2 : cell->getParam(ID::S_WIDTH).as_int() + 1;
+				int numports = cell->type == TW($mux) ? 2 : cell->getParam(ID::S_WIDTH).as_int() + 1;
 
 				SigSpec sig_a = sigmap(cell->getPort(TW::A));
 				SigSpec sig_b = sigmap(cell->getPort(TW::B));
@@ -234,7 +234,7 @@ struct AssertpmuxPass : public Pass {
 			vector<Cell*> pmux_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == ID($pmux))
+				if (cell->type == TW($pmux))
 					pmux_cells.push_back(cell);
 
 			for (auto cell : pmux_cells)

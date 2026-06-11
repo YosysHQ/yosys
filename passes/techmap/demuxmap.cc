@@ -47,7 +47,7 @@ struct DemuxmapPass : public Pass {
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells())
 		{
-			if (cell->type != ID($demux))
+			if (cell->type != TW($demux))
 				continue;
 
 			SigSpec sel = cell->getPort(TW::S);

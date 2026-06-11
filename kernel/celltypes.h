@@ -65,6 +65,11 @@ struct CellTypes
 		cell_types[ct.type] = ct;
 	}
 
+	void setup_type(const std::string &type_str, const pool<TwineRef> &inputs, const pool<TwineRef> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
+	{
+		setup_type(TW::lookup(type_str), inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable);
+	}
+
 	void setup_module(RTLIL::Module *module)
 	{
 		pool<TwineRef> inputs, outputs;
@@ -230,77 +235,77 @@ struct CellTypes
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-			setup_type(TW($1), {TW::S, TW::R}, {TW::Q});
+			setup_type(stringf("$_SR_%c%c_", c1, c2), {TW::S, TW::R}, {TW::Q});
 
 		setup_type(TW($_FF_), {TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
-			setup_type(TW($1), {TW::C, TW::D}, {TW::Q});
+			setup_type(stringf("$_DFF_%c_", c1), {TW::C, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
-			setup_type(TW($1), {TW::C, TW::D, TW::E}, {TW::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_01)
-			setup_type(TW($1), {TW::C, TW::R, TW::D}, {TW::Q});
+			setup_type(stringf("$_DFFE_%c%c_", c1, c2), {TW::C, TW::D, TW::E}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-		for (auto c4 : list_np)
-			setup_type(TW($1), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-			setup_type(TW($1), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-			setup_type(TW($1), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-			setup_type(TW($1), {TW::C, TW::S, TW::R, TW::D}, {TW::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_np)
-		for (auto c4 : list_np)
-			setup_type(TW($1), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q});
-
-		for (auto c1 : list_np)
-		for (auto c2 : list_np)
-		for (auto c3 : list_01)
-			setup_type(TW($1), {TW::C, TW::R, TW::D}, {TW::Q});
+			setup_type(stringf("$_DFF_%c%c%c_", c1, c2, c3), {TW::C, TW::R, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
 		for (auto c4 : list_np)
-			setup_type(TW($1), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
+			setup_type(stringf("$_DFFE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+			setup_type(stringf("$_ALDFF_%c%c_", c1, c2), {TW::C, TW::L, TW::AD, TW::D}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_type(stringf("$_ALDFFE_%c%c%c_", c1, c2, c3), {TW::C, TW::L, TW::AD, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {TW::C, TW::S, TW::R, TW::D}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+		for (auto c4 : list_np)
+			setup_type(stringf("$_DFFSRE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::S, TW::R, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_SDFF_%c%c%c_", c1, c2, c3), {TW::C, TW::R, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
 		for (auto c4 : list_np)
-			setup_type(TW($1), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
-
-		for (auto c1 : list_np)
-			setup_type(TW($1), {TW::E, TW::D}, {TW::Q});
+			setup_type(stringf("$_SDFFE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_01)
-			setup_type(TW($1), {TW::E, TW::R, TW::D}, {TW::Q});
+		for (auto c4 : list_np)
+			setup_type(stringf("$_SDFFCE_%c%c%c%c_", c1, c2, c3, c4), {TW::C, TW::R, TW::D, TW::E}, {TW::Q});
+
+		for (auto c1 : list_np)
+			setup_type(stringf("$_DLATCH_%c_", c1), {TW::E, TW::D}, {TW::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_DLATCH_%c%c%c_", c1, c2, c3), {TW::E, TW::R, TW::D}, {TW::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
 		for (auto c3 : list_np)
-			setup_type(TW($1), {TW::E, TW::S, TW::R, TW::D}, {TW::Q});
+			setup_type(stringf("$_DLATCHSR_%c%c%c_", c1, c2, c3), {TW::E, TW::S, TW::R, TW::D}, {TW::Q});
 	}
 
 	void clear()

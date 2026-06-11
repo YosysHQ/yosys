@@ -321,7 +321,7 @@ struct ModIndex : public RTLIL::Monitor
 				log("  PRIMARY OUTPUT\n");
 			for (auto &port : it.second.ports)
 				log("  PORT: %s.%s[%d] (%s)\n", port.cell,
-						module->design->twines.str(port.port), port.offset, port.cell->type.unescape());
+						module->design->twines.str(port.port), port.offset, port.cell->module->design->twines.unescaped_str(port.cell->type_impl));
 		}
 	}
 };
@@ -402,11 +402,11 @@ struct ModWalker
 
 	void add_cell(RTLIL::Cell *cell)
 	{
-		if (ct.cell_known(cell->type)) {
+		if (ct.cell_known(cell->type.ref())) {
 			for (auto &conn : cell->connections())
 				add_cell_port(cell, conn.first, sigmap(conn.second),
-						ct.cell_output(cell->type, conn.first),
-						ct.cell_input(cell->type, conn.first));
+						ct.cell_output(cell->type.ref(), conn.first),
+						ct.cell_input(cell->type.ref(), conn.first));
 		} else {
 			for (auto &conn : cell->connections())
 				add_cell_port(cell, conn.first, sigmap(conn.second), true, true);
@@ -436,7 +436,7 @@ struct ModWalker
 		for (auto &it : module->wires_)
 			add_wire(it.second);
 		for (auto &it : module->cells_)
-			if (filter_ct == NULL || filter_ct->cell_known(it.second->type))
+			if (filter_ct == NULL || filter_ct->cell_known(it.second->type.ref()))
 				add_cell(it.second);
 	}
 

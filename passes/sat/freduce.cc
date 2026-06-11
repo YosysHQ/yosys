@@ -139,7 +139,7 @@ struct FindReducedInputs
 			if (ez_cells.count(drv.first) == 0) {
 				satgen.setContext(&sigmap, "A");
 				if (!satgen.importCell(drv.first))
-					log_error("Can't create SAT model for cell %s (%s)!\n", drv.first, drv.first->type.unescape());
+					log_error("Can't create SAT model for cell %s (%s)!\n", drv.first, design->twines.unescaped_str(drv.first->type));
 				satgen.setContext(&sigmap, "B");
 				if (!satgen.importCell(drv.first))
 					log_abort();
@@ -256,7 +256,7 @@ struct PerformReduction
 			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
 			if (celldone.count(drv.first) == 0) {
 				if (!satgen.importCell(drv.first))
-					log_error("Can't create SAT model for cell %s (%s)!\n", drv.first, drv.first->type.unescape());
+					log_error("Can't create SAT model for cell %s (%s)!\n", drv.first, design->twines.unescaped_str(drv.first->type));
 				celldone.insert(drv.first);
 			}
 			int max_child_depth = 0;
@@ -616,11 +616,11 @@ struct FreduceWorker
 				bits_full_total += w->width;
 			}
 		for (auto cell : module->cells()) {
-			if (ct.cell_known(cell->type)) {
+			if (ct.cell_known(cell->type_impl)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
 				for (auto &port : cell->connections()) {
 					std::vector<RTLIL::SigBit> bits = sigmap(port.second).to_sigbit_vector();
-					if (ct.cell_output(cell->type, port.first))
+					if (ct.cell_output(cell->type_impl, port.first))
 						outputs.insert(bits.begin(), bits.end());
 					else
 						inputs.insert(bits.begin(), bits.end());
@@ -631,7 +631,7 @@ struct FreduceWorker
 				batches.push_back(outputs);
 				bits_full_total += outputs.size();
 			}
-			if (inv_mode && cell->type == ID($_NOT_))
+			if (inv_mode && cell->type == TW($_NOT_))
 				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort(TW::A)), sigmap(cell->getPort(TW::Y))));
 		}
 
@@ -718,7 +718,7 @@ struct FreduceWorker
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
 				RTLIL::Wire *dummy_wire = module->addWire(NEW_TWINE);
 				for (auto &port : drv->connections_)
-					if (ct.cell_output(drv->type, port.first))
+					if (ct.cell_output(drv->type_impl, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 
 				if (grp[i].inverted)
@@ -727,7 +727,7 @@ struct FreduceWorker
 					{
 						inv_sig = module->addWire(NEW_TWINE);
 
-						RTLIL::Cell *inv_cell = module->addCell(NEW_TWINE, ID($_NOT_));
+						RTLIL::Cell *inv_cell = module->addCell(NEW_TWINE, TW($_NOT_));
 						inv_cell->setPort(TW::A, grp[0].bit);
 						inv_cell->setPort(TW::Y, inv_sig);
 					}

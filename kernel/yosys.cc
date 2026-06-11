@@ -964,7 +964,7 @@ static char *readline_obj_generator(const char *text, int state)
 			RTLIL::Module *module = design->module(design->selected_active_module);
 
 			for (auto w : module->wires())
-				if (w->name.unescape().compare(0, len, text) == 0)
+				if (design->twines.unescaped_str(w->meta_->name).compare(0, len, text) == 0)
 					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories) {

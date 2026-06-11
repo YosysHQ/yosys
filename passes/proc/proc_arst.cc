@@ -39,23 +39,23 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 
 	for (auto cell : mod->cells())
 	{
-		if (cell->type == ID($reduce_or) && cell->getPort(TW::Y) == signal)
+		if (cell->type == TW($reduce_or) && cell->getPort(TW::Y) == signal)
 			return check_signal(mod, cell->getPort(TW::A), ref, polarity);
 
-		if (cell->type == ID($reduce_bool) && cell->getPort(TW::Y) == signal)
+		if (cell->type == TW($reduce_bool) && cell->getPort(TW::Y) == signal)
 			return check_signal(mod, cell->getPort(TW::A), ref, polarity);
 
-		if (cell->type == ID($logic_not) && cell->getPort(TW::Y) == signal) {
+		if (cell->type == TW($logic_not) && cell->getPort(TW::Y) == signal) {
 			polarity = !polarity;
 			return check_signal(mod, cell->getPort(TW::A), ref, polarity);
 		}
 
-		if (cell->type == ID($not) && cell->getPort(TW::Y) == signal) {
+		if (cell->type == TW($not) && cell->getPort(TW::Y) == signal) {
 			polarity = !polarity;
 			return check_signal(mod, cell->getPort(TW::A), ref, polarity);
 		}
 
-		if (cell->type.in(ID($eq), ID($eqx)) && cell->getPort(TW::Y) == signal) {
+		if (cell->type.in(TW($eq), TW($eqx)) && cell->getPort(TW::Y) == signal) {
 			if (cell->getPort(TW::A).is_fully_const()) {
 				if (!cell->getPort(TW::A).as_bool())
 					polarity = !polarity;
@@ -68,7 +68,7 @@ bool check_signal(RTLIL::Module *mod, RTLIL::SigSpec signal, RTLIL::SigSpec ref,
 			}
 		}
 
-		if (cell->type.in(ID($ne), ID($nex)) && cell->getPort(TW::Y) == signal) {
+		if (cell->type.in(TW($ne), TW($nex)) && cell->getPort(TW::Y) == signal) {
 			if (cell->getPort(TW::A).is_fully_const()) {
 				if (cell->getPort(TW::A).as_bool())
 					polarity = !polarity;
@@ -215,7 +215,7 @@ void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 						RTLIL::SigSpec en = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.enable, memwr.enable);
 						if (!en.is_fully_zero()) {
 							log_error("Async reset %s causes memory write to %s.\n",
-									log_signal(sync->signal), memwr.memid.unescape());
+									log_signal(sync->signal), design->twines.unescaped_str(memwr.memid));
 						}
 						apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.address, memwr.address);
 						apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.data, memwr.data);

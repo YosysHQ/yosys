@@ -77,13 +77,13 @@ struct ExampleDtPass : public Pass
 			auto enqueue = [&](DriveSpec const &spec) {
 				int index = queue(spec);
 				if (index == GetSize(graph_nodes))
-					graph_nodes.emplace_back(compute_graph.add(ID($pending), index).index());
+					graph_nodes.emplace_back(compute_graph.add(TW($pending), index).index());
 				//if (index >= GetSize(graph_nodes))
 				return compute_graph[graph_nodes[index]];
 			};
 
 			for (auto cell : module->cells()) {
-				if (cell->type.in(ID($assert), ID($assume), ID($cover), ID($check)))
+				if (cell->type.in(TW($assert), TW($assume), TW($cover), TW($check)))
 					enqueue(DriveBitMarker(cells(cell), 0));
 			}
 
@@ -99,7 +99,7 @@ struct ExampleDtPass : public Pass
 				ExampleGraph::Ref node = compute_graph[i];
 
 				if (spec.chunks().size() > 1) {
-					node.set_function(ID($$concat));
+					node.set_function(TW($$concat));
 
 					for (auto const &chunk : spec.chunks()) {
 						node.append_arg(enqueue(chunk));
@@ -111,39 +111,39 @@ struct ExampleDtPass : public Pass
 						if (wire_chunk.is_whole()) {
 							node.sparse_attr() = wire_chunk.wire->name;
 							if (wire_chunk.wire->port_input) {
-								node.set_function(ExampleFn(ID($$input), {{wire_chunk.wire->name, {}}}));
+								node.set_function(ExampleFn(TW($$input), {{wire_chunk.wire->name, {}}}));
 							} else {
 								DriveSpec driver = dm(DriveSpec(wire_chunk));
-								node.set_function(ID($$buf));
+								node.set_function(TW($$buf));
 
 								node.append_arg(enqueue(driver));
 							}
 						} else {
 							DriveChunkWire whole_wire(wire_chunk.wire, 0, wire_chunk.wire->width);
-							node.set_function(ExampleFn(ID($$slice), {{ID(offset), wire_chunk.offset}, {ID(width), wire_chunk.width}}));
+							node.set_function(ExampleFn(TW($$slice), {{ID(offset), wire_chunk.offset}, {ID(width), wire_chunk.width}}));
 							node.append_arg(enqueue(whole_wire));
 						}
 					} else if (chunk.is_port()) {
 						DriveChunkPort port_chunk = chunk.port();
 						if (port_chunk.is_whole()) {
-							if (dm.celltypes.cell_output(port_chunk.cell->type, port_chunk.port)) {
-								if (port_chunk.cell->type.in(ID($dff), ID($ff)))
+							if (dm.celltypes.cell_output(port_chunk.cell->type_impl, port_chunk.port)) {
+								if (port_chunk.cell->type.in(TW($dff), TW($ff)))
 								{
 									Cell *cell = port_chunk.cell;
-									node.set_function(ExampleFn(ID($$state), {{cell->name, {}}}));
+									node.set_function(ExampleFn(TW($$state), {{cell->name, {}}}));
 									for (auto const &conn : cell->connections()) {
-										if (!dm.celltypes.cell_input(cell->type, conn.first))
+										if (!dm.celltypes.cell_input(cell->type_impl, conn.first))
 											continue;
 										enqueue(DriveChunkPort(cell, conn)).assign_key(cell->name);
 									}
 								}
 								else
 								{
-									node.set_function(ExampleFn(ID($$cell_output), {{RTLIL::escape_id(module->design->twines.str(port_chunk.port)), {}}}));
+									node.set_function(ExampleFn(TW($$cell_output), {{RTLIL::escape_id(module->design->twines.str(port_chunk.port)), {}}}));
 									node.append_arg(enqueue(DriveBitMarker(cells(port_chunk.cell), 0)));
 								}
 							} else {
-								node.set_function(ID($$buf));
+								node.set_function(TW($$buf));
 
 								DriveSpec driver = dm(DriveSpec(port_chunk));
 								node.append_arg(enqueue(driver));
@@ -151,14 +151,14 @@ struct ExampleDtPass : public Pass
 
 						} else {
 							DriveChunkPort whole_port(port_chunk.cell, port_chunk.port, 0, GetSize(port_chunk.cell->connections().at(port_chunk.port)));
-							node.set_function(ExampleFn(ID($$slice), {{ID(offset), port_chunk.offset}}));
+							node.set_function(ExampleFn(TW($$slice), {{ID(offset), port_chunk.offset}}));
 							node.append_arg(enqueue(whole_port));
 						}
 					} else if (chunk.is_constant()) {
-						node.set_function(ExampleFn(ID($$const), {{ID(value), chunk.constant()}}));
+						node.set_function(ExampleFn(TW($$const), {{ID(value), chunk.constant()}}));
 
 					} else if (chunk.is_multiple()) {
-						node.set_function(ID($$multi));
+						node.set_function(TW($$multi));
 						for (auto const &driver : chunk.multiple().multiple())
 							node.append_arg(enqueue(driver));
 					} else if (chunk.is_marker()) {
@@ -166,13 +166,13 @@ struct ExampleDtPass : public Pass
 
 						node.set_function(ExampleFn(cell->type, cell->parameters));
 						for (auto const &conn : cell->connections()) {
-							if (!dm.celltypes.cell_input(cell->type, conn.first))
+							if (!dm.celltypes.cell_input(cell->type_impl, conn.first))
 								continue;
 
 							node.append_arg(enqueue(DriveChunkPort(cell, conn)));
 						}
 					} else if (chunk.is_none()) {
-						node.set_function(ID($$undriven));
+						node.set_function(TW($$undriven));
 
 					} else {
 						log_error("unhandled drivespec: %s\n", log_signal(chunk));
@@ -208,7 +208,7 @@ struct ExampleDtPass : public Pass
 
 			for (int i = 0; i < compute_graph.size(); ++i)
 			{
-				if (compute_graph[i].function().name == ID($$buf) && !compute_graph[i].has_sparse_attr() && compute_graph[i].arg(0).index() < i)
+				if (compute_graph[i].function().name == TW($$buf) && !compute_graph[i].has_sparse_attr() && compute_graph[i].arg(0).index() < i)
 				{
 
 					alias.push_back(alias[compute_graph[i].arg(0).index()]);

@@ -30,7 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 static string spice_id2str(IdString id)
 {
 	static const char *escape_chars = "$\\[]()<>=";
-	string s = id.unescape();
+	string s = design->twines.unescaped_str(id);
 
 	for (auto &ch : s)
 		if (strchr(escape_chars, ch) != nullptr) ch = '_';
@@ -72,7 +72,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 	for (auto cell : module->cells())
 	{
-		if (cell->type == ID($scopeinfo))
+		if (cell->type == TW($scopeinfo))
 			continue;
 
 		f << stringf("X%d", cell_counter++);

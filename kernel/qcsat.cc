@@ -77,25 +77,25 @@ void QuickConeSat::prepare()
 
 int QuickConeSat::cell_complexity(RTLIL::Cell *cell)
 {
-	if (cell->type.in(ID($concat), ID($slice), ID($pos), ID($buf), ID($_BUF_)))
+	if (cell->type.in(TW($concat), TW($slice), TW($pos), TW($buf), TW($_BUF_)))
 		return 0;
-	if (cell->type.in(ID($not), ID($and), ID($or), ID($xor), ID($xnor),
-			ID($reduce_and), ID($reduce_or), ID($reduce_xor),
-			ID($reduce_xnor), ID($reduce_bool),
-			ID($logic_not), ID($logic_and), ID($logic_or),
-			ID($eq), ID($ne), ID($eqx), ID($nex), ID($fa),
-			ID($mux), ID($pmux), ID($bmux), ID($demux), ID($lut), ID($sop),
-			ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
-			ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_),
-			ID($_MUX_), ID($_NMUX_), ID($_MUX4_), ID($_MUX8_), ID($_MUX16_),
-			ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)))
+	if (cell->type.in(TW($not), TW($and), TW($or), TW($xor), TW($xnor),
+			TW($reduce_and), TW($reduce_or), TW($reduce_xor),
+			TW($reduce_xnor), TW($reduce_bool),
+			TW($logic_not), TW($logic_and), TW($logic_or),
+			TW($eq), TW($ne), TW($eqx), TW($nex), TW($fa),
+			TW($mux), TW($pmux), TW($bmux), TW($demux), TW($lut), TW($sop),
+			TW($_NOT_), TW($_AND_), TW($_NAND_), TW($_OR_), TW($_NOR_),
+			TW($_XOR_), TW($_XNOR_), TW($_ANDNOT_), TW($_ORNOT_),
+			TW($_MUX_), TW($_NMUX_), TW($_MUX4_), TW($_MUX8_), TW($_MUX16_),
+			TW($_AOI3_), TW($_OAI3_), TW($_AOI4_), TW($_OAI4_)))
 		return 1;
-	if (cell->type.in(ID($neg), ID($add), ID($sub), ID($alu), ID($lcu),
-			ID($lt), ID($le), ID($gt), ID($ge)))
+	if (cell->type.in(TW($neg), TW($add), TW($sub), TW($alu), TW($lcu),
+			TW($lt), TW($le), TW($gt), TW($ge)))
 		return 2;
-	if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
+	if (cell->type.in(TW($shl), TW($shr), TW($sshl), TW($sshr), TW($shift), TW($shiftx)))
 		return 3;
-	if (cell->type.in(ID($mul), ID($macc), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow)))
+	if (cell->type.in(TW($mul), TW($macc), TW($div), TW($mod), TW($divfloor), TW($modfloor), TW($pow)))
 		return 4;
 	// Unknown cell.
 	return 5;

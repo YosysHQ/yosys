@@ -70,7 +70,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	for (auto &cellport : cellport_list)
 	{
 		RTLIL::Cell *cell = module->cell(cellport.first);
-		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != TW::Y) {
+		if ((cell->type != TW($mux) && cell->type != TW($pmux)) || cellport.second != TW::Y) {
 			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type, log_id(cell));
 			return false;
 		}
@@ -272,14 +272,14 @@ static void extract_fsm(RTLIL::Wire *wire)
 	sig2driver.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
 		RTLIL::Cell *cell = module->cell(cellport.first);
-		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != TW::Q)
+		if ((cell->type != TW($dff) && cell->type != TW($adff)) || cellport.second != TW::Q)
 			continue;
 		log("  found %s cell for state register: %s\n", cell->type, log_id(cell));
 		RTLIL::SigSpec sig_q = assign_map(cell->getPort(TW::Q));
 		RTLIL::SigSpec sig_d = assign_map(cell->getPort(TW::D));
 		clk = cell->getPort(TW::CLK);
 		clk_polarity = cell->parameters[ID::CLK_POLARITY].as_bool();
-		if (cell->type == ID($adff)) {
+		if (cell->type == TW($adff)) {
 			arst = cell->getPort(TW::ARST);
 			arst_polarity = cell->parameters[ID::ARST_POLARITY].as_bool();
 			reset_state = cell->parameters[ID::ARST_VALUE];
@@ -368,7 +368,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = module->addCell(Twine{stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++)}, ID($fsm));
+	RTLIL::Cell *fsm_cell = module->addCell(Twine{stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++)}, TW($fsm));
 	fsm_cell->setPort(TW::CLK, clk);
 	fsm_cell->setPort(TW::ARST, arst);
 	fsm_cell->parameters[ID::CLK_POLARITY] = clk_polarity ? State::S1 : State::S0;
@@ -446,19 +446,19 @@ struct FsmExtractPass : public Pass {
 			exclusive_ctrls.clear();
 			for (auto cell : module->cells()) {
 				for (auto &conn_it : cell->connections()) {
-					if (ct.cell_output(cell->type, conn_it.first) || !ct.cell_known(cell->type)) {
+					if (ct.cell_output(cell->type_impl, conn_it.first) || !ct.cell_known(cell->type_impl)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
 						sig2driver.insert(sig, sig2driver_entry_t(cell->meta_->name, conn_it.first));
 					}
-					if (ct.cell_input(cell->type, conn_it.first) && cell->hasPort(TW::Y) &&
+					if (ct.cell_input(cell->type_impl, conn_it.first) && cell->hasPort(TW::Y) &&
 							cell->getPort(TW::Y).size() == 1 && (conn_it.first == TW::A || conn_it.first == TW::B)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
 						sig2trigger.insert(sig, sig2driver_entry_t(cell->meta_->name, conn_it.first));
 					}
 				}
-				if (cell->type == ID($pmux)) {
+				if (cell->type == TW($pmux)) {
 					RTLIL::SigSpec sel_sig = assign_map(cell->getPort(TW::S));
 					for (auto &bit1 : sel_sig)
 					for (auto &bit2 : sel_sig)

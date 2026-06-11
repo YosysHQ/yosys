@@ -186,7 +186,7 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 {
 	RTLIL::SigSpec three_state = parse_func_expr(module, three_state_expr);
 
-	RTLIL::Cell *cell = module->addCell(NEW_TWINE, ID($tribuf));
+	RTLIL::Cell *cell = module->addCell(NEW_TWINE, TW::$tribuf);
 	cell->setParam(ID::WIDTH, GetSize(func));
 	cell->setPort(TW::A, func);
 	cell->setPort(TW::EN, module->NotGate(NEW_TWINE, three_state));
@@ -246,17 +246,17 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		rerun_invert_rollback = false;
 
 		for (auto &it : module->cells_) {
-			if (it.second->type == ID($_NOT_) && it.second->getPort(TW::Y) == clk_sig) {
+			if (it.second->type == TW($_NOT_) && it.second->getPort(TW::Y) == clk_sig) {
 				clk_sig = it.second->getPort(TW::A);
 				clk_polarity = !clk_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(TW::Y) == clear_sig) {
+			if (it.second->type == TW($_NOT_) && it.second->getPort(TW::Y) == clear_sig) {
 				clear_sig = it.second->getPort(TW::A);
 				clear_polarity = !clear_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(TW::Y) == preset_sig) {
+			if (it.second->type == TW($_NOT_) && it.second->getPort(TW::Y) == preset_sig) {
 				preset_sig = it.second->getPort(TW::A);
 				preset_polarity = !preset_polarity;
 				rerun_invert_rollback = true;
@@ -271,7 +271,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 			module->addNotGate(NEW_TWINE, q_sig, out_sig);
 		}
 
-		RTLIL::Cell* cell = module->addCell(NEW_TWINE, "");
+		RTLIL::Cell* cell = module->addCell(NEW_TWINE, Twine::Null);
 		cell->setPort(TW::D, data_sig);
 		cell->setPort(TW::Q, q_sig);
 		cell->setPort(TW::C, clk_sig);
@@ -355,17 +355,17 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		rerun_invert_rollback = false;
 
 		for (auto &it : module->cells_) {
-			if (it.second->type == ID($_NOT_) && it.second->getPort(TW::Y) == enable_sig) {
+			if (it.second->type == TW($_NOT_) && it.second->getPort(TW::Y) == enable_sig) {
 				enable_sig = it.second->getPort(TW::A);
 				enable_polarity = !enable_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(TW::Y) == clear_sig) {
+			if (it.second->type == TW($_NOT_) && it.second->getPort(TW::Y) == clear_sig) {
 				clear_sig = it.second->getPort(TW::A);
 				clear_polarity = !clear_polarity;
 				rerun_invert_rollback = true;
 			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(TW::Y) == preset_sig) {
+			if (it.second->type == TW($_NOT_) && it.second->getPort(TW::Y) == preset_sig) {
 				preset_sig = it.second->getPort(TW::A);
 				preset_polarity = !preset_polarity;
 				rerun_invert_rollback = true;
@@ -373,7 +373,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		}
 	}
 
-	RTLIL::Cell *cell = module->addCell(NEW_TWINE, ID($_NOT_));
+	RTLIL::Cell *cell = module->addCell(NEW_TWINE, TW::$_NOT_);
 	cell->setPort(TW::A, iq_sig);
 	cell->setPort(TW::Y, iqn_sig);
 
@@ -384,7 +384,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 
 		if (clear_polarity == true || clear_polarity != enable_polarity)
 		{
-			RTLIL::Cell *inv = module->addCell(NEW_TWINE, ID($_NOT_));
+			RTLIL::Cell *inv = module->addCell(NEW_TWINE, TW::$_NOT_);
 			inv->setPort(TW::A, clear_sig);
 			inv->setPort(TW::Y, module->addWire(NEW_TWINE));
 
@@ -394,12 +394,12 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 				clear_enable = inv->getPort(TW::Y);
 		}
 
-		RTLIL::Cell *data_gate = module->addCell(NEW_TWINE, ID($_AND_));
+		RTLIL::Cell *data_gate = module->addCell(NEW_TWINE, TW::$_AND_);
 		data_gate->setPort(TW::A, data_sig);
 		data_gate->setPort(TW::B, clear_negative);
 		data_gate->setPort(TW::Y, data_sig = module->addWire(NEW_TWINE));
 
-		RTLIL::Cell *enable_gate = module->addCell(NEW_TWINE, enable_polarity ? ID($_OR_) : ID($_AND_));
+		RTLIL::Cell *enable_gate = module->addCell(NEW_TWINE, enable_polarity ? TW::$_OR_ : TW::$_AND_);
 		enable_gate->setPort(TW::A, enable_sig);
 		enable_gate->setPort(TW::B, clear_enable);
 		enable_gate->setPort(TW::Y, enable_sig = module->addWire(NEW_TWINE));
@@ -412,7 +412,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 
 		if (preset_polarity == false || preset_polarity != enable_polarity)
 		{
-			RTLIL::Cell *inv = module->addCell(NEW_TWINE, ID($_NOT_));
+			RTLIL::Cell *inv = module->addCell(NEW_TWINE, TW::$_NOT_);
 			inv->setPort(TW::A, preset_sig);
 			inv->setPort(TW::Y, module->addWire(NEW_TWINE));
 
@@ -422,18 +422,19 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 				preset_enable = inv->getPort(TW::Y);
 		}
 
-		RTLIL::Cell *data_gate = module->addCell(NEW_TWINE, ID($_OR_));
+		RTLIL::Cell *data_gate = module->addCell(NEW_TWINE, TW::$_OR_);
 		data_gate->setPort(TW::A, data_sig);
 		data_gate->setPort(TW::B, preset_positive);
 		data_gate->setPort(TW::Y, data_sig = module->addWire(NEW_TWINE));
 
-		RTLIL::Cell *enable_gate = module->addCell(NEW_TWINE, enable_polarity ? ID($_OR_) : ID($_AND_));
+		RTLIL::Cell *enable_gate = module->addCell(NEW_TWINE, enable_polarity ? TW::$_OR_ : TW::$_AND_);
 		enable_gate->setPort(TW::A, enable_sig);
 		enable_gate->setPort(TW::B, preset_enable);
 		enable_gate->setPort(TW::Y, enable_sig = module->addWire(NEW_TWINE));
 	}
 
-	cell = module->addCell(NEW_TWINE, stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N'));
+	TwineRef _t = module->design->twines.add(Twine{stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N')});
+	cell = module->addCell(NEW_TWINE, _t);
 	cell->setPort(TW::D, data_sig);
 	cell->setPort(TW::Q, iq_sig);
 	cell->setPort(TW::E, enable_sig);
@@ -798,7 +799,7 @@ struct LibertyFrontend : public Frontend {
 					if (wi->port_input) {
 						for (auto wo : module->wires())
 						if (wo->port_output) {
-							RTLIL::Cell *spec = module->addCell(NEW_TWINE, ID($specify2));
+							RTLIL::Cell *spec = module->addCell(NEW_TWINE, TW::$specify2);
 							spec->setParam(ID::SRC_WIDTH, wi->width);
 							spec->setParam(ID::DST_WIDTH, wo->width);
 							spec->setParam(ID::T_FALL_MAX, 1000);

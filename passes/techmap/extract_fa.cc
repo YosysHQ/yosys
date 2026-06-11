@@ -85,9 +85,9 @@ struct ExtractFaWorker
 	{
 		for (auto cell : module->selected_cells())
 		{
-			if (cell->type.in( ID($_BUF_), ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
-					ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_),
-					ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)))
+			if (cell->type.in( TW($_BUF_), TW($_NOT_), TW($_AND_), TW($_NAND_), TW($_OR_), TW($_NOR_),
+					TW($_XOR_), TW($_XNOR_), TW($_ANDNOT_), TW($_ORNOT_), TW($_MUX_), TW($_NMUX_),
+					TW($_AOI3_), TW($_OAI3_), TW($_AOI4_), TW($_OAI4_)))
 			{
 				SigBit y = sigmap(SigBit(cell->getPort(TW::Y)));
 				log_assert(driver.count(y) == 0);
@@ -293,7 +293,7 @@ struct ExtractFaWorker
 
 		for (auto it : driver)
 		{
-			if (it.second->type.in(ID($_BUF_), ID($_NOT_)))
+			if (it.second->type.in(TW($_BUF_), TW($_NOT_)))
 				continue;
 
 			SigBit root = it.first;
@@ -394,7 +394,7 @@ struct ExtractFaWorker
 				}
 				else
 				{
-					Cell *cell = module->addCell(NEW_TWINE, ID($fa));
+					Cell *cell = module->addCell(NEW_TWINE, TW($fa));
 					cell->setParam(ID::WIDTH, 1);
 
 					log("      Created $fa cell %s.\n", cell);
@@ -501,7 +501,7 @@ struct ExtractFaWorker
 				}
 				else
 				{
-					Cell *cell = module->addCell(NEW_TWINE, ID($fa));
+					Cell *cell = module->addCell(NEW_TWINE, TW($fa));
 					cell->setParam(ID::WIDTH, 1);
 
 					log("      Created $fa cell %s.\n", cell);

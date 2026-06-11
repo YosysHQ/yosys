@@ -117,7 +117,7 @@ struct SccWorker
 			for (auto mod : design->modules())
 				if (mod->get_blackbox_attribute(false))
 					for (auto cell : mod->cells())
-						if (cell->type == ID($specify2))
+						if (cell->type == TW($specify2))
 						{
 							specifyCells.setup_module(mod);
 							break;
@@ -138,18 +138,18 @@ struct SccWorker
 			if (!design->selected(module, cell))
 				continue;
 
-			if (!allCellTypes && !ct.cell_known(cell->type) && !specifyCells.cell_known(cell->type))
+			if (!allCellTypes && !ct.cell_known(cell->type.ref()) && !specifyCells.cell_known(cell->type.ref()))
 				continue;
 
 			workQueue.insert(cell);
 
 			RTLIL::SigSpec inputSignals, outputSignals;
 
-			if (specifyCells.cell_known(cell->type)) {
+			if (specifyCells.cell_known(cell->type.ref())) {
 				// Use specify rules of the type `(X => Y) = NN` to look for asynchronous paths in boxes.
 				for (auto subcell : design->module(cell->type)->cells())
 				{
-					if (subcell->type != ID($specify2))
+					if (subcell->type != TW($specify2))
 						continue;
 
 					for (auto bit : subcell->getPort(TW::SRC))
@@ -171,9 +171,9 @@ struct SccWorker
 				{
 					bool isInput = true, isOutput = true;
 
-					if (ct.cell_known(cell->type)) {
-						isInput = ct.cell_input(cell->type, conn.first);
-						isOutput = ct.cell_output(cell->type, conn.first);
+					if (ct.cell_known(cell->type.ref())) {
+						isInput = ct.cell_input(cell->type.ref(), conn.first);
+						isOutput = ct.cell_output(cell->type.ref(), conn.first);
 					}
 
 					RTLIL::SigSpec sig = selectedSignals.extract(sigmap(conn.second));

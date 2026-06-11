@@ -59,18 +59,18 @@ struct statdata_t {
 	double local_sequential_area = 0;
 	double submodule_area = 0;
 	int num_submodules = 0;
-	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> num_submodules_by_type;
-	std::map<RTLIL::IdString, double, RTLIL::sort_by_id_str> submodules_area_by_type;
+	std::map<TwineRef, unsigned int, RTLIL::sort_by_id_str> num_submodules_by_type;
+	std::map<TwineRef, double, RTLIL::sort_by_id_str> submodules_area_by_type;
 
-	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> local_num_cells_by_type;
-	std::map<RTLIL::IdString, double, RTLIL::sort_by_id_str> local_area_cells_by_type;
-	std::map<RTLIL::IdString, double, RTLIL::sort_by_id_str> local_seq_area_cells_by_type;
+	std::map<TwineRef, unsigned int, RTLIL::sort_by_id_str> local_num_cells_by_type;
+	std::map<TwineRef, double, RTLIL::sort_by_id_str> local_area_cells_by_type;
+	std::map<TwineRef, double, RTLIL::sort_by_id_str> local_seq_area_cells_by_type;
 	string tech;
 
-	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> num_cells_by_type;
-	std::map<RTLIL::IdString, double, RTLIL::sort_by_id_str> area_cells_by_type;
-	std::map<RTLIL::IdString, double, RTLIL::sort_by_id_str> seq_area_cells_by_type;
-	std::set<RTLIL::IdString> unknown_cell_area;
+	std::map<TwineRef, unsigned int, RTLIL::sort_by_id_str> num_cells_by_type;
+	std::map<TwineRef, double, RTLIL::sort_by_id_str> area_cells_by_type;
+	std::map<TwineRef, double, RTLIL::sort_by_id_str> seq_area_cells_by_type;
+	std::set<TwineRef> unknown_cell_area;
 
 	statdata_t operator+(const statdata_t &other) const
 	{
@@ -141,7 +141,7 @@ struct statdata_t {
 		}
 	}
 
-	statdata_t(RTLIL::Design *design, const RTLIL::Module *mod, bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
+	statdata_t(RTLIL::Design *design, const RTLIL::Module *mod, bool width_mode, dict<TwineRef, cell_area_t> &cell_area, string techname)
 	{
 		tech = techname;
 
@@ -183,35 +183,35 @@ struct statdata_t {
 			local_num_memory_bits += it.second->width * it.second->size;
 		}
 		for (auto cell : mod->selected_cells()) {
-			RTLIL::IdString cell_type = cell->type;
+			TwineRef cell_type = cell->type_impl;
 			if (width_mode) {
-				if (cell_type.in(ID($not), ID($pos), ID($neg), ID($logic_not), ID($logic_and), ID($logic_or), ID($reduce_and),
-						 ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool), ID($lut), ID($and), ID($or),
-						 ID($xor), ID($xnor), ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx), ID($lt),
-						 ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt), ID($add), ID($sub), ID($mul),
-						 ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow), ID($alu))) {
+				if (cell_type.in(TW($not), TW($pos), TW($neg), TW($logic_not), TW($logic_and), TW($logic_or), TW($reduce_and),
+						 TW($reduce_or), TW($reduce_xor), TW($reduce_xnor), TW($reduce_bool), TW($lut), TW($and), TW($or),
+						 TW($xor), TW($xnor), TW($shl), TW($shr), TW($sshl), TW($sshr), TW($shift), TW($shiftx), TW($lt),
+						 TW($le), TW($eq), TW($ne), TW($eqx), TW($nex), TW($ge), TW($gt), TW($add), TW($sub), TW($mul),
+						 TW($div), TW($mod), TW($divfloor), TW($modfloor), TW($pow), TW($alu))) {
 					int width_a = cell->hasPort(TW::A) ? GetSize(cell->getPort(TW::A)) : 0;
 					int width_b = cell->hasPort(TW::B) ? GetSize(cell->getPort(TW::B)) : 0;
 					int width_y = cell->hasPort(TW::Y) ? GetSize(cell->getPort(TW::Y)) : 0;
-					cell_type = stringf("%s_%d", cell_type, max<int>({width_a, width_b, width_y}));
-				} else if (cell_type.in(ID($mux)))
-					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Y)));
-				else if (cell_type.in(ID($bmux), ID($pmux)))
+					cell_type = design->twines.add(Twine{stringf("%s_%d", cell_type, max<int>({width_a, width_b, width_y}))});
+				} else if (cell_type.in(TW($mux)))
+					cell_type = design->twines.add(Twine{stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Y)))});
+				else if (cell_type.in(TW($bmux), TW($pmux)))
 					cell_type =
-					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(TW::Y)), GetSize(cell->getPort(TW::S)));
-				else if (cell_type == ID($demux))
+					  design->twines.add(Twine{stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(TW::Y)), GetSize(cell->getPort(TW::S)))});
+				else if (cell_type == TW($demux))
 					cell_type =
-					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::S)));
-				else if (cell_type.in(ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe),
-						      ID($sdff), ID($sdffe), ID($sdffce), ID($aldff), ID($aldffe), ID($dlatch), ID($adlatch),
-						      ID($dlatchsr)))
-					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Q)));
+					  design->twines.add(Twine{stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(TW::A)), GetSize(cell->getPort(TW::S)))});
+				else if (cell_type.in(TW($sr), TW($ff), TW($dff), TW($dffe), TW($dffsr), TW($dffsre), TW($adff), TW($adffe),
+						      TW($sdff), TW($sdffe), TW($sdffce), TW($aldff), TW($aldffe), TW($dlatch), TW($adlatch),
+						      TW($dlatchsr)))
+					cell_type = design->twines.add(Twine{stringf("%s_%d", cell_type, GetSize(cell->getPort(TW::Q)))});
 			}
 
 			if (!cell_area.empty()) {
 				// check if cell_area provides a area calculator
-				if (cell_area.count(cell->type)) {
-					cell_area_t cell_data = cell_area.at(cell->type);
+				if (cell_area.count(cell->type_impl)) {
+					cell_area_t cell_data = cell_area.at(cell->type_impl);
 					if (cell_data.single_parameter_area.size() > 0) {
 						// assume that we just take the max of the A,B,Y ports
 
@@ -337,18 +337,16 @@ struct statdata_t {
 			num_processes++;
 			local_num_processes++;
 		}
-		RTLIL::IdString cell_name = mod->name;
-		auto s = cell_name.str();
 	}
 
 	unsigned int estimate_xilinx_lc()
 	{
-		unsigned int lut6_cnt = num_cells_by_type[ID(LUT6)];
-		unsigned int lut5_cnt = num_cells_by_type[ID(LUT5)];
-		unsigned int lut4_cnt = num_cells_by_type[ID(LUT4)];
-		unsigned int lut3_cnt = num_cells_by_type[ID(LUT3)];
-		unsigned int lut2_cnt = num_cells_by_type[ID(LUT2)];
-		unsigned int lut1_cnt = num_cells_by_type[ID(LUT1)];
+		unsigned int lut6_cnt = num_cells_by_type[TW::LUT6];
+		unsigned int lut5_cnt = num_cells_by_type[TW::LUT5];
+		unsigned int lut4_cnt = num_cells_by_type[TW::LUT4];
+		unsigned int lut3_cnt = num_cells_by_type[TW::LUT3];
+		unsigned int lut2_cnt = num_cells_by_type[TW::LUT2];
+		unsigned int lut1_cnt = num_cells_by_type[TW::LUT1];
 		unsigned int lc_cnt = 0;
 
 		lc_cnt += lut6_cnt;
@@ -505,7 +503,7 @@ struct statdata_t {
 		}
 	}
 
-	void log_data(RTLIL::IdString mod_name, bool top_mod, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
+	void log_data(const TwinePool& twines, TwineRef mod_name, bool top_mod, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
 	{
 
 		print_log_header(print_area, print_hierarchical, print_global_only);
@@ -523,7 +521,7 @@ struct statdata_t {
 		print_log_line("cells", local_num_cells, local_area, num_cells, area, 0, print_area, print_hierarchical, print_global_only);
 		for (auto &it : num_cells_by_type)
 			if (it.second) {
-				auto name = string(it.first.unescape());
+				auto name = twines.unescaped_str(it.first);
 				print_log_line(name, local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 					       local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
 					       area_cells_by_type.at(it.first), 1, print_area, print_hierarchical, print_global_only);
@@ -533,7 +531,7 @@ struct statdata_t {
 				       print_global_only);
 			for (auto &it : num_submodules_by_type)
 				if (it.second)
-					print_log_line(string(it.first.unescape()), it.second, 0, it.second,
+					print_log_line(twines.unescaped_str(it.first), it.second, 0, it.second,
 						       submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0, 1,
 						       print_area, print_hierarchical, print_global_only);
 		}
@@ -582,7 +580,7 @@ struct statdata_t {
 			       count_local, area_local);
 	}
 
-	void log_data_json(const char *mod_name, bool first_module, bool hierarchical = false, bool global_only = false)
+	void log_data_json(const TwinePool& twines, const char *mod_name, bool first_module, bool hierarchical = false, bool global_only = false)
 	{
 		if (!first_module)
 			log(",\n");
@@ -607,7 +605,7 @@ struct statdata_t {
 				if (it.second) {
 					if (!first_line)
 						log(",\n");
-					log("            %s: %s", json11::Json(it.first.unescape()).dump(),
+					log("            %s: %s", json11::Json(twines.unescaped_str(it.first)).dump(),
 					    json_line(local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 						      local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
 						      area_cells_by_type.at(it.first))
@@ -621,7 +619,7 @@ struct statdata_t {
 				if (it.second) {
 					if (!first_line)
 						log(",\n");
-					log("            %s: %s", json11::Json(it.first.unescape()).dump(),
+					log("            %s: %s", json11::Json(twines.unescaped_str(it.first)).dump(),
 					    json_line(0, 0, it.second,
 						      submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0)
 					      .c_str());
@@ -662,14 +660,14 @@ struct statdata_t {
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
+						log("            %s: %u", json11::Json(twines.unescaped_str(it.first)).dump(), it.second);
 						first_line = false;
 					}
 				for (auto &it : num_submodules_by_type)
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
+						log("            %s: %u", json11::Json(twines.unescaped_str(it.first)).dump(), it.second);
 						first_line = false;
 					}
 				log("\n");
@@ -697,14 +695,14 @@ struct statdata_t {
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
+						log("            %s: %u", json11::Json(twines.unescaped_str(it.first)).dump(), it.second);
 						first_line = false;
 					}
 				for (auto &it : num_submodules_by_type)
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
+						log("            %s: %u", json11::Json(twines.unescaped_str(it.first)).dump(), it.second);
 						first_line = false;
 					}
 				log("\n");
@@ -726,7 +724,7 @@ struct statdata_t {
 	}
 };
 
-statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTLIL::IdString mod, int level, bool quiet = false, bool has_area = true,
+statdata_t hierarchy_worker(const TwinePool& twines, std::map<TwineRef, statdata_t> &mod_stat, TwineRef mod, int level, bool quiet = false, bool has_area = true,
 			    bool hierarchy_mode = true)
 {
 	statdata_t mod_data = mod_stat.at(mod);
@@ -734,60 +732,60 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	for (auto &it : mod_data.num_submodules_by_type) {
 		if (mod_stat.count(it.first) > 0) {
 			if (!quiet)
-				mod_data.print_log_line(string(it.first.unescape()), mod_stat.at(it.first).local_num_cells,
+				mod_data.print_log_line(twines.unescaped_str(it.first), mod_stat.at(it.first).local_num_cells,
 							mod_stat.at(it.first).local_area, mod_stat.at(it.first).num_cells, mod_stat.at(it.first).area,
 							level, has_area, hierarchy_mode);
-			hierarchy_worker(mod_stat, it.first, level + 1, quiet, has_area, hierarchy_mode) * it.second;
+			hierarchy_worker(twines, mod_stat, it.first, level + 1, quiet, has_area, hierarchy_mode) * it.second;
 		}
 	}
 
 	return mod_data;
 }
 
-statdata_t hierarchy_builder(RTLIL::Design *design, const RTLIL::Module *top_mod, std::map<RTLIL::IdString, statdata_t> &mod_stat,
-			     bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
+statdata_t hierarchy_builder(RTLIL::Design *design, const RTLIL::Module *top_mod, std::map<TwineRef, statdata_t> &mod_stat,
+			     bool width_mode, dict<TwineRef, cell_area_t> &cell_area, string techname)
 {
 	if (top_mod == nullptr)
 		top_mod = design->top_module();
 	statdata_t mod_data(design, top_mod, width_mode, cell_area, techname);
 	for (auto cell : top_mod->selected_cells()) {
-		if (cell_area.count(cell->type) == 0) {
-			if (design->has(cell->type)) {
+		if (cell_area.count(cell->type_impl) == 0) {
+			if (design->has(cell->type_impl)) {
 				if (!(design->module(cell->type)->attributes.count(ID::blackbox))) {
 					// deal with modules
 					mod_data.add(
 					  hierarchy_builder(design, design->module(cell->type), mod_stat, width_mode, cell_area, techname));
-					mod_data.num_submodules_by_type[cell->type]++;
-					mod_data.submodules_area_by_type[cell->type] += mod_stat.at(cell->type).area;
-					mod_data.submodule_area += mod_stat.at(cell->type).area;
+					mod_data.num_submodules_by_type[cell->type_impl]++;
+					mod_data.submodules_area_by_type[cell->type_impl] += mod_stat.at(cell->type_impl).area;
+					mod_data.submodule_area += mod_stat.at(cell->type_impl).area;
 					mod_data.num_submodules++;
-					mod_data.unknown_cell_area.erase(cell->type);
+					mod_data.unknown_cell_area.erase(cell->type_impl);
 					mod_data.num_cells -=
-					  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;
-					mod_data.num_cells_by_type.erase(cell->type);
-					mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)
-								      ? mod_data.local_num_cells_by_type.at(cell->type)
+					  (mod_data.num_cells_by_type.count(cell->type_impl) != 0) ? mod_data.num_cells_by_type.at(cell->type_impl) : 0;
+					mod_data.num_cells_by_type.erase(cell->type_impl);
+					mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type_impl) != 0)
+								      ? mod_data.local_num_cells_by_type.at(cell->type_impl)
 								      : 0;
-					mod_data.local_num_cells_by_type.erase(cell->type);
-					mod_data.local_area_cells_by_type.erase(cell->type);
+					mod_data.local_num_cells_by_type.erase(cell->type_impl);
+					mod_data.local_area_cells_by_type.erase(cell->type_impl);
 				} else {
 					// deal with blackbox cells
 					if (design->module(cell->type)->attributes.count(ID::area) &&
 					    design->module(cell->type)->attributes.at(ID::area).size() == 0) {
-						mod_data.num_submodules_by_type[cell->type]++;
+						mod_data.num_submodules_by_type[cell->type_impl]++;
 						mod_data.num_submodules++;
-						mod_data.submodules_area_by_type[cell->type] +=
-						  double(design->module(cell->type)->attributes.at(ID::area).as_int());
-						mod_data.area += double(design->module(cell->type)->attributes.at(ID::area).as_int());
-						mod_data.unknown_cell_area.erase(cell->type);
+						mod_data.submodules_area_by_type[cell->type_impl] +=
+						  double(design->module(cell->type_impl)->attributes.at(ID::area).as_int());
+						mod_data.area += double(design->module(cell->type_impl)->attributes.at(ID::area).as_int());
+						mod_data.unknown_cell_area.erase(cell->type_impl);
 						mod_data.num_cells -=
-						  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;
-						mod_data.num_cells_by_type.erase(cell->type);
-						mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)
-									      ? mod_data.local_num_cells_by_type.at(cell->type)
+						  (mod_data.num_cells_by_type.count(cell->type_impl) != 0) ? mod_data.num_cells_by_type.at(cell->type_impl) : 0;
+						mod_data.num_cells_by_type.erase(cell->type_impl);
+						mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type_impl) != 0)
+									      ? mod_data.local_num_cells_by_type.at(cell->type_impl)
 									      : 0;
-						mod_data.local_num_cells_by_type.erase(cell->type);
-						mod_data.local_area_cells_by_type.erase(cell->type);
+						mod_data.local_num_cells_by_type.erase(cell->type_impl);
+						mod_data.local_area_cells_by_type.erase(cell->type_impl);
 					}
 				}
 			}
@@ -797,7 +795,7 @@ statdata_t hierarchy_builder(RTLIL::Design *design, const RTLIL::Module *top_mod
 	return mod_data;
 }
 
-void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string liberty_file)
+void read_liberty_cellarea(TwinePool& twines, dict<TwineRef, cell_area_t> &cell_area, string liberty_file)
 {
 	std::istream *f = uncompressed(liberty_file.c_str());
 	yosys_input_files.insert(liberty_file);
@@ -874,7 +872,8 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 
 		if (ar != nullptr && !ar->value.empty()) {
 			string prefix = cell->args[0].substr(0, 1) == "$" ? "" : "\\";
-			cell_area[prefix + cell->args[0]] = {atof(ar->value.c_str()), is_flip_flop, single_parameter_area, double_parameter_area,
+			TwineRef t = twines.add(Twine{prefix + cell->args[0]});
+			cell_area[t] = {atof(ar->value.c_str()), is_flip_flop, single_parameter_area, double_parameter_area,
 							     port_names};
 		}
 	}
@@ -927,8 +926,8 @@ struct StatPass : public Pass {
 	{
 		bool width_mode = false, json_mode = false, hierarchy_mode = false;
 		RTLIL::Module *top_mod = nullptr;
-		std::map<RTLIL::IdString, statdata_t> mod_stat;
-		dict<IdString, cell_area_t> cell_area;
+		std::map<TwineRef, statdata_t> mod_stat;
+		dict<TwineRef, cell_area_t> cell_area;
 		string techname;
 
 		size_t argidx;
@@ -940,7 +939,7 @@ struct StatPass : public Pass {
 			if (args[argidx] == "-liberty" && argidx + 1 < args.size()) {
 				string liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
-				read_liberty_cellarea(cell_area, liberty_file);
+				read_liberty_cellarea(design->twines, cell_area, liberty_file);
 				continue;
 			}
 			if (args[argidx] == "-tech" && argidx + 1 < args.size()) {
@@ -1005,13 +1004,13 @@ struct StatPass : public Pass {
 					top_mod = mod;
 			statdata_t data = mod_stat.at(mod->name);
 			if (json_mode) {
-				data.log_data_json(mod->name.c_str(), first_module, hierarchy_mode);
+				data.log_data_json(design->twines, mod->name.c_str(), first_module, hierarchy_mode);
 				first_module = false;
 			} else {
 				log("\n");
-				log("=== %s%s ===\n", mod->name.unescape(), mod->is_selected_whole() ? "" : " (partially selected)");
+				log("=== %s%s ===\n", design->twines.unescaped_str(mod->name), mod->is_selected_whole() ? "" : " (partially selected)");
 				log("\n");
-				data.log_data(mod->name, false, has_area, hierarchy_mode);
+				data.log_data(design->twines, mod->name, false, has_area, hierarchy_mode);
 			}
 		}
 
@@ -1031,13 +1030,13 @@ struct StatPass : public Pass {
 								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
 			}
 
-			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
+			statdata_t data = hierarchy_worker(design->twines, mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
 
 			if (json_mode)
-				data.log_data_json("design", true, hierarchy_mode, true);
+				data.log_data_json(design->twines, "design", true, hierarchy_mode, true);
 			else if (GetSize(mod_stat) > 1) {
 				log("\n");
-				data.log_data(top_mod->name, true, has_area, hierarchy_mode, true);
+				data.log_data(design->twines, top_mod->name, true, has_area, hierarchy_mode, true);
 			}
 
 			design->scratchpad_set_int("stat.num_wires", data.num_wires);

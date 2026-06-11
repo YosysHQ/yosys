@@ -30,7 +30,7 @@ struct Traversal {
 	Traversal(Module *module) : sigmap(module)
 	{
 		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($input_port), ID($output_port), ID($public)))
+			if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 				continue;
 			for (auto &conn : cell->connections())
 				if (cell->input(conn.first))
@@ -53,11 +53,11 @@ struct Cells {
 	pool<Cell *> alu;
 	pool<Cell *> macc;
 
-	static bool is_addsub(Cell *cell) { return cell->type == ID($add) || cell->type == ID($sub); }
+	static bool is_addsub(Cell *cell) { return cell->type == TW($add) || cell->type == TW($sub); }
 
-	static bool is_alu(Cell *cell) { return cell->type == ID($alu); }
+	static bool is_alu(Cell *cell) { return cell->type == TW($alu); }
 
-	static bool is_macc(Cell *cell) { return cell->type == ID($macc) || cell->type == ID($macc_v2); }
+	static bool is_macc(Cell *cell) { return cell->type == TW($macc) || cell->type == TW($macc_v2); }
 
 	bool empty() { return addsub.empty() && alu.empty() && macc.empty(); }
 
@@ -196,7 +196,7 @@ struct Rewriter {
 	bool feeds_subtracted_port(Cell *child, Cell *parent)
 	{
 		bool parent_subtracts;
-		if (parent->type == ID($sub))
+		if (parent->type == TW($sub))
 			parent_subtracts = true;
 		else if (cells.is_alu(parent))
 			parent_subtracts = alu_info.is_subtract(parent);
@@ -251,7 +251,7 @@ struct Rewriter {
 			SigSpec b = traversal.sigmap(cell->getPort(TW::B));
 			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
 			bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
-			bool b_sub = (cell->type == ID($sub)) || (cells.is_alu(cell) && alu_info.is_subtract(cell));
+			bool b_sub = (cell->type == TW($sub)) || (cells.is_alu(cell) && alu_info.is_subtract(cell));
 
 			// Only add operands not produced by other chain cells
 			if (!overlaps(a, chain_bits)) {

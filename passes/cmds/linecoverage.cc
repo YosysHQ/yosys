@@ -95,7 +95,7 @@ struct CoveragePass : public Pass {
 		{
 			log_debug("Module %s:\n", module);
 			for (auto wire: module->wires()) {
-				log_debug("%s\t%s\t%s\n", module->selected(wire) ? "*" : " ", wire->get_src_attribute(), wire->name.unescape());
+				log_debug("%s\t%s\t%s\n", module->selected(wire) ? "*" : " ", wire->get_src_attribute(), design->twines.unescaped_str(wire->name));
 				for (auto src: design->src_leaves(wire)) {
 					auto filename = extract_src_filename(src);
 					if (filename.empty()) continue;

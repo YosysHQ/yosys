@@ -126,7 +126,7 @@ struct CutpointPass : public Pass {
 						wire_drivers.insert(bit);
 
 			for (auto cell : module->selected_cells()) {
-				if (cell->type == ID($anyseq))
+				if (cell->type == TW($anyseq))
 					continue;
 				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", module, cell);
 				for (auto &conn : cell->connections()) {
@@ -135,7 +135,7 @@ struct CutpointPass : public Pass {
 						if (cell->input(conn.first))
 							for (auto bit : sigmap(conn.second))
 								if (wire_drivers.count(bit)) {
-									log_debug("  Treating inout port '%s' as input.\n", conn.first.unescape());
+									log_debug("  Treating inout port '%s' as input.\n", design->twines.unescaped_str(conn.first));
 									do_cut = false;
 									break;
 								}
@@ -143,7 +143,7 @@ struct CutpointPass : public Pass {
 						if (do_cut) {
 							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_TWINE, GetSize(conn.second)));
 							if (cell->input(conn.first)) {
-								log_debug("  Treating inout port '%s' as output.\n", conn.first.unescape());
+								log_debug("  Treating inout port '%s' as output.\n", design->twines.unescaped_str(conn.first));
 								for (auto bit : sigmap(conn.second))
 									wire_drivers.insert(bit);
 							}
@@ -154,7 +154,7 @@ struct CutpointPass : public Pass {
 				RTLIL::Cell *scopeinfo = nullptr;
 				RTLIL::IdString cell_name(cell->name);
 				if (flag_scopeinfo && cell_name.isPublic()) {
-					auto scopeinfo = module->addCell(NEW_TWINE, ID($scopeinfo));
+					auto scopeinfo = module->addCell(NEW_TWINE, TW($scopeinfo));
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 
 					for (auto const &attr : cell->attributes)
@@ -162,7 +162,7 @@ struct CutpointPass : public Pass {
 						if (attr.first == ID::hdlname)
 							scopeinfo->attributes.insert(attr);
 						else
-							scopeinfo->attributes.emplace(stringf("\\cell_%s", attr.first.unescape()), attr.second);
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", design->twines.unescaped_str(attr.first)), attr.second);
 					}
 				}
 

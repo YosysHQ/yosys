@@ -47,7 +47,7 @@ struct EquivInductWorker : public EquivWorker<>
 			if (!satgen.importCell(cell, step)) {
 				report_missing_model(cfg.ignore_unknown_cells, cell);
 			}
-			if (cell->type == ID($equiv)) {
+			if (cell->type == TW($equiv)) {
 				SigBit bit_a = sigmap(cell->getPort(TW::A)).as_bit();
 				SigBit bit_b = sigmap(cell->getPort(TW::B)).as_bit();
 				if (bit_a != bit_b) {
@@ -88,14 +88,14 @@ struct EquivInductWorker : public EquivWorker<>
 
 		if (satgen.model_undef) {
 			for (auto cell : cells)
-				if (yosys_celltypes.cell_known(cell->type))
+				if (yosys_celltypes.cell_known(cell->type_impl))
 					for (auto &conn : cell->connections())
-						if (yosys_celltypes.cell_input(cell->type, conn.first))
+						if (yosys_celltypes.cell_input(cell->type_impl, conn.first))
 							undriven_signals.add(sigmap(conn.second));
 			for (auto cell : cells)
-				if (yosys_celltypes.cell_known(cell->type))
+				if (yosys_celltypes.cell_known(cell->type_impl))
 					for (auto &conn : cell->connections())
-						if (yosys_celltypes.cell_output(cell->type, conn.first))
+						if (yosys_celltypes.cell_output(cell->type_impl, conn.first))
 							undriven_signals.del(sigmap(conn.second));
 		}
 
@@ -211,7 +211,7 @@ struct EquivInductPass : public Pass {
 			vector<Cell*> assume_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == ID($equiv)) {
+				if (cell->type == TW($equiv)) {
 					if (cell->getPort(TW::A) != cell->getPort(TW::B))
 						unproven_equiv_cells.insert(cell);
 				}

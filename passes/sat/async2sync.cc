@@ -79,9 +79,9 @@ struct Async2syncPass : public Pass {
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (cell->type.in(ID($print), ID($check)))
+				if (cell->type.in(TW($print), TW($check)))
 				{
-					if (cell->type == ID($check))
+					if (cell->type == TW($check))
 						have_check_cells = true;
 
 					bool trg_enable = cell->getParam(ID(TRG_ENABLE)).as_bool();
@@ -111,7 +111,7 @@ struct Async2syncPass : public Pass {
 						module->addDff(NEW_TWINE, sig_trg, sig_args, sig_args_q, trg_polarity, cell->src_ref());
 						cell->setPort(TW::EN, sig_en_q);
 						cell->setPort(TW::ARGS, sig_args_q);
-						if (cell->type == ID($check)) {
+						if (cell->type == TW($check)) {
 							SigBit sig_a = cell->getPort(TW::A);
 							Wire *sig_a_q = module->addWire(NEW_TWINE);
 							sig_a_q->attributes.emplace(ID::init, State::S1);
@@ -147,7 +147,7 @@ struct Async2syncPass : public Pass {
 						ff.unmap_ce_srst();
 
 						log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
-								module, cell, cell->type.unescape(),
+								module, cell, cell->type.unescaped(),
 								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						initvals.remove_init(ff.sig_q);
@@ -245,7 +245,7 @@ struct Async2syncPass : public Pass {
 						ff.unmap_srst();
 
 						log("Replacing %s.%s (%s): ARST=%s, D=%s, Q=%s\n",
-								module, cell, cell->type.unescape(),
+								module, cell, cell->type.unescaped(),
 								log_signal(ff.sig_arst), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						initvals.remove_init(ff.sig_q);
@@ -279,7 +279,7 @@ struct Async2syncPass : public Pass {
 				{
 					// Latch.
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-							module, cell, cell->type.unescape(),
+							module, cell, cell->type.unescaped(),
 							log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
 
 					initvals.remove_init(ff.sig_q);

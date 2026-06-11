@@ -44,20 +44,20 @@ using MergeableTypes = StaticCellTypes::Categories::Category;
 // is intentionally not included, so $anyinit stays excluded
 static constexpr MergeableTypes build_mergeable_types(bool nomux) {
 	auto c = StaticCellTypes::categories.is_known;
-	c.set_id(ID($anyinit), false);
-	c.set_id(ID($tribuf), false);
-	c.set_id(ID($_TBUF_), false);
-	c.set_id(ID($anyseq), false);
-	c.set_id(ID($anyconst), false);
-	c.set_id(ID($allseq), false);
-	c.set_id(ID($allconst), false);
-	c.set_id(ID($connect), false);
-	c.set_id(ID($input_port), false);
-	c.set_id(ID($output_port), false);
-	c.set_id(ID($public), false);
+	c.set_id(TW($anyinit), false);
+	c.set_id(TW($tribuf), false);
+	c.set_id(TW($_TBUF_), false);
+	c.set_id(TW($anyseq), false);
+	c.set_id(TW($anyconst), false);
+	c.set_id(TW($allseq), false);
+	c.set_id(TW($allconst), false);
+	c.set_id(TW($connect), false);
+	c.set_id(TW($input_port), false);
+	c.set_id(TW($output_port), false);
+	c.set_id(TW($public), false);
 	if (nomux) {
-		c.set_id(ID($mux), false);
-		c.set_id(ID($pmux), false);
+		c.set_id(TW($mux), false);
+		c.set_id(TW($pmux), false);
 	}
 	return c;
 }
@@ -161,18 +161,18 @@ struct OptMergeIncWorker
 				for (auto cell : module->cells()) {
 					if (!design->selected(module, cell))
 						continue;
-					if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
+					if (cell->type.in(TW($meminit), TW($meminit_v2), TW($mem), TW($mem_v2))) {
 						// Ignore those for performance: meminit can have an excessively large port,
 						// mem can have an excessively large parameter holding the init data
 						continue;
 					}
-					if (cell->type == ID($scopeinfo))
+					if (cell->type == TW($scopeinfo))
 						continue;
 					if (mode_keepdc && hasher.has_dont_care_initval(cell))
 						continue;
 					if (!cell->known())
 						continue;
-					if (!mode_share_all && !ct(cell->type))
+					if (!mode_share_all && !ct(cell->type_impl))
 						continue;
 
 					cells.push_back(cell);
@@ -190,18 +190,18 @@ struct OptMergeIncWorker
 				for (auto cell : module->dirty_cells(timestamp)) {
 					if (!design->selected(module, cell))
 						continue;
-					if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
+					if (cell->type.in(TW($meminit), TW($meminit_v2), TW($mem), TW($mem_v2))) {
 						// Ignore those for performance: meminit can have an excessively large port,
 						// mem can have an excessively large parameter holding the init data
 						continue;
 					}
-					if (cell->type == ID($scopeinfo))
+					if (cell->type == TW($scopeinfo))
 						continue;
 					if (mode_keepdc && hasher.has_dont_care_initval(cell))
 						continue;
 					if (!cell->known())
 						continue;
-					if (!mode_share_all && !ct(cell->type))
+					if (!mode_share_all && !ct(cell->type_impl))
 						continue;
 
 
