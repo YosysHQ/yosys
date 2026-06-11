@@ -41,6 +41,7 @@ struct setunset_t
 			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
 				log_cmd_error("Can't decode value '%s'!\n", set_value);
 			value = sig_value.as_const();
+			value.tag_bare_integer_const(set_value);
 		}
 	}
 };

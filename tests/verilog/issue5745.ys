@@ -1,0 +1,18 @@
+# Issue #5745: chparam values are unsigned when using read_verilog frontend
+#
+# When chparam overrides a parameter value, the signed attribute is lost,
+# causing signed comparisons to silently use unsigned logic.
+#
+# m = -32 (signed 9-bit), p2 = 11. Correct signed semantics: -32 < 11, so k = 1.
+# Bug: chparam strips the signed attribute from p2. The $lt cell gets A_SIGNED=0,
+# B_SIGNED=0, so the comparison treats m as unsigned (480 > 11), giving k = 0.
+
+read_verilog <<EOT
+module mod #(parameter p2=11) (output k);
+  wire signed [8:0] m = -32;
+  assign k = m < p2;
+endmodule
+EOT
+chparam -set p2 11
+hierarchy -top mod
+sat -prove k 1 -verify

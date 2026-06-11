@@ -615,6 +615,15 @@ int RTLIL::Const::as_int_saturating(bool is_signed) const
 	return as_int(is_signed);
 }
 
+void RTLIL::Const::tag_bare_integer_const(const std::string &value)
+{
+	if (value.empty() || value.find('\'') != std::string::npos)
+		return;
+	size_t start = (value[0] == '-' || value[0] == '+') ? 1 : 0;
+	if (start < value.size() && std::all_of(value.begin() + start, value.end(), ::isdigit))
+		flags |= RTLIL::CONST_FLAG_SIGNED;
+}
+
 int RTLIL::Const::get_min_size(bool is_signed) const
 {
 	if (empty()) return 0;
