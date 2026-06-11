@@ -776,7 +776,7 @@ struct AigerWriter
 			if (cell->type.in(ID($_FF_), ID($_DFF_N_), ID($_DFF_P_), ID($anyinit), ID($anyconst), ID($anyseq)))
 			{
 				// Use sig_q to get the FF output name, but sig to lookup aiger bits
-				auto sig_qy = cell->getPort(cell->type.in(ID($anyconst), ID($anyseq)) ? ID::Y : ID::Q);
+				auto sig_qy = cell->getPort(cell->type.in(ID($anyconst), ID($anyseq)) ? TW::Y : TW::Q);
 				SigSpec sig = sigmap(sig_qy);
 
 				if (cell->get_bool_attribute(ID(clk2fflogic)))

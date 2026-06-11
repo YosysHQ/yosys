@@ -56,14 +56,14 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 		else
 		{
 			if (cell_type_r) {
-				cell->setPort(ID(nSET), cell->getPort(ID(nRST)));
-				cell->unsetPort(ID(nRST));
+				cell->setPort(TW::nSET, cell->getPort(TW::nRST));
+				cell->unsetPort(TW::nRST);
 				cell_type_r = false;
 				cell_type_s = true;
 			} else
 			if (cell_type_s) {
-				cell->setPort(ID(nRST), cell->getPort(ID(nSET)));
-				cell->unsetPort(ID(nSET));
+				cell->setPort(TW::nRST, cell->getPort(TW::nSET));
+				cell->unsetPort(TW::nSET);
 				cell_type_r = true;
 				cell_type_s = false;
 			}
@@ -71,11 +71,11 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 	}
 
 	if (cell_type_i) {
-		cell->setPort(TW::Q, cell->getPort(ID(nQ)));
-		cell->unsetPort(ID(nQ));
+		cell->setPort(TW::Q, cell->getPort(TW::nQ));
+		cell->unsetPort(TW::nQ);
 		cell_type_i = false;
 	} else {
-		cell->setPort(ID(nQ), cell->getPort(TW::Q));
+		cell->setPort(TW::nQ, cell->getPort(TW::Q));
 		cell->unsetPort(TW::Q);
 		cell_type_i = true;
 	}
@@ -164,8 +164,8 @@ struct Greenpak4DffInvPass : public Pass {
 				}
 
 				if (cell->type == ID(GP_INV)) {
-					SigBit in_bit = sigmap(cell->getPort(ID(IN)));
-					SigBit out_bit = sigmap(cell->getPort(ID(OUT)));
+					SigBit in_bit = sigmap(cell->getPort(TW::IN));
+					SigBit out_bit = sigmap(cell->getPort(TW::OUT));
 					inv_in2out[in_bit] = out_bit;
 					inv_out2in[out_bit] = in_bit;
 					inv_in2cell[in_bit] = cell;
@@ -176,7 +176,7 @@ struct Greenpak4DffInvPass : public Pass {
 			for (auto cell : dff_cells)
 			{
 				SigBit d_bit = sigmap(cell->getPort(TW::D));
-				SigBit q_bit = sigmap(cell->hasPort(ID::Q) ? cell->getPort(TW::Q) : cell->getPort(ID(nQ)));
+				SigBit q_bit = sigmap(cell->hasPort(TW::Q) ? cell->getPort(TW::Q) : cell->getPort(TW::nQ));
 
 				while (inv_out2in.count(d_bit))
 				{
@@ -197,10 +197,10 @@ struct Greenpak4DffInvPass : public Pass {
 					inv_in2cell.erase(q_bit);
 
 					invert_gp_dff(cell, false);
-					if (cell->hasPort(ID::Q))
+					if (cell->hasPort(TW::Q))
 						cell->setPort(TW::Q, new_q_bit);
 					else
-						cell->setPort(ID(nQ), new_q_bit);
+						cell->setPort(TW::nQ, new_q_bit);
 				}
 			}
 		}

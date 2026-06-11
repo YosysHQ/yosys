@@ -46,11 +46,11 @@ struct EquivPurgeWorker
 
 		while (1)
 		{
-			IdString name = stringf("\\equiv_%d", name_cnt++);
-			if (module->count_id(name))
+			std::string name = stringf("\\equiv_%d", name_cnt++);
+			if (module->count_id(module->design->twines.lookup(name)))
 				continue;
 
-			Wire *wire = module->addWire(name, GetSize(sig));
+			Wire *wire = module->addWire(Twine{name}, GetSize(sig));
 			wire->port_output = true;
 			module->connect(wire, sig);
 			log("  Module output: %s (%s)\n", log_signal(wire), cellname.unescape());
@@ -73,11 +73,11 @@ struct EquivPurgeWorker
 
 		while (1)
 		{
-			IdString name = stringf("\\equiv_%d", name_cnt++);
-			if (module->count_id(name))
+			std::string name = stringf("\\equiv_%d", name_cnt++);
+			if (module->count_id(module->design->twines.lookup(name)))
 				continue;
 
-			Wire *wire = module->addWire(name, GetSize(sig));
+			Wire *wire = module->addWire(Twine{name}, GetSize(sig));
 			wire->port_input = true;
 			module->connect(sig, wire);
 			log("  Module input: %s (%s)\n", log_signal(wire), log_signal(sig));
@@ -97,8 +97,8 @@ struct EquivPurgeWorker
 		pool<SigBit> queue, visited;
 
 		// cache for traversing signal flow graph
-		dict<SigBit, pool<IdString>> up_bit2cells;
-		dict<IdString, pool<SigBit>> up_cell2bits;
+		dict<SigBit, pool<TwineRef>> up_bit2cells;
+		dict<TwineRef, pool<SigBit>> up_cell2bits;
 
 		for (auto cell : module->cells())
 		{
@@ -106,10 +106,10 @@ struct EquivPurgeWorker
 				for (auto &port : cell->connections()) {
 					if (cell->input(port.first))
 						for (auto bit : sigmap(port.second))
-							up_cell2bits[cell->name].insert(bit);
+							up_cell2bits[cell->meta_->name].insert(bit);
 					if (cell->output(port.first))
 						for (auto bit : sigmap(port.second))
-							up_bit2cells[bit].insert(cell->name);
+							up_bit2cells[bit].insert(cell->meta_->name);
 				}
 				continue;
 			}

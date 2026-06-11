@@ -53,14 +53,14 @@ static Cell* addDsp(Module *module) {
 	cell->setParam(ID(USE_DPORT), Const("FALSE"));
 
 	cell->setPort(TW::D, Const(0, 25));
-	cell->setPort(ID(INMODE), Const(0, 5));
-	cell->setPort(ID(ALUMODE), Const(0, 4));
-	cell->setPort(ID(OPMODE), Const(0, 7));
-	cell->setPort(ID(CARRYINSEL), Const(0, 3));
-	cell->setPort(ID(ACIN), Const(0, 30));
-	cell->setPort(ID(BCIN), Const(0, 18));
-	cell->setPort(ID(PCIN), Const(0, 48));
-	cell->setPort(ID(CARRYIN), Const(0, 1));
+	cell->setPort(TW::INMODE, Const(0, 5));
+	cell->setPort(TW::ALUMODE, Const(0, 4));
+	cell->setPort(TW::OPMODE, Const(0, 7));
+	cell->setPort(TW::CARRYINSEL, Const(0, 3));
+	cell->setPort(TW::ACIN, Const(0, 30));
+	cell->setPort(TW::BCIN, Const(0, 18));
+	cell->setPort(TW::PCIN, Const(0, 48));
+	cell->setPort(TW::CARRYIN, Const(0, 1));
 	return cell;
 }
 
@@ -190,7 +190,7 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 			// X = A:B
 			// Y = 0
 			// Z = C
-			cell->setPort(ID(OPMODE), Const::from_string("0110011"));
+			cell->setPort(TW::OPMODE, Const::from_string("0110011"));
 
 			log_assert(lane1);
 			log_assert(lane2);
@@ -221,9 +221,9 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 			cell->setPort(TW::B, AB.extract(0, 18));
 			cell->setPort(TW::C, C);
 			cell->setPort(TW::P, P);
-			cell->setPort(ID(CARRYOUT), CARRYOUT);
+			cell->setPort(TW::CARRYOUT, CARRYOUT);
 			if (lane1->type == ID($sub))
-				cell->setPort(ID(ALUMODE), Const::from_string("0011"));
+				cell->setPort(TW::ALUMODE, Const::from_string("0011"));
 
 			module->remove(lane1);
 			module->remove(lane2);
@@ -271,7 +271,7 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 			// X = A:B
 			// Y = 0
 			// Z = C
-			cell->setPort(ID(OPMODE), Const::from_string("0110011"));
+			cell->setPort(TW::OPMODE, Const::from_string("0110011"));
 
 			log_assert(lane1);
 			log_assert(lane2);
@@ -285,9 +285,9 @@ void xilinx_simd_pack(Module *module, SigMap* sigmap, const std::vector<Cell*> &
 			cell->setPort(TW::B, AB.extract(0, 18));
 			cell->setPort(TW::C, C);
 			cell->setPort(TW::P, P);
-			cell->setPort(ID(CARRYOUT), CARRYOUT);
+			cell->setPort(TW::CARRYOUT, CARRYOUT);
 			if (lane1->type == ID($sub))
-				cell->setPort(ID(ALUMODE), Const::from_string("0011"));
+				cell->setPort(TW::ALUMODE, Const::from_string("0011"));
 
 			module->remove(lane1);
 			module->remove(lane2);
@@ -335,18 +335,18 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		cell->setPort(TW::A, st.sigA);
 		cell->setPort(TW::D, st.sigD);
 		if (preAdder->type == ID($add))
-			cell->setPort(ID(INMODE), Const::from_string("00100"));
+			cell->setPort(TW::INMODE, Const::from_string("00100"));
 		else
-			cell->setPort(ID(INMODE), Const::from_string("01100"));
+			cell->setPort(TW::INMODE, Const::from_string("01100"));
 
 		if (st.ffAD) {
 			if (st.ffAD->type.in(ID($dffe), ID($sdffe))) {
 				bool pol = st.ffAD->getParam(ID::EN_POLARITY).as_bool();
 				SigSpec S = st.ffAD->getPort(TW::EN);
-				cell->setPort(ID(CEAD), pol ? S : pm.module->Not(NEW_ID, S));
+				cell->setPort(TW::CEAD, pol ? S : pm.module->Not(NEW_TWINE, S));
 			}
 			else
-				cell->setPort(ID(CEAD), State::S1);
+				cell->setPort(TW::CEAD, State::S1);
 			cell->setParam(ID(ADREG), 1);
 		}
 
@@ -402,7 +402,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 			cell->setParam(ID(MASK), B);
 			cell->setParam(ID(PATTERN), Const(0, 48));
-			cell->setPort(ID(OVERFLOW), st.overflow->getPort(TW::Y));
+			cell->setPort(TW::OVERFLOW, st.overflow->getPort(TW::Y));
 		}
 		else log_abort();
 
@@ -422,7 +422,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
-					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_ID, srst));
+					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_TWINE, srst));
 				} else {
 					cell->setPort(rstport, State::S0);
 				}
@@ -430,7 +430,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			if (ff->type.in(ID($dffe), ID($sdffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
-				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
+				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
 			}
 			else
 				cell->setPort(ceport, State::S1);
@@ -609,7 +609,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
-					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_ID, srst));
+					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_TWINE, srst));
 				} else {
 					cell->setPort(rstport, State::S0);
 				}
@@ -617,7 +617,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 			if (ff->type.in(ID($dffe), ID($sdffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
-				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
+				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
 			}
 			else
 				cell->setPort(ceport, State::S1);
@@ -732,7 +732,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
-					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_ID, srst));
+					cell->setPort(rstport, rstpol ? srst : pm.module->Not(NEW_TWINE, srst));
 				} else {
 					cell->setPort(rstport, State::S0);
 				}
@@ -740,7 +740,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 			if (ff->type.in(ID($dffe), ID($sdffe))) {
 				SigSpec ce = ff->getPort(TW::EN);
 				bool cepol = ff->getParam(ID::EN_POLARITY).as_bool();
-				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_ID, ce));
+				cell->setPort(ceport, cepol ? ce : pm.module->Not(NEW_TWINE, ce));
 			}
 			else
 				cell->setPort(ceport, State::S1);

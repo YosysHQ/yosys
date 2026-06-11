@@ -34,7 +34,8 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 {
 	std::string escaped_name = RTLIL::escape_id(name);
 	std::string escaped_enable_name = (enable_name != "") ? RTLIL::escape_id(enable_name) : "";
-	RTLIL::Wire *wire = module->wire(escaped_name);
+	RTLIL::Design *design = module->design;
+	RTLIL::Wire *wire = module->wire(design->twines.lookup(escaped_name));
 	log_assert(is_formal_celltype(celltype));
 
 	if (wire == nullptr) {
@@ -45,15 +46,15 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 		formal_cell->setPort(TW::A, wire);
 		if(enable_name == "") {
 			formal_cell->setPort(TW::EN, State::S1);
-			log("Added $%s cell for wire \"%s.%s\"\n", celltype, module->name.str(), name);
+			log("Added $%s cell for wire \"%s.%s\"\n", celltype, log_id(module), name);
 		}
 		else {
-			RTLIL::Wire *enable_wire = module->wire(escaped_enable_name);
+			RTLIL::Wire *enable_wire = module->wire(design->twines.lookup(escaped_enable_name));
 			if(enable_wire == nullptr)
 				log_error("Could not find enable wire with name \"%s\".\n", enable_name);
 
 			formal_cell->setPort(TW::EN, enable_wire);
-			log("Added $%s cell for wire \"%s.%s\" enabled by wire \"%s.%s\".\n", celltype, module->name.str(), name, module->name.str(), enable_name);
+			log("Added $%s cell for wire \"%s.%s\" enabled by wire \"%s.%s\".\n", celltype, log_id(module), name, log_id(module), enable_name);
 		}
 	}
 }
@@ -62,10 +63,11 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 {
 	RTLIL::Wire *wire = nullptr;
 	name = RTLIL::escape_id(name);
+	TwineRef name_ref = design->twines.lookup(name);
 
-	if (module->count_id(name) != 0)
+	if (name_ref != Twine::Null)
 	{
-		wire = module->wire(name);
+		wire = module->wire(name_ref);
 
 		if (wire != nullptr && wire->width != width)
 			wire = nullptr;
@@ -77,13 +79,13 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			wire = nullptr;
 
 		if (wire == nullptr)
-			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name);
+			log_cmd_error("Found incompatible object with same name in module %s!\n", log_id(module));
 
-		log("Module %s already has such an object.\n", module->name);
+		log("Module %s already has such an object.\n", log_id(module));
 	}
 	else
 	{
-		wire = module->addWire(name, width);
+		wire = module->addWire(Twine{name}, width);
 		wire->port_input = flag_input;
 		wire->port_output = flag_output;
 
@@ -91,7 +93,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			module->fixup_ports();
 		}
 
-		log("Added wire %s to module %s.\n", name, module->name);
+		log("Added wire %s to module %s.\n", name, log_id(module));
 	}
 
 	if (!flag_global)
@@ -106,11 +108,11 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			continue;
 		if (mod->get_blackbox_attribute())
 			continue;
-		if (cell->hasPort(name))
+		if (cell->hasPort(design->twines.add(Twine{name})))
 			continue;
 
-		cell->setPort(name, wire);
-		log("Added connection %s to cell %s.%s (%s).\n", name, module->name, cell->name, cell->type);
+		cell->setPort(design->twines.add(Twine{name}), wire);
+		log("Added connection %s to cell %s.%s (%s).\n", name, log_id(module), log_id(cell), cell->type);
 	}
 }
 
@@ -200,7 +202,7 @@ struct AddPass : public Pass {
 
 		if (mod_mode) {
 			for (; argidx < args.size(); argidx++)
-				design->addModule(RTLIL::escape_id(args[argidx]));
+				design->addModule(design->twines.add(Twine{RTLIL::escape_id(args[argidx])}));
 			return;
 		}
 
@@ -210,7 +212,7 @@ struct AddPass : public Pass {
 		for (auto module : design->modules())
 		{
 			log_assert(module != nullptr);
-			if (!design->selected_whole_module(module->name))
+			if (!design->selected_whole_module(module->meta_->name))
 				continue;
 			if (module->get_bool_attribute(ID::blackbox))
 				continue;

@@ -48,9 +48,9 @@ struct OptFfInvWorker
 			return false;
 		Cell *d_inv = nullptr;
 		for (auto &port: d_ports) {
-			if (port.cell == ff.cell && port.port == ID::D)
+			if (port.cell == ff.cell && port.port == TW::D)
 				continue;
-			if (port.port != ID::Y)
+			if (port.port != TW::Y)
 				return false;
 			if (port.cell->type.in(ID($not), ID($_NOT_))) {
 				// OK
@@ -72,11 +72,11 @@ struct OptFfInvWorker
 		auto q_ports = index.query_ports(ff.sig_q);
 		pool<Cell *> q_luts;
 		for (auto &port: q_ports) {
-			if (port.cell == ff.cell && port.port == ID::Q)
+			if (port.cell == ff.cell && port.port == TW::Q)
 				continue;
 			if (port.cell == d_inv)
 				return false;
-			if (port.port != ID::A)
+			if (port.port != TW::A)
 				return false;
 			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
 				return false;
@@ -133,9 +133,9 @@ struct OptFfInvWorker
 		if (d_ports.size() != 2)
 			return false;
 		for (auto &port: d_ports) {
-			if (port.cell == ff.cell && port.port == ID::D)
+			if (port.cell == ff.cell && port.port == TW::D)
 				continue;
-			if (port.port != ID::Y)
+			if (port.port != TW::Y)
 				return false;
 			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
 				return false;
@@ -151,11 +151,11 @@ struct OptFfInvWorker
 			return false;
 		Cell *q_inv = nullptr;
 		for (auto &port: q_ports) {
-			if (port.cell == ff.cell && port.port == ID::Q)
+			if (port.cell == ff.cell && port.port == TW::Q)
 				continue;
 			if (port.cell == d_lut)
 				return false;
-			if (port.port != ID::A)
+			if (port.port != TW::A)
 				return false;
 			if (port.cell->type.in(ID($not), ID($_NOT_))) {
 				// OK

@@ -295,8 +295,8 @@ struct SimInstance
 
 			if (wire->port_input && instance != nullptr && parent != nullptr) {
 				for (int i = 0; i < GetSize(sig); i++) {
-					if (instance->hasPort(wire->name))
-						in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->name)[i]));
+					if (instance->hasPort(wire->meta_->name))
+						in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->meta_->name)[i]));
 				}
 			}
 		}
@@ -319,7 +319,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, scope + "." + cell->name.unescape(), mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + cell->module->design->twines.str(cell->meta_->name), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
@@ -406,11 +406,11 @@ struct SimInstance
 			delete child.second;
 	}
 
-	IdString name() const
+	TwineRef name() const
 	{
 		if (instance != nullptr)
-			return instance->name;
-		return module->name;
+			return instance->meta_->name;
+		return module->meta_->name;
 	}
 
 	std::string hiername() const
@@ -418,7 +418,7 @@ struct SimInstance
 		if (instance != nullptr)
 			return parent->hiername() + "." + instance->name.unescape();
 
-		return module->name.unescape();
+		return module->design->twines.str(module->meta_->name);
 	}
 
 	vector<std::string> witness_full_path() const
@@ -561,12 +561,12 @@ struct SimInstance
 			RTLIL::SigSpec sig_a, sig_b, sig_c, sig_d, sig_s, sig_y;
 			bool has_a, has_b, has_c, has_d, has_s, has_y;
 
-			has_a = cell->hasPort(ID::A);
-			has_b = cell->hasPort(ID::B);
-			has_c = cell->hasPort(ID::C);
-			has_d = cell->hasPort(ID::D);
-			has_s = cell->hasPort(ID::S);
-			has_y = cell->hasPort(ID::Y);
+			has_a = cell->hasPort(TW::A);
+			has_b = cell->hasPort(TW::B);
+			has_c = cell->hasPort(TW::C);
+			has_d = cell->hasPort(TW::D);
+			has_s = cell->hasPort(TW::S);
+			has_y = cell->hasPort(TW::Y);
 
 			if (has_a) sig_a = cell->getPort(TW::A);
 			if (has_b) sig_b = cell->getPort(TW::B);
@@ -675,9 +675,9 @@ struct SimInstance
 			dirty_memories.clear();
 
 			for (auto wire : queue_outports)
-				if (instance->hasPort(wire->name)) {
+				if (instance->hasPort(wire->meta_->name)) {
 					Const value = get_state(wire);
-					parent->set_state(instance->getPort(wire->name), value);
+					parent->set_state(instance->getPort(wire->meta_->name), value);
 				}
 
 			queue_outports.clear();
@@ -933,7 +933,7 @@ struct SimInstance
 		{
 			for (auto cell : formal_database)
 			{
-				string label = cell->name.unescape();
+				string label = cell->module->design->twines.str(cell->meta_->name);
 				if (cell->has_attribute(ID::src))
 					label = cell->get_src_attribute();
 
@@ -1030,7 +1030,7 @@ struct SimInstance
 			child.second->register_signals(id);
 	}
 
-	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, int, Wire*, int, bool)> register_signal)
+	void write_output_header(std::function<void(TwineRef)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, int, Wire*, int, bool)> register_signal)
 	{
 		int exit_scopes = 1;
 		if (shared->hdlname && instance != nullptr && instance->name.isPublic() && instance->has_attribute(ID::hdlname)) {
@@ -1868,6 +1868,8 @@ struct SimWorker : SimShared
 				continue;
 			}
 
+			TwinePool& twines = topmod->design->twines;
+			TwineSearch search(&twines);
 			switch(state)
 			{
 				case 0:
@@ -1886,13 +1888,15 @@ struct SimWorker : SimShared
 					if (len<3 || len>4)
 						log_error("Invalid set state line content.\n");
 
-					RTLIL::IdString escaped_s = RTLIL::escape_id(signal_name(parts[len-1]));
+					std::string unescaped_s = signal_name(parts[len-1]);
+					std::string escaped_s = RTLIL::escape_id(unescaped_s);
+					TwineRef found = search.find(escaped_s);
 					if (len==3) {
-						Wire *w = topmod->wire(escaped_s);
+						Wire *w = topmod->wire(found);
 						if (!w) {
-							Cell *c = topmod->cell(escaped_s);
+							Cell *c = topmod->cell(found);
 							if (!c)
-								log_warning("Wire/cell %s not present in module %s\n",escaped_s.unescape(),topmod);
+								log_warning("Wire/cell %s not present in module %s\n", unescaped_s, topmod);
 							else if (c->type.in(ID($anyconst), ID($anyseq))) {
 								SigSpec sig_y= c->getPort(TW::Y);
 								if ((int)parts[1].size() != GetSize(sig_y))
@@ -1905,11 +1909,11 @@ struct SimWorker : SimShared
 							top->set_state(w, Const::from_string(parts[1]));
 						}
 					} else {
-						Cell *c = topmod->cell(escaped_s);
+						Cell *c = topmod->cell(found);
 						if (!c)
-							log_error("Cell %s not present in module %s\n",escaped_s.unescape(),topmod);
+							log_error("Cell %s not present in module %s\n", unescaped_s,topmod);
 						if (!c->is_mem_cell())
-							log_error("Cell %s is not memory cell in module %s\n",escaped_s.unescape(),topmod);
+							log_error("Cell %s is not memory cell in module %s\n", unescaped_s,topmod);
 
 						Const addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
 						Const data = Const::from_string(parts[2]);

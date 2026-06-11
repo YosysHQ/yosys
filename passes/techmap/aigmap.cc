@@ -109,7 +109,7 @@ struct AigmapPass : public Pass {
 						SigBit B = sigs.at(node.right_parent);
 						if (nand_mode && node.inverter) {
 							bit = module->addWire(NEW_TWINE);
-							auto gate = module->addNandGate(NEW_ID, A, B, bit);
+							auto gate = module->addNandGate(NEW_TWINE, A, B, bit);
 							if (select_mode)
 								new_sel.insert(gate->name);
 
@@ -120,7 +120,7 @@ struct AigmapPass : public Pass {
 								bit = and_cache.at(key);
 							else {
 								bit = module->addWire(NEW_TWINE);
-								auto gate = module->addAndGate(NEW_ID, A, B, bit);
+								auto gate = module->addAndGate(NEW_TWINE, A, B, bit);
 								if (select_mode)
 									new_sel.insert(gate->name);
 							}
@@ -129,7 +129,7 @@ struct AigmapPass : public Pass {
 
 					if (node.inverter) {
 						SigBit new_bit = module->addWire(NEW_TWINE);
-						auto gate = module->addNotGate(NEW_ID, bit, new_bit);
+						auto gate = module->addNotGate(NEW_TWINE, bit, new_bit);
 						bit = new_bit;
 						if (select_mode)
 							new_sel.insert(gate->name);

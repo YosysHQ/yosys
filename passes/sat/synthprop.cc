@@ -68,12 +68,12 @@ void SynthPropWorker::tracing(RTLIL::Module *mod, int depth, TrackingData &traci
 			log("%*sFound assert %s..\n", 2*(depth+1), "", cell);
 			tracing_data[mod].assertion_cells.emplace(cell);
 			if (!or_outputs) {
-				tracing_data[mod].names.push_back(hier_path + "." + cell->name.unescape());
+				tracing_data[mod].names.push_back(hier_path + "." + cell->module->design->twines.str(cell->meta_->name));
 			}
 			cnt++;
 		}
 		else if (RTLIL::Module *submod = design->module(cell->type)) {
-			tracing(submod, depth+1, tracing_data, hier_path + "." + cell->name.unescape());
+			tracing(submod, depth+1, tracing_data, hier_path + "." + cell->module->design->twines.str(cell->meta_->name));
 			if (!or_outputs) {
 				for (size_t i = 0; i < tracing_data[submod].names.size(); i++)
 					tracing_data[mod].names.push_back(tracing_data[submod].names[i]);
@@ -163,7 +163,7 @@ void SynthPropWorker::run()
 		SigSpec reset = module->wire(reset_name);
 		reset.extend_u0(width, true);
 
-		module->addDlatchsr(NEW_ID, State::S1, Const(State::S0,width), reset, output, module->wire(port_name), true, true, reset_pol);
+		module->addDlatchsr(NEW_TWINE, State::S1, Const(State::S0,width), reset, output, module->wire(port_name), true, true, reset_pol);
 	}
 
 	if (!map_file.empty()) {

@@ -50,9 +50,9 @@ std::string getFileinfo(const RTLIL::AttrObject *design_entity, const RTLIL::Des
 }
 
 // Get a port direction with respect to a specific module.
-FDirection getPortFDirection(IdString id, Module *module)
+FDirection getPortFDirection(TwineRef ref, Module *module)
 {
-	Wire *wire = module->wire(id);
+	Wire *wire = module->wire(ref);
 	FDirection direction = FD_NODIRECTION;
 	if (wire && wire->port_id)
 	{
@@ -229,7 +229,7 @@ std::string extmodule_name(RTLIL::Cell *cell, RTLIL::Module *mod_instance)
 	// this blackbox, we need to create a custom name for it. We just use the
 	// name of the blackbox itself followed by the name of the cell.
 	const std::string cell_name = std::string(make_id(cell->name));
-	const std::string blackbox_name = std::string(make_id(mod_instance->name));
+	const std::string blackbox_name = std::string(make_id(IdString(mod_instance->design->twines.str(mod_instance->meta_->name))));
 	const std::string extmodule_name = blackbox_name + "_" + cell_name;
 	return extmodule_name;
 }
@@ -243,7 +243,7 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 {
 	const std::string indent = "    ";
 
-	const std::string blackbox_name = std::string(make_id(mod_instance->name));
+	const std::string blackbox_name = std::string(make_id(IdString(mod_instance->design->twines.str(mod_instance->meta_->name))));
 	const std::string exported_name = extmodule_name(cell, mod_instance);
 
 	// We use the cell's fileinfo for this extmodule as its parameters come from
@@ -482,7 +482,7 @@ struct FirrtlWorker
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (it->second.size() > 0) {
 				const SigSpec &secondSig = it->second;
-				const std::string firstName = cell_name + "." + make_id(it->first);
+				const std::string firstName = cell_name + "." + make_id(IdString(design->twines.str(it->first)));
 				const std::string secondExpr = make_expr(secondSig);
 				// Find the direction for this port.
 				FDirection dir = getPortFDirection(it->first, instModule);
@@ -543,7 +543,7 @@ struct FirrtlWorker
 	void emit_module()
 	{
 		std::string moduleFileinfo = getFileinfo(module);
-		f << stringf("  module %s: %s\n", make_id(module->name), moduleFileinfo);
+		f << stringf("  module %s: %s\n", make_id(IdString(module->design->twines.str(module->meta_->name))), moduleFileinfo);
 		vector<string> port_decls, wire_decls, mem_exprs, cell_exprs, wire_exprs;
 
 		std::vector<Mem> memories = Mem::get_all_memories(module);
@@ -1232,7 +1232,7 @@ struct FirrtlBackend : public Backend {
 		Module *last = nullptr;
 		// Generate module and wire names.
 		for (auto module : design->modules()) {
-			make_id(module->name);
+			make_id(IdString(module->design->twines.str(module->meta_->name)));
 			last = module;
 			if (top == nullptr && module->get_bool_attribute(ID::top)) {
 				top = module;
@@ -1249,7 +1249,7 @@ struct FirrtlBackend : public Backend {
 			log_cmd_error("There is no top module in this design!\n");
 
 		std::string circuitFileinfo = getFileinfo(top);
-		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo);
+		*f << stringf("circuit %s: %s\n", make_id(IdString(top->design->twines.str(top->meta_->name))), circuitFileinfo);
 
 		emit_elaborated_extmodules(design, *f);
 

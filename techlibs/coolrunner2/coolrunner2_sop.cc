@@ -63,20 +63,20 @@ struct Coolrunner2SopPass : public Pass {
 				if (cell->type.in(ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(FTCP), ID(FTCP_N), ID(FTDCP),
 							ID(FDCPE), ID(FDCPE_N), ID(FDDCPE), ID(LDCP), ID(LDCP_N)))
 				{
-					if (cell->hasPort(ID(PRE)))
-						special_pterms_no_inv[sigmap(cell->getPort(ID(PRE))[0])].insert(
+					if (cell->hasPort(TW(PRE)))
+						special_pterms_no_inv[sigmap(cell->getPort(TW::PRE)[0])].insert(
 							make_tuple(cell, ID(PRE)));
-					if (cell->hasPort(ID::CLR))
+					if (cell->hasPort(TW::CLR))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::CLR)[0])].insert(
 							make_tuple(cell, ID::CLR));
-					if (cell->hasPort(ID(CE)))
-						special_pterms_no_inv[sigmap(cell->getPort(ID(CE))[0])].insert(
+					if (cell->hasPort(TW(CE)))
+						special_pterms_no_inv[sigmap(cell->getPort(TW::CE)[0])].insert(
 							make_tuple(cell, ID(CE)));
 
-					if (cell->hasPort(ID::C))
+					if (cell->hasPort(TW::C))
 						special_pterms_inv[sigmap(cell->getPort(TW::C)[0])].insert(
 							make_tuple(cell, ID::C));
-					if (cell->hasPort(ID::G))
+					if (cell->hasPort(TW::G))
 						special_pterms_inv[sigmap(cell->getPort(TW::G)[0])].insert(
 							make_tuple(cell, ID::G));
 				}
@@ -142,9 +142,9 @@ struct Coolrunner2SopPass : public Pass {
 							ID(ANDTERM));
 						and_cell->setParam(ID(TRUE_INP), GetSize(and_in_true));
 						and_cell->setParam(ID(COMP_INP), GetSize(and_in_comp));
-						and_cell->setPort(ID(OUT), and_out);
-						and_cell->setPort(ID(IN), and_in_true);
-						and_cell->setPort(ID(IN_B), and_in_comp);
+						and_cell->setPort(TW::OUT, and_out);
+						and_cell->setPort(TW::IN, and_in_true);
+						and_cell->setPort(TW::IN_B, and_in_comp);
 					}
 
 					if (sop_depth == 1)
@@ -154,8 +154,8 @@ struct Coolrunner2SopPass : public Pass {
 							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
 							ID(MACROCELL_XOR));
 						xor_cell->setParam(ID(INVERT_OUT), has_invert);
-						xor_cell->setPort(ID(IN_PTC), *intermed_wires.begin());
-						xor_cell->setPort(ID(OUT), sop_output);
+						xor_cell->setPort(TW::IN_PTC, *intermed_wires.begin());
+						xor_cell->setPort(TW::OUT, sop_output);
 
 						// Special P-term handling
 						if (is_special_pterm)
@@ -205,16 +205,16 @@ struct Coolrunner2SopPass : public Pass {
 							module->uniquify(stringf("$xc2sop$%s_OR", sop_output_wire_name)),
 							ID(ORTERM));
 						or_cell->setParam(ID::WIDTH, sop_depth);
-						or_cell->setPort(ID(IN), intermed_wires);
-						or_cell->setPort(ID(OUT), or_to_xor_wire);
+						or_cell->setPort(TW::IN, intermed_wires);
+						or_cell->setPort(TW::OUT, or_to_xor_wire);
 
 						// Construct the XOR cell
 						auto xor_cell = module->addCell(
 							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
 							ID(MACROCELL_XOR));
 						xor_cell->setParam(ID(INVERT_OUT), has_invert);
-						xor_cell->setPort(ID(IN_ORTERM), or_to_xor_wire);
-						xor_cell->setPort(ID(OUT), sop_output);
+						xor_cell->setPort(TW::IN_ORTERM, or_to_xor_wire);
+						xor_cell->setPort(TW::OUT, sop_output);
 					}
 
 					// Finally, remove the $sop cell

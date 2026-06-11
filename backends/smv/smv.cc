@@ -91,7 +91,7 @@ struct SmvWorker
 			ct(module->design), sigmap(module), module(module), f(f), verbose(verbose), idcounter(0)
 	{
 		for (auto mod : module->design->modules())
-			cid(mod->name, true);
+			cid(IdString(module->design->twines.str(mod->meta_->name)), true);
 
 		for (auto wire : module->wires())
 			cid(wire->name, true);
@@ -100,7 +100,7 @@ struct SmvWorker
 			cid(cell->name, true);
 			cid(cell->type, true);
 			for (auto &conn : cell->connections())
-				cid(conn.first, true);
+				cid(IdString(module->design->twines.str(conn.first)), true);
 		}
 	}
 
@@ -209,7 +209,7 @@ struct SmvWorker
 
 	void run()
 	{
-		f << stringf("MODULE %s\n", cid(module->name));
+		f << stringf("MODULE %s\n", cid(IdString(module->design->twines.str(module->meta_->name))));
 
 		for (auto wire : module->wires())
 		{
@@ -597,9 +597,9 @@ struct SmvWorker
 
 			for (auto &conn : cell->connections())
 				if (cell->output(conn.first))
-					definitions.push_back(stringf("%s := %s.%s;", lvalue(conn.second), cid(cell->name), cid(conn.first)));
+					definitions.push_back(stringf("%s := %s.%s;", lvalue(conn.second), cid(cell->name), cid(IdString(module->design->twines.str(conn.first)))));
 				else
-					definitions.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(conn.first), rvalue(conn.second)));
+					definitions.push_back(stringf("%s.%s := %s;", cid(cell->name), cid(IdString(module->design->twines.str(conn.first))), rvalue(conn.second)));
 		}
 
 		for (Wire *wire : partial_assignment_wires)

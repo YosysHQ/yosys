@@ -176,7 +176,7 @@ struct MemQueryCache
 		auto driver = *drivers.begin();
 		if (!driver.cell->type.in(ID($mux), ID($pmux)))
 			return false;
-		log_assert(driver.port == ID::Y);
+		log_assert(driver.port == TW::Y);
 		SigSpec sig_s = driver.cell->getPort(TW::S);
 		int sel_sat = qcsat.importSigBit(sel);
 		if (neg_sel)
@@ -248,15 +248,15 @@ struct MemoryDffWorker
 				auto consumer = *consumers.begin();
 				bool is_b;
 				if (consumer.cell->type == ID($mux)) {
-					if (consumer.port == ID::A) {
+					if (consumer.port == TW::A) {
 						is_b = false;
-					} else if (consumer.port == ID::B) {
+					} else if (consumer.port == TW::B) {
 						is_b = true;
 					} else {
 						continue;
 					}
 				} else if (consumer.cell->type == ID($pmux)) {
-					if (consumer.port == ID::A) {
+					if (consumer.port == TW::A) {
 						is_b = false;
 					} else {
 						continue;
@@ -281,7 +281,7 @@ struct MemoryDffWorker
 				auto &md = res.back();
 				md.size++;
 				for (int j = 0; j < GetSize(md.sig_s); j++) {
-					SigBit obit = consumer.cell->getPort(is_b ? ID::A : ID::B).extract(j * mux_width + consumer.offset);
+					SigBit obit = consumer.cell->getPort(is_b ? TW::A : TW::B).extract(j * mux_width + consumer.offset);
 					md.sig_other[j].append(obit);
 				}
 				prev_idx = i;
@@ -334,7 +334,7 @@ struct MemoryDffWorker
 	void handle_rd_port(Mem &mem, QuickConeSat &qcsat, int idx)
 	{
 		auto &port = mem.rd_ports[idx];
-		log("Checking read port `%s'[%d] in module `%s': ", mem.memid, idx, module->name);
+		log("Checking read port `%s'[%d] in module `%s': ", mem.memid, idx, log_id(module));
 
 		std::vector<MuxData> muxdata;
 		SigSpec data = walk_muxes(port.data, muxdata);
@@ -507,11 +507,11 @@ struct MemoryDffWorker
 
 		merger.remove_output_ff(bits);
 		if (ff.has_ce && !ff.pol_ce)
-			ff.sig_ce = module->LogicNot(NEW_ID, ff.sig_ce);
+			ff.sig_ce = module->LogicNot(NEW_TWINE, ff.sig_ce);
 		if (ff.has_arst && !ff.pol_arst)
-			ff.sig_arst = module->LogicNot(NEW_ID, ff.sig_arst);
+			ff.sig_arst = module->LogicNot(NEW_TWINE, ff.sig_arst);
 		if (ff.has_srst && !ff.pol_srst)
-			ff.sig_srst = module->LogicNot(NEW_ID, ff.sig_srst);
+			ff.sig_srst = module->LogicNot(NEW_TWINE, ff.sig_srst);
 		port.clk = ff.sig_clk;
 		port.clk_enable = true;
 		port.clk_polarity = ff.pol_clk;
@@ -554,7 +554,7 @@ struct MemoryDffWorker
 	void handle_rd_port_addr(Mem &mem, int idx)
 	{
 		auto &port = mem.rd_ports[idx];
-		log("Checking read port address `%s'[%d] in module `%s': ", mem.memid, idx, module->name);
+		log("Checking read port address `%s'[%d] in module `%s': ", mem.memid, idx, log_id(module));
 
 		FfData ff;
 		pool<std::pair<Cell *, int>> bits;

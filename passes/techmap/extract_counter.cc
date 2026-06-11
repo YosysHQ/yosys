@@ -640,16 +640,16 @@ void counter_worker(
 		if(extract.rst_inverted)
 		{
 			auto realreset = cell->module->addWire(NEW_TWINE);
-			cell->module->addNot(NEW_ID, extract.rst, RTLIL::SigSpec(realreset));
-			cell->setPort(ID(RST), realreset);
+			cell->module->addNot(NEW_TWINE, extract.rst, RTLIL::SigSpec(realreset));
+			cell->setPort(TW::RST, realreset);
 		}
 		else
-			cell->setPort(ID(RST), extract.rst);
+			cell->setPort(TW::RST, extract.rst);
 	}
 	else
 	{
 		cell->setParam(ID(RESET_MODE), RTLIL::Const("RISING"));
-		cell->setPort(ID(RST), RTLIL::SigSpec(false));
+		cell->setPort(TW::RST, RTLIL::SigSpec(false));
 	}
 
 	//Hook up other stuff
@@ -657,7 +657,7 @@ void counter_worker(
 	cell->setParam(ID(COUNT_TO), RTLIL::Const(extract.count_value));
 	cell->setParam(ID::WIDTH, RTLIL::Const(extract.width));
 	cell->setPort(TW::CLK, extract.clk);
-	cell->setPort(ID(OUT), extract.outsig);
+	cell->setPort(TW::OUT, extract.outsig);
 
 	//Hook up clock enable
 	if(extract.has_ce)
@@ -666,28 +666,28 @@ void counter_worker(
 		if(extract.ce_inverted)
 		{
 			auto realce = cell->module->addWire(NEW_TWINE);
-			cell->module->addNot(NEW_ID, extract.ce, RTLIL::SigSpec(realce));
-			cell->setPort(ID(CE), realce);
+			cell->module->addNot(NEW_TWINE, extract.ce, RTLIL::SigSpec(realce));
+			cell->setPort(TW::CE, realce);
 		}
 		else
-			cell->setPort(ID(CE), extract.ce);
+			cell->setPort(TW::CE, extract.ce);
 	}
 	else
 	{
 		cell->setParam(ID(HAS_CE), RTLIL::Const(0));
-		cell->setPort(ID(CE), RTLIL::Const(1));
+		cell->setPort(TW::CE, RTLIL::Const(1));
 	}
 
 	if(extract.count_is_up)
 	{
 		cell->setParam(ID(DIRECTION), RTLIL::Const("UP"));
 		//XXX: What is this supposed to do?
-		cell->setPort(ID(UP), RTLIL::Const(1));
+		cell->setPort(TW::UP, RTLIL::Const(1));
 	}
 	else
 	{
 		cell->setParam(ID(DIRECTION), RTLIL::Const("DOWN"));
-		cell->setPort(ID(UP), RTLIL::Const(0));
+		cell->setPort(TW::UP, RTLIL::Const(0));
 	}
 
 	//Hook up hard-wired ports, default to no parallel output
@@ -697,12 +697,12 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", load.cell->name.unescape(), load.port.unescape());
+		log("    Counter has parallel output to cell %s port %s\n", load.cell->module->design->twines.str(cell->meta_->name), load.port.unescape());
 	}
 	if(extract.has_pout)
 	{
 		//Connect it to our parallel output
-		cell->setPort(ID(POUT), extract.poutsig);
+		cell->setPort(TW::POUT, extract.poutsig);
 		cell->setParam(ID(HAS_POUT), RTLIL::Const(1));
 	}
 

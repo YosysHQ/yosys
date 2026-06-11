@@ -229,7 +229,7 @@ struct OptMuxtreeWorker
 	OptMuxtreeWorker(RTLIL::Design *design, RTLIL::Module *module) :
 			design(design), module(module), assign_map(module), removed_count(0)
 	{
-		log("Running muxtree optimizer on module %s..\n", module->name);
+		log("Running muxtree optimizer on module %s..\n", module->design->twines.str(module->meta_->name).c_str());
 
 		log("  Creating internal representation of mux trees.\n");
 
@@ -475,7 +475,7 @@ struct OptMuxtreeWorker
 
 		int width_if_b = 0;
 		idict<int> ctrl_bits;
-		if (portname == ID::B)
+		if (portname == TW::B)
 			width_if_b = GetSize(muxinfo.cell->getPort(TW::A));
 		for (int bit : sig2bits(muxinfo.cell->getPort(TW::S), false))
 			ctrl_bits(bit);
@@ -522,7 +522,7 @@ struct OptMuxtreeWorker
 		}
 
 		if (did_something) {
-			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", portname.unescape(),
+			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", design->twines.str(portname).c_str(),
 					muxinfo.cell, log_signal(muxinfo.cell->getPort(portname)), log_signal(sig));
 			muxinfo.cell->setPort(portname, sig);
 		}
@@ -539,8 +539,8 @@ struct OptMuxtreeWorker
 
 		// set input ports to constants if we find known active or inactive signals
 		if (limits.do_replace_known) {
-			replace_known(knowledge, muxinfo, ID::A);
-			replace_known(knowledge, muxinfo, ID::B);
+			replace_known(knowledge, muxinfo, TW::A);
+			replace_known(knowledge, muxinfo, TW::B);
 		}
 
 		// if there is a constant activated port we just use it

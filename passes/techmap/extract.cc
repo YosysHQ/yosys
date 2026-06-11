@@ -299,7 +299,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 		if (wire->port_id > 0) {
 			for (int i = 0; i < wire->width; i++)
 				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<RTLIL::IdString, int>(wire->name, i));
-			cell->setPort(wire->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
+			cell->setPort(wire->meta_->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
 		}
 	}
 
@@ -674,7 +674,7 @@ struct ExtractPass : public Pass {
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);
-					log("  new cell: %s\n", new_cell->name.unescape());
+					log("  new cell: %s\n", new_cell->module->design->twines.str(cell->meta_->name));
 				}
 			}
 		}

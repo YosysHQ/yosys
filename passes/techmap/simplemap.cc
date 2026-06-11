@@ -266,19 +266,19 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool is_ne = cell->type.in(ID($ne), ID($nex));
 
 	RTLIL::SigSpec xor_out = module->addWire(NEW_TWINE, max(GetSize(sig_a), GetSize(sig_b)));
-	RTLIL::Cell *xor_cell = module->addXor(NEW_ID, sig_a, sig_b, xor_out, is_signed);
+	RTLIL::Cell *xor_cell = module->addXor(NEW_TWINE, sig_a, sig_b, xor_out, is_signed);
 	transfer_src(xor_cell, cell);
 	simplemap_bitop(module, xor_cell);
 	module->remove(xor_cell);
 
 	RTLIL::SigSpec reduce_out = is_ne ? sig_y : module->addWire(NEW_TWINE);
-	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID, xor_out, reduce_out);
+	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_TWINE, xor_out, reduce_out);
 	transfer_src(reduce_cell, cell);
 	simplemap_reduce(module, reduce_cell);
 	module->remove(reduce_cell);
 
 	if (!is_ne) {
-		RTLIL::Cell *not_cell = module->addLogicNot(NEW_ID, reduce_out, sig_y);
+		RTLIL::Cell *not_cell = module->addLogicNot(NEW_TWINE, reduce_out, sig_y);
 		transfer_src(not_cell, cell);
 		simplemap_lognot(module, not_cell);
 		module->remove(not_cell);
@@ -403,10 +403,10 @@ void simplemap_sop(RTLIL::Module *module, RTLIL::Cell *cell)
 			}
 		}
 
-		products.append(GetSize(in) > 0 ? module->Eq(NEW_ID, in, pat) : State::S1);
+		products.append(GetSize(in) > 0 ? module->Eq(NEW_TWINE, in, pat) : State::S1);
 	}
 
-	module->connect(cell->getPort(TW::Y), module->ReduceOr(NEW_ID, products));
+	module->connect(cell->getPort(TW::Y), module->ReduceOr(NEW_TWINE, products));
 }
 
 void simplemap_slice(RTLIL::Module *module, RTLIL::Cell *cell)

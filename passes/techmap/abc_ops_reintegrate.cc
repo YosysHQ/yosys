@@ -388,8 +388,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 				log_error("Cannot find existing box cell with name '%s' in original design.\n", mapped_cell);
 
 			if (existing_cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY=")) {
-				SigBit I = mapped_cell->getPort(ID(i));
-				SigBit O = mapped_cell->getPort(ID(o));
+				SigBit I = mapped_cell->getPort(TW::i);
+				SigBit O = mapped_cell->getPort(TW::o);
 				if (I.wire)
 					I.wire = module->wire(remap_name(I.wire->name));
 				log_assert(O.wire);
@@ -608,7 +608,7 @@ clone_lut:
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}
-		auto cell = module->addLut(NEW_ID,
+		auto cell = module->addLut(NEW_TWINE,
 				driver_lut->getPort(TW::A),
 				y_bit,
 				driver_mask);

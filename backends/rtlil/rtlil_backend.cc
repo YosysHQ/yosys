@@ -41,9 +41,9 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 		TwineRef id = design->obj_src_id(obj);
 		f << stringf("%s" "attribute \\src ", indent);
 		if (resolve_src) {
-			dump_const(f, RTLIL::Const(design->twines.flatten(id)));
+			dump_const(f, RTLIL::Const(design->twines.str(id)));
 		} else {
-			dump_const(f, RTLIL::Const(design->twines.format_ref(id)));
+			dump_const(f, RTLIL::Const(stringf("@%zu", id)));
 		}
 		f << stringf("\n");
 	}
@@ -59,22 +59,23 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
 	if (!design || design->twines.size() == 0)
 		return;
 	f << stringf("twines\n");
-	design->twines.for_each_live([&](TwineRef id, const Twine &n) {
+	for (TwineRef id = 0; id < STATIC_TWINE_END; id++) {
+		const Twine &n = design->twines[id];
 		if (n.is_leaf()) {
-			f << stringf("  leaf %u ", id);
+			f << stringf("  leaf %zu ", id);
 			dump_const(f, RTLIL::Const(n.leaf()));
 			f << stringf("\n");
 		} else if (n.is_suffix()) {
-			f << stringf("  suffix %u %u ", id, n.suffix().parent);
+			f << stringf("  suffix %zu %zu ", id, n.suffix().prefix);
 			dump_const(f, RTLIL::Const(n.suffix().tail));
 			f << stringf("\n");
-		} else {
-			f << stringf("  concat %u", id);
+		} else if (n.is_concat()) {
+			f << stringf("  concat %zu", id);
 			for (TwineRef c : n.children())
-				f << stringf(" %u", c);
+				f << stringf(" %zu", c);
 			f << stringf("\n");
 		}
-	});
+	}
 	f << stringf("end\n");
 }
 
@@ -204,7 +205,7 @@ void RTLIL_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 		f << stringf("size %d ", memory->size);
 	if (memory->start_offset != 0)
 		f << stringf("offset %d ", memory->start_offset);
-	f << stringf("%s\n", memory->name);
+	f << stringf("%s\n", design->twines.str(memory->meta_->name).c_str());
 }
 
 void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell, const RTLIL::Design *design, bool resolve_src)
@@ -309,7 +310,7 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 void RTLIL_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc, const RTLIL::Design *design, bool resolve_src)
 {
 	dump_attributes(f, indent, proc, design, resolve_src);
-	f << stringf("%s" "process %s\n", indent, proc->name);
+	f << stringf("%s" "process %s\n", indent, design->twines.str(proc->meta_->name).c_str());
 	dump_proc_case_body(f, indent + "  ", &proc->root_case, design, resolve_src);
 	for (auto* sync : proc->syncs)
 		dump_proc_sync(f, indent + "  ", sync, design, resolve_src);
@@ -334,7 +335,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 	{
 		dump_attributes(f, indent, module, design, resolve_src);
 
-		f << stringf("%s" "module %s\n", indent, module->name);
+		f << stringf("%s" "module %s\n", indent, design->twines.str(module->meta_->name).c_str());
 
 		if (!module->avail_parameters.empty()) {
 			if (only_selected)
@@ -384,7 +385,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 		bool first_conn_line = true;
 		for (const auto& [lhs, rhs] : module->connections()) {
-			bool show_conn = !only_selected || design->selected_whole_module(module->name);
+			bool show_conn = !only_selected || design->selected_whole_module(module->meta_->name);
 			if (!show_conn) {
 				RTLIL::SigSpec sigs = lhs;
 				sigs.append(rhs);
@@ -414,9 +415,9 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 	if (!flag_m) {
 		int count_selected_mods = 0;
 		for (auto* module : design->modules()) {
-			if (design->selected_whole_module(module->name))
+			if (design->selected_whole_module(module->meta_->name))
 				flag_m = true;
-			if (design->selected(module))
+			if (design->selected_module(module->meta_->name))
 				count_selected_mods++;
 		}
 		if (count_selected_mods > 1)
@@ -432,7 +433,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 	}
 
 	for (const auto& [_, module] : reversed(design->modules_)) {
-		if (!only_selected || design->selected(module)) {
+		if (!only_selected || design->selected_module(module->meta_->name)) {
 			if (only_selected)
 				f << stringf("\n");
 			dump_module(f, "", module, design, only_selected, flag_m, flag_n, resolve_src);

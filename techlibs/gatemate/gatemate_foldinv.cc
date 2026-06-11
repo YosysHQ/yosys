@@ -141,7 +141,7 @@ struct FoldInvWorker {
             auto found_type = lut_types.find(cell->type);
             if (found_type == lut_types.end())
                 continue;
-            if (!cell->hasPort(ID::O))
+            if (!cell->hasPort(TW::O))
                 continue;
             auto o_sig = cell->getPort(TW::O);
             if (GetSize(o_sig) == 0)

@@ -83,7 +83,7 @@ struct OptMergeIncWorker
 	{
 		total_count = 0;
 
-		log("Finding identical cells in module `%s'.\n", module->name);
+		log("Finding identical cells in module `%s'.\n", module->design->twines.str(module->meta_->name).c_str());
 		assign_map.set(module);
 
 		initvals.set(&assign_map, module);
@@ -281,7 +281,7 @@ struct OptMergeIncWorker
 					}
 				}
 
-				log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
+				log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, log_id(cell->name), module->design->twines.str(module->meta_->name).c_str());
 				RTLIL::Patch patcher(module, &assign_map);
 				if (port_replacements.size() == 1) {
 					patcher.patch(cell, port_replacements[0].first, port_replacements[0].second,

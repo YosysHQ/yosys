@@ -466,7 +466,7 @@ void prep_dff(RTLIL::Design *design)
 				// be instantiating the derived module which will have had any parameters constant-propagated.
 				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 				// Please file a bug report!
-				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->name.unescape(), cell->type.unescape());
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->module->design->twines.str(cell->meta_->name), cell->type.unescape());
 			}
 			modules_sel.select(inst_module);
 		}
@@ -497,7 +497,7 @@ void prep_dff_submod(RTLIL::Design *design)
 		//   (a) flop box will have an output
 		//   (b) $_DFF_[NP]_.Q will be present as an input
 		SigBit D = module->addWire(NEW_TWINE);
-		module->addMuxGate(NEW_ID, dff_cell->getPort(TW::D), Q, State::S0, D);
+		module->addMuxGate(NEW_TWINE, dff_cell->getPort(TW::D), Q, State::S0, D);
 		dff_cell->setPort(TW::D, D);
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q

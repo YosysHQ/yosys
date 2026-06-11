@@ -215,17 +215,18 @@ struct Xaiger2Frontend : public Frontend {
 					for (auto port_id : def->ports) {
 						Wire *port = def->wire(port_id);
 						if (port->port_output) {
-							if (!cell->hasPort(search.find(port_id)) || cell->getPort(port_id).size() != port->width)
+							if (!cell->hasPort(port_id) || cell->getPort(port_id).size() != port->width)
 								log_error("Malformed design (1)\n");
 
 							SigSpec &conn = cell->connections_[port_id];
+							std::string port_id_str = design->twines.str(port_id);
 							for (int j = 0; j < port->width; j++) {
-								if (conn[j].wire && conn[j].wire->port_output)
-									conn[j] = module->addWire(module->uniquify(
-												stringf("$box$%s$%s$%d",
-													cell->name.isPublic() ? cell->name.c_str() + 1 : cell->name.c_str(),
-													port_id.isPublic() ? port_id.c_str() + 1 : port_id.c_str(),
-													j)));
+								if (conn[j].wire && conn[j].wire->port_output) {
+									std::string cell_name_str = cell->name.isPublic() ? cell->name.c_str() + 1 : cell->name.c_str();
+									const char *port_id_str_part = RTLIL::IdString(port_id_str).isPublic() ? port_id_str.c_str() + 1 : port_id_str.c_str();
+									auto new_wire_name = module->uniquify(design->twines.add(Twine{stringf("$box$%s$%s$%d", cell_name_str.c_str(), port_id_str_part, j)}));
+									conn[j] = module->addWire(new_wire_name);
+								}
 
 								bits[2*(pi_num + ci_counter + box_ci_idx++) + 2] = conn[j];
 							}
@@ -291,15 +292,15 @@ struct Xaiger2Frontend : public Frontend {
 					log_assert(bits[out_lit] == RTLIL::Sm);
 					log_assert(cell_id < cells.size());
 					auto &cell = cells[cell_id];
-					Cell *instance = module->addCell(module->uniquify(stringf("$sc%d", out_lit)), cell.type);
-					auto out_w = module->addWire(module->uniquify(stringf("$lit%d", out_lit)));
-					instance->setPort(cell.out, out_w);
+					Cell *instance = module->addCell(module->uniquify(design->twines.add(Twine{stringf("$sc%d", out_lit)})), cell.type);
+					auto out_w = module->addWire(module->uniquify(design->twines.add(Twine{stringf("$lit%d", out_lit)})));
+					instance->setPort(design->twines.add(Twine{cell.out.str()}), out_w);
 					bits[out_lit] = out_w;
 					for (auto in : cell.ins) {
 						uint32_t in_lit = read_be32(*f);
 						log_assert(out_lit < bits.size());
 						log_assert(bits[in_lit] != RTLIL::Sm);
-						instance->setPort(in, bits[in_lit]);
+						instance->setPort(design->twines.add(Twine{in.str()}), bits[in_lit]);
 					}
 				}
 			} else if (c == '\n') {
@@ -413,7 +414,7 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Bad map file: primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file: primary output literal is a marker\n");
-				Wire *w = module->wire(name);
+				Wire *w = module->wire(design->twines.lookup(name));
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
 							  name.c_str(), woffset);
@@ -433,11 +434,12 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Bad map file: pseudo primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file: pseudo primary output literal is a marker\n");
-				Cell *cell = module->cell(box_name);
-				if (!cell || !cell->hasPort(box_port))
+				Cell *cell = module->cell(design->twines.lookup(box_name));
+				auto box_port_ref = design->twines.lookup(box_port);
+				if (!cell || !cell->hasPort(box_port_ref))
 					log_error("Map file references non-existent box port %s/%s\n",
 							  box_name.c_str(), box_port.c_str());
-				SigSpec &port = cell->connections_[box_port];
+				SigSpec &port = cell->connections_[box_port_ref];
 				if (poffset < 0 || poffset >= port.size())
 					log_error("Map file references non-existent box port bit %s/%s[%d]\n",
 							  box_name.c_str(), box_port.c_str(), poffset);

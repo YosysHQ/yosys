@@ -139,7 +139,7 @@ struct ExampleDtPass : public Pass
 								}
 								else
 								{
-									node.set_function(ExampleFn(ID($$cell_output), {{port_chunk.port, {}}}));
+									node.set_function(ExampleFn(ID($$cell_output), {{RTLIL::escape_id(module->design->twines.str(port_chunk.port)), {}}}));
 									node.append_arg(enqueue(DriveBitMarker(cells(port_chunk.cell), 0)));
 								}
 							} else {

@@ -93,7 +93,7 @@ void run_fixed(xilinx_srl_pm &pm)
 		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			c->setPort(TW::E, first_cell->getPort(TW::E));
 		else if (first_cell->type.in(ID(FDRE), ID(FDRE_1)))
-			c->setPort(TW::E, first_cell->getPort(ID(CE)));
+			c->setPort(TW::E, first_cell->getPort(TW::CE));
 		else
 			log_abort();
 	}

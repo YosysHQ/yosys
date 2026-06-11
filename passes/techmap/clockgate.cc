@@ -381,7 +381,7 @@ struct ClockgatePass : public Pass {
 					icg->setPort(port, Const(0, 1));
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
-					SigBit ce_fixed_pol = module->NotGate(NEW_ID, clk.ce_bit);
+					SigBit ce_fixed_pol = module->NotGate(NEW_TWINE, clk.ce_bit);
 					icg->setPort(matching_icg_desc->ce_pin, ce_fixed_pol);
 				}
 			}

@@ -158,7 +158,7 @@ struct FsmOpt
 
 	void opt_alias_inputs()
 	{
-		RTLIL::SigSpec &ctrl_in = cell->connections_[ID::CTRL_IN];
+		RTLIL::SigSpec ctrl_in = cell->getPort(TW::CTRL_IN);
 
 		for (int i = 0; i < ctrl_in.size(); i++)
 		for (int j = i+1; j < ctrl_in.size(); j++)
@@ -194,12 +194,13 @@ struct FsmOpt
 				fsm_data.transition_table.swap(new_transition_table);
 				new_transition_table.clear();
 			}
+		cell->setPort(TW::CTRL_IN, ctrl_in);
 	}
 
 	void opt_feedback_inputs()
 	{
-		RTLIL::SigSpec &ctrl_in = cell->connections_[ID::CTRL_IN];
-		RTLIL::SigSpec &ctrl_out = cell->connections_[ID::CTRL_OUT];
+		RTLIL::SigSpec ctrl_in = cell->getPort(TW::CTRL_IN);
+		RTLIL::SigSpec ctrl_out = cell->getPort(TW::CTRL_OUT);
 
 		for (int j = 0; j < ctrl_out.size(); j++)
 		for (int i = 0; i < ctrl_in.size(); i++)
@@ -227,6 +228,8 @@ struct FsmOpt
 				fsm_data.transition_table.swap(new_transition_table);
 				new_transition_table.clear();
 			}
+		cell->setPort(TW::CTRL_IN, ctrl_in);
+		cell->setPort(TW::CTRL_OUT, ctrl_out);
 	}
 
 	void opt_find_dont_care_worker(std::set<RTLIL::Const> &set, int bit, FsmData::transition_t &tr, bool &did_something)
@@ -296,7 +299,7 @@ struct FsmOpt
 
 	FsmOpt(RTLIL::Cell *cell, RTLIL::Module *module)
 	{
-		log("Optimizing FSM `%s' from module `%s'.\n", cell->name, module->name);
+		log("Optimizing FSM `%s' from module `%s'.\n", log_id(cell), log_id(module));
 
 		fsm_data.copy_from_cell(cell);
 		this->cell = cell;

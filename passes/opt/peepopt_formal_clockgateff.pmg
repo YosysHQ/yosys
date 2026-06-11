@@ -51,7 +51,7 @@ code
 	// used to drive other nodes. If it isn't, it will be trivially removed by
 	// clean
 	SigSpec flopped_en = module->addWire(NEW_TWINE);
-	module->addDff(NEW_ID, clk, en, flopped_en, true, latch->src_ref());
+	module->addDff(NEW_TWINE, clk, en, flopped_en, true, latch->src_ref());
 	and_gate->setPort(latched_en_port_name, flopped_en);
 	did_something = true;
 

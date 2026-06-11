@@ -1957,8 +1957,8 @@ struct RTLIL::Selection
 
 	// add member of module to this selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!selects_all() && selected_modules.count(module->name) == 0) {
-			selected_members[module->name].insert(member->name);
+		if (!selects_all() && selected_modules.count(module->meta_->name) == 0) {
+			selected_members[module->meta_->name].insert(member->meta_->name);
 			if (module->get_blackbox_attribute())
 				selects_boxes = true;
 		}
@@ -2927,13 +2927,13 @@ struct RTLIL::ModuleNameMasq {
 	bool operator!=(const ModuleNameMasq &rhs) const { return RTLIL::IdString(*this) != RTLIL::IdString(rhs); }
 };
 
-struct RTLIL::Module : public RTLIL::NamedObject, public CellAdderMixin<RTLIL::Module>
+struct RTLIL::Module : public RTLIL::AttrObject, public CellAdderMixin<RTLIL::Module>
 {
 	friend struct RTLIL::SigNormIndex;
 	friend struct RTLIL::Cell;
 	friend struct RTLIL::Design;
 
-	// [[no_unique_address]] RTLIL::ModuleNameMasq name;
+	[[no_unique_address]] RTLIL::ModuleNameMasq name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -2958,8 +2958,8 @@ public:
 
 	idict<RTLIL::IdString> avail_parameters;
 	dict<RTLIL::IdString, RTLIL::Const> parameter_default_values;
-	dict<RTLIL::IdString, RTLIL::Memory*> memories;
-	dict<RTLIL::IdString, RTLIL::Process*> processes;
+	dict<TwineRef, RTLIL::Memory*> memories;
+	dict<TwineRef, RTLIL::Process*> processes;
 
 	// Context-aware src helpers. Resolve Design via this->design and
 	// route to the per-Design meta vector; assert the module is attached.
@@ -3059,7 +3059,7 @@ public:
 	std::vector<RTLIL::Cell*> selected_cells() const;
 	std::vector<RTLIL::Memory*> selected_memories() const;
 	std::vector<RTLIL::Process*> selected_processes() const;
-	std::vector<RTLIL::NamedObject*> selected_members() const;
+	std::vector<RTLIL::AttrObject*> selected_members() const;
 
 	template<typename T> bool selected(T *member) const {
 		return design->selected_member(meta_->name, member->meta_->name);
@@ -3128,11 +3128,13 @@ public:
 		return design->twines.add(Twine{Twine::Suffix{pref, std::to_string(autoidx++)}});
 	}
 
-	RTLIL::Memory *addMemory(RTLIL::IdString name);
-	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
+	RTLIL::Memory *addMemory(TwineRef name);
+	RTLIL::Memory *addMemory(Twine &&name);
+	RTLIL::Memory *addMemory(TwineRef name, const RTLIL::Memory *other);
 
-	RTLIL::Process *addProcess(RTLIL::IdString name);
-	RTLIL::Process *addProcess(RTLIL::IdString name, const RTLIL::Process *other);
+	RTLIL::Process *addProcess(TwineRef name);
+	RTLIL::Process *addProcess(Twine &&name);
+	RTLIL::Process *addProcess(TwineRef name, const RTLIL::Process *other);
 
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
 
@@ -3302,18 +3304,6 @@ inline RTLIL::CellNameMasq::operator RTLIL::IdString() const {
 	if (id == Twine::Null)
 		return RTLIL::IdString{};
 	return RTLIL::IdString(c->module->design->twines.flat_string(id));
-}
-
-inline RTLIL::ModuleNameMasq::operator RTLIL::IdString() const {
-	const RTLIL::Module *m = reinterpret_cast<const RTLIL::Module*>(
-		reinterpret_cast<const char*>(this) - offsetof(RTLIL::Module, name));
-	return m->design ? m->design->obj_name(m) : std::string();
-}
-
-inline RTLIL::ModuleNameMasq::operator TwineRef() const {
-	const RTLIL::Module *m = reinterpret_cast<const RTLIL::Module*>(
-		reinterpret_cast<const char*>(this) - offsetof(RTLIL::Module, name));
-	return m->design ? m->design->obj_src_id(m) : Twine::Null;
 }
 
 // inline RTLIL::ModuleNameMasq& RTLIL::ModuleNameMasq::operator=(RTLIL::IdString id) {

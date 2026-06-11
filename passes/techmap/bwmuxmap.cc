@@ -57,10 +57,10 @@ struct BwmuxmapPass : public Pass {
 			auto &sig_b = cell->getPort(TW::B);
 			auto &sig_s = cell->getPort(TW::S);
 
-			auto not_s = module->Not(NEW_ID, sig_s);
-			auto masked_b = module->And(NEW_ID, sig_s, sig_b);
-			auto masked_a = module->And(NEW_ID, not_s, sig_a);
-			module->addOr(NEW_ID, masked_a, masked_b, sig_y);
+			auto not_s = module->Not(NEW_TWINE, sig_s);
+			auto masked_b = module->And(NEW_TWINE, sig_s, sig_b);
+			auto masked_a = module->And(NEW_TWINE, not_s, sig_a);
+			module->addOr(NEW_TWINE, masked_a, masked_b, sig_y);
 
 			module->remove(cell);
 		}

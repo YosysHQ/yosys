@@ -270,11 +270,11 @@ struct ExtractReducePass : public Pass
 						}
 
 						if (head_cell->type == ID($_AND_)) {
-							module->addReduceAnd(NEW_ID, input, output);
+							module->addReduceAnd(NEW_TWINE, input, output);
 						} else if (head_cell->type == ID($_OR_)) {
-							module->addReduceOr(NEW_ID, input, output);
+							module->addReduceOr(NEW_TWINE, input, output);
 						} else if (head_cell->type == ID($_XOR_)) {
-							module->addReduceXor(NEW_ID, input, output);
+							module->addReduceXor(NEW_TWINE, input, output);
 						} else {
 							log_assert(false);
 						}

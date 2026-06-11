@@ -41,11 +41,11 @@ static void fix_carry_chain(Module *module)
 	{
 		if (cell->type == ID(AL_MAP_ADDER)) {
 			if (cell->getParam(ID(ALUTYPE)) != Const("ADD")) continue;
-			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(a)));
-			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(b)));
+			SigBit bit_i0 = get_bit_or_zero(cell->getPort(TW::a));
+			SigBit bit_i1 = get_bit_or_zero(cell->getPort(TW::b));
 			if (bit_i0 == State::S0 && bit_i1== State::S0) {
-				SigBit bit_ci = get_bit_or_zero(cell->getPort(ID(c)));
-				SigSpec o = cell->getPort(ID(o));
+				SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::c));
+				SigSpec o = cell->getPort(TW::o);
 				if (GetSize(o) == 2) {
 					SigBit bit_o = o[0];
 					ci_bits.insert(bit_ci);
@@ -59,9 +59,9 @@ static void fix_carry_chain(Module *module)
 	{
 		if (cell->type == ID(AL_MAP_ADDER)) {
 			if (cell->getParam(ID(ALUTYPE)) != Const("ADD")) continue;
-			SigBit bit_ci = get_bit_or_zero(cell->getPort(ID(c)));
-			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(a)));
-			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(b)));
+			SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::c));
+			SigBit bit_i0 = get_bit_or_zero(cell->getPort(TW::a));
+			SigBit bit_i1 = get_bit_or_zero(cell->getPort(TW::b));
 			SigBit canonical_bit = sigmap(bit_ci);
 			if (!ci_bits.count(canonical_bit))
 				continue;
@@ -75,7 +75,7 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : adders_to_fix_cells)
 	{
-		SigBit bit_ci = get_bit_or_zero(cell->getPort(ID(c)));
+		SigBit bit_ci = get_bit_or_zero(cell->getPort(TW::c));
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescape(), cell);
@@ -86,12 +86,12 @@ static void fix_carry_chain(Module *module)
 		bits.append(dummy_bit);
 		bits.append(new_bit);
 		c->setParam(ID(ALUTYPE), Const("ADD_CARRY"));
-		c->setPort(ID(a), bit);
-		c->setPort(ID(b), State::S0);
-		c->setPort(ID(c), State::S0);
-		c->setPort(ID(o), bits);
+		c->setPort(TW::a, bit);
+		c->setPort(TW::b, State::S0);
+		c->setPort(TW::c, State::S0);
+		c->setPort(TW::o, bits);
 
-		cell->setPort(ID(c), new_bit);
+		cell->setPort(TW::c, new_bit);
 	}
 
 }

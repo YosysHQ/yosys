@@ -100,12 +100,12 @@ struct AssertpmuxWorker
 
 				if (muxport_actsignal.count(muxport) == 0) {
 					if (portidx == 0)
-						muxport_actsignal[muxport] = module->LogicNot(NEW_ID, cell->getPort(TW::S));
+						muxport_actsignal[muxport] = module->LogicNot(NEW_TWINE, cell->getPort(TW::S));
 					else
 						muxport_actsignal[muxport] = cell->getPort(TW::S)[portidx-1];
 				}
 
-				output.append(module->LogicAnd(NEW_ID, muxport_actsignal.at(muxport), get_bit_activation(cell->getPort(TW::Y)[bitidx])));
+				output.append(module->LogicAnd(NEW_TWINE, muxport_actsignal.at(muxport), get_bit_activation(cell->getPort(TW::Y)[bitidx])));
 			}
 
 			output.sort_and_unify();
@@ -113,7 +113,7 @@ struct AssertpmuxWorker
 			if (GetSize(output) == 0)
 				output = State::S0;
 			else if (GetSize(output) > 1)
-				output = module->ReduceOr(NEW_ID, output);
+				output = module->ReduceOr(NEW_TWINE, output);
 
 			sigbit_actsignals[bit] = output.as_bit();
 		}
@@ -138,7 +138,7 @@ struct AssertpmuxWorker
 			if (GetSize(output) == 0)
 				output = State::S0;
 			else if (GetSize(output) > 1)
-				output = module->ReduceOr(NEW_ID, output);
+				output = module->ReduceOr(NEW_TWINE, output);
 
 			sigspec_actsignals[sig] = output.as_bit();
 		}
@@ -157,13 +157,13 @@ struct AssertpmuxWorker
 		SigSpec cnt(State::S0, cntbits);
 
 		for (int i = 0; i < swidth; i++)
-			cnt = module->Add(NEW_ID, cnt, sel[i]);
+			cnt = module->Add(NEW_TWINE, cnt, sel[i]);
 
-		SigSpec assert_a = module->Le(NEW_ID, cnt, SigSpec(1, cntbits));
+		SigSpec assert_a = module->Le(NEW_TWINE, cnt, SigSpec(1, cntbits));
 		SigSpec assert_en;
 
 		if (flag_noinit)
-			assert_en.append(module->LogicNot(NEW_ID, module->Initstate(NEW_ID)));
+			assert_en.append(module->LogicNot(NEW_TWINE, module->Initstate(module->design->twines.add(NEW_TWINE))));
 
 		if (!flag_always)
 			assert_en.append(get_activation(pmux->getPort(TW::Y)));
@@ -172,9 +172,9 @@ struct AssertpmuxWorker
 			assert_en = State::S1;
 
 		if (GetSize(assert_en) == 2)
-			assert_en = module->LogicAnd(NEW_ID, assert_en[0], assert_en[1]);
+			assert_en = module->LogicAnd(NEW_TWINE, assert_en[0], assert_en[1]);
 
-		Cell *assert_cell = module->addAssert(NEW_ID, assert_a, assert_en);
+		Cell *assert_cell = module->addAssert(NEW_TWINE, assert_a, assert_en);
 
 		if (pmux->src_id() != Twine::Null && module->design)
 			assert_cell->set_src_id(pmux->src_id());

@@ -172,7 +172,7 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count, bool
 		proc_clean_case(&proc->root_case, did_something, count, -1);
 	}
 	if (count > 0 && !quiet)
-		log("Found and cleaned up %d empty switch%s in `%s.%s'.\n", count, count == 1 ? "" : "es", mod->name, proc->name);
+		log("Found and cleaned up %d empty switch%s in `%s.%s'.\n", count, count == 1 ? "" : "es", log_id(mod), log_id(proc));
 	total_count += count;
 }
 
@@ -216,7 +216,7 @@ struct ProcCleanPass : public Pass {
 				if (proc->syncs.size() == 0 && proc->root_case.switches.size() == 0 &&
 						proc->root_case.actions.size() == 0) {
 					if (!quiet)
-						log("Removing empty process `%s.%s'.\n", mod, proc->name);
+						log("Removing empty process `%s.%s'.\n", log_id(mod), log_id(proc));
 					delme.push_back(proc);
 				}
 			}

@@ -200,9 +200,10 @@ ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const Sig
 						continue;
 					auto bit = actx.assign_map(raw_bit);
 					if (bit.wire == nullptr && clean_ctx.ct_all.cell_known(cell->type)) {
+						auto twines = cell->module->design->twines;
 						std::string msg = stringf("Driver-driver conflict "
 							"for %s between cell %s.%s and constant %s in %s: Resolved using constant.",
-							log_signal(raw_bit), cell->name.unescape(), actx.mod->design->twines.str(it2.first), log_signal(bit), actx.mod->name);
+							log_signal(raw_bit), twines.str(cell->meta_->name), twines.str(it2.first), log_signal(bit), twines.str(actx.mod->meta_->name));
 							logs.logs.insert(ctx, {wire_map(raw_bit), msg});
 						}
 						if (bit.wire != nullptr)
@@ -237,7 +238,7 @@ struct MemAnalysis {
 	dict<std::string, int> indices;
 	MemAnalysis(const RTLIL::Module* mod) : unused(mod->memories.size()), indices() {
 		for (int i = 0; i < GetSize(mod->memories); ++i) {
-			indices[mod->memories.element(i)->first.str()] = i;
+			indices[mod->design->twines.str(mod->memories.element(i)->first)] = i;
 			unused[i].store(true, std::memory_order_relaxed);
 		}
 	}
@@ -324,9 +325,10 @@ void remove_mems(RTLIL::Module* mod, const MemAnalysis& mem_analysis, bool verbo
 	for (const auto &it : mem_analysis.indices) {
 		if (!mem_analysis.unused[it.second].load(std::memory_order_relaxed))
 			continue;
-		RTLIL::IdString id(it.first);
+		std::string id_s = it.first;
+		TwineRef id = mod->design->twines.add(Twine{it.first});
 		if (verbose)
-			log_debug("  removing unused memory `%s'.\n", id.unescape());
+			log_debug("  removing unused memory `%s'.\n", id_s);
 		delete mod->memories.at(id);
 		mod->memories.erase(id);
 	}

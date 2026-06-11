@@ -25,14 +25,14 @@ struct TestPatchPass : public Pass {
 					log_assert(neg->type == ID($not));
 					RTLIL::Patch patcher(module, nullptr);
 					int width = cell->getPort(TW::A).size();
-					auto sub = patcher.addSub(NEW_ID,
+					auto sub = patcher.addSub(NEW_TWINE,
 						neg->getPort(TW::A),
 						add->getPort(TW::A),
 						patcher.addWire(NEW_TWINE, width));
 					auto new_out_wire = patcher.addWire(NEW_TWINE, width);
-					auto new_cell = patcher.addNeg(NEW_ID, sub->getPort(TW::Y), new_out_wire);
+					auto new_cell = patcher.addNeg(NEW_TWINE, sub->getPort(TW::Y), new_out_wire);
 					log_cell(new_cell);
-					patcher.patch(add, ID::Y, new_out_wire);
+					patcher.patch(add, TW::Y, new_out_wire);
 				}
 			}
 		}

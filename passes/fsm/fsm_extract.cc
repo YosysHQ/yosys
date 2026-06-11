@@ -34,7 +34,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 static RTLIL::Module *module;
 static SigMap assign_map;
-typedef std::pair<RTLIL::IdString, RTLIL::IdString> sig2driver_entry_t;
+typedef std::pair<TwineRef, TwineRef> sig2driver_entry_t;
 static SigSet<sig2driver_entry_t> sig2driver, sig2trigger;
 static std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> exclusive_ctrls;
 
@@ -70,8 +70,8 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	for (auto &cellport : cellport_list)
 	{
 		RTLIL::Cell *cell = module->cell(cellport.first);
-		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != ID::Y) {
-			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type, cell->name);
+		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != TW::Y) {
+			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type, log_id(cell));
 			return false;
 		}
 
@@ -255,7 +255,7 @@ undef_bit_in_next_state:
 
 static void extract_fsm(RTLIL::Wire *wire)
 {
-	log("Extracting FSM `%s' from module `%s'.\n", wire->name, module->name);
+	log("Extracting FSM `%s' from module `%s'.\n", log_id(wire), log_id(module));
 
 	// get input and output signals for state ff
 
@@ -272,9 +272,9 @@ static void extract_fsm(RTLIL::Wire *wire)
 	sig2driver.find(dff_out, cellport_list);
 	for (auto &cellport : cellport_list) {
 		RTLIL::Cell *cell = module->cell(cellport.first);
-		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != ID::Q)
+		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != TW::Q)
 			continue;
-		log("  found %s cell for state register: %s\n", cell->type, cell->name);
+		log("  found %s cell for state register: %s\n", cell->type, log_id(cell));
 		RTLIL::SigSpec sig_q = assign_map(cell->getPort(TW::Q));
 		RTLIL::SigSpec sig_d = assign_map(cell->getPort(TW::D));
 		clk = cell->getPort(TW::CLK);
@@ -322,12 +322,12 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::Cell *cell = module->cell(cellport.first);
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort(TW::A));
 		RTLIL::SigSpec sig_b;
-		if (cell->hasPort(ID::B))
+		if (cell->hasPort(TW::B))
 			sig_b = assign_map(cell->getPort(TW::B));
 		RTLIL::SigSpec sig_y = assign_map(cell->getPort(TW::Y));
-		if (cellport.second == ID::A && !sig_b.is_fully_const())
+		if (cellport.second == TW::A && !sig_b.is_fully_const())
 			continue;
-		if (cellport.second == ID::B && !sig_a.is_fully_const())
+		if (cellport.second == TW::B && !sig_a.is_fully_const())
 			continue;
 		log("  found ctrl output: %s\n", log_signal(sig_y));
 		ctrl_out.append(sig_y);
@@ -368,7 +368,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name, autoidx++), ID($fsm));
+	RTLIL::Cell *fsm_cell = module->addCell(Twine{stringf("$fsm$%s$%d", wire->name.c_str(), autoidx++)}, ID($fsm));
 	fsm_cell->setPort(TW::CLK, clk);
 	fsm_cell->setPort(TW::ARST, arst);
 	fsm_cell->parameters[ID::CLK_POLARITY] = clk_polarity ? State::S1 : State::S0;
@@ -389,7 +389,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 	// rename original state wire
 
 	wire->attributes.erase(ID::fsm_encoding);
-	module->rename(wire, stringf("$fsm$oldstate%s", wire->name.c_str()));
+	module->rename(wire, module->design->twines.add(Twine{stringf("$fsm$oldstate%s", wire->name.c_str())}));
 	if(wire->attributes.count(ID::hdlname)) {
 		auto hdlname = wire->get_hdlname_attribute();
 		hdlname.pop_back();
@@ -406,7 +406,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::Cell *cell = module->cell(cellport.first);
 		RTLIL::SigSpec port_sig = assign_map(cell->getPort(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
-		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%d", autoidx++), unconn_sig.size());
+		RTLIL::Wire *unconn_wire = module->addWire(Twine{stringf("$fsm_unconnect$%d", autoidx++)}, unconn_sig.size());
 		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections_[cellport.second]);
 	}
 }
@@ -449,13 +449,13 @@ struct FsmExtractPass : public Pass {
 					if (ct.cell_output(cell->type, conn_it.first) || !ct.cell_known(cell->type)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2driver.insert(sig, sig2driver_entry_t(cell->name, conn_it.first));
+						sig2driver.insert(sig, sig2driver_entry_t(cell->meta_->name, conn_it.first));
 					}
-					if (ct.cell_input(cell->type, conn_it.first) && cell->hasPort(ID::Y) &&
-							cell->getPort(TW::Y).size() == 1 && (conn_it.first == ID::A || conn_it.first == ID::B)) {
+					if (ct.cell_input(cell->type, conn_it.first) && cell->hasPort(TW::Y) &&
+							cell->getPort(TW::Y).size() == 1 && (conn_it.first == TW::A || conn_it.first == TW::B)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2trigger.insert(sig, sig2driver_entry_t(cell->name, conn_it.first));
+						sig2trigger.insert(sig, sig2driver_entry_t(cell->meta_->name, conn_it.first));
 					}
 				}
 				if (cell->type == ID($pmux)) {

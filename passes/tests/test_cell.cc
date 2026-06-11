@@ -41,8 +41,8 @@ static uint32_t xorshift32(uint32_t limit) {
 
 static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
 {
-	RTLIL::Module *module = design->addModule(ID(gold));
-	RTLIL::Cell *cell = module->addCell(ID(UUT), cell_type);
+	RTLIL::Module *module = design->addModule(design->twines.add(Twine{ID(gold).str()}));
+	RTLIL::Cell *cell = module->addCell(design->twines.add(Twine{ID(UUT).str()}), cell_type);
 	RTLIL::Wire *wire;
 
 	if (cell_type.in(ID($mux), ID($pmux)))
@@ -50,22 +50,22 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int width = 1 + xorshift32(8 * bloat_factor);
 		int swidth = cell_type == ID($mux) ? 1 : 1 + xorshift32(8);
 
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::B);
+		wire = module->addWire(design->twines.add(Twine{ID::B.str()}));
 		wire->width = width * swidth;
 		wire->port_input = true;
 		cell->setPort(TW::B, wire);
 
-		wire = module->addWire(ID::S);
+		wire = module->addWire(design->twines.add(Twine{ID::S.str()}));
 		wire->width = swidth;
 		wire->port_input = true;
 		cell->setPort(TW::S, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -73,22 +73,22 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 
 	if (cell_type.in(ID($_MUX_), ID($_NMUX_)))
 	{
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = 1;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::B);
+		wire = module->addWire(design->twines.add(Twine{ID::B.str()}));
 		wire->width = 1;
 		wire->port_input = true;
 		cell->setPort(TW::B, wire);
 
-		wire = module->addWire(ID::S);
+		wire = module->addWire(design->twines.add(Twine{ID::S.str()}));
 		wire->width = 1;
 		wire->port_input = true;
 		cell->setPort(TW::S, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = 1;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -99,17 +99,17 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int width = 1 + xorshift32(8 * bloat_factor);
 		int swidth = 1 + xorshift32(4 * bloat_factor);
 
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = width << swidth;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::S);
+		wire = module->addWire(design->twines.add(Twine{ID::S.str()}));
 		wire->width = swidth;
 		wire->port_input = true;
 		cell->setPort(TW::S, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -120,17 +120,17 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int width = 1 + xorshift32(8 * bloat_factor);
 		int swidth = 1 + xorshift32(6 * bloat_factor);
 
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::S);
+		wire = module->addWire(design->twines.add(Twine{ID::S.str()}));
 		wire->width = swidth;
 		wire->port_input = true;
 		cell->setPort(TW::S, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = width << swidth;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -140,27 +140,27 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	{
 		int width = 1 + xorshift32(8 * bloat_factor);
 
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::B);
+		wire = module->addWire(design->twines.add(Twine{ID::B.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::B, wire);
 
-		wire = module->addWire(ID::C);
+		wire = module->addWire(design->twines.add(Twine{ID::C.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::C, wire);
 
-		wire = module->addWire(ID::X);
+		wire = module->addWire(design->twines.add(Twine{ID::X.str()}));
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(TW::X, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -170,21 +170,21 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	{
 		int width = 1 + xorshift32(8 * bloat_factor);
 
-		wire = module->addWire(ID::P);
+		wire = module->addWire(design->twines.add(Twine{ID::P.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::P, wire);
 
-		wire = module->addWire(ID::G);
+		wire = module->addWire(design->twines.add(Twine{ID::G.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::G, wire);
 
-		wire = module->addWire(ID::CI);
+		wire = module->addWire(design->twines.add(Twine{ID::CI.str()}));
 		wire->port_input = true;
 		cell->setPort(TW::CI, wire);
 
-		wire = module->addWire(ID::CO);
+		wire = module->addWire(design->twines.add(Twine{ID::CO.str()}));
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(TW::CO, wire);
@@ -197,7 +197,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int depth = 1 + xorshift32(6);
 		int mulbits_a = 0, mulbits_b = 0;
 
-		RTLIL::Wire *wire_a = module->addWire(ID::A);
+		RTLIL::Wire *wire_a = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire_a->width = 0;
 		wire_a->port_input = true;
 
@@ -228,7 +228,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		// Macc::to_cell sets the input ports
 		macc.to_cell(cell);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -238,12 +238,12 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	{
 		int width = 1 + xorshift32(6 * bloat_factor);
 
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
 
@@ -259,12 +259,12 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int width = 1 + xorshift32(8 * bloat_factor);
 		int depth = 1 + xorshift32(8 * bloat_factor);
 
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		wire->width = width;
 		wire->port_input = true;
 		cell->setPort(TW::A, wire);
 
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
 
@@ -290,7 +290,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (cell_type_flags.find('A') != std::string::npos) {
-		wire = module->addWire(ID::A);
+		wire = module->addWire(design->twines.add(Twine{ID::A.str()}));
 		if (cell_type_flags.find('b') != std::string::npos)
 			wire->width = 1;
 		else
@@ -300,7 +300,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
-		wire = module->addWire(ID::B);
+		wire = module->addWire(design->twines.add(Twine{ID::B.str()}));
 		if (cell_type_flags.find('b') != std::string::npos)
 			wire->width = 1;
 		else if (cell_type_flags.find('h') != std::string::npos)
@@ -312,7 +312,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (cell_type_flags.find('C') != std::string::npos) {
-		wire = module->addWire(ID::C);
+		wire = module->addWire(design->twines.add(Twine{ID::C.str()}));
 		if (cell_type_flags.find('b') != std::string::npos)
 			wire->width = 1;
 		else
@@ -322,7 +322,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (cell_type_flags.find('D') != std::string::npos) {
-		wire = module->addWire(ID::D);
+		wire = module->addWire(design->twines.add(Twine{ID::D.str()}));
 		if (cell_type_flags.find('b') != std::string::npos)
 			wire->width = 1;
 		else
@@ -346,7 +346,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (cell_type_flags.find('Y') != std::string::npos) {
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		if (cell_type_flags.find('b') != std::string::npos)
 			wire->width = 1;
 		else
@@ -364,28 +364,28 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (muxdiv && cell_type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
-		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(TW::B));
+		auto b_not_zero = module->ReduceBool(NEW_TWINE, cell->getPort(TW::B));
 		auto div_out = module->addWire(NEW_TWINE, GetSize(cell->getPort(TW::Y)));
-		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(TW::Y));
+		module->addMux(NEW_TWINE, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(TW::Y));
 		cell->setPort(TW::Y, div_out);
 	}
 
 	if (cell_type == ID($alu))
 	{
-		wire = module->addWire(ID::CI);
+		wire = module->addWire(design->twines.add(Twine{ID::CI.str()}));
 		wire->port_input = true;
 		cell->setPort(TW::CI, wire);
 
-		wire = module->addWire(ID::BI);
+		wire = module->addWire(design->twines.add(Twine{ID::BI.str()}));
 		wire->port_input = true;
 		cell->setPort(TW::BI, wire);
 
-		wire = module->addWire(ID::X);
+		wire = module->addWire(design->twines.add(Twine{ID::X.str()}));
 		wire->width = GetSize(cell->getPort(TW::Y));
 		wire->port_output = true;
 		cell->setPort(TW::X, wire);
 
-		wire = module->addWire(ID::CO);
+		wire = module->addWire(design->twines.add(Twine{ID::CO.str()}));
 		wire->width = GetSize(cell->getPort(TW::Y));
 		wire->port_output = true;
 		cell->setPort(TW::CO, wire);
@@ -397,7 +397,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int y_size = 1;
 		if (a_size > 1)
 			y_size += (xorshift32(8 * bloat_factor) % (a_size - 1));
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = y_size;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -409,7 +409,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 
 	if (cell_type == ID($concat))
 	{
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = GetSize(cell->getPort(TW::A)) + GetSize(cell->getPort(TW::B));
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -417,7 +417,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 
 	if (cell_type == ID($buf))
 	{
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = GetSize(cell->getPort(TW::A));
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -426,18 +426,18 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	if (cell_type.in(ID($bwmux), ID($bweqx)))
 	{
 		int a_size = GetSize(cell->getPort(TW::A));
-		wire = module->addWire(ID::B);
+		wire = module->addWire(design->twines.add(Twine{ID::B.str()}));
 		wire->width = a_size;
 		wire->port_input = true;
 		cell->setPort(TW::B, wire);
 		if (cell_type == ID($bwmux))
 		{
-			wire = module->addWire(ID::S);
+			wire = module->addWire(design->twines.add(Twine{ID::S.str()}));
 			wire->width = a_size;
 			wire->port_input = true;
 			cell->setPort(TW::S, wire);
 		}
-		wire = module->addWire(ID::Y);
+		wire = module->addWire(design->twines.add(Twine{ID::Y.str()}));
 		wire->width = a_size;
 		wire->port_output = true;
 		cell->setPort(TW::Y, wire);
@@ -602,15 +602,19 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		}
 
 		vlog_file << stringf("  %s_expr uut_expr(", uut_name);
-		for (int i = 0; i < GetSize(gold_mod->ports); i++)
-			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", gold_mod->ports[i].unescape(), gold_mod->ports[i].unescape(),
+		for (int i = 0; i < GetSize(gold_mod->ports); i++) {
+			std::string port_name = gold_mod->design->twines.str(gold_mod->ports[i]);
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", port_name, port_name,
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
+		}
 		vlog_file << stringf(");\n");
 
 		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name);
-		for (int i = 0; i < GetSize(gold_mod->ports); i++)
-			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", gold_mod->ports[i].unescape(), gold_mod->ports[i].unescape(),
+		for (int i = 0; i < GetSize(gold_mod->ports); i++) {
+			std::string port_name = gold_mod->design->twines.str(gold_mod->ports[i]);
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", port_name, port_name,
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
+		}
 		vlog_file << stringf(");\n");
 
 		vlog_file << stringf("  task run;\n");
@@ -1203,7 +1207,7 @@ struct TestCellPass : public Pass {
 						CellCosts costs(design);
 						Pass::call(design, "select gold");
 						for (auto mod : design->selected_modules()) {
-							log_assert(mod->name.str() == "\\gold");
+							log_assert(design->twines.str(mod->meta_->name) == "\\gold");
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {

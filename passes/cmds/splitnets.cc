@@ -55,7 +55,7 @@ struct SplitnetsWorker
 		if (format.size() > 1)
 			new_wire_name += format.substr(1, 1);
 
-		RTLIL::Wire *new_wire = module->addWire(module->uniquify(new_wire_name), width);
+		RTLIL::Wire *new_wire = module->addWire(module->uniquify(module->design->twines.add(Twine{new_wire_name})), width);
 		new_wire->port_id = wire->port_id ? wire->port_id + offset : 0;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
@@ -149,7 +149,7 @@ struct SplitnetsPass : public Pass {
 		design->sigNormalize(false);
 
 		// module_ports_db[module_name][old_port_name] = new_port_name_list
-		dict<IdString, dict<IdString, vector<IdString>>> module_ports_db;
+		dict<IdString, dict<TwineRef, vector<TwineRef>>> module_ports_db;
 
 		for (auto module : design->selected_modules())
 		{
@@ -239,10 +239,10 @@ struct SplitnetsPass : public Pass {
 					if (sig == wire)
 						continue;
 
-					vector<IdString> &new_ports = module_ports_db[module->name][wire->name];
+					vector<TwineRef> &new_ports = module_ports_db[module->design->twines.str(module->meta_->name)][wire->meta_->name];
 
 					for (SigSpec c : sig.chunks())
-						new_ports.push_back(c.as_wire()->name);
+						new_ports.push_back(c.as_wire()->meta_->name);
 				}
 			}
 
@@ -265,7 +265,7 @@ struct SplitnetsPass : public Pass {
 
 				for (auto &it : module_ports_db.at(cell->type))
 				{
-					IdString port_id = it.first;
+					TwineRef port_id = it.first;
 					const auto &new_port_ids = it.second;
 
 					if (!cell->hasPort(port_id))

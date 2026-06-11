@@ -301,7 +301,7 @@ void FfMergeHelper::remove_output_ff(const pool<std::pair<Cell *, int>> &bits) {
 		SigSpec q = cell->getPort(TW::Q);
 		initvals->remove_init(q[idx]);
 		dff_driver.erase((*sigmap)(q[idx]));
-		q[idx] = module->addWire(stringf("$ffmerge_disconnected$%d", autoidx++));
+		q[idx] = module->addWire(Twine{stringf("$ffmerge_disconnected$%d", autoidx++)});
 		cell->setPort(TW::Q, q);
 		initvals->set_init(cell->getPort(TW::Q), (*initvals)(q));
 	}
@@ -311,7 +311,7 @@ void FfMergeHelper::mark_input_ff(const pool<std::pair<Cell *, int>> &bits) {
 	for (auto &it : bits) {
 		Cell *cell = it.first;
 		int idx = it.second;
-		if (cell->hasPort(ID::D)) {
+		if (cell->hasPort(TW::D)) {
 			SigSpec d = cell->getPort(TW::D);
 			// The user count was already at least 1
 			// (for the D port).  Bump it as it is now connected
@@ -337,7 +337,7 @@ void FfMergeHelper::set(FfInitVals *initvals_, RTLIL::Module *module_)
 
 	for (auto cell : module->cells()) {
 		if (cell->is_builtin_ff()) {
-			if (cell->hasPort(ID::D)) {
+			if (cell->hasPort(TW::D)) {
 				SigSpec d = (*sigmap)(cell->getPort(TW::D));
 				for (int i = 0; i < GetSize(d); i++)
 					dff_sink[d[i]].insert(std::make_pair(cell, i));

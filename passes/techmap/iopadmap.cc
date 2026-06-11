@@ -334,7 +334,7 @@ struct IopadmapPass : public Pass {
 								RTLIL::escape_id(tinoutpad_celltype));
 
 							if (tinoutpad_neg_oe)
-								en_sig = module->NotGate(NEW_ID, en_sig);
+								en_sig = module->NotGate(NEW_TWINE, en_sig);
 							cell->setPort(RTLIL::escape_id(tinoutpad_portname_oe), en_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);
 
@@ -358,7 +358,7 @@ struct IopadmapPass : public Pass {
 								RTLIL::escape_id(toutpad_celltype));
 
 							if (toutpad_neg_oe)
-								en_sig = module->NotGate(NEW_ID, en_sig);
+								en_sig = module->NotGate(NEW_TWINE, en_sig);
 							cell->setPort(RTLIL::escape_id(toutpad_portname_oe), en_sig);
 							cell->setPort(RTLIL::escape_id(toutpad_portname_i), data_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);

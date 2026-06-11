@@ -37,9 +37,10 @@ struct TimingInfo
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
 		std::optional<SigBit> get_connection(RTLIL::Cell *cell) {
-			if (!cell->hasPort(name))
+			TwineRef port_name = cell->module->design->twines.lookup(name.str());
+			if (!cell->hasPort(port_name))
 				return {};
-			auto &port = cell->getPort(name);
+			auto &port = cell->getPort(port_name);
 			if (offset >= port.size())
 				return {};
 			return port[offset];
@@ -92,7 +93,7 @@ struct TimingInfo
 
 	const ModuleTiming& setup_module(RTLIL::Module *module)
 	{
-		auto r = data.insert(module->name);
+		auto r = data.insert(RTLIL::IdString(module->design->twines.str(module->meta_->name)));
 		log_assert(r.second);
 		auto &t = r.first->second;
 

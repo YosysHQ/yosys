@@ -155,7 +155,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	std::stringstream sstr;
 	sstr << "$procmux$" << (autoidx++);
 
-	RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
+	RTLIL::Wire *cmp_wire = mod->addWire(Twine{sstr.str() + "_CMP"}, 0);
 
 	for (auto comp : compare)
 	{
@@ -178,7 +178,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
+			RTLIL::Cell *eq_cell = mod->addCell(Twine{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}, ifxmode ? ID($eqx) : ID($eq));
 			apply_attrs(eq_cell, sw, cs);
 
 			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -201,10 +201,10 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	}
 	else
 	{
-		ctrl_wire = mod->addWire(sstr.str() + "_CTRL");
+		ctrl_wire = mod->addWire(Twine{sstr.str() + "_CTRL"});
 
 		// reduce cmp vector to one logic signal
-		RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", ID($reduce_or));
+		RTLIL::Cell *any_cell = mod->addCell(Twine{sstr.str() + "_ANY"}, ID($reduce_or));
 		apply_attrs(any_cell, sw, cs);
 
 		any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -236,10 +236,10 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	log_assert(ctrl_sig.size() == 1);
 
 	// prepare multiplexer output signal
-	RTLIL::Wire *result_wire = mod->addWire(sstr.str() + "_Y", when_signal.size());
+	RTLIL::Wire *result_wire = mod->addWire(Twine{sstr.str() + "_Y"}, when_signal.size());
 
 	// create the multiplexer itself
-	RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), ID($mux));
+	RTLIL::Cell *mux_cell = mod->addCell(Twine{sstr.str()}, ID($mux));
 	apply_attrs(mux_cell, sw, cs);
 
 	mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());
@@ -412,7 +412,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 
 void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 {
-	log("Creating decoders for process `%s.%s'.\n", mod->name, proc->name);
+	log("Creating decoders for process `%s.%s'.\n", log_id(mod), log_id(proc));
 
 	SigSnippets sigsnip;
 	sigsnip.insert(&proc->root_case);

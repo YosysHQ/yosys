@@ -43,25 +43,25 @@ int check_bufnorm_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 				for (auto bit : conn.second) {
 					if (bit.is_wire() && !module->fanout(bit).count(RTLIL::PortBit(cell, conn.first, i)))
 						log_warning("sigNorm: fanout index missing entry for cell %s.%s port %s bit %d\n",
-							log_id(module), log_id(cell), log_id(conn.first), i), counter++;
+							log_id(module), log_id(cell), module->design->twines.str(conn.first).c_str(), i), counter++;
 					++i;
 				}
 			}
 		} else if (!conn.second.empty()) {
 			if (!conn.second.is_wire()) {
 				log_warning("bufNorm: cell %s.%s port %s output is not a full wire: %s\n",
-					log_id(module), log_id(cell), log_id(conn.first), log_signal(conn.second));
+					log_id(module), log_id(cell), module->design->twines.str(conn.first).c_str(), log_signal(conn.second));
 				counter++;
 			} else {
 				Wire *w = conn.second.as_wire();
 				if (!w->known_driver())
 					log_warning("bufNorm: cell %s.%s port %s drives wire %s but wire has no driverCell_ set\n",
-						log_id(module), log_id(cell), log_id(conn.first), log_id(w)), counter++;
+						log_id(module), log_id(cell), module->design->twines.str(conn.first).c_str(), log_id(w)), counter++;
 				else if (w->driverCell() != cell || w->driverPort() != conn.first)
 					log_warning("bufNorm: wire %s.%s driverCell_/driverPort_ mismatch: recorded driver is cell %s port %s, but cell %s port %s also drives it\n",
 						log_id(module), log_id(w),
-						log_id(w->driverCell()), log_id(w->driverPort()),
-						log_id(cell), log_id(conn.first)), counter++;
+						log_id(w->driverCell()), module->design->twines.str(w->driverPort()).c_str(),
+						log_id(cell), module->design->twines.str(conn.first).c_str()), counter++;
 			}
 		}
 	}
@@ -78,16 +78,16 @@ int check_bufnorm_wire(RTLIL::Module *module, RTLIL::Wire *wire)
 	int counter = 0;
 	if (wire->known_driver()) {
 		Cell *driver = wire->driverCell();
-		IdString dport = wire->driverPort();
+		TwineRef dport = wire->driverPort();
 		if (!driver->hasPort(dport)) {
 			log_warning("bufNorm: wire %s.%s driverPort_ %s does not exist on driverCell_ %s\n",
-				log_id(module), log_id(wire), log_id(dport), log_id(driver));
+				log_id(module), log_id(wire), module->design->twines.str(dport).c_str(), log_id(driver));
 			counter++;
 		} else {
 			const SigSpec &dsig = driver->getPort(dport);
 			if (!dsig.is_wire() || dsig.as_wire() != wire)
 				log_warning("bufNorm: wire %s.%s driverCell_ %s port %s does not connect back to this wire\n",
-					log_id(module), log_id(wire), log_id(driver), log_id(dport)), counter++;
+					log_id(module), log_id(wire), log_id(driver), module->design->twines.str(dport).c_str()), counter++;
 			if (wire->port_input && !wire->port_output && driver->type != ID($input_port))
 				log_warning("bufNorm: module input wire %s.%s is driven by non-$input_port cell %s of type %s\n",
 					log_id(module), log_id(wire), log_id(driver), log_id(driver->type)), counter++;
@@ -110,20 +110,20 @@ int check_signorm_fanout(RTLIL::Module *module)
 		for (auto &pb : portbits) {
 			if (!pb.cell->hasPort(pb.port)) {
 				log_warning("sigNorm: fanout entry for %s points to non-existent port %s on cell %s.%s\n",
-					log_signal(bit), log_id(pb.port), log_id(module), log_id(pb.cell));
+					log_signal(bit), module->design->twines.str(pb.port).c_str(), log_id(module), log_id(pb.cell));
 				counter++;
 				continue;
 			}
 			const SigSpec &fsig = pb.cell->getPort(pb.port);
 			if (pb.offset < 0 || pb.offset >= fsig.size()) {
 				log_warning("sigNorm: fanout entry for %s has out-of-bounds offset %d for cell %s.%s port %s (width %d)\n",
-					log_signal(bit), pb.offset, log_id(module), log_id(pb.cell), log_id(pb.port), fsig.size());
+					log_signal(bit), pb.offset, log_id(module), log_id(pb.cell), module->design->twines.str(pb.port).c_str(), fsig.size());
 				counter++;
 				continue;
 			}
 			if (fsig[pb.offset] != bit)
 				log_warning("sigNorm: fanout entry mismatch: expected %s at offset %d of cell %s.%s port %s, found %s\n",
-					log_signal(bit), pb.offset, log_id(module), log_id(pb.cell), log_id(pb.port), log_signal(fsig[pb.offset])), counter++;
+					log_signal(bit), pb.offset, log_id(module), log_id(pb.cell), module->design->twines.str(pb.port).c_str(), log_signal(fsig[pb.offset])), counter++;
 		}
 	}
 	return counter;
@@ -267,7 +267,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
-										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
+										log_signal(action.first), log_signal(action.second), module->design->twines.str(proc_it.first).c_str()));
 
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
@@ -288,7 +288,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
-										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
+										log_signal(action.first), log_signal(action.second), module->design->twines.str(proc_it.first).c_str()));
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -311,8 +311,8 @@ struct CheckPass : public Pass {
 				CircuitEdgesDatabase(TopoSort<std::pair<RTLIL::IdString, int>> &topo, SigMap &sigmap, bool force_detail)
 					: topo(topo), sigmap(sigmap), force_detail(force_detail) {}
 
-				void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit,
-							  RTLIL::IdString to_port, int to_bit, int) override {
+				void add_edge(RTLIL::Cell *cell, TwineRef from_port, int from_bit,
+							  TwineRef to_port, int to_bit, int) override {
 					SigSpec from_portsig = cell->getPort(from_port);
 					SigSpec to_portsig = cell->getPort(to_port);
 					log_assert(from_bit >= 0 && from_bit < from_portsig.size());
@@ -447,7 +447,7 @@ struct CheckPass : public Pass {
 						if (output && !input && bit.wire)
 						wire_drivers_count[bit]++;
 						if (output && (bit.wire || !input))
-							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", conn.first.unescape(), i,
+							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", cell->module->design->twines.str(conn.first).c_str(), i,
 																cell, cell->type.unescape()));
 						if (output)
 							driver_cells[bit] = cell;
@@ -527,7 +527,7 @@ struct CheckPass : public Pass {
 				SigBit prev;
 				for (auto it = loop.rbegin(); it != loop.rend(); it++)
 				if (it->second != -1) { // skip the fallback helper nodes
-					prev = SigBit(module->wire(it->first), it->second);
+					prev = SigBit(module->wire(module->design->twines.lookup(it->first.str())), it->second);
 					break;
 				}
 				log_assert(prev != SigBit());
@@ -546,22 +546,22 @@ struct CheckPass : public Pass {
 						MatchingEdgePrinter(std::string &message, SigMap &sigmap, SigBit from, SigBit to)
 							: message(message), sigmap(sigmap), from(from), to(to), nhits(0) {}
 
-						void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit,
-									  RTLIL::IdString to_port, int to_bit, int) override {
+						void add_edge(RTLIL::Cell *cell, TwineRef from_port, int from_bit,
+									  TwineRef to_port, int to_bit, int) override {
 							SigBit edge_from = sigmap(cell->getPort(from_port))[from_bit];
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("      %s[%d] --> %s[%d]\n", from_port.unescape(), from_bit,
-												   to_port.unescape(), to_bit);
+								message += stringf("      %s[%d] --> %s[%d]\n", cell->module->design->twines.str(from_port).c_str(), from_bit,
+												   cell->module->design->twines.str(to_port).c_str(), to_bit);
 							if (nhits == HITS_LIMIT)
 								message += "      ...\n";
 						}
 					};
 
-					Wire *wire = module->wire(pair.first);
+					Wire *wire = module->wire(module->design->twines.lookup(pair.first.str()));
 					log_assert(wire);
-					SigBit bit(module->wire(pair.first), pair.second);
+					SigBit bit(module->wire(module->design->twines.lookup(pair.first.str())), pair.second);
 					log_assert(driver_cells.count(bit));
 					Cell *driver = driver_cells.at(bit);
 

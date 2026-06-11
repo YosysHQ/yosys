@@ -31,9 +31,9 @@ void bitwise_unary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	for (int i = 0; i < y_width; i++)
 	{
 		if (i < a_width)
-			db->add_edge(cell, ID::A, i, ID::Y, i, -1);
+			db->add_edge(cell, TW::A, i, TW::Y, i, -1);
 		else if (is_signed && a_width > 0)
-			db->add_edge(cell, ID::A, a_width-1, ID::Y, i, -1);
+			db->add_edge(cell, TW::A, a_width-1, TW::Y, i, -1);
 	}
 }
 
@@ -54,14 +54,14 @@ void bitwise_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	for (int i = 0; i < y_width; i++)
 	{
 		if (i < a_width)
-			db->add_edge(cell, ID::A, i, ID::Y, i, -1);
+			db->add_edge(cell, TW::A, i, TW::Y, i, -1);
 		else if (is_signed && a_width > 0)
-			db->add_edge(cell, ID::A, a_width-1, ID::Y, i, -1);
+			db->add_edge(cell, TW::A, a_width-1, TW::Y, i, -1);
 
 		if (i < b_width)
-			db->add_edge(cell, ID::B, i, ID::Y, i, -1);
+			db->add_edge(cell, TW::B, i, TW::Y, i, -1);
 		else if (is_signed && b_width > 0)
-			db->add_edge(cell, ID::B, b_width-1, ID::Y, i, -1);
+			db->add_edge(cell, TW::B, b_width-1, TW::Y, i, -1);
 	}
 }
 
@@ -76,7 +76,7 @@ void arith_neg_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 	for (int i = 0; i < y_width; i++)
 	for (int k = 0; k <= i && k < a_width; k++)
-		db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+		db->add_edge(cell, TW::A, k, TW::Y, i, -1);
 }
 
 void arith_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
@@ -96,10 +96,10 @@ void arith_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 		for (int k = 0; k <= i; k++)
 		{
 			if (k < a_width)
-				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+				db->add_edge(cell, TW::A, k, TW::Y, i, -1);
 
 			if (k < b_width)
-				db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+				db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 		}
 	}
 }
@@ -109,7 +109,7 @@ void reduce_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int a_width = GetSize(cell->getPort(TW::A));
 
 	for (int i = 0; i < a_width; i++)
-		db->add_edge(cell, ID::A, i, ID::Y, 0, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, 0, -1);
 }
 
 void logic_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
@@ -118,9 +118,9 @@ void logic_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int b_width = GetSize(cell->getPort(TW::B));
 
 	for (int i = 0; i < a_width; i++)
-		db->add_edge(cell, ID::A, i, ID::Y, 0, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, 0, -1);
 	for (int i = 0; i < b_width; i++)
-		db->add_edge(cell, ID::B, i, ID::Y, 0, -1);
+		db->add_edge(cell, TW::B, i, TW::Y, 0, -1);
 }
 
 void concat_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
@@ -129,9 +129,9 @@ void concat_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int b_width = GetSize(cell->getPort(TW::B));
 
 	for (int i = 0; i < a_width; i++)
-		db->add_edge(cell, ID::A, i, ID::Y, i, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, i, -1);
 	for (int i = 0; i < b_width; i++)
-		db->add_edge(cell, ID::B, i, ID::Y, a_width + i, -1);
+		db->add_edge(cell, TW::B, i, TW::Y, a_width + i, -1);
 }
 
 void slice_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
@@ -143,7 +143,7 @@ void slice_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	for (int i = 0; i < y_width; i++) {
 		int a_bit = offset + i;
 		if (a_bit >= 0 && a_bit < a_width)
-			db->add_edge(cell, ID::A, a_bit, ID::Y, i, -1);
+			db->add_edge(cell, TW::A, a_bit, TW::Y, i, -1);
 	}
 }
 
@@ -153,10 +153,10 @@ void compare_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int b_width = GetSize(cell->getPort(TW::B));
 
 	for (int i = 0; i < a_width; i++)
-		db->add_edge(cell, ID::A, i, ID::Y, 0, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, 0, -1);
 
 	for (int i = 0; i < b_width; i++)
-		db->add_edge(cell, ID::B, i, ID::Y, 0, -1);
+		db->add_edge(cell, TW::B, i, TW::Y, 0, -1);
 }
 
 void mux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
@@ -167,13 +167,13 @@ void mux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 	for (int i = 0; i < a_width; i++)
 	{
-		db->add_edge(cell, ID::A, i, ID::Y, i, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, i, -1);
 
 		for (int k = i; k < b_width; k += a_width)
-			db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 
 		for (int k = 0; k < s_width; k++)
-			db->add_edge(cell, ID::S, k, ID::Y, i, -1);
+			db->add_edge(cell, TW::S, k, TW::Y, i, -1);
 	}
 }
 
@@ -186,10 +186,10 @@ void bmux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	for (int i = 0; i < width; i++)
 	{
 		for (int k = i; k < a_width; k += width)
-			db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+			db->add_edge(cell, TW::A, k, TW::Y, i, -1);
 
 		for (int k = 0; k < s_width; k++)
-			db->add_edge(cell, ID::S, k, ID::Y, i, -1);
+			db->add_edge(cell, TW::S, k, TW::Y, i, -1);
 	}
 }
 
@@ -201,9 +201,9 @@ void demux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 	for (int i = 0; i < width; i++)
 	{
-		db->add_edge(cell, ID::A, i % a_width, ID::Y, i, -1);
+		db->add_edge(cell, TW::A, i % a_width, TW::Y, i, -1);
 		for (int k = 0; k < s_width; k++)
-			db->add_edge(cell, ID::S, k, ID::Y, i, -1);
+			db->add_edge(cell, TW::S, k, TW::Y, i, -1);
 	}
 }
 
@@ -275,11 +275,11 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 		if (i < b_range_upper) {
 			for (int k = a_range_lower; k < a_range_upper; k++)
-				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+				db->add_edge(cell, TW::A, k, TW::Y, i, -1);
 		} else {
 			// only influence is through sign extension
 			if (is_signed)
-				db->add_edge(cell, ID::A, a_width - 1, ID::Y, i, -1);
+				db->add_edge(cell, TW::A, a_width - 1, TW::Y, i, -1);
 		}
 
 		for (int k = 0; k < b_width_capped; k++) {
@@ -289,13 +289,13 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 					int skip = 1 << (k + 1);
 					int base = skip -1;
 					if (i % skip != base && i - a_width + 2 < 1 << b_width_capped)
-						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+						db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 				} else if (is_signed) {
 					if (i - a_width + 2 < 1 << b_width_capped)
-						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+						db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 				} else {
 					if (i - a_width + 1 < 1 << b_width_capped)
-						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+						db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 				}
 			// right shifts
 			} else if (cell->type.in(ID($shr), ID($sshr)) || (cell->type.in(ID($shift), ID($shiftx)) && !is_b_signed)) {
@@ -306,10 +306,10 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 									&& (((y_width - i) & ~(1 << k)) < (1 << b_width_capped)));
 
 					if (shift_in_bulk || (cell->type.in(ID($shr), ID($shift), ID($shiftx)) && zpad_jump))
-						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+						db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 				} else {
 					if (i < a_width)
-						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+						db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 				}
 			// bidirectional shifts (positive B shifts right, negative left)
 			} else if (cell->type.in(ID($shift), ID($shiftx)) && is_b_signed) {
@@ -326,14 +326,14 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 							l = l && (~(i - a_width) & ((1 << (k + 1)) - 1)) != 0;
 						}
 						if (r_shift_in_bulk || r_zpad_jump || l)
-							db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+							db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 					} else {
 						if (y_width - i <= b_high || a_width - 2 - i >= b_low)
-							db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+							db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 					}
 				} else {
 					if (a_width - 1 - i >= b_low)
-						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+						db->add_edge(cell, TW::B, k, TW::Y, i, -1);
 				}
 			} else {
 				log_assert(false && "unreachable");
@@ -353,14 +353,14 @@ void packed_mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	for (int i = 0; i < n_rd_ports; i++) {
 		if (rd_clk_enable[i] != State::S0) {
 			for (int k = 0; k < width; k++)
-				db->add_edge(cell, ID::RD_ARST, i, ID::RD_DATA, i * width + k, -1);
+				db->add_edge(cell, TW::RD_ARST, i, TW::RD_DATA, i * width + k, -1);
 			continue;
 		}
 
 		for (int j = 0; j < abits; j++)
 			for (int k = 0; k < width; k++)
-				db->add_edge(cell, ID::RD_ADDR, i * abits + j,
-								   ID::RD_DATA, i * width + k, -1);
+				db->add_edge(cell, TW::RD_ADDR, i * abits + j,
+								   TW::RD_DATA, i * width + k, -1);
 	}
 }
 
@@ -373,14 +373,14 @@ void memrd_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
 		if (cell->type == ID($memrd_v2)) {
 			for (int k = 0; k < width; k++)
-				db->add_edge(cell, ID::ARST, 0, ID::DATA, k, -1);
+				db->add_edge(cell, TW::ARST, 0, TW::DATA, k, -1);
 		}
 		return;
 	}
 
 	for (int j = 0; j < abits; j++)
 		for (int k = 0; k < width; k++)
-			db->add_edge(cell, ID::ADDR, j, ID::DATA, k, -1);
+			db->add_edge(cell, TW::ADDR, j, TW::DATA, k, -1);
 }
 
 void mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
@@ -401,32 +401,32 @@ void ff_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
 		for (int k = 0; k < width; k++) {
-			db->add_edge(cell, ID::D, k, ID::Q, k, -1);
-			db->add_edge(cell, ID::EN, 0, ID::Q, k, -1);
+			db->add_edge(cell, TW::D, k, TW::Q, k, -1);
+			db->add_edge(cell, TW::EN, 0, TW::Q, k, -1);
 		}
 	}
 
-	if (cell->hasPort(ID::CLR))
+	if (cell->hasPort(TW::CLR))
 		for (int k = 0; k < width; k++)
-			db->add_edge(cell, ID::CLR, 0, ID::Q, k, -1);
-	if (cell->hasPort(ID::SET))
+			db->add_edge(cell, TW::CLR, 0, TW::Q, k, -1);
+	if (cell->hasPort(TW::SET))
 		for (int k = 0; k < width; k++)
-			db->add_edge(cell, ID::SET, 0, ID::Q, k, -1);
-	if (cell->hasPort(ID::ALOAD))
+			db->add_edge(cell, TW::SET, 0, TW::Q, k, -1);
+	if (cell->hasPort(TW::ALOAD))
 		for (int k = 0; k < width; k++)
-			db->add_edge(cell, ID::ALOAD, 0, ID::Q, k, -1);
-	if (cell->hasPort(ID::AD))
+			db->add_edge(cell, TW::ALOAD, 0, TW::Q, k, -1);
+	if (cell->hasPort(TW::AD))
 		for (int k = 0; k < width; k++)
-			db->add_edge(cell, ID::AD, k, ID::Q, k, -1);
-	if (cell->hasPort(ID::ARST))
+			db->add_edge(cell, TW::AD, k, TW::Q, k, -1);
+	if (cell->hasPort(TW::ARST))
 		for (int k = 0; k < width; k++)
-			db->add_edge(cell, ID::ARST, 0, ID::Q, k, -1);
+			db->add_edge(cell, TW::ARST, 0, TW::Q, k, -1);
 }
 
 void full_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	std::vector<RTLIL::IdString> input_ports;
-	std::vector<RTLIL::IdString> output_ports;
+	std::vector<TwineRef> input_ports;
+	std::vector<TwineRef> output_ports;
 
 	for (auto &conn : cell->connections())
 	{
@@ -461,8 +461,8 @@ void bweqx_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int max_width = std::min(width, std::min(a_width, b_width));
 
 	for (int i = 0; i < max_width; i++) {
-		db->add_edge(cell, ID::A, i, ID::Y, i, -1);
-		db->add_edge(cell, ID::B, i, ID::Y, i, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, i, -1);
+		db->add_edge(cell, TW::B, i, TW::Y, i, -1);
 	}
 }
 
@@ -475,9 +475,9 @@ void bwmux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int max_width = std::min(width, std::min(a_width, std::min(b_width, s_width)));
 
 	for (int i = 0; i < max_width; i++) {
-		db->add_edge(cell, ID::A, i, ID::Y, i, -1);
-		db->add_edge(cell, ID::B, i, ID::Y, i, -1);
-		db->add_edge(cell, ID::S, i, ID::Y, i, -1);
+		db->add_edge(cell, TW::A, i, TW::Y, i, -1);
+		db->add_edge(cell, TW::B, i, TW::Y, i, -1);
+		db->add_edge(cell, TW::S, i, TW::Y, i, -1);
 	}
 }
 

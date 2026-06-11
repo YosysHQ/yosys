@@ -308,7 +308,7 @@ struct ArithTreeWorker {
 				// Additive operand
 				op.sig.extend_u0(width, op.is_signed);
 				if (op.negate)
-					op.sig = module->Not(NEW_ID, op.sig);
+					op.sig = module->Not(NEW_TWINE, op.sig);
 				pool.push_back({op.sig, 0});
 			} else {
 				// Multiplicative operand
@@ -321,10 +321,10 @@ struct ArithTreeWorker {
 				}
 
 				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy);
-				SigSpec p = module->addWire(NEW_ID, width);
-				module->addAdd(NEW_ID, pa, pb, p, false);
-				SigSpec np = module->addWire(NEW_ID, width);
-				module->addNot(NEW_ID, p, np);
+				SigSpec p = module->addWire(NEW_TWINE, width);
+				module->addAdd(NEW_TWINE, pa, pb, p, false);
+				SigSpec np = module->addWire(NEW_TWINE, width);
+				module->addNot(NEW_TWINE, p, np);
 				pool.push_back({np, 0});
 				neg_compensation++;
 			}

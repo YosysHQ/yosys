@@ -543,12 +543,12 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 						it->setPort(TW::Y, module->addWire(NEW_TWINE, GetSize(old_sig)));
 					}
 				} else {
-					module->addNotGate(NEW_ID, sig, old_sig);
+					module->addNotGate(NEW_TWINE, sig, old_sig);
 				}
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
 				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				sig = module->NotGate(NEW_ID, sig);
+				sig = module->NotGate(NEW_TWINE, sig);
 			} else
 			if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);

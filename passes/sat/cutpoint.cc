@@ -105,7 +105,7 @@ struct CutpointPass : public Pass {
 					if (wire->port_output)
 						output_wires.push_back(wire);
 				for (auto wire : output_wires)
-					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_ID, GetSize(wire)));
+					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_TWINE, GetSize(wire)));
 				continue;
 			}
 
@@ -141,7 +141,7 @@ struct CutpointPass : public Pass {
 								}
 
 						if (do_cut) {
-							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_TWINE, GetSize(conn.second)));
 							if (cell->input(conn.first)) {
 								log_debug("  Treating inout port '%s' as output.\n", conn.first.unescape());
 								for (auto bit : sigmap(conn.second))
@@ -177,7 +177,7 @@ struct CutpointPass : public Pass {
 					log("Making output wire %s.%s a cutpoint.\n", module, wire);
 					Wire *new_wire = module->addWire(NEW_TWINE, wire);
 					module->swap_names(wire, new_wire);
-					module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_ID, GetSize(new_wire)));
+					module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_TWINE, GetSize(new_wire)));
 					wire->port_id = 0;
 					wire->port_input = false;
 					wire->port_output = false;
@@ -246,7 +246,7 @@ struct CutpointPass : public Pass {
 
 				for (auto chunk : sig.chunks()) {
 					SigSpec s(chunk);
-					module->connect(s, flag_undef ? Const(State::Sx, GetSize(s)) : module->Anyseq(NEW_ID, GetSize(s)));
+					module->connect(s, flag_undef ? Const(State::Sx, GetSize(s)) : module->Anyseq(NEW_TWINE, GetSize(s)));
 				}
 			}
 		}

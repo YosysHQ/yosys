@@ -40,21 +40,21 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	Cell *cell = pm.module->addCell(NEW_TWINE, ID($__ICE40_CARRY_WRAPPER));
 	pm.module->swap_names(cell, st.carry);
 
-	cell->setPort(TW::A, st.carry->getPort(ID(I0)));
-	cell->setPort(TW::B, st.carry->getPort(ID(I1)));
+	cell->setPort(TW::A, st.carry->getPort(TW::I0));
+	cell->setPort(TW::B, st.carry->getPort(TW::I1));
 	auto CI = st.carry->getPort(TW::CI);
 	cell->setPort(TW::CI, CI);
 	cell->setPort(TW::CO, st.carry->getPort(TW::CO));
 
-	cell->setPort(ID(I0), st.lut->getPort(ID(I0)));
-	auto I3 = st.lut->getPort(ID(I3));
+	cell->setPort(TW::I0, st.lut->getPort(TW::I0));
+	auto I3 = st.lut->getPort(TW::I3);
 	if ((*pm.sigmap)(CI) == (*pm.sigmap)(I3)) {
 		cell->setParam(ID(I3_IS_CI), State::S1);
 		I3 = State::Sx;
 	}
 	else
 		cell->setParam(ID(I3_IS_CI), State::S0);
-	cell->setPort(ID(I3), I3);
+	cell->setPort(TW::I3, I3);
 	cell->setPort(TW::O, st.lut->getPort(TW::O));
 	cell->setParam(ID::LUT, st.lut->getParam(ID(LUT_INIT)));
 
@@ -135,8 +135,8 @@ struct Ice40WrapCarryPass : public Pass {
 						continue;
 
 					auto carry = module->addCell(NEW_TWINE, ID(SB_CARRY));
-					carry->setPort(ID(I0), cell->getPort(TW::A));
-					carry->setPort(ID(I1), cell->getPort(TW::B));
+					carry->setPort(TW::I0, cell->getPort(TW::A));
+					carry->setPort(TW::I1, cell->getPort(TW::B));
 					carry->setPort(TW::CI, cell->getPort(TW::CI));
 					carry->setPort(TW::CO, cell->getPort(TW::CO));
 					module->swap_names(carry, cell);
@@ -145,7 +145,7 @@ struct Ice40WrapCarryPass : public Pass {
 					lut->setParam(ID::WIDTH, 4);
 					lut->setParam(ID::LUT, cell->getParam(ID::LUT));
 					auto I3 = cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3));
-					lut->setPort(TW::A, { I3, cell->getPort(TW::B), cell->getPort(TW::A), cell->getPort(ID(I0)) });
+					lut->setPort(TW::A, { I3, cell->getPort(TW::B), cell->getPort(TW::A), cell->getPort(TW::I0) });
 					lut->setPort(TW::Y, cell->getPort(TW::O));
 
 					std::string carry_src, lut_src, fallback_src;

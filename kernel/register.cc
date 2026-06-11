@@ -306,8 +306,8 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module.clear();
+	TwineRef backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = Twine::Null;
 	design->push_selection(selection);
 
 	Pass::call(design, command);
@@ -318,8 +318,8 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::vector<std::string> args)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module.clear();
+	TwineRef backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = Twine::Null;
 	design->push_selection(selection);
 
 	Pass::call(design, args);
@@ -330,8 +330,8 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 
 void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::string command)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module = module->name.str();
+	TwineRef backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = module->meta_->name;
 	design->push_empty_selection();
 	design->select(module);
 
@@ -343,8 +343,8 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::str
 
 void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vector<std::string> args)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module = module->name.str();
+	TwineRef backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = module->meta_->name;
 	design->push_empty_selection();
 	design->select(module);
 
@@ -1032,10 +1032,10 @@ struct HelpPass : public Pass {
 			json.name("code"); json.value(ch.code);
 			vector<string> inputs, outputs;
 			for (auto &input : ct.inputs)
-				inputs.push_back(input.str());
+				inputs.push_back(RTLIL::IdString((RTLIL::StaticId)input).str());
 			json.name("inputs"); json.value(inputs);
 			for (auto &output : ct.outputs)
-				outputs.push_back(output.str());
+				outputs.push_back(RTLIL::IdString((RTLIL::StaticId)output).str());
 			json.name("outputs"); json.value(outputs);
 			vector<string> properties;
 			// CellType properties

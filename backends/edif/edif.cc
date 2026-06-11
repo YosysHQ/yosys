@@ -138,7 +138,7 @@ struct EdifBackend : public Backend {
 		bool port_rename = false;
 		bool attr_properties = false;
 		bool lsbidx = false;
-		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
+		std::map<RTLIL::IdString, std::map<TwineRef, int>> lib_cell_ports;
 		bool nogndvcc = false, gndvccy = false, keepmode = false;
 		NewCellTypes ct(design);
 		EdifNames edif_names;
@@ -190,28 +190,29 @@ struct EdifBackend : public Backend {
 		if (top_module_name.empty())
 			for (auto module : design->modules())
 				if (module->get_bool_attribute(ID::top))
-					top_module_name = module->name.str();
+					top_module_name = design->twines.str(module->meta_->name);
 
 		for (auto module : design->modules())
 		{
-			lib_cell_ports[module->name];
+			IdString module_type = IdString(design->twines.str(module->meta_->name));
+			lib_cell_ports[module_type];
 
 			for (auto port : module->ports)
 			{
 				Wire *wire = module->wire(port);
-				lib_cell_ports[module->name][port] = std::max(lib_cell_ports[module->name][port], GetSize(wire));
+				lib_cell_ports[module_type][port] = std::max(lib_cell_ports[module_type][port], GetSize(wire));
 			}
 
 			if (module->get_blackbox_attribute())
 				continue;
 
 			if (top_module_name.empty())
-				top_module_name = module->name.str();
+				top_module_name = design->twines.str(module->meta_->name);
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", module->name.unescape());
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", design->twines.str(module->meta_->name));
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", module->name.unescape());
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", design->twines.str(module->meta_->name));
 
 			for (auto cell : module->cells())
 			{
@@ -285,13 +286,14 @@ struct EdifBackend : public Backend {
 						upto = w->upto;
 					}
 				}
+				std::string port_str = design->twines.str(port_it.first);
 				if (width == 1)
-					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF(port_it.first), dir);
+					*f << stringf("          (port %s (direction %s))\n", EDIF_DEF_STR(port_str), dir);
 				else {
 					int b[2];
 					b[upto ? 0 : 1] = start;
 					b[upto ? 1 : 0] = start+width-1;
-					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(port_it.first, port_rename, b[0], b[1]), width, dir);
+					*f << stringf("          (port (array %s %d) (direction %s))\n", EDIF_DEFR(IdString(port_str), port_rename, b[0], b[1]), width, dir);
 				}
 			}
 			*f << stringf("        )\n");
@@ -324,7 +326,7 @@ struct EdifBackend : public Backend {
 			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
-				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first->name.unescape());
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", design->twines.str(module_deps.begin()->first->meta_->name));
 			while (sorted_modules_idx < sorted_modules.size())
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}
@@ -361,7 +363,8 @@ struct EdifBackend : public Backend {
 			SigMap sigmap(module);
 			std::map<RTLIL::SigSpec, std::set<std::pair<std::string, bool>>> net_join_db;
 
-			*f << stringf("    (cell %s\n", EDIF_DEF(module->name));
+			std::string module_name_str = design->twines.str(module->meta_->name);
+			*f << stringf("    (cell %s\n", EDIF_DEF_STR(module_name_str));
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
@@ -485,10 +488,12 @@ struct EdifBackend : public Backend {
 				*f << stringf(")\n");
 				for (auto &p : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(p.second);
+					std::string port_name_str = design->twines.str(p.first);
+					std::string cell_name_str = cell->name.str();
 					for (int i = 0; i < GetSize(sig); i++)
 						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
-									i, module, cell, p.first.unescape(), log_signal(sig[i]));
+									i, module, cell, port_name_str, log_signal(sig[i]));
 						else {
 							int member_idx = lsbidx ? i : GetSize(sig)-i-1;
 							auto m = design->module(cell->type);
@@ -501,10 +506,10 @@ struct EdifBackend : public Backend {
 								}
 							}
 							if (width == 1)
-								net_join_db[sig[i]].insert(make_pair(stringf("(portRef %s (instanceRef %s))", EDIF_REF(p.first), EDIF_REF(cell->name)), cell->output(p.first)));
+								net_join_db[sig[i]].insert(make_pair(stringf("(portRef %s (instanceRef %s))", EDIF_REF_STR(port_name_str), EDIF_REF(cell->name)), cell->output(p.first)));
 							else {
 								net_join_db[sig[i]].insert(make_pair(stringf("(portRef (member %s %d) (instanceRef %s))",
-										EDIF_REF(p.first), member_idx, EDIF_REF(cell->name)), cell->output(p.first)));
+										EDIF_REF_STR(port_name_str), member_idx, EDIF_REF(cell->name)), cell->output(p.first)));
 							}
 						}
 				}

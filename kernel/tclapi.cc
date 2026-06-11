@@ -273,11 +273,11 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		auto obj_twine = search.find(obj_id);
 		obj = mod->wire(obj_twine);
 		if (!obj)
-			obj = mod->memories.at(obj_id, nullptr);
+			obj = mod->memories.at(obj_twine, nullptr);
 		if (!obj)
 			obj = mod->cell(obj_twine);
 		if (!obj)
-			obj = mod->processes.at(obj_id, nullptr);
+			obj = mod->processes.at(obj_twine, nullptr);
 	}
 
 	if (!obj)
@@ -338,11 +338,11 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		auto obj_twine = search.find(obj_id);
 		obj = mod->wire(obj_twine);
 		if (!obj)
-			obj = mod->memories.at(obj_id, nullptr);
+			obj = mod->memories.at(obj_twine, nullptr);
 		if (!obj)
 			obj = mod->cell(obj_twine);
 		if (!obj)
-			obj = mod->processes.at(obj_id, nullptr);
+			obj = mod->processes.at(obj_twine, nullptr);
 	}
 
 	if (!obj)
@@ -393,11 +393,11 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 		auto obj_twine = search.find(obj_id);
 		obj = mod->wire(obj_twine);
 		if (!obj)
-			obj = mod->memories.at(obj_id, nullptr);
+			obj = mod->memories.at(obj_twine, nullptr);
 		if (!obj)
 			obj = mod->cell(obj_twine);
 		if (!obj)
-			obj = mod->processes.at(obj_id, nullptr);
+			obj = mod->processes.at(obj_twine, nullptr);
 	}
 
 	if (!obj)

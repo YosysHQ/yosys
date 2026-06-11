@@ -256,7 +256,7 @@ struct OptBalanceTreeWorker {
 						Cell* x = bfs_queue.front();
 						bfs_queue.pop_front();
 
-						for (IdString port: {ID::A, ID::B}) {
+						for (TwineRef port: {TW::A, TW::B}) {
 							auto sig = sigmap(x->getPort(port));
 							Cell* drv = sig_to_driver[sig];
 							bool drv_ok = drv && is_right_type(drv, cell_type);
@@ -271,7 +271,7 @@ struct OptBalanceTreeWorker {
 								bfs_queue.push_back(drv);
 							} else {
 								sources[sig]++;
-								signeds[sig] = x->getParam(port == ID::A ? ID::A_SIGNED : ID::B_SIGNED).as_bool();
+								signeds[sig] = x->getParam(port == TW::A ? ID::A_SIGNED : ID::B_SIGNED).as_bool();
 							}
 						}
 					}

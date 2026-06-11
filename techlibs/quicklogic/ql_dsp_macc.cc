@@ -32,9 +32,9 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     auto &st = pm.st_ql_dsp_macc;
 
     // Get port widths
-    size_t a_width = GetSize(st.mul->getPort(ID(A)));
-    size_t b_width = GetSize(st.mul->getPort(ID(B)));
-    size_t z_width = GetSize(st.ff->getPort(ID(Q)));
+    size_t a_width = GetSize(st.mul->getPort(TW::A));
+    size_t b_width = GetSize(st.mul->getPort(TW::B));
+    size_t z_width = GetSize(st.ff->getPort(TW::Q));
 
     size_t min_width = std::min(a_width, b_width);
     size_t max_width = std::max(a_width, b_width);
@@ -87,9 +87,9 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
     // Get input/output data signals
     RTLIL::SigSpec sig_a, sig_b, sig_z;
-    sig_a = st.mul->getPort(ID(A));
-    sig_b = st.mul->getPort(ID(B));
-    sig_z = st.output_registered ? st.ff->getPort(ID(Q)) : st.ff->getPort(ID(D));
+    sig_a = st.mul->getPort(TW::A);
+    sig_b = st.mul->getPort(TW::B);
+    sig_z = st.output_registered ? st.ff->getPort(TW::Q) : st.ff->getPort(TW::D);
 
     if (a_width < b_width)
         std::swap(sig_a, sig_b);
@@ -97,80 +97,80 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     // Connect input data ports, sign extend / pad with zeros
     sig_a.extend_u0(tgt_a_width, ab_signed);
     sig_b.extend_u0(tgt_b_width, ab_signed);
-    cell->setPort(ID(a_i), sig_a);
-    cell->setPort(ID(b_i), sig_b);
+    cell->setPort(TW::a_i, sig_a);
+    cell->setPort(TW::b_i, sig_b);
 
     // Connect output data port, pad if needed
     if ((size_t) GetSize(sig_z) < tgt_z_width) {
         auto *wire = pm.module->addWire(NEW_TWINE, tgt_z_width - GetSize(sig_z));
         sig_z.append(wire);
     }
-    cell->setPort(ID(z_o), sig_z);
+    cell->setPort(TW::z_o, sig_z);
 
     // Connect clock, reset and enable
-    cell->setPort(ID(clock_i), st.ff->getPort(ID(CLK)));
+    cell->setPort(TW::clock_i, st.ff->getPort(TW::CLK));
 
     RTLIL::SigSpec rst;
     RTLIL::SigSpec ena;
 
-    if (st.ff->hasPort(ID(ARST))) {
+    if (st.ff->hasPort(TW(ARST))) {
         if (st.ff->getParam(ID(ARST_POLARITY)).as_int() != 1) {
-            rst = pm.module->Not(NEW_ID, st.ff->getPort(ID(ARST)));
+            rst = pm.module->Not(NEW_TWINE, st.ff->getPort(TW::ARST));
         } else {
-            rst = st.ff->getPort(ID(ARST));
+            rst = st.ff->getPort(TW::ARST);
         }
     } else {
         rst = RTLIL::SigSpec(RTLIL::S0);
     }
 
-    if (st.ff->hasPort(ID(EN))) {
+    if (st.ff->hasPort(TW(EN))) {
         if (st.ff->getParam(ID(EN_POLARITY)).as_int() != 1) {
-            ena = pm.module->Not(NEW_ID, st.ff->getPort(ID(EN)));
+            ena = pm.module->Not(NEW_TWINE, st.ff->getPort(TW::EN));
         } else {
-            ena = st.ff->getPort(ID(EN));
+            ena = st.ff->getPort(TW::EN);
         }
     } else {
         ena = RTLIL::SigSpec(RTLIL::S1);
     }
 
-    cell->setPort(ID(reset_i), rst);
-    cell->setPort(ID(load_acc_i), ena);
+    cell->setPort(TW::reset_i, rst);
+    cell->setPort(TW::load_acc_i, ena);
 
     // Insert feedback_i control logic used for clearing / loading the accumulator
     if (st.mux_in_pattern) {
-        RTLIL::SigSpec sig_s = st.mux->getPort(ID(S));
+        RTLIL::SigSpec sig_s = st.mux->getPort(TW::S);
 
         // Depending on the mux port ordering insert inverter if needed
         log_assert(st.mux_ab.in(ID(A), ID(B)));
         if (st.mux_ab == ID(A))
-            sig_s = pm.module->Not(NEW_ID, sig_s);
+            sig_s = pm.module->Not(NEW_TWINE, sig_s);
 
         // Assemble the full control signal for the feedback_i port
         RTLIL::SigSpec sig_f;
         sig_f.append(sig_s);
         sig_f.append(RTLIL::S0);
         sig_f.append(RTLIL::S0);
-        cell->setPort(ID(feedback_i), sig_f);
+        cell->setPort(TW::feedback_i, sig_f);
     }
     // No acc clear/load
     else {
-        cell->setPort(ID(feedback_i), RTLIL::SigSpec(RTLIL::S0, 3));
+        cell->setPort(TW::feedback_i, RTLIL::SigSpec(RTLIL::S0, 3));
     }
 
     // Connect control ports
-    cell->setPort(ID(unsigned_a_i), RTLIL::SigSpec(ab_signed ? RTLIL::S0 : RTLIL::S1));
-    cell->setPort(ID(unsigned_b_i), RTLIL::SigSpec(ab_signed ? RTLIL::S0 : RTLIL::S1));
+    cell->setPort(TW::unsigned_a_i, RTLIL::SigSpec(ab_signed ? RTLIL::S0 : RTLIL::S1));
+    cell->setPort(TW::unsigned_b_i, RTLIL::SigSpec(ab_signed ? RTLIL::S0 : RTLIL::S1));
 
     // Connect config bits
-    cell->setPort(ID(saturate_enable_i), RTLIL::SigSpec(RTLIL::S0));
-    cell->setPort(ID(shift_right_i), RTLIL::SigSpec(RTLIL::S0, 6));
-    cell->setPort(ID(round_i), RTLIL::SigSpec(RTLIL::S0));
-    cell->setPort(ID(register_inputs_i), RTLIL::SigSpec(RTLIL::S0));
+    cell->setPort(TW::saturate_enable_i, RTLIL::SigSpec(RTLIL::S0));
+    cell->setPort(TW::shift_right_i, RTLIL::SigSpec(RTLIL::S0, 6));
+    cell->setPort(TW::round_i, RTLIL::SigSpec(RTLIL::S0));
+    cell->setPort(TW::register_inputs_i, RTLIL::SigSpec(RTLIL::S0));
     // 3 - output post acc; 1 - output pre acc
-    cell->setPort(ID(output_select_i), RTLIL::Const(st.output_registered ? 1 : 3, 3));
+    cell->setPort(TW::output_select_i, RTLIL::Const(st.output_registered ? 1 : 3, 3));
 
     bool subtract = (st.add->type == ID($sub));
-    cell->setPort(ID(subtract_i), RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
+    cell->setPort(TW::subtract_i, RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
 
     // Mark the cells for removal
     pm.autoremove(st.mul);

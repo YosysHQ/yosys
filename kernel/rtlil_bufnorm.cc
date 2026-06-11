@@ -1283,7 +1283,7 @@ void RTLIL::Cell::setPort(TwineRef portname, RTLIL::SigSpec signal)
 	}
 
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", module ? module->name.unescape() : "PATCH", this, module->design->twines.str(portname), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", module ? log_id(module) : "PATCH", this, module->design->twines.str(portname).c_str(), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 

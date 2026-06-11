@@ -109,7 +109,7 @@ struct CoveragePass : public Pass {
 				}
 			}
 			for (auto cell: module->cells()) {
-				log_debug("%s\t%s\t%s\n", module->selected(cell) ? "*" : " ", cell->get_src_attribute(), cell->name.unescape());
+				log_debug("%s\t%s\t%s\n", module->selected(cell) ? "*" : " ", cell->get_src_attribute(), cell->module->design->twines.str(cell->meta_->name));
 				for (auto src: design->src_leaves(cell)) {
 					auto filename = extract_src_filename(src);
 					if (filename.empty()) continue;

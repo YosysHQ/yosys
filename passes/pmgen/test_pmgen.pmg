@@ -20,13 +20,13 @@ generate
 	switch (rng(3))
 	{
 	case 0:
-		module->addAndGate(NEW_ID, A, B, Y);
+		module->addAndGate(NEW_TWINE, A, B, Y);
 		break;
 	case 1:
-		module->addOrGate(NEW_ID, A, B, Y);
+		module->addOrGate(NEW_TWINE, A, B, Y);
 		break;
 	case 2:
-		module->addXorGate(NEW_ID, A, B, Y);
+		module->addXorGate(NEW_TWINE, A, B, Y);
 		break;
 	}
 endmatch
@@ -85,7 +85,7 @@ generate 10
 	SigSpec A = module->addWire(NEW_TWINE);
 	SigSpec B = module->addWire(NEW_TWINE);
 	SigSpec Y = port(chain.back().first, chain.back().second);
-	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
+	Cell *c = module->addAndGate(NEW_TWINE, A, B, Y);
 	c->type = chain.back().first->type;
 endmatch
 
@@ -124,7 +124,7 @@ generate 100 10
 	SigSpec A = module->addWire(NEW_TWINE, rng(7)+1);
 	SigSpec B = module->addWire(NEW_TWINE, rng(7)+1);
 	SigSpec Y = module->addWire(NEW_TWINE);
-	module->addEq(NEW_ID, A, B, Y, rng(2));
+	module->addEq(NEW_TWINE, A, B, Y, rng(2));
 endmatch
 
 match pmux
@@ -146,7 +146,7 @@ generate 100 10
 		S.append(i == idx ? port(eq, \Y) : module->addWire(NEW_TWINE));
 	}
 
-	module->addPmux(NEW_ID, A, B, S, Y);
+	module->addPmux(NEW_TWINE, A, B, S, Y);
 endmatch
 
 match ne
@@ -173,7 +173,7 @@ generate 100 10
 	} else {
 		Y = module->addWire(NEW_TWINE);
 	}
-	module->addNe(NEW_ID, A, B, Y, rng(2));
+	module->addNe(NEW_TWINE, A, B, Y, rng(2));
 endmatch
 
 match pmux2

@@ -157,19 +157,19 @@ struct rules_t
 			}
 
 			log_debug("setting up %s\n", name);
-			Module* mod = design->addModule(name);
+			Module* mod = design->addModule(design->twines.add(Twine{name.str()}));
 			mod->set_bool_attribute(ID::blackbox);
 
 			for (auto [name, width] : inputs)
 			{
-				log_debug("input %s width %d\n", name, width);
-				mod->addWire(name, width)->port_input = true;
+				log_debug("input %s width %d\n", name.c_str(), width);
+				mod->addWire(design->twines.add(Twine{name.str()}), width)->port_input = true;
 			}
 
 			for (auto [name, width] : outputs)
 			{
-				log_debug("output %s width %d\n", name, width);
-				mod->addWire(name, width)->port_output = true;
+				log_debug("output %s width %d\n", name.c_str(), width);
+				mod->addWire(design->twines.add(Twine{name.str()}), width)->port_output = true;
 			}
 
 			mod->fixup_ports();
@@ -935,7 +935,7 @@ grow_read_ports:;
 		for (int grid_a = 0; grid_a < acells; grid_a++)
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
-			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid, grid_d, grid_a, dupidx)), bram.name);
+			Cell *c = module->addCell(module->uniquify(module->design->twines.add(Twine{stringf("%s.%d.%d.%d", mem.memid.str(), grid_d, grid_a, dupidx)})), bram.name);
 			log("      Creating %s cell at grid position <%d %d %d>: %s\n", bram.name.unescape(), grid_d, grid_a, dupidx, c);
 
 			for (auto &vp : variant_params)
@@ -964,7 +964,7 @@ grow_read_ports:;
 				const char *pf = prefix.c_str();
 
 				if (pi.clocks && clock_domains.count(pi.clocks))
-					c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), clock_domains.at(pi.clocks).first);
+					c->setPort(module->design->twines.add(Twine{stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1)}), clock_domains.at(pi.clocks).first);
 				if (pi.clkpol > 1 && clock_polarities.count(pi.clkpol))
 					c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
 				if (pi.transp > 1 && read_transp.count(pi.transp))
@@ -982,23 +982,23 @@ grow_read_ports:;
 				if (GetSize(sig_addr) > bram.abits) {
 					SigSpec extra_addr = sig_addr.extract(bram.abits, GetSize(sig_addr) - bram.abits);
 					SigSpec extra_addr_sel = SigSpec(grid_a, GetSize(extra_addr));
-					addr_ok = module->Eq(NEW_ID, extra_addr, extra_addr_sel);
+					addr_ok = module->Eq(NEW_TWINE, extra_addr, extra_addr_sel);
 				}
 
 				sig_addr.extend_u0(bram.abits);
-				c->setPort(stringf("\\%sADDR", pf), sig_addr);
+				c->setPort(module->design->twines.add(Twine{stringf("\\%sADDR", pf)}), sig_addr);
 
 				if (pi.wrmode == 1) {
 					if (pi.mapped_port == -1)
 					{
 						if (pi.enable)
-							c->setPort(stringf("\\%sEN", pf), Const(State::S0, pi.enable));
+							c->setPort(module->design->twines.add(Twine{stringf("\\%sEN", pf)}), Const(State::S0, pi.enable));
 						continue;
 					}
 
 					auto &port = mem.wr_ports[pi.mapped_port];
 					SigSpec sig_data = port.data.extract(grid_d * bram.dbits, bram.dbits);
-					c->setPort(stringf("\\%sDATA", pf), sig_data);
+					c->setPort(module->design->twines.add(Twine{stringf("\\%sDATA", pf)}), sig_data);
 
 					if (pi.enable)
 					{
@@ -1008,28 +1008,28 @@ grow_read_ports:;
 							sig_en.append(port.en[stride * i + grid_d * bram.dbits]);
 
 						if (!addr_ok.empty())
-							sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
+							sig_en = module->Mux(NEW_TWINE, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
 
-						c->setPort(stringf("\\%sEN", pf), sig_en);
+						c->setPort(module->design->twines.add(Twine{stringf("\\%sEN", pf)}), sig_en);
 
 					}
 				} else {
 					if (pi.mapped_port == -1)
 					{
 						if (pi.enable)
-							c->setPort(stringf("\\%sEN", pf), State::S0);
+							c->setPort(module->design->twines.add(Twine{stringf("\\%sEN", pf)}), State::S0);
 						continue;
 					}
 					auto &port = mem.rd_ports[pi.mapped_port];
 					SigSpec sig_data = port.data.extract(grid_d * bram.dbits, bram.dbits);
 
 					SigSpec bram_dout = module->addWire(NEW_TWINE, bram.dbits);
-					c->setPort(stringf("\\%sDATA", pf), bram_dout);
+					c->setPort(module->design->twines.add(Twine{stringf("\\%sDATA", pf)}), bram_dout);
 
 					SigSpec addr_ok_q = addr_ok;
 					if (port.clk_enable && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_TWINE);
-						module->addDffe(NEW_ID, port.clk, port.en, addr_ok, addr_ok_q, port.clk_polarity);
+						module->addDffe(NEW_TWINE, port.clk, port.en, addr_ok, addr_ok_q, port.clk_polarity);
 					}
 
 					dout_cache[sig_data].first.append(addr_ok_q);
@@ -1038,8 +1038,8 @@ grow_read_ports:;
 					if (pi.enable) {
 						SigSpec sig_en = port.en;
 						if (!addr_ok.empty())
-							sig_en = module->And(NEW_ID, sig_en, addr_ok);
-						c->setPort(stringf("\\%sEN", pf), sig_en);
+							sig_en = module->And(NEW_TWINE, sig_en, addr_ok);
+						c->setPort(module->design->twines.add(Twine{stringf("\\%sEN", pf)}), sig_en);
 					}
 				}
 			}
@@ -1056,7 +1056,7 @@ grow_read_ports:;
 		else
 		{
 			log_assert(GetSize(it.first)*GetSize(it.second.first) == GetSize(it.second.second));
-			module->addPmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), it.second.second, it.second.first, it.first);
+			module->addPmux(NEW_TWINE, SigSpec(State::Sx, GetSize(it.first)), it.second.second, it.second.first, it.first);
 		}
 	}
 

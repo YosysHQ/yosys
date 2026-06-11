@@ -72,9 +72,9 @@ struct BmuxmapPass : public Pass {
 				SigSpec new_data = module->addWire(NEW_TWINE, width);
 				for (int val = 0; val < num_cases; val++)
 				{
-					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
+					module->addEq(NEW_TWINE, sel, SigSpec(val, GetSize(sel)), new_s[val]);
 				}
-				RTLIL::Cell *pmux = module->addPmux(NEW_ID, new_a, data, new_s, new_data);
+				RTLIL::Cell *pmux = module->addPmux(NEW_TWINE, new_a, data, new_s, new_data);
 				module->design->merge_src(pmux, cell);
 				data = new_data;
 			}
@@ -83,7 +83,7 @@ struct BmuxmapPass : public Pass {
 				for (int idx = 0; idx < GetSize(sel); idx++) {
 					SigSpec new_data = module->addWire(NEW_TWINE, GetSize(data)/2);
 					for (int i = 0; i < GetSize(new_data); i += width) {
-						RTLIL::Cell *mux = module->addMux(NEW_ID,
+						RTLIL::Cell *mux = module->addMux(NEW_TWINE,
 							data.extract(i*2, width),
 							data.extract(i*2+width, width),
 							sel[idx],

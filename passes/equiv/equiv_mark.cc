@@ -29,15 +29,15 @@ struct EquivMarkWorker
 	SigMap sigmap;
 
 	// cache for traversing signal flow graph
-	dict<SigBit, pool<IdString>> up_bit2cells;
-	dict<IdString, pool<SigBit>> up_cell2bits;
-	pool<IdString> edge_cells, equiv_cells;
+	dict<SigBit, pool<TwineRef>> up_bit2cells;
+	dict<TwineRef, pool<SigBit>> up_cell2bits;
+	pool<TwineRef> edge_cells, equiv_cells;
 
 	// graph traversal state
 	pool<SigBit> queue, visited;
 
 	// assigned regions
-	dict<IdString, int> cell_regions;
+	dict<TwineRef, int> cell_regions;
 	dict<SigBit, int> bit_regions;
 	int next_region;
 
@@ -49,17 +49,17 @@ struct EquivMarkWorker
 		for (auto cell : module->cells())
 		{
 			if (cell->type == ID($equiv))
-				equiv_cells.insert(cell->name);
+				equiv_cells.insert(cell->meta_->name);
 
 			for (auto &port : cell->connections())
 			{
 				if (cell->input(port.first))
 					for (auto bit : sigmap(port.second))
-						up_cell2bits[cell->name].insert(bit);
+						up_cell2bits[cell->meta_->name].insert(bit);
 
 				if (cell->output(port.first))
 					for (auto bit : sigmap(port.second))
-						up_bit2cells[bit].insert(cell->name);
+						up_bit2cells[bit].insert(cell->meta_->name);
 			}
 		}
 
@@ -70,7 +70,7 @@ struct EquivMarkWorker
 	{
 		while (!queue.empty())
 		{
-			pool<IdString> cells;
+			pool<TwineRef> cells;
 
 			for (auto &bit : queue)
 			{
@@ -139,7 +139,7 @@ struct EquivMarkWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell_regions.count(cell->name) || cell->type != ID($equiv))
+			if (cell_regions.count(cell->meta_->name) || cell->type != ID($equiv))
 				continue;
 
 			SigSpec sig_a = sigmap(cell->getPort(TW::A));
@@ -153,7 +153,7 @@ struct EquivMarkWorker
 			for (auto bit : sig_b)
 				queue.insert(bit);
 
-			cell_regions[cell->name] = next_region;
+			cell_regions[cell->meta_->name] = next_region;
 			mark();
 		}
 
@@ -174,8 +174,8 @@ struct EquivMarkWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell_regions.count(cell->name)) {
-				int r = final_region_map.at(cell_regions.at(cell->name));
+			if (cell_regions.count(cell->meta_->name)) {
+				int r = final_region_map.at(cell_regions.at(cell->meta_->name));
 				cell->attributes[ID::equiv_region] = Const(r);
 				region_cell_count[r]++;
 			} else

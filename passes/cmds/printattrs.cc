@@ -71,7 +71,7 @@ struct PrintAttrsPass : public Pass {
 		for (auto mod : design->selected_modules())
 		{
 			if (design->selected_whole_module(mod)) {
-				log("%s%s\n", get_indent_str(indent), mod->name.unescape());
+				log("%s%s\n", get_indent_str(indent), log_id(mod));
 				indent += 2;
 				log_src(design, mod, indent);
 				for (auto &it : mod->attributes)
@@ -79,7 +79,7 @@ struct PrintAttrsPass : public Pass {
 			}
 
 			for (auto cell : mod->selected_cells()) {
-				log("%s%s\n", get_indent_str(indent), cell->name.unescape());
+				log("%s%s\n", get_indent_str(indent), cell->module->design->twines.str(cell->meta_->name));
 				indent += 2;
 				log_src(design, cell, indent);
 				for (auto &it : cell->attributes)

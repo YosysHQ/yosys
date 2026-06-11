@@ -87,10 +87,10 @@ struct DriveBitWire
 struct DriveBitPort
 {
 	Cell *cell;
-	IdString port;
+	TwineRef port;
 	int offset;
 
-	DriveBitPort(Cell *cell, IdString port, int offset) : cell(cell), port(port), offset(offset) {}
+	DriveBitPort(Cell *cell, TwineRef port, int offset) : cell(cell), port(port), offset(offset) {}
 
 	bool operator==(const DriveBitPort &other) const
 	{
@@ -485,15 +485,15 @@ struct DriveChunkWire
 struct DriveChunkPort
 {
 	Cell *cell;
-	IdString port;
+	TwineRef port;
 	int offset;
 	int width;
 
-	DriveChunkPort(Cell *cell, IdString port, int offset, int width) :
+	DriveChunkPort(Cell *cell, TwineRef port, int offset, int width) :
 		cell(cell), port(port), offset(offset), width(width) { }
-	DriveChunkPort(Cell *cell, IdString port) :
+	DriveChunkPort(Cell *cell, TwineRef port) :
 		cell(cell), port(port), offset(0), width(GetSize(cell->connections().at(port))) { }
-	DriveChunkPort(Cell *cell, std::pair<IdString, SigSpec> const &conn) :
+	DriveChunkPort(Cell *cell, std::pair<TwineRef, SigSpec> const &conn) :
 		cell(cell), port(conn.first), offset(0), width(GetSize(conn.second)) { }
 	DriveChunkPort(DriveBitPort const &bit) :
 		cell(bit.cell), port(bit.port), offset(bit.offset), width(1) { }
@@ -1141,7 +1141,7 @@ private:
 
 	// Maps cell ports to a the first DriveBitId of the consecutive range used
 	// for that cell port.
-	dict<pair<Cell *, IdString>, DriveBitId> port_offsets;
+	dict<pair<Cell *, TwineRef>, DriveBitId> port_offsets;
 
 	// For the inverse map that maps DriveBitIds back to DriveBits we use a
 	// sorted map containing only the first DriveBit for each wire and cell
@@ -1237,7 +1237,7 @@ public:
 	void add(SigSpec const &a, SigSpec const &b);
 
 private:
-	void add_port(Cell *cell, IdString const &port, SigSpec const &b);
+	void add_port(Cell *cell, TwineRef port, SigSpec const &b);
 
 	// Only used a local variables in `orient_undirected`, always cleared, only
 	// stored to reduce allocations.

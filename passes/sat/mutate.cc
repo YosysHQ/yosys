@@ -629,7 +629,7 @@ SigBit mutate_ctrl(Module *module, const mutate_opts_t &opts)
 		return State::S1;
 
 	SigSpec sig = mutate_ctrl_sig(module, opts.ctrl_name, opts.ctrl_width);
-	return module->Eq(NEW_ID, sig, Const(opts.ctrl_value, GetSize(sig)));
+	return module->Eq(NEW_TWINE, sig, Const(opts.ctrl_value, GetSize(sig)));
 }
 
 SigSpec mutate_ctrl_mux(Module *module, const mutate_opts_t &opts, SigSpec unchanged_sig, SigSpec changed_sig)
@@ -639,7 +639,7 @@ SigSpec mutate_ctrl_mux(Module *module, const mutate_opts_t &opts, SigSpec uncha
 		return unchanged_sig;
 	if (ctrl_bit == State::S1)
 		return changed_sig;
-	return module->Mux(NEW_ID, unchanged_sig, changed_sig, ctrl_bit);
+	return module->Mux(NEW_TWINE, unchanged_sig, changed_sig, ctrl_bit);
 }
 
 void mutate_inv(Design *design, const mutate_opts_t &opts)
@@ -653,14 +653,14 @@ void mutate_inv(Design *design, const mutate_opts_t &opts)
 	if (cell->input(opts.port))
 	{
 		log("Add input inverter at %s.%s.%s[%d].\n", module, cell, opts.port.unescape(), opts.portbit);
-		SigBit outbit = module->Not(NEW_ID, bit);
+		SigBit outbit = module->Not(NEW_TWINE, bit);
 		bit = mutate_ctrl_mux(module, opts, bit, outbit);
 	}
 	else
 	{
 		log("Add output inverter at %s.%s.%s[%d].\n", module, cell, opts.port.unescape(), opts.portbit);
 		SigBit inbit = module->addWire(NEW_TWINE);
-		SigBit outbit = module->Not(NEW_ID, inbit);
+		SigBit outbit = module->Not(NEW_TWINE, inbit);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
 		bit = inbit;
 	}
@@ -710,14 +710,14 @@ void mutate_cnot(Design *design, const mutate_opts_t &opts, bool one)
 	if (cell->input(opts.port))
 	{
 		log("Add input cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit, opts.ctrlbit);
-		SigBit outbit = one ? module->Xor(NEW_ID, bit, ctrl) : module->Xnor(NEW_ID, bit, ctrl);
+		SigBit outbit = one ? module->Xor(NEW_ID, bit, ctrl) : module->Xnor(NEW_TWINE, bit, ctrl);
 		bit = mutate_ctrl_mux(module, opts, bit, outbit);
 	}
 	else
 	{
 		log("Add output cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, opts.port.unescape(), opts.portbit, opts.ctrlbit);
 		SigBit inbit = module->addWire(NEW_TWINE);
-		SigBit outbit = one ? module->Xor(NEW_ID, inbit, ctrl) : module->Xnor(NEW_ID, inbit, ctrl);
+		SigBit outbit = one ? module->Xor(NEW_ID, inbit, ctrl) : module->Xnor(NEW_TWINE, inbit, ctrl);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
 		bit = inbit;
 	}

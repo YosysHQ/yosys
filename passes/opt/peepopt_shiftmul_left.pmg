@@ -149,7 +149,7 @@ code
 		shift->setParam(\B_WIDTH, GetSize(new_b));
 	} else {
 		SigSpec b_neg = module->addWire(NEW_TWINE, GetSize(new_b) + 1);
-		module->addNeg(NEW_ID, new_b, b_neg);
+		module->addNeg(NEW_TWINE, new_b, b_neg);
 		shift->setPort(\B, b_neg);
 		shift->setParam(\B_WIDTH, GetSize(b_neg));
 	}

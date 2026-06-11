@@ -246,11 +246,11 @@ std::string log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 std::string log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(const RTLIL::IdString &id);
 
-template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
-	if (nullstr && obj == nullptr)
-		return nullstr;
-	return log_id(obj->name);
-}
+const char *log_id(const RTLIL::Module *obj, const char *nullstr = nullptr);
+const char *log_id(const RTLIL::Cell *obj, const char *nullstr = nullptr);
+const char *log_id(const RTLIL::Wire *obj, const char *nullstr = nullptr);
+const char *log_id(const RTLIL::Memory *obj, const char *nullstr = nullptr);
+const char *log_id(const RTLIL::Process *obj, const char *nullstr = nullptr);
 
 void log_module(RTLIL::Module *module, std::string indent = "");
 void log_cell(RTLIL::Cell *cell, std::string indent = "");

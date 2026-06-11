@@ -142,16 +142,16 @@ struct MicrochipDffOptPass : public Pass {
 					SigBit sigout = sigmap(cell->getPort(TW::Y));
 					const Const &init = cell->getParam(ID::INIT);
 					std::vector<SigBit> sigin;
-					sigin.push_back(sigmap(cell->getPort(ID(A))));
+					sigin.push_back(sigmap(cell->getPort(TW::A)));
 					if (cell->type == ID(CFG1))
 						goto lut_sigin_done;
-					sigin.push_back(sigmap(cell->getPort(ID(B))));
+					sigin.push_back(sigmap(cell->getPort(TW::B)));
 					if (cell->type == ID(CFG2))
 						goto lut_sigin_done;
-					sigin.push_back(sigmap(cell->getPort(ID(C))));
+					sigin.push_back(sigmap(cell->getPort(TW::C)));
 					if (cell->type == ID(CFG3))
 						goto lut_sigin_done;
-					sigin.push_back(sigmap(cell->getPort(ID(D))));
+					sigin.push_back(sigmap(cell->getPort(TW::D)));
 
 				lut_sigin_done:
 					bit_to_lut[sigout] = make_pair(LutData(init, sigin), cell);
@@ -167,16 +167,16 @@ struct MicrochipDffOptPass : public Pass {
 
 				if (!cell->type.in(ID(SLE))) // not a SLE
 					continue;
-				if (cell->getPort(ID(LAT)).is_fully_ones()) // skip latch
+				if (cell->getPort(TW::LAT).is_fully_ones()) // skip latch
 					continue;
 				if (cell->get_bool_attribute(ID::keep)) // keep attribute
 					continue;
-				if (!cell->getPort(ID(ALn)).is_fully_ones()) // async FF
+				if (!cell->getPort(TW::ALn).is_fully_ones()) // async FF
 					continue;
 
-				const bool hasSyncLoad = cell->getPort(ID(SLn)).is_wire();
-				const bool has_s = hasSyncLoad && cell->getPort(ID(SD)).is_fully_ones();
-				const bool has_r = hasSyncLoad && cell->getPort(ID(SD)).is_fully_zero();
+				const bool hasSyncLoad = cell->getPort(TW::SLn).is_wire();
+				const bool has_s = hasSyncLoad && cell->getPort(TW::SD).is_fully_ones();
+				const bool has_r = hasSyncLoad && cell->getPort(TW::SD).is_fully_zero();
 
 				// SLE cannot have both synchronous set and reset implemented at the same time
 				log_assert(!(has_s && has_r));
@@ -202,7 +202,7 @@ struct MicrochipDffOptPass : public Pass {
 
 				// First, unmap CE.
 				SigBit sig_Q = sigmap(cell->getPort(TW::Q));
-				SigBit sig_CE = sigmap(cell->getPort(ID(EN)));
+				SigBit sig_CE = sigmap(cell->getPort(TW::EN));
 				LutData lut_ce = LutData(Const(2, 2), {sig_CE}); // INIT = 10
 				auto it_CE = bit_to_lut.find(sig_CE);
 				if (it_CE != bit_to_lut.end())
@@ -227,7 +227,7 @@ struct MicrochipDffOptPass : public Pass {
 				// Second, unmap S, if any.
 				lut_d_post_s = lut_d_post_ce;
 				if (has_s) {
-					SigBit sig_S = sigmap(cell->getPort(ID(SLn)));
+					SigBit sig_S = sigmap(cell->getPort(TW::SLn));
 					LutData lut_s = LutData(Const(2, 2), {sig_S}); // INIT = 10
 					bool inv_s = true;			       // active low
 					auto it_S = bit_to_lut.find(sig_S);
@@ -250,7 +250,7 @@ struct MicrochipDffOptPass : public Pass {
 				// Third, unmap R, if any.
 				lut_d_post_r = lut_d_post_s;
 				if (has_r) {
-					SigBit sig_R = sigmap(cell->getPort(ID(SLn)));
+					SigBit sig_R = sigmap(cell->getPort(TW::SLn));
 					LutData lut_r = LutData(Const(2, 2), {sig_R}); // INIT = 10
 					bool inv_r = true;			       // active low
 					auto it_R = bit_to_lut.find(sig_R);
@@ -299,11 +299,11 @@ struct MicrochipDffOptPass : public Pass {
 
 				// Okay, we're doing it.  Unmap ports.
 				if ((has_s && worthy_post_s) || worthy_post_r) {
-					cell->setPort(ID(SLn), Const(1, 1));
+					cell->setPort(TW::SLn, Const(1, 1));
 				}
 
 				// if we made it this far, clk enable is always merged into D
-				cell->setPort(ID(EN), Const(1, 1));
+				cell->setPort(TW::EN, Const(1, 1));
 
 				// Create the new LUT.
 				Cell *lut_cell = nullptr;
@@ -328,13 +328,13 @@ struct MicrochipDffOptPass : public Pass {
 				lut_cell->setParam(ID::INIT, final_lut.first);
 				cell->setPort(TW::D, lut_out);
 				lut_cell->setPort(TW::Y, lut_out);
-				lut_cell->setPort(ID(A), final_lut.second[0]);
+				lut_cell->setPort(TW::A, final_lut.second[0]);
 				if (GetSize(final_lut.second) >= 2)
-					lut_cell->setPort(ID(B), final_lut.second[1]);
+					lut_cell->setPort(TW::B, final_lut.second[1]);
 				if (GetSize(final_lut.second) >= 3)
-					lut_cell->setPort(ID(C), final_lut.second[2]);
+					lut_cell->setPort(TW::C, final_lut.second[2]);
 				if (GetSize(final_lut.second) >= 4)
-					lut_cell->setPort(ID(D), final_lut.second[3]);
+					lut_cell->setPort(TW::D, final_lut.second[3]);
 			}
 		}
 	}

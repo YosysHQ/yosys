@@ -77,7 +77,7 @@ struct TableBackend : public Backend {
 				if (wire->port_id == 0)
 					continue;
 
-				*f << module->name.unescape() << "\t";
+				*f << design->twines.str(module->meta_->name) << "\t";
 				*f << wire->name.unescape() << "\t";
 				*f << "-" << "\t";
 				*f << "-" << "\t";
@@ -97,10 +97,10 @@ struct TableBackend : public Backend {
 			for (auto cell : module->cells())
 			for (auto conn : cell->connections())
 			{
-				*f << module->name.unescape() << "\t";
-				*f << cell->name.unescape() << "\t";
+				*f << design->twines.str(module->meta_->name) << "\t";
+				*f << cell->module->design->twines.str(cell->meta_->name) << "\t";
 				*f << cell->type.unescape() << "\t";
-				*f << conn.first.unescape() << "\t";
+				*f << design->twines.str(conn.first) << "\t";
 
 				if (cell->input(conn.first) && cell->output(conn.first))
 					*f << "inout" << "\t";
