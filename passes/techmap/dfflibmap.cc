@@ -55,31 +55,31 @@ static void logmap(IdString dff)
 
 static void logmap_all()
 {
-	logmap(TW($_DFF_N_));
-	logmap(TW($_DFF_P_));
+	logmap(ID($_DFF_N_));
+	logmap(ID($_DFF_P_));
 
-	logmap(TW($_DFF_NN0_));
-	logmap(TW($_DFF_NN1_));
-	logmap(TW($_DFF_NP0_));
-	logmap(TW($_DFF_NP1_));
-	logmap(TW($_DFF_PN0_));
-	logmap(TW($_DFF_PN1_));
-	logmap(TW($_DFF_PP0_));
-	logmap(TW($_DFF_PP1_));
+	logmap(ID($_DFF_NN0_));
+	logmap(ID($_DFF_NN1_));
+	logmap(ID($_DFF_NP0_));
+	logmap(ID($_DFF_NP1_));
+	logmap(ID($_DFF_PN0_));
+	logmap(ID($_DFF_PN1_));
+	logmap(ID($_DFF_PP0_));
+	logmap(ID($_DFF_PP1_));
 
-	logmap(TW($_DFFE_NN_));
-	logmap(TW($_DFFE_NP_));
-	logmap(TW($_DFFE_PN_));
-	logmap(TW($_DFFE_PP_));
+	logmap(ID($_DFFE_NN_));
+	logmap(ID($_DFFE_NP_));
+	logmap(ID($_DFFE_PN_));
+	logmap(ID($_DFFE_PP_));
 
-	logmap(TW($_DFFSR_NNN_));
-	logmap(TW($_DFFSR_NNP_));
-	logmap(TW($_DFFSR_NPN_));
-	logmap(TW($_DFFSR_NPP_));
-	logmap(TW($_DFFSR_PNN_));
-	logmap(TW($_DFFSR_PNP_));
-	logmap(TW($_DFFSR_PPN_));
-	logmap(TW($_DFFSR_PPP_));
+	logmap(ID($_DFFSR_NNN_));
+	logmap(ID($_DFFSR_NNP_));
+	logmap(ID($_DFFSR_NPN_));
+	logmap(ID($_DFFSR_NPP_));
+	logmap(ID($_DFFSR_PNN_));
+	logmap(ID($_DFFSR_PNP_));
+	logmap(ID($_DFFSR_PPN_));
+	logmap(ID($_DFFSR_PPP_));
 }
 
 static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std::string &data_name, bool &data_not_inverted, std::string &enable_name, bool &enable_not_inverted)
@@ -504,14 +504,17 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	for (auto cell : module->cells()) {
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
-		if (cell->type == TW($_NOT_))
+		if (cell->type.in(TwineRef{TW($_NOT_)}))
 			notmap[sigmap(cell->getPort(TW::A))].insert(cell);
 	}
+
+	auto &twines = module->design->twines;
+	auto conn_key = [&](char c) { return twines.add(Twine{std::string("\\") + c}); };
 
 	std::map<std::string, int> stats;
 	for (auto cell : cell_list)
 	{
-		auto cell_type = cell->type;
+		IdString cell_type = cell->type;
 		RTLIL::IdString cell_name(cell->name);
 		auto cell_connections = cell->connections();
 		std::string src = cell->get_src_attribute();
@@ -519,7 +522,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
-		RTLIL::Cell *new_cell = module->addCell(cell_name, cm.cell_name);
+		RTLIL::Cell *new_cell = module->addCell(Twine{cell_name.str()}, twines.add(Twine{cm.cell_name.str()}));
 
 		new_cell->set_src_attribute(src);
 
@@ -532,10 +535,10 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		for (auto &port : cm.ports) {
 			RTLIL::SigSpec sig;
 			if ('A' <= port.second && port.second <= 'Z') {
-				sig = cell_connections[std::string("\\") + port.second];
+				sig = cell_connections[conn_key(port.second)];
 			} else
 			if (port.second == 'q') {
-				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				RTLIL::SigSpec old_sig = cell_connections[conn_key(char(port.second - ('a' - 'A')))];
 				sig = module->addWire(NEW_TWINE, GetSize(old_sig));
 				if (has_q && has_qn) {
 					for (auto &it : notmap[sigmap(old_sig)]) {
@@ -547,7 +550,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				}
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
-				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				sig = cell_connections[conn_key(char(port.second - ('a' - 'A')))];
 				sig = module->NotGate(NEW_TWINE, sig);
 			} else
 			if (port.second == '0' || port.second == '1') {
@@ -557,10 +560,10 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				sig = module->addWire(NEW_TWINE);
 			} else
 				log_abort();
-			new_cell->setPort("\\" + port.first, sig);
+			new_cell->setPort(twines.add(Twine{"\\" + port.first}), sig);
 		}
 
-		stats[stringf("%s cells to %s cells", cell_type, new_cell->type)]++;
+		stats[stringf("%s cells to %s cells", cell_type.c_str(), new_cell->type.unescape())]++;
 	}
 
 	for (auto &stat: stats)
@@ -660,31 +663,31 @@ struct DfflibmapPass : public Pass {
 			delete f;
 		}
 
-		find_cell(merged.cells, TW($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
 
-		find_cell(merged.cells, TW($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
 
-		find_cell(merged.cells, TW($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
-		find_cell(merged.cells, TW($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, TW($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
 
-		find_cell_sr(merged.cells, TW($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, TW($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
+		find_cell_sr(merged.cells, ID($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
 
 		log("  final dff cell mappings:\n");
 		logmap_all();

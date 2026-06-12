@@ -17,6 +17,7 @@
  *
  */
 
+#include "kernel/rtlil.h"
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
 #include "kernel/newcelltypes.h"
@@ -1844,7 +1845,7 @@ RTLIL::Module::Module()
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
-	meta_ = nullptr;
+	meta_ = new ObjMeta;
 
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
@@ -2959,14 +2960,11 @@ namespace {
 
 void RTLIL::Module::sort()
 {
-	auto sort_twine_by_str = [this](TwineRef a, TwineRef b) {
-		return design->twines.flat_string(a) < design->twines.flat_string(b);
-	};
-	wires_.sort(sort_twine_by_str);
-	cells_.sort(sort_twine_by_str);
+	wires_.sort(sort_by_twine_str_expensive(design->twines));
+	cells_.sort(sort_by_twine_str_expensive(design->twines));
 	parameter_default_values.sort(sort_by_id_str());
-	memories.sort(sort_twine_by_str);
-	processes.sort(sort_twine_by_str);
+	memories.sort(sort_by_twine_str_expensive(design->twines));
+	processes.sort(sort_by_twine_str_expensive(design->twines));
 	for (auto &it : cells_)
 		it.second->sort();
 	for (auto &it : wires_)

@@ -169,7 +169,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 	RTLIL::Wire *state_wire = module->addWire(module->uniquify(module->design->twines.add(Twine{fsm_cell->parameters[ID::NAME].decode_string()})), fsm_data.state_bits);
 	RTLIL::Wire *next_state_wire = module->addWire(NEW_TWINE, fsm_data.state_bits);
 
-	RTLIL::Cell *state_dff = module->addCell(NEW_TWINE, "");
+	RTLIL::Cell *state_dff = module->addCell(NEW_TWINE, TwineRef{});
 	if (fsm_cell->getPort(TW::ARST).is_fully_const()) {
 		state_dff->type_impl = TW::$dff;
 	} else {

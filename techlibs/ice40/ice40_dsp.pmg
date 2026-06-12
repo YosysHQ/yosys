@@ -182,7 +182,7 @@ match add
 	if mul->type != \SB_MAC16 || (param(mul, \TOPOUTPUT_SELECT).as_int() == 3 && param(mul, \BOTOUTPUT_SELECT).as_int() == 3)
 
 	select add->type.in($add)
-	choice <IdString> AB {\A, \B}
+	choice <TwineRef> AB {\A, \B}
 	select nusers(port(add, AB)) == 2
 
 	index <SigBit> port(add, AB)[0] === sigH[0]
@@ -214,7 +214,7 @@ endcode
 
 match mux
 	select mux->type == $mux
-	choice <IdString> AB {\A, \B}
+	choice <TwineRef> AB {\A, \B}
 	select nusers(port(mux, AB)) == 2
 	index <SigSpec> port(mux, AB) === sigO
 	set muxAB AB

@@ -316,7 +316,7 @@ struct FlattenWorker
 				if (attr.first == ID::hdlname)
 					scopeinfo->attributes.insert(attr);
 				else
-					scopeinfo->attributes.emplace(stringf("\\cell_%s", design->twines.unescaped_str(attr.first)), attr.second);
+					scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
 			}
 			// src lives outside cell->attributes after the typed-src
 			// migration — fold it into the renamed-attribute view by
@@ -325,7 +325,7 @@ struct FlattenWorker
 				scopeinfo->attributes.emplace(ID(cell_src), RTLIL::Const(cell->get_src_attribute()));
 
 			for (auto const &attr : tpl->attributes)
-				scopeinfo->attributes.emplace(stringf("\\module_%s", design->twines.unescaped_str(attr.first)), attr.second);
+				scopeinfo->attributes.emplace(stringf("\\module_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
 			if (tpl->src_id() != Twine::Null)
 				scopeinfo->attributes.emplace(ID(module_src), RTLIL::Const(tpl->get_src_attribute()));
 

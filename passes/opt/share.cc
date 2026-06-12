@@ -1123,7 +1123,7 @@ struct ShareWorker
 			for (auto &loop : toposort.loops) {
 				log("### loop ###\n");
 				for (auto &c : loop)
-					log("%s (%s)\n", c, design->twines.unescaped_str(c->type));
+					log("%s (%s)\n", c, c->type.unescape());
 			}
 
 		return found_scc;
@@ -1280,7 +1280,7 @@ struct ShareWorker
 
 			for (auto other_cell : candidates)
 			{
-				log("    Analyzing resource sharing with %s (%s):\n", other_cell, design->twines.unescaped_str(other_cell->type));
+				log("    Analyzing resource sharing with %s (%s):\n", other_cell, other_cell->type.unescape());
 
 				const pool<ssc_pair_t> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell, "      ");
 				RTLIL::SigSpec other_cell_activation_signals = bits_from_activation_patterns(other_cell_activation_patterns);
@@ -1431,7 +1431,7 @@ struct ShareWorker
 					log("      Activation signal for %s: %s\n", other_cell, log_signal(act));
 				}
 
-				log("      New cell: %s (%s)\n", supercell, design->twines.unescaped_str(supercell->type));
+				log("      New cell: %s (%s)\n", supercell, supercell->type.unescape());
 
 				cells_to_remove.insert(cell);
 				cells_to_remove.insert(other_cell);
@@ -1478,7 +1478,7 @@ struct ShareWorker
 		if (!cells_to_remove.empty()) {
 			log("Removing %d cells in module %s:\n", GetSize(cells_to_remove), module);
 			for (auto c : cells_to_remove) {
-				log("  Removing cell %s (%s).\n", c, design->twines.unescaped_str(c->type));
+				log("  Removing cell %s (%s).\n", c, c->type.unescape());
 				remove_cell(c);
 			}
 		}
@@ -1532,45 +1532,45 @@ struct SharePass : public Pass {
 		config.opt_aggressive = false;
 		config.opt_fast = false;
 
-		config.generic_uni_ops.set_id(TW($not));
-		// config.generic_uni_ops.set_id(TW($pos));
-		config.generic_uni_ops.set_id(TW($neg));
+		config.generic_uni_ops.set_id(ID($not));
+		// config.generic_uni_ops.set_id(ID($pos));
+		config.generic_uni_ops.set_id(ID($neg));
 
-		config.generic_cbin_ops.set_id(TW($and));
-		config.generic_cbin_ops.set_id(TW($or));
-		config.generic_cbin_ops.set_id(TW($xor));
-		config.generic_cbin_ops.set_id(TW($xnor));
+		config.generic_cbin_ops.set_id(ID($and));
+		config.generic_cbin_ops.set_id(ID($or));
+		config.generic_cbin_ops.set_id(ID($xor));
+		config.generic_cbin_ops.set_id(ID($xnor));
 
-		config.generic_bin_ops.set_id(TW($shl));
-		config.generic_bin_ops.set_id(TW($shr));
-		config.generic_bin_ops.set_id(TW($sshl));
-		config.generic_bin_ops.set_id(TW($sshr));
+		config.generic_bin_ops.set_id(ID($shl));
+		config.generic_bin_ops.set_id(ID($shr));
+		config.generic_bin_ops.set_id(ID($sshl));
+		config.generic_bin_ops.set_id(ID($sshr));
 
-		config.generic_bin_ops.set_id(TW($lt));
-		config.generic_bin_ops.set_id(TW($le));
-		config.generic_bin_ops.set_id(TW($eq));
-		config.generic_bin_ops.set_id(TW($ne));
-		config.generic_bin_ops.set_id(TW($eqx));
-		config.generic_bin_ops.set_id(TW($nex));
-		config.generic_bin_ops.set_id(TW($ge));
-		config.generic_bin_ops.set_id(TW($gt));
+		config.generic_bin_ops.set_id(ID($lt));
+		config.generic_bin_ops.set_id(ID($le));
+		config.generic_bin_ops.set_id(ID($eq));
+		config.generic_bin_ops.set_id(ID($ne));
+		config.generic_bin_ops.set_id(ID($eqx));
+		config.generic_bin_ops.set_id(ID($nex));
+		config.generic_bin_ops.set_id(ID($ge));
+		config.generic_bin_ops.set_id(ID($gt));
 
-		config.generic_cbin_ops.set_id(TW($add));
-		config.generic_cbin_ops.set_id(TW($mul));
+		config.generic_cbin_ops.set_id(ID($add));
+		config.generic_cbin_ops.set_id(ID($mul));
 
-		config.generic_bin_ops.set_id(TW($sub));
-		config.generic_bin_ops.set_id(TW($div));
-		config.generic_bin_ops.set_id(TW($mod));
-		config.generic_bin_ops.set_id(TW($divfloor));
-		config.generic_bin_ops.set_id(TW($modfloor));
-		// config.generic_bin_ops.set_id(TW($pow));
+		config.generic_bin_ops.set_id(ID($sub));
+		config.generic_bin_ops.set_id(ID($div));
+		config.generic_bin_ops.set_id(ID($mod));
+		config.generic_bin_ops.set_id(ID($divfloor));
+		config.generic_bin_ops.set_id(ID($modfloor));
+		// config.generic_bin_ops.set_id(ID($pow));
 
-		config.generic_uni_ops.set_id(TW($logic_not));
-		config.generic_cbin_ops.set_id(TW($logic_and));
-		config.generic_cbin_ops.set_id(TW($logic_or));
+		config.generic_uni_ops.set_id(ID($logic_not));
+		config.generic_cbin_ops.set_id(ID($logic_and));
+		config.generic_cbin_ops.set_id(ID($logic_or));
 
-		config.generic_other_ops.set_id(TW($alu));
-		config.generic_other_ops.set_id(TW($macc));
+		config.generic_other_ops.set_id(ID($alu));
+		config.generic_other_ops.set_id(ID($macc));
 
 		log_header(design, "Executing SHARE pass (SAT-based resource sharing).\n");
 

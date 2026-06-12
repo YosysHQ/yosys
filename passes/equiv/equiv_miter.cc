@@ -324,7 +324,7 @@ struct EquivMiterPass : public Pass {
 		design->sigNormalize(false);
 
 		if (design->module(design->twines.lookup(worker.miter_name.str())))
-			log_cmd_error("Miter module %s already exists.\n", design->twines.unescaped_str(worker.miter_name));
+			log_cmd_error("Miter module %s already exists.\n", log_id(worker.miter_name));
 
 		worker.source_module = nullptr;
 		for (auto m : design->selected_modules()) {

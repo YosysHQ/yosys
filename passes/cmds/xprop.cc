@@ -55,18 +55,18 @@ struct XpropWorker
 		Module *module;
 
 		void invert() { std::swap(is_0, is_1); }
-		void auto_0() { connect_0(module->Not(NEW_ID, module->Or(NEW_TWINE, is_1, is_x))); }
-		void auto_1() { connect_1(module->Not(NEW_ID, module->Or(NEW_TWINE, is_0, is_x))); }
-		void auto_x() { connect_x(module->Not(NEW_ID, module->Or(NEW_TWINE, is_0, is_1))); }
+		void auto_0() { connect_0(module->Not(NEW_TWINE, module->Or(NEW_TWINE, is_1, is_x))); }
+		void auto_1() { connect_1(module->Not(NEW_TWINE, module->Or(NEW_TWINE, is_0, is_x))); }
+		void auto_x() { connect_x(module->Not(NEW_TWINE, module->Or(NEW_TWINE, is_0, is_1))); }
 
 		void connect_0(SigSpec sig) { module->connect(is_0, sig); }
 		void connect_1(SigSpec sig) { module->connect(is_1, sig); }
 		void connect_x(SigSpec sig) { module->connect(is_x, sig); }
 
-		void connect_1_under_x(SigSpec sig) { connect_1(module->And(NEW_ID, sig, module->Not(NEW_TWINE, is_x))); }
-		void connect_0_under_x(SigSpec sig) { connect_0(module->And(NEW_ID, sig, module->Not(NEW_TWINE, is_x))); }
+		void connect_1_under_x(SigSpec sig) { connect_1(module->And(NEW_TWINE, sig, module->Not(NEW_TWINE, is_x))); }
+		void connect_0_under_x(SigSpec sig) { connect_0(module->And(NEW_TWINE, sig, module->Not(NEW_TWINE, is_x))); }
 
-		void connect_x_under_0(SigSpec sig) { connect_x(module->And(NEW_ID, sig, module->Not(NEW_TWINE, is_0))); }
+		void connect_x_under_0(SigSpec sig) { connect_x(module->And(NEW_TWINE, sig, module->Not(NEW_TWINE, is_0))); }
 
 		void connect_as_bool() {
 			int width = GetSize(is_0);
@@ -265,9 +265,9 @@ struct XpropWorker
 			auto not_1 = module->Not(NEW_TWINE, result.is_1);
 			auto not_x = module->Not(NEW_TWINE, result.is_x);
 			auto valid = module->ReduceAnd(NEW_TWINE, {
-				module->Eq(NEW_ID, result.is_0, module->And(NEW_TWINE, not_1, not_x)),
-				module->Eq(NEW_ID, result.is_1, module->And(NEW_TWINE, not_0, not_x)),
-				module->Eq(NEW_ID, result.is_x, module->And(NEW_TWINE, not_0, not_1)),
+				module->Eq(NEW_TWINE, result.is_0, module->And(NEW_TWINE, not_1, not_x)),
+				module->Eq(NEW_TWINE, result.is_1, module->And(NEW_TWINE, not_0, not_x)),
+				module->Eq(NEW_TWINE, result.is_x, module->And(NEW_TWINE, not_0, not_1)),
 			});
 			if (options.assert_encoding)
 				module->addAssert(NEW_TWINE_SUFFIX("xprop_enc"), valid, State::S1);
@@ -486,9 +486,9 @@ struct XpropWorker
 				auto sig_a = cell->getPort(TW::A);
 				auto sig_b = cell->getPort(TW::B);
 
-				RTLIL::IdString name(cell->name);
+				std::string name_str = module->design->twines.str(cell->name.ref());
 				module->remove(cell);
-				module->addXnor(name, sig_a, sig_b, sig_y);
+				module->addXnor(Twine{name_str}, sig_a, sig_b, sig_y);
 				return;
 			}
 
@@ -497,13 +497,13 @@ struct XpropWorker
 				auto sig_a = cell->getPort(TW::A);
 				auto sig_b = cell->getPort(TW::B);
 
-				RTLIL::IdString name(cell->name);
-				auto type = cell->type;
+				std::string name_str = module->design->twines.str(cell->name.ref());
+				TwineRef type = cell->type.ref();
 				module->remove(cell);
 				if (type == TW($eqx))
-					module->addEq(name, sig_a, sig_b, sig_y);
+					module->addEq(Twine{name_str}, sig_a, sig_b, sig_y);
 				else
-					module->addNe(name, sig_a, sig_b, sig_y);
+					module->addNe(Twine{name_str}, sig_a, sig_b, sig_y);
 				return;
 			}
 
@@ -664,7 +664,7 @@ struct XpropWorker
 			auto delta = module->Xor(NEW_TWINE, enc_a.is_1, enc_b.is_1);
 			auto xpos = module->Or(NEW_TWINE, enc_a.is_x, enc_b.is_x);
 
-			enc_y.connect_0(module->ReduceOr(NEW_ID, module->And(NEW_ID, delta, module->Not(NEW_TWINE, xpos))));
+			enc_y.connect_0(module->ReduceOr(NEW_TWINE, module->And(NEW_TWINE, delta, module->Not(NEW_TWINE, xpos))));
 			enc_y.connect_x_under_0(module->ReduceOr(NEW_TWINE, xpos));
 			enc_y.auto_1();
 			module->remove(cell);
@@ -751,7 +751,7 @@ struct XpropWorker
 
 			auto all_x = module->ReduceOr(NEW_TWINE, {
 				enc_s.is_x,
-				module->And(NEW_ID, enc_s.is_1, module->Sub(NEW_TWINE, enc_s.is_1, Const(1, width)))
+				module->And(NEW_TWINE, enc_s.is_1, module->Sub(NEW_TWINE, enc_s.is_1, Const(1, width)))
 			});
 
 			auto selected = enc_a;
@@ -787,7 +787,7 @@ struct XpropWorker
 			SigSpec y_1 = module->addWire(NEW_TWINE, GetSize(sig_y));
 			SigSpec y_x = module->addWire(NEW_TWINE, GetSize(sig_y));
 
-			auto encoded_type = cell->type == TW($shiftx) ? TW($shift) : cell->type;
+			TwineRef encoded_type = cell->type == TW($shiftx) ? TwineRef{TW($shift)} : cell->type.ref();
 
 			if (cell->type == TW($shiftx)) {
 				std::swap(enc_a.is_0, enc_a.is_x);
@@ -982,8 +982,8 @@ struct XpropWorker
 				if (wire->port_input == wire->port_output) {
 					log_warning("Port %s not an input or an output port which is not supported by xprop\n", wire);
 				} else if ((options.split_inputs && !options.assume_def_inputs && wire->port_input) || (options.split_outputs && wire->port_output)) {
-					auto port_d = module->uniquify(stringf("%s_d", port));
-					auto port_x = module->uniquify(stringf("%s_x", port));
+					auto port_d = module->uniquify(Twine{module->design->twines.str(port) + "_d"});
+					auto port_x = module->uniquify(Twine{module->design->twines.str(port) + "_x"});
 
 					auto wire_d = module->addWire(port_d, GetSize(wire));
 					auto wire_x = module->addWire(port_x, GetSize(wire));
@@ -1003,7 +1003,7 @@ struct XpropWorker
 
 						if (options.split_public) {
 							// Need to hide the original wire so split_public doesn't try to split it again
-							module->rename(wire, NEW_ID_SUFFIX(wire->name.c_str()));
+							module->rename(wire, module->design->twines.add(NEW_TWINE_SUFFIX(RTLIL::IdString(wire->name).c_str())));
 						}
 					} else {
 						auto enc = encoded(wire, true);
@@ -1035,8 +1035,9 @@ struct XpropWorker
 				continue;
 			int index_d = 0;
 			int index_x = 0;
-			auto name_d = module->uniquify(stringf("%s_d", wire->name), index_d);
-			auto name_x = module->uniquify(stringf("%s_x", wire->name), index_x);
+			std::string wname = module->design->twines.str(wire->name.ref());
+			auto name_d = module->uniquify(Twine{wname + "_d"}, index_d);
+			auto name_x = module->uniquify(Twine{wname + "_x"}, index_x);
 
 			auto hdlname = wire->get_hdlname_attribute();
 
@@ -1056,7 +1057,7 @@ struct XpropWorker
 			module->connect(wire_d, enc.is_1);
 			module->connect(wire_x, enc.is_x);
 
-			module->rename(wire, NEW_ID_SUFFIX(wire->name.c_str()));
+			module->rename(wire, module->design->twines.add(NEW_TWINE_SUFFIX(RTLIL::IdString(wire->name).c_str())));
 		}
 	}
 
@@ -1234,7 +1235,7 @@ struct XpropPass : public Pass {
 						continue;
 
 					if (wire->port_input) {
-						module->addAssume(NEW_ID, module->Not(NEW_TWINE, module->ReduceOr(NEW_TWINE, module->Bweqx(NEW_TWINE, wire, Const(State::Sx, GetSize(wire))))), State::S1);
+						module->addAssume(NEW_TWINE, module->Not(NEW_TWINE, module->ReduceOr(NEW_TWINE, module->Bweqx(NEW_TWINE, wire, Const(State::Sx, GetSize(wire))))), State::S1);
 					}
 				}
 			}

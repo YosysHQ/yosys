@@ -92,12 +92,12 @@ struct EdgetypePass : public Pass {
 				auto sink_bit_index = std::get<2>(sink);
 
 				string source_str = multibit_ports.count(std::pair<IdString, TwineRef>(source_cell_type, source_port_name)) ?
-						stringf("%s.%s[%d]", design->twines.unescaped_str(source_cell_type), module->design->twines.str(source_port_name).c_str(), source_bit_index) :
-						stringf("%s.%s", design->twines.unescaped_str(source_cell_type), module->design->twines.str(source_port_name).c_str());
+						stringf("%s.%s[%d]", log_id(source_cell_type), module->design->twines.str(source_port_name).c_str(), source_bit_index) :
+						stringf("%s.%s", log_id(source_cell_type), module->design->twines.str(source_port_name).c_str());
 
 				string sink_str = multibit_ports.count(std::pair<IdString, TwineRef>(sink_cell_type, sink_port_name)) ?
-						stringf("%s.%s[%d]", design->twines.unescaped_str(sink_cell_type), module->design->twines.str(sink_port_name).c_str(), sink_bit_index) :
-						stringf("%s.%s", design->twines.unescaped_str(sink_cell_type), module->design->twines.str(sink_port_name).c_str());
+						stringf("%s.%s[%d]", log_id(sink_cell_type), module->design->twines.str(sink_port_name).c_str(), sink_bit_index) :
+						stringf("%s.%s", log_id(sink_cell_type), module->design->twines.str(sink_port_name).c_str());
 
 				edge_cache.insert(source_str + " " + sink_str);
 			}

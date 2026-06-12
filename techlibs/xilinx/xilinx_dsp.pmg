@@ -136,10 +136,10 @@ match preAdd
 	// Output has to be 25 bits or less
 	select GetSize(port(preAdd, \Y)) <= 25
 	select nusers(port(preAdd, \Y)) == 2
-	choice <IdString> AB {\A, \B}
+	choice <TwineRef> AB {\A, \B}
 	// A port has to be 30 bits or less
 	select GetSize(port(preAdd, AB)) <= 30
-	define <IdString> BA (AB == \A ? \B : \A)
+	define <TwineRef> BA (AB == \A ? \B : \A)
 	// D port has to be 25 bits or less
 	select GetSize(port(preAdd, BA)) <= 25
 	index <SigSpec> port(preAdd, \Y) === sigA
@@ -316,7 +316,7 @@ match postAdd
 
 	select postAdd->type.in($add)
 	select GetSize(port(postAdd, \Y)) <= 48
-	choice <IdString> AB {\A, \B}
+	choice <TwineRef> AB {\A, \B}
 	select nusers(port(postAdd, AB)) == 2
 
 	index <SigBit> port(postAdd, AB)[0] === sigP[0]
@@ -369,7 +369,7 @@ match postAddMux
 	if ffP
 	select postAddMux->type.in($mux)
 	select nusers(port(postAddMux, \Y)) == 2
-	choice <IdString> AB {\A, \B}
+	choice <TwineRef> AB {\A, \B}
 	index <SigSpec> port(postAddMux, AB) === sigP
 	index <SigSpec> port(postAddMux, \Y) === sigC
 	set postAddMuxAB AB

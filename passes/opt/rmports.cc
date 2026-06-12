@@ -70,18 +70,14 @@ struct RmportsPassPass : public Pass {
 		for(auto cell : cells)
 		{
 			if(removed_ports.find(cell->type) == removed_ports.end())
-			{
-				// log("  Not touching instance \"%s\" because we didn't remove any ports from module \"%s\"\n",
-				//	cell->name.c_str(), cell->type.c_str());
 				continue;
-			}
 
 			auto ports_to_remove = removed_ports[cell->type];
 			for(auto p : ports_to_remove)
 			{
 				log("  Removing port \"%s\" from instance \"%s\"\n",
 					p.c_str(), cell->type.c_str());
-				cell->unsetPort(p);
+				cell->unsetPort(cell->module->design->twines.add(Twine{p.str()}));
 			}
 		}
 	}
@@ -90,7 +86,7 @@ struct RmportsPassPass : public Pass {
 	{
 		log("Finding unconnected ports in module %s\n", module->name);
 
-		pool<IdString> used_ports;
+		pool<TwineRef> used_ports;
 
 		// See what wires are used.
 		// Start by checking connections between named wires
@@ -113,13 +109,11 @@ struct RmportsPassPass : public Pass {
 				if( (w1 == NULL) || (w2 == NULL) )
 					continue;
 
-				//log("  conn %s, %s\n", w1->name, w2->name);
+				if( (w1->port_input || w1->port_output) && !used_ports.count(w1->name.ref()) )
+					used_ports.insert(w1->name.ref());
 
-				if( (w1->port_input || w1->port_output) && (used_ports.find(w1->name) == used_ports.end()) )
-					used_ports.insert(w1->name);
-
-				if( (w2->port_input || w2->port_output) && (used_ports.find(w2->name) == used_ports.end()) )
-					used_ports.insert(w2->name);
+				if( (w2->port_input || w2->port_output) && !used_ports.count(w2->name.ref()) )
+					used_ports.insert(w2->name.ref());
 			}
 		}
 
@@ -136,18 +130,17 @@ struct RmportsPassPass : public Pass {
 					if(sig == NULL)
 						continue;
 
-					// log("  sig %s\n", sig->name);
-					if( (sig->port_input || sig->port_output) && (used_ports.find(sig->name) == used_ports.end()) )
-						used_ports.insert(sig->name);
+					if( (sig->port_input || sig->port_output) && !used_ports.count(sig->name.ref()) )
+						used_ports.insert(sig->name.ref());
 				}
 			}
 		}
 
 		// Now that we know what IS used, get rid of anything that isn't in that list
-		pool<IdString> unused_ports;
+		pool<TwineRef> unused_ports;
 		for(auto port : module->ports)
 		{
-			if(used_ports.find(port) != used_ports.end())
+			if(used_ports.count(port))
 				continue;
 			unused_ports.insert(port);
 		}
@@ -155,8 +148,9 @@ struct RmportsPassPass : public Pass {
 		// Print the ports out as we go through them
 		for(auto port : unused_ports)
 		{
-			log("  removing unused port %s\n", port);
-			removed_ports[module->name].insert(port);
+			log("  removing unused port %s\n", module->design->twines.unescaped_str(port).data());
+			IdString port_id(std::string(module->design->twines.str(port)));
+			removed_ports[module->name].insert(port_id);
 
 			// Remove from ports list
 			for(size_t i=0; i<module->ports.size(); i++)

@@ -44,20 +44,20 @@ using MergeableTypes = StaticCellTypes::Categories::Category;
 // is intentionally not included, so $anyinit stays excluded
 static constexpr MergeableTypes build_mergeable_types(bool nomux) {
 	auto c = StaticCellTypes::categories.is_known;
-	c.set_id(TW($anyinit), false);
-	c.set_id(TW($tribuf), false);
-	c.set_id(TW($_TBUF_), false);
-	c.set_id(TW($anyseq), false);
-	c.set_id(TW($anyconst), false);
-	c.set_id(TW($allseq), false);
-	c.set_id(TW($allconst), false);
-	c.set_id(TW($connect), false);
-	c.set_id(TW($input_port), false);
-	c.set_id(TW($output_port), false);
-	c.set_id(TW($public), false);
+	c.set_id(ID($anyinit), false);
+	c.set_id(ID($tribuf), false);
+	c.set_id(ID($_TBUF_), false);
+	c.set_id(ID($anyseq), false);
+	c.set_id(ID($anyconst), false);
+	c.set_id(ID($allseq), false);
+	c.set_id(ID($allconst), false);
+	c.set_id(ID($connect), false);
+	c.set_id(ID($input_port), false);
+	c.set_id(ID($output_port), false);
+	c.set_id(ID($public), false);
 	if (nomux) {
-		c.set_id(TW($mux), false);
-		c.set_id(TW($pmux), false);
+		c.set_id(ID($mux), false);
+		c.set_id(ID($pmux), false);
 	}
 	return c;
 }

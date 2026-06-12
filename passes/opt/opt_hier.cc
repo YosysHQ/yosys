@@ -101,7 +101,7 @@ struct ModuleIndex {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  design->twines.unescaped_str(port_name), instantiation, module);
+						  module->design->twines.unescaped_str(port_name), instantiation, module);
 			}
 
 			if (port->port_input && port->port_output) {
@@ -145,12 +145,12 @@ struct ModuleIndex {
 
 			if (nunused > 0) {
 				log("Disconnected %d input bits of instance '%s' (type '%s') in '%s'\n",
-					nunused, instantiation, design->twines.unescaped_str(instantiation->type), parent.module);
+					nunused, instantiation, instantiation->type.unescape(), parent.module);
 				changed = true;
 			}
 			if (nconstants > 0) {
 				log("Substituting constant for %d output bits of instance '%s' (type '%s') in '%s'\n",
-					nconstants, instantiation, design->twines.unescaped_str(instantiation->type), parent.module);
+					nconstants, instantiation, instantiation->type.unescape(), parent.module);
 				changed = true;
 			}
 		}
@@ -189,7 +189,7 @@ struct ModuleIndex {
 
 		if (ntie_togethers > 0) {
 			log("Replacing %d output bits with tie-togethers on instance '%s' of '%s' in '%s'\n",
-				ntie_togethers, instantiation, design->twines.unescaped_str(instantiation->type), parent.module);
+				ntie_togethers, instantiation, instantiation->type.unescape(), parent.module);
 			changed = true;
 		}
 

@@ -718,7 +718,7 @@ struct VizWorker
 
 	void write_dot(FILE *f)
 	{
-		fprintf(f, "digraph \"%s\" {\n", design->twines.unescaped_str(module->name).c_str());
+		fprintf(f, "digraph \"%s\" {\n", module->design->twines.unescaped_str(module->meta_->name).c_str());
 		fprintf(f, "  rankdir = LR;\n");
 
 		dict<GraphNode*, std::vector<std::vector<std::string>>> extra_lines;
@@ -782,7 +782,7 @@ struct VizWorker
 				g->names().sort();
 				std::string label; // = stringf("vg=%d\\n", g->index);
 				for (auto n : g->names())
-					label = label + (label.empty() ? "" : "\\n") + design->twines.unescaped_str(n);
+					label = label + (label.empty() ? "" : "\\n") + log_id(n);
 				fprintf(f, "\tn%d [shape=rectangle,label=\"%s\"];\n", g->index, label.c_str());
 			} else {
 				std::string label = stringf("vg=%d | %d cells", g->index, GetSize(g->names()));

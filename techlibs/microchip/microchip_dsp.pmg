@@ -251,7 +251,7 @@ match postAdd
 	select GetSize(port(postAdd, \Y)) <= 48
 
 	// AB is the port that connects MUL to ADD
-	choice <IdString> AB {\A, \B}
+	choice <TwineRef> AB {\A, \B}
 	select nusers(port(postAdd, AB)) == 2
 
 	// has one input coming from multiplier
