@@ -41,8 +41,8 @@ endcode
 
 match add
     select add->type.in($add, $sub)
-    choice <IdString> AB {\A, \B}
-    define <IdString> BA (AB == \A ? \B : \A)
+    choice <TwineRef> AB {\A, \B}
+    define <TwineRef> BA (AB == \A ? \B : \A)
     // One input to the adder is fed by the multiplier
     index <SigSpec> port(add, AB) === port(mul, \Y)
     // Save the other input port, it needs to be fed by the flip-flop
@@ -56,8 +56,8 @@ endmatch
 match mux
     if mux_in_pattern
     select mux->type.in($mux)
-    choice <IdString> AB {\A, \B}
-    define <IdString> BA (AB == \A ? \B : \A)
+    choice <TwineRef> AB {\A, \B}
+    define <TwineRef> BA (AB == \A ? \B : \A)
     index <SigSpec> port(mux, AB) === port(mul, \Y)
     index <SigSpec> port(mux, BA) === port(add, \Y)
     filter nusers(port(mux, \Y)) == (output_registered ? 2 : 3)

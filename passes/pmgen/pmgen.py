@@ -417,9 +417,9 @@ with open(outfile, "w") as f:
 
     for v, n in sorted(ids.items()):
         if n[0] == "\\":
-            print("  IdString {}{{\"\\{}\"}};".format(v, n), file=f)
+            print("  TwineRef {}{{TW({})}};".format(v, n[1:]), file=f)
         else:
-            print("  IdString {}{{\"{}\"}};".format(v, n), file=f)
+            print("  TwineRef {}{{TW({})}};".format(v, n), file=f)
     print("", file=f)
 
     print("  void add_siguser(const SigSpec &sig, Cell *cell) {", file=f)
@@ -467,12 +467,22 @@ with open(outfile, "w") as f:
     print("      return cell->getParam(paramname);", file=f)
     print("    } catch(std::out_of_range&) { log_error(\"Accessing non existing parameter %s\\n\",paramname); }", file=f)
     print("  }", file=f)
+    print("  Const param(Cell *cell, TwineRef paramname) {", file=f)
+    print("    return param(cell, IdString(std::string(module->design->twines.str(paramname))));", file=f)
+    print("  }", file=f)
     print("", file=f)
     print("  Const param(Cell *cell, IdString paramname, const Const& defval) {", file=f)
     print("    return cell->parameters.at(paramname, defval);", file=f)
     print("  }", file=f)
+    print("  Const param(Cell *cell, TwineRef paramname, const Const& defval) {", file=f)
+    print("    return param(cell, IdString(std::string(module->design->twines.str(paramname))), defval);", file=f)
+    print("  }", file=f)
     print("", file=f)
 
+    print("  void setparam(Cell *cell, TwineRef param, const Const& val) {", file=f)
+    print("    cell->setParam(IdString(std::string(module->design->twines.str(param))), val);", file=f)
+    print("  }", file=f)
+    print("", file=f)
     print("  int nusers(const SigSpec &sig) {", file=f)
     print("    pool<Cell*> users;", file=f)
     print("    for (auto bit : (*sigmap)(sig))", file=f)

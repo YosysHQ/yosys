@@ -33,13 +33,13 @@ struct OptBalanceTreeWorker {
 	SigMap sigmap;
 
 	// Counts of each cell type that are getting balanced
-	dict<IdString, int> cell_count;
+	dict<TwineRef, int> cell_count;
 
 	// Check if cell is of the right type and has matching input/output widths
 	// Only allow cells with "natural" output widths (no truncation) to prevent
 	// equivalence issues when rebalancing (see YosysHQ/yosys#5605)
-	bool is_right_type(Cell* cell, IdString cell_type) {
-		if (cell->type != cell_type)
+	bool is_right_type(Cell* cell, TwineRef cell_type) {
+		if (cell->type.ref() != cell_type)
 			return false;
 
 		int y_width = cell->getParam(ID::Y_WIDTH).as_int();
@@ -65,7 +65,7 @@ struct OptBalanceTreeWorker {
 	}
 
 	// Create a balanced binary tree from a vector of source signals
-	SigSpec create_balanced_tree(vector<SigSpec> &sources, IdString cell_type, Cell* cell) {
+	SigSpec create_balanced_tree(vector<SigSpec> &sources, TwineRef cell_type, Cell* cell) {
 		// Base case: if we have no sources, return an empty signal
 		if (sources.size() == 0)
 			return SigSpec();
@@ -138,7 +138,7 @@ struct OptBalanceTreeWorker {
 		return out_wire;
 	}
 
-	OptBalanceTreeWorker(Module *module, const vector<IdString> cell_types) : module(module), sigmap(module) {
+	OptBalanceTreeWorker(Module *module, const vector<TwineRef> cell_types) : module(module), sigmap(module) {
 		// Do for each cell type
 		for (auto cell_type : cell_types) {
 			// Index all of the nets in the module
@@ -344,14 +344,14 @@ struct OptBalanceTreePass : public Pass {
 
 		// Handle arguments
 		size_t argidx;
-		vector<IdString> cell_types = {TW($and), TW($or), TW($xor), TW($add), TW($mul)};
+		vector<TwineRef> cell_types = {TwineRef{TW($and)}, TwineRef{TW($or)}, TwineRef{TW($xor)}, TwineRef{TW($add)}, TwineRef{TW($mul)}};
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-arith") {
-				cell_types = {TW($add), TW($mul)};
+				cell_types = {TwineRef{TW($add)}, TwineRef{TW($mul)}};
 				continue;
 			}
 			if (args[argidx] == "-logic") {
-				cell_types = {TW($and), TW($or), TW($xor)};
+				cell_types = {TwineRef{TW($and)}, TwineRef{TW($or)}, TwineRef{TW($xor)}};
 				continue;
 			}
 			break;
@@ -359,7 +359,7 @@ struct OptBalanceTreePass : public Pass {
 		extra_args(args, argidx, design);
 
 		// Count of all cells that were packed
-		dict<IdString, int> cell_count;
+		dict<TwineRef, int> cell_count;
 		for (auto module : design->selected_modules()) {
 			OptBalanceTreeWorker worker(module, cell_types);
 			for (auto cell : worker.cell_count) {

@@ -132,7 +132,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		mod->fixup_ports();
 
 		for (auto &para : parameters)
-			log("  ignoring parameter %s.\n", design->twines.unescaped_str(para));
+			log("  ignoring parameter %s.\n", log_id(para));
 
 		log("  module %s created.\n", mod);
 	}
@@ -187,7 +187,7 @@ bool read_id_num(RTLIL::Design &design, TwineRef ref, int *dst)
 struct IFExpander
 {
 	IFExpander (RTLIL::Design &design, RTLIL::Module &m)
-		: module(m), design(design), has_interfaces_not_found(false)
+		: design(design), module(m), has_interfaces_not_found(false)
 	{
 		// Keep track of all derived interfaces available in the current
 		// module in 'interfaces_in_module':
@@ -238,7 +238,7 @@ struct IFExpander
 		// about it and don't set has_interfaces_not_found (to avoid a
 		// loop).
 		log_warning("Could not find interface instance for `%s' in `%s'\n",
-			    design->twines.unescaped_str(interface_name), &module);
+			    log_id(interface_name), &module);
 	}
 
 	// Handle an interface connection from the module
@@ -282,8 +282,8 @@ struct IFExpander
 		// Go over all wires in interface, and add replacements to lists.
 		std::string conn_name_str(design.twines.str(conn_name));
 		for (auto mod_wire : mod_replace_ports->wires()) {
-			std::string signal_name1 = conn_name_str + "." + design->twines.unescaped_str(mod_wire->name);
-			std::string signal_name2 = interface_name.str() + "." + design->twines.unescaped_str(mod_wire->name);
+			std::string signal_name1 = conn_name_str + "." + design.twines.unescaped_str(mod_wire->name.ref());
+			std::string signal_name2 = interface_name.str() + "." + design.twines.unescaped_str(mod_wire->name.ref());
 			connections_to_add.push_back(design.twines.add(Twine{signal_name1}));
 			TwineRef signal_name2_ref = design.twines.lookup(signal_name2);
 			if(module.wire(signal_name2_ref) == nullptr) {
@@ -388,10 +388,10 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
                           bool                            check,
                           const std::vector<std::string> &libdirs)
 {
-	std::string cell_type = cell.type.str();
+	std::string cell_type = design.twines.str(cell.type.ref());
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
-		cell.type_impl = design.twines.add(Twine{abs_mod->derive(&design, cell.parameters).str()});
+		cell.type_impl = design.twines.add(Twine{design.twines.str(abs_mod->derive(&design, cell.parameters))});
 		cell.parameters.clear();
 		RTLIL::Module *mod = design.module(cell.type);
 		log_assert(mod);
@@ -412,7 +412,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 			};
 
 		for (auto &ext : extensions_list) {
-			std::string filename = dir + "/" + design->twines.unescaped_str(cell.type) + ext.first;
+			std::string filename = dir + "/" + cell.type.unescape() + ext.first;
 			if (!check_file_exists(filename))
 				continue;
 
@@ -447,7 +447,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			if (id <= 0 || id > GetSize(mod.ports))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
 				          "has only %d ports, requested port %d.\n",
-				          design->twines.unescaped_str(cell.type), &module, &cell,
+				          cell.type.unescape(), &module, &cell,
 				          GetSize(mod.ports), id);
 			continue;
 		}
@@ -456,7 +456,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 		if (!wire || wire->port_id == 0) {
 			log_error("Module `%s' referenced in module `%s' in cell `%s' "
 			          "does not have a port named '%s'.\n",
-			          design->twines.unescaped_str(cell.type), &module, &cell,
+			          cell.type.unescape(), &module, &cell,
 			          module.design->twines.str(conn.first).data());
 		}
 	}
@@ -465,7 +465,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			if (id <= 0 || id > GetSize(mod.avail_parameters))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
 				          "has only %d parameters, requested parameter %d.\n",
-				          design->twines.unescaped_str(cell.type), &module, &cell,
+				          cell.type.unescape(), &module, &cell,
 				          GetSize(mod.avail_parameters), id);
 			continue;
 		}
@@ -475,8 +475,8 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 		    strchr(param.first.c_str(), '.') == NULL) {
 			log_error("Module `%s' referenced in module `%s' in cell `%s' "
 			          "does not have a parameter named '%s'.\n",
-			          design->twines.unescaped_str(cell.type), &module, &cell,
-			          design->twines.unescaped_str(param.first));
+			          cell.type.unescape(), &module, &cell,
+			          log_id(param.first));
 		}
 	}
 }
@@ -517,8 +517,8 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			cell->type_impl = cell->module->design->twines.add(Twine{cell->type.str().substr(pos_type + 1)});
 		}
 
-		dict<RTLIL::IdString, RTLIL::Module*> interfaces_by_name;
-		dict<RTLIL::IdString, RTLIL::IdString> modports_by_name;
+		dict<TwineRef, RTLIL::Module*> interfaces_by_name;
+		dict<TwineRef, TwineRef> modports_by_name;
 
 		RTLIL::Module *mod = design->module(cell->type);
 		if (!mod)
@@ -573,13 +573,13 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		}
 
 		for (auto &p : if_expander.interfaces_to_add_to_submodule)
-			interfaces_by_name[RTLIL::IdString(design->twines.str(p.first))] = p.second;
+			interfaces_by_name[p.first] = p.second;
 		for (auto &p : if_expander.modports_used_in_submodule)
-			modports_by_name[RTLIL::IdString(design->twines.str(p.first))] = p.second;
-		cell->type_impl = design->twines.add(Twine{mod->derive(design,
+			modports_by_name[p.first] = design->twines.add(Twine{p.second.str()});
+		cell->type_impl = mod->derive(design,
 					 cell->parameters,
 					 interfaces_by_name,
-					 modports_by_name).str()});
+					 modports_by_name);
 		cell->parameters.clear();
 		did_something = true;
 
@@ -1331,10 +1331,11 @@ struct HierarchyPass : public Pass {
 
 				// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
-					if (new_m_name.empty())
+					TwineRef new_m_ref = m->derive(design, cell->parameters, true);
+					if (new_m_ref == TwineRef{})
 						continue;
-					if (new_m_name != RTLIL::IdString(design->twines.str(m->meta_->name))) {
+					if (new_m_ref != m->meta_->name) {
+						IdString new_m_name(std::string(design->twines.str(new_m_ref)));
 						m = design->module(new_m_name);
 						blackbox_derivatives.insert(m);
 					}
@@ -1520,10 +1521,11 @@ struct HierarchyPass : public Pass {
 				bool boxed_params = false;
 				if (m->get_blackbox_attribute() && !cell->parameters.empty()) {
 					if (m->get_bool_attribute(ID::dynports)) {
-						IdString new_m_name = m->derive(design, cell->parameters, true);
-						if (new_m_name.empty())
+						TwineRef new_m_ref = m->derive(design, cell->parameters, true);
+						if (new_m_ref == TwineRef{})
 							continue;
-						if (new_m_name != RTLIL::IdString(design->twines.str(m->meta_->name))) {
+						if (new_m_ref != m->meta_->name) {
+							IdString new_m_name(std::string(design->twines.str(new_m_ref)));
 							m = design->module(new_m_name);
 							blackbox_derivatives.insert(m);
 						}

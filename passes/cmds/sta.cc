@@ -206,7 +206,7 @@ struct StaWorker
 		log("Latest arrival time in '%s' is %d:\n", module, maxarrival);
 		auto it = endpoints.find(maxbit);
 		if (it != endpoints.end() && it->second.sink)
-			log("  %6d %s (%s.%s)\n", maxarrival, it->second.sink, design->twines.unescaped_str(it->second.sink->type), design->twines.unescaped_str(it->second.port));
+			log("  %6d %s (%s.%s)\n", maxarrival, it->second.sink, design->twines.unescaped_str(it->second.sink->type.ref()), design->twines.unescaped_str(it->second.port));
 		else {
 			log("  %6d (%s)\n", maxarrival, b.wire->port_output ? "<primary output>" : "<unknown>");
 			if (!b.wire->port_output)
@@ -217,7 +217,7 @@ struct StaWorker
 			int arrival = b.wire->get_intvec_attribute(ID::sta_arrival)[b.offset];
 			if (jt->second.driver) {
 				log("           %s\n", log_signal(b));
-				log("  %6d %s (%s.%s->%s)\n", arrival, jt->second.driver, design->twines.unescaped_str(jt->second.driver->type), design->twines.unescaped_str(jt->second.src_port), design->twines.unescaped_str(jt->second.dst_port));
+				log("  %6d %s (%s.%s->%s)\n", arrival, jt->second.driver, design->twines.unescaped_str(jt->second.driver->type.ref()), design->twines.unescaped_str(jt->second.src_port), design->twines.unescaped_str(jt->second.dst_port));
 			}
 			else if (b.wire->port_input)
 				log("  %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");

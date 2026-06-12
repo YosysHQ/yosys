@@ -264,7 +264,7 @@ struct EquivStructWorker
 			run_strategy:
 				int total_group_size = GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells);
 				log("    %s merging %d %s cells (from group of %d) using strategy %s:\n", phase ? "Bwd" : "Fwd",
-						2*GetSize(cell_pairs), design->twines.unescaped_str(cells_type), total_group_size, strategy);
+						2*GetSize(cell_pairs), log_id(cells_type), total_group_size, strategy);
 				for (auto it : cell_pairs) {
 					log("      Merging cells %s and %s.\n", it.first,  it.second);
 					merge_cell_pair(it.first, it.second);
@@ -314,7 +314,7 @@ struct EquivStructPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
-		pool<IdString> fwonly_cells({ TW($equiv) });
+		pool<IdString> fwonly_cells({ ID($equiv) });
 		bool mode_icells = false;
 		bool mode_fwd = false;
 		int max_iter = -1;

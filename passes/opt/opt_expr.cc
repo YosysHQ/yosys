@@ -2183,7 +2183,7 @@ skip_alu_split:
 		// simplify comparisons
 		if (do_fine && cell->type.in(TW($lt), TW($ge), TW($gt), TW($le)))
 		{
-			IdString cmp_type = cell->type;
+			TwineRef cmp_type = cell->type.ref();
 			SigSpec var_sig = cell->getPort(TW::A);
 			SigSpec const_sig = cell->getPort(TW::B);
 			int var_width = cell->parameters[ID::A_WIDTH].as_int();

@@ -196,6 +196,8 @@ struct TwinePool {
 				os << ", tail: \"" << val.tail << "\")";
 			}
 		}, twine.data);
+		if (ref.is_public())
+			os << " pub";
 	}
 	void print(TwineRef ref, std::ostream& os = std::cout) const {
 		if (ref == Twine::Null)
@@ -302,29 +304,22 @@ struct TwinePool {
 	// and concat names inherit the prefix/first-child handle's publicity.
 	TwineRef add(Twine t) {
 		bool is_public = false;
-		if (auto *leaf = std::get_if<std::string>(&t.data)) {
-			assert(!leaf->empty());
-			if ((*leaf)[0] == '\\') {
-				is_public = true;
-				leaf->erase(0, 1);
-				assert(!leaf->empty());
-			} else {
-				assert((*leaf)[0] == '$');
-			}
-		} else if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
+		if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
 			is_public = twine_is_public(sfx->prefix);
-		} else if (auto *children = std::get_if<std::vector<TwineRef>>(&t.data)) {
-			is_public = false;
 		}
 		return twine_tag(add_inner(std::move(t)), is_public);
 	}
 
 	TwineRef add(std::string&& s) {
-		if (s.size()) {
+		if (s.size() > 1) {
 			if (s[0] == '\\')
 				return twine_tag(add(Twine{s.substr(1)}), true);
+			else if (s[0] == '$')
+				return twine_tag(add(Twine{std::move(s)}), false);
 			else
 				return twine_tag(add(Twine{std::move(s)}), true);
+		} else if (s.size() > 0) {
+			return twine_tag(add(Twine{std::move(s)}), true);
 		} else {
 		 	return Twine::Null;
 		}

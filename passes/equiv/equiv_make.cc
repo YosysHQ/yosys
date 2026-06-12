@@ -164,7 +164,7 @@ struct EquivMakeWorker
 
 			if (encdata.count(id))
 			{
-				log("Creating encoder/decoder for signal %s.\n", design->twines.unescaped_str(id));
+				log("Creating encoder/decoder for signal %s.\n", log_id(id));
 
 				Wire *dec_wire = equiv_mod->addWire(Twine{id.str() + "_decoded"}, gold_wire->width);
 				Wire *enc_wire = equiv_mod->addWire(Twine{id.str() + "_encoded"}, gate_wire->width);
@@ -239,7 +239,7 @@ struct EquivMakeWorker
 
 			log("Presumably equivalent wires: %s (%s), %s (%s) -> %s\n",
 					gold_wire, log_signal(assign_map(gold_wire)),
-					gate_wire, log_signal(assign_map(gate_wire)), design->twines.unescaped_str(id));
+					gate_wire, log_signal(assign_map(gate_wire)), log_id(id));
 
 			if (gold_wire->port_output || gate_wire->port_output)
 			{
@@ -318,7 +318,7 @@ struct EquivMakeWorker
 						new_sig[i] = old_sig[i];
 				if (old_sig != new_sig) {
 					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							equiv_mod->design->twines.str(conn.first).c_str(), c, design->twines.unescaped_str(c->type),
+							equiv_mod->design->twines.str(conn.first).c_str(), c, c->type.unescape(),
 							log_signal(old_sig), log_signal(new_sig));
 					c->setPort(conn.first, new_sig);
 				}
@@ -349,7 +349,7 @@ struct EquivMakeWorker
 					goto try_next_cell_name;
 
 			log("Presumably equivalent cells: %s %s (%s) -> %s\n",
-					gold_cell, gate_cell, design->twines.unescaped_str(gold_cell->type), design->twines.unescaped_str(id));
+					gold_cell, gate_cell, gold_cell->type.unescape(), log_id(id));
 
 			for (auto gold_conn : gold_cell->connections())
 			{

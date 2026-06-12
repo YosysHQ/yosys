@@ -108,18 +108,18 @@ bool cell_supported(RTLIL::Cell *cell)
 	return false;
 }
 
-std::map<IdString, IdString> mergeable_type_map;
+dict<TwineRef, TwineRef> mergeable_type_map;
 
 bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 {
 	if (mergeable_type_map.empty()) {
 		mergeable_type_map.insert({TW($sub), TW($add)});
 	}
-	auto a_type = a->type;
+	TwineRef a_type = a->type.ref();
 	if (mergeable_type_map.count(a_type))
 		a_type = mergeable_type_map.at(a_type);
 
-	auto b_type = b->type;
+	TwineRef b_type = b->type.ref();
 	if (mergeable_type_map.count(b_type))
 		b_type = mergeable_type_map.at(b_type);
 
@@ -564,7 +564,7 @@ struct OptSharePass : public Pass {
 				log("    Found cells that share an operand and can be merged by moving the %s %s in front "
 				    "of "
 				    "them:\n",
-				    design->twines.unescaped_str(shared.mux->type), shared.mux);
+				    shared.mux->type.unescape(), shared.mux);
 				for (const auto& op : shared.ports)
 					log("        %s\n", op.op);
 				log("\n");

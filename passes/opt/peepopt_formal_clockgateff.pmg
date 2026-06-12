@@ -34,8 +34,8 @@ match and_gate
 	select param(and_gate, \A_WIDTH) == 1
 	select param(and_gate, \B_WIDTH) == 1
 	select param(and_gate, \Y_WIDTH) == 1
-	choice <IdString> clk_port {\A, \B}
-	define <IdString> latch_port {clk_port == \A ? \B : \A}
+	choice <TwineRef> clk_port {\A, \B}
+	define <TwineRef> latch_port {clk_port == \A ? \B : \A}
 	index <SigSpec> port(and_gate, clk_port) === clk
 	index <SigSpec> port(and_gate, latch_port) === latched_en
 	set gated_clk port(and_gate, \Y)

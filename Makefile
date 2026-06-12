@@ -744,9 +744,13 @@ OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
+include $(YOSYS_SRC)/kernel/unstable/Makefile.inc
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc
-include $(YOSYS_SRC)/passes/techmap/Makefile.inc
+OBJS += passes/techmap/simplemap.o
+OBJS += passes/techmap/libcache.o
+OBJS += passes/techmap/libparse.o
+# include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
 include $(YOSYS_SRC)/backends/rtlil/Makefile.inc

@@ -2203,10 +2203,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
 						log_file_warning(*location.begin.filename, location.begin.line, "Replacing floating point parameter %s.%s = %f with string.\n",
-								cell, design->twines.unescaped_str(paraname), value->realvalue);
+								cell, log_id(paraname), value->realvalue);
 					else if (value->type != AST_CONSTANT)
 						input_error("Parameter %s.%s with non-constant value!\n",
-								cell, design->twines.unescaped_str(paraname));
+								cell, log_id(paraname));
 					cell->parameters[paraname] = value->asParaConst();
 					continue;
 				}

@@ -86,20 +86,20 @@ std::optional<std::string> format_with_params(std::string fmt, const dict<IdStri
 }
 
 struct Chunk {
-	IdString port;
+	TwineRef port;
 	int base, len;
 
-	Chunk(IdString id, int base, int len)
+	Chunk(TwineRef id, int base, int len)
 		: port(id), base(base), len(len) {}
 
-	IdString format(Cell *cell)
+	TwineRef format(Cell *cell)
 	{
 		if (len == cell->getPort(port).size())
 			return port;
-		else if (len == 1)
-			return stringf("%s[%d]", port, base);
-		else
-			return stringf("%s[%d:%d]", port, base + len - 1, base);
+		auto &pool = cell->module->design->twines;
+		if (len == 1)
+			return pool.add(Twine{stringf("%s[%d]", pool.str(port).c_str(), base)});
+		return pool.add(Twine{stringf("%s[%d:%d]", pool.str(port).c_str(), base + len - 1, base)});
 	}
 
 	SigSpec sample(Cell *cell)
@@ -109,10 +109,12 @@ struct Chunk {
 };
 
 // Joins contiguous runs of bits into a 'Chunk'
-std::vector<Chunk> collect_chunks(std::vector<std::pair<IdString, int>> bits)
+std::vector<Chunk> collect_chunks(std::vector<std::pair<TwineRef, int>> bits)
 {
 	std::vector<Chunk> ret;
-	std::sort(bits.begin(), bits.end());
+	std::sort(bits.begin(), bits.end(), [](const auto &a, const auto &b) {
+		return a.first.value < b.first.value || (a.first.value == b.first.value && a.second < b.second);
+	});
 	for (auto it = bits.begin(); it != bits.end();) {
 		auto sep = it + 1;
 		for (; sep != bits.end() &&
@@ -212,7 +214,7 @@ struct WrapcellPass : Pass {
 					log_error("Non-internal cell type '%s' on cell '%s' in module '%s' unsupported\n",
 							  cell->type.unescaped(), cell, module);
 
-				std::vector<std::pair<IdString, int>> unused_outputs, used_outputs;
+				std::vector<std::pair<TwineRef, int>> unused_outputs, used_outputs;
 				for (auto conn : cell->connections()) {
 					if (ct.cell_output(cell->type_impl, conn.first))
 					for (int i = 0; i < conn.second.size(); i++) {
@@ -227,7 +229,7 @@ struct WrapcellPass : Pass {
 				if (!unused_outputs.empty()) {
 					context.unused_outputs += "_unused";
 					for (auto chunk : collect_chunks(unused_outputs))
-						context.unused_outputs += "_" + design->twines.unescaped_str(chunk.format(cell));
+						context.unused_outputs += "_" + module->design->twines.unescaped_str(chunk.format(cell));
 				}
 
 				std::optional<std::string> unescaped_name = format_with_params(name_fmt, cell->parameters, context);
@@ -239,8 +241,8 @@ struct WrapcellPass : Pass {
 				if (d->module(name))
 					goto replace_cell;
 
-				subm = d->addModule(name);
-				subcell = subm->addCell("$1", cell->type);
+				subm = d->addModule(d->twines.add(Twine{name.str()}));
+				subcell = subm->addCell(Twine{"$1"}, TwineRef(cell->type));
 				for (auto conn : cell->connections()) {
 					if (ct.cell_output(cell->type_impl, conn.first)) {
 						// Insert marker bits as placehodlers which need to be replaced
@@ -283,7 +285,7 @@ struct WrapcellPass : Pass {
 			replace_cell:
 				cell->parameters.clear();
 
-				dict<IdString, SigSpec> new_connections;
+				dict<TwineRef, SigSpec> new_connections;
 
 				for (auto conn : cell->connections())
 				if (!ct.cell_output(cell->type_impl, conn.first))

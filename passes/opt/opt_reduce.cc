@@ -553,7 +553,7 @@ struct OptReduceWorker
 			// merge trees of reduce_* cells to one single cell and unify input vectors
 			// (only handle reduce_and and reduce_or for various reasons)
 
-			const IdString type_list[] = { TW($reduce_or), TW($reduce_and) };
+			const TwineRef type_list[] = { TW($reduce_or), TW($reduce_and) };
 			for (auto type : type_list)
 			{
 				SigSet<RTLIL::Cell*> drivers;

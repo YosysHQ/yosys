@@ -68,7 +68,7 @@ struct SupercoverPass : public Pass {
 			for (auto wire : module->selected_wires())
 			{
 				bool counted_wire = false;
-				std::string src = wire->get_src_attribute();
+				Twine src{wire->get_src_attribute()};
 
 				for (auto bit : sigmap(SigSpec(wire)))
 				{

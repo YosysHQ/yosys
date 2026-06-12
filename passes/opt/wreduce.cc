@@ -616,7 +616,7 @@ struct WreducePass : public Pass {
 					}
 					if (original_a_width != GetSize(A)) {
 						log("Removed top %d bits (of %d) from port A of cell %s.%s (%s).\n",
-								original_a_width-GetSize(A), original_a_width, module, c, design->twines.unescaped_str(c->type));
+								original_a_width-GetSize(A), original_a_width, module, c, c->type.unescape());
 						c->setPort(TW::A, A);
 						c->setParam(ID::A_WIDTH, GetSize(A));
 					}
@@ -632,7 +632,7 @@ struct WreducePass : public Pass {
 					}
 					if (original_b_width != GetSize(B)) {
 						log("Removed top %d bits (of %d) from port B of cell %s.%s (%s).\n",
-								original_b_width-GetSize(B), original_b_width, module, c, design->twines.unescaped_str(c->type));
+								original_b_width-GetSize(B), original_b_width, module, c, c->type.unescape());
 						c->setPort(TW::B, B);
 						c->setParam(ID::B_WIDTH, GetSize(B));
 					}

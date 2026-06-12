@@ -837,7 +837,7 @@ void AigerReader::post_process()
 						wire->port_input = false;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", design->twines.unescaped_str(escaped_s));
+					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -848,7 +848,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug(" -> %s\n", design->twines.unescaped_str(indexed_name));
+					log_debug(" -> %s\n", log_id(indexed_name));
 				}
 
 				if (wideports && !existing) {
@@ -884,7 +884,7 @@ void AigerReader::post_process()
 						module->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug(" -> %s\n", design->twines.unescaped_str(escaped_s));
+					log_debug(" -> %s\n", log_id(escaped_s));
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -896,7 +896,7 @@ void AigerReader::post_process()
 						existing->port_output = true;
 						module->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", design->twines.unescaped_str(indexed_name));
+					log_debug(" -> %s\n", log_id(indexed_name));
 				}
 
 				if (wideports && !existing) {
@@ -914,7 +914,7 @@ void AigerReader::post_process()
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(design->twines.lookup(stringf("$box%d", variable)));
 				if (!cell)
-					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines.unescaped_str(escaped_s));
+					log_debug("Box %d (%s) no longer exists.\n", variable, log_id(escaped_s));
 				else
 					module->rename(cell, design->twines.add(Twine{escaped_s.str()}));
 			}

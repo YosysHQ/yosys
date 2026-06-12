@@ -341,7 +341,7 @@ struct RTLILFrontendWorker {
 			error("No wires found for legalization");
 		int hash = hash_ops<RTLIL::IdString>::hash(id).yield();
 		RTLIL::Wire *wire = current_module->wire_at(abs(hash % wires_size));
-		log("Legalizing wire `%s' to `%s'.\n", design->twines.unescaped_str(id), design->twines.unescaped_str(wire->name));
+		log("Legalizing wire `%s' to `%s'.\n", log_id(id), design->twines.unescaped_str(wire->name.ref()));
 		return wire;
 	}
 
@@ -365,8 +365,11 @@ struct RTLILFrontendWorker {
 				if (wire == nullptr) {
 					if (flag_legalize)
 						wire = legalize_wire(*id);
-					else
+					else {
+						// for (auto wire : current_module->wires())
+						// 	design->twines.dump(wire->meta_->name);
 						error("Wire `%s' not found.", *id);
+					}
 				}
 				sig = RTLIL::SigSpec(wire);
 			} else {
@@ -423,7 +426,7 @@ struct RTLILFrontendWorker {
 
 	void parse_module()
 	{
-		TwineRef module_name = design->twines.lookup(parse_id());
+		TwineRef module_name = design->twines.add(parse_id());
 		expect_eol();
 
 		bool delete_current_module = false;

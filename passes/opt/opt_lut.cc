@@ -31,7 +31,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct dlogic_t {
 	IdString cell_type;
 	// LUT input idx -> hard cell's port name
-	dict<int, IdString> lut_input_port;
+	dict<int, TwineRef> lut_input_port;
 };
 
 struct OptLutWorker
@@ -136,7 +136,7 @@ struct OptLutWorker
 						{
 							if (dlogic[j].cell_type == port.cell->type)
 							{
-								if (port.port == dlogic[j].lut_input_port.at(i, IdString()))
+								if (port.port == dlogic[j].lut_input_port.at(i, TwineRef{}))
 								{
 									lut_all_dlogics.insert({j, port.cell});
 								}
@@ -557,15 +557,15 @@ struct OptLutPass : public Pass {
 
 				dlogic = {{
 					ID(SB_CARRY),
-					dict<int, IdString>{
-						std::make_pair(1, ID(I0)),
-						std::make_pair(2, ID(I1)),
-						std::make_pair(3, ID(CI))
+					dict<int, TwineRef>{
+						std::make_pair(1, TW(I0)),
+						std::make_pair(2, TW(I1)),
+						std::make_pair(3, TW(CI))
 					}
 				}, {
 					ID(SB_CARRY),
-					dict<int, IdString>{
-						std::make_pair(3, ID(CO))
+					dict<int, TwineRef>{
+						std::make_pair(3, TW(CO))
 					}
 				}};
 				continue;

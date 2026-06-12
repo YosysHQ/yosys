@@ -93,7 +93,7 @@ struct SubmodWorker
 		for (RTLIL::Cell *cell : submod.cells) {
 			if (ct.cell_known(cell->type_impl)) {
 				for (auto &conn : cell->connections())
-					flag_signal(conn.second, true, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type_impl, conn.first), false, false);
+					flag_signal(conn.second, true, ct.cell_output(cell->type.ref(), conn.first), ct.cell_input(cell->type_impl, conn.first), false, false);
 			} else {
 				log_warning("Port directions for cell %s (%s) are unknown. Assuming inout for all ports.\n", cell->name, cell->type);
 				for (auto &conn : cell->connections())
@@ -105,7 +105,7 @@ struct SubmodWorker
 				continue;
 			if (ct.cell_known(cell->type_impl)) {
 				for (auto &conn : cell->connections())
-					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type, conn.first), ct.cell_input(cell->type_impl, conn.first));
+					flag_signal(conn.second, false, false, false, ct.cell_output(cell->type.ref(), conn.first), ct.cell_input(cell->type_impl, conn.first));
 			} else {
 				flag_found_something = false;
 				for (auto &conn : cell->connections())
@@ -219,7 +219,8 @@ struct SubmodWorker
 		submod.cells.clear();
 
 		if (!copy_mode) {
-			RTLIL::Cell *new_cell = module->addCell(design->twines.add(Twine{submod.full_name}), ID(submod.full_name));
+			TwineRef submod_type = design->twines.add(Twine{submod.full_name});
+		RTLIL::Cell *new_cell = module->addCell(Twine{submod.full_name}, submod_type);
 			for (auto &it : wire_flags)
 			{
 				RTLIL::SigSpec old_sig = sigmap(it.first);

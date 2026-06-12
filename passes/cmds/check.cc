@@ -529,7 +529,7 @@ struct CheckPass : public Pass {
 						driver_src = stringf(" source: %s", src_attr);
 					}
 
-					message += stringf("    cell %s (%s)%s\n", driver, design->twines.unescaped_str(driver->type), driver_src);
+					message += stringf("    cell %s (%s)%s\n", driver, design->twines.unescaped_str(driver->type.ref()), driver_src);
 
 					if (!coarsened_cells.count(driver)) {						
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);
