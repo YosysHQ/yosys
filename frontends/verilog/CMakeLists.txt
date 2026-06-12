@@ -31,6 +31,7 @@ yosys_frontend(verilog
 		sha1
 		ast
 	PROVIDES
+		read_techlib
 		verilog_defaults
 		verilog_defines
 		read_verilog_file_list
