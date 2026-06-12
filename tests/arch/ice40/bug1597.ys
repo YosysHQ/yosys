@@ -67,7 +67,7 @@ module SSCounter6o (input wire rst, clk, adv, jmp, input wire [5:0] in, output w
     SB_LUT4 #(.LUT_INIT(16'h8BB8)) l5 (lo[5], in[5], jmp, out[5], co[4]);
 endmodule
 EOT
-read_verilog -lib +/ice40/cells_sim.v
+read_techlib -lib +/ice40/cells_sim.v
 hierarchy -top top
 flatten
 equiv_opt -assert -multiclock -map +/ice40/cells_sim.v synth_ice40

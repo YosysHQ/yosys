@@ -1,4 +1,4 @@
-read_verilog -icells -formal <<EOT
+read_techlib -icells -formal <<EOT
 module top(input CI, I0, output [1:0] CO, output O);
     wire A = 1'b0, B = 1'b0;
 	\$__ICE40_CARRY_WRAPPER #(
@@ -21,7 +21,7 @@ module top(input CI, I0, output [1:0] CO, output O);
 endmodule
 EOT
 
-read_verilog -icells -lib +/ice40/abc9_model.v +/ice40/cells_sim.v
+read_techlib -icells -lib +/ice40/abc9_model.v +/ice40/cells_sim.v
 equiv_opt -assert -map +/ice40/abc9_model.v -map +/ice40/cells_sim.v ice40_opt
 design -load postopt
 select -assert-count 1 t:*
@@ -90,7 +90,7 @@ select -assert-count 1 t:SB_CARRY c:carry %i
 
 
 design -reset
-read_verilog -icells <<EOT
+read_techlib -icells <<EOT
 module top(input I3, I2, I1, I0, output O, O2);
 	SB_LUT4 #(
 		.LUT_INIT(8'b 1001_0110)

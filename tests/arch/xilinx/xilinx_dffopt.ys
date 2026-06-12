@@ -18,7 +18,7 @@ FDRE ff (.D(tmp[0]), .CE(tmp[1]), .R(tmp[2]), .Q(o[0]));
 endmodule
 
 EOT
-read_verilog -lib +/xilinx/cells_sim.v
+read_techlib -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
@@ -66,7 +66,7 @@ endmodule
 
 EOT
 
-read_verilog -lib +/xilinx/cells_sim.v
+read_techlib -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
@@ -114,7 +114,7 @@ endmodule
 
 EOT
 
-read_verilog -lib +/xilinx/cells_sim.v
+read_techlib -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -async2sync -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
@@ -150,7 +150,7 @@ endmodule
 
 EOT
 
-read_verilog -lib +/xilinx/cells_sim.v
+read_techlib -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
@@ -198,7 +198,7 @@ endmodule
 
 EOT
 
-read_verilog -lib +/xilinx/cells_sim.v
+read_techlib -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
@@ -245,7 +245,7 @@ endmodule
 
 EOT
 
-read_verilog -lib +/xilinx/cells_sim.v
+read_techlib -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
