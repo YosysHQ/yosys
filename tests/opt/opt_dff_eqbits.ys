@@ -1,0 +1,56 @@
+# small test case
+design -reset
+read_verilog -sv opt_dff_eqbits_small.sv
+hierarchy -top test_case
+techmap
+opt_dff -sat
+synth
+opt_dff -sat
+opt_clean -purge
+
+select -assert-count 2 t:$_SDFF_PN0_
+
+# equivalence
+design -reset
+read_verilog -sv opt_dff_eqbits_small.sv
+hierarchy -top test_case
+prep
+design -save gold
+
+opt_dff -sat
+design -save gate
+
+design -copy-from gold -as gold test_case
+design -copy-from gate -as gate test_case
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert
+
+
+# large test case
+design -reset
+read_verilog -sv opt_dff_eqbits_large.sv
+hierarchy -top test_case
+techmap
+opt_dff -sat
+synth
+opt_dff -sat
+opt_clean -purge
+
+select -assert-count 6 t:$_SDFFE_PN0P_
+
+# equivalence
+design -reset
+read_verilog -sv opt_dff_eqbits_large.sv
+hierarchy -top test_case
+prep
+design -save gold
+
+opt_dff -sat
+design -save gate
+
+design -copy-from gold -as gold test_case
+design -copy-from gate -as gate test_case
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert
