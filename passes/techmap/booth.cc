@@ -58,7 +58,7 @@ synth -top my_design -booth
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
-#include "kernel/wallace_tree.h"
+#include "kernel/compressor_tree.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -386,7 +386,11 @@ struct BoothPassWorker {
 		// Later on yosys will clean up unused constants
 		//  DebugDumpAlignPP(aligned_pp);
 
-		auto [wtree_a, wtree_b] = wallace_reduce_scheduled(module, aligned_pp, z_sz);
+		std::vector<CompressorTree::DepthSig> operands;
+		operands.reserve(aligned_pp.size());
+		for (auto &s : aligned_pp)
+			operands.push_back({s, 0});
+		auto [wtree_a, wtree_b] = CompressorTree::reduce_scheduled(module, std::move(operands), z_sz, CompressorTree::Strategy::FA_ONLY);
 
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);

@@ -25,6 +25,8 @@ yosys_core(kernel
 	celledges.h
 	celltypes.h
 	compute_graph.h
+	compressor_tree.cc
+	compressor_tree.h
 	consteval.h
 	constids.inc
 	cost.cc
@@ -80,7 +82,6 @@ yosys_core(kernel
 	topo_scc.h
 	utils.h
 	version.cc
-	wallace_tree.h
 	yosys.cc
 	yosys_common.h
 	yosys_config.h
