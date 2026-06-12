@@ -6,7 +6,7 @@ prep -rdff
 synth_nanoxplore
 clean_zerowidth
 select -assert-none t:$mem_v2 t:$mem
-read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
+read_techlib +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
 prep
 async2sync
 hierarchy -top top
@@ -21,7 +21,7 @@ prep -rdff
 synth_nanoxplore
 clean_zerowidth
 select -assert-none t:$mem_v2 t:$mem
-read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
+read_techlib +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
 prep
 async2sync
 hierarchy -top top
@@ -37,7 +37,7 @@ prep -rdff
 synth_nanoxplore
 clean_zerowidth
 select -assert-none t:$mem_v2 t:$mem
-read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
+read_techlib +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
 prep
 async2sync
 hierarchy -top top

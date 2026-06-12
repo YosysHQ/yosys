@@ -25,7 +25,7 @@ select -assert-count 0 t:* t:$mul %D
 
 
 design -reset
-read_verilog -icells -formal <<EOT
+read_techlib -icells -formal <<EOT
 module top(output [43:0] P);
 \$__MUL22X22 mul (.A(42), .B(42), .Y(P));
 assert property (P == 42*42);

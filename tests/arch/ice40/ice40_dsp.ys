@@ -8,5 +8,5 @@ assign o4 = a * b;
 SB_MAC16 m3 (.A(a), .B(b), .O(o5));
 endmodule
 EOT
-read_verilog -lib +/ice40/cells_sim.v
+read_techlib -lib +/ice40/cells_sim.v
 ice40_dsp

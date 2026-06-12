@@ -1,4 +1,4 @@
-read_verilog -icells <<EOT
+read_techlib -icells <<EOT
 module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, output SO);
   parameter DEPTH = 2;
   parameter [DEPTH-1:0] INIT = 0;
@@ -20,7 +20,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
   assign SO = r[DEPTH-1];
 endmodule
 EOT
-read_verilog +/xilinx/cells_sim.v
+read_techlib +/xilinx/cells_sim.v
 proc
 design -save model
 
