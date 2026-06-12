@@ -12,7 +12,6 @@
  *
  * References:
  * - "Some schemes for parallel multipliers" (https://www.acsel-lab.com/arithmetic/arith6/papers/ARITH6_Dadda.pdf)
- * - "Binary Adder Architectures for Cell-Based VLSI" (https://iis-people.ee.ethz.ch/~zimmi/publications/adder_arch.pdf)
  * - "Basilisk: Achieving Competitive Performance with Open EDA Tools" (https://arxiv.org/pdf/2405.03523)
  * - "Binary Adder Architectures for Cell-Based VLSI and their Synthesis" (https://iis-people.ee.ethz.ch/~zimmi/publications/adder_arch.pdf)
  * - "A Suggestion for a Fast Multiplier" (https://www.ece.ucdavis.edu/~vojin/CLASSES/EEC280/Web-page/papers/Arithmetic/Wallace_mult.pdf)
@@ -30,6 +29,8 @@ namespace CompressorTree
 {
 
 // Width and depth thresholds below which a ripple is preferred over parallel-prefix
+// NOTE: Based on "Binary Adder Architectures for Cell-Based VLSI and their Synthesis" (Tables 4.7, 4.9) - the threshold
+//       should be the point where Kogge-Stone isn't strictly less efficient than RCA
 constexpr int RIPPLE_PREFIX_WIDTH_THRESHOLD = 16;
 constexpr int RIPPLE_PREFIX_DEPTH_THRESHOLD = 5;
 
