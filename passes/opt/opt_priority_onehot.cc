@@ -53,13 +53,18 @@ static Const pack_lanes(const vector<int> &vals, int elem_w)
 	return Const(bits);
 }
 
-struct OptPriorityOnehotWorker {
+#include "passes/opt/cut_region.h"
+
+struct OptPriorityOnehotWorker : CutRegionWorker {
+	typedef BusCand InputBus;
+
 	// One detected priority-onehot region ready to be rewritten.
 	struct Candidate {
-		Wire *out_wire = nullptr;   // one-hot output O (width W = 2^idx_w)
-		Wire *valid_wire = nullptr; // request / valid bus V (width N)
+		SigSpec out_sig;            // one-hot output O (width W = 2^idx_w)
+		std::string out_name;
 		SigSpec valid_sig;          // N bits
 		SigSpec field_sig;          // N * idx_w bits: concatenated per-lane index fields
+		std::string valid_name;
 		std::string index_name;
 		int n = 0;                  // number of lanes
 		int w = 0;                  // output width (power of two)
@@ -73,10 +78,6 @@ struct OptPriorityOnehotWorker {
 		vector<int> field;
 	};
 
-	Module *module;
-	SigMap sigmap;
-	dict<SigBit, Cell *> bit_to_driver;
-	pool<SigBit> input_port_bits;
 	Cell *cell = nullptr;
 
 	int min_width = 4;
@@ -84,111 +85,8 @@ struct OptPriorityOnehotWorker {
 	int regions_rewritten = 0;
 	int cells_added = 0;
 
-	OptPriorityOnehotWorker(Module *module) : module(module), sigmap(module)
+	OptPriorityOnehotWorker(Module *module) : CutRegionWorker(module)
 	{
-		build_indexes();
-	}
-
-	bool is_sequential(Cell *c)
-	{
-		return c->type.in(
-			ID($ff), ID($dff), ID($dffe), ID($adff), ID($adffe),
-			ID($sdff), ID($sdffe), ID($sdffce), ID($dffsr), ID($dffsre),
-			ID($_DFF_P_), ID($_DFF_N_),
-			ID($_DFFE_PP_), ID($_DFFE_PN_), ID($_DFFE_NP_), ID($_DFFE_NN_),
-			ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_),
-			ID($_DFF_NP0_), ID($_DFF_NP1_), ID($_DFF_NN0_), ID($_DFF_NN1_),
-			ID($dlatch), ID($adlatch), ID($dlatchsr),
-			ID($mem), ID($mem_v2), ID($meminit), ID($meminit_v2),
-			ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2),
-			ID($fsm),
-			ID($assert), ID($assume), ID($cover), ID($live), ID($fair),
-			ID($print), ID($check),
-			ID($anyconst), ID($anyseq), ID($allconst), ID($allseq),
-			ID($initstate));
-	}
-
-	void build_indexes()
-	{
-		for (auto c : module->cells()) {
-			if (is_sequential(c))
-				continue;
-			for (auto &conn : c->connections()) {
-				if (!c->output(conn.first))
-					continue;
-				for (auto bit : sigmap(conn.second)) {
-					if (!bit.wire)
-						continue;
-					auto it = bit_to_driver.find(bit);
-					if (it == bit_to_driver.end())
-						bit_to_driver[bit] = c;
-					else if (it->second != c)
-						it->second = nullptr;
-				}
-			}
-		}
-
-		for (auto w : module->wires()) {
-			if (!w->port_input)
-				continue;
-			for (auto bit : sigmap(SigSpec(w)))
-				if (bit.wire)
-					input_port_bits.insert(bit);
-		}
-	}
-
-	// Combinational fanin cone of `from`. Leaves are port-input bits or bits
-	// driven by sequential cells / undriven. Returns false if size limits are
-	// exceeded.
-	bool get_cone(SigSpec from, pool<Cell *> &cone_cells, pool<SigBit> &leaf_bits,
-	              int max_cone_cells, int max_leaf_bits)
-	{
-		pool<SigBit> visited;
-		std::queue<SigBit> worklist;
-		for (auto bit : sigmap(from)) {
-			if (!bit.wire)
-				continue;
-			if (visited.insert(bit).second)
-				worklist.push(bit);
-		}
-
-		while (!worklist.empty()) {
-			SigBit bit = worklist.front();
-			worklist.pop();
-
-			if (input_port_bits.count(bit)) {
-				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits)
-					return false;
-				continue;
-			}
-
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv == nullptr) {
-				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits)
-					return false;
-				continue;
-			}
-
-			if (!cone_cells.insert(drv).second)
-				continue;
-			if (GetSize(cone_cells) > max_cone_cells)
-				return false;
-
-			for (auto &conn : drv->connections()) {
-				if (!drv->input(conn.first))
-					continue;
-				for (auto in_bit : sigmap(conn.second)) {
-					if (!in_bit.wire)
-						continue;
-					if (visited.insert(in_bit).second)
-						worklist.push(in_bit);
-				}
-			}
-		}
-
-		return true;
 	}
 
 	// Discover the per-lane index field within candidate bus `d_sig_in`. The bus
@@ -241,106 +139,6 @@ struct OptPriorityOnehotWorker {
 		for (int k = 0; k < n; k++)
 			field_sig.append(d_sig.extract(k * s + field_lo, idx_w));
 		return true;
-	}
-
-	bool leaves_are_candidate_inputs(const pool<SigBit> &leaf_bits, const SigSpec &valid_sig,
-	                                 const SigSpec &field_sig)
-	{
-		pool<SigBit> allowed;
-		for (auto bit : sigmap(valid_sig))
-			if (bit.wire)
-				allowed.insert(bit);
-		for (auto bit : sigmap(field_sig))
-			if (bit.wire)
-				allowed.insert(bit);
-		for (auto bit : leaf_bits)
-			if (!allowed.count(bit))
-				return false;
-		return true;
-	}
-
-	struct InputBus {
-		SigSpec sig;
-		std::string name;
-		int entries = 0;
-		int elem_width = 0;
-	};
-
-	// Parse a split-port name of the form "base[index]" (Verific lowers packed
-	// multi-dimensional ports into per-lane wires named this way).
-	bool parse_indexed_port_name(Wire *wire, std::string &base, int &index)
-	{
-		std::string name = wire->name.str();
-		size_t rbrack = name.size();
-		if (rbrack == 0 || name[rbrack - 1] != ']')
-			return false;
-		size_t lbrack = name.rfind('[');
-		if (lbrack == std::string::npos || lbrack + 1 >= rbrack - 1)
-			return false;
-		for (size_t i = lbrack + 1; i < rbrack - 1; i++)
-			if (!isdigit(name[i]))
-				return false;
-		base = name.substr(0, lbrack);
-		index = atoi(name.substr(lbrack + 1, rbrack - lbrack - 2).c_str());
-		return true;
-	}
-
-	// Group per-lane split-port wires into contiguous, equal-width buses. The
-	// run may start at any base index (Verific lowers both [N-1:0] -> id[0..N-1]
-	// and [N:1] -> id[1..N]); we only require consecutive indices and matching
-	// widths. The resulting sig is the ascending-index concatenation, so lane k
-	// is sig[k*elem_width ...] = the (base+k)-th port.
-	vector<InputBus> collect_split_input_buses(const vector<Wire *> &inputs)
-	{
-		std::map<std::string, vector<std::pair<int, Wire *>>> groups;
-		for (auto w : inputs) {
-			std::string base;
-			int index = -1;
-			if (parse_indexed_port_name(w, base, index))
-				groups[base].push_back({index, w});
-		}
-
-		vector<InputBus> buses;
-		for (auto &it : groups) {
-			auto entries = it.second;
-			std::sort(entries.begin(), entries.end(),
-			          [](const std::pair<int, Wire *> &a, const std::pair<int, Wire *> &b) {
-			              return a.first < b.first;
-			          });
-			if (entries.empty())
-				continue;
-			bool contiguous = true;
-			int base_index = entries.front().first;
-			int elem_width = GetSize(entries.front().second);
-			for (int i = 0; i < GetSize(entries); i++) {
-				if (entries[i].first != base_index + i ||
-				    GetSize(entries[i].second) != elem_width) {
-					contiguous = false;
-					break;
-				}
-			}
-			if (!contiguous)
-				continue;
-
-			SigSpec sig;
-			for (auto &entry : entries)
-				sig.append(SigSpec(entry.second));
-			buses.push_back({sig, it.first, GetSize(entries), elem_width});
-		}
-
-		return buses;
-	}
-
-	bool find_anchor_driver(Wire *out_wire, Cell *&anchor)
-	{
-		for (auto bit : sigmap(SigSpec(out_wire))) {
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv != nullptr) {
-				anchor = drv;
-				return true;
-			}
-		}
-		return false;
 	}
 
 	vector<TestVector> make_test_vectors(int n, int w)
@@ -459,7 +257,7 @@ struct OptPriorityOnehotWorker {
 	bool fingerprint(const Candidate &cand, bool msb_first)
 	{
 		ConstEval ce(module);
-		SigSpec out_sig = sigmap(SigSpec(cand.out_wire));
+		SigSpec out_sig = sigmap(cand.out_sig);
 		SigSpec valid_sig = sigmap(cand.valid_sig);
 		SigSpec field_sig = sigmap(cand.field_sig);
 
@@ -488,18 +286,29 @@ struct OptPriorityOnehotWorker {
 		return true;
 	}
 
-	bool check_candidate(Candidate &cand, const pool<SigBit> &leaf_bits)
+	// The fingerprint drives each candidate bus bit independently, so the
+	// buses must consist of distinct non-constant bits.
+	bool candidate_inputs_disjoint(const Candidate &cand)
+	{
+		pool<SigBit> seen_bits;
+		for (auto bit : sigmap(cand.valid_sig))
+			if (!bit.wire || !seen_bits.insert(bit).second)
+				return false;
+		for (auto bit : sigmap(cand.field_sig))
+			if (!bit.wire || !seen_bits.insert(bit).second)
+				return false;
+		return true;
+	}
+
+	bool check_candidate(Candidate &cand)
 	{
 		if (cand.n < min_width || cand.n > max_width)
 			return false;
 		if (!is_power_of_two(cand.w) || (1 << cand.idx_w) != cand.w)
 			return false;
-		if (!leaves_are_candidate_inputs(leaf_bits, cand.valid_sig, cand.field_sig)) {
-			log_debug("  reject %s (valid=%s index=%s): cone leaves outside valid+field\n",
-			          log_id(cand.out_wire), log_id(cand.valid_wire), cand.index_name.c_str());
+		if (!candidate_inputs_disjoint(cand))
 			return false;
-		}
-		if (!find_anchor_driver(cand.out_wire, cand.anchor))
+		if (!find_anchor_driver(cand.out_sig, cand.anchor))
 			return false;
 		if (fingerprint(cand, false)) {
 			cand.msb_first = false;
@@ -510,7 +319,7 @@ struct OptPriorityOnehotWorker {
 			return true;
 		}
 		log_debug("  reject %s (valid=%s index=%s): fingerprint mismatch (both directions)\n",
-		          log_id(cand.out_wire), log_id(cand.valid_wire), cand.index_name.c_str());
+		          cand.out_name.c_str(), cand.valid_name.c_str(), cand.index_name.c_str());
 		return false;
 	}
 
@@ -596,39 +405,14 @@ struct OptPriorityOnehotWorker {
 		return emit_decode(cand.anchor, root.index, root.valid, cand.w, cand.idx_w);
 	}
 
-	void disconnect_old_output(const Candidate &cand)
+	vector<RootCand> collect_roots()
 	{
-		pool<SigBit> target_bits;
-		for (auto bit : sigmap(SigSpec(cand.out_wire)))
-			if (bit.wire)
-				target_bits.insert(bit);
-
-		pool<Cell *> seen_cells;
-		for (auto target : target_bits) {
-			Cell *drv = bit_to_driver.at(target, nullptr);
-			if (drv == nullptr || seen_cells.count(drv))
-				continue;
-			seen_cells.insert(drv);
-
-			for (auto &conn : drv->connections()) {
-				if (!drv->output(conn.first))
-					continue;
-				SigSpec orig = conn.second;
-				SigSpec replacement = orig;
-				bool changed = false;
-				Cell *cell = drv;
-				Wire *dangling = module->addWire(NEW_ID2_SUFFIX("prionehot_dangling"),
-				                                 GetSize(orig));
-				for (int i = 0; i < GetSize(orig); i++) {
-					if (target_bits.count(sigmap(orig[i]))) {
-						replacement[i] = SigBit(dangling, i);
-						changed = true;
-					}
-				}
-				if (changed)
-					drv->setPort(conn.first, replacement);
-			}
-		}
+		int max_cone_cells = std::max(256, max_width * 96);
+		int max_leaf_bits = max_width * max_width + max_width * 64 + max_width;
+		return collect_root_candidates(
+			[&](int w) { return w >= 2 && is_power_of_two(w); },
+			[&](const pool<Cell *> &) { return true; },
+			true, max_cone_cells, max_leaf_bits, 64);
 	}
 
 	void run()
@@ -637,97 +421,242 @@ struct OptPriorityOnehotWorker {
 			return;
 
 		vector<Wire *> inputs;
-		vector<Wire *> outputs;
-		for (auto w : module->wires()) {
+		for (auto w : module->wires())
 			if (w->port_input)
 				inputs.push_back(w);
-			if (w->port_output && !w->port_input)
-				outputs.push_back(w);
-		}
 
 		// Per-lane split-port buses ("id[0]".."id[N-1]") are grouped once.
-		vector<InputBus> split_buses = collect_split_input_buses(inputs);
+		vector<InputBus> split_buses = collect_split_buses(inputs);
 
 		vector<Candidate> rewrites;
-		pool<Wire *> claimed_outputs;
-		for (auto out : outputs) {
-			if (claimed_outputs.count(out))
+		vector<RootCand> root_list = collect_roots();
+		for (int ri = 0; ri < GetSize(root_list); ri++) {
+			auto &root = root_list[ri];
+			if (walk_exhausted() || eval_exhausted()) {
+				note_budget("opt_priority_onehot", GetSize(root_list) - ri);
+				break;
+			}
+			if (root_claimed(root.sig))
 				continue;
-			int w = GetSize(out);
+
+			int w = GetSize(root.sig);
 			if (w < 2 || !is_power_of_two(w))
 				continue;
 			int idx_w = clog2_int(w);
 
 			pool<Cell *> cone_cells;
 			pool<SigBit> leaf_bits;
+			vector<Cell *> order;
 			int max_cone_cells = std::max(256, max_width * 96);
 			int max_leaf_bits = max_width * max_width + max_width * w + max_width;
-			if (!get_cone(SigSpec(out), cone_cells, leaf_bits, max_cone_cells, max_leaf_bits)) {
-				log_debug("output %s (w=%d): cone exceeds size limits\n", log_id(out), w);
+			if (!get_cone(root.sig, cone_cells, leaf_bits, max_cone_cells, max_leaf_bits, &order)) {
+				log_debug("root %s (w=%d): cone exceeds size limits\n", root.name.c_str(), w);
 				continue;
 			}
 			if (cone_cells.empty())
 				continue;
-			log_debug("output %s (w=%d, idx_w=%d): cone %d cells, %d leaf bits\n",
-			          log_id(out), w, idx_w, GetSize(cone_cells), GetSize(leaf_bits));
+			log_debug("root %s (w=%d, idx_w=%d): cone %d cells, %d leaf bits\n",
+			          root.name.c_str(), w, idx_w, GetSize(cone_cells), GetSize(leaf_bits));
 
-			bool done = false;
-			for (auto valid : inputs) {
-				if (done)
+			// Bus candidates: module input ports first (cheap, original
+			// behavior), then internal cut signals from the root cone in
+			// reverse BFS order (deepest first) to support pre-logic between
+			// the ports and the rewritable region.
+			vector<InputBus> buses;
+			for (auto input : inputs)
+				buses.push_back({sigmap(SigSpec(input)), input->name.str(), 0, 0});
+			for (auto &bus : split_buses)
+				buses.push_back(bus);
+
+			// Internal cut buses are taken from the shallowest cone cells
+			// first (depth measured from the leaves), since the cut points
+			// introduced by pre-logic sit right above the module inputs.
+			const int max_internal_buses = 32;
+			int internal_buses = 0;
+			pool<SigSpec> seen_buses;
+			for (auto &bus : buses)
+				seen_buses.insert(bus.sig);
+			dict<Cell *, int> depths = compute_cone_depths(cone_cells);
+			vector<Cell *> by_depth = order;
+			std::stable_sort(by_depth.begin(), by_depth.end(),
+			                 [&](Cell *a, Cell *b) {
+			                     return depths.at(a, 1 << 30) < depths.at(b, 1 << 30);
+			                 });
+			for (auto c : by_depth) {
+				if (internal_buses >= max_internal_buses)
 					break;
-				int n = GetSize(valid);
-				if (n < min_width || n > max_width)
-					continue;
-
-				// Candidate index sources: a flat input bus split into n lanes,
-				// or a per-lane split-port bus with n entries.
-				vector<std::pair<SigSpec, std::string>> sources;
-				for (auto d : inputs) {
-					if (d == valid)
+				for (auto &conn : c->connections()) {
+					SigSpec sig = sigmap(conn.second);
+					if (GetSize(sig) < min_width || !seen_buses.insert(sig).second)
 						continue;
-					if (GetSize(d) % n == 0)
-						sources.push_back({SigSpec(d), d->name.str()});
+					if (!sig_bus_ok(sig))
+						continue;
+					buses.push_back({sig, stringf("%s.%s", log_id(c->name), log_id(conn.first)), 0, 0});
+					internal_buses++;
 				}
-				for (auto &bus : split_buses)
-					if (bus.entries == n)
-						sources.push_back({bus.sig, bus.name});
+			}
 
-				for (auto &src : sources) {
-					int total = GetSize(src.first);
-					if (total % n != 0)
-						continue;
-					int s = total / n;
-					if (s < idx_w)
-						continue;
+			// Whole wires touching the cone (outputs of cone cells or cone
+			// leaves, e.g. FF-driven valid/index buses); constant edge bits
+			// (never-written vector heads) are trimmed off as maximal runs.
+			// Whole wires touching the cone, longest runs first.
+			pool<SigBit> cone_sig_bits = cone_sig_bit_pool(cone_cells, leaf_bits);
+			for (auto &run : collect_wire_run_buses(cone_sig_bits, 64)) {
+				if (!seen_buses.insert(run.sig).second)
+					continue;
+				buses.push_back(run);
+			}
 
-					SigSpec field_sig;
-					if (!infer_field(src.first, n, idx_w, s, leaf_bits, field_sig)) {
-						log_debug("  valid=%s index=%s (n=%d, s=%d): field layout inference failed\n",
-						          log_id(valid), src.second.c_str(), n, s);
+			// Per-lane split wires grouped into buses (array FFs and
+			// multi-dimensional nets are lowered into per-entry wires).
+			for (auto &bus : collect_cone_split_buses(cone_sig_bits)) {
+				SigSpec sig = sigmap(bus.sig);
+				if (seen_buses.insert(sig).second)
+					buses.push_back({sig, bus.name, bus.entries, bus.elem_width});
+			}
+
+			// Valid candidates: each bus as-is first (covers the simple
+			// cases cheaply), then one-lane-short windows (regions often use
+			// N of an N+1-entry vector, e.g. fits[N:1]).
+			vector<InputBus> valid_views;
+			for (auto &bus : buses) {
+				int nv = GetSize(bus.sig);
+				if (nv >= min_width && nv <= max_width)
+					valid_views.push_back(bus);
+			}
+			for (auto &bus : buses) {
+				int nv = GetSize(bus.sig);
+				if (nv - 1 >= min_width && nv - 1 <= max_width) {
+					valid_views.push_back({bus.sig.extract(0, nv - 1),
+					                       stringf("%s[%d:0]", bus.name.c_str(), nv - 2), 0, 0});
+					valid_views.push_back({bus.sig.extract(1, nv - 1),
+					                       stringf("%s[%d:1]", bus.name.c_str(), nv - 1), 0, 0});
+				}
+			}
+			// Power-of-two lane counts (the common region shape) and wider
+			// buses first, so the attempt budget is not exhausted on junk
+			// pairings in modules with many other wires.
+			std::stable_sort(valid_views.begin(), valid_views.end(),
+			                 [](const InputBus &a, const InputBus &b) {
+			                     int na = GetSize(a.sig), nb = GetSize(b.sig);
+			                     bool pa = is_power_of_two(na), pb = is_power_of_two(nb);
+			                     if (pa != pb)
+			                         return pa;
+			                     return na > nb;
+			                 });
+
+			// Closure walks are cheap graph traversals; the full candidate
+			// check (ConstEval fingerprint) gets its own smaller budget.
+			const int max_attempts = 2048;
+			const int max_fp_attempts = 24;
+			int attempts = 0;
+			int fp_attempts = 0;
+			bool done = false;
+			for (auto &valid : valid_views) {
+				if (done || attempts >= max_attempts || fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
+					break;
+				int n = GetSize(valid.sig);
+
+				pool<SigBit> valid_bits;
+				for (auto bit : sigmap(valid.sig))
+					if (bit.wire)
+						valid_bits.insert(bit);
+
+				for (auto &src : buses) {
+					if (done || attempts >= max_attempts || fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
+						break;
+					if (src.sig == valid.sig)
 						continue;
+					int total = GetSize(src.sig);
+
+					// Index source views: the bus split into n lanes, or n
+					// contiguous lanes of an (n+1)-lane bus (e.g. ids[N:1]
+					// of an [N:0] table).
+					vector<std::pair<SigSpec, std::string>> src_views;
+					if (total % n == 0 && total / n >= idx_w)
+						src_views.push_back({src.sig, src.name});
+					else if (total % (n + 1) == 0 && total / (n + 1) >= idx_w) {
+						int s2 = total / (n + 1);
+						src_views.push_back({src.sig.extract(0, n * s2),
+						                     stringf("%s[lane0+]", src.name.c_str())});
+						src_views.push_back({src.sig.extract(s2, n * s2),
+						                     stringf("%s[lane1+]", src.name.c_str())});
 					}
 
-					Candidate cand;
-					cand.out_wire = out;
-					cand.valid_wire = valid;
-					cand.valid_sig = SigSpec(valid);
-					cand.field_sig = field_sig;
-					cand.index_name = src.second;
-					cand.n = n;
-					cand.w = w;
-					cand.idx_w = idx_w;
-					if (!check_candidate(cand, leaf_bits))
-						continue;
+					for (auto &sv : src_views) {
+						if (done || attempts >= max_attempts || fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
+							break;
+						int s = GetSize(sv.first) / n;
 
-					rewrites.push_back(cand);
-					claimed_outputs.insert(out);
-					log("  %s: %s <- priority_onehot(valid=%s, index=%s) "
-					    "[N=%d, W=%d, IDX_W=%d, %s]\n",
-					    log_id(module), log_id(out), log_id(valid), src.second.c_str(),
-					    cand.n, cand.w, cand.idx_w,
-					    cand.msb_first ? "MSB-first" : "LSB-first");
-					done = true;
-					break;
+						// Cut the root cone at valid+index bits: it must close
+						// without reaching other inputs, and the index bits the
+						// cone actually uses define the per-lane field layout.
+						pool<SigBit> allowed = valid_bits;
+						for (auto bit : sigmap(sv.first))
+							if (bit.wire)
+								allowed.insert(bit);
+						pool<SigBit> hit_bits;
+						pool<Cell *> cut_cells;
+						attempts++;
+						if (!cut_cone_walk(root.sig, allowed, GetSize(cone_cells) + 16, &hit_bits, &cut_cells,
+						                   nullptr, &leaf_bits, &cone_cells)) {
+							log_debug("  valid=%s index=%s: cut not closed (%s)\n",
+							          valid.name.c_str(), sv.second.c_str(), last_cut_fail.c_str());
+							continue;
+						}
+
+						SigSpec field_sig;
+						if (!infer_field(sv.first, n, idx_w, s, hit_bits, field_sig)) {
+							log_debug("  valid=%s index=%s (n=%d, s=%d): field layout inference failed\n",
+							          valid.name.c_str(), sv.second.c_str(), n, s);
+							continue;
+						}
+
+						// The fingerprint forces every valid+field bit, and
+						// ConstEval caches whole cell outputs: no forced bit
+						// may be driven by a cell inside the cut cone, even
+						// one the cone never reads.
+						bool forced_conflict = false;
+						for (auto bit : sigmap(valid.sig)) {
+							Cell *drv = bit.wire ? bit_to_driver.at(bit, nullptr) : nullptr;
+							if (drv != nullptr && cut_cells.count(drv))
+								forced_conflict = true;
+						}
+						for (auto bit : sigmap(field_sig)) {
+							Cell *drv = bit.wire ? bit_to_driver.at(bit, nullptr) : nullptr;
+							if (drv != nullptr && cut_cells.count(drv))
+								forced_conflict = true;
+						}
+						if (forced_conflict) {
+							log_debug("  valid=%s index=%s: forced bit driven inside cone\n",
+							          valid.name.c_str(), sv.second.c_str());
+							continue;
+						}
+
+						Candidate cand;
+						cand.out_sig = root.sig;
+						cand.out_name = root.name;
+						cand.valid_sig = valid.sig;
+						cand.field_sig = field_sig;
+						cand.valid_name = valid.name;
+						cand.index_name = sv.second;
+						cand.n = n;
+						cand.w = w;
+						cand.idx_w = idx_w;
+						fp_attempts++;
+						if (!check_candidate(cand))
+							continue;
+
+						rewrites.push_back(cand);
+						claim_region(root.sig, cut_cells);
+						log("  %s: %s <- priority_onehot(valid=%s, index=%s) "
+						    "[N=%d, W=%d, IDX_W=%d, %s]\n",
+						    log_id(module), cand.out_name.c_str(), valid.name.c_str(), sv.second.c_str(),
+						    cand.n, cand.w, cand.idx_w,
+						    cand.msb_first ? "MSB-first" : "LSB-first");
+						done = true;
+						break;
+					}
 				}
 			}
 		}
@@ -735,8 +664,8 @@ struct OptPriorityOnehotWorker {
 		for (auto &cand : rewrites) {
 			cell = cand.anchor;
 			SigSpec new_out = emit_priority_onehot(cand);
-			disconnect_old_output(cand);
-			module->connect(SigSpec(cand.out_wire), new_out);
+			disconnect_root(cand.out_sig, cand.anchor, "prionehot_dangling");
+			module->connect(cand.out_sig, new_out);
 			regions_rewritten++;
 		}
 	}
@@ -779,6 +708,11 @@ struct OptPriorityOnehotPass : public Pass {
 		log("    -min-width N, -min_width N\n");
 		log("        minimum lane count to consider (default 4).\n");
 		log("\n");
+		log("    -walk-budget N, -eval-budget N, -attempt-budget N\n");
+		log("        per-module work limits for the candidate search (defaults\n");
+		log("        20000000 / 20000000 / 65536). When a budget is exhausted\n");
+		log("        the remaining candidates are skipped and a note is logged.\n");
+		log("\n");
 		log("After rewriting, the original cone cells become unused and are removed\n");
 		log("by the trailing 'clean -purge'.\n");
 		log("\n");
@@ -790,6 +724,7 @@ struct OptPriorityOnehotPass : public Pass {
 
 		int max_width = 64;
 		int min_width = 4;
+		int64_t walk_budget = -1, eval_budget = -1, attempt_budget = -1;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if ((args[argidx] == "-max-width" || args[argidx] == "-max_width") &&
@@ -802,6 +737,21 @@ struct OptPriorityOnehotPass : public Pass {
 				min_width = std::stoi(args[++argidx]);
 				continue;
 			}
+			if ((args[argidx] == "-walk-budget" || args[argidx] == "-walk_budget") &&
+			    argidx + 1 < args.size()) {
+				walk_budget = std::stoll(args[++argidx]);
+				continue;
+			}
+			if ((args[argidx] == "-eval-budget" || args[argidx] == "-eval_budget") &&
+			    argidx + 1 < args.size()) {
+				eval_budget = std::stoll(args[++argidx]);
+				continue;
+			}
+			if ((args[argidx] == "-attempt-budget" || args[argidx] == "-attempt_budget") &&
+			    argidx + 1 < args.size()) {
+				attempt_budget = std::stoll(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -812,6 +762,12 @@ struct OptPriorityOnehotPass : public Pass {
 			OptPriorityOnehotWorker worker(module);
 			worker.max_width = max_width;
 			worker.min_width = min_width;
+			if (walk_budget > 0)
+				worker.walk_budget = walk_budget;
+			if (eval_budget > 0)
+				worker.eval_budget = eval_budget;
+			if (attempt_budget > 0)
+				worker.attempt_budget = attempt_budget;
 			worker.run();
 			total_regions += worker.regions_rewritten;
 			total_cells_added += worker.cells_added;
