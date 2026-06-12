@@ -575,6 +575,512 @@ struct VerilogFrontend : public Frontend {
 	}
 } VerilogFrontend;
 
+struct TechlibFrontend : public Frontend {
+	TechlibFrontend() : Frontend("techlib", "read modules from techlibs file") { }
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read_techlib [options] [filename]\n");
+		log("\n");
+		log("Load modules from a Verilog file to the current design. A large subset of\n");
+		log("Verilog-2005 is supported.\n");
+		log("\n");
+		log("    -sv\n");
+		log("        enable support for SystemVerilog features. (only a small subset\n");
+		log("        of SystemVerilog is supported)\n");
+		log("\n");
+		log("    -formal\n");
+		log("        enable support for SystemVerilog assertions and some Yosys extensions\n");
+		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
+		log("\n");
+		log("    -nosynthesis\n");
+		log("        don't add implicit -D SYNTHESIS\n");
+		log("\n");
+		log("    -noassert\n");
+		log("        ignore assert() statements\n");
+		log("\n");
+		log("    -noassume\n");
+		log("        ignore assume() statements\n");
+		log("\n");
+		log("    -norestrict\n");
+		log("        ignore restrict() statements\n");
+		log("\n");
+		log("    -assume-asserts\n");
+		log("        treat all assert() statements like assume() statements\n");
+		log("\n");
+		log("    -assert-assumes\n");
+		log("        treat all assume() statements like assert() statements\n");
+		log("\n");
+		log("    -nodisplay\n");
+		log("        suppress output from display system tasks ($display et. al).\n");
+		log("        This does not affect the output from a later 'sim' command.\n");
+		log("\n");
+		log("    -debug\n");
+		log("        alias for -dump_ast1 -dump_ast2 -dump_vlog1 -dump_vlog2 -yydebug\n");
+		log("\n");
+		log("    -dump_ast1\n");
+		log("        dump abstract syntax tree (before simplification)\n");
+		log("\n");
+		log("    -dump_ast2\n");
+		log("        dump abstract syntax tree (after simplification)\n");
+		log("\n");
+		log("    -no_dump_ptr\n");
+		log("        do not include hex memory addresses in dump (easier to diff dumps)\n");
+		log("\n");
+		log("    -dump_vlog1\n");
+		log("        dump ast as Verilog code (before simplification)\n");
+		log("\n");
+		log("    -dump_vlog2\n");
+		log("        dump ast as Verilog code (after simplification)\n");
+		log("\n");
+		log("    -dump_rtlil\n");
+		log("        dump generated RTLIL netlist\n");
+		log("\n");
+		log("    -yydebug\n");
+		log("        enable parser debug output\n");
+		log("\n");
+		log("    -nolatches\n");
+		log("        usually latches are synthesized into logic loops\n");
+		log("        this option prohibits this and sets the output to 'x'\n");
+		log("        in what would be the latches hold condition\n");
+		log("\n");
+		log("        this behavior can also be achieved by setting the\n");
+		log("        'nolatches' attribute on the respective module or\n");
+		log("        always block.\n");
+		log("\n");
+		log("    -nomem2reg\n");
+		log("        under certain conditions memories are converted to registers\n");
+		log("        early during simplification to ensure correct handling of\n");
+		log("        complex corner cases. this option disables this behavior.\n");
+		log("\n");
+		log("        this can also be achieved by setting the 'nomem2reg'\n");
+		log("        attribute on the respective module or register.\n");
+		log("\n");
+		log("        This is potentially dangerous. Usually the front-end has good\n");
+		log("        reasons for converting an array to a list of registers.\n");
+		log("        Prohibiting this step will likely result in incorrect synthesis\n");
+		log("        results.\n");
+		log("\n");
+		log("    -mem2reg\n");
+		log("        always convert memories to registers. this can also be\n");
+		log("        achieved by setting the 'mem2reg' attribute on the respective\n");
+		log("        module or register.\n");
+		log("\n");
+		log("    -nomeminit\n");
+		log("        do not infer $meminit cells and instead convert initialized\n");
+		log("        memories to registers directly in the front-end.\n");
+		log("\n");
+		log("    -ppdump\n");
+		log("        dump Verilog code after pre-processor\n");
+		log("\n");
+		log("    -nopp\n");
+		log("        do not run the pre-processor\n");
+		log("\n");
+		log("    -nodpi\n");
+		log("        disable DPI-C support\n");
+		log("\n");
+		log("    -noblackbox\n");
+		log("        do not automatically add a (* blackbox *) attribute to an\n");
+		log("        empty module.\n");
+		log("\n");
+		log("    -lib\n");
+		log("        only create empty blackbox modules. This implies -DBLACKBOX.\n");
+		log("        modules with the (* whitebox *) attribute will be preserved.\n");
+		log("        (* lib_whitebox *) will be treated like (* whitebox *).\n");
+		log("\n");
+		log("    -nowb\n");
+		log("        delete (* whitebox *) and (* lib_whitebox *) attributes from\n");
+		log("        all modules.\n");
+		log("\n");
+		log("    -specify\n");
+		log("        parse and import specify blocks\n");
+		log("\n");
+		log("    -noopt\n");
+		log("        don't perform basic optimizations (such as const folding) in the\n");
+		log("        high-level front-end.\n");
+		log("\n");
+		log("    -icells\n");
+		log("        interpret cell types starting with '$' as internal cell types\n");
+		log("\n");
+		log("    -pwires\n");
+		log("        add a wire for each module parameter\n");
+		log("\n");
+		log("    -nooverwrite\n");
+		log("        ignore re-definitions of modules. (the default behavior is to\n");
+		log("        create an error message if the existing module is not a black box\n");
+		log("        module, and overwrite the existing module otherwise.)\n");
+		log("\n");
+		log("    -overwrite\n");
+		log("        overwrite existing modules with the same name\n");
+		log("\n");
+		log("    -defer\n");
+		log("        only read the abstract syntax tree and defer actual compilation\n");
+		log("        to a later 'hierarchy' command. Useful in cases where the default\n");
+		log("        parameters of modules yield invalid or not synthesizable code.\n");
+		log("\n");
+		log("    -noautowire\n");
+		log("        make the default of `default_nettype be \"none\" instead of \"wire\".\n");
+		log("\n");
+		log("    -setattr <attribute_name>\n");
+		log("        set the specified attribute (to the value 1) on all loaded modules\n");
+		log("\n");
+		log("    -Dname[=definition]\n");
+		log("        define the preprocessor symbol 'name' and set its optional value\n");
+		log("        'definition'\n");
+		log("\n");
+		log("    -Idir\n");
+		log("        add 'dir' to the directories which are used when searching include\n");
+		log("        files\n");
+		log("\n");
+		log("    -relativeshare\n");
+		log("        use paths relative to share directory for source locations\n");
+		log("        where possible (experimental).\n");
+		log("\n");
+		log("The command 'verilog_defaults' can be used to register default options for\n");
+		log("subsequent calls to 'read_verilog'.\n");
+		log("\n");
+		log("Note that the Verilog frontend does a pretty good job of processing valid\n");
+		log("verilog input, but has not very good error reporting. It generally is\n");
+		log("recommended to use a simulator (for example Icarus Verilog) for checking\n");
+		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
+		log("\n");
+		log("Depending on if read_verilog is run in -formal mode, either the macro\n");
+		log("SYNTHESIS or FORMAL is defined automatically, unless -nosynthesis is used.\n");
+		log("In addition, read_verilog always defines the macro YOSYS.\n");
+		log("\n");
+		log("See the Yosys README file for a list of non-standard Verilog features\n");
+		log("supported by the Yosys Verilog front-end.\n");
+		log("\n");
+	}
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		bool flag_nodisplay = false;
+		bool flag_dump_ast1 = false;
+		bool flag_dump_ast2 = false;
+		bool flag_no_dump_ptr = false;
+		bool flag_dump_vlog1 = false;
+		bool flag_dump_vlog2 = false;
+		bool flag_dump_rtlil = false;
+		bool flag_debug_lexer = false;
+		bool flag_debug_parser = false;
+		bool flag_nolatches = false;
+		bool flag_nomeminit = false;
+		bool flag_nomem2reg = false;
+		bool flag_mem2reg = false;
+		bool flag_ppdump = false;
+		bool flag_nopp = false;
+		bool flag_nodpi = false;
+		bool flag_noopt = false;
+		bool flag_icells = false;
+		bool flag_pwires = false;
+		bool flag_nooverwrite = false;
+		bool flag_overwrite = false;
+		bool flag_defer = false;
+		bool flag_noblackbox = false;
+		bool flag_nowb = false;
+		bool flag_nosynthesis = false;
+		bool flag_yydebug = false;
+		bool flag_relative_share = false;
+		define_map_t defines_map;
+
+		std::list<std::string> include_dirs;
+		std::list<std::string> attributes;
+
+		ParseMode parse_mode = {};
+		ParseState parse_state = {};
+		parse_mode.sv = false;
+		parse_mode.formal = false;
+		parse_mode.noassert = false;
+		parse_mode.noassume = false;
+		parse_mode.norestrict = false;
+		parse_mode.assume_asserts = false;
+		parse_mode.assert_assumes = false;
+		parse_mode.lib = false;
+		parse_mode.specify = false;
+		parse_state.default_nettype_wire = true;
+
+		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-sv") {
+				parse_mode.sv = true;
+				continue;
+			}
+			if (arg == "-formal") {
+				parse_mode.formal = true;
+				continue;
+			}
+			if (arg == "-nosynthesis") {
+				flag_nosynthesis = true;
+				continue;
+			}
+			if (arg == "-noassert") {
+				parse_mode.noassert = true;
+				continue;
+			}
+			if (arg == "-noassume") {
+				parse_mode.noassume = true;
+				continue;
+			}
+			if (arg == "-norestrict") {
+				parse_mode.norestrict = true;
+				continue;
+			}
+			if (arg == "-assume-asserts") {
+				parse_mode.assume_asserts = true;
+				continue;
+			}
+			if (arg == "-assert-assumes") {
+				parse_mode.assert_assumes = true;
+				continue;
+			}
+			if (arg == "-nodisplay") {
+				flag_nodisplay = true;
+				continue;
+			}
+			if (arg == "-debug") {
+				flag_dump_ast1 = true;
+				flag_dump_ast2 = true;
+				flag_dump_vlog1 = true;
+				flag_dump_vlog2 = true;
+				flag_debug_lexer = true;
+				flag_debug_parser = true;
+				continue;
+			}
+			if (arg == "-dump_ast1") {
+				flag_dump_ast1 = true;
+				continue;
+			}
+			if (arg == "-dump_ast2") {
+				flag_dump_ast2 = true;
+				continue;
+			}
+			if (arg == "-no_dump_ptr") {
+				flag_no_dump_ptr = true;
+				continue;
+			}
+			if (arg == "-dump_vlog1") {
+				flag_dump_vlog1 = true;
+				continue;
+			}
+			if (arg == "-dump_vlog2") {
+				flag_dump_vlog2 = true;
+				continue;
+			}
+			if (arg == "-dump_rtlil") {
+				flag_dump_rtlil = true;
+				continue;
+			}
+			if (arg == "-yydebug") {
+				flag_yydebug = true;
+				flag_debug_lexer = true;
+				flag_debug_parser = true;
+				continue;
+			}
+			if (arg == "-nolatches") {
+				flag_nolatches = true;
+				continue;
+			}
+			if (arg == "-nomeminit") {
+				flag_nomeminit = true;
+				continue;
+			}
+			if (arg == "-nomem2reg") {
+				flag_nomem2reg = true;
+				continue;
+			}
+			if (arg == "-mem2reg") {
+				flag_mem2reg = true;
+				continue;
+			}
+			if (arg == "-ppdump") {
+				flag_ppdump = true;
+				continue;
+			}
+			if (arg == "-nopp") {
+				flag_nopp = true;
+				continue;
+			}
+			if (arg == "-nodpi") {
+				flag_nodpi = true;
+				continue;
+			}
+			if (arg == "-noblackbox") {
+				flag_noblackbox = true;
+				continue;
+			}
+			if (arg == "-lib") {
+				parse_mode.lib = true;
+				defines_map.add("BLACKBOX", "");
+				continue;
+			}
+			if (arg == "-nowb") {
+				flag_nowb = true;
+				continue;
+			}
+			if (arg == "-specify") {
+				parse_mode.specify = true;
+				continue;
+			}
+			if (arg == "-noopt") {
+				flag_noopt = true;
+				continue;
+			}
+			if (arg == "-icells") {
+				flag_icells = true;
+				continue;
+			}
+			if (arg == "-pwires") {
+				flag_pwires = true;
+				continue;
+			}
+			if (arg == "-ignore_redef" || arg == "-nooverwrite") {
+				flag_nooverwrite = true;
+				flag_overwrite = false;
+				continue;
+			}
+			if (arg == "-overwrite") {
+				flag_nooverwrite = false;
+				flag_overwrite = true;
+				continue;
+			}
+			if (arg == "-defer") {
+				flag_defer = true;
+				continue;
+			}
+			if (arg == "-noautowire") {
+				parse_state.default_nettype_wire = false;
+				continue;
+			}
+			if (arg == "-setattr" && argidx+1 < args.size()) {
+				attributes.push_back(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (arg == "-relativeshare") {
+				flag_relative_share = true;
+				log_experimental("read_verilog -relativeshare");
+				continue;
+			}
+			if (arg == "-D" && argidx+1 < args.size()) {
+				std::string name = args[++argidx], value;
+				size_t equal = name.find('=');
+				if (equal != std::string::npos) {
+					value = name.substr(equal+1);
+					name = name.substr(0, equal);
+				}
+				defines_map.add(name, value);
+				continue;
+			}
+			if (arg.compare(0, 2, "-D") == 0) {
+				size_t equal = arg.find('=', 2);
+				std::string name = arg.substr(2, equal-2);
+				std::string value;
+				if (equal != std::string::npos)
+					value = arg.substr(equal+1);
+				defines_map.add(name, value);
+				continue;
+			}
+			if (arg == "-I" && argidx+1 < args.size()) {
+				include_dirs.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg.compare(0, 2, "-I") == 0) {
+				include_dirs.push_back(arg.substr(2));
+				continue;
+			}
+			break;
+		}
+
+		if (parse_mode.formal || !flag_nosynthesis)
+			defines_map.add(parse_mode.formal ? "FORMAL" : "SYNTHESIS", "1");
+
+		extra_args(f, filename, args, argidx);
+
+		log_header(design, "Executing techlib frontend: %s\n", filename);
+
+		log("Parsing %s%s input from `%s' to AST representation.\n",
+				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
+
+		if (flag_relative_share) {
+			auto share_path = proc_share_dirname();
+			if (filename.substr(0, share_path.length()) == share_path)
+				filename = std::string("+/") + filename.substr(share_path.length());
+			log("new filename %s\n", filename.c_str());
+		}
+		AST::sv_mode_but_global_and_used_for_literally_one_condition = parse_mode.sv;
+		std::string code_after_preproc;
+
+		parse_state.lexin = f;
+		if (!flag_nopp) {
+			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs, parse_state, parse_mode);
+			if (flag_ppdump)
+				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc);
+			parse_state.lexin = new std::istringstream(code_after_preproc);
+		}
+
+		auto filename_shared = std::make_shared<std::string>(filename);
+		auto top_loc = Location();
+		top_loc.begin.filename = filename_shared;
+		parse_state.current_ast = new AST::AstNode(top_loc, AST::AST_DESIGN);
+		VerilogLexer lexer(&parse_state, &parse_mode, filename_shared);
+		frontend_verilog_yy::parser parser(&lexer, &parse_state, &parse_mode);
+		lexer.set_debug(flag_debug_lexer);
+		parser.set_debug_level(flag_debug_parser ? 1 : 0);
+
+		// make package typedefs available to parser
+		add_package_types(parse_state.pkg_user_types, design->verilog_packages);
+
+		UserTypeMap global_types_map;
+		for (auto& def : design->verilog_globals) {
+			if (def->type == AST::AST_TYPEDEF) {
+				global_types_map[def->str] = def.get();
+			}
+		}
+
+		log_assert(parse_state.user_type_stack.empty());
+		// use previous global typedefs as bottom level of user type stack
+		parse_state.user_type_stack.push_back(std::move(global_types_map));
+		// add a new empty type map to allow overriding existing global definitions
+		parse_state.user_type_stack.push_back(UserTypeMap());
+
+		if (flag_yydebug) {
+			lexer.set_debug(true);
+			parser.set_debug_level(1);
+		}
+		parser.parse();
+		// frontend_verilog_yyset_lineno(1);
+
+		for (auto &child : parse_state.current_ast->children) {
+			if (child->type == AST::AST_MODULE)
+				for (auto &attr : attributes)
+					if (child->attributes.count(attr) == 0)
+						child->attributes[attr] = AST::AstNode::mkconst_int(top_loc, 1, false);
+		}
+
+		if (flag_nodpi)
+			error_on_dpi_function(parse_state.current_ast);
+
+		AST::process(design, parse_state.current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire);
+
+
+		if (!flag_nopp)
+			delete parse_state.lexin;
+
+		// only the previous and new global type maps remain
+		log_assert(parse_state.user_type_stack.size() == 2);
+		parse_state.user_type_stack.clear();
+
+		delete parse_state.current_ast;
+		parse_state.current_ast = NULL;
+
+		log("Successfully finished techlib frontend.\n");
+	}
+} TechlibFrontend;
+
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
 	void help() override
