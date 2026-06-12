@@ -169,16 +169,16 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("begin")) {
 			if (family_opt == "cyclonev")
-				run(stringf("read_verilog -sv -lib +/intel_alm/%s/cells_sim.v", family_opt));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dsp_sim.v", family_opt));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/misc_sim.v", family_opt));
-			run(stringf("read_verilog -specify -lib -D %s -icells +/intel_alm/common/abc9_model.v", family_opt));
+				run(stringf("read_techlib -sv -lib +/intel_alm/%s/cells_sim.v", family_opt));
+			run(stringf("read_techlib -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt));
+			run(stringf("read_techlib -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt));
+			run(stringf("read_techlib -specify -lib -D %s +/intel_alm/common/dsp_sim.v", family_opt));
+			run(stringf("read_techlib -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt));
+			run(stringf("read_techlib -specify -lib -D %s +/intel_alm/common/misc_sim.v", family_opt));
+			run(stringf("read_techlib -specify -lib -D %s -icells +/intel_alm/common/abc9_model.v", family_opt));
 			// Misc and common cells
-			run("read_verilog -lib +/intel/common/altpll_bb.v");
-			run("read_verilog -lib +/intel_alm/common/megafunction_bb.v");
+			run("read_techlib -lib +/intel/common/altpll_bb.v");
+			run("read_techlib -lib +/intel_alm/common/megafunction_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

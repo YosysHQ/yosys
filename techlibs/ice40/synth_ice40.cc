@@ -301,7 +301,7 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("begin"))
 		{
-			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
+			run("read_techlib " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 			run("proc");
 		}
@@ -416,7 +416,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc9) {
-					run("read_verilog " + define + " -icells -lib -specify +/ice40/abc9_model.v");
+					run("read_techlib " + define + " -icells -lib -specify +/ice40/abc9_model.v");
 					std::string abc9_opts;
 					std::string k = "synth_ice40.abc9.W";
 					if (active_design && active_design->scratchpad.count(k))

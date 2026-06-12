@@ -19,7 +19,7 @@ yosys_pass(synth_fabulous
 		opt_expr
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		share
 		stat
 		techmap

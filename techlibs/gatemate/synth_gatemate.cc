@@ -219,7 +219,7 @@ struct SynthGateMatePass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -specify +/gatemate/cells_sim.v +/gatemate/cells_bb.v");
+			run("read_techlib -lib -specify +/gatemate/cells_sim.v +/gatemate/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

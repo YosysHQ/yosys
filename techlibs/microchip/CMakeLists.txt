@@ -47,7 +47,7 @@ yosys_pass(synth_microchip
 		opt_expr
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		select
 		setattr
 		share

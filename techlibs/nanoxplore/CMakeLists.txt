@@ -27,7 +27,7 @@ yosys_pass(synth_nanoxplore
 		opt_merge
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		setundef
 		share
 		stat

@@ -149,7 +149,7 @@ struct SynthAnlogicPass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/anlogic/cells_sim.v +/anlogic/eagle_bb.v");
+			run("read_techlib -lib +/anlogic/cells_sim.v +/anlogic/eagle_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

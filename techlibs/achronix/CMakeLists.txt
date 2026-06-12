@@ -13,7 +13,7 @@ yosys_pass(synth_achronix
 		memory_map
 		opt
 		proc
-		read_verilog
+		read_techlib
 		setundef
 		stat
 		synth

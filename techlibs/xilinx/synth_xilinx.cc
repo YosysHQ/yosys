@@ -346,9 +346,9 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("begin")) {
 			std::string read_args;
 			read_args += " -lib -specify +/xilinx/cells_sim.v";
-			run("read_verilog" + read_args);
+			run("read_techlib" + read_args);
 
-			run("read_verilog -lib +/xilinx/cells_xtra.v");
+			run("read_techlib -lib +/xilinx/cells_xtra.v");
 
 			run(stringf("hierarchy -check %s", top_opt));
 		}
@@ -651,7 +651,7 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				run("read_verilog -icells -lib -specify +/xilinx/abc9_model.v");
+				run("read_techlib -icells -lib -specify +/xilinx/abc9_model.v");
 				std::string abc9_opts;
 				std::string k = "synth_xilinx.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))

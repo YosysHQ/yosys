@@ -21,7 +21,7 @@ yosys_pass(synth_intel
 		opt_expr
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		setundef
 		stat
 		techmap

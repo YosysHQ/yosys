@@ -188,11 +188,11 @@ struct SynthIntelPass : public ScriptPass {
 	{
 		if (check_label("begin")) {
 			if (check_label("family"))
-				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt));
+				run(stringf("read_techlib -sv -lib +/intel/%s/cells_sim.v", family_opt));
 
 			// Misc and common cells
-			run("read_verilog -sv -lib +/intel/common/m9k_bb.v");
-			run("read_verilog -sv -lib +/intel/common/altpll_bb.v");
+			run("read_techlib -sv -lib +/intel/common/m9k_bb.v");
+			run("read_techlib -sv -lib +/intel/common/altpll_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

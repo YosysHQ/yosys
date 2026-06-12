@@ -40,7 +40,7 @@ yosys_pass(synth_lattice
 		opt_merge
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		share
 		simplemap
 		stat

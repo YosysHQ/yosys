@@ -36,7 +36,7 @@ yosys_pass(synth_gatemate
 		opt_expr
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		share
 		simplemap
 		stat
