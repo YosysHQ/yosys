@@ -24,7 +24,7 @@ yosys_pass(synth_gowin
 		opt_lut_ins
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		setundef
 		share
 		simplemap

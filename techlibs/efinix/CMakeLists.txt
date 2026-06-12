@@ -20,7 +20,7 @@ yosys_pass(synth_efinix
 		opt
 		opt_expr
 		proc
-		read_verilog
+		read_techlib
 		simplemap
 		stat
 		synth

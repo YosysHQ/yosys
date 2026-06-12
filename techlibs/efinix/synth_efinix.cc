@@ -141,7 +141,7 @@ struct SynthEfinixPass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/efinix/cells_sim.v");
+			run("read_techlib -lib +/efinix/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

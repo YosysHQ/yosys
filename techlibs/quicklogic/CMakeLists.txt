@@ -63,7 +63,7 @@ yosys_pass(synth_quicklogic
 		ql_dsp_macc
 		ql_dsp_simd
 		ql_ioff
-		read_verilog
+		read_techlib
 		setundef
 		share
 		shregmap

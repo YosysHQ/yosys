@@ -21,7 +21,7 @@ yosys_pass(synth_greenpak4
 		nlutmap
 		opt
 		proc
-		read_verilog
+		read_techlib
 		shregmap
 		stat
 		synth

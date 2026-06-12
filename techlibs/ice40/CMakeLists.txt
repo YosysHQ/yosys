@@ -55,7 +55,7 @@ yosys_pass(synth_ice40
 		opt_lut
 		peepopt
 		proc
-		read_verilog
+		read_techlib
 		select
 		setattr
 		share

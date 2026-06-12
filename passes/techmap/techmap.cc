@@ -1149,7 +1149,7 @@ struct TechmapPass : public Pass {
 
 		std::vector<std::string> map_files;
 		std::vector<RTLIL::IdString> dont_map;
-		std::string verilog_frontend = "verilog -nooverwrite -noblackbox -icells";
+		std::string techlib_frontend = "techlib -nooverwrite -noblackbox -icells";
 		int max_iter = -1;
 
 		size_t argidx;
@@ -1163,15 +1163,15 @@ struct TechmapPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-D" && argidx+1 < args.size()) {
-				verilog_frontend += " -D " + args[++argidx];
+				techlib_frontend += " -D " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-I" && argidx+1 < args.size()) {
-				verilog_frontend += " -I " + args[++argidx];
+				techlib_frontend += " -I " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-relativeshare") {
-				verilog_frontend += " -relativeshare";
+				techlib_frontend += " -relativeshare";
 				log_experimental("techmap -relativeshare");
 				continue;
 			}
@@ -1205,7 +1205,7 @@ struct TechmapPass : public Pass {
 
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
-			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
+			Frontend::frontend_call(map, nullptr, "+/techmap.v", techlib_frontend);
 		} else {
 			for (auto &fn : map_files)
 				if (fn.compare(0, 1, "%") == 0) {
@@ -1217,7 +1217,7 @@ struct TechmapPass : public Pass {
 						if (!map->module(mod->name))
 							map->add(mod->clone());
 				} else {
-					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : verilog_frontend));
+					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : techlib_frontend));
 				}
 		}
 

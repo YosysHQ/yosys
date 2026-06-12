@@ -261,14 +261,14 @@ struct SynthPass : public ScriptPass
 	void script() override
 	{
 		if (plib.empty())
-			run(stringf("read_verilog %s -lib +/fabulous/prims.v", complexdff ? "-DCOMPLEX_DFF" : ""));
+			run(stringf("read_techlib %s -lib +/fabulous/prims.v", complexdff ? "-DCOMPLEX_DFF" : ""));
 		else
-			run("read_verilog -lib " + plib);
+			run("read_techlib -lib " + plib);
 
 		if (help_mode) {
-			run("read_verilog -lib <extra_plib.v>", "(for each -extra-plib)");
+			run("read_techlib -lib <extra_plib.v>", "(for each -extra-plib)");
 		} else for (auto lib : extra_plib) {
-			run("read_verilog -lib " + lib);
+			run("read_techlib -lib " + lib);
 		}
 
 		if (check_label("begin")) {

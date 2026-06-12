@@ -395,7 +395,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -specify +/lattice/cells_sim" + postfix + ".v +/lattice/cells_bb" + postfix + ".v");
+			run("read_techlib -lib -specify +/lattice/cells_sim" + postfix + ".v +/lattice/cells_bb" + postfix + ".v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

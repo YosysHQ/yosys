@@ -58,7 +58,7 @@ yosys_pass(synth_xilinx
 		peepopt
 		pmux2shiftx
 		proc
-		read_verilog
+		read_techlib
 		select
 		setattr
 		share

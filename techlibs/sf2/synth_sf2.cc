@@ -165,7 +165,7 @@ struct SynthSf2Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/sf2/cells_sim.v");
+			run("read_techlib -lib +/sf2/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

@@ -137,7 +137,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/greenpak4/cells_sim.v");
+			run("read_techlib -lib +/greenpak4/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 

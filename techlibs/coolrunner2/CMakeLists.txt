@@ -24,7 +24,7 @@ yosys_pass(synth_coolrunner2
 		iopadmap
 		opt
 		proc
-		read_verilog
+		read_techlib
 		splitnets
 		stat
 		synth

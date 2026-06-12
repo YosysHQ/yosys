@@ -16,7 +16,7 @@ yosys_pass(synth_sf2
 		opt
 		opt_expr
 		proc
-		read_verilog
+		read_techlib
 		simplemap
 		stat
 		synth
