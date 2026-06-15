@@ -1994,7 +1994,7 @@ namespace {
 		void error(int linenr)
 		{
 			std::stringstream buf;
-			RTLIL_BACKEND::dump_cell(buf, "  ", cell);
+			RTLIL_BACKEND::dump_cell(buf, "  ", cell, cell->module->design);
 
 			std::string mod_name = module ? module->design->twines.str(module->meta_->name) : std::string();
 			std::string cell_name = cell->module->design->twines.str(cell->meta_->name);

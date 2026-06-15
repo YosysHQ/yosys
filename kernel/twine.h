@@ -265,7 +265,7 @@ struct TwinePool {
 	}
 
 	void rebuild_index() {
-		for (TwineRef ref = 0; ref < globals_.size(); ref++)
+		for (TwineRef ref = 0; ref < STATIC_TWINE_END; ref++)
 			index.insert(ref);
 		for (auto it = backing.begin(); it != backing.end(); ++it)
 			index.insert(STATIC_TWINE_END + backing.get_index(it));
