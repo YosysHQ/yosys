@@ -366,8 +366,8 @@ struct RTLILFrontendWorker {
 					if (flag_legalize)
 						wire = legalize_wire(*id);
 					else {
-						// for (auto wire : current_module->wires())
-						// 	design->twines.dump(wire->meta_->name);
+						for (auto wire : current_module->wires())
+							design->twines.dump(wire->meta_->name);
 						error("Wire `%s' not found.", *id);
 					}
 				}
@@ -613,20 +613,20 @@ struct RTLILFrontendWorker {
 
 		while (true)
 		{
-			std::optional<RTLIL::IdString> id = try_parse_id();
-			if (id.has_value()) {
-				TwineRef wire_name = design->twines.lookup(id->str());
+			std::optional<std::string> id = try_parse_id();
+			if (id) {
+				TwineRef wire_name = design->twines.lookup(*id);
 				if (wire_name == Twine::Null)
-					wire_name = design->twines.add(Twine{id->str()});
+					wire_name = design->twines.add(std::move(*id));
 				if (current_module->wire(wire_name) != nullptr) {
-				  if (flag_legalize) {
+					if (flag_legalize) {
 						log("Legalizing redefinition of wire %s.\n", *id);
 						pool<RTLIL::Wire*> wires = {current_module->wire(wire_name)};
 						current_module->remove(wires);
 					} else
 						error("RTLIL error: redefinition of wire %s.", *id);
 				}
-				wire = current_module->addWire(Twine{id->str()});
+				wire = current_module->addWire(wire_name);
 				break;
 			}
 			if (try_parse_keyword("width"))
@@ -779,9 +779,7 @@ struct RTLILFrontendWorker {
 				expect_eol();
 			} else if (try_parse_keyword("connect")) {
 				std::string port_name_str = parse_id();
-				TwineRef port_name = design->twines.lookup(port_name_str);
-				if (port_name == Twine::Null)
-					port_name = design->twines.add(Twine{port_name_str});
+				TwineRef port_name = design->twines.add(Twine{port_name_str});
 				if (cell->hasPort(port_name)) {
 					if (flag_legalize)
 						log("Legalizing redefinition of cell port %s.", port_name_str);

@@ -627,7 +627,7 @@ struct Smt2Worker
 				}
 				if (cell->attributes.count(ID::reg))
 					infostr += " " + cell->attributes.at(ID::reg).decode_string();
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.unescape(), get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
 				if (cell->getPort(QY).is_wire() && cell->getPort(QY).as_wire()->get_bool_attribute(ID::maximize)){
 					decls.push_back(stringf("; yosys-smt2-maximize %s#%d\n", get_id(module), idcounter));
 					log("Wire %s is maximized\n", cell->getPort(QY).as_wire()->name.str());
@@ -1142,10 +1142,10 @@ struct Smt2Worker
 
 				if (private_name && cell->has_attribute(ID::src)) {
 					string raw_src = cell->get_src_attribute();
-					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, get_id(cell), raw_src.c_str()));
+					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.unescape(), id, get_id(cell), raw_src.c_str()));
 				}
 				else
-					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, get_id(cell)));
+					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.unescape(), id, get_id(cell)));
 
 				if (cell->type == TW($cover))
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
@@ -1536,8 +1536,7 @@ struct Smt2Worker
 	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire, int smtoffset = 0)
 	{
 		std::vector<std::string> hiername;
-		const char *wire_name = wire->name.c_str();
-		if (wire_name[0] == '\\') {
+		if (wire->meta_->name.is_public()) {
 			auto hdlname = wire->get_string_attribute(ID::hdlname);
 			for (auto token : split_tokens(hdlname))
 				hiername.push_back("\\" + token);

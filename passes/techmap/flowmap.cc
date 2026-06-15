@@ -636,7 +636,7 @@ struct FlowmapWorker
 
 			if (fanin > order)
 				log_error("Cell %s (%s.%s) with fan-in %d cannot be mapped to a %d-LUT.\n",
-				          cell->type.c_str(), module, cell, fanin, order);
+				          cell->type, module, cell, fanin, order);
 
 			gate_count++;
 			gate_area += 1 << fanin;

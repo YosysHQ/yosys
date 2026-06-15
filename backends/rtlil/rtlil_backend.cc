@@ -211,7 +211,7 @@ void RTLIL_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell, const RTLIL::Design *design, bool resolve_src)
 {
 	dump_attributes(f, indent, cell, design, resolve_src);
-	f << stringf("%s" "cell %s %s\n", indent, cell->type, cell->name);
+	f << stringf("%s" "cell %s %s\n", indent, cell->type.str(), cell->name.str());
 	for (const auto& [name, param] : reversed(cell->parameters)) {
 		f << stringf("%s  parameter%s%s%s %s ", indent,
 				(param.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "",
@@ -222,7 +222,7 @@ void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("\n");
 	}
 	for (const auto& [port, sig] : reversed(cell->connections_)) {
-		f << stringf("%s  connect %s ", indent, port);
+		f << stringf("%s  connect %s ", indent, design->twines.unescaped_str(port));
 		dump_sigspec(f, sig);
 		f << stringf("\n");
 	}

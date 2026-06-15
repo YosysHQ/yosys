@@ -267,9 +267,9 @@ struct Coolrunner2FixupPass : public Pass {
 					if (input == ibuf_out_wire)
 					{
 						log("Found IBUF %s that can be packed with FF %s (type %s)\n",
-							ibuf_out_wire.wire->name.c_str(),
-							maybe_ff_cell->name.c_str(),
-							maybe_ff_cell->type.c_str());
+							ibuf_out_wire.wire->name,
+							maybe_ff_cell->name,
+							maybe_ff_cell->type);
 
 						ibuf_out_to_packed_reg_cell[ibuf_out_wire] = maybe_ff_cell;
 						packed_reg_out.insert(output);
@@ -448,9 +448,9 @@ struct Coolrunner2FixupPass : public Pass {
 								if (xor_fanout_once[wire_in])
 								{
 									log("Additional fanout found for %s into %s (type %s), duplicating\n",
-										xor_cell->name.c_str(),
-										cell->name.c_str(),
-										cell->type.c_str());
+										xor_cell->name,
+										cell->name,
+										cell->type);
 
 									auto new_xor_cell = module->addCell(
 										module->uniquify(xor_cell->name), xor_cell);

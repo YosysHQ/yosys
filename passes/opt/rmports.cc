@@ -76,7 +76,7 @@ struct RmportsPassPass : public Pass {
 			for(auto p : ports_to_remove)
 			{
 				log("  Removing port \"%s\" from instance \"%s\"\n",
-					p.c_str(), cell->type.c_str());
+					p.c_str(), cell->type);
 				cell->unsetPort(cell->module->design->twines.add(Twine{p.str()}));
 			}
 		}

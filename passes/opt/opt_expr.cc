@@ -123,7 +123,7 @@ void log_replace_sig(RTLIL::Module *module, RTLIL::Cell *cell,
 		const std::string &info, RTLIL::SigSpec old_sig, RTLIL::SigSpec new_sig)
 {
 	log_debug("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
-			cell->type.c_str(), cell->name.c_str(), info.c_str(),
+			cell->type, cell->name, info.c_str(),
 			module->design->twines.str(module->meta_->name).c_str(), log_signal(old_sig), log_signal(new_sig));
 }
 
@@ -887,7 +887,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (GetSize(new_sig_a) < GetSize(sig_a)) {
 					log_debug("Replacing port A of %s cell `%s' in module `%s' with shorter expression: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_a), log_signal(new_sig_a));
+							cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_a), log_signal(new_sig_a));
 					cell->setPort(TW::A, new_sig_a);
 					cell->parameters.at(ID::A_WIDTH) = GetSize(new_sig_a);
 					did_something = true;
@@ -909,7 +909,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (GetSize(new_sig_b) < GetSize(sig_b)) {
 					log_debug("Replacing port B of %s cell `%s' in module `%s' with shorter expression: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_b), log_signal(new_sig_b));
+							cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_b), log_signal(new_sig_b));
 					cell->setPort(TW::B, new_sig_b);
 					cell->parameters.at(ID::B_WIDTH) = GetSize(new_sig_b);
 					did_something = true;
@@ -934,7 +934,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (new_a != RTLIL::State::Sm && RTLIL::SigSpec(new_a) != sig_a) {
 					log_debug("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_a), log_signal(new_a));
+							cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_a), log_signal(new_a));
 					cell->setPort(TW::A, sig_a = new_a);
 					cell->parameters.at(ID::A_WIDTH) = 1;
 					did_something = true;
@@ -959,7 +959,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (new_a != RTLIL::State::Sm && RTLIL::SigSpec(new_a) != sig_a) {
 					log_debug("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_a), log_signal(new_a));
+							cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_a), log_signal(new_a));
 					cell->setPort(TW::A, sig_a = new_a);
 					cell->parameters.at(ID::A_WIDTH) = 1;
 					did_something = true;
@@ -984,7 +984,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (new_b != RTLIL::State::Sm && RTLIL::SigSpec(new_b) != sig_b) {
 					log_debug("Replacing port B of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_b), log_signal(new_b));
+							cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str(), log_signal(sig_b), log_signal(new_b));
 					cell->setPort(TW::B, sig_b = new_b);
 					cell->parameters.at(ID::B_WIDTH) = 1;
 					did_something = true;
@@ -1261,7 +1261,7 @@ skip_fine_alu:
 				ACTION_DO(TW::Y, cell->getPort(TW::A));
 			if (input == State::S0 && !a.is_fully_undef()) {
 				log_debug("Replacing data input of %s cell `%s' in module `%s' with constant undef.\n",
-					cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+					cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str());
 				cell->setPort(TW::A, SigSpec(State::Sx, GetSize(a)));
 				did_something = true;
 				goto next_cell;
@@ -1470,7 +1470,7 @@ skip_fine_alu:
 			if (identity_wrt_a || identity_wrt_b)
 			{
 				log_debug("Replacing %s cell `%s' in module `%s' with identity for port %c.\n",
-					cell->type.c_str(), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), identity_wrt_a ? 'A' : 'B');
+					cell->type, cell->name, module->design->twines.str(module->meta_->name).c_str(), identity_wrt_a ? 'A' : 'B');
 
 				if (cell->type == TW($alu)) {
 					bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
@@ -1796,14 +1796,14 @@ skip_identity:
 				// 2^B = 1<<B
 				if (bit_idx == 1) {
 					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n",
-							cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+							cell->name, module->design->twines.str(module->meta_->name).c_str());
 					cell->type_impl = TW::$shl;
 					cell->parameters[ID::A_WIDTH] = 1;
 					cell->setPort(TW::A, Const(State::S1, 1));
 				}
 				else {
 					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n",
-							cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+							cell->name, module->design->twines.str(module->meta_->name).c_str());
 					OptExprPatcher patcher(module, &assign_map);
 					int a_width = cell->parameters[ID::A_WIDTH].as_int();
 
@@ -1846,7 +1846,7 @@ skip_identity:
 				if (sig_a.is_fully_zero())
 				{
 					log_debug("Replacing multiply-by-zero cell `%s' in module `%s' with zero-driver.\n",
-							cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+							cell->name, module->design->twines.str(module->meta_->name).c_str());
 
 					OptExprPatcher patcher(module, &assign_map);
 					patcher.patch(cell, TW::Y, RTLIL::SigSpec(0, sig_y.size()), "mul_zero");
@@ -1857,7 +1857,7 @@ skip_identity:
 				if (sig_a.is_onehot(&exp) && !(a_signed && exp == GetSize(sig_a) - 1))
 				{
 					log_debug("Replacing multiply-by-%s cell `%s' in module `%s' with shift-by-%d.\n",
-							log_signal(sig_a), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), exp);
+							log_signal(sig_a), cell->name, module->design->twines.str(module->meta_->name).c_str(), exp);
 
 					if (!swapped_ab) {
 						cell->setPort(TW::A, cell->getPort(TW::B));
@@ -1890,7 +1890,7 @@ skip_identity:
 			if (a_zeros || b_zeros) {
 				int y_zeros = a_zeros + b_zeros;
 				log_debug("Removing low %d A and %d B bits from cell `%s' in module `%s'.\n",
-						a_zeros, b_zeros, cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+						a_zeros, b_zeros, cell->name, module->design->twines.str(module->meta_->name).c_str());
 
 				if (y_zeros >= GetSize(sig_y)) {
 					OptExprPatcher patcher(module, &assign_map);
@@ -1929,7 +1929,7 @@ skip_identity:
 				if (sig_b.is_fully_zero())
 				{
 					log_debug("Replacing divide-by-zero cell `%s' in module `%s' with undef-driver.\n",
-							cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+							cell->name, module->design->twines.str(module->meta_->name).c_str());
 
 					OptExprPatcher patcher(module, &assign_map);
 					patcher.patch(cell, TW::Y, RTLIL::SigSpec(State::Sx, sig_y.size()), "div_zero");
@@ -1944,7 +1944,7 @@ skip_identity:
 						bool is_truncating = cell->type == TW($div);
 						log_debug("Replacing %s-divide-by-%s cell `%s' in module `%s' with shift-by-%d.\n",
 								is_truncating ? "truncating" : "flooring",
-								log_signal(sig_b), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), exp);
+								log_signal(sig_b), cell->name, module->design->twines.str(module->meta_->name).c_str(), exp);
 
 						Const new_b = exp;
 
@@ -1972,7 +1972,7 @@ skip_identity:
 						bool is_truncating = cell->type == TW($mod);
 						log_debug("Replacing %s-modulo-by-%s cell `%s' in module `%s' with bitmask.\n",
 								is_truncating ? "truncating" : "flooring",
-								log_signal(sig_b), cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str());
+								log_signal(sig_b), cell->name, module->design->twines.str(module->meta_->name).c_str());
 
 						// truncating modulo has the same masked bits as flooring modulo, but
 						// the sign bits are those of A (except when R=0)
@@ -2057,7 +2057,7 @@ skip_identity:
 
 			for (auto &p : split_points)
 				log_debug("Splitting $alu cell `%s' in module `%s' at const-carry point %d.\n",
-					cell->name.c_str(), module->design->twines.str(module->meta_->name).c_str(), p.first);
+					cell->name, module->design->twines.str(module->meta_->name).c_str(), p.first);
 
 			if (split_points.back().first != GetSize(sig_y))
 				split_points.push_back(std::make_pair(GetSize(sig_y), State::Sx));

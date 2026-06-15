@@ -1353,19 +1353,22 @@ struct NameMasqBase {
 		if (s.empty()) return RTLIL::IdString{};
 		return RTLIL::IdString(s);
 	}
+	operator std::string() const {
+		return self().escaped();
+	}
 	bool isPublic() const { return twine_is_public(self().ref()); }
 	bool empty() const { return RTLIL::IdString(self()).empty(); }
 	std::string str() const { return self().escaped(); }
-	const char *c_str() const { return RTLIL::IdString(self()).c_str(); }
 	std::string unescape() const { return self().unescaped(); }
-	bool begins_with(const char *s) const { return RTLIL::IdString(self()).begins_with(s); }
-	bool ends_with(const char *s) const { return RTLIL::IdString(self()).ends_with(s); }
+	bool begins_with(const char *s) const { return str().starts_with(s); }
+	bool ends_with(const char *s) const { return str().ends_with(s); }
 	template <typename... Ts> bool in(Ts &&...args) const {
 		return RTLIL::IdString(self()).in(std::forward<Ts>(args)...);
 	}
 	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
 		return RTLIL::IdString(self()).substr(pos, len);
 	}
+	// TODO less IdString construction in masquerades
 	size_t size() const { return RTLIL::IdString(self()).size(); }
 	bool contains(const char *p) const { return RTLIL::IdString(self()).contains(p); }
 	char operator[](int n) const { return RTLIL::IdString(self()).str()[n]; }
@@ -1438,19 +1441,18 @@ struct RTLIL::CellTypeMasq {
 	bool isPublic() const { return twine_is_public(ref()); }
 	bool empty() const { return ref() == Twine::Null; }
 	std::string str() const { return escaped(); } // TODO deprecate
-	const char *c_str() const { return RTLIL::IdString(*this).c_str(); }
 	std::string unescape() const { return unescaped(); }
-	bool begins_with(const char *s) const { return RTLIL::IdString(*this).begins_with(s); }
-	bool ends_with(const char *s) const { return RTLIL::IdString(*this).ends_with(s); }
+	bool begins_with(const char *s) const { return str().starts_with(s); }
+	bool ends_with(const char *s) const { return str().ends_with(s); }
 	template <typename... Ts> bool in(Ts &&...args) const {
 		return ref().in(std::forward<Ts>(args)...);
 	}
 	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
 		return RTLIL::IdString(*this).substr(pos, len);
 	}
-	size_t size() const { return RTLIL::IdString(*this).size(); }
-	bool contains(const char *p) const { return RTLIL::IdString(*this).contains(p); }
-	char operator[](int n) const { return RTLIL::IdString(*this).str()[n]; }
+	size_t size() const { return str().size(); }
+	// bool contains(const char *p) const { return str().contains(p); }
+	char operator[](int n) const { return str()[n]; }
 	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) == rhs; }
 	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) != rhs; }
 	bool operator<(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) < rhs; }

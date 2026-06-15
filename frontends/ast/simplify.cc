@@ -1517,7 +1517,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				// create the indirection wire
 				std::stringstream sstr;
-				sstr << "$indirect$" << ref->name.c_str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+				sstr << "$indirect$" << ref->name.str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 				std::string tmp_str = sstr.str();
 				add_wire_for_ref(location, ref, tmp_str);
 

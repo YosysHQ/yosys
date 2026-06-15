@@ -287,7 +287,7 @@ struct OptMuxtreeWorker
 					live_ports.push_back(port_idx);
 				} else {
 					log("    dead port %d/%d on %s %s.\n", port_idx+1, GetSize(mi.ports),
-							mi.cell->type.c_str(), mi.cell->name.c_str());
+							mi.cell->type, mi.cell->name);
 					removed_count++;
 				}
 			}
