@@ -407,21 +407,71 @@ struct OptCompactPrefixWorker : CutRegionWorker
 
 	// --- Forward dense pack: out = thermometer(popcount(in)). ---
 
+	// Width-agnostic: the dense pack scales to arbitrary widths (the 64- and
+	// 128-bit regressions), so the fingerprint drives whole-width Const bit
+	// patterns and checks the thermometer output bit by bit instead of going
+	// through a uint64_t value set (which would cap the pack at 62 bits).
 	bool fingerprint_forward(const SigSpec &in_sig, const SigSpec &out_sig, int width)
 	{
-		if (width < 4 || width > 62)
+		if (width < 4)
 			return false;
 		ConstEval ce(module);
 		SigSpec in_s = sigmap(in_sig);
 		SigSpec out_s = sigmap(out_sig);
 
-		for (uint64_t v : make_value_set(width)) {
-			uint64_t actual;
-			if (!eval_with(ce, {{in_s, const_u64(v, width)}}, out_s, actual))
+		// Structured patterns: all-zero, all-one, even/odd lanes, every
+		// single-bit, every prefix-of-k ones, and pseudo-random fills.
+		vector<vector<State>> patterns;
+		auto pat = [&](std::function<bool(int)> f) {
+			vector<State> bits(width);
+			for (int i = 0; i < width; i++)
+				bits[i] = f(i) ? State::S1 : State::S0;
+			patterns.push_back(std::move(bits));
+		};
+		pat([](int) { return false; });
+		pat([](int) { return true; });
+		pat([](int i) { return (i & 1) == 0; });
+		pat([](int i) { return (i & 1) == 1; });
+		for (int k = 0; k < width; k++)
+			pat([k](int i) { return i == k; });
+		for (int k = 0; k <= width; k++)
+			pat([k](int i) { return i < k; });
+		uint64_t lfsr = 0x1234567089abcdefULL;
+		for (int r = 0; r < 32; r++) {
+			vector<State> bits(width);
+			for (int i = 0; i < width; i++) {
+				lfsr ^= lfsr << 13;
+				lfsr ^= lfsr >> 7;
+				lfsr ^= lfsr << 17;
+				bits[i] = (lfsr & 1) ? State::S1 : State::S0;
+			}
+			patterns.push_back(std::move(bits));
+		}
+
+		for (auto &bits : patterns) {
+			int popcount = 0;
+			for (auto b : bits)
+				if (b == State::S1)
+					popcount++;
+
+			charge_eval(cur_cone_est);
+			ce.push();
+			ce.set(in_s, Const(bits));
+			SigSpec out = out_s;
+			SigSpec undef;
+			bool ok = ce.eval(out, undef);
+			ce.pop();
+			if (!ok || !out.is_fully_const())
 				return false;
-			uint64_t expected = lowmask_u64(__builtin_popcountll(v));
-			if (actual != expected)
-				return false;
+
+			// Expected thermometer: low `popcount` bits set, rest clear.
+			Const oc = out.as_const();
+			for (int i = 0; i < GetSize(oc); i++) {
+				bool expect = i < popcount;
+				bool actual = (oc[i] == State::S1);
+				if (expect != actual)
+					return false;
+			}
 		}
 		return true;
 	}
@@ -899,12 +949,16 @@ struct OptCompactPrefixWorker : CutRegionWorker
 	// wrapped in extra combinational post-logic are still found.
 	vector<RootCand> collect_roots()
 	{
+		// The forward dense pack scales to arbitrary widths, so roots are
+		// admitted up to max_width; the reverse/modulo/gather fingerprints
+		// keep their own 62-bit (uint64_t) guards and simply decline wider
+		// roots.
 		int min_w = 4;
-		int max_w = std::min(max_width, 62);
+		int max_w = max_width;
 		return collect_root_candidates(
 			[&](int w) { return w >= min_w && w <= max_w; },
 			[&](const pool<Cell *> &) { return true; },
-			true, std::max(256, max_width * 96), max_width * (max_width + 8));
+			true, std::max(8192, max_width * max_width * 4), max_width * (max_width + 8));
 	}
 
 	void run()
@@ -939,13 +993,20 @@ struct OptCompactPrefixWorker : CutRegionWorker
 				continue;
 
 			int width = GetSize(root.sig);
-			if (width < 4 || width > max_width || width > 62)
+			// Wide roots (>62) are valid forward-pack candidates; the
+			// reverse/modulo/gather matchers self-limit via their own
+			// fingerprint width guards.
+			if (width < 4 || width > max_width)
 				continue;
 
 			pool<Cell *> cone_cells;
 			pool<SigBit> leaf_bits;
 			vector<Cell *> order;
-			int max_cone_cells = std::max(256, max_width * 96);
+			// Dense packs lower to O(width^2) muxes, so the per-cone cap
+			// scales quadratically (the 64-/128-bit packs are ~1.9*width^2
+			// cells); total work stays bounded by the shared walk/eval
+			// budgets, not this cap.
+			int max_cone_cells = std::max(8192, max_width * max_width * 4);
 			int max_leaf_bits = max_width * (max_width + 8);
 			if (!get_cone(root.sig, cone_cells, leaf_bits, max_cone_cells, max_leaf_bits, &order))
 				continue;
