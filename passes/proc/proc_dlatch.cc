@@ -201,6 +201,77 @@ struct proc_dlatch_db_t
 				sig[index] = State::Sx;
 				cell->setPort(ID::A, sig);
 			}
+			bool sibling_undef = true;
+			for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++)
+				if (sig_b[i*width + index] != State::Sx)
+					sibling_undef = false;
+			if (!sibling_undef) {
+				if (!is_bwmux) {
+					for (int i = 0; i < GetSize(sig_s); i++)
+						n = make_inner(sig_s[i], State::S0, n);
+				} else {
+					n = make_inner(sig_s[index], State::S0, n);
+				}
+			}
+			children.insert(n);
+		}
+
+		for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++) {
+			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
+			if (n != false_node) {
+				if (set_undef && sig_b[i*width + index] == needle) {
+					SigSpec sig = cell->getPort(ID::B);
+					sig[i*width + index] = State::Sx;
+					cell->setPort(ID::B, sig);
+				}
+				bool sibling_undef = (sig_a[index] == State::Sx);
+				if (!is_bwmux)
+					for (int j = 0; j < GetSize(sig_s); j++)
+						if (j != i && sig_b[j*width + index] != State::Sx)
+							sibling_undef = false;
+				if (!sibling_undef)
+					n = make_inner(sig_s[is_bwmux ? index : i], State::S1, n);
+				children.insert(n);
+			}
+		}
+
+		if (children.empty())
+			return false_node;
+
+		return make_inner(children);
+	}
+
+	int find_mux_constant(SigBit haystack, State needle, bool set_undef)
+	{
+		if (sigusers[haystack] > 1)
+			set_undef = false;
+
+		if (haystack == SigBit(needle))
+			return true_node;
+
+		auto it = mux_drivers.find(haystack);
+		if (it == mux_drivers.end())
+			return false_node;
+
+		Cell *cell = it->second.first;
+		int index = it->second.second;
+
+		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
+		bool is_bwmux = (cell->type == ID($bwmux));
+		SigSpec sig_a = sigmap(cell->getPort(ID::A));
+		SigSpec sig_b = sigmap(cell->getPort(ID::B));
+		SigSpec sig_s = sigmap(cell->getPort(ID::S));
+		int width = GetSize(sig_a);
+
+		pool<int> children;
+
+		int n = find_mux_constant(sig_a[index], needle, set_undef);
+		if (n != false_node) {
+			if (set_undef && sig_a[index] == SigBit(needle)) {
+				SigSpec sig = cell->getPort(ID::A);
+				sig[index] = State::Sx;
+				cell->setPort(ID::A, sig);
+			}
 			if (!is_bwmux) {
 				for (int i = 0; i < GetSize(sig_s); i++)
 					n = make_inner(sig_s[i], State::S0, n);
@@ -211,9 +282,9 @@ struct proc_dlatch_db_t
 		}
 
 		for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++) {
-			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
+			n = find_mux_constant(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
-				if (set_undef && sig_b[i*width + index] == needle) {
+				if (set_undef && sig_b[i*width + index] == SigBit(needle)) {
 					SigSpec sig = cell->getPort(ID::B);
 					sig[i*width + index] = State::Sx;
 					cell->setPort(ID::B, sig);
@@ -349,7 +420,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 {
 	RTLIL::SigSig latches_bits, nolatches_bits;
 	dict<SigBit, SigBit> latches_out_in;
-	dict<SigBit, int> latches_hold;
+	dict<SigBit, int> latches_hold, latches_rst, latches_set;
 	std::string src = proc->get_src_attribute();
 
 	for (auto sr : proc->syncs)
@@ -381,15 +452,31 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 
 	latches_out_in.sort();
 	for (auto &it : latches_out_in) {
-		int n = db.find_mux_feedback(it.second, it.first, true);
-		if (n == db.false_node) {
+		if (db.find_mux_feedback(it.second, it.first, false) == db.false_node) {
 			nolatches_bits.first.append(it.first);
 			nolatches_bits.second.append(it.second);
-		} else {
-			latches_bits.first.append(it.first);
-			latches_bits.second.append(it.second);
-			latches_hold[it.first] = n;
+			continue;
 		}
+
+		latches_bits.first.append(it.first);
+		latches_bits.second.append(it.second);
+		int nrst = db.find_mux_constant(it.second, State::S0, false);
+		int nset = db.find_mux_constant(it.second, State::S1, false);
+		bool has_rst = (nrst != db.false_node);
+		bool has_set = (nset != db.false_node);
+
+		if (has_rst && !has_set)
+			nrst = db.find_mux_constant(it.second, State::S0, true);
+		else if (has_set && !has_rst)
+			nset = db.find_mux_constant(it.second, State::S1, true);
+		else
+			nrst = nset = db.false_node;
+
+		int n = db.find_mux_feedback(it.second, it.first, true);
+		log_assert(n != db.false_node);
+		latches_hold[it.first] = n;
+		latches_rst[it.first] = nrst;
+		latches_set[it.first] = nset;
 	}
 
 	int offset = 0;
@@ -423,20 +510,35 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 	while (offset < GetSize(latches_bits.first))
 	{
 		int width = 1;
-		int n = latches_hold[latches_bits.first[offset]];
-		Wire *w = latches_bits.first[offset].wire;
+		SigBit obit = latches_bits.first[offset];
+		int n = latches_hold[obit];
+		int nrst = latches_rst[obit];
+		int nset = latches_set[obit];
+		Wire *w = obit.wire;
 
 		if (w != nullptr)
 		{
 			while (offset+width < GetSize(latches_bits.first) &&
 					n == latches_hold[latches_bits.first[offset+width]] &&
+					nrst == latches_rst[latches_bits.first[offset+width]] &&
+					nset == latches_set[latches_bits.first[offset+width]] &&
 					w == latches_bits.first[offset+width].wire)
 				width++;
 
 			SigSpec lhs = latches_bits.first.extract(offset, width);
 			SigSpec rhs = latches_bits.second.extract(offset, width);
 
-			Cell *cell = db.module->addDlatch(NEW_ID, db.module->Not(NEW_ID, db.make_hold(n, src)), rhs, lhs);
+			SigBit en = db.module->Not(NEW_ID, db.make_hold(n, src));
+			bool has_rst = (nrst != db.false_node);
+			bool has_set = (nset != db.false_node);
+
+			Cell *cell;
+			if (has_rst)
+				cell = db.module->addAdlatch(NEW_ID, en, db.make_hold(nrst, src), rhs, lhs, RTLIL::Const(State::S0, width));
+			else if (has_set)
+				cell = db.module->addAdlatch(NEW_ID, en, db.make_hold(nset, src), rhs, lhs, RTLIL::Const(State::S1, width));
+			else
+				cell = db.module->addDlatch(NEW_ID, en, rhs, lhs);
 			cell->set_src_attribute(src);
 			db.generated_dlatches.insert(cell);
 
