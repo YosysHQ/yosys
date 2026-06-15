@@ -612,7 +612,7 @@ struct TechmapWorker
 				}
 
 				for (auto &conn : cell->connections()) {
-					if (design->twines.str(conn.first).starts_with("$"))
+					if (!conn.first.is_public())
 						continue;
 					if (tpl->wire(conn.first) != nullptr && tpl->wire(conn.first)->port_id > 0)
 						continue;
@@ -757,9 +757,10 @@ struct TechmapWorker
 
 							techmap_wire_names.erase(it.first);
 
-							const char *p = data.wire->name.c_str();
-							const char *q = strrchr(p+1, '.');
-							q = q ? q+1 : p+1;
+							std::string final_id = data.wire->name.unescaped();
+							size_t start_idx = final_id.empty() ? 0 : 1;
+							size_t dot_pos = final_id.rfind('.', start_idx);
+							size_t split_idx = (dot_pos != std::string::npos) ? (dot_pos + 1) : start_idx;
 
 							std::string cmd_string = data.value.as_const().decode_string();
 
@@ -864,8 +865,10 @@ struct TechmapWorker
 							Pass::call_on_module(map, tpl, cmd_string);
 							map->sigNormalize(false);
 
-							log_assert(!strncmp(q, "_TECHMAP_DO_", 12));
-							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
+							// log_assert(!strncmp(q, "_TECHMAP_DO_", 12));
+							std::string new_name = final_id.substr(0, split_idx)
+												+ "_TECHMAP_DONE_"
+												+ final_id.substr(split_idx + 12);
 							while (tpl->wire(tpl->design->twines.add(Twine{new_name})) != nullptr)
 								new_name += "_";
 							tpl->rename(data.wire->name.ref(), tpl->design->twines.add(Twine{new_name}));

@@ -1019,7 +1019,7 @@ struct StatPass : public Pass {
 					top_mod = mod;
 			statdata_t data = mod_stat.at(mod->name);
 			if (json_mode) {
-				data.log_data_json(mod->name.c_str(), first_module, hierarchy_mode);
+				data.log_data_json(mod->name.str().c_str(), first_module, hierarchy_mode);
 				first_module = false;
 			} else {
 				log("\n");

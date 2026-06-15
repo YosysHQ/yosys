@@ -1999,8 +1999,8 @@ namespace {
 			std::string mod_name = module ? module->design->twines.str(module->meta_->name) : std::string();
 			std::string cell_name = cell->module->design->twines.str(cell->meta_->name);
 			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",
-					mod_name.c_str(), module ? "." : "",
-					cell_name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
+					mod_name, module ? "." : "",
+					cell_name, cell->type.str(), __FILE__, linenr, buf.str());
 		}
 
 		int param(IdString name)
@@ -2077,7 +2077,7 @@ namespace {
 					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
 
-			if (cell->type == TW($buf)) {
+			if (cell->type_impl == TW($buf)) {
 				port(TW::A, param(ID::WIDTH));
 				port(TW::Y, param(ID::WIDTH));
 				check_expected();

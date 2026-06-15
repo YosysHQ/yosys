@@ -428,7 +428,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	// We couldn't find the module anywhere. Complain if check is set.
 	if (check)
 		log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-		          cell_type.c_str(), parent.design->twines.str(parent.meta_->name).data(), cell.name.c_str());
+		          cell_type.c_str(), parent.design->twines.str(parent.meta_->name).data(), cell.name);
 
 	return nullptr;
 }
@@ -547,7 +547,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		if (mod->get_blackbox_attribute()) {
 			if (flag_simcheck || (flag_smtcheck && !mod->get_bool_attribute(ID::smtlib2_module)))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox/whitebox module.\n",
-						cell->type.c_str(), design->twines.str(module->meta_->name).data(), cell->name.c_str());
+						cell->type, design->twines.str(module->meta_->name).data(), cell->name);
 			continue;
 		}
 
@@ -1282,7 +1282,7 @@ struct HierarchyPass : public Pass {
 			for (auto module : pos_mods)
 			for (auto wire : module->wires()) {
 				if (wire->port_id > 0)
-					pos_map[std::pair<RTLIL::Module*,int>(module, wire->port_id)] = wire->name;
+					pos_map[std::pair<RTLIL::Module*,int>(module, wire->port_id)] = IdString(wire->name);
 			}
 
 			for (auto &work : pos_work) {

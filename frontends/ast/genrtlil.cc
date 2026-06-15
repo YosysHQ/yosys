@@ -490,7 +490,7 @@ struct AST_INTERNAL::ProcessGenerator
 			std::string wire_name;
 			do {
 				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
-						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
+						chunk.wire->name, chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.str().find('$') != std::string::npos)
 					wire_name += stringf("$%d", autoidx++);
 			} while (current_module->wire(current_module->design->twines.lookup(wire_name)) != nullptr);

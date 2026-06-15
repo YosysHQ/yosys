@@ -290,7 +290,7 @@ struct DesignPass : public Pass {
 
 					if (done.count(cell->type) == 0)
 					{
-						std::string trg_name = prefix + "." + (cell->type.c_str() + (*cell->type.c_str() == '\\'));
+						std::string trg_name = prefix + "." + (cell->type.unescape());
 
 						log("Importing %s as %s.\n", fmod, RTLIL::unescape_id(trg_name));
 
