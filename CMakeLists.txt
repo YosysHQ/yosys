@@ -536,6 +536,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		COMMAND make vanilla-test ${makefile_vars}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
 		DEPENDS ${makefile_depends}
+		USES_TERMINAL
 		JOB_SERVER_AWARE TRUE
 	)
 
