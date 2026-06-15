@@ -68,7 +68,7 @@ constexpr TwineRef TWINE_PUBLIC_BIT = TwineRef(1LLU << 62);
 constexpr TwineRef TWINE_TAG_MASK = TWINE_LOCAL_BIT | TWINE_PUBLIC_BIT;
 
 enum : short {
-	STATIC_TWINE_BEGIN = 0,
+	// STATIC_TWINE_BEGIN = 0,
 #define X(N) IDX_##N,
 #include "kernel/constids.inc"
 #undef X
@@ -168,10 +168,15 @@ struct TwinePool {
 
 	const Twine& operator[] (TwineRef ref) const {
 		ref = twine_untag(ref);
-		if (ref < STATIC_TWINE_END)
+		if (ref < STATIC_TWINE_END) {
+			if (yosys_xtrace)
+				std::cout << "#X# accessing " << (size_t)ref << " from globals\n";
 			return globals_[ref];
-		else
+		} else {
+			if (yosys_xtrace)
+				std::cout << "#X# accessing " << (size_t)ref << " from colony of size " << backing.size() << "\n";
 			return backing[ref - STATIC_TWINE_END];
+		}
 	}
 
 	void dump(TwineRef ref, std::ostream& os = std::cout) const {
@@ -289,12 +294,24 @@ struct TwinePool {
 		}
 
 		if (auto it = index.find(t); it != index.end()) {
+			if (yosys_xtrace) {
+				std::cout << "#X# add_inner found ";
+				dump(*it);
+				std::cout << "\n";
+				std::cout << "#X# as integer " << *it << "\n";
+			}
 			return *it;
 		}
 
 		auto colony_it = backing.insert(std::move(t));
 		TwineRef ref = STATIC_TWINE_END + backing.get_index(colony_it);
 		index.insert(ref);
+		if (yosys_xtrace) {
+			std::cout << "#X# add_inner added ";
+			dump(ref);
+			std::cout << "\n";
+			std::cout << "#X# as integer " << ref << "\n";
+		}
 		return ref;
 	}
 

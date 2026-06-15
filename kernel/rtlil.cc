@@ -2003,6 +2003,12 @@ namespace {
 
 		int param_bool(IdString name)
 		{
+			std::cout << name.str() << "\n";
+			std::cout << "get\n";
+			for (auto& [key, val] : cell->parameters) {
+				std::cout << key.str() << " = ";
+				std::cout << val.as_string() << "\n";
+			}
 			int v = param(name);
 			if (GetSize(cell->parameters.at(name)) > 32)
 				error(__LINE__);
