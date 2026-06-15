@@ -200,7 +200,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux));
+		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux), ID($buf));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
@@ -1133,8 +1133,11 @@ struct CxxrtlWorker {
 
 	void dump_cell_expr(const RTLIL::Cell *cell, bool for_debug = false)
 	{
+		// Buffers
+		if (cell->type == ID($buf)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 		// Unary cells
-		if (is_unary_cell(cell->type)) {
+		} else if (is_unary_cell(cell->type)) {
 			f << cell->type.substr(1);
 			if (is_extending_cell(cell->type))
 				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u');
@@ -1517,6 +1520,20 @@ struct CxxrtlWorker {
 				dump_sigspec_rhs(cell->getPort(ID::CLR));
 				f << (cell->getParam(ID::CLR_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
+		// ICG cells GCLK = CLK & (EN | SE)
+		} else if (cell->type == ID($icg)) {
+			f << indent;
+			dump_sigspec_lhs(cell->getPort(ID::GCLK), for_debug);
+			f << " = ";
+			dump_sigspec_rhs(cell->getPort(ID::CLK), for_debug);
+			f << ".bit_and(";
+			dump_sigspec_rhs(cell->getPort(ID::EN), for_debug);
+			if (cell->hasPort(ID::SE)) {
+				f << ".bit_or(";
+				dump_sigspec_rhs(cell->getPort(ID::SE), for_debug);
+				f << ")";
+			}
+			f << ");\n";
 		// Internal cells
 		} else if (is_internal_cell(cell->type)) {
 			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type);
