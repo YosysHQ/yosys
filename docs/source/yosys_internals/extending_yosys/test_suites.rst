@@ -76,15 +76,19 @@ If you don't have one of the :ref:`getting_started/installation:CAD suite(s)`
 installed, you should also install Z3 `following their
 instructions <https://github.com/Z3Prover/z3>`_.
 
-.. TODO:: CMAKE_TODO
+Functional tests are disabled by default, to enable them use next code snippet
+and run tests as usual:
 
-   How does this work under CMake?  Is it only via ``make -C tests
-   ENABLE_FUNCTIONAL_TESTS=1`` and then manually setting ``BUILD_DIR`` and
-   ``PROGRAM_PREFIX``?  And possibly also setting ``YOSYS`` et al if there is a
-   ``.exe``.  Previous instructions:
+.. code:: console
 
-   Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
-   ``make test`` and the functional tests will be run as well.
+   cmake -B build . -DYOSYS_ENABLE_FUNCTIONAL_TESTS=ON
+   cmake --build build --target test --parallel $(nproc)
+
+Or run just functional tests with:
+
+.. code:: console
+
+   cmake --build build --target test-functional
 
 Docs tests
 ~~~~~~~~~~
