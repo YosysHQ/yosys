@@ -981,7 +981,6 @@ struct OptCompactPrefixWorker : CutRegionWorker
 				port_buses.push_back({sigmap(SigSpec(w)), w->name.str()});
 
 		vector<Rewrite> rewrites;
-		pool<SigBit> claimed_bits;
 		vector<RootCand> root_list = collect_roots();
 		for (int ri = 0; ri < GetSize(root_list); ri++) {
 			auto &root = root_list[ri];
