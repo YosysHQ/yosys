@@ -164,6 +164,9 @@ compiler versions.  For up to date information, including OS versions, refer to
    test for ``kernel/celledges.cc``, you will need to create a file like this:
    ``tests/unit/kernel/celledgesTest.cc``;
    * Implement your unit test
+   * Add unit test to file list in `CMakeLists.txt`
+   In case unit tests are added to new directory, note that you need also to
+   create new `CmakeList.txt` file and add ``yosys_gtest(dir-name unit-test.cc)```
 
    Run unit tests
    ~~~~~~~~~~~~~~
@@ -172,10 +175,5 @@ compiler versions.  For up to date information, including OS versions, refer to
 
    .. code-block:: console
 
-      make unit-test
+      cmake --build build --target test-unit
 
-   If you want to remove all unit test files, type:
-
-   .. code-block:: console
-
-      make clean-unit-test
