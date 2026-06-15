@@ -89,7 +89,6 @@ struct OptArgmaxWorker : CutRegionWorker
 		int index_width = 0;
 		int value_width = 0;
 		Cell *anchor = nullptr;
-		IdString anchor_port;
 		pool<Cell *> cut_cells;
 	};
 
@@ -199,7 +198,8 @@ struct OptArgmaxWorker : CutRegionWorker
 	// winner index alone: probing two valid lanes with indices (a, b) tells
 	// whether T[a] < T[b]. The table is learned up to order isomorphism
 	// (ranks) and then verified by the regular fingerprint.
-	bool learn_const_table(const Candidate &cand, vector<uint64_t> &table)
+	bool learn_const_table(const Candidate &cand, vector<uint64_t> &table,
+	                       vector<int> &ok_index)
 	{
 		int n = cand.width;
 		ConstEval ce(module);
@@ -293,32 +293,6 @@ struct OptArgmaxWorker : CutRegionWorker
 		}
 		table = rank;
 		return true;
-	}
-
-	// Index values whose learned table entries behave consistently; the
-	// fingerprint restricts its index test vectors to these (set by
-	// learn_const_table, consumed via Candidate::ok_index).
-	vector<int> ok_index;
-
-	bool find_anchor_driver(const SigSpec &out_sig, Cell *&anchor, IdString &anchor_port)
-	{
-		for (auto bit : sigmap(out_sig)) {
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv == nullptr)
-				continue;
-			for (auto &conn : drv->connections()) {
-				if (!drv->output(conn.first))
-					continue;
-				for (auto out_bit : sigmap(conn.second)) {
-					if (out_bit == bit) {
-						anchor = drv;
-						anchor_port = conn.first;
-						return true;
-					}
-				}
-			}
-		}
-		return false;
 	}
 
 	uint64_t value_mask(int width)
@@ -597,7 +571,7 @@ struct OptArgmaxWorker : CutRegionWorker
 			          last_cut_fail.c_str());
 			return false;
 		}
-		if (!find_anchor_driver(cand.out_sig, cand.anchor, cand.anchor_port))
+		if (!find_anchor_driver(cand.out_sig, cand.anchor))
 			return false;
 
 		fp_attempts++;
@@ -668,7 +642,6 @@ struct OptArgmaxWorker : CutRegionWorker
 		int lanes = 0;
 		int value_width = 0;
 		Cell *anchor = nullptr;
-		IdString anchor_port;
 		pool<Cell *> cut_cells;
 	};
 
@@ -845,6 +818,12 @@ struct OptArgmaxWorker : CutRegionWorker
 		if (module->has_processes_warn())
 			return;
 
+		// run() and run_max_select() share this worker (and its work
+		// budgets), so reset the one-shot note flag: the max-select phase
+		// must still report if it skips roots, even when run() already
+		// exhausted and logged for the argmax phase.
+		budget_noted = false;
+
 		// Cheap module prefilter: a compare-select tree needs compares and
 		// muxes.
 		bool has_cmp = false, has_mux = false;
@@ -1007,7 +986,7 @@ struct OptArgmaxWorker : CutRegionWorker
 				cand.values_name = values.name;
 				cand.lanes = n;
 				cand.value_width = vw;
-				if (!find_anchor_driver(root.sig, cand.anchor, cand.anchor_port))
+				if (!find_anchor_driver(root.sig, cand.anchor))
 					break;
 
 				// Unmasked form first.
@@ -1379,12 +1358,11 @@ struct OptArgmaxWorker : CutRegionWorker
 
 					vector<uint64_t> table;
 					fp_attempts++;
-					if (!learn_const_table(cand, table)) {
+					if (!learn_const_table(cand, table, cand.ok_index)) {
 						log_debug("  valid=%s index=%s values=<learned>: order probe failed\n",
 						          valid.name.c_str(), index.name.c_str());
 						continue;
 					}
-					cand.ok_index = ok_index;
 					cand.value_width = std::max(1, clog2_int(width));
 					cand.values_sig = SigSpec(packed_table_const(table, cand.value_width));
 					if (!check_candidate(cand, cone))

@@ -72,16 +72,6 @@ struct OptCompactPrefixWorker : CutRegionWorker
 	{
 	}
 
-	// Cut buses only need to consist of wire bits; FF outputs (cone leaves)
-	// are valid region boundaries even though they have no comb driver.
-	bool sig_bus_ok(const SigSpec &sig)
-	{
-		for (auto bit : sigmap(sig))
-			if (!bit.wire)
-				return false;
-		return true;
-	}
-
 	// Lane-ordered bus extraction: for unrolled scan loops the i-th output
 	// bit is produced at the i-th loop step, so a boundary signal that first
 	// influences root bit i (LSB-first scans; last, for MSB-first scans) is
