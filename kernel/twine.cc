@@ -15,7 +15,6 @@ TwineRef twine_populate(std::string name) {
 }
 void twine_prepopulate() {
 	TwinePool::globals_.reserve(STATIC_TWINE_END);
-	TwinePool::globals_.push_back(Twine{std::string()});
 #define X(_id) twine_populate("\\" #_id);
 #include "kernel/constids.inc"
 #undef X
