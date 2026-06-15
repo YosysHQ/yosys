@@ -60,6 +60,11 @@ struct CheckPass : public Pass {
 		log("        also check for internal cells that have not been mapped to cells of the\n");
 		log("        target architecture\n");
 		log("\n");
+		log("    -nolatches\n");
+		log("        also check for latch cells ($dlatch, $adlatch, $dlatchsr and their\n");
+		log("        $_DLATCH_*/$_DLATCHSR_* mappings) remaining in the design. Use this\n");
+		log("        before techmapping in flows that must not emit latches.\n");
+		log("\n");
 		log("    -allow-tbuf\n");
 		log("        modify the -mapped behavior to still allow $_TBUF_ cells\n");
 		log("\n");
@@ -79,6 +84,7 @@ struct CheckPass : public Pass {
 		bool noinit = false;
 		bool initdrv = false;
 		bool mapped = false;
+		bool nolatches = false;
 		bool allow_tbuf = false;
 		bool assert_mode = false;
 		bool force_detailed_loop_check = false;
@@ -96,6 +102,10 @@ struct CheckPass : public Pass {
 			}
 			if (args[argidx] == "-mapped") {
 				mapped = true;
+				continue;
+			}
+			if (args[argidx] == "-nolatches") {
+				nolatches = true;
 				continue;
 			}
 			if (args[argidx] == "-allow-tbuf") {
@@ -263,6 +273,12 @@ struct CheckPass : public Pass {
 					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescape());
 					counter++;
 				cell_allowed:;
+				}
+
+				if (nolatches && (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
+						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))) {
+					log_warning("Cell %s.%s is a latch of type %s.\n", module, cell, cell->type.unescape());
+					counter++;
 				}
 
 				for (auto &conn : cell->connections()) {

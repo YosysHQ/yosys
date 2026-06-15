@@ -1,0 +1,31 @@
+read_verilog <<EOT
+module top(input g, rn, d, output reg q);
+always @* if (~rn) q <= 0; else if (g) q <= d;
+endmodule
+EOT
+proc -latches info
+select -assert-count 1 t:$dlatch
+logger -expect warning "is a latch of type" 1
+check -nolatches
+logger -check-expected
+
+design -reset
+
+read_verilog <<EOT
+module top(input g, d, output reg q);
+always @* q = g ? d : 1'b0;
+endmodule
+EOT
+proc
+check -nolatches -assert
+
+design -reset
+
+read_verilog <<EOT
+module top(input g, rn, d, output reg q);
+always @* if (~rn) q <= 0; else if (g) q <= d;
+endmodule
+EOT
+proc -latches info
+logger -expect error "Found 1 problems in" 1
+check -nolatches -assert
