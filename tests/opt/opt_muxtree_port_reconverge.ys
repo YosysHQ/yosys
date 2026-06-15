@@ -1,0 +1,55 @@
+read_rtlil << EOT
+module \top
+  wire input 1 \a
+  wire input 2 \b
+  wire output 3 \out
+  wire $0\out[0:0]
+  wire \y
+  wire $1\out[0:0]
+  wire \s
+  wire \q
+  wire \n_a
+
+  cell $mux \mux
+    parameter \WIDTH 1
+    connect \A 1'0
+    connect \B \a
+    connect \S \b
+    connect \Y \y
+  end
+  
+  attribute \full_case 1
+  cell $pmux \pmux
+    parameter \WIDTH 1
+    parameter \S_WIDTH 2
+    connect \A 1'x
+    connect \B { \y \y }
+    connect \S { \n_a \s }
+    connect \Y \q
+  end
+  
+  attribute \full_case 1
+  cell $not \not
+    parameter \A_SIGNED 0
+    parameter \Y_WIDTH 1
+    parameter \A_WIDTH 1
+    connect \A \a
+    connect \Y \n_a
+  end
+
+  connect $0\out[0:0] $1\out[0:0]
+  connect \s \a
+  connect $1\out[0:0] \q
+  connect \out \q
+end
+EOT
+# a drives out
+select -assert-any i:a %co* o:out %i
+
+opt_muxtree
+# a gets optimized out
+opt_reduce
+opt_expr
+
+# a no longer drives out
+select -assert-any o:out %ci* i:a %i
