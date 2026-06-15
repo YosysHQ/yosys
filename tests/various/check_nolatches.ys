@@ -3,7 +3,7 @@ module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
 EOT
-proc -latches info
+proc
 select -assert-count 1 t:$dlatch
 logger -expect warning "is a latch of type" 1
 check -nolatches
@@ -26,6 +26,6 @@ module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
 EOT
-proc -latches info
+proc
 logger -expect error "Found 1 problems in" 1
 check -nolatches -assert
