@@ -7,6 +7,7 @@
 #include <cassert>
 
 #include "libs/plf_colony/plf_colony.h"
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <span>
@@ -165,6 +166,8 @@ struct TwinePool {
 	static std::vector<Twine> globals_;
 	plf::colony<Twine> backing;
 	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
+	// Indices of monostate, kept sorted
+	std::vector<size_t> free_list;
 
 	const Twine& operator[] (TwineRef ref) const {
 		ref = twine_untag(ref);
@@ -267,8 +270,15 @@ struct TwinePool {
 	void rebuild_index() {
 		for (TwineRef ref = 0; ref < STATIC_TWINE_END; ref++)
 			index.insert(ref);
-		for (auto it = backing.begin(); it != backing.end(); ++it)
-			index.insert(STATIC_TWINE_END + backing.get_index(it));
+		free_list.clear();
+		for (auto it = backing.begin(); it != backing.end(); ++it) {
+			size_t idx = backing.get_index(it);
+			if (it->is_dead())
+				free_list.push_back(idx);
+			else
+				index.insert(STATIC_TWINE_END + idx);
+		}
+		std::sort(free_list.begin(), free_list.end(), std::greater<size_t>());
 	}
 
 	TwineRef find(Twine t) const {
@@ -303,8 +313,16 @@ struct TwinePool {
 			return *it;
 		}
 
-		auto colony_it = backing.insert(std::move(t));
-		TwineRef ref = STATIC_TWINE_END + backing.get_index(colony_it);
+		TwineRef ref;
+		if (!free_list.empty()) {
+			size_t idx = free_list.back();
+			free_list.pop_back();
+			backing[idx] = std::move(t);
+			ref = STATIC_TWINE_END + idx;
+		} else {
+			auto colony_it = backing.insert(std::move(t));
+			ref = STATIC_TWINE_END + backing.get_index(colony_it);
+		}
 		index.insert(ref);
 		if (yosys_xtrace) {
 			std::cout << "#X# add_inner added ";
@@ -342,7 +360,7 @@ struct TwinePool {
 		}
 	}
 
-	size_t size() const { return backing.size(); }
+	size_t size() const { return backing.size() - free_list.size(); }
 
 	TwineRef concat(std::span<const TwineRef> ids) {
 		if (ids.size() == 1)
@@ -387,16 +405,19 @@ struct TwinePool {
 		for (TwineRef ref : roots)
 			mark_live(ref, live);
 		size_t erased = 0;
-		for (auto it = backing.begin(); it != backing.end();) {
-			TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
-			if (live.count(ref)) {
-				++it;
-			} else {
-				index.erase(ref);
-				it = backing.erase(it);
+		for (auto it = backing.begin(); it != backing.end(); ++it) {
+			if (it->is_dead())
+				continue;
+			size_t idx = backing.get_index(it);
+			if (!live.count(STATIC_TWINE_END + idx)) {
+				index.erase(STATIC_TWINE_END + idx);
+				free_list.push_back(idx);
+				*it = Twine{};
 				erased++;
 			}
 		}
+		// TODO something like YOSYS_SORT_ID_FREE_LIST to make it optional?
+		std::sort(free_list.begin(), free_list.end(), std::greater<size_t>());
 		return erased;
 	}
 
