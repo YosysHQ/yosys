@@ -32,18 +32,19 @@ USING_YOSYS_NAMESPACE
 using namespace RTLIL_BACKEND;
 YOSYS_NAMESPACE_BEGIN
 
-void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, bool stringify)
 {
 	// Emit the typed src field first. It is not stored in obj->attributes
 	// — the dict no longer holds ID::src under any circumstance. Backends
-	// that want to materialize the pipe-joined literal pass resolve_src.
+	// that want to materialize the pipe-joined literal pass stringify.
 	if (design && design->obj_src_id(obj) != Twine::Null) {
 		TwineRef id = design->obj_src_id(obj);
 		f << stringf("%s" "attribute \\src ", indent);
-		if (resolve_src) {
+		if (stringify) {
 			dump_const(f, RTLIL::Const(design->twines.str(id)));
 		} else {
 			dump_const(f, RTLIL::Const(stringf("@%zu", id)));
+			f << stringf("  # %s", design->twines.str(id).c_str());
 		}
 		f << stringf("\n");
 	}
@@ -59,7 +60,11 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
 	if (!design || design->twines.size() == 0)
 		return;
 	f << stringf("twines\n");
-	for (TwineRef id = 0; id < STATIC_TWINE_END; id++) {
+	std::vector<TwineRef> ids;
+	for (auto it = design->twines.backing.begin(); it != design->twines.backing.end(); ++it)
+		ids.push_back(STATIC_TWINE_END + design->twines.backing.get_index(it));
+	std::sort(ids.begin(), ids.end());
+	for (TwineRef id : ids) {
 		const Twine &n = design->twines[id];
 		if (n.is_leaf()) {
 			f << stringf("  leaf %zu ", id);
@@ -141,38 +146,60 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 	}
 }
 
-void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint)
+static std::string twine_handle(TwineRef ref)
+{
+	return stringf("%s@%zu", twine_is_public(ref) ? "$pub" : "$priv", (size_t)twine_untag(ref));
+}
+
+static std::string twine_ref(const RTLIL::Design *design, TwineRef ref, bool stringify)
+{
+	if (stringify || twine_untag(ref) < STATIC_TWINE_END)
+		return design->twines.str(ref);
+	return twine_handle(ref);
+}
+
+static std::string twine_cmt(const RTLIL::Design *design, TwineRef ref, bool stringify)
+{
+	if (stringify || twine_untag(ref) < STATIC_TWINE_END)
+		return "";
+	return stringf("  # %s", design->twines.str(ref).c_str());
+}
+
+void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint, bool stringify)
 {
 	if (chunk.wire == NULL) {
 		dump_const(f, chunk.data, chunk.width, chunk.offset, autoint);
 	} else {
+		TwineRef wref = chunk.wire->name.ref();
+		std::string name = (stringify || twine_untag(wref) < STATIC_TWINE_END)
+			? chunk.wire->name.str() : twine_handle(wref);
 		if (chunk.width == chunk.wire->width && chunk.offset == 0)
-			f << stringf("%s", chunk.wire->name);
+			f << name;
 		else if (chunk.width == 1)
-			f << stringf("%s [%d]", chunk.wire->name, chunk.offset);
+			f << stringf("%s [%d]", name.c_str(), chunk.offset);
 		else
-			f << stringf("%s [%d:%d]", chunk.wire->name, chunk.offset+chunk.width-1, chunk.offset);
+			f << stringf("%s [%d:%d]", name.c_str(), chunk.offset+chunk.width-1, chunk.offset);
 	}
 }
 
-void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint)
+void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint, bool stringify)
 {
 	if (sig.is_chunk()) {
-		dump_sigchunk(f, sig.as_chunk(), autoint);
+		dump_sigchunk(f, sig.as_chunk(), autoint, stringify);
 	} else {
 		f << stringf("{ ");
 		auto chunks = sig.chunks();
 		for (const auto& chunk : reversed(chunks)) {
-			dump_sigchunk(f, chunk, false);
+			dump_sigchunk(f, chunk, false, stringify);
 			f << stringf(" ");
 		}
 		f << stringf("}");
 	}
 }
 
-void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire, const RTLIL::Design *design, bool stringify)
 {
-	dump_attributes(f, indent, wire, design, resolve_src);
+	dump_attributes(f, indent, wire, design, stringify);
 	if (wire->driverCell_) {
 		f << stringf("%s" "# driver %s %s\n", indent,
 				wire->driverCell()->name, wire->driverPort());
@@ -192,12 +219,12 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("inout %d ", wire->port_id);
 	if (wire->is_signed)
 		f << stringf("signed ");
-	f << stringf("%s\n", wire->name);
+	f << twine_ref(design, wire->name.ref(), stringify) << twine_cmt(design, wire->name.ref(), stringify) << "\n";
 }
 
-void RTLIL_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory, const RTLIL::Design *design, bool stringify)
 {
-	dump_attributes(f, indent, memory, design, resolve_src);
+	dump_attributes(f, indent, memory, design, stringify);
 	f << stringf("%s" "memory ", indent);
 	if (memory->width != 1)
 		f << stringf("width %d ", memory->width);
@@ -205,13 +232,15 @@ void RTLIL_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 		f << stringf("size %d ", memory->size);
 	if (memory->start_offset != 0)
 		f << stringf("offset %d ", memory->start_offset);
-	f << stringf("%s\n", design->twines.str(memory->meta_->name).c_str());
+	f << twine_ref(design, memory->meta_->name, stringify) << twine_cmt(design, memory->meta_->name, stringify) << "\n";
 }
 
-void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell, const RTLIL::Design *design, bool stringify)
 {
-	dump_attributes(f, indent, cell, design, resolve_src);
-	f << stringf("%s" "cell %s %s\n", indent, cell->type.str(), cell->name.str());
+	dump_attributes(f, indent, cell, design, stringify);
+	f << stringf("%s" "cell ", indent);
+	f << twine_ref(design, cell->type.ref(), stringify) << " " << twine_ref(design, cell->name.ref(), stringify)
+		<< twine_cmt(design, cell->type.ref(), stringify) << twine_cmt(design, cell->name.ref(), stringify) << "\n";
 	for (const auto& [name, param] : reversed(cell->parameters)) {
 		f << stringf("%s  parameter%s%s%s %s ", indent,
 				(param.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "",
@@ -222,53 +251,54 @@ void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("\n");
 	}
 	for (const auto& [port, sig] : reversed(cell->connections_)) {
-		f << stringf("%s  connect %s ", indent, design->twines.unescaped_str(port));
-		dump_sigspec(f, sig);
-		f << stringf("\n");
+		f << stringf("%s  connect ", indent);
+		f << twine_ref(design, port, stringify) << " ";
+		dump_sigspec(f, sig, true, stringify);
+		f << twine_cmt(design, port, stringify) << "\n";
 	}
 	f << stringf("%s" "end\n", indent);
 }
 
-void RTLIL_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs, const RTLIL::Design *design, bool stringify)
 {
 	for (const auto& [lhs, rhs] : cs->actions) {
 		f << stringf("%s" "assign ", indent);
-		dump_sigspec(f, lhs);
+		dump_sigspec(f, lhs, true, stringify);
 		f << stringf(" ");
-		dump_sigspec(f, rhs);
+		dump_sigspec(f, rhs, true, stringify);
 		f << stringf("\n");
 	}
 
 	for (const auto& sw : cs->switches)
-		dump_proc_switch(f, indent, sw, design, resolve_src);
+		dump_proc_switch(f, indent, sw, design, stringify);
 }
 
-void RTLIL_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw, const RTLIL::Design *design, bool stringify)
 {
-	dump_attributes(f, indent, sw, design, resolve_src);
+	dump_attributes(f, indent, sw, design, stringify);
 
 	f << stringf("%s" "switch ", indent);
-	dump_sigspec(f, sw->signal);
+	dump_sigspec(f, sw->signal, true, stringify);
 	f << stringf("\n");
 
 	for (const auto case_ : sw->cases)
 	{
-		dump_attributes(f, indent, case_, design, resolve_src);
+		dump_attributes(f, indent, case_, design, stringify);
 		f << stringf("%s  case ", indent);
 		for (size_t i = 0; i < case_->compare.size(); i++) {
 			if (i > 0)
 				f << stringf(" , ");
-			dump_sigspec(f, case_->compare[i]);
+			dump_sigspec(f, case_->compare[i], true, stringify);
 		}
 		f << stringf("\n");
 
-		dump_proc_case_body(f, indent + "    ", case_, design, resolve_src);
+		dump_proc_case_body(f, indent + "    ", case_, design, stringify);
 	}
 
 	f << stringf("%s" "end\n", indent);
 }
 
-void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy, const RTLIL::Design *design, bool stringify)
 {
 	f << stringf("%s" "sync ", indent);
 	switch (sy->type) {
@@ -277,7 +307,7 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 	if (0) case RTLIL::STp: f << stringf("posedge ");
 	if (0) case RTLIL::STn: f << stringf("negedge ");
 	if (0) case RTLIL::STe: f << stringf("edge ");
-		dump_sigspec(f, sy->signal);
+		dump_sigspec(f, sy->signal, true, stringify);
 		f << stringf("\n");
 		break;
 	case RTLIL::STa: f << stringf("always\n"); break;
@@ -287,55 +317,57 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 
 	for (const auto& [lhs, rhs] : sy->actions) {
 		f << stringf("%s  update ", indent);
-		dump_sigspec(f, lhs);
+		dump_sigspec(f, lhs, true, stringify);
 		f << stringf(" ");
-		dump_sigspec(f, rhs);
+		dump_sigspec(f, rhs, true, stringify);
 		f << stringf("\n");
 	}
 
 	for (auto &it: sy->mem_write_actions) {
-		dump_attributes(f, indent, &it, design, resolve_src);
+		dump_attributes(f, indent, &it, design, stringify);
 		f << stringf("%s  memwr %s ", indent, it.memid);
-		dump_sigspec(f, it.address);
+		dump_sigspec(f, it.address, true, stringify);
 		f << stringf(" ");
-		dump_sigspec(f, it.data);
+		dump_sigspec(f, it.data, true, stringify);
 		f << stringf(" ");
-		dump_sigspec(f, it.enable);
+		dump_sigspec(f, it.enable, true, stringify);
 		f << stringf(" ");
 		dump_const(f, it.priority_mask);
 		f << stringf("\n");
 	}
 }
 
-void RTLIL_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc, const RTLIL::Design *design, bool resolve_src)
+void RTLIL_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc, const RTLIL::Design *design, bool stringify)
 {
-	dump_attributes(f, indent, proc, design, resolve_src);
-	f << stringf("%s" "process %s\n", indent, design->twines.str(proc->meta_->name).c_str());
-	dump_proc_case_body(f, indent + "  ", &proc->root_case, design, resolve_src);
+	dump_attributes(f, indent, proc, design, stringify);
+	f << stringf("%s" "process ", indent);
+	f << twine_ref(design, proc->meta_->name, stringify) << twine_cmt(design, proc->meta_->name, stringify) << "\n";
+	dump_proc_case_body(f, indent + "  ", &proc->root_case, design, stringify);
 	for (auto* sync : proc->syncs)
-		dump_proc_sync(f, indent + "  ", sync, design, resolve_src);
+		dump_proc_sync(f, indent + "  ", sync, design, stringify);
 	f << stringf("%s" "end\n", indent);
 }
 
-void RTLIL_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
+void RTLIL_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right, bool stringify)
 {
 	f << stringf("%s" "connect ", indent);
-	dump_sigspec(f, left);
+	dump_sigspec(f, left, true, stringify);
 	f << stringf(" ");
-	dump_sigspec(f, right);
+	dump_sigspec(f, right, true, stringify);
 	f << stringf("\n");
 }
 
-void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, bool resolve_src)
+void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, bool stringify)
 {
 	bool print_header = flag_m || module->is_selected_whole();
 	bool print_body = !flag_n || !module->is_selected_whole();
 
 	if (print_header)
 	{
-		dump_attributes(f, indent, module, design, resolve_src);
+		dump_attributes(f, indent, module, design, stringify);
 
-		f << stringf("%s" "module %s\n", indent, design->twines.str(module->meta_->name).c_str());
+		f << stringf("%s" "module ", indent);
+		f << twine_ref(design, module->meta_->name, stringify) << twine_cmt(design, module->meta_->name, stringify) << "\n";
 
 		if (!module->avail_parameters.empty()) {
 			if (only_selected)
@@ -359,28 +391,28 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 			if (!only_selected || design->selected(module, wire)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_wire(f, indent + "  ", wire, design, resolve_src);
+				dump_wire(f, indent + "  ", wire, design, stringify);
 			}
 
 		for (const auto& [_, mem] : reversed(module->memories))
 			if (!only_selected || design->selected(module, mem)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_memory(f, indent + "  ", mem, design, resolve_src);
+				dump_memory(f, indent + "  ", mem, design, stringify);
 			}
 
 		for (const auto& [_, cell] : reversed(module->cells_))
 			if (!only_selected || design->selected(module, cell)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_cell(f, indent + "  ", cell, design, resolve_src);
+				dump_cell(f, indent + "  ", cell, design, stringify);
 			}
 
 		for (const auto& [_, process] : reversed(module->processes))
 			if (!only_selected || design->selected(module, process)) {
 				if (only_selected)
 					f << stringf("\n");
-				dump_proc(f, indent + "  ", process, design, resolve_src);
+				dump_proc(f, indent + "  ", process, design, stringify);
 			}
 
 		bool first_conn_line = true;
@@ -398,7 +430,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 			if (show_conn) {
 				if (only_selected && first_conn_line)
 					f << stringf("\n");
-				dump_conn(f, indent + "  ", lhs, rhs);
+				dump_conn(f, indent + "  ", lhs, rhs, stringify);
 				first_conn_line = false;
 			}
 		}
@@ -408,7 +440,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		f << stringf("%s" "end\n", indent);
 }
 
-void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, bool resolve_src)
+void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, bool stringify)
 {
 	int init_autoidx = autoidx;
 
@@ -428,7 +460,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		if (only_selected)
 			f << stringf("\n");
 		f << stringf("autoidx %d\n", autoidx);
-		if (!resolve_src)
+		if (!stringify)
 			dump_twines(f, design);
 	}
 
@@ -436,7 +468,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		if (!only_selected || design->selected_module(module->meta_->name)) {
 			if (only_selected)
 				f << stringf("\n");
-			dump_module(f, "", module, design, only_selected, flag_m, flag_n, resolve_src);
+			dump_module(f, "", module, design, only_selected, flag_m, flag_n, stringify);
 		}
 	}
 
@@ -463,18 +495,16 @@ struct RTLILBackend : public Backend {
 		log("    -sort\n");
 		log("        sort design in-place (used to be default).\n");
 		log("\n");
-		log("    -resolve-src\n");
-		log("        expand twine references in src attributes inline. Without\n");
-		log("        this flag the design-level twine pool is emitted as a\n");
-		log("        `twines` header block and cell src attributes keep their\n");
-		log("        compact \"@N\" reference form.\n");
+		log("    -readable\n");
+		log("        lose information for more readable files.\n");
+		log("        Breaks perfect replayability.\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool selected = false;
 		bool do_sort = false;
-		bool resolve_src = false;
+		bool stringify = false;
 
 		log_header(design, "Executing RTLIL backend.\n");
 
@@ -489,8 +519,8 @@ struct RTLILBackend : public Backend {
 				do_sort = true;
 				continue;
 			}
-			if (arg == "-resolve-src") {
-				resolve_src = true;
+			if (arg == "-readable") {
+				stringify = true;
 				continue;
 			}
 			break;
@@ -503,7 +533,7 @@ struct RTLILBackend : public Backend {
 			design->sort();
 
 		*f << stringf("# Generated by %s\n", yosys_maybe_version());
-		RTLIL_BACKEND::dump_design(*f, design, selected, true, false, resolve_src);
+		RTLIL_BACKEND::dump_design(*f, design, selected, true, false, stringify);
 	}
 } RTLILBackend;
 
@@ -531,17 +561,15 @@ struct DumpPass : public Pass {
 		log("    -a <filename>\n");
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
-		log("    -resolve-src\n");
-		log("        expand twine references in src attributes inline. Without\n");
-		log("        this flag the design-level twine pool is emitted as a\n");
-		log("        `twines` header block and cell src attributes keep their\n");
-		log("        compact \"@N\" reference form.\n");
+		log("    -readable\n");
+		log("        lose information for more readable files.\n");
+		log("        Breaks perfect replayability.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string filename;
-		bool flag_m = false, flag_n = false, append = false, resolve_src = false;
+		bool flag_m = false, flag_n = false, append = false, stringify = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -565,8 +593,8 @@ struct DumpPass : public Pass {
 				flag_n = true;
 				continue;
 			}
-			if (arg == "-resolve-src") {
-				resolve_src = true;
+			if (arg == "-readable") {
+				stringify = true;
 				continue;
 			}
 			break;
@@ -590,7 +618,7 @@ struct DumpPass : public Pass {
 			f = &buf;
 		}
 
-		RTLIL_BACKEND::dump_design(*f, design, true, flag_m, flag_n, resolve_src);
+		RTLIL_BACKEND::dump_design(*f, design, true, flag_m, flag_n, stringify);
 
 		if (!empty) {
 			delete f;
