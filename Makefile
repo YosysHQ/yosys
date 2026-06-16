@@ -742,6 +742,7 @@ OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/design.o
+OBJS += passes/cmds/dump_twines.o
 OBJS += passes/cmds/plugin.o
 
 include $(YOSYS_SRC)/kernel/unstable/Makefile.inc
