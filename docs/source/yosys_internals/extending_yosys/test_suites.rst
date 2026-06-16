@@ -16,6 +16,20 @@ tests.
    cmake -B build .
    cmake --build build --target test --parallel $(nproc)
 
+.. warning::
+
+   There are limitations when using `Ninja` as generator, so we suggest using
+   `Unix Makefiles` to make running tests in parallel possible. However, it is
+   possible to use it directly by running:
+
+.. code:: console
+
+   cd tests
+   make -j9
+
+Please note that in this case default build directory is `build` but can be
+overwritten by providing `BUILD_DIR` variable.
+
 Vanilla tests
 ~~~~~~~~~~~~~
 
