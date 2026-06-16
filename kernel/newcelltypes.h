@@ -455,8 +455,10 @@ struct Categories {
 		constexpr bool operator[](size_t idx) {
 			return data[idx];
 		}
-		constexpr void set_id(IdString type, bool val = true) {
-			size_t idx = type.index_;
+		// Indexed by TwineRef value, matching operator() and the Categories
+		// constructor.
+		constexpr void set_id(TwineRef type, bool val = true) {
+			size_t idx = type;
 			if (idx >= MAX_CELLS)
 				return; // TODO should be an assert but then it's not constexpr
 			data[idx] = val;
