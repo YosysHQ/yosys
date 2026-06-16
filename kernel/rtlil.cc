@@ -1227,16 +1227,41 @@ namespace {
 
 size_t RTLIL::Design::gc_twines()
 {
-	// Mark phase: every live name and src_id on any AttrObject is a root.
+	// Mark phase: gather every TwineRef stored on a live object as a root.
+	// TwinePool::gc traces each root's concat/suffix children transitively.
 	pool<TwineRef> live;
+	auto root = [&](TwineRef ref) {
+		if (ref != Twine::Null)
+			live.insert(ref);
+	};
+
 	walk_attr_objects(this, [&](const RTLIL::AttrObject *obj) {
-		TwineRef src = obj->meta_->src;
-		if (src != Twine::Null)
-			live.insert(src);
-		TwineRef name = obj->meta_->name;
-		if (name != Twine::Null)
-			live.insert(name);
+		if (!obj->meta_)
+			return;
+		root(obj->meta_->src);
+		root(obj->meta_->name);
 	});
+
+	for (auto &[_, module] : modules_) {
+		for (auto &[_, wire] : module->wires_)
+			if (wire->known_driver())
+				root(wire->driverPort());
+		for (auto &[_, cell] : module->cells_) {
+			root(cell->type.ref());
+			for (auto &conn : cell->connections())
+				root(conn.first);
+		}
+	}
+
+	for (auto &[_, sel] : selection_vars) {
+		for (TwineRef m : sel.selected_modules)
+			root(m);
+		for (auto &[m, members] : sel.selected_members) {
+			root(m);
+			for (TwineRef member : members)
+				root(member);
+		}
+	}
 
 	// Sweep: backing refs are stable, so survivors need no remapping.
 	return twines.gc(live);
@@ -5294,8 +5319,8 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 }
 
 bool RTLIL::Cell::has_keep_attr() const {
-	return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
-			module->design->module(type)->get_bool_attribute(ID::keep));
+	return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type_impl) &&
+			module->design->module(type_impl)->get_bool_attribute(ID::keep));
 }
 
 bool RTLIL::Cell::has_memid() const

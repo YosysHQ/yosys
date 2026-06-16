@@ -169,12 +169,12 @@ struct TwinePool {
 	const Twine& operator[] (TwineRef ref) const {
 		ref = twine_untag(ref);
 		if (ref < STATIC_TWINE_END) {
-			if (yosys_xtrace)
-				std::cout << "#X# accessing " << (size_t)ref << " from globals\n";
+			// if (yosys_xtrace)
+			// 	std::cout << "#X# accessing " << (size_t)ref << " from globals\n";
 			return globals_[ref];
 		} else {
-			if (yosys_xtrace)
-				std::cout << "#X# accessing " << (size_t)ref << " from colony of size " << backing.size() << "\n";
+			// if (yosys_xtrace)
+			// 	std::cout << "#X# accessing " << (size_t)ref << " from colony of size " << backing.size() << "\n";
 			return backing[ref - STATIC_TWINE_END];
 		}
 	}
