@@ -77,7 +77,7 @@ struct RmportsPassPass : public Pass {
 			{
 				log("  Removing port \"%s\" from instance \"%s\"\n",
 					p.c_str(), cell->type);
-				cell->unsetPort(cell->module->design->twines.add(Twine{p.str()}));
+				cell->unsetPort(cell->module->design->twines.add(std::string{p.str()}));
 			}
 		}
 	}

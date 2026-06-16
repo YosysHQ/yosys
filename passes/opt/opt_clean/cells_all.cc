@@ -326,7 +326,7 @@ void remove_mems(RTLIL::Module* mod, const MemAnalysis& mem_analysis, bool verbo
 		if (!mem_analysis.unused[it.second].load(std::memory_order_relaxed))
 			continue;
 		std::string id_s = it.first;
-		TwineRef id = mod->design->twines.add(Twine{it.first});
+		TwineRef id = mod->design->twines.add(std::string{it.first});
 		if (verbose)
 			log_debug("  removing unused memory `%s'.\n", id_s);
 		delete mod->memories.at(id);

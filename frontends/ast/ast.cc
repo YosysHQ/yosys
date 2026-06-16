@@ -1160,7 +1160,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	module->design = design;
 
 	module->ast = nullptr;
-	module->meta_->name = design->twines.add(Twine{ast->str});
+	module->meta_->name = design->twines.add(std::string{ast->str});
 	set_src_attr(module, ast);
 	module->set_bool_attribute(ID::cells_not_processed);
 
@@ -1376,7 +1376,7 @@ AST_INTERNAL::process_and_replace_module(RTLIL::Design *design,
 		 << counter;
 	++counter;
 
-	design->rename(old_module, design->twines.add(Twine{new_name.str()}));
+	design->rename(old_module, design->twines.add(std::string{new_name.str()}));
 	old_module->set_bool_attribute(ID::to_delete);
 
 	// Check if the module was the top module. If it was, we need to remove
@@ -1484,7 +1484,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			if (defer_local)
 				child->str = "$abstract" + child->str;
 
-			TwineRef mod_name = design->twines.lookup(child->str);
+			TwineRef mod_name = TwineSearch(&design->twines).find(child->str);
 			if (design->has(mod_name)) {
 				RTLIL::Module *existing_mod = design->module(mod_name);
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
@@ -1611,8 +1611,9 @@ bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
 		std::string modname = cell->get_string_attribute(ID::reprocess_after);
 		if (modname.empty())
 			continue;
-		TwineRef mod_ref = design->twines.lookup(modname);
-		TwineRef abstract_ref = design->twines.lookup("$abstract" + modname);
+		TwineSearch search(&design->twines);
+		TwineRef mod_ref = search.find(modname);
+		TwineRef abstract_ref = search.find("$abstract" + modname);
 		if (design->module(mod_ref) || design->module(abstract_ref)) {
 			log("Reprocessing module %s because instantiated module %s has become available.\n",
 					design->twines.str(meta_->name).c_str(), RTLIL::unescape_id(modname));
@@ -1661,7 +1662,8 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 						std::pair<std::string,std::string> res = split_modport_from_type(ch->str);
 						std::string interface_type = res.first;
 						std::string interface_modport = res.second; // Is "", if no modport
-						if (design->module(interface_type) != nullptr) {
+						TwineRef interface_type_ref = TwineSearch(&design->twines).find(interface_type);
+						if (design->module(interface_type_ref) != nullptr) {
 							// Add a cell to the module corresponding to the interface port such that
 							// it can further propagated down if needed:
 							auto celltype_for_intf = std::make_unique<AstNode>(loc, AST_CELLTYPE);
@@ -1671,7 +1673,7 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 							new_ast->children.push_back(std::move(cell_for_intf));
 
 							// Get all members of this non-overridden dummy interface instance:
-							RTLIL::Module *intfmodule = design->module(interface_type); // All interfaces should at this point in time (assuming
+							RTLIL::Module *intfmodule = design->module(interface_type_ref); // All interfaces should at this point in time (assuming
 							                                                              // reprocess_module is called from the hierarchy pass) be
 							                                                              // present in design->modules_
 							AstModule *ast_module_of_interface = (AstModule*)intfmodule;
@@ -1718,10 +1720,11 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 	if (has_interfaces)
 		new_modname += "$interfaces$" + interf_info;
 
-	TwineRef new_modname_ref = design->twines.lookup(new_modname);
+	TwineSearch search(&design->twines);
+	TwineRef new_modname_ref = search.find(new_modname);
 	if (!design->has(new_modname_ref)) {
 		if (!new_ast) {
-			TwineRef modname_ref = design->twines.lookup(modname);
+			TwineRef modname_ref = search.find(modname);
 			auto mod = dynamic_cast<AstModule*>(design->module(modname_ref));
 			new_ast = mod->ast->clone();
 		}
@@ -1745,13 +1748,14 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 		}
 
 		process_module(design, new_ast.get(), false);
-		design->module(modname)->check();
+		TwineRef new_ref = TwineSearch(&design->twines).find(modname);
+		design->module(new_ref)->check();
 
-		RTLIL::Module* mod = design->module(modname);
+		RTLIL::Module* mod = design->module(new_ref);
 
 		// Now that the interfaces have been exploded, we can delete the dummy port related to every interface.
 		for(auto &intf : interfaces) {
-			TwineRef intf_name = design->twines.lookup(design->twines.str(intf.first));
+			TwineRef intf_name = intf.first;
 			if(mod->wire(intf_name) != nullptr) {
 				// Normally, removing wires would be batched together as it's an
 				//   expensive operation, however, in this case doing so would mean
@@ -1782,7 +1786,7 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
-	return design->twines.add(Twine{modname});
+	return design->twines.add(std::string{modname});
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
@@ -1793,7 +1797,7 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 	std::unique_ptr<AstNode> new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast, quiet);
 
-	TwineRef modname_ref = design->twines.lookup(modname);
+	TwineRef modname_ref = design->twines.add(std::string{modname});
 	if (!design->has(modname_ref) && new_ast) {
 		new_ast->str = modname;
 		process_module(design, new_ast.get(), false, NULL, quiet);
@@ -1802,7 +1806,7 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
-	return design->twines.add(Twine{modname});
+	return modname_ref;
 }
 
 static std::string serialize_param_value(const RTLIL::Const &val) {
@@ -1868,7 +1872,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 	if (parameters.size()) // not named_parameters to cover hierarchical defparams
 		modname = derived_module_name(stripped_name, named_parameters);
 
-	if (design->has(design->twines.lookup(modname)))
+	if (design->has(TwineSearch(&design->twines).find(modname)))
 		return modname;
 
 	if (!quiet)

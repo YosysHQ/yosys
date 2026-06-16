@@ -288,11 +288,14 @@ struct ProcArstPass : public Pass {
 		extra_args(args, argidx, design);
 		pool<Wire*> delete_initattr_wires;
 
+		TwineRef global_arst_ref = global_arst.empty() ? Twine::Null
+				: TwineSearch(&design->twines).find(global_arst);
+
 		for (auto mod : design->all_selected_modules()) {
 			SigMap assign_map(mod);
 			for (auto proc : mod->selected_processes()) {
 				proc_arst(mod, proc, assign_map);
-				if (global_arst.empty() || mod->wire(design->twines.lookup(global_arst)) == nullptr)
+				if (global_arst_ref == Twine::Null || mod->wire(global_arst_ref) == nullptr)
 					continue;
 				std::vector<RTLIL::SigSig> arst_actions;
 				for (auto sync : proc->syncs)
@@ -316,7 +319,7 @@ struct ProcArstPass : public Pass {
 				if (!arst_actions.empty()) {
 					RTLIL::SyncRule *sync = new RTLIL::SyncRule;
 					sync->type = global_arst_neg ? RTLIL::SyncType::ST0 : RTLIL::SyncType::ST1;
-					sync->signal = mod->wire(design->twines.lookup(global_arst));
+					sync->signal = mod->wire(global_arst_ref);
 					sync->actions = arst_actions;
 					proc->syncs.push_back(sync);
 				}

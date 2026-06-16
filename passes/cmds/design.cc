@@ -254,21 +254,22 @@ struct DesignPass : public Pass {
 		if (import_mode)
 		{
 			std::string prefix = RTLIL::escape_id(as_name);
+			TwineRef as_name_ref = copy_to_design->twines.add(std::string{prefix});
 
 			pool<Module*> queue;
 			dict<IdString, IdString> done;
 
-			if (copy_to_design->module(prefix) != nullptr)
-				copy_to_design->remove(copy_to_design->module(prefix));
+			if (copy_to_design->module(as_name_ref) != nullptr)
+				copy_to_design->remove(copy_to_design->module(as_name_ref));
 
 			if (GetSize(copy_src_modules) != 1)
 				log_cmd_error("No top module found in source design.\n");
 
 			for (auto mod : copy_src_modules)
 			{
-				log("Importing %s as %s.\n", mod, RTLIL::unescape_id(prefix));
+				log("Importing %s as %s.\n", mod, design->twines.unescaped_str(as_name_ref));
 
-				RTLIL::Module *t = mod->clone(copy_to_design, copy_to_design->twines.add(Twine{prefix}));
+				RTLIL::Module *t = mod->clone(copy_to_design, as_name_ref);
 				t->attributes.erase(ID::top);
 
 				queue.insert(t);
@@ -290,21 +291,22 @@ struct DesignPass : public Pass {
 
 					if (done.count(cell->type) == 0)
 					{
-						std::string trg_name = prefix + "." + (cell->type.unescape());
+						std::string trg_name = prefix + "." + cell->type.unescape();
+						TwineRef trg_ref = copy_to_design->twines.add(std::string{trg_name});
 
-						log("Importing %s as %s.\n", fmod, RTLIL::unescape_id(trg_name));
+						log("Importing %s as %s.\n", log_id(fmod), RTLIL::unescape_id(trg_name).c_str());
 
-						if (copy_to_design->module(trg_name) != nullptr)
-							copy_to_design->remove(copy_to_design->module(trg_name));
+						if (copy_to_design->module(trg_ref) != nullptr)
+							copy_to_design->remove(copy_to_design->module(trg_ref));
 
-						RTLIL::Module *t = fmod->clone(copy_to_design, copy_to_design->twines.add(Twine{trg_name}));
+						RTLIL::Module *t = fmod->clone(copy_to_design, trg_ref);
 						t->attributes.erase(ID::top);
 
 						queue.insert(t);
 						done[cell->type] = trg_name;
 					}
 
-					cell->type_impl = cell->module->design->twines.add(Twine{done.at(cell->type).str()});
+					cell->type_impl = cell->module->design->twines.add(std::string{done.at(cell->type).str()});
 				}
 			}
 		}
@@ -317,11 +319,12 @@ struct DesignPass : public Pass {
 			for (auto mod : copy_src_modules)
 			{
 				std::string trg_name = as_name.empty() ? copy_from_design->twines.str(mod->meta_->name) : RTLIL::escape_id(as_name);
+				TwineRef trg_ref = copy_to_design->twines.add(std::string{trg_name});
 
-				if (copy_to_design->module(trg_name) != nullptr)
-					copy_to_design->remove(copy_to_design->module(trg_name));
+				if (copy_to_design->module(trg_ref) != nullptr)
+					copy_to_design->remove(copy_to_design->module(trg_ref));
 
-				mod->clone(copy_to_design, copy_to_design->twines.add(Twine{trg_name}));
+				mod->clone(copy_to_design, trg_ref);
 			}
 		}
 
