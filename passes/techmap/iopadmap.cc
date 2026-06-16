@@ -90,7 +90,7 @@ struct IopadmapPass : public Pass {
 		if (modules_processed.count(module))
 			return;
 		for (auto cell : module->cells()) {
-			Module *submodule = design->module(cell->type);
+			Module *submodule = design->module(cell->type_impl);
 			if (!submodule)
 				continue;
 			module_queue(design, submodule, modules_sorted, modules_processed);

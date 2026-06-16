@@ -34,7 +34,7 @@ std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules
 		sort.node(m);
 
 		for (auto cell : m->cells()) {
-			Module *submodule = design->module(cell->type);
+			Module *submodule = design->module(cell->type_impl);
 			if (modules_set.count(submodule))
 				sort.edge(submodule, m);
 		}

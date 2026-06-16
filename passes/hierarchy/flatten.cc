@@ -471,7 +471,7 @@ struct FlattenPass : public Pass {
 		while (!worklist.empty()) {
 			RTLIL::Module *module = worklist.pop();
 			for (auto cell : module->selected_cells()) {
-				RTLIL::Module *tpl = design->module(cell->type);
+				RTLIL::Module *tpl = design->module(cell->type_impl);
 				if (tpl != nullptr) {
                                         if (!topo_modules.has_node(tpl))
 						worklist.insert(tpl);

@@ -86,7 +86,7 @@ struct BoxDerivePass : Pass {
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
-				Module *inst_module = d->module(cell->type);
+				Module *inst_module = d->module(cell->type_impl);
 				if (!inst_module || !inst_module->get_blackbox_attribute())
 					continue;
 

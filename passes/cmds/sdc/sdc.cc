@@ -154,7 +154,7 @@ struct SdcObjects {
 				std::string pin_name_sdc = path + "/" + design->twines.unescaped_str(pin.first);
 				design_pins.push_back(std::make_pair(pin_name_sdc, std::make_pair(cell, pin_name)));
 			}
-			if (auto sub_mod = mod->design->module(cell->type)) {
+			if (auto sub_mod = mod->design->module(cell->type_impl)) {
 				hierarchy.push_back(name);
 				sniff_module(hierarchy, sub_mod);
 				hierarchy.pop_back();
@@ -264,7 +264,7 @@ struct SdcObjects {
 		Design* design = nullptr;
 		bool mark(Module* mod) {
 			for (auto* cell : mod->cells()) {
-				if (auto* submod = design->module(cell->type))
+				if (auto* submod = design->module(cell->type_impl))
 					if (mark(submod)) {
 						mod->set_bool_attribute(ID::keep_hierarchy);
 						return true;

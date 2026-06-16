@@ -361,7 +361,7 @@ struct CheckPass : public Pass {
 				if (cell->type.in(TW($input_port), TW($output_port), TW($public)))
 					continue;
 
-				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
+				if (mapped && cell->type.begins_with("$") && design->module(cell->type_impl) == nullptr) {
 					if (allow_tbuf && cell->type == TW($_TBUF_)) goto cell_allowed;
 					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescaped());
 					counter++;

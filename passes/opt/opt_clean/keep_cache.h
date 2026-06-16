@@ -78,7 +78,7 @@ struct KeepCache
 		if (cell->type.in(TW($specify2), TW($specify3), TW($specrule)))
 			return true;
 		if (cell->module && cell->module->design) {
-			RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+			RTLIL::Module *cell_module = cell->module->design->module(cell->type_impl);
 			return cell_module != nullptr && keep_modules.at(cell_module);
 		}
 		return false;
@@ -117,7 +117,7 @@ private:
 					keep = true;
 				}
 				if (const_module->design) {
-					RTLIL::Module *cell_module = const_module->design->module(cell->type);
+					RTLIL::Module *cell_module = const_module->design->module(cell->type_impl);
 					if (cell_module != nullptr)
 						deps.insert(ctx, cell_module);
 				}

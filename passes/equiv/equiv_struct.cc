@@ -132,7 +132,7 @@ struct EquivStructWorker
 				equiv_inputs.insert(sig_b);
 				cells.insert(cell->meta_->name);
 			} else {
-				if (mode_icells || module->design->module(cell->type))
+				if (mode_icells || module->design->module(cell->type_impl))
 					cells.insert(cell->meta_->name);
 			}
 

@@ -52,7 +52,7 @@ bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_cells, 
 {
 	if (cell->name[0] == '$' || dff_cells.count(cell->name))
 		return false;
-	if (cell->type[0] == '\\' && (design->module(cell->type) == nullptr))
+	if (cell->type[0] == '\\' && (design->module(cell->type_impl) == nullptr))
 		return false;
 	return true;
 }
@@ -623,9 +623,9 @@ struct ExposePass : public Pass {
 							continue;
 					}
 
-					if (design->module(cell->type) != nullptr)
+					if (design->module(cell->type_impl) != nullptr)
 					{
-						RTLIL::Module *mod = design->module(cell->type);
+						RTLIL::Module *mod = design->module(cell->type_impl);
 
 						for (auto p : mod->wires())
 						{

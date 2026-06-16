@@ -72,7 +72,7 @@ void SynthPropWorker::tracing(RTLIL::Module *mod, int depth, TrackingData &traci
 			}
 			cnt++;
 		}
-		else if (RTLIL::Module *submod = design->module(cell->type)) {
+		else if (RTLIL::Module *submod = design->module(cell->type_impl)) {
 			tracing(submod, depth+1, tracing_data, hier_path + "." + cell->module->design->twines.str(cell->meta_->name));
 			if (!or_outputs) {
 				for (size_t i = 0; i < tracing_data[submod].names.size(); i++)
@@ -127,7 +127,7 @@ void SynthPropWorker::run()
 		}
 
 		for (auto cell : data.first->cells()) {
-			if (RTLIL::Module *submod = design->module(cell->type)) {
+			if (RTLIL::Module *submod = design->module(cell->type_impl)) {
 				if (tracing_data[submod].names.size() > 0) {
 					if (!or_outputs) {
 						cell->setPort(port_name, SigChunk(port_wire, num, tracing_data[submod].names.size()));

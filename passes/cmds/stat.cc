@@ -765,10 +765,10 @@ statdata_t hierarchy_builder(RTLIL::Design *design, const RTLIL::Module *top_mod
 	for (auto cell : top_mod->selected_cells()) {
 		if (cell_area.count(cell->type) == 0) {
 			if (design->has(cell->type_impl)) {
-				if (!(design->module(cell->type)->attributes.count(ID::blackbox))) {
+				if (!(design->module(cell->type_impl)->attributes.count(ID::blackbox))) {
 					// deal with modules
 					mod_data.add(
-					  hierarchy_builder(design, design->module(cell->type), mod_stat, width_mode, cell_area, techname));
+					  hierarchy_builder(design, design->module(cell->type_impl), mod_stat, width_mode, cell_area, techname));
 					mod_data.num_submodules_by_type[cell->type]++;
 					mod_data.submodules_area_by_type[cell->type] += mod_stat.at(cell->type).area;
 					mod_data.submodule_area += mod_stat.at(cell->type).area;
@@ -784,13 +784,13 @@ statdata_t hierarchy_builder(RTLIL::Design *design, const RTLIL::Module *top_mod
 					mod_data.local_area_cells_by_type.erase(cell->type);
 				} else {
 					// deal with blackbox cells
-					if (design->module(cell->type)->attributes.count(ID::area) &&
-					    design->module(cell->type)->attributes.at(ID::area).size() == 0) {
+					if (design->module(cell->type_impl)->attributes.count(ID::area) &&
+					    design->module(cell->type_impl)->attributes.at(ID::area).size() == 0) {
 						mod_data.num_submodules_by_type[cell->type]++;
 						mod_data.num_submodules++;
 						mod_data.submodules_area_by_type[cell->type] +=
-						  double(design->module(cell->type)->attributes.at(ID::area).as_int());
-						mod_data.area += double(design->module(cell->type)->attributes.at(ID::area).as_int());
+						  double(design->module(cell->type_impl)->attributes.at(ID::area).as_int());
+						mod_data.area += double(design->module(cell->type_impl)->attributes.at(ID::area).as_int());
 						mod_data.unknown_cell_area.erase(cell->type);
 						mod_data.num_cells -=
 						  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;

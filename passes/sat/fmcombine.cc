@@ -109,7 +109,7 @@ struct FmcombineWorker
 		module->fixup_ports();
 
 		for (auto cell : original->cells()) {
-			if (design->module(cell->type) == nullptr) {
+			if (design->module(cell->type_impl) == nullptr) {
 				if (opts.anyeq && cell->type.in(TW($anyseq), TW($anyconst))) {
 					Cell *gold = import_prim_cell(cell, "_gold");
 					for (auto &conn : cell->connections())

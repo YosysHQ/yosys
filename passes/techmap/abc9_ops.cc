@@ -99,7 +99,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 		};
 		for (auto module : design->selected_modules())
 			for (auto cell : module->cells()) {
-				auto inst_module = design->module(cell->type);
+				auto inst_module = design->module(cell->type_impl);
 				if (!inst_module)
 					continue;
 				IdString derived_type;
@@ -160,7 +160,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
-			auto inst_module = design->module(cell->type);
+			auto inst_module = design->module(cell->type_impl);
 			if (!inst_module)
 				continue;
 			IdString derived_type;
@@ -280,7 +280,7 @@ void prep_bypass(RTLIL::Design *design)
 		for (auto cell : module->cells()) {
 			if (!processed.insert(cell->type).second)
 				continue;
-			auto inst_module = design->module(cell->type);
+			auto inst_module = design->module(cell->type_impl);
 			if (!inst_module)
 				continue;
 			if (!inst_module->get_bool_attribute(ID::abc9_bypass))
@@ -461,7 +461,7 @@ void prep_dff(RTLIL::Design *design)
 		for (auto cell : module->cells()) {
 			if (modules_sel.selected_whole_module(cell->type.ref()))
 				continue;
-			auto inst_module = design->module(cell->type);
+			auto inst_module = design->module(cell->type_impl);
 			if (!inst_module)
 				continue;
 			if (!inst_module->get_bool_attribute(ID::abc9_flop))
@@ -575,7 +575,7 @@ void break_scc(RTLIL::Module *module)
 		if (it == cell->attributes.end())
 			continue;
 		scc_cells.insert(cell);
-		auto inst_module = design->module(cell->type);
+		auto inst_module = design->module(cell->type_impl);
 		if (inst_module && inst_module->has_attribute(ID::abc9_bypass))
 			ids_seen.insert(it->second);
 	}
@@ -629,7 +629,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				continue;
 			log_assert(!cell->type.begins_with("$paramod$__ABC9_DELAY\\DELAY="));
 
-			RTLIL::Module* inst_module = design->module(cell->type);
+			RTLIL::Module* inst_module = design->module(cell->type_impl);
 			if (!inst_module)
 				continue;
 			if (!inst_module->get_blackbox_attribute())
@@ -661,7 +661,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 	log_assert(delay_module);
 	for (auto cell : cells) {
 		auto module = cell->module;
-		auto inst_module = design->module(cell->type);
+		auto inst_module = design->module(cell->type_impl);
 		log_assert(inst_module);
 
 		for (auto &i : timing.at(cell->type).required) {
@@ -719,7 +719,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		if (cell->has_keep_attr())
 			continue;
 
-		auto inst_module = design->module(cell->type);
+		auto inst_module = design->module(cell->type_impl);
 		bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
 		if (abc9_flop && !dff)
 			continue;
@@ -764,7 +764,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			if (cell->has_keep_attr())
 				continue;
 
-			auto inst_module = design->module(cell->type);
+			auto inst_module = design->module(cell->type_impl);
 			bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
 			if (abc9_flop && !dff)
 				continue;
@@ -813,7 +813,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					continue;
 				auto cell = module->cell(cell_name);
 				log_assert(cell);
-				auto inst_module = design->module(cell->type);
+				auto inst_module = design->module(cell->type_impl);
 				if (inst_module && inst_module->get_bool_attribute(ID::abc9_box))
 					continue;
 				for (auto &c : cell->connections_) {
@@ -870,7 +870,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		RTLIL::Cell *cell = module->cell(cell_name);
 		log_assert(cell);
 
-		RTLIL::Module* box_module = design->module(cell->type);
+		RTLIL::Module* box_module = design->module(cell->type_impl);
 		if (!box_module)
 			continue;
 		if (!box_module->get_bool_attribute(ID::abc9_box))

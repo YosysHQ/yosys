@@ -313,7 +313,7 @@ struct SimInstance
 
 		for (auto cell : module->cells())
 		{
-			Module *mod = module->design->module(cell->type);
+			Module *mod = module->design->module(cell->type_impl);
 
 			if (mod != nullptr) {
 				dirty_children.insert(new SimInstance(shared, scope + "." + cell->module->design->twines.str(cell->meta_->name), mod, cell, this));

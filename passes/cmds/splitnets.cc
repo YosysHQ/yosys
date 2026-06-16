@@ -276,7 +276,7 @@ struct SplitnetsPass : public Pass {
 
 					for (auto nid : new_port_ids)
 					{
-						int nlen = GetSize(design->module(cell->type)->wire(nid));
+						int nlen = GetSize(design->module(cell->type_impl)->wire(nid));
 						if (offset + nlen > GetSize(sig))
 							nlen = GetSize(sig) - offset;
 						if (nlen > 0)

@@ -89,7 +89,7 @@ struct CutpointPass : public Pass {
 			auto &selection = design->selection();
 			for (auto module : design->modules())
 				for (auto cell : module->cells())
-					if (selection.boxed_module(cell->type))
+					if (selection.boxed_module(cell->type_impl))
 						selection.select(module, cell);
 		}
 

@@ -426,7 +426,7 @@ struct BlifDumper
 					continue;
 				}
 
-				Module *m = design->module(cell->type);
+				Module *m = design->module(cell->type_impl);
 				Wire *w = m ? m->wire(conn.first) : nullptr;
 
 				if (w == nullptr) {

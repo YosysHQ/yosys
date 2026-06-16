@@ -135,7 +135,7 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 	bool has_witness_signals = false;
 	for (auto cell : module->cells())
 	{
-		RTLIL::Module *impl = design->module(cell->type);
+		RTLIL::Module *impl = design->module(cell->type_impl);
 		if (impl != nullptr) {
 			bool witness_in_cell = rename_witness(design, cache, impl);
 			has_witness_signals |= witness_in_cell;
