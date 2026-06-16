@@ -112,7 +112,7 @@ struct Index {
 			if (known_ops(cell->type) || cell->type.in(TW($scopeinfo), TW($specify2), TW($specify3), TW($input_port), TW($output_port), TW($public)))
 				continue;
 
-			Module *submodule = m->design->module(cell->type);
+			Module *submodule = m->design->module(cell->type_impl);
 
 			if (submodule && flatten &&
 					!submodule->get_bool_attribute(ID::keep_hierarchy) &&
@@ -538,7 +538,7 @@ struct Index {
 			auto &minfo = leaf_minfo(index);
 			if (!minfo.suboffsets.count(cell))
 				log_error("Reached unsupported cell %s (%s in %s)\n", cell->type.unescaped(), cell, cell->module);
-			Module *def = design->module(cell->type);
+			Module *def = design->module(cell->type_impl);
 			log_assert(def);
 			levels.push_back(Level(index.modules.at(def), cell));
 			instance_offset += minfo.suboffsets.at(cell);

@@ -344,7 +344,7 @@ void emit_elaborated_extmodules(RTLIL::Design *design, std::ostream &f)
 			if (cellIsModuleInstance)
 			{
 				// Find the module corresponding to this instance.
-				auto modInstance = design->module(cell->type);
+				auto modInstance = design->module(cell->type_impl);
 				// Ensure that we actually have a module instance
 				if (modInstance == nullptr) {
 					log_error("Unknown cell type %s\n", cell->type);
@@ -461,7 +461,7 @@ struct FirrtlWorker
 		else
 			cell_name_comment = "";
 		// Find the module corresponding to this instance.
-		auto instModule = design->module(cell->type);
+		auto instModule = design->module(cell->type_impl);
 		// If there is no instance for this, just return.
 		if (instModule == NULL)
 		{
@@ -579,7 +579,7 @@ struct FirrtlWorker
 			Const ndef(0, 0);
 
 			// Is this cell is a module instance?
-			if (module->design->module(cell->type))
+			if (module->design->module(cell->type_impl))
 			{
 				process_instance(cell, wire_exprs);
 				continue;

@@ -228,7 +228,7 @@ struct XAigerWriter
 					continue;
 			}
 
-			RTLIL::Module* inst_module = design->module(cell->type);
+			RTLIL::Module* inst_module = design->module(cell->type_impl);
 			if (inst_module && inst_module->get_blackbox_attribute()) {
 				bool abc9_flop = false;
 
@@ -315,7 +315,7 @@ struct XAigerWriter
 		for (auto cell : box_list) {
 			log_assert(cell);
 
-			RTLIL::Module* box_module = design->module(cell->type);
+			RTLIL::Module* box_module = design->module(cell->type_impl);
 			log_assert(box_module);
 			log_assert(box_module->has_attribute(ID::abc9_box_id));
 
@@ -572,7 +572,7 @@ struct XAigerWriter
 				auto r = cell_cache.insert(cell->type);
 				auto &v = r.first->second;
 				if (r.second) {
-					RTLIL::Module* box_module = design->module(cell->type);
+					RTLIL::Module* box_module = design->module(cell->type_impl);
 					log_assert(box_module);
 
 					int box_inputs = 0, box_outputs = 0;

@@ -84,7 +84,7 @@ struct ExtractinvPass : public Pass {
 		{
 			for (auto cell : module->selected_cells())
 			for (auto port : cell->connections()) {
-				auto cell_module = design->module(cell->type);
+				auto cell_module = design->module(cell->type_impl);
 				if (!cell_module)
 					continue;
 				auto cell_wire = cell_module->wire(port.first);

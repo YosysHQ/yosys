@@ -147,7 +147,7 @@ struct SccWorker
 
 			if (specifyCells.cell_known(cell->type.ref())) {
 				// Use specify rules of the type `(X => Y) = NN` to look for asynchronous paths in boxes.
-				for (auto subcell : design->module(cell->type)->cells())
+				for (auto subcell : design->module(cell->type_impl)->cells())
 				{
 					if (subcell->type != TW($specify2))
 						continue;

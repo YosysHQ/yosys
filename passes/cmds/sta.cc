@@ -63,7 +63,7 @@ struct StaWorker
 
 		for (auto cell : module->cells())
 		{
-			Module *inst_module = design->module(cell->type);
+			Module *inst_module = design->module(cell->type_impl);
 			if (!inst_module) {
 				if (unrecognised_cells.insert(cell->type).second)
 					log_warning("Cell type '%s' not recognised! Ignoring.\n", cell->type.unescaped());

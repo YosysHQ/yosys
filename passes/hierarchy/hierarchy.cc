@@ -45,7 +45,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 	for (auto mod : design->modules())
 	for (auto cell : mod->cells())
 	{
-		if (design->module(cell->type) != nullptr)
+		if (design->module(cell->type_impl) != nullptr)
 			continue;
 		if (cell->type.begins_with("$") && !cell->type.begins_with("$__"))
 			continue;
@@ -195,7 +195,7 @@ struct IFExpander
 			if(!cell->get_bool_attribute(ID::is_interface))
 				continue;
 
-			interfaces_in_module[cell->name] = design.module(cell->type);
+			interfaces_in_module[cell->name] = design.module(cell->type_impl);
 		}
 	}
 
@@ -520,7 +520,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		dict<TwineRef, RTLIL::Module*> interfaces_by_name;
 		dict<TwineRef, TwineRef> modports_by_name;
 
-		RTLIL::Module *mod = design->module(cell->type);
+		RTLIL::Module *mod = design->module(cell->type_impl);
 		if (!mod)
 		{
 			mod = get_module(*design, *cell, *module, flag_check || flag_simcheck || flag_smtcheck, libdirs);
@@ -589,7 +589,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			// an interface instance:
 			if (mod->get_bool_attribute(ID::is_interface) && cell->get_bool_attribute(ID::module_not_derived)) {
 				cell->set_bool_attribute(ID::is_interface);
-				RTLIL::Module *derived_module = design->module(cell->type);
+				RTLIL::Module *derived_module = design->module(cell->type_impl);
 				if_expander.interfaces_in_module[cell->name] = derived_module;
 				did_something = true;
 			}
@@ -618,10 +618,10 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		RTLIL::Cell *cell = it.first;
 		int idx = it.second.first, num = it.second.second;
 
-		if (design->module(cell->type) == nullptr)
+		if (design->module(cell->type_impl) == nullptr)
 			log_error("Array cell `%s.%s' of unknown type `%s'.\n", module, cell, cell->type.unescaped());
 
-		RTLIL::Module *mod = design->module(cell->type);
+		RTLIL::Module *mod = design->module(cell->type_impl);
 
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
@@ -1249,13 +1249,13 @@ struct HierarchyPass : public Pass {
 
 			for (auto mod : design->modules())
 			for (auto cell : mod->cells()) {
-				RTLIL::Module *cell_mod = design->module(cell->type);
+				RTLIL::Module *cell_mod = design->module(cell->type_impl);
 				if (cell_mod == nullptr)
 					continue;
 				for (auto &conn : cell->connections()) {
 					std::string conn_name = design->twines.str(conn.first);
 					if (!conn_name.empty() && conn_name[0] == '$' && '0' <= conn_name[1] && conn_name[1] <= '9') {
-						pos_mods.insert(design->module(cell->type));
+						pos_mods.insert(design->module(cell->type_impl));
 						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod, cell));
 						break;
 					}
@@ -1294,7 +1294,7 @@ struct HierarchyPass : public Pass {
 				for (auto &conn : cell->connections()) {
 					int id;
 					if (read_id_num(*design, conn.first, &id)) {
-						std::pair<RTLIL::Module*,int> key(design->module(cell->type), id);
+						std::pair<RTLIL::Module*,int> key(design->module(cell->type_impl), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
 									id, module, cell, cell->type.unescaped());
@@ -1327,7 +1327,7 @@ struct HierarchyPass : public Pass {
 			{
 				if (!cell->get_bool_attribute(ID::wildcard_port_conns))
 					continue;
-				Module *m = design->module(cell->type);
+				Module *m = design->module(cell->type_impl);
 
 				if (m == nullptr)
 					log_error("Cell %s.%s (%s) has implicit port connections but the module it instantiates is unknown.\n",
@@ -1517,7 +1517,7 @@ struct HierarchyPass : public Pass {
 
 			for (auto cell : module->cells())
 			{
-				Module *m = design->module(cell->type);
+				Module *m = design->module(cell->type_impl);
 
 				if (m == nullptr)
 					continue;

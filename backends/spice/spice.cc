@@ -79,7 +79,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 		std::vector<RTLIL::SigSpec> port_sigs;
 
-		if (design->module(cell->type) == nullptr)
+		if (design->module(cell->type_impl) == nullptr)
 		{
 			log_warning("no (blackbox) module for cell type `%s' (%s.%s) found! Guessing order of ports.\n",
 					cell->type.unescape(), module, cell);
@@ -90,7 +90,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 		}
 		else
 		{
-			RTLIL::Module *mod = design->module(cell->type);
+			RTLIL::Module *mod = design->module(cell->type_impl);
 
 			std::vector<RTLIL::Wire*> ports;
 			for (auto wire : mod->wires()) {

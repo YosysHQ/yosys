@@ -887,7 +887,7 @@ struct Smt2Worker
 			return;
 		}
 
-		Module *m = module->design->module(cell->type);
+		Module *m = module->design->module(cell->type_impl);
 
 		if (m != nullptr)
 		{
@@ -1166,7 +1166,7 @@ struct Smt2Worker
 		if (verbose) log("=> export logic driving hierarchical cells\n");
 
 		for (auto cell : module->cells())
-			if (module->design->module(cell->type) != nullptr)
+			if (module->design->module(cell->type_impl) != nullptr)
 				export_cell(cell);
 
 		while (!hiercells_queue.empty())
@@ -1177,7 +1177,7 @@ struct Smt2Worker
 			for (auto cell : queue)
 			{
 				string cell_state = stringf("(|%s_h %s| state)", get_id(module), get_id(cell->name));
-				Module *m = module->design->module(cell->type);
+				Module *m = module->design->module(cell->type_impl);
 				log_assert(m != nullptr);
 
 				hier.push_back(stringf("  (= (|%s_is| state) (|%s_is| %s))\n",

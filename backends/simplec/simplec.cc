@@ -76,7 +76,7 @@ struct HierDirtyFlags
 			dirty(0), module(module), hiername(hiername), parent(parent), prefix(prefix), log_prefix(log_prefix)
 	{
 		for (Cell *cell : module->cells()) {
-			Module *mod = module->design->module(cell->type);
+			Module *mod = module->design->module(cell->type_impl);
 			if (mod) children[cell->name] = new HierDirtyFlags(mod, cell->name, this,
 					prefix + cid(cell->name) + ".", log_prefix + "." + prefix + cell->module->design->twines.str(cell->meta_->name));
 		}

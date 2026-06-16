@@ -271,7 +271,7 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 		{
 			for (auto cell : mod->cells())
 			{
-				if (design->module(cell->type) == nullptr)
+				if (design->module(cell->type_impl) == nullptr)
 					continue;
 				lhs.selected_modules.insert(design->twines.add(Twine{cell->type.str()}));
 			}
@@ -285,7 +285,7 @@ static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &
 	for (auto mod : design->modules())
 		if (lhs.selected_module(mod->meta_->name))
 			for (auto cell : mod->cells())
-				if (lhs.selected_member(mod->meta_->name, cell->meta_->name) && (design->module(cell->type) != nullptr))
+				if (lhs.selected_member(mod->meta_->name, cell->meta_->name) && (design->module(cell->type_impl) != nullptr))
 					new_sel.selected_modules.insert(design->twines.add(Twine{cell->type.str()}));
 	lhs = new_sel;
 }
@@ -295,7 +295,7 @@ static void select_op_module_to_cells(RTLIL::Design *design, RTLIL::Selection &l
 	RTLIL::Selection new_sel(false, lhs.selects_boxes, design);
 	for (auto mod : design->modules())
 		for (auto cell : mod->cells())
-			if ((design->module(cell->type) != nullptr) && lhs.selected_whole_module(design->twines.add(Twine{cell->type.str()})))
+			if ((design->module(cell->type_impl) != nullptr) && lhs.selected_whole_module(design->twines.add(Twine{cell->type.str()})))
 				new_sel.selected_members[mod->meta_->name].insert(cell->meta_->name);
 	lhs = new_sel;
 }
