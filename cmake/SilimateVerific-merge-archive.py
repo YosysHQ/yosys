@@ -44,7 +44,10 @@ for archive in filter(lambda x: x.endswith(".a"), files):
 	object_dir.mkdir(parents=True, exist_ok=True)
 	subprocess.check_call(["ar", "x", archive], cwd=object_dir)
 	for object in object_dir.glob("*.o"):
-		if len(symbol_localize_args):
+		# on GNU/Linux we just use -Wl,--allow-multiple-definition; redefinitions
+		# are ignored, and the Silimate objects are first in the archive, so they
+		# are prioritized
+		if sys.platform == "darwin" and len(symbol_localize_args):
 			subprocess.check_call([objcopy_bin, *symbol_localize_args, object])
 		final_archive_objects.append(object)
 

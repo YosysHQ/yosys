@@ -28,7 +28,6 @@
 #include "backends/rtlil/rtlil_backend.h"
 
 #include <string.h>
-#include <strstream>
 #include <algorithm>
 #include <charconv>
 #include <optional>

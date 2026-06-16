@@ -156,6 +156,14 @@ struct AbcConfig
 	int abc_max_node_retention_origins = 5; // number of node retention origins (default 5)
 	std::string signal_map_file;
 	std::string cdc_file;
+
+	bool is_yosys_abc() const {
+#ifdef ABCEXTERNAL
+		return false;
+#else
+		return exe_file == yosys_abc_executable;
+#endif
+	}
 };
 
 struct AbcSigVal {
