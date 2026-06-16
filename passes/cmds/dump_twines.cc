@@ -40,36 +40,30 @@ struct DumpTwinesPass : public Pass {
 		extra_args(args, argidx, design);
 
 		const TwinePool &pool = design->twines;
-		log("twine pool: %zu nodes (%zu leaves, %zu suffixes, %zu concats)\n",
-				pool.size(), pool.leaf_count(), pool.suffix_count(), pool.concat_count());
-		pool.for_each_live([&](TwineRef id, const Twine &n) {
+		log("twine pool: %zu local nodes\n", pool.size());
+		for (auto it = pool.backing.begin(); it != pool.backing.end(); ++it) {
+			TwineRef id = STATIC_TWINE_END + pool.backing.get_index(it);
+			const Twine &n = *it;
 			if (n.is_leaf()) {
-				log("  @%u leaf rc=%u %s\n", id, pool.refcount(id), n.leaf().c_str());
+				log("  @%zu leaf \"%s\"", (size_t)id, n.leaf().c_str());
 			} else if (n.is_suffix()) {
-				if (flat) {
-					log("  @%u suffix rc=%u @%u + %s -> %s\n", id, pool.refcount(id),
-							n.suffix().parent, n.suffix().tail.c_str(),
-							pool.flat_string(id).c_str());
-				} else {
-					log("  @%u suffix rc=%u @%u + %s\n", id, pool.refcount(id),
-							n.suffix().parent, n.suffix().tail.c_str());
-				}
-			} else {
+				log("  @%zu suffix @%zu + \"%s\"", (size_t)id,
+						(size_t)n.suffix().prefix, n.suffix().tail.c_str());
+			} else if (n.is_concat()) {
 				std::string children;
 				for (TwineRef c : n.children()) {
 					if (!children.empty())
 						children += ", ";
-					children += "@" + std::to_string(c);
+					children += "@" + std::to_string((size_t)c);
 				}
-				if (flat) {
-					log("  @%u concat rc=%u [%s] -> %s\n", id, pool.refcount(id),
-							children.c_str(), pool.flatten(id).c_str());
-				} else {
-					log("  @%u concat rc=%u [%s]\n", id, pool.refcount(id),
-							children.c_str());
-				}
+				log("  @%zu concat [%s]", (size_t)id, children.c_str());
+			} else {
+				log("  @%zu dead", (size_t)id);
 			}
-		});
+			if (flat)
+				log(" -> \"%s\"", pool.str(id).c_str());
+			log("\n");
+		}
 	}
 } DumpTwinesPass;
 
