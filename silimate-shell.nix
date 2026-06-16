@@ -45,6 +45,7 @@ pkgs.mkShell {
 		gtkwave # vcd2fst
 		(python3.withPackages(ps: with ps; [pybind11 cxxheaderparser]))
 		gnu-ar
+		gtest
 	] ++ lib.optionals stdenv.isLinux [
 		elfutils # provides libdw.so (not to be confused with libdwarf.so)
 	];
