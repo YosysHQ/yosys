@@ -56,6 +56,7 @@ struct ShowWorker
 
 	FILE *f;
 	RTLIL::Design *design;
+	TwineSearch search;
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
@@ -148,7 +149,7 @@ struct ShowWorker
 
 	std::string findColor(IdString member_name)
 	{
-		TwineRef member_ref = design->twines.lookup(member_name.str());
+		TwineRef member_ref = search.find(member_name.str());
 		for (auto &s : color_selections)
 			if (member_ref && s.second.selected_member(module->meta_->name, member_ref)) {
 				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first, s.first);
@@ -175,7 +176,7 @@ struct ShowWorker
 
 	const char *findLabel(std::string member_name)
 	{
-		TwineRef member_ref = design->twines.lookup(member_name);
+		TwineRef member_ref = search.find(member_name);
 		for (auto &s : label_selections)
 			if (member_ref && s.second.selected_member(module->meta_->name, member_ref))
 				return escape(s.first);
@@ -627,7 +628,7 @@ struct ShowWorker
 			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
-			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
+			f(f), design(design), search(&design->twines), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{

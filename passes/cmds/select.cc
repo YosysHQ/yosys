@@ -273,7 +273,7 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 			{
 				if (design->module(cell->type_impl) == nullptr)
 					continue;
-				lhs.selected_modules.insert(design->twines.add(Twine{cell->type.str()}));
+				lhs.selected_modules.insert(design->twines.add(std::string{cell->type.str()}));
 			}
 		}
 	}
@@ -286,7 +286,7 @@ static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &
 		if (lhs.selected_module(mod->meta_->name))
 			for (auto cell : mod->cells())
 				if (lhs.selected_member(mod->meta_->name, cell->meta_->name) && (design->module(cell->type_impl) != nullptr))
-					new_sel.selected_modules.insert(design->twines.add(Twine{cell->type.str()}));
+					new_sel.selected_modules.insert(design->twines.add(std::string{cell->type.str()}));
 	lhs = new_sel;
 }
 
@@ -295,7 +295,7 @@ static void select_op_module_to_cells(RTLIL::Design *design, RTLIL::Selection &l
 	RTLIL::Selection new_sel(false, lhs.selects_boxes, design);
 	for (auto mod : design->modules())
 		for (auto cell : mod->cells())
-			if ((design->module(cell->type_impl) != nullptr) && lhs.selected_whole_module(design->twines.add(Twine{cell->type.str()})))
+			if ((design->module(cell->type_impl) != nullptr) && lhs.selected_whole_module(design->twines.add(std::string{cell->type.str()})))
 				new_sel.selected_members[mod->meta_->name].insert(cell->meta_->name);
 	lhs = new_sel;
 }
@@ -1480,7 +1480,7 @@ struct SelectPass : public Pass {
 				}
 				IdString mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
 				IdString obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
-				sel.selected_members[design->twines.add(Twine{mod_name.str()})].insert(design->twines.add(Twine{obj_name.str()}));
+				sel.selected_members[design->twines.add(std::string{mod_name.str()})].insert(design->twines.add(std::string{obj_name.str()}));
 			}
 
 			select_filter_active_mod(design, sel);
@@ -1745,6 +1745,7 @@ struct CdPass : public Pass {
 			design->push_full_selection();
 			design->selected_active_module = TwineRef{};
 
+			TwineSearch search(&design->twines);
 			while (1)
 			{
 				size_t pos = modname.rfind('.');
@@ -1753,12 +1754,13 @@ struct CdPass : public Pass {
 					break;
 
 				modname = modname.substr(0, pos);
-				Module *mod = design->module(RTLIL::IdString(modname));
+				TwineRef mod_ref = search.find(modname);
+				Module *mod = design->module(mod_ref);
 
 				if (mod == nullptr)
 					continue;
 
-				design->selected_active_module = design->twines.add(Twine{modname});
+				design->selected_active_module = mod_ref;
 				design->pop_selection();
 				design->push_full_selection();
 				select_filter_active_mod(design, design->selection());
@@ -1769,17 +1771,18 @@ struct CdPass : public Pass {
 			return;
 		}
 
-		std::string modname = RTLIL::escape_id(args[1]);
+		TwineSearch search(&design->twines);
+		TwineRef modname = search.find(RTLIL::escape_id(args[1]));
 
-		if (design->module(RTLIL::IdString(modname)) == nullptr && design->selected_active_module) {
+		if (design->module(modname) == nullptr && design->selected_active_module) {
 			RTLIL::Module *module = design->module(design->selected_active_module);
-			TwineRef cell_ref = design->twines.lookup(modname);
+			TwineRef cell_ref = modname;
 			if (module != nullptr && cell_ref && module->cell(cell_ref) != nullptr)
-				modname = design->twines.str(module->cell(cell_ref)->type.ref());
+				modname = module->cell(cell_ref)->type_impl;
 		}
 
-		if (design->module(RTLIL::IdString(modname)) != nullptr) {
-			design->selected_active_module = design->twines.add(Twine{modname});
+		if (design->module(modname) != nullptr) {
+			design->selected_active_module = modname;
 			design->pop_selection();
 			design->push_full_selection();
 			select_filter_active_mod(design, design->selection());
@@ -1787,7 +1790,7 @@ struct CdPass : public Pass {
 			return;
 		}
 
-		log_cmd_error("No such module `%s' found!\n", RTLIL::unescape_id(modname));
+		log_cmd_error("No such module `%s' found!\n", design->twines.str(modname));
 	}
 } CdPass;
 
@@ -1844,8 +1847,9 @@ struct LsPass : public Pass {
 			if (!matches.empty()) {
 				log("\n%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
+				TwineSearch search(&design->twines);
 				for (auto id : matches)
-					log("  %s%s\n", log_id(id), design->selected_whole_module(design->module(id)) ? "" : "*");
+					log("  %s%s\n", log_id(id), design->selected_whole_module(design->module(search.find(id.str()))) ? "" : "*");
 			}
 		}
 		else

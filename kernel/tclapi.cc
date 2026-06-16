@@ -261,7 +261,9 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		obj_id = RTLIL::escape_id(argv[i++]);
 	attr_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
@@ -269,7 +271,6 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (mod_flag) {
 		obj = mod;
 	} else {
-		TwineSearch search(&yosys_design->twines);
 		auto obj_twine = search.find(obj_id);
 		obj = mod->wire(obj_twine);
 		if (!obj)
@@ -326,7 +327,9 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		obj_id = RTLIL::escape_id(argv[i++]);
 	attr_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
@@ -334,7 +337,6 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (mod_flag) {
 		obj = mod;
 	} else {
-		TwineSearch search(&yosys_design->twines);
 		auto obj_twine = search.find(obj_id);
 		obj = mod->wire(obj_twine);
 		if (!obj)
@@ -381,7 +383,9 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 		obj_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	attr_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
@@ -389,7 +393,6 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (mod_flag) {
 		obj = mod;
 	} else {
-		TwineSearch search(&yosys_design->twines);
 		auto obj_twine = search.find(obj_id);
 		obj = mod->wire(obj_twine);
 		if (!obj)
@@ -460,11 +463,12 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 	cell_id = RTLIL::escape_id(argv[i++]);
 	param_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
-	TwineSearch search(&yosys_design->twines);
 	auto cell_twine = search.find(cell_id);
 	Cell* cell = mod->cell(cell_twine);
 	if (!cell)
@@ -508,11 +512,12 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	cell_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	param_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
-	TwineSearch search(&yosys_design->twines);
 	auto cell_twine = search.find(cell_id);
 	RTLIL::Cell *cell = mod->cell(cell_twine);
 	if (!cell)

@@ -704,7 +704,7 @@ void AST::set_simplify_design_context(const RTLIL::Design *design)
 // lookup the module with the given name in the current design context
 static const RTLIL::Module* lookup_module(const std::string &name)
 {
-	return simplify_design_context->module(name);
+	return simplify_design_context->module(TwineSearch(&simplify_design_context->twines).find(name));
 }
 
 const RTLIL::Module* AstNode::lookup_cell_module()
@@ -1474,6 +1474,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			module = lookup_cell_module();
 		if (module) {
 			size_t port_counter = 0;
+			TwineSearch search(&module->design->twines);
 			for (auto& child : children) {
 				if (child->type != AST_ARGUMENT)
 					continue;
@@ -1481,7 +1482,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				// determine the full name of port this argument is connected to
 				TwineRef port_name;
 				if (child->str.size())
-					port_name = module->design->twines.lookup(child->str);
+					port_name = search.find(child->str);
 				else {
 					if (port_counter >= module->ports.size())
 						input_error("Cell instance has more ports than the module!\n");

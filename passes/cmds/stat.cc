@@ -261,7 +261,7 @@ struct statdata_t {
 							} else if (it == "S") {
 								port_name = TW::S;
 							} else {
-								port_name = design->twines.add(Twine{it});
+								port_name = design->twines.add(std::string{it});
 							}
 							if (cell->hasPort(port_name)) {
 								int width = GetSize(cell->getPort(port_name));
@@ -886,7 +886,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 
 		if (ar != nullptr && !ar->value.empty()) {
 			string prefix = cell->args[0].substr(0, 1) == "$" ? "" : "\\";
-			// TwineRef t = twines.add(Twine{prefix + cell->args[0]});
+			// TwineRef t = twines.add(std::string{prefix + cell->args[0]});
 			IdString t = prefix + cell->args[0];
 			cell_area[t] = {atof(ar->value.c_str()), is_flip_flop, single_parameter_area, double_parameter_area,
 							     port_names};
@@ -962,9 +962,11 @@ struct StatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
-				if (design->module(RTLIL::escape_id(args[argidx + 1])) == nullptr)
+				TwineRef top_ref = TwineSearch(&design->twines).find(RTLIL::escape_id(args[argidx + 1]));
+				if (design->module(top_ref) == nullptr)
 					log_cmd_error("Can't find module %s.\n", args[argidx + 1]);
-				top_mod = design->module(RTLIL::escape_id(args[++argidx]));
+				top_mod = design->module(top_ref);
+				argidx++;
 				continue;
 			}
 			if (args[argidx] == "-json") {

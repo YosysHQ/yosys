@@ -155,7 +155,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	std::stringstream sstr;
 	sstr << "$procmux$" << (autoidx++);
 
-	RTLIL::Wire *cmp_wire = mod->addWire(Twine{sstr.str() + "_CMP"}, 0);
+	RTLIL::Wire *cmp_wire = mod->addWire(mod->design->twines.add(std::string{sstr.str() + "_CMP"}), 0);
 
 	for (auto comp : compare)
 	{
@@ -178,7 +178,7 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 		else
 		{
 			// create compare cell
-			RTLIL::Cell *eq_cell = mod->addCell(Twine{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}, ifxmode ? TW($eqx) : TW($eq));
+			RTLIL::Cell *eq_cell = mod->addCell(mod->design->twines.add(std::string{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}), ifxmode ? TW($eqx) : TW($eq));
 			apply_attrs(eq_cell, sw, cs);
 
 			eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -201,10 +201,10 @@ RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	}
 	else
 	{
-		ctrl_wire = mod->addWire(Twine{sstr.str() + "_CTRL"});
+		ctrl_wire = mod->addWire(mod->design->twines.add(std::string{sstr.str() + "_CTRL"}));
 
 		// reduce cmp vector to one logic signal
-		RTLIL::Cell *any_cell = mod->addCell(Twine{sstr.str() + "_ANY"}, TW($reduce_or));
+		RTLIL::Cell *any_cell = mod->addCell(mod->design->twines.add(std::string{sstr.str() + "_ANY"}), TW($reduce_or));
 		apply_attrs(any_cell, sw, cs);
 
 		any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
@@ -236,10 +236,10 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	log_assert(ctrl_sig.size() == 1);
 
 	// prepare multiplexer output signal
-	RTLIL::Wire *result_wire = mod->addWire(Twine{sstr.str() + "_Y"}, when_signal.size());
+	RTLIL::Wire *result_wire = mod->addWire(mod->design->twines.add(std::string{sstr.str() + "_Y"}), when_signal.size());
 
 	// create the multiplexer itself
-	RTLIL::Cell *mux_cell = mod->addCell(Twine{sstr.str()}, TW($mux));
+	RTLIL::Cell *mux_cell = mod->addCell(mod->design->twines.add(std::string{sstr.str()}), TW($mux));
 	apply_attrs(mux_cell, sw, cs);
 
 	mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());

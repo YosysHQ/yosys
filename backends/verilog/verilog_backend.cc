@@ -103,6 +103,7 @@ std::set<RTLIL::IdString> reg_wires;
 std::string auto_prefix, extmem_prefix;
 
 RTLIL::Module *active_module;
+std::optional<TwineSearch> active_search;
 dict<RTLIL::SigBit, RTLIL::State> active_initdata;
 SigMap active_sigmap;
 IdString initial_id;
@@ -990,12 +991,10 @@ void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, b
 {
 	if (gen_signed && cell->parameters.count("\\" + port + "_SIGNED") > 0 && cell->parameters["\\" + port + "_SIGNED"].as_bool()) {
 		f << stringf("$signed(");
-		TwineRef port_ref = cell->module->design->twines.lookup("\\" + port);
-		dump_sigspec(f, cell->getPort(port_ref != Twine::Null ? port_ref : cell->module->design->twines.add(Twine{"\\" + port})));
+		dump_sigspec(f, cell->getPort(TW::lookup(port)));
 		f << stringf(")");
 	} else {
-		TwineRef port_ref = cell->module->design->twines.lookup("\\" + port);
-		dump_sigspec(f, cell->getPort(port_ref != Twine::Null ? port_ref : cell->module->design->twines.add(Twine{"\\" + port})));
+		dump_sigspec(f, cell->getPort(TW::lookup(port)));
 	}
 }
 
@@ -1023,7 +1022,7 @@ std::string cellname(RTLIL::Cell *cell)
 		if (wire->width != 1)
 			cell_name += stringf("[%d]", wire->start_offset + sig[0].offset);
 
-		if (active_module && active_module->count_id(active_module->design->twines.lookup(cell_name)) > 0)
+		if (active_module && active_module->count_id(active_search->find(cell_name)) > 0)
 				goto no_special_reg_name;
 
 		return id(cell_name);
@@ -2023,7 +2022,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		char str[16];
 		snprintf(str, 16, "$%d", i);
 		std::string port_str(str);
-		TwineRef port_ref = cell->module->design->twines.lookup(port_str);
+		TwineRef port_ref = active_search->find(port_str);
 		bool found_port = false;
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (port_ref == Twine::Null || it->first != port_ref)
@@ -2386,6 +2385,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	reg_wires.clear();
 	reset_auto_counter(module);
 	active_module = module;
+	active_search.emplace(&module->design->twines);
 	active_sigmap.set(module);
 	active_initdata.clear();
 
@@ -2496,6 +2496,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	f << stringf("%s" "endmodule\n", indent);
 	active_module = NULL;
+	active_search.reset();
 	active_sigmap.clear();
 	active_initdata.clear();
 }

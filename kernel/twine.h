@@ -333,10 +333,10 @@ struct TwinePool {
 		return ref;
 	}
 
-	// Interns an object name and returns a publicity-tagged handle. Leaf
-	// strings follow the escaped convention: a leading '\' marks a public
-	// name (stripped from the stored content), '$' a private one. Suffix
-	// and concat names inherit the prefix/first-child handle's publicity.
+	// Interns a structural Twine verbatim and returns the handle. Leaf content
+	// is stored as-is — callers holding an escaped string must strip the '\'
+	// and tag publicity themselves (or use the add(std::string) overload).
+	// Suffix names inherit the prefix handle's publicity.
 	TwineRef add(Twine t) {
 		bool is_public = false;
 		if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
@@ -391,11 +391,6 @@ struct TwinePool {
 			return twine_tag(add(Twine{Twine::Suffix{copy_from(src, t.suffix().prefix), t.suffix().tail}}), is_public);
 		return Twine::Null;
 	}
-
-	// linear deep scan; only for rare by-string lookups. Accepts the
-	// escaped name convention: a leading '\' is stripped and the returned
-	// handle carries TWINE_PUBLIC_BIT.
-	TwineRef lookup(std::string_view sv) const;
 
 	// Erases every backing node not reachable from `roots`; refs to
 	// surviving nodes stay valid. Returns the number of erased nodes.
@@ -685,31 +680,19 @@ struct TwineChildPool {
 	}
 };
 
-inline TwineRef TwinePool::lookup(std::string_view sv) const {
-	bool is_public = !sv.empty() && sv[0] == '\\';
-	if (is_public)
-		sv.remove_prefix(1);
-	DeepTwineEq eq{this};
-	for (TwineRef ref = 0; ref < globals_.size(); ref++)
-		if (eq(ref, sv))
-			return twine_tag(ref, is_public);
-	for (auto it = backing.begin(); it != backing.end(); ++it) {
-		TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
-		if (eq(ref, sv))
-			return twine_tag(ref, is_public);
-	}
-	return Twine::Null;
-}
-
 struct TwineSearch {
-	TwinePool* pool;
+	const TwinePool* pool;
 	std::unordered_set<TwineRef, DeepTwineHash, DeepTwineEq> index;
-	TwineSearch(TwinePool* pool) : pool(pool), index(0, DeepTwineHash{pool}, DeepTwineEq{pool}) {
+	TwineSearch(const TwinePool* pool) : pool(pool), index(0, DeepTwineHash{pool}, DeepTwineEq{pool}) {
+		for (TwineRef ref = 0; ref < STATIC_TWINE_END; ref++)
+			index.insert(ref);
 		for (auto it = pool->backing.begin(); it != pool->backing.end(); ++it) {
+			if (it->is_dead())
+				continue;
 			index.insert(STATIC_TWINE_END + pool->backing.get_index(it));
 		}
 	}
-	// Escaped-name aware, same contract as TwinePool::lookup.
+	// Escaped-name aware. Resolves both statics and locals by content.
 	TwineRef find(std::string_view sv) const {
 		bool is_public = !sv.empty() && sv[0] == '\\';
 		if (is_public)

@@ -209,7 +209,7 @@ struct IdStringCollector {
 	}
 	void trace(const RTLIL::Cell &cell) {
 		trace_named(cell);
-		trace(cell.type);
+		trace(cell.type_impl);
 		trace_keys(cell.connections_);
 		trace_keys(cell.parameters);
 	}
@@ -1547,14 +1547,14 @@ const RTLIL::Module *RTLIL::Design::module(TwineRef id) const {
 RTLIL::Module *RTLIL::Design::module(TwineRef id) {
 	return modules_.count(id) ? modules_.at(id) : NULL;
 }
-const RTLIL::Module *RTLIL::Design::module(IdString id) const {
-	TwineRef r = twines.lookup(id.str());
-	return r == Twine::Null ? NULL : module(r);
-}
-RTLIL::Module *RTLIL::Design::module(IdString id) {
-	TwineRef r = twines.lookup(id.str());
-	return r == Twine::Null ? NULL : module(r);
-}
+// const RTLIL::Module *RTLIL::Design::module(IdString id) const {
+// 	TwineRef r = twines.lookup(id.str());
+// 	return r == Twine::Null ? NULL : module(r);
+// }
+// RTLIL::Module *RTLIL::Design::module(IdString id) {
+// 	TwineRef r = twines.lookup(id.str());
+// 	return r == Twine::Null ? NULL : module(r);
+// }
 
 RTLIL::Module *RTLIL::Design::top_module() const
 {
@@ -5180,7 +5180,7 @@ bool RTLIL::Cell::input(TwineRef portname) const
 	if (yosys_celltypes.cell_known(type_impl))
 		return yosys_celltypes.cell_input(type_impl, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
+		RTLIL::Module *m = module->design->module(type_impl);
 		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
 		return w && w->port_input;
 	}
@@ -5236,7 +5236,7 @@ const RTLIL::Const &RTLIL::Cell::getParam(IdString paramname) const
 	if (it != parameters.end())
 		return it->second;
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
+		RTLIL::Module *m = module->design->module(type_impl);
 		if (m)
 			return m->parameter_default_values.at(paramname);
 	}
@@ -6598,6 +6598,9 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 	sigspec_parse_split(tokens, str, ',');
 
 	sig = RTLIL::SigSpec();
+	std::optional<TwineSearch> search;
+	if (module)
+		search.emplace(&module->design->twines);
 	for (int tokidx = int(tokens.size())-1; tokidx >= 0; tokidx--)
 	{
 		std::string netname = tokens[tokidx];
@@ -6621,7 +6624,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 		if (netname[0] != '$' && netname[0] != '\\')
 			netname = "\\" + netname;
 
-		if (module->design->twines.lookup(netname) == Twine::Null) {
+		if (search->find(netname) == Twine::Null) {
 			size_t indices_pos = netname.size()-1;
 			if (indices_pos > 2 && netname[indices_pos] == ']')
 			{
@@ -6639,12 +6642,12 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 		}
 
 		{
-			TwineRef wid = module->design->twines.lookup(netname);
+			TwineRef wid = search->find(netname);
 			if (wid == Twine::Null || module->wires_.count(wid) == 0)
 				return false;
 		}
 
-		RTLIL::Wire *wire = module->wire(module->design->twines.lookup(netname));
+		RTLIL::Wire *wire = module->wire(search->find(netname));
 		if (!indices.empty()) {
 			std::vector<std::string> index_tokens;
 			sigspec_parse_split(index_tokens, indices.substr(1, indices.size()-2), ':');

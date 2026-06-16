@@ -244,7 +244,7 @@ struct WreduceWorker
 	{
 		port_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
 		auto &twines = cell->module->design->twines;
-		SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", port)})));
+		SigSpec sig = mi.sigmap(cell->getPort(twines.add(std::string{stringf("\\%c", port)})));
 
 		if (port == 'B' && cell->type.in(TW($shl), TW($shr), TW($sshl), TW($sshr)))
 			port_signed = false;
@@ -268,8 +268,8 @@ struct WreduceWorker
 		if (bits_removed) {
 			log("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, port, module, cell, cell->type.unescaped());
-			// SigSpec sig = mi.sigmap(cell->getPort(twines.add(Twine{stringf("\\%c", port)})));
-			cell->setPort(twines.add(Twine{stringf("\\%c", port)}), sig);
+			// SigSpec sig = mi.sigmap(cell->getPort(twines.add(std::string{stringf("\\%c", port)})));
+			cell->setPort(twines.add(std::string{stringf("\\%c", port)}), sig);
 			did_something = true;
 		}
 	}
@@ -640,7 +640,7 @@ struct WreducePass : public Pass {
 
 				if (!opt_memx && c->type.in(TW($memrd), TW($memrd_v2), TW($memwr), TW($memwr_v2), TW($meminit), TW($meminit_v2))) {
 					std::string memid_s = c->getParam(ID::MEMID).decode_string();
-					TwineRef memid = design->twines.add(Twine{memid_s});
+					TwineRef memid = design->twines.add(std::string{memid_s});
 					RTLIL::Memory *mem = module->memories.at(memid);
 					if (mem->start_offset >= 0) {
 						int cur_addrbits = c->getParam(ID::ABITS).as_int();

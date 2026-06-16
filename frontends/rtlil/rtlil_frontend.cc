@@ -371,7 +371,10 @@ struct RTLILFrontendWorker {
 			// We don't need to addref/release in this case.
 			std::optional<RTLIL::IdString> id = try_parse_id();
 			if (id.has_value()) {
-				RTLIL::Wire *wire = current_module->wire(design->twines.lookup(id->str()));
+				std::string s = id->str();
+				bool pub = !s.empty() && s[0] == '\\';
+				TwineRef ref = twine_tag(design->twines.find(Twine{pub ? s.substr(1) : s}), pub);
+				RTLIL::Wire *wire = current_module->wire(ref);
 				if (wire == nullptr) {
 					if (flag_legalize)
 						wire = legalize_wire(*id);

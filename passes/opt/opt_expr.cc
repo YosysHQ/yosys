@@ -421,7 +421,7 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, TwineRe
 					twines.unescaped_str(port), cell->type.unescaped(), cell, cell->module,
 					log_signal(sig), log_signal(new_sig));
 			cell->setPort(port, new_sig);
-			cell->type_impl = cell->module->design->twines.add(Twine{cell->type == type1 ? type2 : type1});
+			cell->type_impl = cell->module->design->twines.add(std::string{cell->type == type1 ? type2 : type1});
 		}
 	}
 }

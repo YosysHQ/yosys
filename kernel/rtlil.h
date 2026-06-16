@@ -1363,31 +1363,30 @@ struct NameMasqBase {
 		return self().escaped();
 	}
 	bool isPublic() const { return twine_is_public(self().ref()); }
-	bool empty() const { return RTLIL::IdString(self()).empty(); }
+	bool empty() const { return self().ref() == Twine::Null; }
 	std::string str() const { return self().escaped(); }
 	std::string unescape() const { return self().unescaped(); }
 	bool begins_with(const char *s) const { return str().starts_with(s); }
 	bool ends_with(const char *s) const { return str().ends_with(s); }
 	template <typename... Ts> bool in(Ts &&...args) const {
-		return RTLIL::IdString(self()).in(std::forward<Ts>(args)...);
+		return self().ref().in(std::forward<Ts>(args)...);
 	}
 	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-		return RTLIL::IdString(self()).substr(pos, len);
+		return self().escaped().substr(pos, len);
 	}
-	// TODO less IdString construction in masquerades
-	size_t size() const { return RTLIL::IdString(self()).size(); }
-	bool contains(const char *p) const { return RTLIL::IdString(self()).contains(p); }
-	char operator[](int n) const { return RTLIL::IdString(self()).str()[n]; }
-	bool lt_by_name(RTLIL::IdString rhs) const { return RTLIL::IdString(self()).lt_by_name(rhs); }
-	bool lt_by_name(const Derived &rhs) const { return RTLIL::IdString(self()).lt_by_name(RTLIL::IdString(rhs)); }
-	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(self()) == rhs; }
-	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(self()) != rhs; }
-	bool operator<(RTLIL::IdString rhs) const { return RTLIL::IdString(self()) < rhs; }
-	bool operator==(const std::string &rhs) const { return RTLIL::IdString(self()) == rhs; }
-	bool operator!=(const std::string &rhs) const { return RTLIL::IdString(self()) != rhs; }
-	bool operator==(const Derived &rhs) const { return RTLIL::IdString(self()) == RTLIL::IdString(rhs); }
-	bool operator!=(const Derived &rhs) const { return RTLIL::IdString(self()) != RTLIL::IdString(rhs); }
-	bool operator<(const Derived &rhs) const { return RTLIL::IdString(self()) < RTLIL::IdString(rhs); }
+	size_t size() const { return self().escaped().size(); }
+	bool contains(const char *p) const { return self().escaped().find(p) != std::string::npos; }
+	char operator[](int n) const { return self().escaped()[n]; }
+	bool lt_by_name(RTLIL::IdString rhs) const { return self().escaped() < rhs.str(); }
+	bool lt_by_name(const Derived &rhs) const { return self().escaped() < rhs.escaped(); }
+	bool operator==(RTLIL::IdString rhs) const { return self().escaped() == rhs.str(); }
+	bool operator!=(RTLIL::IdString rhs) const { return self().escaped() != rhs.str(); }
+	bool operator<(RTLIL::IdString rhs) const { return self().escaped() < rhs.str(); }
+	bool operator==(const std::string &rhs) const { return self().escaped() == rhs; }
+	bool operator!=(const std::string &rhs) const { return self().escaped() != rhs; }
+	bool operator==(const Derived &rhs) const { return self().ref() == rhs.ref(); }
+	bool operator!=(const Derived &rhs) const { return self().ref() != rhs.ref(); }
+	bool operator<(const Derived &rhs) const { return self().escaped() < rhs.escaped(); }
 	[[nodiscard]] Hasher hash_into(Hasher h) const { return RTLIL::IdString(self()).hash_into(h); }
 private:
 	const Derived &self() const { return *static_cast<const Derived *>(this); }
@@ -1395,11 +1394,11 @@ private:
 } // namespace RTLIL
 template<typename Derived>
 inline bool operator==(RTLIL::IdString lhs, const RTLIL::NameMasqBase<Derived> &rhs) {
-	return lhs == RTLIL::IdString(rhs);
+	return lhs.str() == static_cast<const Derived &>(rhs).escaped();
 }
 template<typename Derived>
 inline bool operator!=(RTLIL::IdString lhs, const RTLIL::NameMasqBase<Derived> &rhs) {
-	return lhs != RTLIL::IdString(rhs);
+	return lhs.str() != static_cast<const Derived &>(rhs).escaped();
 }
 
 // Read-only masquerade for Wire::name. Reads materialise the TwineRef in
@@ -1454,24 +1453,24 @@ struct RTLIL::CellTypeMasq {
 		return ref().in(std::forward<Ts>(args)...);
 	}
 	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-		return RTLIL::IdString(*this).substr(pos, len);
+		return escaped().substr(pos, len);
 	}
 	size_t size() const { return str().size(); }
-	// bool contains(const char *p) const { return str().contains(p); }
+	bool contains(const char *p) const { return escaped().find(p) != std::string::npos; }
 	char operator[](int n) const { return str()[n]; }
-	bool operator==(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) == rhs; }
-	bool operator!=(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) != rhs; }
-	bool operator<(RTLIL::IdString rhs) const { return RTLIL::IdString(*this) < rhs; }
+	bool operator==(RTLIL::IdString rhs) const { return escaped() == rhs.str(); }
+	bool operator!=(RTLIL::IdString rhs) const { return escaped() != rhs.str(); }
+	bool operator<(RTLIL::IdString rhs) const { return escaped() < rhs.str(); }
 	bool operator==(TwineRef rhs) const { return ref() == rhs; }
 	bool operator!=(TwineRef rhs) const { return ref() != rhs; }
-	bool operator==(const std::string &rhs) const { return RTLIL::IdString(*this) == rhs; }
-	bool operator!=(const std::string &rhs) const { return RTLIL::IdString(*this) != rhs; }
+	bool operator==(const std::string &rhs) const { return escaped() == rhs; }
+	bool operator!=(const std::string &rhs) const { return escaped() != rhs; }
 	bool operator==(const CellTypeMasq &rhs) const { return ref() == rhs.ref(); }
 	bool operator!=(const CellTypeMasq &rhs) const { return ref() != rhs.ref(); }
 	[[nodiscard]] Hasher hash_into(Hasher h) const { return RTLIL::IdString(*this).hash_into(h); }
 };
-inline bool operator==(RTLIL::IdString lhs, const RTLIL::CellTypeMasq &rhs) { return lhs == RTLIL::IdString(rhs); }
-inline bool operator!=(RTLIL::IdString lhs, const RTLIL::CellTypeMasq &rhs) { return lhs != RTLIL::IdString(rhs); }
+inline bool operator==(RTLIL::IdString lhs, const RTLIL::CellTypeMasq &rhs) { return lhs.str() == rhs.escaped(); }
+inline bool operator!=(RTLIL::IdString lhs, const RTLIL::CellTypeMasq &rhs) { return lhs.str() != rhs.escaped(); }
 inline bool operator==(TwineRef lhs, const RTLIL::CellTypeMasq &rhs) { return lhs == rhs.ref(); }
 inline bool operator!=(TwineRef lhs, const RTLIL::CellTypeMasq &rhs) { return lhs != rhs.ref(); }
 
@@ -2162,8 +2161,8 @@ struct RTLIL::Design
 	~Design();
 
 	RTLIL::ObjRange<RTLIL::Module*, TwineRef> modules();
-	RTLIL::Module *module(IdString name);
-	const RTLIL::Module *module(IdString name) const;
+	// RTLIL::Module *module(IdString name);
+	// const RTLIL::Module *module(IdString name) const;
 	RTLIL::Module *module(TwineRef name);
 	const RTLIL::Module *module(TwineRef name) const;
 	RTLIL::Module *top_module() const;
