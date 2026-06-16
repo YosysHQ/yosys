@@ -80,7 +80,7 @@ YOSYS_NAMESPACE_BEGIN
 // - empty set [not a cell — will be emitted as a simple direct connection]
 
 struct FfTypeData {
-	FfTypeData(IdString type);
+	FfTypeData(TwineRef type);
 	FfTypeData() {
 		has_clk = false;
 		has_gclk = false;

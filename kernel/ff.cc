@@ -26,14 +26,14 @@ USING_YOSYS_NAMESPACE
 template<typename InputType, typename OutputType, typename = std::enable_if_t<std::is_base_of_v<FfTypeData, OutputType>>>
 void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 	Cell* cell = nullptr;
-	IdString type;
+	TwineRef type;
 	constexpr bool have_cell = std::is_same_v<InputType, Cell*>;
-	if constexpr (std::is_same_v<InputType, IdString>) {
+	if constexpr (std::is_same_v<InputType, TwineRef>) {
 		type = flop;
 	} else {
 		static_assert(std::is_same_v<InputType, Cell*>);
 		cell = flop;
-		type = flop->type;
+		type = flop->type.ref();
 	}
 	if constexpr (have_cell) {
 		info.sig_q = cell->getPort(TW::Q);
@@ -52,7 +52,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 	}
 
 
-	std::string type_str = type.str();
+	std::string type_str = TW::str(type);
 
 	if (type.in(TW($anyinit), TW($ff), TW($dff), TW($dffe), TW($dffsr), TW($dffsre), TW($adff), TW($adffe), TW($aldff), TW($aldffe), TW($sdff), TW($sdffe), TW($sdffce), TW($dlatch), TW($adlatch), TW($dlatchsr), TW($sr))) {
 		if (type.in(TW($anyinit), TW($ff))) {
@@ -331,7 +331,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		}
 }
 
-FfTypeData::FfTypeData(IdString type) : FfTypeData()
+FfTypeData::FfTypeData(TwineRef type) : FfTypeData()
 {
 	manufacture_info(type, *this, nullptr);
 }
