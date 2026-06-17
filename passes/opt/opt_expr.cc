@@ -2110,10 +2110,10 @@ skip_alu_split:
 		// replace (2^k-1)-x with ~x when x is known to be smaller than 2^k
 		if (do_fine && cell->type == ID($sub))
 		{
-			int y_width = GetSize(cell->getPort(ID::Y));
+			int y_width = GetSize(cell->getPort(TW::Y));
 			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
-			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(TW::A));
 			sig_a.extend_u0(y_width, a_signed);
 
 			if (y_width > 0 && sig_a.is_fully_const())
@@ -2132,7 +2132,7 @@ skip_alu_split:
 				if (a_is_mask)
 				{
 					bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
-					RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+					RTLIL::SigSpec sig_b = assign_map(cell->getPort(TW::B));
 					sig_b.extend_u0(y_width, b_signed);
 
 					bool b_fits = true;
@@ -2142,13 +2142,13 @@ skip_alu_split:
 
 					if (b_fits)
 					{
-						RTLIL::SigSpec sig_y = module->Not(NEW_ID, sig_b.extract(0, k));
+						RTLIL::SigSpec sig_y = module->Not(NEW_TWINE, sig_b.extract(0, k));
 						if (y_width > k)
 							sig_y.append(RTLIL::SigSpec(State::S0, y_width - k));
 
 						log_debug("Replacing `(2^%d-1) - B` $sub cell `%s' in module `%s' with $not.\n",
-								k, cell->name.c_str(), module->name.c_str());
-						module->connect(cell->getPort(ID::Y), sig_y);
+								k, log_id(cell), log_id(module));
+						module->connect(cell->getPort(TW::Y), sig_y);
 						module->remove(cell);
 						did_something = true;
 						goto next_cell;

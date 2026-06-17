@@ -357,7 +357,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (port_bits_node->type != 'A')
 				log_error("JSON port node '%s' has non-array bits attribute.\n", port_name.unescape());
 
-			Wire *port_wire = module->wire(design->twines.lookup(port_name.str()));
+			Wire *port_wire = module->wire(TwineSearch(&design->twines).find(port_name.str()));
 
 			if (port_wire == nullptr)
 				port_wire = module->addWire(Twine{port_name.str()}, GetSize(port_bits_node->data_array));
@@ -455,7 +455,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (bits_node->type != 'A')
 				log_error("JSON netname node '%s' has non-array bits attribute.\n", net_name.unescape());
 
-			Wire *wire = module->wire(design->twines.lookup(net_name.str()));
+			Wire *wire = module->wire(TwineSearch(&design->twines).find(net_name.str()));
 
 			if (wire == nullptr)
 				wire = module->addWire(Twine{net_name.str()}, GetSize(bits_node->data_array));

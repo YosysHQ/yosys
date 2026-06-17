@@ -131,13 +131,13 @@ void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actio
 
 		if (new_attr != attr)
 			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname,
-					attr.first.unescape(), log_const(attr.second), design->twines.unescaped_str(new_attr.first), log_const(new_attr.second));
+					attr.first.unescape(), log_const(attr.second), new_attr.first.unescape(), log_const(new_attr.second));
 
 		new_attributes[new_attr.first] = new_attr.second;
 
 		if (0)
 	delete_this_attr:
-			log("Removed attribute on %s: %s=%s\n", objname, design->twines.unescaped_str(attr.first), log_const(attr.second));
+			log("Removed attribute on %s: %s=%s\n", objname, attr.first.unescape(), log_const(attr.second));
 	}
 
 	attributes.swap(new_attributes);
@@ -271,7 +271,7 @@ struct AttrmapPass : public Pass {
 			for (auto module : design->all_selected_modules())
 			{
 				for (auto memb : module->selected_members())
-					attrmap_apply(stringf("%s.%s", module, memb), actions, memb->attributes);
+					attrmap_apply(stringf("%s.%s", module, design->obj_name(memb).c_str()), actions, memb->attributes);
 
 				// attrmap already applied to process itself during above loop, but not its children
 				for (auto proc : module->selected_processes())
@@ -280,10 +280,10 @@ struct AttrmapPass : public Pass {
 					while (!all_cases.empty()) {
 						RTLIL::CaseRule *cs = all_cases.back();
 						all_cases.pop_back();
-						attrmap_apply(stringf("%s.%s (case)", module, proc), actions, cs->attributes);
+						attrmap_apply(stringf("%s.%s (case)", module, log_id(proc)), actions, cs->attributes);
 
 						for (auto &sw : cs->switches) {
-							attrmap_apply(stringf("%s.%s (switch)", module, proc), actions, sw->attributes);
+							attrmap_apply(stringf("%s.%s (switch)", module, log_id(proc)), actions, sw->attributes);
 							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
 						}
 					}

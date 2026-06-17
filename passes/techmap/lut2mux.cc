@@ -97,7 +97,7 @@ struct Lut2muxPass : public Pass {
 			if (cell->type == TW($lut)) {
 				IdString cell_name = cell->name;
 				int count = lut2mux(cell, word_mode);
-				log("Converted %s.%s to %d MUX cells.\n", module, design->twines.unescaped_str(cell_name), count);
+				log("Converted %s.%s to %d MUX cells.\n", module, RTLIL::unescape_id(cell_name).c_str(), count);
 			}
 		}
 	}

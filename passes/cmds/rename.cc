@@ -31,11 +31,11 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	from_name = RTLIL::escape_id(from_name);
 	to_name = RTLIL::escape_id(to_name);
 
-	TwineRef to_ref = module->design->twines.lookup(to_name);
+	TwineRef to_ref = TwineSearch(&module->design->twines).find(to_name);
 	if (module->count_id(to_ref))
 		log_cmd_error("There is already an object `%s' in module `%s'.\n", RTLIL::unescape_id(to_name), log_id(module));
 
-	TwineRef from_ref = module->design->twines.lookup(from_name);
+	TwineRef from_ref = TwineSearch(&module->design->twines).find(from_name);
 	RTLIL::Wire *wire_to_rename = module->wire(from_ref);
 	RTLIL::Cell *cell_to_rename = module->cell(from_ref);
 
@@ -109,7 +109,7 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 	RTLIL::Wire *wire;
 
 	if (move_to_cell) {
-		TwineRef name_ref = cell->module->design->twines.lookup(name);
+		TwineRef name_ref = TwineSearch(&cell->module->design->twines).find(name);
 		if (name_ref == Twine::Null || (!(wire = cell->module->wire(name_ref)) || !(wire->port_input || wire->port_output)))
 			return name;
 	}
@@ -425,7 +425,7 @@ struct RenamePass : public Pass {
 						new_cell_names[cell] = derive_name_from_cell_output_wire(cell, cell_suffix, flag_move_to_cell);
 				for (auto &[cell, new_name] : new_cell_names) {
 					if (flag_move_to_cell) {
-						TwineRef new_name_ref = module->design->twines.lookup(new_name.str());
+						TwineRef new_name_ref = TwineSearch(&module->design->twines).find(new_name.str());
 						RTLIL::Wire *found_wire = new_name_ref != Twine::Null ? module->wire(new_name_ref) : nullptr;
 						if (found_wire) {
 							std::string wire_suffix = cell_suffix;
@@ -462,7 +462,7 @@ struct RenamePass : public Pass {
 						TwineRef buf_ref;
 						do {
 							buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
-							buf_ref = module->design->twines.lookup(buf.str());
+							buf_ref = TwineSearch(&module->design->twines).find(buf.str());
 						} while (buf_ref != Twine::Null && module->wire(buf_ref) != nullptr);
 						new_wire_names[wire] = buf;
 					}
@@ -473,7 +473,7 @@ struct RenamePass : public Pass {
 						TwineRef buf_ref;
 						do {
 							buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
-							buf_ref = module->design->twines.lookup(buf.str());
+							buf_ref = TwineSearch(&module->design->twines).find(buf.str());
 						} while (buf_ref != Twine::Null && module->cell(buf_ref) != nullptr);
 						new_cell_names[cell] = buf;
 					}

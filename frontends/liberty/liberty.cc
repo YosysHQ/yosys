@@ -47,7 +47,7 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
-	TwineRef wire_ref = module->design->twines.lookup(id);
+	TwineRef wire_ref = TwineSearch(&module->design->twines).find(id);
 	RTLIL::Wire *w = module->wire(wire_ref);
 	if (!w)
 		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), module);
@@ -202,8 +202,8 @@ static void create_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 
 static std::pair<RTLIL::SigSpec, RTLIL::SigSpec> find_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 {
-	TwineRef iq_ref = module->design->twines.lookup(RTLIL::escape_id(node->args.at(0)));
-	TwineRef iqn_ref = module->design->twines.lookup(RTLIL::escape_id(node->args.at(1)));
+	TwineRef iq_ref = TwineSearch(&module->design->twines).find(RTLIL::escape_id(node->args.at(0)));
+	TwineRef iqn_ref = TwineSearch(&module->design->twines).find(RTLIL::escape_id(node->args.at(1)));
 	auto* iq_wire = module->wire(iq_ref);
 	auto* iqn_wire = module->wire(iqn_ref);
 	log_assert(iq_wire && iqn_wire);
@@ -613,7 +613,7 @@ struct LibertyFrontend : public Frontend {
 			RTLIL::Module *module = new RTLIL::Module;
 			module->design = design;
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
-			TwineRef cell_name_ref = design->twines.lookup(cell_name);
+			TwineRef cell_name_ref = TwineSearch(&design->twines).find(cell_name);
 			module->meta_->name = design->twines.add(Twine{cell_name});
 
 			if (flag_lib)
@@ -734,7 +734,7 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib && dir->value == "internal")
 						continue;
 
-					TwineRef wire_ref = module->design->twines.lookup(RTLIL::escape_id(node->args.at(0)));
+					TwineRef wire_ref = TwineSearch(&module->design->twines).find(RTLIL::escape_id(node->args.at(0)));
 					RTLIL::Wire *wire = module->wire(wire_ref);
 					log_assert(wire);
 

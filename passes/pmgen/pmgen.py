@@ -454,7 +454,7 @@ with open(outfile, "w") as f:
     print("  SigSpec port(Cell *cell, TwineRef portname) {", file=f)
     print("    try {", file=f)
     print("      return (*sigmap)(cell->getPort(portname));", file=f)
-    print("    } catch(std::out_of_range&) { log_error(\"Accessing non existing port %s\\n\",portname); }", file=f)
+    print("    } catch(std::out_of_range&) { log_error(\"Accessing non existing port %s\\n\", cell->module->design->twines.str(portname).c_str()); }", file=f)
     print("  }", file=f)
     print("", file=f)
     print("  SigSpec port(Cell *cell, TwineRef portname, const SigSpec& defval) {", file=f)

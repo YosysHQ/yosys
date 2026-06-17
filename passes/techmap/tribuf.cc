@@ -73,8 +73,8 @@ struct TribufWorker {
 
 			if (cell->type.in(TW($mux), TW($_MUX_)))
 			{
-				IdString en_port = cell->type == TW($mux) ? ID::EN : ID::E;
-				IdString tri_type = cell->type == TW($mux) ? TW($tribuf) : TW($_TBUF_);
+				TwineRef en_port = cell->type == TW($mux) ? TW::EN : TW::E;
+				TwineRef tri_type = cell->type == TW($mux) ? TW($tribuf) : TW($_TBUF_);
 
 				if (is_all_z(cell->getPort(TW::A)) && is_all_z(cell->getPort(TW::B))) {
 					module->remove(cell);
@@ -86,7 +86,7 @@ struct TribufWorker {
 					cell->setPort(en_port, cell->getPort(TW::S));
 					cell->unsetPort(TW::B);
 					cell->unsetPort(TW::S);
-					cell->type_impl = cell->module->design->twines.add(Twine{tri_type.str()});
+					cell->type_impl = tri_type;
 					tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
@@ -96,7 +96,7 @@ struct TribufWorker {
 					cell->setPort(en_port, module->Not(NEW_TWINE, cell->getPort(TW::S)));
 					cell->unsetPort(TW::B);
 					cell->unsetPort(TW::S);
-					cell->type_impl = cell->module->design->twines.add(Twine{tri_type.str()});
+					cell->type_impl = tri_type;
 					tribuf_cells[sigmap(cell->getPort(TW::Y))].push_back(cell);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
@@ -143,7 +143,7 @@ struct TribufWorker {
 						auto conflict = module->And(NEW_TWINE, cell_s, other_s);
 
 						std::string name = stringf("$tribuf_conflict$%s", cell->module->design->twines.str(cell->meta_->name));
-						auto assert_cell = module->addAssert(name, module->Not(NEW_TWINE, conflict), SigSpec(true));
+						auto assert_cell = module->addAssert(Twine{name}, module->Not(NEW_TWINE, conflict), SigSpec(true));
 
 						assert_cell->adopt_src_from(cell);
 						assert_cell->set_bool_attribute(ID::keep);

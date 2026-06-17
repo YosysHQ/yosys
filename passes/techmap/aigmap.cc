@@ -68,11 +68,11 @@ struct AigmapPass : public Pass {
 		{
 			vector<Cell*> replaced_cells;
 			int not_replaced_count = 0;
-			dict<IdString, int> stat_replaced;
-			dict<IdString, int> stat_not_replaced;
+			dict<TwineRef, int> stat_replaced;
+			dict<TwineRef, int> stat_not_replaced;
 			int orig_num_cells = GetSize(module->cells());
 
-			pool<IdString> new_sel;
+			pool<TwineRef> new_sel;
 			for (auto cell : module->selected_cells())
 			{
 				Aig aig(cell);
@@ -85,9 +85,9 @@ struct AigmapPass : public Pass {
 
 				if (aig.name.empty()) {
 					not_replaced_count++;
-					stat_not_replaced[cell->type]++;
+					stat_not_replaced[cell->type_impl]++;
 					if (select_mode)
-						new_sel.insert(cell->name);
+						new_sel.insert(cell->name.ref());
 					continue;
 				}
 
@@ -111,7 +111,7 @@ struct AigmapPass : public Pass {
 							bit = module->addWire(NEW_TWINE);
 							auto gate = module->addNandGate(NEW_TWINE, A, B, bit);
 							if (select_mode)
-								new_sel.insert(gate->name);
+								new_sel.insert(gate->name.ref());
 
 							goto skip_inverter;
 						} else {
@@ -122,7 +122,7 @@ struct AigmapPass : public Pass {
 								bit = module->addWire(NEW_TWINE);
 								auto gate = module->addAndGate(NEW_TWINE, A, B, bit);
 								if (select_mode)
-									new_sel.insert(gate->name);
+									new_sel.insert(gate->name.ref());
 							}
 						}
 					}
@@ -132,7 +132,7 @@ struct AigmapPass : public Pass {
 						auto gate = module->addNotGate(NEW_TWINE, bit, new_bit);
 						bit = new_bit;
 						if (select_mode)
-							new_sel.insert(gate->name);
+							new_sel.insert(gate->name.ref());
 
 					}
 
@@ -144,7 +144,7 @@ struct AigmapPass : public Pass {
 				}
 
 				replaced_cells.push_back(cell);
-				stat_replaced[cell->type]++;
+				stat_replaced[cell->type_impl]++;
 			}
 
 			if (not_replaced_count == 0 && replaced_cells.empty())
@@ -172,7 +172,7 @@ struct AigmapPass : public Pass {
 
 			if (select_mode) {
 				RTLIL::Selection& sel = design->selection();
-				sel.selected_members[module->name] = std::move(new_sel);
+				sel.selected_members[module->meta_->name] = std::move(new_sel);
 			}
 
 		}

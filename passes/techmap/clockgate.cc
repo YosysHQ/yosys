@@ -8,11 +8,11 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ClockGateCell {
-	IdString name;
-	IdString ce_pin;
-	IdString clk_in_pin;
-	IdString clk_out_pin;
-	std::vector<IdString> tie_lo_pins;
+	std::string name;
+	std::string ce_pin;
+	std::string clk_in_pin;
+	std::string clk_out_pin;
+	std::vector<std::string> tie_lo_pins;
 };
 
 ClockGateCell icg_from_arg(std::string& name, std::string& str) {
@@ -162,9 +162,9 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 			winning = cost < goal;
 
 			if (winning)
-				log_debug("%s beats %s\n", icg_interface.name, icg_to_beat->name);
+				log_debug("%s beats %s\n", icg_interface.name.c_str(), icg_to_beat->name.c_str());
 		} else {
-			log_debug("%s is the first of its polarity\n", icg_interface.name);
+			log_debug("%s is the first of its polarity\n", icg_interface.name.c_str());
 			winning = true;
 		}
 		if (winning) {
@@ -176,11 +176,11 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	std::optional<ClockGateCell> pos;
 	std::optional<ClockGateCell> neg;
 	if (best_pos) {
-		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name);
+		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name.c_str());
 		pos.emplace(*best_pos);
 	}
 	if (best_neg) {
-		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name);
+		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name.c_str());
 		neg.emplace(*best_neg);
 	}
 	return std::make_pair(pos, neg);
@@ -371,18 +371,19 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
-				Cell* icg = module->addCell(NEW_TWINE, matching_icg_desc->name);
-				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
-				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
+				auto& twines = module->design->twines;
+				Cell* icg = module->addCell(NEW_TWINE, twines.add(std::string{matching_icg_desc->name}));
+				icg->setPort(twines.add(std::string{matching_icg_desc->ce_pin}), clk.ce_bit);
+				icg->setPort(twines.add(std::string{matching_icg_desc->clk_in_pin}), clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_TWINE);
-				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
+				icg->setPort(twines.add(std::string{matching_icg_desc->clk_out_pin}), gclk.new_net);
 				// Tie low DFT ports like scan chain enable
 				for (auto port : matching_icg_desc->tie_lo_pins)
-					icg->setPort(port, Const(0, 1));
+					icg->setPort(twines.add(std::string{port}), Const(0, 1));
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
 					SigBit ce_fixed_pol = module->NotGate(NEW_TWINE, clk.ce_bit);
-					icg->setPort(matching_icg_desc->ce_pin, ce_fixed_pol);
+					icg->setPort(twines.add(std::string{matching_icg_desc->ce_pin}), ce_fixed_pol);
 				}
 			}
 

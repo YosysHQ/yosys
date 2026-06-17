@@ -261,7 +261,7 @@ end_of_header:
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire(design->twines.lookup(stringf("$aiger%d$0", aiger_autoidx)));
+	RTLIL::Wire* n0 = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$0", aiger_autoidx)));
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -286,7 +286,7 @@ end_of_header:
 				log_assert(l1 < latches.size());
 				wire = latches[l1];
 			} else if (c == 'o') {
-				wire = module->wire(design->twines.lookup(escaped_s.str()));
+				wire = module->wire(TwineSearch(&design->twines).find(escaped_s.str()));
 				log_assert(l1 < outputs.size());
 				if (wire) {
 					// Could have been renamed by a latch
@@ -339,16 +339,16 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
 	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
-	RTLIL::Wire *wire = module->wire(design->twines.lookup(wire_name.str()));
+	RTLIL::Wire *wire = module->wire(TwineSearch(&design->twines).find(wire_name.str()));
 	if (wire) return wire;
 	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(Twine{wire_name.str()});
 	wire->port_input = wire->port_output = false;
 	if (!invert) return wire;
 	RTLIL::IdString wire_inv_name(stringf("$aiger%d$%d", aiger_autoidx, variable));
-	RTLIL::Wire *wire_inv = module->wire(design->twines.lookup(wire_inv_name.str()));
+	RTLIL::Wire *wire_inv = module->wire(TwineSearch(&design->twines).find(wire_inv_name.str()));
 	if (wire_inv) {
-		if (module->cell(design->twines.lookup(wire_inv_name.str()))) return wire;
+		if (module->cell(TwineSearch(&design->twines).find(wire_inv_name.str()))) return wire;
 	}
 	else {
 		log_debug2("Creating %s\n", wire_inv_name.c_str());
@@ -397,7 +397,7 @@ void AigerReader::parse_xaiger()
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire(design->twines.lookup(stringf("$aiger%d$0", aiger_autoidx)));
+	RTLIL::Wire* n0 = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$0", aiger_autoidx)));
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -421,7 +421,7 @@ void AigerReader::parse_xaiger()
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-				RTLIL::Wire *output_sig = module->wire(design->twines.lookup(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Wire *output_sig = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID)));
 				log_assert(output_sig);
 				uint32_t nodeID;
 				RTLIL::SigSpec input_sig;
@@ -432,7 +432,7 @@ void AigerReader::parse_xaiger()
 						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
 						continue;
 					}
-					RTLIL::Wire *wire = module->wire(design->twines.lookup(stringf("$aiger%d$%d", aiger_autoidx, nodeID)));
+					RTLIL::Wire *wire = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$%d", aiger_autoidx, nodeID)));
 					log_assert(wire);
 					input_sig.append(wire);
 				}
@@ -451,7 +451,7 @@ void AigerReader::parse_xaiger()
 					log_assert(o.wire == nullptr);
 					lut_mask.set(gray, o.data);
 				}
-				RTLIL::Cell *output_cell = module->cell(design->twines.lookup(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Cell *output_cell = module->cell(TwineSearch(&design->twines).find(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
 				log_assert(output_cell);
 				module->remove(output_cell);
 				module->addLut(Twine{stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID)}, input_sig, output_sig, std::move(lut_mask));
@@ -618,7 +618,7 @@ void AigerReader::parse_aiger_ascii()
 	// Parse latches
 	RTLIL::Wire *clk_wire = nullptr;
 	if (L > 0 && !clk_name.empty()) {
-		clk_wire = module->wire(design->twines.lookup(clk_name.str()));
+		clk_wire = module->wire(TwineSearch(&design->twines).find(clk_name.str()));
 		log_assert(!clk_wire);
 		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(Twine{clk_name.str()});
@@ -743,7 +743,7 @@ void AigerReader::parse_aiger_binary()
 	// Parse latches
 	RTLIL::Wire *clk_wire = nullptr;
 	if (L > 0 && !clk_name.empty()) {
-		clk_wire = module->wire(design->twines.lookup(clk_name.str()));
+		clk_wire = module->wire(TwineSearch(&design->twines).find(clk_name.str()));
 		log_assert(!clk_wire);
 		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(Twine{clk_name.str()});

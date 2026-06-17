@@ -424,12 +424,12 @@ struct TimeestPass : Pass {
 			std::optional<SigBit> clk;
 
 			if (clk_domain_specified) {
-				if (!m->wire(m->design->twines.lookup(RTLIL::escape_id(clk_name)))) {
+				if (!m->wire(TwineSearch(&m->design->twines).find(RTLIL::escape_id(clk_name)))) {
 					log_warning("No domain '%s' in module %s\n", clk_name.c_str(), m);
 					continue;
 				}
 
-				clk = SigBit(m->wire(m->design->twines.lookup(RTLIL::escape_id(clk_name))), 0);
+				clk = SigBit(m->wire(TwineSearch(&m->design->twines).find(RTLIL::escape_id(clk_name))), 0);
 			}
 
 			EstimateSta sta(m, clk, /*top_port_endpoints=*/ !clk_domain_specified);

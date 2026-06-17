@@ -173,7 +173,7 @@ struct FlattenWorker
 			RTLIL::Wire *new_wire = nullptr;
 			if (tpl_wire->name[0] == '\\') {
 				std::string wire_name = concat_name(cell, tpl_wire->name, separator).str();
-				RTLIL::Wire *hier_wire = module->wire(design->twines.lookup(wire_name));
+				RTLIL::Wire *hier_wire = module->wire(TwineSearch(&design->twines).find(wire_name));
 				if (hier_wire != nullptr && hier_wire->get_bool_attribute(ID::hierconn)) {
 					hier_wire->attributes.erase(ID::hierconn);
 					if (GetSize(hier_wire) < GetSize(tpl_wire)) {
@@ -200,7 +200,7 @@ struct FlattenWorker
 			map_attributes(cell, new_proc, design->twines.str(tpl_proc_it.second->meta_->name));
 			for (auto new_proc_sync : new_proc->syncs)
 				for (auto &memwr_action : new_proc_sync->mem_write_actions) {
-					TwineRef old_memid_ref = design->twines.lookup(memwr_action.memid.str());
+					TwineRef old_memid_ref = TwineSearch(&design->twines).find(memwr_action.memid.str());
 					memwr_action.memid = design->twines.str(memory_map.at(old_memid_ref));
 				}
 			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
@@ -215,7 +215,7 @@ struct FlattenWorker
 			map_attributes(cell, new_cell, tpl_cell->name);
 			if (new_cell->has_memid()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
-				TwineRef memid_ref = design->twines.lookup(memid.str());
+				TwineRef memid_ref = TwineSearch(&design->twines).find(memid.str());
 				new_cell->setParam(ID::MEMID, Const(design->twines.str(memory_map.at(memid_ref))));
 			} else if (new_cell->is_mem_cell()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();

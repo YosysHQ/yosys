@@ -133,8 +133,8 @@ struct InitValWorker
 
 			if (cell->type.in(TW($and), TW($or)))
 			{
-				State init_a = initconst(bit_in_port(cell, ID::A, ID::A_SIGNED, portbit.offset));
-				State init_b = initconst(bit_in_port(cell, ID::B, ID::B_SIGNED, portbit.offset));
+				State init_a = initconst(bit_in_port(cell, TW::A, ID::A_SIGNED, portbit.offset));
+				State init_b = initconst(bit_in_port(cell, TW::B, ID::B_SIGNED, portbit.offset));
 				State init_y;
 				if (init_a == init_b)
 					init_y = init_a;
@@ -162,12 +162,12 @@ struct InitValWorker
 				State init_y = State::S1;
 
 				for (int i = 0; init_y != State::S0 && i < GetSize(sig_a); i++) {
-					State init_ai = initconst(bit_in_port(cell, ID::A, ID::A_SIGNED, i));
+					State init_ai = initconst(bit_in_port(cell, TW::A, ID::A_SIGNED, i));
 					if (init_ai == State::Sx) {
 						init_y = State::Sx;
 						continue;
 					}
-					State init_bi = initconst(bit_in_port(cell, ID::B, ID::B_SIGNED, i));
+					State init_bi = initconst(bit_in_port(cell, TW::B, ID::B_SIGNED, i));
 					if (init_bi == State::Sx)
 						init_y = State::Sx;
 					else if (init_ai != init_bi)
@@ -320,7 +320,7 @@ struct InitValWorker
 };
 
 struct ReplacedPort {
-	IdString name;
+	TwineRef name;
 	int offset;
 	bool clk_pol;
 };
@@ -402,7 +402,7 @@ struct PropagateWorker
 					sigmap.apply(bit);
 					if (replaced_clk_bits.count(bit))
 						log_error("derived signal %s driven by %s (%s) from module %s is used as clock, derived clocks are only supported with clk2fflogic.\n",
-								log_signal(bit), cell->module->design->twines.str(cell->meta_->name), cell->type.unescaped(), module);
+								log_signal(bit), log_id(cell), log_id(cell->type), log_id(module));
 				}
 			}
 		}
@@ -462,7 +462,7 @@ const std::vector<ReplacedPort> &HierarchyWorker::find_replaced_clk_inputs(IdStr
 	if (!cell_type.isPublic())
 		return empty;
 
-	Module *module = design->module(cell_type);
+	Module *module = design->module(TwineSearch(&design->twines).find(cell_type.str()));
 	if (module == nullptr)
 		return empty;
 
@@ -712,7 +712,7 @@ struct FormalFfPass : public Pass {
 
 					if (!is_gate) {
 						log_debug("unsupported gating logic %s.%s (%s) for clock %s %s.%s\n", module,
-							  driver.cell, design->twines.unescaped_str(driver.cell->type), pol_clk ? "posedge" : "negedge",
+							  driver.cell, log_id(driver.cell->type), pol_clk ? "posedge" : "negedge",
 							  module, log_signal(SigSpec(clk)));
 
 						continue;
@@ -754,7 +754,7 @@ struct FormalFfPass : public Pass {
 							log_debug(
 							  "FF driver for gate enable %s.%s of gated clk bit %s.%s has incompatible type: %s\n",
 							  module, log_signal(SigSpec(gate_enable)), module, log_signal(SigSpec(clk)),
-							  design->twines.unescaped_str(gate_driver.cell->type));
+							  log_id(gate_driver.cell->type));
 							continue;
 						}
 
@@ -782,7 +782,7 @@ struct FormalFfPass : public Pass {
 
 						for (auto clocked_cell : clocked_cells) {
 							log_debug("rewriting cell %s.%s (%s)\n", module, clocked_cell,
-								  design->twines.unescaped_str(clocked_cell->type));
+								  log_id(clocked_cell->type));
 
 							if (clocked_cell->is_builtin_ff()) {
 

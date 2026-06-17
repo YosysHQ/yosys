@@ -91,7 +91,7 @@ struct BlifDumper
 
 	const std::string str(RTLIL::IdString id)
 	{
-		std::string str = design->twines.unescaped_str(id);
+		std::string str = RTLIL::unescape_id(id);
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
@@ -108,7 +108,7 @@ struct BlifDumper
 			return config->undef_type == "-" || config->undef_type == "+" ? config->undef_out.c_str() : "$undef";
 		}
 
-		std::string str = design->twines.unescaped_str(sig.wire->name);
+		std::string str = sig.wire->name.unescaped();
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
@@ -140,9 +140,10 @@ struct BlifDumper
 	{
 		if (!config->gates_mode)
 			return "subckt";
-		if (design->module(RTLIL::escape_id(cell_type)) == nullptr)
+		TwineRef cell_type_ref = TwineSearch(&design->twines).find(RTLIL::escape_id(cell_type));
+		if (design->module(cell_type_ref) == nullptr)
 			return "gate";
-		if (design->module(RTLIL::escape_id(cell_type))->get_blackbox_attribute())
+		if (design->module(cell_type_ref)->get_blackbox_attribute())
 			return "gate";
 		return "subckt";
 	}
@@ -150,7 +151,7 @@ struct BlifDumper
 	void dump_params(const char *command, dict<IdString, Const> &params)
 	{
 		for (auto &param : params) {
-			f << stringf("%s %s ", command, design->twines.unescaped_str(param.first));
+			f << stringf("%s %s ", command, RTLIL::unescape_id(param.first).c_str());
 			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
 				std::string str = param.second.decode_string();
 				f << stringf("\"");
@@ -237,8 +238,8 @@ struct BlifDumper
 
 			if (config->unbuf_types.count(cell->type)) {
 				auto portnames = config->unbuf_types.at(cell->type);
-				TwineRef port_in = design->twines.lookup(portnames.first.str());
-				TwineRef port_out = design->twines.lookup(portnames.second.str());
+				TwineRef port_in = TwineSearch(&design->twines).find(portnames.first.str());
+				TwineRef port_out = TwineSearch(&design->twines).find(portnames.second.str());
 				f << stringf(".names %s %s\n1 1\n",
 						str(cell->getPort(port_in)).c_str(), str(cell->getPort(port_out)).c_str());
 				continue;

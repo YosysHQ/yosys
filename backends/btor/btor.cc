@@ -119,17 +119,17 @@ struct BtorWorker
 	template<typename T>
 	string getinfo(T *obj, bool srcsym = false)
 	{
-		string infostr = design->twines.unescaped_str(obj->name);
+		string infostr = obj->name.unescaped();
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
 		if (obj->has_attribute(ID::src)) {
 			string src = module && module->design ? module->design->get_src_attribute(obj) : std::string();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
-				TwineRef src_ref = module->design->twines.lookup(src);
+				TwineRef src_ref = TwineSearch(&module->design->twines).find(src);
 				if (srcsymbols.count(src) || src_ref != Twine::Null) {
 					for (int i = 1;; i++) {
 						string s = stringf("%s-%d", src, i);
-						TwineRef s_ref = module->design->twines.lookup(s);
+						TwineRef s_ref = TwineSearch(&module->design->twines).find(s);
 						if (!srcsymbols.count(s) && s_ref == Twine::Null) {
 							src = s;
 							break;
@@ -147,17 +147,17 @@ struct BtorWorker
 
 	string getinfo(Mem *mem, bool srcsym = false)
 	{
-		string infostr = design->twines.unescaped_str(mem->memid);
+		string infostr = RTLIL::unescape_id(mem->memid);
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
 		if (mem->has_attribute(ID::src)) {
 			string src = module && module->design ? module->design->get_src_attribute(mem) : std::string();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
-				TwineRef src_ref = module->design->twines.lookup(src);
+				TwineRef src_ref = TwineSearch(&module->design->twines).find(src);
 				if (srcsymbols.count(src) || src_ref != Twine::Null) {
 					for (int i = 1;; i++) {
 						string s = stringf("%s-%d", src, i);
-						TwineRef s_ref = module->design->twines.lookup(s);
+						TwineRef s_ref = TwineSearch(&module->design->twines).find(s);
 						if (!srcsymbols.count(s) && s_ref == Twine::Null) {
 							src = s;
 							break;
@@ -727,13 +727,13 @@ struct BtorWorker
 					ywmap_clock_bits[sig_c] |= negedge ? 2 : 1;
 			}
 
-			IdString symbol;
+			std::string symbol;
 
 			if (sig_q.is_wire()) {
 				Wire *w = sig_q.as_wire();
 				if (w->port_id == 0) {
 					statewires.insert(w);
-					symbol = w->name;
+					symbol = w->name.unescaped();
 				}
 			}
 
@@ -756,7 +756,7 @@ struct BtorWorker
 			if (symbol.empty() || (!print_internal_names && symbol[0] == '$'))
 				btorf("%d state %d\n", nid, sid);
 			else
-				btorf("%d state %d %s\n", nid, sid, design->twines.unescaped_str(symbol));
+				btorf("%d state %d %s\n", nid, sid, symbol);
 
 			if (cell->get_bool_attribute(ID(clk2fflogic)))
 				ywmap_state(cell->getPort(TW::D)); // For a clk2fflogic FF the named signal is the D input not the Q output
@@ -834,12 +834,12 @@ struct BtorWorker
 
 			if (asyncwr && syncwr)
 				log_error("Memory %s.%s has mixed async/sync write ports.\n",
-						module, design->twines.unescaped_str(mem->memid));
+						module, RTLIL::unescape_id(mem->memid));
 
 			for (auto &port : mem->rd_ports) {
 				if (port.clk_enable)
 					log_error("Memory %s.%s has sync read ports.  Please use memory_nordff to convert them first.\n",
-							module, design->twines.unescaped_str(mem->memid));
+							module, RTLIL::unescape_id(mem->memid));
 			}
 
 			int data_sid = get_bv_sid(mem->width);
@@ -901,7 +901,7 @@ struct BtorWorker
 			if (mem->memid[0] == '$')
 				btorf("%d state %d\n", nid, sid);
 			else
-				btorf("%d state %d %s\n", nid, sid, design->twines.unescaped_str(mem->memid));
+				btorf("%d state %d %s\n", nid, sid, RTLIL::unescape_id(mem->memid));
 
 			ywmap_state(cell);
 
@@ -1417,7 +1417,7 @@ struct BtorWorker
 				int nid = it.first;
 				Mem *mem = it.second;
 
-				btorf_push(stringf("next %s", design->twines.unescaped_str(mem->memid)));
+				btorf_push(stringf("next %s", RTLIL::unescape_id(mem->memid)));
 
 				int abits = ceil_log2(mem->size);
 
@@ -1465,7 +1465,7 @@ struct BtorWorker
 				int nid2 = next_nid++;
 				btorf("%d next %d %d %d%s\n", nid2, sid, nid, nid_head, getinfo(mem));
 
-				btorf_pop(stringf("next %s", design->twines.unescaped_str(mem->memid)));
+				btorf_pop(stringf("next %s", RTLIL::unescape_id(mem->memid)));
 			}
 		}
 

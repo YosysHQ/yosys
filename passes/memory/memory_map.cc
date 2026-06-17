@@ -260,7 +260,7 @@ struct MemoryMapWorker
 				c->setPort(TW::D, w_in);
 
 				std::string w_out_name = stringf("%s[%d]", mem.memid.str(), addr);
-				if (module->wire(design->twines.lookup(w_out_name)) != nullptr)
+				if (module->wire(TwineSearch(&design->twines).find(w_out_name)) != nullptr)
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(design->twines.add(Twine{w_out_name}), mem.width);

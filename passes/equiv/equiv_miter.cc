@@ -160,7 +160,7 @@ struct EquivMiterWorker
 				vector<SigChunk> chunks = sig.chunks();
 				for (auto &c : chunks)
 					if (c.wire != NULL)
-						c.wire = mod->wire(mod->design->twines.lookup(c.wire->name.str()));
+						c.wire = mod->wire(TwineSearch(&mod->design->twines).find(c.wire->name.str()));
 				sig = chunks;
 			}
 		};
@@ -323,7 +323,7 @@ struct EquivMiterPass : public Pass {
 		// TODO disable signorm due to rewrite_sigspecs assert
 		design->sigNormalize(false);
 
-		if (design->module(design->twines.lookup(worker.miter_name.str())))
+		if (design->module(TwineSearch(&design->twines).find(worker.miter_name.str())))
 			log_cmd_error("Miter module %s already exists.\n", log_id(worker.miter_name));
 
 		worker.source_module = nullptr;

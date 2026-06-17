@@ -337,7 +337,7 @@ struct SimplecWorker
 		topo.sort();
 
 		for (int i = 0; i < GetSize(topo.sorted); i++)
-			topoidx[mod->cell(design->twines.lookup(topo.sorted[i].str()))] = i;
+			topoidx[mod->cell(TwineSearch(&design->twines).find(topo.sorted[i].str()))] = i;
 
 		string ifdef_name = stringf("yosys_simplec_%s_state_t", cid(RTLIL::IdString(design->twines.str(mod->meta_->name))));
 
@@ -527,7 +527,7 @@ struct SimplecWorker
 							for (auto outbit : bit2output[work->module][bit])
 							{
 								Module *parent_mod = work->parent->module;
-								Cell *parent_cell = parent_mod->cell(parent_mod->design->twines.lookup(work->hiername.str()));
+								Cell *parent_cell = parent_mod->cell(TwineSearch(&parent_mod->design->twines).find(work->hiername.str()));
 
 								TwineRef port_name = outbit.wire->meta_->name;
 								int port_offset = outbit.offset;

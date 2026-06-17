@@ -56,8 +56,8 @@ struct EquivAddPass : public Pass {
 
 		if (GetSize(args) == 4 && args[1] == "-cell")
 		{
-			Cell *gold_cell = module->cell(design->twines.lookup(RTLIL::escape_id(args[2])));
-			Cell *gate_cell = module->cell(design->twines.lookup(RTLIL::escape_id(args[3])));
+			Cell *gold_cell = module->cell(TwineSearch(&design->twines).find(RTLIL::escape_id(args[2])));
+			Cell *gate_cell = module->cell(TwineSearch(&design->twines).find(RTLIL::escape_id(args[3])));
 
 			if (gold_cell == nullptr) {
 				if (try_mode) {

@@ -527,7 +527,7 @@ struct CheckPass : public Pass {
 				SigBit prev;
 				for (auto it = loop.rbegin(); it != loop.rend(); it++)
 				if (it->second != -1) { // skip the fallback helper nodes
-					prev = SigBit(module->wire(module->design->twines.lookup(it->first.str())), it->second);
+					prev = SigBit(module->wire(TwineSearch(&module->design->twines).find(it->first.str())), it->second);
 					break;
 				}
 				log_assert(prev != SigBit());
@@ -559,9 +559,9 @@ struct CheckPass : public Pass {
 						}
 					};
 
-					Wire *wire = module->wire(module->design->twines.lookup(pair.first.str()));
+					Wire *wire = module->wire(TwineSearch(&module->design->twines).find(pair.first.str()));
 					log_assert(wire);
-					SigBit bit(module->wire(module->design->twines.lookup(pair.first.str())), pair.second);
+					SigBit bit(module->wire(TwineSearch(&module->design->twines).find(pair.first.str())), pair.second);
 					log_assert(driver_cells.count(bit));
 					Cell *driver = driver_cells.at(bit);
 
@@ -677,12 +677,12 @@ struct CheckMemPass : public Pass {
 				for (auto &init : mem.inits) {
 					int start = init.addr.as_int();
 					if (start < min_addr) {
-						log_warning("Mem %s.%s starts at %d but initializes address %d.\n", module, mem.mem, min_addr, start);
+						log_warning("Mem %s.%s starts at %d but initializes address %d.\n", module, log_id(mem.mem), min_addr, start);
 						counter++;
 					}
 					int end = start + (GetSize(init.data) / mem.width) - 1;
 					if (end > max_addr) {
-						log_warning("Mem %s.%s ends at %d but initializes address %d.\n", module, mem.mem, max_addr, end);
+						log_warning("Mem %s.%s ends at %d but initializes address %d.\n", module, log_id(mem.mem), max_addr, end);
 						counter++;
 					}
 				}
@@ -691,7 +691,7 @@ struct CheckMemPass : public Pass {
 					if (addr_sig.is_fully_const()) {
 						auto addr = addr_sig.as_int();
 						if (addr < min_addr || addr > max_addr) {
-							log_warning("Mem %s.%s contains entries for addresses %d..%d but %s address %d.\n", module, mem.mem, min_addr, max_addr, access, addr);
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but %s address %d.\n", module, log_id(mem.mem), min_addr, max_addr, access, addr);
 							counter++;
 						}
 					} else if (nonconst_mode) {
@@ -700,7 +700,7 @@ struct CheckMemPass : public Pass {
 						int addr_sig_min = 0;
 						int addr_sig_max = (1 << addr_sig.size()) - 1;
 						if (min_addr > addr_sig_min || max_addr < addr_sig_max) {
-							log_warning("Mem %s.%s contains entries for addresses %d..%d but has a potentially dangerous non-const input %s\n", module, mem.mem, min_addr, max_addr, log_signal(addr_sig));
+							log_warning("Mem %s.%s contains entries for addresses %d..%d but has a potentially dangerous non-const input %s\n", module, log_id(mem.mem), min_addr, max_addr, log_signal(addr_sig));
 							counter++;
 						}
 					}
