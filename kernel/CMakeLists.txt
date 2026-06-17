@@ -156,7 +156,7 @@ yosys_core(kernel
 
 set(yosys_cc_definitions
 	"$<$<BOOL:${YOSYS_ABC_EXECUTABLE}>:ABCEXTERNAL=\"${YOSYS_ABC_EXECUTABLE}\">"
-	$<$<BOOL:${MSYS}>:YOSYS_WIN32_UNIX_DIR>
+	$<$<BOOL:${MINGW}>:YOSYS_WIN32_UNIX_DIR>
 )
 set_source_files_properties(yosys.cc PROPERTIES
 	COMPILE_DEFINITIONS "${yosys_cc_definitions}"
