@@ -531,8 +531,10 @@ struct SynthLatticePass : public ScriptPass
 		{
 			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
-			if (!asyncprld || help_mode)
+			if (!asyncprld || help_mode) {
+				run("check -nolatches", "(skip if -asyncprld)");
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
+			}
 
 			if (abc9) {
 				std::string abc9_opts;

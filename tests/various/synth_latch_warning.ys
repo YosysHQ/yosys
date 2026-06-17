@@ -1,0 +1,8 @@
+read_verilog <<EOT
+module top(input d, en, output reg q);
+always @* if (en) q = d;
+endmodule
+EOT
+logger -expect warning "is a latch of type" 1
+synth_ice40
+logger -check-expected

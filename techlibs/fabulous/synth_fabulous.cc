@@ -359,6 +359,7 @@ struct SynthPass : public ScriptPass
 			} else {
 				run("dfflegalize -cell $_DFF_P_ 0 -cell $_DLATCH_?_ x", "without -complex-dff");
 			}
+			run("check -nolatches");
 			run("techmap -map +/fabulous/latches_map.v");
 			run("techmap -map +/fabulous/ff_map.v");
 			if (help_mode) {
