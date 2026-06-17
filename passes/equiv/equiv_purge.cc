@@ -47,7 +47,7 @@ struct EquivPurgeWorker
 		while (1)
 		{
 			std::string name = stringf("\\equiv_%d", name_cnt++);
-			if (module->count_id(module->design->twines.lookup(name)))
+			if (module->count_id(TwineSearch(&module->design->twines).find(name)))
 				continue;
 
 			Wire *wire = module->addWire(Twine{name}, GetSize(sig));
@@ -74,7 +74,7 @@ struct EquivPurgeWorker
 		while (1)
 		{
 			std::string name = stringf("\\equiv_%d", name_cnt++);
-			if (module->count_id(module->design->twines.lookup(name)))
+			if (module->count_id(TwineSearch(&module->design->twines).find(name)))
 				continue;
 
 			Wire *wire = module->addWire(Twine{name}, GetSize(sig));

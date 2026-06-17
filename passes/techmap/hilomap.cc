@@ -37,16 +37,16 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 		if (bit == RTLIL::State::S1 && !hicell_celltype.empty()) {
 			if (!singleton_mode || last_hi == RTLIL::State::Sm) {
 				last_hi = module->addWire(NEW_TWINE);
-				RTLIL::Cell *cell = module->addCell(NEW_TWINE, RTLIL::escape_id(hicell_celltype));
-				cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
+				RTLIL::Cell *cell = module->addCell(NEW_TWINE, Twine{RTLIL::escape_id(hicell_celltype)});
+				cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(hicell_portname)}), last_hi);
 			}
 			bit = last_hi;
 		}
 		if (bit == RTLIL::State::S0 && !locell_celltype.empty()) {
 			if (!singleton_mode || last_lo == RTLIL::State::Sm) {
 				last_lo = module->addWire(NEW_TWINE);
-				RTLIL::Cell *cell = module->addCell(NEW_TWINE, RTLIL::escape_id(locell_celltype));
-				cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
+				RTLIL::Cell *cell = module->addCell(NEW_TWINE, Twine{RTLIL::escape_id(locell_celltype)});
+				cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(locell_portname)}), last_lo);
 			}
 			bit = last_lo;
 		}

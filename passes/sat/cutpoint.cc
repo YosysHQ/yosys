@@ -152,8 +152,9 @@ struct CutpointPass : public Pass {
 				}
 
 				RTLIL::Cell *scopeinfo = nullptr;
-				RTLIL::IdString cell_name(cell->name);
-				if (flag_scopeinfo && cell_name.isPublic()) {
+				TwineRef cell_name_ref = cell->name.ref();
+					bool cell_name_is_public = cell->name.isPublic();
+				if (flag_scopeinfo && cell_name_is_public) {
 					auto scopeinfo = module->addCell(NEW_TWINE, TW($scopeinfo));
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 
@@ -162,14 +163,14 @@ struct CutpointPass : public Pass {
 						if (attr.first == ID::hdlname)
 							scopeinfo->attributes.insert(attr);
 						else
-							scopeinfo->attributes.emplace(stringf("\\cell_%s", design->twines.unescaped_str(attr.first)), attr.second);
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first)), attr.second);
 					}
 				}
 
 				module->remove(cell);
 
 				if (scopeinfo != nullptr)
-					module->rename(scopeinfo, cell_name);
+					module->rename(scopeinfo, cell_name_ref);
 			}
 
 			for (auto wire : module->selected_wires()) {

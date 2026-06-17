@@ -121,7 +121,7 @@ struct AttrmvcpPass : public Pass {
 					for (auto bit : sigmap(wire))
 						if (net2cells.count(bit))
 							for (auto cell : net2cells.at(bit)) {
-								log("Moving attribute %s=%s from %s.%s to %s.%s.\n", design->twines.unescaped_str(attr.first), log_const(attr.second),
+								log("Moving attribute %s=%s from %s.%s to %s.%s.\n", attr.first.unescape(), log_const(attr.second),
 										module, wire, module, cell);
 								cell->attributes[attr.first] = attr.second;
 								did_something = true;

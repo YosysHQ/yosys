@@ -708,8 +708,8 @@ struct VizWorker
 			c->attributes.erase(vg_id);
 		for (auto g : graph.nodes) {
 			for (auto name : g->names()) {
-				auto w = module->wire(module->design->twines.lookup(name.str()));
-				auto c = module->cell(module->design->twines.lookup(name.str()));
+				auto w = module->wire(TwineSearch(&module->design->twines).find(name.str()));
+				auto c = module->cell(TwineSearch(&module->design->twines).find(name.str()));
 				if (w) w->attributes[vg_id] = g->index;
 				if (c) c->attributes[vg_id] = g->index;
 			}

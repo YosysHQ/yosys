@@ -674,8 +674,8 @@ struct FlowmapWorker
 			labels[node] = -1;
 		for (auto input : inputs)
 		{
-			if (input.wire->attributes.count(TW($flowmap_level)))
-				labels[input] = input.wire->attributes[TW($flowmap_level)].as_int();
+			if (input.wire->attributes.count(ID($flowmap_level)))
+				labels[input] = input.wire->attributes[ID($flowmap_level)].as_int();
 			else
 				labels[input] = 0;
 		}
@@ -1356,10 +1356,10 @@ struct FlowmapWorker
 				auto origin = node_origins[node];
 				if (origin.cell->getPort(origin.port).size() == 1)
 					log("Packing %s.%s.%s (%s).\n",
-					    module, origin.cell, origin.port.c_str(), log_signal(node));
+					    module, origin.cell, module->design->twines.str(origin.port).c_str(), log_signal(node));
 				else
 					log("Packing %s.%s.%s [%d] (%s).\n",
-					    module, origin.cell, origin.port.c_str(), origin.offset, log_signal(node));
+					    module, origin.cell, module->design->twines.str(origin.port).c_str(), origin.offset, log_signal(node));
 			}
 			else
 			{
@@ -1376,10 +1376,10 @@ struct FlowmapWorker
 				auto gate_origin = node_origins[gate_node];
 				if (gate_origin.cell->getPort(gate_origin.port).size() == 1)
 					log("  Packing %s.%s.%s (%s).\n",
-					    module, gate_origin.cell, gate_origin.port.c_str(), log_signal(gate_node));
+					    module, gate_origin.cell, gate_module->design->twines.str(origin.port).c_str(), log_signal(gate_node));
 				else
 					log("  Packing %s.%s.%s [%d] (%s).\n",
-					    module, gate_origin.cell, gate_origin.port.c_str(), gate_origin.offset, log_signal(gate_node));
+					    module, gate_origin.cell, gate_module->design->twines.str(origin.port).c_str(), gate_origin.offset, log_signal(gate_node));
 			}
 
 			vector<RTLIL::SigBit> input_nodes(lut_edges_bw[node].begin(), lut_edges_bw[node].end());
@@ -1590,7 +1590,7 @@ struct FlowmapPass : public Pass {
 		}
 		else
 		{
-			cell_types = {TW($_NOT_), TW($_AND_), TW($_OR_), TW($_XOR_), TW($_MUX_)};
+			cell_types = {ID($_NOT_), ID($_AND_), ID($_OR_), ID($_XOR_), ID($_MUX_)};
 		}
 
 		const char *algo_r = relax ? "-r" : "";

@@ -234,7 +234,7 @@ struct ExtractReducePass : public Pass
 						Cell* x = bfs_queue.front();
 						bfs_queue.pop_front();
 
-						for (auto port: {ID::A, ID::B}) {
+						for (auto port: {TW::A, TW::B}) {
 							auto bit = sigmap(x->getPort(port)[0]);
 
 							bool sink_single = sig_to_sink[bit].size() == 1 && !port_sigs.count(bit);

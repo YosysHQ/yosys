@@ -139,7 +139,7 @@ struct FindReducedInputs
 			if (ez_cells.count(drv.first) == 0) {
 				satgen.setContext(&sigmap, "A");
 				if (!satgen.importCell(drv.first))
-					log_error("Can't create SAT model for cell %s (%s)!\n", drv.first, design->twines.unescaped_str(drv.first->type));
+					log_error("Can't create SAT model for cell %s (%s)!\n", log_id(drv.first), log_id(drv.first->type));
 				satgen.setContext(&sigmap, "B");
 				if (!satgen.importCell(drv.first))
 					log_abort();
@@ -256,7 +256,7 @@ struct PerformReduction
 			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
 			if (celldone.count(drv.first) == 0) {
 				if (!satgen.importCell(drv.first))
-					log_error("Can't create SAT model for cell %s (%s)!\n", drv.first, design->twines.unescaped_str(drv.first->type));
+					log_error("Can't create SAT model for cell %s (%s)!\n", log_id(drv.first), log_id(drv.first->type));
 				celldone.insert(drv.first);
 			}
 			int max_child_depth = 0;

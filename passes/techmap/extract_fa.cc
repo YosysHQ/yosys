@@ -262,7 +262,7 @@ struct ExtractFaWorker
 			pool<SigBit> new_leaves = leaves;
 
 			new_leaves.erase(bit);
-			for (auto port : {ID::A, ID::B, ID::C, ID::D}) {
+			for (auto port : {TW::A, TW::B, TW::C, TW::D}) {
 				if (!cell->hasPort(port))
 					continue;
 				auto bit = sigmap(SigBit(cell->getPort(port)));

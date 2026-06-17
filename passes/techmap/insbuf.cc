@@ -44,7 +44,7 @@ struct InsbufPass : public Pass {
 	{
 		log_header(design, "Executing INSBUF pass (insert buffer cells for connected wires).\n");
 
-		IdString celltype = TW($_BUF_), in_portname = ID::A, out_portname = ID::Y;
+		TwineRef celltype = TW($_BUF_), in_portname = TW::A, out_portname = TW::Y;
 		bool chain_mode = false;
 
 		size_t argidx;
@@ -52,9 +52,9 @@ struct InsbufPass : public Pass {
 		{
 			std::string arg = args[argidx];
 			if (arg == "-buf" && argidx+3 < args.size()) {
-				celltype = RTLIL::escape_id(args[++argidx]);
-				in_portname = RTLIL::escape_id(args[++argidx]);
-				out_portname = RTLIL::escape_id(args[++argidx]);
+				celltype = design->twines.add(std::string{RTLIL::escape_id(args[++argidx])});
+				in_portname = design->twines.add(std::string{RTLIL::escape_id(args[++argidx])});
+				out_portname = design->twines.add(std::string{RTLIL::escape_id(args[++argidx])});
 				continue;
 			}
 			if (arg == "-chain") {
@@ -116,7 +116,7 @@ struct InsbufPass : public Pass {
 							if (s == port.second)
 								continue;
 							log("Rewrite %s/%s/%s: %s -> %s\n", module, cell,
-									port.first.unescape(), log_signal(port.second), log_signal(s));
+									module->design->twines.unescaped_str(port.first).c_str(), log_signal(port.second), log_signal(s));
 							cell->setPort(port.first, s);
 						}
 				}

@@ -100,10 +100,10 @@ struct NlutmapWorker
 						cand.second -= bit_lut_count[bit];
 			}
 
-			vector<pair<int, IdString>> rated_candidates;
+			vector<pair<int, TwineRef>> rated_candidates;
 
 			for (auto &cand : candidate_ratings)
-				rated_candidates.push_back(pair<int, IdString>(cand.second, cand.first->name));
+				rated_candidates.push_back({cand.second, cand.first->meta_->name});
 
 			std::sort(rated_candidates.begin(), rated_candidates.end());
 

@@ -104,7 +104,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
-				TwineRef wire_name_ref = design->twines.lookup(wire->name.str());
+				TwineRef wire_name_ref = TwineSearch(&design->twines).find(wire->name.str());
 				if (cell->hasPort(wire_name_ref)) {
 					sig = sigmap(cell->getPort(wire_name_ref));
 					sig.extend_u0(wire->width, false);

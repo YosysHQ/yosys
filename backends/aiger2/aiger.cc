@@ -109,7 +109,7 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (known_ops(cell->type) || cell->type.in(TW($scopeinfo), TW($specify2), TW($specify3), TW($input_port), TW($output_port), TW($public)))
+			if (known_ops(cell->type.ref()) || cell->type.in(TW($scopeinfo), TW($specify2), TW($specify3), TW($input_port), TW($output_port), TW($public)))
 				continue;
 
 			Module *submodule = m->design->module(cell->type_impl);
@@ -628,7 +628,7 @@ struct Index {
 			// an output of a cell
 			Cell *driver = bit.wire->driverCell();
 
-			if (known_ops(driver->type)) {
+			if (known_ops(driver->type.ref())) {
 				ret = impl_op(cursor, driver, bit.wire->driverPort(), bit.offset);
 			} else {
 				Module *def = cursor.enter(*this, driver);
@@ -660,7 +660,7 @@ struct Index {
 				auto &port = instance->getPort(portname);
 				if (bit.offset >= port.size())
 					log_error("Bit %d of input port %s on instance %s of %s unconnected\n",
-							  bit.offset, design->twines.str(portname).c_str(), instance, design->twines.unescaped_str(instance->type));
+							  bit.offset, design->twines.str(portname).c_str(), instance, instance->type.unescaped());
 				ret = visit(cursor, port[bit.offset]);
 			}
 			cursor.enter(*this, instance);
@@ -845,7 +845,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				char buf[32];
 				snprintf(buf, sizeof(buf), "o%d ", i);
 				f->write(buf, strlen(buf));
-				std::string name = design->twines.unescaped_str(bit.wire->name);
+				std::string name = bit.wire->name.unescaped();
 				f->write(name.data(), name.size());
 				f->put('\n');
 			}
@@ -858,7 +858,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				char buf[32];
 				snprintf(buf, sizeof(buf), "i%d ", i);
 				f->write(buf, strlen(buf));
-				std::string name = design->twines.unescaped_str(bit.wire->name);
+				std::string name = bit.wire->name.unescaped();
 				f->write(name.data(), name.size());
 				f->put('\n');
 			}
@@ -899,7 +899,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			return false;
 
 		Cell *driver = bit.wire->driverCell();
-		Module *mod = design->module(driver->type);
+		Module *mod = design->module(driver->type.ref());
 		if (!mod || !mod->has_attribute(ID::abc9_box_id))
 			return false;
 
@@ -935,7 +935,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 		HierCursor cursor;
 		for (auto box : top_minfo->found_blackboxes) {
-			Module *def = design->module(box->type);
+			Module *def = design->module(box->type.ref());
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 				for (auto &conn : box->connections_)
 					if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
@@ -951,7 +951,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		}
 
 		for (auto box : top_minfo->found_blackboxes) {
-			Module *def = design->module(box->type);
+			Module *def = design->module(box->type.ref());
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 				for (auto &conn : box->connections_)
 					if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
@@ -1090,9 +1090,9 @@ struct XAigerWriter : AigerWriter {
 			for (auto box : minfo.found_blackboxes) {
 				log_debug(" - %s.%s (type %s): ", cursor.path(),
 						  box,
-						  design->twines.unescaped_str(box->type));
+						  box->type.unescaped());
 
-				Module *box_module = design->module(box->type), *box_derived;
+				Module *box_module = design->module(box->type.ref()), *box_derived;
 
 				if (box_module && !box->parameters.empty()) {
 					// TODO: This is potentially costly even if a cached derivation exists
@@ -1129,13 +1129,13 @@ struct XAigerWriter : AigerWriter {
 		nonopaque_boxes.clear();
 		for (auto box : boxes_order) {
 			HierCursor cursor;
-			Module *def = design->module(box->type);
+			Module *def = design->module(box->type.ref());
 			nonopaque_boxes.push_back(std::make_tuple(cursor, box, def));
 		}
 
 		for (auto [cursor, box, def] : nonopaque_boxes) {
 			// use `def->meta_->name` not `box->type` as we want the derived type
-			Cell *holes_wb = holes_module->addCell(NEW_TWINE, IdString(design->twines.str(def->meta_->name)));
+			Cell *holes_wb = holes_module->addCell(NEW_TWINE, def->meta_->name);
 			int holes_pi_idx = 0;
 
 			if (map_file.is_open()) {
@@ -1159,7 +1159,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_warning("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
-										design->twines.str(port_id).c_str(), i, box, design->twines.unescaped_str(box->type));
+										design->twines.str(port_id).c_str(), i, box, box->type.unescaped());
 							bit = RTLIL::Sx;
 						}
 
@@ -1194,7 +1194,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_warning("connection on port %s[%d] of instance %s (type %s) missing\n",
-										design->twines.str(port_id).c_str(), i, box, design->twines.unescaped_str(box->type));
+										design->twines.str(port_id).c_str(), i, box, box->type.unescaped());
 							pad_pi();
 							continue;
 						}
@@ -1211,7 +1211,7 @@ struct XAigerWriter : AigerWriter {
 					holes_wb->setPort(port_id, w);
 				} else {
 					log_error("Ambiguous port direction on %s/%s\n",
-							  design->twines.unescaped_str(box->type), design->twines.str(port_id).c_str());
+							  box->type.unescaped(), design->twines.str(port_id).c_str());
 				}
 			}
 		}
@@ -1279,7 +1279,7 @@ struct XAigerWriter : AigerWriter {
 					// do emit a proper PO.
 					if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
 						map_file << "po " << proper_pos_counter << " " << i
-									<< " " << w->name.c_str() << "\n";
+									<< " " << w->name.str().c_str() << "\n";
 					}
 					proper_pos_counter++;
 					pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
@@ -1406,7 +1406,7 @@ struct Aiger2Backend : Backend {
 				continue;
 			if (known_ops(cell.type))
 				continue;
-			std::string name = design->twines.unescaped_str(cell.type);
+			std::string name = TW::str(cell.type);
 			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
@@ -1428,7 +1428,7 @@ struct Aiger2Backend : Backend {
 				continue;
 			if (known_ops(cell.type))
 				continue;
-			std::string name = design->twines.unescaped_str(cell.type);
+			std::string name = TW::str(cell.type);
 			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;

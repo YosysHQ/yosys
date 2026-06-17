@@ -124,11 +124,11 @@ struct Clk2fflogicPass : public Pass {
 	}
 	SigSpec bitwise_sr(Module *module, SigSpec a, SigSpec s, SigSpec r, bool is_fine) {
 		if (is_fine) {
-			return module->MuxGate(NEW_ID, module->AndGate(NEW_ID, module->OrGate(NEW_ID, a, s), module->NotGate(NEW_ID, r)), RTLIL::State::Sx, module->AndGate(NEW_TWINE, s, r));
+			return module->MuxGate(NEW_TWINE, module->AndGate(NEW_TWINE, module->OrGate(NEW_TWINE, a, s), module->NotGate(NEW_TWINE, r)), RTLIL::State::Sx, module->AndGate(NEW_TWINE, s, r));
 		} else {
 			std::vector<SigBit> y;
 			for (int i = 0; i < a.size(); i++)
-				y.push_back(module->MuxGate(NEW_ID, module->AndGate(NEW_ID, module->OrGate(NEW_ID, a[i], s[i]), module->NotGate(NEW_ID, r[i])), RTLIL::State::Sx, module->AndGate(NEW_TWINE, s[i], r[i])));
+				y.push_back(module->MuxGate(NEW_TWINE, module->AndGate(NEW_TWINE, module->OrGate(NEW_TWINE, a[i], s[i]), module->NotGate(NEW_TWINE, r[i])), RTLIL::State::Sx, module->AndGate(NEW_TWINE, s[i], r[i])));
 			return y;
 		}
 	}
@@ -173,7 +173,7 @@ struct Clk2fflogicPass : public Pass {
 					auto &port = mem.rd_ports[i];
 					if (port.clk_enable)
 						log_error("Read port %d of memory %s.%s is clocked. This is not supported by \"clk2fflogic\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, design->twines.unescaped_str(mem.memid), module);
+								"Call \"memory\" with -nordff to avoid this error.\n", i, RTLIL::unescape_id(mem.memid), module);
 				}
 
 				for (int i = 0; i < GetSize(mem.wr_ports); i++)
@@ -184,10 +184,10 @@ struct Clk2fflogicPass : public Pass {
 						continue;
 
 					log("Modifying write port %d on memory %s.%s: CLK=%s, A=%s, D=%s\n",
-							i, module, design->twines.unescaped_str(mem.memid), log_signal(port.clk),
+							i, module, RTLIL::unescape_id(mem.memid), log_signal(port.clk),
 							log_signal(port.addr), log_signal(port.data));
 
-					Wire *past_clk = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#past_clk#%s", design->twines.unescaped_str(mem.memid), i, log_signal(port.clk))));
+					Wire *past_clk = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#past_clk#%s", RTLIL::unescape_id(mem.memid), i, log_signal(port.clk))));
 					past_clk->attributes[ID::init] = port.clk_polarity ? State::S1 : State::S0;
 					module->addFf(NEW_TWINE, port.clk, past_clk);
 
@@ -203,13 +203,13 @@ struct Clk2fflogicPass : public Pass {
 
 					SigSpec clock_edge = module->Eqx(NEW_TWINE, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-					SigSpec en_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#en_q", design->twines.unescaped_str(mem.memid), i)), GetSize(port.en));
+					SigSpec en_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#en_q", RTLIL::unescape_id(mem.memid), i)), GetSize(port.en));
 					module->addFf(NEW_TWINE, port.en, en_q);
 
-					SigSpec addr_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#addr_q", design->twines.unescaped_str(mem.memid), i)), GetSize(port.addr));
+					SigSpec addr_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#addr_q", RTLIL::unescape_id(mem.memid), i)), GetSize(port.addr));
 					module->addFf(NEW_TWINE, port.addr, addr_q);
 
-					SigSpec data_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#data_q", design->twines.unescaped_str(mem.memid), i)), GetSize(port.data));
+					SigSpec data_q = module->addWire(NEW_TWINE_SUFFIX(stringf("%s#%d#data_q", RTLIL::unescape_id(mem.memid), i)), GetSize(port.data));
 					module->addFf(NEW_TWINE, port.data, data_q);
 
 					port.clk = State::S0;

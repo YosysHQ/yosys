@@ -1867,7 +1867,7 @@ struct Smt2Backend : public Backend {
 		for (auto mod : design->modules()) {
 			module_deps[mod] = std::set<RTLIL::Module*>();
 			for (auto cell : mod->cells()) {
-				TwineRef cell_type_ref = design->twines.lookup(cell->type.str());
+				TwineRef cell_type_ref = TwineSearch(&design->twines).find(cell->type.str());
 				if (cell_type_ref != Twine::Null && design->has(cell_type_ref))
 					module_deps[mod].insert(design->module(cell_type_ref));
 			}

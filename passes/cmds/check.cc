@@ -485,7 +485,7 @@ struct CheckPass : public Pass {
 				SigBit prev;
 				for (auto it = loop.rbegin(); it != loop.rend(); it++)
 				if (it->second != -1) { // skip the fallback helper nodes
-					prev = SigBit(module->wire(module->design->twines.lookup(it->first.str())), it->second);
+					prev = SigBit(module->wire(TwineSearch(&module->design->twines).find(it->first.str())), it->second);
 					break;
 				}
 				log_assert(prev != SigBit());
@@ -517,9 +517,9 @@ struct CheckPass : public Pass {
 						}
 					};
 
-					Wire *wire = module->wire(module->design->twines.lookup(pair.first.str()));
+					Wire *wire = module->wire(TwineSearch(&module->design->twines).find(pair.first.str()));
 					log_assert(wire);
-					SigBit bit(module->wire(module->design->twines.lookup(pair.first.str())), pair.second);
+					SigBit bit(module->wire(TwineSearch(&module->design->twines).find(pair.first.str())), pair.second);
 					log_assert(driver_cells.count(bit));
 					Cell *driver = driver_cells.at(bit);
 

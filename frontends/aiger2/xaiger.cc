@@ -414,7 +414,7 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Bad map file: primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file: primary output literal is a marker\n");
-				Wire *w = module->wire(design->twines.lookup(name));
+				Wire *w = module->wire(TwineSearch(&design->twines).find(name));
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
 							  name.c_str(), woffset);
@@ -434,8 +434,8 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Bad map file: pseudo primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file: pseudo primary output literal is a marker\n");
-				Cell *cell = module->cell(design->twines.lookup(box_name));
-				auto box_port_ref = design->twines.lookup(box_port);
+				Cell *cell = module->cell(TwineSearch(&design->twines).find(box_name));
+				auto box_port_ref = TwineSearch(&design->twines).find(box_port);
 				if (!cell || !cell->hasPort(box_port_ref))
 					log_error("Map file references non-existent box port %s/%s\n",
 							  box_name.c_str(), box_port.c_str());
