@@ -97,13 +97,19 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
+		log("    -latches <auto|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, json_file, family;
+	string top_opt, json_file, family, latches;
 	bool flatten, abc9, nocy, nodffe, norfram, nobram, noiopad, no_rw_check;
 	std::string postfix;
 	int min_ce_use, min_srst_use;
@@ -124,6 +130,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		postfix = "";
 		min_ce_use = 8;
 		min_srst_use = 8;
+		latches = "error";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -202,9 +209,16 @@ struct SynthNanoXplorePass : public ScriptPass
 				no_rw_check = true;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (latches != "auto" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
 
 		if (family.empty()) {
 			//log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
@@ -249,7 +263,7 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc");
+			run("proc -latches " + (latches == "error" ? std::string("auto") : latches));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");
@@ -325,7 +339,10 @@ struct SynthNanoXplorePass : public ScriptPass
 			dfflegalize_args += stringf(" -cell $_DLATCH_?_ x -mince %d -minsrst %d", min_ce_use, min_srst_use);
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
 			run("opt_merge");
-			run("check -nolatches");
+			if (help_mode)
+				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(only if -latches error, the default)");
+			else if (latches == "error")
+				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
 			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");

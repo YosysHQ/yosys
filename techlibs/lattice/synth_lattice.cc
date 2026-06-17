@@ -156,13 +156,20 @@ struct SynthLatticePass : public ScriptPass
 		log("        implement constant comparisons in soft logic, do not involve\n");
 		log("        hard carry chains\n");
 		log("\n");
+		log("    -latches <auto|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("        (ignored with -asyncprld, which has a latch primitive)\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, edif_file, json_file, family;
+	string top_opt, edif_file, json_file, family, latches;
 	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, no_rw_check, have_dsp;
 	bool cmp2softlogic;
 	string postfix, arith_map, brams_map, dsp_map, cells_map, map_ram_default, widelut_abc;
@@ -189,6 +196,7 @@ struct SynthLatticePass : public ScriptPass
 		iopad = false;
 		nodsp = false;
 		no_rw_check = false;
+		latches = "error";
 		postfix = "";
 		arith_map = "";
 		brams_map = "";
@@ -318,12 +326,19 @@ struct SynthLatticePass : public ScriptPass
 				cmp2softlogic = true;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (family.empty())
 			log_cmd_error("Lattice family parameter must be set.\n");
+
+		if (latches != "auto" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
 
 		if (family == "ecp5") {
 			postfix = "_ecp5";
@@ -401,7 +416,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc");
+			run("proc -latches " + ((asyncprld || latches == "error") ? std::string("auto") : latches));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten");
@@ -532,7 +547,10 @@ struct SynthLatticePass : public ScriptPass
 			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode) {
-				run("check -nolatches", "(skip if -asyncprld)");
+				if (help_mode)
+					run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(skip if -asyncprld; only if -latches error, the default)");
+				else if (latches == "error")
+					run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 			}
 

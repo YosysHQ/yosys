@@ -3,6 +3,17 @@ module top(input d, en, output reg q);
 always @* if (en) q = d;
 endmodule
 EOT
-logger -expect warning "is a latch of type" 1
-synth_ice40
+design -save read
+
+logger -expect warning "Latch inferred for signal" 1
+synth_ice40 -latches warn
 logger -check-expected
+select -assert-count 1 t:SB_LUT4
+
+design -load read
+synth_ice40 -latches auto
+select -assert-count 1 t:SB_LUT4
+
+design -load read
+logger -expect error "selection is not empty: t:._DLATCH_" 1
+synth_ice40

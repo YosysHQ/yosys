@@ -72,12 +72,19 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        use old ABC flow, which has generally worse mapping results but is less\n");
 		log("        likely to have bugs.\n");
 		log("\n");
+		log("    -latches <auto|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("        (only applies to the pp3 family)\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
+	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path, latches;
 	bool abc9, inferAdder, nobram, bramTypes, dsp, ioff, flatten;
 
 	void clear_flags() override
@@ -96,6 +103,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		dsp = true;
 		ioff = true;
 		flatten = true;
+		latches = "error";
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -168,6 +176,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 				flatten = false;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -177,6 +189,9 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (family != "pp3" && family != "qlf_k6n10f")
 			log_cmd_error("Invalid family specified: '%s'\n", family);
+
+		if (latches != "auto" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
 
 		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
 			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
@@ -211,7 +226,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("prepare")) {
-			run("proc");
+			run("proc -latches " + ((family == "pp3" && latches != "error") ? latches : std::string("auto")));
 			if (flatten) {
 				run("check");
 				run("flatten", "(unless -noflatten)");
@@ -315,7 +330,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts", "(for pp3)") && (help_mode || family == "pp3")) {
-			run("check -nolatches");
+			if (help_mode)
+				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(only if -latches error, the default)");
+			else if (latches == "error")
+				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
 			run("techmap -map " + lib_path + family + "/latches_map.v");
 			if (abc9) {
 				run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");
