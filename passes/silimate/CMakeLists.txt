@@ -35,9 +35,6 @@ yosys_pass(segv
 yosys_pass(reg_rename
 	reg_rename.cc
 )
-yosys_pass(infer_ce
-	infer_ce.cc
-)
 yosys_pass(ffnormpol
 	ffnormpol.cc
 )
