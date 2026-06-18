@@ -156,11 +156,11 @@ struct SynthLatticePass : public ScriptPass
 		log("        implement constant comparisons in soft logic, do not involve\n");
 		log("        hard carry chains\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        select the behaviour for latches that cannot be mapped to a\n");
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
 		log("        (ignored with -asyncprld, which has a latch primitive)\n");
 		log("\n");
 		log("\n");
@@ -337,8 +337,8 @@ struct SynthLatticePass : public ScriptPass
 		if (family.empty())
 			log_cmd_error("Lattice family parameter must be set.\n");
 
-		if (latches != "auto" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (family == "ecp5") {
 			postfix = "_ecp5";
@@ -416,7 +416,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + ((asyncprld || latches == "auto") ? std::string("auto") : std::string("warn")));
+			run("proc -latches " + ((asyncprld || latches == "info") ? std::string("info") : std::string("warn")));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten");

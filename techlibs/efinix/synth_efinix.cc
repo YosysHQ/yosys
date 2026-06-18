@@ -63,11 +63,11 @@ struct SynthEfinixPass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use EFX_RAM_5K cells in output netlist\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        select the behaviour for latches that cannot be mapped to a\n");
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -139,8 +139,8 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-		if (latches != "auto" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		log_header(design, "Executing SYNTH_EFINIX pass.\n");
 		log_push();
@@ -160,7 +160,7 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
-			run("proc -latches " + (latches == "auto" ? std::string("auto") : std::string("warn")));
+			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
 			run("check");
 			run("flatten");
 			run("tribuf -logic");

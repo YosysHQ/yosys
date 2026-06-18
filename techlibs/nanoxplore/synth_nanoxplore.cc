@@ -97,11 +97,11 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        select the behaviour for latches that cannot be mapped to a\n");
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -217,8 +217,8 @@ struct SynthNanoXplorePass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (latches != "auto" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (family.empty()) {
 			//log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
@@ -263,7 +263,7 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + (latches == "auto" ? std::string("auto") : std::string("warn")));
+			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");

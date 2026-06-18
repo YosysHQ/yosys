@@ -10,14 +10,14 @@ logger -check-expected
 
 design -reset
 
-# auto
+# info
 read_verilog <<EOT
 module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
 EOT
 logger -expect-no-warnings
-proc -latches auto
+proc -latches info
 logger -check-expected
 
 design -reset

@@ -72,11 +72,11 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        use old ABC flow, which has generally worse mapping results but is less\n");
 		log("        likely to have bugs.\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        select the behaviour for latches that cannot be mapped to a\n");
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'auto' permits them without complaint.\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
 		log("        (only applies to the pp3 family)\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -190,8 +190,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 		if (family != "pp3" && family != "qlf_k6n10f")
 			log_cmd_error("Invalid family specified: '%s'\n", family);
 
-		if (latches != "auto" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected auto, warn or error)\n", latches.c_str());
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
 			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
@@ -226,7 +226,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("prepare")) {
-			run("proc -latches " + ((family == "pp3" && latches != "auto") ? std::string("warn") : std::string("auto")));
+			run("proc -latches " + ((family == "pp3" && latches != "info") ? std::string("warn") : std::string("info")));
 			if (flatten) {
 				run("check");
 				run("flatten", "(unless -noflatten)");

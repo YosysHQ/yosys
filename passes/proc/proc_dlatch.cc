@@ -346,7 +346,7 @@ struct proc_dlatch_db_t
 };
 
 enum LatchPolicy {
-	POLICY_AUTO,
+	POLICY_INFO,
 	POLICY_WARN,
 	POLICY_ERROR
 };
@@ -475,9 +475,9 @@ struct ProcDlatchPass : public Pass {
 		log("This pass identifies latches in the processes and converts them to\n");
 		log("d-type latches.\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        controls how the inference of a latch is reported. Alternatively, one\n");
-		log("        can use the 'proc.latches' scratchpad variable.\n");
+		log("        can use the 'proc.latches' scratchpad variable. Defaults to 'warn'.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -500,14 +500,14 @@ struct ProcDlatchPass : public Pass {
 			policy_str = design->scratchpad_get_string("proc.latches", "warn");
 
 		LatchPolicy policy;
-		if (policy_str == "auto")
-			policy = POLICY_AUTO;
+		if (policy_str == "info")
+			policy = POLICY_INFO;
 		else if (policy_str == "warn")
 			policy = POLICY_WARN;
 		else if (policy_str == "error")
 			policy = POLICY_ERROR;
 		else
-			log_cmd_error("Invalid value '%s' for -latches (expected auto|warn|error).\n", policy_str.c_str());
+			log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", policy_str.c_str());
 
 		for (auto mod : design->all_selected_modules()) {
 			proc_dlatch_db_t db(mod);
