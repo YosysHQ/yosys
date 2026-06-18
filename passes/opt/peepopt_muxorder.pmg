@@ -18,6 +18,10 @@ match op
 	// Select OP
 	select op->type.in($add, $mul, $and, $or, $xor, $xnor)
 
+	// Leave carry-select structures alone: folding `s ? (a+1) : a` back into
+	// `a + s` would put a late select signal onto a wide ripple carry.
+	filter !op->get_bool_attribute(\carry_select)
+
 	// Set ports, allowing A and B to be swapped
 	choice <IdString> A {\A, \B}
 	define <IdString> B (A == \A ? \B : \A)
