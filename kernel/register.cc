@@ -59,6 +59,8 @@ void try_collect_garbage()
 		return;
 	garbage_collection_requested = false;
 	RTLIL::OwningIdString::collect_garbage();
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs())
+		design->gc_twines();
 }
 
 Pass::Pass(std::string name, std::string short_help, source_location location) :

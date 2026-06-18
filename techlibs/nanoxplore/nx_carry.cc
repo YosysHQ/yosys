@@ -77,11 +77,11 @@ static void nx_carry_chain(Module *module)
 		Cell *cell = nullptr;
 		int j = 0;
 		int cnt = 0;
-		IdString names_A[] = { ID(A1), ID(A2), ID(A3), ID(A4) };
-		IdString names_B[] = { ID(B1), ID(B2), ID(B3), ID(B4) };
-		IdString names_S[] = { ID(S1), ID(S2), ID(S3), ID(S4) };
+		TwineRef names_A[] = { TW::A1, TW::A2, TW::A3, TW::A4 };
+		TwineRef names_B[] = { TW::B1, TW::B2, TW::B3, TW::B4 };
+		TwineRef names_S[] = { TW::S1, TW::S2, TW::S3, TW::S4 };
 		if (!c.second.at(0)->getPort(TW::CI).is_fully_const()) {
-			cell = module->addCell(NEW_TWINE, ID(NX_CY));
+			cell = module->addCell(NEW_TWINE, TW::NX_CY);
 			cell->setParam(ID(add_carry), Const(1,2));
 			cell->setPort(TW::CI, State::S1);
 
@@ -92,7 +92,7 @@ static void nx_carry_chain(Module *module)
 
 		for (size_t i=0 ; i<c.second.size(); i++) {
 			if (j==0) {
-				cell = module->addCell(NEW_TWINE, ID(NX_CY));
+				cell = module->addCell(NEW_TWINE, TW::NX_CY);
 				SigBit ci = c.second.at(i)->getPort(TW::CI).as_bit();
 				cell->setPort(TW::CI, ci);
 				if (ci.is_wire()) {
@@ -110,7 +110,7 @@ static void nx_carry_chain(Module *module)
 					cell->setPort(TW::A4, State::S0);
 					cell->setPort(TW::B4, State::S0);
 					cell->setPort(TW::S4, new_co);
-					cell = module->addCell(NEW_TWINE, ID(NX_CY));
+					cell = module->addCell(NEW_TWINE, TW::NX_CY);
 					cell->setParam(ID(add_carry), Const(1,2));
 					cell->setPort(TW::CI, State::S1);
 					cell->setPort(TW::A1, new_co);

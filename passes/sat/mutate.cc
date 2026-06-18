@@ -27,8 +27,8 @@ PRIVATE_NAMESPACE_BEGIN
 struct mutate_t {
 	string mode;
 	pool<string> src;
-	IdString module, cell;
-	IdString port, wire;
+	TwineRef module = Twine::Null, cell = Twine::Null;
+	TwineRef port = Twine::Null, wire = Twine::Null;
 	int portbit = -1;
 	int ctrlbit = -1;
 	int wirebit = -1;
@@ -39,12 +39,12 @@ struct mutate_opts_t {
 	int seed = 0;
 	std::string mode;
 	pool<string> src;
-	IdString module, cell, port, wire;
+	TwineRef module = Twine::Null, cell = Twine::Null, port = Twine::Null, wire = Twine::Null;
 	int portbit = -1;
 	int ctrlbit = -1;
 	int wirebit = -1;
 
-	IdString ctrl_name;
+	TwineRef ctrl_name = Twine::Null;
 	int ctrl_width = -1, ctrl_value = -1;
 
 	bool none = false;
@@ -79,13 +79,13 @@ void database_add(std::vector<mutate_t> &database, const mutate_opts_t &opts, co
 			return;
 	}
 
-	if (!opts.module.empty() && opts.module != entry.module)
+	if (opts.module != Twine::Null && opts.module != entry.module)
 		return;
 
-	if (!opts.cell.empty() && opts.cell != entry.cell)
+	if (opts.cell != Twine::Null && opts.cell != entry.cell)
 		return;
 
-	if (!opts.port.empty() && opts.port != entry.port)
+	if (opts.port != Twine::Null && opts.port != entry.port)
 		return;
 
 	if (opts.portbit >= 0 && opts.portbit != entry.portbit)
@@ -94,7 +94,7 @@ void database_add(std::vector<mutate_t> &database, const mutate_opts_t &opts, co
 	if (opts.ctrlbit >= 0 && opts.ctrlbit != entry.ctrlbit)
 		return;
 
-	if (!opts.wire.empty() && opts.wire != entry.wire)
+	if (opts.wire != Twine::Null && opts.wire != entry.wire)
 		return;
 
 	if (opts.wirebit >= 0 && opts.wirebit != entry.wirebit)
@@ -139,13 +139,13 @@ struct xs128_t
 struct coverdb_t
 {
 	dict<string, int> src_db;
-	dict<tuple<IdString, IdString>, int> wire_db;
-	dict<tuple<IdString, IdString, int>, int> wirebit_db;
+	dict<tuple<TwineRef, TwineRef>, int> wire_db;
+	dict<tuple<TwineRef, TwineRef, int>, int> wirebit_db;
 
 	void insert(const mutate_t &m) {
-		if (!m.wire.empty()) {
-			wire_db[tuple<IdString, IdString>(m.module, m.wire)] = 0;
-			wirebit_db[tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit)] = 0;
+		if (m.wire != Twine::Null) {
+			wire_db[tuple<TwineRef, TwineRef>(m.module, m.wire)] = 0;
+			wirebit_db[tuple<TwineRef, TwineRef, int>(m.module, m.wire, m.wirebit)] = 0;
 		}
 		for (auto &s : m.src) {
 			src_db[s] = 0;
@@ -153,9 +153,9 @@ struct coverdb_t
 	}
 
 	void update(const mutate_t &m) {
-		if (!m.wire.empty()) {
-			wire_db.at(tuple<IdString, IdString>(m.module, m.wire))++;
-			wirebit_db.at(tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit))++;
+		if (m.wire != Twine::Null) {
+			wire_db.at(tuple<TwineRef, TwineRef>(m.module, m.wire))++;
+			wirebit_db.at(tuple<TwineRef, TwineRef, int>(m.module, m.wire, m.wirebit))++;
 		}
 		for (auto &s : m.src) {
 			src_db.at(s)++;
@@ -164,9 +164,9 @@ struct coverdb_t
 
 	int score(const mutate_t &m) {
 		int this_score = m.src.empty() ? 0 : 1;
-		if (!m.wire.empty()) {
-			this_score += wire_db.at(tuple<IdString, IdString>(m.module, m.wire)) ? 0 : 5;
-			this_score += wirebit_db.at(tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit)) ? 0 : 1;
+		if (m.wire != Twine::Null) {
+			this_score += wire_db.at(tuple<TwineRef, TwineRef>(m.module, m.wire)) ? 0 : 5;
+			this_score += wirebit_db.at(tuple<TwineRef, TwineRef, int>(m.module, m.wire, m.wirebit)) ? 0 : 1;
 		}
 		for (auto &s : m.src) {
 			this_score += src_db.at(s) ? 0 : 5;
@@ -279,28 +279,28 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 	if (N >= GetSize(database))
 		return;
 
-	mutate_once_queue_t<tuple<IdString, IdString>, mutate_queue_t> primary_queue_wire;
-	mutate_once_queue_t<tuple<IdString, IdString, int>, mutate_queue_t> primary_queue_bit;
-	mutate_once_queue_t<tuple<IdString, IdString>, mutate_queue_t> primary_queue_cell;
+	mutate_once_queue_t<tuple<TwineRef, TwineRef>, mutate_queue_t> primary_queue_wire;
+	mutate_once_queue_t<tuple<TwineRef, TwineRef, int>, mutate_queue_t> primary_queue_bit;
+	mutate_once_queue_t<tuple<TwineRef, TwineRef>, mutate_queue_t> primary_queue_cell;
 	mutate_once_queue_t<string, mutate_queue_t> primary_queue_src;
 
-	mutate_chain_queue_t<IdString, mutate_once_queue_t<IdString, mutate_queue_t>> primary_queue_module_wire;
-	mutate_chain_queue_t<IdString, mutate_once_queue_t<pair<IdString, int>, mutate_queue_t>> primary_queue_module_bit;
-	mutate_chain_queue_t<IdString, mutate_once_queue_t<IdString, mutate_queue_t>> primary_queue_module_cell;
-	mutate_chain_queue_t<IdString, mutate_once_queue_t<string, mutate_queue_t>> primary_queue_module_src;
+	mutate_chain_queue_t<TwineRef, mutate_once_queue_t<TwineRef, mutate_queue_t>> primary_queue_module_wire;
+	mutate_chain_queue_t<TwineRef, mutate_once_queue_t<pair<TwineRef, int>, mutate_queue_t>> primary_queue_module_bit;
+	mutate_chain_queue_t<TwineRef, mutate_once_queue_t<TwineRef, mutate_queue_t>> primary_queue_module_cell;
+	mutate_chain_queue_t<TwineRef, mutate_once_queue_t<string, mutate_queue_t>> primary_queue_module_src;
 
 	for (auto &m : database)
 	{
 		coverdb.insert(m);
 
-		if (!m.wire.empty()) {
-			primary_queue_wire.add(&m, tuple<IdString, IdString>(m.module, m.wire));
-			primary_queue_bit.add(&m, tuple<IdString, IdString, int>(m.module, m.wire, m.wirebit));
+		if (m.wire != Twine::Null) {
+			primary_queue_wire.add(&m, tuple<TwineRef, TwineRef>(m.module, m.wire));
+			primary_queue_bit.add(&m, tuple<TwineRef, TwineRef, int>(m.module, m.wire, m.wirebit));
 			primary_queue_module_wire.add(&m, m.module, m.wire);
-			primary_queue_module_bit.add(&m, m.module, pair<IdString, int>(m.wire, m.wirebit));
+			primary_queue_module_bit.add(&m, m.module, pair<TwineRef, int>(m.wire, m.wirebit));
 		}
 
-		primary_queue_cell.add(&m, tuple<IdString, IdString>(m.module, m.cell));
+		primary_queue_cell.add(&m, tuple<TwineRef, TwineRef>(m.module, m.cell));
 		primary_queue_module_cell.add(&m, m.module, m.cell);
 
 		for (auto &s : m.src) {
@@ -433,7 +433,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 
 	for (auto module : design->selected_modules())
 	{
-		if (!opts.module.empty() && module->name != opts.module)
+		if (opts.module != Twine::Null && module->name.ref() != opts.module)
 			continue;
 
 		SigMap sigmap(module);
@@ -478,15 +478,15 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 
 		for (auto cell : module->selected_cells())
 		{
-			if (!opts.cell.empty() && cell->name != opts.cell)
+			if (opts.cell != Twine::Null && cell->name.ref() != opts.cell)
 				continue;
 
 			for (auto &conn : cell->connections())
 			{
 				for (int i = 0; i < GetSize(conn.second); i++) {
 					mutate_t entry;
-					entry.module = module->name;
-					entry.cell = cell->name;
+					entry.module = module->name.ref();
+					entry.cell = cell->name.ref();
 					entry.port = conn.first;
 					entry.portbit = i;
 
@@ -497,7 +497,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 					if (bit.wire && bit.wire->name.isPublic() && (cell->output(conn.first) || bit_user_cnt[bit] == 1)) {
 						for (auto &s : design->src_leaves(bit.wire))
 							entry.src.insert(s);
-						entry.wire = bit.wire->name;
+						entry.wire = bit.wire->name.ref();
 						entry.wirebit = bit.offset;
 					}
 
@@ -557,7 +557,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 
 	if (opts.none) {
 		string str = "mutate";
-		if (!opts.ctrl_name.empty())
+		if (opts.ctrl_name != Twine::Null)
 			str += stringf(" -ctrl %s %d %d", design->twines.unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += " -mode none";
 		if (filename.empty())
@@ -568,20 +568,20 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 
 	for (auto &entry : database) {
 		string str = "mutate";
-		if (!opts.ctrl_name.empty())
+		if (opts.ctrl_name != Twine::Null)
 			str += stringf(" -ctrl %s %d %d", design->twines.unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += stringf(" -mode %s", entry.mode);
-		if (!entry.module.empty())
+		if (entry.module != Twine::Null)
 			str += stringf(" -module %s", design->twines.unescaped_str(entry.module));
-		if (!entry.cell.empty())
+		if (entry.cell != Twine::Null)
 			str += stringf(" -cell %s", design->twines.unescaped_str(entry.cell));
-		if (!entry.port.empty())
+		if (entry.port != Twine::Null)
 			str += stringf(" -port %s", design->twines.unescaped_str(entry.port));
 		if (entry.portbit >= 0)
 			str += stringf(" -portbit %d", entry.portbit);
 		if (entry.ctrlbit >= 0)
 			str += stringf(" -ctrlbit %d", entry.ctrlbit);
-		if (!entry.wire.empty())
+		if (entry.wire != Twine::Null)
 			str += stringf(" -wire %s", design->twines.unescaped_str(entry.wire));
 		if (entry.wirebit >= 0)
 			str += stringf(" -wirebit %d", entry.wirebit);
@@ -594,13 +594,13 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	}
 }
 
-SigSpec mutate_ctrl_sig(Module *module, IdString name, int width)
+SigSpec mutate_ctrl_sig(Module *module, TwineRef name, int width)
 {
 	Wire *ctrl_wire = module->wire(name);
 
 	if (ctrl_wire == nullptr)
 	{
-		log("Adding ctrl port %s to module %s.\n", design->twines.unescaped_str(name), module);
+		log("Adding ctrl port %s to module %s.\n", module->design->twines.unescaped_str(name), module);
 
 		ctrl_wire = module->addWire(name, width);
 		ctrl_wire->port_input = true;
@@ -609,7 +609,7 @@ SigSpec mutate_ctrl_sig(Module *module, IdString name, int width)
 		for (auto mod : module->design->modules())
 		for (auto cell : mod->cells())
 		{
-			if (cell->type != module->name)
+			if (cell->type_impl != module->name.ref())
 				continue;
 
 			SigSpec ctrl = mutate_ctrl_sig(mod, name, width);
@@ -625,7 +625,7 @@ SigSpec mutate_ctrl_sig(Module *module, IdString name, int width)
 
 SigBit mutate_ctrl(Module *module, const mutate_opts_t &opts)
 {
-	if (opts.ctrl_name.empty())
+	if (opts.ctrl_name == Twine::Null)
 		return State::S1;
 
 	SigSpec sig = mutate_ctrl_sig(module, opts.ctrl_name, opts.ctrl_width);
@@ -710,14 +710,14 @@ void mutate_cnot(Design *design, const mutate_opts_t &opts, bool one)
 	if (cell->input(opts.port))
 	{
 		log("Add input cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, design->twines.unescaped_str(opts.port), opts.portbit, opts.ctrlbit);
-		SigBit outbit = one ? module->Xor(NEW_ID, bit, ctrl) : module->Xnor(NEW_TWINE, bit, ctrl);
+		SigBit outbit = one ? module->Xor(NEW_TWINE, bit, ctrl) : module->Xnor(NEW_TWINE, bit, ctrl);
 		bit = mutate_ctrl_mux(module, opts, bit, outbit);
 	}
 	else
 	{
 		log("Add output cnot%d at %s.%s.%s[%d,%d].\n", one ? 1 : 0, module, cell, design->twines.unescaped_str(opts.port), opts.portbit, opts.ctrlbit);
 		SigBit inbit = module->addWire(NEW_TWINE);
-		SigBit outbit = one ? module->Xor(NEW_ID, inbit, ctrl) : module->Xnor(NEW_TWINE, inbit, ctrl);
+		SigBit outbit = one ? module->Xor(NEW_TWINE, inbit, ctrl) : module->Xnor(NEW_TWINE, inbit, ctrl);
 		module->connect(bit, mutate_ctrl_mux(module, opts, inbit, outbit));
 		bit = inbit;
 	}
@@ -835,21 +835,21 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-ctrl" && argidx+3 < args.size()) {
-				opts.ctrl_name = RTLIL::escape_id(args[++argidx]);
+				opts.ctrl_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				opts.ctrl_width = atoi(args[++argidx].c_str());
 				opts.ctrl_value = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-module" && argidx+1 < args.size()) {
-				opts.module = RTLIL::escape_id(args[++argidx]);
+				opts.module = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-cell" && argidx+1 < args.size()) {
-				opts.cell = RTLIL::escape_id(args[++argidx]);
+				opts.cell = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-port" && argidx+1 < args.size()) {
-				opts.port = RTLIL::escape_id(args[++argidx]);
+				opts.port = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-portbit" && argidx+1 < args.size()) {
@@ -861,7 +861,7 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-wire" && argidx+1 < args.size()) {
-				opts.wire = RTLIL::escape_id(args[++argidx]);
+				opts.wire = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-wirebit" && argidx+1 < args.size()) {
@@ -934,29 +934,29 @@ struct MutatePass : public Pass {
 		}
 
 		if (opts.mode == "none") {
-			if (!opts.ctrl_name.empty()) {
-				Module *topmod = opts.module.empty() ? design->top_module() : design->module(opts.module);
+			if (opts.ctrl_name != Twine::Null) {
+				Module *topmod = opts.module == Twine::Null ? design->top_module() : design->module(opts.module);
 				if (topmod)
 					mutate_ctrl_sig(topmod, opts.ctrl_name, opts.ctrl_width);
 			}
 			return;
 		}
 
-		if (opts.module.empty())
+		if (opts.module == Twine::Null)
 			log_cmd_error("Missing -module argument.\n");
 
 		Module *module = design->module(opts.module);
 		if (module == nullptr)
 			log_cmd_error("Module %s not found.\n", design->twines.unescaped_str(opts.module));
 
-		if (opts.cell.empty())
+		if (opts.cell == Twine::Null)
 			log_cmd_error("Missing -cell argument.\n");
 
 		Cell *cell = module->cell(opts.cell);
 		if (cell == nullptr)
 			log_cmd_error("Cell %s not found in module %s.\n", design->twines.unescaped_str(opts.cell), design->twines.unescaped_str(opts.module));
 
-		if (opts.port.empty())
+		if (opts.port == Twine::Null)
 			log_cmd_error("Missing -port argument.\n");
 
 		if (!cell->hasPort(opts.port))

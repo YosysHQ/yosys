@@ -417,7 +417,7 @@ with open(outfile, "w") as f:
 
     for v, n in sorted(ids.items()):
         if n[0] == "\\":
-            print("  TwineRef {}{{TW({})}};".format(v, n[1:]), file=f)
+            print("  TwineRef {}{{TW::{}}};".format(v, n[1:]), file=f)
         else:
             print("  TwineRef {}{{TW({})}};".format(v, n), file=f)
     print("", file=f)

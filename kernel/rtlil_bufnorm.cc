@@ -1015,6 +1015,10 @@ void RTLIL::Cell::unsetPort(TwineRef portname)
 					if (bit.is_wire()) {
 						auto found = fanout.find(bit);
 						log_assert(found != fanout.end());
+						// log("debug erasing %s\n", module->design->twines.str(portname));
+						// log("debug erasing %s %s %d\n", name, module->design->twines.str(portname), i);
+						// for (auto portbit : found->second)
+						// 	log("pb %s %s %d\n", portbit.cell->name, module->design->twines.str(portbit.port), portbit.offset);
 						int erased = found->second.erase(PortBit(this, portname, i));
 						log_assert(erased);
 						if (found->second.empty())

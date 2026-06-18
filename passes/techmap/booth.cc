@@ -132,14 +132,14 @@ struct BoothPassWorker {
 		//    (y2_p1 & y2_n & y2_m1_n)
 		// )
 		twoi_n_o = module->NorGate(NEW_TWINE_SUFFIX(name),
-			module->AndGate(NEW_ID_SUFFIX(name), y2_p1_n, module->AndGate(NEW_TWINE_SUFFIX(name), y2_i, y2_m1_i)),
-			module->AndGate(NEW_ID_SUFFIX(name), y2_p1_i, module->AndGate(NEW_TWINE_SUFFIX(name), y2_n, y2_m1_n))
+			module->AndGate(NEW_TWINE_SUFFIX(name), y2_p1_n, module->AndGate(NEW_TWINE_SUFFIX(name), y2_i, y2_m1_i)),
+			module->AndGate(NEW_TWINE_SUFFIX(name), y2_p1_i, module->AndGate(NEW_TWINE_SUFFIX(name), y2_n, y2_m1_n))
 		);
 
 		// onei_n = ~(y2_m1_i ^ y2_i);
 		onei_n_o = module->XnorGate(NEW_TWINE_SUFFIX(name), y2_m1_i, y2_i);
 		// cori = (y2_m1_n | y2_n) & y2_p1_i;
-		cori_o = module->AndGate(NEW_ID_SUFFIX(name), module->OrGate(NEW_TWINE_SUFFIX(name), y2_m1_n, y2_n), y2_p1_i);
+		cori_o = module->AndGate(NEW_TWINE_SUFFIX(name), module->OrGate(NEW_TWINE_SUFFIX(name), y2_m1_n, y2_n), y2_p1_i);
 	}
 
 	//
@@ -201,9 +201,10 @@ struct BoothPassWorker {
 		log_assert(sig_a.size() == sig_x.size());
 		log_assert(sig_a.size() == sig_y.size());
 
+		TwineRef src_ref = src.empty() ? Twine::Null : mod->design->twines.add(Twine{src});
 		for (int i = 0; i < sig_a.size(); i++)
-			mod->addFa(stringf("%s[%d]", name, i), sig_a[i], sig_b[i],
-				   sig_c[i], sig_x[i], sig_y[i], src);
+			mod->addFa(Twine{stringf("%s[%d]", name, i)}, sig_a[i], sig_b[i],
+				   sig_c[i], sig_x[i], sig_y[i], src_ref);
 	}
 
 	void run()
@@ -435,7 +436,7 @@ struct BoothPassWorker {
 
 		// append the sign bits
 		if (is_signed) {
-			SigBit e = module->XorGate(NEW_ID, s_int[0], module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_TWINE, two_int[0], one_int[0])));
+			SigBit e = module->XorGate(NEW_TWINE, s_int[0], module->AndGate(NEW_TWINE, X.msb(), module->OrGate(NEW_TWINE, two_int[0], one_int[0])));
 			ppij_vec.append({module->NotGate(NEW_TWINE, e), e, e});
 		} else {
 			// append the sign bits
@@ -469,7 +470,7 @@ struct BoothPassWorker {
 				     					one_int, two_int, s_int));
 		}
 
-		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_ID, sb_int, module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_TWINE, two_int, one_int))));
+		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_TWINE, sb_int, module->AndGate(NEW_TWINE, X.msb(), module->OrGate(NEW_TWINE, two_int, one_int))));
 		ppij_vec.append(State::S1);
 	}
 
@@ -480,7 +481,7 @@ struct BoothPassWorker {
 		for (auto pp_row : aligned_pp) {
 			printf("PP_%d \t", pp_ix);
 			for (unsigned i = 0; i < pp_row.size(); i++)
-				printf("[%d] %s ", i, pp_row[i] == nullptr ? " 0 " : pp_row[i]->name.c_str());
+				printf("[%d] %s ", i, pp_row[i] == nullptr ? " 0 " : pp_row[i]->name.str().c_str());
 			printf("\n");
 			pp_ix++;
 		}
@@ -508,7 +509,7 @@ struct BoothPassWorker {
 				ix++;
 			}
 			printf("\n");
-			printf("\tSign bit to add in: %s\n", sign_bit->name.c_str());
+			printf("\tSign bit to add in: %s\n", sign_bit->name.str().c_str());
 
 			pp_ix++;
 		}
@@ -521,30 +522,30 @@ struct BoothPassWorker {
 			printf("CSA Tree column %d\n", i);
 			int ix = 0;
 			for (auto csa_elem : csa_tree) {
-				printf("\tCell %d  %s type %s\n", ix, csa_elem->name.c_str(), csa_elem->type.c_str());
+				printf("\tCell %d  %s type %s\n", ix, csa_elem->name.str().c_str(), csa_elem->type.str().c_str());
 				if (csa_elem->getPort(TW::A) == State::S0)
 					printf("\tA set to constant 0\n");
 				else if (csa_elem->getPort(TW::A) == State::S1)
 					printf("\tA set to constant 1\n");
 				else
-					printf("\tA driven by %s\n", csa_elem->getPort(TW::A).as_wire()->name.c_str());
+					printf("\tA driven by %s\n", csa_elem->getPort(TW::A).as_wire()->name.str().c_str());
 
 				if (csa_elem->getPort(TW::B) == State::S0)
 					printf("\tB set to constant 0\n");
 				else if (csa_elem->getPort(TW::B) == State::S1)
 					printf("\tB set to constant 1\n");
 				else
-					printf("\tB driven by %s\n", csa_elem->getPort(TW::B).as_wire()->name.c_str());
+					printf("\tB driven by %s\n", csa_elem->getPort(TW::B).as_wire()->name.str().c_str());
 
 				if (csa_elem->getPort(TW::C) == State::S0)
 					printf("\tC set to constant 0\n");
 				else if (csa_elem->getPort(TW::C) == State::S1)
 					printf("\tC set to constant 1\n");
 				else
-					printf("\tC driven by %s\n", csa_elem->getPort(TW::C).as_wire()->name.c_str());
+					printf("\tC driven by %s\n", csa_elem->getPort(TW::C).as_wire()->name.str().c_str());
 
-				printf("Carry out: %s\n", csa_elem->getPort(TW::X).as_wire()->name.c_str());
-				printf("Sum out: %s\n", csa_elem->getPort(TW::Y).as_wire()->name.c_str());
+				printf("Carry out: %s\n", csa_elem->getPort(TW::X).as_wire()->name.str().c_str());
+				printf("Sum out: %s\n", csa_elem->getPort(TW::Y).as_wire()->name.str().c_str());
 
 				ix++;
 			}
@@ -573,7 +574,7 @@ struct BoothPassWorker {
 			}
 			for (auto c : carry_bits_to_add_to_next_column) {
 #ifdef DEBUG_CSA
-				printf("\t Propagating column bit %s to column %d from column %d\n", c->name.c_str(), column_ix, column_ix - 1);
+				printf("\t Propagating column bit %s to column %d from column %d\n", c->name.str().c_str(), column_ix, column_ix - 1);
 #endif
 				column_bits.append(c);
 			}
@@ -583,7 +584,7 @@ struct BoothPassWorker {
 #ifdef DEBUG_CSA
 			printf("Column %d Reducing %d bits\n", column_ix, column_bits.size());
 			for (auto b : column_bits) {
-				printf("\t %s\n", b->name.c_str());
+				printf("\t %s\n", b->name.str().c_str());
 			}
 			printf("\n");
 #endif
@@ -699,7 +700,7 @@ struct BoothPassWorker {
 				module->addBufGate(NEW_TWINE_SUFFIX(stringf("base_buf_%d_%d", cpa_id, n)), s_vec[0], result[0]);
 
 #ifdef DEBUG_CPA
-				printf("CPA bit [%d] Cell %s IP 0 %s \n", n, buf->name.c_str(), s_vec[0]->name.c_str());
+				printf("CPA bit [%d] Cell %s IP 0 %s \n", n, buf->name.str().c_str(), s_vec[0]->name.str().c_str());
 #endif
 			}
 
@@ -714,8 +715,8 @@ struct BoothPassWorker {
 				module->connect(result[n], ha_op);
 
 #ifdef DEBUG_CPA
-				printf("CPA bit [%d] Cell %s IPs [%s] [%s] \n", n, ha_cell->name.c_str(), s_vec[n]->name.c_str(),
-				       c_vec[n - 1]->name.c_str());
+				printf("CPA bit [%d] Cell %s IPs [%s] [%s] \n", n, ha_cell->name.str().c_str(), s_vec[n]->name.str().c_str(),
+				       c_vec[n - 1]->name.str().c_str());
 #endif
 
 			}
@@ -733,8 +734,8 @@ struct BoothPassWorker {
 				carry = carry_out;
 
 #ifdef DEBUG_CPA
-				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.c_str(), s_vec[n]->name.c_str(),
-				       c_vec[n - 1]->name.c_str(), carry->name.c_str());
+				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.str().c_str(), s_vec[n]->name.str().c_str(),
+				       c_vec[n - 1]->name.str().c_str(), carry->name.str().c_str());
 #endif
 				if (n + 1 < GetSize(result)) {
 					// Now make a half adder: c_vec[n] = carry
@@ -760,8 +761,8 @@ struct BoothPassWorker {
 				);
 				carry = carry_out;
 #ifdef DEBUG_CPA
-				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.c_str(), s_vec[n]->name.c_str(),
-				       c_vec[n - 1]->name.c_str(), carry->name.c_str());
+				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.str().c_str(), s_vec[n]->name.str().c_str(),
+				       c_vec[n - 1]->name.str().c_str(), carry->name.str().c_str());
 #endif
 			}
 		}

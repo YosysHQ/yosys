@@ -30,7 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 static string spice_id2str(IdString id)
 {
 	static const char *escape_chars = "$\\[]()<>=";
-	string s = design->twines.unescaped_str(id);
+	string s = RTLIL::unescape_id(id);
 
 	for (auto &ch : s)
 		if (strchr(escape_chars, ch) != nullptr) ch = '_';
@@ -101,10 +101,11 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 				ports.at(wire->port_id-1) = wire;
 			}
 
+			TwineSearch search(&design->twines);
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				RTLIL::SigSpec sig(RTLIL::State::Sz, wire->width);
-				TwineRef wire_name_ref = TwineSearch(&design->twines).find(wire->name.str());
+				TwineRef wire_name_ref = search.find(wire->name.str());
 				if (cell->hasPort(wire_name_ref)) {
 					sig = sigmap(cell->getPort(wire_name_ref));
 					sig.extend_u0(wire->width, false);

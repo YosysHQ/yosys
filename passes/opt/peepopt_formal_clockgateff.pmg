@@ -18,7 +18,7 @@ pattern formal_clockgateff
 // assign gated_clk_o = flopped_en & clk_i;
 
 state <SigSpec> clk en latched_en gated_clk
-state <IdString> latched_en_port_name
+state <TwineRef> latched_en_port_name
 
 match latch
 	select latch->type == $dlatch

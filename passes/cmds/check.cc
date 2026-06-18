@@ -524,10 +524,11 @@ struct CheckPass : public Pass {
 				// which we have done the edges fallback. The cell and its ports that led to an edge are
 				// a piece of information we need to recover now. For that we need to have the previous
 				// wire bit of the loop at hand.
+				TwineSearch search(&module->design->twines);
 				SigBit prev;
 				for (auto it = loop.rbegin(); it != loop.rend(); it++)
 				if (it->second != -1) { // skip the fallback helper nodes
-					prev = SigBit(module->wire(TwineSearch(&module->design->twines).find(it->first.str())), it->second);
+					prev = SigBit(module->wire(search.find(it->first.str())), it->second);
 					break;
 				}
 				log_assert(prev != SigBit());
@@ -559,9 +560,9 @@ struct CheckPass : public Pass {
 						}
 					};
 
-					Wire *wire = module->wire(TwineSearch(&module->design->twines).find(pair.first.str()));
+					Wire *wire = module->wire(search.find(pair.first.str()));
 					log_assert(wire);
-					SigBit bit(module->wire(TwineSearch(&module->design->twines).find(pair.first.str())), pair.second);
+					SigBit bit(wire, pair.second);
 					log_assert(driver_cells.count(bit));
 					Cell *driver = driver_cells.at(bit);
 

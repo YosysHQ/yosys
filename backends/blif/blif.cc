@@ -62,12 +62,13 @@ struct BlifDumper
 	RTLIL::Design *design;
 	BlifDumperConfig *config;
 	NewCellTypes ct;
+	TwineSearch search;
 
 	SigMap sigmap;
 	dict<SigBit, int> init_bits;
 
 	BlifDumper(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, BlifDumperConfig *config) :
-			f(f), module(module), design(design), config(config), ct(design), sigmap(module)
+			f(f), module(module), design(design), config(config), ct(design), search(&design->twines), sigmap(module)
 	{
 		for (Wire *wire : module->wires())
 			if (wire->attributes.count(ID::init)) {
@@ -140,7 +141,7 @@ struct BlifDumper
 	{
 		if (!config->gates_mode)
 			return "subckt";
-		TwineRef cell_type_ref = TwineSearch(&design->twines).find(RTLIL::escape_id(cell_type));
+		TwineRef cell_type_ref = search.find(RTLIL::escape_id(cell_type));
 		if (design->module(cell_type_ref) == nullptr)
 			return "gate";
 		if (design->module(cell_type_ref)->get_blackbox_attribute())
@@ -238,8 +239,8 @@ struct BlifDumper
 
 			if (config->unbuf_types.count(cell->type)) {
 				auto portnames = config->unbuf_types.at(cell->type);
-				TwineRef port_in = TwineSearch(&design->twines).find(portnames.first.str());
-				TwineRef port_out = TwineSearch(&design->twines).find(portnames.second.str());
+				TwineRef port_in = search.find(portnames.first.str());
+				TwineRef port_out = search.find(portnames.second.str());
 				f << stringf(".names %s %s\n1 1\n",
 						str(cell->getPort(port_in)).c_str(), str(cell->getPort(port_out)).c_str());
 				continue;

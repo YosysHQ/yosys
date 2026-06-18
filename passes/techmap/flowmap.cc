@@ -1376,10 +1376,10 @@ struct FlowmapWorker
 				auto gate_origin = node_origins[gate_node];
 				if (gate_origin.cell->getPort(gate_origin.port).size() == 1)
 					log("  Packing %s.%s.%s (%s).\n",
-					    module, gate_origin.cell, gate_module->design->twines.str(origin.port).c_str(), log_signal(gate_node));
+					    module, gate_origin.cell, gate_origin.cell->module->design->twines.str(gate_origin.port).c_str(), log_signal(gate_node));
 				else
 					log("  Packing %s.%s.%s [%d] (%s).\n",
-					    module, gate_origin.cell, gate_module->design->twines.str(origin.port).c_str(), gate_origin.offset, log_signal(gate_node));
+					    module, gate_origin.cell, gate_origin.cell->module->design->twines.str(gate_origin.port).c_str(), gate_origin.offset, log_signal(gate_node));
 			}
 
 			vector<RTLIL::SigBit> input_nodes(lut_edges_bw[node].begin(), lut_edges_bw[node].end());

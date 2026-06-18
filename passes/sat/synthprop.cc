@@ -162,7 +162,8 @@ void SynthPropWorker::run()
 
 	if (!reset_name.empty()) {
 		int width = tracing_data[module].names.size();		
-		SigSpec reset = module->wire(TwineSearch(&design->twines).find(reset_name.str()));
+		TwineSearch search(&design->twines);
+		SigSpec reset = module->wire(search.find(reset_name.str()));
 		reset.extend_u0(width, true);
 
 		module->addDlatchsr(NEW_TWINE, State::S1, Const(State::S0,width), reset, output, module->wire(port_ref), true, true, reset_pol);
@@ -257,7 +258,8 @@ struct SyntProperties : public Pass {
 		if (top == nullptr)
 			log_cmd_error("Can't find top module in current design!\n");
 
-		auto *reset = top->wire(TwineSearch(&design->twines).find(worker.reset_name.str()));
+		TwineSearch search(&design->twines);
+		auto *reset = top->wire(search.find(worker.reset_name.str()));
 		if (!worker.reset_name.empty() && reset == nullptr)
 			log_cmd_error("Can't find reset line in current design!\n");
 

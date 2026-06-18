@@ -108,11 +108,11 @@ code
 		if (!c.wire)
 			reject;
 		// Abandon matches when 'Q' has the keep attribute set
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 		// Abandon matches when 'Q' has a non-zero init attribute set
 		// (not supported by DSP48E1)
-		Const init = c.wire->attributes.at(\init, Const());
+		Const init = c.wire->attributes.at(ID(init), Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))
 				if (b != State::Sx && b != State::S0)

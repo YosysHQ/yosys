@@ -202,7 +202,7 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 	dump_attributes(f, indent, wire, design, stringify);
 	if (wire->driverCell_) {
 		f << stringf("%s" "# driver %s %s\n", indent,
-				wire->driverCell()->name, wire->driverPort());
+				wire->driverCell()->name, design->twines.str(wire->driverPort()).c_str());
 	}
 	f << stringf("%s" "wire ", indent);
 	if (wire->width != 1)

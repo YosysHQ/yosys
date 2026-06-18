@@ -134,17 +134,17 @@ struct Ice40WrapCarryPass : public Pass {
 					if (cell->type != TW($__ICE40_CARRY_WRAPPER))
 						continue;
 
-					auto carry = module->addCell(NEW_TWINE, ID(SB_CARRY));
+					auto carry = module->addCell(NEW_TWINE, TW::SB_CARRY);
 					carry->setPort(TW::I0, cell->getPort(TW::A));
 					carry->setPort(TW::I1, cell->getPort(TW::B));
 					carry->setPort(TW::CI, cell->getPort(TW::CI));
 					carry->setPort(TW::CO, cell->getPort(TW::CO));
 					module->swap_names(carry, cell);
 					auto lut_name = cell->attributes.at(IdString{"\\SB_LUT4.name"}, Const(NEW_ID.str())).decode_string();
-					auto lut = module->addCell(lut_name, TW($lut));
+					auto lut = module->addCell(module->design->twines.add(std::string{lut_name}), TW($lut));
 					lut->setParam(ID::WIDTH, 4);
 					lut->setParam(ID::LUT, cell->getParam(ID::LUT));
-					auto I3 = cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3));
+					auto I3 = cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? TW::CI : TW::I3);
 					lut->setPort(TW::A, { I3, cell->getPort(TW::B), cell->getPort(TW::A), cell->getPort(TW::I0) });
 					lut->setPort(TW::Y, cell->getPort(TW::O));
 
@@ -170,8 +170,8 @@ struct Ice40WrapCarryPass : public Pass {
 					}
 					if (carry_src.empty()) carry_src = fallback_src;
 					if (lut_src.empty()) lut_src = fallback_src;
-					if (!carry_src.empty()) carry->set_src_attribute(carry_src);
-					if (!lut_src.empty()) lut->set_src_attribute(lut_src);
+					if (!carry_src.empty()) carry->set_src_attribute(module->design->twines.add(Twine{carry_src}));
+					if (!lut_src.empty()) lut->set_src_attribute(module->design->twines.add(Twine{lut_src}));
 
 					module->remove(cell);
 				}

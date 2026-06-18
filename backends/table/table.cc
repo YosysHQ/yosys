@@ -78,7 +78,7 @@ struct TableBackend : public Backend {
 					continue;
 
 				*f << design->twines.str(module->meta_->name) << "\t";
-				*f << design->twines.unescaped_str(wire->name) << "\t";
+				*f << wire->name.unescaped() << "\t";
 				*f << "-" << "\t";
 				*f << "-" << "\t";
 

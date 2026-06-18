@@ -56,7 +56,7 @@ pattern xilinx_dsp_pack
 
 state <SigBit> clock
 state <SigSpec> sigA sigB sigC sigD sigM sigP
-state <IdString> postAddAB postAddMuxAB
+state <TwineRef> postAddAB postAddMuxAB
 state <Cell*> ffAD ffA1 ffA2
 state <Cell*> ffB1 ffB2
 state <Cell*> ffD ffM ffP
@@ -418,11 +418,11 @@ code
 		if (!c.wire)
 			reject;
 		// Abandon matches when 'Q' has the keep attribute set
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 		// Abandon matches when 'Q' has a non-zero init attribute set
 		// (not supported by DSP48E1)
-		Const init = c.wire->attributes.at(\init, Const());
+		Const init = c.wire->attributes.at(ID(init), Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))
 				if (b != State::Sx && b != State::S0)
@@ -479,7 +479,7 @@ code
 	dff = nullptr;
 	for (auto c : argD.chunks())
 		// Abandon matches when 'D' has the keep attribute set
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 endcode
 
@@ -507,7 +507,7 @@ code argQ
 	// Abandon matches when 'Q' has a non-zero init attribute set
 	// (not supported by DSP48E1)
 	for (auto c : argQ.chunks()) {
-		Const init = c.wire->attributes.at(\init, Const());
+		Const init = c.wire->attributes.at(ID(init), Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))
 				if (b != State::Sx && b != State::S0)

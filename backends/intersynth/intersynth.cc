@@ -41,7 +41,7 @@ static std::string netname(std::set<std::string> &conntypes_code, std::set<std::
 		return stringf("CONST_%d_0x%x", sig.size(), sig.as_int());
 	}
 
-	return design->twines.unescaped_str(sig.as_wire()->name);
+	return sig.as_wire()->name.unescaped();
 }
 
 struct IntersynthBackend : public Backend {
@@ -151,8 +151,8 @@ struct IntersynthBackend : public Backend {
 				if (wire->port_input || wire->port_output) {
 					celltypes_code.insert(stringf("celltype !%s b%d %sPORT\n" "%s %s %d %s PORT\n",
 							wire->name.unescape(), wire->width, wire->port_input ? "*" : "",
-							wire->port_input ? "input" : "output", design->twines.unescaped_str(wire->name), wire->width, design->twines.unescaped_str(wire->name)));
-					netlists_code += stringf("node %s %s PORT %s\n", design->twines.unescaped_str(wire->name), design->twines.unescaped_str(wire->name),
+							wire->port_input ? "input" : "output", wire->name.unescaped(), wire->width, wire->name.unescaped()));
+					netlists_code += stringf("node %s %s PORT %s\n", wire->name.unescaped(), wire->name.unescaped(),
 							netname(conntypes_code, celltypes_code, constcells_code, sigmap(wire)).c_str());
 				}
 			}
@@ -177,13 +177,13 @@ struct IntersynthBackend : public Backend {
 					}
 				}
 				for (auto &param : cell->parameters) {
-					celltype_code += stringf(" cfg:%d %s", int(param.second.size()), design->twines.unescaped_str(param.first));
+					celltype_code += stringf(" cfg:%d %s", int(param.second.size()), RTLIL::unescape_id(param.first));
 					if (param.second.size() != 32) {
-						node_code += stringf(" %s '", design->twines.unescaped_str(param.first));
+						node_code += stringf(" %s '", RTLIL::unescape_id(param.first));
 						for (int i = param.second.size()-1; i >= 0; i--)
 							node_code += param.second[i] == State::S1 ? "1" : "0";
 					} else
-						node_code += stringf(" %s 0x%x", design->twines.unescaped_str(param.first), param.second.as_int());
+						node_code += stringf(" %s 0x%x", RTLIL::unescape_id(param.first), param.second.as_int());
 				}
 
 				celltypes_code.insert(celltype_code + "\n");

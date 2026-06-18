@@ -39,10 +39,10 @@ static uint32_t xorshift32(uint32_t limit) {
 	return xorshift32_state % limit;
 }
 
-static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
+static RTLIL::Cell* create_gold_module(RTLIL::Design *design, TwineRef cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
 {
-	RTLIL::Module *module = design->addModule(design->twines.add(Twine{ID(gold).str()}));
-	RTLIL::Cell *cell = module->addCell(design->twines.add(Twine{ID(UUT).str()}), cell_type);
+	RTLIL::Module *module = design->addModule(TW::gold);
+	RTLIL::Cell *cell = module->addCell(TW::UUT, cell_type);
 	RTLIL::Wire *wire;
 
 	if (cell_type.in(TW($mux), TW($pmux)))
@@ -573,8 +573,8 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 {
 	log("Eval testing:%c", verbose ? '\n' : ' ');
 
-	RTLIL::Module *gold_mod = design->module(ID(gold));
-	RTLIL::Module *gate_mod = design->module(ID(gate));
+	RTLIL::Module *gold_mod = design->module(TW::gold);
+	RTLIL::Module *gate_mod = design->module(TW::gate);
 	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
 
 	ezSatPtr ez1, ez2;
@@ -981,8 +981,8 @@ struct TestCellPass : public Pass {
 			log("Rng seed value: %d\n", int(xorshift32_state));
 		}
 
-		std::map<IdString, std::string> cell_types;
-		std::vector<IdString> selected_cell_types;
+		std::map<TwineRef, std::string> cell_types;
+		std::vector<TwineRef> selected_cell_types;
 
 		cell_types[TW($not)] = "ASY";
 		cell_types[TW($pos)] = "ASY";
@@ -1080,6 +1080,13 @@ struct TestCellPass : public Pass {
 		cell_types[TW($_AOI4_)] = "ABCDYb";
 		cell_types[TW($_OAI4_)] = "ABCDYb";
 
+		auto find_type = [&](const std::string &s) -> TwineRef {
+			for (auto &it : cell_types)
+				if (TW::str(it.first) == s)
+					return it.first;
+			return Twine::Null;
+		};
+
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx].rfind("-", 0) == 0)
@@ -1093,37 +1100,38 @@ struct TestCellPass : public Pass {
 			}
 
 			if (args[argidx].compare(0, 1, "/") == 0) {
-				std::vector<IdString> new_selected_cell_types;
+				std::vector<TwineRef> new_selected_cell_types;
 				for (auto it : selected_cell_types)
-					if (it != args[argidx].substr(1))
+					if (TW::str(it) != args[argidx].substr(1))
 						new_selected_cell_types.push_back(it);
 				new_selected_cell_types.swap(selected_cell_types);
 				continue;
 			}
 
-			if (cell_types.count(args[argidx]) == 0) {
+			TwineRef arg_type = find_type(args[argidx]);
+			if (arg_type == Twine::Null) {
 				std::string cell_type_list;
 				int charcount = 100;
 				for (auto &it : cell_types) {
 					if (charcount > 60) {
-						cell_type_list += stringf("\n%s", design->twines.unescaped_str(it.first));
+						cell_type_list += stringf("\n%s", TW::str(it.first).c_str());
 						charcount = 0;
 					} else
-						cell_type_list += stringf(" %s", design->twines.unescaped_str(it.first));
-					charcount += GetSize(it.first);
+						cell_type_list += stringf(" %s", TW::str(it.first).c_str());
+					charcount += GetSize(TW::str(it.first));
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
 						args[argidx].c_str(), cell_type_list.c_str());
 			}
 
-			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), args[argidx]) == 0)
-				selected_cell_types.push_back(args[argidx]);
+			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), arg_type) == 0)
+				selected_cell_types.push_back(arg_type);
 		}
 
 		if (!rtlil_file.empty()) {
 			if (!selected_cell_types.empty())
 				log_cmd_error("Do not specify any cell types when using -f.\n");
-			selected_cell_types.push_back(ID(rtlil));
+			selected_cell_types.push_back(TW(rtlil));
 		}
 
 		if (selected_cell_types.empty())
@@ -1161,7 +1169,7 @@ struct TestCellPass : public Pass {
 								}
 						if (is_unconverted) {
 							// skip unconverted cells
-							log_warning("Skipping %s\n", cell_type);
+							log_warning("Skipping %s\n", TW::str(cell_type).c_str());
 							delete design;
 							break;
 						} else {
@@ -1169,7 +1177,7 @@ struct TestCellPass : public Pass {
 							suffix = "aag";
 						}
 					}
-					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, cell_type.c_str()+1, i, suffix));
+					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, TW::str(cell_type).c_str()+1, i, suffix));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
@@ -1184,7 +1192,7 @@ struct TestCellPass : public Pass {
 					Pass::call(design, "dump gold");
 					if (!nosat)
 						Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
-					std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1), i);
+					std::string uut_name = stringf("uut_%s_%d", TW::str(cell_type).substr(1), i);
 					if (vlog_file.is_open()) {
 						Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name, uut_name));
 						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
@@ -1228,7 +1236,7 @@ struct TestCellPass : public Pass {
 			if (check_cost && failed) {
 				log_warning("Cell type %s cost underestimated in %.1f%% cases "
 					    "with worst offender being by %d (%.1f%%)\n",
-					    cell_type.c_str(), 100 * (float)failed / (float)num_iter,
+					    TW::str(cell_type).c_str(), 100 * (float)failed / (float)num_iter,
 						worst_abs, 100 * worst_rel);
 			}
 		}

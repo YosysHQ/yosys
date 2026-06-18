@@ -776,6 +776,7 @@ struct SmvBackend : public Backend {
 		if (template_f.is_open())
 		{
 			std::string line;
+			TwineSearch search(&design->twines);
 			while (std::getline(template_f, line))
 			{
 				int indent = 0;
@@ -791,7 +792,7 @@ struct SmvBackend : public Backend {
 
 					if (GetSize(stmt) == 2 && stmt[0] == "%module")
 					{
-						Module *module = design->module(RTLIL::escape_id(stmt[1]));
+						Module *module = design->module(search.find(stmt[1]));
 						modules.erase(module);
 
 						if (module == nullptr)

@@ -119,7 +119,7 @@ static void run_ice40_opts(Module *module)
 				optimized_co.insert(sigmap(cell->getPort(TW::CO)[0]));
 				auto it = cell->attributes.find(IdString{"\\SB_LUT4.name"});
 				if (it != cell->attributes.end()) {
-					module->rename(cell, it->second.decode_string());
+					module->rename(cell, module->design->twines.add(std::string{it->second.decode_string()}));
 					decltype(Cell::attributes) new_attr;
 					for (const auto &a : cell->attributes)
 						if (a.first.begins_with("\\SB_LUT4.\\"))
@@ -138,8 +138,8 @@ static void run_ice40_opts(Module *module)
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						module, cell, log_signal(replacement_output));
-				cell->type = TW($lut);
-				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
+				cell->type_impl = TW($lut);
+				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? TW::CI : TW::I3));
 				cell->setPort(TW::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(TW::I0)) });
 				cell->setPort(TW::Y, cell->getPort(TW::O));
 				cell->unsetPort(TW::B);
@@ -177,7 +177,7 @@ static void run_ice40_opts(Module *module)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", module, cell);
 
-		cell->type = TW($lut);
+		cell->type_impl = TW($lut);
 		cell->setParam(ID::WIDTH, 4);
 		cell->setParam(ID::LUT, cell->getParam(ID(LUT_INIT)));
 		cell->unsetParam(ID(LUT_INIT));

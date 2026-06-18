@@ -76,7 +76,7 @@ struct JsonWriter
 
 	string get_name(IdString name)
 	{
-		return design->twines.unescaped_str(get_string(name));
+		return get_string(RTLIL::unescape_id(name));
 	}
 
 	string get_name(TwineRef name)

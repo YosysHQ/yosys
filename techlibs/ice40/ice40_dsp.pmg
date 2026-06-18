@@ -4,7 +4,7 @@ state <SigBit> clock
 state <bool> clock_pol cd_signed o_lo
 state <SigSpec> sigA sigB sigCD sigH sigO
 state <Cell*> add mux
-state <IdString> addAB muxAB
+state <TwineRef> addAB muxAB
 
 state <Cell*> ffA ffB ffCD
 state <Cell*> ffFJKG ffH ffO
@@ -337,9 +337,9 @@ code
 	for (auto c : argQ.chunks()) {
 		if (!c.wire)
 			reject;
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
-		Const init = c.wire->attributes.at(\init, State::Sx);
+		Const init = c.wire->attributes.at(ID(init), State::Sx);
 		if (!init.is_fully_undef() && !init.is_fully_zero())
 			reject;
 	}
@@ -386,7 +386,7 @@ arg argD argSdff argQ clock clock_pol
 code
 	dff = nullptr;
 	for (auto c : argD.chunks())
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 endcode
 
@@ -419,7 +419,7 @@ code argQ
 		argQ.replace(D, Q);
 
 		for (auto c : argQ.chunks()) {
-			Const init = c.wire->attributes.at(\init, State::Sx);
+			Const init = c.wire->attributes.at(ID(init), State::Sx);
 			if (!init.is_fully_undef() && !init.is_fully_zero())
 				reject;
 		}

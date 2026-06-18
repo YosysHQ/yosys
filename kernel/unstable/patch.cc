@@ -83,6 +83,8 @@ Wire* Patch::commit_wire(std::unique_ptr<Wire> wire) {
 	Wire* raw = wire.release();
 	TwineRef id = twine_staging.resolve(staged_wire_names_.at(raw));
 	staged_wire_names_.erase(raw);
+	if (!raw->meta_)
+		raw->meta_ = mod->design->alloc_obj_meta();
 	raw->meta_->name = id;
 	mod->wires_[raw->meta_->name] = raw;
 	raw->module = mod;
@@ -93,9 +95,15 @@ Cell* Patch::commit_cell(std::unique_ptr<Cell> cell) {
 	Cell* raw = cell.release();
 	TwineRef id = twine_staging.resolve(staged_cell_names_.at(raw));
 	staged_cell_names_.erase(raw);
+	if (!raw->meta_)
+		raw->meta_ = mod->design->alloc_obj_meta();
 	raw->meta_->name = id;
 	raw->module = mod;
 	mod->cells_[raw->meta_->name] = raw;
+	if (auto it = staged_cell_src_.find(raw); it != staged_cell_src_.end()) {
+		raw->set_src_attribute(twine_staging.resolve(it->second));
+		staged_cell_src_.erase(it);
+	}
 	raw->initIndex();
 	return raw;
 }

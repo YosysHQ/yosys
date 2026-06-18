@@ -75,7 +75,7 @@ static void fix_carry_chain(Module *module)
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescaped(), cell);
-		Cell *c = module->addCell(NEW_TWINE, ID(EFX_ADD));
+		Cell *c = module->addCell(NEW_TWINE, module->design->twines.add(std::string{"\\EFX_ADD"}));
 		SigBit new_bit = module->addWire(NEW_TWINE);
 		c->setParam(ID(I0_POLARITY), State::S1);
 		c->setParam(ID(I1_POLARITY), State::S1);

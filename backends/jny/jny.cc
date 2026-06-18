@@ -91,7 +91,7 @@ struct JnyWriter
         {
             _cells.clear();
             for (auto cell : mod->cells()) {
-                const auto cell_type = design->twines.unescaped_str(escape_string(cell->type));
+                const auto cell_type = escape_string(cell->type.unescape());
 
                 if (_cells.find(cell_type) == _cells.end())
                     _cells.emplace(cell_type, std::vector<Cell*>());
@@ -353,10 +353,10 @@ struct JnyWriter
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s\"%s\": ", _indent, design->twines.unescaped_str(escape_string(param.first)));
+                f << stringf("  %s\"%s\": ", _indent, escape_string(RTLIL::unescape_id(param.first)));
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s\"%s\": true", _indent, design->twines.unescaped_str(escape_string(param.first)));
+                f << stringf("  %s\"%s\": true", _indent, escape_string(RTLIL::unescape_id(param.first)));
             }
 
             first_param = false;

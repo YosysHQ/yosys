@@ -586,8 +586,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", module);
 	}
 
-	log("iterating over %d cells\n", GetSize(cells.sorted));
-
 	for (auto cell : cells.sorted)
 	{
 #define ACTION_DO(_p_, _s_) do { OptExprPatcher patcher(module, &assign_map); patcher.patch(cell, _p_, _s_, input.as_string()); goto next_cell; } while (0)

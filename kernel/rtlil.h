@@ -149,6 +149,8 @@ extern int64_t signorm_ns;
 extern int signorm_count;
 extern int64_t signorm_restore_ns;
 extern int signorm_restore_count;
+extern int64_t twine_gc_ns;
+extern int twine_gc_count;
 
 struct RTLIL::IdString
 {
@@ -595,7 +597,10 @@ public:
 	}
 };
 
-inline bool operator==(TwineRef a, RTLIL::IdString b) { return a.untag().value == (size_t)(unsigned)b.index_; }
+inline bool operator==(TwineRef a, RTLIL::IdString b) {
+	size_t bi = (size_t)(unsigned)b.index_;
+	return bi != 0 && a.untag().value + 1 == bi;
+}
 inline bool operator==(RTLIL::IdString a, TwineRef b) { return b == a; }
 
 struct RTLIL::OwningIdString : public RTLIL::IdString {
@@ -1387,7 +1392,7 @@ struct NameMasqBase {
 	bool operator==(const Derived &rhs) const { return self().ref() == rhs.ref(); }
 	bool operator!=(const Derived &rhs) const { return self().ref() != rhs.ref(); }
 	bool operator<(const Derived &rhs) const { return self().escaped() < rhs.escaped(); }
-	[[nodiscard]] Hasher hash_into(Hasher h) const { return RTLIL::IdString(self()).hash_into(h); }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { return self().ref().hash_into(h); }
 private:
 	const Derived &self() const { return *static_cast<const Derived *>(this); }
 };
@@ -2337,7 +2342,7 @@ public:
 
 	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire, const RTLIL::Design *design, bool resolve_src);
 	RTLIL::Cell *driverCell_ = nullptr;
-	TwineRef driverPort_;
+	TwineRef driverPort_ = Twine::Null;
 
 	// do not simply copy wires
 	Wire(ConstructToken, RTLIL::Wire &other);
@@ -3165,6 +3170,9 @@ public:
 	RTLIL::Cell *addCell(Twine &&name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, Twine &&type);
 	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
+
+	// CellAdderMixin hook: cells added here are attached, so set src directly.
+	void cell_set_src(RTLIL::Cell *cell, TwineRef src) { cell->set_src_attribute(src); }
 
 	// NEW_ID analog for twine names; see NEW_TWINE in yosys_common.h.
 	TwineRef new_name(const std::string *prefix) {

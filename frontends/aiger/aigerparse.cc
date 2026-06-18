@@ -213,7 +213,7 @@ AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString
 	module = new RTLIL::Module;
 	module->design = design;
 	module->meta_->name = design->twines.add(Twine{module_name.str()});
-	if (design->module(design->twines.str(module->meta_->name)))
+	if (design->module(module->meta_->name))
 		log_error("Duplicate definition of module %s!\n", design->twines.str(module->meta_->name).c_str());
 }
 

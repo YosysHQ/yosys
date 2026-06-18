@@ -271,7 +271,7 @@ struct XAigerWriter
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
-						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
+						static pool<std::pair<TwineRef,TimingInfo::NameBit>> seen;
 						if (seen.emplace(inst_name_id, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
 								cell->type.unescape(), design->twines.unescaped_str(i.first.name), offset, d);
 					}

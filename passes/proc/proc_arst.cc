@@ -288,8 +288,9 @@ struct ProcArstPass : public Pass {
 		extra_args(args, argidx, design);
 		pool<Wire*> delete_initattr_wires;
 
+		TwineSearch search(&design->twines);
 		TwineRef global_arst_ref = global_arst.empty() ? Twine::Null
-				: TwineSearch(&design->twines).find(global_arst);
+				: search.find(global_arst);
 
 		for (auto mod : design->all_selected_modules()) {
 			SigMap assign_map(mod);

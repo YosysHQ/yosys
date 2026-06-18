@@ -80,6 +80,10 @@ struct ExtractinvPass : public Pass {
 		if (inv_celltype.empty())
 			log_error("The -inv option is required.\n");
 
+		TwineRef inv_celltype_ref = design->twines.add(std::string{RTLIL::escape_id(inv_celltype)});
+		TwineRef inv_portname_ref = design->twines.add(std::string{RTLIL::escape_id(inv_portname)});
+		TwineRef inv_portname2_ref = design->twines.add(std::string{RTLIL::escape_id(inv_portname2)});
+
 		for (auto module : design->selected_modules())
 		{
 			for (auto cell : module->selected_cells())
@@ -100,7 +104,7 @@ struct ExtractinvPass : public Pass {
 					continue;
 				SigSpec sig = port.second;
 				if (it2->second.size() != sig.size())
-					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", design->twines.unescaped_str(module->name), cell->type.unescaped(), design->twines.unescaped_str(port.first), design->twines.unescaped_str(param_name));
+					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", module->name.unescaped(), cell->type.unescaped(), design->twines.unescaped_str(port.first), RTLIL::unescape_id(param_name));
 				RTLIL::Const invmask = it2->second;
 				cell->parameters.erase(param_name);
 				if (invmask.is_fully_zero())
@@ -108,9 +112,9 @@ struct ExtractinvPass : public Pass {
 				Wire *iwire = module->addWire(NEW_TWINE, sig.size());
 				for (int i = 0; i < sig.size(); i++)
 					if (invmask[i] == State::S1) {
-						RTLIL::Cell *icell = module->addCell(NEW_TWINE, RTLIL::escape_id(inv_celltype));
-						icell->setPort(RTLIL::escape_id(inv_portname), SigSpec(iwire, i));
-						icell->setPort(RTLIL::escape_id(inv_portname2), sig[i]);
+						RTLIL::Cell *icell = module->addCell(NEW_TWINE, inv_celltype_ref);
+						icell->setPort(inv_portname_ref, SigSpec(iwire, i));
+						icell->setPort(inv_portname2_ref, sig[i]);
 						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, module, cell->type.unescaped(), design->twines.unescaped_str(port.first), i);
 						sig[i] = SigBit(iwire, i);
 					}

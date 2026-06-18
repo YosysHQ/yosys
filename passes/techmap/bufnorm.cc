@@ -271,7 +271,7 @@ struct BufnormPass : public Pass {
 			SigMap sigmap(module);
 			module->new_connections({});
 
-			dict<pair<IdString, SigSpec>, Cell*> old_buffers;
+			dict<pair<TwineRef, SigSpec>, Cell*> old_buffers;
 
 			{
 				vector<Cell*> old_dup_buffers;
@@ -285,7 +285,7 @@ struct BufnormPass : public Pass {
 					for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 						sigmap.add(insig[i], outsig[i]);
 
-					pair<IdString,Wire*> key(cell->type, outsig.as_wire());
+					pair<TwineRef,Wire*> key(cell->type_impl, outsig.as_wire());
 					if (old_buffers.count(key))
 						old_dup_buffers.push_back(cell);
 					else
@@ -432,9 +432,9 @@ struct BufnormPass : public Pass {
 				return mapped_bits.at(bit);
 			};
 
-			auto make_buffer_f = [&](IdString type, const SigSpec &src, const SigSpec &dst)
+			auto make_buffer_f = [&](TwineRef type, const SigSpec &src, const SigSpec &dst)
 			{
-				auto it = old_buffers.find(pair<IdString, SigSpec>(type, dst));
+				auto it = old_buffers.find(pair<TwineRef, SigSpec>(type, dst));
 
 				if (it != old_buffers.end())
 				{
@@ -488,11 +488,11 @@ struct BufnormPass : public Pass {
 					}
 				} else {
 					if (bits_mode) {
-						IdString celltype = pos_mode ? TW($pos) : buf_mode ? TW($buf) : TW($_BUF_);
+						TwineRef celltype = pos_mode ? TW($pos) : buf_mode ? TW($buf) : TW($_BUF_);
 						for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 							make_buffer_f(celltype, insig[i], outsig[i]);
 					} else {
-						IdString celltype = pos_mode ? TW($pos) : buf_mode ? TW($buf) :
+						TwineRef celltype = pos_mode ? TW($pos) : buf_mode ? TW($buf) :
 								GetSize(outsig) == 1 ? TW($_BUF_) : TW($buf);
 						make_buffer_f(celltype, insig, outsig);
 					}

@@ -209,6 +209,7 @@ struct WrapcellPass : Pass {
 			for (auto cell : module->selected_cells()) {
 				Module *subm;
 				Cell *subcell;
+				TwineRef name_ref;
 
 				if (!ct.cell_known(cell->type_impl))
 					log_error("Non-internal cell type '%s' on cell '%s' in module '%s' unsupported\n",
@@ -238,10 +239,11 @@ struct WrapcellPass : Pass {
 							  cell, module);
 
 				IdString name = RTLIL::escape_id(unescaped_name.value());
-				if (d->module(name))
+				name_ref = d->twines.add(std::string{name.str()});
+				if (d->module(name_ref))
 					goto replace_cell;
 
-				subm = d->addModule(d->twines.add(Twine{name.str()}));
+				subm = d->addModule(name_ref);
 				subcell = subm->addCell(Twine{"$1"}, TwineRef(cell->type));
 				for (auto conn : cell->connections()) {
 					if (ct.cell_output(cell->type_impl, conn.first)) {
@@ -294,7 +296,7 @@ struct WrapcellPass : Pass {
 				for (auto chunk : collect_chunks(used_outputs))
 					new_connections[chunk.format(cell)] = chunk.sample(cell);
 
-				cell->type_impl = cell->module->design->twines.add(Twine{name.str()});
+				cell->type_impl = name_ref;
 				cell->connections_ = new_connections;
 			}
 		}

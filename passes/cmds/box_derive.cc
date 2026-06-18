@@ -77,7 +77,8 @@ struct BoxDerivePass : Pass {
 
 		Module *base_override = nullptr;
 		if (!base_name.empty()) {
-			base_override = d->module(base_name);
+			TwineSearch search(&d->twines);
+			base_override = d->module(search.find(base_name.str()));
 			if (!base_override)
 				log_cmd_error("Base module %s not found.\n", base_name.unescape());
 		}

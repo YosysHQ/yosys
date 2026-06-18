@@ -9,8 +9,8 @@ pattern ql_dsp_macc
 //         |              |
 //          --------------
 
-state <IdString> add_ba
-state <IdString> mux_ab
+state <TwineRef> add_ba
+state <TwineRef> mux_ab
 
 // Is the output taken from before or after the FF?
 state <bool> output_registered

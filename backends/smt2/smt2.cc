@@ -60,7 +60,7 @@ struct Smt2Worker
 	const char *get_id(IdString n)
 	{
 		if (ids.count(n) == 0) {
-			std::string str = design->twines.unescaped_str(n);
+			std::string str = RTLIL::unescape_id(n);
 			for (int i = 0; i < GetSize(str); i++) {
 				if (str[i] == '\\')
 					str[i] = '/';
@@ -823,7 +823,7 @@ struct Smt2Worker
 
 					if (port.clk_enable)
 						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), design->twines.unescaped_str(mem->memid), module);
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), RTLIL::unescape_id(mem->memid), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
@@ -867,7 +867,7 @@ struct Smt2Worker
 
 					if (port.clk_enable)
 						log_error("Read port %d (%s) of memory %s.%s is clocked. This is not supported by \"write_smt2\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), design->twines.unescaped_str(mem->memid), module);
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), RTLIL::unescape_id(mem->memid), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
@@ -1864,10 +1864,11 @@ struct Smt2Backend : public Backend {
 
 		// extract module dependencies
 		std::map<RTLIL::Module*, std::set<RTLIL::Module*>> module_deps;
+		TwineSearch search(&design->twines);
 		for (auto mod : design->modules()) {
 			module_deps[mod] = std::set<RTLIL::Module*>();
 			for (auto cell : mod->cells()) {
-				TwineRef cell_type_ref = TwineSearch(&design->twines).find(cell->type.str());
+				TwineRef cell_type_ref = search.find(cell->type.str());
 				if (cell_type_ref != Twine::Null && design->has(cell_type_ref))
 					module_deps[mod].insert(design->module(cell_type_ref));
 			}

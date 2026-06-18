@@ -256,7 +256,7 @@ code argQ clock AREG
 						goto reject_AREG;
 					if (dff->type.in($sdff, $sdffe) && (port(dff, \SRST) != port(prev, \RSTA, State::S0) || !param(dff, \SRST_POLARITY).as_bool()))
 						goto reject_AREG;
-					IdString CEA;
+					TwineRef CEA;
 					if (param(prev, \AREG) == 1)
 						CEA = \CEA2;
 					else if (param(prev, \AREG) == 2)
@@ -297,7 +297,7 @@ code argQ clock BREG
 						goto reject_BREG;
 					if (dff->type.in($sdff, $sdffe) && (port(dff, \SRST) != port(prev, \RSTB, State::S0) || !param(dff, \SRST_POLARITY).as_bool()))
 						goto reject_BREG;
-					IdString CEB;
+					TwineRef CEB;
 					if (next->type.in(\DSP48A, \DSP48A1))
 						CEB = \CEB;
 					else if (next->type.in(\DSP48E1)) {
@@ -368,11 +368,11 @@ code
 		if (!c.wire)
 			reject;
 		// Abandon matches when 'Q' has the keep attribute set
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 		// Abandon matches when 'Q' has a non-zero init attribute set
 		// (not supported by DSP48E1)
-		Const init = c.wire->attributes.at(\init, Const());
+		Const init = c.wire->attributes.at(ID(init), Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))
 				if (b != State::Sx && b != State::S0)

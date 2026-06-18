@@ -1765,6 +1765,7 @@ struct CxxrtlWorker {
 			if (!events.empty()) {
 				f << indent << "if (";
 				bool first = true;
+				TwineSearch search(&proc->module->design->twines);
 				for (auto &event : events) {
 					if (!first)
 						f << " || ";
@@ -1776,7 +1777,7 @@ struct CxxrtlWorker {
 					for (auto &action : sync->actions)
 						dump_assign(action, for_debug);
 					for (auto &memwr : sync->mem_write_actions) {
-						TwineRef memid_ref = TwineSearch(&proc->module->design->twines).find(memwr.memid.str());
+						TwineRef memid_ref = search.find(memwr.memid.str());
 						log_assert(memid_ref != Twine::Null);
 						RTLIL::Memory *memory = proc->module->memories[memid_ref];
 						std::string valid_index_temp = fresh_temporary();

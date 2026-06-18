@@ -100,11 +100,12 @@ struct DeletePass : public Pass {
 				if (design->selected(module, it.second))
 					delete_mems.insert(it.first);
 
+			TwineSearch search(&design->twines);
 			for (auto cell : module->cells()) {
 				if (design->selected(module, cell))
 					delete_cells.insert(cell);
 				if (cell->has_memid() &&
-						delete_mems.count(TwineSearch(&design->twines).find(cell->parameters.at(ID::MEMID).decode_string())) != 0)
+						delete_mems.count(search.find(cell->parameters.at(ID::MEMID).decode_string())) != 0)
 					delete_cells.insert(cell);
 			}
 

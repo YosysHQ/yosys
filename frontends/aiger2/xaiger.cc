@@ -151,7 +151,7 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Map file references non-existent box %s\n",
 							  name.c_str());
 
-				Module *def = design->module(box->type);
+				Module *def = design->module(box->type.ref());
 				if (def && !box->parameters.empty()) {
 					// TODO: This is potentially costly even if a cached derivation exists
 					def = design->module(def->derive(design, box->parameters));
@@ -222,7 +222,7 @@ struct Xaiger2Frontend : public Frontend {
 							std::string port_id_str = design->twines.str(port_id);
 							for (int j = 0; j < port->width; j++) {
 								if (conn[j].wire && conn[j].wire->port_output) {
-									std::string cell_name_str = cell->name.isPublic() ? cell->name.c_str() + 1 : cell->name.c_str();
+									std::string cell_name_str = cell->name.unescaped();
 									const char *port_id_str_part = RTLIL::IdString(port_id_str).isPublic() ? port_id_str.c_str() + 1 : port_id_str.c_str();
 									auto new_wire_name = module->uniquify(design->twines.add(Twine{stringf("$box$%s$%s$%d", cell_name_str.c_str(), port_id_str_part, j)}));
 									conn[j] = module->addWire(new_wire_name);

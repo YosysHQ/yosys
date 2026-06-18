@@ -36,7 +36,7 @@ struct ShregmapOptions
 	int minlen, maxlen;
 	int keep_before, keep_after;
 	bool zinit, init, params, ffe;
-	dict<IdString, pair<IdString, IdString>> ffcells;
+	dict<TwineRef, pair<TwineRef, TwineRef>> ffcells;
 	ShregmapTech *tech;
 
 	ShregmapOptions()
@@ -75,14 +75,14 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		auto D = cell->getPort(TW::D);
 		auto C = cell->getPort(TW::C);
 
-		auto newcell = cell->module->addCell(NEW_TWINE, ID(GP_SHREG));
+		auto newcell = cell->module->addCell(NEW_TWINE, TW::GP_SHREG);
 		newcell->setPort(TW::nRST, State::S1);
 		newcell->setPort(TW::CLK, C);
 		newcell->setPort(TW::IN, D);
 
 		int i = 0;
 		for (auto tap : taps) {
-			newcell->setPort(i ? ID(OUTB) : ID(OUTA), tap.second);
+			newcell->setPort(i ? TW::OUTB : TW::OUTA, tap.second);
 			newcell->setParam(i ? ID(OUTB_TAP) : ID(OUTA_TAP), tap.first + 1);
 			i++;
 		}
@@ -120,10 +120,10 @@ struct ShregmapWorker
 
 		for (auto cell : module->cells())
 		{
-			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID::keep))
+			if (opts.ffcells.count(cell->type_impl) && !cell->get_bool_attribute(ID::keep))
 			{
-				IdString d_port = opts.ffcells.at(cell->type).first;
-				IdString q_port = opts.ffcells.at(cell->type).second;
+				TwineRef d_port = opts.ffcells.at(cell->type_impl).first;
+				TwineRef q_port = opts.ffcells.at(cell->type_impl).second;
 
 				SigBit d_bit = sigmap(cell->getPort(d_port).as_bit());
 				SigBit q_bit = sigmap(cell->getPort(q_port).as_bit());
@@ -178,8 +178,8 @@ struct ShregmapWorker
 				if (c1->parameters != c2->parameters)
 					goto start_cell;
 
-				IdString d_port = opts.ffcells.at(c1->type).first;
-				IdString q_port = opts.ffcells.at(c1->type).second;
+				TwineRef d_port = opts.ffcells.at(c1->type_impl).first;
+				TwineRef q_port = opts.ffcells.at(c1->type_impl).second;
 
 				auto c1_conn = c1->connections();
 				auto c2_conn = c2->connections();
@@ -210,7 +210,7 @@ struct ShregmapWorker
 		{
 			chain.push_back(c);
 
-			IdString q_port = opts.ffcells.at(c->type).second;
+			TwineRef q_port = opts.ffcells.at(c->type_impl).second;
 			SigBit q_bit = sigmap(c->getPort(q_port).as_bit());
 
 			if (sigbit_chain_next.count(q_bit) == 0)
@@ -238,7 +238,7 @@ struct ShregmapWorker
 				depth = std::min(opts.maxlen, depth);
 
 			Cell *first_cell = chain[cursor];
-			IdString q_port = opts.ffcells.at(first_cell->type).second;
+			TwineRef q_port = opts.ffcells.at(first_cell->type_impl).second;
 			dict<int, SigBit> taps_dict;
 
 			if (opts.tech)
@@ -456,9 +456,9 @@ struct ShregmapPass : public Pass {
 					match_args.push_back("D");
 				if (GetSize(match_args) < 3)
 					match_args.push_back("Q");
-				IdString id_cell_type(RTLIL::escape_id(match_args[0]));
-				IdString id_d_port_name(RTLIL::escape_id(match_args[1]));
-				IdString id_q_port_name(RTLIL::escape_id(match_args[2]));
+				TwineRef id_cell_type = design->twines.add(std::string{RTLIL::escape_id(match_args[0])});
+				TwineRef id_d_port_name = design->twines.add(std::string{RTLIL::escape_id(match_args[1])});
+				TwineRef id_q_port_name = design->twines.add(std::string{RTLIL::escape_id(match_args[2])});
 				opts.ffcells[id_cell_type] = make_pair(id_d_port_name, id_q_port_name);
 				continue;
 			}
@@ -519,19 +519,19 @@ struct ShregmapPass : public Pass {
 			bool en_neg = enpol == "neg" || enpol == "any" || enpol == "any_or_none";
 
 			if (clk_pos && en_none)
-				opts.ffcells[TW($_DFF_P_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFF_P_)] = make_pair(TW::D, TW::Q);
 			if (clk_neg && en_none)
-				opts.ffcells[TW($_DFF_N_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFF_N_)] = make_pair(TW::D, TW::Q);
 
 			if (clk_pos && en_pos)
-				opts.ffcells[TW($_DFFE_PP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_PP_)] = make_pair(TW::D, TW::Q);
 			if (clk_pos && en_neg)
-				opts.ffcells[TW($_DFFE_PN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_PN_)] = make_pair(TW::D, TW::Q);
 
 			if (clk_neg && en_pos)
-				opts.ffcells[TW($_DFFE_NP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_NP_)] = make_pair(TW::D, TW::Q);
 			if (clk_neg && en_neg)
-				opts.ffcells[TW($_DFFE_NN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[TW($_DFFE_NN_)] = make_pair(TW::D, TW::Q);
 
 			if (en_pos || en_neg)
 				opts.ffe = true;

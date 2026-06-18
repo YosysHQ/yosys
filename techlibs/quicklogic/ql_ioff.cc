@@ -85,7 +85,7 @@ struct QlIoffPass : public Pass {
 
 		for (auto cell : input_ffs) {
 			log("Promoting register %s to input IOFF.\n", log_signal(cell->getPort(TW::Q)));
-			cell->type = ID(dff);
+			cell->type_impl = TW::dff;
 			cell->unsetPort(TW::E);
 			cell->unsetPort(TW::R);
 			cell->unsetPort(TW::S);
@@ -111,7 +111,7 @@ struct QlIoffPass : public Pass {
 					if (ioff_cells[i]) {
 						log("Promoting %s to output IOFF.\n", log_signal(sig_n[i]));
 
-						RTLIL::Cell *new_cell = module->addCell(NEW_TWINE, ID(dff));
+						RTLIL::Cell *new_cell = module->addCell(NEW_TWINE, TW::dff);
 						new_cell->setPort(TW::C, ioff_cells[i]->getPort(TW::C));
 						new_cell->setPort(TW::D, ioff_cells[i]->getPort(TW::D));
 						new_cell->setPort(TW::Q, sig_n[i]);

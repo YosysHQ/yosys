@@ -179,7 +179,8 @@ struct RpcModule : RTLIL::Module {
 		else
 			derived_name = "$paramod" + stripped_name + parameter_info;
 
-		if (design->has(TwineSearch(&design->twines).find(derived_name))) {
+		TwineSearch search(&design->twines);
+		if (design->has(search.find(derived_name))) {
 			log("Found cached RTLIL representation for module `%s'.\n", derived_name);
 		} else {
 			std::string command, input;
