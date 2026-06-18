@@ -194,20 +194,40 @@ struct OptCarrySelectWorker {
 		int narrow_w = std::min(a_w, b_w);
 		int k = narrow_w;
 
+		// Per-candidate trace (only wide adders, to keep -g output readable) so it
+		// is easy to see why a given $add was/was not turned into carry-select form.
+		bool show = w >= 32;
+		auto reject = [&](const char *why) {
+			if (show)
+				log_debug("opt_carry_select: %s/%s reject(%s) a_w=%d b_w=%d y_w=%d k=%d\n",
+				          log_id(module), log_id(c), why, a_w, b_w, w, k);
+			return false;
+		};
+
 		if (k < 1 || k >= w)
-			return false;
+			return reject("narrow-not-narrower");
 		if (k > max_narrow)
-			return false;
+			return reject("narrow-too-wide");
 		if (w - k < min_wide)
-			return false;
+			return reject("high-too-small");
 
 		SigSpec wide_sig = c->getPort(wide_is_a ? ID::A : ID::B);
 		SigSpec narrow_sig = c->getPort(wide_is_a ? ID::B : ID::A);
 
 		double arr_wide = arrival(wide_sig);
 		double arr_narrow = arrival(narrow_sig);
-		if (arr_narrow <= arr_wide + margin)
+		if (arr_narrow <= arr_wide + margin) {
+			if (show)
+				log_debug("opt_carry_select: %s/%s reject(narrow-not-late) a_w=%d b_w=%d "
+				          "y_w=%d k=%d arr_wide=%.2f arr_narrow=%.2f\n",
+				          log_id(module), log_id(c), a_w, b_w, w, k, arr_wide, arr_narrow);
 			return false; // no timing benefit: narrow operand is not the late one
+		}
+
+		if (show)
+			log_debug("opt_carry_select: %s/%s accept a_w=%d b_w=%d y_w=%d k=%d "
+			          "arr_wide=%.2f arr_narrow=%.2f\n",
+			          log_id(module), log_id(c), a_w, b_w, w, k, arr_wide, arr_narrow);
 
 		plan.add = c;
 		plan.wide_is_a = wide_is_a;
