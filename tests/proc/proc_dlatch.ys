@@ -1,0 +1,133 @@
+read_verilog -formal <<EOT
+module top(input g, rn, d, output reg q);
+	always @* if (~rn) q <= 0; else if (g) q <= d;
+	always @* begin
+		if      (~rn) assert(q == 0);
+		else if (g)   assert(q == d);
+	end
+endmodule
+EOT
+
+proc
+select -assert-count 1 t:$adlatch
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$dlatchsr
+
+simplemap
+select -assert-count 1 t:$_DLATCH_PN0_
+clk2fflogic
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+read_verilog -formal <<EOT
+module top(input gn, rn, d, output reg q);
+	always @* if (rn==0) q <= 0; else if (gn==0) q <= d;
+	always @* begin
+		if      (rn==0)  assert(q == 0);
+		else if (gn==0)  assert(q == d);
+	end
+endmodule
+EOT
+
+proc
+select -assert-count 1 t:$adlatch
+simplemap
+select -assert-count 1 t:$_DLATCH_NN0_
+clk2fflogic
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+read_verilog -formal <<EOT
+module top(input g, sn, d, output reg q);
+	always @* if (~sn) q <= 1; else if (g) q <= d;
+	always @* begin
+		if      (~sn) assert(q == 1);
+		else if (g)   assert(q == d);
+	end
+endmodule
+EOT
+
+proc
+select -assert-count 1 t:$adlatch
+simplemap
+select -assert-count 1 t:$_DLATCH_PN1_
+clk2fflogic
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+read_verilog -formal <<EOT
+module top(input g, sn, rn, d, output reg q);
+	always @* if (~rn) q <= 0; else if (~sn) q <= 1; else if (g) q <= d;
+	always @* begin
+		if      (~rn) assert(q == 0);
+		else if (~sn) assert(q == 1);
+		else if (g)   assert(q == d);
+	end
+endmodule
+EOT
+
+proc
+select -assert-count 0 t:$adlatch
+select -assert-count 0 t:$dlatchsr
+select -assert-count 1 t:$dlatch
+clk2fflogic
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+read_verilog <<EOT
+module top(input g, d, output reg q);
+	always @* if (g) q <= d;
+endmodule
+EOT
+
+proc
+select -assert-count 1 t:$dlatch
+select -assert-count 0 t:$adlatch
+
+design -reset
+
+read_verilog -formal <<EOT
+module gold(input g, rn, d, zero, output reg q);
+	always @* if (~rn | g) q <= (~rn ? zero : d);
+	always @* assume(zero == 1'b0);
+endmodule
+module gate(input g, rn, d, zero, output reg q);
+	always @* if (~rn) q <= 1'b0; else if (g) q <= d;
+endmodule
+EOT
+
+proc
+select -assert-count 1 -module gold t:$dlatch
+select -assert-count 1 -module gate t:$adlatch
+select -clear
+equiv_make gold gate equiv
+hierarchy -top equiv
+clk2fflogic
+equiv_induct -set-assumes
+equiv_status -assert
+
+design -reset
+
+read_verilog -formal <<EOT
+module gold(input g, sn, d, one, output reg q);
+	always @* if (~sn | g) q <= (~sn ? one : d);
+	always @* assume(one == 1'b1);
+endmodule
+module gate(input g, sn, d, one, output reg q);
+	always @* if (~sn) q <= 1'b1; else if (g) q <= d;
+endmodule
+EOT
+
+proc
+select -assert-count 1 -module gold t:$dlatch
+select -assert-count 1 -module gate t:$adlatch
+select -clear
+equiv_make gold gate equiv
+hierarchy -top equiv
+clk2fflogic
+equiv_induct -set-assumes
+equiv_status -assert
