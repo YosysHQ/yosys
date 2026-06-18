@@ -164,7 +164,7 @@ private:
 			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + exp2(select_width));
 			for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
 				for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
-					next_pmux_y_ports.emplace_back(module->Pmux(Twine{stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.c_str(), i, j)}, pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->src_ref()));
+					next_pmux_y_ports.emplace_back(module->Pmux(Twine{stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.str().c_str(), i, j)}, pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->src_ref()));
 				}
 				if (GetSize(pmux_y_ports) % 2 == 1)
 					next_pmux_y_ports.push_back(pmux_y_ports[GetSize(pmux_y_ports) - 1]);
@@ -207,7 +207,7 @@ private:
 					int num_versions = opt_instrumentmore? 8 : 4;
 
 					for (auto i = 1; i <= num_versions; ++i)
-						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(Twine{stringf("%s_y%d", cell->name.c_str(), i)}, 1)));
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(Twine{stringf("%s_y%d", cell->name.str().c_str(), i)}, 1)));
 
 					for (auto i = 0; i < num_versions; ++i) {
 						switch(i) {
@@ -240,7 +240,7 @@ private:
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
 						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
-							next_meta_mux_y_ports.emplace_back(module->Mux(Twine{stringf("%s_mux_%d_%d", cell->name.c_str(), i, j)}, meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+							next_meta_mux_y_ports.emplace_back(module->Mux(Twine{stringf("%s_mux_%d_%d", cell->name.str().c_str(), i, j)}, meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
 						}
 						if (GetSize(meta_mux_y_ports) % 2 == 1)
 							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);
@@ -272,7 +272,7 @@ private:
 					log_assert(exp2(select_width) == num_versions);
 
 					for (auto i = 1; i <= num_versions; ++i)
-						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(Twine{stringf("%s_y%d", cell->name.c_str(), i)}, 1)));
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(Twine{stringf("%s_y%d", cell->name.str().c_str(), i)}, 1)));
 
 					for (auto i = 0; i < num_versions; ++i) {
 						switch(i) {
@@ -295,7 +295,7 @@ private:
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
 					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
 						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
-							next_meta_mux_y_ports.emplace_back(module->Mux(Twine{stringf("%s_mux_%d_%d", cell->name.c_str(), i, j)}, meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+							next_meta_mux_y_ports.emplace_back(module->Mux(Twine{stringf("%s_mux_%d_%d", cell->name.str().c_str(), i, j)}, meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
 						}
 						if (GetSize(meta_mux_y_ports) % 2 == 1)
 							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);

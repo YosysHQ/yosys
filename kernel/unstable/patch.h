@@ -28,6 +28,7 @@ public:
 	vector<std::unique_ptr<Cell>> cells_ = {};
 	TwineChildPool twine_staging;
 	dict<RTLIL::Cell*, TwineRef> staged_cell_names_;
+	dict<RTLIL::Cell*, TwineRef> staged_cell_src_;
 	dict<RTLIL::Wire*, TwineRef> staged_wire_names_;
 	dict<const std::string*, TwineRef> staged_prefix_cache_;
 
@@ -79,6 +80,13 @@ public:
 	RTLIL::Cell *addCell(Twine &&name, const RTLIL::Cell *other);
 	RTLIL::Cell *addCell(Twine &&name, TwineRef type);
 	RTLIL::Cell *addCell(TwineRef name, Twine &&type);
+
+	// CellAdderMixin hook: staged cells are detached, so record the src and
+	// apply it once the cell is committed (commit_cell), resolving it through
+	// twine_staging so the ref may be twine_staging-local (interned without
+	// touching the per-Design pool). patch()/patch_ports() may still override
+	// it via apply_src merging from the rewritten cell.
+	void cell_set_src(RTLIL::Cell *cell, TwineRef src) { if (src != Twine::Null) staged_cell_src_[cell] = src; }
 
 	// NEW_ID analog for twine names; see NEW_TWINE in yosys_common.h.
 	// Returned refs are twine_staging-local and die at the next commit.

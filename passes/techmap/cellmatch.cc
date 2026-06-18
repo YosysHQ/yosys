@@ -274,27 +274,27 @@ struct CellmatchPass : Pass {
 							log("Module %s matches %s\n", m, target.module);
 							// Add target.module to map_design ("$cellmatch")
 							// as a techmap rule to match m and replace it with target.module
-							Module *map = map_design->addModule(stringf("\\_60_%s_%s", m, target.module));
-							Cell *cell = map->addCell(ID::_TECHMAP_REPLACE_, target.module->name);
+							Module *map = map_design->addModule(map_design->twines.add(std::string{stringf("\\_60_%s_%s", m, target.module)}));
+							Cell *cell = map->addCell(TW::_TECHMAP_REPLACE_, Twine{target.module->name.str()});
 
 							map->attributes[ID(techmap_celltype)] = m->name.str();
 
 							for (int i = 0; i < outputs.size(); i++) {
 								log_assert(outputs[i].is_wire());
-								Wire *w = map->addWire(outputs[i].wire->name, 1);
+								Wire *w = map->addWire(Twine{outputs[i].wire->name.str()}, 1);
 								w->port_id = outputs[i].wire->port_id;
 								w->port_output = true;
 								log_assert(target_outputs[output_map[i]].is_wire());
-								cell->setPort(target_outputs[output_map[i]].wire->name, w);
+								cell->setPort(map_design->twines.add(std::string{target_outputs[output_map[i]].wire->name.str()}), w);
 							}
 
 							for (int i = 0; i < inputs.size(); i++) {
 								log_assert(inputs[i].is_wire());
-								Wire *w = map->addWire(inputs[i].wire->name, 1);
+								Wire *w = map->addWire(Twine{inputs[i].wire->name.str()}, 1);
 								w->port_id = inputs[i].wire->port_id;
 								w->port_input = true;
 								log_assert(target_inputs[input_map[i]].is_wire());
-								cell->setPort(target_inputs[input_map[i]].wire->name, w);
+								cell->setPort(map_design->twines.add(std::string{target_inputs[input_map[i]].wire->name.str()}), w);
 							}
 
 							map->fixup_ports();

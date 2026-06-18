@@ -36,8 +36,8 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 	Cell *cell = st.dsp;
 	// pack pre-adder
 	if (st.preAdderStatic) {
-		SigSpec &pasub = cell->connections_.at(ID(PASUB));
-		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, design->twines.unescaped_str(st.preAdderStatic->type));
+		SigSpec &pasub = cell->connections_.at(TW::PASUB);
+		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, pm.module->design->twines.unescaped_str(st.preAdderStatic->type_impl));
 		bool D_SIGNED = st.preAdderStatic->getParam(ID::B_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdderStatic->getParam(ID::A_SIGNED).as_bool();
 		st.sigB.extend_u0(18, B_SIGNED);
@@ -60,8 +60,8 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 	}
 	// pack post-adder
 	if (st.postAdderStatic) {
-		log("  postadder %s (%s)\n", st.postAdderStatic, design->twines.unescaped_str(st.postAdderStatic->type));
-		SigSpec &sub = cell->connections_.at(ID(SUB));
+		log("  postadder %s (%s)\n", st.postAdderStatic, pm.module->design->twines.unescaped_str(st.postAdderStatic->type_impl));
+		SigSpec &sub = cell->connections_.at(TW::SUB);
 		// Post-adder in MACC_PA also supports subtraction
 		//   Determines the sign of the output from the multiplier.
 		if (st.postAdderStatic->type == TW($add))
@@ -86,14 +86,14 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		cell->setPort(TW::CLK, st.clock);
 
 		// function to absorb a register
-		auto f = [&pm, cell](SigSpec &A, Cell *ff, IdString ceport, IdString rstport, IdString bypass) {
+		auto f = [&pm, cell](SigSpec &A, Cell *ff, TwineRef ceport, TwineRef rstport, TwineRef bypass) {
 			// input/output ports
 			SigSpec D = ff->getPort(TW::D);
 			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != Twine::Null) {
 				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -138,7 +138,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		if (st.ffA) {
 			SigSpec A = cell->getPort(TW::A);
 			if (st.ffA) {
-				f(A, st.ffA, ID(A_EN), ID(A_SRST_N), ID(A_BYPASS));
+				f(A, st.ffA, TW::A_EN, TW::A_SRST_N, TW::A_BYPASS);
 			}
 			pm.add_siguser(A, cell);
 			cell->setPort(TW::A, A);
@@ -146,7 +146,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		if (st.ffB) {
 			SigSpec B = cell->getPort(TW::B);
 			if (st.ffB) {
-				f(B, st.ffB, ID(B_EN), ID(B_SRST_N), ID(B_BYPASS));
+				f(B, st.ffB, TW::B_EN, TW::B_SRST_N, TW::B_BYPASS);
 			}
 			pm.add_siguser(B, cell);
 			cell->setPort(TW::B, B);
@@ -154,9 +154,9 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		if (st.ffD) {
 			SigSpec D = cell->getPort(TW::D);
 			if (st.ffD->type.in(TW($adff), TW($adffe))) {
-				f(D, st.ffD, ID(D_EN), ID(D_ARST_N), ID(D_BYPASS));
+				f(D, st.ffD, TW::D_EN, TW::D_ARST_N, TW::D_BYPASS);
 			} else {
-				f(D, st.ffD, ID(D_EN), ID(D_SRST_N), ID(D_BYPASS));
+				f(D, st.ffD, TW::D_EN, TW::D_SRST_N, TW::D_BYPASS);
 			}
 
 			pm.add_siguser(D, cell);
@@ -164,8 +164,8 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		}
 		if (st.ffP) {
 			SigSpec P; // unused
-			f(P, st.ffP, ID(P_EN), ID(P_SRST_N), ID(P_BYPASS));
-			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
+			f(P, st.ffP, TW::P_EN, TW::P_SRST_N, TW::P_BYPASS);
+			st.ffP->connections_.at(TW::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
 		}
 
 		log("  clock: %s (%s)\n", log_signal(st.clock), "posedge");
@@ -195,7 +195,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 	auto &st = pm.st_microchip_dsp_packC;
 
 	log_debug("Analysing %s.%s for Microchip DSP packing (REG_C).\n", pm.module, st.dsp);
-	log_debug("ffC:        %s\n", st.ffC ? design->twines.unescaped_str(st.ffC->name) : "--");
+	log_debug("ffC:        %s\n", st.ffC ? pm.module->design->twines.unescaped_str(st.ffC->name.ref()) : "--");
 
 	Cell *cell = st.dsp;
 
@@ -203,13 +203,13 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 		cell->setPort(TW::CLK, st.clock);
 
 		// same function as above, used for the last CREG we need to absorb
-		auto f = [&pm, cell](SigSpec &A, Cell *ff, IdString ceport, IdString rstport, IdString bypass) {
+		auto f = [&pm, cell](SigSpec &A, Cell *ff, TwineRef ceport, TwineRef rstport, TwineRef bypass) {
 			// input/output ports
 			SigSpec D = ff->getPort(TW::D);
 			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != Twine::Null) {
 				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol_n = !ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -253,9 +253,9 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 			SigSpec C = cell->getPort(TW::C);
 
 			if (st.ffC->type.in(TW($adff), TW($adffe))) {
-				f(C, st.ffC, ID(C_EN), ID(C_ARST_N), ID(C_BYPASS));
+				f(C, st.ffC, TW::C_EN, TW::C_ARST_N, TW::C_BYPASS);
 			} else {
-				f(C, st.ffC, ID(C_EN), ID(C_SRST_N), ID(C_BYPASS));
+				f(C, st.ffC, TW::C_EN, TW::C_SRST_N, TW::C_BYPASS);
 			}
 			pm.add_siguser(C, cell);
 			cell->setPort(TW::C, C);

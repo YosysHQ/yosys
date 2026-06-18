@@ -40,11 +40,11 @@ struct FmcombineWorker
 	Design *design;
 	Module *original = nullptr;
 	Module *module = nullptr;
-	IdString orig_type, combined_type;
+	TwineRef orig_type, combined_type;
 
-	FmcombineWorker(Design *design, IdString orig_type, const opts_t &opts) :
+	FmcombineWorker(Design *design, TwineRef orig_type, const opts_t &opts) :
 			opts(opts), design(design), original(design->module(orig_type)),
-			orig_type(orig_type), combined_type(stringf("$fmcombine%s", orig_type))
+			orig_type(orig_type), combined_type(design->twines.add(stringf("$fmcombine%s", design->twines.str(orig_type).c_str())))
 	{
 	}
 
@@ -53,7 +53,7 @@ struct FmcombineWorker
 		SigSpec newsig;
 		for (auto chunk : sig.chunks()) {
 			if (chunk.wire != nullptr)
-				chunk.wire = module->wire(chunk.wire->name.str() + suffix);
+				chunk.wire = module->wire(design->twines.add(std::string{chunk.wire->name.str() + suffix}));
 			newsig.append(chunk);
 		}
 		return newsig;
@@ -61,7 +61,7 @@ struct FmcombineWorker
 
 	Cell *import_prim_cell(Cell *cell, const string &suffix)
 	{
-		Cell *c = module->addCell(cell->name.str() + suffix, cell->type);
+		Cell *c = module->addCell(Twine{cell->name.str() + suffix}, cell->type_impl);
 		c->parameters = cell->parameters;
 		c->attributes = cell->attributes;
 
@@ -79,16 +79,16 @@ struct FmcombineWorker
 		if (!cell->parameters.empty())
 			log_cmd_error("Cell %s.%s has unresolved instance parameters.\n", original, cell);
 
-		FmcombineWorker sub_worker(design, cell->type, opts);
+		FmcombineWorker sub_worker(design, cell->type_impl, opts);
 		sub_worker.generate();
 
-		Cell *c = module->addCell(cell->name.str() + "_combined", sub_worker.combined_type);
+		Cell *c = module->addCell(Twine{cell->name.str() + "_combined"}, sub_worker.combined_type);
 		// c->parameters = cell->parameters;
 		c->attributes = cell->attributes;
 
 		for (auto &conn : cell->connections()) {
-			c->setPort(conn.first.str() + "_gold", import_sig(conn.second, "_gold"));
-			c->setPort(conn.first.str() + "_gate", import_sig(conn.second, "_gate"));
+			c->setPort(design->twines.add(std::string{design->twines.str(conn.first) + "_gold"}), import_sig(conn.second, "_gold"));
+			c->setPort(design->twines.add(std::string{design->twines.str(conn.first) + "_gate"}), import_sig(conn.second, "_gate"));
 		}
 	}
 
@@ -103,8 +103,8 @@ struct FmcombineWorker
 		module = design->addModule(combined_type);
 
 		for (auto wire : original->wires()) {
-			module->addWire(wire->name.str() + "_gold", wire);
-			module->addWire(wire->name.str() + "_gate", wire);
+			module->addWire(Twine{wire->name.str() + "_gold"}, wire);
+			module->addWire(Twine{wire->name.str() + "_gate"}, wire);
 		}
 		module->fixup_ports();
 
@@ -326,9 +326,9 @@ struct FmcombinePass : public Pass {
 		}
 		else if (argidx+3 == args.size())
 		{
-			IdString module_name = RTLIL::escape_id(args[argidx++]);
-			IdString gold_name = RTLIL::escape_id(args[argidx++]);
-			IdString gate_name = RTLIL::escape_id(args[argidx++]);
+			TwineRef module_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+			TwineRef gold_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+			TwineRef gate_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
 
 			module = design->module(module_name);
 			if (module == nullptr)
@@ -361,9 +361,9 @@ struct FmcombinePass : public Pass {
 		if (!gate_cell->parameters.empty())
 			log_cmd_error("Gate cell has unresolved instance parameters.\n");
 
-		FmcombineWorker worker(design, gold_cell->type, opts);
+		FmcombineWorker worker(design, gold_cell->type_impl, opts);
 		worker.generate();
-		IdString combined_cell_name = module->uniquify(stringf("\\%s_%s", gold_cell, gate_cell));
+		TwineRef combined_cell_name = module->uniquify(Twine{stringf("\\%s_%s", gold_cell, gate_cell)});
 
 		Cell *cell = module->addCell(combined_cell_name, worker.combined_type);
 		cell->attributes = gold_cell->attributes;
@@ -372,11 +372,11 @@ struct FmcombinePass : public Pass {
 		log("Combining cells %s and %s in module %s into new cell %s.\n", gold_cell, gate_cell, module, cell);
 
 		for (auto &conn : gold_cell->connections())
-			cell->setPort(conn.first.str() + "_gold", conn.second);
+			cell->setPort(design->twines.add(std::string{design->twines.str(conn.first) + "_gold"}), conn.second);
 		module->remove(gold_cell);
 
 		for (auto &conn : gate_cell->connections())
-			cell->setPort(conn.first.str() + "_gate", conn.second);
+			cell->setPort(design->twines.add(std::string{design->twines.str(conn.first) + "_gate"}), conn.second);
 		module->remove(gate_cell);
 	}
 } FmcombinePass;

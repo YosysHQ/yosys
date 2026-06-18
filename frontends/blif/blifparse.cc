@@ -84,7 +84,7 @@ failed:
 	return std::pair<RTLIL::IdString, int>(RTLIL::IdString(), 0);
 }
 
-void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool run_clean, bool sop_mode, bool wideports)
+void parse_blif(RTLIL::Design *design, std::istream &f, TwineRef dff_name, bool run_clean, bool sop_mode, bool wideports)
 {
 	RTLIL::Module *module = nullptr;
 	RTLIL::Const *lutptr = NULL;
@@ -116,11 +116,11 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 		}
 
 		std::string escaped_name = RTLIL::escape_id(wire_name);
-		TwineRef wire_ref = TwineSearch(&design->twines).find(escaped_name);
+		TwineRef wire_ref = design->twines.add(std::string{escaped_name});
 		Wire *wire = module->wire(wire_ref);
 
 		if (wire == nullptr)
-			wire = module->addWire(design->twines.add(std::string{escaped_name}));
+			wire = module->addWire(wire_ref);
 
 		return wire;
 	};
@@ -206,7 +206,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 					for (int i = 0; i < width; i++) {
 						std::string other_name = design->twines.str(name) + stringf("[%d]", i);
-						TwineRef other_ref = TwineSearch(&design->twines).find(other_name);
+						TwineRef other_ref = design->twines.find(other_name);
 						RTLIL::Wire *other_wire = module->wire(other_ref);
 						if (other_wire) {
 							other_wire->port_input = false;
@@ -276,10 +276,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				while ((p = strtok(NULL, " \t\r\n")) != NULL)
 				{
 					std::string wire_name_str = stringf("\\%s", p);
-					TwineRef wire_ref = TwineSearch(&design->twines).find(wire_name_str);
+					TwineRef wire_ref = design->twines.add(std::string{wire_name_str});
 					RTLIL::Wire *wire = module->wire(wire_ref);
 					if (wire == nullptr)
-						wire = module->addWire(design->twines.add(std::string{wire_name_str}));
+						wire = module->addWire(wire_ref);
 					if (!strcmp(cmd, ".inputs"))
 						wire->port_input = true;
 					else
@@ -378,10 +378,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					cell = module->addDlatchGate(NEW_TWINE, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
-					if (dff_name.empty()) {
+					if (dff_name == Twine::Null) {
 						cell = module->addFfGate(NEW_TWINE, blif_wire(d), blif_wire(q));
 					} else {
-						cell = module->addCell(NEW_TWINE, design->twines.add(std::string{dff_name.str()}));
+						cell = module->addCell(NEW_TWINE, dff_name);
 						cell->setPort(TW::D, blif_wire(d));
 						cell->setPort(TW::Q, blif_wire(q));
 					}
@@ -698,7 +698,7 @@ struct BlifFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		parse_blif(design, *f, "", true, sop_mode, wideports);
+		parse_blif(design, *f, Twine::Null, true, sop_mode, wideports);
 	}
 } BlifFrontend;
 

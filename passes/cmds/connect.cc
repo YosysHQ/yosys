@@ -198,17 +198,20 @@ struct ConnectPass : public Pass {
 			if (flag_nounset)
 				log_cmd_error("Can't use -port together with -nounset.\n");
 
-			if (module->cell(TwineSearch(&module->design->twines).find(RTLIL::escape_id(port_cell))) == nullptr)
+			TwineSearch search(&module->design->twines);
+			RTLIL::Cell *port_cell_obj = module->cell(search.find(RTLIL::escape_id(port_cell)));
+			if (port_cell_obj == nullptr)
 				log_cmd_error("Can't find cell %s.\n", port_cell);
 
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr);
 
+			TwineRef port_port_ref = search.find(RTLIL::escape_id(port_port));
 			if (!flag_assert) {
-				module->cell(TwineSearch(&module->design->twines).find(RTLIL::escape_id(port_cell)))->setPort(TwineSearch(&module->design->twines).find(RTLIL::escape_id(port_port)), sigmap(sig));
+				port_cell_obj->setPort(port_port_ref, sigmap(sig));
 			} else {
-				SigSpec cur = module->cell(TwineSearch(&module->design->twines).find(RTLIL::escape_id(port_cell)))->getPort(TwineSearch(&module->design->twines).find(RTLIL::escape_id(port_port)));
+				SigSpec cur = port_cell_obj->getPort(port_port_ref);
 				if (sigmap(sig) != sigmap(cur)) {
 					log_cmd_error("Expected connection not present: expected %s, found %s.\n", log_signal(sig), log_signal(cur));
 				}

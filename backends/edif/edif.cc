@@ -30,9 +30,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define EDIF_DEF(_id) design->twines.unescaped_str(edif_names(_id), true)
-#define EDIF_DEFR(_id, _ren, _bl, _br) design->twines.unescaped_str(edif_names(_id), true, _ren, _bl, _br)
-#define EDIF_REF(_id) design->twines.unescaped_str(edif_names(_id), false)
+#define EDIF_DEF(_id) edif_names(_id.unescape(), true)
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(_id.unescape(), true, _ren, _bl, _br)
+#define EDIF_REF(_id) edif_names(_id.unescape(), false)
 #define EDIF_DEF_STR(_id) edif_names(RTLIL::unescape_id(_id), true)
 #define EDIF_REF_STR(_id) edif_names(RTLIL::unescape_id(_id), false)
 
@@ -138,7 +138,7 @@ struct EdifBackend : public Backend {
 		bool port_rename = false;
 		bool attr_properties = false;
 		bool lsbidx = false;
-		std::map<RTLIL::IdString, std::map<TwineRef, int>> lib_cell_ports;
+		std::map<TwineRef, std::map<TwineRef, int>> lib_cell_ports;
 		bool nogndvcc = false, gndvccy = false, keepmode = false;
 		NewCellTypes ct(design);
 		EdifNames edif_names;
@@ -194,7 +194,7 @@ struct EdifBackend : public Backend {
 
 		for (auto module : design->modules())
 		{
-			IdString module_type = IdString(design->twines.str(module->meta_->name));
+			TwineRef module_type = module->meta_->name;
 			lib_cell_ports[module_type];
 
 			for (auto port : module->ports)
@@ -220,9 +220,9 @@ struct EdifBackend : public Backend {
 					continue;
 
 				if (design->module(cell->type_impl) == nullptr || design->module(cell->type_impl)->get_blackbox_attribute()) {
-					lib_cell_ports[cell->type];
+					lib_cell_ports[cell->type_impl];
 					for (auto p : cell->connections())
-						lib_cell_ports[cell->type][p.first] = std::max(lib_cell_ports[cell->type][p.first], GetSize(p.second));
+						lib_cell_ports[cell->type_impl][p.first] = std::max(lib_cell_ports[cell->type_impl][p.first], GetSize(p.second));
 				}
 			}
 		}
@@ -261,7 +261,7 @@ struct EdifBackend : public Backend {
 		}
 
 		for (auto &cell_it : lib_cell_ports) {
-			*f << stringf("    (cell %s\n", EDIF_DEF(cell_it.first));
+			*f << stringf("    (cell %s\n", edif_names(design->twines.unescaped_str(cell_it.first), true));
 			*f << stringf("      (cellType GENERIC)\n");
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
@@ -478,7 +478,7 @@ struct EdifBackend : public Backend {
 			for (auto cell : module->cells()) {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
-						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
+						lib_cell_ports.count(cell->type_impl) > 0 ? " (libraryRef LIB)" : "");
 				for (auto &p : cell->parameters)
 					add_prop(p.first, p.second);
 				if (attr_properties)

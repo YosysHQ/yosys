@@ -328,12 +328,13 @@ struct ReplacedPort {
 struct HierarchyWorker
 {
 	Design *design;
+	TwineSearch search;
 	pool<Module *> pending;
 
 	dict<Module *, std::vector<ReplacedPort>> replaced_clk_inputs;
 
 	HierarchyWorker(Design *design) :
-		design(design)
+		design(design), search(&design->twines)
 	{
 		for (auto module : design->modules())
 			pending.insert(module);
@@ -462,7 +463,7 @@ const std::vector<ReplacedPort> &HierarchyWorker::find_replaced_clk_inputs(IdStr
 	if (!cell_type.isPublic())
 		return empty;
 
-	Module *module = design->module(TwineSearch(&design->twines).find(cell_type.str()));
+	Module *module = design->module(search.find(cell_type.str()));
 	if (module == nullptr)
 		return empty;
 

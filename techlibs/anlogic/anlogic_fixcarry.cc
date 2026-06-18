@@ -79,7 +79,7 @@ static void fix_carry_chain(Module *module)
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", cell->type.unescaped(), cell);
-		Cell *c = module->addCell(NEW_TWINE, ID(AL_MAP_ADDER));
+		Cell *c = module->addCell(NEW_TWINE, module->design->twines.add(std::string{"\\AL_MAP_ADDER"}));
 		SigBit new_bit = module->addWire(NEW_TWINE);
 		SigBit dummy_bit = module->addWire(NEW_TWINE);
 		SigSpec bits;

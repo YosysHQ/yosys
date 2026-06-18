@@ -30,7 +30,7 @@ struct LUTPin {
 };
 
 struct LUTType {
-    dict<IdString, LUTPin> inputs;
+    dict<TwineRef, LUTPin> inputs;
     IdString output_param;
 };
 
@@ -46,21 +46,21 @@ struct FoldInvWorker {
 
     const dict<IdString, LUTType> lut_types = {
         {ID(CC_LUT2), {{
-                {ID(I0), {0, ID(INIT)}},
-                {ID(I1), {1, ID(INIT)}},
+                {TW::I0, {0, ID(INIT)}},
+                {TW::I1, {1, ID(INIT)}},
             }, ID(INIT)}},
         {ID(CC_L2T4), {{
-                {ID(I0), {0, ID(INIT_L00)}},
-                {ID(I1), {1, ID(INIT_L00)}},
-                {ID(I2), {0, ID(INIT_L01)}},
-                {ID(I3), {1, ID(INIT_L01)}},
+                {TW::I0, {0, ID(INIT_L00)}},
+                {TW::I1, {1, ID(INIT_L00)}},
+                {TW::I2, {0, ID(INIT_L01)}},
+                {TW::I3, {1, ID(INIT_L01)}},
             }, ID(INIT_L10)}},
         {ID(CC_L2T5), {{
-                {ID(I0), {0, ID(INIT_L02)}},
-                {ID(I1), {1, ID(INIT_L02)}},
-                {ID(I2), {0, ID(INIT_L03)}},
-                {ID(I3), {1, ID(INIT_L03)}},
-                {ID(I4), {0, ID(INIT_L20)}},
+                {TW::I0, {0, ID(INIT_L02)}},
+                {TW::I1, {1, ID(INIT_L02)}},
+                {TW::I2, {0, ID(INIT_L03)}},
+                {TW::I3, {1, ID(INIT_L03)}},
+                {TW::I4, {0, ID(INIT_L20)}},
             }, ID(INIT_L20)}},
     };
 
@@ -162,7 +162,7 @@ struct FoldInvWorker {
                 continue;
             // Create a duplicate of the LUT with an inverted output
             // (if the uninverted version becomes unused it will be swept away)
-            Cell *dup_lut = module->addCell(NEW_TWINE, orig_lut->type);
+            Cell *dup_lut = module->addCell(NEW_TWINE, orig_lut->type_impl);
             inv->unsetPort(TW::Y);
             dup_lut->setPort(TW::O, inv_y);
             for (auto conn : orig_lut->connections()) {

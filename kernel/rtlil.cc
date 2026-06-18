@@ -1225,8 +1225,12 @@ namespace {
 	}
 }
 
+int64_t twine_gc_ns;
+int twine_gc_count;
+
 size_t RTLIL::Design::gc_twines()
 {
+	int64_t start = PerformanceTimer::query();
 	// Mark phase: gather every TwineRef stored on a live object as a root.
 	// TwinePool::gc traces each root's concat/suffix children transitively.
 	pool<TwineRef> live;
@@ -1264,7 +1268,13 @@ size_t RTLIL::Design::gc_twines()
 	}
 
 	// Sweep: backing refs are stable, so survivors need no remapping.
-	return twines.gc(live);
+	size_t erased = twines.gc(live);
+
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	twine_gc_ns += time_ns;
+	++twine_gc_count;
+	return erased;
 }
 
 pool<std::string> RTLIL::Design::src_leaves(const RTLIL::AttrObject *obj) const
@@ -2028,12 +2038,6 @@ namespace {
 
 		int param_bool(IdString name)
 		{
-			std::cout << name.str() << "\n";
-			std::cout << "get\n";
-			for (auto& [key, val] : cell->parameters) {
-				std::cout << key.str() << " = ";
-				std::cout << val.as_string() << "\n";
-			}
 			int v = param(name);
 			if (GetSize(cell->parameters.at(name)) > 32)
 				error(__LINE__);
@@ -3772,6 +3776,12 @@ RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, Twine &&type)
 	return addCell(std::move(name), design->twines.add(std::move(type)));
 }
 
+RTLIL::Cell *RTLIL::Module::addCell(Twine name, Twine type)
+{
+	log_assert(design);
+	return addCell(design->twines.add(std::move(name)), design->twines.add(std::move(type)));
+}
+
 RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, const RTLIL::Cell *other)
 {
 	RTLIL::Cell *cell = addCell(name, other->type_impl);
@@ -3919,7 +3929,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->parameters[ID::Y_WIDTH] = sig_y.size();       \
 			cell->setPort(TW::A, sig_a);                        \
 			cell->setPort(TW::Y, sig_y);                        \
-			cell->set_src_attribute(src);                       \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                       \
 			return cell;                                        \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, bool is_signed, TwineRef src) { \
@@ -3944,7 +3954,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->parameters[ID::WIDTH] = sig_a.size();         \
 			cell->setPort(TW::A, sig_a);                        \
 			cell->setPort(TW::Y, sig_y);                        \
-			cell->set_src_attribute(src);                       \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                       \
 			return cell;                                        \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, bool is_signed, TwineRef src) { \
@@ -3966,7 +3976,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::A, sig_a);                        \
 			cell->setPort(TW::B, sig_b);                        \
 			cell->setPort(TW::Y, sig_y);                        \
-			cell->set_src_attribute(src);                       \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                       \
 			return cell;                                        \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, TwineRef src) { \
@@ -4009,7 +4019,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::A, sig_a);                        \
 			cell->setPort(TW::B, sig_b);                        \
 			cell->setPort(TW::Y, sig_y);                        \
-			cell->set_src_attribute(src);                       \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                       \
 			return cell;                                        \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, TwineRef src) { \
@@ -4034,7 +4044,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::A, sig_a);                        \
 			cell->setPort(TW::B, sig_b);                        \
 			cell->setPort(TW::Y, sig_y);                        \
-			cell->set_src_attribute(src);                       \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                       \
 			return cell;                                        \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, TwineRef src) { \
@@ -4054,7 +4064,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::B, sig_b);                              \
 			cell->setPort(TW::S, sig_s);                              \
 			cell->setPort(TW::Y, sig_y);                              \
-			cell->set_src_attribute(src);                             \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                             \
 			return cell;                                              \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, TwineRef src) { \
@@ -4075,7 +4085,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::A, sig_a);                              \
 			cell->setPort(TW::S, sig_s);                              \
 			cell->setPort(TW::Y, sig_y);                              \
-			cell->set_src_attribute(src);                             \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                             \
 			return cell;                                              \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, TwineRef src) { \
@@ -4094,7 +4104,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::A, sig_a);                              \
 			cell->setPort(TW::B, sig_b);                              \
 			cell->setPort(TW::Y, sig_y);                              \
-			cell->set_src_attribute(src);                             \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                             \
 			return cell;                                              \
 		} \
 		template<typename Derived> RTLIL::SigSpec CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, TwineRef src) { \
@@ -4110,7 +4120,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), _type);         \
 			cell->setPort(TW::_P1, sig1);                   \
 			cell->setPort(TW::_P2, sig2);                   \
-			cell->set_src_attribute(src);                     \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                     \
 			return cell;                                      \
 		} \
 		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigBit &sig1, TwineRef src) { \
@@ -4124,7 +4134,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::_P1, sig1);                   \
 			cell->setPort(TW::_P2, sig2);                   \
 			cell->setPort(TW::_P3, sig3);                   \
-			cell->set_src_attribute(src);                     \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                     \
 			return cell;                                      \
 		} \
 		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, TwineRef src) { \
@@ -4139,7 +4149,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::_P2, sig2);                   \
 			cell->setPort(TW::_P3, sig3);                   \
 			cell->setPort(TW::_P4, sig4);                   \
-			cell->set_src_attribute(src);                     \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                     \
 			return cell;                                      \
 		} \
 		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, TwineRef src) { \
@@ -4155,7 +4165,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 			cell->setPort(TW::_P3, sig3);                   \
 			cell->setPort(TW::_P4, sig4);                   \
 			cell->setPort(TW::_P5, sig5);                   \
-			cell->set_src_attribute(src);                     \
+			static_cast<Derived*>(this)->cell_set_src(cell, src);                     \
 			return cell;                                      \
 		} \
 		template<typename Derived> RTLIL::SigBit CellAdderMixin<Derived>::_func(Twine &&name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, TwineRef src) { \
@@ -4195,7 +4205,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::B, sig_b);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4208,7 +4218,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::C, sig_c);
 		cell->setPort(TW::X, sig_x);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4220,7 +4230,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->parameters[ID::OFFSET] = offset;
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4232,7 +4242,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::B, sig_b);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4243,7 +4253,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->parameters[ID::WIDTH] = sig_a.size();
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4254,7 +4264,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::EN, sig_en);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4263,7 +4273,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), TW($assert));
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::EN, sig_en);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4272,7 +4282,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), TW($assume));
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::EN, sig_en);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4281,7 +4291,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), TW($live));
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::EN, sig_en);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4290,7 +4300,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), TW($fair));
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::EN, sig_en);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4299,7 +4309,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), TW($cover));
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::EN, sig_en);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4309,7 +4319,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::A, sig_a);
 		cell->setPort(TW::B, sig_b);
 		cell->setPort(TW::Y, sig_y);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4322,7 +4332,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::SET, sig_set);
 		cell->setPort(TW::CLR, sig_clr);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4332,7 +4342,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->parameters[ID::WIDTH] = sig_q.size();
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4344,7 +4354,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::CLK, sig_clk);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4358,7 +4368,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::EN, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4375,7 +4385,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::CLR, sig_clr);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4394,7 +4404,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::CLR, sig_clr);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4410,7 +4420,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::ARST, sig_arst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4428,7 +4438,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::ARST, sig_arst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4444,7 +4454,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::AD, sig_ad);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4462,7 +4472,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::AD, sig_ad);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4478,7 +4488,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::SRST, sig_srst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4496,7 +4506,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::SRST, sig_srst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4514,7 +4524,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::SRST, sig_srst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4526,7 +4536,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::EN, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4542,7 +4552,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::ARST, sig_arst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4559,7 +4569,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::CLR, sig_clr);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4574,7 +4584,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::S, sig_set);
 		cell->setPort(TW::R, sig_clr);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4583,7 +4593,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		RTLIL::Cell *cell = static_cast<Derived*>(this)->addCell(std::move(name), TW($_FF_));
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4594,7 +4604,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::C, sig_clk);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4606,7 +4616,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4620,7 +4630,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::R, sig_clr);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4635,7 +4645,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4648,7 +4658,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::R, sig_arst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4662,7 +4672,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4676,7 +4686,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::AD, sig_ad);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4691,7 +4701,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::AD, sig_ad);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4704,7 +4714,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::R, sig_srst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4718,7 +4728,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4732,7 +4742,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4743,7 +4753,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::E, sig_en);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4756,7 +4766,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::R, sig_arst);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 
@@ -4770,7 +4780,7 @@ RTLIL::Process *RTLIL::Module::addProcess(TwineRef name, const RTLIL::Process *o
 		cell->setPort(TW::R, sig_clr);
 		cell->setPort(TW::D, sig_d);
 		cell->setPort(TW::Q, sig_q);
-		cell->set_src_attribute(src);
+		static_cast<Derived*>(this)->cell_set_src(cell, src);
 		return cell;
 	}
 

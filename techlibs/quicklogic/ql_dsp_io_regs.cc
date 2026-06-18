@@ -63,9 +63,9 @@ struct QlDspIORegs : public Pass {
 
 	void ql_dsp_io_regs_pass(RTLIL::Module *module)
 	{
-		static const std::vector<IdString> ports2del_mult = {ID(load_acc), ID(subtract), ID(acc_fir), ID(dly_b),
-														ID(saturate_enable), ID(shift_right), ID(round)};
-		static const std::vector<IdString> ports2del_mult_acc = {ID(acc_fir), ID(dly_b)};
+		static const std::vector<TwineRef> ports2del_mult = {TW::load_acc, TW::subtract, TW::acc_fir, TW::dly_b,
+														TW::saturate_enable, TW::shift_right, TW::round};
+		static const std::vector<TwineRef> ports2del_mult_acc = {TW::acc_fir, TW::dly_b};
 
 
 		sigmap.set(module);
@@ -80,10 +80,10 @@ struct QlDspIORegs : public Pass {
 				continue;
 
 			// Get DSP configuration
-			for (auto cfg_port : {ID(register_inputs), ID(output_select)})
+			for (auto cfg_port : {TW::register_inputs, TW::output_select})
 			if (!cell->hasPort(cfg_port) || !sigmap(cell->getPort(cfg_port)).is_fully_const())
 				log_error("Missing or non-constant '%s' port on DSP cell %s\n",
-						  cfg_port, cell);
+						  cell->module->design->twines.str(cfg_port).c_str(), cell);
 			int reg_in_i = sigmap(cell->getPort(TW::register_inputs)).as_int();
 			int out_sel_i = sigmap(cell->getPort(TW::output_select)).as_int();
 
@@ -127,7 +127,7 @@ struct QlDspIORegs : public Pass {
 			}
 
 			// Set new type name
-			cell->type = RTLIL::IdString(new_type);
+			cell->type_impl = cell->module->design->twines.add(std::string{new_type});
 
 			std::vector<std::string> ports2del;
 

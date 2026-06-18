@@ -233,9 +233,10 @@ struct ChparamPass : public Pass {
 			break;
 		}
 
+		TwineSearch search(&design->twines);
 		for (int i = argidx; i < GetSize(args); i++)
-			if (design->module("$abstract\\" + args[i]) != nullptr &&
-					design->module(RTLIL::escape_id(args[i])) == nullptr)
+			if (design->module(search.find("$abstract\\" + args[i])) != nullptr &&
+					design->module(search.find(RTLIL::escape_id(args[i]))) == nullptr)
 				args[i] = "$abstract\\" + args[i];
 
 		extra_args(args, argidx, design);

@@ -312,8 +312,8 @@ struct SimplecWorker
 					bit2cell[mod][bit].insert(tuple<Cell*, TwineRef, int>(c, conn.first, idx++));
 			}
 
-			if (design->module(c->type))
-				create_module_struct(design->module(c->type));
+			if (design->module(c->type_impl))
+				create_module_struct(design->module(c->type_impl));
 		}
 
 		TopoSort<IdString> topo;
@@ -336,8 +336,9 @@ struct SimplecWorker
 		topo.analyze_loops = false;
 		topo.sort();
 
+		TwineSearch search(&design->twines);
 		for (int i = 0; i < GetSize(topo.sorted); i++)
-			topoidx[mod->cell(TwineSearch(&design->twines).find(topo.sorted[i].str()))] = i;
+			topoidx[mod->cell(search.find(topo.sorted[i].str()))] = i;
 
 		string ifdef_name = stringf("yosys_simplec_%s_state_t", cid(RTLIL::IdString(design->twines.str(mod->meta_->name))));
 
@@ -369,7 +370,7 @@ struct SimplecWorker
 				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), w));
 
 		for (Cell *c : mod->cells())
-			if (design->module(c->type))
+			if (design->module(c->type_impl))
 				struct_declarations.push_back(stringf("  struct %s_state_t %s; // %s", cid(c->type), cid(c->name), c));
 
 		struct_declarations.push_back(stringf("};"));
@@ -524,10 +525,12 @@ struct SimplecWorker
 					for (SigBit bit : dirtysig)
 					{
 						if (bit2output[work->module].count(bit) && work->parent)
+						{
+							TwineSearch search(&work->parent->module->design->twines);
 							for (auto outbit : bit2output[work->module][bit])
 							{
 								Module *parent_mod = work->parent->module;
-								Cell *parent_cell = parent_mod->cell(TwineSearch(&parent_mod->design->twines).find(work->hiername.str()));
+								Cell *parent_cell = parent_mod->cell(search.find(work->hiername.str()));
 
 								TwineRef port_name = outbit.wire->meta_->name;
 								int port_offset = outbit.offset;
@@ -542,6 +545,7 @@ struct SimplecWorker
 									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix, bit.wire, bit.offset,
 											work->parent->log_prefix.c_str(), parent_bit.wire, parent_bit.offset);
 							}
+						}
 
 						for (auto &port : bit2cell[work->module][bit])
 						{

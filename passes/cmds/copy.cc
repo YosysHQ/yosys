@@ -44,15 +44,15 @@ struct CopyPass : public Pass {
 		std::string src_name = RTLIL::escape_id(args[1]);
 		std::string trg_name = RTLIL::escape_id(args[2]);
 
-		if (design->module(src_name) == nullptr)
+		TwineSearch search(&design->twines);
+		TwineRef src_ref = search.find(src_name);
+		if (design->module(src_ref) == nullptr)
 			log_cmd_error("Can't find source module %s.\n", src_name);
 
-		if (design->module(trg_name) != nullptr)
+		if (design->module(search.find(trg_name)) != nullptr)
 			log_cmd_error("Target module name %s already exists.\n", trg_name);
 
-		RTLIL::Module *new_mod = design->module(src_name)->clone();
-		design->rename(new_mod, design->twines.add(Twine{trg_name}));
-		design->add(new_mod);
+		design->module(src_ref)->clone(design, design->twines.add(std::string{trg_name}));
 	}
 } CopyPass;
 

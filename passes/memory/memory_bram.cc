@@ -215,7 +215,7 @@ struct rules_t
 		{
 			for (const bram_t& bram : variants)
 			{
-				if (design->module(bram.name))
+				if (design->module(design->twines.add(std::string{bram.name.str()})))
 					continue;
 
 				bram.load_blackbox(design);

@@ -50,8 +50,8 @@ udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
 udata <Cell*> dff
 udata <Cell*> u_preAdderStatic u_postAdderStatic
-udata <IdString> u_postAddAB
-state <IdString> postAddAB
+udata <TwineRef> u_postAddAB
+state <TwineRef> postAddAB
 
 // (1) Starting from a DSP cell
 match dsp
@@ -338,10 +338,10 @@ code
 		if (!c.wire)
 			reject;
 		// Abandon matches when 'Q' has the keep attribute set
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 		// Abandon matches when 'Q' has a non-zero init attribute set
-		Const init = c.wire->attributes.at(\init, Const());
+		Const init = c.wire->attributes.at(ID(init), Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))
 				if (b != State::Sx && b != State::S0)
@@ -399,7 +399,7 @@ code
 	dff = nullptr;
 	for (auto c : argD.chunks())
 		// Abandon matches when 'D' has the keep attribute set
-		if (c.wire->get_bool_attribute(\keep))
+		if (c.wire->get_bool_attribute(ID(keep)))
 			reject;
 endcode
 
@@ -426,7 +426,7 @@ code argQ
 
 	// Abandon matches when 'Q' has a non-zero init attribute set
 	for (auto c : argQ.chunks()) {
-		Const init = c.wire->attributes.at(\init, Const());
+		Const init = c.wire->attributes.at(ID(init), Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))
 				if (b != State::Sx && b != State::S0)

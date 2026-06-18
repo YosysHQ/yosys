@@ -82,7 +82,7 @@ const char *make_id(IdString id)
 	if (namecache.count(id) != 0)
 		return namecache.at(id).c_str();
 
-	string new_id = design->twines.unescaped_str(id);
+	string new_id = RTLIL::unescape_id(id);
 
 	for (int i = 0; i < GetSize(new_id); i++)
 	{
@@ -991,10 +991,10 @@ struct FirrtlWorker
 
 			Const init_data = mem.get_init_data();
 			if (!init_data.is_fully_undef())
-				log_error("Memory with initialization data: %s.%s\n", module, design->twines.unescaped_str(mem.memid));
+				log_error("Memory with initialization data: %s.%s\n", module, RTLIL::unescape_id(mem.memid));
 
 			if (mem.start_offset != 0)
-				log_error("Memory with nonzero offset: %s.%s\n", module, design->twines.unescaped_str(mem.memid));
+				log_error("Memory with nonzero offset: %s.%s\n", module, RTLIL::unescape_id(mem.memid));
 
 			for (int i = 0; i < GetSize(mem.rd_ports); i++)
 			{
@@ -1002,7 +1002,7 @@ struct FirrtlWorker
 				string port_name(stringf("%s.r%d", mem_id, i));
 
 				if (port.clk_enable)
-					log_error("Clocked read port %d on memory %s.%s.\n", i, module, design->twines.unescaped_str(mem.memid));
+					log_error("Clocked read port %d on memory %s.%s.\n", i, module, RTLIL::unescape_id(mem.memid));
 
 				std::ostringstream rpe;
 
@@ -1023,12 +1023,12 @@ struct FirrtlWorker
 				string port_name(stringf("%s.w%d", mem_id, i));
 
 				if (!port.clk_enable)
-					log_error("Unclocked write port %d on memory %s.%s.\n", i, module, design->twines.unescaped_str(mem.memid));
+					log_error("Unclocked write port %d on memory %s.%s.\n", i, module, RTLIL::unescape_id(mem.memid));
 				if (!port.clk_polarity)
-					log_error("Negedge write port %d on memory %s.%s.\n", i, module, design->twines.unescaped_str(mem.memid));
+					log_error("Negedge write port %d on memory %s.%s.\n", i, module, RTLIL::unescape_id(mem.memid));
 				for (int i = 1; i < GetSize(port.en); i++)
 					if (port.en[0] != port.en[i])
-						log_error("Complex write enable on port %d on memory %s.%s.\n", i, module, design->twines.unescaped_str(mem.memid));
+						log_error("Complex write enable on port %d on memory %s.%s.\n", i, module, RTLIL::unescape_id(mem.memid));
 
 				std::ostringstream wpe;
 

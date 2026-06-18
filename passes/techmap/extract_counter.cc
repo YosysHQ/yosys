@@ -535,11 +535,9 @@ void counter_worker(
 	string count_reg_src = port_wire->get_src_attribute().c_str();
 	if(port_wire->attributes.find(ID(COUNT_EXTRACT)) != port_wire->attributes.end())
 	{
-		pool<string> sa = port_wire->get_strpool_attribute(ID(COUNT_EXTRACT));
-		string extract_value;
-		if(sa.size() >= 1)
+		string extract_value = port_wire->get_string_attribute(ID(COUNT_EXTRACT));
+		if(!extract_value.empty())
 		{
-			extract_value = *sa.begin();
 			log("  Signal %s declared at %s has COUNT_EXTRACT = %s\n",
 				port_wire,
 				count_reg_src.c_str(),
@@ -611,7 +609,7 @@ void counter_worker(
 	}
 
 	//Get new cell name
-	string countname = string("$COUNTx$") + design->twines.unescaped_str(extract.rwire->name);
+	string countname = string("$COUNTx$") + extract.rwire->name.unescaped();
 
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort(TW::A);
@@ -697,7 +695,7 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", load.cell->module->design->twines.str(cell->meta_->name), design->twines.unescaped_str(load.port));
+		log("    Counter has parallel output to cell %s port %s\n", load.cell->module->design->twines.str(cell->meta_->name), load.cell->module->design->twines.unescaped_str(load.port));
 	}
 	if(extract.has_pout)
 	{
@@ -894,7 +892,7 @@ struct ExtractCounterPass : public Pass {
 			for(auto cpair : cells_to_rename)
 			{
 				//log("Renaming cell %s to %s\n", cpair.first, cpair.second);
-				module->rename(cpair.first, cpair.second);
+				module->rename(cpair.first, module->design->twines.add(std::string{cpair.second}));
 			}
 		}
 

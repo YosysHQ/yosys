@@ -706,10 +706,12 @@ struct VizWorker
 		IdString vg_id("\\vg");
 		for (auto c : module->cells())
 			c->attributes.erase(vg_id);
+		TwineSearch search(&module->design->twines);
 		for (auto g : graph.nodes) {
 			for (auto name : g->names()) {
-				auto w = module->wire(TwineSearch(&module->design->twines).find(name.str()));
-				auto c = module->cell(TwineSearch(&module->design->twines).find(name.str()));
+				TwineRef ref = search.find(name.str());
+				auto w = module->wire(ref);
+				auto c = module->cell(ref);
 				if (w) w->attributes[vg_id] = g->index;
 				if (c) c->attributes[vg_id] = g->index;
 			}

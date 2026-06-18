@@ -31,15 +31,15 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	log("Checking %s.%s for iCE40 DSP inference.\n", pm.module, st.mul);
 
-	log_debug("ffA:    %s\n", st.ffA ? design->twines.unescaped_str(st.ffA->name) : "--");
-	log_debug("ffB:    %s\n", st.ffB ? design->twines.unescaped_str(st.ffB->name) : "--");
-	log_debug("ffCD:   %s\n", st.ffCD ? design->twines.unescaped_str(st.ffCD->name) : "--");
-	log_debug("mul:    %s\n", st.mul ? design->twines.unescaped_str(st.mul->name) : "--");
-	log_debug("ffFJKG: %s\n", st.ffFJKG ? design->twines.unescaped_str(st.ffFJKG->name) : "--");
-	log_debug("ffH:    %s\n", st.ffH ? design->twines.unescaped_str(st.ffH->name) : "--");
-	log_debug("add:    %s\n", st.add ? design->twines.unescaped_str(st.add->name) : "--");
-	log_debug("mux:    %s\n", st.mux ? design->twines.unescaped_str(st.mux->name) : "--");
-	log_debug("ffO:    %s\n", st.ffO ? design->twines.unescaped_str(st.ffO->name) : "--");
+	log_debug("ffA:    %s\n", st.ffA ? pm.module->design->twines.unescaped_str(st.ffA->name.ref()) : "--");
+	log_debug("ffB:    %s\n", st.ffB ? pm.module->design->twines.unescaped_str(st.ffB->name.ref()) : "--");
+	log_debug("ffCD:   %s\n", st.ffCD ? pm.module->design->twines.unescaped_str(st.ffCD->name.ref()) : "--");
+	log_debug("mul:    %s\n", st.mul ? pm.module->design->twines.unescaped_str(st.mul->name.ref()) : "--");
+	log_debug("ffFJKG: %s\n", st.ffFJKG ? pm.module->design->twines.unescaped_str(st.ffFJKG->name.ref()) : "--");
+	log_debug("ffH:    %s\n", st.ffH ? pm.module->design->twines.unescaped_str(st.ffH->name.ref()) : "--");
+	log_debug("add:    %s\n", st.add ? pm.module->design->twines.unescaped_str(st.add->name.ref()) : "--");
+	log_debug("mux:    %s\n", st.mux ? pm.module->design->twines.unescaped_str(st.mux->name.ref()) : "--");
+	log_debug("ffO:    %s\n", st.ffO ? pm.module->design->twines.unescaped_str(st.ffO->name.ref()) : "--");
 	log_debug("\n");
 
 	if (GetSize(st.sigA) > 16) {
@@ -64,9 +64,9 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	Cell *cell = st.mul;
 	if (cell->type == TW($mul)) {
-		log("  replacing %s with SB_MAC16 cell.\n", design->twines.unescaped_str(st.mul->type));
+		log("  replacing %s with SB_MAC16 cell.\n", pm.module->design->twines.unescaped_str(st.mul->type_impl));
 
-		cell = pm.module->addCell(NEW_TWINE, ID(SB_MAC16));
+		cell = pm.module->addCell(NEW_TWINE, TW::SB_MAC16);
 		pm.module->swap_names(cell, st.mul);
 	}
 	else log_assert(cell->type == ID(SB_MAC16));
@@ -194,11 +194,11 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	bool accum = false;
 	if (st.add) {
-		accum = (st.ffO && st.add->getPort(st.addAB == ID::A ? ID::B : ID::A) == st.sigO);
+		accum = (st.ffO && st.add->getPort(st.addAB == TW::A ? TW::B : TW::A) == st.sigO);
 		if (accum)
-			log("  accumulator %s (%s)\n", st.add, design->twines.unescaped_str(st.add->type));
+			log("  accumulator %s (%s)\n", st.add, pm.module->design->twines.unescaped_str(st.add->type_impl));
 		else
-			log("  adder %s (%s)\n", st.add, design->twines.unescaped_str(st.add->type));
+			log("  adder %s (%s)\n", st.add, pm.module->design->twines.unescaped_str(st.add->type_impl));
 		cell->setPort(TW::ADDSUBTOP, st.add->type == TW($add) ? State::S0 : State::S1);
 		cell->setPort(TW::ADDSUBBOT, st.add->type == TW($add) ? State::S0 : State::S1);
 	} else {
@@ -259,7 +259,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		else
 			cell->setParam(ID(TOPOUTPUT_SELECT), Const(1, 2));
 
-		st.ffO->connections_.at(ID::Q).replace(O, pm.module->addWire(NEW_TWINE, GetSize(O)));
+		st.ffO->connections_.at(TW::Q).replace(O, pm.module->addWire(NEW_TWINE, GetSize(O)));
 		cell->setParam(ID(BOTOUTPUT_SELECT), Const(1, 2));
 	}
 	else {

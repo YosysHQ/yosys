@@ -50,7 +50,7 @@ struct LibertyStubber {
 		auto base_name = base->design->twines.str(base->meta_->name).substr(1);
 		auto derived_name = derived->design->twines.str(derived->meta_->name).substr(1);
 
-		FfTypeData ffType(base_name);
+		FfTypeData ffType(base->meta_->name);
 		LibertyItemizer i(f);
 
 		if (ffType.has_gclk) {

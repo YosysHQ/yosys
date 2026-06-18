@@ -962,7 +962,8 @@ struct StatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
-				TwineRef top_ref = TwineSearch(&design->twines).find(RTLIL::escape_id(args[argidx + 1]));
+				TwineSearch search(&design->twines);
+				TwineRef top_ref = search.find(RTLIL::escape_id(args[argidx + 1]));
 				if (design->module(top_ref) == nullptr)
 					log_cmd_error("Can't find module %s.\n", args[argidx + 1]);
 				top_mod = design->module(top_ref);

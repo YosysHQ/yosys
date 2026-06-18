@@ -39,7 +39,7 @@ struct QlBramMergeWorker {
 
 	QlBramMergeWorker(RTLIL::Module* module) : module(module)
 	{
-		const RTLIL::IdString split_cell_type = TW($__QLF_TDP36K);
+		const TwineRef split_cell_type = TW($__QLF_TDP36K);
 
 		for (RTLIL::Cell* cell : module->selected_cells())
 		{
@@ -81,39 +81,39 @@ struct QlBramMergeWorker {
 			return bram1_map;
 	}
 
-	const dict<RTLIL::IdString, RTLIL::IdString>& port_map(bool second)
+	const dict<TwineRef, TwineRef>& port_map(bool second)
 	{
-		static const dict<RTLIL::IdString, RTLIL::IdString> bram1_map = {
-			{ ID(PORT_A_CLK),       ID(PORT_A1_CLK) },
-			{ ID(PORT_B_CLK),       ID(PORT_B1_CLK) },
-			{ ID(PORT_A_CLK_EN),    ID(PORT_A1_CLK_EN) },
-			{ ID(PORT_B_CLK_EN),    ID(PORT_B1_CLK_EN) },
-			{ ID(PORT_A_ADDR),      ID(PORT_A1_ADDR) },
-			{ ID(PORT_B_ADDR),      ID(PORT_B1_ADDR) },
-			{ ID(PORT_A_WR_DATA),   ID(PORT_A1_WR_DATA) },
-			{ ID(PORT_B_WR_DATA),   ID(PORT_B1_WR_DATA) },
-			{ ID(PORT_A_WR_EN),     ID(PORT_A1_WR_EN) },
-			{ ID(PORT_B_WR_EN),     ID(PORT_B1_WR_EN) },
-			{ ID(PORT_A_WR_BE),     ID(PORT_A1_WR_BE) },
-			{ ID(PORT_B_WR_BE),     ID(PORT_B1_WR_BE) },
-			{ ID(PORT_A_RD_DATA),   ID(PORT_A1_RD_DATA) },
-			{ ID(PORT_B_RD_DATA),   ID(PORT_B1_RD_DATA) }
+		static const dict<TwineRef, TwineRef> bram1_map = {
+			{ TW::PORT_A_CLK,       TW::PORT_A1_CLK },
+			{ TW::PORT_B_CLK,       TW::PORT_B1_CLK },
+			{ TW::PORT_A_CLK_EN,    TW::PORT_A1_CLK_EN },
+			{ TW::PORT_B_CLK_EN,    TW::PORT_B1_CLK_EN },
+			{ TW::PORT_A_ADDR,      TW::PORT_A1_ADDR },
+			{ TW::PORT_B_ADDR,      TW::PORT_B1_ADDR },
+			{ TW::PORT_A_WR_DATA,   TW::PORT_A1_WR_DATA },
+			{ TW::PORT_B_WR_DATA,   TW::PORT_B1_WR_DATA },
+			{ TW::PORT_A_WR_EN,     TW::PORT_A1_WR_EN },
+			{ TW::PORT_B_WR_EN,     TW::PORT_B1_WR_EN },
+			{ TW::PORT_A_WR_BE,     TW::PORT_A1_WR_BE },
+			{ TW::PORT_B_WR_BE,     TW::PORT_B1_WR_BE },
+			{ TW::PORT_A_RD_DATA,   TW::PORT_A1_RD_DATA },
+			{ TW::PORT_B_RD_DATA,   TW::PORT_B1_RD_DATA }
 		};
-		static const dict<RTLIL::IdString, RTLIL::IdString> bram2_map = {
-			{ ID(PORT_A_CLK),       ID(PORT_A2_CLK) },
-			{ ID(PORT_B_CLK),       ID(PORT_B2_CLK) },
-			{ ID(PORT_A_CLK_EN),    ID(PORT_A2_CLK_EN) },
-			{ ID(PORT_B_CLK_EN),    ID(PORT_B2_CLK_EN) },
-			{ ID(PORT_A_ADDR),      ID(PORT_A2_ADDR) },
-			{ ID(PORT_B_ADDR),      ID(PORT_B2_ADDR) },
-			{ ID(PORT_A_WR_DATA),   ID(PORT_A2_WR_DATA) },
-			{ ID(PORT_B_WR_DATA),   ID(PORT_B2_WR_DATA) },
-			{ ID(PORT_A_WR_EN),     ID(PORT_A2_WR_EN) },
-			{ ID(PORT_B_WR_EN),     ID(PORT_B2_WR_EN) },
-			{ ID(PORT_A_WR_BE),     ID(PORT_A2_WR_BE) },
-			{ ID(PORT_B_WR_BE),     ID(PORT_B2_WR_BE) },
-			{ ID(PORT_A_RD_DATA),   ID(PORT_A2_RD_DATA) },
-			{ ID(PORT_B_RD_DATA),   ID(PORT_B2_RD_DATA) }
+		static const dict<TwineRef, TwineRef> bram2_map = {
+			{ TW::PORT_A_CLK,       TW::PORT_A2_CLK },
+			{ TW::PORT_B_CLK,       TW::PORT_B2_CLK },
+			{ TW::PORT_A_CLK_EN,    TW::PORT_A2_CLK_EN },
+			{ TW::PORT_B_CLK_EN,    TW::PORT_B2_CLK_EN },
+			{ TW::PORT_A_ADDR,      TW::PORT_A2_ADDR },
+			{ TW::PORT_B_ADDR,      TW::PORT_B2_ADDR },
+			{ TW::PORT_A_WR_DATA,   TW::PORT_A2_WR_DATA },
+			{ TW::PORT_B_WR_DATA,   TW::PORT_B2_WR_DATA },
+			{ TW::PORT_A_WR_EN,     TW::PORT_A2_WR_EN },
+			{ TW::PORT_B_WR_EN,     TW::PORT_B2_WR_EN },
+			{ TW::PORT_A_WR_BE,     TW::PORT_A2_WR_BE },
+			{ TW::PORT_B_WR_BE,     TW::PORT_B2_WR_BE },
+			{ TW::PORT_A_RD_DATA,   TW::PORT_A2_RD_DATA },
+			{ TW::PORT_B_RD_DATA,   TW::PORT_B2_RD_DATA }
 		};
 
 		if(second)
@@ -124,11 +124,11 @@ struct QlBramMergeWorker {
 
 	void merge_brams(RTLIL::Cell* bram1, RTLIL::Cell* bram2)
 	{
-		const RTLIL::IdString merged_cell_type = TW($__QLF_TDP36K_MERGED);
+		const TwineRef merged_cell_type = TW($__QLF_TDP36K_MERGED);
 
 		// Create the new cell
 		RTLIL::Cell* merged = module->addCell(NEW_TWINE, merged_cell_type);
-		log_debug("Merging split BRAM cells %s and %s -> %s\n", design->twines.unescaped_str(bram1->name), design->twines.unescaped_str(bram2->name), design->twines.unescaped_str(merged->name));
+		log_debug("Merging split BRAM cells %s and %s -> %s\n", module->design->twines.unescaped_str(bram1->name.ref()), module->design->twines.unescaped_str(bram2->name.ref()), module->design->twines.unescaped_str(merged->name.ref()));
 
 		for (auto &it : param_map(false))
 		{
@@ -146,14 +146,14 @@ struct QlBramMergeWorker {
 			if (bram1->hasPort(it.first))
 				merged->setPort(it.second, bram1->getPort(it.first));
 			else
-				log_error("Can't find port %s on cell %s!\n", design->twines.unescaped_str(it.first), design->twines.unescaped_str(bram1->name));
+				log_error("Can't find port %s on cell %s!\n", module->design->twines.unescaped_str(it.first), module->design->twines.unescaped_str(bram1->name.ref()));
 		}
 		for (auto &it : port_map(true))
 		{
 			if (bram2->hasPort(it.first))
 				merged->setPort(it.second, bram2->getPort(it.first));
 			else
-				log_error("Can't find port %s on cell %s!\n", design->twines.unescaped_str(it.first), design->twines.unescaped_str(bram2->name));
+				log_error("Can't find port %s on cell %s!\n", module->design->twines.unescaped_str(it.first), module->design->twines.unescaped_str(bram2->name.ref()));
 		}
 		merged->attributes = bram1->attributes;
 		for (auto attr: bram2->attributes)

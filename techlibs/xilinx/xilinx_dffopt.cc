@@ -323,22 +323,22 @@ unmap:
 				Cell *lut_cell = 0;
 				switch (GetSize(final_lut.second)) {
 					case 1:
-						lut_cell = module->addCell(NEW_TWINE, ID(LUT1));
+						lut_cell = module->addCell(NEW_TWINE, TW::LUT1);
 						break;
 					case 2:
-						lut_cell = module->addCell(NEW_TWINE, ID(LUT2));
+						lut_cell = module->addCell(NEW_TWINE, TW::LUT2);
 						break;
 					case 3:
-						lut_cell = module->addCell(NEW_TWINE, ID(LUT3));
+						lut_cell = module->addCell(NEW_TWINE, TW::LUT3);
 						break;
 					case 4:
-						lut_cell = module->addCell(NEW_TWINE, ID(LUT4));
+						lut_cell = module->addCell(NEW_TWINE, TW::LUT4);
 						break;
 					case 5:
-						lut_cell = module->addCell(NEW_TWINE, ID(LUT5));
+						lut_cell = module->addCell(NEW_TWINE, TW::LUT5);
 						break;
 					case 6:
-						lut_cell = module->addCell(NEW_TWINE, ID(LUT6));
+						lut_cell = module->addCell(NEW_TWINE, TW::LUT6);
 						break;
 					default:
 						log_assert(!"unknown lut size");

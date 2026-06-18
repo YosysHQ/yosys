@@ -52,14 +52,14 @@ IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::
 {
 	std::string_view object_name_view(object_name.c_str());
 	if (object_name_view[0] == '\\'){
-		return concat_views(cell->name.c_str(), separator, object_name_view.substr(1));
+		return concat_views(cell->name.str(), separator, object_name_view.substr(1));
 	}
 
 	constexpr std::string_view prefix = "$flatten";
 	if (object_name_view.substr(0, prefix.size()) == prefix){
 		object_name_view.remove_prefix(prefix.size());
 	}
-	return concat_views(prefix, cell->name.c_str(), separator, object_name_view);
+	return concat_views(prefix, cell->name.str(), separator, object_name_view);
 }
 
 template<class T>
@@ -122,7 +122,7 @@ struct FlattenWorker
 					new_hdlname = cell->get_string_attribute(ID(hdlname));
 				} else {
 					log_assert(!cell->name.empty());
-					new_hdlname = cell->name.c_str() + 1;
+					new_hdlname = cell->name.unescaped();
 				}
 				new_hdlname += ' ';
 
@@ -140,14 +140,14 @@ struct FlattenWorker
 					new_scopename = cell->get_string_attribute(ID(hdlname));
 				} else {
 					log_assert(!cell->name.empty());
-					new_scopename = cell->name.c_str() + 1;
+					new_scopename = cell->name.unescaped();
 				}
 				new_scopename += ' ';
 				new_scopename += object->get_string_attribute(ID(scopename));
 				object->set_string_attribute(ID(scopename), new_scopename);
 			} else if (create_scopename) {
 				log_assert(!cell->name.empty());
-				object->set_string_attribute(ID(scopename), cell->name.c_str() + 1);
+				object->set_string_attribute(ID(scopename), cell->name.unescaped());
 			}
 		}
 	}
@@ -255,7 +255,7 @@ struct FlattenWorker
 				std::string port_name_str = design->twines.str(port_name);
 				if (!port_name_str.empty() && port_name_str[0] == '$')
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n",
-						std::string(port_name_str).c_str(), cell->name.c_str(), design->twines.str(tpl->meta_->name).c_str());
+						std::string(port_name_str).c_str(), cell->name.str().c_str(), design->twines.str(tpl->meta_->name).c_str());
 				continue;
 			}
 

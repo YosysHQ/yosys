@@ -31,7 +31,7 @@ PRIVATE_NAMESPACE_BEGIN
 #include "techlibs/xilinx/xilinx_dsp_cascade_pm.h"
 
 static Cell* addDsp(Module *module) {
-	Cell *cell = module->addCell(NEW_TWINE, ID(DSP48E1));
+	Cell *cell = module->addCell(NEW_TWINE, TW::DSP48E1);
 	cell->setParam(ID(ACASCREG), 0);
 	cell->setParam(ID(ADREG), 0);
 	cell->setParam(ID(A_INPUT), Const("DIRECT"));
@@ -75,7 +75,8 @@ SigPool simd_signals(Module *module, SigMap* sigmap)
 			auto bit = reps[i];
 			auto src_bit = SigBit(wire, i);
 			if (src_bit.is_wire() && src_bit.wire->has_attribute(ID::use_dsp)) {
-				if (src_bit.wire->get_strpool_attribute(ID::use_dsp).count("simd")) {
+				auto use_dsp_tokens = split_tokens(src_bit.wire->attributes.at(ID::use_dsp).decode_string(), "|");
+				if (std::find(use_dsp_tokens.begin(), use_dsp_tokens.end(), "simd") != use_dsp_tokens.end()) {
 					simd_signals.add(bit);
 				}
 			}
@@ -305,27 +306,27 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", pm.module, st.dsp);
 
-	log_debug("preAdd:     %s\n", st.preAdd ? design->twines.unescaped_str(st.preAdd->name) : "--");
-	log_debug("preSub:     %s\n", st.preSub ? design->twines.unescaped_str(st.preSub->name) : "--");
-	log_debug("ffAD:       %s\n", st.ffAD ? design->twines.unescaped_str(st.ffAD->name) : "--");
-	log_debug("ffA2:       %s\n", st.ffA2 ? design->twines.unescaped_str(st.ffA2->name) : "--");
-	log_debug("ffA1:       %s\n", st.ffA1 ? design->twines.unescaped_str(st.ffA1->name) : "--");
-	log_debug("ffB2:       %s\n", st.ffB2 ? design->twines.unescaped_str(st.ffB2->name) : "--");
-	log_debug("ffB1:       %s\n", st.ffB1 ? design->twines.unescaped_str(st.ffB1->name) : "--");
-	log_debug("ffD:        %s\n", st.ffD ? design->twines.unescaped_str(st.ffD->name) : "--");
-	log_debug("dsp:        %s\n", st.dsp ? design->twines.unescaped_str(st.dsp->name) : "--");
-	log_debug("ffM:        %s\n", st.ffM ? design->twines.unescaped_str(st.ffM->name) : "--");
-	log_debug("postAdd:    %s\n", st.postAdd ? design->twines.unescaped_str(st.postAdd->name) : "--");
-	log_debug("postAddMux: %s\n", st.postAddMux ? design->twines.unescaped_str(st.postAddMux->name) : "--");
-	log_debug("ffP:        %s\n", st.ffP ? design->twines.unescaped_str(st.ffP->name) : "--");
-	log_debug("overflow:   %s\n", st.overflow ? design->twines.unescaped_str(st.overflow->name) : "--");
+	log_debug("preAdd:     %s\n", st.preAdd ? pm.module->design->twines.unescaped_str(st.preAdd->name.ref()) : "--");
+	log_debug("preSub:     %s\n", st.preSub ? pm.module->design->twines.unescaped_str(st.preSub->name.ref()) : "--");
+	log_debug("ffAD:       %s\n", st.ffAD ? pm.module->design->twines.unescaped_str(st.ffAD->name.ref()) : "--");
+	log_debug("ffA2:       %s\n", st.ffA2 ? pm.module->design->twines.unescaped_str(st.ffA2->name.ref()) : "--");
+	log_debug("ffA1:       %s\n", st.ffA1 ? pm.module->design->twines.unescaped_str(st.ffA1->name.ref()) : "--");
+	log_debug("ffB2:       %s\n", st.ffB2 ? pm.module->design->twines.unescaped_str(st.ffB2->name.ref()) : "--");
+	log_debug("ffB1:       %s\n", st.ffB1 ? pm.module->design->twines.unescaped_str(st.ffB1->name.ref()) : "--");
+	log_debug("ffD:        %s\n", st.ffD ? pm.module->design->twines.unescaped_str(st.ffD->name.ref()) : "--");
+	log_debug("dsp:        %s\n", st.dsp ? pm.module->design->twines.unescaped_str(st.dsp->name.ref()) : "--");
+	log_debug("ffM:        %s\n", st.ffM ? pm.module->design->twines.unescaped_str(st.ffM->name.ref()) : "--");
+	log_debug("postAdd:    %s\n", st.postAdd ? pm.module->design->twines.unescaped_str(st.postAdd->name.ref()) : "--");
+	log_debug("postAddMux: %s\n", st.postAddMux ? pm.module->design->twines.unescaped_str(st.postAddMux->name.ref()) : "--");
+	log_debug("ffP:        %s\n", st.ffP ? pm.module->design->twines.unescaped_str(st.ffP->name.ref()) : "--");
+	log_debug("overflow:   %s\n", st.overflow ? pm.module->design->twines.unescaped_str(st.overflow->name.ref()) : "--");
 
 	Cell *cell = st.dsp;
 
 	if (st.preAdd || st.preSub) {
 		Cell* preAdder = st.preAdd ? st.preAdd : st.preSub;
 
-		log("  preadder %s (%s)\n", preAdder, design->twines.unescaped_str(preAdder->type));
+		log("  preadder %s (%s)\n", preAdder, pm.module->design->twines.unescaped_str(preAdder->type_impl));
 		bool A_SIGNED = preAdder->getParam(ID::A_SIGNED).as_bool();
 		bool D_SIGNED = preAdder->getParam(ID::B_SIGNED).as_bool();
 		if (st.sigA == preAdder->getPort(TW::B))
@@ -355,9 +356,9 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		pm.autoremove(preAdder);
 	}
 	if (st.postAdd) {
-		log("  postadder %s (%s)\n", st.postAdd, design->twines.unescaped_str(st.postAdd->type));
+		log("  postadder %s (%s)\n", st.postAdd, pm.module->design->twines.unescaped_str(st.postAdd->type_impl));
 
-		SigSpec &opmode = cell->connections_.at(ID(OPMODE));
+		SigSpec &opmode = cell->connections_.at(TW::OPMODE);
 		if (st.postAddMux) {
 			log_assert(st.ffP);
 			opmode[4] = st.postAddMux->getPort(TW::S);
@@ -381,7 +382,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		pm.autoremove(st.postAdd);
 	}
 	if (st.overflow) {
-		log("  overflow %s (%s)\n", st.overflow, design->twines.unescaped_str(st.overflow->type));
+		log("  overflow %s (%s)\n", st.overflow, pm.module->design->twines.unescaped_str(st.overflow->type_impl));
 		cell->setParam(ID(USE_PATTERN_DETECT), Const("PATDET"));
 		cell->setParam(ID(SEL_PATTERN), Const("PATTERN"));
 		cell->setParam(ID(SEL_MASK), Const("MASK"));
@@ -413,12 +414,12 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 	{
 		cell->setPort(TW::CLK, st.clock);
 
-		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
+		auto f = [&pm,cell](SigSpec &A, Cell* ff, TwineRef ceport, TwineRef rstport) {
 			SigSpec D = ff->getPort(TW::D);
 			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != Twine::Null) {
 				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -448,9 +449,9 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 		if (st.ffA2) {
 			SigSpec A = cell->getPort(TW::A);
-			f(A, st.ffA2, ID(CEA2), ID(RSTA));
+			f(A, st.ffA2, TW::CEA2, TW::RSTA);
 			if (st.ffA1) {
-				f(A, st.ffA1, ID(CEA1), IdString());
+				f(A, st.ffA1, TW::CEA1, Twine::Null);
 				cell->setParam(ID(AREG), 2);
 				cell->setParam(ID(ACASCREG), 2);
 			}
@@ -463,9 +464,9 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		}
 		if (st.ffB2) {
 			SigSpec B = cell->getPort(TW::B);
-			f(B, st.ffB2, ID(CEB2), ID(RSTB));
+			f(B, st.ffB2, TW::CEB2, TW::RSTB);
 			if (st.ffB1) {
-				f(B, st.ffB1, ID(CEB1), IdString());
+				f(B, st.ffB1, TW::CEB1, Twine::Null);
 				cell->setParam(ID(BREG), 2);
 				cell->setParam(ID(BCASCREG), 2);
 			}
@@ -478,21 +479,21 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		}
 		if (st.ffD) {
 			SigSpec D = cell->getPort(TW::D);
-			f(D, st.ffD, ID(CED), ID(RSTD));
+			f(D, st.ffD, TW::CED, TW::RSTD);
 			pm.add_siguser(D, cell);
 			cell->setPort(TW::D, D);
 			cell->setParam(ID(DREG), 1);
 		}
 		if (st.ffM) {
 			SigSpec M; // unused
-			f(M, st.ffM, ID(CEM), ID(RSTM));
-			st.ffM->connections_.at(ID::Q).replace(st.sigM, pm.module->addWire(NEW_TWINE, GetSize(st.sigM)));
+			f(M, st.ffM, TW::CEM, TW::RSTM);
+			st.ffM->connections_.at(TW::Q).replace(st.sigM, pm.module->addWire(NEW_TWINE, GetSize(st.sigM)));
 			cell->setParam(ID(MREG), State::S1);
 		}
 		if (st.ffP) {
 			SigSpec P; // unused
-			f(P, st.ffP, ID(CEP), ID(RSTP));
-			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
+			f(P, st.ffP, TW::CEP, TW::RSTP);
+			st.ffP->connections_.at(TW::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
 			cell->setParam(ID(PREG), State::S1);
 		}
 
@@ -538,23 +539,23 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 
 	log("Analysing %s.%s for Xilinx DSP48A/DSP48A1 packing.\n", pm.module, st.dsp);
 
-	log_debug("preAdd:     %s\n", st.preAdd ? design->twines.unescaped_str(st.preAdd->name) : "--");
-	log_debug("ffA1:       %s\n", st.ffA1 ? design->twines.unescaped_str(st.ffA1->name) : "--");
-	log_debug("ffA0:       %s\n", st.ffA0 ? design->twines.unescaped_str(st.ffA0->name) : "--");
-	log_debug("ffB1:       %s\n", st.ffB1 ? design->twines.unescaped_str(st.ffB1->name) : "--");
-	log_debug("ffB0:       %s\n", st.ffB0 ? design->twines.unescaped_str(st.ffB0->name) : "--");
-	log_debug("ffD:        %s\n", st.ffD ? design->twines.unescaped_str(st.ffD->name) : "--");
-	log_debug("dsp:        %s\n", st.dsp ? design->twines.unescaped_str(st.dsp->name) : "--");
-	log_debug("ffM:        %s\n", st.ffM ? design->twines.unescaped_str(st.ffM->name) : "--");
-	log_debug("postAdd:    %s\n", st.postAdd ? design->twines.unescaped_str(st.postAdd->name) : "--");
-	log_debug("postAddMux: %s\n", st.postAddMux ? design->twines.unescaped_str(st.postAddMux->name) : "--");
-	log_debug("ffP:        %s\n", st.ffP ? design->twines.unescaped_str(st.ffP->name) : "--");
+	log_debug("preAdd:     %s\n", st.preAdd ? pm.module->design->twines.unescaped_str(st.preAdd->name.ref()) : "--");
+	log_debug("ffA1:       %s\n", st.ffA1 ? pm.module->design->twines.unescaped_str(st.ffA1->name.ref()) : "--");
+	log_debug("ffA0:       %s\n", st.ffA0 ? pm.module->design->twines.unescaped_str(st.ffA0->name.ref()) : "--");
+	log_debug("ffB1:       %s\n", st.ffB1 ? pm.module->design->twines.unescaped_str(st.ffB1->name.ref()) : "--");
+	log_debug("ffB0:       %s\n", st.ffB0 ? pm.module->design->twines.unescaped_str(st.ffB0->name.ref()) : "--");
+	log_debug("ffD:        %s\n", st.ffD ? pm.module->design->twines.unescaped_str(st.ffD->name.ref()) : "--");
+	log_debug("dsp:        %s\n", st.dsp ? pm.module->design->twines.unescaped_str(st.dsp->name.ref()) : "--");
+	log_debug("ffM:        %s\n", st.ffM ? pm.module->design->twines.unescaped_str(st.ffM->name.ref()) : "--");
+	log_debug("postAdd:    %s\n", st.postAdd ? pm.module->design->twines.unescaped_str(st.postAdd->name.ref()) : "--");
+	log_debug("postAddMux: %s\n", st.postAddMux ? pm.module->design->twines.unescaped_str(st.postAddMux->name.ref()) : "--");
+	log_debug("ffP:        %s\n", st.ffP ? pm.module->design->twines.unescaped_str(st.ffP->name.ref()) : "--");
 
 	Cell *cell = st.dsp;
-	SigSpec &opmode = cell->connections_.at(ID(OPMODE));
+	SigSpec &opmode = cell->connections_.at(TW::OPMODE);
 
 	if (st.preAdd) {
-		log("  preadder %s (%s)\n", st.preAdd, design->twines.unescaped_str(st.preAdd->type));
+		log("  preadder %s (%s)\n", st.preAdd, pm.module->design->twines.unescaped_str(st.preAdd->type_impl));
 		bool D_SIGNED = st.preAdd->getParam(ID::A_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdd->getParam(ID::B_SIGNED).as_bool();
 		st.sigB.extend_u0(18, B_SIGNED);
@@ -572,7 +573,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		pm.autoremove(st.preAdd);
 	}
 	if (st.postAdd) {
-		log("  postadder %s (%s)\n", st.postAdd, design->twines.unescaped_str(st.postAdd->type));
+		log("  postadder %s (%s)\n", st.postAdd, pm.module->design->twines.unescaped_str(st.postAdd->type_impl));
 
 		if (st.postAddMux) {
 			log_assert(st.ffP);
@@ -600,12 +601,12 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 	{
 		cell->setPort(TW::CLK, st.clock);
 
-		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
+		auto f = [&pm,cell](SigSpec &A, Cell* ff, TwineRef ceport, TwineRef rstport) {
 			SigSpec D = ff->getPort(TW::D);
 			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != Twine::Null) {
 				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -636,11 +637,11 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		if (st.ffA0 || st.ffA1) {
 			SigSpec A = cell->getPort(TW::A);
 			if (st.ffA1) {
-				f(A, st.ffA1, ID(CEA), ID(RSTA));
+				f(A, st.ffA1, TW::CEA, TW::RSTA);
 				cell->setParam(ID(A1REG), 1);
 			}
 			if (st.ffA0) {
-				f(A, st.ffA0, ID(CEA), ID(RSTA));
+				f(A, st.ffA0, TW::CEA, TW::RSTA);
 				cell->setParam(ID(A0REG), 1);
 			}
 			pm.add_siguser(A, cell);
@@ -649,11 +650,11 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		if (st.ffB0 || st.ffB1) {
 			SigSpec B = cell->getPort(TW::B);
 			if (st.ffB1) {
-				f(B, st.ffB1, ID(CEB), ID(RSTB));
+				f(B, st.ffB1, TW::CEB, TW::RSTB);
 				cell->setParam(ID(B1REG), 1);
 			}
 			if (st.ffB0) {
-				f(B, st.ffB0, ID(CEB), ID(RSTB));
+				f(B, st.ffB0, TW::CEB, TW::RSTB);
 				cell->setParam(ID(B0REG), 1);
 			}
 			pm.add_siguser(B, cell);
@@ -661,21 +662,21 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		}
 		if (st.ffD) {
 			SigSpec D = cell->getPort(TW::D);
-			f(D, st.ffD, ID(CED), ID(RSTD));
+			f(D, st.ffD, TW::CED, TW::RSTD);
 			pm.add_siguser(D, cell);
 			cell->setPort(TW::D, D);
 			cell->setParam(ID(DREG), 1);
 		}
 		if (st.ffM) {
 			SigSpec M; // unused
-			f(M, st.ffM, ID(CEM), ID(RSTM));
-			st.ffM->connections_.at(ID::Q).replace(st.sigM, pm.module->addWire(NEW_TWINE, GetSize(st.sigM)));
+			f(M, st.ffM, TW::CEM, TW::RSTM);
+			st.ffM->connections_.at(TW::Q).replace(st.sigM, pm.module->addWire(NEW_TWINE, GetSize(st.sigM)));
 			cell->setParam(ID(MREG), State::S1);
 		}
 		if (st.ffP) {
 			SigSpec P; // unused
-			f(P, st.ffP, ID(CEP), ID(RSTP));
-			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
+			f(P, st.ffP, TW::CEP, TW::RSTP);
+			st.ffP->connections_.at(TW::Q).replace(st.sigP, pm.module->addWire(NEW_TWINE, GetSize(st.sigP)));
 			cell->setParam(ID(PREG), State::S1);
 		}
 
@@ -715,7 +716,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 	auto &st = pm.st_xilinx_dsp_packC;
 
 	log_debug("Analysing %s.%s for Xilinx DSP packing (CREG).\n", pm.module, st.dsp);
-	log_debug("ffC:        %s\n", st.ffC ? design->twines.unescaped_str(st.ffC->name) : "--");
+	log_debug("ffC:        %s\n", st.ffC ? pm.module->design->twines.unescaped_str(st.ffC->name.ref()) : "--");
 
 	Cell *cell = st.dsp;
 
@@ -723,12 +724,12 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 	{
 		cell->setPort(TW::CLK, st.clock);
 
-		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
+		auto f = [&pm,cell](SigSpec &A, Cell* ff, TwineRef ceport, TwineRef rstport) {
 			SigSpec D = ff->getPort(TW::D);
 			SigSpec Q = (*pm.sigmap)(ff->getPort(TW::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != Twine::Null) {
 				if (ff->type.in(TW($sdff), TW($sdffe))) {
 					SigSpec srst = ff->getPort(TW::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -758,7 +759,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 
 		if (st.ffC) {
 			SigSpec C = cell->getPort(TW::C);
-			f(C, st.ffC, ID(CEC), ID(RSTC));
+			f(C, st.ffC, TW::CEC, TW::RSTC);
 			pm.add_siguser(C, cell);
 			cell->setPort(TW::C, C);
 			cell->setParam(ID(CREG), 1);

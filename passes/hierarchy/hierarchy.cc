@@ -389,7 +389,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
                           const std::vector<std::string> &libdirs)
 {
 	std::string cell_type = design.twines.str(cell.type.ref());
-	RTLIL::Module *abs_mod = design.module(TwineSearch(&design.twines).find("$abstract" + cell_type));
+	RTLIL::Module *abs_mod = design.module(design.twines.find(Twine{"$abstract" + cell_type}));
 	if (abs_mod) {
 		cell.type_impl = design.twines.add(std::string{design.twines.str(abs_mod->derive(&design, cell.parameters))});
 		cell.parameters.clear();
@@ -741,12 +741,12 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 		int score = 0;
 		db[module] = 0;
 		for (auto cell : module->cells()) {
-			std::string celltype = cell->type.str();
-			// Is this an array instance
-			if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
-				celltype = basic_cell_type(celltype);
 			// Is this cell a module instance?
-			auto instModule = design->module(TwineSearch(&design->twines).find(celltype));
+			RTLIL::Module *instModule;
+			if (cell->type.begins_with("$array:"))
+				instModule = design->module(TwineSearch(&design->twines).find(basic_cell_type(cell->type.str())));
+			else
+				instModule = design->module(cell->type.ref());
 			// If there is no instance for this, issue a warning.
 			if (instModule != nullptr) {
 				score = max(score, find_top_mod_score(design, instModule, db) + 1);

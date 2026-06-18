@@ -487,6 +487,7 @@ struct AbstractPass : public Pass {
 
 		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
+			TwineSearch search(&design->twines);
 			for (auto mod : design->selected_modules()) {
 				EnableLogic enable_logic;
 
@@ -496,7 +497,7 @@ struct AbstractPass : public Pass {
 					} break;
 					case Enable::ActiveLow:
 					case Enable::ActiveHigh: {
-						Wire *enable_wire = mod->wire(TwineSearch(&mod->design->twines).find("\\" + enable_name));
+						Wire *enable_wire = mod->wire(search.find("\\" + enable_name));
 						if (!enable_wire)
 							log_cmd_error("Enable wire %s not found in module %s\n", enable_name, log_id(mod));
 						if (GetSize(enable_wire) != 1)

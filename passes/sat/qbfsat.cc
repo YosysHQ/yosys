@@ -47,9 +47,9 @@ pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, bool ass
 			found_1bit_output = true;
 	}
 	for (auto cell : module->cells()) {
-		if (cell->type == "$allconst")
+		if (cell->type == TW($allconst))
 			found_input = true;
-		if (cell->type == "$anyconst")
+		if (cell->type == TW($anyconst))
 			found_hole = true;
 		if (cell->type.in("$assert", "$assume"))
 			found_assert_assume = true;
@@ -74,7 +74,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	dict<RTLIL::SigBit, RTLIL::State> hole_assignments;
 
 	for (auto cell : module->cells())
-		if (cell->type == "$anyconst")
+		if (cell->type == TW($anyconst))
 			anyconst_loc_to_cell[module->design->src_leaves(cell)] = cell;
 
 	std::ifstream fin(file.c_str());
@@ -82,6 +82,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		log_cmd_error("could not read solution file.\n");
 
 	std::string buf;
+	TwineSearch search(&module->design->twines);
 	while (std::getline(fin, buf)) {
 		bool bit_assn = true;
 		if (!std::regex_search(buf, bit_m, hole_bit_assn_regex)) {
@@ -100,8 +101,8 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		//We have two options to identify holes.  First, try to match wire names.  If we can't find a matching wire,
 		//then try to find a cell with a matching location.
 		RTLIL::SigBit hole_sigbit;
-		if (module->wire(hole_name) != nullptr) {
-			RTLIL::Wire *hole_wire = module->wire(hole_name);
+		if (module->wire(search.find(hole_name)) != nullptr) {
+			RTLIL::Wire *hole_wire = module->wire(search.find(hole_name));
 			hole_sigbit = RTLIL::SigSpec(hole_wire)[hole_offset];
 		} else {
 			auto locs = split_tokens(hole_loc, "|");
@@ -131,7 +132,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 	auto hole_loc_idx_to_sigbit = sol.get_hole_loc_idx_sigbit_map(module);
 	pool<RTLIL::Cell *> anyconsts_to_remove;
 	for (auto cell : module->cells())
-		if (cell->type == "$anyconst")
+		if (cell->type == TW($anyconst))
 			if (hole_loc_idx_to_sigbit.find(std::make_pair(module->design->src_leaves(cell), 0)) != hole_loc_idx_to_sigbit.end())
 				anyconsts_to_remove.insert(cell);
 	for (auto cell : anyconsts_to_remove)
@@ -159,11 +160,12 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 }
 
 void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
+	TwineSearch search(&module->design->twines);
 	for (auto &n : input_wires) {
-		RTLIL::Wire *input = module->wire(n);
+		RTLIL::Wire *input = module->wire(search.find(n));
 		log_assert(input != nullptr);
 
-		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
+		RTLIL::Cell *allconst = module->addCell(Twine{"$allconst$" + n}, TW($allconst));
 		allconst->setParam(ID(WIDTH), input->width);
 		allconst->setPort(TW::Y, input);
 		allconst->adopt_src_from(input);
@@ -190,7 +192,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 
 	if (assume_neg) {
 		for (unsigned int i = 0; i < wires_to_assume.size(); ++i) {
-			RTLIL::SigSpec n_wire = module->LogicNot(wires_to_assume[i]->name.str() + "__n__qbfsat", wires_to_assume[i], false, wires_to_assume[i]->src_ref());
+			RTLIL::SigSpec n_wire = module->LogicNot(Twine{wires_to_assume[i]->name.str() + "__n__qbfsat"}, wires_to_assume[i], false, wires_to_assume[i]->src_ref());
 			wires_to_assume[i] = n_wire.as_wire();
 		}
 	}
@@ -199,8 +201,8 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 		std::vector<RTLIL::Wire *> buf;
 		for (auto j = 0; j + 1 < GetSize(wires_to_assume); j += 2) {
 			std::stringstream strstr; strstr << i << "_" << j;
-			RTLIL::Wire *and_wire = module->addWire("\\_qbfsat_and_" + strstr.str(), 1);
-			module->addLogicAnd("$_qbfsat_and_" + strstr.str(), wires_to_assume[j], wires_to_assume[j+1], and_wire, false, wires_to_assume[j]->src_ref());
+			RTLIL::Wire *and_wire = module->addWire(Twine{"\\_qbfsat_and_" + strstr.str()}, 1);
+			module->addLogicAnd(Twine{"$_qbfsat_and_" + strstr.str()}, wires_to_assume[j], wires_to_assume[j+1], and_wire, false, wires_to_assume[j]->src_ref());
 			buf.push_back(and_wire);
 		}
 		if (wires_to_assume.size() % 2 == 1)
@@ -209,7 +211,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 	}
 
 	log_assert(wires_to_assume.size() == 1);
-	module->addAssume("$assume_qbfsat_miter_outputs", wires_to_assume[0], RTLIL::S1);
+	module->addAssume(Twine{"$assume_qbfsat_miter_outputs"}, wires_to_assume[0], RTLIL::S1);
 }
 
 QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, const std::string &tempdir_name, const bool quiet = false, const int iter_num = 0) {
@@ -255,8 +257,8 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	const std::string tempdir_name = make_temp_dir(get_base_tmpdir() + "/yosys-qbfsat-XXXXXX");
 	RTLIL::Module *module = mod;
 	RTLIL::Design *design = module->design;
-	std::string module_name = module->name.str();
-	RTLIL::IdString wire_to_optimize_name = "";
+	TwineRef module_name = module->name.ref();
+	TwineRef wire_to_optimize_name = Twine::Null;
 	bool maximize = false;
 	log_assert(module->design != nullptr);
 
@@ -271,7 +273,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	//Find the wire to be optimized, if any:
 	for (auto wire : module->wires()) {
 		if (wire->get_bool_attribute("\\maximize") || wire->get_bool_attribute("\\minimize")) {
-			wire_to_optimize_name = wire->name;
+			wire_to_optimize_name = wire->name.ref();
 			maximize = wire->get_bool_attribute("\\maximize");
 			if (opt.nooptimize) {
 				if (maximize)
@@ -292,7 +294,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		Pass::call(module->design, "opt");
 	}
 
-	if (opt.nobisection || opt.nooptimize || wire_to_optimize_name == "") {
+	if (opt.nobisection || opt.nooptimize || wire_to_optimize_name == Twine::Null) {
 		ret = call_qbf_solver(module, opt, tempdir_name, false, 0);
 	} else {
 		//Do the iterated bisection method:
@@ -301,9 +303,9 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		unsigned int failure = 0;
 		unsigned int cur_thresh = 0;
 
-		log_assert(wire_to_optimize_name != "");
+		log_assert(wire_to_optimize_name != Twine::Null);
 		log_assert(module->wire(wire_to_optimize_name) != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name);
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), design->twines.str(wire_to_optimize_name));
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -315,8 +317,8 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				RTLIL::SigSpec comparator = maximize? module->Ge(NEW_TWINE, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false)
 				                                    : module->Le(NEW_TWINE, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
-				module->addAssume(wire_to_optimize_name.str() + "__threshold", comparator, RTLIL::Const(1, 1));
-				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), cur_thresh);
+				module->addAssume(Twine{design->twines.str(wire_to_optimize_name) + "__threshold"}, comparator, RTLIL::Const(1, 1));
+				log("Trying to solve with %s %s %d.\n", design->twines.str(wire_to_optimize_name), (maximize? ">=" : "<="), cur_thresh);
 			}
 
 			ret = call_qbf_solver(module, opt, tempdir_name, false, iter_num);
@@ -328,7 +330,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				specialize(module, ret, true);
 
 				RTLIL::SigSpec wire, value, undef;
-				RTLIL::SigSpec::parse_sel(wire, design, module, wire_to_optimize_name.str());
+				RTLIL::SigSpec::parse_sel(wire, design, module, design->twines.str(wire_to_optimize_name));
 
 				ConstEval ce(module);
 				value = wire;
@@ -337,7 +339,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				log_assert(value.is_fully_const());
 				success = value.as_const().as_int();
 				best_soln = ret;
-				log("Problem is satisfiable with %s = %d.\n", wire_to_optimize_name, success);
+				log("Problem is satisfiable with %s = %d.\n", design->twines.str(wire_to_optimize_name), success);
 				Pass::call(design, "design -pop");
 				module = design->module(module_name);
 
@@ -355,7 +357,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 					break;
 				}
 				else
-					log("Problem is NOT satisfiable with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), failure);
+					log("Problem is NOT satisfiable with %s %s %d.\n", design->twines.str(wire_to_optimize_name), (maximize? ">=" : "<="), failure);
 			}
 
 			iter_num++;
@@ -367,7 +369,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				cur_thresh = (success + failure) / 2; //bisection
 		}
 		if (success != 0 || failure != 0) {
-			log("Wire %s is %s at %d.\n", wire_to_optimize_name, (maximize? "maximized" : "minimized"), success);
+			log("Wire %s is %s at %d.\n", design->twines.str(wire_to_optimize_name), (maximize? "maximized" : "minimized"), success);
 			ret = best_soln;
 		}
 	}
@@ -606,7 +608,7 @@ struct QbfSatPass : public Pass {
 		log_push();
 		if (!opt.specialize_from_file) {
 			//Save the design to restore after modiyfing the current module.
-			std::string module_name = module->name.str();
+			TwineRef module_name = module->name.ref();
 
 			QbfSolutionType ret = qbf_solve(module, opt);
 			module = design->module(module_name);

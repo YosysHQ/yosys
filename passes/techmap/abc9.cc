@@ -318,12 +318,13 @@ struct Abc9Pass : public ScriptPass
 					}
 					else {
 						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
+						TwineSearch search(&active_design->twines);
 						for (auto module : active_design->selected_modules()) {
-							active_design->selected_active_module = module->name.str();
-							if (module->cell(stringf("%s_$abc9_flop", module->name)))
+							active_design->selected_active_module = module->name.ref();
+							if (module->cell(search.find(stringf("%s_$abc9_flop", module->name))))
 								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name));
 						}
-						active_design->selected_active_module.clear();
+						active_design->selected_active_module = Twine::Null;
 					}
 					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
 					run("design -copy-to $abc9 =*_$abc9_flop", "                                       (only if -dff)"); // copy submod out

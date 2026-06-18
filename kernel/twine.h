@@ -108,7 +108,7 @@ struct TW {
 	}
 };
 
-#define TW(id) (size_t)lookup_well_known_id(#id)
+#define TW(id) ((size_t)std::integral_constant<int, lookup_well_known_id(#id)>::value)
 // #define TW(name) TW::lookup(#name)
 
 struct Twine {
@@ -292,6 +292,14 @@ struct TwinePool {
 			return *it;
 		}
 		return Twine::Null;
+	}
+
+	// Escaped-name aware: strips a leading '\' and tags the result public,
+	// mirroring add(std::string), then resolves the content against the
+	// structural index. Returns Twine::Null if absent.
+	TwineRef find(const std::string &name) const {
+		bool is_public = !name.empty() && name[0] == '\\';
+		return find(Twine{is_public ? name.substr(1) : name}).tag(is_public);
 	}
 
 	TwineRef add_inner(Twine t) {

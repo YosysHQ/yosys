@@ -42,8 +42,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 // Similar to a SigBit; but module-independent
 struct IdBit {
-    IdBit() : name(), bit(0) {};
-    IdBit(IdString name, int bit = 0) : name(name), bit(bit) {};
+    IdBit() : name(Twine::Null), bit(0) {};
+    IdBit(TwineRef name, int bit = 0) : name(name), bit(bit) {};
 
     bool operator==(const IdBit &other) const { return name == other.name && bit == other.bit; };
     bool operator!=(const IdBit &other) const { return name != other.name || bit != other.bit; };
@@ -54,7 +54,7 @@ struct IdBit {
         return h;
     }
 
-    IdString name;
+    TwineRef name;
     int bit;
 };
 
@@ -95,7 +95,7 @@ struct RecoverModuleWorker {
     {
         // Create a derivative of the module with whiteboxes flattened so we can
         // run eval and sat on it
-        flat = design->addModule(NEW_ID);
+        flat = design->addModule(design->twines.add(NEW_TWINE));
         mod->cloneInto(flat);
         Pass::call_on_module(design, flat, "flatten -wb");
         ce = new ConstEval(flat);
@@ -103,7 +103,7 @@ struct RecoverModuleWorker {
         // Create a mapping from primary name-bit in the box-flattened module to original sigbit
         SigMap orig_sigmap(mod);
         for (auto wire : mod->wires()) {
-            Wire *flat_wire = flat->wire(wire->name);
+            Wire *flat_wire = flat->wire(wire->name.ref());
             if (!flat_wire)
                 continue;
             for (int i = 0; i < wire->width; i++) {
@@ -111,7 +111,7 @@ struct RecoverModuleWorker {
                 SigBit flat_sigbit = (*sigmap)(SigBit(flat_wire, i));
                 if (!orig_sigbit.wire || !flat_sigbit.wire)
                     continue;
-                flat2orig[IdBit(flat_sigbit.wire->name, flat_sigbit.offset)] = orig_sigbit;
+                flat2orig[IdBit(flat_sigbit.wire->name.ref(), flat_sigbit.offset)] = orig_sigbit;
             }
         }
         find_driven_bits();
@@ -127,7 +127,7 @@ struct RecoverModuleWorker {
                 SigBit bit(wire, i);
                 bit = (*sigmap)(bit);
                 if (bit.wire)
-                    bit2driver[IdBit(bit.wire->name, bit.offset)] = nullptr;
+                    bit2driver[IdBit(bit.wire->name.ref(), bit.offset)] = nullptr;
             }
         }
         // Add cell outputs
@@ -138,7 +138,7 @@ struct RecoverModuleWorker {
                 for (auto bit : conn.second) {
                     auto resolved = (*sigmap)(bit);
                     if (resolved.wire)
-                        bit2driver[IdBit(resolved.wire->name, resolved.offset)] = cell;
+                        bit2driver[IdBit(resolved.wire->name.ref(), resolved.offset)] = cell;
                 }
             }
         }
@@ -148,7 +148,7 @@ struct RecoverModuleWorker {
                 SigBit bit(wire, i);
                 bit = (*sigmap)(bit);
                 if (bit.wire)
-                    bit2primary[IdBit(wire->name, i)] = IdBit(bit.wire->name, bit.offset);
+                    bit2primary[IdBit(wire->name.ref(), i)] = IdBit(bit.wire->name.ref(), bit.offset);
             }
         }
     }
@@ -215,7 +215,7 @@ struct RecoverModuleWorker {
             for (auto bit : (*sigmap)(conn.second)) {
                 if (!bit.wire)
                     continue;
-                IdBit idbit(bit.wire->name, bit.offset);
+                IdBit idbit(bit.wire->name.ref(), bit.offset);
                 if (anchor_bits.count(idbit))
                     continue;
                 if (cell->input(conn.first))
@@ -236,7 +236,7 @@ struct RecoverModuleWorker {
 
         toposort.sort();
         for (auto cell_name : toposort.sorted) {
-            Cell *cell = flat->cell(cell_name);
+            Cell *cell = flat->cell(flat->design->twines.add(std::string{cell_name.str()}));
             int cell_depth = 0;
             for (auto conn : cell->connections()) {
                 if (!cell->input(conn.first))
@@ -244,7 +244,7 @@ struct RecoverModuleWorker {
                 for (auto bit : (*sigmap)(conn.second)) {
                     if (!bit.wire)
                         continue;
-                    IdBit idbit(bit.wire->name, bit.offset);
+                    IdBit idbit(bit.wire->name.ref(), bit.offset);
                     if (!bit2depth.count(idbit))
                         continue;
                     cell_depth = std::max(cell_depth, bit2depth.at(idbit));
@@ -256,7 +256,7 @@ struct RecoverModuleWorker {
                 for (auto bit : (*sigmap)(conn.second)) {
                     if (!bit.wire)
                         continue;
-                    IdBit idbit(bit.wire->name, bit.offset);
+                    IdBit idbit(bit.wire->name.ref(), bit.offset);
                     bit2depth[idbit] = std::max(bit2depth[idbit], cell_depth + 1);
                 }
             }
@@ -306,7 +306,7 @@ struct RecoverModuleWorker {
                 for (SigBit in_bit : (*sigmap)(conn.second)) {
                     if (!in_bit.wire)
                         continue;
-                    IdBit in_idbit(in_bit.wire->name, in_bit.offset);
+                    IdBit in_idbit(in_bit.wire->name.ref(), in_bit.offset);
                     to_import.push(in_idbit);
                 }
             }
@@ -347,7 +347,7 @@ struct RecoverModuleWorker {
 
     void do_rename(Module *gold, const dict<IdBit, InvBit> &gate2gold, const pool<IdString> &buffer_types)
     {
-        dict<SigBit, std::vector<std::tuple<Cell*, IdString, int>>> bit2port;
+        dict<SigBit, std::vector<std::tuple<Cell*, TwineRef, int>>> bit2port;
         pool<SigBit> unused_bits;
         SigMap orig_sigmap(mod);
         for (auto wire : mod->wires()) {
@@ -380,11 +380,11 @@ struct RecoverModuleWorker {
             if (root2buffered.count(gate_bit)) {
                 int buf_idx = 0;
                 for (auto buf_bit : root2buffered.at(gate_bit)) {
-                    std::string buf_name_str = stringf("%s_buf_%d", pair.second.bit.name, ++buf_idx);
+                    std::string buf_name_str = stringf("%s_buf_%d", design->twines.str(pair.second.bit.name).c_str(), ++buf_idx);
                     if (buf_name_str[0] == '\\')
                         buf_name_str[0] = '$';
                     rename_map[buf_bit] = std::make_pair(
-                        InvBit(IdBit(IdString(buf_name_str), pair.second.bit.bit), pair.second.inverted), gold_wire);
+                        InvBit(IdBit(design->twines.add(std::string{buf_name_str}), pair.second.bit.bit), pair.second.inverted), gold_wire);
                 }
             }
         }
@@ -396,11 +396,11 @@ struct RecoverModuleWorker {
             bool must_invert_name = rule.second.first.inverted;
             while (must_invert_name ||
                     (mod->wire(new_name.name) && !unused_bits.count(SigBit(mod->wire(new_name.name), new_name.bit)))) {
-                std::string new_name_str = stringf("%s_%s_%d", rule.second.first.bit.name,
+                std::string new_name_str = stringf("%s_%s_%d", design->twines.str(rule.second.first.bit.name).c_str(),
                     rule.second.first.inverted ? "inv" : "dup", ++dup_idx);
                 if (new_name_str[0] == '\\')
                     new_name_str[0] = '$';
-                new_name.name = IdString(new_name_str);
+                new_name.name = design->twines.add(std::string{new_name_str});
                 must_invert_name = false;
             }
             // Create the wire if needed
@@ -425,7 +425,7 @@ struct RecoverModuleWorker {
             if (bit2port.count(old_bit))
                 for (auto port_ref : bit2port.at(old_bit)) {
                     Cell *cell = std::get<0>(port_ref);
-                    IdString port_name = std::get<1>(port_ref);
+                    TwineRef port_name = std::get<1>(port_ref);
                     int port_bit = std::get<2>(port_ref);
                     SigSpec port_sig = cell->getPort(port_name);
                     port_sig.replace(port_bit, new_bit);
@@ -461,7 +461,7 @@ struct RecoverNamesWorker {
                 continue;
             bool is_comb = true;
             for (auto cell : mod->cells()) {
-                if (ct_all.cell_evaluable(cell->type)) {
+                if (ct_all.cell_evaluable(cell->type_impl)) {
                     is_comb = false;
                     break;
                 }
