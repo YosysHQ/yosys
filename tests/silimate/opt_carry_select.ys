@@ -1,0 +1,170 @@
+# Tests for opt_carry_select.
+
+# ---------------------------------------------------------------------------
+log -header "Functional equivalence: wide-early + narrow-late add"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [31:0] a, input [4:0] c0, input [4:0] c1, output [31:0] y);
+  wire [4:0] cause = c0 ^ c1;   // small logic so the narrow operand arrives late
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+rename cs gold
+
+read_verilog -sv <<EOF
+module cs(input [31:0] a, input [4:0] c0, input [4:0] c1, output [31:0] y);
+  wire [4:0] cause = c0 ^ c1;
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select cs
+opt_clean cs
+rename cs gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Structural rewrite: low add + incrementer + select mux"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [31:0] a, input [4:0] c0, input [4:0] c1, output [31:0] y);
+  wire [4:0] cause = c0 ^ c1;
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+select -assert-count 1 t:$add
+opt_carry_select
+opt_clean
+# original wide add -> low add + high incrementer, plus one select mux
+select -assert-count 2 t:$add
+select -assert-count 1 t:$mux
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Survives peepopt -muxorder (carry_select guard)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [31:0] a, input [4:0] c0, input [4:0] c1, output [31:0] y);
+  wire [4:0] cause = c0 ^ c1;
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select
+opt_clean
+# the high incrementer and select mux are tagged carry_select
+select -assert-count 2 a:carry_select
+peepopt -muxorder
+opt_clean
+# guard must keep the tagged cells: muxorder would otherwise fold
+# `c ? (hi+1) : hi` back into `hi + c` and strip these tagged cells
+select -assert-count 2 a:carry_select
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Equivalence: 64-bit wide, 6-bit narrow-late operand"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [63:0] a, input [5:0] c0, input [5:0] c1, output [63:0] y);
+  wire [5:0] cause = c0 | c1;
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+rename cs gold
+
+read_verilog -sv <<EOF
+module cs(input [63:0] a, input [5:0] c0, input [5:0] c1, output [63:0] y);
+  wire [5:0] cause = c0 | c1;
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select cs
+opt_clean cs
+rename cs gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: narrow operand is early (both direct inputs) -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [31:0] a, input [4:0] c, output [31:0] y);
+  assign y = a + c;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: equal-width operands (no narrow operand) -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [31:0] a, input [31:0] b0, input [31:0] b1, output [31:0] y);
+  wire [31:0] b = b0 ^ b1;
+  assign y = a + b;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select
+select -assert-count 0 t:$mux
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: signed operands -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input signed [31:0] a, input signed [4:0] c0, input signed [4:0] c1, output signed [31:0] y);
+  wire signed [4:0] cause = c0 ^ c1;
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select
+select -assert-count 0 t:$mux
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: high part below min_wide -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module cs(input [9:0] a, input [4:0] c0, input [4:0] c1, output [9:0] y);
+  wire [4:0] cause = c0 ^ c1;   // w-k = 5 < default min_wide (8)
+  assign y = a + cause;
+endmodule
+EOF
+proc; opt_clean
+opt_carry_select
+select -assert-count 0 t:$mux
+design -reset
+log -pop
