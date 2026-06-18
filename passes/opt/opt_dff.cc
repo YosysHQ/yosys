@@ -968,14 +968,6 @@ struct OptDffWorker
 		return s == State::S0 || s == State::S1;
 	}
 
-	int sat_mux(QuickConeSat &qcsat, int s, int a, int b) {
-		return qcsat.ez->OR(qcsat.ez->AND(s, a), qcsat.ez->AND(qcsat.ez->NOT(s), b));
-	}
-
-	int sat_const(QuickConeSat &qcsat, State v) {
-		return v == State::S1 ? qcsat.ez->CONST_TRUE : qcsat.ez->CONST_FALSE;
-	}
-
 	std::vector<std::vector<int>> gather_initial_eq_classes(std::vector<EqBit> &bits, dict<Cell *, FfData> &ff_for_cell)
 	{
 		std::vector<SigKey> keys;
@@ -1065,7 +1057,7 @@ struct OptDffWorker
 
 		// Assume same class
 		for (auto &cls : classes) {
-			uint64_t class_q_val = sim.xorshift64();
+			uint64_t class_q_val = sim.next_rand();
 			for (int idx : cls) {
 				sim.sim_vals[sigmap(bits[idx].q)] = class_q_val;
 			}
@@ -1137,12 +1129,12 @@ struct OptDffWorker
 				if (ff.has_aload) {
 					int al = qcsat.importSigBit(ff.sig_aload);
 					if (!ff.pol_aload) al = qcsat.ez->NOT(al);
-					n = sat_mux(qcsat, al, qcsat.importSigBit(ff.sig_ad[eb.idx]), n);
+					n = qcsat.ez->ITE(al, qcsat.importSigBit(ff.sig_ad[eb.idx]), n);
 				}
 				if (ff.has_arst) {
 					int ar = qcsat.importSigBit(ff.sig_arst);
 					if (!ff.pol_arst) ar = qcsat.ez->NOT(ar);
-					n = sat_mux(qcsat, ar, sat_const(qcsat, ff.val_arst[eb.idx]), n);
+					n = qcsat.ez->ITE(ar, qcsat.ez->value(ff.val_arst[eb.idx] == State::S1), n);
 				}
 				if (ff.has_sr) {
 					int clr = qcsat.importSigBit(ff.sig_clr[eb.idx]);
@@ -1154,7 +1146,7 @@ struct OptDffWorker
 				if (ff.has_srst) {
 					int srst = qcsat.importSigBit(ff.sig_srst);
 					if (!ff.pol_srst) srst = qcsat.ez->NOT(srst);
-					n = sat_mux(qcsat, srst, sat_const(qcsat, ff.val_srst[eb.idx]), n);
+					n = qcsat.ez->ITE(srst, qcsat.ez->value(ff.val_srst[eb.idx] == State::S1), n);
 				}
 
 				n_lit[idx] = n;
@@ -1191,7 +1183,8 @@ struct OptDffWorker
 				if (n_lit[rep] == n_lit[cls[i]])
 					continue;
 
-				int query = qcsat.ez->NOT(qcsat.ez->IFF(n_lit[rep], n_lit[cls[i]]));
+				// next-state bits differ
+				int query = qcsat.ez->XOR(n_lit[rep], n_lit[cls[i]]);
 				std::vector<int> modelExprs;
 				for (int b : cls)
 					modelExprs.push_back(n_lit[b]);

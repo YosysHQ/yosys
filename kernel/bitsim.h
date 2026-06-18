@@ -15,10 +15,10 @@ struct BitSim {
 	BitSim(Module *m, SigMap &sm, ModWalker &mw) 
 		: module(m), sigmap(sm), modwalker(mw), rng_state(1337) {}
 
-	uint64_t xorshift64() {
-		rng_state ^= rng_state << 13;
-		rng_state ^= rng_state >> 7;
-		rng_state ^= rng_state << 17;
+	uint64_t next_rand() {
+		uint32_t lo = mkhash_xorshift((uint32_t)rng_state);
+		uint32_t hi = mkhash_xorshift((uint32_t)(rng_state >> 32) ^ lo);
+		rng_state = ((uint64_t)hi << 32) | lo;
 		return rng_state;
 	}
 
@@ -34,17 +34,17 @@ struct BitSim {
 		uint64_t res = 0;
 
 		if (!modwalker.has_drivers(mapped)) {
-			res = xorshift64();
+			res = next_rand();
 		} else {
 			auto &drivers = modwalker.signal_drivers[mapped];
 			if (drivers.empty()) {
-				res = xorshift64();
+				res = next_rand();
 			} else {
 				auto driver = *drivers.begin();
 				Cell *cell = driver.cell;
 				
 				if (cell->is_builtin_ff()) {
-					res = xorshift64();
+					res = next_rand();
 				} else if (cell->type == ID($_AND_)) {
 					res = eval_bit(cell->getPort(ID::A)[0]) & eval_bit(cell->getPort(ID::B)[0]);
 				} else if (cell->type == ID($_OR_)) {
@@ -64,7 +64,7 @@ struct BitSim {
 					uint64_t b = eval_bit(cell->getPort(ID::B)[driver.offset]);
 					res = (a & ~s) | (b & s);
 				} else {
-					res = xorshift64();
+					res = next_rand();
 				}
 			}
 		}
