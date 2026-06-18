@@ -105,7 +105,7 @@ if (YOSYS_ENABLE_VERIFIC)
 		${verific_include_dirs}
 	)
 	target_link_libraries(verific INTERFACE
-		$<LINK_LIBRARY:WHOLE_ARCHIVE,$<TARGET_FILE:verific_merged>>
+		verific_merged
 		PkgConfig::zlib
 	)
 

@@ -18,6 +18,7 @@
 in
 pkgs.mkShell {
 	buildInputs = with pkgs; [
+		ccache
 		bison
 		flex
 		cmake
@@ -43,12 +44,13 @@ pkgs.mkShell {
 		clang
 		iverilog # tests
 		gtkwave # vcd2fst
-		(python3.withPackages(ps: with ps; [pybind11 cxxheaderparser]))
+		(python3.withPackages(ps: with ps; [pip wheel pybind11 cxxheaderparser]))
 		gnu-ar
 		gtest
 	] ++ lib.optionals stdenv.isLinux [
 		elfutils # provides libdw.so (not to be confused with libdwarf.so)
 	];
 
+	CMAKE_CXX_COMPILER_LAUNCHER = "ccache";
 	cmakeFlags = [ "-DCMAKE_C_COMPILER=clang" "-DCMAKE_CXX_COMPILER=clang++" "-DCMAKE_BUILD_TYPE=Debug" "-DCMAKE_CXX_FLAGS=-O0" "-DYOSYS_WITH_PYTHON:BOOL=ON" ];
 }

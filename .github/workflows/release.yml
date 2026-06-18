@@ -15,10 +15,11 @@ jobs:
     name: Build Linux amd64 wheel (musl)
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Build wheel in Alpine container
@@ -31,7 +32,7 @@ jobs:
               set -ex
               apk add --no-cache \
                 build-base bison flex flex-dev gperf \
-                tcl-dev readline-dev zlib-dev libffi-dev \
+                tcl-dev zlib-dev libffi-dev \
                 libdwarf-dev elfutils-dev \
                 python3 python3-dev py3-pip py3-setuptools py3-wheel \
                 git pkgconf ccache
@@ -50,9 +51,8 @@ jobs:
 
               # Build the wheel via setup.py
               pip install --break-system-packages pybind11 cxxheaderparser
-              _PYOSYS_OVERRIDE_VER=$(
-                grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
-              ) python3 setup.py bdist_wheel --dist-dir /src/dist
+              mkdir -p /src/dist
+              python3 -m pip wheel . --wheel-dir /src/dist
             '
 
       - uses: actions/upload-artifact@v4
@@ -65,7 +65,7 @@ jobs:
     name: Build Linux amd64 wheel (manylinux2014, glibc 2.17+)
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -80,7 +80,7 @@ jobs:
             quay.io/pypa/manylinux2014_x86_64 bash -c '
               set -ex
 
-              yum install -y tcl-devel readline-devel zlib-devel libffi-devel \
+              yum install -y tcl-devel zlib-devel libffi-devel \
                 flex gperf ccache patchelf \
                 elfutils-devel elfutils-libelf-devel libdwarf-devel
 
@@ -104,10 +104,8 @@ jobs:
               cd /src
 
               pip3 install --upgrade pip setuptools wheel pybind11 cxxheaderparser
-
-              _PYOSYS_OVERRIDE_VER=$(
-                grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
-              ) python3 setup.py bdist_wheel --dist-dir /src/dist-manylinux
+              mkdir -p dist-manylinux
+              python3 -m pip wheel . --wheel-dir /src/dist-manylinux
 
               # Tag wheel as manylinux2014
               pip3 install auditwheel || true
@@ -126,10 +124,11 @@ jobs:
     name: Build macOS arm64 wheel
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - uses: actions/setup-python@v5
@@ -138,7 +137,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install bison flex gperf tcl-tk@8 readline libffi dwarfutils libelf ccache
+          brew install bison flex gperf tcl-tk@8 libffi dwarfutils libelf ccache
           pip3 install pybind11 cxxheaderparser setuptools wheel
 
       - name: Build Verific tclmain
@@ -152,9 +151,8 @@ jobs:
         run: |
           export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
           export MACOSX_DEPLOYMENT_TARGET=11.0
-          _PYOSYS_OVERRIDE_VER=$(
-            grep "^YOSYS_VER " Makefile | head -1 | sed "s/.*:= *//" | tr "+" "."
-          ) python3 setup.py bdist_wheel --dist-dir dist
+          mkdir -p dist
+          python3 -m pip wheel . --wheel-dir dist
 
       - uses: actions/upload-artifact@v4
         with:
