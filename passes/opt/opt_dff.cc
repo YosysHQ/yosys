@@ -26,7 +26,6 @@
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
-#include "kernel/bitsim.h"
 #include "kernel/pattern.h"
 #include "passes/techmap/simplemap.h"
 #include <stdio.h>
@@ -42,6 +41,76 @@ struct OptDffOptions
 	bool simple_dffe;
 	bool sat;
 	bool keepdc;
+};
+
+// Bit-parallel random simulation used as a cheap pre-filter for equivalence
+struct BitSim {
+	Module *module;
+	SigMap &sigmap;
+	ModWalker &modwalker;
+	dict<SigBit, uint64_t> sim_vals;
+	uint64_t rng_state;
+
+	BitSim(Module *m, SigMap &sm, ModWalker &mw)
+		: module(m), sigmap(sm), modwalker(mw), rng_state(1337) {}
+
+	uint64_t next_rand() {
+		uint32_t lo = mkhash_xorshift((uint32_t)rng_state);
+		uint32_t hi = mkhash_xorshift((uint32_t)(rng_state >> 32) ^ lo);
+		rng_state = ((uint64_t)hi << 32) | lo;
+		return rng_state;
+	}
+
+	uint64_t eval_bit(SigBit b) {
+		SigBit mapped = sigmap(b);
+		if (mapped == State::S0) return 0ULL;
+		if (mapped == State::S1) return ~0ULL;
+		if (mapped == State::Sx || mapped == State::Sz) return 0ULL;
+
+		auto it = sim_vals.find(mapped);
+		if (it != sim_vals.end()) return it->second;
+		sim_vals[mapped] = 0;
+		uint64_t res = 0;
+
+		if (!modwalker.has_drivers(mapped)) {
+			res = next_rand();
+		} else {
+			auto &drivers = modwalker.signal_drivers[mapped];
+			if (drivers.empty()) {
+				res = next_rand();
+			} else {
+				auto driver = *drivers.begin();
+				Cell *cell = driver.cell;
+
+				if (cell->is_builtin_ff()) {
+					res = next_rand();
+				} else if (cell->type == ID($_AND_)) {
+					res = eval_bit(cell->getPort(ID::A)[0]) & eval_bit(cell->getPort(ID::B)[0]);
+				} else if (cell->type == ID($_OR_)) {
+					res = eval_bit(cell->getPort(ID::A)[0]) | eval_bit(cell->getPort(ID::B)[0]);
+				} else if (cell->type == ID($_XOR_)) {
+					res = eval_bit(cell->getPort(ID::A)[0]) ^ eval_bit(cell->getPort(ID::B)[0]);
+				} else if (cell->type == ID($_NOT_)) {
+					res = ~eval_bit(cell->getPort(ID::A)[0]);
+				} else if (cell->type == ID($_MUX_)) {
+					uint64_t s = eval_bit(cell->getPort(ID::S)[0]);
+					uint64_t a = eval_bit(cell->getPort(ID::A)[0]);
+					uint64_t b = eval_bit(cell->getPort(ID::B)[0]);
+					res = (a & ~s) | (b & s);
+				} else if (cell->type == ID($mux)) {
+					uint64_t s = eval_bit(cell->getPort(ID::S)[0]);
+					uint64_t a = eval_bit(cell->getPort(ID::A)[driver.offset]);
+					uint64_t b = eval_bit(cell->getPort(ID::B)[driver.offset]);
+					res = (a & ~s) | (b & s);
+				} else {
+					res = next_rand();
+				}
+			}
+		}
+
+		sim_vals[mapped] = res;
+		return res;
+	}
 };
 
 struct OptDffWorker
@@ -927,6 +996,8 @@ struct OptDffWorker
 		SigBit q;
 	};
 
+	// NOTE: This intentionally duplicates a subset of FfData, as flattening just the
+	// fields that matter for merging into a single comparable/hashable key is cheaper
 	struct SigKey {
 		enum Flag : uint16_t {
 			InitOne     = 1u << 0,
@@ -965,6 +1036,7 @@ struct OptDffWorker
 	};
 
 	bool is_def(State s) {
+	// Concrete constant bit (0 or 1), as opposed to x/z
 		return s == State::S0 || s == State::S1;
 	}
 
@@ -984,11 +1056,12 @@ struct OptDffWorker
 			ff_for_cell.emplace(cell, ff);
 
 			for (int i = 0; i < ff.width; i++) {
-				// X value
+				// Skip bits whose reset drives an undefined (x) value
 				if (ff.has_srst && !is_def(ff.val_srst[i])) continue;
 				if (ff.has_arst && !is_def(ff.val_arst[i])) continue;
 
-				// Missing anchor
+				// Class members are assumed equal in the current cycle and proven equal in the next, which needs
+				// a base case anchoring them to a common known value 
 				bool def_init = is_def(ff.val_init[i]);
 				if (!def_init && !ff.has_srst && !ff.has_arst)
 					continue;
@@ -1118,7 +1191,11 @@ struct OptDffWorker
 		std::vector<int> q_lit(bits.size(), -1);
 		std::vector<int> n_lit(bits.size(), -1);
 
-		// Per candidate SAT for its next state, model difference
+		// Build the next-state function n_lit[idx] of every candidate bit by
+		// folding the FF's control logic on top of the D input (-> next value)
+		
+		// Two bits are equivalent if their next states always agree whenever their
+		// current states (and those of every other candidate pair) agree
 		for (auto &cls : classes) {
 			for (int idx : cls) {
 				const EqBit &eb = bits[idx];
@@ -1154,6 +1231,12 @@ struct OptDffWorker
 		}
 
 		qcsat.prepare();
+
+		// Assume the induction hypo (that every current class is internally equal in the present cycle), and try
+		// to prove that the members of each class therefore also agree in the next cycle
+		
+		// A class survives only if no counterexample exists under that hypo, so combined with the common init/reset
+		// value that every class shares, this makes the equality an inductive invariant -> bits are eq and safe to merge
 		std::vector<int> worklist;
 		std::vector<bool> in_worklist(GetSize(classes), true);
 
@@ -1168,6 +1251,7 @@ struct OptDffWorker
 			auto &cls = classes[cls_idx];
 			if (GetSize(cls) < 2) continue;
 
+			// Induction hypo: assume every candidate class is equal
 			std::vector<int> assumptions;
 			for (auto &c : classes) {
 				if (GetSize(c) < 2) continue;
@@ -1176,15 +1260,18 @@ struct OptDffWorker
 					assumptions.push_back(qcsat.ez->IFF(q_lit[rep], q_lit[c[k]]));
 			}
 
-			// Split at counterexamples
+			// Scan the class members against the representative and issue a query per pair,
+			// stopping early at the first counterexample, which is reused to split the entire
+			// class at once
 			int rep = cls[0];
 			for (int i = 1; i < GetSize(cls); i++) {
-				// Trivially equivalent
 				if (n_lit[rep] == n_lit[cls[i]])
 					continue;
 
-				// next-state bits differ
+				// Can the next state of the rep and this member ever differ?
 				int query = qcsat.ez->XOR(n_lit[rep], n_lit[cls[i]]);
+				// Capture every member's next-state value in that model so one counterexample
+				// partitions the whole class
 				std::vector<int> modelExprs;
 				for (int b : cls)
 					modelExprs.push_back(n_lit[b]);
