@@ -160,7 +160,7 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
-			run("proc -latches " + (latches == "error" ? std::string("auto") : latches));
+			run("proc -latches " + (latches == "auto" ? std::string("auto") : std::string("warn")));
 			run("check");
 			run("flatten");
 			run("tribuf -logic");
@@ -204,9 +204,12 @@ struct SynthEfinixPass : public ScriptPass
 		{
 			run("dfflegalize -cell $_DFFE_????_ 0 -cell $_SDFFE_????_ 0 -cell $_SDFFCE_????_ 0 -cell $_DLATCH_?_ x");
 			if (help_mode)
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
+				run("check -assert", "(only if -latches error, the default)");
+			else if (latches == "error") {
+				active_design->scratchpad_set_bool("check.latchonly", true);
+				run("check -assert");
+				active_design->scratchpad_unset("check.latchonly");
+			}
 			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

@@ -263,7 +263,7 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + (latches == "error" ? std::string("auto") : latches));
+			run("proc -latches " + (latches == "auto" ? std::string("auto") : std::string("warn")));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");
@@ -340,9 +340,12 @@ struct SynthNanoXplorePass : public ScriptPass
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
 			run("opt_merge");
 			if (help_mode)
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
+				run("check -assert", "(only if -latches error, the default)");
+			else if (latches == "error") {
+				active_design->scratchpad_set_bool("check.latchonly", true);
+				run("check -assert");
+				active_design->scratchpad_unset("check.latchonly");
+			}
 			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");

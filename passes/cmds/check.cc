@@ -124,11 +124,26 @@ struct CheckPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		bool latchonly = design->scratchpad_get_bool("check.latchonly", false);
+
 		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
 			log("Checking module %s...\n", module);
+
+			// latch-only mode only flags latches, skipping the (potentially false-positive mid-flow) undriven/driver/loop checks below
+			if (latchonly) {
+				for (auto cell : module->cells())
+					if (
+						cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
+						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_")
+					) {
+						log_warning("Cell %s.%s is a latch of type %s.\n", module, cell, cell->type.unescape());
+						counter++;
+					}
+				continue;
+			}
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
@@ -275,8 +290,11 @@ struct CheckPass : public Pass {
 				cell_allowed:;
 				}
 
-				if (nolatches && (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
-						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))) {
+				if (
+					nolatches && (
+					cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
+					cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))
+				) {
 					log_warning("Cell %s.%s is a latch of type %s.\n", module, cell, cell->type.unescape());
 					counter++;
 				}

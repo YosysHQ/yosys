@@ -67,7 +67,7 @@ map_ffs:
 map_luts:
     abc
     ice40_opt
-    select
+    check
     techmap
     simplemap
     techmap

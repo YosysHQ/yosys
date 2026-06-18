@@ -226,7 +226,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("prepare")) {
-			run("proc -latches " + ((family == "pp3" && latches != "error") ? latches : std::string("auto")));
+			run("proc -latches " + ((family == "pp3" && latches != "auto") ? std::string("warn") : std::string("auto")));
 			if (flatten) {
 				run("check");
 				run("flatten", "(unless -noflatten)");
@@ -331,9 +331,12 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("map_luts", "(for pp3)") && (help_mode || family == "pp3")) {
 			if (help_mode)
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
+				run("check -assert", "(only if -latches error, the default)");
+			else if (latches == "error") {
+				active_design->scratchpad_set_bool("check.latchonly", true);
+				run("check -assert");
+				active_design->scratchpad_unset("check.latchonly");
+			}
 			run("techmap -map " + lib_path + family + "/latches_map.v");
 			if (abc9) {
 				run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");

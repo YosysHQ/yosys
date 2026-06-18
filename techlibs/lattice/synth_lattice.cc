@@ -416,7 +416,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + ((asyncprld || latches == "error") ? std::string("auto") : latches));
+			run("proc -latches " + ((asyncprld || latches == "auto") ? std::string("auto") : std::string("warn")));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten");
@@ -548,9 +548,12 @@ struct SynthLatticePass : public ScriptPass
 				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode) {
 				if (help_mode)
-					run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(skip if -asyncprld; only if -latches error, the default)");
-				else if (latches == "error")
-					run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
+					run("check -assert", "(skip if -asyncprld; only if -latches error, the default)");
+				else if (latches == "error") {
+					active_design->scratchpad_set_bool("check.latchonly", true);
+					run("check -assert");
+					active_design->scratchpad_unset("check.latchonly");
+				}
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 			}
 

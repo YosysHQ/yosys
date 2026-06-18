@@ -316,7 +316,7 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
-			run("proc -latches " + (latches == "error" ? std::string("auto") : latches));
+			run("proc -latches " + (latches == "auto" ? std::string("auto") : std::string("warn")));
 		}
 
 		if (check_label("flatten", "(unless -noflatten)"))
@@ -420,9 +420,12 @@ struct SynthIce40Pass : public ScriptPass
 				run("ice40_opt", "(only if -abc2)");
 			}
 			if (help_mode)
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("select -assert-none t:$_DLATCH_* t:$_DLATCHSR_*");
+				run("check -assert", "(only if -latches error, the default)");
+			else if (latches == "error") {
+				active_design->scratchpad_set_bool("check.latchonly", true);
+				run("check -assert");
+				active_design->scratchpad_unset("check.latchonly");
+			}
 			run("techmap -map +/ice40/latches_map.v");
 			if (noabc || flowmap || help_mode) {
 				run("simplemap", "                               (if -noabc or -flowmap)");

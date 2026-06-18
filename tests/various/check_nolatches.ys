@@ -29,3 +29,19 @@ EOT
 proc
 logger -expect error "Found 1 problems in" 1
 check -nolatches -assert
+
+design -reset
+
+read_verilog <<EOT
+module top(input g, d, output reg q, output y);
+always @* if (g) q = d;
+wire u;
+assign y = u;
+endmodule
+EOT
+proc
+scratchpad -set check.latchonly 1
+logger -expect warning "is a latch of type" 1
+logger -expect warning "used but has no driver" 0
+logger -expect error "Found 1 problems in" 1
+check -assert
