@@ -178,7 +178,7 @@ static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
 						  to_add_kind, id.c_str(), existing_kind, location_str.c_str());
 	};
 
-	TwineRef id_tw = TwineSearch(&module->design->twines).find(id.str());
+	TwineRef id_tw = module->design->twines.find(id.str());
 	if (const RTLIL::Wire *wire = module->wire(id_tw))
 		already_exists(wire, "signal");
 	if (const RTLIL::Cell *cell = module->cell(id_tw))
@@ -488,13 +488,12 @@ struct AST_INTERNAL::ProcessGenerator
 				continue;
 
 			std::string wire_name;
-			TwineSearch search(&current_module->design->twines);
 			do {
 				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
 						chunk.wire->name, chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.str().find('$') != std::string::npos)
 					wire_name += stringf("$%d", autoidx++);
-			} while (current_module->wire(search.find(wire_name)) != nullptr);
+			} while (current_module->wire(current_module->design->twines.find(wire_name)) != nullptr);
 
 			RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{wire_name}), chunk.width);
 			set_src_attr(wire, always.get());
@@ -973,7 +972,8 @@ struct AST_INTERNAL::ProcessGenerator
 				set_src_attr(&action, child.get());
 				action.memid = memid;
 				action.address = child->children[0]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
-				action.data = child->children[1]->genWidthRTLIL(current_module->memories[TwineSearch(&current_module->design->twines).find(memid)]->width, true, &subst_rvalue_map.stdmap());
+				TwineRef memid_tw = current_module->design->twines.find(memid);
+				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid_tw]->width, true, &subst_rvalue_map.stdmap());
 				action.enable = child->children[2]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
 				RTLIL::Const orig_priority_mask = child->children[4]->bitsAsConst();
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
@@ -1617,8 +1617,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			log_assert(id2ast != nullptr);
 
-			TwineSearch search(&current_module->design->twines);
-			TwineRef str_ref = search.find(str);
+			TwineRef str_ref = current_module->design->twines.find(str);
 
 			if (id2ast->type == AST_AUTOWIRE && current_module->wire(str_ref) == nullptr) {
 				RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{str}));
@@ -1665,7 +1664,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			// with the individual signals:
 			if (is_interface) {
 				IdString dummy_wire_name = stringf("$dummywireforinterface%s", str);
-				RTLIL::Wire *dummy_wire = current_module->wire(search.find(dummy_wire_name.str()));
+				RTLIL::Wire *dummy_wire = current_module->wire(current_module->design->twines.find(dummy_wire_name.str()));
 				if (!dummy_wire) {
 					dummy_wire = current_module->addWire(current_module->design->twines.add(std::string{dummy_wire_name.str()}));
 					dummy_wire->set_bool_attribute(ID::is_interface);
@@ -2040,7 +2039,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Cell *cell = current_module->addCell(current_module->design->twines.add(std::string{sstr.str()}), TW::$memrd);
 			set_src_attr(cell, this);
 
-			RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{cell->name.str() + "_DATA"}), current_module->memories[TwineSearch(&current_module->design->twines).find(str)]->width);
+			TwineRef mem_tw = current_module->design->twines.find(str);
+			RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{cell->name.str() + "_DATA"}), current_module->memories[mem_tw]->width);
 			set_src_attr(wire, this);
 
 			int mem_width, mem_size, addr_bits;
@@ -2090,13 +2090,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			SigSpec addr_sig = children[0]->genRTLIL();
 
+			TwineRef mem_tw = current_module->design->twines.find(str);
 			cell->setPort(TW::ADDR, addr_sig);
-			cell->setPort(TW::DATA, children[1]->genWidthRTLIL(current_module->memories[TwineSearch(&current_module->design->twines).find(str)]->width * num_words, true));
+			cell->setPort(TW::DATA, children[1]->genWidthRTLIL(current_module->memories[mem_tw]->width * num_words, true));
 			cell->setPort(TW::EN, en_sig);
 
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
-			cell->parameters[ID::WIDTH] = RTLIL::Const(current_module->memories[TwineSearch(&current_module->design->twines).find(str)]->width);
+			cell->parameters[ID::WIDTH] = RTLIL::Const(current_module->memories[mem_tw]->width);
 
 			cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
 		}

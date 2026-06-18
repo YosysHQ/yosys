@@ -552,7 +552,7 @@ struct RTLIL::IdString
 
 	template<typename T> struct compare_ptr_by_name {
 		bool operator()(const T *a, const T *b) const {
-			return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
+			return (a == nullptr || b == nullptr) ? (a < b) : (a->name.ref() < b->name.ref());
 		}
 	};
 

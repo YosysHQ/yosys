@@ -1480,7 +1480,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			if (defer_local)
 				child->str = "$abstract" + child->str;
 
-			TwineRef mod_name = TwineSearch(&design->twines).find(child->str);
+			TwineRef mod_name = design->twines.find(child->str);
 			if (design->has(mod_name)) {
 				RTLIL::Module *existing_mod = design->module(mod_name);
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
@@ -1716,11 +1716,10 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 	if (has_interfaces)
 		new_modname += "$interfaces$" + interf_info;
 
-	TwineSearch search(&design->twines);
-	TwineRef new_modname_ref = search.find(new_modname);
+	TwineRef new_modname_ref = design->twines.find(new_modname);
 	if (!design->has(new_modname_ref)) {
 		if (!new_ast) {
-			TwineRef modname_ref = search.find(modname);
+			TwineRef modname_ref = design->twines.find(modname);
 			auto mod = dynamic_cast<AstModule*>(design->module(modname_ref));
 			new_ast = mod->ast->clone();
 		}
@@ -1744,7 +1743,7 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 		}
 
 		process_module(design, new_ast.get(), false);
-		TwineRef new_ref = TwineSearch(&design->twines).find(modname);
+		TwineRef new_ref = design->twines.find(modname);
 		design->module(new_ref)->check();
 
 		RTLIL::Module* mod = design->module(new_ref);
@@ -1868,7 +1867,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 	if (parameters.size()) // not named_parameters to cover hierarchical defparams
 		modname = derived_module_name(stripped_name, named_parameters);
 
-	if (design->has(TwineSearch(&design->twines).find(modname)))
+	if (design->has(design->twines.find(modname)))
 		return modname;
 
 	if (!quiet)
