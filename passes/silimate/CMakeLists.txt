@@ -68,6 +68,9 @@ yosys_pass(opt_vps
 yosys_pass(opt_compact_prefix
 	opt_compact_prefix.cc
 )
+yosys_pass(opt_carry_select
+	opt_carry_select.cc
+)
 yosys_pass(infer_icg
 	infer_icg.cc
 )
