@@ -2097,8 +2097,10 @@ namespace {
 
 		void check()
 		{
-			if (!cell->type.begins_with("$") || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
-					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
+			std::string type_str = cell->type.str();
+			std::string_view type_sv = type_str;
+			if (!type_sv.starts_with("$") || type_sv.starts_with("$__") || type_sv.starts_with("$paramod") || type_sv.starts_with("$fmcombine") ||
+					type_sv.starts_with("$verific$") || type_sv.starts_with("$array:") || type_sv.starts_with("$extern:"))
 				return;
 
 			if (cell->type_impl == TW($buf)) {
@@ -5258,8 +5260,10 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	if (!type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
-			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
+	std::string type_str = type.str();
+	std::string_view type_sv = type_str;
+	if (!type_sv.starts_with("$") || type_sv.starts_with("$_") || type_sv.starts_with("$paramod") || type_sv.starts_with("$fmcombine") ||
+			type_sv.starts_with("$verific$") || type_sv.starts_with("$array:") || type_sv.starts_with("$extern:"))
 		return;
 
 	if (type == TW($buf) || type == TW($mux) || type == TW($pmux) || type == TW($bmux) || type == TW($bwmux) || type == TW($bweqx)) {

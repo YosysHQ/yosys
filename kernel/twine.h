@@ -229,11 +229,33 @@ struct TwinePool {
 			}
 		}, (*this)[ref].data);
 	}
+	void append_str(TwineRef ref, std::string& out) const {
+		if (ref == Twine::Null)
+			return;
+		if (twine_is_public(ref))
+			out += '\\';
+		std::visit([&](const auto& val) {
+			using T = std::decay_t<decltype(val)>;
+			if constexpr (std::is_same_v<T, std::monostate>) {
+			} else if constexpr (std::is_same_v<T, std::string>) {
+				out += val;
+			} else if constexpr (std::is_same_v<T, std::vector<TwineRef>>) {
+				for (size_t i = 0; i < val.size(); ++i) {
+					if (i > 0)
+						out += '|';
+					append_str(val[i], out);
+				}
+			} else if constexpr (std::is_same_v<T, Twine::Suffix>) {
+				append_str(val.prefix, out);
+				out += val.tail;
+			}
+		}, (*this)[ref].data);
+	}
 	// Escaped form: leading '\' for public name handles, content otherwise.
 	std::string str(TwineRef ref) const {
-		std::ostringstream os;
-		print(ref, os);
-		return os.str();
+		std::string out;
+		append_str(ref, out);
+		return out;
 	}
 
 	// Name content without the publicity escape.

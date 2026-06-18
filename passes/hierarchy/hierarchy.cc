@@ -663,12 +663,13 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTL
 		log("Used module: %*s%s\n", indent, "", mod->design->twines.str(mod->meta_->name).data());
 	used.insert(mod);
 
-	TwineSearch search(&design->twines);
 	for (auto cell : mod->cells()) {
-		std::string celltype = cell->type.str();
-		if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
-			celltype = basic_cell_type(celltype);
-		if (RTLIL::Module *cm = design->module(search.find(celltype)))
+		RTLIL::Module *cm;
+		if (cell->type.begins_with("$array:"))
+			cm = design->module(design->twines.find(basic_cell_type(cell->type.str())));
+		else
+			cm = design->module(cell->type.ref());
+		if (cm)
 			hierarchy_worker(design, used, cm, indent+4);
 	}
 }

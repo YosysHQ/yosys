@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/newcelltypes.h"
+#include "kernel/twine.h"
 #include "kernel/utils.h"
 #include "kernel/log.h"
 #include "kernel/unstable/patch.h"
@@ -385,7 +386,7 @@ void handle_polarity_inv(Cell *cell, TwineRef port, IdString param, const SigMap
 	SigBit sig = assign_map(raw);
 	if (auto inv_a = get_inverted_raw(sig)) {
 		SigBit new_sig = assign_map(*inv_a);
-		auto twines = cell->module->design->twines;
+		auto& twines = cell->module->design->twines;
 		log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
 				twines.unescaped_str(port), cell->type.unescaped(), cell, cell->module,
 				log_signal(sig), log_signal(new_sig));
@@ -397,7 +398,9 @@ void handle_polarity_inv(Cell *cell, TwineRef port, IdString param, const SigMap
 void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, TwineRef port, const SigMap &assign_map)
 {
 	log_assert(GetSize(type1) == GetSize(type2));
-	string cell_type = cell->type.str();
+	if ((size_t)cell->type_impl > STATIC_TWINE_END)
+		return;
+	const std::string &cell_type = TwinePool::globals_[(size_t)cell->type_impl].leaf();
 
 	if (GetSize(type1) != GetSize(cell_type))
 		return;
@@ -414,7 +417,7 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, TwineRe
 
 	if (cell->type.in(type1, type2)) {
 		SigSpec sig = assign_map(cell->getPort(port));
-		auto twines = cell->module->design->twines;
+		auto& twines = cell->module->design->twines;
 		if (auto inv_a = get_inverted_raw(sig)) {
 			SigSpec new_sig = assign_map(*inv_a);
 			log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
