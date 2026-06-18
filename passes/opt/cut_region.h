@@ -83,9 +83,9 @@ struct CutRegionWorker
 		budget_noted = true;
 		const char *which = attempt_budget <= 0 ? "attempt budget" :
 		                    walk_budget <= 0 ? "walk budget" : "eval budget";
-		log("Note: %s search %s exhausted in module %s; %d remaining root candidate(s) skipped. "
-		    "Use the pass budget options to raise the limit if QoR matters more than runtime here.\n",
-		    pass_name, which, log_id(module), skipped_roots);
+		log_debug("Note: %s search %s exhausted in module %s; %d remaining root candidate(s) skipped. "
+		          "Use the pass budget options to raise the limit if QoR matters more than runtime here.\n",
+		          pass_name, which, log_id(module), skipped_roots);
 	}
 
 	CutRegionWorker(Module *module) : module(module), sigmap(module)
