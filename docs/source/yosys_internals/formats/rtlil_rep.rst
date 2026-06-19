@@ -171,8 +171,8 @@ signals. This makes some aspects of RTLIL more complex but enables Yosys to be
 used for coarse grain synthesis where the cells of the target architecture
 operate on entire signal vectors instead of single bit wires.
 
-In Verilog and VHDL, busses may have arbitrary bounds, and LSB can have either
-the lowest or the highest bit index. In RTLIL, bit 0 always corresponds to LSB;
+In Verilog and VHDL, busses may have arbitrary bounds, and LSb can have either
+the lowest or the highest bit index. In RTLIL, bit 0 always corresponds to LSb;
 however, information from the HDL frontend is preserved so that the bus will be
 correctly indexed in error messages, backend output, constraint files, etc.
 
