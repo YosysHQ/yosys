@@ -773,6 +773,8 @@ struct RTLILFrontendWorker {
 					} else
 						error("RTLIL error: redefinition of memory %s.", design->twines.str(mem_name).c_str());
 				}
+				if (memory->meta_ == nullptr)
+					memory->meta_ = design->alloc_obj_meta();
 				memory->meta_->name = mem_name;
 				break;
 			}
