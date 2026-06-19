@@ -263,7 +263,7 @@ struct MemoryMapWorker
 				if (module->wire(TwineSearch(&design->twines).find(w_out_name)) != nullptr)
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
-				RTLIL::Wire *w_out = module->addWire(design->twines.add(Twine{w_out_name}), mem.width);
+				RTLIL::Wire *w_out = module->addWire(design->twines.add(std::string{w_out_name}), mem.width);
 
 				if (formal && mem.packed && mem.cell->name.isPublic()) {
 					auto hdlname = mem.cell->get_hdlname_attribute();

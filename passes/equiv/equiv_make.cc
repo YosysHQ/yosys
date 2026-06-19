@@ -108,13 +108,13 @@ struct EquivMakeWorker
 		for (auto it : gold_clone->wires().to_vector()) {
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				wire_names.insert(it->name);
-			gold_clone->rename(it, gold_clone->design->twines.add(Twine{it->name.str() + "_gold"}));
+			gold_clone->rename(it, gold_clone->design->twines.add(std::string{it->name.str() + "_gold"}));
 		}
 
 		for (auto it : gold_clone->cells().to_vector()) {
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
-			gold_clone->rename(it, gold_clone->design->twines.add(Twine{it->name.str() + "_gold"}));
+			gold_clone->rename(it, gold_clone->design->twines.add(std::string{it->name.str() + "_gold"}));
 			if (it->type.in(TW($input_port), TW($output_port), TW($public)))
 				gold_clone->remove(it);
 		}
@@ -122,13 +122,13 @@ struct EquivMakeWorker
 		for (auto it : gate_clone->wires().to_vector()) {
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				wire_names.insert(it->name);
-			gate_clone->rename(it, gate_clone->design->twines.add(Twine{it->name.str() + "_gate"}));
+			gate_clone->rename(it, gate_clone->design->twines.add(std::string{it->name.str() + "_gate"}));
 		}
 
 		for (auto it : gate_clone->cells().to_vector()) {
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
-			gate_clone->rename(it, gate_clone->design->twines.add(Twine{it->name.str() + "_gate"}));
+			gate_clone->rename(it, gate_clone->design->twines.add(std::string{it->name.str() + "_gate"}));
 			if (it->type.in(TW($input_port), TW($output_port), TW($public)))
 				gate_clone->remove(it);
 		}
@@ -516,9 +516,8 @@ struct EquivMakePass : public Pass {
 
 		log_header(design, "Executing EQUIV_MAKE pass (creating equiv checking module).\n");
 
-		worker.equiv_mod = design->addModule(design->twines.add(Twine{RTLIL::escape_id(args[argidx+2])}));
+		worker.equiv_mod = design->addModule(design->twines.add(std::string{RTLIL::escape_id(args[argidx+2])}));
 		worker.run();
-		Pass::call(design, "dump");
 	}
 } EquivMakePass;
 
