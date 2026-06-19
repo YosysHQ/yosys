@@ -41,9 +41,9 @@ struct DumpTwinesPass : public Pass {
 
 		const TwinePool &pool = design->twines;
 		log("twine pool: %zu local nodes\n", pool.size());
-		for (auto it = pool.backing.begin(); it != pool.backing.end(); ++it) {
-			TwineRef id = STATIC_TWINE_END + pool.backing.get_index(it);
-			const Twine &n = *it;
+		for (size_t idx = 0; idx < pool.backing.size(); ++idx) {
+			TwineRef id = STATIC_TWINE_END + idx;
+			const Twine &n = pool.backing[idx];
 			if (n.is_leaf()) {
 				log("  @%zu leaf \"%s\"", (size_t)id, n.leaf().c_str());
 			} else if (n.is_suffix()) {

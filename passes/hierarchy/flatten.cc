@@ -350,7 +350,7 @@ struct FlattenWorker
 			RTLIL::Cell *cell = worklist.back();
 			worklist.pop_back();
 
-			TwineRef cell_type_ref = design->twines.add(Twine{cell->type.str()});
+			TwineRef cell_type_ref = cell->type.ref();
 			if (!design->has(cell_type_ref))
 				continue;
 

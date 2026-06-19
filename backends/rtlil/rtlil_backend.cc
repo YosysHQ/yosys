@@ -61,8 +61,8 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
 		return;
 	f << stringf("twines\n");
 	std::vector<TwineRef> ids;
-	for (auto it = design->twines.backing.begin(); it != design->twines.backing.end(); ++it)
-		ids.push_back(STATIC_TWINE_END + design->twines.backing.get_index(it));
+	for (size_t idx = 0; idx < design->twines.backing.size(); ++idx)
+		ids.push_back(STATIC_TWINE_END + idx);
 	std::sort(ids.begin(), ids.end());
 	for (TwineRef id : ids) {
 		const Twine &n = design->twines[id];
