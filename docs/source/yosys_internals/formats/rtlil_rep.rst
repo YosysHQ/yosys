@@ -158,8 +158,8 @@ An ``RTLIL::Wire`` object has the following properties:
 -  The wire name
 -  A list of attributes
 -  A width (buses are just wires with a width more than 1)
--  Bus direction (MSB to LSB or vice versa)
--  Lowest valid bit index (LSB or MSB depending on bus direction)
+-  Bus direction (MSb to LSb or vice versa)
+-  Lowest valid bit index (LSb or MSb depending on bus direction)
 -  If the wire is a port: port number and direction (input/output/inout)
 
 As with modules, the attributes can be Verilog attributes imported by the
