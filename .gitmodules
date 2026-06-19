@@ -20,6 +20,3 @@
 [submodule "sv-elab"]
 	path = frontends/slang/lib
 	url = https://github.com/povik/sv-elab
-[submodule "libs/plf_colony"]
-	path = libs/plf_colony
-	url = git@github.com:mattreecebentley/plf_colony.git

@@ -6,9 +6,9 @@
 
 #include <cassert>
 
-#include "libs/plf_colony/plf_colony.h"
 #include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <limits>
 #include <span>
 #include <sstream>
@@ -164,7 +164,7 @@ void twine_prepopulate();
 
 struct TwinePool {
 	static std::vector<Twine> globals_;
-	plf::colony<Twine> backing;
+	std::deque<Twine> backing;
 	std::unordered_set<TwineRef, TwineHash, TwineEq> index;
 	// Indices of monostate, kept sorted
 	std::vector<size_t> free_list;
@@ -172,12 +172,8 @@ struct TwinePool {
 	const Twine& operator[] (TwineRef ref) const {
 		ref = twine_untag(ref);
 		if (ref < STATIC_TWINE_END) {
-			// if (yosys_xtrace)
-			// 	std::cout << "#X# accessing " << (size_t)ref << " from globals\n";
 			return globals_[ref];
 		} else {
-			// if (yosys_xtrace)
-			// 	std::cout << "#X# accessing " << (size_t)ref << " from colony of size " << backing.size() << "\n";
 			return backing[ref - STATIC_TWINE_END];
 		}
 	}
@@ -293,9 +289,8 @@ struct TwinePool {
 		for (TwineRef ref = 0; ref < STATIC_TWINE_END; ref++)
 			index.insert(ref);
 		free_list.clear();
-		for (auto it = backing.begin(); it != backing.end(); ++it) {
-			size_t idx = backing.get_index(it);
-			if (it->is_dead())
+		for (size_t idx = 0; idx < backing.size(); ++idx) {
+			if (backing[idx].is_dead())
 				free_list.push_back(idx);
 			else
 				index.insert(STATIC_TWINE_END + idx);
@@ -350,8 +345,8 @@ struct TwinePool {
 			backing[idx] = std::move(t);
 			ref = STATIC_TWINE_END + idx;
 		} else {
-			auto colony_it = backing.insert(std::move(t));
-			ref = STATIC_TWINE_END + backing.get_index(colony_it);
+			ref = STATIC_TWINE_END + backing.size();
+			backing.push_back(std::move(t));
 		}
 		index.insert(ref);
 		if (yosys_xtrace) {
@@ -430,14 +425,13 @@ struct TwinePool {
 		for (TwineRef ref : roots)
 			mark_live(ref, live);
 		size_t erased = 0;
-		for (auto it = backing.begin(); it != backing.end(); ++it) {
-			if (it->is_dead())
+		for (size_t idx = 0; idx < backing.size(); ++idx) {
+			if (backing[idx].is_dead())
 				continue;
-			size_t idx = backing.get_index(it);
 			if (!live.count(STATIC_TWINE_END + idx)) {
 				index.erase(STATIC_TWINE_END + idx);
 				free_list.push_back(idx);
-				*it = Twine{};
+				backing[idx] = Twine{};
 				erased++;
 			}
 		}
@@ -461,8 +455,8 @@ struct TwinePool {
 
 	void dump(std::ostream& os = std::cout) const {
 		os << "--- TwinePool Dump (" << backing.size() << " nodes) ---\n";
-		for (auto it = backing.begin(); it != backing.end(); ++it) {
-			TwineRef ref = STATIC_TWINE_END + backing.get_index(it);
+		for (size_t idx = 0; idx < backing.size(); ++idx) {
+			TwineRef ref = STATIC_TWINE_END + idx;
 			os << ref << " -> ";
 			dump(ref, os);
 			os << '\n';
@@ -716,10 +710,10 @@ struct TwineSearch {
 	TwineSearch(const TwinePool* pool) : pool(pool), index(0, DeepTwineHash{pool}, DeepTwineEq{pool}) {
 		for (TwineRef ref = 0; ref < STATIC_TWINE_END; ref++)
 			index.insert(ref);
-		for (auto it = pool->backing.begin(); it != pool->backing.end(); ++it) {
-			if (it->is_dead())
+		for (size_t idx = 0; idx < pool->backing.size(); ++idx) {
+			if (pool->backing[idx].is_dead())
 				continue;
-			index.insert(STATIC_TWINE_END + pool->backing.get_index(it));
+			index.insert(STATIC_TWINE_END + idx);
 		}
 	}
 	// Escaped-name aware. Resolves both statics and locals by content.
