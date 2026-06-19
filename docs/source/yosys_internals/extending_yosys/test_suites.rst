@@ -3,6 +3,22 @@ Testing Yosys
 
 .. todo:: adding tests (makefile-tests vs seed-tests)
 
+.. todo:: pyosys tests
+
+   (part of :ref:`yosys_internals/extending_yosys/ci:Automatic testing with Verific`)
+
+.. TODO:: test-cells
+
+   (run on pushes to main and PRs, under Linux)
+
+The majority of the included test suite is run automatically on the `Yosys Git
+repo`_.  For more about compiler tests and our CI process, check the :doc:`ci`
+document. For the most up to date information, including OS versions of test
+runners, refer to `the GitHub actions page`_.
+
+.. _Yosys Git repo: https://github.com/YosysHQ/yosys
+.. _the GitHub actions page: https://github.com/YosysHQ/yosys/actions
+
 Running the included test suite
 -------------------------------
 
@@ -45,6 +61,17 @@ it's unnecessary to "register" the test anywhere as if it's being added to an
 existing directory, depending on how the ``run-test.sh`` in that directory
 works.
 
+.. tip::
+
+   Automatically run on pushes to main and PRs, under both macOS and Linux
+   (``test-build.yml``)
+
+.. TODO:: testing with sanitizers
+
+   - Automatically run on pushes to main and during PR merges, under both macOS
+     and Linux, using clang's UBSAN and ASAN (``test-sanitizers.yml``)
+   - run locally with :makevar:`SANITIZER` (clean build first)
+
 Unit tests
 ~~~~~~~~~~
 
@@ -61,6 +88,11 @@ Running the unit tests requires the following additional packages:
    No additional requirements.
 
 Unit tests can be run with the ``test-unit`` CMake target.
+
+.. tip::
+
+   Automatically run on pushes to main and PRs, under both macOS and Linux
+   (``test-build.yml``)
 
 Functional tests
 ~~~~~~~~~~~~~~~~
@@ -104,6 +136,11 @@ Or run just functional tests with:
 
    cmake --build build --target test-functional
 
+.. tip::
+
+   Automatically run as part of
+   :ref:`yosys_internals/extending_yosys/ci:Automatic testing with Verific`
+
 Docs tests
 ~~~~~~~~~~
 
@@ -112,17 +149,10 @@ documentation, which can be run with the ``test-docs`` CMake target. This also
 includes checking some macro commands to ensure that descriptions of them are
 kept up to date, and is mostly intended for CI.
 
+.. tip::
 
-Automatic testing
------------------
+   Automatically run on pushes to main and PRs, under Linux (``test-build.yml``)
 
-The `Yosys Git repo`_ has automatic testing of builds and running of the
-included test suite on both Ubuntu and macOS, as well as across range of
-compiler versions.  For up to date information, including OS versions, refer to
-`the git actions page`_.
-
-.. _Yosys Git repo: https://github.com/YosysHQ/yosys
-.. _the git actions page: https://github.com/YosysHQ/yosys/actions
 
 ..
    How to add a unit test
