@@ -1526,6 +1526,7 @@ RTLIL::Design::Design()
 	hashidx_ = hashidx_count;
 
 	refcount_modules_ = 0;
+	selected_active_module = Twine::Null;
 	push_full_selection();
 
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
@@ -1751,21 +1752,21 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 
 bool RTLIL::Design::selected_module(TwineRef mod_name) const
 {
-	if (selected_active_module && mod_name != selected_active_module)
+	if (selected_active_module != Twine::Null && mod_name != selected_active_module)
 		return false;
 	return selection().selected_module(mod_name);
 }
 
 bool RTLIL::Design::selected_whole_module(TwineRef mod_name) const
 {
-	if (selected_active_module && mod_name != selected_active_module)
+	if (selected_active_module != Twine::Null && mod_name != selected_active_module)
 		return false;
 	return selection().selected_whole_module(mod_name);
 }
 
 bool RTLIL::Design::selected_member(TwineRef mod_name, TwineRef memb_name) const
 {
-	if (selected_active_module && mod_name != selected_active_module)
+	if (selected_active_module != Twine::Null && mod_name != selected_active_module)
 		return false;
 	return selection().selected_member(mod_name, memb_name);
 }
@@ -3188,6 +3189,8 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			copy_src_into(this, this->design, new_mod, new_mod->design);
 	}
 
+	dict<RTLIL::Wire*, RTLIL::Wire*> wire_map;
+
 	if (src_id_verbatim) {
 		// Per-AttrObject meta clone via dst design's pool. TwineRefs for
 		// src attributes transfer verbatim (twines was wholesale-copied).
@@ -3198,8 +3201,11 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			// Preserve name already set by addWire/addCell (in dst's pool).
 			TwineRef saved_name = dst_obj->meta_ ? dst_obj->meta_->name : Twine::Null;
 			// Recycle old meta slot (no field releases — name's retain lives on).
-			if (dst_obj->meta_)
+			if (dst_obj->meta_) {
+				dst_obj->meta_->name = Twine::Null;
+				dst_obj->meta_->src = Twine::Null;
 				new_mod->design->free_obj_meta(dst_obj->meta_);
+			}
 			// Alloc new meta and struct-copy (src field is valid; name from
 			// src pool is stale and will be overwritten).
 			dst_obj->meta_ = new_mod->design->alloc_obj_meta();
@@ -3210,6 +3216,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 			const RTLIL::Wire *o = it->second;
 			TwineRef dst_name = new_mod->design->twines.copy_from(design->twines, it->first);
 			RTLIL::Wire *w = new_mod->addWire(dst_name, o->width);
+			wire_map[it->second] = w;
 			w->start_offset = o->start_offset;
 			w->port_id = o->port_id;
 			w->port_input = o->port_input;
@@ -3286,7 +3293,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		// designs share the same pool (same-design clone).
 		for (auto it = wires_.rbegin(); it != wires_.rend(); ++it) {
 			TwineRef dst_id = new_mod->design->twines.copy_from(design->twines, it->first);
-			new_mod->addWire(dst_id, it->second);
+			wire_map[it->second] = new_mod->addWire(dst_id, it->second);
 		}
 
 		for (auto it = memories.rbegin(); it != memories.rend(); ++it) {
@@ -3307,20 +3314,24 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 
 	struct RewriteSigSpecWorker
 	{
-		RTLIL::Module *mod;
+		const dict<RTLIL::Wire*, RTLIL::Wire*> &wire_map;
 		void operator()(RTLIL::SigSpec &sig)
 		{
 			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
-				// wire points to original module; look up by name in new module.
-				// Use the IdString materialisation path: works for both same-design
-				// and cross-design clones without assuming pool identity.
-				wire = mod->wire(wire->meta_->name);
+				// wire still points at the source module's wire; remap it to the
+				// freshly cloned wire via the identity map built during the copy.
+				// Lookup-by-name is ambiguous across pools (distinct refs can share
+				// flattened content), so we map by source pointer instead. Wires
+				// already owned by the destination (e.g. from a prior cloneInto
+				// into the same module) aren't in the map and are left as-is.
+				auto it = wire_map.find(wire);
+				if (it != wire_map.end())
+					wire = it->second;
 			});
 		}
 	};
 
-	RewriteSigSpecWorker rewriteSigSpecWorker;
-	rewriteSigSpecWorker.mod = new_mod;
+	RewriteSigSpecWorker rewriteSigSpecWorker{wire_map};
 	new_mod->rewrite_sigspecs(rewriteSigSpecWorker);
 	new_mod->fixup_ports();
 }
