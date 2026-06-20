@@ -65,6 +65,20 @@ struct RTLILFrontendWorker {
 	dict<size_t, TwineRef> twine_remap;
 	std::vector<TwineRef> twine_parser_holds;
 
+	// Raw twines-block node descriptors keyed by file-local id. The block may
+	// list a node before its children (the writer emits in pool-index order,
+	// and free-list slot reuse can place a parent at a lower index than a
+	// child), so descriptors are collected first and materialized on demand in
+	// dependency order via materialize_file_twine.
+	struct TwineDesc {
+		enum Kind { Leaf, Suffix, Concat } kind;
+		std::string text;
+		size_t parent = 0;
+		std::vector<size_t> children;
+		bool materializing = false;
+	};
+	dict<size_t, TwineDesc> twine_descs;
+
 	template <typename... Args>
 	[[noreturn]]
 	void error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
@@ -570,20 +584,6 @@ struct RTLILFrontendWorker {
 		}
 	}
 
-	// Parses a `twines` ... `end` block. Builds twine_remap so subsequent
-	// cell/wire src "@N" references (which use file-local ids) translate
-	// to ids in design->twines. The destination pool may already be
-	// non-empty (multi-file load) — interned/concated nodes are dedup'd
-	// against the existing pool by the pool itself.
-	// Static ids are universal: a file id below STATIC_TWINE_END denotes the
-	// same prepopulated twine in every pool, so it maps to itself and is
-	// never emitted in the `twines` block.
-	// Resolve a numeric content id from the twines block (a node's own id, or
-	// a suffix/concat child). Statics are universal — an id below
-	// STATIC_TWINE_END denotes the same prepopulated twine in every pool;
-	// locals are remapped per file. Publicity (for $pub@/$priv@ handles)
-	// travels separately and is reapplied here. Object-use statics never reach
-	// this path: they are written as escaped names and interned by content.
 	TwineRef resolve_file_twine(size_t id, bool is_public = false)
 	{
 		TwineRef base;
@@ -592,14 +592,52 @@ struct RTLILFrontendWorker {
 		} else {
 			auto it = twine_remap.find(id);
 			if (it == twine_remap.end())
-				error("Unknown twine reference @%zu at line %d", id, line_num);
-			base = it->second;
+				base = materialize_file_twine(id);
+			else
+				base = it->second;
 		}
 		return twine_tag(base, is_public);
 	}
 
-	// Parse a "$pub@N"/"$priv@N" twine handle into a resolved, retagged ref.
-	// Returns nullopt (consuming nothing) if the next token is not a handle.
+	// Tolerates nodes listed out of dependency order
+	TwineRef materialize_file_twine(size_t id)
+	{
+		if (id < STATIC_TWINE_END)
+			return TwineRef(id);
+		auto rit = twine_remap.find(id);
+		if (rit != twine_remap.end())
+			return rit->second;
+		auto dit = twine_descs.find(id);
+		if (dit == twine_descs.end())
+			error("Unknown twine reference @%zu at line %d", id, line_num);
+		TwineDesc &desc = dit->second;
+		if (desc.materializing)
+			error("Cyclic twine reference @%zu at line %d", id, line_num);
+		desc.materializing = true;
+		TwineRef ref;
+		switch (desc.kind) {
+		case TwineDesc::Leaf:
+			ref = design->twines.add(Twine{desc.text});
+			break;
+		case TwineDesc::Suffix:
+			ref = design->twines.add(Twine{Twine::Suffix{
+					materialize_file_twine(desc.parent), desc.text}});
+			break;
+		case TwineDesc::Concat: {
+			std::vector<TwineRef> children;
+			children.reserve(desc.children.size());
+			for (size_t c : desc.children)
+				children.push_back(materialize_file_twine(c));
+			ref = design->twines.add(Twine{children});
+			break;
+		}
+		}
+		desc.materializing = false;
+		twine_remap[id] = ref;
+		return ref;
+	}
+
+	// Parse a "$pub@N"/"$priv@N" twine handle into a resolved, retagged ref
 	std::optional<TwineRef> try_parse_twine_handle()
 	{
 		bool is_public;
@@ -632,6 +670,10 @@ struct RTLILFrontendWorker {
 		return *t;
 	}
 
+	// Parse a `twines` ... `end` block into per-file node descriptors, then
+	// intern them all into design->twines. The destination pool may already
+	// hold twines (multi-file load); it dedups by content. Static ids are
+	// universal and never appear in the block.
 	void parse_twines()
 	{
 		expect_eol();
@@ -640,30 +682,35 @@ struct RTLILFrontendWorker {
 				break;
 			if (try_parse_keyword("leaf")) {
 				size_t file_id = parse_integer();
-				std::string text = parse_string();
+				TwineDesc &desc = twine_descs[file_id];
+				desc.kind = TwineDesc::Leaf;
+				desc.text = parse_string();
 				expect_eol();
-				twine_remap[file_id] = design->twines.add(Twine{text});
 				continue;
 			}
 			if (try_parse_keyword("suffix")) {
 				size_t file_id = parse_integer();
-				size_t file_parent = parse_integer();
-				std::string tail = parse_string();
+				TwineDesc &desc = twine_descs[file_id];
+				desc.kind = TwineDesc::Suffix;
+				desc.parent = parse_integer();
+				desc.text = parse_string();
 				expect_eol();
-				twine_remap[file_id] = design->twines.add(Twine{Twine::Suffix{resolve_file_twine(file_parent), tail}});
 				continue;
 			}
 			if (try_parse_keyword("concat")) {
 				size_t file_id = parse_integer();
-				std::vector<TwineRef> children;
+				TwineDesc &desc = twine_descs[file_id];
+				desc.kind = TwineDesc::Concat;
 				while (!try_parse_eol())
-					children.push_back(resolve_file_twine(parse_integer()));
-				twine_remap[file_id] = design->twines.add(Twine{children});
+					desc.children.push_back(parse_integer());
 				continue;
 			}
 			error("Expected `leaf`, `suffix` or `concat` inside twines block, got `%s'.",
 					error_token());
 		}
+		for (auto &it : twine_descs)
+			materialize_file_twine(it.first);
+		twine_descs.clear();
 		expect_eol();
 	}
 
