@@ -566,7 +566,7 @@ struct TechmapWorker
 							}
 						}
 
-						cell->type_impl = extmapper_module->meta_->name;
+						cell->type_impl = cell->module->design->twines.add(std::string{m_name});
 						cell->parameters.clear();
 
 						if (!extern_mode || in_recursion) {
