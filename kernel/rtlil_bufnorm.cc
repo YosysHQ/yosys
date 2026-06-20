@@ -235,6 +235,12 @@ struct RTLIL::SigNormIndex
 				cell->setPort(port, tmp);
 			}
 		}
+
+		// newly_driven is now empty but retains its peak capacity. A later
+		// incremental connect refills it with a handful of bits, yet the next
+		// rehash would be sized to that stale peak capacity. Release the
+		// storage so subsequent small batches stay small.
+		pool<SigBit>().swap(newly_driven);
 	}
 
 	void restore_connections() {
