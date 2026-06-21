@@ -30,6 +30,7 @@ OBJS += passes/opt/opt_balance_tree.o
 OBJS += passes/opt/opt_parallel_prefix.o
 OBJS += passes/opt/opt_prienc.o
 OBJS += passes/opt/opt_priority_onehot.o
+OBJS += passes/opt/opt_first_fit_alloc.o
 
 OBJS += passes/opt/peepopt.o
 GENFILES += passes/opt/peepopt_pm.h
