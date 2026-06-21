@@ -680,7 +680,7 @@ struct TechmapWorker
 				if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
 					parameters.emplace(ID::_TECHMAP_CELLTYPE_, cell->type.unescaped());
 				if (tpl->avail_parameters.count(ID::_TECHMAP_CELLNAME_) != 0)
-					parameters.emplace(ID::_TECHMAP_CELLNAME_, cell->module->design->twines.str(cell->meta_->name));
+					parameters.emplace(ID::_TECHMAP_CELLNAME_, cell->module->design->twines.unescaped_str(cell->meta_->name));
 
 				for (auto &conn : cell->connections()) {
 					if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", design->twines.unescaped_str(conn.first))) != 0) {

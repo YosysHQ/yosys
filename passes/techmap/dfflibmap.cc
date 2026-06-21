@@ -509,7 +509,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	}
 
 	auto &twines = module->design->twines;
-	auto conn_key = [&](char c) { return twines.add(Twine{std::string("\\") + c}); };
+	auto conn_key = [&](char c) { return twines.add(std::string{std::string("\\") + c}); };
 
 	std::map<std::string, int> stats;
 	for (auto cell : cell_list)
@@ -522,7 +522,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
-		RTLIL::Cell *new_cell = module->addCell(Twine{cell_name.str()}, twines.add(Twine{cm.cell_name.str()}));
+		RTLIL::Cell *new_cell = module->addCell(twines.add(std::string{cell_name.str()}), twines.add(std::string{cm.cell_name.str()}));
 
 		new_cell->set_src_attribute(twines.add(Twine{src}));
 
@@ -560,7 +560,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				sig = module->addWire(NEW_TWINE);
 			} else
 				log_abort();
-			new_cell->setPort(twines.add(Twine{"\\" + port.first}), sig);
+			new_cell->setPort(twines.add(std::string{"\\" + port.first}), sig);
 		}
 
 		stats[stringf("%s cells to %s cells", cell_type.c_str(), new_cell->type.unescape())]++;

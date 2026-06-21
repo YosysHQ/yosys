@@ -44,6 +44,24 @@ inline TwineRef refof(RTLIL::Design *design, RTLIL::IdString n)
 	return design->twines.add(std::string{n.str()});
 }
 
+inline RTLIL::Wire *wire_of(RTLIL::Design *design, RTLIL::Module *module,
+		const dict<std::string, RTLIL::Wire*> &module_wire_by_name, TwineRef name)
+{
+	if (auto *w = module->wire(name))
+		return w;
+	auto it = module_wire_by_name.find(design->twines.str(name));
+	return it == module_wire_by_name.end() ? nullptr : it->second;
+}
+
+inline RTLIL::Cell *cell_of(RTLIL::Design *design, RTLIL::Module *module,
+		const dict<std::string, RTLIL::Cell*> &module_cell_by_name, TwineRef name)
+{
+	if (auto *c = module->cell(name))
+		return c;
+	auto it = module_cell_by_name.find(design->twines.str(name));
+	return it == module_cell_by_name.end() ? nullptr : it->second;
+}
+
 void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 {
 	auto design = module->design;
@@ -215,6 +233,13 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	}
 
 	mapped_mod->fixup_ports();
+
+	dict<std::string, RTLIL::Wire*> module_wire_by_name;
+	for (auto w : module->wires())
+		module_wire_by_name[design->twines.str(w->name.ref())] = w;
+	dict<std::string, RTLIL::Cell*> module_cell_by_name;
+	for (auto c : module->cells())
+		module_cell_by_name[design->twines.str(c->name.ref())] = c;
 
 	for (auto w : mapped_mod->wires()) {
 		auto nw = module->addWire(rn(design, w->name), GetSize(w));
@@ -393,7 +418,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			}
 		}
 		else {
-			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name.ref());
+			RTLIL::Cell *existing_cell = cell_of(design, module, module_cell_by_name, mapped_cell->name.ref());
 			if (!existing_cell)
 				log_error("Cannot find existing box cell with name '%s' in original design.\n", mapped_cell);
 
@@ -519,7 +544,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	// Stitch in mapped_mod's inputs/outputs into module
 	for (auto port : mapped_mod->ports) {
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
-		RTLIL::Wire *wire = module->wire(port);
+		RTLIL::Wire *wire = wire_of(design, module, module_wire_by_name, port);
 		log_assert(wire);
 
 		RTLIL::Wire *remap_wire = module->wire(rn(design, mapped_wire->name));

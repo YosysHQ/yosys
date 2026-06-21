@@ -40,7 +40,7 @@ static void publish_design(RTLIL::Design* design) {
 		for (auto* cell : mod->cells()) {
 			IdString ct = cell->type;
 			if (ct.begins_with("$"))
-				cell->type_impl = cell->module->design->twines.add(Twine{"\\" + ct.str()});
+				cell->type_impl = cell->module->design->twines.add(std::string{"\\" + ct.str()});
 		}
 	}
 }
@@ -102,12 +102,12 @@ struct ChtypePass : public Pass {
 			for (auto cell : module->selected_cells())
 			{
 				if (map_types.count(cell->type)) {
-					cell->type_impl = cell->module->design->twines.add(Twine{map_types.at(cell->type).str()});
+					cell->type_impl = cell->module->design->twines.add(std::string{map_types.at(cell->type).str()});
 					continue;
 				}
 
 				if (set_type != IdString()) {
-					cell->type_impl = cell->module->design->twines.add(Twine{set_type.str()});
+					cell->type_impl = cell->module->design->twines.add(std::string{set_type.str()});
 					continue;
 				}
 			}

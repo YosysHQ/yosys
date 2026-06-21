@@ -711,7 +711,11 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 {
 	auto design = module->design;
 	log_assert(design);
-	auto refof = [&](RTLIL::IdString n) { return design->twines.add(std::string{n.str()}); };
+	// toposort keys cells by IdString; recover the cell's own pool ref rather
+	// than re-interning the flattened name, which would yield a fresh leaf that
+	// never matches a Suffix-shaped auto name.
+	dict<IdString, TwineRef> name_ref;
+	auto refof = [&](RTLIL::IdString n) { return name_ref.at(n); };
 
 	SigMap sigmap(module);
 
@@ -785,6 +789,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					for (auto bit : sigmap(conn.second))
 						bit_drivers[bit].insert(cell->name);
 			}
+			name_ref[cell->name] = cell->name.ref();
 			toposort.node(cell->name);
 		}
 
