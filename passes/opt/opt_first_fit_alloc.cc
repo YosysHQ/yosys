@@ -41,9 +41,13 @@ static int clog2_int(int x)
 // lane-major (lane k occupies bits [k*elem_w +: elem_w]).
 static Const pack_lanes(const vector<int> &vals, int elem_w)
 {
+	// Lane values come from the small field widths above (<= max_attr_w), so a
+	// 32-bit int always holds them. Assert rather than silently truncating, and
+	// keep b < 32 so we never shift an int by >= its width (undefined behaviour).
+	log_assert(elem_w < 32);
 	vector<State> bits(vals.size() * elem_w, State::S0);
 	for (int k = 0; k < GetSize(vals); k++)
-		for (int b = 0; b < elem_w && b < 31; b++)
+		for (int b = 0; b < elem_w; b++)
 			if ((vals[k] >> b) & 1)
 				bits[k * elem_w + b] = State::S1;
 	return Const(bits);
@@ -52,8 +56,6 @@ static Const pack_lanes(const vector<int> &vals, int elem_w)
 #include "passes/opt/cut_region.h"
 
 struct OptFirstFitAllocWorker : CutRegionWorker {
-	Cell *cell = nullptr;
-
 	int min_n = 4;
 	int max_n = 64;
 	int max_field_w = 6;   // max index (dsel) element width
@@ -249,9 +251,13 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			lfsr ^= lfsr << 17;
 			TestVector t; t.en.resize(n); t.bc.resize(n); t.label.resize(n);
 			uint64_t f = lfsr * 2654435761ULL;
+			// bc draws from an independently mixed word so en[k] and bc[j] never
+			// share an LFSR bit (a shifted view of `lfsr` would alias them, e.g.
+			// en[7] and bc[0] for n=8), keeping the random coverage independent.
+			uint64_t g = lfsr * 0x9E3779B97F4A7C15ULL;
 			for (int k = 0; k < n; k++) {
 				t.en[k] = (lfsr >> (k % 64)) & 1;
-				t.bc[k] = with_bc ? ((lfsr >> ((k + 7) % 64)) & 1) : 0;
+				t.bc[k] = with_bc ? ((g >> (k % 64)) & 1) : 0;
 				t.label[k] = (int)((f >> ((k * 3) % 60)) % (uint64_t)nval);
 			}
 			vs.push_back(t);
@@ -316,6 +322,11 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		}
 	};
 
+	// Resolve a single cone-leaf bit to the lane it belongs to. Returns the
+	// source `id` (flat bus wire name, or base name for per-lane "base[i]"
+	// wires), the `lane` index in [0,n), and the bit's `offset` within that
+	// lane's sub-field. Returns false if the bit has no wire or cannot be
+	// assigned to one of the n lanes.
 	bool lane_of_bit(SigBit bit, int n, std::string &id, int &lane, int &offset)
 	{
 		if (!bit.wire)
@@ -882,6 +893,12 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		return false;
 	}
 
+	// Functional fingerprint of a candidate dsel region: drive (en,bc,cat) with
+	// each generated test vector, ConstEval the root, and compare every lane's
+	// evaluated rank against the closed-form first-fit reference
+	// (compute_alloc_dir). Returns true iff all lanes match on every vector,
+	// i.e. the region implements the first-fit dsel for the given direction.
+	// Any eval failure or single mismatch rejects the candidate.
 	bool fingerprint_dsel(ConstEval &ce, const SigSpec &root, int n, int field_w,
 	                      const SigSpec &en_sig, const SigSpec &bc_sig, bool has_bc,
 	                      const SigSpec &cat_sig, int c, bool msb_first, int64_t cone_est)
@@ -1210,7 +1227,6 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			}
 
 			// Emit the shared scan once.
-			cell = rg.anchor;
 			int cnt_w = clog2_int(rg.n + 1);
 			vector<SigBit> leader;
 			vector<SigSpec> slot;
