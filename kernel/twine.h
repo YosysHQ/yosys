@@ -120,12 +120,19 @@ struct Twine {
 		auto operator<=>(const Suffix&) const = default;
 	};
 
-	std::variant<std::monostate, std::string, std::vector<TwineRef>, Suffix> data;
+	struct AutoPrefix {
+		const std::string *prefix;
+		std::string tail;
+		auto operator<=>(const AutoPrefix&) const = default;
+	};
+
+	std::variant<std::monostate, std::string, std::vector<TwineRef>, Suffix, AutoPrefix> data;
 
 	bool is_dead() const { return std::holds_alternative<std::monostate>(data); }
 	bool is_leaf() const { return std::holds_alternative<std::string>(data); }
 	bool is_concat() const { return std::holds_alternative<std::vector<TwineRef>>(data); }
 	bool is_suffix() const { return std::holds_alternative<Suffix>(data); }
+	bool is_auto_prefix() const { return std::holds_alternative<AutoPrefix>(data); }
 	bool is_flat() const { return is_leaf() || is_suffix(); }
 	const std::string &leaf() const { return std::get<std::string>(data); }
 	const std::vector<TwineRef> &children() const { return std::get<std::vector<TwineRef>>(data); }
@@ -363,6 +370,10 @@ struct TwinePool {
 	// and tag publicity themselves (or use the add(std::string) overload).
 	// Suffix names inherit the prefix handle's publicity.
 	TwineRef add(Twine t) {
+		if (auto *ap = std::get_if<Twine::AutoPrefix>(&t.data)) {
+			TwineRef pref = add_inner(Twine{*ap->prefix});
+			return add_inner(Twine{Twine::Suffix{pref, std::move(ap->tail)}});
+		}
 		bool is_public = false;
 		if (auto *sfx = std::get_if<Twine::Suffix>(&t.data)) {
 			is_public = twine_is_public(sfx->prefix);
@@ -649,6 +660,10 @@ struct TwineChildPool {
 
 	// Local analog of TwinePool::add; see there for the convention.
 	TwineRef add(Twine t) {
+		if (auto *ap = std::get_if<Twine::AutoPrefix>(&t.data)) {
+			TwineRef pref = add_inner(Twine{*ap->prefix});
+			return add_inner(Twine{Twine::Suffix{pref, std::move(ap->tail)}});
+		}
 		bool is_public = false;
 		if (auto *leaf = std::get_if<std::string>(&t.data)) {
 			assert(!leaf->empty());

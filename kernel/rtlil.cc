@@ -3797,15 +3797,24 @@ RTLIL::Cell *RTLIL::Module::addCell(Twine name, Twine type)
 
 RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, const RTLIL::Cell *other)
 {
-	RTLIL::Cell *cell = addCell(name, other->type_impl);
-	cell->connections_ = other->connections_;
+	const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
+	bool cross_pool = src_design && this->design && src_design != this->design;
+
+	TwineRef type = other->type_impl;
+	if (cross_pool)
+		type = this->design->twines.copy_from(src_design->twines, other->type_impl);
+
+	RTLIL::Cell *cell = addCell(name, type);
+	if (cross_pool) {
+		for (auto &c : other->connections_)
+			cell->connections_[this->design->twines.copy_from(src_design->twines, c.first)] = c.second;
+	} else {
+		cell->connections_ = other->connections_;
+	}
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
-	{
-		const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
-		if (src_design && this->design)
-			copy_src_into(other, src_design, cell, this->design);
-	}
+	if (src_design && this->design)
+		copy_src_into(other, src_design, cell, this->design);
 	return cell;
 }
 
