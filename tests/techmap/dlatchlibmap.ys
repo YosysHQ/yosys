@@ -1,15 +1,14 @@
 read_verilog -icells <<EOT
 
-module top(input C, D, E, S, R, output [11:0] Q);
+module top(input E, D, S, R, output [9:0] Q);
 
-$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
-$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
-$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
-$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(R), .S(S), .Q(Q[4]));
-$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
+$_DLATCH_P_     latch0 (.E(E), .D(D),               .Q(Q[0]));
+$_DLATCH_PP0_   latch1 (.E(E), .D(D), .R(R),        .Q(Q[1]));
+$_DLATCH_PP1_   latch2 (.E(E), .D(D), .R(R),        .Q(Q[2]));
+$_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R(R), .S(S), .Q(Q[3]));
+$_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(R), .S(S), .Q(Q[4]));
 
-assign Q[11:6] = ~Q[5:0];
+assign Q[9:5] = ~Q[4:0];
 
 endmodule
 
@@ -18,82 +17,76 @@ EOT
 simplemap
 
 design -save orig
-read_liberty -lib dfflibmap.lib
+read_liberty -lib dlatchlibmap.lib
 
-equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -liberty dfflibmap.lib
-equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -prepare -liberty dfflibmap.lib
+equiv_opt -map dlatchlibmap-sim.v -assert -multiclock dfflibmap -liberty dlatchlibmap.lib
+equiv_opt -map dlatchlibmap-sim.v -assert -multiclock dfflibmap -prepare -liberty dlatchlibmap.lib
 
-dfflibmap -prepare -liberty dfflibmap.lib
-equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -map-only -liberty dfflibmap.lib
+dfflibmap -prepare -liberty dlatchlibmap.lib
+equiv_opt -map dlatchlibmap-sim.v -assert -multiclock dfflibmap -map-only -liberty dlatchlibmap.lib
 
 design -load orig
-dfflibmap -liberty dfflibmap.lib
+dfflibmap -liberty dlatchlibmap.lib
 clean
 
 select -assert-count 5 t:$_NOT_
-select -assert-count 1 t:dffn
-select -assert-count 4 t:dffsr
-select -assert-count 1 t:dffe
-select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:dlatchn
+select -assert-count 4 t:dlatchsr
+select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
 
 design -load orig
-dfflibmap -prepare -liberty dfflibmap.lib
+dfflibmap -prepare -liberty dlatchlibmap.lib
 
 select -assert-count 11 t:$_NOT_
-select -assert-count 1 t:$_DFF_N_
-select -assert-count 4 t:$_DFFSR_PPP_
-select -assert-count 1 t:$_DFFE_NP_
-select -assert-none t:$_DFF_N_ t:$_DFFSR_PPP_ t:$_DFFE_NP_ t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:$_DLATCH_N_
+select -assert-count 4 t:$_DLATCHSR_PPP_
+select -assert-none t:$_DLATCH_N_ t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i
 
 design -load orig
-dfflibmap -map-only -liberty dfflibmap.lib
+dfflibmap -map-only -liberty dlatchlibmap.lib
 
 select -assert-count 6 t:$_NOT_
-select -assert-count 0 t:dffn
-select -assert-count 1 t:dffsr
+select -assert-count 0 t:dlatchn
+select -assert-count 1 t:dlatchsr
 
 design -load orig
-dfflibmap -prepare -liberty dfflibmap.lib
-dfflibmap -map-only -liberty dfflibmap.lib
+dfflibmap -prepare -liberty dlatchlibmap.lib
+dfflibmap -map-only -liberty dlatchlibmap.lib
 clean
 
 select -assert-count 5 t:$_NOT_
-select -assert-count 1 t:dffn
-select -assert-count 4 t:dffsr
-select -assert-count 1 t:dffe
-select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:dlatchn
+select -assert-count 4 t:dlatchsr
+select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
 
 design -load orig
-dfflibmap -prepare -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_r.lib
-dfflibmap -map-only -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_r.lib
+dfflibmap -prepare -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatchsr_r.lib
+dfflibmap -map-only -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatchsr_r.lib
 clean
 
 select -assert-count 5 t:$_NOT_
-select -assert-count 1 t:dffn
-select -assert-count 1 t:dffe
-select -assert-count 4 t:dffsr
-select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:dlatchn
+select -assert-count 4 t:dlatchsr
+select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
 
 design -load orig
-dfflibmap -liberty dfflibmap.lib -dont_use *ffn
+dfflibmap -liberty dlatchlibmap.lib -dont_use *latchn
 clean
 
-select -assert-count 0 t:dffn
-select -assert-count 5 t:dffsr
-select -assert-count 1 t:dffe
+select -assert-count 0 t:dlatchn
+select -assert-count 5 t:dlatchsr
 
 design -load orig
-dfflibmap -liberty dfflibmap.lib -liberty dfflibmap_dffsr_mixedpol.lib -dont_use dffsr
+dfflibmap -liberty dlatchlibmap.lib -liberty dlatchlibmap_dlatchsr_mixedpol.lib -dont_use dlatchsr
 clean
-# We have one more _NOT_ than with the regular dffsr
+# We have one more _NOT_ than with the regular dlatchsr
 select -assert-count 6 t:$_NOT_
-select -assert-count 1 t:dffn
-select -assert-count 4 t:dffsr_mixedpol
-select -assert-count 1 t:dffe
-# The additional NOT is on ff2.
-# Originally, ff2.R is an active high "set".
-# dffsr_mixedpol has functionally swapped labels due to the next_state inversion,
+select -assert-count 1 t:dlatchn
+select -assert-count 4 t:dlatchsr_mixedpol
+# The additional NOT is on latch2.
+# Originally, latch2.R is an active high "set".
+# dlatchsr_mixedpol has functionally swapped labels due to the next_state inversion,
 # so we use its CLEAR port for the "set",
 # but we have to invert it because the CLEAR pin is active low.
-# ff2.CLEAR = !R
-select -assert-count 1 c:ff2 %x:+[CLEAR] %ci t:$_NOT_ %i
+# latch2.CLEAR = !R
+select -assert-count 1 c:latch2 %x:+[CLEAR] %ci t:$_NOT_ %i

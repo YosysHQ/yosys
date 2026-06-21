@@ -1,30 +1,18 @@
-module dffn(input CLK, D, output reg Q, output QN);
+module dlatchn(input ENA, D, output reg Q, output QN);
 
-always @(negedge CLK)
-	Q <= D;
-
-assign QN = ~Q;
-
-endmodule
-
-module dffsr(input CLK, D, CLEAR, PRESET, output reg Q, output QN);
-
-always @(posedge CLK, posedge CLEAR, posedge PRESET)
-	if (CLEAR)
-		Q <= 0;
-	else if (PRESET)
-		Q <= 1;
-	else
-		Q <= D;
+always @*
+	if (~ENA)  Q <= D;
 
 assign QN = ~Q;
 
 endmodule
 
-module dffe(input CLK, EN, D, output reg Q, output QN);
+module dlatchsr(input ENA, D, CLEAR, PRESET, output reg Q, output QN);
 
-always @(negedge CLK)
-	if (EN) Q <= D;
+always @*
+	if      (CLEAR)   Q <= 1'b0;
+	else if (PRESET)  Q <= 1'b1;
+	else if (ENA)     Q <= D;
 
 assign QN = ~Q;
 

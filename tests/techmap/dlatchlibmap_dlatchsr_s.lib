@@ -1,19 +1,20 @@
 library(test) {
-  cell (dffsr) {
+  cell (dlatchsr) {
     area : 6;
-    ff("IQ", "IQN") {
-      next_state : "D";
-      clocked_on : "CLK";
-      clear      : "CLEAR";
-      preset     : "PRESET";
+    latch("IQ", "IQN") {
+      data_in : "D";
+      enable  : "ENA";
+      clear   : "CLEAR";
+      preset  : "PRESET";
       clear_preset_var1 : H;
       clear_preset_var2 : L;
     }
     pin(D) {
       direction : input;
     }
-    pin(CLK) {
+    pin(ENA) {
       direction : input;
+      clock : true;
     }
     pin(CLEAR) {
       direction : input;

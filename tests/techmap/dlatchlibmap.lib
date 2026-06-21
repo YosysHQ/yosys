@@ -1,16 +1,17 @@
 library(test) {
-  /* D-type flip-flop with asynchronous reset and preset */
-  cell (dffn) {
+  /* D-type latch with reset and preset */
+  cell (dlatchn) {
     area : 6;
-    ff("IQ", "IQN") {
-      next_state : "D";
-      clocked_on : "!CLK";
+    latch("IQ", "IQN") {
+      data_in : "D";
+      enable  : "!ENA";
     }
     pin(D) {
       direction : input;
     }
-    pin(CLK) {
+    pin(ENA) {
       direction : input;
+      clock : true;
     }
     pin(Q) {
       direction: output;
@@ -21,50 +22,27 @@ library(test) {
       function : "IQN";
     }
   }
-  cell (dffsr) {
+  cell (dlatchsr) {
     area : 6;
-    ff("IQ", "IQN") {
-      next_state : "D";
-      clocked_on : "CLK";
-      clear      : "CLEAR";
-      preset     : "PRESET";
+    latch("IQ", "IQN") {
+      data_in : "D";
+      enable  : "ENA";
+      clear   : "CLEAR";
+      preset  : "PRESET";
       clear_preset_var1 : L;
       clear_preset_var2 : L;
     }
     pin(D) {
       direction : input;
     }
-    pin(CLK) {
+    pin(ENA) {
       direction : input;
+      clock : true;
     }
     pin(CLEAR) {
       direction : input;
     }
     pin(PRESET) {
-      direction : input;
-    }
-    pin(Q) {
-      direction: output;
-      function : "IQ";
-    }
-    pin(QN) {
-      direction: output;
-      function : "IQN";
-    }
-  }
-  cell (dffe) {
-    area : 6;
-    ff("IQ", "IQN") {
-      next_state : "(D EN) | (IQ !EN)";
-      clocked_on : "!CLK";
-    }
-    pin(D) {
-      direction : input;
-    }
-    pin(EN) {
-      direction : input;
-    }
-    pin(CLK) {
       direction : input;
     }
     pin(Q) {
