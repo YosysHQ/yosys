@@ -1,11 +1,11 @@
-library (test_not_next) {
-  cell (dff_not_next) {
+library (test_not_data) {
+  cell (dff_not_data) {
     area: 1.0;
     pin (QN) {
       direction : output;
       function : "STATE";
     }
-    pin (CLK) {
+    pin (ENA) {
       direction : input;
       clock : true;
     }
@@ -15,9 +15,9 @@ library (test_not_next) {
     pin (RN) {
       direction : input;
     }
-    ff (STATE, STATEN) {
-      clocked_on: "CLK";
-      next_state: "!D";
+    latch (STATE, STATEN) {
+      enable: "ENA";
+      data_in: "!D";
       preset : "!RN";
     }
   }
