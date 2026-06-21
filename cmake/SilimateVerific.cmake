@@ -20,12 +20,13 @@ if (YOSYS_ENABLE_VERIFIC)
 	condition(ENABLE_VERIFIC_UPF WITH_VERIFIC_UPF AND YOSYS_ENABLE_TCL)
 
 	# construct component list
+	## VERILOG MUST BE FIRST OR THE LINUX LINK FAILS!
+	if (ENABLE_VERIFIC_SYSTEMVERILOG)
+		list(APPEND YOSYS_VERIFIC_COMPONENTS verilog)
+	endif()
 	list(APPEND YOSYS_VERIFIC_COMPONENTS database util containers pct)
 	if (ENABLE_VERIFIC_HIER_TREE)
 		list(APPEND YOSYS_VERIFIC_COMPONENTS hier_tree)
-	endif()
-	if (ENABLE_VERIFIC_SYSTEMVERILOG)
-		list(APPEND YOSYS_VERIFIC_COMPONENTS verilog)
 	endif()
 	if (ENABLE_VERIFIC_VHDL)
 		list(APPEND YOSYS_VERIFIC_COMPONENTS vhdl)
@@ -71,19 +72,63 @@ if (YOSYS_ENABLE_VERIFIC)
 		endif()
 	endforeach()
 
-	# Compile "verific_merged", which prioritizes the custom, listed Silimate
-	# files but also merges in .a files from upstream with a lower priority.
 	add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/empty.cpp
 		COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/empty.cpp
 	)
-	add_library(verific_merged STATIC
-		${CMAKE_CURRENT_BINARY_DIR}/empty.cpp # empty file so the source list isn't empty if silimate extensions are off
-		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_yacc.cpp>
-		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_lex.cpp>
-		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/util/UtilSilimate.cpp>
-		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/database/DBSilimate.cpp>
-		$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/verilog/VeriSilimate.cpp>
-	)
+	if (APPLE)
+		# The macOS/Darwin route:
+		#
+		# Compile one large libverific_merged.a that emplaces the Silimate objects,
+		# and then as a post-build step, add the Verific objects with localized
+		# symbols (i.e. deprioritized one-by-one.)
+		#
+		# Removing symbols does not work and weakning them does not work. Both
+		# result in linker errors.
+		add_library(verific_merged STATIC
+			${CMAKE_CURRENT_BINARY_DIR}/empty.cpp # empty file so the source list isn't empty if silimate extensions are off
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_yacc.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_lex.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/util/UtilSilimate.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/database/DBSilimate.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/verilog/VeriSilimate.cpp>
+		)
+		add_custom_command(TARGET verific_merged POST_BUILD
+			DEPENDS
+				${VERIFIC_OBJECTS}
+			COMMAND
+				env CMAKE_OBJCOPY=${CMAKE_OBJCOPY} ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/SilimateVerific-merge-archive.py $<TARGET_FILE:verific_merged> ${VERIFIC_OBJECTS}
+		)
+		target_link_libraries(verific INTERFACE
+			PkgConfig::zlib
+			verific_merged
+		)
+	else()
+		# The Linux route:
+		#
+		# Compile libverific_merged as a set of objects, which are linked first
+		# followed by each .a file discretely.
+		#
+		# The linker is configured to allow multiple definitions, in which symbols
+		# encountered first are the one linked.
+		#
+		# A merged static archive as done to attempt to keep Linux consistent with
+		# Darwin but it results in either an invalid combination of objects (causing
+		# inconsistencies and memory issues) or straight up linker errors.
+		add_library(verific_merged OBJECT
+			${CMAKE_CURRENT_BINARY_DIR}/empty.cpp # empty file so the source list isn't empty if silimate extensions are off
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_yacc.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:veri_lex.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/util/UtilSilimate.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/database/DBSilimate.cpp>
+			$<${ENABLE_VERIFIC_SILIMATE_EXTENSIONS}:${YOSYS_VERIFIC_DIR}/verilog/VeriSilimate.cpp>
+		)
+		add_link_options("-Wl,--allow-multiple-definition")
+		target_link_libraries(verific INTERFACE
+			PkgConfig::zlib
+			$<TARGET_OBJECTS:verific_merged>
+			${VERIFIC_OBJECTS}
+		)
+	endif()
 	target_include_directories(verific_merged PRIVATE
 		${YOSYS_VERIFIC_DIR}/containers
 		${YOSYS_VERIFIC_DIR}/database
@@ -92,21 +137,10 @@ if (YOSYS_ENABLE_VERIFIC)
 		${YOSYS_VERIFIC_DIR}/vhdl
 		${YOSYS_VERIFIC_DIR}/verilog
 	)
-	add_custom_command(TARGET verific_merged POST_BUILD
-		DEPENDS
-			${VERIFIC_OBJECTS}
-		COMMAND
-			env CMAKE_OBJCOPY=${CMAKE_OBJCOPY} ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/SilimateVerific-merge-archive.py $<TARGET_FILE:verific_merged> ${VERIFIC_OBJECTS}
-	)
-
 	# Prepare verific interface library as in YosysVerific.cmake
 	get_verific_options(verific_include_dirs verific_libraries ${YOSYS_VERIFIC_COMPONENTS})
 	target_include_directories(verific INTERFACE
 		${verific_include_dirs}
-	)
-	target_link_libraries(verific INTERFACE
-		verific_merged
-		PkgConfig::zlib
 	)
 
 	if (NOT YOSYS_VERIFIC_FEATURES)
@@ -137,4 +171,6 @@ if (YOSYS_ENABLE_VERIFIC)
 			endforeach()
 		endforeach()
 	endif()
+else()
+	condition(ENABLE_VERIFIC_SILIMATE_EXTENSIONS OFF)
 endif()

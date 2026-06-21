@@ -7,7 +7,3 @@ set(YOSYS_VERIFIC_DIR ${PROJECT_SOURCE_DIR}/verific)
 set(YOSYS_WITH_PYTHON ON CACHE BOOL "" FORCE)
 
 add_library(verific INTERFACE)
-
-if (LINUX)
-	add_link_options("-Wl,--allow-multiple-definition")
-endif()
