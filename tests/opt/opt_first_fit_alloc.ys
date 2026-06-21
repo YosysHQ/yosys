@@ -1,0 +1,592 @@
+# Tests for opt_first_fit_alloc
+#
+# The pass detects greedy first-fit "running-rank" resource allocators (the
+# serial taken[]/done[] loop) and replaces the loop-carried cone with a
+# log-depth priority-encode + all-pairs category-equality + prefix-sum + gather
+# network. Where a per-slot field table (an "xbar") is driven from the same
+# allocation, it is rewritten from the shared scan.
+#
+# Each group exercises a specific facet:
+#   A: basic detection + formal equivalence across allocator shapes (N=8).
+#   B: depth / cell-count bounds after rewrite (the actual QoR win).
+#   C: the customer slice (dsel + xbar) at N=8 (equiv) and N=16 (structural).
+#   D: variant detection (bc on/off, LSB/MSB-first scan).
+#   E: negative / no-op cases (no false rewrites).
+#   F: extra fanout / input reuse.
+#
+# Convention: every object the pass emits is named with an `ffa_` suffix, so
+# `select w:*ffa_*` is a reliable "did the rewrite fire" probe.
+
+# ============================================================================
+# Group A: basic shapes (equiv_opt -assert)
+# ============================================================================
+
+# A1: dsel-only first-fit allocator, N=8 NB=4 (W=2) C=2, LSB-first, with bc.
+log -header "A1: dsel-only allocator N=8 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N-1:0]   oob,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+# Confirm the rewrite actually fired.
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# A2: dsel + xbar (per-slot field gather) allocator, N=8.
+log -header "A2: dsel + xbar allocator N=8 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic              mode,
+  input  logic [N-1:0]      req,
+  input  logic [N-1:0]      oob,
+  input  logic [N*C-1:0]    cat_flat,
+  input  logic [N-1:0]      sw,
+  output logic [N*W-1:0]    dsel_flat,
+  output logic [NB*4*5-1:0] xbar_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [4:0]    xbar [0:NB*4-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++)    dsel[i] = '0;
+    for (int i=0;i<NB*4;i++) xbar[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int l=0;l<4;l++)
+              xbar[(j*4)+l] = (5'(({3'b0,cat_flat[i*C +: C]}*4)+l)) ^ {3'b0, sw[i], 1'b0};
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++)    assign dsel_flat[g*W +: W] = dsel[g];
+  for (genvar g=0;g<NB*4;g++) assign xbar_flat[g*5 +: 5] = xbar[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+memory -nomap -norom -nordff
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# A3: dsel-only, no broadcast lanes (bc absent), N=8.
+log -header "A3: dsel-only allocator without bc, N=8 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if ((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: depth / cell-count bounds (the QoR win)
+# ============================================================================
+
+# B1: N=8 allocator. The serial taken[]/done[] scan lowers to ~1000 $mux cells
+# (a deep loop-carried chain). After the rewrite the rank gather is a log-depth
+# network: the long mux chain is gone, replaced by all-pairs $eq + prefix-sum
+# $add. Bounding the surviving $mux count is a robust proxy for the depth win.
+log -header "B1: N=8 allocator structural bounds"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N-1:0]   oob,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+# Serial baseline: hundreds of muxes in the loop-carried chain.
+select -assert-min 200 t:$mux
+opt_first_fit_alloc
+opt_clean
+# The deep mux chain is replaced by the log-depth scan (measured ~17 muxes).
+select -assert-max 60 t:$mux
+# All-pairs category equality and the prefix-sum cascade are present.
+select -assert-min 1 t:$eq
+select -assert-min 1 t:$add
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: the customer slice (dsel + xbar) and scaling
+# ============================================================================
+
+# C1: N=16 dsel-only allocator -- structural (full equiv at N=16 is SAT-hard,
+# matching the serial-vs-parallel allocator equivalence cost; covered formally
+# at N=8 in group A and by the in-pass fingerprint here).
+log -header "C1: N=16 allocator structural"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=16, NB=8, C=3, W=3) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N-1:0]   oob,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+select -assert-min 1000 t:$mux
+opt_first_fit_alloc
+opt_clean
+select -assert-max 120 t:$mux
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# C2: N=16 dsel + xbar -- both deep cones must collapse from the shared scan.
+log -header "C2: N=16 dsel + xbar structural"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=16, NB=8, C=3, W=3) (
+  input  logic              mode,
+  input  logic [N-1:0]      req,
+  input  logic [N-1:0]      oob,
+  input  logic [N*C-1:0]    cat_flat,
+  input  logic [N-1:0]      sw,
+  output logic [N*W-1:0]    dsel_flat,
+  output logic [NB*4*5-1:0] xbar_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [4:0]    xbar [0:NB*4-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++)    dsel[i] = '0;
+    for (int i=0;i<NB*4;i++) xbar[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int l=0;l<4;l++)
+              xbar[(j*4)+l] = (5'(({2'b0,cat_flat[i*C +: C]}*4)+l)) ^ {3'b0, sw[i], 1'b0};
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++)    assign dsel_flat[g*W +: W] = dsel[g];
+  for (genvar g=0;g<NB*4;g++) assign xbar_flat[g*5 +: 5] = xbar[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+memory -nomap -norom -nordff
+opt
+select -assert-min 1000 t:$mux
+opt_first_fit_alloc
+opt_clean
+# Both the dsel and the xbar field gather were rewritten from one scan: the
+# deep mux chains collapse (measured ~41 muxes) and the xbar per-slot field
+# gather emits $bmux table-lookups (only the xbar path emits $bmux).
+select -assert-min 1 w:*ffa_*
+select -assert-max 120 t:$mux
+select -assert-min 1 t:$bmux
+design -reset
+log -pop
+
+# ============================================================================
+# Group D: variant detection (scan direction, category width)
+# ============================================================================
+
+# D1: MSB-first scan -- lanes processed from the high index down. The pass must
+# detect the reversed priority and stay equivalent.
+log -header "D1: MSB-first allocator (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N-1:0]   oob,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=N-1;i>=0;i--)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# D2: a wider category (C=3, up to 8 distinct categories) with NB=8 slots.
+log -header "D2: wider category C=3, NB=8 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=8, C=3, W=3) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if ((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# ============================================================================
+# Group E: negative / no-op cases (no false rewrites)
+# ============================================================================
+
+# E1: a per-lane passthrough (dsel[i] = cat[i]) -- no allocation, no taken[]
+# scan. There is no enable bus and the function is not a running rank.
+log -header "E1: per-lane passthrough -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, C=2, W=2) (
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [W-1:0] dsel [0:N-1];
+  always_comb
+    for (int i=0;i<N;i++) dsel[i] = W'(cat_flat[i*C +: C]);
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+opt_first_fit_alloc
+select -assert-count 0 w:*ffa_*
+design -reset
+log -pop
+
+# E2: a "last-fit" allocator (scans free slots from NB-1 down to 0) -- the same
+# loop shape as first-fit but the OPPOSITE slot choice. The fingerprint must
+# reject it as it is not the first-fit running rank.
+log -header "E2: last-fit allocator near-miss -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=NB-1;j>=0;j--)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if ((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+opt_first_fit_alloc
+select -assert-count 0 w:*ffa_*
+design -reset
+log -pop
+
+# E3: input width below min (N=2 < default min-width 4) -> no candidate root.
+log -header "E3: width below min-width -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=2, NB=2, C=1, W=1) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+opt_first_fit_alloc
+select -assert-count 0 w:*ffa_*
+design -reset
+log -pop
+
+# E4: a plain unrelated mux feeding a small output -- nothing allocator-shaped.
+log -header "E4: unrelated logic -> no rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input wire sel, input wire [7:0] a, b, output wire [7:0] y);
+  assign y = sel ? a : b;
+endmodule
+EOF
+proc
+opt
+opt_first_fit_alloc
+select -assert-count 0 w:*ffa_*
+design -reset
+log -pop
+
+# ============================================================================
+# Group F: extra fanout / shared inputs
+# ============================================================================
+
+# F1: the request and category inputs also feed unrelated outputs. The pass
+# must still rewrite the allocator and stay equivalent (inputs are just wires).
+log -header "F1: shared inputs / extra fanout (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic           mode,
+  input  logic [N-1:0]   req,
+  input  logic [N-1:0]   oob,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat,
+  output logic [N-1:0]   req_dbg,
+  output logic [N*C-1:0] cat_dbg
+);
+  logic [N-1:0]  en = req & {N{mode}};
+  logic [N-1:0]  bc = oob & {N{mode}};
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (((k!=i) && en[k] && (cat_flat[k*C +: C]==cat_flat[i*C +: C])) || bc[k]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+  assign req_dbg = ~req;
+  assign cat_dbg = cat_flat ^ {(N*C){mode}};
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
