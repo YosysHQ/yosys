@@ -1,0 +1,28 @@
+library (test_not_next) {
+  cell (dffsr_not_next) {
+    area : 1.0;
+    pin (Q) {
+      direction : output;
+      function : "STATE";
+    }
+    pin (CLK) {
+      clock : true;
+      direction : input;
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (RN) {
+      direction : input;
+    }
+    pin (SN) {
+      direction : input;
+    }
+    ff (STATE,STATEN) {
+      clear : "!SN";
+      clocked_on : "CLK";
+      next_state : "!D";
+      preset : "!RN";
+    }
+  }
+}
