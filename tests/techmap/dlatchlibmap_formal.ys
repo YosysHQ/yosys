@@ -2,19 +2,17 @@
 
 read_verilog -sv -icells <<EOT
 
-module top(input C, D, E, S, R, output [11:0] Q);
+module top(input E, D, S, R, output [9:0] Q);
 
-$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
-$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
-$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+$_DLATCH_P_   latch0 (.E(E), .D(D),        .Q(Q[0]));
+$_DLATCH_PP0_ latch1 (.E(E), .D(D), .R(R), .Q(Q[1]));
+$_DLATCH_PP1_ latch2 (.E(E), .D(D), .R(R), .Q(Q[2]));
 
 assume property (~R || ~S);
-$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+$_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R( R), .S( S), .Q(Q[3]));
+$_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
-$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
-
-assign Q[11:6] = ~Q[5:0];
+assign Q[9:5] = ~Q[4:0];
 
 endmodule
 
@@ -22,10 +20,10 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffsr_s.lib
+read_liberty dlatchlibmap_dlatchsr_s.lib
 
 copy top top_unmapped
-dfflibmap -liberty dfflibmap_dffsr_s.lib top
+dfflibmap -liberty dlatchlibmap_dlatchsr_s.lib top
 
 clk2fflogic
 flatten
@@ -42,19 +40,17 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 design -reset
 read_verilog -sv -icells <<EOT
 
-module top(input C, D, E, S, R, output [11:0] Q);
+module top(input E, D, S, R, output [9:0] Q);
 
-$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
-$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
-$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+$_DLATCH_P_   latch0 (.E(E), .D(D),        .Q(Q[0]));
+$_DLATCH_PP0_ latch1 (.E(E), .D(D), .R(R), .Q(Q[1]));
+$_DLATCH_PP1_ latch2 (.E(E), .D(D), .R(R), .Q(Q[2]));
 
 assume property (~R || ~S);
-$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+$_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R( R), .S( S), .Q(Q[3]));
+$_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
-$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
-
-assign Q[11:6] = ~Q[5:0];
+assign Q[9:5] = ~Q[4:0];
 
 endmodule
 
@@ -62,10 +58,10 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffsr_r.lib
+read_liberty dlatchlibmap_dlatchsr_r.lib
 
 copy top top_unmapped
-dfflibmap -liberty dfflibmap_dffsr_r.lib top
+dfflibmap -liberty dlatchlibmap_dlatchsr_r.lib top
 
 clk2fflogic
 flatten
@@ -82,19 +78,17 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 design -reset
 read_verilog -sv -icells <<EOT
 
-module top(input C, D, E, S, R, output [11:0] Q);
+module top(input E, D, S, R, output [9:0] Q);
 
-$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
-$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
-$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+$_DLATCH_P_   latch0 (.E(E), .D(D),        .Q(Q[0]));
+$_DLATCH_PP0_ latch1 (.E(E), .D(D), .R(R), .Q(Q[1]));
+$_DLATCH_PP1_ latch2 (.E(E), .D(D), .R(R), .Q(Q[2]));
 
 // no assume when mapping to X
-$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+$_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R( R), .S( S), .Q(Q[3]));
+$_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
-$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
-
-assign Q[11:6] = ~Q[5:0];
+assign Q[9:5] = ~Q[4:0];
 
 endmodule
 
@@ -102,11 +96,11 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffsr_x.lib
+read_liberty dlatchlibmap_dlatchsr_x.lib
 opt
 
 copy top top_unmapped
-dfflibmap -liberty dfflibmap_dffsr_x.lib top
+dfflibmap -liberty dlatchlibmap_dlatchsr_x.lib top
 
 clk2fflogic
 flatten
@@ -122,22 +116,21 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 design -reset
 read_verilog -sv -icells <<EOT
 
-module top(input C, D, E, S, R, output [11:0] Q);
+module top(input E, D, S, R, output [9:0] Q);
 
-$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
-$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
-$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+$_DLATCH_P_   latch0 (.E(E), .D(D),        .Q(Q[0]));
+$_DLATCH_PP0_ latch1 (.E(E), .D(D), .R(R), .Q(Q[1]));
+$_DLATCH_PP1_ latch2 (.E(E), .D(D), .R(R), .Q(Q[2]));
 
-// Formal checking of directly instantiated DFFSR doesn't work at the moment
+// TODO: this comment is just a copy from 'dfflibmap_formal.ys'
+// Formal checking of directly instantiated DLATCHSR doesn't work at the moment
 // likely due to an equiv_induct -set-assumes assume bug #5196
 
 // no assume when mapping to unset clear_preset_var
-$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+$_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R( R), .S( S), .Q(Q[3]));
+$_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
-$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
-
-assign Q[11:6] = ~Q[5:0];
+assign Q[9:5] = ~Q[4:0];
 
 endmodule
 
@@ -145,11 +138,11 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffn_dffe.lib
-read_liberty dfflibmap_dffsr_not_next.lib
+read_liberty dlatchlibmap_dlatchn.lib
+read_liberty dlatchlibmap_dlatchsr_not_data.lib
 
 copy top top_unmapped
-dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
+dfflibmap -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatchsr_not_data.lib top
 
 clk2fflogic
 flatten
@@ -165,19 +158,17 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 design -reset
 read_verilog -sv -icells <<EOT
 
-module top(input C, D, E, S, R, output [11:0] Q);
+module top(input E, D, S, R, output [9:0] Q);
 
-$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
-$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
-$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+$_DLATCH_P_   latch0 (.E(E), .D(D),        .Q(Q[0]));
+$_DLATCH_PP0_ latch1 (.E(E), .D(D), .R(R), .Q(Q[1]));
+$_DLATCH_PP1_ latch2 (.E(E), .D(D), .R(R), .Q(Q[2]));
 
 assume property (~R || ~S);
-$_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
-$_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+$_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R( R), .S( S), .Q(Q[3]));
+$_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(~R), .S(~S), .Q(Q[4]));
 
-$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
-
-assign Q[11:6] = ~Q[5:0];
+assign Q[9:5] = ~Q[4:0];
 
 endmodule
 
@@ -185,10 +176,10 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffsr_not_next_l.lib
+read_liberty dlatchlibmap_dlatchsr_not_data_l.lib
 
 copy top top_unmapped
-dfflibmap -liberty dfflibmap_dffsr_not_next_l.lib top
+dfflibmap -liberty dlatchlibmap_dlatchsr_not_data_l.lib top
 
 clk2fflogic
 flatten
@@ -206,28 +197,24 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 design -reset
 read_verilog <<EOT
 
-module top(input C, D, E, S, R, output Q);
-// DFFSR with priority R over S
-always @(posedge C, posedge R, posedge S)
-    if (R == 1)
-        Q <= 0;
-    else if (S == 1)
-        Q <= 1;
-    else
-        Q <= D;
-
+module top(input E, D, S, R, output Q);
+  // DLATCHSR with priority R over S
+  always_latch
+    if      (R)  Q <= 1'b0;
+    else if (S)  Q <= 1'b1;
+    else if (E)  Q <= D;
 endmodule
 
 EOT
 
 proc
 opt
-read_liberty dfflibmap_dffn_dffe.lib
-read_liberty dfflibmap_dffsr_not_next.lib
+read_liberty dlatchlibmap_dlatchn.lib
+read_liberty dlatchlibmap_dlatchsr_not_data.lib
 
 copy top top_unmapped
 simplemap top
-dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
+dfflibmap -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatchsr_not_data.lib top
 
 clk2fflogic
 flatten
@@ -241,24 +228,23 @@ equiv_status -assert equiv
 design -reset
 read_verilog <<EOT
 
-module top(input C, D, R, output Q);
-  // DFF with preset
-  always @(posedge C or negedge R) begin
-    if (!R) Q <= 1'b1;
-    else Q <= D;
-  end
+module top(input E, D, R, output Q);
+  // DLATCH with preset
+  always_latch
+    if     (~R)  Q <= 1'b1;
+    else if (E)  Q <= D;
 endmodule
 
 EOT
 
 proc
 opt
-read_liberty dfflibmap_dffn_dffe.lib
-read_liberty dfflibmap_dff_not_next.lib
+read_liberty dlatchlibmap_dlatchn.lib
+read_liberty dlatchlibmap_dlatch_not_data.lib
 
 copy top top_unmapped
 simplemap top
-dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dff_not_next.lib top
+dfflibmap -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatch_not_data.lib top
 
 clk2fflogic
 flatten
