@@ -47,14 +47,27 @@ void apply_prefix(IdString prefix, IdString &id)
 		id = stringf("$techmap%s.%s", prefix, id);
 }
 
+TwineRef apply_prefix_ref(IdString prefix, IdString id, RTLIL::Design *design)
+{
+	std::string ids = id.str();
+	std::string shared, tail;
+	if (!ids.empty() && ids[0] == '\\') {
+		shared = prefix.str() + ".";
+		tail = ids.substr(1);
+	} else {
+		shared = "$techmap" + prefix.str() + ".";
+		tail = std::move(ids);
+	}
+	TwineRef pref = design->twines.add(std::move(shared));
+	return design->twines.add(Twine{Twine::Suffix{pref, std::move(tail)}});
+}
+
 void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 {
 	vector<SigChunk> chunks = sig;
 	for (auto &chunk : chunks)
 		if (chunk.wire != nullptr) {
-			IdString wire_name = chunk.wire->name;
-			apply_prefix(prefix, wire_name);
-			TwineRef wire_ref = module->design->twines.add(std::string{wire_name.str()});
+			TwineRef wire_ref = apply_prefix_ref(prefix, chunk.wire->name, module->design);
 			log_assert(module->wire(wire_ref) != nullptr);
 			chunk.wire = module->wire(wire_ref);
 		}
@@ -209,9 +222,7 @@ struct TechmapWorker
 							autopurge_tpl_bits.insert(bit);
 				}
 			}
-			IdString w_name = tpl_w->name;
-			apply_prefix(cell->name, w_name);
-			TwineRef w_ref = module->design->twines.add(std::string{w_name.str()});
+			TwineRef w_ref = apply_prefix_ref(cell->name, tpl_w->name, module->design);
 			RTLIL::Wire *w = module->wire(w_ref);
 			if (w != nullptr) {
 				temp_renamed_wires[w] = w->name.ref();
@@ -333,17 +344,18 @@ struct TechmapWorker
 			IdString c_name = tpl_cell->name;
 			bool techmap_replace_cell = c_name.ends_with("_TECHMAP_REPLACE_");
 
+			TwineRef c_ref;
 			if (techmap_replace_cell)
-				c_name = orig_cell_name;
+				c_ref = module->design->twines.add(std::string{orig_cell_name});
 			else if (const char *p = strstr(tpl_cell->name.str().c_str(), "_TECHMAP_REPLACE_."))
-				c_name = stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_"));
+				c_ref = module->design->twines.add(stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_")));
 			else
-				apply_prefix(cell->name, c_name);
+				c_ref = apply_prefix_ref(cell->name, tpl_cell->name, module->design);
 
-			RTLIL::Cell *c = module->addCell(module->design->twines.add(std::string{c_name.str()}), tpl_cell);
+			RTLIL::Cell *c = module->addCell(c_ref, tpl_cell);
 			design->select(module, c);
 
-			if (c->type.in(TwineRef{TW(_TECHMAP_PLACEHOLDER_)}) && tpl_cell->has_attribute(ID::techmap_chtype)) {
+			if (c->type.in(TW::_TECHMAP_PLACEHOLDER_) && tpl_cell->has_attribute(ID::techmap_chtype)) {
 				c->type_impl = module->design->twines.add(std::string{RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype))});
 				c->attributes.erase(ID::techmap_chtype);
 			}
@@ -630,7 +642,7 @@ struct TechmapWorker
 				if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
 					parameters.emplace(ID::_TECHMAP_CELLTYPE_, cell->type.unescaped());
 				if (tpl->avail_parameters.count(ID::_TECHMAP_CELLNAME_) != 0)
-					parameters.emplace(ID::_TECHMAP_CELLNAME_, cell->module->design->twines.str(cell->meta_->name));
+					parameters.emplace(ID::_TECHMAP_CELLNAME_, cell->module->design->twines.unescaped_str(cell->meta_->name));
 
 				for (auto &conn : cell->connections()) {
 					if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", design->twines.unescaped_str(conn.first))) != 0) {

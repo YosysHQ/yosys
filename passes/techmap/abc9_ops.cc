@@ -718,7 +718,11 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 {
 	auto design = module->design;
 	log_assert(design);
-	auto refof = [&](RTLIL::IdString n) { return design->twines.add(std::string{n.str()}); };
+	// toposort keys cells by IdString; recover the cell's own pool ref rather
+	// than re-interning the flattened name, which would yield a fresh leaf that
+	// never matches a Suffix-shaped auto name.
+	dict<IdString, TwineRef> name_ref;
+	auto refof = [&](RTLIL::IdString n) { return name_ref.at(n); };
 
 	SigMap sigmap(module);
 
@@ -792,6 +796,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					for (auto bit : sigmap(conn.second))
 						bit_drivers[bit].insert(cell->name);
 			}
+			name_ref[cell->name] = cell->name.ref();
 			toposort.node(cell->name);
 		}
 
@@ -1217,6 +1222,23 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	auto rn = [&](RTLIL::IdString n) { return design->twines.add(std::string{remap_name(n)}); };
 	auto refof = [&](RTLIL::IdString n) { return design->twines.add(std::string{n.str()}); };
 
+	dict<std::string, RTLIL::Wire*> module_wire_by_name;
+	for (auto w : module->wires())
+		module_wire_by_name[design->twines.str(w->name.ref())] = w;
+	auto wire_of = [&](TwineRef name) -> RTLIL::Wire* {
+		if (auto *w = module->wire(name)) return w;
+		auto it = module_wire_by_name.find(design->twines.str(name));
+		return it == module_wire_by_name.end() ? nullptr : it->second;
+	};
+	dict<std::string, RTLIL::Cell*> module_cell_by_name;
+	for (auto c : module->cells())
+		module_cell_by_name[design->twines.str(c->name.ref())] = c;
+	auto cell_of = [&](TwineRef name) -> RTLIL::Cell* {
+		if (auto *c = module->cell(name)) return c;
+		auto it = module_cell_by_name.find(design->twines.str(name));
+		return it == module_cell_by_name.end() ? nullptr : it->second;
+	};
+
 	RTLIL::Module *mapped_mod = design->module(design->twines.add(stringf("%s$abc9", module->name)));
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", module);
@@ -1398,7 +1420,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			}
 		}
 		else {
-			RTLIL::Cell *existing_cell = module->cell(mapped_cell->name.ref());
+			RTLIL::Cell *existing_cell = cell_of(mapped_cell->name.ref());
 			if (!existing_cell)
 				log_error("Cannot find existing box cell with name '%s' in original design.\n", mapped_cell);
 
@@ -1524,7 +1546,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	// Stitch in mapped_mod's inputs/outputs into module
 	for (auto port : mapped_mod->ports) {
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
-		RTLIL::Wire *wire = module->wire(port);
+		RTLIL::Wire *wire = wire_of(port);
 		log_assert(wire);
 
 		RTLIL::Wire *remap_wire = module->wire(rn(mapped_wire->name));

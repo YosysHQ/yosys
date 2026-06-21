@@ -331,36 +331,36 @@ struct IopadmapPass : public Pass {
 
 							Cell *cell = module->addCell(
 								module->uniquify(Twine{stringf("$iopadmap$%s.%s[%d]", module, wire, i)}),
-								module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_celltype)}));
+								module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_celltype)}));
 
 							if (tinoutpad_neg_oe)
 								en_sig = module->NotGate(NEW_TWINE, en_sig);
-							cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_oe)}), en_sig);
+							cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_oe)}), en_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);
 
 							if (tbuf_cell) {
 								module->remove(tbuf_cell);
-								cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_o)}), wire_bit);
-								cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_i)}), data_sig);
+								cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_o)}), wire_bit);
+								cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_i)}), data_sig);
 							} else if (is_driven) {
-								cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_i)}), wire_bit);
+								cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_i)}), wire_bit);
 							} else {
-								cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_o)}), wire_bit);
-								cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_i)}), data_sig);
+								cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_o)}), wire_bit);
+								cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_i)}), data_sig);
 							}
 							if (!tinoutpad_portname_pad.empty())
-								rewrite_bits[wire][i] = make_pair(cell, module->design->twines.add(Twine{RTLIL::escape_id(tinoutpad_portname_pad)}));
+								rewrite_bits[wire][i] = make_pair(cell, module->design->twines.add(std::string{RTLIL::escape_id(tinoutpad_portname_pad)}));
 						} else {
 							log("Mapping port %s.%s[%d] using %s.\n", module, wire, i, toutpad_celltype);
 
 							Cell *cell = module->addCell(
 								module->uniquify(Twine{stringf("$iopadmap$%s.%s[%d]", module, wire, i)}),
-								module->design->twines.add(Twine{RTLIL::escape_id(toutpad_celltype)}));
+								module->design->twines.add(std::string{RTLIL::escape_id(toutpad_celltype)}));
 
 							if (toutpad_neg_oe)
 								en_sig = module->NotGate(NEW_TWINE, en_sig);
-							cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(toutpad_portname_oe)}), en_sig);
-							cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(toutpad_portname_i)}), data_sig);
+							cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(toutpad_portname_oe)}), en_sig);
+							cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(toutpad_portname_i)}), data_sig);
 							cell->attributes[ID::keep] = RTLIL::Const(1);
 
 							if (tbuf_cell) {
@@ -368,7 +368,7 @@ struct IopadmapPass : public Pass {
 								module->connect(wire_bit, data_sig);
 							}
 							if (!toutpad_portname_pad.empty())
-								rewrite_bits[wire][i] = make_pair(cell, module->design->twines.add(Twine{RTLIL::escape_id(toutpad_portname_pad)}));
+								rewrite_bits[wire][i] = make_pair(cell, module->design->twines.add(std::string{RTLIL::escape_id(toutpad_portname_pad)}));
 						}
 						buf_ports.insert(make_pair(module->name.ref(), make_pair(wire->name.ref(), i)));
 					}
@@ -437,11 +437,11 @@ struct IopadmapPass : public Pass {
 
 						RTLIL::Cell *cell = module->addCell(
 							module->uniquify(Twine{stringf("$iopadmap$%s.%s", module->name.unescaped(), wire->name.unescaped())}),
-							module->design->twines.add(Twine{RTLIL::escape_id(celltype)}));
-						cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(portname_int)}), wire_bit);
+							module->design->twines.add(std::string{RTLIL::escape_id(celltype)}));
+						cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(portname_int)}), wire_bit);
 
 						if (!portname_pad.empty())
-							rewrite_bits[wire][i] = make_pair(cell, module->design->twines.add(Twine{RTLIL::escape_id(portname_pad)}));
+							rewrite_bits[wire][i] = make_pair(cell, module->design->twines.add(std::string{RTLIL::escape_id(portname_pad)}));
 						if (!widthparam.empty())
 							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
 						if (!nameparam.empty())
@@ -453,8 +453,8 @@ struct IopadmapPass : public Pass {
 				{
 					RTLIL::Cell *cell = module->addCell(
 						module->uniquify(Twine{stringf("$iopadmap$%s.%s", module->name.unescaped(), wire->name.unescaped())}),
-						module->design->twines.add(Twine{RTLIL::escape_id(celltype)}));
-					cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(portname_int)}), RTLIL::SigSpec(wire));
+						module->design->twines.add(std::string{RTLIL::escape_id(celltype)}));
+					cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(portname_int)}), RTLIL::SigSpec(wire));
 
 					if (!portname_pad.empty()) {
 						RTLIL::Wire *new_wire = NULL;
@@ -463,7 +463,7 @@ struct IopadmapPass : public Pass {
 							wire);
 						module->swap_names(new_wire, wire);
 						wire->attributes.clear();
-						cell->setPort(module->design->twines.add(Twine{RTLIL::escape_id(portname_pad)}), RTLIL::SigSpec(new_wire));
+						cell->setPort(module->design->twines.add(std::string{RTLIL::escape_id(portname_pad)}), RTLIL::SigSpec(new_wire));
 					}
 					if (!widthparam.empty())
 						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);

@@ -125,12 +125,12 @@ struct ClkbufmapPass : public Pass {
 		// If true, use both ther -buf and -inpad cell for input ports that are clocks.
 		bool buffer_inputs = true;
 
-		TwineRef buf_celltype_ref = design->twines.add(Twine{RTLIL::escape_id(buf_celltype)});
-		TwineRef buf_portname_ref = design->twines.add(Twine{RTLIL::escape_id(buf_portname)});
-		TwineRef buf_portname2_ref = design->twines.add(Twine{RTLIL::escape_id(buf_portname2)});
-		TwineRef inpad_celltype_ref = design->twines.add(Twine{RTLIL::escape_id(inpad_celltype)});
-		TwineRef inpad_portname_ref = design->twines.add(Twine{RTLIL::escape_id(inpad_portname)});
-		TwineRef inpad_portname2_ref = design->twines.add(Twine{RTLIL::escape_id(inpad_portname2)});
+		TwineRef buf_celltype_ref = design->twines.add(std::string{RTLIL::escape_id(buf_celltype)});
+		TwineRef buf_portname_ref = design->twines.add(std::string{RTLIL::escape_id(buf_portname)});
+		TwineRef buf_portname2_ref = design->twines.add(std::string{RTLIL::escape_id(buf_portname2)});
+		TwineRef inpad_celltype_ref = design->twines.add(std::string{RTLIL::escape_id(inpad_celltype)});
+		TwineRef inpad_portname_ref = design->twines.add(std::string{RTLIL::escape_id(inpad_portname)});
+		TwineRef inpad_portname2_ref = design->twines.add(std::string{RTLIL::escape_id(inpad_portname2)});
 
 		Module *inpad_mod = design->module(inpad_celltype_ref);
 		if (inpad_mod) {
@@ -158,7 +158,7 @@ struct ClkbufmapPass : public Pass {
 							sink_ports.insert(make_pair(module->name.ref(), make_pair(wire->name.ref(), i)));
 					auto it = wire->attributes.find(ID::clkbuf_inv);
 					if (it != wire->attributes.end()) {
-						TwineRef in_name = design->twines.add(Twine{RTLIL::escape_id(it->second.decode_string())});
+						TwineRef in_name = design->twines.add(std::string{RTLIL::escape_id(it->second.decode_string())});
 						for (int i = 0; i < GetSize(wire); i++) {
 							inv_ports_out[make_pair(module->name.ref(), make_pair(wire->name.ref(), i))] = make_pair(in_name, i);
 							inv_ports_in[make_pair(module->name.ref(), make_pair(in_name, i))] = make_pair(wire->name.ref(), i);

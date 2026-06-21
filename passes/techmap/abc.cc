@@ -1539,7 +1539,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 
 	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
 	RTLIL::Design *mapped_design = new RTLIL::Design;
-	parse_blif(mapped_design, ifs, builtin_lib ? TW(DFF) : TW(_dff_), false, run_abc.config.sop_mode);
+	parse_blif(mapped_design, ifs, builtin_lib ? TW::DFF : TW::_dff_, false, run_abc.config.sop_mode);
 
 	ifs.close();
 
@@ -1762,7 +1762,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			continue;
 		}
 
-		RTLIL::Cell *cell = module->addCell(rn(c->name), c->type_impl);
+		RTLIL::Cell *cell = module->addCell(rn(c->name), module->design->twines.copy_from(mapped_design->twines, c->type_impl));
 		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 		cell->parameters = c->parameters;
 		for (auto &conn : c->connections()) {

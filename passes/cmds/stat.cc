@@ -517,7 +517,7 @@ struct statdata_t {
 		}
 	}
 
-	void log_data(TwineRef mod_name, bool top_mod, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
+	void log_data(const std::string &mod_name, bool top_mod, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
 	{
 
 		print_log_header(print_area, print_hierarchical, print_global_only);
@@ -558,7 +558,7 @@ struct statdata_t {
 		if (area != 0) {
 			log("\n");
 			if (print_hierarchical || print_global_only) {
-				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name, area);
+				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), area);
 				log("     of which used for sequential elements: %f (%.2f%%)\n", sequential_area, 100.0 * sequential_area / area);
 			} else {
 				double local_area = 0;
@@ -567,7 +567,7 @@ struct statdata_t {
 				double local_sequential_area = 0;
 				for (auto &it : local_seq_area_cells_by_type)
 					local_sequential_area += it.second;
-				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name, local_area);
+				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), local_area);
 				log("     of which used for sequential elements: %f (%.2f%%)\n", local_sequential_area,
 				    100.0 * local_sequential_area / local_area);
 			}
@@ -1028,7 +1028,7 @@ struct StatPass : public Pass {
 				log("\n");
 				log("=== %s%s ===\n", design->twines.unescaped_str(mod->name), mod->is_selected_whole() ? "" : " (partially selected)");
 				log("\n");
-				data.log_data(mod->name, false, has_area, hierarchy_mode);
+				data.log_data(design->twines.str(mod->name), false, has_area, hierarchy_mode);
 			}
 		}
 
@@ -1054,7 +1054,7 @@ struct StatPass : public Pass {
 				data.log_data_json("design", true, hierarchy_mode, true);
 			else if (GetSize(mod_stat) > 1) {
 				log("\n");
-				data.log_data(top_mod->name, true, has_area, hierarchy_mode, true);
+				data.log_data(design->twines.str(top_mod->name), true, has_area, hierarchy_mode, true);
 			}
 
 			design->scratchpad_set_int("stat.num_wires", data.num_wires);

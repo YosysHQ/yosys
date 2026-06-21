@@ -523,6 +523,10 @@ struct RTLILBackend : public Backend {
 				stringify = true;
 				continue;
 			}
+			if (arg == "-resolve-src") {
+				stringify = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -594,6 +598,10 @@ struct DumpPass : public Pass {
 				continue;
 			}
 			if (arg == "-readable") {
+				stringify = true;
+				continue;
+			}
+			if (arg == "-resolve-src") {
 				stringify = true;
 				continue;
 			}

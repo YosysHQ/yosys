@@ -540,7 +540,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			}
 		}
 
-		auto twines = design->twines;
+		auto &twines = design->twines;
 		for (auto cell : mod->cells())
 		for (auto &conn : cell->connections())
 		{
@@ -549,9 +549,9 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 				goto exclude_match;
 			for (auto &rule : rules) {
 				last_mode = rule.mode;
-				if (rule.cell_types.size() > 0 && rule.cell_types.count(twines.unescaped_str(cell->type_impl)) == 0)
+				if (rule.cell_types.size() > 0 && rule.cell_types.count(twines.str(cell->type_impl)) == 0)
 					continue;
-				if (rule.port_names.size() > 0 && rule.port_names.count(twines.unescaped_str(conn.first)) == 0)
+				if (rule.port_names.size() > 0 && rule.port_names.count(twines.str(conn.first)) == 0)
 					continue;
 				if (rule.mode == '+')
 					goto include_match;
@@ -1046,7 +1046,7 @@ static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::S
 		if (whole_modules && sel->selected_whole_module(mod->name))
 			desc += stringf("%s\n", mod);
 		for (auto it : mod->selected_members())
-			desc += stringf("%s/%s\n", mod, it);
+			desc += stringf("%s/%s\n", mod, design->obj_name(it).c_str());
 	}
 	if (push_selection) design->pop_selection();
 	return desc;

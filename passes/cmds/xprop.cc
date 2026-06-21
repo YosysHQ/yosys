@@ -982,8 +982,8 @@ struct XpropWorker
 				if (wire->port_input == wire->port_output) {
 					log_warning("Port %s not an input or an output port which is not supported by xprop\n", wire);
 				} else if ((options.split_inputs && !options.assume_def_inputs && wire->port_input) || (options.split_outputs && wire->port_output)) {
-					auto port_d = module->uniquify(Twine{module->design->twines.str(port) + "_d"});
-					auto port_x = module->uniquify(Twine{module->design->twines.str(port) + "_x"});
+					auto port_d = module->uniquify(module->design->twines.add(std::string{module->design->twines.str(port) + "_d"}));
+					auto port_x = module->uniquify(module->design->twines.add(std::string{module->design->twines.str(port) + "_x"}));
 
 					auto wire_d = module->addWire(port_d, GetSize(wire));
 					auto wire_x = module->addWire(port_x, GetSize(wire));
@@ -1036,8 +1036,8 @@ struct XpropWorker
 			int index_d = 0;
 			int index_x = 0;
 			std::string wname = module->design->twines.str(wire->name.ref());
-			auto name_d = module->uniquify(Twine{wname + "_d"}, index_d);
-			auto name_x = module->uniquify(Twine{wname + "_x"}, index_x);
+			auto name_d = module->uniquify(module->design->twines.add(std::string{wname + "_d"}), index_d);
+			auto name_x = module->uniquify(module->design->twines.add(std::string{wname + "_x"}), index_x);
 
 			auto hdlname = wire->get_hdlname_attribute();
 
