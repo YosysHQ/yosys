@@ -31,14 +31,25 @@ code
 			reject;
 		}
 
+		if (add->type == $sub && add_AB == \A)
+			reject;
+
 		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC18X18");
 		IdString add_C = (add_AB == \A) ? \B : \A;
 
-		mac->setPort(\A, port(mul, \A));
-		mac->setPort(\B, port(mul, \B));
-		mac->setPort(\C, port(add, add_C));
+		bool ab_signed = mul->getParam(\A_SIGNED).as_bool();
+		SigSpec sigA = port(mul, \A);
+		SigSpec sigB = port(mul, \B);
+		SigSpec sigC = port(add, add_C);
+		sigA.extend_u0(18, ab_signed);
+		sigB.extend_u0(18, ab_signed);
+		sigC.extend_u0(48, ab_signed);
+
+		mac->setPort(\A, sigA);
+		mac->setPort(\B, sigB);
+		mac->setPort(\C, sigC);
 		mac->setPort(\Y, port(add, \Y));
-		mac->setParam(\A_SIGNED, mul->getParam(\A_SIGNED)); 
+		mac->setParam(\A_SIGNED, mul->getParam(\A_SIGNED));
 		mac->setParam(\SUBTRACT, add->type == $sub ? State::S1 : State::S0);
 
 		autoremove(mul);
@@ -334,8 +345,9 @@ code
 
 			bool a_signed = mul->getParam(\A_SIGNED).as_bool();
 			bool b_signed = mul->getParam(\B_SIGNED).as_bool();
-			SigSpec sigA = port(mul, \A);
-			SigSpec sigB = port(mul, \B);
+			// Drive the DSP from the FF's D
+			SigSpec sigA = fa ? port(fa, \D) : port(mul, \A);
+			SigSpec sigB = fb ? port(fb, \D) : port(mul, \B);
 			SigSpec sigY = fy ? port(fy, \Q) : port(mul, \Y);
 
 			// 36X18 -> wide operand goes to A
