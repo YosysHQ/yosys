@@ -66,6 +66,51 @@ jobs:
           --config Release
           --parallel
 
+  mingw-build:
+    name: MINGW64 build
+    runs-on: windows-latest
+    needs: [pre_job]
+    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup MSYS2 (MINGW64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gtest
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-tcl
+            mingw-w64-x86_64-libffi
+            mingw-w64-x86_64-git
+
+          msys2-install: >-
+            bison
+            flex
+            gawk
+            diffutils
+            make
+
+      - name: Build Yosys
+        shell: msys2 {0}
+        run: |
+          set -e
+          procs=$(nproc)
+          rm -rf build
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j${procs}
+          ctest --test-dir build/tests/unit --output-on-failure
+
   wasi-build:
     name: WASI build
     needs: pre_job
@@ -121,6 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - vs-build
+      - mingw-build
       - wasi-build
       - nix-build
     if: always()
