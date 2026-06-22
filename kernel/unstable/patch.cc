@@ -134,7 +134,6 @@ namespace {
 	void apply_src(Module* mod, Cell* root, const std::vector<Cell*>& extras,
 			const std::vector<Cell*>& targets, Cell* merge_src_into)
 	{
-		// Without a design there's no pool — the cells can't carry typed
 		// src, so silently drop merge-of-src in that path.
 		if (!mod || !mod->design)
 			return;
@@ -205,7 +204,6 @@ void Patch::patch(Cell* root_cell, TwineRef old_port, SigSpec new_sig,
 	apply_src(mod, root_cell, extras, committed, merge_src_into);
 
 	// Drop root_cell's driver on the output port BEFORE wiring old_sig to
-	// new_sig — otherwise old_sig would briefly have two drivers (root_cell
 	// and new_sig) which signorm flags as conflicting.
 	root_cell->unsetPort(old_port);
 
@@ -213,7 +211,6 @@ void Patch::patch(Cell* root_cell, TwineRef old_port, SigSpec new_sig,
 		map->add(old_sig, new_sig);
 	mod->connect_incremental(old_sig, new_sig);
 
-	// Remove root cell only — no input-cone walk.
 	mod->remove(root_cell);
 }
 
@@ -277,7 +274,6 @@ void Patch::commit_inheriting_src(Cell* src_source) {
 		Cell *committed = commit_cell(std::move(cell));
 		// commit_cell attaches the cell to mod, so adopt_src_from can
 		// now resolve the pool via committed->module->design. Direct
-		// id transfer — no flatten/re-intern detour.
 		if (src_source)
 			committed->adopt_src_from(src_source);
 	}

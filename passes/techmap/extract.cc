@@ -294,14 +294,17 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 	auto &tw = needle->design->twines;
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(Twine{stringf("$extract$%s$%d", needle->name, autoidx++)}, Twine{needle->name.str()});
+	RTLIL::Cell *cell = haystack->addCell(haystack->design->twines.add(stringf("$extract$%s$%d", needle->name, autoidx++)), haystack->design->twines.add(needle->name.str()));
 
-	// create cell ports
+	// create cell ports. Port names come from the needle (map) pool; translate
+	// them into the haystack pool so the new cell's ports are keyed by the same
+	// refs as the referenced module in the haystack design.
 	for (auto wire : needle->wires()) {
 		if (wire->port_id > 0) {
+			TwineRef portname = haystack->design->twines.add(tw.str(wire->meta_->name));
 			for (int i = 0; i < wire->width; i++)
-				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<TwineRef, int>(wire->meta_->name, i));
-			cell->setPort(wire->meta_->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
+				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<TwineRef, int>(portname, i));
+			cell->setPort(portname, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
 		}
 	}
 
@@ -628,7 +631,7 @@ struct ExtractPass : public Pass {
 		if (!mine_mode)
 			for (auto module : map->modules()) {
 				SubCircuit::Graph mod_graph;
-				std::string graph_name = "needle_" + design->twines.unescaped_str(module->name);
+				std::string graph_name = "needle_" + map->twines.unescaped_str(module->name);
 				log("Creating needle graph %s.\n", graph_name);
 				if (module2graph(mod_graph, module, constports)) {
 					solver.addGraph(graph_name, mod_graph);
@@ -656,8 +659,8 @@ struct ExtractPass : public Pass {
 
 			for (auto needle : needle_list)
 			for (auto &haystack_it : haystack_map) {
-				log("Solving for %s in %s.\n", ("needle_" + design->twines.unescaped_str(needle->name)), haystack_it.first);
-				solver.solve(results, "needle_" + design->twines.unescaped_str(needle->name), haystack_it.first, false);
+				log("Solving for %s in %s.\n", ("needle_" + map->twines.unescaped_str(needle->name)), haystack_it.first);
+				solver.solve(results, "needle_" + map->twines.unescaped_str(needle->name), haystack_it.first, false);
 			}
 			log("Found %d matches.\n", GetSize(results));
 

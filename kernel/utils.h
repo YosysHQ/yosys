@@ -127,7 +127,6 @@ public:
 
 
 // ---------------------------------------------------
-// BitGrouper — partition output bits by a per-bit key
 // ---------------------------------------------------
 //
 // Many passes that split a multi-bit cell or word-level FF into smaller

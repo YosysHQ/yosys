@@ -138,8 +138,6 @@ struct JsonWriter
 	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false, const RTLIL::AttrObject *src_obj=nullptr)
 	{
 		bool first = true;
-		// Emit the typed src field first if present — it lives outside the
-		// attribute dict after the typed-src migration.
 		if (src_obj && design && design->obj_src_id(src_obj) != Twine::Null) {
 			f << stringf("\n        %s%s: ", for_module ? "" : "    ", get_name(RTLIL::ID::src));
 			write_parameter_value(RTLIL::Const(design->get_src_attribute(src_obj)));

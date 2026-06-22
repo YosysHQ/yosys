@@ -50,26 +50,14 @@ struct RTLILFrontendWorker {
 
 	RTLIL::Module *current_module;
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
-	// A resolved "@N" src reference, carried from parse_attribute to the
-	// object's absorb_attrs site so it lands on the object without being
-	// flattened into a fresh leaf.
+
 	TwineRef pending_src = Twine::Null;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 
-	// Remap from file-local twine ids (as they appear in the `twines` block
-	// and on cell/wire src attrs) to ids in design->twines. Filled by
-	// parse_twines; consumed by parse_attribute. Parser-side ids retained
-	// during parse_twines are tracked here so they can be released at
-	// end-of-parse — only the cell/wire references should survive.
 	dict<size_t, TwineRef> twine_remap;
 	std::vector<TwineRef> twine_parser_holds;
 
-	// Raw twines-block node descriptors keyed by file-local id. The block may
-	// list a node before its children (the writer emits in pool-index order,
-	// and free-list slot reuse can place a parent at a lower index than a
-	// child), so descriptors are collected first and materialized on demand in
-	// dependency order via materialize_file_twine.
 	struct TwineDesc {
 		enum Kind { Leaf, Suffix, Concat } kind;
 		std::string text;
@@ -481,8 +469,6 @@ struct RTLILFrontendWorker {
 		current_module->design = design;
 		current_module->meta_->name = module_name;
 		if (delete_current_module) {
-			// Module is about to be discarded — drop its src attribute
-			// rather than push it into a pool we'll never reach.
 			attrbuf.erase(ID::src);
 			pending_src = Twine::Null;
 			current_module->attributes = std::move(attrbuf);
@@ -543,18 +529,9 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::IdString id = parse_id();
 		RTLIL::Const c = parse_const();
-		// The '|' separator inside a src attribute is a Yosys-internal
-		// merge convention emitted only by the legacy strpool path or by
-		// a `dump -resolve-src`; no external tool should be producing it.
-		// Warn so the producer learns to emit one path:line.col per
-		// attribute. We don't try to repair the value — the user's input
-		// is wrong and silently interning it would hide that.
 		if (id == RTLIL::ID::src && (c.flags & RTLIL::CONST_FLAG_STRING)) {
 			std::string raw = c.decode_string();
 			if (!raw.empty() && raw[0] == '@') {
-				// Compact "@N" reference into the `twines` block: carry the
-				// resolved twine straight to the object (set after its
-				// absorb_attrs) so its structure is preserved, not flattened.
 				size_t file_id = 0;
 				auto [ptr, ec] = std::from_chars(raw.data() + 1, raw.data() + raw.size(), file_id);
 				if (ec != std::errc() || ptr != raw.data() + raw.size())
@@ -591,10 +568,7 @@ struct RTLILFrontendWorker {
 			base = TwineRef(id);
 		} else {
 			auto it = twine_remap.find(id);
-			if (it == twine_remap.end())
-				base = materialize_file_twine(id);
-			else
-				base = it->second;
+			base = (it == twine_remap.end()) ? materialize_file_twine(id) : it->second;
 		}
 		return twine_tag(base, is_public);
 	}
@@ -708,19 +682,15 @@ struct RTLILFrontendWorker {
 			error("Expected `leaf`, `suffix` or `concat` inside twines block, got `%s'.",
 					error_token());
 		}
+		std::vector<size_t> ordered_ids;
+		ordered_ids.reserve(twine_descs.size());
 		for (auto &it : twine_descs)
-			materialize_file_twine(it.first);
+			ordered_ids.push_back(it.first);
+		std::sort(ordered_ids.begin(), ordered_ids.end());
+		for (size_t id : ordered_ids)
+			materialize_file_twine(id);
 		twine_descs.clear();
 		expect_eol();
-	}
-
-	// Release the per-file parser refs gathered during parse_twines. Call
-	// once the entire file has been parsed and every cell/wire that ever
-	// referred to a file_id has already adopted the corresponding local_id.
-	void release_twine_parser_holds()
-	{
-		twine_parser_holds.clear();
-		twine_remap.clear();
 	}
 
 	void parse_parameter()
@@ -1080,9 +1050,6 @@ struct RTLILFrontendWorker {
 				act.enable = parse_sigspec();
 				act.priority_mask = parse_const();
 				rule->mem_write_actions.push_back(act);
-				// meta_idx_ is a weak ref — drop ours so the pushed copy
-				// in the vector is the sole holder. Process::~Process
-				// walks the tree to actually release.
 				act.meta_ = nullptr;
 				expect_eol();
 			}
@@ -1126,7 +1093,9 @@ struct RTLILFrontendWorker {
 		}
 		if (attrbuf.size() != 0)
 			error("dangling attribute");
-		release_twine_parser_holds();
+
+		twine_parser_holds.clear();
+		twine_remap.clear();
 	}
 };
 

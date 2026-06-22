@@ -1172,7 +1172,6 @@ bool RTLIL::Cell::bufnorm_handle_setPort(TwineRef portname, SigSpec &signal, dic
 	}
 
 	auto dir = port_dir(portname);
-	// Fast path: connecting a full driverless wire to an output port — everything else
 	// goes through the bufnorm queues and is handled during the next bufNormalize call
 	if ((dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) && signal.is_wire()) {
 		Wire *w = signal.as_wire();

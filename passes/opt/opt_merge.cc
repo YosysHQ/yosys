@@ -406,7 +406,6 @@ struct OptMergePass : public Pass {
 		ct.cell_types.erase(TW($anyconst));
 		ct.cell_types.erase(TW($allseq));
 		ct.cell_types.erase(TW($allconst));
-		// Synthetic driver cells signorm creates for module ports — must
 		// never be folded into one another, otherwise distinct ports collapse.
 		ct.cell_types.erase(TW($input_port));
 		ct.cell_types.erase(TW($output_port));

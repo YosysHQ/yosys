@@ -39,12 +39,6 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.sig_q = cell->getPort(TW::Q);
 		info.width = GetSize(info.sig_q);
 		info.attributes = cell->attributes;
-		// Carry src across construction → emit() as an owning Twine
-		// reference. Retaining a slot on the source pool keeps it
-		// alive even if the source cell gets removed between
-		// manufacture_info() and emit(); emit() then transfers the
-		// id verbatim into the new cell — no flatten/re-intern, no
-		// pipe-leaf risk for cells whose src is a Concat.
 		if (cell->src_id() != Twine::Null && cell->module && cell->module->design)
 			info.src_twine = cell->src_id();
 		if (initvals)
@@ -762,7 +756,6 @@ Cell *FfData::emit() {
 		}
 	}
 	// src is carried in info.src_twine (an OwnedTwine retaining the
-	// source slot). Transfer the id verbatim to the new cell — same
 	// pool, no flatten. The OwnedTwine still holds its own ref until
 	// FfData is destroyed; set_src_id retains on the cell's behalf.
 	cell->attributes = attributes;

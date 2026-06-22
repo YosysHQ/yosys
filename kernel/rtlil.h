@@ -555,12 +555,16 @@ struct RTLIL::IdString
 
 	// often one needs to check if a given IdString is part of a list (for example a list
 	// of cell types). the following functions helps with that.
+	// Constrained to 2+ args so a single argument always resolves to a concrete
+	// overload below; otherwise a single argument matching none of them (e.g. a
+	// TwineRef) would re-match this template and recurse infinitely.
 	template<typename... Args>
-	bool in(const Args &... args) const {
+	bool in(const Args &... args) const requires (sizeof...(Args) != 1) {
 		return (... || in(args));
 	}
 
 	bool in(IdString rhs) const { return *this == rhs; }
+	inline bool in(TwineRef rhs) const;
 	bool in(const char *rhs) const { return *this == rhs; }
 	bool in(const std::string &rhs) const { return *this == rhs; }
 	inline bool in(const pool<IdString> &rhs) const;
@@ -599,6 +603,8 @@ inline bool operator==(TwineRef a, RTLIL::IdString b) {
 	return bi != 0 && a.untag().value + 1 == bi;
 }
 inline bool operator==(RTLIL::IdString a, TwineRef b) { return b == a; }
+
+inline bool RTLIL::IdString::in(TwineRef rhs) const { return *this == rhs; }
 
 struct RTLIL::OwningIdString : public RTLIL::IdString {
 	inline OwningIdString() { }
@@ -1402,7 +1408,6 @@ inline bool operator!=(RTLIL::IdString lhs, const RTLIL::NameMasqBase<Derived> &
 
 // Read-only masquerade for Wire::name. Reads materialise the TwineRef in
 // the owning Design's twines pool into a temporary IdString. Writes are
-// intentionally unsupported — use Module::rename(wire, new_name) instead.
 // Defined before Wire so it can be used as a [[no_unique_address]] member.
 struct RTLIL::WireNameMasq : RTLIL::NameMasqBase<RTLIL::WireNameMasq> {
 	WireNameMasq() = default;
@@ -2194,7 +2199,6 @@ struct RTLIL::Design
 
 	// Wholesale-copy this design into `dst`. `dst` must be empty (no
 	// modules). Copies twines verbatim and clones each module
-	// preserving src_id_ values directly — avoids the per-module
 	// copy_from pool rebuild and yields byte-identical RTLIL output
 	// across design -push/-pop, -save/-load, etc.
 	void clone_into(RTLIL::Design *dst) const;
@@ -2325,7 +2329,6 @@ private:
 	friend struct RTLIL::Patch;
 public:
 	// Shadows NamedObject::name. Reads materialise via twines; writes
-	// are a compile error — use Module::rename(wire, new_name) instead.
 	[[no_unique_address]] RTLIL::WireNameMasq name;
 
 	Hasher::hash_t hashidx_;
@@ -2395,7 +2398,6 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	Memory();
 	~Memory();
 
-	// Back-pointer to the owning module — same role as Cell::module /
 	// Wire::module. Set by Module::addMemory / the frontends that
 	// construct Memory free-standing before attaching to a module.
 	// Lets Memory's src access resolve uniformly via module->design.
@@ -2436,7 +2438,6 @@ private:
 	bool bufnorm_handle_setPort(TwineRef portname, RTLIL::SigSpec &signal, dict<TwineRef, RTLIL::SigSpec>::iterator conn_it);
 public:
 	// Shadows NamedObject::name. Reads materialise via twines; writes
-	// are a compile error — use Module::rename(cell, new_name) instead.
 	[[no_unique_address]] RTLIL::CellNameMasq name;
 
 	Hasher::hash_t hashidx_;
@@ -2525,7 +2526,6 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 
 	// Walk the whole CaseRule subtree (this case, every switch, every
 	// nested case, every MemWriteAction inside this process's sync rules
-	// — those are reached through Process, not here) and set `module` on
 	// each. Idempotent.
 	void setModuleRecursive(RTLIL::Module *m);
 
@@ -2706,7 +2706,6 @@ inline Hasher RTLIL::SigBit::hash_into(Hasher h) const {
 inline Hasher RTLIL::SigBit::hash_top() const {
 	Hasher h;
 	if (wire) {
-		// Use the wire's name (TwineRef) directly — avoids IdString materialisation.
 		TwineRef name = wire->meta_ ? wire->meta_->name : Twine::Null;
 		h.eat(name);
 		h.eat(offset);
@@ -3075,7 +3074,6 @@ public:
 	virtual RTLIL::Module *clone() const;
 	// Clone variant that attaches the new module to `dst` BEFORE cloneInto
 	// runs. This is the right pattern when the destination design is known
-	// up front — it avoids the "detached module, attach later" flow and
 	// the pending-literal src stashing it entails. Subtypes override to
 	// preserve their type (AstModule). `src_id_verbatim` is forwarded to
 	// cloneInto.
@@ -3104,7 +3102,6 @@ public:
 		return design->selected_member(meta_->name, member->meta_->name);
 	}
 
-	// Primary (fast) overloads — key directly into the dict.
 	RTLIL::Wire* wire(TwineRef id) {
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;

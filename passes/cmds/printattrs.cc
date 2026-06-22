@@ -55,7 +55,6 @@ struct PrintAttrsPass : public Pass {
 	}
 
 	static void log_src(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const unsigned int indent) {
-		// Emit src outside the attributes loop — it lives on the typed
 		// meta-vector slot, not in obj->attributes.
 		if (design && design->obj_src_id(obj) != Twine::Null)
 			log("%s(* src=\"%s\" *)\n", get_indent_str(indent),

@@ -79,6 +79,7 @@ struct BtorWorker
 	dict<SigBit, bool> initbits;
 	pool<Wire*> statewires;
 	pool<string> srcsymbols;
+	TwineSearch src_search;
 	vector<Mem> memories;
 	dict<Cell*, Mem*> mem_cells;
 
@@ -125,11 +126,11 @@ struct BtorWorker
 			string src = module && module->design ? module->design->get_src_attribute(obj) : std::string();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
-				TwineRef src_ref = TwineSearch(&module->design->twines).find(src);
+				TwineRef src_ref = src_search.find(src);
 				if (srcsymbols.count(src) || src_ref != Twine::Null) {
 					for (int i = 1;; i++) {
 						string s = stringf("%s-%d", src, i);
-						TwineRef s_ref = TwineSearch(&module->design->twines).find(s);
+						TwineRef s_ref = src_search.find(s);
 						if (!srcsymbols.count(s) && s_ref == Twine::Null) {
 							src = s;
 							break;
@@ -153,11 +154,11 @@ struct BtorWorker
 			string src = module && module->design ? module->design->get_src_attribute(mem) : std::string();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
-				TwineRef src_ref = TwineSearch(&module->design->twines).find(src);
+				TwineRef src_ref = src_search.find(src);
 				if (srcsymbols.count(src) || src_ref != Twine::Null) {
 					for (int i = 1;; i++) {
 						string s = stringf("%s-%d", src, i);
-						TwineRef s_ref = TwineSearch(&module->design->twines).find(s);
+						TwineRef s_ref = src_search.find(s);
 						if (!srcsymbols.count(s) && s_ref == Twine::Null) {
 							src = s;
 							break;
@@ -1193,7 +1194,7 @@ struct BtorWorker
 	}
 
 	BtorWorker(std::ostream &f, RTLIL::Module *module, bool verbose, bool single_bad, bool cover_mode, bool print_internal_names, string info_filename, string ywmap_filename) :
-			f(f), sigmap(module), module(module), verbose(verbose), single_bad(single_bad), cover_mode(cover_mode), print_internal_names(print_internal_names), info_filename(info_filename)
+			f(f), sigmap(module), module(module), verbose(verbose), single_bad(single_bad), cover_mode(cover_mode), print_internal_names(print_internal_names), src_search(&module->design->twines), info_filename(info_filename)
 	{
 		if (!info_filename.empty())
 			infof("name %s\n", module);

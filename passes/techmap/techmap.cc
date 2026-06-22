@@ -535,7 +535,6 @@ struct TechmapWorker
 							extmapper_module = extmapper_design->addModule(extmapper_design->twines.add(std::string{m_name}));
 							RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type.ref(), cell);
 							// addCell(name, cell) already migrated src across
-							// designs via copy_src_into — no need for an
 							// explicit set_src_attribute round-trip here.
 
 							int port_counter = 1;

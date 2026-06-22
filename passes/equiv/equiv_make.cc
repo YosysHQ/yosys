@@ -154,10 +154,11 @@ struct EquivMakeWorker
 		// list of cells without added $equiv cells
 		auto cells_list = equiv_mod->cells().to_vector();
 
+		TwineSearch search(&equiv_mod->design->twines);
 		for (auto id : wire_names)
 		{
-			TwineRef gold_id = TwineSearch(&equiv_mod->design->twines).find(id.str() + "_gold");
-			TwineRef gate_id = TwineSearch(&equiv_mod->design->twines).find(id.str() + "_gate");
+			TwineRef gold_id = search.find(id.str() + "_gold");
+			TwineRef gate_id = search.find(id.str() + "_gate");
 
 			Wire *gold_wire = equiv_mod->wire(gold_id);
 			Wire *gate_wire = equiv_mod->wire(gate_id);
@@ -331,10 +332,11 @@ struct EquivMakeWorker
 	{
 		SigMap assign_map(equiv_mod);
 
+		TwineSearch search(&equiv_mod->design->twines);
 		for (auto id : cell_names)
 		{
-			TwineRef gold_id = TwineSearch(&equiv_mod->design->twines).find(id.str() + "_gold");
-			TwineRef gate_id = TwineSearch(&equiv_mod->design->twines).find(id.str() + "_gate");
+			TwineRef gold_id = search.find(id.str() + "_gold");
+			TwineRef gate_id = search.find(id.str() + "_gate");
 
 			Cell *gold_cell = equiv_mod->cell(gold_id);
 			Cell *gate_cell = equiv_mod->cell(gate_id);
@@ -380,7 +382,7 @@ struct EquivMakeWorker
 			}
 
 			equiv_mod->remove(gate_cell);
-			equiv_mod->rename(gold_cell, TwineSearch(&equiv_mod->design->twines).find(id.str()));
+			equiv_mod->rename(gold_cell, search.find(id.str()));
 		}
 	}
 
@@ -492,9 +494,10 @@ struct EquivMakePass : public Pass {
 		if (argidx+3 != args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
-		worker.gold_mod = design->module(TwineSearch(&design->twines).find(RTLIL::escape_id(args[argidx])));
-		worker.gate_mod = design->module(TwineSearch(&design->twines).find(RTLIL::escape_id(args[argidx+1])));
-		worker.equiv_mod = design->module(TwineSearch(&design->twines).find(RTLIL::escape_id(args[argidx+2])));
+		TwineSearch search(&design->twines);
+		worker.gold_mod = design->module(search.find(RTLIL::escape_id(args[argidx])));
+		worker.gate_mod = design->module(search.find(RTLIL::escape_id(args[argidx+1])));
+		worker.equiv_mod = design->module(search.find(RTLIL::escape_id(args[argidx+2])));
 
 		if (worker.gold_mod == nullptr)
 			log_cmd_error("Can't find gold module %s.\n", args[argidx]);

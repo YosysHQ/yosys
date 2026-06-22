@@ -316,7 +316,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type_impl);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, scope + "." + cell->module->design->twines.str(cell->meta_->name), mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + cell->module->design->twines.unescaped_str(cell->meta_->name), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {

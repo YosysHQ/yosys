@@ -305,12 +305,12 @@ RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view 
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
 #define NEW_TWINE \
-	YOSYS_NAMESPACE_PREFIX Twine{YOSYS_NAMESPACE_PREFIX Twine::AutoPrefix{[](std::string_view func) -> const std::string * { \
+	YOSYS_NAMESPACE_PREFIX Twine{YOSYS_NAMESPACE_PREFIX Twine::AutoSuffix{[](std::string_view func) -> const std::string * { \
 		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
 		return prefix.get(); \
 	}(__FUNCTION__), std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 #define NEW_TWINE_SUFFIX(suffix) \
-	YOSYS_NAMESPACE_PREFIX Twine{YOSYS_NAMESPACE_PREFIX Twine::AutoPrefix{[](std::string_view func) -> const std::string * { \
+	YOSYS_NAMESPACE_PREFIX Twine{YOSYS_NAMESPACE_PREFIX Twine::AutoSuffix{[](std::string_view func) -> const std::string * { \
 		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
 		return prefix.get(); \
 	}(__FUNCTION__), std::string(suffix) + "$" + std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
