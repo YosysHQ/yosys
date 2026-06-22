@@ -482,9 +482,11 @@ void bind_idict(module &m, const char *name_cstr) {
 			return make_iterator(s.begin(), s.end());
 		})
 		.def("values", [](args _){
+			(void)_;
 			throw type_error("idicts do not support iteration on the integers");
 		})
 		.def("items", [](args _){
+			(void)_;
 			throw type_error("idicts do not support pairwise iteration");
 		})
 		.def("update", [](C &s, iterable other) {
@@ -521,6 +523,7 @@ void bind_idict(module &m, const char *name_cstr) {
 
 	for (const char *mutator: {"__setitem__", "__delitem__", "pop", "popitem", "setdefault"}) {
 		cls.def(mutator, [](args _) {
+			(void)_;
 			throw type_error("idicts do not support arbitrary element mutation");
 		});
 	}

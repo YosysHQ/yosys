@@ -1515,13 +1515,13 @@ void VerificImporter::merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBi
 			RTLIL::Cell *new_ff = module->addDff(NEW_ID, clock, sig_d, sig_q, clock_pol);
 
 			if (verific_verbose)
-				log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), log_id(new_ff));
+				log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), new_ff);
 
 			for (int i = 0; i < GetSize(sig_d); i++)
 				for (auto old_ff : dbits_db[sig_d[i]])
 				{
 					if (verific_verbose)
-						log("    replacing old ff %s on bit %d.\n", log_id(old_ff), i);
+						log("    replacing old ff %s on bit %d.\n", old_ff, i);
 
 					SigBit old_q = old_ff->getPort(ID::Q);
 					SigBit new_q = sig_q[i];
@@ -1565,6 +1565,64 @@ static std::string sha1_if_contain_spaces(std::string str)
 		}
 	}
 	return str;
+}
+
+void VerificImporter::recurse_mem_dimensions(RTLIL::Module *module, RTLIL::Memory *memory, Net *net, const char *&ascii_initdata, int max_bits_in_addr, const RTLIL::SigSpec &prefix, TypeRange *typeRange) {
+	if (typeRange == nullptr)
+		typeRange = net->GetOrigTypeRange();
+
+	auto *nextRange = typeRange->GetNext();
+	auto left = typeRange->LeftRangeBound();
+	auto right = typeRange->RightRangeBound();
+	bool is_up = left < right;
+	for (auto i = left; is_up ? i <= right : i >= right; is_up ? i++ : i--) {
+		// TODO verific can do u64
+		auto max_bits = max_bits_in_addr - prefix.size();
+		auto next_sig = SigSpec(Const(i, typeRange->NumBits()));
+		auto extra_bits = next_sig.size() - max_bits;
+		if (extra_bits > 0) {
+			next_sig = next_sig.extract_end(extra_bits);
+			auto extra_inc = (1 << extra_bits) - 1;
+			i = is_up ? i + extra_inc : i - extra_inc;
+		}
+		next_sig.append(prefix);
+		if (nextRange != nullptr && extra_bits < 0) {
+			recurse_mem_dimensions(module, memory, net, ascii_initdata, max_bits_in_addr, next_sig, nextRange);
+		} else {
+			if (next_sig.size() != max_bits_in_addr) {
+				// TODO verific can do u64
+				log_error("Expected %d bits for addr but got %d!\n", max_bits_in_addr, next_sig.size());
+			}
+			Const initval = Const(State::Sx, memory->width);
+			bool initval_valid = false;
+			if (ascii_initdata) {
+				for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
+					if (*ascii_initdata == 0)
+						break;
+					if (*ascii_initdata == '0' || *ascii_initdata == '1') {
+						initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
+						initval_valid = true;
+					}
+					ascii_initdata++;
+				}
+			}
+			if (!next_sig.convertible_to_int())
+				log_error("Address %s on RAM for identifier '%s' too wide!\n", log_signal(next_sig), net->Name());
+			auto next_idx = next_sig.as_int();
+			if (initval_valid) {
+				RTLIL::Cell *cell = module->addCell(new_verific_id(net), ID($meminit));
+				cell->parameters[ID::WORDS] = 1;
+				cell->setPort(ID::ADDR, next_idx);
+				cell->setPort(ID::DATA, initval);
+				cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
+				cell->parameters[ID::ABITS] = 32;
+				cell->parameters[ID::WIDTH] = memory->width;
+				cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
+			}
+			memory->start_offset = min(memory->start_offset, next_idx);
+			memory->size = max(memory->size, next_idx);
+		}
+	}
 }
 
 void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::map<std::string,Netlist*> &nl_todo, bool norename)
@@ -1617,12 +1675,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	uniquify_cache.clear();
 
 	if (is_blackbox(nl)) {
-		log("Importing blackbox module %s.\n", RTLIL::id2cstr(module->name));
-		log_flush();
+		log("Importing blackbox module %s.\n", module);
 		module->set_bool_attribute(ID::blackbox);
 	} else {
-		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
-		log_flush();
+		log("Importing module %s.\n", module);
 	}
 	import_attributes(module->attributes, nl, nl);
 	if (module->name.isPublic())
@@ -1766,22 +1822,33 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			module->memories[memory->name] = memory;
 			import_attributes(memory->attributes, net, nl);
 
-			uint64_t number_of_bits = net->Size();
-			uint64_t bits_in_word = number_of_bits;
+			int number_of_bits = net->Size();
+			int min_bits_in_word = number_of_bits;
+			int max_bits_in_addr = 0;
+
+			// get the size of each memory access
 			FOREACH_PORTREF_OF_NET(net, si, pr) {
-				if (pr->GetInst()->Type() == OPER_READ_PORT) {
-					bits_in_word = min<uint64_t>(bits_in_word, pr->GetInst()->OutputSize());
-					continue;
+				auto *inst = pr->GetInst();
+				int bits_in_word;
+				if (inst->Type() == OPER_READ_PORT)
+					bits_in_word = inst->OutputSize();
+				else if (inst->Type() == OPER_WRITE_PORT || inst->Type() == OPER_CLOCKED_WRITE_PORT)
+					bits_in_word = inst->Input2Size();
+				else
+					log_error("%sVerific RamNet %s is connected to unsupported instance type %s (%s).\n", announce_src_location(inst),
+							net->Name(), inst->View()->Owner()->Name(), inst->Name());
+
+				if (bits_in_word < min_bits_in_word) {
+					min_bits_in_word = bits_in_word;
+					max_bits_in_addr = inst->Input1Size();
 				}
-				if (pr->GetInst()->Type() == OPER_WRITE_PORT || pr->GetInst()->Type() == OPER_CLOCKED_WRITE_PORT) {
-					bits_in_word = min<uint64_t>(bits_in_word, pr->GetInst()->Input2Size());
-					continue;
-				}
-				log_error("%sVerific RamNet %s is connected to unsupported instance type %s (%s).\n", announce_src_location(pr->GetInst()),
-						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
 			}
-			memory->width = bits_in_word;
-			memory->size = number_of_bits / bits_in_word;
+
+			int number_of_words = number_of_bits / min_bits_in_word;
+
+			memory->width = min_bits_in_word;
+			memory->size = 0;
+			memory->start_offset = INT_MAX;
 
 			const char *ascii_initdata = net->GetWideInitialValue();
 			if (ascii_initdata) {
@@ -1793,32 +1860,26 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					log_assert(*ascii_initdata == 'b');
 					ascii_initdata++;
 				}
-				for (int word_idx = 0; word_idx < memory->size; word_idx++) {
-					Const initval = Const(State::Sx, memory->width);
-					bool initval_valid = false;
-					for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
-						if (*ascii_initdata == 0)
-							break;
-						if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-							initval.set(bit_idx, (*ascii_initdata == '0') ? State::S0 : State::S1);
-							initval_valid = true;
-						}
-						ascii_initdata++;
-					}
-					if (initval_valid) {
-						RTLIL::Cell *cell = module->addCell(new_verific_id(net), ID($meminit));
-						cell->parameters[ID::WORDS] = 1;
-						if (net->GetOrigTypeRange()->LeftRangeBound() < net->GetOrigTypeRange()->RightRangeBound())
-							cell->setPort(ID::ADDR, word_idx);
-						else
-							cell->setPort(ID::ADDR, memory->size - word_idx - 1);
-						cell->setPort(ID::DATA, initval);
-						cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
-						cell->parameters[ID::ABITS] = 32;
-						cell->parameters[ID::WIDTH] = memory->width;
-						cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
-					}
-				}
+			}
+
+			// process initdata and fixup min/max address
+			auto prefix = SigSpec();
+			recurse_mem_dimensions(module, memory, net, ascii_initdata, max_bits_in_addr, prefix);
+
+			auto min_idx = memory->start_offset;
+			auto max_idx = memory->size;
+			memory->size = max_idx - min_idx + 1;
+
+			// sanity check we haven't shrunk the memory
+			if (memory->size < number_of_words)
+				log_error("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, memory->size, min_idx, max_idx);
+
+			// warn on oversize memories
+			// TODO consider using a minimum ratio?
+			if (memory->size > number_of_words) {
+				float ratio = memory->size / (float)number_of_words;
+				log_warning("RAM for identifier '%s' may be up to %.0f%% oversize due to addressing\n", net->Name(), (ratio-1)*100);
+				log_debug("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, memory->size, min_idx, max_idx);
 			}
 			continue;
 		}
@@ -1872,7 +1933,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		RTLIL::IdString wire_name = new_verific_id(net);
 
 		if (verific_verbose)
-			log("  importing net %s as %s.\n", net->Name(), log_id(wire_name));
+			log("  importing net %s as %s.\n", net->Name(), wire_name.unescape());
 
 		RTLIL::Wire *wire = module->addWire(wire_name);
 		import_attributes(wire->attributes, net, nl, 1);
@@ -1896,7 +1957,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			RTLIL::IdString wire_name = new_verific_id(netbus);
 
 			if (verific_verbose)
-				log("  importing netbus %s as %s.\n", netbus->Name(), log_id(wire_name));
+				log("  importing netbus %s as %s.\n", netbus->Name(), wire_name.unescape());
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
@@ -2021,16 +2082,15 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	pool<Instance*> sva_assumes;
 	pool<Instance*> sva_covers;
 	pool<Instance*> sva_triggers;
-#endif
-
 	pool<RTLIL::Cell*> past_ffs;
+#endif
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
 		RTLIL::IdString inst_name = new_verific_id(inst);
 
 		if (verific_verbose)
-			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
+			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), inst_name.unescape());
 
 		if (mode_verific)
 			goto import_verific_cells;
@@ -2396,7 +2456,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		for (auto &it : cell_port_conns) {
 			if (verific_verbose)
-				log("      .%s(%s)\n", log_id(it.first), log_signal(it.second));
+				log("      .%s(%s)\n", it.first.unescape(), log_signal(it.second));
 			cell->setPort(it.first, it.second);
 		}
 	}
@@ -3020,6 +3080,7 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 {
 	std::set<std::string> top_mod_names;
 	Array *netlists = nullptr;
+	(void)top;
 
 #ifdef VERIFIC_VHDL_SUPPORT
 	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work, 1);

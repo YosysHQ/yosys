@@ -71,6 +71,8 @@ struct ConstmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (celltype.empty())
+			log_cmd_error("Missing required option -cell.\n");
 
 		if (design->has(celltype)) {
 			Module *existing = design->module(celltype);

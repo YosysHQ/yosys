@@ -77,8 +77,8 @@ struct TableBackend : public Backend {
 				if (wire->port_id == 0)
 					continue;
 
-				*f << log_id(module) << "\t";
-				*f << log_id(wire) << "\t";
+				*f << module->name.unescape() << "\t";
+				*f << wire->name.unescape() << "\t";
 				*f << "-" << "\t";
 				*f << "-" << "\t";
 
@@ -97,10 +97,10 @@ struct TableBackend : public Backend {
 			for (auto cell : module->cells())
 			for (auto conn : cell->connections())
 			{
-				*f << log_id(module) << "\t";
-				*f << log_id(cell) << "\t";
-				*f << log_id(cell->type) << "\t";
-				*f << log_id(conn.first) << "\t";
+				*f << module->name.unescape() << "\t";
+				*f << cell->name.unescape() << "\t";
+				*f << cell->type.unescape() << "\t";
+				*f << conn.first.unescape() << "\t";
 
 				if (cell->input(conn.first) && cell->output(conn.first))
 					*f << "inout" << "\t";

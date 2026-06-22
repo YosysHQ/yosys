@@ -1,23 +1,20 @@
 name: Test extra build flows
 
 on:
-  # always test main
-  push:
-    branches:
-      - main
-  merge_group:
-  # test PRs
   pull_request:
-  # allow triggering tests, ignores skip check
+  merge_group:
+  #push:
+  #  branches: [ main ]
   workflow_dispatch:
 
 jobs:
   pre_job:
     runs-on: ubuntu-latest
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: ${{ steps.set_output.outputs.should_skip }}
     steps:
       - id: skip_check
+        if: ${{ github.event_name != 'merge_group' }}
         uses: fkirc/skip-duplicate-actions@v5
         with:
           # don't run on documentation changes
@@ -26,58 +23,67 @@ jobs:
           # but never cancel main
           cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
-  vs-prep:
-    name: Prepare Visual Studio build
-    runs-on: ubuntu-latest
-    needs: [pre_job]
-    if: needs.pre_job.outputs.should_skip != 'true'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          persist-credentials: false
-      - run: sudo apt-get install libfl-dev
-      - name: Build
-        run: make vcxsrc YOSYS_COMPILER="Visual Studio" VCX_DIR_NAME=yosys-win32-vcxsrc-latest
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vcxsrc
-          path: yosys-win32-vcxsrc-latest.zip
+      - id: set_output
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
+          fi
 
   vs-build:
     name: Visual Studio build
     runs-on: windows-latest
-    needs: [vs-prep, pre_job]
-    if: needs.pre_job.outputs.should_skip != 'true'
+    needs: [pre_job]
+    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
         with:
-          name: vcxsrc
-          path: .
-      - name: unzip
-        run: unzip yosys-win32-vcxsrc-latest.zip
-      - name: setup-msbuild
-        uses: microsoft/setup-msbuild@v2
-      - name: MSBuild
-        working-directory: yosys-win32-vcxsrc-latest
-        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.26100.0
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install flex/bison
+        shell: pwsh
+        run: |
+          choco install winflexbison3 --no-progress
+
+          # Make tools visible to CMake
+          echo "C:\Program Files (x86)\GnuWin32\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
+          echo "C:\ProgramData\chocolatey\lib\winflexbison3\tools" | Out-File -Append -FilePath $env:GITHUB_PATH
+
+      - name: Configure CMake
+        run: >
+          cmake -S . -B build
+          -A x64
+          -DCMAKE_BUILD_TYPE=Release
+          -DYOSYS_WITHOUT_ABC=ON
+
+      - name: Build
+        run: >
+          cmake --build build
+          --config Release
+          --parallel
 
   wasi-build:
     name: WASI build
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           persist-credentials: false
       - name: Build
         run: |
-          WASI_SDK=wasi-sdk-27.0-x86_64-linux
-          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz
+          WASI_VER=33
+          WASI_SDK=wasi-sdk-${WASI_VER}.0-x86_64-linux
+          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VER}/${WASI_SDK}.tar.gz
           if ! [ -d ${WASI_SDK} ]; then curl -L ${WASI_SDK_URL} | tar xzf -; fi
-
+          WASI_SDK_PATH=$(pwd)/${WASI_SDK}
           FLEX_VER=2.6.4
           FLEX=flex-${FLEX_VER}
           FLEX_URL=https://github.com/westes/flex/releases/download/v${FLEX_VER}/${FLEX}.tar.gz
@@ -89,35 +95,21 @@ jobs:
             make &&
             make install)
 
-          mkdir -p build
-          cat > build/Makefile.conf <<END
-          export PATH := $(pwd)/${WASI_SDK}/bin:$(pwd)/flex-prefix/bin:${PATH}
-          WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
-
-          CONFIG := wasi
-          PREFIX := /
-
-          ENABLE_TCL := 0
-          ENABLE_READLINE := 0
-          ENABLE_PLUGINS := 0
-          ENABLE_ZLIB := 0
-
-          CXXFLAGS += -I$(pwd)/flex-prefix/include
-          END
-
-          make -C build -f ../Makefile CXX=clang -j$(nproc)
+          export PATH=${WASI_SDK_PATH}/bin:$(pwd)/flex-prefix/bin:${PATH}
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release .
+          cmake --build build -j$(nproc)
 
   nix-build:
     name: "Build nix flake"
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           persist-credentials: false
@@ -125,3 +117,21 @@ jobs:
         with:
           install_url: https://releases.nixos.org/nix/nix-2.30.0/install
       - run: nix build .?submodules=1 -L
+
+  extra-builds-result:
+    runs-on: ubuntu-latest
+    needs:
+      - vs-build
+      - wasi-build
+      - nix-build
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "Needs results: ${{ join(needs.*.result, ',') }}"
+          if [[ "${{ join(needs.*.result, ',') }}" == *failure* ]] || \
+            [[ "${{ join(needs.*.result, ',') }}" == *cancelled* ]]; then
+            echo "Some jobs failed or were cancelled"
+            exit 1
+          fi
+      - run: echo "All good"

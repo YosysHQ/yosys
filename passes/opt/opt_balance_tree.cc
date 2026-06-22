@@ -105,15 +105,15 @@ struct OptBalanceTreeWorker {
 		// Base case: if we have only one source, return it
 		if (sources.size() == 1)
 			return sources[0];
-		
+
 		// Base case: if we have two sources, create a single cell
 		if (sources.size() == 2) {
 			// Create a new cell of the same type
 			Cell* new_cell = module->addCell(NEW_ID2_SUFFIX("tree"), cell_type);
-			
+
 			// Copy attributes from reference cell
 			new_cell->attributes = cell->attributes;
-			
+
 			// Create output wire
 			int out_width = cell->getParam(ID::Y_WIDTH).as_int();
 			if (cell_type == ID($add))
@@ -121,7 +121,7 @@ struct OptBalanceTreeWorker {
 			else if (cell_type == ID($mul))
 				out_width = sources[0].size() + sources[1].size();
 			Wire* out_wire = module->addWire(NEW_ID2_SUFFIX("tree_out"), out_width);
-			
+
 			// Connect ports and fix up parameters
 			new_cell->setPort(ID::A, sources[0]);
 			new_cell->setPort(ID::B, sources[1]);
@@ -129,26 +129,26 @@ struct OptBalanceTreeWorker {
 			new_cell->fixup_parameters();
 			new_cell->setParam(ID::A_SIGNED, cell->getParam(ID::A_SIGNED));
 			new_cell->setParam(ID::B_SIGNED, cell->getParam(ID::B_SIGNED));
-			
+
 			// Update count and return output wire
 			cell_count[cell_type]++;
 			return out_wire;
 		}
-		
+
 		// Recursive case: split sources into two groups and create subtrees
 		int mid = (sources.size() + 1) / 2;
 		vector<SigSpec> left_sources(sources.begin(), sources.begin() + mid);
 		vector<SigSpec> right_sources(sources.begin() + mid, sources.end());
-		
+
 		SigSpec left_tree = create_balanced_tree(left_sources, cell_type, cell);
 		SigSpec right_tree = create_balanced_tree(right_sources, cell_type, cell);
-		
+
 		// Create a cell to combine the two subtrees
 		Cell* new_cell = module->addCell(NEW_ID2_SUFFIX("tree"), cell_type);
-		
+
 		// Copy attributes from reference cell
 		new_cell->attributes = cell->attributes;
-		
+
 		// Create output wire
 		int out_width = cell->getParam(ID::Y_WIDTH).as_int();
 		if (cell_type == ID($add))
@@ -156,7 +156,7 @@ struct OptBalanceTreeWorker {
 		else if (cell_type == ID($mul))
 			out_width = left_tree.size() + right_tree.size();
 		Wire* out_wire = module->addWire(NEW_ID2_SUFFIX("tree_out"), out_width);
-		
+
 		// Connect ports and fix up parameters
 		new_cell->setPort(ID::A, left_tree);
 		new_cell->setPort(ID::B, right_tree);
@@ -164,7 +164,7 @@ struct OptBalanceTreeWorker {
 		new_cell->fixup_parameters();
 		new_cell->setParam(ID::A_SIGNED, cell->getParam(ID::A_SIGNED));
 		new_cell->setParam(ID::B_SIGNED, cell->getParam(ID::B_SIGNED));
-		
+
 		// Update count and return output wire
 		cell_count[cell_type]++;
 		return out_wire;
@@ -512,8 +512,8 @@ struct OptBalanceTreeWorker {
 					if (inner_cells)
 					{
 						// Create a tree
-						log_debug("  Creating tree for %s with %d sources and %d inner cells...\n", log_id(head_cell), GetSize(sources), inner_cells);
-						
+						log_debug("  Creating tree for %s with %d sources and %d inner cells...\n", head_cell, GetSize(sources), inner_cells);
+
 						// Build a vector of all source signals
 						vector<SigSpec> source_signals;
 						vector<bool> signed_flags;
@@ -528,10 +528,10 @@ struct OptBalanceTreeWorker {
 						if (!std::all_of(signed_flags.begin(), signed_flags.end(), [&](bool flag) { return flag == signed_flags[0]; })) {
 							continue;
 						}
-						
+
 						// Create the balanced tree
 						SigSpec tree_output = create_balanced_tree(source_signals, cell_type, head_cell);
-						
+
 						// Connect the tree output to the head cell's output
 						SigSpec head_output = sigmap(head_cell->getPort(ID::Y));
 						int connect_width = std::min(head_output.size(), tree_output.size());
@@ -546,7 +546,7 @@ struct OptBalanceTreeWorker {
 					}
 				}
 			}
-			
+
 			// Remove all consumed cells, which now have been replaced by trees
 			for (auto cell : consumed_cells)
 				module->remove(cell);
@@ -604,7 +604,7 @@ struct OptBalanceTreePass : public Pass {
 
 		// Log stats
 		for (auto cell_type : cell_types)
-			log("Converted %d %s cells into trees.\n", cell_count[cell_type], log_id(cell_type));
+			log("Converted %d %s cells into trees.\n", cell_count[cell_type], cell_type.unescape());
 		if (std::find(cell_types.begin(), cell_types.end(), ID($add)) != cell_types.end())
 			log("Converted %d sliced $add chains into trees.\n", sliced_add_count);
 

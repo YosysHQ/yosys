@@ -135,10 +135,10 @@ finally
 				}
 				
 
-				log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				log_debug("PCOUT -> PCIN cascade for %s -> %s\n", dsp, dsp_pcin);
 
 			} else {
-				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", log_id(dsp), log_id(dsp_pcin), MAX_DSP_CASCADE);
+				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", dsp, dsp_pcin, MAX_DSP_CASCADE);
 			}
 
 			dsp = dsp_pcin;

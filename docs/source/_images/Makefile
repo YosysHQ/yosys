@@ -32,19 +32,20 @@ FORCE:
 TEX_FILES := $(shell find . -name *.tex)
 all_tex: $(TEX_FILES:.tex=.pdf) $(TEX_FILES:.tex=.svg)
 
+# limit output size to US letter (same as latexpdf output) to avoid oversize error
 %.pdf: %.dot
-	$(FAKETIME) dot -Tpdf -o $@ $<
+	@$(FAKETIME) dot -Tpdf -Gsize="8.5,11" -o $@ $< >/dev/null 2>&1
 
 %.pdf: %.tex
-	cd $(@D) && $(FAKETIME) pdflatex $(<F) --interaction=nonstopmode
+	@cd $(@D) && $(FAKETIME) pdflatex $(<F) --interaction=nonstopmode  >/dev/null 2>&1
 
 %.svg: %.pdf
-	pdf2svg $< $@
+	@pdf2svg $< $@  >/dev/null 2>&1
 
 .PHONY: clean tidy
 tidy:
-	rm -f  **/*.log **/*.aux
+	@rm -f  **/*.log **/*.aux
 
 clean: tidy
-	rm -rf code_examples
-	rm -f **/*.pdf **/*.svg
+	@rm -rf code_examples
+	@rm -f **/*.pdf **/*.svg

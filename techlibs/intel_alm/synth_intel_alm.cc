@@ -184,8 +184,10 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("coarse")) {
 			run("proc");
-			if (flatten || help_mode)
+			if (flatten || help_mode) {
+				run("check");
 				run("flatten", "(skip if -noflatten)");
+			}
 			run("tribuf -logic");
 			run("deminout");
 			run("opt_expr");

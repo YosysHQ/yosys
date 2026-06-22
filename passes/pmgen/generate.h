@@ -106,7 +106,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 				if (found_match) {
 					Module *m = design->addModule(stringf("\\pmtest_%s_%s_%05d",
 							pmclass, pattern, modcnt++));
-					log("Creating module %s with %d cells.\n", log_id(m), cellcnt);
+					log("Creating module %s with %d cells.\n", m, cellcnt);
 					mod->cloneInto(m);
 					pmtest_addports(m);
 					mods.push_back(m);
@@ -126,7 +126,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 	}
 
 	Module *m = design->addModule(stringf("\\pmtest_%s_%s", pmclass, pattern));
-	log("Creating module %s with %d cells.\n", log_id(m), GetSize(mods));
+	log("Creating module %s with %d cells.\n", m, GetSize(mods));
 	for (auto mod : mods) {
 		Cell *c = m->addCell(mod->name, mod->name);
 		for (auto port : mod->ports) {

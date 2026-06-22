@@ -1,0 +1,47 @@
+yosys_pass(proc_prune
+  proc_prune.cc
+)
+yosys_pass(proc_clean
+  proc_clean.cc
+)
+yosys_pass(proc_rmdead
+  proc_rmdead.cc
+)
+yosys_pass(proc_init
+  proc_init.cc
+)
+yosys_pass(proc_arst
+  proc_arst.cc
+	REQUIRES
+		proc_clean
+)
+yosys_pass(proc_rom
+  proc_rom.cc
+)
+yosys_pass(proc_mux
+  proc_mux.cc
+)
+yosys_pass(proc_dlatch
+  proc_dlatch.cc
+)
+yosys_pass(proc_dff
+  proc_dff.cc
+)
+yosys_pass(proc_memwr
+  proc_memwr.cc
+)
+yosys_pass(proc
+  proc.cc
+	REQUIRES
+		proc_prune
+		proc_clean
+		proc_rmdead
+		proc_init
+		proc_arst
+		proc_rom
+		proc_mux
+		proc_dlatch
+		proc_dff
+		proc_memwr
+		opt_expr
+)

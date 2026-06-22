@@ -93,7 +93,7 @@ struct SplitcellsWorker
 			}
 			slices.push_back(GetSize(outsig));
 
-			log_debug("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			log_debug("Splitting %s cell %s/%s into %d slices:\n", cell->type.unescape(), module, cell, GetSize(slices)-1);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;
@@ -130,7 +130,7 @@ struct SplitcellsWorker
 				if (slice->hasParam(ID::WIDTH))
 					slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Y)));
 
-				log_debug("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Y)));
+				log_debug("  slice %d: %s => %s\n", i, slice_name, log_signal(slice->getPort(ID::Y)));
 			}
 
 			module->remove(cell);
@@ -176,8 +176,7 @@ struct SplitcellsWorker
 			}
 			slices.push_back(GetSize(outsig));
 
-			log_debug("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
-			int wire_offset = user_index(0);
+			log_debug("Splitting %s cell %s/%s into %d slices:\n", cell->type.unescape(), module, cell, GetSize(slices)-1);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;
@@ -220,7 +219,7 @@ struct SplitcellsWorker
 										"%c%d%c", format[0], bit_offset, format[1]);
 							} else { // no '[' or '.', so no concatenation using wire, use slice_lsb + name_lsb offset instead
 									wire_indices = stringf(
-										"%c%d%c", format[0], slice_lsb + wire_offset, format[1]);
+										"%c%d%c", format[0], slice_lsb + user_index(0), format[1]);
 							}
 					} else {
 							// Fallback
@@ -255,7 +254,7 @@ struct SplitcellsWorker
 
 				slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Q)));
 
-				log_debug("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Q)));
+				log_debug("  slice %d: %s => %s\n", i, slice_name.unescape(), log_signal(slice->getPort(ID::Q)));
 			}
 
 			module->remove(cell);
@@ -344,7 +343,7 @@ struct SplitcellsPass : public Pass {
 
 			if (count_split_pre)
 				log("Split %d cells in module %s into %d cell slices.\n",
-					count_split_pre, log_id(module), count_split_post);
+					count_split_pre, module, count_split_post);
 		}
 	}
 } SplitnetsPass;

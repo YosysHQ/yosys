@@ -1,0 +1,208 @@
+pattern nexus_mac18
+
+match mul
+	select mul->type.in($mul)
+	select GetSize(port(mul, \A)) <= 18
+	select GetSize(port(mul, \B)) <= 18
+	select GetSize(port(mul, \Y)) <= 48
+endmatch
+
+match add
+	select add->type.in($add, $sub)
+	select GetSize(port(add, \Y)) <= 48
+	choice <IdString> AB {\A, \B}
+	index <SigBit> port(add, AB)[0] === port(mul, \Y)[0]
+endmatch
+
+code
+	if (mul->getParam(\A_SIGNED).as_bool() != mul->getParam(\B_SIGNED).as_bool()) {
+		reject;
+	}
+
+	{
+		SigSpec mul_out = port(mul, \Y);
+		IdString add_AB;
+
+		if (GetSize(port(add, \A)) >= GetSize(mul_out) && port(add, \A).extract(0, GetSize(mul_out)) == mul_out) {
+			add_AB = \A;
+		} else if (GetSize(port(add, \B)) >= GetSize(mul_out) && port(add, \B).extract(0, GetSize(mul_out)) == mul_out) {
+			add_AB = \B;
+		} else {
+			reject;
+		}
+
+		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC18X18");
+		IdString add_C = (add_AB == \A) ? \B : \A;
+
+		mac->setPort(\A, port(mul, \A));
+		mac->setPort(\B, port(mul, \B));
+		mac->setPort(\C, port(add, add_C));
+		mac->setPort(\Y, port(add, \Y));
+		mac->setParam(\A_SIGNED, mul->getParam(\A_SIGNED)); 
+		mac->setParam(\SUBTRACT, add->type == $sub ? State::S1 : State::S0);
+
+		autoremove(mul);
+		autoremove(add);
+	}
+
+	accept;
+endcode
+
+pattern nexus_preadd18
+
+match preadd
+	select preadd->type.in($add, $sub)
+	select GetSize(port(preadd, \Y)) <= 19
+endmatch
+
+match mul
+	select mul->type.in($mul)
+	select GetSize(port(mul, \Y)) <= 48
+	choice <IdString> mul_AB {\A, \B}
+	index <SigBit> port(mul, mul_AB)[0] === port(preadd, \Y)[0]
+endmatch
+
+match pipe_ff
+	select pipe_ff->type.in($dff, $dffe, $sdff, $sdffe)
+	index <SigBit> port(pipe_ff, \D)[0] === port(mul, \Y)[0]
+	optional
+endmatch
+
+code
+	SigSpec preadd_out = port(preadd, \Y);
+	IdString actual_mul_AB;
+
+	if (GetSize(port(mul, \A)) >= GetSize(preadd_out) && port(mul, \A).extract(0, GetSize(preadd_out)) == preadd_out) {
+		actual_mul_AB = \A;
+	} else if (GetSize(port(mul, \B)) >= GetSize(preadd_out) && port(mul, \B).extract(0, GetSize(preadd_out)) == preadd_out) {
+		actual_mul_AB = \B;
+	} else {
+		reject;
+	}
+
+	{
+		Cell *mac = module->addCell(NEW_ID, "$__NX_PREADD18X18");
+
+		IdString mul_other = (actual_mul_AB == \A) ? \B : \A;
+		IdString sgn_AC = (mul_other == \A) ? \B_SIGNED : \A_SIGNED;
+		IdString sgn_B = (mul_other == \A) ? \A_SIGNED : \B_SIGNED;
+
+		SigSpec sig_A = port(preadd, \A);
+		SigSpec sig_C = port(preadd, \B);
+		SigSpec sig_B = port(mul, mul_other);
+
+		sig_A.extend_u0(18, false);
+		sig_C.extend_u0(18, false);
+		sig_B.extend_u0(18, false);
+
+		mac->setPort(\A, sig_A.extract(0, 18));
+		mac->setPort(\C, sig_C.extract(0, 18));
+		mac->setPort(\B, sig_B.extract(0, 18));
+
+		if (pipe_ff) {
+			mac->setPort(\Y, port(pipe_ff, \Q));
+			mac->setPort(\CLK, port(pipe_ff, \CLK));
+			mac->setParam(\PIPELINED, State::S1);
+		} else {
+			mac->setPort(\Y, port(mul, \Y));
+			mac->setPort(\CLK, State::S0);
+			mac->setParam(\PIPELINED, State::S0);
+		}
+
+		mac->setParam(\A_SIGNED, mul->getParam(sgn_AC));
+		mac->setParam(\B_SIGNED, mul->getParam(sgn_B));
+		mac->setParam(\C_SIGNED, mul->getParam(sgn_AC));
+
+		if (pipe_ff) autoremove(pipe_ff);
+		autoremove(mul);
+		autoremove(preadd);
+	}
+
+	accept;
+endcode
+
+pattern nexus_mac9_4lane
+
+match add_top
+	select add_top->type == $add
+endmatch
+
+match add_mid
+	select add_mid->type == $add
+	index <SigBit> port(add_mid, \Y)[0] === port(add_top, \A)[0]
+endmatch
+
+match add_bot
+	select add_bot->type == $add
+	index <SigBit> port(add_bot, \Y)[0] === port(add_mid, \A)[0]
+endmatch
+
+match mul3
+	select mul3->type == $mul
+	select GetSize(port(mul3, \A)) <= 9 && GetSize(port(mul3, \B)) <= 9
+	index <SigBit> port(mul3, \Y)[0] === port(add_top, \B)[0]
+endmatch
+
+match mul2
+	select mul2->type == $mul
+	select GetSize(port(mul2, \A)) <= 9 && GetSize(port(mul2, \B)) <= 9
+	index <SigBit> port(mul2, \Y)[0] === port(add_mid, \B)[0]
+endmatch
+
+match mul1
+	select mul1->type == $mul
+	select GetSize(port(mul1, \A)) <= 9 && GetSize(port(mul1, \B)) <= 9
+	index <SigBit> port(mul1, \Y)[0] === port(add_bot, \B)[0]
+endmatch
+
+match mul0
+	select mul0->type == $mul
+	select GetSize(port(mul0, \A)) <= 9 && GetSize(port(mul0, \B)) <= 9
+	index <SigBit> port(mul0, \Y)[0] === port(add_bot, \A)[0]
+endmatch
+
+code
+	bool is_signed = mul0->getParam(\A_SIGNED).as_bool();
+
+	if (
+		mul0->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul1->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul1->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul2->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul2->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul3->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul3->getParam(\B_SIGNED).as_bool() != is_signed
+	) {
+		reject;
+	}
+
+	{
+		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
+		
+		auto ext9 = [&](SigSpec s) { 
+			s.extend_u0(9, is_signed); 
+			return s;
+		};
+
+		mac->setPort(\A0, ext9(port(mul0, \A)));
+		mac->setPort(\B0, ext9(port(mul0, \B)));
+		mac->setPort(\A1, ext9(port(mul1, \A)));
+		mac->setPort(\B1, ext9(port(mul1, \B)));
+		mac->setPort(\A2, ext9(port(mul2, \A)));
+		mac->setPort(\B2, ext9(port(mul2, \B)));
+		mac->setPort(\A3, ext9(port(mul3, \A)));
+		mac->setPort(\B3, ext9(port(mul3, \B)));
+		mac->setPort(\Y, port(add_top, \Y));
+		mac->setParam(\SIGNED, is_signed ? State::S1 : State::S0);
+
+		autoremove(add_top);
+		autoremove(add_mid);
+		autoremove(add_bot);
+		autoremove(mul0);
+		autoremove(mul1);
+		autoremove(mul2);
+		autoremove(mul3);
+	}
+
+	accept;
+endcode

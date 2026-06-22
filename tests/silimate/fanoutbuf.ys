@@ -315,13 +315,13 @@ module top (
   wire intermediate1, intermediate2;
   assign intermediate1 = a & b;
   assign intermediate2 = intermediate1 | c;
-  
+
   assign w1 = intermediate1;
   assign w2 = intermediate1;
   assign w3 = intermediate1;
   assign w4 = intermediate1;
   assign w5 = intermediate1;
-  
+
   assign x1 = intermediate2;
   assign x2 = intermediate2;
   assign x3 = intermediate2;
@@ -376,7 +376,7 @@ EOF
 check -assert
 
 # Check equivalence after fanoutbuf - should insert buffers in sub module
-equiv_opt -assert fanoutbuf
+equiv_opt -assert -ignore-unknown-cells fanoutbuf
 design -load postopt
 select -assert-count 1 t:$buf
 select -assert-none t:$pos

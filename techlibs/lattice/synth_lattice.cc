@@ -402,8 +402,10 @@ struct SynthLatticePass : public ScriptPass
 		if (check_label("coarse"))
 		{
 			run("proc");
-			if (flatten || help_mode)
+			if (flatten || help_mode) {
+				run("check");
 				run("flatten");
+			}
 			run("tribuf -logic");
 			run("deminout");
 			run("opt_expr");
@@ -423,9 +425,12 @@ struct SynthLatticePass : public ScriptPass
 			run("opt_clean");
 
 			if (help_mode) {
+				run("lattice_dsp_nexus", "(only if -family lifcl/lfd2nx and unless -nodsp)");
 				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
 				run("techmap -map +/lattice/dsp_map" + dsp_map + ".v", "(unless -nodsp)");
 			} else if (have_dsp && !nodsp) {
+				if (is_nexus)
+					run("lattice_dsp_nexus");
 				for (const auto &rule : dsp_rules) {
 					run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d -D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_NAME=%s",
 						rule.a_maxwidth, rule.b_maxwidth, rule.a_minwidth, rule.b_minwidth, rule.prim));

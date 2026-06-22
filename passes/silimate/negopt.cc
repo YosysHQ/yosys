@@ -51,7 +51,7 @@ static SigSpec strip_ext_for_match(SigSpec sig)
 	return sig.extract(0, n);
 }
 
-#include "passes/silimate/peepopt_negopt.h"
+#include "passes/silimate/peepopt_negopt_pm.h"
 
 struct NegoptPass : public Pass {
 	NegoptPass() : Pass("negopt", "optimize negation patterns in arithmetic") { }
@@ -130,7 +130,7 @@ struct NegoptPass : public Pass {
 				// pre-subpass creates the patterns they match
 				// separate pm instances so sub2neg sees the $sub cells manual2sub creates.
 				{
-					peepopt_pm pm(module);
+					peepopt_negopt_pm pm(module);
 					pm.setup(module->selected_cells());
 					log_pass_event("Starting", "manual2sub");
 					pm.run_manual2sub();
@@ -138,7 +138,7 @@ struct NegoptPass : public Pass {
 					log_flush();
 				}
 				{
-					peepopt_pm pm(module);
+					peepopt_negopt_pm pm(module);
 					pm.setup(module->selected_cells());
 					log_pass_event("Starting", "sub2neg");
 					pm.run_sub2neg();
@@ -150,7 +150,7 @@ struct NegoptPass : public Pass {
 				did_something = true;
 				for (int iter = 0; iter < max_iterations && did_something; iter++) {
 					did_something = false;
-					peepopt_pm pm(module);
+					peepopt_negopt_pm pm(module);
 					pm.setup(module->selected_cells());
 
 					log_pass_event("Starting", "negexpand", iter);
@@ -178,7 +178,7 @@ struct NegoptPass : public Pass {
 				did_something = true;
 				for (int iter = 0; iter < max_iterations && did_something; iter++) {
 					did_something = false;
-					peepopt_pm pm(module);
+					peepopt_negopt_pm pm(module);
 					pm.setup(module->selected_cells());
 
 					log_pass_event("Starting", "negrebuild", iter);

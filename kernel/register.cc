@@ -22,11 +22,13 @@
 #include "kernel/json.h"
 #include "kernel/gzip.h"
 #include "kernel/log_help.h"
+#include "kernel/newcelltypes.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <filesystem>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -59,7 +61,7 @@ void try_collect_garbage()
 	RTLIL::OwningIdString::collect_garbage();
 }
 
-Pass::Pass(std::string name, std::string short_help, source_location location) : 
+Pass::Pass(std::string name, std::string short_help, source_location location) :
 	pass_name(name), short_help(short_help), location(location)
 {
 	next_queued_pass = first_queued_pass;
@@ -216,7 +218,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		return;
 
 	if (tok[0] == '!') {
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 		cmd_buf = command.substr(command.find('!') + 1);
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
@@ -740,8 +742,8 @@ static void log_warning_flags(Pass *pass) {
 static struct CellHelpMessages {
 	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
-#include "techlibs/common/simlib_help.inc"
-#include "techlibs/common/simcells_help.inc"
+#include "kernel/simlib_help.inc"
+#include "kernel/simcells_help.inc"
 		cell_help.sort();
 	}
 	bool contains(string name) { return cell_help.count(get_cell_name(name)) > 0; }
@@ -770,6 +772,10 @@ struct HelpPass : public Pass {
 
 		bool raise_error = false;
 		std::map<string, vector<string>> groups;
+
+		// get root path
+		auto this_path = std::filesystem::path(source_location::current().file_name());
+		auto source_root = this_path.parent_path().parent_path();
 
 		json.name("cmds"); json.begin_object();
 		// iterate over commands
@@ -911,10 +917,29 @@ struct HelpPass : public Pass {
 				}
 			}
 
+			// fix path
+			string source_file = pass->location.file_name();
+			bool has_source = source_file.compare("unknown") != 0;
+			std::filesystem::path source_path;
+			auto no_source_group = false;
+			if (has_source) {
+				source_path = std::filesystem::path(pass->location.file_name());
+				if (source_path.is_absolute()) {
+					// using proximate instead of relative means that we
+					// still get the source path if they aren't relative
+					auto proximate_path = std::filesystem::proximate(source_path, source_root);
+					if (proximate_path == std::filesystem::weakly_canonical(proximate_path))
+						// we're only interested if it's a subpath of our root dir
+						source_path = proximate_path;
+					else
+						// don't try to group external paths
+						no_source_group = true;
+				}
+				source_file = source_path.string();
+			}
+
 			// attempt auto group
 			if (!cmd_help.has_group()) {
-				string source_file = pass->location.file_name();
-				bool has_source = source_file.compare("unknown") != 0;
 				if (pass->internal_flag)
 					cmd_help.group = "internal";
 				else if (source_file.find("backends/") == 0 || (!has_source && name.find("read_") == 0))
@@ -922,11 +947,8 @@ struct HelpPass : public Pass {
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
 				else if (has_source) {
-					auto last_slash = source_file.find_last_of('/');
-					if (last_slash != string::npos) {
-						auto parent_path = source_file.substr(0, last_slash);
-						cmd_help.group = parent_path;
-					}
+					if (source_path.has_parent_path() && !no_source_group)
+						cmd_help.group = source_path.parent_path().string();
 				}
 				// implicit !has_source
 				else if (name.find("equiv") == 0)
@@ -954,7 +976,7 @@ struct HelpPass : public Pass {
 				json.value(content.to_json());
 			json.end_array();
 			json.entry("group", cmd_help.group);
-			json.entry("source_file", pass->location.file_name());
+			json.entry("source_file", source_file);
 			json.entry("source_line", pass->location.line());
 			json.entry("source_func", pass->location.function_name());
 			json.entry("experimental_flag", pass->experimental_flag);
@@ -975,16 +997,18 @@ struct HelpPass : public Pass {
 		json.entry("generator", yosys_maybe_version());
 
 		dict<string, vector<string>> groups;
-		dict<string, pair<SimHelper, CellType>> cells;
+		dict<string, pair<SimHelper, StaticCellTypes::CellTableBuilder::CellInfo>> cells;
 
 		// iterate over cells
 		bool raise_error = false;
-		for (auto &it : yosys_celltypes.cell_types) {
-			auto name = it.first.str();
+		for (auto it : StaticCellTypes::builder.cells) {
+			if (!StaticCellTypes::categories.is_known(it.type))
+				continue;
+			auto name = it.type.str();
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
 				groups[cell_help.group].emplace_back(name);
-				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
+				auto cell_pair = pair<SimHelper, StaticCellTypes::CellTableBuilder::CellInfo>(cell_help, it);
 				cells.emplace(name, cell_pair);
 			} else {
 				log("ERROR: Missing cell help for cell '%s'.\n", name);
@@ -1025,9 +1049,9 @@ struct HelpPass : public Pass {
 			json.name("outputs"); json.value(outputs);
 			vector<string> properties;
 			// CellType properties
-			if (ct.is_evaluable) properties.push_back("is_evaluable");
-			if (ct.is_combinatorial) properties.push_back("is_combinatorial");
-			if (ct.is_synthesizable) properties.push_back("is_synthesizable");
+			if (ct.features.is_evaluable) properties.push_back("is_evaluable");
+			if (ct.features.is_combinatorial) properties.push_back("is_combinatorial");
+			if (ct.features.is_synthesizable) properties.push_back("is_synthesizable");
 			// SimHelper properties
 			size_t last = 0; size_t next = 0;
 			while ((next = ch.tags.find(", ", last)) != string::npos) {

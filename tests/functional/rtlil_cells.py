@@ -337,7 +337,7 @@ rtlil_cells = [
 #    ("tribuf", ["A", "EN", "Y"]),
 #    ("specify2", ["EN", "SRC", "DST"]),
 #    ("specify3", ["EN", "SRC", "DST", "DAT"]),
-#    ("specrule", ["EN_SRC", "EN_DST", "SRC", "DST"]),
+#    ("specrule", ["SRC_EN", "DST_EN", "SRC", "DST"]),
     BWCell("bweqx", [10, 16, 40]),
     BWCell("bwmux", [10, 16, 40]),
     FFCell("ff", [10, 20, 40]),

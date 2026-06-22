@@ -105,21 +105,21 @@ struct TimingInfo
 				auto dst = cell->getPort(ID::DST);
 				for (const auto &c : src.chunks())
 					if (!c.wire || !c.wire->port_input)
-						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", module, cell, log_signal(src));
 				for (const auto &c : dst.chunks())
 					if (!c.wire || !c.wire->port_output)
-						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
+						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", module, cell, log_signal(dst));
 				int rise_max = cell->getParam(ID::T_RISE_MAX).as_int();
 				int fall_max = cell->getParam(ID::T_FALL_MAX).as_int();
 				int max = std::max(rise_max,fall_max);
 				if (max < 0)
-					log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", log_id(module), log_id(cell));
+					log_error("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0.\n", module, cell);
 				if (cell->getParam(ID::FULL).as_bool()) {
 					for (const auto &s : src)
 						for (const auto &d : dst) {
 							auto r = t.comb.insert(BitBit(s,d));
 							if (!r.second)
-								log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(s), log_signal(d));
+								log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", module, log_signal(s), log_signal(d));
 							r.first->second = max;
 						}
 				}
@@ -130,7 +130,7 @@ struct TimingInfo
 						const auto &d = dst[i];
 						auto r = t.comb.insert(BitBit(s,d));
 						if (!r.second)
-							log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", log_id(module), log_signal(s), log_signal(d));
+							log_error("Module '%s' contains multiple specify cells for SRC '%s' and DST '%s'.\n", module, log_signal(s), log_signal(d));
 						r.first->second = max;
 					}
 				}
@@ -139,15 +139,15 @@ struct TimingInfo
 				auto src = cell->getPort(ID::SRC).as_bit();
 				auto dst = cell->getPort(ID::DST);
 				if (!src.wire || !src.wire->port_input)
-					log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+					log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", module, cell, log_signal(src));
 				for (const auto &c : dst.chunks())
 					if (!c.wire->port_output)
-						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", log_id(module), log_id(cell), log_signal(dst));
+						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module output.\n", module, cell, log_signal(dst));
 				int rise_max = cell->getParam(ID::T_RISE_MAX).as_int();
 				int fall_max = cell->getParam(ID::T_FALL_MAX).as_int();
 				int max = std::max(rise_max,fall_max);
 				if (max < 0) {
-					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Clamping to 0.\n", log_id(module), log_id(cell));
+					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Clamping to 0.\n", module, cell);
 					max = 0;
 				}
 				for (const auto &d : dst) {
@@ -167,12 +167,12 @@ struct TimingInfo
 				auto dst = cell->getPort(ID::DST).as_bit();
 				for (const auto &c : src.chunks())
 					if (!c.wire || !c.wire->port_input)
-						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(src));
+						log_error("Module '%s' contains specify cell '%s' where SRC '%s' is not a module input.\n", module, cell, log_signal(src));
 				if (!dst.wire || !dst.wire->port_input)
-					log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dst));
+					log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module input.\n", module, cell, log_signal(dst));
 				int max = cell->getParam(ID::T_LIMIT_MAX).as_int();
 				if (max < 0) {
-					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT_MAX < 0 which is currently unsupported. Clamping to 0.\n", log_id(module), log_id(cell));
+					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT_MAX < 0 which is currently unsupported. Clamping to 0.\n", module, cell);
 					max = 0;
 				}
 				for (const auto &s : src) {

@@ -541,7 +541,7 @@ void counter_worker(
 		{
 			extract_value = *sa.begin();
 			log("  Signal %s declared at %s has COUNT_EXTRACT = %s\n",
-				log_id(port_wire),
+				port_wire,
 				count_reg_src.c_str(),
 				extract_value.c_str());
 
@@ -604,14 +604,14 @@ void counter_worker(
 		{
 			log_error(
 			"Counter extraction is set to FORCE on register %s, but a counter could not be inferred (%s)\n",
-			log_id(port_wire),
+			port_wire,
 			reasons[reason]);
 		}
 		return;
 	}
 
 	//Get new cell name
-	string countname = string("$COUNTx$") + log_id(extract.rwire->name.str());
+	string countname = string("$COUNTx$") + extract.rwire->name.unescape();
 
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort(ID::A);
@@ -697,7 +697,7 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", log_id(load.cell->name), log_id(load.port));
+		log("    Counter has parallel output to cell %s port %s\n", load.cell->name.unescape(), load.port.unescape());
 	}
 	if(extract.has_pout)
 	{
@@ -731,7 +731,7 @@ void counter_worker(
 		countname.c_str(),
 		extract.count_is_up ? "to" : "from",
 		extract.count_value,
-		log_id(extract.rwire->name),
+		extract.rwire->name.unescape(),
 		count_reg_src.c_str());
 
 	//Optimize the counter
@@ -887,13 +887,13 @@ struct ExtractCounterPass : public Pass {
 
 			for(auto cell : cells_to_remove)
 			{
-				//log("Removing cell %s\n", log_id(cell->name));
+				//log("Removing cell %s\n", cell);
 				module->remove(cell);
 			}
 
 			for(auto cpair : cells_to_rename)
 			{
-				//log("Renaming cell %s to %s\n", log_id(cpair.first->name), cpair.second);
+				//log("Renaming cell %s to %s\n", cpair.first, cpair.second);
 				module->rename(cpair.first, cpair.second);
 			}
 		}

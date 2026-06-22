@@ -5,7 +5,7 @@ Getting Started
 Outline of a Yosys command
 --------------------------
 
-Here is a the C++ code for a "hello_world" Yosys command (hello.cc):
+Here is the C++ code for a "hello_world" Yosys command (hello.cc):
 
 	#include "kernel/yosys.h"
 
@@ -85,7 +85,7 @@ the declarations for the following types in kernel/rtlil.h:
 		The module is a container with connected cells and wires
 		in it. The design is a container with modules in it.
 
-All this types are also available without the RTLIL:: prefix in the Yosys
+All these types are also available without the RTLIL:: prefix in the Yosys
 namespace.
 
   4. SigMap and other Helper Classes

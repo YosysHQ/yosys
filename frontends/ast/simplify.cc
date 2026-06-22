@@ -91,6 +91,11 @@ void AstNode::fixup_hierarchy_flags(bool force_descend)
 			children[0]->set_in_param_flag(true, force_descend);
 		break;
 
+	case AST_ASSIGN_PATTERN:
+		for (auto& child : children)
+			child->set_in_param_flag(in_param, force_descend);
+		break;
+
 	case AST_GENFOR:
 	case AST_FOR:
 		for (auto& child : children) {
@@ -267,6 +272,100 @@ static int add_dimension(AstNode *node, AstNode *rnode)
 [[noreturn]] static void struct_array_packing_error(AstNode *node)
 {
 	node->input_error("Unpacked array in packed struct/union member %s\n", node->str);
+}
+
+// Check if node is an unexpanded array reference (AST_IDENTIFIER -> AST_MEMORY without indexing)
+static bool is_unexpanded_array_ref(AstNode *node)
+{
+	if (node->type != AST_IDENTIFIER)
+		return false;
+	if (node->id2ast == nullptr || node->id2ast->type != AST_MEMORY)
+		return false;
+	// No indexing children = whole array reference
+	return node->children.empty();
+}
+
+// Check if two memories have compatible unpacked dimensions for array assignment
+static bool arrays_have_compatible_dims(AstNode *mem_a, AstNode *mem_b)
+{
+	if (mem_a->unpacked_dimensions != mem_b->unpacked_dimensions)
+		return false;
+	for (int i = 0; i < mem_a->unpacked_dimensions; i++) {
+		if (mem_a->dimensions[i].range_width != mem_b->dimensions[i].range_width)
+			return false;
+	}
+	// Also check packed dimensions (element width)
+	int a_width, a_size, a_bits;
+	int b_width, b_size, b_bits;
+	mem_a->meminfo(a_width, a_size, a_bits);
+	mem_b->meminfo(b_width, b_size, b_bits);
+	return a_width == b_width;
+}
+
+// Check if mem_b matches mem_a's unpacked dimensions starting at first_dim.
+static bool arrays_have_compatible_dims_from(AstNode *mem_a, int first_dim, AstNode *mem_b)
+{
+	if (mem_b->unpacked_dimensions != mem_a->unpacked_dimensions - first_dim)
+		return false;
+	for (int i = 0; i < mem_b->unpacked_dimensions; i++) {
+		if (mem_a->dimensions[first_dim + i].range_width != mem_b->dimensions[i].range_width)
+			return false;
+	}
+	// Also check packed dimensions (element width)
+	int a_width, a_size, a_bits;
+	int b_width, b_size, b_bits;
+	mem_a->meminfo(a_width, a_size, a_bits);
+	mem_b->meminfo(b_width, b_size, b_bits);
+	return a_width == b_width;
+}
+
+// Convert per-dimension element positions to declared index values.
+// Position 0 is the first declared element for each unpacked dimension.
+static std::vector<int> array_indices_from_position(AstNode *mem, const std::vector<int> &position)
+{
+	int num_dims = mem->unpacked_dimensions;
+	log_assert(GetSize(position) == num_dims);
+
+	std::vector<int> indices(num_dims);
+	for (int d = 0; d < num_dims; d++) {
+		int low = mem->dimensions[d].range_right;
+		int high = low + mem->dimensions[d].range_width - 1;
+		indices[d] = mem->dimensions[d].range_swapped ? (low + position[d]) : (high - position[d]);
+	}
+	return indices;
+}
+
+// Generate all element positions for a multi-dimensional unpacked array and
+// call callback once for each combination.
+static void foreach_array_position(AstNode *mem, std::function<void(const std::vector<int>&)> callback)
+{
+	int num_dims = mem->unpacked_dimensions;
+	if (num_dims == 0) {
+		callback({});
+		return;
+	}
+
+	std::vector<int> position(num_dims, 0);
+	std::vector<int> sizes(num_dims);
+
+	for (int d = 0; d < num_dims; d++)
+		sizes[d] = mem->dimensions[d].range_width;
+
+	// Iterate through all position combinations (rightmost dimension fastest).
+	while (true) {
+		callback(position);
+
+		int d = num_dims - 1;
+		while (d >= 0) {
+			position[d]++;
+			if (position[d] < sizes[d])
+				break;
+			position[d] = 0;
+			d--;
+		}
+		if (d < 0)
+			break;
+	}
 }
 
 static int size_packed_struct(AstNode *snode, int base_offset)
@@ -1393,7 +1492,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				const RTLIL::Wire *ref = module->wire(port_name);
 				if (ref == nullptr)
 					input_error("Cell instance refers to port %s which does not exist in module %s!.\n",
-							log_id(port_name), log_id(module->name));
+							port_name.unescape(), module->name.unescape());
 
 				// select the argument, if present
 				log_assert(child->children.size() <= 1);
@@ -1651,6 +1750,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	case AST_REDUCE_BOOL:
 		detect_width_simple = true;
 		children_are_self_determined = true;
+		break;
+
+	case AST_ASSIGN_PATTERN:
+		// Assignment pattern elements are context-determined by the target element type.
+		// Keep child width context intact until whole-array assignment expansion creates scalar assignments.
+		detect_width_simple = true;
 		break;
 
 	case AST_NEG:
@@ -3145,7 +3250,7 @@ skip_dynamic_range_lvalue_expansion:;
 	if (stage > 1 && type == AST_IDENTIFIER && id2ast != nullptr && id2ast->type == AST_MEMORY && !in_lvalue &&
 			children.size() == 1 && children[0]->type == AST_RANGE && children[0]->children.size() == 1) {
 		if (integer < (unsigned)id2ast->unpacked_dimensions)
-			input_error("Insufficient number of array indices for %s.\n", log_id(str));
+			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 		newNode = std::make_unique<AstNode>(location, AST_MEMRD, children[0]->children[0]->clone());
 		newNode->str = str;
 		newNode->id2ast = id2ast;
@@ -3200,6 +3305,217 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 	}
 
+	// Expand array assignment: arr_out = arr_in OR arr_out = cond ? arr_a : arr_b OR arr_out = '{a, b}
+	// Supports multi-dimensional unpacked arrays
+	if ((type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE || type == AST_ASSIGN) &&
+	    is_unexpanded_array_ref(children[0].get()))
+	{
+		AstNode *lhs = children[0].get();
+		AstNode *rhs = children[1].get();
+		AstNode *lhs_mem = lhs->id2ast;
+
+		// Case 1: Direct array assignment (b = a)
+		bool is_direct_assign = is_unexpanded_array_ref(rhs);
+
+		// Case 2: Ternary array assignment (out = sel ? a : b)
+		bool is_ternary_assign = (rhs->type == AST_TERNARY &&
+		                          is_unexpanded_array_ref(rhs->children[1].get()) &&
+		                          is_unexpanded_array_ref(rhs->children[2].get()));
+
+		// Case 3: Positional assignment pattern (out = '{a, b})
+		bool is_pattern_assign = rhs->type == AST_ASSIGN_PATTERN;
+
+		if (is_direct_assign || is_ternary_assign || is_pattern_assign)
+		{
+			AstNode *direct_rhs_mem = nullptr;
+			AstNode *true_mem = nullptr;
+			AstNode *false_mem = nullptr;
+
+			int num_dims = lhs_mem->unpacked_dimensions;
+			int total_elements = 1;
+			for (int d = 0; d < num_dims; d++)
+				total_elements *= lhs_mem->dimensions[d].range_width;
+			int element_width, mem_size, addr_bits;
+			lhs_mem->meminfo(element_width, mem_size, addr_bits);
+			bool pattern_is_flat = false;
+
+			// Helper to add indices to an array identifier clone.
+			auto add_indices_to_id = [&](std::unique_ptr<AstNode> id, const std::vector<int>& indices) {
+				int indexed_dims = GetSize(indices);
+				if (indexed_dims == 1) {
+					// Single dimension: use AST_RANGE
+					id->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+						mkconst_int(location, indices[0], true)));
+				} else {
+					// Multiple dimensions: use AST_MULTIRANGE
+					auto multirange = std::make_unique<AstNode>(location, AST_MULTIRANGE);
+					for (int idx : indices) {
+						multirange->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+							mkconst_int(location, idx, true)));
+					}
+					id->children.push_back(std::move(multirange));
+				}
+				id->integer = indexed_dims;
+				// Reset basic_prep so multirange gets resolved during subsequent simplify passes
+				id->basic_prep = false;
+				return id;
+			};
+
+			auto add_position_to_id = [&](std::unique_ptr<AstNode> id, AstNode *mem, const std::vector<int>& position) {
+				return add_indices_to_id(std::move(id), array_indices_from_position(mem, position));
+			};
+
+			// Validate nested assignment pattern shape against unpacked dimensions.
+			std::function<void(AstNode*, int)> validate_pattern_shape = [&](AstNode *pattern, int dim) {
+				log_assert(pattern->type == AST_ASSIGN_PATTERN);
+
+				int expected = lhs_mem->dimensions[dim].range_width;
+				if (GetSize(pattern->children) != expected)
+					input_error("Assignment pattern element count mismatch at dimension %d: got %d, expected %d\n",
+						dim + 1, GetSize(pattern->children), expected);
+
+				if (dim + 1 == num_dims)
+					return;
+
+				for (auto& child : pattern->children) {
+					if (child->type == AST_ASSIGN_PATTERN) {
+						validate_pattern_shape(child.get(), dim + 1);
+					} else if (is_unexpanded_array_ref(child.get()) &&
+							arrays_have_compatible_dims_from(lhs_mem, dim + 1, child->id2ast)) {
+						continue;
+					} else {
+						input_error("Nested assignment pattern or compatible array expression required for dimension %d\n", dim + 2);
+					}
+				}
+			};
+
+			// Select the assignment pattern element for an unpacked array position.
+			auto pattern_element_at_position = [&](const std::vector<int>& position, int flat_index) {
+				if (pattern_is_flat)
+					return rhs->children[flat_index]->clone();
+
+				AstNode *pattern = rhs;
+				for (int d = 0; d < num_dims; d++) {
+					log_assert(pattern->type == AST_ASSIGN_PATTERN);
+					AstNode *element = pattern->children[position[d]].get();
+
+					if (d + 1 == num_dims)
+						return element->clone();
+
+					if (element->type == AST_ASSIGN_PATTERN) {
+						pattern = element;
+					} else {
+						std::vector<int> subposition(position.begin() + d + 1, position.end());
+						return add_position_to_id(element->clone(), element->id2ast, subposition);
+					}
+				}
+				log_abort();
+			};
+
+			// Validate array compatibility
+			if (is_direct_assign) {
+				direct_rhs_mem = rhs->id2ast;
+				if (!arrays_have_compatible_dims(lhs_mem, direct_rhs_mem))
+					input_error("Array dimension mismatch in assignment\n");
+			} else if (is_ternary_assign) {
+				true_mem = rhs->children[1]->id2ast;
+				false_mem = rhs->children[2]->id2ast;
+				if (!arrays_have_compatible_dims(lhs_mem, true_mem) ||
+				    !arrays_have_compatible_dims(lhs_mem, false_mem))
+					input_error("Array dimension mismatch in ternary expression\n");
+			} else {
+				if (num_dims > 1 && GetSize(rhs->children) == lhs_mem->dimensions[0].range_width) {
+					validate_pattern_shape(rhs, 0);
+				} else if (num_dims == 1 && GetSize(rhs->children) == total_elements) {
+					pattern_is_flat = true;
+				} else {
+					if (num_dims > 1 && GetSize(rhs->children) == lhs_mem->dimensions[0].range_width)
+						validate_pattern_shape(rhs, 0);
+					int expected = num_dims > 1 ? lhs_mem->dimensions[0].range_width : total_elements;
+					input_error("Assignment pattern element count mismatch: got %d, expected %d\n", GetSize(rhs->children), expected);
+				}
+			}
+
+			// Warn if array assignment expansion is large.
+			if (total_elements > 10000)
+				log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
+					total_elements, location.to_string().c_str());
+
+			// Collect all assignments
+			std::vector<std::unique_ptr<AstNode>> assignments;
+			std::vector<std::unique_ptr<AstNode>> pattern_temp_assignments;
+
+			foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+				auto lhs_idx = add_position_to_id(lhs->clone(), lhs_mem, position);
+
+				std::unique_ptr<AstNode> rhs_expr;
+				if (is_direct_assign) {
+					rhs_expr = add_position_to_id(rhs->clone(), direct_rhs_mem, position);
+				} else if (is_ternary_assign) {
+					// Ternary case
+					AstNode *cond = rhs->children[0].get();
+					AstNode *true_val = rhs->children[1].get();
+					AstNode *false_val = rhs->children[2].get();
+
+					auto true_idx = add_position_to_id(true_val->clone(), true_mem, position);
+					auto false_idx = add_position_to_id(false_val->clone(), false_mem, position);
+
+					rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
+						cond->clone(), std::move(true_idx), std::move(false_idx));
+				} else {
+					auto pattern_rhs = pattern_element_at_position(position, GetSize(assignments));
+
+					if (type == AST_ASSIGN_EQ) {
+						auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE,
+							std::make_unique<AstNode>(location, AST_RANGE,
+								mkconst_int(location, element_width - 1, true),
+								mkconst_int(location, 0, true)));
+						auto wire_tmp = wire_tmp_owned.get();
+						wire_tmp->str = stringf("$assignpattern$%s:%d$%d",
+							RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+						current_scope[wire_tmp->str] = wire_tmp;
+						current_ast_mod->children.push_back(std::move(wire_tmp_owned));
+						wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
+						while (wire_tmp->simplify(true, 1, -1, false)) { }
+						wire_tmp->is_logic = true;
+						wire_tmp->is_signed = lhs_mem->is_signed;
+
+						auto tmp_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
+						tmp_id->str = wire_tmp->str;
+						pattern_temp_assignments.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ,
+							tmp_id->clone(), std::move(pattern_rhs)));
+						rhs_expr = std::move(tmp_id);
+					} else {
+						rhs_expr = std::move(pattern_rhs);
+					}
+				}
+
+				auto assign = std::make_unique<AstNode>(location, type,
+					std::move(lhs_idx), std::move(rhs_expr));
+				assign->was_checked = true;
+				assignments.push_back(std::move(assign));
+			});
+
+			// For continuous assignments, add to module; for procedural, use block
+			if (type == AST_ASSIGN) {
+				// Add all but last to module
+				for (size_t i = 0; i + 1 < assignments.size(); i++)
+					current_ast_mod->children.push_back(std::move(assignments[i]));
+				// Last one replaces current node
+				newNode = std::move(assignments.back());
+			} else {
+				// Wrap in AST_BLOCK for procedural
+				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+				for (auto& assign : pattern_temp_assignments)
+					newNode->children.push_back(std::move(assign));
+				for (auto& assign : assignments)
+					newNode->children.push_back(std::move(assign));
+			}
+
+			goto apply_newNode;
+		}
+	}
+
 	// assignment with memory in left-hand side expression -> replace with memory write port
 	if (stage > 1 && (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) && children[0]->type == AST_IDENTIFIER &&
 			children[0]->id2ast && children[0]->id2ast->type == AST_MEMORY && children[0]->id2ast->children.size() >= 2 &&
@@ -3207,7 +3523,7 @@ skip_dynamic_range_lvalue_expansion:;
 			(children[0]->children.size() == 1 || children[0]->children.size() == 2) && children[0]->children[0]->type == AST_RANGE)
 	{
 		if (children[0]->integer < (unsigned)children[0]->id2ast->unpacked_dimensions)
-			input_error("Insufficient number of array indices for %s.\n", log_id(str));
+			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 
 		std::stringstream sstr;
 		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
@@ -4458,6 +4774,8 @@ replace_fcall_later:;
 				tmp_bits.insert(tmp_bits.end(), children.at(1)->bits.begin(), children.at(1)->bits.end());
 			newNode = children.at(1)->is_string ? mkconst_str(location, tmp_bits) : mkconst_bits(location, tmp_bits, false);
 			break;
+		case AST_ASSIGN_PATTERN:
+			goto not_const;
 		default:
 		not_const:
 			break;
@@ -4955,7 +5273,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 		AstNode *mem = id2ast;
 
 		if (integer < (unsigned)mem->unpacked_dimensions)
-			input_error("Insufficient number of array indices for %s.\n", log_id(str));
+			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 
 		// flag if used after blocking assignment (in same proc)
 		if ((proc_flags[mem] & AstNode::MEM2REG_FL_EQ1) && !(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_EQ2)) {

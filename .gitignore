@@ -1,5 +1,7 @@
 ## user config
 /Makefile.conf
+/Configuration.cmake
+/CMakeUserPresets.json
 
 ## homebrew
 /Brewfile.lock.json
@@ -49,7 +51,9 @@
 /tests/unit/objtest/
 /tests/ystests
 /build
+/build-*
 /result
+/result-*
 /dist
 
 # pyosys
@@ -65,9 +69,9 @@
 /viz.js
 
 # other
-/coverage.info
+/yosys.profdata
+/coverage
 /coverage_html
-
 
 # these really belong in global gitignore since they're not specific to this project but rather to user tool choice
 # but too many people don't have a global gitignore configured:
@@ -86,3 +90,5 @@ __pycache__
 /qtcreator.creator
 /qtcreator.creator.user
 /compile_commands.json
+/.direnv
+/.envrc

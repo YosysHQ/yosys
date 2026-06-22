@@ -14,7 +14,7 @@ struct MyPass : public Pass {
 
         log("Modules in current design:\n");
         for (auto mod : design->modules())
-            log("  %s (%d wires, %d cells)\n", log_id(mod),
+            log("  %s (%d wires, %d cells)\n", mod,
                     GetSize(mod->wires()), GetSize(mod->cells()));
     }
 } MyPass;
@@ -28,7 +28,7 @@ struct Test1Pass : public Pass {
             log_error("A module with the name absval already exists!\n");
 
         RTLIL::Module *module = design->addModule("\\absval");
-        log("Name of this module: %s\n", log_id(module));
+        log("Name of this module: %s\n", module);
 
         RTLIL::Wire *a = module->addWire("\\a", 4);
         a->port_input = true;

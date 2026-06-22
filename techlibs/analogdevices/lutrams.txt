@@ -1,0 +1,20 @@
+ram distributed $__ANALOGDEVICES_LUTRAM_ {
+	option "SIZE" 32 abits 5;
+	option "SIZE" 64 abits 6;
+	width 1;
+	init no_undef;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+	option "MODE" "SP" {
+		option "SIZE" 32 cost 2;
+		option "SIZE" 64 cost 2;
+	}
+	option "MODE" "DP" {
+		option "SIZE" 32 cost 4;
+		option "SIZE" 64 cost 8;
+		port ar "R" {
+		}
+	}
+}

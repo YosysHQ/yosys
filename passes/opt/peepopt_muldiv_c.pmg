@@ -119,7 +119,7 @@ code
 	autoremove(div);
 
 	// Log, fixup, accept
-	log("muldiv_const pattern in %s: mul=%s, div=%s\n", log_id(module), log_id(mul), log_id(div));
+	log("muldiv_const pattern in %s: mul=%s, div=%s\n", module, mul, div);
 	mul->fixup_parameters();
 	accept;
 endcode

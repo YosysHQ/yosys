@@ -75,10 +75,11 @@ or
 	$ cd yosys
 	$ git submodule update --init --recursive
 
-You need a C++ compiler with C++17 support (up-to-date CLANG or GCC is
-recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
-TCL, readline and libffi are optional (see ``ENABLE_*`` settings in Makefile).
-Xdot (graphviz) is used by the ``show`` command in yosys to display schematics.
+A C++ compiler with C++20 support is required as well as some standard tools
+such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.27), Make (or other CMake
+generator such as Ninja), and Python (>=3.11). Some additional tools: readline,
+libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
+Xdot are used by the `show` command to display schematics.
 
 For example on Ubuntu Linux 22.04 LTS the following commands will install all
 prerequisites for building yosys:
@@ -86,45 +87,66 @@ prerequisites for building yosys:
 	$ sudo apt-get install gawk git make python3 lld bison clang flex \
 		libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
 		graphviz xdot
-	$ curl -LsSf https://astral.sh/uv/install.sh | sh
 
-The environment variable `CXX` can be used to control the C++ compiler used, or
-run one of the following to override it:
+**NOTE**: By default, Ubuntu 22.04 LTS is limited to CMake 3.22 via `apt`. To
+install a newer version and meet the minimum required for building Yosys, use
+`sudo snap install cmake --classic`.
 
-	$ make config-clang
-	$ make config-gcc
+CMake is used for build configuration, and requires a separate build directory:
 
-The Makefile has many variables influencing the build process. These can be
-adjusted by modifying the Makefile.conf file which is created at the `make
-config-...` step (see above), or they can be set by passing an option to the
-make command directly:
+	$ cmake -B build .
 
-  $ make CXX=$CXX
+Once generated, available build variables can be inspected and modified with
+`ccmake` or opening the generated `build/CMakeCache.txt` file:
 
-For other compilers and build configurations it might be necessary to make some
-changes to the config section of the Makefile. It's also an alternative way to
-set the make variables mentioned above.
+	$ ccmake build              #..or..
+	$ vi build/CMakeCache.txt
 
-	$ vi Makefile            # ..or..
-	$ vi Makefile.conf
+When setting one-off variables, CMake provides the `-D <var>=<value>` command
+line option. For example, disabling zlib support:
 
-To build Yosys simply type 'make' in this directory.
+	$ cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
 
-	$ make
-	$ sudo make install
+For a more persistent configuration, we recommend creating and using a
+`CMakeUserPresets.json` file in the root `yosys` directory. Below is an example
+file which enables ccache and sets the default compiler to clang when calling
+`cmake --preset clang`:
 
-Tests are located in the tests subdirectory and can be executed using the test
+```json
+{
+	"version": 1,
+	"configurePresets": [
+		{
+			"name": "default",
+			"binaryDir": "build",
+			"generator": "Unix Makefiles",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++",
+				"YOSYS_COMPILER_LAUNCHER": "ccache"
+			}
+		}
+	]
+}
+```
+
+Once generated, the build system can be run as follows:
+
+	$ cmake --build build       #..or..
+	$ cd build
+	$ cmake --build .
+
+To quickly install Yosys with the default settings:
+
+	$ cmake -B build . -DCMAKE_BUILD_TYPE=Release
+	$ cmake --build build --config Release --parallel $(nproc)
+	$ sudo cmake --install build --strip
+
+Tests are located in the tests subdirectory and can be executed using the `test`
 target. Note that you need gawk, a recent version of iverilog, and gtest.
 Execute tests via:
 
-	$ make test
-
-To use a separate (out-of-tree) build directory, provide a path to the Makefile.
-
-	$ mkdir build; cd build
-	$ make -f ../Makefile
-
-Out-of-tree builds require a clean source tree.
+	$ cmake --build build --target test --parallel $(nproc)
 
 
 Getting Started
@@ -134,7 +156,7 @@ Yosys can be used with the interactive command shell, with
 synthesis scripts or with command line arguments. Let's perform
 a simple synthesis job using the interactive command shell:
 
-	$ ./yosys
+	$ ./build/yosys
 	yosys>
 
 the command ``help`` can be used to print a list of all available
@@ -256,7 +278,7 @@ following are used for building the website:
 
 Or for MacOS, using homebrew:
 
-  $ brew install pdf2svg libfaketime
+	$ brew install pdf2svg libfaketime
 
 PDFLaTeX, included with most LaTeX distributions, is also needed during the
 build process for the website.  Or, run the following:
@@ -265,24 +287,20 @@ build process for the website.  Or, run the following:
 
 Or for MacOS, using homebrew:
 
-  $ brew install basictex
-  $ sudo tlmgr update --self
-  $ sudo tlmgr install collection-latexextra latexmk tex-gyre
+	$ brew install basictex
+	$ sudo tlmgr update --self
+	$ sudo tlmgr install collection-latexextra latexmk tex-gyre
 
 The Python package, Sphinx, is needed along with those listed in
 `docs/source/requirements.txt`:
 
 	$ pip install -U sphinx -r docs/source/requirements.txt
 
-From the root of the repository, run `make docs`.  This will build/rebuild yosys
-as necessary before generating the website documentation from the yosys help
-commands.  To build for pdf instead of html, call
-`make docs DOC_TARGET=latexpdf`.
+DOCS (e.g.)
 
-It is recommended to use the `ENABLE_HELP_SOURCE` make option for Yosys builds
-that will be used to build the documentation.  This option enables source
-location tracking for passes and improves the command reference through grouping
-related commands and allowing for the documentation to link to the corresponding
-source files.  Without this, a warning will be raised during the Sphinx build
-about `Found commands assigned to group unknown` and `make docs` is configured
-to fail on warnings by default.
+	$ cmake --build build --target docs-html --parallel
+
+This will build/rebuild yosys as necessary before generating the website
+documentation from the yosys help commands.  To build for pdf instead of html,
+use the `docs-latexpdf` target.
+

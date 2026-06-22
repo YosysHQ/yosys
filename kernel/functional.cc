@@ -136,7 +136,7 @@ struct PrintVisitor : DefaultVisitor<std::string> {
 
 std::string Node::to_string()
 {
-	return to_string([](Node n) { return RTLIL::unescape_id(n.name()); });
+	return to_string([](Node n) { return n.name().unescape(); });
 }
 
 std::string Node::to_string(std::function<std::string(Node)> np)
@@ -572,7 +572,7 @@ private:
 			const auto &wr = mem->wr_ports[i];
 			if (wr.clk_enable)
 				log_error("Write port %zd of memory %s.%s is clocked. This is not supported by the functional backend. "
-					"Call async2sync or clk2fflogic to avoid this error.\n", i, log_id(mem->module), log_id(mem->memid));
+					"Call async2sync or clk2fflogic to avoid this error.\n", i, mem->module, mem->memid.unescape());
 			Node en = enqueue(driver_map(DriveSpec(wr.en)));
 			Node addr = enqueue(driver_map(DriveSpec(wr.addr)));
 			Node new_data = enqueue(driver_map(DriveSpec(wr.data)));
@@ -582,12 +582,12 @@ private:
 		}
 		if (mem->rd_ports.empty())
 			log_error("Memory %s.%s has no read ports. This is not supported by the functional backend. "
-				"Call opt_clean to remove it.", log_id(mem->module), log_id(mem->memid));
+				"Call opt_clean to remove it.", mem->module, mem->memid.unescape());
 		for (size_t i = 0; i < mem->rd_ports.size(); i++) {
 			const auto &rd = mem->rd_ports[i];
 			if (rd.clk_enable)
 				log_error("Read port %zd of memory %s.%s is clocked. This is not supported by the functional backend. "
-					"Call memory_nordff to avoid this error.\n", i, log_id(mem->module), log_id(mem->memid));
+					"Call memory_nordff to avoid this error.\n", i, mem->module, mem->memid.unescape());
 			Node addr = enqueue(driver_map(DriveSpec(rd.addr)));
 			read_results.push_back(factory.memory_read(node, addr));
 		}
@@ -609,7 +609,7 @@ private:
 			FfData ff(&ff_initvals, cell);
 			if (!ff.has_gclk)
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
-					"Call async2sync or clk2fflogic to avoid this error.\n", log_id(cell->type), log_id(cell));
+					"Call async2sync or clk2fflogic to avoid this error.\n", cell->type.unescape(), cell);
 			auto &state = factory.add_state(ff.name, ID($state), Sort(ff.width));
 			Node q_value = factory.value(state);
 			factory.suggest_name(q_value, ff.name);
@@ -677,7 +677,7 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(wire_chunk));
-							check_undriven(driver, RTLIL::unescape_id(wire_chunk.wire->name));
+							check_undriven(driver, wire_chunk.wire->name.unescape());
 							Node node = enqueue(driver);
 							factory.suggest_name(node, wire_chunk.wire->name);
 							factory.update_pending(pending, node);
@@ -695,7 +695,7 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(port_chunk));
-							check_undriven(driver, RTLIL::unescape_id(port_chunk.cell->name) + " port " + RTLIL::unescape_id(port_chunk.port));
+							check_undriven(driver, port_chunk.cell->name.unescape() + " port " + port_chunk.port.unescape());
 							factory.update_pending(pending, enqueue(driver));
 						}
 					} else {
@@ -744,7 +744,7 @@ void IR::topological_sort() {
             log_warning("Combinational loop:\n");
             for (int *i = begin; i != end; ++i) {
 				Node node(_graph[*i]);
-                log("- %s = %s\n", RTLIL::unescape_id(node.name()), node.to_string());
+                log("- %s = %s\n", node.name().unescape(), node.to_string());
 			}
             log("\n");
             scc = true;

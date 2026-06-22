@@ -47,7 +47,7 @@ if "clean" in steps:
 
 
 def yosys(command):
-    subprocess.check_call(["../../../yosys", "-Qp", command])
+    subprocess.check_call([os.environ.get("YOSYS", "../../yosys"), "-Qp", command])
 
 def remove(file):
     try:
@@ -122,7 +122,7 @@ def vcdextract(signals, on_change, file, output, limit=None):
             print(*values[:len(signals)], file=output)
 
 
-share = Path(__file__).parent / ".." / ".." / "share"
+share = Path(os.environ.get("BUILD_DIR", "../..")) / "share"
 
 simlibs = [str(share / "simlib.v"), str(share / "simcells.v")]
 

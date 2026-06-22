@@ -1,6 +1,8 @@
 Scripting with Pyosys
 =====================
 
+.. TODO:: document libyosys sans python
+
 Pyosys is a limited subset of the Yosys C++ API (aka "libyosys") made available
 using the Python programming language.
 
@@ -14,6 +16,13 @@ Though unlike these two, Pyosys goes a bit further, allowing you to use the
 Yosys API to implement advanced functionality that would otherwise require
 custom passes written in C++.
 
+.. note::
+
+   It is recommended to install :program:`uv` for managing python environments:
+
+   .. code:: console
+
+      curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Getting Pyosys
 --------------
@@ -21,7 +30,7 @@ Getting Pyosys
 Pyosys supports CPython 3.8 or higher. You can access Pyosys using one of two
 methods:
 
-1. Compiling Yosys with the Makefile flag ``ENABLE_PYOSYS=1``
+1. Compiling Yosys with the CMake flag ``-DYOSYS_WITH_PYTHON=ON``
 
    This adds the flag ``-y`` to the Yosys binary, which allows you to execute
    Python scripts using an interpreter embedded in Yosys itself:
@@ -29,12 +38,9 @@ methods:
    ``yosys -y ./my_pyosys_script.py``
 
    Do note this requires some build-time dependencies to be available to Python,
-   namely, ``pybind11`` and ``cxxheaderparser``. By default, the required
-   ``uv`` package will be used to create an ephemeral environment with the
-   correct versions of the tools installed.
-
-   You can force use of your current Python environment by passing the Makefile
-   flag ``PYOSYS_USE_UV=0``.
+   namely, ``pybind11`` and ``cxxheaderparser``. :program:`uv` may be used to
+   create an ephemeral environment with the correct versions of the tools
+   installed if the current python environment doesn't provide them.
 
 2. Installing the Pyosys wheels
 

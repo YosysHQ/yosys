@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-#include "passes/silimate/peepopt_shift.h"
+#include "passes/silimate/peepopt_shift_pm.h"
 
 struct OptShiftPass : public Pass {
   OptShiftPass() : Pass("opt_shift", "shift optimizations: combine and expand") { }
@@ -95,7 +95,7 @@ struct OptShiftPass : public Pass {
       for (int i = 0; did_something && i < max_iters; i++)
       {
         did_something = false;
-        peepopt_pm pm(module);
+        peepopt_shift_pm pm(module);
         pm.setup(module->selected_cells());
         if (run_combine)
           pm.run_combine_shifts();

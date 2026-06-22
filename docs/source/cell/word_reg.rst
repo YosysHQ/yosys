@@ -78,6 +78,7 @@ D-type flip-flops with asynchronous set and reset are represented by `$dffsr`
 cells. As the `$dff` cells they have ``CLK``, ``D`` and ``Q`` ports. In addition
 they also have multi-bit ``SET`` and ``CLR`` input ports and the corresponding
 polarity parameters, like `$sr` cells.
+When both set and reset are active, the state and output is undefined.
 
 D-type flip-flops with enable are represented by `$dffe`, `$adffe`, `$aldffe`,
 `$dffsre`, `$sdffe`, and `$sdffce` cells, which are enhanced variants of `$dff`,

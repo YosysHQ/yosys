@@ -1,0 +1,11 @@
+# Always force disable GNU Readline, GPL trap library
+set(YOSYS_ENABLE_READLINE OFF CACHE BOOL "" FORCE)
+set(YOSYS_WITHOUT_READLINE ON CACHE BOOL "" FORCE)
+# Silimate fork has Verific in top-level directory
+set(YOSYS_VERIFIC_DIR ${PROJECT_SOURCE_DIR}/verific)
+# Pyosys is the primary interface for the Silimate fork
+set(YOSYS_WITH_PYTHON ON CACHE BOOL "" FORCE)
+
+add_library(verific INTERFACE)
+add_subdirectory(${PROJECT_SOURCE_DIR}/libs/backward-cpp)
+link_libraries(backward)

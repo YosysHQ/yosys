@@ -1,0 +1,87 @@
+pattern shiftpow2
+//
+// Optimize shifts that result from expressions such as foo[s*W+:W]
+// when W is a power of two and the multiply has been folded away.
+//
+
+match shift
+	select shift->type.in($shift, $shiftx, $shr)
+	filter !port(shift, \B).empty()
+endmatch
+
+code
+{
+	// make sure the shift amount cannot be negative
+	SigSpec amount = port(shift, \B);
+	bool b_signed = shift->type.in($shift, $shiftx) && param(shift, \B_SIGNED).as_bool();
+	if (!b_signed)
+		amount.append(State::S0);
+	if (amount.bits().back() != State::S0)
+		reject;
+
+	while (GetSize(amount) > 1 && amount.bits().back() == State::S0)
+		amount.remove(GetSize(amount) - 1);
+
+	// low zero bits encode the power-of-two scale
+	int log2scale = 0;
+	while (!amount.empty() && amount[0] == State::S0) {
+		amount.remove(0);
+		log2scale++;
+	}
+
+	if (log2scale < 1)
+		reject;
+
+	if (amount.empty() || amount.is_fully_const())
+		reject;
+
+	SigSpec sel = amount;
+	int sel_width = GetSize(sel);
+	int width = param(shift, \Y_WIDTH).as_int();
+	if (log2scale >= 8 * (int)sizeof(int) - 1)
+		reject;
+	int stride = 1 << log2scale;
+
+	// avoid overlapping selections
+	if (width > stride)
+		reject;
+
+	if (sel_width > 20)
+		reject;
+	long long ways = 1LL << sel_width;
+
+	SigSpec A = port(shift, \A);
+	int a_width = GetSize(A);
+	bool a_signed = !shift->type.in($shiftx) && param(shift, \A_SIGNED).as_bool();
+	int extended_a_width = a_signed ? std::max(a_width, width) : a_width;
+
+	// limit padding for out-of-range select values
+	int max_ratio = module->design->scratchpad_get_int("peepopt.shiftpow2.max_data_multiple", 2);
+	if (ways * (long long)width > (long long)max_ratio * std::max(a_width, width))
+		reject;
+
+	did_something = true;
+	log("shiftpow2 pattern in %s: shift=%s, index=%s, stride=%d, width=%d, ways=%lld\n",
+			module, shift, log_signal(sel), stride, width, ways);
+
+	// way m holds A[m*stride +: width], way 0 in the LSBs
+	State fill = shift->type.in($shiftx) ? State::Sx : State::S0;
+	SigSpec bmux_a;
+	for (long long m = 0; m < ways; m++) {
+		long long base = m * (long long)stride;
+		for (int b = 0; b < width; b++) {
+			long long idx = base + b;
+			if (idx < a_width)
+				bmux_a.append(A[idx]);
+			else if (idx < extended_a_width)
+				bmux_a.append(A.back());
+			else
+				bmux_a.append(fill);
+		}
+	}
+
+	module->addBmux(NEW_ID, bmux_a, sel, port(shift, \Y));
+	autoremove(shift);
+	accept;
+}
+endcode
