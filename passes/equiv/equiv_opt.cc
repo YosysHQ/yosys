@@ -69,7 +69,7 @@ struct EquivOptPass:public ScriptPass
 	}
 
 	std::string command, techmap_opts, make_opts;
-	bool assert, undef, multiclock, async2sync, nocheck;
+	bool assert, undef, ignore_unknown_cells, multiclock, async2sync, nocheck;
 
 	void clear_flags() override
 	{
@@ -78,6 +78,7 @@ struct EquivOptPass:public ScriptPass
 		make_opts = "";
 		assert = false;
 		undef = false;
+		ignore_unknown_cells = false;
 		multiclock = false;
 		async2sync = false;
 		nocheck = false;
@@ -112,6 +113,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-undef") {
 				undef = true;
+				continue;
+			}
+			if (args[argidx] == "-ignore-unknown-cells") {
+				ignore_unknown_cells = true;
 				continue;
 			}
 			if (args[argidx] == "-nocheck") {
@@ -197,12 +202,16 @@ struct EquivOptPass:public ScriptPass
 			else
 				opts = make_opts;
 			run("equiv_make" + opts + " gold gate equiv");
+			string induct_opts;
 			if (help_mode)
-				run("equiv_induct [-undef] equiv");
-			else if (undef)
-				run("equiv_induct -undef equiv");
-			else
-				run("equiv_induct equiv");
+				induct_opts = " [-undef] [-ignore-unknown-cells]";
+			else {
+				if (undef)
+					induct_opts += " -undef";
+				if (ignore_unknown_cells)
+					induct_opts += " -ignore-unknown-cells";
+			}
+			run("equiv_induct" + induct_opts + " equiv");
 			if (help_mode)
 				run("equiv_status [-assert] equiv");
 			else if (assert)
