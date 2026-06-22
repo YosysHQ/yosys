@@ -47,19 +47,69 @@ void apply_prefix(IdString prefix, IdString &id)
 		id = stringf("$techmap%s.%s", prefix, id);
 }
 
-void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
+// Prefixes a template object's name with an instance's "<cell>." (public) or
+// "$techmap<cell>." (private) prefix, for one cell's worth of instantiation.
+// A name like "\a.b.c" is stored as nested Suffix nodes
+// Suffix{Suffix{"\a.", "b."}, "c"}; recursing the Suffix chain re-prefixes only
+// the innermost leaf ("\a." -> "\u.a.") and reuses the rest, so "b.", "c" stay
+// shared instead of materialising "a.b.c" as one fresh tail per object.
+// Reads the template name from TwinePool src and writes TwinePool dst.
+struct PrefixApplier
 {
-	vector<SigChunk> chunks = sig;
-	for (auto &chunk : chunks)
-		if (chunk.wire != nullptr) {
-			IdString wire_name = chunk.wire->name;
-			apply_prefix(prefix, wire_name);
-			TwineRef wire_ref = module->design->twines.add(std::string{wire_name.str()});
-			log_assert(module->wire(wire_ref) != nullptr);
-			chunk.wire = module->wire(wire_ref);
+	RTLIL::Design *dst;
+	RTLIL::Design *src;
+	TwineRef cell_name;
+	TwineRef pub_prefix;
+	TwineRef priv_prefix = Twine::Null;
+	dict<TwineRef, TwineRef> memo;
+
+	PrefixApplier(RTLIL::Design *dst, TwineRef prefix, RTLIL::Design *src)
+		: dst(dst), src(src), cell_name(prefix)
+	{
+		pub_prefix = dst->twines.add(Twine{Twine::Suffix{prefix, "."}});
+	}
+
+	// "$techmap<cell>." can't reuse the cell name's nodes (a tail is appended,
+	// not prepended), so it is the one prefix we materialise -- lazily, since
+	// many templates have no private wires.
+	TwineRef techmap_prefix()
+	{
+		if (priv_prefix == Twine::Null)
+			priv_prefix = dst->twines.add("$techmap" + dst->twines.str(cell_name) + ".");
+		return priv_prefix;
+	}
+
+	TwineRef name(TwineRef obj_ref)
+	{
+		if (auto it = memo.find(obj_ref); it != memo.end())
+			return it->second;
+
+		const Twine &node = src->twines[obj_ref];
+		TwineRef result;
+		if (node.is_suffix()) {
+			const Twine::Suffix &sfx = node.suffix();
+			TwineRef prefix = name(twine_tag(sfx.prefix, obj_ref.is_public()));
+			result = dst->twines.add(Twine{Twine::Suffix{prefix, sfx.tail}});
+		} else {
+			TwineRef prefix = obj_ref.is_public() ? pub_prefix : techmap_prefix();
+			result = dst->twines.add(Twine{Twine::Suffix{prefix, node.leaf()}});
 		}
-	sig = chunks;
-}
+		memo[obj_ref] = result;
+		return result;
+	}
+
+	void apply(RTLIL::SigSpec &sig, RTLIL::Module *module)
+	{
+		vector<SigChunk> chunks = sig;
+		for (auto &chunk : chunks)
+			if (chunk.wire != nullptr) {
+				TwineRef wire_ref = name(chunk.wire->name.ref());
+				log_assert(module->wire(wire_ref) != nullptr);
+				chunk.wire = module->wire(wire_ref);
+			}
+		sig = chunks;
+	}
+};
 
 struct TechmapWorker
 {
@@ -172,6 +222,8 @@ struct TechmapWorker
 				break;
 			}
 
+		PrefixApplier ap(module->design, cell->name.ref(), tpl->design);
+
 		dict<IdString, IdString> memory_renames;
 
 		for (auto &it : tpl->memories) {
@@ -209,9 +261,7 @@ struct TechmapWorker
 							autopurge_tpl_bits.insert(bit);
 				}
 			}
-			IdString w_name = tpl_w->name;
-			apply_prefix(cell->name, w_name);
-			TwineRef w_ref = module->design->twines.add(std::string{w_name.str()});
+			TwineRef w_ref = ap.name(tpl_w->name.ref());
 			RTLIL::Wire *w = module->wire(w_ref);
 			if (w != nullptr) {
 				temp_renamed_wires[w] = w->name.ref();
@@ -269,18 +319,18 @@ struct TechmapWorker
 			if (w->port_output && !w->port_input) {
 				c.first = it.second;
 				c.second = RTLIL::SigSpec(w);
-				apply_prefix(cell->name, c.second, module);
+				ap.apply(c.second, module);
 				extra_connect.first = c.second;
 				extra_connect.second = c.first;
 			} else if (!w->port_output && w->port_input) {
 				c.first = RTLIL::SigSpec(w);
 				c.second = it.second;
-				apply_prefix(cell->name, c.first, module);
+				ap.apply(c.first, module);
 				extra_connect.first = c.first;
 				extra_connect.second = c.second;
 			} else {
 				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
-				apply_prefix(cell->name, sig_tpl_pf, module);
+				ap.apply(sig_tpl_pf, module);
 				for (int i = 0; i < GetSize(sig_tpl) && i < GetSize(sig_mod); i++) {
 					if (tpl_written_bits.count(sig_tpl[i])) {
 						c.first.append(sig_mod[i]);
@@ -333,14 +383,15 @@ struct TechmapWorker
 			IdString c_name = tpl_cell->name;
 			bool techmap_replace_cell = c_name.ends_with("_TECHMAP_REPLACE_");
 
+			TwineRef c_ref;
 			if (techmap_replace_cell)
-				c_name = orig_cell_name;
+				c_ref = module->design->twines.add(std::string{orig_cell_name});
 			else if (const char *p = strstr(tpl_cell->name.str().c_str(), "_TECHMAP_REPLACE_."))
-				c_name = stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_"));
+				c_ref = module->design->twines.add(stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_")));
 			else
-				apply_prefix(cell->name, c_name);
+				c_ref = ap.name(tpl_cell->name.ref());
 
-			RTLIL::Cell *c = module->addCell(module->design->twines.add(std::string{c_name.str()}), tpl_cell);
+			RTLIL::Cell *c = module->addCell(c_ref, tpl_cell);
 			design->select(module, c);
 
 			if (c->type == TW::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
@@ -366,7 +417,7 @@ struct TechmapWorker
 					autopurge_ports.push_back(conn.first);
 				} else {
 					RTLIL::SigSpec new_conn = conn.second;
-					apply_prefix(cell->name, new_conn, module);
+					ap.apply(new_conn, module);
 					port_signal_map.apply(new_conn);
 					c->setPort(conn.first, std::move(new_conn));
 				}
@@ -398,8 +449,8 @@ struct TechmapWorker
 
 		for (auto &it : tpl->connections()) {
 			RTLIL::SigSig c = it;
-			apply_prefix(cell->name.str(), c.first, module);
-			apply_prefix(cell->name.str(), c.second, module);
+			ap.apply(c.first, module);
+			ap.apply(c.second, module);
 			port_signal_map.apply(c.first);
 			port_signal_map.apply(c.second);
 			module->connect(c);
