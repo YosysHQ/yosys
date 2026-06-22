@@ -1,0 +1,100 @@
+# Rewrite (2^k-1)-x into ~x when x is known to be smaller than 2^k
+
+read_verilog -icells <<EOT
+module test(input [3:0] b, output [3:0] y);
+$sub #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) sub (
+	.A(4'hf), .B(b), .Y(y),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-none t:$sub
+select -assert-none t:$not t:* %D
+
+design -reset
+
+read_verilog -icells <<EOT
+module test(input [1:0] b, output [3:0] y);
+$sub #(
+	.A_WIDTH(4), .B_WIDTH(2), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) sub (
+	.A(4'd3), .B(b), .Y(y),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-none t:$sub
+
+design -reset
+
+read_verilog -icells <<EOT
+module test(input [3:0] b, output [3:0] y);
+$sub #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) sub (
+	.A(4'b1011), .B(b), .Y(y),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+
+design -load postopt
+select -assert-none t:$not
+
+design -reset
+
+read_verilog -icells <<EOT
+module test(input [3:0] b, output [3:0] y);
+$sub #(
+	.A_WIDTH(2), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) sub (
+	.A(2'b11), .B(b), .Y(y),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+
+design -load postopt
+select -assert-none t:$not
+
+design -reset
+
+read_verilog <<EOT
+module test(input [1:0] sel, input [0:3] data, output out);
+assign out = data[sel];
+endmodule
+EOT
+
+equiv_opt -assert opt -full
+
+design -load postopt
+select -assert-none t:$sub t:$add t:$alu
+
+design -reset
+
+read_verilog <<EOT
+module test(input sel, input [0:1] data, output out);
+assign out = data[sel];
+endmodule
+EOT
+
+equiv_opt -assert opt -full
+
+design -load postopt
+select -assert-none t:$sub t:$add t:$alu
