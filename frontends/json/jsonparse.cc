@@ -312,7 +312,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 	Module *module = new RTLIL::Module;
 	module->design = design;
-	module->meta_->name = design->twines.add(Twine{RTLIL::escape_id(modname)});
+	module->meta_->name = design->twines.add(RTLIL::escape_id(modname));
 
 	if (design->module(module->meta_->name))
 		log_error("Re-definition of module %s.\n", design->twines.str(module->meta_->name));
@@ -326,6 +326,8 @@ void json_import(Design *design, string &modname, JsonNode *node)
 		json_parse_attr_param(module->parameter_default_values, node->data_dict.at("parameter_default_values"));
 
 	dict<int, SigBit> signal_bits;
+
+	dict<IdString, Wire*> wire_cache;
 
 	if (node->data_dict.count("ports"))
 	{
@@ -357,10 +359,12 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (port_bits_node->type != 'A')
 				log_error("JSON port node '%s' has non-array bits attribute.\n", port_name.unescape());
 
-			Wire *port_wire = module->wire(TwineSearch(&design->twines).find(port_name.str()));
+			Wire *port_wire = wire_cache.count(port_name) ? wire_cache.at(port_name) : nullptr;
 
-			if (port_wire == nullptr)
-				port_wire = module->addWire(Twine{port_name.str()}, GetSize(port_bits_node->data_array));
+			if (port_wire == nullptr) {
+				port_wire = module->addWire(design->twines.add(port_name.str()), GetSize(port_bits_node->data_array));
+				wire_cache[port_name] = port_wire;
+			}
 
 			if (port_node->data_dict.count("upto") != 0) {
 				JsonNode *val = port_node->data_dict.at("upto");
@@ -455,10 +459,12 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (bits_node->type != 'A')
 				log_error("JSON netname node '%s' has non-array bits attribute.\n", net_name.unescape());
 
-			Wire *wire = module->wire(TwineSearch(&design->twines).find(net_name.str()));
+			Wire *wire = wire_cache.count(net_name) ? wire_cache.at(net_name) : nullptr;
 
-			if (wire == nullptr)
-				wire = module->addWire(Twine{net_name.str()}, GetSize(bits_node->data_array));
+			if (wire == nullptr) {
+				wire = module->addWire(design->twines.add(net_name.str()), GetSize(bits_node->data_array));
+				wire_cache[net_name] = wire;
+			}
 
 			if (net_node->data_dict.count("upto") != 0) {
 				JsonNode *val = net_node->data_dict.at("upto");
@@ -532,7 +538,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			IdString cell_type = RTLIL::escape_id(type_node->data_string.c_str());
 
-			Cell *cell = module->addCell(Twine{cell_name.str()}, Twine{cell_type.str()});
+			Cell *cell = module->addCell(design->twines.add(cell_name.str()), design->twines.add(cell_type.str()));
 
 			if (cell_node->data_dict.count("connections") == 0)
 				log_error("JSON cells node '%s' has no connections attribute.\n", cell_name.unescape());
@@ -580,7 +586,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 				}
 
-				cell->setPort(design->twines.add(Twine{conn_name.str()}), sig);
+				cell->setPort(design->twines.add(conn_name.str()), sig);
 			}
 
 			if (cell_node->data_dict.count("attributes"))
@@ -604,7 +610,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			JsonNode *memory_node = memory_node_it.second;
 
 			RTLIL::Memory *mem = new RTLIL::Memory;
-			mem->meta_->name = design->twines.add(Twine{memory_name.str()});
+			mem->meta_->name = design->twines.add(memory_name.str());
 			mem->module = module;
 
 			if (memory_node->type != 'D')

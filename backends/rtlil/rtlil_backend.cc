@@ -34,9 +34,6 @@ YOSYS_NAMESPACE_BEGIN
 
 void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, bool stringify)
 {
-	// Emit the typed src field first. It is not stored in obj->attributes
-	// — the dict no longer holds ID::src under any circumstance. Backends
-	// that want to materialize the pipe-joined literal pass stringify.
 	if (design && design->obj_src_id(obj) != Twine::Null) {
 		TwineRef id = design->obj_src_id(obj);
 		f << stringf("%s" "attribute \\src ", indent);

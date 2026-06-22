@@ -109,7 +109,6 @@ struct TW {
 };
 
 #define TW(id) ((size_t)std::integral_constant<int, lookup_well_known_id(#id)>::value)
-// #define TW(name) TW::lookup(#name)
 
 struct Twine {
 	static constexpr TwineRef Null = std::numeric_limits<size_t>::max();
@@ -120,19 +119,31 @@ struct Twine {
 		auto operator<=>(const Suffix&) const = default;
 	};
 
-	struct AutoPrefix {
+
+	struct AutoSuffix {
 		const std::string *prefix;
 		std::string tail;
-		auto operator<=>(const AutoPrefix&) const = default;
+		auto operator<=>(const AutoSuffix&) const = default;
 	};
 
-	std::variant<std::monostate, std::string, std::vector<TwineRef>, Suffix, AutoPrefix> data;
+	std::variant<
+				// Unused slot
+				std::monostate,
+				// "leaf", regular deduplicated string
+				std::string,
+				// "concat", for src only, requires concatenating character convention - '|' for src attributes, others for others in the future
+				std::vector<TwineRef>,
+				// "suffix", deduplicates shared prefixes
+				Suffix,
+				// transient suffix constructed with NEW_TWINE and NEW_TWINE_SUFFIX
+				// turned into a regular Suffix when added to a TwinePool
+				AutoSuffix> data;
 
 	bool is_dead() const { return std::holds_alternative<std::monostate>(data); }
 	bool is_leaf() const { return std::holds_alternative<std::string>(data); }
 	bool is_concat() const { return std::holds_alternative<std::vector<TwineRef>>(data); }
 	bool is_suffix() const { return std::holds_alternative<Suffix>(data); }
-	bool is_auto_prefix() const { return std::holds_alternative<AutoPrefix>(data); }
+	bool is_auto_prefix() const { return std::holds_alternative<AutoSuffix>(data); }
 	bool is_flat() const { return is_leaf() || is_suffix(); }
 	const std::string &leaf() const { return std::get<std::string>(data); }
 	const std::vector<TwineRef> &children() const { return std::get<std::vector<TwineRef>>(data); }
@@ -150,7 +161,6 @@ struct TwineHash {
 
 	size_t operator()(const Twine& t) const noexcept;
 	size_t operator()(TwineRef ref) const noexcept;
-	// size_t operator()(std::string_view v) const noexcept;
 };
 
 struct TwineEq {
@@ -161,8 +171,6 @@ struct TwineEq {
 	bool operator()(TwineRef a, TwineRef b) const noexcept;
 	bool operator()(TwineRef a, const Twine& b) const noexcept;
 	bool operator()(const Twine& a, TwineRef b) const noexcept;
-	// bool operator()(TwineRef a, std::string_view b) const noexcept;
-	// bool operator()(std::string_view a, TwineRef b) const noexcept;
 };
 
 
@@ -365,12 +373,8 @@ struct TwinePool {
 		return ref;
 	}
 
-	// Interns a structural Twine verbatim and returns the handle. Leaf content
-	// is stored as-is — callers holding an escaped string must strip the '\'
-	// and tag publicity themselves (or use the add(std::string) overload).
-	// Suffix names inherit the prefix handle's publicity.
 	TwineRef add(Twine t) {
-		if (auto *ap = std::get_if<Twine::AutoPrefix>(&t.data)) {
+		if (auto *ap = std::get_if<Twine::AutoSuffix>(&t.data)) {
 			TwineRef pref = add_inner(Twine{*ap->prefix});
 			return add_inner(Twine{Twine::Suffix{pref, std::move(ap->tail)}});
 		}
@@ -612,7 +616,7 @@ struct DeepTwineEq {
 	// Required by unordered_set to handle hash collisions between two TwineRefs.
 	bool operator()(TwineRef a, TwineRef b) const {
 		if (a == b) return true; // Index or structural equality shortcut
-		std::string fb = flatten(b);
+		std::string fb = pool->unescaped_str(b);
 		return (*this)(a, std::string_view(fb));
 	}
 
@@ -660,7 +664,7 @@ struct TwineChildPool {
 
 	// Local analog of TwinePool::add; see there for the convention.
 	TwineRef add(Twine t) {
-		if (auto *ap = std::get_if<Twine::AutoPrefix>(&t.data)) {
+		if (auto *ap = std::get_if<Twine::AutoSuffix>(&t.data)) {
 			TwineRef pref = add_inner(Twine{*ap->prefix});
 			return add_inner(Twine{Twine::Suffix{pref, std::move(ap->tail)}});
 		}
@@ -730,6 +734,11 @@ struct TwineSearch {
 				continue;
 			index.insert(STATIC_TWINE_END + idx);
 		}
+	}
+	// Keep a hoisted search current after adding a ref to the pool, so the
+	// search need not be rebuilt (O(pool)) between finds in a loop.
+	void insert(TwineRef ref) {
+		index.insert(twine_untag(ref));
 	}
 	// Escaped-name aware. Resolves both statics and locals by content.
 	TwineRef find(std::string_view sv) const {

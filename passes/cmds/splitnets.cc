@@ -55,7 +55,7 @@ struct SplitnetsWorker
 		if (format.size() > 1)
 			new_wire_name += format.substr(1, 1);
 
-		RTLIL::Wire *new_wire = module->addWire(module->uniquify(module->design->twines.add(Twine{new_wire_name})), width);
+		RTLIL::Wire *new_wire = module->addWire(module->uniquify(module->design->twines.add(std::move(new_wire_name))), width);
 		new_wire->port_id = wire->port_id ? wire->port_id + offset : 0;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;

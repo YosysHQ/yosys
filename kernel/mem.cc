@@ -887,7 +887,6 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		return nullptr;
 
 	// Keep src as a "@N" reference into the design's twine pool throughout
-	// — never flatten to a literal path string. That way every addX call
 	// below adopts the same slot as Mem itself (via set_src_attribute's
 	// "@N" parse_ref path), and there's no flatten → re-intern → pipe-
 	// leaf round-trip on cells whose src is a Concat node.
@@ -998,7 +997,6 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		IdString name = stringf("$%s$rdreg[%d]", memid, idx);
 		FfData ff(module, initvals, name);
-		// Carry mem's src into the ff via the OwnedTwine handle — same
 		// pool, direct id retain. emit() transfers verbatim.
 		ff.src_twine = mem_src;
 		ff.width = GetSize(port.data);

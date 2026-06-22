@@ -319,7 +319,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type_impl);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, scope + "." + cell->module->design->twines.str(cell->meta_->name), mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + cell->module->design->twines.unescaped_str(cell->meta_->name), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
@@ -1260,7 +1260,7 @@ struct SimInstance
 
 				issue_count++;
 				any_undriven_found = true;
-				std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
+				std::string wire_name = scope + "." + wire->name.unescaped();
 				log_warning("Input trace contains undriven signal `%s` (%s).\n", wire_name.c_str(), log_signal(undriven));
 			}
 		}

@@ -1102,10 +1102,6 @@ std::string AstNode::loc_string() const
 
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
-	// All AttrObjects in genrtlil — Cell/Wire/Module/Process AND the inner
-	// types (CaseRule, SwitchRule, MemWriteAction) — share current_module's
-	// design's twine pool. process_module attaches current_module->design
-	// early so this is reachable.
 	if (!current_module || !current_module->design)
 		return;
 	const auto &loc = ast->location;
@@ -1148,11 +1144,6 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 	AstModule *module = new AstModule;
 	current_module = module;
-	// Set design backpointer early — every set_src_attr in genrtlil.cc
-	// resolves the pool via current_module->design->twines. The
-	// final design->add(current_module) at end-of-process_module hooks
-	// the module into the design's modules_ dict; we just need design
-	// reachable as a backpointer for src interning meanwhile.
 	module->design = design;
 
 	module->ast = nullptr;

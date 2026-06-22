@@ -60,7 +60,7 @@ struct RTLIL::SigNormIndex
 
 	void dump_sigmap() {
 		for (auto [name, wire] : module->wires_) { 
-			log_debug("wire %s %p %s\n", name, wire, wire->name);
+			log_debug("wire %s %p %s\n", module->design->twines.str(name).c_str(), wire, wire->name);
 			SigSpec ss(wire);
 			log_debug("ss %s\n", log_signal(ss));
 			sigmap(ss);
@@ -115,10 +115,10 @@ struct RTLIL::SigNormIndex
 		for (auto cell : module->cells()) {
 			xlog("setup_driven_wires cell %s %s\n", cell->type, cell->name);
 			for (auto &[port, sig] : cell->connections_) {
-				xlog("\t%s = %s\n", port, log_signal(sig));
+				xlog("\t%s = %s\n", module->design->twines.str(port).c_str(), log_signal(sig));
 				if (cell->port_dir(port) == RTLIL::PD_INPUT)
 					continue;
-				xlog("%s is not an input in design %p\n", port, module->design);
+				xlog("%s is not an input in design %p\n", module->design->twines.str(port).c_str(), module->design);
 				if (sig.is_wire()) {
 					Wire * wire = sig.as_wire();
 
@@ -135,7 +135,7 @@ struct RTLIL::SigNormIndex
 				wire->driverCell_ = cell;
 				wire->driverPort_ = port;
 
-				xlog("therefore connect port %s %s %s\n", port, log_signal(sig), wire->name);
+				xlog("therefore connect port %s %s %s\n", module->design->twines.str(port).c_str(), log_signal(sig), wire->name);
 				// This orientation bias is potentially dangerous elsewhere
 				module->connect(wire, sig);
 				sig = wire;
@@ -1140,7 +1140,7 @@ void RTLIL::Cell::signorm_index_add(TwineRef portname, const SigSpec &new_signal
 {
 	auto &index = *module->sig_norm_index;
 	index.dirty.insert(this);
-	xlog("signorm_index_add cell %s port %s input %d signal %s\n", name, portname, is_input, log_signal(new_signal));
+	xlog("signorm_index_add cell %s port %s input %d signal %s\n", name, module->design->twines.str(portname).c_str(), is_input, log_signal(new_signal));
 	if (is_input) {
 		int i = 0;
 		for (auto bit : new_signal) {
@@ -1172,7 +1172,6 @@ bool RTLIL::Cell::bufnorm_handle_setPort(TwineRef portname, SigSpec &signal, dic
 	}
 
 	auto dir = port_dir(portname);
-	// Fast path: connecting a full driverless wire to an output port — everything else
 	// goes through the bufnorm queues and is handled during the next bufNormalize call
 	if ((dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) && signal.is_wire()) {
 		Wire *w = signal.as_wire();

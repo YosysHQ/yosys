@@ -62,7 +62,6 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 		cell->attributes[stringf("\\SB_CARRY.%s", a.first)] = a.second;
 	for (const auto &a : st.lut->attributes)
 		cell->attributes[stringf("\\SB_LUT4.%s", a.first)] = a.second;
-	// src now lives in src_id_, not the attributes dict — propagate it
 	// via prefixed flat-literal attributes so the unwrap pass can restore.
 	if (st.carry->src_id() != Twine::Null)
 		cell->attributes[IdString("\\SB_CARRY.\\src")] = Const(st.carry->get_src_attribute());

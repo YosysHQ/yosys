@@ -113,7 +113,6 @@ struct MemoryMapWorker
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
 
-		// "@N" ref, not a flattened literal — avoids re-interning a
 		// possibly-Concat src as a single pipe-joined leaf on every
 		// new cell. set_src_attribute's parse_ref path retains the
 		// pool slot directly.

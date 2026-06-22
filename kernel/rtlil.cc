@@ -964,7 +964,6 @@ bool RTLIL::AttrObject::get_bool_attribute(IdString id) const
 void RTLIL::AttrObject::set_string_attribute(IdString id, string value)
 {
 	// ID::src on the base AttrObject is not routable here because the base
-	// has no Design context — callers needing string-form src must go
 	// through the subtype helper (Cell::set_src_attribute / Wire::… / …)
 	// which derives the design from context.
 	log_assert(id != ID::src && "set_string_attribute(ID::src,...) on AttrObject base; use the subtype helper");
@@ -976,7 +975,6 @@ void RTLIL::AttrObject::set_string_attribute(IdString id, string value)
 
 string RTLIL::AttrObject::get_string_attribute(IdString id) const
 {
-	// ID::src is not in the dict — callers must use the subtype helper.
 	log_assert(id != ID::src && "get_string_attribute(ID::src) on AttrObject base; use the subtype helper");
 	std::string value;
 	const auto it = attributes.find(id);
@@ -1832,22 +1830,22 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 				switch (boxes)
 				{
 				case RTLIL::SB_UNBOXED_WARN:
-					log_warning("Ignoring boxed module %s.\n", twines.str(it.first).c_str());
+					log_warning("Ignoring boxed module %s.\n", log_id(it.second));
 					break;
 				case RTLIL::SB_EXCL_BB_WARN:
-					log_warning("Ignoring blackbox module %s.\n", twines.str(it.first).c_str());
+					log_warning("Ignoring blackbox module %s.\n", log_id(it.second));
 					break;
 				case RTLIL::SB_UNBOXED_ERR:
-					log_error("Unsupported boxed module %s.\n", twines.str(it.first).c_str());
+					log_error("Unsupported boxed module %s.\n", log_id(it.second));
 					break;
 				case RTLIL::SB_EXCL_BB_ERR:
-					log_error("Unsupported blackbox module %s.\n", twines.str(it.first).c_str());
+					log_error("Unsupported blackbox module %s.\n", log_id(it.second));
 					break;
 				case RTLIL::SB_UNBOXED_CMDERR:
-					log_cmd_error("Unsupported boxed module %s.\n", twines.str(it.first).c_str());
+					log_cmd_error("Unsupported boxed module %s.\n", log_id(it.second));
 					break;
 				case RTLIL::SB_EXCL_BB_CMDERR:
-					log_cmd_error("Unsupported blackbox module %s.\n", twines.str(it.first).c_str());
+					log_cmd_error("Unsupported blackbox module %s.\n", log_id(it.second));
 					break;
 				default:
 					break;
@@ -1856,13 +1854,13 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 			switch(partials)
 			{
 			case RTLIL::SELECT_WHOLE_WARN:
-				log_warning("Ignoring partially selected module %s.\n", twines.str(it.first).c_str());
+				log_warning("Ignoring partially selected module %s.\n", log_id(it.second));
 				break;
 			case RTLIL::SELECT_WHOLE_ERR:
-				log_error("Unsupported partially selected module %s.\n", twines.str(it.first).c_str());
+				log_error("Unsupported partially selected module %s.\n", log_id(it.second));
 				break;
 			case RTLIL::SELECT_WHOLE_CMDERR:
-				log_cmd_error("Unsupported partially selected module %s.\n", twines.str(it.first).c_str());
+				log_cmd_error("Unsupported partially selected module %s.\n", log_id(it.second));
 				break;
 			default:
 				break;
@@ -1904,7 +1902,6 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto binding : bindings_)
 		delete binding;
-	// Module's own src — release last so the pool stays valid for
 	// inner releases above.
 	if (design)
 		design->obj_release_src(this);
@@ -3183,7 +3180,6 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		// Transfer src across designs. Both modules must be attached
 		// to a design for the migration to happen; in the
 		// detached-clone() scratch flow (equiv_make, etc.) src is
-		// dropped here — those callers don't preserve src across the
 		// temp clone by design.
 		if (this->design && new_mod->design)
 			copy_src_into(this, this->design, new_mod, new_mod->design);
@@ -3200,7 +3196,6 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 				return;
 			// Preserve name already set by addWire/addCell (in dst's pool).
 			TwineRef saved_name = dst_obj->meta_ ? dst_obj->meta_->name : Twine::Null;
-			// Recycle old meta slot (no field releases — name's retain lives on).
 			if (dst_obj->meta_) {
 				dst_obj->meta_->name = Twine::Null;
 				dst_obj->meta_->src = Twine::Null;
@@ -3285,7 +3280,6 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod, bool src_id_verbatim) cons
 		// TwinePool allocates slots sequentially as copy_src_into →
 		// copy_from interns each wire's src, so the destination pool
 		// ends up with leaves in the same order the frontend
-		// originally interned them — that lets write_rtlil emit
 		// byte-equal "@N" refs across single-module clones into an
 		// existing destination design.
 		// Re-intern each wire/cell name from the source design's pool into
@@ -3483,7 +3477,6 @@ void RTLIL::Module::add(RTLIL::Process *process)
 	processes[process->meta_->name] = process;
 	process->module = this;
 	// Propagate module back-pointer to every CaseRule/SwitchRule in the
-	// root case tree and every MemWriteAction in the sync rules — so the
 	// per-Design src meta vector can be resolved from any inner-process
 	// AttrObject via `module->design` after attach.
 	process->root_case.setModuleRecursive(this);
@@ -3865,7 +3858,6 @@ RTLIL::Memory *RTLIL::Module::addMemory(TwineRef name, const RTLIL::Memory *othe
 	mem->size = other->size;
 	mem->attributes = other->attributes;
 	{
-		// Clone path drops src for now — caller responsible for migrating
 		// src across the design boundary if needed. addMemory(name) is the
 		// common case.
 		(void)other;
@@ -6795,7 +6787,6 @@ RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 	new_caserule->compare = compare;
 	new_caserule->actions = actions;
 	new_caserule->attributes = attributes;
-	// clone() drops src — CaseRule has no pool backpointer, so we can't
 	// retain. The caller (Module::addProcess(name, other)) is responsible
 	// for walking the cloned tree and migrating src via context.
 	for (auto &it : switches)
@@ -6819,7 +6810,6 @@ RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 	RTLIL::SwitchRule *new_switchrule = new RTLIL::SwitchRule;
 	new_switchrule->signal = signal;
 	new_switchrule->attributes = attributes;
-	// clone() drops src — see CaseRule::clone for rationale.
 	for (auto &it : cases)
 		new_switchrule->cases.push_back(it->clone());
 	return new_switchrule;
@@ -6833,7 +6823,6 @@ RTLIL::SyncRule *RTLIL::SyncRule::clone() const
 	new_syncrule->signal = signal;
 	new_syncrule->actions = actions;
 	new_syncrule->mem_write_actions = mem_write_actions;
-	// Drop meta_idx_ on the cloned MemWriteActions — the integer was
 	// copied by the vector assignment above without registering with
 	// any pool; the caller is responsible for migrating src across the
 	// clone via context (see Process::clone).
@@ -6986,7 +6975,6 @@ void RTLIL::Memory::absorb_attrs(dict<IdString, RTLIL::Const> &&buf)
 	module->design->absorb_attrs(this, std::move(buf));
 }
 
-// CaseRule / SwitchRule / MemWriteAction src helpers — all delegate to
 // module->design->obj_* via the back-pointer added in the earlier commit.
 TwineRef RTLIL::CaseRule::src_id() const
 {

@@ -261,13 +261,14 @@ end_of_header:
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$0", aiger_autoidx)));
+	RTLIL::Wire* n0 = aiger_wires.count(0) ? aiger_wires.at(0) : nullptr;
 	if (n0)
 		module->connect(n0, State::S0);
 
 	// Parse footer (symbol table, comments, etc.)
 	unsigned l1;
 	std::string s;
+	TwineSearch search(&design->twines);
 	for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
 		if (c == 'i' || c == 'l' || c == 'o' || c == 'b') {
 			f.ignore(1);
@@ -286,7 +287,7 @@ end_of_header:
 				log_assert(l1 < latches.size());
 				wire = latches[l1];
 			} else if (c == 'o') {
-				wire = module->wire(TwineSearch(&design->twines).find(escaped_s.str()));
+				wire = module->wire(search.find(escaped_s.str()));
 				log_assert(l1 < outputs.size());
 				if (wire) {
 					// Could have been renamed by a latch
@@ -299,7 +300,7 @@ end_of_header:
 				wire = bad_properties[l1];
 			} else log_abort();
 
-			module->rename(wire, design->twines.add(std::string{escaped_s.str()}));
+			module->rename(wire, intern_name(escaped_s.str(), search));
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -338,25 +339,28 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
+	if (auto it = aiger_wires.find(literal); it != aiger_wires.end())
+		return it->second;
 	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
-	RTLIL::Wire *wire = module->wire(TwineSearch(&design->twines).find(wire_name.str()));
-	if (wire) return wire;
 	log_debug2("Creating %s\n", wire_name.c_str());
-	wire = module->addWire(design->twines.add(std::string{wire_name.str()}));
+	RTLIL::Wire *wire = module->addWire(design->twines.add(std::string{wire_name.str()}));
 	wire->port_input = wire->port_output = false;
+	aiger_wires[literal] = wire;
 	if (!invert) return wire;
-	RTLIL::IdString wire_inv_name(stringf("$aiger%d$%d", aiger_autoidx, variable));
-	RTLIL::Wire *wire_inv = module->wire(TwineSearch(&design->twines).find(wire_inv_name.str()));
-	if (wire_inv) {
-		if (module->cell(TwineSearch(&design->twines).find(wire_inv_name.str()))) return wire;
+	const unsigned base_literal = variable << 1;
+	RTLIL::Wire *wire_inv;
+	if (auto it = aiger_wires.find(base_literal); it != aiger_wires.end()) {
+		wire_inv = it->second;
 	}
 	else {
+		RTLIL::IdString wire_inv_name(stringf("$aiger%d$%d", aiger_autoidx, variable));
 		log_debug2("Creating %s\n", wire_inv_name.c_str());
 		wire_inv = module->addWire(design->twines.add(std::string{wire_inv_name.str()}));
 		wire_inv->port_input = wire_inv->port_output = false;
+		aiger_wires[base_literal] = wire_inv;
 	}
 
-	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
+	log_debug2("Creating %s = ~$aiger%d$%d\n", wire_name.c_str(), aiger_autoidx, variable);
 	module->addNotGate(Twine{stringf("$not$aiger%d$%d", aiger_autoidx, variable)}, wire_inv, wire);
 
 	return wire;
@@ -397,7 +401,7 @@ void AigerReader::parse_xaiger()
 	else
 		log_abort();
 
-	RTLIL::Wire* n0 = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$0", aiger_autoidx)));
+	RTLIL::Wire* n0 = aiger_wires.count(0) ? aiger_wires.at(0) : nullptr;
 	if (n0)
 		module->connect(n0, State::S0);
 
@@ -417,11 +421,12 @@ void AigerReader::parse_xaiger()
 			uint32_t lutSize = parse_xaiger_literal(f);
 			log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
 			ConstEvalAig ce(module);
+			TwineSearch search(&design->twines);
 			for (unsigned i = 0; i < lutNum; ++i) {
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-				RTLIL::Wire *output_sig = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Wire *output_sig = module->wire(search.find(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID)));
 				log_assert(output_sig);
 				uint32_t nodeID;
 				RTLIL::SigSpec input_sig;
@@ -432,7 +437,7 @@ void AigerReader::parse_xaiger()
 						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
 						continue;
 					}
-					RTLIL::Wire *wire = module->wire(TwineSearch(&design->twines).find(stringf("$aiger%d$%d", aiger_autoidx, nodeID)));
+					RTLIL::Wire *wire = module->wire(search.find(stringf("$aiger%d$%d", aiger_autoidx, nodeID)));
 					log_assert(wire);
 					input_sig.append(wire);
 				}
@@ -451,7 +456,7 @@ void AigerReader::parse_xaiger()
 					log_assert(o.wire == nullptr);
 					lut_mask.set(gray, o.data);
 				}
-				RTLIL::Cell *output_cell = module->cell(TwineSearch(&design->twines).find(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Cell *output_cell = module->cell(search.find(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
 				log_assert(output_cell);
 				module->remove(output_cell);
 				module->addLut(Twine{stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID)}, input_sig, output_sig, std::move(lut_mask));
@@ -837,6 +842,21 @@ void AigerReader::parse_aiger_binary()
 		RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 		module->addAndGate(Twine{stringf("$and%s", design->twines.str(o_wire->meta_->name).c_str())}, i1_wire, i2_wire, o_wire);
 	}
+}
+
+// add(std::string) always interns a fresh leaf, but an equal-content name may
+// already exist in the pool as a NEW_TWINE suffix (auto-generated names share a
+// prefix leaf). Reuse that ref so every wire/cell with the same name string is
+// keyed by a single canonical ref; otherwise leaf-vs-suffix refs diverge and
+// module->wire()/cell() lookups miss.
+TwineRef AigerReader::intern_name(const std::string &escaped, TwineSearch &search)
+{
+	TwineRef existing = search.find(escaped);
+	if (existing != Twine::Null)
+		return existing;
+	TwineRef ref = design->twines.add(std::string{escaped});
+	search.insert(ref);
+	return ref;
 }
 
 void AigerReader::post_process()

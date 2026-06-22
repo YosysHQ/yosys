@@ -172,8 +172,9 @@ struct FfData : FfTypeData {
 	dict<IdString, Const> attributes;
 	// Stashed src across construction → emit. Refcount-managed so the
 	// source cell's pool slot survives if the cell itself is removed
-	// before emit() runs. Empty when the source cell had no src.
-	TwineRef src_twine;
+	// before emit() runs. Null when the source cell had no src (default
+	// TwineRef() is index 0, a valid constid, so it must be Null here).
+	TwineRef src_twine = Twine::Null;
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;

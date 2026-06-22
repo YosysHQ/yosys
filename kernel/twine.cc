@@ -145,7 +145,6 @@ void twine_prepopulate() {
 // 	log_assert(parent->is_flat() && "Suffix parent must be a flat node (Leaf or Suffix)");
 // 	if (tail.empty()) {
 // 		// No tail means "the same string as parent". Hand back a fresh
-// 		// owning ref on parent — semantically equivalent to a degenerate
 // 		// suffix node, but we avoid allocating a slot for it.
 // 		retain(parent);
 // 		return parent;

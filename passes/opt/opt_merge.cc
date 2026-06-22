@@ -302,7 +302,7 @@ struct OptMergeWorker
 				for (auto &it : remove_cell->connections()) {
 					if (remove_cell->output(it.first)) {
 						RTLIL::SigSpec keep_sig = keep_cell->getPort(it.first);
-						log_debug("    Redirecting output %s: %s = %s\n", it.first,
+						log_debug("    Redirecting output %s: %s = %s\n", keep_cell->module->design->twines.str(it.first).c_str(),
 								log_signal(it.second), log_signal(keep_sig));
 						Const init = initvals(keep_sig);
 						initvals.remove_init(it.second);
@@ -406,7 +406,6 @@ struct OptMergePass : public Pass {
 		ct.cell_types.erase(TW($anyconst));
 		ct.cell_types.erase(TW($allseq));
 		ct.cell_types.erase(TW($allconst));
-		// Synthetic driver cells signorm creates for module ports — must
 		// never be folded into one another, otherwise distinct ports collapse.
 		ct.cell_types.erase(TW($input_port));
 		ct.cell_types.erase(TW($output_port));
