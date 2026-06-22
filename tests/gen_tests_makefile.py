@@ -9,12 +9,36 @@ from contextlib import contextmanager
 yosys_basedir = os.path.relpath(os.path.join(os.path.dirname(__file__), ".."))
 common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk"))
 
+# When SKIP_BROKEN_TESTS is set, tests listed (one "<dir>/<file>" per line,
+# relative to tests/, '#' comments allowed) in broken_tests.txt are not emitted
+# into the generated Makefiles, so `make SKIP_BROKEN_TESTS=1` runs only the
+# known-good tests. Regenerate the list with ./regen_broken_tests.sh.
+_tests_dir = os.path.dirname(os.path.abspath(__file__))
+_broken_tests = set()
+if os.environ.get("SKIP_BROKEN_TESTS"):
+    _bt_path = os.path.join(_tests_dir, "broken_tests.txt")
+    if os.path.exists(_bt_path):
+        with open(_bt_path) as _bt_f:
+            for _line in _bt_f:
+                _line = _line.split("#", 1)[0].strip()
+                if _line:
+                    _broken_tests.add(os.path.normpath(_line))
+
 def _cwd_base():
     return os.path.basename(os.getcwd())
+
+def _is_broken(name):
+    if not _broken_tests:
+        return False
+    key = os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), _tests_dir), name))
+    return key in _broken_tests
 
 def generate_target(name, command, deps = None):
     #target = f"{_cwd_base()}-{name}"
     target = f"{name}"
+    if _is_broken(name):
+        print(f"# skipped via broken_tests.txt: {name}")
+        return
     print(f"all: {target}")
     print(f".PHONY: {target}")
     print(f"{target}_cmd={command}")
