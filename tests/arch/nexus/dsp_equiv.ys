@@ -1,0 +1,154 @@
+read_verilog -sv dsp_equiv.sv
+design -save src
+
+# y = a*b + c (unsigned)
+design -load src
+hierarchy -top mac_add_u
+proc
+design -stash gold
+design -load src
+hierarchy -top mac_add_u
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULTADDSUB18X18
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mac_add_u
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mac_add_u
+design -copy-from gate -as gate mac_add_u
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 1 -set-init-zero -prove-asserts -verify equiv
+
+# y = a*b + c (signed)
+design -load src
+hierarchy -top mac_add_s
+proc
+design -stash gold
+design -load src
+hierarchy -top mac_add_s
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULTADDSUB18X18
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mac_add_s
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mac_add_s
+design -copy-from gate -as gate mac_add_s
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 1 -set-init-zero -prove-asserts -verify equiv
+
+# y = c - a*b (unsigned)
+design -load src
+hierarchy -top mac_sub_u
+proc
+design -stash gold
+design -load src
+hierarchy -top mac_sub_u
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULTADDSUB18X18
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mac_sub_u
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mac_sub_u
+design -copy-from gate -as gate mac_sub_u
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 1 -set-init-zero -prove-asserts -verify equiv
+
+# y = c - a*b (signed)
+design -load src
+hierarchy -top mac_sub_s
+proc
+design -stash gold
+design -load src
+hierarchy -top mac_sub_s
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULTADDSUB18X18
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mac_sub_s
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mac_sub_s
+design -copy-from gate -as gate mac_sub_s
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 1 -set-init-zero -prove-asserts -verify equiv
+
+# y = c - a*b (signed, wide out)
+design -load src
+hierarchy -top mac_wide_s
+proc
+design -stash gold
+design -load src
+hierarchy -top mac_wide_s
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULTADDSUB18X18
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mac_wide_s
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mac_wide_s
+design -copy-from gate -as gate mac_wide_s
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 1 -set-init-zero -prove-asserts -verify equiv
+
+# y = a*b - c (minuend mul)
+design -load src
+hierarchy -top mac_subrev_u
+proc
+design -stash gold
+design -load src
+hierarchy -top mac_subrev_u
+synth_nexus -family lifcl -noiopad
+select -assert-count 0 t:MULTADDSUB18X18
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mac_subrev_u
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mac_subrev_u
+design -copy-from gate -as gate mac_subrev_u
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 1 -set-init-zero -prove-asserts -verify equiv
+
+# pipelined mul (unsigned)
+design -load src
+hierarchy -top mul_pipe_u
+proc
+design -stash gold
+design -load src
+hierarchy -top mul_pipe_u
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mul_pipe_u
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mul_pipe_u
+design -copy-from gate -as gate mul_pipe_u
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 6 -set-init-zero -prove-asserts -verify equiv
+
+# pipelined mul (signed)
+design -load src
+hierarchy -top mul_pipe_s
+proc
+design -stash gold
+design -load src
+hierarchy -top mul_pipe_s
+synth_nexus -family lifcl -noiopad
+select -assert-count 1 t:MULT18X18 r:REGINPUTA=REGISTER r:REGINPUTB=REGISTER r:REGOUTPUT=REGISTER
+read_verilog +/lattice/cells_sim_nexus.v
+hierarchy -top mul_pipe_s
+flatten
+proc
+design -stash gate
+design -copy-from gold -as gold mul_pipe_s
+design -copy-from gate -as gate mul_pipe_s
+miter -equiv -make_assert -flatten gold gate equiv
+sat -seq 6 -set-init-zero -prove-asserts -verify equiv
