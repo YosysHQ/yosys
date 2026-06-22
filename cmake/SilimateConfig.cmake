@@ -7,3 +7,5 @@ set(YOSYS_VERIFIC_DIR ${PROJECT_SOURCE_DIR}/verific)
 set(YOSYS_WITH_PYTHON ON CACHE BOOL "" FORCE)
 
 add_library(verific INTERFACE)
+add_subdirectory(${PROJECT_SOURCE_DIR}/libs/backward-cpp)
+link_libraries(backward)

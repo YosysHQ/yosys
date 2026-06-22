@@ -1,20 +1,5 @@
 { pkgs ? import <nixpkgs> {} }:
-	let libs = pkgs.libs;
-	binutils = pkgs.binutils;
-	gnu-ar = pkgs.stdenvNoCC.mkDerivation {
-		# match homebrew name
-		pname = "gnu-ar";
-		inherit (binutils) version;
-
-		buildInputs = [ binutils ];
-
-		phases = ["installPhase"];
-
-		installPhase = ''
-			mkdir -p $out/bin
-			ln -s ${binutils}/bin/ar $out/bin/gar
-		'';
-	};
+	let lib = pkgs.lib;
 in
 pkgs.mkShell {
 	buildInputs = with pkgs; [
@@ -37,7 +22,6 @@ pkgs.mkShell {
 		gperf
 		autoconf
 		libdwarf # provides libdwarf.so
-		libelf # provides libelf.a
 		doxygen
 		cudd
 		zlib
@@ -52,5 +36,14 @@ pkgs.mkShell {
 	];
 
 	CMAKE_CXX_COMPILER_LAUNCHER = "ccache";
-	cmakeFlags = [ "-DCMAKE_C_COMPILER=clang" "-DCMAKE_CXX_COMPILER=clang++" "-DCMAKE_BUILD_TYPE=Debug" "-DCMAKE_CXX_FLAGS=-O0" "-DYOSYS_WITH_PYTHON:BOOL=ON" ];
+	cmakeFlags = with pkgs; [
+		"-DCMAKE_C_COMPILER=clang"
+		"-DCMAKE_CXX_COMPILER=clang++"
+		"-DCMAKE_BUILD_TYPE=Debug"
+		"-DCMAKE_CXX_FLAGS=-O0"
+		"-DYOSYS_WITH_PYTHON:BOOL=ON"
+		"-DLIBDWARF_INCLUDE_DIR=${lib.getInclude libdwarf}/include"
+	] ++ lib.optionals stdenv.isLinux [
+		"-DLIBDW_LIBRARY=${lib.getLib elfutils}/lib/libdw.so"
+	];
 }
