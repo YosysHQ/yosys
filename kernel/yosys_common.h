@@ -77,7 +77,6 @@
 
 #  define strtok_r strtok_s
 #  define strdup _strdup
-#  define snprintf _snprintf
 #  define getcwd _getcwd
 #  define mkdir _mkdir
 #  define popen _popen
