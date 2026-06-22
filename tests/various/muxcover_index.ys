@@ -18,8 +18,8 @@ clean
 opt_expr -mux_bool
 
 select -assert-count 2 t:$_MUX8_
-select -assert-count 0 t:$_MUX_ t:$_MUX4_ t:$_MUX16_
-select -assert-count 0 t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
+select -assert-none t:$_MUX_ t:$_MUX4_ t:$_MUX16_
+select -assert-none t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
 
 techmap -map +/simcells.v t:$_MUX8_
 design -stash gate
@@ -47,8 +47,8 @@ clean
 opt_expr -mux_bool
 
 select -assert-count 3 t:$_MUX8_
-select -assert-count 0 t:$_MUX_ t:$_MUX4_ t:$_MUX16_
-select -assert-count 0 t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
+select -assert-none t:$_MUX_ t:$_MUX4_ t:$_MUX16_
+select -assert-none t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
 
 techmap -map +/simcells.v t:$_MUX8_
 design -stash gate
@@ -76,8 +76,8 @@ clean
 opt_expr -mux_bool
 
 select -assert-count 4 t:$_MUX8_
-select -assert-count 0 t:$_MUX_ t:$_MUX4_ t:$_MUX16_
-select -assert-count 0 t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
+select -assert-none t:$_MUX_ t:$_MUX4_ t:$_MUX16_
+select -assert-none t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
 
 techmap -map +/simcells.v t:$_MUX8_
 design -stash gate
