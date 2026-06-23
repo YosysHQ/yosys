@@ -1100,10 +1100,34 @@ std::string AstNode::loc_string() const
 	return stringf("%s:%d.%d-%d.%d", location.begin.filename->c_str(), location.begin.line, location.begin.column, location.end.line, location.end.column);
 }
 
+static TwineRef build_hier_content(TwinePool &pool, std::string_view content)
+{
+	size_t dot = content.rfind('.');
+	if (dot == std::string_view::npos)
+		return pool.add(Twine{std::string{content}}).tag(true);
+	TwineRef prefix = build_hier_content(pool, content.substr(0, dot));
+	return pool.add(Twine{Twine::Suffix{prefix, std::string{content.substr(dot)}}});
+}
+
+TwineRef AST::intern_hier_name(RTLIL::Design *design, std::string_view escaped)
+{
+	if (escaped.size() > 1 && escaped[0] == '\\')
+		return build_hier_content(design->twines, escaped.substr(1));
+	return design->twines.add(std::string{escaped});
+}
+
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
 	if (!current_module || !current_module->design)
 		return;
+	auto it = ast->attributes.find(ID::src);
+	if (it != ast->attributes.end() && it->second->type == AST_CONSTANT) {
+		// An explicit (* src *) attribute (e.g. when re-reading written output)
+		// takes precedence over the parse position
+		current_module->design->set_src_attribute(obj,
+				current_module->design->twines.add(Twine{it->second->asAttrConst().decode_string()}));
+		return;
+	}
 	const auto &loc = ast->location;
 	if (!loc.begin.filename || loc.begin.filename->empty()) {
 		current_module->design->set_src_attribute(obj, current_module->design->twines.add(Twine{ast->loc_string()}));
@@ -1285,6 +1309,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 		for (auto &attr : ast->attributes) {
 			log_assert((bool)attr.second.get());
+			if (attr.first == ID::src)
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 			module->attributes[attr.first] = attr.second->asAttrConst();
@@ -1313,6 +1339,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	}
 	else {
 		for (auto &attr : ast->attributes) {
+			if (attr.first == ID::src)
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				continue;
 			module->attributes[attr.first] = attr.second->asAttrConst();
@@ -1758,7 +1786,7 @@ TwineRef AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RT
 				new_subcell->set_bool_attribute(ID::is_interface);
 			}
 			else {
-				log_error("No port with matching name found (%s) in %s. Stopping\n", intf.first, modname);
+				log_error("No port with matching name found (%s) in %s. Stopping\n", mod->design->twines.str(intf.first).c_str(), modname);
 			}
 		}
 

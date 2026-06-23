@@ -429,6 +429,9 @@ namespace AST
 	AstNode * find_modport(AstNode *intf, std::string name);
 	void explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport);
 
+	// Intern Verilog hierarchical reference "a.b.c" as a Suffix chain "a" ".b" ".c"
+	TwineRef intern_hier_name(RTLIL::Design *design, std::string_view escaped);
+
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
 
