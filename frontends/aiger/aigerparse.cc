@@ -421,12 +421,11 @@ void AigerReader::parse_xaiger()
 			uint32_t lutSize = parse_xaiger_literal(f);
 			log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
 			ConstEvalAig ce(module);
-			TwineSearch search(&design->twines);
 			for (unsigned i = 0; i < lutNum; ++i) {
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
 				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
-				RTLIL::Wire *output_sig = module->wire(search.find(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Wire *output_sig = module->wire(design->twines.find(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID)));
 				log_assert(output_sig);
 				uint32_t nodeID;
 				RTLIL::SigSpec input_sig;
@@ -437,7 +436,7 @@ void AigerReader::parse_xaiger()
 						log_debug("\tLUT '$lut$aiger%d$%d' input %d is constant!\n", aiger_autoidx, rootNodeID, cutLeavesM);
 						continue;
 					}
-					RTLIL::Wire *wire = module->wire(search.find(stringf("$aiger%d$%d", aiger_autoidx, nodeID)));
+					RTLIL::Wire *wire = module->wire(design->twines.find(stringf("$aiger%d$%d", aiger_autoidx, nodeID)));
 					log_assert(wire);
 					input_sig.append(wire);
 				}
@@ -456,7 +455,7 @@ void AigerReader::parse_xaiger()
 					log_assert(o.wire == nullptr);
 					lut_mask.set(gray, o.data);
 				}
-				RTLIL::Cell *output_cell = module->cell(search.find(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Cell *output_cell = module->cell(design->twines.find(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
 				log_assert(output_cell);
 				module->remove(output_cell);
 				module->addLut(Twine{stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID)}, input_sig, output_sig, std::move(lut_mask));
@@ -464,9 +463,9 @@ void AigerReader::parse_xaiger()
 		}
 		else if (c == 'M') { // cell 'M'apping
 			struct MappingCell {
-				RTLIL::IdString type;
-				RTLIL::IdString out;
-				std::vector<RTLIL::IdString> ins;
+				TwineRef type;
+				TwineRef out;
+				std::vector<TwineRef> ins;
 			};
 			std::vector<MappingCell> mapping_cells;
 
@@ -483,19 +482,19 @@ void AigerReader::parse_xaiger()
 				std::getline(f, outPinName, '\0');
 				uint32_t inPinNum = parse_xaiger_literal(f);
 				log_debug2("M: cellID=%u cellName=%s outPinName=%s inPinNum=%u\n", i, cellName, outPinName, inPinNum);
-				mapping_cell.type = RTLIL::escape_id(cellName);
-				mapping_cell.out = RTLIL::escape_id(outPinName);
+				mapping_cell.type = design->twines.add(std::string{RTLIL::escape_id(cellName)});
+				mapping_cell.out = design->twines.add(std::string{RTLIL::escape_id(outPinName)});
 
-				auto module = design->addModule(RTLIL::escape_id(cellName));
+				auto module = design->addModule(design->twines.add(std::string{RTLIL::escape_id(cellName)}));
 				module->set_bool_attribute(ID::blackbox);
-				module->addWire(RTLIL::escape_id(outPinName))->port_output = true;
+				module->addWire(Twine{RTLIL::escape_id(outPinName)})->port_output = true;
 
 				for (unsigned j = 0; j < inPinNum; ++j) {
 					auto inPinName = std::string{};
 					std::getline(f, inPinName, '\0');
 					log_debug2("M:    inPinName=%s\n", inPinName);
-					mapping_cell.ins.push_back(RTLIL::escape_id(inPinName));
-					module->addWire(RTLIL::escape_id(inPinName))->port_input = true;
+					mapping_cell.ins.push_back(design->twines.add(std::string{RTLIL::escape_id(inPinName)}));
+					module->addWire(Twine{RTLIL::escape_id(inPinName)})->port_input = true;
 				}
 
 				module->fixup_ports();
@@ -503,6 +502,7 @@ void AigerReader::parse_xaiger()
 				mapping_cells.push_back(std::move(mapping_cell));
 			}
 
+			TwineSearch mcell_search(&design->twines);
 			for (unsigned i = 0; i < instanceNum; ++i) {
 				uint32_t cellID = parse_xaiger_literal(f);
 				uint32_t rootNodeID = parse_xaiger_literal(f);
@@ -510,7 +510,7 @@ void AigerReader::parse_xaiger()
 				log_assert(cellID < cellNum);
 				MappingCell &mapping_cell = mapping_cells.at(cellID);
 
-				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, RTLIL::unescape_id(mapping_cell.out), rootNodeID);
+				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, design->twines.unescaped_str(mapping_cell.out).c_str(), rootNodeID);
 
 				RTLIL::Wire *output_sig = createWireIfNotExists(module, rootNodeID);
 				log_assert(output_sig);
@@ -522,17 +522,17 @@ void AigerReader::parse_xaiger()
 					} else { // inverted
 						output_cell_name = stringf("$not$aiger%d$%d", aiger_autoidx, rootNodeID >> 1);
 					}
-					RTLIL::Cell *output_cell = module->cell(output_cell_name);
+					RTLIL::Cell *output_cell = module->cell(mcell_search.find(output_cell_name.str()));
 					log_assert(output_cell);
 					module->remove(output_cell);
 				}
 
-				RTLIL::Cell *cell = module->addCell(stringf("$sc$aiger%d$%d", aiger_autoidx, rootNodeID), mapping_cell.type);
+				RTLIL::Cell *cell = module->addCell(Twine{stringf("$sc$aiger%d$%d", aiger_autoidx, rootNodeID)}, mapping_cell.type);
 				cell->setPort(mapping_cell.out, output_sig);
 
 				for (unsigned j = 0; j < mapping_cell.ins.size(); ++j) {
 					auto nodeID = parse_xaiger_literal(f);
-					log_debug("M:    inPort=%s nodeID=%u\n", RTLIL::unescape_id(mapping_cell.ins.at(j)), nodeID);
+					log_debug("M:    inPort=%s nodeID=%u\n", design->twines.unescaped_str(mapping_cell.ins.at(j)).c_str(), nodeID);
 					RTLIL::Wire *input_sig = createWireIfNotExists(module, nodeID);
 					cell->setPort(mapping_cell.ins.at(j), input_sig);
 				}
@@ -623,7 +623,7 @@ void AigerReader::parse_aiger_ascii()
 	// Parse latches
 	RTLIL::Wire *clk_wire = nullptr;
 	if (L > 0 && !clk_name.empty()) {
-		clk_wire = module->wire(TwineSearch(&design->twines).find(clk_name.str()));
+		clk_wire = module->wire(design->twines.find(clk_name.str()));
 		log_assert(!clk_wire);
 		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(design->twines.add(std::string{clk_name.str()}));
@@ -748,7 +748,7 @@ void AigerReader::parse_aiger_binary()
 	// Parse latches
 	RTLIL::Wire *clk_wire = nullptr;
 	if (L > 0 && !clk_name.empty()) {
-		clk_wire = module->wire(TwineSearch(&design->twines).find(clk_name.str()));
+		clk_wire = module->wire(design->twines.find(clk_name.str()));
 		log_assert(!clk_wire);
 		log_debug2("Creating %s\n", clk_name.c_str());
 		clk_wire = module->addWire(design->twines.add(std::string{clk_name.str()}));
