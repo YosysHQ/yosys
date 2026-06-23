@@ -234,7 +234,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 				if (derived_type != cell->type_impl) {
 					auto unmap_module = unmap_design->addModule(to_unmap(derived_type));
-					auto replace_cell = unmap_module->addCell(TW::_TECHMAP_REPLACE_, Twine{cell->type.str()});
+					auto replace_cell = unmap_module->addCell(TW::_TECHMAP_REPLACE_, unmap_module->design->twines.copy_from(cell->module->design->twines, cell->type_impl));
 					for (auto port : derived_module->ports) {
 						auto w = unmap_module->addWire(to_unmap(port), derived_module->wire(port));
 						// Do not propagate (* init *) values into the box,
@@ -421,8 +421,8 @@ void prep_bypass(RTLIL::Design *design)
 			//   and a bypass cell that has the same inputs/outputs as the
 			//   original cell, but with additional inputs taken from the
 			//   replaced cell
-			auto replace_cell = map_module->addCell(TW::_TECHMAP_REPLACE_, Twine{cell->type.str()});
-			auto bypass_cell = map_module->addCell(NEW_TWINE, Twine{cell->type.str() + "_$abc9_byp"});
+			auto replace_cell = map_module->addCell(TW::_TECHMAP_REPLACE_, map_module->design->twines.copy_from(cell->module->design->twines, cell->type_impl));
+			auto bypass_cell = map_module->addCell(NEW_TWINE, map_module->design->twines.add(std::string{cell->type.str() + "_$abc9_byp"}));
 			for (const auto &conn : cell->connections()) {
 				auto port = map_module->wire(to_map(conn.first));
 				if (cell->input(conn.first)) {
@@ -908,7 +908,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		auto &holes_cell = r.first->second;
 		if (r.second) {
 			if (box_module->get_bool_attribute(ID::whitebox)) {
-				holes_cell = holes_module->addCell(NEW_TWINE, Twine{cell->type.str()});
+				holes_cell = holes_module->addCell(NEW_TWINE, holes_module->design->twines.copy_from(cell->module->design->twines, cell->type_impl));
 
 				if (box_module->has_processes())
 					Pass::call_on_module(design, box_module, "proc -noopt");
@@ -1220,7 +1220,14 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 	map_autoidx = autoidx++;
 	auto rn = [&](RTLIL::IdString n) { return design->twines.add(std::string{remap_name(n)}); };
-	auto refof = [&](RTLIL::IdString n) { return design->twines.add(std::string{n.str()}); };
+	// toposort keys cells by IdString; recover the cell's own pool ref rather
+	// than re-interning the flattened name, which would yield a fresh leaf that
+	// never matches a Suffix-shaped auto name.
+	dict<IdString, TwineRef> name_ref;
+	auto refof = [&](RTLIL::IdString n) -> TwineRef {
+		auto it = name_ref.find(n);
+		return it == name_ref.end() ? Twine::Null : it->second;
+	};
 
 	dict<std::string, RTLIL::Wire*> module_wire_by_name;
 	for (auto w : module->wires())
@@ -1242,6 +1249,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	RTLIL::Module *mapped_mod = design->module(design->twines.add(stringf("%s$abc9", module->name)));
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", module);
+
+	for (auto mapped_cell : mapped_mod->cells())
+		name_ref[mapped_cell->name] = mapped_cell->name.ref();
 
 	for (auto w : mapped_mod->wires()) {
 		auto nw = module->addWire(rn(w->name), GetSize(w));
