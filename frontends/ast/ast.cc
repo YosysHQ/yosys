@@ -1104,6 +1104,22 @@ std::string AstNode::loc_string() const
 	return stringf("%s:%d.%d-%d.%d", location.begin.filename->c_str(), location.begin.line, location.begin.column, location.end.line, location.end.column);
 }
 
+static TwineRef build_hier_content(TwinePool &pool, std::string_view content)
+{
+	size_t dot = content.rfind('.');
+	if (dot == std::string_view::npos)
+		return pool.add(Twine{std::string{content}}).tag(true);
+	TwineRef prefix = build_hier_content(pool, content.substr(0, dot));
+	return pool.add(Twine{Twine::Suffix{prefix, std::string{content.substr(dot)}}});
+}
+
+TwineRef AST::intern_hier_name(RTLIL::Design *design, std::string_view escaped)
+{
+	if (escaped.size() > 1 && escaped[0] == '\\')
+		return build_hier_content(design->twines, escaped.substr(1));
+	return design->twines.add(std::string{escaped});
+}
+
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
 	if (!current_module || !current_module->design)

@@ -178,7 +178,7 @@ static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
 						  to_add_kind, id.c_str(), existing_kind, location_str.c_str());
 	};
 
-	TwineRef id_tw = module->design->twines.find(id.str());
+	TwineRef id_tw = intern_hier_name(module->design, id.str());
 	if (const RTLIL::Wire *wire = module->wire(id_tw))
 		already_exists(wire, "signal");
 	if (const RTLIL::Cell *cell = module->cell(id_tw))
@@ -1478,7 +1478,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		// signals.
 		RTLIL::IdString id = str;
 		check_unique_id(current_module, id, this, "interface port");
-		RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{id.str()}), 1);
+		RTLIL::Wire *wire = current_module->addWire(intern_hier_name(current_module->design, id.str()), 1);
 		set_src_attr(wire, this);
 		wire->start_offset = 0;
 		wire->port_id = port_id;
@@ -1518,7 +1518,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Const val = children[0]->bitsAsConst();
 			RTLIL::IdString id = str;
 			check_unique_id(current_module, id, this, "pwire");
-			RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{id.str()}), GetSize(val));
+			RTLIL::Wire *wire = current_module->addWire(intern_hier_name(current_module->design, id.str()), GetSize(val));
 			current_module->connect(wire, val);
 			wire->is_signed = children[0]->is_signed;
 
@@ -1543,7 +1543,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::IdString id = str;
 			check_unique_id(current_module, id, this, "signal");
-			RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{id.str()}), range_left - range_right + 1);
+			RTLIL::Wire *wire = current_module->addWire(intern_hier_name(current_module->design, id.str()), range_left - range_right + 1);
 			set_src_attr(wire, this);
 			wire->start_offset = range_right;
 			wire->port_id = port_id;
@@ -1574,7 +1574,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				input_error("Memory `%s' with non-constant width or size!\n", str);
 
 			check_unique_id(current_module, RTLIL::IdString(str), this, "memory");
-			RTLIL::Memory *memory = current_module->addMemory(current_module->design->twines.add(std::string{str}));
+			RTLIL::Memory *memory = current_module->addMemory(intern_hier_name(current_module->design, str));
 			set_src_attr(memory, this);
 			memory->width = children[0]->range_left - children[0]->range_right + 1;
 			if (children[1]->range_right < children[1]->range_left) {
@@ -1629,10 +1629,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			log_assert(id2ast != nullptr);
 
-			TwineRef str_ref = current_module->design->twines.find(str);
+			TwineRef str_ref = intern_hier_name(current_module->design, str);
 
 			if (id2ast->type == AST_AUTOWIRE && current_module->wire(str_ref) == nullptr) {
-				RTLIL::Wire *wire = current_module->addWire(current_module->design->twines.add(std::string{str}));
+				RTLIL::Wire *wire = current_module->addWire(str_ref);
 				str_ref = wire->name.ref();
 				set_src_attr(wire, this);
 
@@ -2192,7 +2192,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::IdString id = str;
 			check_unique_id(current_module, id, this, "cell");
-			RTLIL::Cell *cell = current_module->addCell(current_module->design->twines.add(std::string{id.str()}), Twine::Null);
+			RTLIL::Cell *cell = current_module->addCell(intern_hier_name(current_module->design, id.str()), Twine::Null);
 			set_src_attr(cell, this);
 
 			for (auto it = children.begin(); it != children.end(); it++) {

@@ -69,15 +69,8 @@ std::string concat_name(RTLIL::Cell *cell, std::string_view object_name_view, co
 	return prefix + tail;
 }
 
-// Build the flattened name of a template object, given the instance's already
-// interned public/private prefix leaves. A name like "\a.b.c.w" is stored as
-// nested Suffix nodes Suffix{Suffix{Suffix{"\a.", "b."}, "c."}, "w"}. When the
-// template was itself flattened earlier its names are already such Suffixes, so
-// flattening instance "u" re-prefixes only the innermost leaf ("\a." -> "\u.a.")
-// and reuses the rest, yielding "\u.a.b.c.w" while keeping "b.", "c.", "w"
-// shared -- rather than materialising "a.b.c.w" as one fresh tail per object.
 TwineRef remap_flattened_name(RTLIL::Design *design, TwineRef obj_ref,
-		TwineRef pub_prefix_ref, TwineRef priv_prefix_ref, dict<TwineRef, TwineRef> &memo)
+		TwineRef pub_prefix_ref, TwineRef priv_prefix_ref, const std::string &separator, dict<TwineRef, TwineRef> &memo)
 {
 	if (auto it = memo.find(obj_ref); it != memo.end())
 		return it->second;
@@ -87,13 +80,13 @@ TwineRef remap_flattened_name(RTLIL::Design *design, TwineRef obj_ref,
 	if (node.is_suffix()) {
 		const Twine::Suffix &sfx = node.suffix();
 		TwineRef prefix = remap_flattened_name(design, twine_tag(sfx.prefix, obj_ref.is_public()),
-				pub_prefix_ref, priv_prefix_ref, memo);
+				pub_prefix_ref, priv_prefix_ref, separator, memo);
 		result = design->twines.add(Twine{Twine::Suffix{prefix, sfx.tail}});
 	} else {
 		std::string escaped = design->twines.str(obj_ref);
 		std::string_view obj = escaped;
 		if (!obj.empty() && obj[0] == '\\') {
-			result = design->twines.add(Twine{Twine::Suffix{pub_prefix_ref, std::string(obj.substr(1))}});
+			result = design->twines.add(Twine{Twine::Suffix{pub_prefix_ref, separator + std::string(obj.substr(1))}});
 		} else {
 			constexpr std::string_view flatten_prefix = "$flatten";
 			if (obj.substr(0, flatten_prefix.size()) == flatten_prefix)
@@ -171,11 +164,11 @@ struct FlattenWorker
 	{
 		// Copy the contents of the flattened cell
 
-		TwineRef pub_prefix_ref = design->twines.add(cell->name.str() + separator);
+		TwineRef pub_prefix_ref = cell->name.ref();
 		TwineRef priv_prefix_ref = design->twines.add("$flatten" + cell->name.str() + separator);
 		dict<TwineRef, TwineRef> remap_memo;
 		auto make_name = [&](TwineRef obj_ref) -> TwineRef {
-			return module->uniquify(remap_flattened_name(design, obj_ref, pub_prefix_ref, priv_prefix_ref, remap_memo));
+			return module->uniquify(remap_flattened_name(design, obj_ref, pub_prefix_ref, priv_prefix_ref, separator, remap_memo));
 		};
 
 		dict<std::string, TwineRef> memory_map;

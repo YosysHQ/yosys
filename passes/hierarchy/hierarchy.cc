@@ -20,6 +20,7 @@
 
 #include "kernel/yosys.h"
 #include "frontends/verific/verific.h"
+#include "frontends/ast/ast.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -282,10 +283,11 @@ struct IFExpander
 		// Go over all wires in interface, and add replacements to lists.
 		std::string conn_name_str(design.twines.str(conn_name));
 		for (auto mod_wire : mod_replace_ports->wires()) {
-			std::string signal_name1 = conn_name_str + "." + design.twines.unescaped_str(mod_wire->name.ref());
-			std::string signal_name2 = interface_name.str() + "." + design.twines.unescaped_str(mod_wire->name.ref());
-			connections_to_add.push_back(design.twines.add(std::string{signal_name1}));
-			TwineRef signal_name2_ref = TwineSearch(&design.twines).find(signal_name2);
+			std::string member = design.twines.unescaped_str(mod_wire->name.ref());
+			std::string signal_name1 = conn_name_str + "." + member;
+			std::string signal_name2 = interface_name.str() + "." + member;
+			connections_to_add.push_back(AST::intern_hier_name(&design, signal_name1));
+			TwineRef signal_name2_ref = AST::intern_hier_name(&design, signal_name2);
 			if(module.wire(signal_name2_ref) == nullptr) {
 				log_error("Could not find signal '%s' in '%s'\n",
 					  signal_name2.c_str(), design.twines.str(module.meta_->name).data());
