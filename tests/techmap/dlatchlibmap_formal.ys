@@ -122,10 +122,6 @@ $_DLATCH_P_   latch0 (.E(E), .D(D),        .Q(Q[0]));
 $_DLATCH_PP0_ latch1 (.E(E), .D(D), .R(R), .Q(Q[1]));
 $_DLATCH_PP1_ latch2 (.E(E), .D(D), .R(R), .Q(Q[2]));
 
-// TODO: this comment is just a copy from 'dfflibmap_formal.ys'
-// Formal checking of directly instantiated DLATCHSR doesn't work at the moment
-// likely due to an equiv_induct -set-assumes assume bug #5196
-
 // no assume when mapping to unset clear_preset_var
 $_DLATCHSR_PPP_ latch3 (.E(E), .D(D), .R( R), .S( S), .Q(Q[3]));
 $_DLATCHSR_NNN_ latch4 (.E(E), .D(D), .R(~R), .S(~S), .Q(Q[4]));
@@ -199,7 +195,7 @@ read_verilog <<EOT
 
 module top(input E, D, S, R, output Q);
   // DLATCHSR with priority R over S
-  always_latch
+  always @*
     if      (R)  Q <= 1'b0;
     else if (S)  Q <= 1'b1;
     else if (E)  Q <= D;
@@ -230,7 +226,7 @@ read_verilog <<EOT
 
 module top(input E, D, R, output Q);
   // DLATCH with preset
-  always_latch
+  always @*
     if     (~R)  Q <= 1'b1;
     else if (E)  Q <= D;
 endmodule

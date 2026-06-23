@@ -29,7 +29,7 @@ design -load orig
 dfflibmap -liberty dlatchlibmap.lib
 clean
 
-select -assert-count 5 t:$_NOT_
+select -assert-count 4 t:$_NOT_
 select -assert-count 1 t:dlatchn
 select -assert-count 4 t:dlatchsr
 select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
@@ -37,7 +37,7 @@ select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
 design -load orig
 dfflibmap -prepare -liberty dlatchlibmap.lib
 
-select -assert-count 11 t:$_NOT_
+select -assert-count 9 t:$_NOT_
 select -assert-count 1 t:$_DLATCH_N_
 select -assert-count 4 t:$_DLATCHSR_PPP_
 select -assert-none t:$_DLATCH_N_ t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i
@@ -45,16 +45,20 @@ select -assert-none t:$_DLATCH_N_ t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i
 design -load orig
 dfflibmap -map-only -liberty dlatchlibmap.lib
 
-select -assert-count 6 t:$_NOT_
+select -assert-count 5 t:$_NOT_
 select -assert-count 0 t:dlatchn
 select -assert-count 1 t:dlatchsr
+select -assert-count 1 t:$_DLATCH_P_
+select -assert-count 1 t:$_DLATCH_PP0_
+select -assert-count 1 t:$_DLATCH_PP1_
+select -assert-count 1 t:$_DLATCHSR_NNN_
 
 design -load orig
 dfflibmap -prepare -liberty dlatchlibmap.lib
 dfflibmap -map-only -liberty dlatchlibmap.lib
 clean
 
-select -assert-count 5 t:$_NOT_
+select -assert-count 4 t:$_NOT_
 select -assert-count 1 t:dlatchn
 select -assert-count 4 t:dlatchsr
 select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
@@ -64,7 +68,7 @@ dfflibmap -prepare -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatc
 dfflibmap -map-only -liberty dlatchlibmap_dlatchn.lib -liberty dlatchlibmap_dlatchsr_r.lib
 clean
 
-select -assert-count 5 t:$_NOT_
+select -assert-count 4 t:$_NOT_
 select -assert-count 1 t:dlatchn
 select -assert-count 4 t:dlatchsr
 select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
@@ -79,14 +83,15 @@ select -assert-count 5 t:dlatchsr
 design -load orig
 dfflibmap -liberty dlatchlibmap.lib -liberty dlatchlibmap_dlatchsr_mixedpol.lib -dont_use dlatchsr
 clean
+
 # We have one more _NOT_ than with the regular dlatchsr
-select -assert-count 6 t:$_NOT_
+select -assert-count 5 t:$_NOT_
 select -assert-count 1 t:dlatchn
 select -assert-count 4 t:dlatchsr_mixedpol
 # The additional NOT is on latch2.
-# Originally, latch2.R is an active high "set".
-# dlatchsr_mixedpol has functionally swapped labels due to the next_state inversion,
-# so we use its CLEAR port for the "set",
+# Originally, latch2.R is an active high "preset".
+# dlatchsr_mixedpol has functionally swapped labels due to the data_in inversion,
+# so we use its CLEAR port for the "preset",
 # but we have to invert it because the CLEAR pin is active low.
 # latch2.CLEAR = !R
 select -assert-count 1 c:latch2 %x:+[CLEAR] %ci t:$_NOT_ %i
