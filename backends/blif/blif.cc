@@ -172,7 +172,7 @@ struct BlifDumper
 	void dump()
 	{
 		f << stringf("\n");
-		f << stringf(".model %s\n", design->twines.str(module->meta_->name).c_str());
+		f << stringf(".model %s\n", design->twines.unescaped_str(module->meta_->name).c_str());
 
 		std::map<int, RTLIL::Wire*> inputs, outputs;
 
@@ -424,7 +424,7 @@ struct BlifDumper
 			for (auto &conn : cell->connections())
 			{
 				if (conn.second.size() == 1) {
-					f << stringf(" %s=%s", design->twines.str(conn.first).c_str(), str(conn.second[0]));
+					f << stringf(" %s=%s", design->twines.unescaped_str(conn.first).c_str(), str(conn.second[0]));
 					continue;
 				}
 
@@ -433,11 +433,11 @@ struct BlifDumper
 
 				if (w == nullptr) {
 					for (int i = 0; i < GetSize(conn.second); i++)
-						f << stringf(" %s[%d]=%s", design->twines.str(conn.first).c_str(), i, str(conn.second[i]));
+						f << stringf(" %s[%d]=%s", design->twines.unescaped_str(conn.first).c_str(), i, str(conn.second[i]));
 				} else {
 					for (int i = 0; i < std::min(GetSize(conn.second), GetSize(w)); i++) {
 						SigBit sig(w, i);
-						f << stringf(" %s[%d]=%s", design->twines.str(conn.first).c_str(), sig.wire->upto ?
+						f << stringf(" %s[%d]=%s", design->twines.unescaped_str(conn.first).c_str(), sig.wire->upto ?
 								sig.wire->start_offset+sig.wire->width-sig.offset-1 :
 								sig.wire->start_offset+sig.offset, str(conn.second[i]).c_str());
 					}
