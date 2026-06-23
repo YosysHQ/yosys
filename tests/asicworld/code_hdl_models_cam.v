@@ -9,18 +9,18 @@ clk         , // Cam clock
 cam_enable  , // Cam enable
 cam_data_in , // Cam data to match
 cam_hit_out , // Cam match has happened
-cam_addr_out  // Cam output address 
+cam_addr_out  // Cam output address
 );
 
 parameter ADDR_WIDTH  = 8;
 parameter DEPTH       = 1 << ADDR_WIDTH;
 //------------Input Ports--------------
-input                    clk;      
-input                    cam_enable;   
-input  [DEPTH-1:0]       cam_data_in;  
+input                    clk;
+input                    cam_enable;
+input  [DEPTH-1:0]       cam_data_in;
 //----------Output Ports--------------
-output                   cam_hit_out;  
-output [ADDR_WIDTH-1:0]  cam_addr_out;  
+output                   cam_hit_out;
+output [ADDR_WIDTH-1:0]  cam_addr_out;
 //------------Internal Variables--------
 reg [ADDR_WIDTH-1:0]  cam_addr_out;
 reg                   cam_hit_out;
@@ -46,7 +46,7 @@ always @(cam_data_in) begin
   end
 end
 
-// Register the outputs 
+// Register the outputs
 always @(posedge clk) begin
   if (cam_enable) begin
     cam_hit_out  <=  cam_hit_combo;
@@ -57,4 +57,4 @@ always @(posedge clk) begin
   end
 end
 
-endmodule 
+endmodule

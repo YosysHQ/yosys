@@ -30,4 +30,3 @@ set -ex
 ../../yosys -l $1.log -q $1.ys
 NuSMV -bmc $1.smv >> $1.log
 grep "^-- invariant .* is true" $1.log
-

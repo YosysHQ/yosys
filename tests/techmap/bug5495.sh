@@ -9,4 +9,3 @@ if ! timeout 10 ${YOSYS} bug5495.v -p 'hierarchy; techmap; abc -script bug5495.a
     echo "Yosys failed to complete"
     exit 1
 fi
-

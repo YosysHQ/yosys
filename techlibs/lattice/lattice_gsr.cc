@@ -83,12 +83,12 @@ struct LatticeGsrPass : public Pass {
 			{
 				if (!cell->hasParam(ID(GSR)) || cell->getParam(ID(GSR)).decode_string() != "AUTO")
 					continue;
-				
+
 				bool gsren = found_gsr;
 				if (cell->get_bool_attribute(ID(nogsr)))
 					gsren = false;
 				cell->setParam(ID(GSR), gsren ? Const("ENABLED") : Const("DISABLED"));
-				
+
 			}
 
 			if (!found_gsr)

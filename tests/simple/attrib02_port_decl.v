@@ -22,4 +22,3 @@ module attrib02_foo(clk, rst, inp, out);
 
   attrib02_bar bar_instance (clk, rst, inp, out);
 endmodule
-

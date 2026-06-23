@@ -217,7 +217,7 @@ struct CheckPass : public Pass {
 
 					const int threshold = 1024;
 
-					// if the multiplication may overflow we will catch it here 
+					// if the multiplication may overflow we will catch it here
 					if (in_widths + out_widths >= threshold)
 						return true;
 
@@ -400,7 +400,7 @@ struct CheckPass : public Pass {
 
 					message += stringf("    cell %s (%s)%s\n", driver, driver->type.unescape(), driver_src);
 
-					if (!coarsened_cells.count(driver)) {						
+					if (!coarsened_cells.count(driver)) {
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);
 						printer.add_edges_from_cell(driver);
 					} else {
@@ -414,7 +414,7 @@ struct CheckPass : public Pass {
 							std::string src_attr = wire->get_src_attribute();
 							wire_src = stringf(" source: %s", src_attr);
 						}
-						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);						
+						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);
 					}
 
 					prev = bit;

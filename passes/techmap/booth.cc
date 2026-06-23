@@ -260,7 +260,7 @@ struct BoothPassWorker {
 						y_sz_revised = y_sz + 1;
 					} else {
 						x_sz_revised = y_sz;
-					}		
+					}
 				} else {
 					if (x_sz % 2 != 0) {
 						y_sz_revised = x_sz + 1;
@@ -804,7 +804,7 @@ struct BoothPassWorker {
 				c_result = c_wire;
 
 				debug_csa_trees[column_ix].push_back(csa);
-				csa_ix++;				
+				csa_ix++;
 
 				if (var_ix <= column_bits.size() - 1)
 					carry_bits_to_sum.append(c_wire);

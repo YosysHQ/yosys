@@ -398,13 +398,13 @@ class ReadWitness:
 
     def init_step(self):
         return self.step(0)
-    
+
     def non_init_bits(self):
         if len(self) > 1:
             return len(self.bits[1])
         else:
             return sum([sig.width for sig in self.signals if not sig.init_only])
-    
+
     def first_step(self):
         values = WitnessValues()
         # may have issues when non_init_bits is 0

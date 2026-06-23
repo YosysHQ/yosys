@@ -19,4 +19,3 @@ select -assert-max 2 t:MISTRAL_ALUT4 # Clang returns 0, GCC returns 1
 select -assert-max 6 t:MISTRAL_ALUT5 # Clang returns 5, GCC returns 4
 select -assert-max 2 t:MISTRAL_ALUT6 # Clang returns 1, GCC returns 2
 select -assert-none t:MISTRAL_FF t:MISTRAL_NOT t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 t:MISTRAL_ALUT5 t:MISTRAL_ALUT6 %% t:* %D
-

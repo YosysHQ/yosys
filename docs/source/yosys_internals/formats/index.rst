@@ -48,7 +48,7 @@ RTLIL and fail to run when unsupported high-level constructs are used. In such
 cases a pass that transforms the higher-level constructs to lower-level
 constructs must be called from the synthesis script first.
 
-.. toctree:: 
+.. toctree::
    :maxdepth: 3
 
    rtlil_rep
@@ -56,4 +56,3 @@ constructs must be called from the synthesis script first.
 .. [1]
    In Yosys the term pass is only used to refer to commands that operate on the
    RTLIL data structure.
-

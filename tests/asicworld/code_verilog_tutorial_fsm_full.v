@@ -20,13 +20,13 @@ input req_3 ; // Active high request from agent 3
 output gnt_0 ; // Active high grant to agent 0
 output gnt_1 ; // Active high grant to agent 1
 output gnt_2 ; // Active high grant to agent 2
-output gnt_3 ; // Active high grant to agent 
+output gnt_3 ; // Active high grant to agent
 
 // Internal Variables
 reg    gnt_0 ; // Active high grant to agent 0
 reg    gnt_1 ; // Active high grant to agent 1
 reg    gnt_2 ; // Active high grant to agent 2
-reg    gnt_3 ; // Active high grant to agent 
+reg    gnt_3 ; // Active high grant to agent
 
 parameter  [2:0]  IDLE  = 3'b000;
 parameter  [2:0]  GNT0  = 3'b001;
@@ -37,7 +37,7 @@ parameter  [2:0]  GNT3  = 3'b100;
 reg [2:0] state, next_state;
 
 always @ (state or req_0 or req_1 or req_2 or req_3)
-begin  
+begin
   next_state = 0;
   case(state)
     IDLE : if (req_0 == 1'b1) begin
@@ -50,7 +50,7 @@ begin
   	     next_state= GNT3;
 	   end else begin
   	     next_state = IDLE;
-           end			
+           end
     GNT0 : if (req_0 == 1'b0) begin
   	     next_state = IDLE;
            end else begin

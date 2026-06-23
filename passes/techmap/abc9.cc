@@ -398,7 +398,7 @@ struct Abc9Pass : public ScriptPass
 						log_error("Can't handle partially selected module %s!\n", mod);
 
 					std::string tempdir_name;
-					if (cleanup) 
+					if (cleanup)
 						tempdir_name = get_base_tmpdir() + "/";
 					else
 						tempdir_name = "_tmp_";

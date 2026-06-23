@@ -20,4 +20,3 @@ output reg Q;
 always @(posedge C)
 	Q <= D;
 endmodule
-

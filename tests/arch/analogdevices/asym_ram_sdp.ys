@@ -47,4 +47,3 @@ chparam -set SIZEA 768
 chparam -set WIDTHB 24 -set SIZEB 128 -set ADDRWIDTHB 7 asym_ram_sdp_read_wider
 synth_analogdevices -top asym_ram_sdp_read_wider -noiopad
 select -assert-count 2 t:RBRAM2
-

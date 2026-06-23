@@ -25,8 +25,8 @@ struct LatticeDspNexusPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			lattice_dsp_nexus_pm pm(module, module->cells());
-			
-			pm.run_nexus_mac9_4lane(); 
+
+			pm.run_nexus_mac9_4lane();
 			pm.run_nexus_mac18();
 			pm.run_nexus_preadd18();
 		}

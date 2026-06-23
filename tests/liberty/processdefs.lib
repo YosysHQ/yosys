@@ -17,9 +17,9 @@ library(processdefs) {
     revision : 1.0;
 
     time_unit                     : "1ps";
-    pulling_resistance_unit       : "1kohm";  
+    pulling_resistance_unit       : "1kohm";
     voltage_unit                  : "1V";
-    current_unit                  : "1uA";  
+    current_unit                  : "1uA";
 
     capacitive_load_unit(1,ff);
 
@@ -37,7 +37,7 @@ library(processdefs) {
     nom_voltage                   :  1.2;
 
     delay_model                   : generic_cmos;
-    
+
     define_cell_area(bond_pads,pad_slots)
     input_voltage(cmos) {
         vil : 0.3 * VDD ;

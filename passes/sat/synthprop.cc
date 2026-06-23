@@ -159,7 +159,7 @@ void SynthPropWorker::run()
 	if (tracing_data[module].names.size() == 0) return;
 
 	if (!reset_name.empty()) {
-		int width = tracing_data[module].names.size();		
+		int width = tracing_data[module].names.size();
 		SigSpec reset = module->wire(reset_name);
 		reset.extend_u0(width, true);
 

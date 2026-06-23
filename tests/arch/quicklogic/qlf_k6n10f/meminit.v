@@ -31,7 +31,7 @@ always @(posedge clk) begin
         read_addr <= counter;
         read_val <= mem[counter];
     end else begin
-        did_read <= 1'b0; 
+        did_read <= 1'b0;
     end
 
     if (!done)

@@ -4,7 +4,7 @@ wire q;
 
 // Here q_bar is not connected
 // We can connect ports in any order
-dff u0 (  
+dff u0 (
 .q  	(q),
 .d 	(d),
 .clk 	(clk),

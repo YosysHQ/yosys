@@ -9,7 +9,7 @@ reset      , // Active high, syn reset
 req_0      , // Request 0
 req_1      , // Request 1
 gnt_0      , // Grant 0
-gnt_1      
+gnt_1
 );
 //-------------Input Ports-----------------------------
 input   clock,reset,req_0,req_1;

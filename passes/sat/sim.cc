@@ -155,7 +155,7 @@ void zinit(Const &v)
 struct SimInstance
 {
 	SimShared *shared;
-	
+
 	std::string scope;
 	Module *module;
 	Cell *instance;
@@ -183,7 +183,7 @@ struct SimInstance
 		State past_clk;
 		State past_ce;
 		State past_srst;
-		
+
 		FfData data;
 	};
 
@@ -1050,7 +1050,7 @@ struct SimInstance
 				}
 			}
 		}
-		
+
 		for (auto signal : signal_database)
 		{
 			if (shared->hdlname && signal.first->name.isPublic() && signal.first->has_attribute(ID::hdlname)) {
@@ -1182,7 +1182,7 @@ struct SimInstance
 		{
 			if (cell->is_mem_cell()) {
 				std::string memid = cell->parameters.at(ID::MEMID).decode_string();
-				for (auto &data : fst_memories[memid]) 
+				for (auto &data : fst_memories[memid])
 				{
 					std::string v = shared->fst->valueOf(data.second);
 					set_memory_state(memid, Const(data.first), Const::from_string(v));
@@ -1399,7 +1399,7 @@ struct SimWorker : SimShared
 		}
 		for(auto& writer : outputfiles)
 			writer->write(use_signal);
-		
+
 		if (writeback) {
 			pool<Module*> wbmods;
 			top->writeback(wbmods);
@@ -1592,7 +1592,7 @@ struct SimWorker : SimShared
 			if (start_time.time < fst->getStartTime())
 				log_warning("Start time is before simulation file start time\n");
 			startCount = fst->getStartTime();
-		} else if (start_time.end) 
+		} else if (start_time.end)
 			startCount = fst->getEndTime();
 		else {
 			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
@@ -1605,7 +1605,7 @@ struct SimWorker : SimShared
 			if (stop_time.time < fst->getStartTime())
 				log_warning("Stop time is before simulation file start time\n");
 			stopCount = fst->getStartTime();
-		} else if (stop_time.end) 
+		} else if (stop_time.end)
 			stopCount = fst->getEndTime();
 		else {
 			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
@@ -1621,7 +1621,7 @@ struct SimWorker : SimShared
 		bool initial = true;
 		int cycle = 0;
 		log("Co-simulation from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
-		if (cycles_set) 
+		if (cycles_set)
 			log(" for %d clock cycle(s)",numcycles);
 		log("\n");
 		bool all_samples = fst_clock.empty();
@@ -1839,9 +1839,9 @@ struct SimWorker : SimShared
 			std::getline(f, line);
 			if (line.size()==0) continue;
 
-			if (line[0]=='#' || line[0]=='@' || line[0]=='.') { 
+			if (line[0]=='#' || line[0]=='@' || line[0]=='.') {
 				if (line[0]!='.')
-					curr_cycle = atoi(line.c_str()+1); 
+					curr_cycle = atoi(line.c_str()+1);
 				else
 					curr_cycle = -1; // force detect change
 
@@ -1907,7 +1907,7 @@ struct SimWorker : SimShared
 							log_error("Cell %s not present in module %s\n",escaped_s.unescape(),topmod);
 						if (!c->is_mem_cell())
 							log_error("Cell %s is not memory cell in module %s\n",escaped_s.unescape(),topmod);
-						
+
 						Const addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
 						Const data = Const::from_string(parts[2]);
 						top->set_memory_state(c->parameters.at(ID::MEMID).decode_string(), addr, data);
@@ -2252,7 +2252,7 @@ struct SimWorker : SimShared
 			if (start_time.time < fst->getStartTime())
 				log_warning("Start time is before simulation file start time\n");
 			startCount = fst->getStartTime();
-		} else if (start_time.end) 
+		} else if (start_time.end)
 			startCount = fst->getEndTime();
 		else {
 			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
@@ -2265,7 +2265,7 @@ struct SimWorker : SimShared
 			if (stop_time.time < fst->getStartTime())
 				log_warning("Stop time is before simulation file start time\n");
 			stopCount = fst->getStartTime();
-		} else if (stop_time.end) 
+		} else if (stop_time.end)
 			stopCount = fst->getEndTime();
 		else {
 			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
@@ -2280,7 +2280,7 @@ struct SimWorker : SimShared
 
 		int cycle = 0;
 		log("Generate testbench data from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
-		if (cycles_set) 
+		if (cycles_set)
 			log(" for %d clock cycle(s)",numcycles);
 		log("\n");
 
@@ -2351,22 +2351,22 @@ struct SimWorker : SimShared
 		f << initstate.str();
 		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename);
 
-		f << stringf("\t\t#(data[0][%d:%d]);\n", data_len-32, data_len-1);	
-		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks), 0, clk_len-1);		
+		f << stringf("\t\t#(data[0][%d:%d]);\n", data_len-32, data_len-1);
+		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks), 0, clk_len-1);
 		f << stringf("\t\t{%s } <= data[0][%d:%d];\n", signal_list(inputs), clk_len, clk_len+inputs_len-1);
 
 		f << stringf("\t\tfor (i = 1; i < %d; i++) begin\n",cycle);
 
-		f << stringf("\t\t\t#(data[i][%d:%d]);\n", data_len-32, data_len-1);	
-		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks), 0, clk_len-1);		
+		f << stringf("\t\t\t#(data[i][%d:%d]);\n", data_len-32, data_len-1);
+		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks), 0, clk_len-1);
 		f << stringf("\t\t\t{%s } <= data[i][%d:%d];\n", signal_list(inputs), clk_len, clk_len+inputs_len-1);
-		
+
 		f << stringf("\t\t\tif ({%s } != data[i-1][%d:%d]) begin\n", signal_list(outputs), clk_len+inputs_len, clk_len+inputs_len+outputs_len-1);
 		f << "\t\t\t\t$error(\"Signal difference detected\\n\");\n";
 		f << "\t\t\tend\n";
-		
+
 		f << "\t\tend\n";
-		
+
 		f << "\t\t$finish;\n";
 		f << "\tend\n";
 		f << "endmodule\n";
@@ -2483,7 +2483,7 @@ struct FSTWriter : public OutputWriter
 
 		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
 		fstWriterSetRepackOnClose(fstfile, 1);
-	   
+
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",name.unescape()).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
@@ -2632,7 +2632,7 @@ struct AIWWriter : public OutputWriter
 				aiwfile << '0';
 			}
 			aiwfile << '\n';
-		} 
+		}
 	}
 
 	std::ofstream aiwfile;
@@ -3038,7 +3038,7 @@ struct Fst2TbPass : public Pass {
 		log("\n");
 		log("    -n <integer>\n");
 		log("        number of clock cycles to simulate (default: 20)\n");
-		log("\n");		
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

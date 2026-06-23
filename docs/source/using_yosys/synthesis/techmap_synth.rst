@@ -1,4 +1,4 @@
-Technology mapping 
+Technology mapping
 ==================
 
 .. todo:: less academic, check text is coherent

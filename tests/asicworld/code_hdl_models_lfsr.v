@@ -30,6 +30,6 @@ end else if (enable) begin
           out[4],out[3],
           out[2],out[1],
           out[0], linear_feedback};
-end 
+end
 
 endmodule // End Of Module counter

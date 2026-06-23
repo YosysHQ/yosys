@@ -13,11 +13,11 @@ module \ff_with_en_and_sync_reset
     switch \reset
       case 1'1
         assign $0\q[0:0] 1'0
-      case 
+      case
         switch \enable
           case 1'1
             assign $0\q[0:0] \d [0]
-          case 
+          case
         end
     end
     sync posedge \clock
@@ -29,11 +29,11 @@ module \ff_with_en_and_sync_reset
     switch \reset
       case 1'1
         assign $0\q[1:1] 1'0
-      case 
+      case
         switch \enable
           case 1'1
             assign $0\q[1:1] \d [1]
-          case 
+          case
         end
     end
     sync posedge \clock

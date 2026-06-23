@@ -343,7 +343,7 @@ struct MemMapping {
 			rejected_cfg_debug_msgs += "\n";
 		}
 	}
-	
+
 	void log_reject(const Ram &ram, const PortGroup &pg, int pvi, std::string message) {
 		if(ys_debug(1)) {
 			rejected_cfg_debug_msgs += stringf("can't map to option selection [");
@@ -516,7 +516,7 @@ std::pair<bool, Const> search_for_attribute(Mem mem, IdString attr) {
 		for (SigBit bit: port.addr)
 			if (bit.is_wire() && bit.wire->has_attribute(attr))
 				return std::make_pair(true, bit.wire->attributes.at(attr));
-	
+
 	return std::make_pair(false, Const());
 }
 

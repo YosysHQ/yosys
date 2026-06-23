@@ -30,4 +30,3 @@ always @(posedge clk, negedge rst_n)
 	else
 		y <= a != 0;
 endmodule
-

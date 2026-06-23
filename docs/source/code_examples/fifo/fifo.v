@@ -1,5 +1,5 @@
 // address generator/counter
-module addr_gen 
+module addr_gen
 #(  parameter MAX_DATA=256,
 	localparam AWIDTH = $clog2(MAX_DATA)
 ) ( input en, clk, rst,
@@ -21,7 +21,7 @@ module addr_gen
 endmodule //addr_gen
 
 // Define our top level fifo entity
-module fifo 
+module fifo
 #(  parameter MAX_DATA=256,
 	localparam AWIDTH = $clog2(MAX_DATA)
 ) ( input wen, ren, clk, rst,

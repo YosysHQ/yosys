@@ -45,4 +45,3 @@ select -assert-count 1 t:MISTRAL_FF
 select -assert-count 2 t:MISTRAL_NOT
 
 select -assert-none t:MISTRAL_FF t:MISTRAL_NOT %% t:* %D
-

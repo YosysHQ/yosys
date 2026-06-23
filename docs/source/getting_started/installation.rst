@@ -152,7 +152,7 @@ Installing all prerequisites:
       recommended to use Windows Subsystem for Linux (WSL) and follow the
       instructions for Ubuntu.
 
-.. 
+..
    tab:: MSYS2 (MINGW64)
 
    .. code:: console

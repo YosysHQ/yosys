@@ -17,7 +17,7 @@ module top(input signed [24:0] A, input signed [17:0] B, output [47:0] P);
 assign P = A * B;
 endmodule
 EOT
-synth_analogdevices 
+synth_analogdevices
 techmap -autoproc -wb -map +/analogdevices/cells_sim.v
 opt -full -fine
 select -assert-count 2 t:$mul
@@ -34,9 +34,8 @@ EOT
 async2sync
 techmap -map +/analogdevices/dsp_map.v
 verilog_defaults -add -D ALLOW_WHITEBOX_DSP48E1
-synth_analogdevices 
+synth_analogdevices
 techmap -autoproc -wb -map +/analogdevices/cells_sim.v
 opt -full -fine
 select -assert-count 0 t:* t:$assert %d
 sat -verify -prove-asserts
-

@@ -61,4 +61,3 @@ module sram1024x18 (
 	end
 
 endmodule
-

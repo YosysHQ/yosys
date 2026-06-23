@@ -19,4 +19,3 @@ int main()
 	Yosys::yosys_shutdown();
 	return 0;
 }
-

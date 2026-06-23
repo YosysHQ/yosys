@@ -16,4 +16,3 @@ for dbits in 2 4 8 16 24 32; do
 	if grep -H ERROR ${id}_tb.txt; then false; fi
 done; done
 echo OK
-

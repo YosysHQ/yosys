@@ -52,4 +52,3 @@ printf "\nFull journal of headers:\n";
 for (my $i = 0; $i <= $#lines_text; $i++) {
 	printf "%3d  %08.2f  %s\n", $lines_depth[$i], $lines_time[$i], $lines_text[$i];
 }
-
