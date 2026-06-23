@@ -1,11 +1,11 @@
 # ISC License
-# 
+#
 # Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
-# 
+#
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -28,9 +28,9 @@ ram block $__LSRAM_TDP_ {
 	init any;
 
 	# port A and port B are allowed to have different widths, but they MUST have
-	# 	WIDTH values of the same set. 
+	# 	WIDTH values of the same set.
 	#      Example: Port A has a Data Width of 1. Then Port B's Data Width must be either
-	#      1, 2, 4, 8, or 16 (both values are in the 'WIDTH_1' set).	
+	#      1, 2, 4, 8, or 16 (both values are in the 'WIDTH_1' set).
 	# 	WIDTH_1 = {1, 2, 4, 8, 16}
 	# 	WIDTH_2 = {5, 10, 20}
 
@@ -38,7 +38,7 @@ ram block $__LSRAM_TDP_ {
 	#		"byte" must be larger than width, or width must be a multipler of "byte"
 	#		if "byte" > WIDTH, a single enable wire is inferred
 	#		otherwise, WIDTH/byte number of enable wires are inferred
-	# 		
+	#
 	# 		WIDTH = {1, 2, 4, 5, 8, 10} requires 1 enable wire
 	# 		WIDTH = {16, 20} requires 2 enable wire
 
@@ -58,7 +58,7 @@ ram block $__LSRAM_TDP_ {
 		byte 8;
 	}
 	option "WIDTH_CONFIG" "ALIGN" {
-		
+
 		# Data-Width| Address bits
 		# 5 		| 12
 		# 10		| 11
@@ -72,14 +72,14 @@ ram block $__LSRAM_TDP_ {
 		widths 5 10 20 per_port;
 		byte 10;
 	}
-	
-	
+
+
 
 	port srsw "A" "B" {
 
 		# read & write width must be same
 		width tied;
-		
+
 		# clock polarity is rising
 		clock posedge;
 
@@ -101,8 +101,8 @@ ram block $__LSRAM_TDP_ {
 			rdwr no_change;
 
 			# Write transparency:
-			#   For write ports, define behaviour when another synchronous read port 
-			#   reads from the same memory cell that said write port is writing to at the same time. 
+			#   For write ports, define behaviour when another synchronous read port
+			#   reads from the same memory cell that said write port is writing to at the same time.
 			wrtrans all old;
 		}
 		portoption "WRITE_MODE" "WRITE_FIRST" {
@@ -123,9 +123,9 @@ ram block $__LSRAM_TDP_ {
 
 # two-port configuration
 ram block $__LSRAM_SDP_ {
-	
+
 	# since two-port configuration is dedicated for wide-read/write,
-	#	we want to prioritize this configuration over TDP to avoid tool picking multiple TDP RAMs 
+	#	we want to prioritize this configuration over TDP to avoid tool picking multiple TDP RAMs
 	#	inplace of a single SDP RAM for wide read/write. This means the cost of a single SDP should
 	#	be less than 2 TDP.
 	cost 129;
@@ -147,10 +147,10 @@ ram block $__LSRAM_SDP_ {
 
 		# width = 32, byte-write size is 8, ignore other widths
 		byte 8;
-		
+
 	}
 	option "WIDTH_CONFIG" "ALIGN" {
-		
+
 		# Data-Width| Address bits
 		# 5 		| 12
 		# 10		| 11
@@ -166,7 +166,7 @@ ram block $__LSRAM_SDP_ {
 	port sw "W" {
 
 		# only consider wide write
-		
+
 		option "WIDTH_CONFIG" "REGULAR" width 32;
 		option "WIDTH_CONFIG" "ALIGN" width 40;
 
@@ -174,7 +174,7 @@ ram block $__LSRAM_SDP_ {
 
 		# only simple write supported for two-port mode
 		wrtrans all old;
-		
+
 		optional;
 	}
 	port sr "R" {

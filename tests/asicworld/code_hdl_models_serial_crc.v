@@ -8,8 +8,8 @@ module serial_crc_ccitt (
 clk     ,
 reset   ,
 enable  ,
-init    , 
-data_in , 
+init    ,
+data_in ,
 crc_out
 );
 //-----------Input Ports---------------
@@ -49,6 +49,6 @@ end else if (enable) begin
     lfsr[14] <= lfsr[13];
     lfsr[15] <= lfsr[14];
   end
-end 
+end
 
 endmodule

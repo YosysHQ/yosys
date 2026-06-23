@@ -57,7 +57,7 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 	target_include_directories(${arg_LIBNAME} PRIVATE abc/src)
 	target_compile_definitions(${arg_LIBNAME} PUBLIC
 		WIN32_NO_DLL
-		$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:ABC_NAMESPACE=abc>		
+		$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:ABC_NAMESPACE=abc>
 		ABC_USE_STDINT_H=1
 		ABC_USE_CUDD=1
 		ABC_NO_DYNAMIC_LINKING
@@ -68,11 +68,11 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		$<$<CXX_COMPILER_ID:MSVC>:HAVE_STRUCT_TIMESPEC>
 		ABC_NO_RLIMIT
 	)
-	target_compile_options(${arg_LIBNAME} PRIVATE 
+	target_compile_options(${arg_LIBNAME} PRIVATE
 		$<$<CXX_COMPILER_ID:MSVC>:/wd4576>
 		$<$<CXX_COMPILER_ID:MSVC>:/Zc:strictStrings->
 	)
-	
+
 	target_safe_compile_options(${arg_LIBNAME} PRIVATE
 		-fpermissive
 		-fno-exceptions

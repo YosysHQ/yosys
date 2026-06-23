@@ -139,7 +139,7 @@ struct DffLegalizePass : public Pass {
 	}
 
 	// Table of all supported cell types.
-	// First index in the array is one of the FF_* values, second 
+	// First index in the array is one of the FF_* values, second
 	// index is the set of negative-polarity inputs (OR of NEG_*
 	// values), and the value is the set of supported init values
 	// (OR of INIT_* values).

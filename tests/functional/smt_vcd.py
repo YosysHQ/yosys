@@ -77,14 +77,14 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
                 smt_io.write(smt_io.unparse(expr))
                 if expr[0] == "declare-datatype":
                     handle_datatype(expr)
-                    
+
     parser.finish()
     assert smt_io.check_sat() == 'sat'
 
     def set_step(inputs, step):
         # This function assumes 'inputs' is a dictionary like {"A": 5, "B": 4}
         # and 'input_values' is a dictionary like {"A": 5, "B": 13} specifying the concrete values for each input.
-        
+
         mk_inputs_parts = []
         for input_name, width in inputs.items():
             value = rnd.getrandbits(width)  # Generate a random number up to the maximum value for the bit size
@@ -125,7 +125,7 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
         for input_name, width in inputs.items():
             value = smt_io.get(f'(gold_Inputs_{input_name} test_inputs_step_n{step})')
             value = hex_to_bin(value[1:])
-            print(f"  {input_name}: {value}")        
+            print(f"  {input_name}: {value}")
             signals[input_name].append((step, value))
         for output_name, width in outputs.items():
             value = smt_io.get(f'(gold_Outputs_{output_name} test_outputs_step_n{step})')
@@ -145,7 +145,7 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
             # Write the header
             f.write(f"$date\n    {date}\n$end\n")
             f.write(f"$timescale {timescale} $end\n")
-            
+
             # Declare signals
             f.write("$scope module gold $end\n")
             for signal_name, changes in signals.items():
@@ -153,17 +153,17 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
                 f.write(f"$var wire {signal_size - 1} {signal_name} {signal_name} $end\n")
             f.write("$upscope $end\n")
             f.write("$enddefinitions $end\n")
-            
+
             # Collect all unique timestamps
             timestamps = sorted(set(time for changes in signals.values() for time, _ in changes))
-            
+
             # Write initial values
             f.write("#0\n")
             for signal_name, changes in signals.items():
                 for time, value in changes:
                     if time == 0:
                         f.write(f"{value} {signal_name}\n")
-            
+
             # Write value changes
             for time in timestamps:
                 if time != 0:

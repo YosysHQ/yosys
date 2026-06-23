@@ -18,7 +18,7 @@ always @(clk or reset) begin
     d = d*d;
     if(b)
         e = d*d;
-    else 
+    else
         e = d + d;
 end
 endmodule

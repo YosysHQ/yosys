@@ -75,7 +75,7 @@ struct ModuleIndex {
 					} else {
 						classes[pair.second[i]].append(pair.first[i]);
 					}
-				}	
+				}
 			}
 		}
 
@@ -217,7 +217,7 @@ struct UsageData {
 		for (auto port_name : module->ports) {
 			Wire *port = module->wire(port_name);
 			log_assert(port);
-			
+
 			if (port->port_input && port->port_output) {
 				// ignore bidirectional: hard to come up with sound handling
 				continue;

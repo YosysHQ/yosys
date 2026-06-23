@@ -15,11 +15,11 @@ input           ci;
 // Output ports
 output         sum;
 output         co;
-// Data Types      
+// Data Types
 wire            a;
 wire            b;
 wire            ci;
 wire            sum;
-wire            co; 
+wire            co;
 
 endmodule

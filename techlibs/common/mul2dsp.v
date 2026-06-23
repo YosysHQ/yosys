@@ -20,8 +20,8 @@
  *  ---
  *
  *  Tech-mapping rules for decomposing arbitrarily-sized $mul cells
- *  into an equivalent collection of smaller `DSP_NAME cells (with the 
- *  same interface as $mul) no larger than `DSP_[AB]_MAXWIDTH, attached 
+ *  into an equivalent collection of smaller `DSP_NAME cells (with the
+ *  same interface as $mul) no larger than `DSP_[AB]_MAXWIDTH, attached
  *  to $shl and $add cells.
  *
  */

@@ -36,7 +36,7 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 	input CI, BI;
 	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
-   
+
     wire CIx;
     (* force_downto *)
     wire [Y_WIDTH-1:0] COx;
@@ -73,14 +73,14 @@ module _80_efinix_alu (A, B, CI, BI, X, Y, CO);
 			.O(Y[i]),
 			.CO(COx[i])
 		);
-		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))				
+		EFX_ADD #(.I0_POLARITY(1'b1),.I1_POLARITY(1'b1))
 		adder_cout  (
 			.I0(1'b0),
 			.I1(1'b0),
 			.CI(COx[i]),
 			.O(CO[i])
 		);
-	  end: slice	  
+	  end: slice
 	endgenerate
 
    /* End implementation */

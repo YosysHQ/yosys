@@ -8,7 +8,7 @@ module small
 
 initial count = 0;
 
-always @ (posedge clk) 
+always @ (posedge clk)
 begin
     count <= count + 1'b1;
 end

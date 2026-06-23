@@ -2,7 +2,7 @@
 # throw in some extra text to match what we expect if we were opening an
 # interactive terminal
 log $ yosys fifo.v
-log 
+log
 log -- Parsing `fifo.v' using frontend ` -vlog2k' --
 read_verilog -defer fifo.v
 

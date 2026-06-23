@@ -48,7 +48,7 @@ RTLIL and fail to run when unsupported high-level constructs are used. In such
 cases a pass that transforms the higher-level constructs to lower-level
 constructs must be called from the synthesis script first.
 
-.. toctree:: 
+.. toctree::
    :maxdepth: 3
 
    rtlil_rep

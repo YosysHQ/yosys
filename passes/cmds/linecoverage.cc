@@ -90,7 +90,7 @@ struct CoveragePass : public Pass {
 
 		std::map<std::string, std::set<int>> uncovered_lines;
 		std::map<std::string, std::set<int>> all_lines;
-		
+
 		for (auto module : design->modules())
 		{
 			log_debug("Module %s:\n", module);
@@ -136,7 +136,7 @@ struct CoveragePass : public Pass {
 					fout << "DA:" << l << ",";
 					if (uncovered_lines.count(file_entry.first) && uncovered_lines[file_entry.first].count(l))
 						fout << "0";
-					else 
+					else
 						fout << "1";
 					fout << "\n";
 				}

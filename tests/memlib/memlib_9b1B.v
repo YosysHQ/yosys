@@ -1,4 +1,4 @@
-module RAM_9b1B 
+module RAM_9b1B
 #(
 	parameter INIT = 0,
 	parameter OPTION_INIT = "UNDEFINED",

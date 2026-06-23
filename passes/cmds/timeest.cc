@@ -122,7 +122,7 @@ struct EstimateSta {
 					if (aigs.at(fingerprint).name.empty()) {
 						log_error("Unsupported cell '%s' in module '%s'",
 								  cell->type.unescape(), m);
-					}					
+					}
 				}
 
 				combinational.push_back(cell);
@@ -217,9 +217,9 @@ struct EstimateSta {
 
 		if (!topo.sort())
 			log_error("Module '%s' contains combinational loops", m);
-		
+
 		// now we determine how long it takes for signals to stabilize
-		
+
 		// `levels` records the time after a clock edge after which a signal is stable
 		dict<std::tuple<SigBit, Cell *, AigNode *>, arrivalint> levels;
 

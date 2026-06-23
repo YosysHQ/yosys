@@ -1,8 +1,8 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2024 Hannah Ravensloft <lofty@yosyshq.com> 
- *  Copyright (C) 2024 Miodrag Milanovic <micko@yosyshq.com> 
+ *  Copyright (C) 2024 Hannah Ravensloft <lofty@yosyshq.com>
+ *  Copyright (C) 2024 Miodrag Milanovic <micko@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -217,7 +217,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			postfix = "_m";
 		} else if (family == "large") {
 			postfix = "_l";
-		} else 
+		} else
 			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family);
 
 		if (!design->full_selection())

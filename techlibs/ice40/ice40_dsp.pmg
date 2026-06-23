@@ -33,7 +33,7 @@ code sigA sigB sigH
 		return sig.extract(0, i);
 	};
 	auto unextend_unsigned = [](const SigSpec &sig) {
-		int i; 
+		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != SigBit(State::S0))
 				break;
@@ -61,7 +61,7 @@ code sigA sigB sigH
 	if (i == 0)
 		reject;
 
-	for (int j = 0, wire_width = 0; j <= i; j++) 
+	for (int j = 0, wire_width = 0; j <= i; j++)
 		if (nusers(O[j]) == 0)
 			wire_width++;
 		else {
