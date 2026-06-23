@@ -115,7 +115,7 @@ struct SubmodWorker
 			}
 		}
 
-		RTLIL::Module *new_mod = design->addModule(design->twines.add(Twine{submod.full_name}));
+		RTLIL::Module *new_mod = design->addModule(design->twines.add(std::string{submod.full_name}));
 		int auto_name_counter = 1;
 
 		std::set<RTLIL::IdString> all_wire_names;
@@ -167,7 +167,7 @@ struct SubmodWorker
 					new_wire_name = stringf("$submod%s", new_wire_name);
 			}
 
-			RTLIL::Wire *new_wire = new_mod->addWire(design->twines.add(Twine{new_wire_name}), wire->width);
+			RTLIL::Wire *new_wire = new_mod->addWire(design->twines.add(std::string{new_wire_name}), wire->width);
 			new_wire->port_input = new_wire_port_input;
 			new_wire->port_output = new_wire_port_output;
 			new_wire->start_offset = wire->start_offset;
@@ -205,7 +205,7 @@ struct SubmodWorker
 		ct.setup_module(new_mod);
 
 		for (RTLIL::Cell *cell : submod.cells) {
-			RTLIL::Cell *new_cell = new_mod->addCell(design->twines.add(Twine{cell->name.str()}), cell);
+			RTLIL::Cell *new_cell = new_mod->addCell(design->twines.add(std::string{cell->name.str()}), cell);
 			for (auto &conn : new_cell->connections_)
 				for (auto &bit : conn.second)
 					if (bit.wire != nullptr) {
@@ -219,8 +219,8 @@ struct SubmodWorker
 		submod.cells.clear();
 
 		if (!copy_mode) {
-			TwineRef submod_type = design->twines.add(Twine{submod.full_name});
-		RTLIL::Cell *new_cell = module->addCell(Twine{submod.full_name}, submod_type);
+			TwineRef submod_type = design->twines.add(std::string{submod.full_name});
+		RTLIL::Cell *new_cell = module->addCell(design->twines.add(std::string{submod.full_name}), submod_type);
 			for (auto &it : wire_flags)
 			{
 				RTLIL::SigSpec old_sig = sigmap(it.first);
@@ -236,7 +236,7 @@ struct SubmodWorker
 							else if (!it.second.is_int_driven[i])
 								b = module->addWire(NEW_TWINE);
 						}
-					new_cell->setPort(design->twines.add(Twine{new_wire->name.str()}), old_sig);
+					new_cell->setPort(design->twines.add(std::string{new_wire->name.str()}), old_sig);
 				}
 			}
 		}
@@ -290,8 +290,8 @@ struct SubmodWorker
 					submodules[submod_str].name = submod_str;
 					std::string module_name_str(design->twines.str(module->meta_->name));
 					submodules[submod_str].full_name = module_name_str + "_" + submod_str;
-					while (design->module(design->twines.add(Twine{submodules[submod_str].full_name})) != nullptr ||
-							module->count_id(design->twines.add(Twine{submodules[submod_str].full_name})) != 0)
+					while (design->module(design->twines.add(std::string{submodules[submod_str].full_name})) != nullptr ||
+							module->count_id(design->twines.add(std::string{submodules[submod_str].full_name})) != 0)
 						submodules[submod_str].full_name += "_";
 				}
 
