@@ -94,7 +94,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 	endif()
 	set(no_abc_options
 		"$<$<AND:$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>,$<CONFIG:Sanitize>>:-fsanitize=${SANITIZE}>"
-		"$<$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>:-Wall;-Wextra;-Werror=unused>"
+		"$<$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>:-Wall;-Wextra;-Werror=unused-variable>"
 	)
 	add_compile_options("${no_abc_options}")
 	add_link_options("${no_abc_options}")

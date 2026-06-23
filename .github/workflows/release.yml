@@ -35,7 +35,7 @@ jobs:
                 tcl-dev zlib-dev libffi-dev \
                 libdwarf-dev elfutils-dev \
                 python3 python3-dev py3-pip py3-setuptools py3-wheel \
-                git pkgconf ccache
+                git pkgconf cmake
 
               git config --global --add safe.directory /src
               git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
@@ -81,8 +81,10 @@ jobs:
               set -ex
 
               yum install -y tcl-devel zlib-devel libffi-devel \
-                flex gperf ccache patchelf \
+                devtoolset-11 flex gperf patchelf \
                 elfutils-devel elfutils-libelf-devel libdwarf-devel
+
+              source /opt/rh/devtoolset-11/enable
 
               # Build bison >= 3.x from source
               curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
@@ -137,7 +139,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install bison flex gperf tcl-tk@8 libffi dwarfutils libelf ccache
+          brew install bison flex gperf tcl-tk@8 libffi dwarfutils libelf ccache llvm
+          echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
           pip3 install pybind11 cxxheaderparser setuptools wheel
 
       - name: Build Verific tclmain
@@ -160,6 +163,8 @@ jobs:
           path: dist/*.whl
 
   release:
+    # allow testing outside main branch
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     needs: [build-linux-wheel, build-manylinux-wheel, build-macos-wheel]
     name: Create GitHub releases
