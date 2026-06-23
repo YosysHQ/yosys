@@ -111,6 +111,14 @@ struct PrefixApplier
 	}
 };
 
+// techmap matches cell ports (named in the source design's twine pool) against
+// template ports (in the map design's pool). Only global constids share a
+// TwineRef across pools, so non-constid port names must be resolved by content.
+static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, TwineRef name)
+{
+	return tpl->wire(tpl->design->twines.find(src->twines.str(name)));
+}
+
 struct TechmapWorker
 {
 	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
@@ -249,8 +257,9 @@ struct TechmapWorker
 				TwineRef posportref = module->design->twines.add(std::string{stringf("$%d", tpl_w->port_id)});
 				positional_ports.emplace(posportref, tpl_w->name.ref());
 
+				TwineRef tpl_portname = module->design->twines.find(tpl->design->twines.str(tpl_w->name.ref()));
 				if (tpl_w->get_bool_attribute(ID::techmap_autopurge) &&
-						(!cell->hasPort(tpl_w->name.ref()) || !GetSize(cell->getPort(tpl_w->name.ref()))) &&
+						(!cell->hasPort(tpl_portname) || !GetSize(cell->getPort(tpl_portname))) &&
 						(!cell->hasPort(posportref) || !GetSize(cell->getPort(posportref))))
 				{
 					if (sigmaps.count(tpl) == 0)
@@ -302,9 +311,12 @@ struct TechmapWorker
 		for (auto &it : cell->connections())
 		{
 			TwineRef portname = it.first;
+			RTLIL::Wire *w;
 			if (positional_ports.count(portname) > 0)
-				portname = positional_ports.at(portname);
-			if (tpl->wire(portname) == nullptr || tpl->wire(portname)->port_id == 0) {
+				w = tpl->wire(positional_ports.at(portname));
+			else
+				w = map_port(tpl, design, portname);
+			if (w == nullptr || w->port_id == 0) {
 				if (design->twines.str(portname).starts_with("$"))
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", design->twines.unescaped_str(portname).data(), log_id(cell->name), log_id(tpl->name));
 				continue;
@@ -313,7 +325,6 @@ struct TechmapWorker
 			if (GetSize(it.second) == 0)
 				continue;
 
-			RTLIL::Wire *w = tpl->wire(portname);
 			RTLIL::SigSig c, extra_connect;
 
 			if (w->port_output && !w->port_input) {
@@ -509,7 +520,7 @@ struct TechmapWorker
 
 				for (auto &tpl_name : celltypeMap.at(cell->type)) {
 					RTLIL::Module *tpl = map->module(map->twines.add(std::string{tpl_name.str()}));
-					RTLIL::Wire *port = tpl->wire(conn.first);
+					RTLIL::Wire *port = map_port(tpl, design, conn.first);
 					if (port && port->port_input)
 						cell_to_inbit[cell].insert(sig.begin(), sig.end());
 					if (port && port->port_output)
@@ -664,7 +675,8 @@ struct TechmapWorker
 				for (auto &conn : cell->connections()) {
 					if (!conn.first.is_public())
 						continue;
-					if (tpl->wire(conn.first) != nullptr && tpl->wire(conn.first)->port_id > 0)
+					RTLIL::Wire *tpl_port = map_port(tpl, design, conn.first);
+					if (tpl_port != nullptr && tpl_port->port_id > 0)
 						continue;
 					IdString conn_id(std::string(design->twines.str(conn.first)));
 					if (!conn.second.is_fully_const() || parameters.count(conn_id) > 0 || tpl->avail_parameters.count(conn_id) == 0)
@@ -855,7 +867,7 @@ struct TechmapWorker
 								// Handle outputs first, as these cannot be remapped.
 								for (auto &conn : cell->connections())
 								{
-									Wire *twire = tpl->wire(conn.first);
+									Wire *twire = map_port(tpl, design, conn.first);
 									if (!twire->port_output)
 										continue;
 
@@ -869,7 +881,7 @@ struct TechmapWorker
 								// Now handle inputs, remapping as necessary.
 								for (auto &conn : cell->connections())
 								{
-									Wire *twire = tpl->wire(conn.first);
+									Wire *twire = map_port(tpl, design, conn.first);
 									if (twire->port_output)
 										continue;
 
