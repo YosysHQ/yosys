@@ -273,11 +273,11 @@ struct Xaiger2Frontend : public Frontend {
 
 				for (unsigned i = 0; i < no_cells; ++i) {
 					auto &cell = cells[i];
-					cell.type = design->twines.add(Twine{read_idstring(*f)});
-					cell.out = design->twines.add(Twine{read_idstring(*f)});
+					cell.type = design->twines.add(std::string{read_idstring(*f)});
+					cell.out = design->twines.add(std::string{read_idstring(*f)});
 					uint32_t nins = read_be32(*f);
 					for (uint32_t j = 0; j < nins; j++)
-						cell.ins.push_back(design->twines.add(Twine{read_idstring(*f)}));
+						cell.ins.push_back(design->twines.add(std::string{read_idstring(*f)}));
 					log_debug("M: Cell %s (out %s, ins", design->twines.str(cell.type).c_str(), design->twines.unescaped_str(cell.out));
 					for (auto in : cell.ins)
 						log_debug(" %s", design->twines.str(in).c_str());
