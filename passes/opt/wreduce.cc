@@ -588,6 +588,13 @@ struct WreducePass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
+			// Memories are matched to $mem* cells by the MEMID string (the
+			// materialized memory name), as in kernel/mem.cc; a Suffix-shaped
+			// memory ref won't match a leaf reinterned from that string.
+			dict<std::string, RTLIL::Memory*> memory_by_name;
+			for (auto &it : module->memories)
+				memory_by_name[design->twines.str(it.first)] = it.second;
+
 			for (auto c : module->selected_cells())
 			{
 				if (c->type.in(TW($reduce_and), TW($reduce_or), TW($reduce_xor), TW($reduce_xnor), TW($reduce_bool),
@@ -639,8 +646,7 @@ struct WreducePass : public Pass {
 
 				if (!opt_memx && c->type.in(TW($memrd), TW($memrd_v2), TW($memwr), TW($memwr_v2), TW($meminit), TW($meminit_v2))) {
 					std::string memid_s = c->getParam(ID::MEMID).decode_string();
-					TwineRef memid = design->twines.add(std::string{memid_s});
-					RTLIL::Memory *mem = module->memories.at(memid);
+					RTLIL::Memory *mem = memory_by_name.at(memid_s);
 					if (mem->start_offset >= 0) {
 						int cur_addrbits = c->getParam(ID::ABITS).as_int();
 						int max_addrbits = ceil_log2(mem->start_offset + mem->size);
