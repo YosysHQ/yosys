@@ -74,6 +74,3 @@ module DFF (output reg q,
      q <= d;
 
 endmodule
-
-
-

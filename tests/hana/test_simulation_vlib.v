@@ -62,4 +62,3 @@ VCC synth_VCC_1(.out(
     synth_net_4));
 VCC synth_VCC_2(.out(synth_net_10));
 endmodule
-

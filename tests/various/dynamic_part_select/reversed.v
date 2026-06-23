@@ -11,4 +11,3 @@ module reversed #(parameter WIDTH=32, SELW=4, CTRLW=$clog2(WIDTH), DINW=2**SELW)
       dout[(WIDTH-ctrl*sel)-:SLICE] <= din;
    end
 endmodule
-

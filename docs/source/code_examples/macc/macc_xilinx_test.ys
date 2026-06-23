@@ -50,4 +50,3 @@ show -prefix macc_xilinx_test2e -format dot -notitle test2
 
 design -load __macc_xilinx_xmap
 show -prefix macc_xilinx_xmap -format dot -notitle
-

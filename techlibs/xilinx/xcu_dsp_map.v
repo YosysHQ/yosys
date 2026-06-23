@@ -48,4 +48,3 @@ module \$__MUL27X18 (input [26:0] A, input [17:0] B, output [44:0] Y);
 	);
 	assign Y = P_48;
 endmodule
-

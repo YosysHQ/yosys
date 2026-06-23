@@ -68,5 +68,3 @@ library(supergate) {
   }
 
 } /* end */
-
-

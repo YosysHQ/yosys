@@ -32,4 +32,3 @@ EOT
 prep -top top
 async2sync
 sim -n 3 -clock clk
-

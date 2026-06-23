@@ -325,4 +325,3 @@ module double_sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
     );
 
 endmodule // double_sync_ram_tdp
-

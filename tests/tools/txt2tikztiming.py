@@ -103,4 +103,3 @@ for t in sorted(time_val.keys()):
 if last_time < stop_time:
     print("%f%s" % ((stop_time - last_time)*args.s, last_value), end='')
 print('')
-

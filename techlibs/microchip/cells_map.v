@@ -101,4 +101,3 @@ module \$lut (A, Y);
 	endgenerate
 endmodule
 `endif
-

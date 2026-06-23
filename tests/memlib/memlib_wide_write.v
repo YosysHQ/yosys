@@ -26,4 +26,3 @@ always @(posedge PORT_A_CLK) begin
 end
 
 endmodule
-

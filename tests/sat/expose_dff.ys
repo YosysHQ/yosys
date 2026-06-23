@@ -12,4 +12,3 @@ flatten miter34; opt miter34
 
 sat -verify -prove trigger 0 miter12
 sat -verify -prove trigger 0 miter34
-

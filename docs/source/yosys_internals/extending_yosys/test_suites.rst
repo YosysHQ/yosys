@@ -194,4 +194,3 @@ compiler versions.  For up to date information, including OS versions, refer to
    .. code-block:: console
 
       cmake --build build --target test-unit
-

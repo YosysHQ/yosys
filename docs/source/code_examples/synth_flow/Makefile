@@ -17,4 +17,3 @@ examples:
 .PHONY: clean
 clean:
 	@rm -f *.dot
-

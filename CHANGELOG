@@ -1802,4 +1802,3 @@ Yosys 0.1.0 .. Yosys 0.2.0
      - Added "design -stash/-copy-from/-copy-to"
      - Added "copy" command
      - Added "splice" command
-

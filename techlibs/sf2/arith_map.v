@@ -66,4 +66,3 @@ module \$__SF2_ALU (A, B, CI, BI, X, Y, CO);
 		);
 	end endgenerate
 endmodule
-

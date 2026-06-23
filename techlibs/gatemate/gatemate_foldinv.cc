@@ -216,4 +216,3 @@ struct GatemateFoldInvPass : public Pass {
 } GatemateFoldInvPass;
 
 PRIVATE_NAMESPACE_END
-

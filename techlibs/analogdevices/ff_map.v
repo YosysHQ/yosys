@@ -60,4 +60,3 @@ module  \$_SDFFE_PP1P_ (input D, C, E, R, output Q);
 endmodule
 
 `endif
-

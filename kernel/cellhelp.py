@@ -97,4 +97,3 @@ for line in fileinput.input():
         print(simHelper)
         # new
         simHelper = SimHelper()
-

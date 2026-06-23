@@ -7,4 +7,3 @@ cd top # Constrain all select calls below inside the top module
 select -assert-count 10 t:EFX_ADD
 select -assert-count 4  t:EFX_LUT4
 select -assert-none t:EFX_ADD t:EFX_LUT4 %% t:* %D
-

@@ -787,4 +787,3 @@ Asynchronous writes
 	end
 
 	assign read_data = mem[read_addr];
-

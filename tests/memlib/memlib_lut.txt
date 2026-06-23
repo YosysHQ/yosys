@@ -25,4 +25,3 @@ ram distributed \RAM_LUT {
 		clock anyedge;
 	}
 }
-

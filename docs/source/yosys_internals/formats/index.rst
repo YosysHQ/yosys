@@ -56,4 +56,3 @@ constructs must be called from the synthesis script first.
 .. [1]
    In Yosys the term pass is only used to refer to commands that operate on the
    RTLIL data structure.
-

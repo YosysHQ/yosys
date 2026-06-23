@@ -18,4 +18,3 @@ module attri07_foo(clk, rst, inp_a, inp_b, out);
     else     out <= attrib07_do_add (* combinational_adder *) (inp_a, inp_b);
 
 endmodule
-

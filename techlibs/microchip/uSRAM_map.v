@@ -123,4 +123,3 @@ RAM64x12 #(
 );
 
 endmodule
-

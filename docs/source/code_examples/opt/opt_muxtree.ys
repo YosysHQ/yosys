@@ -14,4 +14,3 @@ opt_muxtree after
 clean
 
 show -format dot -prefix opt_muxtree_full -notitle -color cornflowerblue uut
-

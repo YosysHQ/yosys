@@ -691,4 +691,3 @@ struct BlifFrontend : public Frontend {
 } BlifFrontend;
 
 YOSYS_NAMESPACE_END
-

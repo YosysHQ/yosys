@@ -39,4 +39,3 @@ techmap -autoproc -wb -map +/analogdevices/cells_sim.v
 opt -full -fine
 select -assert-count 0 t:* t:$assert %d
 sat -verify -prove-asserts
-

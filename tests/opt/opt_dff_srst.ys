@@ -110,4 +110,3 @@ select -assert-count 2 t:$_DFF_P_
 select -assert-count 4 t:$_DFFE_PP_
 
 design -reset
-
