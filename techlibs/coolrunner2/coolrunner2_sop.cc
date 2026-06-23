@@ -63,13 +63,13 @@ struct Coolrunner2SopPass : public Pass {
 				if (cell->type.in(ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(FTCP), ID(FTCP_N), ID(FTDCP),
 							ID(FDCPE), ID(FDCPE_N), ID(FDDCPE), ID(LDCP), ID(LDCP_N)))
 				{
-					if (cell->hasPort(TW(PRE)))
+					if (cell->hasPort(TW::PRE))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::PRE)[0])].insert(
 							make_tuple(cell, ID(PRE)));
 					if (cell->hasPort(TW::CLR))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::CLR)[0])].insert(
 							make_tuple(cell, ID::CLR));
-					if (cell->hasPort(TW(CE)))
+					if (cell->hasPort(TW::CE))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::CE)[0])].insert(
 							make_tuple(cell, ID(CE)));
 

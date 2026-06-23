@@ -39,7 +39,7 @@ static void nx_carry_chain(Module *module)
 	{
 		if (cell->type == ID(NX_CY_1BIT)) {
 			if (cell->getParam(ID(first)).as_int() == 1) continue;
-			if (!cell->hasPort(TW(CI)))
+			if (!cell->hasPort(TW::CI))
 				log_error("Not able to find connected carry.\n");
 			SigBit ci = sigmap(cell->getPort(TW::CI).as_bit());
 			carry[ci] = cell;
@@ -65,7 +65,7 @@ static void nx_carry_chain(Module *module)
 					//log_error("Not able to find connected carry.\n");
 				current = carry[co];
 				chain.push_back(current);
-				if (!current->hasPort(TW(CO))) break;
+				if (!current->hasPort(TW::CO)) break;
 				co = sigmap(current->getPort(TW::CO).as_bit());
 			}
 			carry_chains[cell] = chain;
@@ -117,7 +117,7 @@ static void nx_carry_chain(Module *module)
 					cell->setPort(TW::B1, State::S0);
 					j = 1;
 				} else {
-					if (c.second.at(i)->hasPort(TW(CO)))
+					if (c.second.at(i)->hasPort(TW::CO))
 						cell->setPort(TW::CO, c.second.at(i)->getPort(TW::CO));
 				}
 				cnt++;

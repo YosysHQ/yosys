@@ -113,7 +113,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     RTLIL::SigSpec rst;
     RTLIL::SigSpec ena;
 
-    if (st.ff->hasPort(TW(ARST))) {
+    if (st.ff->hasPort(TW::ARST)) {
         if (st.ff->getParam(ID(ARST_POLARITY)).as_int() != 1) {
             rst = pm.module->Not(NEW_TWINE, st.ff->getPort(TW::ARST));
         } else {
@@ -123,7 +123,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
         rst = RTLIL::SigSpec(RTLIL::S0);
     }
 
-    if (st.ff->hasPort(TW(EN))) {
+    if (st.ff->hasPort(TW::EN)) {
         if (st.ff->getParam(ID(EN_POLARITY)).as_int() != 1) {
             ena = pm.module->Not(NEW_TWINE, st.ff->getPort(TW::EN));
         } else {
