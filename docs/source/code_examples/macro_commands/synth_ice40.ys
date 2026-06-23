@@ -88,4 +88,3 @@ check:
     stat
     check -noinit
     blackbox =A:whitebox
-
