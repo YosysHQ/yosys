@@ -293,17 +293,11 @@ static void find_cell_dff(std::vector<const LibertyAst *> cells, IdString cell_t
 		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
 			continue;
 
-		if (has_reset && !cell_next_pol) {
-			// next_state is negated
-			// we later propagate this inversion to the output,
-			// which requires the negation of the reset value
-			rstval = !rstval;
-		}
-		if (has_reset && rstval == false) {
+		if (has_reset && rstval != cell_next_pol) {
 			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
-		if (has_reset && rstval == true) {
+		if (has_reset && rstval == cell_next_pol) {
 			if (!parse_pin(cell, ff->find("preset"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
@@ -552,17 +546,11 @@ static void find_cell_dlatch(std::vector<const LibertyAst *> cells, IdString cel
 		if (!parse_pin(cell, latch->find("data_in"), cell_data_pin, cell_data_pol))
 			continue;
 
-		if (has_reset && !cell_data_pol) {
-			// data_in is negated
-			// we later propagate this inversion to the output,
-			// which requires the negation of the reset value
-			rstval = !rstval;
-		}
-		if (has_reset && rstval == false) {
+		if (has_reset && rstval != cell_data_pol) {
 			if (!parse_pin(cell, latch->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
-		if (has_reset && rstval == true) {
+		if (has_reset && rstval == cell_data_pol) {
 			if (!parse_pin(cell, latch->find("preset"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
