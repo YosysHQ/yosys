@@ -88,7 +88,7 @@ struct QlDspIORegs : public Pass {
 			int out_sel_i = sigmap(cell->getPort(TW::output_select)).as_int();
 
 			// Get the feedback port
-			if (!cell->hasPort(TW(feedback)))
+			if (!cell->hasPort(TW::feedback))
 				log_error("Missing 'feedback' port on %s", cell);
 			SigSpec feedback = sigmap(cell->getPort(TW::feedback));
 
