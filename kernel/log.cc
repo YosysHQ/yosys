@@ -600,7 +600,7 @@ void log_dump_val_worker(RTLIL::State v) {
 std::string log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint);
+	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint, RTLIL_BACKEND::DumpMode::Readable);
 	return buf.str();
 }
 
@@ -655,21 +655,21 @@ const char *log_id(const RTLIL::Process *obj, const char *nullstr)
 void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false);
+	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false, true, false, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_cell(buf, indent, cell);
+	RTLIL_BACKEND::dump_cell(buf, indent, cell, cell->module ? cell->module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
 void log_wire(RTLIL::Wire *wire, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_wire(buf, indent, wire);
+	RTLIL_BACKEND::dump_wire(buf, indent, wire, wire->module ? wire->module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 

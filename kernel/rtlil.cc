@@ -1800,7 +1800,7 @@ void RTLIL::Design::pop_selection()
 std::string RTLIL::Design::to_rtlil_str(bool only_selected) const
 {
 	std::ostringstream f;
-	RTLIL_BACKEND::dump_design(f, const_cast<RTLIL::Design*>(this), only_selected);
+	RTLIL_BACKEND::dump_design(f, const_cast<RTLIL::Design*>(this), only_selected, true, false, RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
 
@@ -4958,7 +4958,7 @@ RTLIL::SigSpec RTLIL::Module::FutureFF(Twine &&name, const RTLIL::SigSpec &sig_e
 std::string RTLIL::Module::to_rtlil_str() const
 {
 	std::ostringstream f;
-	RTLIL_BACKEND::dump_module(f, "", const_cast<RTLIL::Module*>(this), design, false);
+	RTLIL_BACKEND::dump_module(f, "", const_cast<RTLIL::Module*>(this), design, false, true, false, RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
 
@@ -5036,7 +5036,7 @@ void RTLIL::Wire::absorb_attrs(dict<IdString, RTLIL::Const> &&buf)
 std::string RTLIL::Wire::to_rtlil_str() const
 {
 	std::ostringstream f;
-	RTLIL_BACKEND::dump_wire(f, "", this);
+	RTLIL_BACKEND::dump_wire(f, "", this, module ? module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
 
@@ -5065,7 +5065,7 @@ RTLIL::Memory::Memory()
 std::string RTLIL::Memory::to_rtlil_str() const
 {
 	std::ostringstream f;
-	RTLIL_BACKEND::dump_memory(f, "", this);
+	RTLIL_BACKEND::dump_memory(f, "", this, module ? module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
 
@@ -5079,7 +5079,7 @@ RTLIL::Process::Process() : module(nullptr)
 std::string RTLIL::Process::to_rtlil_str() const
 {
 	std::ostringstream f;
-	RTLIL_BACKEND::dump_proc(f, "", this);
+	RTLIL_BACKEND::dump_proc(f, "", this, module ? module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
 
@@ -5149,7 +5149,7 @@ void RTLIL::Cell::absorb_attrs(dict<IdString, RTLIL::Const> &&buf)
 std::string RTLIL::Cell::to_rtlil_str() const
 {
 	std::ostringstream f;
-	RTLIL_BACKEND::dump_cell(f, "", this);
+	RTLIL_BACKEND::dump_cell(f, "", this, module ? module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
 

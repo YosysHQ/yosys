@@ -3339,6 +3339,14 @@ void RTLIL::Process::rewrite_sigspecs2(T &functor)
 		it->rewrite_sigspecs2(functor);
 }
 
+// The masq accessors below recover their containing Wire/Cell/Module by
+// subtracting offsetof from `this`. Those types are non-standard-layout (base
+// classes + virtuals), so offsetof is conditionally-supported, but it is
+// well-defined on GCC/Clang for these fixed field offsets.
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
 inline TwineRef RTLIL::WireNameMasq::ref() const {
 	const RTLIL::Wire *w = reinterpret_cast<const RTLIL::Wire *>(
 		reinterpret_cast<const char *>(this) - offsetof(RTLIL::Wire, name));
@@ -3454,6 +3462,9 @@ inline std::string RTLIL::ModuleNameMasq::unescaped() const {
 		return std::string();
 	return m->design->twines.unescaped_str(id);
 }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // -Winvalid-offsetof for masq accessors
 
 inline RTLIL::ModuleNameMasq::operator TwineRef() const { return ref(); }
 
