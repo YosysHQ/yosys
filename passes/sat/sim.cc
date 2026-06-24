@@ -1326,7 +1326,7 @@ struct SimInstance
 			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val, true), log_signal(sim_val, true));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val, true), log_signal(sim_val, true));
 						retVal = true;
 						break;
 					}
@@ -1334,14 +1334,14 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
 				for(int i=0;i<sim_val.size();i++) {
 					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val, true), log_signal(sim_val, true));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val, true), log_signal(sim_val, true));
 						retVal = true;
 						break;
 					}
 				}
 			} else {
 				if (fst_val!=sim_val) {
-					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, log_id(item.first), log_signal(fst_val, true), log_signal(sim_val, true));
+					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, item.first, log_signal(fst_val, true), log_signal(sim_val, true));
 					retVal = true;
 				}
 			}
