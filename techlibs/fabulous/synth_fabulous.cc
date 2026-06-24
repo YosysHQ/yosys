@@ -80,9 +80,9 @@ struct SynthPass : public ScriptPass
 		log("    -carry <none|ha>\n");
 		log("        carry mapping style (none, half-adders, ...) default=none\n");
 		log("\n");
-		log("    -iopad\n");
-		log("        enable automatic insertion of IO buffers (otherwise a wrapper\n");
-		log("        with manually inserted and constrained IO should be used.)\n");
+		log("    -noiopad\n");
+		log("        disable I/O buffer insertion (useful for hierarchical or \n");
+		log("        out-of-context flows).\n");
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design after elaboration\n");
@@ -113,7 +113,7 @@ struct SynthPass : public ScriptPass
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
-	bool autotop, noalumacc, nofsm, noshare, iopad, flatten;
+	bool autotop, noalumacc, nofsm, noshare, noiopad, flatten;
 	int lut;
 
 	void clear_flags() override
@@ -124,7 +124,7 @@ struct SynthPass : public ScriptPass
 		noalumacc = false;
 		nofsm = false;
 		noshare = false;
-		iopad = false;
+		noiopad = false;
 		carry_mode = "none";
 		flatten = true;
 		json_file = "";
@@ -208,8 +208,8 @@ struct SynthPass : public ScriptPass
 				memory_opts += " -no-rw-check";
 				continue;
 			}
-			if (args[argidx] == "-iopad") {
-				iopad = true;
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
 				continue;
 			}
 			if (args[argidx] == "-carry" && argidx+1 < args.size()) {
@@ -317,14 +317,13 @@ struct SynthPass : public ScriptPass
 			run("opt -fast");
 		}
 
-		if (check_label("map_iopad", "(if -iopad)")) {
-			if (iopad || help_mode) {
-				run("opt -full");
-				run("iopadmap -bits -outpad $__FABULOUS_OBUF I:PAD -inpad $__FABULOUS_IBUF O:PAD "
-					"-toutpad IO_1_bidirectional_frame_config_pass ~T:I:PAD "
-					"-tinoutpad IO_1_bidirectional_frame_config_pass ~T:O:I:PAD A:top", "(skip if '-noiopad')");
-				run("techmap -map +/fabulous/io_map.v");
-			}
+		if (check_label("map_iopad", "(skip if -noiopad)") && !noiopad) {
+			run("opt -full");
+			run("iopadmap -bits "
+			    "-inpad $__FABULOUS_IBUF OUT:PAD "
+			    "-outpad $__FABULOUS_OBUF IN:PAD "
+			    "-toutpad $__FABULOUS_TBUF EN:IN:PAD "
+			    "-tinoutpad $__FABULOUS_IOBUF EN:OUT:IN:PAD");
 		}
 
 
@@ -349,6 +348,7 @@ struct SynthPass : public ScriptPass
 					map_str += stringf(" -map %s", map);
 				run(map_str);
 			}
+			run("simplemap");
 			run("clean");
 		}
 
