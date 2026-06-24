@@ -61,6 +61,9 @@ struct SynthPass : public ScriptPass
 		log("    -clkbuf-map <clkbuf_map>\n");
 		log("        insert clock buffers using clkbufmap and map to the specified Verilog file.\n");
 		log("\n");
+		log("    -multiplier-map <multiplier_map> <a_max> <b_max> <a_min> <b_min> <y_min>\n");
+		log("        convert multiplications to multiplier primitives and map to the specified Verilog file.\n");
+		log("\n");
 		log("    -extra-plib <primitive_library.v>\n");
 		log("        use the specified Verilog file for extra primitives (can be specified multiple\n");
 		log("        times).\n");
@@ -112,12 +115,12 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, clkbuf_map;
+	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, clkbuf_map, multiplier_map;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
 	bool autotop, noalumacc, nofsm, noshare, noiopad, flatten;
-	int lut;
+	int lut, multiplier_a_max, multiplier_b_max, multiplier_a_min, multiplier_b_min, multiplier_y_min;
 
 	void clear_flags() override
 	{
@@ -181,6 +184,15 @@ struct SynthPass : public ScriptPass
 			}
 			if (args[argidx] == "-clkbuf-map" && argidx+1 < args.size()) {
 				clkbuf_map = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-multiplier-map" && argidx+6 < args.size()) {
+				multiplier_map = args[++argidx];
+				multiplier_a_max = atoi(args[++argidx].c_str());
+				multiplier_b_max = atoi(args[++argidx].c_str());
+				multiplier_a_min = atoi(args[++argidx].c_str());
+				multiplier_b_min = atoi(args[++argidx].c_str());
+				multiplier_y_min = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-extra-plib" && argidx+1 < args.size()) {
@@ -293,6 +305,32 @@ struct SynthPass : public ScriptPass
 				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
 			else if (lut)
 				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
+			if (help_mode || multiplier_map != "") {
+				run("wreduce t:$mul");
+				if (help_mode) {
+					run("techmap -map +/mul2dsp.v -map <multiplier_map> -D DSP_A_MAXWIDTH=<a_max> -D DSP_B_MAXWIDTH=<b_max> "
+						    "-D DSP_A_MINWIDTH=<a_min> -D DSP_B_MINWIDTH=<b_min> -D DSP_Y_MINWIDTH=<y_min> "
+						    "-D DSP_NAME=$__FABULOUS_MUL", "(if -multiplier-map)");
+				} else {
+					run(stringf("techmap -map +/mul2dsp.v -map %s -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d "
+						    "-D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_Y_MINWIDTH=%d "
+						    "-D DSP_NAME=$__FABULOUS_MUL",
+						    multiplier_map.c_str(),
+						    multiplier_a_max,
+						    multiplier_b_max,
+						    multiplier_a_min,
+						    multiplier_b_min,
+						    multiplier_y_min
+						)
+					);
+			        }
+				run("select a:mul2dsp", "              (if -multiplier-map)");
+				run("setattr -unset mul2dsp", "        (if -multiplier-map)");
+				run("opt_expr -fine", "                (if -multiplier-map)");
+				run("wreduce", "                       (if -multiplier-map)");
+				run("select -clear", "                 (if -multiplier-map)");
+				run("chtype -set $mul t:$__soft_mul", "(if -multiplier-map)");
+			}
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
