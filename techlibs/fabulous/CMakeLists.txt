@@ -31,11 +31,4 @@ yosys_pass(synth_fabulous
 		fabulous
 	DATA_FILES
 		cells_map.v
-		prims.v
-		latches_map.v
-		ff_map.v
-		ram_regfile.txt
-		regfile_map.v
-		io_map.v
-		arith_map.v
 )
