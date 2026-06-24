@@ -120,8 +120,8 @@ struct PrintVisitor : DefaultVisitor<std::string> {
 	std::string zero_extend(Node, Node a, int out_width) override { return "zero_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string sign_extend(Node, Node a, int out_width) override { return "sign_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string constant(Node, RTLIL::Const const& value) override { return "constant(" + value.as_string() + ")"; }
-	std::string input(Node, IdString name, IdString kind) override { return "input(" + name.str() + ", " + kind.str() + ")"; }
-	std::string state(Node, IdString name, IdString kind) override { return "state(" + name.str() + ", " + kind.str() + ")"; }
+	std::string input(Node self, TwineRef name, TwineRef kind) override { return "input(" + self.design->twines.unescaped_str(name) + ", " + self.design->twines.unescaped_str(kind) + ")"; }
+	std::string state(Node self, TwineRef name, TwineRef kind) override { return "state(" + self.design->twines.unescaped_str(name) + ", " + self.design->twines.unescaped_str(kind) + ")"; }
 	std::string default_handler(Node self) override {
 		std::string ret = fn_to_string(self.fn());
 		ret += "(";
@@ -136,7 +136,7 @@ struct PrintVisitor : DefaultVisitor<std::string> {
 
 std::string Node::to_string()
 {
-	return to_string([](Node n) { return design->twines.unescaped_str(n.name()); });
+	return to_string([](Node n) { return n.design->twines.unescaped_str(n.name()); });
 }
 
 std::string Node::to_string(std::function<std::string(Node)> np)
@@ -246,7 +246,7 @@ private:
 		return handle_alu(g, factory.bitwise_or(p, g), g.width(), false, ci, factory.constant(Const(State::S0, 1))).at(TW::CO);
 	}
 public:
-	std::variant<dict<TwineRef, Node>, Node> handle(IdString cellName, IdString cellType, dict<IdString, Const> parameters, dict<TwineRef, Node> inputs)
+	std::variant<dict<TwineRef, Node>, Node> handle(TwineRef cellName, TwineRef cellType, dict<IdString, Const> parameters, dict<TwineRef, Node> inputs)
 	{
 		int a_width = parameters.at(ID(A_WIDTH), Const(-1)).as_int();
 		int b_width = parameters.at(ID(B_WIDTH), Const(-1)).as_int();
@@ -395,7 +395,7 @@ public:
 					Node y = neg_if(y_flipped, sign(b));
 					return factory.extend(y, y_width, true);
 				} else
-					log_error("unhandled cell in CellSimplifier %s\n", cellType);
+					log_error("unhandled cell in CellSimplifier %s\n", factory.ir().design->twines.str(cellType).c_str());
 			} else {
 				if(cellType.in(TW($mod), TW($modfloor)))
 					return factory.extend(factory.unsigned_mod(a, b), y_width, false);
@@ -458,9 +458,9 @@ public:
 				return factory.value(state);
 			}
 		} else if(cellType == TW($check)) {
-			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", cellName);
+			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", factory.ir().design->twines.str(cellName).c_str());
 		} else {
-			log_error("`%s' cells are not supported by the functional backend\n", cellType);
+			log_error("`%s' cells are not supported by the functional backend\n", factory.ir().design->twines.str(cellType).c_str());
 		}
 	}
 };
@@ -470,6 +470,7 @@ class FunctionalIRConstruction {
 	dict<DriveSpec, Node> graph_nodes;
 	dict<std::pair<Cell *, TwineRef>, Node> cell_outputs;
 	DriverMap driver_map;
+	Design *design;
 	Factory& factory;
 	CellSimplifier simplifier;
 	vector<Mem> memories_vector;
@@ -497,7 +498,7 @@ class FunctionalIRConstruction {
 			for(auto const &[name, sigspec] : cell->connections())
 				if(driver_map.celltypes.cell_output(cell->type.ref(), name)) {
 					auto node = factory.create_pending(sigspec.size());
-					factory.suggest_name(node, cell->name.str() + "$" + cell->module->design->twines.str(name));
+					factory.suggest_name(node, design->twines.add(cell->name.str() + "$" + design->twines.str(name)));
 					cell_outputs.emplace({cell, name}, node);
 					if(name == port_name)
 						rv = node;
@@ -508,7 +509,8 @@ class FunctionalIRConstruction {
 	}
 public:
 	FunctionalIRConstruction(Module *module, Factory &f)
-		: factory(f)
+		: design(module->design)
+		, factory(f)
 		, simplifier(f)
 		, sig_map(module)
 		, ff_initvals(&sig_map, module)
@@ -522,10 +524,10 @@ public:
 		for (auto riter = module->ports.rbegin(); riter != module->ports.rend(); ++riter) {
 			auto *wire = module->wire(*riter);
 			if (wire && wire->port_input) {
-				factory.add_input(wire->name, TW($input), Sort(wire->width));
+				factory.add_input(wire->name.ref(), TW($input), Sort(wire->width));
 			}
 			if (wire && wire->port_output) {
-				auto &output = factory.add_output(wire->name, TW($output), Sort(wire->width));
+				auto &output = factory.add_output(wire->name.ref(), TW($output), Sort(wire->width));
 				output.set_value(enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width))));
 			}
 		}
@@ -565,14 +567,14 @@ private:
 		// - Since wr port j can only have priority over wr port i if j > i, if we do writes in
 		//   ascending index order the result will obey the priorty relation.
 		vector<Node> read_results;
-		auto &state = factory.add_state(mem->cell->name, TW($state), Sort(ceil_log2(mem->size), mem->width));
+		auto &state = factory.add_state(mem->cell->name.ref(), TW($state), Sort(ceil_log2(mem->size), mem->width));
 		state.set_initial_value(MemContents(mem));
 		Node node = factory.value(state);
 		for (size_t i = 0; i < mem->wr_ports.size(); i++) {
 			const auto &wr = mem->wr_ports[i];
 			if (wr.clk_enable)
 				log_error("Write port %zd of memory %s.%s is clocked. This is not supported by the functional backend. "
-					"Call async2sync or clk2fflogic to avoid this error.\n", i, mem->module, design->twines.unescaped_str(mem->memid));
+					"Call async2sync or clk2fflogic to avoid this error.\n", i, mem->module, RTLIL::unescape_id(mem->memid).c_str());
 			Node en = enqueue(driver_map(DriveSpec(wr.en)));
 			Node addr = enqueue(driver_map(DriveSpec(wr.addr)));
 			Node new_data = enqueue(driver_map(DriveSpec(wr.data)));
@@ -582,12 +584,12 @@ private:
 		}
 		if (mem->rd_ports.empty())
 			log_error("Memory %s.%s has no read ports. This is not supported by the functional backend. "
-				"Call opt_clean to remove it.", mem->module, design->twines.unescaped_str(mem->memid));
+				"Call opt_clean to remove it.", mem->module, RTLIL::unescape_id(mem->memid).c_str());
 		for (size_t i = 0; i < mem->rd_ports.size(); i++) {
 			const auto &rd = mem->rd_ports[i];
 			if (rd.clk_enable)
 				log_error("Read port %zd of memory %s.%s is clocked. This is not supported by the functional backend. "
-					"Call memory_nordff to avoid this error.\n", i, mem->module, design->twines.unescaped_str(mem->memid));
+					"Call memory_nordff to avoid this error.\n", i, mem->module, RTLIL::unescape_id(mem->memid).c_str());
 			Node addr = enqueue(driver_map(DriveSpec(rd.addr)));
 			read_results.push_back(factory.memory_read(node, addr));
 		}
@@ -610,9 +612,10 @@ private:
 			if (!ff.has_gclk)
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
 					"Call async2sync or clk2fflogic to avoid this error.\n", cell->type.unescaped(), cell);
-			auto &state = factory.add_state(ff.name, TW($state), Sort(ff.width));
+			TwineRef ff_name = design->twines.add(ff.name.str());
+			auto &state = factory.add_state(ff_name, TW($state), Sort(ff.width));
 			Node q_value = factory.value(state);
-			factory.suggest_name(q_value, ff.name);
+			factory.suggest_name(q_value, ff_name);
 			factory.update_pending(cell_outputs.at({cell, TW::Q}), q_value);
 			state.set_next_value(enqueue(ff.sig_d));
 			state.set_initial_value(ff.val_init);
@@ -628,7 +631,7 @@ private:
 					n_outputs++;
 				}
 			}
-			std::variant<dict<TwineRef, Node>, Node> outputs = simplifier.handle(cell->name, cell->type, cell->parameters, connections);
+			std::variant<dict<TwineRef, Node>, Node> outputs = simplifier.handle(cell->name.ref(), cell->type.ref(), cell->parameters, connections);
 			if(auto *nodep = std::get_if<Node>(&outputs); nodep != nullptr) {
 				log_assert(n_outputs == 1);
 				factory.update_pending(cell_outputs.at({cell, output_name}), *nodep);
@@ -672,14 +675,14 @@ public:
 					DriveChunkWire wire_chunk = chunk.wire();
 					if (wire_chunk.is_whole()) {
 						if (wire_chunk.wire->port_input) {
-							Node node = factory.value(factory.ir().input(wire_chunk.wire->name));
-							factory.suggest_name(node, wire_chunk.wire->name);
+							Node node = factory.value(factory.ir().input(wire_chunk.wire->name.ref()));
+							factory.suggest_name(node, wire_chunk.wire->name.ref());
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(wire_chunk));
-							check_undriven(driver, design->twines.unescaped_str(wire_chunk.wire->name));
+							check_undriven(driver, design->twines.unescaped_str(wire_chunk.wire->name.ref()));
 							Node node = enqueue(driver);
-							factory.suggest_name(node, wire_chunk.wire->name);
+							factory.suggest_name(node, wire_chunk.wire->name.ref());
 							factory.update_pending(pending, node);
 						}
 					} else {
@@ -706,7 +709,7 @@ public:
 					}
 				} else if (chunk.is_constant()) {
 					Node node = factory.constant(chunk.constant());
-					factory.suggest_name(node, "$const" + std::to_string(chunk.size()) + "b" + chunk.constant().as_string());
+					factory.suggest_name(node, design->twines.add("$const" + std::to_string(chunk.size()) + "b" + chunk.constant().as_string()));
 					factory.update_pending(pending, node);
 				} else if (chunk.is_multiple()) {
 					log_error("Signal %s has multiple drivers. This is not supported by the functional backend. "
@@ -726,6 +729,7 @@ public:
 
 IR IR::from_module(Module *module) {
 	IR ir;
+    ir.design = module->design;
     auto factory = ir.factory();
     FunctionalIRConstruction ctor(module, factory);
     ctor.process_queue();
@@ -744,8 +748,8 @@ void IR::topological_sort() {
         {
             log_warning("Combinational loop:\n");
             for (int *i = begin; i != end; ++i) {
-				Node node(_graph[*i]);
-                log("- %s = %s\n", design->twines.unescaped_str(node.name()), node.to_string());
+				Node node(_graph[*i], design);
+                log("- %s = %s\n", design->twines.unescaped_str(node.name()).c_str(), node.to_string().c_str());
 			}
             log("\n");
             scc = true;
@@ -763,8 +767,8 @@ void IR::topological_sort() {
 		"Try `scc -select; simplemap; select -clear` to avoid this error.\n");
 }
 
-static IdString merge_name(IdString a, IdString b) {
-	if(a[0] == '$' && b[0] == '\\')
+static TwineRef merge_name(TwineRef a, TwineRef b) {
+	if(!twine_is_public(a) && twine_is_public(b))
 		return b;
 	else
 		return a;
@@ -783,10 +787,10 @@ void IR::forward_buf() {
             auto target_node = _graph[perm[target_index]];
 			if(node.has_sparse_attr()) {
 				if(target_node.has_sparse_attr()) {
-					IdString id = merge_name(node.sparse_attr(), target_node.sparse_attr());
+					TwineRef id = merge_name(node.sparse_attr(), target_node.sparse_attr());
 					target_node.sparse_attr() = id;
 				} else {
-					IdString id = node.sparse_attr();
+					TwineRef id = node.sparse_attr();
 					target_node.sparse_attr() = id;
 				}
 			}
