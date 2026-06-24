@@ -44,7 +44,8 @@ const char *reserved_keywords[] = {
 };
 
 template<typename Id> struct CxxScope : public Functional::Scope<Id> {
-	CxxScope() {
+	CxxScope(Design *design = nullptr) {
+		this->design = design;
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			this->reserve(*p);
 	}
@@ -71,14 +72,15 @@ using CxxWriter = Functional::Writer;
 
 struct CxxStruct {
 	std::string name;
-	dict<IdString, CxxType> types;
-	CxxScope<IdString> scope;
-	CxxStruct(std::string name) : name(name)
+	dict<TwineRef, CxxType> types;
+	CxxScope<TwineRef> scope;
+	Design *design;
+	CxxStruct(std::string name, Design *design) : name(name), scope(design), design(design)
 	{
 		scope.reserve("fn");
 		scope.reserve("visit");
 	}
-	void insert(IdString name, CxxType type) {
+	void insert(TwineRef name, CxxType type) {
 		scope(name, name);
 		types.insert({name, type});
 	}
@@ -94,7 +96,7 @@ struct CxxStruct {
 		f.print("\t\t}}\n");
 		f.print("\t}};\n\n");
 	};
-	std::string operator[](IdString field) {
+	std::string operator[](TwineRef field) {
 		return scope(field, field);
 	}
 };
@@ -151,8 +153,8 @@ template<class NodePrinter> struct CxxPrintVisitor : public Functional::Abstract
 	void arithmetic_shift_right(Node, Node a, Node b) override { print("{}.arithmetic_shift_right({})", a, b); }
 	void mux(Node, Node a, Node b, Node s) override { print("{2}.any() ? {1} : {0}", a, b, s); }
 	void constant(Node, RTLIL::Const const & value) override { print("{}", cxx_const(value)); }
-	void input(Node, IdString name, IdString kind) override { log_assert(kind == TW($input)); print("input.{}", input_struct[name]); }
-	void state(Node, IdString name, IdString kind) override { log_assert(kind == TW($state)); print("current_state.{}", state_struct[name]); }
+	void input(Node, TwineRef name, TwineRef kind) override { log_assert(kind == TW($input)); print("input.{}", input_struct[name]); }
+	void state(Node, TwineRef name, TwineRef kind) override { log_assert(kind == TW($state)); print("current_state.{}", state_struct[name]); }
 	void memory_read(Node, Node mem, Node addr) override { print("{}.read({})", mem, addr); }
 	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
 };
@@ -167,14 +169,16 @@ bool equal_def(RTLIL::Const const &a, RTLIL::Const const &b) {
 
 struct CxxModule {
 	Functional::IR ir;
+	Design *design;
 	CxxStruct input_struct, output_struct, state_struct;
 	std::string module_name;
 
 	explicit CxxModule(Module *module) :
 		ir(Functional::IR::from_module(module)),
-		input_struct("Inputs"),
-		output_struct("Outputs"),
-		state_struct("State")
+		design(module->design),
+		input_struct("Inputs", module->design),
+		output_struct("Outputs", module->design),
+		state_struct("State", module->design)
 	{
 		for (auto input : ir.inputs())
 			input_struct.insert(input->name, input->sort);
@@ -182,7 +186,7 @@ struct CxxModule {
 			output_struct.insert(output->name, output->sort);
 		for (auto state : ir.states())
 			state_struct.insert(state->name, state->sort);
-		module_name = CxxScope<int>().unique_name(module->name);
+		module_name = CxxScope<int>(module->design).unique_name(module->name.ref());
 	}
 	void write_header(CxxWriter &f) {
 		f.print("#include \"sim.h\"\n\n");
@@ -218,7 +222,7 @@ struct CxxModule {
 	}
 	void write_eval_def(CxxWriter &f) {
 		f.print("void {0}::eval({0}::Inputs const &input, {0}::Outputs &output, {0}::State const &current_state, {0}::State &next_state)\n{{\n", module_name);
-		CxxScope<int> locals;
+		CxxScope<int> locals(design);
 		locals.reserve("input");
 		locals.reserve("output");
 		locals.reserve("current_state");

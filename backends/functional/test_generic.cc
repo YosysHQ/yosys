@@ -146,7 +146,7 @@ struct FunctionalTestGeneric : public Pass
             log("Dumping module `%s'.\n", module->name);
 			auto fir = Functional::IR::from_module(module);
 			for(auto node : fir)
-				std::cout << design->twines.unescaped_str(node.name()) << " = " << node.to_string([](auto n) { return design->twines.unescaped_str(n.name()); }) << "\n";
+				std::cout << design->twines.unescaped_str(node.name()) << " = " << node.to_string([](auto n) { return n.design->twines.unescaped_str(n.name()); }) << "\n";
 			for(auto output : fir.all_outputs())
 				std::cout << design->twines.unescaped_str(output->kind) << " " << design->twines.unescaped_str(output->name) << " = " << design->twines.unescaped_str(output->value().name()) << "\n";
 			for(auto state : fir.all_states())

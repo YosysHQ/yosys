@@ -44,7 +44,8 @@ const char *reserved_keywords[] = {
 };
 
 struct SmtScope : public Functional::Scope<int> {
-	SmtScope() {
+	SmtScope(Design *design = nullptr) {
+		this->design = design;
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
 	}
@@ -72,15 +73,16 @@ class SmtStruct {
 		SmtSort sort;
 		std::string accessor;
 	};
-	idict<IdString> field_names;
+	idict<TwineRef> field_names;
 	vector<Field> fields;
 	SmtScope &scope;
+	Design *design;
 public:
 	std::string name;
-	SmtStruct(std::string name, SmtScope &scope) : scope(scope), name(name) {}
-	void insert(IdString field_name, SmtSort sort) {
+	SmtStruct(std::string name, SmtScope &scope, Design *design) : scope(scope), design(design), name(name) {}
+	void insert(TwineRef field_name, SmtSort sort) {
 		field_names(field_name);
-		auto accessor = scope.unique_name("\\" + name + "_" + design->twines.unescaped_str(field_name));
+		auto accessor = scope.unique_name(design->twines.add("\\" + name + "_" + design->twines.unescaped_str(field_name)));
 		fields.emplace_back(Field{sort, accessor});
 	}
 	void write_definition(SExprWriter &w) {
@@ -99,12 +101,12 @@ public:
 			w.open(list(name));
 			for(auto field_name : field_names) {
 				w << fn(field_name);
-				w.comment(field_name.unescape(), true);
+				w.comment(design->twines.unescaped_str(field_name), true);
 			}
 			w.close();
 		}
 	}
-	SExpr access(SExpr record, IdString name) {
+	SExpr access(SExpr record, TwineRef name) {
 		size_t i = field_names.at(name);
 		return list(fields[i].accessor, std::move(record));
 	}
@@ -179,8 +181,8 @@ struct SmtPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("select", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("store", n(mem), n(addr), n(data)); }
 
-	SExpr input(Node, IdString name, IdString kind) override { log_assert(kind == TW($input)); return input_struct.access("inputs", name); }
-	SExpr state(Node, IdString name, IdString kind) override { log_assert(kind == TW($state)); return state_struct.access("state", name); }
+	SExpr input(Node, TwineRef name, TwineRef kind) override { log_assert(kind == TW($input)); return input_struct.access("inputs", name); }
+	SExpr state(Node, TwineRef name, TwineRef kind) override { log_assert(kind == TW($state)); return state_struct.access("state", name); }
 };
 
 struct SmtModule {
@@ -194,11 +196,11 @@ struct SmtModule {
 
 	SmtModule(Module *module)
 		: ir(Functional::IR::from_module(module))
-		, scope()
-		, name(scope.unique_name(module->name))
-		, input_struct(scope.unique_name(module->name.str() + "_Inputs"), scope)
-		, output_struct(scope.unique_name(module->name.str() + "_Outputs"), scope)
-		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
+		, scope(module->design)
+		, name(scope.unique_name(module->name.ref()))
+		, input_struct(scope.unique_name(module->design->twines.add(module->name.str() + "_Inputs")), scope, module->design)
+		, output_struct(scope.unique_name(module->design->twines.add(module->name.str() + "_Outputs")), scope, module->design)
+		, state_struct(scope.unique_name(module->design->twines.add(module->name.str() + "_State")), scope, module->design)
 	{
 		scope.reserve(name + "-initial");
 		for (auto input : ir.inputs())
@@ -233,8 +235,8 @@ struct SmtModule {
 				w.comment(SmtSort(n.sort()).to_sexpr().to_string(), true);
 			}
 		w.open(list("pair"));
-		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.output(name).value()); });
-		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.state(name).next_value()); });
+		output_struct.write_value(w, [&](TwineRef name) { return node_to_sexpr(ir.output(name).value()); });
+		state_struct.write_value(w, [&](TwineRef name) { return node_to_sexpr(ir.state(name).next_value()); });
 		w.pop();
 	}
 
