@@ -98,8 +98,8 @@ struct Chunk {
 			return port;
 		auto &pool = cell->module->design->twines;
 		if (len == 1)
-			return pool.add(Twine{stringf("%s[%d]", pool.str(port).c_str(), base)});
-		return pool.add(Twine{stringf("%s[%d:%d]", pool.str(port).c_str(), base + len - 1, base)});
+			return pool.add(stringf("%s[%d]", pool.str(port).c_str(), base));
+		return pool.add(stringf("%s[%d:%d]", pool.str(port).c_str(), base + len - 1, base));
 	}
 
 	SigSpec sample(Cell *cell)
