@@ -672,8 +672,7 @@ OBJS += kernel/log_compat.o
 endif
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o kernel/twine.o
-OBJS += kernel/drivertools.o kernel/threading.o
-# OBJS += kernel/functional.o
+OBJS += kernel/drivertools.o kernel/functional.o kernel/threading.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
@@ -722,25 +721,10 @@ OBJS += libs/subcircuit/subcircuit.o
 
 include $(YOSYS_SRC)/kernel/unstable/Makefile.inc
 
-ifeq ($(SKIP_BROKEN),1)
-# Expanded build: pull in every pass/backend/frontend/techlib; objects that
-# still fail to compile are listed in broken_objs.mk and filtered from the link.
 include $(YOSYS_SRC)/frontends/*/Makefile.inc
 include $(YOSYS_SRC)/passes/*/Makefile.inc
 include $(YOSYS_SRC)/backends/*/Makefile.inc
 include $(YOSYS_SRC)/techlibs/*/Makefile.inc
-else
-# Curated migration build (default): only the dirs known to compile+link.
-include $(YOSYS_SRC)/frontends/*/Makefile.inc
-include $(YOSYS_SRC)/passes/cmds/Makefile.inc
-include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
-include $(YOSYS_SRC)/passes/memory/Makefile.inc
-include $(YOSYS_SRC)/passes/opt/Makefile.inc
-include $(YOSYS_SRC)/passes/proc/Makefile.inc
-include $(YOSYS_SRC)/passes/tests/Makefile.inc
-include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
-include $(YOSYS_SRC)/backends/verilog/Makefile.inc
-endif
 
 else
 
@@ -757,16 +741,11 @@ OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/design.o
-OBJS += passes/cmds/dump_twines.o
 OBJS += passes/cmds/plugin.o
 
-include $(YOSYS_SRC)/kernel/unstable/Makefile.inc
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc
-OBJS += passes/techmap/simplemap.o
-OBJS += passes/techmap/libcache.o
-OBJS += passes/techmap/libparse.o
-# include $(YOSYS_SRC)/passes/techmap/Makefile.inc
+include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
 include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
@@ -799,14 +778,6 @@ share: $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Share directory created."
 	@echo ""
-
-# SKIP_BROKEN=1 drops the objects listed in broken_objs.mk from the link, so a
-# full (non-SMALL) build can produce a working binary while some TUs still fail
-# to compile. Regenerate broken_objs.mk as files get fixed.
-ifeq ($(SKIP_BROKEN),1)
--include $(YOSYS_SRC)/broken_objs.mk
-OBJS := $(filter-out $(BROKEN_OBJS),$(OBJS))
-endif
 
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
@@ -1126,7 +1097,6 @@ docs: docs/prep
 clean: clean-py clean-unit-test
 	rm -rf share
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
-	find kernel frontends passes backends techlibs -name '*.o' -delete
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
