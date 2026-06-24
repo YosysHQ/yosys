@@ -55,9 +55,6 @@ struct SynthPass : public ScriptPass
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
 		log("\n");
-		log("    -vpr\n");
-		log("        perform synthesis for the FABulous VPR flow (using slightly different techmapping).\n");
-		log("\n");
 		log("    -plib <primitive_library.v>\n");
 		log("        use the specified Verilog file as a primitive library.\n");
 		log("\n");
@@ -118,7 +115,7 @@ struct SynthPass : public ScriptPass
 	string top_module, json_file, blif_file, plib, fsm_opts, memory_opts, carry_mode;
 	std::vector<string> extra_plib, extra_map;
 
-	bool autotop, forvpr, noalumacc, nofsm, noshare, noregfile, iopad, complexdff, flatten;
+	bool autotop, noalumacc, nofsm, noshare, noregfile, iopad, complexdff, flatten;
 	int lut;
 
 	void clear_flags() override
@@ -127,7 +124,6 @@ struct SynthPass : public ScriptPass
 		plib.clear();
 		autotop = false;
 		lut = 4;
-		forvpr = false;
 		noalumacc = false;
 		nofsm = false;
 		noshare = false;
@@ -168,10 +164,6 @@ struct SynthPass : public ScriptPass
 					run_from = args[++argidx].substr(0, pos);
 					run_to = args[argidx].substr(pos+1);
 				}
-				continue;
-			}
-			if (args[argidx] == "-vpr") {
-				forvpr = true;
 				continue;
 			}
 			if (args[argidx] == "-auto-top") {
@@ -371,8 +363,7 @@ struct SynthPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			if (!forvpr)
-				run(stringf("techmap -D LUT_K=%d -map +/fabulous/cells_map.v", lut));
+			run(stringf("techmap -D LUT_K=%d -map +/fabulous/cells_map.v", lut));
 			run("clean");
 		}
 		if (check_label("check")) {
