@@ -357,8 +357,7 @@ struct SynthPass : public ScriptPass
 
 		if (check_label("map_gates")) {
 			run("opt -full");
-			run(stringf("techmap -map +/techmap.v -map +/fabulous/arith_map.v -D ARITH_%s",
-				help_mode ? "<carry>" : carry_mode.c_str()));
+			run("techmap -map +/techmap.v");
 			run("opt -fast");
 		}
 
@@ -386,11 +385,12 @@ struct SynthPass : public ScriptPass
 
 		if (check_label("map_extra")) {
 			if (help_mode) {
-				run("techmap -map <extra_map.v>...", "(for each -extra-map)");
+				run("techmap -map <extra_map.v> -D ARITH_<carry>...", "(for each -extra-map)");
 			} else if (!extra_map.empty()) {
 				std::string map_str = "techmap";
 				for (auto map : extra_map)
 					map_str += stringf(" -map %s", map);
+				map_str += stringf(" -D ARITH_%s", carry_mode.c_str());
 				run(map_str);
 			}
 			run("simplemap");
