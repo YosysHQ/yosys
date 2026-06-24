@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "kernel/rtlil.h"
+#include "tests/unit/yosysSetupEnv.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -417,8 +418,9 @@ namespace RTLIL {
 	);
 
 	TEST_P(WireRtlVsHdlIndexConversionTest, WireRtlVsHdlIndexConversion) {
-		std::unique_ptr<Module> mod = std::make_unique<Module>();
-		Wire *wire = mod->addWire(ID(test), 10);
+		std::unique_ptr<Design> design = std::make_unique<Design>();
+		Module *mod = design->addModule(design->twines.add(std::string{"$test_mod"}));
+		Wire *wire = mod->addWire(design->twines.add(std::string{"\\test"}), 10);
 
 		auto [upto, start_offset, width] = GetParam();
 

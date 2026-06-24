@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "kernel/rtlil.h"
+#include "tests/unit/yosysSetupEnv.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -12,7 +13,7 @@ protected:
 
 	void SetUp() override {
 		d = new Design;
-		m = d->addModule("$test");
+		m = d->addModule(d->twines.add(std::string{"$test"}));
 	}
 
 	void TearDown() override {
@@ -23,7 +24,7 @@ protected:
 	std::vector<Wire*> createWires(int count, int width = 4) {
 		std::vector<Wire*> wires;
 		for (int i = 0; i < count; i++) {
-			Wire* w = m->addWire(stringf("$w%d", i), width);
+			Wire* w = m->addWire(d->twines.add(std::string{stringf("$w%d", i)}), width);
 			wires.push_back(w);
 		}
 		return wires;
@@ -311,7 +312,7 @@ TEST_F(SigSpecRepTest, NullWireBitsStay)
 
 TEST_F(SigSpecRepTest, PartialBitRemoval)
 {
-	Wire* w = m->addWire("$w1", 8);
+	Wire* w = m->addWire(d->twines.add(std::string{"$w1"}), 8);
 	SigSpec sig(w);
 
 	// Remove bits 2-5

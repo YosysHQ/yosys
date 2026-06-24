@@ -3,6 +3,7 @@
 #include "kernel/yosys_common.h"
 #include "kernel/celltypes.h"
 #include "kernel/newcelltypes.h"
+#include "tests/unit/yosysSetupEnv.h"
 
 #include <unordered_set>
 
