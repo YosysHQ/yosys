@@ -69,9 +69,6 @@ struct SynthPass : public ScriptPass
 		log("        use the specified Verilog file for extra techmap rules (can be specified multiple\n");
 		log("        times).\n");
 		log("\n");
-		log("    -encfile <file>\n");
-		log("        passed to 'fsm_recode' via 'fsm'\n");
-		log("\n");
 		log("    -nofsm\n");
 		log("        do not run FSM optimization\n");
 		log("\n");
