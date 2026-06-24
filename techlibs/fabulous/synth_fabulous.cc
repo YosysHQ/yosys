@@ -170,7 +170,7 @@ struct SynthPass : public ScriptPass
 				autotop = true;
 				continue;
 			}
-			if (args[argidx] == "-lut") {
+			if (args[argidx] == "-lut" && argidx+1 < args.size()) {
 				lut = atoi(args[++argidx].c_str());
 				continue;
 			}
