@@ -65,6 +65,10 @@ struct CheckPass : public Pass {
 		log("        $_DLATCH_*/$_DLATCHSR_* mappings) remaining in the design. Use this\n");
 		log("        before techmapping in flows that must not emit latches.\n");
 		log("\n");
+		log("    -latchonly\n");
+		log("        check only for latch cells (as listed under -nolatches), skipping all\n");
+		log("        other checks.\n");
+		log("\n");
 		log("    -allow-tbuf\n");
 		log("        modify the -mapped behavior to still allow $_TBUF_ cells\n");
 		log("\n");
@@ -85,6 +89,7 @@ struct CheckPass : public Pass {
 		bool initdrv = false;
 		bool mapped = false;
 		bool nolatches = false;
+		bool latchonly = false;
 		bool allow_tbuf = false;
 		bool assert_mode = false;
 		bool force_detailed_loop_check = false;
@@ -108,6 +113,10 @@ struct CheckPass : public Pass {
 				nolatches = true;
 				continue;
 			}
+			if (args[argidx] == "-latchonly") {
+				latchonly = true;
+				continue;
+			}
 			if (args[argidx] == "-allow-tbuf") {
 				allow_tbuf = true;
 				continue;
@@ -123,8 +132,6 @@ struct CheckPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-
-		bool latchonly = design->scratchpad_get_bool("check.latchonly", false);
 
 		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
 

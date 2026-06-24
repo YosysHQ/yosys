@@ -548,12 +548,9 @@ struct SynthLatticePass : public ScriptPass
 				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode) {
 				if (help_mode)
-					run("check -assert", "(skip if -asyncprld; only if -latches error, the default)");
-				else if (latches == "error") {
-					active_design->scratchpad_set_bool("check.latchonly", true);
-					run("check -assert");
-					active_design->scratchpad_unset("check.latchonly");
-				}
+					run("check -latchonly -assert", "(skip if -asyncprld; only if -latches error, the default)");
+				else if (latches == "error")
+					run("check -latchonly -assert");
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 			}
 

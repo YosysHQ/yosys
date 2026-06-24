@@ -420,12 +420,9 @@ struct SynthIce40Pass : public ScriptPass
 				run("ice40_opt", "(only if -abc2)");
 			}
 			if (help_mode)
-				run("check -assert", "(only if -latches error, the default)");
-			else if (latches == "error") {
-				active_design->scratchpad_set_bool("check.latchonly", true);
-				run("check -assert");
-				active_design->scratchpad_unset("check.latchonly");
-			}
+				run("check -latchonly -assert", "(only if -latches error, the default)");
+			else if (latches == "error")
+				run("check -latchonly -assert");
 			run("techmap -map +/ice40/latches_map.v");
 			if (noabc || flowmap || help_mode) {
 				run("simplemap", "                               (if -noabc or -flowmap)");

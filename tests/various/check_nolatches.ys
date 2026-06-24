@@ -40,8 +40,7 @@ assign y = u;
 endmodule
 EOT
 proc
-scratchpad -set check.latchonly 1
 logger -expect warning "is a latch of type" 1
 logger -expect warning "used but has no driver" 0
 logger -expect error "Found 1 problems in" 1
-check -assert
+check -latchonly -assert

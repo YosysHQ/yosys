@@ -204,12 +204,9 @@ struct SynthEfinixPass : public ScriptPass
 		{
 			run("dfflegalize -cell $_DFFE_????_ 0 -cell $_SDFFE_????_ 0 -cell $_SDFFCE_????_ 0 -cell $_DLATCH_?_ x");
 			if (help_mode)
-				run("check -assert", "(only if -latches error, the default)");
-			else if (latches == "error") {
-				active_design->scratchpad_set_bool("check.latchonly", true);
-				run("check -assert");
-				active_design->scratchpad_unset("check.latchonly");
-			}
+				run("check -latchonly -assert", "(only if -latches error, the default)");
+			else if (latches == "error")
+				run("check -latchonly -assert");
 			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
