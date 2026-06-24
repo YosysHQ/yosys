@@ -1,7 +1,7 @@
 design -reset
 read_verilog <<EOT
-module top(input g, rn, d, output reg q);
-always @* if (~rn) q <= 0; else if (g) q <= d;
+module top(input g, d, output reg q);
+always @* if (g) q = d;
 endmodule
 EOT
 hierarchy -top top
