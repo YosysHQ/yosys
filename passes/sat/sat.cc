@@ -931,8 +931,8 @@ struct SatPass : public Pass {
 		log("and additional constraints passed as parameters.\n");
 		log("\n");
 		log("    -all\n");
-		log("        show all solutions to the problem (this can grow exponentially, use\n");
-		log("        -max <N> instead to get <N> solutions)\n");
+		log("        show all solutions to the problem (this can grow exponentially,\n");
+		log("        use -max <N> instead to get <N> solutions)\n");
 		log("\n");
 		log("    -max <N>\n");
 		log("        like -all, but limit number of solutions to <N>\n");
