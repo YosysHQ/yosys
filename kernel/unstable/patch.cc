@@ -113,12 +113,12 @@ std::vector<Cell*> Patch::commit_staged() {
 	staged_prefix_cache_.clear();
 	std::vector<Cell*> committed;
 	committed.reserve(cells_.size());
+	for (auto& wire : wires_)
+		commit_wire(std::move(wire));
 	for (auto& cell : cells_) {
 		cell->fixup_parameters();
 		committed.push_back(commit_cell(std::move(cell)));
 	}
-	for (auto& wire : wires_)
-		commit_wire(std::move(wire));
 	cells_.clear();
 	wires_.clear();
 	return committed;
@@ -269,6 +269,8 @@ void Patch::patch_ports(Cell* root_cell,
 void Patch::commit_inheriting_src(Cell* src_source) {
 	twine_staging.commit_into(mod->design->twines);
 	staged_prefix_cache_.clear();
+	for (auto& wire : wires_)
+		commit_wire(std::move(wire));
 	for (auto& cell : cells_) {
 		cell->fixup_parameters();
 		Cell *committed = commit_cell(std::move(cell));
@@ -277,8 +279,6 @@ void Patch::commit_inheriting_src(Cell* src_source) {
 		if (src_source)
 			committed->adopt_src_from(src_source);
 	}
-	for (auto& wire : wires_)
-		commit_wire(std::move(wire));
 	cells_.clear();
 	wires_.clear();
 }
