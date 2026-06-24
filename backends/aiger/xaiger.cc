@@ -648,7 +648,8 @@ struct XAigerWriter
 				holes_design = it->second;
 			else
 				holes_design = nullptr;
-			RTLIL::Module *holes_module = holes_design ? holes_design->module(module->meta_->name) : nullptr;
+			RTLIL::Module *holes_module = holes_design ?
+					holes_design->module(holes_design->twines.add(std::string{module->name.str()})) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /* dff_mode */);
