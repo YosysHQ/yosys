@@ -23,6 +23,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static TwineRef uniq(RTLIL::Module *module, std::string name)
+{
+	return module->uniquify(module->design->twines.add(std::move(name)));
+}
+
 RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cellname)
 {
 	RTLIL::Wire *outwire = nullptr;
@@ -31,10 +36,10 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 	{
 		// Constant 1
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF1_XOR_OUT", cellname)));
+			uniq(module, stringf("$xc2fix$%s_BUF1_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF1_XOR", cellname)),
-			ID(MACROCELL_XOR));
+			uniq(module, stringf("$xc2fix$%s_BUF1_XOR", cellname)),
+			TW::MACROCELL_XOR);
 		xor_cell->setParam(ID(INVERT_OUT), true);
 		xor_cell->setPort(TW::OUT, outwire);
 	}
@@ -42,10 +47,10 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 	{
 		// Constant 0
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR", cellname)),
-			ID(MACROCELL_XOR));
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR", cellname)),
+			TW::MACROCELL_XOR);
 		xor_cell->setParam(ID(INVERT_OUT), false);
 		xor_cell->setPort(TW::OUT, outwire);
 	}
@@ -54,26 +59,26 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 		// x; treat as 0
 		log_warning("While buffering, changing x to 0 into cell %s\n", cellname);
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR", cellname)),
-			ID(MACROCELL_XOR));
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR", cellname)),
+			TW::MACROCELL_XOR);
 		xor_cell->setParam(ID(INVERT_OUT), false);
 		xor_cell->setPort(TW::OUT, outwire);
 	}
 	else
 	{
-		auto inwire_name = inwire.wire->name.c_str();
+		auto inwire_name_s = inwire.wire->name.str(); auto inwire_name = inwire_name_s.c_str();
 
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF_XOR_OUT", inwire_name)));
+			uniq(module, stringf("$xc2fix$%s_BUF_XOR_OUT", inwire_name)));
 
 		auto and_to_xor_wire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
+			uniq(module, stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
 
 		auto and_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF_AND", inwire_name)),
-			ID(ANDTERM));
+			uniq(module, stringf("$xc2fix$%s_BUF_AND", inwire_name)),
+			TW::ANDTERM);
 		and_cell->setParam(ID(TRUE_INP), 1);
 		and_cell->setParam(ID(COMP_INP), 0);
 		and_cell->setPort(TW::OUT, and_to_xor_wire);
@@ -81,8 +86,8 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 		and_cell->setPort(TW::IN_B, SigSpec());
 
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF_XOR", inwire_name)),
-			ID(MACROCELL_XOR));
+			uniq(module, stringf("$xc2fix$%s_BUF_XOR", inwire_name)),
+			TW::MACROCELL_XOR);
 		xor_cell->setParam(ID(INVERT_OUT), false);
 		xor_cell->setPort(TW::IN_PTC, and_to_xor_wire);
 		xor_cell->setPort(TW::OUT, outwire);
@@ -93,14 +98,14 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 
 RTLIL::Wire *makeptermbuffer(RTLIL::Module *module, SigBit inwire)
 {
-	auto inwire_name = inwire.wire->name.c_str();
+	auto inwire_name_s = inwire.wire->name.str(); auto inwire_name = inwire_name_s.c_str();
 
 	auto outwire = module->addWire(
-		module->uniquify(stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
+		uniq(module, stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
 
 	auto and_cell = module->addCell(
-		module->uniquify(stringf("$xc2fix$%s_BUF_AND", inwire_name)),
-		ID(ANDTERM));
+		uniq(module, stringf("$xc2fix$%s_BUF_AND", inwire_name)),
+		TW::ANDTERM);
 	and_cell->setParam(ID(TRUE_INP), 1);
 	and_cell->setParam(ID(COMP_INP), 0);
 	and_cell->setPort(TW::OUT, outwire);
@@ -267,9 +272,9 @@ struct Coolrunner2FixupPass : public Pass {
 					if (input == ibuf_out_wire)
 					{
 						log("Found IBUF %s that can be packed with FF %s (type %s)\n",
-							ibuf_out_wire.wire->name,
-							maybe_ff_cell->name,
-							maybe_ff_cell->type);
+							ibuf_out_wire.wire->name.str().c_str(),
+							maybe_ff_cell->name.str().c_str(),
+							maybe_ff_cell->type.str().c_str());
 
 						ibuf_out_to_packed_reg_cell[ibuf_out_wire] = maybe_ff_cell;
 						packed_reg_out.insert(output);
@@ -298,9 +303,9 @@ struct Coolrunner2FixupPass : public Pass {
 					if ((!sig_fed_by_xor[input] && !sig_fed_by_io[input]) ||
 						(sig_fed_by_io[input] && ibuf_out_to_packed_reg_cell[input] != cell))
 					{
-						log("Buffering input to \"%s\"\n", cell->name);
+						log("Buffering input to \"%s\"\n", cell->name.str().c_str());
 
-						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.c_str());
+						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.str().c_str());
 
 						if (cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
 							cell->setPort(TW::T, xor_to_ff_wire);
@@ -320,7 +325,7 @@ struct Coolrunner2FixupPass : public Pass {
 
 					if (!sig_fed_by_pterm[clock] && !sig_fed_by_bufg[clock])
 					{
-						log("Buffering clock to \"%s\"\n", cell->name);
+						log("Buffering clock to \"%s\"\n", cell->name.str().c_str());
 
 						auto pterm_to_ff_wire = makeptermbuffer(module, clock);
 
@@ -338,7 +343,7 @@ struct Coolrunner2FixupPass : public Pass {
 					{
 						if (!sig_fed_by_pterm[set] && !sig_fed_by_bufgsr[set])
 						{
-							log("Buffering set to \"%s\"\n", cell->name);
+							log("Buffering set to \"%s\"\n", cell->name.str().c_str());
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, set);
 
@@ -352,7 +357,7 @@ struct Coolrunner2FixupPass : public Pass {
 					{
 						if (!sig_fed_by_pterm[reset] && !sig_fed_by_bufgsr[reset])
 						{
-							log("Buffering reset to \"%s\"\n", cell->name);
+							log("Buffering reset to \"%s\"\n", cell->name.str().c_str());
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, reset);
 
@@ -369,7 +374,7 @@ struct Coolrunner2FixupPass : public Pass {
 						ce = sigmap(cell->getPort(TW::CE)[0]);
 						if (!sig_fed_by_pterm[ce])
 						{
-							log("Buffering clock enable to \"%s\"\n", cell->name);
+							log("Buffering clock enable to \"%s\"\n", cell->name.str().c_str());
 
 							auto pterm_to_ff_wire = makeptermbuffer(module, ce);
 
@@ -389,9 +394,9 @@ struct Coolrunner2FixupPass : public Pass {
 					if ((!sig_fed_by_xor[input] && !sig_fed_by_ff[input]) ||
 						packed_reg_out[input])
 					{
-						log("Buffering input to \"%s\"\n", cell->name);
+						log("Buffering input to \"%s\"\n", cell->name.str().c_str());
 
-						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.c_str());
+						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.str().c_str());
 
 						cell->setPort(TW::I, xor_to_io_wire);
 					}
@@ -404,7 +409,7 @@ struct Coolrunner2FixupPass : public Pass {
 						oe = sigmap(cell->getPort(TW::E)[0]);
 						if (!sig_fed_by_pterm[oe] && !sig_fed_by_bufgts[oe])
 						{
-							log("Buffering output enable to \"%s\"\n", cell->name);
+							log("Buffering output enable to \"%s\"\n", cell->name.str().c_str());
 
 							auto pterm_to_oe_wire = makeptermbuffer(module, oe);
 
@@ -448,14 +453,14 @@ struct Coolrunner2FixupPass : public Pass {
 								if (xor_fanout_once[wire_in])
 								{
 									log("Additional fanout found for %s into %s (type %s), duplicating\n",
-										xor_cell->name,
-										cell->name,
-										cell->type);
+										xor_cell->name.str().c_str(),
+										cell->name.str().c_str(),
+										cell->type.str().c_str());
 
 									auto new_xor_cell = module->addCell(
-										module->uniquify(xor_cell->name), xor_cell);
+										module->uniquify(xor_cell->name.ref()), xor_cell);
 									auto new_wire = module->addWire(
-										module->uniquify(wire_in.wire->name));
+										module->uniquify(wire_in.wire->name.ref()));
 									new_xor_cell->setPort(TW::OUT, new_wire);
 									cell->setPort(conn.first, new_wire);
 								}
@@ -496,14 +501,14 @@ struct Coolrunner2FixupPass : public Pass {
 								if (or_fanout_once[wire_in])
 								{
 									log("Additional fanout found for %s into %s (type %s), duplicating\n",
-										or_cell->name.c_str(),
-										cell->name.c_str(),
-										cell->type.c_str());
+										or_cell->name.str().c_str(),
+										cell->name.str().c_str(),
+										cell->type.str().c_str());
 
 									auto new_or_cell = module->addCell(
-										module->uniquify(or_cell->name), or_cell);
+										module->uniquify(or_cell->name.ref()), or_cell);
 									auto new_wire = module->addWire(
-										module->uniquify(wire_in.wire->name));
+										module->uniquify(wire_in.wire->name.ref()));
 									new_or_cell->setPort(TW::OUT, new_wire);
 									cell->setPort(conn.first, new_wire);
 								}
