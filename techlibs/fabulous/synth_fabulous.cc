@@ -55,8 +55,8 @@ struct SynthPass : public ScriptPass
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
 		log("\n");
-		log("    -plib <primitive_library.v>\n");
-		log("        use the specified Verilog file as a primitive library.\n");
+		log("    -ff <cell_type_pattern> <init_values>\n");
+		log("        convert FFs to cell types via dfflegalize (can be specified multiple times).\n");
 		log("\n");
 		log("    -extra-plib <primitive_library.v>\n");
 		log("        use the specified Verilog file for extra primitives (can be specified multiple\n");
@@ -83,10 +83,6 @@ struct SynthPass : public ScriptPass
 		log("        enable automatic insertion of IO buffers (otherwise a wrapper\n");
 		log("        with manually inserted and constrained IO should be used.)\n");
 		log("\n");
-		log("    -complex-dff\n");
-		log("        enable support for FFs with enable and synchronous SR (must also be\n");
-		log("        supported by the target fabric.)\n");
-		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design after elaboration\n");
 		log("\n");
@@ -112,23 +108,22 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, json_file, blif_file, plib, fsm_opts, memory_opts, carry_mode;
+	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode;
 	std::vector<string> extra_plib, extra_map;
+	std::vector<std::pair<string, string>> extra_ffs;
 
-	bool autotop, noalumacc, nofsm, noshare, noregfile, iopad, complexdff, flatten;
+	bool autotop, noalumacc, nofsm, noshare, noregfile, iopad, flatten;
 	int lut;
 
 	void clear_flags() override
 	{
 		top_module.clear();
-		plib.clear();
 		autotop = false;
 		lut = 4;
 		noalumacc = false;
 		nofsm = false;
 		noshare = false;
 		iopad = false;
-		complexdff = false;
 		carry_mode = "none";
 		flatten = true;
 		json_file = "";
@@ -174,8 +169,10 @@ struct SynthPass : public ScriptPass
 				lut = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-plib" && argidx+1 < args.size()) {
-				plib = args[++argidx];
+			if (args[argidx] == "-ff" && argidx+2 < args.size()) {
+				string cell = args[++argidx];
+				string init = args[++argidx];
+				extra_ffs.push_back({cell, init});
 				continue;
 			}
 			if (args[argidx] == "-extra-plib" && argidx+1 < args.size()) {
@@ -214,10 +211,6 @@ struct SynthPass : public ScriptPass
 				iopad = true;
 				continue;
 			}
-			if (args[argidx] == "-complex-dff") {
-				complexdff = true;
-				continue;
-			}
 			if (args[argidx] == "-carry" && argidx+1 < args.size()) {
 				carry_mode = args[++argidx];
 				if (carry_mode != "none" && carry_mode != "ha")
@@ -245,11 +238,6 @@ struct SynthPass : public ScriptPass
 
 	void script() override
 	{
-		if (plib.empty())
-			run(stringf("read_verilog %s -lib +/fabulous/prims.v", complexdff ? "-DCOMPLEX_DFF" : ""));
-		else
-			run("read_verilog -lib " + plib);
-
 		if (help_mode) {
 			run("read_verilog -lib <extra_plib.v>", "(for each -extra-plib)");
 		} else for (auto lib : extra_plib) {
@@ -339,13 +327,18 @@ struct SynthPass : public ScriptPass
 
 
 		if (check_label("map_ffs")) {
-			if (complexdff) {
-				run("dfflegalize -cell $_DFF_P_ 0 -cell $_SDFF_PP?_ 0 -cell $_SDFFCE_PP?P_ 0 -cell $_DLATCH_?_ x", "with -complex-dff");
-			} else {
-				run("dfflegalize -cell $_DFF_P_ 0 -cell $_DLATCH_?_ x", "without -complex-dff");
+			if (help_mode) {
+				run("dfflegalize -cell <cell_type_pattern> <init_values>...", "(for each -ff)");
+			} else if (!extra_map.empty()) {
+				std::string dff_str = "dfflegalize";
+				for (const auto &[cell, init] : extra_ffs)
+					dff_str += stringf(" -cell %s %s", cell, init);
+				run(dff_str);
 			}
-			run("techmap -map +/fabulous/latches_map.v");
-			run("techmap -map +/fabulous/ff_map.v");
+			run("opt_merge");
+		}
+
+		if (check_label("map_extra")) {
 			if (help_mode) {
 				run("techmap -map <extra_map.v>...", "(for each -extra-map)");
 			} else if (!extra_map.empty()) {
