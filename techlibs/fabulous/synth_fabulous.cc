@@ -218,7 +218,7 @@ struct SynthPass : public ScriptPass
 				complexdff = true;
 				continue;
 			}
-			if (args[argidx] == "-carry") {
+			if (args[argidx] == "-carry" && argidx+1 < args.size()) {
 				carry_mode = args[++argidx];
 				if (carry_mode != "none" && carry_mode != "ha")
 					log_cmd_error("Unsupported carry style: %s\n", carry_mode);
