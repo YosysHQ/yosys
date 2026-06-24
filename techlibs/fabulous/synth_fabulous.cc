@@ -48,10 +48,6 @@ struct SynthPass : public ScriptPass
 		log("        write the design to the specified BLIF file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
-		log("    -edif <file>\n");
-		log("        write the design to the specified EDIF file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
-		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
