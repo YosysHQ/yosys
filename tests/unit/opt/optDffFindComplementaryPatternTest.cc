@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "kernel/pattern.h"
+#include "tests/unit/yosysSetupEnv.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -14,11 +15,11 @@ protected:
 
 	void SetUp() override {
 		design = new RTLIL::Design;
-		module = design->addModule(ID(test_module));
-		wire_a = module->addWire(ID(a));
-		wire_b = module->addWire(ID(b));
-		wire_c = module->addWire(ID(c));
-		bus = module->addWire(ID(bus), 4);
+		module = design->addModule(design->twines.add(std::string{"\\test_module"}));
+		wire_a = module->addWire(design->twines.add(std::string{"\\a"}));
+		wire_b = module->addWire(design->twines.add(std::string{"\\b"}));
+		wire_c = module->addWire(design->twines.add(std::string{"\\c"}));
+		bus = module->addWire(design->twines.add(std::string{"\\bus"}), 4);
 	}
 
 	void TearDown() override {

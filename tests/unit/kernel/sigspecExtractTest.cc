@@ -12,7 +12,7 @@ namespace RTLIL {
 			std::vector<Wire*> wires;
 			SigSpec sig;
 			for (int i = 0; i < 4; i++)
-				wires.push_back(m->addWire(stringf("$w%d", i), 4));
+				wires.push_back(m->addWire(d->twines.add(std::string{stringf("$w%d", i)}), 4));
 			for (auto w : wires)
 				sig.append(w);
 
@@ -49,7 +49,7 @@ namespace RTLIL {
 		{
 			SigSpec sig;
 			sig.append(Const(0, 4));
-			Wire* w = m->addWire("$foo", 4);
+			Wire* w = m->addWire(d->twines.add(std::string{"$foo"}), 4);
 			sig.append(w);
 			sig.append(Const(15, 4));
 
