@@ -66,6 +66,10 @@ struct SynthPass : public ScriptPass
 		log("        use the specified Verilog file for extra techmap rules (can be specified multiple\n");
 		log("        times).\n");
 		log("\n");
+		log("    -extra-mlibmap <memory_map.txt>\n");
+		log("        use the provided library convert memory into hardware supported memory (can be specified\n");
+		log("        multiple times).\n");
+		log("\n");
 		log("    -nofsm\n");
 		log("        do not run FSM optimization\n");
 		log("\n");
@@ -75,9 +79,6 @@ struct SynthPass : public ScriptPass
 		log("\n");
 		log("    -carry <none|ha>\n");
 		log("        carry mapping style (none, half-adders, ...) default=none\n");
-		log("\n");
-		log("    -noregfile\n");
-		log("        do not map register files\n");
 		log("\n");
 		log("    -iopad\n");
 		log("        enable automatic insertion of IO buffers (otherwise a wrapper\n");
@@ -109,10 +110,10 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode;
-	std::vector<string> extra_plib, extra_map;
+	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
-	bool autotop, noalumacc, nofsm, noshare, noregfile, iopad, flatten;
+	bool autotop, noalumacc, nofsm, noshare, iopad, flatten;
 	int lut;
 
 	void clear_flags() override
@@ -183,6 +184,10 @@ struct SynthPass : public ScriptPass
 				extra_map.push_back(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-extra-mlibmap" && argidx+1 < args.size()) {
+				extra_mlibmap.push_back(args[++argidx]);
+				continue;
+			}
 			if (args[argidx] == "-nofsm") {
 				nofsm = true;
 				continue;
@@ -201,10 +206,6 @@ struct SynthPass : public ScriptPass
 			}
 			if (args[argidx] == "-no-rw-check") {
 				memory_opts += " -no-rw-check";
-				continue;
-			}
-			if (args[argidx] == "-noregfile") {
-				noregfile = true;
 				continue;
 			}
 			if (args[argidx] == "-iopad") {
@@ -294,12 +295,13 @@ struct SynthPass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (check_label("map_ram", "(unless -noregfile)")) {
-			// RegFile extraction
-			if (!noregfile) {
-				run("memory_libmap -lib +/fabulous/ram_regfile.txt");
-				run("techmap -map +/fabulous/regfile_map.v");
-			}
+		if (check_label("map_memory")) {
+			if (help_mode) {
+				run("memory_libmap -lib <memory_map.txt>", "(for each -extra-mlibmap)");
+			} else
+				for (auto lib : extra_mlibmap) {
+					run("memory_libmap -lib " + lib);
+				}
 		}
 
 		if (check_label("map_ffram")) {
