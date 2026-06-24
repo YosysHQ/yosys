@@ -58,6 +58,9 @@ struct SynthPass : public ScriptPass
 		log("    -ff <cell_type_pattern> <init_values>\n");
 		log("        convert FFs to cell types via dfflegalize (can be specified multiple times).\n");
 		log("\n");
+		log("    -clkbuf-map <clkbuf_map>\n");
+		log("        insert clock buffers using clkbufmap and map to the specified Verilog file.\n");
+		log("\n");
 		log("    -extra-plib <primitive_library.v>\n");
 		log("        use the specified Verilog file for extra primitives (can be specified multiple\n");
 		log("        times).\n");
@@ -109,7 +112,7 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode;
+	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, clkbuf_map;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
@@ -174,6 +177,10 @@ struct SynthPass : public ScriptPass
 				string cell = args[++argidx];
 				string init = args[++argidx];
 				extra_ffs.push_back({cell, init});
+				continue;
+			}
+			if (args[argidx] == "-clkbuf-map" && argidx+1 < args.size()) {
+				clkbuf_map = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-extra-plib" && argidx+1 < args.size()) {
@@ -361,6 +368,18 @@ struct SynthPass : public ScriptPass
 			run(stringf("techmap -D LUT_K=%d -map +/fabulous/cells_map.v", lut));
 			run("clean");
 		}
+
+		if (check_label("map_clkbufs")) {
+			if (help_mode) {
+				run("clkbufmap -buf $__FABULOUS_GBUF OUT:IN", "(if -clkbuf-map <clkbuf_map.v>)");
+				run("techmap -map <clkbuf_map.v>", "(if -clkbuf-map <clkbuf_map.v>)");
+			} else if (clkbuf_map != "") {
+				run("clkbufmap -buf $__FABULOUS_GBUF OUT:IN");
+				run(stringf("techmap -map %s", clkbuf_map));
+				run("clean");
+			}
+		}
+
 		if (check_label("check")) {
 			run("hierarchy -check");
 			run("stat");
