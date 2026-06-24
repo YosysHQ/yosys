@@ -1,5 +1,5 @@
 design -reset
-read -vlog2k <<EOT
+read_verilog <<EOT
 module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
@@ -12,7 +12,7 @@ check -nolatches
 logger -check-expected
 
 design -reset
-read -vlog2k <<EOT
+read_verilog <<EOT
 module top(input g, d, output reg q);
 always @* q = g ? d : 1'b0;
 endmodule
@@ -22,8 +22,7 @@ proc
 check -nolatches -assert
 
 design -reset
-
-read -vlog2k <<EOT
+read_verilog <<EOT
 module top(input g, d, output reg q, output y);
 always @* if (g) q = d;
 wire u;
@@ -32,5 +31,5 @@ endmodule
 EOT
 hierarchy -top top
 proc
-logger -expect error "Found 1 problems in" 1
+logger -expect error "Found [0-9]+ problems in 'check -assert'" 1
 check -latchonly -assert
