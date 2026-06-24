@@ -7,7 +7,7 @@
  *  purpose with or without fee is hereby granted, provided that the above
  *  copyright notice and this permission notice appear in all copies.
  *
- *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  THE SOFTWARE IS PROVTWED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
@@ -56,29 +56,29 @@ struct Coolrunner2SopPass : public Pass {
 			}
 
 			// Find wires that need to become special product terms
-			dict<SigBit, pool<tuple<Cell*, IdString>>> special_pterms_no_inv;
-			dict<SigBit, pool<tuple<Cell*, IdString>>> special_pterms_inv;
+			dict<SigBit, pool<tuple<Cell*, TwineRef>>> special_pterms_no_inv;
+			dict<SigBit, pool<tuple<Cell*, TwineRef>>> special_pterms_inv;
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type.in(ID(FDCP), ID(FDCP_N), ID(FDDCP), ID(FTCP), ID(FTCP_N), ID(FTDCP),
-							ID(FDCPE), ID(FDCPE_N), ID(FDDCPE), ID(LDCP), ID(LDCP_N)))
+				if (cell->type.in(TW::FDCP, TW::FDCP_N, TW::FDDCP, TW::FTCP, TW::FTCP_N, TW::FTDCP,
+							TW::FDCPE, TW::FDCPE_N, TW::FDDCPE, TW::LDCP, TW::LDCP_N))
 				{
 					if (cell->hasPort(TW::PRE))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::PRE)[0])].insert(
-							make_tuple(cell, ID(PRE)));
+							make_tuple(cell, TW::PRE));
 					if (cell->hasPort(TW::CLR))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::CLR)[0])].insert(
-							make_tuple(cell, ID::CLR));
+							make_tuple(cell, TW::CLR));
 					if (cell->hasPort(TW::CE))
 						special_pterms_no_inv[sigmap(cell->getPort(TW::CE)[0])].insert(
-							make_tuple(cell, ID(CE)));
+							make_tuple(cell, TW::CE));
 
 					if (cell->hasPort(TW::C))
 						special_pterms_inv[sigmap(cell->getPort(TW::C)[0])].insert(
-							make_tuple(cell, ID::C));
+							make_tuple(cell, TW::C));
 					if (cell->hasPort(TW::G))
 						special_pterms_inv[sigmap(cell->getPort(TW::G)[0])].insert(
-							make_tuple(cell, ID::G));
+							make_tuple(cell, TW::G));
 				}
 			}
 
@@ -90,11 +90,11 @@ struct Coolrunner2SopPass : public Pass {
 					// Read the inputs/outputs/parameters of the $sop cell
 					auto sop_inputs = sigmap(cell->getPort(TW::A));
 					auto sop_output = sigmap(cell->getPort(TW::Y))[0];
-					auto sop_depth = cell->getParam(ID::DEPTH).as_int();
-					auto sop_width = cell->getParam(ID::WIDTH).as_int();
-					auto sop_table = cell->getParam(ID::TABLE);
+					auto sop_depth = cell->getParam(ID(DEPTH)).as_int();
+					auto sop_width = cell->getParam(ID(WIDTH)).as_int();
+					auto sop_table = cell->getParam(ID(TABLE));
 
-					auto sop_output_wire_name = sop_output.wire->name.c_str();
+					auto sop_output_wire_name = sop_output.wire->name.str();
 
 					// Check for a $_NOT_ at the output
 					bool has_invert = false;
@@ -118,7 +118,7 @@ struct Coolrunner2SopPass : public Pass {
 					for (int i = 0; i < sop_depth; i++) {
 						// Wire for the output
 						auto and_out = module->addWire(
-							module->uniquify(stringf("$xc2sop$%s_AND%d_OUT", sop_output_wire_name, i)));
+							module->uniquify(design->twines.add(stringf("$xc2sop$%s_AND%d_OUT", sop_output_wire_name, i))));
 						intermed_wires.insert(and_out);
 
 						// Signals for the inputs
@@ -138,8 +138,8 @@ struct Coolrunner2SopPass : public Pass {
 
 						// Construct the cell
 						auto and_cell = module->addCell(
-							module->uniquify(stringf("$xc2sop$%s_AND%d", sop_output_wire_name, i)),
-							ID(ANDTERM));
+							module->uniquify(design->twines.add(stringf("$xc2sop$%s_AND%d", sop_output_wire_name, i))),
+							TW::ANDTERM);
 						and_cell->setParam(ID(TRUE_INP), GetSize(and_in_true));
 						and_cell->setParam(ID(COMP_INP), GetSize(and_in_comp));
 						and_cell->setPort(TW::OUT, and_out);
@@ -151,8 +151,8 @@ struct Coolrunner2SopPass : public Pass {
 					{
 						// If there is only one term, don't construct an OR cell. Directly construct the XOR gate
 						auto xor_cell = module->addCell(
-							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
-							ID(MACROCELL_XOR));
+							module->uniquify(design->twines.add(stringf("$xc2sop$%s_XOR", sop_output_wire_name))),
+							TW::MACROCELL_XOR);
 						xor_cell->setParam(ID(INVERT_OUT), has_invert);
 						xor_cell->setPort(TW::IN_PTC, *intermed_wires.begin());
 						xor_cell->setPort(TW::OUT, sop_output);
@@ -170,14 +170,14 @@ struct Coolrunner2SopPass : public Pass {
 								if (has_invert)
 								{
 									auto cell = std::get<0>(x);
-									if (cell->type == ID(FDCP)) cell->type = ID(FDCP_N);
-									else if (cell->type == ID(FDCP_N)) cell->type = ID(FDCP);
-									else if (cell->type == ID(FTCP)) cell->type = ID(FTCP_N);
-									else if (cell->type == ID(FTCP_N)) cell->type = ID(FTCP);
-									else if (cell->type == ID(FDCPE)) cell->type = ID(FDCPE_N);
-									else if (cell->type == ID(FDCPE_N)) cell->type = ID(FDCPE);
-									else if (cell->type == ID(LDCP)) cell->type = ID(LDCP_N);
-									else if (cell->type == ID(LDCP_N)) cell->type = ID(LDCP);
+									if (cell->type == TW::FDCP) cell->type_impl = TW::FDCP_N;
+									else if (cell->type == TW::FDCP_N) cell->type_impl = TW::FDCP;
+									else if (cell->type == TW::FTCP) cell->type_impl = TW::FTCP_N;
+									else if (cell->type == TW::FTCP_N) cell->type_impl = TW::FTCP;
+									else if (cell->type == TW::FDCPE) cell->type_impl = TW::FDCPE_N;
+									else if (cell->type == TW::FDCPE_N) cell->type_impl = TW::FDCPE;
+									else if (cell->type == TW::LDCP) cell->type_impl = TW::LDCP_N;
+									else if (cell->type == TW::LDCP_N) cell->type_impl = TW::LDCP;
 									else log_assert(!"Internal error! Bad cell type!");
 								}
 							}
@@ -198,20 +198,20 @@ struct Coolrunner2SopPass : public Pass {
 					{
 						// Wire from OR to XOR
 						auto or_to_xor_wire = module->addWire(
-							module->uniquify(stringf("$xc2sop$%s_OR_OUT", sop_output_wire_name)));
+							module->uniquify(design->twines.add(stringf("$xc2sop$%s_OR_OUT", sop_output_wire_name))));
 
 						// Construct the OR cell
 						auto or_cell = module->addCell(
-							module->uniquify(stringf("$xc2sop$%s_OR", sop_output_wire_name)),
-							ID(ORTERM));
+							module->uniquify(design->twines.add(stringf("$xc2sop$%s_OR", sop_output_wire_name))),
+							TW::ORTERM);
 						or_cell->setParam(ID::WIDTH, sop_depth);
 						or_cell->setPort(TW::IN, intermed_wires);
 						or_cell->setPort(TW::OUT, or_to_xor_wire);
 
 						// Construct the XOR cell
 						auto xor_cell = module->addCell(
-							module->uniquify(stringf("$xc2sop$%s_XOR", sop_output_wire_name)),
-							ID(MACROCELL_XOR));
+							module->uniquify(design->twines.add(stringf("$xc2sop$%s_XOR", sop_output_wire_name))),
+							TW::MACROCELL_XOR);
 						xor_cell->setParam(ID(INVERT_OUT), has_invert);
 						xor_cell->setPort(TW::IN_ORTERM, or_to_xor_wire);
 						xor_cell->setPort(TW::OUT, sop_output);
