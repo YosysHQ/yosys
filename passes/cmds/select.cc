@@ -1477,9 +1477,13 @@ struct SelectPass : public Pass {
 					log_warning("Ignoring line without slash in 'select -read': %s\n", line);
 					continue;
 				}
-				IdString mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
-				IdString obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
-				sel.selected_members[design->twines.add(std::string{mod_name.str()})].insert(design->twines.add(std::string{obj_name.str()}));
+				std::string mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
+				std::string obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
+				TwineRef mod_ref = search.find(mod_name);
+				TwineRef obj_ref = search.find(obj_name);
+				if (mod_ref == Twine::Null || obj_ref == Twine::Null)
+					continue;
+				sel.selected_members[mod_ref].insert(obj_ref);
 			}
 
 			select_filter_active_mod(design, sel);
