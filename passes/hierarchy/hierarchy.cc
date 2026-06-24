@@ -1583,7 +1583,7 @@ struct HierarchyPass : public Pass {
 
 						if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
 							log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", module, cell,
-									design->twines.str(conn.first).data(), GetSize(conn.second), GetSize(sig));
+									design->twines.unescaped_str(conn.first).data(), GetSize(conn.second), GetSize(sig));
 						cell->setPort(conn.first, sig);
 					}
 
