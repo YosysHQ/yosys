@@ -17,17 +17,16 @@
  *
  */
 
-#include "kernel/register.h"
 #include "kernel/celltypes.h"
-#include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "kernel/register.h"
+#include "kernel/rtlil.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SynthPass : public ScriptPass
-{
-	SynthPass() : ScriptPass("synth_fabulous", "FABulous synthesis script") { }
+struct SynthPass : public ScriptPass {
+	SynthPass() : ScriptPass("synth_fabulous", "FABulous synthesis script") {}
 
 	void help() override
 	{
@@ -143,28 +142,27 @@ struct SynthPass : public ScriptPass
 		clear_flags();
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-top" && argidx+1 < args.size()) {
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
 				top_module = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+			if (args[argidx] == "-json" && argidx + 1 < args.size()) {
 				json_file = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
+			if (args[argidx] == "-blif" && argidx + 1 < args.size()) {
 				blif_file = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-run" && argidx+1 < args.size()) {
-				size_t pos = args[argidx+1].find(':');
+			if (args[argidx] == "-run" && argidx + 1 < args.size()) {
+				size_t pos = args[argidx + 1].find(':');
 				if (pos == std::string::npos) {
 					run_from = args[++argidx];
 					run_to = args[argidx];
 				} else {
 					run_from = args[++argidx].substr(0, pos);
-					run_to = args[argidx].substr(pos+1);
+					run_to = args[argidx].substr(pos + 1);
 				}
 				continue;
 			}
@@ -172,21 +170,21 @@ struct SynthPass : public ScriptPass
 				autotop = true;
 				continue;
 			}
-			if (args[argidx] == "-lut" && argidx+1 < args.size()) {
+			if (args[argidx] == "-lut" && argidx + 1 < args.size()) {
 				lut = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-ff" && argidx+2 < args.size()) {
+			if (args[argidx] == "-ff" && argidx + 2 < args.size()) {
 				string cell = args[++argidx];
 				string init = args[++argidx];
 				extra_ffs.push_back({cell, init});
 				continue;
 			}
-			if (args[argidx] == "-clkbuf-map" && argidx+1 < args.size()) {
+			if (args[argidx] == "-clkbuf-map" && argidx + 1 < args.size()) {
 				clkbuf_map = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-multiplier-map" && argidx+6 < args.size()) {
+			if (args[argidx] == "-multiplier-map" && argidx + 6 < args.size()) {
 				multiplier_map = args[++argidx];
 				multiplier_a_max = atoi(args[++argidx].c_str());
 				multiplier_b_max = atoi(args[++argidx].c_str());
@@ -195,15 +193,15 @@ struct SynthPass : public ScriptPass
 				multiplier_y_min = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-extra-plib" && argidx+1 < args.size()) {
+			if (args[argidx] == "-extra-plib" && argidx + 1 < args.size()) {
 				extra_plib.push_back(args[++argidx]);
 				continue;
 			}
-			if (args[argidx] == "-extra-map" && argidx+1 < args.size()) {
+			if (args[argidx] == "-extra-map" && argidx + 1 < args.size()) {
 				extra_map.push_back(args[++argidx]);
 				continue;
 			}
-			if (args[argidx] == "-extra-mlibmap" && argidx+1 < args.size()) {
+			if (args[argidx] == "-extra-mlibmap" && argidx + 1 < args.size()) {
 				extra_mlibmap.push_back(args[++argidx]);
 				continue;
 			}
@@ -231,7 +229,7 @@ struct SynthPass : public ScriptPass
 				noiopad = true;
 				continue;
 			}
-			if (args[argidx] == "-carry" && argidx+1 < args.size()) {
+			if (args[argidx] == "-carry" && argidx + 1 < args.size()) {
 				carry_mode = args[++argidx];
 				if (carry_mode != "none" && carry_mode != "ha")
 					log_cmd_error("Unsupported carry style: %s\n", carry_mode);
@@ -260,9 +258,10 @@ struct SynthPass : public ScriptPass
 	{
 		if (help_mode) {
 			run("read_verilog -lib <extra_plib.v>", "(for each -extra-plib)");
-		} else for (auto lib : extra_plib) {
-			run("read_verilog -lib " + lib);
-		}
+		} else
+			for (auto lib : extra_plib) {
+				run("read_verilog -lib " + lib);
+			}
 
 		if (check_label("begin")) {
 			if (top_module.empty()) {
@@ -275,9 +274,7 @@ struct SynthPass : public ScriptPass
 			run("proc");
 		}
 
-
-		if (check_label("flatten", "(unless -noflatten)"))
-		{
+		if (check_label("flatten", "(unless -noflatten)")) {
 			if (flatten) {
 				run("check");
 				run("flatten");
@@ -287,7 +284,7 @@ struct SynthPass : public ScriptPass
 		}
 
 		if (check_label("coarse")) {
-	 		run("tribuf -logic");
+			run("tribuf -logic");
 			run("deminout");
 
 			// synth pass
@@ -309,21 +306,16 @@ struct SynthPass : public ScriptPass
 				run("wreduce t:$mul");
 				if (help_mode) {
 					run("techmap -map +/mul2dsp.v -map <multiplier_map> -D DSP_A_MAXWIDTH=<a_max> -D DSP_B_MAXWIDTH=<b_max> "
-						    "-D DSP_A_MINWIDTH=<a_min> -D DSP_B_MINWIDTH=<b_min> -D DSP_Y_MINWIDTH=<y_min> "
-						    "-D DSP_NAME=$__FABULOUS_MUL", "(if -multiplier-map)");
+					    "-D DSP_A_MINWIDTH=<a_min> -D DSP_B_MINWIDTH=<b_min> -D DSP_Y_MINWIDTH=<y_min> "
+					    "-D DSP_NAME=$__FABULOUS_MUL",
+					    "(if -multiplier-map)");
 				} else {
 					run(stringf("techmap -map +/mul2dsp.v -map %s -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d "
 						    "-D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_Y_MINWIDTH=%d "
 						    "-D DSP_NAME=$__FABULOUS_MUL",
-						    multiplier_map.c_str(),
-						    multiplier_a_max,
-						    multiplier_b_max,
-						    multiplier_a_min,
-						    multiplier_b_min,
-						    multiplier_y_min
-						)
-					);
-			        }
+						    multiplier_map.c_str(), multiplier_a_max, multiplier_b_max, multiplier_a_min, multiplier_b_min,
+						    multiplier_y_min));
+				}
 				run("select a:mul2dsp", "              (if -multiplier-map)");
 				run("setattr -unset mul2dsp", "        (if -multiplier-map)");
 				run("opt_expr -fine", "                (if -multiplier-map)");
@@ -369,7 +361,6 @@ struct SynthPass : public ScriptPass
 			    "-toutpad $__FABULOUS_TBUF EN:IN:PAD "
 			    "-tinoutpad $__FABULOUS_IOBUF EN:OUT:IN:PAD");
 		}
-
 
 		if (check_label("map_ffs")) {
 			if (help_mode) {
@@ -423,18 +414,14 @@ struct SynthPass : public ScriptPass
 			run("stat");
 		}
 
-		if (check_label("blif"))
-		{
-			if (!blif_file.empty() || help_mode)
-			{
+		if (check_label("blif")) {
+			if (!blif_file.empty() || help_mode) {
 				run("opt_clean -purge");
-				run(stringf("write_blif -attr -cname -conn -param %s",
-						help_mode ? "<file-name>" : blif_file.c_str()));
+				run(stringf("write_blif -attr -cname -conn -param %s", help_mode ? "<file-name>" : blif_file.c_str()));
 			}
 		}
 
-		if (check_label("json"))
-		{
+		if (check_label("json")) {
 			if (!json_file.empty() || help_mode)
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
