@@ -798,7 +798,7 @@ struct TechmapWorker
 								RTLIL::SigSpec value = elem.value;
 								if (value.is_fully_const() && value.as_bool()) {
 									log("Not using module `%s' from techmap as it contains a %s marker wire with non-zero value %s.\n",
-											design->twines.unescaped_str(derived_name).data(), design->twines.unescaped_str(elem.wire->name.ref()).data(), log_signal(value));
+											map->twines.unescaped_str(derived_name).data(), map->twines.unescaped_str(elem.wire->name.ref()).data(), log_signal(value));
 									techmap_do_cache[tpl] = false;
 								}
 							}
