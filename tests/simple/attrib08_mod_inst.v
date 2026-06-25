@@ -19,4 +19,3 @@ module attrib08_foo(clk, rst, inp, out);
   (* my_module_instance = 99 *)
   attrib08_bar bar_instance (clk, rst, inp, out);
 endmodule
-

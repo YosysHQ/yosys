@@ -3,7 +3,7 @@ read_verilog <<EOT
 module uut(
     input a,
     output y, z
-);  
+);
     assign y = a == a;
     assign z = a != a;
 endmodule

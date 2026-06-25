@@ -28,4 +28,3 @@ hierarchy -top mod_and_or
 opt
 extract -map ./bug3515.v
 select -assert-count 2 t:$and
-

@@ -6,7 +6,7 @@ reg   y;
 wire a, b;
 
 always @ ( a or b)
-begin	
+begin
   y = a & b;
 end
 

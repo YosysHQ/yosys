@@ -21,7 +21,7 @@ from sphinx.util.nodes import make_refnode
 from sphinx.util.docfields import Field, GroupedField
 from sphinx import addnodes
 
-class TocNode(ObjectDescription):    
+class TocNode(ObjectDescription):
     def add_target_and_index(
         self,
         name: str,
@@ -64,7 +64,7 @@ class NodeWithOptions(TocNode):
     doc_field_types = [
         GroupedField('opts', label='Options', names=('option', 'options', 'opt', 'opts')),
     ]
-    
+
     def transform_content(self, contentnode: addnodes.desc_content) -> None:
         """hack `:option -thing: desc` into a proper option list with yoscrypt highlighting"""
         newchildren = []
@@ -290,7 +290,7 @@ class CellNode(TocNode):
                          self.env.docname,
                          idx,
                          0))
-            
+
     def transform_content(self, contentnode: addnodes.desc_content) -> None:
         # Add the cell title to the body
         if 'title' in self.options:
@@ -380,7 +380,7 @@ class CellSourceNode(TocNode):
                     # only add target and index entry if this is the first
                     # description of the object with this name in this desc block
                     self.add_target_and_index(name, sig, signode)
-        
+
         # handle code
         code = '\n'.join(self.content)
         literal: Element = nodes.literal_block(code, code)
@@ -420,11 +420,11 @@ class CellGroupNode(TocNode):
 
 class TagIndex(Index):
     """A custom directive that creates a tag matrix."""
-    
+
     name = 'tag'
     localname = 'Tag Index'
     shortname = 'Tag'
-    
+
     def __init__(self, *args, **kwargs):
         super(TagIndex, self).__init__(*args, **kwargs)
 
@@ -458,14 +458,14 @@ class TagIndex(Index):
         objs = {name: (dispname, typ, docname, anchor)
                 for name, dispname, typ, docname, anchor, prio
                 in self.domain.get_objects()}
-        
+
         tmap = {}
         tags = self.domain.data[f'obj2{self.name}']
         for name, tags in tags.items():
             for tag in tags:
                 tmap.setdefault(tag,[])
                 tmap[tag].append(name)
-            
+
         for tag in tmap.keys():
             lis = content.setdefault(tag, [])
             objlis = tmap[tag]
@@ -480,11 +480,11 @@ class TagIndex(Index):
 
         return (ret, True)
 
-class CommandIndex(Index):    
+class CommandIndex(Index):
     name = 'cmd'
     localname = 'Command Reference'
     shortname = 'Command'
-    
+
     def __init__(self, *args, **kwargs):
         super(CommandIndex, self).__init__(*args, **kwargs)
 
@@ -525,7 +525,7 @@ class CommandIndex(Index):
             lis.append((
                 dispname, 0, docname,
                 anchor,
-                '', '', title 
+                '', '', title
             ))
         ret = [(k, v) for k, v in sorted(content.items())]
 
@@ -538,7 +538,7 @@ class CellIndex(CommandIndex):
 
 class PropIndex(TagIndex):
     """A custom directive that creates a properties matrix."""
-    
+
     name = 'prop'
     localname = 'Property Index'
     shortname = 'Prop'
@@ -659,7 +659,7 @@ class CommandDomain(Domain):
         else:
             print(f"Missing ref for {target} in {fromdocname} ")
             return None
-        
+
 class CellDomain(CommandDomain):
     name = 'cell'
     label = 'Yosys internal cells'
@@ -730,8 +730,8 @@ def setup(app: Sphinx):
         ('cell-prop', '')
 
     app.add_role('autoref', autoref)
-    
+
     return {
-        'version': '0.3',    
+        'version': '0.3',
         'parallel_read_safe': False,
     }

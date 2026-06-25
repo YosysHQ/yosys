@@ -199,7 +199,7 @@ opt_expr <adv_opt_expr>`.
 .. todo:: consider a brief glossary for terms like adff
 
 .. seealso:: Advanced usage docs for
-   
+
    - :doc:`/using_yosys/synthesis/proc`
    - :doc:`/using_yosys/synthesis/opt`
 
@@ -321,7 +321,7 @@ and merged with the ``raddr`` wire feeding into the `$memrd` cell.  This wire
 merging happened during the call to `clean` which we can see in the
 :ref:`flat_clean`.
 
-.. note:: 
+.. note::
 
    `flatten` and `clean` would normally be combined into a
    single :yoterm:`yosys> flatten;;` output, but they appear separately here as
@@ -394,7 +394,7 @@ highlighted below:
    ``rdata`` output after `opt_dff`
 
 .. seealso:: Advanced usage docs for
-   
+
    - :doc:`/using_yosys/synthesis/fsm`
    - :doc:`/using_yosys/synthesis/opt`
 
@@ -461,7 +461,7 @@ memory read with appropriate enable (``EN=1'1``) and reset (``ARST=1'0`` and
 ``SRST=1'0``) inputs.
 
 .. seealso:: Advanced usage docs for
-   
+
    - :doc:`/using_yosys/synthesis/opt`
    - :doc:`/using_yosys/synthesis/techmap_synth`
    - :doc:`/using_yosys/synthesis/memory`
@@ -659,7 +659,7 @@ into flip flops (the ``logic fallback``) with `memory_map`.
    complex.
 
 .. seealso:: Advanced usage docs for
-   
+
    - :doc:`/using_yosys/synthesis/techmap_synth`
    - :doc:`/using_yosys/synthesis/memory`
 
@@ -757,7 +757,7 @@ cells.
    ``rdata`` output after :ref:`map_cells`
 
 .. seealso:: Advanced usage docs for
-   
+
    - :doc:`/using_yosys/synthesis/techmap_synth`
    - :doc:`/using_yosys/synthesis/abc`
 

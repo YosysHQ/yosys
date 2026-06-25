@@ -29,7 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 
 struct QlBramTypesPass : public Pass {
-	
+
 	QlBramTypesPass() : Pass("ql_bram_types", "Change TDP36K type to subtypes") {}
 
 	void help() override
@@ -81,7 +81,7 @@ struct QlBramTypesPass : public Pass {
 			{
 				if (cell->type != ID(TDP36K) || !cell->hasParam(ID(MODE_BITS)))
 					continue;
-				
+
 				RTLIL::Const mode_bits = cell->getParam(ID(MODE_BITS));
 
 				bool split = mode_bits.extract(80).as_bool();
@@ -139,7 +139,7 @@ struct QlBramTypesPass : public Pass {
 						type += "SYNC_";
 					else
 						type += "ASYNC_";
-				} else 
+				} else
 					type += "_BRAM_";
 
 				if (split) {

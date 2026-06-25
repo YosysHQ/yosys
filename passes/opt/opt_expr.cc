@@ -1993,6 +1993,56 @@ skip_identity:
 		}
 skip_alu_split:
 
+		// replace (2^k-1)-x with ~x when x is known to be smaller than 2^k
+		if (do_fine && cell->type == ID($sub))
+		{
+			int y_width = GetSize(cell->getPort(ID::Y));
+			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
+
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			sig_a.extend_u0(y_width, a_signed);
+
+			if (y_width > 0 && sig_a.is_fully_const())
+			{
+				RTLIL::Const a_val = sig_a.as_const();
+
+				int k = 0;
+				while (k < y_width && a_val[k] == State::S1)
+					k++;
+
+				bool a_is_mask = k > 0;
+				for (int i = k; a_is_mask && i < y_width; i++)
+					if (a_val[i] != State::S0)
+						a_is_mask = false;
+
+				if (a_is_mask)
+				{
+					bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
+					RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+					sig_b.extend_u0(y_width, b_signed);
+
+					bool b_fits = true;
+					for (int i = k; b_fits && i < y_width; i++)
+						if (sig_b[i] != State::S0)
+							b_fits = false;
+
+					if (b_fits)
+					{
+						RTLIL::SigSpec sig_y = module->Not(NEW_ID, sig_b.extract(0, k));
+						if (y_width > k)
+							sig_y.append(RTLIL::SigSpec(State::S0, y_width - k));
+
+						log_debug("Replacing `(2^%d-1) - B` $sub cell `%s' in module `%s' with $not.\n",
+								k, cell->name.c_str(), module->name.c_str());
+						module->connect(cell->getPort(ID::Y), sig_y);
+						module->remove(cell);
+						did_something = true;
+						goto next_cell;
+					}
+				}
+			}
+		}
+
 		// remove redundant pairs of bits in ==, ===, !=, and !==
 		// replace cell with const driver if inputs can't be equal
 		if (do_fine && cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex)))

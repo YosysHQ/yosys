@@ -18,4 +18,3 @@ module attrib01_foo(clk, rst, inp, out);
 
   attrib01_bar bar_instance (clk, rst, inp, out);
 endmodule
-

@@ -2,7 +2,7 @@ module $__NX_RFB_M_ (
   input PORT_W_CLK,
   input PORT_W_WR_EN,
   input [5:0] PORT_W_ADDR,
-  input [15:0] PORT_W_WR_DATA, 
+  input [15:0] PORT_W_WR_DATA,
   input PORT_R_CLK,
   input PORT_R_RD_EN,
   input [5:0] PORT_R_ADDR,

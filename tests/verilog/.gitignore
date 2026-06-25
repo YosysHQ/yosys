@@ -7,4 +7,5 @@
 /roundtrip_proc_2.v
 /assign_to_reg.v
 /subdir
+/temp
 /temp_foo.v

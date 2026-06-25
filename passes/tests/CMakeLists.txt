@@ -7,6 +7,9 @@ yosys_test_pass(cell
 yosys_test_pass(abcloop
 	test_abcloop.cc
 )
+yosys_test_pass(kogge_stone
+	test_kogge_stone.cc
+)
 
 yosys_pass(raise_error
 	raise_error.cc

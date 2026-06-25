@@ -1,0 +1,87 @@
+# https://github.com/YosysHQ/yosys/issues/964
+
+read_verilog -formal <<EOT
+module mux_index_8_2 #(parameter N=8, parameter W=2) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output [W-1:0] o);
+	assign o = i[s*W+:W];
+endmodule
+EOT
+
+prep
+design -save gold
+
+opt
+peepopt
+techmap
+opt
+muxcover -mux8
+clean
+opt_expr -mux_bool
+
+select -assert-count 2 t:$_MUX8_
+select -assert-none t:$_MUX_ t:$_MUX4_ t:$_MUX16_
+select -assert-none t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
+
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts miter
+
+design -reset
+read_verilog -formal <<EOT
+module mux_index_8_3 #(parameter N=8, parameter W=3) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output [W-1:0] o);
+	assign o = i[s*W+:W];
+endmodule
+EOT
+
+prep
+design -save gold
+
+opt
+peepopt
+techmap
+opt
+muxcover -mux8
+clean
+opt_expr -mux_bool
+
+select -assert-count 3 t:$_MUX8_
+select -assert-none t:$_MUX_ t:$_MUX4_ t:$_MUX16_
+select -assert-none t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
+
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts miter
+
+design -reset
+read_verilog -formal <<EOT
+module mux_index_8_4 #(parameter N=8, parameter W=4) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output [W-1:0] o);
+	assign o = i[s*W+:W];
+endmodule
+EOT
+
+prep
+design -save gold
+
+opt
+peepopt
+techmap
+opt
+muxcover -mux8
+clean
+opt_expr -mux_bool
+
+select -assert-count 4 t:$_MUX8_
+select -assert-none t:$_MUX_ t:$_MUX4_ t:$_MUX16_
+select -assert-none t:$_AND_ t:$_OR_ t:$_XOR_ t:$_NAND_ t:$_NOR_ t:$_XNOR_
+
+techmap -map +/simcells.v t:$_MUX8_
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts miter

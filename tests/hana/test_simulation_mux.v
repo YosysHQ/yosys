@@ -31,7 +31,7 @@ always @( in or select)
 	    0: out = in[0];
 	    1: out = in[1];
 	endcase
-endmodule	
+endmodule
 
 // test_simulation_mux_32_test.v
 module f3_test(input [31:0] in, input [4:0] select, output reg out);
@@ -71,7 +71,7 @@ always @( in or select)
 	    30: out = in[30];
 	    31: out = in[31];
 	endcase
-endmodule	
+endmodule
 
 
 // test_simulation_mux_4_test.v
@@ -84,7 +84,7 @@ always @( in or select)
 	    2: out = in[2];
 	    3: out = in[3];
 	endcase
-endmodule	
+endmodule
 
 // test_simulation_mux_64_test.v
 module f5_test(input [63:0] in, input [5:0] select, output reg out);
@@ -156,7 +156,7 @@ always @( in or select)
 	    62: out = in[62];
 	    63: out = in[63];
 	endcase
-endmodule	
+endmodule
 
 
 // test_simulation_mux_8_test.v

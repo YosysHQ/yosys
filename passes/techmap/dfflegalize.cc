@@ -139,7 +139,7 @@ struct DffLegalizePass : public Pass {
 	}
 
 	// Table of all supported cell types.
-	// First index in the array is one of the FF_* values, second 
+	// First index in the array is one of the FF_* values, second
 	// index is the set of negative-polarity inputs (OR of NEG_*
 	// values), and the value is the set of supported init values
 	// (OR of INIT_* values).
@@ -370,10 +370,16 @@ struct DffLegalizePass : public Pass {
 				else
 					fail_ff(ff, "initialized dffs with async set and reset are not supported");
 			} else {
-				if (!supported_cells[FF_DLATCHSR])
-					fail_ff(ff, "dlatch with async set and reset are not supported");
-				else
-					fail_ff(ff, "initialized dlatch with async set and reset are not supported");
+				if (!supported_dlatch) {
+					if (!supported_cells[FF_DLATCHSR])
+						fail_ff(ff, "dlatch with async set and reset are not supported");
+					else
+						fail_ff(ff, "initialized dlatch with async set and reset are not supported");
+				}
+				if (ff.cell)
+					log_warning("Emulating async set + reset latch with a plain D latch and logic for %s.%s\n", ff.module->name.unescape(), ff.cell->name.unescape());
+				emulate_dlatch(ff);
+				return;
 			}
 		}
 
@@ -447,6 +453,51 @@ struct DffLegalizePass : public Pass {
 		legalize_ff(ff_clr);
 		legalize_ff(ff_set);
 		legalize_ff(ff_sel);
+	}
+
+	void emulate_dlatch(FfData &ff) {
+		// emulate adlatch or dlatchsr
+		log_assert(!ff.has_clk);
+		log_assert(ff.has_aload);
+		log_assert(ff.width == 1);
+
+		auto active_high = [&](SigBit sig, bool pol) -> SigBit {
+			if (pol)
+				return sig;
+			return ff.is_fine ? ff.module->NotGate(NEW_ID, sig) : ff.module->Not(NEW_ID, sig)[0];
+		};
+
+		auto do_mux = [&](SigBit a, SigBit b, SigBit s) -> SigBit {
+			return ff.is_fine ? ff.module->MuxGate(NEW_ID, a, b, s) : ff.module->Mux(NEW_ID, a, b, s)[0];
+		};
+
+		auto do_or = [&](SigBit a, SigBit b) -> SigBit {
+			return ff.is_fine ? ff.module->OrGate(NEW_ID, a, b) : ff.module->Or(NEW_ID, a, b)[0];
+		};
+
+		SigBit en = active_high(ff.sig_aload, ff.pol_aload);
+		SigBit d = ff.sig_ad;
+
+		if (ff.has_sr) {
+			SigBit set = active_high(ff.sig_set[0], ff.pol_set);
+			SigBit clr = active_high(ff.sig_clr[0], ff.pol_clr);
+			// clr > set > load > hold
+			d = do_mux(d, State::S1, set);
+			d = do_mux(d, State::S0, clr);
+			en = do_or(en, do_or(set, clr));
+			ff.has_sr = false;
+		}
+		if (ff.has_arst) {
+			SigBit arst = active_high(ff.sig_arst[0], ff.pol_arst);
+			d = do_mux(d, ff.val_arst[0], arst);
+			en = do_or(en, arst);
+			ff.has_arst = false;
+		}
+
+		ff.sig_ad = d;
+		ff.sig_aload = en;
+		ff.pol_aload = true;
+		legalize_dlatch(ff);
 	}
 
 	void legalize_dff(FfData &ff) {
@@ -742,8 +793,14 @@ struct DffLegalizePass : public Pass {
 
 	void legalize_adlatch(FfData &ff) {
 		if (!try_flip(ff, supported_adlatch)) {
-			if (!supported_adlatch)
-				fail_ff(ff, "D latches with async set or reset are not supported");
+			if (!supported_adlatch) {
+				if (!supported_dlatch)
+					fail_ff(ff, "D latches with async set or reset are not supported");
+				if (ff.cell)
+					log_warning("Emulating async reset latch with a plain D latch and logic for %s.%s\n", ff.module->name.unescape(), ff.cell->name.unescape());
+				emulate_dlatch(ff);
+				return;
+			}
 			if (!(supported_dlatch & (INIT_0 | INIT_1)))
 				fail_ff(ff, "initialized D latches are not supported");
 

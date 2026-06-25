@@ -1,7 +1,7 @@
 module reg_seq_example( clk, reset, d, q);
 input clk, reset, d;
 output q;
-  
+
 reg   q;
 wire clk, reset, d;
 

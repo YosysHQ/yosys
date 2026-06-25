@@ -476,7 +476,7 @@ endmodule
 //-     $sshl (A, B, Y)
 //* group binary
 //-
-//- An arithmatic shift-left operation. 
+//- An arithmatic shift-left operation.
 //- This corresponds to the Verilog '<<<' operator.
 //-
 module \$sshl (A, B, Y);
@@ -720,7 +720,7 @@ endmodule
 //-     $lt (A, B, Y)
 //* group binary
 //-
-//- A less-than comparison between inputs 'A' and 'B'. 
+//- A less-than comparison between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '<' operator.
 //-
 module \$lt (A, B, Y);
@@ -752,7 +752,7 @@ endmodule
 //-     $le (A, B, Y)
 //* group binary
 //-
-//- A less-than-or-equal-to comparison between inputs 'A' and 'B'. 
+//- A less-than-or-equal-to comparison between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '<=' operator.
 //-
 module \$le (A, B, Y);
@@ -784,7 +784,7 @@ endmodule
 //-     $eq (A, B, Y)
 //* group binary
 //-
-//- An equality comparison between inputs 'A' and 'B'. 
+//- An equality comparison between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '==' operator.
 //-
 module \$eq (A, B, Y);
@@ -816,7 +816,7 @@ endmodule
 //-     $ne (A, B, Y)
 //* group binary
 //-
-//- An inequality comparison between inputs 'A' and 'B'. 
+//- An inequality comparison between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '!=' operator.
 //-
 module \$ne (A, B, Y);
@@ -944,7 +944,7 @@ endmodule
 //-     $gt (A, B, Y)
 //* group binary
 //-
-//- A greater-than comparison between inputs 'A' and 'B'. 
+//- A greater-than comparison between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '>' operator.
 //-
 module \$gt (A, B, Y);
@@ -1477,7 +1477,7 @@ endmodule
 //-     $pow (A, B, Y)
 //* group binary
 //-
-//- Exponentiation of an input (Y = A ** B). 
+//- Exponentiation of an input (Y = A ** B).
 //- This corresponds to the Verilog '**' operator.
 //-
 `ifndef SIMLIB_NOPOW
@@ -1809,7 +1809,7 @@ endmodule
 //-
 //-     $tribuf (A, EN, Y)
 //-
-//- A tri-state buffer. 
+//- A tri-state buffer.
 //- This buffer conditionally drives the output with the value of the input
 //- based on the enable signal.
 //-

@@ -406,7 +406,7 @@ void AigerReader::parse_xaiger()
 		module->connect(n0, State::S0);
 
 	int c = f.get();
-	if (c != 'c')
+	if (c != 'c') // 'c'omment section (used for extensions)
 		log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
 	if (f.peek() == '\n')
 		f.get();
@@ -415,7 +415,7 @@ void AigerReader::parse_xaiger()
 	std::string s;
 	for (int c = f.get(); c != EOF; c = f.get()) {
 		// XAIGER extensions
-		if (c == 'm') {
+		if (c == 'm') { // LUT 'm'apping
 			uint32_t dataSize = parse_xaiger_literal(f);
 			uint32_t lutNum = parse_xaiger_literal(f);
 			uint32_t lutSize = parse_xaiger_literal(f);
@@ -461,7 +461,83 @@ void AigerReader::parse_xaiger()
 				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 			}
 		}
-		else if (c == 'r') {
+		else if (c == 'M') { // cell 'M'apping
+			struct MappingCell {
+				RTLIL::IdString type;
+				RTLIL::IdString out;
+				std::vector<RTLIL::IdString> ins;
+			};
+			std::vector<MappingCell> mapping_cells;
+
+			/* uint32_t dataSize = */ (void)parse_xaiger_literal(f);
+			uint32_t cellNum = parse_xaiger_literal(f);
+			uint32_t instanceNum = parse_xaiger_literal(f);
+			log_debug2("M: dataSize=%u cellNum=%u instanceNum=%u\n", dataSize, cellNum, instanceNum);
+
+			for (unsigned i = 0; i < cellNum; ++i) {
+				MappingCell mapping_cell{};
+				auto cellName = std::string{}; // name of cell
+				auto outPinName = std::string{}; // name of cell output pin
+				std::getline(f, cellName, '\0');
+				std::getline(f, outPinName, '\0');
+				uint32_t inPinNum = parse_xaiger_literal(f);
+				log_debug2("M: cellID=%u cellName=%s outPinName=%s inPinNum=%u\n", i, cellName, outPinName, inPinNum);
+				mapping_cell.type = RTLIL::escape_id(cellName);
+				mapping_cell.out = RTLIL::escape_id(outPinName);
+
+				auto module = design->addModule(RTLIL::escape_id(cellName));
+				module->set_bool_attribute(ID::blackbox);
+				module->addWire(RTLIL::escape_id(outPinName))->port_output = true;
+
+				for (unsigned j = 0; j < inPinNum; ++j) {
+					auto inPinName = std::string{};
+					std::getline(f, inPinName, '\0');
+					log_debug2("M:    inPinName=%s\n", inPinName);
+					mapping_cell.ins.push_back(RTLIL::escape_id(inPinName));
+					module->addWire(RTLIL::escape_id(inPinName))->port_input = true;
+				}
+
+				module->fixup_ports();
+
+				mapping_cells.push_back(std::move(mapping_cell));
+			}
+
+			for (unsigned i = 0; i < instanceNum; ++i) {
+				uint32_t cellID = parse_xaiger_literal(f);
+				uint32_t rootNodeID = parse_xaiger_literal(f);
+
+				log_assert(cellID < cellNum);
+				MappingCell &mapping_cell = mapping_cells.at(cellID);
+
+				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, RTLIL::unescape_id(mapping_cell.out), rootNodeID);
+
+				RTLIL::Wire *output_sig = createWireIfNotExists(module, rootNodeID);
+				log_assert(output_sig);
+
+				{
+					RTLIL::IdString output_cell_name;
+					if ((rootNodeID & 1) == 0) { // uninverted
+						output_cell_name = stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID >> 1);
+					} else { // inverted
+						output_cell_name = stringf("$not$aiger%d$%d", aiger_autoidx, rootNodeID >> 1);
+					}
+					RTLIL::Cell *output_cell = module->cell(output_cell_name);
+					log_assert(output_cell);
+					module->remove(output_cell);
+				}
+
+				RTLIL::Cell *cell = module->addCell(stringf("$sc$aiger%d$%d", aiger_autoidx, rootNodeID), mapping_cell.type);
+				cell->setPort(mapping_cell.out, output_sig);
+
+				for (unsigned j = 0; j < mapping_cell.ins.size(); ++j) {
+					auto nodeID = parse_xaiger_literal(f);
+					log_debug("M:    inPort=%s nodeID=%u\n", RTLIL::unescape_id(mapping_cell.ins.at(j)), nodeID);
+					RTLIL::Wire *input_sig = createWireIfNotExists(module, nodeID);
+					cell->setPort(mapping_cell.ins.at(j), input_sig);
+				}
+			}
+		}
+		else if (c == 'r') { // 'r'egister classes
 			uint32_t dataSize = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_debug("flopNum = %u\n", flopNum);
@@ -470,7 +546,7 @@ void AigerReader::parse_xaiger()
 			for (unsigned i = 0; i < flopNum; i++)
 				mergeability.emplace_back(parse_xaiger_literal(f));
 		}
-		else if (c == 's') {
+		else if (c == 's') { // register initial 's'tates
 			uint32_t dataSize = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
@@ -478,13 +554,13 @@ void AigerReader::parse_xaiger()
 			for (unsigned i = 0; i < flopNum; i++)
 				initial_state.emplace_back(parse_xaiger_literal(f));
 		}
-		else if (c == 'n') {
+		else if (c == 'n') { // 'n'ame
 			parse_xaiger_literal(f);
 			f >> s;
 			log_debug("n: '%s'\n", s);
 		}
-		else if (c == 'h') {
-			f.ignore(sizeof(uint32_t));
+		else if (c == 'h') { // 'h'ierarchy information
+			f.ignore(sizeof(uint32_t)); // length
 			uint32_t version = parse_xaiger_literal(f);
 			log_assert(version == 1);
 			uint32_t ciNum = parse_xaiger_literal(f);
@@ -510,7 +586,7 @@ void AigerReader::parse_xaiger()
 				boxes.emplace_back(cell);
 			}
 		}
-		else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
+		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {
 			uint32_t dataSize = parse_xaiger_literal(f);
 			f.ignore(dataSize);
 			log_debug("ignoring '%c'\n", c);

@@ -55,5 +55,3 @@ module \$lut (A, Y);
 	   wire _TECHMAP_FAIL_ = 1;
    endgenerate
 endmodule //
-
-

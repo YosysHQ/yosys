@@ -6,7 +6,7 @@
 //-----------------------------------------------------
 
 module clk_div (clk_in, enable,reset, clk_out);
- // --------------Port Declaration----------------------- 
+ // --------------Port Declaration-----------------------
  input               clk_in                   ;
  input               reset                    ;
  input               enable                   ;
@@ -16,12 +16,12 @@ module clk_div (clk_in, enable,reset, clk_out);
  wire                 enable                  ;
 //--------------Internal Registers----------------------
 reg                   clk_out                 ;
-//--------------Code Starts Here----------------------- 
-always @ (posedge clk_in) 
-if (reset) begin 
+//--------------Code Starts Here-----------------------
+always @ (posedge clk_in)
+if (reset) begin
   clk_out <= 1'b0;
 end else if (enable) begin
-  clk_out <= !clk_out ; 
+  clk_out <= !clk_out ;
 end
 
-endmodule  
+endmodule

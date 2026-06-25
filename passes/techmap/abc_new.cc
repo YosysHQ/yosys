@@ -135,7 +135,7 @@ struct AbcNewPass : public ScriptPass {
 	void script() override
 	{
 		if (check_label("check")) {
-			run("abc9_ops -check");	
+			run("abc9_ops -check");
 		}
 
 		if (check_label("prep_boxes")) {

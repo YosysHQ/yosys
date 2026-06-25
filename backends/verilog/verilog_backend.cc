@@ -197,14 +197,22 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 
 	reg_name = id(chunk.wire->name);
 	if (sig.size() != chunk.wire->width) {
-		if (sig.size() == 1)
-			reg_name += stringf("[%d]", chunk.wire->start_offset +  chunk.offset);
-		else if (chunk.wire->upto)
-			reg_name += stringf("[%d:%d]", (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
-					(chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
+		int idx;
+		if (chunk.wire->upto)
+			idx = (chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset;
 		else
-			reg_name += stringf("[%d:%d]", chunk.wire->start_offset +  chunk.offset + chunk.width - 1,
-					chunk.wire->start_offset +  chunk.offset);
+			idx = chunk.wire->start_offset + chunk.offset;
+
+		if (sig.size() == 1)
+			reg_name += stringf("[%d]", idx);
+		else {
+			int left_idx;
+			if (chunk.wire->upto)
+				left_idx = (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset;
+			else
+				left_idx = chunk.wire->start_offset +  chunk.offset + chunk.width - 1;
+			reg_name += stringf("[%d:%d]", left_idx, idx);
+		}
 	}
 
 	return true;
@@ -474,21 +482,22 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 		if (wire->attributes.count(ID::single_bit_vector))
 			range = stringf(" [%d:%d]", wire->start_offset, wire->start_offset);
 	}
+	std::string sign = wire->is_signed ? " signed" : "";
 	if (wire->port_input && !wire->port_output)
-		f << stringf("%s" "input%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "input%s%s %s;\n", indent, sign, range, id(wire->name));
 	if (!wire->port_input && wire->port_output)
-		f << stringf("%s" "output%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "output%s%s %s;\n", indent, sign, range, id(wire->name));
 	if (wire->port_input && wire->port_output)
-		f << stringf("%s" "inout%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "inout%s%s %s;\n", indent, sign, range, id(wire->name));
 	if (reg_wires.count(wire->name)) {
-		f << stringf("%s" "reg%s %s", indent, range, id(wire->name));
+		f << stringf("%s" "reg%s%s %s", indent, sign, range, id(wire->name));
 		if (wire->attributes.count(ID::init)) {
 			f << stringf(" = ");
 			dump_const(f, wire->attributes.at(ID::init));
 		}
 		f << stringf(";\n");
 	} else
-		f << stringf("%s" "wire%s %s;\n", indent, range, id(wire->name));
+		f << stringf("%s" "wire%s%s %s;\n", indent, sign, range, id(wire->name));
 #endif
 }
 

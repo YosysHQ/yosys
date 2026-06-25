@@ -4962,11 +4962,7 @@ struct ReadPass : public Pass {
 			if (use_verific) {
 				args[0] = "verific";
 			} else {
-#if !defined(__wasm)
 				args[0] = "read_verilog_file_list";
-#else
-				cmd_error(args, 1, "Command files are not supported on this platform.\n");
-#endif
 			}
 			Pass::call(design, args);
 			return;

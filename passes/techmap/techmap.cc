@@ -338,7 +338,7 @@ struct TechmapWorker
 
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
 			design->select(module, c);
-			
+
 			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
 				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
 				c->attributes.erase(ID::techmap_chtype);

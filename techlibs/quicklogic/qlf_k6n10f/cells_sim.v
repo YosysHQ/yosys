@@ -372,4 +372,3 @@ module latchnsre (
 		endspecify
 
 endmodule
-

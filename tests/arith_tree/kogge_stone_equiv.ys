@@ -1,0 +1,67 @@
+# Verify that CompressorTree::emit_kogge_stone() is eq to the implementation in techlibs/common/choices/kogge-stone.v
+
+test_kogge_stone -width 1
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 2
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 3
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 4
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 5
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 7
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 8
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 16
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 17
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 32
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset
+
+test_kogge_stone -width 33
+techmap -map +/choices/kogge-stone.v gold
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 miter
+design -reset

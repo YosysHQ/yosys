@@ -26,9 +26,7 @@
  *
  */
 
-#if !defined(__wasm)
 #include <filesystem>
-#endif
 
 #include "verilog_frontend.h"
 #include "verilog_lexer.h"
@@ -709,8 +707,6 @@ struct VerilogDefines : public Pass {
 	}
 } VerilogDefines;
 
-#if !defined(__wasm)
-
 static void parse_file_list(const std::string &file_list_path, RTLIL::Design *design, bool relative_to_file_list_path)
 {
 	std::ifstream flist(file_list_path);
@@ -789,7 +785,5 @@ struct VerilogFileList : public Pass {
 		extra_args(args, argidx, design, false);
 	}
 } VerilogFilelist;
-
-#endif
 
 YOSYS_NAMESPACE_END

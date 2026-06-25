@@ -75,7 +75,7 @@ entity test is
         -- NATURAL type
         natural_in : in NATURAL;
         natural_out : out NATURAL;
- 
+
         -- POSITIVE type
         positive_in : in POSITIVE;
         positive_out : out POSITIVE

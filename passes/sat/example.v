@@ -82,4 +82,3 @@ always @(posedge clk)
 assign y = counter == 12;
 
 endmodule
-

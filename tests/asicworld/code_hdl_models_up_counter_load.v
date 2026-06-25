@@ -14,7 +14,7 @@ reset       // reset input
 );
 //----------Output Ports--------------
 output [7:0] out;
-//------------Input Ports-------------- 
+//------------Input Ports--------------
 input [7:0] data;
 input load, enable, clk, reset;
 //------------Internal Variables--------
@@ -28,5 +28,5 @@ end else if (load) begin
 end else if (enable) begin
   out <= out + 1;
 end
-    
-endmodule  
+
+endmodule

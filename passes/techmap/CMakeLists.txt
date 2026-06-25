@@ -67,11 +67,15 @@ yosys_pass(abc9_ops
 	REQUIRES
 		proc
 )
+yosys_pass(abc_ops_reintegrate
+	abc_ops_reintegrate.cc
+)
 yosys_pass(abc9
 	abc9.cc
 	DEFINITIONS
 		${abc_definitions}
 	REQUIRES
+		abc_ops_reintegrate
 		abc9_exe
 		abc9_ops
 		aigmap

@@ -46,7 +46,7 @@ struct MemContentsTest {
 		error:
 		printf("FAIL\n");
 		int digits = (data_width + 3) / 4;
-		
+
 		for(auto addr = 0; addr < (1<<addr_width); addr++) {
 			if(addr % 8 == 0) printf("%.8x   ", addr);
 			auto it = reference.find(addr);

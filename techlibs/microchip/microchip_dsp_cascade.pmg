@@ -1,7 +1,7 @@
 // ISC License
-// 
+//
 // Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
-// 
+//
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
@@ -18,10 +18,10 @@
 // This file describes the third of three pattern matcher setups that
 //   forms the `microchip_dsp` pass described in microchip_dsp.cc
 // At a high level, it works as follows:
-//   (1) Starting from a DSP cell that 
+//   (1) Starting from a DSP cell that
 //         (a) CDIN_FDBK_SEL is set to default "00"
 //         (b) doesn't already use the 'PCOUT' port
-//   (2) Match another DSP cell that 
+//   (2) Match another DSP cell that
 //         (a) does not have the CREG enabled,
 //         (b) 'C' port is driven by the 'P' output of the previous DSP cell
 //         (c) has its 'PCIN' port unused
@@ -72,7 +72,7 @@ code
 	};
 endcode
 
-// (1) Starting from a DSP cell that 
+// (1) Starting from a DSP cell that
 //     (a) CDIN_FDBK_SEL is set to default "00"
 //     (b) doesn't already use the 'PCOUT' port
 match first
@@ -133,7 +133,7 @@ finally
 				{
 					dsp_pcin->setPort(\ARSHFT17, State::S1);
 				}
-				
+
 
 				log_debug("PCOUT -> PCIN cascade for %s -> %s\n", dsp, dsp_pcin);
 
@@ -154,7 +154,7 @@ subpattern tail
 arg first
 arg next
 
-// (2) Match another DSP cell that 
+// (2) Match another DSP cell that
 //          (a) does not have the CREG enabled,
 //          (b) 'C' port is driven by the 'P' output of the previous DSP cell
 //          (c) has its 'PCIN' port unused
@@ -213,7 +213,7 @@ code
 
 		chain.emplace_back(next, shift);
 		visited.insert(next);
-		
+
 		SigSpec sigC = unextend(port(next, \C));
 
 		// Make sure driverDSP.P === DSP.C
@@ -231,6 +231,6 @@ finally
 		visited.erase(next);
 		chain.pop_back();
 	}
-		
+
 
 endcode

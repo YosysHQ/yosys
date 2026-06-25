@@ -1,0 +1,25 @@
+read_verilog -icells <<EOT
+
+module top(input E, S, R, D, output [5:0] Q);
+$_DLATCH_PP0_  ff0 (.E(E), .R(R), .D(D), .Q(Q[0]));
+$_DLATCH_PN0_  ff1 (.E(E), .R(R), .D(D), .Q(Q[1]));
+$_DLATCH_PP1_  ff2 (.E(E), .R(R), .D(D), .Q(Q[2]));
+$_DLATCH_PN1_  ff3 (.E(E), .R(R), .D(D), .Q(Q[3]));
+$_DLATCHSR_PPP_ ff4 (.E(E), .S(S), .R(R), .D(D), .Q(Q[4]));
+$_DLATCHSR_PNP_ ff5 (.E(E), .S(S), .R(R), .D(D), .Q(Q[5]));
+endmodule
+EOT
+
+design -save orig
+
+logger -expect warning "Emulating async reset latch with a plain D latch" 4
+logger -expect warning "Emulating async set \+ reset latch with a plain D latch" 2
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_P_ x
+logger -check-expected
+
+design -load orig
+dfflegalize -cell $_DLATCH_P_ x
+select -assert-count 6 t:$_DLATCH_P_
+select -assert-count 0 t:$_DLATCHSR_???_
+select -assert-count 0 t:$_DLATCH_??0_
+select -assert-count 0 t:$_DLATCH_??1_

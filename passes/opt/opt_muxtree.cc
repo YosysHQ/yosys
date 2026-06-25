@@ -68,7 +68,7 @@ struct OptMuxtreeWorker
 		// Is bit directly used by non-mux cells or ports?
 		bool seen_non_mux;
 		pool<int> mux_users;
-		pool<int> mux_drivers;
+		std::optional<int> mux_driver;
 	};
 
 	idict<SigBit> bit2num;
@@ -107,7 +107,7 @@ struct OptMuxtreeWorker
 		// Populate bit2info[]:
 		//	.seen_non_mux
 		//	.mux_users
-		//	.mux_drivers
+		//	.mux_driver
 		// Populate mux2info[].ports[]:
 		//	.ctrl_sig
 		//	.input_sigs
@@ -137,8 +137,11 @@ struct OptMuxtreeWorker
 		// Analyze port A
 		muxinfo.ports.push_back(used_port_bit(sig_a, this_mux_idx));
 
-		for (int idx : sig2bits(sig_y))
-			bit2info[idx].mux_drivers.insert(this_mux_idx);
+		for (int idx : sig2bits(sig_y)) {
+			if (bit2info[idx].mux_driver)
+				log_cmd_error("Cell %s Y port signal %s already driven by %s\n", cell->name, log_signal(sig_y), mux2info[*bit2info[idx].mux_driver].cell->name);
+			bit2info[idx].mux_driver = this_mux_idx;
+		}
 
 		for (int idx : sig2bits(sig_s))
 			bit2info[idx].seen_non_mux = true;
@@ -170,8 +173,8 @@ struct OptMuxtreeWorker
 		for (int j : bit2info[i].mux_users)
 		for (auto &p : mux2info[j].ports) {
 			if (p.input_sigs.count(i))
-				for (int k : bit2info[i].mux_drivers)
-					p.input_muxes.insert(k);
+				if (bit2info[i].mux_driver)
+					p.input_muxes.insert(*bit2info[i].mux_driver);
 		}
 	}
 
@@ -184,14 +187,14 @@ struct OptMuxtreeWorker
 		root_muxes.resize(GetSize(mux2info));
 
 		for (auto &bi : bit2info) {
-			for (int i : bi.mux_drivers)
+			if (bi.mux_driver)
 				for (int j : bi.mux_users)
-					mux_to_users[i].insert(j);
+					mux_to_users[*bi.mux_driver].insert(j);
 			if (!bi.seen_non_mux)
 				continue;
-			for (int mux_idx : bi.mux_drivers) {
-				root_muxes.at(mux_idx) = true;
-				root_enable_muxes.at(mux_idx) = true;
+			if (bi.mux_driver) {
+				root_muxes.at(*bi.mux_driver) = true;
+				root_enable_muxes.at(*bi.mux_driver) = true;
 			}
 		}
 

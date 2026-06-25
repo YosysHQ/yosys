@@ -34,4 +34,3 @@ should be something like this:
 	SBY [example] summary: engine_0 (smtbmc yices) returned PASS for induction
 	SBY [example] summary: successful proof by k-induction.
 	SBY [example] DONE (PASS, rc=0)
-

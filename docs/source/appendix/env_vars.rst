@@ -29,4 +29,3 @@ Yosys environment variables
 ``YOSYS_ABORT_ON_LOG_ERROR``
    Can be used for debugging Yosys internals.  Setting it to 1 causes abort() to
    be called when Yosys terminates with an error message.
-

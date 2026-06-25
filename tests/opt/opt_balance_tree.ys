@@ -1031,11 +1031,11 @@ module top (
   wire [1:0] low_bits;
   wire [2:0] mid_bits;
   wire [1:0] high_bits;
-  
+
   assign low_bits = data_in[1:0];
   assign mid_bits = data_in[4:2];
   assign high_bits = data_in[7:6];
-  
+
   assign result = {1'b0, low_bits} + {1'b0, mid_bits} + {3'b0, high_bits} + {2'b0, a} + {2'b0, b} + {2'b0, c};
 endmodule
 EOF
@@ -1065,7 +1065,7 @@ module top (
   output wire [4:0] out2
 );
   wire [3:0] sum1, sum2;
-  
+
   assign sum1 = a + b;
   assign sum2 = c + d;
   assign out1 = sum1 + sum2;
@@ -1097,7 +1097,7 @@ module top (
   output wire [5:0] result
 );
   wire [4:0] sum1, sum2;
-  
+
   assign sum1 = a + b + a;  // 'a' appears twice
   assign sum2 = a + c;      // 'a' appears again
   assign result = sum1 + sum2;  // Final sum includes 'a' three times total
@@ -1134,7 +1134,7 @@ module top (
 );
   wire [4:0] partial1, partial2;
   wire [5:0] intermediate;
-  
+
   assign partial1 = a + c;
   assign partial2 = d + e + c;  // 'c' used twice
   assign intermediate = partial1 + partial2;
@@ -1199,7 +1199,7 @@ module top (
   output wire [6:0] result
 );
   wire [6:0] sum_part, diff_part;
-  
+
   assign sum_part = a + b + c;
   assign diff_part = d - e + f;  // Mix of add and subtract
   assign result = sum_part + diff_part;
@@ -1230,7 +1230,7 @@ module top (
   output wire signed [6:0] result  // Signed output
 );
   wire signed [4:0] intermediate1, intermediate2;
-  
+
   assign intermediate1 = $signed(a) + $signed(b);  // Convert to signed
   assign intermediate2 = $signed(c) + $signed(d);  // Convert to signed
   assign result = intermediate1 + intermediate2;   // Signed addition
@@ -1262,7 +1262,7 @@ module top (
   output wire signed [7:0] result  // Signed output
 );
   wire signed [5:0] sum_signed, sum_unsigned;
-  
+
   assign sum_signed = a + b;                    // Signed + Signed
   assign sum_unsigned = $signed({1'b0, c}) + $signed({1'b0, d});  // Force unsigned to signed safely
   assign result = sum_signed + sum_unsigned;   // Mixed result
@@ -1290,7 +1290,7 @@ design -reset
 read_verilog <<EOF
 module top (
   input wire signed [2:0] narrow_a,     // 3-bit signed
-  input wire signed [4:0] wide_b,       // 5-bit signed  
+  input wire signed [4:0] wide_b,       // 5-bit signed
   input wire [3:0] unsigned_c,          // 4-bit unsigned
   input wire signed [3:0] signed_d,     // 4-bit signed
   output wire signed [8:0] result       // Wide signed output
@@ -1357,11 +1357,11 @@ module top (
 );
   wire signed [8:0] sum_full;
   wire signed [6:0] sum_high, sum_low;
-  
+
   assign sum_full = data_a + data_b;
   assign sum_high = data_a[7:2] + data_b[7:2];           // High bits (signed)
   assign sum_low = $signed({1'b0, data_a[5:0]}) + $signed({1'b0, data_b[5:0]});  // Low bits as unsigned->signed
-  
+
   // Combine with unsigned offset
   assign result = sum_full + $signed({6'b0, unsigned_offset});
 endmodule
@@ -1395,17 +1395,17 @@ module top (
 );
   wire signed [5:0] extended_base;
   wire signed [6:0] offset_sum;
-  
+
   // Conditional sign extension based on input
-  assign extended_base = extend_sign ? 
+  assign extended_base = extend_sign ?
     {{1{base_val[4]}}, base_val} :     // Sign extend
     {1'b0, base_val};                  // Zero extend
-  
+
   // Mix of signed and unsigned offsets
-  assign offset_sum = $signed({2'b0, pos_offset1}) + 
-                     $signed({2'b0, pos_offset2}) + 
+  assign offset_sum = $signed({2'b0, pos_offset1}) +
+                     $signed({2'b0, pos_offset2}) +
                      {{2{signed_offset[3]}}, signed_offset};
-  
+
   assign result = extended_base + offset_sum;
 endmodule
 EOF

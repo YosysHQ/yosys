@@ -12,4 +12,3 @@ sat -falsify -prove-asserts -seq 2 test_002
 sat -falsify -prove-asserts -seq 2 test_003
 sat -falsify -prove-asserts -seq 2 test_004
 sat -verify  -prove-asserts -seq 2 test_005
-

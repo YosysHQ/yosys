@@ -106,4 +106,3 @@ struct OptMemPriorityPass : public Pass {
 } OptMemPriorityPass;
 
 PRIVATE_NAMESPACE_END
-

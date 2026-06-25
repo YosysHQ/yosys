@@ -10,7 +10,7 @@ overflow      // Overflow output
 
  input clk;
  input reset;
- input enable; 
+ input enable;
  input up_down;
 
  output [7 : 0] count;
@@ -18,11 +18,11 @@ overflow      // Overflow output
 
  reg [7 : 0] count;
 
- assign overflow = (up_down) ? (count == {{7{1'b0}}, 1'b1}) : 
+ assign overflow = (up_down) ? (count == {{7{1'b0}}, 1'b1}) :
                                (count == {1'b1, {7{1'b0}}}) ;
 
  always @(posedge clk)
- if (reset) 
+ if (reset)
     count <= {7{1'b0}};
  else if (enable) begin
     if (up_down) begin

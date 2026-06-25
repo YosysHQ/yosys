@@ -25,6 +25,8 @@ yosys_core(kernel
 	celledges.h
 	celltypes.h
 	compute_graph.h
+	compressor_tree.cc
+	compressor_tree.h
 	consteval.h
 	constids.inc
 	cost.cc
@@ -80,7 +82,6 @@ yosys_core(kernel
 	topo_scc.h
 	utils.h
 	version.cc
-	wallace_tree.h
 	yosys.cc
 	yosys_common.h
 	yosys_config.h
@@ -155,7 +156,7 @@ yosys_core(kernel
 
 set(yosys_cc_definitions
 	"$<$<BOOL:${YOSYS_ABC_EXECUTABLE}>:ABCEXTERNAL=\"${YOSYS_ABC_EXECUTABLE}\">"
-	$<$<BOOL:${MSYS}>:YOSYS_WIN32_UNIX_DIR>
+	$<$<BOOL:${MINGW}>:YOSYS_WIN32_UNIX_DIR>
 )
 set_source_files_properties(yosys.cc PROPERTIES
 	COMPILE_DEFINITIONS "${yosys_cc_definitions}"

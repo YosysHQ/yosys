@@ -54,7 +54,7 @@ map_gates:
     ice40_wrapcarry
     techmap
     opt -fast
-    abc -dff -D 1 
+    abc -dff -D 1
     ice40_opt
 
 map_ffs:
@@ -88,4 +88,3 @@ check:
     stat
     check -noinit
     blackbox =A:whitebox
-        

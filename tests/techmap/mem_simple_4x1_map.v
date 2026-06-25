@@ -149,4 +149,3 @@ module \$__mem_4x1_generator (CLK, RD_ADDR, RD_DATA, WR_ADDR, WR_DATA, WR_EN);
 	  end
 	endgenerate
 endmodule
-
