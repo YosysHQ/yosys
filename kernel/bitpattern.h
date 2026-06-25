@@ -102,9 +102,17 @@ struct BitPatternPool
 		bits_t bits;
 		bits.bitdata = sig.as_const().to_bits();
 		for (auto &b : bits.bitdata)
-			if (b > RTLIL::State::S1)
+			if (b > RTLIL::State::S1 && b != RTLIL::State::Sx && b != RTLIL::State::Sz)
 				b = RTLIL::State::Sa;
 		return bits;
+	}
+
+	static bool covers_nothing(const bits_t &bits)
+	{
+		for (auto &b : bits.bitdata)
+			if (b == RTLIL::State::Sx || b == RTLIL::State::Sz)
+				return true;
+		return false;
 	}
 
 	/**
@@ -132,6 +140,8 @@ struct BitPatternPool
 	bool has_any(RTLIL::SigSpec sig)
 	{
 		bits_t bits = sig2bits(sig);
+		if (covers_nothing(bits))
+			return false;
 		for (auto &it : database)
 			if (match(it, bits))
 				return true;
@@ -150,6 +160,8 @@ struct BitPatternPool
 	bool has_all(RTLIL::SigSpec sig)
 	{
 		bits_t bits = sig2bits(sig);
+		if (covers_nothing(bits))
+			return true;
 		for (auto &it : database)
 			if (match(it, bits)) {
 				for (int i = 0; i < width; i++)
@@ -171,6 +183,8 @@ struct BitPatternPool
 	{
 		bool status = false;
 		bits_t bits = sig2bits(sig);
+		if (covers_nothing(bits))
+			return false;
 		for (auto it = database.begin(); it != database.end();)
 			if (match(*it, bits)) {
 				for (int i = 0; i < width; i++) {
