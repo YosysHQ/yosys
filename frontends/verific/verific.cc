@@ -1822,6 +1822,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			module->memories[memory->name] = memory;
 			import_attributes(memory->attributes, net, nl);
 
+			// net->Size() returns a 64-bit count of the RAM's total bits. For very
+			// large memories this exceeds 2^31, so these running totals must be kept
+			// in 64-bit values; a 32-bit int would truncate (e.g. to 0), which then
+			// set memory->width to 0 and tripped log_assert(width != 0) in opt_mem.
+			// The final per-word width and word count still have to fit in RTLIL's
+			// int fields (memory->width / memory->size); that is checked below.
 			long long number_of_bits = net->Size();
 			long long min_bits_in_word = number_of_bits;
 			int max_bits_in_addr = 0;
@@ -1845,6 +1851,17 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			}
 
 			long long number_of_words = number_of_bits / min_bits_in_word;
+
+			// memory->width and memory->size are ints in RTLIL (and memory->size is
+			// later derived from int address bounds), so the per-word width and the
+			// word count must each fit in an int. Bail out rather than silently
+			// storing a truncated/corrupt value.
+			if (min_bits_in_word > INT_MAX)
+				log_error("Verific RamNet %s has a word width of %lld bits, which exceeds the maximum supported width of %d.\n",
+						net->Name(), (long long)min_bits_in_word, INT_MAX);
+			if (number_of_words > INT_MAX)
+				log_error("Verific RamNet %s has %lld words, which exceeds the maximum supported size of %d.\n",
+						net->Name(), (long long)number_of_words, INT_MAX);
 
 			memory->width = (int)min_bits_in_word;
 			memory->size = 0;
