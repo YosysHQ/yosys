@@ -1555,14 +1555,20 @@ struct OptCompactPrefixPass : public Pass
 				if (worker.forward_rewrites + worker.reverse_rewrites +
 				        worker.modulo_rewrites == 0)
 					break;
+				if (sweep == max_sweeps - 1)
+					log_warning("opt_compact_prefix: fixpoint not reached for module %s "
+					            "after %d sweeps; some compaction opportunities may remain.\n",
+					            log_id(module), max_sweeps);
 
 				// Tag the cells emitted by this sweep so the next sweep skips
 				// them, then drop the now-dangling old cone so the masked
-				// sibling region becomes visible.
+				// sibling region becomes visible. Scope the clean to the module
+				// under rewrite so untouched modules keep their dangling cells
+				// until their own sweep, matching the original single-call run.
 				for (auto c : module->cells())
 					if (!before.count(c))
 						c->set_bool_attribute(ID(opt_compact_prefix_emitted));
-				Yosys::run_pass("clean -purge");
+				Pass::call_on_module(design, module, "clean -purge");
 			}
 		}
 
