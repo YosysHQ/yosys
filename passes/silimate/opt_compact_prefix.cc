@@ -961,6 +961,22 @@ struct OptCompactPrefixWorker : CutRegionWorker
 			true, std::max(8192, max_width * max_width * 4), max_width * (max_width + 8));
 	}
 
+	// True if any bit of `sig` is driven by a cell this pass emitted on an
+	// earlier fixpoint sweep (tagged in execute()). The emitted compaction
+	// logic still fingerprints as the same function, so this guard stops the
+	// outer fixpoint loop from re-rewriting its own output indefinitely.
+	bool root_driver_emitted(const SigSpec &sig)
+	{
+		for (auto bit : sigmap(sig)) {
+			if (!bit.wire)
+				continue;
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv && drv->get_bool_attribute(ID(opt_compact_prefix_emitted)))
+				return true;
+		}
+		return false;
+	}
+
 	void run()
 	{
 		if (module->has_processes_warn())
@@ -989,6 +1005,8 @@ struct OptCompactPrefixWorker : CutRegionWorker
 				break;
 			}
 			if (root_claimed(root.sig))
+				continue;
+			if (root_driver_emitted(root.sig))
 				continue;
 
 			int width = GetSize(root.sig);
@@ -1505,28 +1523,63 @@ struct OptCompactPrefixPass : public Pass
 		int total_removed = 0;
 		int total_emitted = 0;
 
+		// Overlapping compaction loops can share post-synthesis logic (e.g. one
+		// loop's start mask feeding the other loop's cone), so a single sweep
+		// claims the first region and masks the second. Iterate each module to
+		// a fixpoint: rewrite, tag the freshly-emitted cells, clean, and re-scan
+		// until a sweep finds nothing new. The tag (consumed by
+		// root_driver_emitted) stops the next sweep from re-matching this pass's
+		// own output, which still fingerprints as the same compaction function.
+		const int max_sweeps = 16;
 		for (auto module : design->selected_modules()) {
-			OptCompactPrefixWorker worker(module, max_width);
-			if (walk_budget > 0)
-				worker.walk_budget = walk_budget;
-			if (eval_budget > 0)
-				worker.eval_budget = eval_budget;
-			if (attempt_budget > 0)
-				worker.attempt_budget = attempt_budget;
-			worker.run();
-			total_forward += worker.forward_rewrites;
-			total_reverse += worker.reverse_rewrites;
-			total_modulo += worker.modulo_rewrites;
-			total_removed += worker.old_cells_removed;
-			total_emitted += worker.new_cells_emitted;
+			for (int sweep = 0; sweep < max_sweeps; sweep++) {
+				pool<Cell *> before;
+				for (auto c : module->cells())
+					before.insert(c);
+
+				OptCompactPrefixWorker worker(module, max_width);
+				if (walk_budget > 0)
+					worker.walk_budget = walk_budget;
+				if (eval_budget > 0)
+					worker.eval_budget = eval_budget;
+				if (attempt_budget > 0)
+					worker.attempt_budget = attempt_budget;
+				worker.run();
+
+				total_forward += worker.forward_rewrites;
+				total_reverse += worker.reverse_rewrites;
+				total_modulo += worker.modulo_rewrites;
+				total_removed += worker.old_cells_removed;
+				total_emitted += worker.new_cells_emitted;
+
+				if (worker.forward_rewrites + worker.reverse_rewrites +
+				        worker.modulo_rewrites == 0)
+					break;
+				if (sweep == max_sweeps - 1)
+					log_warning("opt_compact_prefix: fixpoint not reached for module %s "
+					            "after %d sweeps; some compaction opportunities may remain.\n",
+					            log_id(module), max_sweeps);
+
+				// Tag the cells emitted by this sweep so the next sweep skips
+				// them, then drop the now-dangling old cone so the masked
+				// sibling region becomes visible. Scope the clean to the module
+				// under rewrite so untouched modules keep their dangling cells
+				// until their own sweep, matching the original single-call run.
+				for (auto c : module->cells())
+					if (!before.count(c))
+						c->set_bool_attribute(ID(opt_compact_prefix_emitted));
+				Pass::call_on_module(design, module, "clean -purge");
+			}
 		}
+
+		// Drop the internal bookkeeping tag so it never leaks into the netlist.
+		for (auto module : design->modules())
+			for (auto c : module->cells())
+				c->attributes.erase(ID(opt_compact_prefix_emitted));
 
 		log("Rewrote %d forward pack(s), %d reverse suffix read(s), %d modulo decimation(s); "
 		    "removed %d old cell(s), emitted %d new cell(s).\n",
 		    total_forward, total_reverse, total_modulo, total_removed, total_emitted);
-
-		if (total_forward || total_reverse || total_modulo)
-			Yosys::run_pass("clean -purge");
 	}
 } OptCompactPrefixPass;
 
