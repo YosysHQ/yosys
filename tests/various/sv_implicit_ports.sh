@@ -112,7 +112,9 @@ endmodule
 EOT
 
 # Mixed implicit and explicit 2
-(${YOSYS} -f "verilog -sv" -qp "prep -flatten -top top; select -assert-count 1 t:\$add" - <<EOT
+# Port resize is now an informational log() (see "Reduce port resize to warning"),
+# which -q suppresses, so run without -q to observe the message.
+(${YOSYS} -f "verilog -sv" -p "prep -flatten -top top; select -assert-count 1 t:\$add" - <<EOT
 module add(input [7:0] a, input [7:0] b, output [7:0] q);
 	assign q = a + b;
 endmodule
@@ -121,4 +123,4 @@ module top(input [7:0] a, input [9:0] b, output [7:0] q);
 	add add_i(.b, .*);
 endmodule
 EOT
-) 2>&1 | grep -F "Warning: Resizing cell port top.add_i.b from 10 bits to 8 bits." > /dev/null
+) 2>&1 | grep -F "Resizing cell port top.add_i.b from 10 bits to 8 bits." > /dev/null
