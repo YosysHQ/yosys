@@ -178,7 +178,7 @@ module testbench;
 				{RSTA, RSTALLCARRYIN, RSTALUMODE, RSTB, RSTC, RSTCTRL, RSTD, RSTINMODE, RSTM, RSTP} = $urandom & $urandom & $urandom & $urandom & $urandom & $urandom;
 				{ALUMODE, INMODE} = $urandom;
 				CARRYINSEL = $urandom & $urandom & $urandom;
-				OPMODE = $urandom; 
+				OPMODE = $urandom;
 				if ($urandom & 1'b1)
 					OPMODE[3:0] = 4'b0101; // test multiply more than other modes
 				{CARRYCASCIN, CARRYIN, MULTSIGNIN} = $urandom;

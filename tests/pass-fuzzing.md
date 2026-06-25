@@ -53,7 +53,7 @@ index 9c361294d..c9a98f74c 100644
 +++ b/Makefile
 @@ -238,7 +238,7 @@
  LTOFLAGS := $(GCC_LTO)
- 
+
  ifeq ($(CONFIG),clang)
 -CXX = clang++
 +CXX = $(HOME)/AFLplusplus/afl-c++
@@ -76,7 +76,7 @@ Generate some initial testcases using Grammar-Mutator:
 (cd $HOME/Grammar-Mutator; rm -rf seeds trees; ./grammar_generator-rtlil 100 1000 ./seeds ./trees)
 ```
 
-Now run AFL++. 
+Now run AFL++.
 ```
 (cd $HOME/Grammar-Mutator; \
   AFL_CUSTOM_MUTATOR_LIBRARY=./libgrammarmutator-rtlil.so \

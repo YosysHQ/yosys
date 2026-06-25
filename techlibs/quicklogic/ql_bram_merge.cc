@@ -180,7 +180,7 @@ struct QlBramMergeWorker {
 };
 
 struct QlBramMergePass : public Pass {
-	
+
 	QlBramMergePass() : Pass("ql_bram_merge", "Infers QuickLogic k6n10f BRAM pairs that can operate independently") {}
 
 	void help() override

@@ -52,4 +52,3 @@ module test_3(
 		if (9 <= s && s < 12) y3 <= b / a;
 	end
 endmodule
-

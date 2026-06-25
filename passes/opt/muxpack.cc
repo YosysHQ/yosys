@@ -159,7 +159,7 @@ struct MuxpackWorker
 				if (cell->type == ID($mux))
 					b_sig = sigmap(cell->getPort(ID::B));
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
-   
+
 				if (sig_chain_next.count(a_sig))
 					for (auto a_bit : a_sig)
 						sigbit_with_non_chain_users.insert(a_bit);

@@ -14,7 +14,7 @@ module \main
   wire width 12 $delete_wire$514
 
   wire width 4 $test
-  
+
   attribute \module_not_derived 1
   cell \SB_MAC16 $verific$mult_4$garbage/usb.v:12$388.etc.sliceB[0].mul
     parameter \A_REG 1'0

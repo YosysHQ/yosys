@@ -18,7 +18,7 @@ be used to convert Verilog designs with simple assertions to BTOR format.
 Download
 ========
 
-This document was originally published in November 2013: 
+This document was originally published in November 2013:
 :download:`Converting Verilog to BTOR PDF</_downloads/APPNOTE_012_Verilog_to_BTOR.pdf>`
 
 ..

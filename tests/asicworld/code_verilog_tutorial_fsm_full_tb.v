@@ -1,6 +1,6 @@
 module testbench();
 reg clock = 0 , reset ;
-reg req_0 , req_1 ,  req_2 , req_3; 
+reg req_0 , req_1 ,  req_2 , req_3;
 wire gnt_0 , gnt_1 , gnt_2 , gnt_3 ;
 integer file;
 
@@ -29,7 +29,7 @@ initial begin
 end
 
 always @(negedge clock)
-  $fdisplay(file, "%g\t    %b  %b  %b  %b  %b  %b  %b  %b", 
+  $fdisplay(file, "%g\t    %b  %b  %b  %b  %b  %b  %b  %b",
     $time, req_0, req_1, req_2, req_3, gnt_0, gnt_1, gnt_2, gnt_3);
 
 initial begin

@@ -82,7 +82,7 @@ module AL_MAP_LUT1 (
 	parameter [1:0] INIT = 2'h0;
 	parameter EQN = "(A)";
 
-	assign o = a ? INIT[1] : INIT[0];	
+	assign o = a ? INIT[1] : INIT[0];
 endmodule
 
 module AL_MAP_LUT2 (
@@ -94,7 +94,7 @@ module AL_MAP_LUT2 (
 	parameter EQN = "(A)";
 
 	wire [1:0] s1 = b ? INIT[ 3:2] : INIT[1:0];
-	assign o = a ? s1[1] : s1[0];	
+	assign o = a ? s1[1] : s1[0];
 endmodule
 
 module AL_MAP_LUT3 (
@@ -108,7 +108,7 @@ module AL_MAP_LUT3 (
 
 	wire [3:0] s2 = c ? INIT[ 7:4] : INIT[3:0];
 	wire [1:0] s1 = b ?   s2[ 3:2] :   s2[1:0];
-	assign o = a ? s1[1] : s1[0];	
+	assign o = a ? s1[1] : s1[0];
 endmodule
 
 module AL_MAP_LUT4 (
@@ -124,7 +124,7 @@ module AL_MAP_LUT4 (
 	wire [7:0] s3 = d ? INIT[15:8] : INIT[7:0];
 	wire [3:0] s2 = c ?   s3[ 7:4] :   s3[3:0];
 	wire [1:0] s1 = b ?   s2[ 3:2] :   s2[1:0];
-	assign o = a ? s1[1] : s1[0];	
+	assign o = a ? s1[1] : s1[0];
 endmodule
 
 module AL_MAP_LUT5 (
@@ -186,6 +186,6 @@ module AL_MAP_ADDER (
 			"A_LE_B_CARRY": assign o = {  a, 1'b0 };
 			default: assign o = a + b + c;
 		endcase
-	endgenerate	
+	endgenerate
 
 endmodule

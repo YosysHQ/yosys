@@ -27,6 +27,7 @@
 #include "kernel/yw.h"
 #include "kernel/json.h"
 #include "kernel/fmt.h"
+#include "kernel/drivertools.h"
 #include "passes/silimate/reg_rename.h"
 
 #include <ctime>
@@ -143,6 +144,8 @@ struct SimShared
 	bool serious_asserts = false;
 	bool fst_noinit = false;
 	bool initstate = true;
+	bool undriven_check = true;
+	bool undriven_warning = false;
 	bool blackbox_children = false;
 	pool<IdString> instance_root_modules;
 	double clk_period_override = 0.0;
@@ -506,7 +509,7 @@ struct SimInstance
 	{
 		Const value = get_state_mapped(sigmap(sig));
 		if (shared->debug)
-			log("[%s] get %s: %s\n", hiername(), log_signal(sig), log_signal(value));
+			log("[%s] get %s: %s\n", hiername(), log_signal(sig), log_signal(value, true));
 		return value;
 	}
 
@@ -519,7 +522,7 @@ struct SimInstance
 			log("GetSize(sig) %s: %d, GetSize(value) %s: %d\n",
 				log_signal(sig),
 				GetSize(sig),
-				log_signal(value),
+				log_const(value),
 				GetSize(value));
 		}
 		log_assert(GetSize(sig) <= GetSize(value));
@@ -532,7 +535,7 @@ struct SimInstance
 			}
 
 		if (shared->debug)
-			log("[%s] set %s: %s\n", hiername(), log_signal(sig), log_signal(value));
+			log("[%s] set %s: %s\n", hiername(), log_signal(sig), log_signal(value, true));
 		return did_something;
 	}
 
@@ -1311,7 +1314,7 @@ struct SimInstance
 											(unsigned long)time,
 											shared->fst->getTimescaleString(),
 											scope.c_str(), log_id(wire->name),
-											log_signal(sim_val), log_signal(vcd_val));
+											log_const(sim_val), log_const(vcd_val));
 			}
 			// Overwrite simulation register state with the ground truth
 			did_something |= set_state(wire, vcd_val);
@@ -1345,6 +1348,54 @@ struct SimInstance
 		}
 		for (auto child : children)
 			child.second->addAdditionalInputs();
+	}
+
+	// Preconditions / assumptions:
+	// 1) fst_handles is populated for this instance (0 handle means not in trace).
+	// 2) fst_inputs is finalized (top-level inputs + addAdditionalInputs() for $anyseq).
+	// 3) module has no processes (sim enforces proc-lowered input before this point).
+	// 4) sigmap is valid for per-bit queries on this instance.
+	// 5) shared->fst is active, i.e. this is called from FST/VCD replay flow.
+	int checkUndrivenReplaySignals(bool &any_undriven_found)
+	{
+		int issue_count = 0;
+		bool has_replay_candidates = false;
+
+		for (auto &item : fst_handles)
+			if (item.second != 0 && !fst_inputs.count(item.first)) {
+				has_replay_candidates = true;
+				break;
+			}
+
+		if (has_replay_candidates) {
+			DriverMap drivermap(module->design);
+			drivermap.add(module);
+
+			for (auto &item : fst_handles) {
+				Wire *wire = item.first;
+				if (item.second == 0 || fst_inputs.count(wire))
+					continue;
+
+				SigSpec undriven;
+				for (auto bit : sigmap(wire))
+					if (bit.wire != nullptr && drivermap(DriveBit(bit)).is_none())
+						undriven.append(bit);
+
+				undriven.sort_and_unify();
+				if (undriven.empty())
+					continue;
+
+				issue_count++;
+				any_undriven_found = true;
+				std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
+				log_warning("Input trace contains undriven signal `%s` (%s).\n", wire_name.c_str(), log_signal(undriven));
+			}
+		}
+
+		for (auto child : children)
+			issue_count += child.second->checkUndrivenReplaySignals(any_undriven_found);
+
+		return issue_count;
 	}
 
 	bool setInputs()
@@ -1404,7 +1455,7 @@ struct SimInstance
 			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val, true), log_signal(sim_val, true));
 						retVal = true;
 						break;
 					}
@@ -1412,14 +1463,14 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
 				for(int i=0;i<sim_val.size();i++) {
 					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, item.first, log_signal(fst_val, true), log_signal(sim_val, true));
 						retVal = true;
 						break;
 					}
 				}
 			} else {
 				if (fst_val!=sim_val) {
-					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, item.first, log_signal(fst_val), log_signal(sim_val));
+					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, item.first, log_signal(fst_val, true), log_signal(sim_val, true));
 					retVal = true;
 				}
 			}
@@ -1710,6 +1761,16 @@ struct SimWorker : SimShared
 		}
 
 		register_signals();
+		top->addAdditionalInputs();
+		if (undriven_check) {
+			bool any_undriven_found = false;
+			int issue_count = top->checkUndrivenReplaySignals(any_undriven_found);
+			if (any_undriven_found)
+				log_warning("Values for the undriven signal(s) listed above are not replayed from FST/VCD input.\n");
+			if (issue_count > 0 && !undriven_warning)
+				log_cmd_error("Found %d undriven signal%s in the replay trace. Use -undriven-warn to continue or -no-undriven-check to disable this check.\n",
+						issue_count, issue_count == 1 ? "" : "s");
+		}
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
@@ -3107,7 +3168,14 @@ struct SimPass : public Pass {
 		log("    -r <filename>\n");
 		log("        read simulation or formal results file\n");
 		log("            File formats supported: FST, VCD, AIW, WIT and .yw\n");
+		log("            Yosys witness (.yw) replay is preferred when possible.\n");
 		log("            VCD support requires vcd2fst external tool to be present\n");
+		log("\n");
+		log("    -no-undriven-check\n");
+		log("        skip undriven-signal checks for FST/VCD replay (can be expensive for large designs)\n");
+		log("\n");
+		log("    -undriven-warn\n");
+		log("        downgrade undriven-signal replay errors to warnings\n");
 		log("\n");
 		log("    -width <integer>\n");
 		log("        cycle width in generated simulation output (must be divisible by 2).\n");
@@ -3348,6 +3416,14 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-fst-noinit") {
 				worker.fst_noinit = true;
+				continue;
+			}
+			if (args[argidx] == "-no-undriven-check") {
+				worker.undriven_check = false;
+				continue;
+			}
+			if (args[argidx] == "-undriven-warn") {
+				worker.undriven_warning = true;
 				continue;
 			}
 			if (args[argidx] == "-x") {

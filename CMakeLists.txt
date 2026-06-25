@@ -9,7 +9,7 @@ if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
 	)
 endif()
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.28)
 project(yosys LANGUAGES C CXX)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -29,11 +29,17 @@ include(YosysLinkTarget)
 include(YosysAbc)
 include(YosysAbcSubmodule)
 include(YosysVerific)
+include(UseHomebrew)
+
+# Fix for using Clang from nixpkgs
+# see https://github.com/YosysHQ/yosys/pull/5936#issuecomment-4637319568
+set(CMAKE_CXX_SCAN_FOR_MODULES NO)
 
 # Build options.
 set(YOSYS_COMPILER_LAUNCHER "" CACHE STRING "Compiler launcher (ccache, sccache)")
 option(YOSYS_ENABLE_COVERAGE "Enable code coverage" OFF)
 option(YOSYS_ENABLE_PROFILING "Enable instruction profiling" OFF)
+option(YOSYS_ENABLE_FUNCTIONAL_TESTS "Enable running functional tests" OFF)
 
 set(YOSYS_PROGRAM_PREFIX "" CACHE STRING "Name prefix for programs, libraries, and data")
 set(YOSYS_COMPONENTS "everything" CACHE STRING "List of components to build (use pass names)")
@@ -162,7 +168,12 @@ if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSIO
 endif()
 
 # Required dependencies.
-find_package(FLEX)
+if (APPLE)
+	# In practice, we can't expect paths to Homebrew packages to be configured.
+	use_homebrew()
+endif()
+
+find_package(FLEX 2.6)
 set_package_properties(FLEX PROPERTIES
 	URL "https://github.com/westes/flex"
 	DESCRIPTION "The Fast Lexical Analyzer"
@@ -170,7 +181,7 @@ set_package_properties(FLEX PROPERTIES
 	TYPE REQUIRED
 )
 
-find_package(BISON)
+find_package(BISON 3.6)
 set_package_properties(BISON PROPERTIES
 	URL "https://www.gnu.org/software/bison/"
 	DESCRIPTION "The Yacc-compatible Parser Generator"
@@ -528,8 +539,20 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 
 	add_custom_target(test-vanilla
 		COMMAND make vanilla-test ${makefile_vars}
+			ENABLE_FUNCTIONAL_TESTS=$<IF:$<BOOL:${YOSYS_ENABLE_FUNCTIONAL_TESTS}>,1,0>
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
 		DEPENDS ${makefile_depends}
+		USES_TERMINAL
+		JOB_SERVER_AWARE TRUE
+	)
+
+	add_custom_target(test-functional
+		COMMAND make functional ${makefile_vars}
+			ENABLE_FUNCTIONAL_TESTS=$<IF:$<BOOL:${YOSYS_ENABLE_FUNCTIONAL_TESTS}>,1,0>
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
+		DEPENDS ${makefile_depends}
+		USES_TERMINAL
+		JOB_SERVER_AWARE TRUE
 	)
 
 	add_custom_target(test
@@ -541,6 +564,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		COMMAND make gen ${makefile_vars}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
+		JOB_SERVER_AWARE TRUE
 	)
 	foreach (format html latexpdf)
 		add_custom_target(docs-${format}
@@ -553,6 +577,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		COMMAND make test ${makefile_vars}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
+		JOB_SERVER_AWARE TRUE
 	)
 endif()
 

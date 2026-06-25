@@ -36,8 +36,8 @@ endmodule
 
 
 module IDDR_MEM(D, ICLK, PCLK, WADDR, RADDR, RESET, Q0, Q1);
-parameter GSREN = "false";  
-parameter LSREN = "true";    
+parameter GSREN = "false";
+parameter LSREN = "true";
 input D, ICLK, PCLK;
 input [2:0] WADDR;
 input [2:0] RADDR;
@@ -47,10 +47,10 @@ endmodule
 
 
 module ODDR_MEM(D0, D1, TX, PCLK, TCLK, RESET, Q0, Q1);
-parameter GSREN = "false"; 
-parameter LSREN = "true";    
-parameter TCLK_SOURCE = "DQSW"; 
-parameter TXCLK_POL = 1'b0; 
+parameter GSREN = "false";
+parameter LSREN = "true";
+parameter TCLK_SOURCE = "DQSW";
+parameter TXCLK_POL = 1'b0;
 input D0, D1;
 input TX, PCLK, TCLK, RESET;
 output  Q0, Q1;
@@ -58,8 +58,8 @@ endmodule
 
 
 module IDES4_MEM(D, ICLK, FCLK, PCLK, WADDR, RADDR, RESET, CALIB, Q0, Q1, Q2, Q3);
-parameter GSREN = "false"; 
-parameter LSREN = "true";    
+parameter GSREN = "false";
+parameter LSREN = "true";
 input D, ICLK, FCLK, PCLK;
 input [2:0] WADDR;
 input [2:0] RADDR;
@@ -69,8 +69,8 @@ endmodule
 
 
 module IDES8_MEM(D, ICLK, FCLK, PCLK, WADDR, RADDR, RESET, CALIB, Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7);
-parameter GSREN = "false"; 
-parameter LSREN = "true";    
+parameter GSREN = "false";
+parameter LSREN = "true";
 input D, ICLK, FCLK, PCLK;
 input [2:0] WADDR;
 input [2:0] RADDR;
@@ -80,11 +80,11 @@ endmodule
 
 
 module OSER4_MEM(D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET, Q0, Q1);
-parameter GSREN = "false"; 
-parameter LSREN = "true";    
-parameter HWL = "false";     
-parameter TCLK_SOURCE = "DQSW"; 
-parameter TXCLK_POL = 1'b0; 
+parameter GSREN = "false";
+parameter LSREN = "true";
+parameter HWL = "false";
+parameter TCLK_SOURCE = "DQSW";
+parameter TXCLK_POL = 1'b0;
 input D0, D1, D2, D3;
 input TX0, TX1;
 input PCLK, FCLK, TCLK, RESET;
@@ -93,11 +93,11 @@ endmodule
 
 
 module OSER8_MEM(D0, D1, D2, D3, D4, D5, D6, D7, TX0, TX1, TX2, TX3, PCLK, FCLK, TCLK, RESET, Q0, Q1);
-parameter GSREN = "false"; 
-parameter LSREN = "true";    
-parameter HWL = "false";    
-parameter TCLK_SOURCE = "DQSW"; 
-parameter TXCLK_POL = 1'b0; 
+parameter GSREN = "false";
+parameter LSREN = "true";
+parameter HWL = "false";
+parameter TCLK_SOURCE = "DQSW";
+parameter TXCLK_POL = 1'b0;
 input D0, D1, D2, D3, D4, D5, D6, D7;
 input TX0, TX1, TX2, TX3;
 input PCLK, FCLK, TCLK, RESET;
@@ -106,7 +106,7 @@ endmodule
 
 
 module IODELAY(DI, SDTAP, SETN, VALUE, DF, DO);
-parameter C_STATIC_DLY = 0; 
+parameter C_STATIC_DLY = 0;
 input DI;
 input  SDTAP;
 input  SETN;
@@ -117,9 +117,9 @@ endmodule
 
 
 module IEM(D, CLK, RESET, MCLK, LAG, LEAD);
-parameter WINSIZE = "SMALL"; 
-parameter GSREN = "false"; 
-parameter LSREN = "true";    
+parameter WINSIZE = "SMALL";
+parameter GSREN = "false";
+parameter LSREN = "true";
 input D, CLK, RESET, MCLK;
 output LAG, LEAD;
 endmodule
@@ -133,10 +133,10 @@ endmodule
 
 
 module ROM(CLK, CE, OCE, RESET, WRE, AD, BLKSEL, DO);
-parameter READ_MODE = 1'b0; 
-parameter BIT_WIDTH = 32; 
+parameter READ_MODE = 1'b0;
+parameter BIT_WIDTH = 32;
 parameter BLK_SEL = 3'b000;
-parameter RESET_MODE = "SYNC"; 
+parameter RESET_MODE = "SYNC";
 parameter INIT_RAM_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -202,9 +202,9 @@ parameter INIT_RAM_3D = 256'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 input CLK, CE;
-input OCE; 
-input RESET; 
-input WRE; 
+input OCE;
+input RESET;
+input WRE;
 input [13:0] AD;
 input [2:0] BLKSEL;
 output [31:0] DO;
@@ -212,11 +212,11 @@ endmodule
 
 
 module ROMX9(CLK, CE, OCE, RESET, WRE, AD, BLKSEL, DO);
-parameter READ_MODE = 1'b0; 
-parameter BIT_WIDTH = 36; 
+parameter READ_MODE = 1'b0;
+parameter BIT_WIDTH = 36;
 parameter BLK_SEL = 3'b000;
-parameter RESET_MODE = "SYNC"; 
-parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000; 
+parameter RESET_MODE = "SYNC";
+parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_03 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
@@ -281,9 +281,9 @@ parameter INIT_RAM_3D = 288'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 input CLK, CE;
-input OCE; 
-input RESET; 
-input WRE; 
+input OCE;
+input RESET;
+input WRE;
 input [13:0] AD;
 input [2:0] BLKSEL;
 output [35:0] DO;
@@ -291,9 +291,9 @@ endmodule
 
 
 module pROM(CLK, CE, OCE, RESET, AD, DO);
-parameter READ_MODE = 1'b0; 
-parameter BIT_WIDTH = 32; 
-parameter RESET_MODE = "SYNC"; 
+parameter READ_MODE = 1'b0;
+parameter BIT_WIDTH = 32;
+parameter RESET_MODE = "SYNC";
 parameter INIT_RAM_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -359,18 +359,18 @@ parameter INIT_RAM_3D = 256'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 input CLK, CE;
-input OCE; 
-input RESET; 
+input OCE;
+input RESET;
 input [13:0] AD;
 output [31:0] DO;
 endmodule
 
 
 module pROMX9(CLK, CE, OCE, RESET, AD, DO);
-parameter READ_MODE = 1'b0; 
-parameter BIT_WIDTH = 36; 
-parameter RESET_MODE = "SYNC"; 
-parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000; 
+parameter READ_MODE = 1'b0;
+parameter BIT_WIDTH = 36;
+parameter RESET_MODE = "SYNC";
+parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_03 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
@@ -435,20 +435,20 @@ parameter INIT_RAM_3D = 288'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 input CLK, CE;
-input OCE; 
-input RESET; 
+input OCE;
+input RESET;
 input [13:0] AD;
 output [35:0] DO;
 endmodule
 
 
 module SDPB(CLKA, CEA, CLKB, CEB, OCE, RESETA, RESETB, ADA, ADB, DI, BLKSELA, BLKSELB, DO);
-parameter READ_MODE = 1'b0; 
-parameter BIT_WIDTH_0 = 32; 
-parameter BIT_WIDTH_1 = 32; 
+parameter READ_MODE = 1'b0;
+parameter BIT_WIDTH_0 = 32;
+parameter BIT_WIDTH_1 = 32;
 parameter BLK_SEL_0 = 3'b000;
 parameter BLK_SEL_1 = 3'b000;
-parameter RESET_MODE = "SYNC"; 
+parameter RESET_MODE = "SYNC";
 parameter INIT_RAM_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -514,8 +514,8 @@ parameter INIT_RAM_3D = 256'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 input CLKA, CEA, CLKB, CEB;
-input OCE; 
-input RESETA, RESETB; 
+input OCE;
+input RESETA, RESETB;
 input [13:0] ADA, ADB;
 input [31:0] DI;
 input [2:0] BLKSELA, BLKSELB;
@@ -524,13 +524,13 @@ endmodule
 
 
 module SDPX9B(CLKA, CEA, CLKB, CEB, OCE, RESETA, RESETB, ADA, ADB, BLKSELA, BLKSELB, DI, DO);
-parameter READ_MODE = 1'b0; 
-parameter BIT_WIDTH_0 = 36; 
-parameter BIT_WIDTH_1 = 36; 
+parameter READ_MODE = 1'b0;
+parameter BIT_WIDTH_0 = 36;
+parameter BIT_WIDTH_1 = 36;
 parameter BLK_SEL_0 = 3'b000;
 parameter BLK_SEL_1 = 3'b000;
-parameter RESET_MODE = "SYNC"; 
-parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000; 
+parameter RESET_MODE = "SYNC";
+parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_03 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
@@ -595,8 +595,8 @@ parameter INIT_RAM_3D = 288'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 input CLKA, CEA, CLKB, CEB;
-input OCE; 
-input RESETA, RESETB; 
+input OCE;
+input RESETA, RESETB;
 input [13:0] ADA, ADB;
 input [2:0] BLKSELA, BLKSELB;
 input [35:0] DI;
@@ -605,15 +605,15 @@ endmodule
 
 
 module DPB(CLKA, CEA, CLKB, CEB, OCEA, OCEB, RESETA, RESETB, WREA, WREB, ADA, ADB, BLKSELA, BLKSELB, DIA, DIB, DOA, DOB);
-parameter READ_MODE0 = 1'b0; 
-parameter READ_MODE1 = 1'b0; 
-parameter WRITE_MODE0 = 2'b00; 
-parameter WRITE_MODE1 = 2'b00; 
-parameter BIT_WIDTH_0 = 16; 
-parameter BIT_WIDTH_1 = 16; 
+parameter READ_MODE0 = 1'b0;
+parameter READ_MODE1 = 1'b0;
+parameter WRITE_MODE0 = 2'b00;
+parameter WRITE_MODE1 = 2'b00;
+parameter BIT_WIDTH_0 = 16;
+parameter BIT_WIDTH_1 = 16;
 parameter BLK_SEL_0 = 3'b000;
 parameter BLK_SEL_1 = 3'b000;
-parameter RESET_MODE = "SYNC"; 
+parameter RESET_MODE = "SYNC";
 parameter INIT_RAM_00 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
@@ -679,9 +679,9 @@ parameter INIT_RAM_3D = 256'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 input CLKA, CEA, CLKB, CEB;
-input OCEA, OCEB; 
-input RESETA, RESETB; 
-input WREA, WREB; 
+input OCEA, OCEB;
+input RESETA, RESETB;
+input WREA, WREB;
 input [13:0] ADA, ADB;
 input [2:0] BLKSELA, BLKSELB;
 input [15:0] DIA, DIB;
@@ -690,16 +690,16 @@ endmodule
 
 
 module DPX9B(CLKA, CEA, CLKB, CEB, OCEA, OCEB, RESETA, RESETB, WREA, WREB, ADA, ADB, DIA, DIB, BLKSELA, BLKSELB, DOA, DOB);
-parameter READ_MODE0 = 1'b0; 
-parameter READ_MODE1 = 1'b0; 
-parameter WRITE_MODE0 = 2'b00; 
-parameter WRITE_MODE1 = 2'b00; 
-parameter BIT_WIDTH_0 = 18; 
-parameter BIT_WIDTH_1 = 18; 
+parameter READ_MODE0 = 1'b0;
+parameter READ_MODE1 = 1'b0;
+parameter WRITE_MODE0 = 2'b00;
+parameter WRITE_MODE1 = 2'b00;
+parameter BIT_WIDTH_0 = 18;
+parameter BIT_WIDTH_1 = 18;
 parameter BLK_SEL_0 = 3'b000;
 parameter BLK_SEL_1 = 3'b000;
-parameter RESET_MODE = "SYNC"; 
-parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000; 
+parameter RESET_MODE = "SYNC";
+parameter INIT_RAM_00 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_01 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_02 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_03 = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
@@ -764,9 +764,9 @@ parameter INIT_RAM_3D = 288'h000000000000000000000000000000000000000000000000000
 parameter INIT_RAM_3E = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 parameter INIT_RAM_3F = 288'h000000000000000000000000000000000000000000000000000000000000000000000000;
 input CLKA, CEA, CLKB, CEB;
-input OCEA, OCEB; 
-input RESETA, RESETB; 
-input WREA, WREB; 
+input OCEA, OCEB;
+input RESETA, RESETB;
+input WREA, WREB;
 input [13:0] ADA, ADB;
 input [17:0] DIA, DIB;
 input [2:0] BLKSELA, BLKSELB;
@@ -782,11 +782,11 @@ input  CE,CLK,RESET;
 input  [17:0] SI,SBI;
 output [17:0] SO,SBO;
 output [17:0] DOUT;
-parameter AREG = 1'b0; 
+parameter AREG = 1'b0;
 parameter BREG = 1'b0;
-parameter ADD_SUB = 1'b0; 
-parameter PADD_RESET_MODE = "SYNC"; 
-parameter BSEL_MODE = 1'b1; 
+parameter ADD_SUB = 1'b0;
+parameter PADD_RESET_MODE = "SYNC";
+parameter BSEL_MODE = 1'b1;
 parameter SOREG = 1'b0;
 endmodule
 
@@ -798,11 +798,11 @@ input  CE,CLK,RESET;
 input  [8:0] SI,SBI;
 output [8:0] SO,SBO;
 output [8:0] DOUT;
-parameter AREG = 1'b0; 
-parameter BREG = 1'b0; 
-parameter ADD_SUB = 1'b0; 
-parameter PADD_RESET_MODE = "SYNC"; 
-parameter BSEL_MODE = 1'b1; 
+parameter AREG = 1'b0;
+parameter BREG = 1'b0;
+parameter ADD_SUB = 1'b0;
+parameter PADD_RESET_MODE = "SYNC";
+parameter BSEL_MODE = 1'b1;
 parameter SOREG = 1'b0;
 endmodule
 
@@ -822,8 +822,8 @@ parameter OUT_REG = 1'b0;
 parameter PIPE_REG = 1'b0;
 parameter ASIGN_REG = 1'b0;
 parameter BSIGN_REG = 1'b0;
-parameter SOA_REG = 1'b0; 
-parameter MULT_RESET_MODE = "SYNC"; 
+parameter SOA_REG = 1'b0;
+parameter MULT_RESET_MODE = "SYNC";
 endmodule
 
 module MULT18X18(A, SIA, B, SIB, ASIGN, BSIGN, ASEL, BSEL, CE, CLK, RESET, DOUT, SOA, SOB);
@@ -843,7 +843,7 @@ parameter PIPE_REG = 1'b0;
 parameter ASIGN_REG = 1'b0;
 parameter BSIGN_REG = 1'b0;
 parameter SOA_REG = 1'b0;
-parameter MULT_RESET_MODE = "SYNC"; 
+parameter MULT_RESET_MODE = "SYNC";
 endmodule
 
 module MULT36X36(A, B, ASIGN, BSIGN, CE, CLK, RESET, DOUT);
@@ -861,7 +861,7 @@ parameter OUT1_REG = 1'b0;
 parameter PIPE_REG = 1'b0;
 parameter ASIGN_REG = 1'b0;
 parameter BSIGN_REG = 1'b0;
-parameter MULT_RESET_MODE = "SYNC"; 
+parameter MULT_RESET_MODE = "SYNC";
 endmodule
 
 module MULTALU36X18(A, B, C, ASIGN, BSIGN, ACCLOAD, CE, CLK, RESET, CASI, DOUT, CASO);
@@ -884,9 +884,9 @@ parameter ASIGN_REG = 1'b0;
 parameter BSIGN_REG = 1'b0;
 parameter ACCLOAD_REG0 = 1'b0;
 parameter ACCLOAD_REG1 = 1'b0;
-parameter MULT_RESET_MODE = "SYNC"; 
-parameter MULTALU36X18_MODE = 0; 
-parameter C_ADD_SUB = 1'b0; 
+parameter MULT_RESET_MODE = "SYNC";
+parameter MULTALU36X18_MODE = 0;
+parameter C_ADD_SUB = 1'b0;
 endmodule
 
 module MULTADDALU18X18(A0, B0, A1, B1, C, SIA, SIB, ASIGN, BSIGN, ASEL, BSEL, CASI, CE, CLK, RESET, ACCLOAD, DOUT, CASO, SOA, SOB);
@@ -906,7 +906,7 @@ input ACCLOAD;
 output [53:0] DOUT;
 output [54:0] CASO;
 output [17:0] SOA, SOB;
-parameter A0REG = 1'b0; 
+parameter A0REG = 1'b0;
 parameter A1REG = 1'b0;
 parameter B0REG = 1'b0;
 parameter B1REG = 1'b0;
@@ -921,7 +921,7 @@ parameter ACCLOAD_REG1 = 1'b0;
 parameter BSIGN0_REG = 1'b0;
 parameter BSIGN1_REG = 1'b0;
 parameter SOA_REG = 1'b0;
-parameter B_ADD_SUB = 1'b0; 
+parameter B_ADD_SUB = 1'b0;
 parameter C_ADD_SUB = 1'b0;
 parameter MULTADDALU18X18_MODE = 0;
 parameter MULT_RESET_MODE = "SYNC";
@@ -945,12 +945,12 @@ parameter ASIGN_REG = 1'b0;
 parameter BSIGN_REG = 1'b0;
 parameter ACCLOAD_REG0 = 1'b0;
 parameter ACCLOAD_REG1 = 1'b0;
-parameter MULT_RESET_MODE = "SYNC"; 
+parameter MULT_RESET_MODE = "SYNC";
 parameter PIPE_REG = 1'b0;
 parameter OUT_REG = 1'b0;
-parameter B_ADD_SUB = 1'b0; 
+parameter B_ADD_SUB = 1'b0;
 parameter C_ADD_SUB = 1'b0;
-parameter MULTALU18X18_MODE = 0; 
+parameter MULTALU18X18_MODE = 0;
 endmodule
 
 module ALU54D(A, B, ASIGN, BSIGN, ACCLOAD, CASI, CLK, CE, RESET, DOUT, CASO);
@@ -961,13 +961,13 @@ input [54:0] CASI;
 input CLK, CE, RESET;
 output [53:0] DOUT;
 output [54:0] CASO;
-parameter AREG = 1'b0; 
+parameter AREG = 1'b0;
 parameter BREG = 1'b0;
 parameter ASIGN_REG = 1'b0;
 parameter BSIGN_REG = 1'b0;
 parameter ACCLOAD_REG = 1'b0;
 parameter OUT_REG = 1'b0;
-parameter B_ADD_SUB = 1'b0; 
+parameter B_ADD_SUB = 1'b0;
 parameter C_ADD_SUB = 1'b0;
 parameter ALUD_MODE = 0;
 parameter ALU_RESET_MODE = "SYNC";
@@ -1002,27 +1002,27 @@ output LOCK;
 output CLKOUTP;
 output CLKOUTD;
 output CLKOUTD3;
-parameter FCLKIN = "100.0"; 
+parameter FCLKIN = "100.0";
 parameter DYN_IDIV_SEL= "false";
-parameter IDIV_SEL = 0; 
+parameter IDIV_SEL = 0;
 parameter DYN_FBDIV_SEL= "false";
-parameter FBDIV_SEL = 0; 
+parameter FBDIV_SEL = 0;
 parameter DYN_ODIV_SEL= "false";
-parameter ODIV_SEL = 8; 
+parameter ODIV_SEL = 8;
 parameter PSDA_SEL= "0000";
 parameter DYN_DA_EN = "false";
 parameter DUTYDA_SEL= "1000";
-parameter CLKOUT_FT_DIR = 1'b1; 
-parameter CLKOUTP_FT_DIR = 1'b1; 
-parameter CLKOUT_DLY_STEP = 0; 
-parameter CLKOUTP_DLY_STEP = 0; 
-parameter CLKFB_SEL = "internal"; 
-parameter CLKOUT_BYPASS = "false";  
-parameter CLKOUTP_BYPASS = "false";   
-parameter CLKOUTD_BYPASS = "false";  
-parameter DYN_SDIV_SEL = 2; 
-parameter CLKOUTD_SRC =  "CLKOUT";  
-parameter CLKOUTD3_SRC = "CLKOUT"; 
+parameter CLKOUT_FT_DIR = 1'b1;
+parameter CLKOUTP_FT_DIR = 1'b1;
+parameter CLKOUT_DLY_STEP = 0;
+parameter CLKOUTP_DLY_STEP = 0;
+parameter CLKFB_SEL = "internal";
+parameter CLKOUT_BYPASS = "false";
+parameter CLKOUTP_BYPASS = "false";
+parameter CLKOUTD_BYPASS = "false";
+parameter DYN_SDIV_SEL = 2;
+parameter CLKOUTD_SRC =  "CLKOUT";
+parameter CLKOUTD3_SRC = "CLKOUT";
 parameter DEVICE = "GW2A-18";
 endmodule
 
@@ -1063,8 +1063,8 @@ input HCLKIN;
 input RESETN;
 input CALIB;
 output CLKOUT;
-parameter DIV_MODE = "2"; 
-parameter GSREN = "false"; 
+parameter DIV_MODE = "2";
+parameter GSREN = "false";
 endmodule
 
 module DHCEN(CLKIN, CE, CLKOUT);
@@ -1080,14 +1080,14 @@ input [2:0] RCLKSEL;
 input [7:0] DLLSTEP;
 input [7:0] WSTEP;
 input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
-output DQSR90, DQSW0, DQSW270; 
+output DQSR90, DQSW0, DQSW270;
 output [2:0] RPOINT, WPOINT;
 output RVALID,RBURST, RFLAG, WFLAG;
-    parameter FIFO_MODE_SEL = 1'b0; 
-    parameter RD_PNTR = 3'b000; 
-    parameter DQS_MODE = "X1"; 
-    parameter HWL = "false";     
-    parameter GSREN = "false"; 
+    parameter FIFO_MODE_SEL = 1'b0;
+    parameter RD_PNTR = 3'b000;
+    parameter DQS_MODE = "X1";
+    parameter HWL = "false";
+    parameter GSREN = "false";
 endmodule
 
 module DLLDLY(CLKIN, DLLSTEP, DIR, LOADN, MOVE, CLKOUT, FLAG);
@@ -1096,16 +1096,16 @@ input [7:0] DLLSTEP;
 input DIR,LOADN,MOVE;
 output CLKOUT;
 output FLAG;
-parameter DLL_INSEL = 1'b1; 
-parameter DLY_SIGN = 1'b0; 
-parameter DLY_ADJ = 0; 
+parameter DLL_INSEL = 1'b1;
+parameter DLY_SIGN = 1'b0;
+parameter DLY_ADJ = 0;
 endmodule
 
 module DCS(CLK0, CLK1, CLK2, CLK3, SELFORCE, CLKSEL, CLKOUT);
 input CLK0, CLK1, CLK2, CLK3, SELFORCE;
 input [3:0] CLKSEL;
 output CLKOUT;
-  parameter DCS_MODE = "RISING";  
+  parameter DCS_MODE = "RISING";
 endmodule
 
 module DQCE(CLKIN, CE, CLKOUT);
@@ -1115,7 +1115,7 @@ output CLKOUT;
 endmodule
 
 module CLKDIV2(HCLKIN, RESETN, CLKOUT);
-parameter GSREN = "false"; 
+parameter GSREN = "false";
 input HCLKIN, RESETN;
 output CLKOUT;
 endmodule

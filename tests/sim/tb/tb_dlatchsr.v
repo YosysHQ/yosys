@@ -1,4 +1,4 @@
-`timescale 1ns/1ns 
+`timescale 1ns/1ns
 module tb_dlatchsr();
 	reg d = 0;
 	reg set = 0;

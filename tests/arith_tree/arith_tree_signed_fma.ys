@@ -1,0 +1,135 @@
+read_verilog <<EOT
+module signed_mac(
+	input signed [3:0] a, b,
+	input signed [7:0] c,
+	output signed [7:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module signed_mul(
+	input signed [3:0] a, b,
+	output signed [7:0] y
+);
+	assign y = a * b;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 1 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-min 0 t:$fa
+design -reset
+
+read_verilog <<EOT
+module signed_dot2(
+	input signed [3:0] a, b, c, d,
+	output signed [7:0] y
+);
+	assign y = a * b + c * d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module signed_mac_sub(
+	input signed [3:0] a, b,
+	input signed [7:0] c,
+	output signed [7:0] y
+);
+	assign y = a * b - c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module signed_mac_negprod(
+	input signed [3:0] a, b,
+	input signed [7:0] c,
+	output signed [7:0] y
+);
+	assign y = c - a * b;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module signed_mac_wide(
+	input signed [7:0] a, b,
+	input signed [15:0] c,
+	output signed [15:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module signed_mac_nofma(
+	input signed [3:0] a, b,
+	input signed [7:0] c,
+	output signed [7:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree -no-fma
+design -load postopt
+select -assert-count 0 t:$fa
+select -assert-min 1 t:$macc t:$macc_v2 %u
+design -reset

@@ -44,7 +44,7 @@ endmodule
 (* blackbox *)
 module EG_LOGIC_MBOOT(
   input rebootn,
-  input [7:0] dynamic_addr  
+  input [7:0] dynamic_addr
 );
   parameter ADDR_SOURCE_SEL = "STATIC";
   parameter STATIC_ADDR = 8'b00000000;
@@ -242,7 +242,7 @@ module EG_LOGIC_MULT(
   input rstan,
   input rstbn,
   input rstpdn
-); 
+);
   parameter INPUT_WIDTH_A = 18;
   parameter INPUT_WIDTH_B = 18;
   parameter OUTPUT_WIDTH = 36;
@@ -561,7 +561,7 @@ module EG_PHY_FIFO(
   parameter [13:0] F = 14'b01111111110000;
   parameter [13:0] AEP1 = 14'b00000001110000;
   parameter [13:0] AFM1 = 14'b01111110000000;
-  parameter [13:0] FM1  = 14'b01111111100000;   
+  parameter [13:0] FM1  = 14'b01111111100000;
   parameter [4:0] E = 5'b00000;
   parameter [5:0] EP1 = 6'b010000;
   parameter GSR = "ENABLE";
@@ -604,8 +604,8 @@ module EG_PHY_MULT18(
   input rstbn,
   input rstpdn,
   input sourcea,
-  input sourceb  
-); 
+  input sourceb
+);
   parameter INPUTREGA = "ENABLE";
   parameter INPUTREGB = "ENABLE";
   parameter OUTPUTREG = "ENABLE";
@@ -628,7 +628,7 @@ endmodule
 module EG_PHY_GCLK(
   input clki,
   output clko
-);    
+);
 endmodule
 
 (* blackbox *)
@@ -647,7 +647,7 @@ module EG_PHY_CLKDIV(
   input clki,
   input rst,
   input rls
-);    
+);
   parameter GSR = "DISABLE";
   parameter DIV = 2;
 endmodule
@@ -677,7 +677,7 @@ module EG_PHY_CONFIG(
   input	dna_shift_en,
   input	mboot_rebootn,
   input [7:0]	mboot_dynamic_addr
-);  
+);
   parameter MBOOT_AUTO_SEL = "DISABLE";
   parameter ADDR_SOURCE_SEL = "STATIC";
   parameter STATIC_ADDR = 8'b0;
@@ -694,7 +694,7 @@ endmodule
 module EG_PHY_OSC(
   input osc_dis,
   output osc_clk
-);    
+);
   parameter STDBY = "DISABLE";
 endmodule
 
@@ -919,7 +919,7 @@ module EG_PHY_PLL(
   parameter CLKC3_DIV2_ENABLE = "DISABLE";
   parameter CLKC4_DIV2_ENABLE = "DISABLE";
   parameter FEEDBK_MODE = "NORMAL";
-  parameter FEEDBK_PATH = "VCO_PHASE_0";  
+  parameter FEEDBK_PATH = "VCO_PHASE_0";
   parameter STDBY_ENABLE = "ENABLE";
   parameter CLKC0_FPHASE = 0;
   parameter CLKC1_FPHASE = 0;
@@ -992,7 +992,7 @@ module EG_LOGIC_BRAM(
   parameter DATA_DEPTH_B = 2 ** ADDR_WIDTH_B;
   parameter BYTE_ENABLE = 0;
   parameter BYTE_A = BYTE_ENABLE == 0 ? 1 : DATA_WIDTH_A / BYTE_ENABLE;
-  parameter BYTE_B = BYTE_ENABLE == 0 ? 1 : DATA_WIDTH_B / BYTE_ENABLE;  
+  parameter BYTE_B = BYTE_ENABLE == 0 ? 1 : DATA_WIDTH_B / BYTE_ENABLE;
   parameter MODE = "DP";
   parameter REGMODE_A = "NOREG";
   parameter REGMODE_B = "NOREG";
@@ -1005,7 +1005,7 @@ module EG_LOGIC_BRAM(
   parameter INIT_FILE = "NONE";
   parameter FILL_ALL = "NONE";
   parameter IMPLEMENT = "9K";
-endmodule     
+endmodule
 
 (* blackbox *)
 module EG_PHY_ADC(

@@ -85,4 +85,3 @@ module distributed_ram_manual_syn #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=4)
 
    assign data_out = data_out_r;
 endmodule // distributed_ram
-

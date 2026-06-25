@@ -16,4 +16,3 @@ macc_xilinx_xmap.dot: macc_xilinx_*.v macc_xilinx_test.ys
 .PHONY: clean
 clean:
 	@rm -f *.dot
-

@@ -22,4 +22,3 @@ body:
       description: "A clear and detailed description of the feature."
     validations:
       required: true
-

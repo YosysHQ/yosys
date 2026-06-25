@@ -304,7 +304,7 @@ struct SmtrModule {
 	}
 
 	void write(std::ostream &out)
-	{    
+	{
 		SExprWriter w(out);
 
 		input_struct.write_definition(w);

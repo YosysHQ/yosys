@@ -1079,11 +1079,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 {
 	double v = round(realvalue);
 	RTLIL::Const result;
-#ifdef EMSCRIPTEN
-	if (!isfinite(v)) {
-#else
 	if (!std::isfinite(v)) {
-#endif
 		result = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
 	} else {
 		bool is_negative = v < 0;

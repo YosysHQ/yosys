@@ -38,7 +38,7 @@ code
 		mac->setPort(\B, port(mul, \B));
 		mac->setPort(\C, port(add, add_C));
 		mac->setPort(\Y, port(add, \Y));
-		mac->setParam(\A_SIGNED, mul->getParam(\A_SIGNED)); 
+		mac->setParam(\A_SIGNED, mul->getParam(\A_SIGNED));
 		mac->setParam(\SUBTRACT, add->type == $sub ? State::S1 : State::S0);
 
 		autoremove(mul);
@@ -178,9 +178,9 @@ code
 
 	{
 		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
-		
-		auto ext9 = [&](SigSpec s) { 
-			s.extend_u0(9, is_signed); 
+
+		auto ext9 = [&](SigSpec s) {
+			s.extend_u0(9, is_signed);
 			return s;
 		};
 

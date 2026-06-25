@@ -9,7 +9,7 @@ equiv_opt -async2sync -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/qu
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd my_dff # Constrain all select calls below inside the top module
 select -assert-count 1 t:sdffsre
-select -assert-none t:sdffsre %% t:* %D 
+select -assert-none t:sdffsre %% t:* %D
 
 design -load read
 hierarchy -top my_dffe
@@ -18,4 +18,4 @@ equiv_opt -async2sync -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/qu
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd my_dffe # Constrain all select calls below inside the top module
 select -assert-count 1 t:sdffsre
-select -assert-none t:sdffsre %% t:* %D 
+select -assert-none t:sdffsre %% t:* %D

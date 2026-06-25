@@ -13,4 +13,3 @@ abc -liberty cmos_cells.lib;;
 
 write_verilog synth.v
 write_spice -neg 0s -pos 1s synth.sp
-

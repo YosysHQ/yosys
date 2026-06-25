@@ -10,4 +10,3 @@ Each test bench can be run separately by either running:
 
 The later case also includes pure verilog simulation using the iverilog
 and gtkwave for comparison.
-

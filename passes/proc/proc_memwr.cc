@@ -117,4 +117,3 @@ struct ProcMemWrPass : public Pass {
 } ProcMemWrPass;
 
 PRIVATE_NAMESPACE_END
-

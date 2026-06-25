@@ -378,7 +378,7 @@ struct Abc9Pass : public ScriptPass
 				run("    write_xaiger -map <abc-temp-dir>/input.sym [-dff] <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> -lut [<abc-temp-dir>/input.lut] -box [<abc-temp-dir>/input.box]");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-				run("    abc9_ops -reintegrate [-dff]");
+				run("    abc_ops_reintegrate [-dff]");
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
@@ -398,7 +398,7 @@ struct Abc9Pass : public ScriptPass
 						log_error("Can't handle partially selected module %s!\n", mod);
 
 					std::string tempdir_name;
-					if (cleanup) 
+					if (cleanup)
 						tempdir_name = get_base_tmpdir() + "/";
 					else
 						tempdir_name = "_tmp_";
@@ -430,7 +430,7 @@ struct Abc9Pass : public ScriptPass
 							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
 						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", mod, tempdir_name, tempdir_name));
-						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
+						run_nocheck(stringf("abc_ops_reintegrate %s", dff_mode ? "-dff" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");

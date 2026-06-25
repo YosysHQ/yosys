@@ -202,7 +202,7 @@ static auto has_name_member_imp(int)
 	-> decltype(static_cast<const RTLIL::IdString>(std::declval<T>().name), std::true_type{});
 
 template <class T>
-static auto has_name_member_imp(long) 
+static auto has_name_member_imp(long)
 	-> std::false_type;
 
 template <class T>
@@ -213,7 +213,7 @@ static auto ptr_has_name_member_imp(int)
 	-> decltype(static_cast<const RTLIL::IdString>(std::declval<T>()->name), std::true_type{});
 
 template <class T>
-static auto ptr_has_name_member_imp(long) 
+static auto ptr_has_name_member_imp(long)
 	-> std::false_type;
 
 template <class T>
@@ -475,7 +475,7 @@ public:
 private:
 	std::string_view fmt;
 	bool has_escapes = false;
-	// Making array at least size of one to make MSVC happy and strict to standards 
+	// Making array at least size of one to make MSVC happy and strict to standards
 	FoundFormatSpec specs[sizeof...(Args) ? sizeof...(Args) : 1] = {};
 };
 

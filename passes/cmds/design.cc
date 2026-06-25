@@ -401,4 +401,3 @@ struct DesignPass : public Pass {
 } DesignPass;
 
 YOSYS_NAMESPACE_END
-

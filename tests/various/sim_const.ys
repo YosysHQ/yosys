@@ -10,4 +10,3 @@ EOT
 proc
 sim -clock clk -n 1 -w top
 select -assert-count 1 a:init=2'b10 top/q %i
-

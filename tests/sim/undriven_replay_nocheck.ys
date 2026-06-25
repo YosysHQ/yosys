@@ -1,0 +1,4 @@
+read_verilog undriven_replay.v
+prep -top undriven_replay
+
+sim -r undriven_replay.vcd -scope undriven_replay -q -no-undriven-check

@@ -4,7 +4,7 @@ output q;
 reg q;
 
 always @ (posedge x or posedge y)
-   if (x) 
+   if (x)
      q <= 1'b0;
    else
      q <= d;

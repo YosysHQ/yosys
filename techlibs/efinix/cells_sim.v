@@ -1,5 +1,5 @@
 module EFX_LUT4(
-   output O, 
+   output O,
    input I0,
    input I1,
    input I2,
@@ -10,7 +10,7 @@ module EFX_LUT4(
 	wire [7:0] s3 = I3 ? LUTMASK[15:8] : LUTMASK[7:0];
 	wire [3:0] s2 = I2 ?      s3[ 7:4] :      s3[3:0];
 	wire [1:0] s1 = I1 ?      s2[ 3:2] :      s2[1:0];
-	assign O = I0 ? s1[1] : s1[0];	   
+	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
 module EFX_ADD(
@@ -64,9 +64,9 @@ module EFX_FF(
 	initial Q = 1'b0;
 
    generate
-   	if (SR_SYNC == 1) 
+   	if (SR_SYNC == 1)
       begin
-         if (SR_SYNC_PRIORITY == 1) 
+         if (SR_SYNC_PRIORITY == 1)
          begin
             always @(posedge clk)
                if (sr)
@@ -93,7 +93,7 @@ module EFX_FF(
                Q <= SR_VALUE;
             else if (ce)
                Q <= d;
-         
+
       end
    endgenerate
 endmodule
@@ -108,16 +108,16 @@ module EFX_GBUFCE(
 
    wire ce;
    assign ce = CE_POLARITY ? CE : ~CE;
-   
+
    assign O = I & ce;
-   
+
 endmodule
 
 module EFX_RAM_5K
 # (
    parameter READ_WIDTH = 20,
    parameter WRITE_WIDTH = 20,
-   localparam READ_ADDR_WIDTH = 
+   localparam READ_ADDR_WIDTH =
 			    (READ_WIDTH == 16) ? 8 :  // 256x16
 			    (READ_WIDTH == 8)  ? 9 :  // 512x8
 			    (READ_WIDTH == 4)  ? 10 : // 1024x4
@@ -126,8 +126,8 @@ module EFX_RAM_5K
 			    (READ_WIDTH == 20) ? 8 :  // 256x20
 			    (READ_WIDTH == 10) ? 9 :  // 512x10
 			    (READ_WIDTH == 5)  ? 10 : -1, // 1024x5
-   
-   localparam WRITE_ADDR_WIDTH = 
+
+   localparam WRITE_ADDR_WIDTH =
 			    (WRITE_WIDTH == 16) ? 8 :  // 256x16
 			    (WRITE_WIDTH == 8)  ? 9 :  // 512x8
 			    (WRITE_WIDTH == 4)  ? 10 : // 1024x4
@@ -140,13 +140,13 @@ module EFX_RAM_5K
 (
    input [WRITE_WIDTH-1:0] WDATA,
    input [WRITE_ADDR_WIDTH-1:0] WADDR,
-   input WE, 
+   input WE,
    (* clkbuf_sink *)
    input WCLK,
-   input WCLKE, 
-   output [READ_WIDTH-1:0] RDATA, 
+   input WCLKE,
+   output [READ_WIDTH-1:0] RDATA,
    input [READ_ADDR_WIDTH-1:0] RADDR,
-   input RE, 
+   input RE,
    (* clkbuf_sink *)
    input RCLK
 );

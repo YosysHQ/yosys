@@ -11,7 +11,7 @@ Yosys 0.65 .. Yosys 0.66
     - C++ compiler with C++20 support is required.
     - Please be aware that next release will also
       migrate to CMake build system.
- 
+
  * New commands and options
     - Added "lattice_dsp_nexus" pass for Lattice Nexus
       DSP inference.
@@ -78,7 +78,7 @@ Yosys 0.61 .. Yosys 0.62
       cascaded cells into tree of cells to improve timing.
     - Added "-gatesi" option to "write_blif" pass to init gates
       under gates_mode in BLIF format.
-    - Added "-on" and "-off" options to "debug" pass for 
+    - Added "-on" and "-off" options to "debug" pass for
       persistent debug logging.
     - Added "linux_perf" pass to control performance recording.
 
@@ -92,7 +92,7 @@ Yosys 0.60 .. Yosys 0.61
  * New commands and options
     - Added "design_equal" pass to support fuzz-test comparison.
     - Added "lut2bmux" pass to convert $lut to $bmux.
-    - Added "-legalize" option to "read_rtlil" pass to prevent 
+    - Added "-legalize" option to "read_rtlil" pass to prevent
       semantic errors.
 
 Yosys 0.59 .. Yosys 0.60
@@ -196,7 +196,7 @@ Yosys 0.53 .. Yosys 0.54
     - Enable single-bit vector wires in RTLIL.
 
  * Xilinx support
-    - Single-port URAM mapping to support memories 2048 x 144b 
+    - Single-port URAM mapping to support memories 2048 x 144b
 
 Yosys 0.52 .. Yosys 0.53
 --------------------------
@@ -222,7 +222,7 @@ Yosys 0.51 .. Yosys 0.52
 --------------------------
  * New commands and options
     - Added "-pattern-limit" option to "share" pass to limit analysis effort.
-    - Added "libcache" pass to control caching of technology library 
+    - Added "libcache" pass to control caching of technology library
       data parsed from liberty files.
     - Added "read_verilog_file_list" to parse verilog file list.
 
@@ -288,7 +288,7 @@ Yosys 0.47 .. Yosys 0.48
 
  * Gowin support
     - Added "-family" option to "synth_gowin" pass.
-    - Cell definitions split by family. 
+    - Cell definitions split by family.
 
  * Verific support
     - Improved blackbox support.
@@ -315,7 +315,7 @@ Yosys 0.45 .. Yosys 0.46
     - Added new "functional backend" infrastructure with three example
       backends (C++, SMTLIB and Rosette).
     - Added new coarse-grain buffer cell type "$buf" to RTLIL.
-    - Added "-y" command line option to execute a Python script with 
+    - Added "-y" command line option to execute a Python script with
       libyosys available as a built-in module.
     - Added support for casting to type in Verilog frontend.
 
@@ -323,7 +323,7 @@ Yosys 0.45 .. Yosys 0.46
     - Added "clockgate" pass for automatic clock gating cell insertion.
     - Added "bufnorm" experimental pass to convert design into
       buffered-normalized form.
-    - Added experimental "aiger2" and "xaiger2" backends, and an 
+    - Added experimental "aiger2" and "xaiger2" backends, and an
       experimental "abc_new" command
     - Added "-force-detailed-loop-check" option to "check" pass.
     - Added "-unit_delay" option to "read_liberty" pass.
@@ -348,10 +348,10 @@ Yosys 0.43 .. Yosys 0.44
     - Build support for Haiku OS.
 
  * New commands and options
-    - Added "keep_hierarchy" pass to add attribute with 
+    - Added "keep_hierarchy" pass to add attribute with
       same name to modules based on cost.
     - Added options "-noopt","-bloat" and "-check_cost" to
-      "test_cell" pass. 
+      "test_cell" pass.
 
  * New back-ends
     - Added initial PolarFire support. ( synth_microchip )
@@ -365,22 +365,22 @@ Yosys 0.42 .. Yosys 0.43
 
  * Verific support
     - Support building Yosys with various Verific library
-      configurations. Can be built now without YosysHQ 
+      configurations. Can be built now without YosysHQ
       specific patch and extension library.
 
 Yosys 0.41 .. Yosys 0.42
 --------------------------
  * New commands and options
     - Added "box_derive" pass to derive box modules.
-    - Added option "assert-mod-count" to "select" pass. 
-    - Added option "-header","-push" and "-pop" to "log" pass. 
+    - Added option "assert-mod-count" to "select" pass.
+    - Added option "-header","-push" and "-pop" to "log" pass.
  * Intel support
     - Dropped Quartus support in "synth_intel_alm" pass.
 
 Yosys 0.40 .. Yosys 0.41
 --------------------------
  * New commands and options
-    - Added "cellmatch" pass for picking out standard cells automatically. 
+    - Added "cellmatch" pass for picking out standard cells automatically.
 
  * Various
     - Extended the experimental incremental JSON API to allow arbitrary
@@ -394,7 +394,7 @@ Yosys 0.40 .. Yosys 0.41
 Yosys 0.39 .. Yosys 0.40
 --------------------------
  * New commands and options
-    - Added option "-vhdl2019" to "read" and "verific" pass. 
+    - Added option "-vhdl2019" to "read" and "verific" pass.
 
  * Various
     - Major documentation overhaul.
@@ -408,7 +408,7 @@ Yosys 0.39 .. Yosys 0.40
 Yosys 0.38 .. Yosys 0.39
 --------------------------
  * New commands and options
-    - Added option "-extra-map" to "synth" pass. 
+    - Added option "-extra-map" to "synth" pass.
     - Added option "-dont_use" to "dfflibmap" pass.
     - Added option "-href" to "show" command.
     - Added option "-noscopeinfo" to "flatten" pass.
@@ -422,7 +422,7 @@ Yosys 0.38 .. Yosys 0.39
       the hierarchy during flattening.
     - Added sequential area output to "stat -liberty".
     - Added ability to record/replay diagnostics in cxxrtl backend.
- 
+
  * Verific support
     - Added attributes to module instantiation.
 
@@ -469,7 +469,7 @@ Yosys 0.35 .. Yosys 0.36
 
  * QuickLogic support
     - Added "K6N10f" support.
-    - Added "-nodsp", "-nocarry", "-nobram" and "-bramtypes" options to 
+    - Added "-nodsp", "-nocarry", "-nobram" and "-bramtypes" options to
       "synth_quicklogic" pass.
     - Added "ql_bram_merge" pass to merge 18K BRAM cells into TDP36K.
     - Added "ql_bram_types" pass to change TDP36K depending on configuration.
@@ -564,7 +564,7 @@ Yosys 0.29 .. Yosys 0.30
     - Added remaining primitives blackboxes.
 
  * Various
-    - "show -colorattr" will now color the cells, wires, and 
+    - "show -colorattr" will now color the cells, wires, and
       connection arrows.
     - "show -viewer none" will not execute viewer.
 
@@ -739,7 +739,7 @@ Yosys 0.19 .. Yosys 0.20
       operators were not affected.
 
  * Verific support
-    - Proper import of port ranges into Yosys, may result in reversed 
+    - Proper import of port ranges into Yosys, may result in reversed
       bit-order of top-level ports for some synthesis flows.
 
 Yosys 0.18 .. Yosys 0.19
@@ -833,7 +833,7 @@ Yosys 0.14 .. Yosys 0.15
 
  * SystemVerilog
     - Added support for accessing whole sub-structures in expressions
- 
+
  * New commands and options
     - Added glift command, used to create gate-level information flow tracking
       (GLIFT) models by the "constructive mapping" approach
@@ -848,7 +848,7 @@ Yosys 0.13 .. Yosys 0.14
     - Added $bmux and $demux cells and related optimization patterns.
 
  * New commands and options
-    - Added "bmuxmap" and "dmuxmap" passes 
+    - Added "bmuxmap" and "dmuxmap" passes
     - Added "-fst" option to "sim" pass for writing FST files
     - Added "-r", "-scope", "-start", "-stop", "-at", "-sim", "-sim-gate",
       "-sim-gold" options to "sim" pass for co-simulation
@@ -1802,4 +1802,3 @@ Yosys 0.1.0 .. Yosys 0.2.0
      - Added "design -stash/-copy-from/-copy-to"
      - Added "copy" command
      - Added "splice" command
-

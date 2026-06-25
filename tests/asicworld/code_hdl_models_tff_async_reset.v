@@ -11,7 +11,7 @@ reset , // Reset input
 q       // Q output
 );
 //-----------Input Ports---------------
-input data, clk, reset ; 
+input data, clk, reset ;
 //-----------Output Ports---------------
 output q;
 //------------Internal Variables--------

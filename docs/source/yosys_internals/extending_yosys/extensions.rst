@@ -68,7 +68,7 @@ with, and lists off the current design's modules.
    :language: c++
    :lines: 1, 4, 6, 7-20
    :caption: Example command :yoscrypt:`my_cmd` from :file:`my_cmd.cc`
-   
+
 Note that we are making a global instance of a class derived from
 ``Yosys::Pass``, which we get by including :file:`kernel/yosys.h`.
 

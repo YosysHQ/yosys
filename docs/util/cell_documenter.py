@@ -34,7 +34,7 @@ class YosysCell:
     inputs: list[str]
     outputs: list[str]
     properties: list[str]
-    
+
 class YosysCellGroupDocumenter(Documenter):
     objtype = 'cellgroup'
     priority = 10
@@ -67,7 +67,7 @@ class YosysCellGroupDocumenter(Documenter):
                 for (name, obj) in cells_obj.get(self.lib_key, {}).items():
                     self.__cell_lib[name] = obj
         return self.__cell_lib
-    
+
     @classmethod
     def can_document_member(
         cls,
@@ -83,7 +83,7 @@ class YosysCellGroupDocumenter(Documenter):
             self.content_indent = ''
         self.fullname = self.modname = self.name
         return True
-    
+
     def import_object(self, raiseerror: bool = False) -> bool:
         # get cell
         try:
@@ -95,16 +95,16 @@ class YosysCellGroupDocumenter(Documenter):
 
         self.real_modname = self.modname
         return True
-    
+
     def get_sourcename(self) -> str:
         return self.env.doc2path(self.env.docname)
-    
+
     def format_name(self) -> str:
         return self.options.caption or ''
 
     def format_signature(self, **kwargs: Any) -> str:
         return self.modname
-    
+
     def add_directive_header(self, sig: str) -> None:
         domain = getattr(self, 'domain', 'cell')
         directive = getattr(self, 'directivetype', 'group')
@@ -118,7 +118,7 @@ class YosysCellGroupDocumenter(Documenter):
 
         if self.options.noindex:
             self.add_line('   :noindex:', sourcename)
-    
+
     def add_content(self, more_content: Any | None) -> None:
         # groups have no native content
         # add additional content (e.g. from document), if present
@@ -271,22 +271,22 @@ class YosysCellDocumenter(YosysCellGroupDocumenter):
         self.fullname = ((self.modname) + (thing or ''))
 
         return True
-    
+
     def import_object(self, raiseerror: bool = False) -> bool:
         if super().import_object(raiseerror):
             self.object = YosysCell(self.modname, **self.object[1])
             return True
         return False
-    
+
     def get_sourcename(self) -> str:
         return self.object.source.split(":")[0]
-    
+
     def format_name(self) -> str:
         return self.object.name
 
     def format_signature(self, **kwargs: Any) -> str:
         return self.groupname + self.fullname + self.attribute
-    
+
     def add_directive_header(self, sig: str) -> None:
         domain = getattr(self, 'domain', self.objtype)
         directive = getattr(self, 'directivetype', 'def')
@@ -310,7 +310,7 @@ class YosysCellDocumenter(YosysCellGroupDocumenter):
 
         if self.options.noindex:
             self.add_line('   :noindex:', sourcename)
-    
+
     def add_content(self, more_content: Any | None) -> None:
         # set sourcename and add content from attribute documentation
         sourcename = self.get_sourcename()
@@ -360,7 +360,7 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
         if isinstance(parent, YosysCellDocumenter):
             return True
         return False
-    
+
     def add_directive_header(self, sig: str) -> None:
         domain = getattr(self, 'domain', 'cell')
         directive = getattr(self, 'directivetype', 'source')
@@ -383,7 +383,7 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
 
         if self.options.noindex:
             self.add_line('   :noindex:', sourcename)
-    
+
     def add_content(self, more_content: Any | None) -> None:
         # set sourcename and add content from attribute documentation
         sourcename = self.get_sourcename()

@@ -48,7 +48,7 @@ RAM64x12 #(
 	.R_ADDR_EN(1'b0),
 	.R_ADDR_SL_N(1'b1),
 	.R_ADDR_SD(1'b0),
-	.R_ADDR_AL_N(1'b1), 
+	.R_ADDR_AL_N(1'b1),
 	.R_ADDR_AD_N(1'b0),
 	.BLK_EN(PORT_R_USED ? 1'b1 : 1'b0),
 	.R_DATA(PORT_R_RD_DATA),
@@ -103,7 +103,7 @@ RAM64x12 #(
 	.R_ADDR_EN(PORT_R_RD_EN),
 	.R_ADDR_SL_N(1'b1),
 	.R_ADDR_SD(1'b0),
-	.R_ADDR_AL_N(1'b1), 
+	.R_ADDR_AL_N(1'b1),
 	.R_ADDR_AD_N(1'b0),
 	.BLK_EN(PORT_R_USED ? 1'b1 : 1'b0),
 	.R_DATA(PORT_R_RD_DATA),
@@ -123,4 +123,3 @@ RAM64x12 #(
 );
 
 endmodule
-

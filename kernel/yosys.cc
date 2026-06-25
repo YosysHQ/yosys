@@ -553,7 +553,7 @@ std::string proc_self_dirname()
 		shortpath[--i] = 0;
 	return shortpath;
 }
-#elif defined(EMSCRIPTEN) || defined(__wasm)
+#elif defined(__wasm)
 std::string proc_self_dirname()
 {
 	return "/";
@@ -591,7 +591,7 @@ std::string proc_self_dirname(void)
 	#error "Don't know how to determine process executable base path!"
 #endif
 
-#if defined(EMSCRIPTEN) || defined(__wasm)
+#if defined(__wasm)
 void init_share_dirname()
 {
 	yosys_share_dirname = "/share/";

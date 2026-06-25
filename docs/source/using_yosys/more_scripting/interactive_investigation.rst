@@ -56,7 +56,7 @@ is shown.
 
 .. figure:: /_images/code_examples/show/example_first.*
    :class: width-helper invert-helper
-   
+
    Output of the first `show` command in :numref:`example_ys`
 
 The first output shows the design directly after being read by the Verilog
@@ -88,7 +88,7 @@ multiplexer and a d-type flip-flop, which brings us to the second diagram:
 
 .. figure:: /_images/code_examples/show/example_second.*
    :class: width-helper invert-helper
-   
+
    Output of the second `show` command in :numref:`example_ys`
 
 The Rhombus shape to the right is a dangling wire. (Wire nodes are only shown if
@@ -106,14 +106,14 @@ operations, it is therefore recommended to always call `clean` before calling
 `show`.
 
 In this script we directly call `opt` as the next step, which finally leads us
-to the third diagram: 
+to the third diagram:
 
 .. figure:: /_images/code_examples/show/example_third.*
    :class: width-helper invert-helper
    :name: example_out
-   
+
    Output of the third `show` command in :ref:`example_ys`
-   
+
 Here we see that the `opt` command not only has removed the artifacts left
 behind by `proc`, but also determined correctly that it can remove the first
 `$mux` cell without changing the behavior of the circuit.
@@ -167,7 +167,7 @@ mapped to a cell library:
    :class: width-helper invert-helper
    :name: first_pitfall
 
-   A half-adder built from simple CMOS gates, demonstrating common pitfalls when 
+   A half-adder built from simple CMOS gates, demonstrating common pitfalls when
    using `show`
 
 .. literalinclude:: /code_examples/show/cmos.ys
@@ -176,7 +176,7 @@ mapped to a cell library:
    :end-at: cmos_00
    :name: pitfall_code
    :caption: Generating :numref:`first_pitfall`
-   
+
 First, Yosys did not have access to the cell library when this diagram was
 generated, resulting in all cell ports defaulting to being inputs. This is why
 all ports are drawn on the left side the cells are awkwardly arranged in a large
@@ -248,7 +248,7 @@ command already fails to verify, it is better to troubleshoot the coarse-grain
 version of the circuit before `techmap` than the gate-level circuit after
 `techmap`.
 
-.. Note:: 
+.. Note::
 
    It is generally recommended to verify the internal state of a design by
    writing it to a Verilog file using :yoscrypt:`write_verilog -noexpr` and
@@ -327,7 +327,7 @@ tools).
 - :cmd:title:`dump`.
 - :cmd:title:`add` and :cmd:title:`delete` can be used to modify and reorganize
   a design dynamically.
-  
+
 The code used is included in the Yosys code base under
 |code_examples/scrambler|_.
 
@@ -438,7 +438,7 @@ Recall the ``memdemo`` design from :ref:`advanced_logic_cones`:
 
 .. figure:: /_images/code_examples/selections/memdemo_00.*
    :class: width-helper invert-helper
-   
+
    ``memdemo``
 
 Because this produces a rather large circuit, it can be useful to split it into
@@ -459,18 +459,18 @@ below.
 
 .. figure:: /_images/code_examples/selections/submod_02.*
    :class: width-helper invert-helper
-   
+
    ``outstage``
 
 .. figure:: /_images/code_examples/selections/submod_03.*
    :class: width-helper invert-helper
    :name: selstage
-   
+
    ``selstage``
 
 .. figure:: /_images/code_examples/selections/submod_01.*
    :class: width-helper invert-helper
-   
+
    ``scramble``
 
 Evaluation of combinatorial circuits
@@ -541,9 +541,9 @@ to solve this kind of problems.
 
 .. _MiniSAT: http://minisat.se/
 
-.. note:: 
-    
-    While it is possible to perform model checking directly in Yosys, it 
+.. note::
+
+    While it is possible to perform model checking directly in Yosys, it
     is highly recommended to use SBY or EQY for formal hardware verification.
 
 The `sat` command works very similar to the `eval` command. The main difference

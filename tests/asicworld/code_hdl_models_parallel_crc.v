@@ -8,8 +8,8 @@ module parallel_crc_ccitt (
 clk     ,
 reset   ,
 enable  ,
-init    , 
-data_in , 
+init    ,
+data_in ,
 crc_out
 );
 //-----------Input Ports---------------

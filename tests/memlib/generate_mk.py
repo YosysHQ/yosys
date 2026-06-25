@@ -1588,4 +1588,3 @@ extra = [
     "endif",
 ]
 gen_tests_makefile.generate_custom(create_tests, extra)
-

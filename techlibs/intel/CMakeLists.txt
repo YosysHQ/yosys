@@ -40,6 +40,7 @@ yosys_pass(synth_intel
 
 		max10/cells_sim.v
 		max10/cells_map.v
+		max10/dsp_map.v
 
 		cyclone10lp/cells_sim.v
 		cyclone10lp/cells_map.v
