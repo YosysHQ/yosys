@@ -1524,7 +1524,7 @@ struct HierarchyPass : public Pass {
 						}
 
 						if (!conn.second.is_fully_const() || !w->port_input || w->port_output)
-							log_warning("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", module, cell,
+							log("Resizing cell port %s.%s.%s from %d bits to %d bits.\n", module, cell,
 									conn.first.unescape(), GetSize(conn.second), GetSize(sig));
 						cell->setPort(conn.first, sig);
 					}
