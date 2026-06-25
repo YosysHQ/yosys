@@ -32,6 +32,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <cmath>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -61,14 +62,6 @@ struct scaled_time {
 	int scale; // exponent of 10, e.g. -6 = us, -9 = ns
 	bool end;
 };
-
-static uint64_t pow10(int n)
-{
-	int r = 1;
-	while (n--)
-		r *= 10;
-	return r;
-}
 
 static scaled_time stringToTime(std::string str)
 {
@@ -1720,7 +1713,7 @@ struct SimWorker : SimShared
 		} else if (start_time.end)
 			startCount = fst->getEndTime();
 		else {
-			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
+			startCount = (uint64_t)(start_time.time * std::pow(10.0, start_time.scale - fst->getScale()));
 			if (startCount > fst->getEndTime()) {
 				startCount = fst->getEndTime();
 				log_warning("Start time is after simulation file end time\n");
@@ -1733,7 +1726,7 @@ struct SimWorker : SimShared
 		} else if (stop_time.end)
 			stopCount = fst->getEndTime();
 		else {
-			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
+			stopCount = (uint64_t)(stop_time.time * std::pow(10.0, stop_time.scale - fst->getScale()));
 			if (stopCount > fst->getEndTime()) {
 				stopCount = fst->getEndTime();
 				log_warning("Stop time is after simulation file end time\n");
@@ -2421,7 +2414,7 @@ struct SimWorker : SimShared
 		} else if (start_time.end)
 			startCount = fst->getEndTime();
 		else {
-			startCount = start_time.time * pow10(start_time.scale - fst->getScale());
+			startCount = (uint64_t)(start_time.time * std::pow(10.0, start_time.scale - fst->getScale()));
 			if (startCount > fst->getEndTime()) {
 				startCount = fst->getEndTime();
 				log_warning("Start time is after simulation file end time\n");
@@ -2434,7 +2427,7 @@ struct SimWorker : SimShared
 		} else if (stop_time.end)
 			stopCount = fst->getEndTime();
 		else {
-			stopCount = stop_time.time * pow10(stop_time.scale - fst->getScale());
+			stopCount = (uint64_t)(stop_time.time * std::pow(10.0, stop_time.scale - fst->getScale()));
 			if (stopCount > fst->getEndTime()) {
 				stopCount = fst->getEndTime();
 				log_warning("Stop time is after simulation file end time\n");
@@ -2752,8 +2745,10 @@ struct AnnotateActivity : public OutputWriter {
 			}
 		}
 
-		// Retrieve timescale from converted VCD file
-		double real_timescale = pow10(worker->start_time.scale - worker->fst->getScale());
+		// Retrieve timescale (seconds per FST tick) from converted VCD file.
+		// This is 10^getScale() (e.g. -12 -> 1e-12); use std::pow to support the
+		// negative exponent and avoid the old int pow10() overflow.
+		double real_timescale = std::pow(10.0, worker->fst->getScale());
 		if (worker->debug) {
 			log_debug("Timescale %e seconds extracted from converted VCD file", real_timescale);
 		}
