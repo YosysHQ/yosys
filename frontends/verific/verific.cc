@@ -1822,8 +1822,14 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			module->memories[memory->name] = memory;
 			import_attributes(memory->attributes, net, nl);
 
-			int number_of_bits = net->Size();
-			int min_bits_in_word = number_of_bits;
+			// net->Size() returns a 64-bit count of the RAM's total bits. For very
+			// large memories this exceeds 2^31, so these running totals must be kept
+			// in 64-bit values; a 32-bit int would truncate (e.g. to 0), which then
+			// set memory->width to 0 and tripped log_assert(width != 0) in opt_mem.
+			// The final per-word width and word count still have to fit in RTLIL's
+			// int fields (memory->width / memory->size); that is checked below.
+			long long number_of_bits = net->Size();
+			long long min_bits_in_word = number_of_bits;
 			int max_bits_in_addr = 0;
 
 			// get the size of each memory access
@@ -1844,9 +1850,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				}
 			}
 
-			int number_of_words = number_of_bits / min_bits_in_word;
+			long long number_of_words = number_of_bits / min_bits_in_word;
 
-			memory->width = min_bits_in_word;
+			// memory->width and memory->size are ints in RTLIL (and memory->size is
+			// later derived from int address bounds), so the per-word width and the
+			// word count must each fit in an int. Bail out rather than silently
+			// storing a truncated/corrupt value.
+			if (min_bits_in_word > INT_MAX)
+				log_error("Verific RamNet %s has a word width of %lld bits, which exceeds the maximum supported width of %d.\n",
+						net->Name(), (long long)min_bits_in_word, INT_MAX);
+			if (number_of_words > INT_MAX)
+				log_error("Verific RamNet %s has %lld words, which exceeds the maximum supported size of %d.\n",
+						net->Name(), (long long)number_of_words, INT_MAX);
+
+			memory->width = (int)min_bits_in_word;
 			memory->size = 0;
 			memory->start_offset = INT_MAX;
 
@@ -1872,14 +1889,14 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			// sanity check we haven't shrunk the memory
 			if (memory->size < number_of_words)
-				log_error("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, memory->size, min_idx, max_idx);
+				log_error("Expected memory of size %lld words, but got %d for address range %d to %d (inclusive)\n", (long long)number_of_words, memory->size, min_idx, max_idx);
 
 			// warn on oversize memories
 			// TODO consider using a minimum ratio?
 			if (memory->size > number_of_words) {
 				float ratio = memory->size / (float)number_of_words;
 				log_warning("RAM for identifier '%s' may be up to %.0f%% oversize due to addressing\n", net->Name(), (ratio-1)*100);
-				log_debug("Expected memory of size %d words, but got %d for address range %d to %d (inclusive)\n", number_of_words, memory->size, min_idx, max_idx);
+				log_debug("Expected memory of size %lld words, but got %d for address range %d to %d (inclusive)\n", (long long)number_of_words, memory->size, min_idx, max_idx);
 			}
 			continue;
 		}
