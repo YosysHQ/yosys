@@ -27,24 +27,20 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
             echo "should_skip=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            should_skip=false
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
 
-  run_san:
-    name: Build and run tests
-    runs-on: ${{ matrix.os }}
+  test-sanitizers:
+    runs-on: [self-hosted, linux, x64, fast]
     needs: pre_job
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
       ASAN_OPTIONS: halt_on_error=1 detect_container_overflow=0
       UBSAN_OPTIONS: halt_on_error=1
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        sanitizer: ['undefined,address']
-      fail-fast: false
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v7
@@ -53,20 +49,9 @@ jobs:
           persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Setup environment
-        uses: ./.github/actions/setup-build-env
-        with:
-          runs-on: ${{ matrix.os }}
-          get-build-deps: true
-          get-test-deps: true
-          get-iverilog: true
-
-      - name: ccache
-        uses: hendrikmuhs/ccache-action@v1.2.23
-        with:
-          key: test-san-${{ matrix.os }}
-          restore-keys: |
-            test-san-${{ matrix.os }}-
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
 
       - name: Build
         shell: bash
@@ -74,7 +59,7 @@ jobs:
           rm -rf build
           cmake -B build . \
                 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE=${{ matrix.sanitizer }} \
+                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE='undefined,address' \
                 -DYOSYS_COMPILER_LAUNCHER=ccache
           cmake --build build -j$procs
 
@@ -96,7 +81,7 @@ jobs:
   test-sanitizers-result:
     runs-on: ubuntu-latest
     needs:
-      - run_san
+      - test-sanitizers
     if: always()
     steps:
       - name: Check results
