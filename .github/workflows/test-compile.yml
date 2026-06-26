@@ -69,6 +69,11 @@ jobs:
           runs-on: ${{ matrix.os }}
           get-build-deps: true
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-compile-${{ matrix.os }}-${{ matrix.compiler }}
+
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1
         with:
@@ -91,7 +96,7 @@ jobs:
         shell: bash
         run: |
           rm -rf build
-          cmake -B build -DCMAKE_CXX_STANDARD=20 . --fresh
+          cmake -B build -DCMAKE_CXX_STANDARD=20 -DYOSYS_COMPILER_LAUNCHER=ccache . --fresh
           cmake --build build --target yosys -j$procs
 
       # maximum standard, only on newest compilers
@@ -100,7 +105,7 @@ jobs:
         shell: bash
         run: |
           rm -rf build
-          cmake -B build -DCMAKE_CXX_STANDARD=26 . --fresh
+          cmake -B build -DCMAKE_CXX_STANDARD=26 -DYOSYS_COMPILER_LAUNCHER=ccache . --fresh
           cmake --build build --target yosys -j$procs
 
   test-compile-result:

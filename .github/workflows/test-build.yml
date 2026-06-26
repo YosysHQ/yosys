@@ -79,11 +79,16 @@ jobs:
           runs-on: ${{ matrix.os }}
           get-build-deps: true
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-build-${{ matrix.os }}
+
       - name: Build
         shell: bash
         run: |
           rm -rf build
-          cmake -B build . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
+          cmake -B build . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache
           cmake --build build -j$procs
           ctest --test-dir build/tests/unit
 

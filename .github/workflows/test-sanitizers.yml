@@ -60,13 +60,19 @@ jobs:
           get-test-deps: true
           get-iverilog: true
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-san-${{ matrix.os }}
+
       - name: Build
         shell: bash
         run: |
           rm -rf build
           cmake -B build . \
                 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE=${{ matrix.sanitizer }}
+                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE=${{ matrix.sanitizer }} \
+                -DYOSYS_COMPILER_LAUNCHER=ccache
           cmake --build build -j$procs
 
       - name: Log yosys-config output
