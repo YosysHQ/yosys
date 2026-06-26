@@ -37,7 +37,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: true
@@ -70,7 +70,7 @@ jobs:
           cmake --build build --target install
 
       - name: Checkout SBY
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: 'YosysHQ/sby'
           path: 'sby'
@@ -125,7 +125,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: true

@@ -68,7 +68,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -122,7 +122,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -171,7 +171,7 @@ jobs:
         os: [ubuntu-latest]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -209,7 +209,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -251,7 +251,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -281,7 +281,7 @@ jobs:
           cmake --build build --target docs-${{ matrix.docs-target }} -j$procs
 
       - name: Store docs build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs-build-${{ matrix.docs-target }}
           path: docs/build/

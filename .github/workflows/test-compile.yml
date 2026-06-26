@@ -58,7 +58,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
