@@ -255,6 +255,65 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
 	return false;
 }
 
+void find_better_cell(const LibertyAst *cell, const LibertyAst &storage, bool data_pol, const LibertyAst *&best, double &best_area, int &best_pins, bool &best_noninv, std::map<std::string, char> &this_ports, std::map<std::string, char> &best_ports)
+{
+	double area = 0;
+	const LibertyAst *ar = cell->find("area");
+	if (ar != nullptr && !ar->value.empty())
+		area = atof(ar->value.c_str());
+
+	int num_pins = 0;
+	bool found_output = false;
+	bool found_noninv_output = false;
+	for (auto pin : cell->children)
+	{
+		if (pin->id != "pin" || pin->args.size() != 1)
+			continue;
+
+		const LibertyAst *dir = pin->find("direction");
+		if (dir == nullptr || dir->value == "internal")
+			continue;
+		num_pins++;
+
+		if (dir->value == "input" && this_ports.count(pin->args[0]) == 0)
+			return;
+
+		const LibertyAst *func = pin->find("function");
+		if (dir->value == "output" && func != nullptr) {
+			std::string value = func->value;
+			for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
+				value.erase(pos, 1);
+			if (value == storage.args[0]) {
+				this_ports[pin->args[0]] = data_pol ? 'Q' : 'q';
+				if (data_pol)
+					found_noninv_output = true;
+				found_output = true;
+			} else
+			if (value == storage.args[1]) {
+				this_ports[pin->args[0]] = data_pol ? 'q' : 'Q';
+				if (!data_pol)
+					found_noninv_output = true;
+				found_output = true;
+			}
+		}
+
+		if (this_ports.count(pin->args[0]) == 0)
+			this_ports[pin->args[0]] = 0;
+	}
+
+	if (!found_output || (best != nullptr && (num_pins > best_pins || (best_noninv && !found_noninv_output))))
+		return;
+
+	if (best != nullptr && num_pins == best_pins && area > best_area)
+		return;
+
+	best = cell;
+	best_pins = num_pins;
+	best_area = area;
+	best_noninv = found_noninv_output;
+	best_ports.swap(this_ports);
+}
+
 static void find_cell_dff(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
 	const LibertyAst *best_cell = nullptr;
@@ -310,62 +369,7 @@ static void find_cell_dff(std::vector<const LibertyAst *> cells, IdString cell_t
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == ff->args[0]) {
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == ff->args[1]) {
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		find_better_cell(cell, *ff, cell_next_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
 	}
 
 	if (best_cell != nullptr) {
@@ -440,64 +444,7 @@ static void find_cell_dffsr(std::vector<const LibertyAst *> cells, IdString cell
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == ff->args[0]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == ff->args[1]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		find_better_cell(cell, *ff, cell_next_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
 	}
 
 	if (best_cell != nullptr) {
@@ -561,62 +508,7 @@ static void find_cell_dlatch(std::vector<const LibertyAst *> cells, IdString cel
 			this_cell_ports[cell_rst_pin] = 'R';
 		this_cell_ports[cell_data_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == latch->args[0]) {
-					this_cell_ports[pin->args[0]] = cell_data_pol ? 'Q' : 'q';
-					if (cell_data_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == latch->args[1]) {
-					this_cell_ports[pin->args[0]] = cell_data_pol ? 'q' : 'Q';
-					if (!cell_data_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		find_better_cell(cell, *latch, cell_data_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
 	}
 
 	if (best_cell != nullptr) {
@@ -687,64 +579,7 @@ static void find_cell_dlatchsr(std::vector<const LibertyAst *> cells, IdString c
 		this_cell_ports[cell_clr_pin] = 'R';
 		this_cell_ports[cell_data_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == latch->args[0]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_data_pol ? 'Q' : 'q';
-					if (cell_data_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == latch->args[1]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_data_pol ? 'q' : 'Q';
-					if (!cell_data_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		find_better_cell(cell, *latch, cell_data_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
 	}
 
 	if (best_cell != nullptr) {
