@@ -49,9 +49,6 @@ jobs:
           - 'clang-22'
           - 'gcc-16'
         include:
-          # macOS x86
-          - os: macos-15-intel
-            compiler: 'clang-22'
           # macOS arm
           - os: macos-latest
             compiler: 'clang-22'
