@@ -3,8 +3,8 @@ name: Test extra build flows
 on:
   pull_request:
   merge_group:
-  #push:
-  #  branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -27,6 +27,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
             echo "should_skip=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            should_skip=false
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
@@ -35,7 +37,7 @@ jobs:
     name: Visual Studio build
     runs-on: windows-latest
     needs: [pre_job]
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,6 +53,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: vs-build
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           restore-keys: |
             vs-build-
 
@@ -80,7 +83,7 @@ jobs:
     name: MINGW64 build
     runs-on: windows-latest
     needs: [pre_job]
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -114,6 +117,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: mingw-build
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           restore-keys: |
             mingw-build-
 
@@ -130,7 +134,7 @@ jobs:
   wasi-build:
     name: WASI build
     needs: pre_job
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -142,6 +146,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: wasi-build
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           restore-keys: |
             wasi-build-
 
