@@ -405,15 +405,24 @@ void simplemap_sop(RTLIL::Module *module, RTLIL::Cell *cell)
 				pat.append(State::S1);
 			}
 		}
-		SigSpec eq_y = module->addWire(NEW_ID2_SUFFIX("eq_out"), max(GetSize(in), GetSize(pat))); // SILIMATE: Improve the naming
-		Cell* eq = module->addEq(NEW_ID2_SUFFIX("eq"), in, pat, eq_y, false, cell->get_src_attribute());
-		eq->attributes = cell->attributes;
-		products.append(GetSize(in) > 0 ? eq_y : State::S1); // SILIMATE: Improve the naming
+
+		// A product term with no literals matches everything, so it is constant 1.
+		if (GetSize(in) == 0) {
+			products.append(State::S1);
+			continue;
+		}
+
+		// $eq produces a single-bit result, so eq_y is always 1 bit wide.
+		SigSpec eq_y = module->addWire(NEW_ID2_SUFFIX("eq_out")); // SILIMATE: Improve the naming
+		Cell* eq = module->addEq(NEW_ID2_SUFFIX("eq"), in, pat, eq_y); // SILIMATE: Improve the naming
+		transfer_src(eq, cell);
+		products.append(eq_y);
 	}
 
-	SigSpec red_or_y = module->addWire(NEW_ID2_SUFFIX("red_or_out"), GetSize(products)); // SILIMATE: Improve the naming
-	Cell* red_or = module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), products, red_or_y, false, cell->get_src_attribute());
-	red_or->attributes = cell->attributes;
+	// The reduce-or of all product terms is the single-bit SOP output.
+	SigSpec red_or_y = module->addWire(NEW_ID2_SUFFIX("red_or_out")); // SILIMATE: Improve the naming
+	Cell* red_or = module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), products, red_or_y); // SILIMATE: Improve the naming
+	transfer_src(red_or, cell);
 	module->connect(cell->getPort(ID::Y), red_or_y); // SILIMATE: Improve the naming
 }
 
