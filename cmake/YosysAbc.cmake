@@ -60,6 +60,7 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:ABC_NAMESPACE=abc>
 		ABC_USE_STDINT_H=1
 		ABC_USE_CUDD=1
+		ABC_NO_HISTORY=1
 		ABC_NO_DYNAMIC_LINKING
 		$<${YOSYS_ENABLE_THREADS}:ABC_USE_PTHREADS>
 		$<${YOSYS_ENABLE_READLINE}:ABC_USE_READLINE>
@@ -83,6 +84,7 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		-Wno-deprecated-comma-subscript
 		-Wno-format
 		-Wno-constant-logical-operand
+		-Wno-sizeof-pointer-memaccess
 	)
 	target_link_libraries(${arg_LIBNAME} PUBLIC
 		$<${YOSYS_ENABLE_THREADS}:Threads::Threads>
