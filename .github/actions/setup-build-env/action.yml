@@ -55,8 +55,11 @@ runs:
     - name: Install macOS Dependencies
       if: runner.os == 'macOS'
       shell: bash
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: "1"
+        HOMEBREW_NO_INSTALL_CLEANUP: "1"
       run: |
-        brew bundle
+        brew bundle --no-upgrade
 
     - name: Linux runtime environment
       if: runner.os == 'Linux'
