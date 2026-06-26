@@ -3,8 +3,8 @@ name: Compiler testing
 on:
   pull_request:
   merge_group:
-  #push:
-  #  branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -27,6 +27,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
             echo "should_skip=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            should_skip=false
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
@@ -34,7 +36,7 @@ jobs:
   test-compile:
     runs-on: ${{ matrix.os }}
     needs: pre_job
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     env:
       CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
     strategy:
@@ -43,7 +45,7 @@ jobs:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-14'
+          - 'clang-16'
           - 'gcc-11'
           # newest, make sure to update maximum standard step to match
           - 'clang-22'
@@ -70,6 +72,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: test-compile-${{ matrix.os }}-${{ matrix.compiler }}
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           restore-keys: |
             test-compile-${{ matrix.os }}-${{ matrix.compiler }}-
 
@@ -77,18 +80,12 @@ jobs:
         uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
-          gcc: ${{ (matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14') && '12' || '' }}
 
       - name: Tool versions
         shell: bash
         run: |
           $CC --version
           $CXX --version
-
-      - name: Fix clang-14 toolchain
-        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14'
-        run: |
-          echo 'CXXFLAGS=--gcc-toolchain=/usr -isystem /usr/include/c++/12 -isystem /usr/include/x86_64-linux-gnu/c++/12' >> $GITHUB_ENV
 
       # minimum standard
       - name: Build C++20
