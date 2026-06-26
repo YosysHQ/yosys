@@ -33,21 +33,21 @@ runs:
     # and docs/source/getting_started/installation.rst to match.
     - name: Linux common dependencies
       if: runner.os == 'Linux'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: gawk git make python3 bison clang flex libffi-dev libfl-dev libeditreadline-dev pkg-config tcl-dev zlib1g-dev libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache
         version: ${{ inputs.runs-on }}-commonys
 
     - name: Linux build dependencies
       if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: gawk git make python3 bison clang flex libffi-dev libfl-dev libeditreadline-dev pkg-config tcl-dev zlib1g-dev libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache libgtest-dev libgmock-dev
         version: ${{ inputs.runs-on }}-buildys
 
     - name: Linux docs dependencies
       if: runner.os == 'Linux' && inputs.get-docs-deps == 'true'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: graphviz xdot
         version: ${{ inputs.runs-on }}-docsys

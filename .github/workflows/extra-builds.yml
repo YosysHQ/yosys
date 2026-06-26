@@ -15,7 +15,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: mmicko/skip-duplicate-actions@master
         with:
           # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
@@ -37,13 +37,22 @@ jobs:
     needs: [pre_job]
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: vs-build
+          restore-keys: |
+            vs-build-
 
       - name: Install flex/bison
         shell: pwsh
@@ -57,8 +66,9 @@ jobs:
       - name: Configure CMake
         run: >
           cmake -S . -B build
-          -A x64
+          -G Ninja
           -DCMAKE_BUILD_TYPE=Release
+          -DYOSYS_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: >
@@ -72,7 +82,7 @@ jobs:
     needs: [pre_job]
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -85,6 +95,11 @@ jobs:
 
           install: >-
             base-devel
+            bison
+            flex
+            gawk
+            diffutils
+            make
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-gtest
@@ -93,13 +108,14 @@ jobs:
             mingw-w64-x86_64-tcl
             mingw-w64-x86_64-libffi
             mingw-w64-x86_64-git
+            mingw-w64-x86_64-ccache
 
-          msys2-install: >-
-            bison
-            flex
-            gawk
-            diffutils
-            make
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: mingw-build
+          restore-keys: |
+            mingw-build-
 
       - name: Build Yosys
         shell: msys2 {0}
@@ -107,7 +123,7 @@ jobs:
           set -e
           procs=$(nproc)
           rm -rf build
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache
           cmake --build build -j${procs}
           ctest --test-dir build/tests/unit --output-on-failure
 
@@ -117,10 +133,18 @@ jobs:
     if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: wasi-build
+          restore-keys: |
+            wasi-build-
+
       - name: Build
         run: |
           WASI_VER=33
@@ -140,7 +164,7 @@ jobs:
             make install)
 
           export PATH=${WASI_SDK_PATH}/bin:$(pwd)/flex-prefix/bin:${PATH}
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release .
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache .
           cmake --build build -j$(nproc)
 
   nix-build:
@@ -153,7 +177,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false

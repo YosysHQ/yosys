@@ -15,7 +15,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: mmicko/skip-duplicate-actions@master
         with:
           # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -61,13 +61,21 @@ jobs:
           get-test-deps: true
           get-iverilog: true
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-san-${{ matrix.os }}
+          restore-keys: |
+            test-san-${{ matrix.os }}-
+
       - name: Build
         shell: bash
         run: |
           rm -rf build
           cmake -B build . \
                 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE=${{ matrix.sanitizer }}
+                -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE=${{ matrix.sanitizer }} \
+                -DYOSYS_COMPILER_LAUNCHER=ccache
           cmake --build build -j$procs
 
       - name: Log yosys-config output

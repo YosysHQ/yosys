@@ -15,7 +15,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: mmicko/skip-duplicate-actions@master
         with:
           # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
@@ -49,16 +49,13 @@ jobs:
           - 'clang-22'
           - 'gcc-16'
         include:
-          # macOS x86
-          - os: macos-15-intel
-            compiler: 'clang-22'
           # macOS arm
           - os: macos-latest
             compiler: 'clang-22'
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -68,6 +65,13 @@ jobs:
         with:
           runs-on: ${{ matrix.os }}
           get-build-deps: true
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-compile-${{ matrix.os }}-${{ matrix.compiler }}
+          restore-keys: |
+            test-compile-${{ matrix.os }}-${{ matrix.compiler }}-
 
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1
@@ -91,7 +95,7 @@ jobs:
         shell: bash
         run: |
           rm -rf build
-          cmake -B build -DCMAKE_CXX_STANDARD=20 . --fresh
+          cmake -B build -DCMAKE_CXX_STANDARD=20 -DYOSYS_COMPILER_LAUNCHER=ccache . --fresh
           cmake --build build --target yosys -j$procs
 
       # maximum standard, only on newest compilers
@@ -100,7 +104,7 @@ jobs:
         shell: bash
         run: |
           rm -rf build
-          cmake -B build -DCMAKE_CXX_STANDARD=26 . --fresh
+          cmake -B build -DCMAKE_CXX_STANDARD=26 -DYOSYS_COMPILER_LAUNCHER=ccache . --fresh
           cmake --build build --target yosys -j$procs
 
   test-compile-result:
