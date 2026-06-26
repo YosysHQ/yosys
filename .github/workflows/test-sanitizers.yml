@@ -64,6 +64,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: test-san-${{ matrix.os }}
+          restore-keys: |
+            test-san-${{ matrix.os }}-
 
       - name: Build
         shell: bash

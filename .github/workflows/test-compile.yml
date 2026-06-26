@@ -70,6 +70,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: test-compile-${{ matrix.os }}-${{ matrix.compiler }}
+          restore-keys: |
+            test-compile-${{ matrix.os }}-${{ matrix.compiler }}-
 
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1

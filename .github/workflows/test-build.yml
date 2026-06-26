@@ -83,6 +83,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: test-build-${{ matrix.os }}
+          restore-keys: |
+            test-build-${{ matrix.os }}-
 
       - name: Build
         shell: bash

@@ -51,6 +51,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: vs-build
+          restore-keys: |
+            vs-build-
 
       - name: Install flex/bison
         shell: pwsh
@@ -112,6 +114,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: mingw-build
+          restore-keys: |
+            mingw-build-
 
       - name: Build Yosys
         shell: msys2 {0}
@@ -138,6 +142,8 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: wasi-build
+          restore-keys: |
+            wasi-build-
 
       - name: Build
         run: |
