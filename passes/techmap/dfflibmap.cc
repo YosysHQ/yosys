@@ -304,7 +304,7 @@ void find_better_cell(const LibertyAst *cell, const LibertyAst &storage, bool da
 	if (!found_output || (best != nullptr && (num_pins > best_pins || (best_noninv && !found_noninv_output))))
 		return;
 
-	if (best != nullptr && num_pins == best_pins && area > best_area)
+	if (best != nullptr && num_pins == best_pins && area >= best_area)
 		return;
 
 	best = cell;
