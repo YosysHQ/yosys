@@ -853,6 +853,8 @@ struct DfflibmapPass : public Pass {
 		log("\n");
 		log("This pass may add inverters as needed. Therefore it is recommended to\n");
 		log("first run this pass and then map the logic paths to the target technology.\n");
+		log("Since inverters are added for each technology cell, an opt_merge pass\n");
+		log("would reduce the redundancy.\n");
 		log("\n");
 		log("When called with -prepare, this command will convert the internal FF/LATCH cells\n");
 		log("to the internal cell types that best match the cells found in the given\n");
