@@ -772,13 +772,17 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 					mod_data.local_area_cells_by_type.erase(cell->type);
 				} else {
 					// deal with blackbox cells
+					// The read_liberty/read_liberty2json frontends store the cell
+					// area as a string attribute, so parse it as a floating point
+					// value rather than reinterpreting the raw attribute bits.
 					if (design->module(cell->type)->attributes.count(ID::area) &&
-					    design->module(cell->type)->attributes.at(ID::area).size() == 0) {
+					    design->module(cell->type)->attributes.at(ID::area).size() != 0) {
+						double blackbox_area =
+						  atof(design->module(cell->type)->attributes.at(ID::area).decode_string().c_str());
 						mod_data.num_submodules_by_type[cell->type]++;
 						mod_data.num_submodules++;
-						mod_data.submodules_area_by_type[cell->type] +=
-						  double(design->module(cell->type)->attributes.at(ID::area).as_int());
-						mod_data.area += double(design->module(cell->type)->attributes.at(ID::area).as_int());
+						mod_data.submodules_area_by_type[cell->type] += blackbox_area;
+						mod_data.area += blackbox_area;
 						mod_data.unknown_cell_area.erase(cell->type);
 						mod_data.num_cells -=
 						  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;

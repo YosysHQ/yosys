@@ -1,0 +1,44 @@
+# Regression test: `stat` must account for the area of blackbox cells whose
+# area comes from the module's `area` attribute (rather than from a `-liberty`
+# file passed to `stat` itself).
+#
+# Both the `read_liberty` (-lib) and `read_liberty2json` frontends attach the
+# cell area to the blackbox module as a STRING attribute:
+#   frontends/liberty/liberty.cc:   module->attributes[ID::area] = area->value;        // raw liberty string, e.g. "1.500000"
+#   passes/silimate/l2j_frontend.cc: set_string_attribute(ID(area), std::to_string(area)); // e.g. "1.500000"
+#
+# The blackbox-area branch in stat.cc's hierarchy_builder() previously guarded
+# on `attributes.at(ID::area).size() == 0` and read the value with `.as_int()`.
+# A string-valued area Const has size() != 0, so the branch never ran, and even
+# if it had, `.as_int()` reinterprets the raw bits instead of parsing "1.5".
+# The fix guards on size() != 0 and parses the string area as a double.
+#
+# This test recreates exactly what the frontends produce (a blackbox module
+# with a string `area` attribute) and checks that stat counts it. `-hierarchy`
+# is used because the blackbox-area branch accounts the cell as a submodule,
+# and only the hierarchical view reports submodule area.
+
+read_rtlil << EOT
+attribute \blackbox 1
+attribute \area "1.500000"
+module \blackbox_cell
+  wire input 1 \A
+  wire output 2 \Y
+end
+
+module \top
+  wire input 1 \A
+  wire output 2 \Y
+  cell \blackbox_cell \inst
+    connect \A \A
+    connect \Y \Y
+  end
+end
+EOT
+
+# The single blackbox instance has area 1.5, so the top module's hierarchical
+# chip area must be 1.5, reported as one submodule.
+logger -expect log "Chip area for module '\\top': 1.500000" 1
+logger -expect log "1.5.*blackbox_cell" 1
+logger -expect-no-warnings
+stat -hierarchy
