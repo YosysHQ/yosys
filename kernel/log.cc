@@ -388,12 +388,6 @@ void log_formatted_file_error(std::string_view filename, int lineno, std::string
 	log_error_with_prefix(prefix, str);
 }
 
-void logv_file_error(const string &filename, int lineno,
-                     const char *format, va_list ap)
-{
-	log_formatted_file_error(filename, lineno, vstringf(format, ap));
-}
-
 void log_experimental(const std::string &str)
 {
 	if (log_experimentals_ignored.count(str) == 0 && log_experimentals.count(str) == 0) {
