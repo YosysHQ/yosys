@@ -57,6 +57,9 @@ struct SynthPass : public ScriptPass {
 		log("    -ff <cell_type_pattern> <init_values>\n");
 		log("        convert FFs to cell types via dfflegalize (can be specified multiple times).\n");
 		log("\n");
+		log("    -cells-map <cells_map>\n");
+		log("        map luts to corresponding cells.\n");
+		log("\n");
 		log("    -arith-map <arith_map>\n");
 		log("        mapping file for arithmetic operations.\n");
 		log("\n");
@@ -117,7 +120,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, arith_map, clkbuf_map, multiplier_map;
+	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
@@ -181,6 +184,10 @@ struct SynthPass : public ScriptPass {
 				string cell = args[++argidx];
 				string init = args[++argidx];
 				extra_ffs.push_back({cell, init});
+				continue;
+			}
+			if (args[argidx] == "-cells-map" && argidx + 1 < args.size()) {
+				cells_map = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-arith-map" && argidx + 1 < args.size()) {
@@ -409,7 +416,11 @@ struct SynthPass : public ScriptPass {
 		}
 
 		if (check_label("map_cells")) {
-			run(stringf("techmap -D LUT_K=%d -map +/fabulous/cells_map.v", lut));
+			if (help_mode) {
+				run("techmap -D LUT_K=<lut> -map <cells_map.v>");
+			} else if (!cells_map.empty()) {
+				run(stringf("techmap -D LUT_K=%d -map %s", lut, cells_map.c_str()));
+			}
 			run("clean");
 		}
 
