@@ -57,6 +57,9 @@ struct SynthPass : public ScriptPass {
 		log("    -ff <cell_type_pattern> <init_values>\n");
 		log("        convert FFs to cell types via dfflegalize (can be specified multiple times).\n");
 		log("\n");
+		log("    -arith-map <arith_map>\n");
+		log("        mapping file for arithmetic operations.\n");
+		log("\n");
 		log("    -clkbuf-map <clkbuf_map>\n");
 		log("        insert clock buffers using clkbufmap and map to the specified Verilog file.\n");
 		log("\n");
@@ -114,7 +117,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, clkbuf_map, multiplier_map;
+	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, arith_map, clkbuf_map, multiplier_map;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
@@ -178,6 +181,10 @@ struct SynthPass : public ScriptPass {
 				string cell = args[++argidx];
 				string init = args[++argidx];
 				extra_ffs.push_back({cell, init});
+				continue;
+			}
+			if (args[argidx] == "-arith-map" && argidx + 1 < args.size()) {
+				arith_map = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-clkbuf-map" && argidx + 1 < args.size()) {
@@ -347,6 +354,15 @@ struct SynthPass : public ScriptPass {
 			run("opt -undriven -fine");
 		}
 
+		if (check_label("map_arith")) {
+			if (help_mode) {
+				run("techmap -map <arith_map.v> -D ARITH_<carry>");
+			} else if (!arith_map.empty()) {
+				run(stringf("techmap -map %s -D ARITH_%s", arith_map.c_str(), carry_mode.c_str()));
+			}
+			run("clean");
+		}
+
 		if (check_label("map_gates")) {
 			run("opt -full");
 			run("techmap -map +/techmap.v");
@@ -376,12 +392,11 @@ struct SynthPass : public ScriptPass {
 
 		if (check_label("map_extra")) {
 			if (help_mode) {
-				run("techmap -map <extra_map.v> -D ARITH_<carry>...", "(for each -extra-map)");
+				run("techmap -map <extra_map.v>...", "(for each -extra-map)");
 			} else if (!extra_map.empty()) {
 				std::string map_str = "techmap";
 				for (auto map : extra_map)
 					map_str += stringf(" -map %s", map);
-				map_str += stringf(" -D ARITH_%s", carry_mode.c_str());
 				run(map_str);
 			}
 			run("simplemap");
