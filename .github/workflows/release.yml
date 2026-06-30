@@ -55,11 +55,6 @@ jobs:
               python3 -m pip wheel . --wheel-dir /src/dist
             '
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-musl-wheel
-          path: dist/*.whl
-
   build-manylinux-wheel:
     runs-on: ubuntu-latest
     name: Build Linux amd64 wheel (manylinux2014, glibc 2.17+)
@@ -121,11 +116,6 @@ jobs:
               done
             '
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-manylinux-wheel
-          path: dist-manylinux/*.whl
-
   build-macos-wheel:
     runs-on: macos-15
     name: Build macOS arm64 wheel
@@ -161,11 +151,6 @@ jobs:
           export MACOSX_DEPLOYMENT_TARGET=11.0
           mkdir -p dist
           python3 -m pip wheel . --wheel-dir dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos-wheel
-          path: dist/*.whl
 
   release:
     # allow testing outside main branch

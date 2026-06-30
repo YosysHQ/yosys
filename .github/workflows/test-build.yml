@@ -90,7 +90,13 @@ jobs:
           key: test-build-${{ matrix.os }}
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           restore-keys: |
-            test-build-${{ matrix.os }}-
+            test-build-${{ matrix.os }}
+
+      - name: Cache Build Directory
+        uses: actions/cache@v6
+        with:
+          path: build
+          key: ${{ runner.os }}-build-${{ github.run_id }}
 
       - name: Build
         shell: bash
@@ -103,19 +109,6 @@ jobs:
       - name: Log yosys-config output
         run: |
           ./build/yosys-config || true
-
-      - name: Compress build
-        shell: bash
-        run: |
-          cd build
-          tar -cvf ../build.tar share/ yosys yosys-*
-
-      - name: Store build artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: build-${{ matrix.os }}
-          path: build.tar
-          retention-days: 1
 
   test-yosys:
     name: Run tests
@@ -142,16 +135,12 @@ jobs:
           get-build-deps: true
           get-iverilog: true
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v8
+      - name: Restore Build Directory from Cache
+        uses: actions/cache@v6
         with:
-          name: build-${{ matrix.os }}
-
-      - name: Uncompress build
-        shell: bash
-        run: |
-          mkdir -p build
-          tar -xvf build.tar -C build
+          path: build
+          key: ${{ runner.os }}-build-${{ github.run_id }}
+          fail-on-cache-miss: true
 
       - name: Log yosys-config output
         run: |
@@ -192,19 +181,17 @@ jobs:
         with:
           runs-on: ${{ matrix.os }}
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v8
+      - name: Restore Build Directory from Cache
+        uses: actions/cache@v6
         with:
-          name: build-${{ matrix.os }}
-
-      - name: Uncompress build
-        shell: bash
-        run:
-          tar -xvf build.tar
+          path: build
+          key: ${{ runner.os }}-build-${{ github.run_id }}
+          fail-on-cache-miss: true
 
       - name: test_cell
         shell: bash
         run: |
+          cd build
           ./yosys -p 'test_cell -n 20 -s 1 all'
           ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $pow $pmux'
           ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $eqx $nex $bweqx'
@@ -233,16 +220,12 @@ jobs:
           get-build-deps: true
           get-docs-deps: true
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v8
+      - name: Restore Build Directory from Cache
+        uses: actions/cache@v6
         with:
-          name: build-${{ matrix.os }}
-
-      - name: Uncompress build
-        shell: bash
-        run: |
-          mkdir -p build
-          tar -xvf build.tar -C build
+          path: build
+          key: ${{ runner.os }}-build-${{ github.run_id }}
+          fail-on-cache-miss: true
 
       - name: Log yosys-config output
         run: |
