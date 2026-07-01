@@ -43,10 +43,6 @@ struct SynthPass : public ScriptPass {
 		log("    -auto-top\n");
 		log("        automatically determine the top of the design hierarchy\n");
 		log("\n");
-		log("    -blif <file>\n");
-		log("        write the design to the specified BLIF file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
-		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -120,7 +116,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, json_file, blif_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map;
+	string top_module, json_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
@@ -139,7 +135,6 @@ struct SynthPass : public ScriptPass {
 		carry_mode = "none";
 		flatten = true;
 		json_file = "";
-		blif_file = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -155,10 +150,6 @@ struct SynthPass : public ScriptPass {
 			}
 			if (args[argidx] == "-json" && argidx + 1 < args.size()) {
 				json_file = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-blif" && argidx + 1 < args.size()) {
-				blif_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx + 1 < args.size()) {
@@ -438,13 +429,6 @@ struct SynthPass : public ScriptPass {
 		if (check_label("check")) {
 			run("hierarchy -check");
 			run("stat");
-		}
-
-		if (check_label("blif")) {
-			if (!blif_file.empty() || help_mode) {
-				run("opt_clean -purge");
-				run(stringf("write_blif -attr -cname -conn -param %s", help_mode ? "<file-name>" : blif_file.c_str()));
-			}
 		}
 
 		if (check_label("json")) {
