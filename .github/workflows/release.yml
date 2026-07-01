@@ -22,6 +22,13 @@ jobs:
           persist-credentials: false
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Cache Dist Directory
+        uses: actions/cache@v6
+        with:
+          path: dist-x86_64-musllinux
+          key: ${{ github.run_id }}-x86_64-musllinux-wheel
+          enableCrossOsArchive: true
+
       - name: Build wheel in Alpine container
         run: |
           docker run --rm \
@@ -51,8 +58,8 @@ jobs:
 
               # Build the wheel via setup.py
               pip install --break-system-packages pybind11 cxxheaderparser
-              mkdir -p /src/dist
-              python3 -m pip wheel . --wheel-dir /src/dist
+              mkdir -p /src/dist-x86_64-musllinux
+              python3 -m pip wheel . --wheel-dir /src/dist-x86_64-musllinux
             '
 
   build-manylinux-wheel:
@@ -65,6 +72,13 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Cache Dist Directory
+        uses: actions/cache@v6
+        with:
+          path: dist-x86_64-manylinux
+          key: ${{ github.run_id }}-x86_64-manylinux-wheel
+          enableCrossOsArchive: true
 
       - name: Build wheel in manylinux2014 container
         run: |
@@ -105,14 +119,15 @@ jobs:
               make
               cd /src
 
+              WHEEL_DIR=/src/dist-x86_64-manylinux
               pip3 install --upgrade pip setuptools wheel pybind11 cxxheaderparser
               mkdir -p dist-manylinux
-              python3 -m pip wheel . --wheel-dir /src/dist-manylinux
+              python3 -m pip wheel . --wheel-dir $WHEEL_DIR
 
               # Tag wheel as manylinux2014
               pip3 install auditwheel || true
-              for whl in /src/dist-manylinux/*.whl; do
-                auditwheel repair "$whl" --plat manylinux2014_x86_64 -w /src/dist-manylinux/ 2>/dev/null || true
+              for whl in $WHEEL_DIR/*.whl; do
+                auditwheel repair "$whl" --plat manylinux2014_x86_64 -w $WHEEL_DIR/ 2>/dev/null || true
               done
             '
 
@@ -145,44 +160,76 @@ jobs:
           cd verific/tclmain
           make
 
+      - name: Cache Dist Directory
+        uses: actions/cache@v6
+        with:
+          path: dist-aarch64-macos
+          key: ${{ github.run_id }}-aarch64-macos-wheel
+          enableCrossOsArchive: true
+
       - name: Build wheel
         run: |
           export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
           export MACOSX_DEPLOYMENT_TARGET=11.0
           mkdir -p dist
-          python3 -m pip wheel . --wheel-dir dist
+          python3 -m pip wheel . --wheel-dir dist-aarch64-macos
 
   release:
     # allow testing outside main branch
-    if: github.ref_name == 'main'
+    # if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     needs: [build-linux-wheel, build-manylinux-wheel, build-macos-wheel]
     name: Create GitHub releases
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           fetch-depth: 0
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: all-wheels
-          merge-multiple: true
-
-      - name: Generate release notes
-        id: meta
+      - id: meta
+        name: Get repo metadata and clean up
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           FULL_SHA=$(git rev-parse HEAD)
           DATE=$(date -u +%Y-%m-%d)
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "date=$DATE" >> "$GITHUB_OUTPUT"
           REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "full_sha=$FULL_SHA" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "url=$REPO_URL" >> "$GITHUB_OUTPUT"
+          rm -rf ./* ./.*
+      - uses: actions/checkout@v6
+        with:
+          repository: silimate/yosys-wheels
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          fetch-depth: 0
+      - name: Restore dist from cache (x86_64-musllinux)
+        uses: actions/cache@v6
+        with:
+          path: dist-x86_64-musllinux
+          key: ${{ github.run_id }}-x86_64-musllinux-wheel
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+      - name: Restore dist from cache (x86_64-manylinux)
+        uses: actions/cache@v6
+        with:
+          path: dist-x86_64-manylinux
+          key: ${{ github.run_id }}-x86_64-manylinux-wheel
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+      - name: Restore dist from cache (aarch64-macos)
+        uses: actions/cache@v6
+        with:
+          path: dist-aarch64-macos
+          key: ${{ github.run_id }}-aarch64-macos-wheel
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+      - name: Update release notes
+        run: |
           printf '%s\n' \
-            "Automated build from \`main\` @ [\`${SHORT_SHA}\`](${REPO_URL}/commit/${FULL_SHA})" \
+            "Automated build from \`main\` @ [\`${{ steps.meta.outputs.short_sha }}\`](${{ steps.meta.outputs.repo_url }}/commit/${{ steps.meta.outputs.full_sha }})" \
             "" \
-            "**Built:** ${DATE}" \
+            "**Built:** ${{ steps.meta.outputs.date }}" \
             "" \
             "### Assets" \
             "| File | Platform |" \
@@ -196,17 +243,22 @@ jobs:
             "pip install pyosys-*.whl" \
             "\`\`\`" \
             > release_notes.md
-
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --all --message="Build for ${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
+          git push
       - name: Create permanent release
         run: |
           TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
           gh release create "$TAG" \
-            all-wheels/*.whl \
-            --target "${{ github.sha }}" \
+            dist-*/*.whl \
+            --target "$(git rev-parse HEAD)" \
             --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
             --notes-file release_notes.md
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.YOSYS_WHEELS_TOKEN }}
 
       - name: Update latest release
         run: |
@@ -214,10 +266,10 @@ jobs:
           git push -f origin latest
           gh release delete latest --yes 2>/dev/null || true
           gh release create latest \
-            all-wheels/*.whl \
-            --target "${{ github.sha }}" \
+            dist-*/*.whl \
+            --target "$(git rev-parse HEAD)" \
             --title "Latest Build (${{ steps.meta.outputs.date }})" \
             --notes-file release_notes.md \
             --prerelease
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.YOSYS_WHEELS_TOKEN }}
