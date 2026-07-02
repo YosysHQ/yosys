@@ -196,7 +196,7 @@ jobs:
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
           echo "full_sha=$FULL_SHA" >> "$GITHUB_OUTPUT"
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
-          echo "url=$REPO_URL" >> "$GITHUB_OUTPUT"
+          echo "repo_url=$REPO_URL" >> "$GITHUB_OUTPUT"
           rm -rf ./* ./.*
       - uses: actions/checkout@v6
         with:
