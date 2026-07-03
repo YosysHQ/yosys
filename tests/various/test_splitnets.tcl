@@ -7,10 +7,10 @@ proc read_stats { file } {
     set ports 0
     set nets 0
     foreach line [split $result "\n"] {
-	if [regexp {Number of wires:[ \t]+([0-9]+)} $line tmp n] {
+	if [regexp {\s([0-9]+) wires} $line tmp n] {
 	    set nets [expr $nets + $n]
 	}
-	if [regexp {Number of ports:[ \t]+([0-9]+)} $line tmp n] {
+	if [regexp {(\s[0-9]+) ports} $line tmp n] {
 	    set ports [expr $ports + $n]
 	}
     }
