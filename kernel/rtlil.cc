@@ -3053,6 +3053,15 @@ RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name)
 	return uniquify(name, index);
 }
 
+RTLIL::IdString RTLIL::Module::derive_id(RTLIL::IdString base, std::string_view suffix)
+{
+	log_assert(!suffix.empty());
+	std::string name = base.str();
+	name += "_";
+	name += suffix;
+	return uniquify(name);
+}
+
 RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name, int &index)
 {
 	if (index == 0) {

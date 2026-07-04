@@ -1,0 +1,20 @@
+read_rtlil << EOT
+module \top
+  wire width 3 input 0 \S
+  wire output 1 \Y
+
+  cell $pmux \selmux
+    parameter \WIDTH 1
+    parameter \S_WIDTH 3
+    connect \A 1'0
+    connect \B 3'101
+    connect \S \S
+    connect \Y \Y
+  end
+end
+EOT
+
+opt_reduce
+select -assert-count 1 c:selmux_reduce_or
+select -assert-count 1 w:selmux_reduce_or_wire
+select -assert-count 1 c:selmux r:S_WIDTH=2 %i

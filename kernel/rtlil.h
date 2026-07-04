@@ -2179,6 +2179,7 @@ public:
 
 	RTLIL::IdString uniquify(RTLIL::IdString name);
 	RTLIL::IdString uniquify(RTLIL::IdString name, int &index);
+	RTLIL::IdString derive_id(RTLIL::IdString base, std::string_view suffix);
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
