@@ -236,7 +236,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		for (auto bit : en_cands)
 			cand_bits.push_back(bit);
 
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec out_s = sigmap(root_sig);
 		SigSpec data_s = sigmap(data_sig);
 		SigSpec cand_s;
@@ -415,7 +415,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 	{
 		if (width < 4)
 			return false;
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec in_s = sigmap(in_sig);
 		SigSpec out_s = sigmap(out_sig);
 
@@ -511,7 +511,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		int wd = GetSize(dis_s);
 		int wt = GetSize(data_s);
 		bool self = sigmap(dis_s) == sigmap(data_s);
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		for (int pol = 0; pol < 2; pol++) {
 			// A self-pair (data == disable bus) can only be probed with all
 			// lanes enabled AND data all-ones, i.e. enable-high polarity.
@@ -546,7 +546,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 			return false;
 		if (lw > wd || lw > wt || wd > 62 || wt > 62)
 			return false;
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec dis_s = sigmap(dis_sig);
 		SigSpec data_s = sigmap(data_sig);
 		SigSpec out_s = sigmap(out_sig);
@@ -615,8 +615,14 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		return mask;
 	}
 
+	// Evaluate the modulo vector set once and test all four
+	// (msb_first, offset) variants against the recorded outputs, in the
+	// original priority order with first-match tie-break. This replaces up
+	// to four full ConstEval sweeps (one per variant) with a single sweep;
+	// sets out_msb_first/out_offset on the first surviving variant.
 	bool fingerprint_modulo(const SigSpec &en_sig, const SigSpec &n_sig,
-	                        const SigSpec &mask_sig, int width, bool msb_first, int offset)
+	                        const SigSpec &mask_sig, int width,
+	                        bool &out_msb_first, int &out_offset)
 	{
 		if (width <= 0 || width > 62)
 			return false;
@@ -624,7 +630,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		// also matches plain gating muxes; require a real counter range.
 		if (GetSize(n_sig) < 2)
 			return false;
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec en_s = sigmap(en_sig);
 		SigSpec n_s = sigmap(n_sig);
 		SigSpec mask_s = sigmap(mask_sig);
@@ -653,6 +659,12 @@ struct OptCompactPrefixWorker : CutRegionWorker
 			envals.push_back(lfsr & full);
 		}
 
+		// Variants in the original check order (msb/lsb x offset 0/1).
+		static const struct { bool msb; int off; } variants[] = {
+			{true, 0}, {false, 0}, {false, 1}, {true, 1}
+		};
+		bool alive[4] = {true, true, true, true};
+
 		for (uint64_t nv : nvals)
 			for (uint64_t ev : envals) {
 				uint64_t actual;
@@ -660,10 +672,27 @@ struct OptCompactPrefixWorker : CutRegionWorker
 				                    {n_s, const_u64(nv, nw)}},
 				               mask_s, actual))
 					return false;
-				if (actual != expected_modulo_mask(ev, nv, width, msb_first, offset))
+				bool any = false;
+				for (int v = 0; v < 4; v++) {
+					if (!alive[v])
+						continue;
+					if (actual != expected_modulo_mask(ev, nv, width,
+					                                   variants[v].msb, variants[v].off))
+						alive[v] = false;
+					else
+						any = true;
+				}
+				if (!any)
 					return false;
 			}
-		return true;
+
+		for (int v = 0; v < 4; v++)
+			if (alive[v]) {
+				out_msb_first = variants[v].msb;
+				out_offset = variants[v].off;
+				return true;
+			}
+		return false;
 	}
 
 	// --- Forward gather/compress: out[k] = data[i_k] where i_k is the
@@ -693,7 +722,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 	{
 		if (width < 4 || width > 62)
 			return false;
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec en_s = sigmap(en_sig);
 		SigSpec data_s = sigmap(data_sig);
 		SigSpec out_s = sigmap(out_sig);
@@ -1397,19 +1426,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						fp_attempts++;
 						bool msb_first = false;
 						int offset = -1;
-						if (fingerprint_modulo(en.sig, n.sig, root.sig, width, true, 0)) {
-							msb_first = true;
-							offset = 0;
-						} else if (fingerprint_modulo(en.sig, n.sig, root.sig, width, false, 0)) {
-							msb_first = false;
-							offset = 0;
-						} else if (fingerprint_modulo(en.sig, n.sig, root.sig, width, false, 1)) {
-							msb_first = false;
-							offset = 1;
-						} else if (fingerprint_modulo(en.sig, n.sig, root.sig, width, true, 1)) {
-							msb_first = true;
-							offset = 1;
-						} else {
+						if (!fingerprint_modulo(en.sig, n.sig, root.sig, width, msb_first, offset)) {
 							log_debug("  mod %s/%s: fingerprint mismatch\n", en.name.c_str(), n.name.c_str());
 							continue;
 						}

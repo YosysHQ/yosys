@@ -826,6 +826,20 @@ struct CutRegionWorker
 		return sig;
 	}
 
+	// Shared ConstEval for the whole matching phase. The netlist is not
+	// modified until rewrites are applied, so one instance (built once, at
+	// O(module) cost) serves every fingerprint eval instead of rebuilding
+	// one per candidate. Callers keep push/pop balanced, so the base state
+	// stays clean between uses (asserted on each hand-out).
+	std::unique_ptr<ConstEval> shared_ce_ptr;
+	ConstEval &shared_ce()
+	{
+		if (!shared_ce_ptr)
+			shared_ce_ptr = std::make_unique<ConstEval>(module);
+		log_assert(shared_ce_ptr->stack.empty());
+		return *shared_ce_ptr;
+	}
+
 	// Evaluate `out_sig` under the given input assignments; returns false if
 	// the cut does not fully determine the output. Charges the eval budget
 	// by `cone_cells_estimate`.
