@@ -1,0 +1,457 @@
+# =============================================================================
+# carvenetlist: carve surround-with-flops cells into per-cell modules.
+#
+# Each "train" below is one flat cell-under-test surrounded by launch/capture
+# flops (ml.dataset.surround_with_flops form): every data input is a launch
+# flop's Q (named <base>_<pin>__pqi) and every data output feeds a capture flop's
+# D (named <base>_<pin>__pqo), with a shared fast_clk/slow_clk. carvenetlist must
+# carve the logic between the flops into module `cell` with a clean input port
+# fast_cell_A and a clean output port fast_cell_Y (never inout), preserving
+# feed-throughs (output bit = input bit, or = constant) as plain assigns.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Test 1: feed-through output bit (Y[0] = A[0]).
+# Regression: the bare alias used to fuse the launch-side input net with the
+# capture-side output net, leaving Y[0] undriven and dragging the Y bus to inout.
+# -----------------------------------------------------------------------------
+log -header "Feed-through output bit (Y[0] = A[0])"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \train
+  wire input 1 \fast_clk
+  wire input 2 \slow_clk
+  wire width 3 input 3 \fast_cell_A
+  wire width 3 output 4 \fast_cell_Y
+  wire width 3 \fast_cell_A__pqi
+  wire width 3 \fast_cell_Y__pqo
+  cell $_DFF_P_ \linff0
+    connect \C \fast_clk
+    connect \D \fast_cell_A [0]
+    connect \Q \fast_cell_A__pqi [0]
+  end
+  cell $_DFF_P_ \linff1
+    connect \C \fast_clk
+    connect \D \fast_cell_A [1]
+    connect \Q \fast_cell_A__pqi [1]
+  end
+  cell $_DFF_P_ \linff2
+    connect \C \fast_clk
+    connect \D \fast_cell_A [2]
+    connect \Q \fast_cell_A__pqi [2]
+  end
+  cell $_NOT_ \g_not
+    connect \A \fast_cell_A__pqi [1]
+    connect \Y \fast_cell_Y__pqo [1]
+  end
+  cell $_AND_ \g_and
+    connect \A \fast_cell_A__pqi [1]
+    connect \B \fast_cell_A__pqi [2]
+    connect \Y \fast_cell_Y__pqo [2]
+  end
+  connect \fast_cell_Y__pqo [0] \fast_cell_A__pqi [0]
+  cell $_DFF_P_ \coutff0
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [0]
+    connect \Q \fast_cell_Y [0]
+  end
+  cell $_DFF_P_ \coutff1
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [1]
+    connect \Q \fast_cell_Y [1]
+  end
+  cell $_DFF_P_ \coutff2
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [2]
+    connect \Q \fast_cell_Y [2]
+  end
+end
+EOF
+flatten -noscopeinfo
+carvenetlist
+# carved cell exists, flops are gone, no temporary buffers survive
+select -assert-none cell/t:$_DFF_P_
+select -assert-none cell/t:$_BUF_
+# fast_cell_A is a pure input, fast_cell_Y a pure output (never inout)
+select -assert-count 1 cell/i:fast_cell_A
+select -assert-none  cell/o:fast_cell_A
+select -assert-count 1 cell/o:fast_cell_Y
+select -assert-none  cell/i:fast_cell_Y
+# no boundary marker (__pqi/__pqo) survives on any net, port or internal
+select -assert-none cell/w:*__pqo*
+select -assert-none cell/w:*__pqi*
+# the carved cell is functionally correct (feed-through preserved)
+read_verilog <<EOF
+module golden(fast_cell_A, fast_cell_Y);
+  input  [2:0] fast_cell_A;
+  output [2:0] fast_cell_Y;
+  assign fast_cell_Y[0] = fast_cell_A[0];
+  assign fast_cell_Y[1] = ~fast_cell_A[1];
+  assign fast_cell_Y[2] = fast_cell_A[1] & fast_cell_A[2];
+endmodule
+EOF
+miter -equiv -flatten -make_assert golden cell miter
+sat -verify -prove-asserts -enable_undef miter
+design -reset
+log -pop
+
+# -----------------------------------------------------------------------------
+# Test 2: constant output bit (Y[0] = 1'b0) preserved as an assign.
+# -----------------------------------------------------------------------------
+log -header "Constant output bit (Y[0] = 1'b0)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \train
+  wire input 1 \fast_clk
+  wire input 2 \slow_clk
+  wire width 3 input 3 \fast_cell_A
+  wire width 3 output 4 \fast_cell_Y
+  wire width 3 \fast_cell_A__pqi
+  wire width 3 \fast_cell_Y__pqo
+  cell $_DFF_P_ \linff0
+    connect \C \fast_clk
+    connect \D \fast_cell_A [0]
+    connect \Q \fast_cell_A__pqi [0]
+  end
+  cell $_DFF_P_ \linff1
+    connect \C \fast_clk
+    connect \D \fast_cell_A [1]
+    connect \Q \fast_cell_A__pqi [1]
+  end
+  cell $_DFF_P_ \linff2
+    connect \C \fast_clk
+    connect \D \fast_cell_A [2]
+    connect \Q \fast_cell_A__pqi [2]
+  end
+  cell $_NOT_ \g_not
+    connect \A \fast_cell_A__pqi [1]
+    connect \Y \fast_cell_Y__pqo [1]
+  end
+  cell $_AND_ \g_and
+    connect \A \fast_cell_A__pqi [1]
+    connect \B \fast_cell_A__pqi [2]
+    connect \Y \fast_cell_Y__pqo [2]
+  end
+  connect \fast_cell_Y__pqo [0] 1'0
+  cell $_DFF_P_ \coutff0
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [0]
+    connect \Q \fast_cell_Y [0]
+  end
+  cell $_DFF_P_ \coutff1
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [1]
+    connect \Q \fast_cell_Y [1]
+  end
+  cell $_DFF_P_ \coutff2
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [2]
+    connect \Q \fast_cell_Y [2]
+  end
+end
+EOF
+flatten -noscopeinfo
+carvenetlist
+select -assert-none cell/t:$_BUF_
+select -assert-count 1 cell/o:fast_cell_Y
+select -assert-none  cell/i:fast_cell_Y
+read_verilog <<EOF
+module golden(fast_cell_A, fast_cell_Y);
+  input  [2:0] fast_cell_A;
+  output [2:0] fast_cell_Y;
+  assign fast_cell_Y[0] = 1'b0;
+  assign fast_cell_Y[1] = ~fast_cell_A[1];
+  assign fast_cell_Y[2] = fast_cell_A[1] & fast_cell_A[2];
+endmodule
+EOF
+miter -equiv -flatten -make_assert golden cell miter
+sat -verify -prove-asserts -enable_undef miter
+design -reset
+log -pop
+
+# -----------------------------------------------------------------------------
+# Test 3: no feed-through (every output bit driven by logic) still carves clean.
+# -----------------------------------------------------------------------------
+log -header "No feed-through (all outputs from logic)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \train
+  wire input 1 \fast_clk
+  wire input 2 \slow_clk
+  wire width 3 input 3 \fast_cell_A
+  wire width 3 output 4 \fast_cell_Y
+  wire width 3 \fast_cell_A__pqi
+  wire width 3 \fast_cell_Y__pqo
+  cell $_DFF_P_ \linff0
+    connect \C \fast_clk
+    connect \D \fast_cell_A [0]
+    connect \Q \fast_cell_A__pqi [0]
+  end
+  cell $_DFF_P_ \linff1
+    connect \C \fast_clk
+    connect \D \fast_cell_A [1]
+    connect \Q \fast_cell_A__pqi [1]
+  end
+  cell $_DFF_P_ \linff2
+    connect \C \fast_clk
+    connect \D \fast_cell_A [2]
+    connect \Q \fast_cell_A__pqi [2]
+  end
+  cell $_NOT_ \g_not0
+    connect \A \fast_cell_A__pqi [0]
+    connect \Y \fast_cell_Y__pqo [0]
+  end
+  cell $_NOT_ \g_not1
+    connect \A \fast_cell_A__pqi [1]
+    connect \Y \fast_cell_Y__pqo [1]
+  end
+  cell $_AND_ \g_and
+    connect \A \fast_cell_A__pqi [1]
+    connect \B \fast_cell_A__pqi [2]
+    connect \Y \fast_cell_Y__pqo [2]
+  end
+  cell $_DFF_P_ \coutff0
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [0]
+    connect \Q \fast_cell_Y [0]
+  end
+  cell $_DFF_P_ \coutff1
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [1]
+    connect \Q \fast_cell_Y [1]
+  end
+  cell $_DFF_P_ \coutff2
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [2]
+    connect \Q \fast_cell_Y [2]
+  end
+end
+EOF
+flatten -noscopeinfo
+carvenetlist
+select -assert-none cell/t:$_BUF_
+select -assert-count 1 cell/i:fast_cell_A
+select -assert-none  cell/o:fast_cell_A
+select -assert-count 1 cell/o:fast_cell_Y
+select -assert-none  cell/i:fast_cell_Y
+read_verilog <<EOF
+module golden(fast_cell_A, fast_cell_Y);
+  input  [2:0] fast_cell_A;
+  output [2:0] fast_cell_Y;
+  assign fast_cell_Y[0] = ~fast_cell_A[0];
+  assign fast_cell_Y[1] = ~fast_cell_A[1];
+  assign fast_cell_Y[2] = fast_cell_A[1] & fast_cell_A[2];
+endmodule
+EOF
+miter -equiv -flatten -make_assert golden cell miter
+sat -verify -prove-asserts -enable_undef miter
+design -reset
+log -pop
+
+# -----------------------------------------------------------------------------
+# Test 4: flatten-scope-prefixed boundary net (dotted name "fast_cell.fast_cell_Y__pqo").
+# After flatten -noscopeinfo, an output-boundary net carried up from an inner
+# instance keeps a dotted scope prefix. A constant/feed-through bit on that net is
+# bufferized but NOT re-tagged by the cone walk, so the submodule tag is derived
+# straight from the net name. Regression: the tag used to retain the scope prefix,
+# producing an invalid carved module name "cell.fast_cell" (a separate, broken
+# module) instead of folding the bit into module `cell`.
+# -----------------------------------------------------------------------------
+log -header "Flatten-scope-prefixed boundary net (dotted Y__pqo)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \train
+  wire input 1 \fast_clk
+  wire width 2 input 2 \fast_cell_A
+  wire width 2 output 3 \fast_cell_Y
+  wire width 2 \fast_cell_A__pqi
+  wire width 2 \fast_cell.fast_cell_Y__pqo
+  cell $_DFF_P_ \linff0
+    connect \C \fast_clk
+    connect \D \fast_cell_A [0]
+    connect \Q \fast_cell_A__pqi [0]
+  end
+  cell $_DFF_P_ \linff1
+    connect \C \fast_clk
+    connect \D \fast_cell_A [1]
+    connect \Q \fast_cell_A__pqi [1]
+  end
+  cell $_AND_ \g_and
+    connect \A \fast_cell_A__pqi [0]
+    connect \B \fast_cell_A__pqi [1]
+    connect \Y \fast_cell.fast_cell_Y__pqo [1]
+  end
+  connect \fast_cell.fast_cell_Y__pqo [0] 1'0
+  cell $_DFF_P_ \coutff0
+    connect \C \fast_clk
+    connect \D \fast_cell.fast_cell_Y__pqo [0]
+    connect \Q \fast_cell_Y [0]
+  end
+  cell $_DFF_P_ \coutff1
+    connect \C \fast_clk
+    connect \D \fast_cell.fast_cell_Y__pqo [1]
+    connect \Q \fast_cell_Y [1]
+  end
+end
+EOF
+flatten -noscopeinfo
+carvenetlist
+# the carved module is named `cell` (no scope dot) with a clean pure-output port
+select -assert-none cell/t:$_BUF_
+select -assert-count 1 cell/o:fast_cell_Y
+select -assert-none  cell/i:fast_cell_Y
+read_verilog <<EOF
+module golden(fast_cell_A, fast_cell_Y);
+  input  [1:0] fast_cell_A;
+  output [1:0] fast_cell_Y;
+  assign fast_cell_Y[0] = 1'b0;
+  assign fast_cell_Y[1] = fast_cell_A[0] & fast_cell_A[1];
+endmodule
+EOF
+miter -equiv -flatten -make_assert golden cell miter
+sat -verify -prove-asserts -enable_undef miter
+design -reset
+log -pop
+
+# -----------------------------------------------------------------------------
+# Test 5: full pass-through cell (Y = A, no logic at all) -- div/mod/shift in a
+# degenerate mode where synthesis collapses every output bit into a bare copy of
+# an input. The capture flops then read the launch-flop nets directly: there is
+# no in-cone net to export, so without the capture-flop-boundary buffer the whole
+# Y bus has no internal driver and the carved cell has no output port at all.
+# carvenetlist must still produce a clean input fast_cell_A and output fast_cell_Y
+# with assign Y = A.
+# -----------------------------------------------------------------------------
+log -header "Full pass-through cell (Y = A, no logic)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \train
+  wire input 1 \fast_clk
+  wire width 2 input 2 \fast_cell_A
+  wire width 2 output 3 \fast_cell_Y
+  wire width 2 \fast_cell_A__pqi
+  wire width 2 \fast_cell_Y__pqo
+  cell $_DFF_P_ \linff0
+    connect \C \fast_clk
+    connect \D \fast_cell_A [0]
+    connect \Q \fast_cell_A__pqi [0]
+  end
+  cell $_DFF_P_ \linff1
+    connect \C \fast_clk
+    connect \D \fast_cell_A [1]
+    connect \Q \fast_cell_A__pqi [1]
+  end
+  connect \fast_cell_Y__pqo \fast_cell_A__pqi
+  cell $_DFF_P_ \coutff0
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [0]
+    connect \Q \fast_cell_Y [0]
+  end
+  cell $_DFF_P_ \coutff1
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [1]
+    connect \Q \fast_cell_Y [1]
+  end
+end
+EOF
+flatten -noscopeinfo
+carvenetlist
+select -assert-none cell/t:$_BUF_
+select -assert-count 1 cell/i:fast_cell_A
+select -assert-none  cell/o:fast_cell_A
+select -assert-count 1 cell/o:fast_cell_Y
+select -assert-none  cell/i:fast_cell_Y
+select -assert-none cell/w:*__pqo*
+select -assert-none cell/w:*__pqi*
+read_verilog <<EOF
+module golden(fast_cell_A, fast_cell_Y);
+  input  [1:0] fast_cell_A;
+  output [1:0] fast_cell_Y;
+  assign fast_cell_Y = fast_cell_A;
+endmodule
+EOF
+miter -equiv -flatten -make_assert golden cell miter
+sat -verify -prove-asserts -enable_undef miter
+design -reset
+log -pop
+
+# -----------------------------------------------------------------------------
+# Test 6: constant output bit driven by a zero-input source cell (a "tie"), not a
+# 1'b0 connection. abc maps a constant output to a TIEHI/TIELO standard cell; the
+# tie has no inputs so the forward cone walk can never reach it, and it would be
+# stranded in the deleted train module, leaving the output bit undriven. A $lut
+# with WIDTH=0 models such a zero-input constant source. carvenetlist must clone
+# the tie into the carved cell so the output bit keeps an in-cone driver. Here
+# Y[0] is real logic and Y[1] is the tie constant, on the same Y bus.
+# -----------------------------------------------------------------------------
+log -header "Constant output from a zero-input tie cell (cloned into cell)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \train
+  wire input 1 \fast_clk
+  wire width 1 input 2 \fast_cell_A
+  wire width 2 output 3 \fast_cell_Y
+  wire width 1 \fast_cell_A__pqi
+  wire width 2 \fast_cell_Y__pqo
+  cell $_DFF_P_ \linff0
+    connect \C \fast_clk
+    connect \D \fast_cell_A [0]
+    connect \Q \fast_cell_A__pqi [0]
+  end
+  cell $_NOT_ \g_not
+    connect \A \fast_cell_A__pqi [0]
+    connect \Y \fast_cell_Y__pqo [0]
+  end
+  cell $lut \tie
+    parameter \WIDTH 0
+    parameter \LUT 1'1
+    connect \A {}
+    connect \Y \fast_cell_Y__pqo [1]
+  end
+  cell $_DFF_P_ \coutff0
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [0]
+    connect \Q \fast_cell_Y [0]
+  end
+  cell $_DFF_P_ \coutff1
+    connect \C \fast_clk
+    connect \D \fast_cell_Y__pqo [1]
+    connect \Q \fast_cell_Y [1]
+  end
+end
+EOF
+flatten -noscopeinfo
+carvenetlist
+# the tie was cloned into the carved cell (so the constant bit has an in-cone driver)
+select -assert-count 1 cell/t:$lut
+select -assert-none cell/t:$_BUF_
+select -assert-count 1 cell/i:fast_cell_A
+select -assert-none  cell/o:fast_cell_A
+select -assert-count 1 cell/o:fast_cell_Y
+select -assert-none  cell/i:fast_cell_Y
+select -assert-none cell/w:*__pqo*
+select -assert-none cell/w:*__pqi*
+read_verilog <<EOF
+module golden(fast_cell_A, fast_cell_Y);
+  input  [0:0] fast_cell_A;
+  output [1:0] fast_cell_Y;
+  assign fast_cell_Y[0] = ~fast_cell_A[0];
+  assign fast_cell_Y[1] = 1'b1;
+endmodule
+EOF
+miter -equiv -flatten -make_assert golden cell miter
+sat -verify -prove-asserts -enable_undef miter
+design -reset
+log -pop
