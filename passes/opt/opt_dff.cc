@@ -702,7 +702,7 @@ struct OptDffWorker
 			if (new_cell)
 				dff_cells.push_back(new_cell);
 
-			log("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
+			log_debug("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
 					cell, cell->type.unescape(), module,
 					log_signal(new_ff.sig_d), log_signal(new_ff.sig_q));
 		}
