@@ -71,6 +71,9 @@
     "variant": "cpp",
     "algorithm": "cpp",
     "*.inc": "cpp",
-    "tuple": "cpp"
+    "tuple": "cpp",
+    "__verbose_trap": "cpp",
+    "cstddef": "cpp",
+    "__log_hardening_failure": "cpp"
   }
 }
