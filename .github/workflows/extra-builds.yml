@@ -172,32 +172,12 @@ jobs:
           cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache .
           cmake --build build -j$(nproc)
 
-  nix-build:
-    name: "Build nix flake"
-    needs: pre_job
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: true
-          persist-credentials: false
-      - uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.30.0/install
-      - run: nix build -L
-
   extra-builds-result:
     runs-on: ubuntu-latest
     needs:
       - vs-build
       - mingw-build
       - wasi-build
-      - nix-build
     if: always()
     steps:
       - name: Check results

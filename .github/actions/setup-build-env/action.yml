@@ -56,7 +56,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew bundle
+        brew install bison flex gawk libffi git pkg-config python3 bash googletest tcl-tk llvm
 
     - name: Linux runtime environment
       if: runner.os == 'Linux'
