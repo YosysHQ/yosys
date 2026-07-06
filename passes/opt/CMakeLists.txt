@@ -108,6 +108,10 @@ yosys_pass(opt_first_fit_alloc
 	opt_first_fit_alloc.cc
 )
 
+yosys_pass(opt_priokey
+	opt_priokey.cc
+)
+
 pmgen_command(peepopt
 	peepopt_shiftmul_right.pmg
 	peepopt_shiftmul_left.pmg

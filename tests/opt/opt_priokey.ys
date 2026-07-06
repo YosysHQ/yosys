@@ -1,0 +1,240 @@
+# Tests for opt_priokey
+#
+# The pass detects a serial "priority-by-key" set accumulator: several sources
+# each carry a small key and claim it if no earlier source already did. This
+# elaborates into a chain of dynamic-index reads/writes ($shiftx / $shift) into
+# a wide one-hot "taken" vector, whose depth grows with both the number of
+# sources P and the accumulator width S. Every dynamic read taken[key[j]] is
+# provably equal to the pairwise reduction
+#
+#   OR over i<j of ( set_guard[i] & key[i] == key[j] )
+#
+# so the pass replaces each read with that compare reduction and drops the wide
+# dynamic indexing. Correctness of every rewrite is validated by an in-pass
+# ConstEval fingerprint over the reachable key range [0,S).
+#
+# Each group exercises a specific facet:
+#   A: formal equivalence across (P,S) shapes (power-of-two S -> full equiv).
+#   B: structural win -- the $shiftx chain is gone after the rewrite.
+#   C: negative / no-op cases (no false rewrites).
+#
+# Convention: every object the pass emits is named with a `priokey_` suffix, so
+# `select w:*priokey*` is a reliable "did the rewrite fire" probe.
+
+# ============================================================================
+# Group A: formal equivalence (equiv_opt -assert)
+# ============================================================================
+
+# A1: P=3 sources into a 64-slot accumulator (SW=6, all keys reachable).
+log -header "A1: priority-by-key dedup P=3 S=64 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int P=3, parameter int S=64, parameter int SW=6)(
+  input  logic [P-1:0]         act,
+  input  logic [P-1:0][SW-1:0] sel,
+  input  logic [P-1:0]         src,
+  output logic [P-1:0]         win
+);
+  logic [S-1:0] taken;
+  always_comb begin
+    taken = '0; win = '0;
+    for (int i=0;i<P;i++)
+      if (act[i] && !taken[sel[i]]) begin
+        taken[sel[i]] = 1'b1;
+        win[i] = src[i];
+      end
+  end
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+check -assert
+equiv_opt -assert opt_priokey
+design -load postopt
+select -assert-min 1 w:*priokey*
+select -assert-count 0 t:$shiftx
+design -reset
+log -pop
+
+# A2: P=4 sources into a 16-slot accumulator (SW=4).
+log -header "A2: priority-by-key dedup P=4 S=16 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int P=4, parameter int S=16, parameter int SW=4)(
+  input  logic [P-1:0]         act,
+  input  logic [P-1:0][SW-1:0] sel,
+  input  logic [P-1:0]         src,
+  output logic [P-1:0]         win
+);
+  logic [S-1:0] taken;
+  always_comb begin
+    taken = '0; win = '0;
+    for (int i=0;i<P;i++)
+      if (act[i] && !taken[sel[i]]) begin
+        taken[sel[i]] = 1'b1;
+        win[i] = src[i];
+      end
+  end
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+check -assert
+equiv_opt -assert opt_priokey
+design -load postopt
+select -assert-min 1 w:*priokey*
+select -assert-count 0 t:$shiftx
+design -reset
+log -pop
+
+# A3: P=5 sources into an 8-slot accumulator (SW=3) -- deeper source chain.
+log -header "A3: priority-by-key dedup P=5 S=8 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int P=5, parameter int S=8, parameter int SW=3)(
+  input  logic [P-1:0]         act,
+  input  logic [P-1:0][SW-1:0] sel,
+  input  logic [P-1:0]         src,
+  output logic [P-1:0]         win
+);
+  logic [S-1:0] taken;
+  always_comb begin
+    taken = '0; win = '0;
+    for (int i=0;i<P;i++)
+      if (act[i] && !taken[sel[i]]) begin
+        taken[sel[i]] = 1'b1;
+        win[i] = src[i];
+      end
+  end
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+check -assert
+equiv_opt -assert opt_priokey
+design -load postopt
+select -assert-min 1 w:*priokey*
+select -assert-count 0 t:$shiftx
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: structural win (the dynamic-index chain disappears)
+# ============================================================================
+
+# B1: P=6 sources, 64-slot accumulator. Before the rewrite the serial scan uses
+# per-source dynamic reads ($shiftx). After the rewrite those reads are gone,
+# replaced by pairwise $eq comparisons -- the QoR (depth) win.
+log -header "B1: priority-by-key structural, P=6 S=64"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int P=6, parameter int S=64, parameter int SW=6)(
+  input  logic [P-1:0]         act,
+  input  logic [P-1:0][SW-1:0] sel,
+  input  logic [P-1:0]         src,
+  output logic [P-1:0]         win
+);
+  logic [S-1:0] taken;
+  always_comb begin
+    taken = '0; win = '0;
+    for (int i=0;i<P;i++)
+      if (act[i] && !taken[sel[i]]) begin
+        taken[sel[i]] = 1'b1;
+        win[i] = src[i];
+      end
+  end
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+# Serial baseline: the dynamic-index reads are present.
+select -assert-min 1 t:$shiftx
+opt_priokey
+opt_clean
+# The wide dynamic indexing is gone, replaced by pairwise key comparisons.
+select -assert-count 0 t:$shiftx
+select -assert-min 1 t:$eq
+select -assert-min 1 w:*priokey*
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: negative / no-op cases (no false rewrites)
+# ============================================================================
+
+# C1: the "taken" vector is a primary input, not a set accumulator rooted at 0.
+# The dynamic read has no traceable set history, so the pass must not fire.
+log -header "C1: non-accumulator dynamic read -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int S=64, parameter int SW=6)(
+  input  logic [S-1:0]  taken,
+  input  logic [SW-1:0] sel,
+  output logic          hit
+);
+  assign hit = taken[sel];
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+opt_priokey
+select -assert-count 0 w:*priokey*
+design -reset
+log -pop
+
+# C2: a plain per-lane passthrough -- no dynamic indexing at all.
+log -header "C2: per-lane passthrough -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int P=4)(
+  input  logic [P-1:0] a,
+  input  logic [P-1:0] b,
+  output logic [P-1:0] y
+);
+  assign y = a & b;
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+opt_priokey
+select -assert-count 0 w:*priokey*
+design -reset
+log -pop
+
+# C3: a dynamic write accumulator with NO conflict check -- every source
+# unconditionally sets its key and reads are absent (win is a direct index).
+# There is no taken[]-guarded read chain to rewrite.
+log -header "C3: unconditional writes, no guarded read -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module t #(parameter int P=3, parameter int S=16, parameter int SW=4)(
+  input  logic [P-1:0][SW-1:0] sel,
+  output logic [S-1:0]         taken
+);
+  always_comb begin
+    taken = '0;
+    for (int i=0;i<P;i++)
+      taken[sel[i]] = 1'b1;
+  end
+endmodule
+EOF
+hierarchy -top t
+proc
+opt
+opt_priokey
+select -assert-count 0 w:*priokey*
+design -reset
+log -pop
