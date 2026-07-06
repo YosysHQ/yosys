@@ -102,15 +102,19 @@ struct BitPatternPool
 		bits_t bits;
 		bits.bitdata = sig.as_const().to_bits();
 		for (auto &b : bits.bitdata)
-			if (b > RTLIL::State::S1 && b != RTLIL::State::Sx && b != RTLIL::State::Sz)
+			if (b > RTLIL::State::S1)
 				b = RTLIL::State::Sa;
 		return bits;
 	}
 
-	static bool covers_nothing(const bits_t &bits)
+	/**
+	 * A literal x/z bit can never match a 2-valued selector, so a pattern containing
+	 * one covers nothing.
+	 */
+	static bool covers_nothing(RTLIL::SigSpec sig)
 	{
-		for (auto &b : bits.bitdata)
-			if (b == RTLIL::State::Sx || b == RTLIL::State::Sz)
+		for (auto bit : sig)
+			if (bit.wire == NULL && (bit.data == RTLIL::State::Sx || bit.data == RTLIL::State::Sz))
 				return true;
 		return false;
 	}
@@ -139,9 +143,9 @@ struct BitPatternPool
 	 */
 	bool has_any(RTLIL::SigSpec sig)
 	{
-		bits_t bits = sig2bits(sig);
-		if (covers_nothing(bits))
+		if (covers_nothing(sig))
 			return false;
+		bits_t bits = sig2bits(sig);
 		for (auto &it : database)
 			if (match(it, bits))
 				return true;
@@ -159,9 +163,9 @@ struct BitPatternPool
 	 */
 	bool has_all(RTLIL::SigSpec sig)
 	{
-		bits_t bits = sig2bits(sig);
-		if (covers_nothing(bits))
+		if (covers_nothing(sig))
 			return true;
+		bits_t bits = sig2bits(sig);
 		for (auto &it : database)
 			if (match(it, bits)) {
 				for (int i = 0; i < width; i++)
@@ -182,9 +186,9 @@ struct BitPatternPool
 	bool take(RTLIL::SigSpec sig)
 	{
 		bool status = false;
-		bits_t bits = sig2bits(sig);
-		if (covers_nothing(bits))
+		if (covers_nothing(sig))
 			return false;
+		bits_t bits = sig2bits(sig);
 		for (auto it = database.begin(); it != database.end();)
 			if (match(*it, bits)) {
 				for (int i = 0; i < width; i++) {
