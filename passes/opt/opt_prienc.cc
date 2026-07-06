@@ -782,7 +782,6 @@ struct OptPriEncWorker {
 				std::sort(req_cands.begin(), req_cands.end(),
 				          [](Wire* a, Wire* b) { return a->width > b->width; });
 
-				int pairs = 0;
 				bool matched = false;
 				for (Wire* req_wire : req_cands) {
 					if (matched) break;
@@ -791,6 +790,10 @@ struct OptPriEncWorker {
 					pool<SigBit> req_bits;
 					for (auto bit : req_sig)
 						if (bit.wire) req_bits.insert(bit);
+					// Per-req_wire fingerprint budget: a start-candidate-heavy
+					// first req size must not exhaust a shared budget and starve
+					// later (narrower) req sizes.
+					int pairs = 0;
 					for (Wire* start_wire : start_cands) {
 						if (start_wire == req_wire) continue;
 						if (++pairs > max_pairs) break;
