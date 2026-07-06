@@ -256,7 +256,7 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 
 	bool fingerprint(const Candidate &cand, bool msb_first)
 	{
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec out_sig = sigmap(cand.out_sig);
 		SigSpec valid_sig = sigmap(cand.valid_sig);
 		SigSpec field_sig = sigmap(cand.field_sig);
