@@ -49,7 +49,7 @@ jobs:
       - id: set_output
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
-            echo "should_skip=false" >> $GITHUB_OUTPUT
+            echo "should_skip=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "push" ]; then
             should_skip=false
           else
