@@ -1,0 +1,109 @@
+### ALOAD and AD same/complementary-signal optimization
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [1:0] D;
+output [15:0] Q;
+input ALOAD;
+input ARST;
+input EN;
+
+wire nALOAD_not;
+$not #(.A_SIGNED(0), .A_WIDTH(1), .Y_WIDTH(1)) not0 (.Y(nALOAD_not), .A(ALOAD));
+
+wire nALOAD_mux;
+$mux #(.WIDTH(1)) mux0 (.Y(nALOAD_mux), .A(1'b1), .B(1'b0), .S(ALOAD));
+
+$aldff  #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b1),                     .WIDTH(2)) ff0 (.CLK(CLK), .D(D),          .Q(Q[1:0]),   .ALOAD(ALOAD),      .AD({ALOAD,      ALOAD}));
+$aldff  #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b0),                     .WIDTH(2)) ff1 (.CLK(CLK), .D(D),          .Q(Q[3:2]),   .ALOAD(ALOAD),      .AD({ALOAD,      nALOAD_not}));
+$aldff  #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b1),                     .WIDTH(2)) ff2 (.CLK(CLK), .D(D),          .Q(Q[5:4]),   .ALOAD(ALOAD),      .AD({nALOAD_mux, ALOAD}));
+$aldff  #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b0),                     .WIDTH(2)) ff3 (.CLK(CLK), .D(D),          .Q(Q[7:6]),   .ALOAD(ALOAD),      .AD({nALOAD_not, nALOAD_mux}));
+$aldffe #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(2)) ff4 (.CLK(CLK), .D(D), .EN(EN), .Q(Q[9:8]),   .ALOAD(nALOAD_not), .AD({ALOAD,      ALOAD}));
+$aldffe #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(2)) ff5 (.CLK(CLK), .D(D), .EN(EN), .Q(Q[11:10]), .ALOAD(nALOAD_mux), .AD({ALOAD,      nALOAD_mux}));
+$aldffe #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(2)) ff6 (.CLK(CLK), .D(D), .EN(EN), .Q(Q[13:12]), .ALOAD(nALOAD_not), .AD({nALOAD_not, ALOAD}));
+$aldffe #(.CLK_POLARITY(1'b1), .ALOAD_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(2)) ff7 (.CLK(CLK), .D(D), .EN(EN), .Q(Q[15:14]), .ALOAD(nALOAD_mux), .AD({nALOAD_mux, nALOAD_not}));
+
+endmodule
+
+EOT
+
+design -save orig
+
+# Change same/complementary-signal AD to constant async load
+# Then change const-value async load to async reset adff
+equiv_opt -undef -assert -multiclock opt -sat
+design -load postopt
+
+# Check that all aldff* were transformed
+select -assert-none t:$aldff*
+select -assert-count 8 t:$adff*
+
+design -reset
+
+
+### EN and D same/complementary-signal optimization
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+output [43:0] Q;
+input ARST;
+input SET;
+input CLR;
+input EN;
+
+wire nEN_not;
+$not #(.A_SIGNED(0), .A_WIDTH(1), .Y_WIDTH(1)) not0 (.Y(nEN_not), .A(EN));
+
+wire nEN_mux;
+$mux #(.WIDTH(1)) mux0 (.Y(nEN_mux), .A(1'b1), .B(1'b0), .S(EN));
+
+$dlatch    #(.EN_POLARITY(1'b1),                                            .WIDTH(2)) lch0  (.EN(EN),                                              .D({EN,      nEN_not}), .Q(Q[1:0]));
+$dlatch    #(.EN_POLARITY(1'b1),                                            .WIDTH(2)) lch1  (.EN(EN),                                              .D({nEN_mux, EN}),      .Q(Q[3:2]));
+$dlatch    #(.EN_POLARITY(1'b1),                                            .WIDTH(2)) lch2  (.EN(nEN_not),                                         .D({EN,      EN}),      .Q(Q[5:4]));
+$dlatch    #(.EN_POLARITY(1'b0),                                            .WIDTH(2)) lch3  (.EN(nEN_not),                                         .D({EN,      nEN_mux}), .Q(Q[7:6]));
+$dlatch    #(.EN_POLARITY(1'b0),                                            .WIDTH(2)) lch4  (.EN(nEN_mux),                                         .D({nEN_not, EN}),      .Q(Q[9:8]));
+$dlatch    #(.EN_POLARITY(1'b0),                                            .WIDTH(2)) lch5  (.EN(nEN_mux),                                         .D({nEN_mux, nEN_not}), .Q(Q[11:10]));
+
+$adlatch   #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b10),  .WIDTH(2)) lch6  (.EN(EN),      .ARST(ARST),                            .D({EN,      nEN_not}), .Q(Q[13:12]));
+$adlatch   #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01),  .WIDTH(2)) lch7  (.EN(EN),      .ARST(ARST),                            .D({nEN_mux, EN}),      .Q(Q[15:14]));
+$adlatch   #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b00),  .WIDTH(2)) lch8  (.EN(nEN_not), .ARST(ARST),                            .D({EN,      EN}),      .Q(Q[17:16]));
+$adlatch   #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b10),  .WIDTH(2)) lch9  (.EN(nEN_not), .ARST(ARST),                            .D({EN,      nEN_mux}), .Q(Q[19:18]));
+$adlatch   #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01),  .WIDTH(2)) lch10 (.EN(nEN_mux), .ARST(ARST),                            .D({nEN_not, EN}),      .Q(Q[21:20]));
+$adlatch   #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b00),  .WIDTH(2)) lch11 (.EN(nEN_mux), .ARST(ARST),                            .D({nEN_mux, nEN_not}), .Q(Q[23:22]));
+$adlatch   #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01),  .WIDTH(2)) lch12 (.EN(EN),      .ARST(ARST),                            .D({nEN_mux, EN}),      .Q(Q[25:24]));
+
+$dlatchsr #(.EN_POLARITY(1'b1), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch13 (.EN(EN),       .SET({SET,  1'b0}), .CLR({1'b0, CLR}),  .D({EN,      nEN_not}), .Q(Q[27:26]));
+$dlatchsr #(.EN_POLARITY(1'b1), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch14 (.EN(EN),       .SET({1'b0, SET}),  .CLR({CLR,  1'b0}), .D({nEN_mux, EN}),      .Q(Q[29:28]));
+$dlatchsr #(.EN_POLARITY(1'b1), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch15 (.EN(nEN_not),  .SET({1'b0, 1'b0}), .CLR({CLR,  CLR}),  .D({EN,      EN}),      .Q(Q[31:30]));
+$dlatchsr #(.EN_POLARITY(1'b0), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch16 (.EN(nEN_not),  .SET({SET,  1'b0}), .CLR({1'b0, CLR}),  .D({EN,      nEN_mux}), .Q(Q[33:32]));
+$dlatchsr #(.EN_POLARITY(1'b0), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch17 (.EN(nEN_mux),  .SET({1'b0, SET}),  .CLR({CLR,  1'b0}), .D({nEN_not, EN}),      .Q(Q[35:34]));
+$dlatchsr #(.EN_POLARITY(1'b0), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch18 (.EN(nEN_mux),  .SET({1'b0, 1'b0}), .CLR({CLR,  CLR}),  .D({nEN_mux, nEN_not}), .Q(Q[37:36]));
+$dlatchsr #(.EN_POLARITY(1'b1), .SET_POLARITY(1'b1),  .CLR_POLARITY(1'b1), .WIDTH(2)) lch19 (.EN(EN),       .SET({1'b0, SET}),  .CLR({CLR,  1'b0}), .D({nEN_mux, EN}),      .Q(Q[39:38]));
+
+// These 2 latches are supposed to remain
+$adlatch   #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b11),  .WIDTH(2)) lch20 (.EN(nEN_mux), .ARST(ARST),                            .D({nEN_mux, nEN_not}), .Q(Q[41:40]));
+$adlatch   #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b10),  .WIDTH(2)) lch21 (.EN(EN),      .ARST(ARST),                            .D({nEN_mux, EN}),      .Q(Q[43:42]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+# Change same/complementary-signal AD to constant async load
+# Then set constant bits
+equiv_opt -undef -assert -multiclock opt -sat
+design -load postopt
+
+# Check that all intended dlatch, adlatch and dlatchsr were transformed
+select -assert-none t:$dlatch*
+select -assert-count 2 t:$adlatch*
+select -assert-none t:$dlatchsr*
+
+design -reset
