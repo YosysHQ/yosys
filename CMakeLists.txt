@@ -53,6 +53,7 @@ option(YOSYS_WITHOUT_ZLIB "Disable zlib integration" OFF)
 option(YOSYS_WITHOUT_LIBFFI "Disable libffi integration" OFF)
 option(YOSYS_WITHOUT_READLINE "Disable readline integration" OFF)
 option(YOSYS_WITHOUT_EDITLINE "Disable editline integration" OFF)
+option(YOSYS_WITHOUT_SLANG "Disable Slang integration" OFF)
 option(YOSYS_WITHOUT_TCL "Disable Tcl integration" OFF)
 option(YOSYS_WITH_PYTHON "Enable Python integration" OFF)
 
@@ -308,6 +309,7 @@ condition(YOSYS_ENABLE_EDITLINE editline_FOUND AND NOT YOSYS_WITHOUT_EDITLINE AN
 condition(YOSYS_ENABLE_TCL tcl_FOUND AND libtommath_FOUND AND NOT YOSYS_WITHOUT_TCL)
 condition(YOSYS_ENABLE_PYTHON Python3Devel_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
 condition(YOSYS_ENABLE_VERIFIC YOSYS_VERIFIC_DIR AND zlib_FOUND)
+condition(YOSYS_ENABLE_SLANG NOT YOSYS_WITHOUT_SLANG)
 
 # Describe dependencies and features
 # CMake 4.0 would let us use proper conditions, but that's too new for now.
