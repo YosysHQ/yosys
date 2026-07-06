@@ -95,27 +95,27 @@ struct Async2syncPass : public Pass {
 
 					if (trg_width == 0) {
 						if (initstate == State::S0)
-							initstate = module->Initstate(NEW_ID);
+							initstate = module->Initstate(NEW_ID2_SUFFIX("initstate")); // SILIMATE: Improve the naming
 
 						SigBit sig_en = cell->getPort(ID::EN);
-						cell->setPort(ID::EN, module->And(NEW_ID, sig_en, initstate));
+						cell->setPort(ID::EN, module->And(NEW_ID2_SUFFIX("en_init"), sig_en, initstate)); // SILIMATE: Improve the naming
 					} else {
 						SigBit sig_en = cell->getPort(ID::EN);
 						SigSpec sig_args = cell->getPort(ID::ARGS);
 						bool trg_polarity = cell->getParam(ID(TRG_POLARITY)).as_bool();
 						SigBit sig_trg = cell->getPort(ID::TRG);
-						Wire *sig_en_q = module->addWire(NEW_ID);
-						Wire *sig_args_q = module->addWire(NEW_ID, GetSize(sig_args));
+						Wire *sig_en_q = module->addWire(NEW_ID2_SUFFIX("en_q")); // SILIMATE: Improve the naming
+						Wire *sig_args_q = module->addWire(NEW_ID2_SUFFIX("args_q"), GetSize(sig_args)); // SILIMATE: Improve the naming
 						sig_en_q->attributes.emplace(ID::init, State::S0);
-						module->addDff(NEW_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->get_src_attribute());
-						module->addDff(NEW_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->get_src_attribute());
+						module->addDff(NEW_ID2_SUFFIX("en_dff"), sig_trg, sig_en, sig_en_q, trg_polarity, cell->get_src_attribute()); // SILIMATE: Improve the naming
+						module->addDff(NEW_ID2_SUFFIX("args_dff"), sig_trg, sig_args, sig_args_q, trg_polarity, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						cell->setPort(ID::EN, sig_en_q);
 						cell->setPort(ID::ARGS, sig_args_q);
 						if (cell->type == ID($check)) {
 							SigBit sig_a = cell->getPort(ID::A);
-							Wire *sig_a_q = module->addWire(NEW_ID);
+							Wire *sig_a_q = module->addWire(NEW_ID2_SUFFIX("a_q")); // SILIMATE: Improve the naming
 							sig_a_q->attributes.emplace(ID::init, State::S1);
-							module->addDff(NEW_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->get_src_attribute());
+							module->addDff(NEW_ID2_SUFFIX("a_dff"), sig_trg, sig_a, sig_a_q, trg_polarity, cell->get_src_attribute()); // SILIMATE: Improve the naming
 							cell->setPort(ID::A, sig_a_q);
 						}
 					}
@@ -152,8 +152,8 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_d = module->addWire(NEW_ID, ff.width);
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_d = module->addWire(NEW_ID2_SUFFIX("new_d"), ff.width); // SILIMATE: Improve the naming
+						Wire *new_q = module->addWire(NEW_ID2_SUFFIX("new_q"), ff.width); // SILIMATE: Improve the naming
 
 						SigSpec sig_set = ff.sig_set;
 						SigSpec sig_clr = ff.sig_clr;
@@ -161,21 +161,21 @@ struct Async2syncPass : public Pass {
 
 						if (!ff.pol_set) {
 							if (!ff.is_fine)
-								sig_set = module->Not(NEW_ID, sig_set);
+								sig_set = module->Not(NEW_ID2_SUFFIX("set_hi"), sig_set); // SILIMATE: Improve the naming
 							else
-								sig_set = module->NotGate(NEW_ID, sig_set);
+								sig_set = module->NotGate(NEW_ID2_SUFFIX("set_hi"), sig_set); // SILIMATE: Improve the naming
 						}
 
 						if (ff.pol_clr) {
 							if (!ff.is_fine)
-								sig_clr_inv = module->Not(NEW_ID, sig_clr);
+								sig_clr_inv = module->Not(NEW_ID2_SUFFIX("clr_inv"), sig_clr); // SILIMATE: Improve the naming
 							else
-								sig_clr_inv = module->NotGate(NEW_ID, sig_clr);
+								sig_clr_inv = module->NotGate(NEW_ID2_SUFFIX("clr_inv"), sig_clr); // SILIMATE: Improve the naming
 						} else {
 							if (!ff.is_fine)
-								sig_clr = module->Not(NEW_ID, sig_clr);
+								sig_clr = module->Not(NEW_ID2_SUFFIX("clr_hi"), sig_clr); // SILIMATE: Improve the naming
 							else
-								sig_clr = module->NotGate(NEW_ID, sig_clr);
+								sig_clr = module->NotGate(NEW_ID2_SUFFIX("clr_hi"), sig_clr); // SILIMATE: Improve the naming
 						}
 
 						// At this point, sig_set and sig_clr are now unconditionally
@@ -183,26 +183,26 @@ struct Async2syncPass : public Pass {
 
 						SigSpec set_and_clr;
 						if (!ff.is_fine)
-							set_and_clr = module->And(NEW_ID, sig_set, sig_clr);
+							set_and_clr = module->And(NEW_ID2_SUFFIX("set_and_clr"), sig_set, sig_clr); // SILIMATE: Improve the naming
 						else
-							set_and_clr = module->AndGate(NEW_ID, sig_set, sig_clr);
+							set_and_clr = module->AndGate(NEW_ID2_SUFFIX("set_and_clr"), sig_set, sig_clr); // SILIMATE: Improve the naming
 
 						if (!ff.is_fine) {
-							SigSpec tmp = module->Or(NEW_ID, ff.sig_d, sig_set);
-							tmp = module->And(NEW_ID, tmp, sig_clr_inv);
-							module->addBwmux(NEW_ID, tmp, Const(State::Sx, ff.width), set_and_clr, new_d);
+							SigSpec tmp = module->Or(NEW_ID2_SUFFIX("d_or_set"), ff.sig_d, sig_set); // SILIMATE: Improve the naming
+							tmp = module->And(NEW_ID2_SUFFIX("d_masked"), tmp, sig_clr_inv); // SILIMATE: Improve the naming
+							module->addBwmux(NEW_ID2_SUFFIX("d_bwmux"), tmp, Const(State::Sx, ff.width), set_and_clr, new_d); // SILIMATE: Improve the naming
 
-							tmp = module->Or(NEW_ID, new_q, sig_set);
-							tmp = module->And(NEW_ID, tmp, sig_clr_inv);
-							module->addBwmux(NEW_ID, tmp, Const(State::Sx, ff.width), set_and_clr, ff.sig_q);
+							tmp = module->Or(NEW_ID2_SUFFIX("q_or_set"), new_q, sig_set); // SILIMATE: Improve the naming
+							tmp = module->And(NEW_ID2_SUFFIX("q_masked"), tmp, sig_clr_inv); // SILIMATE: Improve the naming
+							module->addBwmux(NEW_ID2_SUFFIX("q_bwmux"), tmp, Const(State::Sx, ff.width), set_and_clr, ff.sig_q); // SILIMATE: Improve the naming
 						} else {
-							SigSpec tmp = module->OrGate(NEW_ID, ff.sig_d, sig_set);
-							tmp = module->AndGate(NEW_ID, tmp, sig_clr_inv);
-							module->addMuxGate(NEW_ID, tmp, State::Sx, set_and_clr, new_d);
+							SigSpec tmp = module->OrGate(NEW_ID2_SUFFIX("d_or_set"), ff.sig_d, sig_set); // SILIMATE: Improve the naming
+							tmp = module->AndGate(NEW_ID2_SUFFIX("d_masked"), tmp, sig_clr_inv); // SILIMATE: Improve the naming
+							module->addMuxGate(NEW_ID2_SUFFIX("d_mux"), tmp, State::Sx, set_and_clr, new_d); // SILIMATE: Improve the naming
 
-							tmp = module->OrGate(NEW_ID, new_q, sig_set);
-							tmp = module->AndGate(NEW_ID, tmp, sig_clr_inv);
-							module->addMuxGate(NEW_ID, tmp, State::Sx, set_and_clr, ff.sig_q);
+							tmp = module->OrGate(NEW_ID2_SUFFIX("q_or_set"), new_q, sig_set); // SILIMATE: Improve the naming
+							tmp = module->AndGate(NEW_ID2_SUFFIX("q_masked"), tmp, sig_clr_inv); // SILIMATE: Improve the naming
+							module->addMuxGate(NEW_ID2_SUFFIX("q_mux"), tmp, State::Sx, set_and_clr, ff.sig_q); // SILIMATE: Improve the naming
 						}
 
 						ff.sig_d = new_d;
@@ -217,24 +217,24 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_d = module->addWire(NEW_ID, ff.width);
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_d = module->addWire(NEW_ID2_SUFFIX("new_d"), ff.width); // SILIMATE: Improve the naming
+						Wire *new_q = module->addWire(NEW_ID2_SUFFIX("new_q"), ff.width); // SILIMATE: Improve the naming
 
 						if (ff.pol_aload) {
 							if (!ff.is_fine) {
-								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
-								module->addMux(NEW_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMux(NEW_ID2_SUFFIX("q_aload_mux"), new_q, ff.sig_ad, ff.sig_aload, ff.sig_q); // SILIMATE: Improve the naming
+								module->addMux(NEW_ID2_SUFFIX("d_aload_mux"), ff.sig_d, ff.sig_ad, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 							} else {
-								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
-								module->addMuxGate(NEW_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMuxGate(NEW_ID2_SUFFIX("q_aload_mux"), new_q, ff.sig_ad, ff.sig_aload, ff.sig_q); // SILIMATE: Improve the naming
+								module->addMuxGate(NEW_ID2_SUFFIX("d_aload_mux"), ff.sig_d, ff.sig_ad, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 							}
 						} else {
 							if (!ff.is_fine) {
-								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
-								module->addMux(NEW_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
+								module->addMux(NEW_ID2_SUFFIX("q_aload_mux"), ff.sig_ad, new_q, ff.sig_aload, ff.sig_q); // SILIMATE: Improve the naming
+								module->addMux(NEW_ID2_SUFFIX("d_aload_mux"), ff.sig_ad, ff.sig_d, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 							} else {
-								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
-								module->addMuxGate(NEW_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
+								module->addMuxGate(NEW_ID2_SUFFIX("q_aload_mux"), ff.sig_ad, new_q, ff.sig_aload, ff.sig_q); // SILIMATE: Improve the naming
+								module->addMuxGate(NEW_ID2_SUFFIX("d_aload_mux"), ff.sig_ad, ff.sig_d, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 							}
 						}
 
@@ -250,18 +250,18 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_q = module->addWire(NEW_ID2_SUFFIX("new_q"), ff.width); // SILIMATE: Improve the naming
 
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.val_arst, ff.sig_arst, ff.sig_q);
+								module->addMux(NEW_ID2_SUFFIX("arst_mux"), new_q, ff.val_arst, ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEW_ID2_SUFFIX("arst_mux"), new_q, ff.val_arst[0], ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.val_arst, new_q, ff.sig_arst, ff.sig_q);
+								module->addMux(NEW_ID2_SUFFIX("arst_mux"), ff.val_arst, new_q, ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 							else
-								module->addMuxGate(NEW_ID, ff.val_arst[0], new_q, ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEW_ID2_SUFFIX("arst_mux"), ff.val_arst[0], new_q, ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 						}
 
 						ff.sig_q = new_q;
@@ -284,21 +284,21 @@ struct Async2syncPass : public Pass {
 
 					initvals.remove_init(ff.sig_q);
 
-					Wire *new_q = module->addWire(NEW_ID, ff.width);
+					Wire *new_q = module->addWire(NEW_ID2_SUFFIX("new_q"), ff.width); // SILIMATE: Improve the naming
 					Wire *new_d;
 
 					if (ff.has_aload) {
-						new_d = module->addWire(NEW_ID, ff.width);
+						new_d = module->addWire(NEW_ID2_SUFFIX("new_d"), ff.width); // SILIMATE: Improve the naming
 						if (ff.pol_aload) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMux(NEW_ID2_SUFFIX("d_aload_mux"), new_q, ff.sig_ad, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMuxGate(NEW_ID2_SUFFIX("d_aload_mux"), new_q, ff.sig_ad, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								module->addMux(NEW_ID2_SUFFIX("d_aload_mux"), ff.sig_ad, new_q, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 							else
-								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								module->addMuxGate(NEW_ID2_SUFFIX("d_aload_mux"), ff.sig_ad, new_q, ff.sig_aload, new_d); // SILIMATE: Improve the naming
 						}
 					} else {
 						new_d = new_q;
@@ -310,36 +310,36 @@ struct Async2syncPass : public Pass {
 
 						if (!ff.pol_set) {
 							if (!ff.is_fine)
-								sig_set = module->Not(NEW_ID, sig_set);
+								sig_set = module->Not(NEW_ID2_SUFFIX("set_hi"), sig_set); // SILIMATE: Improve the naming
 							else
-								sig_set = module->NotGate(NEW_ID, sig_set);
+								sig_set = module->NotGate(NEW_ID2_SUFFIX("set_hi"), sig_set); // SILIMATE: Improve the naming
 						}
 
 						if (ff.pol_clr) {
 							if (!ff.is_fine)
-								sig_clr = module->Not(NEW_ID, sig_clr);
+								sig_clr = module->Not(NEW_ID2_SUFFIX("clr_lo"), sig_clr); // SILIMATE: Improve the naming
 							else
-								sig_clr = module->NotGate(NEW_ID, sig_clr);
+								sig_clr = module->NotGate(NEW_ID2_SUFFIX("clr_lo"), sig_clr); // SILIMATE: Improve the naming
 						}
 
 						if (!ff.is_fine) {
-							SigSpec tmp = module->Or(NEW_ID, new_d, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+							SigSpec tmp = module->Or(NEW_ID2_SUFFIX("d_or_set"), new_d, sig_set); // SILIMATE: Improve the naming
+							module->addAnd(NEW_ID2_SUFFIX("q_sr"), tmp, sig_clr, ff.sig_q); // SILIMATE: Improve the naming
 						} else {
-							SigSpec tmp = module->OrGate(NEW_ID, new_d, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+							SigSpec tmp = module->OrGate(NEW_ID2_SUFFIX("d_or_set"), new_d, sig_set); // SILIMATE: Improve the naming
+							module->addAndGate(NEW_ID2_SUFFIX("q_sr"), tmp, sig_clr, ff.sig_q); // SILIMATE: Improve the naming
 						}
 					} else if (ff.has_arst) {
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_d, ff.val_arst, ff.sig_arst, ff.sig_q);
+								module->addMux(NEW_ID2_SUFFIX("arst_mux"), new_d, ff.val_arst, ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 							else
-								module->addMuxGate(NEW_ID, new_d, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEW_ID2_SUFFIX("arst_mux"), new_d, ff.val_arst[0], ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.val_arst, new_d, ff.sig_arst, ff.sig_q);
+								module->addMux(NEW_ID2_SUFFIX("arst_mux"), ff.val_arst, new_d, ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 							else
-								module->addMuxGate(NEW_ID, ff.val_arst[0], new_d, ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEW_ID2_SUFFIX("arst_mux"), ff.val_arst[0], new_d, ff.sig_arst, ff.sig_q); // SILIMATE: Improve the naming
 						}
 					} else {
 						module->connect(ff.sig_q, new_d);
