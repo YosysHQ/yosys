@@ -1071,7 +1071,7 @@ struct OptDffWorker
 			ff_for_cell.emplace(cell, ff);
 
 			for (int i = 0; i < ff.width; i++) {
-				// Skip bits whose reset drives an undefined (x) value
+				// Skip bits whose reset value is undefined (x)
 				if (ff.has_srst && !is_def(ff.val_srst[i])) continue;
 				if (ff.has_arst && !is_def(ff.val_arst[i])) continue;
 
@@ -1424,7 +1424,9 @@ struct OptDffPass : public Pass {
 		log("\n");
 		log("    -sat\n");
 		log("        additionally invoke SAT solver to detect and remove flip-flops (with\n");
-		log("        non-constant inputs) that can also be replaced with a constant driver\n");
+		log("        non-constant inputs) that can also be replaced with a constant driver,\n");
+		log("        or merged with equivalent flip-flops. this reasons in 2-valued logic\n");
+		log("        and may resolve don't-care bits, so it is incompatible with -keepdc.\n");
 		log("\n");
 		log("    -keepdc\n");
 		log("        some optimizations change the behavior of the circuit with respect to\n");
@@ -1455,6 +1457,13 @@ struct OptDffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		// The SAT engine reasons in 2-valued logic (a constant x is treated as
+		// 0), so it can resolve don't-care bits to concrete values -- exactly
+		// what -keepdc promises not to do. Refuse the combination rather than
+		// silently ignore -keepdc.
+		if (opt.sat && opt.keepdc)
+			log_cmd_error("The -sat and -keepdc options are mutually exclusive.\n");
 
 		bool did_something = false;
 		for (auto mod : design->selected_modules()) {
