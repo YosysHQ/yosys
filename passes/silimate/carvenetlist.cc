@@ -344,6 +344,7 @@ struct CarveNetlistPass : public Pass {
 		};
 
 		std::map<std::string, BoundaryRec> boundary;
+		std::map<std::string, std::string> final_of_base; // carved module name -> the base it came from
 		int tagged_total = 0;
 		for (auto &grp : groups) {
 			const std::string &base = grp.first;
@@ -439,6 +440,15 @@ struct CarveNetlistPass : public Pass {
 
 			// Tag the cell logic for submod.
 			std::string final = pq_rename(base);
+			// pq_rename strips the "slow_"/"fast_" speed prefix off plain cells, so a train
+			// holding both "slow_<enc>" and "fast_<enc>" would map both to "<enc>" -- carving
+			// two different cells into one module and silently overwriting the first cell's
+			// \pq_* boundary record with the second. Refuse rather than emit a wrong netlist.
+			if (final_of_base.count(final))
+				log_error("carvenetlist: cell groups '%s' and '%s' both map to carved module "
+					  "name '%s'; cannot carve two cells into one module.\n",
+					  final_of_base.at(final).c_str(), base.c_str(), final.c_str());
+			final_of_base[final] = base;
 			for (auto c : logic)
 				c->set_string_attribute(RTLIL::escape_id("submod"), final);
 			tagged_total += GetSize(logic);
@@ -447,6 +457,11 @@ struct CarveNetlistPass : public Pass {
 			// not a single mapped cell; flag it so the self-containment pass below also rebuilds
 			// its launch-flop input boundary (step (1)), which a single-cell carve never needs.
 			bool is_design = base.rfind("slow_design_", 0) == 0 || base.rfind("fast_design_", 0) == 0;
+
+			// Speed comes from the pre-rename base's "<speed>_" prefix ("fast_" covers both
+			// "fast_<enc>" and "fast_design_<enc>"). The post-rename `final` can't be used:
+			// pq_rename strips the speed prefix off plain cells, so `final` carries no speed.
+			std::string speed = base.rfind("fast_", 0) == 0 ? "fast" : "slow";
 
 			// Rebuild the output boundary at the capture flops. submod can only export a
 			// clean output port for a net driven *inside* the carve and read *outside* it.
@@ -722,7 +737,7 @@ struct CarveNetlistPass : public Pass {
 				}
 			}
 
-			boundary[final] = {base.rfind("fast", 0) == 0 ? "fast" : "slow", drv_cell, drv_pin, load_cell, load_pin};
+			boundary[final] = {speed, drv_cell, drv_pin, load_cell, load_pin};
 		}
 
 		log("Carved %d cells (%d logic cells tagged)\n", GetSize(boundary), tagged_total);
@@ -834,7 +849,7 @@ struct CarveNetlistPass : public Pass {
 					}
 					log_warning("carvenetlist: cannot unify boundary port '%s' -> '%s' in "
 						    "module %s (widths %d vs %d differ); leaving original name.\n",
-						    log_id(mod->name), log_id(oldid), log_id(newid), wire->width,
+						    log_id(oldid), log_id(newid), log_id(mod->name), wire->width,
 						    ex->width);
 					continue;
 				}
@@ -904,12 +919,18 @@ struct CarveNetlistPass : public Pass {
 			}
 		}
 
-		// Replace a SINGLE-FANOUT 1-input/1-output cell (a lone drive-strength buffer, a
-		// polarity/QN-flop inverter feeding one load, or a cell->capture-flop output buffer) with
-		// a direct wire: its one load simply moves to the upstream driver, so delay/power are
-		// unchanged, and each simple cell still carves to its one real gate (matching the normal
-		// flow). Dropping such an inverter's inversion is fine -- cells are characterized for PPA,
-		// not function, and toggle activity (hence power) is polarity-independent.
+		// Replace a REDUNDANT SINGLE-FANOUT 1-input/1-output cell (a lone drive-strength buffer
+		// or a cell->capture-flop output buffer sitting on top of a real in-cone gate) with a
+		// direct wire: its one load simply moves to the upstream driver, so delay/power are
+		// unchanged, and the cone still carves to its one real gate (matching the normal flow).
+		// Dropping such an inverter's inversion is fine -- cells are characterized for PPA, not
+		// function, and toggle activity (hence power) is polarity-independent.
+		//
+		// KEEP a passthrough that is the cone's BOUNDARY GATE -- one whose input is not driven by
+		// another in-cone cell (it reads a primary input / launch-flop boundary net). It is the
+		// cell-under-test's only logic, not a redundant re-driver, so shorting it would replace
+		// the whole cone with a bare wire: nothing left to characterize, and for an inverter the
+		// inversion is silently dropped (the carved cell no longer matches the RTL).
 		//
 		// KEEP a passthrough whose output has FANOUT > 1. Such a buffer/inverter is a fanout
 		// (re-drive) buffer -- e.g. a wide multiplier/adder's input and adder-tree buffer trees,
@@ -973,6 +994,13 @@ struct CarveNetlistPass : public Pass {
 				if (GetSize(in) != 1 || GetSize(out) != 1)
 					continue;
 				SigBit ib = sm(in[0]), ob = sm(out[0]);
+				// Keep the cone's boundary gate: a passthrough whose input has no in-cone driver
+				// (reads a primary input / boundary net) is the cell-under-test's only logic, so
+				// shorting it would strand the cone as a bare wire (dropping the gate, and for an
+				// inverter its inversion). Only redundant re-drivers stacked on a real in-cone
+				// gate -- whose input IS driven by another cell -- may be shorted away.
+				if (!drv.count(ib))
+					continue;
 				// Keep fanout>1 passthroughs: a fanout (re-drive) buffer/inverter whose removal
 				// would dump its load onto the upstream driver and inflate its characterized delay.
 				int fanout = (load_cnt.count(ob) ? load_cnt.at(ob) : 0) +
