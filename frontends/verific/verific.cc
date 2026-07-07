@@ -58,6 +58,8 @@ USING_YOSYS_NAMESPACE
 #include "VeriWrite.h"
 #include "VeriLibrary.h"
 #include "VeriExpression.h"
+#include "VeriScope.h"
+#include "VeriId.h"
 #endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -120,6 +122,44 @@ bool verific_no_split_complex_ports; // SILIMATE: disable splitting of complex p
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
+
+// SILIMATE: "<module>.<signal>" entries to treat as if annotated with (* force_ram *)
+vector<string> verific_force_ram_signals;
+
+// SILIMATE: stamp the force_ram attribute onto the registered signals.
+static void apply_force_ram_signals(const char *work)
+{
+	for (auto &entry : verific_force_ram_signals) {
+		// Validation
+		size_t dot = entry.find('.');
+		if (dot == std::string::npos || dot == 0 || dot + 1 == entry.size()) {
+			log_warning("-force-ram entry '%s' is not of the form <module>.<signal> required.\n", entry.c_str());
+			continue;
+		}
+		// Extract module and signal name
+		std::string module_name = entry.substr(0, dot);
+		std::string signal_name = entry.substr(dot + 1);
+		// Find module and signal from the design
+		VeriModule *veri_module = veri_file::GetModule(module_name.c_str(), 1, work);
+		if (!veri_module) {
+			log_warning("-force-ram: module '%s' not found.\n", module_name.c_str());
+			continue;
+		}
+		VeriScope *scope = veri_module ? veri_module->GetScope() : nullptr;
+		VeriIdDef *id = scope ? scope->FindLocal(signal_name.c_str()) : nullptr;
+		if (!id) {
+			log_warning("-force-ram: signal '%s' not found in module '%s'.\n",
+			            signal_name.c_str(), module_name.c_str());
+			continue;
+		}
+		// Add force_ram attribute if not already present
+		if (!id->GetAttribute("force_ram")) {
+			id->AddAttribute("force_ram", nullptr);
+			log("Added force_ram attribute to signal '%s' in module '%s'.\n",
+			         signal_name.c_str(), module_name.c_str());
+		}
+	}
+}
 
 static void dump_verific_file_closure(const char *output_path, Array *file_names)
 {
@@ -3030,6 +3070,9 @@ void restore_blackbox_msg_state()
 
 void import_all(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED)
 {
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	apply_force_ram_signals(work); // SILIMATE
+#endif
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	save_blackbox_msg_state();
 	VerificExtensions::ElaborateAndRewrite(work, parameters);
@@ -3098,6 +3141,10 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 	std::set<std::string> top_mod_names;
 	Array *netlists = nullptr;
 	(void)top;
+
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	apply_force_ram_signals(work); // SILIMATE
+#endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
 	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work, 1);
@@ -3282,6 +3329,7 @@ void verific_cleanup()
 	verific_incdirs.clear();
 	verific_libdirs.clear();
 	verific_libexts.clear();
+	verific_force_ram_signals.clear(); // SILIMATE
 #endif
 	verific_import_pending = false;
 }
@@ -3511,6 +3559,13 @@ struct VerificPass : public Pass {
 		log("    verific -vlog-undef <macro>..\n");
 		log("\n");
 		log("Remove Verilog defines previously set with -vlog-define.\n");
+		log("\n");
+		log("\n");
+		log("    verific -force-ram <module>.<signal>..\n");
+		log("\n");
+		log("Treat each listed signal as if it had a (* force_ram *) attribute in the\n");
+		log("RTL, opting it into multi-port RAM extraction. The attribute is applied\n");
+		log("when the design is elaborated (verific -import).\n");
 		log("\n");
 		log("\n");
 #endif
@@ -3921,6 +3976,13 @@ struct VerificPass : public Pass {
 				string name = args[argidx];
 				veri_file::UndefineMacro(name.c_str());
 			}
+			goto check_error;
+		}
+
+		// SILIMATE: register signals that behave as if annotated with (* force_ram *) in the RTL
+		if (GetSize(args) > argidx && args[argidx] == "-force-ram") {
+			for (argidx++; argidx < GetSize(args); argidx++)
+				verific_force_ram_signals.push_back(args[argidx]);
 			goto check_error;
 		}
 
