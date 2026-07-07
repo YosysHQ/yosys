@@ -3774,6 +3774,9 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this externally
 			// RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);  // SILIMATE: control this externally
+			// SILIMATE: per-signal RAM extraction opt-in, comma-separated <module>.<signal> entries
+			RuntimeFlags::AddStringVar("veri_force_ram_signals", nullptr,
+					"Each matching signal behaves as if it had a (* force_ram *) attribute in the RTL.");
 			RuntimeFlags::SetVar("veri_replace_const_exprs", 1);
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
