@@ -590,3 +590,270 @@ design -load postopt
 select -assert-min 1 w:*ffa_*
 design -reset
 log -pop
+
+# ============================================================================
+# Group G: coalesce-matrix variant (precomputed same_cat[i][k], raw-input en)
+# ============================================================================
+#
+# Some RTL precomputes a per-leader "same_cat[i][k]" mask (gated ONLY on the
+# leader's enable) and forward-coalesces the leader's slot into lane k without
+# re-checking en[k]. Disabled lanes after a same-category leader therefore
+# inherit that leader's slot (rather than 0). The pass detects this as the
+# enable-independent forward-coalescing variant. These modules also drive the
+# scan straight from a top-level request port (lane_en), exercising the
+# primary-input enable/broadcast candidate path.
+
+# G1: coalesce-matrix dsel-only, raw-input enable, N=8 (equiv).
+log -header "G1: coalesce-matrix allocator, raw-input enable, N=8 (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic [N-1:0]   lane_en,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0] same_cat [0:N-1];
+  always_comb begin
+    for (int a=0;a<N;a++) begin
+      same_cat[a] = '0;
+      if (lane_en[a])
+        for (int b=a;b<N;b++)
+          if (cat_flat[a*C +: C]==cat_flat[b*C +: C]) same_cat[a][b] = 1'b1;
+    end
+  end
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (lane_en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (same_cat[i][k]) begin dsel[k] = W'(j); done[k] = 1'b1; end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+# The coalesce variant fired (log shows "coalesce").
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# G2: coalesce-matrix dsel + xbar, N=16 -- structural. Both deep cones must
+# collapse from the shared scan (dsel via the coalesce gather, xbar via the
+# per-slot field gather); full equiv at N=16 is SAT-hard (see group C).
+log -header "G2: coalesce-matrix dsel + xbar, N=16 structural"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=16, NB=8, C=3, W=3, A=5) (
+  input  logic [N-1:0]      lane_en,
+  input  logic [N*C-1:0]    cat_flat,
+  input  logic [N-1:0]      swap_bit,
+  output logic [N*W-1:0]    dsel_flat,
+  output logic [32*A-1:0]   xbar_flat
+);
+  logic [N-1:0] same_cat [0:N-1];
+  always_comb begin
+    for (int a=0;a<N;a++) begin
+      same_cat[a] = '0;
+      if (lane_en[a])
+        for (int b=a;b<N;b++)
+          if (cat_flat[a*C +: C]==cat_flat[b*C +: C]) same_cat[a][b] = 1'b1;
+    end
+  end
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  logic [W-1:0]  dsel [0:N-1];
+  logic [A-1:0]  xbar [0:31];
+  always_comb begin
+    for (int i=0;i<N;i++)  dsel[i] = '0;
+    for (int i=0;i<32;i++) xbar[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (lane_en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int l=0;l<4;l++)
+              xbar[(j*4)+l] = (A'(({2'b0,cat_flat[i*C +: C]}*4)+l)) ^ {3'b0, swap_bit[i], 1'b0};
+            for (int k=0;k<N;k++)
+              if (same_cat[i][k]) begin dsel[k] = W'(j); done[k] = 1'b1; end
+          end
+  end
+  for (genvar g=0;g<N;g++)  assign dsel_flat[g*W +: W] = dsel[g];
+  for (genvar g=0;g<32;g++) assign xbar_flat[g*A +: A] = xbar[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+memory -nomap -norom -nordff
+opt
+select -assert-min 1000 t:$mux
+opt_first_fit_alloc
+opt_clean
+select -assert-min 1 w:*ffa_*
+# The deep mux chains collapse and the xbar emits $bmux table-lookups.
+select -assert-max 200 t:$mux
+select -assert-min 1 t:$bmux
+design -reset
+log -pop
+
+# G3: coalesce-matrix but LAST-fit slot choice (scans free slots NB-1..0). The
+# same_cat coalescing is present but the slot assignment is not first-fit, so
+# neither the standard nor the coalesce fingerprint may match.
+log -header "G3: coalesce-matrix last-fit near-miss -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic [N-1:0]   lane_en,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0] same_cat [0:N-1];
+  always_comb begin
+    for (int a=0;a<N;a++) begin
+      same_cat[a] = '0;
+      if (lane_en[a])
+        for (int b=a;b<N;b++)
+          if (cat_flat[a*C +: C]==cat_flat[b*C +: C]) same_cat[a][b] = 1'b1;
+    end
+  end
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (lane_en[i])
+        for (int j=NB-1;j>=0;j--)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (same_cat[i][k]) begin dsel[k] = W'(j); done[k] = 1'b1; end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+opt_first_fit_alloc
+select -assert-count 0 w:*ffa_*
+design -reset
+log -pop
+
+# ============================================================================
+# Group H: coalesce generalization (spelling + shape variants)
+# ============================================================================
+#
+# The coalesce variant is detected by functional fingerprinting of the dsel
+# cone, so it should not depend on the exact way the same-category forwarding
+# is written or on the specific N/NB/C shape. These cases vary both.
+
+# H1: coalesce with the same-category forwarding written INLINE (no precomputed
+# same_cat[i][k] matrix) -- the leader compares categories directly in its
+# forward loop. Functionally identical to G1's matrix form; must still detect
+# the enable-independent coalescing variant and prove equivalent.
+log -header "H1: coalesce inline-compare spelling, N=8 (equiv + fires)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=4, C=2, W=2) (
+  input  logic [N-1:0]   lane_en,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (lane_en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=i;k<N;k++)
+              if (cat_flat[k*C +: C]==cat_flat[i*C +: C]) begin
+                dsel[k] = W'(j); done[k] = 1'b1;
+              end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop
+
+# H2: coalesce at a different shape -- N=8 lanes but NB=8 slots (twice G1's
+# slot count, wider dsel W=3). Confirms the coalesce fingerprint generalizes
+# across slot/field widths, not just the N=8/NB=4 shape of G1.
+log -header "H2: coalesce shape N=8 NB=8 W=3 (equiv + fires)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top #(parameter N=8, NB=8, C=2, W=3) (
+  input  logic [N-1:0]   lane_en,
+  input  logic [N*C-1:0] cat_flat,
+  output logic [N*W-1:0] dsel_flat
+);
+  logic [N-1:0] same_cat [0:N-1];
+  always_comb begin
+    for (int a=0;a<N;a++) begin
+      same_cat[a] = '0;
+      if (lane_en[a])
+        for (int b=a;b<N;b++)
+          if (cat_flat[a*C +: C]==cat_flat[b*C +: C]) same_cat[a][b] = 1'b1;
+    end
+  end
+  logic [W-1:0]  dsel [0:N-1];
+  logic [NB-1:0] taken;
+  logic [N-1:0]  done;
+  always_comb begin
+    for (int i=0;i<N;i++) dsel[i] = '0;
+    taken = '0; done = '0;
+    for (int i=0;i<N;i++)
+      if (lane_en[i])
+        for (int j=0;j<NB;j++)
+          if (!taken[j] && !done[i]) begin
+            dsel[i] = W'(j); done[i] = 1'b1; taken[j] = 1'b1;
+            for (int k=0;k<N;k++)
+              if (same_cat[i][k]) begin dsel[k] = W'(j); done[k] = 1'b1; end
+          end
+  end
+  for (genvar g=0;g<N;g++) assign dsel_flat[g*W +: W] = dsel[g];
+endmodule
+EOF
+hierarchy -top top
+proc
+opt
+check -assert
+equiv_opt -assert opt_first_fit_alloc
+design -load postopt
+select -assert-min 1 w:*ffa_*
+design -reset
+log -pop

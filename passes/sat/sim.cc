@@ -658,6 +658,13 @@ struct SimInstance
 			else if (has_a && has_b && !has_c && !has_d && has_s && has_y)
 				// (A,B,S -> Y) cells
 				eval_state = CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), get_state(sig_s), &err);
+			else if (has_a && has_b && has_c && has_d && !has_s && has_y)
+				// (A,B,C,D -> Y) cells, e.g. $_AOI4_/$_OAI4_ (CellTypes::eval implements these);
+				// without this case every 4-input gate fell through to the "unsupported" warning
+				// below, flooding the log (millions of lines on AOI/OAI-dense designs like AES)
+				// and leaving the output stuck at X.
+				eval_state = CellTypes::eval(cell, get_state(sig_a), get_state(sig_b),
+				                             get_state(sig_c), get_state(sig_d), &err);
 			else
 				err = true;
 

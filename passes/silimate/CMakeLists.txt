@@ -50,6 +50,9 @@ yosys_pass(splitlarge
 yosys_pass(splitnetlist
 	splitnetlist.cc
 )
+yosys_pass(carvenetlist
+	carvenetlist.cc
+)
 yosys_pass(opt_timing_balance
 	opt_timing_balance.cc
 )

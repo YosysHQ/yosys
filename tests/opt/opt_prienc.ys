@@ -672,3 +672,311 @@ equiv_opt -assert opt_prienc
 design -load postopt
 design -reset
 log -pop
+
+# ============================================================================
+# Group RR: round-robin (rotated priority) arbiters
+# ============================================================================
+#
+# grant / idx_next = first set request bit scanning upward (wrapping) from
+# just after a stored pointer idx_last. RTL spells this as a DEPTH-iteration
+# idx-- loop over req[idx] that elaborates into a serial mux/shift chain; the
+# pass replaces it with a log-depth threshold-mask + CTZ network.
+
+# RR1: power-of-2 DEPTH -- full sequential equivalence. Both grant and
+# idx_next collapse and every serial req[idx] $shiftx is removed.
+log -header "RR1: round-robin arbiter, DEPTH=16 (sequential equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int DEPTH = 16) (
+    input  logic                    clk,
+    input  logic                    rst_n,
+    input  logic [DEPTH-1:0]        req,
+    output logic [$clog2(DEPTH)-1:0] grant
+);
+    typedef logic [$clog2(DEPTH)-1:0] idx_t;
+    idx_t idx, idx_next, idx_last;
+    always_comb begin
+        idx = idx_last; idx_next = idx_last; grant = '0;
+        for (int i = 0; i < DEPTH; i++) begin
+            if (req[idx]) begin grant = idx; idx_next = idx; end
+            if (idx == 0) idx = idx_t'(DEPTH-1); else idx--;
+        end
+    end
+    always_ff @(posedge clk) begin
+        if (!rst_n) idx_last <= '0;
+        else if (idx_last != idx_next) idx_last <= idx_next;
+    end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+equiv_opt -assert -multiclock opt_prienc
+design -load postopt
+select -assert-min 1 w:*rr*
+select -assert-count 0 t:$shiftx
+design -reset
+log -pop
+
+# RR2: non-power-of-2 DEPTH -- combinational equivalence over the reachable
+# pointer range (idx_last in [0,DEPTH)). We rewrite one copy of the arbiter,
+# leave a reference copy untouched, and SAT-prove they agree once the pointer
+# input is mapped into [0,DEPTH).
+log -header "RR2: round-robin arbiter, DEPTH=13 (reachable-range equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module rr_dut #(parameter int N=13, parameter int W=4) (
+  input  logic [N-1:0] req, input logic [W-1:0] s,
+  output logic [W-1:0] grant, output logic [W-1:0] idx_next
+);
+  always_comb begin
+    logic [W-1:0] idx; idx=s; idx_next=s; grant='0;
+    for (int i=0;i<N;i++) begin
+      if (req[idx]) begin grant=idx; idx_next=idx; end
+      if (idx==0) idx=W'(N-1); else idx--;
+    end
+  end
+endmodule
+EOF
+hierarchy -top rr_dut
+proc
+opt
+design -save rr_gold
+opt_prienc
+# The serial chain collapsed into the log-depth network.
+select -assert-min 1 w:*rr*
+select -assert-count 0 t:$shiftx
+design -save rr_gate
+design -reset
+design -copy-from rr_gold -as rr_ref rr_dut
+design -copy-from rr_gate -as rr_dut rr_dut
+read_verilog -sv <<EOF
+module tb #(parameter int N=13, parameter int W=4)(input logic [N-1:0] req, input logic [W-1:0] si);
+  logic [W-1:0] s, g1,n1,g2,n2;
+  assign s = (si >= N) ? (si - N) : si;
+  rr_dut #(N,W) u1(.req(req),.s(s),.grant(g1),.idx_next(n1));
+  rr_ref #(N,W) u2(.req(req),.s(s),.grant(g2),.idx_next(n2));
+  always_comb begin
+    assert (g1 == g2);
+    assert (n1 == n2);
+  end
+endmodule
+EOF
+hierarchy -top tb
+flatten
+chformal -lower
+opt -full
+sat -verify -prove-asserts -show-ports tb
+design -reset
+log -pop
+
+# RR3: negative -- a downward-scanning arbiter (opposite rotation) is a
+# different function and must not be rewritten as round-robin.
+log -header "RR3: downward-scan arbiter -> no round-robin rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int N=13, parameter int W=4) (
+  input  logic [N-1:0] req, input logic [W-1:0] s,
+  output logic [W-1:0] grant
+);
+  always_comb begin
+    logic [W-1:0] idx; idx=s; grant='0;
+    for (int i=0;i<N;i++) begin
+      if (req[idx]) grant=idx;
+      if (idx==W'(N-1)) idx='0; else idx++;   // scans the other way
+    end
+  end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+opt_prienc
+select -assert-count 0 w:*rr*
+design -reset
+log -pop
+
+# RR4: DEPTH sweep, power-of-2 = 8 -- full sequential equivalence.
+log -header "RR4: round-robin arbiter, DEPTH=8 (sequential equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int DEPTH = 8) (
+    input  logic                    clk,
+    input  logic                    rst_n,
+    input  logic [DEPTH-1:0]        req,
+    output logic [$clog2(DEPTH)-1:0] grant
+);
+    typedef logic [$clog2(DEPTH)-1:0] idx_t;
+    idx_t idx, idx_next, idx_last;
+    always_comb begin
+        idx = idx_last; idx_next = idx_last; grant = '0;
+        for (int i = 0; i < DEPTH; i++) begin
+            if (req[idx]) begin grant = idx; idx_next = idx; end
+            if (idx == 0) idx = idx_t'(DEPTH-1); else idx--;
+        end
+    end
+    always_ff @(posedge clk) begin
+        if (!rst_n) idx_last <= '0;
+        else if (idx_last != idx_next) idx_last <= idx_next;
+    end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+equiv_opt -assert -multiclock opt_prienc
+design -load postopt
+select -assert-min 1 w:*rr*
+design -reset
+log -pop
+
+# RR5: DEPTH sweep, power-of-2 = 32 -- larger than any test case, full equiv.
+log -header "RR5: round-robin arbiter, DEPTH=32 (sequential equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int DEPTH = 32) (
+    input  logic                    clk,
+    input  logic                    rst_n,
+    input  logic [DEPTH-1:0]        req,
+    output logic [$clog2(DEPTH)-1:0] grant
+);
+    typedef logic [$clog2(DEPTH)-1:0] idx_t;
+    idx_t idx, idx_next, idx_last;
+    always_comb begin
+        idx = idx_last; idx_next = idx_last; grant = '0;
+        for (int i = 0; i < DEPTH; i++) begin
+            if (req[idx]) begin grant = idx; idx_next = idx; end
+            if (idx == 0) idx = idx_t'(DEPTH-1); else idx--;
+        end
+    end
+    always_ff @(posedge clk) begin
+        if (!rst_n) idx_last <= '0;
+        else if (idx_last != idx_next) idx_last <= idx_next;
+    end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+equiv_opt -assert -multiclock opt_prienc
+design -load postopt
+select -assert-min 1 w:*rr*
+design -reset
+log -pop
+
+# RR6: non-power-of-2 DEPTH=7 -- reachable-range equivalence via SAT miter,
+# mirroring RR2 but at a different (odd) size to confirm the reachable-range
+# handling generalizes across non-pow2 widths, not just DEPTH=13.
+log -header "RR6: round-robin arbiter, DEPTH=7 (reachable-range equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module rr_dut #(parameter int N=7, parameter int W=3) (
+  input  logic [N-1:0] req, input logic [W-1:0] s,
+  output logic [W-1:0] grant, output logic [W-1:0] idx_next
+);
+  always_comb begin
+    logic [W-1:0] idx; idx=s; idx_next=s; grant='0;
+    for (int i=0;i<N;i++) begin
+      if (req[idx]) begin grant=idx; idx_next=idx; end
+      if (idx==0) idx=W'(N-1); else idx--;
+    end
+  end
+endmodule
+EOF
+hierarchy -top rr_dut
+proc
+opt
+design -save rr_gold
+opt_prienc
+select -assert-min 1 w:*rr*
+design -save rr_gate
+design -reset
+design -copy-from rr_gold -as rr_ref rr_dut
+design -copy-from rr_gate -as rr_dut rr_dut
+read_verilog -sv <<EOF
+module tb #(parameter int N=7, parameter int W=3)(input logic [N-1:0] req, input logic [W-1:0] si);
+  logic [W-1:0] s, g1,n1,g2,n2;
+  assign s = (si >= N) ? (si - N) : si;
+  rr_dut #(N,W) u1(.req(req),.s(s),.grant(g1),.idx_next(n1));
+  rr_ref #(N,W) u2(.req(req),.s(s),.grant(g2),.idx_next(n2));
+  always_comb begin
+    assert (g1 == g2);
+    assert (n1 == n2);
+  end
+endmodule
+EOF
+hierarchy -top tb
+flatten
+chformal -lower
+opt -full
+sat -verify -prove-asserts -show-ports tb
+design -reset
+log -pop
+
+# RR7: DIFFERENT RTL SPELLING of the same rotated-priority function. Instead of
+# the customer's downward idx-- last-write-wins loop, scan UPWARD from s+1 with
+# wraparound and keep the FIRST hit. This is a functionally identical arbiter
+# written in an unrelated style; detection is functional so it must still fire
+# and prove equivalent. (Combinational, pointer `s` an input -> full equiv at
+# power-of-2 N over all pointer values.)
+log -header "RR7: upward-scan spelling variant, N=16 (equiv + fires)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int N=16, parameter int W=4) (
+  input  logic [N-1:0] req, input logic [W-1:0] s,
+  output logic [W-1:0] grant
+);
+  always_comb begin
+    logic [W-1:0] idx; logic found;
+    grant='0; found=1'b0;
+    for (int k=1;k<=N;k++) begin
+      idx = W'((s + k) % N);
+      if (req[idx] && !found) begin grant = idx; found = 1'b1; end
+    end
+  end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+equiv_opt -assert opt_prienc
+design -load postopt
+select -assert-min 1 w:*rr*
+design -reset
+log -pop
+
+# RR8: negative -- FIXED-priority arbiter (constant start, no rotating pointer).
+# This is a plain priority encoder, not a round-robin, so no round_robin
+# rewrite may fire (it may still be picked up by the ordinary PE/CTZ path,
+# which is fine; we only forbid a spurious *rr* rewrite).
+log -header "RR8: fixed-priority (no pointer) -> no round-robin rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int N=13, parameter int W=4) (
+  input  logic [N-1:0] req,
+  output logic [W-1:0] grant
+);
+  always_comb begin
+    logic [W-1:0] idx; grant='0;
+    for (int i=0;i<N;i++) begin
+      idx = W'(N-1-i);
+      if (req[idx]) grant=idx;   // last-write-wins over a fixed 0..N-1 order
+    end
+  end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+opt_prienc
+select -assert-count 0 w:*rr*
+design -reset
+log -pop

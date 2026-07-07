@@ -166,6 +166,56 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	}
 
 	// ----------------------------------------------------------------
+	// Reference semantics of the "coalesce matrix" allocator variant.
+	//
+	// Leadership and slot assignment are identical to the greedy first-fit
+	// above, but the per-lane rank does NOT depend on the lane's own enable:
+	// every lane k (enabled or not) inherits the slot of the first leader at
+	// or before k (in priority order) whose category matches cat[k]. This
+	// models RTL that precomputes a per-leader "same_cat[i][k]" mask (gated
+	// only on the leader's enable) and forward-coalesces into lane k without
+	// re-checking en[k]. There is no broadcast lane in this variant.
+	// ----------------------------------------------------------------
+	AllocResult compute_alloc_coalesce(const vector<int> &en, const vector<int> &cat,
+	                                   int n) const
+	{
+		AllocResult r = compute_alloc(en, vector<int>(n, 0), cat, n);
+		for (int k = 0; k < n; k++) {
+			r.dsel[k] = 0;
+			for (int i = 0; i <= k; i++)
+				if (r.leader[i] && cat[i] == cat[k]) {
+					r.dsel[k] = r.slot[i];
+					break;
+				}
+		}
+		return r;
+	}
+
+	AllocResult compute_alloc_coalesce_dir(const vector<int> &en, const vector<int> &cat,
+	                                       int n, bool msb_first) const
+	{
+		if (!msb_first)
+			return compute_alloc_coalesce(en, cat, n);
+		vector<int> er(n), cr(n);
+		for (int i = 0; i < n; i++) {
+			er[i] = en[n - 1 - i];
+			cr[i] = cat[n - 1 - i];
+		}
+		AllocResult rr = compute_alloc_coalesce(er, cr, n);
+		AllocResult r;
+		r.dsel.assign(n, 0);
+		r.leader.assign(n, 0);
+		r.slot.assign(n, 0);
+		r.M = rr.M;
+		for (int i = 0; i < n; i++) {
+			r.dsel[i] = rr.dsel[n - 1 - i];
+			r.leader[i] = rr.leader[n - 1 - i];
+			r.slot[i] = rr.slot[n - 1 - i];
+		}
+		return r;
+	}
+
+	// ----------------------------------------------------------------
 	// Test vectors. `nval` is the number of distinct label values (2^c for
 	// the category, 2^a for the xbar attribute). The vectors deliberately
 	// include the all-distinct/all-enabled case so that an allocator whose
@@ -412,6 +462,10 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		int field_w = 0;
 		SigSpec en_sig, bc_sig, cat_sig;
 		bool has_bc = false;
+		// Enable-independent forward coalescing: lanes inherit the slot of the
+		// first same-category leader at or before them in priority order,
+		// regardless of their own enable (the "same_cat matrix" RTL shape).
+		bool coalesce = false;
 		int c = 0;
 		bool msb_first = false;
 		Cell *anchor = nullptr;
@@ -594,9 +648,39 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	{
 		Cell *anchor = rg.anchor;
 		int n = rg.n, c = rg.c, w = rg.field_w;
+		SigSpec cat = sigmap(rg.cat_sig);
+
+		// Enable-independent forward coalescing: lane k inherits the slot of the
+		// unique same-category leader at or before k in priority order, with no
+		// enable/broadcast gating. The priority position of a lane is a compile-
+		// time constant, so the "leader at or before k" restriction is static.
+		if (rg.coalesce) {
+			auto pos = [&](int l) { return rg.msb_first ? (n - 1 - l) : l; };
+			SigSpec out;
+			for (int k = 0; k < n; k++) {
+				SigSpec cat_k = cat.extract(k * c, c);
+				vector<SigBit> g(n, SigBit(State::S0));
+				for (int i = 0; i < n; i++) {
+					if (pos(i) > pos(k))
+						continue;
+					SigBit eq = emit_eq_sig(anchor, cat.extract(i * c, c), cat_k);
+					g[i] = emit_and(anchor, leader[i], eq);
+				}
+				SigSpec rank(Const(0, cnt_w));
+				for (int b = 0; b < cnt_w; b++) {
+					SigSpec terms;
+					for (int i = 0; i < n; i++)
+						if (pos(i) <= pos(k))
+							terms.append(emit_and(anchor, g[i], slot[i][b]));
+					rank[b] = emit_reduce_or(anchor, terms);
+				}
+				out.append(zext_sig(rank, w));
+			}
+			return out;
+		}
+
 		SigSpec en = sigmap(rg.en_sig);
 		SigSpec bc = rg.has_bc ? sigmap(rg.bc_sig) : SigSpec();
-		SigSpec cat = sigmap(rg.cat_sig);
 
 		// bc rank: (M>=1) ? M-1 : 0
 		SigBit any_leader = emit_reduce_or(anchor, total);
@@ -707,15 +791,22 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 							internal_bits.insert(bit);
 
 		pool<SigSpec> seen;
-		auto all_internal = [&](const SigSpec &s) {
+		// Accept a bus bit if it is a cone-internal (computed) signal or a
+		// primary input / undriven bit. The enable/broadcast lanes are usually
+		// computed signals (e.g. valid & format), but some RTL drives the scan
+		// straight from a top-level request port (e.g. lane_en), so input buses
+		// must be admissible too. Inputs sort shallowest (depth 0) below, so they
+		// survive the candidate cap ahead of the deep intermediate nets.
+		auto all_internal_or_input = [&](const SigSpec &s) {
 			for (auto bit : s)
-				if (!bit.wire || !internal_bits.count(bit))
+				if (!bit.wire || (!internal_bits.count(bit) &&
+				                  bit_to_driver.at(bit, nullptr) != nullptr))
 					return false;
 			return true;
 		};
 		auto add = [&](const SigSpec &sig, const std::string &nm) {
 			SigSpec s = sigmap(sig);
-			if (GetSize(s) != n || !sig_bus_ok(s) || !all_internal(s))
+			if (GetSize(s) != n || !sig_bus_ok(s) || !all_internal_or_input(s))
 				return;
 			if (!seen.insert(s).second)
 				return;
@@ -868,17 +959,28 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 					bool fpm = fingerprint_dsel(ce, root_sig, n, field_w, en_bus.sig,
 					                     bc_bus ? bc_bus->sig : SigSpec(), bc_bus != nullptr,
 					                     cat_sig, c, msb_first, cone_est);
-					log_debug("  en=%s bc=%s cat=%dx%d %s: fingerprint %s\n", en_bus.name.c_str(),
+					// Standard first-fit failed: try the enable-independent
+					// forward-coalescing variant (no broadcast lane).
+					bool coalesce = false;
+					if (!fpm && bc_bus == nullptr) {
+						fpm = fingerprint_dsel(ce, root_sig, n, field_w, en_bus.sig,
+						                       SigSpec(), false, cat_sig, c, msb_first,
+						                       cone_est, /*coalesce=*/true);
+						coalesce = fpm;
+					}
+					log_debug("  en=%s bc=%s cat=%dx%d %s: fingerprint %s%s\n", en_bus.name.c_str(),
 					          bc_bus ? bc_bus->name.c_str() : "-", n, c,
-					          msb_first ? "MSB" : "LSB", fpm ? "MATCH" : "no");
+					          msb_first ? "MSB" : "LSB", fpm ? "MATCH" : "no",
+					          coalesce ? " (coalesce)" : "");
 					if (fpm) {
 						out.dsel_sig = root_sig;
 						out.dsel_name = root_name;
 						out.n = n;
 						out.field_w = field_w;
 						out.en_sig = en_bus.sig;
-						out.bc_sig = bc_bus ? bc_bus->sig : SigSpec();
-						out.has_bc = (bc_bus != nullptr);
+						out.bc_sig = (!coalesce && bc_bus) ? bc_bus->sig : SigSpec();
+						out.has_bc = (!coalesce && bc_bus != nullptr);
+						out.coalesce = coalesce;
 						out.cat_sig = cat_sig;
 						out.c = c;
 						out.msb_first = msb_first;
@@ -901,7 +1003,8 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// Any eval failure or single mismatch rejects the candidate.
 	bool fingerprint_dsel(ConstEval &ce, const SigSpec &root, int n, int field_w,
 	                      const SigSpec &en_sig, const SigSpec &bc_sig, bool has_bc,
-	                      const SigSpec &cat_sig, int c, bool msb_first, int64_t cone_est)
+	                      const SigSpec &cat_sig, int c, bool msb_first, int64_t cone_est,
+	                      bool coalesce = false)
 	{
 		int nval = 1 << c;
 		vector<TestVector> vs = make_vectors(n, nval, has_bc);
@@ -920,7 +1023,9 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			if (!eval_root(ce, sets, root, res, cone_est))
 				return false;
 
-			AllocResult ar = compute_alloc_dir(tv.en, tv.bc, tv.label, n, msb_first);
+			AllocResult ar = coalesce
+			                     ? compute_alloc_coalesce_dir(tv.en, tv.label, n, msb_first)
+			                     : compute_alloc_dir(tv.en, tv.bc, tv.label, n, msb_first);
 			for (int k = 0; k < n; k++) {
 				int got = lane_val(res, k, field_w);
 				int exp = ar.dsel[k] & ((1 << field_w) - 1);
@@ -1239,11 +1344,12 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			claim_region(rg.dsel_sig, rg.dsel_cut_cells);
 			regions_rewritten++;
 
-			log("  %s: %s <- first_fit_alloc(en=%s%s, cat=%dx%d, %s)\n",
+			log("  %s: %s <- first_fit_alloc(en=%s%s, cat=%dx%d, %s%s)\n",
 			    log_id(module), rg.dsel_name.c_str(),
 			    log_signal(rg.en_sig),
 			    rg.has_bc ? stringf(", bc=%s", log_signal(rg.bc_sig)).c_str() : "",
-			    rg.n, rg.c, rg.msb_first ? "MSB-first" : "LSB-first");
+			    rg.n, rg.c, rg.msb_first ? "MSB-first" : "LSB-first",
+			    rg.coalesce ? ", coalesce" : "");
 
 			if (have_xbar) {
 				SigSpec new_xbar = emit_xbar(rg, xb, leader, slot, cnt_w);

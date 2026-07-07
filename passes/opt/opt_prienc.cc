@@ -82,6 +82,7 @@ struct OptPriEncWorker {
 	// Configuration.
 	bool detect_clz = true;
 	bool detect_ctz = true;
+	bool detect_rr = true;
 	int max_input_width = 256;
 	int min_input_width = 4;
 
@@ -242,6 +243,56 @@ struct OptPriEncWorker {
 		return vs;
 	}
 
+	// ConstEval::set() requires every (sigmap-canonical) bit it pins to be a
+	// distinct free wire bit. Real designs can tie parts of a bus to constants
+	// or alias nets together, so guard the fingerprint inputs: reject signals
+	// containing constant or repeated bits, and (across the whole set) any
+	// overlap between them. This prevents a ConstEval assertion; skipping an
+	// unclean candidate only forgoes a possible rewrite, never yields a wrong
+	// one.
+	static bool clean_set_signals(std::initializer_list<const SigSpec*> sigs) {
+		pool<SigBit> seen;
+		for (const SigSpec* sp : sigs)
+			for (auto bit : *sp) {
+				if (bit.wire == nullptr) return false;
+				if (!seen.insert(bit).second) return false;
+			}
+		return true;
+	}
+
+	// A set of signals is a valid ConstEval "cut" to pin as free inputs only if
+	// pinning them can never collide with a value ConstEval derives while
+	// evaluating the cone. ConstEval::eval() re-computes and re-set()s the FULL
+	// output of any combinational cell it needs: so if a pinned bit is a
+	// combinational-cell output and a *sibling* output bit of that same cell
+	// lies outside the cut (and is pulled into the cone), evaluating the sibling
+	// re-sets the pinned bit to the cell's real value, which contradicts the
+	// free value we pinned -> the ConstEval assertion in set() fires.
+	//
+	// A bit is a safe leaf when it is a primary input, sequential-cell output or
+	// undriven (all absent from bit_to_driver, which holds combinational drivers
+	// only). A combinational-cell output is safe only if that cell's entire
+	// output lies within the cut. `cut` must be the union of every signal pinned
+	// together before a shared eval.
+	bool is_valid_consteval_cut(const SigSpec& cut) {
+		pool<SigBit> cut_bits;
+		for (auto bit : cut)
+			if (bit.wire) cut_bits.insert(bit);
+		for (auto bit : cut) {
+			if (bit.wire == nullptr) return false;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) continue;   // safe leaf
+			Cell* d = it->second;
+			for (auto& conn : d->connections()) {
+				if (!d->output(conn.first)) continue;
+				for (auto ob : sigmap(conn.second))
+					if (ob.wire && !cut_bits.count(ob))
+						return false;
+			}
+		}
+		return true;
+	}
+
 	// Run all candidate test vectors through ConstEval and try to match each of
 	// the four PE variants against the recorded outputs. Returns the matched
 	// variant, or NONE.
@@ -254,6 +305,12 @@ struct OptPriEncWorker {
 		bool ctz_short_ok = detect_ctz && (Wbits == clog2_int(N));
 
 		if (!clz_full_ok && !ctz_full_ok && !clz_short_ok && !ctz_short_ok)
+			return PEVariant::NONE;
+
+		if (!clean_set_signals({&T_sig}))
+			return PEVariant::NONE;
+
+		if (!is_valid_consteval_cut(T_sig))
 			return PEVariant::NONE;
 
 		auto vs = gen_test_vectors(N);
@@ -389,6 +446,177 @@ struct OptPriEncWorker {
 			full.append(SigSpec(State::S0));
 		return full;
 	}
+
+	// ------------------------------------------------------------------
+	// Round-robin (rotated priority) detection + rewrite.
+	//
+	// A round-robin arbiter grants the first set request bit scanning
+	// *upward* (increasing index, wrapping) starting just after a stored
+	// pointer `s` (= idx_last):
+	//
+	//   grant    = anyreq ? (first set bit at index > s, else first set
+	//                        bit overall) : 0
+	//   idx_next = anyreq ? grant : s
+	//
+	// RTL usually spells this as a DEPTH-iteration loop that walks `idx`
+	// downward from idx_last with wraparound and keeps the last hit, which
+	// elaborates into a serial mux/shift chain of depth ~DEPTH. The rewrite
+	// below is log-depth:
+	//
+	//   above[i] = (i > s)          (per-bit threshold mask)
+	//   mask_hi  = req & above
+	//   grant    = anyreq ? (|mask_hi ? ctz(mask_hi) : ctz(req)) : 0
+	//
+	// where ctz() reuses the log-depth CTZ network. For power-of-2 DEPTH the
+	// rewrite is fully combinationally equivalent for every pointer value;
+	// for non-power-of-2 DEPTH it is equivalent for every *reachable* pointer
+	// (idx_last only ever holds a valid index in [0,DEPTH)), which is the
+	// range the fingerprint checks. Detection therefore sweeps s over
+	// [0,DEPTH) only.
+	// ------------------------------------------------------------------
+
+	// kind: 0 = grant, 1 = idx_next.
+	int rr_expected(const Const& reqv, int s, int N, int W, int kind) {
+		auto bits = reqv.to_bits();
+		int lo_all = -1, lo_hi = -1;
+		for (int i = 0; i < N; i++) {
+			bool set = (i < (int)bits.size() && bits[i] == State::S1);
+			if (!set) continue;
+			if (lo_all < 0) lo_all = i;
+			if (i > s && lo_hi < 0) lo_hi = i;
+		}
+		bool anyreq = (lo_all >= 0);
+		int gsel = (lo_hi >= 0) ? lo_hi : (lo_all >= 0 ? lo_all : 0);
+		int val = kind == 0 ? (anyreq ? gsel : 0)
+		                    : (anyreq ? gsel : s);
+		return val & ((W >= 31) ? -1 : ((1 << W) - 1));
+	}
+
+	// Returns matched kind (0 grant, 1 idx_next), or -1 for no match.
+	int fingerprint_rr(SigSpec req_sig, SigSpec start_sig, SigSpec S_sig,
+	                   int N, int W) {
+		ConstEval ce(module);
+		if (!clean_set_signals({&req_sig, &start_sig}))
+			return -1;
+		SigSpec cut = req_sig;
+		cut.append(start_sig);
+		if (!is_valid_consteval_cut(cut))
+			return -1;
+		bool ok0 = true, ok1 = true;
+		auto deck = gen_test_vectors(N);
+		int checks = 0;
+		for (auto& rv : deck) {
+			for (int s = 0; s < N; s++) {
+				ce.push();
+				ce.set(req_sig, rv);
+				ce.set(start_sig, Const(s, W));
+				SigSpec out = S_sig, undef;
+				bool ok = ce.eval(out, undef);
+				ce.pop();
+				if (!ok || !out.is_fully_const()) return -1;
+				int ov = out.as_const().as_int();
+				if (ok0 && ov != rr_expected(rv, s, N, W, 0)) ok0 = false;
+				if (ok1 && ov != rr_expected(rv, s, N, W, 1)) ok1 = false;
+				checks++;
+				if (!ok0 && !ok1) return -1;
+			}
+		}
+		if (checks < 2 * N) return -1;
+		if (ok0) return 0;
+		if (ok1) return 1;
+		return -1;
+	}
+
+	// Emit the log-depth round-robin network. Shared subexpressions across
+	// the grant / idx_next pair for the same (req, start) inputs are cached.
+	dict<std::pair<Wire*, Wire*>, std::tuple<SigSpec, SigSpec, SigBit>> rr_core_cache;
+
+	SigSpec emit_rr(Wire* req_wire, Wire* start_wire, int N, int W, int kind) {
+		SigSpec req = sigmap(SigSpec(req_wire));
+		SigSpec s = sigmap(SigSpec(start_wire));
+
+		SigSpec gsel;
+		SigBit anyreq;
+		auto key = std::make_pair(req_wire, start_wire);
+		auto it = rr_core_cache.find(key);
+		if (it != rr_core_cache.end()) {
+			SigSpec cached_gsel;
+			std::tie(cached_gsel, std::ignore, anyreq) = it->second;
+			gsel = cached_gsel;
+		} else {
+			SigSpec above;
+			for (int i = 0; i < N; i++) {
+				above.append(module->Lt(NEW_ID2_SUFFIX("rrabove"), s, SigSpec(Const(i, W))));
+				cells_added++;
+			}
+			SigSpec mask_hi = module->And(NEW_ID2_SUFFIX("rrmask"), req, above);
+			cells_added++;
+
+			SigSpec cz_hi = emit_ctz_full(mask_hi, N);
+			SigSpec cz_all = emit_ctz_full(req, N);
+			auto low_w = [&](SigSpec x) {
+				if (GetSize(x) > W) return x.extract(0, W);
+				while (GetSize(x) < W) x.append(SigSpec(State::S0));
+				return x;
+			};
+			cz_hi = low_w(cz_hi);
+			cz_all = low_w(cz_all);
+
+			SigBit any_hi = module->ReduceOr(NEW_ID2_SUFFIX("rranyhi"), mask_hi);
+			cells_added++;
+			anyreq = module->ReduceOr(NEW_ID2_SUFFIX("rranyreq"), req);
+			cells_added++;
+			// any_hi ? cz_hi : cz_all
+			gsel = module->Mux(NEW_ID2_SUFFIX("rrgsel"), cz_all, cz_hi, any_hi);
+			cells_added++;
+			rr_core_cache[key] = std::make_tuple(gsel, SigSpec(), anyreq);
+		}
+
+		SigSpec fallback = (kind == 0) ? SigSpec(Const(0, W)) : s;
+		// anyreq ? gsel : fallback
+		SigSpec res = module->Mux(NEW_ID2_SUFFIX("rrsel"), fallback, gsel, anyreq);
+		cells_added++;
+		return res;
+	}
+
+	// Generalisation of cone_depends_only_on_T to a set of allowed leaf bits.
+	bool cone_depends_only_on_set(SigSpec S_sig, const pool<SigBit>& allowed) {
+		pool<SigBit> visited;
+		std::queue<SigBit> worklist;
+		for (auto bit : sigmap(S_sig)) {
+			if (!bit.wire) continue;
+			if (visited.insert(bit).second) worklist.push(bit);
+		}
+		while (!worklist.empty()) {
+			SigBit bit = worklist.front();
+			worklist.pop();
+			if (allowed.count(bit)) continue;
+			if (input_port_bits.count(bit)) return false;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) return false;
+			Cell* drv = it->second;
+			if (sequential_cells.count(drv)) return false;
+			for (auto& conn : drv->connections()) {
+				if (!drv->input(conn.first)) continue;
+				for (auto in_bit : sigmap(conn.second)) {
+					if (!in_bit.wire) continue;
+					if (visited.insert(in_bit).second) worklist.push(in_bit);
+				}
+			}
+		}
+		return true;
+	}
+
+	struct RRRewrite {
+		Wire* S_wire;
+		Wire* req_wire;
+		Wire* start_wire;
+		int N;
+		int W;
+		int kind;
+		Cell* sole_driver;
+		IdString out_port;
+	};
 
 	struct Rewrite {
 		Wire* S_wire;
@@ -584,6 +812,77 @@ struct OptPriEncWorker {
 			}
 		}
 
+		// Stage 3: round-robin (rotated priority) detection. Reuses the same
+		// candidate cones; an output S is grant/idx_next of a round-robin
+		// arbiter over a wide request bus `req` and a same-width-as-S pointer
+		// `start`, both bottoming out the cone.
+		vector<RRRewrite> rr_rewrites;
+		if (detect_rr) {
+			const int max_pairs = 64;
+			for (auto& cand : candidates) {
+				if (claimed_outputs.count(cand.S_wire)) continue;
+				if (claimed_drivers.count(cand.sole_driver)) continue;
+
+				int W = cand.S_wire->width;
+				if (W < 2 || W > max_W) continue;
+				SigSpec S_sig = sigmap(SigSpec(cand.S_wire));
+
+				vector<Wire*> req_cands, start_cands;
+				for (Wire* w : wires_snapshot) {
+					if (w == cand.S_wire) continue;
+					bool all_in = true;
+					for (auto bit : sigmap(SigSpec(w)))
+						if (!cand.cone_bits.count(bit)) { all_in = false; break; }
+					if (!all_in) continue;
+					int wn = w->width;
+					if (wn >= min_input_width && wn <= max_input_width &&
+					    clog2_int(wn) == W)
+						req_cands.push_back(w);
+					if (wn == W)
+						start_cands.push_back(w);
+				}
+				std::sort(req_cands.begin(), req_cands.end(),
+				          [](Wire* a, Wire* b) { return a->width > b->width; });
+
+				bool matched = false;
+				for (Wire* req_wire : req_cands) {
+					if (matched) break;
+					int N = req_wire->width;
+					SigSpec req_sig = sigmap(SigSpec(req_wire));
+					pool<SigBit> req_bits;
+					for (auto bit : req_sig)
+						if (bit.wire) req_bits.insert(bit);
+					// Per-req_wire fingerprint budget: a start-candidate-heavy
+					// first req size must not exhaust a shared budget and starve
+					// later (narrower) req sizes.
+					int pairs = 0;
+					for (Wire* start_wire : start_cands) {
+						if (start_wire == req_wire) continue;
+						if (++pairs > max_pairs) break;
+						SigSpec start_sig = sigmap(SigSpec(start_wire));
+						pool<SigBit> allowed = req_bits;
+						for (auto bit : start_sig)
+							if (bit.wire) allowed.insert(bit);
+						if (!cone_depends_only_on_set(S_sig, allowed)) continue;
+
+						int kind = fingerprint_rr(req_sig, start_sig, S_sig, N, W);
+						if (kind < 0) continue;
+
+						log("  %s: %s <- round_robin_%s(req=%s, start=%s) [N=%d, W=%d]\n",
+						    log_id(module), log_id(cand.S_wire),
+						    kind == 0 ? "grant" : "next",
+						    log_id(req_wire), log_id(start_wire), N, W);
+						rr_rewrites.push_back({cand.S_wire, req_wire, start_wire, N, W,
+						                       kind, cand.sole_driver, cand.out_port});
+						claimed_outputs.insert(cand.S_wire);
+						claimed_drivers.insert(cand.sole_driver);
+						matched = true;
+						break;
+					}
+				}
+			}
+		}
+
 		// Apply rewrites. We collected first to avoid the index growing stale
 		// while we add new cells/wires.
 		for (auto& r : rewrites) {
@@ -591,6 +890,14 @@ struct OptPriEncWorker {
 			SigSpec new_S = emit_pe(r.variant, r.T_wire, r.N, r.Wbits);
 			// Disconnect the old driver by re-pointing its Y to a fresh wire.
 			Wire* dangling = module->addWire(NEW_ID2_SUFFIX("dangling"), r.Wbits);
+			r.sole_driver->setPort(r.out_port, dangling);
+			module->connect(SigSpec(r.S_wire), new_S);
+			regions_rewritten++;
+		}
+		for (auto& r : rr_rewrites) {
+			cell = r.sole_driver;
+			SigSpec new_S = emit_rr(r.req_wire, r.start_wire, r.N, r.W, r.kind);
+			Wire* dangling = module->addWire(NEW_ID2_SUFFIX("dangling"), r.W);
 			r.sole_driver->setPort(r.out_port, dangling);
 			module->connect(SigSpec(r.S_wire), new_S);
 			regions_rewritten++;
@@ -624,11 +931,23 @@ struct OptPriEncPass : public Pass {
 		log("    ctz_full  : symmetric to clz_full from the LSB side.\n");
 		log("    ctz_short : symmetric to clz_short from the LSB side.\n");
 		log("\n");
+		log("In addition, the pass detects round-robin (rotated priority)\n");
+		log("arbiters: grant / idx_next = first set request bit scanning upward\n");
+		log("(wrapping) from just after a stored pointer idx_last. RTL typically\n");
+		log("spells this as a DEPTH-iteration idx-- loop over req[idx], which\n");
+		log("elaborates into a serial chain; it is replaced with a log-depth\n");
+		log("threshold-mask + CTZ network. For power-of-2 DEPTH the rewrite is\n");
+		log("equivalent for every pointer value; for other widths it is\n");
+		log("equivalent for every reachable pointer (idx_last in [0,DEPTH)).\n");
+		log("\n");
 		log("    -clz\n");
-		log("        detect CLZ patterns only.\n");
+		log("        detect CLZ patterns only (also disables round-robin).\n");
 		log("\n");
 		log("    -ctz\n");
-		log("        detect CTZ patterns only.\n");
+		log("        detect CTZ patterns only (also disables round-robin).\n");
+		log("\n");
+		log("    -no-rr\n");
+		log("        disable round-robin / rotated-priority detection.\n");
 		log("\n");
 		log("    -max-width N\n");
 		log("        maximum input bus width to consider (default 64).\n");
@@ -648,6 +967,7 @@ struct OptPriEncPass : public Pass {
 
 		bool only_clz = false;
 		bool only_ctz = false;
+		bool no_rr = false;
 		int max_width = 64;
 		int min_width = 4;
 
@@ -655,6 +975,7 @@ struct OptPriEncPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-clz") { only_clz = true; continue; }
 			if (args[argidx] == "-ctz") { only_ctz = true; continue; }
+			if (args[argidx] == "-no-rr") { no_rr = true; continue; }
 			if (args[argidx] == "-max-width" && argidx + 1 < args.size()) {
 				max_width = std::stoi(args[++argidx]); continue;
 			}
@@ -664,6 +985,9 @@ struct OptPriEncPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+		// -clz / -ctz select a single leading/trailing variant and disable
+		// round-robin detection unless the user re-enables it explicitly.
+		if (only_clz || only_ctz) no_rr = true;
 
 		int total_regions = 0;
 		int total_cells_added = 0;
@@ -671,6 +995,7 @@ struct OptPriEncPass : public Pass {
 			OptPriEncWorker worker(module);
 			worker.detect_clz = !only_ctz;
 			worker.detect_ctz = !only_clz;
+			worker.detect_rr = !no_rr;
 			worker.max_input_width = max_width;
 			worker.min_input_width = min_width;
 			worker.run();
