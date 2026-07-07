@@ -36,7 +36,7 @@ wire [Y_WIDTH:0] CARRY;
 LUT4_HA #(
 	.INIT(16'b0),
 	.I0MUX(1'b1)
-) carry_statrt (
+) carry_start (
 	.I0(), .I1(CI), .I2(CI), .I3(),
 	.Ci(),
 	.Co(CARRY[0])
@@ -62,3 +62,4 @@ assign X = AA ^ BB;
 
 endmodule
 `endif
+

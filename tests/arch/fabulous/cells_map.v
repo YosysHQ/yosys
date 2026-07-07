@@ -8,11 +8,9 @@ module \$lut (A, Y);
   generate
     if (WIDTH == 1) begin
       LUT1 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .I0(A[0]));
-
     end else
     if (WIDTH == 2) begin
       LUT2 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .I0(A[0]), .I1(A[1]));
-
     end else
     if (WIDTH == 3) begin
       LUT3 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y), .I0(A[0]), .I1(A[1]), .I2(A[2]));
@@ -30,5 +28,3 @@ module \$lut (A, Y);
     end
   endgenerate
 endmodule
-
-module  \$_DFF_P_ (input D, C, output Q); LUTFF _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C)); endmodule

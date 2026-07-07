@@ -418,11 +418,13 @@ module RegFile_32x4 (D0, D1, D2, D3, W_ADR0, W_ADR1, W_ADR2, W_ADR3, W_ADR4, W_e
 
 endmodule
 
-`ifdef EQUIV
-`define COMPLEX_DFF
-`endif
+module LUTFF(input CLK, D, output reg O);
+  initial O = 1'b0;
+  always @ (posedge CLK) begin
+    O <= D;
+  end
+endmodule
 
-`ifdef COMPLEX_DFF
 module LUTFF_E (
   output reg O,
   input CLK, E, D
@@ -484,4 +486,3 @@ module LUTFF_ESS (
         O <= D;
     end
 endmodule
-`endif // COMPLEX_DFF
