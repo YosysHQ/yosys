@@ -127,7 +127,7 @@ vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 vector<string> verific_force_ram_signals;
 
 // SILIMATE: stamp the force_ram attribute onto the registered signals.
-static void apply_force_ram_signals()
+static void apply_force_ram_signals(const char *work)
 {
 	for (auto &entry : verific_force_ram_signals) {
 		// Validation
@@ -140,7 +140,11 @@ static void apply_force_ram_signals()
 		std::string module_name = entry.substr(0, dot);
 		std::string signal_name = entry.substr(dot + 1);
 		// Find module and signal from the design
-		VeriModule *veri_module = veri_file::GetModule(module_name.c_str());
+		VeriModule *veri_module = veri_file::GetModule(module_name.c_str(), 1, work);
+		if (!veri_module) {
+			log_warning("-force-ram: module '%s' not found.\n", module_name.c_str());
+			continue;
+		}
 		VeriScope *scope = veri_module ? veri_module->GetScope() : nullptr;
 		VeriIdDef *id = scope ? scope->FindLocal(signal_name.c_str()) : nullptr;
 		if (!id) {
@@ -3067,7 +3071,7 @@ void restore_blackbox_msg_state()
 void import_all(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED)
 {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-	apply_force_ram_signals(); // SILIMATE
+	apply_force_ram_signals(work); // SILIMATE
 #endif
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	save_blackbox_msg_state();
@@ -3139,7 +3143,7 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 	(void)top;
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-	apply_force_ram_signals(); // SILIMATE
+	apply_force_ram_signals(work); // SILIMATE
 #endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
