@@ -243,6 +243,23 @@ struct OptPriEncWorker {
 		return vs;
 	}
 
+	// ConstEval::set() requires every (sigmap-canonical) bit it pins to be a
+	// distinct free wire bit. Real designs can tie parts of a bus to constants
+	// or alias nets together, so guard the fingerprint inputs: reject signals
+	// containing constant or repeated bits, and (across the whole set) any
+	// overlap between them. This prevents a ConstEval assertion; skipping an
+	// unclean candidate only forgoes a possible rewrite, never yields a wrong
+	// one.
+	static bool clean_set_signals(std::initializer_list<const SigSpec*> sigs) {
+		pool<SigBit> seen;
+		for (const SigSpec* sp : sigs)
+			for (auto bit : *sp) {
+				if (bit.wire == nullptr) return false;
+				if (!seen.insert(bit).second) return false;
+			}
+		return true;
+	}
+
 	// Run all candidate test vectors through ConstEval and try to match each of
 	// the four PE variants against the recorded outputs. Returns the matched
 	// variant, or NONE.
@@ -255,6 +272,9 @@ struct OptPriEncWorker {
 		bool ctz_short_ok = detect_ctz && (Wbits == clog2_int(N));
 
 		if (!clz_full_ok && !ctz_full_ok && !clz_short_ok && !ctz_short_ok)
+			return PEVariant::NONE;
+
+		if (!clean_set_signals({&T_sig}))
 			return PEVariant::NONE;
 
 		auto vs = gen_test_vectors(N);
@@ -440,6 +460,8 @@ struct OptPriEncWorker {
 	int fingerprint_rr(SigSpec req_sig, SigSpec start_sig, SigSpec S_sig,
 	                   int N, int W) {
 		ConstEval ce(module);
+		if (!clean_set_signals({&req_sig, &start_sig}))
+			return -1;
 		bool ok0 = true, ok1 = true;
 		auto deck = gen_test_vectors(N);
 		int checks = 0;
