@@ -5,6 +5,9 @@ This is a framework for RTL synthesis tools. It currently has
 extensive Verilog-2005 support and provides a basic set of
 synthesis algorithms for various application domains.
 
+Yosys is using [sv-elab](https://github.com/povik/sv-elab) and [slang](https://github.com/MikePopoloski/slang) libraries to provide comprehensive SystemVerilog support.
+It supports an (informally defined) synthesizable subset of SystemVerilog in version IEEE 1800-2017 or IEEE 1800-2023.
+
 Yosys can be adapted to perform any synthesis job by combining
 the existing passes (algorithms) using synthesis scripts and
 adding additional passes as needed by extending the yosys C++
@@ -67,13 +70,9 @@ on Read the Docs.
 When cloning Yosys, some required libraries are included as git submodules. Make
 sure to call e.g.
 
-	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
-
-or
-
 	$ git clone https://github.com/YosysHQ/yosys.git
 	$ cd yosys
-	$ git submodule update --init --recursive
+	$ git submodule update --init
 
 A C++ compiler with C++20 support is required as well as some standard tools
 such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), Make (or other CMake
