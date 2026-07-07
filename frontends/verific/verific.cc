@@ -3513,6 +3513,13 @@ struct VerificPass : public Pass {
 		log("Remove Verilog defines previously set with -vlog-define.\n");
 		log("\n");
 		log("\n");
+		log("    verific -force-ram <module>.<signal>..\n");
+		log("\n");
+		log("Treat each listed signal as if it had a (* force_ram *) attribute in the\n");
+		log("RTL, opting it into multi-port RAM extraction. Must be used before the\n");
+		log("Verilog sources are analyzed.\n");
+		log("\n");
+		log("\n");
 #endif
 		log("    verific -set-error <msg_id>..\n");
 		log("    verific -set-warning <msg_id>..\n");
@@ -3774,9 +3781,6 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this externally
 			// RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);  // SILIMATE: control this externally
-			// SILIMATE: per-signal RAM extraction opt-in, comma-separated <module>.<signal> entries
-			RuntimeFlags::AddStringVar("veri_force_ram_signals", nullptr,
-					"Each matching signal behaves as if it had a (* force_ram *) attribute in the RTL.");
 			RuntimeFlags::SetVar("veri_replace_const_exprs", 1);
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -3924,6 +3928,13 @@ struct VerificPass : public Pass {
 				string name = args[argidx];
 				veri_file::UndefineMacro(name.c_str());
 			}
+			goto check_error;
+		}
+
+		// SILIMATE: register signals that behave as if annotated with (* force_ram *) in the RTL
+		if (GetSize(args) > argidx && args[argidx] == "-force-ram") {
+			for (argidx++; argidx < GetSize(args); argidx++)
+				veri_file::AddForceRamSignal(args[argidx].c_str());
 			goto check_error;
 		}
 
