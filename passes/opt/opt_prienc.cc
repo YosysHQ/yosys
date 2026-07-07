@@ -260,6 +260,39 @@ struct OptPriEncWorker {
 		return true;
 	}
 
+	// A set of signals is a valid ConstEval "cut" to pin as free inputs only if
+	// pinning them can never collide with a value ConstEval derives while
+	// evaluating the cone. ConstEval::eval() re-computes and re-set()s the FULL
+	// output of any combinational cell it needs: so if a pinned bit is a
+	// combinational-cell output and a *sibling* output bit of that same cell
+	// lies outside the cut (and is pulled into the cone), evaluating the sibling
+	// re-sets the pinned bit to the cell's real value, which contradicts the
+	// free value we pinned -> the ConstEval assertion in set() fires.
+	//
+	// A bit is a safe leaf when it is a primary input, sequential-cell output or
+	// undriven (all absent from bit_to_driver, which holds combinational drivers
+	// only). A combinational-cell output is safe only if that cell's entire
+	// output lies within the cut. `cut` must be the union of every signal pinned
+	// together before a shared eval.
+	bool is_valid_consteval_cut(const SigSpec& cut) {
+		pool<SigBit> cut_bits;
+		for (auto bit : cut)
+			if (bit.wire) cut_bits.insert(bit);
+		for (auto bit : cut) {
+			if (bit.wire == nullptr) return false;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) continue;   // safe leaf
+			Cell* d = it->second;
+			for (auto& conn : d->connections()) {
+				if (!d->output(conn.first)) continue;
+				for (auto ob : sigmap(conn.second))
+					if (ob.wire && !cut_bits.count(ob))
+						return false;
+			}
+		}
+		return true;
+	}
+
 	// Run all candidate test vectors through ConstEval and try to match each of
 	// the four PE variants against the recorded outputs. Returns the matched
 	// variant, or NONE.
@@ -275,6 +308,9 @@ struct OptPriEncWorker {
 			return PEVariant::NONE;
 
 		if (!clean_set_signals({&T_sig}))
+			return PEVariant::NONE;
+
+		if (!is_valid_consteval_cut(T_sig))
 			return PEVariant::NONE;
 
 		auto vs = gen_test_vectors(N);
@@ -461,6 +497,10 @@ struct OptPriEncWorker {
 	                   int N, int W) {
 		ConstEval ce(module);
 		if (!clean_set_signals({&req_sig, &start_sig}))
+			return -1;
+		SigSpec cut = req_sig;
+		cut.append(start_sig);
+		if (!is_valid_consteval_cut(cut))
 			return -1;
 		bool ok0 = true, ok1 = true;
 		auto deck = gen_test_vectors(N);
