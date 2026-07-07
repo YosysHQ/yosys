@@ -149,8 +149,11 @@ static void apply_force_ram_signals()
 			continue;
 		}
 		// Add force_ram attribute if not already present
-		if (!id->GetAttribute("force_ram"))
+		if (!id->GetAttribute("force_ram")) {
 			id->AddAttribute("force_ram", nullptr);
+			log("Added force_ram attribute to signal '%s' in module '%s'.\n",
+			         signal_name.c_str(), module_name.c_str());
+		}
 	}
 }
 
