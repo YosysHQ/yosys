@@ -330,10 +330,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts", "(for pp3)") && (help_mode || family == "pp3")) {
-			if (help_mode)
+			if (latches == "error" || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("check -latchonly -assert");
 			run("techmap -map " + lib_path + family + "/latches_map.v");
 			if (abc9) {
 				run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");

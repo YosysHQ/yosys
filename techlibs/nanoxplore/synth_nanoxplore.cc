@@ -339,10 +339,8 @@ struct SynthNanoXplorePass : public ScriptPass
 			dfflegalize_args += stringf(" -cell $_DLATCH_?_ x -mince %d -minsrst %d", min_ce_use, min_srst_use);
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
 			run("opt_merge");
-			if (help_mode)
+			if (latches == "error" || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("check -latchonly -assert");
 			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");

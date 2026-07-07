@@ -203,10 +203,8 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dfflegalize -cell $_DFFE_????_ 0 -cell $_SDFFE_????_ 0 -cell $_SDFFCE_????_ 0 -cell $_DLATCH_?_ x");
-			if (help_mode)
+			if (latches == "error" || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("check -latchonly -assert");
 			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

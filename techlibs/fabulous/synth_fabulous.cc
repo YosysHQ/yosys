@@ -372,10 +372,8 @@ struct SynthPass : public ScriptPass
 			} else {
 				run("dfflegalize -cell $_DFF_P_ 0 -cell $_DLATCH_?_ x", "without -complex-dff");
 			}
-			if (help_mode)
+			if (latches == "error" || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
-			else if (latches == "error")
-				run("check -latchonly -assert");
 			run("techmap -map +/fabulous/latches_map.v");
 			run("techmap -map +/fabulous/ff_map.v");
 			if (help_mode) {

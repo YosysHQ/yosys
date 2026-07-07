@@ -547,10 +547,8 @@ struct SynthLatticePass : public ScriptPass
 			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode) {
-				if (help_mode)
+				if (latches == "error" || help_mode)
 					run("check -latchonly -assert", "(skip if -asyncprld; only if -latches error, the default)");
-				else if (latches == "error")
-					run("check -latchonly -assert");
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 			}
 
