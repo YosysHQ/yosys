@@ -122,7 +122,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, json_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map;
+	string top_module, json_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map, latches;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
@@ -141,7 +141,6 @@ struct SynthPass : public ScriptPass {
 		carry_mode = "none";
 		flatten = true;
 		json_file = "";
-		blif_file = "";
 		latches = "error";
 	}
 
