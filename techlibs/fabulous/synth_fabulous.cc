@@ -400,8 +400,6 @@ struct SynthPass : public ScriptPass {
 			}
 			if (latches == "error" || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
-			run("techmap -map +/fabulous/latches_map.v");
-			run("techmap -map +/fabulous/ff_map.v");
 			run("opt_merge");
 		}
 
