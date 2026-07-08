@@ -231,7 +231,61 @@ of synthesizable Verilog.
    :verilog:`posedge` ``1``          ``1``          ``1``         `$_DFFSRE_PPPP_`
    ================== ============== ============== ============= ================
 
-.. todo:: flip-flops with async load, ``$_ALDFFE?_[NP]{2,3}_``
+The cell types ``$_ALDFF_[NP][NP]_`` implement d-type flip-flops with
+asynchronous load. The values in the table for these cell types relate to the
+following Verilog code template, where ``LD_EDGE`` is ``posedge`` if ``LD_LVL``
+is ``1``, and ``negedge`` otherwise.
+
+.. code-block:: verilog
+   :force:
+
+   always @(CLK_EDGE C or LD_EDGE L)
+      if (L == LD_LVL)
+         Q <= AD;
+      else
+         Q <= D;
+
+.. table:: Cell types for gate level logic networks (FFs with async load)
+   :name: tab:CellLib_gates_aldff
+
+   ================== ============== ==============
+   :math:`ClkEdge`    :math:`LdLvl`  Cell Type
+   ================== ============== ==============
+   :verilog:`negedge` ``0``          `$_ALDFF_NN_`
+   :verilog:`negedge` ``1``          `$_ALDFF_NP_`
+   :verilog:`posedge` ``0``          `$_ALDFF_PN_`
+   :verilog:`posedge` ``1``          `$_ALDFF_PP_`
+   ================== ============== ==============
+
+The cell types ``$_ALDFFE_[NP][NP][NP]_`` implement d-type flip-flops with
+asynchronous load and clock enable. The values in the table for these cell
+types relate to the following Verilog code template, where ``LD_EDGE`` is
+``posedge`` if ``LD_LVL`` is ``1``, and ``negedge`` otherwise.
+
+.. code-block:: verilog
+   :force:
+
+   always @(CLK_EDGE C or LD_EDGE L)
+      if (L == LD_LVL)
+         Q <= AD;
+      else if (E == EN_LVL)
+         Q <= D;
+
+.. table:: Cell types for gate level logic networks (FFs with async load and enable)
+   :name: tab:CellLib_gates_aldffe
+
+   ================== ============== ============= ================
+   :math:`ClkEdge`    :math:`LdLvl`  :math:`EnLvl` Cell Type
+   ================== ============== ============= ================
+   :verilog:`negedge` ``0``          ``0``          `$_ALDFFE_NNN_`
+   :verilog:`negedge` ``0``          ``1``          `$_ALDFFE_NNP_`
+   :verilog:`negedge` ``1``          ``0``          `$_ALDFFE_NPN_`
+   :verilog:`negedge` ``1``          ``1``          `$_ALDFFE_NPP_`
+   :verilog:`posedge` ``0``          ``0``          `$_ALDFFE_PNN_`
+   :verilog:`posedge` ``0``          ``1``          `$_ALDFFE_PNP_`
+   :verilog:`posedge` ``1``          ``0``          `$_ALDFFE_PPN_`
+   :verilog:`posedge` ``1``          ``1``          `$_ALDFFE_PPP_`
+   ================== ============== ============= ================
 
 .. autocellgroup:: reg_ff
    :members:
