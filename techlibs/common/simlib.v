@@ -602,6 +602,16 @@ endmodule
 
 // --------------------------------------------------------
 //* group arith
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $fa (A, B, C, X, Y)
+//-
+//- Full adder. This cell is purely combinational and bitwise.
+//-
+//-     X = A ^ B ^ C
+//-     Y = (A & B) | (A & C) | (B & C)
+//-
 module \$fa (A, B, C, X, Y);
 
 parameter WIDTH = 1;
