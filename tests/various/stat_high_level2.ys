@@ -87,5 +87,3 @@ logger -expect log "3     37.5        3     37.5 cells" 1
 logger -expect log "8       80        2        5 cells" 2
 logger -expect-no-warnings
 stat -liberty ./stat_area_by_width.lib -top \top -hierarchy
-
-

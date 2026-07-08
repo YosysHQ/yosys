@@ -6,7 +6,7 @@ parameter SKIP_RDEN = 1;
 input clk;
 input write_enable, read_enable;
 input [DATA_WIDTH - 1 : 0] write_data;
-input [ADDR_WIDTH - 1 : 0] addr; 
+input [ADDR_WIDTH - 1 : 0] addr;
 output [DATA_WIDTH - 1 : 0] read_data;
 
 (* ram_style = "huge" *)

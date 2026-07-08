@@ -33,14 +33,14 @@ module $__EFINIX_5K_ (...);
 		PORT_W_WIDTH == 10 ? 9 :
 		8;
 
-	localparam READ_WIDTH = 
+	localparam READ_WIDTH =
 		PORT_R_WIDTH == 1 ? 1 :
 		PORT_R_WIDTH == 2 ? 2 :
 		PORT_R_WIDTH == 5 ? (IS_5BIT ? 5 : 4) :
 		PORT_R_WIDTH == 10 ? (IS_5BIT ? 10 : 8) :
 		(IS_5BIT ? 20 : 16);
 
-	localparam WRITE_WIDTH = 
+	localparam WRITE_WIDTH =
 		PORT_W_WIDTH == 1 ? 1 :
 		PORT_W_WIDTH == 2 ? 2 :
 		PORT_W_WIDTH == 5 ? (IS_5BIT ? 5 : 4) :

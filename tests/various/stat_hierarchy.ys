@@ -52,11 +52,9 @@ module \child
 
 end
 EOT
-logger -expect log "4  112.493        2   18.144 cells" 2 
+logger -expect log "4  112.493        2   18.144 cells" 2
 logger -expect log "2   18.144        2   18.144   sg13g2_and2_1" 2
 logger -expect log "2   94.349        -        -   sg13g2_dfrbp_1" 2
 logger -expect log "2   94.349        2        - submodules" 2
 logger -expect-no-warnings
 stat -liberty ../../tests/liberty/foundry_data/sg13g2_stdcell_typ_1p20V_25C.lib.filtered.gz -top \top -hierarchy
-
-

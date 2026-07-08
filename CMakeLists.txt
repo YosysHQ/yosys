@@ -39,6 +39,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES NO)
 set(YOSYS_COMPILER_LAUNCHER "" CACHE STRING "Compiler launcher (ccache, sccache)")
 option(YOSYS_ENABLE_COVERAGE "Enable code coverage" OFF)
 option(YOSYS_ENABLE_PROFILING "Enable instruction profiling" OFF)
+option(YOSYS_ENABLE_FUNCTIONAL_TESTS "Enable running functional tests" OFF)
 
 set(YOSYS_PROGRAM_PREFIX "" CACHE STRING "Name prefix for programs, libraries, and data")
 set(YOSYS_COMPONENTS "everything" CACHE STRING "List of components to build (use pass names)")
@@ -52,6 +53,7 @@ option(YOSYS_WITHOUT_ZLIB "Disable zlib integration" OFF)
 option(YOSYS_WITHOUT_LIBFFI "Disable libffi integration" OFF)
 option(YOSYS_WITHOUT_READLINE "Disable readline integration" OFF)
 option(YOSYS_WITHOUT_EDITLINE "Disable editline integration" OFF)
+option(YOSYS_WITHOUT_SLANG "Disable Slang integration" OFF)
 option(YOSYS_WITHOUT_TCL "Disable Tcl integration" OFF)
 option(YOSYS_WITH_PYTHON "Enable Python integration" OFF)
 
@@ -307,6 +309,7 @@ condition(YOSYS_ENABLE_EDITLINE editline_FOUND AND NOT YOSYS_WITHOUT_EDITLINE AN
 condition(YOSYS_ENABLE_TCL tcl_FOUND AND libtommath_FOUND AND NOT YOSYS_WITHOUT_TCL)
 condition(YOSYS_ENABLE_PYTHON Python3Devel_FOUND AND PyosysEnv_FOUND AND YOSYS_WITH_PYTHON)
 condition(YOSYS_ENABLE_VERIFIC YOSYS_VERIFIC_DIR AND zlib_FOUND)
+condition(YOSYS_ENABLE_SLANG NOT YOSYS_WITHOUT_SLANG)
 
 # Describe dependencies and features
 # CMake 4.0 would let us use proper conditions, but that's too new for now.
@@ -534,8 +537,19 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 
 	add_custom_target(test-vanilla
 		COMMAND make vanilla-test ${makefile_vars}
+			ENABLE_FUNCTIONAL_TESTS=$<IF:$<BOOL:${YOSYS_ENABLE_FUNCTIONAL_TESTS}>,1,0>
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
 		DEPENDS ${makefile_depends}
+		USES_TERMINAL
+		JOB_SERVER_AWARE TRUE
+	)
+
+	add_custom_target(test-functional
+		COMMAND make functional ${makefile_vars}
+			ENABLE_FUNCTIONAL_TESTS=$<IF:$<BOOL:${YOSYS_ENABLE_FUNCTIONAL_TESTS}>,1,0>
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
+		DEPENDS ${makefile_depends}
+		USES_TERMINAL
 		JOB_SERVER_AWARE TRUE
 	)
 

@@ -192,8 +192,10 @@ def aiw2yw(input, mapfile, output, skip_x, present_only):
 
     header_lines = list(itertools.islice(input, 0, 2))
 
-    if len(header_lines) == 2 and header_lines[1][0] in ".bcjf":
+    if len(header_lines) == 2 and header_lines[1][0] in ".bj":
         status = header_lines[0].strip()
+        if header_lines[1][0]=='j':
+            raise click.ClickException(f"{input_name}: justice property in AIGER witness not yet supported")
         if status == "0":
             raise click.ClickException(f"{input_name}: file contains no trace, the AIGER status is unsat")
         elif status == "2":

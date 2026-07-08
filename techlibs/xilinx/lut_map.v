@@ -98,4 +98,3 @@ module \$lut (A, Y);
 endmodule
 
 `endif
-

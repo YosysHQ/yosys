@@ -712,4 +712,3 @@ RTLIL::Const RTLIL::const_bwmux(const RTLIL::Const &arg1, const RTLIL::Const &ar
 }
 
 YOSYS_NAMESPACE_END
-

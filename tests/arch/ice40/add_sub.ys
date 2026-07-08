@@ -6,4 +6,3 @@ cd top # Constrain all select calls below inside the top module
 select -assert-count 10 t:SB_LUT4
 select -assert-count 6 t:SB_CARRY
 select -assert-none t:SB_LUT4 t:SB_CARRY %% t:* %D
-

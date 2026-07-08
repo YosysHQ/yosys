@@ -104,8 +104,8 @@ code
 	std::string location = shift->get_src_attribute();
 
 	if(shiftadd_max_ratio>0 && offset<0 && -offset*shiftadd_max_ratio > old_a.size()) {
-		log_warning("at %s: candiate for shiftadd optimization (shifting '%s' by '%s - %d' bits) " 
-					"was ignored to avoid high resource usage, see help peepopt\n", 
+		log_warning("at %s: candiate for shiftadd optimization (shifting '%s' by '%s - %d' bits) "
+					"was ignored to avoid high resource usage, see help peepopt\n",
 					location.c_str(), log_signal(old_a), log_signal(var_signal), -offset);
 		reject;
 	}

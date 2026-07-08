@@ -6,11 +6,11 @@ module ram2 #(
              parameter  SIZE = 5 // Address size
           ) (input clk,
              input             sel,
-             input             we, 
-             input [SIZE-1:0]  adr, 
-             input [63:0]      dat_i, 
+             input             we,
+             input [SIZE-1:0]  adr,
+             input [63:0]      dat_i,
              output reg [63:0] dat_o);
-   
+
 
    reg [63:0] mem [0:(1 << SIZE)-1];
    integer    i;
@@ -19,7 +19,7 @@ module ram2 #(
       for (i = 0; i < (1<<SIZE) - 1; i = i + 1)
         mem[i] <= 0;
    end
-   
+
    always @(posedge clk)
      if (sel) begin
        if (~we)

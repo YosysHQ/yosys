@@ -161,4 +161,3 @@ std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType, const std::string&, c
 YOSYS_NAMESPACE_END
 
 #endif /* YOSYS_ENABLE_LIBFFI */
-

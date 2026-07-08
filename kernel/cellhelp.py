@@ -19,7 +19,7 @@ class SimHelper:
     def __init__(self) -> None:
         self.desc = []
         self.tags = []
-    
+
     def __str__(self) -> str:
         printed_fields = [
             "name", "title", "ports", "source", "desc", "code", "group", "ver",
@@ -65,7 +65,7 @@ for line in fileinput.input():
     elif line.startswith("//* "):
         _, key, val = line.split(maxsplit=2)
         setattr(simHelper, key, val)
-    
+
     # code parsing
     if line.startswith("module "):
         clean_line = line[7:].replace("\\", "").replace(";", "")
@@ -97,4 +97,3 @@ for line in fileinput.input():
         print(simHelper)
         # new
         simHelper = SimHelper()
-

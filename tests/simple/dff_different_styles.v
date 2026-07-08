@@ -101,5 +101,3 @@ always @(posedge clk, posedge preset, posedge clear) begin
 		q <= d;
 end
 endmodule
-
-

@@ -16,6 +16,20 @@ tests.
    cmake -B build .
    cmake --build build --target test --parallel $(nproc)
 
+.. warning::
+
+   There are limitations when using `Ninja` as generator, so we suggest using
+   `Unix Makefiles` to make running tests in parallel possible. However, it is
+   possible to use it directly by running:
+
+.. code:: console
+
+   cd tests
+   make -j9
+
+Please note that in this case default build directory is `build` but can be
+overwritten by providing `BUILD_DIR` variable.
+
 Vanilla tests
 ~~~~~~~~~~~~~
 
@@ -76,15 +90,19 @@ If you don't have one of the :ref:`getting_started/installation:CAD suite(s)`
 installed, you should also install Z3 `following their
 instructions <https://github.com/Z3Prover/z3>`_.
 
-.. TODO:: CMAKE_TODO
+Functional tests are disabled by default, to enable them use next code snippet
+and run tests as usual:
 
-   How does this work under CMake?  Is it only via ``make -C tests
-   ENABLE_FUNCTIONAL_TESTS=1`` and then manually setting ``BUILD_DIR`` and
-   ``PROGRAM_PREFIX``?  And possibly also setting ``YOSYS`` et al if there is a
-   ``.exe``.  Previous instructions:
+.. code:: console
 
-   Then, set the :makevar:`ENABLE_FUNCTIONAL_TESTS` make variable when calling
-   ``make test`` and the functional tests will be run as well.
+   cmake -B build . -DYOSYS_ENABLE_FUNCTIONAL_TESTS=ON
+   cmake --build build --target test --parallel $(nproc)
+
+Or run just functional tests with:
+
+.. code:: console
+
+   cmake --build build --target test-functional
 
 Docs tests
 ~~~~~~~~~~
@@ -164,6 +182,9 @@ compiler versions.  For up to date information, including OS versions, refer to
    test for ``kernel/celledges.cc``, you will need to create a file like this:
    ``tests/unit/kernel/celledgesTest.cc``;
    * Implement your unit test
+   * Add unit test to file list in `CMakeLists.txt`
+   In case unit tests are added to new directory, note that you need also to
+   create new `CmakeList.txt` file and add ``yosys_gtest(dir-name unit-test.cc)```
 
    Run unit tests
    ~~~~~~~~~~~~~~
@@ -172,10 +193,4 @@ compiler versions.  For up to date information, including OS versions, refer to
 
    .. code-block:: console
 
-      make unit-test
-
-   If you want to remove all unit test files, type:
-
-   .. code-block:: console
-
-      make clean-unit-test
+      cmake --build build --target test-unit

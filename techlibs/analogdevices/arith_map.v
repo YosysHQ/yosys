@@ -170,4 +170,3 @@ module _80_analogdevices_alu (A, B, CI, BI, X, Y, CO);
 
 	assign X = S;
 endmodule
-

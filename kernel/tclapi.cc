@@ -567,7 +567,7 @@ int yosys_tcl_interp_init(Tcl_Interp *interp)
 	// unpack
 	// pack
 
-	// Note (dev jf 24-12-02): Make log_id escape everything that’s not a valid 
+	// Note (dev jf 24-12-02): Make log_id escape everything that’s not a valid
 	// verilog identifier before adding any tcl API that returns IdString values
 	// to avoid -option injection
 

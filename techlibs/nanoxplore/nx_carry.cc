@@ -52,7 +52,7 @@ static void nx_carry_chain(Module *module)
 	{
 		if (cell->type == ID(NX_CY_1BIT)) {
 			if (cell->getParam(ID(first)).as_int() == 0) continue;
-			
+
 			vector<Cell*> chain;
 			Cell *current = cell;
 			chain.push_back(current);
@@ -124,8 +124,8 @@ static void nx_carry_chain(Module *module)
 			}
 			cell->setPort(names_A[j], get_bit_or_zero(c.second.at(i)->getPort(ID(A))));
 			cell->setPort(names_B[j], get_bit_or_zero(c.second.at(i)->getPort(ID(B))));
-			
-			if (c.second.at(i)->hasPort(ID(S))) 
+
+			if (c.second.at(i)->hasPort(ID(S)))
 				cell->setPort(names_S[j], c.second.at(i)->getPort(ID(S)));
 
 			j = (j + 1) % 4;
@@ -148,7 +148,7 @@ struct NXCarryPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing NX_CARRY pass.\n");
-		
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{

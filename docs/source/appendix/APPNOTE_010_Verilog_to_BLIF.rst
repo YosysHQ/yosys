@@ -279,9 +279,9 @@ This document was originally published in April 2015:
    in line 13 provides a mini synthesis-script to be used to process this cell.
 
    .. code-block:: c
-      :caption: Test program for the Amber23 CPU (Sieve of Eratosthenes). Compiled 
-               using GCC 4.6.3 for ARM with ``-Os -marm -march=armv2a 
-         -mno-thumb-interwork -ffreestanding``, linked with ``--fix-v4bx`` 
+      :caption: Test program for the Amber23 CPU (Sieve of Eratosthenes). Compiled
+               using GCC 4.6.3 for ARM with ``-Os -marm -march=armv2a
+         -mno-thumb-interwork -ffreestanding``, linked with ``--fix-v4bx``
          set and booted with a custom setup routine written in ARM assembler.
       :name: sieve
 

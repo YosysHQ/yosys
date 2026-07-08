@@ -3,8 +3,8 @@ name: Compiler testing
 on:
   pull_request:
   merge_group:
-  #push:
-  #  branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: mmicko/skip-duplicate-actions@master
         with:
           # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
@@ -27,6 +27,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
             echo "should_skip=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            should_skip=false
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
@@ -34,7 +36,7 @@ jobs:
   test-compile:
     runs-on: ${{ matrix.os }}
     needs: pre_job
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     env:
       CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
     strategy:
@@ -43,22 +45,19 @@ jobs:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-14'
+          - 'clang-16'
           - 'gcc-11'
           # newest, make sure to update maximum standard step to match
           - 'clang-22'
           - 'gcc-16'
         include:
-          # macOS x86
-          - os: macos-15-intel
-            compiler: 'clang-22'
           # macOS arm
           - os: macos-latest
             compiler: 'clang-22'
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -69,11 +68,18 @@ jobs:
           runs-on: ${{ matrix.os }}
           get-build-deps: true
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-compile-${{ matrix.os }}-${{ matrix.compiler }}
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          restore-keys: |
+            test-compile-${{ matrix.os }}-${{ matrix.compiler }}-
+
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
-          gcc: ${{ (matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14') && '12' || '' }}
 
       - name: Tool versions
         shell: bash
@@ -81,17 +87,12 @@ jobs:
           $CC --version
           $CXX --version
 
-      - name: Fix clang-14 toolchain
-        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang-14'
-        run: |
-          echo 'CXXFLAGS=--gcc-toolchain=/usr -isystem /usr/include/c++/12 -isystem /usr/include/x86_64-linux-gnu/c++/12' >> $GITHUB_ENV
-
       # minimum standard
       - name: Build C++20
         shell: bash
         run: |
           rm -rf build
-          cmake -B build -DCMAKE_CXX_STANDARD=20 . --fresh
+          cmake -B build -DCMAKE_CXX_STANDARD=20 -DYOSYS_COMPILER_LAUNCHER=ccache . --fresh
           cmake --build build --target yosys -j$procs
 
       # maximum standard, only on newest compilers
@@ -100,7 +101,7 @@ jobs:
         shell: bash
         run: |
           rm -rf build
-          cmake -B build -DCMAKE_CXX_STANDARD=26 . --fresh
+          cmake -B build -DCMAKE_CXX_STANDARD=26 -DYOSYS_COMPILER_LAUNCHER=ccache . --fresh
           cmake --build build --target yosys -j$procs
 
   test-compile-result:

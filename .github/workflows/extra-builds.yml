@@ -3,8 +3,8 @@ name: Test extra build flows
 on:
   pull_request:
   merge_group:
-  #push:
-  #  branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: mmicko/skip-duplicate-actions@master
         with:
           # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
@@ -27,6 +27,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
             echo "should_skip=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            should_skip=false
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
@@ -35,15 +37,25 @@ jobs:
     name: Visual Studio build
     runs-on: windows-latest
     needs: [pre_job]
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: vs-build
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          restore-keys: |
+            vs-build-
 
       - name: Install flex/bison
         shell: pwsh
@@ -57,8 +69,9 @@ jobs:
       - name: Configure CMake
         run: >
           cmake -S . -B build
-          -A x64
+          -G Ninja
           -DCMAKE_BUILD_TYPE=Release
+          -DYOSYS_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: >
@@ -66,16 +79,77 @@ jobs:
           --config Release
           --parallel
 
-  wasi-build:
-    name: WASI build
-    needs: pre_job
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
-    runs-on: ubuntu-latest
+  mingw-build:
+    name: MINGW64 build
+    runs-on: windows-latest
+    needs: [pre_job]
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
+
+      - name: Setup MSYS2 (MINGW64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+
+          install: >-
+            base-devel
+            bison
+            flex
+            gawk
+            diffutils
+            make
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gtest
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-tcl
+            mingw-w64-x86_64-libffi
+            mingw-w64-x86_64-git
+            mingw-w64-x86_64-ccache
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: mingw-build
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          restore-keys: |
+            mingw-build-
+
+      - name: Build Yosys
+        shell: msys2 {0}
+        run: |
+          set -e
+          procs=$(nproc)
+          rm -rf build
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache
+          cmake --build build -j${procs}
+          ctest --test-dir build/tests/unit --output-on-failure
+
+  wasi-build:
+    name: WASI build
+    needs: pre_job
+    if: (github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: wasi-build
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          restore-keys: |
+            wasi-build-
+
       - name: Build
         run: |
           WASI_VER=33
@@ -95,34 +169,15 @@ jobs:
             make install)
 
           export PATH=${WASI_SDK_PATH}/bin:$(pwd)/flex-prefix/bin:${PATH}
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release .
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk-p1.cmake -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache .
           cmake --build build -j$(nproc)
-
-  nix-build:
-    name: "Build nix flake"
-    needs: pre_job
-    if: (github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch') && needs.pre_job.outputs.should_skip != 'true'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: true
-          persist-credentials: false
-      - uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.30.0/install
-      - run: nix build .?submodules=1 -L
 
   extra-builds-result:
     runs-on: ubuntu-latest
     needs:
       - vs-build
+      - mingw-build
       - wasi-build
-      - nix-build
     if: always()
     steps:
       - name: Check results

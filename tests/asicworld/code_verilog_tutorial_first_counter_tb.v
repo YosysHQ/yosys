@@ -5,9 +5,9 @@ wire [3:0] counter_out;
 integer file;
 
 // Initialize all variables
-initial begin        
+initial begin
   file = $fopen(`outfile);
-  $fdisplay (file, "time\t clk reset enable counter");	
+  $fdisplay (file, "time\t clk reset enable counter");
   #5 reset = 1;    // Assert the reset
   #10 reset = 0;   // De-assert the reset
   #10 enable = 1;  // Assert enable
@@ -16,8 +16,8 @@ initial begin
 end
 
 always @(negedge clock)
-  $fdisplay (file, "%g\t %b   %b     %b      %b", 
-	  $time, clock, reset, enable, counter_out);	
+  $fdisplay (file, "%g\t %b   %b     %b      %b",
+	  $time, clock, reset, enable, counter_out);
 
 // Clock generator
 initial begin

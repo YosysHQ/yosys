@@ -17,7 +17,7 @@ output [7:0] out;
 input enable, clk, reset;
 
 //------------Internal Variables--------
-reg [7:0] out;  
+reg [7:0] out;
 
 //-------------Code Starts Here-------
 always @ (posedge clk)
@@ -28,4 +28,4 @@ end else if (enable) begin
           out[2],out[1],out[0],out[7]};
 end
 
-endmodule  
+endmodule

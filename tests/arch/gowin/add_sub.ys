@@ -10,4 +10,3 @@ select -assert-count 8 t:IBUF
 select -assert-count 1 t:GND
 select -assert-count 1 t:VCC
 select -assert-none t:ALU t:OBUF t:IBUF t:GND t:VCC %% t:* %D
-

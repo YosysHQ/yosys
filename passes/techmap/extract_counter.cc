@@ -326,12 +326,12 @@ int counter_tryextract(
 			return 24;
 		//Mux should have A driven by count Q, and B by muxy
 		//if A and B are swapped, CE polarity is inverted
-		if(sigmap(cemux->getPort(ID::B)) == muxy && 
+		if(sigmap(cemux->getPort(ID::B)) == muxy &&
 			sigmap(cemux->getPort(ID::A)) == sigmap(count_reg->getPort(ID::Q)))
 		{
 			extract.ce_inverted = false;
 		}
-		else if(sigmap(cemux->getPort(ID::A)) == muxy && 
+		else if(sigmap(cemux->getPort(ID::A)) == muxy &&
 				sigmap(cemux->getPort(ID::B)) == sigmap(count_reg->getPort(ID::Q)))
 		{
 			extract.ce_inverted = true;

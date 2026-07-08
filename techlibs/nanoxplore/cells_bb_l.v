@@ -2153,4 +2153,3 @@ module NX_IOM_CONTROL_L(RTCK1, RRCK1, WTCK1, WRCK1, RTCK2, RRCK2, WTCK2, WRCK2, 
     parameter sel_clkw_rx1 = 2'b00;
     parameter sel_clkw_rx2 = 2'b00;
 endmodule
-

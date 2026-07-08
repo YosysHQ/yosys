@@ -5,7 +5,7 @@ module latch_002
    input wire [7:0]  vect;
    input wire [7:0]  sel;
    input wire        st;
-   
+
    always @(*) begin
       if (st)
 	dword[8*sel +:8] <= vect[7:0];

@@ -41,5 +41,3 @@ EOT
 
 hierarchy -auto-top
 equiv_opt -assert bmuxmap -pmux
-
-

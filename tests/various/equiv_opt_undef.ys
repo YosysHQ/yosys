@@ -24,7 +24,7 @@ module \top
     parameter \B_SIGNED 0
     parameter \B_WIDTH 1
     parameter \Y_WIDTH 1
-    connect \A $b 
+    connect \A $b
     connect \B 1'x
     connect \Y \Q
   end

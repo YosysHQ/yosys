@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from pyosys import libyosys as ys
 
 __file_dir__ = Path(__file__).absolute().parent

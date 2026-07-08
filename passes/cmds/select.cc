@@ -1472,7 +1472,7 @@ struct SelectPass : public Pass {
 		const char *common_flagset = "-add, -del, -assert-none, -assert-any, -assert-mod-count, -assert-count, -assert-max, or -assert-min";
 
 		if (common_flagset_tally > 1)
-			log_cmd_error("Options %s can not be combined.\n", common_flagset);                
+			log_cmd_error("Options %s can not be combined.\n", common_flagset);
 
 		if ((list_mode || !write_file.empty() || count_mode) && common_flagset_tally)
 			log_cmd_error("Options -list, -list-mod, -write and -count can not be combined with %s.\n", common_flagset);

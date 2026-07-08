@@ -99,7 +99,7 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
 
 	// Correction constants
 	auto push_one_at = [&](int col) {
-		if (col < 0 || col >= width) 
+		if (col < 0 || col >= width)
 			return;
 		std::vector<RTLIL::State> v(width, RTLIL::State::S0);
 		v[col] = RTLIL::State::S1;

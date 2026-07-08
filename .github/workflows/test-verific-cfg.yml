@@ -9,7 +9,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: true

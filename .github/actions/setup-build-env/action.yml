@@ -33,21 +33,21 @@ runs:
     # and docs/source/getting_started/installation.rst to match.
     - name: Linux common dependencies
       if: runner.os == 'Linux'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: gawk git make python3
         version: ${{ inputs.runs-on }}-commonys
 
     - name: Linux build dependencies
       if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev libgtest-dev libgmock-dev
         version: ${{ inputs.runs-on }}-buildys
 
     - name: Linux docs dependencies
       if: runner.os == 'Linux' && inputs.get-docs-deps == 'true'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: graphviz xdot
         version: ${{ inputs.runs-on }}-docsys
@@ -56,7 +56,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew bundle
+        brew install bison flex gawk libffi git pkg-config python3 bash googletest tcl-tk llvm
 
     - name: Linux runtime environment
       if: runner.os == 'Linux'
@@ -70,7 +70,7 @@ runs:
       shell: bash
       run: |
         echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
-        echo "$(brew --prefix llvm@20)/bin" >> $GITHUB_PATH
+        echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
         echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
         echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
         echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV

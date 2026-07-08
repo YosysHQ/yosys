@@ -11,7 +11,7 @@ runs:
   steps:
     - name: iverilog Linux deps
       if: steps.restore-iverilog.outputs.cache-hit != 'true' && runner.os == 'Linux'
-      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.1
       with:
         packages: autoconf gperf make gcc g++ bison flex libbz2-dev
         version: ${{ inputs.runs-on }}-iverilog
@@ -40,7 +40,7 @@ runs:
         make -j$procs
         make install
 
-    - uses: actions/cache/restore@v4
+    - uses: actions/cache/restore@v6
       id: restore-iverilog
       with:
         path: .local/
@@ -62,7 +62,7 @@ runs:
       run: |
         iverilog -V
 
-    - uses: actions/cache/save@v4
+    - uses: actions/cache/save@v6
       id: save-iverilog
       if: steps.restore-iverilog.outputs.cache-hit != 'true'
       with:

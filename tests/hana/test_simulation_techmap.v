@@ -17,7 +17,7 @@ always @( in or select)
 	    0: out = in[0];
 	    1: out = in[1];
 	endcase
-endmodule	
+endmodule
 
 // test_simulation_techmap_mux_128_test.v
 module f4_test(input [127:0] in, input [6:0] select, output reg out);

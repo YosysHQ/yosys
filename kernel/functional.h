@@ -33,7 +33,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace Functional {
 	// each function is documented with a short pseudocode declaration or definition
 	// standard C/Verilog operators are used to describe the result
-	// 
+	//
 	// the sorts used in this are:
 	// - bit[N]: a bitvector of N bits
 	//   bit[N] can be indicated as signed or unsigned. this is not tracked by the functional backend
@@ -345,9 +345,9 @@ namespace Functional {
 			case Fn::reduce_xor: return v.reduce_xor(*this, arg(0)); break;
 			case Fn::equal: return v.equal(*this, arg(0), arg(1)); break;
 			case Fn::not_equal: return v.not_equal(*this, arg(0), arg(1)); break;
-			case Fn::signed_greater_than: return v.signed_greater_than(*this, arg(0), arg(1)); break; 
+			case Fn::signed_greater_than: return v.signed_greater_than(*this, arg(0), arg(1)); break;
 			case Fn::signed_greater_equal: return v.signed_greater_equal(*this, arg(0), arg(1)); break;
-			case Fn::unsigned_greater_than: return v.unsigned_greater_than(*this, arg(0), arg(1)); break; 
+			case Fn::unsigned_greater_than: return v.unsigned_greater_than(*this, arg(0), arg(1)); break;
 			case Fn::unsigned_greater_equal: return v.unsigned_greater_equal(*this, arg(0), arg(1)); break;
 			case Fn::logical_shift_left: return v.logical_shift_left(*this, arg(0), arg(1)); break;
 			case Fn::logical_shift_right: return v.logical_shift_right(*this, arg(0), arg(1)); break;
@@ -510,7 +510,7 @@ namespace Functional {
 				return a;
 			return add(Fn::reduce_or, Sort(1), {a});
 		}
-		Node reduce_xor(Node a) { 
+		Node reduce_xor(Node a) {
 			check_unary(a);
 			if(a.width() == 1)
 				return a;

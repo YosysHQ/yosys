@@ -11,4 +11,3 @@ module \$__MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
 		.P(Y)
 	);
 endmodule
-

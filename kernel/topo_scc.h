@@ -241,7 +241,7 @@ public:
     }
 
     // process all remaining nodes in the graph
-    TopoSortedSccs &process_all() {   
+    TopoSortedSccs &process_all() {
         node_enumerator nodes = graph.enumerate_nodes();
         // iterate over all nodes to ensure we process the whole graph
         while (!nodes.finished())

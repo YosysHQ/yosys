@@ -36,6 +36,7 @@ frontends/ast/                 @widlarizer
 techlibs/intel_alm/            @Ravenslofty
 techlibs/gowin/                @pepijndevos
 techlibs/gatemate/             @pu-cc
+techlibs/fabulous/             fpga.research.group@gmail.com
 
 # pyosys
 pyosys/*                       @donn

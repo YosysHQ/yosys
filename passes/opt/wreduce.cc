@@ -650,4 +650,3 @@ struct WreducePass : public Pass {
 } WreducePass;
 
 PRIVATE_NAMESPACE_END
-

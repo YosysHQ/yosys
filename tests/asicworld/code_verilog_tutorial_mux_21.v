@@ -3,7 +3,7 @@ module mux_21 (a,b,sel,y);
   	  	output y;
   	  	input sel;
   	  	wire y;
-  	  	 
+
   	  	assign y = (sel) ? b : a;
-  	  	 
+
 endmodule

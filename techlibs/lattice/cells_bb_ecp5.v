@@ -2030,4 +2030,3 @@ module DCUA(CH0_HDINP, CH1_HDINP, CH0_HDINN, CH1_HDINN, D_TXBIT_CLKP_FROM_ND, D_
     input D_REFCLKI;
     output D_FFS_PLOL;
 endmodule
-

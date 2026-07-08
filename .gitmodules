@@ -5,3 +5,18 @@
 [submodule "cxxopts"]
 	path = libs/cxxopts
 	url = https://github.com/jarro2783/cxxopts
+[submodule "fmt"]
+	path = libs/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "tomlplusplus"]
+	path = libs/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus
+[submodule "boost_regex"]
+	path = libs/boost_regex
+	url = https://github.com/MikePopoloski/regex
+[submodule "slang"]
+	path = libs/slang
+	url = https://github.com/MikePopoloski/slang
+[submodule "sv-elab"]
+	path = frontends/slang/lib
+	url = https://github.com/povik/sv-elab

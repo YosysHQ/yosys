@@ -26,27 +26,27 @@ def generate_target(name, command, deps = None):
     print(f"\t@$(call run_test,{target}, $({target}_cmd))")
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
-    cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} && mv {ys_file}.err {ys_file}.log'
+    cmd = f'$(YOSYS) -l {ys_file}.err {yosys_args} {ys_file} && mv {ys_file}.err {ys_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(ys_file, cmd)
 
 def generate_tcl_test(tcl_file, yosys_args="", commands=""):
-    cmd = f'$(YOSYS) -ql {tcl_file}.err {yosys_args} {tcl_file} && mv {tcl_file}.err {tcl_file}.log'
+    cmd = f'$(YOSYS) -l {tcl_file}.err {yosys_args} {tcl_file} && mv {tcl_file}.err {tcl_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(tcl_file, cmd)
 
 def generate_sv_check(sv_file, yosys_args="", yosys_cmds=""):
     yosys_cmd = f'read -sv {sv_file}; {yosys_cmds}'
-    cmd = f'$(YOSYS) -ql {sv_file}.err -p "{yosys_cmd}" {yosys_args} && mv {sv_file}.err {sv_file}.log'
+    cmd = f'$(YOSYS) -l {sv_file}.err -p "{yosys_cmd}" {yosys_args} && mv {sv_file}.err {sv_file}.log'
     generate_target(sv_file, cmd)
 
 def generate_sv_test(sv_file, yosys_args="", commands=""):
     base = os.path.splitext(sv_file)[0]
     if not os.path.exists(base + ".ys"):
         yosys_cmd = '-p "prep -top top; async2sync; sat -enable_undef -verify -prove-asserts"'
-        cmd = f'$(YOSYS) -ql {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} && mv {sv_file}.err {sv_file}.log'
+        cmd = f'$(YOSYS) -l {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} && mv {sv_file}.err {sv_file}.log'
         if commands:
             cmd += f"; \\\n{commands}"
         generate_target(sv_file, cmd)

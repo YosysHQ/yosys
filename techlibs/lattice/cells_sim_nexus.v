@@ -446,7 +446,7 @@ module OXIDE_DSP_SIM #(
 	input RSTA, RSTB, RSTC, RSTPIPE, RSTCTRL, RSTCIN, RSTOUT,
 	output wire [Z_WIDTH-1:0] Z
 );
-	
+
 	localparam M_WIDTH = (A_WIDTH+B_WIDTH);
 
 	/******** REGISTERS ********/
@@ -511,7 +511,7 @@ module OXIDE_DSP_SIM #(
 		if (ADDSUB_USED) begin
 			assign pipe_d = mult_m;
 			assign m_ext = {{(Z_WIDTH-M_WIDTH){sgd_r2 ? pipe_q[M_WIDTH-1] : 1'b0}}, pipe_q};
-			assign z_d = (loadc_r2 ? c_r2 : Z) + cin_r2 + (addsub_r2 ? -m_ext : m_ext);  
+			assign z_d = (loadc_r2 ? c_r2 : Z) + cin_r2 + (addsub_r2 ? -m_ext : m_ext);
 		end else begin
 			assign z_d = mult_m;
 		end

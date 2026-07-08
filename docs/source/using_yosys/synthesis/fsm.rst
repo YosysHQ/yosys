@@ -92,7 +92,7 @@ transition table. For each state:
 3. Set the state signal to the current state
 4. Try to evaluate the next state and control output
 5. If step 4 was not successful:
-   
+
    -  Recursively goto step 4 with the offending stop-signal set to 0.
    -  Recursively goto step 4 with the offending stop-signal set to 1.
 

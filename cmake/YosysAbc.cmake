@@ -42,7 +42,9 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 	list(TRANSFORM all_sources PREPEND abc/)
 
 	# Required to get `-DABC_NAMESPACE` below to work consistently.
-	set_source_files_properties(${all_sources} PROPERTIES LANGUAGE CXX)
+	if(NOT MSVC)
+		set_source_files_properties(${all_sources} PROPERTIES LANGUAGE CXX)
+	endif()
 
 	set(main_source abc/src/base/main/main.c)
 	list(REMOVE_ITEM all_sources ${main_source})
@@ -55,9 +57,10 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 	target_include_directories(${arg_LIBNAME} PRIVATE abc/src)
 	target_compile_definitions(${arg_LIBNAME} PUBLIC
 		WIN32_NO_DLL
-		ABC_NAMESPACE=abc
+		$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:ABC_NAMESPACE=abc>
 		ABC_USE_STDINT_H=1
 		ABC_USE_CUDD=1
+		ABC_NO_HISTORY=1
 		ABC_NO_DYNAMIC_LINKING
 		$<${YOSYS_ENABLE_THREADS}:ABC_USE_PTHREADS>
 		$<${YOSYS_ENABLE_READLINE}:ABC_USE_READLINE>
@@ -66,11 +69,11 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		$<$<CXX_COMPILER_ID:MSVC>:HAVE_STRUCT_TIMESPEC>
 		ABC_NO_RLIMIT
 	)
-	target_compile_options(${arg_LIBNAME} PRIVATE 
+	target_compile_options(${arg_LIBNAME} PRIVATE
 		$<$<CXX_COMPILER_ID:MSVC>:/wd4576>
 		$<$<CXX_COMPILER_ID:MSVC>:/Zc:strictStrings->
 	)
-	
+
 	target_safe_compile_options(${arg_LIBNAME} PRIVATE
 		-fpermissive
 		-fno-exceptions
@@ -81,6 +84,7 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		-Wno-deprecated-comma-subscript
 		-Wno-format
 		-Wno-constant-logical-operand
+		-Wno-sizeof-pointer-memaccess
 	)
 	target_link_libraries(${arg_LIBNAME} PUBLIC
 		$<${YOSYS_ENABLE_THREADS}:Threads::Threads>

@@ -94,10 +94,10 @@ module \$__NX_MAC18X18 (input [17:0] A, input [17:0] B, input [47:0] C, output [
 		.REGINPUTC("BYPASS"),
 		.REGOUTPUT("BYPASS")
 	) _TECHMAP_REPLACE_ (
-		.A(A), 
-		.B(B), 
+		.A(A),
+		.B(B),
 		.C({6'b0, C}),
-		.SIGNED(A_SIGNED ? 1'b1 : 1'b0), 
+		.SIGNED(A_SIGNED ? 1'b1 : 1'b0),
 		.ADDSUB(SUBTRACT ? 1'b1 : 1'b0),
 		.Z(Y)
 	);

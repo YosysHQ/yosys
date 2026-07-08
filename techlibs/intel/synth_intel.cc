@@ -176,6 +176,9 @@ struct SynthIntelPass : public ScriptPass {
 		    family_opt != "cyclone10lp")
 			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt);
 
+		if (family_opt != "max10")
+			nodsp = true;
+
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
 		log_push();
 

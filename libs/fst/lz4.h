@@ -1,7 +1,7 @@
 /*
  *  LZ4 - Fast LZ compression algorithm
  *  Header File
- *  Copyright (C) 2011-2023, Yann Collet.
+ *  Copyright (c) Yann Collet. All rights reserved.
 
    BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
 
@@ -129,8 +129,8 @@ extern "C" {
 
 /*------   Version   ------*/
 #define LZ4_VERSION_MAJOR    1    /* for breaking interface changes  */
-#define LZ4_VERSION_MINOR    9    /* for new (non-breaking) interface capabilities */
-#define LZ4_VERSION_RELEASE  5    /* for tweaks, bug-fixes, or development */
+#define LZ4_VERSION_MINOR   10    /* for new (non-breaking) interface capabilities */
+#define LZ4_VERSION_RELEASE  0    /* for tweaks, bug-fixes, or development */
 
 #define LZ4_VERSION_NUMBER (LZ4_VERSION_MAJOR *100*100 + LZ4_VERSION_MINOR *100 + LZ4_VERSION_RELEASE)
 
@@ -148,6 +148,7 @@ LZ4LIB_API const char* LZ4_versionString (void);   /**< library version string; 
 **************************************/
 /*!
  * LZ4_MEMORY_USAGE :
+ * Can be selected at compile time, by setting LZ4_MEMORY_USAGE.
  * Memory usage formula : N->2^N Bytes (examples : 10 -> 1KB; 12 -> 4KB ; 16 -> 64KB; 20 -> 1MB)
  * Increasing memory usage improves compression ratio, generally at the cost of speed.
  * Reduced memory usage may improve speed at the cost of ratio, thanks to better cache locality.
@@ -157,6 +158,7 @@ LZ4LIB_API const char* LZ4_versionString (void);   /**< library version string; 
 # define LZ4_MEMORY_USAGE LZ4_MEMORY_USAGE_DEFAULT
 #endif
 
+/* These are absolute limits, they should not be changed by users */
 #define LZ4_MEMORY_USAGE_MIN 10
 #define LZ4_MEMORY_USAGE_DEFAULT 14
 #define LZ4_MEMORY_USAGE_MAX 20
@@ -256,10 +258,12 @@ LZ4LIB_API int LZ4_compress_fast_extState (void* state, const char* src, char* d
  * @return : Nb bytes written into 'dst' (necessarily <= dstCapacity)
  *           or 0 if compression fails.
  *
- * Note : from v1.8.2 to v1.9.1, this function had a bug (fixed in v1.9.2+):
- *        the produced compressed content could, in specific circumstances,
- *        require to be decompressed into a destination buffer larger
- *        by at least 1 byte than the content to decompress.
+ * Note : 'targetDstSize' must be >= 1, because it's the smallest valid lz4 payload.
+ *
+ * Note 2:from v1.8.2 to v1.9.1, this function had a bug (fixed in v1.9.2+):
+ *        the produced compressed content could, in rare circumstances,
+ *        require to be decompressed into a destination buffer
+ *        larger by at least 1 byte than decompressesSize.
  *        If an application uses `LZ4_compress_destSize()`,
  *        it's highly recommended to update liblz4 to v1.9.2 or better.
  *        If this can't be done or ensured,
@@ -367,6 +371,51 @@ LZ4LIB_API void LZ4_resetStream_fast (LZ4_stream_t* streamPtr);
  * @return : loaded dictionary size, in bytes (note: only the last 64 KB are loaded)
  */
 LZ4LIB_API int LZ4_loadDict (LZ4_stream_t* streamPtr, const char* dictionary, int dictSize);
+
+/*! LZ4_loadDictSlow() : v1.10.0+
+ *  Same as LZ4_loadDict(),
+ *  but uses a bit more cpu to reference the dictionary content more thoroughly.
+ *  This is expected to slightly improve compression ratio.
+ *  The extra-cpu cost is likely worth it if the dictionary is re-used across multiple sessions.
+ * @return : loaded dictionary size, in bytes (note: only the last 64 KB are loaded)
+ */
+LZ4LIB_API int LZ4_loadDictSlow(LZ4_stream_t* streamPtr, const char* dictionary, int dictSize);
+
+/*! LZ4_attach_dictionary() : stable since v1.10.0
+ *
+ *  This allows efficient re-use of a static dictionary multiple times.
+ *
+ *  Rather than re-loading the dictionary buffer into a working context before
+ *  each compression, or copying a pre-loaded dictionary's LZ4_stream_t into a
+ *  working LZ4_stream_t, this function introduces a no-copy setup mechanism,
+ *  in which the working stream references @dictionaryStream in-place.
+ *
+ *  Several assumptions are made about the state of @dictionaryStream.
+ *  Currently, only states which have been prepared by LZ4_loadDict() or
+ *  LZ4_loadDictSlow() should be expected to work.
+ *
+ *  Alternatively, the provided @dictionaryStream may be NULL,
+ *  in which case any existing dictionary stream is unset.
+ *
+ *  If a dictionary is provided, it replaces any pre-existing stream history.
+ *  The dictionary contents are the only history that can be referenced and
+ *  logically immediately precede the data compressed in the first subsequent
+ *  compression call.
+ *
+ *  The dictionary will only remain attached to the working stream through the
+ *  first compression call, at the end of which it is cleared.
+ * @dictionaryStream stream (and source buffer) must remain in-place / accessible / unchanged
+ *  through the completion of the compression session.
+ *
+ *  Note: there is no equivalent LZ4_attach_*() method on the decompression side
+ *  because there is no initialization cost, hence no need to share the cost across multiple sessions.
+ *  To decompress LZ4 blocks using dictionary, attached or not,
+ *  just employ the regular LZ4_setStreamDecode() for streaming,
+ *  or the stateless LZ4_decompress_safe_usingDict() for one-shot decompression.
+ */
+LZ4LIB_API void
+LZ4_attach_dictionary(LZ4_stream_t* workingStream,
+                const LZ4_stream_t* dictionaryStream);
 
 /*! LZ4_compress_fast_continue() :
  *  Compress 'src' content using data from previously compressed blocks, for better compression ratio.
@@ -563,42 +612,11 @@ LZ4_decompress_safe_partial_usingDict(const char* src, char* dst,
  */
 LZ4LIB_STATIC_API int LZ4_compress_fast_extState_fastReset (void* state, const char* src, char* dst, int srcSize, int dstCapacity, int acceleration);
 
-/*! LZ4_compress_destSize_extState() :
+/*! LZ4_compress_destSize_extState() : introduced in v1.10.0
  *  Same as LZ4_compress_destSize(), but using an externally allocated state.
  *  Also: exposes @acceleration
  */
 int LZ4_compress_destSize_extState(void* state, const char* src, char* dst, int* srcSizePtr, int targetDstSize, int acceleration);
-
-/*! LZ4_attach_dictionary() :
- *  This is an experimental API that allows
- *  efficient use of a static dictionary many times.
- *
- *  Rather than re-loading the dictionary buffer into a working context before
- *  each compression, or copying a pre-loaded dictionary's LZ4_stream_t into a
- *  working LZ4_stream_t, this function introduces a no-copy setup mechanism,
- *  in which the working stream references the dictionary stream in-place.
- *
- *  Several assumptions are made about the state of the dictionary stream.
- *  Currently, only streams which have been prepared by LZ4_loadDict() should
- *  be expected to work.
- *
- *  Alternatively, the provided dictionaryStream may be NULL,
- *  in which case any existing dictionary stream is unset.
- *
- *  If a dictionary is provided, it replaces any pre-existing stream history.
- *  The dictionary contents are the only history that can be referenced and
- *  logically immediately precede the data compressed in the first subsequent
- *  compression call.
- *
- *  The dictionary will only remain attached to the working stream through the
- *  first compression call, at the end of which it is cleared. The dictionary
- *  stream (and source buffer) must remain in-place / accessible / unchanged
- *  through the completion of the first compression call on the stream.
- */
-LZ4LIB_STATIC_API void
-LZ4_attach_dictionary(LZ4_stream_t* workingStream,
-                const LZ4_stream_t* dictionaryStream);
-
 
 /*! In-place compression and decompression
  *
@@ -682,10 +700,10 @@ LZ4_attach_dictionary(LZ4_stream_t* workingStream,
 
 #if defined(__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
 # include <stdint.h>
-  typedef  int8_t  LZ4_i8;
-  typedef uint8_t  LZ4_byte;
-  typedef uint16_t LZ4_u16;
-  typedef uint32_t LZ4_u32;
+  typedef int8_t         LZ4_i8;
+  typedef unsigned char  LZ4_byte;
+  typedef uint16_t       LZ4_u16;
+  typedef uint32_t       LZ4_u32;
 #else
   typedef   signed char  LZ4_i8;
   typedef unsigned char  LZ4_byte;

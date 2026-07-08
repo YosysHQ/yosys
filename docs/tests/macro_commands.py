@@ -94,7 +94,7 @@ for macro in MACRO_SOURCE.glob("*.ys"):
             if expected_dict[key] and expected_dict[key] != actual_dict[key]:
                 does_match = False
 
-        # raise error on mismatch        
+        # raise error on mismatch
         if not does_match:
             logging.error(f"Expected {expected!r}, got {actual!r}")
             raise_error = True

@@ -445,7 +445,7 @@ struct OptSharePass : public Pass {
 						while (mux_port_offset + op_conn_width < mux_port_size &&
 								op_outsig_offset + op_conn_width < op_outsig_size &&
 								mux_insig[mux_port_offset + op_conn_width] == op_outsig[op_outsig_offset + op_conn_width])
-							op_conn_width++; 
+							op_conn_width++;
 
 						log_assert(op_conn_width >= 1);
 
