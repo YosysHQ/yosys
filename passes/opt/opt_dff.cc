@@ -1032,7 +1032,7 @@ struct OptDffWorker
 		uint16_t flags;
 
 		bool operator==(const SigKey &o) const {
-			return flags == o.flags && clk == o.clk && ce == o.ce && srst == o.srst && arst == o.arst 
+			return flags == o.flags && clk == o.clk && ce == o.ce && srst == o.srst && arst == o.arst
 				&& aload == o.aload && clr == o.clr && set == o.set && cell_type == o.cell_type;
 		}
 
@@ -1076,7 +1076,7 @@ struct OptDffWorker
 				if (ff.has_arst && !is_def(ff.val_arst[i])) continue;
 
 				// Class members are assumed equal in the current cycle and proven equal in the next, which needs
-				// a base case anchoring them to a common known value 
+				// a base case anchoring them to a common known value
 				bool def_init = is_def(ff.val_init[i]);
 				if (!def_init && !ff.has_srst && !ff.has_arst)
 					continue;
@@ -1208,7 +1208,7 @@ struct OptDffWorker
 
 		// Build the next-state function n_lit[idx] of every candidate bit by
 		// folding the FF's control logic on top of the D input (-> next value)
-		
+
 		// Two bits are equivalent if their next states always agree whenever their
 		// current states (and those of every other candidate pair) agree
 		for (auto &cls : classes) {
@@ -1249,7 +1249,7 @@ struct OptDffWorker
 
 		// Assume the induction hypo (that every current class is internally equal in the present cycle), and try
 		// to prove that the members of each class therefore also agree in the next cycle
-		
+
 		// A class survives only if no counterexample exists under that hypo, so combined with the common init/reset
 		// value that every class shares, this makes the equality an inductive invariant -> bits are eq and safe to merge
 		std::vector<int> worklist;
