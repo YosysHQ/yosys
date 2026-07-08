@@ -1,0 +1,32 @@
+# warn
+read_verilog <<EOT
+module top(input g, rn, d, output reg q);
+always @* if (~rn) q <= 0; else if (g) q <= d;
+endmodule
+EOT
+logger -expect warning "Latch inferred for signal" 1
+proc
+logger -check-expected
+
+design -reset
+
+# info
+read_verilog <<EOT
+module top(input g, rn, d, output reg q);
+always @* if (~rn) q <= 0; else if (g) q <= d;
+endmodule
+EOT
+logger -expect-no-warnings
+proc -latches info
+logger -check-expected
+
+design -reset
+
+# error
+read_verilog <<EOT
+module top(input g, rn, d, output reg q);
+always @* if (~rn) q <= 0; else if (g) q <= d;
+endmodule
+EOT
+logger -expect error "Latch inferred for signal" 1
+proc -latches error

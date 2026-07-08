@@ -117,13 +117,19 @@ struct SynthIce40Pass : public ScriptPass
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
+		log("    -latches <info|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, json_file, device_opt;
+	string top_opt, blif_file, edif_file, json_file, device_opt, latches;
 	bool nocarry, nodffe, nobram, spram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap, no_rw_check;
 	int min_ce_use;
 
@@ -148,6 +154,7 @@ struct SynthIce40Pass : public ScriptPass
 		flowmap = false;
 		device_opt = "hx";
 		no_rw_check = false;
+		latches = "error";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -258,6 +265,10 @@ struct SynthIce40Pass : public ScriptPass
 				no_rw_check = true;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -266,6 +277,8 @@ struct SynthIce40Pass : public ScriptPass
 			log_cmd_error("This command only operates on fully selected designs!\n");
 		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
 			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt);
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (abc9 && retime)
 			log_cmd_error("-retime option not currently compatible with -abc9!\n");
@@ -303,7 +316,7 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
-			run("proc");
+			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
 		}
 
 		if (check_label("flatten", "(unless -noflatten)"))
@@ -406,6 +419,8 @@ struct SynthIce40Pass : public ScriptPass
 				run("abc", "      (only if -abc2)");
 				run("ice40_opt", "(only if -abc2)");
 			}
+			if (latches == "error" || help_mode)
+				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap -map +/ice40/latches_map.v");
 			if (noabc || flowmap || help_mode) {
 				run("simplemap", "                               (if -noabc or -flowmap)");
