@@ -35,8 +35,8 @@ carry structure used in full-adder chains.
 
 .. code-block::
 
-   CO[0] = G[0] || (P[0] && CI)
-   CO[i] = G[i] || (P[i] && CO[i-1])   (for i > 0)
+   CO[0] = G[0] | (P[0] & CI)
+   CO[i] = G[i] | (P[i] & CO[i-1])   (for i > 0)
 
 .. table:: Ports
 
@@ -83,7 +83,7 @@ and CI (carry-in) signals.
    B     input    B_WIDTH     Input operand
    CI    input    1           Carry-in (set for subtraction)
    BI    input    1           Invert-B (set for subtraction)
-   X     output   Y_WIDTH     A xor B (sign-extended, optional B inversion)
+   X     output   Y_WIDTH     A XOR B (B optionally inverted by BI)
    Y     output   Y_WIDTH     Sum
    CO    output   Y_WIDTH     Carry-out
    ===== ======== =========== ==========================================
@@ -100,9 +100,10 @@ and CI (carry-in) signals.
    Y_WIDTH   1         Width of X, Y, and CO ports
    ========= ========= =================================
 
-The `$alu` cell is typically created by the ``alumacc`` pass by merging `$add`,
-`$sub`, `$lt`, `$le`, `$ge`, `$gt`, `$eq`, `$ne`, and related cells into a
-single arithmetic unit.
+The `$alu` cell is typically created by the ``alumacc`` pass from comparison
+cells (`$lt`, `$le`, `$ge`, `$gt`, `$eq`, `$eqx`, `$ne`, `$nex`). The
+subtraction it performs internally (BI=1, CI=1) is used to derive comparison
+results.
 
 The `$macc` cell type represents a generalized multiply and accumulate
 operation. The cell is purely combinational. It outputs the result of summing up
@@ -151,8 +152,8 @@ B is an array of concatenated 1-bit-wide unsigned integers to also be summed up.
    pass now generates `$macc_v2` cells, which use separate ports ``A``, ``B``,
    ``C`` and explicit parameters (``NPRODUCTS``, ``NADDENDS``, ``A_WIDTHS``,
    ``B_WIDTHS``, ``C_WIDTHS``, ``A_SIGNED``, ``B_SIGNED``, ``C_SIGNED``,
-   ``PRODUCT_NEGATED``, ``ADDEND_NEGATED``) instead of the packed A port and
-   CONFIG parameter.
+   ``PRODUCT_NEGATED``, ``ADDEND_NEGATED``, ``Y_WIDTH``) instead of the packed
+   A port and CONFIG parameter.
 
 .. autocellgroup:: arith
    :members:
