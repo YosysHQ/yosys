@@ -62,4 +62,3 @@ assign X = AA ^ BB;
 
 endmodule
 `endif
-
