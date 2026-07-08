@@ -416,7 +416,13 @@ struct proc_dlatch_db_t
 	}
 };
 
-void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
+enum LatchPolicy {
+	POLICY_INFO,
+	POLICY_WARN,
+	POLICY_ERROR
+};
+
+void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 {
 	RTLIL::SigSig latches_bits, nolatches_bits;
 	dict<SigBit, SigBit> latches_out_in;
@@ -545,6 +551,12 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			if (proc->get_bool_attribute(ID::always_comb))
 				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+			else if (policy == POLICY_ERROR)
+				log_error("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
+			else if (policy == POLICY_WARN)
+				log_warning("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
 			else
 				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
@@ -560,22 +572,49 @@ struct ProcDlatchPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    proc_dlatch [selection]\n");
+		log("    proc_dlatch [options] [selection]\n");
 		log("\n");
 		log("This pass identifies latches in the processes and converts them to\n");
 		log("d-type latches.\n");
+		log("\n");
+		log("    -latches <info|warn|error>\n");
+		log("        controls how the inference of a latch is reported. Alternatively, one\n");
+		log("        can use the 'proc.latches' scratchpad variable. Defaults to 'warn'.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PROC_DLATCH pass (convert process syncs to latches).\n");
 
-		extra_args(args, 1, design);
+		std::string policy_str;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				policy_str = args[++argidx];
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		if (policy_str.empty())
+			policy_str = design->scratchpad_get_string("proc.latches", "warn");
+
+		LatchPolicy policy;
+		if (policy_str == "info")
+			policy = POLICY_INFO;
+		else if (policy_str == "warn")
+			policy = POLICY_WARN;
+		else if (policy_str == "error")
+			policy = POLICY_ERROR;
+		else
+			log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", policy_str.c_str());
 
 		for (auto mod : design->all_selected_modules()) {
 			proc_dlatch_db_t db(mod);
 			for (auto proc : mod->selected_processes())
-				proc_dlatch(db, proc);
+				proc_dlatch(db, proc, policy);
 			db.fixup_muxes();
 		}
 	}

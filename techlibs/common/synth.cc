@@ -78,6 +78,9 @@ struct SynthPass : public ScriptPass {
 		log("    -nordff\n");
 		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
+		log("    -latches <auto|warn|error>\n");
+		log("        controls how the inference of a latch is reported.\n");
+		log("\n");
 		log("    -noshare\n");
 		log("        do not run SAT-based resource sharing\n");
 		log("\n");
@@ -111,7 +114,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts, abc;
+	string top_module, fsm_opts, memory_opts, abc, latches_opt;
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, arith_tree, hieropt, relative_share;
 	int lut;
 	std::vector<std::string> techmap_maps;
@@ -121,6 +124,7 @@ struct SynthPass : public ScriptPass {
 		top_module.clear();
 		fsm_opts.clear();
 		memory_opts.clear();
+		latches_opt.clear();
 
 		autotop = false;
 		flatten = false;
@@ -200,6 +204,10 @@ struct SynthPass : public ScriptPass {
 				memory_opts += " -nordff";
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx + 1 < args.size()) {
+				latches_opt += " -latches " + args[++argidx];
+				continue;
+			}
 			if (args[argidx] == "-noshare") {
 				noshare = true;
 				continue;
@@ -276,7 +284,7 @@ struct SynthPass : public ScriptPass {
 		}
 
 		if (check_label("coarse")) {
-			run("proc");
+			run("proc" + latches_opt);
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "  (if -flatten)");

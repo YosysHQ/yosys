@@ -4,7 +4,7 @@ design -save read
 hierarchy -top latchp
 proc
 # Can't run any sort of equivalence check because latches are blown to LUTs
-synth_ice40
+synth_ice40 -latches info
 cd latchp # Constrain all select calls below inside the top module
 select -assert-count 1 t:SB_LUT4
 
@@ -15,7 +15,7 @@ design -load read
 hierarchy -top latchn
 proc
 # Can't run any sort of equivalence check because latches are blown to LUTs
-synth_ice40
+synth_ice40 -latches info
 cd latchn # Constrain all select calls below inside the top module
 select -assert-count 1 t:SB_LUT4
 
@@ -26,7 +26,7 @@ design -load read
 hierarchy -top latchsr
 proc
 # Can't run any sort of equivalence check because latches are blown to LUTs
-synth_ice40
+synth_ice40 -latches info
 cd latchsr # Constrain all select calls below inside the top module
 select -assert-count 2 t:SB_LUT4
 

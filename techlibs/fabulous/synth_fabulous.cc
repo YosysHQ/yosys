@@ -110,13 +110,19 @@ struct SynthPass : public ScriptPass {
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
+		log("    -latches <info|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_module, json_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map;
+	string top_module, json_file, fsm_opts, memory_opts, carry_mode, cells_map, arith_map, clkbuf_map, multiplier_map, latches;
 	std::vector<string> extra_plib, extra_map, extra_mlibmap;
 	std::vector<std::pair<string, string>> extra_ffs;
 
@@ -135,6 +141,7 @@ struct SynthPass : public ScriptPass {
 		carry_mode = "none";
 		flatten = true;
 		json_file = "";
+		latches = "error";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -244,12 +251,18 @@ struct SynthPass : public ScriptPass {
 				flatten = false;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		log_header(design, "Executing SYNTH_FABULOUS pass.\n");
 		log_push();
@@ -276,7 +289,7 @@ struct SynthPass : public ScriptPass {
 					run("hierarchy -check");
 			} else
 				run(stringf("hierarchy -check -top %s", top_module));
-			run("proc");
+			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
 		}
 
 		if (check_label("flatten", "(unless -noflatten)")) {
@@ -385,6 +398,8 @@ struct SynthPass : public ScriptPass {
 					dff_str += stringf(" -cell %s %s", cell, init);
 				run(dff_str);
 			}
+			if (latches == "error" || help_mode)
+				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("opt_merge");
 		}
 
