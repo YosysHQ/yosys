@@ -52,7 +52,9 @@ jobs:
           fetch-depth: 0
           submodules: true
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
       - name: Get FFI
         shell: bash
         run: |
@@ -76,14 +78,12 @@ jobs:
         run: |
           choco install winflexbison3
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.4.1
+        uses: pypa/cibuildwheel@v4.1.0
         env:
           # * APIs not supported by PyPy
           # * Musllinux disabled because it increases build time from 48m to ~3h
           CIBW_SKIP: >
-            cp38*
             cp39*
-            pp*
             *musllinux*
           CIBW_ARCHS: ${{ matrix.os.archs }}
           CIBW_BUILD_VERBOSITY: "1"
@@ -95,11 +95,13 @@ jobs:
             OPTFLAGS=-O3
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             PATH="$PWD/bison/src:$PATH"
+            CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           CIBW_ENVIRONMENT_MACOS: >
             OPTFLAGS=-O3
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
             PATH="$PWD/bison/src:$PATH"
+            CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py
       - uses: actions/upload-artifact@v7
