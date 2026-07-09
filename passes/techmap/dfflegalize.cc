@@ -280,7 +280,10 @@ struct DffLegalizePass : public Pass {
 	void emulate_split_init_arst(FfData &ff) {
 		ff.remove();
 
-		FfData ff_dff(ff.module, &initvals, NEW_ID);
+		Module *module = ff.module;
+		IdString name = ff.name;
+
+		FfData ff_dff(module, &initvals, NEW_ID4_SUFFIX("dff")); // SILIMATE: Improve the naming
 		ff_dff.width = ff.width;
 		ff_dff.has_aload = ff.has_aload;
 		ff_dff.sig_aload = ff.sig_aload;
@@ -293,11 +296,11 @@ struct DffLegalizePass : public Pass {
 		ff_dff.has_ce = ff.has_ce;
 		ff_dff.sig_ce = ff.sig_ce;
 		ff_dff.pol_ce = ff.pol_ce;
-		ff_dff.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_dff.sig_q = module->addWire(NEW_ID4_SUFFIX("dff_q"), ff.width); // SILIMATE: Improve the naming
 		ff_dff.val_init = ff.val_init;
 		ff_dff.is_fine = ff.is_fine;
 
-		FfData ff_adff(ff.module, &initvals, NEW_ID);
+		FfData ff_adff(module, &initvals, NEW_ID4_SUFFIX("adff")); // SILIMATE: Improve the naming
 		ff_adff.width = ff.width;
 		ff_adff.has_aload = ff.has_aload;
 		ff_adff.sig_aload = ff.sig_aload;
@@ -310,7 +313,7 @@ struct DffLegalizePass : public Pass {
 		ff_adff.has_ce = ff.has_ce;
 		ff_adff.sig_ce = ff.sig_ce;
 		ff_adff.pol_ce = ff.pol_ce;
-		ff_adff.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_adff.sig_q = module->addWire(NEW_ID4_SUFFIX("adff_q"), ff.width); // SILIMATE: Improve the naming
 		ff_adff.val_init = Const(State::Sx, ff.width);
 		ff_adff.has_arst = true;
 		ff_adff.sig_arst = ff.sig_arst;
@@ -318,9 +321,9 @@ struct DffLegalizePass : public Pass {
 		ff_adff.val_arst = ff.val_arst;
 		ff_adff.is_fine = ff.is_fine;
 
-		FfData ff_sel(ff.module, &initvals, NEW_ID);
+		FfData ff_sel(module, &initvals, NEW_ID4_SUFFIX("sel")); // SILIMATE: Improve the naming
 		ff_sel.width = 1;
-		ff_sel.sig_q = ff.module->addWire(NEW_ID);
+		ff_sel.sig_q = module->addWire(NEW_ID4_SUFFIX("sel_q")); // SILIMATE: Improve the naming
 		ff_sel.has_arst = true;
 		ff_sel.sig_arst = ff.sig_arst;
 		ff_sel.pol_arst = ff.pol_arst;
@@ -329,9 +332,9 @@ struct DffLegalizePass : public Pass {
 		ff_sel.is_fine = ff.is_fine;
 
 		if (ff.is_fine)
-			ff.module->addMuxGate(NEW_ID, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
+			module->addMuxGate(NEW_ID4_SUFFIX("mux"), ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q); // SILIMATE: Improve the naming
 		else
-			ff.module->addMux(NEW_ID, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
+			module->addMux(NEW_ID4_SUFFIX("mux"), ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q); // SILIMATE: Improve the naming
 
 		legalize_ff(ff_dff);
 		legalize_ff(ff_adff);
@@ -392,7 +395,10 @@ struct DffLegalizePass : public Pass {
 		log_assert(ff.width == 1);
 		ff.remove();
 
-		FfData ff_clr(ff.module, &initvals, NEW_ID);
+		Module *module = ff.module;
+		IdString name = ff.name;
+
+		FfData ff_clr(module, &initvals, NEW_ID4_SUFFIX("clr")); // SILIMATE: Improve the naming
 		ff_clr.width = ff.width;
 		ff_clr.has_aload = ff.has_aload;
 		ff_clr.sig_aload = ff.sig_aload;
@@ -409,11 +415,11 @@ struct DffLegalizePass : public Pass {
 		ff_clr.sig_arst = ff.sig_clr;
 		ff_clr.pol_arst = ff.pol_clr;
 		ff_clr.val_arst = Const(State::S0, ff.width);
-		ff_clr.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_clr.sig_q = module->addWire(NEW_ID4_SUFFIX("clr_q"), ff.width); // SILIMATE: Improve the naming
 		ff_clr.val_init = init_clr ? ff.val_init : Const(State::Sx, ff.width);
 		ff_clr.is_fine = ff.is_fine;
 
-		FfData ff_set(ff.module, &initvals, NEW_ID);
+		FfData ff_set(module, &initvals, NEW_ID4_SUFFIX("set")); // SILIMATE: Improve the naming
 		ff_set.width = ff.width;
 		ff_set.has_aload = ff.has_aload;
 		ff_set.sig_aload = ff.sig_aload;
@@ -430,25 +436,25 @@ struct DffLegalizePass : public Pass {
 		ff_set.sig_arst = ff.sig_set;
 		ff_set.pol_arst = ff.pol_set;
 		ff_set.val_arst = Const(State::S1, ff.width);
-		ff_set.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_set.sig_q = module->addWire(NEW_ID4_SUFFIX("set_q"), ff.width); // SILIMATE: Improve the naming
 		ff_set.val_init = init_set ? ff.val_init : Const(State::Sx, ff.width);
 		ff_set.is_fine = ff.is_fine;
 
-		FfData ff_sel(ff.module, &initvals, NEW_ID);
+		FfData ff_sel(module, &initvals, NEW_ID4_SUFFIX("sel")); // SILIMATE: Improve the naming
 		ff_sel.width = ff.width;
 		ff_sel.has_sr = true;
 		ff_sel.pol_clr = ff.pol_clr;
 		ff_sel.pol_set = ff.pol_set;
 		ff_sel.sig_clr = ff.sig_clr;
 		ff_sel.sig_set = ff.sig_set;
-		ff_sel.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_sel.sig_q = module->addWire(NEW_ID4_SUFFIX("sel_q"), ff.width); // SILIMATE: Improve the naming
 		ff_sel.val_init = Const(initsel, ff.width);
 		ff_sel.is_fine = ff.is_fine;
 
 		if (!ff.is_fine)
-			ff.module->addMux(NEW_ID, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
+			module->addMux(NEW_ID4_SUFFIX("mux"), ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q); // SILIMATE: Improve the naming
 		else
-			ff.module->addMuxGate(NEW_ID, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
+			module->addMuxGate(NEW_ID4_SUFFIX("mux"), ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q); // SILIMATE: Improve the naming
 
 		legalize_ff(ff_clr);
 		legalize_ff(ff_set);
@@ -461,18 +467,21 @@ struct DffLegalizePass : public Pass {
 		log_assert(ff.has_aload);
 		log_assert(ff.width == 1);
 
+		Module *module = ff.module;
+		IdString name = ff.name;
+
 		auto active_high = [&](SigBit sig, bool pol) -> SigBit {
 			if (pol)
 				return sig;
-			return ff.is_fine ? ff.module->NotGate(NEW_ID, sig) : ff.module->Not(NEW_ID, sig)[0];
+			return ff.is_fine ? module->NotGate(NEW_ID4_SUFFIX("not"), sig) : module->Not(NEW_ID4_SUFFIX("not"), sig)[0]; // SILIMATE: Improve the naming
 		};
 
 		auto do_mux = [&](SigBit a, SigBit b, SigBit s) -> SigBit {
-			return ff.is_fine ? ff.module->MuxGate(NEW_ID, a, b, s) : ff.module->Mux(NEW_ID, a, b, s)[0];
+			return ff.is_fine ? module->MuxGate(NEW_ID4_SUFFIX("mux"), a, b, s) : module->Mux(NEW_ID4_SUFFIX("mux"), a, b, s)[0]; // SILIMATE: Improve the naming
 		};
 
 		auto do_or = [&](SigBit a, SigBit b) -> SigBit {
-			return ff.is_fine ? ff.module->OrGate(NEW_ID, a, b) : ff.module->Or(NEW_ID, a, b)[0];
+			return ff.is_fine ? module->OrGate(NEW_ID4_SUFFIX("or"), a, b) : module->Or(NEW_ID4_SUFFIX("or"), a, b)[0]; // SILIMATE: Improve the naming
 		};
 
 		SigBit en = active_high(ff.sig_aload, ff.pol_aload);
@@ -898,11 +907,13 @@ struct DffLegalizePass : public Pass {
 			ff.sig_ad = State::S0;
 			ff.val_arst = State::S1;
 			ff.remove_init();
-			Wire *new_q = ff.module->addWire(NEW_ID);
+			Module *module = ff.module;
+			IdString name = ff.name;
+			Wire *new_q = module->addWire(NEW_ID4_SUFFIX("new_q")); // SILIMATE: Improve the naming
 			if (ff.is_fine)
-				ff.module->addNotGate(NEW_ID, new_q, ff.sig_q);
+				module->addNotGate(NEW_ID4_SUFFIX("not"), new_q, ff.sig_q); // SILIMATE: Improve the naming
 			else
-				ff.module->addNot(NEW_ID, new_q, ff.sig_q);
+				module->addNot(NEW_ID4_SUFFIX("not"), new_q, ff.sig_q); // SILIMATE: Improve the naming
 			ff.sig_q = new_q;
 			if (ff.val_init == State::S0)
 				ff.val_init = State::S1;
@@ -994,10 +1005,13 @@ struct DffLegalizePass : public Pass {
 			sig = State::S1;
 		} else if (sig == State::S1) {
 			sig = State::S0;
-		} else if (ff.is_fine) {
-			sig = ff.module->NotGate(NEW_ID, sig);
 		} else {
-			sig = ff.module->Not(NEW_ID, sig);
+			Module *module = ff.module;
+			IdString name = ff.name;
+			if (ff.is_fine)
+				sig = module->NotGate(NEW_ID4_SUFFIX("not"), sig); // SILIMATE: Improve the naming
+			else
+				sig = module->Not(NEW_ID4_SUFFIX("not"), sig); // SILIMATE: Improve the naming
 		}
 		pol = !pol;
 	}

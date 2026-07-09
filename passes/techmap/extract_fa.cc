@@ -282,7 +282,7 @@ struct ExtractFaWorker
 	{
 		Cell *cell = driver.at(bit);
 		if (sigmap(cell->getPort(ID::Y)) == SigSpec(bit)) {
-			cell->setPort(ID::Y, module->addWire(NEW_ID));
+			cell->setPort(ID::Y, module->addWire(NEW_ID2_SUFFIX("y"))); // SILIMATE: Improve the naming
 			module->connect(bit, new_driver);
 		}
 	}
@@ -394,41 +394,47 @@ struct ExtractFaWorker
 				}
 				else
 				{
-					Cell *cell = module->addCell(NEW_ID, ID($fa));
-					cell->setParam(ID::WIDTH, 1);
+					Cell *cell = driver.at(*func3.at(key).at(func).begin());
+					Cell *fa = module->addCell(NEW_ID2_SUFFIX("fa"), ID($fa)); // SILIMATE: Improve the naming
+					fa->setParam(ID::WIDTH, 1);
 
-					log("      Created $fa cell %s.\n", cell);
+					log("      Created $fa cell %s.\n", fa);
 
-					cell->setPort(ID::A, f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
-					cell->setPort(ID::B, f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort(ID::C, f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
+					fa->setPort(ID::A, f3i.inv_a ? module->NotGate(NEW_ID2_SUFFIX("inv_a"), A) : A); // SILIMATE: Improve the naming
+					fa->setPort(ID::B, f3i.inv_b ? module->NotGate(NEW_ID2_SUFFIX("inv_b"), B) : B); // SILIMATE: Improve the naming
+					fa->setPort(ID::C, f3i.inv_c ? module->NotGate(NEW_ID2_SUFFIX("inv_c"), C) : C); // SILIMATE: Improve the naming
 
-					X = module->addWire(NEW_ID);
-					Y = module->addWire(NEW_ID);
+					X = module->addWire(NEW_ID2_SUFFIX("fa_x")); // SILIMATE: Improve the naming
+					Y = module->addWire(NEW_ID2_SUFFIX("fa_y")); // SILIMATE: Improve the naming
 
-					cell->setPort(ID::X, X);
-					cell->setPort(ID::Y, Y);
+					fa->setPort(ID::X, X);
+					fa->setPort(ID::Y, Y);
 
-					facache[fakey] = make_tuple(X, Y, cell);
+					facache[fakey] = make_tuple(X, Y, fa);
 				}
 
 				bool invert_y = f3i.inv_a ^ f3i.inv_b ^ f3i.inv_c;
 				if (func3.at(key).count(xor3_func)) {
-					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEW_ID, Y) : Y;
+					Cell *cell = driver.at(*func3.at(key).at(xor3_func).begin());
+					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEW_ID2_SUFFIX("not"), Y) : Y; // SILIMATE: Improve the naming
 					for (auto bit : func3.at(key).at(xor3_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func3.at(key).count(xnor3_func)) {
-					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEW_ID, Y);
+					Cell *cell = driver.at(*func3.at(key).at(xnor3_func).begin());
+					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEW_ID2_SUFFIX("not"), Y); // SILIMATE: Improve the naming
 					for (auto bit : func3.at(key).at(xnor3_func))
 						assign_new_driver(bit, YY);
 				}
 
-				SigBit XX = invert_xy != f3i.inv_y ? module->NotGate(NEW_ID, X) : X;
+				{
+					Cell *cell = driver.at(*func3.at(key).at(func).begin());
+					SigBit XX = invert_xy != f3i.inv_y ? module->NotGate(NEW_ID2_SUFFIX("not"), X) : X; // SILIMATE: Improve the naming
 
-				for (auto bit : func3.at(key).at(func))
-					assign_new_driver(bit, XX);
+					for (auto bit : func3.at(key).at(func))
+						assign_new_driver(bit, XX);
+				}
 			}
 		}
 
@@ -501,38 +507,44 @@ struct ExtractFaWorker
 				}
 				else
 				{
-					Cell *cell = module->addCell(NEW_ID, ID($fa));
-					cell->setParam(ID::WIDTH, 1);
+					Cell *cell = driver.at(*func2.at(key).at(func).begin());
+					Cell *fa = module->addCell(NEW_ID2_SUFFIX("fa"), ID($fa)); // SILIMATE: Improve the naming
+					fa->setParam(ID::WIDTH, 1);
 
-					log("      Created $fa cell %s.\n", cell);
+					log("      Created $fa cell %s.\n", fa);
 
-					cell->setPort(ID::A, f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
-					cell->setPort(ID::B, f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort(ID::C, State::S0);
+					fa->setPort(ID::A, f2i.inv_a ? module->NotGate(NEW_ID2_SUFFIX("inv_a"), A) : A); // SILIMATE: Improve the naming
+					fa->setPort(ID::B, f2i.inv_b ? module->NotGate(NEW_ID2_SUFFIX("inv_b"), B) : B); // SILIMATE: Improve the naming
+					fa->setPort(ID::C, State::S0);
 
-					X = module->addWire(NEW_ID);
-					Y = module->addWire(NEW_ID);
+					X = module->addWire(NEW_ID2_SUFFIX("fa_x")); // SILIMATE: Improve the naming
+					Y = module->addWire(NEW_ID2_SUFFIX("fa_y")); // SILIMATE: Improve the naming
 
-					cell->setPort(ID::X, X);
-					cell->setPort(ID::Y, Y);
+					fa->setPort(ID::X, X);
+					fa->setPort(ID::Y, Y);
 				}
 
 				if (func2.at(key).count(xor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
+					Cell *cell = driver.at(*func2.at(key).at(xor2_func).begin());
+					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID2_SUFFIX("not"), Y) : Y; // SILIMATE: Improve the naming
 					for (auto bit : func2.at(key).at(xor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
+					Cell *cell = driver.at(*func2.at(key).at(xnor2_func).begin());
+					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID2_SUFFIX("not"), Y); // SILIMATE: Improve the naming
 					for (auto bit : func2.at(key).at(xnor2_func))
 						assign_new_driver(bit, YY);
 				}
 
-				SigBit XX = invert_xy != f2i.inv_y ? module->NotGate(NEW_ID, X) : X;
+				{
+					Cell *cell = driver.at(*func2.at(key).at(func).begin());
+					SigBit XX = invert_xy != f2i.inv_y ? module->NotGate(NEW_ID2_SUFFIX("not"), X) : X; // SILIMATE: Improve the naming
 
-				for (auto bit : func2.at(key).at(func))
-					assign_new_driver(bit, XX);
+					for (auto bit : func2.at(key).at(func))
+						assign_new_driver(bit, XX);
+				}
 			}
 		}
 	}

@@ -66,6 +66,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct BoothPassWorker {
 
 	RTLIL::Module *module;
+	RTLIL::Cell *cell = nullptr;
 	SigMap sigmap;
 	int booth_counter;
 	bool lowpower = false;
@@ -246,6 +247,8 @@ struct BoothPassWorker {
 
 			log("Mapping cell %s to %s Booth multiplier\n", cell, is_signed ? "signed" : "unsigned");
 
+			this->cell = cell;
+
 			// To simplify the generator size the arguments
 			// to be the same. Then allow logic synthesis to
 			// clean things up. Size to biggest
@@ -290,7 +293,7 @@ struct BoothPassWorker {
 			int required_op_size = x_sz_revised + y_sz_revised;
 
 			if (required_op_size != z_sz) {
-				SigSpec expanded_Y = module->addWire(NEW_ID, required_op_size);
+				SigSpec expanded_Y = module->addWire(NEW_ID2_SUFFIX("y"), required_op_size); // SILIMATE: Improve the naming
 				SigSpec Y_driver = expanded_Y;
 				Y_driver.extend_u0(Y.size(), is_signed);
 				module->connect(Y, Y_driver);
@@ -399,7 +402,7 @@ struct BoothPassWorker {
 		if (mapped_cpa)
 			BuildCPA(module, wtree_a, wtree_b, Z);
 		else
-			module->addAdd(NEW_ID, wtree_a, wtree_b, Z);
+			module->addAdd(NEW_ID2_SUFFIX("cpa"), wtree_a, wtree_b, Z); // SILIMATE: Improve the naming
 	}
 
 	/*
@@ -435,11 +438,11 @@ struct BoothPassWorker {
 
 		// append the sign bits
 		if (is_signed) {
-			SigBit e = module->XorGate(NEW_ID, s_int[0], module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int[0], one_int[0])));
-			ppij_vec.append({module->NotGate(NEW_ID, e), e, e});
+			SigBit e = module->XorGate(NEW_ID2_SUFFIX("e"), s_int[0], module->AndGate(NEW_ID2_SUFFIX("and"), X.msb(), module->OrGate(NEW_ID2_SUFFIX("or"), two_int[0], one_int[0]))); // SILIMATE: Improve the naming
+			ppij_vec.append({module->NotGate(NEW_ID2_SUFFIX("not"), e), e, e}); // SILIMATE: Improve the naming
 		} else {
 			// append the sign bits
-			ppij_vec.append({module->NotGate(NEW_ID, s_int[0]), s_int[0], s_int[0]});
+			ppij_vec.append({module->NotGate(NEW_ID2_SUFFIX("not"), s_int[0]), s_int[0], s_int[0]}); // SILIMATE: Improve the naming
 		}
 	}
 
@@ -469,7 +472,7 @@ struct BoothPassWorker {
 				     					one_int, two_int, s_int));
 		}
 
-		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_ID, sb_int, module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int, one_int))));
+		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_ID2_SUFFIX("xor"), sb_int, module->AndGate(NEW_ID2_SUFFIX("and"), X.msb(), module->OrGate(NEW_ID2_SUFFIX("or"), two_int, one_int)))); // SILIMATE: Improve the naming
 		ppij_vec.append(State::S1);
 	}
 
@@ -722,7 +725,7 @@ struct BoothPassWorker {
 			// End Case
 			else if (n == s_vec.size() - 1) {
 				// Make the carry results.. Two extra bits after fa.
-				SigBit carry_out = module->addWire(NEW_ID, 1);
+				SigBit carry_out = module->addWire(NEW_ID2_SUFFIX("cpa_carry"), 1); // SILIMATE: Improve the naming
 				module->addFa(NEW_ID_SUFFIX(stringf("cpa_%d_fa_%d", cpa_id, n)),
 					/* A */ s_vec[n],
 					/* B */ c_vec[n - 1],

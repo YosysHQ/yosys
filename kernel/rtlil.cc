@@ -3427,10 +3427,10 @@ DEF_METHOD(Shiftx,      sig_a.size(), ID($shiftx))
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const std::string &src) { \
 		Module *module = this; \
-		RTLIL::SigSpec sig_y = addWire(!_pmux ? NEW_ID : NEW_ID4_SUFFIX("y"), sig_a.size());     \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID4_SUFFIX("y"), sig_a.size());     \
 		add ## _func(name, sig_a, sig_b, sig_s, sig_y, src);      \
 		return sig_y;                                             \
-	} // SILIMATE: Improve the naming (NOT IMPROVED FOR MUX!)
+	} // SILIMATE: Improve the naming
 DEF_METHOD(Mux,      ID($mux),        0)
 DEF_METHOD(Bwmux,    ID($bwmux),      0)
 DEF_METHOD(Pmux,     ID($pmux),       1)
@@ -3505,7 +3505,7 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		add ## _func(name, sig1, sig2, sig3, src);        \
 		return sig3;                                      \
 	} // SILIMATE: Improve the naming
-#define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4, _mux) \
+#define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);         \
 		cell->setPort("\\" #_P1, sig1);                   \
@@ -3517,10 +3517,10 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 	} \
 	RTLIL::SigBit RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const std::string &src) { \
 		Module *module = this; \
-		RTLIL::SigBit sig4 = addWire(_mux ? NEW_ID : NEW_ID4_SUFFIX(#_P4));             \
+		RTLIL::SigBit sig4 = addWire(NEW_ID4_SUFFIX(#_P4));             \
 		add ## _func(name, sig1, sig2, sig3, sig4, src);  \
 		return sig4;                                      \
-	} // SILIMATE: Improve the naming (NOT IMPROVED AT ALL!)
+	} // SILIMATE: Improve the naming
 #define DEF_METHOD_5(_func, _type, _P1, _P2, _P3, _P4, _P5) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SigBit &sig5, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);         \
@@ -3548,10 +3548,10 @@ DEF_METHOD_3(XorGate,    ID($_XOR_),    A, B, Y)
 DEF_METHOD_3(XnorGate,   ID($_XNOR_),   A, B, Y)
 DEF_METHOD_3(AndnotGate, ID($_ANDNOT_), A, B, Y)
 DEF_METHOD_3(OrnotGate,  ID($_ORNOT_),  A, B, Y)
-DEF_METHOD_4(MuxGate,    ID($_MUX_),    A, B, S, Y, 1)
-DEF_METHOD_4(NmuxGate,   ID($_NMUX_),   A, B, S, Y, 0)
-DEF_METHOD_4(Aoi3Gate,   ID($_AOI3_),   A, B, C, Y, 0)
-DEF_METHOD_4(Oai3Gate,   ID($_OAI3_),   A, B, C, Y, 0)
+DEF_METHOD_4(MuxGate,    ID($_MUX_),    A, B, S, Y)
+DEF_METHOD_4(NmuxGate,   ID($_NMUX_),   A, B, S, Y)
+DEF_METHOD_4(Aoi3Gate,   ID($_AOI3_),   A, B, C, Y)
+DEF_METHOD_4(Oai3Gate,   ID($_OAI3_),   A, B, C, Y)
 DEF_METHOD_5(Aoi4Gate,   ID($_AOI4_),   A, B, C, D, Y)
 DEF_METHOD_5(Oai4Gate,   ID($_OAI4_),   A, B, C, D, Y)
 #undef DEF_METHOD_2
