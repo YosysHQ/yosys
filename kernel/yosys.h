@@ -83,6 +83,7 @@ extern std::set<std::string> yosys_input_files, yosys_output_files;
 extern const char *yosys_version_str;
 extern const char *yosys_git_hash_str;
 const char* yosys_maybe_version();
+void yosys_set_version_str(const std::string &s);
 
 // from passes/cmds/design.cc
 extern std::map<std::string, RTLIL::Design*> saved_designs;
