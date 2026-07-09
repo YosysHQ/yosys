@@ -52,7 +52,8 @@ struct AlumaccWorker
 				if (GetSize(cached_slt) == 0) {
 					get_of();
 					get_sf();
-					cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					Cell *cell = alu_cell;
+					cached_slt = cell->module->Xor(NEW_ID2_SUFFIX("slt"), cached_of, cached_sf); // SILIMATE: Improve the naming
 				}
 
 				return cached_slt;
@@ -70,8 +71,9 @@ struct AlumaccWorker
 				if (GetSize(cached_sgt) == 0) {
 					get_lt(is_signed);
 					get_eq();
-					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
-					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+					Cell *cell = alu_cell;
+					SigSpec Or = cell->module->Or(NEW_ID2_SUFFIX("or"), cached_slt, cached_eq); // SILIMATE: Improve the naming
+					cached_sgt = cell->module->Not(NEW_ID2_SUFFIX("sgt"), Or, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 				}
 
 				return cached_sgt;
@@ -79,8 +81,9 @@ struct AlumaccWorker
 				if (GetSize(cached_gt) == 0) {
 					get_lt(is_signed);
 					get_eq();
-					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+					Cell *cell = alu_cell;
+					SigSpec Or = cell->module->Or(NEW_ID2_SUFFIX("or"), cached_lt, cached_eq); // SILIMATE: Improve the naming
+					cached_gt = cell->module->Not(NEW_ID2_SUFFIX("gt"), Or, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 				}
 
 				return cached_gt;
@@ -88,31 +91,37 @@ struct AlumaccWorker
 		}
 
 		RTLIL::SigSpec get_eq() {
-			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
+			if (GetSize(cached_eq) == 0) {
+				Cell *cell = alu_cell;
+				cached_eq = cell->module->ReduceAnd(NEW_ID2_SUFFIX("eq"), cell->getPort(ID::X), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+			}
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
-			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
+			if (GetSize(cached_ne) == 0) {
+				Cell *cell = alu_cell;
+				cached_ne = cell->module->Not(NEW_ID2_SUFFIX("ne"), get_eq(), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+			}
 			return cached_ne;
 		}
 
 		RTLIL::SigSpec get_cf() {
 			if (GetSize(cached_cf) == 0) {
-				cached_cf = alu_cell->getPort(ID::CO);
+				Cell *cell = alu_cell;
+				cached_cf = cell->getPort(ID::CO);
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
+				cached_cf = cell->module->Not(NEW_ID2_SUFFIX("cf"), cached_cf[GetSize(cached_cf)-1], false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 			}
 			return cached_cf;
 		}
 
 		RTLIL::SigSpec get_of() {
 			if (GetSize(cached_of) == 0) {
-				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
+				Cell *cell = alu_cell;
+				cached_of = {cell->getPort(ID::CO), cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
+				cached_of = cell->module->Xor(NEW_ID2_SUFFIX("of"), cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]); // SILIMATE: Improve the naming
 			}
 			return cached_of;
 		}
@@ -379,20 +388,21 @@ struct AlumaccWorker
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
-			auto cell = module->addCell(NEW_ID, ID($macc));
+			Cell *cell = n->cell;
+			Cell *new_cell = module->addCell(NEW_ID2_SUFFIX("macc"), ID($macc)); // SILIMATE: Improve the naming
 
 			macc_counter++;
 
-			log("  creating $macc cell for %s: %s\n", n->cell, cell);
+			log("  creating $macc cell for %s: %s\n", cell, new_cell);
 
-			for (auto attr: n->cell->attributes) {
-				cell->attributes[attr.first] = attr.second;
+			for (auto attr: cell->attributes) {
+				new_cell->attributes[attr.first] = attr.second;
 			}
 			n->macc.optimize(GetSize(n->y));
-			n->macc.to_cell(cell);
-			cell->setPort(ID::Y, n->y);
-			cell->fixup_parameters();
-			module->remove(n->cell);
+			n->macc.to_cell(new_cell);
+			new_cell->setPort(ID::Y, n->y);
+			new_cell->fixup_parameters();
+			module->remove(cell);
 			delete n;
 		}
 
@@ -446,7 +456,7 @@ struct AlumaccWorker
 				n->a = A;
 				n->b = B;
 				n->c = State::S1;
-				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
+				n->y = module->addWire(NEW_ID2_SUFFIX("alu_y"), max(GetSize(A), GetSize(B))); // SILIMATE: Improve the naming
 				n->is_signed = is_signed;
 				n->invert_b = true;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
@@ -498,13 +508,14 @@ struct AlumaccWorker
 		for (auto &it1 : sig_alu)
 		for (auto n : it1.second)
 		{
+			log_assert(!n->cells.empty());
+			Cell *cell = n->cells[0];
+
 			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
-				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
-				if (n->cells.size() > 0) {
-					for (auto attr : n->cells[0]->attributes)
-						n->alu_cell->attributes[attr.first] = attr.second; 
-				}
+				n->alu_cell = module->addPos(NEW_ID2_SUFFIX("pos"), n->a, n->y, n->is_signed); // SILIMATE: Improve the naming
+				for (auto attr : cell->attributes)
+					n->alu_cell->attributes[attr.first] = attr.second;
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -514,7 +525,7 @@ struct AlumaccWorker
 				goto delete_node;
 			}
 
-			n->alu_cell = module->addCell(NEW_ID, ID($alu));
+			n->alu_cell = module->addCell(NEW_ID2_SUFFIX("alu"), ID($alu)); // SILIMATE: Improve the naming
 			alu_counter++;
 
 			log("  creating $alu cell for ");
@@ -522,18 +533,16 @@ struct AlumaccWorker
 				log("%s%s", i ? ", ": "", n->cells[i]);
 			log(": %s\n", n->alu_cell);
 
-			if (n->cells.size() > 0) {
-				for (auto attr : n->cells[0]->attributes)
-					n->alu_cell->attributes[attr.first] = attr.second; 
-			}
+			for (auto attr : cell->attributes)
+				n->alu_cell->attributes[attr.first] = attr.second;
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);
 			n->alu_cell->setPort(ID::CI, GetSize(n->c) ? n->c : State::S0);
 			n->alu_cell->setPort(ID::BI, n->invert_b ? State::S1 : State::S0);
 			n->alu_cell->setPort(ID::Y, n->y);
-			n->alu_cell->setPort(ID::X, module->addWire(NEW_ID, GetSize(n->y)));
-			n->alu_cell->setPort(ID::CO, module->addWire(NEW_ID, GetSize(n->y)));
+			n->alu_cell->setPort(ID::X, module->addWire(NEW_ID2_SUFFIX("x"), GetSize(n->y))); // SILIMATE: Improve the naming
+			n->alu_cell->setPort(ID::CO, module->addWire(NEW_ID2_SUFFIX("co"), GetSize(n->y))); // SILIMATE: Improve the naming
 			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
 
 			for (auto &it : n->cmp)
@@ -552,7 +561,7 @@ struct AlumaccWorker
 				if (cmp_ne) sig.append(n->get_ne());
 
 				if (GetSize(sig) > 1)
-					sig = module->ReduceOr(NEW_ID, sig);
+					sig = module->ReduceOr(NEW_ID2_SUFFIX("cmp_or"), sig); // SILIMATE: Improve the naming
 
 				sig.extend_u0(GetSize(cmp_y));
 				module->connect(cmp_y, sig);

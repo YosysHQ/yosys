@@ -295,7 +295,7 @@ struct ArithTreeWorker {
 		return true;
 	}
 
-	std::vector<CompressorTree::DepthSig> build_operand_pool(std::vector<Operand> &operands, int width, int &neg_compensation)
+	std::vector<CompressorTree::DepthSig> build_operand_pool(Cell *cell, std::vector<Operand> &operands, int width, int &neg_compensation)
 	{
 		// Expand operands into a flat list of signals for reduction
 		std::vector<CompressorTree::DepthSig> pool;
@@ -306,7 +306,7 @@ struct ArithTreeWorker {
 				// Additive operand
 				op.sig.extend_u0(width, op.is_signed);
 				if (op.negate)
-					op.sig = module->Not(NEW_ID, op.sig);
+					op.sig = module->Not(NEW_ID2_SUFFIX("not"), op.sig); // SILIMATE: Improve the naming
 				pool.push_back({op.sig, 0});
 			} else {
 				// Multiplicative operand
@@ -319,10 +319,10 @@ struct ArithTreeWorker {
 				}
 
 				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy);
-				SigSpec p = module->addWire(NEW_ID, width);
-				module->addAdd(NEW_ID, pa, pb, p, false);
-				SigSpec np = module->addWire(NEW_ID, width);
-				module->addNot(NEW_ID, p, np);
+				SigSpec p = module->addWire(NEW_ID2_SUFFIX("prod"), width); // SILIMATE: Improve the naming
+				module->addAdd(NEW_ID2_SUFFIX("add"), pa, pb, p, false); // SILIMATE: Improve the naming
+				SigSpec np = module->addWire(NEW_ID2_SUFFIX("nprod"), width); // SILIMATE: Improve the naming
+				module->addNot(NEW_ID2_SUFFIX("not"), p, np); // SILIMATE: Improve the naming
 				pool.push_back({np, 0});
 				neg_compensation++;
 			}
@@ -334,10 +334,10 @@ struct ArithTreeWorker {
 		return pool;
 	}
 
-	void emit_tree(std::vector<Operand> &operands, SigSpec result_y, int neg_compensation)
+	void emit_tree(Cell *cell, std::vector<Operand> &operands, SigSpec result_y, int neg_compensation)
 	{
 		int width = GetSize(result_y);
-		auto pool = build_operand_pool(operands, width, neg_compensation);
+		auto pool = build_operand_pool(cell, operands, width, neg_compensation);
 		int final_depth = 0;
 		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy, nullptr, &final_depth);
 		auto final_choice = CompressorTree::pick_final_adder(width, final_depth, opt.final_mode);
@@ -376,7 +376,7 @@ struct ArithTreeWorker {
 			for (auto c : chain)
 				to_remove.insert(c);
 
-			emit_tree(operands, root->getPort(ID::Y), neg_compensation);
+			emit_tree(root, operands, root->getPort(ID::Y), neg_compensation);
 		}
 
 		for (auto cell : to_remove)
@@ -402,7 +402,7 @@ struct ArithTreeWorker {
 				continue;
 			if (!has_mul && operands.size() < 3)
 				continue;
-			emit_tree(operands, cell->getPort(ID::Y), neg_compensation);
+			emit_tree(cell, operands, cell->getPort(ID::Y), neg_compensation);
 			to_remove.insert(cell);
 		}
 		for (auto cell : to_remove)

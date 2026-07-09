@@ -27,9 +27,10 @@ struct MaccmapWorker
 {
 	std::vector<std::set<RTLIL::SigBit>> bits;
 	RTLIL::Module *module;
+	RTLIL::Cell *cell;
 	int width;
 
-	MaccmapWorker(RTLIL::Module *module, int width) : module(module), width(width)
+	MaccmapWorker(RTLIL::Module *module, RTLIL::Cell *cell, int width) : module(module), cell(cell), width(width)
 	{
 		bits.resize(width);
 	}
@@ -52,7 +53,7 @@ struct MaccmapWorker
 		a.extend_u0(width, is_signed);
 
 		if (do_subtract) {
-			a = module->Not(NEW_ID, a);
+			a = module->Not(NEW_ID2_SUFFIX("not"), a); // SILIMATE: Improve the naming
 			add(State::S1, 0);
 		}
 
@@ -73,13 +74,13 @@ struct MaccmapWorker
 		for (int i = 0; i < GetSize(b); i++)
 			if (is_signed && i+1 == GetSize(b))
 			{
-				a = {module->Not(NEW_ID, a.extract(i, width-i)), RTLIL::SigSpec(0, i)};
-				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
+				a = {module->Not(NEW_ID2_SUFFIX("not"), a.extract(i, width-i)), RTLIL::SigSpec(0, i)}; // SILIMATE: Improve the naming
+				add(module->And(NEW_ID2_SUFFIX("and"), a, RTLIL::SigSpec(b[i], width)), false, do_subtract); // SILIMATE: Improve the naming
 				add({b[i], RTLIL::SigSpec(0, i)}, false, do_subtract);
 			}
 			else
 			{
-				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
+				add(module->And(NEW_ID2_SUFFIX("and"), a, RTLIL::SigSpec(b[i], width)), false, do_subtract); // SILIMATE: Improve the naming
 				a = {a.extract(0, width-1), State::S0};
 			}
 	}
@@ -108,16 +109,16 @@ struct MaccmapWorker
 			in3 = in3.extract(start_index, stop_index-start_index);
 
 			int width = GetSize(in1);
-			RTLIL::Wire *w1 = module->addWire(NEW_ID, width);
-			RTLIL::Wire *w2 = module->addWire(NEW_ID, width);
+			RTLIL::Wire *w1 = module->addWire(NEW_ID2_SUFFIX("fa_y"), width); // SILIMATE: Improve the naming
+			RTLIL::Wire *w2 = module->addWire(NEW_ID2_SUFFIX("fa_x"), width); // SILIMATE: Improve the naming
 
-			RTLIL::Cell *cell = module->addCell(NEW_ID, ID($fa));
-			cell->setParam(ID::WIDTH, width);
-			cell->setPort(ID::A, in1);
-			cell->setPort(ID::B, in2);
-			cell->setPort(ID::C, in3);
-			cell->setPort(ID::Y, w1);
-			cell->setPort(ID::X, w2);
+			RTLIL::Cell *fa = module->addCell(NEW_ID2_SUFFIX("fa"), ID($fa)); // SILIMATE: Improve the naming
+			fa->setParam(ID::WIDTH, width);
+			fa->setPort(ID::A, in1);
+			fa->setPort(ID::B, in2);
+			fa->setPort(ID::C, in3);
+			fa->setPort(ID::Y, w1);
+			fa->setPort(ID::X, w2);
 
 			out1 = {out_zeros_msb, w1, out_zeros_lsb};
 			out2 = {out_zeros_msb, w2, out_zeros_lsb};
@@ -237,14 +238,14 @@ struct MaccmapWorker
 		}
 
 
-		RTLIL::Cell *c = module->addCell(NEW_ID, ID($alu));
+		RTLIL::Cell *c = module->addCell(NEW_ID2_SUFFIX("alu"), ID($alu)); // SILIMATE: Improve the naming
 		c->setPort(ID::A, summands.front());
 		c->setPort(ID::B, summands.back());
 		c->setPort(ID::CI, State::S0);
 		c->setPort(ID::BI, State::S0);
-		c->setPort(ID::Y, module->addWire(NEW_ID, width));
-		c->setPort(ID::X, module->addWire(NEW_ID, width));
-		c->setPort(ID::CO, module->addWire(NEW_ID, width));
+		c->setPort(ID::Y, module->addWire(NEW_ID2_SUFFIX("alu_y"), width)); // SILIMATE: Improve the naming
+		c->setPort(ID::X, module->addWire(NEW_ID2_SUFFIX("alu_x"), width)); // SILIMATE: Improve the naming
+		c->setPort(ID::CO, module->addWire(NEW_ID2_SUFFIX("alu_co"), width)); // SILIMATE: Improve the naming
 		c->fixup_parameters();
 
 		if (!tree_sum_bits.empty()) {
@@ -296,16 +297,16 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 		for (auto &term : macc.terms) {
 			summand_t this_summand;
 			if (GetSize(term.in_b)) {
-				this_summand.first = module->addWire(NEW_ID, width);
-				module->addMul(NEW_ID, term.in_a, term.in_b, this_summand.first, term.is_signed);
+				this_summand.first = module->addWire(NEW_ID2_SUFFIX("mul"), width); // SILIMATE: Improve the naming
+				module->addMul(NEW_ID2_SUFFIX("mul"), term.in_a, term.in_b, this_summand.first, term.is_signed); // SILIMATE: Improve the naming
 			} else if (GetSize(term.in_a) == 1 && GetSize(term.in_b) == 0 && !term.is_signed && !term.do_subtract) {
 				// Mimic old 'bit_terms' treatment in case it's relevant for performance,
 				// i.e. defer single-bit summands to be the last ones
 				bit_terms.append(term.in_a);
 				continue;
 			} else if (GetSize(term.in_a) != width) {
-				this_summand.first = module->addWire(NEW_ID, width);
-				module->addPos(NEW_ID, term.in_a, this_summand.first, term.is_signed);
+				this_summand.first = module->addWire(NEW_ID2_SUFFIX("pos"), width); // SILIMATE: Improve the naming
+				module->addPos(NEW_ID2_SUFFIX("pos"), term.in_a, this_summand.first, term.is_signed); // SILIMATE: Improve the naming
 			} else {
 				this_summand.first = term.in_a;
 			}
@@ -325,14 +326,14 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 			for (int i = 0; i < GetSize(summands); i += 2) {
 				if (i+1 < GetSize(summands)) {
 					summand_t this_summand;
-					this_summand.first = module->addWire(NEW_ID, width);
+					this_summand.first = module->addWire(NEW_ID2_SUFFIX("sum"), width); // SILIMATE: Improve the naming
 					this_summand.second = summands[i].second && summands[i+1].second;
 					if (summands[i].second == summands[i+1].second)
-						module->addAdd(NEW_ID, summands[i].first, summands[i+1].first, this_summand.first);
+						module->addAdd(NEW_ID2_SUFFIX("add"), summands[i].first, summands[i+1].first, this_summand.first); // SILIMATE: Improve the naming
 					else if (summands[i].second)
-						module->addSub(NEW_ID, summands[i+1].first, summands[i].first, this_summand.first);
+						module->addSub(NEW_ID2_SUFFIX("sub"), summands[i+1].first, summands[i].first, this_summand.first); // SILIMATE: Improve the naming
 					else if (summands[i+1].second)
-						module->addSub(NEW_ID, summands[i].first, summands[i+1].first, this_summand.first);
+						module->addSub(NEW_ID2_SUFFIX("sub"), summands[i].first, summands[i+1].first, this_summand.first); // SILIMATE: Improve the naming
 					else
 						log_abort();
 					new_summands.push_back(this_summand);
@@ -343,13 +344,13 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 		}
 
 		if (summands.front().second)
-			module->addNeg(NEW_ID, summands.front().first, cell->getPort(ID::Y));
+			module->addNeg(NEW_ID2_SUFFIX("neg"), summands.front().first, cell->getPort(ID::Y)); // SILIMATE: Improve the naming
 		else
 			module->connect(cell->getPort(ID::Y), summands.front().first);
 	}
 	else
 	{
-		MaccmapWorker worker(module, width);
+		MaccmapWorker worker(module, cell, width);
 		RTLIL::SigSpec bit_terms;
 
 		for (auto &term : macc.terms) {
