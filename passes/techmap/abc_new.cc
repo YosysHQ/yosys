@@ -191,10 +191,13 @@ struct AbcNewPass : public ScriptPass {
 				}
 
 				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir));
-				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
+				run(stringf("  debug write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
 				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options, tmpdir, tmpdir));
-				run(stringf("  read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
-							modname.c_str(), tmpdir.c_str(), tmpdir.c_str()));
+				run(stringf("  read_aiger -xaiger -module_name %s$abc9 %s/output.aig",
+							modname, tmpdir));
+				run(stringf("  debug abc_ops_reintegrate -map %s/input.map2", tmpdir));
+				//run(stringf("  debug read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
+				//			modname, tmpdir, tmpdir));
 				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
 					if (script_save.empty())
 						active_design->scratchpad_unset("abc9.script");

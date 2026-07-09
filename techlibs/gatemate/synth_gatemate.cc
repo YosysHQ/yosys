@@ -332,7 +332,7 @@ struct SynthGateMatePass : public ScriptPass
 					abc_args += " -dff";
 				}
 				if (abc_new) {
-					run("abc_new " + abc_args, "(with -luttree and -abc_new)");
+					run("abc_new -nocleanup " + abc_args, "(with -luttree and -abc_new)");
 				} else {
 					run("abc " + abc_args, "(with -luttree, without -abc_new)");
 				}
