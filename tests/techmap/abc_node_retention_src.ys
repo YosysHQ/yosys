@@ -1,0 +1,26 @@
+# Verify src attributes survive abc when node_retention is enabled, including
+# the LUT-mapped &put path (Abc_NtkFromMappedGia*) which previously dropped
+# Silimate node-retention origins for reconstructed internal nodes.
+read_verilog <<EOT
+module t(a, b, c, d, e, f, y);
+  input a, b, c, d, e, f;
+  output y;
+  wire t1 = a & b & c;
+  wire t2 = d | e | f;
+  wire t3 = t1 ^ t2;
+  wire t4 = (a | d) & (b | e) & (c | f);
+  assign y = t3 ^ t4;
+endmodule
+EOT
+hierarchy -top t
+proc
+opt_clean
+techmap
+aigmap
+scratchpad -set abc.node_retention 1
+# Force LUT mapping so &put uses Abc_NtkFromMappedGia (not cell-mapped &nf).
+abc -g AND,OR,XOR -script +&get,-n;&st;&if,-g,-K,4;&put
+
+# Every post-abc cell must carry a src attribute remapped from node retention.
+select -assert-min 1 t:*
+select -assert-count 0 t:* a:src %d
