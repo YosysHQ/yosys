@@ -22,8 +22,13 @@
 
 #include "kernel/yosys_common.h"
 #include "kernel/json.h"
+#include <filesystem>
+#include <string_view>
 
 YOSYS_NAMESPACE_BEGIN
+
+std::filesystem::path fixup_source_path (const char* source_file,
+	const std::filesystem::path &source_root, bool* skip_source_group = nullptr);
 
 class ContentListing {
 	vector<ContentListing> _content;
@@ -49,6 +54,7 @@ public:
 		_content.push_back({type, body, location});
 	}
 
+	bool has_source() const { return strlen(source_file) && strcmp(source_file, "unknown") != 0; }
 	bool has_content() const { return _content.size() != 0; }
 
 	vector<ContentListing>::const_iterator begin() const { return _content.cbegin(); }
@@ -90,7 +96,7 @@ public:
 		const source_location location = source_location::current()
 	);
 
-	Json to_json() const;
+	Json to_json(const std::filesystem::path &source_root) const;
 };
 
 class PrettyHelp

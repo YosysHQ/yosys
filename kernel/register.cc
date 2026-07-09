@@ -921,20 +921,10 @@ struct HelpPass : public Pass {
 			string source_file = pass->location.file_name();
 			bool has_source = source_file.compare("unknown") != 0;
 			std::filesystem::path source_path;
-			auto no_source_group = false;
+			auto skip_source_group = false;
+
 			if (has_source) {
-				source_path = std::filesystem::path(pass->location.file_name());
-				if (source_path.is_absolute()) {
-					// using proximate instead of relative means that we
-					// still get the source path if they aren't relative
-					auto proximate_path = std::filesystem::proximate(source_path, source_root);
-					if (proximate_path == std::filesystem::weakly_canonical(proximate_path))
-						// we're only interested if it's a subpath of our root dir
-						source_path = proximate_path;
-					else
-						// don't try to group external paths
-						no_source_group = true;
-				}
+				source_path = fixup_source_path(pass->location.file_name(), source_root, &skip_source_group);
 				source_file = source_path.string();
 			}
 
@@ -947,7 +937,7 @@ struct HelpPass : public Pass {
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
 				else if (has_source) {
-					if (source_path.has_parent_path() && !no_source_group)
+					if (source_path.has_parent_path() && !skip_source_group)
 						cmd_help.group = source_path.parent_path().string();
 				}
 				// implicit !has_source
@@ -973,7 +963,7 @@ struct HelpPass : public Pass {
 			json.entry("title", title);
 			json.name("content"); json.begin_array();
 			for (auto &content : cmd_help)
-				json.value(content.to_json());
+				json.value(content.to_json(source_root));
 			json.end_array();
 			json.entry("group", cmd_help.group);
 			json.entry("source_file", source_file);
