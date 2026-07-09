@@ -31,10 +31,6 @@
 YOSYS_NAMESPACE_BEGIN
 
 struct RTLILFrontendWorker {
-	// Forbid constants of more than 1 Gb.
-	// This will help us not explode on malicious RTLIL.
-	static constexpr int MAX_CONST_WIDTH = 1024 * 1024 * 1024;
-
 	std::istream *f = nullptr;
 	RTLIL::Design *design;
 	bool flag_nooverwrite = false;
@@ -283,7 +279,7 @@ struct RTLILFrontendWorker {
 			++idx;
 
 		std::vector<RTLIL::State> bits;
-		if (width > MAX_CONST_WIDTH)
+		if (width >= RTLIL::WIDTH_LIMIT)
 			error("Constant width %lld out of range before `%s`.", width, error_token());
 		bits.reserve(width);
 		int start_idx = idx;
@@ -532,8 +528,11 @@ struct RTLILFrontendWorker {
 				wire = current_module->addWire(std::move(*id));
 				break;
 			}
-			if (try_parse_keyword("width"))
+			if (try_parse_keyword("width")){
 				width = parse_integer();
+				if (width >= RTLIL::WIDTH_LIMIT)
+					error("Wire width %lld out of range before `%s`.", width, error_token());
+			}
 			else if (try_parse_keyword("upto"))
 				upto = true;
 			else if (try_parse_keyword("signed"))
@@ -589,8 +588,11 @@ struct RTLILFrontendWorker {
 				memory->name = std::move(*id);
 				break;
 			}
-			if (try_parse_keyword("width"))
+			if (try_parse_keyword("width")){
 				width = parse_integer();
+				if (width >= RTLIL::WIDTH_LIMIT)
+					error("Memory width %lld out of range before `%s`.", width, error_token());
+			}
 			else if (try_parse_keyword("size"))
 				size = parse_integer();
 			else if (try_parse_keyword("offset"))
