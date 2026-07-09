@@ -13,3 +13,4 @@ $(DOTS): counter.v counter.ys mycells.lib
 .PHONY: clean
 clean:
 	@rm -f *.dot
+	@rm -f synth.v
