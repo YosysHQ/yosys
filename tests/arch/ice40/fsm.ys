@@ -1,3 +1,5 @@
+scratchpad -set abc9.nocleanup 1
+
 read_verilog ../common/fsm.v
 hierarchy -top fsm
 proc

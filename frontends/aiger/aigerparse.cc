@@ -522,6 +522,7 @@ void AigerReader::parse_xaiger()
 				}
 
 				RTLIL::Cell *cell = module->addCell(stringf("$sc$aiger%d$%d", aiger_autoidx, rootNodeID), mapping_cell.type);
+				cell->set_bool_attribute(ID::abc9_cell);
 				cell->setPort(mapping_cell.out, output_sig);
 
 				for (unsigned j = 0; j < mapping_cell.ins.size(); ++j) {

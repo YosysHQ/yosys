@@ -123,7 +123,7 @@ struct Xaiger2Frontend : public Frontend {
 
 		std::string type;
 		while (map_file >> type) {
-			if (type == "pi") {
+			if (type == "input") {
 				int pi_idx;
 				int woffset;
 				std::string name;
@@ -398,7 +398,7 @@ struct Xaiger2Frontend : public Frontend {
 		map_file.close();
 		map_file.open(map_filename);
 		while (map_file >> type) {
-			if (type == "po") {
+			if (type == "output") {
 				int po_idx;
 				int woffset;
 				std::string name;
