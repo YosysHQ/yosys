@@ -29,14 +29,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static int clog2_int(int x)
-{
-	int r = 0;
-	while ((1 << r) < x)
-		r++;
-	return r;
-}
-
 // Pack a per-lane integer vector into a Const with elem_w bits per lane,
 // lane-major (lane k occupies bits [k*elem_w +: elem_w]).
 static Const pack_lanes(const vector<int> &vals, int elem_w)
@@ -61,6 +53,12 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	int max_field_w = 6;   // max index (dsel) element width
 	int max_cat_w = 6;     // max category width c
 	int max_attr_w = 8;    // max per-lane attr width for the xbar field gather
+	int max_gather_w = 31; // max per-slot width for the exclusive identity gather
+	                       // (pack_lanes packs each lane into < 32 bits)
+	int max_gather_cands = 8; // cap the exclusive identity-gather candidate sweep
+	// Thermometer exclusive scan is O(n log n * nb^2); keep nb small so emit
+	// stays cheap for max_n=64. Larger budgets fall back to binary sat-log.
+	int max_therm_nb = 8;
 
 	int regions_rewritten = 0;
 	int cells_added = 0;
@@ -213,6 +211,108 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			r.slot[i] = rr.slot[n - 1 - i];
 		}
 		return r;
+	}
+
+	// ----------------------------------------------------------------
+	// Reference semantics of the "exclusive saturating" first-fit variant
+	// (no category, no broadcast). Enabled lanes are scanned in priority
+	// order and each takes the next free slot until the slot budget nb is
+	// exhausted; later requesters get no grant (rank 0, not done). This is
+	// the qor_vmw_slot_lane shape.
+	//
+	//   rank[i] = popcount(en[<i])   (exclusive prefix count in prio order)
+	//   grant[i] = en[i] && rank[i] < nb
+	//   dsel[i]  = grant[i] ? rank[i] : 0
+	// ----------------------------------------------------------------
+	struct ExclResult {
+		vector<int> dsel; // per-lane rank when granted, else 0
+		vector<int> done; // per-lane grant
+	};
+
+	ExclResult compute_alloc_exclusive(const vector<int> &en, int n, int nb) const
+	{
+		ExclResult r;
+		r.dsel.assign(n, 0);
+		r.done.assign(n, 0);
+		int acc = 0;
+		for (int i = 0; i < n; i++) {
+			int rank = acc; // exclusive: count of enables strictly before i
+			bool grant = en[i] && rank < nb;
+			r.done[i] = grant ? 1 : 0;
+			r.dsel[i] = grant ? rank : 0;
+			acc += en[i] ? 1 : 0;
+		}
+		return r;
+	}
+
+	// Direction-aware wrapper: reverse for MSB-first scans.
+	ExclResult compute_alloc_exclusive_dir(const vector<int> &en, int n, int nb,
+	                                       bool msb_first) const
+	{
+		if (!msb_first)
+			return compute_alloc_exclusive(en, n, nb);
+		vector<int> er(n);
+		for (int i = 0; i < n; i++)
+			er[i] = en[n - 1 - i];
+		ExclResult rr = compute_alloc_exclusive(er, n, nb);
+		ExclResult r;
+		r.dsel.assign(n, 0);
+		r.done.assign(n, 0);
+		for (int i = 0; i < n; i++) {
+			r.dsel[i] = rr.dsel[n - 1 - i];
+			r.done[i] = rr.done[n - 1 - i];
+		}
+		return r;
+	}
+
+	// Enable-only test vectors for the exclusive variant: O(n) structured
+	// cases (empty / full / singles / prefixes / suffixes) that straddle the
+	// nb saturation boundary, plus a handful of pseudo-random masks.
+	vector<vector<int>> make_exclusive_vectors(int n) const
+	{
+		vector<vector<int>> vs;
+		vs.push_back(vector<int>(n, 0)); // all off
+		vs.push_back(vector<int>(n, 1)); // all on (drives ranks past nb)
+		for (int k = 0; k < n; k++) {    // single enabled lane
+			vector<int> e(n, 0);
+			e[k] = 1;
+			vs.push_back(e);
+		}
+		for (int k = 0; k < n; k++) {    // prefix en[k..n-1]
+			vector<int> e(n, 0);
+			for (int j = k; j < n; j++)
+				e[j] = 1;
+			vs.push_back(e);
+		}
+		for (int k = 0; k < n; k++) {    // suffix en[0..k]
+			vector<int> e(n, 0);
+			for (int j = 0; j <= k; j++)
+				e[j] = 1;
+			vs.push_back(e);
+		}
+		uint64_t lfsr = 0xC0FFEE1234567ULL;
+		for (int r = 0; r < 24; r++) {
+			lfsr ^= lfsr << 13;
+			lfsr ^= lfsr >> 7;
+			lfsr ^= lfsr << 17;
+			vector<int> e(n);
+			for (int k = 0; k < n; k++)
+				e[k] = (lfsr >> (k % 64)) & 1;
+			vs.push_back(e);
+		}
+		return vs;
+	}
+
+	// Pack an enable pattern into the 2n-bit and2 enable signal: bit l and
+	// bit n+l both hold en[l], so the reconstructed AND en[l]&en[n+l]==en[l].
+	Const pack_exclusive_and2(const vector<int> &en, int n) const
+	{
+		vector<int> both(2 * n, 0);
+		for (int l = 0; l < n; l++) {
+			both[l] = en[l];
+			both[n + l] = en[l];
+		}
+		return pack_lanes(both, 1);
 	}
 
 	// ----------------------------------------------------------------
@@ -466,6 +566,13 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		// first same-category leader at or before them in priority order,
 		// regardless of their own enable (the "same_cat matrix" RTL shape).
 		bool coalesce = false;
+		// Exclusive saturating first-fit (no category / broadcast): each
+		// enabled lane takes the next free slot until nb slots are used.
+		bool exclusive = false;
+		// The enable was reconstructed as the AND of two leaf runs (en_sig is
+		// the 2n-bit concatenation runA ++ runB; en[l] = runA[l] & runB[l]).
+		bool exclusive_and2 = false;
+		int nb = 0; // learned slot budget for the exclusive variant
 		int c = 0;
 		bool msb_first = false;
 		Cell *anchor = nullptr;
@@ -553,6 +660,257 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			acc = SigSpec(sum);
 		}
 		total = acc;
+	}
+
+	// ---- exclusive-variant emit helpers ----
+
+	// slot < nb, as a 1-bit $lt against a constant (cnt_w-wide compare).
+	SigBit emit_lt_const(Cell *anchor, SigSpec a, int value, int width)
+	{
+		Cell *cell = anchor;
+		a = zext_sig(a, width);
+		Wire *o = module->addWire(NEW_ID2_SUFFIX("ffa_excl_lt"), 1);
+		module->addLt(NEW_ID2_SUFFIX("ffa_excl_lt_cell"), a, Const(value, width), o);
+		cells_added++;
+		return SigBit(o, 0);
+	}
+
+	// grant[l] = en[l] && (slot[l] < nb): the saturating first-fit gate. The
+	// prefix count feeding slot is a plain $add cascade (no per-step mux), so
+	// opt_parallel_prefix -arith rebuilds it into a shared log-depth network.
+	SigBit emit_grant(Cell *anchor, SigBit en, SigSpec slot, int cnt_w, int nb)
+	{
+		SigBit lt = emit_lt_const(anchor, slot, nb, cnt_w);
+		return emit_and(anchor, en, lt);
+	}
+
+	// Saturating add: min(a + b, sat). Widen the add by 1 so two already-
+	// saturated operands cannot wrap (e.g. nb=4, cnt_w=3: 4+4 must stay 4,
+	// not 0). Fallback exclusive scan when nb is too large for a thermometer.
+	SigSpec emit_sat_add(Cell *anchor, SigSpec a, SigSpec b, int sat, int cnt_w)
+	{
+		Cell *cell = anchor;
+		int aw = cnt_w + 1;
+		a = zext_sig(a, aw);
+		b = zext_sig(b, aw);
+		Wire *sum = module->addWire(NEW_ID2_SUFFIX("ffa_sat_add"), aw);
+		module->addAdd(NEW_ID2_SUFFIX("ffa_sat_add_cell"), a, b, sum);
+		cells_added++;
+		Wire *ltw = module->addWire(NEW_ID2_SUFFIX("ffa_sat_lt"), 1);
+		module->addLt(NEW_ID2_SUFFIX("ffa_sat_lt_cell"), SigSpec(sum), Const(sat, aw), ltw,
+		              /*is_signed=*/false);
+		cells_added++;
+		SigSpec capped = emit_mux(anchor, Const(sat, aw), SigSpec(sum), SigBit(ltw));
+		return capped.extract(0, cnt_w);
+	}
+
+	// Hillis-Steele inclusive scan with saturating add; exclusive slot[i] =
+	// inclusive[i-1]. Used when nb > max_therm_nb.
+	void emit_prefix_count_sat_log(Cell *anchor, const vector<SigBit> &bits, int cnt_w,
+	                               int sat, vector<SigSpec> &slot, SigSpec &total)
+	{
+		int n = GetSize(bits);
+		slot.assign(n, SigSpec());
+		if (n == 0) {
+			total = Const(0, cnt_w);
+			return;
+		}
+		vector<SigSpec> cur(n);
+		for (int i = 0; i < n; i++)
+			cur[i] = zext_sig(SigSpec(bits[i]), cnt_w);
+
+		for (int d = 1; d < n; d <<= 1) {
+			vector<SigSpec> nxt = cur;
+			for (int i = d; i < n; i++)
+				nxt[i] = emit_sat_add(anchor, cur[i], cur[i - d], sat, cnt_w);
+			cur.swap(nxt);
+		}
+		total = cur[n - 1];
+		slot[0] = Const(0, cnt_w);
+		for (int i = 1; i < n; i++)
+			slot[i] = cur[i - 1];
+	}
+
+	// Thermometer bit k means count > k (i.e. count >= k+1), width nb.
+	// Merge: (a+b) > k iff exists i: a>=i && b>=(k+1-i).
+	SigSpec emit_therm_merge(Cell *anchor, SigSpec ta, SigSpec tb, int nb)
+	{
+		log_assert(GetSize(ta) == nb && GetSize(tb) == nb);
+		SigSpec out;
+		for (int k = 0; k < nb; k++) {
+			SigSpec terms;
+			for (int i = 0; i <= k + 1; i++) {
+				SigBit a_ge = (i == 0) ? State::S1 : ta[i - 1];
+				int bj = k + 1 - i;
+				SigBit b_ge = (bj == 0) ? State::S1 : tb[bj - 1];
+				terms.append(emit_and(anchor, a_ge, b_ge));
+			}
+			out.append(emit_reduce_or(anchor, terms));
+		}
+		return out;
+	}
+
+	// One-bit enable -> nb-bit thermometer (count 0 or 1).
+	SigSpec emit_therm_from_bit(SigBit b, int nb)
+	{
+		SigSpec t;
+		t.append(b);
+		for (int k = 1; k < nb; k++)
+			t.append(State::S0);
+		return t;
+	}
+
+	// Binary popcount of thermometer bits (= the saturated count). Tree-shaped
+	// so depth is O(log nb) rather than a serial ripple of nb adds.
+	SigSpec emit_therm_to_bin(Cell *anchor, SigSpec therm, int cnt_w)
+	{
+		Cell *cell = anchor;
+		vector<SigSpec> nodes;
+		for (auto bit : therm)
+			nodes.push_back(zext_sig(SigSpec(bit), cnt_w));
+		if (nodes.empty())
+			return Const(0, cnt_w);
+		while (GetSize(nodes) > 1) {
+			vector<SigSpec> nxt;
+			for (int i = 0; i + 1 < GetSize(nodes); i += 2) {
+				Wire *sum = module->addWire(NEW_ID2_SUFFIX("ffa_therm_bin"), cnt_w);
+				module->addAdd(NEW_ID2_SUFFIX("ffa_therm_bin_add"), nodes[i], nodes[i + 1], sum);
+				cells_added++;
+				nxt.push_back(SigSpec(sum));
+			}
+			if (GetSize(nodes) & 1)
+				nxt.push_back(nodes.back());
+			nodes.swap(nxt);
+		}
+		return nodes[0];
+	}
+
+	// count == s from thermometer (s in 0..nb-1): therm[s-1] & ~therm[s].
+	SigBit emit_therm_eq(Cell *anchor, SigSpec therm, int s, int nb)
+	{
+		log_assert(s >= 0 && s < nb && GetSize(therm) == nb);
+		if (s == 0)
+			return emit_not(anchor, therm[0]);
+		return emit_and(anchor, therm[s - 1], emit_not(anchor, therm[s]));
+	}
+
+	// Log-depth exclusive thermometer prefix (saturated at nb).
+	void emit_prefix_therm_log(Cell *anchor, const vector<SigBit> &bits, int nb,
+	                           vector<SigSpec> &therm_excl)
+	{
+		int n = GetSize(bits);
+		therm_excl.assign(n, SigSpec());
+		if (n == 0)
+			return;
+		vector<SigSpec> cur(n);
+		for (int i = 0; i < n; i++)
+			cur[i] = emit_therm_from_bit(bits[i], nb);
+
+		for (int d = 1; d < n; d <<= 1) {
+			vector<SigSpec> nxt = cur;
+			for (int i = d; i < n; i++)
+				nxt[i] = emit_therm_merge(anchor, cur[i], cur[i - d], nb);
+			cur.swap(nxt);
+		}
+		therm_excl[0] = Const(0, nb);
+		for (int i = 1; i < n; i++)
+			therm_excl[i] = cur[i - 1];
+	}
+
+	// Build priority-ordered enables for the exclusive scan.
+	void exclusive_en_prio(const Region &rg, vector<SigBit> &en_p, vector<int> &lane_of_p)
+	{
+		Cell *anchor = rg.anchor;
+		int n = rg.n;
+		SigSpec en = sigmap(rg.en_sig);
+		en_p.resize(n);
+		lane_of_p.resize(n);
+		for (int p = 0; p < n; p++) {
+			int l = rg.msb_first ? (n - 1 - p) : p;
+			lane_of_p[p] = l;
+			if (rg.exclusive_and2) {
+				log_assert(GetSize(en) == 2 * n);
+				en_p[p] = emit_and(anchor, en[l], en[n + l]);
+			} else {
+				en_p[p] = en[l];
+			}
+		}
+	}
+
+	// Exclusive scan via nb-bit thermometer (preferred for small nb).
+	void emit_scan_exclusive_therm(const Region &rg, vector<SigBit> &leader,
+	                               vector<SigSpec> &therm, vector<SigBit> &grant,
+	                               vector<SigSpec> &slot, int cnt_w)
+	{
+		Cell *anchor = rg.anchor;
+		int n = rg.n, nb = rg.nb;
+		vector<SigBit> en_p;
+		vector<int> lane_of_p;
+		exclusive_en_prio(rg, en_p, lane_of_p);
+
+		vector<SigSpec> therm_p;
+		emit_prefix_therm_log(anchor, en_p, nb, therm_p);
+
+		leader.assign(n, SigBit());
+		therm.assign(n, SigSpec());
+		grant.assign(n, SigBit());
+		slot.assign(n, SigSpec());
+		for (int p = 0; p < n; p++) {
+			int l = lane_of_p[p];
+			leader[l] = en_p[p];
+			therm[l] = therm_p[p];
+			// grant = en && (count < nb) = en && ~(count > nb-1)
+			grant[l] = emit_and(anchor, en_p[p], emit_not(anchor, therm_p[p][nb - 1]));
+			slot[l] = emit_therm_to_bin(anchor, therm_p[p], cnt_w);
+		}
+	}
+
+	// Exclusive scan via narrow saturating binary prefix (large-nb fallback).
+	void emit_scan_exclusive_bin(const Region &rg, vector<SigBit> &leader,
+	                             vector<SigSpec> &slot, vector<SigBit> &grant, int cnt_w)
+	{
+		Cell *anchor = rg.anchor;
+		int n = rg.n;
+		vector<SigBit> en_p;
+		vector<int> lane_of_p;
+		exclusive_en_prio(rg, en_p, lane_of_p);
+
+		vector<SigSpec> slot_p;
+		SigSpec total;
+		emit_prefix_count_sat_log(anchor, en_p, cnt_w, rg.nb, slot_p, total);
+
+		leader.assign(n, SigBit());
+		slot.assign(n, SigSpec());
+		grant.assign(n, SigBit());
+		for (int p = 0; p < n; p++) {
+			int l = lane_of_p[p];
+			leader[l] = en_p[p];
+			slot[l] = slot_p[p];
+			grant[l] = emit_grant(anchor, en_p[p], slot_p[p], cnt_w, rg.nb);
+		}
+	}
+
+	// dsel gather for the exclusive variant: dsel[l] = grant[l] ? slot[l] : 0.
+	SigSpec emit_dsel_exclusive(const Region &rg, const vector<SigBit> &grant,
+	                            const vector<SigSpec> &slot, int cnt_w)
+	{
+		Cell *anchor = rg.anchor;
+		int n = rg.n, w = rg.field_w;
+		SigSpec out;
+		for (int l = 0; l < n; l++) {
+			SigSpec val = emit_mux(anchor, Const(0, cnt_w), slot[l], grant[l]);
+			out.append(zext_sig(val, w));
+		}
+		return out;
+	}
+
+	// done[l] = grant[l] (the same saturating first-fit gate).
+	SigSpec emit_exclusive_done(const Region &rg, const vector<SigBit> &grant)
+	{
+		SigSpec out;
+		for (int l = 0; l < rg.n; l++)
+			out.append(grant[l]);
+		return out;
 	}
 
 	// Emit the shared leader/slot scan from (en,bc,cat). Fills leader[],
@@ -729,6 +1087,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		int a = 0;        // attr width per lane
 		vector<Const> ftab; // 2^a entries, slot_w bits each
 		vector<FieldKey> attr_keys;
+		bool identity = false; // exclusive identity gather (slot_data[s]=data[leader])
 		Cell *anchor = nullptr;
 		pool<Cell *> cut_cells;
 	};
@@ -767,6 +1126,40 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			SigSpec block = emit_bmux(anchor, table, attr_gather, xb.slot_w);
 			SigSpec gated = emit_mux(anchor, Const(0, xb.slot_w), block, valid);
 			out.append(gated);
+		}
+		return out;
+	}
+
+	// Exclusive identity gather: slot_data[s] = data[leader at slot s]. Prefer
+	// thermometer equality when available (avoids binary $eq on the critical
+	// path). Emitted as a one-hot $pmux (default 0) — compact vs OR-of-ANDs
+	// for wide payloads, and maps to a mux tree downstream.
+	SigSpec emit_exclusive_gather(const Region &rg, const XbarCand &xb,
+	                              const vector<SigBit> &grant, const vector<SigSpec> &slot,
+	                              int cnt_w, const vector<SigSpec> *therm = nullptr)
+	{
+		Cell *anchor = rg.anchor;
+		Cell *cell = anchor;
+		int n = rg.n, a = xb.a, slots = xb.nb, slot_w = xb.slot_w;
+		SigSpec attr = sigmap(xb.attr_sig);
+		bool use_therm = therm && GetSize(*therm) == n && slots == rg.nb;
+		SigSpec out;
+		for (int s = 0; s < slots; s++) {
+			SigSpec sel, cases;
+			for (int l = 0; l < n; l++) {
+				SigBit eqs;
+				if (use_therm)
+					eqs = emit_therm_eq(anchor, (*therm)[l], s, rg.nb);
+				else
+					eqs = emit_eq_const(anchor, slot[l], s, cnt_w);
+				sel.append(emit_and(anchor, grant[l], eqs));
+				cases.append(attr.extract(l * a, a));
+			}
+			Wire *y = module->addWire(NEW_ID2_SUFFIX("ffa_excl_gather"), slot_w);
+			module->addPmux(NEW_ID2_SUFFIX("ffa_excl_gather_pmux"), Const(0, slot_w),
+			                cases, sel, y);
+			cells_added++;
+			out.append(SigSpec(y));
 		}
 		return out;
 	}
@@ -870,13 +1263,134 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		log_debug("  %d width-%d lane bus candidate(s)\n", GetSize(lane_buses), n);
 		for (auto &b : lane_buses)
 			log_debug("    lane bus %s\n", b.name.c_str());
-		if (GetSize(lane_buses) < 1)
-			return false;
-
 		ConstEval ce(module);
 		int64_t cone_est = GetSize(cone_cells) + 16;
 		const int max_fp = 48;
 		int fp = 0;
+
+		// === Exclusive saturating first-fit (no category / broadcast) ===
+		// Prefer a named width-n enable bus (e.g. \req): the dsel cone then
+		// closes with no extra leaves, so the prefix-count leaves stay off the
+		// launch-flop data words the identity gather reads.
+		for (auto &en_bus : lane_buses) {
+			if (fp >= max_fp || walk_exhausted() || eval_exhausted())
+				break;
+			pool<SigBit> en_bits = sig_bit_pool(en_bus.sig);
+			pool<SigBit> extra_ex;
+			if (!cut_cone_extra_leaves(root_sig, en_bits, GetSize(cone_cells) + 32, extra_ex, 8))
+				continue;
+			if (!extra_ex.empty())
+				continue; // exclusive variant has no category leaves
+			pool<SigBit> hit_ex;
+			pool<Cell *> cut_ex;
+			if (!cut_cone_walk(root_sig, en_bits, GetSize(cone_cells) + 32, &hit_ex, &cut_ex,
+			                   &en_bits, &leaf_bits, &cone_cells)) {
+				log_debug("  en=%s: exclusive cut not closed (%s)\n", en_bus.name.c_str(),
+				          last_cut_fail.c_str());
+				continue;
+			}
+			bool conflict_ex = false;
+			for (auto bit : en_bits) {
+				Cell *drv = bit_to_driver.at(bit, nullptr);
+				if (drv != nullptr && cut_ex.count(drv)) { conflict_ex = true; break; }
+			}
+			if (conflict_ex)
+				continue;
+			for (int dir = 0; dir < 2; dir++) {
+				if (fp >= max_fp || eval_exhausted())
+					break;
+				bool msb_first = (dir == 1);
+				int nb = 0;
+				if (!learn_exclusive_nb(ce, root_sig, n, field_w, en_bus.sig, msb_first,
+				                        cone_est, nb))
+					continue;
+				fp++;
+				bool m = fingerprint_dsel_exclusive(ce, root_sig, n, field_w, en_bus.sig,
+				                                    msb_first, nb, cone_est);
+				log_debug("  en=%s exclusive nb=%d %s: fingerprint %s\n", en_bus.name.c_str(),
+				          nb, msb_first ? "MSB" : "LSB", m ? "MATCH" : "no");
+				if (m) {
+					out.dsel_sig = root_sig;
+					out.dsel_name = root_name;
+					out.n = n;
+					out.field_w = field_w;
+					out.en_sig = en_bus.sig;
+					out.has_bc = false;
+					out.coalesce = false;
+					out.c = 0;
+					out.exclusive = true;
+					out.exclusive_and2 = false;
+					out.nb = nb;
+					out.msb_first = msb_first;
+					out.dsel_cut_cells = cut_ex;
+					find_anchor_driver(root_sig, out.anchor);
+					return true;
+				}
+			}
+		}
+
+		// Fallback: reconstruct the enable as the AND of two leaf runs on the
+		// launch flop (e.g. req = data_q[N-1:0] & data_q[2N-1:N]). Only tried
+		// if a named enable bus did not match, so \req stays preferred.
+		{
+			auto pairs = pair_and2_leaf_runs(leaf_bits, n);
+			for (auto &pr : pairs) {
+				if (fp >= max_fp || walk_exhausted() || eval_exhausted())
+					break;
+				SigSpec en2;
+				en2.append(pr.first);
+				en2.append(pr.second);
+				pool<SigBit> en_bits = sig_bit_pool(en2);
+				pool<SigBit> hit_ex;
+				pool<Cell *> cut_ex;
+				if (!cut_cone_walk(root_sig, en_bits, GetSize(cone_cells) + 32, &hit_ex, &cut_ex,
+				                   &en_bits, &leaf_bits, &cone_cells)) {
+					log_debug("  en=and2(leaves): cut not closed (%s)\n", last_cut_fail.c_str());
+					continue;
+				}
+				bool conflict_ex = false;
+				for (auto bit : en_bits) {
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					if (drv != nullptr && cut_ex.count(drv)) { conflict_ex = true; break; }
+				}
+				if (conflict_ex)
+					continue;
+				for (int dir = 0; dir < 2; dir++) {
+					if (fp >= max_fp || eval_exhausted())
+						break;
+					bool msb_first = (dir == 1);
+					int nb = 0;
+					if (!learn_exclusive_nb_and2(ce, root_sig, n, field_w, en2, msb_first,
+					                             cone_est, nb))
+						continue;
+					fp++;
+					bool m = fingerprint_dsel_exclusive_and2(ce, root_sig, n, field_w, en2,
+					                                         msb_first, nb, cone_est);
+					log_debug("  en=and2(leaves) exclusive nb=%d %s: fingerprint %s\n", nb,
+					          msb_first ? "MSB" : "LSB", m ? "MATCH" : "no");
+					if (m) {
+						out.dsel_sig = root_sig;
+						out.dsel_name = root_name;
+						out.n = n;
+						out.field_w = field_w;
+						out.en_sig = en2;
+						out.has_bc = false;
+						out.coalesce = false;
+						out.c = 0;
+						out.exclusive = true;
+						out.exclusive_and2 = true;
+						out.nb = nb;
+						out.msb_first = msb_first;
+						out.dsel_cut_cells = cut_ex;
+						find_anchor_driver(root_sig, out.anchor);
+						return true;
+					}
+				}
+			}
+		}
+
+		if (GetSize(lane_buses) < 1)
+			return false;
 
 		for (auto &en_bus : lane_buses) {
 			if (fp >= max_fp || walk_exhausted() || eval_exhausted())
@@ -1031,6 +1545,210 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 				int exp = ar.dsel[k] & ((1 << field_w) - 1);
 				if (got != exp)
 					return false;
+			}
+		}
+		return true;
+	}
+
+	// ----------------------------------------------------------------
+	// Exclusive-variant learn + fingerprint.
+	// ----------------------------------------------------------------
+	// Learn the slot budget nb: drive all lanes enabled and read the dsel
+	// root. In priority order the granted lanes take ranks 0,1,2,...,nb-1 and
+	// later lanes saturate to 0, so nb is the length of the leading 0,1,2,...
+	// run. Returns false if the very first lane is nonzero (not exclusive).
+	bool learn_exclusive_nb(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	                        const SigSpec &en_sig, bool msb_first, int64_t cone_est, int &nb)
+	{
+		vector<int> en(n, 1);
+		vector<std::pair<SigSpec, Const>> sets;
+		sets.push_back({sigmap(en_sig), pack_lanes(en, 1)});
+		Const res;
+		if (!eval_root(ce, sets, root, res, cone_est))
+			return false;
+		auto lane_of = [&](int p) { return msb_first ? (n - 1 - p) : p; };
+		nb = n;
+		for (int p = 0; p < n; p++) {
+			int v = lane_val(res, lane_of(p), field_w);
+			if (v != p) {
+				nb = p;
+				break;
+			}
+		}
+		return nb >= 1 && nb <= (1 << field_w);
+	}
+
+	// Same, for the and2 enable (drive both run halves so every lane's AND
+	// enable is asserted).
+	bool learn_exclusive_nb_and2(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	                             const SigSpec &en_sig, bool msb_first, int64_t cone_est, int &nb)
+	{
+		vector<int> en(n, 1);
+		vector<std::pair<SigSpec, Const>> sets;
+		sets.push_back({sigmap(en_sig), pack_exclusive_and2(en, n)});
+		Const res;
+		if (!eval_root(ce, sets, root, res, cone_est))
+			return false;
+		auto lane_of = [&](int p) { return msb_first ? (n - 1 - p) : p; };
+		nb = n;
+		for (int p = 0; p < n; p++) {
+			int v = lane_val(res, lane_of(p), field_w);
+			if (v != p) {
+				nb = p;
+				break;
+			}
+		}
+		return nb >= 1 && nb <= (1 << field_w);
+	}
+
+	// Fingerprint a candidate dsel region against the exclusive saturating
+	// closed form for the given direction and learned nb.
+	bool fingerprint_dsel_exclusive(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	                                const SigSpec &en_sig, bool msb_first, int nb,
+	                                int64_t cone_est)
+	{
+		vector<vector<int>> vs = make_exclusive_vectors(n);
+		SigSpec en_s = sigmap(en_sig);
+		for (auto &e : vs) {
+			vector<std::pair<SigSpec, Const>> sets;
+			sets.push_back({en_s, pack_lanes(e, 1)});
+			Const res;
+			if (!eval_root(ce, sets, root, res, cone_est))
+				return false;
+			ExclResult ar = compute_alloc_exclusive_dir(e, n, nb, msb_first);
+			for (int k = 0; k < n; k++) {
+				int got = lane_val(res, k, field_w);
+				int exp = ar.dsel[k] & ((1 << field_w) - 1);
+				if (got != exp)
+					return false;
+			}
+		}
+		return true;
+	}
+
+	bool fingerprint_dsel_exclusive_and2(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	                                     const SigSpec &en_sig, bool msb_first, int nb,
+	                                     int64_t cone_est)
+	{
+		vector<vector<int>> vs = make_exclusive_vectors(n);
+		SigSpec en_s = sigmap(en_sig);
+		for (auto &e : vs) {
+			vector<std::pair<SigSpec, Const>> sets;
+			sets.push_back({en_s, pack_exclusive_and2(e, n)});
+			Const res;
+			if (!eval_root(ce, sets, root, res, cone_est))
+				return false;
+			ExclResult ar = compute_alloc_exclusive_dir(e, n, nb, msb_first);
+			for (int k = 0; k < n; k++) {
+				int got = lane_val(res, k, field_w);
+				int exp = ar.dsel[k] & ((1 << field_w) - 1);
+				if (got != exp)
+					return false;
+			}
+		}
+		return true;
+	}
+
+	// Fingerprint a candidate done bus == grant[] for the exclusive region.
+	bool fingerprint_done_exclusive(ConstEval &ce, const SigSpec &done_root, const Region &rg,
+	                                int64_t cone_est)
+	{
+		int n = rg.n, nb = rg.nb;
+		vector<vector<int>> vs = make_exclusive_vectors(n);
+		SigSpec en_s = sigmap(rg.en_sig);
+		for (auto &e : vs) {
+			vector<std::pair<SigSpec, Const>> sets;
+			if (rg.exclusive_and2)
+				sets.push_back({en_s, pack_exclusive_and2(e, n)});
+			else
+				sets.push_back({en_s, pack_lanes(e, 1)});
+			Const res;
+			if (!eval_root(ce, sets, done_root, res, cone_est))
+				return false;
+			ExclResult ar = compute_alloc_exclusive_dir(e, n, nb, rg.msb_first);
+			for (int l = 0; l < n; l++) {
+				int got = (l < GetSize(res) && res[l] == State::S1) ? 1 : 0;
+				if (got != ar.done[l])
+					return false;
+			}
+		}
+		return true;
+	}
+
+	// Deterministic per-(vector,lane) payload for the identity-gather probe.
+	int gather_payload(int vidx, int lane, int a) const
+	{
+		uint64_t x = (uint64_t)(vidx * 2654435761u) ^ ((uint64_t)(lane + 1) * 0x9E3779B1u);
+		x ^= x >> 13;
+		x *= 0xff51afd7ed558ccdULL;
+		x ^= x >> 33;
+		uint64_t mask = (a >= 31) ? 0x7fffffffULL : ((1ULL << a) - 1);
+		return (int)(x & mask);
+	}
+
+	// Fingerprint the exclusive identity gather: with (dsel,done) forced to
+	// the reference allocation and per-lane data forced, slot s must equal
+	// the data of the leader that took slot s (bit-for-bit), and 0 when no
+	// leader took slot s. The enable is NOT forced: (dsel,done) are cut, so
+	// the gather is a pure function of (dsel,done,data), and for the and2
+	// enable the en leaves overlap the low data words -- forcing en here would
+	// double-assign those bits, so we drive only (dsel,done,data).
+	bool fingerprint_gather_exclusive(ConstEval &ce, const SigSpec &root, const Region &rg,
+	                                  const SigSpec &dsel_sig, const SigSpec &done_sig,
+	                                  bool has_done, const SigSpec &attr_sig, int a,
+	                                  int slots, int slot_w, int64_t cone_est,
+	                                  const char *name, const SigSpec &hold_q = SigSpec())
+	{
+		int n = rg.n, nb = rg.nb, field_w = rg.field_w;
+		SigSpec dsel_s = sigmap(dsel_sig);
+		SigSpec done_s = has_done ? sigmap(done_sig) : SigSpec();
+		SigSpec attr_s = sigmap(attr_sig);
+		SigSpec en_s = sigmap(rg.en_sig);
+
+		vector<vector<int>> vs = make_exclusive_vectors(n);
+		int vidx = 0;
+		for (auto &e : vs) {
+			vidx++;
+			ExclResult ar = compute_alloc_exclusive_dir(e, n, nb, rg.msb_first);
+			vector<int> data(n);
+			for (int l = 0; l < n; l++)
+				data[l] = gather_payload(vidx, l, a);
+
+			vector<std::pair<SigSpec, Const>> sets;
+			sets.push_back({dsel_s, pack_lanes(ar.dsel, field_w)});
+			if (has_done)
+				sets.push_back({done_s, pack_lanes(ar.done, 1)});
+			else if (!rg.exclusive_and2)
+				// No matched done bus: the gather derives done from the enable
+				// internally, so force the enable too (safe only when it does
+				// not overlap the data words -- i.e. not the and2 case).
+				sets.push_back({en_s, pack_lanes(e, 1)});
+			sets.push_back({attr_s, pack_lanes(data, a)});
+			if (GetSize(hold_q) > 0)
+				sets.push_back({hold_q, Const(State::S0, GetSize(hold_q))});
+
+			Const res;
+			if (!eval_root(ce, sets, root, res, cone_est)) {
+				log_debug("  excl-gather %s: fingerprint eval failed\n", name);
+				return false;
+			}
+			for (int s = 0; s < slots; s++) {
+				int leader_lane = -1;
+				for (int l = 0; l < n; l++)
+					if (ar.done[l] && ar.dsel[l] == s) {
+						leader_lane = l;
+						break;
+					}
+				for (int b = 0; b < slot_w; b++) {
+					bool got = (s * slot_w + b < GetSize(res)) &&
+					           res[s * slot_w + b] == State::S1;
+					bool exp = (leader_lane >= 0) && ((data[leader_lane] >> b) & 1);
+					if (got != exp) {
+						log_debug("  excl-gather %s: fingerprint mismatch slot %d bit %d\n",
+						          name, s, b);
+						return false;
+					}
+				}
 			}
 		}
 		return true;
@@ -1219,6 +1937,432 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		return catval;
 	}
 
+	// ----------------------------------------------------------------
+	// Exclusive-variant enable reconstruction and identity gather.
+	// ----------------------------------------------------------------
+	bool is_gather_ff(Cell *c)
+	{
+		return is_clocked_ff(c);
+	}
+
+	// Reconstruct the enable as the AND of two n-bit leaf runs. The common
+	// case is a contiguous 2n-bit (or longer) run on the launch flop (e.g.
+	// req = data_q[N-1:0] & data_q[2N-1:N]) split into halves; pairs of
+	// distinct n-bit runs are also offered. Runs come from the dsel cone
+	// leaves. Longer-than-2n runs yield aligned 2n windows (capped) so a
+	// wide flop Q that also feeds payload muxes still yields the enable pair.
+	vector<std::pair<SigSpec, SigSpec>> pair_and2_leaf_runs(const pool<SigBit> &leaf_bits, int n)
+	{
+		vector<std::pair<SigSpec, SigSpec>> pairs;
+		std::map<Wire *, std::set<int>> wire_offsets;
+		for (auto b : leaf_bits)
+			if (b.wire)
+				wire_offsets[b.wire].insert(b.offset);
+		struct Run { Wire *w; int start; int len; };
+		vector<Run> runs;
+		for (auto &kv : wire_offsets) {
+			Wire *w = kv.first;
+			int run_start = -1, prev = -2;
+			for (int o : kv.second) {
+				if (o != prev + 1) {
+					if (run_start >= 0)
+						runs.push_back({w, run_start, prev - run_start + 1});
+					run_start = o;
+				}
+				prev = o;
+			}
+			if (run_start >= 0)
+				runs.push_back({w, run_start, prev - run_start + 1});
+		}
+		auto push_halves = [&](Wire *w, int start) {
+			SigSpec a, b;
+			for (int i = 0; i < n; i++)
+				a.append(SigBit(w, start + i));
+			for (int i = 0; i < n; i++)
+				b.append(SigBit(w, start + n + i));
+			pairs.push_back({a, b});
+		};
+		// Split contiguous >=2n runs into low/high halves (aligned windows).
+		const int max_windows = 4;
+		for (auto &r : runs) {
+			if (r.len < 2 * n)
+				continue;
+			int windows = 0;
+			for (int off = 0; off + 2 * n <= r.len && windows < max_windows; off += n) {
+				push_halves(r.w, r.start + off);
+				windows++;
+				if (GetSize(pairs) >= 16)
+					return pairs;
+			}
+		}
+		// Pairs of distinct n-runs.
+		vector<SigSpec> nruns;
+		for (auto &r : runs) {
+			if (r.len < n)
+				continue;
+			// Exact n-run, or aligned n-windows from a longer run (capped).
+			int lim = (r.len == n) ? 1 : std::min(max_windows, r.len / n);
+			for (int w = 0; w < lim; w++) {
+				SigSpec s;
+				for (int i = 0; i < n; i++)
+					s.append(SigBit(r.w, r.start + w * n + i));
+				nruns.push_back(s);
+			}
+		}
+		for (int i = 0; i < GetSize(nruns); i++)
+			for (int j = i + 1; j < GetSize(nruns); j++) {
+				pairs.push_back({nruns[i], nruns[j]});
+				if (GetSize(pairs) >= 16)
+					return pairs;
+			}
+		return pairs;
+	}
+
+	// Find a width-n bus that equals the exclusive grant/done vector.
+	bool match_exclusive_done(const Region &rg, SigSpec &done_sig)
+	{
+		int n = rg.n;
+		ConstEval ce(module);
+		vector<SigSpec> cands;
+		pool<SigSpec> seen;
+		SigSpec en_map = sigmap(rg.en_sig);
+		SigSpec dsel_map = sigmap(rg.dsel_sig);
+		auto add = [&](const SigSpec &raw) {
+			SigSpec s = sigmap(raw);
+			if (GetSize(s) != n || !sig_bus_ok(s))
+				return;
+			if (s == dsel_map || s == en_map)
+				return;
+			if (root_claimed(s))
+				return;
+			if (!seen.insert(s).second)
+				return;
+			cands.push_back(raw);
+		};
+		for (auto w : module->wires())
+			if (GetSize(w) == n)
+				add(SigSpec(w));
+		for (auto c : module->cells())
+			if (is_gather_ff(c) && c->hasPort(ID::D) && GetSize(c->getPort(ID::D)) == n)
+				add(c->getPort(ID::D));
+		vector<Wire *> all;
+		for (auto w : module->wires())
+			all.push_back(w);
+		for (auto &bus : collect_split_buses(all))
+			if (bus.entries == n && bus.elem_width == 1)
+				add(bus.sig);
+
+		pool<SigBit> allowed = sig_bit_pool(rg.en_sig);
+		int tried = 0;
+		for (auto &s : cands) {
+			if (tried >= 16 || walk_exhausted() || eval_exhausted())
+				break;
+			pool<Cell *> cone_cells;
+			pool<SigBit> leaf_bits;
+			int max_cone = std::max(512, max_n * 256);
+			int max_leaf = max_n * max_n + max_n * 64 + max_n;
+			if (!get_cone(s, cone_cells, leaf_bits, max_cone, max_leaf))
+				continue;
+			if (cone_cells.empty())
+				continue;
+			pool<SigBit> extra;
+			if (!cut_cone_extra_leaves(s, allowed, GetSize(cone_cells) + 32, extra, 8))
+				continue;
+			if (!extra.empty())
+				continue;
+			tried++;
+			int64_t cone_est = GetSize(cone_cells) + 16;
+			if (fingerprint_done_exclusive(ce, s, rg, cone_est)) {
+				done_sig = s;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Candidate identity-gather roots: per-slot flop-D packs grouped by the
+	// register-name stem (so lane_done_o_reg is not mixed with the
+	// slot_data_o_reg[*] array), plus split-array buses of nb equal-width
+	// elements (bypassing the dsel-root max_field_w cap).
+	struct GatherCand {
+		SigSpec sig;
+		std::string name;
+		int slots = 0;
+		int slot_w = 0;
+	};
+	vector<GatherCand> collect_exclusive_gather_cands(int nb)
+	{
+		vector<GatherCand> cands;
+		pool<SigSpec> seen;
+		auto add = [&](const SigSpec &sig, const std::string &nm, int slots, int slot_w) {
+			if (slots < 1 || slot_w < 1 || slot_w > max_gather_w)
+				return;
+			SigSpec s = sigmap(sig);
+			if (!sig_bus_ok(s) || root_claimed(s))
+				return;
+			if (!seen.insert(s).second)
+				return;
+			cands.push_back({sig, nm, slots, slot_w});
+		};
+
+		std::map<std::string, vector<std::pair<int, Cell *>>> ff_groups;
+		for (auto c : module->cells()) {
+			if (!is_gather_ff(c) || !c->hasPort(ID::Q) || !c->hasPort(ID::D))
+				continue;
+			SigSpec q = c->getPort(ID::Q);
+			if (q.empty() || !q[0].wire)
+				continue;
+			std::string base;
+			int idx = -1;
+			if (parse_indexed_port_name(q[0].wire, base, idx))
+				ff_groups[base].push_back({idx, c});
+			else
+				ff_groups[q[0].wire->name.str()].push_back({0, c});
+		}
+		for (auto &kv : ff_groups) {
+			auto entries = kv.second;
+			std::sort(entries.begin(), entries.end(),
+			          [](const std::pair<int, Cell *> &a, const std::pair<int, Cell *> &b) {
+			              return a.first < b.first;
+			          });
+			int slot_w = GetSize(entries.front().second->getPort(ID::D));
+			bool ok = true;
+			for (auto &e : entries)
+				if (GetSize(e.second->getPort(ID::D)) != slot_w) {
+					ok = false;
+					break;
+				}
+			if (!ok)
+				continue;
+			int slots = GetSize(entries);
+			SigSpec pack;
+			for (auto &e : entries)
+				pack.append(e.second->getPort(ID::D));
+			if (slots == nb)
+				add(pack, stringf("gather_ff[%s]", kv.first.c_str()), slots, slot_w);
+			else if (slots == 1 && nb > 1 && slot_w % nb == 0) {
+				// Single wide FF: Verific often packs Q as
+				// {slot[0], slot[1], ...} (slot0 in the MSBs). Fingerprint
+				// expects LSB-first slot packing, so reverse slot chunks when
+				// the MSB chunk is the lowest-index slot_* wire.
+				int sw = slot_w / nb;
+				SigSpec d = entries.front().second->getPort(ID::D);
+				SigSpec q = entries.front().second->getPort(ID::Q);
+				bool msb_slot0 = false;
+				if (GetSize(q) == GetSize(d) && GetSize(q) >= sw) {
+					int best_idx = 1 << 30;
+					int best_pos = -1;
+					for (int pos = 0; pos < GetSize(q); pos += sw) {
+						if (!q[pos].wire)
+							continue;
+						std::string qb;
+						int qi = -1;
+						if (!parse_indexed_port_name(q[pos].wire, qb, qi))
+							continue;
+						if (qi < best_idx) {
+							best_idx = qi;
+							best_pos = pos;
+						}
+					}
+					// Lowest slot index sits in the MSB chunk (near GetSize-sw).
+					msb_slot0 = (best_pos >= GetSize(q) - sw);
+				}
+				SigSpec ordered;
+				if (msb_slot0) {
+					for (int s = 0; s < nb; s++) {
+						int hi = GetSize(d) - s * sw;
+						ordered.append(d.extract(hi - sw, sw));
+					}
+				} else {
+					ordered = d;
+				}
+				add(ordered, stringf("gather_ff[%s]", kv.first.c_str()), nb, sw);
+			}
+		}
+
+		vector<Wire *> all;
+		for (auto w : module->wires())
+			all.push_back(w);
+		for (auto &bus : collect_split_buses(all)) {
+			if (bus.entries != nb)
+				continue;
+			if (bus.elem_width < 1 || bus.elem_width > max_gather_w)
+				continue;
+			add(bus.sig, bus.name, bus.entries, bus.elem_width);
+		}
+
+		if (GetSize(cands) > max_gather_cands)
+			cands.resize(max_gather_cands);
+		return cands;
+	}
+
+	// Try to match an exclusive identity gather rooted at `cand`. The gather
+	// cone is cut at (en, dsel, optional done); the remaining leaves are the
+	// per-lane data payloads. slot s must reproduce, bit-for-bit, the payload
+	// of the lane that took slot s.
+	bool match_exclusive_gather(const Region &rg, const GatherCand &cand,
+	                            const SigSpec &done_sig, bool has_done, XbarCand &out)
+	{
+		int slots = cand.slots;
+		int slot_w = cand.slot_w;
+		if (slot_w < 1 || slot_w > max_gather_w) {
+			log_debug("  excl-gather %s: slot_w=%d out of range\n", cand.name.c_str(), slot_w);
+			return false;
+		}
+		SigSpec root = sigmap(cand.sig);
+		pool<Cell *> cone_cells;
+		pool<SigBit> leaf_bits;
+		int max_cone = std::max(512, max_n * 256);
+		int max_leaf = max_n * max_n + max_n * 64 + max_n;
+		if (!get_cone(root, cone_cells, leaf_bits, max_cone, max_leaf))
+			return false;
+		if (cone_cells.empty())
+			return false;
+
+		pool<SigBit> allowed = sig_bit_pool(rg.en_sig);
+		for (auto bit : sig_bit_pool(rg.dsel_sig))
+			allowed.insert(bit);
+		if (has_done)
+			for (auto bit : sig_bit_pool(done_sig))
+				allowed.insert(bit);
+		// Pre-opt $dff hold muxes feed Q back into D; cut those Q bits so they
+		// are not mistaken for payload attrs (opt rewrites them to $dffe).
+		SigSpec hold_q;
+		{
+			pool<SigBit> root_bits = sig_bit_pool(root);
+			pool<SigBit> hold_seen;
+			for (auto c : module->cells()) {
+				if (!is_gather_ff(c) || !c->hasPort(ID::D) || !c->hasPort(ID::Q))
+					continue;
+				bool overlaps = false;
+				for (auto bit : sigmap(c->getPort(ID::D)))
+					if (root_bits.count(bit)) {
+						overlaps = true;
+						break;
+					}
+				if (!overlaps)
+					continue;
+				for (auto bit : sigmap(c->getPort(ID::Q)))
+					if (bit.wire && hold_seen.insert(bit).second) {
+						allowed.insert(bit);
+						hold_q.append(bit);
+					}
+			}
+		}
+
+		pool<SigBit> extra;
+		if (!cut_cone_extra_leaves(root, allowed, GetSize(cone_cells) + 32, extra,
+		                           rg.n * max_gather_w + 8)) {
+			log_debug("  excl-gather %s: too many extra leaves\n", cand.name.c_str());
+			return false;
+		}
+		// attr = extra leaves, plus the and2 enable leaves (the low data words,
+		// which were cut above but belong to lanes 0/1's payload).
+		pool<SigBit> attr_bits = extra;
+		if (rg.exclusive_and2)
+			for (auto bit : sig_bit_pool(rg.en_sig))
+				attr_bits.insert(bit);
+
+		SigSpec attr_sig;
+		int a = 0;
+		vector<FieldKey> attr_keys;
+		if (!group_lane_field(attr_bits, rg.n, attr_sig, a, &attr_keys)) {
+			log_debug("  excl-gather %s: attr grouping failed (%d bits)\n",
+			          cand.name.c_str(), GetSize(attr_bits));
+			return false;
+		}
+		if (a != slot_w) {
+			log_debug("  excl-gather %s: attr width %d != slot_w %d\n",
+			          cand.name.c_str(), a, slot_w);
+			return false;
+		}
+
+		pool<SigBit> allowed2 = allowed;
+		for (auto bit : sig_bit_pool(attr_sig))
+			allowed2.insert(bit);
+		pool<SigBit> hit;
+		pool<Cell *> cut_cells;
+		if (!cut_cone_walk(root, allowed2, GetSize(cone_cells) + 32, &hit, &cut_cells,
+		                   &allowed2, &leaf_bits, &cone_cells)) {
+			log_debug("  excl-gather %s: cut not closed (%s)\n", cand.name.c_str(),
+			          last_cut_fail.c_str());
+			return false;
+		}
+		for (auto bit : allowed2) {
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv != nullptr && cut_cells.count(drv)) {
+				log_debug("  excl-gather %s: cut not closed (forced bit driven inside cone)\n",
+				          cand.name.c_str());
+				return false;
+			}
+		}
+
+		ConstEval ce(module);
+		int64_t cone_est = GetSize(cone_cells) + 16;
+		// Hold-Q leaves must be forced for ConstEval; value is don't-care when
+		// the update mux selects the new payload (identity / fingerprint cases).
+		auto push_hold_q = [&](vector<std::pair<SigSpec, Const>> &sets) {
+			if (GetSize(hold_q) > 0)
+				sets.push_back({hold_q, Const(State::S0, GetSize(hold_q))});
+		};
+
+		// Identity probe: priority-E0 sole leader (slot 0) with known payload.
+		int e0_lane = rg.msb_first ? (rg.n - 1) : 0;
+		SigSpec dsel_s = sigmap(rg.dsel_sig);
+		SigSpec done_s = has_done ? sigmap(done_sig) : SigSpec();
+		SigSpec attr_s = sigmap(attr_sig);
+		SigSpec en_s = sigmap(rg.en_sig);
+		for (int probe = 0; probe < 3; probe++) {
+			vector<int> en(rg.n, 0), data(rg.n, 0), dsel(rg.n, 0), done(rg.n, 0);
+			en[e0_lane] = 1;
+			done[e0_lane] = 1; // dsel[e0] = 0 (rank 0)
+			int pv = (probe == 0) ? ((a >= 31) ? 0x7fffffff : ((1 << a) - 1))
+			       : (probe == 1) ? gather_payload(101, e0_lane, a)
+			                      : (a >= 2 ? 2 : 1);
+			data[e0_lane] = pv;
+			vector<std::pair<SigSpec, Const>> sets;
+			sets.push_back({dsel_s, pack_lanes(dsel, rg.field_w)});
+			if (has_done)
+				sets.push_back({done_s, pack_lanes(done, 1)});
+			else if (!rg.exclusive_and2)
+				sets.push_back({en_s, pack_lanes(en, 1)});
+			sets.push_back({attr_s, pack_lanes(data, a)});
+			push_hold_q(sets);
+			Const res;
+			if (!eval_root(ce, sets, root, res, cone_est)) {
+				log_debug("  excl-gather %s: identity probe eval failed\n", cand.name.c_str());
+				return false;
+			}
+			for (int b = 0; b < slot_w; b++) {
+				bool got = (b < GetSize(res)) && res[b] == State::S1;
+				bool exp = (pv >> b) & 1;
+				if (got != exp) {
+					log_debug("  excl-gather %s: identity probe mismatch bit %d\n",
+					          cand.name.c_str(), b);
+					return false;
+				}
+			}
+		}
+
+		if (!fingerprint_gather_exclusive(ce, root, rg, rg.dsel_sig, done_sig, has_done,
+		                                  attr_sig, a, slots, slot_w, cone_est,
+		                                  cand.name.c_str(), hold_q))
+			return false;
+
+		log_debug("  excl-gather %s: MATCH (identity, slot_w=%d)\n", cand.name.c_str(), slot_w);
+		out.sig = root;
+		out.name = cand.name;
+		out.nb = slots;
+		out.slot_w = slot_w;
+		out.attr_sig = attr_sig;
+		out.a = a;
+		out.attr_keys = attr_keys;
+		out.identity = true;
+		out.cut_cells = cut_cells;
+		find_anchor_driver(root, out.anchor);
+		return true;
+	}
+
 	// Drive `new_val` onto the cell-driven bits of `root` (bit-aligned),
 	// leaving folded-constant / undriven bits untouched (they already hold
 	// the correct value and are not on the deep path). Returns the number of
@@ -1285,6 +2429,25 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			if (!any_driven)
 				continue;
 			roots.push_back({bus.sig, bus.name, bus.entries, bus.elem_width});
+
+			// Root padding: Verific drops always-zero low lanes (e.g.
+			// lane_sel[0], which is rank 0 == 0), leaving a split bus that
+			// starts at a nonzero base index. Offer a full n-lane root with the
+			// missing low lanes padded to constant 0 (the exclusive closed form
+			// assigns rank 0 -> 0 there, so the padded lanes fingerprint clean).
+			if (bus.sig[0].wire) {
+				std::string base;
+				int base_index = -1;
+				if (parse_indexed_port_name(bus.sig[0].wire, base, base_index) &&
+				    base_index >= 1 && base_index <= 2) {
+					int padded_n = bus.entries + base_index;
+					if (padded_n >= min_n && padded_n <= max_n) {
+						SigSpec padded(State::S0, base_index * bus.elem_width);
+						padded.append(bus.sig);
+						roots.push_back({padded, bus.name, padded_n, bus.elem_width});
+					}
+				}
+			}
 		}
 		// widest fields first (real index buses are the deep ones)
 		std::stable_sort(roots.begin(), roots.end(),
@@ -1311,6 +2474,70 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			Region rg;
 			if (!match_dsel(root.sig, root.name, root.n, root.elem, rg))
 				continue;
+
+			// === Exclusive saturating first-fit ===
+			if (rg.exclusive) {
+				log_assert(rg.exclusive && rg.nb >= 1);
+
+				// Match the grant/done bus and the identity gather BEFORE
+				// emitting, so their cuts see the original allocation cone.
+				SigSpec done_sig;
+				bool has_done = match_exclusive_done(rg, done_sig);
+
+				XbarCand gx;
+				bool have_gather = false;
+				for (auto &cand : collect_exclusive_gather_cands(rg.nb)) {
+					if (walk_exhausted() || eval_exhausted())
+						break;
+					if (cand.sig == rg.dsel_sig || root_claimed(cand.sig))
+						continue;
+					log_debug("ffa: try excl-gather cand %s (%d bits) for region %s\n",
+					          cand.name.c_str(), GetSize(cand.sig), rg.dsel_name.c_str());
+					if (match_exclusive_gather(rg, cand, done_sig, has_done, gx)) {
+						have_gather = true;
+						break;
+					}
+				}
+
+				// Exclusive: clog2(nb+1)-bit ranks. Prefer thermometer scan for
+				// small nb (shallower mapped LoL); binary sat-log otherwise.
+				int cnt_w = clog2_int(rg.nb + 1);
+				vector<SigBit> leader, grant;
+				vector<SigSpec> slot, therm;
+				bool use_therm = rg.nb <= max_therm_nb;
+				if (use_therm)
+					emit_scan_exclusive_therm(rg, leader, therm, grant, slot, cnt_w);
+				else
+					emit_scan_exclusive_bin(rg, leader, slot, grant, cnt_w);
+
+				SigSpec new_dsel = emit_dsel_exclusive(rg, grant, slot, cnt_w);
+				connect_driven(rg.dsel_sig, new_dsel, rg.anchor, "ffa_dangling");
+				claim_region(rg.dsel_sig, rg.dsel_cut_cells);
+				regions_rewritten++;
+
+				log("  %s: %s <- first_fit_alloc(en=%s, exclusive nb=%d%s, %s)\n",
+				    log_id(module), rg.dsel_name.c_str(), log_signal(rg.en_sig), rg.nb,
+				    rg.exclusive_and2 ? ", and2" : "",
+				    rg.msb_first ? "MSB-first" : "LSB-first");
+
+				if (has_done) {
+					SigSpec new_done = emit_exclusive_done(rg, grant);
+					int dn = connect_driven(done_sig, new_done, rg.anchor, "ffa_done_dangling");
+					log("    + exclusive grant/done: %s [%d bit(s) re-driven]\n",
+					    log_signal(done_sig), dn);
+				}
+
+				if (have_gather) {
+					log_assert(rg.exclusive && gx.identity && gx.a == gx.slot_w);
+					SigSpec new_g = emit_exclusive_gather(rg, gx, grant, slot, cnt_w,
+					                                      use_therm ? &therm : nullptr);
+					int dn = connect_driven(gx.sig, new_g, gx.anchor, "ffa_xbar_dangling");
+					claim_region(gx.sig, gx.cut_cells);
+					log("    + exclusive identity gather: %s [slots=%d, slot_w=%d, %d bit(s) re-driven]\n",
+					    gx.name.c_str(), gx.nb, gx.slot_w, dn);
+				}
+				continue;
+			}
 
 			// Find a sibling xbar root that shares this scan.
 			XbarCand xb;
@@ -1376,7 +2603,12 @@ struct OptFirstFitAllocPass : public Pass {
 		log("that implement a greedy first-fit resource allocator: enabled request\n");
 		log("lanes are scanned in priority order and the first lane of each category\n");
 		log("(a 'leader') is assigned the next free slot, while later lanes of the\n");
-		log("same category (and broadcast lanes) inherit that slot.\n");
+		log("same category (and broadcast lanes) inherit that slot. An exclusive\n");
+		log("saturating variant (no category/broadcast) is also recognized: each\n");
+		log("enabled lane takes the next free slot until a learned slot budget is\n");
+		log("exhausted, after which later requesters get rank 0. Its per-slot data\n");
+		log("gather (slot_data[s] = data[leader at s]) is rewritten as an identity\n");
+		log("gather driven from the same prefix-count scan.\n");
 		log("\n");
 		log("The serial loop-carried taken[]/done[] scan produced by the RTL is\n");
 		log("replaced with a log-depth network: a priority-encode of the first\n");

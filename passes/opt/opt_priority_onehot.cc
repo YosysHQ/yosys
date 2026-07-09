@@ -29,19 +29,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static int clog2_int(int x)
-{
-	int r = 0;
-	while ((1 << r) < x)
-		r++;
-	return r;
-}
-
-static bool is_power_of_two(int x)
-{
-	return x > 0 && (x & (x - 1)) == 0;
-}
-
 // Pack a per-lane integer vector into a Const with elem_w bits per lane.
 static Const pack_lanes(const vector<int> &vals, int elem_w)
 {
