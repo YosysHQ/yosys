@@ -529,9 +529,10 @@ struct RTLILFrontendWorker {
 				break;
 			}
 			if (try_parse_keyword("width")){
-				width = parse_integer();
-				if (width >= RTLIL::WIDTH_LIMIT)
-					error("Wire width %lld out of range before `%s`.", width, error_token());
+				long long width_val = parse_integer();
+				if (width_val < 0 || width_val >= RTLIL::WIDTH_LIMIT)
+					error("Wire width %lld out of range before `%s`.", width_val, error_token());
+				width = width_val;
 			}
 			else if (try_parse_keyword("upto"))
 				upto = true;
@@ -589,9 +590,10 @@ struct RTLILFrontendWorker {
 				break;
 			}
 			if (try_parse_keyword("width")){
-				width = parse_integer();
-				if (width >= RTLIL::WIDTH_LIMIT)
-					error("Memory width %lld out of range before `%s`.", width, error_token());
+				long long width_val = parse_integer();
+				if (width_val < 0 || width_val >= RTLIL::WIDTH_LIMIT)
+					error("Memory width %lld out of range before `%s`.", width_val, error_token());
+				width = width_val;
 			}
 			else if (try_parse_keyword("size"))
 				size = parse_integer();
