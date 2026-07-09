@@ -514,10 +514,8 @@ struct AlumaccWorker
 			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
 				n->alu_cell = module->addPos(NEW_ID2_SUFFIX("pos"), n->a, n->y, n->is_signed); // SILIMATE: Improve the naming
-				if (n->cells.size() > 0) {
-					for (auto attr : n->cells[0]->attributes)
-						n->alu_cell->attributes[attr.first] = attr.second; 
-				}
+				for (auto attr : cell->attributes)
+					n->alu_cell->attributes[attr.first] = attr.second;
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -535,10 +533,8 @@ struct AlumaccWorker
 				log("%s%s", i ? ", ": "", n->cells[i]);
 			log(": %s\n", n->alu_cell);
 
-			if (n->cells.size() > 0) {
-				for (auto attr : n->cells[0]->attributes)
-					n->alu_cell->attributes[attr.first] = attr.second; 
-			}
+			for (auto attr : cell->attributes)
+				n->alu_cell->attributes[attr.first] = attr.second;
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);
