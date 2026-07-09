@@ -17,20 +17,24 @@
  */
 
 // Shared cut-region matching infrastructure for the functional rewrite
-// passes (opt_argmax, opt_priority_onehot, opt_compact_prefix). These passes
-// find combinational regions between "cut" signals (module ports, FF data
-// pins, or internal buses), verify their function by ConstEval
-// fingerprinting, and replace the region while leaving surrounding logic
-// untouched.
+// passes (opt_argmax, opt_priority_onehot, opt_compact_prefix,
+// opt_first_fit_alloc). These passes find combinational regions between
+// "cut" signals (module ports, FF data pins, or internal buses), verify
+// their function by ConstEval fingerprinting, and replace the region while
+// leaving surrounding logic untouched.
 //
 // This header is designed to be included INSIDE each pass's private
 // namespace (after PRIVATE_NAMESPACE_BEGIN), so the shared code has a single
 // source without introducing link-level coupling between the passes.
+// Tiny shared helpers (is_sequential, clog2_int, const_u64, ...) live in
+// rewrite_utils.h so non-cut-region passes can share them too.
 //
 // All graph walks and fingerprint evaluations are charged against
 // per-module work budgets so that adversarial netlist shapes (deep shared
 // cones with hundreds of same-width candidate buses) degrade into skipped
 // candidates instead of multi-minute runtimes.
+
+#include "passes/opt/rewrite_utils.h"
 
 struct CutRegionWorker
 {
@@ -91,25 +95,6 @@ struct CutRegionWorker
 	CutRegionWorker(Module *module) : module(module), sigmap(module)
 	{
 		build_indexes();
-	}
-
-	bool is_sequential(Cell *c)
-	{
-		return c->type.in(
-			ID($ff), ID($dff), ID($dffe), ID($adff), ID($adffe),
-			ID($sdff), ID($sdffe), ID($sdffce), ID($dffsr), ID($dffsre),
-			ID($_DFF_P_), ID($_DFF_N_),
-			ID($_DFFE_PP_), ID($_DFFE_PN_), ID($_DFFE_NP_), ID($_DFFE_NN_),
-			ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_),
-			ID($_DFF_NP0_), ID($_DFF_NP1_), ID($_DFF_NN0_), ID($_DFF_NN1_),
-			ID($dlatch), ID($adlatch), ID($dlatchsr),
-			ID($mem), ID($mem_v2), ID($meminit), ID($meminit_v2),
-			ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2),
-			ID($fsm),
-			ID($assert), ID($assume), ID($cover), ID($live), ID($fair),
-			ID($print), ID($check),
-			ID($anyconst), ID($anyseq), ID($allconst), ID($allseq),
-			ID($initstate));
 	}
 
 	void build_indexes()
@@ -717,11 +702,7 @@ struct CutRegionWorker
 		}
 
 		for (auto c : module->cells()) {
-			if (!c->type.in(ID($ff), ID($dff), ID($dffe), ID($adff), ID($adffe),
-			                ID($sdff), ID($sdffe), ID($sdffce), ID($dffsr), ID($dffsre),
-			                ID($dlatch), ID($adlatch), ID($dlatchsr)))
-				continue;
-			if (!c->hasPort(ID::D))
+			if (!is_storage_ff(c) || !c->hasPort(ID::D))
 				continue;
 			consider_root(sigmap(c->getPort(ID::D)), stringf("%s.D", log_id(c->name)), true);
 		}
@@ -794,26 +775,6 @@ struct CutRegionWorker
 		}
 
 		return roots;
-	}
-
-	// --- Small numeric helpers shared by the fingerprints. ---
-
-	static uint64_t lowmask_u64(int w)
-	{
-		if (w <= 0)
-			return 0;
-		if (w >= 64)
-			return ~0ULL;
-		return (1ULL << w) - 1;
-	}
-
-	static Const const_u64(uint64_t value, int width)
-	{
-		vector<State> bits(width, State::S0);
-		for (int i = 0; i < width && i < 64; i++)
-			if ((value >> i) & 1ULL)
-				bits[i] = State::S1;
-		return Const(bits);
 	}
 
 	SigSpec zext_sig(SigSpec sig, int width)

@@ -264,26 +264,21 @@ struct OptPrioKeyWorker {
 			range = 1ULL << cap;
 		}
 		ConstEval ce(module);
-		uint64_t lfsr = 0x9e3779b97f4a7c15ULL ^ (uintptr_t)read;
+		// Deterministic seed (not a Cell*): ASLR made uintptr_t seeding flake
+		// across runs, so -strict could miss the OOR counterexample.
+		uint64_t lfsr = 0x9e3779b97f4a7c15ULL ^ ((uint64_t)S << 1) ^
+		                ((uint64_t)kw << 17) ^ (uint64_t)GetSize(steps);
 		auto rnd = [&]() {
 			lfsr ^= lfsr << 13; lfsr ^= lfsr >> 7; lfsr ^= lfsr << 17;
 			return lfsr;
 		};
-		for (int t = 0; t < fp_trials; t++) {
+		auto trial = [&](int rk, const vector<int> &kv, const vector<int> &gv) -> bool {
 			ce.push();
-			int rk = (int)(rnd() % range);
 			ce.set(read_key, Const(rk, GetSize(read_key)));
-			vector<int> kv(GetSize(steps));
-			vector<int> gv(GetSize(steps));
 			for (int i = 0; i < GetSize(steps); i++) {
-				kv[i] = (int)(rnd() % range);
 				ce.set(steps[i].key, Const(kv[i], GetSize(steps[i].key)));
-				if (steps[i].guard == State::S1) {
-					gv[i] = 1;
-				} else {
-					gv[i] = (int)(rnd() & 1);
+				if (steps[i].guard != State::S1)
 					ce.set(SigSpec(steps[i].guard), Const(gv[i], 1));
-				}
 			}
 			SigSpec out(read->getPort(ID::Y));
 			SigSpec undef;
@@ -293,7 +288,39 @@ struct OptPrioKeyWorker {
 			for (int i = 0; i < GetSize(steps); i++)
 				if (gv[i] && kv[i] == rk) { expect = 1; break; }
 			ce.pop();
-			if (!ok || actual != expect)
+			return ok && actual == expect;
+		};
+		// Strict + non-pow2 S: force OOR key collisions the rewrite would accept
+		// but the S-bit accumulator cannot store (taken[key>=S] is not a set bit).
+		if (strict && range > (uint64_t)S && !steps.empty()) {
+			int oor_n = (int)(range - (uint64_t)S);
+			int forced = oor_n < 16 ? oor_n : 16;
+			for (int f = 0; f < forced; f++) {
+				int rk = S + f;
+				vector<int> kv(GetSize(steps), 0);
+				vector<int> gv(GetSize(steps), 0);
+				kv[0] = rk;
+				gv[0] = 1;
+				for (int i = 1; i < GetSize(steps); i++) {
+					kv[i] = (int)(rnd() % range);
+					gv[i] = steps[i].guard == State::S1 ? 1 : (int)(rnd() & 1);
+				}
+				if (!trial(rk, kv, gv))
+					return false;
+			}
+		}
+		for (int t = 0; t < fp_trials; t++) {
+			int rk = (int)(rnd() % range);
+			vector<int> kv(GetSize(steps));
+			vector<int> gv(GetSize(steps));
+			for (int i = 0; i < GetSize(steps); i++) {
+				kv[i] = (int)(rnd() % range);
+				if (steps[i].guard == State::S1)
+					gv[i] = 1;
+				else
+					gv[i] = (int)(rnd() & 1);
+			}
+			if (!trial(rk, kv, gv))
 				return false;
 		}
 		return true;

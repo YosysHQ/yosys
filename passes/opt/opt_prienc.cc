@@ -25,6 +25,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#include "passes/opt/rewrite_utils.h"
+
 // Priority-encoder variants the pass recognises.
 enum class PEVariant { NONE, CLZ_FULL, CLZ_SHORT, CTZ_FULL, CTZ_SHORT };
 
@@ -36,21 +38,6 @@ static const char* variant_name(PEVariant v) {
 		case PEVariant::CTZ_SHORT: return "ctz_short";
 		default: return "none";
 	}
-}
-
-static int clog2_int(int x) {
-	int r = 0;
-	while ((1 << r) < x) r++;
-	return r;
-}
-
-// Build an N-bit Const from a uint64_t pattern. Bit i set in `pattern` -> bit i
-// of the result. Bits beyond 64 are zero.
-static Const u64_const(uint64_t pattern, int N) {
-	std::vector<State> bits(N, State::S0);
-	for (int i = 0; i < N && i < 64; i++)
-		if ((pattern >> i) & 1ULL) bits[i] = State::S1;
-	return Const(bits);
 }
 
 // Return the index of the highest set bit (MSB) of `c`, or -1 if all zero.
@@ -98,24 +85,6 @@ struct OptPriEncWorker {
 	dict<Wire*, SigSpec> ctz_full_cache;
 
 	OptPriEncWorker(Module* m) : module(m), sigmap(m) { build_indexes(); }
-
-	bool is_sequential(Cell* c) {
-		return c->type.in(
-			ID($ff), ID($dff), ID($dffe), ID($adff), ID($adffe),
-			ID($sdff), ID($sdffe), ID($sdffce), ID($dffsr), ID($dffsre),
-			ID($_DFF_P_), ID($_DFF_N_),
-			ID($_DFFE_PP_), ID($_DFFE_PN_), ID($_DFFE_NP_), ID($_DFFE_NN_),
-			ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_),
-			ID($_DFF_NP0_), ID($_DFF_NP1_), ID($_DFF_NN0_), ID($_DFF_NN1_),
-			ID($dlatch), ID($adlatch), ID($dlatchsr),
-			ID($mem), ID($mem_v2), ID($meminit), ID($meminit_v2),
-			ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2),
-			ID($fsm),
-			ID($assert), ID($assume), ID($cover), ID($live), ID($fair),
-			ID($print), ID($check),
-			ID($anyconst), ID($anyseq), ID($allconst), ID($allseq),
-			ID($initstate));
-	}
 
 	void build_indexes() {
 		for (auto cell : module->cells()) {
@@ -213,7 +182,7 @@ struct OptPriEncWorker {
 	// Build the test-vector deck for an N-bit input.
 	vector<Const> gen_test_vectors(int N) {
 		vector<Const> vs;
-		vs.push_back(u64_const(0, N));
+		vs.push_back(const_u64(0, N));
 		for (int k = 0; k < N; k++) {
 			std::vector<State> bits(N, State::S0);
 			bits[k] = State::S1;

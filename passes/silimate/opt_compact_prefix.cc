@@ -26,17 +26,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static int ceil_log2_int(int v)
-{
-	int r = 0;
-	int n = 1;
-	while (n < v) {
-		n <<= 1;
-		r++;
-	}
-	return r;
-}
-
 #include "passes/opt/cut_region.h"
 
 struct OptCompactPrefixWorker : CutRegionWorker
@@ -788,7 +777,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 	{
 		ref_cell = rw.anchor;
 		int width = GetSize(rw.root);
-		int count_width = ceil_log2_int(width + 1);
+		int count_width = clog2_int(width + 1);
 		SigSpec in_s = sigmap(rw.a);
 
 		vector<SigSpec> bits;
@@ -815,7 +804,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		int width = GetSize(rw.root);
 		int loop_width = rw.loop_width;
 		bool en_high = rw.msb_first; // polarity flag (see matching loop)
-		int count_width = ceil_log2_int(loop_width + 1);
+		int count_width = clog2_int(loop_width + 1);
 		SigSpec dis_s = sigmap(rw.a);
 		SigSpec data_s = sigmap(rw.b);
 
@@ -863,7 +852,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		SigSpec n_s = sigmap(rw.b);
 		bool msb_first = rw.msb_first;
 
-		int cnt_width = ceil_log2_int(width + 1);
+		int cnt_width = clog2_int(width + 1);
 		int table_size = 1 << cnt_width;
 		int cmp_width = std::max(GetSize(n_s), cnt_width);
 
@@ -933,7 +922,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 	{
 		ref_cell = rw.anchor;
 		int width = GetSize(rw.root);
-		int cnt_width = ceil_log2_int(width + 1);
+		int cnt_width = clog2_int(width + 1);
 		SigSpec en_s = sigmap(rw.a);
 		SigSpec data_s = sigmap(rw.b);
 

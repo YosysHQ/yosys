@@ -28,19 +28,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static int clog2_int(int x)
-{
-	int r = 0;
-	while ((1 << r) < x)
-		r++;
-	return r;
-}
-
-static bool is_power_of_two(int x)
-{
-	return x > 0 && (x & (x - 1)) == 0;
-}
-
 static Const packed_table_const(const vector<uint64_t> &values, int elem_width)
 {
 	vector<State> bits(values.size() * elem_width, State::S0);
