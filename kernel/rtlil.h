@@ -99,6 +99,9 @@ namespace RTLIL
 		PD_INOUT = 3
 	};
 
+	// Maximum width in bits of RTLIL::Wire or RTLIL::Const
+	constexpr int WIDTH_LIMIT = 1 << 30;
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
