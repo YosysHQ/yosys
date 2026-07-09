@@ -1109,6 +1109,7 @@ public:
 		bits_internal()[i] = state;
 	}
 	void resize(int size, RTLIL::State fill) {
+    log_assert(size >= 0 && size < RTLIL::WIDTH_LIMIT);
 		bits_internal().resize(size, fill);
 	}
 
