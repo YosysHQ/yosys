@@ -78,6 +78,14 @@ static inline int clog2_int(int x)
 	return r;
 }
 
+// Src attribute of an anchor/driver cell for Module::And/addAnd/... emitters.
+// Passing this (instead of relying on the empty default) keeps rewritten
+// networks attributable to the original RTL region.
+static inline std::string cell_src(Cell *c)
+{
+	return c ? c->get_src_attribute() : std::string();
+}
+
 static inline bool is_power_of_two(int x)
 {
 	return x > 0 && (x & (x - 1)) == 0;

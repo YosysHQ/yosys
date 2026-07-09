@@ -476,10 +476,12 @@ struct OptVpsWorker
 						Wire *sub_w = module->addWire(
 							NEW_ID_SUFFIX("vps_merge_idx"),
 							GetSize(binary_index));
-						module->addSub(NEW_ID_SUFFIX("vps_merge_sub"),
+						Cell *sub = module->addSub(NEW_ID_SUFFIX("vps_merge_sub"),
 							binary_index,
 							Const(base_sub, GetSize(binary_index)),
 							sub_w);
+						sub->add_strpool_attribute(ID::src,
+							lowest.pmux->get_strpool_attribute(ID::src));
 						raw_idx = SigSpec(sub_w);
 					} else {
 						raw_idx = binary_index;
@@ -676,10 +678,12 @@ struct OptVpsWorker
 					Wire *sub_w = module->addWire(
 						NEW_ID_SUFFIX("vps_merge_idx"),
 						GetSize(binary_index));
-					module->addSub(NEW_ID_SUFFIX("vps_merge_sub"),
+					Cell *sub = module->addSub(NEW_ID_SUFFIX("vps_merge_sub"),
 						binary_index,
 						Const(lowest_base, GetSize(binary_index)),
 						sub_w);
+					sub->add_strpool_attribute(ID::src,
+						lowest.pmux->get_strpool_attribute(ID::src));
 					raw_idx = SigSpec(sub_w);
 				}
 
@@ -1190,8 +1194,9 @@ struct OptVpsWorker
 			SigSpec raw_idx = binary_index;
 			if (base > 0) {
 				Wire *sub_w = module->addWire(NEW_ID_SUFFIX("vps_rd_idx"), GetSize(binary_index));
-				module->addSub(NEW_ID_SUFFIX("vps_rd_sub"),
+				Cell *sub = module->addSub(NEW_ID_SUFFIX("vps_rd_sub"),
 					       binary_index, Const(base, GetSize(binary_index)), sub_w);
+				sub->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 				raw_idx = SigSpec(sub_w);
 			}
 			if (log2_align > 0) {
@@ -1461,8 +1466,10 @@ struct OptVpsWorker
 				if (upper_width > 0) {
 					int lane_idx = base / W + L;
 					Wire *eq_w = module->addWire(NEW_ID_SUFFIX("vps_lane_eq"), 1);
-					module->addEq(NEW_ID_SUFFIX("vps_lane_cmp"),
+					Cell *eq = module->addEq(NEW_ID_SUFFIX("vps_lane_cmp"),
 						      upper_bits, Const(lane_idx, upper_width), eq_w);
+					eq->add_strpool_attribute(ID::src,
+						candidates[group_start + L * W].cell->get_strpool_attribute(ID::src));
 					range_bit = SigBit(eq_w);
 				} else {
 					range_bit = State::S1;
@@ -1488,7 +1495,9 @@ struct OptVpsWorker
 					lane_en[L] = lane_bits[0];
 				} else {
 					Wire *w = module->addWire(NEW_ID_SUFFIX("vps_lane_en"), 1);
-					module->addReduceOr(NEW_ID_SUFFIX("vps_lane_or"), lane_bits, w);
+					Cell *ror = module->addReduceOr(NEW_ID_SUFFIX("vps_lane_or"), lane_bits, w);
+					ror->add_strpool_attribute(ID::src,
+						candidates[group_start + L * W].cell->get_strpool_attribute(ID::src));
 					lane_en[L] = SigBit(w);
 				}
 			}
@@ -1600,9 +1609,11 @@ struct OptVpsWorker
 				}
 
 				Wire *gated_w = module->addWire(NEW_ID_SUFFIX("vps_wr_lane_en"), 1);
-				module->addAnd(NEW_ID_SUFFIX("vps_wr_lane_and"),
+				Cell *lane_and = module->addAnd(NEW_ID_SUFFIX("vps_wr_lane_and"),
 					       SigSpec(wr_en_sig), SigSpec(lane_en[L]),
 					       SigSpec(gated_w));
+				lane_and->add_strpool_attribute(ID::src,
+					candidates[group_start + L * W].cell->get_strpool_attribute(ID::src));
 
 				Cell *lane_mux = module->addMux(
 					NEW_ID_SUFFIX("vps_lane_mux"),

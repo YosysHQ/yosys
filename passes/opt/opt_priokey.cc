@@ -24,6 +24,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#include "passes/opt/rewrite_utils.h"
+
 // ---------------------------------------------------------------------------
 // opt_priokey: priority-by-key deduplication ("taken" accumulator) rewrite.
 //
@@ -337,14 +339,15 @@ struct OptPrioKeyWorker {
 			SigSpec terms;
 			for (auto &st : steps) {
 				SigSpec eq = module->Eq(NEW_ID2_SUFFIX("priokey_eq"),
-				                        st.key, read_key);
+				                        st.key, read_key, false, cell_src(read));
 				cells_added++;
 				SigSpec g = module->And(NEW_ID2_SUFFIX("priokey_and"),
-				                        SigSpec(st.guard), eq);
+				                        SigSpec(st.guard), eq, false, cell_src(read));
 				cells_added++;
 				terms.append(g);
 			}
-			new_r = module->ReduceOr(NEW_ID2_SUFFIX("priokey_or"), terms);
+			new_r = module->ReduceOr(NEW_ID2_SUFFIX("priokey_or"), terms,
+			                        false, cell_src(read));
 			cells_added++;
 		}
 		// Tag wire so the rewrite is externally observable, then detach the old
