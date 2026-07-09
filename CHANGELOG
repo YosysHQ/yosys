@@ -2,8 +2,40 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.66 .. Yosys 0.67-dev
+Yosys 0.67 .. Yosys 0.68-dev
 --------------------------
+
+Yosys 0.66 .. Yosys 0.67
+--------------------------
+ * Various
+    - Project is now requiring CMake 3.28 or later as
+      build system.
+    - At least Clang-16 or GCC-13 are required, but we
+      recommend using later versions.
+    - Microsoft Visual Studio builds are now fully working
+      (including building ABC), but mingw-64 builds are
+      still recommended for Windows platform.
+    - For SystemVerilog support now using sv-elab,
+      built on top of slang library.
+    - FABulous techlib to removes all hardcoded mappings
+      and primitives, allowing them to be specified via
+      the options of "synth_fabulous".
+    - smtbmc: Latest bitwuzla is now supported.
+
+ * New commands and options
+    - Added "abc_ops_reintegrate" pass as replacement
+      for "abc9_ops -reintegrate".
+    - Added "check_mem" pass to check for memory problems
+      in the design.
+    - Added "-strategy", "-final" and "-no-fma" options to
+      "arith_tree" pass.
+    - Added "-ignore-unknown-cells" option to "equiv_opt".
+    - Added "-no-undriven-check" and "-undriven-warn" options
+      to "sim" pass.
+    - Added "-latches" option to synth passes able to
+      produce latches for control of latch inference.
+    - Added "-nolatches" to "check" pass.
+    - Added "-latches" to "proc" and "proc_dlatch" passes.
 
 Yosys 0.65 .. Yosys 0.66
 --------------------------
