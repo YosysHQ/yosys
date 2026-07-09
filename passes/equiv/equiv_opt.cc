@@ -63,6 +63,10 @@ struct EquivOptPass:public ScriptPass
 		log("    -nocheck\n");
 		log("        disable running check before and after the command under test.\n");
 		log("\n");
+		log("    -ignore-unknown-cells\n");
+		log("        ignore all cells that can not be matched to a SAT model during\n");
+		log("        equiv_induct.\n");
+		log("\n");
 		log("The following commands are executed by this verification command:\n");
 		help_script();
 		log("\n");
