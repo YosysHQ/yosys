@@ -86,11 +86,18 @@ YOSYS_NAMESPACE_BEGIN
 Autoidx autoidx(1);
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
+static std::string yosys_version_override;
+
 const char* yosys_maybe_version() {
-	if (yosys_write_versions)
-		return yosys_version_str;
-	else
+	if (!yosys_write_versions)
 		return "Yosys";
+	if (!yosys_version_override.empty())
+		return yosys_version_override.c_str();
+	return yosys_version_str;
+}
+
+void yosys_set_version_str(const std::string &s) {
+	yosys_version_override = s;
 }
 
 RTLIL::Design *yosys_design = NULL;
