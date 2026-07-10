@@ -126,10 +126,11 @@ clean:
 
 .PHONY: coverage
 coverage:
-	@echo "Creating coverage HTML"
+	@echo "Creating coverage HTML & Codecov report"
 	@$(YOSYS) -qp 'help; help -all'
 	@rm -rf $(COVERAGE_HTML)
 	@llvm-profdata merge -sparse $(COVERAGE_DIR)/coverage_*.profraw -o $(COVERAGE_DIR)/yosys.profdata
+	@llvm-cov export $(YOSYS) -instr-profile=$(COVERAGE_DIR)/yosys.profdata -format=lcov --compilation-dir=$(SRC_DIR) --ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*' > $(BUILD_DIR)/coverage.info
 	@llvm-cov show $(YOSYS) -instr-profile=$(COVERAGE_DIR)/yosys.profdata -format=html -output-dir=$(COVERAGE_HTML) --compilation-dir=$(SRC_DIR) --ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*'
 
 .PHONY: clean_coverage
