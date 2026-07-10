@@ -47,22 +47,18 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/coverage"
           echo "LLVM_PROFILE_FILE=${GITHUB_WORKSPACE}/coverage/coverage_%p.profraw" >> $GITHUB_ENV
           echo "LLVM_PROFILE_FILE_BUFFER_SIZE=0" >> $GITHUB_ENV
-
-      - name: Skip generating files
-        if: ${{ github.event_name != 'merge_group' && github.event_name != 'workflow_dispatch' }}
-        run: |
-          echo "LLVM_PROFILE_FILE=/dev/null" >> $GITHUB_ENV
+          echo "SEED=0" >> $GITHUB_ENV
 
       - name: Build Yosys
         run: |
-          rm -rf build Configuration.cmake
+          rm -rf build Configuration.cmake coverage
           echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
           echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
           echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
           echo 'set(YOSYS_ENABLE_COVERAGE ON CACHE BOOL "")' >> Configuration.cmake
           echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
 
-          cmake -C Configuration.cmake -B build . -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/.local -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake -C Configuration.cmake -B build . -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/.local -DCMAKE_BUILD_TYPE=Debug
           cmake --build build -j$procs
 
       - name: Install Yosys
@@ -80,6 +76,10 @@ jobs:
         run: |
           make -C sby install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
 
+      - name: Run unit tests
+        run: |
+          ctest --test-dir build/tests/unit --output-on-failure
+
       - name: Run Yosys tests
         run: |
           make -C tests -j$procs vanilla-test
@@ -89,35 +89,30 @@ jobs:
           make -C tests/sva
           make -C tests/svtypes
 
-      - name: Run SBY tests
-        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
-        run: |
-          make -C sby run_ci
-
       - name: Run coverage
-        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
           make -C tests coverage
           make -C tests clean_coverage
 
-      - name: Push coverage
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: YosysHQ/yosys
+          files: build/coverage.info
+          comment: false
+          disable_search: true
+          override_branch: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.ref_name }}
+
+      - name: Skip generating files
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
         run: |
-          git clone https://x-access-token:${{ secrets.REPORTS_TOKEN }}@github.com/YosysHQ/reports.git out
-          rm -rf out/coverage/main
-          mkdir -p out/coverage/main
-          cp -r coverage_html/* out/coverage/main/
-          cd out
-          # find . -name "*.html" -type f -print0 | xargs -0 sed -i -z 's#\(<td class="headerItem">Date:</td>[[:space:]]*<td class="headerValue">\)[^<]*\(</td>\)#\1\2#g'
-          git config user.name "yosyshq-ci"
-          git config user.email "105224853+yosyshq-ci@users.noreply.github.com"
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "Update coverage"
-            git push
-          else
-            echo "No changes to commit"
-          fi
+          echo "LLVM_PROFILE_FILE=/dev/null" >> $GITHUB_ENV
+
+      - name: Run SBY tests
+        if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          make -C sby run_ci
 
   test-pyosys:
     needs: pre_job

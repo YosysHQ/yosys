@@ -204,12 +204,12 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
             v_stmts.append("  %s" % s)
         v_stmts.append("end")
 
-    print("module bram_%02d_%02d(%s);" % (k1, k2, ", ".join(v_ports)), file=sim_f)
+    print("module bram_%02d_%02d(%s);" % (k1, k2, ", ".join(sorted(v_ports))), file=sim_f)
     for stmt in v_stmts:
         print("  %s" % stmt, file=sim_f)
     print("endmodule", file=sim_f)
 
-    print("module bram_%02d_%02d_ref(%s);" % (k1, k2, ", ".join(v_ports)), file=ref_f)
+    print("module bram_%02d_%02d_ref(%s);" % (k1, k2, ", ".join(sorted(v_ports))), file=ref_f)
     for stmt in v_stmts:
         print("  %s" % stmt, file=ref_f)
     print("endmodule", file=ref_f)
