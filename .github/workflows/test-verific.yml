@@ -3,8 +3,8 @@ name: Build and run tests with Verific (Linux)
 on:
   pull_request:
   merge_group:
-  #push:
-  #  branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -90,18 +90,22 @@ jobs:
           make -C tests/svtypes
 
       - name: Run coverage
+        if: ${{ github.event_name != 'merge_group'}}
         run: |
           make -C tests coverage
+
+      - name: Clean coverage
+        run: |
           make -C tests clean_coverage
 
       - name: Upload coverage reports to Codecov
+        if: ${{ github.event_name != 'merge_group'}}
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: YosysHQ/yosys
           files: build/coverage.info
           disable_search: true
-          override_branch: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.ref_name }}
 
       - name: Skip generating files
         if: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
@@ -115,7 +119,7 @@ jobs:
 
   test-pyosys:
     needs: pre_job
-    if: ${{ needs.pre_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' && github.event_name != 'push' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
