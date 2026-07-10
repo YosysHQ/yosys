@@ -538,8 +538,12 @@ struct RTLILFrontendWorker {
 				upto = true;
 			else if (try_parse_keyword("signed"))
 				is_signed = true;
-			else if (try_parse_keyword("offset"))
-				start_offset = parse_integer();
+			else if (try_parse_keyword("offset")) {
+				long long offset_val = parse_integer();
+				if (offset_val < INT_MIN || offset_val > INT_MAX)
+					error("Wire offset %lld out of range before `%s`.", offset_val, error_token());
+				start_offset = offset_val;
+			}
 			else if (try_parse_keyword("input")) {
 				port_id = parse_integer();
 				port_input = true;
@@ -595,10 +599,18 @@ struct RTLILFrontendWorker {
 					error("Memory width %lld out of range before `%s`.", width_val, error_token());
 				width = width_val;
 			}
-			else if (try_parse_keyword("size"))
-				size = parse_integer();
-			else if (try_parse_keyword("offset"))
-				start_offset = parse_integer();
+			else if (try_parse_keyword("size")) {
+				long long size_val = parse_integer();
+				if (size_val < INT_MIN || size_val > INT_MAX)
+					error("Memory size %lld out of range before `%s`.", size_val, error_token());
+				size = size_val;
+			}
+			else if (try_parse_keyword("offset")) {
+				long long offset_val = parse_integer();
+				if (offset_val < INT_MIN || offset_val > INT_MAX)
+					error("Memory offset %lld out of range before `%s`.", offset_val, error_token());
+				start_offset = offset_val;
+			}
 			else if (try_parse_eol())
 				error("Missing memory ID");
 			else
