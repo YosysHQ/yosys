@@ -31,10 +31,6 @@
 YOSYS_NAMESPACE_BEGIN
 
 struct RTLILFrontendWorker {
-	// Forbid constants of more than 1 Gb.
-	// This will help us not explode on malicious RTLIL.
-	static constexpr int MAX_CONST_WIDTH = 1024 * 1024 * 1024;
-
 	std::istream *f = nullptr;
 	RTLIL::Design *design;
 	bool flag_nooverwrite = false;
@@ -283,7 +279,7 @@ struct RTLILFrontendWorker {
 			++idx;
 
 		std::vector<RTLIL::State> bits;
-		if (width > MAX_CONST_WIDTH)
+		if (width >= RTLIL::WIDTH_LIMIT)
 			error("Constant width %lld out of range before `%s`.", width, error_token());
 		bits.reserve(width);
 		int start_idx = idx;
@@ -532,14 +528,22 @@ struct RTLILFrontendWorker {
 				wire = current_module->addWire(std::move(*id));
 				break;
 			}
-			if (try_parse_keyword("width"))
-				width = parse_integer();
+			if (try_parse_keyword("width")){
+				long long width_val = parse_integer();
+				if (width_val < 0 || width_val >= RTLIL::WIDTH_LIMIT)
+					error("Wire width %lld out of range before `%s`.", width_val, error_token());
+				width = width_val;
+			}
 			else if (try_parse_keyword("upto"))
 				upto = true;
 			else if (try_parse_keyword("signed"))
 				is_signed = true;
-			else if (try_parse_keyword("offset"))
-				start_offset = parse_integer();
+			else if (try_parse_keyword("offset")) {
+				long long offset_val = parse_integer();
+				if (offset_val < INT_MIN || offset_val > INT_MAX)
+					error("Wire offset %lld out of range before `%s`.", offset_val, error_token());
+				start_offset = offset_val;
+			}
 			else if (try_parse_keyword("input")) {
 				port_id = parse_integer();
 				port_input = true;
@@ -589,12 +593,24 @@ struct RTLILFrontendWorker {
 				memory->name = std::move(*id);
 				break;
 			}
-			if (try_parse_keyword("width"))
-				width = parse_integer();
-			else if (try_parse_keyword("size"))
-				size = parse_integer();
-			else if (try_parse_keyword("offset"))
-				start_offset = parse_integer();
+			if (try_parse_keyword("width")){
+				long long width_val = parse_integer();
+				if (width_val < 0 || width_val >= RTLIL::WIDTH_LIMIT)
+					error("Memory width %lld out of range before `%s`.", width_val, error_token());
+				width = width_val;
+			}
+			else if (try_parse_keyword("size")) {
+				long long size_val = parse_integer();
+				if (size_val < INT_MIN || size_val > INT_MAX)
+					error("Memory size %lld out of range before `%s`.", size_val, error_token());
+				size = size_val;
+			}
+			else if (try_parse_keyword("offset")) {
+				long long offset_val = parse_integer();
+				if (offset_val < INT_MIN || offset_val > INT_MAX)
+					error("Memory offset %lld out of range before `%s`.", offset_val, error_token());
+				start_offset = offset_val;
+			}
 			else if (try_parse_eol())
 				error("Missing memory ID");
 			else

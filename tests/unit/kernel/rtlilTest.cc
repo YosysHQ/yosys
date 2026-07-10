@@ -284,6 +284,28 @@ namespace RTLIL {
 		EXPECT_EQ(c, Const(0xe, 4));
 	}
 
+	TEST_F(KernelRtlilTest, ConstResizeWidthLimit) {
+		Const c;
+		EXPECT_DEATH(c.resize(RTLIL::WIDTH_LIMIT, Sx), "");
+		EXPECT_NO_FATAL_FAILURE(c.resize(RTLIL::WIDTH_LIMIT - 1, Sx));
+	}
+
+	TEST_F(KernelRtlilTest, ConstFromLongLongWidthLimit) {
+		EXPECT_DEATH(Const(0, RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(Const(0, RTLIL::WIDTH_LIMIT - 1));
+	}
+
+	TEST_F(KernelRtlilTest, ConstFromStateWidthLimit) {
+		EXPECT_DEATH(Const(Sx, RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(Const(Sx, RTLIL::WIDTH_LIMIT - 1));
+	}
+
+	TEST_F(KernelRtlilTest, ModuleAddWireWidthLimit) {
+		std::unique_ptr<Module> mod = std::make_unique<Module>();
+		EXPECT_DEATH(mod->addWire(ID(test), RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(mod->addWire(ID(test), RTLIL::WIDTH_LIMIT - 1));
+	}
+
 	TEST_F(KernelRtlilTest, ConstEqualStr) {
 		EXPECT_EQ(Const("abc"), Const("abc"));
 		EXPECT_NE(Const("abc"), Const("def"));

@@ -99,6 +99,9 @@ namespace RTLIL
 		PD_INOUT = 3
 	};
 
+	// Maximum width in bits of RTLIL::Wire or RTLIL::Const
+	constexpr int WIDTH_LIMIT = 1 << 30;
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -1106,6 +1109,7 @@ public:
 		bits_internal()[i] = state;
 	}
 	void resize(int size, RTLIL::State fill) {
+    log_assert(size >= 0 && size < RTLIL::WIDTH_LIMIT);
 		bits_internal().resize(size, fill);
 	}
 

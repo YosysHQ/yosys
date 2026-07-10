@@ -631,7 +631,7 @@ class PyosysWrapperGenerator(object):
         self.register_containers(variable)
 
         definition_fn = (
-            f"def_{'readonly' if variable.type.const else 'readwrite'}_static"
+            f"def_{'readonly' if (variable.type.const or variable.constexpr) else 'readwrite'}_static"
         )
 
         variable_python_basename = keyword_aliases.get(
