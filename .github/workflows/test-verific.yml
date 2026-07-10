@@ -14,7 +14,7 @@ jobs:
       should_skip: ${{ steps.set_output.outputs.should_skip }}
     steps:
       - id: skip_check
-        if: ${{ github.event_name != 'merge_group' }}
+        if: ${{ github.event_name != 'merge_group' && github.event_name != 'push' }}
         uses: mmicko/skip-duplicate-actions@master
         with:
           # don't run on documentation changes
@@ -25,7 +25,7 @@ jobs:
 
       - id: set_output
         run: |
-          if [ "${{ github.event_name }}" = "merge_group" ]; then
+          if [ "${{ github.event_name }}" = "merge_group" ] || [ "${{ github.event_name }}" = "push" ]; then
             echo "should_skip=false" >> $GITHUB_OUTPUT
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
