@@ -333,7 +333,9 @@ design -reset
 log -pop
 
 # C3: WIDTH=64 -- structural check only (full equiv is too slow on a 64-bit
-# CLZ via SAT). Confirm the pass fires and depth is bounded.
+# CLZ via SAT). Confirm the pass fires and depth is bounded. Also exercises
+# the large-N fingerprint sampling + budgeted full-cone rewalk path; this case
+# previously dominated runtime when every intermediate wire paid for a full BFS.
 log -header "C3: lzd_for_loop WIDTH=64 (structural)"
 log -push
 design -reset
@@ -978,5 +980,81 @@ proc
 opt
 opt_prienc
 select -assert-count 0 w:*rr*
+design -reset
+log -pop
+
+# ============================================================================
+# Group G: large-N sampling paths (PE one-hots + RR starts)
+# ============================================================================
+#
+# These lock the sub-quadratic fingerprint schedules used for N>32 (PE) and
+# N>16 (RR starts). Full SAT equiv at these widths is expensive, so we check
+# detection + structural collapse only.
+
+# G1: plain 64-bit CLZ for-loop -- sampled PE one-hot deck must still detect.
+log -header "G1: plain 64-bit CLZ (large-N PE sample path)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [63:0] x,
+  output logic [6:0]  y
+);
+  always_comb begin
+    logic done;
+    y    = 7'd64;
+    done = 1'b0;
+    for (int i = 0; i < 64; i++) begin
+      if (!done && x[63 - i]) begin
+        y    = i[6:0];
+        done = 1'b1;
+      end
+    end
+  end
+endmodule
+EOF
+proc
+check -assert
+opt_prienc -max-width 64
+clean -purge
+select -assert-count 63 t:$mux
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+# G2: RR DEPTH=64 -- sampled start pointers (N>16) must still detect grant.
+log -header "G2: round-robin DEPTH=64 (large-N RR sample path)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module test #(parameter int DEPTH = 64) (
+    input  logic                    clk,
+    input  logic                    rst_n,
+    input  logic [DEPTH-1:0]        req,
+    output logic [$clog2(DEPTH)-1:0] grant
+);
+    typedef logic [$clog2(DEPTH)-1:0] idx_t;
+    idx_t idx, idx_next, idx_last;
+    always_comb begin
+        idx = idx_last; idx_next = idx_last; grant = '0;
+        for (int i = 0; i < DEPTH; i++) begin
+            if (req[idx]) begin grant = idx; idx_next = idx; end
+            if (idx == 0) idx = idx_t'(DEPTH-1); else idx--;
+        end
+    end
+    always_ff @(posedge clk) begin
+        if (!rst_n) idx_last <= '0;
+        else if (idx_last != idx_next) idx_last <= idx_next;
+    end
+endmodule
+EOF
+hierarchy -top test
+proc
+opt
+opt_prienc
+# grant is rewritten via the sampled-start RR fingerprint; idx_next may remain
+# on very deep unrolled cones. Detection of at least one rr_* network is enough
+# to lock the N>16 start-sampling path.
+select -assert-min 1 w:*rr*
 design -reset
 log -pop

@@ -20,6 +20,8 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/consteval.h"
+#include <algorithm>
+#include <functional>
 #include <queue>
 
 USING_YOSYS_NAMESPACE
@@ -108,9 +110,12 @@ struct OptPriEncWorker {
 	// Compute the combinational fanin cone of `from`. Outputs the set of cells
 	// in the cone (cells whose output is reached by BFS) and the "leaf" bits
 	// (port-input bits or bits driven by sequential cells / undriven).
-	// Returns false if the cone touches anything we don't want to drive a PE.
-	bool get_cone(SigSpec from, pool<Cell*>& cone_cells, pool<SigBit>& leaf_bits,
-	              int max_cone_cells, int max_leaf_bits) {
+	// Returns 1 on success, 0 if the cone is empty/unusable, -1 if it exceeded
+	// the size caps (caller may retry with a larger cap / budget).
+	int get_cone(SigSpec from, pool<Cell*>& cone_cells, pool<SigBit>& leaf_bits,
+	             int max_cone_cells, int max_leaf_bits) {
+		cone_cells.clear();
+		leaf_bits.clear();
 		pool<SigBit> visited;
 		std::queue<SigBit> worklist;
 		for (auto bit : sigmap(from)) {
@@ -122,23 +127,23 @@ struct OptPriEncWorker {
 			worklist.pop();
 			if (input_port_bits.count(bit)) {
 				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits) return false;
+				if (GetSize(leaf_bits) > max_leaf_bits) return -1;
 				continue;
 			}
 			auto it = bit_to_driver.find(bit);
 			if (it == bit_to_driver.end()) {
 				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits) return false;
+				if (GetSize(leaf_bits) > max_leaf_bits) return -1;
 				continue;
 			}
 			Cell* drv = it->second;
 			if (sequential_cells.count(drv)) {
 				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits) return false;
+				if (GetSize(leaf_bits) > max_leaf_bits) return -1;
 				continue;
 			}
 			if (!cone_cells.insert(drv).second) continue;
-			if (GetSize(cone_cells) > max_cone_cells) return false;
+			if (GetSize(cone_cells) > max_cone_cells) return -1;
 			for (auto& conn : drv->connections()) {
 				if (!drv->input(conn.first)) continue;
 				for (auto in_bit : sigmap(conn.second)) {
@@ -147,39 +152,88 @@ struct OptPriEncWorker {
 				}
 			}
 		}
-		return true;
+		return cone_cells.empty() ? 0 : 1;
 	}
 
-	// Collect all wires in the module whose bits are entirely within the
-	// (leaf_bits + cone-driven bits) frontier of S's cone. These are
-	// candidates for the input bus T -- either a leaf wire bottoming out the
-	// cone (ports / FF outputs) or an internal wire produced by a cone cell.
-	// Wires with a valid power-of-2-friendly width are preferred but we let
-	// the fingerprint be the final arbiter.
+	// Inverted index: sigmap bit -> wires that contain it. Built once per run()
+	// so candidate T/req/start discovery is O(|cone_bits|) instead of O(|wires|).
+	dict<SigBit, vector<Wire*>> bit_to_cand_wires;
+	dict<Wire*, int> wire_uniq_bit_count;
+	dict<Wire*, vector<SigBit>> wire_sig_bits;
+
+	void build_wire_index(const vector<Wire*>& wires) {
+		bit_to_cand_wires.clear();
+		wire_uniq_bit_count.clear();
+		wire_sig_bits.clear();
+		for (Wire* w : wires) {
+			SigSpec ss = sigmap(SigSpec(w));
+			vector<SigBit> bits;
+			bits.reserve(GetSize(ss));
+			pool<SigBit> uniq;
+			bool has_const = false;
+			for (auto bit : ss) {
+				bits.push_back(bit);
+				if (!bit.wire) { has_const = true; continue; }
+				if (uniq.insert(bit).second)
+					bit_to_cand_wires[bit].push_back(w);
+			}
+			wire_sig_bits[w] = std::move(bits);
+			// Wires with const bits can never be clean ConstEval cuts.
+			if (!has_const)
+				wire_uniq_bit_count[w] = GetSize(uniq);
+		}
+	}
+
+	// Wires whose sigmap bits are all inside `cone_bits` (and pass `keep`).
+	vector<Wire*> wires_in_cone(const pool<SigBit>& cone_bits,
+	                            std::function<bool(Wire*)> keep) {
+		dict<Wire*, int> cover;
+		for (auto bit : cone_bits) {
+			auto it = bit_to_cand_wires.find(bit);
+			if (it == bit_to_cand_wires.end()) continue;
+			for (Wire* w : it->second) {
+				if (!keep(w)) continue;
+				cover[w]++;
+			}
+		}
+		vector<Wire*> out;
+		for (auto& it : cover) {
+			Wire* w = it.first;
+			auto uit = wire_uniq_bit_count.find(w);
+			if (uit == wire_uniq_bit_count.end()) continue;
+			if (it.second == uit->second)
+				out.push_back(w);
+		}
+		return out;
+	}
+
+	// Collect wires whose bits are entirely within the cone frontier of S.
+	// Prefer wider candidates: more fingerprint constraints, fewer false positives.
 	vector<Wire*> find_candidate_Ts(Wire* S_wire,
 	                                const pool<SigBit>& cone_bits,
 	                                const pool<SigBit>& control_bits,
-	                                const vector<Wire*>& possible_Ts) {
-		vector<Wire*> out;
-		for (Wire* w : possible_Ts) {
-			if (w == S_wire) continue;
-			bool all_in = true, any_control = false;
-			for (auto bit : sigmap(SigSpec(w))) {
-				if (!cone_bits.count(bit)) { all_in = false; break; }
-				if (control_bits.count(bit)) any_control = true;
-			}
-			if (all_in && any_control) out.push_back(w);
-		}
-		// Try wider candidates first: the more bits the fingerprint constrains,
-		// the lower the chance of false positives, and longer chains usually
-		// imply a more substantial detection target.
+	                                int Wbits) {
+		vector<Wire*> out = wires_in_cone(cone_bits, [&](Wire* w) {
+			if (w == S_wire) return false;
+			if (w->width < min_input_width || w->width > max_input_width) return false;
+			int W_full = clog2_int(w->width + 1);
+			int W_short = clog2_int(w->width);
+			if (W_full != Wbits && W_short != Wbits) return false;
+			auto sit = wire_sig_bits.find(w);
+			if (sit == wire_sig_bits.end()) return false;
+			for (auto bit : sit->second)
+				if (control_bits.count(bit)) return true;
+			return false;
+		});
 		std::sort(out.begin(), out.end(), [](Wire* a, Wire* b) {
 			return a->width > b->width;
 		});
 		return out;
 	}
 
-	// Build the test-vector deck for an N-bit input.
+	// PE deck: zero + one-hots first (reject most non-PEs immediately), then
+	// denser patterns that separate full vs short / CLZ vs CTZ. For large N the
+	// prefix/suffix sweeps are sparsified — one-hots already pin every position.
 	vector<Const> gen_test_vectors(int N) {
 		vector<Const> vs;
 		vs.push_back(const_u64(0, N));
@@ -188,15 +242,31 @@ struct OptPriEncWorker {
 			bits[k] = State::S1;
 			vs.push_back(Const(bits));
 		}
-		for (int k = 1; k <= N; k++) {
+		auto push_prefix = [&](int k) {
+			if (k < 1 || k > N) return;
 			std::vector<State> bits(N, State::S0);
 			for (int i = 0; i < k; i++) bits[i] = State::S1;
 			vs.push_back(Const(bits));
-		}
-		for (int k = 0; k < N; k++) {
+		};
+		auto push_suffix_clear = [&](int k) {
+			if (k < 0 || k >= N) return;
 			std::vector<State> bits(N, State::S1);
 			for (int i = 0; i < k; i++) bits[i] = State::S0;
 			vs.push_back(Const(bits));
+		};
+		if (N <= 16) {
+			for (int k = 1; k <= N; k++) push_prefix(k);
+			for (int k = 0; k < N; k++) push_suffix_clear(k);
+		} else {
+			push_prefix(2);
+			push_prefix(N / 4);
+			push_prefix(N / 2);
+			push_prefix(N - 1);
+			push_prefix(N);
+			push_suffix_clear(1);
+			push_suffix_clear(N / 4);
+			push_suffix_clear(N / 2);
+			push_suffix_clear(N - 1);
 		}
 		if (N >= 4) {
 			std::vector<State> aa(N, State::S0), fivefive(N, State::S0), e8(N, State::S0);
@@ -210,6 +280,108 @@ struct OptPriEncWorker {
 			vs.push_back(Const(e8));
 		}
 		return vs;
+	}
+
+	// Leaner RR deck: empty + one-hots + a sparse multi-bit set. One-hots are
+	// s-independent (sanity); multi-bit + empty×s catch rotation dependence.
+	vector<Const> gen_rr_test_vectors(int N) {
+		vector<Const> vs;
+		vs.push_back(const_u64(0, N));
+		for (int k = 0; k < N; k++) {
+			std::vector<State> bits(N, State::S0);
+			bits[k] = State::S1;
+			vs.push_back(Const(bits));
+		}
+		auto push_prefix = [&](int k) {
+			if (k < 1 || k > N) return;
+			std::vector<State> bits(N, State::S0);
+			for (int i = 0; i < k; i++) bits[i] = State::S1;
+			vs.push_back(Const(bits));
+		};
+		auto push_suffix_clear = [&](int k) {
+			if (k < 0 || k >= N) return;
+			std::vector<State> bits(N, State::S1);
+			for (int i = 0; i < k; i++) bits[i] = State::S0;
+			vs.push_back(Const(bits));
+		};
+		push_prefix(2);
+		push_prefix(N / 2);
+		push_prefix(N - 1);
+		push_prefix(N);
+		push_suffix_clear(1);
+		push_suffix_clear(N / 2);
+		push_suffix_clear(N - 1);
+		if (N >= 4) {
+			std::vector<State> aa(N, State::S0), fivefive(N, State::S0), e8(N, State::S0);
+			for (int i = 0; i < N; i++) {
+				if (i & 1) aa[i] = State::S1; else fivefive[i] = State::S1;
+			}
+			vs.push_back(Const(aa));
+			vs.push_back(Const(fivefive));
+			e8[0] = State::S1;
+			if (N > 1) e8[N - 1] = State::S1;
+			vs.push_back(Const(e8));
+		}
+		return vs;
+	}
+
+	// Full start sweep for small N; capped sample for large N (still includes
+	// corners / midpoints that distinguish rotation from fixed priority).
+	static vector<int> rr_start_samples(int N) {
+		vector<int> out;
+		if (N <= 16) {
+			out.reserve(N);
+			for (int s = 0; s < N; s++) out.push_back(s);
+			return out;
+		}
+		pool<int> sset;
+		auto add = [&](int s) { if (s >= 0 && s < N) sset.insert(s); };
+		add(0); add(1); add(2);
+		add(N - 1); add(N - 2); add(N - 3);
+		add(N / 4); add(N / 2); add((3 * N) / 4);
+		int target = std::min(N, 16);
+		for (int i = 0; GetSize(sset) < target && i < N; i++)
+			add((i * 7) % N);
+		out.assign(sset.begin(), sset.end());
+		std::sort(out.begin(), out.end());
+		return out;
+	}
+
+	// Sole-driver type gate before get_cone: skip wires driven by cells that
+	// never root a PE/RR region (avoids BFS on every narrow misc wire).
+	static bool driver_looks_interesting(Cell* d) {
+		return d->type.in(ID($mux), ID($pmux), ID($add), ID($sub), ID($or), ID($and),
+		                  ID($xor), ID($xnor), ID($not), ID($logic_not), ID($logic_and), ID($logic_or),
+		                  ID($reduce_or), ID($reduce_bool), ID($reduce_and), ID($reduce_xor),
+		                  ID($eq), ID($ne), ID($lt), ID($le), ID($gt), ID($ge),
+		                  ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+		                  ID($mod), ID($modfloor), ID($neg), ID($pos));
+	}
+
+	// Cheap structural gate before ConstEval: PE cones are mux/compare/shift heavy.
+	static bool cone_looks_like_pe(const pool<Cell*>& cells) {
+		for (Cell* c : cells)
+			if (c->type.in(ID($mux), ID($pmux), ID($eq), ID($ne), ID($lt), ID($le),
+			               ID($gt), ID($ge), ID($logic_and), ID($logic_or), ID($logic_not),
+			               ID($reduce_or), ID($reduce_bool), ID($reduce_and),
+			               ID($and), ID($or), ID($xor), ID($not),
+			               ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+			               ID($add), ID($sub)))
+				return true;
+		return false;
+	}
+
+	// RR RTL dynamic-indexes req[idx] ($shiftx/$shift) or uses mod wrap.
+	// Do NOT treat $shl/$shr as RR-like: CLZ/CTZ for-loop scans use those and
+	// would otherwise pay for pointless RR fingerprinting on huge PE cones.
+	static bool cone_looks_like_rr(const pool<Cell*>& cells) {
+		int muxes = 0;
+		for (Cell* c : cells) {
+			if (c->type.in(ID($shiftx), ID($shift), ID($mod), ID($modfloor)))
+				return true;
+			if (c->type.in(ID($mux), ID($pmux))) muxes++;
+		}
+		return muxes >= 8;
 	}
 
 	// ConstEval::set() requires every (sigmap-canonical) bit it pins to be a
@@ -262,12 +434,10 @@ struct OptPriEncWorker {
 		return true;
 	}
 
-	// Run all candidate test vectors through ConstEval and try to match each of
-	// the four PE variants against the recorded outputs. Returns the matched
-	// variant, or NONE.
-	PEVariant fingerprint(SigSpec T_sig, SigSpec S_sig, int N, int Wbits) {
-		ConstEval ce(module);
-
+	// Run candidate test vectors through a shared ConstEval. Zero + one-hots
+	// lead the deck so non-PEs bail before denser patterns. For large N the
+	// one-hot sweep is sampled; once a single variant remains we return early.
+	PEVariant fingerprint(ConstEval& ce, SigSpec T_sig, SigSpec S_sig, int N, int Wbits) {
 		bool clz_full_ok = detect_clz && (Wbits == clog2_int(N + 1));
 		bool ctz_full_ok = detect_ctz && (Wbits == clog2_int(N + 1));
 		bool clz_short_ok = detect_clz && (Wbits == clog2_int(N));
@@ -282,15 +452,28 @@ struct OptPriEncWorker {
 		if (!is_valid_consteval_cut(T_sig))
 			return PEVariant::NONE;
 
-		auto vs = gen_test_vectors(N);
-		for (auto& v : vs) {
+		auto finish = [&]() -> PEVariant {
+			if (clz_full_ok)  return PEVariant::CLZ_FULL;
+			if (ctz_full_ok)  return PEVariant::CTZ_FULL;
+			if (clz_short_ok) return PEVariant::CLZ_SHORT;
+			if (ctz_short_ok) return PEVariant::CTZ_SHORT;
+			return PEVariant::NONE;
+		};
+		auto survivors = [&]() {
+			return (int)clz_full_ok + (int)ctz_full_ok + (int)clz_short_ok + (int)ctz_short_ok;
+		};
+
+		auto check_vec = [&](const Const& v) -> bool {
 			ce.push();
 			ce.set(T_sig, v);
 			SigSpec out = S_sig;
 			SigSpec undef;
 			bool ok = ce.eval(out, undef);
 			ce.pop();
-			if (!ok || !out.is_fully_const()) return PEVariant::NONE;
+			if (!ok || !out.is_fully_const()) {
+				clz_full_ok = ctz_full_ok = clz_short_ok = ctz_short_ok = false;
+				return false;
+			}
 			int outval = out.as_const().as_int();
 
 			int msb_set = const_msb_set(v, N);
@@ -304,17 +487,54 @@ struct OptPriEncWorker {
 			if (ctz_full_ok && outval != e_ctz) ctz_full_ok = false;
 			if (clz_short_ok && !zero && outval != e_clz) clz_short_ok = false;
 			if (ctz_short_ok && !zero && outval != e_ctz) ctz_short_ok = false;
+			return survivors() > 0;
+		};
 
-			if (!clz_full_ok && !ctz_full_ok && !clz_short_ok && !ctz_short_ok)
-				return PEVariant::NONE;
+		vector<Const> vs;
+		vs.push_back(const_u64(0, N));
+
+		// One-hots: full sweep for small N; corners+stride sample for large N.
+		pool<int> pos;
+		auto addp = [&](int k) { if (k >= 0 && k < N) pos.insert(k); };
+		if (N <= 32) {
+			for (int k = 0; k < N; k++) addp(k);
+		} else {
+			for (int k = 0; k < 4; k++) { addp(k); addp(N - 1 - k); }
+			int stride = std::max(1, N / 16);
+			for (int k = 0; k < N; k += stride) addp(k);
+		}
+		vector<int> pv(pos.begin(), pos.end());
+		std::sort(pv.begin(), pv.end());
+		for (int k : pv) {
+			std::vector<State> bits(N, State::S0);
+			bits[k] = State::S1;
+			vs.push_back(Const(bits));
 		}
 
-		// Prefer the most specific match (full > short; CLZ before CTZ tie-breaker).
-		if (clz_full_ok)  return PEVariant::CLZ_FULL;
-		if (ctz_full_ok)  return PEVariant::CTZ_FULL;
-		if (clz_short_ok) return PEVariant::CLZ_SHORT;
-		if (ctz_short_ok) return PEVariant::CTZ_SHORT;
-		return PEVariant::NONE;
+		// Multi-bit confirmation vectors (sparse for any N via gen_test_vectors tail).
+		{
+			auto tail = gen_test_vectors(N);
+			for (auto& v : tail) {
+				int pop = 0;
+				auto b = v.to_bits();
+				for (int i = 0; i < N && i < (int)b.size(); i++)
+					if (b[i] == State::S1) pop++;
+				if (pop <= 1) continue;
+				vs.push_back(v);
+			}
+		}
+
+		int n_checked = 0;
+		int onehot_end = 1 + GetSize(pv); // zero + one-hots
+		int early_at = std::min(onehot_end, 1 + std::min(GetSize(pv), 8));
+		for (auto& v : vs) {
+			if (!check_vec(v)) return PEVariant::NONE;
+			n_checked++;
+			// Unique survivor after zero + a handful of one-hots is enough.
+			if (n_checked >= early_at && survivors() == 1)
+				return finish();
+		}
+		return finish();
 	}
 
 	// Recursive CLZ on a power-of-2-width input. Returns a (log2(N)+1)-bit
@@ -462,35 +682,62 @@ struct OptPriEncWorker {
 	}
 
 	// Returns matched kind (0 grant, 1 idx_next), or -1 for no match.
-	int fingerprint_rr(SigSpec req_sig, SigSpec start_sig, SigSpec S_sig,
+	// Empty/multi-bit vectors are swept over sampled starts (rotation matters);
+	// one-hots are s-independent so they run once at s=0 only.
+	int fingerprint_rr(ConstEval& ce, SigSpec req_sig, SigSpec start_sig, SigSpec S_sig,
 	                   int N, int W) {
-		ConstEval ce(module);
 		if (!clean_set_signals({&req_sig, &start_sig}))
 			return -1;
 		SigSpec cut = req_sig;
 		cut.append(start_sig);
 		if (!is_valid_consteval_cut(cut))
 			return -1;
+
 		bool ok0 = true, ok1 = true;
-		auto deck = gen_test_vectors(N);
+		auto starts = rr_start_samples(N);
 		int checks = 0;
-		for (auto& rv : deck) {
-			for (int s = 0; s < N; s++) {
-				ce.push();
-				ce.set(req_sig, rv);
-				ce.set(start_sig, Const(s, W));
-				SigSpec out = S_sig, undef;
-				bool ok = ce.eval(out, undef);
-				ce.pop();
-				if (!ok || !out.is_fully_const()) return -1;
-				int ov = out.as_const().as_int();
-				if (ok0 && ov != rr_expected(rv, s, N, W, 0)) ok0 = false;
-				if (ok1 && ov != rr_expected(rv, s, N, W, 1)) ok1 = false;
-				checks++;
-				if (!ok0 && !ok1) return -1;
-			}
+
+		auto check = [&](const Const& rv, int s) -> bool {
+			ce.push();
+			ce.set(req_sig, rv);
+			ce.set(start_sig, Const(s, W));
+			SigSpec out = S_sig, undef;
+			bool ok = ce.eval(out, undef);
+			ce.pop();
+			if (!ok || !out.is_fully_const()) return false;
+			int ov = out.as_const().as_int();
+			if (ok0 && ov != rr_expected(rv, s, N, W, 0)) ok0 = false;
+			if (ok1 && ov != rr_expected(rv, s, N, W, 1)) ok1 = false;
+			checks++;
+			return ok0 || ok1;
+		};
+
+		// Phase 1: empty req × starts — idx_next must track s; grant stays 0.
+		Const z = const_u64(0, N);
+		for (int s : starts)
+			if (!check(z, s)) return -1;
+
+		// Phase 2: one-hots at a single start (result is independent of s).
+		for (int k = 0; k < N; k++) {
+			std::vector<State> bits(N, State::S0);
+			bits[k] = State::S1;
+			if (!check(Const(bits), 0)) return -1;
 		}
-		if (checks < 2 * N) return -1;
+
+		// Phase 3: sparse multi-bit patterns × starts (rotation-sensitive).
+		auto multi = gen_rr_test_vectors(N);
+		for (auto& rv : multi) {
+			// Skip empty + one-hots already covered above.
+			int pop = 0;
+			auto b = rv.to_bits();
+			for (int i = 0; i < N && i < (int)b.size(); i++)
+				if (b[i] == State::S1) pop++;
+			if (pop <= 1) continue;
+			for (int s : starts)
+				if (!check(rv, s)) return -1;
+		}
+
+		if (checks < 2 * GetSize(starts)) return -1;
 		if (ok0) return 0;
 		if (ok1) return 1;
 		return -1;
@@ -679,35 +926,61 @@ struct OptPriEncWorker {
 
 	void run() {
 		vector<Wire*> wires_snapshot(module->wires().begin(), module->wires().end());
-		dict<int, vector<Wire*>> possible_Ts_by_Wbits;
-		for (Wire* w : wires_snapshot) {
-			if (w->width < min_input_width || w->width > max_input_width) continue;
-			int W_full = clog2_int(w->width + 1);
-			int W_short = clog2_int(w->width);
-			possible_Ts_by_Wbits[W_full].push_back(w);
-			if (W_short != W_full)
-				possible_Ts_by_Wbits[W_short].push_back(w);
-		}
+		build_wire_index(wires_snapshot);
+		// One ConstEval for the whole module: ctor indexes every cell once.
+		// Fingerprints only run before we mutate the netlist.
+		ConstEval ce(module);
 
 		// Stage 1: build candidate set with cones, filter by driver/width.
+		// Probe with a small cone cap first; only a budgeted number of wires
+		// that overflow get a full-size rewalk (unrolled N=64 loops otherwise
+		// make every intermediate encoder wire pay for a full BFS).
 		vector<Candidate> candidates;
 		int max_W = clog2_int(max_input_width + 1);
-		int max_cone_cells = std::max(256, max_input_width * 16);
-		int max_leaf_bits = max_input_width + max_W + 8;
+		int max_cone_cells = std::max(128, max_input_width * 16);
+		int probe_cone_cells = std::min(64, max_cone_cells);
+		int large_cone_budget = 24;
+		// req[N]+start[W] leaves for RR, plus a little slack for aliases/opt junk.
+		int max_leaf_bits = max_input_width + max_W + max_input_width / 4 + 16;
+
+		struct SCand { Wire* w; Cell* drv; IdString port; int rank; };
+		vector<SCand> s_cands;
 		for (Wire* S_wire : wires_snapshot) {
 			if (S_wire->port_input) continue;
 			int Wbits = S_wire->width;
 			if (Wbits < 2 || Wbits > max_W) continue;
-
 			Cell* sole_driver = nullptr;
 			IdString out_port;
 			if (!get_sole_whole_wire_driver(S_wire, sole_driver, out_port)) continue;
+			if (!driver_looks_interesting(sole_driver)) continue;
+			int rank = 2;
+			if (S_wire->port_output) rank = 0;
+			else if (sole_driver->type.in(ID($mux), ID($pmux), ID($add), ID($sub), ID($and), ID($or)))
+				rank = 1;
+			s_cands.push_back({S_wire, sole_driver, out_port, rank});
+		}
+		std::sort(s_cands.begin(), s_cands.end(), [](const SCand& a, const SCand& b) {
+			if (a.rank != b.rank) return a.rank < b.rank;
+			return a.w->width > b.w->width;
+		});
+
+		for (auto& sc : s_cands) {
+			Wire* S_wire = sc.w;
+			Cell* sole_driver = sc.drv;
+			IdString out_port = sc.port;
 
 			pool<Cell*> cone_cells;
 			pool<SigBit> leaf_bits;
-			if (!get_cone(SigSpec(S_wire), cone_cells, leaf_bits,
-			              max_cone_cells, max_leaf_bits)) continue;
-			if (cone_cells.empty()) continue;
+			int st = get_cone(SigSpec(S_wire), cone_cells, leaf_bits,
+			                  probe_cone_cells, max_leaf_bits);
+			if (st < 0) {
+				if (large_cone_budget <= 0) continue;
+				large_cone_budget--;
+				st = get_cone(SigSpec(S_wire), cone_cells, leaf_bits,
+				              max_cone_cells, max_leaf_bits);
+			}
+			if (st <= 0) continue;
+			if (!cone_looks_like_pe(cone_cells)) continue;
 
 			pool<SigBit> cone_bits = leaf_bits;
 			pool<SigBit> control_bits;
@@ -723,6 +996,7 @@ struct OptPriEncWorker {
 					}
 				}
 			}
+			if (control_bits.empty()) continue;
 			candidates.push_back({S_wire, std::move(cone_cells), std::move(leaf_bits),
 			                      std::move(cone_bits), std::move(control_bits),
 			                      sole_driver, out_port});
@@ -754,10 +1028,8 @@ struct OptPriEncWorker {
 			int Wbits = cand.S_wire->width;
 			SigSpec S_sig = sigmap(SigSpec(cand.S_wire));
 
-			auto possible_Ts_it = possible_Ts_by_Wbits.find(Wbits);
-			if (possible_Ts_it == possible_Ts_by_Wbits.end()) continue;
 			vector<Wire*> Ts = find_candidate_Ts(cand.S_wire, cand.cone_bits,
-			                                     cand.control_bits, possible_Ts_it->second);
+			                                     cand.control_bits, Wbits);
 			for (Wire* T_wire : Ts) {
 				int N = T_wire->width;
 				SigSpec T_sig = sigmap(SigSpec(T_wire));
@@ -766,7 +1038,7 @@ struct OptPriEncWorker {
 					if (bit.wire) T_bits.insert(bit);
 				if (!cone_depends_only_on_T(S_sig, T_bits)) continue;
 
-				PEVariant variant = fingerprint(T_sig, S_sig, N, Wbits);
+				PEVariant variant = fingerprint(ce, T_sig, S_sig, N, Wbits);
 				if (variant == PEVariant::NONE) continue;
 
 				log("  %s: %s <- %s(%s) [N=%d, W=%d]\n",
@@ -791,18 +1063,17 @@ struct OptPriEncWorker {
 			for (auto& cand : candidates) {
 				if (claimed_outputs.count(cand.S_wire)) continue;
 				if (claimed_drivers.count(cand.sole_driver)) continue;
+				if (!cone_looks_like_rr(cand.cone_cells)) continue;
 
 				int W = cand.S_wire->width;
 				if (W < 2 || W > max_W) continue;
 				SigSpec S_sig = sigmap(SigSpec(cand.S_wire));
 
+				vector<Wire*> in_cone = wires_in_cone(cand.cone_bits, [&](Wire* w) {
+					return w != cand.S_wire;
+				});
 				vector<Wire*> req_cands, start_cands;
-				for (Wire* w : wires_snapshot) {
-					if (w == cand.S_wire) continue;
-					bool all_in = true;
-					for (auto bit : sigmap(SigSpec(w)))
-						if (!cand.cone_bits.count(bit)) { all_in = false; break; }
-					if (!all_in) continue;
+				for (Wire* w : in_cone) {
 					int wn = w->width;
 					if (wn >= min_input_width && wn <= max_input_width &&
 					    clog2_int(wn) == W)
@@ -834,7 +1105,7 @@ struct OptPriEncWorker {
 							if (bit.wire) allowed.insert(bit);
 						if (!cone_depends_only_on_set(S_sig, allowed)) continue;
 
-						int kind = fingerprint_rr(req_sig, start_sig, S_sig, N, W);
+						int kind = fingerprint_rr(ce, req_sig, start_sig, S_sig, N, W);
 						if (kind < 0) continue;
 
 						log("  %s: %s <- round_robin_%s(req=%s, start=%s) [N=%d, W=%d]\n",
