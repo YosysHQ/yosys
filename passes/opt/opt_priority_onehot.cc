@@ -320,18 +320,21 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 	Record combine(Cell *anchor, const Record &lhs, const Record &rhs)
 	{
 		Cell *cell = anchor;
-		SigBit lhs_invalid = module->Not(NEW_ID2_SUFFIX("prionehot_ninv"), SigSpec(lhs.valid))[0];
+		SigBit lhs_invalid = module->Not(NEW_ID2_SUFFIX("prionehot_ninv"), SigSpec(lhs.valid),
+		                                  false, cell_src(anchor))[0];
 		cells_added++;
 		SigBit take_rhs = module->And(NEW_ID2_SUFFIX("prionehot_take"),
-		                              SigSpec(lhs_invalid), SigSpec(rhs.valid))[0];
+		                              SigSpec(lhs_invalid), SigSpec(rhs.valid),
+		                              false, cell_src(anchor))[0];
 		cells_added++;
 
 		Record out;
 		out.valid = module->Or(NEW_ID2_SUFFIX("prionehot_orv"),
-		                       SigSpec(lhs.valid), SigSpec(rhs.valid))[0];
+		                       SigSpec(lhs.valid), SigSpec(rhs.valid),
+		                       false, cell_src(anchor))[0];
 		cells_added++;
 		out.index = module->Mux(NEW_ID2_SUFFIX("prionehot_mux"), lhs.index, rhs.index,
-		                        SigSpec(take_rhs));
+		                        SigSpec(take_rhs), cell_src(anchor));
 		cells_added++;
 		return out;
 	}
@@ -356,16 +359,19 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 		cur.push_back(valid);
 		for (int b = 0; b < idx_w; b++) {
 			SigSpec idx_bit(index[b]);
-			SigBit idx_bit_n = module->Not(NEW_ID2_SUFFIX("prionehot_ndec"), idx_bit)[0];
+			SigBit idx_bit_n = module->Not(NEW_ID2_SUFFIX("prionehot_ndec"), idx_bit,
+			                              false, cell_src(anchor))[0];
 			cells_added++;
 			int group = GetSize(cur);
 			vector<SigBit> nxt(group * 2);
 			for (int g = 0; g < group; g++) {
 				nxt[g] = module->And(NEW_ID2_SUFFIX("prionehot_dec0"),
-				                     SigSpec(cur[g]), SigSpec(idx_bit_n))[0];
+				                     SigSpec(cur[g]), SigSpec(idx_bit_n),
+				                     false, cell_src(anchor))[0];
 				cells_added++;
 				nxt[g + group] = module->And(NEW_ID2_SUFFIX("prionehot_dec1"),
-				                             SigSpec(cur[g]), idx_bit)[0];
+				                             SigSpec(cur[g]), idx_bit,
+				                             false, cell_src(anchor))[0];
 				cells_added++;
 			}
 			cur = std::move(nxt);

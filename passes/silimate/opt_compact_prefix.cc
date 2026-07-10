@@ -288,7 +288,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *sum = module->addWire(NEW_ID2_SUFFIX("compact_sum"), width);
-		module->addAdd(NEW_ID2_SUFFIX("compact_add"), lhs, rhs, sum);
+		module->addAdd(NEW_ID2_SUFFIX("compact_add"), lhs, rhs, sum, false, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigSpec(sum);
 	}
@@ -303,7 +303,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_not"), 1);
-		module->addNot(NEW_ID2_SUFFIX("compact_not_cell"), SigSpec(bit), out);
+		module->addNot(NEW_ID2_SUFFIX("compact_not_cell"), SigSpec(bit), out, false, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigBit(out);
 	}
@@ -313,7 +313,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_and"), 1);
-		module->addAnd(NEW_ID2_SUFFIX("compact_and_cell"), SigSpec(a), SigSpec(b), out);
+		module->addAnd(NEW_ID2_SUFFIX("compact_and_cell"), SigSpec(a), SigSpec(b), out, false, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigBit(out);
 	}
@@ -323,7 +323,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_eq"), 1);
-		module->addEq(NEW_ID2_SUFFIX("compact_eq_cell"), zext(a, width), Const(value, width), out);
+		module->addEq(NEW_ID2_SUFFIX("compact_eq_cell"), zext(a, width), Const(value, width), out, false, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigBit(out);
 	}
@@ -333,7 +333,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_gt"), 1);
-		module->addGt(NEW_ID2_SUFFIX("compact_gt_cell"), zext(a, width), Const(value, width), out);
+		module->addGt(NEW_ID2_SUFFIX("compact_gt_cell"), zext(a, width), Const(value, width), out, false, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigBit(out);
 	}
@@ -349,7 +349,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_or"), 1);
-		module->addReduceOr(NEW_ID2_SUFFIX("compact_or_cell"), bits, out);
+		module->addReduceOr(NEW_ID2_SUFFIX("compact_or_cell"), bits, out, false, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigBit(out);
 	}
@@ -359,7 +359,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		Cell *cell = ref_cell;
 		log_assert(cell != nullptr);
 		Wire *out = module->addWire(NEW_ID2_SUFFIX("compact_div"), 1);
-		module->addBmux(NEW_ID2_SUFFIX("compact_bmux"), table, sel, out);
+		module->addBmux(NEW_ID2_SUFFIX("compact_bmux"), table, sel, out, cell_src(ref_cell));
 		new_cells_emitted++;
 		return SigBit(out);
 	}
@@ -868,7 +868,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		popcount[start] = zext(acc, cnt_width);
 		for (int i = start + step; i != last + step; i += step) {
 			Wire *sum = module->addWire(NEW_ID2_SUFFIX("compact_pop"), cnt_width);
-			module->addAdd(NEW_ID2_SUFFIX("compact_pop_add"), acc, SigSpec(en_s[i]), sum);
+			module->addAdd(NEW_ID2_SUFFIX("compact_pop_add"), acc, SigSpec(en_s[i]), sum, false, cell_src(ref_cell));
 			new_cells_emitted++;
 			acc = SigSpec(sum);
 			popcount[i] = SigSpec(sum);
@@ -934,7 +934,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		SigSpec acc = prefix[0];
 		for (int i = 1; i < width; i++) {
 			Wire *sum = module->addWire(NEW_ID2_SUFFIX("compact_pre"), cnt_width);
-			module->addAdd(NEW_ID2_SUFFIX("compact_pre_add"), acc, SigSpec(en_s[i - 1]), sum);
+			module->addAdd(NEW_ID2_SUFFIX("compact_pre_add"), acc, SigSpec(en_s[i - 1]), sum, false, cell_src(ref_cell));
 			new_cells_emitted++;
 			acc = SigSpec(sum);
 			prefix[i] = acc;

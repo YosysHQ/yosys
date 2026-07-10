@@ -438,42 +438,42 @@ struct OptArgmaxWorker : CutRegionWorker
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->Not(NEW_ID2_SUFFIX("argmax_not"), a);
+		return module->Not(NEW_ID2_SUFFIX("argmax_not"), a, false, cell_src(anchor));
 	}
 
 	SigSpec emit_and(Cell *anchor, SigSpec a, SigSpec b)
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->And(NEW_ID2_SUFFIX("argmax_and"), a, b);
+		return module->And(NEW_ID2_SUFFIX("argmax_and"), a, b, false, cell_src(anchor));
 	}
 
 	SigSpec emit_or(Cell *anchor, SigSpec a, SigSpec b)
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->Or(NEW_ID2_SUFFIX("argmax_or"), a, b);
+		return module->Or(NEW_ID2_SUFFIX("argmax_or"), a, b, false, cell_src(anchor));
 	}
 
 	SigSpec emit_lt(Cell *anchor, SigSpec a, SigSpec b)
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->Lt(NEW_ID2_SUFFIX("argmax_lt"), a, b);
+		return module->Lt(NEW_ID2_SUFFIX("argmax_lt"), a, b, false, cell_src(anchor));
 	}
 
 	SigSpec emit_mux(Cell *anchor, SigSpec a, SigSpec b, SigSpec s)
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->Mux(NEW_ID2_SUFFIX("argmax_mux"), a, b, s);
+		return module->Mux(NEW_ID2_SUFFIX("argmax_mux"), a, b, s, cell_src(anchor));
 	}
 
 	SigSpec emit_bmux(Cell *anchor, SigSpec a, SigSpec s)
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->Bmux(NEW_ID2_SUFFIX("argmax_val"), a, s);
+		return module->Bmux(NEW_ID2_SUFFIX("argmax_val"), a, s, cell_src(anchor));
 	}
 
 	Record combine(Cell *anchor, const Record &lhs, const Record &rhs)
@@ -736,7 +736,7 @@ struct OptArgmaxWorker : CutRegionWorker
 	{
 		Cell *cell = anchor;
 		cells_added++;
-		return module->Ge(NEW_ID2_SUFFIX("maxsel_ge"), a, b)[0];
+		return module->Ge(NEW_ID2_SUFFIX("maxsel_ge"), a, b, false, cell_src(anchor))[0];
 	}
 
 	SigBit emit_reduce_and(Cell *anchor, SigSpec bits)
@@ -745,7 +745,7 @@ struct OptArgmaxWorker : CutRegionWorker
 			return bits[0];
 		Cell *cell = anchor;
 		cells_added++;
-		return module->ReduceAnd(NEW_ID2_SUFFIX("maxsel_win"), bits)[0];
+		return module->ReduceAnd(NEW_ID2_SUFFIX("maxsel_win"), bits, false, cell_src(anchor))[0];
 	}
 
 	SigSpec emit_or_tree(Cell *anchor, const vector<SigSpec> &terms, int begin, int end)

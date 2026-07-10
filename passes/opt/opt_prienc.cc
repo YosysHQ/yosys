@@ -324,7 +324,7 @@ struct OptPriEncWorker {
 		log_assert(N >= 1 && (N & (N - 1)) == 0);
 		if (N == 1) {
 			cells_added++;
-			return module->Not(NEW_ID2_SUFFIX("clznot"), T);
+			return module->Not(NEW_ID2_SUFFIX("clznot"), T, false, cell_src(cell));
 		}
 		int N2 = N / 2;
 		SigSpec hi = T.extract(N2, N2);
@@ -345,7 +345,7 @@ struct OptPriEncWorker {
 		// becomes lo_zero (= 1 iff x == 0); the next bit becomes ~lo_zero (=
 		// 1 iff lo != 0, signalling result in [N/2, N-1]); the remaining bits
 		// are clz_lo[W1-2:0].
-		SigSpec lo_nonzero_spec = module->Not(NEW_ID2_SUFFIX("clz_lonz"), SigSpec(lo_zero));
+		SigSpec lo_nonzero_spec = module->Not(NEW_ID2_SUFFIX("clz_lonz"), SigSpec(lo_zero), false, cell_src(cell));
 		cells_added++;
 		SigBit lo_nonzero = lo_nonzero_spec[0];
 
@@ -357,7 +357,7 @@ struct OptPriEncWorker {
 
 		// $mux: Y = S ? B : A. We want Y = hi_zero ? pad_clz_lo : pad_clz_hi.
 		cells_added++;
-		return module->Mux(NEW_ID2_SUFFIX("clzmux"), pad_clz_hi, pad_clz_lo, SigSpec(hi_zero));
+		return module->Mux(NEW_ID2_SUFFIX("clzmux"), pad_clz_hi, pad_clz_lo, SigSpec(hi_zero), cell_src(cell));
 	}
 
 	// CLZ of arbitrary-width T, returning a (clog2(N+1))-bit result.
@@ -373,7 +373,7 @@ struct OptPriEncWorker {
 			return clz_padded;
 		// result = clz_padded - pad_amount, truncated to W = clog2(N+1) bits.
 		int W = clog2_int(N + 1);
-		SigSpec sub = module->Sub(NEW_ID2_SUFFIX("clzsub"), clz_padded, SigSpec(Const(pad_amount, GetSize(clz_padded))));
+		SigSpec sub = module->Sub(NEW_ID2_SUFFIX("clzsub"), clz_padded, SigSpec(Const(pad_amount, GetSize(clz_padded))), false, cell_src(cell));
 		cells_added++;
 		if (GetSize(sub) >= W)
 			return sub.extract(0, W);
@@ -515,10 +515,10 @@ struct OptPriEncWorker {
 		} else {
 			SigSpec above;
 			for (int i = 0; i < N; i++) {
-				above.append(module->Lt(NEW_ID2_SUFFIX("rrabove"), s, SigSpec(Const(i, W))));
+				above.append(module->Lt(NEW_ID2_SUFFIX("rrabove"), s, SigSpec(Const(i, W)), false, cell_src(cell)));
 				cells_added++;
 			}
-			SigSpec mask_hi = module->And(NEW_ID2_SUFFIX("rrmask"), req, above);
+			SigSpec mask_hi = module->And(NEW_ID2_SUFFIX("rrmask"), req, above, false, cell_src(cell));
 			cells_added++;
 
 			SigSpec cz_hi = emit_ctz_full(mask_hi, N);
@@ -531,19 +531,19 @@ struct OptPriEncWorker {
 			cz_hi = low_w(cz_hi);
 			cz_all = low_w(cz_all);
 
-			SigBit any_hi = module->ReduceOr(NEW_ID2_SUFFIX("rranyhi"), mask_hi);
+			SigBit any_hi = module->ReduceOr(NEW_ID2_SUFFIX("rranyhi"), mask_hi, false, cell_src(cell));
 			cells_added++;
-			anyreq = module->ReduceOr(NEW_ID2_SUFFIX("rranyreq"), req);
+			anyreq = module->ReduceOr(NEW_ID2_SUFFIX("rranyreq"), req, false, cell_src(cell));
 			cells_added++;
 			// any_hi ? cz_hi : cz_all
-			gsel = module->Mux(NEW_ID2_SUFFIX("rrgsel"), cz_all, cz_hi, any_hi);
+			gsel = module->Mux(NEW_ID2_SUFFIX("rrgsel"), cz_all, cz_hi, any_hi, cell_src(cell));
 			cells_added++;
 			rr_core_cache[key] = std::make_tuple(gsel, SigSpec(), anyreq);
 		}
 
 		SigSpec fallback = (kind == 0) ? SigSpec(Const(0, W)) : s;
 		// anyreq ? gsel : fallback
-		SigSpec res = module->Mux(NEW_ID2_SUFFIX("rrsel"), fallback, gsel, anyreq);
+		SigSpec res = module->Mux(NEW_ID2_SUFFIX("rrsel"), fallback, gsel, anyreq, cell_src(cell));
 		cells_added++;
 		return res;
 	}

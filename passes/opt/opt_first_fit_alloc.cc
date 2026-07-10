@@ -59,6 +59,10 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// Thermometer exclusive scan is O(n log n * nb^2); keep nb small so emit
 	// stays cheap for max_n=64. Larger budgets fall back to binary sat-log.
 	int max_therm_nb = 8;
+	// Cap xbar emit size: n lanes * nb slots * slot_w bits of $pmux cases, plus
+	// n parallel $bmux tables of 2^a entries. Skip the gather (keep dsel) when
+	// the product would explode compile/techmap cost.
+	int64_t max_xbar_emit_bits = 1 << 18; // 256K bit-cases (~N=64, nb=32, slot_w=128)
 
 	int regions_rewritten = 0;
 	int cells_added = 0;
@@ -584,21 +588,37 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	SigBit emit_not(Cell *anchor, SigBit a)
 	{
 		Cell *cell = anchor;
-		SigBit o = module->Not(NEW_ID2_SUFFIX("ffa_not"), SigSpec(a))[0];
+		SigBit o = module->Not(NEW_ID2_SUFFIX("ffa_not"), SigSpec(a), false, cell_src(anchor))[0];
 		cells_added++;
 		return o;
 	}
 	SigBit emit_and(Cell *anchor, SigBit a, SigBit b)
 	{
+		// Const-fold 0/1 operands so prefix-OR / category scans don't emit
+		// dead $and cells that only inflate cells_added until opt_expr.
+		if (a == State::S0 || b == State::S0)
+			return State::S0;
+		if (a == State::S1)
+			return b;
+		if (b == State::S1)
+			return a;
 		Cell *cell = anchor;
-		SigBit o = module->And(NEW_ID2_SUFFIX("ffa_and"), SigSpec(a), SigSpec(b))[0];
+		SigBit o = module->And(NEW_ID2_SUFFIX("ffa_and"), SigSpec(a), SigSpec(b), false, cell_src(anchor))[0];
 		cells_added++;
 		return o;
 	}
 	SigBit emit_or(Cell *anchor, SigBit a, SigBit b)
 	{
+		// Same for $or: exclusive prefix starts at S0 and would otherwise
+		// produce a cascade of (x | 0) cells on every Hillis-Steele step.
+		if (a == State::S1 || b == State::S1)
+			return State::S1;
+		if (a == State::S0)
+			return b;
+		if (b == State::S0)
+			return a;
 		Cell *cell = anchor;
-		SigBit o = module->Or(NEW_ID2_SUFFIX("ffa_or"), SigSpec(a), SigSpec(b))[0];
+		SigBit o = module->Or(NEW_ID2_SUFFIX("ffa_or"), SigSpec(a), SigSpec(b), false, cell_src(anchor))[0];
 		cells_added++;
 		return o;
 	}
@@ -610,14 +630,35 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		if (GetSize(bits) == 1)
 			return bits[0];
 		Cell *cell = anchor;
-		SigBit o = module->ReduceOr(NEW_ID2_SUFFIX("ffa_ror"), bits)[0];
+		SigBit o = module->ReduceOr(NEW_ID2_SUFFIX("ffa_ror"), bits, false, cell_src(anchor))[0];
 		cells_added++;
 		return o;
+	}
+
+	// Hillis-Steele exclusive prefix-OR: out[0]=0, out[i]=OR(bits[0..i-1]).
+	// Shared log-depth network instead of a fresh ReduceOr per position.
+	void emit_prefix_or_excl(Cell *anchor, const vector<SigBit> &bits,
+	                         vector<SigBit> &out)
+	{
+		int n = GetSize(bits);
+		out.assign(n, State::S0);
+		if (n == 0)
+			return;
+		vector<SigBit> cur = bits;
+		for (int d = 1; d < n; d <<= 1) {
+			vector<SigBit> nxt = cur;
+			for (int i = d; i < n; i++)
+				nxt[i] = emit_or(anchor, cur[i], cur[i - d]);
+			cur.swap(nxt);
+		}
+		out[0] = State::S0;
+		for (int i = 1; i < n; i++)
+			out[i] = cur[i - 1];
 	}
 	SigBit emit_eq_sig(Cell *anchor, SigSpec a, SigSpec b)
 	{
 		Cell *cell = anchor;
-		SigBit o = module->Eq(NEW_ID2_SUFFIX("ffa_eq"), a, b)[0];
+		SigBit o = module->Eq(NEW_ID2_SUFFIX("ffa_eq"), a, b, false, cell_src(anchor))[0];
 		cells_added++;
 		return o;
 	}
@@ -628,7 +669,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	SigSpec emit_mux(Cell *anchor, SigSpec a, SigSpec b, SigBit s)
 	{
 		Cell *cell = anchor;
-		SigSpec o = module->Mux(NEW_ID2_SUFFIX("ffa_mux"), a, b, SigSpec(s));
+		SigSpec o = module->Mux(NEW_ID2_SUFFIX("ffa_mux"), a, b, SigSpec(s), cell_src(anchor));
 		cells_added++;
 		return o;
 	}
@@ -636,7 +677,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	{
 		Cell *cell = anchor;
 		Wire *o = module->addWire(NEW_ID2_SUFFIX("ffa_bmux"), width);
-		module->addBmux(NEW_ID2_SUFFIX("ffa_bmux_cell"), table, sel, o);
+		module->addBmux(NEW_ID2_SUFFIX("ffa_bmux_cell"), table, sel, o, cell_src(anchor));
 		cells_added++;
 		return SigSpec(o);
 	}
@@ -655,7 +696,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		for (int i = 0; i < n; i++) {
 			slot[i] = acc;
 			Wire *sum = module->addWire(NEW_ID2_SUFFIX("ffa_pre"), cnt_w);
-			module->addAdd(NEW_ID2_SUFFIX("ffa_pre_add"), acc, SigSpec(bits[i]), sum);
+			module->addAdd(NEW_ID2_SUFFIX("ffa_pre_add"), acc, SigSpec(bits[i]), sum, false, cell_src(anchor));
 			cells_added++;
 			acc = SigSpec(sum);
 		}
@@ -670,7 +711,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		Cell *cell = anchor;
 		a = zext_sig(a, width);
 		Wire *o = module->addWire(NEW_ID2_SUFFIX("ffa_excl_lt"), 1);
-		module->addLt(NEW_ID2_SUFFIX("ffa_excl_lt_cell"), a, Const(value, width), o);
+		module->addLt(NEW_ID2_SUFFIX("ffa_excl_lt_cell"), a, Const(value, width), o, false, cell_src(anchor));
 		cells_added++;
 		return SigBit(o, 0);
 	}
@@ -694,11 +735,11 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		a = zext_sig(a, aw);
 		b = zext_sig(b, aw);
 		Wire *sum = module->addWire(NEW_ID2_SUFFIX("ffa_sat_add"), aw);
-		module->addAdd(NEW_ID2_SUFFIX("ffa_sat_add_cell"), a, b, sum);
+		module->addAdd(NEW_ID2_SUFFIX("ffa_sat_add_cell"), a, b, sum, false, cell_src(anchor));
 		cells_added++;
 		Wire *ltw = module->addWire(NEW_ID2_SUFFIX("ffa_sat_lt"), 1);
 		module->addLt(NEW_ID2_SUFFIX("ffa_sat_lt_cell"), SigSpec(sum), Const(sat, aw), ltw,
-		              /*is_signed=*/false);
+		              /*is_signed=*/false, cell_src(anchor));
 		cells_added++;
 		SigSpec capped = emit_mux(anchor, Const(sat, aw), SigSpec(sum), SigBit(ltw));
 		return capped.extract(0, cnt_w);
@@ -774,7 +815,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			vector<SigSpec> nxt;
 			for (int i = 0; i + 1 < GetSize(nodes); i += 2) {
 				Wire *sum = module->addWire(NEW_ID2_SUFFIX("ffa_therm_bin"), cnt_w);
-				module->addAdd(NEW_ID2_SUFFIX("ffa_therm_bin_add"), nodes[i], nodes[i + 1], sum);
+				module->addAdd(NEW_ID2_SUFFIX("ffa_therm_bin_add"), nodes[i], nodes[i + 1], sum, false, cell_src(anchor));
 				cells_added++;
 				nxt.push_back(SigSpec(sum));
 			}
@@ -915,8 +956,11 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 
 	// Emit the shared leader/slot scan from (en,bc,cat). Fills leader[],
 	// slot[] (cnt_w bits), total M, and the lane categories cat_lane[].
+	// Optionally fills therm[] (nb-bit exclusive thermometer of leaders) when
+	// use_therm is true so xbar/dsel can avoid binary slot==s compares.
 	void emit_scan(const Region &rg, vector<SigBit> &leader, vector<SigSpec> &slot,
-	               SigSpec &total, int cnt_w, vector<SigSpec> &cat_lane)
+	               SigSpec &total, int cnt_w, vector<SigSpec> &cat_lane,
+	               vector<SigSpec> *therm = nullptr, int therm_nb = 0)
 	{
 		Cell *anchor = rg.anchor;
 		int n = rg.n, c = rg.c;
@@ -936,14 +980,10 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			cat_lane[p] = cat.extract(l * c, c);
 		}
 
-		// anyEnBefore[p] = OR_{q<p} en_p[q]
-		vector<SigBit> any_before(n);
-		for (int p = 0; p < n; p++) {
-			SigSpec prev;
-			for (int q = 0; q < p; q++)
-				prev.append(en_p[q]);
-			any_before[p] = emit_reduce_or(anchor, prev);
-		}
+		// anyEnBefore[p] = OR_{q<p} en_p[q] via shared log-depth prefix-OR
+		vector<SigBit> any_before;
+		emit_prefix_or_excl(anchor, en_p, any_before);
+
 		// isE0[p] = en_p[p] & ~anyEnBefore[p]
 		vector<SigBit> is_e0(n);
 		for (int p = 0; p < n; p++)
@@ -961,23 +1001,37 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		for (int p = 0; p < n; p++)
 			eq_e0[p] = emit_eq_sig(anchor, cat_lane[p], cat_e0);
 
+		// Category-indexed leadership: for each small key v, exclusive
+		// prefix-OR of (qual & cat==v) replaces the O(n^2) pairwise blockedMid.
 		// qual[p] = anyEnBefore[p] & en_p[p] & ~bc_p[p]
 		vector<SigBit> qual(n);
 		for (int p = 0; p < n; p++) {
 			SigBit t = emit_and(anchor, any_before[p], en_p[p]);
 			qual[p] = emit_and(anchor, t, emit_not(anchor, bc_p[p]));
 		}
-		// catEq[p][q] = (cat[p]==cat[q]) (only q<p needed for blockedMid)
-		// blockedMid[p] = OR_{q<p} qual[q] & catEq[p][q]
+
+		log_assert(c >= 0 && c <= max_cat_w);
+		int ncat = 1 << c;
+		vector<vector<SigBit>> blocked_by_cat(ncat);
+		for (int v = 0; v < ncat; v++) {
+			vector<SigBit> bits(n);
+			for (int p = 0; p < n; p++) {
+				SigBit is_v = emit_eq_const(anchor, cat_lane[p], v, c);
+				bits[p] = emit_and(anchor, qual[p], is_v);
+			}
+			emit_prefix_or_excl(anchor, bits, blocked_by_cat[v]);
+		}
+		// blockedMid[p] = any same-cat qual before p (mux of per-cat prefix-ORs)
 		vector<SigBit> blocked_mid(n);
 		for (int p = 0; p < n; p++) {
-			SigSpec terms;
-			for (int q = 0; q < p; q++) {
-				SigBit eq = emit_eq_sig(anchor, cat_lane[p], cat_lane[q]);
-				terms.append(emit_and(anchor, qual[q], eq));
+			SigBit b = State::S0;
+			for (int v = 0; v < ncat; v++) {
+				SigBit is_v = emit_eq_const(anchor, cat_lane[p], v, c);
+				b = emit_or(anchor, b, emit_and(anchor, is_v, blocked_by_cat[v][p]));
 			}
-			blocked_mid[p] = emit_reduce_or(anchor, terms);
+			blocked_mid[p] = b;
 		}
+
 		// leader[p] = en_p[p] & (isE0[p] | (~bc_p[p] & ~eqE0[p] & ~blockedMid[p]))
 		vector<SigBit> leader_p(n);
 		for (int p = 0; p < n; p++) {
@@ -986,17 +1040,40 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			SigBit b = emit_or(anchor, is_e0[p], a);
 			leader_p[p] = emit_and(anchor, en_p[p], b);
 		}
-		// slot[p] = exclusive prefix count
+
+		// slot[p] = exclusive prefix count; prefer thermometer when nb is small
 		vector<SigSpec> slot_p;
-		emit_prefix_count(anchor, leader_p, cnt_w, slot_p, total);
+		vector<SigSpec> therm_p;
+		bool use_therm = therm && therm_nb >= 1 && therm_nb <= max_therm_nb;
+		if (use_therm) {
+			emit_prefix_therm_log(anchor, leader_p, therm_nb, therm_p);
+			slot_p.resize(n);
+			for (int p = 0; p < n; p++)
+				slot_p[p] = emit_therm_to_bin(anchor, therm_p[p], cnt_w);
+			// total M = inclusive count = merge(excl[n-1], leader[n-1])
+			if (n == 0) {
+				total = Const(0, cnt_w);
+			} else {
+				SigSpec last = emit_therm_merge(anchor, therm_p[n - 1],
+				                                emit_therm_from_bit(leader_p[n - 1], therm_nb),
+				                                therm_nb);
+				total = emit_therm_to_bin(anchor, last, cnt_w);
+			}
+		} else {
+			emit_prefix_count(anchor, leader_p, cnt_w, slot_p, total);
+		}
 
 		// map priority order back to lanes
 		leader.assign(n, SigBit());
 		slot.assign(n, SigSpec());
+		if (therm)
+			therm->assign(n, SigSpec());
 		for (int p = 0; p < n; p++) {
 			int l = lane_of(p);
 			leader[l] = leader_p[p];
 			slot[l] = slot_p[p];
+			if (use_therm)
+				(*therm)[l] = therm_p[p];
 		}
 	}
 
@@ -1007,29 +1084,92 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		Cell *anchor = rg.anchor;
 		int n = rg.n, c = rg.c, w = rg.field_w;
 		SigSpec cat = sigmap(rg.cat_sig);
+		log_assert(c >= 0 && c <= max_cat_w);
+		int ncat = 1 << c;
+
+		// Per-category slot of the unique leader with that cat (OR-of-AND).
+		// Shared across all lanes so we avoid an O(n^2) cat-equality matrix.
+		vector<SigSpec> slot_of_cat(ncat, Const(0, cnt_w));
+		vector<SigBit> cat_is(n * ncat);
+		for (int i = 0; i < n; i++) {
+			SigSpec cat_i = cat.extract(i * c, c);
+			for (int v = 0; v < ncat; v++)
+				cat_is[i * ncat + v] = emit_eq_const(anchor, cat_i, v, c);
+		}
+		for (int v = 0; v < ncat; v++) {
+			SigSpec rank(Const(0, cnt_w));
+			for (int b = 0; b < cnt_w; b++) {
+				SigSpec terms;
+				for (int i = 0; i < n; i++)
+					terms.append(emit_and(anchor, emit_and(anchor, leader[i], cat_is[i * ncat + v]),
+					                      slot[i][b]));
+				rank[b] = emit_reduce_or(anchor, terms);
+			}
+			slot_of_cat[v] = rank;
+		}
+		auto mux_slot_by_cat = [&](SigSpec cat_k) -> SigSpec {
+			SigSpec rank(Const(0, cnt_w));
+			for (int b = 0; b < cnt_w; b++) {
+				SigSpec terms;
+				for (int v = 0; v < ncat; v++) {
+					SigBit is_v = emit_eq_const(anchor, cat_k, v, c);
+					terms.append(emit_and(anchor, is_v, slot_of_cat[v][b]));
+				}
+				rank[b] = emit_reduce_or(anchor, terms);
+			}
+			return rank;
+		};
 
 		// Enable-independent forward coalescing: lane k inherits the slot of the
-		// unique same-category leader at or before k in priority order, with no
-		// enable/broadcast gating. The priority position of a lane is a compile-
-		// time constant, so the "leader at or before k" restriction is static.
+		// unique same-category leader at or before k in priority order.
 		if (rg.coalesce) {
 			auto pos = [&](int l) { return rg.msb_first ? (n - 1 - l) : l; };
+			vector<SigBit> leader_p(n);
+			vector<SigSpec> slot_p(n);
+			vector<int> lane_of_p(n);
+			for (int p = 0; p < n; p++) {
+				int l = rg.msb_first ? (n - 1 - p) : p;
+				lane_of_p[p] = l;
+				leader_p[p] = leader[l];
+				slot_p[p] = slot[l];
+			}
+			// Per category: inclusive OR-scan of (leader & cat==v) * slot bits.
+			// After the scan, slot_at[v][p] is the slot of the latest same-cat
+			// leader at or before priority position p (0 if none).
+			vector<vector<SigSpec>> slot_at(ncat);
+			for (int v = 0; v < ncat; v++) {
+				vector<SigSpec> cur(n);
+				for (int p = 0; p < n; p++) {
+					SigBit g = emit_and(anchor, leader_p[p], cat_is[lane_of_p[p] * ncat + v]);
+					SigSpec val(Const(0, cnt_w));
+					for (int b = 0; b < cnt_w; b++)
+						val[b] = emit_and(anchor, g, slot_p[p][b]);
+					cur[p] = val;
+				}
+				// Hillis-Steele inclusive OR-scan over cnt_w-bit vectors
+				for (int d = 1; d < n; d <<= 1) {
+					vector<SigSpec> nxt = cur;
+					for (int p = d; p < n; p++) {
+						SigSpec m(Const(0, cnt_w));
+						for (int b = 0; b < cnt_w; b++)
+							m[b] = emit_or(anchor, cur[p][b], cur[p - d][b]);
+						nxt[p] = m;
+					}
+					cur.swap(nxt);
+				}
+				slot_at[v] = cur;
+			}
 			SigSpec out;
 			for (int k = 0; k < n; k++) {
+				int p = pos(k);
 				SigSpec cat_k = cat.extract(k * c, c);
-				vector<SigBit> g(n, SigBit(State::S0));
-				for (int i = 0; i < n; i++) {
-					if (pos(i) > pos(k))
-						continue;
-					SigBit eq = emit_eq_sig(anchor, cat.extract(i * c, c), cat_k);
-					g[i] = emit_and(anchor, leader[i], eq);
-				}
 				SigSpec rank(Const(0, cnt_w));
 				for (int b = 0; b < cnt_w; b++) {
 					SigSpec terms;
-					for (int i = 0; i < n; i++)
-						if (pos(i) <= pos(k))
-							terms.append(emit_and(anchor, g[i], slot[i][b]));
+					for (int v = 0; v < ncat; v++) {
+						SigBit is_v = emit_eq_const(anchor, cat_k, v, c);
+						terms.append(emit_and(anchor, is_v, slot_at[v][p][b]));
+					}
 					rank[b] = emit_reduce_or(anchor, terms);
 				}
 				out.append(zext_sig(rank, w));
@@ -1044,26 +1184,14 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		SigBit any_leader = emit_reduce_or(anchor, total);
 		Cell *cell = anchor;
 		Wire *mm1w = module->addWire(NEW_ID2_SUFFIX("ffa_Mm1"), cnt_w);
-		module->addSub(NEW_ID2_SUFFIX("ffa_Mm1_sub"), total, Const(1, cnt_w), mm1w);
+		module->addSub(NEW_ID2_SUFFIX("ffa_Mm1_sub"), total, Const(1, cnt_w), mm1w, false, cell_src(anchor));
 		cells_added++;
 		SigSpec bc_rank = emit_mux(anchor, Const(0, cnt_w), SigSpec(mm1w), any_leader);
 
 		SigSpec out;
 		for (int k = 0; k < n; k++) {
 			SigSpec cat_k = cat.extract(k * c, c);
-			// en rank: slot of the unique leader with cat==cat[k]
-			vector<SigBit> g(n);
-			for (int i = 0; i < n; i++) {
-				SigBit eq = emit_eq_sig(anchor, cat.extract(i * c, c), cat_k);
-				g[i] = emit_and(anchor, leader[i], eq);
-			}
-			SigSpec en_rank(Const(0, cnt_w));
-			for (int b = 0; b < cnt_w; b++) {
-				SigSpec terms;
-				for (int i = 0; i < n; i++)
-					terms.append(emit_and(anchor, g[i], slot[i][b]));
-				en_rank[b] = emit_reduce_or(anchor, terms);
-			}
+			SigSpec en_rank = mux_slot_by_cat(cat_k);
 			// dsel[k] = bc[k] ? bc_rank : (en[k] ? en_rank : 0)
 			SigSpec sel_en = emit_mux(anchor, Const(0, cnt_w), en_rank, en[k]);
 			SigSpec val = sel_en;
@@ -1077,6 +1205,8 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// ----------------------------------------------------------------
 	// xbar (per-slot field gather): xbar_slot[s] = (s<M) ? f(attr[leader at
 	// slot s]) : 0, where f is learned by ConstEval (single-leader probe).
+	// Emit applies f per-lane first (parallel with the scan), then one-hot
+	// gathers the result — keeps the table mux off the post-scan critical path.
 	// ----------------------------------------------------------------
 	struct XbarCand {
 		SigSpec sig;
@@ -1093,39 +1223,42 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	};
 
 	SigSpec emit_xbar(const Region &rg, const XbarCand &xb, const vector<SigBit> &leader,
-	                  const vector<SigSpec> &slot, int cnt_w)
+	                  const vector<SigSpec> &slot, int cnt_w,
+	                  const vector<SigSpec> *therm = nullptr)
 	{
 		Cell *anchor = rg.anchor;
-		int n = rg.n, a = xb.a;
+		Cell *cell = anchor;
+		int n = rg.n, a = xb.a, slot_w = xb.slot_w;
 		SigSpec attr = sigmap(xb.attr_sig);
+		bool use_therm = therm && GetSize(*therm) == n && n > 0 &&
+		                 GetSize((*therm)[0]) >= xb.nb;
 
-		// Build the function table as a flat Const for bmux.
+		// Shared f-table; each lane indexes it from its own attr (scan-independent).
 		SigSpec table;
 		for (int v = 0; v < (1 << a); v++)
 			table.append(xb.ftab[v]);
+		vector<SigSpec> f_lane(n);
+		for (int i = 0; i < n; i++)
+			f_lane[i] = emit_bmux(anchor, table, attr.extract(i * a, a), slot_w);
 
+		// One-hot gather of precomputed f(attr[i]); default 0 when slot unused.
 		SigSpec out;
 		for (int s = 0; s < xb.nb; s++) {
-			// pick[i] = leader[i] && slot[i]==s
-			vector<SigBit> pick(n);
-			SigSpec valid_terms;
+			SigSpec sel, cases;
 			for (int i = 0; i < n; i++) {
-				SigBit eqs = emit_eq_const(anchor, slot[i], s, cnt_w);
-				pick[i] = emit_and(anchor, leader[i], eqs);
-				valid_terms.append(pick[i]);
+				SigBit eqs;
+				if (use_therm)
+					eqs = emit_therm_eq(anchor, (*therm)[i], s, GetSize((*therm)[i]));
+				else
+					eqs = emit_eq_const(anchor, slot[i], s, cnt_w);
+				sel.append(emit_and(anchor, leader[i], eqs));
+				cases.append(f_lane[i]);
 			}
-			// attrGather[s] = attr of the leader at slot s (one-hot select)
-			SigSpec attr_gather(Const(0, a));
-			for (int b = 0; b < a; b++) {
-				SigSpec terms;
-				for (int i = 0; i < n; i++)
-					terms.append(emit_and(anchor, pick[i], attr[i * a + b]));
-				attr_gather[b] = emit_reduce_or(anchor, terms);
-			}
-			SigBit valid = emit_reduce_or(anchor, valid_terms);
-			SigSpec block = emit_bmux(anchor, table, attr_gather, xb.slot_w);
-			SigSpec gated = emit_mux(anchor, Const(0, xb.slot_w), block, valid);
-			out.append(gated);
+			Wire *y = module->addWire(NEW_ID2_SUFFIX("ffa_xbar_gather"), slot_w);
+			module->addPmux(NEW_ID2_SUFFIX("ffa_xbar_gather_pmux"), Const(0, slot_w),
+			                cases, sel, y, cell_src(anchor));
+			cells_added++;
+			out.append(SigSpec(y));
 		}
 		return out;
 	}
@@ -1157,7 +1290,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			}
 			Wire *y = module->addWire(NEW_ID2_SUFFIX("ffa_excl_gather"), slot_w);
 			module->addPmux(NEW_ID2_SUFFIX("ffa_excl_gather_pmux"), Const(0, slot_w),
-			                cases, sel, y);
+			                cases, sel, y, cell_src(anchor));
 			cells_added++;
 			out.append(SigSpec(y));
 		}
@@ -1775,10 +1908,14 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		pool<SigBit> leaf_bits;
 		int max_cone = std::max(512, max_n * 256);
 		int max_leaf = max_n * max_n + max_n * 64 + max_n;
-		if (!get_cone(root, cone_cells, leaf_bits, max_cone, max_leaf))
+		if (!get_cone(root, cone_cells, leaf_bits, max_cone, max_leaf)) {
+			log_debug("  xbar %s: get_cone failed\n", cand.name.c_str());
 			return false;
-		if (cone_cells.empty())
+		}
+		if (cone_cells.empty()) {
+			log_debug("  xbar %s: empty cone\n", cand.name.c_str());
 			return false;
+		}
 
 		// Cut at (en,bc); the remaining leaves are the per-lane attr field.
 		pool<SigBit> allowed_eb = sig_bit_pool(rg.en_sig);
@@ -1791,8 +1928,10 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			log_debug("  xbar %s: too many extra leaves on (en,bc) cut\n", cand.name.c_str());
 			return false;
 		}
-		if (extra.empty())
+		if (extra.empty()) {
+			log_debug("  xbar %s: no extra leaves\n", cand.name.c_str());
 			return false;
+		}
 
 		SigSpec attr_sig;
 		int a = 0;
@@ -1805,6 +1944,24 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		if (a < rg.c || a > max_attr_w) {
 			log_debug("  xbar %s: attr width %d out of range [%d,%d]\n",
 			          cand.name.c_str(), a, rg.c, max_attr_w);
+			return false;
+		}
+		// Bail before 2^a ConstEvals / emit when the product is too large.
+		int64_t emit_bits = (int64_t)rg.n * (int64_t)nb * (int64_t)slot_w;
+		int64_t ftab_bits = (int64_t)(1 << a) * (int64_t)slot_w;
+		if (emit_bits > max_xbar_emit_bits || ftab_bits > max_xbar_emit_bits) {
+			log_debug("  xbar %s: emit/ftab too large (emit_bits=%lld ftab_bits=%lld)\n",
+			          cand.name.c_str(), (long long)emit_bits, (long long)ftab_bits);
+			return false;
+		}
+		// ftab learn alone is 2^a evals; refuse if remaining eval budget cannot
+		// cover that plus a small fingerprint margin.
+		int64_t cone_est = GetSize(cone_cells) + 16;
+		int64_t ftab_cost = (int64_t)(1 << a) * cone_est;
+		if (eval_exhausted() || eval_budget < ftab_cost + 8 * cone_est) {
+			log_debug("  xbar %s: eval budget too low for ftab (need ~%lld, have %lld)\n",
+			          cand.name.c_str(), (long long)(ftab_cost + 8 * cone_est),
+			          (long long)eval_budget);
 			return false;
 		}
 		log_debug("  xbar %s: nb=%d slot_w=%d attr=%dx%d\n", cand.name.c_str(), nb, slot_w, rg.n, a);
@@ -1835,7 +1992,6 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		// is authoritative), but it weeds out unrelated buses cheaply.
 
 		ConstEval ce(module);
-		int64_t cone_est = GetSize(cone_cells) + 16;
 
 		// Learn f(v): force lane 0 (priority E0) the sole leader with attr=v.
 		int e0_lane = rg.msb_first ? (rg.n - 1) : 0;
@@ -1861,42 +2017,50 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			ftab[v] = res;
 		}
 
-		// Fingerprint the full xbar against the gather+table reference.
+		// Fingerprint with single-leader vectors only. Multi-leader ConstEval of
+		// the serial taken/done cone is unreliable on some elaborations (X-OR
+		// pollution); leadership/slot assignment is already proven by the dsel
+		// fingerprint, and ftab learning covers f(attr). Check only the occupied
+		// slot: unused slots often eval to X/1 under partial assigns even when
+		// the RTL zeros them, so requiring exp=0 there rejects true matches.
 		int nval = 1 << a;
 		vector<TestVector> vs = make_vectors(rg.n, nval, rg.has_bc);
 		for (auto &tv : vs) {
+			vector<int> catlab(rg.n);
+			for (int k = 0; k < rg.n; k++)
+				catlab[k] = cat_from_attr(tv.label[k], rg.cat_keys, attr_keys);
+			AllocResult ar = rg.coalesce
+			                     ? compute_alloc_coalesce_dir(tv.en, catlab, rg.n, rg.msb_first)
+			                     : compute_alloc_dir(tv.en, tv.bc, catlab, rg.n, rg.msb_first);
+			if (ar.M > 1)
+				continue;
+
+			vector<int> attr_lab(rg.n, 0);
+			for (int k = 0; k < rg.n; k++)
+				if (ar.leader[k])
+					attr_lab[k] = tv.label[k];
+
 			vector<std::pair<SigSpec, Const>> sets;
 			sets.push_back({en_s, pack_lanes(tv.en, 1)});
 			if (rg.has_bc)
 				sets.push_back({bc_s, pack_lanes(tv.bc, 1)});
-			sets.push_back({attr_s, pack_lanes(tv.label, a)});
+			sets.push_back({attr_s, pack_lanes(attr_lab, a)});
 			Const res;
 			if (!eval_root(ce, sets, root, res, cone_est)) {
 				log_debug("  xbar %s: eval failed during fingerprint\n", cand.name.c_str());
 				return false;
 			}
 
-			// Derive cat labels from the attr labels via the cat keys' bit
-			// positions inside attr.
-			vector<int> catlab(rg.n);
-			for (int k = 0; k < rg.n; k++)
-				catlab[k] = cat_from_attr(tv.label[k], rg.cat_keys, attr_keys);
-			AllocResult ar = compute_alloc_dir(tv.en, tv.bc, catlab, rg.n, rg.msb_first);
-
-			// Expected per-slot block.
 			for (int s = 0; s < nb; s++) {
 				int leader_lane = -1;
 				for (int i = 0; i < rg.n; i++)
 					if (ar.leader[i] && ar.slot[i] == s) { leader_lane = i; break; }
+				if (leader_lane < 0)
+					continue;
 				for (int b = 0; b < slot_w; b++) {
 					bool got = (s * slot_w + b < GetSize(res)) && res[s * slot_w + b] == State::S1;
-					bool exp;
-					if (leader_lane < 0)
-						exp = false;
-					else {
-						const Const &fv = ftab[tv.label[leader_lane]];
-						exp = (b < GetSize(fv)) && fv[b] == State::S1;
-					}
+					const Const &fv = ftab[tv.label[leader_lane]];
+					bool exp = (b < GetSize(fv)) && fv[b] == State::S1;
 					if (got != exp) {
 						log_debug("  xbar %s: fingerprint mismatch slot %d bit %d\n",
 						          cand.name.c_str(), s, b);
@@ -2558,28 +2722,35 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 				}
 			}
 
-			// Emit the shared scan once.
-			int cnt_w = clog2_int(rg.n + 1);
+			// Emit the shared scan once. Prefer thermometer when the max
+			// leader count (min(n, 2^c)) fits max_therm_nb.
+			int therm_nb = std::min(rg.n, 1 << rg.c);
+			bool use_therm = therm_nb >= 1 && therm_nb <= max_therm_nb;
+			int cnt_w = use_therm ? clog2_int(therm_nb + 1) : clog2_int(rg.n + 1);
 			vector<SigBit> leader;
-			vector<SigSpec> slot;
+			vector<SigSpec> slot, therm, cat_lane;
 			SigSpec total;
-			vector<SigSpec> cat_lane;
-			emit_scan(rg, leader, slot, total, cnt_w, cat_lane);
+			emit_scan(rg, leader, slot, total, cnt_w, cat_lane,
+			          use_therm ? &therm : nullptr, use_therm ? therm_nb : 0);
 
 			SigSpec new_dsel = emit_dsel(rg, leader, slot, total, cnt_w);
 			connect_driven(rg.dsel_sig, new_dsel, rg.anchor, "ffa_dangling");
 			claim_region(rg.dsel_sig, rg.dsel_cut_cells);
 			regions_rewritten++;
 
-			log("  %s: %s <- first_fit_alloc(en=%s%s, cat=%dx%d, %s%s)\n",
+			log("  %s: %s <- first_fit_alloc(en=%s%s, cat=%dx%d, %s%s%s)\n",
 			    log_id(module), rg.dsel_name.c_str(),
 			    log_signal(rg.en_sig),
 			    rg.has_bc ? stringf(", bc=%s", log_signal(rg.bc_sig)).c_str() : "",
 			    rg.n, rg.c, rg.msb_first ? "MSB-first" : "LSB-first",
-			    rg.coalesce ? ", coalesce" : "");
+			    rg.coalesce ? ", coalesce" : "",
+			    use_therm ? stringf(", therm_nb=%d", therm_nb).c_str() : "");
 
 			if (have_xbar) {
-				SigSpec new_xbar = emit_xbar(rg, xb, leader, slot, cnt_w);
+				// Thermometer slot==s only if every xbar slot index fits.
+				bool xbar_therm = use_therm && xb.nb <= therm_nb;
+				SigSpec new_xbar = emit_xbar(rg, xb, leader, slot, cnt_w,
+				                             xbar_therm ? &therm : nullptr);
 				int dn = connect_driven(xb.sig, new_xbar, xb.anchor, "ffa_xbar_dangling");
 				claim_region(xb.sig, xb.cut_cells);
 				log("    + xbar field gather: %s [slots=%d, slot_w=%d, attr=%dx%d, %d bit(s) re-driven]\n",
@@ -2611,14 +2782,16 @@ struct OptFirstFitAllocPass : public Pass {
 		log("gather driven from the same prefix-count scan.\n");
 		log("\n");
 		log("The serial loop-carried taken[]/done[] scan produced by the RTL is\n");
-		log("replaced with a log-depth network: a priority-encode of the first\n");
-		log("enabled lane, an all-pairs category-equality leader test, a prefix-sum\n");
-		log("slot assignment, and a rank gather. Where a per-slot field table (an\n");
-		log("'xbar') is driven from the same allocation, it is rewritten as a shared\n");
-		log("per-slot field gather driven from the same scan.\n");
+		log("replaced with a log-depth network: a shared prefix-OR of enables,\n");
+		log("per-category prefix-OR leadership (small keys), a thermometer or\n");
+		log("parallel-prefix slot assignment, and a rank gather. Where a per-slot\n");
+		log("field table (an 'xbar') is driven from the same allocation, it is\n");
+		log("rewritten as a shared per-slot field gather driven from the same scan.\n");
 		log("\n");
-		log("The prefix-sums are emitted as linear $add cascades so a subsequent\n");
-		log("opt_parallel_prefix pass rebuilds them into shared log-depth networks.\n");
+		log("Category/coalesce prefix-sums prefer a thermometer encoding when the\n");
+		log("max leader count fits -max thermometer budget; otherwise they are\n");
+		log("emitted as linear $add cascades so a subsequent opt_parallel_prefix\n");
+		log("pass rebuilds them into shared log-depth networks.\n");
 		log("\n");
 		log("    -min-width N, -max-width N\n");
 		log("        lane-count range to consider (default 4..64).\n");
