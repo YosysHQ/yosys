@@ -594,6 +594,14 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	}
 	SigBit emit_and(Cell *anchor, SigBit a, SigBit b)
 	{
+		// Const-fold 0/1 operands so prefix-OR / category scans don't emit
+		// dead $and cells that only inflate cells_added until opt_expr.
+		if (a == State::S0 || b == State::S0)
+			return State::S0;
+		if (a == State::S1)
+			return b;
+		if (b == State::S1)
+			return a;
 		Cell *cell = anchor;
 		SigBit o = module->And(NEW_ID2_SUFFIX("ffa_and"), SigSpec(a), SigSpec(b), false, cell_src(anchor))[0];
 		cells_added++;
@@ -601,6 +609,14 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	}
 	SigBit emit_or(Cell *anchor, SigBit a, SigBit b)
 	{
+		// Same for $or: exclusive prefix starts at S0 and would otherwise
+		// produce a cascade of (x | 0) cells on every Hillis-Steele step.
+		if (a == State::S1 || b == State::S1)
+			return State::S1;
+		if (a == State::S0)
+			return b;
+		if (b == State::S0)
+			return a;
 		Cell *cell = anchor;
 		SigBit o = module->Or(NEW_ID2_SUFFIX("ffa_or"), SigSpec(a), SigSpec(b), false, cell_src(anchor))[0];
 		cells_added++;
