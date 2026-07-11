@@ -153,9 +153,8 @@ struct OptDffWorker
 	void sat_budget_exceeded()
 	{
 		if (!sat_budget_out)
-			log_warning("opt_dff -sat: solver effort budget of %lld exceeded in module %s, "
-					"skipping remaining sat proofs (scratchpad option 'opt_dff.sat_effort').\n",
-					(long long)(sat_effort / 1000), log_id(module));
+			log_warning("opt_dff -sat: effort limit exceeded in module %s, skipping remaining "
+					"sat proofs (scratchpad option 'opt_dff.sat_effort').\n", log_id(module));
 		sat_budget_out = true;
 	}
 
@@ -248,7 +247,7 @@ struct OptDffWorker
 	OptDffWorker(const OptDffOptions &opt, Module *mod)
 		: opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod)
 	{
-		sat_effort = (int64_t)module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000) * 1000;
+		sat_effort = module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000000);
 		sat_effort_left = sat_effort;
 
 		// Gathering two kinds of information here for every sigmapped SigBit:
@@ -939,25 +938,6 @@ struct OptDffWorker
 		return did_something;
 	}
 
-	bool prove_const_with_sat(QuickConeSat &qcsat, ModWalker &modwalker, SigBit q, SigBit d, State val)
-	{
-		// Trivial non-const cases
-		if (!modwalker.has_drivers(d))
-			return false;
-		if (val != State::S0 && val != State::S1)
-			return false;
-
-		int init_sat_pi = qcsat.importSigBit(val);
-		int q_sat_pi = qcsat.importSigBit(q);
-		int d_sat_pi = qcsat.importSigBit(d);
-		qcsat.prepare();
-
-		// If no counterexample exists, FF is constant
-		return !qcsat.ez->solve(
-			qcsat.ez->IFF(q_sat_pi, init_sat_pi),
-			qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
-	}
-
 	State check_constbit(FfData &ff, int i)
 	{
 		State val = ff.val_init[i];
@@ -991,23 +971,30 @@ struct OptDffWorker
 		std::vector<ConstTarget> targets;
 	};
 
+	void commit_const(dict<Cell *, pool<int>> &const_bits, Cell *cell, int i, SigBit q, State val)
+	{
+		log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n",
+				val == State::S1 ? 1 : 0, i, cell, cell->type.unescape(), module);
+		initvals.remove_init(q);
+		module->connect(q, val);
+		const_bits[cell].insert(i);
+	}
+
+	bool add_const_target(ModWalker &modwalker, ConstObligation &ob, SigBit sig)
+	{
+		if (!opt.sat || (ob.val != State::S0 && ob.val != State::S1) || !modwalker.has_drivers(sig))
+			return false;
+		ob.targets.push_back(ConstTarget{sig});
+		return true;
+	}
+
 	bool run_constbits()
 	{
 		// Find FFs that are provably constant
 		ModWalker modwalker(module->design, module);
-		QuickConeSat qcsat(modwalker);
 
 		dict<Cell *, pool<int>> const_bits;
 		bool did_something = false;
-
-		auto commit_const = [&](Cell *cell, int i, SigBit q, State val) {
-			log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n",
-					val == State::S1 ? 1 : 0, i, cell, cell->type.unescape(), module);
-			initvals.remove_init(q);
-			module->connect(q, val);
-			const_bits[cell].insert(i);
-			did_something = true;
-		};
 
 		// Fold constant D/AD inputs into the tested value directly bits whose remaining inputs are
 		// wires become SAT proof obligations
@@ -1018,7 +1005,6 @@ struct OptDffWorker
 				continue;
 
 			FfData ff(&initvals, cell);
-			pool<int> removed_sigbits;
 
 			for (int i = 0; i < ff.width; i++) {
 				State val = check_constbit(ff, i);
@@ -1042,26 +1028,16 @@ struct OptDffWorker
 				ob.q = ff.sig_q[i];
 
 				bool feasible = true;
-				auto add_target = [&](SigBit sig) {
-					if (!opt.sat || (val != State::S0 && val != State::S1) ||
-							!modwalker.has_drivers(sig)) {
-						feasible = false;
-						return;
-					}
-					ConstTarget t;
-					t.sig = sig;
-					ob.targets.push_back(t);
-				};
-
 				if ((ff.has_clk || ff.has_gclk) && ff.sig_d[i].wire)
-					add_target(ff.sig_d[i]);
+					feasible = add_const_target(modwalker, ob, ff.sig_d[i]);
 				if (feasible && ff.has_aload && ff.sig_ad[i].wire)
-					add_target(ff.sig_ad[i]);
+					feasible = add_const_target(modwalker, ob, ff.sig_ad[i]);
 				if (!feasible)
 					continue;
 
 				if (ob.targets.empty()) {
-					commit_const(cell, i, ff.sig_q[i], val);
+					commit_const(const_bits, cell, i, ff.sig_q[i], val);
+					did_something = true;
 					continue;
 				}
 				obligations.push_back(ob);
@@ -1178,8 +1154,10 @@ struct OptDffWorker
 			bool all_proven = true;
 			for (auto &t : ob.targets)
 				all_proven &= t.proven;
-			if (all_proven)
-				commit_const(ob.cell, ob.idx, ob.q, ob.val);
+			if (all_proven) {
+				commit_const(const_bits, ob.cell, ob.idx, ob.q, ob.val);
+				did_something = true;
+			}
 		}
 
 		// Reconstruct FF with constant bits removed
@@ -1403,6 +1381,13 @@ struct OptDffWorker
 		return refined_classes;
 	}
 
+	std::vector<std::vector<int>> drop_all_classes()
+	{
+		// Verified merges can depend on the equality of classes that are still unproven, so an incomplete run cannot keep any of them
+		log("Dropping all equivalent-FF merge candidates in module %s (sat effort budget exceeded before all classes were proven).\n", log_id(module));
+		return {};
+	}
+
 	std::vector<std::vector<int>> filter_classes_sat(
 		std::vector<std::vector<int>> classes,
 		const std::vector<EqBit> &bits,
@@ -1415,19 +1400,13 @@ struct OptDffWorker
 
 		// Build the next-state function n_lit[idx] of every candidate bit by
 		// folding the FF's control logic on top of the D input (-> next value)
-
-		// Verified merges can depend on the equality of classes that are still unproven, so an incomplete run cannot keep any of them
-		auto drop_all = [&]() -> std::vector<std::vector<int>> {
-			log("Dropping all equivalent-FF merge candidates in module %s (sat effort budget exceeded before all classes were proven).\n", log_id(module));
-			return {};
-		};
 		int64_t cells_charged = 0;
 
 		// Two bits are equivalent if their next states always agree whenever their
 		// current states (and those of every other candidate pair) agree
 		for (auto &cls : classes) {
 			if (sat_budget_spent())
-				return drop_all();
+				return drop_all_classes();
 			for (int idx : cls) {
 				const EqBit &eb = bits[idx];
 				const FfData &ff = ff_for_cell.at(eb.cell);
@@ -1462,8 +1441,6 @@ struct OptDffWorker
 			qcsat.prepare();
 			charge_import(qcsat, cells_charged);
 		}
-
-		qcsat.prepare();
 
 		// Assume the induction hypo (that every current class is internally equal in the present cycle), and try
 		// to prove that the members of each class therefore also agree in the next cycle
@@ -1502,7 +1479,7 @@ struct OptDffWorker
 					continue;
 
 				if (sat_budget_spent())
-					return drop_all();
+					return drop_all_classes();
 
 				// Can the next state of the rep and this member ever differ?
 				int query = qcsat.ez->XOR(n_lit[rep], n_lit[cls[i]]);
@@ -1519,7 +1496,7 @@ struct OptDffWorker
 
 				if (res < 0) {
 					sat_budget_exceeded();
-					return drop_all();
+					return drop_all_classes();
 				}
 
 				if (res > 0) {
@@ -1655,6 +1632,9 @@ struct OptDffPass : public Pass {
 		log("        non-constant inputs) that can also be replaced with a constant driver,\n");
 		log("        or merged with equivalent flip-flops. this reasons in 2-valued logic\n");
 		log("        and may resolve don't-care bits, so it is incompatible with -keepdc.\n");
+		log("        the scratchpad option 'opt_dff.sat_effort' (solver propagation steps,\n");
+		log("        default 1000000000, 0 = unlimited) deterministically bounds the total\n");
+		log("        sat effort spent per module, remaining proofs are skipped once exceeded.\n");
 		log("\n");
 		log("    -keepdc\n");
 		log("        some optimizations change the behavior of the circuit with respect to\n");
