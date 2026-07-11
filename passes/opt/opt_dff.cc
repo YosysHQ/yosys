@@ -1260,9 +1260,18 @@ struct OptDffWorker
 		// Build the next-state function n_lit[idx] of every candidate bit by
 		// folding the FF's control logic on top of the D input (-> next value)
 
+		// Verified merges can depend on the equality of classes that are still unproven, so an incomplete run cannot keep any of them
+		auto drop_all = [&]() -> std::vector<std::vector<int>> {
+			log("Dropping all equivalent-FF merge candidates in module %s (sat effort budget exceeded before all classes were proven).\n", log_id(module));
+			return {};
+		};
+		int64_t cells_charged = 0;
+
 		// Two bits are equivalent if their next states always agree whenever their
 		// current states (and those of every other candidate pair) agree
 		for (auto &cls : classes) {
+			if (sat_budget_spent())
+				return drop_all();
 			for (int idx : cls) {
 				const EqBit &eb = bits[idx];
 				const FfData &ff = ff_for_cell.at(eb.cell);
@@ -1294,6 +1303,8 @@ struct OptDffWorker
 
 				n_lit[idx] = n;
 			}
+			qcsat.prepare();
+			charge_import(qcsat, cells_charged);
 		}
 
 		qcsat.prepare();
