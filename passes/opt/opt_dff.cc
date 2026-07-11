@@ -143,6 +143,57 @@ struct OptDffWorker
 
 	std::vector<Cell *> dff_cells;
 
+	// Solver effort budget shared by run_constbits and run_eqbits, per module
+	static constexpr int64_t sat_import_cell_cost = 100;
+	static constexpr int sat_batch_cells = 10000;
+	int64_t sat_effort = 0;
+	int64_t sat_effort_left = 0;
+	bool sat_budget_out = false;
+
+	void sat_budget_exceeded()
+	{
+		if (!sat_budget_out)
+			log_warning("opt_dff -sat: solver effort budget of %lld exceeded in module %s, "
+					"skipping remaining sat proofs (scratchpad option 'opt_dff.sat_effort').\n",
+					(long long)(sat_effort / 1000), log_id(module));
+		sat_budget_out = true;
+	}
+
+	bool sat_budget_spent()
+	{
+		if (sat_budget_out)
+			return true;
+		if (sat_effort > 0 && sat_effort_left <= 0) {
+			sat_budget_exceeded();
+			return true;
+		}
+		return false;
+	}
+
+	int solve_budgeted(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &modelExprs,
+			std::vector<bool> &modelVals, const std::vector<int> &assumptions)
+	{
+		// SAT = 1
+		// UNSAT = 0
+		// effort limit reached = -1 (can't be treated as UNSAT)
+		if (sat_effort > 0)
+			cap = (cap > 0) ? min(cap, sat_effort_left) : sat_effort_left;
+		qcsat.ez->setSolverPropLimit(cap);
+		bool sat_res = qcsat.ez->solve(modelExprs, modelVals, assumptions);
+		if (sat_effort > 0)
+			sat_effort_left -= qcsat.ez->getSolverProps();
+		if (!sat_res && qcsat.ez->getSolverPropLimitStatus())
+			return -1;
+		return sat_res ? 1 : 0;
+	}
+
+	void charge_import(QuickConeSat &qcsat, int64_t &cells_charged)
+	{
+		if (sat_effort > 0)
+			sat_effort_left -= (GetSize(qcsat.imported_cells) - cells_charged) * sat_import_cell_cost;
+		cells_charged = GetSize(qcsat.imported_cells);
+	}
+
 	bool is_active(SigBit sig, bool pol) const {
 		return sig == (pol ? State::S1 : State::S0);
 	}
@@ -1283,6 +1334,9 @@ struct OptDffWorker
 				if (n_lit[rep] == n_lit[cls[i]])
 					continue;
 
+				if (sat_budget_spent())
+					return drop_all();
+
 				// Can the next state of the rep and this member ever differ?
 				int query = qcsat.ez->XOR(n_lit[rep], n_lit[cls[i]]);
 				// Capture every member's next-state value in that model so one counterexample
@@ -1294,7 +1348,14 @@ struct OptDffWorker
 				std::vector<bool> modelVals;
 				assumptions.push_back(query);
 
-				if (qcsat.ez->solve(modelExprs, modelVals, assumptions)) {
+				int res = solve_budgeted(qcsat, 0, modelExprs, modelVals, assumptions);
+
+				if (res < 0) {
+					sat_budget_exceeded();
+					return drop_all();
+				}
+
+				if (res > 0) {
 					// SAT -> partition entire class
 					std::vector<int> sub0;
 					std::vector<int> sub1;
