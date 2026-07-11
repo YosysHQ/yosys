@@ -79,6 +79,9 @@ protected:
 public:
 	int solverTimeout;
 	bool solverTimeoutStatus;
+	int64_t solverPropLimit;
+	bool solverPropLimitStatus;
+	int64_t solverProps;
 
 	ezSAT();
 	virtual ~ezSAT();
@@ -155,6 +158,19 @@ public:
 
 	bool getSolverTimeoutStatus() {
 		return solverTimeoutStatus;
+	}
+
+	void setSolverPropLimit(int64_t newPropLimit) {
+		solverPropLimit = newPropLimit;
+	}
+
+	bool getSolverPropLimitStatus() {
+		return solverPropLimitStatus;
+	}
+
+	// propagations spent by the most recent solve() call
+	int64_t getSolverProps() {
+		return solverProps;
 	}
 
 	// manage CNF (usually only accessed by SAT solvers)

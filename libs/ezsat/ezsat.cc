@@ -55,6 +55,9 @@ ezSAT::ezSAT()
 
 	solverTimeout = 0;
 	solverTimeoutStatus = false;
+	solverPropLimit = 0;
+	solverPropLimitStatus = false;
+	solverProps = 0;
 
 	literal("CONST_TRUE");
 	literal("CONST_FALSE");
