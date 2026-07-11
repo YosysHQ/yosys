@@ -248,6 +248,9 @@ struct OptDffWorker
 	OptDffWorker(const OptDffOptions &opt, Module *mod)
 		: opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod)
 	{
+		sat_effort = (int64_t)module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000) * 1000;
+		sat_effort_left = sat_effort;
+
 		// Gathering two kinds of information here for every sigmapped SigBit:
 		// - bitusers: how many users it has (muxes will only be merged into FFs if the FF is the only user)
 		// - bit2mux: the mux cell and bit index that drives it, if any
@@ -970,15 +973,45 @@ struct OptDffWorker
 		return val;
 	}
 
+	// One FF bit whose constness needs SAT proofs; each target is a non-const input (D and/or AD)
+	// that must be shown eq to val
+	struct ConstTarget {
+		SigBit sig;
+		int lit = -1;
+		bool proven = false;
+	};
+
+	struct ConstObligation {
+		Cell *cell;
+		int idx;
+		State val;
+		SigBit q;
+		int q_lit = -1;
+		bool dropped = false;
+		std::vector<ConstTarget> targets;
+	};
+
 	bool run_constbits()
 	{
 		// Find FFs that are provably constant
 		ModWalker modwalker(module->design, module);
 		QuickConeSat qcsat(modwalker);
 
-		std::vector<RTLIL::Cell*> cells_to_remove;
-		std::vector<FfData> ffs_to_emit;
+		dict<Cell *, pool<int>> const_bits;
 		bool did_something = false;
+
+		auto commit_const = [&](Cell *cell, int i, SigBit q, State val) {
+			log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n",
+					val == State::S1 ? 1 : 0, i, cell, cell->type.unescape(), module);
+			initvals.remove_init(q);
+			module->connect(q, val);
+			const_bits[cell].insert(i);
+			did_something = true;
+		};
+
+		// Fold constant D/AD inputs into the tested value directly bits whose remaining inputs are
+		// wires become SAT proof obligations
+		std::vector<ConstObligation> obligations;
 
 		for (auto cell : module->selected_cells()) {
 			if (!cell->is_builtin_ff())
@@ -992,58 +1025,181 @@ struct OptDffWorker
 				if (val == State::Sm)
 					continue;
 
-				// Check Synchronous input D
-				if (ff.has_clk || ff.has_gclk) {
-					if (!ff.sig_d[i].wire) {
-						// D is already a constant
-						val = combine_const(val, ff.sig_d[i].data);
-						if (val == State::Sm) continue;
-					} else if (opt.sat) {
-						// Try SAT proof for non-constant D wires
-						if (!prove_const_with_sat(qcsat, modwalker, ff.sig_q[i], ff.sig_d[i], val))
-							continue;
-					} else {
-						continue;
-					}
+				// Fold all const inputs first, so the SAT targets are checked against the final const
+				if ((ff.has_clk || ff.has_gclk) && !ff.sig_d[i].wire) {
+					val = combine_const(val, ff.sig_d[i].data);
+					if (val == State::Sm) continue;
+				}
+				if (ff.has_aload && !ff.sig_ad[i].wire) {
+					val = combine_const(val, ff.sig_ad[i].data);
+					if (val == State::Sm) continue;
 				}
 
-				// Check Async Load input AD
-				if (ff.has_aload) {
-					if (!ff.sig_ad[i].wire) {
-						val = combine_const(val, ff.sig_ad[i].data);
-						if (val == State::Sm) continue;
-					} else if (opt.sat) {
-						if (!prove_const_with_sat(qcsat, modwalker, ff.sig_q[i], ff.sig_ad[i], val))
-							continue;
-					} else {
-						continue;
+				ConstObligation ob;
+				ob.cell = cell;
+				ob.idx = i;
+				ob.val = val;
+				ob.q = ff.sig_q[i];
+
+				bool feasible = true;
+				auto add_target = [&](SigBit sig) {
+					if (!opt.sat || (val != State::S0 && val != State::S1) ||
+							!modwalker.has_drivers(sig)) {
+						feasible = false;
+						return;
 					}
+					ConstTarget t;
+					t.sig = sig;
+					ob.targets.push_back(t);
+				};
+
+				if ((ff.has_clk || ff.has_gclk) && ff.sig_d[i].wire)
+					add_target(ff.sig_d[i]);
+				if (feasible && ff.has_aload && ff.sig_ad[i].wire)
+					add_target(ff.sig_ad[i]);
+				if (!feasible)
+					continue;
+
+				if (ob.targets.empty()) {
+					commit_const(cell, i, ff.sig_q[i], val);
+					continue;
 				}
+				obligations.push_back(ob);
+			}
+		}
 
-				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n",
-						val ? 1 : 0, i, cell, cell->type.unescape(), module);
+		int64_t screen_cap = 0;
+		if (sat_effort > 0 && !obligations.empty()) {
+			// Screening cap, scaled down when the budget cannot afford a full-price screening round
+			int64_t num_queries = 0;
+			for (auto &ob : obligations)
+				num_queries += GetSize(ob.targets);
+			screen_cap = max((int64_t)20000, min((int64_t)200000, sat_effort / (4 * num_queries)));
+		}
 
-				// Replace the Q output with the constant value
-				initvals.remove_init(ff.sig_q[i]);
-				module->connect(ff.sig_q[i], val);
-				removed_sigbits.insert(i);
+		for (int batch_begin = 0; batch_begin < GetSize(obligations) && !sat_budget_spent(); ) {
+			QuickConeSat qcsat(modwalker);
+			int64_t cells_charged = 0;
+			int batch_end = batch_begin;
+
+			while (batch_end < GetSize(obligations) && !sat_budget_spent()) {
+				if (batch_end > batch_begin && GetSize(qcsat.imported_cells) >= sat_batch_cells)
+					break;
+				auto &ob = obligations[batch_end];
+				ob.q_lit = qcsat.importSigBit(ob.q);
+				for (auto &t : ob.targets)
+					t.lit = qcsat.importSigBit(t.sig);
+				qcsat.prepare();
+				charge_import(qcsat, cells_charged);
+				batch_end++;
 			}
 
-			// Reconstruct FF with constant bits removed
-			if (!removed_sigbits.empty()) {
-				std::vector<int> keep_bits;
-				for (int i = 0; i < ff.width; i++)
-					if (!removed_sigbits.count(i))
-						keep_bits.push_back(i);
+			int64_t cap = screen_cap;
+			bool out_of_budget = false;
 
-				if (keep_bits.empty()) {
-					cells_to_remove.push_back(cell);
-				} else {
-					ff = ff.slice(keep_bits);
-					ff.cell = cell;
-					ffs_to_emit.push_back(ff);
+			while (!out_of_budget) {
+				bool all_resolved = true;
+
+				for (int obi = batch_begin; obi < batch_end; obi++) {
+					auto &ob = obligations[obi];
+					if (ob.dropped)
+						continue;
+					for (auto &t : ob.targets) {
+						if (t.proven || ob.dropped)
+							continue;
+						if (sat_budget_spent()) {
+							out_of_budget = true;
+							break;
+						}
+
+						std::vector<int> modelExprs;
+						std::vector<ConstObligation *> model_obs;
+						for (int obi2 = batch_begin; obi2 < batch_end; obi2++) {
+							auto &ob2 = obligations[obi2];
+							if (ob2.dropped)
+								continue;
+							for (auto &t2 : ob2.targets)
+								if (!t2.proven) {
+									modelExprs.push_back(t2.lit);
+									modelExprs.push_back(ob2.q_lit);
+									model_obs.push_back(&ob2);
+								}
+						}
+
+						// Prove that the next value equals the constant in every state where Q already holds it
+						int vlit = qcsat.ez->value(ob.val == State::S1);
+						std::vector<int> assumptions;
+						assumptions.push_back(qcsat.ez->IFF(ob.q_lit, vlit));
+						assumptions.push_back(qcsat.ez->NOT(qcsat.ez->IFF(t.lit, vlit)));
+
+						std::vector<bool> modelVals;
+						int res = solve_budgeted(qcsat, cap, modelExprs, modelVals, assumptions);
+
+						if (res < 0) {
+							all_resolved = false;
+							continue;
+						}
+
+						if (res == 0) {
+							t.proven = true;
+							continue;
+						}
+
+						// Counterexample: this bit is not constant
+						// Any other pending bit whose Q holds its constant while its next value differs is 
+						// disproven by the same state
+						for (int k = 0; k < GetSize(model_obs); k++) {
+							ConstObligation *ob2 = model_obs[k];
+							if (ob2->dropped)
+								continue;
+							bool want = (ob2->val == State::S1);
+							bool t_val = modelVals[2*k];
+							bool q_val = modelVals[2*k + 1];
+							if (q_val == want && t_val != want)
+								ob2->dropped = true;
+						}
+						ob.dropped = true;
+					}
+					if (out_of_budget)
+						break;
 				}
-				did_something = true;
+
+				if (out_of_budget || all_resolved)
+					break;
+				cap = 0;
+			}
+
+			batch_begin = batch_end;
+		}
+
+		for (auto &ob : obligations) {
+			if (ob.dropped)
+				continue;
+			bool all_proven = true;
+			for (auto &t : ob.targets)
+				all_proven &= t.proven;
+			if (all_proven)
+				commit_const(ob.cell, ob.idx, ob.q, ob.val);
+		}
+
+		// Reconstruct FF with constant bits removed
+		std::vector<RTLIL::Cell*> cells_to_remove;
+		std::vector<FfData> ffs_to_emit;
+
+		for (auto &kv : const_bits) {
+			Cell *cell = kv.first;
+			FfData ff(&initvals, cell);
+			std::vector<int> keep_bits;
+			for (int i = 0; i < ff.width; i++)
+				if (!kv.second.count(i))
+					keep_bits.push_back(i);
+
+			if (keep_bits.empty()) {
+				cells_to_remove.push_back(cell);
+			} else {
+				ff = ff.slice(keep_bits);
+				ff.cell = cell;
+				ffs_to_emit.push_back(ff);
 			}
 		}
 
