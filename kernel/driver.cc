@@ -21,7 +21,7 @@
 #include "kernel/hashlib.h"
 #include "libs/sha1/sha1.h"
 #define CXXOPTS_VECTOR_DELIMITER '\0'
-#include "libs/cxxopts/include/cxxopts.hpp"
+#include <cxxopts.hpp>
 #include <iostream>
 #include <chrono>
 

@@ -1,5 +1,7 @@
 add_subdirectory(bigint)
-add_subdirectory(cxxopts)
+if (NOT YOSYS_WITH_PKG_DEPS)
+    add_subdirectory(cxxopts)
+endif()
 add_subdirectory(dlfcn-win32)
 add_subdirectory(ezsat)
 add_subdirectory(fst)

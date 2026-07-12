@@ -89,9 +89,10 @@ yosys_core(kernel
 	yw.cc
 	yw.h
 	INCLUDE_DIRS
+		$<$<NOT:$<BOOL:${YOSYS_WITH_PKG_DEPS}>>:${CMAKE_CURRENT_SOURCE_DIR}/libs/cxxopts/include/>
 		${pybind11_INCLUDE_DIR}
 	LIBRARIES
-		cxxopts
+		$<$<NOT:$<BOOL:${YOSYS_WITH_PKG_DEPS}>>:cxxopts>
 		$<${YOSYS_ENABLE_PLUGINS}:${Dlfcn_LIBRARIES}>
 		$<${YOSYS_ENABLE_ZLIB}:PkgConfig::zlib>
 		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
