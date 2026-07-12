@@ -56,6 +56,7 @@ option(YOSYS_WITHOUT_EDITLINE "Disable editline integration" OFF)
 option(YOSYS_WITHOUT_SLANG "Disable Slang integration" OFF)
 option(YOSYS_WITHOUT_TCL "Disable Tcl integration" OFF)
 option(YOSYS_WITH_PYTHON "Enable Python integration" OFF)
+option(YOSYS_WITH_PKG_DEPS "Disable bundled/vendored dependencies" OFF)
 
 set(YOSYS_VERIFIC_DIR "" CACHE FILEPATH "Path to the Verific source code (empty to disable)")
 set(YOSYS_VERIFIC_COMPONENTS "" CACHE STRING
