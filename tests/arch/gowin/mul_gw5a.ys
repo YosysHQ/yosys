@@ -1,0 +1,72 @@
+# GW5A DSP multiply boundary tests. Probes each routing edge:
+#   12x12  small-cell max (fits MULT12X12)
+#   13x13  MINWIDTH=13 cutoff (-> MULTALU27X18)
+#   27x18  large-cell exact fit (B<=18 -> MULTALU27X18)
+#   27x19  B overflows 18 -> MULT27X36 cascade
+#   28x18  A overflows 27 -> decomposition
+
+# 12x12 -> 1 MULT12X12 (small cell, below MINWIDTH=13)
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 12 -set Y_WIDTH 12 -set A_WIDTH 24
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULT12X12
+
+
+# 13x13 -> 1 MULTALU27X18 (MINWIDTH=13 cutoff routes to the large cell)
+design -reset
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 13 -set Y_WIDTH 13 -set A_WIDTH 26
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULTALU27X18
+
+
+# 27x18 -> 1 MULTALU27X18 (exact fit of the large cell)
+design -reset
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set A_WIDTH 45
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULTALU27X18
+
+
+# 28x18 -> A overflows 27: 1 MULTALU27X18 + MULT12X12 partials
+design -reset
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 28 -set Y_WIDTH 18 -set A_WIDTH 46
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULTALU27X18
+select -assert-count 2 t:MULT12X12
+
+
+# 27x19 -> B overflows 18: routes to MULT27X36 (2 cascaded DSPs)
+design -reset
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 19 -set A_WIDTH 46
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULT27X36
+
+
+# Make sure that DSPs are not inferred with -nodsp option
+design -reset
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set A_WIDTH 45
+hierarchy -top top
+proc
+synth_gowin -family gw5a -nodsp
+cd top
+select -assert-none t:MULTALU27X18
+select -assert-none t:MULT12X12
