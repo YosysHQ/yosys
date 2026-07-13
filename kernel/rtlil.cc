@@ -1689,7 +1689,7 @@ void RTLIL::Design::rename(RTLIL::Module *module, TwineRef new_name)
 void RTLIL::Design::sort()
 {
 	scratchpad.sort();
-	modules_.sort();
+	modules_.sort(sort_by_twine_str_expensive(twines));
 	for (auto &it : modules_)
 		it.second->sort();
 }
@@ -1697,7 +1697,7 @@ void RTLIL::Design::sort()
 void RTLIL::Design::sort_modules()
 {
 	scratchpad.sort();
-	modules_.sort();
+	modules_.sort(sort_by_twine_str_expensive(twines));
 }
 
 void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool);
