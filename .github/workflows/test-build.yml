@@ -93,7 +93,7 @@ jobs:
         shell: bash
         run: |
           rm -rf build
-          cmake -B build . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache
+          cmake -B build . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache -DYOSYS_USE_BUNDLED_LIBS=ON
           cmake --build build -j$procs
           ctest --test-dir build/tests/unit
 
