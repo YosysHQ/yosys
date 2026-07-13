@@ -49,6 +49,8 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	}
 
 	hash_input += dont_use_args;
+	// Include build datetime so caches from other builds are not reused
+	hash_input += yosys_build_datetime_str;
 	unsigned int hash = 0;
 
 	for (char c : hash_input)

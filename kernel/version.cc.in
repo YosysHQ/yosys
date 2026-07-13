@@ -1,4 +1,5 @@
 namespace Yosys {
 	const char *yosys_version_str = "@YOSYS_BUILD_INFO@";
 	const char *yosys_git_hash_str = "@YOSYS_CHECKOUT_INFO@";
+	const char *yosys_build_datetime_str = __DATE__ " " __TIME__;
 }
