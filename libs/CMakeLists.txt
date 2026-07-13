@@ -12,28 +12,49 @@ block()
     include(FetchContent)
     set(FETCHCONTENT_FULLY_DISCONNECTED ON)
 
-    option(FMT_INSTALL OFF)
-    FetchContent_Declare(
-        fmt
-        EXCLUDE_FROM_ALL
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/fmt
-    )
-    FetchContent_MakeAvailable(fmt)
+    if(NOT YOSYS_USE_BUNDLED_LIBS)
+        find_package(fmt 12.2 QUIET)
+    endif()
+    if(fmt_FOUND)
+        set(SLANG_USE_SYSTEM_FMT ON)
+    else()
+        option(FMT_INSTALL OFF)
+        FetchContent_Declare(
+            fmt
+            EXCLUDE_FROM_ALL
+            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/fmt
+        )
+        FetchContent_MakeAvailable(fmt)
+    endif()
 
-    FetchContent_Declare(
-        tomlplusplus
-        EXCLUDE_FROM_ALL
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tomlplusplus
-    )
-    FetchContent_MakeAvailable(tomlplusplus)
+    if(NOT YOSYS_USE_BUNDLED_LIBS)
+        find_package(tomlplusplus 3.4 QUIET)
+    endif()
+    if(tomlplusplus_FOUND)
+        set(SLANG_USE_SYSTEM_TOMLPLUSPLUS ON)
+    else()
+        FetchContent_Declare(
+            tomlplusplus
+            EXCLUDE_FROM_ALL
+            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tomlplusplus
+        )
+        FetchContent_MakeAvailable(tomlplusplus)
+    endif()
 
-    FetchContent_Declare(
-        boost_regex
-        EXCLUDE_FROM_ALL
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/boost_regex
-        SOURCE_SUBDIR _no_build_
-    )
-    FetchContent_MakeAvailable(boost_regex)
+    if(NOT YOSYS_USE_BUNDLED_LIBS)
+        find_package(Boost 1.87.0 CONFIG QUIET)
+    endif()
+    if(Boost_FOUND)
+        set(SLANG_USE_SYSTEM_BOOST ON)
+    else()
+        FetchContent_Declare(
+            boost_regex
+            EXCLUDE_FROM_ALL
+            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/boost_regex
+            SOURCE_SUBDIR _no_build_
+        )
+        FetchContent_MakeAvailable(boost_regex)
+    endif()
 
     if (NOT YOSYS_WITHOUT_SLANG)
         set(SLANG_USE_MIMALLOC OFF)
