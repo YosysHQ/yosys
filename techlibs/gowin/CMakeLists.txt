@@ -52,4 +52,5 @@ yosys_pass(synth_gowin
 		lutrams_map.v
 		lutrams.txt
 		dsp_map.v
+		macc_map_gw5a.v
 )
