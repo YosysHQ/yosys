@@ -361,6 +361,7 @@ FfData FfData::slice(const std::vector<int> &bits) {
 	res.pol_clr = pol_clr;
 	res.pol_set = pol_set;
 	res.attributes = attributes;
+	res.src_twine = src_twine;
 	std::optional<Const::Builder> arst_bits;
 	if (has_arst)
 		arst_bits.emplace(bits.size());
