@@ -163,6 +163,22 @@ static std::string twine_cmt(const RTLIL::Design *design, TwineRef ref, DumpMode
 	return stringf("  # %s", design->twines.str(ref).c_str());
 }
 
+static std::string sigspec_str(const RTLIL::SigSpec &sig, DumpMode mode)
+{
+	std::ostringstream ss;
+	RTLIL_BACKEND::dump_sigspec(ss, sig, true, mode);
+	return ss.str();
+}
+
+static void dump_connect(std::ostream &f, const std::string &indent, DumpMode mode,
+		const std::string &operands, const std::string &readable)
+{
+	f << indent << "connect " << operands;
+	if (mode == DumpMode::Replayable && readable != operands)
+		f << "  # " << readable;
+	f << "\n";
+}
+
 void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint, DumpMode mode)
 {
 	if (chunk.wire == NULL) {
@@ -249,10 +265,9 @@ void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("\n");
 	}
 	for (const auto& [port, sig] : reversed(cell->connections_)) {
-		f << stringf("%s  connect ", indent);
-		f << twine_ref(design, port, mode) << " ";
-		dump_sigspec(f, sig, true, mode);
-		f << twine_cmt(design, port, mode) << "\n";
+		std::string operands = twine_ref(design, port, mode) + " " + sigspec_str(sig, mode);
+		std::string readable = twine_ref(design, port, DumpMode::Readable) + " " + sigspec_str(sig, DumpMode::Readable);
+		dump_connect(f, indent + "  ", mode, operands, readable);
 	}
 	f << stringf("%s" "end\n", indent);
 }
@@ -348,11 +363,9 @@ void RTLIL_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::
 
 void RTLIL_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right, DumpMode mode)
 {
-	f << stringf("%s" "connect ", indent);
-	dump_sigspec(f, left, true, mode);
-	f << stringf(" ");
-	dump_sigspec(f, right, true, mode);
-	f << stringf("\n");
+	std::string operands = sigspec_str(left, mode) + " " + sigspec_str(right, mode);
+	std::string readable = sigspec_str(left, DumpMode::Readable) + " " + sigspec_str(right, DumpMode::Readable);
+	dump_connect(f, indent, mode, operands, readable);
 }
 
 void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, DumpMode mode)
