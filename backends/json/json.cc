@@ -81,7 +81,7 @@ struct JsonWriter
 
 	string get_name(TwineRef name)
 	{
-		return get_string(design->twines.str(name));
+		return get_string(design->twines.unescaped_str(name));
 	}
 
 	string get_bits(SigSpec sig)
