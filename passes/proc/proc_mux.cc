@@ -193,9 +193,9 @@ struct SnippetSwCache
 	}
 };
 
-void apply_attrs(RTLIL::Cell *cell, const RTLIL::CaseRule *cs)
+void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
 {
-	cell->attributes = cs->attributes;
+	cell->attributes = sw->attributes;
 	cell->module->design->merge_src(cell, cs);
 }
 
@@ -241,7 +241,7 @@ struct MuxGenCtx {
 			{
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(mod->design->twines.add(std::string{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}), ifxmode ? TW($eqx) : TW($eq));
-				apply_attrs(eq_cell, cs);
+				apply_attrs(eq_cell, sw, cs);
 				std::vector<TwineRef> eq_sources;
 				if (sw->signal_src != Twine::Null)
 					eq_sources.push_back(sw->signal_src);
@@ -274,7 +274,7 @@ struct MuxGenCtx {
 
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(mod->design->twines.add(std::string{sstr.str() + "_ANY"}), TW($reduce_or));
-			apply_attrs(any_cell, cs);
+			apply_attrs(any_cell, sw, cs);
 			if (cs->compare_src != Twine::Null)
 				any_cell->set_src_attribute(cs->compare_src);
 
@@ -316,6 +316,7 @@ struct MuxGenCtx {
 		mux_cell->setPort(TW::B, when_signal);
 		mux_cell->setPort(TW::S, ctrl_sig);
 		mux_cell->setPort(TW::Y, RTLIL::SigSpec(result_wire));
+		apply_attrs(mux_cell, sw, cs);
 
 		source_mapper.try_map_into(snippet_sources, current_snippet, cs);
 
