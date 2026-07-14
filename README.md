@@ -116,7 +116,7 @@ file which enables ccache and sets the default compiler to clang when calling
 	"version": 1,
 	"configurePresets": [
 		{
-			"name": "default",
+			"name": "clang",
 			"binaryDir": "build",
 			"generator": "Unix Makefiles",
 			"cacheVariables": {
