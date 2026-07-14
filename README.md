@@ -128,15 +128,13 @@ file which enables ccache and sets the default compiler to clang when calling
 }
 ```
 
-Once generated, the build system can be run as follows:
+Once generated, build yosys like this:
 
-	$ cmake --build build       #..or..
-	$ cd build
-	$ cmake --build .
+	$ cmake --build build
 
-To quickly install Yosys with the default settings:
+To build and install a release build of Yosys:
 
-	$ cmake -B build . -DCMAKE_BUILD_TYPE=Release
+	$ cmake -B build -DCMAKE_BUILD_TYPE=Release
 	$ cmake --build build --config Release --parallel $(nproc)
 	$ sudo cmake --install build --strip
 
