@@ -102,6 +102,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
 		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -263,7 +264,7 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
+			run("proc -latches " + latches);
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");
