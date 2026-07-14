@@ -172,7 +172,10 @@ Verilog Attributes and non-standard features
 - The frontend sets attributes ``always_comb``, ``always_latch`` and
   ``always_ff`` on processes derived from SystemVerilog style always blocks
   according to the type of the always. These are checked for correctness in
-  ``proc_dlatch``.
+  ``proc_dlatch``. Latches inferred from ``always_latch`` processes are exempt
+  from the ``proc -latches <info|warn|error>`` reporting policy, and the
+  generated latch cells carry the ``always_latch`` attribute, which also
+  exempts them from `check` ``-nolatches``/``-latchonly``.
 
 - The cell attribute ``wildcard_port_conns`` represents wildcard port
   connections (SystemVerilog ``.*``). These are resolved to concrete connections
