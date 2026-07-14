@@ -161,6 +161,7 @@ struct SynthLatticePass : public ScriptPass
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
 		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
 		log("        (ignored with -asyncprld, which has a latch primitive)\n");
 		log("\n");
 		log("\n");
@@ -416,7 +417,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + ((asyncprld || latches == "info") ? std::string("info") : std::string("warn")));
+			run("proc -latches " + (asyncprld ? std::string("info") : latches));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten");

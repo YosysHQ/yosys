@@ -546,11 +546,16 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 			else
 				cell = db.module->addDlatch(NEW_ID, en, rhs, lhs);
 			cell->set_src_attribute(src);
+			if (proc->get_bool_attribute(ID::always_latch))
+				cell->set_bool_attribute(ID::always_latch);
 			db.generated_dlatches.insert(cell);
 
 			if (proc->get_bool_attribute(ID::always_comb))
 				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+			else if (proc->get_bool_attribute(ID::always_latch))
+				log("Latch inferred for signal `%s.%s' from always_latch process `%s.%s': %s\n",
+						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
 			else if (policy == POLICY_ERROR)
 				log_error("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
@@ -580,6 +585,9 @@ struct ProcDlatchPass : public Pass {
 		log("    -latches <info|warn|error>\n");
 		log("        controls how the inference of a latch is reported. Alternatively, one\n");
 		log("        can use the 'proc.latches' scratchpad variable. Defaults to 'warn'.\n");
+		log("        Latches requested explicitly with 'always_latch' processes are exempt\n");
+		log("        from this policy and always reported at info level. The generated\n");
+		log("        latch cells carry the 'always_latch' attribute.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
