@@ -77,6 +77,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
 		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
 		log("        (only applies to the pp3 family)\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -226,7 +227,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("prepare")) {
-			run("proc -latches " + ((family == "pp3" && latches != "info") ? std::string("warn") : std::string("info")));
+			run("proc -latches " + (family == "pp3" ? latches : std::string("info")));
 			if (flatten) {
 				run("check");
 				run("flatten", "(unless -noflatten)");
