@@ -14,7 +14,18 @@ design -load read
 synth_ice40 -latches info
 select -assert-count 1 t:SB_LUT4
 
+# always_latch
+design -reset
+read_verilog -sv <<EOT
+module top(input d, en, output reg q);
+always_latch if (en) q = d;
+endmodule
+EOT
+logger -expect-no-warnings
+synth_ice40
+logger -check-expected
+select -assert-count 1 t:SB_LUT4
+
 design -load read
-logger -expect warning "Latch inferred for signal" 1
-logger -expect error "Found 1 problems in 'check -assert'" 1
+logger -expect error "Latch inferred for signal" 1
 synth_ice40
