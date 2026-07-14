@@ -255,7 +255,38 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
 	return false;
 }
 
-void find_better_cell(const LibertyAst *cell, const LibertyAst &storage, bool data_pol, const LibertyAst *&best, double &best_area, int &best_pins, bool &best_noninv, std::map<std::string, char> &this_ports, std::map<std::string, char> &best_ports)
+struct best_cell_state {
+	const LibertyAst *cell = nullptr;
+	std::map<std::string, char> ports;
+	int pins = 0;
+	bool noninv = false;
+	double area = 0;
+};
+
+static const LibertyAst *find_usable_storage(const LibertyAst *cell, const char *storage_id, std::vector<std::string> &dont_use_cells)
+{
+	const LibertyAst *dn = cell->find("dont_use");
+	if (dn != nullptr && dn->value == "true")
+		return nullptr;
+
+	for (std::string &dont_use_cell : dont_use_cells)
+		if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
+			return nullptr;
+
+	return cell->find(storage_id);
+}
+
+static void register_cell_mapping(best_cell_state &best, IdString cell_type)
+{
+	if (best.cell != nullptr) {
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
+				best.cell->args[0].c_str(), best.noninv ? "non" : "", best.pins, best.area, cell_type.c_str());
+		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best.cell->args[0]);
+		cell_mappings[cell_type].ports = best.ports;
+	}
+}
+
+void find_better_cell(const LibertyAst *cell, const LibertyAst &storage, bool data_pol, best_cell_state &best, std::map<std::string, char> &this_ports)
 {
 	double area = 0;
 	const LibertyAst *ar = cell->find("area");
@@ -301,46 +332,26 @@ void find_better_cell(const LibertyAst *cell, const LibertyAst &storage, bool da
 			this_ports[pin->args[0]] = 0;
 	}
 
-	if (!found_output || (best != nullptr && (num_pins > best_pins || (best_noninv && !found_noninv_output))))
+	if (!found_output || (best.cell != nullptr && (num_pins > best.pins || (best.noninv && !found_noninv_output))))
 		return;
 
-	if (best != nullptr && num_pins == best_pins && area >= best_area)
+	if (best.cell != nullptr && num_pins == best.pins && area >= best.area)
 		return;
 
-	best = cell;
-	best_pins = num_pins;
-	best_area = area;
-	best_noninv = found_noninv_output;
-	best_ports.swap(this_ports);
+	best.cell = cell;
+	best.pins = num_pins;
+	best.area = area;
+	best.noninv = found_noninv_output;
+	best.ports.swap(this_ports);
 }
 
 static void find_cell_dff(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
-	const LibertyAst *best_cell = nullptr;
-	std::map<std::string, char> best_cell_ports;
-	int best_cell_pins = 0;
-	bool best_cell_noninv = false;
-	double best_cell_area = 0;
+	best_cell_state best_cell;
 
 	for (auto cell : cells)
 	{
-		const LibertyAst *dn = cell->find("dont_use");
-		if (dn != nullptr && dn->value == "true")
-			continue;
-
-		bool dont_use = false;
-		for (std::string &dont_use_cell : dont_use_cells)
-		{
-			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
-			{
-				dont_use = true;
-				break;
-			}
-		}
-		if (dont_use)
-			continue;
-
-		const LibertyAst *ff = cell->find("ff");
+		const LibertyAst *ff = find_usable_storage(cell, "ff", dont_use_cells);
 		if (ff == nullptr)
 			continue;
 
@@ -369,46 +380,21 @@ static void find_cell_dff(std::vector<const LibertyAst *> cells, IdString cell_t
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		find_better_cell(cell, *ff, cell_next_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
+		find_better_cell(cell, *ff, cell_next_pol, best_cell, this_cell_ports);
 	}
 
-	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
-		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
-		cell_mappings[cell_type].ports = best_cell_ports;
-	}
+	register_cell_mapping(best_cell, cell_type);
 }
 
 static void find_cell_dffsr(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
-	const LibertyAst *best_cell = nullptr;
-	std::map<std::string, char> best_cell_ports;
-	int best_cell_pins = 0;
-	bool best_cell_noninv = false;
-	double best_cell_area = 0;
+	best_cell_state best_cell;
 
 	log_assert(!enapol && "set/reset cell with enable is unimplemented due to lack of cells for testing");
 
 	for (auto cell : cells)
 	{
-		const LibertyAst *dn = cell->find("dont_use");
-		if (dn != nullptr && dn->value == "true")
-			continue;
-
-		bool dont_use = false;
-		for (std::string &dont_use_cell : dont_use_cells)
-		{
-			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
-			{
-				dont_use = true;
-				break;
-			}
-		}
-		if (dont_use)
-			continue;
-
-		const LibertyAst *ff = cell->find("ff");
+		const LibertyAst *ff = find_usable_storage(cell, "ff", dont_use_cells);
 		if (ff == nullptr)
 			continue;
 
@@ -444,44 +430,19 @@ static void find_cell_dffsr(std::vector<const LibertyAst *> cells, IdString cell
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		find_better_cell(cell, *ff, cell_next_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
+		find_better_cell(cell, *ff, cell_next_pol, best_cell, this_cell_ports);
 	}
 
-	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
-		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
-		cell_mappings[cell_type].ports = best_cell_ports;
-	}
+	register_cell_mapping(best_cell, cell_type);
 }
 
 static void find_cell_dlatch(std::vector<const LibertyAst *> cells, IdString cell_type, bool enablepol, bool has_reset, bool rstpol, bool rstval, std::vector<std::string> &dont_use_cells)
 {
-	const LibertyAst *best_cell = nullptr;
-	std::map<std::string, char> best_cell_ports;
-	int best_cell_pins = 0;
-	bool best_cell_noninv = false;
-	double best_cell_area = 0;
+	best_cell_state best_cell;
 
 	for (auto cell : cells)
 	{
-		const LibertyAst *dn = cell->find("dont_use");
-		if (dn != nullptr && dn->value == "true")
-			continue;
-
-		bool dont_use = false;
-		for (std::string &dont_use_cell : dont_use_cells)
-		{
-			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
-			{
-				dont_use = true;
-				break;
-			}
-		}
-		if (dont_use)
-			continue;
-
-		const LibertyAst *latch = cell->find("latch");
+		const LibertyAst *latch = find_usable_storage(cell, "latch", dont_use_cells);
 		if (latch == nullptr)
 			continue;
 
@@ -508,44 +469,19 @@ static void find_cell_dlatch(std::vector<const LibertyAst *> cells, IdString cel
 			this_cell_ports[cell_rst_pin] = 'R';
 		this_cell_ports[cell_data_pin] = 'D';
 
-		find_better_cell(cell, *latch, cell_data_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
+		find_better_cell(cell, *latch, cell_data_pol, best_cell, this_cell_ports);
 	}
 
-	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
-		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
-		cell_mappings[cell_type].ports = best_cell_ports;
-	}
+	register_cell_mapping(best_cell, cell_type);
 }
 
 static void find_cell_dlatchsr(std::vector<const LibertyAst *> cells, IdString cell_type, bool enablepol, bool setpol, bool clrpol, std::vector<std::string> &dont_use_cells)
 {
-	const LibertyAst *best_cell = nullptr;
-	std::map<std::string, char> best_cell_ports;
-	int best_cell_pins = 0;
-	bool best_cell_noninv = false;
-	double best_cell_area = 0;
+	best_cell_state best_cell;
 
 	for (auto cell : cells)
 	{
-		const LibertyAst *dn = cell->find("dont_use");
-		if (dn != nullptr && dn->value == "true")
-			continue;
-
-		bool dont_use = false;
-		for (std::string &dont_use_cell : dont_use_cells)
-		{
-			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
-			{
-				dont_use = true;
-				break;
-			}
-		}
-		if (dont_use)
-			continue;
-
-		const LibertyAst *latch = cell->find("latch");
+		const LibertyAst *latch = find_usable_storage(cell, "latch", dont_use_cells);
 		if (latch == nullptr)
 			continue;
 
@@ -579,15 +515,10 @@ static void find_cell_dlatchsr(std::vector<const LibertyAst *> cells, IdString c
 		this_cell_ports[cell_clr_pin] = 'R';
 		this_cell_ports[cell_data_pin] = 'D';
 
-		find_better_cell(cell, *latch, cell_data_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
+		find_better_cell(cell, *latch, cell_data_pol, best_cell, this_cell_ports);
 	}
 
-	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
-		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
-		cell_mappings[cell_type].ports = best_cell_ports;
-	}
+	register_cell_mapping(best_cell, cell_type);
 }
 
 static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
