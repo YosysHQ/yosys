@@ -11,6 +11,7 @@ module \$__MUL27X18 (input [26:0] A, input [17:0] B, output [44:0] Y);
 	MULTALU27X18 #(
 		.MULT12X12_EN("FALSE"),
 		.MULT_RESET_MODE("SYNC"),
+		.C_SEL(1'b0),
 		.AREG_CLK("BYPASS"),
 		.BREG_CLK("BYPASS"),
 		.PREG_CLK("BYPASS"),
