@@ -25,6 +25,8 @@ equiv_opt -map dlatchlibmap-sim.v -assert -multiclock dfflibmap -prepare -libert
 dfflibmap -prepare -liberty dlatchlibmap.lib
 equiv_opt -map dlatchlibmap-sim.v -assert -multiclock dfflibmap -map-only -liberty dlatchlibmap.lib
 
+##################################################################
+
 design -load orig
 dfflibmap -liberty dlatchlibmap.lib
 clean
@@ -73,12 +75,20 @@ select -assert-count 1 t:dlatchn
 select -assert-count 4 t:dlatchsr
 select -assert-none t:dlatchn t:dlatchsr t:$_NOT_ %% %n t:* %i
 
+##################################################################
+
 design -load orig
 dfflibmap -liberty dlatchlibmap.lib -dont_use *latchn
 clean
 
 select -assert-count 0 t:dlatchn
 select -assert-count 5 t:dlatchsr
+
+##################################################################
+
+design -load orig
+read_liberty -lib dlatchlibmap.lib dlatchlibmap_dlatchsr_mixedpol.lib
+equiv_opt -map dlatchlibmap-sim.v -map dlatchlibmap_dlatchsr_mixedpol-sim.v -assert -multiclock dfflibmap -liberty dlatchlibmap.lib -liberty dlatchlibmap_dlatchsr_mixedpol.lib -dont_use dlatchsr
 
 design -load orig
 dfflibmap -liberty dlatchlibmap.lib -liberty dlatchlibmap_dlatchsr_mixedpol.lib -dont_use dlatchsr

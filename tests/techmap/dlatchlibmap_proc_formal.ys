@@ -22,9 +22,10 @@ EOT
 
 proc
 opt
-read_liberty dlatchlibmap_dlatchsr_s.lib
-
 copy top top_unmapped
+
+##################################################################
+
 dfflibmap -liberty dlatchlibmap_dlatchsr_s.lib top
 
 clk2fflogic
@@ -54,6 +55,34 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 delete top miter
 
 copy top_unmapped top
+dfflibmap -liberty dlatchlibmap_dlatchsr_l.lib top
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+delete top miter
+
+copy top_unmapped top
+dfflibmap -liberty dlatchlibmap_dlatchsr_h.lib top
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+delete top miter
+
+copy top_unmapped top
 dfflibmap -liberty dlatchlibmap_dlatchsr_mixedpol.lib top
 
 clk2fflogic
@@ -69,6 +98,20 @@ delete top miter
 
 copy top_unmapped top
 dfflibmap -liberty dlatchlibmap_dlatchsr_not_data.lib top
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+delete top miter
+
+copy top_unmapped top
+dfflibmap -liberty dlatchlibmap_dlatchsr_not_data_l.lib top
 
 clk2fflogic
 flatten
