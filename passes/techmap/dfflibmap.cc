@@ -679,6 +679,10 @@ struct DfflibmapPass : public Pass {
 		log("Since inverters are added for each technology cell, an opt_merge pass\n");
 		log("would reduce the redundancy.\n");
 		log("\n");
+		log("WARNING: This pass does not handle asynchronous clear/preset priority,\n");
+		log("if there is a mismatch between the priority in RTL and the cell in the technology library.\n");
+		log("If the RTL is able to drive both simultaneously, this will result in an equivalence mismatch.\n");
+		log("\n");
 		log("When called with -prepare, this command will convert the internal FF/LATCH cells\n");
 		log("to the internal cell types that best match the cells found in the given\n");
 		log("liberty file, but won't actually map them to the target cells.\n");
