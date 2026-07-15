@@ -37,6 +37,6 @@ prove_op add "-DADD -DADDSUB -DADDS"
 prove_op sub "-DSUB -DADDSUB -DADDS"
 prove_op mul "-DMUL -DMULS"
 prove_op div "-DDIV"
-# prove_op muladd "-DMULADD -DMULS -DADDS"
+prove_op muladd "-DMULADD -DMULS -DADDS"
 
 generate_mk --yosys-scripts
