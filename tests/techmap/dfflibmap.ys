@@ -26,6 +26,8 @@ equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -prepare -liberty d
 dfflibmap -prepare -liberty dfflibmap.lib
 equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -map-only -liberty dfflibmap.lib
 
+##################################################################
+
 design -load orig
 dfflibmap -liberty dfflibmap.lib
 clean
@@ -74,6 +76,8 @@ select -assert-count 1 t:dffe
 select -assert-count 4 t:dffsr
 select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
 
+##################################################################
+
 design -load orig
 dfflibmap -liberty dfflibmap.lib -dont_use *ffn
 clean
@@ -81,6 +85,13 @@ clean
 select -assert-count 0 t:dffn
 select -assert-count 5 t:dffsr
 select -assert-count 1 t:dffe
+
+##################################################################
+
+design -load orig
+read_liberty -lib dfflibmap.lib dfflibmap_dffsr_mixedpol.lib
+stat
+equiv_opt -map dfflibmap-sim.v -map dfflibmap_dffsr_mixedpol-sim.v -assert -multiclock dfflibmap -liberty dfflibmap.lib -liberty dfflibmap_dffsr_mixedpol.lib -dont_use dffsr
 
 design -load orig
 dfflibmap -liberty dfflibmap.lib -liberty dfflibmap_dffsr_mixedpol.lib -dont_use dffsr
