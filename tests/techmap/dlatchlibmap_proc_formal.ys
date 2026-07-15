@@ -61,6 +61,36 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 design -load start
 logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_l.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_l.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_h.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_h.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
 dfflibmap -liberty dlatchlibmap_dlatchsr_mixedpol.lib top
 logger -check-expected
 read_liberty dlatchlibmap_dlatchsr_mixedpol.lib
@@ -79,6 +109,21 @@ logger -expect log "  mapped 2" 1
 dfflibmap -liberty dlatchlibmap_dlatchsr_not_data.lib top
 logger -check-expected
 read_liberty dlatchlibmap_dlatchsr_not_data.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_not_data_l.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_not_data_l.lib
 
 clk2fflogic
 flatten
