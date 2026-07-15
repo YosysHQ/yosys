@@ -279,10 +279,10 @@ template <bool is_signed> struct bv {
 	bv<is_signed> operator>>(const bv<is_signed> &op) const
 	{
 		log_assert(getWidth() == op.getWidth());
-        if (is_signed)
-            return bv{symfpu_mod->Sshr(NEW_ID, bits, op.bits, is_signed)};
-        else
-    		return bv{symfpu_mod->Shr(NEW_ID, bits, op.bits, is_signed)};
+		if (is_signed)
+			return bv{symfpu_mod->Sshr(NEW_ID, bits, op.bits, is_signed)};
+		else
+			return bv{symfpu_mod->Shr(NEW_ID, bits, op.bits, is_signed)};
 	}
 
 	prop operator!=(const bv<is_signed> &op) const
