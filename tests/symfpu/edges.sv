@@ -119,7 +119,7 @@ module edges(input clk);
     wire lhs_norm = b_is_1 ? a_norm : b_norm;
     wire lhs_subnorm = b_is_1 ? a_subnorm : b_subnorm;
     wire lhs_finite = b_is_1 ? a_finite : b_finite;
-    
+
     wire rhs_sign = c_sign;
     wire [30:0] rhs_unsigned = c_unsigned;
     wire [7:0] rhs_exp = c_exp;

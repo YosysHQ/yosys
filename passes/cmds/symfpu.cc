@@ -643,7 +643,7 @@ struct SymFpuPass : public Pass {
 				output_ubv(ID(o), symfpu::pack<rtlil_traits>(format, o_flagged.val));
 			};
 
-			if (rounding.compare("DYN") != 0) 
+			if (rounding.compare("DYN") != 0)
 				output_fpu(make_op(rounding_mode));
 			else {
 				auto out_RNE = make_op(rtlil_traits::RNE());
@@ -652,10 +652,10 @@ struct SymFpuPass : public Pass {
 				auto out_RTN = make_op(rtlil_traits::RTN());
 				auto out_RTZ = make_op(rtlil_traits::RTZ());
 				output_fpu(
-					uf_flagged_ite::iteOp(rm_RNE, out_RNE, 
+					uf_flagged_ite::iteOp(rm_RNE, out_RNE,
 						uf_flagged_ite::iteOp(rm_RNA, out_RNA,
 							uf_flagged_ite::iteOp(rm_RTP, out_RTP,
-								uf_flagged_ite::iteOp(rm_RTN, out_RTN, 
+								uf_flagged_ite::iteOp(rm_RTN, out_RTN,
 									uf_flagged_ite::iteOp(rm_RTZ, out_RTZ,
 										uf_flagged::makeNaN(format, prop(true)))))))
 				);
@@ -760,7 +760,7 @@ struct SymFpuConvertPass : public Pass {
 		symfpu_mod = mod;
 
 		fpt i_format(i_exp, i_size-i_exp);
-		fpt o_format(o_exp, o_size-o_exp);	
+		fpt o_format(o_exp, o_size-o_exp);
 
 		auto i_bv = input_ubv(ID(i), i_size);
 		uf i_f = symfpu::unpack<rtlil_traits>(i_format, i_bv);
