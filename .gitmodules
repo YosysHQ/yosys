@@ -20,7 +20,7 @@
 [submodule "sv-elab"]
 	path = frontends/slang/lib
 	url = https://github.com/povik/sv-elab
-[submodule "libs/symfpu"]
+[submodule "symfpu"]
 	path = libs/symfpu
-	url = https://github.com/martin-cs/symfpu
-	branch = experimental
+	url = https://github.com/YosysHQ/symfpu
+	branch = floatWithStatusFlags
