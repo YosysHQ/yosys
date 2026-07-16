@@ -34,7 +34,7 @@ jobs:
         echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
         echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
 
-        cmake -C Configuration.cmake -B build .
+        cmake -C Configuration.cmake -B build . -DYOSYS_WITHOUT_ABC=ON -DYOSYS_WITHOUT_SLANG=ON
         cmake --build build -j6
 
     - name: Perform CodeQL Analysis

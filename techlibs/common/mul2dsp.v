@@ -68,6 +68,20 @@ module _80_mul (A, B, Y);
 
 	generate
 	if (0) begin end
+		// Normalize operand order (wider operand on A) to simplify asymmetric
+		// rules (DSP_A_MINWIDTH != DSP_B_MINWIDTH) below.
+		else if (_TECHMAP_CELLTYPE_ == "$mul" && A_WIDTH < B_WIDTH)
+			\$mul #(
+				.A_SIGNED(B_SIGNED),
+				.B_SIGNED(A_SIGNED),
+				.A_WIDTH(B_WIDTH),
+				.B_WIDTH(A_WIDTH),
+				.Y_WIDTH(Y_WIDTH)
+			) _TECHMAP_REPLACE_ (
+				.A(B),
+				.B(A),
+				.Y(Y)
+			);
 `ifdef DSP_A_MINWIDTH
 	else if (A_WIDTH < `DSP_A_MINWIDTH)
 		wire _TECHMAP_FAIL_ = 1;
@@ -94,18 +108,6 @@ module _80_mul (A, B, Y);
 			.Y(Y)
 		);
 `endif
-	else if (_TECHMAP_CELLTYPE_ == "$mul" && A_WIDTH < B_WIDTH)
-		\$mul #(
-			.A_SIGNED(B_SIGNED),
-			.B_SIGNED(A_SIGNED),
-			.A_WIDTH(B_WIDTH),
-			.B_WIDTH(A_WIDTH),
-			.Y_WIDTH(Y_WIDTH)
-		) _TECHMAP_REPLACE_ (
-			.A(B),
-			.B(A),
-			.Y(Y)
-		);
 	else begin
 		wire [1023:0] _TECHMAP_DO_ = "proc; clean";
 

@@ -1,0 +1,32 @@
+# Test operand-order normalization: a 4x13 product with an asymmetric rule
+# (A_MIN=10, B_MIN=4) fails in this order (A=4 < A_MIN) but maps to one DSP
+# cell once the wide operand is normalized onto A.
+
+read_verilog <<EOF
+module top(a, b, y);
+	input signed [3:0] a;
+	input signed [12:0] b;
+	output signed [16:0] y;
+	assign y = a * b;
+endmodule
+EOF
+
+read_verilog -lib <<EOF
+module \$__MUL18X18 (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 18;
+	parameter B_WIDTH = 18;
+	parameter Y_WIDTH = 36;
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] Y;
+endmodule
+EOF
+
+hierarchy -top top
+proc
+techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=4 -D DSP_NAME=\$__MUL18X18
+
+select -module top
+select -assert-count 1 t:\$__MUL18X18
