@@ -37,6 +37,19 @@ cd top
 select -assert-count 1 t:MULTALU27X18
 
 
+# 4x13 -> 1 MULTALU27X18 (asymmetric: narrower operand below the 12x12 cell's
+# width, yet the product fits one 27x18 tile; relies on operand-order
+# normalization in mul2dsp plus B_MIN=2 on the 27x18 rule)
+design -reset
+read_verilog mul_gw5a.v
+chparam -set X_WIDTH 4 -set Y_WIDTH 13 -set A_WIDTH 17
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULTALU27X18
+
+
 # 28x18 -> A overflows 27: 1 MULTALU27X18 + MULT12X12 partials
 design -reset
 read_verilog mul_gw5a.v

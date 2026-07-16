@@ -46,7 +46,7 @@ struct SynthGowinPass : public ScriptPass
 
 	const std::vector<DSPRule> gw5a_dsp_rules = {
 		{27, 36,  2, 19, "$__MUL27X36"},
-		{27, 18, 13, 13, "$__MUL27X18"},
+		{27, 18, 13,  2, "$__MUL27X18"},
 		{12, 12,  2,  2, "$__MUL12X12"},
 	};
 
