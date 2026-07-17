@@ -11,6 +11,7 @@
 #cmakedefine YOSYS_ENABLE_THREADS
 #cmakedefine YOSYS_ENABLE_DLOPEN
 #cmakedefine YOSYS_ENABLE_ZLIB
+#cmakedefine YOSYS_ENABLE_LIBFFI
 #cmakedefine YOSYS_ENABLE_PLUGINS
 #cmakedefine YOSYS_ENABLE_READLINE
 #cmakedefine YOSYS_ENABLE_EDITLINE
