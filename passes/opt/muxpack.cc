@@ -294,7 +294,6 @@ struct MuxpackWorker
 					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
 				}
 				remove_cells.insert(cursor_cell);
-				first_cell->add_strpool_attribute(ID::src, cursor_cell->get_strpool_attribute(ID::src));
 			}
 
 			first_cell->setPort(ID::B, b_sig);
