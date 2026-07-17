@@ -180,15 +180,16 @@ design -save order_test
 # wires are named for being cell outputs
 logger -expect log "Rename wire .d in top to or_Y" 1
 logger -expect log "Rename cell .name2 in top to or_Y_.or_B" 1
-logger -expect log "Renamed 2 objects" 1
+logger -expect log "Rename wire .e in top to or_Y_.or_B_Y" 1
+logger -expect log "Rename wire .c in top to or_Y_.or_B_A" 1
+logger -expect log "Renamed 4 objects" 1
 debug autoname t:$or
 logger -check-expected
 
 # $name gets shortest name (otherwise bcd_$__unknown_B)
 logger -expect log "Rename cell .name in top to a_.__unknown_A" 1
-# another output wire
-logger -expect log "Rename wire .e in top to or_Y_.or_B_Y" 1
-logger -expect log "Renamed 4 objects" 1
+logger -expect log "Rename cell .name3 in top to or_Y_.or_B_Y_.and_B" 1
+logger -expect log "Renamed 2 objects" 1
 debug autoname
 logger -check-expected
 
