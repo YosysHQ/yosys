@@ -20,17 +20,17 @@
 #include "kernel/log_help.h"
 #include "kernel/yosys.h"
 
-#include "libs/symfpu/baseTypes/shared.h"
-#include "libs/symfpu/core/add.h"
-#include "libs/symfpu/core/divide.h"
-#include "libs/symfpu/core/fma.h"
-#include "libs/symfpu/core/ite.h"
-#include "libs/symfpu/core/multiply.h"
-#include "libs/symfpu/core/packing.h"
-#include "libs/symfpu/core/sqrt.h"
-#include "libs/symfpu/core/unpackedFloat.h"
-#include "libs/symfpu/core/classify.h"
-#include "libs/symfpu/core/compare.h"
+#include "symfpu/baseTypes/shared.h"
+#include "symfpu/core/add.h"
+#include "symfpu/core/divide.h"
+#include "symfpu/core/fma.h"
+#include "symfpu/core/ite.h"
+#include "symfpu/core/multiply.h"
+#include "symfpu/core/packing.h"
+#include "symfpu/core/sqrt.h"
+#include "symfpu/core/unpackedFloat.h"
+#include "symfpu/core/classify.h"
+#include "symfpu/core/compare.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
