@@ -10,7 +10,7 @@ module $__NEXUS_DPR16X4_ (...);
 	output [3:0] PORT_R_RD_DATA;
 
 	DPR16X4 #(
-		.INITVAL($sformatf("0x%08x", INIT))
+		.INITVAL($sformatf("0x%016x", INIT))
 	) _TECHMAP_REPLACE_ (
 		.RAD(PORT_R_ADDR),
 		.DO(PORT_R_RD_DATA),
