@@ -211,3 +211,8 @@ yosys_pass(sort
 yosys_pass(icell_liberty
 	icell_liberty.cc
 )
+yosys_pass(symfpu
+	symfpu.cc
+	LIBRARIES
+		symfpu
+)
