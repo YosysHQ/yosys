@@ -8,32 +8,32 @@ static void build_lcu_adder(Module *module, SigSpec a, SigSpec b, SigSpec y)
 {
 	int width = GetSize(y);
 
-	SigSpec p = module->Xor(NEW_ID, a, b);
-	SigSpec g = module->And(NEW_ID, a, b);
+	SigSpec p = module->Xor(NEW_TWINE, a, b);
+	SigSpec g = module->And(NEW_TWINE, a, b);
 
-	SigSpec co = module->addWire(NEW_ID, width);
-	Cell *lcu = module->addCell(NEW_ID, ID($lcu));
+	SigSpec co = module->addWire(NEW_TWINE, width);
+	Cell *lcu = module->addCell(NEW_TWINE, TW($lcu));
 	lcu->setParam(ID::WIDTH, width);
-	lcu->setPort(ID::P, p);
-	lcu->setPort(ID::G, g);
-	lcu->setPort(ID::CI, State::S0);
-	lcu->setPort(ID::CO, co);
+	lcu->setPort(TW::P, p);
+	lcu->setPort(TW::G, g);
+	lcu->setPort(TW::CI, State::S0);
+	lcu->setPort(TW::CO, co);
 
 	SigSpec carry_in;
 	carry_in.append(State::S0);
 	carry_in.append(co.extract(0, width - 1));
-	module->addXor(NEW_ID, p, carry_in, y);
+	module->addXor(NEW_TWINE, p, carry_in, y);
 }
 
 static Module *make_module(Design *design, IdString name, int width)
 {
-	Module *module = design->addModule(name);
+	Module *module = design->addModule(design->twines.add(std::string{name.str()}));
 
-	Wire *a = module->addWire(ID(a), width);
+	Wire *a = module->addWire(TW::a, width);
 	a->port_input = true;
-	Wire *b = module->addWire(ID(b), width);
+	Wire *b = module->addWire(TW::b, width);
 	b->port_input = true;
-	Wire *y = module->addWire(ID(y), width);
+	Wire *y = module->addWire(TW::y, width);
 	y->port_output = true;
 	module->fixup_ports();
 
@@ -91,10 +91,10 @@ struct TestKoggeStonePass : public Pass {
 		log_header(design, "Executing TEST_KOGGE_STONE pass (width=%d).\n", width);
 
 		Module *gold = make_module(design, gold_name, width);
-		build_lcu_adder(gold, gold->wire(ID(a)), gold->wire(ID(b)), gold->wire(ID(y)));
+		build_lcu_adder(gold, gold->wire(TW::a), gold->wire(TW::b), gold->wire(TW::y));
 
 		Module *gate = make_module(design, gate_name, width);
-		CompressorTree::emit_kogge_stone(gate, gate->wire(ID(a)), gate->wire(ID(b)), gate->wire(ID(y)));
+		CompressorTree::emit_kogge_stone(gate, gate->wire(TW::a), gate->wire(TW::b), gate->wire(TW::y));
 	}
 } TestKoggeStonePass;
 

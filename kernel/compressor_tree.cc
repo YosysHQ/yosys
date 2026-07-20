@@ -7,9 +7,9 @@ namespace CompressorTree
 
 std::pair<SigSpec, SigSpec> emit_compressor_32(Module *module, SigSpec a, SigSpec b, SigSpec c, int width)
 {
-	SigSpec sum = module->addWire(NEW_ID, width);
-	SigSpec cout = module->addWire(NEW_ID, width);
-	module->addFa(NEW_ID, a, b, c, cout, sum);
+	SigSpec sum = module->addWire(NEW_TWINE, width);
+	SigSpec cout = module->addWire(NEW_TWINE, width);
+	module->addFa(NEW_TWINE, a, b, c, cout, sum);
 
 	SigSpec carry;
 	carry.append(State::S0);
@@ -20,9 +20,9 @@ std::pair<SigSpec, SigSpec> emit_compressor_32(Module *module, SigSpec a, SigSpe
 std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpec b, SigSpec c, SigSpec d, int width)
 {
 	// First FA: a + b + c -> s0
-	SigSpec s0 = module->addWire(NEW_ID, width);
-	SigSpec cout_h_full = module->addWire(NEW_ID, width);
-	module->addFa(NEW_ID, a, b, c, cout_h_full, s0);
+	SigSpec s0 = module->addWire(NEW_TWINE, width);
+	SigSpec cout_h_full = module->addWire(NEW_TWINE, width);
+	module->addFa(NEW_TWINE, a, b, c, cout_h_full, s0);
 
 	// cin[0] = 0, cin[i] = cout_h_full[i-1]
 	SigSpec cin;
@@ -31,9 +31,9 @@ std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpe
 		cin.append(cout_h_full.extract(0, width - 1));
 
 	// Second FA: s0 + d + cin -> sum
-	SigSpec sum = module->addWire(NEW_ID, width);
-	SigSpec carry_full = module->addWire(NEW_ID, width);
-	module->addFa(NEW_ID, s0, d, cin, carry_full, sum);
+	SigSpec sum = module->addWire(NEW_TWINE, width);
+	SigSpec carry_full = module->addWire(NEW_TWINE, width);
+	module->addFa(NEW_TWINE, s0, d, cin, carry_full, sum);
 
 	SigSpec carry;
 	carry.append(State::S0);
@@ -59,8 +59,8 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
 
 		// row = b_shifted & replicate(a[i], width)
 		SigSpec ai_rep = SigSpec(ai, width);
-		SigSpec row = module->addWire(NEW_ID, width);
-		module->addAnd(NEW_ID, b_shifted, ai_rep, row);
+		SigSpec row = module->addWire(NEW_TWINE, width);
+		module->addAnd(NEW_TWINE, b_shifted, ai_rep, row);
 
 		// Apply Modified Baugh-Wooley inversions for this row
 		bool row_is_bottom = (i == width_a - 1);
@@ -88,8 +88,8 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
 					break;
 				}
 			if (nonzero) {
-				SigSpec inverted = module->addWire(NEW_ID, width);
-				module->addXor(NEW_ID, row, SigSpec(RTLIL::Const(mask)), inverted);
+				SigSpec inverted = module->addWire(NEW_TWINE, width);
+				module->addXor(NEW_TWINE, row, SigSpec(RTLIL::Const(mask)), inverted);
 				row = inverted;
 			}
 		}
@@ -231,17 +231,17 @@ void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y)
 		return;
 
 	if (width == 1) {
-		module->addXorGate(NEW_ID, a[0], b[0], y[0]);
+		module->addXorGate(NEW_TWINE, a[0], b[0], y[0]);
 		return;
 	}
 
 	// Bit level gen and prop
 	std::vector<SigBit> g_pre(width), p_pre(width);
 	for (int i = 0; i < width; i++) {
-		SigBit gi = module->addWire(NEW_ID);
-		SigBit pi = module->addWire(NEW_ID);
-		module->addAndGate(NEW_ID, a[i], b[i], gi);
-		module->addXorGate(NEW_ID, a[i], b[i], pi);
+		SigBit gi = module->addWire(NEW_TWINE);
+		SigBit pi = module->addWire(NEW_TWINE);
+		module->addAndGate(NEW_TWINE, a[i], b[i], gi);
+		module->addXorGate(NEW_TWINE, a[i], b[i], pi);
 		g_pre[i] = gi;
 		p_pre[i] = pi;
 	}
@@ -264,16 +264,16 @@ void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y)
 				p_next[i] = p[i];
 			} else {
 				// g_i^k = g_i | (p_i & g_(i-s))
-				SigBit and_pg = module->addWire(NEW_ID);
-				module->addAndGate(NEW_ID, p[i], g[i - s], and_pg);
-				SigBit gnew = module->addWire(NEW_ID);
-				module->addOrGate(NEW_ID, g[i], and_pg, gnew);
+				SigBit and_pg = module->addWire(NEW_TWINE);
+				module->addAndGate(NEW_TWINE, p[i], g[i - s], and_pg);
+				SigBit gnew = module->addWire(NEW_TWINE);
+				module->addOrGate(NEW_TWINE, g[i], and_pg, gnew);
 				g_next[i] = gnew;
 
 				// p_i^k = p_i & p_(i-s)
 				if (k < num_levels) {
-					SigBit pnew = module->addWire(NEW_ID);
-					module->addAndGate(NEW_ID, p[i], p[i - s], pnew);
+					SigBit pnew = module->addWire(NEW_TWINE);
+					module->addAndGate(NEW_TWINE, p[i], p[i - s], pnew);
 					p_next[i] = pnew;
 				} else {
 					// Skip last level
@@ -292,14 +292,14 @@ void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y)
 	//   sum[i] = p_pre[i] ^ g[i-1] ...
 	module->connect(y[0], p_pre[0]);
 	for (int i = 1; i < width; i++)
-		module->addXorGate(NEW_ID, p_pre[i], g[i - 1], y[i]);
+		module->addXorGate(NEW_TWINE, p_pre[i], g[i - 1], y[i]);
 }
 
 Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdder choice) {
 	switch (choice) {
 		case FinalAdder::DEFAULT:
 		case FinalAdder::RIPPLE: {
-			return module->addAdd(NEW_ID, a, b, y, false);
+			return module->addAdd(NEW_TWINE, a, b, y, false);
 		}
 		case FinalAdder::PARALLEL_PREFIX: {
 			emit_kogge_stone(module, a, b, y);

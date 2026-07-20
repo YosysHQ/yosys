@@ -80,7 +80,7 @@ code
 		}
 	}
 
-	module->addBmux(NEW_ID, bmux_a, sel, port(shift, \Y));
+	module->addBmux(NEW_TWINE, bmux_a, sel, port(shift, \Y));
 	autoremove(shift);
 	accept;
 }
