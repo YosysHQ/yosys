@@ -16,7 +16,7 @@ equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$not
 select -assert-none t:$sub
-select -assert-none t:$not t:* %D
+select -assert-none t:$not t:* %D t:$*_port %d t:$public %d
 
 design -reset
 

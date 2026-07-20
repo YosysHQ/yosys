@@ -2143,14 +2143,14 @@ skip_alu_split:
 
 					if (b_fits)
 					{
-						RTLIL::SigSpec sig_y = module->Not(NEW_TWINE, sig_b.extract(0, k));
+						OptExprPatcher patcher(module, &assign_map);
+						RTLIL::SigSpec sig_y = patcher.Not(NEW_TWINE, sig_b.extract(0, k));
 						if (y_width > k)
 							sig_y.append(RTLIL::SigSpec(State::S0, y_width - k));
 
 						log_debug("Replacing `(2^%d-1) - B` $sub cell `%s' in module `%s' with $not.\n",
 								k, log_id(cell), log_id(module));
-						module->connect(cell->getPort(TW::Y), sig_y);
-						module->remove(cell);
+						patcher.patch(cell, TW::Y, sig_y, "sub_not");
 						did_something = true;
 						goto next_cell;
 					}
