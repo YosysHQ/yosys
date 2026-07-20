@@ -18,7 +18,7 @@ jobs:
       docs_export: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
     steps:
       - id: skip_check
-        uses: mmicko/skip-duplicate-actions@master
+        uses: fkirc/skip-duplicate-actions@v5.3.2
         with:
           paths_ignore: '["**/README.md"]'
           # don't cancel in case we're updating docs
