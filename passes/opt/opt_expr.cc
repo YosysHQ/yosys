@@ -1017,11 +1017,11 @@ skip_fine_alu:
 				sig_a = RTLIL::SigSpec();
 
 			for (auto &bit : sig_a.to_sigbit_vector())
-				if (bit == RTLIL::State::Sx)
+				if (bit == RTLIL::State::Sx || bit == RTLIL::State::Sz)
 					goto found_the_x_bit;
 
 			for (auto &bit : sig_b.to_sigbit_vector())
-				if (bit == RTLIL::State::Sx)
+				if (bit == RTLIL::State::Sx || bit == RTLIL::State::Sz)
 					goto found_the_x_bit;
 
 			if (0) {

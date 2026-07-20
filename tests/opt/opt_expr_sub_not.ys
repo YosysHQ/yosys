@@ -88,6 +88,45 @@ select -assert-none t:$sub t:$add t:$alu
 
 design -reset
 
+# Arithmetic cells must treat z inputs as undef before applying further rewrites.
+read_rtlil <<EOF
+module \test
+  wire input 1 \b
+  wire width 4 output 2 \y_a
+  wire width 4 output 3 \y_b
+
+  cell $sub \sub_z_a
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 4
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    connect \A { 3'00z \b }
+    connect \B 4'0101
+    connect \Y \y_a
+  end
+
+  cell $sub \sub_z_b
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 4
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    connect \A 4'1111
+    connect \B { 3'00z \b }
+    connect \Y \y_b
+  end
+end
+EOF
+
+check
+opt_expr -fine -keepdc
+select -assert-none t:*
+sat -verify -enable_undef -set b 0 -prove y_a[0] 1'x
+sat -verify -enable_undef -set b 0 -prove y_b[0] 1'x
+
+design -reset
+
 read_verilog <<EOT
 module test(input sel, input [0:1] data, output out);
 assign out = data[sel];
