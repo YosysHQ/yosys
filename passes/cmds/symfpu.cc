@@ -49,12 +49,12 @@ struct rm {
 thread_local Module *symfpu_mod = nullptr;
 
 struct rtlil_traits {
-	typedef uint64_t bwt;
-	typedef rm rm;
-	typedef symfpu::shared::floatingPointTypeInfo fpt;
-	typedef prop prop;
-	typedef bv<true> sbv;
-	typedef bv<false> ubv;
+	using bwt = uint64_t;
+	using rm = struct rm;
+	using fpt = symfpu::shared::floatingPointTypeInfo;
+	using prop = struct prop;
+	using sbv = bv<true>;
+	using ubv = bv<false>;
 
 	// Return an instance of each rounding mode.
 	static rm RNE(void) { return {rm::mode::RNE}; };
@@ -348,7 +348,7 @@ template <bool is_signed> bv<is_signed> symfpu::ite<prop, bv<is_signed>>::iteOp(
 	return bv<is_signed>{symfpu_mod->Mux(NEW_ID, e.bits, t.bits, cond.bit)};
 }
 
-prop symfpu::ite<bool, prop>::iteOp(bool cond, const prop &t, const prop &e) { return cond ? t : e; }
+[[maybe_unused]] prop symfpu::ite<bool, prop>::iteOp(bool cond, const prop &t, const prop &e) { return cond ? t : e; }
 
 template <bool is_signed> bv<is_signed> symfpu::ite<bool, bv<is_signed>>::iteOp(bool cond, const bv<is_signed> &t, const bv<is_signed> &e)
 {
