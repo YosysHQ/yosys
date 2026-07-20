@@ -602,212 +602,276 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				}
 			}
 
-			// Decide how to represent the transparency; same idea as Mem::extract_rdff.
-			bool trans_use_addr = true;
-			for (auto bit : port.transparency_mask)
-				if (!bit)
-					trans_use_addr = false;
+			// Due to some synthesis tools being incompetent in detecting address colission pattern
+			// from verilog with strictly defined semantics and not infering bram (see github issue #5082),
+			// memory cannot use:
+			// 1. e.g Vivado assumes non-transparent port
+			//   assign r_data = mem[latched r_addr];
+			// 2. not recognised - synthesized to LUTRAM
+			//   always @(...) begin
+			//     if (rd_en) begin
+			//       r_data <= mem[r_addr];
+			//       if (wr_en && r_addr == w_addr) r_data <= w_data;
+			//     end
+			//   end
+			//
+			// As such, we need to implement transparency manually, outside of the always block.
 
-			if (GetSize(mem.wr_ports) == 0)
-				trans_use_addr = false;
+			// for clocked read ports make something like:
+			//   reg [..] temp_id;
+			//   always @(posedge clk)
+			//      if (rd_en) temp_id <= array_reg[r_addr];
+			//   assign r_data = temp_id;
+			std::string temp_id = next_auto_id();
+			lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id) );
 
-			if (port.en != State::S1 || port.srst != State::S0 || port.arst != State::S0 || !port.init_value.is_fully_undef())
-				trans_use_addr = false;
+			bool has_transparency = false;
+			int bypass_part_width = port.data.size() / port.en.size();
+			for (int i = 0; i < GetSize(mem.wr_ports); i++) {
+				auto &wport = mem.wr_ports[i];
+				if (!port.transparency_mask[i] && !port.collision_x_mask[i])
+					continue;
+				has_transparency = true;
+				bypass_part_width = std::min(bypass_part_width, wport.data.size() / wport.en.size());
+			}
+			int bypass_valid_width = port.data.size() / bypass_part_width;
 
-			if (!trans_use_addr)
-			{
-				// for clocked read ports make something like:
-				//   reg [..] temp_id;
-				//   always @(posedge clk)
-				//      if (rd_en) temp_id <= array_reg[r_addr];
-				//   assign r_data = temp_id;
-				std::string temp_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id) );
+			std::string bypass_valid_id;
+			std::string bypass_valid_reset_str;
+			std::string bypass_data_id;
+			std::string bypass_data_reset_str;
+			if (has_transparency) {
+				bypass_valid_id = next_auto_id();
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", bypass_valid_width - 1, bypass_valid_id) );
 
-				bool has_indent = false;
+				std::ostringstream os;
+				os << stringf("%s <= ", bypass_valid_id);
+				dump_sigspec(os, Const(State::S0, bypass_valid_width));
+				os << ";\n";
+				bypass_valid_reset_str = os.str();
 
-				if (port.arst != State::S0) {
-					std::ostringstream os;
-					os << stringf("%s <= ", temp_id);
-					dump_sigspec(os, port.arst_value);
-					os << ";\n";
-					clk_to_arst_body[clk_domain_str].push_back(os.str());
-				}
+				bypass_data_id = next_auto_id();
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, bypass_data_id) );
 
-				if (port.srst != State::S0 && !port.ce_over_srst) {
-					std::ostringstream os;
-					os << stringf("if (");
-					dump_sigspec(os, port.srst);
-					os << stringf(")\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
-					std::ostringstream os2;
-					os2 << stringf("%s" "%s <= ", indent, temp_id);
-					dump_sigspec(os2, port.srst_value);
-					os2 << ";\n";
-					clk_to_lof_body[clk_domain_str].push_back(os2.str());
-					std::ostringstream os3;
-					if (port.en == State::S1) {
-						os3 << "else begin\n";
-					} else {
-						os3 << "else if (";
-						dump_sigspec(os3, port.en);
-						os3 << ") begin\n";
-					}
-					clk_to_lof_body[clk_domain_str].push_back(os3.str());
-					has_indent = true;
-				} else if (port.en != State::S1) {
-					std::ostringstream os;
-					os << stringf("if (");
-					dump_sigspec(os, port.en);
-					os << stringf(") begin\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
-					has_indent = true;
-				}
+				std::ostringstream os2;
+				os2 << stringf("%s <= ", bypass_data_id);
+				dump_sigspec(os2, Const(State::Sx, port.data.size()));
+				os2 << ";\n";
+				bypass_data_reset_str = os2.str();
+			}
 
-				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
-				{
-					SigSpec addr = port.sub_addr(sub);
-					std::ostringstream os;
-					if (has_indent)
-						os << indent;
-					os << temp_id;
-					if (port.wide_log2)
-						os << stringf("[%d:%d]", (sub + 1) * mem.width - 1, sub * mem.width);
-					os << stringf(" <= %s[", mem_id);
-					dump_sigspec(os, addr);
-					os << stringf("];\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
-				}
+			bool has_indent = false;
 
-				for (int i = 0; i < GetSize(mem.wr_ports); i++) {
-					auto &wport = mem.wr_ports[i];
-					if (!port.transparency_mask[i] && !port.collision_x_mask[i])
-						continue;
-					int min_wide_log2 = std::min(port.wide_log2, wport.wide_log2);
-					int max_wide_log2 = std::max(port.wide_log2, wport.wide_log2);
-					bool wide_write = wport.wide_log2 > port.wide_log2;
-					for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
-						SigSpec raddr = port.addr;
-						SigSpec waddr = wport.addr;
-						if (wide_write)
-							waddr = wport.sub_addr(sub);
-						else
-							raddr = port.sub_addr(sub);
-						int pos = 0;
-						int ewidth = mem.width << min_wide_log2;
-						int wsub = wide_write ? sub : 0;
-						int rsub = wide_write ? 0 : sub;
-						while (pos < ewidth) {
-							int epos = pos;
-							while (epos < ewidth && wport.en[epos + wsub * mem.width] == wport.en[pos + wsub * mem.width])
-								epos++;
+			if (port.arst != State::S0) {
+				std::ostringstream os;
+				os << stringf("%s <= ", temp_id);
+				dump_sigspec(os, port.arst_value);
+				os << ";\n";
+				clk_to_arst_body[clk_domain_str].push_back(os.str());
 
-							std::ostringstream os;
-							if (has_indent)
-								os << indent;
-							os << "if (";
-							dump_sigspec(os, wport.en[pos + wsub * mem.width]);
-							if (raddr != waddr) {
-								os << " && ";
-								dump_sigspec(os, raddr);
-								os << " == ";
-								dump_sigspec(os, waddr);
-							}
-							os << ")\n";
-							clk_to_lof_body[clk_domain_str].push_back(os.str());
-
-							std::ostringstream os2;
-							if (has_indent)
-								os2 << indent;
-							os2 << indent;
-							os2 << temp_id;
-							if (epos-pos != GetSize(port.data))
-								os2 << stringf("[%d:%d]", rsub * mem.width + epos-1, rsub * mem.width + pos);
-							os2 << " <= ";
-							if (port.transparency_mask[i])
-								dump_sigspec(os2, wport.data.extract(wsub * mem.width + pos, epos-pos));
-							else
-								dump_sigspec(os2, Const(State::Sx, epos - pos));
-							os2 << ";\n";
-							clk_to_lof_body[clk_domain_str].push_back(os2.str());
-
-							pos = epos;
-						}
-					}
-				}
-
-				if (port.srst != State::S0 && port.ce_over_srst)
-				{
-					std::ostringstream os;
-					if (has_indent)
-						os << indent;
-					os << stringf("if (");
-					dump_sigspec(os, port.srst);
-					os << stringf(")\n");
-					clk_to_lof_body[clk_domain_str].push_back(os.str());
-					std::ostringstream os2;
-					if (has_indent)
-						os2 << indent;
-					os2 << stringf("%s" "%s <= ", indent, temp_id);
-					dump_sigspec(os2, port.srst_value);
-					os2 << ";\n";
-					clk_to_lof_body[clk_domain_str].push_back(os2.str());
-				}
-
-				if (has_indent)
-					clk_to_lof_body[clk_domain_str].push_back("end\n");
-
-				if (!port.init_value.is_fully_undef())
-				{
-					std::ostringstream os;
-					dump_sigspec(os, port.init_value);
-					std::string line = stringf("initial %s = %s;\n", temp_id, os.str());
-					clk_to_lof_body[""].push_back(line);
-				}
-
-				{
-					std::ostringstream os;
-					dump_sigspec(os, port.data);
-					std::string line = stringf("assign %s = %s;\n", os.str(), temp_id);
-					clk_to_lof_body[""].push_back(line);
+				if (has_transparency) {
+					clk_to_arst_body[clk_domain_str].push_back(bypass_valid_reset_str);
+					clk_to_arst_body[clk_domain_str].push_back(bypass_data_reset_str);
 				}
 			}
-			else
-			{
-				// for rd-transparent read-ports make something like:
-				//   reg [..] temp_id;
-				//   always @(posedge clk)
-				//     temp_id <= r_addr;
-				//   assign r_data = array_reg[temp_id];
-				std::string temp_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.addr.size() - 1 - port.wide_log2, temp_id) );
-				{
-					std::ostringstream os;
-					dump_sigspec(os, port.addr.extract_end(port.wide_log2));
-					std::string line = stringf("%s <= %s;\n", temp_id, os.str());
-					clk_to_lof_body[clk_domain_str].push_back(line);
+
+			if (port.srst != State::S0 && !port.ce_over_srst) {
+				std::ostringstream os;
+				os << stringf("if (");
+				dump_sigspec(os, port.srst);
+				os << stringf(") begin\n");
+				clk_to_lof_body[clk_domain_str].push_back(os.str());
+				
+				std::ostringstream os2;
+				os2 << stringf("%s" "%s <= ", indent, temp_id);
+				dump_sigspec(os2, port.srst_value);
+				os2 << ";\n";
+				clk_to_lof_body[clk_domain_str].push_back(os2.str());
+
+				if (has_transparency) {
+					clk_to_lof_body[clk_domain_str].push_back(indent + bypass_valid_reset_str);
+					clk_to_lof_body[clk_domain_str].push_back(indent + bypass_data_reset_str);
 				}
-				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
-				{
+				std::ostringstream os3;
+				if (port.en == State::S1) {
+					os3 << "end else begin\n";
+				} else {
+					os3 << "end else if (";
+					dump_sigspec(os3, port.en);
+					os3 << ") begin\n";
+				}
+				clk_to_lof_body[clk_domain_str].push_back(os3.str());
+				has_indent = true;
+			} else if (port.en != State::S1) {
+				std::ostringstream os;
+				os << stringf("if (");
+				dump_sigspec(os, port.en);
+				os << stringf(") begin\n");
+				clk_to_lof_body[clk_domain_str].push_back(os.str());
+				has_indent = true;
+			}
+
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+			{
+				SigSpec addr = port.sub_addr(sub);
+				std::ostringstream os;
+				if (has_indent)
+					os << indent;
+				os << temp_id;
+				if (port.wide_log2)
+					os << stringf("[%d:%d]", (sub + 1) * mem.width - 1, sub * mem.width);
+				os << stringf(" <= %s[", mem_id);
+				dump_sigspec(os, addr);
+				os << stringf("];\n");
+				clk_to_lof_body[clk_domain_str].push_back(os.str());
+			}
+
+			if (has_transparency) {
+				clk_to_lof_body[clk_domain_str].push_back((has_indent ? indent : "") + bypass_valid_reset_str);
+				clk_to_lof_body[clk_domain_str].push_back((has_indent ? indent : "") + bypass_data_reset_str);
+			}
+
+			for (int i = 0; i < GetSize(mem.wr_ports); i++) {
+				auto &wport = mem.wr_ports[i];
+				if (!port.transparency_mask[i] && !port.collision_x_mask[i])
+					continue;
+				int min_wide_log2 = std::min(port.wide_log2, wport.wide_log2);
+				int max_wide_log2 = std::max(port.wide_log2, wport.wide_log2);
+				bool wide_write = wport.wide_log2 > port.wide_log2;
+				for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
+					SigSpec raddr = port.addr;
+					SigSpec waddr = wport.addr;
+					if (wide_write)
+						waddr = wport.sub_addr(sub);
+					else
+						raddr = port.sub_addr(sub);
+					int pos = 0;
+					int ewidth = mem.width << min_wide_log2;
+					int wsub = wide_write ? sub : 0;
+					int rsub = wide_write ? 0 : sub;
+					while (pos < ewidth) {
+						int epos = pos;
+						while (epos < ewidth && wport.en[epos + wsub * mem.width] == wport.en[pos + wsub * mem.width])
+							epos++;
+
+						std::ostringstream os;
+						if (has_indent)
+							os << indent;
+						os << "if (";
+						dump_sigspec(os, wport.en[pos + wsub * mem.width]);
+						if (raddr != waddr) {
+							os << " && ";
+							dump_sigspec(os, raddr);
+							os << " == ";
+							dump_sigspec(os, waddr);
+						}
+						os << ") begin\n";
+						clk_to_lof_body[clk_domain_str].push_back(os.str());
+
+						int sig_beg = rsub * mem.width + pos;
+						int sig_end = rsub * mem.width + epos;
+						int valid_beg = sig_beg / bypass_part_width;
+						int valid_end = (sig_end + bypass_part_width - 1) / bypass_part_width;
+						std::ostringstream os2;
+						if (has_indent)
+							os2 << indent;
+						os2 << stringf("%s" "%s", indent, bypass_valid_id);
+						if (epos-pos != GetSize(port.data))
+							os2 << stringf("[%d:%d]", valid_end - 1, valid_beg);
+						os2 << " <= ";
+						dump_sigspec(os2, Const(State::S1, valid_end - valid_beg));
+						os2 << ";\n";
+						clk_to_lof_body[clk_domain_str].push_back(os2.str());
+
+						std::ostringstream os3;
+						if (has_indent)
+							os3 << indent;
+						os3 << stringf("%s" "%s", indent, bypass_data_id);
+						if (epos-pos != GetSize(port.data))
+							os3 << stringf("[%d:%d]", sig_end - 1, sig_beg);
+						os3 << " <= ";
+						if (port.transparency_mask[i])
+							dump_sigspec(os3, wport.data.extract(wsub * mem.width + pos, epos-pos));
+						else
+							dump_sigspec(os3, Const(State::Sx, epos - pos));
+						os3 << ";\n";
+						clk_to_lof_body[clk_domain_str].push_back(os3.str());
+						clk_to_lof_body[clk_domain_str].push_back(stringf("%s" "end\n", has_indent ? indent : ""));
+
+						pos = epos;
+					}
+				}
+			}
+
+			if (port.srst != State::S0 && port.ce_over_srst)
+			{
+				std::ostringstream os;
+				if (has_indent)
+					os << indent;
+				os << stringf("if (");
+				dump_sigspec(os, port.srst);
+				os << stringf(") begin\n");
+				clk_to_lof_body[clk_domain_str].push_back(os.str());
+
+				std::ostringstream os2;
+				if (has_indent)
+					os2 << indent;
+				os2 << stringf("%s" "%s <= ", indent, temp_id);
+				dump_sigspec(os2, port.srst_value);
+				os2 << ";\n";
+				clk_to_lof_body[clk_domain_str].push_back(os2.str());
+
+				if (has_transparency) {
+					clk_to_lof_body[clk_domain_str].push_back((has_indent ? indent : "") + indent + bypass_valid_reset_str);
+					clk_to_lof_body[clk_domain_str].push_back((has_indent ? indent : "") + indent + bypass_data_reset_str);
+				}
+				clk_to_lof_body[clk_domain_str].push_back((has_indent ? indent : "") + "end\n");
+			}
+
+			if (has_indent)
+				clk_to_lof_body[clk_domain_str].push_back("end\n");
+
+			if (!port.init_value.is_fully_undef())
+			{
+				std::ostringstream os;
+				os << stringf("initial %s = ", temp_id);
+				dump_sigspec(os, port.init_value);
+				os << ";\n";
+				clk_to_lof_body[""].push_back(os.str());
+
+				if (has_transparency) {
+					std::ostringstream os2;
+					os2 << stringf("initial %s = ", bypass_valid_id);
+					dump_sigspec(os2, Const(State::S0, bypass_valid_width));
+					os2 << ";\n";
+					clk_to_lof_body[""].push_back(os2.str());
+				}
+			}
+
+			{
+				if (!has_transparency) {
 					std::ostringstream os;
 					os << "assign ";
-					dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
-					os << stringf(" = %s[", mem_id);;
-					if (port.wide_log2) {
-						Const::Builder addr_lo_builder(port.wide_log2);
-						for (int i = 0; i < port.wide_log2; i++)
-							addr_lo_builder.push_back(State(sub >> i & 1));
-						Const addr_lo = addr_lo_builder.build();
-						os << "{";
-						os << temp_id;
-						os << ", ";
-						dump_const(os, addr_lo);
-						os << "}";
-					} else {
-						os << temp_id;
-					}
-					os << "];\n";
+					dump_sigspec(os, port.data);
+					os << " = ";
+					os << temp_id;
+					os << ";\n";
 					clk_to_lof_body[""].push_back(os.str());
+				} else {
+					for (int sub = 0; sub < bypass_valid_width; sub++) {
+						int seg_beg = sub * bypass_part_width;
+						int seg_end = (sub + 1) * bypass_part_width;
+
+						std::ostringstream os;
+						os << "assign ";
+						dump_sigspec(os, port.data.extract(seg_beg, seg_end - seg_beg));
+						os << " = ";
+						os << stringf("%s[%d]", bypass_valid_id, sub);
+						os << stringf(" ? %s[%d:%d]", bypass_data_id, seg_end - 1, seg_beg);
+						os << stringf(" : %s[%d:%d]", temp_id, seg_end - 1, seg_beg);
+						os << ";\n";
+						clk_to_lof_body[""].push_back(os.str());
+					}
 				}
 			}
 		} else {
