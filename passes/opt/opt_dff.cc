@@ -913,9 +913,15 @@ struct OptDffWorker
 
 	bool run_constbits()
 	{
-		// Find FFs that are provably constant
-		ModWalker modwalker(module->design, module);
-		QuickConeSat qcsat(modwalker);
+		// Find FFs that are provably constant. The driver/consumer index and
+		// the SAT solver are only reachable through prove_const_with_sat, so
+		// building them without -sat is a full index rebuild for nothing.
+		std::optional<ModWalker> modwalker;
+		std::optional<QuickConeSat> qcsat;
+		if (opt.sat) {
+			modwalker.emplace(module->design, module);
+			qcsat.emplace(*modwalker);
+		}
 
 		std::vector<RTLIL::Cell*> cells_to_remove;
 		std::vector<FfDataSigMapped> ffs_to_emit;
@@ -942,7 +948,7 @@ struct OptDffWorker
 						if (val == State::Sm) continue;
 					} else if (opt.sat) {
 						// Try SAT proof for non-constant D wires
-						if (!prove_const_with_sat(qcsat, modwalker, ff.sig_q[i], ff.sig_d[i], val))
+						if (!prove_const_with_sat(*qcsat, *modwalker, ff.sig_q[i], ff.sig_d[i], val))
 							continue;
 					} else {
 						continue;
@@ -955,7 +961,7 @@ struct OptDffWorker
 						val = combine_const(val, ff.sig_ad[i].data);
 						if (val == State::Sm) continue;
 					} else if (opt.sat) {
-						if (!prove_const_with_sat(qcsat, modwalker, ff.sig_q[i], ff.sig_ad[i], val))
+						if (!prove_const_with_sat(*qcsat, *modwalker, ff.sig_q[i], ff.sig_ad[i], val))
 							continue;
 					} else {
 						continue;
