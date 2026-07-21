@@ -157,19 +157,19 @@ struct rules_t
 			}
 
 			log_debug("setting up %s\n", name);
-			Module* mod = design->addModule(design->twines.add(Twine{name.str()}));
+			Module* mod = design->addModule(design->twines.add(std::string{name.str()}));
 			mod->set_bool_attribute(ID::blackbox);
 
 			for (auto [name, width] : inputs)
 			{
 				log_debug("input %s width %d\n", name.c_str(), width);
-				mod->addWire(design->twines.add(Twine{name.str()}), width)->port_input = true;
+				mod->addWire(design->twines.add(std::string{name.str()}), width)->port_input = true;
 			}
 
 			for (auto [name, width] : outputs)
 			{
 				log_debug("output %s width %d\n", name.c_str(), width);
-				mod->addWire(design->twines.add(Twine{name.str()}), width)->port_output = true;
+				mod->addWire(design->twines.add(std::string{name.str()}), width)->port_output = true;
 			}
 
 			mod->fixup_ports();
