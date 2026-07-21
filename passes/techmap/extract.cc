@@ -565,6 +565,8 @@ struct ExtractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->sigNormalize(false);
+
 		if (!nodefaultswaps) {
 			solver.addSwappablePorts("$and",       "\\A", "\\B");
 			solver.addSwappablePorts("$or",        "\\A", "\\B");
@@ -618,6 +620,7 @@ struct ExtractPass : public Pass {
 					if (filename.size() <= 3 || filename.compare(filename.size()-3, std::string::npos, ".il") != 0) {
 						Pass::call(map, "proc");
 						Pass::call(map, "opt_clean");
+						map->sigNormalize(false);
 					}
 				}
 			}
