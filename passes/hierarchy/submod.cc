@@ -379,6 +379,12 @@ struct SubmodPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Modules split out here are created and then populated, so their
+		// ports appear after the index would have been set up for them and
+		// never get the $input_port cells signorm expects. Leave signorm mode
+		// rather than produce half-normalized modules.
+		design->sigNormalize(false);
+
 		if (opt_name.empty())
 		{
 			Pass::call(design, "opt_clean");

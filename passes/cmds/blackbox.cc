@@ -46,6 +46,12 @@ struct BlackboxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// makeblackbox() razes the module: every cell goes and every non-port
+		// wire with them, without regard for what the signorm index believes
+		// still drives what. Nothing is left for the index to describe, so
+		// drop it rather than maintain it through the demolition.
+		design->sigNormalize(false);
+
 		for (auto module : design->selected_whole_modules_warn(true))
 		{
 			module->makeblackbox();

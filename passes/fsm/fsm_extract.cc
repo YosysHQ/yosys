@@ -434,6 +434,13 @@ struct FsmExtractPass : public Pass {
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);
 
+		// This pass rewires control outputs by writing cell connections_
+		// directly, which leaves the signorm index describing connectivity the
+		// module no longer has (`check` reports stale driverCell_ and missing
+		// fanout entries). Harmless only as long as the index gets thrown away
+		// afterwards, so leave signorm mode rather than corrupting it.
+		design->sigNormalize(false);
+
 		CellTypes ct(design);
 
 		for (auto mod : design->selected_modules())

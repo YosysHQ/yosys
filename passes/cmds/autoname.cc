@@ -132,6 +132,11 @@ struct AutonamePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Renaming is not something the signorm index survives: PortBit hashes
+		// through cell->name, so every fanout entry of a renamed cell becomes
+		// unfindable. (Same hazard abc9_ops notes about swap_names.)
+		design->sigNormalize(false);
+
 		log_header(design, "Executing AUTONAME pass.\n");
 
 		for (auto module : design->selected_modules())
