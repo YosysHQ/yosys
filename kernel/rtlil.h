@@ -3079,6 +3079,11 @@ public:
 	const pool<PortBit> &fanout(SigBit bit);
 	const dict<SigBit, pool<PortBit>> &signorm_fanout() const;
 
+	// Whether this module carries an index. Not the same question as
+	// `design->flagSigNormalized`: a module created after signorm was entered
+	// has none, so anything reaching for the index has to ask per module.
+	bool signorm_indexed() const { return sig_norm_index != nullptr; }
+
 	// While in signorm mode the index holds a complete SigMap of the module's
 	// alias connectivity, and `connections()` is only a materialized view of
 	// it. Returns that map (after merging any pending connections into it) so
