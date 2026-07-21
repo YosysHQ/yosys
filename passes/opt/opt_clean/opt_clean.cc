@@ -34,6 +34,15 @@ void rmunused_module(RTLIL::Module *module, bool rminit, CleanRunContext &clean_
 	// we only start multithreading with at least 2000 cells.
 	int num_worker_threads = ThreadPool::work_pool_size(0, module->cells_size(), 10000);
 	ParallelDispatchThreadPool::Subpool subpool(clean_ctx.thread_pool, num_worker_threads);
+
+	// Dispatch on the module actually carrying an index rather than on the
+	// design-wide flag: a module created after signorm was entered (submod,
+	// for one) has no index of its own to clean against.
+	if (module->signorm_sigmap() != nullptr) {
+		rmunused_module_signorm(module, subpool, clean_ctx);
+		return;
+	}
+
 	remove_temporary_cells(module, subpool, clean_ctx.flags.verbose);
 	rmunused_module_cells(module, subpool, clean_ctx);
 	while (rmunused_module_signals(module, subpool, clean_ctx)) { }
@@ -83,8 +92,6 @@ struct OptCleanPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-
-		design->sigNormalize(false);
 
 		{
 			std::vector<RTLIL::Module*> selected_modules;
@@ -142,8 +149,6 @@ struct CleanPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-
-		design->sigNormalize(false);
 
 		{
 			std::vector<RTLIL::Module*> selected_modules;

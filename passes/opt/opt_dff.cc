@@ -1456,7 +1456,14 @@ struct OptDffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		// TODO extra wires signorm adds breaks muxtree traversal or requires sigmapping
+		// Keeping the index alive across opt_dff is where the remaining win
+		// is -- it is what forces the rebuild once per `opt` loop iteration,
+		// worth 4.68s vs 3.39s on a 2000-stage pipeline (Debug). But this
+		// pass reasons over direct connectivity: bit2mux/bitusers decide
+		// whether a mux is a net's only user, and the intermediate wires
+		// signorm introduces break that, so it stops inferring $sdffe (see
+		// tests/sim/sim_sdffe.ys) and 24 further tests regress. Making that
+		// analysis sigmap-aware is the prerequisite for dropping this.
 		design->sigNormalize(false);
 
 		// The SAT engine reasons in 2-valued logic (a constant x is treated as

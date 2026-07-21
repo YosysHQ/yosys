@@ -82,6 +82,14 @@ public:
 	}
 };
 
+// Is this a name worth preserving for its own sake, rather than a generated
+// one? Used to decide which unreferenced wires survive outside -purge mode.
+bool check_public_name(const std::string &id_str);
+
+// opt_clean for a module in signorm mode: a tracing GC driven by the index
+// instead of by maps rebuilt per call. See signorm.cc.
+void rmunused_module_signorm(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);
+
 void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose);
 void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);
 bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);

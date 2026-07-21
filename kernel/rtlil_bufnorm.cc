@@ -279,6 +279,37 @@ struct RTLIL::SigNormIndex
 		++signorm_restore_count;
 	}
 
+	// `mfp` cannot erase, so the sigmap only ever grows while in signorm mode:
+	// every alias ever merged stays in it, including ones whose wires have
+	// since become garbage. Rebuild it over the bits that survive, dropping
+	// the rest.
+	//
+	// Must run *before* the wires are actually freed: looking a bit up hashes
+	// through `wire->name`, so a database holding a dangling wire cannot even
+	// be iterated safely.
+	void compact(const pool<Wire *> &dead_wires) {
+		flush_connections();
+		// Any bit still queued here is one whose consumers have not been
+		// re-pointed yet, and it may well be a wire the caller is about to
+		// delete -- at which point the next insert rehashes a freed wire.
+		// Callers must have normalized before deciding what is garbage.
+		log_assert(newly_driven.empty());
+
+		SigMap fresh;
+		for (auto const &bit : sigmap.database) {
+			if (bit.is_wire() && dead_wires.count(bit.wire))
+				continue;
+			SigBit rep = sigmap(bit);
+			if (rep == bit)
+				continue;
+			// A representative is a driven bit or a constant, and anything
+			// still aliasing it keeps it referenced, so it cannot be garbage.
+			log_assert(!(rep.is_wire() && dead_wires.count(rep.wire)));
+			fresh.add(bit, rep);
+		}
+
+		sigmap.swap(fresh);
+	}
 };
 
 
@@ -428,17 +459,28 @@ const SigMap *RTLIL::Module::signorm_sigmap()
 	if (sig_norm_index == nullptr)
 		return nullptr;
 
-	// Only the merge half of `restore_connections`: pending connections have
-	// to reach the sigmap before it can be handed out, but materializing it
-	// back into `connections_` is exactly the work the caller is avoiding.
+	// Like `restore_connections` minus the materializing back into
+	// `connections_`, which is the work the caller is avoiding. Unlike it,
+	// this normalizes fully rather than only flushing: merging a connection
+	// demotes bits, and until the consumers of a demoted bit are re-pointed at
+	// its new representative the fanout index still answers under the old one.
+	// A caller reading the index -- rather than just the map -- has to see it
+	// settled.
 	int64_t start = PerformanceTimer::query();
-	sig_norm_index->flush_connections();
+	sig_norm_index->normalize();
 	int64_t time_ns = PerformanceTimer::query() - start;
 	Pass::subtract_from_current_runtime_ns(time_ns);
 	signorm_restore_ns += time_ns;
 	++signorm_restore_count;
 
 	return &sig_norm_index->sigmap;
+}
+
+void RTLIL::Module::signorm_compact(const pool<RTLIL::Wire *> &dead_wires)
+{
+	if (sig_norm_index == nullptr)
+		return;
+	sig_norm_index->compact(dead_wires);
 }
 
 void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)

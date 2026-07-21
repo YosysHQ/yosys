@@ -3517,10 +3517,24 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		}
 	};
 
-	DeleteWireWorker delete_wire_worker;
-	delete_wire_worker.module = this;
-	delete_wire_worker.wires_p = &wires;
-	rewrite_sigspecs2(delete_wire_worker);
+	if (sig_norm_index != nullptr) {
+		// Under the index a deletable wire is by construction referenced by
+		// nothing -- no driver, no fanout entry, and dropped from the sigmap
+		// by the caller -- so there are no sigspecs left to rewrite. Check
+		// that rather than rewriting, since rewrite_sigspecs2 cannot run here
+		// anyway (it would have to touch the index behind its own back).
+		for (auto wire : wires) {
+			log_assert(wire->driverCell_ == nullptr);
+			for (int i = 0; i < GetSize(wire); i++)
+				log_assert(fanout(SigBit(wire, i)).empty());
+		}
+		log_assert(processes.empty());
+	} else {
+		DeleteWireWorker delete_wire_worker;
+		delete_wire_worker.module = this;
+		delete_wire_worker.wires_p = &wires;
+		rewrite_sigspecs2(delete_wire_worker);
+	}
 
 	if (design->flagBufferedNormalized) {
 		for (auto wire : wires) {

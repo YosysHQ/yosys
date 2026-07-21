@@ -3091,6 +3091,12 @@ public:
 	// `connections_`. Returns nullptr when not in signorm mode.
 	const SigMap *signorm_sigmap();
 
+	// Drop `dead_wires` from the index's sigmap. The caller must be about to
+	// delete exactly those wires and must have established that nothing
+	// references them; call this before deleting, while the wires are still
+	// alive to be hashed. No-op outside signorm mode.
+	void signorm_compact(const pool<RTLIL::Wire *> &dead_wires);
+
 	// Equivalent to `connect(lhs, rhs)` followed by `sigNormalize()` for the
 	// merge implied by this single connection: updates the sigmap, promotes
 	// the driven side as canonical, and re-normalizes any existing fanout

@@ -2,6 +2,7 @@ yosys_pass(opt_clean
 	cells_all.cc
 	cells_temp.cc
 	wires.cc
+	signorm.cc
 	inits.cc
 	opt_clean.cc
 	opt_clean.h
