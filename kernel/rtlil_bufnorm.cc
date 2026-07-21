@@ -379,8 +379,16 @@ void RTLIL::Design::sigNormalize(bool enable)
 			// TODO inefficient?
 			std::vector<Cell*> cells_snapshot = module->cells();
 			for (auto cell : cells_snapshot) {
-				if (cell->type == TW($input_port))
+				if (cell->type == TW($input_port)) {
 					module->remove(cell);
+				} else if (cell->type == TW($connect) && !cell->has_keep_attr()) {
+					SigSpec a = cell->getPort(TW::A);
+					SigSpec b = cell->getPort(TW::B);
+					if (a.has_const() && !b.has_const())
+						std::swap(a, b);
+					module->remove(cell);
+					module->connect(a, b);
+				}
 			}
 		}
 
