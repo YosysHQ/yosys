@@ -301,6 +301,17 @@ struct SigMap final : public SigMapView
 	// Rebuild SigMap for all connections in module
 	void set(RTLIL::Module *module)
 	{
+		// In signorm mode the module already holds the union-find we would
+		// otherwise rebuild: `connections()` materializes it bit by bit only
+		// for us to hash it straight back in. `restore_connections` emits
+		// `(bit, sigmap(bit))` pairs and `add()` leaves the right-hand side as
+		// the root, so rebuilding reproduces the same classes with the same
+		// representatives -- copy them instead.
+		if (const SigMap *index_sigmap = module->signorm_sigmap()) {
+			database = index_sigmap->database;
+			return;
+		}
+
 		int bitcount = 0;
 		for (auto &it : module->connections())
 			bitcount += it.first.size();
