@@ -279,6 +279,23 @@ struct RTLIL::SigNormIndex
 		++signorm_restore_count;
 	}
 
+	void compact(const pool<Wire *> &dead_wires) {
+		flush_connections();
+		log_assert(newly_driven.empty());
+
+		SigMap fresh;
+		for (auto const &bit : sigmap.database) {
+			if (bit.is_wire() && dead_wires.count(bit.wire))
+				continue;
+			SigBit rep = sigmap(bit);
+			if (rep == bit)
+				continue;
+			log_assert(!(rep.is_wire() && dead_wires.count(rep.wire)));
+			fresh.add(bit, rep);
+		}
+
+		sigmap.swap(fresh);
+	}
 };
 
 
@@ -429,13 +446,20 @@ const SigMap *RTLIL::Module::signorm_sigmap()
 		return nullptr;
 
 	int64_t start = PerformanceTimer::query();
-	sig_norm_index->flush_connections();
+	sig_norm_index->normalize();
 	int64_t time_ns = PerformanceTimer::query() - start;
 	Pass::subtract_from_current_runtime_ns(time_ns);
 	signorm_restore_ns += time_ns;
 	++signorm_restore_count;
 
 	return &sig_norm_index->sigmap;
+}
+
+void RTLIL::Module::signorm_compact(const pool<RTLIL::Wire *> &dead_wires)
+{
+	if (sig_norm_index == nullptr)
+		return;
+	sig_norm_index->compact(dead_wires);
 }
 
 void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)

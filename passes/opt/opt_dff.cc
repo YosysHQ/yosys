@@ -1454,7 +1454,6 @@ struct OptDffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		// TODO extra wires signorm adds breaks muxtree traversal or requires sigmapping
 		design->sigNormalize(false);
 
 		// The SAT engine reasons in 2-valued logic (a constant x is treated as

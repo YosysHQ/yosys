@@ -3083,6 +3083,8 @@ public:
 
 	const SigMap *signorm_sigmap();
 
+	void signorm_compact(const pool<RTLIL::Wire *> &dead_wires);
+
 	// Equivalent to `connect(lhs, rhs)` followed by `sigNormalize()` for the
 	// merge implied by this single connection: updates the sigmap, promotes
 	// the driven side as canonical, and re-normalizes any existing fanout
