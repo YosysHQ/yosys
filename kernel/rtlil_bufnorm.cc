@@ -118,6 +118,8 @@ struct RTLIL::SigNormIndex
 				xlog("\t%s = %s\n", module->design->twines.str(port).c_str(), log_signal(sig));
 				if (cell->port_dir(port) == RTLIL::PD_INPUT)
 					continue;
+				if (GetSize(sig) == 0)
+					continue;
 				xlog("%s is not an input in design %p\n", module->design->twines.str(port).c_str(), module->design);
 				if (sig.is_wire()) {
 					Wire * wire = sig.as_wire();
