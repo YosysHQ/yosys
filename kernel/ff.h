@@ -236,8 +236,8 @@ struct FfData : FfTypeData {
 };
 
 struct FfDataSigMapped : public FfData {
-	SigMap& sigmap;
-	FfDataSigMapped(SigMap& map, Module *module, FfInitVals *initvals = nullptr, IdString name = IdString()) : FfData(module, initvals, name), sigmap(map) {}
+	const SigMapView& sigmap;
+	FfDataSigMapped(const SigMapView& map, Module *module, FfInitVals *initvals = nullptr, IdString name = IdString()) : FfData(module, initvals, name), sigmap(map) {}
 
 	void remap() {
 		sigmap(sig_q);
@@ -251,10 +251,10 @@ struct FfDataSigMapped : public FfData {
 		sigmap(sig_clr);
 		sigmap(sig_set);
 	}
-	FfDataSigMapped(SigMap& map, FfInitVals *initvals, Cell *cell_) : FfData(initvals, cell_), sigmap(map) {
+	FfDataSigMapped(const SigMapView& map, FfInitVals *initvals, Cell *cell_) : FfData(initvals, cell_), sigmap(map) {
 		remap();
 	}
-	FfDataSigMapped(SigMap& map, const FfData& base) : FfData(base), sigmap(map) {
+	FfDataSigMapped(const SigMapView& map, const FfData& base) : FfData(base), sigmap(map) {
 		remap();
 	}
 	FfDataSigMapped(const FfDataSigMapped& other) : FfData(other), sigmap(other.sigmap) {}

@@ -47,14 +47,14 @@ struct OptDffOptions
 // Bit-parallel random simulation used as a cheap pre-filter for equivalence
 struct BitSim {
 	Module *module;
-	SigMap &sigmap;
+	const SigMapView &sigmap;
 	ModWalker &modwalker;
 	dict<SigBit, uint64_t> sim_vals;
 	uint64_t rng_state;
 	int max_depth;
 	int evals_left;
 
-	BitSim(Module *m, SigMap &sm, ModWalker &mw)
+	BitSim(Module *m, const SigMapView &sm, ModWalker &mw)
 		: module(m), sigmap(sm), modwalker(mw), rng_state(1337)
 	{
 		max_depth = module->design->scratchpad_get_int("opt_dff.sim_depth", 10000);
@@ -137,7 +137,8 @@ struct OptDffWorker
 	// Cell to port bit index
 	typedef std::pair<RTLIL::Cell*, int> cell_int_t;
 
-	SigMap sigmap;                    // Signal aliasing
+	SigMap own_sigmap;
+	const SigMapView &sigmap;
 	FfInitVals initvals;
 	dict<SigBit, int> bitusers;       // Signal sink count
 	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
@@ -195,8 +196,22 @@ struct OptDffWorker
 		}
 	}
 
+	static const SigMapView &pick_sigmap(Module *mod, SigMap &fallback)
+	{
+		if (const SigMap *index_sigmap = mod->signorm_sigmap())
+			return *index_sigmap;
+		fallback.set(mod);
+		return fallback;
+	}
+
+	void resync()
+	{
+		if (module->signorm_indexed())
+			module->signorm_sigmap();
+	}
+
 	OptDffWorker(const OptDffOptions &opt, Module *mod)
-		: opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod)
+		: opt(opt), module(mod), sigmap(pick_sigmap(mod, own_sigmap)), initvals(&sigmap, mod)
 	{
 		// Gathering two kinds of information here for every sigmapped SigBit:
 		// - bitusers: how many users it has (muxes will only be merged into FFs if the FF is the only user)
@@ -803,6 +818,7 @@ struct OptDffWorker
 		while (!dff_cells.empty()) {
 			Cell *cell = dff_cells.back();
 			dff_cells.pop_back();
+			resync();
 			// Break down the FF into pieces.
 			FfDataSigMapped ff(sigmap, &initvals, cell);
 			bool changed = false;
@@ -913,7 +929,7 @@ struct OptDffWorker
 
 	bool run_constbits()
 	{
-		// Find FFs that are provably constant
+		resync();
 		std::optional<ModWalker> modwalker;
 		std::optional<QuickConeSat> qcsat;
 		if (opt.sat) {
@@ -1371,6 +1387,8 @@ struct OptDffWorker
 		if (!opt.sat)
 			return false;
 
+		resync();
+
 		std::vector<EqBit> bits;
 		dict<Cell *, FfData> ff_for_cell;
 
@@ -1454,7 +1472,6 @@ struct OptDffPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		design->sigNormalize(false);
 
 		// The SAT engine reasons in 2-valued logic (a constant x is treated as
 		// 0), so it can resolve don't-care bits to concrete values -- exactly
