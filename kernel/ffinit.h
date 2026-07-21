@@ -53,12 +53,18 @@ struct FfInitVals
 			if (val != State::S0 && val != State::S1 && bit.wire != nullptr)
 				continue;
 
-			if (initbits.count(bit)) {
-				if (initbits.at(bit).first != val)
+			auto found = initbits.find(bit);
+			if (found != initbits.end()) {
+				// An x bit is the absence of an init value, so it neither
+				// conflicts with a real one nor overrides it. Two wires can
+				// land on the same bit whenever they are connected, and
+				// aliasing makes that common.
+				if (found->second.first == val || val == State::Sx)
+					continue;
+				if (found->second.first != State::Sx)
 					log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
 							log_signal(bit), log_signal(SigBit(wire, i)),
-							log_signal(val), log_signal(initbits.at(bit).first));
-				continue;
+							log_signal(val), log_signal(found->second.first));
 			}
 
 			initbits[bit] = std::make_pair(val,SigBit(wire,i));
