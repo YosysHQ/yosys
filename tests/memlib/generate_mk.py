@@ -1566,7 +1566,11 @@ for t in TESTS:
                 for kk, vv in ca.items():
                     sf.write("select -assert-count {} t:{} r:{}={} %i\n".format(cc, k, kk, vv))
             else:
-                sf.write("select -assert-count {} t:{}\n".format(v, k))
+                # $input_port/$output_port/$public are signorm bookkeeping
+                # rather than mapped logic, so a "t:$*" count has to exclude
+                # them the way the opt_expr tests do.
+                suffix = " t:$*_port %d t:$public %d" if k.startswith("$") else ""
+                sf.write("select -assert-count {} t:{}{}\n".format(v, k, suffix))
 
 def create_tests():
     for t in TESTS:

@@ -9,7 +9,7 @@ equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$bmux
-select -assert-count 0 t:$bmux t:* %D
+select -assert-count 0 t:$bmux t:* %D t:$*_port %d t:$public %d
 
 ####################
 
@@ -26,7 +26,7 @@ design -load postopt
 clean
 select -assert-count 1 t:$shr
 select -assert-count 1 t:$mul
-select -assert-count 0 t:$shr t:$mul %% t:* %D
+select -assert-count 0 t:$shr t:$mul %% t:* %D t:$*_port %d t:$public %d
 
 ####################
 
@@ -50,7 +50,7 @@ sat -verify -show-public -enable_undef -prove-asserts miter
 cd gate
 select -assert-count 1 t:$shr
 select -assert-count 1 t:$mul
-select -assert-count 0 t:$shr t:$mul %% t:* %D
+select -assert-count 0 t:$shr t:$mul %% t:* %D t:$*_port %d t:$public %d
 
 ####################
 
@@ -109,7 +109,7 @@ equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$bmux
-select -assert-count 0 t:$bmux t:* %D
+select -assert-count 0 t:$bmux t:* %D t:$*_port %d t:$public %d
 
 ####################
 
@@ -244,4 +244,4 @@ equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 1 t:$bmux
-select -assert-count 0 t:$bmux t:* %D
+select -assert-count 0 t:$bmux t:* %D t:$*_port %d t:$public %d
