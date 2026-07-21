@@ -3079,6 +3079,8 @@ public:
 	const pool<PortBit> &fanout(SigBit bit);
 	const dict<SigBit, pool<PortBit>> &signorm_fanout() const;
 
+	bool signorm_indexed() const { return sig_norm_index != nullptr; }
+
 	const SigMap *signorm_sigmap();
 
 	// Equivalent to `connect(lhs, rhs)` followed by `sigNormalize()` for the

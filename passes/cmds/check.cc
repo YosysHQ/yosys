@@ -31,7 +31,7 @@ PRIVATE_NAMESPACE_BEGIN
 int check_bufnorm_cell(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	bool bufnorm = module->design->flagBufferedNormalized;
-	bool signorm = module->design->flagSigNormalized;
+	bool signorm = module->design->flagSigNormalized && module->signorm_indexed();
 	if (!bufnorm && !signorm)
 		return 0;
 
@@ -102,7 +102,7 @@ int check_bufnorm_wire(RTLIL::Module *module, RTLIL::Wire *wire)
 
 int check_signorm_fanout(RTLIL::Module *module)
 {
-	if (!module->design->flagSigNormalized)
+	if (!module->design->flagSigNormalized || !module->signorm_indexed())
 		return 0;
 
 	int counter = 0;
