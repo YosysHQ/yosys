@@ -144,6 +144,8 @@ namespace RTLIL
 	struct PortBit;
 };
 
+struct SigMap;
+
 
 // TODO clean up?
 extern int64_t signorm_ns;
@@ -3076,6 +3078,8 @@ public:
 	std::vector<Cell *> dirty_cells(int starting_from);
 	const pool<PortBit> &fanout(SigBit bit);
 	const dict<SigBit, pool<PortBit>> &signorm_fanout() const;
+
+	const SigMap *signorm_sigmap();
 
 	// Equivalent to `connect(lhs, rhs)` followed by `sigNormalize()` for the
 	// merge implied by this single connection: updates the sigmap, promotes

@@ -278,6 +278,7 @@ struct RTLIL::SigNormIndex
 		signorm_restore_ns += time_ns;
 		++signorm_restore_count;
 	}
+
 };
 
 
@@ -420,6 +421,21 @@ const std::vector<RTLIL::SigSig> &RTLIL::Module::connections() const
 	if (sig_norm_index != nullptr)
 		sig_norm_index->restore_connections();
 	return connections_;
+}
+
+const SigMap *RTLIL::Module::signorm_sigmap()
+{
+	if (sig_norm_index == nullptr)
+		return nullptr;
+
+	int64_t start = PerformanceTimer::query();
+	sig_norm_index->flush_connections();
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	signorm_restore_ns += time_ns;
+	++signorm_restore_count;
+
+	return &sig_norm_index->sigmap;
 }
 
 void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)

@@ -301,6 +301,11 @@ struct SigMap final : public SigMapView
 	// Rebuild SigMap for all connections in module
 	void set(RTLIL::Module *module)
 	{
+		if (const SigMap *index_sigmap = module->signorm_sigmap()) {
+			database = index_sigmap->database;
+			return;
+		}
+
 		int bitcount = 0;
 		for (auto &it : module->connections())
 			bitcount += it.first.size();
