@@ -92,7 +92,7 @@ prep -nokeepdc
 equiv_opt -assert peepopt
 design -load postopt
 clean
-select -assert-count 0 t:*
+select -assert-count 0 t:* t:$*_port %d t:$public %d
 
 ####################
 
