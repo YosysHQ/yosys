@@ -138,16 +138,26 @@ static void run_ice40_opts(Module *module)
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						module, cell, log_signal(replacement_output));
-				cell->type_impl = TW($lut);
+				// A port's direction is read off the cell type, so every
+				// port has to be disconnected while the old type still
+				// explains it and reconnected once the new one does --
+				// otherwise the indices are updated against the wrong
+				// direction. Retiring \O before it comes back as \Y also
+				// leaves that wire undriven, so it can be reused rather
+				// than aliased behind a fresh one.
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? TW::CI : TW::I3));
-				cell->setPort(TW::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(TW::I0)) });
-				cell->setPort(TW::Y, cell->getPort(TW::O));
+				RTLIL::SigSpec sig_a { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(TW::I0)) };
+				RTLIL::SigSpec sig_y = cell->getPort(TW::O);
+				cell->unsetPort(TW::A);
 				cell->unsetPort(TW::B);
 				cell->unsetPort(TW::CI);
 				cell->unsetPort(TW::I0);
 				cell->unsetPort(TW::I3);
 				cell->unsetPort(TW::CO);
 				cell->unsetPort(TW::O);
+				cell->type_impl = TW($lut);
+				cell->setPort(TW::A, std::move(sig_a));
+				cell->setPort(TW::Y, std::move(sig_y));
 				cell->setParam(ID::WIDTH, 4);
 				cell->unsetParam(ID(I3_IS_CI));
 			}
