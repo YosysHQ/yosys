@@ -3824,14 +3824,22 @@ RTLIL::Cell *RTLIL::Module::addCell(TwineRef name, const RTLIL::Cell *other)
 		type = this->design->twines.copy_from(src_design->twines, other->type_impl);
 
 	RTLIL::Cell *cell = addCell(name, type);
-	if (cross_pool) {
-		for (auto &c : other->connections_)
-			cell->connections_[this->design->twines.copy_from(src_design->twines, c.first)] = c.second;
-	} else {
-		cell->connections_ = other->connections_;
-	}
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
+
+	// Storing the connections directly would leave a signorm index blind to
+	// the clone: its inputs would be absent from the fanout and its outputs
+	// would claim no driver, so the first setPort on the clone would try to
+	// retract entries that were never made. Go through setPort there, which
+	// also interposes a wire wherever the original is still driving the net.
+	bool indexed = signorm_indexed();
+	for (auto &c : other->connections_) {
+		TwineRef port = cross_pool ? this->design->twines.copy_from(src_design->twines, c.first) : c.first;
+		if (indexed)
+			cell->setPort(port, c.second);
+		else
+			cell->connections_[port] = c.second;
+	}
 	if (src_design && this->design)
 		copy_src_into(other, src_design, cell, this->design);
 	return cell;
