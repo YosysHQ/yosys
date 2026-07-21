@@ -565,6 +565,13 @@ struct ExtractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		// Subgraph isomorphism is over the cells as they stand, so the index's
+		// own marker cells would have to appear in both needle and haystack
+		// for a match: a needle input is a module port, hence an $input_port
+		// node, where the haystack has whatever actually drives the net.
+		// Nothing would ever match again.
+		design->sigNormalize(false);
+
 		if (!nodefaultswaps) {
 			solver.addSwappablePorts("$and",       "\\A", "\\B");
 			solver.addSwappablePorts("$or",        "\\A", "\\B");
@@ -618,6 +625,10 @@ struct ExtractPass : public Pass {
 					if (filename.size() <= 3 || filename.compare(filename.size()-3, std::string::npos, ".il") != 0) {
 						Pass::call(map, "proc");
 						Pass::call(map, "opt_clean");
+						// Those leave the map design indexed, and the needles
+						// are built from its cells; see the note by the
+						// sigNormalize call on the haystack design above.
+						map->sigNormalize(false);
 					}
 				}
 			}
