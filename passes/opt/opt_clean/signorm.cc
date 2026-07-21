@@ -138,6 +138,21 @@ void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_me
 	dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> connect_cells = index_connect_cells(module);
 	dict<std::string, std::vector<RTLIL::Cell *>> mem_writers;
 
+	// Everything that reaches a net reaches it the same way: through the one
+	// cell driving it, and through any $connect tying it to another net that
+	// may hold the driver instead.
+	auto mark_bit = [&](RTLIL::SigBit bit) {
+		if (!bit.is_wire())
+			return;
+		live.mark(bit.wire->driverCell_);
+		if (connect_cells.empty())
+			return;
+		auto found = connect_cells.find(bit);
+		if (found != connect_cells.end())
+			for (RTLIL::Cell *connect : found->second)
+				live.mark(connect);
+	};
+
 	for (int i = 0; i < module->cells_size(); i++) {
 		RTLIL::Cell *cell = module->cell_at(i);
 		if (cell->type.in(TW($memwr), TW($memwr_v2), TW($meminit), TW($meminit_v2)))
@@ -153,8 +168,7 @@ void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_me
 		if (!wire->port_output && !wire->get_bool_attribute(ID::keep))
 			continue;
 		for (auto bit : sigmap(RTLIL::SigSpec(wire)))
-			if (bit.is_wire())
-				live.mark(bit.wire->driverCell_);
+			mark_bit(bit);
 	}
 
 	while (!live.worklist.empty()) {
@@ -165,18 +179,9 @@ void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_me
 			if (clean_ctx.ct_all.cell_known(cell->type_impl) &&
 					!clean_ctx.ct_all.cell_input(cell->type_impl, port))
 				continue;
-			for (auto bit : sig) {
-				if (!bit.is_wire())
-					continue;
-				// Ports hold canonical bits, so the driver is one hop away.
-				live.mark(bit.wire->driverCell_);
-				if (!connect_cells.empty()) {
-					auto found = connect_cells.find(bit);
-					if (found != connect_cells.end())
-						for (RTLIL::Cell *connect : found->second)
-							live.mark(connect);
-				}
-			}
+			// Ports hold canonical bits, so the driver is one hop away.
+			for (auto bit : sig)
+				mark_bit(bit);
 		}
 
 		if (cell->type.in(TW($memrd), TW($memrd_v2))) {
