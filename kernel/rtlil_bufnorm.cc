@@ -118,6 +118,14 @@ struct RTLIL::SigNormIndex
 				xlog("\t%s = %s\n", module->design->twines.str(port).c_str(), log_signal(sig));
 				if (cell->port_dir(port) == RTLIL::PD_INPUT)
 					continue;
+				// An output left unconnected (`.q_bar()`) drives nothing, and
+				// `signorm_index_add` declines to record a zero-width one.
+				// Claiming a driver here anyway leaves a wire pointing at the
+				// cell that `unsetPort` will never clear, because it too skips
+				// zero-width connections -- so removing the cell strands the
+				// wire on freed memory.
+				if (GetSize(sig) == 0)
+					continue;
 				xlog("%s is not an input in design %p\n", module->design->twines.str(port).c_str(), module->design);
 				if (sig.is_wire()) {
 					Wire * wire = sig.as_wire();
