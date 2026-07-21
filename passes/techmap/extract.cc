@@ -184,6 +184,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	if (max_fanout > 0)
 		for (auto cell : mod->cells())
 		{
+			if (cell->type == TW($input_port))
+				continue;
 			if (!sel || sel->selected(mod, cell))
 				for (auto &conn : cell->connections()) {
 					RTLIL::SigSpec conn_sig = conn.second;
@@ -198,6 +200,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	for (auto cell : mod->cells())
 	{
 		if (sel && !sel->selected(mod, cell))
+			continue;
+		if (cell->type == TW($input_port))
 			continue;
 
 		std::string type = cell->type.str();
@@ -253,6 +257,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	// mark external signals (used in non-selected cells)
 	for (auto cell : mod->cells())
 	{
+		if (cell->type == TW($input_port))
+			continue;
 		if (sel && !sel->selected(mod, cell))
 			for (auto &conn : cell->connections())
 			{
@@ -565,8 +571,6 @@ struct ExtractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		design->sigNormalize(false);
-
 		if (!nodefaultswaps) {
 			solver.addSwappablePorts("$and",       "\\A", "\\B");
 			solver.addSwappablePorts("$or",        "\\A", "\\B");
@@ -620,7 +624,6 @@ struct ExtractPass : public Pass {
 					if (filename.size() <= 3 || filename.compare(filename.size()-3, std::string::npos, ".il") != 0) {
 						Pass::call(map, "proc");
 						Pass::call(map, "opt_clean");
-						map->sigNormalize(false);
 					}
 				}
 			}
