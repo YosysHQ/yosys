@@ -97,6 +97,20 @@ dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> index_connect_cells(RTLIL::Modul
 	return result;
 }
 
+void mark_bit(RTLIL::SigBit bit, LiveSet &live,
+		const dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> &connect_cells)
+{
+	if (!bit.is_wire())
+		return;
+	live.mark(bit.wire->driverCell_);
+	if (connect_cells.empty())
+		return;
+	auto found = connect_cells.find(bit);
+	if (found != connect_cells.end())
+		for (RTLIL::Cell *connect : found->second)
+			live.mark(connect);
+}
+
 void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_mems,
 		const SigMap &sigmap, CleanRunContext &clean_ctx)
 {
@@ -116,8 +130,7 @@ void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_me
 		if (!wire->port_output && !wire->get_bool_attribute(ID::keep))
 			continue;
 		for (auto bit : sigmap(RTLIL::SigSpec(wire)))
-			if (bit.is_wire())
-				live.mark(bit.wire->driverCell_);
+			mark_bit(bit, live, connect_cells);
 	}
 
 	while (!live.worklist.empty()) {
@@ -128,17 +141,8 @@ void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_me
 			if (clean_ctx.ct_all.cell_known(cell->type_impl) &&
 					!clean_ctx.ct_all.cell_input(cell->type_impl, port))
 				continue;
-			for (auto bit : sig) {
-				if (!bit.is_wire())
-					continue;
-				live.mark(bit.wire->driverCell_);
-				if (!connect_cells.empty()) {
-					auto found = connect_cells.find(bit);
-					if (found != connect_cells.end())
-						for (RTLIL::Cell *connect : found->second)
-							live.mark(connect);
-				}
-			}
+			for (auto bit : sig)
+				mark_bit(bit, live, connect_cells);
 		}
 
 		if (cell->type.in(TW($memrd), TW($memrd_v2))) {
