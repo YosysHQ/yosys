@@ -132,6 +132,8 @@ struct DeletePass : public Pass {
 		for (auto mod : delete_mods) {
 			design->remove(mod);
 		}
+
+		design->sigNormalize(false);
 	}
 } DeletePass;
 
