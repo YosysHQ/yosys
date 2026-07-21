@@ -417,6 +417,11 @@ struct TimeestPass : Pass {
 		}
 		extra_args(args, argidx, d);
 
+		// Every cell has to have an AIG model; the signorm marker cells are
+		// bookkeeping with no timing behaviour and no model, so take them out
+		// rather than teach the estimator to skip them.
+		d->sigNormalize(false);
+
 		if (select && d->selected_modules().size() > 1)
 			log_cmd_error("The -select option operates on a single selected module\n");
 
