@@ -132,6 +132,8 @@ struct AutonamePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->sigNormalize(false);
+
 		log_header(design, "Executing AUTONAME pass.\n");
 
 		for (auto module : design->selected_modules())
