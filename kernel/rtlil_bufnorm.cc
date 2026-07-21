@@ -390,11 +390,30 @@ void RTLIL::Design::sigNormalize(bool enable)
 				wire->driverPort_ = Twine::Null;
 			}
 
+			// The marker cells are the index's own encoding and mean nothing
+			// without it. $input_port only records that a module input counts
+			// as driven, so it just goes; a $connect carries a real fact --
+			// two already-driven nets are the same net -- which outside the
+			// index is spelled as a module connection. Leaving them as cells
+			// hands the next pass a net whose driver it cannot find, and they
+			// travel: techmap copies template cells verbatim, so a $connect
+			// surviving in a map module reappears in every module the template
+			// is instantiated into.
+			//
 			// TODO inefficient?
 			std::vector<Cell*> cells_snapshot = module->cells();
 			for (auto cell : cells_snapshot) {
-				if (cell->type == TW($input_port))
+				if (cell->type == TW($input_port)) {
 					module->remove(cell);
+				} else if (cell->type == TW($connect) && !cell->has_keep_attr()) {
+					SigSpec a = cell->getPort(TW::A);
+					SigSpec b = cell->getPort(TW::B);
+					// A connection's left-hand side is the driven one.
+					if (a.has_const() && !b.has_const())
+						std::swap(a, b);
+					module->remove(cell);
+					module->connect(a, b);
+				}
 			}
 		}
 
