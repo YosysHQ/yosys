@@ -5208,13 +5208,28 @@ bool RTLIL::Cell::known() const
 	return false;
 }
 
+static RTLIL::Wire *find_port(RTLIL::Module *m, TwineRef portname)
+{
+	if (m == nullptr)
+		return nullptr;
+	if (RTLIL::Wire *w = m->wire(portname))
+		return w;
+
+	std::string name = m->design->twines.str(portname);
+	if (name.size() < 2 || name[0] != '$' || name[1] < '0' || name[1] > '9')
+		return nullptr;
+	int port_id = atoi(name.c_str() + 1);
+	if (port_id < 1 || port_id > GetSize(m->ports))
+		return nullptr;
+	return m->wire(m->ports[port_id - 1]);
+}
+
 bool RTLIL::Cell::input(TwineRef portname) const
 {
 	if (yosys_celltypes.cell_known(type_impl))
 		return yosys_celltypes.cell_input(type_impl, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type_impl);
-		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
+		RTLIL::Wire *w = find_port(module->design->module(type_impl), portname);
 		return w && w->port_input;
 	}
 	return false;
@@ -5225,8 +5240,7 @@ bool RTLIL::Cell::output(TwineRef portname) const
 	if (yosys_celltypes.cell_known(type_impl))
 		return yosys_celltypes.cell_output(type_impl, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type_impl);
-		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
+		RTLIL::Wire *w = find_port(module->design->module(type_impl), portname);
 		return w && w->port_output;
 	}
 	return false;
@@ -5237,10 +5251,7 @@ RTLIL::PortDir RTLIL::Cell::port_dir(TwineRef portname) const
 	if (yosys_celltypes.cell_known(type_impl))
 		return yosys_celltypes.cell_port_dir(type_impl, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type_impl);
-		if (m == nullptr)
-			return PortDir::PD_UNKNOWN;
-		RTLIL::Wire *w = m->wire(portname);
+		RTLIL::Wire *w = find_port(module->design->module(type_impl), portname);
 		if (w == nullptr)
 			return PortDir::PD_UNKNOWN;
 		return PortDir(w->port_input + w->port_output * 2);
