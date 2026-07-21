@@ -49,6 +49,51 @@ $fatal(1, "Macro DSP_NAME must be defined");
 `define MAX(a,b) (a > b ? a : b)
 `define MIN(a,b) (a < b ? a : b)
 
+// $__mul and $__soft_mul are not cells anything implements: the rules below
+// re-emit a multiplier as one of them so that the match does not recurse into
+// itself, and a later techmap or `chtype` consumes them. Nothing declared them,
+// so port_dir() answered PD_UNKNOWN for their ports, and anything that has to
+// tell a cell's inputs from its outputs then has to guess -- the signorm index
+// guesses "output", reads A and B as drivers, and manufactures a multi-driver
+// conflict on every net feeding one. Give the interface a definition instead.
+//
+// The blackbox attribute is what keeps techmap from taking these as mapping
+// templates: it skips blackbox templates outright, so they stay pure
+// declarations. Every rule that produces them carries an explicit
+// techmap_celltype, so nothing depends on matching by module name here.
+
+(* blackbox *)
+module \$__mul (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+endmodule
+
+(* blackbox *)
+module \$__soft_mul (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+endmodule
+
 (* techmap_celltype = "$mul $__mul" *)
 module _80_mul (A, B, Y);
 	parameter A_SIGNED = 0;
