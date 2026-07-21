@@ -64,6 +64,7 @@ struct DeletePass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+		design->sigNormalize(false);
 
 		std::vector<RTLIL::Module *> delete_mods;
 		for (auto module : design->modules())
@@ -132,8 +133,6 @@ struct DeletePass : public Pass {
 		for (auto mod : delete_mods) {
 			design->remove(mod);
 		}
-
-		design->sigNormalize(false);
 	}
 } DeletePass;
 
