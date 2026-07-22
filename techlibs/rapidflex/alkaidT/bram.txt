@@ -1,0 +1,314 @@
+bram $__FLEX_TDPRAM_256x36 # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 8                 # Number of address bits
+  dbits 36                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_256x36
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_256x36_wclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 8                 # Number of address bits
+  dbits 36                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_256x36_wclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 19
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_256x36_rclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 8                 # Number of address bits
+  dbits 36                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_256x36_rclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 19
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_256x36_rwclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 8                 # Number of address bits
+  dbits 36                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_256x36_rwclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 19
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_512x18 # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 9                 # Number of address bits
+  dbits 18                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_512x18
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 10
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_512x18_wclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 9                 # Number of address bits
+  dbits 18                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_512x18_wclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 10
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_512x18_rclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 9                 # Number of address bits
+  dbits 18                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_512x18_rclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 10
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_512x18_rwclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 9                 # Number of address bits
+  dbits 18                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_512x18_rwclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 10
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_1024x9 # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 10                 # Number of address bits
+  dbits 9                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_1024x9
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 5
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_1024x9_wclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 10                 # Number of address bits
+  dbits 9                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_1024x9_wclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 5
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_1024x9_rclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 10                 # Number of address bits
+  dbits 9                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_1024x9_rclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 5
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_1024x9_rwclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 10                 # Number of address bits
+  dbits 9                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_1024x9_rwclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  min dbits 5
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_2048x4 # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 11                 # Number of address bits
+  dbits 4                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_2048x4
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_2048x4_wclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 11                 # Number of address bits
+  dbits 4                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 1  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_2048x4_wclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_2048x4_rclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 11                 # Number of address bits
+  dbits 4                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  1             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_2048x4_rclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+  or_next_if_better 
+endmatch
+
+bram $__FLEX_TDPRAM_2048x4_rwclkn # Name of the BRAM cell
+  init 0                  # Set to '1' if BRAM can be initialized
+  abits 11                 # Number of address bits
+  dbits 4                # Number of data bits
+  groups 2                # Number of port groups
+  ports  1  1             # Number of ports in each group
+  wrmode 0  1             # Set to '1' if this group is write ports
+  enable 1  1             # Number of enable bits
+  transp 0  0             # transparent (read ports)      
+  clocks 2  3             # clock configuration
+  clkpol 0  0             # clock polarity configuration
+endbram
+
+match $__FLEX_TDPRAM_2048x4_rwclkn
+  min efficiency 0       # Only use this bram is <=0 ram bits are used
+  make_transp            # Add external circuitry to simulate 'transparent read' if necessary
+endmatch
+
