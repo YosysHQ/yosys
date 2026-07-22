@@ -24,18 +24,32 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Everything here follows the same shape: the scans that touch every cell,
+// every wire, every wire bit or every sigmap entry run on all worker threads
+// and write their findings into a `ShardedVector`, and the mutations of the
+// module that follow are replayed from those vectors on one thread. Because
+// `ctx.item_range()` hands each thread a contiguous block of indices, a
+// `ShardedVector` reads back in exactly the order a plain sequential loop
+// would have produced, so the replay is order-for-order what the single
+// threaded code did.
+using Subpool = ParallelDispatchThreadPool::Subpool;
+using RunCtx = ParallelDispatchThreadPool::RunCtx;
+
 bool is_signed_pos(RTLIL::Cell *cell) {
 	return cell->type == TW($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 }
 
-bool remove_buffer_cells(RTLIL::Module *module, bool verbose)
+bool remove_buffer_cells(RTLIL::Module *module, Subpool &subpool, bool verbose)
 {
-	std::vector<RTLIL::Cell *> buffers;
-	for (int i = 0; i < module->cells_size(); i++) {
-		RTLIL::Cell *cell = module->cell_at(i);
-		if (cell->type.in(TW($pos), TW($_BUF_), TW($buf)) && !cell->has_keep_attr())
-			buffers.push_back(cell);
-	}
+	const RTLIL::Module *scan = module;
+	ShardedVector<RTLIL::Cell *> buffers(subpool);
+	subpool.run([scan, &buffers](const RunCtx &ctx) {
+		for (int i : ctx.item_range(scan->cells_size())) {
+			RTLIL::Cell *cell = scan->cell_at(i);
+			if (cell->type.in(TW($pos), TW($_BUF_), TW($buf)) && !cell->has_keep_attr())
+				buffers.insert(ctx, cell);
+		}
+	});
 
 	bool did_something = false;
 	for (RTLIL::Cell *cell : buffers) {
@@ -68,20 +82,18 @@ struct LiveSet {
 	}
 };
 
-dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> index_connect_cells(RTLIL::Module *module)
-{
-	dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> result;
-	for (int i = 0; i < module->cells_size(); i++) {
-		RTLIL::Cell *cell = module->cell_at(i);
-		if (cell->type != TW($connect))
-			continue;
-		for (auto &[port, sig] : cell->connections())
-			for (auto bit : sig)
-				if (bit.is_wire())
-					result[bit].push_back(cell);
-	}
-	return result;
-}
+// What a single parallel walk over the cells collects for `trace_live()`.
+struct CellScan {
+	// The $connect cells, which are edges of the liveness graph rather than
+	// logic, in module order.
+	ShardedVector<RTLIL::Cell *> connects;
+	// (memory id, writer) for every $memwr/$meminit.
+	ShardedVector<std::pair<std::string, RTLIL::Cell *>> mem_writers;
+	// Cells that are live no matter what reads them.
+	ShardedVector<RTLIL::Cell *> roots;
+
+	CellScan(Subpool &subpool) : connects(subpool), mem_writers(subpool), roots(subpool) {}
+};
 
 void mark_bit(RTLIL::SigBit bit, LiveSet &live,
 		const dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> &connect_cells)
@@ -97,27 +109,49 @@ void mark_bit(RTLIL::SigBit bit, LiveSet &live,
 			live.mark(connect);
 }
 
-void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_mems,
+void trace_live(RTLIL::Module *module, Subpool &subpool, LiveSet &live, pool<std::string> &live_mems,
 		const SigMap &sigmap, CleanRunContext &clean_ctx)
 {
-	dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> connect_cells = index_connect_cells(module);
+	const RTLIL::Module *scan = module;
+
+	CellScan cell_scan(subpool);
+	ShardedVector<RTLIL::SigBit> root_bits(subpool);
+	subpool.run([scan, &cell_scan, &root_bits, &sigmap, &clean_ctx](const RunCtx &ctx) {
+		for (int i : ctx.item_range(scan->cells_size())) {
+			RTLIL::Cell *cell = scan->cell_at(i);
+			if (cell->type == TW($connect))
+				cell_scan.connects.insert(ctx, cell);
+			if (cell->type.in(TW($memwr), TW($memwr_v2), TW($meminit), TW($meminit_v2)))
+				cell_scan.mem_writers.insert(ctx, {cell->getParam(ID::MEMID).decode_string(), cell});
+			if (cell->type == TW($input_port) || clean_ctx.keep_cache.query(cell))
+				cell_scan.roots.insert(ctx, cell);
+		}
+		for (int i : ctx.item_range(scan->wires_size())) {
+			RTLIL::Wire *wire = scan->wire_at(i);
+			if (!wire->port_output && !wire->get_bool_attribute(ID::keep))
+				continue;
+			for (auto bit : sigmap(RTLIL::SigSpec(wire)))
+				root_bits.insert(ctx, bit);
+		}
+	});
+
+	// A bit that a $connect touches keeps that $connect alive, and through it
+	// whatever sits on the other side.
+	dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> connect_cells;
+	for (RTLIL::Cell *cell : cell_scan.connects)
+		for (auto &[port, sig] : cell->connections())
+			for (auto bit : sig)
+				if (bit.is_wire())
+					connect_cells[bit].push_back(cell);
+
 	dict<std::string, std::vector<RTLIL::Cell *>> mem_writers;
+	for (auto &[memid, cell] : cell_scan.mem_writers)
+		mem_writers[memid].push_back(cell);
 
-	for (int i = 0; i < module->cells_size(); i++) {
-		RTLIL::Cell *cell = module->cell_at(i);
-		if (cell->type.in(TW($memwr), TW($memwr_v2), TW($meminit), TW($meminit_v2)))
-			mem_writers[cell->getParam(ID::MEMID).decode_string()].push_back(cell);
-		if (cell->type == TW($input_port) || clean_ctx.keep_cache.query(cell))
-			live.mark(cell);
-	}
-
-	for (int i = 0; i < module->wires_size(); i++) {
-		RTLIL::Wire *wire = module->wire_at(i);
-		if (!wire->port_output && !wire->get_bool_attribute(ID::keep))
-			continue;
-		for (auto bit : sigmap(RTLIL::SigSpec(wire)))
-			mark_bit(bit, live, connect_cells);
-	}
+	for (RTLIL::Cell *cell : cell_scan.roots)
+		live.mark(cell);
+	for (RTLIL::SigBit bit : root_bits)
+		mark_bit(bit, live, connect_cells);
 
 	while (!live.worklist.empty()) {
 		RTLIL::Cell *cell = live.worklist.back();
@@ -143,15 +177,20 @@ void trace_live(RTLIL::Module *module, LiveSet &live, pool<std::string> &live_me
 	}
 }
 
-bool sweep_cells(RTLIL::Module *module, const LiveSet &live, FfInitVals &ffinit,
+bool sweep_cells(RTLIL::Module *module, Subpool &subpool, const LiveSet &live, FfInitVals &ffinit,
 		CleanRunContext &clean_ctx)
 {
-	pool<RTLIL::Cell *> dead;
-	for (int i = 0; i < module->cells_size(); i++) {
-		RTLIL::Cell *cell = module->cell_at(i);
-		if (!live.cells.count(cell))
-			dead.insert(cell);
-	}
+	const RTLIL::Module *scan = module;
+	ShardedVector<RTLIL::Cell *> dead_cells(subpool);
+	subpool.run([scan, &live, &dead_cells](const RunCtx &ctx) {
+		for (int i : ctx.item_range(scan->cells_size())) {
+			RTLIL::Cell *cell = scan->cell_at(i);
+			if (!live.cells.count(cell))
+				dead_cells.insert(ctx, cell);
+		}
+	});
+
+	pool<RTLIL::Cell *> dead(dead_cells.begin(), dead_cells.end());
 	if (dead.empty())
 		return false;
 
@@ -183,7 +222,12 @@ void sweep_mems(RTLIL::Module *module, const pool<std::string> &live_mems, bool 
 	}
 }
 
-pool<RTLIL::Wire *> referenced_wires(RTLIL::Module *module)
+// Wires that something reads or something drives. Filled on one thread and
+// then only read: a `ShardedHashtable` would build in parallel but is
+// node-based, and for a set of pointers the flat table wins back more on the
+// queries than the parallel build saves. `count()` is const the whole way
+// down, so every worker can query this at once.
+pool<RTLIL::Wire *> referenced_wires(const RTLIL::Module *module)
 {
 	pool<RTLIL::Wire *> referenced;
 	for (auto &[bit, portbits] : module->signorm_fanout())
@@ -197,87 +241,141 @@ pool<RTLIL::Wire *> referenced_wires(RTLIL::Module *module)
 	return referenced;
 }
 
-pool<RTLIL::SigBit> used_bits(RTLIL::Module *module, const SigMap &sigmap)
-{
-	pool<RTLIL::SigBit> used;
-	for (auto &[bit, portbits] : module->signorm_fanout())
-		if (!portbits.empty())
-			used.insert(bit);
-	for (int i = 0; i < module->wires_size(); i++) {
-		RTLIL::Wire *wire = module->wire_at(i);
-		if (wire->port_id > 0 && !wire->port_input)
-			for (auto bit : sigmap(RTLIL::SigSpec(wire)))
-				used.insert(bit);
-	}
-	return used;
-}
+// "Something reads this bit". The fanout index is already a hash table over
+// exactly that question, so this asks it directly instead of copying it into a
+// `pool` of its own first; only the output port bits, which the index does not
+// count as readers, need a set. Const lookups in both, so the query is safe to
+// run on every worker.
+struct UsedBits {
+	const dict<RTLIL::SigBit, pool<RTLIL::PortBit>> &fanout;
+	pool<RTLIL::SigBit> output_port_bits;
 
-void update_unused_bits(RTLIL::Module *module, const SigMap &sigmap)
-{
-	pool<RTLIL::SigBit> used = used_bits(module, sigmap);
-
-	for (int i = 0; i < module->wires_size(); i++) {
-		RTLIL::Wire *wire = module->wire_at(i);
-
-		std::string unused;
-		if (wire->port_id == 0)
-			for (int j = 0; j < GetSize(wire); j++) {
-				RTLIL::SigBit bit = sigmap(RTLIL::SigBit(wire, j));
-				if (!bit.is_wire() || used.count(bit))
-					continue;
-				if (!unused.empty())
-					unused += " ";
-				unused += stringf("%d", j);
-			}
-
-		if (unused.empty()) {
-			wire->attributes.erase(ID::unused_bits);
-		} else {
-			RTLIL::Const value(std::move(unused));
-			auto it = wire->attributes.find(ID::unused_bits);
-			if (it == wire->attributes.end() || it->second != value)
-				wire->attributes[ID::unused_bits] = std::move(value);
+	UsedBits(const RTLIL::Module *module, const SigMap &sigmap) : fanout(module->signorm_fanout())
+	{
+		for (int i = 0; i < module->wires_size(); i++) {
+			RTLIL::Wire *wire = module->wire_at(i);
+			if (wire->port_id > 0 && !wire->port_input)
+				for (auto bit : sigmap(RTLIL::SigSpec(wire)))
+					output_port_bits.insert(bit);
 		}
 	}
+
+	bool count(const RTLIL::SigBit &bit) const
+	{
+		auto found = fanout.find(bit);
+		if (found != fanout.end() && !found->second.empty())
+			return true;
+		return output_port_bits.count(bit) != 0;
+	}
+};
+
+void update_unused_bits(RTLIL::Module *module, Subpool &subpool, const SigMap &sigmap)
+{
+	const RTLIL::Module *scan = module;
+	const UsedBits used(scan, sigmap);
+
+	// Each thread only ever looks at the wires in its own index range, so the
+	// attribute reads below are unshared; the writes are still deferred, since
+	// mutating two neighbouring wires at once is not.
+	ShardedVector<RTLIL::Wire *> clear_attr(subpool);
+	ShardedVector<std::pair<RTLIL::Wire *, RTLIL::Const>> set_attr(subpool);
+	subpool.run([scan, &sigmap, &used, &clear_attr, &set_attr](const RunCtx &ctx) {
+		for (int i : ctx.item_range(scan->wires_size())) {
+			RTLIL::Wire *wire = scan->wire_at(i);
+
+			std::string unused;
+			if (wire->port_id == 0)
+				for (int j = 0; j < GetSize(wire); j++) {
+					RTLIL::SigBit bit = sigmap(RTLIL::SigBit(wire, j));
+					if (!bit.is_wire() || used.count(bit))
+						continue;
+					if (!unused.empty())
+						unused += " ";
+					unused += stringf("%d", j);
+				}
+
+			if (unused.empty()) {
+				if (wire->attributes.count(ID::unused_bits))
+					clear_attr.insert(ctx, wire);
+			} else {
+				RTLIL::Const value(std::move(unused));
+				auto it = wire->attributes.find(ID::unused_bits);
+				if (it == wire->attributes.end() || it->second != value)
+					set_attr.insert(ctx, {wire, std::move(value)});
+			}
+		}
+	});
+
+	for (RTLIL::Wire *wire : clear_attr)
+		wire->attributes.erase(ID::unused_bits);
+	for (auto &[wire, value] : set_attr)
+		wire->attributes[ID::unused_bits] = std::move(value);
 }
 
-void normalize_inits(RTLIL::Module *module, const SigMap &sigmap)
+void normalize_inits(RTLIL::Module *module, Subpool &subpool, const SigMap &sigmap)
 {
+	const RTLIL::Module *scan = module;
+
+	ShardedVector<RTLIL::Wire *> init_wires(subpool);
+	ShardedVector<std::pair<RTLIL::SigBit, RTLIL::State>> init_bits(subpool);
+	subpool.run([scan, &sigmap, &init_wires, &init_bits](const RunCtx &ctx) {
+		for (int i : ctx.item_range(scan->wires_size())) {
+			RTLIL::Wire *wire = scan->wire_at(i);
+			auto it = wire->attributes.find(ID::init);
+			if (it == wire->attributes.end())
+				continue;
+
+			const RTLIL::Const &val = it->second;
+			RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
+			for (int j = 0; j < GetSize(val) && j < GetSize(sig); j++)
+				if (val[j] != State::Sx && sig[j].is_wire())
+					init_bits.insert(ctx, {sig[j], val[j]});
+			init_wires.insert(ctx, wire);
+		}
+	});
+
 	dict<RTLIL::SigBit, RTLIL::State> values;
-	pool<RTLIL::Wire *> representatives;
-
-	for (int i = 0; i < module->wires_size(); i++) {
-		RTLIL::Wire *wire = module->wire_at(i);
-		auto it = wire->attributes.find(ID::init);
-		if (it == wire->attributes.end())
-			continue;
-
-		RTLIL::Const val = it->second;
-		RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
-		for (int j = 0; j < GetSize(val) && j < GetSize(sig); j++)
-			if (val[j] != State::Sx && sig[j].is_wire()) {
-				values[sig[j]] = val[j];
-				representatives.insert(sig[j].wire);
-			}
-		wire->attributes.erase(it);
-	}
-
-	for (RTLIL::Wire *wire : representatives) {
-		bool found = false;
-		RTLIL::Const val(State::Sx, wire->width);
-		for (int j = 0; j < wire->width; j++) {
-			auto it = values.find(RTLIL::SigBit(wire, j));
-			if (it != values.end()) {
-				val.set(j, it->second);
-				found = true;
-			}
+	std::vector<RTLIL::Wire *> representatives;
+	{
+		pool<RTLIL::Wire *> seen;
+		for (auto &[bit, state] : init_bits) {
+			values[bit] = state;
+			if (seen.insert(bit.wire).second)
+				representatives.push_back(bit.wire);
 		}
-		if (found)
-			wire->attributes[ID::init] = val;
 	}
+	for (RTLIL::Wire *wire : init_wires)
+		wire->attributes.erase(ID::init);
+
+	// Re-hang the surviving init bits off the representatives, x-filling the
+	// bits of the group nobody had an init for.
+	const dict<RTLIL::SigBit, RTLIL::State> &lookup = values;
+	ShardedVector<std::pair<RTLIL::Wire *, RTLIL::Const>> set_init(subpool);
+	subpool.run([&representatives, &lookup, &set_init](const RunCtx &ctx) {
+		for (int i : ctx.item_range(GetSize(representatives))) {
+			RTLIL::Wire *wire = representatives[i];
+			bool found = false;
+			RTLIL::Const val(State::Sx, wire->width);
+			for (int j = 0; j < wire->width; j++) {
+				auto it = lookup.find(RTLIL::SigBit(wire, j));
+				if (it != lookup.end()) {
+					val.set(j, it->second);
+					found = true;
+				}
+			}
+			if (found)
+				set_init.insert(ctx, {wire, std::move(val)});
+		}
+	});
+	for (auto &[wire, val] : set_init)
+		wire->attributes[ID::init] = std::move(val);
 }
 
-bool wire_is_pinned(RTLIL::Wire *wire)
+// Taken by const pointer on purpose: the wire sweep asks this about the
+// representative of an aliased bit, which can belong to another thread's slice
+// of the wires. Only the const attribute lookups are safe to share, since the
+// mutable ones rehash.
+bool wire_is_pinned(const RTLIL::Wire *wire)
 {
 	if (wire->port_id != 0)
 		return true;
@@ -294,44 +392,67 @@ bool wire_is_live(RTLIL::Wire *wire, const pool<RTLIL::Wire *> &referenced)
 	return wire_is_pinned(wire) || referenced.count(wire) != 0;
 }
 
-int sweep_wires(RTLIL::Module *module, CleanRunContext &clean_ctx)
+int sweep_wires(RTLIL::Module *module, Subpool &subpool, CleanRunContext &clean_ctx)
 {
 	const SigMap *sigmap = module->signorm_sigmap();
 	log_assert(sigmap != nullptr);
-	pool<RTLIL::Wire *> referenced = referenced_wires(module);
+	const RTLIL::Module *scan = module;
+	const pool<RTLIL::Wire *> referenced = referenced_wires(scan);
 
-	pool<RTLIL::Wire *> dead;
-
-	for (int i = 0; i < module->wires_size(); i++) {
-		RTLIL::Wire *wire = module->wire_at(i);
-		if (wire_is_live(wire, referenced))
-			continue;
-
-		if (GetSize(wire) != 0 && !clean_ctx.flags.purge &&
-				check_public_name(wire->name.escaped())) {
-			bool aliases_live_net = false;
-			for (int j = 0; j < GetSize(wire); j++) {
-				RTLIL::SigBit bit(wire, j), rep = (*sigmap)(bit);
-				if (rep == bit)
-					continue;
-				if (!rep.is_wire() || wire_is_live(rep.wire, referenced)) {
-					aliases_live_net = true;
-					break;
-				}
-			}
-			if (aliases_live_net)
+	bool purge = clean_ctx.flags.purge;
+	ShardedVector<RTLIL::Wire *> dead_wires(subpool);
+	subpool.run([scan, sigmap, purge, &referenced, &dead_wires](const RunCtx &ctx) {
+		for (int i : ctx.item_range(scan->wires_size())) {
+			RTLIL::Wire *wire = scan->wire_at(i);
+			if (wire_is_live(wire, referenced))
 				continue;
+
+			if (GetSize(wire) != 0 && !purge &&
+					check_public_name(wire->name.escaped())) {
+				bool aliases_live_net = false;
+				for (int j = 0; j < GetSize(wire); j++) {
+					RTLIL::SigBit bit(wire, j), rep = (*sigmap)(bit);
+					if (rep == bit)
+						continue;
+					if (!rep.is_wire() || wire_is_live(rep.wire, referenced)) {
+						aliases_live_net = true;
+						break;
+					}
+				}
+				if (aliases_live_net)
+					continue;
+			}
+
+			dead_wires.insert(ctx, wire);
 		}
+	});
 
-		dead.insert(wire);
-	}
+	pool<RTLIL::Wire *> dead(dead_wires.begin(), dead_wires.end());
+	// Nothing left for the sigmap walk below to rescue.
+	if (dead.empty())
+		return 0;
 
-	for (auto const &bit : sigmap->database) {
-		if (!bit.is_wire() || dead.count(bit.wire))
+	// A wire that represents a bit of a wire we are keeping has to stay. Only
+	// an entry whose representative is a removal candidate can change that
+	// verdict, so the parallel pass drops the rest and the sequential replay
+	// stays as short as the number of candidates.
+	const pool<RTLIL::Wire *> &candidates = dead;
+	ShardedVector<std::pair<RTLIL::Wire *, RTLIL::Wire *>> rescues(subpool);
+	subpool.run([sigmap, &candidates, &rescues](const RunCtx &ctx) {
+		for (int i : ctx.item_range(GetSize(sigmap->database))) {
+			const RTLIL::SigBit &bit = sigmap->database[i];
+			if (!bit.is_wire())
+				continue;
+			RTLIL::SigBit rep = (*sigmap)(bit);
+			if (!rep.is_wire() || !candidates.count(rep.wire))
+				continue;
+			rescues.insert(ctx, {bit.wire, rep.wire});
+		}
+	});
+	for (auto &[wire, rep] : rescues) {
+		if (dead.count(wire))
 			continue;
-		RTLIL::SigBit rep = (*sigmap)(bit);
-		if (rep.is_wire())
-			dead.erase(rep.wire);
+		dead.erase(rep);
 	}
 
 	if (dead.empty())
@@ -361,7 +482,7 @@ YOSYS_NAMESPACE_BEGIN
 void rmunused_module_signorm(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool,
 		CleanRunContext &clean_ctx)
 {
-	if (remove_buffer_cells(module, clean_ctx.flags.verbose))
+	if (remove_buffer_cells(module, subpool, clean_ctx.flags.verbose))
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	const SigMap *sigmap = module->signorm_sigmap();
@@ -371,21 +492,21 @@ void rmunused_module_signorm(RTLIL::Module *module, ParallelDispatchThreadPool::
 
 	LiveSet live;
 	pool<std::string> live_mems;
-	trace_live(module, live, live_mems, *sigmap, clean_ctx);
+	trace_live(module, subpool, live, live_mems, *sigmap, clean_ctx);
 
-	sweep_cells(module, live, ffinit, clean_ctx);
+	sweep_cells(module, subpool, live, ffinit, clean_ctx);
 	sweep_mems(module, live_mems, clean_ctx.flags.verbose);
 
-	normalize_inits(module, *sigmap);
-	sweep_wires(module, clean_ctx);
+	normalize_inits(module, subpool, *sigmap);
+	sweep_wires(module, subpool, clean_ctx);
 
 	if (rmunused_module_init(module, subpool, clean_ctx.flags.verbose))
-		sweep_wires(module, clean_ctx);
+		sweep_wires(module, subpool, clean_ctx);
 
 	// sweep_wires() compacted signorm, invalidating the sigmap
 	const SigMap *swept = module->signorm_sigmap();
 	log_assert(swept != nullptr);
-	update_unused_bits(module, *swept);
+	update_unused_bits(module, subpool, *swept);
 }
 
 YOSYS_NAMESPACE_END
