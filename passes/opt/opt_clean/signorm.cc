@@ -43,22 +43,8 @@ bool remove_buffer_cells(RTLIL::Module *module, bool verbose)
 		RTLIL::SigSpec y = cell->getPort(TW::Y);
 		a.extend_u0(GetSize(y), is_signed_pos(cell));
 
-		if (a.has_const(State::Sz)) {
-			RTLIL::SigSpec new_a, new_y;
-			bool bail = false;
-			for (int i = 0; i < GetSize(a); ++i) {
-				if (a[i] == State::Sz) {
-					bail = true;
-					break;
-				}
-				new_a.append(a[i]);
-				new_y.append(y[i]);
-			}
-			if (bail)
-				continue;
-			a = std::move(new_a);
-			y = std::move(new_y);
-		}
+		if (a.has_const(State::Sz))
+			continue;
 
 		if (verbose)
 			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
@@ -378,25 +364,28 @@ void rmunused_module_signorm(RTLIL::Module *module, ParallelDispatchThreadPool::
 	if (remove_buffer_cells(module, clean_ctx.flags.verbose))
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
-	SigMap sigmap(module);
+	const SigMap *sigmap = module->signorm_sigmap();
+	log_assert(sigmap != nullptr);
 	FfInitVals ffinit;
-	ffinit.set_parallel(&sigmap, subpool.thread_pool(), module);
+	ffinit.set_parallel(sigmap, subpool.thread_pool(), module);
 
 	LiveSet live;
 	pool<std::string> live_mems;
-	trace_live(module, live, live_mems, sigmap, clean_ctx);
+	trace_live(module, live, live_mems, *sigmap, clean_ctx);
 
 	sweep_cells(module, live, ffinit, clean_ctx);
 	sweep_mems(module, live_mems, clean_ctx.flags.verbose);
 
-	normalize_inits(module, sigmap);
+	normalize_inits(module, *sigmap);
 	sweep_wires(module, clean_ctx);
 
 	if (rmunused_module_init(module, subpool, clean_ctx.flags.verbose))
 		sweep_wires(module, clean_ctx);
 
-	SigMap swept(module);
-	update_unused_bits(module, swept);
+	// sweep_wires() compacted signorm, invalidating the sigmap
+	const SigMap *swept = module->signorm_sigmap();
+	log_assert(swept != nullptr);
+	update_unused_bits(module, *swept);
 }
 
 YOSYS_NAMESPACE_END
