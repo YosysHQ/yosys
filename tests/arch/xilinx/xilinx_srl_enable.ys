@@ -1,0 +1,46 @@
+# Regression test for a xilinx_srl bug where a fixed shift register inferred
+# from FDRE cells dropped the clock enable. FDRE has an active high clock
+# enable but run_fixed assigned it ENPOL 2 (no enable) instead of ENPOL 1,
+# so the resulting shift register shifted every cycle and ignored stalls.
+read_verilog <<EOT
+module xilinx_srl_enable_test(input i, clk, ce, output q);
+reg [3:0] shift = 4'b0000;
+always @(posedge clk)
+    if (ce)
+        shift <= {shift[2:0], i};
+assign q = shift[3];
+endmodule
+
+module $__XILINX_SHREG_(input C, D, E, input [1:0] L, output Q);
+parameter CLKPOL = 1;
+parameter ENPOL = 1;
+parameter DEPTH = 2;
+parameter [DEPTH-1:0] INIT = {DEPTH{1'b0}};
+reg [DEPTH-1:0] r = INIT;
+wire ce = (ENPOL == 2) ? 1'b1 : (ENPOL == 1) ? E : ~E;
+always @(posedge C)
+    if (ce)
+        r <= { r[DEPTH-2:0], D };
+assign Q = r[L];
+endmodule
+EOT
+design -copy-to model $__XILINX_SHREG_
+hierarchy -top xilinx_srl_enable_test
+prep
+design -save gold
+
+synth_xilinx -noiopad -noclkbuf -run begin:map_luts
+opt_expr -mux_undef -noclkinv
+techmap -map +/xilinx/ff_map.v
+xilinx_srl -fixed
+opt
+
+select -assert-count 1 t:$__XILINX_SHREG_
+
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+design -copy-from model -as $__XILINX_SHREG_ \$__XILINX_SHREG_
+prep
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -seq 6 miter
