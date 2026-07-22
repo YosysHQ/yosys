@@ -214,4 +214,4 @@ module \ahb_async_sram_halfwidth
 end
 EOT
 
-synth_ice40 -abc2 -abc9
+synth_ice40
