@@ -71,7 +71,6 @@ map_luts:
     techmap
     simplemap
     techmap
-    flowmap
     read_verilog
     abc9
     ice40_wrapcarry -unwrap
