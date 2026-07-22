@@ -14,6 +14,7 @@ function(yosys_gtest arg_TARGET)
 	)
 	yosys_expand_components(test_components essentials ${arg_COMPONENTS})
 	yosys_link_components(${target} PRIVATE ${test_components})
+	add_dependencies(yosys-gtest-all ${target})
 
 	if(NOT CMAKE_CROSSCOMPILING)
 		gtest_discover_tests(${target})
@@ -21,6 +22,8 @@ function(yosys_gtest arg_TARGET)
 endfunction()
 
 if (GTest_FOUND)
+	add_custom_target(yosys-gtest-all)
+
 	add_subdirectory(kernel)
 	add_subdirectory(opt)
 	add_subdirectory(techmap)
