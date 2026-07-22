@@ -13,7 +13,6 @@ yosys_pass(synth
 		check
 		clean
 		flatten
-		flowmap
 		fsm
 		hierarchy
 		memory
