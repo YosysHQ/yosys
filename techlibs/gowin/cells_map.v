@@ -175,3 +175,38 @@ module \$lut (A, Y);
 		end
 	endgenerate
 endmodule
+
+module \$_MUX4_ (A, B, C, D, S, T, Y);
+	input A, B, C, D, S, T;
+	output Y;
+
+	wire AB;
+	wire CD;
+
+  LUT3 #(.INIT(8'b11011000)) ab(.F(AB), .I0(S), .I1(B), .I2(A));
+  LUT3 #(.INIT(8'b11011000)) cd(.F(CD), .I0(S), .I1(D), .I2(C));
+  MUX2_LUT5 y(.O(Y), .I0(AB), .I1(CD), .S0(T));
+endmodule
+
+module \$_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y);
+	input A, B, C, D, E, F, G, H, S, T, U;
+	output Y;
+
+	wire AB;
+	wire CD;
+	wire EF;
+	wire GH;
+
+	wire ABCD;
+	wire EFGH;
+
+  LUT3 #(.INIT(8'b11011000)) ab(.F(AB), .I0(S), .I1(B), .I2(A));
+  LUT3 #(.INIT(8'b11011000)) cd(.F(CD), .I0(S), .I1(D), .I2(C));
+  LUT3 #(.INIT(8'b11011000)) ef(.F(EF), .I0(S), .I1(F), .I2(E));
+  LUT3 #(.INIT(8'b11011000)) gh(.F(GH), .I0(S), .I1(H), .I2(G));
+
+  MUX2_LUT5 abcd(.O(ABCD), .I0(AB), .I1(CD), .S0(T));
+  MUX2_LUT5 efgh(.O(EFGH), .I0(EF), .I1(GH), .S0(T));
+
+  MUX2_LUT6 y(.O(Y), .I0(ABCD), .I1(EFGH), .S0(U));
+endmodule
