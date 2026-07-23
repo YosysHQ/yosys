@@ -626,15 +626,13 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 			lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id) );
 
 			bool has_transparency = false;
-			int bypass_part_width = port.data.size() / port.en.size();
 			for (int i = 0; i < GetSize(mem.wr_ports); i++) {
-				auto &wport = mem.wr_ports[i];
 				if (!port.transparency_mask[i] && !port.collision_x_mask[i])
 					continue;
 				has_transparency = true;
-				bypass_part_width = std::min(bypass_part_width, wport.data.size() / wport.en.size());
 			}
-			int bypass_valid_width = port.data.size() / bypass_part_width;
+			int bypass_valid_width = port.data.size();
+			int bypass_part_width = 1;
 
 			std::string bypass_valid_id;
 			std::string bypass_valid_reset_str;
@@ -864,7 +862,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 
 						std::ostringstream os;
 						os << "assign ";
-						dump_sigspec(os, port.data.extract(seg_beg, seg_end - seg_beg));
+						dump_sigspec(os, port.data.extract(seg_beg, bypass_part_width));
 						os << " = ";
 						os << stringf("%s[%d]", bypass_valid_id, sub);
 						os << stringf(" ? %s[%d:%d]", bypass_data_id, seg_end - 1, seg_beg);
