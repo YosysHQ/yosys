@@ -45,11 +45,13 @@ using namespace AST;
 using namespace VERILOG_FRONTEND;
 
 void ConstParser::log_maybe_loc_error(std::string msg) {
-	log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg);
+	log_file_error(loc.begin.filename ? loc.begin.filename->c_str() : "INTERNAL",
+    loc.begin.line, "%s", msg);
 }
 
 void ConstParser::log_maybe_loc_warn(std::string msg) {
-	log_file_warning(*loc.begin.filename, loc.begin.line, "%s", msg);
+	log_file_warning(loc.begin.filename ? loc.begin.filename->c_str() : "INTERNAL",
+    loc.begin.line, "%s", msg);
 }
 
 // divide an arbitrary length decimal number by two and return the rest
