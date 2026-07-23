@@ -631,8 +631,8 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					continue;
 				has_transparency = true;
 			}
-			int bypass_valid_width = port.data.size();
 			int bypass_part_width = 1;
+			int bypass_valid_width = port.data.size() / bypass_part_width;
 
 			std::string bypass_valid_id;
 			std::string bypass_valid_reset_str;
@@ -856,13 +856,13 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					os << ";\n";
 					clk_to_lof_body[""].push_back(os.str());
 				} else if (bypass_part_width == 1) {
-						std::ostringstream os;
-						os << "assign ";
-						dump_sigspec(os, port.data);
-						os << " = ";
-						os << stringf("(%s & %s) | (~%s & %s)", bypass_valid_id, bypass_data_id, bypass_valid_id, temp_id);
-						os << ";\n";
-						clk_to_lof_body[""].push_back(os.str());
+					std::ostringstream os;
+					os << "assign ";
+					dump_sigspec(os, port.data);
+					os << " = ";
+					os << stringf("(%s & %s) | (~%s & %s)", bypass_valid_id, bypass_data_id, bypass_valid_id, temp_id);
+					os << ";\n";
+					clk_to_lof_body[""].push_back(os.str());
 				} else {
 					for (int sub = 0; sub < bypass_valid_width; sub++) {
 						int seg_beg = sub * bypass_part_width;
