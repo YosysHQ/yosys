@@ -530,33 +530,17 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	int in_wires = 0, out_wires = 0;
 
 	for (auto pseudopo : pseudopos) {
-		auto port_name = pseudopo.first;
+		auto wire_name = pseudopo.first;
 		auto box_name = pseudopo.second.first;
 		auto box_port_name = pseudopo.second.second;
 
-		RTLIL::Wire *mapped_wire = mapped_mod->wire(port_name);
-		if (!mapped_wire)
-			continue;
-
+		RTLIL::Wire *mapped_wire = mapped_mod->wire(wire_name);
+		log_assert(mapped_wire);
 		auto box = module->cell(box_name);
-		auto box_port = box->getPort(box_port_name);
+		log_assert(box);
 
-		RTLIL::Wire *remap_wire = module->wire(remap_name(port_name));
-		log_assert(GetSize(box_port) >= GetSize(remap_wire));
-
-		RTLIL::SigSig conn;
-		if (mapped_wire->port_output) {
-			conn.first = box_port;
-			conn.second = remap_wire;
-			out_wires++;
-			module->connect(conn);
-		}
-		else if (mapped_wire->port_input) {
-			conn.first = remap_wire;
-			conn.second = box_port;
-			in_wires++;
-			module->connect(conn);
-		}
+		RTLIL::Wire *remap_wire = module->wire(remap_name(wire_name));
+		box->setPort(box_port_name, remap_wire);
 
 		mapped_wire->port_output = false;
 	}
