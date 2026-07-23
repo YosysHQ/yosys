@@ -631,8 +631,6 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					continue;
 				has_transparency = true;
 			}
-			int bypass_part_width = 1;
-			int bypass_valid_width = port.data.size() / bypass_part_width;
 
 			std::string bypass_valid_id;
 			std::string bypass_valid_reset_str;
@@ -640,11 +638,11 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 			std::string bypass_data_reset_str;
 			if (has_transparency) {
 				bypass_valid_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", bypass_valid_width - 1, bypass_valid_id) );
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, bypass_valid_id) );
 
 				std::ostringstream os;
 				os << stringf("%s <= ", bypass_valid_id);
-				dump_sigspec(os, Const(State::S0, bypass_valid_width));
+				dump_sigspec(os, Const(State::S0, port.data.size()));
 				os << ";\n";
 				bypass_valid_reset_str = os.str();
 
@@ -768,16 +766,14 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 
 						int sig_beg = rsub * mem.width + pos;
 						int sig_end = rsub * mem.width + epos;
-						int valid_beg = sig_beg / bypass_part_width;
-						int valid_end = (sig_end + bypass_part_width - 1) / bypass_part_width;
 						std::ostringstream os2;
 						if (has_indent)
 							os2 << indent;
 						os2 << stringf("%s" "%s", indent, bypass_valid_id);
 						if (epos-pos != GetSize(port.data))
-							os2 << stringf("[%d:%d]", valid_end - 1, valid_beg);
+							os2 << stringf("[%d:%d]", sig_end - 1, sig_beg);
 						os2 << " <= ";
-						dump_sigspec(os2, Const(State::S1, valid_end - valid_beg));
+						dump_sigspec(os2, Const(State::S1, sig_end - sig_beg));
 						os2 << ";\n";
 						clk_to_lof_body[clk_domain_str].push_back(os2.str());
 
@@ -840,7 +836,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				if (has_transparency) {
 					std::ostringstream os2;
 					os2 << stringf("initial %s = ", bypass_valid_id);
-					dump_sigspec(os2, Const(State::S0, bypass_valid_width));
+					dump_sigspec(os2, Const(State::S0, port.data.size()));
 					os2 << ";\n";
 					clk_to_lof_body[""].push_back(os2.str());
 				}
@@ -855,7 +851,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					os << temp_id;
 					os << ";\n";
 					clk_to_lof_body[""].push_back(os.str());
-				} else if (bypass_part_width == 1) {
+				} else {
 					std::ostringstream os;
 					os << "assign ";
 					dump_sigspec(os, port.data);
@@ -863,21 +859,6 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					os << stringf("(%s & %s) | (~%s & %s)", bypass_valid_id, bypass_data_id, bypass_valid_id, temp_id);
 					os << ";\n";
 					clk_to_lof_body[""].push_back(os.str());
-				} else {
-					for (int sub = 0; sub < bypass_valid_width; sub++) {
-						int seg_beg = sub * bypass_part_width;
-						int seg_end = (sub + 1) * bypass_part_width;
-
-						std::ostringstream os;
-						os << "assign ";
-						dump_sigspec(os, port.data.extract(seg_beg, bypass_part_width));
-						os << " = ";
-						os << stringf("%s[%d]", bypass_valid_id, sub);
-						os << stringf(" ? %s[%d:%d]", bypass_data_id, seg_end - 1, seg_beg);
-						os << stringf(" : %s[%d:%d]", temp_id, seg_end - 1, seg_beg);
-						os << ";\n";
-						clk_to_lof_body[""].push_back(os.str());
-					}
 				}
 			}
 		} else {
