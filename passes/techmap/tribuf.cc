@@ -27,11 +27,13 @@ struct TribufConfig {
 	bool merge_mode;
 	bool logic_mode;
 	bool formal_mode;
+	bool nested_mode;
 
 	TribufConfig() {
 		merge_mode = false;
 		logic_mode = false;
 		formal_mode = false;
+		nested_mode = false;
 	}
 };
 
@@ -52,9 +54,113 @@ struct TribufWorker {
 		return true;
 	}
 
+private:
+	struct TribufSelPart {
+		SigSpec sig;
+		bool inv;
+
+		TribufSelPart(const SigSpec &sig, bool inv) : sig(sig), inv(inv)
+		{
+		}
+	};
+
+	typedef std::vector<TribufSelPart> TribufSel;
+
+	static bool collect_tribuf_cell(Cell *cell, TribufSel &sel, const dict<SigSpec, vector<Cell*>> &muxes)
+	{
+		if (cell->type.in(ID($tribuf), ID($_TBUF_)))
+		{
+			sel.emplace_back(cell->getPort(ID::EN), /*inv*/ true);
+			return true;
+		}
+
+		log_assert(cell->type.in(ID($mux), ID($_MUX_)));
+
+		const SigSpec &s_sig = cell->getPort(ID::S);
+		const SigSpec &a_sig = cell->getPort(ID::A);
+		const SigSpec &b_sig = cell->getPort(ID::B);
+
+		vector<Cell*> cells = muxes.at(a_sig, {});
+		// We specifically ignore cases when there are multiple
+		// driving multiplexers.
+		Cell *next_cell = (cells.size() == 1) ? cells.front() : nullptr;
+		if ((next_cell && collect_tribuf_cell(next_cell, sel, muxes)) || is_all_z(a_sig))
+		{
+			sel.emplace_back(s_sig, /*inv*/ true);
+			return true;
+		}
+
+		cells = muxes.at(b_sig, {});
+		next_cell = (cells.size() == 1) ? cells.front() : nullptr;
+		if ((next_cell && collect_tribuf_cell(next_cell, sel, muxes)) || is_all_z(b_sig))
+		{
+			sel.emplace_back(s_sig, /*inv*/ false);
+			return true;
+		}
+		return false;
+	}
+
+	static SigSpec construct_new_sel(Module *module, const TribufSel &new_sel)
+	{
+		size_t count = new_sel.size();
+		log_assert(count > 0);
+
+		Wire *res_wire = nullptr;
+		Cell *res_cell = nullptr;
+		SigSpec result = new_sel[0].sig;
+		if (new_sel[0].inv)
+		{
+			res_wire = module->addWire(NEW_ID, new_sel[0].sig.size());
+			res_cell = module->addNot(NEW_ID, result, res_wire);
+			result = res_cell->getPort(ID::Y);
+		}
+
+		for (size_t i = 1; i < count; ++i)
+		{
+			const TribufSelPart &sel_part = new_sel[i];
+			SigSpec curr_sig = sel_part.sig;
+			if (sel_part.inv)
+			{
+				res_wire = module->addWire(NEW_ID, sel_part.sig.size());
+				res_cell = module->addNot(NEW_ID, sel_part.sig, res_wire);
+				curr_sig = res_cell->getPort(ID::Y);
+			}
+
+			res_wire = module->addWire(NEW_ID, std::max(curr_sig.size(), result.size()));
+			res_cell = module->addAnd(NEW_ID, result, curr_sig, res_wire);
+			result = res_cell->getPort(ID::Y);
+		}
+
+		return result;
+	}
+
+	static void nested_mux_to_tribuf(Module *module, Cell *cell, dict<SigSpec, vector<Cell*>> &tribufs, const dict<SigSpec, vector<Cell*>> &muxes)
+	{
+		TribufSel new_sel;
+		// Collect all selector parts by traversing multiplexers recursively.
+		if (!collect_tribuf_cell(cell, new_sel, muxes))
+			return;
+
+		// Construct a conjunction of all selectors leading to Z-vector.
+		SigSpec new_sel_sig = construct_new_sel(module, new_sel);
+
+		SigSpec old_sig = cell->getPort(ID::Y);
+		// Create a new wire to rebind old multiplexer to.
+		Wire *mux_wire = module->addWire(NEW_ID, old_sig.size());
+		cell->setPort(ID::Y, mux_wire);
+
+		// Create an inverse of the conjunction to create the new tri-state cell.
+		Wire *not_wire = module->addWire(NEW_ID, new_sel_sig.size());
+		module->addNot(NEW_ID, new_sel_sig, not_wire);
+		Cell *tribuf_cell = module->addTribuf(NEW_ID, mux_wire, not_wire, old_sig);
+		tribufs[old_sig].push_back(tribuf_cell);
+	}
+
+public:
 	void run()
 	{
 		dict<SigSpec, vector<Cell*>> tribuf_cells;
+		dict<SigSpec, vector<Cell*>> y_port_to_mux;
 		pool<SigBit> output_bits;
 
 		if (config.logic_mode || config.formal_mode)
@@ -65,6 +171,9 @@ struct TribufWorker {
 
 		for (auto cell : module->selected_cells())
 		{
+			if (config.nested_mode && cell->type.in(ID($tribuf), ID($_TBUF_), ID($mux), ID($_MUX_)))
+				y_port_to_mux[sigmap(cell->getPort(ID::Y))].push_back(cell);
+
 			if (cell->type == ID($tribuf))
 				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
@@ -75,13 +184,15 @@ struct TribufWorker {
 			{
 				IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
 				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
+				bool a_all_z = is_all_z(cell->getPort(ID::A));
+				bool b_all_z = is_all_z(cell->getPort(ID::B));
 
-				if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
+				if (a_all_z && b_all_z) {
 					module->remove(cell);
 					continue;
 				}
 
-				if (is_all_z(cell->getPort(ID::A))) {
+				if (a_all_z) {
 					cell->setPort(ID::A, cell->getPort(ID::B));
 					cell->setPort(en_port, cell->getPort(ID::S));
 					cell->unsetPort(ID::B);
@@ -92,7 +203,7 @@ struct TribufWorker {
 					continue;
 				}
 
-				if (is_all_z(cell->getPort(ID::B))) {
+				if (b_all_z) {
 					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
 					cell->unsetPort(ID::B);
 					cell->unsetPort(ID::S);
@@ -102,6 +213,21 @@ struct TribufWorker {
 					continue;
 				}
 			}
+		}
+
+		if (config.nested_mode)
+		{
+			for (auto &[y_sig, muxes]: y_port_to_mux)
+			{
+				for (Cell *cell: muxes)
+				{
+					// Tri-state cells are handled later, so at this point
+					// we need to process only "true" multiplexers.
+					if (cell->type.in(ID($mux), ID($_MUX_)))
+						nested_mux_to_tribuf(module, cell, tribuf_cells, y_port_to_mux);
+				}
+			}
+
 		}
 
 		if (config.merge_mode || config.logic_mode || config.formal_mode)
@@ -198,6 +324,9 @@ struct TribufPass : public Pass {
 		log("        add a formal assertion that no two buffers are driving the\n");
 		log("        same net simultaneously. this option implies -merge.\n");
 		log("\n");
+		log("    -nested\n");
+		log("        convert multiplexers using tri-state cells to tri-state cells\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -217,6 +346,10 @@ struct TribufPass : public Pass {
 			}
 			if (args[argidx] == "-formal") {
 				config.formal_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-nested") {
+				config.nested_mode = true;
 				continue;
 			}
 			break;
