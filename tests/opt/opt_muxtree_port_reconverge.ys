@@ -47,9 +47,8 @@ EOT
 select -assert-any i:a %co* o:out %i
 
 opt_muxtree
-# a gets optimized out
 opt_reduce
 opt_expr
 
-# a no longer drives out
+# a still drives out
 select -assert-any o:out %ci* i:a %i
