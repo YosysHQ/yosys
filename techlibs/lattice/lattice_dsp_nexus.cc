@@ -15,7 +15,9 @@ struct LatticeDspNexusPass : public Pass {
 		log("    lattice_dsp_nexus [options] [selection]\n");
 		log("\n");
 		log("Infer Lattice Nexus sysDSP macrocells (MULTADDSUB18X18, MULTPREADD18X18,\n");
-		log("MULTADDSUB9X9WIDE) from MAC and dot-product patterns.\n");
+		log("MULTADDSUB9X9WIDE) from MAC and dot-product patterns, and absorb the\n");
+		log("pipeline flip-flops around bare MULT18X18 / MULT36X36 multipliers into\n");
+		log("the hardened DSP input and output registers.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -29,6 +31,7 @@ struct LatticeDspNexusPass : public Pass {
 			pm.run_nexus_mac9_4lane();
 			pm.run_nexus_mac18();
 			pm.run_nexus_preadd18();
+			pm.run_nexus_mul_reg();
 		}
 	}
 } LatticeDspNexusPass;
