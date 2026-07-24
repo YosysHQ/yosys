@@ -119,6 +119,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
 		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
 		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -304,7 +305,7 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
-			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
+			run("proc -latches " + latches);
 		}
 
 		if (check_label("flatten", "(unless -noflatten)"))

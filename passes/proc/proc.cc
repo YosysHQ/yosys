@@ -69,7 +69,7 @@ struct ProcPass : public Pass {
 		log("    -noopt\n");
 		log("        Will omit the opt_expr pass.\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        controls how the inference of a latch is reported.\n");
 		log("\n");
 	}

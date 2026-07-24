@@ -22,6 +22,20 @@ logger -check-expected
 
 design -reset
 
+# always_latch is exempt
+read_verilog -sv <<EOT
+module top(input g, d, output reg q);
+always_latch if (g) q <= d;
+endmodule
+EOT
+logger -expect-no-warnings
+logger -expect log "Latch inferred for signal .* from always_latch process" 1
+proc -latches error
+logger -check-expected
+select -assert-count 1 t:$dlatch a:always_latch %i
+
+design -reset
+
 # error
 read_verilog <<EOT
 module top(input g, rn, d, output reg q);

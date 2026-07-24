@@ -78,7 +78,7 @@ struct SynthPass : public ScriptPass {
 		log("    -nordff\n");
 		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
-		log("    -latches <auto|warn|error>\n");
+		log("    -latches <info|warn|error>\n");
 		log("        controls how the inference of a latch is reported.\n");
 		log("\n");
 		log("    -noshare\n");
