@@ -108,13 +108,20 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("    -noabc9\n");
 		log("        disable use of new ABC9 flow\n");
 		log("\n");
+		log("    -latches <info|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, json_file, tech, tech_param;
+	std::string top_opt, edif_file, json_file, tech, tech_param, latches;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
 	bool flatten_before_abc;
@@ -127,6 +134,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		edif_file.clear();
 		tech = "t16ffc";
 		tech_param = " -D IS_T16FFC";
+		latches = "error";
 		flatten = true;
 		retime = false;
 		noiopad = false;
@@ -244,9 +252,16 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				json_file = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (!(tech == "t16ffc" || tech == "t40lp"))
 			log_cmd_error("Invalid ADI -tech setting: '%s'.\n", tech);
@@ -276,7 +291,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("prepare")) {
-			run("proc");
+			run("proc -latches " + latches);
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(with '-flatten')");
@@ -439,6 +454,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("map_ffs")) {
+			if (latches == "error" || help_mode)
+				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r");
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
