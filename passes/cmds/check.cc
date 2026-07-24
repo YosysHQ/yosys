@@ -143,10 +143,9 @@ struct CheckPass : public Pass {
 			// latch-only mode only flags latches, skipping the (potentially false-positive mid-flow) undriven/driver/loop checks below
 			if (latchonly) {
 				for (auto cell : module->cells())
-					if ((
+					if (!cell->get_bool_attribute(ID::always_latch) && (
 						cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
-						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_")
-					) && !cell->get_bool_attribute(ID::always_latch)) {
+						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))) {
 						log_warning("Cell %s.%s is a latch of type %s.\n", module, cell, cell->type.unescape());
 						counter++;
 					}
@@ -299,10 +298,9 @@ struct CheckPass : public Pass {
 				}
 
 				if (
-					nolatches && (
+					nolatches && !cell->get_bool_attribute(ID::always_latch) && (
 					cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
-					cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_")) &&
-					!cell->get_bool_attribute(ID::always_latch)
+					cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))
 				) {
 					log_warning("Cell %s.%s is a latch of type %s.\n", module, cell, cell->type.unescape());
 					counter++;
