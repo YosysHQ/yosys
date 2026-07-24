@@ -1,0 +1,67 @@
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire [3:0] a,
+	input wire [3:0] b,
+	output reg y0,
+	output reg y1,
+	output reg y2,
+	output reg y3
+);
+	initial begin
+		y0 = 1'b0;
+		y1 = 1'b0;
+		y2 = 1'b0;
+		y3 = 1'b0;
+	end
+	always @(posedge clk) begin
+		y0 <= (a > 4'd10) & (a < 4'd3);
+		y1 <= (b > 4'd12) & (b < 4'd5);
+		y2 <= (a > 4'd9)  & (a < 4'd2);
+		y3 <= (b > 4'd11) & (b < 4'd4);
+	end
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+design -save gold
+
+# default budget proves everything
+opt_dff -sat
+opt_clean -purge
+select -assert-count 0 t:$dff
+design -save gate_full
+
+# low budget skips all
+design -load gold
+scratchpad -set opt_dff.sat_effort 1
+logger -expect warning "effort limit exceeded" 1
+opt_dff -sat
+logger -check-expected
+opt_clean -purge
+select -assert-count 4 t:$dff
+design -save gate_low
+
+# only the selected cone is folded
+design -load gold
+scratchpad -set opt_dff.sat_effort 0
+select o:y0 %ci*
+opt_dff -sat
+select -clear
+opt_clean -purge
+select -assert-count 3 t:$dff
+
+# eq
+design -load gold
+design -copy-from gate_full -as gate_full test_case
+equiv_make test_case gate_full equiv_full
+equiv_induct equiv_full
+equiv_status -assert
+
+design -load gold
+design -copy-from gate_low -as gate_low test_case
+equiv_make test_case gate_low equiv_low
+equiv_induct equiv_low
+equiv_status -assert
