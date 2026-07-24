@@ -31,3 +31,15 @@ proc
 equiv_opt -assert alumacc
 alumacc
 select -assert-count 1 t:$alu
+
+design -reset
+read_verilog << EOT
+module top(input signed a, b, output x, output [1:0] y);
+assign y = $unsigned(a) - $unsigned(b);
+assign x = a > b;
+endmodule
+EOT
+hierarchy
+wreduce
+equiv_opt -assert alumacc
+
