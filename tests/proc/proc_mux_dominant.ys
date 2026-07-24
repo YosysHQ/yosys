@@ -1,0 +1,40 @@
+# Test that proc_mux uses a dominant-value pre-scan to avoid generating
+# unnecessary mux cells when a full_case switch has a majority of arms
+# assigning the same value.
+
+# 3 of 4 arms assign identical constants for both outputs.
+# The optimization should seed the result with the dominant values (3'b001,
+# 2'b00) so only the one differing arm (2'b00 -> 3'b110, 2'b11) generates
+# cells.  Each output word is a separate SigSnippet, so we expect one
+# $logic_not + one $mux per word = 2 of each total.
+read_verilog proc_mux_dominant.v
+hierarchy -top dominant_explicit
+proc
+select -assert-count 2 t:$logic_not
+select -assert-count 2 t:$mux
+select -assert-count 0 t:$eq
+select -assert-count 0 t:$pmux
+
+# 3 of 4 arms pass through an input wire 'a'.  The dominant value is a wire
+# signal rather than a constant; the optimization must still recognise it.
+# Only one arm differs (2'b00 -> 3'b110), producing 1 $logic_not + 1 $mux.
+design -reset
+read_verilog proc_mux_dominant.v
+hierarchy -top dominant_wire
+proc
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$mux
+select -assert-count 0 t:$eq
+select -assert-count 0 t:$pmux
+
+# All four arms assign distinct values; no majority exists.  The optimization
+# must not fire and the generated netlist must be functionally correct.
+design -reset
+read_verilog proc_mux_dominant.v
+hierarchy -top no_dominant
+proc
+# Three explicit non-zero compare arms each produce an $eq; the 2'b00 arm
+# uses $logic_not (all-zero check); all results are merged into one $pmux.
+select -assert-count 3 t:$eq
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$pmux
