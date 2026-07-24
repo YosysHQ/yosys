@@ -41,18 +41,22 @@ struct AlumaccWorker
 		std::vector<RTLIL::Cell*> cells;
 		RTLIL::SigSpec a, b, c, y;
 		std::vector<tuple<bool, bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
-		bool is_signed, invert_b;
+		bool is_signed, invert_b, oversized;
 
 		RTLIL::Cell *alu_cell;
 		RTLIL::SigSpec cached_lt, cached_slt, cached_gt, cached_sgt, cached_eq, cached_ne;
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
-		RTLIL::SigSpec get_lt(bool is_signed) {
-			if (is_signed) {
+		RTLIL::SigSpec get_lt(bool this_signed) {
+			if (this_signed) {
 				if (GetSize(cached_slt) == 0) {
-					get_of();
 					get_sf();
-					cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					if (is_signed && oversized) {
+						cached_slt = cached_sf;
+					} else {
+						get_of();
+						cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					}
 				}
 
 				return cached_slt;
@@ -65,10 +69,10 @@ struct AlumaccWorker
 			}
 		}
 
-		RTLIL::SigSpec get_gt(bool is_signed) {
-			if (is_signed) {
+		RTLIL::SigSpec get_gt(bool this_signed) {
+			if (this_signed) {
 				if (GetSize(cached_sgt) == 0) {
-					get_lt(is_signed);
+					get_lt(this_signed);
 					get_eq();
 					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
 					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
@@ -77,7 +81,7 @@ struct AlumaccWorker
 				return cached_sgt;
 			} else {
 				if (GetSize(cached_gt) == 0) {
-					get_lt(is_signed);
+					get_lt(this_signed);
 					get_eq();
 					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
 					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
@@ -112,7 +116,14 @@ struct AlumaccWorker
 			if (GetSize(cached_of) == 0) {
 				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
+				if (oversized) {
+					auto max_input = max(GetSize(a), GetSize(b));
+					log_assert(max_input >= 1);
+					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[max_input], cached_of[max_input-1]);
+				} else {
+					log_assert(GetSize(y) >= 1);
+					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(y)], cached_of[GetSize(y)-1]);
+				}
 			}
 			return cached_of;
 		}
@@ -120,7 +131,12 @@ struct AlumaccWorker
 		RTLIL::SigSpec get_sf() {
 			if (GetSize(cached_sf) == 0) {
 				cached_sf = alu_cell->getPort(ID::Y);
-				cached_sf = cached_sf[GetSize(cached_sf)-1];
+				log_assert(GetSize(cached_sf) >= 1);
+				if (oversized && !is_signed) {
+					cached_sf = cached_sf[max(GetSize(a), GetSize(b))-1];
+				} else {
+					cached_sf = cached_sf[GetSize(y)-1];
+				}
 			}
 			return cached_sf;
 		}
@@ -357,6 +373,7 @@ struct AlumaccWorker
 			alunode->cells.push_back(n->cell);
 			alunode->is_signed = a_signed;
 			alunode->invert_b = subtract_b;
+			alunode->oversized = max(GetSize(A), GetSize(B)) < GetSize(n->y);
 
 			alunode->a = A;
 			alunode->b = B;
@@ -448,6 +465,7 @@ struct AlumaccWorker
 				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
+				n->oversized = false;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
 				log(" new $alu\n");
 			} else {
