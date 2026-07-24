@@ -96,7 +96,7 @@ design -copy-from gate -as gate mac_wide_s
 miter -equiv -make_assert -flatten gold gate equiv
 sat -seq 1 -set-init-zero -prove-asserts -verify equiv
 
-# y = a*b - c (minuend mul)
+# y = a*b - c (product is the minuend, cannot map to C - A*B, must not fuse)
 design -load src
 hierarchy -top mac_subrev_u
 proc
