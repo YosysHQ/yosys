@@ -1,0 +1,87 @@
+# GW5A DSP MAC ($macc_v2) inference tests.
+
+# 27x18 + 48-bit addend -> 1 MULTALU27X18 (MAC)
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-count 1 t:MULTALU27X18
+
+
+# Make sure that DSPs are not inferred with -nodsp option
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top top
+proc
+synth_gowin -family gw5a -nodsp
+cd top
+select -assert-none t:MULTALU27X18
+
+
+# A operand exceeds 27 -> _TECHMAP_FAIL_ (A_WIDTHS > 27)
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 28 -set Y_WIDTH 18 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-none t:MULTALU27X18
+
+
+# B operand exceeds 18 -> _TECHMAP_FAIL_ (B_WIDTHS > 18)
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 19 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-none t:MULTALU27X18
+
+
+# C addend exceeds 48 -> _TECHMAP_FAIL_ (C_WIDTHS > 48)
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set C_WIDTH 49 -set A_WIDTH 49
+hierarchy -top top
+proc
+synth_gowin -family gw5a
+cd top
+select -assert-none t:MULTALU27X18
+
+
+# Addend negated (a*b - c) -> _TECHMAP_FAIL_ (ADDEND_NEGATED)
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top sub_top
+proc
+synth_gowin -family gw5a
+cd sub_top
+select -assert-none t:MULTALU27X18
+
+
+# Two products (a*b + a*b) -> _TECHMAP_FAIL_ (NPRODUCTS != 1)
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top twoproduct_top
+proc
+synth_gowin -family gw5a
+cd twoproduct_top
+select -assert-none t:MULTALU27X18
+
+
+# Unsigned operands -> _TECHMAP_FAIL_ (!A_SIGNED)
+design -reset
+read_verilog macc_gw5a.v
+chparam -set X_WIDTH 27 -set Y_WIDTH 18 -set C_WIDTH 48 -set A_WIDTH 48
+hierarchy -top unsigned_top
+proc
+synth_gowin -family gw5a
+cd unsigned_top
+select -assert-none t:MULTALU27X18
