@@ -1325,6 +1325,18 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		log("--- END OF RTLIL DUMP ---\n");
 	}
 
+	// Guard against a module with this name already being registered --
+	// this can happen when reprocessing/re-deriving a module (e.g. via
+	// AstModule::reprocess_if_necessary()) causes the same parameterized
+	// module to be (re)generated more than once before the earlier
+	// in-flight copy has been added/removed. Without this, the
+	// "modules_.count(module->name) == 0" assertion in Design::add()
+	// below can fail.
+	if (RTLIL::Module *existing = design->module(module->name)) {
+		if (existing != current_module)
+			design->remove(existing);
+	}
+
 	design->add(current_module);
 	return current_module;
 }
