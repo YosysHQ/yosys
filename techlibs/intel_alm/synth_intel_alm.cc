@@ -72,12 +72,19 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -noclkbuf\n");
 		log("        do not insert global clock buffers\n");
 		log("\n");
+		log("    -latches <info|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, family_opt, bram_type;
+	string top_opt, family_opt, bram_type, latches;
 	bool flatten, nolutram, nobram, dff, nodsp, noiopad, noclkbuf;
 
 	void clear_flags() override
@@ -85,6 +92,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		top_opt = "-auto-top";
 		family_opt = "cyclonev";
 		bram_type = "m10k";
+		latches = "error";
 		flatten = true;
 		nolutram = false;
 		nobram = false;
@@ -145,9 +153,16 @@ struct SynthIntelALMPass : public ScriptPass {
 				noclkbuf = true;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx + 1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -183,7 +198,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("coarse")) {
-			run("proc");
+			run("proc -latches " + latches);
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");
@@ -241,6 +256,8 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
+			if (latches == "error" || help_mode)
+				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap");
 			run("dfflegalize -cell $_DFFE_PN0P_ 0 -cell $_SDFFCE_PP0P_ 0");
 			run("techmap -map +/intel_alm/common/dff_map.v");
