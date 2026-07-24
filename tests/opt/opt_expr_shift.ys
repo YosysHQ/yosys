@@ -121,6 +121,36 @@ module top (
 	output wire        [7:0]  shr,
 	output wire        [7:0] sshl,
 	output wire        [7:0] sshr,
+);
+	assign  shl = in << 33'h0ffffffff;
+	assign  shr = in >> 33'h0ffffffff;
+	assign sshl = in <<< 33'h0ffffffff;
+	assign sshr = in >>> 33'h0ffffffff;
+endmodule
+EOT
+
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$sshl
+select -assert-count 1 t:$sshr
+
+equiv_opt -assert opt_expr
+
+design -load postopt
+select -assert-none t:$shl
+select -assert-none t:$shr
+select -assert-none t:$sshl
+select -assert-none t:$sshr
+
+design -reset
+
+read_verilog <<EOT
+module top (
+	input  wire        [3:0]  in,
+	output wire        [7:0]  shl,
+	output wire        [7:0]  shr,
+	output wire        [7:0] sshl,
+	output wire        [7:0] sshr,
 	output wire        [7:0] shiftx,
 
 	output wire        [7:0]  shl_s,

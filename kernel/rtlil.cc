@@ -590,7 +590,7 @@ bool RTLIL::Const::convertible_to_int(bool is_signed) const
 	if (size == 32) {
 		if (is_signed)
 			return true;
-		return back() != State::S1;
+		return (*this)[size - 1] != State::S1;
 	}
 
 	return false;
