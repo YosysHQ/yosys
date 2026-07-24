@@ -25,7 +25,7 @@
 #  include <sys/time.h>
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(YOSYS_ENABLE_DLOPEN)
 #  include <dlfcn.h>
 #endif
 
@@ -335,9 +335,6 @@ void log_suppressed() {
 [[noreturn]]
 static void log_error_with_prefix(std::string_view prefix, std::string str)
 {
-#ifdef EMSCRIPTEN
-	auto backup_log_files = log_files;
-#endif
 	int bak_log_make_debug = log_make_debug;
 	log_make_debug = 0;
 	log_suppressed();
@@ -378,10 +375,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	if (e && atoi(e))
 		abort();
 
-#ifdef EMSCRIPTEN
-	log_files = backup_log_files;
-	throw 0;
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 	_exit(1);
 #else
 	_Exit(1);
@@ -392,12 +386,6 @@ void log_formatted_file_error(std::string_view filename, int lineno, std::string
 {
 	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
 	log_error_with_prefix(prefix, str);
-}
-
-void logv_file_error(const string &filename, int lineno,
-                     const char *format, va_list ap)
-{
-	log_formatted_file_error(filename, lineno, vstringf(format, ap));
 }
 
 void log_experimental(const std::string &str)
@@ -471,7 +459,7 @@ void log_pop()
 	log_flush();
 }
 
-#if (defined(__linux__) || defined(__FreeBSD__)) && defined(YOSYS_ENABLE_PLUGINS)
+#if defined(YOSYS_ENABLE_DLOPEN)
 void log_backtrace(const char *prefix, int levels)
 {
 	if (levels <= 0) return;
@@ -679,9 +667,7 @@ void log_check_expected()
 			log_warn_regexes.clear();
 			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
-			#ifdef EMSCRIPTEN
-				throw 0;
-			#elif defined(_MSC_VER)
+			#if defined(_MSC_VER)
 				_exit(0);
 			#else
 				_Exit(0);

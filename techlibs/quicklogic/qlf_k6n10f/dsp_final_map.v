@@ -262,4 +262,3 @@ module dsp_t1_10x9x32_cfg_params (
     assign dly_b_o = dly_b_o[8:0];
 
 endmodule
-

@@ -26,22 +26,27 @@ def generate_target(name, command, deps = None):
     print(f"\t@$(call run_test,{target}, $({target}_cmd))")
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
-    cmd = f'$(YOSYS) -ql {ys_file}.err {yosys_args} {ys_file} && mv {ys_file}.err {ys_file}.log'
+    cmd = f'$(YOSYS) -l {ys_file}.err {yosys_args} {ys_file} && mv {ys_file}.err {ys_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(ys_file, cmd)
 
 def generate_tcl_test(tcl_file, yosys_args="", commands=""):
-    cmd = f'$(YOSYS) -ql {tcl_file}.err {yosys_args} {tcl_file} && mv {tcl_file}.err {tcl_file}.log'
+    cmd = f'$(YOSYS) -l {tcl_file}.err {yosys_args} {tcl_file} && mv {tcl_file}.err {tcl_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(tcl_file, cmd)
+
+def generate_sv_check(sv_file, yosys_args="", yosys_cmds=""):
+    yosys_cmd = f'read -sv {sv_file}; {yosys_cmds}'
+    cmd = f'$(YOSYS) -l {sv_file}.err -p "{yosys_cmd}" {yosys_args} && mv {sv_file}.err {sv_file}.log'
+    generate_target(sv_file, cmd)
 
 def generate_sv_test(sv_file, yosys_args="", commands=""):
     base = os.path.splitext(sv_file)[0]
     if not os.path.exists(base + ".ys"):
         yosys_cmd = '-p "prep -top top; async2sync; sat -enable_undef -verify -prove-asserts"'
-        cmd = f'$(YOSYS) -ql {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} && mv {sv_file}.err {sv_file}.log'
+        cmd = f'$(YOSYS) -l {sv_file}.err {yosys_cmd} {yosys_args} {sv_file} && mv {sv_file}.err {sv_file}.log'
         if commands:
             cmd += f"; \\\n{commands}"
         generate_target(sv_file, cmd)
@@ -62,18 +67,22 @@ def unpack_cmd(cmd):
 def generate_cmd_test(test_name, cmd, yosys_args="", deps = None):
     generate_target(test_name, unpack_cmd(cmd), deps)
 
-def generate_tests(argv, cmds):
+def generate_tests(argv, cmds, yosys_cmds=""):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-y", "--yosys-scripts", action="store_true")
     parser.add_argument("-t", "--tcl-scripts", action="store_true")
+    parser.add_argument("-c", "--check-sv", action="store_true")
     parser.add_argument("-s", "--prove-sv", action="store_true")
     parser.add_argument("-b", "--bash", action="store_true")
     parser.add_argument("-a", "--yosys-args", default="")
 
     args = parser.parse_args(argv)
 
-    if not (args.yosys_scripts or args.tcl_scripts or args.prove_sv or args.bash):
+    if not (args.yosys_scripts or args.tcl_scripts or args.check_sv or args.prove_sv or args.bash):
         raise RuntimeError("No file types selected")
+
+    if args.check_sv and args.prove_sv:
+        raise RuntimeError("Unable to use --check-sv and --prove-sv together")
 
     if args.yosys_scripts:
         for f in sorted(glob.glob("*.ys")):
@@ -82,6 +91,10 @@ def generate_tests(argv, cmds):
     if args.tcl_scripts:
         for f in sorted(glob.glob("*.tcl")):
             generate_tcl_test(f, args.yosys_args, cmds)
+
+    if args.check_sv:
+        for f in sorted(glob.glob("*.sv")):
+            generate_sv_check(f, args.yosys_args, yosys_cmds)
 
     if args.prove_sv:
         for f in sorted(glob.glob("*.sv")):
@@ -109,11 +122,11 @@ def redirect_stdout(new_target):
     finally:
         sys.stdout = old_target
 
-def generate(argv, extra=None, cmds=""):
+def generate(argv, extra=None, cmds="", yosys_cmds=""):
     with open("Makefile", "w") as f:
         with redirect_stdout(f):
             print_header(extra)
-            generate_tests(argv, cmds)
+            generate_tests(argv, cmds, yosys_cmds)
 
 def generate_custom(callback, extra=None):
     with open("Makefile", "w") as f:

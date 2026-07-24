@@ -95,7 +95,7 @@ struct XAigerWriter
 		}
 
 		bit2aig_stack.push_back(bit);
-		
+
 		// NB: Cannot use iterator returned from aig_map.insert()
 		//     since this function is called recursively
 

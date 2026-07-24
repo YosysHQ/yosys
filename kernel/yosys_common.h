@@ -60,6 +60,8 @@
          defines the Yosys Makefile would set for your build configuration.
 #endif
 
+#include "kernel/yosys_config.h"
+
 #define FRIEND_TEST(test_case_name, test_name) \
   friend class test_case_name##_##test_name##_Test
 
@@ -75,7 +77,6 @@
 
 #  define strtok_r strtok_s
 #  define strdup _strdup
-#  define snprintf _snprintf
 #  define getcwd _getcwd
 #  define mkdir _mkdir
 #  define popen _popen
@@ -91,6 +92,8 @@
 #  undef CONST
 // `wingdi.h` defines a TRANSPARENT macro that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
 #  undef TRANSPARENT
+// `wingdi.h` defines an ERROR macro that conflicts with `ERROR()` macro in kernel/tclapi.cc
+#  undef ERROR
 #endif
 
 #ifndef PATH_MAX

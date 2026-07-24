@@ -78,6 +78,9 @@ struct SynthPass : public ScriptPass {
 		log("    -nordff\n");
 		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
 		log("\n");
+		log("    -latches <auto|warn|error>\n");
+		log("        controls how the inference of a latch is reported.\n");
+		log("\n");
 		log("    -noshare\n");
 		log("        do not run SAT-based resource sharing\n");
 		log("\n");
@@ -88,9 +91,6 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
-		log("\n");
-		log("    -flowmap\n");
-		log("        use FlowMap LUT techmapping instead of ABC\n");
 		log("\n");
 		log("    -no-rw-check\n");
 		log("        marks all recognized read ports as \"return don't-care value on\n");
@@ -111,8 +111,8 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, arith_tree, hieropt, relative_share;
+	string top_module, fsm_opts, memory_opts, abc, latches_opt;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, booth, arith_tree, hieropt, relative_share;
 	int lut;
 	std::vector<std::string> techmap_maps;
 
@@ -121,6 +121,7 @@ struct SynthPass : public ScriptPass {
 		top_module.clear();
 		fsm_opts.clear();
 		memory_opts.clear();
+		latches_opt.clear();
 
 		autotop = false;
 		flatten = false;
@@ -129,7 +130,6 @@ struct SynthPass : public ScriptPass {
 		nofsm = false;
 		noabc = false;
 		noshare = false;
-		flowmap = false;
 		booth = false;
 		arith_tree = false;
 		hieropt = false;
@@ -200,16 +200,16 @@ struct SynthPass : public ScriptPass {
 				memory_opts += " -nordff";
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx + 1 < args.size()) {
+				latches_opt += " -latches " + args[++argidx];
+				continue;
+			}
 			if (args[argidx] == "-noshare") {
 				noshare = true;
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
 				abc = "abc9";
-				continue;
-			}
-			if (args[argidx] == "-flowmap") {
-				flowmap = true;
 				continue;
 			}
 			if (args[argidx] == "-no-rw-check") {
@@ -238,8 +238,6 @@ struct SynthPass : public ScriptPass {
 
 		if (abc == "abc9" && !lut)
 			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
-		if (flowmap && !lut)
-			log_cmd_error("FlowMap is only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();
@@ -276,7 +274,7 @@ struct SynthPass : public ScriptPass {
 		}
 
 		if (check_label("coarse")) {
-			run("proc");
+			run("proc" + latches_opt);
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "  (if -flatten)");
@@ -326,16 +324,13 @@ struct SynthPass : public ScriptPass {
 			if (help_mode) {
 				run(techmap_cmd + " -map +/gate2lut.v", "(if -noabc and -lut)");
 				run("clean; opt_lut", "           (if -noabc and -lut)");
-				run("flowmap -maxlut K", "        (if -flowmap and -lut)");
 			} else if (noabc && lut) {
 				run(stringf("%s -map +/gate2lut.v -D LUT_WIDTH=%d", techmap_cmd, lut));
 				run("clean; opt_lut");
-			} else if (flowmap) {
-				run(stringf("flowmap -maxlut %d", lut));
 			}
 			run("opt -fast" + hieropt_flag);
 
-			if ((!noabc && !flowmap) || help_mode) {
+			if (!noabc || help_mode) {
 #ifdef YOSYS_ENABLE_ABC
 				if (help_mode) {
 					run(abc, "       (unless -noabc, unless -lut)");

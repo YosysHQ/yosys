@@ -8,7 +8,7 @@ module top;
 		logic x, y;
 	} s;
 
-	struct packed signed { 
+	struct packed signed {
 		integer a;
 		logic[15:0] b;
 		logic[7:0] c;

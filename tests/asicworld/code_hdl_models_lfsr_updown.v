@@ -1,4 +1,4 @@
-`define WIDTH 8 
+`define WIDTH 8
 module lfsr_updown (
 clk       ,   // Clock input
 reset     ,   // Reset input
@@ -10,7 +10,7 @@ overflow      // Overflow output
 
  input clk;
  input reset;
- input enable; 
+ input enable;
  input up_down;
 
  output [`WIDTH-1 : 0] count;
@@ -18,11 +18,11 @@ overflow      // Overflow output
 
  reg [`WIDTH-1 : 0] count;
 
- assign overflow = (up_down) ? (count == {{`WIDTH-1{1'b0}}, 1'b1}) : 
+ assign overflow = (up_down) ? (count == {{`WIDTH-1{1'b0}}, 1'b1}) :
                                (count == {1'b1, {`WIDTH-1{1'b0}}}) ;
 
  always @(posedge clk)
- if (reset) 
+ if (reset)
     count <= {`WIDTH{1'b0}};
  else if (enable) begin
     if (up_down) begin

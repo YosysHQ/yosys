@@ -10,19 +10,19 @@ def create_tests():
 
     gen_tests_makefile.generate_cmd_test("parent_content1", [
         f"{setup}",
-        'cd .. && $(YOSYS_ABS) -qp "read_verilog -defer memfile/memory.v; '
+        'cd .. && $(YOSYS) -qp "read_verilog -defer memfile/memory.v; '
         'chparam -set MEMFILE \\"content1.dat\\" memory"'
     ])
 
     gen_tests_makefile.generate_cmd_test("parent_content2_temp", [
         f"{setup}",
-        'cd .. && $(YOSYS_ABS) -qp "read_verilog -defer memfile/memory.v; '
+        'cd .. && $(YOSYS) -qp "read_verilog -defer memfile/memory.v; '
         'chparam -set MEMFILE \\"temp/content2.dat\\" memory"'
     ])
 
     gen_tests_makefile.generate_cmd_test("parent_content2_full", [
         f"{setup}",
-        'cd .. && $(YOSYS_ABS) -qp "read_verilog -defer memfile/memory.v; '
+        'cd .. && $(YOSYS) -qp "read_verilog -defer memfile/memory.v; '
         'chparam -set MEMFILE \\"memfile/temp/content2.dat\\" memory"'
     ])
 
@@ -64,5 +64,4 @@ def create_tests():
         'chparam -set MEMFILE \\"content3.dat\\" memory"'
     ])
 
-extra = ["YOSYS_ABS := $(abspath $(YOSYS))"]
-gen_tests_makefile.generate_custom(create_tests, extra)
+gen_tests_makefile.generate_custom(create_tests)

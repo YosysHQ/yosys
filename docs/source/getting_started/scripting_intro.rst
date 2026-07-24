@@ -149,11 +149,11 @@ represent, see :ref:`interactive_show` and the
 
    Calling :yoscrypt:`show addr_gen` after `hierarchy`
 
-.. note:: 
+.. note::
 
    The `show` command requires a working installation of `GraphViz`_ and `xdot`_
    for displaying the actual circuit diagrams.
-   
+
 .. _GraphViz: http://www.graphviz.org/
 .. _xdot: https://github.com/jrfonseca/xdot.py
 

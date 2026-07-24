@@ -88,7 +88,7 @@ Dumping command help to json
       by ``Pass::experimental()``)
     * also title (``short_help`` argument in ``Pass::Pass``), group, and class
       name
-   
+
   + dictionary of group name to list of commands in that group
 
 - used by sphinx autodoc to generate help content
@@ -106,7 +106,7 @@ Dumping command help to json
    code block is formatted as ``yoscrypt`` (e.g. `synth_ice40`).  The caveat
    here is that if the ``script()`` calls ``run()`` on any commands *prior* to
    the first ``check_label`` then the auto detection will break and revert to
-   unformatted code (e.g. `synth_fabulous`). 
+   unformatted code (e.g. `synth_fabulous`).
 
 Command line rendering
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -114,7 +114,7 @@ Command line rendering
 - if ``Pass::formatted_help()`` returns true, will call
   ``PrettyHelp::log_help()``
 
-  + traverse over the children of the root node and render as plain text 
+  + traverse over the children of the root node and render as plain text
   + effectively the reverse of converting unformatted ``Pass::help()`` text
   + lines are broken at 80 characters while maintaining indentation (controlled
     by ``MAX_LINE_LEN`` in :file:`kernel/log_help.cc`)

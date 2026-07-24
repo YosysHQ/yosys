@@ -1,5 +1,7 @@
 ## user config
 /Makefile.conf
+/Configuration.cmake
+/CMakeUserPresets.json
 
 ## homebrew
 /Brewfile.lock.json
@@ -49,7 +51,9 @@
 /tests/unit/objtest/
 /tests/ystests
 /build
+/build-*
 /result
+/result-*
 /dist
 
 # pyosys
@@ -86,3 +90,5 @@ __pycache__
 /qtcreator.creator
 /qtcreator.creator.user
 /compile_commands.json
+/.direnv
+/.envrc

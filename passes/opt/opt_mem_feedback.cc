@@ -347,4 +347,3 @@ struct OptMemFeedbackPass : public Pass {
 } OptMemFeedbackPass;
 
 PRIVATE_NAMESPACE_END
-

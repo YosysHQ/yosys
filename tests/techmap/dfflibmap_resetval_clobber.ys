@@ -1,0 +1,13 @@
+read_verilog -icells <<EOT
+module top(input C, D, R, output Q);
+$_DFF_PP0_ ff (.C(C), .D(D), .R(R), .Q(Q));
+endmodule
+EOT
+
+dfflibmap -liberty dfflibmap_resetval_clobber.lib top
+read_liberty dfflibmap_resetval_clobber.lib
+flatten -noscopeinfo
+opt_clean
+
+select -assert-count 1 t:* top %i
+select -assert-count 1 t:$_DFF_PP0_ top %i

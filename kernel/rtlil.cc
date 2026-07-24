@@ -379,6 +379,7 @@ RTLIL::Const::Const(long long val) // default width 32
 
 RTLIL::Const::Const(long long val, int width)
 {
+	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
 	flags = RTLIL::CONST_FLAG_NONE;
 	if ((width & 7) == 0) {
 		new ((void*)&str_) std::string();
@@ -407,6 +408,7 @@ RTLIL::Const::Const(long long val, int width)
 
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
+	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
 	flags = RTLIL::CONST_FLAG_NONE;
 	new ((void*)&bits_) bitvectype();
 	tag = backing_tag::bits;
@@ -588,7 +590,7 @@ bool RTLIL::Const::convertible_to_int(bool is_signed) const
 	if (size == 32) {
 		if (is_signed)
 			return true;
-		return back() != State::S1;
+		return (*this)[size - 1] != State::S1;
 	}
 
 	return false;
@@ -613,6 +615,15 @@ int RTLIL::Const::as_int_saturating(bool is_signed) const
 		return neg ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
 	}
 	return as_int(is_signed);
+}
+
+void RTLIL::Const::tag_bare_integer_const(const std::string &value)
+{
+	if (value.empty() || value.find('\'') != std::string::npos)
+		return;
+	size_t start = (value[0] == '-' || value[0] == '+') ? 1 : 0;
+	if (start < value.size() && std::all_of(value.begin() + start, value.end(), ::isdigit))
+		flags |= RTLIL::CONST_FLAG_SIGNED;
 }
 
 int RTLIL::Const::get_min_size(bool is_signed) const
@@ -3161,6 +3172,7 @@ void RTLIL::Module::fixup_ports()
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
+	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
 	RTLIL::Wire *wire = new RTLIL::Wire;
 	wire->name = std::move(name);
 	wire->width = width;

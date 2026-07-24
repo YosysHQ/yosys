@@ -35,8 +35,8 @@ selection; while :yoscrypt:`delete foobar` will only delete the module foobar.
 If no `select` command has been made, then the "current selection" will be the
 whole design.
 
-.. note:: Many of the examples on this page make use of the `show` 
-   command to visually demonstrate the effect of selections.  For a more 
+.. note:: Many of the examples on this page make use of the `show`
+   command to visually demonstrate the effect of selections.  For a more
    detailed look at this command, refer to :ref:`interactive_show`.
 
 How to make a selection
@@ -106,7 +106,7 @@ glance. When it is called with multiple arguments, each argument is evaluated
 and pushed separately on a stack. After all arguments have been processed it
 simply creates the union of all elements on the stack. So :yoscrypt:`select
 t:$add a:foo` will select all `$add` cells and all objects with the ``foo``
-attribute set:   
+attribute set:
 
 .. literalinclude:: /code_examples/selections/foobaraddsub.v
    :caption: Test module for operations on selections
@@ -130,7 +130,7 @@ select all `$add` cells that have the ``foo`` attribute set:
 
 .. code-block::
    :caption: Output for command ``select t:$add a:foo %i -list`` on :numref:`foobaraddsub`
-   
+
    yosys> select t:$add a:foo %i -list
    foobaraddsub/$add$foobaraddsub.v:4$1
 
@@ -282,7 +282,7 @@ provided :file:`memdemo.v` is in the same directory. We can now change to the
 .. figure:: /_images/code_examples/selections/memdemo_00.*
    :class: width-helper invert-helper
    :name: memdemo_00
-   
+
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
 
 There's a lot going on there, but maybe we are only interested in the tree of
@@ -293,7 +293,7 @@ cones`_ from above, we can use :yoscrypt:`show y %ci2`:
 .. figure:: /_images/code_examples/selections/memdemo_01.*
    :class: width-helper invert-helper
    :name: memdemo_01
-   
+
    Output of :yoscrypt:`show y %ci2`
 
 From this we would learn that ``y`` is driven by a `$dff` cell, that ``y`` is
@@ -305,7 +305,7 @@ start of the name).  Let's go a bit further now and try :yoscrypt:`show y %ci5`:
 .. figure:: /_images/code_examples/selections/memdemo_02.*
    :class: width-helper invert-helper
    :name: memdemo_02
-   
+
    Output of :yoscrypt:`show y %ci5`
 
 That's starting to get a bit messy, so maybe we want to ignore the mux select
@@ -319,7 +319,7 @@ type with :yoscrypt:`show y %ci5:-$mux[S]`:
 .. figure:: /_images/code_examples/selections/memdemo_03.*
    :class: width-helper invert-helper
    :name: memdemo_03
-   
+
    Output of :yoscrypt:`show y %ci5:-$mux[S]`
 
 We could use a command such as :yoscrypt:`show y %ci2:+$dff[Q,D]
@@ -330,7 +330,7 @@ multiplexer select inputs and flip-flop cells:
 .. figure:: /_images/code_examples/selections/memdemo_05.*
    :class: width-helper invert-helper
    :name: memdemo_05
-   
+
    Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
 
 Or we could use :yoscrypt:`show y %ci*:-[CLK,S]:+$dff:+$mux` instead, following
@@ -342,7 +342,7 @@ ignoring any ports named ``CLK`` or ``S``:
 .. figure:: /_images/code_examples/selections/memdemo_04.*
    :class: width-helper invert-helper
    :name: memdemo_04
-   
+
    Output of :yoscrypt:`show y %ci*:-[CLK,S]:+$dff,$mux`
 
 Similar to ``%ci`` exists an action ``%co`` to select output cones that accepts

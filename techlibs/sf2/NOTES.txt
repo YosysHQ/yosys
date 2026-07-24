@@ -51,8 +51,8 @@ Then you can use the normal flow.  This is done by the run_yosys.tcl:
 
 -----------  run_yosys.tcl --------------
 open_project -file {./top.prjx}
-run_tool -name {PLACEROUTE} 
-run_tool -name {PROGRAMDEVICE} 
+run_tool -name {PLACEROUTE}
+run_tool -name {PROGRAMDEVICE}
 -----------------------------------------
 
 

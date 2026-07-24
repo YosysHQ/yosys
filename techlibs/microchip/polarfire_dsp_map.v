@@ -27,9 +27,9 @@ module \$__MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
 	// For pin descriptions, see Section 9 of PolarFire FPGA Macro Library Guide:
 	// https://coredocs.s3.amazonaws.com/Libero/2021_2/Tool/pf_mlg.pdf
 	MACC_PA _TECHMAP_REPLACE_ (
-		.DOTP(1'b0), 
-		.SIMD(1'b0), 
-		.OVFL_CARRYOUT_SEL(1'b0), 
+		.DOTP(1'b0),
+		.SIMD(1'b0),
+		.OVFL_CARRYOUT_SEL(1'b0),
 
 		.AL_N(1'b1),
 		.A(A),
@@ -47,7 +47,7 @@ module \$__MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
 		.D_ARST_N(1'b1),
 		.D_SRST_N(1'b1),
 		.D_EN(1'b1),
-		
+
 		.CARRYIN(1'b0),
 		.C(48'b0),
 		.C_BYPASS(1'b1),
@@ -55,7 +55,7 @@ module \$__MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
 		.C_SRST_N(1'b1),
 		.C_EN(1'b1),
 
-		
+
 		.P(P_48),
 
 		.P_BYPASS(1'b1),

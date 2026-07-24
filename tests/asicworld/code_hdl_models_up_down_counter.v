@@ -12,7 +12,7 @@ reset       // reset input
 );
 //----------Output Ports--------------
 output [7:0] out;
-//------------Input Ports-------------- 
+//------------Input Ports--------------
 input up_down, clk, reset;
 //------------Internal Variables--------
 reg [7:0] out;
@@ -26,4 +26,4 @@ end else begin
   out <= out - 1;
 end
 
-endmodule 
+endmodule

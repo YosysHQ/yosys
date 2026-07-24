@@ -1,0 +1,69 @@
+read_verilog <<EOT
+module final_auto_wide(
+	input [31:0] a, b, c, d,
+	output [31:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -final auto
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 2 t:$fa
+select -assert-none t:$_AND_
+select -assert-none 1 t:$_XOR_
+design -reset
+
+read_verilog <<EOT
+module final_auto_narrow(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -final auto
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 2 t:$fa
+select -assert-count 0 t:$add a:adder_arch %i
+select -assert-none t:$_AND_ t:$_OR_ %u
+design -reset
+
+read_verilog <<EOT
+module final_ripple(
+	input [31:0] a, b, c, d,
+	output [31:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$add a:adder_arch %i
+select -assert-none t:$_AND_ t:$_OR_ %u
+design -reset
+
+read_verilog <<EOT
+module final_prefix_narrow(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -final prefix
+design -load postopt
+select -assert-none t:$add
+select -assert-min 1 t:$_AND_
+select -assert-min 1 t:$_XOR_
+design -reset

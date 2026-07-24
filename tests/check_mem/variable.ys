@@ -1,0 +1,65 @@
+
+
+read_rtlil << EOF
+module \top
+  wire input 1 \clk
+  wire input 2 width 2 \addr
+  wire output 1 \o
+  memory size 3 offset 0 \my_array
+  # potentially dangerous - requires external control to avoid illegal access
+  cell $memrd \bad_rd
+    parameter \MEMID "\\my_array"
+    parameter \CLK_ENABLE 0
+    parameter \CLK_POLARITY 1
+    parameter \TRANSPARENT 0
+    parameter \ABITS 2
+    parameter \WIDTH 1
+    connect \CLK 1'x
+    connect \EN 1'x
+    connect \ADDR \addr
+    connect \DATA \o
+  end
+  wire width 2 \n_addr
+  cell $not \not_addr
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \Y_WIDTH 2
+    connect \A \addr
+    connect \Y \n_addr
+  end
+  # address is partially const, making the illegal access of 2'11 impossible
+  cell $memrd \partial_const_rd
+    parameter \MEMID "\\my_array"
+    parameter \CLK_ENABLE 0
+    parameter \CLK_POLARITY 1
+    parameter \TRANSPARENT 0
+    parameter \ABITS 2
+    parameter \WIDTH 1
+    connect \CLK 1'x
+    connect \EN 1'x
+    connect \ADDR { 1'0 \addr [0] }
+    connect \DATA \o
+  end
+  # address is non-const but limited to 2'10 and 2'01 - both of which are valid
+  cell $memrd \limited_rd
+    parameter \MEMID "\\my_array"
+    parameter \CLK_ENABLE 0
+    parameter \CLK_POLARITY 1
+    parameter \TRANSPARENT 0
+    parameter \ABITS 2
+    parameter \WIDTH 1
+    connect \CLK 1'x
+    connect \EN 1'x
+    connect \ADDR { \n_addr [0] \addr [0] }
+    connect \DATA \o
+  end
+end
+EOF
+
+logger -expect warning "potentially dangerous non-const input \\addr" 1
+# unhandled false-positives
+# logger -werror "potentially dangerous non-const input \{ 1'0"
+# logger -werror "potentially dangerous non-const input \{ \\n_addr"
+check_mem -non-const
+logger -check-expected
+design -reset

@@ -9,7 +9,7 @@ class RtlilLexer(RegexLexer):
     filenames = ['*.il']
 
     keyword_re = r'(always|assign|attribute|autoidx|case|cell|connect|edge|end|global|high|init|inout|input|low|memory|module|negedge|offset|output|parameter|posedge|process|real|signed|size|switch|sync|update|upto|width|wire)'
-    
+
     tokens = {
         'common': [
             (r'\s+', Whitespace),

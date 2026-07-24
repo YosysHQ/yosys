@@ -36,25 +36,25 @@ jobs:
               runner: "macos-15",
               archs: "arm64",
             },
-            ## Windows is disabled because of an issue with compiling FFI as
-            ## under MinGW in the GitHub Actions environment (SHELL variable has
-            ## whitespace.)
+            ## Windows still needs to be tested.
             # {
-            #   name: "Windows Server 2019",
+            #   name: "Windows Server 2025",
             #   family: "windows",
-            #   runner: "windows-2019",
+            #   runner: "windows-2025",
             #   archs: "AMD64",
             # },
           ]
     name: Build Wheels | ${{ matrix.os.name }} | ${{ matrix.os.archs }}
     runs-on: ${{ matrix.os.runner }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: true
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
       - name: Get FFI
         shell: bash
         run: |
@@ -66,7 +66,6 @@ jobs:
         run: |
           mkdir -p bison
           curl -L https://ftpmirror.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar --strip-components=1 -xzC bison
-          sed -i 's/-Werror=unused//g' Makefile
       ## Software installed by default in GitHub Action Runner VMs:
       ##  https://github.com/actions/runner-images
       - if: ${{ matrix.os.family == 'macos' }}
@@ -78,18 +77,13 @@ jobs:
         name: "[Windows] Flex/Bison"
         run: |
           choco install winflexbison3
-      - if: ${{ matrix.os.family == 'macos' && matrix.os.archs == 'arm64' }}
-        name: "[macOS/arm64] Install Python 3.8 (see: https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64)"
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.1
+        uses: pypa/cibuildwheel@v4.1.0
         env:
           # * APIs not supported by PyPy
           # * Musllinux disabled because it increases build time from 48m to ~3h
           CIBW_SKIP: >
-            pp*
+            cp39*
             *musllinux*
           CIBW_ARCHS: ${{ matrix.os.archs }}
           CIBW_BUILD_VERBOSITY: "1"
@@ -101,12 +95,13 @@ jobs:
             OPTFLAGS=-O3
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             PATH="$PWD/bison/src:$PATH"
+            CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           CIBW_ENVIRONMENT_MACOS: >
             OPTFLAGS=-O3
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
-            makeFlags='CONFIG=clang'
             PATH="$PWD/bison/src:$PATH"
+            CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py
       - uses: actions/upload-artifact@v7

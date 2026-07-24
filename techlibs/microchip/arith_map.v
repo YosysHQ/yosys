@@ -48,7 +48,7 @@ module \$__microchip_XOR8_ (A, Y);
 
 	XOR8 _TECHMAP_REPLACE_.XOR8 (.A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]), .E(A[4]), .F(A[5]), .G(A[6]), .H(A[7]), .Y(Y));
 
-	
+
 endmodule
 
 (* techmap_celltype = "$alu" *)
@@ -102,4 +102,3 @@ module \$__SF2_ALU (A, B, CI, BI, X, Y, CO);
 		);
 	end endgenerate
 endmodule
-

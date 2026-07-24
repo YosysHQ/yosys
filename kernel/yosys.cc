@@ -57,7 +57,7 @@ namespace py = pybind11;
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/stat.h>
-#  if !defined(YOSYS_DISABLE_SPAWN)
+#  if defined(YOSYS_ENABLE_SPAWN)
 #    include <sys/wait.h>
 #  endif
 #endif
@@ -179,7 +179,7 @@ void yosys_banner()
 	log(" %s\n", yosys_maybe_version());
 }
 
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
 	if (!process_line)
@@ -228,6 +228,7 @@ PYBIND11_MODULE(pyosys, m) {
 // This should not affect using wheels as the dylib has to actually be called
 // libyosys_dummy.so for this function to be interacted with at all.
 PYBIND11_MODULE(libyosys_dummy, _) {
+	(void)_;
 	throw py::import_error("Change your import from 'import libyosys' to 'from pyosys import libyosys'.");
 }
 #endif
@@ -537,27 +538,19 @@ std::string proc_self_dirname()
 std::string proc_self_dirname()
 {
 	int i = 0;
-#  ifdef __MINGW32__
 	char longpath[MAX_PATH + 1];
 	char shortpath[MAX_PATH + 1];
-#  else
-	WCHAR longpath[MAX_PATH + 1];
-	TCHAR shortpath[MAX_PATH + 1];
-#  endif
-	if (!GetModuleFileName(0, longpath, MAX_PATH+1))
+	if (!GetModuleFileNameA(0, longpath, MAX_PATH+1))
 		log_error("GetModuleFileName() failed.\n");
-	if (!GetShortPathName(longpath, shortpath, MAX_PATH+1))
+	if (!GetShortPathNameA(longpath, shortpath, MAX_PATH+1))
 		log_error("GetShortPathName() failed.\n");
 	while (shortpath[i] != 0)
 		i++;
 	while (i > 0 && shortpath[i-1] != '/' && shortpath[i-1] != '\\')
 		shortpath[--i] = 0;
-	std::string path;
-	for (i = 0; shortpath[i]; i++)
-		path += char(shortpath[i]);
-	return path;
+	return shortpath;
 }
-#elif defined(EMSCRIPTEN) || defined(__wasm)
+#elif defined(__wasm)
 std::string proc_self_dirname()
 {
 	return "/";
@@ -595,7 +588,7 @@ std::string proc_self_dirname(void)
 	#error "Don't know how to determine process executable base path!"
 #endif
 
-#if defined(EMSCRIPTEN) || defined(__wasm)
+#if defined(__wasm)
 void init_share_dirname()
 {
 	yosys_share_dirname = "/share/";
@@ -636,13 +629,11 @@ void init_share_dirname()
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
-#    ifdef YOSYS_DATDIR
 	proc_share_path = YOSYS_DATDIR "/";
 	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
-#    endif
 #  endif
 }
 #endif
@@ -684,11 +675,7 @@ std::string proc_share_dirname()
 
 std::string proc_program_prefix()
 {
-	std::string program_prefix;
-#ifdef YOSYS_PROGRAM_PREFIX
-	program_prefix = YOSYS_PROGRAM_PREFIX;
-#endif
-	return program_prefix;
+	return YOSYS_PROGRAM_PREFIX;
 }
 
 bool fgetline(FILE *f, std::string &buffer)

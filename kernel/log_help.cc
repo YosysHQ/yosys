@@ -21,16 +21,45 @@
 
 USING_YOSYS_NAMESPACE
 
-Json ContentListing::to_json() const {
+std::filesystem::path Yosys::fixup_source_path (const char* source_file,
+	const std::filesystem::path &source_root, bool* skip_source_group)
+{
+	std::filesystem::path source_path(source_file);
+	if (source_path.is_absolute()) {
+		// using proximate instead of relative means that we
+		// still get the source path if they aren't relative
+		auto proximate_path = std::filesystem::proximate(source_path, source_root);
+		if (proximate_path == proximate_path.lexically_normal()) {
+			// we're only interested if it's a subpath of our root dir
+			// if the normal form differs, then the proximate path includes ".."
+			return proximate_path;
+		} else if (skip_source_group != nullptr) {
+			// don't try to group external paths
+			*skip_source_group = true;
+		}
+	}
+	return source_path;
+}
+
+Json ContentListing::to_json(const std::filesystem::path &source_root) const {
 	Json::object object;
+
 	object["type"] = type;
-	if (body.length()) object["body"] = body;
-	if (strcmp(source_file, "unknown") != 0) object["source_file"] = source_file;
-	if (source_line != 0) object["source_line"] = source_line;
+	if (body.length())
+		object["body"] = body;
+
+	if (has_source())
+		object["source_file"] = fixup_source_path(source_file, source_root).string();
+	if (source_line != 0)
+		object["source_line"] = source_line;
+
 	object["options"] = Json(options);
+
 	Json::array content_array;
-	for (auto child : _content) content_array.push_back(child.to_json());
+	for (auto child : _content)
+		content_array.push_back(child.to_json(source_root));
 	object["content"] = content_array;
+
 	return object;
 }
 
@@ -44,7 +73,7 @@ void ContentListing::usage(const string &text,
 void ContentListing::option(const string &text, const string &description,
 	const source_location location)
 {
-	auto option = open_option(text);
+	auto option = open_option(text, source_location());
 	if (description.length())
 		option->add_content("text", description, location);
 }

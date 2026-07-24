@@ -19,7 +19,7 @@ input enable ;
 //-------------Output Ports----------------------------
 output [3:0] counter_out ;
 //-------------Input ports Data Type-------------------
-// By rule all the input ports should be wires   
+// By rule all the input ports should be wires
 wire clock ;
 wire reset ;
 wire enable ;

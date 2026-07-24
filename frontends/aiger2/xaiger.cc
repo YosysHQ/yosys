@@ -187,7 +187,7 @@ struct Xaiger2Frontend : public Frontend {
 			if (c == 'h') {
 				uint32_t len, ci_num, co_num, pi_num, po_num, no_boxes;
 				len = read_be32(*f);
-				read_be32(*f);
+				read_be32(*f); // version
 				ci_num = read_be32(*f);
 				co_num = read_be32(*f);
 				pi_num = read_be32(*f);

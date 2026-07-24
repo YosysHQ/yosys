@@ -116,7 +116,7 @@ struct CutpointPass : public Pass {
 						for (auto bit : sigmap(conn.second))
 							if (bit.wire)
 								wire_drivers.insert(bit);
-			
+
 			for (auto wire : module->wires())
 				if (wire->port_input)
 					for (auto bit : sigmap(wire))

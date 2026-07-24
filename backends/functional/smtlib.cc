@@ -187,7 +187,7 @@ struct SmtModule {
 	Functional::IR ir;
 	SmtScope scope;
 	std::string name;
-	
+
 	SmtStruct input_struct;
 	SmtStruct output_struct;
 	SmtStruct state_struct;
@@ -256,7 +256,7 @@ struct SmtModule {
 	}
 
 	void write(std::ostream &out)
-	{    
+	{
 		SExprWriter w(out);
 
 		input_struct.write_definition(w);
@@ -266,7 +266,7 @@ struct SmtModule {
 		w << list("declare-datatypes",
 			list(list("Pair", 2)),
 			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
-		
+
 		write_eval(w);
 		write_initial(w);
 	}

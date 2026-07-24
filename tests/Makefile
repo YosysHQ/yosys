@@ -1,7 +1,3 @@
-ifneq ($(wildcard ../Makefile.conf),)
-include ../Makefile.conf
-endif
-
 OVERRIDE_MAIN=1
 include ./common.mk
 
@@ -78,6 +74,9 @@ MK_TEST_DIRS += ./liberty
 MK_TEST_DIRS += ./memories
 MK_TEST_DIRS += ./aiger
 MK_TEST_DIRS += ./alumacc
+MK_TEST_DIRS += ./check_mem
+MK_TEST_DIRS += ./write_verilog
+MK_TEST_DIRS += ./symfpu
 
 all: vanilla-test
 
@@ -91,7 +90,7 @@ prep: $(MK_TEST_DIRS:%=%/Makefile)
 .PHONY: force-create
 # this target actually emits Makefile files
 %/Makefile: force-create
-	+@cd $* && python3 generate_mk.py
+	+@cd $* && python3 generate_mk.py $(if $(SEED),-S$(SEED))
 
 makefile-./%: %/Makefile
 	@$(MAKE) -C $*
@@ -125,3 +124,17 @@ clean:
 	@rm -f  ./tools/cmp_tbdata
 	@rm -f $(addsuffix /Makefile,$(MK_TEST_DIRS))
 	@find . -name '*.result' -type f -exec rm -f {} +
+
+.PHONY: coverage
+coverage:
+	@echo "Creating coverage HTML & Codecov report"
+	@$(YOSYS) -qp 'help; help -all'
+	@rm -rf $(COVERAGE_HTML)
+	@llvm-profdata merge -sparse $(COVERAGE_DIR)/coverage_*.profraw -o $(COVERAGE_DIR)/yosys.profdata
+	@llvm-cov export $(YOSYS) -instr-profile=$(COVERAGE_DIR)/yosys.profdata -format=lcov --compilation-dir=$(SRC_DIR) --ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*' > $(BUILD_DIR)/coverage.info
+	@llvm-cov show $(YOSYS) -instr-profile=$(COVERAGE_DIR)/yosys.profdata -format=html -output-dir=$(COVERAGE_HTML) --compilation-dir=$(SRC_DIR) --ignore-filename-regex='(^|.*/)libs/.*|/usr/include/.*|$(subst /,\/,$(VERIFIC_DIR))/.*'
+
+.PHONY: clean_coverage
+clean_coverage:
+	@echo "Clean coverage"
+	@rm -rf $(COVERAGE_DIR)

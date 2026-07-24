@@ -1524,4 +1524,3 @@ module NX_IOM_SERDES_M(RTCK, WRCK, WTCK, RRCK, TRST, RRST, CTCK, DCK, DRL, DIG, 
     parameter data_size = 5;
     parameter location = "";
 endmodule
-

@@ -10,7 +10,7 @@ begin
     temp1 = a ^ b;
 	temp2 = c ^ d;
 	z = temp1 ^ temp2;
-end	
+end
 
 endmodule
 
@@ -24,7 +24,7 @@ always @ ( in1 or in2)
 		out = in1;
 	else
 		out = in2;
-endmodule		
+endmodule
 
 // test_intermout_always_comb_4_test.v
 module f3_test(a, b, c);
@@ -46,9 +46,9 @@ output  reg out;
 always @ (ctrl or in1 or in2)
 	if(ctrl)
 		out = in1 & in2;
-	else 
+	else
 		out = in1 | in2;
-endmodule		
+endmodule
 
 // test_intermout_always_ff_3_test.v
 module f5_NonBlockingEx(clk, merge, er, xmit, fddi, claim);
@@ -78,7 +78,7 @@ always @(posedge clk)
     is <= cs;
 
 assign ns = is;
-endmodule	
+endmodule
 
 // test_intermout_always_ff_5_test.v
 module f7_FlipFlop(clock, cs, ns);
@@ -91,9 +91,9 @@ always @(posedge clock)
 begin
     temp = cs;
 	ns = temp;
-end	
+end
 
-endmodule	
+endmodule
 
 // test_intermout_always_ff_6_test.v
 module f8_inc(clock, counter);
@@ -102,7 +102,7 @@ input clock;
 output reg [3:0] counter;
 always @(posedge clock)
 	counter <= counter + 1;
-endmodule	
+endmodule
 
 // test_intermout_always_ff_8_test.v
 module f9_NegEdgeClock(q, d, clk, reset);
@@ -112,7 +112,7 @@ output reg q;
 always @(negedge clk or negedge reset)
     if(!reset)
 	    q <= 1'b0;
-	else	
+	else
         q <= d;
 
 endmodule
@@ -131,7 +131,7 @@ always @(posedge clock)
 		    counter <= counter + 1;
 		else
 		    counter <= counter - 1;
-endmodule			
+endmodule
 
 // test_intermout_always_latch_1_test.v
 module f11_test(en, in, out);
@@ -142,7 +142,7 @@ output reg [2:0] out;
 always @ (en or in)
 	if(en)
 		out = in + 1;
-endmodule		
+endmodule
 
 // test_intermout_bufrm_1_test.v
 module f12_test(input in, output out);
@@ -364,20 +364,20 @@ endmodule
 
 // test_intermout_exprs_redop_test.v
 module f29_Reduction (A1, A2, A3, A4, A5, A6, Y1, Y2, Y3, Y4, Y5, Y6);
-input [1:0] A1; 
-input [1:0] A2; 
-input [1:0] A3; 
-input [1:0] A4; 
-input [1:0] A5; 
-input [1:0] A6; 
-output Y1, Y2, Y3, Y4, Y5, Y6; 
-//reg Y1, Y2, Y3, Y4, Y5, Y6; 
-assign Y1=&A1; //reduction AND 
-assign Y2=|A2; //reduction OR 
-assign Y3=~&A3; //reduction NAND 
-assign Y4=~|A4; //reduction NOR 
-assign Y5=^A5; //reduction XOR 
-assign Y6=~^A6; //reduction XNOR 
+input [1:0] A1;
+input [1:0] A2;
+input [1:0] A3;
+input [1:0] A4;
+input [1:0] A5;
+input [1:0] A6;
+output Y1, Y2, Y3, Y4, Y5, Y6;
+//reg Y1, Y2, Y3, Y4, Y5, Y6;
+assign Y1=&A1; //reduction AND
+assign Y2=|A2; //reduction OR
+assign Y3=~&A3; //reduction NAND
+assign Y4=~|A4; //reduction NOR
+assign Y5=^A5; //reduction XOR
+assign Y6=~^A6; //reduction XNOR
 endmodule
 
 // test_intermout_exprs_sub_test.v

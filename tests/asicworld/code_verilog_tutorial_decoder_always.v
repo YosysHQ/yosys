@@ -2,7 +2,7 @@ module decoder_always (in,out);
 input [2:0] in;
 output [7:0] out;
 reg [7:0] out;
- 
+
 always @ (in)
 begin
   out = 0;
@@ -16,5 +16,5 @@ begin
     3'b111 : out = 8'b1000_0000;
   endcase
 end
-  	  	 
+
 endmodule

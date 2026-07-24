@@ -296,7 +296,7 @@ struct OptLutWorker
 					luts_dlogic_inputs.erase(lut);
 
 					module->remove(lut);
-					
+
 					eliminated_count++;
 					if (limit > 0)
 						limit--;

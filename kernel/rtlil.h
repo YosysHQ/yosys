@@ -99,6 +99,9 @@ namespace RTLIL
 		PD_INOUT = 3
 	};
 
+	// Maximum width in bits of RTLIL::Wire or RTLIL::Const
+	constexpr int WIDTH_LIMIT = 1 << 30;
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -1091,6 +1094,8 @@ public:
 	// over/underflow, otherwise the max/min value for int depending on the sign.
 	int as_int_saturating(bool is_signed = false) const;
 
+	void tag_bare_integer_const(const std::string &value);
+
 	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
@@ -1104,6 +1109,7 @@ public:
 		bits_internal()[i] = state;
 	}
 	void resize(int size, RTLIL::State fill) {
+    log_assert(size >= 0 && size < RTLIL::WIDTH_LIMIT);
 		bits_internal().resize(size, fill);
 	}
 

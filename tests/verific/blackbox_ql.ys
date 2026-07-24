@@ -1,4 +1,4 @@
-verific -sv -lib +/quicklogic/qlf_k6n10f/dsp_sim.v 
+verific -sv -lib +/quicklogic/qlf_k6n10f/dsp_sim.v
 
 verific -sv <<EOF
 module top (
@@ -13,7 +13,7 @@ module top (
     input  wire [2:0] output_select,
     input  wire       register_inputs
 );
-	
+
 // module instantiation
 QL_DSP2_MULT_REGIN_REGOUT #(
     .MODE_BITS(80'h1232324)

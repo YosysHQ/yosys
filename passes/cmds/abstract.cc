@@ -469,6 +469,7 @@ struct AbstractPass : public Pass {
 			switch (enable) {
 				case Enable::Always:
 					log_assert(false);
+					YS_FALLTHROUGH
 				case Enable::ActiveLow:
 				case Enable::ActiveHigh: {
 					if (enable_name.empty())

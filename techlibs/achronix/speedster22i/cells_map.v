@@ -70,4 +70,3 @@ module  \$_DFF_P_ (input D, C, output Q);
    DFF _TECHMAP_REPLACE_
      (.q(Q), .d(D), .ck(C));
 endmodule
-

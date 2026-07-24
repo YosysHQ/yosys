@@ -1,5 +1,5 @@
-// Note: Set ENABLE_LIBYOSYS=1 in Makefile or Makefile.conf to build libyosys.so
-// yosys-config --exec --cxx -o demomain --cxxflags --ldflags demomain.cc -lyosys -lstdc++
+// Note: Use `cmake -DYOSYS_INSTALL_LIBRARY=1` or build the `libyosys` target first
+// yosys-config --exec --cxx -o demomain --cxxflags --ldflags demomain.cc -lyosys
 
 #include <kernel/yosys.h>
 
@@ -19,4 +19,3 @@ int main()
 	Yosys::yosys_shutdown();
 	return 0;
 }
-

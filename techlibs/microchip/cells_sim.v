@@ -155,7 +155,7 @@ endmodule
 
 // sequential elements
 
-// MICROCHIP_SYNC_SET_DFF and MICROCHIP_SYNC_RESET_DFF are intermediate cell types to implement the simplification idiom for abc9 flow 
+// MICROCHIP_SYNC_SET_DFF and MICROCHIP_SYNC_RESET_DFF are intermediate cell types to implement the simplification idiom for abc9 flow
 //	see: https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/abc_flow.html
 
 (* abc9_flop, lib_whitebox *)
@@ -196,7 +196,7 @@ module MICROCHIP_SYNC_RESET_DFF(
 
 	always @(posedge CLK) begin
 		if (En == 1) begin
-			if (Reset == 0) 
+			if (Reset == 0)
 				Q <= 0;
 			else
 				Q <= D;
@@ -258,7 +258,7 @@ module ARI1 (
 	(* abc9_carry *)
 	output FCO,
 
-	input A, B, C, D, 
+	input A, B, C, D,
 	output Y, S
 );
 	parameter [19:0] INIT = 20'h0;
@@ -271,9 +271,9 @@ module ARI1 (
 	wire G = INIT[16] ? (INIT[17] ? F1 : F0) : INIT[17];
 	wire P = INIT[19] ? 1'b1 : (INIT[18] ? Yout : 1'b0);
 	assign FCO = P ? FCI : G;
-	
+
 	specify
-		//pin to pin path delay 
+		//pin to pin path delay
 		(A => Y )	= 472;
 		(B => Y )	= 407;
 		(C => Y )	= 238;
@@ -647,7 +647,7 @@ module RAM1K20 (
 	input			B_DOUT_EN,
 	input			B_DOUT_SRST_N,
 	input			B_DOUT_ARST_N,
-	input			ECC_EN, 
+	input			ECC_EN,
 	input			ECC_BYPASS,
 	output			SB_CORRECT,
 	output			DB_DETECT,
@@ -684,7 +684,7 @@ module RAM64x12 (
 	input			R_ADDR_EN,
 	input 			R_ADDR_SL_N,
 	input			R_ADDR_SD,
-	input			R_ADDR_AL_N, 
+	input			R_ADDR_AL_N,
 	input			R_ADDR_AD_N,
 	input			BLK_EN,
 	output [11:0]	R_DATA,

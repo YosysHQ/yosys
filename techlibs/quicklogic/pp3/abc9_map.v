@@ -1,5 +1,5 @@
-// This file exists to map purely-synchronous flops to ABC9 flops, while 
-// mapping flops with asynchronous-set/clear as boxes, this is because ABC9 
+// This file exists to map purely-synchronous flops to ABC9 flops, while
+// mapping flops with asynchronous-set/clear as boxes, this is because ABC9
 // doesn't support asynchronous-set/clear flops in sequential synthesis.
 
 module dffepc (

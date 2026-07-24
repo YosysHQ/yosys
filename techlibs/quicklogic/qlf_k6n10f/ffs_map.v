@@ -130,4 +130,3 @@ module \$__SHREG_DFF_P_ (D, Q, C);
    endgenerate
 
 endmodule
-

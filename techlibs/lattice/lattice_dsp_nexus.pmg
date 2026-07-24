@@ -189,9 +189,9 @@ code
 
 	{
 		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
-		
-		auto ext9 = [&](SigSpec s) { 
-			s.extend_u0(9, is_signed); 
+
+		auto ext9 = [&](SigSpec s) {
+			s.extend_u0(9, is_signed);
 			return s;
 		};
 

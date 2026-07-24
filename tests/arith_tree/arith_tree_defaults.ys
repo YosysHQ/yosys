@@ -1,0 +1,76 @@
+# Idempotence
+read_verilog <<EOT
+module idem_add4(
+	input [3:0] a, b, c, d,
+	output [3:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+arith_tree
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module idem_mac(
+	input [3:0] a, b,
+	input [7:0] c,
+	output [7:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+arith_tree
+stat
+arith_tree
+select -assert-count 1 t:$add
+select -assert-count 0 t:$macc
+select -assert-count 0 t:$macc_v2
+select -assert-count 0 t:$mul
+design -reset
+
+read_verilog <<EOT
+module default_smoke(
+	input [15:0] a, b, c, d,
+	output [15:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+select -assert-min 0 t:$_AND_
+select -assert-min 0 t:$_XOR_
+design -reset
+
+read_verilog <<EOT
+module default_narrow(
+	input [14:0] a, b, c, d,
+	output [14:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+select -assert-count 0 t:$add a:adder_arch %i
+select -assert-none t:$_AND_ t:$_OR_ %u
+design -reset
