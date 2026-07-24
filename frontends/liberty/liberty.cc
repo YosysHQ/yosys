@@ -225,13 +225,13 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		if (child->id == "preset")
 			preset_sig = parse_func_expr(module, child->value.c_str());
 
-		for (auto& [id, var] : {pair{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}})
+		for (auto& [id, var] : {pair{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}}) {
 			if (child->id == id) {
 				if (child->value.size() != 1)
 					log_error("Unexpected length of clear_preset_var* value %s in FF cell %s\n", child->value, name);
 				*var = child->value[0];
 			}
-
+		}
 	}
 
 	if (clk_sig.size() == 0 || data_sig.size() == 0)
@@ -325,7 +325,10 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec enable_sig, data_sig, clear_sig, preset_sig;
 	bool enable_polarity = true, clear_polarity = true, preset_polarity = true;
+	const std::string name = module->name.unescape();
 
+	std::optional<char> clear_preset_var1;
+	std::optional<char> clear_preset_var2;
 	for (auto child : node->children) {
 		if (child->id == "enable")
 			enable_sig = parse_func_expr(module, child->value.c_str());
@@ -335,13 +338,21 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 			clear_sig = parse_func_expr(module, child->value.c_str());
 		if (child->id == "preset")
 			preset_sig = parse_func_expr(module, child->value.c_str());
+
+		for (auto& [id, var] : {pair{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}}) {
+			if (child->id == id) {
+				if (child->value.size() != 1)
+					log_error("Unexpected length of clear_preset_var* value %s in LATCH cell %s\n", child->value, name);
+				*var = child->value[0];
+			}
+		}
 	}
 
 	if (enable_sig.size() == 0 || data_sig.size() == 0) {
 		if (!flag_ignore_miss_data_latch)
-			log_error("Latch cell %s has no data_in and/or enable attribute.\n", module);
+			log_error("LATCH cell %s has no data_in and/or enable attribute.\n", name);
 		else
-			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", module);
+			log("Ignored LATCH cell %s with no data_in and/or enable attribute.\n", name);
 
 		return false;
 	}
@@ -369,70 +380,64 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		}
 	}
 
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_NOT_));
-	cell->setPort(ID::A, iq_sig);
-	cell->setPort(ID::Y, iqn_sig);
-
-	if (clear_sig.size() == 1)
-	{
-		RTLIL::SigSpec clear_negative = clear_sig;
-		RTLIL::SigSpec clear_enable = clear_sig;
-
-		if (clear_polarity == true || clear_polarity != enable_polarity)
-		{
-			RTLIL::Cell *inv = module->addCell(NEW_ID, ID($_NOT_));
-			inv->setPort(ID::A, clear_sig);
-			inv->setPort(ID::Y, module->addWire(NEW_ID));
-
-			if (clear_polarity == true)
-				clear_negative = inv->getPort(ID::Y);
-			if (clear_polarity != enable_polarity)
-				clear_enable = inv->getPort(ID::Y);
+	for (auto& [out_sig, cp_var, neg] : {tuple{iq_sig, clear_preset_var1, false}, {iqn_sig, clear_preset_var2, true}}) {
+		SigSpec q_sig = out_sig;
+		if (neg) {
+			q_sig = module->addWire(NEW_ID, out_sig.as_wire());
+			module->addNotGate(NEW_ID, q_sig, out_sig);
 		}
 
-		RTLIL::Cell *data_gate = module->addCell(NEW_ID, ID($_AND_));
-		data_gate->setPort(ID::A, data_sig);
-		data_gate->setPort(ID::B, clear_negative);
-		data_gate->setPort(ID::Y, data_sig = module->addWire(NEW_ID));
+		RTLIL::Cell* cell = module->addCell(NEW_ID, "");
+		cell->setPort(ID::D, data_sig);
+		cell->setPort(ID::Q, q_sig);
+		cell->setPort(ID::E, enable_sig);
 
-		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? ID($_OR_) : ID($_AND_));
-		enable_gate->setPort(ID::A, enable_sig);
-		enable_gate->setPort(ID::B, clear_enable);
-		enable_gate->setPort(ID::Y, enable_sig = module->addWire(NEW_ID));
-	}
-
-	if (preset_sig.size() == 1)
-	{
-		RTLIL::SigSpec preset_positive = preset_sig;
-		RTLIL::SigSpec preset_enable = preset_sig;
-
-		if (preset_polarity == false || preset_polarity != enable_polarity)
-		{
-			RTLIL::Cell *inv = module->addCell(NEW_ID, ID($_NOT_));
-			inv->setPort(ID::A, preset_sig);
-			inv->setPort(ID::Y, module->addWire(NEW_ID));
-
-			if (preset_polarity == false)
-				preset_positive = inv->getPort(ID::Y);
-			if (preset_polarity != enable_polarity)
-				preset_enable = inv->getPort(ID::Y);
+		if (clear_sig.size() == 0 && preset_sig.size() == 0) {
+			cell->type = stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N');
 		}
 
-		RTLIL::Cell *data_gate = module->addCell(NEW_ID, ID($_OR_));
-		data_gate->setPort(ID::A, data_sig);
-		data_gate->setPort(ID::B, preset_positive);
-		data_gate->setPort(ID::Y, data_sig = module->addWire(NEW_ID));
+		if (clear_sig.size() == 1 && preset_sig.size() == 0) {
+			cell->type = stringf("$_DLATCH_%c%c0_", enable_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
+			cell->setPort(ID::R, clear_sig);
+		}
 
-		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? ID($_OR_) : ID($_AND_));
-		enable_gate->setPort(ID::A, enable_sig);
-		enable_gate->setPort(ID::B, preset_enable);
-		enable_gate->setPort(ID::Y, enable_sig = module->addWire(NEW_ID));
+		if (clear_sig.size() == 0 && preset_sig.size() == 1) {
+			cell->type = stringf("$_DLATCH_%c%c1_", enable_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N');
+			cell->setPort(ID::R, preset_sig);
+		}
+
+		if (clear_sig.size() == 1 && preset_sig.size() == 1) {
+			cell->type = stringf("$_DLATCHSR_%c%c%c_", enable_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
+
+			SigBit s_sig = preset_sig;
+			SigBit r_sig = clear_sig;
+			if (cp_var && *cp_var != 'X') {
+				// Either set or reset dominates
+				bool set_dominates;
+				if (*cp_var == 'L') {
+					set_dominates = neg;
+				} else if (*cp_var == 'H') {
+					set_dominates = !neg;
+				} else {
+					log_error("LATCH cell %s has unsupported clear&preset behavior \'%c\'.\n", name, *cp_var);
+				}
+				log_debug("cell %s variable %d cp_var %c set dominates? %d\n", name, (int)neg + 1, *cp_var, set_dominates);
+				// S&R priority is well-defined now
+				if (set_dominates) {
+					r_sig = module->AndnotGate(NEW_ID, r_sig, s_sig);
+				} else {
+					s_sig = module->AndnotGate(NEW_ID, s_sig, r_sig);
+				}
+			} else {
+				log_debug("cell %s variable %d undef c&p behavior\n", name, (int)neg + 1);
+			}
+
+			cell->setPort(ID::S, s_sig);
+			cell->setPort(ID::R, r_sig);
+		}
+
+		log_assert(!cell->type.empty());
 	}
-
-	cell = module->addCell(NEW_ID, stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N'));
-	cell->setPort(ID::D, data_sig);
-	cell->setPort(ID::Q, iq_sig);
-	cell->setPort(ID::E, enable_sig);
 
 	return true;
 }

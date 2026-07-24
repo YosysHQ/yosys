@@ -1,0 +1,57 @@
+library(test) {
+  /* D-type latch with reset and preset */
+  cell (dlatchn) {
+    area : 6;
+    latch("IQ", "IQN") {
+      data_in : "D";
+      enable  : "!ENA";
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(ENA) {
+      direction : input;
+      clock : true;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    }
+  }
+  cell (dlatchsr) {
+    area : 6;
+    latch("IQ", "IQN") {
+      data_in : "D";
+      enable  : "ENA";
+      clear   : "CLEAR";
+      preset  : "PRESET";
+      clear_preset_var1 : L;
+      clear_preset_var2 : L;
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(ENA) {
+      direction : input;
+      clock : true;
+    }
+    pin(CLEAR) {
+      direction : input;
+    }
+    pin(PRESET) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    }
+  }
+}

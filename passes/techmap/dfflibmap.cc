@@ -36,7 +36,7 @@ static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 static void logmap(IdString dff)
 {
 	if (cell_mappings.count(dff) == 0) {
-		log("    unmapped dff cell: %s\n", dff);
+		log("    unmapped dff/dlatch cell: %s\n", dff);
 	} else {
 		log("    %s %s (", cell_mappings[dff].cell_name, dff.substr(1));
 		bool first = true;
@@ -80,6 +80,27 @@ static void logmap_all()
 	logmap(ID($_DFFSR_PNP_));
 	logmap(ID($_DFFSR_PPN_));
 	logmap(ID($_DFFSR_PPP_));
+
+	logmap(ID($_DLATCH_N_));
+	logmap(ID($_DLATCH_P_));
+
+	logmap(ID($_DLATCH_NN0_));
+	logmap(ID($_DLATCH_NN1_));
+	logmap(ID($_DLATCH_NP0_));
+	logmap(ID($_DLATCH_NP1_));
+	logmap(ID($_DLATCH_PN0_));
+	logmap(ID($_DLATCH_PN1_));
+	logmap(ID($_DLATCH_PP0_));
+	logmap(ID($_DLATCH_PP1_));
+
+	logmap(ID($_DLATCHSR_NNN_));
+	logmap(ID($_DLATCHSR_NNP_));
+	logmap(ID($_DLATCHSR_NPN_));
+	logmap(ID($_DLATCHSR_NPP_));
+	logmap(ID($_DLATCHSR_PNN_));
+	logmap(ID($_DLATCHSR_PNP_));
+	logmap(ID($_DLATCHSR_PPN_));
+	logmap(ID($_DLATCHSR_PPP_));
 }
 
 static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std::string &data_name, bool &data_not_inverted, std::string &enable_name, bool &enable_not_inverted)
@@ -234,7 +255,66 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
 	return false;
 }
 
-static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
+void find_better_cell(const LibertyAst *cell, const LibertyAst &storage, bool data_pol, const LibertyAst *&best, double &best_area, int &best_pins, bool &best_noninv, std::map<std::string, char> &this_ports, std::map<std::string, char> &best_ports)
+{
+	double area = 0;
+	const LibertyAst *ar = cell->find("area");
+	if (ar != nullptr && !ar->value.empty())
+		area = atof(ar->value.c_str());
+
+	int num_pins = 0;
+	bool found_output = false;
+	bool found_noninv_output = false;
+	for (auto pin : cell->children)
+	{
+		if (pin->id != "pin" || pin->args.size() != 1)
+			continue;
+
+		const LibertyAst *dir = pin->find("direction");
+		if (dir == nullptr || dir->value == "internal")
+			continue;
+		num_pins++;
+
+		if (dir->value == "input" && this_ports.count(pin->args[0]) == 0)
+			return;
+
+		const LibertyAst *func = pin->find("function");
+		if (dir->value == "output" && func != nullptr) {
+			std::string value = func->value;
+			for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
+				value.erase(pos, 1);
+			if (value == storage.args[0]) {
+				this_ports[pin->args[0]] = data_pol ? 'Q' : 'q';
+				if (data_pol)
+					found_noninv_output = true;
+				found_output = true;
+			} else
+			if (value == storage.args[1]) {
+				this_ports[pin->args[0]] = data_pol ? 'q' : 'Q';
+				if (!data_pol)
+					found_noninv_output = true;
+				found_output = true;
+			}
+		}
+
+		if (this_ports.count(pin->args[0]) == 0)
+			this_ports[pin->args[0]] = 0;
+	}
+
+	if (!found_output || (best != nullptr && (num_pins > best_pins || (best_noninv && !found_noninv_output))))
+		return;
+
+	if (best != nullptr && num_pins == best_pins && area >= best_area)
+		return;
+
+	best = cell;
+	best_pins = num_pins;
+	best_area = area;
+	best_noninv = found_noninv_output;
+	best_ports.swap(this_ports);
+}
+
+static void find_cell_dff(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
 	const LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
@@ -272,18 +352,11 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
 			continue;
 
-		bool cell_rstval = rstval;
-		if (has_reset && !cell_next_pol) {
-			// next_state is negated
-			// we later propagate this inversion to the output,
-			// which requires the negation of the reset value
-			cell_rstval = !rstval;
-		}
-		if (has_reset && cell_rstval == false) {
+		if (has_reset && rstval != cell_next_pol) {
 			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
-		if (has_reset && cell_rstval == true) {
+		if (has_reset && rstval == cell_next_pol) {
 			if (!parse_pin(cell, ff->find("preset"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
@@ -296,62 +369,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == ff->args[0]) {
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == ff->args[1]) {
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		find_better_cell(cell, *ff, cell_next_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
 	}
 
 	if (best_cell != nullptr) {
@@ -362,7 +380,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 	}
 }
 
-static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
+static void find_cell_dffsr(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
 	const LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
@@ -426,64 +444,142 @@ static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_ty
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
+		find_better_cell(cell, *ff, cell_next_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
+	}
 
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
+	if (best_cell != nullptr) {
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
+				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
+		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
+		cell_mappings[cell_type].ports = best_cell_ports;
+	}
+}
+
+static void find_cell_dlatch(std::vector<const LibertyAst *> cells, IdString cell_type, bool enablepol, bool has_reset, bool rstpol, bool rstval, std::vector<std::string> &dont_use_cells)
+{
+	const LibertyAst *best_cell = nullptr;
+	std::map<std::string, char> best_cell_ports;
+	int best_cell_pins = 0;
+	bool best_cell_noninv = false;
+	double best_cell_area = 0;
+
+	for (auto cell : cells)
+	{
+		const LibertyAst *dn = cell->find("dont_use");
+		if (dn != nullptr && dn->value == "true")
+			continue;
+
+		bool dont_use = false;
+		for (std::string &dont_use_cell : dont_use_cells)
 		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == ff->args[0]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == ff->args[1]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
+			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
+			{
+				dont_use = true;
+				break;
 			}
+		}
+		if (dont_use)
+			continue;
 
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
+		const LibertyAst *latch = cell->find("latch");
+		if (latch == nullptr)
+			continue;
+
+		std::string cell_enable_pin, cell_rst_pin, cell_data_pin;
+		bool cell_enable_pol, cell_rst_pol, cell_data_pol;
+
+		if (!parse_pin(cell, latch->find("enable"), cell_enable_pin, cell_enable_pol) || cell_enable_pol != enablepol)
+			continue;
+		if (!parse_pin(cell, latch->find("data_in"), cell_data_pin, cell_data_pol))
+			continue;
+
+		if (has_reset && rstval != cell_data_pol) {
+			if (!parse_pin(cell, latch->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
+				continue;
+		}
+		if (has_reset && rstval == cell_data_pol) {
+			if (!parse_pin(cell, latch->find("preset"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
+				continue;
 		}
 
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
+		std::map<std::string, char> this_cell_ports;
+		this_cell_ports[cell_enable_pin] = 'E';
+		if (has_reset)
+			this_cell_ports[cell_rst_pin] = 'R';
+		this_cell_ports[cell_data_pin] = 'D';
+
+		find_better_cell(cell, *latch, cell_data_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
+	}
+
+	if (best_cell != nullptr) {
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
+				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
+		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
+		cell_mappings[cell_type].ports = best_cell_ports;
+	}
+}
+
+static void find_cell_dlatchsr(std::vector<const LibertyAst *> cells, IdString cell_type, bool enablepol, bool setpol, bool clrpol, std::vector<std::string> &dont_use_cells)
+{
+	const LibertyAst *best_cell = nullptr;
+	std::map<std::string, char> best_cell_ports;
+	int best_cell_pins = 0;
+	bool best_cell_noninv = false;
+	double best_cell_area = 0;
+
+	for (auto cell : cells)
+	{
+		const LibertyAst *dn = cell->find("dont_use");
+		if (dn != nullptr && dn->value == "true")
 			continue;
 
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
+		bool dont_use = false;
+		for (std::string &dont_use_cell : dont_use_cells)
+		{
+			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
+			{
+				dont_use = true;
+				break;
+			}
+		}
+		if (dont_use)
 			continue;
 
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		const LibertyAst *latch = cell->find("latch");
+		if (latch == nullptr)
+			continue;
+
+		std::string cell_enable_pin, cell_set_pin, cell_clr_pin, cell_data_pin;
+		bool cell_enable_pol, cell_set_pol, cell_clr_pol, cell_data_pol;
+
+		if (!parse_pin(cell, latch->find("enable"), cell_enable_pin, cell_enable_pol) || cell_enable_pol != enablepol)
+			continue;
+		if (!parse_pin(cell, latch->find("data_in"), cell_data_pin, cell_data_pol))
+			continue;
+
+		if (!parse_pin(cell, latch->find("preset"), cell_set_pin, cell_set_pol))
+			continue;
+		if (!parse_pin(cell, latch->find("clear"), cell_clr_pin, cell_clr_pol))
+			continue;
+		if (!cell_data_pol) {
+			// data_in is negated
+			// we later propagate this inversion to the output,
+			// which requires the swap of set and reset
+			std::swap(cell_set_pin, cell_clr_pin);
+			std::swap(cell_set_pol, cell_clr_pol);
+		}
+		if (cell_set_pol != setpol)
+			continue;
+		if (cell_clr_pol != clrpol)
+			continue;
+
+		std::map<std::string, char> this_cell_ports;
+		this_cell_ports[cell_enable_pin] = 'E';
+		this_cell_ports[cell_set_pin] = 'S';
+		this_cell_ports[cell_clr_pin] = 'R';
+		this_cell_ports[cell_data_pin] = 'D';
+
+		find_better_cell(cell, *latch, cell_data_pol, best_cell, best_cell_area, best_cell_pins, best_cell_noninv, this_cell_ports, best_cell_ports);
 	}
 
 	if (best_cell != nullptr) {
@@ -496,7 +592,7 @@ static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_ty
 
 static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 {
-	log("Mapping DFF cells in module `%s':\n", module->name);
+	log("Mapping DFF/DLATCH cells in module `%s':\n", module->name);
 
 	dict<SigBit, pool<Cell*>> notmap;
 	SigMap sigmap(module);
@@ -569,19 +665,25 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 }
 
 struct DfflibmapPass : public Pass {
-	DfflibmapPass() : Pass("dfflibmap", "technology mapping of flip-flops") { }
+	DfflibmapPass() : Pass("dfflibmap", "technology mapping of flip-flops and latches") { }
 	void help() override
 	{
 		log("\n");
 		log("    dfflibmap [-prepare] [-map-only] [-info] [-dont_use <cell_name>] -liberty <file> [selection]\n");
 		log("\n");
-		log("Map internal flip-flop cells to the flip-flop cells in the technology\n");
-		log("library specified in the given liberty files.\n");
+		log("Map internal flip-flop/latch cells to the flip-flop/latch cells in the\n");
+		log("technology library specified in the given liberty files.\n");
 		log("\n");
 		log("This pass may add inverters as needed. Therefore it is recommended to\n");
 		log("first run this pass and then map the logic paths to the target technology.\n");
+		log("Since inverters are added for each technology cell, an opt_merge pass\n");
+		log("would reduce the redundancy.\n");
 		log("\n");
-		log("When called with -prepare, this command will convert the internal FF cells\n");
+		log("WARNING: This pass does not handle asynchronous clear/preset priority,\n");
+		log("if there is a mismatch between the priority in RTL and the cell in the technology library.\n");
+		log("If the RTL is able to drive both simultaneously, this will result in an equivalence mismatch.\n");
+		log("\n");
+		log("When called with -prepare, this command will convert the internal FF/LATCH cells\n");
 		log("to the internal cell types that best match the cells found in the given\n");
 		log("liberty file, but won't actually map them to the target cells.\n");
 		log("\n");
@@ -591,7 +693,7 @@ struct DfflibmapPass : public Pass {
 		log("\n");
 		log("When called with -info, this command will only print the target cell\n");
 		log("list, along with their associated internal cell types, and the arguments\n");
-		log("that would be passed to the dfflegalize pass.  The design will not be\n");
+		log("that would be passed to the dfflegalize pass. The design will not be\n");
 		log("changed.\n");
 		log("\n");
 		log("When called with -dont_use, this command will not map to the specified cell\n");
@@ -602,7 +704,7 @@ struct DfflibmapPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).\n");
+		log_header(design, "Executing DFFLIBMAP pass (mapping DFF/DLATCH cells to sequential cells from liberty file).\n");
 		log_push();
 
 		bool prepare_mode = false;
@@ -661,40 +763,65 @@ struct DfflibmapPass : public Pass {
 			delete f;
 		}
 
-		find_cell(merged.cells, ID($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
+        //                   cells, cell_type   , c_pol, has_r, r_pol, r_val, has_e, e_pol
+		find_cell_dff(merged.cells, ID($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
+		find_cell_dff(merged.cells, ID($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
 
-		find_cell_sr(merged.cells, ID($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
+		//                     cells, cell_type       , c_pol, s_pol, r_pol, has_e, e_pol
+		find_cell_dffsr(merged.cells, ID($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
+		find_cell_dffsr(merged.cells, ID($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
 
-		log("  final dff cell mappings:\n");
+        //                      cells, cell_type      , e_pol, has_r, r_pol, r_val
+		find_cell_dlatch(merged.cells, ID($_DLATCH_N_), false, false, false, false, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_P_), true, false, false, false, dont_use_cells);
+
+		find_cell_dlatch(merged.cells, ID($_DLATCH_NN0_), false, true, false, false, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_NN1_), false, true, false, true, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_NP0_), false, true, true, false, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_NP1_), false, true, true, true, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_PN0_), true, true, false, false, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_PN1_), true, true, false, true, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_PP0_), true, true, true, false, dont_use_cells);
+		find_cell_dlatch(merged.cells, ID($_DLATCH_PP1_), true, true, true, true, dont_use_cells);
+
+		//                        cells, cell_type          , e_pol, s_pol, r_pol
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_NNN_), false, false, false, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_NNP_), false, false, true, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_NPN_), false, true, false, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_NPP_), false, true, true, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_PNN_), true, false, false, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_PNP_), true, false, true, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_PPN_), true, true, false, dont_use_cells);
+		find_cell_dlatchsr(merged.cells, ID($_DLATCHSR_PPP_), true, true, true, dont_use_cells);
+
+		log("  final dff/dlatch cell mappings:\n");
 		logmap_all();
 
 		if (!map_only_mode) {
 			std::string dfflegalize_cmd = "dfflegalize";
 			for (auto it : cell_mappings)
 				dfflegalize_cmd += stringf(" -cell %s 01", it.first);
-			dfflegalize_cmd += " t:$_DFF* t:$_SDFF*";
+			dfflegalize_cmd += " t:$_DFF* t:$_SDFF* t:$_DLATCH*";
 			if (info_mode) {
 				log("dfflegalize command line: %s\n", dfflegalize_cmd);
 			} else {

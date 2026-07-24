@@ -1,0 +1,24 @@
+library(test) {
+  cell (dlatchn) {
+    area : 6;
+    latch("IQ", "IQN") {
+      data_in : "D";
+      enable : "!ENA";
+    } 
+    pin(D) {
+      direction : input;
+    }
+    pin(ENA) {
+      direction : input;
+      clock : true;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    } 
+  }
+}

@@ -1,0 +1,24 @@
+library (test_not_data) {
+  cell (dff_not_data) {
+    area: 1.0;
+    pin (QN) {
+      direction : output;
+      function : "STATE";
+    }
+    pin (ENA) {
+      direction : input;
+      clock : true;
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (RN) {
+      direction : input;
+    }
+    latch (STATE, STATEN) {
+      enable: "ENA";
+      data_in: "!D";
+      preset : "!RN";
+    }
+  }
+}
