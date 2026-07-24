@@ -1,0 +1,14 @@
+# Partial aliasing
+read_verilog << EOF
+module gate_swap (
+    .a(a),
+    .b(b),
+    c
+);
+    input a;
+    input b;
+    output c;
+    assign c = a & !b;
+endmodule
+EOF
+design -reset
