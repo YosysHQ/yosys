@@ -220,6 +220,14 @@ endcode
 
 pattern nexus_mul_reg
 
+state <SigBit> clk
+state <SigSpec> argQ argD
+state <Cell*> ffA ffB ffY
+
+udata <Cell*> dff
+udata <SigBit> dffclk
+udata <SigSpec> dffD dffQ
+
 match mul
 	select mul->type.in($mul)
 	select GetSize(port(mul, \A)) <= 36
@@ -227,199 +235,213 @@ match mul
 	select GetSize(port(mul, \Y)) <= 72
 endmatch
 
-match ffA
-	select ffA->type.in($dff, $dffe, $sdff, $sdffe)
-	select param(ffA, \CLK_POLARITY).as_bool()
-	filter ffA->type.in($dff, $dffe) || param(ffA, \SRST_VALUE).is_fully_zero()
-	filter GetSize(port(ffA, \Q)) == GetSize(port(mul, \A))
-	index <SigSpec> port(ffA, \Q) === port(mul, \A)
-	optional
-endmatch
+// Absorb the pipeline FF on each mul input
+code argQ ffA clk
+	argQ = port(mul, \A);
+	subpattern(in_ff);
+	if (dff) {
+		ffA = dff;
+		clk = dffclk;
+	}
+endcode
 
-match ffB
-	select ffB->type.in($dff, $dffe, $sdff, $sdffe)
-	select param(ffB, \CLK_POLARITY).as_bool()
-	filter ffB->type.in($dff, $dffe) || param(ffB, \SRST_VALUE).is_fully_zero()
-	filter GetSize(port(ffB, \Q)) == GetSize(port(mul, \B))
-	index <SigSpec> port(ffB, \Q) === port(mul, \B)
-	optional
-endmatch
+code argQ ffB clk
+	argQ = port(mul, \B);
+	subpattern(in_ff);
+	if (dff) {
+		ffB = dff;
+		clk = dffclk;
+	}
+endcode
 
-match ffY
-	select ffY->type.in($dff, $dffe, $sdff, $sdffe)
-	select param(ffY, \CLK_POLARITY).as_bool()
-	filter ffY->type.in($dff, $dffe) || param(ffY, \SRST_VALUE).is_fully_zero()
-	filter GetSize(port(ffY, \D)) == GetSize(port(mul, \Y))
-	index <SigSpec> port(ffY, \D) === port(mul, \Y)
-	optional
-endmatch
+// Absorb the FF on the mul output
+code argD ffY clk
+	argD = port(mul, \Y);
+	subpattern(out_ff);
+	if (dff) {
+		ffY = dff;
+		clk = dffclk;
+	}
+endcode
 
 code
-	Cell *fa = ffA;
-	Cell *fb = ffB;
-	Cell *fy = ffY;
-
-	if (!fa && !fb && !fy)
+	if (!ffA && !ffB && !ffY)
 		reject;
 
 	{
-		// Drop any FF whose Q carries a non-zero power-up value, since the DSP reg powers up at 0
-		auto bad_init = [&](Cell *ff) -> bool {
-			SigSpec q = port(ff, \Q);
+		int aw = GetSize(port(mul, \A));
+		int bw = GetSize(port(mul, \B));
+		IdString prim;
+		int A_PINS;
+		int B_PINS;
 
-			for (auto bit : sigmap(q)) {
-				if (!bit.wire)
-					continue;
-
-				auto it = bit.wire->attributes.find(\init);
-				if (it == bit.wire->attributes.end())
-					continue;
-
-				Const init = it->second;
-				int off = bit.offset;
-
-				if (off < GetSize(init)) {
-					State s = init[off];
-					if (s != State::Sx && s != State::S0)
-						return true;
-				}
-			}
-
-			return false;
-		};
-
-		if (fa && bad_init(fa)) fa = nullptr;
-		if (fb && bad_init(fb)) fb = nullptr;
-		if (fy && bad_init(fy)) fy = nullptr;
-
-		// All absorbed FFs must share one clock domain
-		SigBit clk;
-		bool have_clk = false;
-
-		{
-			Cell *ffs[3] = { fa, fb, fy };
-			for (Cell *ff : ffs) {
-				if (!ff) continue;
-
-				SigBit c = sigmap(port(ff, \CLK)[0]);
-
-				if (!have_clk) {
-					clk = c;
-					have_clk = true;
-					continue;
-				}
-
-				if (c != clk) {
-					if (ff == fa) fa = nullptr;
-					else if (ff == fb) fb = nullptr;
-					else fy = nullptr;
-				}
-			}
+		if (aw <= 18 && bw <= 18) {
+			prim = "$__NX_MUL18X18";
+			A_PINS = 18;
+			B_PINS = 18;
+		} else if (aw <= 36 && bw <= 18) {
+			prim = "$__NX_MUL36X18";
+			A_PINS = 36;
+			B_PINS = 18;
+		} else if (aw <= 18 && bw <= 36) {
+			prim = "$__NX_MUL36X18";
+			A_PINS = 36;
+			B_PINS = 18;
+		} else {
+			prim = "$__NX_MUL36X36";
+			A_PINS = 36;
+			B_PINS = 36;
 		}
 
-		// If every candidate was filtered out, don't build a DSP reg cell
-		if (fa || fb || fy) {
-			int aw = GetSize(port(mul, \A));
-			int bw = GetSize(port(mul, \B));
-			IdString prim;
-			int A_PINS;
-			int B_PINS;
+		bool a_signed = mul->getParam(\A_SIGNED).as_bool();
+		bool b_signed = mul->getParam(\B_SIGNED).as_bool();
+		// Drive the DSP from the FF's D
+		SigSpec sigA = ffA ? port(ffA, \D) : port(mul, \A);
+		SigSpec sigB = ffB ? port(ffB, \D) : port(mul, \B);
+		SigSpec sigY = ffY ? port(ffY, \Q) : port(mul, \Y);
 
-			if (aw <= 18 && bw <= 18) {
-				prim = "$__NX_MUL18X18";
-				A_PINS = 18;
-				B_PINS = 18;
-			} else if (aw <= 36 && bw <= 18) {
-				prim = "$__NX_MUL36X18";
-				A_PINS = 36;
-				B_PINS = 18;
-			} else if (aw <= 18 && bw <= 36) {
-				prim = "$__NX_MUL36X18";
-				A_PINS = 36;
-				B_PINS = 18;
-			} else {
-				prim = "$__NX_MUL36X36";
-				A_PINS = 36;
-				B_PINS = 36;
+		// 36X18 -> wide operand goes to A
+		Cell *ffa = ffA;
+		Cell *ffb = ffB;
+		if (prim == "$__NX_MUL36X18" && aw <= 18 && bw <= 36) {
+			std::swap(sigA, sigB);
+			std::swap(a_signed, b_signed);
+			std::swap(ffa, ffb);
+		}
+
+		sigA.extend_u0(A_PINS, a_signed);
+		sigB.extend_u0(B_PINS, b_signed);
+
+		Cell *cell = module->addCell(NEW_ID, prim);
+		cell->setPort(\A, sigA);
+		cell->setPort(\B, sigB);
+		cell->setPort(\Y, sigY);
+		cell->setParam(\A_WIDTH, A_PINS);
+		cell->setParam(\B_WIDTH, B_PINS);
+		cell->setParam(\Y_WIDTH, GetSize(sigY));
+		cell->setParam(\A_SIGNED, a_signed ? State::S1 : State::S0);
+		cell->setParam(\B_SIGNED, b_signed ? State::S1 : State::S0);
+		cell->setParam(\RESETMODE, std::string("SYNC"));
+
+		auto ce_of = [&](Cell *ff) -> SigBit {
+			if (!ff) return State::S0;
+
+			if (ff->type.in($dffe, $sdffe)) {
+				SigBit e = port(ff, \EN)[0];
+				if (!ff->getParam(\EN_POLARITY).as_bool())
+					e = module->NotGate(NEW_ID, e);
+
+				return e;
 			}
 
-			bool a_signed = mul->getParam(\A_SIGNED).as_bool();
-			bool b_signed = mul->getParam(\B_SIGNED).as_bool();
-			// Drive the DSP from the FF's D
-			SigSpec sigA = fa ? port(fa, \D) : port(mul, \A);
-			SigSpec sigB = fb ? port(fb, \D) : port(mul, \B);
-			SigSpec sigY = fy ? port(fy, \Q) : port(mul, \Y);
+			return State::S1; // Always enabled
+		};
 
-			// 36X18 -> wide operand goes to A
-			Cell *ffA_use = fa;
-			Cell *ffB_use = fb;
-			if (prim == "$__NX_MUL36X18" && aw <= 18 && bw <= 36) {
-				std::swap(sigA, sigB);
-				std::swap(a_signed, b_signed);
-				std::swap(ffA_use, ffB_use);
+		auto rst_of = [&](Cell *ff) -> SigBit {
+			if (!ff) return State::S0;
+
+			if (ff->type.in($sdff, $sdffe)) {
+				SigBit r = port(ff, \SRST)[0];
+				if (!ff->getParam(\SRST_POLARITY).as_bool())
+					r = module->NotGate(NEW_ID, r);
+
+				return r;
 			}
 
-			sigA.extend_u0(A_PINS, a_signed);
-			sigB.extend_u0(B_PINS, b_signed);
+			return State::S0; // No reset
+		};
 
-			Cell *cell = module->addCell(NEW_ID, prim);
-			cell->setPort(\A, sigA);
-			cell->setPort(\B, sigB);
-			cell->setPort(\Y, sigY);
-			cell->setParam(\A_WIDTH, A_PINS);
-			cell->setParam(\B_WIDTH, B_PINS);
-			cell->setParam(\Y_WIDTH, GetSize(sigY));
-			cell->setParam(\A_SIGNED, a_signed ? State::S1 : State::S0);
-			cell->setParam(\B_SIGNED, b_signed ? State::S1 : State::S0);
-			cell->setParam(\RESETMODE, std::string("SYNC"));
+		cell->setPort(\CLK, clk != SigBit() ? clk : State::S0);
+		cell->setPort(\CEA, ce_of(ffa));
+		cell->setPort(\RSTA, rst_of(ffa));
+		cell->setPort(\CEB, ce_of(ffb));
+		cell->setPort(\RSTB, rst_of(ffb));
+		cell->setPort(\CEOUT, ce_of(ffY));
+		cell->setPort(\RSTOUT, rst_of(ffY));
+		cell->setParam(\REGINPUTA, ffa ? std::string("REGISTER") : std::string("BYPASS"));
+		cell->setParam(\REGINPUTB, ffb ? std::string("REGISTER") : std::string("BYPASS"));
+		cell->setParam(\REGOUTPUT, ffY ? std::string("REGISTER") : std::string("BYPASS"));
 
-			auto ce_of = [&](Cell *ff) -> SigBit {
-				if (!ff) return State::S0;
+		if (ffa) autoremove(ffa);
+		if (ffb && ffb != ffa) autoremove(ffb);
+		if (ffY) autoremove(ffY);
+		autoremove(mul);
 
-				if (ff->type.in($dffe, $sdffe)) {
-					SigBit e = port(ff, \EN)[0];
-					if (!ff->getParam(\EN_POLARITY).as_bool())
-						e = module->NotGate(NEW_ID, e);
+		accept;
+	}
+endcode
 
-					return e;
-				}
+// Find the input pipeline FF whose Q feeds argQ
+subpattern in_ff
+arg argQ clk
 
-				return State::S1; // Always enabled
-			};
+code
+	dff = nullptr;
+endcode
 
-			auto rst_of = [&](Cell *ff) -> SigBit {
-				if (!ff) return State::S0;
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	select param(ff, \CLK_POLARITY).as_bool()
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
+	filter GetSize(port(ff, \Q)) == GetSize(argQ)
+	index <SigSpec> port(ff, \Q) === argQ
+endmatch
 
-				if (ff->type.in($sdff, $sdffe)) {
-					SigBit r = port(ff, \SRST)[0];
-					if (!ff->getParam(\SRST_POLARITY).as_bool())
-						r = module->NotGate(NEW_ID, r);
+code
+	if (clk != SigBit() && sigmap(port(ff, \CLK)[0]) != clk)
+		reject;
 
-					return r;
-				}
-
-				return State::S0; // No reset
-			};
-
-			cell->setPort(\CLK, have_clk ? clk : State::S0);
-			cell->setPort(\CEA, ce_of(ffA_use));
-			cell->setPort(\RSTA, rst_of(ffA_use));
-			cell->setPort(\CEB, ce_of(ffB_use));
-			cell->setPort(\RSTB, rst_of(ffB_use));
-			cell->setPort(\CEOUT, ce_of(fy));
-			cell->setPort(\RSTOUT, rst_of(fy));
-			cell->setParam(\REGINPUTA, ffA_use ? std::string("REGISTER") : std::string("BYPASS"));
-			cell->setParam(\REGINPUTB, ffB_use ? std::string("REGISTER") : std::string("BYPASS"));
-			cell->setParam(\REGOUTPUT, fy ? std::string("REGISTER") : std::string("BYPASS"));
-
-			if (ffA_use) autoremove(ffA_use);
-			if (ffB_use && ffB_use != ffA_use) autoremove(ffB_use);
-			if (fy) autoremove(fy);
-			autoremove(mul);
-
-			accept;
+	for (auto bit : sigmap(port(ff, \Q))) {
+		if (!bit.wire)
+			continue;
+		auto it = bit.wire->attributes.find(\init);
+		if (it == bit.wire->attributes.end())
+			continue;
+		if (bit.offset < GetSize(it->second)) {
+			State s = it->second[bit.offset];
+			if (s != State::Sx && s != State::S0)
+				reject;
 		}
 	}
 
-	reject;
+	dff = ff;
+	dffD = port(ff, \D);
+	dffclk = sigmap(port(ff, \CLK)[0]);
+endcode
+
+subpattern out_ff
+arg argD clk
+
+code
+	dff = nullptr;
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	select param(ff, \CLK_POLARITY).as_bool()
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
+	filter GetSize(port(ff, \D)) == GetSize(argD)
+	index <SigSpec> port(ff, \D) === argD
+endmatch
+
+code
+	if (clk != SigBit() && sigmap(port(ff, \CLK)[0]) != clk)
+		reject;
+
+	for (auto bit : sigmap(port(ff, \Q))) {
+		if (!bit.wire)
+			continue;
+		auto it = bit.wire->attributes.find(\init);
+		if (it == bit.wire->attributes.end())
+			continue;
+		if (bit.offset < GetSize(it->second)) {
+			State s = it->second[bit.offset];
+			if (s != State::Sx && s != State::S0)
+				reject;
+		}
+	}
+
+	dff = ff;
+	dffQ = port(ff, \Q);
+	dffclk = sigmap(port(ff, \CLK)[0]);
 endcode
