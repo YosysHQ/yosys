@@ -539,6 +539,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 	add_custom_target(test-unit
 		COMMAND ${CMAKE_CTEST_COMMAND} --test-dir tests/unit --output-on-failure
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		DEPENDS $<$<TARGET_EXISTS:yosys-gtest-all>:yosys-gtest-all>
 	)
 
 	add_custom_target(test-vanilla

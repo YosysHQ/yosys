@@ -198,9 +198,6 @@ yosys_pass(dfflegalize
 yosys_pass(dffunmap
 	dffunmap.cc
 )
-yosys_pass(flowmap
-	flowmap.cc
-)
 yosys_pass(extractinv
 	extractinv.cc
 )

@@ -38,7 +38,6 @@ yosys_pass(synth_ice40
 		deminout
 		dfflegalize
 		flatten
-		flowmap
 		fsm
 		hierarchy
 		ice40_braminit

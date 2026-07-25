@@ -77,7 +77,7 @@ void run_fixed(xilinx_srl_pm &pm)
 		}
 		else
 			log_abort();
-		if (first_cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
+		if (first_cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1)))
 			c->setParam(ID(ENPOL), 1);
 		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
 			c->setParam(ID(ENPOL), 0);
