@@ -242,3 +242,129 @@ design -reset
 log -pop
 
 
+
+# =============================================================================
+# Test 10: SAT self-equivalence — uniform per-bit gather before vs after
+# The gather fold rewrites 82 independent bit-selects into two barrel shifts,
+# so prove the assembled words are unchanged before pinning the structure.
+# =============================================================================
+log -header "SAT self-equivalence: uniform gather before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather.sv
+verific -import opt_vps_gather
+proc; opt_clean
+rename opt_vps_gather gold
+
+read -sv opt_vps_gather.sv
+verific -import opt_vps_gather
+proc; opt_clean
+opt_vps; opt_clean
+rename opt_vps_gather gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 11: Cell counts — uniform per-bit gather folds to one barrel per group
+# Both lane banks read the same table at an index affine in the lane number, so
+# each collapses to a single $shr. The $bmux count reaching zero is the point:
+# the subtract bank's top lane is the one whose index opt_expr spells as a
+# narrow core with a constant-1 MSB extension, and if the affine analysis reads
+# that as an unknown sign extension instead of a known addend, that lane lands
+# in its own group and survives as a leftover $bmux.
+# =============================================================================
+log -header "Cell counts: uniform gather post-opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather.sv
+verific -import opt_vps_gather
+proc; opt_clean
+
+# The shape that reaches the pass: one $bmux per lane, two banks of 41.
+select -assert-count 82 t:$bmux
+design -save pregather
+
+opt_vps; opt_clean
+select -assert-count 0 t:$bmux
+select -assert-count 2 t:$shr
+
+# -min_gather 0 disables the fold, so the same netlist keeps every $bmux. This
+# is what keeps the assertions above from passing on a netlist that never had a
+# foldable gather in the first place.
+design -load pregather
+opt_vps -min_gather 0; opt_clean
+select -assert-count 82 t:$bmux
+select -assert-count 0 t:$shr
+design -reset
+log -pop
+
+# =============================================================================
+# Test 12: zero-fill gather — the other matcher shape, and its wrap guard
+# A bank of one-bit-wide right shifts is a gather too: Y[k] = A[B + k] with zero
+# fill past the end. Folding it is only sound while an out-of-range index cannot
+# alias back into the table, so the same RTL is tested at two index widths.
+# read_verilog is used here because Verific elaborates bit-selects to $bmux,
+# which takes the other path.
+# =============================================================================
+log -header "Zero-fill gather: folds when in range, refused when it can alias"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [63:0] src,
+  input  logic [4:0]  amt,
+  output logic [31:0] dst
+);
+  always_comb begin
+    logic [63:0] sh;
+    for (int i = 0; i < 32; i++) begin
+      sh = src >> (7'(amt) + 7'(i));
+      dst[i] = sh[0];
+    end
+  end
+endmodule
+EOF
+proc; opt_expr; wreduce; opt_clean
+select -assert-count 32 t:$shr
+equiv_opt -assert opt_vps
+design -load postopt
+opt_clean
+select -assert-max 2 t:$shr
+design -reset
+
+# Same gather, but the shift amount is now as wide as the index: amt + 31 wraps
+# in 6 bits, so a lane that should read zero would instead alias to the bottom
+# of the table. The fold must be refused and every $shr left standing.
+read_verilog -sv <<EOF
+module top (
+  input  logic [63:0] src,
+  input  logic [5:0]  amt,
+  output logic [31:0] dst
+);
+  always_comb begin
+    logic [63:0] sh;
+    for (int i = 0; i < 32; i++) begin
+      sh = src >> (amt + 6'(i));
+      dst[i] = sh[0];
+    end
+  end
+endmodule
+EOF
+proc; opt_expr; wreduce; opt_clean
+select -assert-count 32 t:$shr
+opt_vps; opt_clean
+select -assert-count 32 t:$shr
+design -reset
+log -pop
