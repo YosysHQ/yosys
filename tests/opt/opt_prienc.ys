@@ -1147,3 +1147,76 @@ sat -verify -set x 8'h00 -set a 16'hbeef \
     -prove y_down 16'hbe00 -prove y_up 16'hbf00 -prove y_onehot 16'h0100
 design -reset
 log -pop
+
+# ============================================================================
+# Group N: runs of ones, not just runs of zeros
+# ============================================================================
+
+# N1: count trailing ones. Same casez ladder as A3 with the polarity flipped,
+# so the run being measured is of ones and the network has to invert the input
+# before the leading-bit search. The variant name is pinned because the rewrite
+# would still be equivalent -- and the group would still pass -- if the pass
+# fell back to treating this as a plain priority encoder.
+log -header "N1: 8-bit count-trailing-ones via casez (cto_full)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] x,
+  output reg [3:0] y
+);
+  always @* begin
+    casez (x)
+      8'b???????0: y = 4'd0;
+      8'b??????01: y = 4'd1;
+      8'b?????011: y = 4'd2;
+      8'b????0111: y = 4'd3;
+      8'b???01111: y = 4'd4;
+      8'b??011111: y = 4'd5;
+      8'b?0111111: y = 4'd6;
+      8'b01111111: y = 4'd7;
+      default:      y = 4'd8;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "y <- cto_full\(x\) \[N=8, W=4\]" 1
+equiv_opt -assert opt_prienc
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# N2: count leading ones at 16 bits, via the same for-loop-with-break idiom as
+# A4 with the bit test negated: the loop stops at the first zero from the top.
+log -header "N2: 16-bit count-leading-ones via for-loop (clo_full)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0] x,
+  output logic [4:0]  y
+);
+  always_comb begin
+    logic done;
+    y = 5'd16;
+    done = 1'b0;
+    for (int i = 0; i < 16; i++) begin
+      if (!done && !x[15 - i]) begin
+        y    = i[4:0];
+        done = 1'b1;
+      end
+    end
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "<- clo_full\(x\) \[N=16, W=5\]" 1
+equiv_opt -assert opt_prienc
+logger -check-expected
+design -load postopt
+design -reset
+log -pop

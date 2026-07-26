@@ -428,9 +428,17 @@ struct OptMuxPushWorker
         RTLIL::Cell *new_mux = module->addMux(new_mux_name, out_a, out_b, mux_cell->getPort(ID::S), orig_y);
         new_mux->set_src_attribute(cell->get_src_attribute());
 
-        // Remove the original mux when it becomes dead after the rewrite
+        // Remove the original mux when it becomes dead after the rewrite. The
+        // new mux only takes over the bits the operator read, so a bit outside
+        // that slice still has a consumer of its own and the mux has to stay --
+        // fanout_is_one alone would drop it and leave that bit undriven.
         RTLIL::SigSpec mux_out = sigmap(mux_cell->getPort(ID::Y));
-        if (fanout_is_one(mux_out))
+        pool<RTLIL::SigBit> read_bits(cand_in.begin(), cand_in.end());
+        bool covers_mux_out = true;
+        for (auto &bit : mux_out)
+          if (!read_bits.count(bit))
+            covers_mux_out = false;
+        if (covers_mux_out && fanout_is_one(mux_out))
           cells_to_remove.insert(mux_cell);
 
         total_count++;
