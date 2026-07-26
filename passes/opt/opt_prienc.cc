@@ -62,6 +62,13 @@ static bool variant_counts_ones(PEVariant v) {
 	       v == PEVariant::CTO_FULL || v == PEVariant::CTO_SHORT;
 }
 
+// The emitted network is fixed by the run's polarity and direction alone, so
+// FULL and SHORT of the same variant share one network and differ only in the
+// out_width truncation applied after the lookup.
+static int variant_net_key(PEVariant v) {
+	return (variant_counts_ones(v) ? 1 : 0) | (variant_is_leading(v) ? 2 : 0);
+}
+
 // FULL pins the saturating input's result too, so the emitted output is the
 // exact count. Only then does the thermometer mask agree with it bit for bit.
 static bool variant_is_full(PEVariant v) {
@@ -124,7 +131,7 @@ struct OptPriEncWorker {
 		IdString out_port;
 	};
 
-	// Networks already emitted for an (input bus, variant) pair, so matched
+	// Networks already emitted per (input bus, variant_net_key) pair, so matched
 	// outputs sharing a bus -- and repeated arms of a hoisted mux tree -- pull
 	// from one instantiation instead of duplicating the log-depth tree.
 	dict<std::pair<SigSpec, int>, SigSpec> pe_sig_cache;
@@ -688,7 +695,7 @@ struct OptPriEncWorker {
 	}
 
 	SigSpec emit_pe_sig(PEVariant v, SigSpec T_sig, int N, int out_width) {
-		auto key = std::make_pair(T_sig, (int)v);
+		auto key = std::make_pair(T_sig, variant_net_key(v));
 		SigSpec full;
 		auto it = pe_sig_cache.find(key);
 		if (it != pe_sig_cache.end()) {
