@@ -569,6 +569,14 @@ struct OptVpsWorker
 			SigSpec core = sig.extract(0, c);
 			Affine a = affine_of(core, depth + 1);
 			int64_t lo, hi;
+			// A constant replicated MSB is a known addend, not an unknown sign:
+			// opt_expr spells `x + const` this way, so keep the value exact.
+			if (sig[w - 1] == State::S1 && w < AFFINE_EXACT && a.ok &&
+			    a.exact_bits >= c) {
+				a.konst += (int64_t(1) << w) - (int64_t(1) << c);
+				affine_cache[sig] = a;
+				return a;
+			}
 			if (a.ok && a.exact_bits >= c && coeff_range(a.coeffs, lo, hi) &&
 			    lo + a.konst >= -(int64_t(1) << (c - 1)) &&
 			    hi + a.konst < (int64_t(1) << (c - 1))) {
