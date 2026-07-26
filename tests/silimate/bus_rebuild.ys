@@ -1,0 +1,381 @@
+###################################################################
+# bus_rebuild Test Cases
+#
+# The top module of every case is deliberately given clean vector
+# ports so that bus_rebuild only rewrites the submodule boundary.
+# That keeps the top-level stimulus names stable for `sat`, and it
+# is the submodule boundary that matters: a netlist writer blasts
+# the ports of every module, and the instantiating parent has to
+# keep up.
+###################################################################
+
+log -header "Bit-blasted input bus on a submodule"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_1_, a_0_, y);
+  input a_1_;
+  input a_0_;
+  output y;
+  assign y = a_1_ & ~a_0_;
+endmodule
+
+module top (din, q);
+  input [1:0] din;
+  output q;
+  sub u_sub (.a_1_(din[1]), .a_0_(din[0]), .y(q));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# Every formal must still name a port that exists on the instantiated module.
+hierarchy -check
+
+# The submodule's logic must still be reachable from the parent's inputs, and
+# the asymmetric function pins a[1] and a[0] to distinct bits.
+flatten
+opt -full
+sat -verify -prove q 1'b1 -set din 2'b10
+sat -verify -prove q 1'b0 -set din 2'b11
+sat -verify -prove q 1'b0 -set din 2'b00
+design -reset
+log -pop
+
+
+log -header "Bit-blasted output bus on a submodule"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a, y_1_, y_0_);
+  input a;
+  output y_1_;
+  output y_0_;
+  assign y_1_ = a;
+  assign y_0_ = ~a;
+endmodule
+
+module top (din, dout);
+  input din;
+  output [1:0] dout;
+  sub u_sub (.a(din), .y_1_(dout[1]), .y_0_(dout[0]));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+hierarchy -check
+
+# Losing an output bus is what sweeps away a datapath: the cone feeding it goes
+# undriven and is optimised out. The complementary bits also catch a bit swap.
+flatten
+opt -full
+sat -verify -prove dout 2'b10 -set din 1'b1
+sat -verify -prove dout 2'b01 -set din 1'b0
+design -reset
+log -pop
+
+
+log -header "Bit order with two-digit indices"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_11_, a_10_, a_9_, a_8_, a_7_, a_6_, a_5_, a_4_, a_3_, a_2_, a_1_, a_0_, y);
+  input a_11_, a_10_, a_9_, a_8_, a_7_, a_6_, a_5_, a_4_, a_3_, a_2_, a_1_, a_0_;
+  output y;
+  assign y = a_11_ & ~a_2_;
+endmodule
+
+module top (din, q);
+  input [11:0] din;
+  output q;
+  sub u_sub (
+    .a_11_(din[11]), .a_10_(din[10]), .a_9_(din[9]), .a_8_(din[8]),
+    .a_7_(din[7]),   .a_6_(din[6]),   .a_5_(din[5]), .a_4_(din[4]),
+    .a_3_(din[3]),   .a_2_(din[2]),   .a_1_(din[1]), .a_0_(din[0]),
+    .y(q));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+hierarchy -check
+
+# Indices reach two digits here, so grouping the members by name rather than by
+# numeric index would land \a_10_ and \a_11_ between \a_1_ and \a_2_. Pinning
+# bits 11 and 2 is exactly what that mistake would break.
+flatten
+opt -full
+sat -verify -prove q 1'b1 -set din 12'h800
+sat -verify -prove q 1'b0 -set din 12'h804
+sat -verify -prove q 1'b0 -set din 12'h000
+design -reset
+log -pop
+
+
+log -header "Sparse bus with missing bits"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_7_, a_3_, a_0_, y);
+  input a_7_, a_3_, a_0_;
+  output y;
+  assign y = a_7_ & ~a_3_ & a_0_;
+endmodule
+
+module top (din, q);
+  input [7:0] din;
+  output q;
+  sub u_sub (.a_7_(din[7]), .a_3_(din[3]), .a_0_(din[0]), .y(q));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+hierarchy -check
+
+# A netlist writer drops port bits that end up unconnected, so a group can hold
+# indices 0, 3 and 7 with nothing in between. The bus has to span the largest
+# index; sizing it by member count would pack three survivors into a[2:0] and
+# silently renumber them.
+select -assert-count 1 sub/w:a sub/s:8 %i
+
+flatten
+opt -full
+sat -verify -prove q 1'b1 -set din 8'b1000_0001
+sat -verify -prove q 1'b0 -set din 8'b1000_1001
+sat -verify -prove q 1'b0 -set din 8'b0000_0001
+design -reset
+log -pop
+
+
+log -header "Bit-blasted inout bus"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (io_1_, io_0_, oe);
+  inout io_1_;
+  inout io_0_;
+  input oe;
+  assign io_1_ = oe ? 1'b0 : 1'bz;
+  assign io_0_ = oe ? 1'b1 : 1'bz;
+endmodule
+
+module top (pad, oe);
+  inout [1:0] pad;
+  input oe;
+  sub u_sub (.io_1_(pad[1]), .io_0_(pad[0]), .oe(oe));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+hierarchy -check
+
+# An inout wire carries both port_input and port_output, so testing the flags
+# one at a time quietly demotes the rebuilt bus to a plain input. It has to
+# still match both i: and o:.
+select -assert-count 1 sub/i:io
+select -assert-count 1 sub/o:io
+design -reset
+log -pop
+
+
+log -header "Negative case: nothing here is a bit-blasted bus"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (clk, data_out, bus_sel, count_3);
+  input clk;
+  output data_out;
+  input bus_sel;
+  input count_3;
+  assign data_out = clk & bus_sel & ~count_3;
+endmodule
+
+module top (clk, dout, sel, c3);
+  input clk;
+  output dout;
+  input sel;
+  input c3;
+  sub u_sub (.clk(clk), .data_out(dout), .bus_sel(sel), .count_3(c3));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+hierarchy -check
+
+# `data_out` and `bus_sel` merely contain underscores and `count_3` ends in a
+# digit without a trailing underscore, so every port must survive untouched.
+# This guards against an over-eager prefix match.
+select -assert-count 1 sub/w:data_out
+select -assert-count 1 sub/w:bus_sel
+select -assert-count 1 sub/w:count_3
+
+flatten
+opt -full
+sat -verify -prove dout 1'b1 -set clk 1'b1 -set sel 1'b1 -set c3 1'b0
+sat -verify -prove dout 1'b0 -set clk 1'b1 -set sel 1'b1 -set c3 1'b1
+design -reset
+log -pop
+
+
+log -header "Instance leaves every bit of the bus unconnected"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_1_, a_0_, y);
+  input a_1_;
+  input a_0_;
+  output y;
+  assign y = a_1_ & ~a_0_;
+endmodule
+
+module top (q);
+  output q;
+  sub u_sub (.a_1_(), .a_0_(), .y(q));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# `.a_0_()` is the ordinary way to leave an input off an instance, and
+# `hierarchy` keeps those zero-width connections rather than resizing them. The
+# formals still have to go: deciding there is nothing to merge because no bit
+# carried a signal leaves the instance naming ports that no longer exist.
+hierarchy -check
+design -reset
+log -pop
+
+
+log -header "Instance leaves one bit of an output bus unconnected"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a, y_1_, y_0_);
+  input a;
+  output y_1_;
+  output y_0_;
+  assign y_1_ = a;
+  assign y_0_ = ~a;
+endmodule
+
+module top (din, d1);
+  input din;
+  output d1;
+  sub u_sub (.a(din), .y_1_(d1));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# Padding the gap with Sx would tie an output port to a constant, which
+# `hierarchy` refuses outright. Undriven bits have to dangle on a wire.
+hierarchy -check
+
+flatten
+opt -full
+sat -verify -prove d1 1'b1 -set din 1'b1
+sat -verify -prove d1 1'b0 -set din 1'b0
+design -reset
+log -pop
+
+
+log -header "Sparse output bus"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a, y_7_, y_3_, y_0_);
+  input a;
+  output y_7_, y_3_, y_0_;
+  assign y_7_ = a;
+  assign y_3_ = ~a;
+  assign y_0_ = a;
+endmodule
+
+module top (din, d7, d3, d0);
+  input din;
+  output d7, d3, d0;
+  sub u_sub (.a(din), .y_7_(d7), .y_3_(d3), .y_0_(d0));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# The output counterpart of the sparse input case: the bus spans bit 7, so the
+# five bits the module never declared are undriven at every instance.
+select -assert-count 1 sub/w:y sub/s:8 %i
+hierarchy -check
+
+flatten
+opt -full
+sat -verify -prove d7 1'b1 -set din 1'b1
+sat -verify -prove d3 1'b0 -set din 1'b1
+sat -verify -prove d0 1'b1 -set din 1'b1
+sat -verify -prove d7 1'b0 -set din 1'b0
+sat -verify -prove d3 1'b1 -set din 1'b0
+sat -verify -prove d0 1'b0 -set din 1'b0
+design -reset
+log -pop
+
+
+log -header "Positional instantiation is left alone"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_1_, a_0_, y);
+  input a_1_;
+  input a_0_;
+  output y;
+  assign y = a_1_ & ~a_0_;
+endmodule
+
+module top (din, q);
+  input [1:0] din;
+  output q;
+  sub u_sub (din[1], din[0], q);
+endmodule
+EOF
+# No `hierarchy` yet, so the arguments are still the frontend's $1, $2, $3.
+bus_rebuild
+
+# Positional arguments are matched against the port list by index, so collapsing
+# three ports into two would repoint every one of them. Reordering the arguments
+# is `hierarchy`'s job, so the module has to be skipped instead.
+select -assert-count 1 sub/w:a_1_
+select -assert-count 1 sub/w:a_0_
+select -assert-count 0 sub/w:a
+
+# Once `hierarchy` has named the arguments the pass can do its work as usual.
+hierarchy -top top -check
+check -assert
+bus_rebuild
+select -assert-count 1 sub/w:a sub/s:2 %i
+hierarchy -check
+
+flatten
+opt -full
+sat -verify -prove q 1'b1 -set din 2'b10
+sat -verify -prove q 1'b0 -set din 2'b11
+sat -verify -prove q 1'b0 -set din 2'b00
+design -reset
+log -pop
