@@ -29,6 +29,40 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Unit-level delay heuristic, same shape as opt_timing_balance's: carry-chain
+// operators cost their log-depth, bitwise operators and muxes one level.
+static int log2p1_int(int w)
+{
+  int n = 0;
+  while (w > 0) { w >>= 1; n++; }
+  return n < 1 ? 1 : n;
+}
+
+static int estimate_cell_delay(RTLIL::Cell *cell)
+{
+  IdString t = cell->type;
+  if (t.in(ID($not), ID($pos), ID($_NOT_), ID($_BUF_)))
+    return 0;
+  int width = 1;
+  if (cell->hasParam(ID::Y_WIDTH))
+    width = cell->getParam(ID::Y_WIDTH).as_int();
+  else if (cell->hasParam(ID::WIDTH))
+    width = cell->getParam(ID::WIDTH).as_int();
+  if (t.in(ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor)))
+    return width < 1 ? 1 : width;
+  if (t.in(ID($add), ID($sub), ID($neg), ID($alu),
+           ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
+    return log2p1_int(width);
+  // Comparators and reductions collapse their operand width to one bit.
+  if (t.in(ID($lt), ID($le), ID($gt), ID($ge), ID($eq), ID($ne), ID($eqx), ID($nex),
+           ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor),
+           ID($reduce_bool), ID($logic_not), ID($logic_and), ID($logic_or)))
+    return log2p1_int(cell->hasParam(ID::A_WIDTH) ? cell->getParam(ID::A_WIDTH).as_int() : width);
+  if (t == ID($pmux))
+    return log2p1_int(cell->hasParam(ID::S_WIDTH) ? cell->getParam(ID::S_WIDTH).as_int() : 1);
+  return 1;
+}
+
 struct OptMuxPushWorker
 {
   RTLIL::Design *design;
@@ -37,16 +71,111 @@ struct OptMuxPushWorker
 
   dict<SigBit, RTLIL::Cell*> driver_map;
   dict<SigBit, int> fanout_map;
+  dict<SigBit, int> arrival_cache;
+  pool<SigBit> arrival_active;
 
   pool<IdString> target_types;
   int fanout_limit;
+  bool timing_guard;
   int total_count;
 
   OptMuxPushWorker(RTLIL::Design *design, RTLIL::Module *module,
-      const pool<IdString> &target_types, int fanout_limit) :
+      const pool<IdString> &target_types, int fanout_limit, bool timing_guard) :
       design(design), module(module), sigmap(module),
-      target_types(target_types), fanout_limit(fanout_limit), total_count(0)
+      target_types(target_types), fanout_limit(fanout_limit),
+      timing_guard(timing_guard), total_count(0)
   {
+  }
+
+  // Memoized backward level estimate. Sequential and undriven bits are start
+  // points; the active set breaks combinational loops.
+  int arrival_bit(RTLIL::SigBit bit)
+  {
+    if (bit.wire == nullptr)
+      return 0;
+    auto it = arrival_cache.find(bit);
+    if (it != arrival_cache.end())
+      return it->second;
+    if (!arrival_active.insert(bit).second)
+      return 0;
+    int result = 0;
+    auto it_drv = driver_map.find(bit);
+    if (it_drv != driver_map.end() && it_drv->second != nullptr) {
+      RTLIL::Cell *drv = it_drv->second;
+      if (!drv->is_builtin_ff()) {
+        int max_in = 0;
+        for (auto &conn : drv->connections()) {
+          if (!drv->input(conn.first))
+            continue;
+          for (auto &in_bit : sigmap(conn.second))
+            max_in = std::max(max_in, arrival_bit(in_bit));
+        }
+        result = max_in + estimate_cell_delay(drv);
+      }
+    }
+    arrival_active.erase(bit);
+    arrival_cache[bit] = result;
+    return result;
+  }
+
+  int arrival(const RTLIL::SigSpec &sig)
+  {
+    int t = 0;
+    for (auto &bit : sigmap(sig))
+      t = std::max(t, arrival_bit(bit));
+    return t;
+  }
+
+  // A mux between two associable operators blocks the arithmetic tree
+  // balancer, so dissolving it pays even when the select arrives early.
+  bool push_merges_chain(RTLIL::Cell *cell, const RTLIL::SigSpec &arm_a, const RTLIL::SigSpec &arm_b)
+  {
+    for (const RTLIL::SigSpec *arm : {&arm_a, &arm_b}) {
+      for (auto &bit : sigmap(*arm)) {
+        if (bit.wire == nullptr)
+          continue;
+        auto it = driver_map.find(bit);
+        if (it == driver_map.end() || it->second == nullptr)
+          continue;
+        IdString t = it->second->type;
+        if (t == cell->type)
+          return true;
+        // negopt normalizes add/sub chains, so they reassociate together
+        if (t.in(ID($add), ID($sub)) && cell->type.in(ID($add), ID($sub)))
+          return true;
+      }
+    }
+    return false;
+  }
+
+  // Pushing pays when the select is the mux's late input: the operators then
+  // evaluate on the early arms in parallel with the select instead of queueing
+  // behind it. Otherwise it is pure area for no depth.
+  bool should_push(RTLIL::Cell *cell, IdString port, RTLIL::Cell *mux_cell,
+      const RTLIL::SigSpec &arm_a, const RTLIL::SigSpec &arm_b)
+  {
+    if (!timing_guard)
+      return true;
+    if (push_merges_chain(cell, arm_a, arm_b))
+      return true;
+    int d_a = arrival(arm_a);
+    int d_b = arrival(arm_b);
+    int d_s = arrival(mux_cell->getPort(ID::S));
+    int d_mux = estimate_cell_delay(mux_cell);
+    int d_op = estimate_cell_delay(cell);
+
+    int others = 0;
+    for (auto &conn : cell->connections()) {
+      if (!cell->input(conn.first) || conn.first == port)
+        continue;
+      others = std::max(others, arrival(conn.second));
+    }
+
+    int before = std::max(std::max(std::max(d_a, d_b), d_s) + d_mux, others) + d_op;
+    int after = std::max(std::max(std::max(d_a, d_b), others) + d_op, d_s) + d_mux;
+    log_debug("    %s %s port %s: dA=%d dB=%d dS=%d before=%d after=%d\n",
+        log_id(cell->type), log_id(cell->name), log_id(port), d_a, d_b, d_s, before, after);
+    return after < before;
   }
 
   void build_connectivity()
@@ -133,6 +262,32 @@ struct OptMuxPushWorker
     return true;
   }
 
+  // Project `in_sig` onto the mux arms bit by bit. Fails if any bit of in_sig
+  // is not a bit of the mux output.
+  bool slice_arms(RTLIL::Cell *mux_cell, const RTLIL::SigSpec &mux_out,
+      const RTLIL::SigSpec &in_sig, RTLIL::SigSpec &arm_a, RTLIL::SigSpec &arm_b)
+  {
+    RTLIL::SigSpec mux_a = mux_cell->getPort(ID::A);
+    RTLIL::SigSpec mux_b = mux_cell->getPort(ID::B);
+    if (GetSize(mux_a) != GetSize(mux_out) || GetSize(mux_b) != GetSize(mux_out))
+      return false;
+
+    dict<SigBit, int> pos;
+    for (int i = 0; i < GetSize(mux_out); i++)
+      pos.emplace(mux_out[i], i);
+
+    arm_a = RTLIL::SigSpec();
+    arm_b = RTLIL::SigSpec();
+    for (auto &bit : in_sig) {
+      auto it = pos.find(bit);
+      if (it == pos.end())
+        return false;
+      arm_a.append(mux_a[it->second]);
+      arm_b.append(mux_b[it->second]);
+    }
+    return true;
+  }
+
   bool fanout_is_one(const RTLIL::SigSpec &sig)
   {
     for (auto &bit : sig) {
@@ -149,11 +304,14 @@ struct OptMuxPushWorker
     while (true)
     {
       build_connectivity();
+      arrival_cache.clear();
+      arrival_active.clear();
 
       struct candidate_t {
         RTLIL::Cell *cell = nullptr;
         RTLIL::Cell *mux_cell = nullptr;
         IdString port;
+        RTLIL::SigSpec arm_a, arm_b;
       };
 
       std::vector<candidate_t> candidates;
@@ -185,16 +343,21 @@ struct OptMuxPushWorker
             continue;
 
           RTLIL::SigSpec mux_out = sigmap(mux_cell->getPort(ID::Y));
-          // Require the mux to drive the entire operator input
-          if (mux_out != in_sig)
+          // The operator may read only a slice of the mux (constant-folded
+          // adders split into a pass-through part and a carry part), so take
+          // the matching bits of each arm rather than the whole mux output.
+          RTLIL::SigSpec arm_a, arm_b;
+          if (!slice_arms(mux_cell, mux_out, in_sig, arm_a, arm_b))
             continue;
           if (sig_has_keep(mux_out))
             continue;
           if (!fanout_within_limit(mux_out))
             continue;
+          if (!should_push(cell, it.first, mux_cell, arm_a, arm_b))
+            continue;
 
           // Only push one mux per operator per iteration
-          candidates.push_back({cell, mux_cell, it.first});
+          candidates.push_back({cell, mux_cell, it.first, arm_a, arm_b});
           break;
         }
       }
@@ -243,8 +406,8 @@ struct OptMuxPushWorker
         for (auto &p : conns) {
           RTLIL::SigSpec conn_sig = p.second;
           if (p.first == cand.port) {
-            branch_a->setPort(p.first, mux_cell->getPort(ID::A));
-            branch_b->setPort(p.first, mux_cell->getPort(ID::B));
+            branch_a->setPort(p.first, cand.arm_a);
+            branch_b->setPort(p.first, cand.arm_b);
           } else {
             branch_a->setPort(p.first, conn_sig);
             branch_b->setPort(p.first, conn_sig);
@@ -297,11 +460,17 @@ struct OptMuxPushPass : public Pass {
     log("        comma-separated list of operator cell types to push through\n");
     log("        (default: $add,$sub,$xor)\n");
     log("\n");
+    log("    -timing\n");
+    log("        only push when the push buys depth: either a unit-level delay\n");
+    log("        estimate says the select is the mux's late input, or the mux\n");
+    log("        splits a chain of associable operators\n");
+    log("\n");
   }
 
   void execute(std::vector<std::string> args, RTLIL::Design *design) override
   {
     int fanout_limit = 1;
+    bool timing_guard = false;
     std::string types = "$add,$sub,$xor";
 
     log_header(design, "Executing MUXPUSH pass (push muxes through light ops).\n");
@@ -314,6 +483,10 @@ struct OptMuxPushPass : public Pass {
       }
       if (args[argidx] == "-types" && argidx+1 < args.size()) {
         types = args[++argidx];
+        continue;
+      }
+      if (args[argidx] == "-timing") {
+        timing_guard = true;
         continue;
       }
       break;
@@ -331,7 +504,7 @@ struct OptMuxPushPass : public Pass {
     for (auto module : design->selected_modules()) {
       if (module->get_bool_attribute(ID::blackbox))
         continue;
-      OptMuxPushWorker worker(design, module, target_types, fanout_limit);
+      OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard);
       worker.run();
       total_count += worker.total_count;
     }
