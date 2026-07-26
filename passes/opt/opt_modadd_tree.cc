@@ -823,8 +823,12 @@ struct OptModAddTreeWorker : CutRegionWorker
 			clones += GetSize(ch.state_cells[i]) * (as_table ? 1 : nstates);
 		if (cb.node >= 0)
 			clones += GetSize(ch.state_cells[cb.node]) * (n - 1);
-		if (clones > max_clones)
+		if (clones > max_clones) {
+			log_debug("  skipping %s cascade at %s: %d clone(s) exceeds budget %d\n",
+			          as_table ? "associative" : "general", log_signal(ch.tail), clones,
+			          max_clones);
 			return false;
+		}
 
 		// Only pay for the rewrite where the cascade is deep enough that the
 		// tree is a clear win: short narrow-state chains are everywhere in real
@@ -835,7 +839,11 @@ struct OptModAddTreeWorker : CutRegionWorker
 		int leaf = 0;
 		for (int i = 1; i < n; i++)
 			leaf = std::max(leaf, region_depth(ch.state_cells[i]));
-		int tree = leaf + clog2_int(n) * (as_table ? 2 * ch.w : ch.w);
+		// One tree level costs what emit_combine will actually build: a cloned
+		// step, or a lookup selected by 2w (table) / w (per-slot) bits.
+		int level = cb.node >= 0 ? region_depth(ch.state_cells[cb.node])
+		                         : (as_table ? 2 * ch.w : ch.w);
+		int tree = leaf + clog2_int(n) * level;
 		if (serial < min_serial_depth || min_depth_gain * tree > serial) {
 			log_debug("  skipping %s cascade at %s: serial depth %d vs tree depth %d\n",
 			          as_table ? "associative" : "general", log_signal(ch.tail), serial, tree);
