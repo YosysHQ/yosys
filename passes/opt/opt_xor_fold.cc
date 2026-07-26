@@ -518,6 +518,10 @@ struct OptXorFoldWorker : CutRegionWorker
 		ch.sink = sole_consumer(ch.out);
 		if (ch.sink == nullptr || ch.sink->type != ID($mux))
 			return reject("chain result is not consumed by a single guard mux");
+		// Applying the fold rewires the guard mux's data port, so it has to be
+		// in the selection too -- the consumer index spans every cell.
+		if (!module->design->selected(module, ch.sink))
+			return reject("guard mux is not selected");
 		SigSpec sa = sigmap(ch.sink->getPort(ID::A));
 		SigSpec sb = sigmap(ch.sink->getPort(ID::B));
 		SigSpec ss = sigmap(ch.sink->getPort(ID::S));

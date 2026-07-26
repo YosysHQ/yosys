@@ -355,3 +355,49 @@ opt_xor_fold
 select -assert-min 1 c:*xorfold*
 design -reset
 log -pop
+
+# F2: the mirror of F1. Here the selection contains every chain $xor step but
+# not the guard mux, which the rewrite has to rewire -- and the consumer index
+# spans every cell in the module, selected or not, so the mux is reachable from
+# a chain that is fully selected. F1 cannot cover this: a `t:$mux` selection
+# seeds no candidate steps at all, so the pass never gets as far as a sink.
+log -header "F2: selection excluding only the guard mux -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    logic [3:0] lane;
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++) begin
+        lane = 4'(i + j * grp_bits);
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[lane][0];
+      end
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+design -save prepass
+select -set nomux * t:$mux %d
+opt_xor_fold @nomux
+select -assert-count 0 c:*xorfold*
+# Whole-design selection on the very same netlist does fold.
+design -load prepass
+opt_xor_fold
+select -assert-min 1 c:*xorfold*
+design -reset
+log -pop
