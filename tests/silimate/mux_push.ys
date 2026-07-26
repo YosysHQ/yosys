@@ -114,3 +114,168 @@ select -assert-count 0 @add_fanin @mux_cells %i
 
 design -reset
 log -pop
+
+
+log -header "-timing: pushes when the select is the mux's late input"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [7:0] m = s ? b : a;
+  assign y = m + c;
+endmodule
+EOF
+proc
+check -assert
+
+# The select arrives 8 levels late behind the multiply while both arms are
+# module inputs, so the add currently queues behind the mux: 13 levels before
+# the push, 9 after. This is the case -timing exists to take.
+equiv_opt -assert muxpush -limit 1 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @add_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "-timing: refuses when the push buys no depth"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s,
+  input wire [7:0] a_lo,
+  input wire [7:0] a_hi,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] a = a_lo * a_hi;
+  wire [7:0] m = s ? b : a;
+  assign y = m + c;
+endmodule
+EOF
+proc
+check -assert
+
+# Mirror of the group above: the late input is now an arm and the select is a
+# module input, so the add already waits on the multiply either way -- 13 levels
+# before and after. Pushing would duplicate the adder for nothing. The mux is
+# also not splitting a chain of associable operators ($mul drives the arm, and
+# the consumer is $add), so the chain-merge exemption does not apply.
+equiv_opt -assert muxpush -limit 1 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 1 @add_fanin @mux_cells %i
+design -reset
+
+# Without -timing the very same netlist does push, so the group above is the
+# guard declining a real candidate rather than the pass failing to match it.
+read_verilog <<EOF
+module top (
+  input wire s,
+  input wire [7:0] a_lo,
+  input wire [7:0] a_hi,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] a = a_lo * a_hi;
+  wire [7:0] m = s ? b : a;
+  assign y = m + c;
+endmodule
+EOF
+proc
+equiv_opt -assert muxpush -limit 1 -types $add
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @add_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "-timing: pushes a mux that splits a chain of associable adds"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s,
+  input wire [7:0] c,
+  input wire [7:0] d,
+  input wire [7:0] e,
+  input wire [7:0] f,
+  output wire [7:0] y
+);
+  wire [7:0] p = c + d;
+  wire [7:0] m = s ? p : e;
+  assign y = m + f;
+endmodule
+EOF
+proc
+check -assert
+
+# The select is a module input, so the delay estimate alone would decline this.
+# It is pushed anyway: an add feeds an arm and an add consumes the mux, and a
+# mux wedged between them blocks the arithmetic tree balancer from reassociating
+# the chain, so dissolving it pays even though the select arrives early.
+equiv_opt -assert muxpush -limit 1 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @add_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "Operator reading only a slice of the mux output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [3:0] c,
+  output wire [3:0] y,
+  output wire [3:0] z
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [7:0] m = s ? b : a;
+  assign y = m[3:0] + c;
+  assign z = m[7:4];
+endmodule
+EOF
+proc
+check -assert
+
+# The add reads m[3:0] only, so the push has to project each arm onto those
+# four bits. Requiring the operator to read the whole mux output instead --
+# which is what a constant-folded adder split into a pass-through part and a
+# carry part never does -- leaves this candidate on the floor: the pass then
+# reports 0 pushes and the assertion below fails.
+equiv_opt -assert muxpush -limit 2 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @add_fanin @mux_cells %i
+
+design -reset
+log -pop

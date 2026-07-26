@@ -1058,3 +1058,165 @@ opt_prienc
 select -assert-min 1 w:*rr*
 design -reset
 log -pop
+
+# ============================================================================
+# Group M: mask-domain consumers wider than the input
+# ============================================================================
+#
+# W > N with a saturating count is the corner where the thermometer mask and
+# the one-hot have to agree at position N itself: for N=8 the count reaches 8,
+# so mask = (1<<8)-1 = 16'h00ff and one-hot = 16'h0100, whose set bit sits at
+# the first position the prefix no longer covers.
+
+# M1: N=8 input feeding 16-bit align-down / align-up / one-hot consumers.
+log -header "M1: W > N saturating mask and one-hot (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [7:0]  x,
+  input  logic [15:0] a,
+  output logic [15:0] y_down,
+  output logic [15:0] y_up,
+  output logic [15:0] y_onehot
+);
+  logic [3:0] cnt;
+  always_comb begin
+    logic done;
+    cnt  = 4'd8;
+    done = 1'b0;
+    for (int i = 0; i < 8; i++) begin
+      if (!done && x[7 - i]) begin
+        cnt  = i[3:0];
+        done = 1'b1;
+      end
+    end
+  end
+  assign y_down   = (a >> cnt) << cnt;
+  assign y_up     = ((a >> cnt) + 16'd1) << cnt;
+  assign y_onehot = 16'h1 << cnt;
+endmodule
+EOF
+proc
+check -assert
+# Covers every (x, a), so x == 0 -- where cnt saturates at 8 -- is included.
+equiv_opt -assert opt_prienc
+design -load postopt
+# Both barrel shifters and the binary encoder leave the netlist: that is what
+# staying in the mask domain buys, and it is what fails if the collapse stops
+# firing.
+select -assert-count 0 t:$shl
+select -assert-count 0 t:$shr
+select -assert-count 0 t:$mux
+design -reset
+log -pop
+
+# M2: pin the values at the saturating point itself, so a mask or one-hot that
+# is off by one position at i == N fails here rather than only under equiv.
+log -header "M2: W > N saturating values at x == 0"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [7:0]  x,
+  input  logic [15:0] a,
+  output logic [15:0] y_down,
+  output logic [15:0] y_up,
+  output logic [15:0] y_onehot
+);
+  logic [3:0] cnt;
+  always_comb begin
+    logic done;
+    cnt  = 4'd8;
+    done = 1'b0;
+    for (int i = 0; i < 8; i++) begin
+      if (!done && x[7 - i]) begin
+        cnt  = i[3:0];
+        done = 1'b1;
+      end
+    end
+  end
+  assign y_down   = (a >> cnt) << cnt;
+  assign y_up     = ((a >> cnt) + 16'd1) << cnt;
+  assign y_onehot = 16'h1 << cnt;
+endmodule
+EOF
+proc
+opt_prienc
+sat -verify -set x 8'h00 -set a 16'hbeef \
+    -prove y_down 16'hbe00 -prove y_up 16'hbf00 -prove y_onehot 16'h0100
+design -reset
+log -pop
+
+# ============================================================================
+# Group N: runs of ones, not just runs of zeros
+# ============================================================================
+
+# N1: count trailing ones. Same casez ladder as A3 with the polarity flipped,
+# so the run being measured is of ones and the network has to invert the input
+# before the leading-bit search. The variant name is pinned because the rewrite
+# would still be equivalent -- and the group would still pass -- if the pass
+# fell back to treating this as a plain priority encoder.
+log -header "N1: 8-bit count-trailing-ones via casez (cto_full)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] x,
+  output reg [3:0] y
+);
+  always @* begin
+    casez (x)
+      8'b???????0: y = 4'd0;
+      8'b??????01: y = 4'd1;
+      8'b?????011: y = 4'd2;
+      8'b????0111: y = 4'd3;
+      8'b???01111: y = 4'd4;
+      8'b??011111: y = 4'd5;
+      8'b?0111111: y = 4'd6;
+      8'b01111111: y = 4'd7;
+      default:      y = 4'd8;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "y <- cto_full\(x\) \[N=8, W=4\]" 1
+equiv_opt -assert opt_prienc
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# N2: count leading ones at 16 bits, via the same for-loop-with-break idiom as
+# A4 with the bit test negated: the loop stops at the first zero from the top.
+log -header "N2: 16-bit count-leading-ones via for-loop (clo_full)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0] x,
+  output logic [4:0]  y
+);
+  always_comb begin
+    logic done;
+    y = 5'd16;
+    done = 1'b0;
+    for (int i = 0; i < 16; i++) begin
+      if (!done && !x[15 - i]) begin
+        y    = i[4:0];
+        done = 1'b1;
+      end
+    end
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "<- clo_full\(x\) \[N=16, W=5\]" 1
+equiv_opt -assert opt_prienc
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
