@@ -1,0 +1,357 @@
+# Tests for opt_xor_fold
+#
+# Each group exercises a specific facet:
+#   A: the fold fires and is proven equivalent.
+#   B: structural collapse -- no serial chain cell survives.
+#   C: a wider parameterization (more lanes, wider stride).
+#   D: option handling (-min-steps, -max-ctrl-bits, -strict).
+#   E: negative cases -- a reachable zero stride must not be rewritten.
+#   F: fine-grained selection.
+#
+# The pass matches the indexed read as a $bmux, which is what a Verific
+# elaboration of `v[i + j*stride]` yields. read_verilog emits a $shiftx
+# instead, and peepopt's shiftpow2 rule only turns that back into a $bmux when
+# the index carries a power-of-two scale -- hence the 2-bit lanes below, whose
+# lane index is scaled by 2. Every group therefore runs
+# `proc; opt_expr; wreduce; opt_clean; peepopt` first: opt_expr/wreduce narrow
+# the index so shiftpow2 accepts it, and opt_expr also folds the j=0 self-XOR
+# (v[i] ^ v[i]) away, exactly as Verific does.
+#
+# Pre-pass shape counts are asserted as minimums, not exact numbers: peepopt's
+# shiftadd/shiftmul and shiftpow2 rules race on the same $shiftx, and which one
+# wins depends on cell-name hash order, so the exact $bmux count shifts as
+# autoidx advances through earlier groups. What matters here is that the shape
+# reaches the pass at all; the exact-0 and max bounds after the rewrite are
+# what pin the collapse.
+
+# ============================================================================
+# Group A: the fold fires and is equivalent
+# ============================================================================
+
+# A1: 16 lanes of 2 bits, 3 written lanes, 4 inner steps. Each written lane
+# folds in lanes i + j*grp_bits, so the read table still holds the running
+# vector; the pass must prune the unreachable back-reference slots (grp_bits >
+# i whenever the step is guarded on, so slots <= i are dead) and rebuild each
+# lane as a masked-XOR tree.
+log -header "A1: 3-lane in-place XOR fold (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++)
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[i + j * grp_bits][0];
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+check -assert
+# The shape the pass matches: one $bmux read and one $xor per step, three
+# steps per written lane. If this ever stops holding the groups below would
+# pass vacuously, so pin it here.
+select -assert-min 9 t:$xor
+select -assert-min 9 t:$bmux
+equiv_opt -assert opt_xor_fold
+design -load postopt
+select -assert-min 1 c:*xorfold*
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: structural collapse
+# ============================================================================
+
+# B1: same RTL as A1. Every $xor and $bmux of the serial chain must be gone,
+# replaced by the pruned reads and the balanced tree; the tree is at most two
+# XOR levels per lane (a_0 plus three masked terms).
+log -header "B1: 3-lane fold structural"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++)
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[i + j * grp_bits][0];
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+opt_xor_fold
+clean -purge
+# No cell of the original read-modify-write chain survives.
+select -assert-count 0 t:$xor c:*xorfold* %d
+select -assert-count 0 t:$bmux c:*xorfold* %d
+# Three lanes, each a tree over at most four terms.
+select -assert-max 6 t:$xor
+select -assert-min 1 t:$and c:*xorfold* %i
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: wider parameterization
+# ============================================================================
+
+# C1: 32 lanes, 4 written lanes and a 3-bit stride/count (so the control cone
+# is six bits and the read table 32 slots, four times A1).
+#
+# The index goes through an explicitly cast lane temporary here. Written as a
+# bare `h[i + j*grp_bits]` at this width, peepopt leaves three of the twelve
+# $shiftx cells unconverted -- shiftadd/shiftmul win the race on them -- and
+# those break the chains mid-way, so the pass matches nothing and the group
+# would pass while proving nothing. The cast narrows the index enough that
+# shiftpow2 takes all twelve. Only one chain folds at this width (the shared
+# lane temporary ties the per-lane index cones together), so this group checks
+# that the wider cone is matched and stays equivalent, not that it collapses
+# fully; A1/B1 cover the full collapse.
+log -header "C1: 32 lanes, 3-bit stride (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [31:0][1:0] src,
+  input  logic [2:0]       grp_bits,
+  input  logic [2:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [31:0][1:0] dst
+);
+  logic [31:0][1:0] h;
+  always_comb begin
+    logic [4:0] lane;
+    h = src;
+    for (int i = 0; i < 4; i++)
+      for (int j = 0; j < 4; j++) begin
+        lane = 5'(i + j * grp_bits);
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[lane][0];
+      end
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+select -assert-min 12 t:$bmux
+select -assert-count 0 t:$shiftx
+equiv_opt -assert opt_xor_fold
+design -load postopt
+select -assert-min 1 c:*xorfold*
+design -reset
+log -pop
+
+# ============================================================================
+# Group D: option handling
+# ============================================================================
+
+# D1: -min-steps above the chain length, -max-ctrl-bits below the control
+# support and -strict must each suppress the rewrite entirely.
+log -header "D1: -min-steps / -max-ctrl-bits / -strict suppress the rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++)
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[i + j * grp_bits][0];
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+design -save prepass
+opt_xor_fold -min-steps 4
+select -assert-count 0 c:*xorfold*
+design -load prepass
+opt_xor_fold -max-ctrl-bits 2
+select -assert-count 0 c:*xorfold*
+design -load prepass
+opt_xor_fold -strict
+select -assert-count 0 c:*xorfold*
+# ... and the same design does fold with the defaults, so the three runs above
+# are not passing because the pattern is absent.
+design -load prepass
+opt_xor_fold
+select -assert-min 1 c:*xorfold*
+design -reset
+log -pop
+
+# ============================================================================
+# Group E: negative cases
+# ============================================================================
+
+# E1: the guard no longer excludes a zero stride (`i < grp_bits` dropped), so
+# grp_bits == 0 is reachable with the step guard high and h[i + j*0] aliases
+# the bit being written. The self slot is therefore live and pruning it would
+# be unsound: the pass must leave the chain alone. This is the in-repo mirror
+# of the qor_addr_xor_fold_alias Preqorsor case; with -debug the rejection
+# reads "reachable slot still back-references the chain".
+log -header "E1: reachable zero stride -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    logic [3:0] lane;
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++) begin
+        lane = 4'(i + j * grp_bits);
+        if (j < grp_xor)
+          h[i][0] = h[i][0] ^ h[lane][0];
+      end
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+# Same shape as A1 reaches the pass, so the rejection below is a decision
+# about reachability, not a failure to match.
+select -assert-min 9 t:$xor
+select -assert-min 9 t:$bmux
+opt_xor_fold
+select -assert-count 0 c:*xorfold*
+select -assert-min 9 t:$xor
+select -assert-min 9 t:$bmux
+design -reset
+log -pop
+
+# E2: the fold result goes straight to a module output, so there is no
+# activation guard to make the unreachable slots don't-care.
+log -header "E2: unguarded chain result -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    logic [3:0] lane;
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++) begin
+        lane = 4'(i + j * grp_bits);
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[lane][0];
+      end
+  end
+  assign dst = h;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+select -assert-min 9 t:$xor
+opt_xor_fold
+select -assert-count 0 c:*xorfold*
+select -assert-min 9 t:$xor
+design -reset
+log -pop
+
+# ============================================================================
+# Group F: fine-grained selection
+# ============================================================================
+
+# F1: a cell-level selection that leaves the chain $xor cells out must not
+# rewrite anything, even though the module itself is selected.
+log -header "F1: cell selection excluding the chain -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  logic [15:0][1:0] src,
+  input  logic [1:0]       grp_bits,
+  input  logic [1:0]       grp_xor,
+  input  logic             fold_en,
+  output logic [15:0][1:0] dst
+);
+  logic [15:0][1:0] h;
+  always_comb begin
+    logic [3:0] lane;
+    h = src;
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 4; j++) begin
+        lane = 4'(i + j * grp_bits);
+        if (i < grp_bits && j < grp_xor)
+          h[i][0] = h[i][0] ^ h[lane][0];
+      end
+  end
+  assign dst = fold_en ? h : src;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+design -save prepass
+opt_xor_fold t:$mux
+select -assert-count 0 c:*xorfold*
+# Whole-design selection on the very same netlist does fold.
+design -load prepass
+opt_xor_fold
+select -assert-min 1 c:*xorfold*
+design -reset
+log -pop

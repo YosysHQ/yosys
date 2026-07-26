@@ -105,6 +105,8 @@ struct OptXorFoldWorker : CutRegionWorker
 
 	OptXorFoldWorker(Module *module) : CutRegionWorker(module)
 	{
+		// Every cell, selected or not: an unselected consumer still keeps a
+		// bit from being sole-consumed by the chain.
 		for (auto c : module->cells())
 			for (auto &conn : c->connections())
 				if (!c->output(conn.first))
@@ -643,7 +645,9 @@ struct OptXorFoldWorker : CutRegionWorker
 		vector<Step> steps;
 		dict<SigBit, int> step_by_out;
 		pool<SigBit> is_acc_in;
-		for (auto c : module->cells()) {
+		// Only the match seed is filtered by the selection; bit_consumers
+		// still indexes every cell so the sole_consumer checks stay exact.
+		for (auto c : module->selected_cells()) {
 			Step st;
 			if (!make_step(c, st))
 				continue;
@@ -690,6 +694,11 @@ struct OptXorFoldWorker : CutRegionWorker
 	}
 };
 
+// analyze_reach enumerates 1ULL << max_ctrl_bits assignments, so the option
+// needs a ceiling that keeps the shift defined; the eval budget bails out long
+// before this many anyway.
+static const int max_ctrl_bits_limit = 24;
+
 struct OptXorFoldPass : public Pass
 {
 	OptXorFoldPass() : Pass("opt_xor_fold",
@@ -733,8 +742,9 @@ struct OptXorFoldPass : public Pass
 		log("        maximum chain length to consider (default 64).\n");
 		log("\n");
 		log("    -max-ctrl-bits N, -max_ctrl_bits N\n");
-		log("        maximum control support to enumerate, in bits (default 12).\n");
-		log("        Chains with a wider control cone are skipped.\n");
+		log("        maximum control support to enumerate, in bits (default 12,\n");
+		log("        ceiling %d). Chains with a wider control cone are skipped.\n",
+		    max_ctrl_bits_limit);
 		log("\n");
 		log("    -max-table-bits N, -max_table_bits N\n");
 		log("        maximum total indexed-read table size per chain (default 8192).\n");
@@ -774,6 +784,9 @@ struct OptXorFoldPass : public Pass
 			if ((args[argidx] == "-max-ctrl-bits" || args[argidx] == "-max_ctrl_bits") &&
 			    argidx + 1 < args.size()) {
 				max_ctrl_bits = std::stoi(args[++argidx]);
+				if (max_ctrl_bits < 0 || max_ctrl_bits > max_ctrl_bits_limit)
+					log_cmd_error("-max-ctrl-bits must be in 0..%d.\n",
+					              max_ctrl_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-table-bits" || args[argidx] == "-max_table_bits") &&
