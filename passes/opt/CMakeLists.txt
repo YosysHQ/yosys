@@ -116,6 +116,10 @@ yosys_pass(opt_priokey
 	opt_priokey.cc
 )
 
+yosys_pass(opt_xor_fold
+	opt_xor_fold.cc
+)
+
 pmgen_command(peepopt
 	peepopt_shiftmul_right.pmg
 	peepopt_shiftmul_left.pmg
