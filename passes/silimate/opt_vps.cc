@@ -47,12 +47,23 @@ struct OptVpsWorker
 	int reduce_or_replaced = 0;
 	int feedback_collapsed = 0;
 	int vps_reads_replaced = 0;
+	int gathers_folded = 0;
 	int min_stride;
 	pool<Cell *> vps_shr_cells;
 
 	OptVpsWorker(Module *module, int min_stride)
 		: module(module), sigmap(module), min_stride(min_stride)
 	{
+		rebuild_maps();
+	}
+
+	void rebuild_maps()
+	{
+		sigmap.set(module);
+		bit_drivers.clear();
+		bit_consumers.clear();
+		affine_cache.clear();
+		read_bits.clear();
 		for (auto cell : module->cells())
 			for (auto &conn : cell->connections())
 				if (cell->output(conn.first))
@@ -261,8 +272,648 @@ struct OptVpsWorker
 		return result;
 	}
 
-	void run()
+	// Uniform bit-gather -> shared barrel shift.  With an arithmetic index
+	// expression Verific lowers `for (i...) y[i] = t[i - k]` per output bit
+	// (1-bit $bmux, or $shr with one used Y bit), never emitting the
+	// decoder + sliding-window $pmux the phases above match on.
+
+	typedef std::pair<SigSpec, bool> AffineAtom; // (signal, read as signed)
+	typedef std::map<AffineAtom, int64_t> CoeffMap;
+
+	// value(sig) == konst + sum(coeffs) (mod 2^exact_bits)
+	struct Affine {
+		bool ok = false;
+		int exact_bits = 0;
+		int64_t konst = 0;
+		CoeffMap coeffs;
+	};
+
+	static const int AFFINE_EXACT = 62;
+	static const int AFFINE_MAX_ATOM_BITS = 32;
+
+	static bool const_to_i64(const SigSpec &sig, int64_t &out)
 	{
+		if (!sig.is_fully_def() || GetSize(sig) > AFFINE_EXACT)
+			return false;
+		out = 0;
+		for (int i = 0; i < GetSize(sig); i++)
+			if (sig[i] == State::S1)
+				out |= (int64_t(1) << i);
+		return true;
+	}
+
+	static bool atom_range(const AffineAtom &a, int64_t &lo, int64_t &hi)
+	{
+		int w = GetSize(a.first);
+		if (w > AFFINE_MAX_ATOM_BITS)
+			return false;
+		lo = a.second ? -(int64_t(1) << (w - 1)) : 0;
+		hi = (int64_t(1) << (a.second ? w - 1 : w)) - 1;
+		return true;
+	}
+
+	static bool coeff_range(const CoeffMap &coeffs, int64_t &lo, int64_t &hi)
+	{
+		lo = hi = 0;
+		for (auto &it : coeffs) {
+			int64_t alo, ahi;
+			if (!atom_range(it.first, alo, ahi))
+				return false;
+			int64_t p1 = it.second * alo, p2 = it.second * ahi;
+			lo += std::min(p1, p2);
+			hi += std::max(p1, p2);
+			if (lo < -(int64_t(1) << 48) || hi > (int64_t(1) << 48))
+				return false;
+		}
+		return true;
+	}
+
+	// opt_expr rewrites `x + const` into a folded high-bit add concatenated with
+	// pass-through low bits, so c*w[o +: n] + c*2^n*w[o+n +: m] shows up where
+	// the RTL had one operand.  Re-merge those so both spellings share a key.
+	static void normalize_coeffs(CoeffMap &coeffs)
+	{
+		for (bool changed = true; changed;) {
+			changed = false;
+			AffineAtom lo_key, hi_key, merged;
+			int64_t coeff = 0;
+
+			for (auto &lo : coeffs) {
+				if (lo.first.second || !lo.first.first.is_chunk())
+					continue;
+				SigChunk lc = lo.first.first.as_chunk();
+				if (!lc.wire || lc.width >= 40)
+					continue;
+				for (auto &hi : coeffs) {
+					if (hi.first.second || !hi.first.first.is_chunk())
+						continue;
+					SigChunk hc = hi.first.first.as_chunk();
+					if (hc.wire != lc.wire ||
+					    hc.offset != lc.offset + lc.width ||
+					    hi.second != (lo.second << lc.width))
+						continue;
+					lo_key = lo.first;
+					hi_key = hi.first;
+					merged = AffineAtom(SigSpec(lc.wire, lc.offset,
+								    lc.width + hc.width), false);
+					coeff = lo.second;
+					changed = true;
+					break;
+				}
+				if (changed)
+					break;
+			}
+
+			if (changed) {
+				coeffs.erase(lo_key);
+				coeffs.erase(hi_key);
+				coeffs[merged] += coeff;
+			}
+		}
+	}
+
+	static void affine_accum(Affine &r, const Affine &o, int64_t scale)
+	{
+		r.konst += scale * o.konst;
+		for (auto &it : o.coeffs) {
+			int64_t c = r.coeffs[it.first] + scale * it.second;
+			if (c == 0)
+				r.coeffs.erase(it.first);
+			else
+				r.coeffs[it.first] = c;
+		}
+	}
+
+	dict<SigSpec, Affine> affine_cache;
+
+	Affine affine_from_cell(Cell *cell, int depth)
+	{
+		Affine r;
+		int yw = cell->hasParam(ID::Y_WIDTH) ? cell->getParam(ID::Y_WIDTH).as_int() : 0;
+		if (yw <= 0)
+			return r;
+
+		// A signed operand narrower than Y is sign-extended by the cell, and
+		// affine_of() reads ports as unsigned, so only accept explicit widths.
+		auto operand_ok = [&](IdString port, IdString signed_param) {
+			return !cell->getParam(signed_param).as_bool() ||
+			       GetSize(cell->getPort(port)) >= yw;
+		};
+
+		if (cell->type.in(ID($add), ID($sub), ID($mul))) {
+			if (!operand_ok(ID::A, ID::A_SIGNED) || !operand_ok(ID::B, ID::B_SIGNED))
+				return r;
+			Affine a = affine_of(cell->getPort(ID::A), depth + 1);
+			Affine b = affine_of(cell->getPort(ID::B), depth + 1);
+			if (!a.ok || !b.ok)
+				return r;
+			if (cell->type == ID($mul)) {
+				// Only const * affine stays affine.
+				if (!b.coeffs.empty() && !a.coeffs.empty())
+					return r;
+				if (b.coeffs.empty())
+					std::swap(a, b);
+				r = b;
+				for (auto &it : r.coeffs)
+					it.second *= a.konst;
+				r.konst *= a.konst;
+				if (a.konst == 0)
+					r.coeffs.clear();
+			} else {
+				r = a;
+				affine_accum(r, b, cell->type == ID($sub) ? -1 : 1);
+			}
+			r.ok = true;
+			r.exact_bits = std::min(yw, std::min(a.exact_bits, b.exact_bits));
+			return r;
+		}
+
+		if (cell->type.in(ID($neg), ID($pos))) {
+			if (!operand_ok(ID::A, ID::A_SIGNED))
+				return r;
+			Affine a = affine_of(cell->getPort(ID::A), depth + 1);
+			if (!a.ok)
+				return r;
+			if (cell->type == ID($neg))
+				affine_accum(r, a, -1);
+			else
+				r = a;
+			r.ok = true;
+			r.exact_bits = std::min(yw, a.exact_bits);
+			return r;
+		}
+
+		if (cell->type == ID($not)) {
+			if (!operand_ok(ID::A, ID::A_SIGNED) || yw > AFFINE_EXACT)
+				return r;
+			Affine a = affine_of(cell->getPort(ID::A), depth + 1);
+			if (!a.ok)
+				return r;
+			affine_accum(r, a, -1);
+			r.konst += (int64_t(1) << yw) - 1;
+			r.ok = true;
+			r.exact_bits = std::min(yw, a.exact_bits);
+			return r;
+		}
+
+		// x << const is x * 2^const; the shifted-in zeros extend exactness.
+		if (cell->type == ID($shl) && cell->getPort(ID::B).is_fully_def() &&
+		    cell->getPort(ID::B).is_fully_const()) {
+			int64_t sh;
+			if (!const_to_i64(cell->getPort(ID::B), sh) || sh < 0 || sh > 32)
+				return r;
+			if (!operand_ok(ID::A, ID::A_SIGNED))
+				return r;
+			Affine a = affine_of(cell->getPort(ID::A), depth + 1);
+			if (!a.ok)
+				return r;
+			r = a;
+			for (auto &it : r.coeffs)
+				it.second <<= sh;
+			r.konst <<= sh;
+			r.ok = true;
+			r.exact_bits = std::min<int64_t>(yw, a.exact_bits + sh);
+			return r;
+		}
+
+		return r;
+	}
+
+	// Length of the maximal prefix of `sig` that is one coherent value: either
+	// a driver's Y aligned at bit 0, or a contiguous slice of one wire.
+	int chunk_len(const SigSpec &sig)
+	{
+		int w = GetSize(sig);
+		Cell *drv = bit_drivers.at(sig[0], nullptr);
+		if (drv && drv->hasPort(ID::Y)) {
+			SigSpec dy = sigmap(drv->getPort(ID::Y));
+			int k = 0;
+			while (k < w && k < GetSize(dy) && sig[k] == dy[k])
+				k++;
+			if (k > 0)
+				return k;
+		}
+		if (!sig[0].wire)
+			return 1;
+		int k = 1;
+		while (k < w && sig[k].wire == sig[0].wire &&
+		       sig[k].offset == sig[0].offset + k)
+			k++;
+		return k;
+	}
+
+	// Tighten exactness: an affine form that provably stays inside [0, 2^w) is
+	// the value of the w-bit signal itself, not just congruent to it.
+	static void tighten_exact(Affine &r, int w)
+	{
+		int64_t lo, hi;
+		if (w < AFFINE_EXACT && r.ok && coeff_range(r.coeffs, lo, hi) &&
+		    lo + r.konst >= 0 && hi + r.konst < (int64_t(1) << w))
+			r.exact_bits = AFFINE_EXACT;
+	}
+
+	Affine affine_of(SigSpec sig, int depth)
+	{
+		Affine r;
+		sig = sigmap(sig);
+		if (GetSize(sig) == 0 || depth > 12)
+			return r;
+
+		// Verific spells zero extension out in the concat; peel it so the
+		// underlying narrow signal becomes the atom (and bounds its range).
+		int w = GetSize(sig);
+		while (w > 1 && sig[w - 1] == State::S0)
+			w--;
+		sig = sig.extract(0, w);
+
+		auto cached = affine_cache.find(sig);
+		if (cached != affine_cache.end())
+			return cached->second;
+		affine_cache[sig] = r; // depth-limited recursion guard
+
+		if (sig.is_fully_const()) {
+			if (const_to_i64(sig, r.konst)) {
+				r.ok = true;
+				r.exact_bits = AFFINE_EXACT;
+			}
+			affine_cache[sig] = r;
+			return r;
+		}
+
+		// All bits from one cell's Y aligned at bit 0: value is that cell's
+		// result truncated, i.e. congruent modulo the slice width.
+		Cell *drv = bit_drivers.at(sig[0], nullptr);
+		if (drv && drv->hasPort(ID::Y)) {
+			SigSpec dy = sigmap(drv->getPort(ID::Y));
+			bool aligned = w <= GetSize(dy);
+			for (int i = 0; aligned && i < w; i++)
+				if (sig[i] != dy[i])
+					aligned = false;
+			if (aligned) {
+				Affine a = affine_from_cell(drv, depth);
+				if (a.ok) {
+					a.exact_bits = std::min(a.exact_bits, w);
+					normalize_coeffs(a.coeffs);
+					tighten_exact(a, w);
+					affine_cache[sig] = a;
+					return a;
+				}
+			}
+		}
+
+		// Replicated MSBs are sign extension of the low `c` bits.
+		int c = w;
+		while (c > 1 && sig[c - 1] == sig[c - 2])
+			c--;
+		if (c < w) {
+			SigSpec core = sig.extract(0, c);
+			Affine a = affine_of(core, depth + 1);
+			int64_t lo, hi;
+			// A constant replicated MSB is a known addend, not an unknown sign:
+			// opt_expr spells `x + const` this way, so keep the value exact.
+			if (sig[w - 1] == State::S1 && w < AFFINE_EXACT && a.ok &&
+			    a.exact_bits >= c) {
+				a.konst += (int64_t(1) << w) - (int64_t(1) << c);
+				affine_cache[sig] = a;
+				return a;
+			}
+			if (a.ok && a.exact_bits >= c && coeff_range(a.coeffs, lo, hi) &&
+			    lo + a.konst >= -(int64_t(1) << (c - 1)) &&
+			    hi + a.konst < (int64_t(1) << (c - 1))) {
+				// Core value provably fits signed-`c`, so the extension is exact.
+				a.exact_bits = AFFINE_EXACT;
+				affine_cache[sig] = a;
+				return a;
+			}
+			r.ok = true;
+			r.exact_bits = AFFINE_EXACT;
+			r.coeffs[AffineAtom(core, true)] = 1;
+			affine_cache[sig] = r;
+			return r;
+		}
+
+		// Concatenation of independently folded pieces: value = low + 2^k*high.
+		int k = chunk_len(sig);
+		if (k > 0 && k < w) {
+			Affine lo_part = affine_of(sig.extract(0, k), depth + 1);
+			Affine hi_part = affine_of(sig.extract(k, w - k), depth + 1);
+			int64_t plo, phi;
+			bool lo_exact = lo_part.ok && coeff_range(lo_part.coeffs, plo, phi) &&
+					plo + lo_part.konst >= 0 &&
+					phi + lo_part.konst < (int64_t(1) << k);
+
+			// The low piece may instead be a truncated prefix of its driver's
+			// Y (Verific re-adds the dropped carry in the high piece): recover
+			// the exact value as full_Y - 2^k * Y[k:].
+			if (!lo_exact && hi_part.ok) {
+				Cell *lo_drv = bit_drivers.at(sig[0], nullptr);
+				SigSpec dy = lo_drv && lo_drv->hasPort(ID::Y)
+						     ? sigmap(lo_drv->getPort(ID::Y))
+						     : SigSpec();
+				int m = GetSize(dy) - k;
+				if (m > 0 && m <= AFFINE_MAX_ATOM_BITS) {
+					Affine full = affine_of(dy, depth + 1);
+					if (full.ok && full.exact_bits >= AFFINE_EXACT) {
+						Affine carry;
+						carry.ok = true;
+						carry.exact_bits = AFFINE_EXACT;
+						carry.coeffs[AffineAtom(dy.extract(k, m), false)] = 1;
+						affine_accum(full, carry, -(int64_t(1) << k));
+						lo_part = full;
+						lo_exact = true;
+					}
+				}
+			}
+
+			if (lo_exact && hi_part.ok) {
+				// The low piece is exact, so the weighted sum is affine.
+				r = lo_part;
+				affine_accum(r, hi_part, int64_t(1) << k);
+				r.ok = true;
+				r.exact_bits = std::min<int64_t>(AFFINE_EXACT,
+								 int64_t(k) + hi_part.exact_bits);
+				normalize_coeffs(r.coeffs);
+				tighten_exact(r, w);
+				affine_cache[sig] = r;
+				return r;
+			}
+		}
+
+		r.ok = true;
+		r.exact_bits = AFFINE_EXACT;
+		r.coeffs[AffineAtom(sig, false)] = 1;
+		affine_cache[sig] = r;
+		return r;
+	}
+
+	struct GatherCand {
+		Cell *cell;
+		SigBit ybit;
+		SigSpec index;
+		int width; // meaningful index bits for this cell
+		int64_t konst;
+	};
+
+	struct GatherKey {
+		int kind;  // 0 = modular ($bmux), 1 = zero-fill ($shr)
+		int width; // S_WIDTH for $bmux; 0 for $shr (folded per candidate)
+		SigSpec table;
+		CoeffMap coeffs;
+		bool operator<(const GatherKey &o) const
+		{
+			if (kind != o.kind) return kind < o.kind;
+			if (width != o.width) return width < o.width;
+			if (table != o.table) return table < o.table;
+			return coeffs < o.coeffs;
+		}
+	};
+
+	// Bits read by any cell input, module connection or output port.
+	pool<SigBit> read_bits;
+
+	void collect_read_bits()
+	{
+		for (auto cell : module->cells())
+			for (auto &conn : cell->connections())
+				if (!cell->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						read_bits.insert(bit);
+		for (auto &conn : module->connections())
+			for (auto bit : sigmap(conn.second))
+				read_bits.insert(bit);
+		for (auto wire : module->wires())
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
+				for (auto bit : sigmap(SigSpec(wire)))
+					read_bits.insert(bit);
+	}
+
+	void process_uniform_gathers(int min_gather, int max_table)
+	{
+		collect_read_bits();
+
+		std::map<GatherKey, std::vector<GatherCand>> groups;
+
+		for (auto cell : module->selected_cells()) {
+			GatherKey key;
+			Affine idx;
+			SigBit ybit;
+			SigSpec index;
+			int cand_width = 0;
+			int64_t bitpos = 0;
+
+			if (cell->type == ID($bmux) && cell->getParam(ID::WIDTH).as_int() == 1) {
+				int sw = cell->getParam(ID::S_WIDTH).as_int();
+				if (sw < 2 || (1 << sw) > max_table)
+					continue;
+				key.kind = 0;
+				key.width = sw;
+				index = cell->getPort(ID::S);
+				idx = affine_of(index, 0);
+				if (!idx.ok || idx.exact_bits < sw)
+					continue;
+				ybit = sigmap(cell->getPort(ID::Y)[0]);
+			} else if (cell->type == ID($shr) &&
+			           !cell->getParam(ID::A_SIGNED).as_bool() &&
+			           !cell->getParam(ID::B_SIGNED).as_bool()) {
+				// Only a single used Y bit makes this a gather rather than a
+				// real shift; Y[k] = A[B + k] with zero fill out of range.
+				SigSpec y = sigmap(cell->getPort(ID::Y));
+				int used = -1;
+				for (int i = 0; i < GetSize(y); i++)
+					if (read_bits.count(y[i])) {
+						if (used >= 0) { used = -2; break; }
+						used = i;
+					}
+				if (used < 0)
+					continue;
+				key.kind = 1;
+				key.width = 0;
+				index = cell->getPort(ID::B);
+				SigSpec bsig = sigmap(index);
+				cand_width = GetSize(bsig);
+				while (cand_width > 1 && bsig[cand_width - 1] == State::S0)
+					cand_width--;
+				idx = affine_of(index, 0);
+				if (!idx.ok || idx.exact_bits < cand_width ||
+				    cand_width > AFFINE_MAX_ATOM_BITS)
+					continue;
+				ybit = y[used];
+				bitpos = used;
+			} else {
+				continue;
+			}
+
+			if (idx.coeffs.empty())
+				continue; // constant index: plain const-folding territory
+			key.table = sigmap(cell->getPort(ID::A));
+			if (GetSize(key.table) > 2 * max_table)
+				continue;
+
+			if (key.kind == 1) {
+				// opt_expr folds different constants to different index widths,
+				// so check the wrap guard per cell and let the group span widths:
+				// negative values must read as 0, not alias back into the table.
+				int64_t clo, chi;
+				if (!coeff_range(idx.coeffs, clo, chi))
+					continue;
+				int64_t mod = int64_t(1) << cand_width;
+				if (chi + idx.konst + bitpos >= mod ||
+				    clo + idx.konst + bitpos < GetSize(key.table) - mod)
+					continue;
+			}
+
+			key.coeffs = idx.coeffs;
+			groups[key].push_back({cell, ybit, index, cand_width,
+					       idx.konst + bitpos});
+		}
+
+		for (auto &it : groups) {
+			const GatherKey &key = it.first;
+			std::vector<GatherCand> &cands = it.second;
+			if (GetSize(cands) < min_gather)
+				continue;
+
+			int64_t dlo, dhi;
+			if (!coeff_range(key.coeffs, dlo, dhi))
+				continue;
+
+			std::sort(cands.begin(), cands.end(),
+				  [](const GatherCand &a, const GatherCand &b) {
+					  return a.konst < b.konst;
+				  });
+			int64_t dmin = cands.front().konst;
+			int64_t emax = cands.back().konst - dmin;
+
+			// Shift-amount window: the dynamic part offset so it starts at 0.
+			int64_t lo = dlo + dmin, hi = dhi + dmin;
+			int64_t span = hi - lo;
+			if (span < 1 || span > (int64_t(1) << 20))
+				continue;
+			int amt_bits = clog2_int(span + 1);
+
+			if (key.kind == 0) {
+				int64_t M = int64_t(1) << key.width;
+				if (GetSize(key.table) != M)
+					continue;
+				if (span >= M) {
+					// No narrowing possible: the raw index is the amount.
+					lo = 0;
+					span = M - 1;
+					amt_bits = key.width;
+				}
+				emit_modular_gather(key, cands, dmin, emax, lo, span, amt_bits);
+			} else {
+				// The wrap guard was checked per cell; only refuse groups whose
+				// shared barrel would be deeper than one over the whole table.
+				if (amt_bits > clog2_int(GetSize(key.table) + 1))
+					continue;
+				emit_zerofill_gather(key, cands, dmin, emax, lo, span, amt_bits);
+			}
+		}
+	}
+
+	// y_c = T[(v + lo + e_c) mod M], emitted as one $shr over T rotated by
+	// `lo` and doubled, so the modular wrap is exact for any table padding.
+	void emit_modular_gather(const GatherKey &key, std::vector<GatherCand> &cands,
+				 int64_t dmin, int64_t emax, int64_t lo, int64_t span,
+				 int amt_bits)
+	{
+		int64_t M = int64_t(1) << key.width;
+		// The amount is derived from the lowest-constant member, which sorting
+		// put first; every other member is that index plus a known constant.
+		Cell *ref = cands.front().cell;
+		SigSpec ref_index = cands.front().index;
+		int64_t lomod = ((lo % M) + M) % M;
+
+		int64_t out_w = std::min(emax, M - 1) + 1;
+		int64_t src_w = std::min<int64_t>(2 * M, out_w + span);
+
+		SigSpec source;
+		for (int64_t j = 0; j < src_w; j++)
+			source.append(key.table[(j + lomod) % M]);
+
+		SigSpec amount = ref_index;
+		if (lomod != 0) {
+			Wire *sub_w = module->addWire(NEW_ID_SUFFIX("vps_gather_amt"), key.width);
+			module->addSub(NEW_ID_SUFFIX("vps_gather_sub"), ref_index,
+				       const_u64(lomod, key.width), sub_w, false, cell_src(ref));
+			amount = SigSpec(sub_w);
+		}
+		amount = amount.extract(0, amt_bits);
+
+		Wire *shifted = module->addWire(NEW_ID_SUFFIX("vps_gather_y"), out_w);
+		module->addShr(NEW_ID_SUFFIX("vps_gather_shr"), source, amount,
+			       SigSpec(shifted), false, cell_src(ref));
+
+		for (auto &c : cands) {
+			module->connect(c.ybit, SigBit(shifted, (c.konst - dmin) % M));
+			module->remove(c.cell);
+			pmux_replaced++;
+		}
+
+		log("  VPS gather: %d modular bit-select(s) (M=%d) -> $shr src=%d, "
+		    "out=%d, amt=%d bit(s)\n",
+		    GetSize(cands), (int)M, (int)src_w, (int)out_w, amt_bits);
+		gathers_folded++;
+		groups_optimized++;
+	}
+
+	// y_c = A[v + lo + e_c] with zero fill, emitted as one $shr over A
+	// re-based at `lo` (out-of-range entries materialised as constant 0).
+	void emit_zerofill_gather(const GatherKey &key, std::vector<GatherCand> &cands,
+				  int64_t dmin, int64_t emax, int64_t lo, int64_t span,
+				  int amt_bits)
+	{
+		Cell *ref = cands.front().cell;
+		SigSpec ref_index = cands.front().index;
+		int64_t out_w = emax + 1;
+		int64_t src_w = out_w + span;
+		int64_t table_w = GetSize(key.table);
+
+		SigSpec source;
+		for (int64_t j = 0; j < src_w; j++) {
+			int64_t t = j + lo;
+			source.append(t >= 0 && t < table_w ? key.table[t] : SigBit(State::S0));
+		}
+
+		int ref_width = cands.front().width;
+		SigSpec amount = ref_index.extract(0, ref_width);
+		if (lo != 0) {
+			Wire *add_w = module->addWire(NEW_ID_SUFFIX("vps_gather_amt"), ref_width);
+			module->addAdd(NEW_ID_SUFFIX("vps_gather_add"), amount,
+				       const_u64((uint64_t)(-lo), ref_width), add_w, false,
+				       cell_src(ref));
+			amount = SigSpec(add_w);
+		}
+		amount = amount.extract(0, amt_bits);
+
+		Wire *shifted = module->addWire(NEW_ID_SUFFIX("vps_gather_y"), out_w);
+		module->addShr(NEW_ID_SUFFIX("vps_gather_shr"), source, amount,
+			       SigSpec(shifted), false, cell_src(ref));
+
+		for (auto &c : cands) {
+			module->connect(c.ybit, SigBit(shifted, c.konst - dmin));
+			module->remove(c.cell);
+			pmux_replaced++;
+		}
+
+		log("  VPS gather: %d zero-fill bit-select(s) -> $shr src=%d, "
+		    "out=%d, amt=%d bit(s)\n",
+		    GetSize(cands), (int)src_w, (int)out_w, amt_bits);
+		gathers_folded++;
+		groups_optimized++;
+	}
+
+	void run(int min_gather, int max_gather_table)
+	{
+		// Runs first: it works on the raw Verific per-bit gathers, and the
+		// decoder phases below never look at $bmux.
+		if (min_gather > 0) {
+			process_uniform_gathers(min_gather, max_gather_table);
+			if (gathers_folded)
+				rebuild_maps();
+		}
+
 		std::vector<Cell *> decoders;
 		for (auto cell : module->selected_cells())
 			if (is_decoder_shl(cell))
@@ -1680,14 +2331,32 @@ struct OptVpsPass : public Pass {
 		log("and replaces the $pmux with a $shr barrel shifter, reducing gates\n");
 		log("from O(N*W) to O(log(N)*W).\n");
 		log("\n");
+		log("UNIFORM GATHERS: with an arithmetic index expression Verific keeps\n");
+		log("the select per output bit (a 1-bit $bmux, or a $shr with a single\n");
+		log("used Y bit) instead of the decoder + $pmux form above. When a group\n");
+		log("of those shares one table and their indices are the same dynamic\n");
+		log("expression plus a per-bit constant, the group is one barrel shift:\n");
+		log("this pass proves the affine relation, then replaces the group with a\n");
+		log("single $shr whose shift amount is narrowed to the provable range of\n");
+		log("that expression.\n");
+		log("\n");
 		log("    -min_stride <n>\n");
 		log("        Minimum stride (S_WIDTH of the VPS write $pmux cells) to\n");
 		log("        consider. Default: 4.\n");
+		log("\n");
+		log("    -min_gather <n>\n");
+		log("        Minimum number of bit-selects in a uniform gather group.\n");
+		log("        0 disables gather folding. Default: 4.\n");
+		log("\n");
+		log("    -max_gather_table <n>\n");
+		log("        Maximum gather table entries to consider. Default: 4096.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int min_stride = 4;
+		int min_gather = 4;
+		int max_gather_table = 4096;
 
 		log_header(design, "Executing OPT_VPS pass (optimize Verific VPS patterns).\n");
 
@@ -1697,38 +2366,49 @@ struct OptVpsPass : public Pass {
 				min_stride = std::stoi(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-min_gather" && argidx + 1 < args.size()) {
+				min_gather = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-max_gather_table" && argidx + 1 < args.size()) {
+				max_gather_table = std::stoi(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		int total_groups = 0, total_pmux = 0, total_ror = 0, total_fb = 0, total_rd = 0;
+		int total_gather = 0;
 
 		for (auto module : design->selected_modules()) {
 			if (module->has_processes_warn())
 				continue;
 
 			OptVpsWorker worker(module, min_stride);
-			worker.run();
+			worker.run(min_gather, max_gather_table);
 
 			if (worker.groups_optimized > 0)
 				log("  Module %s: %d VPS group(s), %d $pmux replaced, "
 				    "%d $reduce_or replaced, %d feedback collapsed, "
-				    "%d VPS reads -> $shr.\n",
+				    "%d VPS reads -> $shr, %d uniform gather(s) -> barrel.\n",
 				    log_id(module->name), worker.groups_optimized,
 				    worker.pmux_replaced, worker.reduce_or_replaced,
-				    worker.feedback_collapsed, worker.vps_reads_replaced);
+				    worker.feedback_collapsed, worker.vps_reads_replaced,
+				    worker.gathers_folded);
 
 			total_groups += worker.groups_optimized;
 			total_pmux += worker.pmux_replaced;
 			total_ror += worker.reduce_or_replaced;
 			total_fb += worker.feedback_collapsed;
 			total_rd += worker.vps_reads_replaced;
+			total_gather += worker.gathers_folded;
 		}
 
 		log("Optimized %d VPS group(s), %d $pmux replaced, "
 		    "%d $reduce_or replaced, %d feedback collapsed, "
-		    "%d VPS reads -> $shr.\n",
-		    total_groups, total_pmux, total_ror, total_fb, total_rd);
+		    "%d VPS reads -> $shr, %d uniform gather(s) -> barrel.\n",
+		    total_groups, total_pmux, total_ror, total_fb, total_rd, total_gather);
 	}
 } OptVpsPass;
 
