@@ -1,330 +1,289 @@
-#include "kernel/sigtools.h"
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2026  Silimate Inc.
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 #include "kernel/yosys.h"
-#include <set>
+#include "kernel/sigtools.h"
+
+#include <map>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct bus_rebuild : public ScriptPass {
-	bus_rebuild()
-	    : ScriptPass("bus_rebuild", "Reconstruct busses from wires with the same prefix following the convention: <prefix>_<index>_")
+// A bus reconstructed from a group of bit-blasted 1-bit ports.
+struct BusGroup {
+	RTLIL::IdString name;                 // name of the reconstructed bus, e.g. \key
+	int width = 0;                        // one past the largest index seen, not the member count
+	std::vector<RTLIL::IdString> members; // members[i] is the port that became bit i, empty if absent
+};
+
+// Substitutes individual bits according to a bit-level rewrite map.
+struct BitRewriter {
+	const dict<RTLIL::SigBit, RTLIL::SigBit> &rules;
+	BitRewriter(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules) : rules(rules) {}
+	void operator()(RTLIL::SigSpec &sig) { sig.replace(rules); }
+};
+
+struct BusRebuildPass : public Pass {
+	BusRebuildPass() : Pass("bus_rebuild", "reconstruct busses from bit-blasted ports") {}
+	void help() override
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    bus_rebuild [selection]\n");
+		log("\n");
+		log("This command reconstructs vector ports from groups of 1-bit ports that follow\n");
+		log("the bit-blasting convention <prefix>_<index>_, as emitted by netlist writers\n");
+		log("that cannot represent vectors. The ports of the selected modules are grouped\n");
+		log("by prefix, replaced by a single vector port, and everything referring to the\n");
+		log("old 1-bit ports is repointed at the corresponding bit of the new vector.\n");
+		log("\n");
+		log("Instances of a rewritten module are updated in every module of the design,\n");
+		log("including modules outside the selection, so that named port connections keep\n");
+		log("resolving to a declared port. The per-bit connections .p_0_(a), .p_1_(b) are\n");
+		log("merged into the single connection .p({b, a}).\n");
+		log("\n");
+		log("A group is left alone if its prefix collides with an existing wire, if a bit\n");
+		log("index is claimed twice, if its members are not all 1 bit wide, or if they do\n");
+		log("not agree on a direction.\n");
+		log("\n");
 	}
-	void script() override {}
 
-	bool is_digits(const std::string &str) { return std::all_of(str.begin(), str.end(), ::isdigit); }
-
-	// Get the index <index> from the signal name "prefix_<index>_"
-	int getIndex(std::string name, std::map<std::string, RTLIL::Wire *> &wirenames_to_remove)
+	// Split a bit-blasted port name such as "\foo_12_" into the prefix "\foo" and the index 12.
+	// Returns false if the name does not follow the convention. Indices with redundant leading
+	// zeros are rejected, so that \foo_07_ and \foo_7_ can never claim the same bit.
+	static bool parse_blasted_name(const std::string &name, std::string &prefix, int &index)
 	{
-		std::map<std::string, RTLIL::Wire *>::iterator itr_lhs = wirenames_to_remove.find(name);
-		if (itr_lhs != wirenames_to_remove.end()) {
-			std::string::iterator conn_lhs_end = name.end() - 1;
-			if ((*conn_lhs_end) == '_') {
-				name = name.substr(0, name.size() - 1);
-				if (name.find("_") != std::string::npos) {
-					std::string ch_index_str = name.substr(name.find_last_of('_') + 1);
-					if (!ch_index_str.empty() && is_digits(ch_index_str)) {
-						int ch_index = std::stoi(ch_index_str);
-						return ch_index;
+		if (name.size() < 4 || name.back() != '_')
+			return false;
+
+		size_t sep = name.rfind('_', name.size() - 2);
+		if (sep == std::string::npos || sep == 0)
+			return false;
+
+		std::string digits = name.substr(sep + 1, name.size() - sep - 2);
+		if (digits.empty() || !std::all_of(digits.begin(), digits.end(), ::isdigit))
+			return false;
+		if (digits.size() > 1 && digits[0] == '0')
+			return false;
+
+		// The prefix must be more than the leading \ or $ of the identifier.
+		if (sep < 2)
+			return false;
+
+		try {
+			index = std::stoi(digits);
+		} catch (const std::out_of_range &) {
+			return false;
+		}
+		prefix = name.substr(0, sep);
+		return true;
+	}
+
+	// Replace the bit-blasted ports of one module by vector ports.
+	// Appends one BusGroup per reconstructed bus so that instances can be fixed up later.
+	void rebuild_module_ports(RTLIL::Module *module, std::vector<BusGroup> &buses)
+	{
+		// Group the bit-blasted ports by prefix. std::map keeps the members ordered by
+		// index, which matters because \p_10_ sorts before \p_2_ by name.
+		std::map<std::string, std::map<int, RTLIL::Wire *>> groups;
+		pool<std::string> rejected;
+
+		for (auto wire : module->wires()) {
+			if (!wire->port_input && !wire->port_output)
+				continue;
+
+			std::string prefix;
+			int index;
+			if (!parse_blasted_name(wire->name.str(), prefix, index))
+				continue;
+
+			if (wire->width != 1) {
+				log_warning("Not reconstructing bus %s in module %s: member %s is %d bits wide.\n", prefix.c_str(), log_id(module),
+					    log_id(wire), wire->width);
+				rejected.insert(prefix);
+				continue;
+			}
+
+			auto &members = groups[prefix];
+			if (members.count(index)) {
+				log_warning("Not reconstructing bus %s in module %s: bit %d is claimed by both %s and %s.\n", prefix.c_str(),
+					    log_id(module), index, log_id(members.at(index)), log_id(wire));
+				rejected.insert(prefix);
+				continue;
+			}
+			members[index] = wire;
+		}
+
+		dict<RTLIL::SigBit, RTLIL::SigBit> rules;
+		pool<RTLIL::Wire *> old_ports;
+
+		for (auto &group : groups) {
+			const std::string &prefix = group.first;
+			auto &members = group.second;
+
+			if (rejected.count(prefix))
+				continue;
+
+			RTLIL::IdString bus_name(prefix);
+			if (module->wire(bus_name) != nullptr) {
+				log_warning("Not reconstructing bus %s in module %s: a wire of that name already exists.\n", log_id(bus_name),
+					    log_id(module));
+				continue;
+			}
+
+			// Take the direction as the union over the members. An inout port carries both
+			// flags, so testing them one at a time would quietly demote it to a plain input.
+			bool is_input = false, is_output = false;
+			for (auto &member : members) {
+				is_input |= member.second->port_input;
+				is_output |= member.second->port_output;
+			}
+			if (is_input && is_output) {
+				for (auto &member : members)
+					if (!member.second->port_input || !member.second->port_output) {
+						log_warning("Not reconstructing bus %s in module %s: members disagree on direction.\n",
+							    log_id(bus_name), log_id(module));
+						is_input = is_output = false;
+						break;
 					}
+				if (!is_input && !is_output)
+					continue;
+			}
+
+			// Size the bus from the largest index rather than the member count. A writer
+			// may drop bits that ended up unconnected, and packing the survivors together
+			// would silently renumber every bit above the first gap.
+			int width = members.rbegin()->first + 1;
+
+			// Keep the bus roughly where the blasted bits were in the port list.
+			int port_id = 0;
+			for (auto &member : members)
+				if (member.second->port_id != 0 && (port_id == 0 || member.second->port_id < port_id))
+					port_id = member.second->port_id;
+
+			RTLIL::Wire *bus = module->addWire(bus_name, width);
+			bus->port_input = is_input;
+			bus->port_output = is_output;
+			bus->port_id = port_id;
+			bus->set_src_attribute(members.begin()->second->get_src_attribute());
+
+			BusGroup info;
+			info.name = bus_name;
+			info.width = width;
+			info.members.resize(width);
+			for (auto &member : members) {
+				rules[RTLIL::SigBit(member.second)] = RTLIL::SigBit(bus, member.first);
+				info.members[member.first] = member.second->name;
+				old_ports.insert(member.second);
+			}
+			buses.push_back(info);
+
+			if (GetSize(members) == width)
+				log_debug("  %s [%d:0]\n", log_id(bus_name), width - 1);
+			else
+				log_debug("  %s [%d:0], %d of %d bits absent\n", log_id(bus_name), width - 1, width - GetSize(members), width);
+		}
+
+		if (buses.empty())
+			return;
+
+		// Repoint everything that referenced the old 1-bit ports at the new bus bits.
+		BitRewriter rewriter(rules);
+		module->rewrite_sigspecs(rewriter);
+
+		module->remove(old_ports);
+		module->fixup_ports();
+
+		log("Reconstructed %d bus%s from %d ports in module %s.\n", GetSize(buses), GetSize(buses) == 1 ? "" : "es",
+		    GetSize(old_ports), log_id(module));
+	}
+
+	// Merge the per-bit connections on instances of rewritten modules into one connection
+	// per bus, so that every formal keeps naming a port that actually exists.
+	void reconnect_instances(RTLIL::Module *module, const dict<RTLIL::IdString, std::vector<BusGroup>> &rebuilt)
+	{
+		int reconnected = 0;
+
+		for (auto cell : module->cells()) {
+			auto it = rebuilt.find(cell->type);
+			if (it == rebuilt.end())
+				continue;
+
+			for (auto &bus : it->second) {
+				RTLIL::SigSpec sig;
+				bool connected = false;
+
+				for (int i = 0; i < bus.width; i++) {
+					RTLIL::IdString member = bus.members[i];
+					if (!member.empty() && cell->hasPort(member)) {
+						RTLIL::SigSpec actual = cell->getPort(member);
+						if (GetSize(actual) == 1) {
+							sig.append(actual);
+							connected = true;
+							continue;
+						}
+						log_warning("Instance %s in module %s drives %d bits into 1-bit port %s, leaving bit %d undriven.\n",
+							    log_id(cell), log_id(module), GetSize(actual), log_id(member), i);
+					}
+					// A bit the instance never connected, or that the module dropped, stays undriven.
+					sig.append(RTLIL::State::Sx);
 				}
+
+				if (!connected)
+					continue;
+
+				for (int i = 0; i < bus.width; i++)
+					if (!bus.members[i].empty())
+						cell->unsetPort(bus.members[i]);
+				cell->setPort(bus.name, sig);
+				reconnected++;
 			}
 		}
-		return -1;
+
+		if (reconnected)
+			log("Reconnected %d bus port%s on instances in module %s.\n", reconnected, reconnected == 1 ? "" : "s", log_id(module));
 	}
 
-	void execute(std::vector<std::string>, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		if (design == nullptr) {
-			log_error("No design object");
+		log_header(design, "Executing BUS_REBUILD pass (reconstructing busses from bit-blasted ports).\n");
+		extra_args(args, 1, design);
+
+		dict<RTLIL::IdString, std::vector<BusGroup>> rebuilt;
+
+		for (auto module : design->selected_modules()) {
+			std::vector<BusGroup> buses;
+			rebuild_module_ports(module, buses);
+			if (!buses.empty())
+				rebuilt[module->name] = std::move(buses);
+		}
+
+		if (rebuilt.empty()) {
+			log("No busses to reconstruct.\n");
 			return;
 		}
-		bool debug = false;
-		if (std::getenv("DEBUG_RECONSTRUCT_BUSSES")) {
-			debug = true;
-		}
-		log("Running bus_rebuild pass\n");
-		log_flush();
-		for (auto module : design->modules()) {
-			if (module->get_bool_attribute("\\blackbox"))
-				continue;
-			log("Creating bus groups for module %s\n", module->name.str().c_str());
-			log_flush();
-			// Collect all wires with a common prefix
-			dict<std::string, std::vector<RTLIL::Wire *>> wire_groups;
-			for (auto wire : module->wires()) {
-				if (wire->name[0] == '$') // Skip internal wires
-					continue;
-				if ((!wire->port_input) && (!wire->port_output)) {
-					continue;
-				}
-				std::string prefix = wire->name.str();
 
-				if (prefix.empty())
-					continue;
-				// We want to truncate the final _<index>_ part of the string
-				// Example: "add_Y_0_"
-				// Result:  "add_Y"
-				std::string::iterator end = prefix.end() - 1;
-				if ((*end) == '_') {
-					// Last character is an _, check that it is a bit blasted index:
-					bool valid_index = false;
-					std::string ch_name = prefix.substr(0, prefix.size() - 1);
-					if (ch_name.find("_") != std::string::npos) {
-						std::string ch_index_str = ch_name.substr(ch_name.find_last_of('_') + 1);
-						if ((!ch_index_str.empty() && is_digits(ch_index_str))) {
-							valid_index = true;
-						}
-					}
-					if (!valid_index) {
-						log_warning("Invalid net name %s\n", prefix.c_str());
-						log_flush();
-						continue;
-					}
-
-					end--;
-					for (; end != prefix.begin(); end--) {
-						if ((*end) != '_') {
-							// Truncate until the next _
-							continue;
-						} else {
-							// Truncate the _
-							break;
-						}
-					}
-					if (end == prefix.begin()) {
-						// Last _ didn't mean there was another _
-						log_warning("Invalid net name %s\n", prefix.c_str());
-						log_flush();
-						continue;
-					}
-					std::string no_bitblast_prefix;
-					std::copy(prefix.begin(), end, std::back_inserter(no_bitblast_prefix));
-					wire_groups[no_bitblast_prefix].push_back(wire);
-				}
-			}
-			log("Found %ld groups\n", wire_groups.size());
-			if (wire_groups.size() == 0) {
-				log("No busses to reconstruct. Done.\n");
-				continue;
-			}
-			log("Creating busses\n");
-			log_flush();
-			std::map<std::string, RTLIL::Wire *> wirenames_to_remove;
-			pool<RTLIL::Wire *> wires_to_remove;
-			// Reconstruct vectors
-			for (auto &it : wire_groups) {
-				std::string prefix = it.first;
-				if (debug)
-					std::cout << "Wire group:" << prefix << std::endl;
-				std::vector<RTLIL::Wire *> &wires = it.second;
-
-				// Create a new vector wire
-				int width = wires.size();
-				RTLIL::Wire *new_wire = module->addWire(prefix, width);
-				for (RTLIL::Wire *w : wires) {
-					// All wires in the same wire_group are of the same type (input_port, output_port or none)
-					if (w->port_input)
-						new_wire->port_input = 1;
-					else if (w->port_output)
-						new_wire->port_output = 1;
-					break;
-				}
-
-				for (auto wire : wires) {
-					std::string wire_name = wire->name.c_str();
-					wirenames_to_remove.emplace(wire_name, new_wire);
-					wires_to_remove.insert(wire);
-				}
-			}
-			log("Reconnecting cells\n");
-			log_flush();
-			// Reconnect cells
-			for (auto cell : module->cells()) {
-				if (debug)
-					std::cout << "Cell:" << cell->name.c_str() << std::endl;
-				for (auto &conn : cell->connections_) {
-					RTLIL::SigSpec new_sig;
-					bool modified = false;
-					for (auto chunk : conn.second.chunks()) {
-						if (debug) {
-							std::cout << "  Port:" << conn.first.c_str() << std::endl;
-							std::cout << "  Conn:" << (chunk.wire ? chunk.wire->name.c_str() : "constant") << std::endl;
-						}
-						// Find the connections that match the wire group prefix
-						if (chunk.wire == nullptr) {
-							continue;
-						}
-						std::string lhs_name = chunk.wire ? chunk.wire->name.c_str() : "";
-						int lhsIndex = getIndex(lhs_name, wirenames_to_remove);
-						std::map<std::string, RTLIL::Wire *>::iterator itr_lhs = wirenames_to_remove.find(lhs_name);
-						if (itr_lhs != wirenames_to_remove.end()) {
-							if (lhsIndex >= 0) {
-								// Create a new connection sigspec that matches the previous
-								// bit index
-								if (lhsIndex < itr_lhs->second->width) {
-									RTLIL::SigSpec bit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
-									new_sig.append(bit);
-									modified = true;
-								} else {
-									log_warning("Attempting to reconnect cell %s, port: %s of size %d with "
-										    "out-of-bound index %d\n",
-										    cell->name.c_str(), conn.first.c_str(), itr_lhs->second->width,
-										    lhsIndex);
-									for (RTLIL::Wire *w : wires_to_remove) {
-										if (strcmp(w->name.c_str(), itr_lhs->second->name.c_str()) == 0) {
-											wires_to_remove.erase(w);
-											break;
-										}
-									}
-								}
-							} else {
-								new_sig.append(chunk);
-								modified = true;
-							}
-						}
-					}
-					// Replace the previous connection
-					if (modified)
-						conn.second = new_sig;
-				}
-			}
-			if (debug)
-				run_pass("write_rtlil post_reconnect_cells.rtlil");
-			log("Reconnecting top connections\n");
-			log_flush();
-			// Reconnect top connections before removing the old wires
-			std::vector<RTLIL::SigSig> newConnections;
-			for (auto &conn : module->connections()) {
-				// Keep all the connections that won't get rewired
-				newConnections.push_back(conn);
-			}
-			for (auto &conn : newConnections) {
-				RTLIL::SigSpec lhs = conn.first;
-				RTLIL::SigSpec rhs = conn.second;
-				auto lhs_chunks = lhs.chunks();
-				auto rhs_chunks = rhs.chunks();
-
-				auto lit = lhs_chunks.rbegin();
-				if (lit == lhs_chunks.rend())
-					continue;
-				auto rit = rhs_chunks.rbegin();
-				if (rit == rhs_chunks.rend())
-					continue;
-				RTLIL::SigChunk sub_rhs = *rit;
-				while (lit != lhs_chunks.rend()) {
-					RTLIL::SigChunk sub_lhs = *lit;
-					std::string conn_lhs_s = sub_lhs.wire ? sub_lhs.wire->name.c_str() : "";
-					std::string conn_rhs_s = sub_rhs.wire ? sub_rhs.wire->name.c_str() : "";
-					if (!conn_lhs_s.empty()) {
-						if (debug) {
-							std::cout << "Conn LHS: " << conn_lhs_s << std::endl;
-							std::cout << "Conn RHS: " << conn_rhs_s << std::endl;
-						}
-						int lhsIndex = getIndex(conn_lhs_s, wirenames_to_remove);
-						int rhsIndex = getIndex(conn_rhs_s, wirenames_to_remove);
-						std::map<std::string, RTLIL::Wire *>::iterator itr_lhs = wirenames_to_remove.find(conn_lhs_s);
-						std::map<std::string, RTLIL::Wire *>::iterator itr_rhs = wirenames_to_remove.find(conn_rhs_s);
-						if (itr_lhs != wirenames_to_remove.end() || itr_rhs != wirenames_to_remove.end()) {
-							if (lhsIndex >= 0) {
-								RTLIL::SigSpec lbit;
-								// Create the LHS sigspec of the desired bit
-								if (lhsIndex < itr_lhs->second->width) {
-									lbit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
-								} else {
-									lbit = itr_lhs->second;
-									log_warning("Attempting to reconnect signal %s, of "
-												    "size %d with out-of-bound index %d\n",
-												    conn_lhs_s.c_str(),
-												    itr_lhs->second->width, lhsIndex);
-									for (RTLIL::Wire *w : wires_to_remove) {
-										if (strcmp(w->name.c_str(),conn_lhs_s.c_str()) == 0) {
-											wires_to_remove.erase(w);
-											break;
-										}
-									}
-								}
-								if (sub_rhs.size() > 1) {
-									// If RHS has width > 1, replace with the bitblasted RHS
-									// corresponding to the connected bit
-									if (lhsIndex < sub_rhs.wire->width) {
-										RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(sub_rhs.wire, lhsIndex, 1);
-										// And connect it
-										module->connect(lbit, rhs_bit);
-									} else {
-										log_warning("Attempting to reconnect signal %s, of "
-												    "size %d with out-of-bound index %d\n",
-												    conn_rhs_s.c_str(),
-												    sub_rhs.wire->width, lhsIndex);
-										for (RTLIL::Wire *w : wires_to_remove) {
-											if (strcmp(w->name.c_str(), conn_rhs_s.c_str()) == 0) {
-												wires_to_remove.erase(w);
-												break;
-											}
-										}
-									}
-								} else {
-									// Else, directly connect
-									if (rhsIndex >= 0) {
-										if (rhsIndex < itr_rhs->second->width) {
-											RTLIL::SigSpec rbit =
-											  RTLIL::SigSpec(itr_rhs->second, rhsIndex, 1);
-											module->connect(lbit, rbit);
-										} else {
-											log_warning("Attempting to reconnect signal %s, of "
-												    "size %d with out-of-bound index %d\n",
-												    conn_rhs_s.c_str(),
-												    itr_rhs->second->width, rhsIndex);
-											for (RTLIL::Wire *w : wires_to_remove) {
-												if (strcmp(w->name.c_str(), conn_rhs_s.c_str()) == 0) {
-													wires_to_remove.erase(w);
-													break;
-												}
-											}
-										}
-									} else {
-										module->connect(lbit, sub_rhs);
-									}
-								}
-							} else {
-								// LHS is not a bus
-								if (itr_rhs->second->width > 1) {
-									RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(itr_rhs->second, 0, 1);
-									module->connect(sub_lhs, rhs_bit);
-								} else {
-									module->connect(sub_lhs, sub_rhs);
-								}
-							}
-						}
-					}
-					lit++;
-					if (++rit != rhs.chunks().rend())
-						rit++;
-				}
-			}
-			if (debug)
-				run_pass("write_rtlil post_reconnect_top.rtlil");
-			// Remove old bit blasted wires
-			// Cleans the dangling connections too
-			log("Removing bit blasted wires\n");
-			log_flush();
-			if (debug) {
-				for (RTLIL::Wire *w : wires_to_remove) {
-					std::cout << "  " << w->name.c_str() << std::endl;
-				}
-			}
-			module->remove(wires_to_remove);
-			// Update module port list
-			log("Re-creating ports\n");
-			log_flush();
-			module->fixup_ports();
-		}
-		if (debug)
-			run_pass("write_rtlil post_bus_rebuild.rtlil");
-		log("End bus_rebuild pass\n");
-		log_flush();
+		// Instances live in the parent, which may well be outside the selection. Visiting
+		// every module keeps a partial selection from leaving dangling formals behind.
+		for (auto module : design->modules())
+			reconnect_instances(module, rebuilt);
 	}
-} bus_rebuild;
+} BusRebuildPass;
 
 PRIVATE_NAMESPACE_END
