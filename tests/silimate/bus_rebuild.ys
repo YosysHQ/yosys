@@ -231,3 +231,151 @@ sat -verify -prove dout 1'b1 -set clk 1'b1 -set sel 1'b1 -set c3 1'b0
 sat -verify -prove dout 1'b0 -set clk 1'b1 -set sel 1'b1 -set c3 1'b1
 design -reset
 log -pop
+
+
+log -header "Instance leaves every bit of the bus unconnected"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_1_, a_0_, y);
+  input a_1_;
+  input a_0_;
+  output y;
+  assign y = a_1_ & ~a_0_;
+endmodule
+
+module top (q);
+  output q;
+  sub u_sub (.a_1_(), .a_0_(), .y(q));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# `.a_0_()` is the ordinary way to leave an input off an instance, and
+# `hierarchy` keeps those zero-width connections rather than resizing them. The
+# formals still have to go: deciding there is nothing to merge because no bit
+# carried a signal leaves the instance naming ports that no longer exist.
+hierarchy -check
+design -reset
+log -pop
+
+
+log -header "Instance leaves one bit of an output bus unconnected"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a, y_1_, y_0_);
+  input a;
+  output y_1_;
+  output y_0_;
+  assign y_1_ = a;
+  assign y_0_ = ~a;
+endmodule
+
+module top (din, d1);
+  input din;
+  output d1;
+  sub u_sub (.a(din), .y_1_(d1));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# Padding the gap with Sx would tie an output port to a constant, which
+# `hierarchy` refuses outright. Undriven bits have to dangle on a wire.
+hierarchy -check
+
+flatten
+opt -full
+sat -verify -prove d1 1'b1 -set din 1'b1
+sat -verify -prove d1 1'b0 -set din 1'b0
+design -reset
+log -pop
+
+
+log -header "Sparse output bus"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a, y_7_, y_3_, y_0_);
+  input a;
+  output y_7_, y_3_, y_0_;
+  assign y_7_ = a;
+  assign y_3_ = ~a;
+  assign y_0_ = a;
+endmodule
+
+module top (din, d7, d3, d0);
+  input din;
+  output d7, d3, d0;
+  sub u_sub (.a(din), .y_7_(d7), .y_3_(d3), .y_0_(d0));
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# The output counterpart of the sparse input case: the bus spans bit 7, so the
+# five bits the module never declared are undriven at every instance.
+select -assert-count 1 sub/w:y sub/s:8 %i
+hierarchy -check
+
+flatten
+opt -full
+sat -verify -prove d7 1'b1 -set din 1'b1
+sat -verify -prove d3 1'b0 -set din 1'b1
+sat -verify -prove d0 1'b1 -set din 1'b1
+sat -verify -prove d7 1'b0 -set din 1'b0
+sat -verify -prove d3 1'b1 -set din 1'b0
+sat -verify -prove d0 1'b0 -set din 1'b0
+design -reset
+log -pop
+
+
+log -header "Positional instantiation is left alone"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (a_1_, a_0_, y);
+  input a_1_;
+  input a_0_;
+  output y;
+  assign y = a_1_ & ~a_0_;
+endmodule
+
+module top (din, q);
+  input [1:0] din;
+  output q;
+  sub u_sub (din[1], din[0], q);
+endmodule
+EOF
+# No `hierarchy` yet, so the arguments are still the frontend's $1, $2, $3.
+bus_rebuild
+
+# Positional arguments are matched against the port list by index, so collapsing
+# three ports into two would repoint every one of them. Reordering the arguments
+# is `hierarchy`'s job, so the module has to be skipped instead.
+select -assert-count 1 sub/w:a_1_
+select -assert-count 1 sub/w:a_0_
+select -assert-count 0 sub/w:a
+
+# Once `hierarchy` has named the arguments the pass can do its work as usual.
+hierarchy -top top -check
+check -assert
+bus_rebuild
+select -assert-count 1 sub/w:a sub/s:2 %i
+hierarchy -check
+
+flatten
+opt -full
+sat -verify -prove q 1'b1 -set din 2'b10
+sat -verify -prove q 1'b0 -set din 2'b11
+sat -verify -prove q 1'b0 -set din 2'b00
+design -reset
+log -pop

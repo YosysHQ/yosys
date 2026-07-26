@@ -29,8 +29,13 @@ PRIVATE_NAMESPACE_BEGIN
 struct BusGroup {
 	RTLIL::IdString name;                 // name of the reconstructed bus, e.g. \key
 	int width = 0;                        // one past the largest index seen, not the member count
+	bool is_driven_by_cell = false;       // the bus is an output, so instances must not tie it to constants
 	std::vector<RTLIL::IdString> members; // members[i] is the port that became bit i, empty if absent
 };
+
+// A connection is positional when it is named $1, $2 and so on, as the Verilog frontend
+// emits before `hierarchy` maps them onto the port list.
+static bool is_positional(RTLIL::IdString name) { return name[0] == '$' && '0' <= name[1] && name[1] <= '9'; }
 
 // Substitutes individual bits according to a bit-level rewrite map.
 struct BitRewriter {
@@ -186,6 +191,7 @@ struct BusRebuildPass : public Pass {
 			BusGroup info;
 			info.name = bus_name;
 			info.width = width;
+			info.is_driven_by_cell = is_output && !is_input;
 			info.members.resize(width);
 			for (auto &member : members) {
 				rules[RTLIL::SigBit(member.second)] = RTLIL::SigBit(bus, member.first);
@@ -227,25 +233,33 @@ struct BusRebuildPass : public Pass {
 
 			for (auto &bus : it->second) {
 				RTLIL::SigSpec sig;
-				bool connected = false;
+				bool present = false;
 
 				for (int i = 0; i < bus.width; i++) {
 					RTLIL::IdString member = bus.members[i];
 					if (!member.empty() && cell->hasPort(member)) {
+						present = true;
 						RTLIL::SigSpec actual = cell->getPort(member);
 						if (GetSize(actual) == 1) {
 							sig.append(actual);
-							connected = true;
 							continue;
 						}
-						log_warning("Instance %s in module %s drives %d bits into 1-bit port %s, leaving bit %d undriven.\n",
-							    log_id(cell), log_id(module), GetSize(actual), log_id(member), i);
+						if (GetSize(actual) != 0)
+							log_warning("Instance %s in module %s drives %d bits into 1-bit port %s, leaving bit %d "
+								    "undriven.\n",
+								    log_id(cell), log_id(module), GetSize(actual), log_id(member), i);
 					}
-					// A bit the instance never connected, or that the module dropped, stays undriven.
-					sig.append(RTLIL::State::Sx);
+					// A bit the instance never connected, or that the module dropped, stays undriven. An
+					// output has to dangle on a fresh wire rather than a constant, which `hierarchy` rejects.
+					if (bus.is_driven_by_cell)
+						sig.append(module->addWire(NEW_ID2_SUFFIX(stringf("unconn_%s_%d", log_id(bus.name), i)), 1));
+					else
+						sig.append(RTLIL::State::Sx);
 				}
 
-				if (!connected)
+				// Every member formal has to go even when none of them carried a usable bit, or the
+				// instance is left naming ports that the module no longer declares.
+				if (!present)
 					continue;
 
 				for (int i = 0; i < bus.width; i++)
@@ -265,9 +279,27 @@ struct BusRebuildPass : public Pass {
 		log_header(design, "Executing BUS_REBUILD pass (reconstructing busses from bit-blasted ports).\n");
 		extra_args(args, 1, design);
 
+		// Positional connections are resolved against the port list by index, so rewriting the
+		// ports underneath them silently repoints every argument. Leave those modules alone.
+		pool<RTLIL::IdString> instantiated_positionally;
+		for (auto module : design->modules())
+			for (auto cell : module->cells())
+				for (auto &conn : cell->connections())
+					if (is_positional(conn.first)) {
+						instantiated_positionally.insert(cell->type);
+						break;
+					}
+
 		dict<RTLIL::IdString, std::vector<BusGroup>> rebuilt;
 
 		for (auto module : design->selected_modules()) {
+			if (instantiated_positionally.count(module->name)) {
+				log_warning("Not reconstructing busses in module %s: it is instantiated with positional "
+					    "connections. Run `hierarchy` first.\n",
+					    log_id(module));
+				continue;
+			}
+
 			std::vector<BusGroup> buses;
 			rebuild_module_ports(module, buses);
 			if (!buses.empty())
