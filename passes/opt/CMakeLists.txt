@@ -96,6 +96,10 @@ yosys_pass(opt_maxcmp
 	opt_maxcmp.cc
 )
 
+yosys_pass(opt_modadd_tree
+	opt_modadd_tree.cc
+)
+
 yosys_pass(opt_parallel_prefix
 	opt_parallel_prefix.cc
 )
