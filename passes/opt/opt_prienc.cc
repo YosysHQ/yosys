@@ -22,6 +22,7 @@
 #include "kernel/consteval.h"
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <queue>
 
 USING_YOSYS_NAMESPACE
@@ -29,8 +30,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/opt/rewrite_utils.h"
 
-// Priority-encoder variants the pass recognises.
-enum class PEVariant { NONE, CLZ_FULL, CLZ_SHORT, CTZ_FULL, CTZ_SHORT };
+// Priority-encoder variants the pass recognises. The CLO/CTO forms count a
+// leading/trailing run of ONES; by De Morgan they are CLZ/CTZ of ~x, so they
+// share the whole fingerprint deck and emit network with one extra $not.
+enum class PEVariant { NONE, CLZ_FULL, CLZ_SHORT, CTZ_FULL, CTZ_SHORT,
+                       CLO_FULL, CLO_SHORT, CTO_FULL, CTO_SHORT };
 
 static const char* variant_name(PEVariant v) {
 	switch (v) {
@@ -38,23 +42,51 @@ static const char* variant_name(PEVariant v) {
 		case PEVariant::CLZ_SHORT: return "clz_short";
 		case PEVariant::CTZ_FULL:  return "ctz_full";
 		case PEVariant::CTZ_SHORT: return "ctz_short";
+		case PEVariant::CLO_FULL:  return "clo_full";
+		case PEVariant::CLO_SHORT: return "clo_short";
+		case PEVariant::CTO_FULL:  return "cto_full";
+		case PEVariant::CTO_SHORT: return "cto_short";
 		default: return "none";
 	}
 }
 
-// Return the index of the highest set bit (MSB) of `c`, or -1 if all zero.
-static int const_msb_set(const Const& c, int N) {
+// Leading (MSB-side) scan vs trailing (LSB-side) scan.
+static bool variant_is_leading(PEVariant v) {
+	return v == PEVariant::CLZ_FULL || v == PEVariant::CLZ_SHORT ||
+	       v == PEVariant::CLO_FULL || v == PEVariant::CLO_SHORT;
+}
+
+// Counts a run of ones (CLO/CTO) rather than a run of zeros (CLZ/CTZ).
+static bool variant_counts_ones(PEVariant v) {
+	return v == PEVariant::CLO_FULL || v == PEVariant::CLO_SHORT ||
+	       v == PEVariant::CTO_FULL || v == PEVariant::CTO_SHORT;
+}
+
+// FULL pins the saturating input's result too, so the emitted output is the
+// exact count. Only then does the thermometer mask agree with it bit for bit.
+static bool variant_is_full(PEVariant v) {
+	return v == PEVariant::CLZ_FULL || v == PEVariant::CTZ_FULL ||
+	       v == PEVariant::CLO_FULL || v == PEVariant::CTO_FULL;
+}
+
+// Index of the highest bit of `c` equal to `want`, or -1 if there is none.
+// Bits past the end of `c` read as S0 (Const may be shorter than N).
+static int const_msb(const Const& c, int N, State want) {
 	auto bits = c.to_bits();
-	for (int i = N - 1; i >= 0; i--)
-		if (i < (int)bits.size() && bits[i] == State::S1) return i;
+	for (int i = N - 1; i >= 0; i--) {
+		State s = i < (int)bits.size() ? bits[i] : State::S0;
+		if (s == want) return i;
+	}
 	return -1;
 }
 
-// Return the index of the lowest set bit (LSB) of `c`, or -1 if all zero.
-static int const_lsb_set(const Const& c, int N) {
+// Index of the lowest bit of `c` equal to `want`, or -1 if there is none.
+static int const_lsb(const Const& c, int N, State want) {
 	auto bits = c.to_bits();
-	for (int i = 0; i < N; i++)
-		if (i < (int)bits.size() && bits[i] == State::S1) return i;
+	for (int i = 0; i < N; i++) {
+		State s = i < (int)bits.size() ? bits[i] : State::S0;
+		if (s == want) return i;
+	}
 	return -1;
 }
 
@@ -71,20 +103,33 @@ struct OptPriEncWorker {
 	// Configuration.
 	bool detect_clz = true;
 	bool detect_ctz = true;
+	bool detect_clo = true;
+	bool detect_cto = true;
 	bool detect_rr = true;
 	int max_input_width = 256;
 	int min_input_width = 4;
 
 	// Stats.
 	int regions_rewritten = 0;
+	int roundtrips_collapsed = 0;
 	int cells_added = 0;
 
-	// Cache of full-width CLZ/CTZ networks already emitted for a given input
-	// wire, so that several matched output wires sharing the same input bus
-	// pull from a single instantiation instead of materialising duplicate
-	// log-depth trees.
-	dict<Wire*, SigSpec> clz_full_cache;
-	dict<Wire*, SigSpec> ctz_full_cache;
+	struct Rewrite {
+		Wire* S_wire;
+		Wire* T_wire;
+		int N;
+		int Wbits;
+		PEVariant variant;
+		Cell* sole_driver;
+		IdString out_port;
+	};
+
+	// Networks already emitted for an (input bus, variant) pair, so matched
+	// outputs sharing a bus -- and repeated arms of a hoisted mux tree -- pull
+	// from one instantiation instead of duplicating the log-depth tree.
+	dict<std::pair<SigSpec, int>, SigSpec> pe_sig_cache;
+	dict<SigSpec, SigSpec> inverted_cache;
+	dict<std::pair<Wire*, int>, SigSpec> pe_prefix_cache;
 
 	OptPriEncWorker(Module* m) : module(m), sigmap(m) { build_indexes(); }
 
@@ -397,12 +442,30 @@ struct OptPriEncWorker {
 	// lead the deck so non-PEs bail before denser patterns. For large N the
 	// one-hot sweep is sampled; once a single variant remains we return early.
 	PEVariant fingerprint(ConstEval& ce, SigSpec T_sig, SigSpec S_sig, int N, int Wbits) {
-		bool clz_full_ok = detect_clz && (Wbits == clog2_int(N + 1));
-		bool ctz_full_ok = detect_ctz && (Wbits == clog2_int(N + 1));
-		bool clz_short_ok = detect_clz && (Wbits == clog2_int(N));
-		bool ctz_short_ok = detect_ctz && (Wbits == clog2_int(N));
+		bool full_w = (Wbits == clog2_int(N + 1));
+		// SHORT infers that the saturating input is a don't-care. That is only
+		// justified when the narrower width physically cannot hold the count N
+		// (power-of-2 N); otherwise the RTL's value there is a real choice, and
+		// dropping the high bit in emit_pe would corrupt large counts anyway.
+		bool short_w = (clog2_int(N) < clog2_int(N + 1)) && (Wbits == clog2_int(N));
+		bool clz_full_ok = detect_clz && full_w;
+		bool ctz_full_ok = detect_ctz && full_w;
+		bool clz_short_ok = detect_clz && short_w;
+		bool ctz_short_ok = detect_ctz && short_w;
+		bool clo_full_ok = detect_clo && full_w;
+		bool cto_full_ok = detect_cto && full_w;
+		bool clo_short_ok = detect_clo && short_w;
+		bool cto_short_ok = detect_cto && short_w;
 
-		if (!clz_full_ok && !ctz_full_ok && !clz_short_ok && !ctz_short_ok)
+		auto survivors = [&]() {
+			return (int)clz_full_ok + (int)ctz_full_ok + (int)clz_short_ok + (int)ctz_short_ok +
+			       (int)clo_full_ok + (int)cto_full_ok + (int)clo_short_ok + (int)cto_short_ok;
+		};
+		auto ones_alive = [&]() {
+			return clo_full_ok || cto_full_ok || clo_short_ok || cto_short_ok;
+		};
+
+		if (survivors() == 0)
 			return PEVariant::NONE;
 
 		if (!clean_set_signals({&T_sig}))
@@ -411,15 +474,18 @@ struct OptPriEncWorker {
 		if (!is_valid_consteval_cut(T_sig))
 			return PEVariant::NONE;
 
+		// Prefer FULL: it also pins the all-zero / all-ones result, so it is the
+		// stronger contract when both widths coincide (non-power-of-2 N).
 		auto finish = [&]() -> PEVariant {
 			if (clz_full_ok)  return PEVariant::CLZ_FULL;
 			if (ctz_full_ok)  return PEVariant::CTZ_FULL;
+			if (clo_full_ok)  return PEVariant::CLO_FULL;
+			if (cto_full_ok)  return PEVariant::CTO_FULL;
 			if (clz_short_ok) return PEVariant::CLZ_SHORT;
 			if (ctz_short_ok) return PEVariant::CTZ_SHORT;
+			if (clo_short_ok) return PEVariant::CLO_SHORT;
+			if (cto_short_ok) return PEVariant::CTO_SHORT;
 			return PEVariant::NONE;
-		};
-		auto survivors = [&]() {
-			return (int)clz_full_ok + (int)ctz_full_ok + (int)clz_short_ok + (int)ctz_short_ok;
 		};
 
 		auto check_vec = [&](const Const& v) -> bool {
@@ -431,26 +497,35 @@ struct OptPriEncWorker {
 			ce.pop();
 			if (!ok || !out.is_fully_const()) {
 				clz_full_ok = ctz_full_ok = clz_short_ok = ctz_short_ok = false;
+				clo_full_ok = cto_full_ok = clo_short_ok = cto_short_ok = false;
 				return false;
 			}
 			int outval = out.as_const().as_int();
 
-			int msb_set = const_msb_set(v, N);
-			int lsb_set = const_lsb_set(v, N);
+			int msb_set = const_msb(v, N, State::S1);
+			int lsb_set = const_lsb(v, N, State::S1);
+			int msb_clr = const_msb(v, N, State::S0);
+			int lsb_clr = const_lsb(v, N, State::S0);
 			bool zero = (msb_set < 0);
+			bool ones = (msb_clr < 0);
 
 			int e_clz = zero ? N : (N - 1 - msb_set);
 			int e_ctz = zero ? N : lsb_set;
+			int e_clo = ones ? N : (N - 1 - msb_clr);
+			int e_cto = ones ? N : lsb_clr;
 
+			// SHORT leaves its saturating input (all-zero for CLZ/CTZ, all-ones
+			// for CLO/CTO) unconstrained, so it skips that vector.
 			if (clz_full_ok && outval != e_clz) clz_full_ok = false;
 			if (ctz_full_ok && outval != e_ctz) ctz_full_ok = false;
 			if (clz_short_ok && !zero && outval != e_clz) clz_short_ok = false;
 			if (ctz_short_ok && !zero && outval != e_ctz) ctz_short_ok = false;
+			if (clo_full_ok && outval != e_clo) clo_full_ok = false;
+			if (cto_full_ok && outval != e_cto) cto_full_ok = false;
+			if (clo_short_ok && !ones && outval != e_clo) clo_short_ok = false;
+			if (cto_short_ok && !ones && outval != e_cto) cto_short_ok = false;
 			return survivors() > 0;
 		};
-
-		vector<Const> vs;
-		vs.push_back(const_u64(0, N));
 
 		// One-hots: full sweep for small N; corners+stride sample for large N.
 		pool<int> pos;
@@ -464,29 +539,73 @@ struct OptPriEncWorker {
 		}
 		vector<int> pv(pos.begin(), pos.end());
 		std::sort(pv.begin(), pv.end());
+
+		vector<Const> vs;
+		vs.push_back(const_u64(0, N));
+		// All-ones leads too: it is what separates a ones-run count from the
+		// many cones that read as 0 across zero + one-hots, so without it those
+		// would all drag a CLO/CTO candidate through the whole deck.
+		if (ones_alive())
+			vs.push_back(Const(std::vector<State>(N, State::S1)));
 		for (int k : pv) {
 			std::vector<State> bits(N, State::S0);
 			bits[k] = State::S1;
 			vs.push_back(Const(bits));
 		}
+		size_t base_end = vs.size();
 
-		// Multi-bit confirmation vectors (no zero/one-hot rebuild).
-		{
+		int n_checked = 0;
+		int onehot_end = GetSize(vs); // zero + all-ones + one-hots
+		int early_at = std::min(onehot_end, 1 + std::min(GetSize(pv), 8));
+		size_t ones_deck_end = 0;
+		for (size_t i = 0; i < vs.size(); i++) {
+			if (!check_vec(vs[i])) return PEVariant::NONE;
+			n_checked++;
+			// Unique survivor after zero + a handful of one-hots is enough --
+			// but one-hots barely exercise a run of ONES, so a surviving CLO/CTO
+			// must first face the whole ones-domain deck.
+			bool ones_checked = ones_deck_end != 0 && i + 1 >= ones_deck_end;
+			if (n_checked >= early_at && survivors() == 1 &&
+			    (ones_checked || !ones_alive()))
+				return finish();
+			if (i + 1 != base_end) continue;
+
+			// One-colds are the ones-domain mirror of the one-hot sweep; only pay
+			// for them if a CLO/CTO candidate is still alive.
+			if (ones_alive())
+				for (int k : pv) {
+					std::vector<State> bits(N, State::S1);
+					bits[k] = State::S0;
+					vs.push_back(Const(bits));
+				}
+			ones_deck_end = vs.size();
+			// Multi-bit confirmation vectors (no zero/one-hot rebuild).
 			auto multi = gen_multibit_test_vectors(N, /*dense_small_n=*/true);
 			vs.insert(vs.end(), multi.begin(), multi.end());
 		}
-
-		int n_checked = 0;
-		int onehot_end = 1 + GetSize(pv); // zero + one-hots
-		int early_at = std::min(onehot_end, 1 + std::min(GetSize(pv), 8));
-		for (auto& v : vs) {
-			if (!check_vec(v)) return PEVariant::NONE;
-			n_checked++;
-			// Unique survivor after zero + a handful of one-hots is enough.
-			if (n_checked >= early_at && survivors() == 1)
-				return finish();
-		}
 		return finish();
+	}
+
+	// Const-folding wrappers: the sentinel padding below feeds constants deep
+	// into the recursion, and folding them here keeps the emitted netlist small.
+	SigBit emit_not(SigBit a) {
+		if (!a.wire) return a == State::S1 ? State::S0 : State::S1;
+		cells_added++;
+		return module->Not(NEW_ID2_SUFFIX("clznot"), SigSpec(a), false, cell_src(cell));
+	}
+
+	SigSpec emit_mux(SigSpec a, SigSpec b, SigBit s) {
+		if (!s.wire) return s == State::S1 ? b : a;
+		if (a == b) return a;
+		cells_added++;
+		return module->Mux(NEW_ID2_SUFFIX("clzmux"), a, b, SigSpec(s), cell_src(cell));
+	}
+
+	SigBit emit_and(SigBit a, SigBit b) {
+		if (!a.wire) return a == State::S1 ? b : SigBit(State::S0);
+		if (!b.wire) return b == State::S1 ? a : SigBit(State::S0);
+		cells_added++;
+		return module->And(NEW_ID2_SUFFIX("peand"), SigSpec(a), SigSpec(b), false, cell_src(cell))[0];
 	}
 
 	// Recursive CLZ on a power-of-2-width input. Returns a (log2(N)+1)-bit
@@ -494,10 +613,8 @@ struct OptPriEncWorker {
 	// zeros count for nonzero T.
 	SigSpec emit_clz_pow2(SigSpec T, int N) {
 		log_assert(N >= 1 && (N & (N - 1)) == 0);
-		if (N == 1) {
-			cells_added++;
-			return module->Not(NEW_ID2_SUFFIX("clznot"), T, false, cell_src(cell));
-		}
+		if (N == 1)
+			return SigSpec(emit_not(T[0]));
 		int N2 = N / 2;
 		SigSpec hi = T.extract(N2, N2);
 		SigSpec lo = T.extract(0, N2);
@@ -517,9 +634,7 @@ struct OptPriEncWorker {
 		// becomes lo_zero (= 1 iff x == 0); the next bit becomes ~lo_zero (=
 		// 1 iff lo != 0, signalling result in [N/2, N-1]); the remaining bits
 		// are clz_lo[W1-2:0].
-		SigSpec lo_nonzero_spec = module->Not(NEW_ID2_SUFFIX("clz_lonz"), SigSpec(lo_zero), false, cell_src(cell));
-		cells_added++;
-		SigBit lo_nonzero = lo_nonzero_spec[0];
+		SigBit lo_nonzero = emit_not(lo_zero);
 
 		SigSpec pad_clz_lo;
 		if (W1 >= 2)
@@ -528,8 +643,7 @@ struct OptPriEncWorker {
 		pad_clz_lo.append(lo_zero);
 
 		// $mux: Y = S ? B : A. We want Y = hi_zero ? pad_clz_lo : pad_clz_hi.
-		cells_added++;
-		return module->Mux(NEW_ID2_SUFFIX("clzmux"), pad_clz_hi, pad_clz_lo, SigSpec(hi_zero), cell_src(cell));
+		return emit_mux(pad_clz_hi, pad_clz_lo, hi_zero);
 	}
 
 	// CLZ of arbitrary-width T, returning a (clog2(N+1))-bit result.
@@ -537,19 +651,20 @@ struct OptPriEncWorker {
 		int Np = 1;
 		while (Np < N) Np *= 2;
 		int pad_amount = Np - N;
-		SigSpec padded = T;
-		for (int i = 0; i < pad_amount; i++)
+		SigSpec padded;
+		// Pad *below* T with a sentinel 1 at the top of the pad: an all-zero T
+		// then reads back as exactly N leading zeros, so no "- pad" subtract
+		// (a full ripple on the critical path) is needed.
+		for (int i = 0; i + 1 < pad_amount; i++)
 			padded.append(SigSpec(State::S0));
+		if (pad_amount > 0)
+			padded.append(SigSpec(State::S1));
+		padded.append(T);
 		SigSpec clz_padded = emit_clz_pow2(padded, Np); // log2(Np)+1 bits
-		if (pad_amount == 0)
-			return clz_padded;
-		// result = clz_padded - pad_amount, truncated to W = clog2(N+1) bits.
 		int W = clog2_int(N + 1);
-		SigSpec sub = module->Sub(NEW_ID2_SUFFIX("clzsub"), clz_padded, SigSpec(Const(pad_amount, GetSize(clz_padded))), false, cell_src(cell));
-		cells_added++;
-		if (GetSize(sub) >= W)
-			return sub.extract(0, W);
-		SigSpec out = sub;
+		if (GetSize(clz_padded) >= W)
+			return clz_padded.extract(0, W);
+		SigSpec out = clz_padded;
 		while (GetSize(out) < W) out.append(SigSpec(State::S0));
 		return out;
 	}
@@ -562,30 +677,355 @@ struct OptPriEncWorker {
 		return emit_clz_full(rev, N);
 	}
 
-	SigSpec emit_pe(PEVariant v, Wire* T_wire, int N, int out_width) {
-		bool is_clz = (v == PEVariant::CLZ_FULL || v == PEVariant::CLZ_SHORT);
-		auto& cache = is_clz ? clz_full_cache : ctz_full_cache;
+	// ~T, shared by every CLO/CTO network built on the same bus (const bits fold).
+	SigSpec emit_inv(SigSpec T) {
+		auto it = inverted_cache.find(T);
+		if (it != inverted_cache.end()) return it->second;
+		SigSpec inv;
+		for (auto bit : T) inv.append(SigSpec(emit_not(bit)));
+		inverted_cache[T] = inv;
+		return inv;
+	}
 
+	SigSpec emit_pe_sig(PEVariant v, SigSpec T_sig, int N, int out_width) {
+		auto key = std::make_pair(T_sig, (int)v);
 		SigSpec full;
-		auto it = cache.find(T_wire);
-		if (it != cache.end()) {
+		auto it = pe_sig_cache.find(key);
+		if (it != pe_sig_cache.end()) {
 			full = it->second;
 		} else {
-			SigSpec T_sig = sigmap(SigSpec(T_wire));
-			full = is_clz ? emit_clz_full(T_sig, N) : emit_ctz_full(T_sig, N);
-			cache[T_wire] = full;
+			SigSpec run = variant_counts_ones(v) ? emit_inv(T_sig) : T_sig;
+			full = variant_is_leading(v) ? emit_clz_full(run, N) : emit_ctz_full(run, N);
+			pe_sig_cache[key] = full;
 		}
 
-		if (v == PEVariant::CLZ_SHORT || v == PEVariant::CTZ_SHORT) {
-			if (GetSize(full) > 0)
-				full = full.extract(0, GetSize(full) - 1);
-		}
-		// Match the user-visible output width.
+		// Truncation covers the SHORT variants: their narrower width only ever
+		// drops the saturating value's high bit. Explicitly dropping the MSB
+		// would be wrong for non-power-of-2 N, where SHORT and FULL are equally
+		// wide and every value needs all the bits.
 		if (GetSize(full) > out_width)
 			full = full.extract(0, out_width);
 		while (GetSize(full) < out_width)
 			full.append(SigSpec(State::S0));
 		return full;
+	}
+
+	SigSpec emit_pe(PEVariant v, Wire* T_wire, int N, int out_width) {
+		return emit_pe_sig(v, sigmap(SigSpec(T_wire)), N, out_width);
+	}
+
+	// ------------------------------------------------------------------
+	// Thermometer domain: the same run that the encoder counts, kept as a
+	// mask instead of a binary code. run_prefix[i] = "bit i is still inside the
+	// scanned run" = (i < count), built by a log-depth Kogge-Stone prefix-AND.
+	// This is what lets shift consumers of the count bypass the encoder.
+	// ------------------------------------------------------------------
+	SigSpec emit_run_prefix(PEVariant v, Wire* T_wire, int N) {
+		auto key = std::make_pair(T_wire, (int)v);
+		auto it = pe_prefix_cache.find(key);
+		if (it != pe_prefix_cache.end()) return it->second;
+
+		// CLO/CTO scan a run of ones, CLZ/CTZ a run of zeros; CL* scan from MSB.
+		SigSpec T = sigmap(SigSpec(T_wire));
+		SigSpec src = variant_counts_ones(v) ? T : emit_inv(T);
+		std::vector<SigBit> cur(N);
+		for (int j = 0; j < N; j++)
+			cur[j] = variant_is_leading(v) ? src[N - 1 - j] : src[j];
+		for (int d = 1; d < N; d *= 2) {
+			std::vector<SigBit> next = cur;
+			for (int j = d; j < N; j++)
+				next[j] = emit_and(cur[j], cur[j - d]);
+			cur.swap(next);
+		}
+		SigSpec out;
+		for (int j = 0; j < N; j++) out.append(SigSpec(cur[j]));
+		pe_prefix_cache[key] = out;
+		return out;
+	}
+
+	// mask[i] = (i < count), zero-extended past the input width (count <= N).
+	SigSpec emit_pe_mask(PEVariant v, Wire* T_wire, int N, int W) {
+		SigSpec pre = emit_run_prefix(v, T_wire, N);
+		SigSpec mask;
+		for (int i = 0; i < W; i++)
+			mask.append(i < N ? SigSpec(pre[i]) : SigSpec(State::S0));
+		return mask;
+	}
+
+	// (1 << count)[i] == (count == i) == mask[i-1] & ~mask[i], with mask[-1] = 1.
+	SigSpec emit_pe_onehot(PEVariant v, Wire* T_wire, int N, int W) {
+		SigSpec pre = emit_run_prefix(v, T_wire, N);
+		SigSpec oh;
+		for (int i = 0; i < W; i++) {
+			SigBit lo = (i == 0) ? SigBit(State::S1)
+			                     : (i - 1 < N ? SigBit(pre[i - 1]) : SigBit(State::S0));
+			SigBit hi = (i < N) ? SigBit(pre[i]) : SigBit(State::S0);
+			oh.append(SigSpec(emit_and(lo, emit_not(hi))));
+		}
+		return oh;
+	}
+
+	// ------------------------------------------------------------------
+	// Encode/decode round-trip collapse.
+	//
+	// Once `count` is a matched CLZ/CTZ/CLO/CTO, shifting by it just decodes
+	// what the encoder encoded. With mask = (1 << count) - 1 taken straight
+	// from the thermometer above, for W-bit truncating arithmetic:
+	//
+	//   (a >> count) << count        ==  a & ~mask     (align down)
+	//   ((a >> count) + 1) << count  ==  (a | mask) + 1 (align up)
+	//   1 << count                   ==  one-hot(count)
+	//
+	// All three hold for every count (including count >= W, where mask is all
+	// ones), so no range side condition is needed. They keep the critical path
+	// in the mask domain: two barrel shifters plus the binary encode collapse
+	// to a prefix-AND and one bitwise op.
+	// ------------------------------------------------------------------
+
+	dict<SigBit, pool<Cell*>> bit_to_readers;
+	bool readers_indexed = false;
+
+	void build_reader_index() {
+		if (readers_indexed) return;
+		readers_indexed = true;
+		for (auto c : module->cells())
+			for (auto& conn : c->connections()) {
+				if (!c->input(conn.first)) continue;
+				for (auto bit : sigmap(conn.second))
+					if (bit.wire) bit_to_readers[bit].insert(c);
+			}
+	}
+
+	// Sole cell whose full output is exactly `sig` (nullptr if none).
+	Cell* whole_driver(const SigSpec& sig) {
+		pool<Cell*> drivers;
+		for (auto bit : sig) {
+			if (!bit.wire) return nullptr;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) return nullptr;
+			drivers.insert(it->second);
+		}
+		if (GetSize(drivers) != 1) return nullptr;
+		Cell* d = *drivers.begin();
+		for (auto& conn : d->connections())
+			if (d->output(conn.first))
+				return sigmap(conn.second) == sig ? d : nullptr;
+		return nullptr;
+	}
+
+	static bool is_unsigned_shift(Cell* c, IdString type, int W) {
+		return c->type == type &&
+		       !c->getParam(ID::A_SIGNED).as_bool() && !c->getParam(ID::B_SIGNED).as_bool() &&
+		       c->getParam(ID::A_WIDTH).as_int() == W && c->getParam(ID::Y_WIDTH).as_int() == W;
+	}
+
+	static bool is_const_one(const SigSpec& s) {
+		if (!s.is_fully_const()) return false;
+		Const c = s.as_const();
+		if (!c.is_fully_def()) return false;
+		auto bits = c.to_bits();
+		for (int i = 0; i < GetSize(bits); i++)
+			if (bits[i] != (i == 0 ? State::S1 : State::S0)) return false;
+		return GetSize(bits) > 0;
+	}
+
+	// Replace `c`'s output with `repl` by re-pointing its Y to a fresh wire.
+	void steal_output(Cell* c, IdString port, const SigSpec& out, const SigSpec& repl) {
+		Wire* dangling = module->addWire(NEW_ID2_SUFFIX("dangling"), GetSize(out));
+		c->setPort(port, dangling);
+		module->connect(out, repl);
+	}
+
+	bool has_live_reader(Wire* S_wire, const pool<Cell*>& dead) {
+		build_reader_index();
+		if (S_wire->port_output) return true;
+		for (auto bit : sigmap(SigSpec(S_wire))) {
+			auto it = bit_to_readers.find(bit);
+			if (it == bit_to_readers.end()) continue;
+			for (Cell* c : it->second)
+				if (!dead.count(c)) return true;
+		}
+		return false;
+	}
+
+	void collapse_roundtrips(const Rewrite& r, pool<Cell*>& dead_readers) {
+		build_reader_index();
+		SigSpec S_sig = sigmap(SigSpec(r.S_wire));
+		pool<Cell*> readers;
+		for (auto bit : S_sig) {
+			auto it = bit_to_readers.find(bit);
+			if (it != bit_to_readers.end())
+				for (Cell* c : it->second) readers.insert(c);
+		}
+		vector<Cell*> shls;
+		for (Cell* c : readers)
+			if (c->type == ID($shl)) shls.push_back(c);
+		std::sort(shls.begin(), shls.end(),
+		          [](Cell* a, Cell* b) { return a->name.str() < b->name.str(); });
+
+		for (Cell* shl : shls) {
+			if (shl->getParam(ID::A_SIGNED).as_bool() || shl->getParam(ID::B_SIGNED).as_bool())
+				continue;
+			if (sigmap(shl->getPort(ID::B)) != S_sig) continue;
+			int W = shl->getParam(ID::Y_WIDTH).as_int();
+			SigSpec shl_A = sigmap(shl->getPort(ID::A));
+			SigSpec shl_Y = sigmap(shl->getPort(ID::Y));
+			cell = shl;
+
+			if (is_const_one(shl_A)) {
+				steal_output(shl, ID::Y, shl_Y, emit_pe_onehot(r.variant, r.T_wire, r.N, W));
+				log("  %s: 1 << %s -> one-hot(%s) [decode of %s]\n", log_id(module),
+				    log_id(r.S_wire), log_id(r.T_wire), variant_name(r.variant));
+				dead_readers.insert(shl);
+				roundtrips_collapsed++;
+				continue;
+			}
+			if (shl->getParam(ID::A_WIDTH).as_int() != W) continue;
+
+			// Peel an optional "+ 1" between the two shifts (align-up form).
+			SigSpec base = shl_A;
+			bool plus_one = false;
+			Cell* add = whole_driver(base);
+			if (add && add->type == ID($add) &&
+			    !add->getParam(ID::A_SIGNED).as_bool() && !add->getParam(ID::B_SIGNED).as_bool() &&
+			    add->getParam(ID::A_WIDTH).as_int() == W &&
+			    add->getParam(ID::B_WIDTH).as_int() == W &&
+			    add->getParam(ID::Y_WIDTH).as_int() == W) {
+				SigSpec aa = sigmap(add->getPort(ID::A)), bb = sigmap(add->getPort(ID::B));
+				if (is_const_one(bb)) { base = aa; plus_one = true; }
+				else if (is_const_one(aa)) { base = bb; plus_one = true; }
+			}
+
+			Cell* shr = whole_driver(base);
+			if (!shr || !is_unsigned_shift(shr, ID($shr), W)) continue;
+			if (sigmap(shr->getPort(ID::B)) != S_sig) continue;
+
+			SigSpec a = sigmap(shr->getPort(ID::A));
+			SigSpec mask = emit_pe_mask(r.variant, r.T_wire, r.N, W);
+			SigSpec repl;
+			if (plus_one) {
+				SigSpec ored = module->Or(NEW_ID2_SUFFIX("peupor"), a, mask, false, cell_src(cell));
+				repl = module->Add(NEW_ID2_SUFFIX("peupinc"), ored, SigSpec(Const(1, W)), false, cell_src(cell));
+				cells_added += 2;
+			} else {
+				SigSpec nmask = module->Not(NEW_ID2_SUFFIX("pedninv"), mask, false, cell_src(cell));
+				repl = module->And(NEW_ID2_SUFFIX("pednand"), a, nmask, false, cell_src(cell));
+				cells_added += 2;
+			}
+			steal_output(shl, ID::Y, shl_Y, repl);
+			log("  %s: align-%s round-trip on %s -> mask(%s) [%s]\n", log_id(module),
+			    plus_one ? "up" : "down", log_id(r.S_wire), log_id(r.T_wire),
+			    variant_name(r.variant));
+			// Best-effort liveness hint only (they may have other readers).
+			dead_readers.insert(shl);
+			dead_readers.insert(shr);
+			roundtrips_collapsed++;
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Encode before select.
+	//
+	// pe(mux(s, a, b)) == mux(s, pe(a), pe(b)) for any pe, so when the select is
+	// itself computed *from* the mux data (a compare / clamp that feeds back
+	// into the select), the encoder can run on the early arms in parallel with
+	// the select instead of queueing behind it. Constant arms fold to constants,
+	// so clamp-to-literal trees mostly disappear. The push only pays off in that
+	// data-dependent-select case, hence the cone check, and it duplicates the
+	// encoder per arm, hence the arm cap.
+	// ------------------------------------------------------------------
+
+	struct MuxArm {
+		bool is_leaf = true;
+		SigSpec leaf;
+		SigBit sel;
+		std::shared_ptr<MuxArm> a, b;   // a = sel 0 arm, b = sel 1 arm
+	};
+
+	std::shared_ptr<MuxArm> build_mux_arms(SigSpec sig, int& split_budget,
+	                                       pool<SigBit>& sel_bits, pool<SigBit>& leaf_bits_out) {
+		auto n = std::make_shared<MuxArm>();
+		if (split_budget > 0) {
+			std::vector<int> vp;
+			for (int i = 0; i < GetSize(sig); i++)
+				if (sig[i].wire) vp.push_back(i);
+			SigSpec var;
+			for (int i : vp) var.append(sig[i]);
+			Cell* d = vp.empty() ? nullptr : whole_driver(var);
+			if (d && d->type == ID($mux) && d->getParam(ID::WIDTH).as_int() == GetSize(var)) {
+				SigSpec A = sigmap(d->getPort(ID::A)), B = sigmap(d->getPort(ID::B));
+				SigSpec sa = sig, sb = sig;
+				for (int k = 0; k < GetSize(vp); k++) {
+					sa[vp[k]] = A[k];
+					sb[vp[k]] = B[k];
+				}
+				split_budget--;
+				n->is_leaf = false;
+				n->sel = sigmap(d->getPort(ID::S))[0];
+				sel_bits.insert(n->sel);
+				n->a = build_mux_arms(sa, split_budget, sel_bits, leaf_bits_out);
+				n->b = build_mux_arms(sb, split_budget, sel_bits, leaf_bits_out);
+				return n;
+			}
+		}
+		n->leaf = sig;
+		for (auto bit : sig)
+			if (bit.wire) leaf_bits_out.insert(bit);
+		return n;
+	}
+
+	// Bounded backward reachability from `from` to any bit in `targets`.
+	bool cone_reaches(const SigSpec& from, const pool<SigBit>& targets, int budget) {
+		pool<SigBit> visited;
+		std::queue<SigBit> q;
+		for (auto bit : sigmap(from))
+			if (bit.wire && visited.insert(bit).second) q.push(bit);
+		while (!q.empty()) {
+			if (budget-- <= 0) return false;
+			SigBit bit = q.front();
+			q.pop();
+			if (targets.count(bit)) return true;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) continue;
+			Cell* d = it->second;
+			if (sequential_cells.count(d)) continue;
+			for (auto& conn : d->connections()) {
+				if (!d->input(conn.first)) continue;
+				for (auto in_bit : sigmap(conn.second))
+					if (in_bit.wire && visited.insert(in_bit).second) q.push(in_bit);
+			}
+		}
+		return false;
+	}
+
+	SigSpec emit_pe_arms(const std::shared_ptr<MuxArm>& n, PEVariant v, int N, int out_width) {
+		if (n->is_leaf) return emit_pe_sig(v, n->leaf, N, out_width);
+		return emit_mux(emit_pe_arms(n->a, v, N, out_width),
+		                emit_pe_arms(n->b, v, N, out_width), n->sel);
+	}
+
+	int max_push_arms = 24;
+
+	// Returns the pushed encoder, or an empty SigSpec when the push does not apply.
+	SigSpec try_push_encoder(const Rewrite& r) {
+		// Every arm gets its own encoder, so bound the duplicated bit count too.
+		int arm_cap = std::min(max_push_arms, std::max(2, 512 / std::max(r.N, 1)));
+		if (arm_cap < 2) return SigSpec();
+		int split_budget = arm_cap - 1;
+		pool<SigBit> sel_bits, leaf_bits;
+		auto root = build_mux_arms(sigmap(SigSpec(r.T_wire)), split_budget, sel_bits, leaf_bits);
+		if (root->is_leaf) return SigSpec();
+
+		SigSpec sels;
+		for (auto bit : sel_bits) sels.append(SigSpec(bit));
+		if (!cone_reaches(sels, leaf_bits, 4096)) return SigSpec();
+
+		int before = cells_added;
+		SigSpec pushed = emit_pe_arms(root, r.variant, r.N, r.Wbits);
+		log("  %s: %s hoisted above %d mux select(s) on %s (+%d cell(s))\n",
+		    log_id(module), variant_name(r.variant), arm_cap - 1 - split_budget,
+		    log_id(r.T_wire), cells_added - before);
+		return pushed;
 	}
 
 	// ------------------------------------------------------------------
@@ -777,16 +1217,6 @@ struct OptPriEncWorker {
 		int N;
 		int W;
 		int kind;
-		Cell* sole_driver;
-		IdString out_port;
-	};
-
-	struct Rewrite {
-		Wire* S_wire;
-		Wire* T_wire;
-		int N;
-		int Wbits;
-		PEVariant variant;
 		Cell* sole_driver;
 		IdString out_port;
 	};
@@ -1078,9 +1508,21 @@ struct OptPriEncWorker {
 
 		// Apply rewrites. We collected first to avoid the index growing stale
 		// while we add new cells/wires.
+		// Collapse round trips first: it takes shift consumers off S's fanout,
+		// so the emit below can tell whether the binary code is still live.
+		pool<Cell*> dead_readers;
+		for (auto& r : rewrites)
+			if (variant_is_full(r.variant))
+				collapse_roundtrips(r, dead_readers);
+
 		for (auto& r : rewrites) {
 			cell = r.sole_driver;
-			SigSpec new_S = emit_pe(r.variant, r.T_wire, r.N, r.Wbits);
+			SigSpec new_S;
+			// A fully collapsed encode is dead anyway; do not pay to hoist it.
+			if (has_live_reader(r.S_wire, dead_readers))
+				new_S = try_push_encoder(r);
+			if (GetSize(new_S) == 0)
+				new_S = emit_pe(r.variant, r.T_wire, r.N, r.Wbits);
 			// Disconnect the old driver by re-pointing its Y to a fresh wire.
 			Wire* dangling = module->addWire(NEW_ID2_SUFFIX("dangling"), r.Wbits);
 			r.sole_driver->setPort(r.out_port, dangling);
@@ -1108,11 +1550,11 @@ struct OptPriEncPass : public Pass {
 		log("    opt_prienc [options] [selection]\n");
 		log("\n");
 		log("This pass uses functional fingerprinting to detect combinational logic\n");
-		log("regions that implement a priority encoder, count-leading-zeros (CLZ), or\n");
-		log("count-trailing-zeros (CTZ) on a single contiguous input wire, regardless\n");
-		log("of how the RTL was written (unrolled for-loops, casez priority lists,\n");
-		log("pmux chains, etc.). Each detected region is replaced with a log-depth\n");
-		log("network built from $mux/$not/$sub cells.\n");
+		log("regions that implement a priority encoder, count-leading/trailing-zeros\n");
+		log("(CLZ/CTZ) or count-leading/trailing-ones (CLO/CTO) on a single contiguous\n");
+		log("input wire, regardless of how the RTL was written (unrolled for-loops,\n");
+		log("casez priority lists, pmux chains, etc.). Each detected region is replaced\n");
+		log("with a log-depth network built from $mux/$not cells.\n");
 		log("\n");
 		log("Detected variants:\n");
 		log("\n");
@@ -1120,9 +1562,29 @@ struct OptPriEncPass : public Pass {
 		log("                Output width = ceil(log2(N+1)).\n");
 		log("    clz_short : result = N-1 - msb_set_pos for nonzero input; the\n");
 		log("                output for input==0 is unconstrained. Output width =\n");
-		log("                ceil(log2(N)).\n");
+		log("                ceil(log2(N)), and only considered for power-of-2 N,\n");
+		log("                where that width cannot hold N in the first place.\n");
 		log("    ctz_full  : symmetric to clz_full from the LSB side.\n");
 		log("    ctz_short : symmetric to clz_short from the LSB side.\n");
+		log("    clo_full  : leading-ONES count; = clz_full of ~input, so result = N\n");
+		log("                when the input is all ones. Widths as for clz_full.\n");
+		log("    clo_short : leading-ONES count with all-ones input unconstrained.\n");
+		log("    cto_full  : trailing-ONES count; = ctz_full of ~input.\n");
+		log("    cto_short : trailing-ONES count with all-ones input unconstrained.\n");
+		log("\n");
+		log("For the *_full variants the pass also collapses encode/decode round\n");
+		log("trips on the matched count: shifting by a count that was just encoded\n");
+		log("from a run only decodes it again, so with mask = (1 << count) - 1 taken\n");
+		log("straight from the log-depth run thermometer,\n");
+		log("\n");
+		log("    (a >> count) << count        ->  a & ~mask       (align down)\n");
+		log("    ((a >> count) + 1) << count  ->  (a | mask) + 1  (align up)\n");
+		log("    1 << count                   ->  one-hot(count)\n");
+		log("\n");
+		log("This keeps the critical path in the thermometer domain: two barrel\n");
+		log("shifters plus the binary encode become a prefix-AND and one bitwise op.\n");
+		log("Only shifts whose amount is exactly the matched count are touched, so a\n");
+		log("genuinely binary-encoded variable shift is never collapsed.\n");
 		log("\n");
 		log("In addition, the pass detects round-robin (rotated priority)\n");
 		log("arbiters: grant / idx_next = first set request bit scanning upward\n");
@@ -1133,11 +1595,17 @@ struct OptPriEncPass : public Pass {
 		log("equivalent for every pointer value; for other widths it is\n");
 		log("equivalent for every reachable pointer (idx_last in [0,DEPTH)).\n");
 		log("\n");
-		log("    -clz\n");
-		log("        detect CLZ patterns only (also disables round-robin).\n");
+		log("    -clz, -ctz, -clo, -cto\n");
+		log("        detect only the named variant(s); may be combined. Any of\n");
+		log("        these also disables round-robin detection.\n");
 		log("\n");
-		log("    -ctz\n");
-		log("        detect CTZ patterns only (also disables round-robin).\n");
+		log("    -no-ones\n");
+		log("        disable the CLO/CTO (leading/trailing ONES) variants.\n");
+		log("\n");
+		log("    -max-push-arms N\n");
+		log("        cap on mux arms the encoder may be hoisted above when the\n");
+		log("        mux select is computed from the mux data (default 24, further\n");
+		log("        limited so arms*input_width stays bounded; 0/1 disables it).\n");
 		log("\n");
 		log("    -no-rr\n");
 		log("        disable round-robin / rotated-priority detection.\n");
@@ -1158,17 +1626,24 @@ struct OptPriEncPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_PRIENC pass (priority encoder / CLZ / CTZ).\n");
 
-		bool only_clz = false;
-		bool only_ctz = false;
+		bool sel_clz = false, sel_ctz = false, sel_clo = false, sel_cto = false;
+		bool no_ones = false;
 		bool no_rr = false;
 		int max_width = 64;
 		int min_width = 4;
+		int max_push_arms = 24;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-clz") { only_clz = true; continue; }
-			if (args[argidx] == "-ctz") { only_ctz = true; continue; }
+			if (args[argidx] == "-clz") { sel_clz = true; continue; }
+			if (args[argidx] == "-ctz") { sel_ctz = true; continue; }
+			if (args[argidx] == "-clo") { sel_clo = true; continue; }
+			if (args[argidx] == "-cto") { sel_cto = true; continue; }
+			if (args[argidx] == "-no-ones") { no_ones = true; continue; }
 			if (args[argidx] == "-no-rr") { no_rr = true; continue; }
+			if (args[argidx] == "-max-push-arms" && argidx + 1 < args.size()) {
+				max_push_arms = std::stoi(args[++argidx]); continue;
+			}
 			if (args[argidx] == "-max-width" && argidx + 1 < args.size()) {
 				max_width = std::stoi(args[++argidx]); continue;
 			}
@@ -1178,26 +1653,34 @@ struct OptPriEncPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		// -clz / -ctz select a single leading/trailing variant and disable
-		// round-robin detection unless the user re-enables it explicitly.
-		if (only_clz || only_ctz) no_rr = true;
+		// -clz / -ctz / -clo / -cto restrict detection to the named variants and
+		// disable round-robin (which is a CTZ-based secondary pattern).
+		bool any_sel = sel_clz || sel_ctz || sel_clo || sel_cto;
+		if (any_sel) no_rr = true;
 
 		int total_regions = 0;
+		int total_roundtrips = 0;
 		int total_cells_added = 0;
 		for (auto module : design->selected_modules()) {
 			OptPriEncWorker worker(module);
-			worker.detect_clz = !only_ctz;
-			worker.detect_ctz = !only_clz;
+			worker.detect_clz = any_sel ? sel_clz : true;
+			worker.detect_ctz = any_sel ? sel_ctz : true;
+			worker.detect_clo = (any_sel ? sel_clo : true) && !no_ones;
+			worker.detect_cto = (any_sel ? sel_cto : true) && !no_ones;
 			worker.detect_rr = !no_rr;
 			worker.max_input_width = max_width;
 			worker.min_input_width = min_width;
+			worker.max_push_arms = max_push_arms;
 			worker.run();
 			total_regions += worker.regions_rewritten;
+			total_roundtrips += worker.roundtrips_collapsed;
 			total_cells_added += worker.cells_added;
 		}
 
 		log("Rewrote %d region(s); emitted %d new cell(s).\n",
 		    total_regions, total_cells_added);
+		log("Collapsed %d encode/decode round-trip(s) into mask logic.\n",
+		    total_roundtrips);
 
 		Yosys::run_pass("clean -purge");
 	}
