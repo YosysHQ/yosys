@@ -71,19 +71,25 @@ struct OptMuxPushWorker
 
   dict<SigBit, RTLIL::Cell*> driver_map;
   dict<SigBit, int> fanout_map;
+  dict<SigBit, std::vector<RTLIL::Cell*>> consumer_map;
   dict<SigBit, int> arrival_cache;
   pool<SigBit> arrival_active;
+  dict<SigBit, int> depart_cache;
+  pool<SigBit> depart_active;
+  int module_depth;
 
   pool<IdString> target_types;
   int fanout_limit;
   bool timing_guard;
+  int slack_margin;
   int total_count;
 
   OptMuxPushWorker(RTLIL::Design *design, RTLIL::Module *module,
-      const pool<IdString> &target_types, int fanout_limit, bool timing_guard) :
-      design(design), module(module), sigmap(module),
+      const pool<IdString> &target_types, int fanout_limit, bool timing_guard,
+      int slack_margin) :
+      design(design), module(module), sigmap(module), module_depth(0),
       target_types(target_types), fanout_limit(fanout_limit),
-      timing_guard(timing_guard), total_count(0)
+      timing_guard(timing_guard), slack_margin(slack_margin), total_count(0)
   {
   }
 
@@ -126,6 +132,61 @@ struct OptMuxPushWorker
     return t;
   }
 
+  // Mirror of arrival_bit walking forward: levels from this bit to the latest
+  // endpoint that reads it. Registers and unread bits end a path.
+  int depart_bit(RTLIL::SigBit bit)
+  {
+    if (bit.wire == nullptr)
+      return 0;
+    auto it = depart_cache.find(bit);
+    if (it != depart_cache.end())
+      return it->second;
+    if (!depart_active.insert(bit).second)
+      return 0;
+    int result = 0;
+    auto it_cons = consumer_map.find(bit);
+    if (it_cons != consumer_map.end()) {
+      for (auto cons : it_cons->second) {
+        if (cons->is_builtin_ff())
+          continue;
+        int max_out = 0;
+        for (auto &conn : cons->connections()) {
+          if (!cons->output(conn.first))
+            continue;
+          for (auto &out_bit : sigmap(conn.second))
+            max_out = std::max(max_out, depart_bit(out_bit));
+        }
+        result = std::max(result, estimate_cell_delay(cons) + max_out);
+      }
+    }
+    depart_active.erase(bit);
+    depart_cache[bit] = result;
+    return result;
+  }
+
+  // Longest path through this signal, in the same unit-delay currency as the
+  // module's own depth.
+  int path_depth(const RTLIL::SigSpec &sig)
+  {
+    int t = 0;
+    for (auto &bit : sigmap(sig))
+      t = std::max(t, arrival_bit(bit) + depart_bit(bit));
+    return t;
+  }
+
+  void compute_module_depth()
+  {
+    module_depth = 0;
+    for (auto cell : module->cells()) {
+      for (auto &conn : cell->connections()) {
+        if (!cell->output(conn.first))
+          continue;
+        for (auto &bit : sigmap(conn.second))
+          module_depth = std::max(module_depth, arrival_bit(bit) + depart_bit(bit));
+      }
+    }
+  }
+
   // A mux between two associable operators blocks the arithmetic tree
   // balancer, so dissolving it pays even when the select arrives early.
   bool push_merges_chain(RTLIL::Cell *cell, const RTLIL::SigSpec &arm_a, const RTLIL::SigSpec &arm_b)
@@ -156,8 +217,20 @@ struct OptMuxPushWorker
   {
     if (!timing_guard)
       return true;
-    if (push_merges_chain(cell, arm_a, arm_b))
-      return true;
+
+    // Whatever depth the push buys locally, it can only shorten the module's
+    // longest path if this operator sits on one. Anywhere else it duplicates
+    // the operator for a win no endpoint ever sees.
+    int slack = module_depth - path_depth(cell->getPort(ID::Y));
+
+    if (push_merges_chain(cell, arm_a, arm_b)) {
+      // The balancer reassociates the merged chain, so the payoff is not local
+      // and there is no gain here to compare the slack against.
+      log_debug("    %s %s port %s: chain merge, slack=%d\n",
+          log_id(cell->type), log_id(cell->name), log_id(port), slack);
+      return slack <= slack_margin;
+    }
+
     int d_a = arrival(arm_a);
     int d_b = arrival(arm_b);
     int d_s = arrival(mux_cell->getPort(ID::S));
@@ -173,15 +246,20 @@ struct OptMuxPushWorker
 
     int before = std::max(std::max(std::max(d_a, d_b), d_s) + d_mux, others) + d_op;
     int after = std::max(std::max(std::max(d_a, d_b), others) + d_op, d_s) + d_mux;
-    log_debug("    %s %s port %s: dA=%d dB=%d dS=%d before=%d after=%d\n",
-        log_id(cell->type), log_id(cell->name), log_id(port), d_a, d_b, d_s, before, after);
-    return after < before;
+    int gain = before - after;
+    log_debug("    %s %s port %s: dA=%d dB=%d dS=%d before=%d after=%d slack=%d\n",
+        log_id(cell->type), log_id(cell->name), log_id(port), d_a, d_b, d_s,
+        before, after, slack);
+    // A gain smaller than the slack is absorbed by the path that is actually
+    // critical, so require the push to reach it.
+    return gain > 0 && slack - slack_margin < gain;
   }
 
   void build_connectivity()
   {
     driver_map.clear();
     fanout_map.clear();
+    consumer_map.clear();
 
     // Build per-bit driver and fanout maps for the current module
     for (auto cell : module->cells())
@@ -205,6 +283,9 @@ struct OptMuxPushWorker
             if (bit.wire == nullptr)
               continue;
             fanout_map[bit]++;
+            auto &cons = consumer_map[bit];
+            if (cons.empty() || cons.back() != cell)
+              cons.push_back(cell);
           }
         }
       }
@@ -306,6 +387,10 @@ struct OptMuxPushWorker
       build_connectivity();
       arrival_cache.clear();
       arrival_active.clear();
+      depart_cache.clear();
+      depart_active.clear();
+      if (timing_guard)
+        compute_module_depth();
 
       struct candidate_t {
         RTLIL::Cell *cell = nullptr;
@@ -428,6 +513,12 @@ struct OptMuxPushWorker
         RTLIL::Cell *new_mux = module->addMux(new_mux_name, out_a, out_b, mux_cell->getPort(ID::S), orig_y);
         new_mux->set_src_attribute(cell->get_src_attribute());
 
+        // Branch A evaluates one speculated arm now, not the original
+        // expression, so it must not keep the original name: equiv_make pairs
+        // cells by name and then requires their inputs to match, which is
+        // exactly what distributing the select breaks.
+        module->rename(branch_a, NEW_ID2_SUFFIX("mpa"));
+
         // Remove the original mux when it becomes dead after the rewrite. The
         // new mux only takes over the bits the operator read, so a bit outside
         // that slice still has a consumer of its own and the mux has to stay --
@@ -469,9 +560,15 @@ struct OptMuxPushPass : public Pass {
     log("        (default: $add,$sub,$xor)\n");
     log("\n");
     log("    -timing\n");
-    log("        only push when the push buys depth: either a unit-level delay\n");
-    log("        estimate says the select is the mux's late input, or the mux\n");
-    log("        splits a chain of associable operators\n");
+    log("        only push when the push buys depth on a path that is long\n");
+    log("        enough to matter: a unit-level delay estimate must say the\n");
+    log("        select is the mux's late input (or the mux must split a chain\n");
+    log("        of associable operators), and the operator must sit within\n");
+    log("        reach of the module's longest path\n");
+    log("\n");
+    log("    -slack-margin <int>\n");
+    log("        how many levels short of the longest path still counts as\n");
+    log("        critical for -timing (default: 0)\n");
     log("\n");
   }
 
@@ -479,6 +576,7 @@ struct OptMuxPushPass : public Pass {
   {
     int fanout_limit = 1;
     bool timing_guard = false;
+    int slack_margin = 0;
     std::string types = "$add,$sub,$xor";
 
     log_header(design, "Executing MUXPUSH pass (push muxes through light ops).\n");
@@ -497,6 +595,11 @@ struct OptMuxPushPass : public Pass {
         timing_guard = true;
         continue;
       }
+      if ((args[argidx] == "-slack-margin" || args[argidx] == "-slack_margin")
+          && argidx+1 < args.size()) {
+        slack_margin = atoi(args[++argidx].c_str());
+        continue;
+      }
       break;
     }
     extra_args(args, argidx, design);
@@ -512,7 +615,8 @@ struct OptMuxPushPass : public Pass {
     for (auto module : design->selected_modules()) {
       if (module->get_bool_attribute(ID::blackbox))
         continue;
-      OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard);
+      OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard,
+          slack_margin);
       worker.run();
       total_count += worker.total_count;
     }

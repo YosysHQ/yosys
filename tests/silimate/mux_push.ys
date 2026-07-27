@@ -279,3 +279,101 @@ select -assert-count 0 @add_fanin @mux_cells %i
 
 design -reset
 log -pop
+
+
+log -header "-timing: refuses a profitable push that is off the longest path"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  input wire [7:0] d0,
+  input wire [7:0] d1,
+  input wire [7:0] d2,
+  input wire [7:0] d3,
+  output wire [7:0] y,
+  output wire [7:0] deep
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [7:0] m = s ? b : a;
+  assign y = m + c;
+  wire [7:0] t0 = d0 * d1;
+  wire [7:0] t1 = t0 * d2;
+  wire [7:0] t2 = t1 * d3;
+  assign deep = t2 * d0;
+endmodule
+EOF
+proc
+check -assert
+design -save shallow_and_deep
+
+# The y cone is character for character the late-select case above, worth 4
+# levels, but the multiply chain to deep makes the module 32 levels deep and
+# leaves that cone 19 levels of slack. Buying 4 levels on a path with 19 to
+# spare cannot move the module's depth, so the duplicated adder would be pure
+# area.
+equiv_opt -assert muxpush -limit 1 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 1 @add_fanin @mux_cells %i
+design -reset
+
+# Same netlist with the slack allowance widened past 19 does push, so the group
+# above is the criticality guard declining a candidate the rest of the pass
+# accepts, not a match that never fired.
+design -load shallow_and_deep
+equiv_opt -assert muxpush -limit 1 -types $add -timing -slack-margin 24
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @add_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "A pushed operator does not keep the name of the operator it replaced"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [7:0] m = s ? b : a;
+  assign y = m + c;
+endmodule
+EOF
+proc
+check -assert
+
+# Branch A evaluates one speculated arm, so it must not answer to the name of
+# the operator that read the mux. equiv_make pairs cells by name and then
+# demands their inputs agree, and the pushed arm never agrees with the mux
+# output it replaced, so keeping the name reports the rewrite as inequivalent.
+# -inames pairs private names too, which is the strongest form of that matching
+# and the one this shape has to survive.
+design -save gold
+muxpush -limit 1 -types $add -timing
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+equiv_make -inames gold gate equiv
+hierarchy -top equiv
+equiv_induct
+equiv_status -assert
+
+design -reset
+log -pop
