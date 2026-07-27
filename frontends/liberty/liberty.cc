@@ -237,29 +237,6 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 	if (clk_sig.size() == 0 || data_sig.size() == 0)
 		log_error("FF cell %s has no next_state and/or clocked_on attribute.\n", name);
 
-	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
-	{
-		rerun_invert_rollback = false;
-
-		for (auto &it : module->cells_) {
-			if (it.second->type == ID($_NOT_) && it.second->getPort(ID::Y) == clk_sig) {
-				clk_sig = it.second->getPort(ID::A);
-				clk_polarity = !clk_polarity;
-				rerun_invert_rollback = true;
-			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(ID::Y) == clear_sig) {
-				clear_sig = it.second->getPort(ID::A);
-				clear_polarity = !clear_polarity;
-				rerun_invert_rollback = true;
-			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(ID::Y) == preset_sig) {
-				preset_sig = it.second->getPort(ID::A);
-				preset_polarity = !preset_polarity;
-				rerun_invert_rollback = true;
-			}
-		}
-	}
-
 	for (auto& [out_sig, cp_var, neg] : {tuple{iq_sig, clear_preset_var1, false}, {iqn_sig, clear_preset_var2, true}}) {
 		SigSpec q_sig = out_sig;
 		if (neg) {
@@ -344,29 +321,6 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", module);
 
 		return false;
-	}
-
-	for (bool rerun_invert_rollback = true; rerun_invert_rollback;)
-	{
-		rerun_invert_rollback = false;
-
-		for (auto &it : module->cells_) {
-			if (it.second->type == ID($_NOT_) && it.second->getPort(ID::Y) == enable_sig) {
-				enable_sig = it.second->getPort(ID::A);
-				enable_polarity = !enable_polarity;
-				rerun_invert_rollback = true;
-			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(ID::Y) == clear_sig) {
-				clear_sig = it.second->getPort(ID::A);
-				clear_polarity = !clear_polarity;
-				rerun_invert_rollback = true;
-			}
-			if (it.second->type == ID($_NOT_) && it.second->getPort(ID::Y) == preset_sig) {
-				preset_sig = it.second->getPort(ID::A);
-				preset_polarity = !preset_polarity;
-				rerun_invert_rollback = true;
-			}
-		}
 	}
 
 	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_NOT_));
