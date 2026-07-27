@@ -37,7 +37,7 @@ design -save gate_full
 # low budget skips all
 design -load gold
 scratchpad -set opt_dff.sat_effort 1
-logger -expect warning "effort limit exceeded" 1
+logger -expect warning "solver effort budget for module test_case is exhausted" 1
 opt_dff -sat
 logger -check-expected
 opt_clean -purge

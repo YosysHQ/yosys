@@ -143,54 +143,23 @@ struct OptDffWorker
 
 	std::vector<Cell *> dff_cells;
 
-	// Solver effort budget shared by run_constbits and run_eqbits, per module
-	static constexpr int64_t sat_import_cell_cost = 100;
+	// opt_dff -sat rebuilds the solver in batches of at most this many imported
+	// cells, so one pathological module can't grow a single giant solver
 	static constexpr int sat_batch_cells = 10000;
-	int64_t sat_effort = 0;
-	int64_t sat_effort_left = 0;
-	bool sat_budget_out = false;
 
-	void sat_budget_exceeded()
-	{
-		if (!sat_budget_out)
-			log_warning("opt_dff -sat: effort limit exceeded in module %s, skipping remaining "
-					"sat proofs (scratchpad option 'opt_dff.sat_effort').\n", log_id(module));
-		sat_budget_out = true;
-	}
+	SatEffortBudget sat_budget;
+	bool sat_warned = false;
 
-	bool sat_budget_spent()
+	bool warn_if_budget_spent()
 	{
-		if (sat_budget_out)
-			return true;
-		if (sat_effort > 0 && sat_effort_left <= 0) {
-			sat_budget_exceeded();
-			return true;
-		}
-		return false;
-	}
-
-	int solve_budgeted(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &modelExprs,
-			std::vector<bool> &modelVals, const std::vector<int> &assumptions)
-	{
-		// SAT = 1
-		// UNSAT = 0
-		// effort limit reached = -1 (can't be treated as UNSAT)
-		if (sat_effort > 0)
-			cap = (cap > 0) ? min(cap, sat_effort_left) : sat_effort_left;
-		qcsat.ez->setSolverPropLimit(cap);
-		bool sat_res = qcsat.ez->solve(modelExprs, modelVals, assumptions);
-		if (sat_effort > 0)
-			sat_effort_left -= qcsat.ez->getSolverProps();
-		if (!sat_res && qcsat.ez->getSolverPropLimitStatus())
-			return -1;
-		return sat_res ? 1 : 0;
-	}
-
-	void charge_import(QuickConeSat &qcsat, int64_t &cells_charged)
-	{
-		if (sat_effort > 0)
-			sat_effort_left -= (GetSize(qcsat.imported_cells) - cells_charged) * sat_import_cell_cost;
-		cells_charged = GetSize(qcsat.imported_cells);
+		if (!sat_budget.spent())
+			return false;
+		if (!sat_warned)
+			log_warning("opt_dff -sat: solver effort budget for module %s is exhausted, leaving the "
+					"remaining FFs un-optimized. Raise or clear the limit with the scratchpad "
+					"option 'opt_dff.sat_effort' (0 disables it).\n", log_id(module));
+		sat_warned = true;
+		return true;
 	}
 
 	bool is_active(SigBit sig, bool pol) const {
@@ -247,8 +216,7 @@ struct OptDffWorker
 	OptDffWorker(const OptDffOptions &opt, Module *mod)
 		: opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod)
 	{
-		sat_effort = module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000000);
-		sat_effort_left = sat_effort;
+		sat_budget = SatEffortBudget(module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000000));
 
 		// Gathering two kinds of information here for every sigmapped SigBit:
 		// - bitusers: how many users it has (muxes will only be merged into FFs if the FF is the only user)
@@ -988,6 +956,43 @@ struct OptDffWorker
 		return true;
 	}
 
+	// Try to decide whether target t of obligation ob is constant, under the given per-query cap.
+	bool resolve_const_target(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob, ConstTarget &t,
+			const std::vector<int> &modelExprs, const std::vector<ConstObligation *> &model_obs)
+	{
+		// Prove that the next value equals the constant in every state where Q already holds it
+		int vlit = qcsat.ez->value(ob.val == State::S1);
+		std::vector<int> assumptions;
+		assumptions.push_back(qcsat.ez->IFF(ob.q_lit, vlit));
+		assumptions.push_back(qcsat.ez->NOT(qcsat.ez->IFF(t.lit, vlit)));
+
+		std::vector<bool> modelVals;
+		// One counterexample can prune many targets
+		auto res = sat_budget.solve(qcsat, cap, modelExprs, modelVals, assumptions);
+
+		if (res == SatEffortBudget::Result::LimitReached)
+			return false; // Nothing changed
+		if (res == SatEffortBudget::Result::Unsat) {
+			t.proven = true; // t is proven to be const
+			return true;
+		}
+
+		// Counterexample: this bit is not constant. Any other pending bit whose Q holds its
+		// constant while its next value differs is disproven by the same state
+		for (int k = 0; k < GetSize(model_obs); k++) {
+			ConstObligation *ob2 = model_obs[k];
+			if (ob2->dropped)
+				continue;
+			bool want = (ob2->val == State::S1);
+			bool t_val = modelVals[2*k];
+			bool q_val = modelVals[2*k + 1];
+			if (q_val == want && t_val != want)
+				ob2->dropped = true;
+		}
+		ob.dropped = true;
+		return true;
+	}
+
 	bool run_constbits()
 	{
 		// Find FFs that are provably constant
@@ -1045,20 +1050,22 @@ struct OptDffWorker
 		}
 
 		int64_t screen_cap = 0;
-		if (sat_effort > 0 && !obligations.empty()) {
+		if (sat_budget.enabled() && !obligations.empty()) {
 			// Screening cap, scaled down when the budget cannot afford a full-price screening round
 			int64_t num_queries = 0;
 			for (auto &ob : obligations)
 				num_queries += GetSize(ob.targets);
-			screen_cap = max((int64_t)20000, min((int64_t)200000, sat_effort / (4 * num_queries)));
+			screen_cap = max((int64_t)20000, min((int64_t)200000, sat_budget.total / (4 * num_queries)));
 		}
 
-		for (int batch_begin = 0; batch_begin < GetSize(obligations) && !sat_budget_spent(); ) {
+		// Each obligation is proven independently, so processing obligations in
+		// batches and stopping early on an exhausted budget is safe
+		for (int batch_begin = 0; batch_begin < GetSize(obligations) && !warn_if_budget_spent(); ) {
 			QuickConeSat qcsat(modwalker);
 			int64_t cells_charged = 0;
 			int batch_end = batch_begin;
 
-			while (batch_end < GetSize(obligations) && !sat_budget_spent()) {
+			while (batch_end < GetSize(obligations) && !warn_if_budget_spent()) {
 				if (batch_end > batch_begin && GetSize(qcsat.imported_cells) >= sat_batch_cells)
 					break;
 				auto &ob = obligations[batch_end];
@@ -1066,78 +1073,47 @@ struct OptDffWorker
 				for (auto &t : ob.targets)
 					t.lit = qcsat.importSigBit(t.sig);
 				qcsat.prepare();
-				charge_import(qcsat, cells_charged);
+				sat_budget.charge_import(qcsat, cells_charged);
 				batch_end++;
 			}
 
+			// Sweep the batch under a cheap screening cap, then re-sweep  the still-undecided targets
 			int64_t cap = screen_cap;
 			bool out_of_budget = false;
 
 			while (!out_of_budget) {
 				bool all_resolved = true;
 
+				// Counter ex.: every pending target in the batch. Entries that get proven or dropped later
+				// in the sweep are harmless (a proven bit is constant in every model)
+				std::vector<int> modelExprs;
+				std::vector<ConstObligation *> model_obs;
 				for (int obi = batch_begin; obi < batch_end; obi++) {
+					auto &ob = obligations[obi];
+					if (ob.dropped)
+						continue;
+					for (auto &t : ob.targets)
+						if (!t.proven) {
+							modelExprs.push_back(t.lit);
+							modelExprs.push_back(ob.q_lit);
+							model_obs.push_back(&ob);
+						}
+				}
+
+				for (int obi = batch_begin; obi < batch_end && !out_of_budget; obi++) {
 					auto &ob = obligations[obi];
 					if (ob.dropped)
 						continue;
 					for (auto &t : ob.targets) {
 						if (t.proven || ob.dropped)
 							continue;
-						if (sat_budget_spent()) {
+						if (warn_if_budget_spent()) {
 							out_of_budget = true;
 							break;
 						}
-
-						std::vector<int> modelExprs;
-						std::vector<ConstObligation *> model_obs;
-						for (int obi2 = batch_begin; obi2 < batch_end; obi2++) {
-							auto &ob2 = obligations[obi2];
-							if (ob2.dropped)
-								continue;
-							for (auto &t2 : ob2.targets)
-								if (!t2.proven) {
-									modelExprs.push_back(t2.lit);
-									modelExprs.push_back(ob2.q_lit);
-									model_obs.push_back(&ob2);
-								}
-						}
-
-						// Prove that the next value equals the constant in every state where Q already holds it
-						int vlit = qcsat.ez->value(ob.val == State::S1);
-						std::vector<int> assumptions;
-						assumptions.push_back(qcsat.ez->IFF(ob.q_lit, vlit));
-						assumptions.push_back(qcsat.ez->NOT(qcsat.ez->IFF(t.lit, vlit)));
-
-						std::vector<bool> modelVals;
-						int res = solve_budgeted(qcsat, cap, modelExprs, modelVals, assumptions);
-
-						if (res < 0) {
+						if (!resolve_const_target(qcsat, cap, ob, t, modelExprs, model_obs))
 							all_resolved = false;
-							continue;
-						}
-
-						if (res == 0) {
-							t.proven = true;
-							continue;
-						}
-
-						// Counterexample: this bit is not constant
-						// Any other pending bit whose Q holds its constant while its next value differs is 
-						// disproven by the same state
-						for (int k = 0; k < GetSize(model_obs); k++) {
-							ConstObligation *ob2 = model_obs[k];
-							if (ob2->dropped)
-								continue;
-							bool want = (ob2->val == State::S1);
-							bool t_val = modelVals[2*k];
-							bool q_val = modelVals[2*k + 1];
-							if (q_val == want && t_val != want)
-								ob2->dropped = true;
-						}
-						ob.dropped = true;
 					}
-					if (out_of_budget)
-						break;
 				}
 
 				if (out_of_budget || all_resolved)
@@ -1383,8 +1359,8 @@ struct OptDffWorker
 
 	std::vector<std::vector<int>> drop_all_classes()
 	{
-		// Verified merges can depend on the equality of classes that are still unproven, so an incomplete run cannot keep any of them
-		log("Dropping all equivalent-FF merge candidates in module %s (sat effort budget exceeded before all classes were proven).\n", log_id(module));
+		log("opt_dff -sat: skipping all equivalent-flip-flop merges in module %s (solver effort budget "
+				"exhausted before the equivalences could be proven).\n", log_id(module));
 		return {};
 	}
 
@@ -1405,7 +1381,7 @@ struct OptDffWorker
 		// Two bits are equivalent if their next states always agree whenever their
 		// current states (and those of every other candidate pair) agree
 		for (auto &cls : classes) {
-			if (sat_budget_spent())
+			if (warn_if_budget_spent())
 				return drop_all_classes();
 			for (int idx : cls) {
 				const EqBit &eb = bits[idx];
@@ -1439,7 +1415,7 @@ struct OptDffWorker
 				n_lit[idx] = n;
 			}
 			qcsat.prepare();
-			charge_import(qcsat, cells_charged);
+			sat_budget.charge_import(qcsat, cells_charged);
 		}
 
 		// Assume the induction hypo (that every current class is internally equal in the present cycle), and try
@@ -1478,7 +1454,7 @@ struct OptDffWorker
 				if (n_lit[rep] == n_lit[cls[i]])
 					continue;
 
-				if (sat_budget_spent())
+				if (warn_if_budget_spent())
 					return drop_all_classes();
 
 				// Can the next state of the rep and this member ever differ?
@@ -1492,14 +1468,14 @@ struct OptDffWorker
 				std::vector<bool> modelVals;
 				assumptions.push_back(query);
 
-				int res = solve_budgeted(qcsat, 0, modelExprs, modelVals, assumptions);
+				auto res = sat_budget.solve(qcsat, 0, modelExprs, modelVals, assumptions);
 
-				if (res < 0) {
-					sat_budget_exceeded();
+				if (res == SatEffortBudget::Result::LimitReached) {
+					warn_if_budget_spent();
 					return drop_all_classes();
 				}
 
-				if (res > 0) {
+				if (res == SatEffortBudget::Result::Sat) {
 					// SAT -> partition entire class
 					std::vector<int> sub0;
 					std::vector<int> sub1;
