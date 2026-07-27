@@ -377,3 +377,23 @@ equiv_status -assert
 
 design -reset
 log -pop
+
+
+log -header "-slack-margin rejects a negative allowance (ends the script, keep last)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (input wire s, input wire [7:0] a, input wire [7:0] b, input wire [7:0] c,
+            output wire [7:0] y);
+  wire [7:0] m = s ? b : a;
+  assign y = m + c;
+endmodule
+EOF
+proc
+
+# A negative margin would demand slack below zero, which nothing reaches, so the
+# guard would quietly refuse every candidate instead of widening anything.
+logger -expect error "-slack-margin must not be negative" 1
+muxpush -limit 1 -types $add -timing -slack-margin -1
+logger -check-expected
+log -pop

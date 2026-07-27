@@ -222,13 +222,15 @@ struct OptMuxPushWorker
     // longest path if this operator sits on one. Anywhere else it duplicates
     // the operator for a win no endpoint ever sees.
     int slack = module_depth - path_depth(cell->getPort(ID::Y));
+    if (slack > slack_margin)
+      return false;
 
     if (push_merges_chain(cell, arm_a, arm_b)) {
       // The balancer reassociates the merged chain, so the payoff is not local
-      // and there is no gain here to compare the slack against.
+      // and there is no gain here to weigh.
       log_debug("    %s %s port %s: chain merge, slack=%d\n",
           log_id(cell->type), log_id(cell->name), log_id(port), slack);
-      return slack <= slack_margin;
+      return true;
     }
 
     int d_a = arrival(arm_a);
@@ -246,13 +248,10 @@ struct OptMuxPushWorker
 
     int before = std::max(std::max(std::max(d_a, d_b), d_s) + d_mux, others) + d_op;
     int after = std::max(std::max(std::max(d_a, d_b), others) + d_op, d_s) + d_mux;
-    int gain = before - after;
     log_debug("    %s %s port %s: dA=%d dB=%d dS=%d before=%d after=%d slack=%d\n",
         log_id(cell->type), log_id(cell->name), log_id(port), d_a, d_b, d_s,
         before, after, slack);
-    // A gain smaller than the slack is absorbed by the path that is actually
-    // critical, so require the push to reach it.
-    return gain > 0 && slack - slack_margin < gain;
+    return after < before;
   }
 
   void build_connectivity()
@@ -598,6 +597,10 @@ struct OptMuxPushPass : public Pass {
       if ((args[argidx] == "-slack-margin" || args[argidx] == "-slack_margin")
           && argidx+1 < args.size()) {
         slack_margin = atoi(args[++argidx].c_str());
+        // A negative margin would demand slack below zero, which no candidate
+        // can reach, so the guard would silently refuse everything.
+        if (slack_margin < 0)
+          log_cmd_error("muxpush: -slack-margin must not be negative.\n");
         continue;
       }
       break;
