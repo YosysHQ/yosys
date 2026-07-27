@@ -6,6 +6,7 @@
 #   C: transfer-function tree (emit shape 2) on a step that is NOT associative.
 #   D: rejection guards -- wrong fixup constant, state too wide, clone budget.
 #   E: the depth-win guard, which keeps the shape off shallow cascades.
+#   F: the narrow-state guard, which keeps the shape off boolean chains.
 #
 # Depth is the point of this pass, so the structural checks are `ltp -noff`
 # lengths rather than cell counts: the tree trades area for depth, so cell
@@ -402,6 +403,99 @@ design -load shallow
 logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 1 cascade\(s\) as transfer-function tree\(s\)" 1
 opt_modadd_tree -min-serial-depth 8 -min-depth-gain 1
 logger -check-expected
+select -assert-min 1 c:*modadd*
+design -reset
+log -pop
+
+# ============================================================================
+# Group F: narrow-state guard
+# ============================================================================
+
+# F1: a flag threaded through eight compare steps. The state is one bit, so
+# the transfer-function shape would clone each compare cone twice to carry a
+# map that tree balancing gets for free -- on a real FPU this shape cost 17x
+# area for no depth. Deep enough that only the width guard can refuse it.
+log -header "F1: one-bit state -> left alone"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [127:0] a, input wire [15:0] k, output wire y);
+  function automatic f (input [127:0] v, input [15:0] kk);
+    integer i; reg acc; reg [15:0] t;
+    begin
+      acc = 1'b0;
+      for (i = 0; i < 8; i = i + 1) begin
+        t = v[i*16 +: 16] + kk;
+        if (t > kk)
+          acc = ~acc;
+        else
+          acc = acc & t[0];
+      end
+      f = acc;
+    end
+  endfunction
+  assign y = f(a, k);
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+design -save flag
+# Every prefix of the chain is its own candidate, so pin the full-length one
+# rather than counting all sixteen skips.
+logger -expect log "skipping general cascade at .y: state width 1 below 2" 1
+logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 0 cascade\(s\) as transfer-function tree\(s\)" 1
+debug opt_modadd_tree
+logger -check-expected
+select -assert-count 0 c:*modadd*
+log -pop
+
+# F2: the same cascade rewrites at -min-state-bits 1, so F1 is the width guard
+# declining a match the pass otherwise takes.
+log -header "F2: one-bit state rewrites once the width guard allows it"
+log -push
+design -load flag
+logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 1 cascade\(s\) as transfer-function tree\(s\)" 1
+opt_modadd_tree -min-state-bits 1
+logger -check-expected
+select -assert-min 1 c:*modadd*
+design -reset
+log -pop
+
+# F3: the width guard is a cost call, not a correctness one, so prove the
+# rewrite it declines. Same flag chain narrowed to 4-bit steps, which keeps the
+# equivalence check cheap; the thresholds come down to match the shorter chain.
+log -header "F3: the declined one-bit rewrite is equivalent"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] a, input wire [3:0] k, output wire y);
+  function automatic f (input [23:0] v, input [3:0] kk);
+    integer i; reg acc; reg [3:0] t;
+    begin
+      acc = 1'b0;
+      for (i = 0; i < 6; i = i + 1) begin
+        t = v[i*4 +: 4] + kk;
+        if (t > kk)
+          acc = ~acc;
+        else
+          acc = acc & t[0];
+      end
+      f = acc;
+    end
+  endfunction
+  assign y = f(a, k);
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 1 cascade\(s\) as transfer-function tree\(s\)" 1
+equiv_opt -assert opt_modadd_tree -min-state-bits 1 -min-serial-depth 8 -min-depth-gain 1
+logger -check-expected
+design -load postopt
 select -assert-min 1 c:*modadd*
 design -reset
 log -pop

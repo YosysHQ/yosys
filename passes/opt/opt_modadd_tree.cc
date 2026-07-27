@@ -64,6 +64,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 {
 	// Tunables (see Pass::execute).
 	int max_state_bits = 4;
+	int min_state_bits = 2;
 	int min_nodes = 4;
 	int max_nodes = 64;
 	int max_cone_cells = 512;
@@ -818,6 +819,16 @@ struct OptModAddTreeWorker : CutRegionWorker
 					cb.table.append(const_u64(v, ch.w));
 		}
 
+		// The transfer-function tier copies the step cone once per state, which
+		// only pays off when the state is too wide to rebalance associatively.
+		// A 1-bit accumulator is a boolean chain that tree balancing flattens
+		// for free, so cloning its cone just buys area.
+		if (!as_table && ch.w < min_state_bits) {
+			log_debug("  skipping general cascade at %s: state width %d below %d\n",
+			          log_signal(ch.tail), ch.w, min_state_bits);
+			return false;
+		}
+
 		int clones = 0;
 		for (int i = 1; i < n; i++)
 			clones += GetSize(ch.state_cells[i]) * (as_table ? 1 : nstates);
@@ -952,6 +963,11 @@ struct OptModAddTreePass : public Pass {
 		log("    -max-state-bits N, -max_state_bits N\n");
 		log("        maximum accumulator width to consider (default 4).\n");
 		log("\n");
+		log("    -min-state-bits N, -min_state_bits N\n");
+		log("        minimum accumulator width for the general shape (default 2).\n");
+		log("        Narrower states are boolean chains that tree balancing\n");
+		log("        already flattens, so cloning their step cones only costs area.\n");
+		log("\n");
 		log("    -min-nodes N, -min_nodes N\n");
 		log("        minimum cascade length to rebalance (default 4).\n");
 		log("\n");
@@ -986,6 +1002,7 @@ struct OptModAddTreePass : public Pass {
 		log_header(design, "Executing OPT_MODADD_TREE pass (serial accumulate cascades to trees).\n");
 
 		int max_state_bits = 4;
+		int min_state_bits = 2;
 		int min_nodes = 4;
 		int max_nodes = 64;
 		int max_digit_bits = 10;
@@ -998,6 +1015,11 @@ struct OptModAddTreePass : public Pass {
 			if ((args[argidx] == "-max-state-bits" || args[argidx] == "-max_state_bits") &&
 			    argidx + 1 < args.size()) {
 				max_state_bits = std::stoi(args[++argidx]);
+				continue;
+			}
+			if ((args[argidx] == "-min-state-bits" || args[argidx] == "-min_state_bits") &&
+			    argidx + 1 < args.size()) {
+				min_state_bits = std::stoi(args[++argidx]);
 				continue;
 			}
 			if ((args[argidx] == "-min-nodes" || args[argidx] == "-min_nodes") &&
@@ -1053,6 +1075,7 @@ struct OptModAddTreePass : public Pass {
 		for (auto module : design->selected_modules()) {
 			OptModAddTreeWorker worker(module);
 			worker.max_state_bits = max_state_bits;
+			worker.min_state_bits = min_state_bits;
 			worker.min_nodes = min_nodes;
 			worker.max_nodes = max_nodes;
 			worker.max_digit_bits = max_digit_bits;
