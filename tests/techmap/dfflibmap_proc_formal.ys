@@ -44,6 +44,7 @@ EOT
 
 proc
 opt
+techmap
 copy top top_unmapped
 design -save start
 
