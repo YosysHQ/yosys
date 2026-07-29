@@ -150,6 +150,10 @@ struct Frontend : Pass
 	static FILE *current_script_file;
 	static std::string last_here_document;
 
+	// script file and last line read from it
+	static std::string current_script_filename;
+	static int current_script_lineno;
+
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **",
 		source_location location = source_location::current());

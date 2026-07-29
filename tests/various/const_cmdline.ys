@@ -7,9 +7,9 @@ EOT
 prep -top top
 
 # width mismatch
-logger -expect warning "While parsing constant `2'd7'" 1
+logger -expect prefix-warning "const_cmdline.ys:[0-9]+: Warning: While parsing constant `2'd7'" 1
 setattr -set foo 2'd7 t:*
 
 # multi-bit unsized const
-logger -expect error "Failed to parse constant `8'00000101'" 1
+logger -expect prefix-error "const_cmdline.ys:[0-9]+: ERROR: Failed to parse constant `8'00000101'" 1
 setattr -set foo 8'00000101 t:*

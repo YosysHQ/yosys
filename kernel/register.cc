@@ -459,6 +459,8 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 
 FILE *Frontend::current_script_file = NULL;
 std::string Frontend::last_here_document;
+std::string Frontend::current_script_filename;
+int Frontend::current_script_lineno = 0;
 
 void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_input)
 {
@@ -496,6 +498,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
 				}
+				Frontend::current_script_lineno++;
 				size_t indent = buffer.find_first_not_of(" \t\r\n");
 				if (indent != std::string::npos && buffer.compare(indent, eot_marker.size(), eot_marker) == 0)
 					break;
