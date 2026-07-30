@@ -184,11 +184,7 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 {
 	RTLIL::SigSpec three_state = parse_func_expr(module, three_state_expr);
 
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($tribuf));
-	cell->setParam(ID::WIDTH, GetSize(func));
-	cell->setPort(ID::A, func);
-	cell->setPort(ID::EN, module->NotGate(NEW_ID, three_state));
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
+	auto cell = module->addTribuf(NEW_ID, func, module->NotGate(NEW_ID, three_state), module->addWire(NEW_ID));
 	return cell->getPort(ID::Y);
 }
 
@@ -249,21 +245,21 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 		cell->setPort(ID::C, clk_sig);
 
 		if (clear_sig.size() == 0 && preset_sig.size() == 0) {
-			cell->type = stringf("$_DFF_P_");
+			cell->type = ID::$_DFF_P_;
 		}
 
 		if (clear_sig.size() == 1 && preset_sig.size() == 0) {
-			cell->type = stringf("$_DFF_PP0_");
+			cell->type = ID::$_DFF_PP0_;
 			cell->setPort(ID::R, clear_sig);
 		}
 
 		if (clear_sig.size() == 0 && preset_sig.size() == 1) {
-			cell->type = stringf("$_DFF_PP1_");
+			cell->type = ID::$_DFF_PP1_;
 			cell->setPort(ID::R, preset_sig);
 		}
 
 		if (clear_sig.size() == 1 && preset_sig.size() == 1) {
-			cell->type = stringf("$_DFFSR_PPP_");
+			cell->type = ID::$_DFFSR_PPP_;
 
 			SigBit s_sig = preset_sig;
 			SigBit r_sig = clear_sig;
@@ -335,11 +331,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		data_sig = module->OrGate(NEW_ID, data_sig, preset_sig);
 		enable_sig = module->OrGate(NEW_ID, enable_sig, preset_sig);
 	}
-
-	cell = module->addCell(NEW_ID, stringf("$_DLATCH_P_"));
-	cell->setPort(ID::D, data_sig);
-	cell->setPort(ID::Q, iq_sig);
-	cell->setPort(ID::E, enable_sig);
+	cell = module->addDlatchGate(NEW_ID, enable_sig, data_sig, iq_sig, true);
 
 	return true;
 }
