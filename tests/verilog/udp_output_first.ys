@@ -1,0 +1,12 @@
+logger -expect error "The first UDP port must be the single output port." 1
+
+read_verilog -sv <<EOF
+primitive udp1 (s, a, b, q);
+  input s, a, b;
+  output q;
+
+  table
+    ? ? ? : x ;
+  endtable
+endprimitive
+EOF

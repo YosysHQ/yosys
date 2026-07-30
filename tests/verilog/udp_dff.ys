@@ -1,0 +1,38 @@
+read_verilog -sv <<EOF
+module top (clk, d, ok);
+  input clk, d;
+  output ok;
+
+  logic q0, q1;
+
+  dff_ref dff_ref (.clk(clk), .d(d), .q(q0));
+  dff_udp dff_udp (.clk(clk), .d(d), .q(q1));
+
+  assign ok = (q0 == q1);
+endmodule
+
+primitive dff_udp (q, clk, d);
+  input clk, d;
+  output reg q;
+
+  table
+// clk  d   q   q+
+    r   0 : ? : 0 ;
+    r   1 : ? : 1 ;
+    f   ? : ? : - ;
+    ?   * : ? : - ;
+  endtable
+endprimitive
+
+module dff_ref (clk, d, q);
+  input clk, d;
+  output logic q;
+
+  always @(posedge clk)
+    q <= d;
+endmodule
+EOF
+
+prep -top top -flatten
+select -assert-count 2 t:$dff
+sat -verify -tempinduct -prove ok 1

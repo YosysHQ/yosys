@@ -1,0 +1,38 @@
+read_verilog -sv <<EOF
+module top (d, en, ok);
+  input d, en;
+  output ok;
+
+  logic q0, q1;
+
+  dlatch_ref dlatch_ref (.d(d), .en(en), .q(q0));
+  dlatch_udp dlatch_udp (.d(d), .en(en), .q(q1));
+
+  assign ok = (q0 == q1);
+endmodule
+
+module dlatch (d, en, q);
+  input d, en;
+  output logic q;
+
+  always @(*)
+    if (en)
+      q <= d;
+endmodule
+
+primitive udp_latch (q, d, en);
+  output q;
+  reg q;
+  input d, en;
+  initial q = 1'b0;
+  table
+    0 1 : ? : 0 ;
+    1 1 : ? : 1 ;
+    ? 0 : ? : - ;
+  endtable
+endprimitive
+EOF
+
+prep -top top -flatten
+select -assert-count 2 t:$dlatch
+sat -verify -tempinduct -prove ok 1

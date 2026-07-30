@@ -1,0 +1,12 @@
+#logger -expect error "A UDP edge indicator cannot have identical level symbols" 1
+
+read_verilog -sv <<EOF
+primitive udp1 (q, clk, d);
+  input clk, d;
+  output reg q;
+
+  table
+    (00) ? : - ;
+  endtable
+endprimitive
+EOF

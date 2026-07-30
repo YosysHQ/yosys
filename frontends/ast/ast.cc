@@ -28,6 +28,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/udp.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
 
@@ -1158,7 +1159,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 		bool blackbox_module = flag_lib;
 
-		if (!blackbox_module && !flag_noblackbox) {
+		if (!blackbox_module && !flag_noblackbox && !ast->get_bool_attribute(ID(udp))) {
 			blackbox_module = true;
 			for (const auto& child : ast->children) {
 				if (child->type == AST_WIRE && (child->is_input || child->is_output))
@@ -1274,6 +1275,21 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 			const auto& node = ast->children[i];
 			if (node->type == AST_WIRE || node->type == AST_MEMORY)
 				node->genRTLIL();
+		}
+		if (!blackbox_module && ast->get_bool_attribute(ID(udp))) {
+			RTLIL::UdpDefinition udp;
+			udp.sequential = ast->get_bool_attribute(ID(udp_sequential));
+			udp.entries = RTLIL::deserialize_udp_table(
+					ast->attributes.at(ID(udp_table))->asAttrConst().decode_string());
+
+			int num_ports = 0;
+			for (auto wire : module->wires())
+				num_ports = std::max(num_ports, wire->port_id);
+			udp.ports.resize(num_ports);
+			for (auto wire : module->wires())
+				if (wire->port_id > 0)
+					udp.ports.at(wire->port_id - 1) = wire->name;
+			RTLIL::import_udp(module, udp);
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			const auto& node = ast->children[i];

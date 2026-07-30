@@ -1,0 +1,31 @@
+# Picked from Verilator [#2808](https://github.com/verilator/verilator/issues/2808)
+
+read_verilog -sv <<EOF
+module top (clk, d, setn, rstn);
+endmodule
+
+primitive udp_dff_PWR_sc9mcpp84_14lppxl_base_slvt_c16 (out, in, clk, clr_, set_, VDD, VSS, NOTIFIER);
+   output out;
+   input  in, clk, clr_, set_, VDD, VSS, NOTIFIER;
+   reg    out;
+
+   table
+// in  clk  clr_  set_  VDD  VSS  NOTIFIER  : Qt : Qt+1
+//
+   0   r    ?     1     1    0    ?         : ?  :  0  ; // clock in 0
+   1   r    1     ?     1    0    ?         : ?  :  1  ; // clock in 1
+   1   *    1     ?     1    0    ?         : 1  :  1  ; // reduce pessimism
+   0   *    ?     1     1    0    ?         : 0  :  0  ; // reduce pessimism
+   ?   f    ?     ?     1    0    ?         : ?  :  -  ; // no changes on negedge clk
+   *   b    ?     ?     1    0    ?         : ?  :  -  ; // no changes when in switches
+   ?   ?    ?     0     1    0    ?         : ?  :  1  ; // set output
+   ?   b    1     *     1    0    ?         : 1  :  1  ; // cover all transistions on set_
+   1   x    1     *     1    0    ?         : 1  :  1  ; // cover all transistions on set_
+   ?   ?    0     1     1    0    ?         : ?  :  0  ; // reset output
+   ?   b    *     1     1    0    ?         : 0  :  0  ; // cover all transistions on clr_
+   0   x    *     1     1    0    ?         : 0  :  0  ; // cover all transistions on clr_
+   ?   ?    ?     ?     ?    ?    *         : ?  :  x  ; // any notifier changed
+   endtable
+endprimitive
+EOF
+

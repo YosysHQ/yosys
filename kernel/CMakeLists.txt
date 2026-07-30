@@ -80,6 +80,7 @@ yosys_core(kernel
 	threading.h
 	timinginfo.h
 	topo_scc.h
+	udp.cc
 	utils.h
 	version.cc
 	yosys.cc

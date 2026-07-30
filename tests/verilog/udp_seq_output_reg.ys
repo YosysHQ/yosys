@@ -1,0 +1,12 @@
+logger -expect error "A sequential UDP output must use the `reg' keyword" 1
+
+read_verilog -sv <<EOF
+primitive udp1 (q, clk, d);
+  input clk, d;
+  output logic q;
+
+  table
+    ? ? ? : ? : - ;
+  endtable
+endprimitive
+EOF

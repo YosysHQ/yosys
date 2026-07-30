@@ -47,6 +47,7 @@
 
 %code requires {
 	#include "kernel/yosys_common.h"
+	#include "kernel/udp.h"
 	#include "frontends/verilog/verilog_error.h"
 	#include "frontends/verilog/verilog_location.h"
 	YOSYS_NAMESPACE_BEGIN
@@ -87,6 +88,8 @@
 			bool current_wire_rand, current_wire_const, current_wire_automatic;
 			bool current_modport_input, current_modport_output;
 			bool default_nettype_wire = true;
+			std::vector<RTLIL::UdpTableEntry> udp_entries;
+			std::string udp_initial_port;
 			std::istream* lexin;
 
 			AstNode* saveChild(std::unique_ptr<AstNode> child);
@@ -239,6 +242,247 @@
 			if (before && after && *before != *after)
 				err_at_loc(loc, "%s (%s) and end label (%s) don't match.",
 					element, before->c_str() + 1, after->c_str() + 1);
+		}
+
+		static char normalize_udp_symbol(char symbol)
+		{
+			if ('A' <= symbol && symbol <= 'Z')
+				return symbol - 'A' + 'a';
+			return symbol;
+		}
+
+		static bool udp_has_transition(const std::string &inputs)
+		{
+			for (char symbol : inputs)
+				if (symbol == '(' || symbol == 'r' || symbol == 'f' ||
+						symbol == 'p' || symbol == 'n' || symbol == '*')
+					return true;
+			return false;
+		}
+
+		static std::string normalize_udp_inputs(const Location &loc, const std::string &inputs)
+		{
+			std::string result;
+			int transitions = 0;
+			for (size_t i = 0; i < inputs.size();) {
+				char symbol = normalize_udp_symbol(inputs[i]);
+				if (symbol == '(') {
+					size_t close = inputs.find(')', i + 1);
+					if (close == std::string::npos || close != i + 3)
+						err_at_loc(loc, "UDP edge indicator must contain exactly two symbols.");
+					result += '(';
+					char first_symbol = 0;
+					for (size_t j = i + 1; j < close; j++) {
+						char edge_symbol = normalize_udp_symbol(inputs[j]);
+						if (edge_symbol != '0' && edge_symbol != '1' && edge_symbol != 'x' &&
+								edge_symbol != '?' && edge_symbol != 'b')
+							err_at_loc(loc, "Invalid UDP edge symbol `%c'.", inputs[j]);
+						if (first_symbol == 0)
+							first_symbol = edge_symbol;
+						else if (first_symbol == edge_symbol && edge_symbol != 'b' && edge_symbol != '?')
+							err_at_loc(loc, "A UDP edge indicator cannot have identical level symbols.");
+						result += edge_symbol;
+					}
+					result += ')';
+					i = close + 1;
+					transitions++;
+					continue;
+				}
+
+				if (symbol != '0' && symbol != '1' && symbol != 'x' && symbol != '?' &&
+						symbol != 'b' && symbol != 'r' && symbol != 'f' &&
+						symbol != 'p' && symbol != 'n' && symbol != '*')
+					err_at_loc(loc, "Invalid UDP input symbol `%c'.", inputs[i]);
+				if (symbol == 'r' || symbol == 'f' || symbol == 'p' || symbol == 'n' || symbol == '*')
+					transitions++;
+				result += symbol;
+				i++;
+			}
+			if (transitions > 1)
+				err_at_loc(loc, "A UDP table row can contain at most one input transition.");
+			return result;
+		}
+
+		static int count_udp_inputs(const std::string &inputs)
+		{
+			int count = 0;
+			for (size_t i = 0; i < inputs.size(); i++, count++)
+				if (inputs[i] == '(') {
+					size_t close = inputs.find(')', i + 1);
+					log_assert(close != std::string::npos);
+					i = close;
+				}
+			return count;
+		}
+
+		static char normalize_udp_state(const Location &loc, const std::string &state, bool output)
+		{
+			if (state.size() != 1)
+				err_at_loc(loc, "UDP %s field must contain exactly one symbol.", output ? "output" : "current-state");
+			char symbol = normalize_udp_symbol(state[0]);
+			if (output) {
+				if (symbol != '0' && symbol != '1' && symbol != 'x' && symbol != '-')
+					err_at_loc(loc, "Invalid UDP output symbol `%c'.", state[0]);
+			} else if (symbol != '0' && symbol != '1' && symbol != 'x' && symbol != '?' && symbol != 'b') {
+				err_at_loc(loc, "Invalid UDP current-state symbol `%c'.", state[0]);
+			}
+			return symbol;
+		}
+
+		static void add_udp_entry(ParseState *extra, const Location &loc, const std::string &inputs,
+				const std::string *current, const std::string &output)
+		{
+			RTLIL::UdpTableEntry entry;
+			entry.inputs = normalize_udp_inputs(loc, inputs);
+			if (current != nullptr)
+				entry.curr = normalize_udp_state(loc, *current, false);
+			entry.next = normalize_udp_state(loc, output, true);
+			extra->udp_entries.push_back(std::move(entry));
+		}
+
+		static void finish_udp(ParseState *extra, const Location &loc)
+		{
+			AstNode *udp = extra->ast_stack.back();
+			log_assert(udp->type == AST_MODULE);
+
+			if (!extra->port_stubs.empty())
+				err_at_loc(loc, "Missing details for UDP port `%s'.", extra->port_stubs.begin()->first.c_str());
+
+			struct PortInfo {
+				int port_id = 0;
+				bool is_input = false;
+				bool is_output = false;
+				bool is_reg = false;
+				bool is_logic = false;
+				bool non_scalar = false;
+				Location location;
+			};
+			dict<std::string, PortInfo> port_info;
+			int initial_count = 0;
+			for (const auto &child : udp->children) {
+				if (child->type == AST_INITIAL) {
+					initial_count++;
+					continue;
+				}
+				if (child->type != AST_WIRE)
+					err_at_loc(child->location, "Only port declarations, an optional initial statement, and a table are allowed in a UDP.");
+
+				auto &info = port_info[child->str];
+				if (child->port_id != 0) {
+					if (info.port_id != 0 && info.port_id != child->port_id)
+						err_at_loc(child->location, "UDP port `%s' appears more than once in the port list.", child->str.c_str());
+					info.port_id = child->port_id;
+				}
+				info.is_input |= child->is_input;
+				info.is_output |= child->is_output;
+				info.is_reg |= child->is_reg;
+				info.is_logic |= child->is_logic;
+				info.non_scalar |= !child->children.empty();
+				info.location = child->location;
+			}
+
+			if (extra->port_counter < 2)
+				err_at_loc(loc, "A UDP must have one output and at least one input.");
+
+			std::vector<std::string> ordered_ports(extra->port_counter);
+			for (const auto &it : port_info) {
+				if (it.second.port_id == 0)
+					continue;
+				if (it.second.port_id < 1 || it.second.port_id > extra->port_counter ||
+						!ordered_ports[it.second.port_id - 1].empty())
+					err_at_loc(it.second.location, "Invalid or duplicate UDP port position.");
+				ordered_ports[it.second.port_id - 1] = it.first;
+			}
+			for (int i = 0; i < extra->port_counter; i++)
+				if (ordered_ports[i].empty())
+					err_at_loc(loc, "UDP port %d has no declaration.", i + 1);
+
+			auto &output = port_info.at(ordered_ports.front());
+			if (!output.is_output || output.is_input)
+				err_at_loc(output.location, "The first UDP port must be the single output port.");
+			if (output.is_logic)
+				err_at_loc(output.location, "A sequential UDP output must use the `reg' keyword.");
+			if (output.non_scalar)
+				err_at_loc(output.location, "UDP ports must be scalar.");
+
+			for (size_t i = 1; i < ordered_ports.size(); i++) {
+				auto &input = port_info.at(ordered_ports[i]);
+				if (!input.is_input || input.is_output || input.is_reg || input.is_logic)
+					err_at_loc(input.location, "UDP port `%s' must be a scalar input.", ordered_ports[i].c_str());
+				if (input.non_scalar)
+					err_at_loc(input.location, "UDP ports must be scalar.");
+			}
+
+			bool sequential = output.is_reg;
+			if (initial_count != 0 && !sequential)
+				err_at_loc(loc, "A combinational UDP cannot have an initial value.");
+			if (initial_count > 1)
+				err_at_loc(loc, "A UDP output can have only one initial value.");
+			if (!extra->udp_initial_port.empty() && extra->udp_initial_port != ordered_ports.front())
+				err_at_loc(loc, "UDP initial statement must assign the output port `%s'.", ordered_ports.front().c_str());
+
+			std::unique_ptr<AstNode> initial_value;
+			for (const auto &child : udp->children) {
+				if (child->type != AST_INITIAL)
+					continue;
+				if (child->children.size() != 1 || child->children[0]->type != AST_BLOCK ||
+						child->children[0]->children.size() != 1 ||
+						(child->children[0]->children[0]->type != AST_ASSIGN_EQ &&
+						 child->children[0]->children[0]->type != AST_ASSIGN_LE)) {
+					err_at_loc(child->location, "A UDP initial statement must be a single assignment to its output.");
+				}
+				AstNode *assign = child->children[0]->children[0].get();
+				if (assign->children.size() != 2 || assign->children[0]->type != AST_IDENTIFIER ||
+						assign->children[0]->str != ordered_ports.front())
+					err_at_loc(child->location, "UDP initial statement must assign the output port `%s'.", ordered_ports.front().c_str());
+				initial_value = assign->children[1]->clone();
+			}
+			if (initial_value != nullptr) {
+				if (initial_value->type != AST_CONSTANT)
+					err_at_loc(initial_value->location, "A UDP initial value must be 0, 1, or x.");
+				RTLIL::Const value = initial_value->bitsAsConst();
+				RTLIL::State state = RTLIL::State::Sx;
+				bool is_zero = !value.empty();
+				bool is_one = !value.empty() && value[0] == RTLIL::State::S1;
+				for (int i = 0; i < GetSize(value); i++) {
+					is_zero &= value[i] == RTLIL::State::S0;
+					is_one &= value[i] == (i == 0 ? RTLIL::State::S1 : RTLIL::State::S0);
+				}
+				if (is_zero)
+					state = RTLIL::State::S0;
+				else if (is_one)
+					state = RTLIL::State::S1;
+				else if (GetSize(value) != 1 || value[0] != RTLIL::State::Sx)
+					err_at_loc(initial_value->location, "A UDP initial value must be 0, 1, or x.");
+				initial_value = AstNode::mkconst_bits(initial_value->location, {state}, false);
+				for (auto &child : udp->children)
+					if (child->type == AST_WIRE && child->str == ordered_ports.front())
+						child->attributes[ID::init] = initial_value->clone();
+				udp->children.erase(std::remove_if(udp->children.begin(), udp->children.end(),
+						[](const std::unique_ptr<AstNode> &child) { return child->type == AST_INITIAL; }),
+						udp->children.end());
+			}
+			if (extra->udp_entries.empty())
+				err_at_loc(loc, "A UDP table must contain at least one entry.");
+
+			for (const auto &entry : extra->udp_entries) {
+				if (count_udp_inputs(entry.inputs) != extra->port_counter - 1)
+					err_at_loc(loc, "UDP table row has %d inputs; expected %d.",
+							count_udp_inputs(entry.inputs), extra->port_counter - 1);
+				if (sequential && entry.curr == 0)
+					err_at_loc(loc, "A sequential UDP table row requires a current-state field.");
+				if (!sequential && entry.curr != 0)
+					err_at_loc(loc, "A combinational UDP table row cannot have a current-state field.");
+				if (!sequential && udp_has_transition(entry.inputs))
+					err_at_loc(loc, "A combinational UDP table row cannot contain an input transition.");
+				if (!sequential && entry.next == '-')
+					err_at_loc(loc, "A combinational UDP table row cannot use `-' as its output.");
+			}
+
+			udp->set_attribute(ID(udp), AstNode::mkconst_int(loc, 1, false));
+			udp->set_attribute(ID(udp_sequential), AstNode::mkconst_int(loc, sequential, false));
+			udp->set_attribute(ID(udp_table),
+					AstNode::mkconst_str(loc, RTLIL::serialize_udp_table(extra->udp_entries)));
 		}
 
 		AstNode* ParseState::saveChild(std::unique_ptr<AstNode> child) {
@@ -483,13 +727,14 @@
 %token <integer_t> integer_t "integer"
 %token <ast_node_type_t> ast_node_type_t
 
-%token <string_t> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
+%token <string_t> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE TOK_UDP_SYMBOL
 %token <string_t> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
 %token <string_t> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
 %token <string_t> TOK_USER_TYPE TOK_PKG_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
+%token TOK_PRIMITIVE_KW TOK_ENDPRIMITIVE TOK_TABLE TOK_ENDTABLE
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
 %token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR TOK_WILDCARD_CONNECT
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
@@ -548,6 +793,7 @@
 %type <ast_t> range range_or_multirange non_opt_range non_opt_multirange
 %type <ast_t> wire_type expr basic_expr concat_list assignment_pattern_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string_t> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
+%type <string_t> udp_input_list udp_input_field udp_edge_symbols udp_state_symbol udp_output_symbol
 %type <string_t> type_name
 %type <ast_t> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
 %type <boolean_t> opt_property always_comb_or_latch always_or_always_ff
@@ -611,6 +857,7 @@ design:
 	import_stmt design |
 	interface design |
 	bind_directive design |
+	udp design |
 	%empty;
 
 attr:
@@ -805,6 +1052,99 @@ module_arg:
 	} module_arg_opt_assignment |
 	TOK_DOT TOK_DOT TOK_DOT {
 		extra->do_not_require_port_stubs = true;
+	};
+
+udp:
+	attr TOK_PRIMITIVE_KW {
+		extra->enterTypeScope();
+	} TOK_ID {
+		extra->do_not_require_port_stubs = false;
+		AstNode *node = extra->pushChild(std::make_unique<AstNode>(@$, AST_MODULE));
+		extra->current_ast_mod = node;
+		extra->port_stubs.clear();
+		extra->port_counter = 0;
+		extra->udp_entries.clear();
+		extra->udp_initial_port.clear();
+		node->str = *$4;
+		append_attr(node, std::move($1));
+	} TOK_LPAREN module_args optional_comma TOK_RPAREN TOK_SEMICOL udp_body TOK_ENDPRIMITIVE opt_label {
+		finish_udp(extra, location_range(@2, @$));
+		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @$);
+		extra->ast_stack.pop_back();
+		log_assert(extra->ast_stack.size() == 1);
+		checkLabelsMatch(@13, "Primitive name", $4.get(), $13.get());
+		extra->current_ast_mod = nullptr;
+		extra->udp_entries.clear();
+		extra->udp_initial_port.clear();
+		extra->exitTypeScope();
+	};
+
+udp_body:
+	udp_port_declaration_list udp_initial_opt udp_table;
+
+udp_port_declaration_list:
+	udp_port_declaration_list wire_decl |
+	%empty;
+
+udp_initial_opt:
+	TOK_INITIAL TOK_ID TOK_EQ expr TOK_SEMICOL {
+		extra->udp_initial_port = *$2;
+		auto ident = std::make_unique<AstNode>(@2, AST_IDENTIFIER);
+		ident->str = *$2;
+		auto assign = std::make_unique<AstNode>(@$, AST_ASSIGN_LE, std::move(ident), std::move($4));
+		auto block = std::make_unique<AstNode>(@$, AST_BLOCK, std::move(assign));
+		extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(@$, AST_INITIAL, std::move(block)));
+	} |
+	%empty;
+
+udp_table:
+	TOK_TABLE udp_table_entry_list TOK_ENDTABLE;
+
+udp_table_entry_list:
+	udp_table_entry | udp_table_entry_list udp_table_entry;
+
+udp_table_entry:
+	udp_input_list TOK_COL udp_output_symbol TOK_SEMICOL {
+		add_udp_entry(extra, location_range(@1, @4), *$1, nullptr, *$3);
+	} |
+	udp_input_list TOK_COL udp_state_symbol TOK_COL udp_output_symbol TOK_SEMICOL {
+		add_udp_entry(extra, location_range(@1, @6), *$1, $3.get(), *$5);
+	};
+
+udp_input_list:
+	udp_input_field {
+		$$ = std::move($1);
+	} |
+	udp_input_list udp_input_field {
+		*$1 += *$2;
+		$$ = std::move($1);
+	};
+
+udp_input_field:
+	TOK_UDP_SYMBOL {
+		$$ = std::move($1);
+	} |
+	TOK_LPAREN udp_edge_symbols TOK_RPAREN {
+		$$ = std::make_unique<std::string>("(" + *$2 + ")");
+	};
+
+udp_edge_symbols:
+	TOK_UDP_SYMBOL {
+		$$ = std::move($1);
+	} |
+	udp_edge_symbols TOK_UDP_SYMBOL {
+		*$1 += *$2;
+		$$ = std::move($1);
+	};
+
+udp_state_symbol:
+	TOK_UDP_SYMBOL {
+		$$ = std::move($1);
+	};
+
+udp_output_symbol:
+	TOK_UDP_SYMBOL {
+		$$ = std::move($1);
 	};
 
 package:

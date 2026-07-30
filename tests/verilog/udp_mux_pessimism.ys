@@ -1,0 +1,36 @@
+read_verilog -sv <<EOF
+module top (s, t, f, ok);
+  input s, t, f;
+  output ok;
+
+  logic q0, q1;
+
+  mux_ref mux_ref (.s(s), .t(t), .f(f), .q(q0));
+  mux_udp mux_udp (.s(s), .t(t), .f(f), .q(q1));
+
+  assign ok = (q0 == q1);
+endmodule
+
+module mux_ref (s, t, f, q);
+  input s, t, f;
+  output q;
+
+  assign q = s ? t : f;
+endmodule
+
+primitive mux_udp (q, s, t, f);
+  output q;
+  input s, t, f;
+
+  table
+//  s t f : q
+    1 0 ? : 0;
+    1 1 ? : 1;
+    0 ? 0 : 0;
+    0 ? 1 : 1;
+  endtable
+endprimitive
+EOF
+
+prep -top top -flatten
+sat -verify -prove ok 1

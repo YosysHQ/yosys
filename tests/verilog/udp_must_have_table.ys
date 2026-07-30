@@ -1,0 +1,8 @@
+logger -expect error ".*syntax error.*" 1
+
+read_verilog -sv <<EOF
+primitive udp1 (q, s, a, b);
+  input s, a, b;
+  output q;
+endprimitive
+EOF

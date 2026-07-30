@@ -167,7 +167,7 @@ struct LoggerPass : public Pass {
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				int count = atoi(args[++argidx].c_str());
 				if (count<=0)
-					log_cmd_error("Number of expected messages must be higher then 0 !\n");
+					log_cmd_error("Number of expected messages must be higher than 0 !\n");
 				if ((type=="error" || type=="prefix-error") && count!=1)
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
 				log("Added regex '%s' to expected %s messages list.\n",
