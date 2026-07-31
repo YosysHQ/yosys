@@ -235,263 +235,155 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
 	return false;
 }
 
-static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
+struct FfSpec {
+	bool clkpol = false;
+	bool has_reset = false, rstpol = false, rstval = false;
+	bool has_sr = false, setpol = false, clrpol = false;
+	bool has_enable = false, enapol = false;
+};
+
+struct BestCell {
+	const LibertyAst *cell = nullptr;
+	std::map<std::string, char> ports;
+	int pins = 0;
+	bool noninv = false;
+	double area = 0;
+};
+
+static bool is_dont_use(const LibertyAst *cell, std::vector<std::string> &dont_use_cells)
 {
-	const LibertyAst *best_cell = nullptr;
-	std::map<std::string, char> best_cell_ports;
-	int best_cell_pins = 0;
-	bool best_cell_noninv = false;
-	double best_cell_area = 0;
-
-	for (auto cell : cells)
-	{
-		const LibertyAst *dn = cell->find("dont_use");
-		if (dn != nullptr && dn->value == "true")
-			continue;
-
-		bool dont_use = false;
-		for (std::string &dont_use_cell : dont_use_cells)
-		{
-			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
-			{
-				dont_use = true;
-				break;
-			}
-		}
-		if (dont_use)
-			continue;
-
-		const LibertyAst *ff = cell->find("ff");
-		if (ff == nullptr)
-			continue;
-
-		std::string cell_clk_pin, cell_rst_pin, cell_next_pin, cell_enable_pin;
-		bool cell_clk_pol, cell_rst_pol, cell_next_pol, cell_enable_pol;
-
-		if (!parse_pin(cell, ff->find("clocked_on"), cell_clk_pin, cell_clk_pol) || cell_clk_pol != clkpol)
-			continue;
-		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
-			continue;
-
-		bool cell_rstval = rstval;
-		if (has_reset && !cell_next_pol) {
-			// next_state is negated
-			// we later propagate this inversion to the output,
-			// which requires the negation of the reset value
-			cell_rstval = !rstval;
-		}
-		if (has_reset && cell_rstval == false) {
-			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
-				continue;
-		}
-		if (has_reset && cell_rstval == true) {
-			if (!parse_pin(cell, ff->find("preset"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
-				continue;
-		}
-
-		std::map<std::string, char> this_cell_ports;
-		this_cell_ports[cell_clk_pin] = 'C';
-		if (has_reset)
-			this_cell_ports[cell_rst_pin] = 'R';
-		if (has_enable)
-			this_cell_ports[cell_enable_pin] = 'E';
-		this_cell_ports[cell_next_pin] = 'D';
-
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == ff->args[0]) {
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == ff->args[1]) {
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
-	}
-
-	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
-		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
-		cell_mappings[cell_type].ports = best_cell_ports;
-	}
+	const LibertyAst *dn = cell->find("dont_use");
+	if (dn != nullptr && dn->value == "true")
+		return true;
+	for (std::string &pat : dont_use_cells)
+		if (patmatch(pat.c_str(), cell->args[0].c_str()))
+			return true;
+	return false;
 }
 
-static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
+// scan the cell pins, and if the cell is a better match than the current best, record it
+static void find_better_cell(BestCell &best, const LibertyAst *cell, const LibertyAst *ff, bool cell_next_pol, std::map<std::string, char> &this_cell_ports)
 {
-	const LibertyAst *best_cell = nullptr;
-	std::map<std::string, char> best_cell_ports;
-	int best_cell_pins = 0;
-	bool best_cell_noninv = false;
-	double best_cell_area = 0;
+	double area = 0;
+	const LibertyAst *ar = cell->find("area");
+	if (ar != nullptr && !ar->value.empty())
+		area = atof(ar->value.c_str());
 
-	log_assert(!enapol && "set/reset cell with enable is unimplemented due to lack of cells for testing");
+	int num_pins = 0;
+	bool found_output = false;
+	bool found_noninv_output = false;
+	for (auto pin : cell->children)
+	{
+		if (pin->id != "pin" || pin->args.size() != 1)
+			continue;
+
+		const LibertyAst *dir = pin->find("direction");
+		if (dir == nullptr || dir->value == "internal")
+			continue;
+		num_pins++;
+
+		if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
+			return;
+
+		const LibertyAst *func = pin->find("function");
+		if (dir->value == "output" && func != nullptr) {
+			std::string value = func->value;
+			for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
+				value.erase(pos, 1);
+			if (value == ff->args[0]) {
+				this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
+				if (cell_next_pol)
+					found_noninv_output = true;
+				found_output = true;
+			} else
+			if (value == ff->args[1]) {
+				this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
+				if (!cell_next_pol)
+					found_noninv_output = true;
+				found_output = true;
+			}
+		}
+
+		if (this_cell_ports.count(pin->args[0]) == 0)
+			this_cell_ports[pin->args[0]] = 0;
+	}
+
+	if (!found_output || (best.cell != nullptr && (num_pins > best.pins || (best.noninv && !found_noninv_output))))
+		return;
+
+	if (best.cell != nullptr && num_pins == best.pins && area > best.area)
+		return;
+
+	best.cell = cell;
+	best.pins = num_pins;
+	best.area = area;
+	best.noninv = found_noninv_output;
+	best.ports.swap(this_cell_ports);
+}
+
+static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type, FfSpec spec, std::vector<std::string> &dont_use_cells)
+{
+	BestCell best;
+
+	log_assert(!(spec.has_sr && spec.enapol) && "set/reset cell with enable is unimplemented due to lack of cells for testing");
 
 	for (auto cell : cells)
 	{
-		const LibertyAst *dn = cell->find("dont_use");
-		if (dn != nullptr && dn->value == "true")
-			continue;
-
-		bool dont_use = false;
-		for (std::string &dont_use_cell : dont_use_cells)
-		{
-			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
-			{
-				dont_use = true;
-				break;
-			}
-		}
-		if (dont_use)
+		if (is_dont_use(cell, dont_use_cells))
 			continue;
 
 		const LibertyAst *ff = cell->find("ff");
 		if (ff == nullptr)
 			continue;
 
-		std::string cell_clk_pin, cell_set_pin, cell_clr_pin, cell_next_pin, cell_enable_pin;
-		bool cell_clk_pol, cell_set_pol, cell_clr_pol, cell_next_pol, cell_enable_pol;
+		std::string cell_clk_pin, cell_rst_pin, cell_set_pin, cell_clr_pin, cell_next_pin, cell_enable_pin;
+		bool cell_clk_pol, cell_rst_pol, cell_set_pol, cell_clr_pol, cell_next_pol, cell_enable_pol;
 
-		if (!parse_pin(cell, ff->find("clocked_on"), cell_clk_pin, cell_clk_pol) || cell_clk_pol != clkpol)
+		if (!parse_pin(cell, ff->find("clocked_on"), cell_clk_pin, cell_clk_pol) || cell_clk_pol != spec.clkpol)
 			continue;
-		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol))
-			continue;
-
-		if (!parse_pin(cell, ff->find("preset"), cell_set_pin, cell_set_pol))
-			continue;
-		if (!parse_pin(cell, ff->find("clear"), cell_clr_pin, cell_clr_pol))
-			continue;
-		if (!cell_next_pol) {
-			// next_state is negated
-			// we later propagate this inversion to the output,
-			// which requires the swap of set and reset
-			std::swap(cell_set_pin, cell_clr_pin);
-			std::swap(cell_set_pol, cell_clr_pol);
-		}
-		if (cell_set_pol != setpol)
-			continue;
-		if (cell_clr_pol != clrpol)
+		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (spec.has_enable && (cell_enable_pin.empty() || cell_enable_pol != spec.enapol)))
 			continue;
 
 		std::map<std::string, char> this_cell_ports;
 		this_cell_ports[cell_clk_pin] = 'C';
-		this_cell_ports[cell_set_pin] = 'S';
-		this_cell_ports[cell_clr_pin] = 'R';
-		if (has_enable)
+
+		if (spec.has_reset) {
+			// negated next_state is propagated to the output, which requires negating the reset value
+			bool cell_rstval = cell_next_pol ? spec.rstval : !spec.rstval;
+			const char *rst_attr = cell_rstval ? "preset" : "clear";
+			if (!parse_pin(cell, ff->find(rst_attr), cell_rst_pin, cell_rst_pol) || cell_rst_pol != spec.rstpol)
+				continue;
+			this_cell_ports[cell_rst_pin] = 'R';
+		}
+
+		if (spec.has_sr) {
+			if (!parse_pin(cell, ff->find("preset"), cell_set_pin, cell_set_pol))
+				continue;
+			if (!parse_pin(cell, ff->find("clear"), cell_clr_pin, cell_clr_pol))
+				continue;
+			if (!cell_next_pol) {
+				// negated next_state is propagated to the output, which requires swapping set and reset
+				std::swap(cell_set_pin, cell_clr_pin);
+				std::swap(cell_set_pol, cell_clr_pol);
+			}
+			if (cell_set_pol != spec.setpol || cell_clr_pol != spec.clrpol)
+				continue;
+			this_cell_ports[cell_set_pin] = 'S';
+			this_cell_ports[cell_clr_pin] = 'R';
+		}
+
+		if (spec.has_enable)
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
-		double area = 0;
-		const LibertyAst *ar = cell->find("area");
-		if (ar != nullptr && !ar->value.empty())
-			area = atof(ar->value.c_str());
-
-		int num_pins = 0;
-		bool found_output = false;
-		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
-			if (pin->id != "pin" || pin->args.size() != 1)
-				continue;
-
-			const LibertyAst *dir = pin->find("direction");
-			if (dir == nullptr || dir->value == "internal")
-				continue;
-			num_pins++;
-
-			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
-				goto continue_cell_loop;
-
-			const LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != nullptr) {
-				std::string value = func->value;
-				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
-					value.erase(pos, 1);
-				if (value == ff->args[0]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'Q' : 'q';
-					if (cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				} else
-				if (value == ff->args[1]) {
-					// next_state negation propagated to output
-					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
-					if (!cell_next_pol)
-						found_noninv_output = true;
-					found_output = true;
-				}
-			}
-
-			if (this_cell_ports.count(pin->args[0]) == 0)
-				this_cell_ports[pin->args[0]] = 0;
-		}
-
-		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
-			continue;
-
-		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
-			continue;
-
-		best_cell = cell;
-		best_cell_pins = num_pins;
-		best_cell_area = area;
-		best_cell_noninv = found_noninv_output;
-		best_cell_ports.swap(this_cell_ports);
-	continue_cell_loop:;
+		find_better_cell(best, cell, ff, cell_next_pol, this_cell_ports);
 	}
 
-	if (best_cell != nullptr) {
+	if (best.cell != nullptr) {
 		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
-		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
-		cell_mappings[cell_type].ports = best_cell_ports;
+				best.cell->args[0].c_str(), best.noninv ? "non" : "", best.pins, best.area, cell_type.c_str());
+		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best.cell->args[0]);
+		cell_mappings[cell_type].ports = best.ports;
 	}
 }
 
@@ -667,31 +559,31 @@ struct DfflibmapPass : public Pass {
 			delete f;
 		}
 
-		find_cell(merged.cells, ID($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_N_), {}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_P_), {.clkpol=true}, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NN0_), {.has_reset=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NN1_), {.has_reset=true, .rstval=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NP0_), {.has_reset=true, .rstpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_NP1_), {.has_reset=true, .rstpol=true, .rstval=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PN0_), {.clkpol=true, .has_reset=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PN1_), {.clkpol=true, .has_reset=true, .rstval=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PP0_), {.clkpol=true, .has_reset=true, .rstpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFF_PP1_), {.clkpol=true, .has_reset=true, .rstpol=true, .rstval=true}, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_NN_), {.has_enable=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_NP_), {.has_enable=true, .enapol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_PN_), {.clkpol=true, .has_enable=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_PP_), {.clkpol=true, .has_enable=true, .enapol=true}, dont_use_cells);
 
-		find_cell_sr(merged.cells, ID($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
-		find_cell_sr(merged.cells, ID($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_NNN_), {.has_sr=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_NNP_), {.has_sr=true, .clrpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_NPN_), {.has_sr=true, .setpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_NPP_), {.has_sr=true, .setpol=true, .clrpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_PNN_), {.clkpol=true, .has_sr=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_PNP_), {.clkpol=true, .has_sr=true, .clrpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_PPN_), {.clkpol=true, .has_sr=true, .setpol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFSR_PPP_), {.clkpol=true, .has_sr=true, .setpol=true, .clrpol=true}, dont_use_cells);
 
 		log("  final dff cell mappings:\n");
 		logmap_all();
