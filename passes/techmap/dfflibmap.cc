@@ -333,7 +333,7 @@ static void find_better_cell(BestCell &best, const LibertyAst *cell, const Liber
 	if (!found_output || (best.cell != nullptr && (num_pins > best.pins || (best.noninv && !found_noninv_output))))
 		return;
 
-	if (best.cell != nullptr && num_pins == best.pins && area > best.area)
+	if (best.cell != nullptr && num_pins == best.pins && area >= best.area)
 		return;
 
 	best.cell = cell;
