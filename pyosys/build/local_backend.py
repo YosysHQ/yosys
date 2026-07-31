@@ -17,11 +17,14 @@ from wheel.wheelfile import WheelFile
 
 
 PROJECT_NAME = "pyosys"
-PROJECT_VERSION = subprocess.check_output([
-	"cmake",
-	f"-DCMAKE_SOURCE_DIR={os.getcwd()}",
-	"-P", "cmake/GetPyosysVersion.cmake"
-], encoding="ascii").strip()
+if version_override := os.getenv("PYOSYS_VERSION_OVERRIDE"):
+	PROJECT_VERSION = version_override
+else:
+	PROJECT_VERSION = subprocess.check_output([
+		"cmake",
+		f"-DCMAKE_SOURCE_DIR={os.getcwd()}",
+		"-P", "cmake/GetPyosysVersion.cmake"
+	], encoding="ascii").strip()
 DIST_NAME = f"{PROJECT_NAME}-{PROJECT_VERSION}"
 
 
