@@ -76,6 +76,73 @@ static bool variant_is_full(PEVariant v) {
 	       v == PEVariant::CLO_FULL || v == PEVariant::CTO_FULL;
 }
 
+// A candidate bus rarely stays a clean vector of distinct free nets: tie-offs,
+// const propagation and boundary optimization leave constant bits behind, and
+// resizing can repeat one net in several positions. Those bits are not free
+// inputs -- they narrow the bus's reachable domain -- so record which positions
+// ConstEval may pin and which are fixed by the netlist itself.
+struct PinnedBus {
+	SigSpec sig;            // the bus as it appears in the netlist
+	SigSpec free_bits;      // distinct variable bits, first-occurrence order
+	std::vector<int> slot;  // bus position -> free_bits index, -1 when constant
+	bool ok = false;        // usable: no x/z bit, at least one free bit
+	bool pinned = false;    // at least one constant or repeated position
+};
+
+static PinnedBus make_pinned_bus(const SigSpec& sig) {
+	PinnedBus pb;
+	pb.sig = sig;
+	pb.slot.assign(GetSize(sig), -1);
+	dict<SigBit, int> first;
+	for (int i = 0; i < GetSize(sig); i++) {
+		SigBit b = sig[i];
+		if (!b.wire) {
+			// x/z makes the reachable domain undefined; refuse to reason about it.
+			if (b != State::S0 && b != State::S1) return pb;
+			pb.pinned = true;
+			continue;
+		}
+		auto it = first.find(b);
+		if (it == first.end()) {
+			pb.slot[i] = GetSize(pb.free_bits);
+			first[b] = pb.slot[i];
+			pb.free_bits.append(b);
+		} else {
+			pb.slot[i] = it->second;
+			pb.pinned = true;
+		}
+	}
+	pb.ok = GetSize(pb.free_bits) > 0;
+	return pb;
+}
+
+// Materialise the bus from an assignment of its free bits.
+static Const realize_free(const PinnedBus& pb, const Const& fv) {
+	auto fb = fv.to_bits();
+	std::vector<State> bits(GetSize(pb.sig), State::S0);
+	for (int i = 0; i < GetSize(pb.sig); i++) {
+		int k = pb.slot[i];
+		bits[i] = (k < 0) ? pb.sig[i].data : fb[k];
+	}
+	return Const(bits);
+}
+
+// Project a wanted test pattern onto the bus: pinned positions keep their
+// netlist value and repeats follow their first occurrence. Every vector the
+// deck produces is therefore reachable, so a pinned bus loses discriminating
+// power instead of being rejected outright.
+static Const project_vector(const PinnedBus& pb, const Const& want, Const& free_out) {
+	auto wb = want.to_bits();
+	std::vector<State> fv(GetSize(pb.free_bits), State::Sx);
+	for (int i = 0; i < GetSize(pb.sig); i++) {
+		int k = pb.slot[i];
+		if (k < 0 || fv[k] != State::Sx) continue;
+		fv[k] = (i < GetSize(wb) && wb[i] == State::S1) ? State::S1 : State::S0;
+	}
+	free_out = Const(fv);
+	return realize_free(pb, free_out);
+}
+
 // Index of the highest bit of `c` equal to `want`, or -1 if there is none.
 // Bits past the end of `c` read as S0 (Const may be shorter than N).
 static int const_msb(const Const& c, int N, State want) {
@@ -115,6 +182,8 @@ struct OptPriEncWorker {
 	bool detect_rr = true;
 	int max_input_width = 256;
 	int min_input_width = 4;
+	// 2^8 evals, paid only by a pinned bus that already survived the deck.
+	int max_exhaustive_free_bits = 8;
 
 	// Stats.
 	int regions_rewritten = 0;
@@ -129,6 +198,8 @@ struct OptPriEncWorker {
 		PEVariant variant;
 		Cell* sole_driver;
 		IdString out_port;
+		SigSpec driven;        // the bits of S the driver actually produces
+		vector<int> driven_pos; // their positions within S
 	};
 
 	// Networks already emitted per (input bus, variant_net_key) pair, so matched
@@ -212,33 +283,37 @@ struct OptPriEncWorker {
 	dict<SigBit, vector<Wire*>> bit_to_cand_wires;
 	dict<Wire*, int> wire_uniq_bit_count;
 	dict<Wire*, vector<SigBit>> wire_sig_bits;
+	pool<Wire*> wire_has_const;
 
 	void build_wire_index(const vector<Wire*>& wires) {
 		bit_to_cand_wires.clear();
 		wire_uniq_bit_count.clear();
 		wire_sig_bits.clear();
+		wire_has_const.clear();
 		for (Wire* w : wires) {
 			SigSpec ss = sigmap(SigSpec(w));
 			vector<SigBit> bits;
 			bits.reserve(GetSize(ss));
 			pool<SigBit> uniq;
-			bool has_const = false;
 			for (auto bit : ss) {
 				bits.push_back(bit);
-				if (!bit.wire) { has_const = true; continue; }
+				if (!bit.wire) { wire_has_const.insert(w); continue; }
 				if (uniq.insert(bit).second)
 					bit_to_cand_wires[bit].push_back(w);
 			}
 			wire_sig_bits[w] = std::move(bits);
-			// Wires with const bits can never be clean ConstEval cuts.
-			if (!has_const)
-				wire_uniq_bit_count[w] = GetSize(uniq);
+			// Counts the bits ConstEval can pin; const positions are covered
+			// by the netlist, so they never need to be found in the cone.
+			wire_uniq_bit_count[w] = GetSize(uniq);
 		}
 	}
 
 	// Wires whose sigmap bits are all inside `cone_bits` (and pass `keep`).
+	// Buses carrying constant bits are only offered when `allow_const`, since
+	// only the PE fingerprint knows how to hold those positions fixed.
 	vector<Wire*> wires_in_cone(const pool<SigBit>& cone_bits,
-	                            std::function<bool(Wire*)> keep) {
+	                            std::function<bool(Wire*)> keep,
+	                            bool allow_const = false) {
 		dict<Wire*, int> cover;
 		dict<Wire*, bool> keep_cache;
 		auto keep_cached = [&](Wire* w) -> bool {
@@ -259,6 +334,7 @@ struct OptPriEncWorker {
 		vector<Wire*> out;
 		for (auto& it : cover) {
 			Wire* w = it.first;
+			if (!allow_const && wire_has_const.count(w)) continue;
 			auto uit = wire_uniq_bit_count.find(w);
 			if (uit == wire_uniq_bit_count.end()) continue;
 			if (it.second == uit->second)
@@ -276,6 +352,11 @@ struct OptPriEncWorker {
 		vector<Wire*> out = wires_in_cone(cone_bits, [&](Wire* w) {
 			if (w == S_wire) return false;
 			if (w->width < min_input_width || w->width > max_input_width) return false;
+			// Same "too narrow to be worth it" floor, applied to the bits that
+			// are actually free once tie-offs and repeats are discounted.
+			auto uit = wire_uniq_bit_count.find(w);
+			if (uit == wire_uniq_bit_count.end() || uit->second < min_input_width)
+				return false;
 			int W_full = clog2_int(w->width + 1);
 			int W_short = clog2_int(w->width);
 			if (W_full != Wbits && W_short != Wbits) return false;
@@ -284,7 +365,7 @@ struct OptPriEncWorker {
 			for (auto bit : sit->second)
 				if (control_bits.count(bit)) return true;
 			return false;
-		});
+		}, /*allow_const=*/true);
 		std::sort(out.begin(), out.end(), [](Wire* a, Wire* b) {
 			return a->width > b->width;
 		});
@@ -445,10 +526,25 @@ struct OptPriEncWorker {
 		return true;
 	}
 
+	// Same hazard, scoped to the cells evaluating S actually reaches (the walk
+	// stops at cut bits, which already read as constants). A driver of a cut
+	// bit that is never evaluated cannot clobber what we pinned, so a bus whose
+	// unused sibling bits went elsewhere is still a usable cut.
+	bool cut_survives_eval(const SigSpec& cut, const pool<Cell*>& evaluated) {
+		for (auto bit : cut) {
+			if (bit.wire == nullptr) return false;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) continue;   // safe leaf
+			if (evaluated.count(it->second)) return false;
+		}
+		return true;
+	}
+
 	// Run candidate test vectors through a shared ConstEval. Zero + one-hots
 	// lead the deck so non-PEs bail before denser patterns. For large N the
 	// one-hot sweep is sampled; once a single variant remains we return early.
-	PEVariant fingerprint(ConstEval& ce, SigSpec T_sig, SigSpec S_sig, int N, int Wbits) {
+	PEVariant fingerprint(ConstEval& ce, const PinnedBus& pb, SigSpec S_sig, int N, int Wbits,
+	                      int care_mask, const pool<Cell*>& evaluated) {
 		bool full_w = (Wbits == clog2_int(N + 1));
 		// SHORT infers that the saturating input is a don't-care. That is only
 		// justified when the narrower width physically cannot hold the count N
@@ -475,11 +571,13 @@ struct OptPriEncWorker {
 		if (survivors() == 0)
 			return PEVariant::NONE;
 
-		if (!clean_set_signals({&T_sig}))
+		if (!pb.ok || !cut_survives_eval(pb.free_bits, evaluated))
 			return PEVariant::NONE;
 
-		if (!is_valid_consteval_cut(T_sig))
-			return PEVariant::NONE;
+		// Pinned positions cut the reachable domain, so the deck below cannot
+		// see every count. When the whole domain is small, confirm the survivor
+		// by enumerating it instead of trusting the thinned deck.
+		bool exhaustive = pb.pinned && GetSize(pb.free_bits) <= max_exhaustive_free_bits;
 
 		// Prefer FULL: it also pins the all-zero / all-ones result, so it is the
 		// stronger contract when both widths coincide (non-power-of-2 N).
@@ -495,19 +593,33 @@ struct OptPriEncWorker {
 			return PEVariant::NONE;
 		};
 
-		auto check_vec = [&](const Const& v) -> bool {
+		auto check_realized = [&](const Const& v, const Const& fv) -> bool {
 			ce.push();
-			ce.set(T_sig, v);
+			ce.set(pb.free_bits, fv);
 			SigSpec out = S_sig;
 			SigSpec undef;
 			bool ok = ce.eval(out, undef);
+			// Belt and braces for the cut analysis above: if evaluation somehow
+			// recomputed a pinned bit, the reading is not the one we asked for.
+			if (ok && pb.pinned && ce.values_map(pb.free_bits) != SigSpec(fv))
+				ok = false;
 			ce.pop();
-			if (!ok || !out.is_fully_const()) {
+			auto kill_all = [&]() {
 				clz_full_ok = ctz_full_ok = clz_short_ok = ctz_short_ok = false;
 				clo_full_ok = cto_full_ok = clo_short_ok = cto_short_ok = false;
+			};
+			if (!ok || !out.is_fully_const()) {
+				kill_all();
 				return false;
 			}
-			int outval = out.as_const().as_int();
+			// A care position that evaluates to x is a real mismatch: only
+			// slots that are x in every state are don't-cares.
+			int outval = 0;
+			for (int i = 0; i < GetSize(out); i++) {
+				if (!(care_mask & (1 << i))) continue;
+				if (out[i] == State::S1) outval |= 1 << i;
+				else if (out[i] != State::S0) { kill_all(); return false; }
+			}
 
 			int msb_set = const_msb(v, N, State::S1);
 			int lsb_set = const_lsb(v, N, State::S1);
@@ -521,6 +633,9 @@ struct OptPriEncWorker {
 			int e_clo = ones ? N : (N - 1 - msb_clr);
 			int e_cto = ones ? N : lsb_clr;
 
+			e_clz &= care_mask; e_ctz &= care_mask;
+			e_clo &= care_mask; e_cto &= care_mask;
+
 			// SHORT leaves its saturating input (all-zero for CLZ/CTZ, all-ones
 			// for CLO/CTO) unconstrained, so it skips that vector.
 			if (clz_full_ok && outval != e_clz) clz_full_ok = false;
@@ -532,6 +647,12 @@ struct OptPriEncWorker {
 			if (clo_short_ok && !ones && outval != e_clo) clo_short_ok = false;
 			if (cto_short_ok && !ones && outval != e_cto) cto_short_ok = false;
 			return survivors() > 0;
+		};
+
+		auto check_vec = [&](const Const& want) -> bool {
+			Const fv;
+			Const realized = project_vector(pb, want, fv);
+			return check_realized(realized, fv);
 		};
 
 		// One-hots: full sweep for small N; corners+stride sample for large N.
@@ -573,8 +694,11 @@ struct OptPriEncWorker {
 			// must first face the whole ones-domain deck.
 			bool ones_checked = ones_deck_end != 0 && i + 1 >= ones_deck_end;
 			if (n_checked >= early_at && survivors() == 1 &&
-			    (ones_checked || !ones_alive()))
-				return finish();
+			    (ones_checked || !ones_alive())) {
+				// A pinned bus only gets to stop early if the exhaustive proof
+				// below will run; otherwise it owes the rest of the deck.
+				if (!pb.pinned || exhaustive) break;
+			}
 			if (i + 1 != base_end) continue;
 
 			// One-colds are the ones-domain mirror of the one-hot sweep; only pay
@@ -589,6 +713,20 @@ struct OptPriEncWorker {
 			// Multi-bit confirmation vectors (no zero/one-hot rebuild).
 			auto multi = gen_multibit_test_vectors(N, /*dense_small_n=*/true);
 			vs.insert(vs.end(), multi.begin(), multi.end());
+		}
+
+		// Only reached on a survivor, so the enumeration never runs on the
+		// non-matching cones the deck already rejected in a handful of evals.
+		if (exhaustive && survivors() > 0) {
+			int nf = GetSize(pb.free_bits);
+			for (int m = 0; m < (1 << nf); m++) {
+				std::vector<State> fb(nf);
+				for (int j = 0; j < nf; j++)
+					fb[j] = ((m >> j) & 1) ? State::S1 : State::S0;
+				Const fv(fb);
+				if (!check_realized(realize_free(pb, fv), fv))
+					return PEVariant::NONE;
+			}
 		}
 		return finish();
 	}
@@ -820,6 +958,20 @@ struct OptPriEncWorker {
 		return nullptr;
 	}
 
+	// Sole cell driving every bit of `sig`; unlike whole_driver its output may
+	// be wider (unused high bits pruned off a mux, resized buses).
+	Cell* sole_driver_of(const SigSpec& sig) {
+		Cell* d = nullptr;
+		for (auto bit : sig) {
+			if (!bit.wire) return nullptr;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) return nullptr;
+			if (d && d != it->second) return nullptr;
+			d = it->second;
+		}
+		return d;
+	}
+
 	static bool is_unsigned_shift(Cell* c, IdString type, int W) {
 		return c->type == type &&
 		       !c->getParam(ID::A_SIGNED).as_bool() && !c->getParam(ID::B_SIGNED).as_bool() &&
@@ -958,21 +1110,32 @@ struct OptPriEncWorker {
 				if (sig[i].wire) vp.push_back(i);
 			SigSpec var;
 			for (int i : vp) var.append(sig[i]);
-			Cell* d = vp.empty() ? nullptr : whole_driver(var);
-			if (d && d->type == ID($mux) && d->getParam(ID::WIDTH).as_int() == GetSize(var)) {
+			Cell* d = vp.empty() ? nullptr : sole_driver_of(var);
+			if (d && d->type == ID($mux)) {
+				// Track each arm bit through the mux's own output positions, so
+				// a mux whose extra output bits went elsewhere still splits.
+				SigSpec Y = sigmap(d->getPort(ID::Y));
 				SigSpec A = sigmap(d->getPort(ID::A)), B = sigmap(d->getPort(ID::B));
+				dict<SigBit, int> y_pos;
+				for (int i = GetSize(Y) - 1; i >= 0; i--)
+					if (Y[i].wire) y_pos[Y[i]] = i;
+				bool ok = GetSize(A) == GetSize(Y) && GetSize(B) == GetSize(Y);
 				SigSpec sa = sig, sb = sig;
-				for (int k = 0; k < GetSize(vp); k++) {
-					sa[vp[k]] = A[k];
-					sb[vp[k]] = B[k];
+				for (int k = 0; ok && k < GetSize(vp); k++) {
+					auto it = y_pos.find(var[k]);
+					if (it == y_pos.end()) { ok = false; break; }
+					sa[vp[k]] = A[it->second];
+					sb[vp[k]] = B[it->second];
 				}
-				split_budget--;
-				n->is_leaf = false;
-				n->sel = sigmap(d->getPort(ID::S))[0];
-				sel_bits.insert(n->sel);
-				n->a = build_mux_arms(sa, split_budget, sel_bits, leaf_bits_out);
-				n->b = build_mux_arms(sb, split_budget, sel_bits, leaf_bits_out);
-				return n;
+				if (ok) {
+					split_budget--;
+					n->is_leaf = false;
+					n->sel = sigmap(d->getPort(ID::S))[0];
+					sel_bits.insert(n->sel);
+					n->a = build_mux_arms(sa, split_budget, sel_bits, leaf_bits_out);
+					n->b = build_mux_arms(sb, split_budget, sel_bits, leaf_bits_out);
+					return n;
+				}
 			}
 		}
 		n->leaf = sig;
@@ -1237,16 +1400,48 @@ struct OptPriEncWorker {
 		pool<SigBit> control_bits;
 		Cell* sole_driver;
 		IdString out_port;
+		SigSpec driven;
+		vector<int> driven_pos;
 	};
 
-	bool get_sole_whole_wire_driver(Wire* S_wire, Cell*& sole_driver, IdString& out_port) {
+	// Positions of S that constrain the count: driven bits and hard 0/1 ties.
+	// A structural x is a slot the RTL never commits to (an unreachable casez
+	// arm, a pruned high bit), so it is dropped from the comparison instead of
+	// failing it -- and left untouched by the rewrite.
+	static int care_mask_of(const SigSpec& S_sig) {
+		int mask = 0;
+		for (int i = 0; i < GetSize(S_sig) && i < 30; i++) {
+			SigBit b = S_sig[i];
+			if (b.wire || b == State::S0 || b == State::S1) mask |= 1 << i;
+		}
+		return mask;
+	}
+
+	static int count_care_bits(int mask) {
+		int n = 0;
+		for (; mask; mask &= mask - 1) n++;
+		return n;
+	}
+
+	// A count whose top values became unreachable loses its high bits to
+	// constants, so the driver only produces part of the word. Match on the
+	// driven part and keep the tied positions as context for the fingerprint.
+	bool get_sole_whole_wire_driver(Wire* S_wire, Cell*& sole_driver, IdString& out_port,
+	                                SigSpec& driven, vector<int>& driven_pos) {
+		driven = SigSpec();
+		driven_pos.clear();
 		SigSpec S_sig = sigmap(SigSpec(S_wire));
 		pool<Cell*> drivers;
-		for (auto bit : S_sig) {
+		for (int i = 0; i < GetSize(S_sig); i++) {
+			SigBit bit = S_sig[i];
+			if (!bit.wire) continue;
 			auto it = bit_to_driver.find(bit);
 			if (it == bit_to_driver.end()) return false;
 			drivers.insert(it->second);
+			driven.append(bit);
+			driven_pos.push_back(i);
 		}
+		if (GetSize(driven) < 2) return false;
 		if (GetSize(drivers) != 1) return false;
 		sole_driver = *drivers.begin();
 
@@ -1258,7 +1453,7 @@ struct OptPriEncWorker {
 				break;
 			}
 		}
-		return out_sig == S_sig;
+		return out_sig == driven;
 	}
 
 	bool is_control_input(Cell* c, IdString port) {
@@ -1275,7 +1470,8 @@ struct OptPriEncWorker {
 	// assign T, so any other variable leaf in the fanin cone guarantees the
 	// fingerprint will fail. Stop traversal at T bits to allow T to be an
 	// internal wire produced by logic outside the PE region.
-	bool cone_depends_only_on_T(SigSpec S_sig, const pool<SigBit>& T_bits) {
+	bool cone_depends_only_on_T(SigSpec S_sig, const pool<SigBit>& T_bits,
+	                            pool<Cell*>* evaluated = nullptr) {
 		pool<SigBit> visited;
 		std::queue<SigBit> worklist;
 		for (auto bit : sigmap(S_sig)) {
@@ -1295,6 +1491,7 @@ struct OptPriEncWorker {
 
 			Cell* drv = it->second;
 			if (sequential_cells.count(drv)) return false;
+			if (evaluated) evaluated->insert(drv);
 
 			for (auto& conn : drv->connections()) {
 				if (!drv->input(conn.first)) continue;
@@ -1327,7 +1524,8 @@ struct OptPriEncWorker {
 		// req[N]+start[W] leaves for RR, plus a little slack for aliases/opt junk.
 		int max_leaf_bits = max_input_width + max_W + max_input_width / 4 + 16;
 
-		struct SCand { Wire* w; Cell* drv; IdString port; int rank; };
+		struct SCand { Wire* w; Cell* drv; IdString port; int rank;
+		               SigSpec driven; vector<int> driven_pos; };
 		vector<SCand> s_cands;
 		for (Wire* S_wire : wires_snapshot) {
 			if (S_wire->port_input) continue;
@@ -1335,13 +1533,17 @@ struct OptPriEncWorker {
 			if (Wbits < 2 || Wbits > max_W) continue;
 			Cell* sole_driver = nullptr;
 			IdString out_port;
-			if (!get_sole_whole_wire_driver(S_wire, sole_driver, out_port)) continue;
+			SigSpec driven;
+			vector<int> driven_pos;
+			if (!get_sole_whole_wire_driver(S_wire, sole_driver, out_port, driven, driven_pos))
+				continue;
 			if (!driver_looks_interesting(sole_driver)) continue;
 			int rank = 2;
 			if (S_wire->port_output) rank = 0;
 			else if (sole_driver->type.in(ID($mux), ID($pmux), ID($add), ID($sub), ID($and), ID($or)))
 				rank = 1;
-			s_cands.push_back({S_wire, sole_driver, out_port, rank});
+			s_cands.push_back({S_wire, sole_driver, out_port, rank,
+			                   std::move(driven), std::move(driven_pos)});
 		}
 		std::sort(s_cands.begin(), s_cands.end(), [](const SCand& a, const SCand& b) {
 			if (a.rank != b.rank) return a.rank < b.rank;
@@ -1389,7 +1591,7 @@ struct OptPriEncWorker {
 			if (control_bits.empty()) continue;
 			candidates.push_back({S_wire, std::move(cone_cells), std::move(leaf_bits),
 			                      std::move(cone_bits), std::move(control_bits),
-			                      sole_driver, out_port});
+			                      sole_driver, out_port, sc.driven, sc.driven_pos});
 		}
 
 		// Stage 2: process candidates in order of cone size (LARGEST first).
@@ -1426,9 +1628,20 @@ struct OptPriEncWorker {
 				pool<SigBit> T_bits;
 				for (auto bit : T_sig)
 					if (bit.wire) T_bits.insert(bit);
-				if (!cone_depends_only_on_T(S_sig, T_bits)) continue;
+				pool<Cell*> evaluated;
+				if (!cone_depends_only_on_T(S_sig, T_bits, &evaluated)) continue;
 
-				PEVariant variant = fingerprint(ce, T_sig, S_sig, N, Wbits);
+				PinnedBus pb = make_pinned_bus(T_sig);
+				if (!pb.ok) continue;
+
+				// Each don't-care slot drops a bit from every comparison, so
+				// allow only the one an unreachable saturating value prunes;
+				// a mostly-x word would be matched on far too little evidence.
+				int care_mask = care_mask_of(S_sig);
+				if (count_care_bits(care_mask) < Wbits - 1) continue;
+
+				PEVariant variant = fingerprint(ce, pb, S_sig, N, Wbits,
+				                                care_mask, evaluated);
 				if (variant == PEVariant::NONE) continue;
 
 				log("  %s: %s <- %s(%s) [N=%d, W=%d]\n",
@@ -1436,7 +1649,8 @@ struct OptPriEncWorker {
 				    log_id(T_wire), N, Wbits);
 
 				rewrites.push_back({cand.S_wire, T_wire, N, Wbits, variant,
-				                    cand.sole_driver, cand.out_port});
+				                    cand.sole_driver, cand.out_port,
+				                    cand.driven, cand.driven_pos});
 				claimed_outputs.insert(cand.S_wire);
 				claimed_drivers.insert(cand.sole_driver);
 				break;
@@ -1454,6 +1668,8 @@ struct OptPriEncWorker {
 				if (claimed_outputs.count(cand.S_wire)) continue;
 				if (claimed_drivers.count(cand.sole_driver)) continue;
 				if (!cone_looks_like_rr(cand.cone_cells)) continue;
+				// RR emits a whole pointer word; a partly tied S is not one.
+				if (GetSize(cand.driven) != cand.S_wire->width) continue;
 
 				int W = cand.S_wire->width;
 				if (W < 2 || W > max_W) continue;
@@ -1530,10 +1746,15 @@ struct OptPriEncWorker {
 				new_S = try_push_encoder(r);
 			if (GetSize(new_S) == 0)
 				new_S = emit_pe(r.variant, r.T_wire, r.N, r.Wbits);
+			// Only the driven positions get re-connected; tied bits of S keep
+			// their constant, which the fingerprint already checked against.
+			SigSpec repl;
+			for (int i : r.driven_pos)
+				repl.append(new_S[i]);
 			// Disconnect the old driver by re-pointing its Y to a fresh wire.
-			Wire* dangling = module->addWire(NEW_ID2_SUFFIX("dangling"), r.Wbits);
+			Wire* dangling = module->addWire(NEW_ID2_SUFFIX("dangling"), GetSize(r.driven));
 			r.sole_driver->setPort(r.out_port, dangling);
-			module->connect(SigSpec(r.S_wire), new_S);
+			module->connect(r.driven, repl);
 			regions_rewritten++;
 		}
 		for (auto& r : rr_rewrites) {
@@ -1578,6 +1799,15 @@ struct OptPriEncPass : public Pass {
 		log("    clo_short : leading-ONES count with all-ones input unconstrained.\n");
 		log("    cto_full  : trailing-ONES count; = ctz_full of ~input.\n");
 		log("    cto_short : trailing-ONES count with all-ones input unconstrained.\n");
+		log("\n");
+		log("Buses need not be vectors of distinct free nets. Positions that the\n");
+		log("netlist pins to a constant (tie-offs, const propagation, boundary\n");
+		log("optimization) or that repeat another net are held at their real value\n");
+		log("while fingerprinting, so they narrow the reachable domain instead of\n");
+		log("rejecting the candidate; when the remaining free space is small enough\n");
+		log("the surviving variant is then confirmed by enumerating it. On the\n");
+		log("output side a count slot that is x in every state is a don't-care: it\n");
+		log("is left out of the comparison and left untouched by the rewrite.\n");
 		log("\n");
 		log("For the *_full variants the pass also collapses encode/decode round\n");
 		log("trips on the matched count: shifting by a count that was just encoded\n");
