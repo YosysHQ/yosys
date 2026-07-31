@@ -427,6 +427,24 @@ struct AlumaccWorker
 				eq_cells.push_back(cell);
 		}
 
+		auto cmp_mergeable = [](const alunode_t *node, const SigSpec cmp_A, const SigSpec cmp_B, bool is_signed) {
+			if (!node->invert_b || node->c != State::S1) {
+				// comparators need subtraction
+				return false;
+			}
+			if (max(GetSize(cmp_A), GetSize(cmp_B)) > GetSize(node->y)) {
+				// must have at least as many output bits
+				return false;
+			}
+			if (is_signed != node->is_signed) {
+				if (GetSize(cmp_A) != GetSize(cmp_B)) {
+					// mismatched input widths are problematic when mixing signedness
+					return false;
+				}
+			}
+			return true;
+		};
+
 		for (auto cell : lge_cells)
 		{
 			log("  creating $alu model for %s (%s):", cell, cell->type.unescape());
@@ -442,14 +460,14 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->invert_b && node->c == State::S1) {
+				if (cmp_mergeable(node, A, B, is_signed)) {
 					n = node;
 					break;
 				}
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+					if (cmp_mergeable(node, B, A, is_signed)) {
 						n = node;
 						cmp_less = !cmp_less;
 						std::swap(A, B);
@@ -488,14 +506,14 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->invert_b && node->c == State::S1) {
+				if (cmp_mergeable(node, A, B, is_signed)) {
 					n = node;
 					break;
 				}
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+					if (cmp_mergeable(node, B, A, is_signed)) {
 						n = node;
 						break;
 					}
