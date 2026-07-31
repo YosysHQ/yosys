@@ -602,8 +602,8 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	for (auto cell : module->cells()) {
 		auto cats = StaticCellTypes::categories;
 		if (cats.is_ff(cell->type) && !cats.is_stdcell(cell->type))
-			log_error("Wide register cell type %s is not supported.\n"
-					  "Convert netlist to gate-level first.\n", cell->type);
+			log_error("Word-level register cell type %s is not supported.\n"
+					  "Convert netlist to gate-level first (by running 'techmap').\n", cell->type);
 
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
