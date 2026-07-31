@@ -26,10 +26,8 @@ assign ne = ra != rb;
 endmodule
 EOT
 
-proc
-
 equiv_opt -assert alumacc
-alumacc
+design -load postopt
 select -assert-count 1 t:$alu
 
 design -reset
