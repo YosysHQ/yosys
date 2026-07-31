@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/gzip.h"
+#include "kernel/newcelltypes.h"
 #include "libparse.h"
 #include <string.h>
 #include <errno.h>
@@ -503,6 +504,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 
 	std::vector<RTLIL::Cell*> cell_list;
 	for (auto cell : module->cells()) {
+		auto cats = StaticCellTypes::categories;
+		if (cats.is_ff(cell->type) && !cats.is_stdcell(cell->type))
+			log_error("Wide register cell type %s is not supported.\n"
+					  "Convert netlist to gate-level first.\n", cell->type);
+
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
 		if (cell->type == ID($_NOT_))

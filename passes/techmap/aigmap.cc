@@ -122,7 +122,6 @@ struct AigmapPass : public Pass {
 				}
 
 				vector<SigBit> sigs;
-				dict<pair<int, int>, SigBit> and_cache;
 
 				for (int node_idx = 0; node_idx < GetSize(aig.nodes); node_idx++)
 				{
@@ -147,17 +146,12 @@ struct AigmapPass : public Pass {
 
 							goto skip_inverter;
 						} else {
-							pair<int, int> key(node.left_parent, node.right_parent);
-							if (and_cache.count(key))
-								bit = and_cache.at(key);
-							else {
-								bit = module->addWire(NEW_ID2_SUFFIX("bit"));
-								auto gate = module->addAndGate(NEW_ID2_SUFFIX("and"), A, B, bit);
-								for (const auto &attr : cell->attributes)
-									gate->attributes[attr.first] = attr.second;
-								if (select_mode)
-									new_sel.insert(gate->name);
-							}
+							bit = module->addWire(NEW_ID2_SUFFIX("bit"));
+							auto gate = module->addAndGate(NEW_ID2_SUFFIX("and"), A, B, bit);
+							for (const auto &attr : cell->attributes)
+								gate->attributes[attr.first] = attr.second;
+							if (select_mode)
+								new_sel.insert(gate->name);
 						}
 					}
 

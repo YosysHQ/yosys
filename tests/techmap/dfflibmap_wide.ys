@@ -1,0 +1,5 @@
+read_verilog ../sim/dff.v
+proc
+logger -expect error "not supported" 1
+dfflibmap -liberty dfflibmap.lib
+logger -check-expected

@@ -93,14 +93,14 @@ jobs:
           CIBW_BEFORE_ALL: bash ./.github/workflows/wheels/cibw_before_all.sh
           CIBW_ENVIRONMENT: >
             OPTFLAGS=-O3
-            PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
-            PATH="$PWD/bison/src:$PATH"
+            PKG_CONFIG_PATH={project}/ffi/pfx/lib/pkgconfig
+            PATH="{project}/bison/src:$PATH"
             CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           CIBW_ENVIRONMENT_MACOS: >
             OPTFLAGS=-O3
-            PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
+            PKG_CONFIG_PATH={project}/ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
-            PATH="$PWD/bison/src:$PATH"
+            PATH="{project}/bison/src:$PATH"
             CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py

@@ -41,19 +41,23 @@ struct AlumaccWorker
 		std::vector<RTLIL::Cell*> cells;
 		RTLIL::SigSpec a, b, c, y;
 		std::vector<tuple<bool, bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
-		bool is_signed, invert_b;
+		bool is_signed, invert_b, oversized;
 
 		RTLIL::Cell *alu_cell;
 		RTLIL::SigSpec cached_lt, cached_slt, cached_gt, cached_sgt, cached_eq, cached_ne;
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
-		RTLIL::SigSpec get_lt(bool is_signed) {
-			if (is_signed) {
+		RTLIL::SigSpec get_lt(bool this_signed) {
+			if (this_signed) {
 				if (GetSize(cached_slt) == 0) {
-					get_of();
 					get_sf();
-					Cell *cell = alu_cell;
-					cached_slt = cell->module->Xor(NEW_ID2_SUFFIX("slt"), cached_of, cached_sf); // SILIMATE: Improve the naming
+					if (is_signed && oversized) {
+						cached_slt = cached_sf;
+					} else {
+						get_of();
+						Cell *cell = alu_cell;
+						cached_slt = cell->module->Xor(NEW_ID2_SUFFIX("slt"), cached_of, cached_sf); // SILIMATE: Improve the naming
+					}
 				}
 
 				return cached_slt;
@@ -66,10 +70,10 @@ struct AlumaccWorker
 			}
 		}
 
-		RTLIL::SigSpec get_gt(bool is_signed) {
-			if (is_signed) {
+		RTLIL::SigSpec get_gt(bool this_signed) {
+			if (this_signed) {
 				if (GetSize(cached_sgt) == 0) {
-					get_lt(is_signed);
+					get_lt(this_signed);
 					get_eq();
 					Cell *cell = alu_cell;
 					SigSpec Or = cell->module->Or(NEW_ID2_SUFFIX("or"), cached_slt, cached_eq); // SILIMATE: Improve the naming
@@ -79,7 +83,7 @@ struct AlumaccWorker
 				return cached_sgt;
 			} else {
 				if (GetSize(cached_gt) == 0) {
-					get_lt(is_signed);
+					get_lt(this_signed);
 					get_eq();
 					Cell *cell = alu_cell;
 					SigSpec Or = cell->module->Or(NEW_ID2_SUFFIX("or"), cached_lt, cached_eq); // SILIMATE: Improve the naming
@@ -121,7 +125,14 @@ struct AlumaccWorker
 				Cell *cell = alu_cell;
 				cached_of = {cell->getPort(ID::CO), cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = cell->module->Xor(NEW_ID2_SUFFIX("of"), cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]); // SILIMATE: Improve the naming
+				if (oversized) {
+					auto max_input = max(GetSize(a), GetSize(b));
+					log_assert(max_input >= 1);
+					cached_of = cell->module->Xor(NEW_ID2_SUFFIX("of"), cached_of[max_input], cached_of[max_input-1]); // SILIMATE: Improve the naming
+				} else {
+					log_assert(GetSize(y) >= 1);
+					cached_of = cell->module->Xor(NEW_ID2_SUFFIX("of"), cached_of[GetSize(y)], cached_of[GetSize(y)-1]); // SILIMATE: Improve the naming
+				}
 			}
 			return cached_of;
 		}
@@ -129,7 +140,12 @@ struct AlumaccWorker
 		RTLIL::SigSpec get_sf() {
 			if (GetSize(cached_sf) == 0) {
 				cached_sf = alu_cell->getPort(ID::Y);
-				cached_sf = cached_sf[GetSize(cached_sf)-1];
+				log_assert(GetSize(cached_sf) >= 1);
+				if (oversized && !is_signed) {
+					cached_sf = cached_sf[max(GetSize(a), GetSize(b))-1];
+				} else {
+					cached_sf = cached_sf[GetSize(y)-1];
+				}
 			}
 			return cached_sf;
 		}
@@ -366,6 +382,7 @@ struct AlumaccWorker
 			alunode->cells.push_back(n->cell);
 			alunode->is_signed = a_signed;
 			alunode->invert_b = subtract_b;
+			alunode->oversized = max(GetSize(A), GetSize(B)) < GetSize(n->y);
 
 			alunode->a = A;
 			alunode->b = B;
@@ -421,6 +438,24 @@ struct AlumaccWorker
 				eq_cells.push_back(cell);
 		}
 
+		auto cmp_mergeable = [](const alunode_t *node, const SigSpec cmp_A, const SigSpec cmp_B, bool is_signed) {
+			if (!node->invert_b || node->c != State::S1) {
+				// comparators need subtraction
+				return false;
+			}
+			if (max(GetSize(cmp_A), GetSize(cmp_B)) > GetSize(node->y)) {
+				// must have at least as many output bits
+				return false;
+			}
+			if (is_signed != node->is_signed) {
+				if (GetSize(cmp_A) != GetSize(cmp_B)) {
+					// mismatched input widths are problematic when mixing signedness
+					return false;
+				}
+			}
+			return true;
+		};
+
 		for (auto cell : lge_cells)
 		{
 			log("  creating $alu model for %s (%s):", cell, cell->type.unescape());
@@ -436,14 +471,14 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->invert_b && node->c == State::S1) {
+				if (cmp_mergeable(node, A, B, is_signed)) {
 					n = node;
 					break;
 				}
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+					if (cmp_mergeable(node, B, A, is_signed)) {
 						n = node;
 						cmp_less = !cmp_less;
 						std::swap(A, B);
@@ -459,6 +494,7 @@ struct AlumaccWorker
 				n->y = module->addWire(NEW_ID2_SUFFIX("alu_y"), max(GetSize(A), GetSize(B))); // SILIMATE: Improve the naming
 				n->is_signed = is_signed;
 				n->invert_b = true;
+				n->oversized = false;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
 				log(" new $alu\n");
 			} else {
@@ -481,14 +517,14 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->invert_b && node->c == State::S1) {
+				if (cmp_mergeable(node, A, B, is_signed)) {
 					n = node;
 					break;
 				}
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+					if (cmp_mergeable(node, B, A, is_signed)) {
 						n = node;
 						break;
 					}
