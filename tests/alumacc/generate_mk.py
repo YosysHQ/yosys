@@ -91,9 +91,8 @@ for c1_signed, c2, c2_signed, a_width in product(
             # cells correctly merged
             postopt_assert = f"select -assert-count 1 {out_cells}"
         else:
-            # postopt_assert = f"select -assert-count 2 {out_cells}"
-            # while currently correct, the above assertion would block potential improvements
-            postopt_assert = ""
+            # currently these all produce 2, but assert-max allows for future improvement
+            postopt_assert = f"select -assert-max 2 {out_cells}"
 
         with open(f"uut_{'s' if c1_signed else 'u'}{c1}_{'s' if c2_signed else 'u'}{c2}_{a_width}_{b_width}_{y_width}.ys", "w") as f:
             print(str.format_map(TEMPLATE, locals()), file=f)
