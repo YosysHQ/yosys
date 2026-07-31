@@ -76,6 +76,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 	int max_clones = 1024;
 	int min_serial_depth = 32;
 	int min_depth_gain = 2;
+	int min_ripple_depth = 2;
 
 	int table_regions = 0;
 	int vector_regions = 0;
@@ -382,13 +383,12 @@ struct OptModAddTreeWorker : CutRegionWorker
 		// ripple, killing most non-cascades before the grouping sweep.
 		pool<SigBit> tail_bits = sig_bit_pool(tail);
 		ch.head_min = 0;
-		int serial = 0;
-		bool ripple = false;
+		int serial = 0, ripple = 0;
 		for (int i = 1; i < GetSize(fine_nodes); i++) {
 			pool<Cell *> fwd = forward_cells(fine_cuts[i - 1], fine_nodes[i]);
 			serial += region_depth(fwd);
 			for (auto c : fwd) {
-				ripple |= cell_depth(c) > 1;
+				ripple = std::max(ripple, cell_depth(c));
 				if (cell_escapes(c, cone, tail_bits))
 					ch.head_min = std::max(ch.head_min, i);
 			}
@@ -398,10 +398,14 @@ struct OptModAddTreeWorker : CutRegionWorker
 			          "of %d\n", log_signal(tail), ch.head_min, GetSize(fine_cuts));
 			return false;
 		}
-		if (!ripple || serial < min_serial_depth) {
-			log_debug("  skipping cascade at %s: serial depth at most %d, %s\n",
-			          log_signal(tail), serial,
-			          ripple ? "below the minimum" : "pure bitwise logic");
+		if (ripple < min_ripple_depth) {
+			log_debug("  skipping cascade at %s: step ripple depth %d below %d\n",
+			          log_signal(tail), ripple, min_ripple_depth);
+			return false;
+		}
+		if (serial < min_serial_depth) {
+			log_debug("  skipping cascade at %s: serial depth at most %d, below %d\n",
+			          log_signal(tail), serial, min_serial_depth);
 			return false;
 		}
 
@@ -942,22 +946,23 @@ struct OptModAddTreeWorker : CutRegionWorker
 		// Only pay for the rewrite where the tree is a clear win. Compare like
 		// with like: the rewrite rebuilds the state path only, so node 0 and
 		// each step's addend logic must not count on either side.
-		int serial = 0, leaf = 0;
-		bool ripple = false;
+		int serial = 0, leaf = 0, ripple = 0;
 		for (int i = 1; i < n; i++) {
 			int d = region_depth(ch.state_cells[i]);
 			serial += d;
 			leaf = std::max(leaf, d);
 			for (auto c : ch.state_cells[i])
-				ripple |= cell_depth(c) > 1;
+				ripple = std::max(ripple, cell_depth(c));
 		}
 		// Counting cells only tracks real depth where the step carries a
 		// ripple (an add, a compare, a wide select). A step built purely from
-		// bitwise gates is restructured downstream anyway, so replicating it
-		// buys area, not levels.
-		if (!ripple) {
-			log_debug("  skipping %s cascade at %s: step is pure bitwise logic\n",
-			          as_table ? "associative" : "general", log_signal(ch.tail));
+		// bitwise gates is restructured downstream anyway, so the estimate
+		// below would overstate what the tree wins. Like the width guard this
+		// is a cost call, so -min-ripple-depth 1 relaxes it.
+		if (ripple < min_ripple_depth) {
+			log_debug("  skipping %s cascade at %s: step ripple depth %d below %d\n",
+			          as_table ? "associative" : "general", log_signal(ch.tail), ripple,
+			          min_ripple_depth);
 			return false;
 		}
 		// One tree level costs what emit_combine will actually build: a cloned
@@ -1102,6 +1107,13 @@ struct OptModAddTreePass : public Pass {
 		log("        that replaces it (default 2), so short narrow-state chains are\n");
 		log("        not replicated for a level or two.\n");
 		log("\n");
+		log("    -min-ripple-depth N, -min_ripple_depth N\n");
+		log("        require the deepest cell on a step's state path to be worth at\n");
+		log("        least N levels (default 2). The depth estimate counts cells, so\n");
+		log("        it only predicts real depth once a step carries a ripple; a step\n");
+		log("        of bitwise gates is restructured downstream anyway. Pass 1 to\n");
+		log("        consider those too.\n");
+		log("\n");
 		log("    -walk-budget N, -eval-budget N, -attempt-budget N\n");
 		log("        per-module work limits for the candidate search (defaults\n");
 		log("        20000000 / 20000000 / 65536).\n");
@@ -1120,6 +1132,7 @@ struct OptModAddTreePass : public Pass {
 		int max_clones = 1024;
 		int min_serial_depth = 32;
 		int min_depth_gain = 2;
+		int min_ripple_depth = 2;
 		int64_t walk_budget = -1, eval_budget = -1, attempt_budget = -1;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1163,6 +1176,11 @@ struct OptModAddTreePass : public Pass {
 				min_depth_gain = std::stoi(args[++argidx]);
 				continue;
 			}
+			if ((args[argidx] == "-min-ripple-depth" || args[argidx] == "-min_ripple_depth") &&
+			    argidx + 1 < args.size()) {
+				min_ripple_depth = std::stoi(args[++argidx]);
+				continue;
+			}
 			if ((args[argidx] == "-walk-budget" || args[argidx] == "-walk_budget") &&
 			    argidx + 1 < args.size()) {
 				walk_budget = std::stoll(args[++argidx]);
@@ -1193,6 +1211,7 @@ struct OptModAddTreePass : public Pass {
 			worker.max_clones = max_clones;
 			worker.min_serial_depth = min_serial_depth;
 			worker.min_depth_gain = min_depth_gain;
+			worker.min_ripple_depth = min_ripple_depth;
 			if (walk_budget > 0)
 				worker.walk_budget = walk_budget;
 			if (eval_budget > 0)

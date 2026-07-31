@@ -5,8 +5,8 @@
 #   B: associative tree combined by a clone of the cascade's own step.
 #   C: transfer-function tree (emit shape 2) on a step that is NOT associative.
 #   D: rejection guards -- wrong fixup constant, state too wide, clone budget.
-#   E: the depth-win guard, which keeps the shape off shallow cascades.
-#   F: the narrow-state guard, which keeps the shape off boolean chains.
+#   E: the depth guards, which keep the shape off shallow cascades.
+#   F: the ripple and narrow-state guards, which keep it off boolean chains.
 #
 # Depth is the point of this pass, so the structural checks are `ltp -noff`
 # lengths rather than cell counts: the tree trades area for depth, so cell
@@ -241,8 +241,10 @@ logger -expect log "length=41\)" 1
 ltp -noff
 logger -check-expected
 # Composing two steps is not itself a step, which is exactly why the cheap
-# shape is unsound here. The count tracks the grouping-phase retry schedule.
-logger -expect log "distinct step function" 3
+# shape is unsound here. This pins that the proof reached a verdict on every
+# grouping tried, not that it tried six; retune the count when the grouping
+# schedule changes. Soundness is pinned by the rewrite counts below.
+logger -expect log "distinct step function" 6
 logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 1 cascade\(s\) as transfer-function tree\(s\)" 1
 debug opt_modadd_tree
 logger -check-expected
@@ -357,12 +359,13 @@ design -reset
 log -pop
 
 # ============================================================================
-# Group E: depth-win guard
+# Group E: depth guards
 # ============================================================================
 
 # E1: only four digits, so the serial chain is shallow and replicating the
 # step would buy a level or two at best. Short narrow-state cascades like this
-# are everywhere in real designs, so the guard must leave them alone.
+# are everywhere in real designs, so the guards must leave them alone. The
+# depth floor gets there first, before the chain is even grouped.
 log -header "E1: shallow cascade -> left alone"
 log -push
 design -reset
@@ -387,7 +390,7 @@ opt_expr
 opt_clean
 select -assert-count 15 t:*
 design -save shallow
-logger -expect log "skipping general cascade at .*serial depth 28 vs tree depth 13" 1
+logger -expect log "skipping cascade at .*serial depth at most 22, below 32" 1
 logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 0 cascade\(s\) as transfer-function tree\(s\)" 1
 debug opt_modadd_tree
 logger -check-expected
@@ -395,8 +398,23 @@ select -assert-count 0 c:*modadd*
 select -assert-count 15 t:*
 log -pop
 
-# E2: the same cascade rewrites once the depth thresholds are lowered, so E1
-# is the guard declining a real match rather than the pass failing to see it.
+# E1b: drop the floor below the chain and the ratio guard is what refuses it,
+# which is the check that actually compares the two shapes. Keep both covered:
+# the floor is a cheap pre-filter, this is the real depth-win call.
+log -header "E1b: shallow cascade -> refused by the depth-win ratio"
+log -push
+design -load shallow
+logger -expect log "skipping general cascade at .*serial depth 21 vs tree depth 13" 1
+logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 0 cascade\(s\) as transfer-function tree\(s\)" 1
+debug opt_modadd_tree -min-serial-depth 8
+logger -check-expected
+select -assert-count 0 c:*modadd*
+select -assert-count 15 t:*
+log -pop
+
+# E2: the same cascade rewrites once both depth thresholds are lowered, so E1
+# and E1b are guards declining a real match rather than the pass failing to
+# see it.
 log -header "E2: shallow cascade rewrites once the thresholds allow it"
 log -push
 design -load shallow
@@ -408,14 +426,16 @@ design -reset
 log -pop
 
 # ============================================================================
-# Group F: narrow-state guard
+# Group F: ripple and narrow-state guards
 # ============================================================================
 
 # F1: a flag threaded through eight compare steps. The state is one bit, so
 # the transfer-function shape would clone each compare cone twice to carry a
 # map that tree balancing gets for free -- on a real FPU this shape cost 17x
-# area for no depth. Deep enough that only the width guard can refuse it.
-log -header "F1: one-bit state -> left alone"
+# area for no depth. Two independent cost guards refuse it; the ripple guard
+# gets there first, because the adds and compares feed the addend and the
+# state itself only ever passes through a $not, an $and and a $mux.
+log -header "F1: bitwise step -> left alone"
 log -push
 design -reset
 read_verilog -sv <<EOF
@@ -444,27 +464,41 @@ check -assert
 design -save flag
 # Every prefix of the chain is its own candidate, so pin the full-length one
 # rather than counting all sixteen skips.
-logger -expect log "skipping general cascade at .y: state width 1 below 2" 1
+logger -expect log "skipping cascade at .y: step ripple depth 1 below 2" 1
 logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 0 cascade\(s\) as transfer-function tree\(s\)" 1
 debug opt_modadd_tree
 logger -check-expected
 select -assert-count 0 c:*modadd*
 log -pop
 
-# F2: the same cascade rewrites at -min-state-bits 1, so F1 is the width guard
-# declining a match the pass otherwise takes.
-log -header "F2: one-bit state rewrites once the width guard allows it"
+# F1b: relax the ripple guard and the width guard refuses the same chain, so
+# both are still load-bearing on their own. The floor comes down too because
+# the state path here is only fifteen levels of gates -- the adds that make
+# the cone look deep are addend logic the rewrite never touches.
+log -header "F1b: one-bit state -> left alone by the width guard"
+log -push
+design -load flag
+logger -expect log "skipping general cascade at .y: state width 1 below 2" 1
+logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 0 cascade\(s\) as transfer-function tree\(s\)" 1
+debug opt_modadd_tree -min-ripple-depth 1 -min-serial-depth 8
+logger -check-expected
+select -assert-count 0 c:*modadd*
+log -pop
+
+# F2: the same cascade rewrites once each of those cost guards is told to
+# stand down, so F1 and F1b are refusals to pay rather than failures to match.
+log -header "F2: one-bit state rewrites once the cost guards allow it"
 log -push
 design -load flag
 logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 1 cascade\(s\) as transfer-function tree\(s\)" 1
-opt_modadd_tree -min-state-bits 1
+opt_modadd_tree -min-state-bits 1 -min-ripple-depth 1 -min-serial-depth 8
 logger -check-expected
 select -assert-min 1 c:*modadd*
 design -reset
 log -pop
 
-# F3: the width guard is a cost call, not a correctness one, so prove the
-# rewrite it declines. Same flag chain narrowed to 4-bit steps, which keeps the
+# F3: those guards are cost calls, not correctness ones, so prove the rewrite
+# they decline. Same flag chain narrowed to 4-bit steps, which keeps the
 # equivalence check cheap; the thresholds come down to match the shorter chain.
 log -header "F3: the declined one-bit rewrite is equivalent"
 log -push
@@ -493,7 +527,7 @@ opt_expr
 opt_clean
 check -assert
 logger -expect log "Rewrote 0 associative cascade\(s\) as balanced tree\(s\), 1 cascade\(s\) as transfer-function tree\(s\)" 1
-equiv_opt -assert opt_modadd_tree -min-state-bits 1 -min-serial-depth 8 -min-depth-gain 1
+equiv_opt -assert opt_modadd_tree -min-state-bits 1 -min-ripple-depth 1 -min-serial-depth 8 -min-depth-gain 1
 logger -check-expected
 design -load postopt
 select -assert-min 1 c:*modadd*
