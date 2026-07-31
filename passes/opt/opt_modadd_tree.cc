@@ -59,7 +59,10 @@ PRIVATE_NAMESPACE_BEGIN
 //
 // Both shapes are derived from the netlist itself (cloned step cones, and for
 // shape 1 a ConstEval-proven table), so the pass never assumes a particular
-// spelling of the reduction and never relies on don't-care freedom.
+// spelling of the reduction and never relies on don't-care freedom. Only the
+// state has to flow serially: the addends may come from anywhere, including
+// pre-logic shared by every step (a barrel shifter, a mux tree, ...), which
+// the rewrite leaves in place and the tree leaves read unchanged.
 struct OptModAddTreeWorker : CutRegionWorker
 {
 	// Tunables (see Pass::execute).
@@ -73,6 +76,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 	int max_clones = 1024;
 	int min_serial_depth = 32;
 	int min_depth_gain = 2;
+	int min_ripple_depth = 2;
 
 	int table_regions = 0;
 	int vector_regions = 0;
@@ -91,6 +95,8 @@ struct OptModAddTreeWorker : CutRegionWorker
 		vector<SigSpec> fine_cuts;
 		vector<pool<Cell *>> fine_nodes;
 		vector<int> fine_depth;
+
+		int head_min = 0;                 // node 0 must cover fine nodes 0..head_min
 
 		vector<SigSpec> cuts;             // cuts[i] = state after node i
 		vector<pool<Cell *>> state_cells; // cells of node i that depend on cuts[i-1]
@@ -116,13 +122,19 @@ struct OptModAddTreeWorker : CutRegionWorker
 
 	// ------------------------------------------------------------ detection
 
-	// A cut splits the tail cone in two: nothing downstream of X may read a
-	// signal produced upstream of X other than X itself. Escaping fanout to
-	// cells outside the tail cone is fine (shared pre-logic stays in place).
-	bool is_cut(const SigSpec &x, const pool<Cell *> &cx, const pool<Cell *> &cone)
+	// A cut splits the tail cone in two: no cascade state produced upstream of
+	// X may reach a cell downstream of X other than through X itself.
+	// `state_free` cells carry no state (shared addend pre-logic such as a
+	// barrel shifter feeding every digit); the rewrite leaves their value
+	// untouched, so they may fan out to any step. Escaping fanout to cells
+	// outside the tail cone is fine (shared pre-logic stays in place).
+	bool is_cut(const SigSpec &x, const pool<Cell *> &cx, const pool<Cell *> &cone,
+	            const pool<Cell *> &state_free)
 	{
 		pool<SigBit> xbits = sig_bit_pool(x);
 		for (auto c : cx) {
+			if (state_free.count(c))
+				continue;
 			charge_walk(1);
 			for (auto &conn : c->connections()) {
 				if (!c->output(conn.first))
@@ -137,6 +149,28 @@ struct OptModAddTreeWorker : CutRegionWorker
 			}
 		}
 		return true;
+	}
+
+	// True when a non-tail output of `c` is read from outside the region (or
+	// is a module output). Such a cell survives the rewrite, so cloning it
+	// leaves the serial chain alive next to its tree.
+	bool cell_escapes(Cell *c, const pool<Cell *> &cone, const pool<SigBit> &tail_bits)
+	{
+		charge_walk(1);
+		for (auto &conn : c->connections()) {
+			if (!c->output(conn.first))
+				continue;
+			for (auto bit : sigmap(conn.second)) {
+				if (!bit.wire || tail_bits.count(bit))
+					continue;
+				if (output_port_bits.count(bit))
+					return true;
+				for (auto sink : bit_to_sinks.at(bit, pool<Cell *>()))
+					if (!cone.count(sink))
+						return true;
+			}
+		}
+		return false;
 	}
 
 	// Intermediate states must die with the old cascade, else the rewrite
@@ -244,8 +278,6 @@ struct OptModAddTreeWorker : CutRegionWorker
 			return false;
 		if (GetSize(cone) < min_nodes)
 			return false;
-		if (!is_cut(tail, cone, cone))
-			return false;
 
 		// Candidate cuts: same-width output buses produced inside the cone.
 		vector<SigSpec> cands;
@@ -263,6 +295,26 @@ struct OptModAddTreeWorker : CutRegionWorker
 		if (GetSize(cands) + 1 < min_nodes)
 			return false;
 
+		// A cell that neither produces nor can reach a candidate state computes
+		// an addend: the rewrite leaves its value alone, so it may feed any
+		// number of steps. One forward walk over every candidate keeps this
+		// conservative whichever cuts the chain ends up using.
+		SigSpec cand_bits;
+		for (auto &sig : cands)
+			cand_bits.append(sig);
+		pool<Cell *> downstream = forward_cells(cand_bits, cone);
+		pool<Cell *> state_free;
+		for (auto c : cone)
+			if (!downstream.count(c))
+				state_free.insert(c);
+		// A cell producing a candidate is a state producer even though no
+		// candidate reaches it, so it must not be treated as pre-logic.
+		for (auto bit : sigmap(cand_bits)) {
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv != nullptr)
+				state_free.erase(drv);
+		}
+
 		// Keep the valid cuts, ordered by how much of the cone they cover.
 		vector<std::pair<int, int>> ranked;
 		vector<pool<Cell *>> cand_cones(GetSize(cands));
@@ -274,7 +326,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 				continue;
 			if (!cut_is_internal(cands[i], cone))
 				continue;
-			if (!is_cut(cands[i], cand_cones[i], cone))
+			if (!is_cut(cands[i], cand_cones[i], cone, state_free))
 				continue;
 			ranked.push_back({GetSize(cand_cones[i]), i});
 		}
@@ -324,9 +376,44 @@ struct OptModAddTreeWorker : CutRegionWorker
 		ch.cone = cone;
 		ch.fine_cuts = fine_cuts;
 		ch.fine_nodes = fine_nodes;
+
+		// A node clones exactly what its incoming cut reaches, and node 0 is
+		// left in place, so an escaping cell is tolerable only if node 0 grows
+		// to cover it. The same walk bounds the state path and spots the
+		// ripple, killing most non-cascades before the grouping sweep.
+		pool<SigBit> tail_bits = sig_bit_pool(tail);
+		ch.head_min = 0;
+		int serial = 0, ripple = 0;
+		for (int i = 1; i < GetSize(fine_nodes); i++) {
+			pool<Cell *> fwd = forward_cells(fine_cuts[i - 1], fine_nodes[i]);
+			serial += region_depth(fwd);
+			for (auto c : fwd) {
+				ripple = std::max(ripple, cell_depth(c));
+				if (cell_escapes(c, cone, tail_bits))
+					ch.head_min = std::max(ch.head_min, i);
+			}
+		}
+		if (GetSize(fine_cuts) - ch.head_min < min_nodes) {
+			log_debug("  skipping cascade at %s: state escapes up to fine node %d "
+			          "of %d\n", log_signal(tail), ch.head_min, GetSize(fine_cuts));
+			return false;
+		}
+		if (ripple < min_ripple_depth) {
+			log_debug("  skipping cascade at %s: step ripple depth %d below %d\n",
+			          log_signal(tail), ripple, min_ripple_depth);
+			return false;
+		}
+		if (serial < min_serial_depth) {
+			log_debug("  skipping cascade at %s: serial depth at most %d, below %d\n",
+			          log_signal(tail), serial, min_serial_depth);
+			return false;
+		}
+
 		ch.fine_depth.clear();
 		for (auto &node : fine_nodes)
 			ch.fine_depth.push_back(region_depth(node));
+		log_debug("  chain at %s: %d fine cut(s), serial depth at most %d\n",
+		          log_signal(tail), GetSize(ch.fine_cuts), serial);
 		return true;
 	}
 
@@ -338,7 +425,8 @@ struct OptModAddTreeWorker : CutRegionWorker
 	{
 		int nfine = GetSize(ch.fine_nodes);
 		vector<int> keep;
-		for (int i = first_len - 1; i < nfine; i += (GetSize(keep) ? stride : 1))
+		for (int i = std::max(first_len - 1, ch.head_min); i < nfine;
+		     i += (GetSize(keep) ? stride : 1))
 			keep.push_back(i);
 		if (keep.empty() || keep.back() != nfine - 1)
 			keep.push_back(nfine - 1);
@@ -538,10 +626,13 @@ struct OptModAddTreeWorker : CutRegionWorker
 	// ------------------------------------------------------- const-table tier
 
 	// A region's free input bits, in cell/port/bit order so that a digit of
-	// state width lines up with the state's own bit numbering. Only cone
-	// leaves qualify: forcing a bit whose driver ConstEval might also
-	// evaluate would conflict with its cell-output cache.
-	bool region_digit(const pool<Cell *> &cells, const SigSpec &state, SigSpec &digit)
+	// state width lines up with the state's own bit numbering. The addend may
+	// be driven by anything (port bits, a shifter, a mux, ...), but forcing a
+	// driven bit is only safe when ConstEval never evaluates its driver, so
+	// the region's cone must close on state+digit with no forced bit produced
+	// inside it.
+	bool region_digit(const pool<Cell *> &cells, const SigSpec &state, const SigSpec &out,
+	                  SigSpec &digit)
 	{
 		pool<SigBit> state_bits = sig_bit_pool(state);
 		pool<SigBit> internal;
@@ -553,6 +644,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 							internal.insert(bit);
 
 		pool<SigBit> seen;
+		bool any_driven = false;
 		digit = SigSpec();
 		for (auto c : ordered_cells(cells)) {
 			vector<IdString> ports;
@@ -565,18 +657,25 @@ struct OptModAddTreeWorker : CutRegionWorker
 				for (auto bit : sigmap(c->getPort(port))) {
 					if (!bit.wire || state_bits.count(bit) || internal.count(bit))
 						continue;
-					if (bit_to_driver.at(bit, nullptr) != nullptr)
-						return false;
-					if (seen.insert(bit).second)
+					if (seen.insert(bit).second) {
 						digit.append(bit);
+						if (GetSize(digit) > max_digit_bits)
+							return false;
+						any_driven |= bit_to_driver.at(bit, nullptr) != nullptr;
+					}
 				}
 		}
-		return GetSize(digit) <= max_digit_bits;
+		if (!any_driven)
+			return true;
+		pool<SigBit> forced = seen;
+		for (auto bit : state_bits)
+			forced.insert(bit);
+		return cut_cone_walk(out, forced, max_cone_cells, nullptr, nullptr, &forced);
 	}
 
 	bool node_digit(const Chain &ch, int i, SigSpec &digit)
 	{
-		return region_digit(ch.state_cells[i], ch.cuts[i - 1], digit);
+		return region_digit(ch.state_cells[i], ch.cuts[i - 1], ch.cuts[i], digit);
 	}
 
 	// Exhaustive transfer function of node `i`, indexed [digit][state].
@@ -616,7 +715,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 
 		SigSpec digit;
 		ConstEval &ce = shared_ce();
-		bool seeded = region_digit(ch.head_cells, SigSpec(), digit);
+		bool seeded = region_digit(ch.head_cells, SigSpec(), ch.cuts[0], digit);
 		if (seeded) {
 			int ndigits = 1 << GetSize(digit);
 			for (int d = 0; d < ndigits && seeded; d++) {
@@ -802,8 +901,11 @@ struct OptModAddTreeWorker : CutRegionWorker
 		int k0 = default_stride(ch);
 		for (int k : {k0, k0 + 1, std::max(1, k0 - 1)}) {
 			for (int phase = 1; phase <= k && !as_table; phase++)
-				if (apply_grouping(ch, k, phase))
+				if (apply_grouping(ch, k, phase)) {
+					log_debug("  try %s: stride %d phase %d, %d node(s)\n",
+					          log_signal(ch.tail), k, phase, GetSize(ch.cuts));
 					as_table = prove_table(ch, combine, live, reach, seed);
+				}
 			if (as_table)
 				break;
 		}
@@ -841,15 +943,28 @@ struct OptModAddTreeWorker : CutRegionWorker
 			return false;
 		}
 
-		// Only pay for the rewrite where the cascade is deep enough that the
-		// tree is a clear win: short narrow-state chains are everywhere in real
-		// designs and replicating them would cost area for a level or two.
-		int serial = 0;
-		for (int d : ch.fine_depth)
+		// Only pay for the rewrite where the tree is a clear win. Compare like
+		// with like: the rewrite rebuilds the state path only, so node 0 and
+		// each step's addend logic must not count on either side.
+		int serial = 0, leaf = 0, ripple = 0;
+		for (int i = 1; i < n; i++) {
+			int d = region_depth(ch.state_cells[i]);
 			serial += d;
-		int leaf = 0;
-		for (int i = 1; i < n; i++)
-			leaf = std::max(leaf, region_depth(ch.state_cells[i]));
+			leaf = std::max(leaf, d);
+			for (auto c : ch.state_cells[i])
+				ripple = std::max(ripple, cell_depth(c));
+		}
+		// Counting cells only tracks real depth where the step carries a
+		// ripple (an add, a compare, a wide select). A step built purely from
+		// bitwise gates is restructured downstream anyway, so the estimate
+		// below would overstate what the tree wins. Like the width guard this
+		// is a cost call, so -min-ripple-depth 1 relaxes it.
+		if (ripple < min_ripple_depth) {
+			log_debug("  skipping %s cascade at %s: step ripple depth %d below %d\n",
+			          as_table ? "associative" : "general", log_signal(ch.tail), ripple,
+			          min_ripple_depth);
+			return false;
+		}
 		// One tree level costs what emit_combine will actually build: a cloned
 		// step, or a lookup selected by 2w (table) / w (per-slot) bits.
 		int level = cb.node >= 0 ? region_depth(ch.state_cells[cb.node])
@@ -958,7 +1073,8 @@ struct OptModAddTreePass : public Pass {
 		log("\n");
 		log("Both shapes are built from the cascade's own cells, so the pass is\n");
 		log("agnostic to how the reduction was spelled and never relies on don't-care\n");
-		log("freedom.\n");
+		log("freedom. Only the state has to flow serially; the addends may be driven\n");
+		log("by anything, including pre-logic shared by every step.\n");
 		log("\n");
 		log("    -max-state-bits N, -max_state_bits N\n");
 		log("        maximum accumulator width to consider (default 4).\n");
@@ -991,6 +1107,13 @@ struct OptModAddTreePass : public Pass {
 		log("        that replaces it (default 2), so short narrow-state chains are\n");
 		log("        not replicated for a level or two.\n");
 		log("\n");
+		log("    -min-ripple-depth N, -min_ripple_depth N\n");
+		log("        require the deepest cell on a step's state path to be worth at\n");
+		log("        least N levels (default 2). The depth estimate counts cells, so\n");
+		log("        it only predicts real depth once a step carries a ripple; a step\n");
+		log("        of bitwise gates is restructured downstream anyway. Pass 1 to\n");
+		log("        consider those too.\n");
+		log("\n");
 		log("    -walk-budget N, -eval-budget N, -attempt-budget N\n");
 		log("        per-module work limits for the candidate search (defaults\n");
 		log("        20000000 / 20000000 / 65536).\n");
@@ -1009,6 +1132,7 @@ struct OptModAddTreePass : public Pass {
 		int max_clones = 1024;
 		int min_serial_depth = 32;
 		int min_depth_gain = 2;
+		int min_ripple_depth = 2;
 		int64_t walk_budget = -1, eval_budget = -1, attempt_budget = -1;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -1052,6 +1176,11 @@ struct OptModAddTreePass : public Pass {
 				min_depth_gain = std::stoi(args[++argidx]);
 				continue;
 			}
+			if ((args[argidx] == "-min-ripple-depth" || args[argidx] == "-min_ripple_depth") &&
+			    argidx + 1 < args.size()) {
+				min_ripple_depth = std::stoi(args[++argidx]);
+				continue;
+			}
 			if ((args[argidx] == "-walk-budget" || args[argidx] == "-walk_budget") &&
 			    argidx + 1 < args.size()) {
 				walk_budget = std::stoll(args[++argidx]);
@@ -1082,6 +1211,7 @@ struct OptModAddTreePass : public Pass {
 			worker.max_clones = max_clones;
 			worker.min_serial_depth = min_serial_depth;
 			worker.min_depth_gain = min_depth_gain;
+			worker.min_ripple_depth = min_ripple_depth;
 			if (walk_budget > 0)
 				worker.walk_budget = walk_budget;
 			if (eval_budget > 0)
