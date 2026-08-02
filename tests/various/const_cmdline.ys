@@ -1,0 +1,15 @@
+# https://github.com/YosysHQ/yosys/issues/6009
+read_verilog <<EOT
+module top(output [7:0] o);
+assign o = 8'hAA;
+endmodule
+EOT
+prep -top top
+
+# width mismatch
+logger -expect prefix-warning "const_cmdline.ys:[0-9]+: Warning: While parsing constant `2'd7'" 1
+setattr -set foo 2'd7 t:*
+
+# multi-bit unsized const
+logger -expect prefix-error "const_cmdline.ys:[0-9]+: ERROR: Failed to parse constant `8'00000101'" 1
+setattr -set foo 8'00000101 t:*

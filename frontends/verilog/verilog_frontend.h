@@ -42,6 +42,8 @@ namespace VERILOG_FRONTEND
 	/* Ephemeral context class */
 	struct ConstParser {
 		AST::AstSrcLocType loc;
+		// original constant text, used in diagnostics when loc has no source file
+		std::string code_str = {};
 	private:
 		void log_maybe_loc_error(std::string msg);
 		void log_maybe_loc_warn(std::string msg);

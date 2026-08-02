@@ -44,10 +44,17 @@ EOT
 
 proc
 opt
-read_liberty dfflibmap_dffsr_s.lib
-
+techmap
 copy top top_unmapped
+design -save start
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 4" 1
 dfflibmap -liberty dfflibmap_dffsr_s.lib top
+logger -check-expected
+read_liberty dfflibmap_dffsr_s.lib
 
 clk2fflogic
 flatten
@@ -59,10 +66,11 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 ##################################################################
 
-delete top miter
-
-copy top_unmapped top
+design -load start
+logger -expect log "  mapped 4" 1
 dfflibmap -liberty dfflibmap_dffsr_r.lib top
+logger -check-expected
+read_liberty dfflibmap_dffsr_r.lib
 
 clk2fflogic
 flatten
@@ -73,10 +81,11 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 ##################################################################
 
-delete top miter
-
-copy top_unmapped top
+design -load start
+logger -expect log "  mapped 4" 1
 dfflibmap -liberty dfflibmap_dffsr_mixedpol.lib top
+logger -check-expected
+read_liberty dfflibmap_dffsr_mixedpol.lib
 
 clk2fflogic
 flatten
@@ -87,10 +96,11 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 
 ##################################################################
 
-delete top miter
-
-copy top_unmapped top
+design -load start
+logger -expect log "  mapped 4" 1
 dfflibmap -liberty dfflibmap_dffsr_not_next.lib top
+logger -check-expected
+read_liberty dfflibmap_dffsr_not_next.lib
 
 clk2fflogic
 flatten

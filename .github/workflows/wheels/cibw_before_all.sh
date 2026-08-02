@@ -29,9 +29,7 @@ fi
 	set -e -x
 	cd ffi
 	## Ultimate libyosys.so will be shared, so we need fPIC for the static libraries
-	CFLAGS=-fPIC CXXFLAGS=-fPIC ./configure --prefix=$PWD/pfx
+	LDFLAGS=-fPIC CFLAGS=-fPIC CXXFLAGS=-fPIC ./configure --prefix=$PWD/pfx --enable-static --disable-shared
 	make clean
 	make install -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)
-	## Forces static library to be used in all situations
-	sed -i.bak 's@-L${toolexeclibdir} -lffi@${toolexeclibdir}/libffi.a@' ./pfx/lib/pkgconfig/libffi.pc
 )
