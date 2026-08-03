@@ -150,6 +150,7 @@ struct MuxpackWorker
 			}
 		}
 
+		std::vector<Cell*> mux_cells;
 		for (auto cell : module->cells())
 		{
 			if (cell->type.in(ID($mux), ID($pmux)) && !cell->get_bool_attribute(ID::keep))
@@ -179,6 +180,7 @@ struct MuxpackWorker
 				}
 
 				sig_chain_prev[y_sig] = cell;
+				mux_cells.push_back(cell);
 				continue;
 			}
 
@@ -187,47 +189,69 @@ struct MuxpackWorker
 					for (auto bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
 		}
+
+		// A port can serve as a chain link only if its full sigspec matches
+		// some chain producer's Y. Bits used by any other input port
+		// have non-chain users.
+		for (auto cell : mux_cells)
+		{
+			SigSpec a_sig = sigmap(cell->getPort(ID::A));
+			SigSpec b_sig;
+			if (cell->type == ID($mux))
+				b_sig = sigmap(cell->getPort(ID::B));
+			SigSpec s_sig = sigmap(cell->getPort(ID::S));
+
+			bool a_is_chain_link = sig_chain_prev.count(a_sig);
+			bool b_is_chain_link = !b_sig.empty() && sig_chain_prev.count(b_sig);
+
+			if (!a_is_chain_link)
+				for (auto bit : a_sig)
+					sigbit_with_non_chain_users.insert(bit);
+			if (!b_is_chain_link)
+				for (auto bit : b_sig)
+					sigbit_with_non_chain_users.insert(bit);
+			for (auto bit : s_sig)
+				sigbit_with_non_chain_users.insert(bit);
+		}
+	}
+
+	bool is_start_cell(Cell* cell)
+	{
+		SigSpec a_sig = sigmap(cell->getPort(ID::A));
+		if (cell->type == ID($mux)) {
+			SigSpec b_sig = sigmap(cell->getPort(ID::B));
+			if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
+				return true;
+
+			if (!sig_chain_prev.count(a_sig))
+				a_sig = b_sig;
+		}
+		else if (cell->type == ID($pmux)) {
+			if (!sig_chain_prev.count(a_sig))
+				return true;
+		}
+		else log_abort();
+
+		for (auto bit : a_sig)
+			if (sigbit_with_non_chain_users.count(bit))
+				return true;
+
+		{
+			Cell *prev_cell = sig_chain_prev.at(a_sig);
+			log_assert(prev_cell);
+			SigSpec s_sig = sigmap(cell->getPort(ID::S));
+			s_sig.append(sigmap(prev_cell->getPort(ID::S)));
+			if (!excl_db.query(s_sig))
+				return true;
+		}
+		return false;
 	}
 
 	void find_chain_start_cells()
 	{
 		for (auto cell : candidate_cells)
-		{
-			log_debug("Considering %s (%s)\n", cell, cell->type.unescape());
-
-			SigSpec a_sig = sigmap(cell->getPort(ID::A));
-			if (cell->type == ID($mux)) {
-				SigSpec b_sig = sigmap(cell->getPort(ID::B));
-				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
-					goto start_cell;
-
-				if (!sig_chain_prev.count(a_sig))
-					a_sig = b_sig;
-			}
-			else if (cell->type == ID($pmux)) {
-				if (!sig_chain_prev.count(a_sig))
-					goto start_cell;
-			}
-			else log_abort();
-
-			for (auto bit : a_sig)
-				if (sigbit_with_non_chain_users.count(bit))
-					goto start_cell;
-
-			{
-				Cell *prev_cell = sig_chain_prev.at(a_sig);
-				log_assert(prev_cell);
-				SigSpec s_sig = sigmap(cell->getPort(ID::S));
-				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
-				if (!excl_db.query(s_sig))
-					goto start_cell;
-			}
-
-			continue;
-
-		start_cell:
-			chain_start_cells.insert(cell);
-		}
+			if (is_start_cell(cell))
+				chain_start_cells.insert(cell);
 	}
 
 	vector<Cell*> create_chain(Cell *start_cell)
@@ -235,7 +259,7 @@ struct MuxpackWorker
 		vector<Cell*> chain;
 
 		Cell *c = start_cell;
-		while (c != nullptr)
+		while (true)
 		{
 			chain.push_back(c);
 
@@ -257,52 +281,39 @@ struct MuxpackWorker
 		if (GetSize(chain) < 2)
 			return;
 
-		int cursor = 0;
-		while (cursor < GetSize(chain))
-		{
-			int cases = GetSize(chain) - cursor;
+		int cases = GetSize(chain);
+		Cell *first_cell = chain.front();
+		Cell *last_cell = chain.back();
 
-			Cell *first_cell = chain[cursor];
+		log("Converting %s.%s ... %s.%s to a pmux with %d cases.\n",
+			module, first_cell, module, last_cell, cases);
 
-			if (cases < 2) {
-				cursor++;
-				continue;
+		mux_count += cases;
+		pmux_count += 1;
+
+		first_cell->type = ID($pmux);
+
+		SigSpec b_sig = first_cell->getPort(ID::B);
+		SigSpec s_sig = first_cell->getPort(ID::S);
+
+		for (int i = 1; i < cases; i++) {
+			Cell* prev_cell = chain[i-1];
+			Cell* cursor_cell = chain[i];
+			if (sigmap(prev_cell->getPort(ID::Y)) == sigmap(cursor_cell->getPort(ID::A))) {
+				b_sig.append(cursor_cell->getPort(ID::B));
+				s_sig.append(cursor_cell->getPort(ID::S));
+			} else {
+				log_assert(cursor_cell->type == ID($mux));
+				b_sig.append(cursor_cell->getPort(ID::A));
+				s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
 			}
-
-			Cell *last_cell = chain[cursor+cases-1];
-
-			log("Converting %s.%s ... %s.%s to a pmux with %d cases.\n",
-				module, first_cell, module, last_cell, cases);
-
-			mux_count += cases;
-			pmux_count += 1;
-
-			first_cell->type = ID($pmux);
-			SigSpec b_sig = first_cell->getPort(ID::B);
-			SigSpec s_sig = first_cell->getPort(ID::S);
-
-			for (int i = 1; i < cases; i++) {
-				Cell* prev_cell = chain[cursor+i-1];
-				Cell* cursor_cell = chain[cursor+i];
-				if (sigmap(prev_cell->getPort(ID::Y)) == sigmap(cursor_cell->getPort(ID::A))) {
-					b_sig.append(cursor_cell->getPort(ID::B));
-					s_sig.append(cursor_cell->getPort(ID::S));
-				}
-				else {
-					log_assert(cursor_cell->type == ID($mux));
-					b_sig.append(cursor_cell->getPort(ID::A));
-					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
-				}
-				remove_cells.insert(cursor_cell);
-			}
-
-			first_cell->setPort(ID::B, b_sig);
-			first_cell->setPort(ID::S, s_sig);
-			first_cell->setParam(ID::S_WIDTH, GetSize(s_sig));
-			first_cell->setPort(ID::Y, last_cell->getPort(ID::Y));
-
-			cursor += cases;
+			remove_cells.insert(cursor_cell);
 		}
+
+		first_cell->setPort(ID::B, b_sig);
+		first_cell->setPort(ID::S, s_sig);
+		first_cell->setParam(ID::S_WIDTH, GetSize(s_sig));
+		first_cell->setPort(ID::Y, last_cell->getPort(ID::Y));
 	}
 
 	void cleanup()
