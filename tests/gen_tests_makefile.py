@@ -26,12 +26,14 @@ def generate_target(name, command, deps = None):
     print(f"\t@$(call run_test,{target}, $({target}_cmd))")
 
 def generate_ys_test(ys_file, yosys_args="", commands=""):
+    yosys_args = f"--enable-exec {yosys_args}".strip()
     cmd = f'$(YOSYS) -l {ys_file}.err {yosys_args} {ys_file} && mv {ys_file}.err {ys_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"
     generate_target(ys_file, cmd)
 
 def generate_tcl_test(tcl_file, yosys_args="", commands=""):
+    yosys_args = f"--enable-exec {yosys_args}".strip()
     cmd = f'$(YOSYS) -l {tcl_file}.err {yosys_args} {tcl_file} && mv {tcl_file}.err {tcl_file}.log'
     if commands:
         cmd += f"; \\\n{commands}"

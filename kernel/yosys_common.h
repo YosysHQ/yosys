@@ -296,6 +296,7 @@ private:
 extern Autoidx autoidx;
 extern int yosys_xtrace;
 extern bool yosys_write_versions;
+extern bool yosys_enable_exec;
 
 const std::string *create_id_prefix(std::string_view file, int line, std::string_view func);
 RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix);

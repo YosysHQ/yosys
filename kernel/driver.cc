@@ -165,6 +165,7 @@ int main(int argc, char **argv)
 			cxxopts::value<std::vector<std::string>>(), "<plugin>")
 		("D,define", "set the specified Verilog define to <value> if supplied via command \"read -define\"",
 			cxxopts::value<std::vector<std::string>>(), "<define>[=<value>]")
+		("enable-exec", "enable the 'exec' command, which runs arbitrary shell commands")
 		("S,synth", "shortcut for calling the \"synth\" command, a default script for transforming " \
 					"the Verilog input to a gate-level netlist. For example: " \
 					"yosys -o output.blif -S input.v " \
@@ -261,6 +262,7 @@ int main(int argc, char **argv)
 			passes_commands.push_back("synth");
 			run_shell = false;
 		}
+		if (result.count("enable-exec")) yosys_enable_exec = true;
 		if (result.count("C")) run_tcl_shell = true;
 		if (result.count("g")) log_force_debug++;
 		if (result.count("m")) plugin_filenames = result["m"].as<std::vector<std::string>>();

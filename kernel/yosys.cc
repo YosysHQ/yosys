@@ -84,6 +84,7 @@ YOSYS_NAMESPACE_BEGIN
 Autoidx autoidx(1);
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
+bool yosys_enable_exec = false;
 const char* yosys_maybe_version() {
 	if (yosys_write_versions)
 		return yosys_version_str;

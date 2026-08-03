@@ -218,6 +218,8 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		return;
 
 	if (tok[0] == '!') {
+		if (!yosys_enable_exec)
+			log_cmd_error("The shell escape ('!') is disabled. Run Yosys with --enable-exec to enable it.\n");
 #if defined(YOSYS_ENABLE_SPAWN)
 		cmd_buf = command.substr(command.find('!') + 1);
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||

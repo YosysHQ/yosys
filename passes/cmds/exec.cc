@@ -49,7 +49,8 @@ struct ExecPass : public Pass {
 		log("\n");
 		log("    exec [options] -- [command]\n");
 		log("\n");
-		log("Execute a command in the operating system shell.  All supplied arguments are\n");
+		log("Execute a command in the operating system shell.  Enabled only\n");
+		log("when Yosys is run with --enable-exec.  All supplied arguments are\n");
 		log("concatenated and passed as a command to popen(3).  Whitespace is not guaranteed\n");
 		log("to be preserved, even if quoted.  stdin and stderr are not connected, while\n");
 		log("stdout is logged unless the \"-q\" option is specified.\n");
@@ -78,6 +79,9 @@ struct ExecPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		if (!yosys_enable_exec)
+			log_cmd_error("The 'exec' command is disabled. Run Yosys with --enable-exec to enable it.\n");
+
 		std::string cmd = "";
 		char buf[1024] = {};
 		std::string linebuf = "";
