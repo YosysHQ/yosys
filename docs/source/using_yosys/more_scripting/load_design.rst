@@ -81,7 +81,7 @@ Yosys frontends
    'Frontend' here means that the command is implemented as a sub-class of
    ``RTLIL::Frontend``, as opposed to the usual ``RTLIL::Pass``.
 
-.. todo:: link note to as-yet non-existent section on ``RTLIL::Pass`` under 
+.. todo:: link note to as-yet non-existent section on ``RTLIL::Pass`` under
           :doc:`/yosys_internals/extending_yosys/index`
 
 The `read_verilog` command

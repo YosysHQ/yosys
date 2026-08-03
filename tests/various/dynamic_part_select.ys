@@ -87,7 +87,7 @@ design -copy-from gate -as gate gate
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
-#### Double loop (part-select, reset) ### 
+#### Double loop (part-select, reset) ###
 design -reset
 read_verilog ./dynamic_part_select/reset_test.v
 proc
@@ -143,7 +143,7 @@ miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
 sat -prove-asserts -show-public -verify -set-init-zero equiv
 
 ###
-## Part select with obvious latch, expected to fail due comparison with old shift&mask AST transformation    
+## Part select with obvious latch, expected to fail due comparison with old shift&mask AST transformation
 design -reset
 read_verilog ./dynamic_part_select/latch_002.v
 hierarchy -top latch_002; prep; async2sync

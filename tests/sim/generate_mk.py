@@ -11,7 +11,7 @@ from pathlib import Path
 print("Generate FST for sim models")
 
 for name in Path("tb").rglob("tb*.v"):
-    test_name = name.stem 
+    test_name = name.stem
     print(f"Test {test_name}")
 
     verilog_name = f"{test_name[3:]}.v"

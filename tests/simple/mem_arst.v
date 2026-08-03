@@ -38,4 +38,3 @@ module MyMem #(
   end
 
 endmodule
-

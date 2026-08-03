@@ -652,7 +652,7 @@ LibertyAst *LibertyParser::parse(bool top_level)
 		return NULL;
 
 	if (tok != 'v') {
-		report_unexpected_token(tok);	
+		report_unexpected_token(tok);
 	}
 
 	LibertyAst *ast = new LibertyAst;
@@ -662,7 +662,7 @@ LibertyAst *LibertyParser::parse(bool top_level)
 	{
 		tok = lexer(str);
 
-		// allow both ';' and new lines to 
+		// allow both ';' and new lines to
 		// terminate a statement.
 		if ((tok == ';') || (tok == 'n'))
 			break;
@@ -1286,4 +1286,3 @@ int main(int argc, char **argv)
 }
 
 #endif
-

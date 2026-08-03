@@ -958,7 +958,7 @@ module RAMD64X1 (
     (DPRA2 => DPO) = 147;
     (DPRA3 => DPO) = 139;
     (DPRA4 => DPO) = 131;
-    (DPRA5 => DPO) = 64;    
+    (DPRA5 => DPO) = 64;
     (posedge WCLK => (SPO : D)) = 761;
     (posedge WCLK => (DPO : D)) = 733;
   endspecify
@@ -984,7 +984,7 @@ module RAMD64X1 (
     (DPRA2 => DPO) = 513;
     (DPRA3 => DPO) = 505;
     (DPRA4 => DPO) = 496;
-    (DPRA5 => DPO) = 199;    
+    (DPRA5 => DPO) = 199;
     (posedge WCLK => (SPO : D)) = 1798;
     (posedge WCLK => (DPO : D)) = 1807;
   endspecify

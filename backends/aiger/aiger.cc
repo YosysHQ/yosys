@@ -340,7 +340,7 @@ struct AigerWriter
 			if (cell->type == ID($scopeinfo))
 				continue;
 
-			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+			log_error("Unsupported cell type: %s (%s)\n", cell->type.unescape(), cell);
 		}
 
 		for (auto bit : unused_bits)
@@ -349,10 +349,10 @@ struct AigerWriter
 		if (!undriven_bits.empty()) {
 			undriven_bits.sort();
 			for (auto bit : undriven_bits) {
-				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
+				log_warning("Treating undriven bit %s.%s like $anyseq.\n", module, log_signal(bit));
 				input_bits.insert(bit);
 			}
-			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), log_id(module));
+			log_warning("Treating a total of %d undriven bits in %s like $anyseq.\n", GetSize(undriven_bits), module);
 		}
 
 		init_map.sort();
@@ -635,35 +635,35 @@ struct AigerWriter
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s[%d]", log_id(wire), i));
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s[%d]", wire, i));
 						else
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", log_id(wire)));
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("%s", wire));
 					}
 
 					if (wire->port_output) {
 						int o = ordered_outputs.at(SigSpec(wire, i));
 						if (GetSize(wire) != 1)
-							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", log_id(wire), i));
+							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s[%d]", wire, i));
 						else
-							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s", log_id(wire)));
+							symbols[stringf("%c%d", miter_mode ? 'b' : 'o', o)].push_back(stringf("%s", wire));
 					}
 
 					if (init_inputs.count(sig[i])) {
 						int a = init_inputs.at(sig[i]);
 						log_assert((a & 1) == 0);
 						if (GetSize(wire) != 1)
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s[%d]", log_id(wire), i));
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s[%d]", wire, i));
 						else
-							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s", log_id(wire)));
+							symbols[stringf("i%d", (a >> 1)-1)].push_back(stringf("init:%s", wire));
 					}
 
 					if (ordered_latches.count(sig[i])) {
 						int l = ordered_latches.at(sig[i]);
 						const char *p = (zinit_mode && (aig_latchinit.at(l) == 1)) ? "!" : "";
 						if (GetSize(wire) != 1)
-							symbols[stringf("l%d", l)].push_back(stringf("%s%s[%d]", p, log_id(wire), i));
+							symbols[stringf("l%d", l)].push_back(stringf("%s%s[%d]", p, wire, i));
 						else
-							symbols[stringf("l%d", l)].push_back(stringf("%s%s", p, log_id(wire)));
+							symbols[stringf("l%d", l)].push_back(stringf("%s%s", p, wire));
 					}
 				}
 			}
@@ -705,30 +705,30 @@ struct AigerWriter
 				int index = no_startoffset ? i : (wire->start_offset+i);
 
 				if (verbose_map)
-					wire_lines[a] += stringf("wire %d %d %s\n", a, index, log_id(wire));
+					wire_lines[a] += stringf("wire %d %d %s\n", a, index, wire);
 
 				if (wire->port_input) {
 					log_assert((a & 1) == 0);
-					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, index, log_id(wire));
+					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, index, wire);
 				}
 
 				if (wire->port_output) {
 					int o = ordered_outputs.at(SigSpec(wire, i));
-					output_lines[o] += stringf("output %d %d %s\n", o, index, log_id(wire));
+					output_lines[o] += stringf("output %d %d %s\n", o, index, wire);
 				}
 
 				if (init_inputs.count(sig[i])) {
 					int a = init_inputs.at(sig[i]);
 					log_assert((a & 1) == 0);
-					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, index, log_id(wire));
+					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, index, wire);
 				}
 
 				if (ordered_latches.count(sig[i])) {
 					int l = ordered_latches.at(sig[i]);
 					if (zinit_mode && (aig_latchinit.at(l) == 1))
-						latch_lines[l] += stringf("invlatch %d %d %s\n", l, index, log_id(wire));
+						latch_lines[l] += stringf("invlatch %d %d %s\n", l, index, wire);
 					else
-						latch_lines[l] += stringf("latch %d %d %s\n", l, index, log_id(wire));
+						latch_lines[l] += stringf("latch %d %d %s\n", l, index, wire);
 				}
 			}
 		}
@@ -1027,12 +1027,12 @@ struct AigerBackend : public Backend {
 			log_error("Can't find top module in current design!\n");
 
 		if (!design->selected_whole_module(top_module))
-			log_cmd_error("Can't handle partially selected module %s!\n", log_id(top_module));
+			log_cmd_error("Can't handle partially selected module %s!\n", top_module);
 
 		if (!top_module->processes.empty())
-			log_error("Found unmapped processes in module %s: unmapped processes are not supported in AIGER backend!\n", log_id(top_module));
+			log_error("Found unmapped processes in module %s: unmapped processes are not supported in AIGER backend!\n", top_module);
 		if (!top_module->memories.empty())
-			log_error("Found unmapped memories in module %s: unmapped memories are not supported in AIGER backend!\n", log_id(top_module));
+			log_error("Found unmapped memories in module %s: unmapped memories are not supported in AIGER backend!\n", top_module);
 
 		AigerWriter writer(top_module, no_sort, zinit_mode, imode, omode, bmode, lmode);
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);

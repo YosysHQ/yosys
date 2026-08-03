@@ -1,11 +1,13 @@
 [build-system]
 requires = [
-	"setuptools>=42",
+	"wheel",
+	"packaging",
 	"pybind11>=3,<4",
-	"cxxheaderparser"
+	"cxxheaderparser",
 ]
-build-backend = "setuptools.build_meta"
+backend-path = ["pyosys/build"]
+build-backend = "local_backend"
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py310"
 lint.ignore = ["F541"]

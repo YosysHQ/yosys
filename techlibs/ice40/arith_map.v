@@ -72,4 +72,3 @@ module _80_ice40_alu (A, B, CI, BI, X, Y, CO);
 
 	assign X = AA ^ BB;
 endmodule
-

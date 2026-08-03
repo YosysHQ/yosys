@@ -155,19 +155,13 @@ std::string get_base_tmpdir()
 	}
 
 #if defined(_WIN32)
-#  ifdef __MINGW32__
 	char longpath[MAX_PATH + 1];
 	char shortpath[MAX_PATH + 1];
-#  else
-	WCHAR longpath[MAX_PATH + 1];
-	TCHAR shortpath[MAX_PATH + 1];
-#  endif
-	if (!GetTempPath(MAX_PATH+1, longpath))
+	if (!GetTempPathA(MAX_PATH+1, longpath))
 		log_error("GetTempPath() failed.\n");
-	if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
+	if (!GetShortPathNameA(longpath, shortpath, MAX_PATH + 1))
 		log_error("GetShortPathName() failed.\n");
-	for (int i = 0; shortpath[i]; i++)
-		tmpdir += char(shortpath[i]);
+	tmpdir += shortpath;
 #else
 	char * var = std::getenv("TMPDIR");
 	if (var && strlen(var)!=0) {

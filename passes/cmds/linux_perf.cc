@@ -36,7 +36,7 @@ struct LinuxPerf : public Pass {
 	bool formatted_help() override
 	{
 		auto *help = PrettyHelp::get_current();
-		
+
 		auto content_root = help->get_root();
 
 		content_root->usage("linux_perf [on|off]");

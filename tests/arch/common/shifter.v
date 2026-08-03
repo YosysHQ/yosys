@@ -13,5 +13,5 @@ module top(out, clk, in);
 	begin
 		out    <= out >> 1;
 		out[7] <= in;
-	end    
+	end
 endmodule

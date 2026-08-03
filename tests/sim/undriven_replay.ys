@@ -1,0 +1,5 @@
+read_verilog undriven_replay.v
+prep -top undriven_replay
+
+logger -expect error "Found 1 undriven signal in the replay trace" 1
+sim -r undriven_replay.vcd -scope undriven_replay -q

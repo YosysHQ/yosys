@@ -36,8 +36,7 @@ def main():
         lib_tests()
         ys_tests()
 
-    gen_tests_makefile.generate_custom(callback,
-        [f"YOSYS_FILTERLIB ?= {gen_tests_makefile.yosys_basedir}/yosys-filterlib"])
+    gen_tests_makefile.generate_custom(callback)
 
 
 if __name__ == "__main__":

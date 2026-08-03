@@ -39,7 +39,7 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 	for (int i = fsm_data.state_bits-1; i >= 0; i--)
 		fprintf(f, " %s_reg[%d]", name[0] == '\\' ?  name.substr(1).c_str() : name.c_str(), i);
 	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n", prefix, RTLIL::unescape_id(name).c_str(),
-			prefix, RTLIL::unescape_id(module->name).c_str());
+			prefix, module->name.unescape().c_str());
 
 	fprintf(f, "set_fsm_encoding {");
 	for (int i = 0; i < GetSize(fsm_data.state_table); i++) {
@@ -49,7 +49,7 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 	}
 	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n",
 			prefix, RTLIL::unescape_id(name).c_str(),
-			prefix, RTLIL::unescape_id(module->name).c_str());
+			prefix, module->name.unescape().c_str());
 }
 
 static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fsm_file, FILE *encfile, std::string default_encoding)
@@ -96,7 +96,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 		log_error("FSM encoding `%s' is not supported!\n", encoding);
 
 	if (encfile)
-		fprintf(encfile, ".fsm %s %s\n", log_id(module), RTLIL::unescape_id(cell->parameters[ID::NAME].decode_string()).c_str());
+		fprintf(encfile, ".fsm %s %s\n", module->name.unescape().c_str(), RTLIL::unescape_id(cell->parameters[ID::NAME].decode_string()).c_str());
 
 	int state_idx_counter = fsm_data.reset_state >= 0 ? 1 : 0;
 	for (int i = 0; i < int(fsm_data.state_table.size()); i++)

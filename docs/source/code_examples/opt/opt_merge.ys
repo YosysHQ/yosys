@@ -15,4 +15,3 @@ opt_merge after
 clean
 
 show -format dot -prefix opt_merge_full -notitle -color cornflowerblue uut
-

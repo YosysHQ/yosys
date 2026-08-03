@@ -42,4 +42,3 @@ cd dffe # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
 select -assert-count 1 t:FDRE
 select -assert-none t:BUFG t:FDRE %% t:* %D
-

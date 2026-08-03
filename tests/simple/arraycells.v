@@ -12,4 +12,3 @@ module aoi12(a, b, c, y);
 	output y;
 	assign y = ~((a & b) | c);
 endmodule
-

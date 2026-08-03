@@ -205,10 +205,10 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 					(GetSize(cone_a.cells) + GetSize(cone_b.cells)) - GetSize(cells));
 		#if 0
 			for (auto cell : short_cells_cone_a)
-				log("      A-side cell: %s\n", log_id(cell));
+				log("      A-side cell: %s\n", cell);
 
 			for (auto cell : short_cells_cone_b)
-				log("      B-side cell: %s\n", log_id(cell));
+				log("      B-side cell: %s\n", cell);
 		#endif
 	}
 	void report_new_assume_cells(const pool<Cell*>& extra_problem_cells, int old_size, const pool<Cell*>& problem_cells) const
@@ -219,7 +219,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 				old_size - (GetSize(problem_cells) - GetSize(extra_problem_cells)));
 		#if 0
 			for (auto cell : extra_problem_cells)
-				log("      cell: %s\n", log_id(cell));
+				log("      cell: %s\n", cell);
 		#endif
 		}
 	}
@@ -305,7 +305,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 		pool<SigBit> seed_b = { bit_b };
 
 		if (cfg.verbose) {
-			log("  Trying to prove $equiv cell %s:\n", log_id(cell));
+			log("  Trying to prove $equiv cell %s:\n", cell);
 			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(cell->getPort(ID::Y)));
 		} else {
 			log("  Trying to prove $equiv for %s:", log_signal(cell->getPort(ID::Y)));
@@ -477,7 +477,7 @@ struct EquivSimplePass : public Pass {
 				continue;
 
 			log("Found %d unproven $equiv cells (%d groups) in %s:\n",
-					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
+					unproven_cells_counter, GetSize(unproven_equiv_cells), module);
 
 			for (auto cell : module->cells()) {
 				if (!ct.cell_known(cell->type))

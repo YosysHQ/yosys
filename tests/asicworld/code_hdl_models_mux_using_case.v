@@ -19,10 +19,10 @@ reg  mux_out;
 //-------------Code Starts Here---------
 always @ (sel or din_0 or din_1)
 begin : MUX
- case(sel ) 
+ case(sel )
     1'b0 : mux_out = din_0;
     1'b1 : mux_out = din_1;
- endcase 
+ endcase
 end
 
 endmodule //End Of Module mux

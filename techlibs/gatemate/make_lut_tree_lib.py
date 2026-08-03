@@ -185,7 +185,7 @@ for name, expr in base_cells:
     if name not in ("$__CC4_XX", "$__CC3_X"):
         cells.append([name + "_X", 12, XOR(E, expr)])
 
-with open("techlibs/gatemate/lut_tree_cells.genlib", "w") as glf:
+with open("lut_tree_cells.genlib", "w") as glf:
     def mkGate(name, cost, expr, max_load=9999, block_delay = 10, fanout_delay = 5):
         name = name.replace(" ", "")
         expr = expr.map()
@@ -280,7 +280,7 @@ lut_prims = {
     )
 }
 
-with open("techlibs/gatemate/lut_tree_map.v", "w") as vf:
+with open("lut_tree_map.v", "w") as vf:
     # Non-automatic rules
     print("""
 module \\$__ZERO (output Y); assign Y = 1'b0; endmodule

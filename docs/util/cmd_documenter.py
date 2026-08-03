@@ -78,7 +78,7 @@ class YosysCmd:
         self.source_func = source_func
         self.experimental_flag = experimental_flag
         self.internal_flag = internal_flag
-    
+
 class YosysCmdGroupDocumenter(Documenter):
     objtype = 'cmdgroup'
     priority = 10
@@ -112,7 +112,7 @@ class YosysCmdGroupDocumenter(Documenter):
             for (name, obj) in cmds_obj.get(self.lib_key, {}).items():
                 self.__cmd_lib[name] = obj
         return self.__cmd_lib
-    
+
     @classmethod
     def can_document_member(
         cls,
@@ -128,7 +128,7 @@ class YosysCmdGroupDocumenter(Documenter):
             self.content_indent = ''
         self.fullname = self.modname = self.name
         return True
-    
+
     def import_object(self, raiseerror: bool = False) -> bool:
         # get cmd
         try:
@@ -140,19 +140,19 @@ class YosysCmdGroupDocumenter(Documenter):
 
         self.real_modname = self.modname
         return True
-    
+
     def get_sourcename(self) -> str:
         return self.env.doc2path(self.env.docname)
-    
+
     def format_name(self) -> str:
         return self.options.caption or ''
 
     def format_signature(self, **kwargs: Any) -> str:
         return self.modname
-    
+
     def add_directive_header(self, sig: str) -> None:
         pass
-    
+
     def add_content(self, more_content: Any | None) -> None:
         pass
 
@@ -323,7 +323,7 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
             return self.object.source_file
         except AttributeError:
             return super().get_sourcename()
-    
+
     def format_name(self) -> str:
         return self.object.name
 
@@ -347,7 +347,7 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
 
         if self.options.noindex:
             self.add_line('   :noindex:', source_name)
-    
+
     def add_content(self, more_content: Any | None) -> None:
         # set sourcename and add content from attribute documentation
         domain = getattr(self, 'domain', self.objtype)

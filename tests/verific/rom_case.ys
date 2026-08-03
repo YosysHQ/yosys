@@ -47,7 +47,7 @@ architecture rtl of rom_example is
 	attribute rom_style : string;
 	attribute rom_style of data : signal is "block";
 begin
-	
+
 	p_rom : process(clk)
 	begin
 		if rising_edge(clk) then
@@ -63,7 +63,7 @@ begin
 			end case;
 		end if;
 	end process p_rom;
-	
+
 end architecture rtl;
 EOF
 hierarchy -top rom_example

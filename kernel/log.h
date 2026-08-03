@@ -24,7 +24,6 @@
 
 #include <time.h>
 
-#include <atomic>
 #include <regex>
 #define YS_REGEX_COMPILE(param) std::regex(param, \
 				std::regex_constants::nosubs | \
@@ -44,19 +43,10 @@
 #  endif
 #endif
 
-#if defined(_MSC_VER)
-// At least this is not in MSVC++ 2013.
-#  define __PRETTY_FUNCTION__ __FUNCTION__
-#endif
-
 // from libs/sha1/sha1.h
 class SHA1;
 
 YOSYS_NAMESPACE_BEGIN
-
-#define S__LINE__sub2(x) #x
-#define S__LINE__sub1(x) S__LINE__sub2(x)
-#define S__LINE__ S__LINE__sub1(__LINE__)
 
 // YS_DEBUGTRAP is a macro that is functionally equivalent to a breakpoint
 // if the platform provides such functionality, and does nothing otherwise.
@@ -119,9 +109,6 @@ extern void (*log_error_atexit)();
 extern int log_make_debug;
 extern int log_force_debug;
 extern int log_debug_suppressed;
-
-[[deprecated]]
-[[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);

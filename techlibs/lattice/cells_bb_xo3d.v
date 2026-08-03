@@ -580,4 +580,3 @@ endmodule
 module TSALL(TSALL);
     input TSALL;
 endmodule
-

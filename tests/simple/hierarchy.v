@@ -24,4 +24,3 @@ assign y2 = b;
 assign y3 = c;
 assign y4 = d;
 endmodule
-

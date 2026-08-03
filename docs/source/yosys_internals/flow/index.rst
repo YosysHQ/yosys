@@ -10,10 +10,9 @@ These scripts contain three types of commands:
 - **Backends**, that write the design in memory to a file (various formats are
   available: Verilog, BLIF, EDIF, SPICE, BTOR, . . .).
 
-.. toctree:: 
+.. toctree::
 	:maxdepth: 3
 
 	overview
 	control_and_data
 	verilog_frontend
-

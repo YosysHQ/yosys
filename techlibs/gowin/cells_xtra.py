@@ -103,4 +103,3 @@ if __name__ == '__main__':
                     with open(f'adc.v', 'r') as fin:
                         for l in fin:
                             fout.write(l);
-

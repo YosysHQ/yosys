@@ -89,7 +89,7 @@ struct CxxStruct {
 		}
 		f.print("\n\t\ttemplate <typename T> void visit(T &&fn) {{\n");
 		for (auto p : types) {
-			f.print("\t\t\tfn(\"{}\", {});\n", RTLIL::unescape_id(p.first), scope(p.first, p.first));
+			f.print("\t\t\tfn(\"{}\", {});\n", p.first.unescape(), scope(p.first, p.first));
 		}
 		f.print("\t\t}}\n");
 		f.print("\t}};\n\n");

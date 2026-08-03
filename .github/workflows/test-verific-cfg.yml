@@ -9,7 +9,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: true
@@ -19,91 +19,77 @@ jobs:
 
       - name: verific [SV]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: verific [VHDL]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "vhdl" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: verific [SV + VHDL]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "vhdl;systemverilog" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: verific [SV + HIER]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog;hier_tree" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: verific [VHDL + HIER]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "vhdl;hier_tree" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: verific [SV + VHDL + HIER]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 0" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog;vhdl;hier_tree" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: verific [SV + VHDL + HIER + EDIF + LIBERTY]
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_SYSTEMVERILOG := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_VHDL := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_HIER_TREE := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_FEATURES "systemverilog;vhdl;hier_tree;edif;liberty" CACHE STRING "")' >> Configuration.cmake
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs

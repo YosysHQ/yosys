@@ -7,11 +7,11 @@
 module dff_async_reset (
 data  , // Data Input
 clk    , // Clock Input
-reset , // Reset input 
+reset , // Reset input
 q         // Q output
 );
 //-----------Input Ports---------------
-input data, clk, reset ; 
+input data, clk, reset ;
 
 //-----------Output Ports---------------
 output q;

@@ -71,9 +71,9 @@ struct PortlistPass : public Pass {
 				ports.push_back(stringf("%s [%d:%d] %s", w->port_input ? w->port_output ? "inout" : "input" : "output",
 						w->upto ? w->start_offset : w->start_offset + w->width - 1,
 						w->upto ? w->start_offset + w->width - 1 : w->start_offset,
-						log_id(w)));
+						w));
 			}
-			log("module %s%s\n", log_id(module), m_mode ? " (" : "");
+			log("module %s%s\n", module, m_mode ? " (" : "");
 			for (int i = 0; i < GetSize(ports); i++)
 				log("%s%s\n", ports[i], m_mode && i+1 < GetSize(ports) ? "," : "");
 			if (m_mode)

@@ -8,7 +8,7 @@
 //-----------------------------------------------------
 module parity (
 a      , // First input
-b      , // Second input 
+b      , // Second input
 c      , // Third Input
 d      , // Fourth Input
 y        // Parity  output
@@ -38,4 +38,4 @@ xor u1 (out_1,c,d);
 
 xor u2 (y,out_0,out_1);
 
-endmodule // End Of Module parity 
+endmodule // End Of Module parity

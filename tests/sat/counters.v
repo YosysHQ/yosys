@@ -32,4 +32,3 @@ module counter2(clk, rst, ping);
 
 	assign ping = &count;
 endmodule
-

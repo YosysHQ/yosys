@@ -377,8 +377,8 @@ struct Abc9Pass : public ScriptPass
 				run("    abc9_ops -write_box <abc-temp-dir>/input.box", "(skip if '-box')");
 				run("    write_xaiger -map <abc-temp-dir>/input.sym [-dff] <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> -lut [<abc-temp-dir>/input.lut] -box [<abc-temp-dir>/input.box]");
-				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-				run("    abc9_ops -reintegrate [-dff]");
+				run("    read_aiger -xaiger -module_name <module-name>$abc9 <abc-temp-dir>/output.aig");
+				run("    abc_ops_reintegrate -map <abc-temp-dir>/input.sym [-dff]");
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
@@ -386,7 +386,7 @@ struct Abc9Pass : public ScriptPass
 
 				for (auto mod : selected_modules) {
 					if (mod->processes.size() > 0) {
-						log("Skipping module %s as it contains processes.\n", log_id(mod));
+						log("Skipping module %s as it contains processes.\n", mod);
 						continue;
 					}
 
@@ -395,10 +395,10 @@ struct Abc9Pass : public ScriptPass
 
 					// this check does nothing because the above line adds the whole module to the selection
 					if (!active_design->selected_whole_module(mod))
-						log_error("Can't handle partially selected module %s!\n", log_id(mod));
+						log_error("Can't handle partially selected module %s!\n", mod);
 
 					std::string tempdir_name;
-					if (cleanup) 
+					if (cleanup)
 						tempdir_name = get_base_tmpdir() + "/";
 					else
 						tempdir_name = "_tmp_";
@@ -416,7 +416,7 @@ struct Abc9Pass : public ScriptPass
 					log("Extracted %d AND gates and %d wires from module `%s' to a netlist network with %d inputs and %d outputs.\n",
 							active_design->scratchpad_get_int("write_xaiger.num_ands"),
 							active_design->scratchpad_get_int("write_xaiger.num_wires"),
-							log_id(mod),
+							mod,
 							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
 							num_outputs);
 					if (num_outputs) {
@@ -429,8 +429,8 @@ struct Abc9Pass : public ScriptPass
 						else
 							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
-						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name, tempdir_name));
-						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
+						run_nocheck(stringf("read_aiger -xaiger -module_name %s$abc9 %s/output.aig", mod, tempdir_name));
+						run_nocheck(stringf("abc_ops_reintegrate -map %s/input.sym %s", tempdir_name, dff_mode ? "-dff" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");

@@ -69,4 +69,3 @@ module other;
 	between_t a = 8'h42;
 	always @(*) assert(a == 8'h42);
 endmodule
-

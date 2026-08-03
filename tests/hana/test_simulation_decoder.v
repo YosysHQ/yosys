@@ -45,7 +45,7 @@ always @(in )
 	       3'b110 : out = 8'b01000000;
 	       3'b111 : out = 8'b10000000;
 	    endcase
-endmodule	
+endmodule
 
 // test_simulation_decoder_5_test.v
 module f4_test (input [2:0] in, input enable, output reg [7:0] out);
@@ -53,7 +53,7 @@ module f4_test (input [2:0] in, input enable, output reg [7:0] out);
 always @(in or enable )
     if(!enable)
 	    out = 8'b00000000;
-	else	
+	else
 	   case (in)
 	       3'b000 : out = 8'b00000001;
 	       3'b001 : out = 8'b00000010;
@@ -64,7 +64,7 @@ always @(in or enable )
 	       3'b110 : out = 8'b01000000;
 	       3'b111 : out = 8'b10000000;
 	    endcase
-endmodule	
+endmodule
 
 // test_simulation_decoder_6_test.v
 module f5_test (input [3:0] in, input enable, output reg [15:0] out);
@@ -92,7 +92,7 @@ always @(in or enable)
 	       4'b1111 : out = 16'b1000000000000000;
 	    endcase
 	end
-endmodule	
+endmodule
 
 
 // test_simulation_decoder_7_test.v
@@ -137,7 +137,7 @@ always @(in or enable)
 	       5'b11111 : out = 32'b10000000000000000000000000000000;
 	    endcase
 	end
-endmodule	
+endmodule
 
 
 // test_simulation_decoder_8_test.v
@@ -215,5 +215,4 @@ always @(in or enable)
 	       6'b111111 : out = 64'b1000000000000000000000000000000000000000000000000000000000000000;
 	    endcase
 	end
-endmodule	
-
+endmodule

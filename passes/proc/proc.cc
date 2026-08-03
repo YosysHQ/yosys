@@ -69,10 +69,14 @@ struct ProcPass : public Pass {
 		log("    -noopt\n");
 		log("        Will omit the opt_expr pass.\n");
 		log("\n");
+		log("    -latches <auto|warn|error>\n");
+		log("        controls how the inference of a latch is reported.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string global_arst;
+		std::string latches;
 		bool ifxmode = false;
 		bool nomux = false;
 		bool noopt = false;
@@ -104,6 +108,10 @@ struct ProcPass : public Pass {
 				norom = true;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -121,7 +129,10 @@ struct ProcPass : public Pass {
 			Pass::call(design, "proc_rom");
 		if (!nomux)
 			Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
-		Pass::call(design, "proc_dlatch");
+		if (latches.empty())
+			Pass::call(design, "proc_dlatch");
+		else
+			Pass::call(design, "proc_dlatch -latches " + latches);
 		Pass::call(design, "proc_dff");
 		Pass::call(design, "proc_memwr");
 		Pass::call(design, "proc_clean");

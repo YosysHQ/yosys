@@ -30,4 +30,3 @@ for fn in test_*.il; do
 done
 
 grep '^-- invariant .* is false' *.out || echo 'All OK.'
-

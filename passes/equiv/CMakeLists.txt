@@ -1,0 +1,54 @@
+yosys_pass(equiv_make
+	equiv_make.cc
+	equiv.h
+)
+yosys_pass(equiv_miter
+	equiv_miter.cc
+	equiv.h
+)
+yosys_pass(equiv_simple
+	equiv_simple.cc
+	equiv.h
+)
+yosys_pass(equiv_status
+	equiv_status.cc
+	equiv.h
+)
+yosys_pass(equiv_add
+	equiv_add.cc
+	equiv.h
+)
+yosys_pass(equiv_remove
+	equiv_remove.cc
+	equiv.h
+)
+yosys_pass(equiv_induct
+	equiv_induct.cc
+	equiv.h
+)
+yosys_pass(equiv_struct
+	equiv_struct.cc
+	equiv.h
+)
+yosys_pass(equiv_purge
+	equiv_purge.cc
+	equiv.h
+)
+yosys_pass(equiv_mark
+	equiv_mark.cc
+	equiv.h
+)
+yosys_pass(equiv_opt
+	equiv_opt.cc
+	equiv.h
+	REQUIRES
+		async2sync
+		check
+		clk2fflogic
+		design
+		equiv_induct
+		equiv_make
+		equiv_status
+		hierarchy
+		techmap
+)

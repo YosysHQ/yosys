@@ -1,0 +1,14 @@
+yosys_core(bigint
+  BigIntegerAlgorithms.cc
+  BigIntegerAlgorithms.hh
+  BigInteger.cc
+  BigInteger.hh
+  BigIntegerLibrary.hh
+  BigIntegerUtils.cc
+  BigIntegerUtils.hh
+  BigUnsigned.cc
+  BigUnsigned.hh
+  BigUnsignedInABase.cc
+  BigUnsignedInABase.hh
+	NumberlikeArray.hh
+)

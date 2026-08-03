@@ -80,7 +80,7 @@ public:
 	SmtStruct(std::string name, SmtScope &scope) : scope(scope), name(name) {}
 	void insert(IdString field_name, SmtSort sort) {
 		field_names(field_name);
-		auto accessor = scope.unique_name("\\" + name + "_" + RTLIL::unescape_id(field_name));
+		auto accessor = scope.unique_name("\\" + name + "_" + field_name.unescape());
 		fields.emplace_back(Field{sort, accessor});
 	}
 	void write_definition(SExprWriter &w) {
@@ -99,7 +99,7 @@ public:
 			w.open(list(name));
 			for(auto field_name : field_names) {
 				w << fn(field_name);
-				w.comment(RTLIL::unescape_id(field_name), true);
+				w.comment(field_name.unescape(), true);
 			}
 			w.close();
 		}
@@ -187,7 +187,7 @@ struct SmtModule {
 	Functional::IR ir;
 	SmtScope scope;
 	std::string name;
-	
+
 	SmtStruct input_struct;
 	SmtStruct output_struct;
 	SmtStruct state_struct;
@@ -256,7 +256,7 @@ struct SmtModule {
 	}
 
 	void write(std::ostream &out)
-	{    
+	{
 		SExprWriter w(out);
 
 		input_struct.write_definition(w);
@@ -266,7 +266,7 @@ struct SmtModule {
 		w << list("declare-datatypes",
 			list(list("Pair", 2)),
 			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
-		
+
 		write_eval(w);
 		write_initial(w);
 	}

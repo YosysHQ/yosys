@@ -1,0 +1,33 @@
+yosys_pass(synth_fabulous
+	synth_fabulous.cc
+	REQUIRES
+		abc
+		alumacc
+		check
+		clean
+		deminout
+		dfflegalize
+		flatten
+		fsm
+		hierarchy
+		iopadmap
+		memory
+		memory_libmap
+		memory_map
+		opt
+		opt_clean
+		opt_expr
+		peepopt
+		proc
+		read_verilog
+		share
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_blif
+		write_json
+	DATA_DIR
+		fabulous
+	DATA_FILES
+)

@@ -64,4 +64,3 @@ module _80_gw1n_alu(A, B, CI, BI, X, Y, CO);
    end endgenerate
    assign X = AA ^ BB ^ {Y_WIDTH{BI}};
 endmodule
-

@@ -14,4 +14,3 @@ of interest for developers looking to customise Yosys builds.
    advanced_bugpoint
    contributing
    test_suites
-

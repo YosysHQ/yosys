@@ -10589,4 +10589,3 @@ module PCLKDIVSP(CLKIN, CLKOUT, LSRPDIV);
     output CLKOUT;
     input LSRPDIV;
 endmodule
-

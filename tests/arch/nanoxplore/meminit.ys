@@ -3,7 +3,7 @@ chparam -set DEPTH_LOG2 5 -set WIDTH 36
 prep
 opt_dff
 prep -rdff
-synth_nanoxplore 
+synth_nanoxplore
 clean_zerowidth
 select -assert-none t:$mem_v2 t:$mem
 read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
@@ -18,7 +18,7 @@ chparam -set DEPTH_LOG2 6 -set WIDTH 18
 prep
 opt_dff
 prep -rdff
-synth_nanoxplore 
+synth_nanoxplore
 clean_zerowidth
 select -assert-none t:$mem_v2 t:$mem
 read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v
@@ -34,7 +34,7 @@ chparam -set DEPTH_LOG2 8 -set WIDTH 18
 prep
 opt_dff
 prep -rdff
-synth_nanoxplore 
+synth_nanoxplore
 clean_zerowidth
 select -assert-none t:$mem_v2 t:$mem
 read_verilog +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim_u.v

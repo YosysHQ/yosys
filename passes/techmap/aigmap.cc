@@ -92,7 +92,6 @@ struct AigmapPass : public Pass {
 				}
 
 				vector<SigBit> sigs;
-				dict<pair<int, int>, SigBit> and_cache;
 
 				for (int node_idx = 0; node_idx < GetSize(aig.nodes); node_idx++)
 				{
@@ -115,15 +114,10 @@ struct AigmapPass : public Pass {
 
 							goto skip_inverter;
 						} else {
-							pair<int, int> key(node.left_parent, node.right_parent);
-							if (and_cache.count(key))
-								bit = and_cache.at(key);
-							else {
-								bit = module->addWire(NEW_ID);
-								auto gate = module->addAndGate(NEW_ID, A, B, bit);
-								if (select_mode)
-									new_sel.insert(gate->name);
-							}
+							bit = module->addWire(NEW_ID);
+							auto gate = module->addAndGate(NEW_ID, A, B, bit);
+							if (select_mode)
+								new_sel.insert(gate->name);
 						}
 					}
 
@@ -150,21 +144,21 @@ struct AigmapPass : public Pass {
 			if (not_replaced_count == 0 && replaced_cells.empty())
 				continue;
 
-			log("Module %s: replaced %d cells with %d new cells, skipped %d cells.\n", log_id(module),
+			log("Module %s: replaced %d cells with %d new cells, skipped %d cells.\n", module,
 					GetSize(replaced_cells), GetSize(module->cells()) - orig_num_cells, not_replaced_count);
 
 			if (!stat_replaced.empty()) {
 				stat_replaced.sort();
 				log("  replaced %d cell types:\n", GetSize(stat_replaced));
 				for (auto &it : stat_replaced)
-					log("%8d %s\n", it.second, log_id(it.first));
+					log("%8d %s\n", it.second, it.first.unescape());
 			}
 
 			if (!stat_not_replaced.empty()) {
 				stat_not_replaced.sort();
 				log("  not replaced %d cell types:\n", GetSize(stat_not_replaced));
 				for (auto &it : stat_not_replaced)
-					log("%8d %s\n", it.second, log_id(it.first));
+					log("%8d %s\n", it.second, it.first.unescape());
 			}
 
 			for (auto cell : replaced_cells)

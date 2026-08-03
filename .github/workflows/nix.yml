@@ -1,0 +1,24 @@
+name: Test nix build
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 6'
+
+jobs:
+  nix-build:
+    name: "Build nix flake"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          persist-credentials: false
+      - uses: cachix/install-nix-action@v31
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.30.0/install
+      - run: nix build -L

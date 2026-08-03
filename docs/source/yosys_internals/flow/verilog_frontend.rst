@@ -432,12 +432,12 @@ variables:
     initialization of ``AST_INTERNAL::ProcessGenerator`` these two variables are
     empty.
 
--  | ``subst_lvalue_from`` and ``subst_lvalue_to`` 
+-  | ``subst_lvalue_from`` and ``subst_lvalue_to``
    | These two variables contain the mapping from left-hand-side signals (``\
      <name>``) to the current temporary signal for the same thing (initially
      ``$0\ <name>``).
 
--  | ``current_case`` 
+-  | ``current_case``
    | A pointer to a ``RTLIL::CaseRule`` object. Initially this is the root case
      of the generated ``RTLIL::Process``.
 
@@ -603,13 +603,13 @@ behavioural model in ``RTLIL::Process`` representation. The actual conversion
 from a behavioural model to an RTL representation is performed by the `proc`
 pass and the passes it launches:
 
--  | `proc_clean` and `proc_rmdead` 
+-  | `proc_clean` and `proc_rmdead`
    | These two passes just clean up the ``RTLIL::Process`` structure. The
      `proc_clean` pass removes empty parts (eg. empty assignments) from the
      process and `proc_rmdead` detects and removes unreachable branches from the
      process's decision trees.
 
--  | `proc_arst` 
+-  | `proc_arst`
    | This pass detects processes that describe d-type flip-flops with
      asynchronous resets and rewrites the process to better reflect what they
      are modelling: Before this pass, an asynchronous reset has two
@@ -617,7 +617,7 @@ pass and the passes it launches:
      reset path. After this pass the sync rule for the reset is level-sensitive
      and the top-level ``RTLIL::SwitchRule`` has been removed.
 
--  | `proc_mux` 
+-  | `proc_mux`
    | This pass converts the ``RTLIL::CaseRule``/\ ``RTLIL::SwitchRule``-tree to
      a tree of multiplexers per written signal. After this, the
      ``RTLIL::Process`` structure only contains the ``RTLIL::SyncRule`` s that

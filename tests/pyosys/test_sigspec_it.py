@@ -25,4 +25,3 @@ module = d.module(r"\spm")
 for conn_from, conn_to in module.connections_:
     for bit_from, bit_to in zip(conn_from, conn_to):
         print(f"assign {_dump_sigbit(bit_from)} = {_dump_sigbit(bit_to)};")
-

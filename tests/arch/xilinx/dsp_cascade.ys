@@ -87,4 +87,3 @@ select -assert-none t:DSP48A1 t:BUFG t:FDRE %% t:* %D
 # Very crude method of checking that DSP48E1.PCOUT -> DSP48E1.PCIN
 #   (see above for explanation)
 select -assert-count 1 t:DSP48A1 %co:+[PCOUT] t:DSP48A1 %d %co:+[PCIN] w:* %d t:DSP48A1 %i
-

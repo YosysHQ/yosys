@@ -43,7 +43,7 @@ void demorgan_worker(
 	if (GetSize(insig) < 1)
 		return;
 
-	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), GetSize(insig));
+	log("Inspecting %s cell %s (%d inputs)\n", cell->type.unescape(), cell->name.unescape(), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
 	{

@@ -15,7 +15,6 @@ passes/cmds/scratchpad.cc      @nakengelhardt
 frontends/rpc/                 @whitequark
 backends/cxxrtl/               @whitequark
 passes/cmds/bugpoint.cc        @whitequark
-passes/techmap/flowmap.cc      @whitequark
 passes/opt/opt_lut.cc          @whitequark
 passes/techmap/abc9*.cc        @eddiehung @Ravenslofty
 backends/aiger/xaiger.cc       @eddiehung
@@ -36,6 +35,7 @@ frontends/ast/                 @widlarizer
 techlibs/intel_alm/            @Ravenslofty
 techlibs/gowin/                @pepijndevos
 techlibs/gatemate/             @pu-cc
+techlibs/fabulous/             fpga.research.group@gmail.com
 
 # pyosys
 pyosys/*                       @donn

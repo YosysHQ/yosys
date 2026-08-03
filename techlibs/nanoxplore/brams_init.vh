@@ -3,7 +3,7 @@ function [409600-1:0] bram_init_to_string;
     input integer blocks;
     input integer width;
     reg [409600-1:0] temp; // (49152+2048)*8 48K bit data + 2k commas
-    reg [24-1:0] temp2; 
+    reg [24-1:0] temp2;
     integer i;
     integer j;
 begin

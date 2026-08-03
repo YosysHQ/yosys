@@ -19,7 +19,7 @@
             state <=  #1  IDLE;
             gnt_0 <= 0;
             gnt_1 <= 0;
-          end 
+          end
           else
             case(state)
               IDLE :  if (req_0 == 1'b1) begin

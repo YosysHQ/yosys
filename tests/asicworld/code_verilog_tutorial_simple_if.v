@@ -6,6 +6,6 @@ wire enable,din;
 always @ (enable or din)
 if (enable) begin
   latch <= din;
-end  
+end
 
 endmodule

@@ -1057,7 +1057,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 #if 0
 	log("-------------\n");
-	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.begin.filename, location.begin.line, type2str(type), this);
+	log("AST simplify[%d] depth %d at %s on %s %p:\n", stage, recursion_counter, location.to_string(), type2str(type), this);
 	log("const_fold=%d, stage=%d, width_hint=%d, sign_hint=%d\n",
 			int(const_fold), int(stage), int(width_hint), int(sign_hint));
 	// dumpAst(nullptr, "> ");
@@ -1492,7 +1492,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				const RTLIL::Wire *ref = module->wire(port_name);
 				if (ref == nullptr)
 					input_error("Cell instance refers to port %s which does not exist in module %s!.\n",
-							log_id(port_name), log_id(module->name));
+							port_name.unescape(), module->name.unescape());
 
 				// select the argument, if present
 				log_assert(child->children.size() <= 1);
@@ -2619,21 +2619,27 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			input_error("Right hand side of 1st expression of %s for-loop is not constant!\n", loop_type_str);
 
 		auto resolved = current_scope.at(init_ast->children[0]->str);
-		if (resolved->range_valid) {
-			int const_size = varbuf->range_left - varbuf->range_right;
-			int resolved_size = resolved->range_left - resolved->range_right;
-			if (const_size < resolved_size) {
-				for (int i = const_size; i < resolved_size; i++)
-					varbuf->bits.push_back(resolved->is_signed ? varbuf->bits.back() : State::S0);
-				varbuf->range_left = resolved->range_left;
-				varbuf->range_right = resolved->range_right;
-				varbuf->range_swapped = resolved->range_swapped;
-				varbuf->range_valid = resolved->range_valid;
+		auto apply_loop_var_type = [&resolved](std::unique_ptr<AstNode> &value) {
+			if (resolved->range_valid) {
+				int const_size = value->range_left - value->range_right;
+				int resolved_size = resolved->range_left - resolved->range_right;
+				if (const_size < resolved_size) {
+					for (int i = const_size; i < resolved_size; i++)
+						value->bits.push_back(resolved->is_signed ? value->bits.back() : State::S0);
+					value->range_left = resolved->range_left;
+					value->range_right = resolved->range_right;
+					value->range_swapped = resolved->range_swapped;
+					value->range_valid = resolved->range_valid;
+				}
 			}
-		}
+			value->is_signed = resolved->is_signed;
+		};
+
+		apply_loop_var_type(varbuf);
 
 		varbuf = std::make_unique<AstNode>(location, AST_LOCALPARAM, std::move(varbuf));
 		varbuf->str = init_ast->children[0]->str;
+		varbuf->is_signed = resolved->is_signed;
 
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
 		current_scope[varbuf->str] = varbuf.get();
@@ -2708,6 +2714,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (buf->type != AST_CONSTANT)
 				input_error("Right hand side of 3rd expression of %s for-loop is not constant (%s)!\n", loop_type_str, type2str(buf->type));
 
+			apply_loop_var_type(buf);
 			varbuf->children[0] = std::move(buf);
 		}
 
@@ -3250,7 +3257,7 @@ skip_dynamic_range_lvalue_expansion:;
 	if (stage > 1 && type == AST_IDENTIFIER && id2ast != nullptr && id2ast->type == AST_MEMORY && !in_lvalue &&
 			children.size() == 1 && children[0]->type == AST_RANGE && children[0]->children.size() == 1) {
 		if (integer < (unsigned)id2ast->unpacked_dimensions)
-			input_error("Insufficient number of array indices for %s.\n", log_id(str));
+			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 		newNode = std::make_unique<AstNode>(location, AST_MEMRD, children[0]->children[0]->clone());
 		newNode->str = str;
 		newNode->id2ast = id2ast;
@@ -3523,7 +3530,7 @@ skip_dynamic_range_lvalue_expansion:;
 			(children[0]->children.size() == 1 || children[0]->children.size() == 2) && children[0]->children[0]->type == AST_RANGE)
 	{
 		if (children[0]->integer < (unsigned)children[0]->id2ast->unpacked_dimensions)
-			input_error("Insufficient number of array indices for %s.\n", log_id(str));
+			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 
 		std::stringstream sstr;
 		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
@@ -5041,7 +5048,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 			if (!child->str.empty() && prefix.size() > 0) {
 				bool is_resolved = false;
 				std::string identifier_str = child->str;
-				if (current_ast_mod != nullptr && identifier_str.compare(0, current_ast_mod->str.size(), current_ast_mod->str) == 0) {
+				if (current_ast_mod != nullptr && identifier_str.size() > current_ast_mod->str.size() && identifier_str.compare(0, current_ast_mod->str.size(), current_ast_mod->str) == 0) {
 					if (identifier_str.at(current_ast_mod->str.size()) == '.') {
 						identifier_str = '\\' + identifier_str.substr(current_ast_mod->str.size()+1, identifier_str.size());
 					}
@@ -5273,7 +5280,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 		AstNode *mem = id2ast;
 
 		if (integer < (unsigned)mem->unpacked_dimensions)
-			input_error("Insufficient number of array indices for %s.\n", log_id(str));
+			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 
 		// flag if used after blocking assignment (in same proc)
 		if ((proc_flags[mem] & AstNode::MEM2REG_FL_EQ1) && !(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_EQ2)) {

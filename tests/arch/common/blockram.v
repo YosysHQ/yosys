@@ -233,7 +233,7 @@ endmodule // double_sync_ram_sdp
 
 
 module sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
-   (input  wire                      clk_a, clk_b, 
+   (input  wire                      clk_a, clk_b,
     input  wire                      write_enable_a, write_enable_b,
     input  wire                      read_enable_a, read_enable_b,
     input  wire  [DATA_WIDTH-1:0]    write_data_a, write_data_b,
@@ -325,4 +325,3 @@ module double_sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
     );
 
 endmodule // double_sync_ram_tdp
-

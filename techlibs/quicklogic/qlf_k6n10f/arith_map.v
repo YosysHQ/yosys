@@ -96,4 +96,3 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 
 	assign X = S;
 endmodule
-

@@ -83,4 +83,13 @@ void log(const char *format, ...)
     log_formatted(formatted);
 }
 
+void log_compat(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    std::string formatted = vstringf(format, ap);
+    va_end(ap);
+    log_formatted(formatted);
+}
+
 YOSYS_NAMESPACE_END

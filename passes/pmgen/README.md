@@ -34,8 +34,8 @@ for the pattern`<pattern_name>` and calls the callback function for each found
 match:
 
     pm.run_foobar([&](){
-        log("found matching 'foo' cell: %s\n", log_id(pm.st.foo));
-        log("          with 'bar' cell: %s\n", log_id(pm.st.bar));
+        log("found matching 'foo' cell: %s\n", pm.st.foo);
+        log("          with 'bar' cell: %s\n", pm.st.bar);
     });
 
 The `.pmg` file declares matcher state variables that are accessible via the

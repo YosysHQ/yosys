@@ -211,9 +211,8 @@ struct GatemateFoldInvPass : public Pass {
         for (Module *module : design->selected_modules()) {
             FoldInvWorker worker(module);
             worker();
-        }        
+        }
     }
 } GatemateFoldInvPass;
 
 PRIVATE_NAMESPACE_END
-

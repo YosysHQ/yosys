@@ -1,15 +1,15 @@
-module t481_lev2(pi00, pi01, pi02, pi03, pi04, pi05, pi06, pi07, pi08, pi09, 
+module t481_lev2(pi00, pi01, pi02, pi03, pi04, pi05, pi06, pi07, pi08, pi09,
 	pi10, pi11, pi12, pi13, pi14, pi15, po0);
 
-input pi00, pi01, pi02, pi03, pi04, pi05, pi06, pi07, pi08, pi09, 
+input pi00, pi01, pi02, pi03, pi04, pi05, pi06, pi07, pi08, pi09,
 	pi10, pi11, pi12, pi13, pi14, pi15;
 
 output po0;
 
-wire n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, 
-	n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, 
-	n66, n67, n68, n69, n70, n71, n72, n73, n74, n75, 
-	n76, n77, n78, n79, n80, n81, n82, n83, n84, n85, 
+wire n46, n47, n48, n49, n50, n51, n52, n53, n54, n55,
+	n56, n57, n58, n59, n60, n61, n62, n63, n64, n65,
+	n66, n67, n68, n69, n70, n71, n72, n73, n74, n75,
+	n76, n77, n78, n79, n80, n81, n82, n83, n84, n85,
 	n86, n87, n88, n89, n90;
 
   OR2 U47 ( .A(n46), .B(n47), .Z(po0));

@@ -1,0 +1,40 @@
+# https://github.com/YosysHQ/yosys/issues/5979
+
+read_verilog -sv << EOF
+module top (
+	input wire [1:0] sel,
+	input wire [3:0] a,
+	input wire [3:0] b,
+	output reg [3:0] y
+);
+	always @* begin
+		case (sel)
+			2'b1x: y = a;
+			2'b10: y = b;
+			default: y = a;
+		endcase
+	end
+endmodule
+
+module gold (
+	input wire [1:0] sel,
+	input wire [3:0] a,
+	input wire [3:0] b,
+	output reg [3:0] y
+);
+	always @* begin
+		if (sel == 2'b10) y = b;
+		else y = a;
+	end
+endmodule
+EOF
+
+proc
+opt -full
+
+select -assert-count 1 top/o:y %ci* top/i:b %i
+
+equiv_make gold top equiv
+cd equiv
+equiv_simple
+equiv_status -assert

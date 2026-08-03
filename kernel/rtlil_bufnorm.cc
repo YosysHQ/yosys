@@ -146,7 +146,7 @@ void RTLIL::Module::bufNormalize()
 		// already enqueued or becomes reachable when denormalizing $buf or
 		// $connect cells.
 		auto enqueue_cell_port = [&](Cell *cell, IdString port) {
-			xlog("processing cell port %s.%s\n", log_id(cell), log_id(port));
+			xlog("processing cell port %s.%s\n", cell, port.unescape());
 
 			// An empty cell type means the cell got removed
 			if (cell->type.empty())
@@ -270,7 +270,7 @@ void RTLIL::Module::bufNormalize()
 		// normalized mode).
 		while (wire_queue_pos < GetSize(wire_queue_entries)) {
 			auto wire = wire_queue_entries[wire_queue_pos++];
-			xlog("processing wire %s\n", log_id(wire));
+			xlog("processing wire %s\n", wire);
 
 			if (wire->driverCell_) {
 				Cell *cell = wire->driverCell_;
@@ -287,7 +287,7 @@ void RTLIL::Module::bufNormalize()
 					log_assert(connect_cell->type == ID($connect));
 					SigSpec const &sig_a = connect_cell->getPort(ID::A);
 					SigSpec const &sig_b = connect_cell->getPort(ID::B);
-					xlog("found $connect cell %s: %s <-> %s\n", log_id(connect_cell), log_signal(sig_a), log_signal(sig_b));
+					xlog("found $connect cell %s: %s <-> %s\n", connect_cell, log_signal(sig_a), log_signal(sig_b));
 					for (auto &side : {sig_a, sig_b})
 						for (auto chunk : side.chunks())
 							if (chunk.wire)
@@ -452,7 +452,7 @@ void RTLIL::Module::bufNormalize()
 			}
 
 			if (wire->driverCell_ == nullptr) {
-				xlog("wire %s drivers %s\n", log_id(wire), log_signal(wire_drivers));
+				xlog("wire %s drivers %s\n", wire, log_signal(wire_drivers));
 				addBuf(NEW_ID, wire_drivers, wire);
 			}
 		}
@@ -541,7 +541,7 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 		if (yosys_xtrace) {
-			log("#X# Unconnect %s.%s.%s\n", log_id(this->module), log_id(this), log_id(portname));
+			log("#X# Unconnect %s.%s.%s\n", this->module, this, portname.unescape());
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
@@ -601,7 +601,7 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module, this, portname.unescape(), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 

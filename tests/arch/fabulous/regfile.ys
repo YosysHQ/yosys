@@ -10,7 +10,7 @@ module sync_sync(input clk, we, input [4:0] aw, aa, ab, input [3:0] wd, output r
 endmodule
 EOT
 
-synth_fabulous -top sync_sync
+synth_fabulous -top sync_sync -noiopad -ff $_DFF_P_ x -ff $_DLATCH_?_ x -extra-plib prims.v -arith-map arith_map.v -cells-map cells_map.v  -extra-map ff_map.v -extra-map latches_map.v -extra-mlibmap ram_regfile.txt -extra-map regfile_map.v
 cd sync_sync
 select -assert-count 1 t:RegFile_32x4
 

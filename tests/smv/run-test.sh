@@ -16,4 +16,3 @@ all: $(addsuffix .ok,$(basename $(wildcard temp/test_*.il)))
 EOT
 
 ${MAKE:-make} -f temp/makefile
-

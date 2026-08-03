@@ -10,4 +10,3 @@ select -assert-count 2 t:MISTRAL_NOT
 select -assert-count 8 t:MISTRAL_ALUT_ARITH
 select -assert-count 8 t:MISTRAL_FF
 select -assert-none t:MISTRAL_NOT t:MISTRAL_ALUT_ARITH t:MISTRAL_FF %% t:* %D
-

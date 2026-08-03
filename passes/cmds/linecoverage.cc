@@ -90,12 +90,12 @@ struct CoveragePass : public Pass {
 
 		std::map<std::string, std::set<int>> uncovered_lines;
 		std::map<std::string, std::set<int>> all_lines;
-		
+
 		for (auto module : design->modules())
 		{
-			log_debug("Module %s:\n", log_id(module));
+			log_debug("Module %s:\n", module);
 			for (auto wire: module->wires()) {
-				log_debug("%s\t%s\t%s\n", module->selected(wire) ? "*" : " ", wire->get_src_attribute(), log_id(wire->name));
+				log_debug("%s\t%s\t%s\n", module->selected(wire) ? "*" : " ", wire->get_src_attribute(), wire->name.unescape());
 				for (auto src: wire->get_strpool_attribute(ID::src)) {
 					auto filename = extract_src_filename(src);
 					if (filename.empty()) continue;
@@ -109,7 +109,7 @@ struct CoveragePass : public Pass {
 				}
 			}
 			for (auto cell: module->cells()) {
-				log_debug("%s\t%s\t%s\n", module->selected(cell) ? "*" : " ", cell->get_src_attribute(), log_id(cell->name));
+				log_debug("%s\t%s\t%s\n", module->selected(cell) ? "*" : " ", cell->get_src_attribute(), cell->name.unescape());
 				for (auto src: cell->get_strpool_attribute(ID::src)) {
 					auto filename = extract_src_filename(src);
 					if (filename.empty()) continue;
@@ -136,7 +136,7 @@ struct CoveragePass : public Pass {
 					fout << "DA:" << l << ",";
 					if (uncovered_lines.count(file_entry.first) && uncovered_lines[file_entry.first].count(l))
 						fout << "0";
-					else 
+					else
 						fout << "1";
 					fout << "\n";
 				}

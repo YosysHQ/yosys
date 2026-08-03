@@ -89,7 +89,7 @@ struct SplitcellsWorker
 			if (GetSize(slices) <= 1) return 0;
 			slices.push_back(GetSize(outsig));
 
-			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			log("Splitting %s cell %s/%s into %d slices:\n", cell->type.unescape(), module, cell, GetSize(slices)-1);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;
@@ -126,7 +126,7 @@ struct SplitcellsWorker
 				if (slice->hasParam(ID::WIDTH))
 					slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Y)));
 
-				log("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Y)));
+				log("  slice %d: %s => %s\n", i, slice_name, log_signal(slice->getPort(ID::Y)));
 			}
 
 			module->remove(cell);
@@ -155,7 +155,7 @@ struct SplitcellsWorker
 			if (GetSize(slices) <= 1) return 0;
 			slices.push_back(GetSize(outsig));
 
-			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			log("Splitting %s cell %s/%s into %d slices:\n", cell->type.unescape(), module, cell, GetSize(slices)-1);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;
@@ -185,7 +185,7 @@ struct SplitcellsWorker
 
 				slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Q)));
 
-				log("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Q)));
+				log("  slice %d: %s => %s\n", i, slice_name.unescape(), log_signal(slice->getPort(ID::Q)));
 			}
 
 			module->remove(cell);
@@ -258,7 +258,7 @@ struct SplitcellsPass : public Pass {
 
 			if (count_split_pre)
 				log("Split %d cells in module %s into %d cell slices.\n",
-					count_split_pre, log_id(module), count_split_post);
+					count_split_pre, module, count_split_post);
 		}
 	}
 } SplitnetsPass;

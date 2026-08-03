@@ -25,4 +25,3 @@ module attrib03_foo(clk, rst, inp, out);
 
   attrib03_bar # (.WIDTH(8)) bar_instance (clk, rst, inp, out);
 endmodule
-

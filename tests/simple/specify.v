@@ -28,4 +28,3 @@ specparam c=1:2:3;
 endspecify
 
 endmodule
-

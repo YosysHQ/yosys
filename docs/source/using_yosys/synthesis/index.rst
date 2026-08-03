@@ -31,4 +31,3 @@ for commands such as `abc`\ /`abc9`, `simplemap`, `dfflegalize`, and
    extract
    abc
    cell_libs
-

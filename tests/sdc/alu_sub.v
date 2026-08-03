@@ -59,4 +59,3 @@ module alu(
 		result <= tmp[7:0];
 	end
 endmodule
-

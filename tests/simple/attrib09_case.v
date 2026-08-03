@@ -23,4 +23,3 @@ module attrib09_foo(clk, rst, inp, out);
 
   attrib09_bar bar_instance (clk, rst, inp, out);
 endmodule
-

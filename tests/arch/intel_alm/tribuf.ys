@@ -10,4 +10,3 @@ cd tristate # Constrain all select calls below inside the top module
 #Internal cell type used. Need support it.
 select -assert-count 1 t:$_TBUF_
 select -assert-none t:$_TBUF_ %% t:* %D
-

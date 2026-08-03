@@ -279,7 +279,7 @@ struct Graph {
 
 	Graph(Module *module, const VizConfig &config) : module(module), config(config)
 	{
-		log("Running 'viz -%d' for module %s:\n", config.effort, log_id(module));
+		log("Running 'viz -%d' for module %s:\n", config.effort, module);
 		log("  Phase %d: Construct initial graph\n", phase_counter++);
 
 		SigMap sigmap(module);
@@ -718,7 +718,7 @@ struct VizWorker
 
 	void write_dot(FILE *f)
 	{
-		fprintf(f, "digraph \"%s\" {\n", log_id(module));
+		fprintf(f, "digraph \"%s\" {\n", module->name.unescape().c_str());
 		fprintf(f, "  rankdir = LR;\n");
 
 		dict<GraphNode*, std::vector<std::vector<std::string>>> extra_lines;
@@ -734,7 +734,7 @@ struct VizWorker
 			buffer.emplace_back();
 
 			for (auto name : g->names())
-				buffer.back().push_back(log_id(name));
+				buffer.back().push_back(name.unescape());
 
 			std::sort(buffer.back().begin(), buffer.back().end());
 			std::sort(buffer.begin(), buffer.end());
@@ -782,7 +782,7 @@ struct VizWorker
 				g->names().sort();
 				std::string label; // = stringf("vg=%d\\n", g->index);
 				for (auto n : g->names())
-					label = label + (label.empty() ? "" : "\\n") + log_id(n);
+					label = label + (label.empty() ? "" : "\\n") + n.unescape();
 				fprintf(f, "\tn%d [shape=rectangle,label=\"%s\"];\n", g->index, label.c_str());
 			} else {
 				std::string label = stringf("vg=%d | %d cells", g->index, GetSize(g->names()));
@@ -898,7 +898,7 @@ struct VizPass : public Pass {
 		log_header(design, "Generating Graphviz representation of design.\n");
 		log_push();
 
-#if defined(_WIN32) || defined(YOSYS_DISABLE_SPAWN)
+#if defined(_WIN32) || !defined(YOSYS_ENABLE_SPAWN)
 		std::string format = "dot";
 		std::string prefix = "show";
 #else
@@ -1029,13 +1029,13 @@ struct VizPass : public Pass {
 			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
 			log("Exec: %s\n", cmd);
-			#if !defined(YOSYS_DISABLE_SPAWN)
+			#if defined(YOSYS_ENABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
 			#endif
 		}
 
-		#if defined(YOSYS_DISABLE_SPAWN)
+		#if !defined(YOSYS_ENABLE_SPAWN)
 			log_assert(viewer_exe.empty() && !format.empty());
 		#else
 		if (!viewer_exe.empty()) {

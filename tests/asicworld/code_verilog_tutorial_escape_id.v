@@ -9,6 +9,6 @@ cl$k,   // CLOCK input
 );
 
 input d, cl$k, \reset* ;
-output q, \q~ ;  
+output q, \q~ ;
 
 endmodule

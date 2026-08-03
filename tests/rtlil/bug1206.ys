@@ -1,0 +1,6 @@
+logger -expect error "Wire width .* out of range" 1
+read_rtlil <<EOT
+module \foo
+	wire width 1073741824 \bar
+end
+EOT

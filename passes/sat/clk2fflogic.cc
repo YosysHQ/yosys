@@ -173,7 +173,7 @@ struct Clk2fflogicPass : public Pass {
 					auto &port = mem.rd_ports[i];
 					if (port.clk_enable)
 						log_error("Read port %d of memory %s.%s is clocked. This is not supported by \"clk2fflogic\"! "
-								"Call \"memory\" with -nordff to avoid this error.\n", i, log_id(mem.memid), log_id(module));
+								"Call \"memory\" with -nordff to avoid this error.\n", i, mem.memid.unescape(), module);
 				}
 
 				for (int i = 0; i < GetSize(mem.wr_ports); i++)
@@ -184,10 +184,10 @@ struct Clk2fflogicPass : public Pass {
 						continue;
 
 					log("Modifying write port %d on memory %s.%s: CLK=%s, A=%s, D=%s\n",
-							i, log_id(module), log_id(mem.memid), log_signal(port.clk),
+							i, module, mem.memid.unescape(), log_signal(port.clk),
 							log_signal(port.addr), log_signal(port.data));
 
-					Wire *past_clk = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#past_clk#%s", log_id(mem.memid), i, log_signal(port.clk))));
+					Wire *past_clk = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#past_clk#%s", mem.memid.unescape(), i, log_signal(port.clk))));
 					past_clk->attributes[ID::init] = port.clk_polarity ? State::S1 : State::S0;
 					module->addFf(NEW_ID, port.clk, past_clk);
 
@@ -203,13 +203,13 @@ struct Clk2fflogicPass : public Pass {
 
 					SigSpec clock_edge = module->Eqx(NEW_ID, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-					SigSpec en_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#en_q", log_id(mem.memid), i)), GetSize(port.en));
+					SigSpec en_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#en_q", mem.memid.unescape(), i)), GetSize(port.en));
 					module->addFf(NEW_ID, port.en, en_q);
 
-					SigSpec addr_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#addr_q", log_id(mem.memid), i)), GetSize(port.addr));
+					SigSpec addr_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#addr_q", mem.memid.unescape(), i)), GetSize(port.addr));
 					module->addFf(NEW_ID, port.addr, addr_q);
 
-					SigSpec data_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#data_q", log_id(mem.memid), i)), GetSize(port.data));
+					SigSpec data_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#data_q", mem.memid.unescape(), i)), GetSize(port.data));
 					module->addFf(NEW_ID, port.data, data_q);
 
 					port.clk = State::S0;
@@ -291,16 +291,16 @@ struct Clk2fflogicPass : public Pass {
 
 				if (ff.has_clk) {
 					log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
-							log_id(module), log_id(cell), log_id(cell->type),
+							module, cell, cell->type.unescape(),
 							log_signal(ff.sig_clk), log_signal(ff.sig_d), log_signal(ff.sig_q));
 				} else if (ff.has_aload) {
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-							log_id(module), log_id(cell), log_id(cell->type),
+							module, cell, cell->type.unescape(),
 							log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
 				} else {
 					// $sr.
 					log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
-							log_id(module), log_id(cell), log_id(cell->type),
+							module, cell, cell->type.unescape(),
 							log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
 				}
 

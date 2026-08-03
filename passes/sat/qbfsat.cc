@@ -597,7 +597,7 @@ struct QbfSatPass : public Pass {
 		RTLIL::Module *module = nullptr;
 		for (auto mod : design->selected_modules()) {
 			if (module)
-				log_cmd_error("Only one module must be selected for the QBF-SAT pass! (selected: %s and %s)\n", log_id(module), log_id(mod));
+				log_cmd_error("Only one module must be selected for the QBF-SAT pass! (selected: %s and %s)\n", module, mod);
 			module = mod;
 		}
 		if (module == nullptr)

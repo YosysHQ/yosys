@@ -122,7 +122,7 @@ to four memory primitive classes available for selection:
   - Can handle arbitrary number and kind of read ports
 
 - LUT RAM (aka distributed RAM): uses LUT storage as RAM
-  
+
   - Supported on most FPGAs (with notable exception of ice40)
   - Usually has one synchronous write port, one or more asynchronous read ports
   - Small
@@ -141,7 +141,7 @@ to four memory primitive classes available for selection:
 - Huge RAM:
 
   - Only supported on several targets:
-    
+
     - Some Xilinx UltraScale devices (UltraRAM)
 
       - Two ports, both with mutually exclusive synchronous read and write
@@ -154,7 +154,7 @@ to four memory primitive classes available for selection:
       - Does not support initial data
 
     - Nexus (large RAM)
-      
+
       - Two ports, both with mutually exclusive synchronous read and write
       - Single clock
 
@@ -304,7 +304,7 @@ Synchronous SDP with undefined collision behavior
 
 		if (read_enable) begin
 			read_data <= mem[read_addr];
-		
+
 		if (write_enable && read_addr == write_addr)
 			// this if block
 			read_data <= 'x;
@@ -322,7 +322,7 @@ Synchronous SDP with undefined collision behavior
 		if (write_enable)
 			mem[write_addr] <= write_data;
 
-		if (read_enable) 
+		if (read_enable)
 			read_data <= mem[read_addr];
 	end
 
@@ -446,7 +446,7 @@ Synchronous single-port RAM with write-first behavior
 		if (read_enable)
 			if (write_enable)
 				read_data <= write_data;
-			else 
+			else
 				read_data <= mem[addr];
 	end
 
@@ -787,4 +787,3 @@ Asynchronous writes
 	end
 
 	assign read_data = mem[read_addr];
-

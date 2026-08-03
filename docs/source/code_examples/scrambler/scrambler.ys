@@ -19,4 +19,3 @@ eval -set in 1 -show out
 eval -set in 270369 -show out
 
 sat -set out 632435482
-

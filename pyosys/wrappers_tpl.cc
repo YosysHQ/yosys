@@ -16,8 +16,6 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifdef YOSYS_ENABLE_PYTHON
-
 // <!-- generated includes -->
 #include <pybind11/pybind11.h>
 #include <pybind11/native_enum.h>
@@ -259,5 +257,3 @@ namespace pyosys {
 		py::implicitly_convertible<const char *, RTLIL::IdString>();
 	};
 };
-
-#endif // YOSYS_ENABLE_PYTHON

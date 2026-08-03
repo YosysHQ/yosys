@@ -1,0 +1,6 @@
+logger -expect error "Memory width .* out of range" 1
+read_rtlil <<EOT
+module \foo
+	memory width 1073741824 \mem
+end
+EOT

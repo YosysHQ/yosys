@@ -6,7 +6,7 @@ module reset_test  #(parameter WIDTH=32, SELW=1, CTRLW=$clog2(WIDTH), DINW=2**SE
     input wire [DINW-1:0]  din,
     input wire [SELW-1:0]  sel,
     output reg [WIDTH-1:0] dout);
-   
+
    reg [SELW:0] 		   i;
    wire [SELW-1:0] 	   rval = {reset, {SELW-1{1'b0}}};
    localparam SLICE = WIDTH/(SELW**2);

@@ -1,0 +1,6 @@
+logger -expect error "Wire offset .* out of range" 1
+read_rtlil <<EOT
+module \foo
+	wire width 8 offset -4294967396 \bar
+end
+EOT

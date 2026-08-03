@@ -125,7 +125,7 @@ The first version of the Yosys documentation was published as a bachelor thesis
 at the Vienna University of Technology :cite:p:`BACC`.
 
 :Abstract:
-	Most of today's digital design is done in HDL code (mostly Verilog or 
+	Most of today's digital design is done in HDL code (mostly Verilog or
 	VHDL) and with the help of HDL synthesis tools.
 
 	In special cases such as synthesis for coarse-grain cell libraries or
@@ -164,14 +164,14 @@ for specialised tasks.
 Benefits of open source HDL synthesis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Cost (also applies to ``free as in free beer`` solutions): 
-  
+- Cost (also applies to ``free as in free beer`` solutions):
+
   Today the cost for a mask set in 180nm technology is far less than the cost
   for the design tools needed to design the mask layouts. Open Source ASIC flows
   are an important enabler for ASIC-level Open Source Hardware.
 
-- Availability and Reproducibility: 
-  
+- Availability and Reproducibility:
+
   If you are a researcher who is publishing, you want to use tools that everyone
   else can also use. Even if most universities have access to all major
   commercial tools, you usually do not have easy access to the version that was
@@ -179,14 +179,14 @@ Benefits of open source HDL synthesis
   can even release the source code of the tool you have used alongside your
   data.
 
-- Framework: 
-  
+- Framework:
+
   Yosys is not only a tool. It is a framework that can be used as basis for
   other developments, so researchers and hackers alike do not need to re-invent
   the basic functionality. Extensibility was one of Yosys' design goals.
 
-- All-in-one: 
-  
+- All-in-one:
+
   Because of the framework characteristics of Yosys, an increasing number of
   features become available in one tool. Yosys not only can be used for circuit
   synthesis but also for formal equivalence checking, SAT solving, and for
@@ -194,8 +194,8 @@ Benefits of open source HDL synthesis
   proprietary software one needs to learn a new tool for each of these
   applications.
 
-- Educational Tool: 
-  
+- Educational Tool:
+
   Proprietary synthesis tools are at times very secretive about their inner
   workings. They often are ``black boxes``. Yosys is very open about its
   internals and it is easy to observe the different steps of synthesis.

@@ -132,7 +132,7 @@ struct QbfSolutionType {
 		//More importantly, we want to have the ability to port hole assignments to other modules with compatible
 		//hole names and widths.  Obviously in those cases source locations of the $anyconst cells will not match.
 		//
-		//Option 2 has the benefits previously described, but wire names can be changed automatically by 
+		//Option 2 has the benefits previously described, but wire names can be changed automatically by
 		//optimization or techmapping passes, especially when (ex/im)porting from BLIF for optimization with ABC.
 		//
 		//The approach taken here is to allow both options.  We write the assignment information for each bit of
@@ -170,7 +170,6 @@ struct QbfSolutionType {
 		std::smatch m;
 		bool sat_regex_found = false;
 		bool unsat_regex_found = false;
-		dict<std::string, bool> hole_value_recovered;
 		for (const std::string &x : stdout_lines) {
 			if(std::regex_search(x, m, hole_value_regex)) {
 				std::string loc = m[1].str();

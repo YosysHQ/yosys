@@ -86,13 +86,13 @@ struct FutureWorker {
 			log_error("Found multiple drivers for future_ff target signal %s\n", log_signal(bit));
 		auto driver = *found_driver->second.begin();
 		if (!driver.cell->is_builtin_ff() && driver.cell->type != ID($anyinit))
-			log_error("Driver for future_ff target signal %s has non-FF cell type %s\n", log_signal(bit), log_id(driver.cell->type));
+			log_error("Driver for future_ff target signal %s has non-FF cell type %s\n", log_signal(bit), driver.cell->type.unescape());
 
 		FfData ff(&initvals, driver.cell);
 
 		if (!ff.has_clk && !ff.has_gclk)
 			log_error("Driver for future_ff target signal %s has cell type %s, which is not clocked\n", log_signal(bit),
-				  log_id(driver.cell->type));
+				  driver.cell->type.unescape());
 
 		ff.unmap_ce_srst();
 

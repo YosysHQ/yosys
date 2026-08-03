@@ -47,4 +47,3 @@ select -assert-count 6 t:$_DFFE_??_
 select -assert-count 4 t:$_DLATCH_?_
 select -assert-count 4 t:$_SR_??_
 select -assert-none t:$_AND_ t:$_DFFE_??_ t:$_DLATCH_?_ t:$_SR_??_ %% %n t:* %i
-

@@ -178,4 +178,3 @@ of carry chains and DSPs, it avoids optimising for a path that isn't the actual
 critical path, while the generally-longer paths result in ABC9 being able to
 reduce design area by mapping other logic to slower cells with greater logic
 density.
-

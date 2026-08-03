@@ -63,13 +63,19 @@ struct SynthEfinixPass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use EFX_RAM_5K cells in output netlist\n");
 		log("\n");
+		log("    -latches <info|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, edif_file, json_file;
+	string top_opt, edif_file, json_file, latches;
 	bool flatten, retime, nobram;
 
 	void clear_flags() override
@@ -80,6 +86,7 @@ struct SynthEfinixPass : public ScriptPass
 		flatten = true;
 		retime = false;
 		nobram = false;
+		latches = "error";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -122,12 +129,18 @@ struct SynthEfinixPass : public ScriptPass
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
+				latches = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+		if (latches != "info" && latches != "warn" && latches != "error")
+			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		log_header(design, "Executing SYNTH_EFINIX pass.\n");
 		log_push();
@@ -147,7 +160,7 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
 		{
-			run("proc");
+			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
 			run("check");
 			run("flatten");
 			run("tribuf -logic");
@@ -190,6 +203,8 @@ struct SynthEfinixPass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dfflegalize -cell $_DFFE_????_ 0 -cell $_SDFFE_????_ 0 -cell $_SDFFCE_????_ 0 -cell $_DLATCH_?_ x");
+			if (latches == "error" || help_mode)
+				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

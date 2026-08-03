@@ -3,8 +3,8 @@ name: Build and run tests
 on:
   pull_request:
   merge_group:
-  #push:
-  #  branches: [ main ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: fkirc/skip-duplicate-actions@v5.3.2
         with:
           # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
@@ -26,7 +26,7 @@ jobs:
       - id: set_output
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
-            echo "should_skip=false" >> $GITHUB_OUTPUT
+            echo "should_skip=true" >> $GITHUB_OUTPUT
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
@@ -38,7 +38,7 @@ jobs:
     steps:
       - id: skip_check
         if: ${{ github.event_name != 'merge_group' }}
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: fkirc/skip-duplicate-actions@v5.3.2
         with:
           # don't run on readme changes
           paths_ignore: '["**/README.md"]'
@@ -49,7 +49,9 @@ jobs:
       - id: set_output
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
-            echo "should_skip=false" >> $GITHUB_OUTPUT
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            should_skip=false
           else
             echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
           fi
@@ -68,7 +70,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -79,24 +81,31 @@ jobs:
           runs-on: ${{ matrix.os }}
           get-build-deps: true
 
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: test-build-${{ matrix.os }}
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          restore-keys: |
+            test-build-${{ matrix.os }}-
+
       - name: Build
         shell: bash
         run: |
-          mkdir build
-          cd build
-          make -f ../Makefile config-$CC
-          make -f ../Makefile -j$procs
-          make -f ../Makefile unit-test -j$procs
+          rm -rf build
+          cmake -B build . -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DYOSYS_COMPILER_LAUNCHER=ccache -DYOSYS_USE_BUNDLED_LIBS=ON
+          cmake --build build -j$procs
+          ctest --test-dir build/tests/unit
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Compress build
         shell: bash
         run: |
           cd build
-          tar -cvf ../build.tar share/ yosys yosys-* libyosys.so
+          tar -cvf ../build.tar share/ yosys yosys-*
 
       - name: Store build artifact
         uses: actions/upload-artifact@v7
@@ -109,7 +118,7 @@ jobs:
     name: Run tests
     runs-on: ${{ matrix.os }}
     needs: [build-yosys, pre_job]
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: github.event_name != 'push' && needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
     strategy:
@@ -118,7 +127,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -136,17 +145,18 @@ jobs:
 
       - name: Uncompress build
         shell: bash
-        run:
-          tar -xvf build.tar
+        run: |
+          mkdir -p build
+          tar -xvf build.tar -C build
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs vanilla-test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+          make -C tests -j$procs vanilla-test
 
       - name: Report errors
         if: ${{ failure() }}
@@ -158,7 +168,7 @@ jobs:
     name: Run test_cell
     runs-on: ${{ matrix.os }}
     needs: [build-yosys, pre_job]
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: github.event_name != 'push' && needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
     strategy:
@@ -166,7 +176,7 @@ jobs:
         os: [ubuntu-latest]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -197,16 +207,14 @@ jobs:
     name: Run docs tests
     runs-on: ${{ matrix.os }}
     needs: [build-yosys, pre_docs_job]
-    if: needs.pre_docs_job.outputs.should_skip != 'true'
-    env:
-      CC: clang
+    if: github.event_name != 'push' && needs.pre_job.outputs.should_skip != 'true'
     strategy:
       matrix:
         os: [ubuntu-latest]
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -224,12 +232,13 @@ jobs:
 
       - name: Uncompress build
         shell: bash
-        run:
-          tar -xvf build.tar
+        run: |
+          mkdir -p build
+          tar -xvf build.tar -C build
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config || true
+          ./build/yosys-config || true
 
       - name: Run tests
         shell: bash
@@ -240,14 +249,14 @@ jobs:
     name: Try build docs
     runs-on: [self-hosted, linux, x64, fast]
     needs: [pre_docs_job]
-    if: ${{ needs.pre_docs_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
+    if: ${{ github.event_name != 'push' && needs.pre_docs_job.outputs.should_skip != 'true' && github.repository_owner == 'YosysHQ' }}
     strategy:
       matrix:
         docs-target: [html, latexpdf]
       fail-fast: false
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: true
           persist-credentials: false
@@ -258,23 +267,26 @@ jobs:
 
       - name: Build Yosys
         run: |
-          make config-clang
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: Install doc prereqs
         shell: bash
         run: |
-          make docs/reqs
+          make -C docs reqs
 
       - name: Build docs
         shell: bash
         run: |
-          make docs DOC_TARGET=${{ matrix.docs-target }} -j$procs
+          cmake --build build --target docs-${{ matrix.docs-target }} -j$procs
 
       - name: Store docs build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs-build-${{ matrix.docs-target }}
           path: docs/build/

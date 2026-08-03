@@ -286,7 +286,7 @@ struct MuxpackWorker
 		Cell *last_cell = chain.back();
 
 		log("Converting %s.%s ... %s.%s to a pmux with %d cases.\n",
-			log_id(module), log_id(first_cell), log_id(module), log_id(last_cell), cases);
+			module, first_cell, module, last_cell, cases);
 
 		mux_count += cases;
 		pmux_count += 1;

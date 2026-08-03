@@ -1,0 +1,52 @@
+library(test) {
+  cell (bad_dff) {
+    area : 1;
+    ff("IQ", "IQN") {
+      next_state : "!D"; // Look here
+      clocked_on : "CLK";
+      preset     : "!RST"; // Look here
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(RST) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    }
+  }
+  cell (good_dff) {
+    area : 1;
+    ff("IQ", "IQN") {
+      next_state : "D"; // Look here
+      clocked_on : "CLK";
+      clear      : "RST"; // Look here
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(RST) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    }
+  }
+}

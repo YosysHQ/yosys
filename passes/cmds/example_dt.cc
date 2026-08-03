@@ -226,13 +226,13 @@ struct ExampleDtPass : public Pass
 			{
 				auto ref = compute_graph[i];
 				log("n%d ", i);
-				log("%s", log_id(ref.function().name));
+				log("%s", ref.function().name.unescape());
 				for (auto const &param : ref.function().parameters)
 				{
 					if (param.second.empty())
-						log("[%s]", log_id(param.first));
+						log("[%s]", param.first.unescape());
 					else
-						log("[%s=%s]", log_id(param.first), log_const(param.second));
+						log("[%s=%s]", param.first.unescape(), log_const(param.second));
 				}
 				log("(");
 
@@ -244,13 +244,13 @@ struct ExampleDtPass : public Pass
 				}
 				log(")\n");
 				if (ref.has_sparse_attr())
-					log("// wire %s\n", log_id(ref.sparse_attr()));
+					log("// wire %s\n", ref.sparse_attr().unescape());
 				log("// was #%d %s\n", ref.attr(), log_signal(queue[ref.attr()]));
 			}
 
 			for (auto const &key : compute_graph.keys())
 			{
-				log("return %d as %s \n", key.second, log_id(key.first));
+				log("return %d as %s \n", key.second, key.first.unescape());
 			}
 		}
 		log("Plugin test passed!\n");

@@ -1,0 +1,104 @@
+yosys_pass(ql_bram_merge
+	ql_bram_merge.cc
+)
+yosys_pass(ql_bram_types
+	ql_bram_types.cc
+)
+pmgen_command(ql_dsp_macc
+	ql_dsp_macc.pmg
+)
+yosys_pass(ql_dsp_macc
+	ql_dsp_macc.cc
+	${PMGEN_ql_dsp_macc_OUTPUT}
+)
+yosys_pass(ql_dsp_simd
+	ql_dsp_simd.cc
+)
+yosys_pass(ql_dsp_io_regs
+	ql_dsp_io_regs.cc
+)
+yosys_pass(ql_ioff
+	ql_ioff.cc
+)
+
+add_custom_command(
+	DEPENDS qlf_k6n10f/generate_bram_types_sim.py
+	# yosys_pass(DATA_FILES) expects the files to be in the source directory
+	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/qlf_k6n10f/bram_types_sim.v
+	COMMAND ${Python3_EXECUTABLE} qlf_k6n10f/generate_bram_types_sim.py qlf_k6n10f/bram_types_sim.v
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	VERBATIM
+)
+yosys_pass(synth_quicklogic
+	synth_quicklogic.cc
+	REQUIRES
+		abc9
+		alumacc
+		autoname
+		blackbox
+		check
+		chtype
+		clean
+		clkbufmap
+		deminout
+		dfflegalize
+		flatten
+		fsm
+		hierarchy
+		iopadmap
+		memory
+		memory_libmap
+		memory_map
+		muxcover
+		opt
+		opt_clean
+		opt_expr
+		opt_lut
+		peepopt
+		pmuxtree
+		proc
+		ql_bram_merge
+		ql_bram_types
+		ql_dsp_io_regs
+		ql_dsp_macc
+		ql_dsp_simd
+		ql_ioff
+		read_verilog
+		setundef
+		share
+		shregmap
+		stat
+		techmap
+		tribuf
+		wreduce
+		write_blif
+		write_verilog
+	DATA_DIR
+		quicklogic
+	DATA_FILES
+		common/cells_sim.v
+
+		pp3/ffs_map.v
+		pp3/lut_map.v
+		pp3/latches_map.v
+		pp3/cells_map.v
+		pp3/cells_sim.v
+		pp3/abc9_model.v
+		pp3/abc9_map.v
+		pp3/abc9_unmap.v
+
+		qlf_k6n10f/arith_map.v
+		qlf_k6n10f/libmap_brams.txt
+		qlf_k6n10f/libmap_brams_map.v
+		qlf_k6n10f/brams_map.v
+		qlf_k6n10f/brams_sim.v
+		qlf_k6n10f/bram_types_sim.v
+		qlf_k6n10f/cells_sim.v
+		qlf_k6n10f/ffs_map.v
+		qlf_k6n10f/dsp_sim.v
+		qlf_k6n10f/dsp_map.v
+		qlf_k6n10f/dsp_final_map.v
+		qlf_k6n10f/TDP18K_FIFO.v
+		qlf_k6n10f/ufifo_ctl.v
+		qlf_k6n10f/sram1024x18_mem.v
+)

@@ -15,6 +15,7 @@ module t1(input a, b, c, output reg y);
 endmodule
 EOF
 proc
+opt_clean
 async2sync
 # no state elements for tmp
 select -assert-none t:$dff t:$dlatch %%
@@ -39,6 +40,7 @@ module t2(input [3:0] a, b, input sel, output reg [3:0] y, output reg co);
 endmodule
 EOF
 proc
+opt_clean
 async2sync
 select -assert-none t:$dff t:$dlatch %%
 sat -verify -prove-asserts -show-all
@@ -59,6 +61,7 @@ module t3(input clk, rst, input [7:0] data, output reg [7:0] result);
 endmodule
 EOF
 proc
+opt_clean
 # Exactly one DFF (for result), zero latches, no DFF for tmp
 select -assert-count 1 t:$dff %%
 select -assert-none t:$dlatch %%
@@ -80,6 +83,7 @@ module t4(input [7:0] a, b, input sub, output reg [7:0] y);
 endmodule
 EOF
 proc
+opt_clean
 async2sync
 select -assert-none t:$dff t:$dlatch %%
 sat -verify -prove-asserts -show-all
@@ -100,5 +104,6 @@ module t5(input en, d, output reg q);
 endmodule
 EOF
 proc
+opt_clean
 # No latch for tmp — X propagates instead of old value
 select -assert-none t:$dff t:$dlatch %%

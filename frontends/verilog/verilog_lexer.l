@@ -713,4 +713,3 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 <*>. { BEGIN(0); return char_tok(*YYText(), out_loc); }
 
 %%
-

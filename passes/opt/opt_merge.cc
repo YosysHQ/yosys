@@ -324,7 +324,7 @@ struct OptMergeThreadWorker
 			CellEqualOp> known_cells(0, CellHashOp(), CellEqualOp(*this));
 
 		std::vector<DuplicateCell> duplicates;
-		for (const std::vector<std::vector<CellHash>> &buckets : in.bucketed_cell_hashes) {
+		for (std::vector<std::vector<CellHash>> &buckets : in.bucketed_cell_hashes) {
 			// Clear out our buckets as we go. This keeps the work of deallocation
 			// off the main thread.
 			std::vector<CellHash> bucket = std::move(buckets[index]);

@@ -226,7 +226,7 @@ class SmtIo:
                 print('timeout option is not supported for mathsat.')
                 sys.exit(1)
 
-        if self.solver in ["boolector", "bitwuzla"]:
+        if self.solver == "boolector":
             if self.noincr:
                 self.popen_vargs = [self.solver, '--smt2'] + self.solver_opts
             else:
@@ -235,6 +235,29 @@ class SmtIo:
             if self.timeout != 0:
                 print('timeout option is not supported for %s.' % self.solver)
                 sys.exit(1)
+
+        if self.solver == "bitwuzla":
+            try:
+                help_text = subprocess.check_output([self.solver, "--help"], text=True)
+            except FileNotFoundError:
+                print("%s SMT Solver '%s' not found in path." % (self.timestamp(), self.solver), flush=True)
+                sys.exit(1)
+            if "--lang" in help_text:
+                self.popen_vargs = [self.solver, '--lang', 'smt2'] + self.solver_opts
+                self.unroll = True
+                if self.timeout != 0:
+                    self.popen_vargs.append('--time-limit')
+                    self.popen_vargs.append('%d000' % self.timeout)
+            else:
+                # Versions before 0.3
+                if self.noincr:
+                    self.popen_vargs = [self.solver, '--smt2'] + self.solver_opts
+                else:
+                    self.popen_vargs = [self.solver, '--smt2', '-i'] + self.solver_opts
+                self.unroll = True
+                if self.timeout != 0:
+                    print('timeout option is not supported for %s.' % self.solver)
+                    sys.exit(1)
 
         if self.solver == "abc":
             if len(self.solver_opts) > 0:

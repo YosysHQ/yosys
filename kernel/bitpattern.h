@@ -108,6 +108,18 @@ struct BitPatternPool
 	}
 
 	/**
+	 * A literal x/z bit can never match a 2-valued selector, so a pattern containing
+	 * one covers nothing.
+	 */
+	static bool covers_nothing(RTLIL::SigSpec sig)
+	{
+		for (auto bit : sig)
+			if (bit.wire == NULL && (bit.data == RTLIL::State::Sx || bit.data == RTLIL::State::Sz))
+				return true;
+		return false;
+	}
+
+	/**
 	 * Two cubes match if their intersection is non-empty.
 	 */
 	bool match(bits_t a, bits_t b)
@@ -131,6 +143,8 @@ struct BitPatternPool
 	 */
 	bool has_any(RTLIL::SigSpec sig)
 	{
+		if (covers_nothing(sig))
+			return false;
 		bits_t bits = sig2bits(sig);
 		for (auto &it : database)
 			if (match(it, bits))
@@ -149,6 +163,8 @@ struct BitPatternPool
 	 */
 	bool has_all(RTLIL::SigSpec sig)
 	{
+		if (covers_nothing(sig))
+			return true;
 		bits_t bits = sig2bits(sig);
 		for (auto &it : database)
 			if (match(it, bits)) {
@@ -170,6 +186,8 @@ struct BitPatternPool
 	bool take(RTLIL::SigSpec sig)
 	{
 		bool status = false;
+		if (covers_nothing(sig))
+			return false;
 		bits_t bits = sig2bits(sig);
 		for (auto it = database.begin(); it != database.end();)
 			if (match(*it, bits)) {

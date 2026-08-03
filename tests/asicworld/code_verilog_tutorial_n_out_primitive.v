@@ -5,9 +5,9 @@ wire in;
 
 // one output Buffer gate
 buf u_buf0 (out,in);
-// four output Buffer gate 
+// four output Buffer gate
 buf u_buf1 (out_0, out_1, out_2, out_3, in);
-// three output Invertor gate 
+// three output Invertor gate
 not u_not0 (out_a, out_b, out_c, in);
- 
+
 endmodule

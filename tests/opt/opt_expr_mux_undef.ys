@@ -287,4 +287,3 @@ select -assert-none t:$_MUX16_
 select -assert-count 1 o:out %ci*
 
 ##########
-

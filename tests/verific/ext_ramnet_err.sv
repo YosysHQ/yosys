@@ -8,6 +8,6 @@ endmodule
 module top (input clk, input [3:0] addr, output [7:0] data, input [3:0] f_addr, input [7:0] f_data);
     sub_rom u_sub_rom (clk, addr, data);
 
-    always @(posedge clk) 
+    always @(posedge clk)
         assume(u_sub_rom.mem[f_addr] == f_data);
 endmodule

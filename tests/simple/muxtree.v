@@ -80,4 +80,3 @@ module select_leaves(input R, C, D, output reg Q);
 		else
 			Q <= Q ? Q : D ? D : Q;
 endmodule
-

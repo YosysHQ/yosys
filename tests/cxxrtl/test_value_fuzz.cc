@@ -88,7 +88,7 @@ void test_binary_operation(Operation &op)
 }
 
 template<typename Operation>
-struct UnaryOperationWrapper : BinaryOperationBase 
+struct UnaryOperationWrapper : BinaryOperationBase
 {
 	Operation &op;
 
@@ -113,7 +113,7 @@ void test_unary_operation(Operation &op)
 	test_binary_operation(wrapped);
 }
 
-struct ShlTest : BinaryOperationBase 
+struct ShlTest : BinaryOperationBase
 {
 	ShlTest()
 	{
@@ -138,7 +138,7 @@ struct ShlTest : BinaryOperationBase
 	}
 } shl;
 
-struct ShrTest : BinaryOperationBase 
+struct ShrTest : BinaryOperationBase
 {
 	ShrTest()
 	{
@@ -163,7 +163,7 @@ struct ShrTest : BinaryOperationBase
 	}
 } shr;
 
-struct SshrTest : BinaryOperationBase 
+struct SshrTest : BinaryOperationBase
 {
 	SshrTest()
 	{
@@ -189,7 +189,7 @@ struct SshrTest : BinaryOperationBase
 	}
 } sshr;
 
-struct AddTest : BinaryOperationBase 
+struct AddTest : BinaryOperationBase
 {
 	AddTest()
 	{
@@ -209,7 +209,7 @@ struct AddTest : BinaryOperationBase
 	}
 } add;
 
-struct SubTest : BinaryOperationBase 
+struct SubTest : BinaryOperationBase
 {
 	SubTest()
 	{

@@ -90,4 +90,3 @@ module \$__M9K_ALTSYNCRAM_SINGLEPORT_FULL (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1A
                                       .addressstall_b(1'b0));
 
 endmodule
-

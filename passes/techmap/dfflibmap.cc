@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/gzip.h"
+#include "kernel/newcelltypes.h"
 #include "libparse.h"
 #include <string.h>
 #include <errno.h>
@@ -272,17 +273,18 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
 			continue;
 
+		bool cell_rstval = rstval;
 		if (has_reset && !cell_next_pol) {
 			// next_state is negated
 			// we later propagate this inversion to the output,
 			// which requires the negation of the reset value
-			rstval = !rstval;
+			cell_rstval = !rstval;
 		}
-		if (has_reset && rstval == false) {
+		if (has_reset && cell_rstval == false) {
 			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
-		if (has_reset && rstval == true) {
+		if (has_reset && cell_rstval == true) {
 			if (!parse_pin(cell, ff->find("preset"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
 		}
@@ -502,6 +504,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 
 	std::vector<RTLIL::Cell*> cell_list;
 	for (auto cell : module->cells()) {
+		auto cats = StaticCellTypes::categories;
+		if (cats.is_ff(cell->type) && !cats.is_stdcell(cell->type))
+			log_error("Wide register cell type %s is not supported.\n"
+					  "Convert netlist to gate-level first.\n", cell->type);
+
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
 		if (cell->type == ID($_NOT_))

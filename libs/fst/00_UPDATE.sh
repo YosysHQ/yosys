@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 mv config.h config.h.bak
 rm -f *.txt *.cc *.h

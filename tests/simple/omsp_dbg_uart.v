@@ -31,4 +31,3 @@ assign cmd_valid = (uart_state==RX_CMD) & xfer_done;
 assign xfer_done = uart_state!=RX_SYNC;
 
 endmodule
-

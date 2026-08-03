@@ -3,32 +3,32 @@
 // orginally coded by WD Peterson in VHDL.
 //----------------------------------------------------
 module arbiter (
-  clk,    
-  rst,    
-  req3,   
-  req2,   
-  req1,   
-  req0,   
-  gnt3,   
-  gnt2,   
-  gnt1,   
-  gnt0   
+  clk,
+  rst,
+  req3,
+  req2,
+  req1,
+  req0,
+  gnt3,
+  gnt2,
+  gnt1,
+  gnt0
 );
-// --------------Port Declaration----------------------- 
-input           clk;    
-input           rst;    
-input           req3;   
-input           req2;   
-input           req1;   
-input           req0;   
-output          gnt3;   
-output          gnt2;   
-output          gnt1;   
-output          gnt0;   
+// --------------Port Declaration-----------------------
+input           clk;
+input           rst;
+input           req3;
+input           req2;
+input           req1;
+input           req0;
+output          gnt3;
+output          gnt2;
+output          gnt1;
+output          gnt0;
 
 //--------------Internal Registers----------------------
-wire    [1:0]   gnt       ;   
-wire            comreq    ; 
+wire    [1:0]   gnt       ;
+wire            comreq    ;
 wire            beg       ;
 wire   [1:0]    lgnt      ;
 wire            lcomreq   ;
@@ -41,14 +41,14 @@ reg             lmask0    ;
 reg             lmask1    ;
 reg             ledge     ;
 
-//--------------Code Starts Here----------------------- 
+//--------------Code Starts Here-----------------------
 always @ (posedge clk)
 if (rst) begin
   lgnt0 <= 0;
   lgnt1 <= 0;
   lgnt2 <= 0;
   lgnt3 <= 0;
-end else begin                                     
+end else begin
   lgnt0 <=(~lcomreq & ~lmask1 & ~lmask0 & ~req3 & ~req2 & ~req1 & req0)
         | (~lcomreq & ~lmask1 &  lmask0 & ~req3 & ~req2 &  req0)
         | (~lcomreq &  lmask1 & ~lmask0 & ~req3 &  req0)
@@ -69,18 +69,18 @@ end else begin
         | (~lcomreq &  lmask1 & ~lmask0 & req3)
         | (~lcomreq &  lmask1 &  lmask0 & req3  & ~req2 & ~req1 & ~req0)
         | ( lcomreq & lgnt3);
-end 
+end
 
 //----------------------------------------------------
 // lasmask state machine.
 //----------------------------------------------------
 assign beg = (req3 | req2 | req1 | req0) & ~lcomreq;
 always @ (posedge clk)
-begin                                     
+begin
   lasmask <= (beg & ~ledge & ~lasmask);
-  ledge   <= (beg & ~ledge &  lasmask) 
+  ledge   <= (beg & ~ledge &  lasmask)
           |  (beg &  ledge & ~lasmask);
-end 
+end
 
 //----------------------------------------------------
 // comreq logic.
@@ -108,7 +108,7 @@ end else if(lasmask) begin
 end else begin
   lmask1 <= lmask1;
   lmask0 <= lmask0;
-end 
+end
 
 assign comreq = lcomreq;
 assign gnt    = lgnt;

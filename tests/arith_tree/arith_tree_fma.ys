@@ -1,0 +1,120 @@
+read_verilog <<EOT
+module fma_mul_only(
+	input [3:0] a, b,
+	output [7:0] y
+);
+	assign y = a * b;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 1 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-count 0 t:$add
+select -assert-min 0 t:$fa
+design -reset
+
+read_verilog <<EOT
+module fma_mac(
+	input [3:0] a, b,
+	input [7:0] c,
+	output [7:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-count 1 t:$add
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module fma_dot2(
+	input [3:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a * b + c * d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-count 1 t:$add
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module fma_mac_sub(
+	input [3:0] a, b,
+	input [7:0] c,
+	output [7:0] y
+);
+	assign y = a * b - c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-count 1 t:$add
+select -assert-min 1 t:$fa
+design -reset
+
+read_verilog <<EOT
+module fma_disabled(
+	input [3:0] a, b,
+	input [7:0] c,
+	output [7:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree -no-fma
+design -load postopt
+select -assert-count 0 t:$fa
+select -assert-min 1 t:$macc t:$macc_v2 %u
+design -reset
+
+read_verilog <<EOT
+module fma_signed(
+	input signed [3:0] a, b,
+	input signed [7:0] c,
+	output signed [7:0] y
+);
+	assign y = a * b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+opt
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$macc t:$macc_v2 %u
+select -assert-count 0 t:$mul
+select -assert-min 1 t:$fa
+design -reset

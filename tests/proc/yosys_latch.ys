@@ -1,0 +1,20 @@
+# https://github.com/YosysHQ/yosys/issues/5910
+
+read_verilog -sv yosys_latch.sv
+hierarchy -check -top yosys_latch
+proc
+design -save gold
+opt
+select -assert-count 2 t:$adlatch
+select -assert-count 2 t:$dlatch
+simplemap
+opt_clean
+select -assert-count 1 t:$_DLATCH_P_
+select -assert-count 1 t:$_DLATCH_N_
+select -assert-count 1 t:$_DLATCH_PN0_
+select -assert-count 1 t:$_DLATCH_NN0_
+select -assert-count 4 t:*
+design -load gold
+equiv_opt -assert -multiclock simplemap
+
+design -reset

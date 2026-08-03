@@ -64,7 +64,7 @@ struct SupercoverPass : public Pass {
 			pool<SigBit> handled_bits;
 
 			int cnt_wire = 0, cnt_bits = 0;
-			log("Adding cover cells to module %s.\n", log_id(module));
+			log("Adding cover cells to module %s.\n", module);
 			for (auto wire : module->selected_wires())
 			{
 				bool counted_wire = false;

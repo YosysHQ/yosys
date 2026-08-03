@@ -580,7 +580,7 @@ struct SimplemapPass : public Pass {
 					continue;
 				if (!design->selected(mod, cell))
 					continue;
-				log("Mapping %s.%s (%s).\n", log_id(mod), log_id(cell), log_id(cell->type));
+				log("Mapping %s.%s (%s).\n", mod, cell, cell->type.unescape());
 				mappers.at(cell->type)(mod, cell);
 				mod->remove(cell);
 			}

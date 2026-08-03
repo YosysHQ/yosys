@@ -1,0 +1,34 @@
+yosys_pass(synth_sf2
+	synth_sf2.cc
+	REQUIRES
+		abc
+		attrmap
+		blackbox
+		check
+		clean
+		clkbufmap
+		deminout
+		dfflegalize
+		flatten
+		hierarchy
+		iopadmap
+		memory_map
+		opt
+		opt_expr
+		proc
+		read_verilog
+		simplemap
+		stat
+		synth
+		techmap
+		tribuf
+		write_edif
+		write_json
+		write_verilog
+	DATA_DIR
+		sf2
+	DATA_FILES
+		arith_map.v
+		cells_map.v
+		cells_sim.v
+)

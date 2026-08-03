@@ -198,4 +198,3 @@ module NX_RAM_WRAP(ACK, ACKD, ACKR, BCK, BCKD, BCKR, ACOR, AERR, BCOR, BERR, ACS
   );
 
 endmodule
-

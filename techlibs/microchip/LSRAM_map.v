@@ -71,7 +71,7 @@ parameter PORT_A_WR_USED = 0;
 wire [2:0] A_BLK_SEL = (PORT_A_RD_USED == 1 || PORT_A_WR_USED == 1) ? 3'b111 : 3'b000;
 wire [2:0] B_BLK_SEL = (PORT_B_RD_USED == 1 || PORT_B_WR_USED == 1) ? 3'b111 : 3'b000;
 
-// wires for write data 
+// wires for write data
 generate
 	wire [19:0] A_write_data;
 	wire [19:0] B_write_data;
@@ -115,9 +115,9 @@ wire [2:0] B_width = (PORT_B_WIDTH == 1) ? 3'b000 :
 					(PORT_B_WIDTH == 8 || PORT_B_WIDTH == 10) ? 3'b011 : 3'b100;
 
 // write modes
-wire [1:0] A_write_mode = PORT_A_OPTION_WRITE_MODE == "NO_CHANGE" ? 2'b00 : 
+wire [1:0] A_write_mode = PORT_A_OPTION_WRITE_MODE == "NO_CHANGE" ? 2'b00 :
 						PORT_A_OPTION_WRITE_MODE == "WRITE_FIRST" ? 2'b01 : 2'b10;
-wire [1:0] B_write_mode = PORT_B_OPTION_WRITE_MODE == "NO_CHANGE" ? 2'b00 : 
+wire [1:0] B_write_mode = PORT_B_OPTION_WRITE_MODE == "NO_CHANGE" ? 2'b00 :
 						PORT_B_OPTION_WRITE_MODE == "WRITE_FIRST" ? 2'b01 : 2'b10;
 
 RAM1K20 #(
@@ -155,7 +155,7 @@ RAM1K20 #(
 	.B_DOUT_ARST_N(1'b1),
 
 	// Disable ECC for TDP
-	.ECC_EN(1'b0), 
+	.ECC_EN(1'b0),
 	.ECC_BYPASS(1'b1),
 	.BUSY_FB(1'b0)
 
@@ -212,7 +212,7 @@ generate
 	wire [1:0] A_write_EN;
 	wire [1:0] B_write_EN;
 
-	// write port (A provides MSB) 
+	// write port (A provides MSB)
 	if (PORT_W_WIDTH == 32) begin
 
 		assign B_write_data[3:0] = PORT_W_WR_DATA[3:0];
@@ -232,7 +232,7 @@ generate
 		assign A_write_data[9] = 1'b0;
 		assign A_write_data[14] = 1'b0;
 		assign A_write_data[19] = 1'b0;
-		
+
 	end else if (PORT_W_WIDTH == 40) begin
 		assign B_write_data = PORT_W_WR_DATA[19:0];
 		assign A_write_data = PORT_W_WR_DATA[39:20];
@@ -265,7 +265,7 @@ endgenerate
 wire [2:0] A_width = (PORT_R_WIDTH == 1) ? 3'b000 :
 					(PORT_R_WIDTH == 2) ? 3'b001 :
 					(PORT_R_WIDTH == 4 || PORT_R_WIDTH == 5) ? 3'b010 :
-					(PORT_R_WIDTH == 8 || PORT_R_WIDTH == 10) ? 3'b011 : 
+					(PORT_R_WIDTH == 8 || PORT_R_WIDTH == 10) ? 3'b011 :
 					(PORT_R_WIDTH == 16 || PORT_R_WIDTH == 20) ? 3'b100 : 3'b101;
 wire [2:0] B_width = (PORT_W_WIDTH == 1) ? 3'b000 :
 					(PORT_W_WIDTH == 2) ? 3'b001 :
@@ -311,7 +311,7 @@ RAM1K20 #(
 	.B_DOUT_ARST_N(1'b1),
 
 	// Disable ECC for SDP
-	.ECC_EN(1'b0), 
+	.ECC_EN(1'b0),
 	.ECC_BYPASS(1'b1),
 	.BUSY_FB(1'b0)
 );

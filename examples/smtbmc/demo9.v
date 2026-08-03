@@ -10,4 +10,3 @@ module demo9;
 		cover(1);
 	end
 endmodule
-

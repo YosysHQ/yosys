@@ -15,7 +15,7 @@ def write_vcd(filename: Path, signals: SignalStepMap, timescale='1 ns', date='to
         # Write the header
         f.write(f"$date\n    {date}\n$end\n")
         f.write(f"$timescale {timescale} $end\n")
-        
+
         # Declare signals
         f.write("$scope module gold $end\n")
         for signal_name, changes in signals.items():
@@ -23,17 +23,17 @@ def write_vcd(filename: Path, signals: SignalStepMap, timescale='1 ns', date='to
             f.write(f"$var wire {signal_size - 1} {signal_name} {signal_name} $end\n")
         f.write("$upscope $end\n")
         f.write("$enddefinitions $end\n")
-        
+
         # Collect all unique timestamps
         timestamps = sorted(set(time for changes in signals.values() for time, _ in changes))
-        
+
         # Write initial values
         f.write("#0\n")
         for signal_name, changes in signals.items():
             for time, value in changes:
                 if time == 0:
                     f.write(f"{value} {signal_name}\n")
-        
+
         # Write value changes
         for time in timestamps:
             if time != 0:

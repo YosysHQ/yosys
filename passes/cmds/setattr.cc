@@ -41,6 +41,7 @@ struct setunset_t
 			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
 				log_cmd_error("Can't decode value '%s'!\n", set_value);
 			value = sig_value.as_const();
+			value.tag_bare_integer_const(set_value);
 		}
 	}
 };
@@ -246,9 +247,9 @@ struct ChparamPass : public Pass {
 			if (!new_parameters.empty())
 				log_cmd_error("The options -set and -list cannot be used together.\n");
 			for (auto module : design->selected_modules()) {
-				log("%s:\n", log_id(module));
+				log("%s:\n", module);
 				for (auto param : module->avail_parameters)
-					log("  %s\n", log_id(param));
+					log("  %s\n", param.unescape());
 			}
 			return;
 		}

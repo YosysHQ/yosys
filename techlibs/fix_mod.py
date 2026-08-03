@@ -23,7 +23,7 @@ def main():
             in_mod = True
         elif in_mod:
             decl += line
-            
+
         if in_mod and decl.rstrip()[-1] == ';':
                 in_mod = False
                 modules[mod] = decl

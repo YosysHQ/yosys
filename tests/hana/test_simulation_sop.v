@@ -7,7 +7,7 @@ always @( in or select)
 	    0: out = in[0];
 	    1: out = in[1];
 	endcase
-endmodule	
+endmodule
 
 // test_simulation_sop_basic_11_test.v
 module f2_test(input [3:0] in, input [1:0] select, output reg out);
@@ -19,7 +19,7 @@ always @( in or select)
 	    2: out = in[2];
 	    3: out = in[3];
 	endcase
-endmodule	
+endmodule
 
 // test_simulation_sop_basic_12_test.v
 module f3_test(input [7:0] in, input [2:0] select, output reg out);

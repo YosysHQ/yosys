@@ -109,7 +109,7 @@ struct EquivMarkWorker
 
 	void run()
 	{
-		log("Running equiv_mark on module %s:\n", log_id(module));
+		log("Running equiv_mark on module %s:\n", module);
 
 		// marking region 0
 

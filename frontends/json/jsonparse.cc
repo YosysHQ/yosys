@@ -295,7 +295,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 	module->name = RTLIL::escape_id(modname.c_str());
 
 	if (design->module(module->name))
-		log_error("Re-definition of module %s.\n", log_id(module->name));
+		log_error("Re-definition of module %s.\n", module->name.unescape());
 
 	design->add(module);
 
@@ -320,22 +320,22 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			JsonNode *port_node = ports_node->data_dict.at(ports_node->data_dict_keys[port_id-1]);
 
 			if (port_node->type != 'D')
-				log_error("JSON port node '%s' is not a dictionary.\n", log_id(port_name));
+				log_error("JSON port node '%s' is not a dictionary.\n", port_name.unescape());
 
 			if (port_node->data_dict.count("direction") == 0)
-				log_error("JSON port node '%s' has no direction attribute.\n", log_id(port_name));
+				log_error("JSON port node '%s' has no direction attribute.\n", port_name.unescape());
 
 			if (port_node->data_dict.count("bits") == 0)
-				log_error("JSON port node '%s' has no bits attribute.\n", log_id(port_name));
+				log_error("JSON port node '%s' has no bits attribute.\n", port_name.unescape());
 
 			JsonNode *port_direction_node = port_node->data_dict.at("direction");
 			JsonNode *port_bits_node = port_node->data_dict.at("bits");
 
 			if (port_direction_node->type != 'S')
-				log_error("JSON port node '%s' has non-string direction attribute.\n", log_id(port_name));
+				log_error("JSON port node '%s' has non-string direction attribute.\n", port_name.unescape());
 
 			if (port_bits_node->type != 'A')
-				log_error("JSON port node '%s' has non-array bits attribute.\n", log_id(port_name));
+				log_error("JSON port node '%s' has non-array bits attribute.\n", port_name.unescape());
 
 			Wire *port_wire = module->wire(port_name);
 
@@ -370,7 +370,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				port_wire->port_input = true;
 				port_wire->port_output = true;
 			} else
-				log_error("JSON port node '%s' has invalid '%s' direction attribute.\n", log_id(port_name), port_direction_node->data_string);
+				log_error("JSON port node '%s' has invalid '%s' direction attribute.\n", port_name.unescape(), port_direction_node->data_string);
 
 			port_wire->port_id = port_id;
 
@@ -390,7 +390,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						module->connect(sigbit, State::Sz);
 					else
 						log_error("JSON port node '%s' has invalid '%s' bit string value on bit %d.\n",
-								log_id(port_name), bitval_node->data_string.c_str(), i);
+								port_name.unescape(), bitval_node->data_string.c_str(), i);
 				} else
 				if (bitval_node->type == 'N') {
 					int bitidx = bitval_node->data_number;
@@ -405,7 +405,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						signal_bits[bitidx] = sigbit;
 					}
 				} else
-					log_error("JSON port node '%s' has invalid bit value on bit %d.\n", log_id(port_name), i);
+					log_error("JSON port node '%s' has invalid bit value on bit %d.\n", port_name.unescape(), i);
 			}
 		}
 
@@ -425,15 +425,15 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			JsonNode *net_node = net.second;
 
 			if (net_node->type != 'D')
-				log_error("JSON netname node '%s' is not a dictionary.\n", log_id(net_name));
+				log_error("JSON netname node '%s' is not a dictionary.\n", net_name.unescape());
 
 			if (net_node->data_dict.count("bits") == 0)
-				log_error("JSON netname node '%s' has no bits attribute.\n", log_id(net_name));
+				log_error("JSON netname node '%s' has no bits attribute.\n", net_name.unescape());
 
 			JsonNode *bits_node = net_node->data_dict.at("bits");
 
 			if (bits_node->type != 'A')
-				log_error("JSON netname node '%s' has non-array bits attribute.\n", log_id(net_name));
+				log_error("JSON netname node '%s' has non-array bits attribute.\n", net_name.unescape());
 
 			Wire *wire = module->wire(net_name);
 
@@ -468,7 +468,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						module->connect(sigbit, State::Sz);
 					else
 						log_error("JSON netname node '%s' has invalid '%s' bit string value on bit %d.\n",
-								log_id(net_name), bitval_node->data_string.c_str(), i);
+								net_name.unescape(), bitval_node->data_string.c_str(), i);
 				} else
 				if (bitval_node->type == 'N') {
 					int bitidx = bitval_node->data_number;
@@ -479,7 +479,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						signal_bits[bitidx] = sigbit;
 					}
 				} else
-					log_error("JSON netname node '%s' has invalid bit value on bit %d.\n", log_id(net_name), i);
+					log_error("JSON netname node '%s' has invalid bit value on bit %d.\n", net_name.unescape(), i);
 			}
 
 			if (net_node->data_dict.count("attributes"))
@@ -500,27 +500,27 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			JsonNode *cell_node = cell_node_it.second;
 
 			if (cell_node->type != 'D')
-				log_error("JSON cells node '%s' is not a dictionary.\n", log_id(cell_name));
+				log_error("JSON cells node '%s' is not a dictionary.\n", cell_name.unescape());
 
 			if (cell_node->data_dict.count("type") == 0)
-				log_error("JSON cells node '%s' has no type attribute.\n", log_id(cell_name));
+				log_error("JSON cells node '%s' has no type attribute.\n", cell_name.unescape());
 
 			JsonNode *type_node = cell_node->data_dict.at("type");
 
 			if (type_node->type != 'S')
-				log_error("JSON cells node '%s' has a non-string type.\n", log_id(cell_name));
+				log_error("JSON cells node '%s' has a non-string type.\n", cell_name.unescape());
 
 			IdString cell_type = RTLIL::escape_id(type_node->data_string.c_str());
 
 			Cell *cell = module->addCell(cell_name, cell_type);
 
 			if (cell_node->data_dict.count("connections") == 0)
-				log_error("JSON cells node '%s' has no connections attribute.\n", log_id(cell_name));
+				log_error("JSON cells node '%s' has no connections attribute.\n", cell_name.unescape());
 
 			JsonNode *connections_node = cell_node->data_dict.at("connections");
 
 			if (connections_node->type != 'D')
-				log_error("JSON cells node '%s' has non-dictionary connections attribute.\n", log_id(cell_name));
+				log_error("JSON cells node '%s' has non-dictionary connections attribute.\n", cell_name.unescape());
 
 			for (auto &conn_it : connections_node->data_dict)
 			{
@@ -528,7 +528,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				JsonNode *conn_node = conn_it.second;
 
 				if (conn_node->type != 'A')
-					log_error("JSON cells node '%s' connection '%s' is not an array.\n", log_id(cell_name), log_id(conn_name));
+					log_error("JSON cells node '%s' connection '%s' is not an array.\n", cell_name.unescape(), conn_name.unescape());
 
 				SigSpec sig;
 
@@ -547,7 +547,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 							sig.append(State::Sz);
 						else
 							log_error("JSON cells node '%s' connection '%s' has invalid '%s' bit string value on bit %d.\n",
-									log_id(cell_name), log_id(conn_name), bitval_node->data_string.c_str(), i);
+									cell_name.unescape(), conn_name.unescape(), bitval_node->data_string.c_str(), i);
 					} else
 					if (bitval_node->type == 'N') {
 						int bitidx = bitval_node->data_number;
@@ -556,7 +556,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						sig.append(signal_bits.at(bitidx));
 					} else
 						log_error("JSON cells node '%s' connection '%s' has invalid bit value on bit %d.\n",
-								log_id(cell_name), log_id(conn_name), i);
+								cell_name.unescape(), conn_name.unescape(), i);
 
 				}
 
@@ -587,20 +587,20 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			mem->name = memory_name;
 
 			if (memory_node->type != 'D')
-				log_error("JSON memory node '%s' is not a dictionary.\n", log_id(memory_name));
+				log_error("JSON memory node '%s' is not a dictionary.\n", memory_name.unescape());
 
 			if (memory_node->data_dict.count("width") == 0)
-				log_error("JSON memory node '%s' has no width attribute.\n", log_id(memory_name));
+				log_error("JSON memory node '%s' has no width attribute.\n", memory_name.unescape());
 			JsonNode *width_node = memory_node->data_dict.at("width");
 			if (width_node->type != 'N')
-				log_error("JSON memory node '%s' has a non-number width.\n", log_id(memory_name));
+				log_error("JSON memory node '%s' has a non-number width.\n", memory_name.unescape());
 			mem->width = width_node->data_number;
 
 			if (memory_node->data_dict.count("size") == 0)
-				log_error("JSON memory node '%s' has no size attribute.\n", log_id(memory_name));
+				log_error("JSON memory node '%s' has no size attribute.\n", memory_name.unescape());
 			JsonNode *size_node = memory_node->data_dict.at("size");
 			if (size_node->type != 'N')
-				log_error("JSON memory node '%s' has a non-number size.\n", log_id(memory_name));
+				log_error("JSON memory node '%s' has a non-number size.\n", memory_name.unescape());
 			mem->size = size_node->data_number;
 
 			mem->start_offset = 0;

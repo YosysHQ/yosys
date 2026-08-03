@@ -3,7 +3,7 @@ name: "CodeQL"
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 3 * * 6'
 
 jobs:
   analyze:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
       with:
         submodules: true
         persist-credentials: false
@@ -29,7 +29,13 @@ jobs:
         queries: security-extended,security-and-quality
 
     - name: Build
-      run: make yosys -j6
+      run: |
+        rm -rf build Configuration.cmake
+        echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+        echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+
+        cmake -C Configuration.cmake -B build . -DYOSYS_WITHOUT_ABC=ON -DYOSYS_WITHOUT_SLANG=ON
+        cmake --build build -j6
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

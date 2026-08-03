@@ -108,13 +108,13 @@ struct OptMemPass : public Pass {
 					}
 					State bit;
 					if (!always_0[i]) {
-						log("%s.%s: removing const-1 lane %d\n", log_id(module->name), log_id(mem.memid), i);
+						log("%s.%s: removing const-1 lane %d\n", module->name.unescape(), mem.memid.unescape(), i);
 						bit = State::S1;
 					} else if (!always_1[i]) {
-						log("%s.%s: removing const-0 lane %d\n", log_id(module->name), log_id(mem.memid), i);
+						log("%s.%s: removing const-0 lane %d\n", module->name.unescape(), mem.memid.unescape(), i);
 						bit = State::S0;
 					} else {
-						log("%s.%s: removing const-x lane %d\n", log_id(module->name), log_id(mem.memid), i);
+						log("%s.%s: removing const-x lane %d\n", module->name.unescape(), mem.memid.unescape(), i);
 						bit = State::Sx;
 					}
 					// Reconnect read port data.

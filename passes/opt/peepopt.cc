@@ -68,6 +68,12 @@ struct PeepoptPass : public Pass {
 		log("                limits the amount of padding to a multiple of the data, \n");
 		log("                to avoid high resource usage from large temporary MUX trees.\n");
 		log("\n");
+		log("   * shiftpow2 - Replace A>>(B<<K) with a $bmux word multiplexer when\n");
+		log("                the output width is at most the stride 1<<K. This handles\n");
+		log("                power-of-two aligned word selects.\n");
+		log("                Scratchpad: 'peepopt.shiftpow2.max_data_multiple' (default: 2)\n");
+		log("                limits padding for out-of-range select values.\n");
+		log("\n");
 		log("If -formalclk is specified it instead employs the following rules:\n");
 		log("\n");
 		log("   * clockgateff - Replace latch based clock gating patterns with a flip-flop\n");
@@ -115,6 +121,7 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftadd();
 					pm.run_shiftmul_right();
 					pm.run_shiftmul_left();
+					pm.run_shiftpow2();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
 				}

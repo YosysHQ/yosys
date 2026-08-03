@@ -804,8 +804,10 @@ std::string Fmt::render() const
 								buf += 'X';
 							else if (has_z)
 								buf += 'Z';
-							else
-								buf += (part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[subvalue.as_int()];
+							else {
+								const char *digits = part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef";
+								buf += digits[subvalue.as_int()];
+							}
 						}
 					} else if (part.base == 10) {
 						if (part.show_base)

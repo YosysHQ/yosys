@@ -5,7 +5,7 @@ module bar (
 );
 	parameter paramname = 7;
 endmodule
- 
+
 module empty (
 );
  	bar #() barinstance ();

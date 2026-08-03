@@ -57,7 +57,7 @@ namespace py = pybind11;
 #  include <dirent.h>
 #  include <sys/types.h>
 #  include <sys/stat.h>
-#  if !defined(YOSYS_DISABLE_SPAWN)
+#  if defined(YOSYS_ENABLE_SPAWN)
 #    include <sys/wait.h>
 #  endif
 #endif
@@ -179,7 +179,7 @@ void yosys_banner()
 	log(" %s\n", yosys_maybe_version());
 }
 
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
 	if (!process_line)
@@ -228,6 +228,7 @@ PYBIND11_MODULE(pyosys, m) {
 // This should not affect using wheels as the dylib has to actually be called
 // libyosys_dummy.so for this function to be interacted with at all.
 PYBIND11_MODULE(libyosys_dummy, _) {
+	(void)_;
 	throw py::import_error("Change your import from 'import libyosys' to 'from pyosys import libyosys'.");
 }
 #endif
@@ -537,27 +538,19 @@ std::string proc_self_dirname()
 std::string proc_self_dirname()
 {
 	int i = 0;
-#  ifdef __MINGW32__
 	char longpath[MAX_PATH + 1];
 	char shortpath[MAX_PATH + 1];
-#  else
-	WCHAR longpath[MAX_PATH + 1];
-	TCHAR shortpath[MAX_PATH + 1];
-#  endif
-	if (!GetModuleFileName(0, longpath, MAX_PATH+1))
+	if (!GetModuleFileNameA(0, longpath, MAX_PATH+1))
 		log_error("GetModuleFileName() failed.\n");
-	if (!GetShortPathName(longpath, shortpath, MAX_PATH+1))
+	if (!GetShortPathNameA(longpath, shortpath, MAX_PATH+1))
 		log_error("GetShortPathName() failed.\n");
 	while (shortpath[i] != 0)
 		i++;
 	while (i > 0 && shortpath[i-1] != '/' && shortpath[i-1] != '\\')
 		shortpath[--i] = 0;
-	std::string path;
-	for (i = 0; shortpath[i]; i++)
-		path += char(shortpath[i]);
-	return path;
+	return shortpath;
 }
-#elif defined(EMSCRIPTEN) || defined(__wasm)
+#elif defined(__wasm)
 std::string proc_self_dirname()
 {
 	return "/";
@@ -595,7 +588,7 @@ std::string proc_self_dirname(void)
 	#error "Don't know how to determine process executable base path!"
 #endif
 
-#if defined(EMSCRIPTEN) || defined(__wasm)
+#if defined(__wasm)
 void init_share_dirname()
 {
 	yosys_share_dirname = "/share/";
@@ -636,13 +629,11 @@ void init_share_dirname()
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
-#    ifdef YOSYS_DATDIR
 	proc_share_path = YOSYS_DATDIR "/";
 	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
-#    endif
 #  endif
 }
 #endif
@@ -684,11 +675,7 @@ std::string proc_share_dirname()
 
 std::string proc_program_prefix()
 {
-	std::string program_prefix;
-#ifdef YOSYS_PROGRAM_PREFIX
-	program_prefix = YOSYS_PROGRAM_PREFIX;
-#endif
-	return program_prefix;
+	return YOSYS_PROGRAM_PREFIX;
 }
 
 bool fgetline(FILE *f, std::string &buffer)
@@ -805,15 +792,21 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			log_error("Can't open script file `%s' for reading: %s\n", filename, strerror(errno));
 
 		FILE *backup_script_file = Frontend::current_script_file;
+		std::string backup_script_filename = Frontend::current_script_filename;
+		int backup_script_lineno = Frontend::current_script_lineno;
 		Frontend::current_script_file = f;
+		Frontend::current_script_filename = filename;
+		Frontend::current_script_lineno = 0;
 
 		try {
 			std::string command;
 			while (fgetline(f, command)) {
+				Frontend::current_script_lineno++;
 				while (!command.empty() && command[command.size()-1] == '\\') {
 					std::string next_line;
 					if (!fgetline(f, next_line))
 						break;
+					Frontend::current_script_lineno++;
 					command.resize(command.size()-1);
 					command += next_line;
 				}
@@ -827,6 +820,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			if (!command.empty()) {
 				handle_label(command, from_to_active, run_from, run_to);
 				if (from_to_active) {
+					Frontend::current_script_lineno++;
 					Pass::call(design, command);
 					design->check();
 				}
@@ -834,10 +828,14 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		}
 		catch (...) {
 			Frontend::current_script_file = backup_script_file;
+			Frontend::current_script_filename = backup_script_filename;
+			Frontend::current_script_lineno = backup_script_lineno;
 			throw;
 		}
 
 		Frontend::current_script_file = backup_script_file;
+		Frontend::current_script_filename = backup_script_filename;
+		Frontend::current_script_lineno = backup_script_lineno;
 
 		if (filename != "-")
 			fclose(f);
@@ -953,28 +951,28 @@ static char *readline_obj_generator(const char *text, int state)
 		if (design->selected_active_module.empty())
 		{
 			for (auto mod : design->modules())
-				if (RTLIL::unescape_id(mod->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(mod->name)));
+				if (mod->name.unescape().compare(0, len, text) == 0)
+					obj_names.push_back(strdup(mod->name.unescape().c_str()));
 		}
 		else if (design->module(design->selected_active_module) != nullptr)
 		{
 			RTLIL::Module *module = design->module(design->selected_active_module);
 
 			for (auto w : module->wires())
-				if (RTLIL::unescape_id(w->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(w->name)));
+				if (w->name.unescape().compare(0, len, text) == 0)
+					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(it.first)));
+				if (it.first.unescape().compare(0, len, text) == 0)
+					obj_names.push_back(strdup(it.first.unescape().c_str()));
 
 			for (auto cell : module->cells())
-				if (RTLIL::unescape_id(cell->name).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(cell->name)));
+				if (cell->name.unescape().compare(0, len, text) == 0)
+					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
 			for (auto &it : module->processes)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(log_id(it.first)));
+				if (it.first.unescape().compare(0, len, text) == 0)
+					obj_names.push_back(strdup(it.first.unescape().c_str()));
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());
@@ -1179,7 +1177,7 @@ struct ScriptCmdPass : public Pass {
 					if (!mod->selected(w))
 						continue;
 					if (!c.second.is_fully_const())
-						log_error("RHS of selected wire %s.%s is not constant.\n", log_id(mod), log_id(w));
+						log_error("RHS of selected wire %s.%s is not constant.\n", mod, w);
 					auto v = c.second.as_const();
 					Pass::call_on_module(design, mod, v.decode_string());
 				}

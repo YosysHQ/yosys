@@ -1,3 +1,5 @@
+include common.mk
+
 # Makefile for Sphinx documentation
 #
 
@@ -46,10 +48,10 @@ help:
 
 .PHONY: clean
 clean: clean-examples
-	rm -rf $(BUILDDIR)/*
-	rm -rf util/__pycache__
-	rm -rf source/generated
-	$(MAKE) -C source/_images clean
+	@rm -rf $(BUILDDIR)/*
+	@rm -rf util/__pycache__
+	@rm -rf source/generated
+	@$(MAKE) -C source/_images clean
 
 .PHONY: html
 html:
@@ -235,7 +237,7 @@ test: test-examples test-macros
 
 FORCE:
 Makefile-%: FORCE
-	$(MAKE) -C $(@D) $(*F)
+	@$(MAKE) -C $(@D) $(*F)
 
 CODE_EXAMPLES := $(wildcard source/code_examples/*/Makefile)
 TEST_EXAMPLES := $(addsuffix -examples,$(CODE_EXAMPLES))
@@ -245,18 +247,40 @@ clean-examples: $(CLEAN_EXAMPLES)
 examples: $(TEST_EXAMPLES)
 
 test-macros:
-	$(PYTHON) tests/macro_commands.py
+	@$(PYTHON) tests/macro_commands.py
 
 .PHONY: images
 images:
-	$(MAKE) -C source/_images
-	$(MAKE) -C source/_images convert
+	@$(MAKE) -C source/_images
+	@$(MAKE) -C source/_images convert
+
+.PHONY: extract
+extract:
+	@mkdir -p source/generated
+	@$(YOSYS) -q -p 'help -dump-cmds-json source/generated/cmds.json'
+	@$(YOSYS) -q -p 'help -dump-cells-json source/generated/cells.json'
+
+	@cp ../passes/cmds/chformal.cc source/generated/
+	@$(YOSYS) -qQT -h 'chformal' -l source/generated/chformal.log
+
+	@mkdir -p source/generated/functional
+	@cp ../backends/functional/smtlib.cc source/generated/functional/
+	@cd .. && diff -U 20 backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc \
+		> docs/source/generated/functional/rosette.diff || true
+
+	@$(YOSYS) --help | sed "s%$(YOSYS)%$(PROGRAM_PREFIX)yosys%g" - >source/generated/yosys
+	@$(YOSYS_SMTBMC) --help >source/generated/yosys-smtbmc
+	@$(YOSYS_WITNESS) --help >source/generated/yosys-witness
+	@$(YOSYS_CONFIG) --help | sed "s%$(YOSYS_CONFIG)%$(PROGRAM_PREFIX)yosys-config%g" - >source/generated/yosys-config
+	@$(YOSYS_FILTERLIB) --help 2>&1 >/dev/null | sed "s%filterlib%$(PROGRAM_PREFIX)yosys-filterlib%g" - >source/generated/yosys-filterlib
+	@$(ABC) --help 2>&1 >/dev/null | sed "s%$(ABC)%$(PROGRAM_PREFIX)yosys-abc%g" - >source/generated/yosys-abc
 
 .PHONY: gen
 gen:
-	$(MAKE) examples
-	$(MAKE) images
+	@$(MAKE) examples
+	@$(MAKE) images
+	@$(MAKE) extract
 
 .PHONY: reqs
 reqs:
-	$(PYTHON) -m pip install -r source/requirements.txt
+	@$(PYTHON) -m pip install -r source/requirements.txt

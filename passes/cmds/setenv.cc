@@ -47,14 +47,14 @@ struct SetenvPass : public Pass {
 		std::string name = args[1];
 		std::string value = args[2];
 		if (value.front() == '\"' && value.back() == '\"') value = value.substr(1, value.size() - 2);
-		
+
 #if defined(_WIN32)
 		_putenv_s(name.c_str(), value.c_str());
 #else
 		if (setenv(name.c_str(), value.c_str(), 1))
 			log_cmd_error("Invalid name \"%s\".\n", name);
 #endif
-		
+
 	}
 } SetenvPass;
 

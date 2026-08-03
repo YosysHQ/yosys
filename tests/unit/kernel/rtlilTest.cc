@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <limits>
 #include "kernel/rtlil.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -33,6 +34,39 @@ namespace RTLIL {
 		Const c3(c2);
 		EXPECT_TRUE(c2 == c3);
 		EXPECT_FALSE(c2 < c3);
+	}
+
+	TEST_F(KernelRtlilTest, ConstConvertibleToInt) {
+		// A Const whose minimal unsigned size is exactly 32 bits (bit 31 set)
+		// but whose full width is larger must not be reported as convertible
+		// to a (signed) int when treated as unsigned
+		{
+			// 33 bits: bits 0..31 = 1, bit 32 = 0 => value 0xffffffff
+			std::vector<State> v(33, S1);
+			v[32] = S0;
+			Const c(v);
+			EXPECT_FALSE(c.convertible_to_int(false));
+			EXPECT_EQ(c.as_int_saturating(false), std::numeric_limits<int>::max());
+			EXPECT_FALSE(c.convertible_to_int(true));
+			EXPECT_EQ(c.as_int_saturating(true), std::numeric_limits<int>::max());
+		}
+
+		{
+			// 32-bit unsigned 0x7fffffff fits in a signed int
+			std::vector<State> v(32, S1);
+			v[31] = S0;
+			Const c(v);
+			EXPECT_TRUE(c.convertible_to_int(false));
+			EXPECT_EQ(c.as_int(false), 0x7fffffff);
+		}
+
+		{
+			// 32-bit unsigned 0xffffffff does not fit in a signed int
+			std::vector<State> v(32, S1);
+			Const c(v);
+			EXPECT_FALSE(c.convertible_to_int(false));
+			EXPECT_EQ(c.as_int_saturating(false), std::numeric_limits<int>::max());
+		}
 	}
 
 	TEST_F(KernelRtlilTest, ConstStr) {
@@ -282,6 +316,28 @@ namespace RTLIL {
 		Const c(0x2, 2);
 		c.resize(4, S1);
 		EXPECT_EQ(c, Const(0xe, 4));
+	}
+
+	TEST_F(KernelRtlilTest, ConstResizeWidthLimit) {
+		Const c;
+		EXPECT_DEATH(c.resize(RTLIL::WIDTH_LIMIT, Sx), "");
+		EXPECT_NO_FATAL_FAILURE(c.resize(RTLIL::WIDTH_LIMIT - 1, Sx));
+	}
+
+	TEST_F(KernelRtlilTest, ConstFromLongLongWidthLimit) {
+		EXPECT_DEATH(Const(0, RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(Const(0, RTLIL::WIDTH_LIMIT - 1));
+	}
+
+	TEST_F(KernelRtlilTest, ConstFromStateWidthLimit) {
+		EXPECT_DEATH(Const(Sx, RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(Const(Sx, RTLIL::WIDTH_LIMIT - 1));
+	}
+
+	TEST_F(KernelRtlilTest, ModuleAddWireWidthLimit) {
+		std::unique_ptr<Module> mod = std::make_unique<Module>();
+		EXPECT_DEATH(mod->addWire(ID(test), RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(mod->addWire(ID(test), RTLIL::WIDTH_LIMIT - 1));
 	}
 
 	TEST_F(KernelRtlilTest, ConstEqualStr) {

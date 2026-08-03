@@ -70,4 +70,3 @@ module \$__MUL9X9 (input [8:0] A, input [8:0] B, output [17:0] Y);
 		.dataout (Y)
 	);
 endmodule
-

@@ -11,4 +11,3 @@ proc
 tribuf
 deminout
 select -assert-count 1 i:x o:x %i
-

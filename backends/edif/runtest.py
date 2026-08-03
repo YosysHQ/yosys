@@ -118,4 +118,3 @@ os.system("set -x; ./test_gold > test_gold.out")
 os.system("set -x; ./test_gate > test_gate.out")
 
 os.system("set -x; md5sum test_gold.out test_gate.out")
-

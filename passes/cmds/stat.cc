@@ -523,7 +523,7 @@ struct statdata_t {
 		print_log_line("cells", local_num_cells, local_area, num_cells, area, 0, print_area, print_hierarchical, print_global_only);
 		for (auto &it : num_cells_by_type)
 			if (it.second) {
-				auto name = string(log_id(it.first));
+				auto name = string(it.first.unescape());
 				print_log_line(name, local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 					       local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
 					       area_cells_by_type.at(it.first), 1, print_area, print_hierarchical, print_global_only);
@@ -533,7 +533,7 @@ struct statdata_t {
 				       print_global_only);
 			for (auto &it : num_submodules_by_type)
 				if (it.second)
-					print_log_line(string(log_id(it.first)), it.second, 0, it.second,
+					print_log_line(string(it.first.unescape()), it.second, 0, it.second,
 						       submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0, 1,
 						       print_area, print_hierarchical, print_global_only);
 		}
@@ -607,7 +607,7 @@ struct statdata_t {
 				if (it.second) {
 					if (!first_line)
 						log(",\n");
-					log("            %s: %s", json11::Json(log_id(it.first)).dump(),
+					log("            %s: %s", json11::Json(it.first.unescape()).dump(),
 					    json_line(local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 						      local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
 						      area_cells_by_type.at(it.first))
@@ -621,7 +621,7 @@ struct statdata_t {
 				if (it.second) {
 					if (!first_line)
 						log(",\n");
-					log("            %s: %s", json11::Json(log_id(it.first)).dump(),
+					log("            %s: %s", json11::Json(it.first.unescape()).dump(),
 					    json_line(0, 0, it.second,
 						      submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0)
 					      .c_str());
@@ -662,14 +662,14 @@ struct statdata_t {
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(log_id(it.first)).dump(), it.second);
+						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
 						first_line = false;
 					}
 				for (auto &it : num_submodules_by_type)
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(log_id(it.first)).dump(), it.second);
+						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
 						first_line = false;
 					}
 				log("\n");
@@ -697,14 +697,14 @@ struct statdata_t {
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(log_id(it.first)).dump(), it.second);
+						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
 						first_line = false;
 					}
 				for (auto &it : num_submodules_by_type)
 					if (it.second) {
 						if (!first_line)
 							log(",\n");
-						log("            %s: %u", json11::Json(log_id(it.first)).dump(), it.second);
+						log("            %s: %u", json11::Json(it.first.unescape()).dump(), it.second);
 						first_line = false;
 					}
 				log("\n");
@@ -734,7 +734,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	for (auto &it : mod_data.num_submodules_by_type) {
 		if (mod_stat.count(it.first) > 0) {
 			if (!quiet)
-				mod_data.print_log_line(string(log_id(it.first)), mod_stat.at(it.first).local_num_cells,
+				mod_data.print_log_line(string(it.first.unescape()), mod_stat.at(it.first).local_num_cells,
 							mod_stat.at(it.first).local_area, mod_stat.at(it.first).num_cells, mod_stat.at(it.first).area,
 							level, has_area, hierarchy_mode);
 			hierarchy_worker(mod_stat, it.first, level + 1, quiet, has_area, hierarchy_mode) * it.second;
@@ -1009,7 +1009,7 @@ struct StatPass : public Pass {
 				first_module = false;
 			} else {
 				log("\n");
-				log("=== %s%s ===\n", log_id(mod->name), mod->is_selected_whole() ? "" : " (partially selected)");
+				log("=== %s%s ===\n", mod->name.unescape(), mod->is_selected_whole() ? "" : " (partially selected)");
 				log("\n");
 				data.log_data(mod->name, false, has_area, hierarchy_mode);
 			}
@@ -1026,7 +1026,7 @@ struct StatPass : public Pass {
 				log("=== design hierarchy ===\n");
 				log("\n");
 				mod_stat[top_mod->name].print_log_header(has_area, hierarchy_mode, true);
-				mod_stat[top_mod->name].print_log_line(log_id(top_mod->name), mod_stat[top_mod->name].local_num_cells,
+				mod_stat[top_mod->name].print_log_line(top_mod->name.unescape(), mod_stat[top_mod->name].local_num_cells,
 								       mod_stat[top_mod->name].local_area, mod_stat[top_mod->name].num_cells,
 								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
 			}

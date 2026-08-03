@@ -41,7 +41,7 @@ module top;
 	wire[7:0] dig8val = 56;
 	wire[7:0] dig9 = "\9"; // not octal, a literal '9'
 	wire[7:0] dig9val = 57;
-	
+
 	wire[7:0] cl = "\:";
 	wire[7:0] clval = 58;
 	wire[7:0] sc = "\;";

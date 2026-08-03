@@ -29,7 +29,7 @@
 YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_BACKEND {
 
-    const pool<string> verilog_keywords();
+    const pool<string> &verilog_keywords();
     bool char_is_verilog_escaped(char c);
     bool id_is_verilog_escaped(const std::string &str);
 

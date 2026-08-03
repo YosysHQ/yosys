@@ -36,7 +36,7 @@ module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
 	input CI, BI;
 	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
-   
+
 	wire CIx;
 	(* force_downto *)
 	wire [Y_WIDTH-1:0] COx;
@@ -85,7 +85,7 @@ module _80_anlogic_alu (A, B, CI, BI, X, Y, CO);
 			.c(COx[i]),
 			.o({cout, CO[i]})
 		);
-	  end: slice	  
+	  end: slice
 	endgenerate
 
    /* End implementation */

@@ -58,7 +58,7 @@ synth -top my_design -booth
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
-#include "kernel/wallace_tree.h"
+#include "kernel/compressor_tree.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -224,7 +224,7 @@ struct BoothPassWorker {
 				macc.from_cell(cell);
 
 				if (!macc.is_simple_product()) {
-					log_debug("Not mapping cell %s: not a simple macc cell\n", log_id(cell));
+					log_debug("Not mapping cell %s: not a simple macc cell\n", cell);
 					continue;
 				}
 
@@ -240,11 +240,11 @@ struct BoothPassWorker {
 
 			if (x_sz < 4 || y_sz < 4 || z_sz < 8) {
 				log_debug("Not mapping cell %s sized at %dx%x, %x: size below threshold\n",
-					  log_id(cell), x_sz, y_sz, z_sz);
+					  cell, x_sz, y_sz, z_sz);
 				continue;
 			}
 
-			log("Mapping cell %s to %s Booth multiplier\n", log_id(cell), is_signed ? "signed" : "unsigned");
+			log("Mapping cell %s to %s Booth multiplier\n", cell, is_signed ? "signed" : "unsigned");
 
 			// To simplify the generator size the arguments
 			// to be the same. Then allow logic synthesis to
@@ -260,7 +260,7 @@ struct BoothPassWorker {
 						y_sz_revised = y_sz + 1;
 					} else {
 						x_sz_revised = y_sz;
-					}		
+					}
 				} else {
 					if (x_sz % 2 != 0) {
 						y_sz_revised = x_sz + 1;
@@ -386,7 +386,11 @@ struct BoothPassWorker {
 		// Later on yosys will clean up unused constants
 		//  DebugDumpAlignPP(aligned_pp);
 
-		auto [wtree_a, wtree_b] = wallace_reduce_scheduled(module, aligned_pp, z_sz);
+		std::vector<CompressorTree::DepthSig> operands;
+		operands.reserve(aligned_pp.size());
+		for (auto &s : aligned_pp)
+			operands.push_back({s, 0});
+		auto [wtree_a, wtree_b] = CompressorTree::reduce_scheduled(module, std::move(operands), z_sz, CompressorTree::Strategy::FA_ONLY);
 
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
@@ -800,7 +804,7 @@ struct BoothPassWorker {
 				c_result = c_wire;
 
 				debug_csa_trees[column_ix].push_back(csa);
-				csa_ix++;				
+				csa_ix++;
 
 				if (var_ix <= column_bits.size() - 1)
 					carry_bits_to_sum.append(c_wire);

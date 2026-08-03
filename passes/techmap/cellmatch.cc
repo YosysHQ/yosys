@@ -20,7 +20,7 @@ SigSpec module_inputs(Module *m)
 			continue;
 		if (w->width != 1)
 			log_error("Unsupported wide port (%s) of non-unit width found in module %s.\n",
-					  log_id(w), log_id(m));
+					  w, m);
 		ret.append(w);
 	}
 	return ret;
@@ -36,7 +36,7 @@ SigSpec module_outputs(Module *m)
 			continue;
 		if (w->width != 1)
 			log_error("Unsupported wide port (%s) of non-unit width found in module %s.\n",
-					  log_id(w), log_id(m));
+					  w, m);
 		ret.append(w);
 	}
 	return ret;
@@ -96,7 +96,7 @@ bool derive_module_luts(Module *m, std::vector<uint64_t> &luts)
 	ff_types.setup_stdcells_mem();
 	for (auto cell : m->cells()) {
 		if (ff_types.cell_known(cell->type)) {
-			log("Ignoring module '%s' which isn't purely combinational.\n", log_id(m));
+			log("Ignoring module '%s' which isn't purely combinational.\n", m);
 			return false;
 		}
 	}
@@ -106,7 +106,7 @@ bool derive_module_luts(Module *m, std::vector<uint64_t> &luts)
 	int ninputs = inputs.size(), noutputs = outputs.size();
 
 	if (ninputs > 6) {
-		log_warning("Skipping module %s with more than 6 inputs bits.\n", log_id(m));
+		log_warning("Skipping module %s with more than 6 inputs bits.\n", m);
 		return false;
 	}
 
@@ -123,7 +123,7 @@ bool derive_module_luts(Module *m, std::vector<uint64_t> &luts)
 
 			if (!ceval.eval(bit)) {
 				log("Failed to evaluate output '%s' in module '%s'.\n",
-					log_signal(outputs[j]), log_id(m));
+					log_signal(outputs[j]), m);
 				return false;
 			}
 
@@ -203,7 +203,7 @@ struct CellmatchPass : Pass {
 			for (auto lut : luts)
 				p_classes.insert(p_class(ninputs, lut));
 
-			log_debug("Registered %s\n", log_id(m));
+			log_debug("Registered %s\n", m);
 
 			// save as a viable target
 			targets[p_classes].push_back(Target{m, luts});
@@ -237,7 +237,7 @@ struct CellmatchPass : Pass {
 				p_classes.insert(p_class(inputs.size(), lut));
 
 			for (auto target : targets[p_classes]) {
-				log_debug("Candidate %s for matching to %s\n", log_id(target.module), log_id(m));
+				log_debug("Candidate %s for matching to %s\n", target.module, m);
 
 				SigSpec target_inputs = module_inputs(target.module);
 				SigSpec target_outputs = module_outputs(target.module);
@@ -271,10 +271,10 @@ struct CellmatchPass : Pass {
 						}
 
 						if (match) {
-							log("Module %s matches %s\n", log_id(m), log_id(target.module));
+							log("Module %s matches %s\n", m, target.module);
 							// Add target.module to map_design ("$cellmatch")
 							// as a techmap rule to match m and replace it with target.module
-							Module *map = map_design->addModule(stringf("\\_60_%s_%s", log_id(m), log_id(target.module)));
+							Module *map = map_design->addModule(stringf("\\_60_%s_%s", m, target.module));
 							Cell *cell = map->addCell(ID::_TECHMAP_REPLACE_, target.module->name);
 
 							map->attributes[ID(techmap_celltype)] = m->name.str();

@@ -27,4 +27,3 @@ for fn in test_*.il; do
 done
 
 echo "OK."
-

@@ -10,4 +10,3 @@ osu035_stdcells.lib:
 clean:
 	rm -f osu035_stdcells.lib
 	rm -f example.yslog example.edif
-

@@ -320,8 +320,8 @@ struct ModIndex : public RTLIL::Monitor
 			if (it.second.is_output)
 				log("  PRIMARY OUTPUT\n");
 			for (auto &port : it.second.ports)
-				log("  PORT: %s.%s[%d] (%s)\n", log_id(port.cell),
-						log_id(port.port), port.offset, log_id(port.cell->type));
+				log("  PORT: %s.%s[%d] (%s)\n", port.cell,
+						port.port.unescape(), port.offset, port.cell->type.unescape());
 		}
 	}
 };

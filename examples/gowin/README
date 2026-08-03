@@ -14,4 +14,3 @@ gowinTool_linux directory
 
 3.) edit gowinTool_linux/bin/gwlicense.ini. Set lic="..." to
 the full path to the license file.
-

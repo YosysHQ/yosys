@@ -1,0 +1,11 @@
+yosys_backend(rtlil
+	rtlil_backend.cc
+	rtlil_backend.h
+	PROVIDES
+		dump
+	DATA_DIR
+		include/backends/rtlil
+	DATA_FILES
+		rtlil_backend.h
+	ESSENTIAL
+)

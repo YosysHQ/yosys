@@ -257,4 +257,3 @@ module ADCA (
   parameter CSR_OFFSET           = -12'd1180;  // Parameter 2, signed number, temperature mode - 1560~- 760, typical value - 1180; Voltage mode - 410~410, typical value 0
 
 endmodule
-

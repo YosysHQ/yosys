@@ -1,0 +1,40 @@
+yosys_pass(efinix_fixcarry
+	efinix_fixcarry.cc
+)
+
+yosys_pass(synth_efinix
+	synth_efinix.cc
+	REQUIRES
+		abc
+		blackbox
+		check
+		clean
+		clkbufmap
+		deminout
+		dfflegalize
+		efinix_fixcarry
+		flatten
+		hierarchy
+		memory_libmap
+		memory_map
+		opt
+		opt_expr
+		proc
+		read_verilog
+		simplemap
+		stat
+		synth
+		techmap
+		tribuf
+		write_edif
+		write_json
+	DATA_DIR
+		efinix
+	DATA_FILES
+		cells_map.v
+		arith_map.v
+		cells_sim.v
+		brams_map.v
+		gbuf_map.v
+		brams.txt
+)

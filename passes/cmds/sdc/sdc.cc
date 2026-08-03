@@ -1,3 +1,4 @@
+#include "kernel/yosys_config.h"
 #ifdef YOSYS_ENABLE_TCL
 
 #include "kernel/register.h"
@@ -148,7 +149,7 @@ struct SdcObjects {
 				path += "/";
 			path += name;
 			design_cells.push_back(std::make_pair(path, cell));
-			for (auto pin : cell->connections()) {
+			for (auto& pin : cell->connections()) {
 				IdString pin_name = pin.first;
 				std::string pin_name_sdc = path + "/" + pin.first.str().substr(1);
 				design_pins.push_back(std::make_pair(pin_name_sdc, std::make_pair(cell, pin_name)));
@@ -168,7 +169,7 @@ struct SdcObjects {
 			RTLIL::Wire *wire = top->wire(port);
 			if (!wire) {
 				// This should not be possible. See https://github.com/YosysHQ/yosys/pull/5594#issue-3791198573
-				log_error("Port %s doesn't exist", log_id(port));
+				log_error("Port %s doesn't exist", port.unescape());
 			}
 			design_ports.push_back(std::make_pair(port.str().substr(1), wire));
 		}

@@ -38,9 +38,9 @@ public:
 	[[noreturn]]
 	void formatted_error(std::string err)
 	{
-		log("Module A: %s\n", log_id(mod_a->name));
+		log("Module A: %s\n", mod_a->name.unescape());
 		log_module(mod_a, "  ");
-		log("Module B: %s\n", log_id(mod_b->name));
+		log("Module B: %s\n", mod_b->name.unescape());
 		log_module(mod_b, "  ");
 		log_cmd_error("Designs are different: %s\n", err);
 	}
@@ -68,20 +68,20 @@ public:
 	{
 		for (const auto &it : a->attributes) {
 			if (b->attributes.count(it.first) == 0)
-				return "missing attribute " + std::string(log_id(it.first)) + " in second design";
+				return "missing attribute " + std::string(it.first.unescape()) + " in second design";
 			if (it.second != b->attributes.at(it.first))
-				return "attribute " + std::string(log_id(it.first)) + " mismatch: " + log_const(it.second) + " != " + log_const(b->attributes.at(it.first));
+				return "attribute " + std::string(it.first.unescape()) + " mismatch: " + log_const(it.second) + " != " + log_const(b->attributes.at(it.first));
 		}
 		for (const auto &it : b->attributes)
 			if (a->attributes.count(it.first) == 0)
-				return "missing attribute " + std::string(log_id(it.first)) + " in first design";
+				return "missing attribute " + std::string(it.first.unescape()) + " in first design";
 		return "";
 	}
 
 	std::string compare_wires(const RTLIL::Wire *a, const RTLIL::Wire *b)
 	{
 		if (a->name != b->name)
-			return "name mismatch: " + std::string(log_id(a->name)) + " != " + log_id(b->name);
+			return "name mismatch: " + std::string(a->name.unescape()) + " != " + b->name.unescape();
 		if (a->width != b->width)
 			return "width mismatch: " + std::to_string(a->width) + " != " + std::to_string(b->width);
 		if (a->start_offset != b->start_offset)
@@ -105,19 +105,19 @@ public:
 	{
 		for (const auto &it : mod_a->wires_) {
 			if (mod_b->wires_.count(it.first) == 0)
-				error("Module %s missing wire %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing wire %s in second design.\n", mod_a->name.unescape(), it.first.unescape());
 			if (std::string mismatch = compare_wires(it.second, mod_b->wires_.at(it.first)); !mismatch.empty())
-				error("Module %s wire %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
+				error("Module %s wire %s %s.\n", mod_a->name.unescape(), it.first.unescape(), mismatch);
 		}
 		for (const auto &it : mod_b->wires_)
 			if (mod_a->wires_.count(it.first) == 0)
-				error("Module %s missing wire %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing wire %s in first design.\n", mod_b->name.unescape(), it.first.unescape());
 	}
 
 	std::string compare_memories(const RTLIL::Memory *a, const RTLIL::Memory *b)
 	{
 		if (a->name != b->name)
-			return "name mismatch: " + std::string(log_id(a->name)) + " != " + log_id(b->name);
+			return "name mismatch: " + std::string(a->name.unescape()) + " != " + b->name.unescape();
 		if (a->width != b->width)
 			return "width mismatch: " + std::to_string(a->width) + " != " + std::to_string(b->width);
 		if (a->start_offset != b->start_offset)
@@ -132,31 +132,31 @@ public:
 	std::string compare_cells(const RTLIL::Cell *a, const RTLIL::Cell *b)
 	{
 		if (a->name != b->name)
-			return "name mismatch: " + std::string(log_id(a->name)) + " != " + log_id(b->name);
+			return "name mismatch: " + std::string(a->name.unescape()) + " != " + b->name.unescape();
 		if (a->type != b->type)
-			return "type mismatch: " + std::string(log_id(a->type)) + " != " + log_id(b->type);
+			return "type mismatch: " + std::string(a->type.unescape()) + " != " + b->type.unescape();
 		if (std::string mismatch = compare_attributes(a, b); !mismatch.empty())
 			return mismatch;
 
 		for (const auto &it : a->parameters) {
 			if (b->parameters.count(it.first) == 0)
-				return "parameter mismatch: missing parameter " + std::string(log_id(it.first)) + " in second design";
+				return "parameter mismatch: missing parameter " + std::string(it.first.unescape()) + " in second design";
 			if (it.second != b->parameters.at(it.first))
-				return "parameter mismatch: " + std::string(log_id(it.first)) + " mismatch: " + log_const(it.second) + " != " + log_const(b->parameters.at(it.first));
+				return "parameter mismatch: " + std::string(it.first.unescape()) + " mismatch: " + log_const(it.second) + " != " + log_const(b->parameters.at(it.first));
 		}
 		for (const auto &it : b->parameters)
 			if (a->parameters.count(it.first) == 0)
-				return "parameter mismatch: missing parameter " + std::string(log_id(it.first)) + " in first design";
+				return "parameter mismatch: missing parameter " + std::string(it.first.unescape()) + " in first design";
 
 		for (const auto &it : a->connections()) {
 			if (b->connections().count(it.first) == 0)
-				return "connection mismatch: missing connection " + std::string(log_id(it.first)) + " in second design";
+				return "connection mismatch: missing connection " + std::string(it.first.unescape()) + " in second design";
 			if (!compare_sigspec(it.second, b->connections().at(it.first)))
-				return "connection " + std::string(log_id(it.first)) + " mismatch: " + log_signal(it.second) + " != " + log_signal(b->connections().at(it.first));
+				return "connection " + std::string(it.first.unescape()) + " mismatch: " + log_signal(it.second) + " != " + log_signal(b->connections().at(it.first));
 		}
 		for (const auto &it : b->connections())
 			if (a->connections().count(it.first) == 0)
-				return "connection mismatch: missing connection " + std::string(log_id(it.first)) + " in first design";
+				return "connection mismatch: missing connection " + std::string(it.first.unescape()) + " in first design";
 
 		return "";
 	}
@@ -165,26 +165,26 @@ public:
 	{
 		for (const auto &it : mod_a->cells_) {
 			if (mod_b->cells_.count(it.first) == 0)
-				error("Module %s missing cell %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing cell %s in second design.\n", mod_a->name.unescape(), it.first.unescape());
 			if (std::string mismatch = compare_cells(it.second, mod_b->cells_.at(it.first)); !mismatch.empty())
-				error("Module %s cell %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
+				error("Module %s cell %s %s.\n", mod_a->name.unescape(), it.first.unescape(), mismatch);
 		}
 		for (const auto &it : mod_b->cells_)
 			if (mod_a->cells_.count(it.first) == 0)
-				error("Module %s missing cell %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing cell %s in first design.\n", mod_b->name.unescape(), it.first.unescape());
 	}
 
 	void check_memories()
 	{
 		for (const auto &it : mod_a->memories) {
 			if (mod_b->memories.count(it.first) == 0)
-				error("Module %s missing memory %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing memory %s in second design.\n", mod_a->name.unescape(), it.first.unescape());
 			if (std::string mismatch = compare_memories(it.second, mod_b->memories.at(it.first)); !mismatch.empty())
-				error("Module %s memory %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch);
+				error("Module %s memory %s %s.\n", mod_a->name.unescape(), it.first.unescape(), mismatch);
 		}
 		for (const auto &it : mod_b->memories)
 			if (mod_a->memories.count(it.first) == 0)
-				error("Module %s missing memory %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing memory %s in first design.\n", mod_b->name.unescape(), it.first.unescape());
 	}
 
 	std::string compare_case_rules(const RTLIL::CaseRule *a, const RTLIL::CaseRule *b)
@@ -251,7 +251,7 @@ public:
 			const auto &ma = a->mem_write_actions[i];
 			const auto &mb = b->mem_write_actions[i];
 			if (ma.memid != mb.memid)
-				return "mem_write_actions " + std::to_string(i) + " memid mismatch: " + log_id(ma.memid) + " != " + log_id(mb.memid);
+				return "mem_write_actions " + std::to_string(i) + " memid mismatch: " + ma.memid.unescape() + " != " + mb.memid.unescape();
 			if (!compare_sigspec(ma.address, mb.address))
 				return "mem_write_actions " + std::to_string(i) + " address mismatch: " + log_signal(ma.address) + " != " + log_signal(mb.address);
 			if (!compare_sigspec(ma.data, mb.data))
@@ -268,7 +268,7 @@ public:
 
 	std::string compare_processes(const RTLIL::Process *a, const RTLIL::Process *b)
 	{
-		if (a->name != b->name) return "name mismatch: " + std::string(log_id(a->name)) + " != " + log_id(b->name);
+		if (a->name != b->name) return "name mismatch: " + std::string(a->name.unescape()) + " != " + b->name.unescape();
 		if (std::string mismatch = compare_attributes(a, b); !mismatch.empty())
 			return mismatch;
 		if (std::string mismatch = compare_case_rules(&a->root_case, &b->root_case); !mismatch.empty())
@@ -285,13 +285,13 @@ public:
 	{
 		for (auto &it : mod_a->processes) {
 			if (mod_b->processes.count(it.first) == 0)
-				error("Module %s missing process %s in second design.\n", log_id(mod_a->name), log_id(it.first));
+				error("Module %s missing process %s in second design.\n", mod_a->name.unescape(), it.first.unescape());
 			if (std::string mismatch = compare_processes(it.second, mod_b->processes.at(it.first)); !mismatch.empty())
-				error("Module %s process %s %s.\n", log_id(mod_a->name), log_id(it.first), mismatch.c_str());
+				error("Module %s process %s %s.\n", mod_a->name.unescape(), it.first.unescape(), mismatch.c_str());
 		}
 		for (auto &it : mod_b->processes)
 			if (mod_a->processes.count(it.first) == 0)
-				error("Module %s missing process %s in first design.\n", log_id(mod_b->name), log_id(it.first));
+				error("Module %s missing process %s in first design.\n", mod_b->name.unescape(), it.first.unescape());
 	}
 
 	void check_connections()
@@ -299,13 +299,13 @@ public:
 		const auto &conns_a = mod_a->connections();
 		const auto &conns_b = mod_b->connections();
 		if (conns_a.size() != conns_b.size()) {
-			error("Module %s connection count differs: %zu != %zu\n", log_id(mod_a->name), conns_a.size(), conns_b.size());
+			error("Module %s connection count differs: %zu != %zu\n", mod_a->name.unescape(), conns_a.size(), conns_b.size());
 		} else {
 			for (size_t i = 0; i < conns_a.size(); i++) {
 				if (!compare_sigspec(conns_a[i].first, conns_b[i].first))
-					error("Module %s connection %zu LHS %s != %s.\n", log_id(mod_a->name), i, log_signal(conns_a[i].first), log_signal(conns_b[i].first));
+					error("Module %s connection %zu LHS %s != %s.\n", mod_a->name.unescape(), i, log_signal(conns_a[i].first), log_signal(conns_b[i].first));
 				if (!compare_sigspec(conns_a[i].second, conns_b[i].second))
-					error("Module %s connection %zu RHS %s != %s.\n", log_id(mod_a->name), i, log_signal(conns_a[i].second), log_signal(conns_b[i].second));
+					error("Module %s connection %zu RHS %s != %s.\n", mod_a->name.unescape(), i, log_signal(conns_a[i].second), log_signal(conns_b[i].second));
 			}
 		}
 	}
@@ -313,9 +313,9 @@ public:
 	void check()
 	{
 		if (mod_a->name != mod_b->name)
-			error("Modules have different names: %s != %s\n", log_id(mod_a->name), log_id(mod_b->name));
+			error("Modules have different names: %s != %s\n", mod_a->name.unescape(), mod_b->name.unescape());
 		if (std::string mismatch = compare_attributes(mod_a, mod_b); !mismatch.empty())
-			error("Module %s %s.\n", log_id(mod_a->name), mismatch);
+			error("Module %s %s.\n", mod_a->name.unescape(), mismatch);
 		check_wires();
 		check_cells();
 		check_memories();
@@ -349,7 +349,7 @@ struct DesignEqualPass : public Pass {
 		for (auto &it : design->modules_) {
 			RTLIL::Module *mod = it.second;
 			if (!other->has(mod->name))
-				log_error("Second design missing module %s.\n", log_id(mod->name));
+				log_error("Second design missing module %s.\n", mod->name.unescape());
 
 			ModuleComparator cmp(mod, other->module(mod->name));
 			cmp.check();
@@ -357,7 +357,7 @@ struct DesignEqualPass : public Pass {
 		for (auto &it : other->modules_) {
 			RTLIL::Module *mod = it.second;
 			if (!design->has(mod->name))
-				log_error("First design missing module %s.\n", log_id(mod->name));
+				log_error("First design missing module %s.\n", mod->name.unescape());
 		}
 
 		log("Designs are identical.\n");

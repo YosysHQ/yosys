@@ -3,7 +3,7 @@ ram block \RAM_9b1B {
 	abits 7;
 	widths 1 2 4 9 18 per_port;
 	byte 9;
-	
+
 	ifdef INIT_NONE {
 		option "INIT" "NONE" {
 			init none;

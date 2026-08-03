@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <filesystem>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -60,7 +61,7 @@ void try_collect_garbage()
 	RTLIL::OwningIdString::collect_garbage();
 }
 
-Pass::Pass(std::string name, std::string short_help, source_location location) : 
+Pass::Pass(std::string name, std::string short_help, source_location location) :
 	pass_name(name), short_help(short_help), location(location)
 {
 	next_queued_pass = first_queued_pass;
@@ -217,7 +218,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		return;
 
 	if (tok[0] == '!') {
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 		cmd_buf = command.substr(command.find('!') + 1);
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
@@ -458,6 +459,8 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 
 FILE *Frontend::current_script_file = NULL;
 std::string Frontend::last_here_document;
+std::string Frontend::current_script_filename;
+int Frontend::current_script_lineno = 0;
 
 void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_input)
 {
@@ -495,6 +498,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
 				}
+				Frontend::current_script_lineno++;
 				size_t indent = buffer.find_first_not_of(" \t\r\n");
 				if (indent != std::string::npos && buffer.compare(indent, eot_marker.size(), eot_marker) == 0)
 					break;
@@ -741,8 +745,8 @@ static void log_warning_flags(Pass *pass) {
 static struct CellHelpMessages {
 	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
-#include "techlibs/common/simlib_help.inc"
-#include "techlibs/common/simcells_help.inc"
+#include "kernel/simlib_help.inc"
+#include "kernel/simcells_help.inc"
 		cell_help.sort();
 	}
 	bool contains(string name) { return cell_help.count(get_cell_name(name)) > 0; }
@@ -771,6 +775,10 @@ struct HelpPass : public Pass {
 
 		bool raise_error = false;
 		std::map<string, vector<string>> groups;
+
+		// get root path
+		auto this_path = std::filesystem::path(source_location::current().file_name());
+		auto source_root = this_path.parent_path().parent_path();
 
 		json.name("cmds"); json.begin_object();
 		// iterate over commands
@@ -912,10 +920,19 @@ struct HelpPass : public Pass {
 				}
 			}
 
+			// fix path
+			string source_file = pass->location.file_name();
+			bool has_source = source_file.compare("unknown") != 0;
+			std::filesystem::path source_path;
+			auto skip_source_group = false;
+
+			if (has_source) {
+				source_path = fixup_source_path(pass->location.file_name(), source_root, &skip_source_group);
+				source_file = source_path.string();
+			}
+
 			// attempt auto group
 			if (!cmd_help.has_group()) {
-				string source_file = pass->location.file_name();
-				bool has_source = source_file.compare("unknown") != 0;
 				if (pass->internal_flag)
 					cmd_help.group = "internal";
 				else if (source_file.find("backends/") == 0 || (!has_source && name.find("read_") == 0))
@@ -923,11 +940,8 @@ struct HelpPass : public Pass {
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
 				else if (has_source) {
-					auto last_slash = source_file.find_last_of('/');
-					if (last_slash != string::npos) {
-						auto parent_path = source_file.substr(0, last_slash);
-						cmd_help.group = parent_path;
-					}
+					if (source_path.has_parent_path() && !skip_source_group)
+						cmd_help.group = source_path.parent_path().string();
 				}
 				// implicit !has_source
 				else if (name.find("equiv") == 0)
@@ -952,10 +966,10 @@ struct HelpPass : public Pass {
 			json.entry("title", title);
 			json.name("content"); json.begin_array();
 			for (auto &content : cmd_help)
-				json.value(content.to_json());
+				json.value(content.to_json(source_root));
 			json.end_array();
 			json.entry("group", cmd_help.group);
-			json.entry("source_file", pass->location.file_name());
+			json.entry("source_file", source_file);
 			json.entry("source_line", pass->location.line());
 			json.entry("source_func", pass->location.function_name());
 			json.entry("experimental_flag", pass->experimental_flag);

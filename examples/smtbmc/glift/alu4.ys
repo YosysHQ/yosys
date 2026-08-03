@@ -36,6 +36,6 @@ opt solved
 miter -equiv spec solved satmiter
 flatten
 sat -prove trigger 0 satmiter
-delete satmiter 
+delete satmiter
 stat
 shell

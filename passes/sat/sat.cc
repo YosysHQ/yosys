@@ -1369,7 +1369,7 @@ struct SatPass : public Pass {
 		RTLIL::Module *module = NULL;
 		for (auto mod : design->selected_modules()) {
 			if (module)
-				log_cmd_error("Only one module must be selected for the SAT pass! (selected: %s and %s)\n", log_id(module), log_id(mod));
+				log_cmd_error("Only one module must be selected for the SAT pass! (selected: %s and %s)\n", module, mod);
 			module = mod;
 		}
 		if (module == NULL)

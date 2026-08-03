@@ -641,8 +641,8 @@ struct RecoverNamesWorker {
                 for (auto gate_bit : gate_bits) {
                     if (solved_gate.count(gate_bit.bit))
                         continue;
-                    log_debug("   attempting to prove %s[%d] == %s%s[%d]\n", log_id(gold_bit.name), gold_bit.bit,
-                        gate_bit.inverted ? "" : "!", log_id(gate_bit.bit.name), gate_bit.bit.bit);
+                    log_debug("   attempting to prove %s[%d] == %s%s[%d]\n", gold_bit.name.unescape(), gold_bit.bit,
+                        gate_bit.inverted ? "" : "!", gate_bit.bit.name.unescape(), gate_bit.bit.bit);
                     if (!prove_equiv(gold_worker, gate_worker, gold_anchors, gate_anchors, gold_bit, gate_bit.bit, gate_bit.inverted))
                         continue;
                     log_debug("       success!\n");
@@ -660,7 +660,7 @@ struct RecoverNamesWorker {
                     break;
             }
         }
-        log("Recovered %d net name pairs in module `%s' out.\n", GetSize(gate2gold), log_id(gate_mod));
+        log("Recovered %d net name pairs in module `%s' out.\n", GetSize(gate2gold), gate_mod);
         gate_worker.do_rename(gold_mod, gate2gold, buffer_types);
     }
 

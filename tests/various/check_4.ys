@@ -12,7 +12,7 @@ module top(input wire clk, input wire [3:0] addr, output reg [3:0] data);
 	wire arst = !data[0];
 
 	always @(posedge arst, posedge clk) begin
-		if (arst)		
+		if (arst)
 			data <= 4'hx;
 		else
 			data <= mem[addr];

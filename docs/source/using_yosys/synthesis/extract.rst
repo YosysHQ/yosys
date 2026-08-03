@@ -24,7 +24,7 @@ Example code can be found in |code_examples/macc|_.
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_00a.*
     :class: width-helper invert-helper
-    
+
     before `extract`
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.ys
@@ -33,7 +33,7 @@ Example code can be found in |code_examples/macc|_.
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_00b.*
     :class: width-helper invert-helper
-    
+
     after `extract`
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.v

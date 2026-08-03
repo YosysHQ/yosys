@@ -286,7 +286,7 @@ have incorrect results in unusual situations.
 Coding style
 ~~~~~~~~~~~~
 
-Yosys is written in C++17.
+Yosys is written in C++20.
 
 In general Yosys uses ``int`` instead of ``size_t``. To avoid compiler warnings
 for implicit type casts, always use ``GetSize(foobar)`` instead of

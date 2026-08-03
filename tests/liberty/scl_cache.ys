@@ -1,0 +1,7 @@
+read_verilog small.v
+synth -top small
+abc -liberty normal.lib
+
+logger -expect log "using cached merged SCL" 1
+abc -liberty normal.lib
+logger -check-expected

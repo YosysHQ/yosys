@@ -18,7 +18,7 @@ detail in the :doc:`/getting_started/example_synth` document.
    The :file:`counter.ys` script includes the commands used to generate the
    images in this document.  Code snippets in this document skip these commands;
    including line numbers to allow the reader to follow along with the source.
-   
+
    To learn more about these commands, check out :ref:`interactive_show`.
 
 .. _example project: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/intro
@@ -37,7 +37,7 @@ First, let's quickly look at the design:
 This is a simple counter with reset and enable.  If the reset signal, ``rst``,
 is high then the counter will reset to 0.  Otherwise, if the enable signal,
 ``en``, is high then the ``count`` register will increment by 1 each rising edge
-of the clock, ``clk``.  
+of the clock, ``clk``.
 
 Loading the design
 ~~~~~~~~~~~~~~~~~~

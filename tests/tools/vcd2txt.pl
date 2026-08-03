@@ -58,4 +58,3 @@ for my $node (keys $vcd) {
 		}
 	}
 }
-

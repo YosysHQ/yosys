@@ -1,0 +1,14 @@
+yosys_gtest(kernel
+	bitpatternTest.cc
+	cellTypesTest.cc
+	hashTest.cc
+	ioTest.cc
+	logTest.cc
+	modindexTest.cc
+	rtlilHelpers.h
+	rtlilStringTest.cc
+	rtlilTest.cc
+	sigspecExtractTest.cc
+	sigspecRemove2Test.cc
+	threadingTest.cc
+)

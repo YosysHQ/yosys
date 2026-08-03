@@ -41,8 +41,10 @@ equiv_opt -assert -map +/analogdevices/cells_sim.v synth_analogdevices -noiopad 
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
 select -assert-max 2 t:LUT3
-select -assert-max 1 t:LUT5
+select -assert-max 2 t:LUT4
 select -assert-min 4 t:LUT6
+select -assert-max 7 t:LUT6
+select -assert-max 2 t:LUTMUX7
 dump
 
-select -assert-none t:LUT6 t:LUT5 t:LUT3 %% t:* %D
+select -assert-none t:LUT6 t:LUT4 t:LUT3 t:LUTMUX7 %% t:* %D

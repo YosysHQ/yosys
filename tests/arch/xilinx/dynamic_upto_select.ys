@@ -1,0 +1,19 @@
+# https://github.com/YosysHQ/yosys/issues/892
+
+read_verilog <<EOT
+module top (input clk, sel, di, output do);
+	reg [0:1] data [0:0];
+	always @(posedge clk)
+		data[0] <= {di, data[0][0]};
+	assign do = data[0][sel];
+endmodule
+EOT
+
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+design -load postopt
+
+select -assert-count 1 t:BUFG
+select -assert-count 2 t:FDRE
+select -assert-count 1 t:LUT3
+select -assert-none t:BUFG t:FDRE t:LUT3 %% t:* %D

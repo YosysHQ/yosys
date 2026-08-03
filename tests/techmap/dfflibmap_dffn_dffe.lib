@@ -4,7 +4,7 @@ library(test) {
     ff("IQ", "IQN") {
       next_state : "D";
       clocked_on : "!CLK";
-    } 
+    }
     pin(D) {
       direction : input;
     }
@@ -18,7 +18,7 @@ library(test) {
     pin(QN) {
       direction: output;
       function : "IQN";
-    } 
+    }
   }
   cell (dffe) {
     area : 6;

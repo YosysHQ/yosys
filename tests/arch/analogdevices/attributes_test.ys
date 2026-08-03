@@ -4,7 +4,7 @@ hierarchy -top block_ram
 synth_analogdevices -top block_ram -noiopad
 cd block_ram # Constrain all select calls below inside the top module
 # select -assert-count 1 t:RBRAM2 # This currently infers LUTRAM because BRAM is expensive.
- 
+
 # Check that distributed memory without parameters is not modified
 design -reset
 read_verilog ../common/memory_attributes/attributes_test.v
@@ -13,7 +13,7 @@ synth_analogdevices -top distributed_ram -noiopad
 cd distributed_ram # Constrain all select calls below inside the top module
 select -assert-count 8 t:RAMS64X1
 select -assert-count 8 t:FFRE
- 
+
 # Set ram_style distributed to blockram memory; will be implemented as distributed
 design -reset
 read_verilog ../common/memory_attributes/attributes_test.v
@@ -22,7 +22,7 @@ synth_analogdevices -top block_ram -noiopad
 cd block_ram # Constrain all select calls below inside the top module
 select -assert-count 64 t:RAMS64X1
 select -assert-count 4 t:FFRE
- 
+
 # Set synthesis, logic_block to blockram memory; will be implemented as distributed
 design -reset
 read_verilog ../common/memory_attributes/attributes_test.v
@@ -30,7 +30,7 @@ setattr -set logic_block 1 block_ram/m:*
 synth_analogdevices -top block_ram -noiopad
 cd block_ram # Constrain all select calls below inside the top module
 select -assert-count 0 t:RBRAM2
- 
+
 # Set ram_style block to a distributed memory; will be implemented as blockram
 design -reset
 read_verilog ../common/memory_attributes/attributes_test.v

@@ -7,7 +7,7 @@
 module rom_using_case (
 address , // Address input
 data    , // Data output
-read_en , // Read Enable 
+read_en , // Read Enable
 ce        // Chip Enable
 );
 input [3:0] address;
@@ -16,7 +16,7 @@ input read_en;
 input ce;
 
 reg [7:0] data ;
-       
+
 always @ (ce or read_en or address)
 begin
   case (address)

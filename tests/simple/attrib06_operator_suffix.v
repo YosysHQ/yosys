@@ -20,4 +20,3 @@ module attrib06_foo(clk, rst, inp_a, inp_b, out);
 
   attrib06_bar bar_instance (clk, rst, inp_a, inp_b, out);
 endmodule
-

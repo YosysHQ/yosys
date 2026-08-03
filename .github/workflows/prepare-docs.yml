@@ -18,7 +18,7 @@ jobs:
       docs_export: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
     steps:
       - id: skip_check
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: fkirc/skip-duplicate-actions@v5.3.2
         with:
           paths_ignore: '["**/README.md"]'
           # don't cancel in case we're updating docs
@@ -46,7 +46,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: true
@@ -57,22 +57,22 @@ jobs:
 
       - name: Build Yosys
         run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
-          make -j$procs
+          rm -rf build Configuration.cmake
+          echo 'set(CMAKE_C_COMPILER clang CACHE STRING "")' >> Configuration.cmake
+          echo 'set(CMAKE_CXX_COMPILER clang++ CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_COMPILER_LAUNCHER ccache CACHE STRING "")' >> Configuration.cmake
+          echo 'set(YOSYS_VERIFIC_DIR "/usr/local/src/verific_lib" CACHE STRING "")' >> Configuration.cmake
+
+          cmake -C Configuration.cmake -B build .
+          cmake --build build -j$procs
 
       - name: Prepare docs
         shell: bash
         run:
-          make docs/prep -j$procs TARGETS= EXTRA_TARGETS=
+          cmake --build build --target docs-prepare -j$procs
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cmd-ref-${{ github.sha }}
           path: |
@@ -83,12 +83,12 @@ jobs:
       - name: Install doc prereqs
         shell: bash
         run: |
-          make docs/reqs
+          make -C docs reqs
 
       - name: Test build docs
         shell: bash
         run: |
-          make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
+          cmake --build build --target docs-html -j$procs
 
       - name: Trigger RTDs build
         if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' && github.repository == 'YosysHQ/yosys' }}

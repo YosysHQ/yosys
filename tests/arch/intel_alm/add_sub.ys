@@ -6,4 +6,3 @@ cd top # Constrain all select calls below inside the top module
 stat
 select -assert-count 9 t:MISTRAL_ALUT_ARITH
 select -assert-none t:MISTRAL_ALUT_ARITH %% t:* %D
-

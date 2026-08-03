@@ -109,8 +109,10 @@ TEST_F(ThreadingTest, IntRangeIteration) {
 
 TEST_F(ThreadingTest, IntRangeEmpty) {
 	IntRange range{5, 5};
-	for (int _ : range)
+	for (int _ : range) {
+		(void)_;
 		FAIL();
+	}
 }
 
 TEST_F(ThreadingTest, ItemRangeForWorker) {

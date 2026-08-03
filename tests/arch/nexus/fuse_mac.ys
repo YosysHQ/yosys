@@ -1,0 +1,35 @@
+read_verilog -sv fuse_mac.sv
+
+design -save pristine
+
+# 18x18 MAC
+design -load pristine
+hierarchy -top mac;
+synth_nexus -family lifcl -top mac
+select -assert-count 1 t:MULTADDSUB18X18
+select -assert-count 0 t:CCU2
+
+# 18x18 pre-add MAC
+design -load pristine
+hierarchy -top madd_pre;
+synth_nexus -family lifcl -top madd_pre
+select -assert-count 1 t:MULTPREADD18X18
+
+# 4-lane 9x9 dot product
+design -load pristine
+hierarchy -top dot4;
+synth_nexus -family lifcl -top dot4
+select -assert-count 1 t:MULTADDSUB9X9WIDE
+
+# 24x24 MAC
+design -load pristine
+hierarchy -top neg_mac24;
+synth_nexus -family lifcl -top neg_mac24
+select -assert-count 0 t:MULTADDSUB18X18
+
+# mixed
+design -load pristine
+hierarchy -top neg_dot_mixed;
+synth_nexus -family lifcl -top neg_dot_mixed
+select -assert-count 0 t:MULTADDSUB9X9WIDE
+select -assert-count 2 t:MULTADDSUB18X18

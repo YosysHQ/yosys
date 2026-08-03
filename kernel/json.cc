@@ -169,4 +169,3 @@ void PrettyJson::entry_json(const char *name, const Json &value)
     this->name(name);
     this->value(value);
 }
-

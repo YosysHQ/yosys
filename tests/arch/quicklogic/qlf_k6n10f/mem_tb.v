@@ -46,7 +46,7 @@ initial begin
 	end
 
 	`MEM_TEST_VECTOR
-	
+
 end
 
 
@@ -73,7 +73,7 @@ wire [DATA_WIDTH_B-1:0] wd_b = wd_b_testvector[i];
 always @(posedge clk) begin
 	if (i < VECTORLEN-1) begin
 		if (i > 0) begin
-			if($past(rce_a)) 
+			if($past(rce_a))
 				assert(rq_a == rq_a_e);
 			if($past(rce_b))
 				assert(rq_b == rq_b_e);

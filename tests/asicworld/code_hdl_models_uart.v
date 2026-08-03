@@ -1,5 +1,5 @@
 //-----------------------------------------------------
-// Design Name : uart 
+// Design Name : uart
 // File Name   : uart.v
 // Function    : Simple UART
 // Coder       : Deepak Kumar Tala
@@ -34,7 +34,7 @@ input        rx_enable      ;
 input        rx_in          ;
 output       rx_empty       ;
 
-// Internal Variables 
+// Internal Variables
 reg [7:0]    tx_reg         ;
 reg          tx_empty       ;
 reg          tx_over_run    ;
@@ -43,7 +43,7 @@ reg          tx_out         ;
 reg [7:0]    rx_reg         ;
 reg [7:0]    rx_data        ;
 reg [3:0]    rx_sample_cnt  ;
-reg [3:0]    rx_cnt         ;  
+reg [3:0]    rx_cnt         ;
 reg          rx_frame_err   ;
 reg          rx_over_run    ;
 reg          rx_empty       ;
@@ -54,7 +54,7 @@ reg          rx_busy        ;
 // UART RX Logic
 always @ (posedge rxclk or posedge reset)
 if (reset) begin
-  rx_reg        <= 0; 
+  rx_reg        <= 0;
   rx_data       <= 0;
   rx_sample_cnt <= 0;
   rx_cnt        <= 0;
@@ -89,7 +89,7 @@ end else begin
           if ((rx_d2 == 1) && (rx_cnt == 0)) begin
             rx_busy <= 0;
           end else begin
-            rx_cnt <= rx_cnt + 1; 
+            rx_cnt <= rx_cnt + 1;
             // Start storing the rx data
             if (rx_cnt > 0 && rx_cnt < 9) begin
               rx_reg[rx_cnt - 1] <= rx_d2;
@@ -107,8 +107,8 @@ end else begin
                end
             end
           end
-       end 
-    end 
+       end
+    end
   end
   if (!rx_enable) begin
     rx_busy <= 0;

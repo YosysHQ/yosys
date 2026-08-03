@@ -1,5 +1,5 @@
-// This file exists to map purely-synchronous flops to ABC9 flops, while 
-// mapping flops with asynchronous-clear as boxes, this is because ABC9 
+// This file exists to map purely-synchronous flops to ABC9 flops, while
+// mapping flops with asynchronous-clear as boxes, this is because ABC9
 // doesn't support asynchronous-clear flops in sequential synthesis.
 
 module MISTRAL_FF(

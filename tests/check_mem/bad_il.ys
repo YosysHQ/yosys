@@ -1,0 +1,47 @@
+read_rtlil << EOF
+module \top
+  wire input 1 \clk
+  wire output 1 \o
+  memory size 2 offset 1 \my_array
+  cell $meminit \bad_init
+    parameter \WORDS 1
+    parameter \MEMID "\\my_array"
+    parameter \ABITS 32
+    parameter \WIDTH 1
+    parameter \PRIORITY 1
+    connect \ADDR 0
+    connect \DATA 1'0
+  end
+  cell $memwr \bad_wr
+    parameter \MEMID "\\my_array"
+    parameter \CLK_ENABLE 1
+    parameter \CLK_POLARITY 1
+    parameter \PRIORITY 1
+    parameter \ABITS 2
+    parameter \WIDTH 1
+    connect \EN 1'1
+    connect \CLK \clk
+    connect \ADDR 2'00
+    connect \DATA 1'0
+  end
+  cell $memrd \bad_rd
+    parameter \MEMID "\\my_array"
+    parameter \CLK_ENABLE 0
+    parameter \CLK_POLARITY 1
+    parameter \TRANSPARENT 0
+    parameter \ABITS 2
+    parameter \WIDTH 1
+    connect \CLK 1'x
+    connect \EN 1'x
+    connect \ADDR 2'11
+    connect \DATA \o
+  end
+end
+EOF
+
+logger -expect warning "initializes address 0" 1
+logger -expect warning "writes address 0" 1
+logger -expect warning "reads address 3" 1
+check_mem
+logger -check-expected
+design -reset

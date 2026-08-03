@@ -4,7 +4,7 @@ module f1_test(input [1:0] in, output reg [1:0] out);
 
 always @(in)
     out = in;
-endmodule	
+endmodule
 
 // test_simulation_always_17_test.v
 module f2_test(a, b, c, d, z);
@@ -17,7 +17,7 @@ begin
     temp1 = a ^ b;
 	temp2 = c ^ d;
 	z = temp1 ^ temp2;
-end	
+end
 
 endmodule
 
@@ -31,7 +31,7 @@ always @ ( in1 or in2)
 		out = in1;
 	else
 		out = in2;
-endmodule		
+endmodule
 
 // test_simulation_always_19_test.v
 module f4_test(ctrl, in1,  in2, out);
@@ -42,16 +42,16 @@ output  reg out;
 always @ (ctrl or in1 or in2)
 	if(ctrl)
 		out = in1 & in2;
-	else 
+	else
 		out = in1 | in2;
-endmodule		
+endmodule
 
 // test_simulation_always_1_test.v
 module f5_test(input in, output reg out);
 
 always @(in)
     out = in;
-endmodule	
+endmodule
 
 // test_simulation_always_20_test.v
 module f6_NonBlockingEx(clk, merge, er, xmit, fddi, claim);
@@ -81,7 +81,7 @@ always @(posedge clk)
     is <= cs;
 
 assign ns = is;
-endmodule	
+endmodule
 
 // test_simulation_always_22_test.v
 module f8_inc(clock, counter);
@@ -90,7 +90,7 @@ input clock;
 output reg [7:0] counter;
 always @(posedge clock)
 	counter <= counter + 1;
-endmodule	
+endmodule
 
 // test_simulation_always_23_test.v
 module f9_MyCounter (clock, preset, updown, presetdata, counter);
@@ -106,7 +106,7 @@ always @(posedge clock)
 		    counter <= counter + 1;
 		else
 		    counter <= counter - 1;
-endmodule			
+endmodule
 
 // test_simulation_always_27_test.v
 module f10_FlipFlop(clock, cs, ns);
@@ -119,9 +119,9 @@ always @(posedge clock)
 begin
     temp <= cs;
 	ns <= temp;
-end	
+end
 
-endmodule	
+endmodule
 
 // test_simulation_always_29_test.v
 module f11_test(input in, output reg [1:0] out);

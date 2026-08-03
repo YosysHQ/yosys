@@ -13,4 +13,3 @@ chformal -lower
 clean
 opt_merge
 select -assert-count 2 t:$cover
-

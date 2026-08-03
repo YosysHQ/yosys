@@ -115,6 +115,8 @@ struct OptReduceWorker
 		int port_width = sig_a.size();
 		for (int i = 0; i < sig_s.size(); i++) {
 			RTLIL::SigSpec this_b = sig_b.extract(i*port_width, port_width);
+			if (this_b == sig_a)
+				continue;
 			if (grouped_b_to_s.count(this_b)) {
 				grouped_b_to_s[this_b].push_back(sig_s[i]);
 			} else {

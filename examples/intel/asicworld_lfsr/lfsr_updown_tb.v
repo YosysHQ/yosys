@@ -31,4 +31,4 @@ lfsr_updown U(
 .overflow ( overflow )
 );
 
-endmodule 
+endmodule

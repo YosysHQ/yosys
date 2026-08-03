@@ -3,4 +3,3 @@ library("foobar") {
     bar : baz[0] ;
   }
 }
-

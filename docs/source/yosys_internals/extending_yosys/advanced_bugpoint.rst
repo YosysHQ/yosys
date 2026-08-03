@@ -240,7 +240,7 @@ the design at each log header.
 
 A worked example
 ~~~~~~~~~~~~~~~~
-  
+
 Say you did all the minimization and found that an error in `synth_xilinx`
 occurs when a call to ``techmap -map +/xilinx/cells_map.v`` with
 ``MIN_MUX_INPUTS`` defined parses a `$_MUX16_` with all inputs set to ``1'x``.

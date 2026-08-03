@@ -182,20 +182,20 @@ module \ahb_async_sram_halfwidth
     attribute \src "../hdl/mem/ahb_async_sram_halfwidth.v:72"
     switch $logic_not$../hdl/mem/ahb_async_sram_halfwidth.v:72$2437_Y
       case 1'1
-      case 
+      case
         attribute \src "../hdl/mem/ahb_async_sram_halfwidth.v:78"
         switch \ahbls_hready
           case 1'1
             attribute \src "../hdl/mem/ahb_async_sram_halfwidth.v:79"
             switch \ahbls_htrans [1]
               case 1'1
-              case 
+              case
             end
-          case 
+          case
             attribute \src "../hdl/mem/ahb_async_sram_halfwidth.v:91"
             switch $logic_and$../hdl/mem/ahb_async_sram_halfwidth.v:91$2441_Y
               case 1'1
-              case 
+              case
             end
         end
     end

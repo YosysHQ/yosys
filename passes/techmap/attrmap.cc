@@ -131,13 +131,13 @@ void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actio
 
 		if (new_attr != attr)
 			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname,
-					log_id(attr.first), log_const(attr.second), log_id(new_attr.first), log_const(new_attr.second));
+					attr.first.unescape(), log_const(attr.second), new_attr.first.unescape(), log_const(new_attr.second));
 
 		new_attributes[new_attr.first] = new_attr.second;
 
 		if (0)
 	delete_this_attr:
-			log("Removed attribute on %s: %s=%s\n", objname, log_id(attr.first), log_const(attr.second));
+			log("Removed attribute on %s: %s=%s\n", objname, attr.first.unescape(), log_const(attr.second));
 	}
 
 	attributes.swap(new_attributes);
@@ -264,14 +264,14 @@ struct AttrmapPass : public Pass {
 		if (modattr_mode)
 		{
 			for (auto module : design->all_selected_whole_modules())
-				attrmap_apply(stringf("%s", log_id(module)), actions, module->attributes);
+				attrmap_apply(stringf("%s", module), actions, module->attributes);
 		}
 		else
 		{
 			for (auto module : design->all_selected_modules())
 			{
 				for (auto memb : module->selected_members())
-					attrmap_apply(stringf("%s.%s", log_id(module), log_id(memb)), actions, memb->attributes);
+					attrmap_apply(stringf("%s.%s", module, memb), actions, memb->attributes);
 
 				// attrmap already applied to process itself during above loop, but not its children
 				for (auto proc : module->selected_processes())
@@ -280,10 +280,10 @@ struct AttrmapPass : public Pass {
 					while (!all_cases.empty()) {
 						RTLIL::CaseRule *cs = all_cases.back();
 						all_cases.pop_back();
-						attrmap_apply(stringf("%s.%s (case)", log_id(module), log_id(proc)), actions, cs->attributes);
+						attrmap_apply(stringf("%s.%s (case)", module, proc), actions, cs->attributes);
 
 						for (auto &sw : cs->switches) {
-							attrmap_apply(stringf("%s.%s (switch)", log_id(module), log_id(proc)), actions, sw->attributes);
+							attrmap_apply(stringf("%s.%s (switch)", module, proc), actions, sw->attributes);
 							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
 						}
 					}
@@ -328,7 +328,7 @@ struct ParamapPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells())
-			attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->parameters);
+			attrmap_apply(stringf("%s.%s", module, cell), actions, cell->parameters);
 	}
 } ParamapPass;
 

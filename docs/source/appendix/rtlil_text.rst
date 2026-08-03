@@ -136,11 +136,11 @@ wires, memories, cells, processes, and connections.
 
     <module>            ::= <attr-stmt>* <module-stmt> <module-body> <module-end-stmt>
     <module-stmt>       ::= module <id> <eol>
-    <module-body>       ::= (<param-stmt> 
+    <module-body>       ::= (<param-stmt>
                          |   <conn-stmt>
-                         |   <wire> 
-                         |   <memory> 
-                         |   <cell> 
+                         |   <wire>
+                         |   <memory>
+                         |   <cell>
                          |   <process>)*
     <param-stmt>        ::= parameter <id> <constant>? <eol>
     <constant>          ::= <value> | <integer> | <string>
@@ -170,9 +170,9 @@ See :ref:`sec:rtlil_sigspec` for an overview of signal specifications.
 
 .. code:: BNF
 
-    <sigspec> ::= <constant> 
+    <sigspec> ::= <constant>
                |  <wire-id>
-               |  <sigspec> [ <integer> (:<integer>)? ] 
+               |  <sigspec> [ <integer> (:<integer>)? ]
                |  { <sigspec>* }
 
 When a ``<wire-id>`` is specified, the wire must have been previously declared.
@@ -202,12 +202,12 @@ See :ref:`sec:rtlil_cell_wire` for an overview of wires.
     <wire>          ::= <attr-stmt>* <wire-stmt>
     <wire-stmt>     ::= wire <wire-option>* <wire-id> <eol>
     <wire-id>       ::= <id>
-    <wire-option>   ::= width <integer> 
-                     |  offset <integer> 
-                     |  input <integer> 
-                     |  output <integer> 
-                     |  inout <integer> 
-                     |  upto 
+    <wire-option>   ::= width <integer>
+                     |  offset <integer>
+                     |  input <integer>
+                     |  output <integer>
+                     |  inout <integer>
+                     |  upto
                      |  signed
 
 Memories
@@ -223,8 +223,8 @@ See :ref:`sec:rtlil_memory` for an overview of memory cells, and
 
     <memory>        ::= <attr-stmt>* <memory-stmt>
     <memory-stmt>   ::= memory <memory-option>* <id> <eol>
-    <memory-option> ::= width <integer> 
-                     |  size <integer> 
+    <memory-option> ::= width <integer>
+                     |  size <integer>
                      |  offset <integer>
 
 Cells
@@ -299,9 +299,9 @@ be:
 .. code:: BNF
 
     <sync>          ::= <sync-stmt> <update-stmt>*
-    <sync-stmt>     ::= sync <sync-type> <sigspec> <eol> 
+    <sync-stmt>     ::= sync <sync-type> <sigspec> <eol>
                      |  sync global <eol>
-                     |  sync init <eol> 
+                     |  sync init <eol>
                      |  sync always <eol>
     <sync-type>     ::= low | high | posedge | negedge | edge
     <update-stmt>   ::= update <dest-sigspec> <src-sigspec> <eol>

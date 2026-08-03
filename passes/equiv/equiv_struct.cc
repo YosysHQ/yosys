@@ -79,7 +79,7 @@ struct EquivStructWorker
 						inputs_a.append(bits_a[i]);
 						inputs_b.append(bits_b[i]);
 						input_names.push_back(GetSize(bits_a) == 1 ? port_a.first.str() :
-								stringf("%s[%d]", log_id(port_a.first), i));
+								stringf("%s[%d]", port_a.first.unescape(), i));
 					}
 		}
 
@@ -111,7 +111,7 @@ struct EquivStructWorker
 		}
 
 		auto merged_attr = cell_b->get_strpool_attribute(ID::equiv_merged);
-		merged_attr.insert(log_id(cell_b));
+		merged_attr.insert(cell_b->name.unescape());
 		cell_a->add_strpool_attribute(ID::equiv_merged, merged_attr);
 		module->remove(cell_b);
 	}
@@ -144,7 +144,7 @@ struct EquivStructWorker
 				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
 				SigBit sig_y = sigmap(cell->getPort(ID::Y).as_bit());
 				if (sig_a == sig_b && equiv_inputs.count(sig_y)) {
-					log("    Purging redundant $equiv cell %s.\n", log_id(cell));
+					log("    Purging redundant $equiv cell %s.\n", cell);
 					module->connect(sig_y, sig_a);
 					module->remove(cell);
 					merge_count++;
@@ -266,9 +266,9 @@ struct EquivStructWorker
 			run_strategy:
 				int total_group_size = GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells);
 				log("    %s merging %d %s cells (from group of %d) using strategy %s:\n", phase ? "Bwd" : "Fwd",
-						2*GetSize(cell_pairs), log_id(cells_type), total_group_size, strategy);
+						2*GetSize(cell_pairs), cells_type.unescape(), total_group_size, strategy);
 				for (auto it : cell_pairs) {
-					log("      Merging cells %s and %s.\n", log_id(it.first),  log_id(it.second));
+					log("      Merging cells %s and %s.\n", it.first,  it.second);
 					merge_cell_pair(it.first, it.second);
 				}
 			}
@@ -347,7 +347,7 @@ struct EquivStructPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			int module_merge_count = 0;
-			log("Running equiv_struct on module %s:\n", log_id(module));
+			log("Running equiv_struct on module %s:\n", module);
 			for (int iter = 0;; iter++) {
 				if (iter == max_iter) {
 					log("  Reached iteration limit of %d.\n", iter);
@@ -359,7 +359,7 @@ struct EquivStructPass : public Pass {
 				module_merge_count += worker.merge_count;
 			}
 			if (module_merge_count)
-				log("  Performed a total of %d merges in module %s.\n", module_merge_count, log_id(module));
+				log("  Performed a total of %d merges in module %s.\n", module_merge_count, module);
 		}
 	}
 } EquivStructPass;

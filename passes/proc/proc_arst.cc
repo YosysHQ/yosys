@@ -215,7 +215,7 @@ void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 						RTLIL::SigSpec en = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.enable, memwr.enable);
 						if (!en.is_fully_zero()) {
 							log_error("Async reset %s causes memory write to %s.\n",
-									log_signal(sync->signal), log_id(memwr.memid));
+									log_signal(sync->signal), memwr.memid.unescape());
 						}
 						apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.address, memwr.address);
 						apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.data, memwr.data);

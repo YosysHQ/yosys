@@ -9,7 +9,7 @@ ezCmdlineSAT::~ezCmdlineSAT() {}
 
 bool ezCmdlineSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
-#if !defined(YOSYS_DISABLE_SPAWN)
+#if defined(YOSYS_ENABLE_SPAWN)
 	const std::string tempdir_name = Yosys::make_temp_dir(Yosys::get_base_tmpdir() + "/yosys-sat-XXXXXX");
 	const std::string cnf_filename = Yosys::stringf("%s/problem.cnf", tempdir_name.c_str());
 	const std::string sat_command = Yosys::stringf("%s %s", command.c_str(), cnf_filename.c_str());

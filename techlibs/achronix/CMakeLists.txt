@@ -1,0 +1,28 @@
+yosys_pass(synth_achronix
+	synth_achronix.cc
+	REQUIRES
+		abc
+		blackbox
+		check
+		clean
+		deminout
+		dfflegalize
+		flatten
+		hierarchy
+		iopadmap
+		memory_map
+		opt
+		proc
+		read_verilog
+		setundef
+		stat
+		synth
+		techmap
+		tribuf
+		write_verilog
+	DATA_DIR
+		achronix
+	DATA_FILES
+		speedster22i/cells_sim.v
+		speedster22i/cells_map.v
+)

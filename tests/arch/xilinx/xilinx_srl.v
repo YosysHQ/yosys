@@ -34,7 +34,7 @@ parameter [DEPTH-1:0] INIT = {DEPTH{1'b0}};
 reg [DEPTH-1:0] r = INIT;
 wire clk = C ^ CLKPOL;
 always @(posedge C)
-    if (E) 
+    if (E)
         r <= { r[DEPTH-2:0], D };
 assign Q = r[L];
 endmodule

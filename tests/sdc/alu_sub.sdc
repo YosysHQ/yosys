@@ -7,7 +7,7 @@ current_design wrapper
 # Timing Constraints
 ###############################################################################
 create_clock -name this_clk -period 1.0000 [get_ports {clk}]
-create_clock -name that_clk -period 2.0000 
+create_clock -name that_clk -period 2.0000
 create_clock -name another_clk -period 2.0000 \
     [list [get_ports {A[0]}]\
           [get_ports {A[1]}]\

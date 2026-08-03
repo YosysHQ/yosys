@@ -1,4 +1,4 @@
-`timescale 1ns/1ns 
+`timescale 1ns/1ns
 module tb_dff();
 	reg clk = 0;
 	reg d = 0;

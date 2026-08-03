@@ -601,7 +601,7 @@ Let's consider the following BNF (in Bison syntax):
 	:class: width-helper invert-helper
 	:name: fig:Basics_parsetree
 
-	Example parse tree for the Verilog expression 
+	Example parse tree for the Verilog expression
 	:verilog:`assign foo = bar + 42;`
 
 The parser converts the token list to the parse tree in :numref:`Fig. %s
@@ -630,7 +630,7 @@ three-address-code intermediate representation. :cite:p:`Dragonbook`
 	:class: width-helper invert-helper
 	:name: fig:Basics_ast
 
-	Example abstract syntax tree for the Verilog expression 
+	Example abstract syntax tree for the Verilog expression
 	:verilog:`assign foo = bar + 42;`
 
 

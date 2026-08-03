@@ -9,7 +9,7 @@ reset      , // Active high, syn reset
 req_0      , // Request 0
 req_1      , // Request 1
 gnt_0      , // Grant 0
-gnt_1      
+gnt_1
 );
 //-------------Input Ports-----------------------------
 input   clock,reset,req_0,req_1;
@@ -29,7 +29,7 @@ wire  [SIZE-1:0]          next_state   ;// combo part of FSM
 assign next_state = fsm_function(state, req_0, req_1);
 //----------Function for Combo Logic-----------------
 function [SIZE-1:0] fsm_function;
-  input  [SIZE-1:0]  state ;	
+  input  [SIZE-1:0]  state ;
   input    req_0 ;
   input    req_1 ;
   case(state)

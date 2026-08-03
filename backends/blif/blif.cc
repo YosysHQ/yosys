@@ -91,7 +91,7 @@ struct BlifDumper
 
 	const std::string str(RTLIL::IdString id)
 	{
-		std::string str = RTLIL::unescape_id(id);
+		std::string str = id.unescape();
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
@@ -108,7 +108,7 @@ struct BlifDumper
 			return config->undef_type == "-" || config->undef_type == "+" ? config->undef_out.c_str() : "$undef";
 		}
 
-		std::string str = RTLIL::unescape_id(sig.wire->name);
+		std::string str = sig.wire->name.unescape();
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
@@ -150,7 +150,7 @@ struct BlifDumper
 	void dump_params(const char *command, dict<IdString, Const> &params)
 	{
 		for (auto &param : params) {
-			f << stringf("%s %s ", command, log_id(param.first));
+			f << stringf("%s %s ", command, param.first.unescape());
 			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
 				std::string str = param.second.decode_string();
 				f << stringf("\"");
@@ -678,9 +678,9 @@ struct BlifBackend : public Backend {
 				continue;
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in BLIF backend!\n", log_id(module->name));
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in BLIF backend!\n", module->name.unescape());
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in BLIF backend!\n", log_id(module->name));
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in BLIF backend!\n", module->name.unescape());
 
 			if (module->name == RTLIL::escape_id(top_module_name)) {
 				BlifDumper::dump(*f, module, design, config);

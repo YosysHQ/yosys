@@ -18,4 +18,3 @@ module foo(clk, rst, inp_a, inp_b, out);
     else     out <= do_add (* combinational_adder *) (inp_a, inp_b);
 
 endmodule
-

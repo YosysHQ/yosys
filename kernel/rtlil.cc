@@ -379,6 +379,7 @@ RTLIL::Const::Const(long long val) // default width 32
 
 RTLIL::Const::Const(long long val, int width)
 {
+	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
 	flags = RTLIL::CONST_FLAG_NONE;
 	if ((width & 7) == 0) {
 		new ((void*)&str_) std::string();
@@ -407,6 +408,7 @@ RTLIL::Const::Const(long long val, int width)
 
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
+	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
 	flags = RTLIL::CONST_FLAG_NONE;
 	new ((void*)&bits_) bitvectype();
 	tag = backing_tag::bits;
@@ -588,7 +590,7 @@ bool RTLIL::Const::convertible_to_int(bool is_signed) const
 	if (size == 32) {
 		if (is_signed)
 			return true;
-		return back() != State::S1;
+		return (*this)[size - 1] != State::S1;
 	}
 
 	return false;
@@ -613,6 +615,15 @@ int RTLIL::Const::as_int_saturating(bool is_signed) const
 		return neg ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
 	}
 	return as_int(is_signed);
+}
+
+void RTLIL::Const::tag_bare_integer_const(const std::string &value)
+{
+	if (value.empty() || value.find('\'') != std::string::npos)
+		return;
+	size_t start = (value[0] == '-' || value[0] == '+') ? 1 : 0;
+	if (start < value.size() && std::all_of(value.begin() + start, value.end(), ::isdigit))
+		flags |= RTLIL::CONST_FLAG_SIGNED;
 }
 
 int RTLIL::Const::get_min_size(bool is_signed) const
@@ -1226,7 +1237,7 @@ void RTLIL::Design::add(RTLIL::Module *module)
 		mon->notify_module_add(module);
 
 	if (yosys_xtrace) {
-		log("#X# New Module: %s\n", log_id(module));
+		log("#X# New Module: %s\n", module);
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 }
@@ -1252,7 +1263,7 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 		mon->notify_module_add(module);
 
 	if (yosys_xtrace) {
-		log("#X# New Module: %s\n", log_id(module));
+		log("#X# New Module: %s\n", module);
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -1330,7 +1341,7 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 		mon->notify_module_del(module);
 
 	if (yosys_xtrace) {
-		log("#X# Remove Module: %s\n", log_id(module));
+		log("#X# Remove Module: %s\n", module);
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -1472,22 +1483,22 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 				switch (boxes)
 				{
 				case RTLIL::SB_UNBOXED_WARN:
-					log_warning("Ignoring boxed module %s.\n", log_id(it.first));
+					log_warning("Ignoring boxed module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_EXCL_BB_WARN:
-					log_warning("Ignoring blackbox module %s.\n", log_id(it.first));
+					log_warning("Ignoring blackbox module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_UNBOXED_ERR:
-					log_error("Unsupported boxed module %s.\n", log_id(it.first));
+					log_error("Unsupported boxed module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_EXCL_BB_ERR:
-					log_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					log_error("Unsupported blackbox module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_UNBOXED_CMDERR:
-					log_cmd_error("Unsupported boxed module %s.\n", log_id(it.first));
+					log_cmd_error("Unsupported boxed module %s.\n", it.first.unescape());
 					break;
 				case RTLIL::SB_EXCL_BB_CMDERR:
-					log_cmd_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					log_cmd_error("Unsupported blackbox module %s.\n", it.first.unescape());
 					break;
 				default:
 					break;
@@ -1496,13 +1507,13 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 			switch(partials)
 			{
 			case RTLIL::SELECT_WHOLE_WARN:
-				log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+				log_warning("Ignoring partially selected module %s.\n", it.first.unescape());
 				break;
 			case RTLIL::SELECT_WHOLE_ERR:
-				log_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				log_error("Unsupported partially selected module %s.\n", it.first.unescape());
 				break;
 			case RTLIL::SELECT_WHOLE_CMDERR:
-				log_cmd_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				log_cmd_error("Unsupported partially selected module %s.\n", it.first.unescape());
 				break;
 			default:
 				break;
@@ -1579,7 +1590,7 @@ void RTLIL::Module::makeblackbox()
 
 void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<RTLIL::IdString, RTLIL::Module *> &)
 {
-	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", id2cstr(name));
+	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", name.unescape());
 }
 
 bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
@@ -1591,7 +1602,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 {
 	if (mayfail)
 		return RTLIL::IdString();
-	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
 }
 
 
@@ -1599,7 +1610,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 {
 	if (mayfail)
 		return RTLIL::IdString();
-	log_error("Module `%s' is used with parameters but is not parametric!\n", id2cstr(name));
+	log_error("Module `%s' is used with parameters but is not parametric!\n", name.unescape());
 }
 
 size_t RTLIL::Module::count_id(RTLIL::IdString id)
@@ -2796,14 +2807,14 @@ bool RTLIL::Module::has_processes() const
 bool RTLIL::Module::has_memories_warn() const
 {
 	if (!memories.empty())
-		log_warning("Ignoring module %s because it contains memories (run 'memory' command first).\n", log_id(this));
+		log_warning("Ignoring module %s because it contains memories (run 'memory' command first).\n", this);
 	return !memories.empty();
 }
 
 bool RTLIL::Module::has_processes_warn() const
 {
 	if (!processes.empty())
-		log_warning("Ignoring module %s because it contains processes (run 'proc' command first).\n", log_id(this));
+		log_warning("Ignoring module %s because it contains processes (run 'proc' command first).\n", this);
 	return !processes.empty();
 }
 
@@ -3095,7 +3106,7 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 	}
 
 	if (yosys_xtrace) {
-		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", log_id(this), log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
+		log("#X# Connect (SigSig) in %s: %s = %s (%d bits)\n", this, log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -3118,7 +3129,7 @@ void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
 			mon->notify_connect(this, new_conn);
 
 	if (yosys_xtrace) {
-		log("#X# New connections vector in %s:\n", log_id(this));
+		log("#X# New connections vector in %s:\n", this);
 		for (auto &conn: new_conn)
 			log("#X#    %s = %s (%d bits)\n", log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
 		log_backtrace("-X- ", yosys_xtrace-1);
@@ -3161,6 +3172,7 @@ void RTLIL::Module::fixup_ports()
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
+	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
 	RTLIL::Wire *wire = new RTLIL::Wire;
 	wire->name = std::move(name);
 	wire->width = width;

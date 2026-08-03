@@ -4,7 +4,7 @@ parameter PATH = "DEFAULT";
 always @(posedge clk) begin
     if (PATH=="DEFAULT")
 		c <= a;
-	else 
+	else
 		c <= b;
 end
 

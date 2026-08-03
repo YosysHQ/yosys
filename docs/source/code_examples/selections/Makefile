@@ -1,6 +1,4 @@
-PROGRAM_PREFIX :=
-
-YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
+include ../../../common.mk
 
 SUMPROD = sumprod_00 sumprod_01 sumprod_02 sumprod_03 sumprod_04 sumprod_05
 SUMPROD_DOTS := $(addsuffix .dot,$(SUMPROD))
@@ -17,18 +15,18 @@ dots: select.dot $(SUMPROD_DOTS) $(MEMDEMO_DOTS) $(SUBMOD_DOTS)
 examples: sumprod.out
 
 select.dot: select.v select.ys
-	$(YOSYS) select.ys
+	@$(YOSYS) select.ys >/dev/null 2>&1
 
 $(SUMPROD_DOTS) sumprod.out: sumprod.v sumprod.ys
-	$(YOSYS) sumprod.ys
+	@$(YOSYS) sumprod.ys >/dev/null 2>&1
 
 $(MEMDEMO_DOTS): memdemo.v memdemo.ys
-	$(YOSYS) memdemo.ys
+	@$(YOSYS) memdemo.ys >/dev/null 2>&1
 
 $(SUBMOD_DOTS): memdemo.v submod.ys
-	$(YOSYS) submod.ys
+	@$(YOSYS) submod.ys >/dev/null 2>&1
 
 .PHONY: clean
 clean:
-	rm -rf *.dot
-	rm -f sumprod.out
+	@rm -rf *.dot
+	@rm -f sumprod.out

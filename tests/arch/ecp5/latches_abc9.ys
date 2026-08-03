@@ -8,6 +8,6 @@ assign q = ~l;
 endmodule
 EOT
 # Can't run any sort of equivalence check because latches are blown to LUTs
-synth_ecp5 -abc9
+synth_ecp5 -abc9 -latches info
 select -assert-count 2 t:LUT4
 select -assert-none t:LUT4 %% t:* %D

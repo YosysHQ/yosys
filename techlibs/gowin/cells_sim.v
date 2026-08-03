@@ -25,7 +25,7 @@ module LUT3(output F, input I0, I1, I2);
 		(I0 => F) = (1054, 1486);
 		(I1 => F) = (867, 1184);
 		(I2 => F) = (555, 902);
-	endspecify	
+	endspecify
 	wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
 	assign F = I0 ? s1[1] : s1[0];
@@ -39,7 +39,7 @@ module LUT4(output F, input I0, I1, I2, I3);
 		(I1 => F) = (1053, 1583);
 		(I2 => F) = (867, 1184);
 		(I3 => F) = (555, 902);
-	endspecify	
+	endspecify
 	wire [ 7: 0] s3 = I3 ? INIT[15: 8] : INIT[ 7: 0];
 	wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
@@ -54,7 +54,7 @@ module __APICULA_LUT5(output F, input I0, I1, I2, I3, M0);
 		(I2 => F) = (995, 1371);
 		(I3 => F) = (808, 1116);
 		(M0 => F) = (486, 680);
-	endspecify	
+	endspecify
 endmodule
 
 (* abc9_lut=4 *)
@@ -66,7 +66,7 @@ module __APICULA_LUT6(output F, input I0, I1, I2, I3, M0, M1);
 		(I3 => F) = (808 + 136, 1116 + 255);
 		(M0 => F) = (486 + 136, 680 + 255);
 		(M1 => F) = (478, 723);
-	endspecify	
+	endspecify
 endmodule
 
 (* abc9_lut=8 *)
@@ -79,7 +79,7 @@ module __APICULA_LUT7(output F, input I0, I1, I2, I3, M0, M1, M2);
 		(M0 => F) = (486 + 136 + 136, 680 + 255 + 255);
 		(M1 => F) = (478 + 136, 723 + 255);
 		(M2 => F) = (478, 723);
-	endspecify	
+	endspecify
 endmodule
 
 (* abc9_lut=16 *)
@@ -93,7 +93,7 @@ module __APICULA_LUT8(output F, input I0, I1, I2, I3, M0, M1, M2, M3);
 		(M1 => F) = (478 + 136 + 136, 723 + 255 + 255);
 		(M2 => F) = (478 + 136, 723 + 255);
 		(M3 => F) = (478, 723);
-		endspecify	
+		endspecify
 	endmodule
 
 module MUX2 (O, I0, I1, S0);
@@ -212,7 +212,7 @@ module DFFS (output reg Q, input D, CLK, SET);
     if (SET)
       Q <= 1'b1;
     else
-      Q <= D;	
+      Q <= D;
   end
 endmodule // DFFS (positive clock edge; synchronous set)
 
@@ -388,7 +388,7 @@ endmodule // DFFNE (negative clock edge; clock enable)
 module DFFNS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
-  
+
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
 		$setup(D, negedge CLK, 576);
@@ -399,7 +399,7 @@ module DFFNS (output reg Q, input D, CLK, SET);
     if (SET)
       Q <= 1'b1;
     else
-      Q <= D;	
+      Q <= D;
   end
 endmodule // DFFNS (negative clock edge; synchronous set)
 
@@ -485,7 +485,7 @@ endmodule // DFFNP (negative clock edge; asynchronous preset)
 module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
-  
+
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
 		(PRESET => Q) = (1800, 2679);
@@ -793,7 +793,7 @@ module OVIDEO(D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK, RESET, Q);
 	parameter LSREN = "true";
 endmodule
 
-module OSER16(D15, D14, D13, D12, D11, D10, 
+module OSER16(D15, D14, D13, D12, D11, D10,
 D9, D8, D7, D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK,
 RESET, Q);
 	output Q;
@@ -918,7 +918,7 @@ RESET, CALIB, D);
 	parameter LSREN = "true";
 endmodule
 
-module IDES16(Q15, Q14, Q13, Q12, Q11, Q10, 
+module IDES16(Q15, Q14, Q13, Q12, Q11, Q10,
 Q9, Q8, Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
 RESET, CALIB, D);
 	input D;
@@ -2151,5 +2151,3 @@ module EMCU (
 
  );
 endmodule
-
-

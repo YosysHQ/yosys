@@ -84,4 +84,3 @@ module test_005(clk, a, a_old, b);
         assert(a_old != b);
     end
 endmodule
-

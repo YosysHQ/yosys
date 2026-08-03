@@ -44,14 +44,14 @@ AND2 synth_AND_1(.in({synth_net_6, synth_net_7}), .out(
 AND2 synth_AND_2(.in({synth_net_9, synth_net_10}), .out(
     synth_net_11));
 BUF synth_BUF(.in(synth_net), .out(synth_net_0));
-BUF 
+BUF
     synth_BUF_0(.in(data), .out(synth_net_3));
 BUF synth_BUF_1(.in(synth_net_8)
     , .out(tmp));
 BUF synth_BUF_2(.in(tmp), .out(synth_net_9));
 MUX2 synth_MUX(.
     in({synth_net_2, synth_net_5}), .select(cond), .out(synth_net_6));
-MUX2 
+MUX2
     synth_MUX_0(.in({synth_net_1, synth_net_4}), .select(cond), .out(synth_net_7
     ));
 FF synth_FF(.d(synth_net_11), .clk(clk), .q(data));
@@ -62,4 +62,3 @@ VCC synth_VCC_1(.out(
     synth_net_4));
 VCC synth_VCC_2(.out(synth_net_10));
 endmodule
-

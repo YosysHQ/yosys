@@ -18,4 +18,3 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd dffe # Constrain all select calls below inside the top module
 select -assert-count 1 t:MISTRAL_FF
 select -assert-none t:MISTRAL_FF %% t:* %D
-

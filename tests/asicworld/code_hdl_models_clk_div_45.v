@@ -28,7 +28,7 @@ reg         toggle2    ;
 
 //--------------Code Starts Here-----------------------
 always @ (posedge clk_in)
-if (enable == 1'b0) begin 
+if (enable == 1'b0) begin
    counter1 <= 4'b0;
    toggle1  <= 0;
 end else if ((counter1 == 3 && toggle2) || (~toggle1 && counter1 == 4))  begin
@@ -37,7 +37,7 @@ end else if ((counter1 == 3 && toggle2) || (~toggle1 && counter1 == 4))  begin
 end else   begin
    counter1 <= counter1 + 1;
 end
-   
+
 always @ (negedge clk_in)
 if (enable == 1'b0) begin
   counter2 <= 4'b0;

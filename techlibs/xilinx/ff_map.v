@@ -117,4 +117,3 @@ module  \$_DLATCH_PPP_ (input E, S, R, D, output Q);
 endmodule
 
 `endif
-

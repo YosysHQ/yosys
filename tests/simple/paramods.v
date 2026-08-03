@@ -50,4 +50,3 @@ output [width-1:0] out;
 assign out = in + step;
 
 endmodule
-

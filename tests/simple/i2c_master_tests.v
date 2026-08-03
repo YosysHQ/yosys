@@ -59,4 +59,3 @@ module i2c_test02(clk, slave_wait, clk_cnt, cmd, cmd_stop, cnt);
 	    cmd_stop <= #1 cmd;
 
 endmodule
-

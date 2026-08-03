@@ -106,7 +106,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-warn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);		
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				try {
 					log("Added regex '%s' for warnings to warn list.\n", pattern);
 					log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern));
@@ -118,7 +118,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-nowarn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				try {
 					log("Added regex '%s' for warnings to nowarn list.\n", pattern);
 					log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern));
@@ -130,7 +130,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-werror" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				try {
 					log("Added regex '%s' for warnings to werror list.\n", pattern);
 					log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern));

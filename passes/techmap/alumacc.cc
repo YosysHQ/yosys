@@ -41,18 +41,22 @@ struct AlumaccWorker
 		std::vector<RTLIL::Cell*> cells;
 		RTLIL::SigSpec a, b, c, y;
 		std::vector<tuple<bool, bool, bool, bool, bool, RTLIL::SigSpec>> cmp;
-		bool is_signed, invert_b;
+		bool is_signed, invert_b, oversized;
 
 		RTLIL::Cell *alu_cell;
 		RTLIL::SigSpec cached_lt, cached_slt, cached_gt, cached_sgt, cached_eq, cached_ne;
 		RTLIL::SigSpec cached_cf, cached_of, cached_sf;
 
-		RTLIL::SigSpec get_lt(bool is_signed) {
-			if (is_signed) {
+		RTLIL::SigSpec get_lt(bool this_signed) {
+			if (this_signed) {
 				if (GetSize(cached_slt) == 0) {
-					get_of();
 					get_sf();
-					cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					if (is_signed && oversized) {
+						cached_slt = cached_sf;
+					} else {
+						get_of();
+						cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					}
 				}
 
 				return cached_slt;
@@ -65,10 +69,10 @@ struct AlumaccWorker
 			}
 		}
 
-		RTLIL::SigSpec get_gt(bool is_signed) {
-			if (is_signed) {
+		RTLIL::SigSpec get_gt(bool this_signed) {
+			if (this_signed) {
 				if (GetSize(cached_sgt) == 0) {
-					get_lt(is_signed);
+					get_lt(this_signed);
 					get_eq();
 					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
 					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
@@ -77,7 +81,7 @@ struct AlumaccWorker
 				return cached_sgt;
 			} else {
 				if (GetSize(cached_gt) == 0) {
-					get_lt(is_signed);
+					get_lt(this_signed);
 					get_eq();
 					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
 					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
@@ -112,7 +116,14 @@ struct AlumaccWorker
 			if (GetSize(cached_of) == 0) {
 				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
+				if (oversized) {
+					auto max_input = max(GetSize(a), GetSize(b));
+					log_assert(max_input >= 1);
+					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[max_input], cached_of[max_input-1]);
+				} else {
+					log_assert(GetSize(y) >= 1);
+					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(y)], cached_of[GetSize(y)-1]);
+				}
 			}
 			return cached_of;
 		}
@@ -120,7 +131,12 @@ struct AlumaccWorker
 		RTLIL::SigSpec get_sf() {
 			if (GetSize(cached_sf) == 0) {
 				cached_sf = alu_cell->getPort(ID::Y);
-				cached_sf = cached_sf[GetSize(cached_sf)-1];
+				log_assert(GetSize(cached_sf) >= 1);
+				if (oversized && !is_signed) {
+					cached_sf = cached_sf[max(GetSize(a), GetSize(b))-1];
+				} else {
+					cached_sf = cached_sf[GetSize(y)-1];
+				}
 			}
 			return cached_sf;
 		}
@@ -156,7 +172,7 @@ struct AlumaccWorker
 			if (!cell->type.in(ID($pos), ID($neg), ID($add), ID($sub), ID($mul)))
 				continue;
 
-			log("  creating $macc model for %s (%s).\n", log_id(cell), log_id(cell->type));
+			log("  creating $macc model for %s (%s).\n", cell, cell->type.unescape());
 
 			maccnode_t *n = new maccnode_t;
 			Macc::term_t new_term;
@@ -267,7 +283,7 @@ struct AlumaccWorker
 					if (GetSize(other_n->y) != GetSize(n->y) && macc_may_overflow(other_n->macc, GetSize(other_n->y), port.is_signed))
 						continue;
 
-					log("  merging $macc model for %s into %s.\n", log_id(other_n->cell), log_id(n->cell));
+					log("  merging $macc model for %s into %s.\n", other_n->cell, n->cell);
 
 					bool do_subtract = port.do_subtract;
 					for (int j = 0; j < GetSize(other_n->macc.terms); j++) {
@@ -351,12 +367,13 @@ struct AlumaccWorker
 			if (!subtract_b && B < A && GetSize(B))
 				std::swap(A, B);
 
-			log("  creating $alu model for $macc %s.\n", log_id(n->cell));
+			log("  creating $alu model for $macc %s.\n", n->cell);
 
 			alunode = new alunode_t;
 			alunode->cells.push_back(n->cell);
 			alunode->is_signed = a_signed;
 			alunode->invert_b = subtract_b;
+			alunode->oversized = max(GetSize(A), GetSize(B)) < GetSize(n->y);
 
 			alunode->a = A;
 			alunode->b = B;
@@ -383,7 +400,7 @@ struct AlumaccWorker
 
 			macc_counter++;
 
-			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
+			log("  creating $macc cell for %s: %s\n", n->cell, cell);
 
 			cell->set_src_attribute(n->cell->get_src_attribute());
 
@@ -410,9 +427,27 @@ struct AlumaccWorker
 				eq_cells.push_back(cell);
 		}
 
+		auto cmp_mergeable = [](const alunode_t *node, const SigSpec cmp_A, const SigSpec cmp_B, bool is_signed) {
+			if (!node->invert_b || node->c != State::S1) {
+				// comparators need subtraction
+				return false;
+			}
+			if (max(GetSize(cmp_A), GetSize(cmp_B)) > GetSize(node->y)) {
+				// must have at least as many output bits
+				return false;
+			}
+			if (is_signed != node->is_signed) {
+				if (GetSize(cmp_A) != GetSize(cmp_B)) {
+					// mismatched input widths are problematic when mixing signedness
+					return false;
+				}
+			}
+			return true;
+		};
+
 		for (auto cell : lge_cells)
 		{
-			log("  creating $alu model for %s (%s):", log_id(cell), log_id(cell->type));
+			log("  creating $alu model for %s (%s):", cell, cell->type.unescape());
 
 			bool cmp_less = cell->type.in(ID($lt), ID($le));
 			bool cmp_equal = cell->type.in(ID($le), ID($ge));
@@ -425,14 +460,14 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->invert_b && node->c == State::S1) {
+				if (cmp_mergeable(node, A, B, is_signed)) {
 					n = node;
 					break;
 				}
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+					if (cmp_mergeable(node, B, A, is_signed)) {
 						n = node;
 						cmp_less = !cmp_less;
 						std::swap(A, B);
@@ -448,10 +483,11 @@ struct AlumaccWorker
 				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
+				n->oversized = false;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
 				log(" new $alu\n");
 			} else {
-				log(" merged with %s.\n", log_id(n->cells.front()));
+				log(" merged with %s.\n", n->cells.front());
 			}
 
 			n->cells.push_back(cell);
@@ -470,21 +506,21 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->invert_b && node->c == State::S1) {
+				if (cmp_mergeable(node, A, B, is_signed)) {
 					n = node;
 					break;
 				}
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+					if (cmp_mergeable(node, B, A, is_signed)) {
 						n = node;
 						break;
 					}
 			}
 
 			if (n != nullptr) {
-				log("  creating $alu model for %s (%s): merged with %s.\n", log_id(cell), log_id(cell->type), log_id(n->cells.front()));
+				log("  creating $alu model for %s (%s): merged with %s.\n", cell, cell->type.unescape(), n->cells.front());
 				n->cells.push_back(cell);
 				n->cmp.push_back(std::make_tuple(false, false, cmp_equal, !cmp_equal, false, Y));
 			}
@@ -503,8 +539,8 @@ struct AlumaccWorker
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
-					log("%s%s", i ? ", ": "", log_id(n->cells[i]));
-				log(": %s\n", log_id(n->alu_cell));
+					log("%s%s", i ? ", ": "", n->cells[i]);
+				log(": %s\n", n->alu_cell);
 
 				goto delete_node;
 			}
@@ -514,8 +550,8 @@ struct AlumaccWorker
 
 			log("  creating $alu cell for ");
 			for (int i = 0; i < GetSize(n->cells); i++)
-				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
-			log(": %s\n", log_id(n->alu_cell));
+				log("%s%s", i ? ", ": "", n->cells[i]);
+			log(": %s\n", n->alu_cell);
 
 			if (n->cells.size() > 0)
 				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());
@@ -562,7 +598,7 @@ struct AlumaccWorker
 
 	void run()
 	{
-		log("Extracting $alu and $macc cells in module %s:\n", log_id(module));
+		log("Extracting $alu and $macc cells in module %s:\n", module);
 
 		count_bit_users();
 		extract_macc();

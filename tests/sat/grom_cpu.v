@@ -173,12 +173,12 @@ module grom_cpu(
 								3'b011 :
 									begin
 										RESULT_REG <= IR[1:0];  // result in REG
-										// CMP and TEST are not storing result										
+										// CMP and TEST are not storing result
 										state   <= IR[3] ? STATE_FETCH_PREP : STATE_ALU_RESULT_WAIT;
 										// CMP and TEST are having first input R0, for INC and DEC is REG
-										alu_a   <= IR[3] ? R[0] : R[IR[1:0]];								
+										alu_a   <= IR[3] ? R[0] : R[IR[1:0]];
 										// CMP and TEST are having second input REG, for INC and DEC is 1
-										alu_b   <= IR[3] ? R[IR[1:0]] : 8'b00000001;								
+										alu_b   <= IR[3] ? R[IR[1:0]] : 8'b00000001;
 
 										case(IR[3:2])
 											2'b00 : begin

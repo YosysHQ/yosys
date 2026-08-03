@@ -295,5 +295,3 @@ module cycloneiv_pll
    output                                   icdrclk;
 
 endmodule // cycloneive_pll
-
-

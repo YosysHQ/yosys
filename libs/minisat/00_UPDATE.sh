@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 rm -f LICENSE *.cc *.h
 git clone --depth 1 https://github.com/niklasso/minisat minisat_upstream
