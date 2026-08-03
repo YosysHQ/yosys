@@ -128,7 +128,6 @@ Other built-in ``read_*`` commands
 - :cmd:title:`read_blif`
 - :cmd:title:`read_json`
 - :cmd:title:`read_liberty`
-- :cmd:title:`read_xaiger2`
 
 .. TODO:: does `write_file` count?
 
