@@ -551,11 +551,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	for (auto port : mapped_mod->ports) {
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
-
-		if (!wire) {
-			log_debug("looking for port %s\n", port);
-			continue;
-		}
 		log_assert(wire);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
