@@ -1,0 +1,25 @@
+read_verilog hierarchy_recursive.v
+hierarchy -auto-top
+select -assert-any top
+select -assert-none a:keep
+
+design -reset
+read_verilog <<EOT
+module top(input x, output y);
+top top_i(.x(x), .y(y));
+always @(x) $display("x=%d", x);
+endmodule
+EOT
+hierarchy -auto-top
+select -assert-any top %% a:keep
+
+design -reset
+read_verilog -formal <<EOT
+module a(input x); b b_i(.x(x)); endmodule
+module b(input x); a a_i(.x(x)); always @(x) assert (x == x); endmodule
+module top(input x); a a_i(.x(x)); endmodule
+EOT
+hierarchy -top top
+select -assert-any a %% a:keep
+select -assert-any b %% a:keep
+select -assert-any top %% a:keep
