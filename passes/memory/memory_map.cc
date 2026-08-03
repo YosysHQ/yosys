@@ -238,6 +238,7 @@ struct MemoryMapWorker
 					c->setPort(ID::CLK, refclock);
 				}
 				c->parameters[ID::WIDTH] = mem.width;
+				c->set_src_attribute(mem.get_src_attribute()); // SILIMATE: add src attribute to the cell
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
 				data_reg_in[idx] = w_in;
