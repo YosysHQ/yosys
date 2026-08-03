@@ -602,8 +602,8 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				}
 			}
 
-			// Due to some synthesis tools being incompetent in detecting address colission pattern
-			// from verilog with strictly defined semantics and not infering bram (see github issue #5082),
+			// Due to some synthesis tools being incompetent in detecting address collision pattern
+			// from verilog with strictly defined semantics and not inferring bram (see github issue #5082),
 			// memory cannot use:
 			// 1. e.g Vivado assumes non-transparent port
 			//   assign r_data = mem[latched r_addr];
