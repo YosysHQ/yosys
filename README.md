@@ -75,8 +75,7 @@ sure to call e.g.
 	$ git submodule update --init
 
 A C++ compiler with C++20 support is required as well as some standard tools
-such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), Make (or other CMake
-generator such as Ninja), and Python (>=3.11). Some additional tools: readline,
+such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), GNU Make, and Python (>=3.11). Some additional tools: readline,
 libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
 Xdot are used by the `show` command to display schematics.
 
@@ -116,7 +115,7 @@ file which enables ccache and sets the default compiler to clang when calling
 	"version": 1,
 	"configurePresets": [
 		{
-			"name": "default",
+			"name": "clang",
 			"binaryDir": "build",
 			"generator": "Unix Makefiles",
 			"cacheVariables": {
@@ -129,15 +128,13 @@ file which enables ccache and sets the default compiler to clang when calling
 }
 ```
 
-Once generated, the build system can be run as follows:
+Once generated, build yosys like this:
 
-	$ cmake --build build       #..or..
-	$ cd build
-	$ cmake --build .
+	$ cmake --build build
 
-To quickly install Yosys with the default settings:
+To build and install a release build of Yosys:
 
-	$ cmake -B build . -DCMAKE_BUILD_TYPE=Release
+	$ cmake -B build -DCMAKE_BUILD_TYPE=Release
 	$ cmake --build build --config Release --parallel $(nproc)
 	$ sudo cmake --install build --strip
 
