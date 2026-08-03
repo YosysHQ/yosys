@@ -97,7 +97,6 @@ yosys_pass(abc_new
 		abc9_exe
 		abc9_ops
 		box_derive
-		read_xaiger2
 		write_xaiger2
 )
 
