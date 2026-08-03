@@ -44,6 +44,12 @@ struct SynthGowinPass : public ScriptPass
 		{9, 9, 4, 4, "$__MUL9X9"},
 	};
 
+	const std::vector<DSPRule> gw5a_dsp_rules = {
+		{27, 36,  2, 19, "$__MUL27X36"},
+		{27, 18, 13,  2, "$__MUL27X18"},
+		{12, 12,  2,  2, "$__MUL12X12"},
+	};
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -285,6 +291,8 @@ struct SynthGowinPass : public ScriptPass
 			if (help_mode) {
 				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp and if -family gw1n or gw2a)");
 				run("techmap -map +/gowin/dsp_map.v", "(unless -nodsp and if -family gw1n or gw2a)");
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp and if -family gw5a)");
+				run("techmap -map +/gowin/dsp_map_gw5a.v", "(unless -nodsp and if -family gw5a)");
 			} else if (!nodsp && (family == "gw1n" || family == "gw2a")) {
 				for (const auto &rule : dsp_rules) {
 					run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d -D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_NAME=%s",
@@ -292,6 +300,14 @@ struct SynthGowinPass : public ScriptPass
 					run("chtype -set $mul t:$__soft_mul");
 				}
 				run("techmap -map +/gowin/dsp_map.v");
+			} else if (!nodsp && family == "gw5a") {
+				for (const auto &rule : gw5a_dsp_rules) {
+					run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d "
+						"-D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_SIGNEDONLY -D DSP_NAME=%s",
+						rule.a_maxwidth, rule.b_maxwidth, rule.a_minwidth, rule.b_minwidth, rule.prim));
+					run("chtype -set $mul t:$__soft_mul");
+				}
+				run("techmap -map +/gowin/dsp_map_gw5a.v");
 			}
 
 			run("alumacc");
