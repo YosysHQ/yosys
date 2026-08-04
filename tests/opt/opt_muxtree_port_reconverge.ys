@@ -17,7 +17,7 @@ module \top
     connect \S \b
     connect \Y \y
   end
-  
+
   attribute \full_case 1
   cell $pmux \pmux
     parameter \WIDTH 1
@@ -27,7 +27,7 @@ module \top
     connect \S { \n_a \s }
     connect \Y \q
   end
-  
+
   attribute \full_case 1
   cell $not \not
     parameter \A_SIGNED 0
