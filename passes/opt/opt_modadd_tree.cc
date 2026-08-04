@@ -63,6 +63,12 @@ PRIVATE_NAMESPACE_BEGIN
 // state has to flow serially: the addends may come from anywhere, including
 // pre-logic shared by every step (a barrel shifter, a mux tree, ...), which
 // the rewrite leaves in place and the tree leaves read unchanged.
+
+// dict::at(key, defval) hands back a reference to defval, and a range-for does
+// not extend that temporary's lifetime before C++23, so the empty fallback for
+// a fanout lookup has to outlive the loop that walks it.
+static const pool<Cell *> no_sinks;
+
 struct OptModAddTreeWorker : CutRegionWorker
 {
 	// Tunables (see Pass::execute).
@@ -70,6 +76,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 	int min_state_bits = 2;
 	int min_nodes = 4;
 	int max_nodes = 64;
+	int max_head_tries = 8;
 	int max_cone_cells = 512;
 	int max_leaf_bits = 512;
 	int max_digit_bits = 10;
@@ -142,7 +149,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 				for (auto bit : sigmap(conn.second)) {
 					if (!bit.wire || xbits.count(bit))
 						continue;
-					for (auto sink : bit_to_sinks.at(bit, pool<Cell *>()))
+					for (auto sink : bit_to_sinks.at(bit, no_sinks))
 						if (cone.count(sink) && !cx.count(sink))
 							return false;
 				}
@@ -165,7 +172,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 					continue;
 				if (output_port_bits.count(bit))
 					return true;
-				for (auto sink : bit_to_sinks.at(bit, pool<Cell *>()))
+				for (auto sink : bit_to_sinks.at(bit, no_sinks))
 					if (!cone.count(sink))
 						return true;
 			}
@@ -180,7 +187,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 		for (auto bit : sigmap(x)) {
 			if (!bit.wire || output_port_bits.count(bit))
 				return false;
-			for (auto sink : bit_to_sinks.at(bit, pool<Cell *>()))
+			for (auto sink : bit_to_sinks.at(bit, no_sinks))
 				if (!cone.count(sink))
 					return false;
 		}
@@ -195,7 +202,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 		std::queue<Cell *> work;
 		for (auto bit : sigmap(from))
 			if (bit.wire)
-				for (auto sink : bit_to_sinks.at(bit, pool<Cell *>()))
+				for (auto sink : bit_to_sinks.at(bit, no_sinks))
 					if (region.count(sink) && reached.insert(sink).second)
 						work.push(sink);
 
@@ -208,7 +215,7 @@ struct OptModAddTreeWorker : CutRegionWorker
 					continue;
 				for (auto bit : sigmap(conn.second))
 					if (bit.wire)
-						for (auto sink : bit_to_sinks.at(bit, pool<Cell *>()))
+						for (auto sink : bit_to_sinks.at(bit, no_sinks))
 							if (region.count(sink) && reached.insert(sink).second)
 								work.push(sink);
 			}
@@ -295,27 +302,31 @@ struct OptModAddTreeWorker : CutRegionWorker
 		if (GetSize(cands) + 1 < min_nodes)
 			return false;
 
-		// A cell that neither produces nor can reach a candidate state computes
+		// A cell that neither produces nor can reach one of `states` computes
 		// an addend: the rewrite leaves its value alone, so it may feed any
-		// number of steps. One forward walk over every candidate keeps this
-		// conservative whichever cuts the chain ends up using.
-		SigSpec cand_bits;
-		for (auto &sig : cands)
-			cand_bits.append(sig);
-		pool<Cell *> downstream = forward_cells(cand_bits, cone);
-		pool<Cell *> state_free;
-		for (auto c : cone)
-			if (!downstream.count(c))
-				state_free.insert(c);
-		// A cell producing a candidate is a state producer even though no
-		// candidate reaches it, so it must not be treated as pre-logic.
-		for (auto bit : sigmap(cand_bits)) {
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv != nullptr)
-				state_free.erase(drv);
-		}
+		// number of steps. Passing a superset of the cuts the chain ends up
+		// using keeps this conservative.
+		auto addend_cells = [&](const vector<SigSpec> &states) {
+			SigSpec state_bits;
+			for (auto &sig : states)
+				state_bits.append(sig);
+			pool<Cell *> downstream = forward_cells(state_bits, cone);
+			pool<Cell *> state_free;
+			for (auto c : cone)
+				if (!downstream.count(c))
+					state_free.insert(c);
+			// A cell producing a state bus is a state producer even though no
+			// state bus reaches it, so it must not be treated as pre-logic.
+			for (auto bit : sigmap(state_bits)) {
+				Cell *drv = bit_to_driver.at(bit, nullptr);
+				if (drv != nullptr)
+					state_free.erase(drv);
+			}
+			return state_free;
+		};
 
-		// Keep the valid cuts, ordered by how much of the cone they cover.
+		// Rank the structurally usable cuts by how much of the cone they
+		// cover; a chain is a nested run through this order.
 		vector<std::pair<int, int>> ranked;
 		vector<pool<Cell *>> cand_cones(GetSize(cands));
 		for (int i = 0; i < GetSize(cands); i++) {
@@ -326,47 +337,83 @@ struct OptModAddTreeWorker : CutRegionWorker
 				continue;
 			if (!cut_is_internal(cands[i], cone))
 				continue;
-			if (!is_cut(cands[i], cand_cones[i], cone, state_free))
-				continue;
 			ranked.push_back({GetSize(cand_cones[i]), i});
 		}
 		std::sort(ranked.begin(), ranked.end());
 
-		// Valid cuts nest; drop any that does not extend the previous one.
+		// Everything upstream of the chain's head is pre-logic: node 0 is left
+		// in place, so no bus there carries cascade state. A same-width bus
+		// that is really addend pre-logic (a format decode feeding the digit
+		// shifter, say) would otherwise mark every cell it reaches as
+		// state-carrying and veto every cut downstream, collapsing the whole
+		// cascade into one node. Raising the head past such a bus recovers the
+		// cuts, so try the cheapest heads and keep the finest chain.
 		vector<SigSpec> fine_cuts;
 		vector<pool<Cell *>> fine_nodes;
-		pool<Cell *> covered;
-		for (auto &r : ranked) {
-			const pool<Cell *> &cx = cand_cones[r.second];
-			if (GetSize(cx) <= GetSize(covered))
+		vector<bool> cut_ok(GetSize(ranked), false);
+		int last_free = -1;
+		int tries = std::max(1, std::min(max_head_tries, GetSize(ranked)));
+		for (int head = 0; head < tries; head++) {
+			// Head 0 keeps the conservative seed: every same-width bus in the
+			// cone, whether or not it turned out to be cuttable.
+			vector<SigSpec> raised;
+			for (int j = head; head > 0 && j < GetSize(ranked); j++)
+				raised.push_back(cands[ranked[j].second]);
+			pool<Cell *> state_free = addend_cells(head == 0 ? cands : raised);
+			// The seed only shrinks as the head rises, so pre-logic only grows.
+			// A head that reclassifies nothing can only re-find a prefix of the
+			// chain already in hand, so skip its scan.
+			if (GetSize(state_free) == last_free)
 				continue;
-			bool nests = true;
-			for (auto c : covered)
-				if (!cx.count(c)) {
-					nests = false;
-					break;
-				}
-			if (!nests)
-				continue;
-			pool<Cell *> node;
-			for (auto c : cx)
-				if (!covered.count(c))
-					node.insert(c);
-			fine_cuts.push_back(cands[r.second]);
-			fine_nodes.push_back(node);
-			covered = cx;
-		}
-		{
-			pool<Cell *> node;
-			for (auto c : cone)
-				if (!covered.count(c))
-					node.insert(c);
-			if (node.empty() && !fine_cuts.empty()) {
-				fine_cuts.pop_back();
-				fine_nodes.pop_back();
+			last_free = GetSize(state_free);
+
+			// Cuts nest; drop any that does not extend the previous one.
+			vector<SigSpec> cuts;
+			vector<pool<Cell *>> nodes;
+			pool<Cell *> covered;
+			for (int j = head; j < GetSize(ranked); j++) {
+				const pool<Cell *> &cx = cand_cones[ranked[j].second];
+				if (GetSize(cx) <= GetSize(covered))
+					continue;
+				bool nests = true;
+				for (auto c : covered)
+					if (!cx.count(c)) {
+						nests = false;
+						break;
+					}
+				if (!nests)
+					continue;
+				// Pre-logic only grows, so a cut stays one once proven.
+				if (!cut_ok[j] && !is_cut(cands[ranked[j].second], cx, cone, state_free))
+					continue;
+				cut_ok[j] = true;
+				pool<Cell *> node;
+				for (auto c : cx)
+					if (!covered.count(c))
+						node.insert(c);
+				cuts.push_back(cands[ranked[j].second]);
+				nodes.push_back(node);
+				covered = cx;
 			}
-			fine_cuts.push_back(sigmap(tail));
-			fine_nodes.push_back(node);
+			{
+				pool<Cell *> node;
+				for (auto c : cone)
+					if (!covered.count(c))
+						node.insert(c);
+				if (node.empty() && !cuts.empty()) {
+					cuts.pop_back();
+					nodes.pop_back();
+				}
+				cuts.push_back(sigmap(tail));
+				nodes.push_back(node);
+			}
+			if (GetSize(cuts) > GetSize(fine_cuts)) {
+				fine_cuts = cuts;
+				fine_nodes = nodes;
+			}
+			// Every remaining cut is already in the chain: nothing to reclaim.
+			if (GetSize(fine_cuts) - 1 >= GetSize(ranked) - head)
+				break;
 		}
 		if (GetSize(fine_cuts) < min_nodes)
 			return false;
@@ -1090,6 +1137,12 @@ struct OptModAddTreePass : public Pass {
 		log("    -max-nodes N, -max_nodes N\n");
 		log("        maximum cascade length to rebalance (default 64).\n");
 		log("\n");
+		log("    -max-head-tries N, -max_head_tries N\n");
+		log("        how many times to raise the chain head past a same-width\n");
+		log("        bus that is really addend pre-logic (default 8). Buses\n");
+		log("        upstream of the head cannot carry state, so skipping them\n");
+		log("        stops them vetoing the cuts downstream.\n");
+		log("\n");
 		log("    -max-digit-bits N, -max_digit_bits N\n");
 		log("        maximum per-step digit width for the associativity proof\n");
 		log("        (default 10). Wider steps fall back to the general shape.\n");
@@ -1128,6 +1181,7 @@ struct OptModAddTreePass : public Pass {
 		int min_state_bits = 2;
 		int min_nodes = 4;
 		int max_nodes = 64;
+		int max_head_tries = 8;
 		int max_digit_bits = 10;
 		int max_clones = 1024;
 		int min_serial_depth = 32;
@@ -1154,6 +1208,11 @@ struct OptModAddTreePass : public Pass {
 			if ((args[argidx] == "-max-nodes" || args[argidx] == "-max_nodes") &&
 			    argidx + 1 < args.size()) {
 				max_nodes = std::stoi(args[++argidx]);
+				continue;
+			}
+			if ((args[argidx] == "-max-head-tries" || args[argidx] == "-max_head_tries") &&
+			    argidx + 1 < args.size()) {
+				max_head_tries = std::stoi(args[++argidx]);
 				continue;
 			}
 			if ((args[argidx] == "-max-digit-bits" || args[argidx] == "-max_digit_bits") &&
@@ -1207,6 +1266,7 @@ struct OptModAddTreePass : public Pass {
 			worker.min_state_bits = min_state_bits;
 			worker.min_nodes = min_nodes;
 			worker.max_nodes = max_nodes;
+			worker.max_head_tries = max_head_tries;
 			worker.max_digit_bits = max_digit_bits;
 			worker.max_clones = max_clones;
 			worker.min_serial_depth = min_serial_depth;
