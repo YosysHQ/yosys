@@ -1,0 +1,23 @@
+read_verilog <<EOT
+module leaf (
+    input wire signed [7:0] x_in,
+    output wire signed [7:0] y
+);
+    assign y = x_in;
+endmodule
+
+module top (
+    input wire [7:0] activation_scalar_data,
+    output wire [7:0] out
+);
+    leaf u_leaf (
+        .x_in($signed(activation_scalar_data)),
+        .y(out)
+    );
+endmodule
+EOT
+
+hierarchy -check -top top
+proc
+opt
+select -assert-count 1 t:leaf

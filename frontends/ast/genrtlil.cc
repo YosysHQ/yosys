@@ -2210,8 +2210,23 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 								// fully-sliced signed wire will be resolved
 								// once the module becomes available
 								log_assert(attributes.count(ID::reprocess_after));
-							else
-								log_assert(arg->is_signed == sig.as_wire()->is_signed);
+							else if (arg->is_signed != sig.as_wire()->is_signed) {
+								// A signedness cast ($signed()/$unsigned()) applied
+								// directly to a plain identifier reuses that
+								// identifier's own underlying wire as its SigSpec (no
+								// new wire is allocated for a "trivial" cast), so the
+								// returned wire's is_signed still reflects the
+								// ORIGINAL declaration, not the cast. Indirect through
+								// a fresh wire carrying the cast's actual signedness,
+								// exactly as the non-trivial-signed-node case below
+								// already does, instead of asserting the two must
+								// already agree.
+								RTLIL::IdString wire_name = NEW_ID;
+								RTLIL::Wire *wire = current_module->addWire(wire_name, GetSize(sig));
+								wire->is_signed = arg->is_signed;
+								current_module->connect(wire, sig);
+								sig = wire;
+							}
 						} else if (arg->is_signed) {
 							// non-trivial signed nodes are indirected through
 							// signed wires to enable sign extension
