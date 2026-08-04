@@ -93,7 +93,7 @@ struct OptMuxPushWorker
       timing_guard(timing_guard), slack_margin(slack_margin), total_count(0)
   {
   }
-ååå
+
   // Cached level, or 0 when absent (start point, constant, or broken loop edge).
   static int level_of(const dict<SigBit, int> &cache, RTLIL::SigBit bit)
   {
