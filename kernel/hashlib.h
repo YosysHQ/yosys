@@ -423,6 +423,7 @@ class HASHLIB_ATTRIBUTE_WARN_UNUSED dict {
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
 	OPS ops;
+	static_assert(std::is_nothrow_default_constructible_v<OPS>, "move ops are noexcept and default-construct OPS");
 
 #ifdef NDEBUG
 	static inline void do_assert(bool) { }
@@ -641,7 +642,7 @@ public:
 		do_rehash();
 	}
 
-	dict(dict &&other)
+	dict(dict &&other) noexcept
 	{
 		swap(other);
 	}
@@ -652,7 +653,7 @@ public:
 		return *this;
 	}
 
-	dict &operator=(dict &&other) {
+	dict &operator=(dict &&other) noexcept {
 		clear();
 		swap(other);
 		return *this;
@@ -901,6 +902,7 @@ protected:
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
 	OPS ops;
+	static_assert(std::is_nothrow_default_constructible_v<OPS>, "move ops are noexcept and default-construct OPS");
 
 #ifdef NDEBUG
 	static inline void do_assert(bool) { }
@@ -1091,7 +1093,7 @@ public:
 		do_rehash();
 	}
 
-	pool(pool &&other)
+	pool(pool &&other) noexcept
 	{
 		swap(other);
 	}
@@ -1102,7 +1104,7 @@ public:
 		return *this;
 	}
 
-	pool &operator=(pool &&other) {
+	pool &operator=(pool &&other) noexcept {
 		clear();
 		swap(other);
 		return *this;
