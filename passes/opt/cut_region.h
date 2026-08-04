@@ -58,6 +58,14 @@ struct CutRegionWorker
 	pool<SigBit> claimed_bits;
 	std::string last_cut_fail;
 
+	// Every rejected cut records why, but only log_debug ever reads it, and
+	// log_signal/stringf on that path costs more than the walk that failed.
+	void note_cut_fail(const char *prefix, SigBit bit, const char *suffix = "")
+	{
+		if (ys_debug())
+			last_cut_fail = stringf("%s%s%s", prefix, log_signal(bit), suffix);
+	}
+
 	// Work budgets, decremented as the search runs. Walk steps count cells
 	// visited by cone/cut traversals; eval steps approximate ConstEval cost
 	// as (test vectors x cone cells); attempts count cut-closure trials
@@ -184,6 +192,235 @@ struct CutRegionWorker
 		return true;
 	}
 
+	// Dense fan-in graph of one root's cone, using the cut walk's own rule
+	// (a bit is interior iff bit_to_driver names a cell for it). Matchers
+	// probe hundreds of cuts per root, and re-running a hashed SigBit BFS
+	// that re-sigmaps every connection each time dominates their runtime,
+	// so intern the cone once and let the cuts be integer BFS over vectors.
+	struct ConeGraph {
+		SigSpec root;
+		dict<SigBit, int> bit_id;
+		vector<SigBit> bits;
+		vector<int> bit_drv;     // cell index driving bits[i], or -1 if leaf
+		vector<Cell *> cells;
+		dict<Cell *, int> cell_id;
+		vector<int> in_off;      // CSR offsets into in_bits, size cells+1
+		vector<int> in_bits;     // input bit ids, in connection order
+		vector<int> root_bits;
+	};
+
+	ConeGraph cg;
+	bool cg_root_current = false; // cg.root is the cone we last tried to index
+	bool cg_usable = false;       // ...and it fit under the cap
+
+	// Scratch reused across cuts; a generation counter avoids clearing it.
+	vector<uint32_t> bit_seen, cell_seen, allow_seen;
+	uint32_t cg_gen = 0;
+	vector<int> cg_queue, cg_cells_hit;
+
+	// Interning explores the whole uncut cone, which a tightly cut walk
+	// would not, so refuse roots where that could cost more than it saves.
+	static const int max_graph_cells = 1 << 17;
+
+	// Build (or reuse) the dense graph for `root`. Returns null when the
+	// cone is too large, leaving the caller on the hashed walk; that verdict
+	// is remembered too, so an oversized root is not re-interned per cut.
+	const ConeGraph *cone_graph(const SigSpec &root)
+	{
+		if (cg_root_current && cg.root == root)
+			return cg_usable ? &cg : nullptr;
+
+		cg_root_current = true;
+		cg_usable = false;
+		cg.root = root;
+		cg.bit_id.clear();
+		cg.bits.clear();
+		cg.bit_drv.clear();
+		cg.cells.clear();
+		cg.cell_id.clear();
+		cg.in_off.clear();
+		cg.in_bits.clear();
+		cg.root_bits.clear();
+
+		// Intern a bit, queueing it for expansion the first time it is seen
+		auto intern = [&](SigBit bit) {
+			auto it = cg.bit_id.find(bit);
+			if (it != cg.bit_id.end())
+				return it->second;
+			int id = GetSize(cg.bits);
+			cg.bit_id[bit] = id;
+			cg.bits.push_back(bit);
+			cg.bit_drv.push_back(-1);
+			return id;
+		};
+
+		for (auto bit : sigmap(root))
+			if (bit.wire)
+				cg.root_bits.push_back(intern(bit));
+
+		// BFS in the same order the hashed walk uses, so cuts visit cells
+		// in the same sequence and charge the walk budget identically.
+		cg.in_off.push_back(0);
+		for (int head = 0; head < GetSize(cg.bits); head++) {
+			Cell *drv = bit_to_driver.at(cg.bits[head], nullptr);
+			if (drv == nullptr)
+				continue;
+
+			auto cit = cg.cell_id.find(drv);
+			if (cit != cg.cell_id.end()) {
+				cg.bit_drv[head] = cit->second;
+				continue;
+			}
+
+			if (GetSize(cg.cells) >= max_graph_cells)
+				return nullptr;
+			int cid = GetSize(cg.cells);
+			cg.cell_id[drv] = cid;
+			cg.cells.push_back(drv);
+			cg.bit_drv[head] = cid;
+
+			for (auto &conn : drv->connections()) {
+				if (!drv->input(conn.first))
+					continue;
+				for (auto in_bit : sigmap(conn.second))
+					if (in_bit.wire)
+						cg.in_bits.push_back(intern(in_bit));
+			}
+			cg.in_off.push_back(GetSize(cg.in_bits));
+		}
+
+		bit_seen.assign(GetSize(cg.bits), 0);
+		allow_seen.assign(GetSize(cg.bits), 0);
+		cell_seen.assign(GetSize(cg.cells), 0);
+		cg_gen = 0;
+		cg_usable = true;
+		return &cg;
+	}
+
+	void next_cg_gen()
+	{
+		if (++cg_gen != 0)
+			return;
+		std::fill(bit_seen.begin(), bit_seen.end(), 0);
+		std::fill(allow_seen.begin(), allow_seen.end(), 0);
+		std::fill(cell_seen.begin(), cell_seen.end(), 0);
+		cg_gen = 1;
+	}
+
+	// BFS the dense cone graph from one bit, in the same order and charging
+	// the walk budget the same way a hashed traversal would. `interior`
+	// decides whether to expand through a bit's driver; `visit` sees every
+	// reached bit with that verdict.
+	template <typename FnInterior, typename FnVisit>
+	void cone_graph_bfs(const ConeGraph &g, SigBit from, FnInterior interior, FnVisit visit)
+	{
+		auto it = g.bit_id.find(from);
+		if (it == g.bit_id.end())
+			return;
+
+		next_cg_gen();
+		cg_queue.clear();
+		cg_queue.push_back(it->second);
+		bit_seen[it->second] = cg_gen;
+
+		for (int head = 0; head < GetSize(cg_queue); head++) {
+			int id = cg_queue[head];
+			charge_walk(1);
+
+			int cid = g.bit_drv[id];
+			bool inside = cid >= 0 && interior(cid);
+			visit(id, inside);
+			if (!inside)
+				continue;
+
+			for (int k = g.in_off[cid]; k < g.in_off[cid + 1]; k++) {
+				int in_id = g.in_bits[k];
+				if (bit_seen[in_id] != cg_gen) {
+					bit_seen[in_id] = cg_gen;
+					cg_queue.push_back(in_id);
+				}
+			}
+		}
+	}
+
+	// Indexed form of cut_cone_walk; see there for the contract.
+	bool cut_cone_walk_indexed(const ConeGraph &g, const pool<SigBit> &allowed, int max_cells,
+	                           pool<SigBit> *hit_bits, pool<Cell *> *cells_out,
+	                           const pool<SigBit> *forced_bits)
+	{
+		next_cg_gen();
+
+		for (auto bit : allowed) {
+			auto it = g.bit_id.find(bit);
+			if (it != g.bit_id.end())
+				allow_seen[it->second] = cg_gen;
+		}
+
+		cg_queue.clear();
+		cg_cells_hit.clear();
+		for (int id : g.root_bits)
+			if (bit_seen[id] != cg_gen) {
+				bit_seen[id] = cg_gen;
+				cg_queue.push_back(id);
+			}
+
+		for (int head = 0; head < GetSize(cg_queue); head++) {
+			int id = cg_queue[head];
+
+			if (allow_seen[id] == cg_gen) {
+				if (hit_bits != nullptr)
+					hit_bits->insert(g.bits[id]);
+				continue;
+			}
+
+			int cid = g.bit_drv[id];
+			if (cid < 0) {
+				note_cut_fail("leaf ", g.bits[id]);
+				return false;
+			}
+
+			if (cell_seen[cid] == cg_gen)
+				continue;
+			cell_seen[cid] = cg_gen;
+			cg_cells_hit.push_back(cid);
+			charge_walk(1);
+			if (GetSize(cg_cells_hit) > max_cells || walk_exhausted()) {
+				last_cut_fail = "size limit";
+				return false;
+			}
+
+			for (int k = g.in_off[cid]; k < g.in_off[cid + 1]; k++) {
+				int in_id = g.in_bits[k];
+				if (bit_seen[in_id] != cg_gen) {
+					bit_seen[in_id] = cg_gen;
+					cg_queue.push_back(in_id);
+				}
+			}
+		}
+
+		// A forced bit driven from inside the cut cone would conflict with
+		// ConstEval's whole-cell output caching.
+		const pool<SigBit> &check = (forced_bits != nullptr) ? *forced_bits :
+		                            (hit_bits != nullptr) ? *hit_bits : allowed;
+		for (auto bit : check) {
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr)
+				continue;
+			int cid = g.cell_id.at(drv, -1);
+			if (cid >= 0 && cell_seen[cid] == cg_gen) {
+				note_cut_fail("forced bit ", bit, " driven inside cone");
+				return false;
+			}
+		}
+
+		if (cells_out != nullptr) {
+			cells_out->clear();
+			for (int cid : cg_cells_hit)
+				cells_out->insert(g.cells[cid]);
+		}
+		return true;
+	}
+
 	// Walk the cone of `root`, cutting it at the bits in `allowed`. Returns
 	// true iff the cut cone closes (no other primary input / undriven bit is
 	// reached). `hit_bits`, when given, collects the allowed bits the cone
@@ -212,9 +449,16 @@ struct CutRegionWorker
 					break;
 				}
 			if (allowed_all_leaf) {
+				// The cut has to cover every cone leaf, so a cone with
+				// more leaves than the cut has bits cannot close: that
+				// rejects most candidate buses without touching the cone.
+				if (GetSize(*full_leaves) > GetSize(allowed)) {
+					last_cut_fail = "leaf count";
+					return false;
+				}
 				for (auto leaf : *full_leaves)
 					if (!allowed.count(leaf)) {
-						last_cut_fail = stringf("leaf %s", log_signal(leaf));
+						note_cut_fail("leaf ", leaf);
 						return false;
 					}
 				if (GetSize(*full_cells) > max_cells) {
@@ -228,6 +472,9 @@ struct CutRegionWorker
 				return true;
 			}
 		}
+
+		if (const ConeGraph *g = cone_graph(root))
+			return cut_cone_walk_indexed(*g, allowed, max_cells, hit_bits, cells_out, forced_bits);
 
 		pool<SigBit> visited;
 		pool<Cell *> cells_seen;
@@ -251,7 +498,7 @@ struct CutRegionWorker
 
 			Cell *drv = bit_to_driver.at(bit, nullptr);
 			if (drv == nullptr) {
-				last_cut_fail = stringf("leaf %s", log_signal(bit));
+				note_cut_fail("leaf ", bit);
 				return false;
 			}
 
@@ -280,7 +527,7 @@ struct CutRegionWorker
 		for (auto bit : check) {
 			Cell *drv = bit_to_driver.at(bit, nullptr);
 			if (drv != nullptr && cells_seen.count(drv)) {
-				last_cut_fail = stringf("forced bit %s driven inside cone", log_signal(bit));
+				note_cut_fail("forced bit ", bit, " driven inside cone");
 				return false;
 			}
 		}
@@ -357,11 +604,28 @@ struct CutRegionWorker
 		return true;
 	}
 
+	// sigmap() copies and unpacks the whole SigSpec on every call, and the
+	// matchers re-map the same handful of candidate buses once per cut they
+	// try, so hundreds of times per root. SigSpec caches its own hash, which
+	// makes the memo lookup much cheaper than redoing the mapping.
+	dict<SigSpec, vector<SigBit>> mapped_bits_cache;
+
+	const vector<SigBit> &mapped_bits(const SigSpec &sig)
+	{
+		auto it = mapped_bits_cache.find(sig);
+		if (it != mapped_bits_cache.end())
+			return it->second;
+		vector<SigBit> &out = mapped_bits_cache[sig];
+		for (auto bit : sigmap(sig))
+			out.push_back(bit);
+		return out;
+	}
+
 	// Collect the bus bits into `seen_bits`, rejecting constant or repeated
 	// bits (fingerprints drive each bus bit independently).
 	bool sig_bits_unique(const SigSpec &sig, pool<SigBit> &seen_bits)
 	{
-		for (auto bit : sigmap(sig))
+		for (auto bit : mapped_bits(sig))
 			if (!bit.wire || !seen_bits.insert(bit).second)
 				return false;
 		return true;
@@ -371,7 +635,7 @@ struct CutRegionWorker
 	// are valid region boundaries even though they have no comb driver.
 	bool sig_bus_ok(const SigSpec &sig)
 	{
-		for (auto bit : sigmap(sig))
+		for (auto bit : mapped_bits(sig))
 			if (!bit.wire)
 				return false;
 		return true;
@@ -589,6 +853,52 @@ struct CutRegionWorker
 		return bits;
 	}
 
+	// Wires indexed by the bits they map onto, so a cone can find the wires
+	// it touches without re-mapping every wire in the module. Both bus
+	// collectors below run once per root, and rescanning the whole module
+	// each time is what makes them dominate on large designs.
+	dict<SigBit, vector<Wire *>> bit_to_wires;
+	dict<Wire *, vector<SigBit>> wire_mapped_bits;
+	dict<Wire *, int> wire_order;
+	bool wire_index_built = false;
+
+	void build_wire_index()
+	{
+		if (wire_index_built)
+			return;
+		wire_index_built = true;
+		for (auto w : module->wires()) {
+			wire_order[w] = GetSize(wire_order);
+			vector<SigBit> &bits = wire_mapped_bits[w];
+			for (auto bit : sigmap(SigSpec(w))) {
+				bits.push_back(bit);
+				if (bit.wire)
+					bit_to_wires[bit].push_back(w);
+			}
+		}
+	}
+
+	// Wires with at least one bit in the cone, in module order so that the
+	// size-capped, stably sorted bus lists come out exactly as before.
+	vector<Wire *> wires_touching(const pool<SigBit> &cone_sig_bits)
+	{
+		build_wire_index();
+		pool<Wire *> seen;
+		vector<Wire *> out;
+		for (auto bit : cone_sig_bits) {
+			auto it = bit_to_wires.find(bit);
+			if (it == bit_to_wires.end())
+				continue;
+			for (auto w : it->second)
+				if (seen.insert(w).second)
+					out.push_back(w);
+		}
+		std::sort(out.begin(), out.end(), [&](Wire *a, Wire *b) {
+			return wire_order.at(a) < wire_order.at(b);
+		});
+		return out;
+	}
+
 	// Maximal contiguous in-cone wire-bit runs, longest first (real region
 	// buses are wide; incidental wires are short and must not exhaust the
 	// cap). Constant edge bits (e.g. the never-written top bit of a [W:0]
@@ -596,10 +906,10 @@ struct CutRegionWorker
 	vector<BusCand> collect_wire_run_buses(const pool<SigBit> &cone_sig_bits, int cap)
 	{
 		vector<BusCand> wire_runs;
-		for (auto wb : module->wires()) {
+		for (auto wb : wires_touching(cone_sig_bits)) {
 			if (GetSize(wb) < 2)
 				continue;
-			SigSpec sig = sigmap(SigSpec(wb));
+			const vector<SigBit> &sig = wire_mapped_bits.at(wb);
 			int run_start = -1;
 			for (int i = 0; i <= GetSize(sig); i++) {
 				bool ok = i < GetSize(sig) && sig[i].wire && cone_sig_bits.count(sig[i]);
@@ -608,7 +918,8 @@ struct CutRegionWorker
 				if (!ok && run_start >= 0) {
 					int run_len = i - run_start;
 					if (run_len >= 2) {
-						SigSpec run = sig.extract(run_start, run_len);
+						SigSpec run(vector<SigBit>(sig.begin() + run_start,
+						                           sig.begin() + run_start + run_len));
 						std::string name = (run_len == GetSize(wb))
 							? wb->name.str()
 							: stringf("%s[%d+:%d]", wb->name.str().c_str(), run_start, run_len);
@@ -630,18 +941,7 @@ struct CutRegionWorker
 	// Split-wire buses whose lanes touch the cone.
 	vector<BusCand> collect_cone_split_buses(const pool<SigBit> &cone_sig_bits)
 	{
-		vector<Wire *> cone_wires;
-		for (auto wb : module->wires()) {
-			bool touches = false;
-			for (auto bit : sigmap(SigSpec(wb)))
-				if (bit.wire && cone_sig_bits.count(bit)) {
-					touches = true;
-					break;
-				}
-			if (touches)
-				cone_wires.push_back(wb);
-		}
-		return collect_split_buses(cone_wires);
+		return collect_split_buses(wires_touching(cone_sig_bits));
 	}
 
 	// Per-seed cone cache: the seed sweep is the dominant fixed cost in
