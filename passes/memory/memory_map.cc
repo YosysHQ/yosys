@@ -107,6 +107,9 @@ struct MemoryMapWorker
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
 
+		// Source location of the memory; every cell and wire we lower it into inherits it
+		std::string src = mem.get_src_attribute();
+
 		SigSpec init_data = mem.get_init_data();
 
 		if (!mem.wr_ports.empty() && rom_only)
@@ -238,8 +241,10 @@ struct MemoryMapWorker
 					c->setPort(ID::CLK, refclock);
 				}
 				c->parameters[ID::WIDTH] = mem.width;
+				c->set_src_attribute(src); // SILIMATE: attribute the FFRAM entry
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
+				w_in->set_src_attribute(src); // SILIMATE: attribute the FFRAM entry D wire
 				data_reg_in[idx] = w_in;
 				c->setPort(ID::D, w_in);
 
@@ -248,6 +253,7 @@ struct MemoryMapWorker
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
+				w_out->set_src_attribute(src); // SILIMATE: attribute the FFRAM entry Q wire
 
 				if (formal && mem.packed && mem.cell->name.c_str()[0] == '\\') {
 					auto hdlname = mem.cell->get_hdlname_attribute();
@@ -294,10 +300,15 @@ struct MemoryMapWorker
 					c->parameters[ID::WIDTH] = GetSize(port.data);
 					c->setPort(ID::Y, rd_signals[k]);
 					c->setPort(ID::S, rd_addr.extract(abits-j-1, 1));
+					c->set_src_attribute(src); // SILIMATE: attribute the FFRAM read mux
 					count_mux++;
 
-					c->setPort(ID::A, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data)));
-					c->setPort(ID::B, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data)));
+					RTLIL::Wire *w_a = module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data));
+					RTLIL::Wire *w_b = module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data));
+					w_a->set_src_attribute(src); // SILIMATE: attribute the FFRAM read mux A wire
+					w_b->set_src_attribute(src); // SILIMATE: attribute the FFRAM read mux B wire
+					c->setPort(ID::A, w_a);
+					c->setPort(ID::B, w_b);
 
 					next_rd_signals.push_back(c->getPort(ID::A));
 					next_rd_signals.push_back(c->getPort(ID::B));
@@ -357,8 +368,10 @@ struct MemoryMapWorker
 							c->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 							c->setPort(ID::A, w);
 							c->setPort(ID::B, wr_bit);
+							c->set_src_attribute(src); // SILIMATE: attribute the FFRAM write-enable
 
 							w = module->addWire(genid(mem.memid, "$wren", addr, "", j, "", wr_offset, "$y"));
+							w->set_src_attribute(src); // SILIMATE: attribute the FFRAM write-enable Y wire
 							c->setPort(ID::Y, RTLIL::SigSpec(w));
 						}
 
@@ -367,8 +380,10 @@ struct MemoryMapWorker
 						c->setPort(ID::A, sig.extract(wr_offset, wr_width));
 						c->setPort(ID::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
 						c->setPort(ID::S, RTLIL::SigSpec(w));
+						c->set_src_attribute(src); // SILIMATE: attribute the FFRAM write mux
 
 						w = module->addWire(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset, "$y"), wr_width);
+						w->set_src_attribute(src); // SILIMATE: attribute the FFRAM write mux Y wire
 						c->setPort(ID::Y, w);
 
 						sig.replace(wr_offset, w);
