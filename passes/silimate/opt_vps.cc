@@ -51,6 +51,20 @@ struct OptVpsWorker
 	int min_stride;
 	pool<Cell *> vps_shr_cells;
 
+	// Decoder $shl output bit -> (decoder, one-hot position).  Lets the
+	// per-decoder scans resolve a select bit in O(1) instead of walking
+	// every decoder's whole Y port.
+	dict<SigBit, std::pair<Cell *, int>> decoder_bit_pos;
+
+	// Cells handed to remove_cell(); the $pmux buckets below are built
+	// once, so iterations must skip entries killed by an earlier decoder.
+	pool<Cell *> removed_cells;
+
+	// OR-reduced select vector -> its $reduce_or cell, built on first use
+	// and maintained incrementally (rebuilding per group is O(cells)).
+	dict<SigSpec, Cell *> reduce_or_map;
+	bool reduce_or_map_valid = false;
+
 	OptVpsWorker(Module *module, int min_stride)
 		: module(module), sigmap(module), min_stride(min_stride)
 	{
@@ -103,63 +117,155 @@ struct OptVpsWorker
 		return true;
 	}
 
+	// Index every decoder's one-hot output bits.  First writer wins so that
+	// aliased outputs resolve like the old first-decoder-in-list scan.
+	void index_decoders(const std::vector<Cell *> &decoders)
+	{
+		decoder_bit_pos.clear();
+		for (auto decoder : decoders) {
+			SigSpec y = decoder->getPort(ID::Y);
+			for (int i = 0; i < GetSize(y); i++) {
+				SigBit b = sigmap(y[i]);
+				if (!decoder_bit_pos.count(b))
+					decoder_bit_pos[b] = std::make_pair(decoder, i);
+			}
+		}
+	}
+
+	// One-hot position of an already-sigmapped bit within a specific
+	// decoder's output, or -1 if it is not that decoder's bit.
+	int decoder_pos_of(SigBit mapped, Cell *decoder)
+	{
+		auto it = decoder_bit_pos.find(mapped);
+		if (it == decoder_bit_pos.end() || it->second.first != decoder)
+			return -1;
+		return it->second.second;
+	}
+
+	// The two inputs of a single-bit AND gate, or false if not one.
+	bool and_gate_inputs(Cell *driver, SigBit &a, SigBit &b)
+	{
+		if (driver->type == ID($and)) {
+			SigSpec port_a = driver->getPort(ID::A);
+			SigSpec port_b = driver->getPort(ID::B);
+			if (GetSize(port_a) != 1 || GetSize(port_b) != 1)
+				return false;
+			a = sigmap(port_a[0]);
+			b = sigmap(port_b[0]);
+			return true;
+		}
+		if (driver->type == ID($_AND_)) {
+			a = sigmap(driver->getPort(ID::A));
+			b = sigmap(driver->getPort(ID::B));
+			return true;
+		}
+		return false;
+	}
+
 	// Trace an S-port bit back through an optional AND gate to find
 	// which decoder output position it comes from.  Returns -1 on failure.
 	// If overflow_cond is non-null, stores the non-decoder input of the
 	// AND gate (the overflow mask bit), or State::S1 if direct.
-	int trace_to_decoder_pos(SigBit bit, SigSpec &decoder_y,
+	int trace_to_decoder_pos(SigBit bit, Cell *decoder,
 				 SigBit *overflow_cond = nullptr)
 	{
 		SigBit mapped = sigmap(bit);
 
-		for (int i = 0; i < GetSize(decoder_y); i++)
-			if (sigmap(decoder_y[i]) == mapped) {
-				if (overflow_cond)
-					*overflow_cond = State::S1;
-				return i;
-			}
+		int pos = decoder_pos_of(mapped, decoder);
+		if (pos >= 0) {
+			if (overflow_cond)
+				*overflow_cond = State::S1;
+			return pos;
+		}
 
 		Cell *driver = bit_drivers.at(mapped, nullptr);
-		if (!driver)
+		SigBit a, b;
+		if (!driver || !and_gate_inputs(driver, a, b))
 			return -1;
 
-		if (driver->type == ID($and)) {
-			SigSpec port_a = driver->getPort(ID::A);
-			SigSpec port_b = driver->getPort(ID::B);
-			if (GetSize(port_a) == 1 && GetSize(port_b) == 1) {
-				SigBit a = sigmap(port_a[0]);
-				SigBit b = sigmap(port_b[0]);
-				for (int i = 0; i < GetSize(decoder_y); i++) {
-					SigBit dy = sigmap(decoder_y[i]);
-					if (dy == a) {
-						if (overflow_cond) *overflow_cond = b;
-						return i;
-					}
-					if (dy == b) {
-						if (overflow_cond) *overflow_cond = a;
-						return i;
-					}
-				}
-			}
+		// Both AND inputs can be decoder bits; the old linear scan over Y
+		// returned the lower position, so keep that tie-break.
+		int pa = decoder_pos_of(a, decoder), pb = decoder_pos_of(b, decoder);
+		if (pa >= 0 && (pb < 0 || pa <= pb)) {
+			if (overflow_cond) *overflow_cond = b;
+			return pa;
 		}
-
-		if (driver->type == ID($_AND_)) {
-			SigBit a = sigmap(driver->getPort(ID::A));
-			SigBit b = sigmap(driver->getPort(ID::B));
-			for (int i = 0; i < GetSize(decoder_y); i++) {
-				SigBit dy = sigmap(decoder_y[i]);
-				if (dy == a) {
-					if (overflow_cond) *overflow_cond = b;
-					return i;
-				}
-				if (dy == b) {
-					if (overflow_cond) *overflow_cond = a;
-					return i;
-				}
-			}
+		if (pb >= 0) {
+			if (overflow_cond) *overflow_cond = a;
+			return pb;
 		}
-
 		return -1;
+	}
+
+	// Bucket every $pmux under the decoder(s) its select bits can come
+	// from.  All three per-decoder scans need every S bit to resolve
+	// against one decoder, so a bucket is a superset of what they match
+	// and each scan shrinks from O(cells) to O(its own candidates).
+	void bucket_pmuxes(dict<Cell *, std::vector<Cell *>> &buckets)
+	{
+		buckets.clear();
+		std::vector<Cell *> hits, seen;
+		for (auto cell : module->selected_cells()) {
+			if (cell->type != ID($pmux))
+				continue;
+			SigSpec sig_s = cell->getPort(ID::S);
+			seen.clear();
+			for (int i = 0; i < GetSize(sig_s); i++) {
+				decoders_of_bit(sig_s[i], hits);
+				for (auto d : hits)
+					// a $pmux reaches one or two decoders, so scanning
+					// seen linearly beats hashing
+					if (std::find(seen.begin(), seen.end(), d) == seen.end()) {
+						seen.push_back(d);
+						buckets[d].push_back(cell);
+					}
+			}
+		}
+	}
+
+	// Decoders whose one-hot output can reach this select bit, directly or
+	// through the overflow AND gate (whose two inputs may differ).
+	void decoders_of_bit(SigBit bit, std::vector<Cell *> &out)
+	{
+		out.clear();
+		auto add = [&](SigBit b) {
+			auto it = decoder_bit_pos.find(sigmap(b));
+			if (it != decoder_bit_pos.end())
+				out.push_back(it->second.first);
+		};
+
+		SigBit mapped = sigmap(bit);
+		add(mapped);
+		if (!out.empty())
+			return;
+
+		Cell *driver = bit_drivers.at(mapped, nullptr);
+		SigBit a, b;
+		if (driver && and_gate_inputs(driver, a, b)) {
+			add(a);
+			add(b);
+		}
+	}
+
+	// Fill reduce_or_map on first use.  Callers erase the entries they
+	// consume and register the cells they add, so this stays a one-off
+	// instead of an O(cells) rebuild per group.
+	void build_reduce_or_map()
+	{
+		if (reduce_or_map_valid)
+			return;
+		for (auto cell : module->cells())
+			if (cell->type == ID($reduce_or))
+				reduce_or_map[sigmap(cell->getPort(ID::A))] = cell;
+		reduce_or_map_valid = true;
+	}
+
+	// Remove a cell, remembering it so stale $pmux bucket entries are
+	// skipped rather than dereferenced.
+	void remove_cell(Cell *cell)
+	{
+		removed_cells.insert(cell);
+		module->remove(cell);
 	}
 
 	// Extract the constant addend from a binary_index signal.
@@ -847,7 +953,7 @@ struct OptVpsWorker
 
 		for (auto &c : cands) {
 			module->connect(c.ybit, SigBit(shifted, (c.konst - dmin) % M));
-			module->remove(c.cell);
+			remove_cell(c.cell);
 			pmux_replaced++;
 		}
 
@@ -893,7 +999,7 @@ struct OptVpsWorker
 
 		for (auto &c : cands) {
 			module->connect(c.ybit, SigBit(shifted, c.konst - dmin));
-			module->remove(c.cell);
+			remove_cell(c.cell);
 			pmux_replaced++;
 		}
 
@@ -919,6 +1025,11 @@ struct OptVpsWorker
 			if (is_decoder_shl(cell))
 				decoders.push_back(cell);
 
+		index_decoders(decoders);
+
+		dict<Cell *, std::vector<Cell *>> pmux_by_decoder;
+		bucket_pmuxes(pmux_by_decoder);
+
 		// --- Cross-decoder VPS read merge ---
 		// Collect stride-1 VPS read candidates across ALL decoders.
 		// Group by the underlying SOURCE REGISTER (identified by the
@@ -943,11 +1054,16 @@ struct OptVpsWorker
 		std::vector<XReadCandidate> all_reads;
 
 		for (auto decoder : decoders) {
-			SigSpec decoder_y = decoder->getPort(ID::Y);
+			auto bucket = pmux_by_decoder.find(decoder);
+			if (bucket == pmux_by_decoder.end())
+				continue;
 
-			for (auto cell : module->selected_cells()) {
-				if (cell->type != ID($pmux))
-					continue;
+			// Decoder-invariant, so hoisted out of the candidate loop
+			SigSpec binary_idx = decoder->getPort(ID::B);
+			SigSpec roots = trace_input_roots(binary_idx);
+			int idx_c = eval_at_zero(binary_idx);
+
+			for (auto cell : bucket->second) {
 				int W = cell->getParam(ID::WIDTH).as_int();
 				if (W <= 1) continue;
 				SigSpec sig_a = cell->getPort(ID::A);
@@ -961,7 +1077,7 @@ struct OptVpsWorker
 				for (int i = 0; i < N; i++) {
 					SigBit sb = sigmap(sig_s[i]);
 					if (sb == State::S0) continue;
-					int pos = trace_to_decoder_pos(sig_s[i], decoder_y);
+					int pos = trace_to_decoder_pos(sig_s[i], decoder);
 					if (pos < 0) break;
 					dec_positions.push_back(pos);
 					s_indices.push_back(i);
@@ -1005,10 +1121,6 @@ struct OptVpsWorker
 					}
 				}
 				if (!reg_wire) continue;
-
-				SigSpec binary_idx = decoder->getPort(ID::B);
-				SigSpec roots = trace_input_roots(binary_idx);
-				int idx_c = eval_at_zero(binary_idx);
 
 				all_reads.push_back({decoder, cell, W, base, sliding_n,
 					{s_indices.begin(), s_indices.begin() + sliding_n},
@@ -1224,7 +1336,7 @@ struct OptVpsWorker
 						    log_id(r.pmux->name), r.W, eff_offset(r),
 						    byte_offset + r.W - 1, byte_offset);
 
-						module->remove(r.pmux);
+						remove_cell(r.pmux);
 						pmux_replaced++;
 						vps_reads_replaced++;
 					}
@@ -1415,7 +1527,7 @@ struct OptVpsWorker
 					    log_id(r.pmux->name), r.W, r.base,
 					    byte_offset + r.W - 1, byte_offset);
 
-					module->remove(r.pmux);
+					remove_cell(r.pmux);
 					pmux_replaced++;
 					vps_reads_replaced++;
 				}
@@ -1433,8 +1545,12 @@ struct OptVpsWorker
 		// Process remaining decoders normally (for VPS writes and
 		// unmerged VPS reads — merged reads' $pmux cells were
 		// already removed, so they won't be found again)
-		for (auto decoder : decoders)
-			process_decoder(decoder);
+		bucket_pmuxes(pmux_by_decoder);
+		for (auto decoder : decoders) {
+			auto bucket = pmux_by_decoder.find(decoder);
+			if (bucket != pmux_by_decoder.end())
+				process_decoder(decoder, bucket->second);
+		}
 
 		// --- Shared barrel shifter merge ---
 		// After all VPS reads have been converted to $shr cells,
@@ -1609,16 +1725,15 @@ struct OptVpsWorker
 				    info.reg_offset, off,
 				    off, off + info.output_width - 1);
 
-				module->remove(info.shr);
+				remove_cell(info.shr);
 			}
 
 			groups_optimized++;
 		}
 	}
 
-	void process_vps_reads(Cell *decoder)
+	void process_vps_reads(Cell *decoder, const std::vector<Cell *> &pmuxes)
 	{
-		SigSpec decoder_y = decoder->getPort(ID::Y);
 		SigSpec binary_index = decoder->getPort(ID::B);
 
 		struct ReadCandidate {
@@ -1630,8 +1745,8 @@ struct OptVpsWorker
 		};
 		std::vector<ReadCandidate> read_candidates;
 
-		for (auto cell : module->selected_cells()) {
-			if (cell->type != ID($pmux))
+		for (auto cell : pmuxes) {
+			if (removed_cells.count(cell))
 				continue;
 			int W = cell->getParam(ID::WIDTH).as_int();
 			if (W <= 1)
@@ -1654,7 +1769,7 @@ struct OptVpsWorker
 				SigBit sb = sigmap(sig_s[i]);
 				if (sb == State::S0)
 					continue;
-				int pos = trace_to_decoder_pos(sig_s[i], decoder_y);
+				int pos = trace_to_decoder_pos(sig_s[i], decoder);
 				if (pos < 0)
 					break;
 				dec_positions.push_back(pos);
@@ -1916,7 +2031,7 @@ struct OptVpsWorker
 			    log2_align > 0 ?
 			      stringf(", align=%d", 1 << log2_align).c_str() : "");
 
-			module->remove(cell);
+			remove_cell(cell);
 			pmux_replaced++;
 			vps_reads_replaced++;
 		}
@@ -1925,14 +2040,12 @@ struct OptVpsWorker
 			groups_optimized++;
 	}
 
-	void process_decoder(Cell *decoder)
+	void process_decoder(Cell *decoder, const std::vector<Cell *> &pmuxes)
 	{
-		SigSpec decoder_y = decoder->getPort(ID::Y);
-
 		std::vector<PmuxInfo> candidates;
 
-		for (auto cell : module->selected_cells()) {
-			if (cell->type != ID($pmux))
+		for (auto cell : pmuxes) {
+			if (removed_cells.count(cell))
 				continue;
 			if (cell->getParam(ID::WIDTH).as_int() != 1)
 				continue;
@@ -1949,7 +2062,7 @@ struct OptVpsWorker
 			bool valid = true;
 
 			for (int i = 0; i < s_width; i++) {
-				int pos = trace_to_decoder_pos(sig_s[i], decoder_y);
+				int pos = trace_to_decoder_pos(sig_s[i], decoder);
 				if (pos < 0) { valid = false; break; }
 				positions.push_back(pos);
 			}
@@ -1970,7 +2083,7 @@ struct OptVpsWorker
 		}
 
 		// Detect VPS read patterns (WIDTH > 1) from this decoder
-		process_vps_reads(decoder);
+		process_vps_reads(decoder, pmuxes);
 
 		if (candidates.empty())
 			return;
@@ -2048,8 +2161,6 @@ struct OptVpsWorker
 		log("  VPS group: decoder %s, base=%d, %d bits, stride=%d, %d lanes\n",
 		    log_id(decoder->name), base, N, W, lane_count);
 
-		SigSpec decoder_y = decoder->getPort(ID::Y);
-
 		// Collect gated decoder bits and overflow conditions
 		dict<int, SigBit> gated_bits;
 		dict<int, SigBit> overflow_bits;
@@ -2069,7 +2180,7 @@ struct OptVpsWorker
 				} else {
 					gated_bits[pos] = sb;
 					SigBit ov_cond;
-					trace_to_decoder_pos(sb, decoder_y, &ov_cond);
+					trace_to_decoder_pos(sb, decoder, &ov_cond);
 					overflow_bits[pos] = ov_cond;
 				}
 			}
@@ -2135,8 +2246,11 @@ struct OptVpsWorker
 					lane_en[L] = lane_bits[0];
 				} else {
 					Wire *w = module->addWire(NEW_ID_SUFFIX("vps_lane_en"), 1);
-					module->addReduceOr(NEW_ID_SUFFIX("vps_lane_or"), lane_bits, w,
-						false, cell_src(candidates[group_start + L * W].cell));
+					Cell *ror = module->addReduceOr(NEW_ID_SUFFIX("vps_lane_or"),
+						lane_bits, w, false,
+						cell_src(candidates[group_start + L * W].cell));
+					if (reduce_or_map_valid)
+						reduce_or_map[sigmap(lane_bits)] = ror;
 					lane_en[L] = SigBit(w);
 				}
 			}
@@ -2202,14 +2316,7 @@ struct OptVpsWorker
 			}
 		}
 
-		// Build lookup: S SigSpec (through sigmap) -> $reduce_or cell
-		dict<SigSpec, Cell *> reduce_or_map;
-		for (auto cell : module->cells()) {
-			if (cell->type != ID($reduce_or))
-				continue;
-			SigSpec a = sigmap(cell->getPort(ID::A));
-			reduce_or_map[a] = cell;
-		}
+		build_reduce_or_map();
 
 		if (full_collapse) {
 			log("    full feedback collapse: %d lanes, wr_en mux %s\n",
@@ -2259,7 +2366,7 @@ struct OptVpsWorker
 			}
 
 			for (auto c : cells_to_remove)
-				module->remove(c);
+				remove_cell(c);
 
 			// Remove redundant top-level wr_en mux if all its B-port
 			// bits are now driven by the per-lane muxes.
@@ -2267,7 +2374,7 @@ struct OptVpsWorker
 				SigSpec wr_y = top_wr_mux->getPort(ID::Y);
 				SigSpec wr_b = top_wr_mux->getPort(ID::B);
 				module->connect(wr_y, wr_b);
-				module->remove(top_wr_mux);
+				remove_cell(top_wr_mux);
 				log("    removed redundant top-level wr_en mux %s\n",
 				    log_id(top_wr_mux->name));
 			}
@@ -2293,12 +2400,12 @@ struct OptVpsWorker
 				if (it != reduce_or_map.end()) {
 					Cell *ror = it->second;
 					module->connect(ror->getPort(ID::Y), lane_en[L]);
-					module->remove(ror);
+					remove_cell(ror);
 					reduce_or_map.erase(it);
 					reduce_or_replaced++;
 				}
 
-				module->remove(pmux_cell);
+				remove_cell(pmux_cell);
 				pmux_replaced++;
 			}
 		}

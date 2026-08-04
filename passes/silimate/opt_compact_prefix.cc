@@ -85,58 +85,69 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		bool track_all = true;
 		if (walk_exhausted())
 			return;
+
+		// One cone walk per root bit, over a dense index shared by all of
+		// them: this is the pass's hottest loop, and a hashed walk that
+		// re-maps every connection costs an order of magnitude more.
+		const ConeGraph *g = cone_graph(root);
+		if (g == nullptr)
+			return; // cone past the index cap; lane buses are best-effort
+
+		vector<bool> interior(GetSize(g->cells), false);
+		for (auto c : cone_cells) {
+			int cid = g->cell_id.at(c, -1);
+			if (cid >= 0)
+				interior[cid] = true;
+		}
+
+		// Walks run with i ascending and reach each bit at most once per i,
+		// so the first visit fixes the min index and the last fixes the max.
+		int nbits = GetSize(g->bits);
+		vector<int> bnd_min(nbits, -1), bnd_max(nbits, -1);
+		vector<int> all_min(nbits, -1), all_max(nbits, -1);
+		vector<int> bnd_seen, all_seen;
+
 		for (int i = 0; i < width; i++) {
 			SigBit rb = sigmap(root[i]);
 			if (!rb.wire)
 				return;
-			pool<SigBit> visited;
-			std::queue<SigBit> wl;
-			visited.insert(rb);
-			wl.push(rb);
-			while (!wl.empty()) {
-				SigBit bit = wl.front();
-				wl.pop();
-				charge_walk(1);
-				Cell *drv = bit_to_driver.at(bit, nullptr);
-
-				if (track_all) {
-					if (all_min_idx.count(bit) == 0) {
-						all_min_idx[bit] = i;
-						all_max_idx[bit] = i;
-					} else {
-						all_min_idx[bit] = std::min(all_min_idx[bit], i);
-						all_max_idx[bit] = std::max(all_max_idx[bit], i);
+			cone_graph_bfs(*g, rb,
+				[&](int cid) { return interior[cid]; },
+				[&](int id, bool inside) {
+					if (track_all) {
+						if (all_min[id] < 0) {
+							all_min[id] = i;
+							all_seen.push_back(id);
+						}
+						all_max[id] = i;
+						if (GetSize(all_seen) > max_tracked) {
+							track_all = false;
+							for (int t : all_seen)
+								all_min[t] = -1;
+							all_seen.clear();
+						}
 					}
-					if (GetSize(all_min_idx) > max_tracked) {
-						track_all = false;
-						all_min_idx.clear();
-						all_max_idx.clear();
+					if (inside)
+						return;
+					if (bnd_min[id] < 0) {
+						bnd_min[id] = i;
+						bnd_seen.push_back(id);
 					}
-				}
-
-				if (drv == nullptr || !cone_cells.count(drv)) {
-					if (min_idx.count(bit) == 0) {
-						min_idx[bit] = i;
-						max_idx[bit] = i;
-					} else {
-						min_idx[bit] = std::min(min_idx[bit], i);
-						max_idx[bit] = std::max(max_idx[bit], i);
-					}
-					continue;
-				}
-				for (auto &conn : drv->connections()) {
-					if (!drv->input(conn.first))
-						continue;
-					for (auto in_bit : sigmap(conn.second)) {
-						if (!in_bit.wire)
-							continue;
-						if (visited.insert(in_bit).second)
-							wl.push(in_bit);
-					}
-				}
-			}
-			if (GetSize(min_idx) > max_boundary)
+					bnd_max[id] = i;
+				});
+			if (GetSize(bnd_seen) > max_boundary)
 				return;
+		}
+
+		// Materialize in first-touch order, which is the insertion order the
+		// downstream lane grouping used to see.
+		for (int id : bnd_seen) {
+			min_idx[g->bits[id]] = bnd_min[id];
+			max_idx[g->bits[id]] = bnd_max[id];
+		}
+		for (int id : all_seen) {
+			all_min_idx[g->bits[id]] = all_min[id];
+			all_max_idx[g->bits[id]] = all_max[id];
 		}
 
 		auto build = [&](const dict<SigBit, int> &idx_of, const char *tag) {
@@ -1198,24 +1209,27 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						break;
 					if (GetSize(en.sig) != width)
 						continue;
+					bool en_ok = true;
+					pool<SigBit> en_allowed;
+					for (auto bit : mapped_bits(en.sig)) {
+						if (!bit.wire)
+							en_ok = false;
+						else
+							en_allowed.insert(bit);
+					}
 					for (auto &data : buses) {
 						if (closure_attempts >= max_closure_attempts ||
 						    fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
 							break;
 						if (GetSize(data.sig) != width || data.sig == en.sig)
 							continue;
-						bool en_const = false;
-						bool data_const = false;
-						pool<SigBit> allowed;
-						for (auto bit : sigmap(en.sig)) {
-							if (!bit.wire)
-								en_const = true;
-							else
-								allowed.insert(bit);
-						}
-						if (en_const)
+						// The en half is loop-invariant, so build it once and
+						// only re-add the data bits for each inner candidate.
+						if (!en_ok)
 							break;
-						for (auto bit : sigmap(data.sig)) {
+						bool data_const = false;
+						pool<SigBit> allowed = en_allowed;
+						for (auto bit : mapped_bits(data.sig)) {
 							if (!bit.wire)
 								data_const = true;
 							else

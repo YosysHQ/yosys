@@ -68,6 +68,7 @@ PRIVATE_NAMESPACE_BEGIN
 // not extend that temporary's lifetime before C++23, so the empty fallback for
 // a fanout lookup has to outlive the loop that walks it.
 static const pool<Cell *> no_sinks;
+static const vector<Cell *> no_edges;
 
 struct OptModAddTreeWorker : CutRegionWorker
 {
@@ -128,35 +129,6 @@ struct OptModAddTreeWorker : CutRegionWorker
 	}
 
 	// ------------------------------------------------------------ detection
-
-	// A cut splits the tail cone in two: no cascade state produced upstream of
-	// X may reach a cell downstream of X other than through X itself.
-	// `state_free` cells carry no state (shared addend pre-logic such as a
-	// barrel shifter feeding every digit); the rewrite leaves their value
-	// untouched, so they may fan out to any step. Escaping fanout to cells
-	// outside the tail cone is fine (shared pre-logic stays in place).
-	bool is_cut(const SigSpec &x, const pool<Cell *> &cx, const pool<Cell *> &cone,
-	            const pool<Cell *> &state_free)
-	{
-		pool<SigBit> xbits = sig_bit_pool(x);
-		for (auto c : cx) {
-			if (state_free.count(c))
-				continue;
-			charge_walk(1);
-			for (auto &conn : c->connections()) {
-				if (!c->output(conn.first))
-					continue;
-				for (auto bit : sigmap(conn.second)) {
-					if (!bit.wire || xbits.count(bit))
-						continue;
-					for (auto sink : bit_to_sinks.at(bit, no_sinks))
-						if (cone.count(sink) && !cx.count(sink))
-							return false;
-				}
-			}
-		}
-		return true;
-	}
 
 	// True when a non-tail output of `c` is read from outside the region (or
 	// is a module output). Such a cell survives the rewrite, so cloning it
@@ -221,6 +193,236 @@ struct OptModAddTreeWorker : CutRegionWorker
 			}
 		}
 		return reached;
+	}
+
+	// --------------------------------------------------------- cone index
+	//
+	// Every same-width bus produced in the tail cone is a candidate cut, so
+	// find_chain tests O(cone) of them. Walking a fresh fanin cone and a
+	// fresh escape check per candidate makes that quadratic in the cone
+	// size, which dominates the pass on real designs. Index the cone once
+	// instead: per cell, the bitset of its ancestors (itself included) and
+	// the bitset of in-cone cells reading any of those ancestors. A
+	// candidate's cone and its escaping frontier are then a few word-ORs,
+	// and only the frontier has to be inspected cell by cell.
+	struct ConeIndex {
+		vector<Cell *> cells;
+		dict<Cell *, int> id;
+		int words = 0;
+		vector<uint64_t> anc; // anc[i] = ancestors of cells[i], with itself
+		vector<uint64_t> esc; // esc[i] = in-cone readers of anything in anc[i]
+
+		const uint64_t *anc_of(int i) const { return &anc[size_t(i) * words]; }
+		const uint64_t *esc_of(int i) const { return &esc[size_t(i) * words]; }
+	};
+
+	// The index costs cells^2/4 bytes, which max_cone_cells keeps far below
+	// this; the guard only stops that bound from turning into a huge
+	// allocation if it is ever raised.
+	static const int max_index_cells = 8192;
+
+	// Returns true when `dst` gained a bit, which drives the fixed point in
+	// build_cone_index.
+	static bool bits_or(uint64_t *dst, const uint64_t *src, int words)
+	{
+		bool grew = false;
+		for (int w = 0; w < words; w++) {
+			uint64_t old = dst[w];
+			dst[w] = old | src[w];
+			grew |= dst[w] != old;
+		}
+		return grew;
+	}
+
+	// Is every bit of `sub` also set in `sup`?
+	static bool bits_subset(const uint64_t *sub, const uint64_t *sup, int words)
+	{
+		for (int w = 0; w < words; w++)
+			if (sub[w] & ~sup[w])
+				return false;
+		return true;
+	}
+
+	static int bits_count(const uint64_t *a, int words)
+	{
+		int n = 0;
+		for (int w = 0; w < words; w++)
+			n += __builtin_popcountll(a[w]);
+		return n;
+	}
+
+	// Call `fn(i)` for every index in `a` (optionally masked to those not in
+	// `minus`), scanning words rather than the whole cone.
+	template <typename Fn>
+	static void bits_each(const uint64_t *a, const uint64_t *minus, int words, Fn fn)
+	{
+		for (int w = 0; w < words; w++) {
+			uint64_t v = minus ? (a[w] & ~minus[w]) : a[w];
+			while (v) {
+				int b = __builtin_ctzll(v);
+				v &= v - 1;
+				fn(w * 64 + b);
+			}
+		}
+	}
+
+	// Index the cone. Cells are visited in topological order where one
+	// exists, but a cone can contain feedback through a cell this pass does
+	// not recognise as sequential (an unflattened register module), so the
+	// accumulation below is a fixed point rather than a single sweep.
+	bool build_cone_index(const pool<Cell *> &cone, ConeIndex &ix)
+	{
+		int n = GetSize(cone);
+		if (n > max_index_cells)
+			return false;
+		ix.words = (n + 63) / 64;
+		ix.cells.clear();
+		ix.id.clear();
+
+		// In-cone driver edges, then Kahn ordering over them
+		dict<Cell *, vector<Cell *>> preds, succs;
+		dict<Cell *, int> npreds;
+		vector<Cell *> ready;
+		for (auto c : cone) {
+			pool<Cell *> cp;
+			for (auto &conn : c->connections()) {
+				if (!c->input(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					if (!bit.wire)
+						continue;
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					if (drv != nullptr && drv != c && cone.count(drv))
+						cp.insert(drv);
+				}
+			}
+			npreds[c] = GetSize(cp);
+			for (auto p : cp) {
+				preds[c].push_back(p);
+				succs[p].push_back(c);
+			}
+			if (cp.empty())
+				ready.push_back(c);
+		}
+
+		for (size_t head = 0; head < ready.size(); head++) {
+			Cell *c = ready[head];
+			ix.id[c] = GetSize(ix.cells);
+			ix.cells.push_back(c);
+			for (auto s : succs.at(c, no_edges))
+				if (--npreds.at(s) == 0)
+					ready.push_back(s);
+		}
+		// Whatever the ordering left over sits on a feedback loop; append it
+		// so every cone cell is still indexed.
+		for (auto c : cone)
+			if (!ix.id.count(c)) {
+				ix.id[c] = GetSize(ix.cells);
+				ix.cells.push_back(c);
+			}
+
+		// Direct in-cone readers of each cell's outputs
+		vector<uint64_t> succ_bits(size_t(n) * ix.words, 0);
+		for (int i = 0; i < n; i++) {
+			Cell *c = ix.cells[i];
+			for (auto &conn : c->connections()) {
+				if (!c->output(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					if (!bit.wire)
+						continue;
+					for (auto sink : bit_to_sinks.at(bit, no_sinks)) {
+						int j = ix.id.at(sink, -1);
+						if (j >= 0)
+							succ_bits[size_t(i) * ix.words + j / 64] |=
+								1ULL << (j % 64);
+					}
+				}
+			}
+		}
+
+		// Accumulate both sets. Sets only grow and are bounded by the cone,
+		// so the fixed point converges; an acyclic cone reaches it on the
+		// first sweep and only pays for the confirming one.
+		ix.anc.assign(size_t(n) * ix.words, 0);
+		ix.esc.assign(size_t(n) * ix.words, 0);
+		for (int i = 0; i < n; i++) {
+			ix.anc[size_t(i) * ix.words + i / 64] |= 1ULL << (i % 64);
+			bits_or(&ix.esc[size_t(i) * ix.words], &succ_bits[size_t(i) * ix.words],
+			        ix.words);
+		}
+		for (bool grew = true; grew;) {
+			grew = false;
+			for (int i = 0; i < n; i++) {
+				uint64_t *a = &ix.anc[size_t(i) * ix.words];
+				uint64_t *e = &ix.esc[size_t(i) * ix.words];
+				for (auto p : preds.at(ix.cells[i], no_edges)) {
+					int j = ix.id.at(p);
+					grew |= bits_or(a, ix.anc_of(j), ix.words);
+					grew |= bits_or(e, ix.esc_of(j), ix.words);
+				}
+				charge_walk(1);
+			}
+		}
+		return true;
+	}
+
+	// Fanin cone of `x` inside the indexed cone, as a bitset. False when a
+	// bit of `x` is not produced by an indexed cell.
+	bool indexed_cone(const ConeIndex &ix, const SigSpec &x, vector<uint64_t> &cx,
+	                  vector<uint64_t> &esc)
+	{
+		cx.assign(ix.words, 0);
+		esc.assign(ix.words, 0);
+		for (auto bit : sigmap(x)) {
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			int i = drv == nullptr ? -1 : ix.id.at(drv, -1);
+			if (i < 0)
+				return false;
+			bits_or(cx.data(), ix.anc_of(i), ix.words);
+			bits_or(esc.data(), ix.esc_of(i), ix.words);
+		}
+		return true;
+	}
+
+	// A cut splits the tail cone in two: no cascade state produced upstream of
+	// X may reach a cell downstream of X other than through X itself.
+	// `state_free` cells carry no state (shared addend pre-logic such as a
+	// barrel shifter feeding every digit); the rewrite leaves their value
+	// untouched, so they may fan out to any step. Escaping fanout to cells
+	// outside the tail cone is fine (shared pre-logic stays in place).
+	//
+	// Stated over the frontier rather than the cone: `esc` minus `cx` is
+	// exactly the in-cone cells reading something produced inside `cx`, so
+	// only they need inspecting, and each is charged once however wide the
+	// cone below it is.
+	bool indexed_is_cut(const ConeIndex &ix, const SigSpec &x, const vector<uint64_t> &cx,
+	                    const vector<uint64_t> &esc, const vector<uint64_t> &state_free)
+	{
+		pool<SigBit> xbits = sig_bit_pool(x);
+		bool ok = true;
+		bits_each(esc.data(), cx.data(), ix.words, [&](int i) {
+			if (!ok)
+				return;
+			Cell *s = ix.cells[i];
+			charge_walk(1);
+			for (auto &conn : s->connections()) {
+				if (!s->input(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					if (!bit.wire || xbits.count(bit))
+						continue;
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					int j = drv == nullptr ? -1 : ix.id.at(drv, -1);
+					if (j < 0)
+						continue;
+					uint64_t m = 1ULL << (j % 64);
+					if ((cx[j / 64] & ~state_free[j / 64]) & m)
+						ok = false;
+				}
+			}
+		});
+		return ok;
 	}
 
 	// Rough post-techmap depth of a cell, so a wide adder is not counted as
@@ -302,6 +504,10 @@ struct OptModAddTreeWorker : CutRegionWorker
 		if (GetSize(cands) + 1 < min_nodes)
 			return false;
 
+		ConeIndex ix;
+		if (!build_cone_index(cone, ix))
+			return false;
+
 		// A cell that neither produces nor can reach one of `states` computes
 		// an addend: the rewrite leaves its value alone, so it may feed any
 		// number of steps. Passing a superset of the cuts the chain ends up
@@ -311,16 +517,19 @@ struct OptModAddTreeWorker : CutRegionWorker
 			for (auto &sig : states)
 				state_bits.append(sig);
 			pool<Cell *> downstream = forward_cells(state_bits, cone);
-			pool<Cell *> state_free;
-			for (auto c : cone)
-				if (!downstream.count(c))
-					state_free.insert(c);
+			vector<uint64_t> state_free(ix.words, 0);
+			for (auto c : cone) {
+				int i = ix.id.at(c, -1);
+				if (i >= 0 && !downstream.count(c))
+					state_free[i / 64] |= 1ULL << (i % 64);
+			}
 			// A cell producing a state bus is a state producer even though no
 			// state bus reaches it, so it must not be treated as pre-logic.
 			for (auto bit : sigmap(state_bits)) {
 				Cell *drv = bit_to_driver.at(bit, nullptr);
-				if (drv != nullptr)
-					state_free.erase(drv);
+				int i = drv == nullptr ? -1 : ix.id.at(drv, -1);
+				if (i >= 0)
+					state_free[i / 64] &= ~(1ULL << (i % 64));
 			}
 			return state_free;
 		};
@@ -328,16 +537,18 @@ struct OptModAddTreeWorker : CutRegionWorker
 		// Rank the structurally usable cuts by how much of the cone they
 		// cover; a chain is a nested run through this order.
 		vector<std::pair<int, int>> ranked;
-		vector<pool<Cell *>> cand_cones(GetSize(cands));
+		vector<vector<uint64_t>> cand_cones(GetSize(cands));
+		vector<vector<uint64_t>> cand_esc(GetSize(cands));
 		for (int i = 0; i < GetSize(cands); i++) {
 			if (walk_exhausted())
 				return false;
-			pool<SigBit> sub_leaves;
-			if (!get_cone(cands[i], cand_cones[i], sub_leaves, max_cone_cells, max_leaf_bits))
-				continue;
+			// Cheapest test first: it only reads the bus's own fanout, so
+			// buses that merely pass through the cone cost O(w).
 			if (!cut_is_internal(cands[i], cone))
 				continue;
-			ranked.push_back({GetSize(cand_cones[i]), i});
+			if (!indexed_cone(ix, cands[i], cand_cones[i], cand_esc[i]))
+				continue;
+			ranked.push_back({bits_count(cand_cones[i].data(), ix.words), i});
 		}
 		std::sort(ranked.begin(), ranked.end());
 
@@ -359,47 +570,45 @@ struct OptModAddTreeWorker : CutRegionWorker
 			vector<SigSpec> raised;
 			for (int j = head; head > 0 && j < GetSize(ranked); j++)
 				raised.push_back(cands[ranked[j].second]);
-			pool<Cell *> state_free = addend_cells(head == 0 ? cands : raised);
+			vector<uint64_t> state_free = addend_cells(head == 0 ? cands : raised);
 			// The seed only shrinks as the head rises, so pre-logic only grows.
 			// A head that reclassifies nothing can only re-find a prefix of the
 			// chain already in hand, so skip its scan.
-			if (GetSize(state_free) == last_free)
+			int nfree = bits_count(state_free.data(), ix.words);
+			if (nfree == last_free)
 				continue;
-			last_free = GetSize(state_free);
+			last_free = nfree;
 
 			// Cuts nest; drop any that does not extend the previous one.
 			vector<SigSpec> cuts;
 			vector<pool<Cell *>> nodes;
-			pool<Cell *> covered;
+			vector<uint64_t> covered(ix.words, 0);
+			int covered_size = 0;
 			for (int j = head; j < GetSize(ranked); j++) {
-				const pool<Cell *> &cx = cand_cones[ranked[j].second];
-				if (GetSize(cx) <= GetSize(covered))
+				const vector<uint64_t> &cx = cand_cones[ranked[j].second];
+				if (ranked[j].first <= covered_size)
 					continue;
-				bool nests = true;
-				for (auto c : covered)
-					if (!cx.count(c)) {
-						nests = false;
-						break;
-					}
-				if (!nests)
+				if (!bits_subset(covered.data(), cx.data(), ix.words))
 					continue;
 				// Pre-logic only grows, so a cut stays one once proven.
-				if (!cut_ok[j] && !is_cut(cands[ranked[j].second], cx, cone, state_free))
+				if (!cut_ok[j] &&
+				    !indexed_is_cut(ix, cands[ranked[j].second], cx,
+				                    cand_esc[ranked[j].second], state_free))
 					continue;
 				cut_ok[j] = true;
 				pool<Cell *> node;
-				for (auto c : cx)
-					if (!covered.count(c))
-						node.insert(c);
+				bits_each(cx.data(), covered.data(), ix.words,
+				          [&](int i) { node.insert(ix.cells[i]); });
 				cuts.push_back(cands[ranked[j].second]);
 				nodes.push_back(node);
 				covered = cx;
+				covered_size = ranked[j].first;
 			}
 			{
 				pool<Cell *> node;
-				for (auto c : cone)
-					if (!covered.count(c))
-						node.insert(c);
+				for (int i = 0; i < GetSize(ix.cells); i++)
+					if (!((covered[i / 64] >> (i % 64)) & 1))
+						node.insert(ix.cells[i]);
 				if (node.empty() && !cuts.empty()) {
 					cuts.pop_back();
 					nodes.pop_back();

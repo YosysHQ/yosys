@@ -278,10 +278,10 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 	bool candidate_inputs_disjoint(const Candidate &cand)
 	{
 		pool<SigBit> seen_bits;
-		for (auto bit : sigmap(cand.valid_sig))
+		for (auto bit : mapped_bits(cand.valid_sig))
 			if (!bit.wire || !seen_bits.insert(bit).second)
 				return false;
-		for (auto bit : sigmap(cand.field_sig))
+		for (auto bit : mapped_bits(cand.field_sig))
 			if (!bit.wire || !seen_bits.insert(bit).second)
 				return false;
 		return true;
@@ -551,7 +551,7 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 				int n = GetSize(valid.sig);
 
 				pool<SigBit> valid_bits;
-				for (auto bit : sigmap(valid.sig))
+				for (auto bit : mapped_bits(valid.sig))
 					if (bit.wire)
 						valid_bits.insert(bit);
 
@@ -585,7 +585,7 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 						// without reaching other inputs, and the index bits the
 						// cone actually uses define the per-lane field layout.
 						pool<SigBit> allowed = valid_bits;
-						for (auto bit : sigmap(sv.first))
+						for (auto bit : mapped_bits(sv.first))
 							if (bit.wire)
 								allowed.insert(bit);
 						pool<SigBit> hit_bits;
