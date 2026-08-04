@@ -395,6 +395,7 @@ yosys_core(everything BOOTSTRAP)
 
 # All of the source code.
 add_subdirectory(libs)
+link_libraries(backward)
 add_subdirectory(kernel)
 add_subdirectory(passes)
 add_subdirectory(frontends)
