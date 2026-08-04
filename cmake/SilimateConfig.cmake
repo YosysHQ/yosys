@@ -20,4 +20,3 @@ if (APPLE)
 endif()
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/libs/backward-cpp)
-link_libraries(backward)

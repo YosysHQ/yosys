@@ -9,11 +9,29 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: serial # race condition with version names
+
 jobs:
+  set-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+    steps:
+    - uses: actions/checkout@v6
+    - id: install_deps
+      run: |
+        python3 -m pip install githubkit
+    - id: set_version
+      run: |
+        echo "version=$(python3 ./.github/workflows/wheels/silimate_get_version.py --github-token $GH_TOKEN silimate/yosys-wheels)">>$GITHUB_OUTPUT
+      env:
+          GH_TOKEN: ${{ secrets.YOSYS_WHEELS_TOKEN }}
   build-linux-wheel:
     runs-on: ubuntu-latest
     name: Build Linux amd64 wheel (musl)
-
+    if: ${{ ! always() }}
+    needs: [set-version]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -34,6 +52,7 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}:/src" \
             -w /src \
+            -e PYOSYS_VERSION_OVERRIDE="${{ needs.set-version.outputs.version }}" \
             --platform linux/amd64 \
             alpine:3.20 sh -c '
               set -ex
@@ -65,7 +84,7 @@ jobs:
   build-manylinux-wheel:
     runs-on: ubuntu-latest
     name: Build Linux amd64 wheel (manylinux2014, glibc 2.17+)
-
+    needs: [set-version]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -85,6 +104,7 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}:/src" \
             -w /src \
+            -e PYOSYS_VERSION_OVERRIDE="${{ needs.set-version.outputs.version }}" \
             --platform linux/amd64 \
             quay.io/pypa/manylinux2014_x86_64 bash -c '
               set -ex
@@ -134,7 +154,7 @@ jobs:
   build-macos-wheel:
     runs-on: macos-15
     name: Build macOS arm64 wheel
-
+    needs: [set-version]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -169,6 +189,7 @@ jobs:
 
       - name: Build wheel
         run: |
+          export PYOSYS_VERSION_OVERRIDE="${{ needs.set-version.outputs.version }}"
           export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
           export MACOSX_DEPLOYMENT_TARGET=11.0
           mkdir -p dist
@@ -178,7 +199,7 @@ jobs:
     # allow testing outside main branch
     # if: github.ref_name == 'main'
     runs-on: ubuntu-latest
-    needs: [build-linux-wheel, build-manylinux-wheel, build-macos-wheel]
+    needs: [set-version, build-manylinux-wheel, build-macos-wheel]
     name: Create GitHub releases
 
     steps:
@@ -203,13 +224,13 @@ jobs:
           repository: silimate/yosys-wheels
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           fetch-depth: 0
-      - name: Restore dist from cache (x86_64-musllinux)
-        uses: actions/cache@v6
-        with:
-          path: dist-x86_64-musllinux
-          key: ${{ github.run_id }}-x86_64-musllinux-wheel
-          enableCrossOsArchive: true
-          fail-on-cache-miss: true
+      # - name: Restore dist from cache (x86_64-musllinux)
+      #   uses: actions/cache@v6
+      #   with:
+      #     path: dist-x86_64-musllinux
+      #     key: ${{ github.run_id }}-x86_64-musllinux-wheel
+      #     enableCrossOsArchive: true
+      #     fail-on-cache-miss: true
       - name: Restore dist from cache (x86_64-manylinux)
         uses: actions/cache@v6
         with:
@@ -234,7 +255,6 @@ jobs:
             "### Assets" \
             "| File | Platform |" \
             "|------|----------|" \
-            "| \`pyosys-*-linux_x86_64.whl\` | Linux x86-64 (musl) |" \
             "| \`pyosys-*-manylinux2014*.whl\` | Linux x86-64 (manylinux2014, glibc 2.17+) |" \
             "| \`pyosys-*-macosx_*_arm64.whl\` | macOS Apple Silicon |" \
             "" \
@@ -251,7 +271,7 @@ jobs:
           git push
       - name: Create permanent release
         run: |
-          TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
+          TAG="v${{ needs.set-version.outputs.version }}"
           gh release create "$TAG" \
             dist-*/*.whl \
             --target "$(git rev-parse HEAD)" \

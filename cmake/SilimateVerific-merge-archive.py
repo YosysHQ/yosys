@@ -7,7 +7,6 @@ Merges a number of .a files such that the symbols of the first archive is
 prioritized by extracting and marking all symbols of subsequent archives as
 local.
 """
-import os
 import sys
 import shutil
 import pathlib

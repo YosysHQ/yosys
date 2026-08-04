@@ -34,7 +34,7 @@ PRIVATE_NAMESPACE_BEGIN
   * A multiplexer tree (mux tree) is a tree composed exclusively of muxes.
   * By mux, I mean $mux or $pmux. By port, I usually mean input port.
   * The children of a node are all the muxes driving its input ports (A, B).
-  * It must be rooted in a "root mux", a mux which has multiple mux users
+  * It must be rooted in a "root mux", a mux which has multiple mux port users
   * or any number of non-mux users. Only the root and leaf nodes can be
   * root muxes, not the internal nodes. Leaf nodes that are root muxes
   * are roots of "input trees".
@@ -64,10 +64,17 @@ struct OptMuxtreeWorker
 	int removed_count;
 	int glob_evals_left = 10'000'000;
 
+	struct MuxPort {
+		int mux;
+		// Hacky: -1 is port A, if positive then indexes B port slices (of which $mux has only one)
+		int port;
+		inline Hasher hash_into(Hasher h) const { h.eat(mux); h.eat(port); return h; }
+		bool operator==(const MuxPort &other) const { return mux == other.mux && port == other.port; }
+	};
 	struct bitinfo_t {
 		// Is bit directly used by non-mux cells or ports?
 		bool seen_non_mux;
-		pool<int> mux_users;
+		pool<struct MuxPort> mux_users;
 		std::optional<int> mux_driver;
 	};
 
@@ -94,10 +101,10 @@ struct OptMuxtreeWorker
 	vector<bool> root_enable_muxes;
 	pool<int> root_mux_rerun;
 
-	portinfo_t used_port_bit(RTLIL::SigSpec& sig, int mux_idx) {
+	portinfo_t used_port_bit(RTLIL::SigSpec& sig, int mux_idx, int port_idx) {
 		portinfo_t portinfo = {};
 		for (int bit_idx : sig2bits(sig)) {
-			bit2info[bit_idx].mux_users.insert(mux_idx);
+			bit2info[bit_idx].mux_users.insert({mux_idx, port_idx});
 			portinfo.input_sigs.insert(bit_idx);
 		}
 		return portinfo;
@@ -127,7 +134,7 @@ struct OptMuxtreeWorker
 		for (int i = 0; i < GetSize(sig_s); i++) {
 			RTLIL::SigSpec sig = sig_b.extract(i*GetSize(sig_a), GetSize(sig_a));
 			RTLIL::SigSpec ctrl_sig = assign_map(SigSpec{sig_s[i]});
-			portinfo_t portinfo = used_port_bit(sig, this_mux_idx);
+			portinfo_t portinfo = used_port_bit(sig, this_mux_idx, i);
 			portinfo.ctrl_sig = sig2bits(ctrl_sig, false).front();
 			portinfo.const_activated = ctrl_sig.is_fully_const() && ctrl_sig.as_bool();
 			portinfo.const_deactivated = ctrl_sig.is_fully_const() && !ctrl_sig.as_bool();
@@ -135,7 +142,7 @@ struct OptMuxtreeWorker
 		}
 
 		// Analyze port A
-		muxinfo.ports.push_back(used_port_bit(sig_a, this_mux_idx));
+		muxinfo.ports.push_back(used_port_bit(sig_a, this_mux_idx, -1));
 
 		for (int idx : sig2bits(sig_y)) {
 			if (bit2info[idx].mux_driver)
@@ -170,17 +177,18 @@ struct OptMuxtreeWorker
 		// bit2info knows the mux users and mux drivers of bits
 		// use this to tell mux2info ports about what muxes are driven by it
 		for (int i = 0; i < GetSize(bit2info); i++)
-		for (int j : bit2info[i].mux_users)
-		for (auto &p : mux2info[j].ports) {
-			if (p.input_sigs.count(i))
-				if (bit2info[i].mux_driver)
-					p.input_muxes.insert(*bit2info[i].mux_driver);
+		for (auto muxport : bit2info[i].mux_users) {
+			for (auto &p : mux2info[muxport.mux].ports) {
+				if (p.input_sigs.count(i))
+					if (bit2info[i].mux_driver)
+						p.input_muxes.insert(*bit2info[i].mux_driver);
+			}
 		}
 	}
 
 	void populate_roots() {
 		// mux_to_users[i] means "set of muxes using output of mux i"
-		dict<int, pool<int>> mux_to_users;
+		dict<int, pool<struct MuxPort>> mux_to_users;
 		// Pure root muxes (outputs seen by non-muxes)
 		root_enable_muxes.resize(GetSize(mux2info));
 		// All root muxes (outputs seen by non-muxes or multiple muxes)
@@ -188,8 +196,8 @@ struct OptMuxtreeWorker
 
 		for (auto &bi : bit2info) {
 			if (bi.mux_driver)
-				for (int j : bi.mux_users)
-					mux_to_users[*bi.mux_driver].insert(j);
+				for (auto muxport : bi.mux_users)
+					mux_to_users[*bi.mux_driver].insert(muxport);
 			if (!bi.seen_non_mux)
 				continue;
 			if (bi.mux_driver) {

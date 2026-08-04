@@ -682,10 +682,13 @@ struct CutRegionWorker
 			}
 		}
 
+		// at() hands back its default by reference and a range-for does not
+		// extend that temporary before C++23, so the fallback has to be named.
+		static const vector<Cell *> no_succs;
 		while (!ready.empty()) {
 			Cell *c = ready.front();
 			ready.pop();
-			for (auto s : succs.at(c, vector<Cell *>())) {
+			for (auto s : succs.at(c, no_succs)) {
 				if (depth.at(s, 0) < depth.at(c) + 1)
 					depth[s] = depth.at(c) + 1;
 				if (--npreds.at(s) == 0)

@@ -36,6 +36,7 @@
 
 #include "verilog_frontend.h"
 #include "kernel/log.h"
+#include "kernel/register.h"
 #include <string.h>
 #include <math.h>
 
@@ -45,11 +46,23 @@ using namespace AST;
 using namespace VERILOG_FRONTEND;
 
 void ConstParser::log_maybe_loc_error(std::string msg) {
-	log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg);
+	if (loc.begin.filename)
+		log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg);
+	else if (!Frontend::current_script_filename.empty())
+		log_file_error(Frontend::current_script_filename, Frontend::current_script_lineno,
+			"Failed to parse constant `%s': %s", code_str, msg);
+	else
+		log_error("Failed to parse constant `%s': %s", code_str, msg);
 }
 
 void ConstParser::log_maybe_loc_warn(std::string msg) {
-	log_file_warning(*loc.begin.filename, loc.begin.line, "%s", msg);
+	if (loc.begin.filename)
+		log_file_warning(*loc.begin.filename, loc.begin.line, "%s", msg);
+	else if (!Frontend::current_script_filename.empty())
+		log_file_warning(Frontend::current_script_filename, Frontend::current_script_lineno,
+			"While parsing constant `%s': %s", code_str, msg);
+	else
+		log_warning("While parsing constant `%s': %s", code_str, msg);
 }
 
 // divide an arbitrary length decimal number by two and return the rest
@@ -158,6 +171,8 @@ void ConstParser::my_strtobin(std::vector<RTLIL::State> &data, const char *str, 
 // convert the Verilog code for a constant to an AST node
 std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type, bool warn_z)
 {
+	code_str = code;
+
 	if (warn_z) {
 		auto ret = const2ast(code, case_type);
 		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
