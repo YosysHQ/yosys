@@ -71,6 +71,39 @@ struct QuickConeSat {
 	static int cell_complexity(RTLIL::Cell *cell);
 };
 
+// A deterministic effort budget for SAT-based optimizations, measured in solver
+// propagation steps (see ezSAT::getSolverProps). The budget is held once per unit
+// of work (typically a module) and reused across many QuickConeSat instances: a
+// pass that rebuilds the solver in batches keeps a single SatEffortBudget and
+// spends from it in every batch, rather than resetting the budget per solver.
+// Spending the budget only skips optimizations, and it never affects correctness,
+// because a skipped proof just leaves a candidate un-optimized.
+struct SatEffortBudget {
+	enum class Result { Sat, Unsat, LimitReached };
+
+	// Effort charged per imported cell
+	static constexpr int64_t import_cell_cost = 100;
+
+	// starting budget (0 = unlimited)
+	int64_t total = 0;
+	int64_t remaining = 0;
+
+	SatEffortBudget() {}
+	explicit SatEffortBudget(int64_t total) : total(total), remaining(total) {}
+
+	bool enabled() const { return total > 0; }
+
+	// True once the budget is used up
+	bool spent() const { return enabled() && remaining <= 0; }
+
+	// Charge for the cells imported into qcsat since the previous call (pricing the cells pulled in)
+	// cells_charged records how many of qcsat's imported cells are already paid for
+	void charge_import(QuickConeSat &qcsat, int64_t &cells_charged);
+
+	Result solve(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &modelExprs,
+			std::vector<bool> &modelVals, const std::vector<int> &assumptions);
+};
+
 YOSYS_NAMESPACE_END
 
 #endif
