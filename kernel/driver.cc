@@ -48,6 +48,7 @@ namespace py = pybind11;
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#include <fcntl.h>
 #ifndef __STDC_FORMAT_MACROS
 #  define __STDC_FORMAT_MACROS
 #endif
@@ -112,8 +113,31 @@ namespace Yosys {
 };
 #endif
 
+#ifdef _WIN32
+int wmain(int argc, wchar_t **wargv)
+{
+	// Configure ASCII functions like fopen() to use UTF-8 filenames.
+	// See https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setlocale-wsetlocale?view=msvc-170#utf-8-support
+#ifdef _UCRT
+	setlocale(LC_ALL, ".UTF-8");
+#endif
+	// Configure the Win32 console to use UTF-8.
+	SetConsoleCP(CP_UTF8);
+	SetConsoleOutputCP(CP_UTF8);
+
+	std::vector<char*> uargs;
+	for (int i = 0; i < argc; i++) {
+		int usize = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, NULL, 0, NULL, NULL);
+		char *uarg = (char *)malloc(usize);
+		WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, uarg, usize, NULL, NULL);
+		uargs.push_back(uarg);
+	}
+	uargs.push_back(NULL);
+	char **argv = uargs.data();
+#else
 int main(int argc, char **argv)
 {
+#endif
 	auto wall_clock_start = std::chrono::steady_clock::now();
 	std::string frontend_command = "auto";
 	std::string backend_command = "auto";
