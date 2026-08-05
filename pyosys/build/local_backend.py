@@ -16,7 +16,7 @@ from email.message import EmailMessage
 from wheel.wheelfile import WheelFile
 
 
-PROJECT_NAME = "pyosys"
+PROJECT_NAME = "silimate-pyosys"  # for private wheels server
 if version_override := os.getenv("PYOSYS_VERSION_OVERRIDE"):
 	PROJECT_VERSION = version_override
 else:
