@@ -537,18 +537,16 @@ std::string proc_self_dirname()
 #elif defined(_WIN32)
 std::string proc_self_dirname()
 {
-	int i = 0;
-	char longpath[MAX_PATH + 1];
-	char shortpath[MAX_PATH + 1];
-	if (!GetModuleFileNameA(0, longpath, MAX_PATH+1))
-		log_error("GetModuleFileName() failed.\n");
-	if (!GetShortPathNameA(longpath, shortpath, MAX_PATH+1))
-		log_error("GetShortPathName() failed.\n");
-	while (shortpath[i] != 0)
-		i++;
-	while (i > 0 && shortpath[i-1] != '/' && shortpath[i-1] != '\\')
-		shortpath[--i] = 0;
-	return shortpath;
+	wchar_t binpath[MAX_PATH + 1];
+	if (!GetModuleFileNameW(0, binpath, MAX_PATH+1))
+		log_error("GetModuleFileNameW() failed.\n");
+	for (int i = wcslen(binpath); i > 0; i--)
+		if (binpath[i] == L'\\') {
+			binpath[i] = 0;
+			break;
+		}
+	_wchdir(binpath);
+	return "./";
 }
 #elif defined(__wasm)
 std::string proc_self_dirname()
