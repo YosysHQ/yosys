@@ -1,0 +1,48 @@
+read_verilog -noblackbox <<EOT
+	module top;
+		sub s0();
+		foo f0();
+	endmodule
+
+	module foo;
+		sub s0();
+		initial
+			$display("hello");
+	endmodule
+
+	module sub;
+	endmodule
+EOT
+design -save print
+hierarchy -top top
+select -assert-any top A:keep %i
+
+design -reset
+design -load print
+hierarchy -nokeep_prints -top top
+select -assert-none top A:keep %i
+
+design -reset
+read_verilog -sv -noblackbox <<EOT
+	module top;
+		sub s0();
+		foo f0();
+	endmodule
+
+	module foo;
+		sub s0();
+		initial
+			assert(false);
+	endmodule
+
+	module sub;
+	endmodule
+EOT
+design -save print
+hierarchy -top top
+select -assert-any top A:keep %i
+
+design -reset
+design -load print
+hierarchy -nokeep_asserts -top top
+select -assert-none top A:keep %i
