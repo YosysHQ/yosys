@@ -1,0 +1,172 @@
+# D depends on Q
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire en,
+	output reg q0,
+	output reg q1,
+	output reg q2
+);
+	initial q0 = 1'b0;
+	initial q1 = 1'b1;
+	initial q2 = 1'b0;
+	always @(posedge clk) begin
+		q0 <= q0 & en;
+		q1 <= q1 | en;
+		q2 <= q2 | en;
+	end
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+design -save gold
+
+# without -sat
+opt_dff
+opt_clean -purge
+select -assert-count 3 t:$dff
+
+# with -sat
+design -load gold
+opt_dff -sat
+opt_clean -purge
+select -assert-count 1 t:$dff
+design -save gate
+
+design -load gold
+design -copy-from gate -as gate test_case
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert
+
+
+# mixed-width
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire [3:0] a,
+	output reg [3:0] q
+);
+	initial q = 4'b0000;
+	always @(posedge clk)
+		q <= {q[3] & a[0], a[1], q[1] & a[2], a[3]};
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+design -save gold
+
+opt_dff
+opt_clean -purge
+simplemap
+select -assert-count 4 t:$_DFF_P_
+
+design -load gold
+opt_dff -sat
+opt_clean -purge
+select -assert-count 1 t:$dff
+design -save gate
+simplemap
+select -assert-count 2 t:$_DFF_P_
+
+design -load gold
+design -copy-from gate -as gate test_case
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert
+
+
+# sync reset gating
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire rst,
+	input wire en,
+	input wire [3:0] a,
+	output reg q0,
+	output reg q1
+);
+	initial q0 = 1'b0;
+	initial q1 = 1'b1;
+	always @(posedge clk) begin
+		if (rst) begin
+			q0 <= 1'b0;
+			q1 <= 1'b0;
+		end else begin
+			q0 <= q0 & en;
+			q1 <= (a > 4'd10) & (a < 4'd3);
+		end
+	end
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+design -save gold
+
+opt_dff
+opt_clean -purge
+select -assert-count 2 t:$sdff
+
+# q0 folds (init 0, srst 0, D proven 0), q1 must stay (init 1, srst 0)
+design -load gold
+opt_dff -sat
+opt_clean -purge
+select -assert-count 1 t:$sdff
+design -save gate
+
+design -load gold
+design -copy-from gate -as gate test_case
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert
+
+
+# async load
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire load,
+	input wire en,
+	input wire [3:0] a,
+	output reg q0,
+	output reg q1
+);
+	initial q0 = 1'b0;
+	initial q1 = 1'b0;
+	always @(posedge clk or posedge load)
+		if (load) q0 <= (a > 4'd10) & (a < 4'd3);
+		else q0 <= q0 & en;
+	always @(posedge clk or posedge load)
+		if (load) q1 <= a[0];
+		else q1 <= q1 & en;
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+select -assert-count 2 t:$aldff
+design -save gold
+
+opt_dff
+opt_clean -purge
+select -assert-count 2 t:$aldff
+
+design -load gold
+opt_dff -sat
+opt_clean -purge
+select -assert-count 1 t:$aldff
+design -save gate
+
+design -load gold
+design -copy-from gate -as gate test_case
+async2sync
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert
