@@ -150,6 +150,16 @@ struct OptDffWorker
 	SatEffortBudget sat_budget;
 	bool sat_warned = false;
 
+	// modwalker is expensive to build, so share one lazily between constbits and eqbits
+	std::unique_ptr<ModWalker> modwalker_ptr;
+
+	ModWalker &get_modwalker()
+	{
+		if (!modwalker_ptr)
+			modwalker_ptr = std::make_unique<ModWalker>(module->design, module);
+		return *modwalker_ptr;
+	}
+
 	bool warn_if_budget_spent()
 	{
 		if (!sat_budget.spent())
@@ -996,13 +1006,13 @@ struct OptDffWorker
 	bool run_constbits()
 	{
 		// Find FFs that are provably constant
-		ModWalker modwalker(module->design, module);
+		ModWalker &modwalker = get_modwalker();
 
 		dict<Cell *, pool<int>> const_bits;
 		bool did_something = false;
 
-		// Fold constant D/AD inputs into the tested value directly bits whose remaining inputs are
-		// wires become SAT proof obligations
+		// fold constant D/AD inputs into the tested value first
+		// bits whose remaining inputs are wires become SAT proof obligations
 		std::vector<ConstObligation> obligations;
 
 		for (auto cell : module->selected_cells()) {
@@ -1562,7 +1572,7 @@ struct OptDffWorker
 		if (classes.empty())
 			return false;
 
-		ModWalker modwalker(module->design, module);
+		ModWalker &modwalker = get_modwalker();
 
 		// Simulation prepass
 		classes = filter_classes_sim(classes, bits, ff_for_cell, modwalker);
