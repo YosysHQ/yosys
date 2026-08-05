@@ -40,4 +40,3 @@ EOT
 hierarchy
 wreduce
 equiv_opt -assert alumacc
-

@@ -27,7 +27,7 @@ endmodule
 module mul_pipe_u (input clk, input [8:0] a, b, output reg [17:0] y);
 	reg [8:0] a_r;
 	reg [8:0] b_r;
-	always @(posedge clk) begin 
+	always @(posedge clk) begin
 		a_r <= a;
 		b_r <= b;
 		y <= a_r * b_r;
