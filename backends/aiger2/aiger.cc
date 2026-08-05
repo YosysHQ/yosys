@@ -1273,10 +1273,7 @@ struct XAigerWriter : AigerWriter {
 		for (auto w : top->wires())
 			if (w->port_output)
 				for (int i = 0; i < w->width; i++) {
-					// When a module output is directly driven by an opaque box, we
-					// don't emit it to the mapping file to aid re-integration, but we
-					// do emit a proper PO.
-					if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
+					if (map_file.is_open()) {
 						map_file << "output " << proper_pos_counter << " " << i
 									<< " " << w->name.c_str() << "\n";
 					}
