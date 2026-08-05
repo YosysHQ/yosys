@@ -277,6 +277,13 @@ struct SynthGowinPass : public ScriptPass
 			run("opt -nodffe -nosdff");
 			run("fsm");
 			run("opt");
+			// GW5A MAC: run alumacc + macc techmap BEFORE wreduce. wreduce
+			// narrows $mul Y but not the connected $add A, leaving a width
+			// mismatch that prevents alumacc from merging $mul into $add.
+			if (!nodsp && family == "gw5a") {
+				run("alumacc");
+				run("techmap -map +/gowin/macc_map_gw5a.v");
+			}
 			run("wreduce");
 			run("peepopt");
 			run("opt_clean");
