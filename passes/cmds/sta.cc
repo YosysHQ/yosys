@@ -206,7 +206,7 @@ struct StaWorker
 		log("Latest arrival time in '%s' is %d:\n", module, maxarrival);
 		auto it = endpoints.find(maxbit);
 		if (it != endpoints.end() && it->second.sink)
-			log("  %6d %s (%s.%s)\n", maxarrival, it->second.sink, it->second.sink->type.unescape(), it->second.port.unescape());
+			log("  %6d %s (%s.%s)\n", maxarrival, it->second.sink, it->second.sink->type.unescape(), PooledName(it->second.sink->module, it->second.port).unescape());
 		else {
 			log("  %6d (%s)\n", maxarrival, b.wire->port_output ? "<primary output>" : "<unknown>");
 			if (!b.wire->port_output)
@@ -217,7 +217,7 @@ struct StaWorker
 			int arrival = b.wire->get_intvec_attribute(ID::sta_arrival)[b.offset];
 			if (jt->second.driver) {
 				log("           %s\n", log_signal(b));
-				log("  %6d %s (%s.%s->%s)\n", arrival, jt->second.driver, jt->second.driver->type.unescape(), jt->second.src_port.unescape(), jt->second.dst_port.unescape());
+				log("  %6d %s (%s.%s->%s)\n", arrival, jt->second.driver, jt->second.driver->type.unescape(), PooledName(jt->second.driver->module, jt->second.src_port).unescape(), PooledName(jt->second.driver->module, jt->second.dst_port).unescape());
 			}
 			else if (b.wire->port_input)
 				log("  %6d   %s (%s)\n", arrival, log_signal(b), "<primary input>");

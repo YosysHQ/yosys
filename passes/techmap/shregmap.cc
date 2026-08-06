@@ -332,7 +332,7 @@ struct ShregmapWorker
 				if (opts.ffe) first_cell->setParam(ID(ENPOL), param_enpol);
 			}
 
-			first_cell->type = shreg_cell_type_str;
+			first_cell->type = first_cell->module->design->twines.add(shreg_cell_type_str);
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam(ID::DEPTH, depth);
 
@@ -456,9 +456,9 @@ struct ShregmapPass : public Pass {
 					match_args.push_back("D");
 				if (GetSize(match_args) < 3)
 					match_args.push_back("Q");
-				IdString id_cell_type(RTLIL::escape_id(match_args[0]));
-				IdString id_d_port_name(RTLIL::escape_id(match_args[1]));
-				IdString id_q_port_name(RTLIL::escape_id(match_args[2]));
+				IdString id_cell_type = design->twines.add(std::string{RTLIL::escape_id(match_args[0])});
+				IdString id_d_port_name = design->twines.add(std::string{RTLIL::escape_id(match_args[1])});
+				IdString id_q_port_name = design->twines.add(std::string{RTLIL::escape_id(match_args[2])});
 				opts.ffcells[id_cell_type] = make_pair(id_d_port_name, id_q_port_name);
 				continue;
 			}
@@ -519,19 +519,19 @@ struct ShregmapPass : public Pass {
 			bool en_neg = enpol == "neg" || enpol == "any" || enpol == "any_or_none";
 
 			if (clk_pos && en_none)
-				opts.ffcells[ID($_DFF_P_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[ID($_DFF_P_)] = make_pair(ID::D, ID::Q);
 			if (clk_neg && en_none)
-				opts.ffcells[ID($_DFF_N_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[ID($_DFF_N_)] = make_pair(ID::D, ID::Q);
 
 			if (clk_pos && en_pos)
-				opts.ffcells[ID($_DFFE_PP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[ID($_DFFE_PP_)] = make_pair(ID::D, ID::Q);
 			if (clk_pos && en_neg)
-				opts.ffcells[ID($_DFFE_PN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[ID($_DFFE_PN_)] = make_pair(ID::D, ID::Q);
 
 			if (clk_neg && en_pos)
-				opts.ffcells[ID($_DFFE_NP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[ID($_DFFE_NP_)] = make_pair(ID::D, ID::Q);
 			if (clk_neg && en_neg)
-				opts.ffcells[ID($_DFFE_NN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
+				opts.ffcells[ID($_DFFE_NN_)] = make_pair(ID::D, ID::Q);
 
 			if (en_pos || en_neg)
 				opts.ffe = true;

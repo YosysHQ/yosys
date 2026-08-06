@@ -44,7 +44,7 @@ struct FmcombineWorker
 
 	FmcombineWorker(Design *design, IdString orig_type, const opts_t &opts) :
 			opts(opts), design(design), original(design->module(orig_type)),
-			orig_type(orig_type), combined_type(stringf("$fmcombine%s", orig_type))
+			orig_type(orig_type), combined_type(design->twines.add(stringf("$fmcombine%s", design->twines.str(orig_type).c_str())))
 	{
 	}
 
@@ -53,7 +53,7 @@ struct FmcombineWorker
 		SigSpec newsig;
 		for (auto chunk : sig.chunks()) {
 			if (chunk.wire != nullptr)
-				chunk.wire = module->wire(chunk.wire->name.str() + suffix);
+				chunk.wire = module->wire(design->twines.add(std::string{chunk.wire->name.str() + suffix}));
 			newsig.append(chunk);
 		}
 		return newsig;
@@ -87,19 +87,19 @@ struct FmcombineWorker
 		c->attributes = cell->attributes;
 
 		for (auto &conn : cell->connections()) {
-			c->setPort(conn.first.str() + "_gold", import_sig(conn.second, "_gold"));
-			c->setPort(conn.first.str() + "_gate", import_sig(conn.second, "_gate"));
+			c->setPort(design->twines.str(conn.first) + "_gold", import_sig(conn.second, "_gold"));
+			c->setPort(design->twines.str(conn.first) + "_gate", import_sig(conn.second, "_gate"));
 		}
 	}
 
 	void generate()
 	{
 		if (design->module(combined_type)) {
-			// log("Combined module %s already exists.\n", combined_type.unescape());
+			// log("Combined module %s already exists.\n", PooledName(design, combined_type).unescape());
 			return;
 		}
 
-		log("Generating combined module %s from module %s.\n", combined_type.unescape(), orig_type.unescape());
+		log("Generating combined module %s from module %s.\n", PooledName(design, combined_type).unescape(), PooledName(design, orig_type).unescape());
 		module = design->addModule(combined_type);
 
 		for (auto wire : original->wires()) {
@@ -326,21 +326,21 @@ struct FmcombinePass : public Pass {
 		}
 		else if (argidx+3 == args.size())
 		{
-			IdString module_name = RTLIL::escape_id(args[argidx++]);
-			IdString gold_name = RTLIL::escape_id(args[argidx++]);
-			IdString gate_name = RTLIL::escape_id(args[argidx++]);
+			IdString module_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+			IdString gold_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+			IdString gate_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
 
 			module = design->module(module_name);
 			if (module == nullptr)
-				log_cmd_error("Module %s not found.\n", module_name.unescape());
+				log_cmd_error("Module %s not found.\n", PooledName(design, module_name).unescape());
 
 			gold_cell = module->cell(gold_name);
 			if (gold_cell == nullptr)
-				log_cmd_error("Gold cell %s not found in module %s.\n", gold_name.unescape(), module);
+				log_cmd_error("Gold cell %s not found in module %s.\n", PooledName(design, gold_name).unescape(), module);
 
 			gate_cell = module->cell(gate_name);
 			if (gate_cell == nullptr)
-				log_cmd_error("Gate cell %s not found in module %s.\n", gate_name.unescape(), module);
+				log_cmd_error("Gate cell %s not found in module %s.\n", PooledName(design, gate_name).unescape(), module);
 		}
 		else
 		{
@@ -372,11 +372,11 @@ struct FmcombinePass : public Pass {
 		log("Combining cells %s and %s in module %s into new cell %s.\n", gold_cell, gate_cell, module, cell);
 
 		for (auto &conn : gold_cell->connections())
-			cell->setPort(conn.first.str() + "_gold", conn.second);
+			cell->setPort(design->twines.str(conn.first) + "_gold", conn.second);
 		module->remove(gold_cell);
 
 		for (auto &conn : gate_cell->connections())
-			cell->setPort(conn.first.str() + "_gate", conn.second);
+			cell->setPort(design->twines.str(conn.first) + "_gate", conn.second);
 		module->remove(gate_cell);
 	}
 } FmcombinePass;

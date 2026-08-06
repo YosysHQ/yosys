@@ -101,7 +101,7 @@ struct ModuleIndex {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  port_name.unescape(), instantiation, module);
+						  PooledName(module, port_name).unescape(), instantiation, module);
 			}
 
 			if (port->port_input && port->port_output) {
@@ -290,7 +290,7 @@ struct UsageData {
 			if (!port || (!port->port_input && !port->port_output) || port->width != value.size()) {
 				log_error("Port %s connected on instance %s not found in module %s"
 						  " or width is not matching\n",
-						  port_name.unescape(), instance, module);
+						  PooledName(module, port_name).unescape(), instance, module);
 			}
 
 			if (port->port_input && port->port_output) {

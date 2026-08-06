@@ -37,7 +37,7 @@ struct EquivPurgeWorker
 			Wire *wire = sig.as_wire();
 			if (wire->name.isPublic()) {
 				if (!wire->port_output) {
-					log("  Module output: %s (%s)\n", log_signal(wire), cellname.unescape());
+					log("  Module output: %s (%s)\n", log_signal(wire), PooledName(module->design, cellname).unescape());
 					wire->port_output = true;
 				}
 				return wire;
@@ -46,14 +46,14 @@ struct EquivPurgeWorker
 
 		while (1)
 		{
-			IdString name = stringf("\\equiv_%d", name_cnt++);
-			if (module->count_id(name))
+			std::string name = stringf("\\equiv_%d", name_cnt++);
+			if (module->count_id(module->design->twines.find(name)))
 				continue;
 
 			Wire *wire = module->addWire(name, GetSize(sig));
 			wire->port_output = true;
 			module->connect(wire, sig);
-			log("  Module output: %s (%s)\n", log_signal(wire), cellname.unescape());
+			log("  Module output: %s (%s)\n", log_signal(wire), PooledName(module->design, cellname).unescape());
 			return wire;
 		}
 	}
@@ -73,8 +73,8 @@ struct EquivPurgeWorker
 
 		while (1)
 		{
-			IdString name = stringf("\\equiv_%d", name_cnt++);
-			if (module->count_id(name))
+			std::string name = stringf("\\equiv_%d", name_cnt++);
+			if (module->count_id(module->design->twines.find(name)))
 				continue;
 
 			Wire *wire = module->addWire(name, GetSize(sig));
