@@ -35,6 +35,11 @@ struct OptBalanceTreeWorker {
 	// Counts of each cell type that are getting balanced
 	dict<IdString, int> cell_count;
 
+	// Per cell type netlist indexes, rebuilt for each balanced cell type
+	dict<SigSpec, Cell*> sig_to_driver;
+	pool<SigSpec> input_port_sigs;
+	pool<Cell*> consumed_cells;
+
 	// Check if cell is of the right type and has matching input/output widths
 	// Only allow cells with "natural" output widths (no truncation) to prevent
 	// equivalence issues when rebalancing (see YosysHQ/yosys#5605)
@@ -62,6 +67,43 @@ struct OptBalanceTreeWorker {
 		// Only allow cells where Y_WIDTH >= natural width (no truncation)
 		// This prevents rebalancing chains where truncation semantics matter
 		return y_width >= natural_width;
+	}
+
+	// Check if the driver graph reachable from head contains a cycle,
+	// following the same edges as the backward chain traversal
+	bool has_cycle(Cell *head, IdString cell_type) {
+		pool<Cell*> on_path, done;
+		vector<std::pair<Cell*, bool>> stack = {{head, false}};
+		while (!stack.empty())
+		{
+			auto [c, leave] = stack.back();
+			stack.pop_back();
+			if (leave) {
+				on_path.erase(c);
+				done.insert(c);
+				continue;
+			}
+			if (done.count(c))
+				continue;
+			if (on_path.count(c))
+				return true;
+			on_path.insert(c);
+			stack.push_back({c, true});
+			for (IdString port: {ID::A, ID::B}) {
+				auto sig = sigmap(c->getPort(port));
+				Cell *drv = sig_to_driver[sig];
+				bool drv_ok = drv && is_right_type(drv, cell_type);
+				for (auto bit : sig) {
+					if (input_port_sigs.count(bit) && !consumed_cells.count(drv)) {
+						drv_ok = false;
+						break;
+					}
+				}
+				if (drv_ok)
+					stack.push_back({drv, false});
+			}
+		}
+		return false;
 	}
 
 	// Create a balanced binary tree from a vector of source signals
@@ -142,7 +184,7 @@ struct OptBalanceTreeWorker {
 		// Do for each cell type
 		for (auto cell_type : cell_types) {
 			// Index all of the nets in the module
-			dict<SigSpec, Cell*> sig_to_driver;
+			sig_to_driver.clear();
 			dict<SigSpec, pool<Cell*>> sig_to_sink;
 			for (auto cell : module->selected_cells())
 			{
@@ -162,7 +204,7 @@ struct OptBalanceTreeWorker {
 			}
 
 			// Need to check if any wires connect to module ports
-			pool<SigSpec> input_port_sigs;
+			input_port_sigs.clear();
 			pool<SigSpec> output_port_sigs;
 			for (auto wire : module->selected_wires())
 				if (wire->port_input || wire->port_output) {
@@ -176,7 +218,7 @@ struct OptBalanceTreeWorker {
 				}
 
 			// Actual logic starts here
-			pool<Cell*> consumed_cells;
+			consumed_cells.clear();
 			for (auto cell : module->selected_cells())
 			{
 				// If consumed or not the correct type, skip
@@ -189,11 +231,15 @@ struct OptBalanceTreeWorker {
 				pool<Cell*> sinks;
 				pool<Cell*> current_loads = sig_to_sink[y];
 				pool<Cell*> next_loads;
+				pool<Cell*> visited_loads;
 				while (!current_loads.empty())
 				{
 					// Find each sink and see what they are
 					for (auto x : current_loads)
 					{
+						if (!visited_loads.insert(x).second)
+							continue;
+
 						// If not the correct type, don't follow any further
 						// (but add the originating cell to the list of sinks)
 						if (!is_right_type(x, cell_type))
@@ -244,6 +290,11 @@ struct OptBalanceTreeWorker {
 				{
 					// Avoid duplication if we already were covered
 					if (consumed_cells.count(head_cell))
+						continue;
+
+					// Abandon chains containing combinational loops, since
+					// rebalancing them is not sound (and would not terminate)
+					if (has_cycle(head_cell, cell_type))
 						continue;
 
 					// Get sources of the chain
