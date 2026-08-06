@@ -59,7 +59,7 @@ struct SmvWorker
 	{
 		if (!idcache.count(id))
 		{
-			string name = stringf("_%s", id);
+			string name = "_" + module->design->twines.str(id);
 
 			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);
@@ -576,7 +576,7 @@ struct SmvWorker
 			if (cell->type == ID($scopeinfo))
 				continue;
 
-			if (cell->type[0] == '$') {
+			if (!cell->type.isPublic()) {
 				if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
 					log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smv`.\n",
 							cell->type.unescape(), module, cell);
@@ -791,7 +791,7 @@ struct SmvBackend : public Backend {
 
 					if (GetSize(stmt) == 2 && stmt[0] == "%module")
 					{
-						Module *module = design->module(RTLIL::escape_id(stmt[1]));
+						Module *module = RTLIL::module_by_name(design, stmt[1]);
 						modules.erase(module);
 
 						if (module == nullptr)
