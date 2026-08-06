@@ -155,13 +155,16 @@ std::string get_base_tmpdir()
 	}
 
 #if defined(_WIN32)
-	char longpath[MAX_PATH + 1];
-	char shortpath[MAX_PATH + 1];
-	if (!GetTempPathA(MAX_PATH+1, longpath))
-		log_error("GetTempPath() failed.\n");
-	if (!GetShortPathNameA(longpath, shortpath, MAX_PATH + 1))
-		log_error("GetShortPathName() failed.\n");
-	tmpdir += shortpath;
+	std::wstring wtmppath(4096, L'\0');
+	// typically returns a 8.3 path, but this can be disabled via registry
+	if (!GetTempPathW(wtmppath.size(), wtmppath.data()))
+		log_error("GetTempPathW() failed.\n");
+	wtmppath.resize(wtmppath.find(L'\0'));
+	std::string utmppath;
+	utmppath.resize(WideCharToMultiByte(CP_UTF8, 0, wtmppath.data(), wtmppath.size(), NULL, 0, NULL, NULL));
+	if (WideCharToMultiByte(CP_UTF8, 0, wtmppath.data(), wtmppath.size(), utmppath.data(), utmppath.size(), NULL, NULL) == 0)
+		log_error("WideCharToMultiByte() failed.\n");
+	tmpdir += utmppath;
 #else
 	char * var = std::getenv("TMPDIR");
 	if (var && strlen(var)!=0) {
