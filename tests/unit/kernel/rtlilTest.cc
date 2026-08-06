@@ -22,7 +22,7 @@ namespace RTLIL {
 			if (log_files.empty()) log_files.emplace_back(stdout);
 		}
 		virtual void SetUp() override {
-			IdString::ensure_prepopulated();
+			StaticTwines::init();
 		}
 	};
 
@@ -335,9 +335,10 @@ namespace RTLIL {
 	}
 
 	TEST_F(KernelRtlilTest, ModuleAddWireWidthLimit) {
-		std::unique_ptr<Module> mod = std::make_unique<Module>();
-		EXPECT_DEATH(mod->addWire(ID(test), RTLIL::WIDTH_LIMIT), "");
-		EXPECT_NO_FATAL_FAILURE(mod->addWire(ID(test), RTLIL::WIDTH_LIMIT - 1));
+		std::unique_ptr<Design> design = std::make_unique<Design>();
+		Module *mod = design->addModule("$test_mod");
+		EXPECT_DEATH(mod->addWire("\\test", RTLIL::WIDTH_LIMIT), "");
+		EXPECT_NO_FATAL_FAILURE(mod->addWire("\\test2", RTLIL::WIDTH_LIMIT - 1));
 	}
 
 	TEST_F(KernelRtlilTest, ConstEqualStr) {
@@ -417,34 +418,23 @@ namespace RTLIL {
 		EXPECT_FALSE(Const().is_onehot(&pos));
 	}
 
-	TEST_F(KernelRtlilTest, OwningIdString) {
-		OwningIdString own("\\figblortle");
-		OwningIdString::collect_garbage();
-		EXPECT_EQ(own.str(), "\\figblortle");
-	}
-
 	TEST_F(KernelRtlilTest, LookupAutoidxId) {
-		IdString id = NEW_ID;
-		IdString id2 = IdString(id.str());
-		EXPECT_EQ(id, id2);
+		TwinePool twines;
+		IdString id = twines.add(NEW_ID);
+		TwineSearch search(&twines);
+		EXPECT_EQ(id, search.find(twines.str(id)));
+		EXPECT_EQ(twines.find(twines.str(id)), IdString::Null);
 	}
 
 	TEST_F(KernelRtlilTest, NewIdBeginsWith) {
-		IdString id = NEW_ID;
-		EXPECT_TRUE(id.begins_with("$auto"));
-		EXPECT_FALSE(id.begins_with("xyz"));
-		EXPECT_TRUE(id.begins_with("$auto$"));
-		EXPECT_FALSE(id.begins_with("abcdefghijklmn"));
-		EXPECT_TRUE(id.begins_with("$auto$rtlilTest"));
-		EXPECT_FALSE(id.begins_with("$auto$rtlilX"));
-	}
-
-	TEST_F(KernelRtlilTest, NewIdIndexing) {
-		IdString id = NEW_ID;
-		std::string str = id.str();
-		for (int i = 0; i < GetSize(str) + 1; ++i) {
-			EXPECT_EQ(id[i], str.c_str()[i]);
-		}
+		TwinePool twines;
+		std::string id = twines.str(twines.add(NEW_ID));
+		EXPECT_TRUE(id.starts_with("$auto"));
+		EXPECT_FALSE(id.starts_with("xyz"));
+		EXPECT_TRUE(id.starts_with("$auto$"));
+		EXPECT_FALSE(id.starts_with("abcdefghijklmn"));
+		EXPECT_TRUE(id.starts_with("$auto$rtlilTest"));
+		EXPECT_FALSE(id.starts_with("$auto$rtlilX"));
 	}
 
 	class WireRtlVsHdlIndexConversionTest :
@@ -473,8 +463,9 @@ namespace RTLIL {
 	);
 
 	TEST_P(WireRtlVsHdlIndexConversionTest, WireRtlVsHdlIndexConversion) {
-		std::unique_ptr<Module> mod = std::make_unique<Module>();
-		Wire *wire = mod->addWire(ID(test), 10);
+		std::unique_ptr<Design> design = std::make_unique<Design>();
+		Module *mod = design->addModule("$test_mod");
+		Wire *wire = mod->addWire("\\test", 10);
 
 		auto [upto, start_offset, width] = GetParam();
 

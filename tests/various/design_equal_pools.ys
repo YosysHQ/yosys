@@ -1,0 +1,50 @@
+read_rtlil <<EOT
+module \zz_top_mod
+  wire width 1 input 1 \zz_in_alpha
+  wire width 1 input 2 \zz_in_beta
+  wire width 1 output 3 \zz_out_gamma
+  cell $and \zz_the_gate
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \zz_in_alpha
+    connect \B \zz_in_beta
+    connect \Y \zz_out_gamma
+  end
+end
+EOT
+
+design -save golden
+
+design -reset
+read_rtlil <<EOT
+module \zz_filler
+  wire width 1 \zz_pad_one
+  wire width 1 \zz_pad_two
+  wire width 1 \zz_pad_three
+  wire width 1 \zz_pad_four
+end
+EOT
+delete zz_filler
+
+read_rtlil <<EOT
+module \zz_top_mod
+  wire width 1 input 1 \zz_in_alpha
+  wire width 1 input 2 \zz_in_beta
+  wire width 1 output 3 \zz_out_gamma
+  cell $and \zz_the_gate
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \zz_in_alpha
+    connect \B \zz_in_beta
+    connect \Y \zz_out_gamma
+  end
+end
+EOT
+
+design_equal golden

@@ -6,6 +6,7 @@ yosys_gtest(kernel
 	ioTest.cc
 	logTest.cc
 	modindexTest.cc
+	nameMasqTest.cc
 	pooledNameTest.cc
 	rtlilHelpers.h
 	rtlilStringTest.cc
