@@ -29,7 +29,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct cell_mapping {
-	IdString cell_name;
+	std::string cell_name;
 	std::map<std::string, char> ports;
 };
 static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
@@ -37,9 +37,9 @@ static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 static void logmap(IdString dff)
 {
 	if (cell_mappings.count(dff) == 0) {
-		log("    unmapped dff/dlatch cell: %s\n", dff);
+		log("    unmapped dff/dlatch cell: %s\n", ID::str(dff));
 	} else {
-		log("    %s %s (", cell_mappings[dff].cell_name, dff.substr(1));
+		log("    %s %s (", cell_mappings[dff].cell_name, ID::str(dff).substr(1));
 		bool first = true;
 		for (auto &port : cell_mappings[dff].ports) {
 			char arg[3] = { port.second, 0, 0 };
@@ -423,10 +423,15 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 	}
 
 	if (best.cell != nullptr) {
-		log("  cell %s (%s) is a direct match for cell type %s.\n", best.cell->args[0], best.rank.description(), cell_type);
+		log("  cell %s (%s) is a direct match for cell type %s.\n", best.cell->args[0], best.rank.description(), ID::str(cell_type));
 		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best.cell->args[0]);
 		cell_mappings[cell_type].ports = best.ports;
 	}
+}
+
+static IdString port_name_ref(TwinePool &twines, char port)
+{
+	return twines.add(stringf("\\%c", port));
 }
 
 static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
@@ -449,18 +454,20 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			notmap[sigmap(cell->getPort(ID::A))].insert(cell);
 	}
 
+	auto &twines = module->design->twines;
+
 	std::map<std::string, int> stats;
 	for (auto cell : cell_list)
 	{
-		auto cell_type = cell->type;
-		auto cell_name = cell->name;
+		IdString cell_type = cell->type;
+		IdString cell_name = cell->name;
 		auto cell_connections = cell->connections();
 		dict<RTLIL::IdString, RTLIL::Const> attributes = std::move(cell->attributes);
 
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
-		RTLIL::Cell *new_cell = module->addCell(cell_name, cm.cell_name);
+		RTLIL::Cell *new_cell = module->addCell(cell_name, twines.add(cm.cell_name));
 
 		new_cell->attributes = std::move(attributes);
 
@@ -473,10 +480,10 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		for (auto &port : cm.ports) {
 			RTLIL::SigSpec sig;
 			if ('A' <= port.second && port.second <= 'Z') {
-				sig = cell_connections[std::string("\\") + port.second];
+				sig = cell_connections[port_name_ref(twines, port.second)];
 			} else
 			if (port.second == 'q') {
-				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				RTLIL::SigSpec old_sig = cell_connections[port_name_ref(twines, char(port.second - ('a' - 'A')))];
 				sig = module->addWire(NEW_ID, GetSize(old_sig));
 				if (has_q && has_qn) {
 					for (auto &it : notmap[sigmap(old_sig)]) {
@@ -488,7 +495,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				}
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
-				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
+				sig = cell_connections[port_name_ref(twines, char(port.second - ('a' - 'A')))];
 				sig = module->NotGate(NEW_ID, sig);
 			} else
 			if (port.second == '0' || port.second == '1') {
@@ -501,7 +508,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			new_cell->setPort("\\" + port.first, sig);
 		}
 
-		stats[stringf("%s cells to %s cells", cell_type, new_cell->type)]++;
+		stats[stringf("%s cells to %s cells", twines.str(cell_type), new_cell->type.str())]++;
 	}
 
 	for (auto &stat: stats)
@@ -654,7 +661,7 @@ struct DfflibmapPass : public Pass {
 		if (!map_only_mode) {
 			std::string dfflegalize_cmd = "dfflegalize";
 			for (auto it : cell_mappings)
-				dfflegalize_cmd += stringf(" -cell %s 01", it.first);
+				dfflegalize_cmd += stringf(" -cell %s 01", ID::str(it.first));
 			dfflegalize_cmd += " t:$_DFF* t:$_SDFF* t:$_DLATCH*";
 			if (info_mode) {
 				log("dfflegalize command line: %s\n", dfflegalize_cmd);

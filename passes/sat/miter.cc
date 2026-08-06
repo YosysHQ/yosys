@@ -71,16 +71,16 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	if (argidx+3 != args.size() || args[argidx].compare(0, 1, "-") == 0)
 		that->cmd_error(args, argidx, "command argument error");
 
-	RTLIL::IdString gold_name = RTLIL::escape_id(args[argidx++]);
-	RTLIL::IdString gate_name = RTLIL::escape_id(args[argidx++]);
-	RTLIL::IdString miter_name = RTLIL::escape_id(args[argidx++]);
+	IdString gold_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+	IdString gate_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+	IdString miter_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
 
 	if (design->module(gold_name) == nullptr)
-		log_cmd_error("Can't find gold module %s!\n", gold_name);
+		log_cmd_error("Can't find gold module %s!\n", design->twines.str(gold_name));
 	if (design->module(gate_name) == nullptr)
-		log_cmd_error("Can't find gate module %s!\n", gate_name);
+		log_cmd_error("Can't find gate module %s!\n", design->twines.str(gate_name));
 	if (design->module(miter_name) != nullptr)
-		log_cmd_error("There is already a module %s!\n", miter_name);
+		log_cmd_error("There is already a module %s!\n", design->twines.str(miter_name));
 
 	RTLIL::Module *gold_module = design->module(gold_name);
 	RTLIL::Module *gate_module = design->module(gate_name);
@@ -128,14 +128,15 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 		log_cmd_error("No matching port in gold module was found for %s!\n", gate_wire->name);
 	}
 
-	log("Creating miter cell \"%s\" with gold cell \"%s\" and gate cell \"%s\".\n", miter_name.unescape(), gold_name.unescape(), gate_name.unescape());
+	log("Creating miter cell \"%s\" with gold cell \"%s\" and gate cell \"%s\".\n", PooledName(design, miter_name).unescape(), PooledName(design, gold_name).unescape(), PooledName(design, gate_name).unescape());
 
 	RTLIL::Module *miter_module = new RTLIL::Module;
+	miter_module->design = design;
 	miter_module->name = miter_name;
 	design->add(miter_module);
 
-	RTLIL::Cell *gold_cell = miter_module->addCell(ID(gold), gold_name);
-	RTLIL::Cell *gate_cell = miter_module->addCell(ID(gate), gate_name);
+	RTLIL::Cell *gold_cell = miter_module->addCell(ID::gold, gold_module->name);
+	RTLIL::Cell *gate_cell = miter_module->addCell(ID::gate, gate_module->name);
 
 	RTLIL::SigSpec all_conditions;
 
@@ -318,13 +319,13 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 	if ((argidx+1 != args.size() && argidx+2 != args.size()) || args[argidx].compare(0, 1, "-") == 0)
 		that->cmd_error(args, argidx, "command argument error");
 
-	IdString module_name = RTLIL::escape_id(args[argidx++]);
-	IdString miter_name = argidx < args.size() ? RTLIL::escape_id(args[argidx++]) : "";
+	IdString module_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+	IdString miter_name = argidx < args.size() ? design->twines.add(RTLIL::escape_id(args[argidx++])) : IdString::Null;
 
 	if (design->module(module_name) == nullptr)
-		log_cmd_error("Can't find module %s!\n", module_name);
+		log_cmd_error("Can't find module %s!\n", design->twines.str(module_name));
 	if (!miter_name.empty() && design->module(miter_name) != nullptr)
-		log_cmd_error("There is already a module %s!\n", miter_name);
+		log_cmd_error("There is already a module %s!\n", design->twines.str(miter_name));
 
 	Module *module = design->module(module_name);
 

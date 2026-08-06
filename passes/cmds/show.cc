@@ -17,6 +17,7 @@
  *
  */
 
+#include "kernel/rtlil.h"
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/log_help.h"
@@ -48,7 +49,7 @@ struct ShowWorker
 
 	vector<shared_str> dot_escape_store;
 	std::map<RTLIL::IdString, int> dot_id2num_store;
-	std::map<RTLIL::IdString, int> autonames;
+	std::map<std::string, int> autonames;
 	int single_idx_count;
 
 	struct net_conn { std::set<std::pair<std::string, int>> in, out; std::string color; };
@@ -56,6 +57,7 @@ struct ShowWorker
 
 	FILE *f;
 	RTLIL::Design *design;
+	TwineSearch search;
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
@@ -146,16 +148,16 @@ struct ShowWorker
 		return "";
 	}
 
-	std::string findColor(IdString member_name)
+	std::string findColor(IdString member_ref)
 	{
 		for (auto &s : color_selections)
-			if (s.second.selected_member(module->name, member_name)) {
+			if (member_ref != IdString::Null && s.second.selected_member(module->name, member_ref)) {
 				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first, s.first);
 			}
 
 		RTLIL::Const colorattr_value;
-		RTLIL::Cell *cell = module->cell(member_name);
-		RTLIL::Wire *wire = module->wire(member_name);
+		RTLIL::Cell *cell = member_ref != IdString::Null ? module->cell(member_ref) : nullptr;
+		RTLIL::Wire *wire = member_ref != IdString::Null ? module->wire(member_ref) : nullptr;
 
 		if (cell && cell->attributes.count(colorattr))
 			colorattr_value = cell->attributes.at(colorattr);
@@ -174,8 +176,9 @@ struct ShowWorker
 
 	const char *findLabel(std::string member_name)
 	{
+		IdString member_ref = search.find(member_name);
 		for (auto &s : label_selections)
-			if (s.second.selected_member(module->name, member_name))
+			if (member_ref != IdString::Null && s.second.selected_member(module->name, member_ref))
 				return escape(s.first);
 		return escape(member_name, true);
 	}
@@ -478,19 +481,22 @@ struct ShowWorker
 					out_ports.push_back(conn.first);
 			}
 
-			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str());
-			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str());
+			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str(design->twines));
+			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str(design->twines));
 
 			for (auto &p : in_ports) {
-				bool signed_suffix = genSignedLabels && cell->hasParam(p.str() + "_SIGNED")
-									 && cell->getParam(p.str() + "_SIGNED").as_bool();
+				std::string p_str = design->twines.str(p);
+				IdString signed_param = design->twines.find(p_str + "_SIGNED");
+				bool signed_suffix = genSignedLabels && signed_param != IdString::Null
+									 && cell->hasParam(signed_param)
+									 && cell->getParam(signed_param).as_bool();
 
-				in_label_pieces.push_back(stringf("<p%d> %s%s", id2num(p), escape(p.str()),
+				in_label_pieces.push_back(stringf("<p%d> %s%s", id2num(p), escape(p_str),
 										  signed_suffix ? "*" : ""));
 			}
 
 			for (auto &p : out_ports)
-				out_label_pieces.push_back(stringf("<p%d> %s", id2num(p), escape(p.str())));
+				out_label_pieces.push_back(stringf("<p%d> %s", id2num(p), escape(design->twines.str(p))));
 
 			std::string in_label = join_label_pieces(in_label_pieces);
 			std::string out_label = join_label_pieces(out_label_pieces);
@@ -523,7 +529,7 @@ struct ShowWorker
 		{
 			RTLIL::Process *proc = it.second;
 
-			if (!design->selected_member(module->name, proc->name))
+			if (!design->selected_member(module->name, it.first))
 				continue;
 
 			std::set<RTLIL::SigSpec> input_signals, output_signals;
@@ -624,7 +630,7 @@ struct ShowWorker
 			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
-			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
+			f(f), design(design), search(&design->twines), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{
@@ -836,7 +842,7 @@ struct ShowPass : public Pass {
 				continue;
 			}
 			if (arg == "-colorattr" && argidx+1 < args.size()) {
-				colorattr = RTLIL::escape_id(args[++argidx]);
+				colorattr = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {

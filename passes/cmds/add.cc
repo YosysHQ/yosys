@@ -34,7 +34,8 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 {
 	std::string escaped_name = RTLIL::escape_id(name);
 	std::string escaped_enable_name = (enable_name != "") ? RTLIL::escape_id(enable_name) : "";
-	RTLIL::Wire *wire = module->wire(escaped_name);
+	TwineSearch search(&module->design->twines);
+	RTLIL::Wire *wire = module->wire(search.find(escaped_name));
 	log_assert(is_formal_celltype(celltype));
 
 	if (wire == nullptr) {
@@ -48,7 +49,7 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 			log("Added $%s cell for wire \"%s.%s\"\n", celltype, module->name.str(), name);
 		}
 		else {
-			RTLIL::Wire *enable_wire = module->wire(escaped_enable_name);
+			RTLIL::Wire *enable_wire = module->wire(search.find(escaped_enable_name));
 			if(enable_wire == nullptr)
 				log_error("Could not find enable wire with name \"%s\".\n", enable_name);
 
@@ -62,10 +63,12 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 {
 	RTLIL::Wire *wire = nullptr;
 	name = RTLIL::escape_id(name);
+	TwineSearch search(&design->twines);
+	IdString name_ref = search.find(name);
 
-	if (module->count_id(name) != 0)
+	if (module->count_id(name_ref) != 0)
 	{
-		wire = module->wire(name);
+		wire = module->wire(name_ref);
 
 		if (wire != nullptr && wire->width != width)
 			wire = nullptr;
@@ -97,6 +100,8 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
+	IdString port_id = design->twines.add(name);
+
 	for (auto cell : module->cells())
 	{
 		RTLIL::Module *mod = design->module(cell->type);
@@ -106,10 +111,10 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			continue;
 		if (mod->get_blackbox_attribute())
 			continue;
-		if (cell->hasPort(name))
+		if (cell->hasPort(port_id))
 			continue;
 
-		cell->setPort(name, wire);
+		cell->setPort(port_id, wire);
 		log("Added connection %s to cell %s.%s (%s).\n", name, module->name, cell->name, cell->type);
 	}
 }
