@@ -602,15 +602,19 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		}
 
 		vlog_file << stringf("  %s_expr uut_expr(", uut_name);
-		for (int i = 0; i < GetSize(gold_mod->ports); i++)
-			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", gold_mod->ports[i].unescape(), gold_mod->ports[i].unescape(),
+		for (int i = 0; i < GetSize(gold_mod->ports); i++) {
+			std::string port_name = gold_mod->design->twines.str(gold_mod->ports[i]);
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", port_name, port_name,
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
+		}
 		vlog_file << stringf(");\n");
 
 		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name);
-		for (int i = 0; i < GetSize(gold_mod->ports); i++)
-			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", gold_mod->ports[i].unescape(), gold_mod->ports[i].unescape(),
+		for (int i = 0; i < GetSize(gold_mod->ports); i++) {
+			std::string port_name = gold_mod->design->twines.str(gold_mod->ports[i]);
+			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", port_name, port_name,
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
+		}
 		vlog_file << stringf(");\n");
 
 		vlog_file << stringf("  task run;\n");
@@ -1076,6 +1080,13 @@ struct TestCellPass : public Pass {
 		cell_types[ID($_AOI4_)] = "ABCDYb";
 		cell_types[ID($_OAI4_)] = "ABCDYb";
 
+		auto find_type = [&](const std::string &s) -> IdString {
+			for (auto &it : cell_types)
+				if (ID::str(it.first) == s)
+					return it.first;
+			return IdString::Null;
+		};
+
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx].rfind("-", 0) == 0)
@@ -1091,29 +1102,30 @@ struct TestCellPass : public Pass {
 			if (args[argidx].compare(0, 1, "/") == 0) {
 				std::vector<IdString> new_selected_cell_types;
 				for (auto it : selected_cell_types)
-					if (it != args[argidx].substr(1))
+					if (ID::str(it) != args[argidx].substr(1))
 						new_selected_cell_types.push_back(it);
 				new_selected_cell_types.swap(selected_cell_types);
 				continue;
 			}
 
-			if (cell_types.count(args[argidx]) == 0) {
+			IdString arg_type = find_type(args[argidx]);
+			if (arg_type == IdString::Null) {
 				std::string cell_type_list;
 				int charcount = 100;
 				for (auto &it : cell_types) {
 					if (charcount > 60) {
-						cell_type_list += stringf("\n%s", it.first.unescape());
+						cell_type_list += stringf("\n%s", ID::str(it.first).c_str());
 						charcount = 0;
 					} else
-						cell_type_list += stringf(" %s", it.first.unescape());
-					charcount += GetSize(it.first);
+						cell_type_list += stringf(" %s", ID::str(it.first).c_str());
+					charcount += GetSize(ID::str(it.first));
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
 						args[argidx].c_str(), cell_type_list.c_str());
 			}
 
-			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), args[argidx]) == 0)
-				selected_cell_types.push_back(args[argidx]);
+			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), arg_type) == 0)
+				selected_cell_types.push_back(arg_type);
 		}
 
 		if (!rtlil_file.empty()) {
@@ -1151,13 +1163,13 @@ struct TestCellPass : public Pass {
 						bool is_unconverted = false;
 						for (auto *mod : design->selected_modules())
 							for (auto *cell : mod->selected_cells())
-								if (!cell->type.in(ID::$_NOT_, ID::$_AND_)) {
+								if (!cell->type.in(ID($_NOT_), ID($_AND_))) {
 									is_unconverted = true;
 									break;
 								}
 						if (is_unconverted) {
 							// skip unconverted cells
-							log_warning("Skipping %s\n", cell_type);
+							log_warning("Skipping %s\n", ID::str(cell_type).c_str());
 							delete design;
 							break;
 						} else {
@@ -1165,7 +1177,7 @@ struct TestCellPass : public Pass {
 							suffix = "aag";
 						}
 					}
-					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, cell_type.c_str()+1, i, suffix));
+					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, ID::str(cell_type).c_str()+1, i, suffix));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
@@ -1180,7 +1192,7 @@ struct TestCellPass : public Pass {
 					Pass::call(design, "dump gold");
 					if (!nosat)
 						Pass::call(design, "sat -verify -enable_undef -prove trigger 0 -show-inputs -show-outputs miter");
-					std::string uut_name = stringf("uut_%s_%d", cell_type.substr(1), i);
+					std::string uut_name = stringf("uut_%s_%d", ID::str(cell_type).substr(1), i);
 					if (vlog_file.is_open()) {
 						Pass::call(design, stringf("copy gold %s_expr; select %s_expr", uut_name, uut_name));
 						Backend::backend_call(design, &vlog_file, "<test_cell -vlog>", "verilog -selected");
@@ -1207,14 +1219,14 @@ struct TestCellPass : public Pass {
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {
-								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type, num_cells, num_cells_estimate);
+								log_debug("Correct upper bound for %s: %d <= %d\n", design->twines.str(cell_type).c_str(), num_cells, num_cells_estimate);
 							} else {
 								failed++;
 								if (worst_abs < num_cells - num_cells_estimate) {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", cell_type, num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", design->twines.str(cell_type).c_str(), num_cells, num_cells_estimate);
 							}
 						}
 					}
@@ -1224,7 +1236,7 @@ struct TestCellPass : public Pass {
 			if (check_cost && failed) {
 				log_warning("Cell type %s cost underestimated in %.1f%% cases "
 					    "with worst offender being by %d (%.1f%%)\n",
-					    cell_type.c_str(), 100 * (float)failed / (float)num_iter,
+					    ID::str(cell_type).c_str(), 100 * (float)failed / (float)num_iter,
 						worst_abs, 100 * worst_rel);
 			}
 		}

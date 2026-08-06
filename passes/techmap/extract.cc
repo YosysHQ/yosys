@@ -50,9 +50,9 @@ public:
 		return true;
 	}
 
-	RTLIL::Const unified_param(RTLIL::IdString cell_type, RTLIL::IdString param, RTLIL::Const value)
+	RTLIL::Const unified_param(const std::string &type_str, RTLIL::IdString param, RTLIL::Const value)
 	{
-		if (!cell_type.begins_with("$") || cell_type.begins_with("$_"))
+		if (!type_str.starts_with("$") || type_str.starts_with("$_"))
 			return value;
 
 	#define param_bool(_n) if (param == _n) return value.as_bool();
@@ -105,12 +105,14 @@ public:
 
 		if (!ignore_parameters) {
 			std::map<RTLIL::IdString, RTLIL::Const> needle_param, haystack_param;
+			std::string needle_type = needleCell->type.str();
+			std::string haystack_type = haystackCell->type.str();
 			for (auto &it : needleCell->parameters)
 				if (!ignored_parameters.count(std::pair<RTLIL::IdString, RTLIL::IdString>(needleCell->type, it.first)))
-					needle_param[it.first] = unified_param(needleCell->type, it.first, it.second);
+					needle_param[it.first] = unified_param(needle_type, it.first, it.second);
 			for (auto &it : haystackCell->parameters)
 				if (!ignored_parameters.count(std::pair<RTLIL::IdString, RTLIL::IdString>(haystackCell->type, it.first)))
-					haystack_param[it.first] = unified_param(haystackCell->type, it.first, it.second);
+					haystack_param[it.first] = unified_param(haystack_type, it.first, it.second);
 			if (needle_param != haystack_param)
 				return false;
 		}
@@ -127,7 +129,7 @@ public:
 			for (auto &conn : needleCell->connections())
 			{
 				RTLIL::SigSpec needleSig = conn.second;
-				RTLIL::SigSpec haystackSig = haystackCell->getPort(portMapping.at(conn.first.str()));
+				RTLIL::SigSpec haystackSig = haystackCell->getPort(haystackCell->module->design->twines.add(std::string{portMapping.at(needleCell->module->design->twines.str(conn.first))}));
 
 				for (int i = 0; i < min(needleSig.size(), haystackSig.size()); i++) {
 					RTLIL::Wire *needleWire = needleSig[i].wire, *haystackWire = haystackSig[i].wire;
@@ -149,10 +151,11 @@ struct bit_ref_t {
 };
 
 bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = nullptr,
-		int max_fanout = -1, std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> *split = nullptr)
+		int max_fanout = -1, std::set<std::pair<std::string, std::string>> *split = nullptr)
 {
 	SigMap sigmap(mod);
 	std::map<RTLIL::SigBit, bit_ref_t> sig_bit_ref;
+	auto &tw = mod->design->twines;
 
 	if (sel && !sel->selected(mod)) {
 		log("  Skipping module %s as it is not selected.\n", mod->name.unescape());
@@ -206,9 +209,9 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 
 		for (auto &conn : cell->connections())
 		{
-			graph.createPort(cell->name.str(), conn.first.str(), conn.second.size());
+			graph.createPort(cell->name.str(), tw.str(conn.first), conn.second.size());
 
-			if (split && split->count(std::pair<RTLIL::IdString, RTLIL::IdString>(cell->type, conn.first)) > 0)
+			if (split && split->count(std::pair<std::string, std::string>(cell->type.str(), tw.str(conn.first))) > 0)
 				continue;
 
 			RTLIL::SigSpec conn_sig = conn.second;
@@ -224,9 +227,9 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 						if (bit == RTLIL::State::S0) node = "$const$0";
 						if (bit == RTLIL::State::S1) node = "$const$1";
 						if (bit == RTLIL::State::Sz) node = "$const$z";
-						graph.createConnection(cell->name.str(), conn.first.str(), i, node, "\\Y", 0);
+						graph.createConnection(cell->name.str(), tw.str(conn.first), i, node, "\\Y", 0);
 					} else
-						graph.createConstant(cell->name.str(), conn.first.str(), i, int(bit.data));
+						graph.createConstant(cell->name.str(), tw.str(conn.first), i, int(bit.data));
 					continue;
 				}
 
@@ -239,12 +242,12 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 				if (sig_bit_ref.count(bit) == 0) {
 					bit_ref_t &bit_ref = sig_bit_ref[bit];
 					bit_ref.cell = cell->name.str();
-					bit_ref.port = conn.first.str();
+					bit_ref.port = tw.str(conn.first);
 					bit_ref.bit = i;
 				}
 
 				bit_ref_t &bit_ref = sig_bit_ref[bit];
-				graph.createConnection(bit_ref.cell, bit_ref.port, bit_ref.bit, cell->name.str(), conn.first.str(), i);
+				graph.createConnection(bit_ref.cell, bit_ref.port, bit_ref.bit, cell->name.str(), tw.str(conn.first), i);
 			}
 		}
 	}
@@ -289,17 +292,18 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit::Solver::Result &match)
 {
 	SigMap sigmap(needle);
-	SigSet<std::pair<RTLIL::IdString, int>> sig2port;
+	SigSet<std::pair<IdString, int>> sig2port;
+	auto &tw = needle->design->twines;
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), needle->name);
+	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), haystack->design->twines.copy_from(tw, needle->name));
 
-	// create cell ports
 	for (auto wire : needle->wires()) {
 		if (wire->port_id > 0) {
+			IdString portname = haystack->design->twines.add(tw.str(wire->name));
 			for (int i = 0; i < wire->width; i++)
-				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<RTLIL::IdString, int>(wire->name, i));
-			cell->setPort(wire->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
+				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<IdString, int>(portname, i));
+			cell->setPort(portname, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
 		}
 	}
 
@@ -315,10 +319,10 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 
 		for (auto &conn : needle_cell->connections()) {
 			RTLIL::SigSpec sig = sigmap(conn.second);
-			if (mapping.portMapping.count(conn.first.str()) > 0 && sig2port.has(sigmap(sig))) {
+			if (mapping.portMapping.count(tw.str(conn.first)) > 0 && sig2port.has(sigmap(sig))) {
 				for (int i = 0; i < sig.size(); i++)
 				for (auto &port : sig2port.find(sig[i])) {
-					RTLIL::SigSpec bitsig = haystack_cell->getPort(mapping.portMapping[conn.first.str()]).extract(i, 1);
+					RTLIL::SigSpec bitsig = haystack_cell->getPort(haystack_cell->module->design->twines.add(std::string{mapping.portMapping[tw.str(conn.first)]})).extract(i, 1);
 					RTLIL::SigSpec new_sig = cell->getPort(port.first);
 					new_sig.replace(port.second, bitsig);
 					cell->setPort(port.first, new_sig);
@@ -452,7 +456,7 @@ struct ExtractPass : public Pass {
 		int mine_min_freq = 10;
 		int mine_limit_mod = -1;
 		int mine_max_fanout = -1;
-		std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> mine_split;
+		std::set<std::pair<std::string, std::string>> mine_split;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -483,7 +487,7 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-mine_split" && argidx+2 < args.size()) {
-				mine_split.insert(std::pair<RTLIL::IdString, RTLIL::IdString>(RTLIL::escape_id(args[argidx+1]), RTLIL::escape_id(args[argidx+2])));
+				mine_split.insert(std::pair<std::string, std::string>(RTLIL::escape_id(args[argidx+1]), RTLIL::escape_id(args[argidx+2])));
 				argidx += 2;
 				continue;
 			}
@@ -540,11 +544,11 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-cell_attr" && argidx+1 < args.size()) {
-				solver.cell_attr.insert(RTLIL::escape_id(args[++argidx]));
+				solver.cell_attr.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-wire_attr" && argidx+1 < args.size()) {
-				solver.wire_attr.insert(RTLIL::escape_id(args[++argidx]));
+				solver.wire_attr.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-ignore_parameters") {
@@ -552,7 +556,7 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-ignore_param" && argidx+2 < args.size()) {
-				solver.ignored_parameters.insert(std::pair<RTLIL::IdString, RTLIL::IdString>(RTLIL::escape_id(args[argidx+1]), RTLIL::escape_id(args[argidx+2])));
+				solver.ignored_parameters.insert(std::pair<IdString, IdString>(design->twines.add(RTLIL::escape_id(args[argidx+1])), design->twines.add(RTLIL::escape_id(args[argidx+2]))));
 				argidx += 2;
 				continue;
 			}
@@ -596,7 +600,7 @@ struct ExtractPass : public Pass {
 					}
 					for (auto mod : saved_designs.at(filename.substr(1))->modules())
 						if (!map->has(mod->name))
-							map->add(mod->clone());
+							mod->clone(map);
 				}
 				else
 				{
@@ -715,12 +719,10 @@ struct ExtractPass : public Pass {
 							wires.insert(chunk.wire);
 				}
 
-				RTLIL::Module *newMod = new RTLIL::Module;
-				newMod->name = stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits);
-				map->add(newMod);
+				RTLIL::Module *newMod = map->addModule(stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits));
 
 				for (auto wire : wires) {
-					RTLIL::Wire *newWire = newMod->addWire(wire->name, wire->width);
+					RTLIL::Wire *newWire = newMod->addWire(wire->name.unescape(), wire->width);
 					newWire->port_input = true;
 					newWire->port_output = true;
 				}
@@ -728,13 +730,13 @@ struct ExtractPass : public Pass {
 				newMod->fixup_ports();
 
 				for (auto cell : cells) {
-					RTLIL::Cell *newCell = newMod->addCell(cell->name, cell->type);
+					RTLIL::Cell *newCell = newMod->addCell(cell->name.unescape(), cell->type.str());
 					newCell->parameters = cell->parameters;
 					for (auto &conn : cell->connections()) {
 						std::vector<SigChunk> chunks = sigmap(conn.second);
 						for (auto &chunk : chunks)
 							if (chunk.wire != nullptr)
-								chunk.wire = newMod->wire(chunk.wire->name);
+								chunk.wire = newMod->wire(map->twines.add(chunk.wire->name.unescape()));
 						newCell->setPort(conn.first, chunks);
 					}
 				}

@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct setunset_t
 {
-	RTLIL::IdString name;
+	std::string name;
 	RTLIL::Const value;
 	bool unset;
 
@@ -46,13 +46,15 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
+static void do_setunset(RTLIL::Design *design, dict<IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
-		if (item.unset)
-			attrs.erase(item.name);
-		else
-			attrs[item.name] = item.value;
+		if (item.unset) {
+			IdString name = design->twines.find(item.name);
+			if (name != IdString::Null)
+				attrs.erase(name);
+		} else
+			attrs[design->twines.add(std::string(item.name))] = item.value;
 }
 
 struct SetattrPass : public Pass {
@@ -101,12 +103,12 @@ struct SetattrPass : public Pass {
 		{
 			if (flag_mod) {
 				if (module->is_selected_whole())
-					do_setunset(module->attributes, setunset_list);
+					do_setunset(design, module->attributes, setunset_list);
 				continue;
 			}
 
 			for (auto memb : module->selected_members())
-				do_setunset(memb->attributes, setunset_list);
+				do_setunset(design, memb->attributes, setunset_list);
 		}
 	}
 } SetattrPass;
@@ -187,8 +189,8 @@ struct SetparamPass : public Pass {
 		{
 			for (auto cell : module->selected_cells()) {
 				if (!new_cell_type.empty())
-					cell->type = new_cell_type;
-				do_setunset(cell->parameters, setunset_list);
+					cell->type = cell->module->design->twines.add(new_cell_type);
+				do_setunset(design, cell->parameters, setunset_list);
 			}
 		}
 	}
@@ -234,14 +236,15 @@ struct ChparamPass : public Pass {
 			break;
 		}
 
+		TwineSearch search(&design->twines);
 		for (int i = argidx; i < GetSize(args); i++)
-			if (design->module("$abstract\\" + args[i]) != nullptr &&
-					design->module(RTLIL::escape_id(args[i])) == nullptr)
+			if (design->module(search.find("$abstract\\" + args[i])) != nullptr &&
+					design->module(search.find(RTLIL::escape_id(args[i]))) == nullptr)
 				args[i] = "$abstract\\" + args[i];
 
 		extra_args(args, argidx, design);
 
-		do_setunset(new_parameters, setunset_list);
+		do_setunset(design, new_parameters, setunset_list);
 
 		if (list_mode) {
 			if (!new_parameters.empty())
@@ -249,7 +252,7 @@ struct ChparamPass : public Pass {
 			for (auto module : design->selected_modules()) {
 				log("%s:\n", module);
 				for (auto param : module->avail_parameters)
-					log("  %s\n", param.unescape());
+					log("  %s\n", PooledName(design, param).unescape());
 			}
 			return;
 		}

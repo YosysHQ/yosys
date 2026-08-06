@@ -169,6 +169,7 @@ struct AbcNewPass : public ScriptPass {
 			}
 
 			for (auto mod : selected_modules) {
+				GarbageCollectionGuard gc_guard(false);
 				std::string tmpdir = "<abc-temp-dir>";
 				std::string modname = "<module>";
 				std::string exe_options = "[options]";
@@ -191,7 +192,7 @@ struct AbcNewPass : public ScriptPass {
 				}
 
 				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir));
-				run(stringf("  write_xaiger2 -mapping_prep -map-refs -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
+				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
 				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options, tmpdir, tmpdir));
 				run(stringf("  read_aiger -xaiger -module_name %s$abc9 %s/output.aig",
 							modname, tmpdir));
