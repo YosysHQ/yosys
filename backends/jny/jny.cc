@@ -44,6 +44,8 @@ struct JnyWriter
         // but for now for the PoC this looks to be sufficient
         std::unordered_map<std::string, std::vector<Cell*>> _cells{};
 
+        Design *_design = nullptr;
+
         bool _include_connections;
         bool _include_attributes;
         bool _include_properties;
@@ -120,6 +122,7 @@ struct JnyWriter
     void write_metadata(Design *design, uint16_t indent_level = 0, std::string invk = "")
     {
         log_assert(design != nullptr);
+        _design = design;
 
         design->sort();
 
@@ -214,7 +217,7 @@ struct JnyWriter
     void write_cell_conn(const std::pair<RTLIL::IdString, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
         f << _indent << "  {\n";
-        f << _indent << "    \"name\": \"" << escape_string(sig.first.unescape()) << "\",\n";
+        f << _indent << "    \"name\": \"" << escape_string(_design->twines.unescaped_str(sig.first)) << "\",\n";
         f << _indent << "    \"signals\": [\n";
 
         write_sigspec(sig.second, indent_level + 2);
@@ -280,7 +283,7 @@ struct JnyWriter
                 f << ",\n";
 
             f << _indent << "  {\n";
-            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(con.first.unescape()));
+            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(_design->twines.unescaped_str(con.first)));
             f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
@@ -351,10 +354,10 @@ struct JnyWriter
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s\"%s\": ", _indent, escape_string(param.first.unescape()));
+                f << stringf("  %s\"%s\": ", _indent, escape_string(_design->twines.unescaped_str(param.first)));
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s\"%s\": true", _indent, escape_string(param.first.unescape()));
+                f << stringf("  %s\"%s\": true", _indent, escape_string(_design->twines.unescaped_str(param.first)));
             }
 
             first_param = false;

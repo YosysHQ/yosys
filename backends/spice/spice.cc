@@ -27,7 +27,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static string spice_id2str(IdString id)
+static string spice_id2str(PooledName id)
 {
 	static const char *escape_chars = "$\\[]()<>=";
 	string s = id.unescape();
@@ -38,9 +38,9 @@ static string spice_id2str(IdString id)
 	return s;
 }
 
-static string spice_id2str(IdString id, bool use_inames, idict<IdString, 1> &inums)
+static string spice_id2str(PooledName id, bool use_inames, idict<IdString, 1> &inums)
 {
-	if (!use_inames && *id.c_str() == '$')
+	if (!use_inames && !id.isPublic())
 		return stringf("%d", inums(id));
 	return spice_id2str(id);
 }

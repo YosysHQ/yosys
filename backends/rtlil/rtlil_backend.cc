@@ -32,13 +32,23 @@ USING_YOSYS_NAMESPACE
 using namespace RTLIL_BACKEND;
 YOSYS_NAMESPACE_BEGIN
 
-void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj)
+static std::string twine_handle(IdString ref)
 {
-	for (const auto& [name, value] : reversed(obj->attributes)) {
-		f << stringf("%s" "attribute %s ", indent, name);
-		dump_const(f, value);
-		f << stringf("\n");
-	}
+	return stringf("%s@%zu", ref.isPublic() ? "$pub" : "$priv", ref.untag().raw());
+}
+
+static std::string twine_ref(const RTLIL::Design *design, IdString ref, DumpMode mode)
+{
+	if (mode == DumpMode::Readable || ID::is_static(ref))
+		return design->twines.str(ref);
+	return twine_handle(ref);
+}
+
+static std::string twine_cmt(const RTLIL::Design *design, IdString ref, DumpMode mode)
+{
+	if (mode != DumpMode::Replayable || ID::is_static(ref))
+		return "";
+	return stringf("  # %s", design->twines.str(ref).c_str());
 }
 
 void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
@@ -103,7 +113,70 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 	}
 }
 
-void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint)
+void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, DumpMode mode)
+{
+	for (const auto& [name, value] : reversed(obj->attributes)) {
+		f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
+		dump_const(f, value);
+		f << stringf("\n");
+	}
+}
+
+static void collect_static_twine(IdString ref, pool<size_t> &out)
+{
+	if (ref != IdString::Null && ID::is_static(ref))
+		out.insert(ref.untag().raw());
+}
+
+void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design)
+{
+	if (!design || design->twines.size() == 0)
+		return;
+	f << stringf("twines\n");
+	std::vector<IdString> ids;
+	for (IdString id : design->twines.slots())
+		ids.push_back(id);
+	pool<size_t> statics;
+	for (IdString id : ids) {
+		const TwineNode &n = design->twines[id];
+		if (n.is_suffix())
+			collect_static_twine(n.suffix().prefix, statics);
+	}
+	for (size_t value : statics)
+		ids.push_back(IdString(value));
+	std::sort(ids.begin(), ids.end());
+	for (IdString id : ids) {
+		const TwineNode &n = design->twines[id];
+		if (n.is_leaf()) {
+			f << stringf("  leaf %zu ", id.raw());
+			dump_const(f, RTLIL::Const(n.leaf()));
+			f << stringf("\n");
+		} else if (n.is_suffix()) {
+			f << stringf("  suffix %zu %zu ", id.raw(), n.suffix().prefix.raw());
+			dump_const(f, RTLIL::Const(n.suffix().tail));
+			f << stringf("\n");
+		}
+	}
+	f << stringf("end\n");
+}
+
+static std::string sigspec_str(const RTLIL::SigSpec &sig, DumpMode mode)
+{
+	std::ostringstream ss;
+	RTLIL_BACKEND::dump_sigspec(ss, sig, true, mode);
+	return ss.str();
+}
+
+static void dump_connect(std::ostream &f, const std::string &indent, DumpMode mode,
+		const std::string &operands, const std::string &readable)
+{
+	f << indent << "connect " << operands;
+	if (mode == DumpMode::Replayable && readable != operands)
+		f << "  # " << readable;
+	f << "\n";
+}
+
+void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint, DumpMode mode)
 {
 	if (chunk.wire == NULL) {
 		dump_const(f, chunk.data, chunk.width, chunk.offset, autoint);

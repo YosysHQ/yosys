@@ -30,9 +30,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define EDIF_DEF(_id) edif_names(_id.unescape(), true)
-#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(_id.unescape(), true, _ren, _bl, _br)
-#define EDIF_REF(_id) edif_names(_id.unescape(), false)
+#define EDIF_DEF(_id) edif_names(design->twines.unescaped_str(_id), true)
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(design->twines.unescaped_str(_id), true, _ren, _bl, _br)
+#define EDIF_REF(_id) edif_names(design->twines.unescaped_str(_id), false)
 #define EDIF_DEF_STR(_id) edif_names(RTLIL::unescape_id(_id), true)
 #define EDIF_REF_STR(_id) edif_names(RTLIL::unescape_id(_id), false)
 
@@ -488,7 +488,7 @@ struct EdifBackend : public Backend {
 					for (int i = 0; i < GetSize(sig); i++)
 						if (sig[i].wire == NULL && sig[i] != RTLIL::State::S0 && sig[i] != RTLIL::State::S1)
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
-									i, module, cell, p.first.unescape(), log_signal(sig[i]));
+									i, module, cell, design->twines.unescaped_str(p.first), log_signal(sig[i]));
 						else {
 							int member_idx = lsbidx ? i : GetSize(sig)-i-1;
 							auto m = design->module(cell->type);

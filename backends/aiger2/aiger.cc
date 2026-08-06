@@ -970,6 +970,13 @@ struct XAigerWriter : AigerWriter {
 	pool<Wire *> keep_wires;
 	std::ofstream map_file;
 
+	std::string map_sym(IdString name) const
+	{
+		if (map_refs)
+			return "#" + std::to_string((uint64_t)name.raw());
+		return design->twines.str(name);
+	}
+
 	typedef std::pair<SigBit, HierCursor> HierBit;
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
@@ -1539,6 +1546,8 @@ struct XAiger2Backend : Backend {
 			writer.map_file.open(map_filename);
 			if (!writer.map_file)
 				log_cmd_error("Failed to open '%s' for writing\n", map_filename);
+			if (writer.map_refs)
+				writer.map_file << "refs " << (uint64_t)top->name.ref().raw() << "\n";
 		}
 
 		design->bufNormalize(true);
