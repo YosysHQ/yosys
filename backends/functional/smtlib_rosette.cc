@@ -73,14 +73,14 @@ class SmtrStruct {
 		std::string accessor;
 		std::string name;
 	};
-	idict<IdString> field_names;
+	idict<PooledName> field_names;
 	vector<Field> fields;
 	SmtrScope &global_scope;
 	SmtrScope local_scope;
 public:
 	std::string name;
 	SmtrStruct(std::string name, SmtrScope &scope) : global_scope(scope), local_scope(), name(name) {}
-	void insert(IdString field_name, SmtrSort sort) {
+	void insert(PooledName field_name, SmtrSort sort) {
 		field_names(field_name);
 		auto base_name = local_scope.unique_name(field_name);
 		auto accessor = name + "-" + base_name;
@@ -111,7 +111,7 @@ public:
 		w.close();
 	}
 	SExpr access(SExpr record, IdString name) {
-		size_t i = field_names.at(name);
+		size_t i = field_names.at(PooledName(name));
 		return list(fields[i].accessor, std::move(record));
 	}
 };
@@ -363,7 +363,7 @@ struct FunctionalSmtrBackend : public Backend {
 		}
 
 		for (auto module : design->selected_modules()) {
-			log("Processing module `%s`.\n", module->name.c_str());
+			log("Processing module `%s`.\n", module->name);
 			SmtrModule smtr(module, assoc_list_helpers);
 			smtr.write(*f);
 		}

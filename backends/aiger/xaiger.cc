@@ -681,6 +681,14 @@ struct XAigerWriter
 
 	void write_map(std::ostream &f)
 	{
+		return "#" + std::to_string((uint64_t)name.raw());
+	}
+
+	void write_map(std::ostream &f, bool refs)
+	{
+		if (refs)
+			f << "refs\n";
+
 		dict<int, string> input_lines;
 		dict<int, string> output_lines;
 
