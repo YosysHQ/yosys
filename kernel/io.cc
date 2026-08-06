@@ -407,7 +407,7 @@ std::string parent_from_file_path(std::string path) {
 	return result;
 }
 
-void format_emit_unescaped(std::string &result, std::string_view fmt)
+void format_emit_unescape(std::string &result, std::string_view fmt)
 {
 	result.reserve(result.size() + fmt.size());
 	for (size_t i = 0; i < fmt.size(); ++i) {
@@ -422,7 +422,7 @@ void format_emit_unescaped(std::string &result, std::string_view fmt)
 std::string unescape_format_string(std::string_view fmt)
 {
 	std::string result;
-	format_emit_unescaped(result, fmt);
+	format_emit_unescape(result, fmt);
 	return result;
 }
 
@@ -596,17 +596,6 @@ void format_emit_string_view(std::string &result, std::string_view spec, int *dy
 	// Delegate nontrivial formats to the C library. We need to construct
 	// a temporary string to ensure null termination.
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, std::string(arg).c_str());
-}
-
-void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
-	DynamicIntCount num_dynamic_ints, const RTLIL::IdString &arg)
-{
-	if (spec == "%s") {
-		// Format checking will have guaranteed num_dynamic_ints == 0.
-		arg.append_to(&result);
-		return;
-	}
-	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg.c_str());
 }
 
 void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynamic_ints,

@@ -100,7 +100,7 @@ public:
 	void parse_rtlil(const RTLIL::Cell *cell);
 	void emit_rtlil(RTLIL::Cell *cell) const;
 
-	void parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_like, int default_base, RTLIL::IdString task_name, RTLIL::IdString module_name);
+	void parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_like, int default_base, const std::string &task_name, const std::string &module_name);
 	std::vector<VerilogFmtArg> emit_verilog() const;
 
 	void emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(const RTLIL::SigSpec &)> emit_sig, const std::string &context) const;

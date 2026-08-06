@@ -284,7 +284,6 @@ void yosys_shutdown()
 
 	delete yosys_design;
 	yosys_design = NULL;
-	RTLIL::OwningIdString::collect_garbage();
 
 	for (auto f : log_files)
 		if (f != stderr)
@@ -335,23 +334,6 @@ const std::string *create_id_prefix(std::string_view file, int line, std::string
 	return new std::string(stringf("$auto$%s:%d:%s$", file, line, func));
 }
 
-RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix)
-{
-#ifdef _WIN32
-	size_t pos = file.find_last_of("/\\");
-#else
-	size_t pos = file.find_last_of('/');
-#endif
-	if (pos != std::string_view::npos)
-		file = file.substr(pos+1);
-
-	pos = func.find_last_of(':');
-	if (pos != std::string_view::npos)
-		func = func.substr(pos+1);
-
-	return stringf("$auto$%s:%d:%s$%s$%d", file, line, func, suffix, autoidx++);
-}
-
 RTLIL::Design *yosys_get_design()
 {
 	return yosys_design;
@@ -364,10 +346,10 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	if (recursion_counter > 1)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
-	if (!design->selected_active_module.empty())
-		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module));
+	if (design->selected_active_module != IdString::Null)
+		str += stringf(" [%s]", RTLIL::unescape_id(design->twines.str(design->selected_active_module)).c_str());
 	if (!design->full_selection()) {
-		if (design->selected_active_module.empty())
+		if (design->selected_active_module == IdString::Null)
 			str += "*";
 		else if (design->selection().selected_modules.size() != 1 || design->selection().selected_members.size() != 0 ||
 				design->selection().selected_modules.count(design->selected_active_module) == 0)
@@ -946,11 +928,13 @@ static char *readline_obj_generator(const char *text, int state)
 		RTLIL::Design *design = yosys_get_design();
 		int len = strlen(text);
 
-		if (design->selected_active_module.empty())
+		if (design->selected_active_module == IdString::Null)
 		{
-			for (auto mod : design->modules())
-				if (mod->name.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(mod->name.unescape().c_str()));
+			for (auto mod : design->modules()) {
+				std::string mod_name = mod->name.str();
+				if (mod_name.compare(0, len, text) == 0)
+					obj_names.push_back(strdup(mod_name.c_str()));
+			}
 		}
 		else if (design->module(design->selected_active_module) != nullptr)
 		{
@@ -960,17 +944,21 @@ static char *readline_obj_generator(const char *text, int state)
 				if (w->name.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
-			for (auto &it : module->memories)
-				if (it.first.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(it.first.unescape().c_str()));
+			for (auto &it : module->memories) {
+				std::string mem_name = design->twines.str(it.first);
+				if (mem_name.compare(0, len, text) == 0)
+					obj_names.push_back(strdup(mem_name.c_str()));
+			}
 
 			for (auto cell : module->cells())
 				if (cell->name.unescape().compare(0, len, text) == 0)
 					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
-			for (auto &it : module->processes)
-				if (it.first.unescape().compare(0, len, text) == 0)
-					obj_names.push_back(strdup(it.first.unescape().c_str()));
+			for (auto &it : module->processes) {
+				std::string proc_name = design->twines.str(it.first);
+				if (proc_name.compare(0, len, text) == 0)
+					obj_names.push_back(strdup(proc_name.c_str()));
+			}
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());

@@ -58,7 +58,8 @@ void try_collect_garbage()
 	if (!GarbageCollectionGuard::is_enabled() || !garbage_collection_requested)
 		return;
 	garbage_collection_requested = false;
-	RTLIL::OwningIdString::collect_garbage();
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs())
+		design->gc_twines();
 }
 
 Pass::Pass(std::string name, std::string short_help, source_location location) :
@@ -125,7 +126,6 @@ Pass::pre_post_exec_state_t Pass::pre_execute()
 
 void Pass::post_execute(Pass::pre_post_exec_state_t state)
 {
-	IdString::checkpoint();
 	log_suppressed();
 
 	int64_t time_ns = PerformanceTimer::query() - state.begin_ns;
@@ -306,8 +306,8 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module.clear();
+	IdString backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = IdString::Null;
 	design->push_selection(selection);
 
 	Pass::call(design, command);
@@ -318,8 +318,8 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::vector<std::string> args)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module.clear();
+	IdString backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = IdString::Null;
 	design->push_selection(selection);
 
 	Pass::call(design, args);
@@ -330,8 +330,8 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 
 void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::string command)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module = module->name.str();
+	IdString backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = module->name;
 	design->push_empty_selection();
 	design->select(module);
 
@@ -343,8 +343,8 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::str
 
 void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vector<std::string> args)
 {
-	std::string backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module = module->name.str();
+	IdString backup_selected_active_module = design->selected_active_module;
+	design->selected_active_module = module->name;
 	design->push_empty_selection();
 	design->select(module);
 
@@ -997,7 +997,7 @@ struct HelpPass : public Pass {
 		for (auto it : StaticCellTypes::builder.cells) {
 			if (!StaticCellTypes::categories.is_known(it.type))
 				continue;
-			auto name = it.type.str();
+			auto name = ID::str(it.type);
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
 				groups[cell_help.group].emplace_back(name);
@@ -1035,10 +1035,10 @@ struct HelpPass : public Pass {
 			json.name("code"); json.value(ch.code);
 			vector<string> inputs, outputs;
 			for (auto &input : ct.inputs)
-				inputs.push_back(input.str());
+				inputs.push_back(ID::str(input));
 			json.name("inputs"); json.value(inputs);
 			for (auto &output : ct.outputs)
-				outputs.push_back(output.str());
+				outputs.push_back(ID::str(output));
 			json.name("outputs"); json.value(outputs);
 			vector<string> properties;
 			// CellType properties

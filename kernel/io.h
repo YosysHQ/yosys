@@ -8,9 +8,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-namespace RTLIL {
-	struct IdString;
-}
+struct IdString;
 
 inline std::string vstringf(const char *fmt, va_list ap)
 {
@@ -199,7 +197,7 @@ check_format(std::string_view fmt, int fmt_start, bool *has_escapes, FoundFormat
 
 template <class T>
 static auto has_name_member_imp(int)
-	-> decltype(static_cast<const RTLIL::IdString>(std::declval<T>().name), std::true_type{});
+	-> decltype(static_cast<const IdString>(std::declval<T>().name), std::true_type{});
 
 template <class T>
 static auto has_name_member_imp(long)
@@ -210,7 +208,7 @@ struct has_name_member : decltype(has_name_member_imp<T>(0)){};
 
 template <class T>
 static auto ptr_has_name_member_imp(int)
-	-> decltype(static_cast<const RTLIL::IdString>(std::declval<T>()->name), std::true_type{});
+	-> decltype(static_cast<const IdString>(std::declval<T>()->name), std::true_type{});
 
 template <class T>
 static auto ptr_has_name_member_imp(long)
@@ -267,7 +265,6 @@ constexpr void check_format(std::string_view fmt, int fmt_start, bool *has_escap
 		if constexpr (!std::is_convertible_v<Arg, const char *> &&
 		        !std::is_convertible_v<Arg, const std::string &> &&
 			!std::is_convertible_v<Arg, const std::string_view &> &&
-			!std::is_convertible_v<Arg, const RTLIL::IdString &> &&
 			!has_name_member<Arg>() &&
 			!ptr_has_name_member<Arg>()) {
 			YOSYS_ABORT("Expected type convertible to char *");
@@ -307,10 +304,6 @@ void format_emit_string(std::string &result, std::string_view spec, int *dynamic
 // Emit the string representation of `arg` that has been converted to a `std::string_view'.
 void format_emit_string_view(std::string &result, std::string_view spec, int *dynamic_ints,
 	DynamicIntCount num_dynamic_ints, std::string_view arg);
-
-// Emit the string representation of `arg` that has been converted to a `RTLIL::IdString'.
-void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
-	DynamicIntCount num_dynamic_ints, const RTLIL::IdString &arg);
 
 // Emit the string representation of `arg` that has been converted to a `double'.
 void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynamic_ints,
@@ -362,11 +355,6 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 			format_emit_string_view(result, spec, dynamic_ints, num_dynamic_ints, s);
 			return;
 		}
-		if constexpr (std::is_convertible_v<Arg, const RTLIL::IdString &>) {
-			const RTLIL::IdString &s = arg;
-			format_emit_idstring(result, spec, dynamic_ints, num_dynamic_ints, s);
-			return;
-		}
 		if constexpr (has_name_member<Arg>()) {
 			const std::string &s = arg.name.unescape();
 			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s);
@@ -393,7 +381,7 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 
 // Append the format string `fmt` to `result`, assuming there are no format conversion
 // specifiers other than "%%" and therefore no arguments. Unescape "%%".
-void format_emit_unescaped(std::string &result, std::string_view fmt);
+void format_emit_unescape(std::string &result, std::string_view fmt);
 std::string unescape_format_string(std::string_view fmt);
 
 inline void format_emit(std::string &result, std::string_view fmt, int fmt_start,
@@ -401,7 +389,7 @@ inline void format_emit(std::string &result, std::string_view fmt, int fmt_start
 {
 	fmt = fmt.substr(fmt_start);
 	if (has_escapes) {
-		format_emit_unescaped(result, fmt);
+		format_emit_unescape(result, fmt);
 	} else {
 		result += fmt;
 	}
@@ -428,7 +416,7 @@ inline void format_emit(std::string &result, std::string_view fmt, int fmt_start
 	}
 	std::string_view str = fmt.substr(fmt_start, specs->start - fmt_start);
 	if (has_escapes) {
-		format_emit_unescaped(result, str);
+		format_emit_unescape(result, str);
 	} else {
 		result += str;
 	}
