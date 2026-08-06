@@ -31,10 +31,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-pool<string> used_names;
-dict<IdString, string> namecache;
-int autoid_counter;
-
 typedef unsigned FDirection;
 static const FDirection FD_NODIRECTION = 0x0;
 static const FDirection FD_IN = 0x1;
@@ -50,9 +46,9 @@ std::string getFileinfo(const RTLIL::AttrObject *design_entity)
 }
 
 // Get a port direction with respect to a specific module.
-FDirection getPortFDirection(IdString id, Module *module)
+FDirection getPortFDirection(IdString ref, Module *module)
 {
-	Wire *wire = module->wires_.at(id);
+	Wire *wire = module->wire(ref);
 	FDirection direction = FD_NODIRECTION;
 	if (wire && wire->port_id)
 	{
@@ -64,43 +60,53 @@ FDirection getPortFDirection(IdString id, Module *module)
 	return direction;
 }
 
-string next_id()
+struct FirrtlNames
 {
-	string new_id;
+	const Design *design;
+	pool<string> used_names;
+	dict<IdString, string> namecache;
+	int autoid_counter = 0;
 
-	while (1) {
-		new_id = stringf("_%d", autoid_counter++);
-		if (used_names.count(new_id) == 0) break;
-	}
+	FirrtlNames(const Design *design) : design(design) { }
 
-	used_names.insert(new_id);
-	return new_id;
-}
-
-const char *make_id(IdString id)
-{
-	if (namecache.count(id) != 0)
-		return namecache.at(id).c_str();
-
-	string new_id = id.unescape();
-
-	for (int i = 0; i < GetSize(new_id); i++)
+	string next_id()
 	{
-		char &ch = new_id[i];
-		if ('a' <= ch && ch <= 'z') continue;
-		if ('A' <= ch && ch <= 'Z') continue;
-		if ('0' <= ch && ch <= '9' && i != 0) continue;
-		if ('_' == ch) continue;
-		ch = '_';
+		string new_id;
+
+		while (1) {
+			new_id = stringf("_%d", autoid_counter++);
+			if (used_names.count(new_id) == 0) break;
+		}
+
+		used_names.insert(new_id);
+		return new_id;
 	}
 
-	while (used_names.count(new_id) != 0)
-		new_id += '_';
+	string make_id(IdString id)
+	{
+		if (namecache.count(id) != 0)
+			return namecache.at(id);
 
-	namecache[id] = new_id;
-	used_names.insert(new_id);
-	return namecache.at(id).c_str();
-}
+		string new_id = design->twines.unescaped_str(id);
+
+		for (int i = 0; i < GetSize(new_id); i++)
+		{
+			char &ch = new_id[i];
+			if ('a' <= ch && ch <= 'z') continue;
+			if ('A' <= ch && ch <= 'Z') continue;
+			if ('0' <= ch && ch <= '9' && i != 0) continue;
+			if ('_' == ch) continue;
+			ch = '_';
+		}
+
+		while (used_names.count(new_id) != 0)
+			new_id += '_';
+
+		namecache[id] = new_id;
+		used_names.insert(new_id);
+		return new_id;
+	}
+};
 
 std::string dump_const_string(const RTLIL::Const &data)
 {
@@ -223,13 +229,13 @@ std::string dump_const(const RTLIL::Const &data)
 	return res_str;
 }
 
-std::string extmodule_name(RTLIL::Cell *cell, RTLIL::Module *mod_instance)
+std::string extmodule_name(FirrtlNames &names, RTLIL::Cell *cell, RTLIL::Module *mod_instance)
 {
 	// Since we are creating a custom extmodule for every cell that instantiates
 	// this blackbox, we need to create a custom name for it. We just use the
 	// name of the blackbox itself followed by the name of the cell.
-	const std::string cell_name = std::string(make_id(cell->name));
-	const std::string blackbox_name = std::string(make_id(mod_instance->name));
+	const std::string cell_name = names.make_id(cell->name);
+	const std::string blackbox_name = names.make_id(mod_instance->name);
 	const std::string extmodule_name = blackbox_name + "_" + cell_name;
 	return extmodule_name;
 }
@@ -239,12 +245,12 @@ std::string extmodule_name(RTLIL::Cell *cell, RTLIL::Module *mod_instance)
  * ''cell'' as it represents the instantiation of the blackbox defined by
  * ''mod_instance'' and therefore contains all its instance parameters.
  */
-void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream &f)
+void emit_extmodule(FirrtlNames &names, RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream &f)
 {
 	const std::string indent = "    ";
 
-	const std::string blackbox_name = std::string(make_id(mod_instance->name));
-	const std::string exported_name = extmodule_name(cell, mod_instance);
+	const std::string blackbox_name = names.make_id(mod_instance->name);
+	const std::string exported_name = extmodule_name(names, cell, mod_instance);
 
 	// We use the cell's fileinfo for this extmodule as its parameters come from
 	// the cell and not from the module itself (the module contains default
@@ -258,7 +264,7 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 	// Emit extmodule ports.
 	for (auto wire : mod_instance->wires())
 	{
-		const auto wireName = make_id(wire->name);
+		const auto wireName = names.make_id(wire->name);
 		const std::string wireFileinfo = getFileinfo(wire);
 
 		if (wire->port_input && wire->port_output)
@@ -288,7 +294,7 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 		const RTLIL::IdString p_id = p.first;
 		const RTLIL::Const p_value = p.second;
 
-		std::string param_name(p_id.c_str());
+		std::string param_name(cell->module->design->twines.str(p_id));
 		const std::string param_value = dump_const(p_value);
 
 		// Remove backslashes from parameters as these come from the internal RTLIL
@@ -332,14 +338,14 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
  * instances in the RTLIL sense with these custom extmodules for the firrtl to
  * be valid.
  */
-void emit_elaborated_extmodules(RTLIL::Design *design, std::ostream &f)
+void emit_elaborated_extmodules(FirrtlNames &names, RTLIL::Design *design, std::ostream &f)
 {
 	for (auto module : design->modules())
 	{
 		for (auto cell : module->cells())
 		{
 			// Is this cell a module instance?
-			bool cellIsModuleInstance = cell->type[0] != '$';
+			bool cellIsModuleInstance = cell->type.isPublic();
 
 			if (cellIsModuleInstance)
 			{
@@ -355,7 +361,7 @@ void emit_elaborated_extmodules(RTLIL::Design *design, std::ostream &f)
 
 				if (modIsBlackbox)
 				{
-					emit_extmodule(cell, modInstance, f);
+					emit_extmodule(names, cell, modInstance, f);
 				}
 			}
 		}
@@ -370,6 +376,7 @@ struct FirrtlWorker
 	dict<SigBit, pair<string, int>> reverse_wire_map;
 	string unconn_id;
 	RTLIL::Design *design;
+	FirrtlNames &names;
 	std::string indent;
 
 	void register_reverse_wire_map(string id, SigSpec sig)
@@ -378,11 +385,21 @@ struct FirrtlWorker
 			reverse_wire_map[sig[i]] = make_pair(id, i);
 	}
 
-	FirrtlWorker(Module *module, std::ostream &f, RTLIL::Design *theDesign) : module(module), f(f), design(theDesign), indent("    ")
+	FirrtlWorker(Module *module, std::ostream &f, RTLIL::Design *theDesign, FirrtlNames &names) : module(module), f(f), design(theDesign), names(names), indent("    ")
 	{
 	}
 
-	static string make_expr(const SigSpec &sig)
+	string make_id(IdString id)
+	{
+		return names.make_id(id);
+	}
+
+	string next_id()
+	{
+		return names.next_id();
+	}
+
+	string make_expr(const SigSpec &sig)
 	{
 		string expr;
 
@@ -429,14 +446,14 @@ struct FirrtlWorker
 		return expr;
 	}
 
-	std::string fid(RTLIL::IdString internal_id)
+	std::string fid(IdString internal_id)
 	{
 		return make_id(internal_id);
 	}
 
 	std::string cellname(RTLIL::Cell *cell)
 	{
-		return fid(cell->name).c_str();
+		return fid(cell->name);
 	}
 
 	void process_instance(RTLIL::Cell *cell, vector<string> &wire_exprs)
@@ -473,7 +490,7 @@ struct FirrtlWorker
 		// that contains per-instance parameterizations. These instances were
 		// emitted earlier in the firrtl backend.
 		const std::string instanceName = instModule->get_blackbox_attribute() ?
-			extmodule_name(cell, instModule) :
+			extmodule_name(names, cell, instModule) :
 			instanceOf;
 
 		std::string cellFileinfo = getFileinfo(cell);
@@ -1223,23 +1240,21 @@ struct FirrtlBackend : public Backend {
 		Pass::call(design, "demuxmap");
 		Pass::call(design, "bwmuxmap");
 
-		used_names.clear();
-		namecache.clear();
-		autoid_counter = 0;
+		FirrtlNames names(design);
 
 		// Get the top module, or a reasonable facsimile - we need something for the circuit name.
 		Module *top = nullptr;
 		Module *last = nullptr;
 		// Generate module and wire names.
 		for (auto module : design->modules()) {
-			make_id(module->name);
+			names.make_id(module->name);
 			last = module;
 			if (top == nullptr && module->get_bool_attribute(ID::top)) {
 				top = module;
 			}
 			for (auto wire : module->wires())
 				if (wire->port_id)
-					make_id(wire->name);
+					names.make_id(wire->name);
 		}
 
 		if (top == nullptr)
@@ -1249,23 +1264,19 @@ struct FirrtlBackend : public Backend {
 			log_cmd_error("There is no top module in this design!\n");
 
 		std::string circuitFileinfo = getFileinfo(top);
-		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo);
+		*f << stringf("circuit %s: %s\n", names.make_id(top->name), circuitFileinfo);
 
-		emit_elaborated_extmodules(design, *f);
+		emit_elaborated_extmodules(names, design, *f);
 
 		// Emit non-blackbox modules.
 		for (auto module : design->modules())
 		{
 			if (!module->get_blackbox_attribute())
 			{
-				FirrtlWorker worker(module, *f, design);
+				FirrtlWorker worker(module, *f, design, names);
 				worker.run();
 			}
 		}
-
-		used_names.clear();
-		namecache.clear();
-		autoid_counter = 0;
 	}
 } FirrtlBackend;
 

@@ -268,7 +268,7 @@ struct XAigerWriter
 					if (ys_debug(1)) {
 						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 						if (seen.emplace(inst_module->name, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
-								cell->type.unescape(), i.first.name.unescape(), offset, d);
+								cell->type.unescape(), cell->module->design->twines.unescaped_str(i.first.name), offset, d);
 					}
 #endif
 					arrival_times[rhs[offset]] = d;
@@ -285,7 +285,7 @@ struct XAigerWriter
 				auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
 				auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
 				if (!is_input && !is_output)
-					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", c.first.unescape(), cell, cell->type.unescape());
+					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", cell->module->design->twines.unescaped_str(c.first), cell, cell->type.unescape());
 
 				if (is_input)
 					for (auto b : c.second) {
@@ -643,7 +643,8 @@ struct XAigerWriter
 				holes_design = it->second;
 			else
 				holes_design = nullptr;
-			RTLIL::Module *holes_module = holes_design ? holes_design->module(module->name) : nullptr;
+			RTLIL::Module *holes_module = holes_design ?
+					holes_design->module(holes_design->twines.find_from(module->design->twines, module->name)) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /* dff_mode */);
@@ -681,14 +682,6 @@ struct XAigerWriter
 
 	void write_map(std::ostream &f)
 	{
-		return "#" + std::to_string((uint64_t)name.raw());
-	}
-
-	void write_map(std::ostream &f, bool refs)
-	{
-		if (refs)
-			f << "refs\n";
-
 		dict<int, string> input_lines;
 		dict<int, string> output_lines;
 
@@ -700,12 +693,14 @@ struct XAigerWriter
 				if (input_bits.count(b)) {
 					int a = aig_map.at(b);
 					log_assert((a & 1) == 0);
-					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i, wire);
+					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i,
+							design->twines.ref_token(wire->name));
 				}
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i, wire);
+					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i,
+							design->twines.ref_token(wire->name));
 				}
 			}
 		}
@@ -717,7 +712,7 @@ struct XAigerWriter
 
 		int box_count = 0;
 		for (auto cell : box_list)
-			f << stringf("box %d %d %s\n", box_count++, 0, cell->name.unescape());
+			f << stringf("box %d %d %s\n", box_count++, 0, design->twines.ref_token(cell->name));
 
 		output_lines.sort();
 		for (auto &it : output_lines)
@@ -744,7 +739,9 @@ struct XAigerBackend : public Backend {
 		log("        write ASCII version of AIGER format\n");
 		log("\n");
 		log("    -map <filename>\n");
-		log("        write an extra file with port and box symbols\n");
+		log("        write an extra file with port and box symbols, as opaque name\n");
+		log("        references that 'abc_ops_reintegrate' resolves. They are only\n");
+		log("        valid within the run of yosys that wrote them.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        write $_DFF_[NP]_ cells\n");

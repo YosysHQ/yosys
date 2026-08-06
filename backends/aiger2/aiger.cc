@@ -874,10 +874,10 @@ struct Index {
 					Wire *w = def->wire(portname);
 					if (!w)
 						log_error("Output port %s on instance %s of %s doesn't exist\n",
-								  portname.unescape(), driver, def);
+								  design->twines.unescaped_str(portname), driver, def);
 					if (bit.offset >= w->width)
 						log_error("Bit position %d of output port %s on instance %s of %s is out of range (port has width %d)\n",
-								  bit.offset, portname.unescape(), driver, def, w->width);
+								  bit.offset, design->twines.unescaped_str(portname), driver, def, w->width);
 					ret = visit(cursor, SigBit(w, bit.offset));
 				}
 				cursor.exit(*this);
@@ -893,11 +893,11 @@ struct Index {
 				IdString portname = bit.wire->name;
 				if (!instance->hasPort(portname))
 					log_error("Input port %s on instance %s of %s unconnected\n",
-							  portname.unescape(), instance, instance->type);
+							  design->twines.unescaped_str(portname), instance, instance->type);
 				auto &port = instance->getPort(portname);
 				if (bit.offset >= port.size())
 					log_error("Bit %d of input port %s on instance %s of %s unconnected\n",
-							  bit.offset, portname.unescape(), instance, instance->type.unescape());
+							  bit.offset, design->twines.unescaped_str(portname), instance, instance->type.unescape());
 				ret = visit(cursor, port[bit.offset]);
 			}
 			cursor.enter(*this, instance);
@@ -1304,13 +1304,6 @@ struct XAigerWriter : AigerWriter {
 		return found->second;
 	}
 
-	std::string map_sym(IdString name) const
-	{
-		if (map_refs)
-			return "#" + std::to_string((uint64_t)name.raw());
-		return design->twines.str(name);
-	}
-
 	typedef std::pair<SigBit, HierCursor> HierBit;
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
@@ -1331,7 +1324,7 @@ struct XAigerWriter : AigerWriter {
 				driven_by_opaque_box.insert(bit);
 				SigBit named = mapped_name(bit);
 				map_file << "input " << pis.size() - 1 << " " << named.wire->start_offset + named.offset
-						<< " " << named.wire->name.c_str() << "\n";
+						<< " " << design->twines.ref_token(named.wire->name) << "\n";
 			}
 		} else {
 			log_assert(!box_port);
@@ -1367,8 +1360,8 @@ struct XAigerWriter : AigerWriter {
 					if (map_file.is_open()) {
 						log_assert(cursor.is_top());
 						map_file << "pseudopo " << proper_pos_counter << " " << bitp
-							<< " " << box->name.c_str()
-							<< " " << conn.first.c_str() << "\n";
+							<< " " << design->twines.ref_token(box->name)
+							<< " " << design->twines.ref_token(conn.first) << "\n";
 					}
 					proper_pos_counter++;
 					pos.push_back(std::make_pair(bit, cursor));
@@ -1385,9 +1378,9 @@ struct XAigerWriter : AigerWriter {
 
 					// If the following log_errors fire, make sure your design/flow passes `check -assert` before `write_xaiger2`.
 					if (!bit.wire)
-						log_error("Bad connection: %s/%s connected to non-wire %s\n", box, conn.first.unescape(), log_signal(bit));
+						log_error("Bad connection: %s/%s connected to non-wire %s\n", box, design->twines.unescaped_str(conn.first), log_signal(bit));
 					if (bit.wire->port_input && !bit.wire->port_output)
-						log_error("Bad connection: %s/%s with non-input port direction connected to wire %s marked as port input\n", box, conn.first.unescape(), log_signal(bit));
+						log_error("Bad connection: %s/%s with non-input port direction connected to wire %s marked as port input\n", box, design->twines.unescaped_str(conn.first), log_signal(bit));
 
 
 					ensure_pi(bit, cursor);
@@ -1480,7 +1473,7 @@ struct XAigerWriter : AigerWriter {
 
 			if (map_file.is_open()) {
 				log_assert(cursor.is_top());
-				map_file << "box " << box_seq << " 0 " << box->name.c_str() << "\n";
+				map_file << "box " << box_seq << " 0 " << design->twines.ref_token(box->name) << "\n";
 			}
 			box_seq++;
 
@@ -1499,7 +1492,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_debug("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
-										port_id.unescape(), i, box, box->type.unescape());
+										design->twines.unescaped_str(port_id), i, box, box->type.unescape());
 							bit = RTLIL::Sx;
 						}
 
@@ -1535,7 +1528,7 @@ struct XAigerWriter : AigerWriter {
 						} else {
 							// FIXME: hierarchical path
 							log_debug("connection on port %s[%d] of instance %s (type %s) missing\n",
-										port_id.unescape(), i, box, box->type.unescape());
+										design->twines.unescaped_str(port_id), i, box, box->type.unescape());
 							pad_pi();
 							continue;
 						}
@@ -1555,7 +1548,7 @@ struct XAigerWriter : AigerWriter {
 						holes_module->addBuf(NEW_ID, SigSpec(State::S0, port->width), w);
 				} else {
 					log_error("Ambiguous port direction on %s/%s\n",
-							  box->type.unescape(), port_id.unescape());
+							  box->type.unescape(), design->twines.unescaped_str(port_id));
 				}
 			}
 		}
@@ -1636,7 +1629,7 @@ struct XAigerWriter : AigerWriter {
 				for (int i = 0; i < w->width; i++) {
 					if (map_file.is_open()) {
 						map_file << "output " << proper_pos_counter << " " << w->start_offset + i
-									<< " " << w->name.c_str() << "\n";
+									<< " " << design->twines.ref_token(w->name) << "\n";
 					}
 					proper_pos_counter++;
 					pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
@@ -1768,7 +1761,7 @@ struct Aiger2Backend : Backend {
 				continue;
 			if (known_ops(cell.type))
 				continue;
-			std::string name = cell.type.unescape();
+			std::string name = ID::str(cell.type);
 			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
@@ -1790,7 +1783,7 @@ struct Aiger2Backend : Backend {
 				continue;
 			if (known_ops(cell.type))
 				continue;
-			std::string name = cell.type.unescape();
+			std::string name = ID::str(cell.type);
 			if (col + name.size() + 2 > 72) {
 				log("\n    ");
 				col = 0;
@@ -1902,8 +1895,6 @@ struct XAiger2Backend : Backend {
 			writer.map_file.open(map_filename);
 			if (!writer.map_file)
 				log_cmd_error("Failed to open '%s' for writing\n", map_filename);
-			if (writer.map_refs)
-				writer.map_file << "refs " << (uint64_t)top->name.ref().raw() << "\n";
 		}
 
 		design->bufNormalize(true);
