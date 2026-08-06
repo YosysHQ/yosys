@@ -33,6 +33,7 @@ yosys_pass(synth_analogdevices
 		share
 		simplemap
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

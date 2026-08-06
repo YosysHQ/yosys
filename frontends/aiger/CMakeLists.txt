@@ -1,4 +1,4 @@
-yosys_frontend(aigerparse
+yosys_frontend(aiger
 	aigerparse.cc
 	aigerparse.h
 	REQUIRES

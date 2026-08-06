@@ -25,6 +25,7 @@ yosys_pass(synth_intel_alm
 		read_verilog
 		share
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

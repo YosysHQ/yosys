@@ -68,6 +68,7 @@ yosys_pass(synth_quicklogic
 		share
 		shregmap
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce
