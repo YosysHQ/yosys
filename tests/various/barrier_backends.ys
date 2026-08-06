@@ -20,7 +20,7 @@ write_firrtl temp/barrier.fir
 ! grep -qF 'wire bar: UInt<4>' temp/barrier.fir
 
 write_smv temp/barrier.smv
-! grep -qF '_t := resize(_$and$' temp/barrier.smv
+! grep -qE '_t := resize\(_\$.*and\$' temp/barrier.smv
 
 write_cxxrtl temp/barrier.cc
 ! grep -qF '\bar ' temp/barrier.cc

@@ -1,14 +1,21 @@
 yosys_gtest(kernel
 	bitpatternTest.cc
 	cellTypesTest.cc
+	flattenPerfTest.cc
 	hashTest.cc
 	ioTest.cc
 	logTest.cc
 	modindexTest.cc
+	pooledNameTest.cc
 	rtlilHelpers.h
 	rtlilStringTest.cc
 	rtlilTest.cc
 	sigspecExtractTest.cc
 	sigspecRemove2Test.cc
 	threadingTest.cc
+	twineHashTest.cc
+	twineSortTest.cc
+	twinePublicityTest.cc
+	COMPONENTS
+		flatten
 )
