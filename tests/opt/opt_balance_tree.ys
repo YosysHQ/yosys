@@ -1244,3 +1244,96 @@ design -load postopt
 
 design -reset
 log -pop
+
+
+# Test 31
+log -header "Combinational loop is left untouched"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, output b);
+  assign b = a | b;
+endmodule
+EOF
+hierarchy -auto-top
+proc
+select t:$or -assert-count 1
+opt_balance_tree
+select t:$or -assert-count 1
+
+design -reset
+log -pop
+
+
+# Test 32
+log -header "Multi-cell combinational loop is left untouched"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, input c, output b);
+  wire w;
+  assign w = a | b;
+  assign b = w | c;
+endmodule
+EOF
+hierarchy -auto-top
+proc
+select t:$or -assert-count 2
+opt_balance_tree
+select t:$or -assert-count 2
+
+design -reset
+log -pop
+
+
+# Test 33
+log -header "Clean chain beside a combinational loop is still balanced"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, input [7:0] v, output b, output x);
+  assign b = a | b;
+  assign x = v[0] | v[1] | v[2] | v[3] | v[4] | v[5] | v[6] | v[7];
+endmodule
+EOF
+hierarchy -auto-top
+proc
+select t:$or -assert-count 8
+opt_balance_tree
+select t:$or -assert-count 8
+
+# Loop cell is untouched
+select o:b %ci2 t:$or %i -assert-count 1
+
+# Chain was balanced to depth 3
+select i:v %co6 o:x %i -assert-count 1
+
+design -reset
+log -pop
+
+
+# Test 34
+log -header "Loop through a different cell type does not block balancing"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, c, input [3:0] v, output b, output x);
+  wire w;
+  assign w = b & a;
+  assign b = w | c;
+  assign x = v[0] | v[1] | v[2] | v[3];
+endmodule
+EOF
+hierarchy -auto-top
+proc
+select t:$and -assert-count 1
+select t:$or -assert-count 4
+opt_balance_tree
+select t:$and -assert-count 1
+select t:$or -assert-count 4
+
+# Chain was balanced to depth 2
+select i:v %co4 o:x %i -assert-count 1
+
+design -reset
+log -pop
