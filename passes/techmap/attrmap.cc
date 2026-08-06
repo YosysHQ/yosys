@@ -52,10 +52,10 @@ bool string_compare_nocase(const string &str1, const string &str2)
 	return true;
 }
 
-bool match_name(string &name, IdString &id, bool ignore_case=false)
+bool match_name(string &name, const string &id, bool ignore_case=false)
 {
 	string str1 = RTLIL::escape_id(name);
-	string str2 = id.str();
+	string str2 = id;
 
 	if (ignore_case)
 		return string_compare_nocase(str1, str2);
@@ -76,12 +76,12 @@ bool match_value(string &value, Const &val, bool ignore_case=false)
 
 struct AttrmapAction {
 	virtual ~AttrmapAction() { }
-	virtual bool apply(IdString &id, Const &val) = 0;
+	virtual bool apply(string &id, Const &val) = 0;
 };
 
 struct AttrmapTocase : AttrmapAction {
 	string name;
-	bool apply(IdString &id, Const&) override {
+	bool apply(string &id, Const&) override {
 		if (match_name(name, id, true))
 			id = RTLIL::escape_id(name);
 		return true;
@@ -90,7 +90,7 @@ struct AttrmapTocase : AttrmapAction {
 
 struct AttrmapRename : AttrmapAction {
 	string old_name, new_name;
-	bool apply(IdString &id, Const&) override {
+	bool apply(string &id, Const&) override {
 		if (match_name(old_name, id))
 			id = RTLIL::escape_id(new_name);
 		return true;
@@ -101,7 +101,7 @@ struct AttrmapMap : AttrmapAction {
 	bool imap;
 	string old_name, new_name;
 	string old_value, new_value;
-	bool apply(IdString &id, Const &val) override {
+	bool apply(string &id, Const &val) override {
 		if (match_name(old_name, id) && match_value(old_value, val, true)) {
 			id = RTLIL::escape_id(new_name);
 			val = make_value(new_value);
@@ -113,31 +113,34 @@ struct AttrmapMap : AttrmapAction {
 struct AttrmapRemove : AttrmapAction {
 	bool has_value;
 	string name, value;
-	bool apply(IdString &id, Const &val) override {
+	bool apply(string &id, Const &val) override {
 		return !(match_name(name, id) && (!has_value || match_value(value, val)));
 	}
 };
 
-void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actions, dict<RTLIL::IdString, RTLIL::Const> &attributes)
+void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr<AttrmapAction>> &actions, dict<IdString, RTLIL::Const> &attributes)
 {
 	dict<RTLIL::IdString, RTLIL::Const> new_attributes;
 
 	for (auto attr : attributes)
 	{
-		auto new_attr = attr;
+		string old_name = design->twines.str(attr.first);
+		string new_name = old_name;
+		Const new_value = attr.second;
 		for (auto &action : actions)
-			if (!action->apply(new_attr.first, new_attr.second))
+			if (!action->apply(new_name, new_value))
 				goto delete_this_attr;
 
-		if (new_attr != attr)
+		if (new_name != old_name || new_value != attr.second)
 			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname,
-					attr.first.unescape(), log_const(attr.second), new_attr.first.unescape(), log_const(new_attr.second));
+					RTLIL::unescape_id(old_name), log_const(attr.second),
+					RTLIL::unescape_id(new_name), log_const(new_value));
 
-		new_attributes[new_attr.first] = new_attr.second;
+		new_attributes[design->twines.add(std::move(new_name))] = new_value;
 
 		if (0)
 	delete_this_attr:
-			log("Removed attribute on %s: %s=%s\n", objname, attr.first.unescape(), log_const(attr.second));
+			log("Removed attribute on %s: %s=%s\n", objname, RTLIL::unescape_id(old_name), log_const(attr.second));
 	}
 
 	attributes.swap(new_attributes);
@@ -264,14 +267,14 @@ struct AttrmapPass : public Pass {
 		if (modattr_mode)
 		{
 			for (auto module : design->all_selected_whole_modules())
-				attrmap_apply(stringf("%s", module), actions, module->attributes);
+				attrmap_apply(design, stringf("%s", module), actions, module->attributes);
 		}
 		else
 		{
 			for (auto module : design->all_selected_modules())
 			{
 				for (auto memb : module->selected_members())
-					attrmap_apply(stringf("%s.%s", module, memb), actions, memb->attributes);
+					attrmap_apply(design, stringf("%s.%s", module, design->obj_name(memb).c_str()), actions, memb->attributes);
 
 				// attrmap already applied to process itself during above loop, but not its children
 				for (auto proc : module->selected_processes())
@@ -280,10 +283,10 @@ struct AttrmapPass : public Pass {
 					while (!all_cases.empty()) {
 						RTLIL::CaseRule *cs = all_cases.back();
 						all_cases.pop_back();
-						attrmap_apply(stringf("%s.%s (case)", module, proc), actions, cs->attributes);
+						attrmap_apply(design, stringf("%s.%s (case)", module, proc), actions, cs->attributes);
 
 						for (auto &sw : cs->switches) {
-							attrmap_apply(stringf("%s.%s (switch)", module, proc), actions, sw->attributes);
+							attrmap_apply(design, stringf("%s.%s (switch)", module, proc), actions, sw->attributes);
 							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
 						}
 					}
@@ -328,7 +331,7 @@ struct ParamapPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		for (auto cell : module->selected_cells())
-			attrmap_apply(stringf("%s.%s", module, cell), actions, cell->parameters);
+			attrmap_apply(design, stringf("%s.%s", module, cell), actions, cell->parameters);
 	}
 } ParamapPass;
 

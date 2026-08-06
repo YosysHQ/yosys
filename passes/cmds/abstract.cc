@@ -271,7 +271,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 				for (int i = 0; i < conn.second.size(); i++) {
 					if (selected_reps.count(sigmap(conn.second[i]))) {
 						log_debug("Abstracting value for %s.%s[%i] in module %s due to selections:\n",
-							cell, conn.first.unescape(), i, mod);
+							cell, PooledName(cell->module, conn.first).unescape(), i, mod);
 						explain_selections(selected_reps.at(sigmap(conn.second[i])));
 						offsets_to_abstract.insert(i);
 					}
@@ -484,6 +484,10 @@ struct AbstractPass : public Pass {
 
 		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
+			std::optional<TwineSearch> enable_search;
+			if (enable == Enable::ActiveLow || enable == Enable::ActiveHigh)
+				enable_search.emplace(&design->twines);
+
 			for (auto mod : design->selected_modules()) {
 				EnableLogic enable_logic;
 
@@ -493,12 +497,12 @@ struct AbstractPass : public Pass {
 					} break;
 					case Enable::ActiveLow:
 					case Enable::ActiveHigh: {
-						Wire *enable_wire = mod->wire("\\" + enable_name);
+						Wire *enable_wire = mod->wire(enable_search->find("\\" + enable_name));
 						if (!enable_wire)
 							log_cmd_error("Enable wire %s not found in module %s\n", enable_name, mod->name);
 						if (GetSize(enable_wire) != 1)
 							log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
-									enable_name.c_str(), GetSize(enable_wire), mod->name.c_str());
+									enable_name.c_str(), GetSize(enable_wire), mod->name);
 						enable_logic = { enable_wire, enable == Enable::ActiveHigh };
 					} break;
 					case Enable::Initstates: {
