@@ -21,6 +21,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -69,41 +70,36 @@ struct OptBalanceTreeWorker {
 		return y_width >= natural_width;
 	}
 
+	// Get the driver of a cell input port if it continues the chain, else nullptr
+	Cell *chain_driver(Cell *cell, IdString port, IdString cell_type) {
+		auto sig = sigmap(cell->getPort(port));
+		Cell *drv = sig_to_driver[sig];
+		if (!drv || !is_right_type(drv, cell_type))
+			return nullptr;
+		for (auto bit : sig)
+			if (input_port_sigs.count(bit) && !consumed_cells.count(drv))
+				return nullptr;
+		return drv;
+	}
+
 	// Check if the driver graph reachable from head contains a cycle,
 	// following the same edges as the backward chain traversal
 	bool has_cycle(Cell *head, IdString cell_type) {
-		pool<Cell*> on_path, done;
-		vector<std::pair<Cell*, bool>> stack = {{head, false}};
-		while (!stack.empty())
+		TopoSort<Cell*, IdString::compare_ptr_by_name<Cell>> toposort;
+		toposort.analyze_loops = false;
+		vector<Cell*> queue = {head};
+		while (!queue.empty())
 		{
-			auto [c, leave] = stack.back();
-			stack.pop_back();
-			if (leave) {
-				on_path.erase(c);
-				done.insert(c);
-				continue;
-			}
-			if (done.count(c))
-				continue;
-			if (on_path.count(c))
-				return true;
-			on_path.insert(c);
-			stack.push_back({c, true});
-			for (IdString port: {ID::A, ID::B}) {
-				auto sig = sigmap(c->getPort(port));
-				Cell *drv = sig_to_driver[sig];
-				bool drv_ok = drv && is_right_type(drv, cell_type);
-				for (auto bit : sig) {
-					if (input_port_sigs.count(bit) && !consumed_cells.count(drv)) {
-						drv_ok = false;
-						break;
-					}
+			Cell *c = queue.back();
+			queue.pop_back();
+			for (IdString port: {ID::A, ID::B})
+				if (Cell *drv = chain_driver(c, port, cell_type)) {
+					if (!toposort.has_node(drv))
+						queue.push_back(drv);
+					toposort.edge(drv, c);
 				}
-				if (drv_ok)
-					stack.push_back({drv, false});
-			}
 		}
-		return false;
+		return !toposort.sort();
 	}
 
 	// Create a balanced binary tree from a vector of source signals
@@ -308,19 +304,11 @@ struct OptBalanceTreeWorker {
 						bfs_queue.pop_front();
 
 						for (IdString port: {ID::A, ID::B}) {
-							auto sig = sigmap(x->getPort(port));
-							Cell* drv = sig_to_driver[sig];
-							bool drv_ok = drv && is_right_type(drv, cell_type);
-							for (auto bit : sig) {
-								if (input_port_sigs.count(bit) && !consumed_cells.count(drv)) {
-									drv_ok = false;
-									break;
-								}
-							}
-							if (drv_ok) {
+							if (Cell *drv = chain_driver(x, port, cell_type)) {
 								inner_cells++;
 								bfs_queue.push_back(drv);
 							} else {
+								auto sig = sigmap(x->getPort(port));
 								sources[sig]++;
 								signeds[sig] = x->getParam(port == ID::A ? ID::A_SIGNED : ID::B_SIGNED).as_bool();
 							}
